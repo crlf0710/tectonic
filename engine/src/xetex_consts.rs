@@ -993,7 +993,7 @@ pub(crate) const SET_TEXT_AND_GLYPHS: placeholdertype = 254;
 
 pub(crate) const XETEX_INPUT_MODE_AUTO: placeholdertype = 0;
 pub(crate) const XETEX_VERSION: placeholdertype = 0;
-pub(crate) const EXACTLY: placeholdertype = 0;
+pub(crate) const EXACTLY: u8 = 0;
 pub(crate) const FONT_BASE: placeholdertype = 0;
 pub(crate) const INSERTING: placeholdertype = 0;
 pub(crate) const NON_ADDRESS: placeholdertype = 0;
@@ -1001,7 +1001,7 @@ pub(crate) const RESTORE_OLD_VALUE: u16 = 0;
 pub(crate) const TOKEN_LIST: u16 = 0;
 pub(crate) const UNDEFINED_PRIMITIVE: placeholdertype = 0;
 pub(crate) const UNHYPHENATED: placeholdertype = 0;
-pub(crate) const ADDITIONAL: placeholdertype = 1;
+pub(crate) const ADDITIONAL: u8 = 1;
 pub(crate) const EXPLICIT: placeholdertype = 1;
 pub(crate) const FIXED_ACC: placeholdertype = 1;
 pub(crate) const HYPHENATED: placeholdertype = 1;

@@ -10090,14 +10090,14 @@ pub(crate) unsafe fn effective_char_info(mut f: internal_font_number, mut c: u16
         c = apply_tfm_font_mapping(FONT_MAPPING[f], c as i32) as u16
     }
     xtx_ligature_present = false;
-    FONT_INFO[(CHAR_BASE[f] + c as i32) as usize].b16
+    FONT_CHARACTER_INFO(f, c as usize)
 }
 pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
     let mut old_setting_0: i32 = 0;
-    if *INTPAR(IntPar::tracing_lost_chars) > 0i32 {
+    if *INTPAR(IntPar::tracing_lost_chars) > 0 {
         old_setting_0 = *INTPAR(IntPar::tracing_online);
-        if *INTPAR(IntPar::tracing_lost_chars) > 1i32 {
-            *INTPAR(IntPar::tracing_online) = 1i32
+        if *INTPAR(IntPar::tracing_lost_chars) > 1 {
+            *INTPAR(IntPar::tracing_online) = 1
         }
         begin_diagnostic();
         print_nl_cstr(b"Missing character: There is no ");
@@ -10117,7 +10117,7 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
     let prev_selector = selector;
     let mut s: i32 = 0;
     selector = Selector::NEW_STRING;
-    if c < 0x10000i32 {
+    if c < 0x10000 {
         print(c);
     } else {
         print_char(c);
@@ -10149,7 +10149,7 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
 pub(crate) unsafe fn new_native_word_node(mut f: internal_font_number, mut n: i32) -> i32 {
     let mut l: i32 = 0;
     let mut q: i32 = 0;
-    l = (6i32 as u64).wrapping_add(
+    l = (NATIVE_NODE_SIZE as u64).wrapping_add(
         (n as u64)
             .wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64)
             .wrapping_add(::std::mem::size_of::<memory_word>() as u64)
@@ -10157,17 +10157,17 @@ pub(crate) unsafe fn new_native_word_node(mut f: internal_font_number, mut n: i3
             .wrapping_div(::std::mem::size_of::<memory_word>() as u64),
     ) as i32;
     q = get_node(l);
-    MEM[q as usize].b16.s1 = 8_u16;
+    *NODE_type(q as isize) = WHATSIT_NODE;
     if *INTPAR(IntPar::xetex_generate_actual_text) > 0i32 {
-        MEM[q as usize].b16.s0 = 41_u16
+        *NODE_subtype(q as isize) = NATIVE_WORD_NODE_AT;
     } else {
-        MEM[q as usize].b16.s0 = 40_u16
+        *NODE_subtype(q as isize) = NATIVE_WORD_NODE;
     }
-    MEM[(q + 4) as usize].b16.s3 = l as u16;
-    MEM[(q + 4) as usize].b16.s2 = f as u16;
-    MEM[(q + 4) as usize].b16.s1 = n as u16;
-    MEM[(q + 4) as usize].b16.s0 = 0_u16;
-    MEM[(q + 5) as usize].ptr = 0 as *mut libc::c_void;
+    *NATIVE_NODE_size(q) = l as u16;
+    *NATIVE_NODE_font(q) = f as u16;
+    *NATIVE_NODE_length(q) = n as u16;
+    *NATIVE_NODE_glyph_count(q) = 0_u16;
+    *NATIVE_NODE_glyph_info_ptr(q) = ptr::null_mut();
     q
 }
 pub(crate) unsafe fn new_native_character(
@@ -10179,125 +10179,121 @@ pub(crate) unsafe fn new_native_character(
     let mut len: i32 = 0;
     if !(FONT_MAPPING[f]).is_null() {
         if c as i64 > 65535 {
-            if pool_ptr + 2i32 > pool_size {
+            if pool_ptr + 2 > pool_size {
                 overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
             }
             str_pool[pool_ptr as usize] =
-                ((c as i64 - 65536) / 1024i32 as i64 + 0xd800i32 as i64) as packed_UTF16_code;
+                ((c as i64 - 65536) / 1024 as i64 + 0xd800) as packed_UTF16_code;
             pool_ptr += 1;
             str_pool[pool_ptr as usize] =
-                ((c as i64 - 65536) % 1024i32 as i64 + 0xdc00i32 as i64) as packed_UTF16_code;
+                ((c as i64 - 65536) % 1024 as i64 + 0xdc00) as packed_UTF16_code;
             pool_ptr += 1
         } else {
-            if pool_ptr + 1i32 > pool_size {
+            if pool_ptr + 1 > pool_size {
                 overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
             }
             str_pool[pool_ptr as usize] = c as packed_UTF16_code;
             pool_ptr += 1
         }
+
         len = apply_mapping(
             FONT_MAPPING[f],
-            &mut str_pool[str_start[(str_ptr - 65536) as usize] as usize],
+            &mut str_pool[str_start[(str_ptr - TOO_BIG_CHAR) as usize] as usize],
             cur_length(),
         );
-        pool_ptr = str_start[(str_ptr - 65536) as usize];
-        i = 0i32;
+        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+
+        i = 0;
+
         while i < len {
-            if *mapped_text.offset(i as isize) as i32 >= 0xd800i32
-                && (*mapped_text.offset(i as isize) as i32) < 0xdc00i32
+            if *mapped_text.offset(i as isize) as i32 >= 0xd800
+                && (*mapped_text.offset(i as isize) as i32) < 0xdc00
             {
-                c = (*mapped_text.offset(i as isize) as i32 - 0xd800i32) * 1024i32
-                    + *mapped_text.offset((i + 1i32) as isize) as i32
-                    + 9216i32;
-                if map_char_to_glyph(f, c) == 0i32 {
+                c = (*mapped_text.offset(i as isize) as i32 - 0xd800) * 1024
+                    + *mapped_text.offset((i + 1) as isize) as i32
+                    + 9216;
+                if map_char_to_glyph(f, c) == 0 {
                     char_warning(f, c);
                 }
-                i += 2i32
+                i += 2;
             } else {
-                if map_char_to_glyph(f, *mapped_text.offset(i as isize) as i32) == 0i32 {
+                if map_char_to_glyph(f, *mapped_text.offset(i as isize) as i32) == 0 {
                     char_warning(f, *mapped_text.offset(i as isize) as i32);
                 }
-                i += 1i32
+                i += 1;
             }
         }
+
         p = new_native_word_node(f, len);
-        i = 0i32;
-        while i <= len - 1i32 {
+
+        i = 0;
+        while i <= len - 1 {
             *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16).offset(i as isize) =
                 *mapped_text.offset(i as isize);
             i += 1
         }
     } else {
-        if *INTPAR(IntPar::tracing_lost_chars) > 0i32 {
-            if map_char_to_glyph(f, c) == 0i32 {
+        if *INTPAR(IntPar::tracing_lost_chars) > 0 {
+            if map_char_to_glyph(f, c) == 0 {
                 char_warning(f, c);
             }
         }
-        p = get_node(6i32 + 1i32);
-        MEM[p as usize].b16.s1 = 8_u16;
-        MEM[p as usize].b16.s0 = 40_u16;
-        MEM[(p + 4) as usize].b16.s3 = (6 + 1) as u16;
-        MEM[(p + 4) as usize].b16.s0 = 0_u16;
-        MEM[(p + 5) as usize].ptr = 0 as *mut libc::c_void;
+        p = get_node(NATIVE_NODE_SIZE + 1);
+        MEM[p as usize].b16.s1 = WHATSIT_NODE;
+        MEM[p as usize].b16.s0 = NATIVE_WORD_NODE;
+        MEM[(p + 4) as usize].b16.s3 = (NATIVE_NODE_SIZE + 1) as u16;
+        MEM[(p + 4) as usize].b16.s0 = 0;
+        MEM[(p + 5) as usize].ptr = ptr::null_mut();
         MEM[(p + 4) as usize].b16.s2 = f as u16;
         if c as i64 > 65535 {
-            MEM[(p + 4) as usize].b16.s1 = 2_u16;
+            MEM[(p + 4) as usize].b16.s1 = 2;
             *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16).offset(0) =
-                ((c as i64 - 65536) / 1024i32 as i64 + 0xd800i32 as i64) as u16;
+                ((c as i64 - 65536) / 1024 as i64 + 0xd800) as u16;
             *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16).offset(1) =
-                ((c as i64 - 65536) % 1024i32 as i64 + 0xdc00i32 as i64) as u16
+                ((c as i64 - 65536) % 1024 as i64 + 0xdc00) as u16
         } else {
-            MEM[(p + 4) as usize].b16.s1 = 1_u16;
+            MEM[(p + 4) as usize].b16.s1 = 1;
             *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16).offset(0) = c as u16
         }
     }
     measure_native_node(
         &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
-        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
+        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
     );
     p
 }
-pub(crate) unsafe fn font_feature_warning(
-    mut featureNameP: *const libc::c_void,
-    mut featLen: i32,
-    mut settingNameP: *const libc::c_void,
-    mut setLen: i32,
-) {
+pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u8]) {
     begin_diagnostic();
     print_nl_cstr(b"Unknown ");
-    if setLen > 0i32 {
+    if !setting_name.is_empty() {
         print_cstr(b"selector `");
-        print_utf8_str(settingNameP as *const u8, setLen);
+        print_utf8_str(setting_name);
         print_cstr(b"\' for ");
     }
     print_cstr(b"feature `");
-    print_utf8_str(featureNameP as *const u8, featLen);
+    print_utf8_str(feature_name);
     print_cstr(b"\' in font `");
     let mut i: i32 = 0i32;
-    while *name_of_file.offset(i as isize) as i32 != 0i32 {
+    while *name_of_file.offset(i as isize) as i32 != 0 {
         print_raw_char(*name_of_file.offset(i as isize) as UTF16_code, true);
         i += 1
     }
     print_cstr(b"\'.");
     end_diagnostic(false);
 }
-pub(crate) unsafe fn font_mapping_warning(
-    mut mappingNameP: *const libc::c_void,
-    mut mappingNameLen: i32,
-    mut warningType: i32,
-) {
+pub(crate) unsafe fn font_mapping_warning(mut mapping_name: &[u8], mut warningType: i32) {
     begin_diagnostic();
     if warningType == 0i32 {
         print_nl_cstr(b"Loaded mapping `");
     } else {
         print_nl_cstr(b"Font mapping `");
     }
-    print_utf8_str(mappingNameP as *const u8, mappingNameLen);
+    print_utf8_str(mapping_name);
     print_cstr(b"\' for font `");
-    let mut i: i32 = 0i32;
-    while *name_of_file.offset(i as isize) as i32 != 0i32 {
+    let mut i = 0i32;
+    while *name_of_file.offset(i as isize) != 0 {
         print_raw_char(*name_of_file.offset(i as isize) as UTF16_code, true);
-        i += 1
+        i += 1;
     }
     match warningType {
         1 => print_cstr(b"\' not found."),
@@ -10312,8 +10308,8 @@ pub(crate) unsafe fn font_mapping_warning(
 pub(crate) unsafe fn graphite_warning() {
     begin_diagnostic();
     print_nl_cstr(b"Font `");
-    let mut i: i32 = 0i32;
-    while *name_of_file.offset(i as isize) as i32 != 0i32 {
+    let mut i = 0i32;
+    while *name_of_file.offset(i as isize) != 0 {
         print_raw_char(*name_of_file.offset(i as isize) as UTF16_code, true);
         i += 1
     }
@@ -10326,9 +10322,7 @@ pub(crate) unsafe fn load_native_font(
     mut aire: str_number,
     mut s: scaled_t,
 ) -> usize {
-    let mut k: i32 = 0;
     let mut num_font_dimens: i32 = 0;
-    let mut font_engine: *mut libc::c_void = 0 as *mut libc::c_void;
     let mut actual_size: scaled_t = 0;
     let mut p: i32 = 0;
     let mut ascent: scaled_t = 0;
@@ -10336,47 +10330,46 @@ pub(crate) unsafe fn load_native_font(
     let mut font_slant: scaled_t = 0;
     let mut x_ht: scaled_t = 0;
     let mut cap_ht: scaled_t = 0;
-    let mut full_name: str_number = 0;
-    font_engine = find_native_font(name_of_file, s);
+    let mut font_engine = find_native_font(name_of_file, s);
     if font_engine.is_null() {
-        return 0;
+        return FONT_BASE as usize;
     }
-    if s >= 0i32 {
+    if s >= 0 {
         actual_size = s
-    } else if s != -1000i32 {
-        actual_size = xn_over_d(loaded_font_design_size, -s, 1000i32)
+    } else if s != -1000 {
+        actual_size = xn_over_d(loaded_font_design_size, -s, 1000)
     } else {
         actual_size = loaded_font_design_size
     }
     if pool_ptr + name_length > pool_size {
         overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
     }
-    k = 0i32;
-    while k < name_length {
-        let fresh50 = pool_ptr;
+    for k in 0..name_length {
+        str_pool[pool_ptr as usize] = *name_of_file.offset(k as isize) as packed_UTF16_code;
         pool_ptr = pool_ptr + 1;
-        str_pool[fresh50 as usize] = *name_of_file.offset(k as isize) as packed_UTF16_code;
-        k += 1
     }
-    full_name = make_string();
+
+    let full_name = make_string();
+
     for f in (0 + 1)..=FONT_PTR {
         if FONT_AREA[f] == native_font_type_flag
-            && str_eq_str(FONT_NAME[f], full_name) as i32 != 0
+            && str_eq_str(FONT_NAME[f], full_name)
             && FONT_SIZE[f] == actual_size
         {
             release_font_engine(font_engine, native_font_type_flag);
             str_ptr -= 1;
-            pool_ptr = str_start[(str_ptr - 65536) as usize];
+            pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
             return f;
         }
     }
-    if native_font_type_flag as u32 == 0xfffeu32
-        && isOpenTypeMathFont(font_engine as XeTeXLayoutEngine) as i32 != 0
+
+    num_font_dimens = if native_font_type_flag as u32 == OTGR_FONT_FLAG
+        && isOpenTypeMathFont(font_engine as XeTeXLayoutEngine)
     {
-        num_font_dimens = 65i32
+        65 // = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55)
     } else {
-        num_font_dimens = 8i32
-    }
+        8
+    };
     if FONT_PTR == FONT_MAX || fmem_ptr + num_font_dimens > FONT_MEM_SIZE as i32 {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -10386,43 +10379,43 @@ pub(crate) unsafe fn load_native_font(
         print_cstr(b"Font ");
         sprint_cs(u);
         print_char('=' as i32);
-        if file_name_quote_char as i32 != 0i32 {
+        if file_name_quote_char != 0 {
             print_char(file_name_quote_char as i32);
         }
         print_file_name(nom, aire, cur_ext);
-        if file_name_quote_char as i32 != 0i32 {
+        if file_name_quote_char != 0 {
             print_char(file_name_quote_char as i32);
         }
-        if s >= 0i32 {
+        if s >= 0 {
             print_cstr(b" at ");
             print_scaled(s);
             print_cstr(b"pt");
-        } else if s != -1000i32 {
+        } else if s != -1000 {
             print_cstr(b" scaled ");
             print_int(-s);
         }
         print_cstr(b" not loaded: Not enough room left");
-        help_ptr = 4_u8;
+        help_ptr = 4;
         help_line[3] = b"I\'m afraid I won\'t be able to make use of this font,";
         help_line[2] = b"because my memory for character-size data is too small.";
         help_line[1] = b"If you\'re really stuck, ask a wizard to enlarge me.";
         help_line[0] = b"Or maybe try `I\\font<same font id>=<name of loaded font>\'.";
         error();
-        return 0;
+        return FONT_BASE as usize;
     }
     FONT_PTR += 1;
     FONT_AREA[FONT_PTR] = native_font_type_flag;
     FONT_NAME[FONT_PTR] = full_name;
-    FONT_CHECK[FONT_PTR].s3 = 0_u16;
-    FONT_CHECK[FONT_PTR].s2 = 0_u16;
-    FONT_CHECK[FONT_PTR].s1 = 0_u16;
-    FONT_CHECK[FONT_PTR].s0 = 0_u16;
+    FONT_CHECK[FONT_PTR].s3 = 0;
+    FONT_CHECK[FONT_PTR].s2 = 0;
+    FONT_CHECK[FONT_PTR].s1 = 0;
+    FONT_CHECK[FONT_PTR].s0 = 0;
     FONT_GLUE[FONT_PTR] = TEX_NULL;
     FONT_DSIZE[FONT_PTR] = loaded_font_design_size;
     FONT_SIZE[FONT_PTR] = actual_size;
     match native_font_type_flag as u32 {
         #[cfg(target_os = "macos")]
-        0xffffu32 => {
+        AAT_FONT_FLAG => {
             aat::aat_get_font_metrics(
                 font_engine as _,
                 &mut ascent,
@@ -10433,7 +10426,7 @@ pub(crate) unsafe fn load_native_font(
             );
         }
         #[cfg(not(target_os = "macos"))]
-        0xffffu32 => {
+        AAT_FONT_FLAG => {
             // do nothing
         }
         _ => {
@@ -10455,49 +10448,39 @@ pub(crate) unsafe fn load_native_font(
     *font_used.offset(FONT_PTR as isize) = false;
     HYPHEN_CHAR[FONT_PTR] = *INTPAR(IntPar::default_hyphen_char);
     SKEW_CHAR[FONT_PTR] = *INTPAR(IntPar::default_skew_char);
-    PARAM_BASE[FONT_PTR] = fmem_ptr - 1i32;
+    PARAM_BASE[FONT_PTR] = fmem_ptr - 1;
     FONT_LAYOUT_ENGINE[FONT_PTR] = font_engine;
     FONT_MAPPING[FONT_PTR] = 0 as *mut libc::c_void;
     FONT_LETTER_SPACE[FONT_PTR] = loaded_font_letter_space;
     /* "measure the width of the space character and set up font parameters" */
-    p = new_native_character(FONT_PTR, ' ' as i32); /* space_stretch */
-    s = MEM[(p + 1) as usize].b32.s1 + loaded_font_letter_space; /* space_shrink */
-    free_node(p, MEM[(p + 4) as usize].b16.s3 as i32); /* quad */
-    let fresh53 = fmem_ptr; /* extra_space */
-    fmem_ptr = fmem_ptr + 1;
-    FONT_INFO[fresh53 as usize].b32.s1 = font_slant;
-    let fresh54 = fmem_ptr;
-    fmem_ptr = fmem_ptr + 1;
-    FONT_INFO[fresh54 as usize].b32.s1 = s;
-    let fresh55 = fmem_ptr;
-    fmem_ptr = fmem_ptr + 1;
-    FONT_INFO[fresh55 as usize].b32.s1 = s / 2;
-    let fresh56 = fmem_ptr;
-    fmem_ptr = fmem_ptr + 1;
-    FONT_INFO[fresh56 as usize].b32.s1 = s / 3;
-    let fresh57 = fmem_ptr;
-    fmem_ptr = fmem_ptr + 1;
-    FONT_INFO[fresh57 as usize].b32.s1 = x_ht;
-    let fresh58 = fmem_ptr;
-    fmem_ptr = fmem_ptr + 1;
-    FONT_INFO[fresh58 as usize].b32.s1 = FONT_SIZE[FONT_PTR];
-    let fresh59 = fmem_ptr;
-    fmem_ptr = fmem_ptr + 1;
-    FONT_INFO[fresh59 as usize].b32.s1 = s / 3;
-    let fresh60 = fmem_ptr;
-    fmem_ptr = fmem_ptr + 1;
-    FONT_INFO[fresh60 as usize].b32.s1 = cap_ht;
-    if num_font_dimens == 65i32 {
-        let fresh61 = fmem_ptr;
-        fmem_ptr = fmem_ptr + 1;
-        FONT_INFO[fresh61 as usize].b32.s1 = num_font_dimens;
-        k = 0i32;
-        while k <= 55i32 {
+    p = new_native_character(FONT_PTR, ' ' as i32);
+    s = MEM[(p + 1) as usize].b32.s1 + loaded_font_letter_space;
+    free_node(p, *NATIVE_NODE_size(p as i32) as i32);
+
+    FONT_INFO[fmem_ptr as usize].b32.s1 = font_slant;
+    fmem_ptr += 1;
+    FONT_INFO[fmem_ptr as usize].b32.s1 = s;
+    fmem_ptr += 1;
+    FONT_INFO[fmem_ptr as usize].b32.s1 = s / 2; // space_stretch
+    fmem_ptr += 1;
+    FONT_INFO[fmem_ptr as usize].b32.s1 = s / 3; // space_shrink
+    fmem_ptr += 1;
+    FONT_INFO[fmem_ptr as usize].b32.s1 = x_ht;
+    fmem_ptr += 1;
+    FONT_INFO[fmem_ptr as usize].b32.s1 = FONT_SIZE[FONT_PTR]; // quad
+    fmem_ptr += 1;
+    FONT_INFO[fmem_ptr as usize].b32.s1 = s / 3; // extra_space
+    fmem_ptr += 1;
+    FONT_INFO[fmem_ptr as usize].b32.s1 = cap_ht;
+    fmem_ptr += 1;
+    if num_font_dimens == 65 {
+        FONT_INFO[fmem_ptr as usize].b32.s1 = num_font_dimens;
+        fmem_ptr += 1;
+        for k in 0..=55 {
             /* 55 = lastMathConstant */
-            let fresh62 = fmem_ptr; /*:582*/
-            fmem_ptr = fmem_ptr + 1;
-            FONT_INFO[fresh62 as usize].b32.s1 = get_ot_math_constant(FONT_PTR, k);
-            k += 1
+            /*:582*/
+            FONT_INFO[fmem_ptr as usize].b32.s1 = get_ot_math_constant(FONT_PTR, k);
+            fmem_ptr += 1;
         }
     }
     FONT_MAPPING[FONT_PTR] = loaded_font_mapping;
@@ -10510,12 +10493,12 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
     let mut i: i32 = 0;
     let mut use_penalty: bool = false;
     let mut use_skip: bool = false;
-    if *INTPAR(IntPar::xetex_linebreak_locale) == 0i32 || len == 1i32 {
+    if *INTPAR(IntPar::xetex_linebreak_locale) == 0 || len == 1 {
         MEM[cur_list.tail as usize].b32.s1 = new_native_word_node(main_f, len);
         cur_list.tail = *LLIST_link(cur_list.tail as isize);
         let mut for_end: i32 = 0;
-        i = 0i32;
-        for_end = len - 1i32;
+        i = 0;
+        for_end = len - 1;
         if i <= for_end {
             loop {
                 *(&mut MEM[(cur_list.tail + 6) as usize] as *mut memory_word as *mut u16)
@@ -10529,23 +10512,23 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
         }
         measure_native_node(
             &mut MEM[cur_list.tail as usize] as *mut memory_word as *mut libc::c_void,
-            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
+            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
         );
     } else {
-        use_skip = *GLUEPAR(GluePar::xetex_linebreak_skip) != 0i32;
-        use_penalty = *INTPAR(IntPar::xetex_linebreak_penalty) != 0i32 || !use_skip;
+        use_skip = *GLUEPAR(GluePar::xetex_linebreak_skip) != 0;
+        use_penalty = *INTPAR(IntPar::xetex_linebreak_penalty) != 0 || !use_skip;
         linebreak_start(
             main_f,
             *INTPAR(IntPar::xetex_linebreak_locale),
             native_text.offset(s as isize),
             len,
         );
-        offs = 0i32;
+        offs = 0;
         loop {
             prevOffs = offs;
             offs = linebreak_next();
-            if offs > 0i32 {
-                if prevOffs != 0i32 {
+            if offs > 0 {
+                if prevOffs != 0 {
                     if use_penalty {
                         MEM[cur_list.tail as usize].b32.s1 =
                             new_penalty(*INTPAR(IntPar::xetex_linebreak_penalty));
@@ -10560,7 +10543,7 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
                 cur_list.tail = *LLIST_link(cur_list.tail as isize);
                 let mut for_end_0: i32 = 0;
                 i = prevOffs;
-                for_end_0 = offs - 1i32;
+                for_end_0 = offs - 1;
                 if i <= for_end_0 {
                     loop {
                         *(&mut MEM[(cur_list.tail + 6) as usize] as *mut memory_word as *mut u16)
@@ -10575,10 +10558,10 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
                 }
                 measure_native_node(
                     &mut MEM[cur_list.tail as usize] as *mut memory_word as *mut libc::c_void,
-                    (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
+                    (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
                 );
             }
-            if offs < 0i32 {
+            if offs < 0 {
                 break;
             }
         }
@@ -10587,7 +10570,7 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
 pub(crate) unsafe fn bad_utf8_warning() {
     begin_diagnostic();
     print_nl_cstr(b"Invalid UTF-8 byte or sequence");
-    if cur_input.name == 0i32 {
+    if cur_input.name == 0 {
         print_cstr(b" in terminal input");
     } else {
         print_cstr(b" at line ");
@@ -10627,7 +10610,6 @@ pub(crate) unsafe fn read_font_info(
     let mut ne: i32 = 0;
     let mut np: i32 = 0;
     let mut f: internal_font_number = 0;
-    let mut g: internal_font_number = 0;
     let mut a: i32 = 0;
     let mut b: i32 = 0;
     let mut c: i32 = 0;
@@ -10645,7 +10627,7 @@ pub(crate) unsafe fn read_font_info(
     let mut alpha: i32 = 0;
     let mut beta: u8 = 0;
 
-    g = FONT_BASE as usize;
+    let mut g = FONT_BASE as usize;
 
     pack_file_name(nom, aire, cur_ext);
 
@@ -10672,11 +10654,11 @@ pub(crate) unsafe fn read_font_info(
         }
     }
 
-    name_too_long = length(nom) > 255i32 || length(aire) > 255i32;
+    name_too_long = length(nom) > 255 || length(aire) > 255;
     if name_too_long {
         return bad_tfm(None, g, u, nom, aire, s, name_too_long);
     }
-    pack_file_name(nom, aire, (65536 + 1i32 as i64) as str_number);
+    pack_file_name(nom, aire, EMPTY_STRING as str_number);
     check_for_tfm_font_mapping();
 
     let mut tfm_file_owner = tt_xetex_open_input(TTInputFormat::TFM);
@@ -10796,7 +10778,7 @@ pub(crate) unsafe fn read_font_info(
 
     k = fmem_ptr;
     loop {
-        if !(k <= WIDTH_BASE[f] - 1i32) {
+        if !(k <= WIDTH_BASE[f] - 1) {
             break;
         }
         a = ttstub_input_getc(tfm_file);
@@ -10847,7 +10829,7 @@ pub(crate) unsafe fn read_font_info(
             }
             _ => {}
         }
-        k += 1
+        k += 1;
     }
 
     alpha = 16;
@@ -11039,11 +11021,11 @@ pub(crate) unsafe fn read_font_info(
             if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
-            sw = ((d * z / 256i32 + c * z) / 256i32 + b * z) / beta as i32;
+            sw = ((d * z / 256 + c * z) / 256 + b * z) / beta as i32;
             if a == 0 {
-                FONT_INFO[(PARAM_BASE[f] + k - 1i32) as usize].b32.s1 = sw
+                FONT_INFO[(PARAM_BASE[f] + k - 1) as usize].b32.s1 = sw
             } else if a == 255 {
-                FONT_INFO[(PARAM_BASE[f] + k - 1i32) as usize].b32.s1 = sw - alpha
+                FONT_INFO[(PARAM_BASE[f] + k - 1) as usize].b32.s1 = sw - alpha
             } else {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
@@ -11051,7 +11033,7 @@ pub(crate) unsafe fn read_font_info(
     }
 
     for k in np + 1..=7 {
-        FONT_INFO[(PARAM_BASE[f] + k - 1i32) as usize].b32.s1 = 0;
+        FONT_INFO[(PARAM_BASE[f] + k - 1) as usize].b32.s1 = 0;
     }
 
     if np >= 7 {
@@ -11073,8 +11055,8 @@ pub(crate) unsafe fn read_font_info(
     if bchar_0 as i32 <= ec {
         if bchar_0 as i32 >= bc {
             qw = FONT_INFO[(CHAR_BASE[f] + bchar_0 as i32) as usize].b16;
-            if qw.s3 as i32 > 0i32 {
-                FONT_FALSE_BCHAR[f] = 65536
+            if qw.s3 as i32 > 0 {
+                FONT_FALSE_BCHAR[f] = TOO_BIG_CHAR;
             }
         }
     }
@@ -11173,13 +11155,13 @@ pub(crate) unsafe fn read_font_info(
 pub(crate) unsafe fn new_character(mut f: internal_font_number, mut c: UTF16_code) -> i32 {
     let mut p: i32 = 0;
     let mut ec: u16 = 0;
-    if FONT_AREA[f] as u32 == 0xffffu32 || FONT_AREA[f] as u32 == 0xfffeu32 {
+    if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
         return new_native_character(f, c as UnicodeScalar);
     }
     ec = effective_char(false, f, c) as u16;
     if FONT_BC[f] as i32 <= ec as i32 {
         if FONT_EC[f] as i32 >= ec as i32 {
-            if FONT_INFO[(CHAR_BASE[f] + ec as i32) as usize].b16.s3 as i32 > 0i32 {
+            if FONT_INFO[(CHAR_BASE[f] + ec as i32) as usize].b16.s3 > 0 {
                 p = get_avail();
                 MEM[p as usize].b16.s1 = f as u16;
                 MEM[p as usize].b16.s0 = c;
@@ -11198,13 +11180,13 @@ pub(crate) unsafe fn scan_spec(c: GroupCode, mut three_codes: bool) {
         s = SAVE_STACK[SAVE_PTR + 0].b32.s1
     }
     if scan_keyword(b"to") {
-        spec_code = 0_u8;
+        spec_code = EXACTLY;
         current_block = 8515828400728868193;
     } else if scan_keyword(b"spread") {
-        spec_code = 1_u8;
+        spec_code = ADDITIONAL;
         current_block = 8515828400728868193;
     } else {
-        spec_code = 1_u8;
+        spec_code = ADDITIONAL;
         cur_val = 0i32;
         current_block = 4427475217998452135;
     }
@@ -11225,21 +11207,22 @@ pub(crate) unsafe fn scan_spec(c: GroupCode, mut three_codes: bool) {
 pub(crate) unsafe fn char_pw(mut p: i32, mut side: small_number) -> scaled_t {
     let mut f: internal_font_number = 0;
     let mut c: i32 = 0;
-    if side as i32 == 0i32 {
+    if side == 0 {
         last_leftmost_char = TEX_NULL
     } else {
         last_rightmost_char = TEX_NULL
     }
     if p.is_texnull() {
-        return 0i32;
+        return 0;
     }
     if !p.is_texnull()
         && !is_char_node(p)
-        && MEM[p as usize].b16.s1 as i32 == 8
-        && (MEM[p as usize].b16.s0 as i32 == 40 || MEM[p as usize].b16.s0 as i32 == 41)
+        && *NODE_type(p as isize) == WHATSIT_NODE
+        && (*NODE_subtype(p as isize) == NATIVE_WORD_NODE
+            || *NODE_subtype(p as isize) == NATIVE_WORD_NODE_AT)
     {
-        if !MEM[(p + 5) as usize].ptr.is_null() {
-            f = MEM[(p + 4) as usize].b16.s2 as internal_font_number;
+        if !(*NATIVE_NODE_glyph_info_ptr(p)).is_null() {
+            f = *NATIVE_NODE_font(p) as internal_font_number;
             return round_xn_over_d(
                 FONT_INFO[(6 + PARAM_BASE[f]) as usize].b32.s1,
                 real_get_native_word_cp(

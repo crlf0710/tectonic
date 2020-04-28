@@ -884,10 +884,11 @@ pub(crate) unsafe fn loadAATfont(
                             CFRelease(featureSetting as CFTypeRef);
                         } else {
                             font_feature_warning(
-                                cp1 as *const libc::c_void,
-                                featLen,
-                                cp3 as *const libc::c_void,
-                                cp4.wrapping_offset_from(cp3) as libc::c_long as int32_t,
+                                std::slice::from_raw_parts(cp1 as *const u8, featLen as usize),
+                                std::slice::from_raw_parts(
+                                    cp3 as *const u8,
+                                    cp4.wrapping_offset_from(cp3) as usize,
+                                ),
                             );
                         }
                         // point beyond setting name terminator
@@ -990,10 +991,11 @@ pub(crate) unsafe fn loadAATfont(
                         15938117740974259152 => {}
                         _ => {
                             font_feature_warning(
-                                cp1 as *const libc::c_void,
-                                cp2.wrapping_offset_from(cp1) as libc::c_long as int32_t,
-                                ptr::null(),
-                                0i32,
+                                std::slice::from_raw_parts(
+                                    cp1 as *const u8,
+                                    cp2.wrapping_offset_from(cp1) as usize,
+                                ),
+                                &[],
                             );
                         }
                     }

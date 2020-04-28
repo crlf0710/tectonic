@@ -276,16 +276,9 @@ pub(crate) unsafe fn get_encoding_mode_and_info(mut info: *mut i32) -> i32 {
     }
 }
 
-pub(crate) unsafe fn print_utf8_str(mut string: *const u8, mut len: i32) {
-    loop {
-        let fresh1 = len;
-        len = len - 1;
-        if !(fresh1 > 0i32) {
-            break;
-        }
-        let fresh2 = string;
-        string = string.offset(1);
-        print_raw_char(*fresh2 as UTF16_code, true);
+pub(crate) unsafe fn print_utf8_str(mut string: &[u8]) {
+    for &c in string {
+        print_raw_char(c as UTF16_code, true);
     }
     /* bypass utf-8 encoding done in print_char() */
 }
@@ -346,13 +339,22 @@ unsafe fn load_mapping_file(
         }
         if cnv.is_null() {
             /* tracing */
-            font_mapping_warning(buffer as *const libc::c_void, strlen(buffer) as i32, 2i32);
+            font_mapping_warning(
+                std::slice::from_raw_parts(buffer as *const u8, strlen(buffer) as usize),
+                2i32,
+            );
         /* not loadable */
         } else if get_tracing_fonts_state() > 1i32 {
-            font_mapping_warning(buffer as *const libc::c_void, strlen(buffer) as i32, 0i32);
+            font_mapping_warning(
+                std::slice::from_raw_parts(buffer as *const u8, strlen(buffer) as usize),
+                0i32,
+            );
         }
     } else {
-        font_mapping_warning(buffer as *const libc::c_void, strlen(buffer) as i32, 1i32);
+        font_mapping_warning(
+            std::slice::from_raw_parts(buffer as *const u8, strlen(buffer) as usize),
+            1i32,
+        );
         /* not found */
     }
     free(buffer as *mut libc::c_void);
@@ -908,10 +910,11 @@ unsafe fn loadOTfont(
             match current_block {
                 10622493848381539643 => {
                     font_feature_warning(
-                        cp1 as *mut libc::c_void,
-                        cp2.wrapping_offset_from(cp1) as i64 as i32,
-                        ptr::null(),
-                        0i32,
+                        std::slice::from_raw_parts(
+                            cp1 as *const u8,
+                            cp2.wrapping_offset_from(cp1) as usize,
+                        ),
+                        &[],
                     );
                 }
                 _ => {}

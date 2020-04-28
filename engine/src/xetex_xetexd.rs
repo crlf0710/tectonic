@@ -152,11 +152,17 @@ pub(crate) unsafe fn INSERTION_NODE_split_top_ptr(p: i32) -> &'static mut i32 {
 pub(crate) unsafe fn NATIVE_NODE_size(p: i32) -> &'static mut u16 {
     &mut MEM[p as usize + 4].b16.s3
 }
-/*
-#define NATIVE_NODE_font(p) mem[(p) + 4].b16.s2
-#define NATIVE_NODE_length(p) mem[(p) + 4].b16.s1 /* number of UTF16 items in the text */
-#define NATIVE_NODE_glyph(p) mem[(p) + 4].b16.s1 /* ... or the glyph number, if subtype==GLYPH_NODE */
-*/
+pub(crate) unsafe fn NATIVE_NODE_font(p: i32) -> &'static mut u16 {
+    &mut MEM[p as usize + 4].b16.s2
+}
+/// number of UTF16 items in the text
+pub(crate) unsafe fn NATIVE_NODE_length(p: i32) -> &'static mut u16 {
+    &mut MEM[p as usize + 4].b16.s1
+}
+/// ... or the glyph number, if subtype==GLYPH_NODE
+pub(crate) unsafe fn NATIVE_NODE_glyph(p: i32) -> &'static mut u16 {
+    &mut MEM[p as usize + 4].b16.s1
+}
 
 pub(crate) unsafe fn NATIVE_NODE_glyph_count(p: i32) -> &'static mut u16 {
     &mut MEM[p as usize + 4].b16.s0
