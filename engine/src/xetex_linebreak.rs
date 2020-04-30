@@ -139,26 +139,26 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     let mut i: i32 = 0;
     let mut for_end_1: i32 = 0;
     pack_begin_line = cur_list.mode_line; /* "this is for over/underfull box messages" */
-    *LLIST_link(TEMP_HEAD as isize) = *LLIST_link(cur_list.head as isize);
+    *LLIST_link(TEMP_HEAD as usize) = *LLIST_link(cur_list.head as usize);
 
     /* Remove trailing space or glue if present; add infinite penalty then par_fill_skip */
 
     if is_char_node(cur_list.tail) {
         /* is_char_node */
-        *LLIST_link(cur_list.tail as isize) = new_penalty(INF_PENALTY);
-        cur_list.tail = *LLIST_link(cur_list.tail as isize);
-    } else if *NODE_type(cur_list.tail as isize) != GLUE_NODE {
-        *LLIST_link(cur_list.tail as isize) = new_penalty(INF_PENALTY);
-        cur_list.tail = *LLIST_link(cur_list.tail as isize);
+        *LLIST_link(cur_list.tail as usize) = new_penalty(INF_PENALTY);
+        cur_list.tail = *LLIST_link(cur_list.tail as usize);
+    } else if *NODE_type(cur_list.tail as usize) != GLUE_NODE {
+        *LLIST_link(cur_list.tail as usize) = new_penalty(INF_PENALTY);
+        cur_list.tail = *LLIST_link(cur_list.tail as usize);
     } else {
-        *NODE_type(cur_list.tail as isize) = PENALTY_NODE;
+        *NODE_type(cur_list.tail as usize) = PENALTY_NODE;
         delete_glue_ref(*GLUE_NODE_glue_ptr(cur_list.tail as isize));
         flush_node_list(*GLUE_NODE_leader_ptr(cur_list.tail as isize));
         *PENALTY_NODE_penalty(cur_list.tail as isize) = INF_PENALTY;
     }
 
-    *LLIST_link(cur_list.tail as isize) = new_param_glue(GluePar::par_fill_skip as _);
-    last_line_fill = *LLIST_link(cur_list.tail as isize);
+    *LLIST_link(cur_list.tail as usize) = new_param_glue(GluePar::par_fill_skip as _);
+    last_line_fill = *LLIST_link(cur_list.tail as usize);
 
     /* Yet more initialization of various kinds */
 
@@ -250,7 +250,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             }
         }
     } else {
-        last_special_line = *LLIST_info(*LOCAL(Local::par_shape) as isize) - 1;
+        last_special_line = *LLIST_info(*LOCAL(Local::par_shape) as usize) - 1;
         /* These direct `mem` accesses are in the original WEB code */
         second_width = MEM
             [*LOCAL(Local::par_shape) as usize + 2 * (last_special_line as usize + 1)]
@@ -297,13 +297,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             }
         }
         q = get_node(active_node_size as i32);
-        *NODE_type(q as isize) = UNHYPHENATED as _;
+        *NODE_type(q as usize) = UNHYPHENATED as _;
         MEM[q as usize].b16.s0 = DECENT_FIT as _;
-        *LLIST_link(q as isize) = LAST_ACTIVE as i32;
+        *LLIST_link(q as usize) = LAST_ACTIVE as i32;
         MEM[(q + 1) as usize].b32.s1 = TEX_NULL;
         MEM[(q + 1) as usize].b32.s0 = cur_list.prev_graf + 1;
         MEM[(q + 2) as usize].b32.s1 = 0;
-        *LLIST_link(ACTIVE_LIST as isize) = q;
+        *LLIST_link(ACTIVE_LIST as usize) = q;
 
         if do_last_line_fit {
             /*1633:*/
@@ -318,14 +318,14 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         active_width[6] = background[6];
         passive = TEX_NULL;
         font_in_short_display = 0; /*:893*/
-        cur_p = *LLIST_link(TEMP_HEAD as isize);
+        cur_p = *LLIST_link(TEMP_HEAD as usize);
         auto_breaking = true;
 
         global_prev_p = cur_p;
         prev_p = global_prev_p;
         first_p = cur_p;
 
-        while !cur_p.is_texnull() && *LLIST_link(ACTIVE_LIST as isize) != LAST_ACTIVE as i32 {
+        while !cur_p.is_texnull() && *LLIST_link(ACTIVE_LIST as usize) != LAST_ACTIVE as i32 {
             /*895: "Call try_break if cur_p is a legal breakpoint; on the
              * second pass, also try to hyphenate the next word, if cur_p is a
              * glue node; then advance cur_p to the next node of the paragraph
@@ -344,18 +344,18 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             .s3 as i32) as usize]
                         .b32
                         .s1;
-                    cur_p = *LLIST_link(cur_p as isize);
+                    cur_p = *LLIST_link(cur_p as usize);
                     if !is_char_node(cur_p) {
                         break;
                     }
                 }
             }
-            match *NODE_type(cur_p as isize) {
+            match *NODE_type(cur_p as usize) {
                 HLIST_NODE | VLIST_NODE | RULE_NODE => {
                     active_width[1] += *BOX_width(cur_p as isize)
                 }
                 WHATSIT_NODE => {
-                    if *NODE_subtype(cur_p as isize) == LANGUAGE_NODE as _ {
+                    if *NODE_subtype(cur_p as usize) == LANGUAGE_NODE as _ {
                         cur_lang = MEM[(cur_p + 1) as usize].b32.s1 as u8;
                         l_hyf = MEM[(cur_p + 1) as usize].b16.s1 as i32;
                         r_hyf = MEM[(cur_p + 1) as usize].b16.s0 as i32;
@@ -366,11 +366,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         } else {
                             hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
                         }
-                    } else if *NODE_subtype(cur_p as isize) == NATIVE_WORD_NODE
-                        || *NODE_subtype(cur_p as isize) == NATIVE_WORD_NODE_AT
-                        || *NODE_subtype(cur_p as isize) == GLYPH_NODE
-                        || *NODE_subtype(cur_p as isize) == PIC_NODE
-                        || *NODE_subtype(cur_p as isize) == PDF_NODE
+                    } else if *NODE_subtype(cur_p as usize) == NATIVE_WORD_NODE
+                        || *NODE_subtype(cur_p as usize) == NATIVE_WORD_NODE_AT
+                        || *NODE_subtype(cur_p as usize) == GLYPH_NODE
+                        || *NODE_subtype(cur_p as usize) == PIC_NODE
+                        || *NODE_subtype(cur_p as usize) == PDF_NODE
                     {
                         active_width[1] += *BOX_width(cur_p as isize);
                     }
@@ -381,8 +381,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             try_break(0, UNHYPHENATED as _);
                         } else if is_non_discardable_node(prev_p) {
                             try_break(0, UNHYPHENATED as _);
-                        } else if *NODE_type(prev_p as isize) == KERN_NODE
-                            && *NODE_subtype(prev_p as isize) != EXPLICIT as _
+                        } else if *NODE_type(prev_p as usize) == KERN_NODE
+                            && *NODE_subtype(prev_p as usize) != EXPLICIT as _
                         {
                             try_break(0, UNHYPHENATED as _);
                         }
@@ -1181,13 +1181,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                         if !((hn as i32) < l_hyf + r_hyf) {
                                                             loop {
                                                                 if !is_char_node(s) {
-                                                                    match *NODE_type(s as isize) {
+                                                                    match *NODE_type(s as usize) {
                                                                         LIGATURE_NODE => {}
                                                                         KERN_NODE => {
                                                                             current_block =
                                                                                 5935670669791948619;
                                                                             if *NODE_subtype(
-                                                                                s as isize,
+                                                                                s as usize,
                                                                             ) != NORMAL as _
                                                                             {
                                                                                 current_block
@@ -1417,18 +1417,18 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             /*902: "Try the final line break at the end of the paragraph, and
              * goto done if the desired breakpoints have been found." */
             try_break(EJECT_PENALTY, HYPHENATED as _);
-            if *LLIST_link(ACTIVE_LIST as isize) != LAST_ACTIVE as i32 {
+            if *LLIST_link(ACTIVE_LIST as usize) != LAST_ACTIVE as i32 {
                 /*903:*/
-                r = *LLIST_link(ACTIVE_LIST as isize);
+                r = *LLIST_link(ACTIVE_LIST as usize);
                 fewest_demerits = MAX_HALFWORD;
                 loop {
-                    if *NODE_type(r as isize) != DELTA_NODE {
+                    if *NODE_type(r as usize) != DELTA_NODE {
                         if MEM[(r + 2) as usize].b32.s1 < fewest_demerits {
                             fewest_demerits = MEM[(r + 2) as usize].b32.s1; /*:904*/
                             best_bet = r
                         }
                     }
-                    r = *LLIST_link(r as isize);
+                    r = *LLIST_link(r as usize);
                     if !(r != LAST_ACTIVE as i32) {
                         break;
                     }
@@ -1438,7 +1438,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     break;
                 }
 
-                r = *LLIST_link(ACTIVE_LIST as isize); /*904:*/
+                r = *LLIST_link(ACTIVE_LIST as usize); /*904:*/
                 actual_looseness = 0;
 
                 loop {
@@ -1501,7 +1501,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         if MEM[(best_bet + 3) as usize].b32.s1 == 0 {
             do_last_line_fit = false
         } else {
-            q = new_spec(MEM[(last_line_fill + 1) as usize].b32.s0);
+            q = new_spec(MEM[(last_line_fill + 1) as usize].b32.s0 as usize);
             delete_glue_ref(MEM[(last_line_fill + 1) as usize].b32.s0);
             MEM[(q + 1) as usize].b32.s1 +=
                 MEM[(best_bet + 3) as usize].b32.s1 - MEM[(best_bet + 4) as usize].b32.s1;
@@ -1620,13 +1620,13 @@ unsafe fn post_line_break(mut d: bool) {
 
         if q.is_texnull() {
             q = TEMP_HEAD as i32;
-            while !LLIST_link(q as isize).is_texnull() {
-                q = *LLIST_link(q as isize);
+            while !LLIST_link(q as usize).is_texnull() {
+                q = *LLIST_link(q as usize);
             }
         } else if MEM[q as usize].b16.s1 as i32 == 10 {
             delete_glue_ref(MEM[(q + 1) as usize].b32.s0);
             *GLUE_NODE_glue_ptr(q as isize) = *GLUEPAR(GluePar::right_skip);
-            *NODE_subtype(q as isize) = GluePar::right_skip as u16 + 1;
+            *NODE_subtype(q as usize) = GluePar::right_skip as u16 + 1;
             MEM[EQTB[(1
                 + (0x10ffff + 1)
                 + (0x10ffffi32 + 1i32)
@@ -3106,7 +3106,7 @@ unsafe fn finite_shrink(mut p: i32) -> i32 {
         help_line[0] = b"since the offensive shrinkability has been made finite.";
         error();
     }
-    q = new_spec(p);
+    q = new_spec(p as usize);
     MEM[q as usize].b16.s0 = 0_u16;
     delete_glue_ref(p);
     q
@@ -3147,7 +3147,7 @@ unsafe fn reconstitute(
             t = MEM[t as usize].b32.s1;
             MEM[t as usize].b16.s1 = hf as u16;
             MEM[t as usize].b16.s0 = MEM[p as usize].b16.s0;
-            p = *LLIST_link(p as isize)
+            p = *LLIST_link(p as usize)
         }
     } else if cur_l < 65536i32 {
         MEM[t as usize].b32.s1 = get_avail();

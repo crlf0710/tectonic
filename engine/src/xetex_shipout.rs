@@ -296,7 +296,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
 
         cur_v = *BOX_height(p as isize) + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
         temp_ptr = p;
-        if *NODE_type(p as isize) == VLIST_NODE {
+        if *NODE_type(p as usize) == VLIST_NODE {
             vlist_out();
         } else {
             hlist_out();
@@ -374,37 +374,37 @@ unsafe fn hlist_out() {
         prev_p = this_box + 5; /* this gets the list within the box */
 
         while !p.is_texnull() {
-            if !LLIST_link(p as isize).is_texnull() {
+            if !LLIST_link(p as usize).is_texnull() {
                 if !p.is_texnull()
                     && !is_char_node(p)
-                    && *NODE_type(p as isize) != WHATSIT_NODE
-                    && (*NODE_subtype(p as isize) == NATIVE_WORD_NODE
-                        || *NODE_subtype(p as isize) == NATIVE_WORD_NODE_AT)
+                    && *NODE_type(p as usize) != WHATSIT_NODE
+                    && (*NODE_subtype(p as usize) == NATIVE_WORD_NODE
+                        || *NODE_subtype(p as usize) == NATIVE_WORD_NODE_AT)
                     && FONT_LETTER_SPACE[MEM[(p + 4) as usize].b16.s2 as usize] == 0
                 {
                     /* "got a word in an AAT font, might be the start of a run" */
                     r = p;
                     k = MEM[(r + 4) as usize].b16.s1 as i32;
-                    q = *LLIST_link(p as isize);
+                    q = *LLIST_link(p as usize);
                     loop {
                         /*641: "Advance `q` past ignorable nodes." This test is
                          * mostly `node_is_invisible_to_interword_space`. 641 is
                          * reused a few times here. */
                         while !q.is_texnull()
                             && !is_char_node(q)
-                            && (*NODE_type(q as isize) == PENALTY_NODE
-                                || *NODE_type(q as isize) == INS_NODE
-                                || *NODE_type(q as isize) == MARK_NODE
-                                || *NODE_type(q as isize) == ADJUST_NODE
-                                || (*NODE_type(q as isize) == WHATSIT_NODE
-                                    && *NODE_subtype(q as isize) <= 4))
+                            && (*NODE_type(q as usize) == PENALTY_NODE
+                                || *NODE_type(q as usize) == INS_NODE
+                                || *NODE_type(q as usize) == MARK_NODE
+                                || *NODE_type(q as usize) == ADJUST_NODE
+                                || (*NODE_type(q as usize) == WHATSIT_NODE
+                                    && *NODE_subtype(q as usize) <= 4))
                         {
-                            q = *LLIST_link(q as isize);
+                            q = *LLIST_link(q as usize);
                         }
                         if !(!q.is_texnull() && !is_char_node(q)) {
                             break;
                         }
-                        if *NODE_type(q as isize) == GLUE_NODE
+                        if *NODE_type(q as usize) == GLUE_NODE
                             && *GLUE_SPEC_shrink_order(q as isize) == NORMAL as _
                         {
                             if *GLUE_NODE_glue_ptr(q as isize)
@@ -413,40 +413,40 @@ unsafe fn hlist_out() {
                                 /* "Found a normal space; if the next node is
                                  * another word in the same font, we'll
                                  * merge." */
-                                q = *LLIST_link(q as isize);
+                                q = *LLIST_link(q as usize);
 
                                 while !q.is_texnull()
                                     && !is_char_node(q)
-                                    && (*NODE_type(q as isize) == PENALTY_NODE
-                                        || *NODE_type(q as isize) == INS_NODE
-                                        || *NODE_type(q as isize) == MARK_NODE
-                                        || *NODE_type(q as isize) == ADJUST_NODE
-                                        || (*NODE_type(q as isize) == WHATSIT_NODE
-                                            && *NODE_subtype(q as isize) <= 4))
+                                    && (*NODE_type(q as usize) == PENALTY_NODE
+                                        || *NODE_type(q as usize) == INS_NODE
+                                        || *NODE_type(q as usize) == MARK_NODE
+                                        || *NODE_type(q as usize) == ADJUST_NODE
+                                        || (*NODE_type(q as usize) == WHATSIT_NODE
+                                            && *NODE_subtype(q as usize) <= 4))
                                 {
-                                    q = *LLIST_link(q as isize);
+                                    q = *LLIST_link(q as usize);
                                 }
 
                                 if !q.is_texnull()
                                     && !is_char_node(q)
-                                    && *NODE_type(q as isize) == WHATSIT_NODE
-                                    && (*NODE_subtype(q as isize) == NATIVE_WORD_NODE
-                                        || *NODE_subtype(q as isize) == NATIVE_WORD_NODE_AT)
+                                    && *NODE_type(q as usize) == WHATSIT_NODE
+                                    && (*NODE_subtype(q as usize) == NATIVE_WORD_NODE
+                                        || *NODE_subtype(q as usize) == NATIVE_WORD_NODE_AT)
                                     && MEM[(q + 4) as usize].b16.s2 as i32
                                         == MEM[(r + 4) as usize].b16.s2 as i32
                                 {
                                     p = q;
                                     k += 1 + MEM[(q + 4) as usize].b16.s1 as i32;
-                                    q = *LLIST_link(q as isize);
+                                    q = *LLIST_link(q as usize);
                                     continue;
                                 }
                             } else {
-                                q = *LLIST_link(q as isize);
+                                q = *LLIST_link(q as usize);
                             }
                             if !(!q.is_texnull()
                                 && !is_char_node(q)
-                                && *NODE_type(q as isize) == KERN_NODE
-                                && *NODE_subtype(q as isize) == SPACE_ADJUSTMENT as _)
+                                && *NODE_type(q as usize) == KERN_NODE
+                                && *NODE_subtype(q as usize) == SPACE_ADJUSTMENT as _)
                             {
                                 break;
                             }
@@ -1878,8 +1878,8 @@ unsafe fn reverse(
 /*1506: Create a new edge node of subtype `s` and width `w` */
 pub(crate) unsafe fn new_edge(s: small_number, w: scaled_t) -> i32 {
     let p = get_node(EDGE_NODE_SIZE);
-    *NODE_type(p as isize) = EDGE_NODE;
-    *NODE_subtype(p as isize) = s as _;
+    *NODE_type(p as usize) = EDGE_NODE;
+    *NODE_subtype(p as usize) = s as _;
     *BOX_width(p as isize) = w;
     *EDGE_NODE_edge_dist(p as isize) = 0;
     p
