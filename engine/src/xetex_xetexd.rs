@@ -25,74 +25,74 @@ pub(crate) unsafe fn NODE_subtype(p: usize) -> &'static mut u16 {
 }
 
 /// subtype; records L/R direction mode
-pub(crate) unsafe fn BOX_lr_mode(p: isize) -> &'static mut u16 {
-    &mut MEM[p as usize].b16.s0
+pub(crate) unsafe fn BOX_lr_mode(p: usize) -> &'static mut u16 {
+    &mut MEM[p].b16.s0
 }
 /// a scaled; 1 <=> WEB const `width_offset`
-pub(crate) unsafe fn BOX_width(p: isize) -> &'static mut i32 {
-    &mut MEM[p as usize + 1].b32.s1
+pub(crate) unsafe fn BOX_width(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
 }
 /// a scaled; 2 <=> WEB const `depth_offset`
-pub(crate) unsafe fn BOX_depth(p: isize) -> &'static mut i32 {
-    &mut MEM[p as usize + 2].b32.s1
+pub(crate) unsafe fn BOX_depth(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 2].b32.s1
 }
 /// a scaled; 3 <=> WEB const `height_offset`
-pub(crate) unsafe fn BOX_height(p: isize) -> &'static mut i32 {
-    &mut MEM[p as usize + 3].b32.s1
+pub(crate) unsafe fn BOX_height(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 3].b32.s1
 }
 /// a scaled
-pub(crate) unsafe fn BOX_shift_amount(p: isize) -> &'static mut i32 {
-    &mut MEM[p as usize + 4].b32.s1
+pub(crate) unsafe fn BOX_shift_amount(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 4].b32.s1
 }
 /// aka `link` of p+5
-pub(crate) unsafe fn BOX_list_ptr(p: isize) -> &'static mut i32 {
-    &mut MEM[p as usize + 5].b32.s1
+pub(crate) unsafe fn BOX_list_ptr(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 5].b32.s1
 }
 /// aka `type` of p+5
-pub(crate) unsafe fn BOX_glue_sign(p: isize) -> &'static mut u16 {
-    &mut MEM[p as usize + 5].b16.s1
+pub(crate) unsafe fn BOX_glue_sign(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 5].b16.s1
 }
 /// aka `subtype` of p+5
-pub(crate) unsafe fn BOX_glue_order(p: isize) -> &'static mut u16 {
-    &mut MEM[p as usize + 5].b16.s0
+pub(crate) unsafe fn BOX_glue_order(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 5].b16.s0
 }
 /// the glue ratio
-pub(crate) unsafe fn BOX_glue_set(p: i32) -> &'static mut f64 {
-    &mut MEM[p as usize + 6].gr
+pub(crate) unsafe fn BOX_glue_set(p: usize) -> &'static mut f64 {
+    &mut MEM[p + 6].gr
 }
 
 /// aka "subtype" of a node
-pub(crate) unsafe fn ACTIVE_NODE_fitness(p: i32) -> &'static mut u16 {
-    &mut MEM[p as usize].b16.s0
+pub(crate) unsafe fn ACTIVE_NODE_fitness(p: usize) -> &'static mut u16 {
+    &mut MEM[p].b16.s0
 }
 /// aka "rlink" in double-linked list
-pub(crate) unsafe fn ACTIVE_NODE_break_node(p: i32) -> &'static mut i32 {
-    &mut MEM[p as usize + 1].b32.s1
+pub(crate) unsafe fn ACTIVE_NODE_break_node(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
 }
 /// aka "llink" in doubly-linked list
-pub(crate) unsafe fn ACTIVE_NODE_line_number(p: i32) -> &'static mut i32 {
-    &mut MEM[p as usize + 1].b32.s0
+pub(crate) unsafe fn ACTIVE_NODE_line_number(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s0
 }
 /// was originally the `mem[x+2].int` field
-pub(crate) unsafe fn ACTIVE_NODE_total_demerits(p: i32) -> &'static mut i32 {
-    &mut MEM[p as usize + 2].b32.s1
+pub(crate) unsafe fn ACTIVE_NODE_total_demerits(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 2].b32.s1
 }
 /// a scaled; "active_short" in the WEB
-pub(crate) unsafe fn ACTIVE_NODE_shortfall(p: i32) -> &'static mut i32 {
-    &mut MEM[p as usize + 3].b32.s1
+pub(crate) unsafe fn ACTIVE_NODE_shortfall(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 3].b32.s1
 }
 /// a scaled
-pub(crate) unsafe fn ACTIVE_NODE_glue(p: i32) -> &'static mut i32 {
-    &mut MEM[p as usize + 4].b32.s1
+pub(crate) unsafe fn ACTIVE_NODE_glue(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 4].b32.s1
 }
 
 /// aka "type" of a node
-pub(crate) unsafe fn CHAR_NODE_font(p: i32) -> &'static mut u16 {
-    &mut MEM[p as usize].b16.s1
+pub(crate) unsafe fn CHAR_NODE_font(p: usize) -> &'static mut u16 {
+    &mut MEM[p].b16.s1
 }
 /// aka "subtype" of a node
-pub(crate) unsafe fn CHAR_NODE_character(p: i32) -> &'static mut u16 {
-    &mut MEM[p as usize].b16.s0
+pub(crate) unsafe fn CHAR_NODE_character(p: usize) -> &'static mut u16 {
+    &mut MEM[p].b16.s0
 }
 /*
 
@@ -110,17 +110,17 @@ pub(crate) unsafe fn CHAR_NODE_character(p: i32) -> &'static mut u16 {
 */
 
 /// "new left_edge position relative to cur_h"
-pub(crate) unsafe fn EDGE_NODE_edge_dist(p: isize) -> &'static mut i32 {
-    &mut MEM[(p + 2) as usize].b32.s1
+pub(crate) unsafe fn EDGE_NODE_edge_dist(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 2].b32.s1
 }
 
 /// aka "llink" in doubly-linked list
-pub(crate) unsafe fn GLUE_NODE_glue_ptr(p: isize) -> &'static mut i32 {
-    &mut MEM[(p + 1) as usize].b32.s0
+pub(crate) unsafe fn GLUE_NODE_glue_ptr(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s0
 }
 /// aka "rlink" in double-linked list
-pub(crate) unsafe fn GLUE_NODE_leader_ptr(p: isize) -> &'static mut i32 {
-    &mut MEM[(p + 1) as usize].b32.s1
+pub(crate) unsafe fn GLUE_NODE_leader_ptr(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
 }
 
 /*
@@ -128,8 +128,8 @@ pub(crate) unsafe fn GLUE_NODE_leader_ptr(p: isize) -> &'static mut i32 {
 */
 
 /// a glue pointer
-pub(crate) unsafe fn INSERTION_NODE_split_top_ptr(p: i32) -> &'static mut i32 {
-    &mut MEM[(p + 4) as usize].b32.s1
+pub(crate) unsafe fn INSERTION_NODE_split_top_ptr(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 4].b32.s1
 }
 
 /*#define INSERTION_NODE_ins_ptr(p) mem[(p) + 4].b32.s0 /* a pointer to a vlist */
@@ -149,26 +149,26 @@ pub(crate) unsafe fn INSERTION_NODE_split_top_ptr(p: i32) -> &'static mut i32 {
 #define MATH_NODE_lr_dir(p) (NODE_subtype(p) / R_CODE)
 #define MATH_NODE_end_lr_type(p) (L_CODE * (NODE_subtype(p) / L_CODE) + END_M_CODE)
 */
-pub(crate) unsafe fn NATIVE_NODE_size(p: i32) -> &'static mut u16 {
-    &mut MEM[p as usize + 4].b16.s3
+pub(crate) unsafe fn NATIVE_NODE_size(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 4].b16.s3
 }
-pub(crate) unsafe fn NATIVE_NODE_font(p: i32) -> &'static mut u16 {
-    &mut MEM[p as usize + 4].b16.s2
+pub(crate) unsafe fn NATIVE_NODE_font(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 4].b16.s2
 }
 /// number of UTF16 items in the text
-pub(crate) unsafe fn NATIVE_NODE_length(p: i32) -> &'static mut u16 {
-    &mut MEM[p as usize + 4].b16.s1
+pub(crate) unsafe fn NATIVE_NODE_length(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 4].b16.s1
 }
 /// ... or the glyph number, if subtype==GLYPH_NODE
-pub(crate) unsafe fn NATIVE_NODE_glyph(p: i32) -> &'static mut u16 {
-    &mut MEM[p as usize + 4].b16.s1
+pub(crate) unsafe fn NATIVE_NODE_glyph(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 4].b16.s1
 }
 
-pub(crate) unsafe fn NATIVE_NODE_glyph_count(p: i32) -> &'static mut u16 {
-    &mut MEM[p as usize + 4].b16.s0
+pub(crate) unsafe fn NATIVE_NODE_glyph_count(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 4].b16.s0
 }
-pub(crate) unsafe fn NATIVE_NODE_glyph_info_ptr(p: i32) -> &'static mut *mut core::ffi::c_void {
-    &mut MEM[p as usize + 5].ptr
+pub(crate) unsafe fn NATIVE_NODE_glyph_info_ptr(p: usize) -> &'static mut *mut core::ffi::c_void {
+    &mut MEM[p + 5].ptr
 }
 /*
 #define NATIVE_NODE_text(p) ((unsigned short *) &mem[(p) + NATIVE_NODE_SIZE])
@@ -185,8 +185,8 @@ pub(crate) unsafe fn NATIVE_NODE_glyph_info_ptr(p: i32) -> &'static mut *mut cor
 */
 
 /// was originally the `mem[x+1].int` field
-pub(crate) unsafe fn PENALTY_NODE_penalty(p: isize) -> &'static mut i32 {
-    &mut MEM[(p + 1) as usize].b32.s1
+pub(crate) unsafe fn PENALTY_NODE_penalty(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
 }
 
 /*
@@ -200,32 +200,36 @@ pub(crate) unsafe fn PENALTY_NODE_penalty(p: isize) -> &'static mut i32 {
  * information, hence the need to know the node size to get the synctex
  * info. */
 
-pub(crate) unsafe fn SYNCTEX_tag(p: i32, nodesize: i32) -> &'static mut i32 {
-    &mut MEM[(p + nodesize - SYNCTEX_FIELD_SIZE) as usize].b32.s0
+pub(crate) unsafe fn SYNCTEX_tag(p: usize, nodesize: i32) -> &'static mut i32 {
+    &mut MEM[p + (nodesize as usize) - (SYNCTEX_FIELD_SIZE as usize)]
+        .b32
+        .s0
 }
-pub(crate) unsafe fn SYNCTEX_line(p: i32, nodesize: i32) -> &'static mut i32 {
-    &mut MEM[(p + nodesize - SYNCTEX_FIELD_SIZE) as usize].b32.s1
+pub(crate) unsafe fn SYNCTEX_line(p: usize, nodesize: i32) -> &'static mut i32 {
+    &mut MEM[p + (nodesize as usize) - (SYNCTEX_FIELD_SIZE as usize)]
+        .b32
+        .s1
 }
 
 /// aka "link" of a link-list node
-pub(crate) unsafe fn GLUE_SPEC_ref_count(p: isize) -> &'static mut i32 {
-    &mut MEM[p as usize].b32.s1
+pub(crate) unsafe fn GLUE_SPEC_ref_count(p: usize) -> &'static mut i32 {
+    &mut MEM[p].b32.s1
 }
 /// aka "type" of a node
-pub(crate) unsafe fn GLUE_SPEC_stretch_order(p: isize) -> &'static mut u16 {
-    &mut MEM[p as usize].b16.s1
+pub(crate) unsafe fn GLUE_SPEC_stretch_order(p: usize) -> &'static mut u16 {
+    &mut MEM[p].b16.s1
 }
 /// aka "subtype" of a node
-pub(crate) unsafe fn GLUE_SPEC_shrink_order(p: isize) -> &'static mut u16 {
-    &mut MEM[p as usize].b16.s0
+pub(crate) unsafe fn GLUE_SPEC_shrink_order(p: usize) -> &'static mut u16 {
+    &mut MEM[p].b16.s0
 }
 /// a scaled
-pub(crate) unsafe fn GLUE_SPEC_stretch(p: isize) -> &'static mut i32 {
-    &mut MEM[(p + 2) as usize].b32.s1
+pub(crate) unsafe fn GLUE_SPEC_stretch(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 2].b32.s1
 }
 /// a scaled
-pub(crate) unsafe fn GLUE_SPEC_shrink(p: isize) -> &'static mut i32 {
-    &mut MEM[(p + 3) as usize].b32.s1
+pub(crate) unsafe fn GLUE_SPEC_shrink(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 3].b32.s1
 }
 
 use super::xetex_ini::{

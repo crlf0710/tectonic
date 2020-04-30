@@ -150,11 +150,11 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
     /*663: "Update the values of max_h and max_v; but if the page is too
      * large, goto done". */
 
-    if *BOX_height(p as isize) > MAX_HALFWORD
-        || *BOX_depth(p as isize) > MAX_HALFWORD
-        || *BOX_height(p as isize) + *BOX_depth(p as isize) + *DIMENPAR(DimenPar::v_offset)
+    if *BOX_height(p as usize) > MAX_HALFWORD
+        || *BOX_depth(p as usize) > MAX_HALFWORD
+        || *BOX_height(p as usize) + *BOX_depth(p as usize) + *DIMENPAR(DimenPar::v_offset)
             > MAX_HALFWORD
-        || *BOX_width(p as isize) + *DIMENPAR(DimenPar::h_offset) > MAX_HALFWORD
+        || *BOX_width(p as usize) + *DIMENPAR(DimenPar::h_offset) > MAX_HALFWORD
     {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -174,13 +174,13 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
             end_diagnostic(true);
         }
     } else {
-        if *BOX_height(p as isize) + *BOX_depth(p as isize) + *DIMENPAR(DimenPar::v_offset) > max_v
+        if *BOX_height(p as usize) + *BOX_depth(p as usize) + *DIMENPAR(DimenPar::v_offset) > max_v
         {
             max_v =
-                *BOX_height(p as isize) + *BOX_depth(p as isize) + *DIMENPAR(DimenPar::v_offset);
+                *BOX_height(p as usize) + *BOX_depth(p as usize) + *DIMENPAR(DimenPar::v_offset);
         }
-        if *BOX_width(p as isize) + *DIMENPAR(DimenPar::h_offset) > max_h {
-            max_h = *BOX_width(p as isize) + *DIMENPAR(DimenPar::h_offset);
+        if *BOX_width(p as usize) + *DIMENPAR(DimenPar::h_offset) > max_h {
+            max_h = *BOX_width(p as usize) + *DIMENPAR(DimenPar::h_offset);
         }
 
         /*637: "Initialize variables as ship_out begins." */
@@ -198,12 +198,12 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
         if *DIMENPAR(DimenPar::pdf_page_width) != 0 {
             cur_page_width = *DIMENPAR(DimenPar::pdf_page_width);
         } else {
-            cur_page_width = *BOX_width(p as isize) + 2 * cur_h_offset;
+            cur_page_width = *BOX_width(p as usize) + 2 * cur_h_offset;
         }
         if *DIMENPAR(DimenPar::pdf_page_height) != 0 {
             cur_page_height = *DIMENPAR(DimenPar::pdf_page_height);
         } else {
-            cur_page_height = *BOX_height(p as isize) + *BOX_depth(p as isize) + 2 * cur_v_offset;
+            cur_page_height = *BOX_height(p as usize) + *BOX_depth(p as usize) + 2 * cur_v_offset;
         }
 
         /* ... resuming 637 ... open up the DVI file if needed */
@@ -294,7 +294,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
 
         /* Done with the synthesized special. The meat: emit this page box. */
 
-        cur_v = *BOX_height(p as isize) + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
+        cur_v = *BOX_height(p as usize) + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
         temp_ptr = p;
         if *NODE_type(p as usize) == VLIST_NODE {
             vlist_out();
@@ -405,9 +405,9 @@ unsafe fn hlist_out() {
                             break;
                         }
                         if *NODE_type(q as usize) == GLUE_NODE
-                            && *GLUE_SPEC_shrink_order(q as isize) == NORMAL as _
+                            && *GLUE_SPEC_shrink_order(q as usize) == NORMAL as _
                         {
-                            if *GLUE_NODE_glue_ptr(q as isize)
+                            if *GLUE_NODE_glue_ptr(q as usize)
                                 == FONT_GLUE[MEM[(r + 4) as usize].b16.s2 as usize]
                             {
                                 /* "Found a normal space; if the next node is
@@ -615,7 +615,7 @@ unsafe fn hlist_out() {
 
     /*1501: "Initialize hlist_out for mixed direction typesetting" */
 
-    temp_ptr = get_avail();
+    temp_ptr = get_avail() as i32;
     MEM[temp_ptr as usize].b32.s0 = 0;
     MEM[temp_ptr as usize].b32.s1 = LR_ptr;
     LR_ptr = temp_ptr;
@@ -991,7 +991,7 @@ unsafe fn hlist_out() {
                                            g_order as i32 {
                                 if MEM[g as usize].b32.s1 ==
                                        -0xfffffffi32 {
-                                    free_node(g,
+                                    free_node(g as usize,
                                               4i32); /* "will never match" */
                                 } else {
                                     MEM[g as usize].b32.s1 -= 1
@@ -1069,7 +1069,7 @@ unsafe fn hlist_out() {
                                 current_block = 330672039582001856;
                                 break ;
                             } else {
-                                temp_ptr = get_avail();
+                                temp_ptr = get_avail() as i32;
                                 MEM[temp_ptr as usize].b32.s0 =
                                     4i32 *
                                         (MEM[p as usize].b16.s0 as
@@ -1088,7 +1088,7 @@ unsafe fn hlist_out() {
                                 temp_ptr = MEM[p as usize].b32.s1;
                                 rule_wd =
                                     MEM[(p + 1) as usize].b32.s1;
-                                free_node(p, 3i32);
+                                free_node(p as usize, 3i32);
                                 cur_dir =
                                     (1i32 - cur_dir as i32) as
                                         small_number;
@@ -1752,7 +1752,7 @@ unsafe fn reverse(
                                     && MEM[g as usize].b16.s0 as i32 == g_order as i32
                             {
                                 if MEM[g as usize].b32.s1 == -0xfffffff {
-                                    free_node(g, 4i32);
+                                    free_node(g as usize, 4i32);
                                 } else {
                                     MEM[g as usize].b32.s1 -= 1;
                                 }
@@ -1775,10 +1775,10 @@ unsafe fn reverse(
                         6 => {
                             flush_node_list(MEM[(p + 1) as usize].b32.s1);
                             temp_ptr = p;
-                            p = get_avail();
+                            p = get_avail() as i32;
                             MEM[p as usize] = MEM[(temp_ptr + 1) as usize];
                             MEM[p as usize].b32.s1 = q;
-                            free_node(temp_ptr, 2i32);
+                            free_node(temp_ptr as usize, 2i32);
                         }
                         9 => {
                             /*1516: "Math nodes in an inner reflected segment are
@@ -1820,7 +1820,7 @@ unsafe fn reverse(
                                 m -= 1
                             } else {
                                 /*1517: "Finish the reverse hlist segment and goto done" */
-                                free_node(p, 3i32); /* end GLUE_NODE case */
+                                free_node(p as usize, 3i32); /* end GLUE_NODE case */
                                 MEM[t as usize].b32.s1 = q;
                                 MEM[(t + 1) as usize].b32.s1 = rule_wd;
                                 MEM[(t + 2) as usize].b32.s1 = -cur_h - rule_wd;
@@ -1831,7 +1831,7 @@ unsafe fn reverse(
                     current_block = 3812947724376655173;
                 }
                 17239133558811367971 => {
-                    temp_ptr = get_avail();
+                    temp_ptr = get_avail() as i32;
                     MEM[temp_ptr as usize].b32.s0 = 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3;
                     MEM[temp_ptr as usize].b32.s1 = LR_ptr;
                     LR_ptr = temp_ptr;
@@ -1857,7 +1857,7 @@ unsafe fn reverse(
             MEM[p as usize].b32.s1 = l;
             if MEM[p as usize].b16.s1 as i32 == 11 {
                 if rule_wd == 0i32 || l == -0xfffffffi32 {
-                    free_node(p, 3i32);
+                    free_node(p as usize, 3i32);
                     p = l
                 }
             }
@@ -1877,12 +1877,12 @@ unsafe fn reverse(
 
 /*1506: Create a new edge node of subtype `s` and width `w` */
 pub(crate) unsafe fn new_edge(s: small_number, w: scaled_t) -> i32 {
-    let p = get_node(EDGE_NODE_SIZE);
-    *NODE_type(p as usize) = EDGE_NODE;
-    *NODE_subtype(p as usize) = s as _;
-    *BOX_width(p as isize) = w;
-    *EDGE_NODE_edge_dist(p as isize) = 0;
-    p
+    let p = get_node(EDGE_NODE_SIZE) as usize;
+    *NODE_type(p) = EDGE_NODE;
+    *NODE_subtype(p) = s as _;
+    *BOX_width(p) = w;
+    *EDGE_NODE_edge_dist(p as usize) = 0;
+    p as i32
 }
 
 pub(crate) unsafe fn out_what(mut p: i32) {
@@ -2205,7 +2205,7 @@ unsafe fn prune_movements(l: i32) {
 
         let p = down_ptr;
         down_ptr = MEM[p as usize].b32.s1;
-        free_node(p, MOVEMENT_NODE_SIZE);
+        free_node(p as usize, MOVEMENT_NODE_SIZE);
     }
     while !right_ptr.is_texnull() {
         if MEM[(right_ptr + 2) as usize].b32.s1 < l {
@@ -2213,7 +2213,7 @@ unsafe fn prune_movements(l: i32) {
         }
         let p = right_ptr;
         right_ptr = MEM[p as usize].b32.s1;
-        free_node(p, MOVEMENT_NODE_SIZE);
+        free_node(p as usize, MOVEMENT_NODE_SIZE);
     }
 }
 
@@ -2268,21 +2268,21 @@ unsafe fn special_out(mut p: i32) {
 }
 
 unsafe fn write_out(mut p: i32) {
-    let mut q = get_avail();
-    MEM[q as usize].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
+    let q = get_avail();
+    MEM[q].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
     let mut r = get_avail();
-    MEM[q as usize].b32.s1 = r;
-    MEM[r as usize].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
-    begin_token_list(q, INSERTED);
+    MEM[q].b32.s1 = r as i32;
+    MEM[r].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
+    begin_token_list(q as i32, INSERTED);
     begin_token_list(MEM[(p + 1) as usize].b32.s1, WRITE_TEXT);
-    q = get_avail();
-    MEM[q as usize].b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
-    begin_token_list(q, INSERTED);
+    let q = get_avail();
+    MEM[q].b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
+    begin_token_list(q as i32, INSERTED);
 
     let old_mode = cur_list.mode as i32;
     cur_list.mode = 0;
     cur_cs = write_loc;
-    q = scan_toks(false, true);
+    let _q = scan_toks(false, true);
     get_token();
 
     if cur_tok != CS_TOKEN_FLAG + END_WRITE as i32 {

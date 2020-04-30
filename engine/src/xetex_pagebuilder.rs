@@ -110,12 +110,15 @@ unsafe fn fire_up(mut c: i32) {
     /*1048: "Set the value of output_penalty" */
     if *NODE_type(best_page_break as usize) == PENALTY_NODE {
         geq_word_define(
-            INT_BASE + IntPar::output_penalty as i32,
-            *PENALTY_NODE_penalty(best_page_break as isize),
+            INT_BASE as usize + (IntPar::output_penalty as usize),
+            *PENALTY_NODE_penalty(best_page_break as usize),
         );
-        *PENALTY_NODE_penalty(best_page_break as isize) = INF_PENALTY;
+        *PENALTY_NODE_penalty(best_page_break as usize) = INF_PENALTY;
     } else {
-        geq_word_define(INT_BASE + IntPar::output_penalty as i32, INF_PENALTY);
+        geq_word_define(
+            INT_BASE as usize + (IntPar::output_penalty as usize),
+            INF_PENALTY,
+        );
     }
 
     /* ... resuming 1047 ... "We set the values of top_mark, first_mark, and
@@ -247,7 +250,7 @@ unsafe fn fire_up(mut c: i32) {
                                     MEM[(p + 3) as usize].b32.s1 =
                                         MEM[(temp_ptr + 3) as usize].b32.s1
                                             + MEM[(temp_ptr + 2) as usize].b32.s1;
-                                    free_node(temp_ptr, BOX_NODE_SIZE);
+                                    free_node(temp_ptr as usize, BOX_NODE_SIZE);
                                     wait = true
                                 }
                             }
@@ -255,7 +258,7 @@ unsafe fn fire_up(mut c: i32) {
                         MEM[(r + 2) as usize].b32.s0 = TEX_NULL;
                         n = *NODE_subtype(r as usize) as _;
                         temp_ptr = MEM[(*BOX_REG(n as usize) + 5) as usize].b32.s1;
-                        free_node(*BOX_REG(n as _), BOX_NODE_SIZE);
+                        free_node(*BOX_REG(n as _) as usize, BOX_NODE_SIZE);
                         *BOX_REG(n as _) =
                             vpackage(temp_ptr, 0i32, 1i32 as small_number, 0x3fffffffi32);
                     } else {
@@ -278,7 +281,7 @@ unsafe fn fire_up(mut c: i32) {
                     insert_penalties += 1
                 } else {
                     delete_glue_ref(MEM[(p + 4) as usize].b32.s1);
-                    free_node(p, INS_NODE_SIZE);
+                    free_node(p as usize, INS_NODE_SIZE);
                 }
                 p = prev_p /*:1057 */
             }
@@ -367,7 +370,7 @@ unsafe fn fire_up(mut c: i32) {
     r = *LLIST_link(PAGE_INS_HEAD as usize);
     while r != PAGE_INS_HEAD as i32 {
         q = *LLIST_link(r as usize);
-        free_node(r, PAGE_INS_NODE_SIZE);
+        free_node(r as usize, PAGE_INS_NODE_SIZE);
         r = q
     }
 
@@ -481,7 +484,7 @@ pub(crate) unsafe fn build_page() {
         last_node_type = *NODE_type(slf.p as usize) as i32 + 1;
 
         if *NODE_type(slf.p as usize) == GLUE_NODE {
-            last_glue = *GLUE_NODE_glue_ptr(slf.p as isize);
+            last_glue = *GLUE_NODE_glue_ptr(slf.p as usize);
             MEM[last_glue as usize].b32.s1 += 1;
         } else {
             last_glue = MAX_HALFWORD;
@@ -489,7 +492,7 @@ pub(crate) unsafe fn build_page() {
             if *NODE_type(slf.p as usize) == PENALTY_NODE {
                 last_penalty = MEM[(slf.p + 1) as usize].b32.s1
             } else if *NODE_type(slf.p as usize) == KERN_NODE {
-                last_kern = *BOX_width(slf.p as isize);
+                last_kern = *BOX_width(slf.p as usize);
             }
         }
         /*1032: "Move node p to the current page; if it is time for a page
@@ -524,10 +527,10 @@ pub(crate) unsafe fn build_page() {
 
                     slf.q = new_skip_param(GluePar::top_skip as _); /* "now temp_ptr = glue_ptr(q) */
 
-                    if *BOX_width(temp_ptr as isize) > *BOX_height(slf.p as isize) {
-                        *BOX_width(temp_ptr as isize) -= *BOX_height(slf.p as isize);
+                    if *BOX_width(temp_ptr as usize) > *BOX_height(slf.p as usize) {
+                        *BOX_width(temp_ptr as usize) -= *BOX_height(slf.p as usize);
                     } else {
-                        *BOX_width(temp_ptr as isize) = 0;
+                        *BOX_width(temp_ptr as usize) = 0;
                     }
 
                     *LLIST_link(slf.q as usize) = slf.p;
@@ -536,16 +539,16 @@ pub(crate) unsafe fn build_page() {
                 } else {
                     /*1037: "Prepare to move a box or rule node to the current
                  * page, then goto contribute." */
-                    page_so_far[1] += page_so_far[7] + *BOX_height(slf.p as isize);
-                    page_so_far[7] = *BOX_depth(slf.p as isize);
+                    page_so_far[1] += page_so_far[7] + *BOX_height(slf.p as usize);
+                    page_so_far[7] = *BOX_depth(slf.p as usize);
                     return contribute(slf);
                 }
             }
             WHATSIT_NODE => {
                 /*1401: "Prepare to move whatsit p to the current page, then goto contribute" */
                 if *NODE_subtype(slf.p as usize) == PIC_NODE || *NODE_subtype(slf.p as usize) == PDF_NODE {
-                    page_so_far[1] += page_so_far[7] + *BOX_height(slf.p as isize);
-                    page_so_far[7] = *BOX_depth(slf.p as isize);
+                    page_so_far[1] += page_so_far[7] + *BOX_height(slf.p as usize);
+                    page_so_far[7] = *BOX_depth(slf.p as usize);
                 }
                 return contribute(slf);
             }
@@ -600,25 +603,25 @@ pub(crate) unsafe fn build_page() {
                     ensure_vbox(n);
 
                     if BOX_REG(n as _).is_texnull() {
-                        *BOX_height(slf.r as isize) = 0;
+                        *BOX_height(slf.r as usize) = 0;
                     } else {
-                        *BOX_height(slf.r as isize) = *BOX_height(*BOX_REG(n as _) as isize) + *BOX_depth(*BOX_REG(n as _) as isize);
+                        *BOX_height(slf.r as usize) = *BOX_height(*BOX_REG(n as _) as usize) + *BOX_depth(*BOX_REG(n as _) as usize);
                     }
 
                     MEM[(slf.r + 2) as usize].b32.s0 = TEX_NULL;
                     slf.q = *SKIP_REG(n as _);
 
                     let h: scaled_t = if *COUNT_REG(n as _) == 1000 {
-                        *BOX_height(slf.r as isize)
+                        *BOX_height(slf.r as usize)
                     } else {
-                        x_over_n(*BOX_height(slf.r as isize), 1000) * *COUNT_REG(n as _)
+                        x_over_n(*BOX_height(slf.r as usize), 1000) * *COUNT_REG(n as _)
                     };
 
-                    page_so_far[0] -= h + *BOX_width(slf.q as isize);
-                    page_so_far[2 + *GLUE_SPEC_stretch_order(slf.q as isize) as usize] += *GLUE_SPEC_stretch(slf.q as isize);
-                    page_so_far[6] += *GLUE_SPEC_shrink(slf.q as isize);
+                    page_so_far[0] -= h + *BOX_width(slf.q as usize);
+                    page_so_far[2 + *GLUE_SPEC_stretch_order(slf.q as usize) as usize] += *GLUE_SPEC_stretch(slf.q as usize);
+                    page_so_far[6] += *GLUE_SPEC_shrink(slf.q as usize);
 
-                    if *GLUE_SPEC_shrink_order(slf.q as isize) != NORMAL as _ && *GLUE_SPEC_shrink(slf.q as isize) != 0 {
+                    if *GLUE_SPEC_shrink_order(slf.q as usize) != NORMAL as _ && *GLUE_SPEC_shrink(slf.q as usize) != 0 {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
@@ -648,15 +651,15 @@ pub(crate) unsafe fn build_page() {
                             page_so_far[6];
 
                     let h: scaled_t = if *COUNT_REG(n as _) == 1000 {
-                        *BOX_height(slf.p as isize)
+                        *BOX_height(slf.p as usize)
                     } else {
-                        x_over_n(*BOX_height(slf.p as isize), 1000) * *COUNT_REG(n as _)
+                        x_over_n(*BOX_height(slf.p as usize), 1000) * *COUNT_REG(n as _)
                     };
 
                     if (h <= 0 || h <= delta) &&
-                        *BOX_height(slf.p as isize) + *BOX_height(slf.r as isize) <= *SCALED_REG(n as _) {
+                        *BOX_height(slf.p as usize) + *BOX_height(slf.r as usize) <= *SCALED_REG(n as _) {
                         page_so_far[0] -= h;
-                        *BOX_height(slf.r as isize) += *BOX_height(slf.p as isize);
+                        *BOX_height(slf.r as usize) += *BOX_height(slf.p as usize);
                     } else {
                         /*1045: "Find the best way to split the insertion, and
                          * change type(r) to split_up." ... "Here is code that
@@ -683,8 +686,8 @@ pub(crate) unsafe fn build_page() {
                             w
                         };
 
-                        if w > *SCALED_REG(n as _) - *BOX_height(slf.r as isize) {
-                            w = *SCALED_REG(n as _) - *BOX_height(slf.r as isize);
+                        if w > *SCALED_REG(n as _) - *BOX_height(slf.r as usize) {
+                            w = *SCALED_REG(n as _) - *BOX_height(slf.r as usize);
                         }
 
                         slf.q =

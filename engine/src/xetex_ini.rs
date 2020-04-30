@@ -1862,7 +1862,7 @@ unsafe fn new_hyph_exceptions() {
                     if cur_chr == '-' as i32 {
                         /*973:*/
                         if (n as i32) < max_hyphenatable_length() {
-                            q = get_avail();
+                            q = get_avail() as i32;
                             MEM[q as usize].b32.s1 = p;
                             MEM[q as usize].b32.s0 = n as i32;
                             p = q
@@ -2091,9 +2091,9 @@ pub(crate) unsafe fn prefixed_command() {
         SET_FONT => {
             /*1252:*/
             if a as i32 >= 4i32 {
-                geq_define(CUR_FONT_LOC as i32, DATA as _, cur_chr);
+                geq_define(CUR_FONT_LOC, DATA as _, cur_chr);
             } else {
-                eq_define(CUR_FONT_LOC as i32, DATA as _, cur_chr);
+                eq_define(CUR_FONT_LOC, DATA as _, cur_chr);
             }
         }
         DEF => {
@@ -2105,17 +2105,17 @@ pub(crate) unsafe fn prefixed_command() {
             p = cur_cs;
             q = scan_toks(true, e);
             if j != 0i32 {
-                q = get_avail();
+                q = get_avail() as i32;
                 MEM[q as usize].b32.s0 = j;
                 MEM[q as usize].b32.s1 =
                     MEM[def_ref as usize].b32.s1;
                 MEM[def_ref as usize].b32.s1 = q
             }
             if a as i32 >= 4i32 {
-                geq_define(p, (113i32 + a as i32 % 4i32) as u16,
+                geq_define(p as usize, (113i32 + a as i32 % 4i32) as u16,
                            def_ref);
             } else {
-                eq_define(p, (113i32 + a as i32 % 4i32) as u16,
+                eq_define(p as usize, (113i32 + a as i32 % 4i32) as u16,
                           def_ref);
             }
         }
@@ -2150,8 +2150,8 @@ pub(crate) unsafe fn prefixed_command() {
                 }
             }
             if a as i32 >= 4i32 {
-                geq_define(p, cur_cmd as u16, cur_chr);
-            } else { eq_define(p, cur_cmd as u16, cur_chr); }
+                geq_define(p as usize, cur_cmd as u16, cur_chr);
+            } else { eq_define(p as usize, cur_cmd as u16, cur_chr); }
         }
         SHORTHAND_DEF => {
             if cur_chr == 7i32 {
@@ -2173,20 +2173,20 @@ pub(crate) unsafe fn prefixed_command() {
                 }
                 n = n * 256i32 + cur_val;
                 if a as i32 >= 4i32 {
-                    geq_define(p, 122_u16, n);
-                } else { eq_define(p, 122_u16, n); }
+                    geq_define(p as usize, 122_u16, n);
+                } else { eq_define(p as usize, 122_u16, n); }
                 if (p - CHAR_SUB_CODE_BASE as i32) < *INTPAR(IntPar::char_sub_def_min) {
                     if a as i32 >= 4i32 {
-                        geq_word_define(INT_BASE + IntPar::char_sub_def_min as i32, p - CHAR_SUB_CODE_BASE as i32);
+                        geq_word_define(INT_BASE as usize + IntPar::char_sub_def_min as usize, p - CHAR_SUB_CODE_BASE as i32);
                     } else {
-                        eq_word_define(INT_BASE + IntPar::char_sub_def_min as i32, p - CHAR_SUB_CODE_BASE as i32);
+                        eq_word_define(INT_BASE as usize + IntPar::char_sub_def_min as usize, p - CHAR_SUB_CODE_BASE as i32);
                     }
                 }
                 if (p - CHAR_SUB_CODE_BASE as i32) < *INTPAR(IntPar::char_sub_def_max) {
                     if a as i32 >= 4i32 {
-                        geq_word_define(INT_BASE + IntPar::char_sub_def_max as i32, p - CHAR_SUB_CODE_BASE as i32);
+                        geq_word_define(INT_BASE as usize + IntPar::char_sub_def_max as usize, p - CHAR_SUB_CODE_BASE as i32);
                     } else {
-                        eq_word_define(INT_BASE + IntPar::char_sub_def_max as i32, p - CHAR_SUB_CODE_BASE as i32);
+                        eq_word_define(INT_BASE as usize + IntPar::char_sub_def_max as usize, p - CHAR_SUB_CODE_BASE as i32);
                     }
                 }
             } else {
@@ -2194,29 +2194,29 @@ pub(crate) unsafe fn prefixed_command() {
                 get_r_token();
                 p = cur_cs;
                 if a as i32 >= 4i32 {
-                    geq_define(p, RELAX as _, TOO_BIG_USV);
+                    geq_define(p as usize, RELAX as _, TOO_BIG_USV);
                 } else {
-                    eq_define(p, RELAX as _, TOO_BIG_USV);
+                    eq_define(p as usize, RELAX as _, TOO_BIG_USV);
                 }
                 scan_optional_equals();
                 match n {
                     CHAR_DEF_CODE => {
                         scan_usv_num();
                         if a as i32 >= 4i32 {
-                            geq_define(p, 68_u16, cur_val);
-                        } else { eq_define(p, 68_u16, cur_val); }
+                            geq_define(p as usize, 68_u16, cur_val);
+                        } else { eq_define(p as usize, 68_u16, cur_val); }
                     }
                     MATH_CHAR_DEF_CODE => {
                         scan_fifteen_bit_int();
                         if a as i32 >= 4i32 {
-                            geq_define(p, 69_u16, cur_val);
-                        } else { eq_define(p, 69_u16, cur_val); }
+                            geq_define(p as usize, 69_u16, cur_val);
+                        } else { eq_define(p as usize, 69_u16, cur_val); }
                     }
                     XETEX_MATH_CHAR_NUM_DEF_CODE => {
                         scan_xetex_math_char_int();
                         if a as i32 >= 4i32 {
-                            geq_define(p, 70_u16, cur_val);
-                        } else { eq_define(p, 70_u16, cur_val); }
+                            geq_define(p as usize, 70_u16, cur_val);
+                        } else { eq_define(p as usize, 70_u16, cur_val); }
                     }
                     XETEX_MATH_CHAR_DEF_CODE => {
                         scan_math_class_int();
@@ -2237,8 +2237,8 @@ pub(crate) unsafe fn prefixed_command() {
                         scan_usv_num();
                         n = n + cur_val;
                         if a as i32 >= 4i32 {
-                            geq_define(p, 70_u16, n);
-                        } else { eq_define(p, 70_u16, n); }
+                            geq_define(p as usize, 70_u16, n);
+                        } else { eq_define(p as usize, 70_u16, n); }
                     }
                     _ => {
                         scan_register_num();
@@ -2250,43 +2250,43 @@ pub(crate) unsafe fn prefixed_command() {
                             MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
                             if j == 5i32 { j = 72i32 } else { j = 91i32 }
                             if a as i32 >= 4i32 {
-                                geq_define(p, j as u16, cur_ptr);
-                            } else { eq_define(p, j as u16, cur_ptr); }
+                                geq_define(p as usize, j as u16, cur_ptr);
+                            } else { eq_define(p as usize, j as u16, cur_ptr); }
                         } else {
                             match n {
                                 COUNT_DEF_CODE => {
                                     if a as i32 >= 4i32 {
-                                        geq_define(p, ASSIGN_INT, COUNT_BASE + cur_val);
+                                        geq_define(p as usize, ASSIGN_INT, COUNT_BASE + cur_val);
                                     } else {
-                                        eq_define(p, ASSIGN_INT, COUNT_BASE + cur_val);
+                                        eq_define(p as usize, ASSIGN_INT, COUNT_BASE + cur_val);
                                     }
                                 }
                                 DIMEN_DEF_CODE => {
                                     if a as i32 >= 4i32 {
-                                        geq_define(p, ASSIGN_DIMEN, SCALED_BASE + cur_val);
+                                        geq_define(p as usize, ASSIGN_DIMEN, SCALED_BASE + cur_val);
                                     } else {
-                                        eq_define(p, ASSIGN_DIMEN, SCALED_BASE + cur_val);
+                                        eq_define(p as usize, ASSIGN_DIMEN, SCALED_BASE + cur_val);
                                     }
                                 }
                                 SKIP_DEF_CODE => {
                                     if a as i32 >= 4i32 {
-                                        geq_define(p, ASSIGN_GLUE, SKIP_BASE + cur_val);
+                                        geq_define(p as usize, ASSIGN_GLUE, SKIP_BASE + cur_val);
                                     } else {
-                                        eq_define(p, ASSIGN_GLUE, SKIP_BASE + cur_val);
+                                        eq_define(p as usize, ASSIGN_GLUE, SKIP_BASE + cur_val);
                                     }
                                 }
                                 MU_SKIP_DEF_CODE => {
                                     if a as i32 >= 4i32 {
-                                        geq_define(p, ASSIGN_MU_GLUE, MU_SKIP_BASE + cur_val);
+                                        geq_define(p as usize, ASSIGN_MU_GLUE, MU_SKIP_BASE + cur_val);
                                     } else {
-                                        eq_define(p, ASSIGN_MU_GLUE, MU_SKIP_BASE + cur_val);
+                                        eq_define(p as usize, ASSIGN_MU_GLUE, MU_SKIP_BASE + cur_val);
                                     }
                                 }
                                 TOKS_DEF_CODE => {
                                     if a as i32 >= 4i32 {
-                                        geq_define(p, ASSIGN_TOKS, TOKS_BASE + cur_val);
+                                        geq_define(p as usize, ASSIGN_TOKS, TOKS_BASE + cur_val);
                                     } else {
-                                        eq_define(p, ASSIGN_TOKS, TOKS_BASE + cur_val);
+                                        eq_define(p as usize, ASSIGN_TOKS, TOKS_BASE + cur_val);
                                     }
                                 }
                                 _ => { }
@@ -2318,8 +2318,8 @@ pub(crate) unsafe fn prefixed_command() {
             p = cur_cs;
             read_toks(n, p, j);
             if a as i32 >= 4i32 {
-                geq_define(p, 113_u16, cur_val);
-            } else { eq_define(p, 113_u16, cur_val); }
+                geq_define(p as usize, 113_u16, cur_val);
+            } else { eq_define(p as usize, 113_u16, cur_val); }
         }
         TOKS_REGISTER | ASSIGN_TOKS => {
             q = cur_cs;
@@ -2398,22 +2398,22 @@ pub(crate) unsafe fn prefixed_command() {
                     if q.is_texnull() {
                         if e {
                             if a as i32 >= 4i32 {
-                                gsa_def(p, TEX_NULL);
-                            } else { sa_def(p, TEX_NULL); }
+                                gsa_def(p as usize, TEX_NULL);
+                            } else { sa_def(p as usize, TEX_NULL); }
                         } else if a as i32 >= 4i32 {
-                            geq_define(p, 103_u16, TEX_NULL);
+                            geq_define(p as usize, 103_u16, TEX_NULL);
                         } else {
-                            eq_define(p, 103_u16, TEX_NULL);
+                            eq_define(p as usize, 103_u16, TEX_NULL);
                         }
                     } else {
                         MEM[q as usize].b32.s0 += 1;
                         if e {
                             if a as i32 >= 4i32 {
-                                gsa_def(p, q);
-                            } else { sa_def(p, q); }
+                                gsa_def(p as usize, q);
+                            } else { sa_def(p as usize, q); }
                         } else if a as i32 >= 4i32 {
-                            geq_define(p, 113_u16, q);
-                        } else { eq_define(p, 113_u16, q); }
+                            geq_define(p as usize, 113_u16, q);
+                        } else { eq_define(p as usize, 113_u16, q); }
                     }
                     current_block = 1862445865460439639;
                 } else { current_block = 15174492983169363256; }
@@ -2427,22 +2427,22 @@ pub(crate) unsafe fn prefixed_command() {
                     if MEM[def_ref as usize].b32.s1.is_texnull() {
                         if e {
                             if a as i32 >= 4i32 {
-                                gsa_def(p, TEX_NULL);
-                            } else { sa_def(p, TEX_NULL); }
+                                gsa_def(p as usize, TEX_NULL);
+                            } else { sa_def(p as usize, TEX_NULL); }
                         } else if a as i32 >= 4i32 {
-                            geq_define(p, 103_u16, TEX_NULL);
+                            geq_define(p as usize, 103_u16, TEX_NULL);
                         } else {
-                            eq_define(p, 103_u16, TEX_NULL);
+                            eq_define(p as usize, 103_u16, TEX_NULL);
                         }
                         MEM[def_ref as usize].b32.s1 = avail;
                         avail = def_ref
                     } else {
                         if p == LOCAL_BASE + Local::output_routine as i32 && !e {
-                            MEM[q as usize].b32.s1 = get_avail();
+                            MEM[q as usize].b32.s1 = get_avail() as i32;
                             q = MEM[q as usize].b32.s1;
                             MEM[q as usize].b32.s0 =
                                 0x400000i32 + 125i32;
-                            q = get_avail();
+                            q = get_avail() as i32;
                             MEM[q as usize].b32.s0 =
                                 0x200000i32 + 123i32;
                             MEM[q as usize].b32.s1 =
@@ -2451,11 +2451,11 @@ pub(crate) unsafe fn prefixed_command() {
                         }
                         if e {
                             if a as i32 >= 4i32 {
-                                gsa_def(p, def_ref);
-                            } else { sa_def(p, def_ref); }
+                                gsa_def(p as usize, def_ref);
+                            } else { sa_def(p as usize, def_ref); }
                         } else if a as i32 >= 4i32 {
-                            geq_define(p, 113_u16, def_ref);
-                        } else { eq_define(p, 113_u16, def_ref); }
+                            geq_define(p as usize, 113_u16, def_ref);
+                        } else { eq_define(p as usize, 113_u16, def_ref); }
                     }
                 }
             }
@@ -2465,16 +2465,16 @@ pub(crate) unsafe fn prefixed_command() {
             scan_optional_equals();
             scan_int();
             if a as i32 >= 4i32 {
-                geq_word_define(p, cur_val);
-            } else { eq_word_define(p, cur_val); }
+                geq_word_define(p as usize, cur_val);
+            } else { eq_word_define(p as usize, cur_val); }
         }
         ASSIGN_DIMEN => {
             p = cur_chr;
             scan_optional_equals();
             scan_dimen(false, false, false);
             if a as i32 >= 4i32 {
-                geq_word_define(p, cur_val);
-            } else { eq_word_define(p, cur_val); }
+                geq_word_define(p as usize, cur_val);
+            } else { eq_word_define(p as usize, cur_val); }
         }
         ASSIGN_GLUE | ASSIGN_MU_GLUE => {
             p = cur_chr;
@@ -2485,8 +2485,8 @@ pub(crate) unsafe fn prefixed_command() {
             } else { scan_glue(2i32 as small_number); }
             trap_zero_glue();
             if a as i32 >= 4i32 {
-                geq_define(p, 119_u16, cur_val);
-            } else { eq_define(p, 119_u16, cur_val); }
+                geq_define(p as usize, 119_u16, cur_val);
+            } else { eq_define(p as usize, 119_u16, cur_val); }
         }
         XETEX_DEF_CODE => {
             if cur_chr == SF_CODE_BASE as i32 {
@@ -2497,11 +2497,11 @@ pub(crate) unsafe fn prefixed_command() {
                 scan_optional_equals();
                 scan_char_class();
                 if a as i32 >= 4i32 {
-                    geq_define(p, 122_u16,
+                    geq_define(p as usize, 122_u16,
                                (cur_val as i64 * 65536 +
                                     n as i64) as i32);
                 } else {
-                    eq_define(p, 122_u16,
+                    eq_define(p as usize, 122_u16,
                               (cur_val as i64 * 65536 +
                                    n as i64) as i32);
                 }
@@ -2512,8 +2512,8 @@ pub(crate) unsafe fn prefixed_command() {
                 scan_optional_equals();
                 scan_xetex_math_char_int();
                 if a as i32 >= 4i32 {
-                    geq_define(p, 122_u16, cur_val);
-                } else { eq_define(p, 122_u16, cur_val); }
+                    geq_define(p as usize, 122_u16, cur_val);
+                } else { eq_define(p as usize, 122_u16, cur_val); }
             } else if cur_chr == MATH_CODE_BASE as i32 + 1 {
                 p = cur_chr - 1i32;
                 scan_usv_num();
@@ -2533,8 +2533,8 @@ pub(crate) unsafe fn prefixed_command() {
                 scan_usv_num();
                 n = n + cur_val;
                 if a as i32 >= 4i32 {
-                    geq_define(p, 122_u16, n);
-                } else { eq_define(p, 122_u16, n); }
+                    geq_define(p as usize, 122_u16, n);
+                } else { eq_define(p as usize, 122_u16, n); }
             } else if cur_chr == DEL_CODE_BASE {
                 p = cur_chr;
                 scan_usv_num();
@@ -2542,8 +2542,8 @@ pub(crate) unsafe fn prefixed_command() {
                 scan_optional_equals();
                 scan_int();
                 if a as i32 >= 4i32 {
-                    geq_word_define(p, cur_val);
-                } else { eq_word_define(p, cur_val); }
+                    geq_word_define(p as usize, cur_val);
+                } else { eq_word_define(p as usize, cur_val); }
             } else {
                 p = cur_chr - 1i32;
                 scan_usv_num();
@@ -2555,8 +2555,8 @@ pub(crate) unsafe fn prefixed_command() {
                 scan_usv_num();
                 n = n + cur_val;
                 if a as i32 >= 4i32 {
-                    geq_word_define(p, n);
-                } else { eq_word_define(p, n); }
+                    geq_word_define(p as usize, n);
+                } else { eq_word_define(p as usize, n); }
             }
         }
     DEF_CODE => {
@@ -2600,17 +2600,17 @@ pub(crate) unsafe fn prefixed_command() {
                         (EQTB[p as usize].b32.s1 as i64 /
                              65536) as i32;
                     if a as i32 >= 4i32 {
-                        geq_define(p, 122_u16,
+                        geq_define(p as usize, 122_u16,
                                    (n as i64 * 65536 +
                                         cur_val as i64) as i32);
                     } else {
-                        eq_define(p, 122_u16,
+                        eq_define(p as usize, 122_u16,
                                   (n as i64 * 65536 +
                                        cur_val as i64) as i32);
                     }
                 } else if a as i32 >= 4i32 {
-                    geq_define(p, 122_u16, cur_val);
-                } else { eq_define(p, 122_u16, cur_val); }
+                    geq_define(p as usize, 122_u16, cur_val);
+                } else { eq_define(p as usize, 122_u16, cur_val); }
             } else if p < DEL_CODE_BASE {
                 if cur_val as i64 == 32768 {
                     cur_val = ACTIVE_MATH_CHAR
@@ -2630,11 +2630,11 @@ pub(crate) unsafe fn prefixed_command() {
                             as i32
                 }
                 if a as i32 >= 4i32 {
-                    geq_define(p, 122_u16, cur_val);
-                } else { eq_define(p, 122_u16, cur_val); }
+                    geq_define(p as usize, 122_u16, cur_val);
+                } else { eq_define(p as usize, 122_u16, cur_val); }
             } else if a as i32 >= 4i32 {
-                geq_word_define(p, cur_val);
-            } else { eq_word_define(p, cur_val); }
+                geq_word_define(p as usize, cur_val);
+            } else { eq_word_define(p as usize, cur_val); }
         }
         DEF_FAMILY => {
             p = cur_chr;
@@ -2643,8 +2643,8 @@ pub(crate) unsafe fn prefixed_command() {
             scan_optional_equals();
             scan_font_ident();
             if a as i32 >= 4i32 {
-                geq_define(p, 122_u16, cur_val);
-            } else { eq_define(p, 122_u16, cur_val); }
+                geq_define(p as usize, 122_u16, cur_val);
+            } else { eq_define(p as usize, 122_u16, cur_val); }
         }
         REGISTER | ADVANCE | MULTIPLY | DIVIDE => { do_register_command(a); }
         SET_BOX => {
@@ -2712,8 +2712,8 @@ pub(crate) unsafe fn prefixed_command() {
                 }
             }
             if a as i32 >= 4i32 {
-                geq_define(q, 120_u16, p);
-            } else { eq_define(q, 120_u16, p); }
+                geq_define(q as usize, 120_u16, p);
+            } else { eq_define(q as usize, 120_u16, p); }
         }
         HYPH_DATA => {
             if cur_chr == 1i32 {
@@ -3852,7 +3852,7 @@ unsafe fn final_cleanup() {
         cur_if = MEM[cond_ptr as usize].b16.s0 as small_number;
         temp_ptr = cond_ptr;
         cond_ptr = MEM[cond_ptr as usize].b32.s1;
-        free_node(temp_ptr, 2i32);
+        free_node(temp_ptr as usize, 2i32);
     }
     if history != TTHistory::SPOTLESS {
         if history == TTHistory::WARNING_ISSUED || (interaction as i32) < 3i32 {
