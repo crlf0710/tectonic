@@ -12864,27 +12864,13 @@ pub(crate) unsafe fn eTeX_enabled(mut b: bool, mut j: u16, mut k: i32) -> bool {
     b
 }
 pub(crate) unsafe fn show_save_groups() {
-    let mut current_block: u64;
-    let mut m: i16 = 0;
-    let mut i: i32 = 0;
-    let mut j: u16 = 0;
-    let mut s: &[u8] = &[];
-    let mut p = NEST_PTR;
-    NEST[p] = cur_list;
-    let v = SAVE_PTR as i32;
-    let l = cur_level;
-    let c = cur_group;
-    SAVE_PTR = cur_boundary as usize;
-    cur_level = cur_level.wrapping_sub(1);
-    let mut a = 1_i8;
-    print_nl_cstr(b"");
-    print_ln();
-    loop {
+    unsafe fn do_loop(mut p: usize, mut a: i8) -> (bool, usize, i8) {
         print_nl_cstr(b"### ");
         print_group(true);
         if cur_group == GroupCode::BOTTOM_LEVEL {
-            break;
+            return (true, p, a);
         }
+        let mut m: i16 = 0;
         loop {
             m = NEST[p].mode;
             if p > 0 {
@@ -12897,22 +12883,21 @@ pub(crate) unsafe fn show_save_groups() {
             }
         }
         print_cstr(b" (");
+        let mut s: &[u8] = &[];
         match cur_group {
+            GroupCode::BOTTOM_LEVEL => unreachable!(),
             GroupCode::SIMPLE => {
                 p += 1;
-                current_block = 11054735442240645164;
+                return found2(p, a);
             }
             GroupCode::HBOX | GroupCode::ADJUSTED_HBOX => {
                 s = b"hbox";
-                current_block = 6002151390280567665;
             }
             GroupCode::VBOX => {
                 s = b"vbox";
-                current_block = 6002151390280567665;
             }
             GroupCode::VTOP => {
                 s = b"vtop";
-                current_block = 6002151390280567665;
             }
             GroupCode::ALIGN => {
                 if a == 0 {
@@ -12922,7 +12907,7 @@ pub(crate) unsafe fn show_save_groups() {
                         s = b"valign"
                     }
                     a = 1;
-                    current_block = 17798259985923180687;
+                    return found1(s, p, a);
                 } else {
                     if a == 1 {
                         print_cstr(b"align entry");
@@ -12933,34 +12918,34 @@ pub(crate) unsafe fn show_save_groups() {
                         p = (p as i32 - a as i32) as usize
                     }
                     a = 0;
-                    current_block = 5407796692416645153;
+                    return found(p, a);
                 }
             }
             GroupCode::NO_ALIGN => {
                 p += 1;
                 a = -1;
                 print_esc_cstr(b"noalign");
-                current_block = 11054735442240645164;
+                return found2(p, a);
             }
             GroupCode::OUTPUT => {
                 print_esc_cstr(b"output");
-                current_block = 5407796692416645153;
+                return found(p, a);
             }
-            GroupCode::MATH => current_block = 11054735442240645164,
+            GroupCode::MATH => return found2(p, a),
             GroupCode::DISC | GroupCode::MATH_CHOICE => {
                 if cur_group == GroupCode::DISC {
                     print_esc_cstr(b"discretionary");
                 } else {
                     print_esc_cstr(b"mathchoice");
                 }
-                i = 1;
+                let mut i = 1;
                 while i <= 3 {
                     if i <= SAVE_STACK[SAVE_PTR - 2].b32.s1 {
                         print_cstr(b"{}");
                     }
                     i += 1;
                 }
-                current_block = 11054735442240645164;
+                return found2(p, a);
             }
             GroupCode::INSERT => {
                 if SAVE_STACK[SAVE_PTR - 2].b32.s1 == 255 {
@@ -12969,34 +12954,26 @@ pub(crate) unsafe fn show_save_groups() {
                     print_esc_cstr(b"insert");
                     print_int(SAVE_STACK[SAVE_PTR - 2].b32.s1);
                 }
-                current_block = 11054735442240645164;
+                return found2(p, a);
             }
             GroupCode::VCENTER => {
                 s = b"vcenter";
-                current_block = 17798259985923180687;
+                return found1(s, p, a);
             }
             GroupCode::SEMI_SIMPLE => {
                 p += 1;
                 print_esc_cstr(b"begingroup");
-                current_block = 5407796692416645153;
+                return found(p, a);
             }
             GroupCode::MATH_SHIFT => {
                 if m == MMODE {
                     print_char('$' as i32);
-                    current_block = 17441561948628420366;
                 } else if NEST[p].mode == MMODE {
                     print_cmd_chr(EQ_NO, SAVE_STACK[SAVE_PTR - 2].b32.s1);
-                    current_block = 5407796692416645153;
-                } else {
-                    current_block = 17441561948628420366;
+                    return found(p, a);
                 }
-                match current_block {
-                    5407796692416645153 => {}
-                    _ => {
-                        print_char('$' as i32);
-                        current_block = 5407796692416645153;
-                    }
-                }
+                print_char('$' as i32);
+                return found(p, a);
             }
             GroupCode::MATH_LEFT => {
                 if MEM[NEST[p + 1].eTeX_aux as usize].b16.s1 == LEFT_NOAD {
@@ -13004,72 +12981,93 @@ pub(crate) unsafe fn show_save_groups() {
                 } else {
                     print_esc_cstr(b"middle");
                 }
-                current_block = 5407796692416645153;
+                return found(p, a);
             }
-            _ => current_block = 6002151390280567665,
         }
-        match current_block {
-            6002151390280567665 => {
-                i = SAVE_STACK[SAVE_PTR - 4].b32.s1;
-                if i != 0 {
-                    if i < BOX_FLAG {
-                        if NEST[p].mode.abs() == VMODE {
-                            j = HMOVE;
-                        } else {
-                            j = VMOVE;
-                        }
-                        if i > 0 {
-                            print_cmd_chr(j, 0);
-                        } else {
-                            print_cmd_chr(j, 1);
-                        }
-                        print_scaled(i.abs());
-                        print_cstr(b"pt");
-                    } else if i < SHIP_OUT_FLAG {
-                        if i >= GLOBAL_BOX_FLAG {
-                            print_esc_cstr(b"global");
-                            i = i - (GLOBAL_BOX_FLAG - BOX_FLAG)
-                        }
-                        print_esc_cstr(b"setbox");
-                        print_int(i - BOX_FLAG);
-                        print_char('=' as i32);
-                    } else {
-                        print_cmd_chr(LEADER_SHIP, i - (LEADER_FLAG - (A_LEADERS as i32)));
-                    }
+
+        let mut i = SAVE_STACK[SAVE_PTR - 4].b32.s1;
+
+        if i != 0 {
+            if i < BOX_FLAG {
+                let j = if NEST[p].mode.abs() == VMODE {
+                    HMOVE
+                } else {
+                    VMOVE
+                };
+                if i > 0 {
+                    print_cmd_chr(j, 0);
+                } else {
+                    print_cmd_chr(j, 1);
                 }
-                current_block = 17798259985923180687;
-            }
-            _ => {}
-        }
-        match current_block {
-            17798259985923180687 => {
-                print_esc_cstr(s);
-                if SAVE_STACK[SAVE_PTR - 2].b32.s1 != 0 {
-                    print_char(' ' as i32);
-                    if SAVE_STACK[SAVE_PTR - 3].b32.s1 == EXACTLY as i32 {
-                        print_cstr(b"to");
-                    } else {
-                        print_cstr(b"spread");
-                    }
-                    print_scaled(SAVE_STACK[SAVE_PTR - 2].b32.s1);
-                    print_cstr(b"pt");
+                print_scaled(i.abs());
+                print_cstr(b"pt");
+            } else if i < SHIP_OUT_FLAG {
+                if i >= GLOBAL_BOX_FLAG {
+                    print_esc_cstr(b"global");
+                    i = i - (GLOBAL_BOX_FLAG - BOX_FLAG)
                 }
-                current_block = 11054735442240645164;
+                print_esc_cstr(b"setbox");
+                print_int(i - BOX_FLAG);
+                print_char('=' as i32);
+            } else {
+                print_cmd_chr(LEADER_SHIP, i - (LEADER_FLAG - (A_LEADERS as i32)));
             }
-            _ => {}
         }
-        match current_block {
-            11054735442240645164 => print_char('{' as i32),
-            _ => {}
+        found1(s, p, a)
+    }
+
+    unsafe fn found1(s: &[u8], p: usize, a: i8) -> (bool, usize, i8) {
+        print_esc_cstr(s);
+        if SAVE_STACK[SAVE_PTR - 2].b32.s1 != 0 {
+            print_char(' ' as i32);
+            if SAVE_STACK[SAVE_PTR - 3].b32.s1 == EXACTLY as i32 {
+                print_cstr(b"to");
+            } else {
+                print_cstr(b"spread");
+            }
+            print_scaled(SAVE_STACK[SAVE_PTR - 2].b32.s1);
+            print_cstr(b"pt");
         }
+        found2(p, a)
+    }
+
+    unsafe fn found2(p: usize, a: i8) -> (bool, usize, i8) {
+        print_char('{' as i32);
+        found(p, a)
+    }
+
+    unsafe fn found(p: usize, a: i8) -> (bool, usize, i8) {
         print_char(')' as i32);
         cur_level = cur_level.wrapping_sub(1);
         cur_group = GroupCode::from(SAVE_STACK[SAVE_PTR].b16.s0);
-        SAVE_PTR = SAVE_STACK[SAVE_PTR].b32.s1 as usize
+        SAVE_PTR = SAVE_STACK[SAVE_PTR].b32.s1 as usize;
+        (false, p, a)
     }
-    SAVE_PTR = v as usize;
-    cur_level = l;
-    cur_group = c;
+
+    unsafe fn done(v: i32, l: u16, c: GroupCode) {
+        SAVE_PTR = v as usize;
+        cur_level = l;
+        cur_group = c;
+    }
+
+    let mut p = NEST_PTR;
+    NEST[p] = cur_list;
+    let v = SAVE_PTR as i32;
+    let l = cur_level;
+    let c = cur_group;
+    SAVE_PTR = cur_boundary as usize;
+    cur_level = cur_level.wrapping_sub(1);
+    let mut a = 1_i8;
+    print_nl_cstr(b"");
+    print_ln();
+    loop {
+        let (is_done, new_p, new_a) = do_loop(p, a);
+        p = new_p;
+        a = new_a;
+        if is_done {
+            return done(v, l, c);
+        }
+    }
 }
 pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) -> i32 {
     let mut current_block: u64;
