@@ -488,28 +488,28 @@ pub(crate) unsafe fn print_size(mut s: i32) {
         print_esc_cstr(b"scriptscriptfont");
     };
 }
-pub(crate) unsafe fn print_write_whatsit(s: &[u8], mut p: i32) {
+pub(crate) unsafe fn print_write_whatsit(s: &[u8], p: usize) {
     print_esc_cstr(s);
-    if MEM[(p + 1) as usize].b32.s0 < 16 {
-        print_int(MEM[(p + 1) as usize].b32.s0);
-    } else if MEM[(p + 1) as usize].b32.s0 == 16 {
+    if MEM[p + 1].b32.s0 < 16 {
+        print_int(MEM[p + 1].b32.s0);
+    } else if MEM[p + 1].b32.s0 == 16 {
         print_char('*' as i32);
     } else {
         print_char('-' as i32);
     };
 }
-pub(crate) unsafe fn print_native_word(mut p: i32) {
+pub(crate) unsafe fn print_native_word(p: usize) {
     let mut i: i32 = 0;
     let mut c: i32 = 0;
     let mut cc: i32 = 0;
-    let mut for_end: i32 = MEM[(p + 4) as usize].b16.s1 as i32 - 1;
+    let mut for_end: i32 = MEM[p + 4].b16.s1 as i32 - 1;
     i = 0i32;
     while i <= for_end {
-        c = *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16).offset(i as isize) as i32;
+        c = *(&mut MEM[p + 6] as *mut memory_word as *mut u16).offset(i as isize) as i32;
         if c >= 0xd800i32 && c < 0xdc00i32 {
-            if i < MEM[(p + 4) as usize].b16.s1 as i32 - 1 {
-                cc = *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16)
-                    .offset((i + 1i32) as isize) as i32;
+            if i < MEM[p + 4].b16.s1 as i32 - 1 {
+                cc = *(&mut MEM[p + 6] as *mut memory_word as *mut u16).offset((i + 1i32) as isize)
+                    as i32;
                 if cc >= 0xdc00i32 && cc < 0xe000i32 {
                     c = 0x10000i32 + (c - 0xd800i32) * 1024i32 + (cc - 0xdc00i32);
                     print_char(c);

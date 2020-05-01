@@ -522,7 +522,7 @@ unsafe fn scan_delimiter(mut p: i32, mut r: bool) {
     };
 }
 pub(crate) unsafe fn math_radical() {
-    MEM[cur_list.tail as usize].b32.s1 = get_node(RADICAL_NOAD_SIZE);
+    MEM[cur_list.tail as usize].b32.s1 = get_node(RADICAL_NOAD_SIZE) as i32;
     cur_list.tail = *LLIST_link(cur_list.tail as usize);
     MEM[cur_list.tail as usize].b16.s1 = RADICAL_NOAD as u16;
     MEM[cur_list.tail as usize].b16.s0 = NORMAL as u16;
@@ -549,7 +549,7 @@ pub(crate) unsafe fn math_ac() {
         help_line[0] = b"(Accents are not the same in formulas as they are in text.)";
         error();
     }
-    MEM[cur_list.tail as usize].b32.s1 = get_node(ACCENT_NOAD_SIZE);
+    MEM[cur_list.tail as usize].b32.s1 = get_node(ACCENT_NOAD_SIZE) as i32;
     cur_list.tail = *LLIST_link(cur_list.tail as usize);
     MEM[cur_list.tail as usize].b16.s1 = ACCENT_NOAD as u16;
     MEM[cur_list.tail as usize].b16.s0 = NORMAL as u16;
@@ -710,7 +710,7 @@ pub(crate) unsafe fn math_fraction() {
         help_line[0] = b"means `{x \\over y} \\over z\' or `x \\over {y \\over z}\'.";
         error();
     } else {
-        cur_list.aux.b32.s1 = get_node(FRACTION_NOAD_SIZE);
+        cur_list.aux.b32.s1 = get_node(FRACTION_NOAD_SIZE) as i32;
         MEM[cur_list.aux.b32.s1 as usize].b16.s1 = FRACTION_NOAD as u16;
         MEM[cur_list.aux.b32.s1 as usize].b16.s0 = NORMAL as u16;
         MEM[(cur_list.aux.b32.s1 + 2) as usize].b32.s1 = SUB_MLIST;
@@ -925,7 +925,7 @@ pub(crate) unsafe fn after_math() {
 
     danger = false;
 
-    if cur_list.mode as i32 == MMODE {
+    if cur_list.mode == MMODE {
         j = cur_list.eTeX_aux; // :1530
     }
     if FONT_PARAMS[*MATH_FONT(2) as usize] < TOTAL_MATHSY_PARAMS
@@ -1026,7 +1026,7 @@ pub(crate) unsafe fn after_math() {
             l = true
         }
         danger = false;
-        if cur_list.mode as i32 == MMODE {
+        if cur_list.mode == MMODE {
             j = cur_list.eTeX_aux
         }
         if FONT_PARAMS[*MATH_FONT(2) as usize] < TOTAL_MATHSY_PARAMS
@@ -1539,7 +1539,7 @@ unsafe fn math_glue(mut g: i32, mut m: scaled_t) -> i32 {
         n -= 1;
         f = (f as i64 + 65536) as scaled_t
     }
-    let p = get_node(GLUE_SPEC_SIZE);
+    let p = get_node(GLUE_SPEC_SIZE) as i32;
     MEM[(p + 1) as usize].b32.s1 = mult_and_add(
         n,
         MEM[(g + 1) as usize].b32.s1,
@@ -1912,7 +1912,7 @@ unsafe fn make_math_accent(mut q: i32) {
         }
         y = char_box(f, c);
         if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
-            let mut p = get_node(GLYPH_NODE_SIZE);
+            let mut p = get_node(GLYPH_NODE_SIZE) as i32;
             *NODE_type(p as usize) = WHATSIT_NODE;
             MEM[p as usize].b16.s0 = GLYPH_NODE;
             MEM[(p + 4) as usize].b16.s2 = f as u16;
@@ -3003,7 +3003,7 @@ unsafe fn mlist_to_hlist() {
                             || FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
                         {
                             z = new_native_character(cur_f, cur_c);
-                            p = get_node(GLYPH_NODE_SIZE);
+                            p = get_node(GLYPH_NODE_SIZE) as i32;
                             *NODE_type(p as usize) = WHATSIT_NODE;
                             MEM[p as usize].b16.s0 = GLYPH_NODE;
                             MEM[(p + 4) as usize].b16.s2 = cur_f as u16;
@@ -3496,7 +3496,7 @@ unsafe fn var_delimiter(mut d: i32, mut s: i32, mut v: scaled_t) -> i32 {
         } else {
             b = new_null_box();
             MEM[b as usize].b16.s1 = VLIST_NODE;
-            MEM[(b + 5) as usize].b32.s1 = get_node(GLYPH_NODE_SIZE);
+            MEM[(b + 5) as usize].b32.s1 = get_node(GLYPH_NODE_SIZE) as i32;
             *NODE_type(MEM[b as usize + 5].b32.s1 as usize) = WHATSIT_NODE;
             MEM[MEM[(b + 5) as usize].b32.s1 as usize].b16.s0 = GLYPH_NODE;
             MEM[(MEM[(b + 5) as usize].b32.s1 + 4) as usize].b16.s2 = f as u16;
@@ -3569,7 +3569,7 @@ unsafe fn height_plus_depth(mut f: internal_font_number, mut c: u16) -> scaled_t
             .s1
 }
 unsafe fn stack_glyph_into_box(mut b: i32, mut f: internal_font_number, mut g: i32) {
-    let p = get_node(GLYPH_NODE_SIZE);
+    let p = get_node(GLYPH_NODE_SIZE) as i32;
     *NODE_type(p as usize) = WHATSIT_NODE;
     MEM[p as usize].b16.s0 = GLYPH_NODE;
     MEM[(p + 4) as usize].b16.s2 = f as u16;

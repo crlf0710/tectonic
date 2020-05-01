@@ -296,7 +296,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
             }
         }
-        q = get_node(active_node_size as i32);
+        q = get_node(active_node_size as i32) as i32;
         *NODE_type(q as usize) = UNHYPHENATED as _;
         MEM[q as usize].b16.s0 = DECENT_FIT as _;
         *LLIST_link(q as usize) = LAST_ACTIVE as i32;
@@ -2189,7 +2189,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                         active_width[5] = break_width[5];
                         active_width[6] = break_width[6]
                     } else {
-                        q = get_node(7i32);
+                        q = get_node(7i32) as i32;
                         MEM[q as usize].b32.s1 = r;
                         MEM[q as usize].b16.s1 = 2_u16;
                         MEM[q as usize].b16.s0 = 0_u16;
@@ -2213,12 +2213,12 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                     while fit_class as i32 <= 3i32 {
                         if minimal_demerits[fit_class as usize] <= minimum_demerits {
                             /*874: "Insert a new active node from best_place[fit_class] to cur_p" */
-                            q = get_node(2i32);
+                            q = get_node(2i32) as i32;
                             MEM[q as usize].b32.s1 = passive;
                             passive = q;
                             MEM[(q + 1) as usize].b32.s1 = cur_p;
                             MEM[(q + 1) as usize].b32.s0 = best_place[fit_class as usize];
-                            q = get_node(active_node_size as i32);
+                            q = get_node(active_node_size as i32) as i32;
                             MEM[(q + 1) as usize].b32.s1 = passive;
                             MEM[(q + 1) as usize].b32.s0 = best_pl_line[fit_class as usize] + 1;
                             MEM[q as usize].b16.s0 = fit_class as u16;
@@ -2239,7 +2239,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                     minimum_demerits = 0x3fffffffi32;
                     /*873: "Insert a delta node to prepare for the next active node" */
                     if r != 4999999i32 - 7i32 {
-                        q = get_node(7i32); /* subtype is not used */
+                        q = get_node(7i32) as i32; /* subtype is not used */
                         MEM[q as usize].b32.s1 = r;
                         MEM[q as usize].b16.s1 = 2_u16;
                         MEM[q as usize].b16.s0 = 0_u16;
@@ -2980,7 +2980,7 @@ unsafe fn hyphenate() {
                 loop
                 /*949: */
                 {
-                    r = get_node(2i32);
+                    r = get_node(2i32) as i32;
                     MEM[r as usize].b32.s1 = MEM[(4999999 - 4) as usize].b32.s1;
                     MEM[r as usize].b16.s1 = 7_u16;
                     major_tail = r;

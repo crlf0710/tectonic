@@ -1003,7 +1003,7 @@ unsafe fn hlist_out() {
                                     MEM[(p + 1) as usize].b32.s1
                                         = rule_wd
                                 } else {
-                                    g = get_node(4i32);
+                                    g = get_node(4i32) as i32;
                                     MEM[g as usize].b16.s1 =
                                         (3i32 + 1i32) as u16;
                                     MEM[g as usize].b16.s0 =
@@ -1760,7 +1760,7 @@ unsafe fn reverse(
                                     MEM[p as usize].b16.s1 = 11_u16;
                                     MEM[(p + 1) as usize].b32.s1 = rule_wd
                                 } else {
-                                    g = get_node(4i32);
+                                    g = get_node(4i32) as i32;
                                     MEM[g as usize].b16.s1 = (3 + 1) as u16;
                                     MEM[g as usize].b16.s0 = (3 + 1) as u16;
                                     MEM[(g + 1) as usize].b32.s1 = rule_wd;
@@ -2034,7 +2034,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut k: i32 = 0;
-    q = get_node(3i32);
+    q = get_node(3i32) as i32;
     MEM[(q + 1) as usize].b32.s1 = w;
     MEM[(q + 2) as usize].b32.s1 = dvi_offset + dvi_ptr;
     if o as i32 == 157i32 {

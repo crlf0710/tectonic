@@ -593,7 +593,7 @@ pub(crate) unsafe fn build_page() {
                     /*1044: "Create a page insertion node with subtype(r) = n, and
                      * include the glue correction for box `n` in the current page
                      * state" */
-                    slf.q = get_node(PAGE_INS_NODE_SIZE);
+                    slf.q = get_node(PAGE_INS_NODE_SIZE) as i32;
                     *LLIST_link(slf.q as usize) = *LLIST_link(slf.r as usize);
                     *LLIST_link(slf.r as usize) = slf.q;
                     slf.r = slf.q;

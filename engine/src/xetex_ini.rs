@@ -1169,7 +1169,7 @@ unsafe fn sort_avail() {
     let mut q: i32 = 0;
     let mut r: i32 = 0;
     let mut old_rover: i32 = 0;
-    p = get_node(0x40000000i32);
+    p = get_node(0x40000000i32) as i32;
     p = MEM[(rover + 1) as usize].b32.s1;
     MEM[(rover + 1) as usize].b32.s1 = 0x3fffffff;
     old_rover = rover;
@@ -2685,7 +2685,7 @@ pub(crate) unsafe fn prefixed_command() {
                 p = TEX_NULL
             } else if q > LOCAL_BASE + Local::par_shape as i32 {
                 n = cur_val / 2i32 + 1i32;
-                p = get_node(2i32 * n + 1i32);
+                p = get_node(2i32 * n + 1i32) as i32;
                 MEM[p as usize].b32.s0 = n;
                 n = cur_val;
                 MEM[(p + 1) as usize].b32.s1 = n;
@@ -2699,7 +2699,7 @@ pub(crate) unsafe fn prefixed_command() {
                     MEM[(p + n + 2) as usize].b32.s1 = 0
                 }
             } else {
-                p = get_node(2i32 * n + 1i32);
+                p = get_node(2i32 * n + 1i32) as i32;
                 MEM[p as usize].b32.s0 = n;
                 j = 1i32;
                 while j <= n {
@@ -4810,8 +4810,8 @@ unsafe fn initialize_primitives() {
     primitive(b"skip", REGISTER, 2);
     primitive(b"muskip", REGISTER, 3);
 
-    primitive(b"spacefactor", SET_AUX, HMODE);
-    primitive(b"prevdepth", SET_AUX, VMODE);
+    primitive(b"spacefactor", SET_AUX, HMODE as i32);
+    primitive(b"prevdepth", SET_AUX, VMODE as i32);
 
     primitive(b"deadcycles", SET_PAGE_INT, 0);
     primitive(b"insertpenalties", SET_PAGE_INT, 1);
