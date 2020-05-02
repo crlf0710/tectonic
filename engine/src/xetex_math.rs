@@ -174,7 +174,7 @@ pub(crate) unsafe fn init_math() {
                 MEM[TEMP_HEAD].b32.s1 = p;
                 just_copy(
                     MEM[(just_box + 5) as usize].b32.s1,
-                    p,
+                    p as usize,
                     new_math(0, END_L_CODE as small_number),
                 );
                 cur_dir = RIGHT_TO_LEFT as small_number

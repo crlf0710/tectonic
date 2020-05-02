@@ -3341,7 +3341,7 @@ unsafe fn load_fmt_file() -> bool {
             break;
         }
         fmt_in.undump_one(&mut x);
-        if x < TEX_NULL || x > lo_mem_max {
+        if x < MIN_HALFWORD || x > lo_mem_max {
             bad_fmt();
         } else {
             sa_root[k as usize] = x;
@@ -3554,13 +3554,13 @@ unsafe fn load_fmt_file() -> bool {
     fmt_in.undump(&mut FONT_DSIZE[..FONT_PTR + 1]);
     fmt_in.undump(&mut FONT_PARAMS[..FONT_PTR + 1]);
     for i_0 in 0..FONT_PTR + 1 {
-        if FONT_PARAMS[i_0] < TEX_NULL || FONT_PARAMS[i_0] > 0x3fffffff {
+        if FONT_PARAMS[i_0] < MIN_HALFWORD || FONT_PARAMS[i_0] > 0x3fffffff {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i_0,
                 FONT_PARAMS[i_0],
                 FONT_PARAMS.as_ptr() as uintptr_t,
-                TEX_NULL,
+                MIN_HALFWORD,
                 0x3fffffff
             );
         }
@@ -3604,13 +3604,13 @@ unsafe fn load_fmt_file() -> bool {
     fmt_in.undump(&mut PARAM_BASE[..FONT_PTR + 1]);
     fmt_in.undump(&mut FONT_GLUE[..FONT_PTR + 1]);
     for i_3 in 0..FONT_PTR + 1 {
-        if FONT_GLUE[i_3] < TEX_NULL || FONT_GLUE[i_3] > lo_mem_max {
+        if FONT_GLUE[i_3] < MIN_HALFWORD || FONT_GLUE[i_3] > lo_mem_max {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i_3,
                 FONT_GLUE[i_3],
                 FONT_GLUE.as_ptr() as uintptr_t,
-                TEX_NULL,
+                MIN_HALFWORD,
                 lo_mem_max
             );
         }

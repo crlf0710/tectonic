@@ -259,9 +259,10 @@ pub(crate) unsafe fn FONT_CHARINFO_ITALCORR(f: usize, info: b16x4) -> &'static m
         .b32
         .s1
 }
+pub(crate) unsafe fn FONT_CHARACTER_WIDTH(f: usize, c: usize) -> &'static mut i32 {
+    FONT_CHARINFO_WIDTH(f, FONT_CHARACTER_INFO(f, c))
+}
 /*
-#define FONT_CHARACTER_WIDTH(f, c) FONT_CHARINFO_WIDTH(f, FONT_CHARACTER_INFO(f, c))
-
 #define TOKEN_LIST_ref_count(p) mem[p].b32.s0
 
 /* e-TeX extended marks stuff ... not sure where to put these */

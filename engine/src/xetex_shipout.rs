@@ -1668,8 +1668,8 @@ unsafe fn reverse(
     g_sign = MEM[(this_box + 5) as usize].b16.s1 as u8;
     l = t;
     p = temp_ptr;
-    m = -0xfffffffi32;
-    n = -0xfffffffi32;
+    m = MIN_HALFWORD;
+    n = MIN_HALFWORD;
     's_58: loop {
         if p != -0xfffffffi32 {
             loop
@@ -1811,12 +1811,12 @@ unsafe fn reverse(
                         LR_ptr = MEM[temp_ptr as usize].b32.s1;
                         MEM[temp_ptr as usize].b32.s1 = avail;
                         avail = temp_ptr;
-                        if n > -0xfffffffi32 {
+                        if n > MIN_HALFWORD {
                             n -= 1;
                             MEM[p as usize].b16.s0 -= 1;
                         } else {
                             MEM[p as usize].b16.s1 = 11_u16;
-                            if m > -0xfffffffi32 {
+                            if m > MIN_HALFWORD {
                                 m -= 1
                             } else {
                                 /*1517: "Finish the reverse hlist segment and goto done" */
@@ -1835,7 +1835,7 @@ unsafe fn reverse(
                     MEM[temp_ptr as usize].b32.s0 = 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3;
                     MEM[temp_ptr as usize].b32.s1 = LR_ptr;
                     LR_ptr = temp_ptr;
-                    if n > -0xfffffffi32 || MEM[p as usize].b16.s0 as i32 / 8 != cur_dir as i32 {
+                    if n > MIN_HALFWORD || MEM[p as usize].b16.s0 as i32 / 8 != cur_dir as i32 {
                         n += 1;
                         MEM[p as usize].b16.s0 += 1;
                     } else {
