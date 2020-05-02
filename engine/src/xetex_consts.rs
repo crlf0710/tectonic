@@ -201,12 +201,12 @@ pub(crate) unsafe fn TOKS_REG(n: placeholdertype) -> &'static mut i32 {
     &mut EQTB[(TOKS_BASE + n) as usize].b32.s1
 }
 
-pub(crate) const ETEX_PEN_BASE: placeholdertype = TOKS_BASE + NUMBER_REGS as i32;
-pub(crate) const INTER_LINE_PENALTIES_LOC: placeholdertype = ETEX_PEN_BASE + 0;
-pub(crate) const CLUB_PENALTIES_LOC: placeholdertype = ETEX_PEN_BASE + 1;
-pub(crate) const WIDOW_PENALTIES_LOC: placeholdertype = ETEX_PEN_BASE + 2;
-pub(crate) const DISPLAY_WIDOW_PENALTIES_LOC: placeholdertype = ETEX_PEN_BASE + 3;
-pub(crate) const ETEX_PENS: placeholdertype = ETEX_PEN_BASE + 4;
+pub(crate) const ETEX_PEN_BASE: usize = TOKS_BASE as usize + NUMBER_REGS;
+pub(crate) const INTER_LINE_PENALTIES_LOC: usize = ETEX_PEN_BASE + 0;
+pub(crate) const CLUB_PENALTIES_LOC: usize = ETEX_PEN_BASE + 1;
+pub(crate) const WIDOW_PENALTIES_LOC: usize = ETEX_PEN_BASE + 2;
+pub(crate) const DISPLAY_WIDOW_PENALTIES_LOC: usize = ETEX_PEN_BASE + 3;
+pub(crate) const ETEX_PENS: usize = ETEX_PEN_BASE + 4;
 
 pub(crate) const BOX_BASE: usize = ETEX_PENS as usize;
 pub(crate) unsafe fn BOX_REG(n: usize) -> &'static mut i32 {
@@ -537,7 +537,7 @@ pub(crate) const SPLIT_BOT_MARK_CODE: placeholdertype = 4;
 /* MATH_NODE stuff with L/R typesetting extras */
 pub(crate) const BEFORE: u16 = 0;
 pub(crate) const AFTER: u16 = 1;
-pub(crate) const BEGIN_M_CODE: placeholdertype = 2;
+pub(crate) const BEGIN_M_CODE: u16 = 2;
 pub(crate) const END_M_CODE: u16 = 3;
 pub(crate) const L_CODE: u16 = 4;
 pub(crate) const R_CODE: u16 = 8;
@@ -1084,8 +1084,8 @@ pub(crate) const LONG_OUTER_CALL: u16 = 116;
 pub(crate) const END_TEMPLATE: u16 = 117;
 pub(crate) const DONT_EXPAND: placeholdertype = 118;
 pub(crate) const GLUE_REF: u16 = 119;
-pub(crate) const SHAPE_REF: placeholdertype = 120;
-pub(crate) const BOX_REF: placeholdertype = 121;
+pub(crate) const SHAPE_REF: u16 = 120;
+pub(crate) const BOX_REF: u16 = 121;
 pub(crate) const DATA: placeholdertype = 122;
 pub(crate) const DIMEN_VAL_LIMIT: u16 = 128;
 pub(crate) const MMODE: i16 = 207;

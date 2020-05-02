@@ -1820,7 +1820,7 @@ unsafe fn post_line_break(mut d: bool) {
         adjust_tail = -0xfffffffi32;
         /* 919: Set `pen` to all of the penalties relevant to this line. */
         if cur_line + 1i32 != best_line {
-            q = EQTB[(ETEX_PEN_BASE + 0i32) as usize].b32.s1;
+            q = EQTB[INTER_LINE_PENALTIES_LOC].b32.s1;
             if q != -0xfffffffi32 {
                 r = cur_line;
                 if r > MEM[(q + 1) as usize].b32.s1 {
@@ -1830,7 +1830,7 @@ unsafe fn post_line_break(mut d: bool) {
             } else {
                 pen = *INTPAR(IntPar::inter_line_penalty)
             }
-            q = EQTB[(ETEX_PEN_BASE + 1i32) as usize].b32.s1;
+            q = EQTB[CLUB_PENALTIES_LOC].b32.s1;
             if q != -0xfffffffi32 {
                 r = cur_line - cur_list.prev_graf;
                 if r > MEM[(q + 1) as usize].b32.s1 {
@@ -1841,9 +1841,9 @@ unsafe fn post_line_break(mut d: bool) {
                 pen += *INTPAR(IntPar::club_penalty)
             }
             if d {
-                q = EQTB[(ETEX_PEN_BASE + 3i32) as usize].b32.s1
+                q = EQTB[DISPLAY_WIDOW_PENALTIES_LOC].b32.s1
             } else {
-                q = EQTB[(ETEX_PEN_BASE + 2i32) as usize].b32.s1
+                q = EQTB[WIDOW_PENALTIES_LOC].b32.s1
             }
             if q != -0xfffffffi32 {
                 r = best_line - cur_line - 1i32;

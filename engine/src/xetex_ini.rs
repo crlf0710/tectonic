@@ -4134,7 +4134,7 @@ unsafe fn initialize_more_initex_variables() {
     EQTB[LOCAL_BASE as usize + Local::par_shape as usize].b16.s1 = SHAPE_REF as _;
     EQTB[LOCAL_BASE as usize + Local::par_shape as usize].b16.s0 = LEVEL_ONE as _;
     for k in ETEX_PEN_BASE..=(ETEX_PENS - 1) {
-        EQTB[k as usize] = EQTB[LOCAL_BASE as usize + Local::par_shape as usize];
+        EQTB[k] = EQTB[LOCAL_BASE as usize + Local::par_shape as usize];
     }
     for k in (LOCAL_BASE + Local::output_routine as i32)..=(TOKS_BASE + NUMBER_REGS as i32 - 1) {
         EQTB[k as usize] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
@@ -5567,13 +5567,17 @@ pub(crate) unsafe fn tt_run_engine(
         primitive(b"pagediscards", UN_VBOX, LAST_BOX_CODE);
         primitive(b"splitdiscards", UN_VBOX, VSPLIT_CODE);
 
-        primitive(b"interlinepenalties", SET_SHAPE, INTER_LINE_PENALTIES_LOC);
-        primitive(b"clubpenalties", SET_SHAPE, CLUB_PENALTIES_LOC);
-        primitive(b"widowpenalties", SET_SHAPE, WIDOW_PENALTIES_LOC);
+        primitive(
+            b"interlinepenalties",
+            SET_SHAPE,
+            INTER_LINE_PENALTIES_LOC as i32,
+        );
+        primitive(b"clubpenalties", SET_SHAPE, CLUB_PENALTIES_LOC as i32);
+        primitive(b"widowpenalties", SET_SHAPE, WIDOW_PENALTIES_LOC as i32);
         primitive(
             b"displaywidowpenalties",
             SET_SHAPE,
-            DISPLAY_WIDOW_PENALTIES_LOC,
+            DISPLAY_WIDOW_PENALTIES_LOC as i32,
         );
         max_reg_num = 32767i32;
         max_reg_help_line = b"A register number must be between 0 and 32767.";
