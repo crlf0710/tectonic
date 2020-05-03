@@ -15956,7 +15956,6 @@ pub(crate) unsafe fn handle_right_brace() {
 }
 pub(crate) unsafe fn main_control() {
     let mut current_block: u64;
-    let mut t: i32 = 0;
     if !LOCAL(Local::every_job).is_texnull() {
         begin_token_list(*LOCAL(Local::every_job), 13_u16);
     }
@@ -15968,53 +15967,56 @@ pub(crate) unsafe fn main_control() {
             if *INTPAR(IntPar::tracing_commands) > 0i32 {
                 show_cur_cmd_chr(); /*:1490 */
             }
-            match (cur_list.mode as i32).abs() + cur_cmd as i32 {
+            match cur_list.mode.abs() + cur_cmd as i16 {
                 115 | 116 | 172 => {}
                 120 => {
                     scan_usv_num();
-                    cur_chr = cur_val
+                    cur_chr = cur_val;
                 }
                 169 => {
                     get_x_token();
-                    if cur_cmd as i32 == 11i32
-                        || cur_cmd as i32 == 12i32
-                        || cur_cmd as i32 == 68i32
-                        || cur_cmd as i32 == 16i32
+                    if cur_cmd == LETTER as u8
+                        || cur_cmd == OTHER_CHAR as u8
+                        || cur_cmd == CHAR_GIVEN as u8
+                        || cur_cmd == CHAR_NUM as u8
                     {
-                        cancel_boundary = true
+                        cancel_boundary = true;
                     }
                     continue;
                 }
                 _ => {
-                    if (cur_list.mode as i32).abs() == 104i32 {
-                        if *INTPAR(IntPar::xetex_inter_char_tokens) > 0i32
-                            && space_class != 4096i32
-                            && prev_class != 4096i32 - 1i32
+                    if cur_list.mode.abs() == HMODE {
+                        if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
+                            && space_class != CHAR_CLASS_LIMIT
+                            && prev_class != CHAR_CLASS_LIMIT - 1
                         {
-                            prev_class = 4096i32 - 1i32;
+                            prev_class = CHAR_CLASS_LIMIT - 1;
                             find_sa_element(
-                                6i32 as small_number,
-                                space_class * 4096i32 + (4096i32 - 1i32),
+                                INTER_CHAR_VAL as small_number,
+                                space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                                 false,
                             );
                             if !cur_ptr.is_texnull() {
-                                if cur_cs == 0i32 {
-                                    if cur_cmd as i32 == 16i32 {
-                                        cur_cmd = 12i32 as eight_bits
+                                if cur_cs == 0 {
+                                    if cur_cmd == CHAR_NUM as u8 {
+                                        cur_cmd = OTHER_CHAR as u8
                                     }
-                                    cur_tok = cur_cmd as i32 * 0x200000i32 + cur_chr
+                                    cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
                                 } else {
-                                    cur_tok = 0x1ffffffi32 + cur_cs
+                                    cur_tok = CS_TOKEN_FLAG + cur_cs
                                 }
                                 back_input();
-                                begin_token_list(MEM[(cur_ptr + 1) as usize].b32.s1, 17_u16);
+                                begin_token_list(
+                                    MEM[(cur_ptr + 1) as usize].b32.s1,
+                                    INTER_CHAR_TEXT,
+                                );
                                 continue 'c_125208;
                             }
                         }
                     }
-                    match (cur_list.mode as i32).abs() + cur_cmd as i32 {
+                    match cur_list.mode.abs() + cur_cmd as i16 {
                         114 => {
-                            if cur_list.aux.b32.s0 == 1000i32 {
+                            if cur_list.aux.b32.s0 == 1000 {
                                 current_block = 1496671425652391013;
                                 break;
                             } else {
@@ -16027,30 +16029,28 @@ pub(crate) unsafe fn main_control() {
                             break;
                         }
                         40 | 143 | 246 => {
-                            if cur_chr == 0i32 {
+                            if cur_chr == 0 {
                                 loop {
                                     get_x_token();
-                                    if !(cur_cmd as i32 == 10i32) {
+                                    if !(cur_cmd == SPACER as u8) {
                                         break;
                                     }
                                 }
                                 continue;
                             } else {
-                                t = scanner_status as i32;
-                                scanner_status = 0_u8;
+                                let t = scanner_status as i32;
+                                scanner_status = NORMAL as u8;
                                 get_next();
                                 scanner_status = t as u8;
-                                if cur_cs
-                                    < 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32) + 1i32
-                                {
-                                    cur_cs = prim_lookup(cur_cs - (1i32 + (0x10ffffi32 + 1i32)))
+                                if cur_cs < HASH_BASE as i32 {
+                                    cur_cs = prim_lookup(cur_cs - SINGLE_BASE)
                                 } else {
                                     cur_cs = prim_lookup((*hash.offset(cur_cs as isize)).s1)
                                 }
-                                if !(cur_cs != 0i32) {
+                                if !(cur_cs != UNDEFINED_PRIMITIVE) {
                                     continue 'c_125208;
                                 }
-                                cur_cmd = prim_eqtb[cur_cs as usize].b16.s1 as eight_bits;
+                                cur_cmd = prim_eqtb[cur_cs as usize].b16.s1 as u8;
                                 cur_chr = prim_eqtb[cur_cs as usize].b32.s1;
                                 continue;
                             }
@@ -16075,10 +16075,10 @@ pub(crate) unsafe fn main_control() {
                         37 | 139 | 242 => {
                             MEM[cur_list.tail as usize].b32.s1 = scan_rule_spec();
                             cur_list.tail = *LLIST_link(cur_list.tail as usize);
-                            if (cur_list.mode as i32).abs() == 1i32 {
-                                cur_list.aux.b32.s1 = -65536000i32
-                            } else if (cur_list.mode as i32).abs() == 104i32 {
-                                cur_list.aux.b32.s0 = 1000i32
+                            if cur_list.mode.abs() == VMODE {
+                                cur_list.aux.b32.s1 = IGNORE_DEPTH;
+                            } else if cur_list.mode.abs() == HMODE {
+                                cur_list.aux.b32.s0 = 1000;
                             }
                             continue 'c_125208;
                         }
@@ -16099,7 +16099,7 @@ pub(crate) unsafe fn main_control() {
                             continue 'c_125208;
                         }
                         63 | 166 | 269 => {
-                            if cur_group as i32 == 14i32 {
+                            if cur_group == GroupCode::SEMI_SIMPLE {
                                 unsave();
                             } else {
                                 off_save();
@@ -16111,9 +16111,9 @@ pub(crate) unsafe fn main_control() {
                             continue 'c_125208;
                         }
                         22 | 126 | 229 => {
-                            t = cur_chr;
+                            let t = cur_chr;
                             scan_dimen(false, false, false);
-                            if t == 0i32 {
+                            if t == 0 {
                                 scan_box(cur_val);
                             } else {
                                 scan_box(-cur_val);
@@ -16121,15 +16121,15 @@ pub(crate) unsafe fn main_control() {
                             continue 'c_125208;
                         }
                         32 | 135 | 238 => {
-                            scan_box(0x40010001i32 - 100i32 + cur_chr);
+                            scan_box(LEADER_FLAG - (A_LEADERS as i32) + cur_chr);
                             continue 'c_125208;
                         }
                         21 | 124 | 227 => {
-                            begin_box(0i32);
+                            begin_box(0);
                             continue 'c_125208;
                         }
                         44 => {
-                            new_graf(cur_chr > 0i32);
+                            new_graf(cur_chr > 0);
                             continue 'c_125208;
                         }
                         12 | 13 | 17 | 69 | 4 | 24 | 36 | 46 | 48 | 27 | 34 | 65 | 66 => {
@@ -16143,17 +16143,17 @@ pub(crate) unsafe fn main_control() {
                         }
                         14 => {
                             normal_paragraph();
-                            if cur_list.mode as i32 > 0i32 {
+                            if cur_list.mode > 0 {
                                 build_page();
                             }
                             continue 'c_125208;
                         }
                         117 => {
-                            if align_state < 0i32 {
+                            if align_state < 0 {
                                 off_save();
                             }
                             end_graf();
-                            if cur_list.mode as i32 == 1i32 {
+                            if cur_list.mode == VMODE {
                                 build_page();
                             }
                             continue 'c_125208;
@@ -16216,14 +16216,14 @@ pub(crate) unsafe fn main_control() {
                             continue 'c_125208;
                         }
                         137 => {
-                            if cur_chr > 0i32 {
+                            if cur_chr > 0 {
                                 if eTeX_enabled(
-                                    *INTPAR(IntPar::texxet) > 0i32,
+                                    *INTPAR(IntPar::texxet) > 0,
                                     cur_cmd as u16,
                                     cur_chr,
                                 ) {
                                     MEM[cur_list.tail as usize].b32.s1 =
-                                        new_math(0i32, cur_chr as small_number);
+                                        new_math(0, cur_chr as small_number);
                                     cur_list.tail = *LLIST_link(cur_list.tail as usize)
                                 }
                             } else {
@@ -16233,7 +16233,7 @@ pub(crate) unsafe fn main_control() {
                         }
                         239 => {
                             if privileged() {
-                                if cur_group as i32 == 15i32 {
+                                if cur_group == GroupCode::MATH_SHIFT {
                                     init_align();
                                 } else {
                                     off_save();
@@ -16255,7 +16255,7 @@ pub(crate) unsafe fn main_control() {
                         }
                         255 => {
                             if privileged() {
-                                if cur_group as i32 == 15i32 {
+                                if cur_group == GroupCode::MATH_SHIFT {
                                     start_eq_no();
                                 } else {
                                     off_save();
@@ -16267,7 +16267,7 @@ pub(crate) unsafe fn main_control() {
                             MEM[cur_list.tail as usize].b32.s1 = new_noad();
                             cur_list.tail = *LLIST_link(cur_list.tail as usize);
                             back_input();
-                            scan_math(cur_list.tail + 1i32);
+                            scan_math(cur_list.tail + 1);
                             continue 'c_125208;
                         }
                         218 | 219 | 275 => {
@@ -16281,40 +16281,32 @@ pub(crate) unsafe fn main_control() {
                             continue 'c_125208;
                         }
                         224 => {
-                            if cur_chr == 2i32 {
+                            if cur_chr == 2 {
                                 scan_math_class_int();
-                                t = ((cur_val as u32 & 0x7_u32) << 21i32) as i32;
+                                let t = set_class(cur_val);
                                 scan_math_fam_int();
-                                t = (t as u32).wrapping_add((cur_val as u32 & 0xff_u32) << 24i32)
-                                    as i32;
+                                let t = t + set_family(cur_val);
                                 scan_usv_num();
-                                t = t + cur_val;
+                                let t = t + cur_val;
                                 set_math_char(t);
-                            } else if cur_chr == 1i32 {
+                            } else if cur_chr == 1 {
                                 scan_xetex_math_char_int();
                                 set_math_char(cur_val);
                             } else {
                                 scan_fifteen_bit_int();
                                 set_math_char(
-                                    (((cur_val / 4096i32) as u32 & 0x7_u32) << 21i32)
-                                        .wrapping_add(
-                                            ((cur_val % 4096i32 / 256i32) as u32 & 0xff_u32)
-                                                << 24i32,
-                                        )
-                                        .wrapping_add((cur_val % 256i32) as u32)
-                                        as i32,
+                                    set_class(cur_val / 4096)
+                                        + set_family((cur_val % 4096) / 256)
+                                        + (cur_val % 256),
                                 );
                             }
                             continue 'c_125208;
                         }
                         276 => {
                             set_math_char(
-                                (((cur_chr / 4096i32) as u32 & 0x7_u32) << 21i32)
-                                    .wrapping_add(
-                                        ((cur_chr % 4096i32 / 256i32) as u32 & 0xff_u32) << 24i32,
-                                    )
-                                    .wrapping_add((cur_chr % 256i32) as u32)
-                                    as i32,
+                                set_class(cur_chr / 4096)
+                                    + set_family((cur_chr % 4096) / 256)
+                                    + (cur_chr % 256),
                             );
                             continue 'c_125208;
                         }
@@ -16325,24 +16317,20 @@ pub(crate) unsafe fn main_control() {
                         222 => {
                             if cur_chr == 1i32 {
                                 scan_math_class_int();
-                                t = ((cur_val as u32 & 0x7_u32) << 21i32) as i32;
+                                scan_math_class_int();
+                                let t = set_class(cur_val);
                                 scan_math_fam_int();
-                                t = (t as u32).wrapping_add((cur_val as u32 & 0xff_u32) << 24i32)
-                                    as i32;
+                                let t = t + set_family(cur_val);
                                 scan_usv_num();
-                                t = t + cur_val;
+                                let t = t + cur_val;
                                 set_math_char(t);
                             } else {
                                 scan_delimiter_int();
-                                cur_val = cur_val / 4096i32;
+                                cur_val = cur_val / 4096;
                                 set_math_char(
-                                    (((cur_val / 4096i32) as u32 & 0x7_u32) << 21i32)
-                                        .wrapping_add(
-                                            ((cur_val % 4096i32 / 256i32) as u32 & 0xff_u32)
-                                                << 24i32,
-                                        )
-                                        .wrapping_add((cur_val % 256i32) as u32)
-                                        as i32,
+                                    set_class(cur_val / 4096)
+                                        + set_family((cur_val % 4096) / 256)
+                                        + (cur_val % 256),
                                 );
                             }
                             continue 'c_125208;
@@ -16351,7 +16339,7 @@ pub(crate) unsafe fn main_control() {
                             MEM[cur_list.tail as usize].b32.s1 = new_noad();
                             cur_list.tail = *LLIST_link(cur_list.tail as usize);
                             MEM[cur_list.tail as usize].b16.s1 = cur_chr as u16;
-                            scan_math(cur_list.tail + 1i32);
+                            scan_math(cur_list.tail + 1);
                             continue 'c_125208;
                         }
                         258 => {
@@ -16370,13 +16358,13 @@ pub(crate) unsafe fn main_control() {
                             scan_spec(GroupCode::VCENTER, false);
                             normal_paragraph();
                             push_nest();
-                            cur_list.mode = -1_i16;
-                            cur_list.aux.b32.s1 = -65536000i32;
+                            cur_list.mode = -1;
+                            cur_list.aux.b32.s1 = IGNORE_DEPTH;
                             if insert_src_special_every_vbox {
                                 insert_src_special();
                             }
                             if !LOCAL(Local::every_vbox).is_texnull() {
-                                begin_token_list(*LOCAL(Local::every_vbox), 12_u16);
+                                begin_token_list(*LOCAL(Local::every_vbox), EVERY_VBOX_TEXT);
                             }
                             continue 'c_125208;
                         }
@@ -16388,7 +16376,7 @@ pub(crate) unsafe fn main_control() {
                         262 => {
                             MEM[cur_list.tail as usize].b32.s1 = new_glue(0);
                             cur_list.tail = *LLIST_link(cur_list.tail as usize);
-                            MEM[cur_list.tail as usize].b16.s0 = 98_u16;
+                            MEM[cur_list.tail as usize].b16.s0 = COND_MATH_GLUE;
                             continue 'c_125208;
                         }
                         261 => {
@@ -16408,7 +16396,7 @@ pub(crate) unsafe fn main_control() {
                             continue 'c_125208;
                         }
                         210 => {
-                            if cur_group as i32 == 15i32 {
+                            if cur_group == GroupCode::MATH_SHIFT {
                                 after_math();
                             } else {
                                 off_save();
@@ -16461,73 +16449,79 @@ pub(crate) unsafe fn main_control() {
                 }
             }
             /*main_loop *//*1069: */
-            if cur_list.head == cur_list.tail && cur_list.mode as i32 > 0i32 {
+            if cur_list.head == cur_list.tail && cur_list.mode > 0 {
                 if insert_src_special_auto {
                     append_src_special();
                 }
             }
-            prev_class = 4096i32 - 1i32;
-            if FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xffffu32
-                || FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == 0xfffeu32
+            prev_class = CHAR_CLASS_LIMIT - 1;
+            if FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == AAT_FONT_FLAG
+                || FONT_AREA[EQTB[CUR_FONT_LOC].b32.s1 as usize] as u32 == OTGR_FONT_FLAG
             {
-                if cur_list.mode as i32 > 0i32 {
+                if cur_list.mode > 0 {
                     if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
                         fix_language();
                     }
                 }
-                main_h = 0i32;
+                main_h = 0;
                 main_f = EQTB[CUR_FONT_LOC].b32.s1 as usize;
-                native_len = 0i32;
+                native_len = 0;
                 loop {
                     /*collect_native */
                     main_s = (*SF_CODE(cur_chr) as i64 % 65536) as i32;
-                    if main_s == 1000i32 {
-                        cur_list.aux.b32.s0 = 1000i32
-                    } else if main_s < 1000i32 {
-                        if main_s > 0i32 {
-                            cur_list.aux.b32.s0 = main_s
+                    if main_s == 1000 {
+                        cur_list.aux.b32.s0 = 1000;
+                    } else if main_s < 1000 {
+                        if main_s > 0 {
+                            cur_list.aux.b32.s0 = main_s;
                         }
-                    } else if cur_list.aux.b32.s0 < 1000i32 {
-                        cur_list.aux.b32.s0 = 1000i32
+                    } else if cur_list.aux.b32.s0 < 1000 {
+                        cur_list.aux.b32.s0 = 1000;
                     } else {
-                        cur_list.aux.b32.s0 = main_s
+                        cur_list.aux.b32.s0 = main_s;
                     }
                     cur_ptr = TEX_NULL;
                     space_class = (*SF_CODE(cur_chr) as i64 / 65536) as i32;
-                    if *INTPAR(IntPar::xetex_inter_char_tokens) > 0i32 && space_class != 4096i32 {
-                        if prev_class == 4096i32 - 1i32 {
-                            if cur_input.state as i32 != 0i32 || cur_input.index as i32 != 4i32 {
+                    if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != 4096 {
+                        if prev_class == CHAR_CLASS_LIMIT - 1 {
+                            if cur_input.state != TOKEN_LIST || cur_input.index != BACKED_UP_CHAR {
                                 find_sa_element(
-                                    6i32 as small_number,
-                                    (4096i32 - 1i32) * 4096i32 + space_class,
+                                    INTER_CHAR_VAL as small_number,
+                                    (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
                                     false,
                                 );
                                 if !cur_ptr.is_texnull() {
-                                    if cur_cmd as i32 != 11i32 {
-                                        cur_cmd = 12i32 as eight_bits
+                                    if cur_cmd != LETTER as u8 {
+                                        cur_cmd = OTHER_CHAR as u8
                                     }
-                                    cur_tok = cur_cmd as i32 * 0x200000i32 + cur_chr;
+                                    cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                     back_input();
-                                    cur_input.index = 4_u16;
-                                    begin_token_list(MEM[(cur_ptr + 1) as usize].b32.s1, 17_u16);
+                                    cur_input.index = BACKED_UP_CHAR;
+                                    begin_token_list(
+                                        MEM[(cur_ptr + 1) as usize].b32.s1,
+                                        INTER_CHAR_TEXT,
+                                    );
                                     continue 'c_125208;
                                 }
                             }
                         } else {
                             find_sa_element(
-                                6i32 as small_number,
-                                prev_class * 4096i32 + space_class,
+                                INTER_CHAR_VAL as small_number,
+                                prev_class * CHAR_CLASS_LIMIT + space_class,
                                 false,
                             );
                             if !cur_ptr.is_texnull() {
-                                if cur_cmd as i32 != 11i32 {
-                                    cur_cmd = 12i32 as eight_bits
+                                if cur_cmd != LETTER as u8 {
+                                    cur_cmd = OTHER_CHAR as u8;
                                 }
-                                cur_tok = cur_cmd as i32 * 0x200000i32 + cur_chr;
+                                cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                 back_input();
-                                cur_input.index = 4_u16;
-                                begin_token_list(MEM[(cur_ptr + 1) as usize].b32.s1, 17_u16);
-                                prev_class = 4096i32 - 1i32;
+                                cur_input.index = BACKED_UP_CHAR;
+                                begin_token_list(
+                                    MEM[(cur_ptr + 1) as usize].b32.s1,
+                                    INTER_CHAR_TEXT,
+                                );
+                                prev_class = CHAR_CLASS_LIMIT - 1;
                                 current_block = 9706274459985797855;
                                 break;
                             }
@@ -16535,8 +16529,8 @@ pub(crate) unsafe fn main_control() {
                         prev_class = space_class
                     }
                     if cur_chr as i64 > 65535 {
-                        while native_text_size <= native_len + 2i32 {
-                            native_text_size = native_text_size + 128i32;
+                        while native_text_size <= native_len + 2 {
+                            native_text_size = native_text_size + 128;
                             native_text = xrealloc(
                                 native_text as *mut libc::c_void,
                                 (native_text_size as u64).wrapping_mul(::std::mem::size_of::<
@@ -16547,16 +16541,14 @@ pub(crate) unsafe fn main_control() {
                             ) as *mut UTF16_code
                         }
                         *native_text.offset(native_len as isize) =
-                            ((cur_chr as i64 - 65536) / 1024i32 as i64 + 0xd800i32 as i64)
-                                as UTF16_code;
+                            ((cur_chr as i64 - 65536) / 1024 + 0xd800) as UTF16_code;
                         native_len += 1;
                         *native_text.offset(native_len as isize) =
-                            ((cur_chr as i64 - 65536) % 1024i32 as i64 + 0xdc00i32 as i64)
-                                as UTF16_code;
+                            ((cur_chr as i64 - 65536) % 1024 + 0xdc00) as UTF16_code;
                         native_len += 1
                     } else {
-                        while native_text_size <= native_len + 1i32 {
-                            native_text_size = native_text_size + 128i32;
+                        while native_text_size <= native_len + 1 {
+                            native_text_size = native_text_size + 128;
                             native_text = xrealloc(
                                 native_text as *mut libc::c_void,
                                 (native_text_size as u64).wrapping_mul(::std::mem::size_of::<
@@ -16570,27 +16562,31 @@ pub(crate) unsafe fn main_control() {
                         native_len += 1
                     }
                     is_hyph = cur_chr == HYPHEN_CHAR[main_f as usize]
-                        || *INTPAR(IntPar::xetex_dash_break) > 0i32
-                            && (cur_chr == 8212i32 || cur_chr == 8211i32);
-                    if main_h == 0i32 && is_hyph as i32 != 0 {
+                        || *INTPAR(IntPar::xetex_dash_break) > 0
+                            && (cur_chr == 8212 || cur_chr == 8211);
+                    if main_h == 0 && is_hyph as i32 != 0 {
                         main_h = native_len
                     }
                     get_next();
-                    if cur_cmd as i32 == 11i32 || cur_cmd as i32 == 12i32 || cur_cmd as i32 == 68i32
+                    if cur_cmd == LETTER as u8
+                        || cur_cmd == OTHER_CHAR as u8
+                        || cur_cmd == CHAR_GIVEN as u8
                     {
                         continue;
                     }
                     x_token();
-                    if cur_cmd as i32 == 11i32 || cur_cmd as i32 == 12i32 || cur_cmd as i32 == 68i32
+                    if cur_cmd == LETTER as u8
+                        || cur_cmd == OTHER_CHAR as u8
+                        || cur_cmd == CHAR_GIVEN as u8
                     {
                         continue;
                     }
-                    if cur_cmd as i32 == 16i32 {
+                    if cur_cmd == CHAR_NUM as u8 {
                         scan_usv_num();
                         cur_chr = cur_val
-                    } else if *INTPAR(IntPar::xetex_inter_char_tokens) > 0i32
-                        && space_class != 4096i32
-                        && prev_class != 4096i32 - 1i32
+                    } else if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
+                        && space_class != CHAR_CLASS_LIMIT
+                        && prev_class != CHAR_CLASS_LIMIT - 1
                     {
                         current_block = 14170946608255986518;
                         break;
@@ -16601,23 +16597,23 @@ pub(crate) unsafe fn main_control() {
                 }
                 match current_block {
                     14170946608255986518 => {
-                        prev_class = 4096i32 - 1i32;
+                        prev_class = CHAR_CLASS_LIMIT - 1;
                         find_sa_element(
-                            6i32 as small_number,
-                            space_class * 4096i32 + (4096i32 - 1i32),
+                            INTER_CHAR_VAL as small_number,
+                            space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                             false,
                         );
                         if !cur_ptr.is_texnull() {
-                            if cur_cs == 0i32 {
-                                if cur_cmd as i32 == 16i32 {
-                                    cur_cmd = 12i32 as eight_bits
+                            if cur_cs == 0 {
+                                if cur_cmd == CHAR_NUM as u8 {
+                                    cur_cmd = OTHER_CHAR as u8
                                 }
-                                cur_tok = cur_cmd as i32 * 0x200000i32 + cur_chr
+                                cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
                             } else {
-                                cur_tok = 0x1ffffffi32 + cur_cs
+                                cur_tok = CS_TOKEN_FLAG + cur_cs
                             }
                             back_input();
-                            begin_token_list(MEM[(cur_ptr + 1) as usize].b32.s1, 17_u16);
+                            begin_token_list(MEM[(cur_ptr + 1) as usize].b32.s1, INTER_CHAR_TEXT);
                         }
                     }
                     _ => {}
@@ -16625,9 +16621,9 @@ pub(crate) unsafe fn main_control() {
                 /*collected */
                 if !(FONT_MAPPING[main_f as usize]).is_null() {
                     main_k = apply_mapping(FONT_MAPPING[main_f as usize], native_text, native_len);
-                    native_len = 0i32;
+                    native_len = 0;
                     while native_text_size <= native_len + main_k {
-                        native_text_size = native_text_size + 128i32;
+                        native_text_size = native_text_size + 128;
                         native_text = xrealloc(
                             native_text as *mut libc::c_void,
                             (native_text_size as u64)
@@ -16635,22 +16631,21 @@ pub(crate) unsafe fn main_control() {
                                 as _,
                         ) as *mut UTF16_code
                     }
-                    main_h = 0i32;
+                    main_h = 0;
                     let mut for_end: i32 = 0;
-                    main_p = 0i32;
-                    for_end = main_k - 1i32;
+                    main_p = 0;
+                    for_end = main_k - 1;
                     if main_p <= for_end {
                         loop {
                             *native_text.offset(native_len as isize) =
                                 *mapped_text.offset(main_p as isize);
                             native_len += 1;
-                            if main_h == 0i32
+                            if main_h == 0
                                 && (*mapped_text.offset(main_p as isize) as i32
                                     == HYPHEN_CHAR[main_f as usize]
-                                    || *INTPAR(IntPar::xetex_dash_break) > 0i32
-                                        && (*mapped_text.offset(main_p as isize) as i32 == 8212i32
-                                            || *mapped_text.offset(main_p as isize) as i32
-                                                == 8211i32))
+                                    || *INTPAR(IntPar::xetex_dash_break) > 0
+                                        && (*mapped_text.offset(main_p as isize) == 8212
+                                            || *mapped_text.offset(main_p as isize) == 8211))
                             {
                                 main_h = native_len
                             }
@@ -16662,38 +16657,37 @@ pub(crate) unsafe fn main_control() {
                         }
                     }
                 }
-                if *INTPAR(IntPar::tracing_lost_chars) > 0i32 {
-                    temp_ptr = 0i32;
+                if *INTPAR(IntPar::tracing_lost_chars) > 0 {
+                    temp_ptr = 0;
                     while temp_ptr < native_len {
                         main_k = *native_text.offset(temp_ptr as isize) as font_index;
                         temp_ptr += 1;
-                        if main_k >= 0xd800i32 && main_k < 0xdc00i32 {
+                        if main_k >= 0xd800 && main_k < 0xdc00 {
+                            main_k = (65536 + ((main_k - 0xd800) * 1024) as i64) as font_index;
                             main_k =
-                                (65536 + ((main_k - 0xd800i32) * 1024i32) as i64) as font_index;
-                            main_k =
-                                main_k + *native_text.offset(temp_ptr as isize) as i32 - 0xdc00i32;
-                            temp_ptr += 1
+                                main_k + *native_text.offset(temp_ptr as isize) as i32 - 0xdc00;
+                            temp_ptr += 1;
                         }
-                        if map_char_to_glyph(main_f, main_k) == 0i32 {
+                        if map_char_to_glyph(main_f, main_k) == 0 {
                             char_warning(main_f, main_k);
                         }
                     }
                 }
                 main_k = native_len;
                 main_pp = cur_list.tail;
-                if cur_list.mode as i32 == 104i32 {
+                if cur_list.mode == HMODE {
                     main_ppp = cur_list.head;
                     if main_ppp != main_pp {
                         while MEM[main_ppp as usize].b32.s1 != main_pp {
-                            if !is_char_node(main_ppp) && MEM[main_ppp as usize].b16.s1 as i32 == 7
+                            if !is_char_node(main_ppp) && *NODE_type(main_ppp as usize) == DISC_NODE
                             {
                                 temp_ptr = main_ppp;
                                 let mut for_end_0: i32 = 0;
-                                main_p = 1i32;
+                                main_p = 1;
                                 for_end_0 = MEM[temp_ptr as usize].b16.s0 as i32;
                                 if main_p <= for_end_0 {
                                     loop {
-                                        main_ppp = MEM[main_ppp as usize].b32.s1;
+                                        main_ppp = *LLIST_link(main_ppp as usize);
                                         let fresh89 = main_p;
                                         main_p = main_p + 1;
                                         if !(fresh89 < for_end_0) {
@@ -16703,28 +16697,28 @@ pub(crate) unsafe fn main_control() {
                                 }
                             }
                             if main_ppp != main_pp {
-                                main_ppp = MEM[main_ppp as usize].b32.s1
+                                main_ppp = *LLIST_link(main_ppp as usize);
                             }
                         }
                     }
-                    temp_ptr = 0i32;
+                    temp_ptr = 0;
                     loop {
-                        if main_h == 0i32 {
+                        if main_h == 0 {
                             main_h = main_k
                         }
                         if !main_pp.is_texnull()
                             && !is_char_node(main_pp)
-                            && MEM[main_pp as usize].b16.s1 as i32 == 8
-                            && (MEM[main_pp as usize].b16.s0 as i32 == 40
-                                || MEM[main_pp as usize].b16.s0 as i32 == 41)
+                            && *NODE_type(main_pp as usize) == WHATSIT_NODE
+                            && (MEM[main_pp as usize].b16.s0 == NATIVE_WORD_NODE
+                                || MEM[main_pp as usize].b16.s0 == NATIVE_WORD_NODE_AT)
                             && MEM[(main_pp + 4) as usize].b16.s2 as usize == main_f
                             && main_ppp != main_pp
                             && !is_char_node(main_ppp)
-                            && MEM[main_ppp as usize].b16.s1 as i32 != 7
+                            && *NODE_type(main_ppp as usize) != DISC_NODE
                         {
                             main_k = main_h + MEM[(main_pp + 4) as usize].b16.s1 as i32;
                             while native_text_size <= native_len + main_k {
-                                native_text_size = native_text_size + 128i32;
+                                native_text_size = native_text_size + 128;
                                 native_text = xrealloc(
                                     native_text as *mut libc::c_void,
                                     (native_text_size as u64).wrapping_mul(::std::mem::size_of::<
@@ -16735,9 +16729,8 @@ pub(crate) unsafe fn main_control() {
                                 ) as *mut UTF16_code
                             }
                             save_native_len = native_len;
-                            let mut for_end_1: i32 = 0;
-                            main_p = 0i32;
-                            for_end_1 = MEM[(main_pp + 4) as usize].b16.s1 as i32 - 1;
+                            main_p = 0;
+                            let mut for_end_1 = MEM[(main_pp + 4) as usize].b16.s1 as i32 - 1;
                             if main_p <= for_end_1 {
                                 loop {
                                     *native_text.offset(native_len as isize) =
@@ -16775,11 +16768,11 @@ pub(crate) unsafe fn main_control() {
                             while main_h < main_k
                                 && *native_text.offset((temp_ptr + main_h) as isize) as i32
                                     != HYPHEN_CHAR[main_f as usize]
-                                && (!(*INTPAR(IntPar::xetex_dash_break) > 0i32)
+                                && (!(*INTPAR(IntPar::xetex_dash_break) > 0)
                                     || *native_text.offset((temp_ptr + main_h) as isize) as i32
-                                        != 8212i32
+                                        != 8212
                                         && *native_text.offset((temp_ptr + main_h) as isize) as i32
-                                            != 8211i32)
+                                            != 8211)
                             {
                                 main_h += 1
                             }
@@ -16791,21 +16784,21 @@ pub(crate) unsafe fn main_control() {
                             flush_node_list(main_pp);
                             main_pp = cur_list.tail;
                             while MEM[main_ppp as usize].b32.s1 != main_pp {
-                                main_ppp = MEM[main_ppp as usize].b32.s1
+                                main_ppp = *LLIST_link(main_ppp as usize);
                             }
                         } else {
                             do_locale_linebreaks(temp_ptr, main_h);
                             temp_ptr = temp_ptr + main_h;
                             main_k = main_k - main_h;
-                            main_h = 0i32;
+                            main_h = 0;
                             while main_h < main_k
                                 && *native_text.offset((temp_ptr + main_h) as isize) as i32
                                     != HYPHEN_CHAR[main_f as usize]
-                                && (!(*INTPAR(IntPar::xetex_dash_break) > 0i32)
+                                && (!(*INTPAR(IntPar::xetex_dash_break) > 0)
                                     || *native_text.offset((temp_ptr + main_h) as isize) as i32
-                                        != 8212i32
+                                        != 8212
                                         && *native_text.offset((temp_ptr + main_h) as isize) as i32
-                                            != 8211i32)
+                                            != 8211)
                             {
                                 main_h += 1
                             }
@@ -16813,12 +16806,12 @@ pub(crate) unsafe fn main_control() {
                                 main_h += 1
                             }
                         }
-                        if main_k > 0i32 || is_hyph as i32 != 0 {
+                        if main_k > 0 || is_hyph as i32 != 0 {
                             MEM[cur_list.tail as usize].b32.s1 = new_disc();
                             cur_list.tail = *LLIST_link(cur_list.tail as usize);
                             main_pp = cur_list.tail
                         }
-                        if main_k == 0i32 {
+                        if main_k == 0 {
                             break;
                         }
                     }
@@ -16826,7 +16819,7 @@ pub(crate) unsafe fn main_control() {
                     main_ppp = cur_list.head;
                     if main_ppp != main_pp {
                         while MEM[main_ppp as usize].b32.s1 != main_pp {
-                            if !is_char_node(main_ppp) && MEM[main_ppp as usize].b16.s1 as i32 == 7
+                            if !is_char_node(main_ppp) && *NODE_type(main_ppp as usize) == DISC_NODE
                             {
                                 temp_ptr = main_ppp;
                                 let mut for_end_3: i32 = 0;
@@ -16834,7 +16827,7 @@ pub(crate) unsafe fn main_control() {
                                 for_end_3 = MEM[temp_ptr as usize].b16.s0 as i32;
                                 if main_p <= for_end_3 {
                                     loop {
-                                        main_ppp = MEM[main_ppp as usize].b32.s1;
+                                        main_ppp = *LLIST_link(main_ppp as usize);
                                         let fresh92 = main_p;
                                         main_p = main_p + 1;
                                         if !(fresh92 < for_end_3) {
@@ -16844,27 +16837,28 @@ pub(crate) unsafe fn main_control() {
                                 }
                             }
                             if main_ppp != main_pp {
-                                main_ppp = MEM[main_ppp as usize].b32.s1
+                                main_ppp = *LLIST_link(main_ppp as usize);
                             }
                         }
                     }
                     if !main_pp.is_texnull()
                         && !is_char_node(main_pp)
-                        && MEM[main_pp as usize].b16.s1 as i32 == 8
-                        && (MEM[main_pp as usize].b16.s0 as i32 == 40
-                            || MEM[main_pp as usize].b16.s0 as i32 == 41)
+                        && *NODE_type(main_pp as usize) == WHATSIT_NODE
+                        && (MEM[main_pp as usize].b16.s0 == NATIVE_WORD_NODE
+                            || MEM[main_pp as usize].b16.s0 == NATIVE_WORD_NODE_AT)
                         && MEM[(main_pp + 4) as usize].b16.s2 as usize == main_f
                         && main_ppp != main_pp
                         && !is_char_node(main_ppp)
-                        && MEM[main_ppp as usize].b16.s1 as i32 != 7
+                        && *NODE_type(main_ppp as usize) != DISC_NODE
                     {
                         MEM[main_pp as usize].b32.s1 = new_native_word_node(
                             main_f,
                             main_k + MEM[(main_pp + 4) as usize].b16.s1 as i32,
                         );
                         cur_list.tail = MEM[main_pp as usize].b32.s1;
+
                         let mut for_end_4: i32 = 0;
-                        main_p = 0i32;
+                        main_p = 0;
                         for_end_4 = MEM[(main_pp + 4) as usize].b16.s1 as i32 - 1;
                         if main_p <= for_end_4 {
                             loop {
@@ -16902,12 +16896,12 @@ pub(crate) unsafe fn main_control() {
                         measure_native_node(
                             &mut MEM[cur_list.tail as usize] as *mut memory_word
                                 as *mut libc::c_void,
-                            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
+                            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
                         );
                         main_p = cur_list.head;
                         if main_p != main_pp {
                             while MEM[main_p as usize].b32.s1 != main_pp {
-                                main_p = MEM[main_p as usize].b32.s1
+                                main_p = *LLIST_link(main_p as usize);
                             }
                         }
                         MEM[main_p as usize].b32.s1 = MEM[main_pp as usize].b32.s1;
@@ -16916,9 +16910,8 @@ pub(crate) unsafe fn main_control() {
                     } else {
                         MEM[main_pp as usize].b32.s1 = new_native_word_node(main_f, main_k);
                         cur_list.tail = MEM[main_pp as usize].b32.s1;
-                        let mut for_end_6: i32 = 0;
-                        main_p = 0i32;
-                        for_end_6 = main_k - 1i32;
+                        main_p = 0;
+                        let mut for_end_6 = main_k - 1;
                         if main_p <= for_end_6 {
                             loop {
                                 *(&mut MEM[(cur_list.tail + 6) as usize] as *mut memory_word
@@ -16938,56 +16931,56 @@ pub(crate) unsafe fn main_control() {
                         );
                     }
                 }
-                if *INTPAR(IntPar::xetex_interword_space_shaping) > 0i32 {
+                if *INTPAR(IntPar::xetex_interword_space_shaping) > 0 {
                     main_p = cur_list.head;
                     main_pp = TEX_NULL;
                     while main_p != cur_list.tail {
                         if !main_p.is_texnull()
                             && !is_char_node(main_p)
-                            && MEM[main_p as usize].b16.s1 as i32 == 8
-                            && (MEM[main_p as usize].b16.s0 as i32 == 40
-                                || MEM[main_p as usize].b16.s0 as i32 == 41)
+                            && MEM[main_p as usize].b16.s1 == WHATSIT_NODE
+                            && (MEM[main_p as usize].b16.s0 == NATIVE_WORD_NODE
+                                || MEM[main_p as usize].b16.s0 == NATIVE_WORD_NODE_AT)
                         {
-                            main_pp = main_p
+                            main_pp = main_p;
                         }
-                        main_p = MEM[main_p as usize].b32.s1
+                        main_p = *LLIST_link(main_p as usize);
                     }
                     if !main_pp.is_texnull() {
                         if MEM[(main_pp + 4) as usize].b16.s2 as usize == main_f {
                             main_p = MEM[main_pp as usize].b32.s1;
                             while !is_char_node(main_p)
-                                && (MEM[main_p as usize].b16.s1 as i32 == 12
-                                    || MEM[main_p as usize].b16.s1 as i32 == 3
-                                    || MEM[main_p as usize].b16.s1 as i32 == 4
-                                    || MEM[main_p as usize].b16.s1 as i32 == 5
-                                    || MEM[main_p as usize].b16.s1 as i32 == 8
-                                        && MEM[main_p as usize].b16.s0 as i32 <= 4)
+                                && (*NODE_type(main_p as usize) == PENALTY_NODE
+                                    || *NODE_type(main_p as usize) == INS_NODE
+                                    || *NODE_type(main_p as usize) == MARK_NODE
+                                    || *NODE_type(main_p as usize) == ADJUST_NODE
+                                    || *NODE_type(main_p as usize) == WHATSIT_NODE
+                                        && MEM[main_p as usize].b16.s0 <= 4)
                             {
-                                main_p = MEM[main_p as usize].b32.s1
+                                main_p = MEM[main_p as usize].b32.s1;
                             }
-                            if !is_char_node(main_p) && MEM[main_p as usize].b16.s1 as i32 == 10 {
+                            if !is_char_node(main_p) && *NODE_type(main_p as usize) == GLUE_NODE {
                                 main_ppp = MEM[main_p as usize].b32.s1;
                                 while !is_char_node(main_ppp)
-                                    && (MEM[main_ppp as usize].b16.s1 as i32 == 12
-                                        || MEM[main_ppp as usize].b16.s1 as i32 == 3
-                                        || MEM[main_ppp as usize].b16.s1 as i32 == 4
-                                        || MEM[main_ppp as usize].b16.s1 as i32 == 5
-                                        || MEM[main_ppp as usize].b16.s1 as i32 == 8
-                                            && MEM[main_ppp as usize].b16.s0 as i32 <= 4)
+                                    && (*NODE_type(main_ppp as usize) == PENALTY_NODE
+                                        || *NODE_type(main_ppp as usize) == INS_NODE
+                                        || *NODE_type(main_ppp as usize) == MARK_NODE
+                                        || *NODE_type(main_ppp as usize) == ADJUST_NODE
+                                        || *NODE_type(main_ppp as usize) == WHATSIT_NODE
+                                            && MEM[main_ppp as usize].b16.s0 <= 4)
                                 {
-                                    main_ppp = MEM[main_ppp as usize].b32.s1
+                                    main_ppp = *LLIST_link(main_ppp as usize)
                                 }
                                 if main_ppp == cur_list.tail {
                                     temp_ptr = new_native_word_node(
                                         main_f,
                                         MEM[(main_pp + 4) as usize].b16.s1 as i32
-                                            + 1i32
+                                            + 1
                                             + MEM[(cur_list.tail + 4) as usize].b16.s1 as i32,
                                     );
-                                    main_k = 0i32;
-                                    let mut for_end_7: i32 = 0;
-                                    t = 0i32;
-                                    for_end_7 = MEM[(main_pp + 4) as usize].b16.s1 as i32 - 1;
+                                    main_k = 0;
+                                    let mut t = 0;
+                                    let mut for_end_7 =
+                                        MEM[(main_pp + 4) as usize].b16.s1 as i32 - 1;
                                     if t <= for_end_7 {
                                         loop {
                                             *(&mut MEM[(temp_ptr + 6) as usize]
@@ -17010,9 +17003,9 @@ pub(crate) unsafe fn main_control() {
                                         as *mut u16)
                                         .offset(main_k as isize) = ' ' as i32 as u16;
                                     main_k += 1;
-                                    let mut for_end_8: i32 = 0;
-                                    t = 0i32;
-                                    for_end_8 = MEM[(cur_list.tail + 4) as usize].b16.s1 as i32 - 1;
+                                    t = 0;
+                                    let mut for_end_8 =
+                                        MEM[(cur_list.tail + 4) as usize].b16.s1 as i32 - 1;
                                     if t <= for_end_8 {
                                         loop {
                                             *(&mut MEM[(temp_ptr + 6) as usize]
@@ -17050,7 +17043,7 @@ pub(crate) unsafe fn main_control() {
                                                 .b32
                                                 .s1,
                                         );
-                                        MEM[temp_ptr as usize].b16.s0 = 3_u16;
+                                        *NODE_subtype(temp_ptr as usize) = SPACE_ADJUSTMENT;
                                         MEM[temp_ptr as usize].b32.s1 = MEM[main_p as usize].b32.s1;
                                         MEM[main_p as usize].b32.s1 = temp_ptr
                                     }
@@ -17064,53 +17057,56 @@ pub(crate) unsafe fn main_control() {
                 }
             } else {
                 main_s = (*SF_CODE(cur_chr) as i64 % 65536) as i32;
-                if main_s == 1000i32 {
-                    cur_list.aux.b32.s0 = 1000i32
-                } else if main_s < 1000i32 {
-                    if main_s > 0i32 {
+                if main_s == 1000 {
+                    cur_list.aux.b32.s0 = 1000
+                } else if main_s < 1000 {
+                    if main_s > 0 {
                         cur_list.aux.b32.s0 = main_s
                     }
-                } else if cur_list.aux.b32.s0 < 1000i32 {
-                    cur_list.aux.b32.s0 = 1000i32
+                } else if cur_list.aux.b32.s0 < 1000 {
+                    cur_list.aux.b32.s0 = 1000
                 } else {
                     cur_list.aux.b32.s0 = main_s
                 }
                 cur_ptr = TEX_NULL;
                 space_class = (*SF_CODE(cur_chr) as i64 / 65536) as i32;
-                if *INTPAR(IntPar::xetex_inter_char_tokens) > 0i32 && space_class != 4096i32 {
-                    if prev_class == 4096i32 - 1i32 {
-                        if cur_input.state as i32 != 0i32 || cur_input.index as i32 != 4i32 {
+                if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != CHAR_CLASS_LIMIT {
+                    if prev_class == CHAR_CLASS_LIMIT - 1 {
+                        if cur_input.state != TOKEN_LIST || cur_input.index != BACKED_UP_CHAR {
                             find_sa_element(
-                                6i32 as small_number,
-                                (4096i32 - 1i32) * 4096i32 + space_class,
+                                INTER_CHAR_VAL as small_number,
+                                (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
                                 false,
                             );
                             if !cur_ptr.is_texnull() {
-                                if cur_cmd as i32 != 11i32 {
-                                    cur_cmd = 12i32 as eight_bits
+                                if cur_cmd != LETTER as u8 {
+                                    cur_cmd = OTHER_CHAR as u8;
                                 }
-                                cur_tok = cur_cmd as i32 * 0x200000i32 + cur_chr;
+                                cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                 back_input();
-                                cur_input.index = 4_u16;
-                                begin_token_list(MEM[(cur_ptr + 1) as usize].b32.s1, 17_u16);
+                                cur_input.index = BACKED_UP_CHAR;
+                                begin_token_list(
+                                    MEM[(cur_ptr + 1) as usize].b32.s1,
+                                    INTER_CHAR_TEXT,
+                                );
                                 continue 'c_125208;
                             }
                         }
                     } else {
                         find_sa_element(
-                            6i32 as small_number,
-                            prev_class * 4096i32 + space_class,
+                            INTER_CHAR_VAL as small_number,
+                            prev_class * CHAR_CLASS_LIMIT + space_class,
                             false,
                         );
                         if !cur_ptr.is_texnull() {
-                            if cur_cmd as i32 != 11i32 {
-                                cur_cmd = 12i32 as eight_bits
+                            if cur_cmd != LETTER as u8 {
+                                cur_cmd = OTHER_CHAR as u8;
                             }
-                            cur_tok = cur_cmd as i32 * 0x200000i32 + cur_chr;
+                            cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                             back_input();
-                            cur_input.index = 4_u16;
-                            begin_token_list(MEM[(cur_ptr + 1) as usize].b32.s1, 17_u16);
-                            prev_class = 4096i32 - 1i32;
+                            cur_input.index = BACKED_UP_CHAR;
+                            begin_token_list(MEM[(cur_ptr + 1) as usize].b32.s1, INTER_CHAR_TEXT);
+                            prev_class = CHAR_CLASS_LIMIT - 1;
                             continue 'c_125208;
                         }
                     }
@@ -17119,7 +17115,7 @@ pub(crate) unsafe fn main_control() {
                 main_f = EQTB[CUR_FONT_LOC].b32.s1 as usize;
                 bchar = FONT_BCHAR[main_f as usize];
                 false_bchar = FONT_FALSE_BCHAR[main_f as usize];
-                if cur_list.mode as i32 > 0i32 {
+                if cur_list.mode > 0 {
                     if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
                         fix_language();
                     }
@@ -17129,7 +17125,7 @@ pub(crate) unsafe fn main_control() {
                     lig_stack = get_avail() as i32;
                 } else {
                     avail = MEM[lig_stack as usize].b32.s1;
-                    MEM[lig_stack as usize].b32.s1 = TEX_NULL
+                    MEM[lig_stack as usize].b32.s1 = TEX_NULL;
                 }
                 MEM[lig_stack as usize].b16.s1 = main_f as u16;
                 cur_l = cur_chr;
@@ -17137,25 +17133,27 @@ pub(crate) unsafe fn main_control() {
                 cur_q = cur_list.tail;
                 if cancel_boundary {
                     cancel_boundary = false;
-                    main_k = 0i32
+                    main_k = NON_ADDRESS;
                 } else {
                     main_k = BCHAR_LABEL[main_f as usize]
                 }
-                if main_k == 0i32 {
+                if main_k == NON_ADDRESS {
                     current_block = 249799543778823886;
                 } else {
                     cur_r = cur_l;
-                    cur_l = 65536i32;
+                    cur_l = TOO_BIG_CHAR;
                     current_block = 13962460947151495567;
                 }
                 'c_125239: loop {
                     match current_block {
                         13962460947151495567 => {
+                            // lab111
                             /*main_lig_loop 1 */
                             main_j = FONT_INFO[main_k as usize].b16;
                             current_block = 11331079115679122507;
                         }
                         _ =>
+                        // lab92:
                         /*main_loop_move 2 */
                         {
                             if effective_char(false, main_f, cur_chr as u16)
@@ -17169,7 +17167,7 @@ pub(crate) unsafe fn main_control() {
                                 continue 'c_125208;
                             } else {
                                 main_i = effective_char_info(main_f, cur_l as u16);
-                                if !(main_i.s3 as i32 > 0i32) {
+                                if !(main_i.s3 > 0) {
                                     char_warning(main_f, cur_chr);
                                     MEM[lig_stack as usize].b32.s1 = avail;
                                     avail = lig_stack;
@@ -17185,13 +17183,14 @@ pub(crate) unsafe fn main_control() {
                     'c_125244: loop {
                         match current_block {
                             11331079115679122507 =>
+                            // lab112
                             /*main_lig_loop 2 */
                             {
                                 if main_j.s2 as i32 == cur_r {
-                                    if main_j.s3 as i32 <= 128i32 {
+                                    if main_j.s3 <= 128 {
                                         /*1075: */
-                                        if main_j.s1 as i32 >= 128i32 {
-                                            if cur_l < 65536i32 {
+                                        if main_j.s1 >= 128 {
+                                            if cur_l < TOO_BIG_CHAR {
                                                 if MEM[cur_q as usize].b32.s1 > TEX_NULL {
                                                     if MEM[cur_list.tail as usize].b16.s0 as i32
                                                         == HYPHEN_CHAR[main_f as usize]
@@ -17206,7 +17205,7 @@ pub(crate) unsafe fn main_control() {
                                                         MEM[cur_q as usize].b32.s1,
                                                     );
                                                     if lft_hit {
-                                                        MEM[main_p as usize].b16.s0 = 2_u16;
+                                                        MEM[main_p as usize].b16.s0 = 2;
                                                         lft_hit = false
                                                     }
                                                     if rt_hit {
@@ -17221,17 +17220,17 @@ pub(crate) unsafe fn main_control() {
                                                 }
                                                 if ins_disc {
                                                     ins_disc = false;
-                                                    if cur_list.mode as i32 > 0i32 {
+                                                    if cur_list.mode as i32 > 0 {
                                                         MEM[cur_list.tail as usize].b32.s1 =
                                                             new_disc();
                                                         cur_list.tail =
-                                                            MEM[cur_list.tail as usize].b32.s1
+                                                            *LLIST_link(cur_list.tail as usize)
                                                     }
                                                 }
                                             }
                                             MEM[cur_list.tail as usize].b32.s1 = new_kern(
                                                 FONT_INFO[(KERN_BASE[main_f as usize]
-                                                    + 256i32 * main_j.s1 as i32
+                                                    + 256 * main_j.s1 as i32
                                                     + main_j.s0 as i32)
                                                     as usize]
                                                     .b32
@@ -17240,22 +17239,19 @@ pub(crate) unsafe fn main_control() {
                                             cur_list.tail = *LLIST_link(cur_list.tail as usize);
                                             current_block = 2772858075894446251;
                                         } else {
-                                            if cur_l == 65536i32 {
+                                            if cur_l == TOO_BIG_CHAR {
                                                 lft_hit = true
                                             } else if lig_stack.is_texnull() {
                                                 rt_hit = true
                                             }
-                                            match main_j.s1 as i32 {
+                                            match main_j.s1 {
                                                 1 | 5 => {
                                                     cur_l = main_j.s0 as i32;
-                                                    main_i = FONT_INFO[(CHAR_BASE[main_f as usize]
-                                                        + effective_char(
-                                                            true,
-                                                            main_f,
-                                                            cur_l as u16,
-                                                        ))
-                                                        as usize]
-                                                        .b16;
+                                                    main_i = FONT_CHARACTER_INFO(
+                                                        main_f,
+                                                        effective_char(true, main_f, cur_l as u16)
+                                                            as usize,
+                                                    );
                                                     ligature_present = true;
                                                     current_block = 5062343687657450649;
                                                 }
@@ -17263,7 +17259,7 @@ pub(crate) unsafe fn main_control() {
                                                     cur_r = main_j.s0 as i32;
                                                     if lig_stack.is_texnull() {
                                                         lig_stack = new_lig_item(cur_r as u16);
-                                                        bchar = 65536i32
+                                                        bchar = TOO_BIG_CHAR
                                                     } else if is_char_node(lig_stack) {
                                                         main_p = lig_stack;
                                                         lig_stack = new_lig_item(cur_r as u16);
@@ -17283,7 +17279,7 @@ pub(crate) unsafe fn main_control() {
                                                     current_block = 5062343687657450649;
                                                 }
                                                 7 | 11 => {
-                                                    if cur_l < 65536i32 {
+                                                    if cur_l < TOO_BIG_CHAR {
                                                         if MEM[cur_q as usize].b32.s1 > TEX_NULL {
                                                             if MEM[cur_list.tail as usize].b16.s0
                                                                 as i32
@@ -17299,7 +17295,7 @@ pub(crate) unsafe fn main_control() {
                                                                 MEM[cur_q as usize].b32.s1,
                                                             );
                                                             if lft_hit {
-                                                                MEM[main_p as usize].b16.s0 = 2_u16;
+                                                                MEM[main_p as usize].b16.s0 = 2;
                                                                 lft_hit = false
                                                             }
                                                             MEM[cur_q as usize].b32.s1 = main_p;
@@ -17308,27 +17304,23 @@ pub(crate) unsafe fn main_control() {
                                                         }
                                                         if ins_disc {
                                                             ins_disc = false;
-                                                            if cur_list.mode as i32 > 0i32 {
+                                                            if cur_list.mode > 0 {
                                                                 MEM[cur_list.tail as usize]
                                                                     .b32
                                                                     .s1 = new_disc();
-                                                                cur_list.tail = MEM
-                                                                    [cur_list.tail as usize]
-                                                                    .b32
-                                                                    .s1
+                                                                cur_list.tail = *LLIST_link(
+                                                                    cur_list.tail as usize,
+                                                                );
                                                             }
                                                         }
                                                     }
                                                     cur_q = cur_list.tail;
                                                     cur_l = main_j.s0 as i32;
-                                                    main_i = FONT_INFO[(CHAR_BASE[main_f as usize]
-                                                        + effective_char(
-                                                            true,
-                                                            main_f,
-                                                            cur_l as u16,
-                                                        ))
-                                                        as usize]
-                                                        .b16;
+                                                    main_i = FONT_CHARACTER_INFO(
+                                                        main_f,
+                                                        effective_char(true, main_f, cur_l as u16)
+                                                            as usize,
+                                                    );
                                                     ligature_present = true;
                                                     current_block = 5062343687657450649;
                                                 }
@@ -17346,8 +17338,8 @@ pub(crate) unsafe fn main_control() {
                                                 7236688557761431611 => {}
                                                 4014385708774270501 => {}
                                                 _ => {
-                                                    if main_j.s1 as i32 > 4i32 {
-                                                        if main_j.s1 as i32 != 7i32 {
+                                                    if main_j.s1 > 4 {
+                                                        if main_j.s1 != 7 {
                                                             current_block = 7236688557761431611;
                                                         } else {
                                                             current_block = 17785146416239343017;
@@ -17358,7 +17350,7 @@ pub(crate) unsafe fn main_control() {
                                                     match current_block {
                                                         7236688557761431611 => {}
                                                         _ => {
-                                                            if cur_l < 65536i32 {
+                                                            if cur_l < TOO_BIG_CHAR {
                                                                 current_block = 4700797278417140031;
                                                             } else {
                                                                 main_k =
@@ -17384,12 +17376,12 @@ pub(crate) unsafe fn main_control() {
                                     4014385708774270501 => {}
                                     4700797278417140031 => {}
                                     _ => {
-                                        if main_j.s3 as i32 == 0i32 {
+                                        if main_j.s3 as i32 == 0 {
                                             main_k += 1;
                                             current_block = 13962460947151495567;
                                             break;
-                                        } else if !(main_j.s3 as i32 >= 128i32) {
-                                            main_k = main_k + main_j.s3 as i32 + 1i32;
+                                        } else if !(main_j.s3 >= 128) {
+                                            main_k = main_k + main_j.s3 as i32 + 1;
                                             current_block = 13962460947151495567;
                                             break;
                                         }
@@ -17398,29 +17390,30 @@ pub(crate) unsafe fn main_control() {
                                 }
                             }
                             _ => {
+                                // lab100:
                                 /*main_loop_lookahead *//*1073: */
                                 get_next();
-                                if cur_cmd as i32 == 11i32 {
+                                if cur_cmd == LETTER as u8 {
                                     current_block = 10120566026430170701;
-                                } else if cur_cmd as i32 == 12i32 {
+                                } else if cur_cmd == OTHER_CHAR as u8 {
                                     current_block = 10120566026430170701;
-                                } else if cur_cmd as i32 == 68i32 {
+                                } else if cur_cmd == CHAR_GIVEN as u8 {
                                     current_block = 10120566026430170701;
                                 } else {
                                     x_token();
-                                    if cur_cmd as i32 == 11i32 {
+                                    if cur_cmd == LETTER as u8 {
                                         current_block = 10120566026430170701;
-                                    } else if cur_cmd as i32 == 12i32 {
+                                    } else if cur_cmd == OTHER_CHAR as u8 {
                                         current_block = 10120566026430170701;
-                                    } else if cur_cmd as i32 == 68i32 {
+                                    } else if cur_cmd == CHAR_GIVEN as u8 {
                                         current_block = 10120566026430170701;
-                                    } else if cur_cmd as i32 == 16i32 {
+                                    } else if cur_cmd == CHAR_NUM as u8 {
                                         scan_char_num();
                                         cur_chr = cur_val;
                                         current_block = 10120566026430170701;
                                     } else {
-                                        if cur_cmd as i32 == 65i32 {
-                                            bchar = 65536i32
+                                        if cur_cmd == NO_BOUNDARY as u8 {
+                                            bchar = TOO_BIG_CHAR;
                                         }
                                         cur_r = bchar;
                                         lig_stack = TEX_NULL;
@@ -17430,67 +17423,69 @@ pub(crate) unsafe fn main_control() {
                                 match current_block {
                                     4700797278417140031 => {}
                                     _ => {
+                                        // lab101:
                                         /*main_loop_lookahead 1 */
                                         main_s = (*SF_CODE(cur_chr) as i64 % 65536) as i32; /*:1073 */
-                                        if main_s == 1000i32 {
-                                            cur_list.aux.b32.s0 = 1000i32
-                                        } else if main_s < 1000i32 {
-                                            if main_s > 0i32 {
-                                                cur_list.aux.b32.s0 = main_s
+                                        if main_s == 1000 {
+                                            cur_list.aux.b32.s0 = 1000
+                                        } else if main_s < 1000 {
+                                            if main_s > 0 {
+                                                cur_list.aux.b32.s0 = main_s;
                                             }
-                                        } else if cur_list.aux.b32.s0 < 1000i32 {
-                                            cur_list.aux.b32.s0 = 1000i32
+                                        } else if cur_list.aux.b32.s0 < 1000 {
+                                            cur_list.aux.b32.s0 = 1000;
                                         } else {
-                                            cur_list.aux.b32.s0 = main_s
+                                            cur_list.aux.b32.s0 = main_s;
                                         }
                                         cur_ptr = TEX_NULL;
                                         space_class = (*SF_CODE(cur_chr) as i64 / 65536) as i32;
-                                        if *INTPAR(IntPar::xetex_inter_char_tokens) > 0i32
-                                            && space_class != 4096i32
+                                        if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
+                                            && space_class != CHAR_CLASS_LIMIT
                                         {
-                                            if prev_class == 4096i32 - 1i32 {
-                                                if cur_input.state as i32 != 0i32
-                                                    || cur_input.index as i32 != 4i32
+                                            if prev_class == CHAR_CLASS_LIMIT - 1 {
+                                                if cur_input.state != TOKEN_LIST
+                                                    || cur_input.index != BACKED_UP_CHAR
                                                 {
                                                     find_sa_element(
-                                                        6i32 as small_number,
-                                                        (4096i32 - 1i32) * 4096i32 + space_class,
+                                                        INTER_CHAR_VAL as small_number,
+                                                        (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT
+                                                            + space_class,
                                                         false,
                                                     );
                                                     if !cur_ptr.is_texnull() {
-                                                        if cur_cmd as i32 != 11i32 {
-                                                            cur_cmd = 12i32 as eight_bits
+                                                        if cur_cmd != LETTER as u8 {
+                                                            cur_cmd = OTHER_CHAR as u8
                                                         }
                                                         cur_tok =
-                                                            cur_cmd as i32 * 0x200000i32 + cur_chr;
+                                                            cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                                         back_input();
-                                                        cur_input.index = 4_u16;
+                                                        cur_input.index = BACKED_UP_CHAR;
                                                         begin_token_list(
                                                             MEM[(cur_ptr + 1) as usize].b32.s1,
-                                                            17_u16,
+                                                            INTER_CHAR_TEXT,
                                                         );
                                                         continue 'c_125208;
                                                     }
                                                 }
                                             } else {
                                                 find_sa_element(
-                                                    6i32 as small_number,
-                                                    prev_class * 4096i32 + space_class,
+                                                    INTER_CHAR_VAL as small_number,
+                                                    prev_class * CHAR_CLASS_LIMIT + space_class,
                                                     false,
                                                 );
                                                 if !cur_ptr.is_texnull() {
-                                                    if cur_cmd as i32 != 11i32 {
-                                                        cur_cmd = 12i32 as eight_bits
+                                                    if cur_cmd != LETTER as u8 {
+                                                        cur_cmd = OTHER_CHAR as u8;
                                                     }
                                                     cur_tok =
-                                                        cur_cmd as i32 * 0x200000i32 + cur_chr;
+                                                        cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                                     back_input();
-                                                    cur_input.index = 4_u16;
+                                                    cur_input.index = BACKED_UP_CHAR;
                                                     begin_token_list(
                                                         MEM[(cur_ptr + 1) as usize].b32.s1,
-                                                        17_u16,
+                                                        INTER_CHAR_TEXT,
                                                     );
-                                                    prev_class = 4096i32 - 1i32;
+                                                    prev_class = CHAR_CLASS_LIMIT - 1;
                                                     continue 'c_125208;
                                                 }
                                             }
@@ -17507,9 +17502,9 @@ pub(crate) unsafe fn main_control() {
                                         cur_r = cur_chr;
                                         MEM[lig_stack as usize].b16.s0 = cur_r as u16;
                                         if cur_r == false_bchar {
-                                            cur_r = 65536i32
+                                            cur_r = TOO_BIG_CHAR;
                                         }
-                                        current_block = 4700797278417140031;
+                                        current_block = 4700797278417140031; // lab110
                                     }
                                 }
                             }
@@ -17517,8 +17512,9 @@ pub(crate) unsafe fn main_control() {
                         loop {
                             match current_block {
                                 7236688557761431611 => {
+                                    // lab80:
                                     /*main_loop_wrapup *//*1070: */
-                                    if cur_l < 65536i32 {
+                                    if cur_l < TOO_BIG_CHAR {
                                         if MEM[cur_q as usize].b32.s1 > TEX_NULL {
                                             if MEM[cur_list.tail as usize].b16.s0 as i32
                                                 == HYPHEN_CHAR[main_f as usize]
@@ -17533,7 +17529,7 @@ pub(crate) unsafe fn main_control() {
                                                 MEM[cur_q as usize].b32.s1,
                                             );
                                             if lft_hit {
-                                                MEM[main_p as usize].b16.s0 = 2_u16;
+                                                MEM[main_p as usize].b16.s0 = 2;
                                                 lft_hit = false
                                             }
                                             if rt_hit {
@@ -17548,7 +17544,7 @@ pub(crate) unsafe fn main_control() {
                                         }
                                         if ins_disc {
                                             ins_disc = false;
-                                            if cur_list.mode as i32 > 0i32 {
+                                            if cur_list.mode > 0 {
                                                 MEM[cur_list.tail as usize].b32.s1 = new_disc();
                                                 cur_list.tail = *LLIST_link(cur_list.tail as usize)
                                             }
@@ -17570,6 +17566,7 @@ pub(crate) unsafe fn main_control() {
                                     }
                                 }
                                 2772858075894446251 =>
+                                // lab90:
                                 /*main_loop_move *//*1071: */
                                 {
                                     if lig_stack.is_texnull() {
@@ -17580,12 +17577,14 @@ pub(crate) unsafe fn main_control() {
                                     current_block = 4014385708774270501;
                                 }
                                 _ =>
+                                // lab91:
                                 /*main_loop_move 1 */
                                 {
                                     if is_char_node(lig_stack) {
-                                        current_block = 249799543778823886;
+                                        current_block = 249799543778823886; // lab92
                                         break 'c_125244;
                                     }
+                                    // lab95:
                                     /*main_loop_move_lig *//*1072: */
                                     main_p = MEM[(lig_stack + 1) as usize].b32.s1;
                                     if main_p > TEX_NULL {
@@ -17594,15 +17593,15 @@ pub(crate) unsafe fn main_control() {
                                     }
                                     temp_ptr = lig_stack;
                                     lig_stack = MEM[temp_ptr as usize].b32.s1;
-                                    free_node(temp_ptr as usize, 2i32);
-                                    main_i = FONT_INFO[(CHAR_BASE[main_f as usize]
-                                        + effective_char(true, main_f, cur_l as u16))
-                                        as usize]
-                                        .b16;
+                                    free_node(temp_ptr as usize, SMALL_NODE_SIZE);
+                                    main_i = FONT_CHARACTER_INFO(
+                                        main_f,
+                                        effective_char(true, main_f, cur_l as u16) as usize,
+                                    );
                                     ligature_present = true;
                                     if lig_stack.is_texnull() {
                                         if main_p > TEX_NULL {
-                                            current_block = 18270385712206273994;
+                                            current_block = 18270385712206273994; // lab100
                                             continue 'c_125244;
                                         }
                                         cur_r = bchar;
@@ -17616,17 +17615,16 @@ pub(crate) unsafe fn main_control() {
                         }
                         main_k = LIG_KERN_BASE[main_f as usize] + main_i.s0 as i32;
                         main_j = FONT_INFO[main_k as usize].b16;
-                        if main_j.s3 as i32 <= 128i32 {
-                            current_block = 11331079115679122507;
+                        if main_j.s3 as i32 <= 128 {
+                            current_block = 11331079115679122507; // lab112
                             continue;
                         }
                         main_k = ((LIG_KERN_BASE[main_f as usize]
-                            + 256i32 * main_j.s1 as i32
+                            + 256 * main_j.s1 as i32
                             + main_j.s0 as i32) as i64
                             + 32768
-                            - (256i32 * 128i32) as i64)
-                            as font_index;
-                        current_block = 13962460947151495567;
+                            - (256 * 128) as i64) as font_index;
+                        current_block = 13962460947151495567; // lab111
                         break;
                     }
                 }
@@ -17635,33 +17633,34 @@ pub(crate) unsafe fn main_control() {
         match current_block {
             11459959175219260272 => app_space(),
             _ =>
+            // lab100:
             /*append_normal_space */
             {
-                if *INTPAR(IntPar::xetex_inter_char_tokens) > 0i32
-                    && space_class != 4096i32
-                    && prev_class != 4096i32 - 1i32
+                if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
+                    && space_class != CHAR_CLASS_LIMIT
+                    && prev_class != CHAR_CLASS_LIMIT - 1
                 {
-                    prev_class = 4096i32 - 1i32;
+                    prev_class = CHAR_CLASS_LIMIT - 1;
                     find_sa_element(
-                        6i32 as small_number,
-                        space_class * 4096i32 + (4096i32 - 1i32),
+                        INTER_CHAR_VAL as small_number,
+                        space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                         false,
                     );
                     if !cur_ptr.is_texnull() {
-                        if cur_cs == 0i32 {
-                            if cur_cmd as i32 == 16i32 {
-                                cur_cmd = 12i32 as eight_bits
+                        if cur_cs == 0 {
+                            if cur_cmd == CHAR_NUM as u8 {
+                                cur_cmd = OTHER_CHAR as u8;
                             }
-                            cur_tok = cur_cmd as i32 * 0x200000i32 + cur_chr
+                            cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
                         } else {
-                            cur_tok = 0x1ffffffi32 + cur_cs
+                            cur_tok = CS_TOKEN_FLAG + cur_cs
                         }
                         back_input();
-                        begin_token_list(MEM[(cur_ptr + 1) as usize].b32.s1, 17_u16);
+                        begin_token_list(MEM[(cur_ptr + 1) as usize].b32.s1, INTER_CHAR_TEXT);
                         continue;
                     }
                 }
-                if *GLUEPAR(GluePar::space_skip) == 0i32 {
+                if *GLUEPAR(GluePar::space_skip) == 0 {
                     main_p = FONT_GLUE[EQTB[CUR_FONT_LOC].b32.s1 as usize];
                     if main_p.is_texnull() {
                         main_p = new_spec(0);
@@ -17673,7 +17672,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     temp_ptr = new_glue(main_p)
                 } else {
-                    temp_ptr = new_param_glue(12i32 as small_number)
+                    temp_ptr = new_param_glue(GluePar::space_skip as small_number)
                 }
                 MEM[cur_list.tail as usize].b32.s1 = temp_ptr;
                 cur_list.tail = temp_ptr

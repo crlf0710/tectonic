@@ -292,6 +292,34 @@ pub(crate) unsafe fn print_c_string(mut str: *const i8) {
     }
 }
 
+/*
+static inline pool_pointer
+cur_length(void) {
+    /*41: The length of the current string in the pool */
+    return pool_ptr - str_start[str_ptr - TOO_BIG_CHAR];
+}
+
+
+/* Tectonic related functions */
+tt_history_t tt_run_engine(char *dump_name, char *input_file_name, time_t build_date);
+
+
+/* formerly xetex.h: */
+/* additional declarations we want to slip in for xetex */
+
+/* p is native_word node; g is XeTeX_use_glyph_metrics flag */
+#define set_native_metrics(p,g)               measure_native_node(&(mem[p]), g)
+#define set_native_glyph_metrics(p,g)         measure_native_glyph(&(mem[p]), g)
+#define set_justified_native_glyphs(p)        store_justified_native_glyphs(&(mem[p]))
+#define get_native_italic_correction(p)       real_get_native_italic_correction(&(mem[p]))
+#define get_native_glyph_italic_correction(p) real_get_native_glyph_italic_correction(&(mem[p]))
+#define get_native_glyph(p,i)                 real_get_native_glyph(&(mem[p]), i)
+#define make_xdv_glyph_array_data(p)          makeXDVGlyphArrayData(&(mem[p]))
+#define get_native_word_cp(p,s)               real_get_native_word_cp(&(mem[p]), s)
+*/
+
+/* easier to do the bit-twiddling here than in Pascal */
+/* read fields from a 32-bit math code */
 pub(crate) fn math_fam(x: i32) -> u32 {
     x as u32 >> 24 & 0xff
 }
@@ -302,5 +330,19 @@ pub(crate) fn math_char(x: i32) -> u32 {
     x as u32 & 0x1fffff
 }
 /* calculate pieces to assign to a math code */
-//#define set_family(x) (((unsigned)(x) & 0xFF) << 24)
-//#define set_class(x)  (((unsigned)(x) & 0x07) << 21)
+pub(crate) fn set_family(x: i32) -> i32 {
+    ((x as u32 & 0xff) << 24) as i32
+}
+pub(crate) fn set_class(x: i32) -> i32 {
+    ((x as u32 & 0x7) << 21) as i32
+}
+
+/*
+/* Unicode file reading modes */
+#define AUTO       0 /* default: will become one of 1..3 at file open time, after sniffing */
+#define UTF8       1
+#define UTF16BE    2
+#define UTF16LE    3
+#define RAW        4
+#define ICUMAPPING 5
+*/
