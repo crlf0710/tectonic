@@ -1161,10 +1161,10 @@ pub(crate) const LEFT_SIDE: placeholdertype = 0;
 pub(crate) const RIGHT_SIDE: placeholdertype = 1;
 
 /* modes to do_marks() */
-pub(crate) const VSPLIT_INIT: placeholdertype = 0;
-pub(crate) const FIRE_UP_INIT: placeholdertype = 1;
-pub(crate) const FIRE_UP_DONE: placeholdertype = 2;
-pub(crate) const DESTROY_MARKS: placeholdertype = 3;
+pub(crate) const VSPLIT_INIT: i16 = 0;
+pub(crate) const FIRE_UP_INIT: i16 = 1;
+pub(crate) const FIRE_UP_DONE: i16 = 2;
+pub(crate) const DESTROY_MARKS: i16 = 3;
 
 pub(crate) const MARKS_CODE: placeholdertype = 5;
 

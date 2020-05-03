@@ -17685,14 +17685,11 @@ pub(crate) unsafe fn give_err_help() {
     token_show(*LOCAL(Local::err_help));
 }
 pub(crate) unsafe fn close_files_and_terminate() {
-    let mut k: i32 = 0;
     terminate_font_manager();
-    k = 0i32;
-    while k <= 15i32 {
-        if write_open[k as usize] {
-            ttstub_output_close(write_file[k as usize].take().unwrap());
+    for k in 0..=15 {
+        if write_open[k] {
+            ttstub_output_close(write_file[k].take().unwrap());
         }
-        k += 1
     }
     finalize_dvi_file();
     synctex_terminate(log_opened);
@@ -17712,7 +17709,7 @@ pub(crate) unsafe fn close_files_and_terminate() {
 pub(crate) unsafe fn flush_str(mut s: str_number) {
     if s == str_ptr - 1 {
         str_ptr -= 1;
-        pool_ptr = str_start[(str_ptr - 65536) as usize]
+        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
     };
 }
 pub(crate) unsafe fn tokens_to_string(mut p: i32) -> str_number {
@@ -17732,66 +17729,53 @@ pub(crate) unsafe fn scan_pdf_ext_toks() {
     scan_toks(false, true);
 }
 pub(crate) unsafe fn compare_strings() {
-    let mut current_block: u64;
-    let mut s1: str_number = 0;
-    let mut s2: str_number = 0;
-    let mut i1: pool_pointer = 0;
-    let mut i2: pool_pointer = 0;
-    let mut j1: pool_pointer = 0;
-    let mut j2: pool_pointer = 0;
+    unsafe fn done(s1: str_number, s2: str_number) {
+        flush_str(s2);
+        flush_str(s1);
+        cur_val_level = 0_u8;
+    }
     scan_toks(false, true);
-    s1 = tokens_to_string(def_ref);
+    let s1 = tokens_to_string(def_ref);
     delete_token_ref(def_ref);
     scan_toks(false, true);
-    s2 = tokens_to_string(def_ref);
+    let s2 = tokens_to_string(def_ref);
     delete_token_ref(def_ref);
-    i1 = str_start[(s1 as i64 - 65536) as usize];
-    j1 = str_start[((s1 + 1i32) as i64 - 65536) as usize];
-    i2 = str_start[(s2 as i64 - 65536) as usize];
-    j2 = str_start[((s2 + 1i32) as i64 - 65536) as usize];
+    let mut i1 = str_start[(s1 as i64 - 65536) as usize];
+    let j1 = str_start[((s1 + 1i32) as i64 - 65536) as usize];
+    let mut i2 = str_start[(s2 as i64 - 65536) as usize];
+    let j2 = str_start[((s2 + 1i32) as i64 - 65536) as usize];
     loop {
         if !(i1 < j1 && i2 < j2) {
-            current_block = 12124785117276362961;
             break;
         }
         if (str_pool[i1 as usize] as i32) < str_pool[i2 as usize] as i32 {
             cur_val = -1i32;
-            current_block = 11833780966967478830;
-            break;
+            return done(s1, s2);
         } else if str_pool[i1 as usize] as i32 > str_pool[i2 as usize] as i32 {
             cur_val = 1i32;
-            current_block = 11833780966967478830;
-            break;
+            return done(s1, s2);
         } else {
             i1 += 1;
             i2 += 1
         }
     }
-    match current_block {
-        12124785117276362961 => {
-            if i1 == j1 && i2 == j2 {
-                cur_val = 0i32
-            } else if i1 < j1 {
-                cur_val = 1i32
-            } else {
-                cur_val = -1i32
-            }
-        }
-        _ => {}
+    if i1 == j1 && i2 == j2 {
+        cur_val = 0i32
+    } else if i1 < j1 {
+        cur_val = 1i32
+    } else {
+        cur_val = -1i32
     }
-    flush_str(s2);
-    flush_str(s1);
-    cur_val_level = 0_u8;
+    done(s1, s2);
 }
 pub(crate) unsafe fn prune_page_top(mut p: i32, mut s: bool) -> i32 {
-    let mut q: i32 = 0;
     let mut r: i32 = TEX_NULL;
     let mut prev_p = TEMP_HEAD;
     MEM[TEMP_HEAD].b32.s1 = p;
     while !p.is_texnull() {
-        match MEM[p as usize].b16.s1 as i32 {
-            0 | 1 | 2 => {
-                q = new_skip_param(10i32 as small_number);
+        match MEM[p as usize].b16.s1 {
+            HLIST_NODE | VLIST_NODE | RULE_NODE => {
+                let q = new_skip_param(GluePar::split_top_skip as small_number);
                 MEM[prev_p].b32.s1 = q;
                 MEM[q as usize].b32.s1 = p;
                 if MEM[(temp_ptr + 1) as usize].b32.s1 > MEM[(p + 3) as usize].b32.s1 {
@@ -17802,18 +17786,18 @@ pub(crate) unsafe fn prune_page_top(mut p: i32, mut s: bool) -> i32 {
                 }
                 p = TEX_NULL
             }
-            8 | 4 | 3 => {
+            WHATSIT_NODE | MARK_NODE | INS_NODE => {
                 prev_p = p as usize;
                 p = MEM[prev_p].b32.s1
             }
-            10 | 11 | 12 => {
-                q = p;
+            GLUE_NODE | KERN_NODE | PENALTY_NODE => {
+                let q = p;
                 p = MEM[q as usize].b32.s1;
                 MEM[q as usize].b32.s1 = TEX_NULL;
                 MEM[prev_p].b32.s1 = p;
                 if s {
-                    if disc_ptr[3].is_texnull() {
-                        disc_ptr[3] = q
+                    if disc_ptr[VSPLIT_CODE as usize].is_texnull() {
+                        disc_ptr[VSPLIT_CODE as usize] = q
                     } else {
                         MEM[r as usize].b32.s1 = q
                     }
@@ -17828,34 +17812,31 @@ pub(crate) unsafe fn prune_page_top(mut p: i32, mut s: bool) -> i32 {
     MEM[TEMP_HEAD].b32.s1
 }
 pub(crate) unsafe fn do_marks(mut a: small_number, mut l: small_number, mut q: i32) -> bool {
-    let mut i: small_number = 0;
-    if (l as i32) < 4i32 {
-        i = 0i32 as small_number;
-        while i as i32 <= 15i32 {
+    if l < 4 {
+        for i in 0..=15 {
             if i as i32 & 1i32 != 0 {
-                cur_ptr = MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
+                cur_ptr = MEM[(q + i / 2 + 1) as usize].b32.s1
             } else {
-                cur_ptr = MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
+                cur_ptr = MEM[(q + i / 2 + 1) as usize].b32.s0
             }
             if !cur_ptr.is_texnull() {
                 if do_marks(a, (l as i32 + 1i32) as small_number, cur_ptr) {
                     if i as i32 & 1i32 != 0 {
-                        MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = TEX_NULL
+                        MEM[(q + i / 2 + 1) as usize].b32.s1 = TEX_NULL
                     } else {
-                        MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = TEX_NULL
+                        MEM[(q + i / 2 + 1) as usize].b32.s0 = TEX_NULL
                     }
                     MEM[q as usize].b16.s0 -= 1;
                 }
             }
-            i += 1
         }
-        if MEM[q as usize].b16.s0 as i32 == 0 {
-            free_node(q as usize, 33i32);
-            q = TEX_NULL
+        if MEM[q as usize].b16.s0 == 0 {
+            free_node(q as usize, INDEX_NODE_SIZE);
+            q = TEX_NULL;
         }
     } else {
-        match a as i32 {
-            0 => {
+        match a {
+            VSPLIT_INIT => {
                 /*1614: */
                 if !MEM[(q + 2) as usize].b32.s1.is_texnull() {
                     delete_token_ref(MEM[(q + 2) as usize].b32.s1);
@@ -17864,7 +17845,7 @@ pub(crate) unsafe fn do_marks(mut a: small_number, mut l: small_number, mut q: i
                     MEM[(q + 3) as usize].b32.s0 = TEX_NULL
                 }
             }
-            1 => {
+            FIRE_UP_INIT => {
                 if !MEM[(q + 2) as usize].b32.s0.is_texnull() {
                     if !MEM[(q + 1) as usize].b32.s0.is_texnull() {
                         delete_token_ref(MEM[(q + 1) as usize].b32.s0);
@@ -17884,7 +17865,7 @@ pub(crate) unsafe fn do_marks(mut a: small_number, mut l: small_number, mut q: i
                     MEM[(q + 1) as usize].b32.s0 = MEM[(q + 2) as usize].b32.s0
                 }
             }
-            2 => {
+            FIRE_UP_DONE => {
                 if !MEM[(q + 1) as usize].b32.s0.is_texnull()
                     && MEM[(q + 1) as usize].b32.s1.is_texnull()
                 {
@@ -17892,30 +17873,28 @@ pub(crate) unsafe fn do_marks(mut a: small_number, mut l: small_number, mut q: i
                     MEM[MEM[(q + 1) as usize].b32.s0 as usize].b32.s0 += 1;
                 }
             }
-            3 => {
-                i = 0i32 as small_number;
-                while i as i32 <= 4i32 {
+            DESTROY_MARKS => {
+                for i in 0..=4 {
                     if i as i32 & 1i32 != 0 {
-                        cur_ptr = MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
+                        cur_ptr = MEM[(q + i / 2 + 1) as usize].b32.s1
                     } else {
-                        cur_ptr = MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
+                        cur_ptr = MEM[(q + i / 2 + 1) as usize].b32.s0
                     }
                     if !cur_ptr.is_texnull() {
                         delete_token_ref(cur_ptr);
                         if i as i32 & 1i32 != 0 {
-                            MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = TEX_NULL
+                            MEM[(q + i / 2 + 1) as usize].b32.s1 = TEX_NULL
                         } else {
-                            MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = TEX_NULL
+                            MEM[(q + i / 2 + 1) as usize].b32.s0 = TEX_NULL
                         }
                     }
-                    i += 1
                 }
             }
             _ => {}
         }
         if MEM[(q + 2) as usize].b32.s0.is_texnull() {
             if MEM[(q + 3) as usize].b32.s0.is_texnull() {
-                free_node(q as usize, 4i32);
+                free_node(q as usize, MARK_CLASS_NODE_SIZE);
                 q = TEX_NULL
             }
         }
@@ -17926,11 +17905,11 @@ pub(crate) unsafe fn do_assignments() {
     loop {
         loop {
             get_x_token();
-            if !(cur_cmd as i32 == 10i32 || cur_cmd as i32 == 0i32) {
+            if !(cur_cmd == SPACER as u8 || cur_cmd == RELAX as u8) {
                 break;
             }
         }
-        if cur_cmd as i32 <= 71i32 {
+        if cur_cmd <= MAX_NON_PREFIXED_COMMAND as u8 {
             return;
         }
         set_box_allowed = false;
@@ -17941,7 +17920,7 @@ pub(crate) unsafe fn do_assignments() {
 /* the former xetexcoerce.h: */
 pub(crate) unsafe fn new_whatsit(mut s: small_number, mut w: small_number) {
     let p = get_node(w as i32);
-    MEM[p].b16.s1 = 8_u16;
+    *NODE_type(p) = WHATSIT_NODE;
     MEM[p].b16.s0 = s as u16;
     MEM[cur_list.tail as usize].b32.s1 = p as i32;
     cur_list.tail = p as i32;
