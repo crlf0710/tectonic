@@ -435,7 +435,7 @@ pub(crate) const LEVEL_ONE: u16 = 1;
 pub(crate) const BATCH_MODE: placeholdertype = 0;
 pub(crate) const NONSTOP_MODE: placeholdertype = 1;
 pub(crate) const SCROLL_MODE: placeholdertype = 2;
-pub(crate) const ERROR_STOP_MODE: placeholdertype = 3;
+pub(crate) const ERROR_STOP_MODE: u8 = 3;
 pub(crate) const UNSPECIFIED_MODE: placeholdertype = 4;
 
 pub(crate) const LEFT_TO_RIGHT: placeholdertype = 0;

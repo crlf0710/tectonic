@@ -5041,7 +5041,7 @@ unsafe fn initialize_primitives() {
     primitive(b"batchmode", SET_INTERACTION, BATCH_MODE);
     primitive(b"nonstopmode", SET_INTERACTION, NONSTOP_MODE);
     primitive(b"scrollmode", SET_INTERACTION, SCROLL_MODE);
-    primitive(b"errorstopmode", SET_INTERACTION, ERROR_STOP_MODE);
+    primitive(b"errorstopmode", SET_INTERACTION, ERROR_STOP_MODE as i32);
 
     primitive(b"openin", IN_STREAM, 1);
     primitive(b"closein", IN_STREAM, 0);
