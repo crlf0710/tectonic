@@ -104,12 +104,12 @@ static mut best_pl_glue: [scaled_t; 4] = [0; 4];
 unsafe fn get_native_usv(mut p: i32, mut i: i32) -> UnicodeScalar {
     let mut c: u16 =
         *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16).offset(i as isize);
-    if c as i32 >= 0xd800i32 && (c as i32) < 0xdc00i32 {
-        return 0x10000i32
-            + (c as i32 - 0xd800i32) * 0x400i32
-            + *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16)
-                .offset((i + 1i32) as isize) as i32
-            - 0xdc00i32;
+    if c as i32 >= 0xd800 && (c as i32) < 0xdc00 {
+        return 0x10000
+            + (c as i32 - 0xd800) * 0x400
+            + *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16).offset((i + 1) as isize)
+                as i32
+            - 0xdc00;
     }
     c as UnicodeScalar
 }
@@ -125,9 +125,7 @@ unsafe fn get_native_usv(mut p: i32, mut i: i32) -> UnicodeScalar {
  * completion, `just_box` will point to the final box created.
  */
 pub(crate) unsafe fn line_break(mut d: bool) {
-    let mut current_block: u64; /* "this is for over/underfull box messages" */
-    let mut auto_breaking: bool = false;
-    let mut prev_p: i32 = 0;
+    let mut current_block: u64;
     let mut q: i32 = 0;
     let mut r: i32 = 0;
     let mut s: i32 = 0;
@@ -319,10 +317,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         passive = TEX_NULL;
         font_in_short_display = 0; /*:893*/
         cur_p = *LLIST_link(TEMP_HEAD as usize);
-        auto_breaking = true;
+        let mut auto_breaking = true;
 
         global_prev_p = cur_p;
-        prev_p = global_prev_p;
+        let mut prev_p = global_prev_p;
         first_p = cur_p;
 
         while !cur_p.is_texnull() && *LLIST_link(ACTIVE_LIST as usize) != LAST_ACTIVE as i32 {
@@ -438,7 +436,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         l = 0i32;
                                         while l < MEM[(s + 4) as usize].b16.s1 as i32 {
                                             c = get_native_usv(s, l);
-                                            if *LC_CODE(c) != 0 {
+                                            if *LC_CODE(c as usize) != 0 {
                                                 hf = MEM[(s + 4) as usize].b16.s2
                                                     as internal_font_number;
                                                 prev_s = s;
@@ -471,7 +469,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 match current_block {
                                     11202235766349324107 => {
                                         if hyph_index == 0i32 || c > 255i32 {
-                                            hc[0] = *LC_CODE(c);
+                                            hc[0] = *LC_CODE(c as usize);
                                         } else if *trie_trc.offset((hyph_index + c) as isize) as i32
                                             != c
                                         {
@@ -561,7 +559,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                     if hyph_index == 0i32
                                                                         || c > 255i32
                                                                     {
-                                                                        hc[0] = *LC_CODE(c);
+                                                                        hc[0] =
+                                                                            *LC_CODE(c as usize);
                                                                     } else if *trie_trc.offset(
                                                                         (hyph_index + c) as isize,
                                                                     )
@@ -1068,7 +1067,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                 MEM[s as usize].b16.s0 as i32;
                                                             c = hyf_bchar;
                                                             if hyph_index == 0i32 || c > 255i32 {
-                                                                hc[0] = *LC_CODE(c);
+                                                                hc[0] = *LC_CODE(c as usize);
                                                             } else if *trie_trc
                                                                 .offset((hyph_index + c) as isize)
                                                                 as i32
@@ -1117,7 +1116,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                     as UnicodeScalar;
                                                                 if hyph_index == 0i32 || c > 255i32
                                                                 {
-                                                                    hc[0] = *LC_CODE(c);
+                                                                    hc[0] = *LC_CODE(c as usize);
                                                                 } else if *trie_trc.offset(
                                                                     (hyph_index + c) as isize,
                                                                 )

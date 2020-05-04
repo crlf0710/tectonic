@@ -135,6 +135,11 @@ pub(crate) type save_pointer = i32;
 pub(crate) unsafe fn cur_length() -> pool_pointer {
     pool_ptr - str_start[(str_ptr - 65536) as usize]
 }
+
+fn IS_LC_HEX(c: i32) -> bool {
+    (c >= ('0' as i32) && c <= ('9' as i32)) || (c >= ('a' as i32) && c <= ('f' as i32))
+}
+
 unsafe fn int_error(mut n: i32) {
     print_cstr(b" (");
     print_int(n);
@@ -467,7 +472,7 @@ pub(crate) unsafe fn new_param_glue(mut n: small_number) -> i32 {
     *NODE_type(p) = GLUE_NODE;
     MEM[p].b16.s0 = n as u16 + 1;
     MEM[p + 1].b32.s1 = TEX_NULL;
-    let q = EQTB[(GLUE_BASE + n as i32) as usize].b32.s1 as usize;
+    let q = EQTB[GLUE_BASE + n as usize].b32.s1 as usize;
     MEM[p + 1].b32.s0 = q as i32;
     MEM[q].b32.s1 += 1;
     p as i32
@@ -482,7 +487,7 @@ pub(crate) unsafe fn new_glue(mut q: i32) -> i32 {
     p as i32
 }
 pub(crate) unsafe fn new_skip_param(mut n: small_number) -> i32 {
-    temp_ptr = new_spec(EQTB[(GLUE_BASE + n as i32) as usize].b32.s1 as usize);
+    temp_ptr = new_spec(EQTB[(GLUE_BASE as i32 + n as i32) as usize].b32.s1 as usize);
     let p = new_glue(temp_ptr);
     MEM[temp_ptr as usize].b32.s1 = TEX_NULL;
     MEM[p as usize].b16.s0 = n as u16 + 1;
@@ -526,8 +531,10 @@ pub(crate) unsafe fn short_display(mut p: i32) {
                     } else {
                         /*279:*/
                         print_esc(
-                            (*hash.offset((FONT_ID_BASE + MEM[p as usize].b16.s1 as i32) as isize))
-                                .s1,
+                            (*hash.offset(
+                                (FONT_ID_BASE as i32 + MEM[p as usize].b16.s1 as i32) as isize,
+                            ))
+                            .s1,
                         );
                     }
                     print_char(' ' as i32);
@@ -546,7 +553,8 @@ pub(crate) unsafe fn short_display(mut p: i32) {
                         if MEM[(p + 4) as usize].b16.s2 as i32 != font_in_short_display {
                             print_esc(
                                 (*hash.offset(
-                                    (FONT_ID_BASE + MEM[(p + 4) as usize].b16.s2 as i32) as isize,
+                                    (FONT_ID_BASE as i32 + MEM[(p + 4) as usize].b16.s2 as i32)
+                                        as isize,
                                 ))
                                 .s1,
                             );
@@ -596,7 +604,9 @@ pub(crate) unsafe fn print_font_and_char(mut p: i32) {
             print_char('*' as i32);
         } else {
             /*279: */
-            print_esc((*hash.offset((FONT_ID_BASE + MEM[p as usize].b16.s1 as i32) as isize)).s1);
+            print_esc(
+                (*hash.offset((FONT_ID_BASE as i32 + MEM[p as usize].b16.s1 as i32) as isize)).s1,
+            );
         }
         print_char(' ' as i32);
         print(MEM[p as usize].b16.s0 as i32);
@@ -884,14 +894,18 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                     }
                     NATIVE_WORD_NODE | NATIVE_WORD_NODE_AT => {
                         print_esc(
-                            (*hash.offset((FONT_ID_BASE + MEM[p + 4].b16.s2 as i32) as isize)).s1,
+                            (*hash
+                                .offset((FONT_ID_BASE as i32 + MEM[p + 4].b16.s2 as i32) as isize))
+                            .s1,
                         );
                         print_char(' ' as i32);
                         print_native_word(p);
                     }
                     GLYPH_NODE => {
                         print_esc(
-                            (*hash.offset((FONT_ID_BASE + MEM[p + 4].b16.s2 as i32) as isize)).s1,
+                            (*hash
+                                .offset((FONT_ID_BASE as i32 + MEM[p + 4].b16.s2 as i32) as isize))
+                            .s1,
                         );
                         print_cstr(b" glyph#");
                         print_int(MEM[p + 4].b16.s1 as i32);
@@ -1866,25 +1880,25 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         ASSIGN_GLUE | ASSIGN_MU_GLUE => {
-            if chr_code < SKIP_BASE {
-                match GluePar::try_from((chr_code - GLUE_BASE) as u16) {
+            if chr_code < SKIP_BASE as i32 {
+                match GluePar::try_from((chr_code - GLUE_BASE as i32) as u16) {
                     Ok(dimen) => print_skip_param(dimen),
                     Err(e) => print_cstr(e),
                 }
-            } else if chr_code < MU_SKIP_BASE {
+            } else if chr_code < MU_SKIP_BASE as i32 {
                 print_esc_cstr(b"skip");
-                print_int(chr_code - SKIP_BASE);
+                print_int(chr_code - SKIP_BASE as i32);
             } else {
                 print_esc_cstr(b"muskip");
-                print_int(chr_code - MU_SKIP_BASE);
+                print_int(chr_code - MU_SKIP_BASE as i32);
             }
         }
         ASSIGN_TOKS => {
-            if chr_code >= TOKS_BASE {
+            if chr_code >= TOKS_BASE as i32 {
                 print_esc_cstr(b"toks");
-                print_int(chr_code - TOKS_BASE);
+                print_int(chr_code - TOKS_BASE as i32);
             } else {
-                match Local::try_from(chr_code - LOCAL_BASE) {
+                match Local::try_from(chr_code - LOCAL_BASE as i32) {
                     Ok(Local::output_routine) => print_esc_cstr(b"output"),
                     Ok(Local::every_par) => print_esc_cstr(b"everypar"),
                     Ok(Local::every_math) => print_esc_cstr(b"everymath"),
@@ -1912,14 +1926,14 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         ASSIGN_DIMEN => {
-            if chr_code < SCALED_BASE {
+            if chr_code < SCALED_BASE as i32 {
                 match DimenPar::try_from(chr_code - DIMEN_BASE) {
                     Ok(dimen) => print_length_param(dimen),
                     Err(e) => print_cstr(e),
                 }
             } else {
                 print_esc_cstr(b"dimen");
-                print_int(chr_code - SCALED_BASE);
+                print_int(chr_code - SCALED_BASE as i32);
             }
         }
         ACCENT => print_esc_cstr(b"accent"),
@@ -2709,7 +2723,7 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
     h = 0i32;
     for k in j..=j + l - 1 {
         h = h + h + BUFFER[k as usize];
-        while h >= HASH_PRIME {
+        while h >= HASH_PRIME as i32 {
             h = h - 8501;
         }
     }
@@ -2730,7 +2744,7 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
         }
         if (*hash.offset(p as isize)).s0 == 0 {
             if no_new_control_sequence {
-                p = UNDEFINED_CONTROL_SEQUENCE
+                p = UNDEFINED_CONTROL_SEQUENCE as i32;
             } else {
                 if (*hash.offset(p as isize)).s1 > 0 {
                     if hash_high < hash_extra {
@@ -3520,10 +3534,10 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
     }
     print_cmd_chr(cur_cmd as u16, cur_chr);
     if *INTPAR(IntPar::tracing_ifs) > 0 {
-        if cur_cmd as u16 >= IF_TEST {
-            if cur_cmd as u16 <= FI_OR_ELSE {
+        if cur_cmd >= IF_TEST as u8 {
+            if cur_cmd <= FI_OR_ELSE as u8 {
                 print_cstr(b": ");
-                if cur_cmd as u16 == FI_OR_ELSE {
+                if cur_cmd == FI_OR_ELSE as u8 {
                     print_cmd_chr(IF_TEST, cur_if as i32);
                     print_char(' ' as i32);
                     n = 0;
@@ -3767,7 +3781,7 @@ pub(crate) unsafe fn show_context() {
     }
     cur_input = INPUT_STACK[INPUT_PTR];
 }
-pub(crate) unsafe fn begin_token_list(p: i32, t: u16) {
+pub(crate) unsafe fn begin_token_list(p: usize, t: u16) {
     if INPUT_PTR > MAX_IN_STACK {
         MAX_IN_STACK = INPUT_PTR;
         if INPUT_PTR == STACK_SIZE {
@@ -3777,14 +3791,14 @@ pub(crate) unsafe fn begin_token_list(p: i32, t: u16) {
     INPUT_STACK[INPUT_PTR] = cur_input;
     INPUT_PTR += 1;
     cur_input.state = 0_u16;
-    cur_input.start = p;
+    cur_input.start = p as i32;
     cur_input.index = t;
     if t >= MACRO {
-        MEM[p as usize].b32.s0 += 1;
+        MEM[p].b32.s0 += 1;
         if t == MACRO {
             cur_input.limit = PARAM_PTR as i32
         } else {
-            cur_input.loc = MEM[p as usize].b32.s1;
+            cur_input.loc = MEM[p].b32.s1;
             if *INTPAR(IntPar::tracing_macros) > 1i32 {
                 begin_diagnostic();
                 print_nl_cstr(b"");
@@ -3794,18 +3808,18 @@ pub(crate) unsafe fn begin_token_list(p: i32, t: u16) {
                     _ => {
                         print_cmd_chr(
                             ASSIGN_TOKS,
-                            (t as i32) + LOCAL_BASE + (Local::output_routine as i32)
+                            (t as i32) + LOCAL_BASE as i32 + (Local::output_routine as i32)
                                 - (OUTPUT_TEXT) as i32,
                         );
                     }
                 }
                 print_cstr(b"->");
-                token_show(p);
+                token_show(p as i32);
                 end_diagnostic(false);
             }
         }
     } else {
-        cur_input.loc = p
+        cur_input.loc = p as i32;
     };
 }
 pub(crate) unsafe fn end_token_list() {
@@ -3919,9 +3933,9 @@ pub(crate) unsafe fn check_outer_validity() {
             if cur_input.state == TOKEN_LIST || cur_input.name < 1 || cur_input.name > 17 {
                 p = get_avail() as i32;
                 MEM[p as usize].b32.s0 = CS_TOKEN_FLAG + cur_cs;
-                begin_token_list(p, BACKED_UP);
+                begin_token_list(p as usize, BACKED_UP);
             }
-            cur_cmd = SPACER as eight_bits;
+            cur_cmd = SPACER as u8;
             cur_chr = ' ' as i32
         }
         if scanner_status as u16 > SKIPPING {
@@ -3969,7 +3983,7 @@ pub(crate) unsafe fn check_outer_validity() {
                 }
                 _ => {}
             }
-            begin_token_list(p, INSERTED);
+            begin_token_list(p as usize, INSERTED);
             print_cstr(b" of ");
             sprint_cs(warning_index);
             help_ptr = 4;
@@ -4034,10 +4048,11 @@ pub(crate) unsafe fn get_next() {
                         cur_chr = (65536 + ((cur_chr - 0xd800) * 1024) as i64 + lower as i64) as i32
                     }
                     'c_65186: loop {
-                        cur_cmd = *CAT_CODE(cur_chr) as eight_bits;
+                        cur_cmd = *CAT_CODE(cur_chr as usize) as eight_bits;
                         match cur_input.state as i32 + cur_cmd as i32 {
-                            10 | 26 | 42 | 27 | 43 => break,
+                            10 | 26 | 42 | 27 | 43 => break, // ANY_STATE_PLUS(IGNORE) | SKIP_BLANKS + SPACER | NEW_LINE + SPACER
                             1 | 17 | 33 => {
+                                // ANY_STATE_PLUS(ESCAPE)
                                 if cur_input.loc > cur_input.limit {
                                     current_block = 17833034027772472439;
                                     break 'c_63807;
@@ -4047,17 +4062,19 @@ pub(crate) unsafe fn get_next() {
                                 }
                             }
                             14 | 30 | 46 => {
-                                cur_cs = cur_chr + 1i32;
+                                //  ANY_STATE_PLUS(ACTIVE_CHAR)
+                                cur_cs = cur_chr + 1;
                                 cur_cmd = EQTB[cur_cs as usize].b16.s1 as eight_bits;
                                 cur_chr = EQTB[cur_cs as usize].b32.s1;
-                                cur_input.state = 1_u16;
-                                if cur_cmd as i32 >= 115i32 {
+                                cur_input.state = MID_LINE;
+                                if cur_cmd >= OUTER_CALL as u8 {
                                     check_outer_validity();
                                 }
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
                             8 | 24 | 40 => {
+                                // ANY_STATE_PLUS(SUP_MARK)
                                 if !(cur_chr == BUFFER[cur_input.loc as usize]) {
                                     current_block = 8567661057257693057;
                                     break 'c_63807;
@@ -4128,6 +4145,7 @@ pub(crate) unsafe fn get_next() {
                                 }
                             }
                             16 | 32 | 48 => {
+                                // ANY_STATE_PLUS(INVALID_CHAR)
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
                                 } else {
@@ -4144,57 +4162,66 @@ pub(crate) unsafe fn get_next() {
                                 continue 'c_63502;
                             }
                             11 => {
-                                cur_input.state = 17_u16;
+                                // MID_LINE + SPACER
+                                cur_input.state = SKIP_BLANKS as u16;
                                 cur_chr = ' ' as i32;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
                             6 => {
-                                cur_input.loc = cur_input.limit + 1i32;
-                                cur_cmd = 10i32 as eight_bits;
+                                // MID_LINE + CAR_RET
+                                cur_input.loc = cur_input.limit + 1;
+                                cur_cmd = SPACER as u8;
                                 cur_chr = ' ' as i32;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
                             15 | 31 | 47 | 22 => {
-                                cur_input.loc = cur_input.limit + 1i32;
+                                // ANY_STATE_PLUS(COMMENT) | SKIP_BLANKS + CAR_RET
+                                cur_input.loc = cur_input.limit + 1;
                                 break;
                             }
                             38 => {
-                                cur_input.loc = cur_input.limit + 1i32;
+                                // NEW_LINE + CAR_RET
+                                cur_input.loc = cur_input.limit + 1;
                                 cur_cs = par_loc;
                                 cur_cmd = EQTB[cur_cs as usize].b16.s1 as eight_bits;
                                 cur_chr = EQTB[cur_cs as usize].b32.s1;
-                                if cur_cmd as i32 >= 115i32 {
+                                if cur_cmd >= OUTER_CALL as u8 {
                                     check_outer_validity();
                                 }
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
                             2 => {
+                                // MID_LINE + LEFT_BRACE
                                 align_state += 1;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
                             18 | 34 => {
-                                cur_input.state = 1_u16;
+                                // SKIP_BLANKS + LEFT_BRACE | NEW_LINE + LEFT_BRACE
+                                cur_input.state = MID_LINE;
                                 align_state += 1;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
                             3 => {
+                                // MID_LINE + RIGHT_BRACE
                                 align_state -= 1;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
                             19 | 35 => {
-                                cur_input.state = 1_u16;
+                                // SKIP_BLANKS + RIGHT_BRACE | NEW_LINE + RIGHT_BRACE
+                                cur_input.state = MID_LINE;
                                 align_state -= 1;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
                             20 | 21 | 23 | 25 | 28 | 29 | 36 | 37 | 39 | 41 | 44 | 45 => {
-                                cur_input.state = 1_u16;
+                                // ADD_DELIMS_TO(SKIP_BLANKS) | ADD_DELIMS_TO(NEW_LINE)
+                                cur_input.state = MID_LINE;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
@@ -4205,13 +4232,13 @@ pub(crate) unsafe fn get_next() {
                         }
                     }
                 } else {
-                    cur_input.state = 33_u16;
-                    if cur_input.name > 17i32 {
+                    cur_input.state = NEW_LINE;
+                    if cur_input.name > 17 {
                         /*374:*/
                         line += 1; /*367:*/
                         first = cur_input.start;
                         if !force_eof {
-                            if cur_input.name <= 19i32 {
+                            if cur_input.name <= 19 {
                                 if pseudo_input() {
                                     cur_input.limit = last
                                 } else if !LOCAL(Local::every_eof).is_texnull()
@@ -4220,23 +4247,8 @@ pub(crate) unsafe fn get_next() {
                                     cur_input.limit = first - 1i32;
                                     EOF_SEEN[cur_input.index as usize] = true;
                                     begin_token_list(
-                                        EQTB[(1i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + (0x10ffffi32 + 1i32)
-                                            + 1i32
-                                            + 15000i32
-                                            + 12i32
-                                            + 9000i32
-                                            + 1i32
-                                            + 1i32
-                                            + 19i32
-                                            + 256i32
-                                            + 256i32
-                                            + 10i32)
-                                            as usize]
-                                            .b32
-                                            .s1,
-                                        16_u16,
+                                        *LOCAL(Local::every_eof) as usize,
+                                        EVERY_EOF_TEXT,
                                     );
                                     continue 'c_63502;
                                 } else {
@@ -4247,23 +4259,23 @@ pub(crate) unsafe fn get_next() {
                             } else if !LOCAL(Local::every_eof).is_texnull()
                                 && !EOF_SEEN[cur_input.index as usize]
                             {
-                                cur_input.limit = first - 1i32;
+                                cur_input.limit = first - 1;
                                 EOF_SEEN[cur_input.index as usize] = true;
-                                begin_token_list(*LOCAL(Local::every_eof), 16_u16);
+                                begin_token_list(*LOCAL(Local::every_eof) as usize, EVERY_EOF_TEXT);
                                 continue 'c_63502;
                             } else {
                                 force_eof = true
                             }
                         }
                         if force_eof {
-                            if *INTPAR(IntPar::tracing_nesting) > 0i32 {
+                            if *INTPAR(IntPar::tracing_nesting) > 0 {
                                 if GRP_STACK[IN_OPEN] != cur_boundary
                                     || IF_STACK[IN_OPEN] != cond_ptr
                                 {
                                     file_warning();
                                 }
                             }
-                            if cur_input.name >= 19i32 {
+                            if cur_input.name >= 19 {
                                 print_char(')' as i32);
                                 open_parens -= 1;
                                 rust_stdout.as_mut().unwrap().flush().unwrap();
@@ -4273,20 +4285,20 @@ pub(crate) unsafe fn get_next() {
                             check_outer_validity();
                             continue 'c_63502;
                         } else {
-                            if *INTPAR(IntPar::end_line_char) < 0i32
-                                || *INTPAR(IntPar::end_line_char) > 255i32
+                            if *INTPAR(IntPar::end_line_char) < 0
+                                || *INTPAR(IntPar::end_line_char) > 255
                             {
                                 cur_input.limit -= 1
                             } else {
                                 BUFFER[cur_input.limit as usize] = *INTPAR(IntPar::end_line_char)
                             }
-                            first = cur_input.limit + 1i32;
+                            first = cur_input.limit + 1;
                             cur_input.loc = cur_input.start
                         }
                     } else {
-                        if cur_input.name != 0i32 {
-                            cur_cmd = 0i32 as eight_bits;
-                            cur_chr = 0i32;
+                        if cur_input.name != 0 {
+                            cur_cmd = 0;
+                            cur_chr = 0;
                             return;
                         }
                         if INPUT_PTR > 0 {
@@ -4311,27 +4323,27 @@ pub(crate) unsafe fn get_next() {
                             'c_65963: loop {
                                 k = cur_input.loc;
                                 cur_chr = BUFFER[k as usize];
-                                cat = EQTB[CAT_CODE_BASE + cur_chr as usize].b32.s1 as u8;
+                                cat = *CAT_CODE(cur_chr as usize) as u8;
                                 k += 1;
-                                if cat as i32 == 11i32 {
-                                    cur_input.state = 17_u16
-                                } else if cat as i32 == 10i32 {
-                                    cur_input.state = 17_u16
+                                if cat == LETTER as u8 {
+                                    cur_input.state = SKIP_BLANKS as u16
+                                } else if cat == SPACER as u8 {
+                                    cur_input.state = SKIP_BLANKS as u16;
                                 } else {
-                                    cur_input.state = 1_u16
+                                    cur_input.state = MID_LINE;
                                 }
-                                if cat as i32 == 11i32 && k <= cur_input.limit {
+                                if cat == LETTER as u8 && k <= cur_input.limit {
                                     loop
                                     /*368:*/
                                     {
                                         cur_chr = BUFFER[k as usize];
-                                        cat = *CAT_CODE(cur_chr) as u8;
+                                        cat = *CAT_CODE(cur_chr as usize) as u8;
                                         k += 1;
-                                        if !(cat as i32 == 11i32 && k <= cur_input.limit) {
+                                        if !(cat == LETTER as u8 && k <= cur_input.limit) {
                                             break;
                                         }
                                     }
-                                    if !(cat as i32 == 7i32
+                                    if !(cat == SUP_MARK as u8
                                         && BUFFER[k as usize] == cur_chr
                                         && k < cur_input.limit)
                                     {
@@ -4343,10 +4355,10 @@ pub(crate) unsafe fn get_next() {
                                      * ^. */
                                     let mut sup_count_save: i32 = 0;
                                     /* How many ^'s are there? */
-                                    sup_count = 2i32 as small_number;
-                                    while (sup_count as i32) < 6i32
-                                        && k + 2i32 * sup_count as i32 - 2i32 <= cur_input.limit
-                                        && BUFFER[(k + sup_count as i32 - 1i32) as usize] == cur_chr
+                                    sup_count = 2;
+                                    while sup_count < 6
+                                        && k + 2 * sup_count as i32 - 2 <= cur_input.limit
+                                        && BUFFER[(k + sup_count as i32 - 1) as usize] == cur_chr
                                     {
                                         sup_count += 1
                                     }
@@ -4355,7 +4367,7 @@ pub(crate) unsafe fn get_next() {
                                      * sequence. If not, treat it as original-style
                                      * ^^X. */
                                     sup_count_save = sup_count as i32;
-                                    d = 1i32 as small_number;
+                                    d = 1;
                                     while d as i32 <= sup_count_save {
                                         if !(BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize]
                                             >= '0' as i32
@@ -4436,28 +4448,19 @@ pub(crate) unsafe fn get_next() {
                                         sup_count += 1
                                     }
                                     sup_count_save_0 = sup_count as i32;
-                                    d = 1i32 as small_number;
+                                    d = 1 as small_number;
                                     while d as i32 <= sup_count_save_0 {
-                                        if !(BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize]
-                                            >= '0' as i32
-                                            && BUFFER
-                                                [(k + sup_count as i32 - 2 + d as i32) as usize]
-                                                <= '9' as i32
-                                            || BUFFER
-                                                [(k + sup_count as i32 - 2 + d as i32) as usize]
-                                                >= 'a' as i32
-                                                && BUFFER[(k + sup_count as i32 - 2 + d as i32)
-                                                    as usize]
-                                                    <= 'f' as i32)
-                                        {
-                                            c = BUFFER[(k + 1i32) as usize];
-                                            if c < 128i32 {
-                                                if c < 64i32 {
-                                                    BUFFER[(k - 1i32) as usize] = c + 64i32
+                                        if !IS_LC_HEX(
+                                            BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize],
+                                        ) {
+                                            c = BUFFER[(k + 1) as usize];
+                                            if c < 128 {
+                                                if c < 64 {
+                                                    BUFFER[(k - 1) as usize] = c + 64
                                                 } else {
-                                                    BUFFER[(k - 1i32) as usize] = c - 64i32
+                                                    BUFFER[(k - 1) as usize] = c - 64
                                                 }
-                                                d = 2i32 as small_number;
+                                                d = 2;
                                                 cur_input.limit = cur_input.limit - d as i32;
                                                 while k <= cur_input.limit {
                                                     BUFFER[k as usize] =
@@ -4466,34 +4469,33 @@ pub(crate) unsafe fn get_next() {
                                                 }
                                                 continue 'c_65963;
                                             } else {
-                                                sup_count = 0i32 as small_number
+                                                sup_count = 0;
                                             }
                                         }
                                         d += 1
                                     }
-                                    if !(sup_count as i32 > 0i32) {
+                                    if !(sup_count > 0) {
                                         current_block = 1604201581803946138;
                                         break;
                                     }
-                                    cur_chr = 0i32;
-                                    d = 1i32 as small_number;
+                                    cur_chr = 0;
+                                    d = 1 as small_number;
                                     while d as i32 <= sup_count as i32 {
-                                        c = BUFFER
-                                            [(k + sup_count as i32 - 2i32 + d as i32) as usize];
+                                        c = BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize];
                                         if c <= '9' as i32 {
-                                            cur_chr = 16i32 * cur_chr + c - '0' as i32
+                                            cur_chr = 16 * cur_chr + c - '0' as i32
                                         } else {
-                                            cur_chr = 16i32 * cur_chr + c - 'a' as i32 + 10i32
+                                            cur_chr = 16 * cur_chr + c - 'a' as i32 + 10
                                         }
                                         d += 1
                                     }
-                                    if cur_chr > 0x10ffffi32 {
+                                    if cur_chr > BIGGEST_USV as i32 {
                                         cur_chr = BUFFER[k as usize];
                                         current_block = 1604201581803946138;
                                         break;
                                     } else {
-                                        BUFFER[(k - 1i32) as usize] = cur_chr;
-                                        d = (2i32 * sup_count as i32 - 1i32) as small_number;
+                                        BUFFER[(k - 1) as usize] = cur_chr;
+                                        d = (2 * sup_count as i32 - 1) as small_number;
                                         cur_input.limit = cur_input.limit - d as i32;
                                         while k <= cur_input.limit {
                                             BUFFER[k as usize] = BUFFER[(k + d as i32) as usize];
@@ -4504,10 +4506,10 @@ pub(crate) unsafe fn get_next() {
                             }
                             match current_block {
                                 5873035170358615968 => {
-                                    if cat as i32 != 11i32 {
+                                    if cat != LETTER as u8 {
                                         k -= 1
                                     }
-                                    if k > cur_input.loc + 1i32 {
+                                    if k > cur_input.loc + 1 {
                                         cur_cs = id_lookup(cur_input.loc, k - cur_input.loc);
                                         cur_input.loc = k;
                                         current_block = 10802200937357087535;
@@ -4551,7 +4553,10 @@ pub(crate) unsafe fn get_next() {
                                 && !LOCAL(Local::TectonicCodaTokens).is_texnull()
                             {
                                 used_tectonic_coda_tokens = true; /* token list but no tokens left */
-                                begin_token_list(*LOCAL(Local::TectonicCodaTokens), 19_u16);
+                                begin_token_list(
+                                    *LOCAL(Local::TectonicCodaTokens) as usize,
+                                    19_u16,
+                                );
                                 continue;
                             } else {
                                 if u8::from(selector) < u8::from(Selector::LOG_ONLY) {
@@ -4577,28 +4582,28 @@ pub(crate) unsafe fn get_next() {
             /* if we're inputting from a non-null token list: */
             t = MEM[cur_input.loc as usize].b32.s0;
             cur_input.loc = MEM[cur_input.loc as usize].b32.s1;
-            if t >= 0x1ffffffi32 {
-                cur_cs = t - 0x1ffffffi32;
-                cur_cmd = EQTB[cur_cs as usize].b16.s1 as eight_bits;
+            if t >= CS_TOKEN_FLAG {
+                cur_cs = t - CS_TOKEN_FLAG;
+                cur_cmd = EQTB[cur_cs as usize].b16.s1 as u8;
                 cur_chr = EQTB[cur_cs as usize].b32.s1;
-                if cur_cmd as i32 >= 115i32 {
-                    if cur_cmd as i32 == 118i32 {
+                if cur_cmd >= OUTER_CALL as u8 {
+                    if cur_cmd == DONT_EXPAND as u8 {
                         /*370:*/
-                        cur_cs = MEM[cur_input.loc as usize].b32.s0 - 0x1ffffff;
+                        cur_cs = MEM[cur_input.loc as usize].b32.s0 - CS_TOKEN_FLAG;
                         cur_input.loc = TEX_NULL;
-                        cur_cmd = EQTB[cur_cs as usize].b16.s1 as eight_bits;
+                        cur_cmd = EQTB[cur_cs as usize].b16.s1 as u8;
                         cur_chr = EQTB[cur_cs as usize].b32.s1;
-                        if cur_cmd as i32 > 102i32 {
-                            cur_cmd = 0i32 as eight_bits;
-                            cur_chr = 0x10ffffi32 + 2i32
+                        if cur_cmd > MAX_COMMAND as u8 {
+                            cur_cmd = RELAX as u8;
+                            cur_chr = NO_EXPAND_FLAG;
                         }
                     } else {
                         check_outer_validity();
                     }
                 }
             } else {
-                cur_cmd = (t / 0x200000i32) as eight_bits;
-                cur_chr = t % 0x200000i32;
+                cur_cmd = (t / MAX_CHAR_VAL) as eight_bits;
+                cur_chr = t % MAX_CHAR_VAL;
                 match cur_cmd as i32 {
                     1 => {
                         current_block = 17818108259648334471;
@@ -4611,7 +4616,7 @@ pub(crate) unsafe fn get_next() {
                     5 => {
                         current_block = 1132450443677887731;
                         begin_token_list(
-                            PARAM_STACK[(cur_input.limit + cur_chr - 1) as usize],
+                            PARAM_STACK[(cur_input.limit + cur_chr - 1) as usize] as usize,
                             0_u16,
                         );
                         continue;
@@ -4623,19 +4628,19 @@ pub(crate) unsafe fn get_next() {
             end_token_list();
             continue;
         }
-        if cur_cmd as i32 <= 5i32 && cur_cmd as i32 >= 4i32 && align_state == 0i32 {
+        if cur_cmd <= CAR_RET as u8 && cur_cmd >= TAB_MARK as u8 && align_state == 0 {
             /*818:*/
-            if scanner_status as i32 == 4i32 || cur_align.is_texnull() {
+            if scanner_status == ALIGNING as u8 || cur_align.is_texnull() {
                 fatal_error(b"(interwoven alignment preambles are not allowed)");
             }
             cur_cmd = MEM[(cur_align + 5) as usize].b32.s0 as eight_bits;
             MEM[(cur_align + 5) as usize].b32.s0 = cur_chr;
-            if cur_cmd as i32 == 63i32 {
-                begin_token_list(4999999i32 - 10i32, 2_u16);
+            if cur_cmd == OMIT as u8 {
+                begin_token_list(OMIT_TEMPLATE, V_TEMPLATE);
             } else {
-                begin_token_list(MEM[(cur_align + 2) as usize].b32.s1, 2_u16);
+                begin_token_list(MEM[(cur_align + 2) as usize].b32.s1 as usize, V_TEMPLATE);
             }
-            align_state = 1000000i64 as i32
+            align_state = 1000000;
         } else {
             return;
         }
@@ -4961,7 +4966,7 @@ pub(crate) unsafe fn macro_call() {
             {
                 end_token_list();
             }
-            begin_token_list(ref_count, 6_u16);
+            begin_token_list(ref_count as usize, 6_u16);
             cur_input.name = warning_index;
             cur_input.loc = MEM[r as usize].b32.s1;
             if n as i32 > 0 {
@@ -5211,7 +5216,7 @@ pub(crate) unsafe fn expand() {
                         }
                     }
                     if !cur_ptr.is_texnull() {
-                        begin_token_list(cur_ptr, MARK_TEXT);
+                        begin_token_list(cur_ptr as usize, MARK_TEXT);
                     }
                     break;
                 }
@@ -5274,7 +5279,7 @@ pub(crate) unsafe fn expand() {
                         get_token();
                         scanner_status = save_scanner_status as u8;
                         if cur_cs < HASH_BASE as i32 {
-                            cur_cs = prim_lookup(cur_cs - SINGLE_BASE)
+                            cur_cs = prim_lookup(cur_cs - SINGLE_BASE as i32)
                         } else {
                             cur_cs = prim_lookup((*hash.offset(cur_cs as isize)).s1)
                         }
@@ -5349,9 +5354,9 @@ pub(crate) unsafe fn expand() {
                         cur_cs = id_lookup(first, j - first);
                         no_new_control_sequence = true
                     } else if j == first {
-                        cur_cs = NULL_CS;
+                        cur_cs = NULL_CS as i32;
                     } else {
-                        cur_cs = SINGLE_BASE + BUFFER[first as usize];
+                        cur_cs = SINGLE_BASE as i32 + BUFFER[first as usize];
                         /*:392*/
                     }
                     flush_list(r);
@@ -5553,7 +5558,7 @@ pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
                 if cur_cmd as i32 != SPACER as _ || p != BACKUP_HEAD {
                     back_input();
                     if p != BACKUP_HEAD {
-                        begin_token_list(MEM[BACKUP_HEAD].b32.s1, BACKED_UP);
+                        begin_token_list(MEM[BACKUP_HEAD].b32.s1 as usize, BACKED_UP);
                     }
                     return false;
                 }
@@ -5575,7 +5580,7 @@ pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
         } else if cur_cmd as i32 != SPACER as _ || p != BACKUP_HEAD {
             back_input();
             if p != BACKUP_HEAD {
-                begin_token_list(MEM[BACKUP_HEAD].b32.s1, BACKED_UP);
+                begin_token_list(MEM[BACKUP_HEAD].b32.s1 as usize, BACKED_UP);
             }
             return false;
         }
@@ -5734,7 +5739,7 @@ pub(crate) unsafe fn scan_math(mut p: i32) {
         loop {
             match cur_cmd as i32 {
                 11 | 12 | 68 => {
-                    c = *MATH_CODE(cur_chr);
+                    c = *MATH_CODE(cur_chr as usize);
                     if !(c as u32 & 0x1fffff_u32 == ACTIVE_MATH_CHAR as u32) {
                         break 'c_118470;
                     }
@@ -5837,7 +5842,9 @@ pub(crate) unsafe fn set_math_char(mut c: i32) {
         MEM[(p + 1) as usize].b16.s0 = (ch as i64 % 65536) as u16;
         MEM[(p + 1) as usize].b16.s1 = (c as u32 >> 24 & 0xff_u32) as u16;
         if c as u32 >> 21i32 & 0x7_u32 == 7 {
-            if *INTPAR(IntPar::cur_fam) >= 0 && *INTPAR(IntPar::cur_fam) < NUMBER_MATH_FAMILIES {
+            if *INTPAR(IntPar::cur_fam) >= 0
+                && *INTPAR(IntPar::cur_fam) < NUMBER_MATH_FAMILIES as i32
+            {
                 MEM[(p + 1) as usize].b16.s1 = *INTPAR(IntPar::cur_fam) as u16
             }
             MEM[p as usize].b16.s1 = ORD_NOAD
@@ -5868,7 +5875,7 @@ pub(crate) unsafe fn scan_math_class_int() {
 }
 pub(crate) unsafe fn scan_math_fam_int() {
     scan_int();
-    if cur_val < 0 || cur_val > NUMBER_MATH_FAMILIES - 1 {
+    if cur_val < 0 || cur_val > NUMBER_MATH_FAMILIES as i32 - 1 {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -6095,7 +6102,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
         DEF_CODE => {
             scan_usv_num();
             if m == MATH_CODE_BASE as i32 {
-                cur_val1 = *MATH_CODE(cur_val);
+                cur_val1 = *MATH_CODE(cur_val as usize);
                 if math_char(cur_val1) == ACTIVE_MATH_CHAR as u32 {
                     cur_val1 = 0x8000;
                 } else if math_class(cur_val1) > 7
@@ -6152,10 +6159,10 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
         XETEX_DEF_CODE => {
             scan_usv_num();
             if m == SF_CODE_BASE as i32 {
-                cur_val = (*SF_CODE(cur_val) as i64 / 65536) as i32;
+                cur_val = (*SF_CODE(cur_val as usize) as i64 / 65536) as i32;
                 cur_val_level = INT_VAL
             } else if m == MATH_CODE_BASE as i32 {
-                cur_val = *MATH_CODE(cur_val);
+                cur_val = *MATH_CODE(cur_val as usize);
                 cur_val_level = INT_VAL
             } else if m == MATH_CODE_BASE as i32 + 1 {
                 if file_line_error_style_p != 0 {
@@ -6208,7 +6215,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     if m == 0i32 {
                         scan_register_num();
                         if cur_val < 256 {
-                            cur_val = EQTB[(TOKS_BASE + cur_val) as usize].b32.s1
+                            cur_val = EQTB[TOKS_BASE + cur_val as usize].b32.s1
                         } else {
                             find_sa_element(TOK_VAL as small_number, cur_val, false);
                             if cur_ptr.is_texnull() {
@@ -6220,7 +6227,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     } else {
                         cur_val = MEM[(m + 1) as usize].b32.s1
                     }
-                } else if cur_chr == LOCAL_BASE + Local::xetex_inter_char as i32 {
+                } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
                     scan_char_class_not_ignored();
                     cur_ptr = cur_val;
                     scan_char_class_not_ignored();
@@ -6241,7 +6248,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
             } else {
                 back_input();
                 scan_font_ident();
-                cur_val = FONT_ID_BASE + cur_val;
+                cur_val = FONT_ID_BASE as i32 + cur_val;
                 cur_val_level = IDENT_VAL;
             }
         }
@@ -6328,7 +6335,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
             cur_val_level = DIMEN_VAL
         }
         SET_SHAPE => {
-            if m > LOCAL_BASE + Local::par_shape as i32 {
+            if m > LOCAL_BASE as i32 + Local::par_shape as i32 {
                 /*1654:*/
                 scan_int();
                 if EQTB[m as usize].b32.s1.is_texnull() || cur_val < 0 {
@@ -6430,9 +6437,9 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 } else {
                     match cur_val_level {
                         INT_VAL => cur_val = *COUNT_REG(cur_val),
-                        DIMEN_VAL => cur_val = *SCALED_REG(cur_val),
-                        GLUE_VAL => cur_val = *SKIP_REG(cur_val),
-                        MU_VAL => cur_val = *MU_SKIP_REG(cur_val),
+                        DIMEN_VAL => cur_val = *SCALED_REG(cur_val as usize),
+                        GLUE_VAL => cur_val = *SKIP_REG(cur_val as usize),
+                        MU_VAL => cur_val = *MU_SKIP_REG(cur_val as usize),
                         _ => {}
                     }
                 }
@@ -7219,10 +7226,10 @@ pub(crate) unsafe fn scan_int() {
                     align_state -= 1;
                 }
             }
-        } else if cur_tok < CS_TOKEN_FLAG + SINGLE_BASE {
-            cur_val = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE)
+        } else if cur_tok < CS_TOKEN_FLAG + SINGLE_BASE as i32 {
+            cur_val = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
         } else {
-            cur_val = cur_tok - (CS_TOKEN_FLAG + SINGLE_BASE)
+            cur_val = cur_tok - (CS_TOKEN_FLAG + SINGLE_BASE as i32)
         } /*:463*/
         if cur_val > BIGGEST_USV as i32 {
             if file_line_error_style_p != 0 {
@@ -8491,7 +8498,7 @@ pub(crate) unsafe fn the_toks() -> i32 {
 }
 pub(crate) unsafe fn ins_the_toks() {
     MEM[GARBAGE as usize].b32.s1 = the_toks();
-    begin_token_list(MEM[TEMP_HEAD].b32.s1, INSERTED);
+    begin_token_list(MEM[TEMP_HEAD].b32.s1 as usize, INSERTED);
 }
 pub(crate) unsafe fn conv_toks() {
     let mut save_warning_index: i32 = 0;
@@ -8597,7 +8604,7 @@ pub(crate) unsafe fn conv_toks() {
                 str_ptr -= 1;
                 pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
             }
-            begin_token_list(MEM[TEMP_HEAD].b32.s1, INSERTED);
+            begin_token_list(MEM[TEMP_HEAD].b32.s1 as usize, INSERTED);
             if u != 0 {
                 str_ptr -= 1;
             }
@@ -8860,7 +8867,7 @@ pub(crate) unsafe fn conv_toks() {
     }
     selector = old_setting_0;
     MEM[GARBAGE].b32.s1 = str_toks_cat(b, cat);
-    begin_token_list(MEM[TEMP_HEAD].b32.s1, INSERTED);
+    begin_token_list(MEM[TEMP_HEAD].b32.s1 as usize, INSERTED);
 }
 pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> i32 {
     unsafe fn found(p: i32, hash_brace: i32) -> i32 {
@@ -9246,7 +9253,7 @@ pub(crate) unsafe fn conditional() {
             if cur_cmd == RELAX as u8 {
                 if cur_chr == NO_EXPAND_FLAG {
                     cur_cmd = ACTIVE_CHAR as u8;
-                    cur_chr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE)
+                    cur_chr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
                 }
             }
             let (m, n) = if cur_cmd > ACTIVE_CHAR as u8 || cur_chr > BIGGEST_USV as i32 {
@@ -9258,7 +9265,7 @@ pub(crate) unsafe fn conditional() {
             if cur_cmd == RELAX as u8 {
                 if cur_chr == NO_EXPAND_FLAG {
                     cur_cmd = ACTIVE_CHAR as u8;
-                    cur_chr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE)
+                    cur_chr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
                 }
             }
             if cur_cmd > ACTIVE_CHAR as u8 || cur_chr > BIGGEST_USV as i32 {
@@ -9469,9 +9476,9 @@ pub(crate) unsafe fn conditional() {
                 p = *LLIST_link(p as usize)
             }
             cur_cs = if m == first {
-                NULL_CS
+                NULL_CS as i32
             } else if m == first + 1i32 {
-                SINGLE_BASE + BUFFER[first as usize]
+                SINGLE_BASE as i32 + BUFFER[first as usize]
             } else {
                 id_lookup(first, m - first)
             };
@@ -9547,7 +9554,7 @@ pub(crate) unsafe fn conditional() {
             get_next();
             scanner_status = save_scanner_status as u8;
             let m = if cur_cs < HASH_BASE as i32 {
-                prim_lookup(cur_cs - SINGLE_BASE)
+                prim_lookup(cur_cs - SINGLE_BASE as i32)
             } else {
                 prim_lookup((*hash.offset(cur_cs as isize)).s1)
             };
@@ -12069,7 +12076,8 @@ pub(crate) unsafe fn get_preamble_token() {
         if cur_cmd == ENDV as u8 {
             fatal_error(b"(interwoven alignment preambles are not allowed)");
         }
-        if !(cur_cmd == ASSIGN_GLUE as u8 && cur_chr == GLUE_BASE + GluePar::tab_skip as i32) {
+        if !(cur_cmd == ASSIGN_GLUE as u8 && cur_chr == GLUE_BASE as i32 + GluePar::tab_skip as i32)
+        {
             break;
         }
         scan_optional_equals();
@@ -12209,7 +12217,7 @@ pub(crate) unsafe fn init_align() {
     scanner_status = NORMAL as u8;
     new_save_level(GroupCode::ALIGN);
     if !LOCAL(Local::every_cr).is_texnull() {
-        begin_token_list(*LOCAL(Local::every_cr), EVERY_CR_TEXT);
+        begin_token_list(*LOCAL(Local::every_cr) as usize, EVERY_CR_TEXT);
     }
     align_peek();
 }
@@ -12246,7 +12254,7 @@ pub(crate) unsafe fn init_col() {
         align_state = 0;
     } else {
         back_input();
-        begin_token_list(MEM[(cur_align + 3) as usize].b32.s1, U_TEMPLATE);
+        begin_token_list(MEM[(cur_align + 3) as usize].b32.s1 as usize, U_TEMPLATE);
     };
 }
 pub(crate) unsafe fn fin_col() -> bool {
@@ -12448,7 +12456,7 @@ pub(crate) unsafe fn fin_row() {
     MEM[p as usize].b16.s1 = 13_u16;
     MEM[(p + 6) as usize].b32.s1 = 0;
     if !LOCAL(Local::every_cr).is_texnull() {
-        begin_token_list(*LOCAL(Local::every_cr), EVERY_CR_TEXT);
+        begin_token_list(*LOCAL(Local::every_cr) as usize, EVERY_CR_TEXT);
     }
     align_peek();
 }
@@ -13528,7 +13536,7 @@ pub(crate) unsafe fn off_save() {
             }
         }
         print_cstr(b" inserted");
-        begin_token_list(MEM[TEMP_HEAD].b32.s1, INSERTED);
+        begin_token_list(MEM[TEMP_HEAD].b32.s1 as usize, INSERTED);
         help_ptr = 5;
         help_line[4] = b"I\'ve inserted something that you may have forgotten.";
         help_line[3] = b"(See the <inserted text> above.)";
@@ -13855,12 +13863,12 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
             if k == VMODE as i32 {
                 cur_list.aux.b32.s1 = IGNORE_DEPTH;
                 if !LOCAL(Local::every_vbox).is_texnull() {
-                    begin_token_list(*LOCAL(Local::every_vbox), EVERY_VBOX_TEXT);
+                    begin_token_list(*LOCAL(Local::every_vbox) as usize, EVERY_VBOX_TEXT);
                 }
             } else {
                 cur_list.aux.b32.s0 = 1000;
                 if !LOCAL(Local::every_hbox).is_texnull() {
-                    begin_token_list(*LOCAL(Local::every_hbox), EVERY_HBOX_TEXT);
+                    begin_token_list(*LOCAL(Local::every_hbox) as usize, EVERY_HBOX_TEXT);
                 }
             }
             return;
@@ -13971,7 +13979,7 @@ pub(crate) unsafe fn new_graf(mut indented: bool) {
         }
     }
     if !LOCAL(Local::every_par).is_texnull() {
-        begin_token_list(*LOCAL(Local::every_par), EVERY_PAR_TEXT);
+        begin_token_list(*LOCAL(Local::every_par) as usize, EVERY_PAR_TEXT);
     }
     if NEST_PTR == 1 {
         build_page();
@@ -14898,10 +14906,10 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
                     e = true
                 } else {
                     match p {
-                        INT_VAL => l = cur_val + COUNT_BASE,
-                        DIMEN_VAL => l = cur_val + SCALED_BASE,
-                        GLUE_VAL => l = cur_val + SKIP_BASE,
-                        MU_VAL => l = cur_val + MU_SKIP_BASE,
+                        INT_VAL => l = cur_val + COUNT_BASE as i32,
+                        DIMEN_VAL => l = cur_val + SCALED_BASE as i32,
+                        GLUE_VAL => l = cur_val + SKIP_BASE as i32,
+                        MU_VAL => l = cur_val + MU_SKIP_BASE as i32,
                         _ => {}
                     }
                 }
@@ -15158,11 +15166,11 @@ pub(crate) unsafe fn new_font(mut a: small_number) {
     let u = cur_cs;
     let mut t = if u >= HASH_BASE as i32 {
         (*hash.offset(u as isize)).s1
-    } else if u >= SINGLE_BASE {
-        if u == NULL_CS {
+    } else if u >= SINGLE_BASE as i32 {
+        if u == NULL_CS as i32 {
             maketexstring(b"FONT")
         } else {
-            u - SINGLE_BASE
+            u - SINGLE_BASE as i32
         }
     } else {
         let old_setting_0 = selector;
@@ -15357,7 +15365,7 @@ pub(crate) unsafe fn shift_case() {
     let mut p = MEM[def_ref as usize].b32.s1;
     while !p.is_texnull() {
         let t = MEM[p as usize].b32.s0;
-        if t < CS_TOKEN_FLAG + SINGLE_BASE {
+        if t < CS_TOKEN_FLAG + SINGLE_BASE as i32 {
             let c = t % MAX_CHAR_VAL;
             if EQTB[(b + c) as usize].b32.s1 != 0 {
                 MEM[p as usize].b32.s0 = t - c + EQTB[(b + c) as usize].b32.s1
@@ -15365,7 +15373,7 @@ pub(crate) unsafe fn shift_case() {
         }
         p = *LLIST_link(p as usize)
     }
-    begin_token_list(MEM[def_ref as usize].b32.s1, BACKED_UP);
+    begin_token_list(MEM[def_ref as usize].b32.s1 as usize, BACKED_UP);
     MEM[def_ref as usize].b32.s1 = avail;
     avail = def_ref;
 }
@@ -15722,7 +15730,7 @@ pub(crate) unsafe fn insert_src_special() {
         MEM[p].b32.s1 = get_avail() as i32;
         let p = *LLIST_link(p) as usize;
         MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
-        begin_token_list(toklist as i32, INSERTED);
+        begin_token_list(toklist, INSERTED);
         remember_source_info(SOURCE_FILENAME_STACK[IN_OPEN], line);
     };
 }
@@ -15957,7 +15965,7 @@ pub(crate) unsafe fn handle_right_brace() {
 pub(crate) unsafe fn main_control() {
     let mut current_block: u64;
     if !LOCAL(Local::every_job).is_texnull() {
-        begin_token_list(*LOCAL(Local::every_job), 13_u16);
+        begin_token_list(*LOCAL(Local::every_job) as usize, 13_u16);
     }
     'c_125208: loop {
         /* big_switch */
@@ -16007,7 +16015,7 @@ pub(crate) unsafe fn main_control() {
                                 }
                                 back_input();
                                 begin_token_list(
-                                    MEM[(cur_ptr + 1) as usize].b32.s1,
+                                    MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
                                     INTER_CHAR_TEXT,
                                 );
                                 continue 'c_125208;
@@ -16043,7 +16051,7 @@ pub(crate) unsafe fn main_control() {
                                 get_next();
                                 scanner_status = t as u8;
                                 if cur_cs < HASH_BASE as i32 {
-                                    cur_cs = prim_lookup(cur_cs - SINGLE_BASE)
+                                    cur_cs = prim_lookup(cur_cs - SINGLE_BASE as i32)
                                 } else {
                                     cur_cs = prim_lookup((*hash.offset(cur_cs as isize)).s1)
                                 }
@@ -16271,13 +16279,13 @@ pub(crate) unsafe fn main_control() {
                             continue 'c_125208;
                         }
                         218 | 219 | 275 => {
-                            set_math_char(*MATH_CODE(cur_chr));
+                            set_math_char(*MATH_CODE(cur_chr as usize));
                             continue 'c_125208;
                         }
                         223 => {
                             scan_char_num();
                             cur_chr = cur_val;
-                            set_math_char(*MATH_CODE(cur_chr));
+                            set_math_char(*MATH_CODE(cur_chr as usize));
                             continue 'c_125208;
                         }
                         224 => {
@@ -16364,7 +16372,10 @@ pub(crate) unsafe fn main_control() {
                                 insert_src_special();
                             }
                             if !LOCAL(Local::every_vbox).is_texnull() {
-                                begin_token_list(*LOCAL(Local::every_vbox), EVERY_VBOX_TEXT);
+                                begin_token_list(
+                                    *LOCAL(Local::every_vbox) as usize,
+                                    EVERY_VBOX_TEXT,
+                                );
                             }
                             continue 'c_125208;
                         }
@@ -16468,7 +16479,7 @@ pub(crate) unsafe fn main_control() {
                 native_len = 0;
                 loop {
                     /*collect_native */
-                    main_s = (*SF_CODE(cur_chr) as i64 % 65536) as i32;
+                    main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32;
                     if main_s == 1000 {
                         cur_list.aux.b32.s0 = 1000;
                     } else if main_s < 1000 {
@@ -16481,7 +16492,7 @@ pub(crate) unsafe fn main_control() {
                         cur_list.aux.b32.s0 = main_s;
                     }
                     cur_ptr = TEX_NULL;
-                    space_class = (*SF_CODE(cur_chr) as i64 / 65536) as i32;
+                    space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
                     if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != 4096 {
                         if prev_class == CHAR_CLASS_LIMIT - 1 {
                             if cur_input.state != TOKEN_LIST || cur_input.index != BACKED_UP_CHAR {
@@ -16498,7 +16509,7 @@ pub(crate) unsafe fn main_control() {
                                     back_input();
                                     cur_input.index = BACKED_UP_CHAR;
                                     begin_token_list(
-                                        MEM[(cur_ptr + 1) as usize].b32.s1,
+                                        MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
                                         INTER_CHAR_TEXT,
                                     );
                                     continue 'c_125208;
@@ -16518,7 +16529,7 @@ pub(crate) unsafe fn main_control() {
                                 back_input();
                                 cur_input.index = BACKED_UP_CHAR;
                                 begin_token_list(
-                                    MEM[(cur_ptr + 1) as usize].b32.s1,
+                                    MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
                                     INTER_CHAR_TEXT,
                                 );
                                 prev_class = CHAR_CLASS_LIMIT - 1;
@@ -16613,7 +16624,10 @@ pub(crate) unsafe fn main_control() {
                                 cur_tok = CS_TOKEN_FLAG + cur_cs
                             }
                             back_input();
-                            begin_token_list(MEM[(cur_ptr + 1) as usize].b32.s1, INTER_CHAR_TEXT);
+                            begin_token_list(
+                                MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
+                                INTER_CHAR_TEXT,
+                            );
                         }
                     }
                     _ => {}
@@ -17056,7 +17070,7 @@ pub(crate) unsafe fn main_control() {
                     continue 'c_125208;
                 }
             } else {
-                main_s = (*SF_CODE(cur_chr) as i64 % 65536) as i32;
+                main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32;
                 if main_s == 1000 {
                     cur_list.aux.b32.s0 = 1000
                 } else if main_s < 1000 {
@@ -17069,7 +17083,7 @@ pub(crate) unsafe fn main_control() {
                     cur_list.aux.b32.s0 = main_s
                 }
                 cur_ptr = TEX_NULL;
-                space_class = (*SF_CODE(cur_chr) as i64 / 65536) as i32;
+                space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
                 if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != CHAR_CLASS_LIMIT {
                     if prev_class == CHAR_CLASS_LIMIT - 1 {
                         if cur_input.state != TOKEN_LIST || cur_input.index != BACKED_UP_CHAR {
@@ -17086,7 +17100,7 @@ pub(crate) unsafe fn main_control() {
                                 back_input();
                                 cur_input.index = BACKED_UP_CHAR;
                                 begin_token_list(
-                                    MEM[(cur_ptr + 1) as usize].b32.s1,
+                                    MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
                                     INTER_CHAR_TEXT,
                                 );
                                 continue 'c_125208;
@@ -17105,7 +17119,10 @@ pub(crate) unsafe fn main_control() {
                             cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                             back_input();
                             cur_input.index = BACKED_UP_CHAR;
-                            begin_token_list(MEM[(cur_ptr + 1) as usize].b32.s1, INTER_CHAR_TEXT);
+                            begin_token_list(
+                                MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
+                                INTER_CHAR_TEXT,
+                            );
                             prev_class = CHAR_CLASS_LIMIT - 1;
                             continue 'c_125208;
                         }
@@ -17425,7 +17442,7 @@ pub(crate) unsafe fn main_control() {
                                     _ => {
                                         // lab101:
                                         /*main_loop_lookahead 1 */
-                                        main_s = (*SF_CODE(cur_chr) as i64 % 65536) as i32; /*:1073 */
+                                        main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32; /*:1073 */
                                         if main_s == 1000 {
                                             cur_list.aux.b32.s0 = 1000
                                         } else if main_s < 1000 {
@@ -17438,7 +17455,8 @@ pub(crate) unsafe fn main_control() {
                                             cur_list.aux.b32.s0 = main_s;
                                         }
                                         cur_ptr = TEX_NULL;
-                                        space_class = (*SF_CODE(cur_chr) as i64 / 65536) as i32;
+                                        space_class =
+                                            (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
                                         if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
                                             && space_class != CHAR_CLASS_LIMIT
                                         {
@@ -17461,7 +17479,8 @@ pub(crate) unsafe fn main_control() {
                                                         back_input();
                                                         cur_input.index = BACKED_UP_CHAR;
                                                         begin_token_list(
-                                                            MEM[(cur_ptr + 1) as usize].b32.s1,
+                                                            MEM[(cur_ptr + 1) as usize].b32.s1
+                                                                as usize,
                                                             INTER_CHAR_TEXT,
                                                         );
                                                         continue 'c_125208;
@@ -17482,7 +17501,7 @@ pub(crate) unsafe fn main_control() {
                                                     back_input();
                                                     cur_input.index = BACKED_UP_CHAR;
                                                     begin_token_list(
-                                                        MEM[(cur_ptr + 1) as usize].b32.s1,
+                                                        MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
                                                         INTER_CHAR_TEXT,
                                                     );
                                                     prev_class = CHAR_CLASS_LIMIT - 1;
@@ -17656,7 +17675,10 @@ pub(crate) unsafe fn main_control() {
                             cur_tok = CS_TOKEN_FLAG + cur_cs
                         }
                         back_input();
-                        begin_token_list(MEM[(cur_ptr + 1) as usize].b32.s1, INTER_CHAR_TEXT);
+                        begin_token_list(
+                            MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
+                            INTER_CHAR_TEXT,
+                        );
                         continue;
                     }
                 }

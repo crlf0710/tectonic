@@ -321,23 +321,23 @@ pub(crate) unsafe fn print_int(mut n: i32) {
 }
 pub(crate) unsafe fn print_cs(mut p: i32) {
     if p < HASH_BASE as i32 {
-        if p >= SINGLE_BASE {
-            if p == NULL_CS {
+        if p >= SINGLE_BASE as i32 {
+            if p == NULL_CS as i32 {
                 print_esc_cstr(b"csname");
                 print_esc_cstr(b"endcsname");
                 print_char(' ' as i32);
             } else {
-                print_esc(p - SINGLE_BASE);
-                if *CAT_CODE(p - SINGLE_BASE) == LETTER as _ {
+                print_esc(p - SINGLE_BASE as i32);
+                if *CAT_CODE(p as usize - SINGLE_BASE) == LETTER as _ {
                     print_char(' ' as i32);
                 }
             }
-        } else if p < ACTIVE_BASE {
+        } else if p < ACTIVE_BASE as i32 {
             print_esc_cstr(b"IMPOSSIBLE.");
         } else {
             print_char(p - 1i32);
         }
-    } else if p >= UNDEFINED_CONTROL_SEQUENCE && p <= EQTB_SIZE || p > EQTB_TOP as i32 {
+    } else if p >= UNDEFINED_CONTROL_SEQUENCE as i32 && p <= EQTB_SIZE || p > EQTB_TOP as i32 {
         print_esc_cstr(b"IMPOSSIBLE.");
     } else if (*hash.offset(p as isize)).s1 >= str_ptr {
         print_esc_cstr(b"NONEXISTENT.");
@@ -348,10 +348,10 @@ pub(crate) unsafe fn print_cs(mut p: i32) {
 }
 pub(crate) unsafe fn sprint_cs(mut p: i32) {
     if p < HASH_BASE as i32 {
-        if p < SINGLE_BASE {
+        if p < SINGLE_BASE as i32 {
             print_char(p - 1i32);
-        } else if p < NULL_CS {
-            print_esc(p - SINGLE_BASE);
+        } else if p < NULL_CS as i32 {
+            print_esc(p - SINGLE_BASE as i32);
         } else {
             print_esc_cstr(b"csname");
             print_esc_cstr(b"endcsname");
@@ -480,9 +480,9 @@ pub(crate) unsafe fn print_file_name(mut n: i32, mut a: i32, mut e: i32) {
     };
 }
 pub(crate) unsafe fn print_size(mut s: i32) {
-    if s == TEXT_SIZE {
+    if s == TEXT_SIZE as i32 {
         print_esc_cstr(b"textfont");
-    } else if s == SCRIPT_SIZE {
+    } else if s == SCRIPT_SIZE as i32 {
         print_esc_cstr(b"scriptfont");
     } else {
         print_esc_cstr(b"scriptscriptfont");

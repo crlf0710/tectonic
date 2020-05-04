@@ -1452,7 +1452,7 @@ unsafe fn new_patterns() {
                         if cur_chr == '.' as i32 {
                             cur_chr = 0i32
                         } else {
-                            cur_chr = *LC_CODE(cur_chr);
+                            cur_chr = *LC_CODE(cur_chr as usize);
                             if cur_chr == 0i32 {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
@@ -1869,7 +1869,7 @@ unsafe fn new_hyph_exceptions() {
                         }
                     } else {
                         if hyph_index == 0i32 || cur_chr > 255i32 {
-                            hc[0] = *LC_CODE(cur_chr) as _;
+                            hc[0] = *LC_CODE(cur_chr as usize) as _;
                         } else if *trie_trc.offset((hyph_index + cur_chr) as isize) as i32
                             != cur_chr
                         {
@@ -2249,44 +2249,44 @@ pub(crate) unsafe fn prefixed_command() {
                                             true);
                             MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
                             if j == 5i32 { j = 72i32 } else { j = 91i32 }
-                            if a as i32 >= 4i32 {
+                            if a >= 4 {
                                 geq_define(p as usize, j as u16, cur_ptr);
                             } else { eq_define(p as usize, j as u16, cur_ptr); }
                         } else {
                             match n {
                                 COUNT_DEF_CODE => {
-                                    if a as i32 >= 4i32 {
-                                        geq_define(p as usize, ASSIGN_INT, COUNT_BASE + cur_val);
+                                    if a >= 4 {
+                                        geq_define(p as usize, ASSIGN_INT, COUNT_BASE as i32 + cur_val);
                                     } else {
-                                        eq_define(p as usize, ASSIGN_INT, COUNT_BASE + cur_val);
+                                        eq_define(p as usize, ASSIGN_INT, COUNT_BASE as i32 + cur_val);
                                     }
                                 }
                                 DIMEN_DEF_CODE => {
-                                    if a as i32 >= 4i32 {
-                                        geq_define(p as usize, ASSIGN_DIMEN, SCALED_BASE + cur_val);
+                                    if a >= 4 {
+                                        geq_define(p as usize, ASSIGN_DIMEN, SCALED_BASE as i32 + cur_val);
                                     } else {
-                                        eq_define(p as usize, ASSIGN_DIMEN, SCALED_BASE + cur_val);
+                                        eq_define(p as usize, ASSIGN_DIMEN, SCALED_BASE as i32 + cur_val);
                                     }
                                 }
                                 SKIP_DEF_CODE => {
-                                    if a as i32 >= 4i32 {
-                                        geq_define(p as usize, ASSIGN_GLUE, SKIP_BASE + cur_val);
+                                    if a >= 4 {
+                                        geq_define(p as usize, ASSIGN_GLUE, SKIP_BASE as i32 + cur_val);
                                     } else {
-                                        eq_define(p as usize, ASSIGN_GLUE, SKIP_BASE + cur_val);
+                                        eq_define(p as usize, ASSIGN_GLUE, SKIP_BASE as i32 + cur_val);
                                     }
                                 }
                                 MU_SKIP_DEF_CODE => {
-                                    if a as i32 >= 4i32 {
-                                        geq_define(p as usize, ASSIGN_MU_GLUE, MU_SKIP_BASE + cur_val);
+                                    if a >= 4 {
+                                        geq_define(p as usize, ASSIGN_MU_GLUE, MU_SKIP_BASE as i32 + cur_val);
                                     } else {
-                                        eq_define(p as usize, ASSIGN_MU_GLUE, MU_SKIP_BASE + cur_val);
+                                        eq_define(p as usize, ASSIGN_MU_GLUE, MU_SKIP_BASE as i32 + cur_val);
                                     }
                                 }
                                 TOKS_DEF_CODE => {
-                                    if a as i32 >= 4i32 {
-                                        geq_define(p as usize, ASSIGN_TOKS, TOKS_BASE + cur_val);
+                                    if a >= 4 {
+                                        geq_define(p as usize, ASSIGN_TOKS, TOKS_BASE as i32 + cur_val);
                                     } else {
-                                        eq_define(p as usize, ASSIGN_TOKS, TOKS_BASE + cur_val);
+                                        eq_define(p as usize, ASSIGN_TOKS, TOKS_BASE as i32 + cur_val);
                                     }
                                 }
                                 _ => { }
@@ -2333,10 +2333,10 @@ pub(crate) unsafe fn prefixed_command() {
                         cur_chr = cur_ptr;
                         e = true
                     } else {
-                        cur_chr = TOKS_BASE + cur_val;
+                        cur_chr = TOKS_BASE as i32 + cur_val;
                     }
                 } else { e = true }
-            } else if cur_chr == LOCAL_BASE + Local::xetex_inter_char as i32 {
+            } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
                 scan_char_class_not_ignored();
                 cur_ptr = cur_val;
                 scan_char_class_not_ignored();
@@ -2362,7 +2362,7 @@ pub(crate) unsafe fn prefixed_command() {
                         if cur_chr == 0i32 {
                             scan_register_num(); /* "extended delimiter code flag" */
                             if cur_val < 256i32 {
-                                q = *TOKS_REG(cur_val);
+                                q = *TOKS_REG(cur_val as usize);
                             } else {
                                 find_sa_element(5i32 as small_number, cur_val,
                                                 0i32 !=
@@ -2380,7 +2380,7 @@ pub(crate) unsafe fn prefixed_command() {
                                 MEM[(cur_chr + 1) as
                                                  usize].b32.s1
                         }
-                    } else if cur_chr == LOCAL_BASE + Local::xetex_inter_char as i32 {
+                    } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
                         scan_char_class_not_ignored(); /*:1268 */
                         cur_ptr = cur_val;
                         scan_char_class_not_ignored();
@@ -2437,7 +2437,7 @@ pub(crate) unsafe fn prefixed_command() {
                         MEM[def_ref as usize].b32.s1 = avail;
                         avail = def_ref
                     } else {
-                        if p == LOCAL_BASE + Local::output_routine as i32 && !e {
+                        if p == LOCAL_BASE as i32 + Local::output_routine as i32 && !e {
                             MEM[q as usize].b32.s1 = get_avail() as i32;
                             q = MEM[q as usize].b32.s1;
                             MEM[q as usize].b32.s0 =
@@ -2493,7 +2493,7 @@ pub(crate) unsafe fn prefixed_command() {
                 p = cur_chr;
                 scan_usv_num();
                 p = p + cur_val;
-                n = *SF_CODE(cur_val) % 65536;
+                n = *SF_CODE(cur_val as usize) % 65536;
                 scan_optional_equals();
                 scan_char_class();
                 if a as i32 >= 4i32 {
@@ -2683,7 +2683,7 @@ pub(crate) unsafe fn prefixed_command() {
             n = cur_val;
             if n <= 0i32 {
                 p = TEX_NULL
-            } else if q > LOCAL_BASE + Local::par_shape as i32 {
+            } else if q > LOCAL_BASE as i32 + Local::par_shape as i32 {
                 n = cur_val / 2i32 + 1i32;
                 p = get_node(2i32 * n + 1i32) as i32;
                 MEM[p as usize].b32.s0 = n;
@@ -2856,7 +2856,7 @@ unsafe fn store_fmt_file() {
     }
     fmt_out.dump_one(MEM_TOP as i32);
     fmt_out.dump_one(EQTB_SIZE);
-    fmt_out.dump_one(HASH_PRIME);
+    fmt_out.dump_one(HASH_PRIME as i32);
     fmt_out.dump_one(HYPH_PRIME);
     /* string pool */
     fmt_out.dump_one(pool_ptr);
@@ -2912,7 +2912,7 @@ unsafe fn store_fmt_file() {
     print_char('&' as i32);
     print_int(dyn_used);
     /* equivalents table / primitive */
-    k = ACTIVE_BASE; /*:1350*/
+    k = ACTIVE_BASE as i32; /*:1350*/
     loop {
         j = k;
         loop {
@@ -3010,7 +3010,7 @@ unsafe fn store_fmt_file() {
     }
     let dump_slice = std::slice::from_raw_parts(
         hash.offset((hash_used + 1i32) as isize),
-        ((UNDEFINED_CONTROL_SEQUENCE - 1) - hash_used) as _,
+        ((UNDEFINED_CONTROL_SEQUENCE as i32 - 1) - hash_used) as _,
     );
     fmt_out.dump(dump_slice);
     if hash_high > 0 {
@@ -3222,7 +3222,7 @@ unsafe fn load_fmt_file() -> bool {
     }
     EQTB_TOP = (EQTB_SIZE + hash_extra) as usize;
     if hash_extra == 0i32 {
-        hash_top = UNDEFINED_CONTROL_SEQUENCE;
+        hash_top = UNDEFINED_CONTROL_SEQUENCE as i32;
     } else {
         hash_top = EQTB_TOP as i32
     }
@@ -3264,7 +3264,7 @@ unsafe fn load_fmt_file() -> bool {
     }
 
     fmt_in.undump_one(&mut x);
-    if x != HASH_PRIME {
+    if x != HASH_PRIME as i32 {
         bad_fmt();
     }
 
@@ -3390,7 +3390,7 @@ unsafe fn load_fmt_file() -> bool {
      * entries of |eqtb|, with |m| extra copies of $x_n$, namely
      * $(x_1, \ldots, x_n, x_n, \ldots, x_n)$"
      */
-    k = ACTIVE_BASE;
+    k = ACTIVE_BASE as i32;
     loop {
         fmt_in.undump_one(&mut x);
         if x < 1 || k + x > EQTB_SIZE + 1 {
@@ -3510,10 +3510,10 @@ unsafe fn load_fmt_file() -> bool {
     FONT_INFO = vec![memory_word::default(); FONT_MEM_SIZE + 1];
     fmt_in.undump(&mut FONT_INFO[..fmem_ptr as usize]);
     fmt_in.undump_one(&mut x);
-    if x < FONT_BASE {
+    if x < FONT_BASE as i32 {
         bad_fmt();
     }
-    if x > FONT_BASE + MAX_FONT_MAX {
+    if x > FONT_BASE + MAX_FONT_MAX as i32 {
         panic!("must increase FONT_MAX");
     }
 
@@ -4120,8 +4120,8 @@ unsafe fn initialize_more_initex_variables() {
     EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s1 = UNDEFINED_CS as _;
     EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b32.s1 = TEX_NULL;
     EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s0 = LEVEL_ZERO as _;
-    for k in ACTIVE_BASE..=EQTB_TOP as i32 {
-        EQTB[k as usize] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
+    for k in ACTIVE_BASE..=EQTB_TOP {
+        EQTB[k] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
     }
     EQTB[GLUE_BASE as usize].b32.s1 = 0;
     EQTB[GLUE_BASE as usize].b16.s0 = LEVEL_ONE as _;
@@ -4136,8 +4136,9 @@ unsafe fn initialize_more_initex_variables() {
     for k in ETEX_PEN_BASE..=(ETEX_PENS - 1) {
         EQTB[k] = EQTB[LOCAL_BASE as usize + Local::par_shape as usize];
     }
-    for k in (LOCAL_BASE + Local::output_routine as i32)..=(TOKS_BASE + NUMBER_REGS as i32 - 1) {
-        EQTB[k as usize] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
+    for k in (LOCAL_BASE as usize + Local::output_routine as usize)..=(TOKS_BASE + NUMBER_REGS - 1)
+    {
+        EQTB[k] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
     }
     EQTB[BOX_BASE].b32.s1 = TEX_NULL;
     EQTB[BOX_BASE].b16.s1 = BOX_REF as _;
@@ -4158,9 +4159,9 @@ unsafe fn initialize_more_initex_variables() {
         EQTB[k] = EQTB[CAT_CODE_BASE];
     }
     for k in 0..=(NUMBER_USVS as i32 - 1) {
-        *CAT_CODE(k) = OTHER_CHAR as _;
-        *MATH_CODE(k) = k;
-        *SF_CODE(k) = 1000;
+        *CAT_CODE(k as usize) = OTHER_CHAR as _;
+        *MATH_CODE(k as usize) = k;
+        *SF_CODE(k as usize) = 1000;
     }
     *CAT_CODE(13) = CAR_RET as _;
     *CAT_CODE(32) = SPACER as _;
@@ -4169,22 +4170,22 @@ unsafe fn initialize_more_initex_variables() {
     *CAT_CODE(127) = INVALID_CHAR as _;
     EQTB[CAT_CODE_BASE].b32.s1 = IGNORE as _;
     for k in ('0' as i32)..=('9' as i32) {
-        *MATH_CODE(k) = (k as u32).wrapping_add((7_u32 & 0x7_u32) << 21i32) as i32;
+        *MATH_CODE(k as usize) = (k as u32).wrapping_add((7_u32 & 0x7_u32) << 21i32) as i32;
     }
     for k in ('A' as i32)..=('Z' as i32) {
-        *CAT_CODE(k) = LETTER as _;
-        *CAT_CODE(k + 32) = LETTER as _;
-        *MATH_CODE(k) = (k as u32)
+        *CAT_CODE(k as usize) = LETTER as _;
+        *CAT_CODE(k as usize + 32) = LETTER as _;
+        *MATH_CODE(k as usize) = (k as u32)
             .wrapping_add((1_u32 & 0xff_u32) << 24i32)
             .wrapping_add((7_u32 & 0x7_u32) << 21i32) as i32;
-        *MATH_CODE(k + 32) = ((k + 32i32) as u32)
+        *MATH_CODE(k as usize + 32) = ((k + 32i32) as u32)
             .wrapping_add((1_u32 & 0xff_u32) << 24i32)
             .wrapping_add((7_u32 & 0x7_u32) << 21i32) as i32;
-        *LC_CODE(k) = k + 32;
-        *LC_CODE(k + 32) = k + 32;
-        *UC_CODE(k) = k;
-        *UC_CODE(k + 32) = k;
-        *SF_CODE(k) = 999;
+        *LC_CODE(k as usize) = k + 32;
+        *LC_CODE(k as usize + 32) = k + 32;
+        *UC_CODE(k as usize) = k;
+        *UC_CODE(k as usize + 32) = k;
+        *SF_CODE(k as usize) = 999;
     }
     for k in INT_BASE..=(DEL_CODE_BASE - 1) {
         EQTB[k as usize].b32.s1 = 0;
@@ -4244,151 +4245,159 @@ unsafe fn initialize_primitives() {
     primitive(
         b"lineskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::line_skip as i32,
+        GLUE_BASE as i32 + GluePar::line_skip as i32,
     );
     primitive(
         b"baselineskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::baseline_skip as i32,
+        GLUE_BASE as i32 + GluePar::baseline_skip as i32,
     );
     primitive(
         b"parskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::par_skip as i32,
+        GLUE_BASE as i32 + GluePar::par_skip as i32,
     );
     primitive(
         b"abovedisplayskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::above_display_skip as i32,
+        GLUE_BASE as i32 + GluePar::above_display_skip as i32,
     );
     primitive(
         b"belowdisplayskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::below_display_skip as i32,
+        GLUE_BASE as i32 + GluePar::below_display_skip as i32,
     );
     primitive(
         b"abovedisplayshortskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::above_display_short_skip as i32,
+        GLUE_BASE as i32 + GluePar::above_display_short_skip as i32,
     );
     primitive(
         b"belowdisplayshortskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::below_display_short_skip as i32,
+        GLUE_BASE as i32 + GluePar::below_display_short_skip as i32,
     );
     primitive(
         b"leftskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::left_skip as i32,
+        GLUE_BASE as i32 + GluePar::left_skip as i32,
     );
     primitive(
         b"rightskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::right_skip as i32,
+        GLUE_BASE as i32 + GluePar::right_skip as i32,
     );
     primitive(
         b"topskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::top_skip as i32,
+        GLUE_BASE as i32 + GluePar::top_skip as i32,
     );
     primitive(
         b"splittopskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::split_top_skip as i32,
+        GLUE_BASE as i32 + GluePar::split_top_skip as i32,
     );
     primitive(
         b"tabskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::tab_skip as i32,
+        GLUE_BASE as i32 + GluePar::tab_skip as i32,
     );
     primitive(
         b"spaceskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::space_skip as i32,
+        GLUE_BASE as i32 + GluePar::space_skip as i32,
     );
     primitive(
         b"xspaceskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::xspace_skip as i32,
+        GLUE_BASE as i32 + GluePar::xspace_skip as i32,
     );
     primitive(
         b"parfillskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::par_fill_skip as i32,
+        GLUE_BASE as i32 + GluePar::par_fill_skip as i32,
     );
     primitive(
         b"XeTeXlinebreakskip",
         ASSIGN_GLUE,
-        GLUE_BASE + GluePar::xetex_linebreak_skip as i32,
+        GLUE_BASE as i32 + GluePar::xetex_linebreak_skip as i32,
     );
 
     primitive(
         b"thinmuskip",
         ASSIGN_MU_GLUE,
-        GLUE_BASE + GluePar::thin_mu_skip as i32,
+        GLUE_BASE as i32 + GluePar::thin_mu_skip as i32,
     );
     primitive(
         b"medmuskip",
         ASSIGN_MU_GLUE,
-        GLUE_BASE + GluePar::med_mu_skip as i32,
+        GLUE_BASE as i32 + GluePar::med_mu_skip as i32,
     );
     primitive(
         b"thickmuskip",
         ASSIGN_MU_GLUE,
-        GLUE_BASE + GluePar::thick_mu_skip as i32,
+        GLUE_BASE as i32 + GluePar::thick_mu_skip as i32,
     );
 
     primitive(
         b"output",
         ASSIGN_TOKS,
-        LOCAL_BASE + Local::output_routine as i32,
+        LOCAL_BASE as i32 + Local::output_routine as i32,
     );
     primitive(
         b"everypar",
         ASSIGN_TOKS,
-        LOCAL_BASE + Local::every_par as i32,
+        LOCAL_BASE as i32 + Local::every_par as i32,
     );
     primitive(
         b"everymath",
         ASSIGN_TOKS,
-        LOCAL_BASE + Local::every_math as i32,
+        LOCAL_BASE as i32 + Local::every_math as i32,
     );
     primitive(
         b"everydisplay",
         ASSIGN_TOKS,
-        LOCAL_BASE + Local::every_display as i32,
+        LOCAL_BASE as i32 + Local::every_display as i32,
     );
     primitive(
         b"everyhbox",
         ASSIGN_TOKS,
-        LOCAL_BASE + Local::every_hbox as i32,
+        LOCAL_BASE as i32 + Local::every_hbox as i32,
     );
     primitive(
         b"everyvbox",
         ASSIGN_TOKS,
-        LOCAL_BASE + Local::every_vbox as i32,
+        LOCAL_BASE as i32 + Local::every_vbox as i32,
     );
     primitive(
         b"everyjob",
         ASSIGN_TOKS,
-        LOCAL_BASE + Local::every_job as i32,
+        LOCAL_BASE as i32 + Local::every_job as i32,
     );
-    primitive(b"everycr", ASSIGN_TOKS, LOCAL_BASE + Local::every_cr as i32);
-    primitive(b"errhelp", ASSIGN_TOKS, LOCAL_BASE + Local::err_help as i32);
+    primitive(
+        b"everycr",
+        ASSIGN_TOKS,
+        LOCAL_BASE as i32 + Local::every_cr as i32,
+    );
+    primitive(
+        b"errhelp",
+        ASSIGN_TOKS,
+        LOCAL_BASE as i32 + Local::err_help as i32,
+    );
     primitive(
         b"everyeof",
         ASSIGN_TOKS,
-        LOCAL_BASE + Local::every_eof as i32,
+        LOCAL_BASE as i32 + Local::every_eof as i32,
     );
     primitive(
         b"XeTeXinterchartoks",
         ASSIGN_TOKS,
-        LOCAL_BASE + Local::xetex_inter_char as i32,
+        LOCAL_BASE as i32 + Local::xetex_inter_char as i32,
     );
     primitive(
         b"TectonicCodaTokens",
         ASSIGN_TOKS,
-        LOCAL_BASE + Local::TectonicCodaTokens as i32,
+        LOCAL_BASE as i32 + Local::TectonicCodaTokens as i32,
     );
 
     primitive(
@@ -4775,7 +4784,11 @@ unsafe fn initialize_primitives() {
     primitive(b"primitive", NO_EXPAND, 1);
     primitive(b"nonscript", NON_SCRIPT, 0);
     primitive(b"omit", OMIT, 0);
-    primitive(b"parshape", 85_u16, LOCAL_BASE + Local::par_shape as i32);
+    primitive(
+        b"parshape",
+        85_u16,
+        LOCAL_BASE as i32 + Local::par_shape as i32,
+    );
     primitive(b"penalty", BREAK_PENALTY, 0);
     primitive(b"prevgraf", SET_PREV_GRAF, 0);
     primitive(b"radical", RADICAL, 0);
@@ -5018,16 +5031,20 @@ unsafe fn initialize_primitives() {
     primitive(b"XeTeXdelcode", XETEX_DEF_CODE, DEL_CODE_BASE + 1);
     primitive(b"Udelcode", XETEX_DEF_CODE, DEL_CODE_BASE + 1);
 
-    primitive(b"textfont", DEF_FAMILY, MATH_FONT_BASE as i32 + TEXT_SIZE);
+    primitive(
+        b"textfont",
+        DEF_FAMILY,
+        MATH_FONT_BASE as i32 + TEXT_SIZE as i32,
+    );
     primitive(
         b"scriptfont",
         DEF_FAMILY,
-        MATH_FONT_BASE as i32 + SCRIPT_SIZE,
+        MATH_FONT_BASE as i32 + SCRIPT_SIZE as i32,
     );
     primitive(
         b"scriptscriptfont",
         DEF_FAMILY,
-        MATH_FONT_BASE as i32 + SCRIPT_SCRIPT_SIZE,
+        MATH_FONT_BASE as i32 + SCRIPT_SCRIPT_SIZE as i32,
     );
 
     primitive(b"hyphenation", HYPH_DATA, 0);
@@ -5151,7 +5168,7 @@ pub(crate) unsafe fn tt_run_engine(
         MEM = vec![memory_word::default(); MEM_TOP as usize + 2];
         EQTB_TOP = (EQTB_SIZE + hash_extra) as usize;
         if hash_extra == 0 {
-            hash_top = UNDEFINED_CONTROL_SEQUENCE;
+            hash_top = UNDEFINED_CONTROL_SEQUENCE as i32;
         } else {
             hash_top = EQTB_TOP as i32;
         }
@@ -5181,7 +5198,7 @@ pub(crate) unsafe fn tt_run_engine(
     if 1100 > MEM_TOP {
         bad = 4
     }
-    if HASH_PRIME > HASH_SIZE as i32 {
+    if HASH_PRIME > HASH_SIZE {
         bad = 5
     }
     if MAX_IN_OPEN >= 128 {
@@ -5193,7 +5210,7 @@ pub(crate) unsafe fn tt_run_engine(
     if MIN_HALFWORD > 0 {
         bad = 12
     }
-    if MAX_FONT_MAX < MIN_HALFWORD || MAX_FONT_MAX > MAX_HALFWORD {
+    if (MAX_FONT_MAX as i32) < MIN_HALFWORD || (MAX_FONT_MAX as i32) > MAX_HALFWORD {
         bad = 15
     }
     if FONT_MAX as i32 > FONT_BASE + 9000 {

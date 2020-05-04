@@ -2273,11 +2273,11 @@ unsafe fn write_out(mut p: i32) {
     let mut r = get_avail();
     MEM[q].b32.s1 = r as i32;
     MEM[r].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
-    begin_token_list(q as i32, INSERTED);
-    begin_token_list(MEM[(p + 1) as usize].b32.s1, WRITE_TEXT);
+    begin_token_list(q, INSERTED);
+    begin_token_list(MEM[(p + 1) as usize].b32.s1 as usize, WRITE_TEXT);
     let q = get_avail();
     MEM[q].b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
-    begin_token_list(q as i32, INSERTED);
+    begin_token_list(q, INSERTED);
 
     let old_mode = cur_list.mode as i32;
     cur_list.mode = 0;
