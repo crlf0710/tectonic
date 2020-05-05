@@ -337,7 +337,8 @@ pub(crate) unsafe fn print_cs(mut p: i32) {
         } else {
             print_char(p - 1i32);
         }
-    } else if p >= UNDEFINED_CONTROL_SEQUENCE as i32 && p <= EQTB_SIZE || p > EQTB_TOP as i32 {
+    } else if p >= UNDEFINED_CONTROL_SEQUENCE as i32 && p <= EQTB_SIZE as i32 || p > EQTB_TOP as i32
+    {
         print_esc_cstr(b"IMPOSSIBLE.");
     } else if (*hash.offset(p as isize)).s1 >= str_ptr {
         print_esc_cstr(b"NONEXISTENT.");

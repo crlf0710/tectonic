@@ -1594,10 +1594,10 @@ pub(crate) unsafe fn show_activities() {
                             let mut t = MEM[r].b16.s0 as i32;
                             print_int(t);
                             print_cstr(b" adds ");
-                            if *COUNT_REG(t) == 1000 {
+                            if *COUNT_REG(t as usize) == 1000 {
                                 t = MEM[r + 3].b32.s1
                             } else {
-                                t = x_over_n(MEM[r + 3].b32.s1, 1000) * *COUNT_REG(t)
+                                t = x_over_n(MEM[r + 3].b32.s1, 1000) * *COUNT_REG(t as usize)
                             }
                             print_scaled(t);
                             if MEM[r].b16.s1 as i32 == SPLIT_UP {
@@ -1915,19 +1915,19 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         ASSIGN_INT => {
-            if chr_code < COUNT_BASE {
-                match IntPar::try_from(chr_code - INT_BASE) {
+            if chr_code < COUNT_BASE as i32 {
+                match IntPar::try_from(chr_code - INT_BASE as i32) {
                     Ok(dimen) => print_param(dimen),
                     Err(e) => print_cstr(e),
                 }
             } else {
                 print_esc_cstr(b"count");
-                print_int(chr_code - COUNT_BASE);
+                print_int(chr_code - COUNT_BASE as i32);
             }
         }
         ASSIGN_DIMEN => {
             if chr_code < SCALED_BASE as i32 {
-                match DimenPar::try_from(chr_code - DIMEN_BASE) {
+                match DimenPar::try_from(chr_code - DIMEN_BASE as i32) {
                     Ok(dimen) => print_length_param(dimen),
                     Err(e) => print_cstr(e),
                 }
@@ -2538,7 +2538,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_esc_cstr(b"Umathcodenum");
             } else if chr_code == MATH_CODE_BASE as i32 + 1 {
                 print_esc_cstr(b"Umathcode");
-            } else if chr_code == DEL_CODE_BASE {
+            } else if chr_code == DEL_CODE_BASE as i32 {
                 print_esc_cstr(b"Udelcodenum");
             } else {
                 print_esc_cstr(b"Udelcode");
@@ -2749,8 +2749,8 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
                 if (*hash.offset(p as isize)).s1 > 0 {
                     if hash_high < hash_extra {
                         hash_high += 1;
-                        (*hash.offset(p as isize)).s0 = hash_high + EQTB_SIZE;
-                        p = hash_high + EQTB_SIZE
+                        (*hash.offset(p as isize)).s0 = hash_high + EQTB_SIZE as i32;
+                        p = hash_high + EQTB_SIZE as i32;
                     } else {
                         loop {
                             if hash_used == HASH_BASE as i32 {
@@ -3448,16 +3448,16 @@ pub(crate) unsafe fn unsave() {
                 } else {
                     SAVE_STACK[SAVE_PTR] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
                 }
-                if p < INT_BASE || p > EQTB_SIZE {
+                if p < INT_BASE as i32 || p > EQTB_SIZE as i32 {
                     if EQTB[p as usize].b16.s0 == LEVEL_ONE {
                         eq_destroy(SAVE_STACK[SAVE_PTR]);
                     } else {
                         eq_destroy(EQTB[p as usize]);
                         EQTB[p as usize] = SAVE_STACK[SAVE_PTR]
                     }
-                } else if _xeq_level_array[(p - (INT_BASE)) as usize] != LEVEL_ONE {
+                } else if _xeq_level_array[p as usize - INT_BASE] != LEVEL_ONE {
                     EQTB[p as usize] = SAVE_STACK[SAVE_PTR];
-                    _xeq_level_array[(p - (INT_BASE)) as usize] = l
+                    _xeq_level_array[p as usize - INT_BASE] = l
                 }
             }
         }
@@ -5725,7 +5725,7 @@ pub(crate) unsafe fn scan_xetex_math_char_int() {
         cur_val = 0;
     };
 }
-pub(crate) unsafe fn scan_math(mut p: i32) {
+pub(crate) unsafe fn scan_math(p: usize) {
     let mut c: i32 = 0;
     'c_118470: loop {
         loop
@@ -5804,7 +5804,7 @@ pub(crate) unsafe fn scan_math(mut p: i32) {
                 _ => {
                     back_input();
                     scan_left_brace();
-                    SAVE_STACK[SAVE_PTR + 0].b32.s1 = p;
+                    SAVE_STACK[SAVE_PTR + 0].b32.s1 = p as i32;
                     SAVE_PTR += 1;
                     push_math(GroupCode::MATH);
                     return;
@@ -5812,18 +5812,17 @@ pub(crate) unsafe fn scan_math(mut p: i32) {
             }
         }
     }
-    MEM[p as usize].b32.s1 = MATH_CHAR;
-    MEM[p as usize].b16.s0 = (c as i64 % 65536) as u16;
+    MEM[p].b32.s1 = MATH_CHAR;
+    MEM[p].b16.s0 = (c as i64 % 65536) as u16;
     if (math_class(c) == 7)
         && (*INTPAR(IntPar::cur_fam) >= 0i32 && *INTPAR(IntPar::cur_fam) < 256i32)
     {
-        MEM[p as usize].b16.s1 = *INTPAR(IntPar::cur_fam) as u16
+        MEM[p].b16.s1 = *INTPAR(IntPar::cur_fam) as u16
     } else {
-        MEM[p as usize].b16.s1 = (c as u32 >> 24 & 0xff_u32) as u16
+        MEM[p].b16.s1 = (c as u32 >> 24 & 0xff_u32) as u16
     }
-    MEM[p as usize].b16.s1 = (MEM[p as usize].b16.s1 as i64
-        + (c as u32 & 0x1fffff_u32) as i64 / 65536 * 256i32 as i64)
-        as u16;
+    MEM[p].b16.s1 =
+        (MEM[p].b16.s1 as i64 + (c as u32 & 0x1fffff_u32) as i64 / 65536 * 256i32 as i64) as u16;
 }
 pub(crate) unsafe fn set_math_char(mut c: i32) {
     let mut p: i32 = 0;
@@ -6126,8 +6125,8 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     + math_char(cur_val1)) as i32;
                 cur_val = cur_val1;
                 cur_val_level = INT_VAL
-            } else if m == DEL_CODE_BASE {
-                cur_val1 = EQTB[(DEL_CODE_BASE + cur_val) as usize].b32.s1;
+            } else if m == DEL_CODE_BASE as i32 {
+                cur_val1 = EQTB[DEL_CODE_BASE + cur_val as usize].b32.s1;
                 if cur_val1 >= 0x40000000 {
                     if file_line_error_style_p != 0 {
                         print_file_line();
@@ -6177,8 +6176,8 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 error();
                 cur_val = 0;
                 cur_val_level = INT_VAL;
-            } else if m == DEL_CODE_BASE {
-                cur_val = EQTB[(DEL_CODE_BASE + cur_val) as usize].b32.s1;
+            } else if m == DEL_CODE_BASE as i32 {
+                cur_val = EQTB[DEL_CODE_BASE + cur_val as usize].b32.s1;
                 cur_val_level = INT_VAL;
             } else {
                 if file_line_error_style_p != 0 {
@@ -6436,7 +6435,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     }
                 } else {
                     match cur_val_level {
-                        INT_VAL => cur_val = *COUNT_REG(cur_val),
+                        INT_VAL => cur_val = *COUNT_REG(cur_val as usize),
                         DIMEN_VAL => cur_val = *SCALED_REG(cur_val as usize),
                         GLUE_VAL => cur_val = *SKIP_REG(cur_val as usize),
                         MU_VAL => cur_val = *MU_SKIP_REG(cur_val as usize),
@@ -14824,7 +14823,7 @@ pub(crate) unsafe fn get_r_token() {
         }
         if !(cur_cs == 0
             || cur_cs > EQTB_TOP as i32
-            || cur_cs > FROZEN_CONTROL_SEQUENCE as i32 && cur_cs <= EQTB_SIZE)
+            || cur_cs > FROZEN_CONTROL_SEQUENCE as i32 && cur_cs <= EQTB_SIZE as i32)
         {
             break;
         }
@@ -16275,7 +16274,7 @@ pub(crate) unsafe fn main_control() {
                             MEM[cur_list.tail as usize].b32.s1 = new_noad();
                             cur_list.tail = *LLIST_link(cur_list.tail as usize);
                             back_input();
-                            scan_math(cur_list.tail + 1);
+                            scan_math(cur_list.tail as usize + 1);
                             continue 'c_125208;
                         }
                         218 | 219 | 275 => {
@@ -16347,7 +16346,7 @@ pub(crate) unsafe fn main_control() {
                             MEM[cur_list.tail as usize].b32.s1 = new_noad();
                             cur_list.tail = *LLIST_link(cur_list.tail as usize);
                             MEM[cur_list.tail as usize].b16.s1 = cur_chr as u16;
-                            scan_math(cur_list.tail + 1);
+                            scan_math(cur_list.tail as usize + 1);
                             continue 'c_125208;
                         }
                         258 => {

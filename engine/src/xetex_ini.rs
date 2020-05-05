@@ -1201,7 +1201,12 @@ unsafe fn sort_avail() {
 }
 /*:271*/
 /*276: */
-unsafe fn primitive(ident: &[u8], mut c: u16, mut o: i32) {
+unsafe fn primitive<I>(ident: &[u8], c: u16, o: I)
+where
+    I: std::convert::TryInto<i32>,
+    <I as std::convert::TryInto<i32>>::Error: std::fmt::Debug,
+{
+    let o = o.try_into().unwrap();
     let mut prim_val = 0;
     let mut len = ident.len() as i32;
     if len > 1 {
@@ -2535,7 +2540,7 @@ pub(crate) unsafe fn prefixed_command() {
                 if a as i32 >= 4i32 {
                     geq_define(p as usize, 122_u16, n);
                 } else { eq_define(p as usize, 122_u16, n); }
-            } else if cur_chr == DEL_CODE_BASE {
+            } else if cur_chr == DEL_CODE_BASE as i32 {
                 p = cur_chr;
                 scan_usv_num();
                 p = p + cur_val;
@@ -2566,7 +2571,7 @@ pub(crate) unsafe fn prefixed_command() {
                 n = 0x8000i32
             } else if cur_chr == SF_CODE_BASE as i32 {
                 n = 0x7fffi32
-            } else if cur_chr == DEL_CODE_BASE {
+            } else if cur_chr == DEL_CODE_BASE as i32 {
                 n = 0xffffffi32
             } else { n = BIGGEST_USV as i32 }
             p = cur_chr;
@@ -2574,7 +2579,7 @@ pub(crate) unsafe fn prefixed_command() {
             p = p + cur_val;
             scan_optional_equals();
             scan_int();
-            if (cur_val < 0i32 && p < DEL_CODE_BASE) || cur_val > n {
+            if (cur_val < 0 && p < DEL_CODE_BASE as i32) || cur_val > n {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -2611,7 +2616,7 @@ pub(crate) unsafe fn prefixed_command() {
                 } else if a as i32 >= 4i32 {
                     geq_define(p as usize, 122_u16, cur_val);
                 } else { eq_define(p as usize, 122_u16, cur_val); }
-            } else if p < DEL_CODE_BASE {
+            } else if p < DEL_CODE_BASE as i32 {
                 if cur_val as i64 == 32768 {
                     cur_val = ACTIVE_MATH_CHAR
                 } else {
@@ -2855,7 +2860,7 @@ unsafe fn store_fmt_file() {
         pseudo_close();
     }
     fmt_out.dump_one(MEM_TOP as i32);
-    fmt_out.dump_one(EQTB_SIZE);
+    fmt_out.dump_one(EQTB_SIZE as i32);
     fmt_out.dump_one(HASH_PRIME as i32);
     fmt_out.dump_one(HYPH_PRIME);
     /* string pool */
@@ -2916,7 +2921,7 @@ unsafe fn store_fmt_file() {
     loop {
         j = k;
         loop {
-            if !(j < INT_BASE - 1) {
+            if !(j < (INT_BASE as i32) - 1) {
                 current_block = 7923086311623215889;
                 break;
             }
@@ -2930,11 +2935,11 @@ unsafe fn store_fmt_file() {
             j += 1
         }
         match current_block {
-            7923086311623215889 => l = INT_BASE,
+            7923086311623215889 => l = INT_BASE as i32,
             _ => {
                 j += 1;
                 l = j;
-                while j < INT_BASE - 1 {
+                while j < (INT_BASE as i32) - 1 {
                     if EQTB[j as usize].b32.s1 != EQTB[(j + 1i32) as usize].b32.s1
                         || EQTB[j as usize].b16.s1 as i32 != EQTB[(j + 1i32) as usize].b16.s1 as i32
                         || EQTB[j as usize].b16.s0 as i32 != EQTB[(j + 1i32) as usize].b16.s0 as i32
@@ -2949,14 +2954,14 @@ unsafe fn store_fmt_file() {
         fmt_out.dump(&EQTB[k as usize..l as usize]);
         k = j + 1i32;
         fmt_out.dump_one((k - l) as i32);
-        if !(k != INT_BASE) {
+        if !(k != INT_BASE as i32) {
             break;
         }
     }
     loop {
         j = k;
         loop {
-            if !(j < EQTB_SIZE) {
+            if !(j < EQTB_SIZE as i32) {
                 current_block = 10505255564575309249;
                 break;
             }
@@ -2967,11 +2972,11 @@ unsafe fn store_fmt_file() {
             j += 1
         }
         match current_block {
-            10505255564575309249 => l = EQTB_SIZE + 1,
+            10505255564575309249 => l = (EQTB_SIZE as i32) + 1,
             _ => {
                 j += 1;
                 l = j;
-                while j < EQTB_SIZE {
+                while j < EQTB_SIZE as i32 {
                     if EQTB[j as usize].b32.s1 != EQTB[(j + 1) as usize].b32.s1 {
                         break;
                     }
@@ -2983,7 +2988,7 @@ unsafe fn store_fmt_file() {
         fmt_out.dump(&EQTB[k as usize..l as usize]);
         k = j + 1i32;
         fmt_out.dump_one((k - l) as i32);
-        if !(k <= EQTB_SIZE) {
+        if !(k <= EQTB_SIZE as i32) {
             break;
         }
     }
@@ -3220,8 +3225,8 @@ unsafe fn load_fmt_file() -> bool {
     if hash_extra < hash_high {
         hash_extra = hash_high
     }
-    EQTB_TOP = (EQTB_SIZE + hash_extra) as usize;
-    if hash_extra == 0i32 {
+    EQTB_TOP = EQTB_SIZE + hash_extra as usize;
+    if hash_extra == 0 {
         hash_top = UNDEFINED_CONTROL_SEQUENCE as i32;
     } else {
         hash_top = EQTB_TOP as i32
@@ -3241,7 +3246,7 @@ unsafe fn load_fmt_file() -> bool {
     EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s1 = UNDEFINED_CS as _;
     EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b32.s1 = TEX_NULL as _;
     EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s0 = LEVEL_ZERO as _;
-    x = EQTB_SIZE + 1;
+    x = EQTB_SIZE as i32 + 1;
     while x <= EQTB_TOP as i32 {
         EQTB[x as usize] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
         x += 1
@@ -3259,7 +3264,7 @@ unsafe fn load_fmt_file() -> bool {
     MEM = vec![memory_word::default(); MEM_TOP as usize + 2];
 
     fmt_in.undump_one(&mut x);
-    if x != EQTB_SIZE {
+    if x != EQTB_SIZE as i32 {
         bad_fmt();
     }
 
@@ -3393,7 +3398,7 @@ unsafe fn load_fmt_file() -> bool {
     k = ACTIVE_BASE as i32;
     loop {
         fmt_in.undump_one(&mut x);
-        if x < 1 || k + x > EQTB_SIZE + 1 {
+        if x < 1 || k + x > (EQTB_SIZE as i32) + 1 {
             bad_fmt();
         }
 
@@ -3401,7 +3406,7 @@ unsafe fn load_fmt_file() -> bool {
         k = k + x;
 
         fmt_in.undump_one(&mut x);
-        if x < 0i32 || k + x > EQTB_SIZE + 1 {
+        if x < 0i32 || k + x > (EQTB_SIZE as i32) + 1 {
             bad_fmt();
         }
 
@@ -3411,7 +3416,7 @@ unsafe fn load_fmt_file() -> bool {
             j += 1
         }
         k = k + x;
-        if !(k <= EQTB_SIZE) {
+        if !(k <= EQTB_SIZE as i32) {
             break;
         }
     }
@@ -3931,7 +3936,6 @@ unsafe fn init_io() {
     first = last + 1i32;
 }
 unsafe fn initialize_more_variables() {
-    let mut k: i32 = 0;
     let mut z: hyph_pointer = 0;
     doing_special = false;
     native_text_size = 128i32;
@@ -3960,26 +3964,20 @@ unsafe fn initialize_more_variables() {
     last_penalty = 0i32;
     last_kern = 0i32;
     page_so_far[7] = 0i32;
-    k = INT_BASE;
-    while k <= EQTB_SIZE {
-        _xeq_level_array[(k - (INT_BASE)) as usize] = 1_u16;
-        k += 1
+    for k in INT_BASE..=EQTB_SIZE {
+        _xeq_level_array[k - INT_BASE] = 1_u16;
     }
     no_new_control_sequence = true;
     prim[0].s0 = 0i32;
     prim[0].s1 = 0i32;
-    k = 1i32;
-    while k <= 500i32 {
+    for k in 1..=500 {
         prim[k as usize] = prim[0];
-        k += 1
     }
     prim_eqtb[0].b16.s0 = 0_u16;
     prim_eqtb[0].b16.s1 = 103_u16;
     prim_eqtb[0].b32.s1 = TEX_NULL;
-    k = 1i32;
-    while k <= 500i32 {
-        prim_eqtb[k as usize] = prim_eqtb[0];
-        k += 1
+    for k in 1..=500 {
+        prim_eqtb[k] = prim_eqtb[0];
     }
     SAVE_PTR = 0;
     cur_level = 1_u16;
@@ -3998,10 +3996,8 @@ unsafe fn initialize_more_variables() {
     cur_val_level = 0_u8;
     radix = 0i32 as small_number;
     cur_order = 0i32 as glue_ord;
-    k = 0i32;
-    while k <= 16i32 {
-        read_open[k as usize] = 2_u8;
-        k += 1
+    for k in 0..=16 {
+        read_open[k] = 2_u8;
     }
     cond_ptr = TEX_NULL;
     if_limit = 0_u8;
@@ -4052,10 +4048,8 @@ unsafe fn initialize_more_variables() {
     after_token = 0i32;
     long_help_seen = false;
     format_ident = 0i32;
-    k = 0i32;
-    while k <= 17i32 {
-        write_open[k as usize] = false;
-        k += 1
+    for k in 0..=17 {
+        write_open[k] = false;
     }
     LR_ptr = TEX_NULL;
     LR_problems = 0i32;
@@ -4199,11 +4193,11 @@ unsafe fn initialize_more_initex_variables() {
     *INTPAR(IntPar::escape_char) = '\\' as i32;
     *INTPAR(IntPar::end_line_char) = CARRIAGE_RETURN;
     for k in 0..=(NUMBER_USVS - 1) {
-        *DEL_CODE(k as i32) = -1;
+        *DEL_CODE(k) = -1;
     }
     *DEL_CODE(46) = 0;
     for k in DIMEN_BASE..=EQTB_SIZE {
-        EQTB[k as usize].b32.s1 = 0;
+        EQTB[k].b32.s1 = 0;
     }
     prim_used = PRIM_SIZE;
     hash_used = FROZEN_CONTROL_SEQUENCE as i32;
@@ -4245,502 +4239,530 @@ unsafe fn initialize_primitives() {
     primitive(
         b"lineskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::line_skip as i32,
+        GLUE_BASE + GluePar::line_skip as usize,
     );
     primitive(
         b"baselineskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::baseline_skip as i32,
+        GLUE_BASE + GluePar::baseline_skip as usize,
     );
     primitive(
         b"parskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::par_skip as i32,
+        GLUE_BASE + GluePar::par_skip as usize,
     );
     primitive(
         b"abovedisplayskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::above_display_skip as i32,
+        GLUE_BASE + GluePar::above_display_skip as usize,
     );
     primitive(
         b"belowdisplayskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::below_display_skip as i32,
+        GLUE_BASE + GluePar::below_display_skip as usize,
     );
     primitive(
         b"abovedisplayshortskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::above_display_short_skip as i32,
+        GLUE_BASE + GluePar::above_display_short_skip as usize,
     );
     primitive(
         b"belowdisplayshortskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::below_display_short_skip as i32,
+        GLUE_BASE + GluePar::below_display_short_skip as usize,
     );
     primitive(
         b"leftskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::left_skip as i32,
+        GLUE_BASE + GluePar::left_skip as usize,
     );
     primitive(
         b"rightskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::right_skip as i32,
+        GLUE_BASE + GluePar::right_skip as usize,
     );
     primitive(
         b"topskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::top_skip as i32,
+        GLUE_BASE + GluePar::top_skip as usize,
     );
     primitive(
         b"splittopskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::split_top_skip as i32,
+        GLUE_BASE + GluePar::split_top_skip as usize,
     );
     primitive(
         b"tabskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::tab_skip as i32,
+        GLUE_BASE + GluePar::tab_skip as usize,
     );
     primitive(
         b"spaceskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::space_skip as i32,
+        GLUE_BASE + GluePar::space_skip as usize,
     );
     primitive(
         b"xspaceskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::xspace_skip as i32,
+        GLUE_BASE + GluePar::xspace_skip as usize,
     );
     primitive(
         b"parfillskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::par_fill_skip as i32,
+        GLUE_BASE + GluePar::par_fill_skip as usize,
     );
     primitive(
         b"XeTeXlinebreakskip",
         ASSIGN_GLUE,
-        GLUE_BASE as i32 + GluePar::xetex_linebreak_skip as i32,
+        GLUE_BASE + GluePar::xetex_linebreak_skip as usize,
     );
 
     primitive(
         b"thinmuskip",
         ASSIGN_MU_GLUE,
-        GLUE_BASE as i32 + GluePar::thin_mu_skip as i32,
+        GLUE_BASE + GluePar::thin_mu_skip as usize,
     );
     primitive(
         b"medmuskip",
         ASSIGN_MU_GLUE,
-        GLUE_BASE as i32 + GluePar::med_mu_skip as i32,
+        GLUE_BASE + GluePar::med_mu_skip as usize,
     );
     primitive(
         b"thickmuskip",
         ASSIGN_MU_GLUE,
-        GLUE_BASE as i32 + GluePar::thick_mu_skip as i32,
+        GLUE_BASE + GluePar::thick_mu_skip as usize,
     );
 
     primitive(
         b"output",
         ASSIGN_TOKS,
-        LOCAL_BASE as i32 + Local::output_routine as i32,
+        LOCAL_BASE + Local::output_routine as usize,
     );
     primitive(
         b"everypar",
         ASSIGN_TOKS,
-        LOCAL_BASE as i32 + Local::every_par as i32,
+        LOCAL_BASE + Local::every_par as usize,
     );
     primitive(
         b"everymath",
         ASSIGN_TOKS,
-        LOCAL_BASE as i32 + Local::every_math as i32,
+        LOCAL_BASE + Local::every_math as usize,
     );
     primitive(
         b"everydisplay",
         ASSIGN_TOKS,
-        LOCAL_BASE as i32 + Local::every_display as i32,
+        LOCAL_BASE + Local::every_display as usize,
     );
     primitive(
         b"everyhbox",
         ASSIGN_TOKS,
-        LOCAL_BASE as i32 + Local::every_hbox as i32,
+        LOCAL_BASE + Local::every_hbox as usize,
     );
     primitive(
         b"everyvbox",
         ASSIGN_TOKS,
-        LOCAL_BASE as i32 + Local::every_vbox as i32,
+        LOCAL_BASE + Local::every_vbox as usize,
     );
     primitive(
         b"everyjob",
         ASSIGN_TOKS,
-        LOCAL_BASE as i32 + Local::every_job as i32,
+        LOCAL_BASE + Local::every_job as usize,
     );
     primitive(
         b"everycr",
         ASSIGN_TOKS,
-        LOCAL_BASE as i32 + Local::every_cr as i32,
+        LOCAL_BASE + Local::every_cr as usize,
     );
     primitive(
         b"errhelp",
         ASSIGN_TOKS,
-        LOCAL_BASE as i32 + Local::err_help as i32,
+        LOCAL_BASE + Local::err_help as usize,
     );
     primitive(
         b"everyeof",
         ASSIGN_TOKS,
-        LOCAL_BASE as i32 + Local::every_eof as i32,
+        LOCAL_BASE + Local::every_eof as usize,
     );
     primitive(
         b"XeTeXinterchartoks",
         ASSIGN_TOKS,
-        LOCAL_BASE as i32 + Local::xetex_inter_char as i32,
+        LOCAL_BASE + Local::xetex_inter_char as usize,
     );
     primitive(
         b"TectonicCodaTokens",
         ASSIGN_TOKS,
-        LOCAL_BASE as i32 + Local::TectonicCodaTokens as i32,
+        LOCAL_BASE + Local::TectonicCodaTokens as usize,
     );
 
     primitive(
         b"pretolerance",
         ASSIGN_INT,
-        INT_BASE + IntPar::pretolerance as i32,
+        INT_BASE + IntPar::pretolerance as usize,
     );
     primitive(
         b"tolerance",
         ASSIGN_INT,
-        INT_BASE + IntPar::tolerance as i32,
+        INT_BASE + IntPar::tolerance as usize,
     );
     primitive(
         b"linepenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::line_penalty as i32,
+        INT_BASE + IntPar::line_penalty as usize,
     );
     primitive(
         b"hyphenpenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::hyphen_penalty as i32,
+        INT_BASE + IntPar::hyphen_penalty as usize,
     );
     primitive(
         b"exhyphenpenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::ex_hyphen_penalty as i32,
+        INT_BASE + IntPar::ex_hyphen_penalty as usize,
     );
     primitive(
         b"clubpenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::club_penalty as i32,
+        INT_BASE + IntPar::club_penalty as usize,
     );
     primitive(
         b"widowpenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::widow_penalty as i32,
+        INT_BASE + IntPar::widow_penalty as usize,
     );
     primitive(
         b"displaywidowpenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::display_widow_penalty as i32,
+        INT_BASE + IntPar::display_widow_penalty as usize,
     );
     primitive(
         b"brokenpenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::broken_penalty as i32,
+        INT_BASE + IntPar::broken_penalty as usize,
     );
     primitive(
         b"binoppenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::bin_op_penalty as i32,
+        INT_BASE + IntPar::bin_op_penalty as usize,
     );
     primitive(
         b"relpenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::rel_penalty as i32,
+        INT_BASE + IntPar::rel_penalty as usize,
     );
     primitive(
         b"predisplaypenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::pre_display_penalty as i32,
+        INT_BASE + IntPar::pre_display_penalty as usize,
     );
     primitive(
         b"postdisplaypenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::post_display_penalty as i32,
+        INT_BASE + IntPar::post_display_penalty as usize,
     );
     primitive(
         b"interlinepenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::inter_line_penalty as i32,
+        INT_BASE + IntPar::inter_line_penalty as usize,
     );
     primitive(
         b"doublehyphendemerits",
         ASSIGN_INT,
-        INT_BASE + IntPar::double_hyphen_demerits as i32,
+        INT_BASE + IntPar::double_hyphen_demerits as usize,
     );
     primitive(
         b"finalhyphendemerits",
         ASSIGN_INT,
-        INT_BASE + IntPar::final_hyphen_demerits as i32,
+        INT_BASE + IntPar::final_hyphen_demerits as usize,
     );
     primitive(
         b"adjdemerits",
         ASSIGN_INT,
-        INT_BASE + IntPar::adj_demerits as i32,
+        INT_BASE + IntPar::adj_demerits as usize,
     );
-    primitive(b"mag", ASSIGN_INT, INT_BASE + IntPar::mag as i32);
+    primitive(b"mag", ASSIGN_INT, INT_BASE + IntPar::mag as usize);
     primitive(
         b"delimiterfactor",
         ASSIGN_INT,
-        INT_BASE + IntPar::delimiter_factor as i32,
+        INT_BASE + IntPar::delimiter_factor as usize,
     );
     primitive(
         b"looseness",
         ASSIGN_INT,
-        INT_BASE + IntPar::looseness as i32,
+        INT_BASE + IntPar::looseness as usize,
     );
-    primitive(b"time", ASSIGN_INT, INT_BASE + IntPar::time as i32);
-    primitive(b"day", ASSIGN_INT, INT_BASE + IntPar::day as i32);
-    primitive(b"month", ASSIGN_INT, INT_BASE + IntPar::month as i32);
-    primitive(b"year", ASSIGN_INT, INT_BASE + IntPar::year as i32);
+    primitive(b"time", ASSIGN_INT, INT_BASE + IntPar::time as usize);
+    primitive(b"day", ASSIGN_INT, INT_BASE + IntPar::day as usize);
+    primitive(b"month", ASSIGN_INT, INT_BASE + IntPar::month as usize);
+    primitive(b"year", ASSIGN_INT, INT_BASE + IntPar::year as usize);
     primitive(
         b"showboxbreadth",
         ASSIGN_INT,
-        INT_BASE + IntPar::show_box_breadth as i32,
+        INT_BASE + IntPar::show_box_breadth as usize,
     );
     primitive(
         b"showboxdepth",
         ASSIGN_INT,
-        INT_BASE + IntPar::show_box_depth as i32,
+        INT_BASE + IntPar::show_box_depth as usize,
     );
-    primitive(b"hbadness", ASSIGN_INT, INT_BASE + IntPar::hbadness as i32);
-    primitive(b"vbadness", ASSIGN_INT, INT_BASE + IntPar::vbadness as i32);
-    primitive(b"pausing", ASSIGN_INT, INT_BASE + IntPar::pausing as i32);
+    primitive(
+        b"hbadness",
+        ASSIGN_INT,
+        INT_BASE + IntPar::hbadness as usize,
+    );
+    primitive(
+        b"vbadness",
+        ASSIGN_INT,
+        INT_BASE + IntPar::vbadness as usize,
+    );
+    primitive(b"pausing", ASSIGN_INT, INT_BASE + IntPar::pausing as usize);
     primitive(
         b"tracingonline",
         ASSIGN_INT,
-        INT_BASE + IntPar::tracing_online as i32,
+        INT_BASE + IntPar::tracing_online as usize,
     );
     primitive(
         b"tracingmacros",
         ASSIGN_INT,
-        INT_BASE + IntPar::tracing_macros as i32,
+        INT_BASE + IntPar::tracing_macros as usize,
     );
     primitive(
         b"tracingstats",
         ASSIGN_INT,
-        INT_BASE + IntPar::tracing_stats as i32,
+        INT_BASE + IntPar::tracing_stats as usize,
     );
     primitive(
         b"tracingparagraphs",
         ASSIGN_INT,
-        INT_BASE + IntPar::tracing_paragraphs as i32,
+        INT_BASE + IntPar::tracing_paragraphs as usize,
     );
     primitive(
         b"tracingpages",
         ASSIGN_INT,
-        INT_BASE + IntPar::tracing_pages as i32,
+        INT_BASE + IntPar::tracing_pages as usize,
     );
     primitive(
         b"tracingoutput",
         ASSIGN_INT,
-        INT_BASE + IntPar::tracing_output as i32,
+        INT_BASE + IntPar::tracing_output as usize,
     );
     primitive(
         b"tracinglostchars",
         ASSIGN_INT,
-        INT_BASE + IntPar::tracing_lost_chars as i32,
+        INT_BASE + IntPar::tracing_lost_chars as usize,
     );
     primitive(
         b"tracingcommands",
         ASSIGN_INT,
-        INT_BASE + IntPar::tracing_commands as i32,
+        INT_BASE + IntPar::tracing_commands as usize,
     );
     primitive(
         b"tracingrestores",
         ASSIGN_INT,
-        INT_BASE + IntPar::tracing_restores as i32,
+        INT_BASE + IntPar::tracing_restores as usize,
     );
-    primitive(b"uchyph", ASSIGN_INT, INT_BASE + IntPar::uc_hyph as i32);
+    primitive(b"uchyph", ASSIGN_INT, INT_BASE + IntPar::uc_hyph as usize);
     primitive(
         b"outputpenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::output_penalty as i32,
+        INT_BASE + IntPar::output_penalty as usize,
     );
     primitive(
         b"maxdeadcycles",
         ASSIGN_INT,
-        INT_BASE + IntPar::max_dead_cycles as i32,
+        INT_BASE + IntPar::max_dead_cycles as usize,
     );
     primitive(
         b"hangafter",
         ASSIGN_INT,
-        INT_BASE + IntPar::hang_after as i32,
+        INT_BASE + IntPar::hang_after as usize,
     );
     primitive(
         b"floatingpenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::floating_penalty as i32,
+        INT_BASE + IntPar::floating_penalty as usize,
     );
     primitive(
         b"globaldefs",
         ASSIGN_INT,
-        INT_BASE + IntPar::global_defs as i32,
+        INT_BASE + IntPar::global_defs as usize,
     );
-    primitive(b"fam", ASSIGN_INT, INT_BASE + IntPar::cur_fam as i32);
+    primitive(b"fam", ASSIGN_INT, INT_BASE + IntPar::cur_fam as usize);
     primitive(
         b"escapechar",
         ASSIGN_INT,
-        INT_BASE + IntPar::escape_char as i32,
+        INT_BASE + IntPar::escape_char as usize,
     );
     primitive(
         b"defaulthyphenchar",
         ASSIGN_INT,
-        INT_BASE + IntPar::default_hyphen_char as i32,
+        INT_BASE + IntPar::default_hyphen_char as usize,
     );
     primitive(
         b"defaultskewchar",
         ASSIGN_INT,
-        INT_BASE + IntPar::default_skew_char as i32,
+        INT_BASE + IntPar::default_skew_char as usize,
     );
     primitive(
         b"endlinechar",
         ASSIGN_INT,
-        INT_BASE + IntPar::end_line_char as i32,
+        INT_BASE + IntPar::end_line_char as usize,
     );
     primitive(
         b"newlinechar",
         ASSIGN_INT,
-        INT_BASE + IntPar::new_line_char as i32,
+        INT_BASE + IntPar::new_line_char as usize,
     );
-    primitive(b"language", ASSIGN_INT, INT_BASE + IntPar::language as i32);
+    primitive(
+        b"language",
+        ASSIGN_INT,
+        INT_BASE + IntPar::language as usize,
+    );
     primitive(
         b"lefthyphenmin",
         ASSIGN_INT,
-        INT_BASE + IntPar::left_hyphen_min as i32,
+        INT_BASE + IntPar::left_hyphen_min as usize,
     );
     primitive(
         b"righthyphenmin",
         ASSIGN_INT,
-        INT_BASE + IntPar::right_hyphen_min as i32,
+        INT_BASE + IntPar::right_hyphen_min as usize,
     );
     primitive(
         b"holdinginserts",
         ASSIGN_INT,
-        INT_BASE + IntPar::holding_inserts as i32,
+        INT_BASE + IntPar::holding_inserts as usize,
     );
     primitive(
         b"errorcontextlines",
         ASSIGN_INT,
-        INT_BASE + IntPar::error_context_lines as i32,
+        INT_BASE + IntPar::error_context_lines as usize,
     );
 
     primitive(
         b"XeTeXlinebreakpenalty",
         ASSIGN_INT,
-        INT_BASE + IntPar::xetex_linebreak_penalty as i32,
+        INT_BASE + IntPar::xetex_linebreak_penalty as usize,
     );
     primitive(
         b"XeTeXprotrudechars",
         ASSIGN_INT,
-        INT_BASE + IntPar::xetex_protrude_chars as i32,
+        INT_BASE + IntPar::xetex_protrude_chars as usize,
     );
 
     primitive(
         b"parindent",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::par_indent as i32,
+        DIMEN_BASE + DimenPar::par_indent as usize,
     );
     primitive(
         b"mathsurround",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::math_surround as i32,
+        DIMEN_BASE + DimenPar::math_surround as usize,
     );
     primitive(
         b"lineskiplimit",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::line_skip_limit as i32,
+        DIMEN_BASE + DimenPar::line_skip_limit as usize,
     );
-    primitive(b"hsize", ASSIGN_DIMEN, DIMEN_BASE + DimenPar::hsize as i32);
-    primitive(b"vsize", ASSIGN_DIMEN, DIMEN_BASE + DimenPar::vsize as i32);
+    primitive(
+        b"hsize",
+        ASSIGN_DIMEN,
+        DIMEN_BASE + DimenPar::hsize as usize,
+    );
+    primitive(
+        b"vsize",
+        ASSIGN_DIMEN,
+        DIMEN_BASE + DimenPar::vsize as usize,
+    );
     primitive(
         b"maxdepth",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::max_depth as i32,
+        DIMEN_BASE + DimenPar::max_depth as usize,
     );
     primitive(
         b"splitmaxdepth",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::split_max_depth as i32,
+        DIMEN_BASE + DimenPar::split_max_depth as usize,
     );
     primitive(
         b"boxmaxdepth",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::box_max_depth as i32,
+        DIMEN_BASE + DimenPar::box_max_depth as usize,
     );
-    primitive(b"hfuzz", ASSIGN_DIMEN, DIMEN_BASE + DimenPar::hfuzz as i32);
-    primitive(b"vfuzz", ASSIGN_DIMEN, DIMEN_BASE + DimenPar::vfuzz as i32);
+    primitive(
+        b"hfuzz",
+        ASSIGN_DIMEN,
+        DIMEN_BASE + DimenPar::hfuzz as usize,
+    );
+    primitive(
+        b"vfuzz",
+        ASSIGN_DIMEN,
+        DIMEN_BASE + DimenPar::vfuzz as usize,
+    );
     primitive(
         b"delimitershortfall",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::delimiter_shortfall as i32,
+        DIMEN_BASE + DimenPar::delimiter_shortfall as usize,
     );
     primitive(
         b"nulldelimiterspace",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::null_delimiter_space as i32,
+        DIMEN_BASE + DimenPar::null_delimiter_space as usize,
     );
     primitive(
         b"scriptspace",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::script_space as i32,
+        DIMEN_BASE + DimenPar::script_space as usize,
     );
     primitive(
         b"predisplaysize",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::pre_display_size as i32,
+        DIMEN_BASE + DimenPar::pre_display_size as usize,
     );
     primitive(
         b"displaywidth",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::display_width as i32,
+        DIMEN_BASE + DimenPar::display_width as usize,
     );
     primitive(
         b"displayindent",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::display_indent as i32,
+        DIMEN_BASE + DimenPar::display_indent as usize,
     );
     primitive(
         b"overfullrule",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::overfull_rule as i32,
+        DIMEN_BASE + DimenPar::overfull_rule as usize,
     );
     primitive(
         b"hangindent",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::hang_indent as i32,
+        DIMEN_BASE + DimenPar::hang_indent as usize,
     );
     primitive(
         b"hoffset",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::h_offset as i32,
+        DIMEN_BASE + DimenPar::h_offset as usize,
     );
     primitive(
         b"voffset",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::v_offset as i32,
+        DIMEN_BASE + DimenPar::v_offset as usize,
     );
     primitive(
         b"emergencystretch",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::emergency_stretch as i32,
+        DIMEN_BASE + DimenPar::emergency_stretch as usize,
     );
     primitive(
         b"pdfpagewidth",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::pdf_page_width as i32,
+        DIMEN_BASE + DimenPar::pdf_page_width as usize,
     );
     primitive(
         b"pdfpageheight",
         ASSIGN_DIMEN,
-        DIMEN_BASE + DimenPar::pdf_page_height as i32,
+        DIMEN_BASE + DimenPar::pdf_page_height as usize,
     );
 
     primitive(b" ", EX_SPACE, 0);
@@ -5082,7 +5104,7 @@ unsafe fn initialize_primitives() {
     primitive(b"immediate", EXTENSION, IMMEDIATE_CODE as i32);
     primitive(b"setlanguage", EXTENSION, SET_LANGUAGE_CODE as i32);
 
-    primitive(b"synctex", ASSIGN_INT, INT_BASE + IntPar::synctex as i32);
+    primitive(b"synctex", ASSIGN_INT, INT_BASE + IntPar::synctex as usize);
     no_new_control_sequence = true;
 }
 unsafe fn get_strings_started() {
@@ -5166,7 +5188,7 @@ pub(crate) unsafe fn tt_run_engine(
 
     if in_initex_mode {
         MEM = vec![memory_word::default(); MEM_TOP as usize + 2];
-        EQTB_TOP = (EQTB_SIZE + hash_extra) as usize;
+        EQTB_TOP = EQTB_SIZE + hash_extra as usize;
         if hash_extra == 0 {
             hash_top = UNDEFINED_CONTROL_SEQUENCE as i32;
         } else {
@@ -5222,7 +5244,7 @@ pub(crate) unsafe fn tt_run_engine(
     if BUF_SIZE > MAX_HALFWORD as usize {
         bad = 18
     }
-    if CS_TOKEN_FLAG + EQTB_SIZE + hash_extra > MAX_HALFWORD {
+    if CS_TOKEN_FLAG as i32 + EQTB_SIZE as i32 + hash_extra > MAX_HALFWORD {
         bad = 21
     }
     if 514 < 0 || 514 > HASH_BASE {
@@ -5410,47 +5432,47 @@ pub(crate) unsafe fn tt_run_engine(
         primitive(
             b"tracingassigns",
             ASSIGN_INT,
-            INT_BASE + IntPar::tracing_assigns as i32,
+            INT_BASE + IntPar::tracing_assigns as usize,
         );
         primitive(
             b"tracinggroups",
             ASSIGN_INT,
-            INT_BASE + IntPar::tracing_groups as i32,
+            INT_BASE + IntPar::tracing_groups as usize,
         );
         primitive(
             b"tracingifs",
             ASSIGN_INT,
-            INT_BASE + IntPar::tracing_ifs as i32,
+            INT_BASE + IntPar::tracing_ifs as usize,
         );
         primitive(
             b"tracingscantokens",
             ASSIGN_INT,
-            INT_BASE + IntPar::tracing_scan_tokens as i32,
+            INT_BASE + IntPar::tracing_scan_tokens as usize,
         );
         primitive(
             b"tracingnesting",
             ASSIGN_INT,
-            INT_BASE + IntPar::tracing_nesting as i32,
+            INT_BASE + IntPar::tracing_nesting as usize,
         );
         primitive(
             b"predisplaydirection",
             ASSIGN_INT,
-            INT_BASE + IntPar::pre_display_correction as i32,
+            INT_BASE + IntPar::pre_display_correction as usize,
         );
         primitive(
             b"lastlinefit",
             ASSIGN_INT,
-            INT_BASE + IntPar::last_line_fit as i32,
+            INT_BASE + IntPar::last_line_fit as usize,
         );
         primitive(
             b"savingvdiscards",
             ASSIGN_INT,
-            INT_BASE + IntPar::saving_vdiscards as i32,
+            INT_BASE + IntPar::saving_vdiscards as usize,
         );
         primitive(
             b"savinghyphcodes",
             ASSIGN_INT,
-            INT_BASE + IntPar::saving_hyphs as i32,
+            INT_BASE + IntPar::saving_hyphs as usize,
         );
 
         primitive(b"currentgrouplevel", LAST_ITEM, CURRENT_GROUP_LEVEL_CODE);
@@ -5481,70 +5503,74 @@ pub(crate) unsafe fn tt_run_engine(
         primitive(
             b"suppressfontnotfounderror",
             ASSIGN_INT,
-            INT_BASE + IntPar::suppress_fontnotfound_error as i32,
+            INT_BASE + IntPar::suppress_fontnotfound_error as usize,
         );
 
-        primitive(b"TeXXeTstate", ASSIGN_INT, INT_BASE + IntPar::texxet as i32);
+        primitive(
+            b"TeXXeTstate",
+            ASSIGN_INT,
+            INT_BASE + IntPar::texxet as usize,
+        );
         primitive(
             b"XeTeXupwardsmode",
             ASSIGN_INT,
-            INT_BASE + IntPar::xetex_upwards as i32,
+            INT_BASE + IntPar::xetex_upwards as usize,
         );
         primitive(
             b"XeTeXuseglyphmetrics",
             ASSIGN_INT,
-            INT_BASE + IntPar::xetex_use_glyph_metrics as i32,
+            INT_BASE + IntPar::xetex_use_glyph_metrics as usize,
         );
         primitive(
             b"XeTeXinterchartokenstate",
             ASSIGN_INT,
-            INT_BASE + IntPar::xetex_inter_char_tokens as i32,
+            INT_BASE + IntPar::xetex_inter_char_tokens as usize,
         );
         primitive(
             b"XeTeXdashbreakstate",
             ASSIGN_INT,
-            INT_BASE + IntPar::xetex_dash_break as i32,
+            INT_BASE + IntPar::xetex_dash_break as usize,
         );
         primitive(
             b"XeTeXinputnormalization",
             ASSIGN_INT,
-            INT_BASE + IntPar::xetex_input_normalization as i32,
+            INT_BASE + IntPar::xetex_input_normalization as usize,
         );
         primitive(
             b"XeTeXtracingfonts",
             ASSIGN_INT,
-            INT_BASE + IntPar::xetex_tracing_fonts as i32,
+            INT_BASE + IntPar::xetex_tracing_fonts as usize,
         );
         primitive(
             b"XeTeXinterwordspaceshaping",
             ASSIGN_INT,
-            INT_BASE + IntPar::xetex_interword_space_shaping as i32,
+            INT_BASE + IntPar::xetex_interword_space_shaping as usize,
         );
         primitive(
             b"XeTeXgenerateactualtext",
             ASSIGN_INT,
-            INT_BASE + IntPar::xetex_generate_actual_text as i32,
+            INT_BASE + IntPar::xetex_generate_actual_text as usize,
         );
         primitive(
             b"XeTeXhyphenatablelength",
             ASSIGN_INT,
-            INT_BASE + IntPar::xetex_hyphenatable_length as i32,
+            INT_BASE + IntPar::xetex_hyphenatable_length as usize,
         );
         primitive(
             b"pdfoutput",
             ASSIGN_INT,
-            INT_BASE + IntPar::pdfoutput as i32,
+            INT_BASE + IntPar::pdfoutput as usize,
         );
 
         primitive(
             b"XeTeXinputencoding",
             EXTENSION,
-            XETEX_INPUT_ENCODING_EXTENSION_CODE as i32,
+            XETEX_INPUT_ENCODING_EXTENSION_CODE as usize,
         );
         primitive(
             b"XeTeXdefaultencoding",
             EXTENSION,
-            XETEX_DEFAULT_ENCODING_EXTENSION_CODE as i32,
+            XETEX_DEFAULT_ENCODING_EXTENSION_CODE as usize,
         );
 
         primitive(b"beginL", VALIGN, BEGIN_L_CODE);

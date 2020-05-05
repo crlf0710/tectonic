@@ -251,7 +251,7 @@ pub(crate) unsafe fn CHAR_SUB_CODE(n: usize) -> &'static mut i32 {
 
 /* "region 5": current fullword integers like hyphenation penalty */
 
-pub(crate) const INT_BASE: placeholdertype = CHAR_SUB_CODE_BASE as i32 + NUMBER_USVS as i32;
+pub(crate) const INT_BASE: usize = CHAR_SUB_CODE_BASE + NUMBER_USVS;
 
 #[repr(i32)]
 #[derive(Clone, Copy, PartialEq)]
@@ -355,25 +355,25 @@ impl TryFrom<i32> for IntPar {
     }
 }
 
-pub(crate) const INT_PARS: placeholdertype = 85;
+pub(crate) const INT_PARS: usize = 85;
 
 pub(crate) unsafe fn INTPAR(x: IntPar) -> &'static mut i32 {
-    &mut EQTB[(INT_BASE + x as i32) as usize].b32.s1
+    &mut EQTB[INT_BASE + x as usize].b32.s1
 }
 
-pub(crate) const COUNT_BASE: placeholdertype = INT_BASE + INT_PARS;
-pub(crate) unsafe fn COUNT_REG(n: placeholdertype) -> &'static mut i32 {
-    &mut EQTB[(COUNT_BASE + n) as usize].b32.s1
+pub(crate) const COUNT_BASE: usize = INT_BASE + INT_PARS;
+pub(crate) unsafe fn COUNT_REG(n: usize) -> &'static mut i32 {
+    &mut EQTB[COUNT_BASE + n].b32.s1
 }
 
-pub(crate) const DEL_CODE_BASE: placeholdertype = COUNT_BASE + NUMBER_REGS as i32;
-pub(crate) unsafe fn DEL_CODE(n: placeholdertype) -> &'static mut i32 {
-    &mut EQTB[(DEL_CODE_BASE + n) as usize].b32.s1
+pub(crate) const DEL_CODE_BASE: usize = COUNT_BASE + NUMBER_REGS;
+pub(crate) unsafe fn DEL_CODE(n: usize) -> &'static mut i32 {
+    &mut EQTB[DEL_CODE_BASE + n].b32.s1
 }
 
 /* "region 6": current fullword dimensions like hsize */
 
-pub(crate) const DIMEN_BASE: placeholdertype = DEL_CODE_BASE + NUMBER_USVS as i32;
+pub(crate) const DIMEN_BASE: usize = DEL_CODE_BASE + NUMBER_USVS;
 
 #[repr(i32)]
 #[derive(Clone, Copy, PartialEq)]
@@ -413,18 +413,18 @@ impl TryFrom<i32> for DimenPar {
     }
 }
 
-pub(crate) const DIMEN_PARS: placeholdertype = 23;
+pub(crate) const DIMEN_PARS: usize = 23;
 
 pub(crate) fn DIMENPAR(x: DimenPar) -> &'static mut i32 {
-    unsafe { &mut EQTB[(DIMEN_BASE + x as i32) as usize].b32.s1 }
+    unsafe { &mut EQTB[DIMEN_BASE + x as usize].b32.s1 }
 }
 
-pub(crate) const SCALED_BASE: usize = (DIMEN_BASE + DIMEN_PARS) as usize;
+pub(crate) const SCALED_BASE: usize = DIMEN_BASE + DIMEN_PARS;
 pub(crate) unsafe fn SCALED_REG(n: usize) -> &'static mut i32 {
     &mut EQTB[SCALED_BASE + n].b32.s1
 }
 
-pub(crate) const EQTB_SIZE: placeholdertype = SCALED_BASE as i32 + NUMBER_REGS as i32 - 1;
+pub(crate) const EQTB_SIZE: usize = SCALED_BASE + NUMBER_REGS - 1;
 
 /// "really" MIN_QUARTERWORD
 pub(crate) const LEVEL_ZERO: u16 = 0;
