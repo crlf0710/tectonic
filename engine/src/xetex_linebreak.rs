@@ -33,9 +33,14 @@ use crate::xetex_xetex0::{
     prev_rightmost,
 };
 use crate::xetex_xetexd::{
-    is_char_node, is_non_discardable_node, BOX_width, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
-    GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order,
-    LLIST_info, LLIST_link, NODE_subtype, NODE_type, PENALTY_NODE_penalty,
+    is_char_node, is_non_discardable_node, ACTIVE_NODE_glue, ACTIVE_NODE_line_number,
+    ACTIVE_NODE_shortfall, ACTIVE_NODE_total_demerits, BOX_width, CHAR_NODE_character,
+    CHAR_NODE_font, DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count,
+    GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order,
+    GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm,
+    LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
+    LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length, NODE_subtype, NODE_type,
+    PENALTY_NODE_penalty, FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -45,7 +50,6 @@ pub(crate) type pool_pointer = i32;
 pub(crate) type str_number = i32;
 pub(crate) type packed_UTF16_code = u16;
 pub(crate) type small_number = i16;
-pub(crate) type internal_font_number = usize;
 pub(crate) type font_index = i32;
 pub(crate) type nine_bits = i32;
 pub(crate) type trie_pointer = i32;
@@ -130,7 +134,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     let mut r: i32 = 0;
     let mut s: i32 = 0;
     let mut prev_s: i32 = 0;
-    let mut f: internal_font_number = 0;
+    let mut f: usize = 0;
     let mut j: small_number = 0;
     let mut c: UnicodeScalar = 0;
     let mut l: i32 = 0;
@@ -334,7 +338,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 prev_p = global_prev_p;
                 loop {
                     let mut eff_char: i32 = 0;
-                    f = MEM[cur_p as usize].b16.s1 as internal_font_number;
+                    f = MEM[cur_p as usize].b16.s1 as usize;
                     eff_char = effective_char(true, f, MEM[cur_p as usize].b16.s0);
                     active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize]
                         + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize]
@@ -386,59 +390,62 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         }
                     }
                     q = *GLUE_NODE_glue_ptr(cur_p as usize);
-                    if MEM[q as usize].b16.s0 as i32 != 0 && MEM[(q + 3) as usize].b32.s1 != 0 {
-                        let fresh3 = &mut MEM[(cur_p + 1) as usize].b32.s0;
+                    if *GLUE_SPEC_shrink_order(q as usize) != NORMAL
+                        && *GLUE_SPEC_shrink(q as usize) != 0
+                    {
+                        let fresh3 = GLUE_NODE_glue_ptr(cur_p as usize);
                         *fresh3 = finite_shrink(q);
                         q = *fresh3
                     }
-                    active_width[1] += MEM[(q + 1) as usize].b32.s1;
-                    active_width[(2i32 + MEM[q as usize].b16.s1 as i32) as usize] +=
-                        MEM[(q + 2) as usize].b32.s1;
+                    active_width[1] += *BOX_width(q as usize);
+                    active_width[(2 + *GLUE_SPEC_stretch_order(q as usize)) as usize] +=
+                        *GLUE_SPEC_stretch(q as usize);
                     /*:895*/
-                    active_width[6] += MEM[(q + 3) as usize].b32.s1; /*:897*/
-                    if second_pass as i32 != 0 && auto_breaking as i32 != 0 {
+                    active_width[6] += *GLUE_SPEC_shrink(q as usize); /*:897*/
+
+                    if second_pass && auto_breaking {
                         /*924: "Try to hyphenate the following word." */
                         prev_s = cur_p;
-                        s = MEM[prev_s as usize].b32.s1;
-                        if s != -0xfffffffi32 {
+                        s = *LLIST_link(prev_s as usize);
+
+                        if s != TEX_NULL {
                             's_786: loop
                             /*930: skip to node ha, or goto done1 if no hyphenation should be attempted */
                             {
                                 if is_char_node(s) {
-                                    c = MEM[s as usize].b16.s0 as UnicodeScalar; /*:930*/
-                                    hf = MEM[s as usize].b16.s1 as internal_font_number;
+                                    c = *CHAR_NODE_character(s as usize) as UnicodeScalar; /*:930*/
+                                    hf = *CHAR_NODE_font(s as usize) as usize;
                                     current_block = 11202235766349324107;
-                                } else if MEM[s as usize].b16.s1 as i32 == 6 {
-                                    if MEM[(s + 1) as usize].b32.s1 == -0xfffffff {
+                                } else if *NODE_type(s as usize) == LIGATURE_NODE {
+                                    if *LIGATURE_NODE_lig_ptr(s as usize) == TEX_NULL {
                                         current_block = 13855806088735179493;
                                     } else {
-                                        q = MEM[(s + 1) as usize].b32.s1;
-                                        c = MEM[q as usize].b16.s0 as UnicodeScalar;
-                                        hf = MEM[q as usize].b16.s1 as internal_font_number;
+                                        q = *LIGATURE_NODE_lig_ptr(s as usize);
+                                        c = *CHAR_NODE_character(q as usize) as UnicodeScalar;
+                                        hf = *CHAR_NODE_font(q as usize) as usize;
                                         current_block = 11202235766349324107;
                                     }
-                                } else if MEM[s as usize].b16.s1 as i32 == 11
-                                    && MEM[s as usize].b16.s0 as i32 == 0
+                                } else if *NODE_type(s as usize) == KERN_NODE
+                                    && *NODE_subtype(s as usize) == NORMAL
                                 {
                                     current_block = 13855806088735179493;
-                                } else if MEM[s as usize].b16.s1 as i32 == 9
-                                    && MEM[s as usize].b16.s0 as i32 >= 4
+                                } else if *NODE_type(s as usize) == MATH_NODE
+                                    && *NODE_subtype(s as usize) >= L_CODE
                                 {
                                     current_block = 13855806088735179493;
                                 } else {
-                                    if !(MEM[s as usize].b16.s1 as i32 == 8) {
+                                    if !(*NODE_type(s as usize) == WHATSIT_NODE) {
                                         current_block = 8166967358843938227;
                                         break;
                                     }
-                                    if MEM[s as usize].b16.s0 as i32 == 40
-                                        || MEM[s as usize].b16.s0 as i32 == 41
+                                    if *NODE_subtype(s as usize) == NATIVE_WORD_NODE
+                                        || *NODE_subtype(s as usize) == NATIVE_WORD_NODE_AT
                                     {
-                                        l = 0i32;
-                                        while l < MEM[(s + 4) as usize].b16.s1 as i32 {
+                                        l = 0;
+                                        while l < *NATIVE_NODE_length(s as usize) as i32 {
                                             c = get_native_usv(s, l);
                                             if *LC_CODE(c as usize) != 0 {
-                                                hf = MEM[(s + 4) as usize].b16.s2
-                                                    as internal_font_number;
+                                                hf = *NATIVE_NODE_font(s as usize) as usize;
                                                 prev_s = s;
                                                 current_block = 16581706250867416845;
                                                 break 's_786;
@@ -450,15 +457,17 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                             }
                                         }
                                     }
-                                    if MEM[s as usize].b16.s0 as i32 == 4 {
-                                        cur_lang = MEM[(s + 1) as usize].b32.s1 as u8;
-                                        l_hyf = MEM[(s + 1) as usize].b16.s1 as i32;
-                                        r_hyf = MEM[(s + 1) as usize].b16.s0 as i32;
+
+                                    if *NODE_subtype(s as usize) == LANGUAGE_NODE {
+                                        cur_lang = *LANGUAGE_NODE_what_lang(s as usize) as u8;
+                                        l_hyf = *LANGUAGE_NODE_what_lhm(s as usize) as i32;
+                                        r_hyf = *LANGUAGE_NODE_what_rhm(s as usize) as i32;
+
                                         if *trie_trc.offset((hyph_start + cur_lang as i32) as isize)
                                             as i32
                                             != cur_lang as i32
                                         {
-                                            hyph_index = 0i32
+                                            hyph_index = 0
                                         } else {
                                             hyph_index = *trie_trl
                                                 .offset((hyph_start + cur_lang as i32) as isize)
@@ -468,16 +477,16 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 }
                                 match current_block {
                                     11202235766349324107 => {
-                                        if hyph_index == 0i32 || c > 255i32 {
+                                        if hyph_index == 0 || c > 255 {
                                             hc[0] = *LC_CODE(c as usize);
                                         } else if *trie_trc.offset((hyph_index + c) as isize) as i32
                                             != c
                                         {
-                                            hc[0] = 0i32
+                                            hc[0] = 0;
                                         } else {
                                             hc[0] = *trie_tro.offset((hyph_index + c) as isize)
                                         }
-                                        if hc[0] != 0i32 {
+                                        if hc[0] != 0 {
                                             if hc[0] == c || *INTPAR(IntPar::uc_hyph) > 0 {
                                                 current_block = 16581706250867416845;
                                                 break;
@@ -490,38 +499,44 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     _ => {}
                                 }
                                 prev_s = s;
-                                s = MEM[prev_s as usize].b32.s1
+                                s = *LLIST_link(prev_s as usize);
                             }
                             match current_block {
                                 8166967358843938227 => {}
                                 _ => {
                                     hyf_char = HYPHEN_CHAR[hf as usize];
-                                    if !(hyf_char < 0i32) {
-                                        if !(hyf_char > 0xffffi32) {
+                                    if !(hyf_char < 0) {
+                                        if !(hyf_char > BIGGEST_CHAR) {
                                             ha = prev_s;
+
                                             if !(l_hyf + r_hyf > max_hyphenatable_length()) {
-                                                if ha != -0xfffffffi32
+                                                if ha != TEX_NULL
                                                     && ha < hi_mem_min
-                                                    && MEM[ha as usize].b16.s1 as i32 == 8
-                                                    && (MEM[ha as usize].b16.s0 as i32 == 40
-                                                        || MEM[ha as usize].b16.s0 as i32 == 41)
+                                                    && *NODE_type(ha as usize) == WHATSIT_NODE
+                                                    && (*NODE_subtype(ha as usize)
+                                                        == NATIVE_WORD_NODE
+                                                        || *NODE_subtype(ha as usize)
+                                                            == NATIVE_WORD_NODE_AT)
                                                 {
                                                     /*926: check that nodes after native_word permit hyphenation; if not, goto done1 */
-                                                    s = MEM[ha as usize].b32.s1;
+                                                    s = *LLIST_link(ha as usize);
+
                                                     loop {
                                                         if !is_char_node(s) {
-                                                            match MEM[s as usize].b16.s1 as i32 {
-                                                                6 => {}
-                                                                11 => {
-                                                                    if MEM[s as usize].b16.s0 as i32
-                                                                        != 0i32
+                                                            match *NODE_type(s as usize) {
+                                                                LIGATURE_NODE => {}
+                                                                KERN_NODE => {
+                                                                    if *NODE_subtype(s as usize)
+                                                                        != NORMAL
                                                                     {
                                                                         current_block =
                                                                             2606747282402567793;
                                                                         break;
                                                                     }
                                                                 }
-                                                                8 | 10 | 12 | 3 | 5 | 4 => {
+                                                                WHATSIT_NODE | GLUE_NODE
+                                                                | PENALTY_NODE | INS_NODE
+                                                                | ADJUST_NODE | MARK_NODE => {
                                                                     current_block =
                                                                         2606747282402567793;
                                                                     break;
@@ -533,7 +548,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                 }
                                                             }
                                                         }
-                                                        s = MEM[s as usize].b32.s1
+                                                        s = *LLIST_link(s as usize);
                                                     }
                                                     match current_block {
                                                         8166967358843938227 => {}
@@ -542,23 +557,21 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                              * "Note that if there are chars with lccode = 0,
                                                              * we split them out into separate native_word
                                                              * nodes." */
-                                                            hn = 0i32 as small_number;
+                                                            hn = 0 as small_number;
                                                             'c_31290: loop {
                                                                 /* 'ha' can change in the loop, so for safety: */
-                                                                for_end_1 = MEM
-                                                                    [(ha + 4i32) as usize]
-                                                                    .b16
-                                                                    .s1
+                                                                for_end_1 = *NATIVE_NODE_length(
+                                                                    ha as usize,
+                                                                )
                                                                     as i32;
-                                                                l = 0i32;
+
+                                                                l = 0;
                                                                 loop {
                                                                     if !(l < for_end_1) {
                                                                         break 'c_31290;
                                                                     }
                                                                     c = get_native_usv(ha, l);
-                                                                    if hyph_index == 0i32
-                                                                        || c > 255i32
-                                                                    {
+                                                                    if hyph_index == 0 || c > 255 {
                                                                         hc[0] =
                                                                             *LC_CODE(c as usize);
                                                                     } else if *trie_trc.offset(
@@ -567,7 +580,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                         as i32
                                                                         != c
                                                                     {
-                                                                        hc[0] = 0i32
+                                                                        hc[0] = 0
                                                                     } else {
                                                                         hc[0] = *trie_tro.offset(
                                                                             (hyph_index + c)
@@ -579,27 +592,16 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                             q
                                                                                     =
                                                                                     new_native_word_node(hf,
-                                                                                                         MEM[(ha
-                                                                                                                           +
-                                                                                                                           4i32)
-                                                                                                                          as
-                                                                                                                          usize].b16.s1
-                                                                                                             as
-                                                                                                             i32
+                                                                                                         *NATIVE_NODE_length(ha as usize) as i32
                                                                                                              -
                                                                                                              l);
-                                                                            MEM[q as usize]
-                                                                                .b16
-                                                                                .s0 = MEM
-                                                                                [ha as usize]
-                                                                                .b16
-                                                                                .s0;
+                                                                            *NODE_subtype(
+                                                                                q as usize,
+                                                                            ) = *NODE_subtype(
+                                                                                ha as usize,
+                                                                            );
                                                                             i = l;
-                                                                            while i < MEM[(ha
-                                                                                + 4i32)
-                                                                                as usize]
-                                                                                .b16
-                                                                                .s1
+                                                                            while i < *NATIVE_NODE_length(ha as usize)
                                                                                 as i32
                                                                             {
                                                                                 *(&mut MEM[(q
@@ -636,92 +638,22 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                                                         *mut memory_word
                                                                                                         as
                                                                                                         *mut libc::c_void,
-                                                                                                    (EQTB[(1i32
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        1i32
-                                                                                                                        +
-                                                                                                                        15000i32
-                                                                                                                        +
-                                                                                                                        12i32
-                                                                                                                        +
-                                                                                                                        9000i32
-                                                                                                                        +
-                                                                                                                        1i32
-                                                                                                                        +
-                                                                                                                        1i32
-                                                                                                                        +
-                                                                                                                        19i32
-                                                                                                                        +
-                                                                                                                        256i32
-                                                                                                                        +
-                                                                                                                        256i32
-                                                                                                                        +
-                                                                                                                        13i32
-                                                                                                                        +
-                                                                                                                        256i32
-                                                                                                                        +
-                                                                                                                        4i32
-                                                                                                                        +
-                                                                                                                        256i32
-                                                                                                                        +
-                                                                                                                        1i32
-                                                                                                                        +
-                                                                                                                        3i32
-                                                                                                                            *
-                                                                                                                            256i32
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        74i32)
-                                                                                                                       as
-                                                                                                                       usize].b32.s1
+                                                                                                    (*INTPAR(IntPar::xetex_use_glyph_metrics)
                                                                                                          >
-                                                                                                         0i32)
+                                                                                                         0)
                                                                                                         as
                                                                                                         i32);
-                                                                            MEM[q as usize]
-                                                                                .b32
-                                                                                .s1 = MEM
-                                                                                [ha as usize]
-                                                                                .b32
-                                                                                .s1;
-                                                                            MEM[ha as usize]
-                                                                                .b32
-                                                                                .s1 = q;
-                                                                            MEM[(ha + 4)
-                                                                                as usize]
-                                                                                .b16
-                                                                                .s1 = l as u16;
+                                                                            *LLIST_link(
+                                                                                q as usize,
+                                                                            ) = *LLIST_link(
+                                                                                ha as usize,
+                                                                            );
+                                                                            *LLIST_link(
+                                                                                ha as usize,
+                                                                            ) = q;
+                                                                            *NATIVE_NODE_length(
+                                                                                ha as usize,
+                                                                            ) = l as u16;
                                                                             measure_native_node(&mut MEM[ha
                                                                                                                          as
                                                                                                                          usize]
@@ -729,100 +661,32 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                                                         *mut memory_word
                                                                                                         as
                                                                                                         *mut libc::c_void,
-                                                                                                    (EQTB[(1i32
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        1i32
-                                                                                                                        +
-                                                                                                                        15000i32
-                                                                                                                        +
-                                                                                                                        12i32
-                                                                                                                        +
-                                                                                                                        9000i32
-                                                                                                                        +
-                                                                                                                        1i32
-                                                                                                                        +
-                                                                                                                        1i32
-                                                                                                                        +
-                                                                                                                        19i32
-                                                                                                                        +
-                                                                                                                        256i32
-                                                                                                                        +
-                                                                                                                        256i32
-                                                                                                                        +
-                                                                                                                        13i32
-                                                                                                                        +
-                                                                                                                        256i32
-                                                                                                                        +
-                                                                                                                        4i32
-                                                                                                                        +
-                                                                                                                        256i32
-                                                                                                                        +
-                                                                                                                        1i32
-                                                                                                                        +
-                                                                                                                        3i32
-                                                                                                                            *
-                                                                                                                            256i32
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        (0x10ffffi32
-                                                                                                                             +
-                                                                                                                             1i32)
-                                                                                                                        +
-                                                                                                                        74i32)
-                                                                                                                       as
-                                                                                                                       usize].b32.s1
+                                                                                                    (*INTPAR(IntPar::xetex_use_glyph_metrics)
                                                                                                          >
-                                                                                                         0i32)
+                                                                                                         0)
                                                                                                         as
                                                                                                         i32);
                                                                             break 'c_31290;
                                                                         }
-                                                                    } else if hn as i32 == 0i32
-                                                                        && l > 0i32
-                                                                    {
+                                                                    } else if hn == 0 && l > 0 {
                                                                         q = new_native_word_node(
                                                                             hf,
-                                                                            MEM[(ha + 4) as usize]
-                                                                                .b16
-                                                                                .s1
+                                                                            *NATIVE_NODE_length(
+                                                                                ha as usize,
+                                                                            )
                                                                                 as i32
                                                                                 - l,
                                                                         );
-                                                                        MEM[q as usize].b16.s0 =
-                                                                            MEM[ha as usize].b16.s0;
+                                                                        *NODE_subtype(q as usize) =
+                                                                            *NODE_subtype(
+                                                                                ha as usize,
+                                                                            );
                                                                         i = l;
-                                                                        while i < MEM
-                                                                            [(ha + 4i32) as usize]
-                                                                            .b16
-                                                                            .s1
-                                                                            as i32
+                                                                        while i
+                                                                            < *NATIVE_NODE_length(
+                                                                                ha as usize,
+                                                                            )
+                                                                                as i32
                                                                         {
                                                                             *(&mut MEM
                                                                                 [(q + 6) as usize]
@@ -846,85 +710,20 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                                                     *mut memory_word
                                                                                                     as
                                                                                                     *mut libc::c_void,
-                                                                                                (EQTB[(1i32
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    1i32
-                                                                                                                    +
-                                                                                                                    15000i32
-                                                                                                                    +
-                                                                                                                    12i32
-                                                                                                                    +
-                                                                                                                    9000i32
-                                                                                                                    +
-                                                                                                                    1i32
-                                                                                                                    +
-                                                                                                                    1i32
-                                                                                                                    +
-                                                                                                                    19i32
-                                                                                                                    +
-                                                                                                                    256i32
-                                                                                                                    +
-                                                                                                                    256i32
-                                                                                                                    +
-                                                                                                                    13i32
-                                                                                                                    +
-                                                                                                                    256i32
-                                                                                                                    +
-                                                                                                                    4i32
-                                                                                                                    +
-                                                                                                                    256i32
-                                                                                                                    +
-                                                                                                                    1i32
-                                                                                                                    +
-                                                                                                                    3i32
-                                                                                                                        *
-                                                                                                                        256i32
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    74i32)
-                                                                                                                   as
-                                                                                                                   usize].b32.s1
+                                                                                                (*INTPAR(IntPar::xetex_use_glyph_metrics)
                                                                                                      >
-                                                                                                     0i32)
+                                                                                                     0)
                                                                                                     as
                                                                                                     i32);
-                                                                        MEM[q as usize].b32.s1 =
-                                                                            MEM[ha as usize].b32.s1;
-                                                                        MEM[ha as usize].b32.s1 = q;
-                                                                        MEM[(ha + 4) as usize]
-                                                                            .b16
-                                                                            .s1 = l as u16;
+                                                                        *LLIST_link(q as usize) =
+                                                                            *LLIST_link(
+                                                                                ha as usize,
+                                                                            );
+                                                                        *LLIST_link(ha as usize) =
+                                                                            q;
+                                                                        *NATIVE_NODE_length(
+                                                                            ha as usize,
+                                                                        ) = l as u16;
                                                                         measure_native_node(&mut MEM[ha
                                                                                                                      as
                                                                                                                      usize]
@@ -932,81 +731,14 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                                                     *mut memory_word
                                                                                                     as
                                                                                                     *mut libc::c_void,
-                                                                                                (EQTB[(1i32
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    1i32
-                                                                                                                    +
-                                                                                                                    15000i32
-                                                                                                                    +
-                                                                                                                    12i32
-                                                                                                                    +
-                                                                                                                    9000i32
-                                                                                                                    +
-                                                                                                                    1i32
-                                                                                                                    +
-                                                                                                                    1i32
-                                                                                                                    +
-                                                                                                                    19i32
-                                                                                                                    +
-                                                                                                                    256i32
-                                                                                                                    +
-                                                                                                                    256i32
-                                                                                                                    +
-                                                                                                                    13i32
-                                                                                                                    +
-                                                                                                                    256i32
-                                                                                                                    +
-                                                                                                                    4i32
-                                                                                                                    +
-                                                                                                                    256i32
-                                                                                                                    +
-                                                                                                                    1i32
-                                                                                                                    +
-                                                                                                                    3i32
-                                                                                                                        *
-                                                                                                                        256i32
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    (0x10ffffi32
-                                                                                                                         +
-                                                                                                                         1i32)
-                                                                                                                    +
-                                                                                                                    74i32)
-                                                                                                                   as
-                                                                                                                   usize].b32.s1
+                                                                                                (*INTPAR(IntPar::xetex_use_glyph_metrics)
                                                                                                      >
-                                                                                                     0i32)
+                                                                                                     0)
                                                                                                     as
                                                                                                     i32);
-                                                                        ha =
-                                                                            MEM[ha as usize].b32.s1;
+                                                                        ha = *LLIST_link(
+                                                                            ha as usize,
+                                                                        );
                                                                         break;
                                                                     } else {
                                                                         if hn
@@ -1024,31 +756,28 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                             hu[hn as usize] = c;
                                                                             hc[hn as usize] = hc[0]
                                                                         } else {
-                                                                            hu[hn as usize] = ((c
-                                                                                as i64
-                                                                                - 65536)
-                                                                                / 1024i32 as i64
-                                                                                + 0xd800i32 as i64)
-                                                                                as i32;
-                                                                            hc[hn as usize] = ((hc
-                                                                                [0]
-                                                                                as i64
-                                                                                - 65536)
-                                                                                / 1024i32 as i64
-                                                                                + 0xd800i32 as i64)
-                                                                                as i32;
+                                                                            hu[hn as usize] =
+                                                                                ((c as i64 - 65536)
+                                                                                    / 1024
+                                                                                    + 0xd800)
+                                                                                    as i32;
+                                                                            hc[hn as usize] =
+                                                                                ((hc[0] as i64
+                                                                                    - 65536)
+                                                                                    / 1024
+                                                                                    + 0xd800)
+                                                                                    as i32;
                                                                             hn += 1;
-                                                                            hu[hn as usize] = c
-                                                                                % 1024i32
-                                                                                + 0xdc00i32;
+                                                                            hu[hn as usize] =
+                                                                                c % 1024 + 0xdc00;
                                                                             hc[hn as usize] = hc[0]
-                                                                                % 1024i32
-                                                                                + 0xdc00i32;
-                                                                            l += 1
+                                                                                % 1024
+                                                                                + 0xdc00;
+                                                                            l += 1;
                                                                         }
-                                                                        hyf_bchar = 65536i32
+                                                                        hyf_bchar = TOO_BIG_CHAR;
                                                                     }
-                                                                    l += 1
+                                                                    l += 1;
                                                                 }
                                                             }
                                                             current_block = 4362442400146949691;
@@ -1059,27 +788,29 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                     hn = 0i32 as small_number;
                                                     's_1342: loop {
                                                         if is_char_node(s) {
-                                                            if MEM[s as usize].b16.s1 as usize != hf
+                                                            if *CHAR_NODE_font(s as usize) as usize
+                                                                != hf
                                                             {
                                                                 break;
                                                             }
                                                             hyf_bchar =
-                                                                MEM[s as usize].b16.s0 as i32;
+                                                                *CHAR_NODE_character(s as usize)
+                                                                    as i32;
                                                             c = hyf_bchar;
-                                                            if hyph_index == 0i32 || c > 255i32 {
+                                                            if hyph_index == 0 || c > 255 {
                                                                 hc[0] = *LC_CODE(c as usize);
                                                             } else if *trie_trc
                                                                 .offset((hyph_index + c) as isize)
                                                                 as i32
                                                                 != c
                                                             {
-                                                                hc[0] = 0i32
+                                                                hc[0] = 0
                                                             } else {
                                                                 hc[0] = *trie_tro.offset(
                                                                     (hyph_index + c) as isize,
                                                                 )
                                                             }
-                                                            if hc[0] == 0i32 {
+                                                            if hc[0] == 0 {
                                                                 break;
                                                             }
                                                             if hc[0] > max_hyph_char {
@@ -1094,28 +825,29 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                             hn += 1;
                                                             hu[hn as usize] = c;
                                                             hc[hn as usize] = hc[0];
-                                                            hyf_bchar = 65536i32
-                                                        } else if MEM[s as usize].b16.s1 as i32
-                                                            == 6i32
+                                                            hyf_bchar = TOO_BIG_CHAR;
+                                                        } else if *NODE_type(s as usize)
+                                                            == LIGATURE_NODE
                                                         {
                                                             /*932: move the characters of a ligature node to hu and hc; but goto done3
                                                              * if they are not all letters. */
-                                                            if MEM[(s + 1) as usize].b16.s1 as usize
+                                                            if *LIGATURE_NODE_lig_font(s as usize)
+                                                                as usize
                                                                 != hf
                                                             {
                                                                 break;
                                                             }
                                                             j = hn;
-                                                            q = MEM[(s + 1) as usize].b32.s1;
+                                                            q = *LIGATURE_NODE_lig_ptr(s as usize);
                                                             if q > TEX_NULL {
                                                                 hyf_bchar =
-                                                                    MEM[q as usize].b16.s0 as i32
+                                                                    *CHAR_NODE_character(q as usize)
+                                                                        as i32
                                                             }
                                                             while q > TEX_NULL {
-                                                                c = MEM[q as usize].b16.s0
+                                                                c = *CHAR_NODE_character(q as usize)
                                                                     as UnicodeScalar;
-                                                                if hyph_index == 0i32 || c > 255i32
-                                                                {
+                                                                if hyph_index == 0 || c > 255 {
                                                                     hc[0] = *LC_CODE(c as usize);
                                                                 } else if *trie_trc.offset(
                                                                     (hyph_index + c) as isize,
@@ -1123,13 +855,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                     as i32
                                                                     != c
                                                                 {
-                                                                    hc[0] = 0i32
+                                                                    hc[0] = 0;
                                                                 } else {
                                                                     hc[0] = *trie_tro.offset(
                                                                         (hyph_index + c) as isize,
                                                                     )
                                                                 }
-                                                                if hc[0] == 0i32 {
+                                                                if hc[0] == 0 {
                                                                     break 's_1342;
                                                                 }
                                                                 if hc[0] > max_hyph_char {
@@ -1143,7 +875,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                 j += 1;
                                                                 hu[j as usize] = c;
                                                                 hc[j as usize] = hc[0];
-                                                                q = MEM[q as usize].b32.s1
+                                                                q = *LLIST_link(q as usize);
                                                             }
                                                             hb = s;
                                                             hn = j;
@@ -1152,21 +884,21 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                             {
                                                                 hyf_bchar = FONT_BCHAR[hf as usize]
                                                             } else {
-                                                                hyf_bchar = 65536i32
+                                                                hyf_bchar = TOO_BIG_CHAR;
                                                             }
                                                         /*:932*/
                                                         } else {
-                                                            if !(MEM[s as usize].b16.s1 as i32
-                                                                == 11i32
-                                                                && MEM[s as usize].b16.s0 as i32
-                                                                    == 0i32)
+                                                            if !(*NODE_type(s as usize)
+                                                                == KERN_NODE
+                                                                && *NODE_subtype(s as usize)
+                                                                    == NORMAL)
                                                             {
                                                                 break;
                                                             }
                                                             hb = s;
                                                             hyf_bchar = FONT_BCHAR[hf as usize]
                                                         }
-                                                        s = MEM[s as usize].b32.s1
+                                                        s = *LLIST_link(s as usize);
                                                     }
                                                     current_block = 4362442400146949691;
                                                 }
@@ -1195,20 +927,23 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                                 break;
                                                                             }
                                                                         }
-                                                                        8 | 10 | 12 | 3 | 5 | 4 => {
+                                                                        WHATSIT_NODE
+                                                                        | GLUE_NODE
+                                                                        | PENALTY_NODE
+                                                                        | INS_NODE
+                                                                        | ADJUST_NODE
+                                                                        | MARK_NODE => {
                                                                             current_block
                                                                                 =
                                                                                 16848571710846909653;
                                                                             break;
                                                                         }
-                                                                        9 => {
+                                                                        MATH_NODE => {
                                                                             current_block =
                                                                                 2529459302156174429;
-                                                                            if MEM[s as usize]
-                                                                                .b16
-                                                                                .s0
-                                                                                as i32
-                                                                                >= 4i32
+                                                                            if *NODE_subtype(
+                                                                                s as usize,
+                                                                            ) >= L_CODE
                                                                             {
                                                                                 current_block
                                                                                             =
@@ -1228,7 +963,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                         }
                                                                     }
                                                                 }
-                                                                s = MEM[s as usize].b32.s1
+                                                                s = *LLIST_link(s as usize);
                                                             }
                                                             match current_block {
                                                                 8166967358843938227 => {}
@@ -1248,36 +983,32 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         }
                     }
                 }
-                11 => {
+                KERN_NODE => {
                     /* ... resuming 895 ... */
-                    if MEM[cur_p as usize].b16.s0 as i32 == 1 {
-                        if (!is_char_node(MEM[cur_p as usize].b32.s1) as i32) < hi_mem_min
+                    if *NODE_subtype(cur_p as usize) == EXPLICIT {
+                        if (!is_char_node(*LLIST_link(cur_p as usize)) as i32) < hi_mem_min
                             && auto_breaking as i32 != 0
                         {
-                            if MEM[MEM[cur_p as usize].b32.s1 as usize].b16.s1 as i32 == 10 {
-                                try_break(0i32, 0i32 as small_number);
+                            if *NODE_type(*LLIST_link(cur_p as usize) as usize) == GLUE_NODE {
+                                try_break(0, UNHYPHENATED);
                             }
                         }
-                        active_width[1] += MEM[(cur_p + 1) as usize].b32.s1
+                        active_width[1] += *BOX_width(cur_p as usize);
                     } else {
-                        active_width[1] += MEM[(cur_p + 1) as usize].b32.s1
+                        active_width[1] += *BOX_width(cur_p as usize);
                     }
                 }
-                6 => {
-                    f = MEM[(cur_p + 1) as usize].b16.s1 as internal_font_number;
+                LIGATURE_NODE => {
+                    f = *LIGATURE_NODE_lig_font(cur_p as usize) as usize;
                     xtx_ligature_present = true;
-                    active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize]
-                        + FONT_INFO[(CHAR_BASE[f as usize]
-                            + effective_char(true, f, MEM[(cur_p + 1) as usize].b16.s0))
-                            as usize]
-                            .b16
-                            .s3 as i32) as usize]
-                        .b32
-                        .s1
+                    active_width[1] += *FONT_CHARACTER_WIDTH(
+                        f,
+                        effective_char(true, f, *LIGATURE_NODE_lig_char(cur_p as usize)) as usize,
+                    );
                 }
                 DISC_NODE => {
                     /*898: try to break after a discretionary fragment, then goto done5 */
-                    s = MEM[(cur_p + 1) as usize].b32.s0;
+                    s = *DISCRETIONARY_NODE_pre_break(cur_p as usize);
                     disc_width = 0;
 
                     if s.is_texnull() {
@@ -1287,42 +1018,33 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             /*899:*/
                             if is_char_node(s) {
                                 let mut eff_char_0: i32 = 0; /*:898 big DISC_NODE case */
-                                f = MEM[s as usize].b16.s1 as internal_font_number;
+                                f = MEM[s as usize].b16.s1 as usize;
                                 eff_char_0 = effective_char(true, f, MEM[s as usize].b16.s0);
-                                disc_width += FONT_INFO[(WIDTH_BASE[f as usize]
-                                    + FONT_INFO[(CHAR_BASE[f as usize] + eff_char_0) as usize]
-                                        .b16
-                                        .s3 as i32)
-                                    as usize]
-                                    .b32
-                                    .s1
+                                disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_0 as usize);
                             } else {
-                                match MEM[s as usize].b16.s1 as i32 {
-                                    6 => {
+                                match *NODE_type(s as usize) {
+                                    LIGATURE_NODE => {
                                         let mut eff_char_1: i32 = 0;
-                                        f = MEM[(s + 1) as usize].b16.s1 as internal_font_number;
+                                        f = *LIGATURE_NODE_lig_font(s as usize) as usize;
                                         xtx_ligature_present = true;
-                                        eff_char_1 =
-                                            effective_char(true, f, MEM[(s + 1) as usize].b16.s0);
-                                        disc_width += FONT_INFO[(WIDTH_BASE[f as usize]
-                                            + FONT_INFO
-                                                [(CHAR_BASE[f as usize] + eff_char_1) as usize]
-                                                .b16
-                                                .s3
-                                                as i32)
-                                            as usize]
-                                            .b32
-                                            .s1
+                                        eff_char_1 = effective_char(
+                                            true,
+                                            f,
+                                            *LIGATURE_NODE_lig_char(s as usize),
+                                        );
+                                        disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
                                     }
-                                    0 | 1 | 2 | 11 => disc_width += MEM[(s + 1) as usize].b32.s1,
-                                    8 => {
-                                        if MEM[s as usize].b16.s0 as i32 == 40
-                                            || MEM[s as usize].b16.s0 as i32 == 41
-                                            || MEM[s as usize].b16.s0 as i32 == 42
-                                            || MEM[s as usize].b16.s0 as i32 == 43
-                                            || MEM[s as usize].b16.s0 as i32 == 44
+                                    HLIST_NODE | VLIST_NODE | RULE_NODE | KERN_NODE => {
+                                        disc_width += *BOX_width(s as usize)
+                                    }
+                                    WHATSIT_NODE => {
+                                        if *NODE_subtype(s as usize) == NATIVE_WORD_NODE
+                                            || *NODE_subtype(s as usize) == NATIVE_WORD_NODE_AT
+                                            || *NODE_subtype(s as usize) == GLYPH_NODE
+                                            || *NODE_subtype(s as usize) == PIC_NODE
+                                            || *NODE_subtype(s as usize) == PDF_NODE
                                         {
-                                            disc_width += MEM[(s + 1) as usize].b32.s1
+                                            disc_width += *BOX_width(s as usize);
                                         } else {
                                             confusion(b"disc3a");
                                         }
@@ -1330,54 +1052,45 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     _ => confusion(b"disc3"),
                                 }
                             }
-                            s = MEM[s as usize].b32.s1;
-                            if !(s != -0xfffffffi32) {
+                            s = *LLIST_link(s as usize);
+                            if !(s != TEX_NULL) {
                                 break;
                             }
                         }
                         active_width[1] += disc_width;
                         try_break(*INTPAR(IntPar::hyphen_penalty), HYPHENATED as _);
-                        active_width[1] -= disc_width
+                        active_width[1] -= disc_width;
                     }
-                    r = MEM[cur_p as usize].b16.s0 as i32;
-                    s = MEM[cur_p as usize].b32.s1;
-                    while r > 0i32 {
+                    r = *DISCRETIONARY_NODE_replace_count(cur_p as usize) as i32;
+                    s = *LLIST_link(cur_p as usize);
+                    while r > 0 {
                         if is_char_node(s) {
                             let mut eff_char_2: i32 = 0;
-                            f = MEM[s as usize].b16.s1 as internal_font_number;
-                            eff_char_2 = effective_char(true, f, MEM[s as usize].b16.s0);
-                            active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize]
-                                + FONT_INFO[(CHAR_BASE[f as usize] + eff_char_2) as usize]
-                                    .b16
-                                    .s3 as i32)
-                                as usize]
-                                .b32
-                                .s1
+                            f = MEM[s as usize].b16.s1 as usize;
+                            eff_char_2 = effective_char(true, f, *CHAR_NODE_character(s as usize));
+                            active_width[1] += *FONT_CHARACTER_WIDTH(f, eff_char_2 as usize);
                         } else {
-                            match MEM[s as usize].b16.s1 as i32 {
-                                6 => {
+                            match *NODE_type(s as usize) {
+                                LIGATURE_NODE => {
                                     let mut eff_char_3: i32 = 0;
-                                    f = MEM[(s + 1) as usize].b16.s1 as internal_font_number;
+                                    f = *LIGATURE_NODE_lig_font(s as usize) as usize;
                                     xtx_ligature_present = true;
                                     eff_char_3 =
                                         effective_char(true, f, MEM[(s + 1) as usize].b16.s0);
-                                    active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize]
-                                        + FONT_INFO[(CHAR_BASE[f as usize] + eff_char_3) as usize]
-                                            .b16
-                                            .s3 as i32)
-                                        as usize]
-                                        .b32
-                                        .s1
+                                    active_width[1] +=
+                                        *FONT_CHARACTER_WIDTH(f, eff_char_3 as usize);
                                 }
-                                0 | 1 | 2 | 11 => active_width[1] += MEM[(s + 1) as usize].b32.s1,
-                                8 => {
-                                    if MEM[s as usize].b16.s0 as i32 == 40
-                                        || MEM[s as usize].b16.s0 as i32 == 41
-                                        || MEM[s as usize].b16.s0 as i32 == 42
-                                        || MEM[s as usize].b16.s0 as i32 == 43
-                                        || MEM[s as usize].b16.s0 as i32 == 44
+                                HLIST_NODE | VLIST_NODE | RULE_NODE | KERN_NODE => {
+                                    active_width[1] += *BOX_width(s as usize)
+                                }
+                                WHATSIT_NODE => {
+                                    if *NODE_subtype(s as usize) == NATIVE_WORD_NODE
+                                        || *NODE_subtype(s as usize) == NATIVE_WORD_NODE_AT
+                                        || *NODE_subtype(s as usize) == GLYPH_NODE
+                                        || *NODE_subtype(s as usize) == PIC_NODE
+                                        || *NODE_subtype(s as usize) == PDF_NODE
                                     {
-                                        active_width[1] += MEM[(s + 1) as usize].b32.s1
+                                        active_width[1] += *BOX_width(s as usize);
                                     } else {
                                         confusion(b"disc4a");
                                     }
@@ -1386,45 +1099,46 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             }
                         }
                         r -= 1;
-                        s = MEM[s as usize].b32.s1
+                        s = *LLIST_link(s as usize);
                     }
                     global_prev_p = cur_p;
                     prev_p = global_prev_p;
                     cur_p = s;
                     continue;
                 }
-                9 => {
-                    if (MEM[cur_p as usize].b16.s0 as i32) < 4 {
-                        auto_breaking = MEM[cur_p as usize].b16.s0 as i32 & 1 != 0
+                MATH_NODE => {
+                    if *NODE_subtype(cur_p as usize) < L_CODE {
+                        auto_breaking = *NODE_subtype(cur_p as usize) as i32 & 1 != 0
                     }
-                    if !is_char_node(MEM[cur_p as usize].b32.s1) && auto_breaking as i32 != 0 {
-                        if MEM[MEM[cur_p as usize].b32.s1 as usize].b16.s1 as i32 == 10 {
-                            try_break(0i32, 0i32 as small_number);
+                    if !is_char_node(*LLIST_link(cur_p as usize)) && auto_breaking {
+                        if *NODE_type(*LLIST_link(cur_p as usize) as usize) == GLUE_NODE {
+                            try_break(0, UNHYPHENATED);
                         }
                     }
-                    active_width[1] += MEM[(cur_p + 1) as usize].b32.s1
+                    active_width[1] += *BOX_width(cur_p as usize);
                 }
-                12 => try_break(MEM[(cur_p + 1) as usize].b32.s1, 0 as small_number),
-                4 | 3 | 5 => {}
+                PENALTY_NODE => try_break(*PENALTY_NODE_penalty(cur_p as usize), UNHYPHENATED),
+                MARK_NODE | INS_NODE | ADJUST_NODE => {}
                 _ => confusion(b"paragraph"),
             }
             global_prev_p = cur_p;
             prev_p = global_prev_p;
-            cur_p = MEM[cur_p as usize].b32.s1
+            cur_p = *LLIST_link(cur_p as usize);
         }
         if cur_p.is_texnull() {
             /*902: "Try the final line break at the end of the paragraph, and
              * goto done if the desired breakpoints have been found." */
-            try_break(EJECT_PENALTY, HYPHENATED as _);
+            try_break(EJECT_PENALTY, HYPHENATED);
             if *LLIST_link(ACTIVE_LIST as usize) != LAST_ACTIVE as i32 {
                 /*903:*/
                 r = *LLIST_link(ACTIVE_LIST as usize);
                 fewest_demerits = MAX_HALFWORD;
+
                 loop {
                     if *NODE_type(r as usize) != DELTA_NODE {
-                        if MEM[(r + 2) as usize].b32.s1 < fewest_demerits {
-                            fewest_demerits = MEM[(r + 2) as usize].b32.s1; /*:904*/
-                            best_bet = r
+                        if *ACTIVE_NODE_total_demerits(r as usize) < fewest_demerits {
+                            fewest_demerits = *ACTIVE_NODE_total_demerits(r as usize); /*:904*/
+                            best_bet = r;
                         }
                     }
                     r = *LLIST_link(r as usize);
@@ -1432,7 +1146,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         break;
                     }
                 }
-                best_line = MEM[(best_bet + 1) as usize].b32.s0;
+                best_line = *ACTIVE_NODE_line_number(best_bet as usize);
                 if *INTPAR(IntPar::looseness) == 0 {
                     break;
                 }
@@ -1441,49 +1155,52 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 actual_looseness = 0;
 
                 loop {
-                    if MEM[r as usize].b16.s1 as i32 != 2 {
-                        line_diff = MEM[(r + 1) as usize].b32.s0 - best_line;
+                    if *NODE_type(r as usize) != DELTA_NODE {
+                        line_diff = *ACTIVE_NODE_line_number(r as usize) - best_line;
+
                         if line_diff < actual_looseness && *INTPAR(IntPar::looseness) <= line_diff
                             || line_diff > actual_looseness
                                 && *INTPAR(IntPar::looseness) >= line_diff
                         {
                             best_bet = r;
                             actual_looseness = line_diff;
-                            fewest_demerits = MEM[(r + 2) as usize].b32.s1
+                            fewest_demerits = *ACTIVE_NODE_total_demerits(r as usize);
                         } else if line_diff == actual_looseness
-                            && MEM[(r + 2) as usize].b32.s1 < fewest_demerits
+                            && *ACTIVE_NODE_total_demerits(r as usize) < fewest_demerits
                         {
                             best_bet = r;
-                            fewest_demerits = MEM[(r + 2) as usize].b32.s1
+                            fewest_demerits = *ACTIVE_NODE_total_demerits(r as usize);
                         }
                     }
-                    r = MEM[r as usize].b32.s1;
-                    if !(r != 4999999i32 - 7i32) {
+                    r = *LLIST_link(r as usize);
+                    if !(r != LAST_ACTIVE as i32) {
                         break;
                     }
                 }
-                best_line = MEM[(best_bet + 1) as usize].b32.s0;
+                best_line = *ACTIVE_NODE_line_number(best_bet as usize);
                 if actual_looseness == *INTPAR(IntPar::looseness) || final_pass {
                     break;
                 }
             }
         }
         /*894: clean up the memory by removing the break nodes */
-        q = MEM[(4999999 - 7) as usize].b32.s1;
-        while q != 4999999i32 - 7i32 {
-            cur_p = MEM[q as usize].b32.s1;
-            if MEM[q as usize].b16.s1 as i32 == 2 {
-                free_node(q as usize, 7i32);
+        q = *LLIST_link(ACTIVE_LIST);
+        while q != LAST_ACTIVE as i32 {
+            cur_p = *LLIST_link(q as usize);
+            if *NODE_type(q as usize) == DELTA_NODE {
+                free_node(q as usize, DELTA_NODE_SIZE);
             } else {
                 free_node(q as usize, active_node_size as i32);
             }
             q = cur_p
         }
+
         q = passive;
-        while q != -0xfffffffi32 {
-            cur_p = MEM[q as usize].b32.s1;
-            free_node(q as usize, 2i32);
-            q = cur_p
+
+        while q != TEX_NULL {
+            cur_p = *LLIST_link(q as usize);
+            free_node(q as usize, PASSIVE_NODE_SIZE);
+            q = cur_p;
         }
         /* ... resuming 892 ... */
         if !second_pass {
@@ -1497,37 +1214,42 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     }
     if do_last_line_fit {
         /*1641:*/
-        if MEM[(best_bet + 3) as usize].b32.s1 == 0 {
+        if *ACTIVE_NODE_shortfall(best_bet as usize) == 0 {
             do_last_line_fit = false
         } else {
-            q = new_spec(MEM[(last_line_fill + 1) as usize].b32.s0 as usize);
-            delete_glue_ref(MEM[(last_line_fill + 1) as usize].b32.s0);
+            q = new_spec(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
+            delete_glue_ref(*GLUE_NODE_glue_ptr(last_line_fill as usize));
             MEM[(q + 1) as usize].b32.s1 +=
-                MEM[(best_bet + 3) as usize].b32.s1 - MEM[(best_bet + 4) as usize].b32.s1;
-            MEM[(q + 2) as usize].b32.s1 = 0;
-            MEM[(last_line_fill + 1) as usize].b32.s0 = q
+                *ACTIVE_NODE_shortfall(best_bet as usize) - *ACTIVE_NODE_glue(best_bet as usize);
+            *GLUE_SPEC_stretch(q as usize) = 0;
+            *GLUE_NODE_glue_ptr(last_line_fill as usize) = q
         }
     }
+
     post_line_break(d);
+
     /* Clean up by removing break nodes (894, again) */
-    q = MEM[(4999999 - 7) as usize].b32.s1;
-    while q != 4999999i32 - 7i32 {
-        let mut next: i32 = MEM[q as usize].b32.s1;
-        if MEM[q as usize].b16.s1 as i32 == 2 {
-            free_node(q as usize, 7i32);
+    q = *LLIST_link(ACTIVE_LIST);
+    while q != ACTIVE_LIST as i32 {
+        let mut next: i32 = *LLIST_link(q as usize);
+
+        if *NODE_type(q as usize) == DELTA_NODE {
+            free_node(q as usize, DELTA_NODE_SIZE);
         } else {
             free_node(q as usize, active_node_size as i32);
         }
-        q = next
+        q = next;
     }
+
     q = passive;
-    while q != -0xfffffffi32 {
-        let mut next_0: i32 = MEM[q as usize].b32.s1;
-        free_node(q as usize, 2i32);
-        q = next_0
+
+    while q != TEX_NULL {
+        let mut next_0: i32 = *LLIST_link(q as usize);
+        free_node(q as usize, PASSIVE_NODE_SIZE);
+        q = next_0;
     }
     /* All done */
-    pack_begin_line = 0i32;
+    pack_begin_line = 0;
 }
 /* This was just separated out to prevent line_break() from becoming
  * proposterously long. */
@@ -1551,13 +1273,13 @@ unsafe fn post_line_break(mut d: bool) {
     LR_ptr = cur_list.eTeX_aux;
     /* Reverse the list of break nodes (907) */
     q = MEM[(best_bet + 1) as usize].b32.s1; /*:907*/
-    cur_p = -0xfffffffi32;
+    cur_p = TEX_NULL;
     loop {
         r = q;
         q = MEM[(q + 1) as usize].b32.s0;
         MEM[(r + 1) as usize].b32.s0 = cur_p;
         cur_p = r;
-        if !(q != -0xfffffffi32) {
+        if !(q != TEX_NULL) {
             break;
         }
     }
@@ -1579,7 +1301,7 @@ unsafe fn post_line_break(mut d: bool) {
                     MEM[s as usize].b32.s1 = r;
                     r = s;
                     temp_ptr = MEM[temp_ptr as usize].b32.s1;
-                    if !(temp_ptr != -0xfffffffi32) {
+                    if !(temp_ptr != TEX_NULL) {
                         break;
                     }
                 }
@@ -1589,7 +1311,7 @@ unsafe fn post_line_break(mut d: bool) {
                 if q < hi_mem_min && MEM[q as usize].b16.s1 as i32 == 9 {
                     /*1495:*/
                     if MEM[q as usize].b16.s0 as i32 & 1 != 0 {
-                        if LR_ptr != -0xfffffffi32
+                        if LR_ptr != TEX_NULL
                             && MEM[LR_ptr as usize].b32.s0
                                 == 4i32 * (MEM[q as usize].b16.s0 as i32 / 4i32) + 3i32
                         {
@@ -1746,7 +1468,7 @@ unsafe fn post_line_break(mut d: bool) {
                     r = MEM[s as usize].b32.s1
                 }
                 r = LR_ptr;
-                while r != -0xfffffffi32 {
+                while r != TEX_NULL {
                     temp_ptr = new_math(0i32, MEM[r as usize].b32.s0 as small_number);
                     MEM[s as usize].b32.s1 = temp_ptr;
                     s = temp_ptr;
@@ -1810,17 +1532,17 @@ unsafe fn post_line_break(mut d: bool) {
             MEM[cur_list.tail as usize].b32.s1 = MEM[(4999999 - 14) as usize].b32.s1; /*:917*/
             cur_list.tail = pre_adjust_tail
         }
-        pre_adjust_tail = -0xfffffffi32;
+        pre_adjust_tail = TEX_NULL;
         append_to_vlist(just_box);
         if 4999999i32 - 5i32 != adjust_tail {
             MEM[cur_list.tail as usize].b32.s1 = MEM[(4999999 - 5) as usize].b32.s1;
             cur_list.tail = adjust_tail
         }
-        adjust_tail = -0xfffffffi32;
+        adjust_tail = TEX_NULL;
         /* 919: Set `pen` to all of the penalties relevant to this line. */
         if cur_line + 1i32 != best_line {
             q = EQTB[INTER_LINE_PENALTIES_LOC].b32.s1;
-            if q != -0xfffffffi32 {
+            if q != TEX_NULL {
                 r = cur_line;
                 if r > MEM[(q + 1) as usize].b32.s1 {
                     r = MEM[(q + 1) as usize].b32.s1
@@ -1830,7 +1552,7 @@ unsafe fn post_line_break(mut d: bool) {
                 pen = *INTPAR(IntPar::inter_line_penalty)
             }
             q = EQTB[CLUB_PENALTIES_LOC].b32.s1;
-            if q != -0xfffffffi32 {
+            if q != TEX_NULL {
                 r = cur_line - cur_list.prev_graf;
                 if r > MEM[(q + 1) as usize].b32.s1 {
                     r = MEM[(q + 1) as usize].b32.s1
@@ -1844,7 +1566,7 @@ unsafe fn post_line_break(mut d: bool) {
             } else {
                 q = EQTB[WIDOW_PENALTIES_LOC].b32.s1
             }
-            if q != -0xfffffffi32 {
+            if q != TEX_NULL {
                 r = best_line - cur_line - 1i32;
                 if r > MEM[(q + 1) as usize].b32.s1 {
                     r = MEM[(q + 1) as usize].b32.s1
@@ -1869,7 +1591,7 @@ unsafe fn post_line_break(mut d: bool) {
         /* Done justifying this line. */
         cur_line += 1;
         cur_p = MEM[(cur_p + 1) as usize].b32.s0;
-        if cur_p != -0xfffffffi32 {
+        if cur_p != TEX_NULL {
             if !post_disc_break {
                 /* 908: "prune unwanted nodes at the beginning of the next
                  * line". Delete glues, penalties, kerns, and math nodes at
@@ -1897,7 +1619,7 @@ unsafe fn post_line_break(mut d: bool) {
                     if MEM[q as usize].b16.s1 as i32 == 9 && *INTPAR(IntPar::texxet) > 0i32 {
                         /*1495:*/
                         if MEM[q as usize].b16.s0 as i32 & 1i32 != 0 {
-                            if LR_ptr != -0xfffffffi32
+                            if LR_ptr != TEX_NULL
                                 && MEM[LR_ptr as usize].b32.s0
                                     == 4i32 * (MEM[q as usize].b16.s0 as i32 / 4i32) + 3i32
                             {
@@ -1922,7 +1644,7 @@ unsafe fn post_line_break(mut d: bool) {
                 }
             }
         }
-        if !(cur_p != -0xfffffffi32) {
+        if !(cur_p != TEX_NULL) {
             break;
         }
     }
@@ -1949,12 +1671,12 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
     let mut prev_r: i32 = 0;
     let mut old_l: i32 = 0;
     let mut no_break_yet: bool = false;
-    let mut prev_prev_r: i32 = -0xfffffffi32;
+    let mut prev_prev_r: i32 = TEX_NULL;
     let mut s: i32 = 0;
     let mut q: i32 = 0;
     let mut v: i32 = 0;
     let mut t: i32 = 0;
-    let mut f: internal_font_number = 0;
+    let mut f: usize = 0;
     let mut l: i32 = 0;
     let mut node_r_stays_active: bool = false;
     let mut line_width: scaled_t = 0i32;
@@ -1966,7 +1688,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
     let mut g: scaled_t = 0i32;
     /* Tectonic: no-op except at the end of the paragraph. We know we're at
      * the very end of the paragraph when cur_p is TEX_NULL. */
-    if semantic_pagination_enabled as i32 != 0 && cur_p != -0xfffffffi32 {
+    if semantic_pagination_enabled as i32 != 0 && cur_p != TEX_NULL {
         return;
     }
     if pi.abs() >= 10000i32 {
@@ -2021,7 +1743,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                         s = cur_p;
                         if break_type as i32 > 0i32 {
                             /*869: "Compute the discretionary break_width values" */
-                            if cur_p != -0xfffffffi32 {
+                            if cur_p != TEX_NULL {
                                 t = MEM[cur_p as usize].b16.s0 as i32;
                                 v = cur_p;
                                 s = MEM[(cur_p + 1) as usize].b32.s1;
@@ -2031,7 +1753,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                     /*870: "subtract the width of node v from break_width" */
                                     if is_char_node(v) {
                                         let mut eff_char: i32 = 0;
-                                        f = MEM[v as usize].b16.s1 as internal_font_number;
+                                        f = MEM[v as usize].b16.s1 as usize;
                                         eff_char = effective_char(true, f, MEM[v as usize].b16.s0);
                                         break_width[1] -= FONT_INFO[(WIDTH_BASE[f as usize]
                                             + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize]
@@ -2045,8 +1767,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                         match MEM[v as usize].b16.s1 as i32 {
                                             6 => {
                                                 let mut eff_char_0: i32 = 0;
-                                                f = MEM[(v + 1) as usize].b16.s1
-                                                    as internal_font_number;
+                                                f = MEM[(v + 1) as usize].b16.s1 as usize;
                                                 xtx_ligature_present = true;
                                                 eff_char_0 = effective_char(
                                                     true,
@@ -2083,10 +1804,10 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                     }
                                 }
                                 /*871: "add the width of node s to break_width" */
-                                while s != -0xfffffffi32 {
+                                while s != TEX_NULL {
                                     if is_char_node(s) {
                                         let mut eff_char_1: i32 = 0;
-                                        f = MEM[s as usize].b16.s1 as internal_font_number;
+                                        f = MEM[s as usize].b16.s1 as usize;
                                         eff_char_1 =
                                             effective_char(true, f, MEM[s as usize].b16.s0);
                                         break_width[1] += FONT_INFO[(WIDTH_BASE[f as usize]
@@ -2102,8 +1823,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                         match MEM[s as usize].b16.s1 as i32 {
                                             6 => {
                                                 let mut eff_char_2: i32 = 0;
-                                                f = MEM[(s + 1) as usize].b16.s1
-                                                    as internal_font_number;
+                                                f = MEM[(s + 1) as usize].b16.s1 as usize;
                                                 xtx_ligature_present = true;
                                                 eff_char_2 = effective_char(
                                                     true,
@@ -2146,7 +1866,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                 }
                             }
                         }
-                        while s != -0xfffffffi32 {
+                        while s != TEX_NULL {
                             if is_char_node(s) {
                                 break;
                             }
@@ -2265,7 +1985,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                     old_l = l;
                     if l > last_special_line {
                         line_width = second_width
-                    } else if *LOCAL(Local::par_shape) == -0xfffffffi32 {
+                    } else if *LOCAL(Local::par_shape) == TEX_NULL {
                         line_width = first_width
                     } else {
                         line_width = MEM[(*LOCAL(Local::par_shape) + 2i32 * l) as usize].b32.s1
@@ -2299,7 +2019,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                     || cur_active_width[5] != 0i32
                 {
                     if do_last_line_fit {
-                        if cur_p == -0xfffffffi32 {
+                        if cur_p == TEX_NULL {
                             /*1634: "Perform computations for the last line and goto found" */
                             if MEM[(r + 3) as usize].b32.s1 == 0
                                 || MEM[(r + 4) as usize].b32.s1 <= 0
@@ -2469,7 +2189,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                 8633396468472091231 => {
                     if do_last_line_fit {
                         /*1637: "Adjust the additional data for last line" */
-                        if cur_p == -0xfffffffi32 {
+                        if cur_p == TEX_NULL {
                             shortfall = 0i32
                         }
                         if shortfall > 0i32 {
@@ -2693,7 +2413,7 @@ unsafe fn hyphenate() {
                 1763490972649755258 => {}
                 _ => {
                     s = HYPH_LIST[h as usize];
-                    while s != -0xfffffffi32 {
+                    while s != TEX_NULL {
                         hyf[MEM[s as usize].b32.s0 as usize] = 1_u8;
                         s = MEM[s as usize].b32.s1
                     }
@@ -2806,7 +2526,7 @@ unsafe fn hyphenate() {
             }
         }
     }
-    if ha != -0xfffffffi32
+    if ha != TEX_NULL
         && !is_char_node(ha)
         && MEM[ha as usize].b16.s1 as i32 == 8
         && (MEM[ha as usize].b16.s0 as i32 == 40 || MEM[ha as usize].b16.s0 as i32 == 41)
@@ -2910,7 +2630,7 @@ unsafe fn hyphenate() {
                 init_lig = true;
                 init_lft = MEM[ha as usize].b16.s0 as i32 > 1;
                 hu[0] = MEM[(ha + 1) as usize].b16.s0 as i32;
-                if init_list == -0xfffffffi32 {
+                if init_list == TEX_NULL {
                     if init_lft {
                         hu[0] = max_hyph_char;
                         init_lig = false
@@ -2938,7 +2658,7 @@ unsafe fn hyphenate() {
                 _ => {
                     j = 1_i16;
                     s = ha;
-                    init_list = -0xfffffffi32;
+                    init_list = TEX_NULL;
                     current_block = 5209103994167801282;
                 }
             }
@@ -2956,7 +2676,7 @@ unsafe fn hyphenate() {
                 j = 0_i16;
                 hu[0] = max_hyph_char;
                 init_lig = false;
-                init_list = -0xfffffffi32
+                init_list = TEX_NULL
             }
             _ => {}
         }
@@ -2990,10 +2710,10 @@ unsafe fn hyphenate() {
                     }
                     i = hyphen_passed;
                     hyf[i as usize] = 0_u8;
-                    minor_tail = -0xfffffffi32;
+                    minor_tail = TEX_NULL;
                     MEM[(r + 1) as usize].b32.s0 = -0xfffffff;
                     hyf_node = new_character(hf, hyf_char as UTF16_code);
-                    if hyf_node != -0xfffffffi32 {
+                    if hyf_node != TEX_NULL {
                         i += 1;
                         c = hu[i as usize];
                         hu[i as usize] = hyf_char;
@@ -3004,7 +2724,7 @@ unsafe fn hyphenate() {
                         l = (reconstitute(l, i, FONT_BCHAR[hf as usize], 65536) as i32 + 1i32)
                             as i16;
                         if MEM[(4999999 - 4) as usize].b32.s1 > -0xfffffff {
-                            if minor_tail == -0xfffffffi32 {
+                            if minor_tail == TEX_NULL {
                                 MEM[(r + 1) as usize].b32.s0 = MEM[(4999999 - 4) as usize].b32.s1
                             } else {
                                 MEM[minor_tail as usize].b32.s1 = MEM[(4999999 - 4) as usize].b32.s1
@@ -3015,12 +2735,12 @@ unsafe fn hyphenate() {
                             }
                         }
                     }
-                    if hyf_node != -0xfffffffi32 {
+                    if hyf_node != TEX_NULL {
                         hu[i as usize] = c;
                         l = i;
                         i -= 1
                     }
-                    minor_tail = -0xfffffffi32;
+                    minor_tail = TEX_NULL;
                     MEM[(r + 1) as usize].b32.s1 = -0xfffffff;
                     c_loc = 0_i16;
                     if BCHAR_LABEL[hf as usize] != 0 {
@@ -3037,7 +2757,7 @@ unsafe fn hyphenate() {
                                 c_loc = 0_i16
                             }
                             if MEM[(4999999 - 4) as usize].b32.s1 > -0xfffffff {
-                                if minor_tail == -0xfffffffi32 {
+                                if minor_tail == TEX_NULL {
                                     MEM[(r + 1) as usize].b32.s1 =
                                         MEM[(4999999 - 4) as usize].b32.s1
                                 } else {
@@ -3141,7 +2861,7 @@ unsafe fn reconstitute(
         if ligature_present {
             lft_hit = init_lft
         }
-        while p > -0xfffffffi32 {
+        while p > TEX_NULL {
             MEM[t as usize].b32.s1 = get_avail() as i32;
             t = MEM[t as usize].b32.s1;
             MEM[t as usize].b16.s1 = hf as u16;
@@ -3154,7 +2874,7 @@ unsafe fn reconstitute(
         MEM[t as usize].b16.s1 = hf as u16;
         MEM[t as usize].b16.s0 = cur_l as u16
     }
-    lig_stack = -0xfffffffi32;
+    lig_stack = TEX_NULL;
     if (j as i32) < n as i32 {
         cur_r = hu[(j as i32 + 1i32) as usize]
     } else {
@@ -3220,7 +2940,7 @@ unsafe fn reconstitute(
                                         lft_hit = true
                                     }
                                     if j as i32 == n as i32 {
-                                        if lig_stack == -0xfffffffi32 {
+                                        if lig_stack == TEX_NULL {
                                             rt_hit = true
                                         }
                                     }
@@ -3231,7 +2951,7 @@ unsafe fn reconstitute(
                                         }
                                         2 | 6 => {
                                             cur_r = q.s0 as i32;
-                                            if lig_stack > -0xfffffffi32 {
+                                            if lig_stack > TEX_NULL {
                                                 MEM[lig_stack as usize].b16.s0 = cur_r as u16
                                             } else {
                                                 lig_stack = new_lig_item(cur_r as u16);
@@ -3274,10 +2994,8 @@ unsafe fn reconstitute(
                                         _ => {
                                             cur_l = q.s0 as i32;
                                             ligature_present = true;
-                                            if lig_stack > -0xfffffffi32 {
-                                                if MEM[(lig_stack + 1) as usize].b32.s1
-                                                    > -0xfffffffi32
-                                                {
+                                            if lig_stack > TEX_NULL {
+                                                if MEM[(lig_stack + 1) as usize].b32.s1 > TEX_NULL {
                                                     MEM[t as usize].b32.s1 =
                                                         MEM[(lig_stack + 1) as usize].b32.s1;
                                                     t = MEM[t as usize].b32.s1;
@@ -3286,7 +3004,7 @@ unsafe fn reconstitute(
                                                 p = lig_stack;
                                                 lig_stack = MEM[p as usize].b32.s1;
                                                 free_node(p as usize, 2i32);
-                                                if lig_stack == -0xfffffffi32 {
+                                                if lig_stack == TEX_NULL {
                                                     if (j as i32) < n as i32 {
                                                         cur_r = hu[(j as i32 + 1i32) as usize]
                                                     } else {
@@ -3363,7 +3081,7 @@ unsafe fn reconstitute(
                 lft_hit = false
             }
             if rt_hit {
-                if lig_stack == -0xfffffffi32 {
+                if lig_stack == TEX_NULL {
                     MEM[p as usize].b16.s0 += 1;
                     rt_hit = false
                 }
@@ -3378,7 +3096,7 @@ unsafe fn reconstitute(
             w = 0i32;
             MEM[(t + 2) as usize].b32.s0 = 0
         }
-        if !(lig_stack > -0xfffffffi32) {
+        if !(lig_stack > TEX_NULL) {
             break;
         }
         cur_q = t;
@@ -3392,7 +3110,7 @@ unsafe fn reconstitute(
         p = lig_stack;
         lig_stack = MEM[p as usize].b32.s1;
         free_node(p as usize, 2i32);
-        if lig_stack == -0xfffffffi32 {
+        if lig_stack == TEX_NULL {
             if (j as i32) < n as i32 {
                 cur_r = hu[(j as i32 + 1i32) as usize]
             } else {
@@ -3419,7 +3137,7 @@ unsafe fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
         l = MEM[(MEM[(q + 1) as usize].b32.s1 + 1) as usize].b32.s1
     }
     r = prev_rightmost(global_prev_p, p);
-    if p != -0xfffffffi32
+    if p != TEX_NULL
         && MEM[p as usize].b16.s1 as i32 == 7
         && MEM[(p + 1) as usize].b32.s0 != -0xfffffff
     {
@@ -3430,7 +3148,7 @@ unsafe fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
     } else {
         r = find_protchar_right(l, r)
     }
-    if l != -0xfffffffi32 && MEM[l as usize].b16.s1 as i32 == 7 {
+    if l != TEX_NULL && MEM[l as usize].b16.s1 as i32 == 7 {
         if MEM[(l + 1) as usize].b32.s1 != -0xfffffff {
             l = MEM[(l + 1) as usize].b32.s1;
             return char_pw(l, 0) + char_pw(r, 1);
@@ -3516,8 +3234,8 @@ unsafe fn find_protchar_left(mut l: i32, mut d: bool) -> i32 {
 unsafe fn find_protchar_right(mut l: i32, mut r: i32) -> i32 {
     let mut t: i32 = 0;
     let mut run: bool = false;
-    if r == -0xfffffffi32 {
-        return -0xfffffffi32;
+    if r == TEX_NULL {
+        return TEX_NULL;
     }
     hlist_stack_level = 0_i16;
     run = true;
@@ -3560,7 +3278,7 @@ unsafe fn find_protchar_right(mut l: i32, mut r: i32) -> i32 {
                 r = pop_node();
                 l = pop_node()
             }
-            if r != l && r != -0xfffffffi32 {
+            if r != l && r != TEX_NULL {
                 r = prev_rightmost(l, r)
             } else if r == l && hlist_stack_level as i32 == 0i32 {
                 run = false

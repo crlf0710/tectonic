@@ -102,9 +102,16 @@ pub(crate) unsafe fn CHAR_NODE_character(p: usize) -> &'static mut u16 {
 #define DELTA_NODE_dstretch2(p) mem[(p) + 4].b32.s1 /* the stretch difference in fill */
 #define DELTA_NODE_dstretch3(p) mem[(p) + 5].b32.s1 /* the stretch difference in fill */
 #define DELTA_NODE_dshrink(p) mem[(p) + 6].b32.s1 /* the shrink difference */
-
-#define DISCRETIONARY_NODE_replace_count(p) mem[p].b16.s0 /* aka "subtype" of a node */
-#define DISCRETIONARY_NODE_pre_break(p) mem[(p) + 1].b32.s0 /* aka "llink" in doubly-linked list */
+*/
+/// aka "subtype" of a node
+pub(crate) unsafe fn DISCRETIONARY_NODE_replace_count(p: usize) -> &'static mut u16 {
+    &mut MEM[p].b16.s0
+}
+/// aka "llink" in doubly-linked list
+pub(crate) unsafe fn DISCRETIONARY_NODE_pre_break(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s0
+}
+/*
 #define DISCRETIONARY_NODE_post_break(p) mem[(p) + 1].b32.s1 /* aka "rlink" in double-linked list */
 
 */
@@ -133,15 +140,34 @@ pub(crate) unsafe fn INSERTION_NODE_split_top_ptr(p: usize) -> &'static mut i32 
 }
 
 /*#define INSERTION_NODE_ins_ptr(p) mem[(p) + 4].b32.s0 /* a pointer to a vlist */
+*/
+/// language number, 0..255
+pub(crate) unsafe fn LANGUAGE_NODE_what_lang(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
+}
+/// "minimum left fragment, range 1..63"
+pub(crate) unsafe fn LANGUAGE_NODE_what_lhm(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 1].b16.s1
+}
+/// "minimum right fragment, range 1..63"
+pub(crate) unsafe fn LANGUAGE_NODE_what_rhm(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 1].b16.s0
+}
 
-#define LANGUAGE_NODE_what_lang(p) mem[(p) + 1].b32.s1 /* language number, 0..255 */
-#define LANGUAGE_NODE_what_lhm(p) mem[(p) + 1].b16.s1 /* "minimum left fragment, range 1..63" */
-#define LANGUAGE_NODE_what_rhm(p) mem[(p) + 1].b16.s0 /* "minimum right fragment, range 1..63" */
+/// WEB: font(lig_char(p))
+pub(crate) unsafe fn LIGATURE_NODE_lig_font(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 1].b16.s1
+}
+///  WEB: character(lig_char(p))
+pub(crate) unsafe fn LIGATURE_NODE_lig_char(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 1].b16.s0
+}
+/// WEB: link(lig_char(p))
+pub(crate) unsafe fn LIGATURE_NODE_lig_ptr(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
+}
 
-#define LIGATURE_NODE_lig_font(p) mem[(p) + 1].b16.s1 /* WEB: font(lig_char(p)) */
-#define LIGATURE_NODE_lig_char(p) mem[(p) + 1].b16.s0 /* WEB: character(lig_char(p)) */
-#define LIGATURE_NODE_lig_ptr(p) mem[(p) + 1].b32.s1 /* WEB: link(lig_char(p)) */
-
+/*
 #define MARK_NODE_ptr(p) mem[(p) + 1].b32.s1 /* "head of the token list for the mark" */
 #define MARK_NODE_class(p) mem[(p) + 1].b32.s0 /* "the mark class" */
 

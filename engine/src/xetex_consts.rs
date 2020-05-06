@@ -32,7 +32,7 @@ pub(crate) const DEFAULT_CODE: placeholdertype = 0x40000000;
  * BIGGEST_USV. "USV" here means Unicode Scalar Value. */
 
 /// must be <= max_quarterword
-pub(crate) const BIGGEST_CHAR: placeholdertype = 0xFFFF;
+pub(crate) const BIGGEST_CHAR: placeholdertype = u16::MAX as i32;
 pub(crate) const BIGGEST_USV: usize = 0x10FFFF;
 pub(crate) const NUMBER_USVS: usize = BIGGEST_USV + 1;
 pub(crate) const TOO_BIG_USV: placeholdertype = BIGGEST_USV as i32 + 1;
@@ -999,11 +999,11 @@ pub(crate) const NON_ADDRESS: placeholdertype = 0;
 pub(crate) const RESTORE_OLD_VALUE: u16 = 0;
 pub(crate) const TOKEN_LIST: u16 = 0;
 pub(crate) const UNDEFINED_PRIMITIVE: placeholdertype = 0;
-pub(crate) const UNHYPHENATED: placeholdertype = 0;
+pub(crate) const UNHYPHENATED: i16 = 0;
 pub(crate) const ADDITIONAL: u8 = 1;
 pub(crate) const EXPLICIT: u16 = 1;
 pub(crate) const FIXED_ACC: placeholdertype = 1;
-pub(crate) const HYPHENATED: placeholdertype = 1;
+pub(crate) const HYPHENATED: i16 = 1;
 pub(crate) const JUST_OPEN: placeholdertype = 1;
 pub(crate) const MATH_CHAR: placeholdertype = 1;
 pub(crate) const PRIM_BASE: placeholdertype = 1;
