@@ -111,10 +111,10 @@ pub(crate) unsafe fn DISCRETIONARY_NODE_replace_count(p: usize) -> &'static mut 
 pub(crate) unsafe fn DISCRETIONARY_NODE_pre_break(p: usize) -> &'static mut i32 {
     &mut MEM[p + 1].b32.s0
 }
-/*
-#define DISCRETIONARY_NODE_post_break(p) mem[(p) + 1].b32.s1 /* aka "rlink" in double-linked list */
-
-*/
+/// aka "rlink" in double-linked list
+pub(crate) unsafe fn DISCRETIONARY_NODE_post_break(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
+}
 
 /// "new left_edge position relative to cur_h"
 pub(crate) unsafe fn EDGE_NODE_edge_dist(p: usize) -> &'static mut i32 {
@@ -203,10 +203,20 @@ pub(crate) unsafe fn NATIVE_NODE_glyph_info_ptr(p: usize) -> &'static mut *mut c
 #define PAGE_INS_NODE_broken_ins(p) mem[(p) + 1].b32.s0 /* "this insertion might break at broken_ptr" */
 #define PAGE_INS_NODE_last_ins_ptr(p) mem[(p) + 2].b32.s1 /* "the most recent insertion for this subtype" */
 #define PAGE_INS_NODE_best_ins_ptr(p) mem[(p) + 2].b32.s0 /* "the optimum most recent insertion" */
-
-#define PASSIVE_NODE_prev_break(p) mem[(p) + 1].b32.s0 /* aka "llink" in doubly-linked list */
-#define PASSIVE_NODE_next_break(p) PASSIVE_NODE_prev_break(p) /* siggggghhhhh */
-#define PASSIVE_NODE_cur_break(p) mem[(p) + 1].b32.s1 /* aka "rlink" in double-linked list */
+*/
+/// aka "llink" in doubly-linked list
+pub(crate) unsafe fn PASSIVE_NODE_prev_break(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s0
+}
+/// siggggghhhhh
+pub(crate) unsafe fn PASSIVE_NODE_next_break(p: usize) -> &'static mut i32 {
+    PASSIVE_NODE_prev_break(p)
+}
+/// aka "rlink" in double-linked list
+pub(crate) unsafe fn PASSIVE_NODE_cur_break(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
+}
+/*
 #define PASSIVE_NODE_serial(p) mem[p].b32.s0 /* aka "info" */
 */
 
