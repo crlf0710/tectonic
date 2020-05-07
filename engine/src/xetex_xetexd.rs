@@ -8,6 +8,9 @@ use crate::{xetex_ini, xetex_output};
  * this conversion besides painstakingly annotating things.
  */
 
+pub(crate) const MIN_TRIE_OP: i32 = 0;
+pub(crate) const TRIE_OP_SIZE: usize = 35111;
+
 pub(crate) unsafe fn LLIST_link(p: usize) -> &'static mut i32 {
     &mut MEM[p].b32.s1
 }
@@ -94,15 +97,32 @@ pub(crate) unsafe fn CHAR_NODE_font(p: usize) -> &'static mut u16 {
 pub(crate) unsafe fn CHAR_NODE_character(p: usize) -> &'static mut u16 {
     &mut MEM[p].b16.s0
 }
-/*
 
-#define DELTA_NODE_dwidth(p) mem[(p) + 1].b32.s1 /* the "natural width" difference */
-#define DELTA_NODE_dstretch0(p) mem[(p) + 2].b32.s1 /* the stretch difference in points */
-#define DELTA_NODE_dstretch1(p) mem[(p) + 3].b32.s1 /* the stretch difference in fil */
-#define DELTA_NODE_dstretch2(p) mem[(p) + 4].b32.s1 /* the stretch difference in fill */
-#define DELTA_NODE_dstretch3(p) mem[(p) + 5].b32.s1 /* the stretch difference in fill */
-#define DELTA_NODE_dshrink(p) mem[(p) + 6].b32.s1 /* the shrink difference */
-*/
+/// the "natural width" difference
+pub(crate) unsafe fn DELTA_NODE_dwidth(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
+}
+/// the stretch difference in points
+pub(crate) unsafe fn DELTA_NODE_dstretch0(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 2].b32.s1
+}
+/// the stretch difference in fil
+pub(crate) unsafe fn DELTA_NODE_dstretch1(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 3].b32.s1
+}
+/// the stretch difference in fill
+pub(crate) unsafe fn DELTA_NODE_dstretch2(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 4].b32.s1
+}
+/// the stretch difference in filll
+pub(crate) unsafe fn DELTA_NODE_dstretch3(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 5].b32.s1
+}
+/// the shrink difference
+pub(crate) unsafe fn DELTA_NODE_dshrink(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 6].b32.s1
+}
+
 /// aka "subtype" of a node
 pub(crate) unsafe fn DISCRETIONARY_NODE_replace_count(p: usize) -> &'static mut u16 {
     &mut MEM[p].b16.s0
