@@ -322,9 +322,9 @@ unsafe fn fire_up(mut c: i32) {
     if !p.is_texnull() {
         if LLIST_link(CONTRIB_HEAD).is_texnull() {
             if NEST_PTR == 0 {
-                cur_list.tail = page_tail
+                cur_list.tail = page_tail as usize;
             } else {
-                NEST[0].tail = page_tail
+                NEST[0].tail = page_tail as usize;
             }
         }
         *LLIST_link(page_tail as usize) = *LLIST_link(CONTRIB_HEAD);
@@ -428,9 +428,9 @@ unsafe fn fire_up(mut c: i32) {
     if !LLIST_link(PAGE_HEAD as usize).is_texnull() {
         if LLIST_link(CONTRIB_HEAD).is_texnull() {
             if NEST_PTR == 0 {
-                cur_list.tail = page_tail
+                cur_list.tail = page_tail as usize;
             } else {
-                NEST[0].tail = page_tail
+                NEST[0].tail = page_tail as usize;
             }
         } else {
             *LLIST_link(page_tail as usize) = *LLIST_link(CONTRIB_HEAD);
@@ -443,7 +443,7 @@ unsafe fn fire_up(mut c: i32) {
 
     flush_node_list(disc_ptr[LAST_BOX_CODE as usize]);
     disc_ptr[LAST_BOX_CODE as usize] = TEX_NULL;
-    ship_out(*BOX_REG(255));
+    ship_out(*BOX_REG(255) as usize);
     *BOX_REG(255) = TEX_NULL;
 }
 
@@ -883,9 +883,9 @@ pub(crate) unsafe fn build_page() {
         }
     }
     if NEST_PTR == 0 {
-        cur_list.tail = CONTRIB_HEAD as i32; /* "vertical mode" */
+        cur_list.tail = CONTRIB_HEAD; /* "vertical mode" */
     } else {
-        NEST[0].tail = CONTRIB_HEAD as i32; /* "other modes" */
+        NEST[0].tail = CONTRIB_HEAD; /* "other modes" */
     };
     /* "other modes" */
 }

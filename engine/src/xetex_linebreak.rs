@@ -109,7 +109,7 @@ static mut fill_width: [scaled_t; 3] = [0; 3];
 static mut best_pl_short: [scaled_t; 4] = [0; 4];
 static mut best_pl_glue: [scaled_t; 4] = [0; 4];
 #[inline]
-unsafe fn get_native_usv(mut p: i32, mut i: i32) -> UnicodeScalar {
+unsafe fn get_native_usv(p: usize, i: usize) -> UnicodeScalar {
     let mut c: u16 =
         *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16).offset(i as isize);
     if c as i32 >= 0xd800 && (c as i32) < 0xdc00 {
@@ -149,13 +149,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     /* Remove trailing space or glue if present; add infinite penalty then par_fill_skip */
 
-    if is_char_node(cur_list.tail) {
+    if is_char_node(cur_list.tail as i32) {
         /* is_char_node */
         *LLIST_link(cur_list.tail as usize) = new_penalty(INF_PENALTY) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail as usize);
+        cur_list.tail = *LLIST_link(cur_list.tail as usize) as usize;
     } else if *NODE_type(cur_list.tail as usize) != GLUE_NODE {
         *LLIST_link(cur_list.tail as usize) = new_penalty(INF_PENALTY) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail as usize);
+        cur_list.tail = *LLIST_link(cur_list.tail as usize) as usize;
     } else {
         *NODE_type(cur_list.tail as usize) = PENALTY_NODE;
         delete_glue_ref(*GLUE_NODE_glue_ptr(cur_list.tail as usize));
@@ -447,7 +447,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     {
                                         l = 0;
                                         while l < *NATIVE_NODE_length(s as usize) as i32 {
-                                            c = get_native_usv(s, l);
+                                            c = get_native_usv(s as usize, l as usize);
                                             if *LC_CODE(c as usize) != 0 {
                                                 hf = *NATIVE_NODE_font(s as usize) as usize;
                                                 prev_s = s;
@@ -574,7 +574,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                     if !(l < for_end_1) {
                                                                         break 'c_31290;
                                                                     }
-                                                                    c = get_native_usv(ha, l);
+                                                                    c = get_native_usv(
+                                                                        ha as usize,
+                                                                        l as usize,
+                                                                    );
                                                                     if hyph_index == 0 || c > 255 {
                                                                         hc[0] =
                                                                             *LC_CODE(c as usize);
@@ -1531,15 +1534,15 @@ unsafe fn post_line_break(mut d: bool) {
 
         if PRE_ADJUST_HEAD as i32 != pre_adjust_tail {
             MEM[cur_list.tail as usize].b32.s1 = *LLIST_link(PRE_ADJUST_HEAD as usize); /*:917*/
-            cur_list.tail = pre_adjust_tail
+            cur_list.tail = pre_adjust_tail as usize;
         }
 
         pre_adjust_tail = TEX_NULL;
-        append_to_vlist(just_box);
+        append_to_vlist(just_box as usize);
 
         if ADJUST_HEAD as i32 != adjust_tail {
             MEM[cur_list.tail as usize].b32.s1 = *LLIST_link(ADJUST_HEAD as usize);
-            cur_list.tail = adjust_tail;
+            cur_list.tail = adjust_tail as usize;
         }
 
         adjust_tail = TEX_NULL;
@@ -1590,7 +1593,7 @@ unsafe fn post_line_break(mut d: bool) {
             if pen != 0 {
                 r = new_penalty(pen) as i32;
                 *LLIST_link(cur_list.tail as usize) = r;
-                cur_list.tail = r
+                cur_list.tail = r as usize;
             }
         }
         /* Done justifying this line. */

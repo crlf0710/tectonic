@@ -99,9 +99,8 @@ unsafe fn dvi_out(c: u8) {
 }
 
 /*660: output the box `p` */
-pub(crate) unsafe fn ship_out(mut p: i32) {
+pub(crate) unsafe fn ship_out(p: usize) {
     let mut page_loc: i32 = 0;
-    let mut j: u8 = 0;
     let mut s: pool_pointer = 0;
     let mut l: u8 = 0;
     let mut output_comment: *const i8 = b"tectonic\x00" as *const u8 as *const i8;
@@ -125,7 +124,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
     }
 
     print_char('[' as i32);
-    j = 9;
+    let mut j = 9;
     while j > 0 && *COUNT_REG(j as _) == 0 {
         j -= 1;
     }
@@ -142,7 +141,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
     if *INTPAR(IntPar::tracing_output) > 0 {
         print_char(']' as i32);
         begin_diagnostic();
-        show_box(p);
+        show_box(p as i32);
         end_diagnostic(true);
     }
 
@@ -170,17 +169,15 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
         if *INTPAR(IntPar::tracing_output) <= 0 {
             begin_diagnostic();
             print_nl_cstr(b"The following box has been deleted:");
-            show_box(p);
+            show_box(p as i32);
             end_diagnostic(true);
         }
     } else {
-        if *BOX_height(p as usize) + *BOX_depth(p as usize) + *DIMENPAR(DimenPar::v_offset) > max_v
-        {
-            max_v =
-                *BOX_height(p as usize) + *BOX_depth(p as usize) + *DIMENPAR(DimenPar::v_offset);
+        if *BOX_height(p) + *BOX_depth(p) + *DIMENPAR(DimenPar::v_offset) > max_v {
+            max_v = *BOX_height(p) + *BOX_depth(p) + *DIMENPAR(DimenPar::v_offset);
         }
-        if *BOX_width(p as usize) + *DIMENPAR(DimenPar::h_offset) > max_h {
-            max_h = *BOX_width(p as usize) + *DIMENPAR(DimenPar::h_offset);
+        if *BOX_width(p) + *DIMENPAR(DimenPar::h_offset) > max_h {
+            max_h = *BOX_width(p) + *DIMENPAR(DimenPar::h_offset);
         }
 
         /*637: "Initialize variables as ship_out begins." */
@@ -294,9 +291,9 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
 
         /* Done with the synthesized special. The meat: emit this page box. */
 
-        cur_v = *BOX_height(p as usize) + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
-        temp_ptr = p;
-        if *NODE_type(p as usize) == VLIST_NODE {
+        cur_v = *BOX_height(p) + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
+        temp_ptr = p as i32;
+        if *NODE_type(p) == VLIST_NODE {
             vlist_out();
         } else {
             hlist_out();
@@ -331,7 +328,7 @@ pub(crate) unsafe fn ship_out(mut p: i32) {
 
     dead_cycles = 0;
     rust_stdout.as_mut().unwrap().flush().unwrap();
-    flush_node_list(p);
+    flush_node_list(p as i32);
     synctex_teehs();
 }
 
@@ -451,7 +448,7 @@ unsafe fn hlist_out() {
                                 break;
                             }
                             q = MEM[q as usize].b32.s1;
-                            while q != -0xfffffffi32
+                            while q != TEX_NULL
                                 && !is_char_node(q)
                                 && (MEM[q as usize].b16.s1 as i32 == 12
                                     || MEM[q as usize].b16.s1 as i32 == 3
@@ -462,7 +459,7 @@ unsafe fn hlist_out() {
                             {
                                 q = MEM[q as usize].b32.s1
                             }
-                            if !(q != -0xfffffffi32
+                            if !(q != TEX_NULL
                                 && !is_char_node(q)
                                 && MEM[q as usize].b16.s1 as i32 == 8
                                 && (MEM[q as usize].b16.s0 as i32 == 40
@@ -476,7 +473,7 @@ unsafe fn hlist_out() {
                             k += 1i32 + MEM[(q + 4) as usize].b16.s1 as i32;
                             q = MEM[q as usize].b32.s1
                         } else {
-                            if !(q != -0xfffffffi32
+                            if !(q != TEX_NULL
                                 && !is_char_node(q)
                                 && MEM[q as usize].b16.s1 as i32 == 8
                                 && (MEM[q as usize].b16.s0 as i32 == 40
@@ -561,7 +558,7 @@ unsafe fn hlist_out() {
                         );
                         MEM[prev_p as usize].b32.s1 = q;
                         MEM[q as usize].b32.s1 = MEM[p as usize].b32.s1;
-                        MEM[p as usize].b32.s1 = -0xfffffff;
+                        MEM[p as usize].b32.s1 = TEX_NULL;
                         prev_p = r;
                         p = MEM[r as usize].b32.s1;
                         /* "Extract any 'invisible' nodes from the old list
@@ -569,7 +566,7 @@ unsafe fn hlist_out() {
                          * lose them altogether. Note that the first node
                          * cannot be one of these, as we always start merging
                          * at a native_word node." */
-                        while p != -0xfffffffi32 {
+                        while p != TEX_NULL {
                             if !is_char_node(p)
                                 && (MEM[p as usize].b16.s1 as i32 == 12
                                     || MEM[p as usize].b16.s1 as i32 == 3
@@ -635,7 +632,7 @@ unsafe fn hlist_out() {
         MEM[(p + 3 - 1) as usize].b32.s0 = 0;
         MEM[prev_p as usize].b32.s1 = p;
         cur_h = 0i32;
-        MEM[p as usize].b32.s1 = reverse(this_box, -0xfffffff, &mut cur_g, &mut cur_glue);
+        MEM[p as usize].b32.s1 = reverse(this_box, TEX_NULL, &mut cur_g, &mut cur_glue);
         MEM[(p + 1) as usize].b32.s1 = -cur_h;
         cur_h = save_h;
         MEM[this_box as usize].b16.s0 = 1_u16
@@ -643,7 +640,7 @@ unsafe fn hlist_out() {
     /* ... resuming 639 ... */
     left_edge = cur_h;
     synctex_hlist(this_box);
-    's_726: while p != -0xfffffffi32 {
+    's_726: while p != TEX_NULL {
         loop
                  /*642: "Output node `p` for `hlist_out` and move to the next node,
         * maintaining the condition `cur_v = base_line`." ... "We ought to
@@ -734,7 +731,7 @@ unsafe fn hlist_out() {
                     match MEM[p as usize].b16.s1 as i32 {
                         0 | 1 => {
                             if MEM[(p + 5) as usize].b32.s1 ==
-                                   -0xfffffffi32 {
+                                   TEX_NULL {
                                 if MEM[p as usize].b16.s1 as
                                        i32 == 1i32 {
                                     synctex_void_vlist(p, this_box);
@@ -990,7 +987,7 @@ unsafe fn hlist_out() {
                                            i32 ==
                                            g_order as i32 {
                                 if MEM[g as usize].b32.s1 ==
-                                       -0xfffffffi32 {
+                                       TEX_NULL {
                                     free_node(g as usize,
                                               4i32); /* "will never match" */
                                 } else {
@@ -1339,7 +1336,7 @@ unsafe fn vlist_out() {
         cur_v -= MEM[(this_box + 3) as usize].b32.s1
     }
     top_edge = cur_v;
-    while p != -0xfffffffi32 {
+    while p != TEX_NULL {
         /*652: "Output node p and move to the next node, maintaining the
          * condition cur_h = left_edge" */
         if is_char_node(p) {
@@ -1349,7 +1346,7 @@ unsafe fn vlist_out() {
             match MEM[p as usize].b16.s1 as i32 {
                 0 | 1 => {
                     /*654: "Output a box in a vlist" */
-                    if MEM[(p + 5) as usize].b32.s1 == -0xfffffff {
+                    if MEM[(p + 5) as usize].b32.s1 == TEX_NULL {
                         if upwards {
                             cur_v -= MEM[(p + 2) as usize].b32.s1
                         } else {
@@ -1671,7 +1668,7 @@ unsafe fn reverse(
     m = MIN_HALFWORD;
     n = MIN_HALFWORD;
     's_58: loop {
-        if p != -0xfffffffi32 {
+        if p != TEX_NULL {
             loop
             /*1511: "Move node p to the new list and go to the next node; or
              * goto done if the end of the reflected segment has been
@@ -1751,7 +1748,7 @@ unsafe fn reverse(
                                 || g_sign as i32 == 2i32
                                     && MEM[g as usize].b16.s0 as i32 == g_order as i32
                             {
-                                if MEM[g as usize].b32.s1 == -0xfffffff {
+                                if MEM[g as usize].b32.s1 == TEX_NULL {
                                     free_node(g as usize, 4i32);
                                 } else {
                                     MEM[g as usize].b32.s1 -= 1;
@@ -1856,7 +1853,7 @@ unsafe fn reverse(
             }
             MEM[p as usize].b32.s1 = l;
             if MEM[p as usize].b16.s1 as i32 == 11 {
-                if rule_wd == 0i32 || l == -0xfffffffi32 {
+                if rule_wd == 0i32 || l == TEX_NULL {
                     free_node(p as usize, 3i32);
                     p = l
                 }
@@ -1865,7 +1862,7 @@ unsafe fn reverse(
             p = q
         } else {
             /* ... resuming 1510 ... */
-            if t == -0xfffffffi32 && m == -0xfffffffi32 && n == -0xfffffffi32 {
+            if t == TEX_NULL && m == TEX_NULL && n == TEX_NULL {
                 break; /* "Manufacture a missing math node" */
             }
             p = new_math(0i32, MEM[LR_ptr as usize].b32.s0 as small_number) as i32;
@@ -2047,7 +2044,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
     p = MEM[q as usize].b32.s1;
     mstate = 0i32 as small_number;
     loop {
-        if !(p != -0xfffffffi32) {
+        if !(p != TEX_NULL) {
             current_block = 18071914750955744041;
             break;
         }

@@ -391,8 +391,8 @@ pub(crate) type save_pointer = i32;
 #[repr(C)]
 pub(crate) struct list_state_record {
     pub(crate) mode: i16,
-    pub(crate) head: i32,
-    pub(crate) tail: i32,
+    pub(crate) head: usize,
+    pub(crate) tail: usize,
     pub(crate) eTeX_aux: i32,
     pub(crate) prev_graf: i32,
     pub(crate) mode_line: i32,
@@ -3258,8 +3258,8 @@ unsafe fn load_fmt_file() -> bool {
     if x != MEM_TOP as i32 {
         bad_fmt();
     }
-    cur_list.head = CONTRIB_HEAD as i32;
-    cur_list.tail = CONTRIB_HEAD as i32;
+    cur_list.head = CONTRIB_HEAD;
+    cur_list.tail = CONTRIB_HEAD;
     page_tail = PAGE_HEAD as i32;
     MEM = vec![memory_word::default(); MEM_TOP as usize + 2];
 
@@ -3951,8 +3951,8 @@ unsafe fn initialize_more_variables() {
     NEST_PTR = 0;
     MAX_NEST_STACK = 0;
     cur_list.mode = VMODE as _;
-    cur_list.head = CONTRIB_HEAD as i32;
-    cur_list.tail = CONTRIB_HEAD as i32;
+    cur_list.head = CONTRIB_HEAD;
+    cur_list.tail = CONTRIB_HEAD;
     cur_list.eTeX_aux = TEX_NULL;
     cur_list.aux.b32.s1 = IGNORE_DEPTH;
     cur_list.mode_line = 0i32;
