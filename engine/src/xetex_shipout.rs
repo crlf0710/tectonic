@@ -631,7 +631,7 @@ unsafe fn hlist_out() {
         /*1508: "Reverse the complete hlist and set the subtype to reversed." */
         save_h = cur_h; /* "SyncTeX: do nothing, it is too late" */
         temp_ptr = p;
-        p = new_kern(0i32);
+        p = new_kern(0i32) as i32;
         MEM[(p + 3 - 1) as usize].b32.s0 = 0;
         MEM[prev_p as usize].b32.s1 = p;
         cur_h = 0i32;
@@ -1868,7 +1868,7 @@ unsafe fn reverse(
             if t == -0xfffffffi32 && m == -0xfffffffi32 && n == -0xfffffffi32 {
                 break; /* "Manufacture a missing math node" */
             }
-            p = new_math(0i32, MEM[LR_ptr as usize].b32.s0 as small_number);
+            p = new_math(0i32, MEM[LR_ptr as usize].b32.s0 as small_number) as i32;
             LR_problems += 10000i32
         }
     }

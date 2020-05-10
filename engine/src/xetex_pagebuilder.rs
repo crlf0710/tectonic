@@ -189,7 +189,7 @@ unsafe fn fire_up(mut c: i32) {
                 ensure_vbox(n);
 
                 if BOX_REG(n as _).is_texnull() {
-                    *BOX_REG(n as _) = new_null_box();
+                    *BOX_REG(n as _) = new_null_box() as i32;
                 }
 
                 p = *BOX_REG(n as _) + 5; /* 5 = list_offset, "position of the list inside the box" */
@@ -246,7 +246,7 @@ unsafe fn fire_up(mut c: i32) {
                                         0,
                                         ADDITIONAL as _,
                                         MAX_HALFWORD,
-                                    );
+                                    ) as i32;
                                     MEM[(p + 3) as usize].b32.s1 =
                                         MEM[(temp_ptr + 3) as usize].b32.s1
                                             + MEM[(temp_ptr + 2) as usize].b32.s1;
@@ -260,7 +260,7 @@ unsafe fn fire_up(mut c: i32) {
                         temp_ptr = MEM[(*BOX_REG(n as usize) + 5) as usize].b32.s1;
                         free_node(*BOX_REG(n as _) as usize, BOX_NODE_SIZE);
                         *BOX_REG(n as _) =
-                            vpackage(temp_ptr, 0i32, 1i32 as small_number, 0x3fffffffi32);
+                            vpackage(temp_ptr, 0i32, 1i32 as small_number, 0x3fffffffi32) as i32;
                     } else {
                         while !LLIST_link(s as usize).is_texnull() {
                             s = *LLIST_link(s as usize);
@@ -342,7 +342,7 @@ unsafe fn fire_up(mut c: i32) {
         best_size,
         EXACTLY as _,
         page_max_depth,
-    );
+    ) as i32;
     *INTPAR(IntPar::vbadness) = save_vbadness;
     *DIMENPAR(DimenPar::vfuzz) = save_vfuzz;
 
@@ -525,7 +525,7 @@ pub(crate) unsafe fn build_page() {
                         freeze_page_specs(BOX_THERE as _);
                     } else { page_contents = BOX_THERE as _}
 
-                    slf.q = new_skip_param(GluePar::top_skip as _); /* "now temp_ptr = glue_ptr(q) */
+                    slf.q = new_skip_param(GluePar::top_skip as _) as i32; /* "now temp_ptr = glue_ptr(q) */
 
                     if *BOX_width(temp_ptr as usize) > *BOX_height(slf.p as usize) {
                         *BOX_width(temp_ptr as usize) -= *BOX_height(slf.p as usize);
@@ -813,7 +813,7 @@ pub(crate) unsafe fn build_page() {
                     help_line[1] = b"Such glue doesn\'t belong there; but you can safely proceed,";
                     help_line[0] = b"since the offensive shrinkability has been made finite.";
                     error();
-                    slf.r = new_spec(slf.q as usize);
+                    slf.r = new_spec(slf.q as usize) as i32;
                     MEM[slf.r as usize].b16.s0 = 0_u16;
                     delete_glue_ref(slf.q);
                     MEM[(slf.p + 1) as usize].b32.s0 = slf.r;
