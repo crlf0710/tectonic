@@ -691,7 +691,7 @@ pub(crate) static mut SOURCE_FILENAME_STACK: Vec<str_number> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FULL_SOURCE_FILENAME_STACK: Vec<str_number> = Vec::new();
 #[no_mangle]
-pub(crate) static mut scanner_status: u8 = 0;
+pub(crate) static mut scanner_status: ScannerStatus = ScannerStatus::Normal;
 #[no_mangle]
 pub(crate) static mut warning_index: i32 = 0;
 #[no_mangle]
@@ -5301,7 +5301,7 @@ pub(crate) unsafe fn tt_run_engine(
         (BUF_SIZE as usize).wrapping_mul(::std::mem::size_of::<UnicodeScalar>()),
     );*/
     first = 0i32;
-    scanner_status = 0_u8;
+    scanner_status = ScannerStatus::Normal;
     warning_index = TEX_NULL;
     first = 1i32;
     cur_input.state = 33_u16;

@@ -240,30 +240,29 @@ pub(crate) unsafe fn show_token_list(mut p: i32, mut q: i32, mut l: i32) {
     };
 }
 pub(crate) unsafe fn runaway() {
-    let mut p = TEX_NULL;
-    if scanner_status as u16 > SKIPPING {
-        match scanner_status as u16 {
-            DEFINING => {
+    if scanner_status != ScannerStatus::Normal && scanner_status != ScannerStatus::Skipping {
+        let p = match scanner_status {
+            ScannerStatus::Defining => {
                 print_nl_cstr(b"Runaway definition");
-                p = def_ref as i32;
+                def_ref
             }
-            MATCHING => {
+            ScannerStatus::Matching => {
                 print_nl_cstr(b"Runaway argument");
-                p = TEMP_HEAD as i32;
+                TEMP_HEAD
             }
-            ALIGNING => {
+            ScannerStatus::Aligning => {
                 print_nl_cstr(b"Runaway preamble");
-                p = HOLD_HEAD as i32;
+                HOLD_HEAD
             }
-            ABSORBING => {
+            ScannerStatus::Absorbing => {
                 print_nl_cstr(b"Runaway text");
-                p = def_ref as i32;
+                def_ref
             }
-            _ => {}
-        }
+            _ => unreachable!(),
+        };
         print_char('?' as i32);
         print_ln();
-        show_token_list(MEM[p as usize].b32.s1, TEX_NULL, error_line - 10);
+        show_token_list(MEM[p].b32.s1, TEX_NULL, error_line - 10);
     };
 }
 pub(crate) unsafe fn get_avail() -> usize {
@@ -3925,20 +3924,18 @@ pub(crate) unsafe fn end_file_reading() {
     IN_OPEN -= 1;
 }
 pub(crate) unsafe fn check_outer_validity() {
-    let mut p: i32 = 0;
-    let mut q: i32 = 0;
-    if scanner_status as u16 != NORMAL {
+    if scanner_status != ScannerStatus::Normal {
         deletions_allowed = false;
         if cur_cs != 0 {
             if cur_input.state == TOKEN_LIST || cur_input.name < 1 || cur_input.name > 17 {
-                p = get_avail() as i32;
-                MEM[p as usize].b32.s0 = CS_TOKEN_FLAG + cur_cs;
-                begin_token_list(p as usize, BACKED_UP);
+                let p = get_avail();
+                MEM[p].b32.s0 = CS_TOKEN_FLAG + cur_cs;
+                begin_token_list(p, BACKED_UP);
             }
             cur_cmd = SPACER as u8;
             cur_chr = ' ' as i32
         }
-        if scanner_status as u16 > SKIPPING {
+        if scanner_status != ScannerStatus::Normal && scanner_status != ScannerStatus::Skipping {
             /*350:*/
             runaway();
             if cur_cs == 0 {
@@ -3957,33 +3954,33 @@ pub(crate) unsafe fn check_outer_validity() {
                 }
                 print_cstr(b"Forbidden control sequence found");
             }
-            p = get_avail() as i32;
-            match scanner_status as u16 {
-                DEFINING => {
+            let mut p = get_avail();
+            match scanner_status {
+                ScannerStatus::Defining => {
                     print_cstr(b" while scanning definition");
-                    MEM[p as usize].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32
+                    MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32
                 }
-                MATCHING => {
+                ScannerStatus::Matching => {
                     print_cstr(b" while scanning use");
-                    MEM[p as usize].b32.s0 = par_token;
+                    MEM[p].b32.s0 = par_token;
                     long_state = OUTER_CALL as u8
                 }
-                ALIGNING => {
+                ScannerStatus::Aligning => {
                     print_cstr(b" while scanning preamble");
-                    MEM[p as usize].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
-                    q = p;
-                    p = get_avail() as i32;
-                    MEM[p as usize].b32.s1 = q;
-                    MEM[p as usize].b32.s0 = CS_TOKEN_FLAG + FROZEN_CR as i32;
+                    MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
+                    let q = p;
+                    p = get_avail();
+                    MEM[p].b32.s1 = q as i32;
+                    MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_CR as i32;
                     align_state = -1_000_000;
                 }
-                ABSORBING => {
+                ScannerStatus::Absorbing => {
                     print_cstr(b" while scanning text");
-                    MEM[p as usize].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32
+                    MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32
                 }
-                _ => {}
+                _ => unreachable!(),
             }
-            begin_token_list(p as usize, INSERTED);
+            begin_token_list(p, INSERTED);
             print_cstr(b" of ");
             sprint_cs(warning_index);
             help_ptr = 4;
@@ -4630,7 +4627,7 @@ pub(crate) unsafe fn get_next() {
         }
         if cur_cmd <= CAR_RET as u8 && cur_cmd >= TAB_MARK as u8 && align_state == 0 {
             /*818:*/
-            if scanner_status == ALIGNING as u8 || cur_align.is_texnull() {
+            if scanner_status == ScannerStatus::Aligning || cur_align.is_texnull() {
                 fatal_error(b"(interwoven alignment preambles are not allowed)");
             }
             cur_cmd = MEM[(cur_align + 5) as usize].b32.s0 as eight_bits;
@@ -4669,10 +4666,9 @@ pub(crate) unsafe fn macro_call() {
     let mut n: small_number = 0;
     let mut unbalance: i32 = 0;
     let mut m: i32 = 0i32;
-    let mut save_scanner_status: small_number = 0;
     let mut save_warning_index: i32 = 0;
     let mut match_chr: UTF16_code = 0;
-    save_scanner_status = scanner_status as small_number;
+    let save_scanner_status = scanner_status;
     save_warning_index = warning_index;
     warning_index = cur_cs;
     let ref_count = cur_chr as usize;
@@ -4691,7 +4687,7 @@ pub(crate) unsafe fn macro_call() {
     }
     if MEM[r as usize].b32.s0 != END_MATCH_TOKEN {
         /*409:*/
-        scanner_status = MATCHING as u8;
+        scanner_status = ScannerStatus::Matching;
         unbalance = 0;
         long_state = EQTB[cur_cs as usize].b16.s1 as u8;
         if long_state as u16 >= OUTER_CALL {
@@ -4985,7 +4981,7 @@ pub(crate) unsafe fn macro_call() {
         }
         _ => {}
     }
-    scanner_status = save_scanner_status as u8;
+    scanner_status = save_scanner_status;
     warning_index = save_warning_index;
 }
 pub(crate) unsafe fn insert_relax() {
@@ -5177,7 +5173,6 @@ pub(crate) unsafe fn expand() {
     let mut radix_backup: small_number = 0;
     let mut co_backup: small_number = 0;
     let mut backup_backup: i32 = 0;
-    let mut save_scanner_status: small_number = 0;
     expand_depth_count += 1;
     if expand_depth_count >= expand_depth {
         overflow(b"expansion depth", expand_depth as usize);
@@ -5257,10 +5252,10 @@ pub(crate) unsafe fn expand() {
                 NO_EXPAND => {
                     /*386:*/
                     if cur_chr == 0 {
-                        save_scanner_status = scanner_status as small_number; /*387: \primitive implementation */
-                        scanner_status = NORMAL as u8;
+                        let save_scanner_status = scanner_status; /*387: \primitive implementation */
+                        scanner_status = ScannerStatus::Normal;
                         get_token();
-                        scanner_status = save_scanner_status as u8;
+                        scanner_status = save_scanner_status;
                         t = cur_tok;
                         back_input();
                         if t >= CS_TOKEN_FLAG {
@@ -5272,10 +5267,10 @@ pub(crate) unsafe fn expand() {
                         }
                         break;
                     } else {
-                        save_scanner_status = scanner_status as small_number;
-                        scanner_status = NORMAL as u8;
+                        let save_scanner_status = scanner_status;
+                        scanner_status = ScannerStatus::Normal;
                         get_token();
-                        scanner_status = save_scanner_status as u8;
+                        scanner_status = save_scanner_status;
                         if cur_cs < HASH_BASE as i32 {
                             cur_cs = prim_lookup(cur_cs - SINGLE_BASE as i32)
                         } else {
@@ -8243,7 +8238,7 @@ pub(crate) unsafe fn scan_general_text() {
     let mut s = scanner_status;
     let mut w = warning_index;
     let mut d = def_ref;
-    scanner_status = ABSORBING as u8;
+    scanner_status = ScannerStatus::Absorbing;
     warning_index = cur_cs;
     def_ref = get_avail();
     MEM[def_ref].b32.s0 = TEX_NULL;
@@ -8494,7 +8489,6 @@ pub(crate) unsafe fn conv_toks() {
     let mut boolvar: bool = false;
     let mut s: str_number = 0;
     let mut u: str_number = 0;
-    let mut save_scanner_status: small_number = 0;
     let mut b: pool_pointer = 0;
     let mut fnt: usize = 0;
     let mut arg1: i32 = 0i32;
@@ -8509,10 +8503,10 @@ pub(crate) unsafe fn conv_toks() {
     match c as i32 {
         NUMBER_CODE | ROMAN_NUMERAL_CODE => scan_int(),
         STRING_CODE | MEANING_CODE => {
-            save_scanner_status = scanner_status as small_number;
-            scanner_status = NORMAL as u8;
+            let save_scanner_status = scanner_status;
+            scanner_status = ScannerStatus::Normal;
             get_token();
-            scanner_status = save_scanner_status as u8
+            scanner_status = save_scanner_status;
         }
         FONT_NAME_CODE => scan_font_ident(),
         XETEX_UCHAR_CODE => scan_usv_num(),
@@ -8543,7 +8537,7 @@ pub(crate) unsafe fn conv_toks() {
             cur_val = saved_chr
         }
         PDF_STRCMP_CODE => {
-            save_scanner_status = scanner_status as small_number;
+            let save_scanner_status = scanner_status;
             save_warning_index = warning_index;
             let save_def_ref = def_ref;
             if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
@@ -8554,13 +8548,13 @@ pub(crate) unsafe fn conv_toks() {
             compare_strings();
             def_ref = save_def_ref;
             warning_index = save_warning_index;
-            scanner_status = save_scanner_status as u8;
+            scanner_status = save_scanner_status;
             if u != 0 {
                 str_ptr -= 1;
             }
         }
         PDF_MDFIVE_SUM_CODE => {
-            save_scanner_status = scanner_status as small_number;
+            let save_scanner_status = scanner_status;
             save_warning_index = warning_index;
             let save_def_ref = def_ref;
             if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
@@ -8584,7 +8578,7 @@ pub(crate) unsafe fn conv_toks() {
             delete_token_ref(def_ref);
             def_ref = save_def_ref;
             warning_index = save_warning_index;
-            scanner_status = save_scanner_status as u8;
+            scanner_status = save_scanner_status;
             b = pool_ptr;
             getmd5sum(s, boolvar);
             MEM[GARBAGE as usize].b32.s1 = str_toks(b) as i32;
@@ -8859,7 +8853,7 @@ pub(crate) unsafe fn conv_toks() {
 }
 pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
     unsafe fn found(p: usize, hash_brace: i32) -> usize {
-        scanner_status = NORMAL as u8;
+        scanner_status = ScannerStatus::Normal;
         if hash_brace != 0 {
             let q = get_avail();
             MEM[p].b32.s1 = q as i32;
@@ -8874,9 +8868,9 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
     let mut s: i32 = 0;
     let mut unbalance: i32 = 0;
     scanner_status = if macro_def {
-        DEFINING as u8
+        ScannerStatus::Defining
     } else {
-        ABSORBING as u8
+        ScannerStatus::Absorbing
     };
     warning_index = cur_cs;
     def_ref = get_avail();
@@ -9060,7 +9054,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
 pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
     let mut s: i32 = 0;
     let mut m: small_number = 0;
-    scanner_status = DEFINING as u8;
+    scanner_status = ScannerStatus::Defining;
     warning_index = r;
     def_ref = get_avail();
     MEM[def_ref].b32.s0 = TEX_NULL;
@@ -9164,14 +9158,13 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
         }
     }
     cur_val = def_ref as i32;
-    scanner_status = NORMAL as u8;
+    scanner_status = ScannerStatus::Normal;
     align_state = s;
 }
 pub(crate) unsafe fn pass_text() {
     let mut l: i32 = 0;
-    let mut save_scanner_status: small_number = 0;
-    save_scanner_status = scanner_status as small_number;
-    scanner_status = SKIPPING as u8;
+    let save_scanner_status = scanner_status;
+    scanner_status = ScannerStatus::Skipping;
     l = 0;
     skip_line = line;
     loop {
@@ -9187,7 +9180,7 @@ pub(crate) unsafe fn pass_text() {
             l += 1;
         }
     }
-    scanner_status = save_scanner_status as u8;
+    scanner_status = save_scanner_status;
     if *INTPAR(IntPar::tracing_ifs) > 0 {
         show_cur_cmd_chr();
     };
@@ -9216,7 +9209,6 @@ pub(crate) unsafe fn conditional() {
     let mut e: bool = false;
     let mut r: u8 = 0;
     let mut q: i32 = 0;
-    let mut save_scanner_status: small_number = 0;
     if *INTPAR(IntPar::tracing_ifs) > 0 {
         if *INTPAR(IntPar::tracing_commands) <= 1 {
             show_cur_cmd_chr();
@@ -9361,8 +9353,8 @@ pub(crate) unsafe fn conditional() {
             current_block = 16915215315900843183;
         }
         IFX_CODE => {
-            save_scanner_status = scanner_status as small_number;
-            scanner_status = NORMAL as u8;
+            let save_scanner_status = scanner_status;
+            scanner_status = ScannerStatus::Normal;
             get_next();
             let n = cur_cs;
             p = cur_cmd as i32;
@@ -9389,7 +9381,7 @@ pub(crate) unsafe fn conditional() {
                     b = p.is_texnull() && q.is_texnull()
                 }
             }
-            scanner_status = save_scanner_status as u8;
+            scanner_status = save_scanner_status;
             current_block = 16915215315900843183;
         }
         IF_EOF_CODE => {
@@ -9410,11 +9402,11 @@ pub(crate) unsafe fn conditional() {
             current_block = 16915215315900843183;
         }
         IF_DEF_CODE => {
-            save_scanner_status = scanner_status as small_number;
-            scanner_status = NORMAL as u8;
+            let save_scanner_status = scanner_status;
+            scanner_status = ScannerStatus::Normal;
             get_next();
             b = cur_cmd != UNDEFINED_CS as u8;
-            scanner_status = save_scanner_status as u8;
+            scanner_status = save_scanner_status;
             current_block = 16915215315900843183;
         }
         IF_CS_CODE => {
@@ -9536,10 +9528,10 @@ pub(crate) unsafe fn conditional() {
             }
         }
         IF_PRIMITIVE_CODE => {
-            save_scanner_status = scanner_status as small_number;
-            scanner_status = NORMAL as u8;
+            let save_scanner_status = scanner_status;
+            scanner_status = ScannerStatus::Normal;
             get_next();
-            scanner_status = save_scanner_status as u8;
+            scanner_status = save_scanner_status;
             let m = if cur_cs < HASH_BASE as i32 {
                 prim_lookup(cur_cs - SINGLE_BASE as i32)
             } else {
@@ -12122,7 +12114,7 @@ pub(crate) unsafe fn init_align() {
     MEM[ALIGN_HEAD].b32.s1 = TEX_NULL;
     cur_align = ALIGN_HEAD as i32;
     cur_loop = TEX_NULL;
-    scanner_status = ALIGNING as u8;
+    scanner_status = ScannerStatus::Aligning;
     warning_index = save_cs_ptr;
     align_state = -1000000;
     loop {
@@ -12203,7 +12195,7 @@ pub(crate) unsafe fn init_align() {
         MEM[p as usize].b32.s0 = CS_TOKEN_FLAG + FROZEN_END_TEMPLATE as i32;
         MEM[(cur_align + 2) as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1
     }
-    scanner_status = NORMAL as u8;
+    scanner_status = ScannerStatus::Normal;
     new_save_level(GroupCode::ALIGN);
     if !LOCAL(Local::every_cr).is_texnull() {
         begin_token_list(*LOCAL(Local::every_cr) as usize, EVERY_CR_TEXT);
@@ -16013,10 +16005,10 @@ pub(crate) unsafe fn main_control() {
                                 }
                                 continue;
                             } else {
-                                let t = scanner_status as i32;
-                                scanner_status = NORMAL as u8;
+                                let t = scanner_status;
+                                scanner_status = ScannerStatus::Normal;
                                 get_next();
-                                scanner_status = t as u8;
+                                scanner_status = t;
                                 if cur_cs < HASH_BASE as i32 {
                                     cur_cs = prim_lookup(cur_cs - SINGLE_BASE as i32)
                                 } else {

@@ -587,13 +587,18 @@ pub(crate) const LIG_TAG: placeholdertype = 1;
 pub(crate) const LIST_TAG: placeholdertype = 2;
 pub(crate) const EXT_TAG: placeholdertype = 3;
 
-/* scanner_status values: */
 pub(crate) const NORMAL: u16 = 0;
-pub(crate) const SKIPPING: u16 = 1;
-pub(crate) const DEFINING: u16 = 2;
-pub(crate) const MATCHING: u16 = 3;
-pub(crate) const ALIGNING: u16 = 4;
-pub(crate) const ABSORBING: u16 = 5;
+
+/* scanner_status values: */
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum ScannerStatus {
+    Normal = 0,
+    Skipping = 1,
+    Defining = 2,
+    Matching = 3,
+    Aligning = 4,
+    Absorbing = 5,
+}
 
 /* commands */
 
