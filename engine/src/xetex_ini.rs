@@ -4096,43 +4096,42 @@ unsafe fn initialize_more_initex_variables() {
         MEM[k] = MEM[lo_mem_max as usize];
     }
     MEM[(OMIT_TEMPLATE) as usize].b32.s0 = CS_TOKEN_FLAG + FROZEN_END_TEMPLATE as i32;
-    MEM[END_SPAN as usize].b32.s1 = std::u16::MAX as i32 + 1;
-    MEM[END_SPAN as usize].b32.s0 = TEX_NULL;
-    MEM[ACTIVE_LIST as usize].b16.s1 = HYPHENATED as _;
-    MEM[(ACTIVE_LIST + 1) as usize].b32.s0 = MAX_HALFWORD;
-    MEM[ACTIVE_LIST as usize].b16.s0 = 0_u16;
+    MEM[END_SPAN].b32.s1 = std::u16::MAX as i32 + 1;
+    MEM[END_SPAN].b32.s0 = TEX_NULL;
+    MEM[ACTIVE_LIST].b16.s1 = HYPHENATED as _;
+    MEM[ACTIVE_LIST + 1].b32.s0 = MAX_HALFWORD;
+    MEM[ACTIVE_LIST].b16.s0 = 0_u16;
     MEM[PAGE_INS_HEAD].b16.s0 = 255_u16;
     MEM[PAGE_INS_HEAD].b16.s1 = SPLIT_UP as _;
     MEM[PAGE_INS_HEAD].b32.s1 = PAGE_INS_HEAD as i32;
-    MEM[PAGE_HEAD as usize].b16.s1 = 10;
-    MEM[PAGE_HEAD as usize].b16.s0 = 0;
+    MEM[PAGE_HEAD].b16.s1 = 10;
+    MEM[PAGE_HEAD].b16.s0 = 0;
     avail = TEX_NULL;
     mem_end = MEM_TOP as i32;
     hi_mem_min = PRE_ADJUST_HEAD as i32;
     var_used = 20;
     dyn_used = HI_MEM_STAT_USAGE;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s1 = UNDEFINED_CS as _;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b32.s1 = TEX_NULL;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s0 = LEVEL_ZERO as _;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE].b16.s1 = UNDEFINED_CS as _;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE].b32.s1 = TEX_NULL;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE].b16.s0 = LEVEL_ZERO as _;
     for k in ACTIVE_BASE..=EQTB_TOP {
-        EQTB[k] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
+        EQTB[k] = EQTB[UNDEFINED_CONTROL_SEQUENCE];
     }
-    EQTB[GLUE_BASE as usize].b32.s1 = 0;
-    EQTB[GLUE_BASE as usize].b16.s0 = LEVEL_ONE as _;
-    EQTB[GLUE_BASE as usize].b16.s1 = GLUE_REF as _;
+    EQTB[GLUE_BASE].b32.s1 = 0;
+    EQTB[GLUE_BASE].b16.s0 = LEVEL_ONE as _;
+    EQTB[GLUE_BASE].b16.s1 = GLUE_REF as _;
     for k in GLUE_BASE..=LOCAL_BASE {
-        EQTB[k as usize] = EQTB[GLUE_BASE as usize];
+        EQTB[k] = EQTB[GLUE_BASE];
     }
     MEM[0].b32.s1 += 531i32;
     *LOCAL(Local::par_shape) = TEX_NULL;
-    EQTB[LOCAL_BASE as usize + Local::par_shape as usize].b16.s1 = SHAPE_REF as _;
-    EQTB[LOCAL_BASE as usize + Local::par_shape as usize].b16.s0 = LEVEL_ONE as _;
+    EQTB[LOCAL_BASE + Local::par_shape as usize].b16.s1 = SHAPE_REF as _;
+    EQTB[LOCAL_BASE + Local::par_shape as usize].b16.s0 = LEVEL_ONE as _;
     for k in ETEX_PEN_BASE..=(ETEX_PENS - 1) {
-        EQTB[k] = EQTB[LOCAL_BASE as usize + Local::par_shape as usize];
+        EQTB[k] = EQTB[LOCAL_BASE + Local::par_shape as usize];
     }
-    for k in (LOCAL_BASE as usize + Local::output_routine as usize)..=(TOKS_BASE + NUMBER_REGS - 1)
-    {
-        EQTB[k] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
+    for k in (LOCAL_BASE + Local::output_routine as usize)..=(TOKS_BASE + NUMBER_REGS - 1) {
+        EQTB[k] = EQTB[UNDEFINED_CONTROL_SEQUENCE];
     }
     EQTB[BOX_BASE].b32.s1 = TEX_NULL;
     EQTB[BOX_BASE].b16.s1 = BOX_REF as _;

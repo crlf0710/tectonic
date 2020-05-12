@@ -215,8 +215,8 @@ pub(crate) unsafe fn BOX_REG(n: usize) -> &'static mut i32 {
 pub(crate) const CUR_FONT_LOC: usize = BOX_BASE + NUMBER_REGS;
 pub(crate) const MATH_FONT_BASE: usize = CUR_FONT_LOC + 1;
 
-pub(crate) unsafe fn MATH_FONT(n: usize) -> &'static mut i32 {
-    &mut EQTB[MATH_FONT_BASE + n].b32.s1
+pub(crate) unsafe fn MATH_FONT(n: usize) -> usize {
+    EQTB[MATH_FONT_BASE + n].b32.s1 as usize
 }
 
 pub(crate) const CAT_CODE_BASE: usize = MATH_FONT_BASE + NUMBER_MATH_FONTS;
