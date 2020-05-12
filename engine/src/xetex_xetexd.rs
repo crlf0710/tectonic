@@ -8,6 +8,31 @@ use crate::{xetex_ini, xetex_output};
  * this conversion besides painstakingly annotating things.
  */
 
+pub(crate) trait TexInt {
+    fn tex_int(self) -> i32;
+}
+impl TexInt for Option<usize> {
+    fn tex_int(self) -> i32 {
+        match self {
+            Some(u) => u as i32,
+            None => crate::xetex_consts::TEX_NULL,
+        }
+    }
+}
+
+pub(crate) trait TeXOpt {
+    fn opt(self) -> Option<usize>;
+}
+
+impl TeXOpt for i32 {
+    fn opt(self) -> Option<usize> {
+        match self {
+            crate::xetex_consts::TEX_NULL => None,
+            _ => Some(self as usize),
+        }
+    }
+}
+
 pub(crate) const MIN_TRIE_OP: i32 = 0;
 pub(crate) const TRIE_OP_SIZE: usize = 35111;
 

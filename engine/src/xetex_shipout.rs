@@ -542,7 +542,7 @@ unsafe fn hlist_out() {
                         q = new_native_word_node(
                             MEM[(r + 4) as usize].b16.s2 as internal_font_number,
                             cur_length(),
-                        );
+                        ) as i32;
                         MEM[q as usize].b16.s0 = MEM[r as usize].b16.s0;
                         j = 0i32;
                         while j < cur_length() {

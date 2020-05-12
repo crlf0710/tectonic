@@ -145,26 +145,26 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     let mut i: i32 = 0;
     let mut for_end_1: i32 = 0;
     pack_begin_line = cur_list.mode_line; /* "this is for over/underfull box messages" */
-    *LLIST_link(TEMP_HEAD as usize) = *LLIST_link(cur_list.head as usize);
+    *LLIST_link(TEMP_HEAD as usize) = *LLIST_link(cur_list.head);
 
     /* Remove trailing space or glue if present; add infinite penalty then par_fill_skip */
 
     if is_char_node(cur_list.tail as i32) {
         /* is_char_node */
-        *LLIST_link(cur_list.tail as usize) = new_penalty(INF_PENALTY) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail as usize) as usize;
-    } else if *NODE_type(cur_list.tail as usize) != GLUE_NODE {
-        *LLIST_link(cur_list.tail as usize) = new_penalty(INF_PENALTY) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail as usize) as usize;
+        *LLIST_link(cur_list.tail) = new_penalty(INF_PENALTY) as i32;
+        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+    } else if *NODE_type(cur_list.tail) != GLUE_NODE {
+        *LLIST_link(cur_list.tail) = new_penalty(INF_PENALTY) as i32;
+        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
     } else {
-        *NODE_type(cur_list.tail as usize) = PENALTY_NODE;
-        delete_glue_ref(*GLUE_NODE_glue_ptr(cur_list.tail as usize));
-        flush_node_list(*GLUE_NODE_leader_ptr(cur_list.tail as usize));
-        *PENALTY_NODE_penalty(cur_list.tail as usize) = INF_PENALTY;
+        *NODE_type(cur_list.tail) = PENALTY_NODE;
+        delete_glue_ref(*GLUE_NODE_glue_ptr(cur_list.tail));
+        flush_node_list(*GLUE_NODE_leader_ptr(cur_list.tail));
+        *PENALTY_NODE_penalty(cur_list.tail) = INF_PENALTY;
     }
 
-    *LLIST_link(cur_list.tail as usize) = new_param_glue(GluePar::par_fill_skip as _) as i32;
-    last_line_fill = *LLIST_link(cur_list.tail as usize);
+    *LLIST_link(cur_list.tail) = new_param_glue(GluePar::par_fill_skip as _) as i32;
+    last_line_fill = *LLIST_link(cur_list.tail);
 
     /* Yet more initialization of various kinds */
 
@@ -596,12 +596,15 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                     }
                                                                     if hc[0] == 0 {
                                                                         if hn > 0 {
-                                                                            q
-                                                                                    =
-                                                                                    new_native_word_node(hf,
-                                                                                                         *NATIVE_NODE_length(ha as usize) as i32
-                                                                                                             -
-                                                                                                             l);
+                                                                            q = new_native_word_node(
+                                                                                hf,
+                                                                                *NATIVE_NODE_length(
+                                                                                    ha as usize,
+                                                                                )
+                                                                                    as i32
+                                                                                    - l,
+                                                                            )
+                                                                                as i32;
                                                                             *NODE_subtype(
                                                                                 q as usize,
                                                                             ) = *NODE_subtype(
@@ -683,7 +686,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                             )
                                                                                 as i32
                                                                                 - l,
-                                                                        );
+                                                                        )
+                                                                            as i32;
                                                                         *NODE_subtype(q as usize) =
                                                                             *NODE_subtype(
                                                                                 ha as usize,
@@ -1533,7 +1537,7 @@ unsafe fn post_line_break(mut d: bool) {
          * by any of its special nodes that were taken out */
 
         if PRE_ADJUST_HEAD as i32 != pre_adjust_tail {
-            MEM[cur_list.tail as usize].b32.s1 = *LLIST_link(PRE_ADJUST_HEAD as usize); /*:917*/
+            MEM[cur_list.tail].b32.s1 = *LLIST_link(PRE_ADJUST_HEAD as usize); /*:917*/
             cur_list.tail = pre_adjust_tail as usize;
         }
 
@@ -1541,7 +1545,7 @@ unsafe fn post_line_break(mut d: bool) {
         append_to_vlist(just_box as usize);
 
         if ADJUST_HEAD as i32 != adjust_tail {
-            MEM[cur_list.tail as usize].b32.s1 = *LLIST_link(ADJUST_HEAD as usize);
+            MEM[cur_list.tail].b32.s1 = *LLIST_link(ADJUST_HEAD as usize);
             cur_list.tail = adjust_tail as usize;
         }
 
@@ -1592,7 +1596,7 @@ unsafe fn post_line_break(mut d: bool) {
             }
             if pen != 0 {
                 r = new_penalty(pen) as i32;
-                *LLIST_link(cur_list.tail as usize) = r;
+                *LLIST_link(cur_list.tail) = r;
                 cur_list.tail = r as usize;
             }
         }
@@ -2341,7 +2345,6 @@ unsafe fn hyphenate() {
     let mut current_block: u64;
     let mut i: i16 = 0;
     let mut l: i16 = 0;
-    let mut q: i32 = 0;
     let mut r: i32 = 0;
     let mut s: i32 = 0;
     let mut bchar: i32 = 0;
@@ -2350,7 +2353,6 @@ unsafe fn hyphenate() {
     let mut c: UnicodeScalar = 0i32;
     let mut c_loc: i16 = 0;
     let mut r_count: i32 = 0;
-    let mut hyf_node: i32 = 0;
     let mut z: trie_pointer = 0;
     let mut v: i32 = 0;
     let mut u: pool_pointer = 0;
@@ -2538,15 +2540,14 @@ unsafe fn hyphenate() {
         if j as i32 <= for_end_5 {
             loop {
                 if hyf[j as usize] as i32 & 1i32 != 0 {
-                    q = new_native_word_node(hf, j as i32 - hyphen_passed as i32);
-                    MEM[q as usize].b16.s0 = MEM[ha as usize].b16.s0;
+                    let q = new_native_word_node(hf, j as i32 - hyphen_passed as i32);
+                    MEM[q].b16.s0 = MEM[ha as usize].b16.s0;
                     let mut for_end_6: i32 = 0;
                     i = 0_i16;
                     for_end_6 = j as i32 - hyphen_passed as i32 - 1;
                     if i as i32 <= for_end_6 {
                         loop {
-                            *(&mut MEM[(q + 6) as usize] as *mut memory_word as *mut u16)
-                                .offset(i as isize) =
+                            *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset(i as isize) =
                                 *(&mut MEM[(ha + 6) as usize] as *mut memory_word as *mut u16)
                                     .offset((i as i32 + hyphen_passed as i32) as isize);
                             let fresh24 = i;
@@ -2557,15 +2558,15 @@ unsafe fn hyphenate() {
                         }
                     }
                     measure_native_node(
-                        &mut MEM[q as usize] as *mut memory_word as *mut libc::c_void,
+                        &mut MEM[q] as *mut memory_word as *mut libc::c_void,
                         (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
                     );
-                    MEM[s as usize].b32.s1 = q;
-                    s = q;
-                    q = new_disc() as i32;
-                    MEM[(q + 1) as usize].b32.s0 = new_native_character(hf, hyf_char);
-                    MEM[s as usize].b32.s1 = q;
-                    s = q;
+                    MEM[s as usize].b32.s1 = q as i32;
+                    s = q as i32;
+                    let q = new_disc();
+                    MEM[q + 1].b32.s0 = new_native_character(hf, hyf_char) as i32;
+                    MEM[s as usize].b32.s1 = q as i32;
+                    s = q as i32;
                     hyphen_passed = j
                 }
                 let fresh25 = j;
@@ -2576,14 +2577,14 @@ unsafe fn hyphenate() {
             }
         }
         hn = MEM[(ha + 4) as usize].b16.s1 as small_number;
-        q = new_native_word_node(hf, hn as i32 - hyphen_passed as i32);
-        MEM[q as usize].b16.s0 = MEM[ha as usize].b16.s0;
+        let q = new_native_word_node(hf, hn as i32 - hyphen_passed as i32);
+        MEM[q].b16.s0 = MEM[ha as usize].b16.s0;
         let mut for_end_7: i32 = 0;
         i = 0_i16;
         for_end_7 = hn as i32 - hyphen_passed as i32 - 1;
         if i as i32 <= for_end_7 {
             loop {
-                *(&mut MEM[(q + 6) as usize] as *mut memory_word as *mut u16).offset(i as isize) =
+                *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset(i as isize) =
                     *(&mut MEM[(ha + 6) as usize] as *mut memory_word as *mut u16)
                         .offset((i as i32 + hyphen_passed as i32) as isize);
                 let fresh26 = i;
@@ -2594,17 +2595,17 @@ unsafe fn hyphenate() {
             }
         }
         measure_native_node(
-            &mut MEM[q as usize] as *mut memory_word as *mut libc::c_void,
+            &mut MEM[q] as *mut memory_word as *mut libc::c_void,
             (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
         );
-        MEM[s as usize].b32.s1 = q;
-        s = q;
-        q = MEM[ha as usize].b32.s1;
+        MEM[s as usize].b32.s1 = q as i32;
+        s = q as i32;
+        let q = MEM[ha as usize].b32.s1;
         MEM[s as usize].b32.s1 = q;
         MEM[ha as usize].b32.s1 = TEX_NULL;
         flush_node_list(ha);
     } else {
-        q = MEM[hb as usize].b32.s1;
+        let q = MEM[hb as usize].b32.s1;
         MEM[hb as usize].b32.s1 = TEX_NULL;
         r = MEM[ha as usize].b32.s1;
         MEM[ha as usize].b32.s1 = TEX_NULL;
@@ -2708,13 +2709,13 @@ unsafe fn hyphenate() {
                     hyf[i as usize] = 0;
                     minor_tail = TEX_NULL;
                     MEM[(r + 1) as usize].b32.s0 = TEX_NULL;
-                    hyf_node = new_character(hf, hyf_char as UTF16_code);
-                    if hyf_node != TEX_NULL {
+                    let hyf_node = new_character(hf, hyf_char as UTF16_code);
+                    if let Some(hyf_node) = hyf_node {
                         i += 1;
                         c = hu[i as usize];
                         hu[i as usize] = hyf_char;
-                        MEM[hyf_node as usize].b32.s1 = avail;
-                        avail = hyf_node
+                        MEM[hyf_node].b32.s1 = avail;
+                        avail = hyf_node as i32;
                     }
                     while l as i32 <= i as i32 {
                         l = (reconstitute(l, i, FONT_BCHAR[hf as usize], TOO_BIG_CHAR) as i32 + 1)
@@ -2731,7 +2732,7 @@ unsafe fn hyphenate() {
                             }
                         }
                     }
-                    if hyf_node != TEX_NULL {
+                    if hyf_node.is_some() {
                         hu[i as usize] = c;
                         l = i;
                         i -= 1
