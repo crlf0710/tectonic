@@ -44,7 +44,7 @@ use crate::xetex_xetexd::{
     LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
     LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length, NODE_subtype, NODE_type,
     PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty,
-    TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH, MIN_TRIE_OP,
+    TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH, MIN_TRIE_OP,
 };
 
 pub(crate) type scaled_t = i32;
@@ -159,7 +159,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     } else {
         *NODE_type(cur_list.tail) = PENALTY_NODE;
         delete_glue_ref(*GLUE_NODE_glue_ptr(cur_list.tail) as usize);
-        flush_node_list(*GLUE_NODE_leader_ptr(cur_list.tail));
+        flush_node_list(GLUE_NODE_leader_ptr(cur_list.tail).opt());
         *PENALTY_NODE_penalty(cur_list.tail) = INF_PENALTY;
     }
 
@@ -1281,7 +1281,7 @@ unsafe fn post_line_break(mut d: bool) {
     let mut pen: i32 = 0;
     let mut cur_line: i32 = 0;
     let mut LR_ptr: i32 = 0;
-    LR_ptr = cur_list.eTeX_aux;
+    LR_ptr = cur_list.eTeX_aux.tex_int();
     /* Reverse the list of break nodes (907) */
     q = *ACTIVE_NODE_break_node(best_bet as usize); /*:907*/
     cur_p = TEX_NULL;
@@ -1377,7 +1377,7 @@ unsafe fn post_line_break(mut d: bool) {
                 s = *LLIST_link(r as usize);
                 r = *LLIST_link(s as usize);
                 *LLIST_link(s as usize) = TEX_NULL;
-                flush_node_list(*LLIST_link(q as usize));
+                flush_node_list(LLIST_link(q as usize).opt());
                 *DISCRETIONARY_NODE_replace_count(q as usize) = 0;
             }
             if *DISCRETIONARY_NODE_post_break(q as usize) != TEX_NULL {
@@ -1654,7 +1654,7 @@ unsafe fn post_line_break(mut d: bool) {
                 }
                 if r != TEMP_HEAD {
                     *LLIST_link(r as usize) = TEX_NULL;
-                    flush_node_list(*LLIST_link(TEMP_HEAD));
+                    flush_node_list(LLIST_link(TEMP_HEAD).opt());
                     *LLIST_link(TEMP_HEAD) = q;
                 }
             }
@@ -1667,7 +1667,7 @@ unsafe fn post_line_break(mut d: bool) {
         confusion(b"line breaking");
     }
     cur_list.prev_graf = best_line - 1;
-    cur_list.eTeX_aux = LR_ptr;
+    cur_list.eTeX_aux = LR_ptr.opt();
 }
 /*858: "The heart of the line-breaking procedure is try_break, a subroutine
  * that tests if the current breakpoint cur_p is feasible, by running through
@@ -2345,7 +2345,6 @@ unsafe fn hyphenate() {
     let mut current_block: u64;
     let mut i: i16 = 0;
     let mut l: i16 = 0;
-    let mut r: i32 = 0;
     let mut s: i32 = 0;
     let mut bchar: i32 = 0;
     let mut major_tail: i32 = 0;
@@ -2603,11 +2602,11 @@ unsafe fn hyphenate() {
         let q = MEM[ha as usize].b32.s1;
         MEM[s as usize].b32.s1 = q;
         MEM[ha as usize].b32.s1 = TEX_NULL;
-        flush_node_list(ha);
+        flush_node_list(ha.opt());
     } else {
         let q = MEM[hb as usize].b32.s1;
         MEM[hb as usize].b32.s1 = TEX_NULL;
-        r = MEM[ha as usize].b32.s1;
+        let r = MEM[ha as usize].b32.s1;
         MEM[ha as usize].b32.s1 = TEX_NULL;
         bchar = hyf_bchar;
         if is_char_node(ha) {
@@ -2677,7 +2676,7 @@ unsafe fn hyphenate() {
             }
             _ => {}
         }
-        flush_node_list(r);
+        flush_node_list(r.opt());
         loop {
             l = j;
             j = (reconstitute(j, hn, bchar, hyf_char) as i32 + 1) as i16;
@@ -2696,10 +2695,10 @@ unsafe fn hyphenate() {
                 loop
                 /*949: */
                 {
-                    r = get_node(SMALL_NODE_SIZE) as i32;
-                    MEM[r as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1;
-                    *NODE_type(r as usize) = DISC_NODE;
-                    major_tail = r;
+                    let r = get_node(SMALL_NODE_SIZE);
+                    MEM[r].b32.s1 = MEM[HOLD_HEAD].b32.s1;
+                    *NODE_type(r) = DISC_NODE;
+                    major_tail = r as i32;
                     r_count = 0;
                     while MEM[major_tail as usize].b32.s1 > TEX_NULL {
                         major_tail = *LLIST_link(major_tail as usize);
@@ -2708,7 +2707,7 @@ unsafe fn hyphenate() {
                     i = hyphen_passed;
                     hyf[i as usize] = 0;
                     minor_tail = TEX_NULL;
-                    MEM[(r + 1) as usize].b32.s0 = TEX_NULL;
+                    MEM[r + 1].b32.s0 = TEX_NULL;
                     let hyf_node = new_character(hf, hyf_char as UTF16_code);
                     if let Some(hyf_node) = hyf_node {
                         i += 1;
@@ -2722,7 +2721,7 @@ unsafe fn hyphenate() {
                             as i16;
                         if MEM[HOLD_HEAD].b32.s1 > TEX_NULL {
                             if minor_tail == TEX_NULL {
-                                MEM[(r + 1) as usize].b32.s0 = MEM[HOLD_HEAD].b32.s1
+                                MEM[r + 1].b32.s0 = MEM[HOLD_HEAD].b32.s1
                             } else {
                                 MEM[minor_tail as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1
                             }
@@ -2738,7 +2737,7 @@ unsafe fn hyphenate() {
                         i -= 1
                     }
                     minor_tail = TEX_NULL;
-                    MEM[(r + 1) as usize].b32.s1 = TEX_NULL;
+                    MEM[r + 1].b32.s1 = TEX_NULL;
                     c_loc = 0_i16;
                     if BCHAR_LABEL[hf as usize] != NON_ADDRESS {
                         l -= 1;
@@ -2755,7 +2754,7 @@ unsafe fn hyphenate() {
                             }
                             if MEM[HOLD_HEAD].b32.s1 > TEX_NULL {
                                 if minor_tail == TEX_NULL {
-                                    MEM[(r + 1) as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1
+                                    MEM[r + 1].b32.s1 = MEM[HOLD_HEAD].b32.s1
                                 } else {
                                     MEM[minor_tail as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1
                                 }
@@ -2779,12 +2778,12 @@ unsafe fn hyphenate() {
                         }
                     }
                     if r_count > 127 {
-                        MEM[s as usize].b32.s1 = MEM[r as usize].b32.s1;
-                        MEM[r as usize].b32.s1 = TEX_NULL;
-                        flush_node_list(r);
+                        MEM[s as usize].b32.s1 = MEM[r].b32.s1;
+                        MEM[r].b32.s1 = TEX_NULL;
+                        flush_node_list(Some(r));
                     } else {
-                        MEM[s as usize].b32.s1 = r;
-                        MEM[r as usize].b16.s0 = r_count as u16;
+                        MEM[s as usize].b32.s1 = r as i32;
+                        MEM[r].b16.s0 = r_count as u16;
                     }
                     s = major_tail;
                     hyphen_passed = (j - 1) as small_number;

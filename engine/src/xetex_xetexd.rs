@@ -8,10 +8,10 @@ use crate::{xetex_ini, xetex_output};
  * this conversion besides painstakingly annotating things.
  */
 
-pub(crate) trait TexInt {
+pub(crate) trait TeXInt {
     fn tex_int(self) -> i32;
 }
-impl TexInt for Option<usize> {
+impl TeXInt for Option<usize> {
     fn tex_int(self) -> i32 {
         match self {
             Some(u) => u as i32,

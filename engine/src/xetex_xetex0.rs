@@ -1216,19 +1216,18 @@ pub(crate) unsafe fn delete_glue_ref(p: usize) {
         MEM[p].b32.s1 -= 1;
     };
 }
-pub(crate) unsafe fn flush_node_list(mut p: i32) {
+pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
     let mut current_block: u64;
     let mut q: i32 = 0;
-    while !p.is_texnull() {
-        q = MEM[p as usize].b32.s1;
-        if is_char_node(p) {
-            MEM[p as usize].b32.s1 = avail;
-            avail = p
+    while let Some(p) = popt {
+        q = MEM[p].b32.s1;
+        if is_char_node(p as i32) {
+            MEM[p].b32.s1 = avail;
+            avail = p as i32;
         } else {
-            let p = p as usize;
             match MEM[p].b16.s1 {
                 HLIST_NODE | VLIST_NODE | UNSET_NODE => {
-                    flush_node_list(MEM[p + 5].b32.s1);
+                    flush_node_list(MEM[p + 5].b32.s1.opt());
                     free_node(p, BOX_NODE_SIZE);
                     current_block = 16791665189521845338;
                 }
@@ -1237,7 +1236,7 @@ pub(crate) unsafe fn flush_node_list(mut p: i32) {
                     current_block = 16791665189521845338;
                 }
                 INS_NODE => {
-                    flush_node_list(MEM[p + 4].b32.s0);
+                    flush_node_list(MEM[p + 4].b32.s0.opt());
                     delete_glue_ref(*INSERTION_NODE_split_top_ptr(p) as usize);
                     free_node(p, INS_NODE_SIZE);
                     current_block = 16791665189521845338;
@@ -1280,8 +1279,8 @@ pub(crate) unsafe fn flush_node_list(mut p: i32) {
                     } else {
                         MEM[MEM[p + 1].b32.s0 as usize].b32.s1 -= 1
                     }
-                    if !MEM[p + 1].b32.s1.is_texnull() {
-                        flush_node_list(MEM[p + 1].b32.s1);
+                    if let Some(nd) = MEM[p + 1].b32.s1.opt() {
+                        flush_node_list(Some(nd));
                     }
                     free_node(p, MEDIUM_NODE_SIZE);
                     current_block = 16791665189521845338;
@@ -1295,7 +1294,7 @@ pub(crate) unsafe fn flush_node_list(mut p: i32) {
                     current_block = 16791665189521845338;
                 }
                 LIGATURE_NODE => {
-                    flush_node_list(MEM[p + 1].b32.s1);
+                    flush_node_list(MEM[p + 1].b32.s1.opt());
                     current_block = 8062065914618164218;
                 }
                 MARK_NODE => {
@@ -1303,12 +1302,12 @@ pub(crate) unsafe fn flush_node_list(mut p: i32) {
                     current_block = 8062065914618164218;
                 }
                 DISC_NODE => {
-                    flush_node_list(MEM[p + 1].b32.s0);
-                    flush_node_list(MEM[p + 1].b32.s1);
+                    flush_node_list(MEM[p + 1].b32.s0.opt());
+                    flush_node_list(MEM[p + 1].b32.s1.opt());
                     current_block = 8062065914618164218;
                 }
                 ADJUST_NODE => {
-                    flush_node_list(MEM[p + 1].b32.s1);
+                    flush_node_list(MEM[p + 1].b32.s1.opt());
                     current_block = 8062065914618164218;
                 }
                 STYLE_NODE => {
@@ -1316,10 +1315,10 @@ pub(crate) unsafe fn flush_node_list(mut p: i32) {
                     current_block = 16791665189521845338;
                 }
                 CHOICE_NODE => {
-                    flush_node_list(MEM[p + 1].b32.s0);
-                    flush_node_list(MEM[p + 1].b32.s1);
-                    flush_node_list(MEM[p + 2].b32.s0);
-                    flush_node_list(MEM[p + 2].b32.s1);
+                    flush_node_list(MEM[p + 1].b32.s0.opt());
+                    flush_node_list(MEM[p + 1].b32.s1.opt());
+                    flush_node_list(MEM[p + 2].b32.s0.opt());
+                    flush_node_list(MEM[p + 2].b32.s1.opt());
                     free_node(p, STYLE_NODE_SIZE);
                     current_block = 16791665189521845338;
                 }
@@ -1327,13 +1326,13 @@ pub(crate) unsafe fn flush_node_list(mut p: i32) {
                 | INNER_NOAD | RADICAL_NOAD | OVER_NOAD | UNDER_NOAD | VCENTER_NOAD
                 | ACCENT_NOAD => {
                     if MEM[p + 1].b32.s1 >= SUB_BOX {
-                        flush_node_list(MEM[p + 1].b32.s0);
+                        flush_node_list(MEM[p + 1].b32.s0.opt());
                     }
                     if MEM[p + 2].b32.s1 >= SUB_BOX {
-                        flush_node_list(MEM[p + 2].b32.s0);
+                        flush_node_list(MEM[p + 2].b32.s0.opt());
                     }
                     if MEM[p + 3].b32.s1 >= SUB_BOX {
-                        flush_node_list(MEM[p + 3].b32.s0);
+                        flush_node_list(MEM[p + 3].b32.s0.opt());
                     }
                     if MEM[p].b16.s1 == RADICAL_NOAD {
                         free_node(p, RADICAL_NOAD_SIZE);
@@ -1349,8 +1348,8 @@ pub(crate) unsafe fn flush_node_list(mut p: i32) {
                     current_block = 16791665189521845338;
                 }
                 FRACTION_NOAD => {
-                    flush_node_list(MEM[p + 2].b32.s0);
-                    flush_node_list(MEM[p + 3].b32.s0);
+                    flush_node_list(MEM[p + 2].b32.s0.opt());
+                    flush_node_list(MEM[p + 3].b32.s0.opt());
                     free_node(p, FRACTION_NOAD_SIZE);
                     current_block = 16791665189521845338;
                 }
@@ -1361,7 +1360,7 @@ pub(crate) unsafe fn flush_node_list(mut p: i32) {
                 _ => free_node(p, SMALL_NODE_SIZE),
             }
         }
-        p = q
+        popt = q.opt()
     }
 }
 pub(crate) unsafe fn copy_node_list(mut p: i32) -> i32 {
@@ -1540,7 +1539,7 @@ pub(crate) unsafe fn push_nest() {
     cur_list.tail = cur_list.head;
     cur_list.prev_graf = 0i32;
     cur_list.mode_line = line;
-    cur_list.eTeX_aux = TEX_NULL;
+    cur_list.eTeX_aux = None;
 }
 pub(crate) unsafe fn pop_nest() {
     MEM[cur_list.head].b32.s1 = avail;
@@ -3214,7 +3213,7 @@ pub(crate) unsafe fn sa_destroy(p: usize) {
         delete_glue_ref(MEM[p + 1].b32.s1 as usize);
     } else if !MEM[p + 1].b32.s1.is_texnull() {
         if MEM[p].b16.s1 < BOX_VAL_LIMIT {
-            flush_node_list(MEM[p + 1].b32.s1);
+            flush_node_list(MEM[p + 1].b32.s1.opt());
         } else {
             delete_token_ref(MEM[p + 1].b32.s1 as usize);
         }
@@ -3327,7 +3326,7 @@ pub(crate) unsafe fn eq_destroy(w: memory_word) {
                 );
             }
         }
-        121 => flush_node_list(w.b32.s1),
+        121 => flush_node_list(w.b32.s1.opt()),
         72 | 91 => {
             if w.b32.s1 < 0 || w.b32.s1 > 19 {
                 delete_sa_ref(w.b32.s1 as usize);
@@ -7947,7 +7946,6 @@ pub(crate) unsafe fn scan_expr() {
     let mut t: i32 = 0;
     let mut f: i32 = 0;
     let mut n: i32 = 0;
-    let mut q: i32 = 0;
     let mut l = cur_val_level as small_number;
     let mut a = arith_error;
     let mut b = false;
@@ -8164,26 +8162,26 @@ pub(crate) unsafe fn scan_expr() {
                 }
                 /*1577: */
                 f = e;
-                q = p;
-                e = MEM[(q + 1) as usize].b32.s1;
-                t = MEM[(q + 2) as usize].b32.s1;
-                n = MEM[(q + 3) as usize].b32.s1;
-                s = (MEM[q as usize].b16.s0 as i32 / 4) as small_number;
-                r = (MEM[q as usize].b16.s0 as i32 % 4) as small_number;
-                l = MEM[q as usize].b16.s1 as small_number;
-                p = MEM[q as usize].b32.s1;
-                free_node(q as usize, EXPR_NODE_SIZE);
+                let q = p as usize;
+                e = MEM[q + 1].b32.s1;
+                t = MEM[q + 2].b32.s1;
+                n = MEM[q + 3].b32.s1;
+                s = (MEM[q].b16.s0 as i32 / 4) as small_number;
+                r = (MEM[q].b16.s0 as i32 % 4) as small_number;
+                l = MEM[q].b16.s1 as small_number;
+                p = MEM[q].b32.s1;
+                free_node(q, EXPR_NODE_SIZE);
             }
         }
         /*1576: */
-        q = get_node(EXPR_NODE_SIZE) as i32;
-        MEM[q as usize].b32.s1 = p;
-        MEM[q as usize].b16.s1 = l as u16;
-        MEM[q as usize].b16.s0 = (4 * s as i32 + r as i32) as u16;
-        MEM[(q + 1) as usize].b32.s1 = e;
-        MEM[(q + 2) as usize].b32.s1 = t;
-        MEM[(q + 3) as usize].b32.s1 = n;
-        p = q;
+        let q = get_node(EXPR_NODE_SIZE);
+        MEM[q].b32.s1 = p;
+        MEM[q].b16.s1 = l as u16;
+        MEM[q].b16.s0 = (4 * s as i32 + r as i32) as u16;
+        MEM[q + 1].b32.s1 = e;
+        MEM[q + 2].b32.s1 = t;
+        MEM[q + 3].b32.s1 = n;
+        p = q as i32;
         l = o
     }
     if b {
@@ -8272,11 +8270,7 @@ pub(crate) unsafe fn scan_general_text() {
     let q = MEM[def_ref].b32.s1;
     MEM[def_ref].b32.s1 = avail;
     avail = def_ref as i32;
-    if q.is_texnull() {
-        cur_val = TEMP_HEAD as i32;
-    } else {
-        cur_val = p as i32;
-    }
+    cur_val = if q.is_texnull() { TEMP_HEAD } else { p } as i32;
     MEM[TEMP_HEAD].b32.s1 = q;
     scanner_status = s;
     warning_index = w;
@@ -11520,7 +11514,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
                             break;
                         }
                     }
-                    flush_node_list(p);
+                    flush_node_list(p.opt());
                     p = MEM[q as usize].b32.s1;
                     measure_native_node(
                         &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
@@ -12739,7 +12733,7 @@ pub(crate) unsafe fn fin_align() {
         s = q;
         q = *LLIST_link(q as usize);
     }
-    flush_node_list(p);
+    flush_node_list(p.opt());
     pop_alignment();
     aux_save = cur_list.aux;
     p = MEM[cur_list.head].b32.s1;
@@ -12967,7 +12961,7 @@ pub(crate) unsafe fn show_save_groups() {
                 return found(p, a);
             }
             GroupCode::MATH_LEFT => {
-                if MEM[NEST[p + 1].eTeX_aux as usize].b16.s1 == LEFT_NOAD {
+                if MEM[NEST[p + 1].eTeX_aux.unwrap()].b16.s1 == LEFT_NOAD {
                     print_esc_cstr(b"left");
                 } else {
                     print_esc_cstr(b"middle");
@@ -13220,7 +13214,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
             MEM[(cur_ptr + 1) as usize].b32.s1
         }
     };
-    flush_node_list(disc_ptr[VSPLIT_CODE as usize]);
+    flush_node_list(disc_ptr[VSPLIT_CODE as usize].opt());
     disc_ptr[VSPLIT_CODE as usize] = TEX_NULL;
     if !sa_root[MARK_VAL as usize].is_texnull() {
         if do_marks(0, 0, sa_root[MARK_VAL as usize]) {
@@ -13346,7 +13340,7 @@ pub(crate) unsafe fn box_error(mut n: eight_bits) {
     print_nl_cstr(b"The following box has been deleted:");
     show_box(*BOX_REG(n as usize));
     end_diagnostic(true);
-    flush_node_list(*BOX_REG(n as usize));
+    flush_node_list(BOX_REG(n as usize).opt());
     *BOX_REG(n as usize) = TEX_NULL;
 }
 pub(crate) unsafe fn app_space() {
@@ -13665,7 +13659,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
                 help_line[1] = b"I found the <box or rule>, but there\'s no suitable";
                 help_line[0] = b"<hskip or vskip>, so I\'m ignoring these leaders.";
                 back_error();
-                flush_node_list(cur_box);
+                flush_node_list(cur_box.opt());
             }
         } else {
             ship_out(cur_box as usize);
@@ -13791,7 +13785,7 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
                                 } else if fm {
                                     cur_list.tail = r as usize;
                                     MEM[r as usize].b32.s1 = TEX_NULL;
-                                    flush_node_list(p);
+                                    flush_node_list(p.opt());
                                 }
                                 cur_box = tx;
                                 MEM[(cur_box + 4) as usize].b32.s1 = 0
@@ -14012,10 +14006,9 @@ pub(crate) unsafe fn end_graf() {
         } else {
             line_break(false);
         }
-        let aux = cur_list.eTeX_aux.opt();
-        if let Some(_) = aux {
-            flush_list(aux);
-            cur_list.eTeX_aux = TEX_NULL;
+        if let Some(_) = cur_list.eTeX_aux {
+            flush_list(cur_list.eTeX_aux);
+            cur_list.eTeX_aux = None;
         }
         normal_paragraph();
         error_count = 0;
@@ -14161,9 +14154,9 @@ pub(crate) unsafe fn delete_last() {
                 } else if fm {
                     cur_list.tail = r as usize;
                     MEM[r as usize].b32.s1 = TEX_NULL;
-                    flush_node_list(p);
+                    flush_node_list(p.opt());
                 }
-                flush_node_list(tx);
+                flush_node_list(tx.opt());
             }
         }
     };
@@ -14328,7 +14321,7 @@ pub(crate) unsafe fn build_discretionary() {
                             print_nl_cstr(b"The following discretionary sublist has been deleted:");
                             show_box(p);
                             end_diagnostic(true);
-                            flush_node_list(p);
+                            flush_node_list(p.opt());
                             MEM[q as usize].b32.s1 = TEX_NULL;
                             break;
                         }
@@ -14357,7 +14350,7 @@ pub(crate) unsafe fn build_discretionary() {
                 help_ptr = 2;
                 help_line[1] = b"Sorry: The third part of a discretionary break must be";
                 help_line[0] = b"empty, in math formulas. I had to delete your third part.";
-                flush_node_list(p);
+                flush_node_list(p.opt());
                 n = 0;
                 error();
             } else {
@@ -14724,7 +14717,7 @@ pub(crate) unsafe fn just_reverse(mut p: i32) {
     } else {
         q = MEM[p as usize].b32.s1;
         MEM[p as usize].b32.s1 = TEX_NULL;
-        flush_node_list(MEM[TEMP_HEAD].b32.s1);
+        flush_node_list(MEM[TEMP_HEAD].b32.s1.opt());
     }
     let mut t = new_edge(cur_dir, 0);
     let mut l = t as i32;
@@ -15549,7 +15542,7 @@ pub(crate) unsafe fn do_extension() {
                 p = cur_list.tail;
                 do_extension();
                 out_what(cur_list.tail as i32);
-                flush_node_list(cur_list.tail as i32);
+                flush_node_list(Some(cur_list.tail));
                 cur_list.tail = p;
                 MEM[p].b32.s1 = TEX_NULL;
             } else {
@@ -15857,7 +15850,7 @@ pub(crate) unsafe fn handle_right_brace() {
                 MEM[PAGE_HEAD].b32.s1 = TEX_NULL;
                 page_tail = PAGE_HEAD as i32
             }
-            flush_node_list(disc_ptr[LAST_BOX_CODE as usize]);
+            flush_node_list(disc_ptr[LAST_BOX_CODE as usize].opt());
             disc_ptr[LAST_BOX_CODE as usize] = TEX_NULL;
             pop_nest();
             build_page();
@@ -16769,7 +16762,7 @@ pub(crate) unsafe fn main_control() {
                             }
                             MEM[main_ppp as usize].b32.s1 = MEM[main_pp as usize].b32.s1;
                             MEM[main_pp as usize].b32.s1 = TEX_NULL;
-                            flush_node_list(main_pp);
+                            flush_node_list(main_pp.opt());
                             main_pp = cur_list.tail as i32;
                             while MEM[main_ppp as usize].b32.s1 != main_pp {
                                 main_ppp = *LLIST_link(main_ppp as usize);
@@ -16891,7 +16884,7 @@ pub(crate) unsafe fn main_control() {
                         }
                         MEM[main_p as usize].b32.s1 = MEM[main_pp as usize].b32.s1;
                         MEM[main_pp as usize].b32.s1 = TEX_NULL;
-                        flush_node_list(main_pp);
+                        flush_node_list(main_pp.opt());
                     } else {
                         MEM[main_pp as usize].b32.s1 = new_native_word_node(main_f, main_k) as i32;
                         cur_list.tail = MEM[main_pp as usize].b32.s1 as usize;
@@ -17797,7 +17790,7 @@ pub(crate) unsafe fn prune_page_top(mut p: i32, mut s: bool) -> i32 {
                     }
                     r = q
                 } else {
-                    flush_node_list(q);
+                    flush_node_list(q.opt());
                 }
             }
             _ => confusion(b"pruning"),

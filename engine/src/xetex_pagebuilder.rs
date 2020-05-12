@@ -28,7 +28,7 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     is_non_discardable_node, BOX_depth, BOX_height, BOX_width, GLUE_NODE_glue_ptr,
     GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order,
-    LLIST_link, NODE_subtype, NODE_type, PENALTY_NODE_penalty,
+    LLIST_link, NODE_subtype, NODE_type, PENALTY_NODE_penalty, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -441,7 +441,7 @@ unsafe fn fire_up(mut c: i32) {
         page_tail = PAGE_HEAD as i32;
     }
 
-    flush_node_list(disc_ptr[LAST_BOX_CODE as usize]);
+    flush_node_list(disc_ptr[LAST_BOX_CODE as usize].opt());
     disc_ptr[LAST_BOX_CODE as usize] = TEX_NULL;
     ship_out(*BOX_REG(255) as usize);
     *BOX_REG(255) = TEX_NULL;
@@ -848,7 +848,7 @@ pub(crate) unsafe fn build_page() {
             *LLIST_link(slf.p as usize) = TEX_NULL;
 
             if *INTPAR(IntPar::saving_vdiscards) <= 0 {
-                flush_node_list(slf.p);
+                flush_node_list(slf.p.opt());
             } else {
                 /* `disc_ptr[LAST_BOX_CODE]` is `tail_page_disc`, the last item
                  * removed by the page builder. `disc_ptr[LAST_BOX_CODE]` is

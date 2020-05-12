@@ -44,7 +44,7 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     is_char_node, print_c_string, BOX_depth, BOX_glue_order, BOX_glue_sign, BOX_height,
     BOX_list_ptr, BOX_width, EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr, GLUE_SPEC_shrink_order,
-    LLIST_link, NODE_subtype, NODE_type,
+    LLIST_link, NODE_subtype, NODE_type, TeXOpt,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::{free, strerror, strlen};
@@ -327,7 +327,7 @@ pub(crate) unsafe fn ship_out(p: usize) {
 
     dead_cycles = 0;
     rust_stdout.as_mut().unwrap().flush().unwrap();
-    flush_node_list(p as i32);
+    flush_node_list(Some(p));
     synctex_teehs();
 }
 
@@ -582,7 +582,7 @@ unsafe fn hlist_out() {
                             prev_p = p;
                             p = MEM[p as usize].b32.s1
                         }
-                        flush_node_list(r);
+                        flush_node_list(r.opt());
                         pool_ptr = str_start[(str_ptr - 65536) as usize];
                         p = q
                     }
@@ -1769,7 +1769,7 @@ unsafe fn reverse(
                             break;
                         }
                         6 => {
-                            flush_node_list(MEM[(p + 1) as usize].b32.s1);
+                            flush_node_list(MEM[(p + 1) as usize].b32.s1.opt());
                             temp_ptr = p;
                             p = get_avail() as i32;
                             MEM[p as usize] = MEM[(temp_ptr + 1) as usize];

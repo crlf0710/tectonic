@@ -43,7 +43,7 @@ use crate::xetex_xetex0::{
     scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int, show_cur_cmd_chr,
     show_save_groups, start_input, trap_zero_glue,
 };
-use crate::xetex_xetexd::LLIST_link;
+use crate::xetex_xetexd::{LLIST_link, TeXOpt};
 use bridge::{
     ttstub_input_close, ttstub_input_open, ttstub_output_close, ttstub_output_open,
     ttstub_output_open_stdout,
@@ -393,7 +393,7 @@ pub(crate) struct list_state_record {
     pub(crate) mode: i16,
     pub(crate) head: usize,
     pub(crate) tail: usize,
-    pub(crate) eTeX_aux: i32,
+    pub(crate) eTeX_aux: Option<usize>,
     pub(crate) prev_graf: i32,
     pub(crate) mode_line: i32,
     pub(crate) aux: memory_word,
@@ -603,7 +603,7 @@ pub(crate) static mut cur_list: list_state_record = list_state_record {
     mode: 0,
     head: 0,
     tail: 0,
-    eTeX_aux: 0,
+    eTeX_aux: None,
     prev_graf: 0,
     mode_line: 0,
     aux: memory_word {
@@ -3894,7 +3894,7 @@ unsafe fn final_cleanup() {
             for_end_0 = 3i32;
             if c as i32 <= for_end_0 {
                 loop {
-                    flush_node_list(disc_ptr[c as usize]);
+                    flush_node_list(disc_ptr[c as usize].opt());
                     let fresh18 = c;
                     c = c + 1;
                     if !((fresh18 as i32) < for_end_0) {
@@ -3952,7 +3952,7 @@ unsafe fn initialize_more_variables() {
     cur_list.mode = VMODE as _;
     cur_list.head = CONTRIB_HEAD;
     cur_list.tail = CONTRIB_HEAD;
-    cur_list.eTeX_aux = TEX_NULL;
+    cur_list.eTeX_aux = None;
     cur_list.aux.b32.s1 = IGNORE_DEPTH;
     cur_list.mode_line = 0i32;
     cur_list.prev_graf = 0i32;
