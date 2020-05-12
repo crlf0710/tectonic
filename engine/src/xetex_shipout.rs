@@ -149,11 +149,10 @@ pub(crate) unsafe fn ship_out(p: usize) {
     /*663: "Update the values of max_h and max_v; but if the page is too
      * large, goto done". */
 
-    if *BOX_height(p as usize) > MAX_HALFWORD
-        || *BOX_depth(p as usize) > MAX_HALFWORD
-        || *BOX_height(p as usize) + *BOX_depth(p as usize) + *DIMENPAR(DimenPar::v_offset)
-            > MAX_HALFWORD
-        || *BOX_width(p as usize) + *DIMENPAR(DimenPar::h_offset) > MAX_HALFWORD
+    if *BOX_height(p) > MAX_HALFWORD
+        || *BOX_depth(p) > MAX_HALFWORD
+        || *BOX_height(p) + *BOX_depth(p) + *DIMENPAR(DimenPar::v_offset) > MAX_HALFWORD
+        || *BOX_width(p) + *DIMENPAR(DimenPar::h_offset) > MAX_HALFWORD
     {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -1089,7 +1088,7 @@ unsafe fn hlist_out() {
                                 cur_dir =
                                     (1i32 - cur_dir as i32) as
                                         small_number;
-                                p = new_edge(cur_dir, rule_wd);
+                                p = new_edge(cur_dir, rule_wd) as i32;
                                 MEM[prev_p as usize].b32.s1 = p;
                                 cur_h = cur_h - left_edge + rule_wd;
                                 MEM[p as usize].b32.s1 =
@@ -1097,7 +1096,7 @@ unsafe fn hlist_out() {
                                             new_edge((1i32 -
                                                           cur_dir as
                                                               i32) as
-                                                         small_number, 0i32),
+                                                         small_number, 0i32) as i32,
                                             &mut cur_g, &mut cur_glue);
                                 MEM[(p + 2) as usize].b32.s1 =
                                     cur_h;
@@ -1873,13 +1872,13 @@ unsafe fn reverse(
 }
 
 /*1506: Create a new edge node of subtype `s` and width `w` */
-pub(crate) unsafe fn new_edge(s: small_number, w: scaled_t) -> i32 {
+pub(crate) unsafe fn new_edge(s: small_number, w: scaled_t) -> usize {
     let p = get_node(EDGE_NODE_SIZE) as usize;
     *NODE_type(p) = EDGE_NODE;
     *NODE_subtype(p) = s as _;
     *BOX_width(p) = w;
-    *EDGE_NODE_edge_dist(p as usize) = 0;
-    p as i32
+    *EDGE_NODE_edge_dist(p) = 0;
+    p
 }
 
 pub(crate) unsafe fn out_what(mut p: i32) {
@@ -2319,9 +2318,9 @@ unsafe fn write_out(mut p: i32) {
         print_nl_cstr(b"");
     }
 
-    token_show(def_ref);
+    token_show(Some(def_ref));
     print_ln();
-    flush_list(def_ref);
+    flush_list(Some(def_ref));
 
     if j == 18 {
         if *INTPAR(IntPar::tracing_online) <= 0 {

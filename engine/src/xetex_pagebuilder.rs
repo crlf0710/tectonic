@@ -136,11 +136,11 @@ unsafe fn fire_up(mut c: i32) {
     }
     if !cur_mark[BOT_MARK_CODE as usize].is_texnull() {
         if !cur_mark[TOP_MARK_CODE as usize].is_texnull() {
-            delete_token_ref(cur_mark[TOP_MARK_CODE as usize]);
+            delete_token_ref(cur_mark[TOP_MARK_CODE as usize] as usize);
         }
         cur_mark[TOP_MARK_CODE as usize] = cur_mark[BOT_MARK_CODE as usize];
         MEM[cur_mark[0] as usize].b32.s0 += 1;
-        delete_token_ref(cur_mark[FIRST_MARK_CODE as usize]);
+        delete_token_ref(cur_mark[FIRST_MARK_CODE as usize] as usize);
         cur_mark[FIRST_MARK_CODE as usize] = TEX_NULL;
     }
 
@@ -280,7 +280,7 @@ unsafe fn fire_up(mut c: i32) {
                     q = p;
                     insert_penalties += 1
                 } else {
-                    delete_glue_ref(MEM[(p + 4) as usize].b32.s1);
+                    delete_glue_ref(MEM[(p + 4) as usize].b32.s1 as usize);
                     free_node(p as usize, INS_NODE_SIZE);
                 }
                 p = prev_p /*:1057 */
@@ -294,7 +294,7 @@ unsafe fn fire_up(mut c: i32) {
                     MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
                 }
                 if !MEM[(cur_ptr + 2) as usize].b32.s0.is_texnull() {
-                    delete_token_ref(MEM[(cur_ptr + 2) as usize].b32.s0);
+                    delete_token_ref(MEM[(cur_ptr + 2) as usize].b32.s0 as usize);
                 }
                 MEM[(cur_ptr + 2) as usize].b32.s0 = MEM[(p + 1) as usize].b32.s1;
                 MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
@@ -305,7 +305,7 @@ unsafe fn fire_up(mut c: i32) {
                     MEM[cur_mark[1] as usize].b32.s0 += 1;
                 }
                 if !cur_mark[2].is_texnull() {
-                    delete_token_ref(cur_mark[BOT_MARK_CODE as usize]);
+                    delete_token_ref(cur_mark[BOT_MARK_CODE as usize] as usize);
                 }
                 cur_mark[BOT_MARK_CODE as usize] = MEM[(p + 1) as usize].b32.s1;
                 MEM[cur_mark[2] as usize].b32.s0 += 1;
@@ -347,7 +347,7 @@ unsafe fn fire_up(mut c: i32) {
     *DIMENPAR(DimenPar::vfuzz) = save_vfuzz;
 
     if last_glue != MAX_HALFWORD {
-        delete_glue_ref(last_glue);
+        delete_glue_ref(last_glue as usize);
     }
 
     /*1026: "Start a new current page" */
@@ -476,7 +476,7 @@ pub(crate) unsafe fn build_page() {
 
         /*1031: "Update the values of last_glue, last_penalty, and last_kern" */
         if last_glue != MAX_HALFWORD {
-            delete_glue_ref(last_glue);
+            delete_glue_ref(last_glue as usize);
         }
 
         last_penalty = 0;
@@ -815,7 +815,7 @@ pub(crate) unsafe fn build_page() {
                     error();
                     slf.r = new_spec(slf.q as usize) as i32;
                     MEM[slf.r as usize].b16.s0 = 0_u16;
-                    delete_glue_ref(slf.q);
+                    delete_glue_ref(slf.q as usize);
                     MEM[(slf.p + 1) as usize].b32.s0 = slf.r;
                     slf.q = slf.r
                 }

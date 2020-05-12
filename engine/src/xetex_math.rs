@@ -2911,7 +2911,7 @@ unsafe fn mlist_to_hlist() {
                     if MEM[q as usize].b16.s0 == MU_GLUE {
                         x = MEM[(q + 1) as usize].b32.s0;
                         y = math_glue(x as usize, cur_mu) as i32;
-                        delete_glue_ref(x);
+                        delete_glue_ref(x as usize);
                         MEM[(q + 1) as usize].b32.s0 = y;
                         MEM[q as usize].b16.s0 = NORMAL as u16
                     } else if cur_size != TEXT_SIZE && MEM[q as usize].b16.s0 == COND_MATH_GLUE {

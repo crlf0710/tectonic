@@ -695,7 +695,7 @@ pub(crate) static mut scanner_status: u8 = 0;
 #[no_mangle]
 pub(crate) static mut warning_index: i32 = 0;
 #[no_mangle]
-pub(crate) static mut def_ref: i32 = 0;
+pub(crate) static mut def_ref: usize = 0;
 #[no_mangle]
 pub(crate) static mut PARAM_STACK: Vec<i32> = Vec::new();
 #[no_mangle]
@@ -1165,12 +1165,11 @@ const hash_offset: i32 = 514;
 /*:134*/
 /*135: */
 unsafe fn sort_avail() {
-    let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut r: i32 = 0;
     let mut old_rover: i32 = 0;
-    p = get_node(0x40000000i32) as i32;
-    p = MEM[(rover + 1) as usize].b32.s1;
+    let _p = get_node(0x40000000) as i32;
+    let mut p = MEM[(rover + 1) as usize].b32.s1;
     MEM[(rover + 1) as usize].b32.s1 = 0x3fffffff;
     old_rover = rover;
     /*136: */
@@ -1191,13 +1190,13 @@ unsafe fn sort_avail() {
             p = r
         }
     }
-    p = rover;
-    while MEM[(p + 1) as usize].b32.s1 != 0x3fffffff {
-        MEM[(MEM[(p + 1) as usize].b32.s1 + 1) as usize].b32.s0 = p;
-        p = MEM[(p + 1) as usize].b32.s1
+    let mut p = rover as usize;
+    while MEM[p + 1].b32.s1 != 0x3fffffff {
+        MEM[(MEM[p + 1].b32.s1 + 1) as usize].b32.s0 = p as i32;
+        p = MEM[(p + 1) as usize].b32.s1 as usize
     }
-    MEM[(p + 1) as usize].b32.s1 = rover;
-    MEM[(rover + 1) as usize].b32.s0 = p;
+    MEM[p + 1].b32.s1 = rover;
+    MEM[(rover + 1) as usize].b32.s0 = p as i32;
 }
 /*:271*/
 /*276: */
@@ -1654,8 +1653,8 @@ unsafe fn new_patterns() {
         help_ptr = 1_u8;
         help_line[0] = b"All patterns must be given before typesetting begins.";
         error();
-        MEM[(4999999 - 12) as usize].b32.s1 = scan_toks(false, false);
-        flush_list(def_ref);
+        MEM[(4999999 - 12) as usize].b32.s1 = scan_toks(false, false) as i32;
+        flush_list(Some(def_ref));
     };
 }
 pub(crate) unsafe fn init_trie() {
@@ -2108,20 +2107,20 @@ pub(crate) unsafe fn prefixed_command() {
             e = cur_chr >= 2i32;
             get_r_token();
             p = cur_cs;
-            q = scan_toks(true, e);
+            q = scan_toks(true, e) as i32;
             if j != 0i32 {
                 q = get_avail() as i32;
                 MEM[q as usize].b32.s0 = j;
                 MEM[q as usize].b32.s1 =
-                    MEM[def_ref as usize].b32.s1;
-                MEM[def_ref as usize].b32.s1 = q
+                    MEM[def_ref].b32.s1;
+                MEM[def_ref].b32.s1 = q
             }
             if a as i32 >= 4i32 {
                 geq_define(p as usize, (113i32 + a as i32 % 4i32) as u16,
-                           def_ref);
+                           def_ref as i32);
             } else {
                 eq_define(p as usize, (113i32 + a as i32 % 4i32) as u16,
-                          def_ref);
+                          def_ref as i32);
             }
         }
         LET => {
@@ -2428,8 +2427,8 @@ pub(crate) unsafe fn prefixed_command() {
                 _ => {
                     back_input();
                     cur_cs = q;
-                    q = scan_toks(false, false);
-                    if MEM[def_ref as usize].b32.s1.is_texnull() {
+                    q = scan_toks(false, false) as i32;
+                    if MEM[def_ref].b32.s1.is_texnull() {
                         if e {
                             if a as i32 >= 4i32 {
                                 gsa_def(p as usize, TEX_NULL);
@@ -2439,8 +2438,8 @@ pub(crate) unsafe fn prefixed_command() {
                         } else {
                             eq_define(p as usize, 103_u16, TEX_NULL);
                         }
-                        MEM[def_ref as usize].b32.s1 = avail;
-                        avail = def_ref
+                        MEM[def_ref].b32.s1 = avail;
+                        avail = def_ref as i32;
                     } else {
                         if p == LOCAL_BASE as i32 + Local::output_routine as i32 && !e {
                             MEM[q as usize].b32.s1 = get_avail() as i32;
@@ -2451,16 +2450,16 @@ pub(crate) unsafe fn prefixed_command() {
                             MEM[q as usize].b32.s0 =
                                 0x200000i32 + 123i32;
                             MEM[q as usize].b32.s1 =
-                                MEM[def_ref as usize].b32.s1;
-                            MEM[def_ref as usize].b32.s1 = q
+                                MEM[def_ref].b32.s1;
+                            MEM[def_ref].b32.s1 = q
                         }
                         if e {
                             if a as i32 >= 4i32 {
-                                gsa_def(p as usize, def_ref);
-                            } else { sa_def(p as usize, def_ref); }
+                                gsa_def(p as usize, def_ref as i32);
+                            } else { sa_def(p as usize, def_ref as i32); }
                         } else if a as i32 >= 4i32 {
-                            geq_define(p as usize, 113_u16, def_ref);
-                        } else { eq_define(p as usize, 113_u16, def_ref); }
+                            geq_define(p as usize, 113_u16, def_ref as i32);
+                        } else { eq_define(p as usize, 113_u16, def_ref as i32); }
                     }
                 }
             }
@@ -3876,7 +3875,7 @@ unsafe fn final_cleanup() {
             if c as i32 <= for_end {
                 loop {
                     if !cur_mark[c as usize].is_texnull() {
-                        delete_token_ref(cur_mark[c as usize]);
+                        delete_token_ref(cur_mark[c as usize] as usize);
                     }
                     let fresh17 = c;
                     c = c + 1;
@@ -3904,7 +3903,7 @@ unsafe fn final_cleanup() {
                 }
             }
             if last_glue != 0x3fffffffi32 {
-                delete_glue_ref(last_glue);
+                delete_glue_ref(last_glue as usize);
             }
             store_fmt_file();
             return;

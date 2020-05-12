@@ -44,7 +44,7 @@ use crate::xetex_xetexd::{
     LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
     LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length, NODE_subtype, NODE_type,
     PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty,
-    FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH, MIN_TRIE_OP,
+    TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH, MIN_TRIE_OP,
 };
 
 pub(crate) type scaled_t = i32;
@@ -158,7 +158,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
     } else {
         *NODE_type(cur_list.tail) = PENALTY_NODE;
-        delete_glue_ref(*GLUE_NODE_glue_ptr(cur_list.tail));
+        delete_glue_ref(*GLUE_NODE_glue_ptr(cur_list.tail) as usize);
         flush_node_list(*GLUE_NODE_leader_ptr(cur_list.tail));
         *PENALTY_NODE_penalty(cur_list.tail) = INF_PENALTY;
     }
@@ -179,12 +179,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::left_skip) as usize) != NORMAL as _
         && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::left_skip) as usize) != 0
     {
-        *GLUEPAR(GluePar::left_skip) = finite_shrink(*GLUEPAR(GluePar::left_skip)) as i32;
+        *GLUEPAR(GluePar::left_skip) = finite_shrink(*GLUEPAR(GluePar::left_skip) as usize) as i32;
     }
     if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::right_skip) as usize) != NORMAL as _
         && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::right_skip) as usize) != 0
     {
-        *GLUEPAR(GluePar::right_skip) = finite_shrink(*GLUEPAR(GluePar::right_skip)) as i32;
+        *GLUEPAR(GluePar::right_skip) =
+            finite_shrink(*GLUEPAR(GluePar::right_skip) as usize) as i32;
     }
 
     q = *GLUEPAR(GluePar::left_skip);
@@ -398,7 +399,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         && *GLUE_SPEC_shrink(q as usize) != 0
                     {
                         let fresh3 = GLUE_NODE_glue_ptr(cur_p as usize);
-                        *fresh3 = finite_shrink(q) as i32;
+                        *fresh3 = finite_shrink(q as usize) as i32;
                         q = *fresh3
                     }
                     active_width[1] += *BOX_width(q as usize);
@@ -1229,7 +1230,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             do_last_line_fit = false
         } else {
             let q = new_spec(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
-            delete_glue_ref(*GLUE_NODE_glue_ptr(last_line_fill as usize));
+            delete_glue_ref(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
             MEM[q + 1].b32.s1 +=
                 *ACTIVE_NODE_shortfall(best_bet as usize) - *ACTIVE_NODE_glue(best_bet as usize);
             *GLUE_SPEC_stretch(q) = 0;
@@ -1269,7 +1270,6 @@ unsafe fn post_line_break(mut d: bool) {
     let mut r: i32 = 0;
     let mut s: i32 = 0;
     let mut p: i32 = 0;
-    let mut k: i32 = 0;
     let mut w: scaled_t = 0;
     let mut glue_break: bool = false;
     let mut ptmp: i32 = 0;
@@ -1358,7 +1358,7 @@ unsafe fn post_line_break(mut d: bool) {
                 q = *LLIST_link(q as usize);
             }
         } else if *NODE_type(q as usize) == GLUE_NODE {
-            delete_glue_ref(*GLUE_NODE_glue_ptr(q as usize));
+            delete_glue_ref(*GLUE_NODE_glue_ptr(q as usize) as usize);
             *GLUE_NODE_glue_ptr(q as usize) = *GLUEPAR(GluePar::right_skip);
             *NODE_subtype(q as usize) = GluePar::right_skip as u16 + 1;
             *GLUE_SPEC_ref_count(*GLUEPAR(GluePar::right_skip) as usize) += 1;
@@ -1447,9 +1447,9 @@ unsafe fn post_line_break(mut d: bool) {
             }
             w = char_pw(p, 1i32 as small_number);
             if w != 0i32 {
-                k = new_margin_kern(-w, last_rightmost_char, 1);
-                MEM[k as usize].b32.s1 = MEM[ptmp as usize].b32.s1;
-                MEM[ptmp as usize].b32.s1 = k;
+                let k = new_margin_kern(-w, last_rightmost_char, 1);
+                MEM[k].b32.s1 = MEM[ptmp as usize].b32.s1;
+                MEM[ptmp as usize].b32.s1 = k as i32;
                 if ptmp == q {
                     q = *LLIST_link(q as usize);
                 }
@@ -1496,9 +1496,9 @@ unsafe fn post_line_break(mut d: bool) {
             p = find_protchar_left(p, false);
             w = char_pw(p, 0);
             if w != 0 {
-                k = new_margin_kern(-w, last_leftmost_char, 0);
-                MEM[k as usize].b32.s1 = q;
-                q = k;
+                let k = new_margin_kern(-w, last_leftmost_char, 0);
+                MEM[k].b32.s1 = q;
+                q = k as i32;
             }
         }
         if *GLUEPAR(GluePar::left_skip) != 0 {
@@ -2799,10 +2799,10 @@ unsafe fn hyphenate() {
             }
         }
         MEM[s as usize].b32.s1 = q;
-        flush_list(init_list);
+        flush_list(init_list.opt());
     };
 }
-unsafe fn finite_shrink(mut p: i32) -> usize {
+unsafe fn finite_shrink(p: usize) -> usize {
     if no_shrink_error_yet {
         no_shrink_error_yet = false;
         if file_line_error_style_p != 0 {
@@ -2819,7 +2819,7 @@ unsafe fn finite_shrink(mut p: i32) -> usize {
         help_line[0] = b"since the offensive shrinkability has been made finite.";
         error();
     }
-    let q = new_spec(p as usize);
+    let q = new_spec(p);
     MEM[q].b16.s0 = NORMAL;
     delete_glue_ref(p);
     q
