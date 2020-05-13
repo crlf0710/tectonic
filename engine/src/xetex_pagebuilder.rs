@@ -416,7 +416,7 @@ unsafe fn fire_up(mut c: i32) {
             cur_list.mode = -VMODE as _;
             cur_list.aux.b32.s1 = IGNORE_DEPTH; /* this is `prev_depth` */
             cur_list.mode_line = -line;
-            begin_token_list(*LOCAL(Local::output_routine) as usize, OUTPUT_TEXT);
+            begin_token_list(*LOCAL(Local::output_routine) as usize, Btl::OutputText);
             new_save_level(GroupCode::OUTPUT);
             normal_paragraph();
             scan_left_brace();

@@ -402,7 +402,7 @@ pub(crate) struct list_state_record {
 #[repr(C)]
 pub(crate) struct input_state_t {
     pub(crate) state: u16,
-    pub(crate) index: u16,
+    pub(crate) index: Btl,
     pub(crate) start: i32,
     pub(crate) loc: i32,
     pub(crate) limit: i32,
@@ -669,7 +669,7 @@ pub(crate) static mut MAX_IN_STACK: usize = 0;
 #[no_mangle]
 pub(crate) static mut cur_input: input_state_t = input_state_t {
     state: 0,
-    index: 0,
+    index: Btl::Parameter,
     start: 0,
     loc: 0,
     limit: 0,
@@ -5306,7 +5306,7 @@ pub(crate) unsafe fn tt_run_engine(
     first = 1i32;
     cur_input.state = 33_u16;
     cur_input.start = 1i32;
-    cur_input.index = 0_u16;
+    cur_input.index = Btl::Parameter;
     line = 0i32;
     cur_input.name = 0i32;
     force_eof = false;

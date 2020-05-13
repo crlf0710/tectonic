@@ -413,7 +413,7 @@ pub(crate) unsafe fn init_math() {
         eq_word_define(DIMEN_BASE as usize + DimenPar::display_width as usize, l);
         eq_word_define(DIMEN_BASE as usize + DimenPar::display_indent as usize, s);
         if !LOCAL(Local::every_display).is_texnull() {
-            begin_token_list(*LOCAL(Local::every_display) as usize, EVERY_DISPLAY_TEXT);
+            begin_token_list(*LOCAL(Local::every_display) as usize, Btl::EveryDisplayText);
         }
         if NEST_PTR == 1 {
             build_page();
@@ -426,7 +426,7 @@ pub(crate) unsafe fn init_math() {
             insert_src_special();
         }
         if !LOCAL(Local::every_math).is_texnull() {
-            begin_token_list(*LOCAL(Local::every_math) as usize, EVERY_MATH_TEXT);
+            begin_token_list(*LOCAL(Local::every_math) as usize, Btl::EveryMathText);
         }
     };
 }
@@ -439,7 +439,7 @@ pub(crate) unsafe fn start_eq_no() {
         insert_src_special();
     }
     if !LOCAL(Local::every_math).is_texnull() {
-        begin_token_list(*LOCAL(Local::every_math) as usize, EVERY_MATH_TEXT);
+        begin_token_list(*LOCAL(Local::every_math) as usize, Btl::EveryMathText);
     };
 }
 pub(crate) unsafe fn math_limit_switch() {

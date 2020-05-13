@@ -3591,7 +3591,7 @@ pub(crate) unsafe fn show_context() {
             /*324: */
             if BASE_PTR == INPUT_PTR
                 || cur_input.state != TOKEN_LIST
-                || cur_input.index != BACKED_UP
+                || cur_input.index != Btl::BackedUp
                 || !cur_input.loc.is_texnull()
             {
                 tally = 0i32;
@@ -3655,40 +3655,49 @@ pub(crate) unsafe fn show_context() {
                     }
                 } else {
                     match cur_input.index {
-                        PARAMETER => print_nl_cstr(b"<argument> "),
-                        U_TEMPLATE | V_TEMPLATE => print_nl_cstr(b"<template> "),
-                        BACKED_UP | BACKED_UP_CHAR => {
+                        Btl::Parameter => print_nl_cstr(b"<argument> "),
+                        Btl::UTemplate | Btl::VTemplate => print_nl_cstr(b"<template> "),
+                        Btl::BackedUp | Btl::BackedUpChar => {
                             if cur_input.loc.is_texnull() {
                                 print_nl_cstr(b"<recently read> ");
                             } else {
                                 print_nl_cstr(b"<to be read again> ");
                             }
                         }
-                        INSERTED => print_nl_cstr(b"<inserted text> "),
-                        MACRO => {
+                        Btl::Inserted => print_nl_cstr(b"<inserted text> "),
+                        Btl::Macro => {
                             print_ln();
                             print_cs(cur_input.name);
                         }
-                        OUTPUT_TEXT => print_nl_cstr(b"<output> "),
-                        EVERY_PAR_TEXT => print_nl_cstr(b"<everypar> "),
-                        EVERY_MATH_TEXT => print_nl_cstr(b"<everymath> "),
-                        EVERY_DISPLAY_TEXT => print_nl_cstr(b"<everydisplay> "),
-                        EVERY_HBOX_TEXT => print_nl_cstr(b"<everyhbox> "),
-                        EVERY_VBOX_TEXT => print_nl_cstr(b"<everyvbox> "),
-                        EVERY_JOB_TEXT => print_nl_cstr(b"<everyjob> "),
-                        EVERY_CR_TEXT => print_nl_cstr(b"<everycr> "),
-                        MARK_TEXT => print_nl_cstr(b"<mark> "),
-                        EVERY_EOF_TEXT => print_nl_cstr(b"<everyeof> "),
-                        INTER_CHAR_TEXT => print_nl_cstr(b"<XeTeXinterchartoks> "),
-                        WRITE_TEXT => print_nl_cstr(b"<write> "),
-                        TECTONIC_CODA_TEXT => print_nl_cstr(b"<TectonicCodaTokens> "),
-                        _ => print_nl('?' as i32),
+                        Btl::OutputText => print_nl_cstr(b"<output> "),
+                        Btl::EveryParText => print_nl_cstr(b"<everypar> "),
+                        Btl::EveryMathText => print_nl_cstr(b"<everymath> "),
+                        Btl::EveryDisplayText => print_nl_cstr(b"<everydisplay> "),
+                        Btl::EveryHBoxText => print_nl_cstr(b"<everyhbox> "),
+                        Btl::EveryVBoxText => print_nl_cstr(b"<everyvbox> "),
+                        Btl::EveryJobText => print_nl_cstr(b"<everyjob> "),
+                        Btl::EveryCRText => print_nl_cstr(b"<everycr> "),
+                        Btl::MarkText => print_nl_cstr(b"<mark> "),
+                        Btl::EveryEOFText => print_nl_cstr(b"<everyeof> "),
+                        Btl::InterCharText => print_nl_cstr(b"<XeTeXinterchartoks> "),
+                        Btl::WriteText => print_nl_cstr(b"<write> "),
+                        Btl::TectonicCodaText => print_nl_cstr(b"<TectonicCodaTokens> "),
+                        //_ => print_nl('?' as i32),
                     }
                     l = tally;
                     tally = 0i32;
                     selector = Selector::PSEUDO;
                     trick_count = 1_000_000;
-                    if cur_input.index < MACRO {
+                    if [
+                        Btl::Parameter,
+                        Btl::UTemplate,
+                        Btl::VTemplate,
+                        Btl::BackedUp,
+                        Btl::BackedUpChar,
+                        Btl::Inserted,
+                    ]
+                    .contains(&cur_input.index)
+                    {
                         show_token_list(cur_input.start, cur_input.loc, 100000);
                     } else {
                         show_token_list(
@@ -3780,7 +3789,7 @@ pub(crate) unsafe fn show_context() {
     }
     cur_input = INPUT_STACK[INPUT_PTR];
 }
-pub(crate) unsafe fn begin_token_list(p: usize, t: u16) {
+pub(crate) unsafe fn begin_token_list(p: usize, t: Btl) {
     if INPUT_PTR > MAX_IN_STACK {
         MAX_IN_STACK = INPUT_PTR;
         if INPUT_PTR == STACK_SIZE {
@@ -3792,9 +3801,18 @@ pub(crate) unsafe fn begin_token_list(p: usize, t: u16) {
     cur_input.state = 0_u16;
     cur_input.start = p as i32;
     cur_input.index = t;
-    if t >= MACRO {
+    if ![
+        Btl::Parameter,
+        Btl::UTemplate,
+        Btl::VTemplate,
+        Btl::BackedUp,
+        Btl::BackedUpChar,
+        Btl::Inserted,
+    ]
+    .contains(&t)
+    {
         MEM[p].b32.s0 += 1;
-        if t == MACRO {
+        if t == Btl::Macro {
             cur_input.limit = PARAM_PTR as i32
         } else {
             cur_input.loc = MEM[p].b32.s1;
@@ -3802,13 +3820,13 @@ pub(crate) unsafe fn begin_token_list(p: usize, t: u16) {
                 begin_diagnostic();
                 print_nl_cstr(b"");
                 match t {
-                    MARK_TEXT => print_esc_cstr(b"mark"),
-                    WRITE_TEXT => print_esc_cstr(b"write"),
+                    Btl::MarkText => print_esc_cstr(b"mark"),
+                    Btl::WriteText => print_esc_cstr(b"write"),
                     _ => {
                         print_cmd_chr(
                             ASSIGN_TOKS,
                             (t as i32) + LOCAL_BASE as i32 + (Local::output_routine as i32)
-                                - (OUTPUT_TEXT) as i32,
+                                - (Btl::OutputText) as i32,
                         );
                     }
                 }
@@ -3822,19 +3840,19 @@ pub(crate) unsafe fn begin_token_list(p: usize, t: u16) {
     };
 }
 pub(crate) unsafe fn end_token_list() {
-    if cur_input.index >= BACKED_UP {
-        if cur_input.index <= INSERTED {
+    if ![Btl::Parameter, Btl::UTemplate, Btl::VTemplate].contains(&cur_input.index) {
+        if [Btl::BackedUp, Btl::BackedUpChar, Btl::Inserted].contains(&cur_input.index) {
             flush_list(cur_input.start.opt());
         } else {
             delete_token_ref(cur_input.start as usize);
-            if cur_input.index == MACRO {
+            if cur_input.index == Btl::Macro {
                 while PARAM_PTR as i32 > cur_input.limit {
                     PARAM_PTR -= 1;
                     flush_list(PARAM_STACK[PARAM_PTR].opt());
                 }
             }
         }
-    } else if cur_input.index == U_TEMPLATE {
+    } else if cur_input.index == Btl::UTemplate {
         if align_state > 500000 {
             align_state = 0
         } else {
@@ -3848,7 +3866,7 @@ pub(crate) unsafe fn back_input() {
     let mut p: i32 = 0;
     while cur_input.state == TOKEN_LIST
         && cur_input.loc.is_texnull()
-        && cur_input.index != V_TEMPLATE
+        && cur_input.index != Btl::VTemplate
     {
         end_token_list();
     }
@@ -3871,7 +3889,7 @@ pub(crate) unsafe fn back_input() {
     INPUT_PTR += 1;
     cur_input.state = TOKEN_LIST;
     cur_input.start = p;
-    cur_input.index = BACKED_UP;
+    cur_input.index = Btl::BackedUp;
     cur_input.loc = p;
 }
 pub(crate) unsafe fn back_error() {
@@ -3880,7 +3898,7 @@ pub(crate) unsafe fn back_error() {
 }
 pub(crate) unsafe fn ins_error() {
     back_input();
-    cur_input.index = INSERTED;
+    cur_input.index = Btl::Inserted;
     error();
 }
 pub(crate) unsafe fn begin_file_reading() {
@@ -3899,7 +3917,7 @@ pub(crate) unsafe fn begin_file_reading() {
     }
     INPUT_STACK[INPUT_PTR] = cur_input;
     INPUT_PTR += 1;
-    cur_input.index = IN_OPEN as u16;
+    cur_input.index = Btl::from(IN_OPEN as u16);
     SOURCE_FILENAME_STACK[cur_input.index as usize] = 0;
     FULL_SOURCE_FILENAME_STACK[cur_input.index as usize] = 0;
     EOF_SEEN[cur_input.index as usize] = false;
@@ -3930,7 +3948,7 @@ pub(crate) unsafe fn check_outer_validity() {
             if cur_input.state == TOKEN_LIST || cur_input.name < 1 || cur_input.name > 17 {
                 let p = get_avail();
                 MEM[p].b32.s0 = CS_TOKEN_FLAG + cur_cs;
-                begin_token_list(p, BACKED_UP);
+                begin_token_list(p, Btl::BackedUp);
             }
             cur_cmd = SPACER as u8;
             cur_chr = ' ' as i32
@@ -3980,7 +3998,7 @@ pub(crate) unsafe fn check_outer_validity() {
                 }
                 _ => unreachable!(),
             }
-            begin_token_list(p, INSERTED);
+            begin_token_list(p, Btl::Inserted);
             print_cstr(b" of ");
             sprint_cs(warning_index);
             help_ptr = 4;
@@ -4245,7 +4263,7 @@ pub(crate) unsafe fn get_next() {
                                     EOF_SEEN[cur_input.index as usize] = true;
                                     begin_token_list(
                                         *LOCAL(Local::every_eof) as usize,
-                                        EVERY_EOF_TEXT,
+                                        Btl::EveryEOFText,
                                     );
                                     continue 'c_63502;
                                 } else {
@@ -4258,7 +4276,10 @@ pub(crate) unsafe fn get_next() {
                             {
                                 cur_input.limit = first - 1;
                                 EOF_SEEN[cur_input.index as usize] = true;
-                                begin_token_list(*LOCAL(Local::every_eof) as usize, EVERY_EOF_TEXT);
+                                begin_token_list(
+                                    *LOCAL(Local::every_eof) as usize,
+                                    Btl::EveryEOFText,
+                                );
                                 continue 'c_63502;
                             } else {
                                 force_eof = true
@@ -4552,7 +4573,7 @@ pub(crate) unsafe fn get_next() {
                                 used_tectonic_coda_tokens = true; /* token list but no tokens left */
                                 begin_token_list(
                                     *LOCAL(Local::TectonicCodaTokens) as usize,
-                                    19_u16,
+                                    Btl::TectonicCodaText,
                                 );
                                 continue;
                             } else {
@@ -4614,7 +4635,7 @@ pub(crate) unsafe fn get_next() {
                         current_block = 1132450443677887731;
                         begin_token_list(
                             PARAM_STACK[(cur_input.limit + cur_chr - 1) as usize] as usize,
-                            0_u16,
+                            Btl::Parameter,
                         );
                         continue;
                     }
@@ -4633,9 +4654,12 @@ pub(crate) unsafe fn get_next() {
             cur_cmd = MEM[(cur_align + 5) as usize].b32.s0 as eight_bits;
             MEM[(cur_align + 5) as usize].b32.s0 = cur_chr;
             if cur_cmd == OMIT as u8 {
-                begin_token_list(OMIT_TEMPLATE, V_TEMPLATE);
+                begin_token_list(OMIT_TEMPLATE, Btl::VTemplate);
             } else {
-                begin_token_list(MEM[(cur_align + 2) as usize].b32.s1 as usize, V_TEMPLATE);
+                begin_token_list(
+                    MEM[(cur_align + 2) as usize].b32.s1 as usize,
+                    Btl::VTemplate,
+                );
             }
             align_state = 1000000;
         } else {
@@ -4957,11 +4981,11 @@ pub(crate) unsafe fn macro_call() {
         12717620301112128284 => {
             while cur_input.state == TOKEN_LIST
                 && cur_input.loc.is_texnull()
-                && cur_input.index != V_TEMPLATE
+                && cur_input.index != Btl::VTemplate
             {
                 end_token_list();
             }
-            begin_token_list(ref_count, 6_u16);
+            begin_token_list(ref_count, Btl::Macro);
             cur_input.name = warning_index;
             cur_input.loc = MEM[r as usize].b32.s1;
             if n as i32 > 0 {
@@ -4989,7 +5013,7 @@ pub(crate) unsafe fn insert_relax() {
     back_input();
     cur_tok = CS_TOKEN_FLAG + FROZEN_RELAX as i32;
     back_input();
-    cur_input.index = INSERTED;
+    cur_input.index = Btl::Inserted;
 }
 pub(crate) unsafe fn new_index(mut i: u16, mut q: i32) {
     let mut k: small_number = 0;
@@ -5209,7 +5233,7 @@ pub(crate) unsafe fn expand() {
                         }
                     }
                     if !cur_ptr.is_texnull() {
-                        begin_token_list(cur_ptr as usize, MARK_TEXT);
+                        begin_token_list(cur_ptr as usize, Btl::MarkText);
                     }
                     break;
                 }
@@ -5551,7 +5575,7 @@ pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
                 if cur_cmd as i32 != SPACER as _ || p != BACKUP_HEAD {
                     back_input();
                     if p != BACKUP_HEAD {
-                        begin_token_list(MEM[BACKUP_HEAD].b32.s1 as usize, BACKED_UP);
+                        begin_token_list(MEM[BACKUP_HEAD].b32.s1 as usize, Btl::BackedUp);
                     }
                     return false;
                 }
@@ -5573,7 +5597,7 @@ pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
         } else if cur_cmd as i32 != SPACER as _ || p != BACKUP_HEAD {
             back_input();
             if p != BACKUP_HEAD {
-                begin_token_list(MEM[BACKUP_HEAD].b32.s1 as usize, BACKED_UP);
+                begin_token_list(MEM[BACKUP_HEAD].b32.s1 as usize, Btl::BackedUp);
             }
             return false;
         }
@@ -8482,7 +8506,7 @@ pub(crate) unsafe fn the_toks() -> usize {
 }
 pub(crate) unsafe fn ins_the_toks() {
     MEM[GARBAGE as usize].b32.s1 = the_toks() as i32;
-    begin_token_list(MEM[TEMP_HEAD].b32.s1 as usize, INSERTED);
+    begin_token_list(MEM[TEMP_HEAD].b32.s1 as usize, Btl::Inserted);
 }
 pub(crate) unsafe fn conv_toks() {
     let mut save_warning_index: i32 = 0;
@@ -8586,7 +8610,7 @@ pub(crate) unsafe fn conv_toks() {
                 str_ptr -= 1;
                 pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
             }
-            begin_token_list(MEM[TEMP_HEAD].b32.s1 as usize, INSERTED);
+            begin_token_list(MEM[TEMP_HEAD].b32.s1 as usize, Btl::Inserted);
             if u != 0 {
                 str_ptr -= 1;
             }
@@ -8849,7 +8873,7 @@ pub(crate) unsafe fn conv_toks() {
     }
     selector = old_setting_0;
     MEM[GARBAGE].b32.s1 = str_toks_cat(b, cat) as i32;
-    begin_token_list(MEM[TEMP_HEAD].b32.s1 as usize, INSERTED);
+    begin_token_list(MEM[TEMP_HEAD].b32.s1 as usize, Btl::Inserted);
 }
 pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
     unsafe fn found(p: usize, hash_brace: i32) -> usize {
@@ -12198,7 +12222,7 @@ pub(crate) unsafe fn init_align() {
     scanner_status = ScannerStatus::Normal;
     new_save_level(GroupCode::ALIGN);
     if !LOCAL(Local::every_cr).is_texnull() {
-        begin_token_list(*LOCAL(Local::every_cr) as usize, EVERY_CR_TEXT);
+        begin_token_list(*LOCAL(Local::every_cr) as usize, Btl::EveryCRText);
     }
     align_peek();
 }
@@ -12234,7 +12258,10 @@ pub(crate) unsafe fn init_col() {
         align_state = 0;
     } else {
         back_input();
-        begin_token_list(MEM[(cur_align + 3) as usize].b32.s1 as usize, U_TEMPLATE);
+        begin_token_list(
+            MEM[(cur_align + 3) as usize].b32.s1 as usize,
+            Btl::UTemplate,
+        );
     };
 }
 pub(crate) unsafe fn fin_col() -> bool {
@@ -12423,7 +12450,7 @@ pub(crate) unsafe fn fin_row() {
     MEM[p as usize].b16.s1 = 13_u16;
     MEM[(p + 6) as usize].b32.s1 = 0;
     if !LOCAL(Local::every_cr).is_texnull() {
-        begin_token_list(*LOCAL(Local::every_cr) as usize, EVERY_CR_TEXT);
+        begin_token_list(*LOCAL(Local::every_cr) as usize, Btl::EveryCRText);
     }
     align_peek();
 }
@@ -13502,7 +13529,7 @@ pub(crate) unsafe fn off_save() {
             }
         }
         print_cstr(b" inserted");
-        begin_token_list(MEM[TEMP_HEAD].b32.s1 as usize, INSERTED);
+        begin_token_list(MEM[TEMP_HEAD].b32.s1 as usize, Btl::Inserted);
         help_ptr = 5;
         help_line[4] = b"I\'ve inserted something that you may have forgotten.";
         help_line[3] = b"(See the <inserted text> above.)";
@@ -13828,12 +13855,12 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
             if k == VMODE as i32 {
                 cur_list.aux.b32.s1 = IGNORE_DEPTH;
                 if !LOCAL(Local::every_vbox).is_texnull() {
-                    begin_token_list(*LOCAL(Local::every_vbox) as usize, EVERY_VBOX_TEXT);
+                    begin_token_list(*LOCAL(Local::every_vbox) as usize, Btl::EveryVBoxText);
                 }
             } else {
                 cur_list.aux.b32.s0 = 1000;
                 if !LOCAL(Local::every_hbox).is_texnull() {
-                    begin_token_list(*LOCAL(Local::every_hbox) as usize, EVERY_HBOX_TEXT);
+                    begin_token_list(*LOCAL(Local::every_hbox) as usize, Btl::EveryHBoxText);
                 }
             }
             return;
@@ -13944,7 +13971,7 @@ pub(crate) unsafe fn new_graf(mut indented: bool) {
         }
     }
     if !LOCAL(Local::every_par).is_texnull() {
-        begin_token_list(*LOCAL(Local::every_par) as usize, EVERY_PAR_TEXT);
+        begin_token_list(*LOCAL(Local::every_par) as usize, Btl::EveryParText);
     }
     if NEST_PTR == 1 {
         build_page();
@@ -13988,7 +14015,7 @@ pub(crate) unsafe fn head_for_vmode() {
         back_input();
         cur_tok = par_token;
         back_input();
-        cur_input.index = INSERTED;
+        cur_input.index = Btl::Inserted;
     };
 }
 pub(crate) unsafe fn end_graf() {
@@ -14542,13 +14569,13 @@ pub(crate) unsafe fn omit_error() {
 pub(crate) unsafe fn do_endv() {
     BASE_PTR = INPUT_PTR;
     INPUT_STACK[BASE_PTR] = cur_input;
-    while INPUT_STACK[BASE_PTR].index != V_TEMPLATE
+    while INPUT_STACK[BASE_PTR].index != Btl::VTemplate
         && INPUT_STACK[BASE_PTR].loc.is_texnull()
         && INPUT_STACK[BASE_PTR].state == TOKEN_LIST
     {
         BASE_PTR -= 1
     }
-    if INPUT_STACK[BASE_PTR].index != V_TEMPLATE
+    if INPUT_STACK[BASE_PTR].index != Btl::VTemplate
         || !INPUT_STACK[BASE_PTR].loc.is_texnull()
         || INPUT_STACK[BASE_PTR].state != TOKEN_LIST
     {
@@ -15336,7 +15363,7 @@ pub(crate) unsafe fn shift_case() {
         }
         p = *LLIST_link(p as usize)
     }
-    begin_token_list(MEM[def_ref].b32.s1 as usize, BACKED_UP);
+    begin_token_list(MEM[def_ref].b32.s1 as usize, Btl::BackedUp);
     MEM[def_ref].b32.s1 = avail;
     avail = def_ref as i32;
 }
@@ -15689,7 +15716,7 @@ pub(crate) unsafe fn insert_src_special() {
         MEM[p].b32.s1 = get_avail() as i32;
         let p = *LLIST_link(p) as usize;
         MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
-        begin_token_list(toklist, INSERTED);
+        begin_token_list(toklist, Btl::Inserted);
         remember_source_info(SOURCE_FILENAME_STACK[IN_OPEN], line);
     };
 }
@@ -15788,7 +15815,7 @@ pub(crate) unsafe fn handle_right_brace() {
         GroupCode::OUTPUT => {
             /*1062:*/
             if !cur_input.loc.is_texnull()
-                || cur_input.index != OUTPUT_TEXT && cur_input.index != BACKED_UP
+                || cur_input.index != Btl::OutputText && cur_input.index != Btl::BackedUp
             {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -15924,7 +15951,7 @@ pub(crate) unsafe fn handle_right_brace() {
 pub(crate) unsafe fn main_control() {
     let mut current_block: u64;
     if !LOCAL(Local::every_job).is_texnull() {
-        begin_token_list(*LOCAL(Local::every_job) as usize, 13_u16);
+        begin_token_list(*LOCAL(Local::every_job) as usize, Btl::EveryJobText);
     }
     'c_125208: loop {
         /* big_switch */
@@ -15975,7 +16002,7 @@ pub(crate) unsafe fn main_control() {
                                 back_input();
                                 begin_token_list(
                                     MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                                    INTER_CHAR_TEXT,
+                                    Btl::InterCharText,
                                 );
                                 continue 'c_125208;
                             }
@@ -16333,7 +16360,7 @@ pub(crate) unsafe fn main_control() {
                             if !LOCAL(Local::every_vbox).is_texnull() {
                                 begin_token_list(
                                     *LOCAL(Local::every_vbox) as usize,
-                                    EVERY_VBOX_TEXT,
+                                    Btl::EveryVBoxText,
                                 );
                             }
                             continue 'c_125208;
@@ -16454,7 +16481,8 @@ pub(crate) unsafe fn main_control() {
                     space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
                     if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != 4096 {
                         if prev_class == CHAR_CLASS_LIMIT - 1 {
-                            if cur_input.state != TOKEN_LIST || cur_input.index != BACKED_UP_CHAR {
+                            if cur_input.state != TOKEN_LIST || cur_input.index != Btl::BackedUpChar
+                            {
                                 find_sa_element(
                                     INTER_CHAR_VAL as small_number,
                                     (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
@@ -16466,10 +16494,10 @@ pub(crate) unsafe fn main_control() {
                                     }
                                     cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                     back_input();
-                                    cur_input.index = BACKED_UP_CHAR;
+                                    cur_input.index = Btl::BackedUpChar;
                                     begin_token_list(
                                         MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                                        INTER_CHAR_TEXT,
+                                        Btl::InterCharText,
                                     );
                                     continue 'c_125208;
                                 }
@@ -16486,10 +16514,10 @@ pub(crate) unsafe fn main_control() {
                                 }
                                 cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                 back_input();
-                                cur_input.index = BACKED_UP_CHAR;
+                                cur_input.index = Btl::BackedUpChar;
                                 begin_token_list(
                                     MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                                    INTER_CHAR_TEXT,
+                                    Btl::InterCharText,
                                 );
                                 prev_class = CHAR_CLASS_LIMIT - 1;
                                 current_block = 9706274459985797855;
@@ -16585,7 +16613,7 @@ pub(crate) unsafe fn main_control() {
                             back_input();
                             begin_token_list(
                                 MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                                INTER_CHAR_TEXT,
+                                Btl::InterCharText,
                             );
                         }
                     }
@@ -17039,7 +17067,7 @@ pub(crate) unsafe fn main_control() {
                 space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
                 if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != CHAR_CLASS_LIMIT {
                     if prev_class == CHAR_CLASS_LIMIT - 1 {
-                        if cur_input.state != TOKEN_LIST || cur_input.index != BACKED_UP_CHAR {
+                        if cur_input.state != TOKEN_LIST || cur_input.index != Btl::BackedUpChar {
                             find_sa_element(
                                 INTER_CHAR_VAL as small_number,
                                 (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
@@ -17051,10 +17079,10 @@ pub(crate) unsafe fn main_control() {
                                 }
                                 cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                 back_input();
-                                cur_input.index = BACKED_UP_CHAR;
+                                cur_input.index = Btl::BackedUpChar;
                                 begin_token_list(
                                     MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                                    INTER_CHAR_TEXT,
+                                    Btl::InterCharText,
                                 );
                                 continue 'c_125208;
                             }
@@ -17071,10 +17099,10 @@ pub(crate) unsafe fn main_control() {
                             }
                             cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                             back_input();
-                            cur_input.index = BACKED_UP_CHAR;
+                            cur_input.index = Btl::BackedUpChar;
                             begin_token_list(
                                 MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                                INTER_CHAR_TEXT,
+                                Btl::InterCharText,
                             );
                             prev_class = CHAR_CLASS_LIMIT - 1;
                             continue 'c_125208;
@@ -17418,7 +17446,7 @@ pub(crate) unsafe fn main_control() {
                                         {
                                             if prev_class == CHAR_CLASS_LIMIT - 1 {
                                                 if cur_input.state != TOKEN_LIST
-                                                    || cur_input.index != BACKED_UP_CHAR
+                                                    || cur_input.index != Btl::BackedUpChar
                                                 {
                                                     find_sa_element(
                                                         INTER_CHAR_VAL as small_number,
@@ -17433,11 +17461,11 @@ pub(crate) unsafe fn main_control() {
                                                         cur_tok =
                                                             cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                                         back_input();
-                                                        cur_input.index = BACKED_UP_CHAR;
+                                                        cur_input.index = Btl::BackedUpChar;
                                                         begin_token_list(
                                                             MEM[(cur_ptr + 1) as usize].b32.s1
                                                                 as usize,
-                                                            INTER_CHAR_TEXT,
+                                                            Btl::InterCharText,
                                                         );
                                                         continue 'c_125208;
                                                     }
@@ -17455,10 +17483,10 @@ pub(crate) unsafe fn main_control() {
                                                     cur_tok =
                                                         cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                                     back_input();
-                                                    cur_input.index = BACKED_UP_CHAR;
+                                                    cur_input.index = Btl::BackedUpChar;
                                                     begin_token_list(
                                                         MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                                                        INTER_CHAR_TEXT,
+                                                        Btl::InterCharText,
                                                     );
                                                     prev_class = CHAR_CLASS_LIMIT - 1;
                                                     continue 'c_125208;
@@ -17634,7 +17662,7 @@ pub(crate) unsafe fn main_control() {
                         back_input();
                         begin_token_list(
                             MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                            INTER_CHAR_TEXT,
+                            Btl::InterCharText,
                         );
                         continue;
                     }
