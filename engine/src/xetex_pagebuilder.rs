@@ -26,7 +26,7 @@ use crate::xetex_xetex0::{
     scan_left_brace, vert_break, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_non_discardable_node, BOX_depth, BOX_height, BOX_width, GLUE_NODE_glue_ptr,
+    is_non_discardable_node, set_NODE_type, BOX_depth, BOX_height, BOX_width, GLUE_NODE_glue_ptr,
     GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order,
     LLIST_link, NODE_subtype, NODE_type, PENALTY_NODE_penalty, TeXOpt,
 };
@@ -75,7 +75,7 @@ unsafe fn ensure_vbox(mut n: eight_bits) {
     if p.is_texnull() {
         return;
     }
-    if *NODE_type(p as usize) != HLIST_NODE {
+    if NODE_type(p as usize) != HLIST_NODE {
         return;
     }
     if file_line_error_style_p != 0 {
@@ -108,7 +108,7 @@ unsafe fn fire_up(mut c: i32) {
     let mut save_vfuzz: scaled_t = 0;
     let mut save_split_top_skip: i32 = 0;
     /*1048: "Set the value of output_penalty" */
-    if *NODE_type(best_page_break as usize) == PENALTY_NODE {
+    if NODE_type(best_page_break as usize) == PENALTY_NODE {
         geq_word_define(
             INT_BASE as usize + (IntPar::output_penalty as usize),
             *PENALTY_NODE_penalty(best_page_break as usize),
@@ -208,7 +208,7 @@ unsafe fn fire_up(mut c: i32) {
     p = *LLIST_link(prev_p as usize);
 
     while p != best_page_break {
-        if *NODE_type(p as usize) == INS_NODE {
+        if NODE_type(p as usize) == INS_NODE {
             if process_inserts {
                 /*1055: "Either insert the material specified by node p into
                  * the appropriate box, or hold it for the next page; also
@@ -229,7 +229,7 @@ unsafe fn fire_up(mut c: i32) {
                         /*1056: "Wrap up the box specified by node r,
                          * splitting node p if called for; set wait = true if
                          * node p holds a remainder after splitting" */
-                        if *NODE_type(r as usize) == SPLIT_UP as _ {
+                        if NODE_type(r as usize) == SPLIT_UP as _ {
                             if MEM[(r + 1) as usize].b32.s0 == p
                                 && MEM[(r + 1) as usize].b32.s1 != -0xfffffff
                             {
@@ -285,7 +285,7 @@ unsafe fn fire_up(mut c: i32) {
                 }
                 p = prev_p /*:1057 */
             }
-        } else if *NODE_type(p as usize) == MARK_NODE {
+        } else if NODE_type(p as usize) == MARK_NODE {
             if MEM[(p + 1) as usize].b32.s0 != 0 {
                 /*1618: "Update the current marks" */
                 find_sa_element(MARK_VAL as _, MEM[(p + 1) as usize].b32.s0, true);
@@ -481,17 +481,17 @@ pub(crate) unsafe fn build_page() {
 
         last_penalty = 0;
         last_kern = 0;
-        last_node_type = *NODE_type(slf.p as usize) as i32 + 1;
+        last_node_type = NODE_type(slf.p as usize) as i32 + 1;
 
-        if *NODE_type(slf.p as usize) == GLUE_NODE {
+        if NODE_type(slf.p as usize) == GLUE_NODE {
             last_glue = *GLUE_NODE_glue_ptr(slf.p as usize);
             MEM[last_glue as usize].b32.s1 += 1;
         } else {
             last_glue = MAX_HALFWORD;
 
-            if *NODE_type(slf.p as usize) == PENALTY_NODE {
+            if NODE_type(slf.p as usize) == PENALTY_NODE {
                 last_penalty = MEM[(slf.p + 1) as usize].b32.s1
-            } else if *NODE_type(slf.p as usize) == KERN_NODE {
+            } else if NODE_type(slf.p as usize) == KERN_NODE {
                 last_kern = *BOX_width(slf.p as usize);
             }
         }
@@ -516,7 +516,7 @@ pub(crate) unsafe fn build_page() {
          * contribution list will not be contributed until we know its
          * successor." */
 
-        match *NODE_type(slf.p as usize) {
+        match NODE_type(slf.p as usize) {
             HLIST_NODE | VLIST_NODE | RULE_NODE => {
                 if page_contents < BOX_THERE as _ {
                     /*1036: "Initialize the current page, insert the \topskip glue
@@ -564,7 +564,7 @@ pub(crate) unsafe fn build_page() {
                     return done1(slf);
                 } else if LLIST_link(slf.p as usize).is_texnull() {
                     return (slf, true)
-                } else if *NODE_type(*LLIST_link(slf.p as usize) as usize) == GLUE_NODE {
+                } else if NODE_type(*LLIST_link(slf.p as usize) as usize) == GLUE_NODE {
                     slf.pi = 0;
                 } else { return update_heights(slf); }
             }
@@ -599,7 +599,7 @@ pub(crate) unsafe fn build_page() {
                     slf.r = slf.q;
 
                     *NODE_subtype(slf.r as usize) = n as _;
-                    *NODE_type(slf.r as usize) = INSERTING as _;
+                    set_NODE_type(slf.r as usize, INSERTING as _);
                     ensure_vbox(n);
 
                     if BOX_REG(n as _).is_texnull() {
@@ -641,7 +641,7 @@ pub(crate) unsafe fn build_page() {
                     }
                 }
 
-                if *NODE_type(slf.r as usize) == SPLIT_UP as _ {
+                if NODE_type(slf.r as usize) == SPLIT_UP as _ {
                     insert_penalties +=
                         MEM[(slf.p + 1) as usize].b32.s1
                 } else {
@@ -702,13 +702,13 @@ pub(crate) unsafe fn build_page() {
                                 x_over_n(best_height_plus_depth, 1000i32) * *COUNT_REG(n as _);
                         }
                         page_so_far[0] -= best_height_plus_depth;
-                        *NODE_type(slf.r as usize) = SPLIT_UP as _;
+                        set_NODE_type(slf.r as usize, SPLIT_UP as _);
                         MEM[(slf.r + 1) as usize].b32.s1 = slf.q;
                         MEM[(slf.r + 1) as usize].b32.s0 = slf.p;
 
                         if slf.q.is_texnull() {
                             insert_penalties += EJECT_PENALTY;
-                        } else if *NODE_type(slf.q as usize) == PENALTY_NODE {
+                        } else if NODE_type(slf.q as usize) == PENALTY_NODE {
                             insert_penalties +=
                                 MEM[(slf.q + 1) as usize].b32.s1
                         }
@@ -784,7 +784,7 @@ pub(crate) unsafe fn build_page() {
         /* ... resuming 1032 ... I believe the "goto" here can only be
          * triggered if p is a penalty node, and we decided not to break. */
 
-        if *NODE_type(slf.p as usize) < GLUE_NODE || *NODE_type(slf.p as usize) > KERN_NODE {
+        if NODE_type(slf.p as usize) < GLUE_NODE || NODE_type(slf.p as usize) > KERN_NODE {
             return contribute(slf);
         }
 
@@ -793,7 +793,7 @@ pub(crate) unsafe fn build_page() {
         unsafe fn update_heights(mut slf: Args) -> (Args, bool) {
             /*1039: "Update the current page measurements with respect to the glue or kern
              * specified by node p" */
-            if *NODE_type(slf.p as usize) == KERN_NODE {
+            if NODE_type(slf.p as usize) == KERN_NODE {
                 slf.q = slf.p
             } else {
                 slf.q = MEM[(slf.p + 1) as usize].b32.s0;

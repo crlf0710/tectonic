@@ -42,9 +42,9 @@ use crate::xetex_xetex0::{
     UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, print_c_string, BOX_depth, BOX_glue_order, BOX_glue_sign, BOX_height,
-    BOX_list_ptr, BOX_width, EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr, GLUE_SPEC_shrink_order,
-    LLIST_link, NODE_subtype, NODE_type, TeXOpt,
+    is_char_node, print_c_string, set_NODE_type, BOX_depth, BOX_glue_order, BOX_glue_sign,
+    BOX_height, BOX_list_ptr, BOX_width, EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr,
+    GLUE_SPEC_shrink_order, LLIST_link, NODE_subtype, NODE_type, TeXOpt,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::{free, strerror, strlen};
@@ -292,7 +292,7 @@ pub(crate) unsafe fn ship_out(p: usize) {
 
         cur_v = *BOX_height(p) + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
         temp_ptr = p as i32;
-        if *NODE_type(p) == VLIST_NODE {
+        if NODE_type(p) == VLIST_NODE {
             vlist_out();
         } else {
             hlist_out();
@@ -373,7 +373,7 @@ unsafe fn hlist_out() {
             if !LLIST_link(p as usize).is_texnull() {
                 if !p.is_texnull()
                     && !is_char_node(p)
-                    && *NODE_type(p as usize) != WHATSIT_NODE
+                    && NODE_type(p as usize) != WHATSIT_NODE
                     && (*NODE_subtype(p as usize) == NATIVE_WORD_NODE
                         || *NODE_subtype(p as usize) == NATIVE_WORD_NODE_AT)
                     && FONT_LETTER_SPACE[MEM[(p + 4) as usize].b16.s2 as usize] == 0
@@ -388,11 +388,11 @@ unsafe fn hlist_out() {
                          * reused a few times here. */
                         while !q.is_texnull()
                             && !is_char_node(q)
-                            && (*NODE_type(q as usize) == PENALTY_NODE
-                                || *NODE_type(q as usize) == INS_NODE
-                                || *NODE_type(q as usize) == MARK_NODE
-                                || *NODE_type(q as usize) == ADJUST_NODE
-                                || (*NODE_type(q as usize) == WHATSIT_NODE
+                            && (NODE_type(q as usize) == PENALTY_NODE
+                                || NODE_type(q as usize) == INS_NODE
+                                || NODE_type(q as usize) == MARK_NODE
+                                || NODE_type(q as usize) == ADJUST_NODE
+                                || (NODE_type(q as usize) == WHATSIT_NODE
                                     && *NODE_subtype(q as usize) <= 4))
                         {
                             q = *LLIST_link(q as usize);
@@ -400,7 +400,7 @@ unsafe fn hlist_out() {
                         if !(!q.is_texnull() && !is_char_node(q)) {
                             break;
                         }
-                        if *NODE_type(q as usize) == GLUE_NODE
+                        if NODE_type(q as usize) == GLUE_NODE
                             && *GLUE_SPEC_shrink_order(q as usize) == NORMAL as _
                         {
                             if *GLUE_NODE_glue_ptr(q as usize)
@@ -413,11 +413,11 @@ unsafe fn hlist_out() {
 
                                 while !q.is_texnull()
                                     && !is_char_node(q)
-                                    && (*NODE_type(q as usize) == PENALTY_NODE
-                                        || *NODE_type(q as usize) == INS_NODE
-                                        || *NODE_type(q as usize) == MARK_NODE
-                                        || *NODE_type(q as usize) == ADJUST_NODE
-                                        || (*NODE_type(q as usize) == WHATSIT_NODE
+                                    && (NODE_type(q as usize) == PENALTY_NODE
+                                        || NODE_type(q as usize) == INS_NODE
+                                        || NODE_type(q as usize) == MARK_NODE
+                                        || NODE_type(q as usize) == ADJUST_NODE
+                                        || (NODE_type(q as usize) == WHATSIT_NODE
                                             && *NODE_subtype(q as usize) <= 4))
                                 {
                                     q = *LLIST_link(q as usize);
@@ -425,7 +425,7 @@ unsafe fn hlist_out() {
 
                                 if !q.is_texnull()
                                     && !is_char_node(q)
-                                    && *NODE_type(q as usize) == WHATSIT_NODE
+                                    && NODE_type(q as usize) == WHATSIT_NODE
                                     && (*NODE_subtype(q as usize) == NATIVE_WORD_NODE
                                         || *NODE_subtype(q as usize) == NATIVE_WORD_NODE_AT)
                                     && MEM[(q + 4) as usize].b16.s2 as i32
@@ -441,7 +441,7 @@ unsafe fn hlist_out() {
                             }
                             if !(!q.is_texnull()
                                 && !is_char_node(q)
-                                && *NODE_type(q as usize) == KERN_NODE
+                                && NODE_type(q as usize) == KERN_NODE
                                 && *NODE_subtype(q as usize) == SPACE_ADJUSTMENT as _)
                             {
                                 break;
@@ -1874,7 +1874,7 @@ unsafe fn reverse(
 /*1506: Create a new edge node of subtype `s` and width `w` */
 pub(crate) unsafe fn new_edge(s: small_number, w: scaled_t) -> usize {
     let p = get_node(EDGE_NODE_SIZE) as usize;
-    *NODE_type(p) = EDGE_NODE;
+    set_NODE_type(p, EDGE_NODE);
     *NODE_subtype(p) = s as _;
     *BOX_width(p) = w;
     *EDGE_NODE_edge_dist(p) = 0;

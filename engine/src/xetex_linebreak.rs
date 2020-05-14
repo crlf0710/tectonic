@@ -33,14 +33,14 @@ use crate::xetex_xetex0::{
     prev_rightmost,
 };
 use crate::xetex_xetexd::{
-    is_char_node, is_non_discardable_node, ACTIVE_NODE_break_node, ACTIVE_NODE_fitness,
-    ACTIVE_NODE_glue, ACTIVE_NODE_line_number, ACTIVE_NODE_shortfall, ACTIVE_NODE_total_demerits,
-    BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font, DELTA_NODE_dshrink,
-    DELTA_NODE_dstretch0, DELTA_NODE_dstretch1, DELTA_NODE_dstretch2, DELTA_NODE_dstretch3,
-    DELTA_NODE_dwidth, DISCRETIONARY_NODE_post_break, DISCRETIONARY_NODE_pre_break,
-    DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
-    GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
-    GLUE_SPEC_stretch_order, LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm,
+    is_char_node, is_non_discardable_node, set_NODE_type, ACTIVE_NODE_break_node,
+    ACTIVE_NODE_fitness, ACTIVE_NODE_glue, ACTIVE_NODE_line_number, ACTIVE_NODE_shortfall,
+    ACTIVE_NODE_total_demerits, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
+    DELTA_NODE_dshrink, DELTA_NODE_dstretch0, DELTA_NODE_dstretch1, DELTA_NODE_dstretch2,
+    DELTA_NODE_dstretch3, DELTA_NODE_dwidth, DISCRETIONARY_NODE_post_break,
+    DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr,
+    GLUE_NODE_leader_ptr, GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order,
+    GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm,
     LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
     LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length, NODE_subtype, NODE_type,
     PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty,
@@ -153,11 +153,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         /* is_char_node */
         *LLIST_link(cur_list.tail) = new_penalty(INF_PENALTY) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-    } else if *NODE_type(cur_list.tail) != GLUE_NODE {
+    } else if NODE_type(cur_list.tail) != GLUE_NODE {
         *LLIST_link(cur_list.tail) = new_penalty(INF_PENALTY) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
     } else {
-        *NODE_type(cur_list.tail) = PENALTY_NODE;
+        set_NODE_type(cur_list.tail, PENALTY_NODE);
         delete_glue_ref(*GLUE_NODE_glue_ptr(cur_list.tail) as usize);
         flush_node_list(GLUE_NODE_leader_ptr(cur_list.tail).opt());
         *PENALTY_NODE_penalty(cur_list.tail) = INF_PENALTY;
@@ -304,7 +304,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             }
         }
         q = get_node(active_node_size as i32) as i32;
-        *NODE_type(q as usize) = UNHYPHENATED as _;
+        set_NODE_type(q as usize, UNHYPHENATED as _);
         MEM[q as usize].b16.s0 = DECENT_FIT as _;
         *LLIST_link(q as usize) = LAST_ACTIVE as i32;
         MEM[(q + 1) as usize].b32.s1 = TEX_NULL;
@@ -357,7 +357,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     }
                 }
             }
-            match *NODE_type(cur_p as usize) {
+            match NODE_type(cur_p as usize) {
                 HLIST_NODE | VLIST_NODE | RULE_NODE => {
                     active_width[1] += *BOX_width(cur_p as usize)
                 }
@@ -388,7 +388,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             try_break(0, UNHYPHENATED as _);
                         } else if is_non_discardable_node(prev_p) {
                             try_break(0, UNHYPHENATED as _);
-                        } else if *NODE_type(prev_p as usize) == KERN_NODE
+                        } else if NODE_type(prev_p as usize) == KERN_NODE
                             && *NODE_subtype(prev_p as usize) != EXPLICIT as _
                         {
                             try_break(0, UNHYPHENATED as _);
@@ -421,7 +421,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     c = *CHAR_NODE_character(s as usize) as UnicodeScalar; /*:930*/
                                     hf = *CHAR_NODE_font(s as usize) as usize;
                                     current_block = 11202235766349324107;
-                                } else if *NODE_type(s as usize) == LIGATURE_NODE {
+                                } else if NODE_type(s as usize) == LIGATURE_NODE {
                                     if *LIGATURE_NODE_lig_ptr(s as usize) == TEX_NULL {
                                         current_block = 13855806088735179493;
                                     } else {
@@ -430,16 +430,16 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         hf = *CHAR_NODE_font(q as usize) as usize;
                                         current_block = 11202235766349324107;
                                     }
-                                } else if *NODE_type(s as usize) == KERN_NODE
+                                } else if NODE_type(s as usize) == KERN_NODE
                                     && *NODE_subtype(s as usize) == NORMAL
                                 {
                                     current_block = 13855806088735179493;
-                                } else if *NODE_type(s as usize) == MATH_NODE
+                                } else if NODE_type(s as usize) == MATH_NODE
                                     && *NODE_subtype(s as usize) >= L_CODE
                                 {
                                     current_block = 13855806088735179493;
                                 } else {
-                                    if !(*NODE_type(s as usize) == WHATSIT_NODE) {
+                                    if !(NODE_type(s as usize) == WHATSIT_NODE) {
                                         current_block = 8166967358843938227;
                                         break;
                                     }
@@ -517,7 +517,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                             if !(l_hyf + r_hyf > max_hyphenatable_length()) {
                                                 if ha != TEX_NULL
                                                     && ha < hi_mem_min
-                                                    && *NODE_type(ha as usize) == WHATSIT_NODE
+                                                    && NODE_type(ha as usize) == WHATSIT_NODE
                                                     && (*NODE_subtype(ha as usize)
                                                         == NATIVE_WORD_NODE
                                                         || *NODE_subtype(ha as usize)
@@ -528,7 +528,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
                                                     loop {
                                                         if !is_char_node(s) {
-                                                            match *NODE_type(s as usize) {
+                                                            match NODE_type(s as usize) {
                                                                 LIGATURE_NODE => {}
                                                                 KERN_NODE => {
                                                                     if *NODE_subtype(s as usize)
@@ -838,7 +838,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                             hu[hn as usize] = c;
                                                             hc[hn as usize] = hc[0];
                                                             hyf_bchar = TOO_BIG_CHAR;
-                                                        } else if *NODE_type(s as usize)
+                                                        } else if NODE_type(s as usize)
                                                             == LIGATURE_NODE
                                                         {
                                                             /*932: move the characters of a ligature node to hu and hc; but goto done3
@@ -900,8 +900,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                             }
                                                         /*:932*/
                                                         } else {
-                                                            if !(*NODE_type(s as usize)
-                                                                == KERN_NODE
+                                                            if !(NODE_type(s as usize) == KERN_NODE
                                                                 && *NODE_subtype(s as usize)
                                                                     == NORMAL)
                                                             {
@@ -924,7 +923,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                         if !((hn as i32) < l_hyf + r_hyf) {
                                                             loop {
                                                                 if !is_char_node(s) {
-                                                                    match *NODE_type(s as usize) {
+                                                                    match NODE_type(s as usize) {
                                                                         LIGATURE_NODE => {}
                                                                         KERN_NODE => {
                                                                             current_block =
@@ -1001,7 +1000,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         if (!is_char_node(*LLIST_link(cur_p as usize)) as i32) < hi_mem_min
                             && auto_breaking as i32 != 0
                         {
-                            if *NODE_type(*LLIST_link(cur_p as usize) as usize) == GLUE_NODE {
+                            if NODE_type(*LLIST_link(cur_p as usize) as usize) == GLUE_NODE {
                                 try_break(0, UNHYPHENATED);
                             }
                         }
@@ -1034,7 +1033,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 eff_char_0 = effective_char(true, f, MEM[s as usize].b16.s0);
                                 disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_0 as usize);
                             } else {
-                                match *NODE_type(s as usize) {
+                                match NODE_type(s as usize) {
                                     LIGATURE_NODE => {
                                         let mut eff_char_1: i32 = 0;
                                         f = *LIGATURE_NODE_lig_font(s as usize) as usize;
@@ -1082,7 +1081,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             eff_char_2 = effective_char(true, f, *CHAR_NODE_character(s as usize));
                             active_width[1] += *FONT_CHARACTER_WIDTH(f, eff_char_2 as usize);
                         } else {
-                            match *NODE_type(s as usize) {
+                            match NODE_type(s as usize) {
                                 LIGATURE_NODE => {
                                     let mut eff_char_3: i32 = 0;
                                     f = *LIGATURE_NODE_lig_font(s as usize) as usize;
@@ -1123,7 +1122,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         auto_breaking = *NODE_subtype(cur_p as usize) as i32 & 1 != 0
                     }
                     if !is_char_node(*LLIST_link(cur_p as usize)) && auto_breaking {
-                        if *NODE_type(*LLIST_link(cur_p as usize) as usize) == GLUE_NODE {
+                        if NODE_type(*LLIST_link(cur_p as usize) as usize) == GLUE_NODE {
                             try_break(0, UNHYPHENATED);
                         }
                     }
@@ -1147,7 +1146,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 fewest_demerits = MAX_HALFWORD;
 
                 loop {
-                    if *NODE_type(r as usize) != DELTA_NODE {
+                    if NODE_type(r as usize) != DELTA_NODE {
                         if *ACTIVE_NODE_total_demerits(r as usize) < fewest_demerits {
                             fewest_demerits = *ACTIVE_NODE_total_demerits(r as usize); /*:904*/
                             best_bet = r;
@@ -1167,7 +1166,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 actual_looseness = 0;
 
                 loop {
-                    if *NODE_type(r as usize) != DELTA_NODE {
+                    if NODE_type(r as usize) != DELTA_NODE {
                         line_diff = *ACTIVE_NODE_line_number(r as usize) - best_line;
 
                         if line_diff < actual_looseness && *INTPAR(IntPar::looseness) <= line_diff
@@ -1199,7 +1198,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         q = *LLIST_link(ACTIVE_LIST);
         while q != LAST_ACTIVE as i32 {
             cur_p = *LLIST_link(q as usize);
-            if *NODE_type(q as usize) == DELTA_NODE {
+            if NODE_type(q as usize) == DELTA_NODE {
                 free_node(q as usize, DELTA_NODE_SIZE);
             } else {
                 free_node(q as usize, active_node_size as i32);
@@ -1245,7 +1244,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     while q != ACTIVE_LIST as i32 {
         let mut next: i32 = *LLIST_link(q as usize);
 
-        if *NODE_type(q as usize) == DELTA_NODE {
+        if NODE_type(q as usize) == DELTA_NODE {
             free_node(q as usize, DELTA_NODE_SIZE);
         } else {
             free_node(q as usize, active_node_size as i32);
@@ -1319,7 +1318,7 @@ unsafe fn post_line_break(mut d: bool) {
                 MEM[TEMP_HEAD].b32.s1 = r;
             }
             while q != MEM[(cur_p + 1) as usize].b32.s1 {
-                if q < hi_mem_min && *NODE_type(q as usize) == MATH_NODE {
+                if q < hi_mem_min && NODE_type(q as usize) == MATH_NODE {
                     /*1495:*/
                     if MEM[q as usize].b16.s0 as i32 & 1 != 0 {
                         if LR_ptr != TEX_NULL
@@ -1357,13 +1356,13 @@ unsafe fn post_line_break(mut d: bool) {
             while !LLIST_link(q as usize).is_texnull() {
                 q = *LLIST_link(q as usize);
             }
-        } else if *NODE_type(q as usize) == GLUE_NODE {
+        } else if NODE_type(q as usize) == GLUE_NODE {
             delete_glue_ref(*GLUE_NODE_glue_ptr(q as usize) as usize);
             *GLUE_NODE_glue_ptr(q as usize) = *GLUEPAR(GluePar::right_skip);
             *NODE_subtype(q as usize) = GluePar::right_skip as u16 + 1;
             *GLUE_SPEC_ref_count(*GLUEPAR(GluePar::right_skip) as usize) += 1;
             glue_break = true;
-        } else if *NODE_type(q as usize) == DISC_NODE {
+        } else if NODE_type(q as usize) == DISC_NODE {
             /*911:*/
             t = MEM[q as usize].b16.s0;
             if t == 0 {
@@ -1407,9 +1406,9 @@ unsafe fn post_line_break(mut d: bool) {
             }
             *LLIST_link(q as usize) = r;
             disc_break = true;
-        } else if *NODE_type(q as usize) == KERN_NODE {
+        } else if NODE_type(q as usize) == KERN_NODE {
             *BOX_width(q as usize) = 0
-        } else if *NODE_type(q as usize) == MATH_NODE {
+        } else if NODE_type(q as usize) == MATH_NODE {
             *BOX_width(q as usize) = 0;
             if *INTPAR(IntPar::texxet) > 0 {
                 /*1495:*/
@@ -1437,7 +1436,7 @@ unsafe fn post_line_break(mut d: bool) {
          * the case of a discretionary break with non-empty pre_break -- then
          * q has been changed to the last node of the pre-break list" */
         if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
-            if disc_break as i32 != 0 && (is_char_node(q) || *NODE_type(q as usize) != DISC_NODE) {
+            if disc_break as i32 != 0 && (is_char_node(q) || NODE_type(q as usize) != DISC_NODE) {
                 p = q; /*:915*/
                 ptmp = p
             } else {
@@ -1621,14 +1620,14 @@ unsafe fn post_line_break(mut d: bool) {
                     if is_non_discardable_node(q) {
                         break;
                     }
-                    if *NODE_type(q as usize) == KERN_NODE
+                    if NODE_type(q as usize) == KERN_NODE
                         && *NODE_subtype(q as usize) != EXPLICIT
                         && *NODE_subtype(q as usize) != SPACE_ADJUSTMENT
                     {
                         break;
                     }
                     r = q as usize;
-                    if *NODE_type(q as usize) == MATH_NODE && *INTPAR(IntPar::texxet) > 0 {
+                    if NODE_type(q as usize) == MATH_NODE && *INTPAR(IntPar::texxet) > 0 {
                         /*1495:*/
                         if MEM[q as usize].b16.s0 as i32 & 1i32 != 0 {
                             if LR_ptr != TEX_NULL
@@ -1724,7 +1723,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
         r = *LLIST_link(prev_r as usize);
         /*861: "If node r is of type delta_node, update cur_active_width, set
          * prev_r and prev_prev_r, then goto continue" */
-        if *NODE_type(r as usize) == DELTA_NODE {
+        if NODE_type(r as usize) == DELTA_NODE {
             cur_active_width[1] += *DELTA_NODE_dwidth(r as usize);
             cur_active_width[2] += *DELTA_NODE_dstretch0(r as usize);
             cur_active_width[3] += *DELTA_NODE_dstretch1(r as usize);
@@ -1776,7 +1775,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                         break_width[1] -=
                                             *FONT_CHARACTER_WIDTH(f, eff_char as usize);
                                     } else {
-                                        match *NODE_type(v as usize) {
+                                        match NODE_type(v as usize) {
                                             LIGATURE_NODE => {
                                                 let mut eff_char_0: i32 = 0;
                                                 f = *LIGATURE_NODE_lig_font(v as usize) as usize;
@@ -1863,7 +1862,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                             if is_char_node(s) {
                                 break;
                             }
-                            match *NODE_type(s as usize) {
+                            match NODE_type(s as usize) {
                                 GLUE_NODE => {
                                     v = *GLUE_NODE_glue_ptr(s as usize);
                                     break_width[1] -= *BOX_width(v as usize);
@@ -1910,7 +1909,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                     } else {
                         let q = get_node(DELTA_NODE_SIZE);
                         *LLIST_link(q) = r;
-                        *NODE_type(q) = DELTA_NODE;
+                        set_NODE_type(q, DELTA_NODE);
                         *NODE_subtype(q) = 0_u16;
                         *DELTA_NODE_dwidth(q) = break_width[1] - cur_active_width[1];
                         *DELTA_NODE_dstretch0(q) = break_width[2] - cur_active_width[2];
@@ -1942,7 +1941,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                             *ACTIVE_NODE_break_node(q) = passive;
                             *ACTIVE_NODE_line_number(q) = best_pl_line[fit_class as usize] + 1;
                             *ACTIVE_NODE_fitness(q) = fit_class as u16;
-                            *NODE_type(q) = break_type as u16;
+                            set_NODE_type(q, break_type as u16);
                             *ACTIVE_NODE_total_demerits(q) = minimal_demerits[fit_class as usize];
 
                             if do_last_line_fit {
@@ -1962,7 +1961,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                     if r != LAST_ACTIVE as i32 {
                         let q = get_node(DELTA_NODE_SIZE);
                         *LLIST_link(q) = r;
-                        *NODE_type(q) = DELTA_NODE;
+                        set_NODE_type(q, DELTA_NODE);
                         *NODE_subtype(q) = 0; /* subtype is not used */
                         *DELTA_NODE_dwidth(q) = cur_active_width[1] - break_width[1];
                         *DELTA_NODE_dstretch0(q) = cur_active_width[2] - break_width[2];
@@ -2253,7 +2252,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                 d = d - pi * pi
                             }
                         }
-                        if break_type == HYPHENATED && *NODE_type(r as usize) == HYPHENATED as u16 {
+                        if break_type == HYPHENATED && NODE_type(r as usize) == HYPHENATED as u16 {
                             if !cur_p.is_texnull() {
                                 d = d + *INTPAR(IntPar::double_hyphen_demerits);
                             } else {
@@ -2291,7 +2290,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
             if prev_r == ACTIVE_LIST as i32 {
                 /*890: "Update the active widths, since the first active node has been deleted" */
                 r = *LLIST_link(ACTIVE_LIST); /*:966 */
-                if *NODE_type(r as usize) == DELTA_NODE {
+                if NODE_type(r as usize) == DELTA_NODE {
                     active_width[1] += *DELTA_NODE_dwidth(r as usize);
                     active_width[2] += *DELTA_NODE_dstretch0(r as usize);
                     active_width[3] += *DELTA_NODE_dstretch1(r as usize);
@@ -2307,7 +2306,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                     *LLIST_link(ACTIVE_LIST) = *LLIST_link(r as usize);
                     free_node(r as usize, DELTA_NODE_SIZE);
                 }
-            } else if *NODE_type(prev_r as usize) == DELTA_NODE {
+            } else if NODE_type(prev_r as usize) == DELTA_NODE {
                 r = *LLIST_link(prev_r as usize);
 
                 let r = r as usize;
@@ -2321,7 +2320,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                     *LLIST_link(prev_prev_r as usize) = LAST_ACTIVE as i32;
                     free_node(prev_r as usize, DELTA_NODE_SIZE);
                     prev_r = prev_prev_r
-                } else if *NODE_type(r) == DELTA_NODE {
+                } else if NODE_type(r) == DELTA_NODE {
                     cur_active_width[1] += *DELTA_NODE_dwidth(r);
                     cur_active_width[2] += *DELTA_NODE_dstretch0(r);
                     cur_active_width[3] += *DELTA_NODE_dstretch1(r);
@@ -2524,7 +2523,7 @@ unsafe fn hyphenate() {
     }
     if ha != TEX_NULL
         && !is_char_node(ha)
-        && *NODE_type(ha as usize) == WHATSIT_NODE
+        && NODE_type(ha as usize) == WHATSIT_NODE
         && (MEM[ha as usize].b16.s0 == NATIVE_WORD_NODE
             || MEM[ha as usize].b16.s0 == NATIVE_WORD_NODE_AT)
     {
@@ -2618,7 +2617,7 @@ unsafe fn hyphenate() {
                 hu[0] = MEM[ha as usize].b16.s0 as i32;
                 current_block = 6662862405959679103;
             }
-        } else if *NODE_type(ha as usize) == LIGATURE_NODE {
+        } else if NODE_type(ha as usize) == LIGATURE_NODE {
             if MEM[(ha + 1) as usize].b16.s1 as usize != hf {
                 current_block = 6826215413708131726;
             } else {
@@ -2697,7 +2696,7 @@ unsafe fn hyphenate() {
                 {
                     let r = get_node(SMALL_NODE_SIZE);
                     MEM[r].b32.s1 = MEM[HOLD_HEAD].b32.s1;
-                    *NODE_type(r) = DISC_NODE;
+                    set_NODE_type(r, DISC_NODE);
                     major_tail = r as i32;
                     r_count = 0;
                     while MEM[major_tail as usize].b32.s1 > TEX_NULL {
@@ -3129,7 +3128,7 @@ unsafe fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
     }
     r = prev_rightmost(global_prev_p, p);
     if p != TEX_NULL
-        && *NODE_type(p as usize) == DISC_NODE
+        && NODE_type(p as usize) == DISC_NODE
         && MEM[(p + 1) as usize].b32.s0 != TEX_NULL
     {
         r = MEM[(p + 1) as usize].b32.s0;
@@ -3139,7 +3138,7 @@ unsafe fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
     } else {
         r = find_protchar_right(l, r);
     }
-    if l != TEX_NULL && *NODE_type(l as usize) == DISC_NODE {
+    if l != TEX_NULL && NODE_type(l as usize) == DISC_NODE {
         if MEM[(l + 1) as usize].b32.s1 != TEX_NULL {
             l = MEM[(l + 1) as usize].b32.s1;
             return char_pw(l, 0) + char_pw(r, 1);
@@ -3161,7 +3160,7 @@ unsafe fn find_protchar_left(mut l: i32, mut d: bool) -> i32 {
     let mut t: i32 = 0;
     let mut run: bool = false;
     if MEM[l as usize].b32.s1 != TEX_NULL
-        && *NODE_type(l as usize) == HLIST_NODE
+        && NODE_type(l as usize) == HLIST_NODE
         && MEM[(l + 1) as usize].b32.s1 == 0
         && MEM[(l + 3) as usize].b32.s1 == 0
         && MEM[(l + 2) as usize].b32.s1 == 0
@@ -3180,7 +3179,7 @@ unsafe fn find_protchar_left(mut l: i32, mut d: bool) -> i32 {
     loop {
         t = l;
         while run as i32 != 0
-            && *NODE_type(l as usize) == HLIST_NODE
+            && NODE_type(l as usize) == HLIST_NODE
             && MEM[(l + 5) as usize].b32.s1 != TEX_NULL
         {
             push_node(l);
@@ -3188,19 +3187,19 @@ unsafe fn find_protchar_left(mut l: i32, mut d: bool) -> i32 {
         }
         while run as i32 != 0
             && (!is_char_node(l)
-                && (*NODE_type(l as usize) == INS_NODE
-                    || *NODE_type(l as usize) == MARK_NODE
-                    || *NODE_type(l as usize) == ADJUST_NODE
-                    || *NODE_type(l as usize) == PENALTY_NODE
-                    || *NODE_type(l as usize) == DISC_NODE
+                && (NODE_type(l as usize) == INS_NODE
+                    || NODE_type(l as usize) == MARK_NODE
+                    || NODE_type(l as usize) == ADJUST_NODE
+                    || NODE_type(l as usize) == PENALTY_NODE
+                    || NODE_type(l as usize) == DISC_NODE
                         && MEM[(l + 1) as usize].b32.s0 == TEX_NULL
                         && MEM[(l + 1) as usize].b32.s1 == TEX_NULL
                         && MEM[l as usize].b16.s0 == 0
-                    || *NODE_type(l as usize) == MATH_NODE && MEM[(l + 1) as usize].b32.s1 == 0
-                    || *NODE_type(l as usize) == KERN_NODE
+                    || NODE_type(l as usize) == MATH_NODE && MEM[(l + 1) as usize].b32.s1 == 0
+                    || NODE_type(l as usize) == KERN_NODE
                         && (MEM[(l + 1) as usize].b32.s1 == 0 || MEM[l as usize].b16.s0 == NORMAL)
-                    || *NODE_type(l as usize) == GLUE_NODE && MEM[(l + 1) as usize].b32.s0 == 0
-                    || *NODE_type(l as usize) == HLIST_NODE
+                    || NODE_type(l as usize) == GLUE_NODE && MEM[(l + 1) as usize].b32.s0 == 0
+                    || NODE_type(l as usize) == HLIST_NODE
                         && MEM[(l + 1) as usize].b32.s1 == 0
                         && MEM[(l + 3) as usize].b32.s1 == 0
                         && MEM[(l + 2) as usize].b32.s1 == 0
@@ -3232,7 +3231,7 @@ unsafe fn find_protchar_right(mut l: i32, mut r: i32) -> i32 {
     loop {
         t = r;
         while run as i32 != 0
-            && *NODE_type(r as usize) == HLIST_NODE
+            && NODE_type(r as usize) == HLIST_NODE
             && MEM[(r + 5) as usize].b32.s1 != TEX_NULL
         {
             push_node(l);
@@ -3245,19 +3244,19 @@ unsafe fn find_protchar_right(mut l: i32, mut r: i32) -> i32 {
         }
         while run as i32 != 0
             && (!is_char_node(r)
-                && (*NODE_type(r as usize) == INS_NODE
-                    || *NODE_type(r as usize) == MARK_NODE
-                    || *NODE_type(r as usize) == ADJUST_NODE
-                    || *NODE_type(r as usize) == PENALTY_NODE
-                    || *NODE_type(r as usize) == DISC_NODE
+                && (NODE_type(r as usize) == INS_NODE
+                    || NODE_type(r as usize) == MARK_NODE
+                    || NODE_type(r as usize) == ADJUST_NODE
+                    || NODE_type(r as usize) == PENALTY_NODE
+                    || NODE_type(r as usize) == DISC_NODE
                         && MEM[(r + 1) as usize].b32.s0 == TEX_NULL
                         && MEM[(r + 1) as usize].b32.s1 == TEX_NULL
                         && MEM[r as usize].b16.s0 == 0
-                    || *NODE_type(r as usize) == MATH_NODE && MEM[(r + 1) as usize].b32.s1 == 0
-                    || *NODE_type(r as usize) == KERN_NODE
+                    || NODE_type(r as usize) == MATH_NODE && MEM[(r + 1) as usize].b32.s1 == 0
+                    || NODE_type(r as usize) == KERN_NODE
                         && (MEM[(r + 1) as usize].b32.s1 == 0 || MEM[r as usize].b16.s0 == NORMAL)
-                    || *NODE_type(r as usize) == GLUE_NODE && MEM[(r + 1) as usize].b32.s0 == 0
-                    || *NODE_type(r as usize) == HLIST_NODE
+                    || NODE_type(r as usize) == GLUE_NODE && MEM[(r + 1) as usize].b32.s0 == 0
+                    || NODE_type(r as usize) == HLIST_NODE
                         && MEM[(r + 1) as usize].b32.s1 == 0
                         && MEM[(r + 3) as usize].b32.s1 == 0
                         && MEM[(r + 2) as usize].b32.s1 == 0
