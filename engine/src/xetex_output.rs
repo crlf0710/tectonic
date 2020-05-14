@@ -620,7 +620,7 @@ pub(crate) unsafe fn print_scaled(mut s: scaled_t) {
     let mut delta: scaled_t = 0;
     if s < 0i32 {
         print_char('-' as i32);
-        s = -s
+        s = s.wrapping_neg(); // TODO: check
     }
     print_int(s / 0x10000i32);
     print_char('.' as i32);

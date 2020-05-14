@@ -8066,7 +8066,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
         }
         _ => {}
     }
-    if arith_error as i32 != 0 || cur_val.abs() >= 0x40000000i32 {
+    if arith_error as i32 != 0 || cur_val.wrapping_abs() >= 0x40000000i32 { // TODO: check
         /*479:*/
         if file_line_error_style_p != 0 {
             print_file_line();

@@ -109,7 +109,7 @@ pub(crate) unsafe fn xn_over_d(mut x: scaled_t, mut n: i32, mut d: i32) -> scale
     if x >= 0i32 {
         positive = true
     } else {
-        x = -x;
+        x = x.wrapping_neg(); // TODO: check
         positive = false
     }
     t = (x as i64 % 32768 * n as i64) as i32;

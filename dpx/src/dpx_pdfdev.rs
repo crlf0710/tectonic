@@ -354,7 +354,7 @@ fn p_dtoa(mut value: f64, prec: i32, buf: &mut [u8]) -> usize {
             if !(fresh4 != 0) {
                 break;
             }
-            buf[n + 1 + j as usize] = (g % 10) as u8 + b'0';
+            buf[n + 1 + j as usize] = ((g % 10) as u8).wrapping_add(b'0'); // TODO: check
             g /= 10
         }
         n += 1 + prec as usize;
