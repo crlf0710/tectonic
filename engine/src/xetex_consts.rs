@@ -446,25 +446,54 @@ pub(crate) const RIGHT_TO_LEFT: placeholdertype = 1;
  */
 pub(crate) const SYNCTEX_FIELD_SIZE: placeholdertype = 1;
 
-pub(crate) const HLIST_NODE: u16 = 0;
-pub(crate) const VLIST_NODE: u16 = 1;
-pub(crate) const DELTA_NODE: u16 = 2;
-pub(crate) const RULE_NODE: u16 = 2;
-pub(crate) const INS_NODE: u16 = 3;
-pub(crate) const MARK_NODE: u16 = 4;
-pub(crate) const ADJUST_NODE: u16 = 5;
-pub(crate) const LIGATURE_NODE: u16 = 6;
-pub(crate) const DISC_NODE: u16 = 7;
-pub(crate) const WHATSIT_NODE: u16 = 8;
-pub(crate) const MATH_NODE: u16 = 9;
-pub(crate) const GLUE_NODE: u16 = 10;
-pub(crate) const KERN_NODE: u16 = 11;
-pub(crate) const PENALTY_NODE: u16 = 12;
-pub(crate) const UNSET_NODE: u16 = 13;
-pub(crate) const EDGE_NODE: u16 = 14;
-pub(crate) const STYLE_NODE: u16 = 14;
-pub(crate) const CHOICE_NODE: u16 = 15;
-pub(crate) const MARGIN_KERN_NODE: u16 = 40;
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NodeType {
+    HList = 0,
+    VList = 1,
+    Rule = 2,
+    Ins = 3,
+    Mark = 4,
+    Adjust = 5,
+    Ligature = 6,
+    Disc = 7,
+    WhatsIt = 8,
+    Math = 9,
+    Glue = 10,
+    Kern = 11,
+    Penalty = 12,
+    Unset = 13,
+    Style = 14,
+    Choice = 15,
+    MarginKern = 40,
+}
+pub(crate) const HLIST_NODE: ND = ND::Node(NodeType::HList);
+pub(crate) const VLIST_NODE: ND = ND::Node(NodeType::VList);
+pub(crate) const DELTA_NODE: ND = ND::Node(NodeType::Rule);
+pub(crate) const RULE_NODE: ND = ND::Node(NodeType::Rule);
+pub(crate) const INS_NODE: ND = ND::Node(NodeType::Ins);
+pub(crate) const MARK_NODE: ND = ND::Node(NodeType::Mark);
+pub(crate) const ADJUST_NODE: ND = ND::Node(NodeType::Adjust);
+pub(crate) const LIGATURE_NODE: ND = ND::Node(NodeType::Ligature);
+pub(crate) const DISC_NODE: ND = ND::Node(NodeType::Disc);
+pub(crate) const WHATSIT_NODE: ND = ND::Node(NodeType::WhatsIt);
+pub(crate) const MATH_NODE: ND = ND::Node(NodeType::Math);
+pub(crate) const GLUE_NODE: ND = ND::Node(NodeType::Glue);
+pub(crate) const KERN_NODE: ND = ND::Node(NodeType::Kern);
+pub(crate) const PENALTY_NODE: ND = ND::Node(NodeType::Penalty);
+pub(crate) const UNSET_NODE: ND = ND::Node(NodeType::Unset);
+pub(crate) const EDGE_NODE: ND = ND::Node(NodeType::Style);
+pub(crate) const STYLE_NODE: ND = ND::Node(NodeType::Style);
+pub(crate) const CHOICE_NODE: ND = ND::Node(NodeType::Choice);
+pub(crate) const MARGIN_KERN_NODE: ND = ND::Node(NodeType::MarginKern);
+
+impl From<u16> for NodeType {
+    fn from(n: u16) -> Self {
+        assert!(n < 16 || n == 40, "Incorrect NodeType = {}", n);
+        unsafe { mem::transmute(n) }
+    }
+}
+
 pub(crate) const NATIVE_WORD_NODE: u16 = 40;
 pub(crate) const NATIVE_WORD_NODE_AT: u16 = 41;
 /// not to be confused with GLYPH_CODE = 43!
@@ -509,22 +538,77 @@ pub(crate) const RADICAL_NOAD_SIZE: placeholdertype = 5;
 pub(crate) const FRACTION_NOAD_SIZE: placeholdertype = 6;
 
 /* MATH_COMP and others */
-pub(crate) const ORD_NOAD: u16 = 16;
-pub(crate) const OP_NOAD: u16 = 17;
-pub(crate) const BIN_NOAD: u16 = 18;
-pub(crate) const REL_NOAD: u16 = 19;
-pub(crate) const OPEN_NOAD: u16 = 20;
-pub(crate) const CLOSE_NOAD: u16 = 21;
-pub(crate) const PUNCT_NOAD: u16 = 22;
-pub(crate) const INNER_NOAD: u16 = 23;
-pub(crate) const RADICAL_NOAD: u16 = 24;
-pub(crate) const FRACTION_NOAD: u16 = 25;
-pub(crate) const UNDER_NOAD: u16 = 26;
-pub(crate) const OVER_NOAD: u16 = 27;
-pub(crate) const ACCENT_NOAD: u16 = 28;
-pub(crate) const VCENTER_NOAD: u16 = 29;
-pub(crate) const LEFT_NOAD: u16 = 30;
-pub(crate) const RIGHT_NOAD: u16 = 31;
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NoadType {
+    Ord = 16,
+    Op = 17,
+    Bin = 18,
+    Rel = 19,
+    Open = 20,
+    Close = 21,
+    Punct = 22,
+    Inner = 23,
+    Radical = 24,
+    Fraction = 25,
+    Under = 26,
+    Over = 27,
+    Accent = 28,
+    Vcenter = 29,
+    Left = 30,
+    Right = 31,
+}
+
+pub(crate) const ORD_NOAD: ND = ND::Noad(NoadType::Ord);
+pub(crate) const OP_NOAD: ND = ND::Noad(NoadType::Op);
+pub(crate) const BIN_NOAD: ND = ND::Noad(NoadType::Bin);
+pub(crate) const REL_NOAD: ND = ND::Noad(NoadType::Rel);
+pub(crate) const OPEN_NOAD: ND = ND::Noad(NoadType::Open);
+pub(crate) const CLOSE_NOAD: ND = ND::Noad(NoadType::Close);
+pub(crate) const PUNCT_NOAD: ND = ND::Noad(NoadType::Punct);
+pub(crate) const INNER_NOAD: ND = ND::Noad(NoadType::Inner);
+pub(crate) const RADICAL_NOAD: ND = ND::Noad(NoadType::Radical);
+pub(crate) const FRACTION_NOAD: ND = ND::Noad(NoadType::Fraction);
+pub(crate) const UNDER_NOAD: ND = ND::Noad(NoadType::Under);
+pub(crate) const OVER_NOAD: ND = ND::Noad(NoadType::Over);
+pub(crate) const ACCENT_NOAD: ND = ND::Noad(NoadType::Accent);
+pub(crate) const VCENTER_NOAD: ND = ND::Noad(NoadType::Vcenter);
+pub(crate) const LEFT_NOAD: ND = ND::Noad(NoadType::Left);
+pub(crate) const RIGHT_NOAD: ND = ND::Noad(NoadType::Right);
+
+impl From<u16> for NoadType {
+    fn from(n: u16) -> Self {
+        assert!(n > 15 && n < 32, "Incorrect NoadType = {}", n);
+        unsafe { mem::transmute(n) }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ND {
+    Node(NodeType),
+    Noad(NoadType),
+    Unknown(u16),
+}
+
+impl From<u16> for ND {
+    fn from(n: u16) -> Self {
+        match n {
+            0..=15 | 40 => Self::Node(NodeType::from(n)),
+            16..=31 => Self::Noad(NoadType::from(n)),
+            _ => Self::Unknown(n),
+        }
+    }
+}
+
+impl ND {
+    pub fn u16(self) -> u16 {
+        match self {
+            Self::Node(n) => n as u16,
+            Self::Noad(n) => n as u16,
+            Self::Unknown(n) => n,
+        }
+    }
+}
 
 /* args to TOP_BOT_MARK */
 pub(crate) const TOP_MARK_CODE: placeholdertype = 0;
@@ -1017,7 +1101,7 @@ pub(crate) const XETEX_INPUT_MODE_AUTO: placeholdertype = 0;
 pub(crate) const XETEX_VERSION: placeholdertype = 0;
 pub(crate) const EXACTLY: u8 = 0;
 pub(crate) const FONT_BASE: placeholdertype = 0;
-pub(crate) const INSERTING: placeholdertype = 0;
+pub(crate) const INSERTING: ND = ND::Node(NodeType::HList);
 pub(crate) const NON_ADDRESS: placeholdertype = 0;
 pub(crate) const RESTORE_OLD_VALUE: u16 = 0;
 pub(crate) const TOKEN_LIST: u16 = 0;
@@ -1033,7 +1117,7 @@ pub(crate) const PRIM_BASE: placeholdertype = 1;
 pub(crate) const RESTORE_ZERO: u16 = 1;
 pub(crate) const REVERSED: placeholdertype = 1;
 pub(crate) const SLANT_CODE: placeholdertype = 1;
-pub(crate) const SPLIT_UP: placeholdertype = 1;
+pub(crate) const SPLIT_UP: ND = ND::Node(NodeType::VList);
 pub(crate) const STRETCHING: u16 = 1;
 pub(crate) const VMODE: i16 = 1;
 pub(crate) const ACC_KERN: u16 = 2;

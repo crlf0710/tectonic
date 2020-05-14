@@ -304,7 +304,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             }
         }
         q = get_node(active_node_size as i32) as i32;
-        set_NODE_type(q as usize, UNHYPHENATED as _);
+        MEM[q as usize].b16.s1 = UNHYPHENATED as _; //set_NODE_type(q as usize, UNHYPHENATED as _);
         MEM[q as usize].b16.s0 = DECENT_FIT as _;
         *LLIST_link(q as usize) = LAST_ACTIVE as i32;
         MEM[(q + 1) as usize].b32.s1 = TEX_NULL;
@@ -1818,7 +1818,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                         break_width[1] +=
                                             *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
                                     } else {
-                                        match MEM[s as usize].b16.s1 {
+                                        match ND::from(MEM[s as usize].b16.s1) {
                                             LIGATURE_NODE => {
                                                 let mut eff_char_2: i32 = 0;
                                                 f = *LIGATURE_NODE_lig_font(s as usize) as usize;
@@ -1941,7 +1941,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                             *ACTIVE_NODE_break_node(q) = passive;
                             *ACTIVE_NODE_line_number(q) = best_pl_line[fit_class as usize] + 1;
                             *ACTIVE_NODE_fitness(q) = fit_class as u16;
-                            set_NODE_type(q, break_type as u16);
+                            MEM[q as usize].b16.s1 = break_type as u16; //set_NODE_type(q, break_type as u16);
                             *ACTIVE_NODE_total_demerits(q) = minimal_demerits[fit_class as usize];
 
                             if do_last_line_fit {
@@ -2252,7 +2252,9 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                 d = d - pi * pi
                             }
                         }
-                        if break_type == HYPHENATED && NODE_type(r as usize) == HYPHENATED as u16 {
+                        if break_type == HYPHENATED
+                            && NODE_type(r as usize).u16() == HYPHENATED as u16
+                        {
                             if !cur_p.is_texnull() {
                                 d = d + *INTPAR(IntPar::double_hyphen_demerits);
                             } else {
@@ -2636,7 +2638,7 @@ unsafe fn hyphenate() {
             }
         } else {
             if !is_char_node(r) {
-                if MEM[r as usize].b16.s1 == LIGATURE_NODE {
+                if MEM[r as usize].b16.s1 == LIGATURE_NODE.u16() {
                     if MEM[r as usize].b16.s0 > 1 {
                         current_block = 6826215413708131726;
                     } else {

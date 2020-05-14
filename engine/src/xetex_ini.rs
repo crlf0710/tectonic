@@ -4101,7 +4101,7 @@ unsafe fn initialize_more_initex_variables() {
     MEM[ACTIVE_LIST + 1].b32.s0 = MAX_HALFWORD;
     MEM[ACTIVE_LIST].b16.s0 = 0_u16;
     MEM[PAGE_INS_HEAD].b16.s0 = 255_u16;
-    MEM[PAGE_INS_HEAD].b16.s1 = SPLIT_UP as _;
+    MEM[PAGE_INS_HEAD].b16.s1 = SPLIT_UP.u16();
     MEM[PAGE_INS_HEAD].b32.s1 = PAGE_INS_HEAD as i32;
     MEM[PAGE_HEAD].b16.s1 = 10;
     MEM[PAGE_HEAD].b16.s0 = 0;
@@ -4959,9 +4959,9 @@ unsafe fn initialize_primitives() {
 
     primitive(b"indent", START_PAR, 1);
     primitive(b"noindent", START_PAR, 0);
-    primitive(b"unpenalty", REMOVE_ITEM, PENALTY_NODE as i32);
-    primitive(b"unkern", REMOVE_ITEM, KERN_NODE as i32);
-    primitive(b"unskip", REMOVE_ITEM, GLUE_NODE as i32);
+    primitive(b"unpenalty", REMOVE_ITEM, NodeType::Penalty as i32);
+    primitive(b"unkern", REMOVE_ITEM, NodeType::Kern as i32);
+    primitive(b"unskip", REMOVE_ITEM, NodeType::Glue as i32);
     primitive(b"unhbox", UN_HBOX, BOX_CODE);
     primitive(b"unhcopy", UN_HBOX, COPY_CODE);
     primitive(b"unvbox", UN_VBOX, BOX_CODE);
@@ -4973,16 +4973,16 @@ unsafe fn initialize_primitives() {
     primitive(b"eqno", EQ_NO, 0);
     primitive(b"leqno", EQ_NO, 1);
 
-    primitive(b"mathord", MATH_COMP, ORD_NOAD as i32);
-    primitive(b"mathop", MATH_COMP, OP_NOAD as i32);
-    primitive(b"mathbin", MATH_COMP, BIN_NOAD as i32);
-    primitive(b"mathrel", MATH_COMP, REL_NOAD as i32);
-    primitive(b"mathopen", MATH_COMP, OPEN_NOAD as i32);
-    primitive(b"mathclose", MATH_COMP, CLOSE_NOAD as i32);
-    primitive(b"mathpunct", MATH_COMP, PUNCT_NOAD as i32);
-    primitive(b"mathinner", MATH_COMP, INNER_NOAD as i32);
-    primitive(b"underline", MATH_COMP, UNDER_NOAD as i32);
-    primitive(b"overline", MATH_COMP, OVER_NOAD as i32);
+    primitive(b"mathord", MATH_COMP, NoadType::Ord as i32);
+    primitive(b"mathop", MATH_COMP, NoadType::Op as i32);
+    primitive(b"mathbin", MATH_COMP, NoadType::Bin as i32);
+    primitive(b"mathrel", MATH_COMP, NoadType::Rel as i32);
+    primitive(b"mathopen", MATH_COMP, NoadType::Open as i32);
+    primitive(b"mathclose", MATH_COMP, NoadType::Close as i32);
+    primitive(b"mathpunct", MATH_COMP, NoadType::Punct as i32);
+    primitive(b"mathinner", MATH_COMP, NoadType::Inner as i32);
+    primitive(b"underline", MATH_COMP, NoadType::Under as i32);
+    primitive(b"overline", MATH_COMP, NoadType::Over as i32);
 
     primitive(b"displaylimits", LIMIT_SWITCH, NORMAL as i32);
     primitive(b"limits", LIMIT_SWITCH, LIMITS as i32);
@@ -5000,8 +5000,8 @@ unsafe fn initialize_primitives() {
     primitive(b"overwithdelims", ABOVE, DELIMITED_CODE + 1);
     primitive(b"atopwithdelims", ABOVE, DELIMITED_CODE + 2);
 
-    primitive(b"left", LEFT_RIGHT, LEFT_NOAD as i32);
-    primitive(b"right", LEFT_RIGHT, RIGHT_NOAD as i32);
+    primitive(b"left", LEFT_RIGHT, NoadType::Left as i32);
+    primitive(b"right", LEFT_RIGHT, NoadType::Right as i32);
     (*hash.offset(FROZEN_RIGHT as isize)).s1 = maketexstring(b"right");
     EQTB[FROZEN_RIGHT] = EQTB[cur_val as usize];
 

@@ -481,7 +481,7 @@ pub(crate) unsafe fn build_page() {
 
         last_penalty = 0;
         last_kern = 0;
-        last_node_type = NODE_type(slf.p as usize) as i32 + 1;
+        last_node_type = NODE_type(slf.p as usize).u16() as i32 + 1;
 
         if NODE_type(slf.p as usize) == GLUE_NODE {
             last_glue = *GLUE_NODE_glue_ptr(slf.p as usize);
@@ -599,7 +599,7 @@ pub(crate) unsafe fn build_page() {
                     slf.r = slf.q;
 
                     *NODE_subtype(slf.r as usize) = n as _;
-                    set_NODE_type(slf.r as usize, INSERTING as _);
+                    set_NODE_type(slf.r as usize, INSERTING);
                     ensure_vbox(n);
 
                     if BOX_REG(n as _).is_texnull() {
@@ -784,7 +784,9 @@ pub(crate) unsafe fn build_page() {
         /* ... resuming 1032 ... I believe the "goto" here can only be
          * triggered if p is a penalty node, and we decided not to break. */
 
-        if NODE_type(slf.p as usize) < GLUE_NODE || NODE_type(slf.p as usize) > KERN_NODE {
+        if NODE_type(slf.p as usize).u16() < GLUE_NODE.u16()
+            || NODE_type(slf.p as usize).u16() > KERN_NODE.u16()
+        {
             return contribute(slf);
         }
 
