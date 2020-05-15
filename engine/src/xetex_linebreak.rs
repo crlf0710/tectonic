@@ -2638,7 +2638,7 @@ unsafe fn hyphenate() {
             }
         } else {
             if !is_char_node(r) {
-                if MEM[r as usize].b16.s1 == LIGATURE_NODE.u16() {
+                if NODE_type(r as usize) == LIGATURE_NODE {
                     if MEM[r as usize].b16.s0 > 1 {
                         current_block = 6826215413708131726;
                     } else {

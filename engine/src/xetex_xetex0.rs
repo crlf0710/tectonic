@@ -793,7 +793,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                     print_scaled(MEM[p + 2].b32.s1);
                     print_cstr(b")x");
                     print_scaled(MEM[p + 1].b32.s1);
-                    if MEM[p].b16.s1 == UNSET_NODE.u16() {
+                    if NODE_type(p) == UNSET_NODE {
                         /*193:*/
                         if MEM[p].b16.s0 != 0 {
                             print_cstr(b" (");
@@ -2280,34 +2280,13 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         }
         SET_PAGE_DIMEN => {
             match chr_code {
-                0 => {
-                    /* genuine literal in WEB */
-                    print_esc_cstr(b"pagegoal");
-                }
-                1 => {
-                    /* genuine literal in WEB */
-                    print_esc_cstr(b"pagetotal");
-                }
-                2 => {
-                    /* genuine literal in WEB */
-                    print_esc_cstr(b"pagestretch");
-                }
-                3 => {
-                    /* genuine literal in WEB */
-                    print_esc_cstr(b"pagefilstretch");
-                }
-                4 => {
-                    /* genuine literal in WEB */
-                    print_esc_cstr(b"pagefillstretch");
-                }
-                5 => {
-                    /* genuine literal in WEB */
-                    print_esc_cstr(b"pagefilllstretch");
-                }
-                6 => {
-                    /* genuine literal in WEB */
-                    print_esc_cstr(b"pageshrink");
-                }
+                0 => print_esc_cstr(b"pagegoal"),         // genuine literal in WEB
+                1 => print_esc_cstr(b"pagetotal"),        // genuine literal in WEB
+                2 => print_esc_cstr(b"pagestretch"),      // genuine literal in WEB
+                3 => print_esc_cstr(b"pagefilstretch"),   // genuine literal in WEB
+                4 => print_esc_cstr(b"pagefillstretch"),  // genuine literal in WEB
+                5 => print_esc_cstr(b"pagefilllstretch"), // genuine literal in WEB
+                6 => print_esc_cstr(b"pageshrink"),       // genuine literal in WEB
                 _ => print_esc_cstr(b"pagedepth"),
             }
         }
@@ -2359,17 +2338,12 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             5 => print_esc_cstr(b"vbox"),
             _ => print_esc_cstr(b"hbox"),
         },
-        LEADER_SHIP => {
-            if chr_code as u16 == A_LEADERS {
-                print_esc_cstr(b"leaders");
-            } else if chr_code as u16 == C_LEADERS {
-                print_esc_cstr(b"cleaders");
-            } else if chr_code as u16 == X_LEADERS {
-                print_esc_cstr(b"xleaders");
-            } else {
-                print_esc_cstr(b"shipout");
-            }
-        }
+        LEADER_SHIP => match chr_code as u16 {
+            A_LEADERS => print_esc_cstr(b"leaders"),
+            C_LEADERS => print_esc_cstr(b"cleaders"),
+            X_LEADERS => print_esc_cstr(b"xleaders"),
+            _ => print_esc_cstr(b"shipout"),
+        },
         START_PAR => {
             if chr_code == 0 {
                 print_esc_cstr(b"noindent");
@@ -2377,15 +2351,11 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_esc_cstr(b"indent");
             }
         }
-        REMOVE_ITEM => {
-            if chr_code as u16 == GLUE_NODE.u16() {
-                print_esc_cstr(b"unskip");
-            } else if chr_code as u16 == KERN_NODE.u16() {
-                print_esc_cstr(b"unkern");
-            } else {
-                print_esc_cstr(b"unpenalty");
-            }
-        }
+        REMOVE_ITEM => match ND::from(chr_code as u16) {
+            GLUE_NODE => print_esc_cstr(b"unskip"),
+            KERN_NODE => print_esc_cstr(b"unkern"),
+            _ => print_esc_cstr(b"unpenalty"),
+        },
         UN_HBOX => {
             if chr_code == COPY_CODE {
                 print_esc_cstr(b"unhcopy");
@@ -7097,8 +7067,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 cur_val = 0;
                 tx = cur_list.tail as i32;
                 if tx < hi_mem_min {
-                    if MEM[tx as usize].b16.s1 == MATH_NODE.u16()
-                        && MEM[tx as usize].b16.s0 == END_M_CODE
+                    if NODE_type(tx as usize) == MATH_NODE && MEM[tx as usize].b16.s0 == END_M_CODE
                     {
                         r = cur_list.head as i32;
                         loop {
@@ -7140,11 +7109,11 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                             }
                         }
                         LAST_NODE_TYPE_CODE => {
-                            if NODE_type(tx as usize).u16() <= UNSET_NODE.u16() {
-                                cur_val = MEM[tx as usize].b16.s1 as i32 + 1;
+                            cur_val = if NODE_type(tx as usize).u16() <= UNSET_NODE.u16() {
+                                MEM[tx as usize].b16.s1 as i32 + 1
                             } else {
-                                cur_val = UNSET_NODE.u16() as i32 + 2;
-                            }
+                                UNSET_NODE.u16() as i32 + 2
+                            };
                         }
                         _ => {}
                     }
@@ -10199,7 +10168,7 @@ pub(crate) unsafe fn new_native_character(
             }
         }
         p = get_node(NATIVE_NODE_SIZE + 1);
-        MEM[p].b16.s1 = WHATSIT_NODE.u16();
+        set_NODE_type(p, WHATSIT_NODE);
         MEM[p].b16.s0 = NATIVE_WORD_NODE;
         MEM[p + 4].b16.s3 = (NATIVE_NODE_SIZE + 1) as u16;
         MEM[p + 4].b16.s0 = 0;
@@ -11231,7 +11200,7 @@ pub(crate) unsafe fn char_pw(mut p: i32, mut side: small_number) -> scaled_t {
 }
 pub(crate) unsafe fn new_margin_kern(w: scaled_t, _p: i32, side: small_number) -> usize {
     let k = get_node(MARGIN_KERN_NODE_SIZE);
-    MEM[k].b16.s1 = MARGIN_KERN_NODE.u16();
+    set_NODE_type(k, MARGIN_KERN_NODE);
     MEM[k].b16.s0 = side as u16;
     MEM[k + 1].b32.s1 = w;
     k
@@ -11304,7 +11273,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
             match MEM[p as usize].b16.s1 as i32 {
                 0 | 1 | 2 | 13 => {
                     x = x + MEM[(p + 1) as usize].b32.s1;
-                    if MEM[p as usize].b16.s1 >= RULE_NODE.u16() {
+                    if ![HLIST_NODE, VLIST_NODE].contains(&NODE_type(p as usize)) {
                         s = 0;
                     } else {
                         s = MEM[(p + 4) as usize].b32.s1
@@ -11324,7 +11293,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
                         while MEM[q as usize].b32.s1 != p {
                             q = MEM[q as usize].b32.s1
                         }
-                        if MEM[p as usize].b16.s1 == ADJUST_NODE.u16() {
+                        if NODE_type(p as usize) == ADJUST_NODE {
                             if MEM[p as usize].b16.s0 as i32 != 0 {
                                 if pre_adjust_tail.is_texnull() {
                                     confusion(b"pre vadjust");
@@ -11414,7 +11383,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
                                 avail = temp_ptr
                             } else {
                                 LR_problems += 1;
-                                MEM[p as usize].b16.s1 = KERN_NODE.u16();
+                                set_NODE_type(p as usize, KERN_NODE);
                                 MEM[p as usize].b16.s0 = EXPLICIT;
                             }
                         } else {
@@ -11792,7 +11761,7 @@ pub(crate) unsafe fn vpackage(
                 0 | 1 | 2 | 13 => {
                     x = x + d + MEM[p + 3].b32.s1;
                     d = MEM[p + 2].b32.s1;
-                    let s = if NODE_type(p).u16() >= RULE_NODE.u16() {
+                    let s = if ![HLIST_NODE, VLIST_NODE].contains(&NODE_type(p)) {
                         0
                     } else {
                         MEM[p + 4].b32.s1
@@ -12013,7 +11982,7 @@ pub(crate) unsafe fn new_noad() -> usize {
 }
 pub(crate) unsafe fn new_style(mut s: small_number) -> usize {
     let p = get_node(STYLE_NODE_SIZE);
-    MEM[p].b16.s1 = STYLE_NODE.u16();
+    set_NODE_type(p, STYLE_NODE);
     MEM[p].b16.s0 = s as u16;
     MEM[p + 1].b32.s1 = 0;
     MEM[p + 2].b32.s1 = 0;
@@ -12021,7 +11990,7 @@ pub(crate) unsafe fn new_style(mut s: small_number) -> usize {
 }
 pub(crate) unsafe fn new_choice() -> usize {
     let p = get_node(STYLE_NODE_SIZE);
-    MEM[p].b16.s1 = CHOICE_NODE.u16();
+    set_NODE_type(p, CHOICE_NODE);
     MEM[p].b16.s0 = 0;
     MEM[p + 1].b32.s0 = TEX_NULL;
     MEM[p + 1].b32.s1 = TEX_NULL;
@@ -12586,7 +12555,7 @@ pub(crate) unsafe fn fin_align() {
     s = cur_list.head as i32;
     while !q.is_texnull() {
         if !is_char_node(q) {
-            if MEM[q as usize].b16.s1 == UNSET_NODE.u16() {
+            if NODE_type(q as usize) == UNSET_NODE {
                 /*836: */
                 if cur_list.mode as i32 == -1 {
                     set_NODE_type(q as usize, HLIST_NODE);
@@ -13110,11 +13079,11 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                 }
                 11 => {
                     let t = if MEM[p as usize].b32.s1.is_texnull() {
-                        PENALTY_NODE.u16() as i16
+                        PENALTY_NODE
                     } else {
-                        MEM[MEM[p as usize].b32.s1 as usize].b16.s1 as small_number
+                        NODE_type(MEM[p as usize].b32.s1 as usize)
                     };
-                    if t == GLUE_NODE.u16() as i16 {
+                    if t == GLUE_NODE {
                         pi = 0;
                         current_block = 9007357115414505193;
                     } else {
@@ -13918,7 +13887,7 @@ pub(crate) unsafe fn package(mut c: small_number) {
             let mut h = 0;
             let p = MEM[(cur_box + 5) as usize].b32.s1;
             if !p.is_texnull() {
-                if NODE_type(p as usize).u16() <= RULE_NODE.u16() {
+                if [HLIST_NODE, VLIST_NODE, RULE_NODE].contains(&NODE_type(p as usize)) {
                     h = MEM[(p + 3) as usize].b32.s1
                 }
             }
@@ -14252,7 +14221,7 @@ pub(crate) unsafe fn append_italic_correction() {
     if cur_list.tail != cur_list.head {
         if is_char_node(cur_list.tail as i32) {
             p = cur_list.tail as i32
-        } else if MEM[cur_list.tail].b16.s1 == LIGATURE_NODE.u16() {
+        } else if NODE_type(cur_list.tail) == LIGATURE_NODE {
             p = cur_list.tail as i32 + 1;
         } else if NODE_type(cur_list.tail) == WHATSIT_NODE {
             if MEM[cur_list.tail].b16.s0 == NATIVE_WORD_NODE
@@ -14317,7 +14286,7 @@ pub(crate) unsafe fn build_discretionary() {
     n = 0;
     while !p.is_texnull() {
         if !is_char_node(p) {
-            if NODE_type(p as usize).u16() > RULE_NODE.u16() {
+            if ![HLIST_NODE, VLIST_NODE, RULE_NODE].contains(&NODE_type(p as usize)) {
                 if NODE_type(p as usize) != KERN_NODE {
                     if NODE_type(p as usize) != LIGATURE_NODE {
                         if NODE_type(p as usize) != WHATSIT_NODE
@@ -15790,7 +15759,7 @@ pub(crate) unsafe fn handle_right_brace() {
             if SAVE_STACK[SAVE_PTR + 0].b32.s1 < 255 {
                 MEM[cur_list.tail].b32.s1 = get_node(INS_NODE_SIZE) as i32;
                 cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-                MEM[cur_list.tail].b16.s1 = INS_NODE.u16();
+                set_NODE_type(cur_list.tail, INS_NODE);
                 MEM[cur_list.tail].b16.s0 = SAVE_STACK[SAVE_PTR + 0].b32.s1 as u16;
                 MEM[cur_list.tail + 3].b32.s1 =
                     MEM[(p + 3) as usize].b32.s1 + MEM[(p + 2) as usize].b32.s1;
@@ -15801,7 +15770,7 @@ pub(crate) unsafe fn handle_right_brace() {
             } else {
                 MEM[cur_list.tail].b32.s1 = get_node(SMALL_NODE_SIZE) as i32;
                 cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-                MEM[cur_list.tail].b16.s1 = ADJUST_NODE.u16();
+                set_NODE_type(cur_list.tail, ADJUST_NODE);
                 MEM[cur_list.tail].b16.s0 = SAVE_STACK[SAVE_PTR + 1].b32.s1 as u16;
                 MEM[cur_list.tail + 1].b32.s1 = MEM[(p + 5) as usize].b32.s1;
                 delete_glue_ref(q as usize);
@@ -16932,7 +16901,7 @@ pub(crate) unsafe fn main_control() {
                     while main_p != cur_list.tail as i32 {
                         if !main_p.is_texnull()
                             && !is_char_node(main_p)
-                            && MEM[main_p as usize].b16.s1 == WHATSIT_NODE.u16()
+                            && NODE_type(main_p as usize) == WHATSIT_NODE
                             && (MEM[main_p as usize].b16.s0 == NATIVE_WORD_NODE
                                 || MEM[main_p as usize].b16.s0 == NATIVE_WORD_NODE_AT)
                         {

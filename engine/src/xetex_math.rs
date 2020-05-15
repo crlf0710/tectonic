@@ -864,7 +864,7 @@ unsafe fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
             t = MEM[r as usize].b32.s1 as usize;
         }
         let u = new_math(0i32, END_M_CODE as small_number);
-        if MEM[t].b16.s1 == GLUE_NODE.u16() {
+        if NODE_type(t) == GLUE_NODE {
             j = new_skip_param(GluePar::right_skip as small_number) as i32;
             MEM[q as usize].b32.s1 = j;
             MEM[j as usize].b32.s1 = u as i32;
@@ -881,7 +881,7 @@ unsafe fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
             MEM[q as usize].b32.s1 = t as i32;
         }
         let u = new_math(0, BEGIN_M_CODE as small_number);
-        if MEM[r as usize].b16.s1 == GLUE_NODE.u16() {
+        if NODE_type(r as usize) == GLUE_NODE {
             j = new_skip_param(GluePar::left_skip as small_number) as i32;
             MEM[u].b32.s1 = j;
             MEM[j as usize].b32.s1 = p;
@@ -1620,7 +1620,7 @@ unsafe fn clean_box(p: usize, mut s: small_number) -> usize {
         let x = if is_char_node(q) as i32 != 0 || q.is_texnull() {
             hpack(q, 0, ADDITIONAL as small_number)
         } else if MEM[q as usize].b32.s1.is_texnull()
-            && NODE_type(q as usize).u16() <= VLIST_NODE.u16()
+            && [HLIST_NODE, VLIST_NODE].contains(&NODE_type(q as usize))
             && MEM[(q + 4) as usize].b32.s1 == 0
         {
             q
@@ -1633,7 +1633,7 @@ unsafe fn clean_box(p: usize, mut s: small_number) -> usize {
             if !r.is_texnull() {
                 if MEM[r as usize].b32.s1.is_texnull() {
                     if !is_char_node(r) {
-                        if MEM[r as usize].b16.s1 == KERN_NODE.u16() {
+                        if NODE_type(r as usize) == KERN_NODE {
                             free_node(r as usize, MEDIUM_NODE_SIZE);
                             MEM[q as usize].b32.s1 = TEX_NULL
                         }
@@ -2246,7 +2246,7 @@ unsafe fn make_op(q: usize) -> scaled_t {
         let y = clean_box(q + 1, cur_style);
         let z = clean_box(q + 3, (2 * (cur_style as i32 / 4) + 5) as small_number);
         let v = new_null_box();
-        MEM[v].b16.s1 = VLIST_NODE.u16();
+        set_NODE_type(v, VLIST_NODE);
         MEM[v + 1].b32.s1 = MEM[(y + 1) as usize].b32.s1;
         if MEM[(x + 1) as usize].b32.s1 > MEM[v + 1].b32.s1 {
             MEM[v + 1].b32.s1 = MEM[(x + 1) as usize].b32.s1
@@ -3220,7 +3220,7 @@ unsafe fn mlist_to_hlist() {
                     if !MEM[q as usize].b32.s1.is_texnull() {
                         if pen < INF_PENALTY {
                             r_type = MEM[MEM[q as usize].b32.s1 as usize].b16.s1 as small_number;
-                            if r_type as u16 != PENALTY_NODE.u16() {
+                            if ND::from(r_type as u16) != PENALTY_NODE {
                                 if r_type as u16 != REL_NOAD.u16() {
                                     let z = new_penalty(pen) as i32;
                                     MEM[p as usize].b32.s1 = z;
@@ -3363,7 +3363,7 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
             if q.s1 as i32 % 4 == EXT_TAG {
                 /*739: */
                 b = new_null_box();
-                MEM[b].b16.s1 = VLIST_NODE.u16();
+                set_NODE_type(b, VLIST_NODE);
                 let r = FONT_INFO[(EXTEN_BASE[f] + q.s0 as i32) as usize].b16;
                 c = r.s0;
                 u = height_plus_depth(f, c);
@@ -3444,7 +3444,7 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
             b = build_opentype_assembly(f, ot_assembly_ptr, v, false) as usize
         } else {
             b = new_null_box();
-            MEM[b].b16.s1 = VLIST_NODE.u16();
+            set_NODE_type(b, VLIST_NODE);
             MEM[b + 5].b32.s1 = get_node(GLYPH_NODE_SIZE) as i32;
             set_NODE_type(MEM[b + 5].b32.s1 as usize, WHATSIT_NODE);
             MEM[MEM[b + 5].b32.s1 as usize].b16.s0 = GLYPH_NODE;
@@ -3745,7 +3745,7 @@ unsafe fn rebox(mut b: usize, mut w: scaled_t) -> usize {
     let mut f: internal_font_number = 0;
     let mut v: scaled_t = 0;
     if MEM[b + 1].b32.s1 != w && !MEM[b + 5].b32.s1.is_texnull() {
-        if MEM[b as usize].b16.s1 == VLIST_NODE.u16() {
+        if NODE_type(b as usize) == VLIST_NODE {
             b = hpack(b as i32, 0, ADDITIONAL as small_number) as usize
         }
         p = MEM[b + 5].b32.s1;
