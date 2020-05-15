@@ -548,7 +548,7 @@ pub(crate) unsafe fn short_display(mut p: i32) {
                 HLIST_NODE | VLIST_NODE | INS_NODE | MARK_NODE | ADJUST_NODE | UNSET_NODE => {
                     print_cstr(b"[]")
                 }
-                WHATSIT_NODE => match MEM[p as usize].b16.s0 {
+                WHATSIT_NODE => match NODE_subtype(p as usize) {
                     NATIVE_WORD_NODE | NATIVE_WORD_NODE_AT => {
                         if MEM[(p + 4) as usize].b16.s2 as i32 != font_in_short_display {
                             print_esc(
@@ -868,7 +868,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                     show_node_list(MEM[p + 4].b32.s0);
                     pool_ptr -= 1
                 }
-                WHATSIT_NODE => match MEM[p].b16.s0 {
+                WHATSIT_NODE => match NODE_subtype(p) {
                     OPEN_NODE => {
                         print_write_whatsit(b"openout", p);
                         print_char('=' as i32);
@@ -911,7 +911,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                         print_int(MEM[p + 4].b16.s1 as i32);
                     }
                     PIC_NODE | PDF_NODE => {
-                        if MEM[p as usize].b16.s0 == PIC_NODE {
+                        if NODE_subtype(p) == PIC_NODE {
                             print_esc_cstr(b"XeTeXpicfile");
                         } else {
                             print_esc_cstr(b"XeTeXpdffile");
@@ -977,9 +977,9 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                             print_char(' ' as i32);
                         }
                         print_scaled(MEM[p + 1].b32.s1);
-                        if MEM[p].b16.s0 == ACC_KERN {
+                        if kern_NODE_subtype(p) == KernNodeSubType::AccKern {
                             print_cstr(b" (for accent)");
-                        } else if MEM[p].b16.s0 == SPACE_ADJUSTMENT {
+                        } else if kern_NODE_subtype(p) == KernNodeSubType::SpaceAdjustment {
                             print_cstr(b" (space adjustment)");
                         }
                     } else {
@@ -1241,7 +1241,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     current_block = 16791665189521845338;
                 }
                 WHATSIT_NODE => {
-                    match MEM[p].b16.s0 {
+                    match NODE_subtype(p) {
                         OPEN_NODE => free_node(p, OPEN_NODE_SIZE),
                         WRITE_NODE | SPECIAL_NODE => {
                             delete_token_ref(MEM[p + 1].b32.s1 as usize);
@@ -1394,7 +1394,7 @@ pub(crate) unsafe fn copy_node_list(mut p: i32) -> i32 {
                     MEM[(r + 4) as usize].b32.s0 = copy_node_list(MEM[p + 4].b32.s0);
                     words = (INS_NODE_SIZE - 1) as u8
                 }
-                WHATSIT_NODE => match MEM[p].b16.s0 {
+                WHATSIT_NODE => match NODE_subtype(p) {
                     OPEN_NODE => {
                         r = get_node(OPEN_NODE_SIZE) as i32;
                         words = OPEN_NODE_SIZE as u8
@@ -10088,9 +10088,9 @@ pub(crate) unsafe fn new_native_word_node(mut f: internal_font_number, mut n: i3
     let q = get_node(l) as usize;
     set_NODE_type(q, WHATSIT_NODE);
     if *INTPAR(IntPar::xetex_generate_actual_text) > 0i32 {
-        *NODE_subtype(q) = NATIVE_WORD_NODE_AT;
+        set_NODE_subtype(q, NATIVE_WORD_NODE_AT);
     } else {
-        *NODE_subtype(q) = NATIVE_WORD_NODE;
+        set_NODE_subtype(q, NATIVE_WORD_NODE);
     }
     *NATIVE_NODE_size(q) = l as u16;
     *NATIVE_NODE_font(q) = f as u16;
@@ -10169,7 +10169,7 @@ pub(crate) unsafe fn new_native_character(
         }
         p = get_node(NATIVE_NODE_SIZE + 1);
         set_NODE_type(p, WHATSIT_NODE);
-        MEM[p].b16.s0 = NATIVE_WORD_NODE;
+        set_NODE_subtype(p, NATIVE_WORD_NODE);
         MEM[p + 4].b16.s3 = (NATIVE_NODE_SIZE + 1) as u16;
         MEM[p + 4].b16.s0 = 0;
         MEM[p + 5].ptr = ptr::null_mut();
@@ -11146,8 +11146,8 @@ pub(crate) unsafe fn char_pw(mut p: i32, mut side: small_number) -> scaled_t {
     if !p.is_texnull()
         && !is_char_node(p)
         && NODE_type(p as usize) == WHATSIT_NODE
-        && (*NODE_subtype(p as usize) == NATIVE_WORD_NODE
-            || *NODE_subtype(p as usize) == NATIVE_WORD_NODE_AT)
+        && (NODE_subtype(p as usize) == NATIVE_WORD_NODE
+            || NODE_subtype(p as usize) == NATIVE_WORD_NODE_AT)
     {
         if !(*NATIVE_NODE_glyph_info_ptr(p as usize)).is_null() {
             let f = *NATIVE_NODE_font(p as usize) as internal_font_number;
@@ -11166,7 +11166,7 @@ pub(crate) unsafe fn char_pw(mut p: i32, mut side: small_number) -> scaled_t {
     if !p.is_texnull()
         && !is_char_node(p)
         && NODE_type(p as usize) == WHATSIT_NODE
-        && MEM[p as usize].b16.s0 == GLYPH_NODE
+        && NODE_subtype(p as usize) == GLYPH_NODE
     {
         let f = MEM[(p + 4) as usize].b16.s2 as internal_font_number;
         return round_xn_over_d(
@@ -11384,7 +11384,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
                             } else {
                                 LR_problems += 1;
                                 set_NODE_type(p as usize, KERN_NODE);
-                                MEM[p as usize].b16.s0 = EXPLICIT;
+                                set_kern_NODE_subtype(p as usize, KernNodeSubType::Explicit);
                             }
                         } else {
                             temp_ptr = get_avail() as i32;
@@ -11426,8 +11426,8 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
                 pp = *LLIST_link(p as usize);
                 while k <= 0 && !pp.is_texnull() && !is_char_node(pp) {
                     if NODE_type(pp as usize) == WHATSIT_NODE
-                        && (MEM[pp as usize].b16.s0 == NATIVE_WORD_NODE
-                            || MEM[pp as usize].b16.s0 == NATIVE_WORD_NODE_AT)
+                        && (NODE_subtype(pp as usize) == NATIVE_WORD_NODE
+                            || NODE_subtype(pp as usize) == NATIVE_WORD_NODE_AT)
                         && MEM[(pp + 4) as usize].b16.s2 as i32
                             == MEM[(p + 4) as usize].b16.s2 as i32
                     {
@@ -11440,8 +11440,8 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
                         if !(!ppp.is_texnull()
                             && !is_char_node(ppp)
                             && NODE_type(ppp as usize) == WHATSIT_NODE
-                            && (MEM[ppp as usize].b16.s0 == NATIVE_WORD_NODE
-                                || MEM[ppp as usize].b16.s0 == NATIVE_WORD_NODE_AT)
+                            && (NODE_subtype(ppp as usize) == NATIVE_WORD_NODE
+                                || NODE_subtype(ppp as usize) == NATIVE_WORD_NODE_AT)
                             && MEM[(ppp + 4) as usize].b16.s2 as i32
                                 == MEM[(p + 4) as usize].b16.s2 as i32)
                         {
@@ -11771,7 +11771,7 @@ pub(crate) unsafe fn vpackage(
                     }
                 }
                 8 => {
-                    if MEM[p].b16.s0 == PIC_NODE || MEM[p].b16.s0 == PDF_NODE {
+                    if NODE_subtype(p) == PIC_NODE || NODE_subtype(p) == PDF_NODE {
                         x = x + d + MEM[p + 3].b32.s1;
                         d = MEM[p + 2].b32.s1;
                         if MEM[p + 1].b32.s1 > w {
@@ -13063,7 +13063,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     current_block = 10249009913728301645;
                 }
                 8 => {
-                    if MEM[p as usize].b16.s0 == PIC_NODE || MEM[p as usize].b16.s0 == PDF_NODE {
+                    if NODE_subtype(p as usize) == PIC_NODE || NODE_subtype(p as usize) == PDF_NODE {
                         active_width[1] = active_width[1] + prev_dp + MEM[(p + 3) as usize].b32.s1;
                         prev_dp = MEM[(p + 2) as usize].b32.s1
                     }
@@ -14224,20 +14224,20 @@ pub(crate) unsafe fn append_italic_correction() {
         } else if NODE_type(cur_list.tail) == LIGATURE_NODE {
             p = cur_list.tail as i32 + 1;
         } else if NODE_type(cur_list.tail) == WHATSIT_NODE {
-            if MEM[cur_list.tail].b16.s0 == NATIVE_WORD_NODE
-                || MEM[cur_list.tail].b16.s0 == NATIVE_WORD_NODE_AT
+            if NODE_subtype(cur_list.tail) == NATIVE_WORD_NODE
+                || NODE_subtype(cur_list.tail) == NATIVE_WORD_NODE_AT
             {
                 MEM[cur_list.tail].b32.s1 = new_kern(real_get_native_italic_correction(
                     &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
                 )) as i32;
                 cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-                *NODE_subtype(cur_list.tail) = EXPLICIT
-            } else if MEM[cur_list.tail].b16.s0 == GLYPH_NODE {
+                set_kern_NODE_subtype(cur_list.tail, KernNodeSubType::Explicit);
+            } else if NODE_subtype(cur_list.tail) == GLYPH_NODE {
                 MEM[cur_list.tail].b32.s1 = new_kern(real_get_native_glyph_italic_correction(
                     &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
                 )) as i32;
                 cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-                *NODE_subtype(cur_list.tail) = EXPLICIT;
+                set_kern_NODE_subtype(cur_list.tail, KernNodeSubType::Explicit);
             }
             return;
         } else {
@@ -14252,7 +14252,7 @@ pub(crate) unsafe fn append_italic_correction() {
             ),
         )) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-        MEM[cur_list.tail].b16.s0 = EXPLICIT
+        set_kern_NODE_subtype(cur_list.tail, KernNodeSubType::Explicit);
     };
 }
 pub(crate) unsafe fn append_discretionary() {
@@ -14290,9 +14290,9 @@ pub(crate) unsafe fn build_discretionary() {
                 if NODE_type(p as usize) != KERN_NODE {
                     if NODE_type(p as usize) != LIGATURE_NODE {
                         if NODE_type(p as usize) != WHATSIT_NODE
-                            || MEM[p as usize].b16.s0 != NATIVE_WORD_NODE
-                                && MEM[p as usize].b16.s0 != NATIVE_WORD_NODE_AT
-                                && MEM[p as usize].b16.s0 != GLYPH_NODE
+                            || NODE_subtype(p as usize) != NATIVE_WORD_NODE
+                                && NODE_subtype(p as usize) != NATIVE_WORD_NODE_AT
+                                && NODE_subtype(p as usize) != GLYPH_NODE
                         {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
@@ -14440,11 +14440,11 @@ pub(crate) unsafe fn make_accent() {
                 tex_round((w - a) as f64 / 2. + h as f64 * t - x as f64 * s)
             };
             let r = new_kern(delta);
-            *NODE_subtype(r as usize) = ACC_KERN;
+            set_kern_NODE_subtype(r as usize, KernNodeSubType::AccKern);
             MEM[cur_list.tail].b32.s1 = r as i32;
             MEM[r as usize].b32.s1 = p as i32;
             cur_list.tail = new_kern(-a - delta);
-            MEM[cur_list.tail].b16.s0 = ACC_KERN;
+            set_kern_NODE_subtype(cur_list.tail, KernNodeSubType::AccKern);
             MEM[p].b32.s1 = cur_list.tail as i32;
             p = q;
         }
@@ -14625,7 +14625,7 @@ pub(crate) unsafe fn just_copy(mut p: i32, mut h: usize, mut t: i32) {
                     current_block_50 = 2500484646272006982;
                 }
                 WHATSIT_NODE => {
-                    match *NODE_subtype(p as usize) {
+                    match NODE_subtype(p as usize) {
                         OPEN_NODE => {
                             r = get_node(OPEN_NODE_SIZE) as i32;
                             words = OPEN_NODE_SIZE as u8;
@@ -16678,8 +16678,8 @@ pub(crate) unsafe fn main_control() {
                         if !main_pp.is_texnull()
                             && !is_char_node(main_pp)
                             && NODE_type(main_pp as usize) == WHATSIT_NODE
-                            && (MEM[main_pp as usize].b16.s0 == NATIVE_WORD_NODE
-                                || MEM[main_pp as usize].b16.s0 == NATIVE_WORD_NODE_AT)
+                            && (NODE_subtype(main_pp as usize) == NATIVE_WORD_NODE
+                                || NODE_subtype(main_pp as usize) == NATIVE_WORD_NODE_AT)
                             && MEM[(main_pp + 4) as usize].b16.s2 as usize == main_f
                             && main_ppp != main_pp
                             && !is_char_node(main_ppp)
@@ -16813,8 +16813,8 @@ pub(crate) unsafe fn main_control() {
                     if !main_pp.is_texnull()
                         && !is_char_node(main_pp)
                         && NODE_type(main_pp as usize) == WHATSIT_NODE
-                        && (MEM[main_pp as usize].b16.s0 == NATIVE_WORD_NODE
-                            || MEM[main_pp as usize].b16.s0 == NATIVE_WORD_NODE_AT)
+                        && (NODE_subtype(main_pp as usize) == NATIVE_WORD_NODE
+                            || NODE_subtype(main_pp as usize) == NATIVE_WORD_NODE_AT)
                         && MEM[(main_pp + 4) as usize].b16.s2 as usize == main_f
                         && main_ppp != main_pp
                         && !is_char_node(main_ppp)
@@ -16902,8 +16902,8 @@ pub(crate) unsafe fn main_control() {
                         if !main_p.is_texnull()
                             && !is_char_node(main_p)
                             && NODE_type(main_p as usize) == WHATSIT_NODE
-                            && (MEM[main_p as usize].b16.s0 == NATIVE_WORD_NODE
-                                || MEM[main_p as usize].b16.s0 == NATIVE_WORD_NODE_AT)
+                            && (NODE_subtype(main_p as usize) == NATIVE_WORD_NODE
+                                || NODE_subtype(main_p as usize) == NATIVE_WORD_NODE_AT)
                         {
                             main_pp = main_p;
                         }
@@ -17006,7 +17006,7 @@ pub(crate) unsafe fn main_control() {
                                                 .b32
                                                 .s1,
                                         ) as i32;
-                                        *NODE_subtype(temp_ptr as usize) = SPACE_ADJUSTMENT;
+                                        set_kern_NODE_subtype(temp_ptr as usize, KernNodeSubType::SpaceAdjustment);
                                         MEM[temp_ptr as usize].b32.s1 = MEM[main_p as usize].b32.s1;
                                         MEM[main_p as usize].b32.s1 = temp_ptr
                                     }

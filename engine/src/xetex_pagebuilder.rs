@@ -185,7 +185,7 @@ unsafe fn fire_up(mut c: i32) {
         r = *LLIST_link(PAGE_INS_HEAD);
         while r != PAGE_INS_HEAD as i32 {
             if !MEM[(r + 2) as usize].b32.s0.is_texnull() {
-                n = *NODE_subtype(r as _) as _;
+                n = NODE_subtype(r as _) as _;
                 ensure_vbox(n);
 
                 if BOX_REG(n as _).is_texnull() {
@@ -215,7 +215,7 @@ unsafe fn fire_up(mut c: i32) {
                  * delete node p from the current page." */
                 r = *LLIST_link(PAGE_INS_HEAD);
 
-                while *NODE_subtype(r as usize) != *NODE_subtype(p as usize) {
+                while NODE_subtype(r as usize) != NODE_subtype(p as usize) {
                     r = *LLIST_link(r as usize);
                 }
                 if MEM[(r + 2) as usize].b32.s0.is_texnull() {
@@ -256,7 +256,7 @@ unsafe fn fire_up(mut c: i32) {
                             }
                         }
                         MEM[(r + 2) as usize].b32.s0 = TEX_NULL;
-                        n = *NODE_subtype(r as usize) as _;
+                        n = NODE_subtype(r as usize) as _;
                         temp_ptr = MEM[(*BOX_REG(n as usize) + 5) as usize].b32.s1;
                         free_node(*BOX_REG(n as _) as usize, BOX_NODE_SIZE);
                         *BOX_REG(n as _) =
@@ -546,7 +546,7 @@ pub(crate) unsafe fn build_page() {
             }
             WHATSIT_NODE => {
                 /*1401: "Prepare to move whatsit p to the current page, then goto contribute" */
-                if *NODE_subtype(slf.p as usize) == PIC_NODE || *NODE_subtype(slf.p as usize) == PDF_NODE {
+                if NODE_subtype(slf.p as usize) == PIC_NODE || NODE_subtype(slf.p as usize) == PDF_NODE {
                     page_so_far[1] += page_so_far[7] + *BOX_height(slf.p as usize);
                     page_so_far[7] = *BOX_depth(slf.p as usize);
                 }
@@ -582,14 +582,14 @@ pub(crate) unsafe fn build_page() {
                     freeze_page_specs(INSERTS_ONLY as _);
                 }
 
-                let n = *NODE_subtype(slf.p as usize) as u8;
+                let n = NODE_subtype(slf.p as usize) as u8;
                 slf.r = PAGE_INS_HEAD as i32;
 
-                while n as u16 >= *NODE_subtype(*LLIST_link(slf.r as usize) as usize) {
+                while n as u16 >= NODE_subtype(*LLIST_link(slf.r as usize) as usize) {
                     slf.r = *LLIST_link(slf.r as usize);
                 }
 
-                if *NODE_subtype(slf.r as usize) != n as _{
+                if NODE_subtype(slf.r as usize) != n as _{
                     /*1044: "Create a page insertion node with subtype(r) = n, and
                      * include the glue correction for box `n` in the current page
                      * state" */
@@ -598,7 +598,7 @@ pub(crate) unsafe fn build_page() {
                     *LLIST_link(slf.r as usize) = slf.q;
                     slf.r = slf.q;
 
-                    *NODE_subtype(slf.r as usize) = n as _;
+                    NODE_subtype(slf.r as usize) = n as _;
                     set_NODE_type(slf.r as usize, INSERTING);
                     ensure_vbox(n);
 

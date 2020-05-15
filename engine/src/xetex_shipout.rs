@@ -44,7 +44,7 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     is_char_node, print_c_string, set_NODE_type, BOX_depth, BOX_glue_order, BOX_glue_sign,
     BOX_height, BOX_list_ptr, BOX_width, EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr,
-    GLUE_SPEC_shrink_order, LLIST_link, NODE_subtype, NODE_type, TeXOpt,
+    GLUE_SPEC_shrink_order, LLIST_link, NODE_subtype, NODE_type, TeXOpt, set_NODE_subtype, kern_NODE_subtype,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::{free, strerror, strlen};
@@ -374,8 +374,8 @@ unsafe fn hlist_out() {
                 if !p.is_texnull()
                     && !is_char_node(p)
                     && NODE_type(p as usize) != WHATSIT_NODE
-                    && (*NODE_subtype(p as usize) == NATIVE_WORD_NODE
-                        || *NODE_subtype(p as usize) == NATIVE_WORD_NODE_AT)
+                    && (NODE_subtype(p as usize) == NATIVE_WORD_NODE
+                        || NODE_subtype(p as usize) == NATIVE_WORD_NODE_AT)
                     && FONT_LETTER_SPACE[MEM[(p + 4) as usize].b16.s2 as usize] == 0
                 {
                     /* "got a word in an AAT font, might be the start of a run" */
@@ -393,7 +393,8 @@ unsafe fn hlist_out() {
                                 || NODE_type(q as usize) == MARK_NODE
                                 || NODE_type(q as usize) == ADJUST_NODE
                                 || (NODE_type(q as usize) == WHATSIT_NODE
-                                    && *NODE_subtype(q as usize) <= 4))
+                                    && [OPEN_NODE, WRITE_NODE, CLOSE_NODE, SPECIAL_NODE, LANGUAGE_NODE].contains(&NODE_subtype(q as usize))
+                                    ))
                         {
                             q = *LLIST_link(q as usize);
                         }
@@ -418,7 +419,8 @@ unsafe fn hlist_out() {
                                         || NODE_type(q as usize) == MARK_NODE
                                         || NODE_type(q as usize) == ADJUST_NODE
                                         || (NODE_type(q as usize) == WHATSIT_NODE
-                                            && *NODE_subtype(q as usize) <= 4))
+                                            && [OPEN_NODE, WRITE_NODE, CLOSE_NODE, SPECIAL_NODE, LANGUAGE_NODE].contains(&NODE_subtype(q as usize))
+                                            ))
                                 {
                                     q = *LLIST_link(q as usize);
                                 }
@@ -426,8 +428,8 @@ unsafe fn hlist_out() {
                                 if !q.is_texnull()
                                     && !is_char_node(q)
                                     && NODE_type(q as usize) == WHATSIT_NODE
-                                    && (*NODE_subtype(q as usize) == NATIVE_WORD_NODE
-                                        || *NODE_subtype(q as usize) == NATIVE_WORD_NODE_AT)
+                                    && (NODE_subtype(q as usize) == NATIVE_WORD_NODE
+                                        || NODE_subtype(q as usize) == NATIVE_WORD_NODE_AT)
                                     && MEM[(q + 4) as usize].b16.s2 as i32
                                         == MEM[(r + 4) as usize].b16.s2 as i32
                                 {
@@ -442,7 +444,7 @@ unsafe fn hlist_out() {
                             if !(!q.is_texnull()
                                 && !is_char_node(q)
                                 && NODE_type(q as usize) == KERN_NODE
-                                && *NODE_subtype(q as usize) == SPACE_ADJUSTMENT as _)
+                                && kern_NODE_subtype(q as usize) == KernNodeSubType::SpaceAdjustment)
                             {
                                 break;
                             }
@@ -1875,7 +1877,7 @@ unsafe fn reverse(
 pub(crate) unsafe fn new_edge(s: small_number, w: scaled_t) -> usize {
     let p = get_node(EDGE_NODE_SIZE) as usize;
     set_NODE_type(p, EDGE_NODE);
-    *NODE_subtype(p) = s as _;
+    set_NODE_subtype(p, NodeSubType::from(s as u16));
     *BOX_width(p) = w;
     *EDGE_NODE_edge_dist(p) = 0;
     p
@@ -1883,14 +1885,14 @@ pub(crate) unsafe fn new_edge(s: small_number, w: scaled_t) -> usize {
 
 pub(crate) unsafe fn out_what(mut p: i32) {
     let mut j: small_number;
-    match MEM[p as usize].b16.s0 {
+    match NODE_subtype(p as usize) {
         OPEN_NODE | WRITE_NODE | CLOSE_NODE => {
             if doing_leaders {
                 return;
             }
 
             j = MEM[(p + 1) as usize].b32.s0 as small_number;
-            if MEM[p as usize].b16.s0 == WRITE_NODE {
+            if NODE_subtype(p as usize) == WRITE_NODE {
                 write_out(p);
                 return;
             }
@@ -1899,7 +1901,7 @@ pub(crate) unsafe fn out_what(mut p: i32) {
                 ttstub_output_close(write_file[j as usize].take().unwrap());
             }
 
-            if MEM[p as usize].b16.s0 == CLOSE_NODE {
+            if NODE_subtype(p as usize) == CLOSE_NODE {
                 write_open[j as usize] = false;
                 return;
             }

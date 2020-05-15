@@ -497,6 +497,12 @@ impl From<u16> for NodeType {
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum NodeSubType {
+    Open = 0,
+    Write = 1,
+    Close = 2,
+    Special = 3,
+    Language = 4,
+    PdfSavePos = 6,
     NativeWord = 40,
     NativeWordAt = 41,
     Glyph = 42,
@@ -504,13 +510,27 @@ pub(crate) enum NodeSubType {
     Pdf = 44,
 }
 
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum KernNodeSubType {
+    Normal = 0,
+    Explicit = 1,
+    AccKern = 2,
+    SpaceAdjustment = 3,
+}
+
 impl From<u16> for NodeSubType {
     fn from(n: u16) -> Self {
-        assert!(n > 39 || n < 45, "Incorrect NodeSubType = {}", n);
+        assert!(n < 7 || n == 6 || (n > 39 && n < 45), "Incorrect NodeSubType = {}", n);
         unsafe { mem::transmute(n) }
     }
 }
-
+impl From<u16> for KernNodeSubType {
+    fn from(n: u16) -> Self {
+        assert!(n < 4, "Incorrect KernNodeSubType = {}", n);
+        unsafe { mem::transmute(n) }
+    }
+}
 pub(crate) const NATIVE_WORD_NODE: NodeSubType = NodeSubType::NativeWord;
 pub(crate) const NATIVE_WORD_NODE_AT: NodeSubType = NodeSubType::NativeWordAt;
 pub(crate) const GLYPH_NODE: NodeSubType = NodeSubType::Glyph;
@@ -1012,15 +1032,15 @@ pub(crate) const SHOW_TOKENS: placeholdertype = 5;
 pub(crate) const SHOW_IFS: placeholdertype = 6;
 
 /* EXTENSION */
-pub(crate) const OPEN_NODE: u16 = 0;
-pub(crate) const WRITE_NODE: u16 = 1;
-pub(crate) const CLOSE_NODE: u16 = 2;
-pub(crate) const SPECIAL_NODE: u16 = 3;
-pub(crate) const LANGUAGE_NODE: u16 = 4;
+pub(crate) const OPEN_NODE: NodeSubType = NodeSubType::Open;
+pub(crate) const WRITE_NODE: NodeSubType = NodeSubType::Write;
+pub(crate) const CLOSE_NODE: NodeSubType = NodeSubType::Close;
+pub(crate) const SPECIAL_NODE: NodeSubType = NodeSubType::Special;
+pub(crate) const LANGUAGE_NODE: NodeSubType = NodeSubType::Language;
 pub(crate) const IMMEDIATE_CODE: u16 = 4;
 pub(crate) const SET_LANGUAGE_CODE: u16 = 5;
 pub(crate) const PDFTEX_FIRST_EXTENSION_CODE: u16 = 6;
-pub(crate) const PDF_SAVE_POS_NODE: u16 = 6;
+pub(crate) const PDF_SAVE_POS_NODE: NodeSubType = NodeSubType::PdfSavePos;
 /// not to be confused with PIC_NODE = 43!
 pub(crate) const PIC_FILE_CODE: u16 = 41;
 /// not to be confused with PDF_NODE = 44!
@@ -1122,7 +1142,6 @@ pub(crate) const TOKEN_LIST: u16 = 0;
 pub(crate) const UNDEFINED_PRIMITIVE: placeholdertype = 0;
 pub(crate) const UNHYPHENATED: i16 = 0;
 pub(crate) const ADDITIONAL: u8 = 1;
-pub(crate) const EXPLICIT: u16 = 1;
 pub(crate) const FIXED_ACC: placeholdertype = 1;
 pub(crate) const HYPHENATED: i16 = 1;
 pub(crate) const JUST_OPEN: placeholdertype = 1;
@@ -1134,7 +1153,6 @@ pub(crate) const SLANT_CODE: placeholdertype = 1;
 pub(crate) const SPLIT_UP: ND = ND::Node(NodeType::VList);
 pub(crate) const STRETCHING: u16 = 1;
 pub(crate) const VMODE: i16 = 1;
-pub(crate) const ACC_KERN: u16 = 2;
 pub(crate) const BOTTOM_ACC: u16 = 2;
 pub(crate) const CLOSED: u8 = 2;
 pub(crate) const DLIST: u16 = 2;
@@ -1146,7 +1164,6 @@ pub(crate) const SUB_BOX: placeholdertype = 2;
 pub(crate) const DISPLAYOPERATORMINHEIGHT: placeholdertype = 3;
 pub(crate) const LEVEL_BOUNDARY: u16 = 3;
 // pub(crate) const MATH_SHIFT: placeholdertype = 3;
-pub(crate) const SPACE_ADJUSTMENT: u16 = 3;
 pub(crate) const SUB_MLIST: placeholdertype = 3;
 pub(crate) const IDENT_VAL: u8 = 4;
 pub(crate) const MATH_TEXT_CHAR: placeholdertype = 4;

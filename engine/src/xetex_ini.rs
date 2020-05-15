@@ -4937,7 +4937,7 @@ unsafe fn initialize_primitives() {
     primitive(b"vfilneg", VSKIP, FIL_NEG_CODE);
     primitive(b"mskip", MSKIP, MSKIP_CODE);
 
-    primitive(b"kern", KERN, EXPLICIT as i32);
+    primitive(b"kern", KERN, KernNodeSubType::Explicit as i32);
     primitive(b"mkern", MKERN, MU_GLUE as i32);
     primitive(b"moveleft", HMOVE, 1);
     primitive(b"moveright", HMOVE, 0);

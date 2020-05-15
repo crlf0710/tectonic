@@ -1,4 +1,4 @@
-use crate::xetex_consts::{ND, SYNCTEX_FIELD_SIZE};
+use crate::xetex_consts::{ND, NodeSubType, KernNodeSubType, SYNCTEX_FIELD_SIZE};
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
 
@@ -59,7 +59,16 @@ pub(crate) unsafe fn NODE_subtype(p: usize) -> NodeSubType {
     NodeSubType::from(MEM[p].b16.s0)
 }
 pub(crate) unsafe fn set_NODE_subtype(p: usize, n: NodeSubType) {
-    MEM[p].b16.s0 = n as u16
+    MEM[p].b16.s0 = n as u16;
+}
+pub(crate) unsafe fn kern_NODE_subtype(p: usize) -> KernNodeSubType {
+    KernNodeSubType::from(MEM[p].b16.s0)
+}
+pub(crate) unsafe fn set_kern_NODE_subtype(p: usize, n: KernNodeSubType) {
+    MEM[p].b16.s0 = n as u16;
+}
+pub(crate) unsafe fn clear_NODE_subtype(p: usize) {
+    MEM[p].b16.s0 = 0;
 }
 
 /// subtype; records L/R direction mode

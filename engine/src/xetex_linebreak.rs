@@ -44,7 +44,7 @@ use crate::xetex_xetexd::{
     LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
     LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length, NODE_subtype, NODE_type,
     PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty,
-    TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH, MIN_TRIE_OP,
+    TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH, MIN_TRIE_OP, set_NODE_subtype, kern_NODE_subtype, clear_NODE_subtype
 };
 
 pub(crate) type scaled_t = i32;
@@ -362,7 +362,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     active_width[1] += *BOX_width(cur_p as usize)
                 }
                 WHATSIT_NODE => {
-                    if *NODE_subtype(cur_p as usize) == LANGUAGE_NODE as _ {
+                    if NODE_subtype(cur_p as usize) == LANGUAGE_NODE as _ {
                         cur_lang = MEM[(cur_p + 1) as usize].b32.s1 as u8;
                         l_hyf = MEM[(cur_p + 1) as usize].b16.s1 as i32;
                         r_hyf = MEM[(cur_p + 1) as usize].b16.s0 as i32;
@@ -373,11 +373,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         } else {
                             hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
                         }
-                    } else if *NODE_subtype(cur_p as usize) == NATIVE_WORD_NODE
-                        || *NODE_subtype(cur_p as usize) == NATIVE_WORD_NODE_AT
-                        || *NODE_subtype(cur_p as usize) == GLYPH_NODE
-                        || *NODE_subtype(cur_p as usize) == PIC_NODE
-                        || *NODE_subtype(cur_p as usize) == PDF_NODE
+                    } else if NODE_subtype(cur_p as usize) == NATIVE_WORD_NODE
+                        || NODE_subtype(cur_p as usize) == NATIVE_WORD_NODE_AT
+                        || NODE_subtype(cur_p as usize) == GLYPH_NODE
+                        || NODE_subtype(cur_p as usize) == PIC_NODE
+                        || NODE_subtype(cur_p as usize) == PDF_NODE
                     {
                         active_width[1] += *BOX_width(cur_p as usize);
                     }
@@ -389,7 +389,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         } else if is_non_discardable_node(prev_p) {
                             try_break(0, UNHYPHENATED as _);
                         } else if NODE_type(prev_p as usize) == KERN_NODE
-                            && *NODE_subtype(prev_p as usize) != EXPLICIT as _
+                            && kern_NODE_subtype(prev_p as usize) != KernNodeSubType::Explicit
                         {
                             try_break(0, UNHYPHENATED as _);
                         }
@@ -431,11 +431,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         current_block = 11202235766349324107;
                                     }
                                 } else if NODE_type(s as usize) == KERN_NODE
-                                    && *NODE_subtype(s as usize) == NORMAL
+                                    && kern_NODE_subtype(s as usize) == KernNodeSubType::Normal
                                 {
                                     current_block = 13855806088735179493;
                                 } else if NODE_type(s as usize) == MATH_NODE
-                                    && *NODE_subtype(s as usize) >= L_CODE
+                                    && NODE_subtype(s as usize) >= L_CODE
                                 {
                                     current_block = 13855806088735179493;
                                 } else {
@@ -443,8 +443,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         current_block = 8166967358843938227;
                                         break;
                                     }
-                                    if *NODE_subtype(s as usize) == NATIVE_WORD_NODE
-                                        || *NODE_subtype(s as usize) == NATIVE_WORD_NODE_AT
+                                    if NODE_subtype(s as usize) == NATIVE_WORD_NODE
+                                        || NODE_subtype(s as usize) == NATIVE_WORD_NODE_AT
                                     {
                                         l = 0;
                                         while l < *NATIVE_NODE_length(s as usize) as i32 {
@@ -463,7 +463,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         }
                                     }
 
-                                    if *NODE_subtype(s as usize) == LANGUAGE_NODE {
+                                    if NODE_subtype(s as usize) == LANGUAGE_NODE {
                                         cur_lang = *LANGUAGE_NODE_what_lang(s as usize) as u8;
                                         l_hyf = *LANGUAGE_NODE_what_lhm(s as usize) as i32;
                                         r_hyf = *LANGUAGE_NODE_what_rhm(s as usize) as i32;
@@ -518,9 +518,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                 if ha != TEX_NULL
                                                     && ha < hi_mem_min
                                                     && NODE_type(ha as usize) == WHATSIT_NODE
-                                                    && (*NODE_subtype(ha as usize)
+                                                    && (NODE_subtype(ha as usize)
                                                         == NATIVE_WORD_NODE
-                                                        || *NODE_subtype(ha as usize)
+                                                        || NODE_subtype(ha as usize)
                                                             == NATIVE_WORD_NODE_AT)
                                                 {
                                                     /*926: check that nodes after native_word permit hyphenation; if not, goto done1 */
@@ -531,8 +531,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                             match NODE_type(s as usize) {
                                                                 LIGATURE_NODE => {}
                                                                 KERN_NODE => {
-                                                                    if *NODE_subtype(s as usize)
-                                                                        != NORMAL
+                                                                    if kern_NODE_subtype(s as usize)
+                                                                        != KernNodeSubType::Normal
                                                                     {
                                                                         current_block =
                                                                             2606747282402567793;
@@ -606,11 +606,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                                     - l,
                                                                             )
                                                                                 as i32;
-                                                                            *NODE_subtype(
+                                                                            set_NODE_subtype(
                                                                                 q as usize,
-                                                                            ) = *NODE_subtype(
+                                                                            NODE_subtype(
                                                                                 ha as usize,
-                                                                            );
+                                                                            ));
                                                                             i = l;
                                                                             while i < *NATIVE_NODE_length(ha as usize)
                                                                                 as i32
@@ -689,10 +689,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                                 - l,
                                                                         )
                                                                             as i32;
-                                                                        *NODE_subtype(q as usize) =
-                                                                            *NODE_subtype(
+                                                                        set_NODE_subtype(q as usize, NODE_subtype(
                                                                                 ha as usize,
-                                                                            );
+                                                                            ));
                                                                         i = l;
                                                                         while i
                                                                             < *NATIVE_NODE_length(
@@ -901,8 +900,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                         /*:932*/
                                                         } else {
                                                             if !(NODE_type(s as usize) == KERN_NODE
-                                                                && *NODE_subtype(s as usize)
-                                                                    == NORMAL)
+                                                                && kern_NODE_subtype(s as usize)
+                                                                    == KernNodeSubType::Normal)
                                                             {
                                                                 break;
                                                             }
@@ -928,9 +927,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                         KERN_NODE => {
                                                                             current_block =
                                                                                 5935670669791948619;
-                                                                            if *NODE_subtype(
+                                                                            if kern_NODE_subtype(
                                                                                 s as usize,
-                                                                            ) != NORMAL as _
+                                                                            ) != KernNodeSubType::Normal
                                                                             {
                                                                                 current_block
                                                                                             =
@@ -952,7 +951,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                         MATH_NODE => {
                                                                             current_block =
                                                                                 2529459302156174429;
-                                                                            if *NODE_subtype(
+                                                                            if NODE_subtype(
                                                                                 s as usize,
                                                                             ) >= L_CODE
                                                                             {
@@ -996,7 +995,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 }
                 KERN_NODE => {
                     /* ... resuming 895 ... */
-                    if *NODE_subtype(cur_p as usize) == EXPLICIT {
+                    if kern_NODE_subtype(cur_p as usize) == KernNodeSubType::Explicit {
                         if (!is_char_node(*LLIST_link(cur_p as usize)) as i32) < hi_mem_min
                             && auto_breaking as i32 != 0
                         {
@@ -1049,11 +1048,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         disc_width += *BOX_width(s as usize)
                                     }
                                     WHATSIT_NODE => {
-                                        if *NODE_subtype(s as usize) == NATIVE_WORD_NODE
-                                            || *NODE_subtype(s as usize) == NATIVE_WORD_NODE_AT
-                                            || *NODE_subtype(s as usize) == GLYPH_NODE
-                                            || *NODE_subtype(s as usize) == PIC_NODE
-                                            || *NODE_subtype(s as usize) == PDF_NODE
+                                        if NODE_subtype(s as usize) == NATIVE_WORD_NODE
+                                            || NODE_subtype(s as usize) == NATIVE_WORD_NODE_AT
+                                            || NODE_subtype(s as usize) == GLYPH_NODE
+                                            || NODE_subtype(s as usize) == PIC_NODE
+                                            || NODE_subtype(s as usize) == PDF_NODE
                                         {
                                             disc_width += *BOX_width(s as usize);
                                         } else {
@@ -1095,11 +1094,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     active_width[1] += *BOX_width(s as usize)
                                 }
                                 WHATSIT_NODE => {
-                                    if *NODE_subtype(s as usize) == NATIVE_WORD_NODE
-                                        || *NODE_subtype(s as usize) == NATIVE_WORD_NODE_AT
-                                        || *NODE_subtype(s as usize) == GLYPH_NODE
-                                        || *NODE_subtype(s as usize) == PIC_NODE
-                                        || *NODE_subtype(s as usize) == PDF_NODE
+                                    if NODE_subtype(s as usize) == NATIVE_WORD_NODE
+                                        || NODE_subtype(s as usize) == NATIVE_WORD_NODE_AT
+                                        || NODE_subtype(s as usize) == GLYPH_NODE
+                                        || NODE_subtype(s as usize) == PIC_NODE
+                                        || NODE_subtype(s as usize) == PDF_NODE
                                     {
                                         active_width[1] += *BOX_width(s as usize);
                                     } else {
@@ -1118,8 +1117,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     continue;
                 }
                 MATH_NODE => {
-                    if *NODE_subtype(cur_p as usize) < L_CODE {
-                        auto_breaking = *NODE_subtype(cur_p as usize) as i32 & 1 != 0
+                    if NODE_subtype(cur_p as usize) < L_CODE {
+                        auto_breaking = NODE_subtype(cur_p as usize) as i32 & 1 != 0
                     }
                     if !is_char_node(*LLIST_link(cur_p as usize)) && auto_breaking {
                         if NODE_type(*LLIST_link(cur_p as usize) as usize) == GLUE_NODE {
@@ -1359,7 +1358,7 @@ unsafe fn post_line_break(mut d: bool) {
         } else if NODE_type(q as usize) == GLUE_NODE {
             delete_glue_ref(*GLUE_NODE_glue_ptr(q as usize) as usize);
             *GLUE_NODE_glue_ptr(q as usize) = *GLUEPAR(GluePar::right_skip);
-            *NODE_subtype(q as usize) = GluePar::right_skip as u16 + 1;
+            NODE_subtype(q as usize) = GluePar::right_skip as u16 + 1;
             *GLUE_SPEC_ref_count(*GLUEPAR(GluePar::right_skip) as usize) += 1;
             glue_break = true;
         } else if NODE_type(q as usize) == DISC_NODE {
@@ -1621,8 +1620,8 @@ unsafe fn post_line_break(mut d: bool) {
                         break;
                     }
                     if NODE_type(q as usize) == KERN_NODE
-                        && *NODE_subtype(q as usize) != EXPLICIT
-                        && *NODE_subtype(q as usize) != SPACE_ADJUSTMENT
+                        && kern_NODE_subtype(q as usize) != KernNodeSubType::Explicit
+                        && kern_NODE_subtype(q as usize) != KernNodeSubType::SpaceAdjustment
                     {
                         break;
                     }
@@ -1792,12 +1791,12 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                                 break_width[1] -= *BOX_width(v as usize);
                                             }
                                             WHATSIT_NODE => {
-                                                if *NODE_subtype(v as usize) == NATIVE_WORD_NODE
-                                                    || *NODE_subtype(v as usize)
+                                                if NODE_subtype(v as usize) == NATIVE_WORD_NODE
+                                                    || NODE_subtype(v as usize)
                                                         == NATIVE_WORD_NODE_AT
-                                                    || *NODE_subtype(v as usize) == GLYPH_NODE
-                                                    || *NODE_subtype(v as usize) == PIC_NODE
-                                                    || *NODE_subtype(v as usize) == PDF_NODE
+                                                    || NODE_subtype(v as usize) == GLYPH_NODE
+                                                    || NODE_subtype(v as usize) == PIC_NODE
+                                                    || NODE_subtype(v as usize) == PDF_NODE
                                                 {
                                                     break_width[1] -= *BOX_width(v as usize);
                                                 } else {
@@ -1835,12 +1834,12 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                                 break_width[1] += *BOX_width(s as usize);
                                             }
                                             WHATSIT_NODE => {
-                                                if *NODE_subtype(s as usize) == NATIVE_WORD_NODE
-                                                    || *NODE_subtype(s as usize)
+                                                if NODE_subtype(s as usize) == NATIVE_WORD_NODE
+                                                    || NODE_subtype(s as usize)
                                                         == NATIVE_WORD_NODE_AT
-                                                    || *NODE_subtype(s as usize) == GLYPH_NODE
-                                                    || *NODE_subtype(s as usize) == PIC_NODE
-                                                    || *NODE_subtype(s as usize) == PDF_NODE
+                                                    || NODE_subtype(s as usize) == GLYPH_NODE
+                                                    || NODE_subtype(s as usize) == PIC_NODE
+                                                    || NODE_subtype(s as usize) == PDF_NODE
                                                 {
                                                     break_width[1] += *BOX_width(s as usize);
                                                 } else {
@@ -1874,7 +1873,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                 PENALTY_NODE => {}
                                 MATH_NODE => break_width[1] -= *BOX_width(s as usize),
                                 KERN_NODE => {
-                                    if *NODE_subtype(s as usize) != EXPLICIT {
+                                    if kern_NODE_subtype(s as usize) != KernNodeSubType::Explicit {
                                         break;
                                     }
                                     break_width[1] -= *BOX_width(s as usize)
@@ -1910,7 +1909,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                         let q = get_node(DELTA_NODE_SIZE);
                         *LLIST_link(q) = r;
                         set_NODE_type(q, DELTA_NODE);
-                        *NODE_subtype(q) = 0_u16;
+                        clear_NODE_subtype(q);
                         *DELTA_NODE_dwidth(q) = break_width[1] - cur_active_width[1];
                         *DELTA_NODE_dstretch0(q) = break_width[2] - cur_active_width[2];
                         *DELTA_NODE_dstretch1(q) = break_width[3] - cur_active_width[3];
@@ -1962,7 +1961,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                         let q = get_node(DELTA_NODE_SIZE);
                         *LLIST_link(q) = r;
                         set_NODE_type(q, DELTA_NODE);
-                        *NODE_subtype(q) = 0; /* subtype is not used */
+                        clear_NODE_subtype(q); /* subtype is not used */
                         *DELTA_NODE_dwidth(q) = cur_active_width[1] - break_width[1];
                         *DELTA_NODE_dstretch0(q) = cur_active_width[2] - break_width[2];
                         *DELTA_NODE_dstretch1(q) = cur_active_width[3] - break_width[3];
@@ -2526,8 +2525,8 @@ unsafe fn hyphenate() {
     if ha != TEX_NULL
         && !is_char_node(ha)
         && NODE_type(ha as usize) == WHATSIT_NODE
-        && (MEM[ha as usize].b16.s0 == NATIVE_WORD_NODE
-            || MEM[ha as usize].b16.s0 == NATIVE_WORD_NODE_AT)
+        && (NODE_subtype(ha as usize) == NATIVE_WORD_NODE
+            || NODE_subtype(ha as usize) == NATIVE_WORD_NODE_AT)
     {
         s = cur_p;
         while MEM[s as usize].b32.s1 != ha {
