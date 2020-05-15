@@ -55,8 +55,11 @@ pub(crate) unsafe fn set_NODE_type(p: usize, n: ND) {
     }
 }
 /// the other half of LLIST_info(p)
-pub(crate) unsafe fn NODE_subtype(p: usize) -> &'static mut u16 {
-    &mut MEM[p].b16.s0
+pub(crate) unsafe fn NODE_subtype(p: usize) -> NodeSubType {
+    NodeSubType::from(MEM[p].b16.s0)
+}
+pub(crate) unsafe fn set_NODE_subtype(p: usize, n: NodeSubType) {
+    MEM[p].b16.s0 = n as u16
 }
 
 /// subtype; records L/R direction mode

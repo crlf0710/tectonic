@@ -494,14 +494,28 @@ impl From<u16> for NodeType {
     }
 }
 
-pub(crate) const NATIVE_WORD_NODE: u16 = 40;
-pub(crate) const NATIVE_WORD_NODE_AT: u16 = 41;
-/// not to be confused with GLYPH_CODE = 43!
-pub(crate) const GLYPH_NODE: u16 = 42;
-/// not to be confused with PIC_FILE_CODE = 41!
-pub(crate) const PIC_NODE: u16 = 43;
-/// not to be confused with PDF_FILE_CODE = 42!
-pub(crate) const PDF_NODE: u16 = 44;
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NodeSubType {
+    NativeWord = 40,
+    NativeWordAt = 41,
+    Glyph = 42,
+    Pic = 43,
+    Pdf = 44,
+}
+
+impl From<u16> for NodeSubType {
+    fn from(n: u16) -> Self {
+        assert!(n > 39 || n < 45, "Incorrect NodeSubType = {}", n);
+        unsafe { mem::transmute(n) }
+    }
+}
+
+pub(crate) const NATIVE_WORD_NODE: NodeSubType = NodeSubType::NativeWord;
+pub(crate) const NATIVE_WORD_NODE_AT: NodeSubType = NodeSubType::NativeWordAt;
+pub(crate) const GLYPH_NODE: NodeSubType = NodeSubType::Glyph;
+pub(crate) const PIC_NODE: NodeSubType = NodeSubType::Pic;
+pub(crate) const PDF_NODE: NodeSubType = NodeSubType::Pdf;
 
 pub(crate) const IF_NODE_SIZE: placeholdertype = 2;
 pub(crate) const PASSIVE_NODE_SIZE: placeholdertype = 2;
