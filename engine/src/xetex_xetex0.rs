@@ -9,7 +9,6 @@
 )]
 
 use bridge::DisplayExt;
-use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::io::Write;
 use std::ptr;
@@ -949,9 +948,9 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                         if MEM[p].b16.s0 != NORMAL {
                             print_char('(' as i32);
                             if MEM[p].b16.s0 < COND_MATH_GLUE {
-                                match GluePar::try_from(MEM[p].b16.s0 - 1) {
-                                    Ok(dimen) => print_skip_param(dimen),
-                                    Err(e) => print_cstr(e),
+                                match GluePar::n(MEM[p].b16.s0 - 1) {
+                                    Some(dimen) => print_skip_param(dimen),
+                                    None => print_cstr(b"[unknown glue parameter!]"),
                                 }
                             } else if MEM[p].b16.s0 == COND_MATH_GLUE {
                                 print_esc_cstr(b"nonscript");
@@ -1880,9 +1879,9 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         }
         ASSIGN_GLUE | ASSIGN_MU_GLUE => {
             if chr_code < SKIP_BASE as i32 {
-                match GluePar::try_from((chr_code - GLUE_BASE as i32) as u16) {
-                    Ok(dimen) => print_skip_param(dimen),
-                    Err(e) => print_cstr(e),
+                match GluePar::n((chr_code - GLUE_BASE as i32) as u16) {
+                    Some(dimen) => print_skip_param(dimen),
+                    None => print_cstr(b"[unknown glue parameter!]"),
                 }
             } else if chr_code < MU_SKIP_BASE as i32 {
                 print_esc_cstr(b"skip");
@@ -1897,27 +1896,27 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_esc_cstr(b"toks");
                 print_int(chr_code - TOKS_BASE as i32);
             } else {
-                match Local::try_from(chr_code - LOCAL_BASE as i32) {
-                    Ok(Local::output_routine) => print_esc_cstr(b"output"),
-                    Ok(Local::every_par) => print_esc_cstr(b"everypar"),
-                    Ok(Local::every_math) => print_esc_cstr(b"everymath"),
-                    Ok(Local::every_display) => print_esc_cstr(b"everydisplay"),
-                    Ok(Local::every_hbox) => print_esc_cstr(b"everyhbox"),
-                    Ok(Local::every_vbox) => print_esc_cstr(b"everyvbox"),
-                    Ok(Local::every_job) => print_esc_cstr(b"everyjob"),
-                    Ok(Local::every_cr) => print_esc_cstr(b"everycr"),
-                    Ok(Local::every_eof) => print_esc_cstr(b"everyeof"),
-                    Ok(Local::xetex_inter_char) => print_esc_cstr(b"XeTeXinterchartoks"),
-                    Ok(Local::TectonicCodaTokens) => print_esc_cstr(b"TectonicCodaTokens"),
+                match Local::n(chr_code - LOCAL_BASE as i32) {
+                    Some(Local::output_routine) => print_esc_cstr(b"output"),
+                    Some(Local::every_par) => print_esc_cstr(b"everypar"),
+                    Some(Local::every_math) => print_esc_cstr(b"everymath"),
+                    Some(Local::every_display) => print_esc_cstr(b"everydisplay"),
+                    Some(Local::every_hbox) => print_esc_cstr(b"everyhbox"),
+                    Some(Local::every_vbox) => print_esc_cstr(b"everyvbox"),
+                    Some(Local::every_job) => print_esc_cstr(b"everyjob"),
+                    Some(Local::every_cr) => print_esc_cstr(b"everycr"),
+                    Some(Local::every_eof) => print_esc_cstr(b"everyeof"),
+                    Some(Local::xetex_inter_char) => print_esc_cstr(b"XeTeXinterchartoks"),
+                    Some(Local::TectonicCodaTokens) => print_esc_cstr(b"TectonicCodaTokens"),
                     _ => print_esc_cstr(b"errhelp"),
                 }
             }
         }
         ASSIGN_INT => {
             if chr_code < COUNT_BASE as i32 {
-                match IntPar::try_from(chr_code - INT_BASE as i32) {
-                    Ok(dimen) => print_param(dimen),
-                    Err(e) => print_cstr(e),
+                match IntPar::n(chr_code - INT_BASE as i32) {
+                    Some(dimen) => print_param(dimen),
+                    None => print_cstr(b"[unknown i32 parameter!]"),
                 }
             } else {
                 print_esc_cstr(b"count");
@@ -1926,9 +1925,9 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         }
         ASSIGN_DIMEN => {
             if chr_code < SCALED_BASE as i32 {
-                match DimenPar::try_from(chr_code - DIMEN_BASE as i32) {
-                    Ok(dimen) => print_length_param(dimen),
-                    Err(e) => print_cstr(e),
+                match DimenPar::n(chr_code - DIMEN_BASE as i32) {
+                    Some(dimen) => print_length_param(dimen),
+                    None => print_cstr(b"[unknown dimen parameter!]"),
                 }
             } else {
                 print_esc_cstr(b"dimen");

@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::mem;
 
 use crate::xetex_ini::EQTB;
@@ -107,7 +106,7 @@ pub(crate) const UNDEFINED_CONTROL_SEQUENCE: usize = FROZEN_NULL_FONT + MAX_FONT
 pub(crate) const GLUE_BASE: usize = UNDEFINED_CONTROL_SEQUENCE + 1;
 
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, enumn::N)]
 pub(crate) enum GluePar {
     line_skip = 0,
     baseline_skip = 1,
@@ -128,16 +127,6 @@ pub(crate) enum GluePar {
     thin_mu_skip = 16,
     med_mu_skip = 17,
     thick_mu_skip = 18,
-}
-impl TryFrom<u16> for GluePar {
-    type Error = &'static [u8];
-    fn try_from(n: u16) -> Result<Self, Self::Error> {
-        if n > 18 {
-            Err(b"[unknown glue parameter!]")
-        } else {
-            Ok(unsafe { mem::transmute(n) })
-        }
-    }
 }
 
 pub(crate) const GLUE_PARS: usize = 19;
@@ -162,7 +151,7 @@ pub(crate) unsafe fn MU_SKIP_REG(n: usize) -> &'static mut i32 {
 pub(crate) const LOCAL_BASE: usize = MU_SKIP_BASE + NUMBER_REGS;
 
 #[repr(i32)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, enumn::N)]
 pub(crate) enum Local {
     par_shape = 0,
     output_routine = 1,
@@ -177,16 +166,6 @@ pub(crate) enum Local {
     every_eof = 10,
     xetex_inter_char = 11,
     TectonicCodaTokens = 12,
-}
-impl TryFrom<i32> for Local {
-    type Error = &'static [u8];
-    fn try_from(n: i32) -> Result<Self, Self::Error> {
-        if (n as u32) > 12 {
-            Err(b"errhelp")
-        } else {
-            Ok(unsafe { mem::transmute(n) })
-        }
-    }
 }
 
 pub(crate) const NUM_LOCALS: usize = 13;
@@ -254,7 +233,7 @@ pub(crate) unsafe fn CHAR_SUB_CODE(n: usize) -> &'static mut i32 {
 pub(crate) const INT_BASE: usize = CHAR_SUB_CODE_BASE + NUMBER_USVS;
 
 #[repr(i32)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, enumn::N)]
 pub(crate) enum IntPar {
     pretolerance = 0,
     tolerance = 1,
@@ -344,16 +323,6 @@ pub(crate) enum IntPar {
     synctex = 83,
     pdfoutput = 84,
 }
-impl TryFrom<i32> for IntPar {
-    type Error = &'static [u8];
-    fn try_from(n: i32) -> Result<Self, Self::Error> {
-        if (n as u32) > 84 {
-            Err(b"[unknown i32 parameter!]")
-        } else {
-            Ok(unsafe { mem::transmute(n) })
-        }
-    }
-}
 
 pub(crate) const INT_PARS: usize = 85;
 
@@ -376,7 +345,7 @@ pub(crate) unsafe fn DEL_CODE(n: usize) -> &'static mut i32 {
 pub(crate) const DIMEN_BASE: usize = DEL_CODE_BASE + NUMBER_USVS;
 
 #[repr(i32)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, enumn::N)]
 pub(crate) enum DimenPar {
     par_indent = 0,
     math_surround = 1,
@@ -401,16 +370,6 @@ pub(crate) enum DimenPar {
     emergency_stretch = 20,
     pdf_page_width = 21,
     pdf_page_height = 22,
-}
-impl TryFrom<i32> for DimenPar {
-    type Error = &'static [u8];
-    fn try_from(n: i32) -> Result<Self, Self::Error> {
-        if (n as u32) > 22 {
-            Err(b"[unknown dimen parameter!]")
-        } else {
-            Ok(unsafe { mem::transmute(n) })
-        }
-    }
 }
 
 pub(crate) const DIMEN_PARS: usize = 23;
@@ -447,7 +406,7 @@ pub(crate) const RIGHT_TO_LEFT: placeholdertype = 1;
 pub(crate) const SYNCTEX_FIELD_SIZE: placeholdertype = 1;
 
 #[repr(u16)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
 pub(crate) enum NodeType {
     HList = 0,
     VList = 1,
@@ -489,13 +448,12 @@ pub(crate) const MARGIN_KERN_NODE: ND = ND::Node(NodeType::MarginKern);
 
 impl From<u16> for NodeType {
     fn from(n: u16) -> Self {
-        assert!(n < 16 || n == 40, "Incorrect NodeType = {}", n);
-        unsafe { mem::transmute(n) }
+        Self::n(n).expect(&format!("Incorrect NodeType = {}", n))
     }
 }
 
 #[repr(u16)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
 pub(crate) enum NodeSubType {
     Open = 0,
     Write = 1,
@@ -514,7 +472,7 @@ pub(crate) enum NodeSubType {
 }
 
 #[repr(u16)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
 pub(crate) enum KernNodeSubType {
     Normal = 0,
     Explicit = 1,
@@ -524,18 +482,12 @@ pub(crate) enum KernNodeSubType {
 
 impl From<u16> for NodeSubType {
     fn from(n: u16) -> Self {
-        assert!(
-            n < 7 || n == 6 || (n > 39 && n < 45) || n == 100 || n == 200 || n == 253,
-            "Incorrect NodeSubType = {}",
-            n
-        );
-        unsafe { mem::transmute(n) }
+        Self::n(n).expect(&format!("Incorrect NodeSubType = {}", n))
     }
 }
 impl From<u16> for KernNodeSubType {
     fn from(n: u16) -> Self {
-        assert!(n < 4, "Incorrect KernNodeSubType = {}", n);
-        unsafe { mem::transmute(n) }
+        Self::n(n).expect(&format!("Incorrect KernNodeSubType = {}", n))
     }
 }
 pub(crate) const NATIVE_WORD_NODE: NodeSubType = NodeSubType::NativeWord;
@@ -580,7 +532,7 @@ pub(crate) const FRACTION_NOAD_SIZE: placeholdertype = 6;
 
 /* MATH_COMP and others */
 #[repr(u16)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
 pub(crate) enum NoadType {
     Ord = 16,
     Op = 17,
@@ -619,8 +571,7 @@ pub(crate) const RIGHT_NOAD: ND = ND::Noad(NoadType::Right);
 
 impl From<u16> for NoadType {
     fn from(n: u16) -> Self {
-        assert!(n > 15 && n < 32, "Incorrect NoadType = {}", n);
-        unsafe { mem::transmute(n) }
+        Self::n(n).expect(&format!("Incorrect NoadType = {}", n))
     }
 }
 

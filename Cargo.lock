@@ -360,6 +360,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "enumn"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "proc-macro2 1.0.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn 1.0.31 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "error-chain"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1576,6 +1586,7 @@ dependencies = [
  "core-foundation 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-graphics 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-text 15.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "enumn 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "euclid 0.20.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "freetype-rs 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "harfbuzz-sys 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2060,6 +2071,7 @@ dependencies = [
 "checksum dunce 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b2641c4a7c0c4101df53ea572bffdc561c146f6c2eb09e4df02bc4811e3feeb4"
 "checksum either 1.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 "checksum encoding_rs 0.8.23 (registry+https://github.com/rust-lang/crates.io-index)" = "e8ac63f94732332f44fe654443c46f6375d1939684c17b0afb6cb56b0456e171"
+"checksum enumn 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "614e3184ceb6d0cc5db01eab193001a1ea5c284dd350569882c8a9d1978ac2ac"
 "checksum error-chain 0.12.2 (registry+https://github.com/rust-lang/crates.io-index)" = "d371106cc88ffdfb1eabd7111e432da544f16f3e2d7bf1dfe8bf575f1df045cd"
 "checksum euclid 0.20.13 (registry+https://github.com/rust-lang/crates.io-index)" = "555d51b9a929edb14183fad621e2d5736fc8760707a24246047288d4c142b6bd"
 "checksum failure 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
