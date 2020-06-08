@@ -582,14 +582,14 @@ pub(crate) unsafe fn build_page() {
                     freeze_page_specs(INSERTS_ONLY as _);
                 }
 
-                let n = NODE_subtype(slf.p as usize) as u8;
+                let n = MEM[slf.p as usize].b16.s0; //NODE_subtype(slf.p as usize) as u8;
                 slf.r = PAGE_INS_HEAD as i32;
 
-                while n as u16 >= NODE_subtype(*LLIST_link(slf.r as usize) as usize) {
+                while n as u16 >= MEM[*LLIST_link(slf.r as usize) as usize].b16.s0 { // NODE_subtype(*LLIST_link(slf.r as usize) as usize) {
                     slf.r = *LLIST_link(slf.r as usize);
                 }
 
-                if NODE_subtype(slf.r as usize) != n as _{
+                if MEM[slf.r as usize].b16.s0 != n { //  NODE_subtype(slf.r as usize)
                     /*1044: "Create a page insertion node with subtype(r) = n, and
                      * include the glue correction for box `n` in the current page
                      * state" */
@@ -598,9 +598,9 @@ pub(crate) unsafe fn build_page() {
                     *LLIST_link(slf.r as usize) = slf.q;
                     slf.r = slf.q;
 
-                    NODE_subtype(slf.r as usize) = n as _;
+                    MEM[slf.r as usize].b16.s0 = n as _; // NODE_subtype(slf.r as usize)
                     set_NODE_type(slf.r as usize, INSERTING);
-                    ensure_vbox(n);
+                    ensure_vbox(n as _);
 
                     if BOX_REG(n as _).is_texnull() {
                         *BOX_height(slf.r as usize) = 0;

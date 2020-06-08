@@ -33,18 +33,19 @@ use crate::xetex_xetex0::{
     prev_rightmost,
 };
 use crate::xetex_xetexd::{
-    is_char_node, is_non_discardable_node, set_NODE_type, ACTIVE_NODE_break_node,
-    ACTIVE_NODE_fitness, ACTIVE_NODE_glue, ACTIVE_NODE_line_number, ACTIVE_NODE_shortfall,
-    ACTIVE_NODE_total_demerits, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
-    DELTA_NODE_dshrink, DELTA_NODE_dstretch0, DELTA_NODE_dstretch1, DELTA_NODE_dstretch2,
-    DELTA_NODE_dstretch3, DELTA_NODE_dwidth, DISCRETIONARY_NODE_post_break,
-    DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr,
-    GLUE_NODE_leader_ptr, GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order,
-    GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm,
-    LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
-    LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length, NODE_subtype, NODE_type,
-    PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty,
-    TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH, MIN_TRIE_OP, set_NODE_subtype, kern_NODE_subtype, clear_NODE_subtype
+    clear_NODE_subtype, is_char_node, is_non_discardable_node, kern_NODE_subtype, set_NODE_subtype,
+    set_NODE_type, ACTIVE_NODE_break_node, ACTIVE_NODE_fitness, ACTIVE_NODE_glue,
+    ACTIVE_NODE_line_number, ACTIVE_NODE_shortfall, ACTIVE_NODE_total_demerits, BOX_shift_amount,
+    BOX_width, CHAR_NODE_character, CHAR_NODE_font, DELTA_NODE_dshrink, DELTA_NODE_dstretch0,
+    DELTA_NODE_dstretch1, DELTA_NODE_dstretch2, DELTA_NODE_dstretch3, DELTA_NODE_dwidth,
+    DISCRETIONARY_NODE_post_break, DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count,
+    GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_SPEC_ref_count, GLUE_SPEC_shrink,
+    GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LANGUAGE_NODE_what_lang,
+    LANGUAGE_NODE_what_lhm, LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
+    LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length,
+    NODE_subtype, NODE_type, PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break,
+    PASSIVE_NODE_prev_break, PENALTY_NODE_penalty, TeXInt, TeXOpt, FONT_CHARACTER_INFO,
+    FONT_CHARACTER_WIDTH, MIN_TRIE_OP,
 };
 
 pub(crate) type scaled_t = i32;
@@ -435,7 +436,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 {
                                     current_block = 13855806088735179493;
                                 } else if NODE_type(s as usize) == MATH_NODE
-                                    && NODE_subtype(s as usize) >= L_CODE
+                                    && MEM[s as usize].b16.s0 >= L_CODE
+                                // NODE_subtype(s as usize)
                                 {
                                     current_block = 13855806088735179493;
                                 } else {
@@ -608,9 +610,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                                 as i32;
                                                                             set_NODE_subtype(
                                                                                 q as usize,
-                                                                            NODE_subtype(
-                                                                                ha as usize,
-                                                                            ));
+                                                                                NODE_subtype(
+                                                                                    ha as usize,
+                                                                                ),
+                                                                            );
                                                                             i = l;
                                                                             while i < *NATIVE_NODE_length(ha as usize)
                                                                                 as i32
@@ -689,9 +692,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                                 - l,
                                                                         )
                                                                             as i32;
-                                                                        set_NODE_subtype(q as usize, NODE_subtype(
+                                                                        set_NODE_subtype(
+                                                                            q as usize,
+                                                                            NODE_subtype(
                                                                                 ha as usize,
-                                                                            ));
+                                                                            ),
+                                                                        );
                                                                         i = l;
                                                                         while i
                                                                             < *NATIVE_NODE_length(
@@ -951,10 +957,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                         MATH_NODE => {
                                                                             current_block =
                                                                                 2529459302156174429;
-                                                                            if NODE_subtype(
-                                                                                s as usize,
-                                                                            ) >= L_CODE
+                                                                            if MEM[s as usize]
+                                                                                .b16
+                                                                                .s0
+                                                                                >= L_CODE
                                                                             {
+                                                                                // NODE_subtype(s as usize)
                                                                                 current_block
                                                                                             =
                                                                                             16848571710846909653;
@@ -1117,7 +1125,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     continue;
                 }
                 MATH_NODE => {
-                    if NODE_subtype(cur_p as usize) < L_CODE {
+                    if MEM[cur_p as usize].b16.s0 < L_CODE {
+                        // NODE_subtype(cur_p as usize)
                         auto_breaking = NODE_subtype(cur_p as usize) as i32 & 1 != 0
                     }
                     if !is_char_node(*LLIST_link(cur_p as usize)) && auto_breaking {
@@ -1358,7 +1367,7 @@ unsafe fn post_line_break(mut d: bool) {
         } else if NODE_type(q as usize) == GLUE_NODE {
             delete_glue_ref(*GLUE_NODE_glue_ptr(q as usize) as usize);
             *GLUE_NODE_glue_ptr(q as usize) = *GLUEPAR(GluePar::right_skip);
-            NODE_subtype(q as usize) = GluePar::right_skip as u16 + 1;
+            MEM[q as usize].b16.s0 = GluePar::right_skip as u16 + 1; // NODE_subtype(q as usize)
             *GLUE_SPEC_ref_count(*GLUEPAR(GluePar::right_skip) as usize) += 1;
             glue_break = true;
         } else if NODE_type(q as usize) == DISC_NODE {

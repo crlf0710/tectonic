@@ -44,8 +44,8 @@ use crate::xetex_xetex0::{
     scan_math_fam_int, scan_usv_num, unsave, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_char_node, set_NODE_type, BOX_glue_set, CHAR_NODE_font, GLUE_SPEC_shrink_order, LLIST_link,
-    NODE_subtype, NODE_type, TeXInt, TeXOpt, set_NODE_subtype, set_kern_NODE_subtype,
+    is_char_node, set_NODE_subtype, set_NODE_type, set_kern_NODE_subtype, BOX_glue_set,
+    CHAR_NODE_font, GLUE_SPEC_shrink_order, LLIST_link, NODE_subtype, NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;

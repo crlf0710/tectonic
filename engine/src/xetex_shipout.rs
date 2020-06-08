@@ -42,9 +42,9 @@ use crate::xetex_xetex0::{
     UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, print_c_string, set_NODE_type, BOX_depth, BOX_glue_order, BOX_glue_sign,
-    BOX_height, BOX_list_ptr, BOX_width, EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr,
-    GLUE_SPEC_shrink_order, LLIST_link, NODE_subtype, NODE_type, TeXOpt, set_NODE_subtype, kern_NODE_subtype,
+    is_char_node, kern_NODE_subtype, print_c_string, set_NODE_subtype, set_NODE_type, BOX_depth,
+    BOX_glue_order, BOX_glue_sign, BOX_height, BOX_list_ptr, BOX_width, EDGE_NODE_edge_dist,
+    GLUE_NODE_glue_ptr, GLUE_SPEC_shrink_order, LLIST_link, NODE_subtype, NODE_type, TeXOpt,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::{free, strerror, strlen};
@@ -393,8 +393,14 @@ unsafe fn hlist_out() {
                                 || NODE_type(q as usize) == MARK_NODE
                                 || NODE_type(q as usize) == ADJUST_NODE
                                 || (NODE_type(q as usize) == WHATSIT_NODE
-                                    && [OPEN_NODE, WRITE_NODE, CLOSE_NODE, SPECIAL_NODE, LANGUAGE_NODE].contains(&NODE_subtype(q as usize))
-                                    ))
+                                    && [
+                                        OPEN_NODE,
+                                        WRITE_NODE,
+                                        CLOSE_NODE,
+                                        SPECIAL_NODE,
+                                        LANGUAGE_NODE,
+                                    ]
+                                    .contains(&NODE_subtype(q as usize))))
                         {
                             q = *LLIST_link(q as usize);
                         }
@@ -419,8 +425,14 @@ unsafe fn hlist_out() {
                                         || NODE_type(q as usize) == MARK_NODE
                                         || NODE_type(q as usize) == ADJUST_NODE
                                         || (NODE_type(q as usize) == WHATSIT_NODE
-                                            && [OPEN_NODE, WRITE_NODE, CLOSE_NODE, SPECIAL_NODE, LANGUAGE_NODE].contains(&NODE_subtype(q as usize))
-                                            ))
+                                            && [
+                                                OPEN_NODE,
+                                                WRITE_NODE,
+                                                CLOSE_NODE,
+                                                SPECIAL_NODE,
+                                                LANGUAGE_NODE,
+                                            ]
+                                            .contains(&NODE_subtype(q as usize))))
                                 {
                                     q = *LLIST_link(q as usize);
                                 }
@@ -444,7 +456,8 @@ unsafe fn hlist_out() {
                             if !(!q.is_texnull()
                                 && !is_char_node(q)
                                 && NODE_type(q as usize) == KERN_NODE
-                                && kern_NODE_subtype(q as usize) == KernNodeSubType::SpaceAdjustment)
+                                && kern_NODE_subtype(q as usize)
+                                    == KernNodeSubType::SpaceAdjustment)
                             {
                                 break;
                             }

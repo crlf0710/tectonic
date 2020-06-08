@@ -2614,19 +2614,19 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         }
         END_TEMPLATE => print_esc_cstr(b"outer endtemplate"),
         EXTENSION => match chr_code as u16 {
-            OPEN_NODE => print_esc_cstr(b"openout"),
-            WRITE_NODE => print_esc_cstr(b"write"),
-            CLOSE_NODE => print_esc_cstr(b"closeout"),
-            SPECIAL_NODE => print_esc_cstr(b"special"),
-            IMMEDIATE_CODE => print_esc_cstr(b"immediate"),
-            SET_LANGUAGE_CODE => print_esc_cstr(b"setlanguage"),
-            PIC_FILE_CODE => print_esc_cstr(b"XeTeXpicfile"),
-            PDF_FILE_CODE => print_esc_cstr(b"XeTeXpdffile"),
-            GLYPH_CODE => print_esc_cstr(b"XeTeXglyph"),
-            XETEX_LINEBREAK_LOCALE_EXTENSION_CODE => print_esc_cstr(b"XeTeXlinebreaklocale"),
-            XETEX_INPUT_ENCODING_EXTENSION_CODE => print_esc_cstr(b"XeTeXinputencoding"),
-            XETEX_DEFAULT_ENCODING_EXTENSION_CODE => print_esc_cstr(b"XeTeXdefaultencoding"),
-            PDF_SAVE_POS_NODE => print_esc_cstr(b"pdfsavepos"),
+            0 => print_esc_cstr(b"openout"),               // OPEN_NODE
+            1 => print_esc_cstr(b"write"),                 // WRITE_NODE
+            2 => print_esc_cstr(b"closeout"),              // CLOSE_NODE
+            3 => print_esc_cstr(b"special"),               // SPECIAL_NODE
+            4 => print_esc_cstr(b"immediate"),             // IMMEDIATE_CODE
+            5 => print_esc_cstr(b"setlanguage"),           // SET_LANGUAGE_CODE
+            41 => print_esc_cstr(b"XeTeXpicfile"),         // PIC_FILE_CODE
+            42 => print_esc_cstr(b"XeTeXpdffile"),         // PDF_FILE_CODE
+            43 => print_esc_cstr(b"XeTeXglyph"),           // GLYPH_CODE
+            46 => print_esc_cstr(b"XeTeXlinebreaklocale"), // XETEX_LINEBREAK_LOCALE_EXTENSION_CODE
+            44 => print_esc_cstr(b"XeTeXinputencoding"),   // XETEX_INPUT_ENCODING_EXTENSION_CODE
+            45 => print_esc_cstr(b"XeTeXdefaultencoding"), // XETEX_DEFAULT_ENCODING_EXTENSION_CODE
+            6 => print_esc_cstr(b"pdfsavepos"),            // PDF_SAVE_POS_NODE
             _ => print_cstr(b"[unknown extension!]"),
         },
         _ => print_cstr(b"[unknown command code!]"),
@@ -13063,7 +13063,8 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     current_block = 10249009913728301645;
                 }
                 8 => {
-                    if NODE_subtype(p as usize) == PIC_NODE || NODE_subtype(p as usize) == PDF_NODE {
+                    if NODE_subtype(p as usize) == PIC_NODE || NODE_subtype(p as usize) == PDF_NODE
+                    {
                         active_width[1] = active_width[1] + prev_dp + MEM[(p + 3) as usize].b32.s1;
                         prev_dp = MEM[(p + 2) as usize].b32.s1
                     }
@@ -17006,7 +17007,10 @@ pub(crate) unsafe fn main_control() {
                                                 .b32
                                                 .s1,
                                         ) as i32;
-                                        set_kern_NODE_subtype(temp_ptr as usize, KernNodeSubType::SpaceAdjustment);
+                                        set_kern_NODE_subtype(
+                                            temp_ptr as usize,
+                                            KernNodeSubType::SpaceAdjustment,
+                                        );
                                         MEM[temp_ptr as usize].b32.s1 = MEM[main_p as usize].b32.s1;
                                         MEM[main_p as usize].b32.s1 = temp_ptr
                                     }

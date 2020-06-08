@@ -1,4 +1,4 @@
-use crate::xetex_consts::{ND, NodeSubType, KernNodeSubType, SYNCTEX_FIELD_SIZE};
+use crate::xetex_consts::{KernNodeSubType, NodeSubType, ND, SYNCTEX_FIELD_SIZE};
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
 

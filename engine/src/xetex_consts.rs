@@ -508,6 +508,9 @@ pub(crate) enum NodeSubType {
     Glyph = 42,
     Pic = 43,
     Pdf = 44,
+    NS100 = 100, // Unknown
+    NS200 = 200,
+    NS253 = 253,
 }
 
 #[repr(u16)]
@@ -521,7 +524,11 @@ pub(crate) enum KernNodeSubType {
 
 impl From<u16> for NodeSubType {
     fn from(n: u16) -> Self {
-        assert!(n < 7 || n == 6 || (n > 39 && n < 45), "Incorrect NodeSubType = {}", n);
+        assert!(
+            n < 7 || n == 6 || (n > 39 && n < 45) || n == 100 || n == 200 || n == 253,
+            "Incorrect NodeSubType = {}",
+            n
+        );
         unsafe { mem::transmute(n) }
     }
 }
