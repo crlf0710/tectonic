@@ -1,5 +1,3 @@
-use std::mem;
-
 use crate::xetex_ini::EQTB;
 
 pub trait IsTexNull {
@@ -625,7 +623,7 @@ pub(crate) const EXPR_DIV: i16 = 4;
 pub(crate) const EXPR_SCALE: i16 = 5;
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, enumn::N)]
 pub(crate) enum GroupCode {
     BOTTOM_LEVEL = 0,
     SIMPLE = 1,
@@ -647,8 +645,7 @@ pub(crate) enum GroupCode {
 }
 impl From<u16> for GroupCode {
     fn from(n: u16) -> Self {
-        assert!(n < 17);
-        unsafe { mem::transmute(n as u8) }
+        Self::n(n as u8).unwrap()
     }
 }
 
@@ -1018,7 +1015,7 @@ pub(crate) const END_R_CODE: placeholdertype = 11;
 /* begin_token_list() types */
 
 #[repr(u16)]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
 pub(crate) enum Btl {
     Parameter = 0,
     UTemplate = 1,
@@ -1050,8 +1047,7 @@ impl Default for Btl {
 
 impl From<u16> for Btl {
     fn from(n: u16) -> Self {
-        assert!(n < 20);
-        unsafe { mem::transmute(n) }
+        Self::n(n).unwrap()
     }
 }
 
