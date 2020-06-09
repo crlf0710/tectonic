@@ -142,10 +142,11 @@ fi
 
 if [[ "$TRAVIS_OS_NAME" == osx ]]; then
     travis_fold_start install_deps "Install dependencies" verbose
+    brew install harfbuzz openssl
     export OPENSSL_INCLUDE_DIR=$(brew --prefix openssl)/include
     export OPENSSL_LIB_DIR=$(brew --prefix openssl)/lib
     export DEP_OPENSSL_INCLUDE=$(brew --prefix openssl)/include
-    export PKG_CONFIG_PATH=/usr/local/opt/icu4c/lib/pkgconfig
+    export PKG_CONFIG_PATH=$(brew --prefix harfbuzz)/lib/pkgconfig:/usr/local/opt/icu4c/lib/pkgconfig
     travis_fold_end install_deps
 elif [[ "$TRAVIS_OS_NAME" == linux ]] ; then
     if $is_docker_build ; then

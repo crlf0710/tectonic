@@ -15,7 +15,7 @@ matrix:
       rust: nightly
       env: RUSTFLAGS="-C link-dead-code"
     - os: osx
-      osx_image: xcode10.2
+      osx_image: xcode10.3
       rust: nightly
     - os: windows
       rust: nightly-msvc
@@ -52,10 +52,6 @@ addons:
       - libfontconfig1-dev
       - libicu-dev
       - libssl-dev
-      - openssl
-  homebrew:
-    packages:
-      - harfbuzz
       - openssl
 
 install: true
