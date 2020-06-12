@@ -180,7 +180,7 @@ pub(crate) unsafe fn init_math() {
                     p as usize,
                     new_math(0, END_L_CODE as small_number) as i32,
                 );
-                cur_dir = RIGHT_TO_LEFT as small_number
+                cur_dir = LR::RightToLeft;
             }
             v = v + 2i32
                 * FONT_INFO[(QUAD_CODE + PARAM_BASE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize])
@@ -243,21 +243,21 @@ pub(crate) unsafe fn init_math() {
                             }
                             14 => {
                                 d = MEM[(p + 1) as usize].b32.s1;
-                                cur_dir = MEM[p as usize].b16.s0 as small_number;
+                                cur_dir = LR::n(MEM[p as usize].b16.s0).unwrap();
                                 current_block = 1677945370889843322;
                                 break;
                             }
                             10 => {
                                 q = MEM[(p + 1) as usize].b32.s0;
                                 d = MEM[(q + 1) as usize].b32.s1;
-                                if MEM[(just_box + 5) as usize].b16.s1 == STRETCHING {
+                                if MEM[(just_box + 5) as usize].b16.s1 == STRETCHING as u16 {
                                     if MEM[(just_box + 5) as usize].b16.s0 as i32
                                         == MEM[q as usize].b16.s1 as i32
                                         && MEM[(q + 2) as usize].b32.s1 != 0
                                     {
                                         v = 0x3fffffffi32
                                     }
-                                } else if MEM[(just_box + 5) as usize].b16.s1 == SHRINKING {
+                                } else if MEM[(just_box + 5) as usize].b16.s1 == SHRINKING as u16 {
                                     if MEM[(just_box + 5) as usize].b16.s0 as i32
                                         == MEM[q as usize].b16.s0 as i32
                                         && MEM[(q + 3) as usize].b32.s1 != 0
@@ -372,7 +372,7 @@ pub(crate) unsafe fn init_math() {
                     LR_problems = 0
                 }
             }
-            cur_dir = LEFT_TO_RIGHT as small_number;
+            cur_dir = LR::LeftToRight;
             flush_node_list(MEM[TEMP_HEAD].b32.s1.opt());
         }
         if LOCAL(Local::par_shape).is_texnull() {

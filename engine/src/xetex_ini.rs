@@ -1089,7 +1089,7 @@ pub(crate) static mut LR_ptr: i32 = 0;
 #[no_mangle]
 pub(crate) static mut LR_problems: i32 = 0;
 #[no_mangle]
-pub(crate) static mut cur_dir: small_number = 0;
+pub(crate) static mut cur_dir: LR = LR::LeftToRight;
 #[no_mangle]
 pub(crate) static mut pseudo_files: i32 = 0;
 #[no_mangle]
@@ -4052,7 +4052,7 @@ unsafe fn initialize_more_variables() {
     }
     LR_ptr = TEX_NULL;
     LR_problems = 0i32;
-    cur_dir = 0i32 as small_number;
+    cur_dir = LR::LeftToRight;
     pseudo_files = TEX_NULL;
     sa_root[7] = TEX_NULL;
     sa_null.b32.s0 = TEX_NULL;

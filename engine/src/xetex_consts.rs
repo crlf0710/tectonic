@@ -394,8 +394,22 @@ pub(crate) const SCROLL_MODE: placeholdertype = 2;
 pub(crate) const ERROR_STOP_MODE: u8 = 3;
 pub(crate) const UNSPECIFIED_MODE: placeholdertype = 4;
 
-pub(crate) const LEFT_TO_RIGHT: placeholdertype = 0;
-pub(crate) const RIGHT_TO_LEFT: placeholdertype = 1;
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
+pub(crate) enum LR {
+    LeftToRight = 0,
+    RightToLeft = 1,
+}
+
+impl core::ops::Not for LR {
+    type Output = Self;
+    fn not(self) -> Self::Output {
+        match self {
+            Self::LeftToRight => Self::RightToLeft,
+            Self::RightToLeft => Self::LeftToRight,
+        }
+    }
+}
 
 /* How many memory words are needed for storing synctex information on various
  * kinds of nodes. This extra size is already included in the *_NODE_SIZE
@@ -652,9 +666,25 @@ impl From<u16> for GroupCode {
 pub(crate) const SUP_CMD: placeholdertype = 0;
 pub(crate) const SUB_CMD: placeholdertype = 1;
 
-pub(crate) const FIL: placeholdertype = 1;
-pub(crate) const FILL: placeholdertype = 2;
-pub(crate) const FILLL: placeholdertype = 3;
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
+pub(crate) enum GlueOrder {
+    Normal = 0,
+    Fil = 1,
+    Fill = 2,
+    Filll = 3,
+    Incorrect = 4,
+}
+
+impl From<u8> for GlueOrder {
+    fn from(n: u8) -> Self {
+        Self::n(n).unwrap_or(GlueOrder::Incorrect)
+    }
+}
+
+pub(crate) const FIL: GlueOrder = GlueOrder::Fil;
+pub(crate) const FILL: GlueOrder = GlueOrder::Fill;
+pub(crate) const FILLL: GlueOrder = GlueOrder::Filll;
 
 pub(crate) const LIG_TAG: placeholdertype = 1;
 pub(crate) const LIST_TAG: placeholdertype = 2;
@@ -1051,6 +1081,20 @@ impl From<u16> for Btl {
     }
 }
 
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
+pub(crate) enum GlueSign {
+    Normal = 0,
+    Stretching = 1,
+    Shrinking = 2,
+}
+
+impl From<u16> for GlueSign {
+    fn from(n: u16) -> Self {
+        Self::n(n).unwrap()
+    }
+}
+
 /* input state */
 pub(crate) const MID_LINE: u16 = 1;
 pub(crate) const SKIP_BLANKS: placeholdertype = 17;
@@ -1105,14 +1149,14 @@ pub(crate) const RESTORE_ZERO: u16 = 1;
 pub(crate) const REVERSED: placeholdertype = 1;
 pub(crate) const SLANT_CODE: placeholdertype = 1;
 pub(crate) const SPLIT_UP: ND = ND::Node(NodeType::VList);
-pub(crate) const STRETCHING: u16 = 1;
+pub(crate) const STRETCHING: GlueSign = GlueSign::Stretching;
 pub(crate) const VMODE: i16 = 1;
 pub(crate) const BOTTOM_ACC: u16 = 2;
 pub(crate) const CLOSED: u8 = 2;
 pub(crate) const DLIST: u16 = 2;
 pub(crate) const ETEX_VERSION: placeholdertype = 2;
 pub(crate) const INSERT_TOKEN: u16 = 2;
-pub(crate) const SHRINKING: u16 = 2;
+pub(crate) const SHRINKING: GlueSign = GlueSign::Shrinking;
 pub(crate) const SPACE_CODE: placeholdertype = 2;
 pub(crate) const SUB_BOX: placeholdertype = 2;
 pub(crate) const DISPLAYOPERATORMINHEIGHT: placeholdertype = 3;

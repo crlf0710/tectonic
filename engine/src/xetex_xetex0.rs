@@ -627,19 +627,16 @@ pub(crate) unsafe fn print_rule_dimen(mut d: scaled_t) {
         print_scaled(d);
     };
 }
-pub(crate) unsafe fn print_glue(mut d: scaled_t, mut order: i32, s: &[u8]) {
+pub(crate) unsafe fn print_glue(mut d: scaled_t, order: GlueOrder, s: &[u8]) {
     print_scaled(d);
-    if order < NORMAL as i32 || order > FILLL {
-        print_cstr(b"foul");
-    } else if order > NORMAL as i32 {
-        print_cstr(b"fil");
-        while order > FIL {
-            print_char('l' as i32);
-            order -= 1
-        }
-    } else if !s.is_empty() {
-        print_cstr(s);
-    };
+    match order {
+        // TODO: optimize
+        GlueOrder::Incorrect => print_cstr(b"foul"),
+        GlueOrder::Fil => print_cstr(b"fil"),
+        GlueOrder::Fill => print_cstr(b"fill"),
+        GlueOrder::Filll => print_cstr(b"filll"),
+        GlueOrder::Normal => print_cstr(s),
+    }
 }
 pub(crate) unsafe fn print_spec(p: i32, s: &[u8]) {
     if p < 0 || p >= lo_mem_max {
@@ -652,11 +649,11 @@ pub(crate) unsafe fn print_spec(p: i32, s: &[u8]) {
         }
         if MEM[p + 2].b32.s1 != 0 {
             print_cstr(b" plus ");
-            print_glue(MEM[p + 2].b32.s1, MEM[p].b16.s1 as i32, s);
+            print_glue(MEM[p + 2].b32.s1, GlueOrder::from(MEM[p].b16.s1 as u8), s);
         }
         if MEM[p + 3].b32.s1 != 0 {
             print_cstr(b" minus ");
-            print_glue(MEM[p + 3].b32.s1, MEM[p].b16.s0 as i32, s);
+            print_glue(MEM[p + 3].b32.s1, GlueOrder::from(MEM[p].b16.s0 as u8), s);
         }
     };
 }
@@ -801,17 +798,25 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                         }
                         if MEM[p + 6].b32.s1 != 0 {
                             print_cstr(b", stretch ");
-                            print_glue(MEM[p + 6].b32.s1, MEM[p + 5].b16.s0 as i32, b"");
+                            print_glue(
+                                MEM[p + 6].b32.s1,
+                                GlueOrder::from(MEM[p + 5].b16.s0 as u8),
+                                b"",
+                            );
                         }
                         if MEM[p + 4].b32.s1 != 0 {
                             print_cstr(b", shrink ");
-                            print_glue(MEM[p + 4].b32.s1, MEM[p + 5].b16.s1 as i32, b"");
+                            print_glue(
+                                MEM[p + 4].b32.s1,
+                                GlueOrder::from(MEM[p + 5].b16.s1 as u8),
+                                b"",
+                            );
                         }
                     } else {
                         g = *BOX_glue_set(p);
                         if g != 0.0f64 && MEM[p + 5].b16.s1 != NORMAL {
                             print_cstr(b", glue set ");
-                            if MEM[p + 5].b16.s1 == SHRINKING {
+                            if MEM[p + 5].b16.s1 == SHRINKING as u16 {
                                 print_cstr(b"- ");
                             }
                             if g.abs() > 20000. {
@@ -822,11 +827,15 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                                 }
                                 print_glue(
                                     (20000_i64 * 65536) as scaled_t,
-                                    MEM[p + 5].b16.s0 as i32,
+                                    GlueOrder::from(MEM[p + 5].b16.s0 as u8),
                                     b"",
                                 );
                             } else {
-                                print_glue(tex_round(65536_f64 * g), MEM[p + 5].b16.s0 as i32, b"");
+                                print_glue(
+                                    tex_round(65536_f64 * g),
+                                    GlueOrder::from(MEM[p + 5].b16.s0 as u8),
+                                    b"",
+                                );
                             }
                         }
                         if MEM[p + 4].b32.s1 != 0 {
@@ -7443,7 +7452,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     if scan_keyword(b"fil") {
                         cur_order = FIL as glue_ord;
                         while scan_keyword(b"l") {
-                            if cur_order as i32 == FILLL {
+                            if cur_order == FILLL as u8 {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
                                 } else {
@@ -11554,7 +11563,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
             o = 0 as glue_ord
         } /*normal *//*:684 */
         MEM[(r + 5) as usize].b16.s0 = o as u16;
-        MEM[(r + 5) as usize].b16.s1 = STRETCHING;
+        MEM[(r + 5) as usize].b16.s1 = STRETCHING as u16;
         if total_stretch[o as usize] != 0 {
             MEM[(r + 6) as usize].gr = x as f64 / total_stretch[o as usize] as f64
         } else {
@@ -11595,7 +11604,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
             o = 0 as glue_ord
         }
         MEM[(r + 5) as usize].b16.s0 = o as u16;
-        MEM[(r + 5) as usize].b16.s1 = SHRINKING;
+        MEM[(r + 5) as usize].b16.s1 = SHRINKING as u16;
         if total_shrink[o as usize] != 0 {
             *BOX_glue_set(r as usize) = -x as f64 / total_shrink[o as usize] as f64
         } else {
@@ -11832,7 +11841,7 @@ pub(crate) unsafe fn vpackage(
                 0 as glue_ord
             }; /*normal *//*:684 */
             MEM[r + 5].b16.s0 = o as u16;
-            MEM[r + 5].b16.s1 = STRETCHING;
+            MEM[r + 5].b16.s1 = STRETCHING as u16;
             if total_stretch[o as usize] != 0 {
                 MEM[r + 6].gr = x as f64 / total_stretch[o as usize] as f64
             } else {
@@ -11873,7 +11882,7 @@ pub(crate) unsafe fn vpackage(
                 0 as glue_ord
             };
             MEM[r + 5].b16.s0 = o as u16;
-            MEM[r + 5].b16.s1 = SHRINKING;
+            MEM[r + 5].b16.s1 = SHRINKING as u16;
             if total_shrink[o as usize] != 0 {
                 MEM[r + 6].gr = -x as f64 / total_shrink[o as usize] as f64
             } else {
@@ -12587,7 +12596,7 @@ pub(crate) unsafe fn fin_align() {
                         u = *LLIST_link(u as usize);
                         MEM[u as usize].b16.s0 = GluePar::tab_skip as u16 + 1;
                         t = t + MEM[(v + 1) as usize].b32.s1;
-                        if MEM[(p + 5) as usize].b16.s1 == STRETCHING {
+                        if MEM[(p + 5) as usize].b16.s1 == STRETCHING as u16 {
                             if MEM[v as usize].b16.s1 as i32 == MEM[(p + 5) as usize].b16.s0 as i32
                             {
                                 t = t + tex_round(
@@ -12595,7 +12604,7 @@ pub(crate) unsafe fn fin_align() {
                                         * MEM[(v + 2) as usize].b32.s1 as f64,
                                 )
                             }
-                        } else if MEM[(p + 5) as usize].b16.s1 == SHRINKING {
+                        } else if MEM[(p + 5) as usize].b16.s1 == SHRINKING as u16 {
                             if MEM[v as usize].b16.s0 as i32 == MEM[(p + 5) as usize].b16.s0 as i32
                             {
                                 t = t - tex_round(
@@ -12624,7 +12633,7 @@ pub(crate) unsafe fn fin_align() {
                             MEM[(r + 5) as usize].b16.s0 = NORMAL;
                             *BOX_glue_set(r as usize) = 0.;
                         } else if t > MEM[(r + 1) as usize].b32.s1 {
-                            MEM[(r + 5) as usize].b16.s1 = STRETCHING;
+                            MEM[(r + 5) as usize].b16.s1 = STRETCHING as u16;
                             if MEM[(r + 6) as usize].b32.s1 == 0 {
                                 *BOX_glue_set(r as usize) = 0.;
                             } else {
@@ -12634,7 +12643,7 @@ pub(crate) unsafe fn fin_align() {
                             }
                         } else {
                             MEM[(r + 5) as usize].b16.s0 = MEM[(r + 5) as usize].b16.s1;
-                            MEM[(r + 5) as usize].b16.s1 = SHRINKING;
+                            MEM[(r + 5) as usize].b16.s1 = SHRINKING as u16;
                             if MEM[(r + 4) as usize].b32.s1 == 0 {
                                 MEM[(r + 6) as usize].gr = 0.;
                             } else if MEM[(r + 5) as usize].b16.s0 == NORMAL
@@ -12656,7 +12665,7 @@ pub(crate) unsafe fn fin_align() {
                             MEM[(r + 5) as usize].b16.s0 = NORMAL;
                             *BOX_glue_set(r as usize) = 0.;
                         } else if t > MEM[(r + 3) as usize].b32.s1 {
-                            MEM[(r + 5) as usize].b16.s1 = STRETCHING;
+                            MEM[(r + 5) as usize].b16.s1 = STRETCHING as u16;
                             if MEM[(r + 6) as usize].b32.s1 == 0 {
                                 *BOX_glue_set(r as usize) = 0.;
                             } else {
@@ -12666,7 +12675,7 @@ pub(crate) unsafe fn fin_align() {
                             }
                         } else {
                             MEM[(r + 5) as usize].b16.s0 = MEM[(r + 5) as usize].b16.s1;
-                            MEM[(r + 5) as usize].b16.s1 = SHRINKING;
+                            MEM[(r + 5) as usize].b16.s1 = SHRINKING as u16;
                             if MEM[(r + 4) as usize].b32.s1 == 0 {
                                 *BOX_glue_set(r as usize) = 0.0;
                             } else if MEM[(r + 5) as usize].b16.s0 == NORMAL
@@ -14708,7 +14717,7 @@ pub(crate) unsafe fn just_reverse(mut p: i32) {
     }
     let mut t = new_edge(cur_dir, 0);
     let mut l = t as i32;
-    cur_dir = (1 - cur_dir as i32) as small_number;
+    cur_dir = !cur_dir;
     while !q.is_texnull() {
         if is_char_node(q) {
             loop {
