@@ -9,6 +9,13 @@ cache:
 
 matrix:
   include:
+    - name: Rustfmt
+      os: linux
+      sudo: required
+      rust: stable
+      script:
+        - rustup component add rustfmt
+        - cargo fmt --all -- --check
     - os: linux
       sudo: required
       dist: xenial
