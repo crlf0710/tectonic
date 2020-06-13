@@ -464,7 +464,7 @@ unsafe fn hlist_out() {
                                 break;
                             }
                             q = MEM[q as usize].b32.s1;
-                            while q != TEX_NULL
+                            while !q.is_texnull()
                                 && !is_char_node(q)
                                 && (NODE_type(q as usize) == PENALTY_NODE
                                     || NODE_type(q as usize) == INS_NODE
@@ -475,7 +475,7 @@ unsafe fn hlist_out() {
                             {
                                 q = *LLIST_link(q as usize);
                             }
-                            if !(q != TEX_NULL
+                            if !(!q.is_texnull()
                                 && !is_char_node(q)
                                 && NODE_type(q as usize) == WHATSIT_NODE
                                 && (NODE_subtype(q as usize) == NATIVE_WORD_NODE
@@ -488,7 +488,7 @@ unsafe fn hlist_out() {
                             k += (1 + *NATIVE_NODE_length(q as usize)) as i32;
                             q = *LLIST_link(q as usize);
                         } else {
-                            if !(q != TEX_NULL
+                            if !(!q.is_texnull()
                                 && !is_char_node(q)
                                 && NODE_type(q as usize) == WHATSIT_NODE
                                 && (NODE_subtype(q as usize) == NATIVE_WORD_NODE
@@ -584,7 +584,7 @@ unsafe fn hlist_out() {
                          * cannot be one of these, as we always start merging
                          * at a native_word node." */
 
-                        while p != TEX_NULL {
+                        while !p.is_texnull() {
                             if !is_char_node(p)
                                 && (NODE_type(p as usize) == PENALTY_NODE
                                     || NODE_type(p as usize) == INS_NODE
@@ -661,7 +661,7 @@ unsafe fn hlist_out() {
     left_edge = cur_h;
     synctex_hlist(this_box);
 
-    's_726: while p != TEX_NULL {
+    's_726: while !p.is_texnull() {
         loop
                  /*642: "Output node `p` for `hlist_out` and move to the next node,
         * maintaining the condition `cur_v = base_line`." ... "We ought to
@@ -1297,7 +1297,7 @@ unsafe fn vlist_out() {
 
     top_edge = cur_v;
 
-    while p != TEX_NULL {
+    while !p.is_texnull() {
         /*652: "Output node p and move to the next node, maintaining the
          * condition cur_h = left_edge" */
         if is_char_node(p) {
@@ -1642,7 +1642,7 @@ unsafe fn reverse(
     m = MIN_HALFWORD;
     n = MIN_HALFWORD;
     's_58: loop {
-        if p != TEX_NULL {
+        if !p.is_texnull() {
             loop
             /*1511: "Move node p to the new list and go to the next node; or
              * goto done if the end of the reflected segment has been
@@ -1843,7 +1843,7 @@ unsafe fn reverse(
             p = q
         } else {
             /* ... resuming 1510 ... */
-            if t == TEX_NULL && m.is_texnull() && n.is_texnull() {
+            if t.is_texnull() && m.is_texnull() && n.is_texnull() {
                 break; /* "Manufacture a missing math node" */
             }
             p = new_math(0, *LLIST_info(LR_ptr as usize) as small_number) as i32;

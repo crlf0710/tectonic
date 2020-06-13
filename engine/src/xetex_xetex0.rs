@@ -2984,7 +2984,7 @@ pub(crate) unsafe fn group_warning() {
     let mut i = IN_OPEN;
     w = false;
     while GRP_STACK[i] == cur_boundary && i > 0 {
-        if *INTPAR(IntPar::tracing_nesting) > 0i32 {
+        if *INTPAR(IntPar::tracing_nesting) > 0 {
             while INPUT_STACK[BASE_PTR].state == TOKEN_LIST
                 || INPUT_STACK[BASE_PTR].index as usize > i
             {
