@@ -224,11 +224,11 @@ pub(crate) unsafe fn ship_out(p: usize) {
         /* First page? Emit preamble items. */
 
         if TOTAL_PAGES == 0 {
-            dvi_out(PRE as _);
+            dvi_out(PRE);
             if semantic_pagination_enabled {
-                dvi_out(SPX_ID_BYTE as _);
+                dvi_out(SPX_ID_BYTE);
             } else {
-                dvi_out(XDV_ID_BYTE as _);
+                dvi_out(XDV_ID_BYTE);
             }
 
             dvi_four(25400000); /* magic values: conversion ratio for sp */
@@ -250,7 +250,7 @@ pub(crate) unsafe fn ship_out(p: usize) {
 
         let page_loc = dvi_offset + dvi_ptr;
 
-        dvi_out(BOP as _);
+        dvi_out(BOP);
 
         for k in 0..10 {
             dvi_four(*COUNT_REG(k));
@@ -279,7 +279,7 @@ pub(crate) unsafe fn ship_out(p: usize) {
         }
         selector = old_setting;
 
-        dvi_out(XXX1 as _);
+        dvi_out(XXX1);
         dvi_out(cur_length() as u8);
 
         s = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
@@ -300,7 +300,7 @@ pub(crate) unsafe fn ship_out(p: usize) {
             hlist_out();
         }
 
-        dvi_out(EOP as _);
+        dvi_out(EOP);
         TOTAL_PAGES += 1;
         cur_s = -1;
     }
@@ -410,7 +410,7 @@ unsafe fn hlist_out() {
                             break;
                         }
                         if NODE_type(q as usize) == GLUE_NODE
-                            && *GLUE_SPEC_shrink_order(q as usize) == NORMAL as _
+                            && *GLUE_SPEC_shrink_order(q as usize) == GlueOrder::Normal as _
                         {
                             if *GLUE_NODE_glue_ptr(q as usize)
                                 == FONT_GLUE[MEM[(r + 4) as usize].b16.s2 as usize]
