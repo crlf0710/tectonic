@@ -1111,10 +1111,10 @@ pub(crate) const BOX_THERE: placeholdertype = 2;
 
 pub(crate) const SET1: u8 = 128;
 pub(crate) const SET_RULE: u8 = 132;
-pub(crate) const PUT_RULE: placeholdertype = 137;
+pub(crate) const PUT_RULE: u8 = 137;
 pub(crate) const BOP: placeholdertype = 139;
 pub(crate) const EOP: placeholdertype = 140;
-pub(crate) const PUSH: placeholdertype = 141;
+pub(crate) const PUSH: u8 = 141;
 pub(crate) const POP: placeholdertype = 142;
 pub(crate) const RIGHT1: u8 = 143;
 pub(crate) const DOWN1: u8 = 157;

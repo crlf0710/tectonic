@@ -800,8 +800,7 @@ unsafe fn hlist_out() {
                                             dvi_out(FNT1);
                                             dvi_out((f - 1) as u8);
                                         } else {
-                                            dvi_out((FNT1 + 1) as
-                                                        u8);
+                                            dvi_out(FNT1 + 1);
                                             dvi_out(((f - 1) / 256) as
                                                         u8);
                                             dvi_out(((f - 1) % 256) as
@@ -1257,9 +1256,6 @@ unsafe fn vlist_out() {
     let mut top_edge: scaled_t = 0;
     let mut save_h: scaled_t = 0;
     let mut save_v: scaled_t = 0;
-    let mut this_box: i32 = 0;
-    let mut g_order: glue_ord = 0;
-    let mut g_sign: u8 = 0;
     let mut p: i32 = 0;
     let mut save_loc: usize = 0;
     let mut leader_box: i32 = 0;
@@ -1268,33 +1264,38 @@ unsafe fn vlist_out() {
     let mut outer_doing_leaders: bool = false;
     let mut edge: scaled_t = 0;
     let mut glue_temp: f64 = 0.;
-    let mut cur_glue: f64 = 0.;
-    let mut cur_g: scaled_t = 0;
     let mut upwards: bool = false;
     let mut f: internal_font_number = 0;
-    cur_g = 0i32;
-    cur_glue = 0.0f64;
-    this_box = temp_ptr;
-    g_order = MEM[(this_box + 5) as usize].b16.s0 as glue_ord;
-    g_sign = MEM[(this_box + 5) as usize].b16.s1 as u8;
-    p = MEM[(this_box + 5) as usize].b32.s1;
-    upwards = MEM[this_box as usize].b16.s0 as i32 == 1;
+
+    let mut cur_g = 0i32;
+    let mut cur_glue = 0.0f64;
+    let mut this_box = temp_ptr;
+    let mut g_order = MEM[(this_box + 5) as usize].b16.s0 as glue_ord;
+    let mut g_sign = GlueSign::from(*BOX_glue_sign(this_box as usize));
+    p = *BOX_list_ptr(this_box as usize);
+    upwards = MEM[this_box as usize].b16.s0 as i32 == 1; // NODE_subtype(this_box)
+
     cur_s += 1;
-    if cur_s > 0i32 {
-        dvi_out(141i32 as u8);
+    if cur_s > 0 {
+        dvi_out(PUSH);
     }
+
     if cur_s > max_push {
         max_push = cur_s
     }
+
     save_loc = dvi_offset + dvi_ptr;
     left_edge = cur_h;
     synctex_vlist(this_box);
+
     if upwards {
-        cur_v += MEM[(this_box + 2) as usize].b32.s1
+        cur_v += *BOX_depth(this_box as usize);
     } else {
-        cur_v -= MEM[(this_box + 3) as usize].b32.s1
+        cur_v -= *BOX_height(this_box as usize);
     }
+
     top_edge = cur_v;
+
     while p != TEX_NULL {
         /*652: "Output node p and move to the next node, maintaining the
          * condition cur_h = left_edge" */
@@ -1302,44 +1303,44 @@ unsafe fn vlist_out() {
             confusion(b"vlistout");
         } else {
             /*653: "Output the non-char_node p" */
-            match MEM[p as usize].b16.s1 as i32 {
-                0 | 1 => {
+            match NODE_type(p as usize) {
+                HLIST_NODE | VLIST_NODE => {
                     /*654: "Output a box in a vlist" */
-                    if MEM[(p + 5) as usize].b32.s1 == TEX_NULL {
+                    if BOX_list_ptr(p as usize).is_texnull() {
                         if upwards {
-                            cur_v -= MEM[(p + 2) as usize].b32.s1
+                            cur_v -= *BOX_depth(p as usize);
                         } else {
-                            cur_v += MEM[(p + 3) as usize].b32.s1
+                            cur_v += *BOX_height(p as usize);
                         }
-                        if MEM[p as usize].b16.s1 as i32 == 1 {
+                        if NODE_type(p as usize) == VLIST_NODE {
                             synctex_void_vlist(p, this_box);
                         } else {
                             synctex_void_hlist(p, this_box);
                         }
                         if upwards {
-                            cur_v -= MEM[(p + 3) as usize].b32.s1
+                            cur_v -= *BOX_height(p as usize);
                         } else {
-                            cur_v += MEM[(p + 2) as usize].b32.s1
+                            cur_v += *BOX_depth(p as usize);
                         }
                     } else {
                         if upwards {
-                            cur_v -= MEM[(p + 2) as usize].b32.s1
+                            cur_v -= *BOX_depth(p as usize);
                         } else {
-                            cur_v += MEM[(p + 3) as usize].b32.s1
+                            cur_v += *BOX_height(p as usize);
                         }
                         if cur_v != dvi_v {
-                            movement(cur_v - dvi_v, 157i32 as u8);
+                            movement(cur_v - dvi_v, DOWN1);
                             dvi_v = cur_v
                         }
                         save_h = dvi_h;
                         save_v = dvi_v;
-                        if cur_dir as i32 == 1i32 {
-                            cur_h = left_edge - MEM[(p + 4) as usize].b32.s1
+                        if cur_dir == LR::RightToLeft {
+                            cur_h = left_edge - *BOX_shift_amount(p as usize);
                         } else {
-                            cur_h = left_edge + MEM[(p + 4) as usize].b32.s1
+                            cur_h = left_edge + *BOX_shift_amount(p as usize);
                         }
                         temp_ptr = p;
-                        if MEM[p as usize].b16.s1 as i32 == 1 {
+                        if NODE_type(p as usize) == VLIST_NODE {
                             vlist_out();
                         } else {
                             hlist_out();
@@ -1347,35 +1348,35 @@ unsafe fn vlist_out() {
                         dvi_h = save_h;
                         dvi_v = save_v;
                         if upwards {
-                            cur_v = save_v - MEM[(p + 3) as usize].b32.s1
+                            cur_v = save_v - *BOX_height(p as usize);
                         } else {
-                            cur_v = save_v + MEM[(p + 2) as usize].b32.s1
+                            cur_v = save_v + *BOX_depth(p as usize);
                         }
                         cur_h = left_edge
                     }
                     current_block = 5241535548500397784;
                 }
-                2 => {
-                    rule_ht = MEM[(p + 3) as usize].b32.s1;
-                    rule_dp = MEM[(p + 2) as usize].b32.s1;
-                    rule_wd = MEM[(p + 1) as usize].b32.s1;
+                RULE_NODE => {
+                    rule_ht = *BOX_height(p as usize);
+                    rule_dp = *BOX_depth(p as usize);
+                    rule_wd = *BOX_width(p as usize);
                     current_block = 9653381107620864133;
                 }
-                8 => {
+                WHATSIT_NODE => {
                     /*1403: "Output the whatsit node p in a vlist" */
-                    match MEM[p as usize].b16.s0 as i32 {
-                        42 => {
-                            cur_v = cur_v + MEM[(p + 3) as usize].b32.s1;
+                    match NODE_subtype(p as usize) {
+                        GLYPH_NODE => {
+                            cur_v = cur_v + *BOX_height(p as usize);
                             cur_h = left_edge;
                             if cur_h != dvi_h {
-                                movement(cur_h - dvi_h, 143i32 as u8);
+                                movement(cur_h - dvi_h, RIGHT1);
                                 dvi_h = cur_h
                             }
                             if cur_v != dvi_v {
-                                movement(cur_v - dvi_v, 157i32 as u8);
+                                movement(cur_v - dvi_v, DOWN1);
                                 dvi_v = cur_v
                             }
-                            f = MEM[(p + 4) as usize].b16.s2 as internal_font_number;
+                            f = *NATIVE_NODE_font(p as usize) as usize;
                             if f != dvi_f {
                                 /*643:*/
                                 if !*font_used.offset(f as isize) {
@@ -1385,35 +1386,36 @@ unsafe fn vlist_out() {
                                 if f <= 64 {
                                     dvi_out((f + 170) as u8); /* x offset as fixed-point */
                                 } else if f <= 256 {
-                                    dvi_out(235 as u8); /* y offset as fixed-point */
+                                    dvi_out(FNT1); /* y offset as fixed-point */
                                     dvi_out((f - 1) as u8);
                                 } else {
-                                    dvi_out((235 + 1) as u8);
+                                    dvi_out(FNT1 + 1);
                                     dvi_out(((f - 1) / 256) as u8);
                                     dvi_out(((f - 1) % 256) as u8);
                                 }
                                 dvi_f = f
                             }
-                            dvi_out(253 as u8);
-                            dvi_four(0);
-                            dvi_two(1 as UTF16_code);
-                            dvi_four(0);
-                            dvi_four(0);
-                            dvi_two(MEM[(p + 4) as usize].b16.s1);
-                            cur_v += MEM[(p + 2) as usize].b32.s1;
-                            cur_h = left_edge
+                            dvi_out(SET_GLYPHS);
+                            dvi_four(0); /* width */
+                            dvi_two(1 as UTF16_code); /* glyph count */
+                            dvi_four(0); /* x offset as fixed-point */
+                            dvi_four(0); /* y offset as fixed-point */
+                            dvi_two(*NATIVE_NODE_glyph(p as usize));
+
+                            cur_v += *BOX_depth(p as usize);
+                            cur_h = left_edge;
                         }
-                        43 | 44 => {
+                        PIC_NODE | PDF_NODE => {
                             save_h = dvi_h;
                             save_v = dvi_v;
-                            cur_v = cur_v + MEM[(p + 3) as usize].b32.s1;
+                            cur_v = cur_v + *BOX_height(p as usize);
                             pic_out(p);
                             dvi_h = save_h;
                             dvi_v = save_v;
-                            cur_v = save_v + MEM[(p + 2) as usize].b32.s1;
-                            cur_h = left_edge
+                            cur_v = save_v + *BOX_depth(p as usize);
+                            cur_h = left_edge;
                         }
-                        6 => {
+                        PDF_SAVE_POS_NODE => {
                             pdf_last_x_pos = cur_h + cur_h_offset;
                             pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
                         }
@@ -1421,41 +1423,46 @@ unsafe fn vlist_out() {
                     }
                     current_block = 5241535548500397784;
                 }
-                10 => {
+                GLUE_NODE => {
                     /*656: "Move down or output leaders" */
-                    g = MEM[(p + 1) as usize].b32.s0;
-                    rule_ht = MEM[(g + 1) as usize].b32.s1 - cur_g;
-                    if g_sign as i32 != 0i32 {
-                        if g_sign as i32 == 1i32 {
-                            if MEM[g as usize].b16.s1 as i32 == g_order as i32 {
-                                cur_glue += MEM[(g + 2) as usize].b32.s1 as f64;
-                                glue_temp = MEM[(this_box + 6) as usize].gr * cur_glue;
-                                if glue_temp > 1000000000.0f64 {
-                                    glue_temp = 1000000000.0f64
-                                } else if glue_temp < -1000000000.0f64 {
-                                    glue_temp = -1000000000.0f64
+                    g = *GLUE_NODE_glue_ptr(p as usize);
+                    rule_ht = *BOX_width(g as usize) - cur_g;
+
+                    if g_sign != GlueSign::Normal {
+                        if g_sign == GlueSign::Stretching {
+                            if *GLUE_SPEC_stretch_order(g as usize) == g_order as u16 {
+                                cur_glue += *GLUE_SPEC_stretch(g as usize) as f64;
+                                glue_temp = *BOX_glue_set(this_box as usize) * cur_glue;
+                                if glue_temp > 1000000000. {
+                                    glue_temp = 1000000000.
+                                } else if glue_temp < -1000000000. {
+                                    glue_temp = -1000000000.
                                 }
                                 cur_g = tex_round(glue_temp)
                             }
-                        } else if MEM[g as usize].b16.s0 as i32 == g_order as i32 {
-                            cur_glue -= MEM[(g + 3) as usize].b32.s1 as f64;
-                            glue_temp = MEM[(this_box + 6) as usize].gr * cur_glue;
-                            if glue_temp > 1000000000.0f64 {
-                                glue_temp = 1000000000.0f64
-                            } else if glue_temp < -1000000000.0f64 {
-                                glue_temp = -1000000000.0f64
+                        } else if *GLUE_SPEC_shrink_order(g as usize) == g_order as u16 {
+                            cur_glue -= *GLUE_SPEC_shrink(g as usize) as f64;
+                            glue_temp = *BOX_glue_set(this_box as usize) * cur_glue;
+                            if glue_temp > 1000000000. {
+                                glue_temp = 1000000000.
+                            } else if glue_temp < -1000000000. {
+                                glue_temp = -1000000000.
                             }
                             cur_g = tex_round(glue_temp)
                         }
                     }
+
                     rule_ht += cur_g;
-                    if MEM[p as usize].b16.s0 as i32 >= 100 {
+
+                    if MEM[p as usize].b16.s0 >= A_LEADERS {
+                        // NODE_subtype(p)
                         /*657: "Output leaders in a vlist, goto fin_rule if a rule
                          * or next_p if done" */
-                        leader_box = MEM[(p + 1) as usize].b32.s1; /* "compensate for floating-point rounding" */
-                        if MEM[leader_box as usize].b16.s1 as i32 == 2 {
-                            rule_wd = MEM[(leader_box + 1) as usize].b32.s1;
-                            rule_dp = 0i32;
+                        leader_box = *GLUE_NODE_leader_ptr(p as usize); /* "compensate for floating-point rounding" */
+
+                        if NODE_type(leader_box as usize) == RULE_NODE {
+                            rule_wd = *BOX_width(leader_box as usize);
+                            rule_dp = 0;
                             current_block = 9653381107620864133;
                         } else {
                             leader_ht = MEM[(leader_box + 3) as usize].b32.s1
@@ -1467,7 +1474,8 @@ unsafe fn vlist_out() {
                                 /*658: "Let cur_v be the position of the first box,
                                  * and set leader_ht + lx to the spacing between
                                  * corresponding parts of boxes" */
-                                if MEM[p as usize].b16.s0 as i32 == 100 {
+                                if MEM[p as usize].b16.s0 == A_LEADERS {
+                                    // NODE_subtype(p)
                                     save_v = cur_v;
                                     cur_v = top_edge + leader_ht * ((cur_v - top_edge) / leader_ht);
                                     if cur_v < save_v {
@@ -1476,51 +1484,56 @@ unsafe fn vlist_out() {
                                 } else {
                                     lq = rule_ht / leader_ht;
                                     lr = rule_ht % leader_ht;
-                                    if MEM[p as usize].b16.s0 as i32 == 101 {
-                                        cur_v = cur_v + lr / 2i32
+                                    if MEM[p as usize].b16.s0 == C_LEADERS {
+                                        cur_v = cur_v + lr / 2;
                                     } else {
-                                        lx = lr / (lq + 1i32);
-                                        cur_v = cur_v + (lr - (lq - 1i32) * lx) / 2i32
+                                        lx = lr / (lq + 1);
+                                        cur_v = cur_v + (lr - (lq - 1) * lx) / 2;
                                     }
                                 }
+
                                 while cur_v + leader_ht <= edge {
                                     /*659: "Output a leader box at cur_v, then advance
                                      * cur_v by leader_ht + lx". "When we reach this
                                      * part of the program, cur_v indicates the top of
                                      * a leader box, not its baseline." */
-                                    if cur_dir as i32 == 1i32 {
-                                        cur_h = left_edge - MEM[(leader_box + 4) as usize].b32.s1
+                                    if cur_dir == LR::RightToLeft {
+                                        cur_h = left_edge - *BOX_shift_amount(leader_box as usize);
                                     } else {
-                                        cur_h = left_edge + MEM[(leader_box + 4) as usize].b32.s1
+                                        cur_h = left_edge + *BOX_shift_amount(leader_box as usize);
                                     }
                                     if cur_h != dvi_h {
-                                        movement(cur_h - dvi_h, 143i32 as u8);
+                                        movement(cur_h - dvi_h, RIGHT1);
                                         dvi_h = cur_h
                                     }
+
                                     save_h = dvi_h;
-                                    cur_v += MEM[(leader_box + 3) as usize].b32.s1;
+                                    cur_v += *BOX_height(leader_box as usize);
+
                                     if cur_v != dvi_v {
-                                        movement(cur_v - dvi_v, 157i32 as u8);
+                                        movement(cur_v - dvi_v, DOWN1);
                                         dvi_v = cur_v
                                     }
+
                                     save_v = dvi_v;
                                     temp_ptr = leader_box;
                                     outer_doing_leaders = doing_leaders;
                                     doing_leaders = true;
-                                    if MEM[leader_box as usize].b16.s1 as i32 == 1 {
+
+                                    if NODE_type(leader_box as usize) == VLIST_NODE {
                                         vlist_out();
                                     } else {
                                         hlist_out();
                                     }
+
                                     doing_leaders = outer_doing_leaders;
                                     dvi_v = save_v;
                                     dvi_h = save_h;
                                     cur_h = left_edge;
-                                    cur_v = save_v - MEM[(leader_box + 3) as usize].b32.s1
-                                        + leader_ht
-                                        + lx
+                                    cur_v =
+                                        save_v - *BOX_height(leader_box as usize) + leader_ht + lx
                                 }
-                                cur_v = edge - 10i32;
+                                cur_v = edge - 10;
                                 current_block = 5241535548500397784;
                             } else {
                                 current_block = 5246966788635068203;
@@ -1542,11 +1555,11 @@ unsafe fn vlist_out() {
                         }
                     }
                 }
-                11 => {
+                KERN_NODE => {
                     if upwards {
-                        cur_v -= MEM[(p + 1) as usize].b32.s1
+                        cur_v -= *BOX_width(p as usize);
                     } else {
-                        cur_v += MEM[(p + 1) as usize].b32.s1
+                        cur_v += *BOX_width(p as usize);
                     }
                     current_block = 5241535548500397784;
                 }
@@ -1556,28 +1569,31 @@ unsafe fn vlist_out() {
                 9653381107620864133 => {
                     // 655: "Output a rule in a vlist, goto next_p
 
-                    if rule_wd == -0x40000000i32 {
-                        rule_wd = MEM[(this_box + 1) as usize].b32.s1
-                    } /* end WHATSIT_NODE case */
+                    if rule_wd == NULL_FLAG {
+                        rule_wd = *BOX_width(this_box as usize);
+                    }
+
                     rule_ht += rule_dp;
+
                     if upwards {
                         cur_v -= rule_ht
                     } else {
                         cur_v += rule_ht
                     }
-                    if rule_ht > 0i32 && rule_wd > 0i32 {
-                        if cur_dir as i32 == 1i32 {
+
+                    if rule_ht > 0 && rule_wd > 0 {
+                        if cur_dir == LR::RightToLeft {
                             cur_h -= rule_wd
                         }
                         if cur_h != dvi_h {
-                            movement(cur_h - dvi_h, 143i32 as u8);
+                            movement(cur_h - dvi_h, RIGHT1);
                             dvi_h = cur_h
                         }
                         if cur_v != dvi_v {
-                            movement(cur_v - dvi_v, 157i32 as u8);
+                            movement(cur_v - dvi_v, DOWN1);
                             dvi_v = cur_v
                         }
-                        dvi_out(137i32 as u8);
+                        dvi_out(PUT_RULE);
                         dvi_four(rule_ht);
                         dvi_four(rule_wd);
                         cur_h = left_edge
@@ -1585,12 +1601,12 @@ unsafe fn vlist_out() {
                 }
                 _ => {}
             }
-            p = MEM[p as usize].b32.s1
+            p = *LLIST_link(p as usize);
         }
     }
     synctex_tsilv(this_box);
     prune_movements(save_loc);
-    if cur_s > 0i32 {
+    if cur_s > 0 {
         dvi_pop(save_loc);
     }
     cur_s -= 1;
