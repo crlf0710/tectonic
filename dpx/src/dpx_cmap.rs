@@ -1056,7 +1056,7 @@ pub(crate) unsafe fn CMap_cache_find(cmap_name_str: &str) -> i32 {
     let id = (*__cache).len();
 
     __cache.push(Box::new(CMap_new()));
-    if CMap_parse(&mut *__cache[id], handle) < 0i32 {
+    if CMap_parse(&mut *__cache[id], handle).is_err() {
         panic!("{}: Parsing CMap file failed.", "CMap",);
     }
     if __verbose != 0 {

@@ -28,7 +28,6 @@
 
 use std::ffi::CStr;
 use std::io::{Seek, SeekFrom};
-use std::ptr;
 use tectonic_bridge::ttstub_input_close;
 
 use crate::strstartswith;
@@ -42,10 +41,6 @@ use super::dpx_cmap::{
 };
 use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstType};
-use super::dpx_pst_obj::pst_obj;
-use super::dpx_pst_obj::{
-    pst_data_ptr, pst_getIV, pst_getSV, pst_length_of, pst_release_obj, pst_type_of,
-};
 use crate::bridge::{ttstub_input_get_size, ttstub_input_read};
 use libc::{free, memcmp, memcpy, memmove, strcmp, strlen, strstr};
 
@@ -145,18 +140,17 @@ unsafe fn ifreader_read(mut reader: *mut ifreader, size: size_t) -> size_t {
     *(*reader).endptr = 0_u8;
     bytesread.wrapping_add(bytesrem)
 }
-unsafe fn check_next_token(input: *mut ifreader, key: *const i8) -> i32 {
+unsafe fn check_next_token(input: *mut ifreader, key: *const i8) -> Result<(), ()> {
     if ifreader_read(input, strlen(key) as _) == 0 {
-        return -1i32;
+        return Err(());
     }
-    let token = pst_get_token(&mut (*input).cursor, (*input).endptr);
-    if token.is_null() {
-        return -1i32;
-    }
-    let str = pst_getSV(token) as *mut i8;
-    let cmp = if strcmp(str, key) != 0 { -1i32 } else { 0i32 };
-    free(str as *mut libc::c_void);
-    pst_release_obj(token);
+    let token = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+    let str = token.getSV().ok_or(())?;
+    let cmp = if strcmp(str.as_ptr(), key) != 0 {
+        Err(())
+    } else {
+        Ok(())
+    };
     cmp
 }
 unsafe fn get_coderange(
@@ -165,36 +159,27 @@ unsafe fn get_coderange(
     codeHi: *mut u8,
     dim: *mut i32,
     maxlen: i32,
-) -> i32 {
-    let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-    if tok1.is_null() {
-        return -1i32;
+) -> Result<(), ()> {
+    let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+    let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+    if !(tok1.typ() == PstType::String) || !(tok2.typ() == PstType::String) {
+        return Err(());
     }
-    let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-    if tok2.is_null() {
-        pst_release_obj(tok1);
-        return -1i32;
-    }
-    if !(pst_type_of(tok1) == PstType::String) || !(pst_type_of(tok2) == PstType::String) {
-        pst_release_obj(tok1);
-        pst_release_obj(tok2);
-        return -1i32;
-    }
-    let dim1 = pst_length_of(tok1);
-    let dim2 = pst_length_of(tok2);
+    let dim1 = tok1.length();
+    let dim2 = tok2.length();
     if dim1 != dim2 || dim1 > maxlen {
-        pst_release_obj(tok1);
-        pst_release_obj(tok2);
-        return -1i32;
+        return Err(());
     }
-    memcpy(codeLo as *mut libc::c_void, pst_data_ptr(tok1), dim1 as _);
-    memcpy(codeHi as *mut libc::c_void, pst_data_ptr(tok2), dim2 as _);
-    pst_release_obj(tok1);
-    pst_release_obj(tok2);
+    memcpy(codeLo as *mut libc::c_void, tok1.data_ptr(), dim1 as _);
+    memcpy(codeHi as *mut libc::c_void, tok2.data_ptr(), dim2 as _);
     *dim = dim1;
-    0i32
+    Ok(())
 }
-unsafe fn do_codespacerange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
+unsafe fn do_codespacerange(
+    cmap: *mut CMap,
+    input: *mut ifreader,
+    mut count: i32,
+) -> Result<(), ()> {
     let mut codeLo: [u8; 127] = [0; 127];
     let mut codeHi: [u8; 127] = [0; 127];
     let mut dim: i32 = 0;
@@ -204,16 +189,13 @@ unsafe fn do_codespacerange(cmap: *mut CMap, input: *mut ifreader, mut count: i3
         if !(fresh0 > 0i32) {
             break;
         }
-        if get_coderange(
+        get_coderange(
             input,
             codeLo.as_mut_ptr(),
             codeHi.as_mut_ptr(),
             &mut dim,
             127i32,
-        ) < 0i32
-        {
-            return -1i32;
-        }
+        )?;
         CMap_add_codespacerange(
             cmap,
             codeLo.as_mut_ptr(),
@@ -233,7 +215,7 @@ unsafe fn handle_codearray(
     codeLo: *mut u8,
     dim: i32,
     mut count: i32,
-) -> i32 {
+) -> Result<(), ()> {
     if dim < 1i32 {
         panic!("Invalid code range.");
     }
@@ -243,32 +225,26 @@ unsafe fn handle_codearray(
         if !(fresh1 > 0i32) {
             break;
         }
-        let tok = pst_get_token(&mut (*input).cursor, (*input).endptr);
-        if tok.is_null() {
-            return -1i32;
+        let mut tok = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+        if tok.typ() == PstType::String {
+            CMap_add_bfchar(
+                cmap,
+                codeLo,
+                dim as size_t,
+                tok.data_mut_ptr() as *mut u8,
+                tok.length() as size_t,
+            );
+        } else if tok.typ() == PstType::Mark || !(tok.typ() == PstType::Name) {
+            panic!("{}: Invalid CMap mapping record.", "CMap_parse:",);
         } else {
-            if pst_type_of(tok) == PstType::String {
-                CMap_add_bfchar(
-                    cmap,
-                    codeLo,
-                    dim as size_t,
-                    pst_data_ptr(tok) as *mut u8,
-                    pst_length_of(tok) as size_t,
-                );
-            } else if pst_type_of(tok) == PstType::Mark || !(pst_type_of(tok) == PstType::Name) {
-                panic!("{}: Invalid CMap mapping record.", "CMap_parse:",);
-            } else {
-                panic!("{}: Mapping to charName not supported.", "CMap_parse:",);
-            }
+            panic!("{}: Mapping to charName not supported.", "CMap_parse:",);
         }
-        pst_release_obj(tok);
         let ref mut fresh2 = *codeLo.offset((dim - 1i32) as isize);
         *fresh2 = (*fresh2 as i32 + 1i32) as u8
     }
     check_next_token(input, b"]\x00" as *const u8 as *const i8)
 }
-unsafe fn do_notdefrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
-    let mut tok: *mut pst_obj = ptr::null_mut();
+unsafe fn do_notdefrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Result<(), ()> {
     let mut codeLo: [u8; 127] = [0; 127];
     let mut codeHi: [u8; 127] = [0; 127];
     let mut dim: i32 = 0;
@@ -279,24 +255,18 @@ unsafe fn do_notdefrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) 
             break;
         }
         if ifreader_read(input, (127i32 * 3i32) as size_t) == 0 {
-            return -1i32;
+            return Err(());
         }
-        if get_coderange(
+        get_coderange(
             input,
             codeLo.as_mut_ptr(),
             codeHi.as_mut_ptr(),
             &mut dim,
             127i32,
-        ) < 0i32
-            || {
-                tok = pst_get_token(&mut (*input).cursor, (*input).endptr);
-                tok.is_null()
-            }
-        {
-            return -1i32;
-        }
-        if pst_type_of(tok) == PstType::Integer {
-            let dstCID = pst_getIV(tok);
+        )?;
+        let tok = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+        if tok.typ() == PstType::Integer {
+            let dstCID = tok.getIV();
             if dstCID >= 0i32 && dstCID <= 65535i32 {
                 CMap_add_notdefrange(
                     cmap,
@@ -309,12 +279,10 @@ unsafe fn do_notdefrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) 
         } else {
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
         }
-        pst_release_obj(tok);
     }
     check_next_token(input, b"endnotdefrange\x00" as *const u8 as *const i8)
 }
-unsafe fn do_bfrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
-    let mut tok: *mut pst_obj = ptr::null_mut();
+unsafe fn do_bfrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Result<(), ()> {
     let mut codeLo: [u8; 127] = [0; 127];
     let mut codeHi: [u8; 127] = [0; 127];
     let mut srcdim: i32 = 0;
@@ -325,53 +293,41 @@ unsafe fn do_bfrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i
             break;
         }
         if ifreader_read(input, (127i32 * 3i32) as size_t) == 0 {
-            return -1i32;
+            return Err(());
         }
-        if get_coderange(
+        get_coderange(
             input,
             codeLo.as_mut_ptr(),
             codeHi.as_mut_ptr(),
             &mut srcdim,
             127i32,
-        ) < 0i32
-            || {
-                tok = pst_get_token(&mut (*input).cursor, (*input).endptr);
-                tok.is_null()
-            }
-        {
-            return -1i32;
-        }
-        if pst_type_of(tok) == PstType::String {
+        )?;
+        let mut tok = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+        if tok.typ() == PstType::String {
             CMap_add_bfrange(
                 cmap,
                 codeLo.as_mut_ptr(),
                 codeHi.as_mut_ptr(),
                 srcdim as size_t,
-                pst_data_ptr(tok) as *mut u8,
-                pst_length_of(tok) as size_t,
+                tok.data_mut_ptr() as *mut u8,
+                tok.length() as size_t,
             );
-        } else if pst_type_of(tok) == PstType::Mark {
-            if handle_codearray(
+        } else if tok.typ() == PstType::Mark {
+            handle_codearray(
                 cmap,
                 input,
                 codeLo.as_mut_ptr(),
                 srcdim,
                 codeHi[(srcdim - 1i32) as usize] as i32 - codeLo[(srcdim - 1i32) as usize] as i32
                     + 1i32,
-            ) < 0i32
-            {
-                pst_release_obj(tok);
-                return -1i32;
-            }
+            )?;
         } else {
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
         }
-        pst_release_obj(tok);
     }
     check_next_token(input, b"endbfrange\x00" as *const u8 as *const i8)
 }
-unsafe fn do_cidrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
-    let mut tok: *mut pst_obj = ptr::null_mut();
+unsafe fn do_cidrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Result<(), ()> {
     let mut codeLo: [u8; 127] = [0; 127];
     let mut codeHi: [u8; 127] = [0; 127];
     let mut dim: i32 = 0;
@@ -382,24 +338,18 @@ unsafe fn do_cidrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> 
             break;
         }
         if ifreader_read(input, (127i32 * 3i32) as size_t) == 0 {
-            return -1i32;
+            return Err(());
         }
-        if get_coderange(
+        get_coderange(
             input,
             codeLo.as_mut_ptr(),
             codeHi.as_mut_ptr(),
             &mut dim,
             127i32,
-        ) < 0i32
-            || {
-                tok = pst_get_token(&mut (*input).cursor, (*input).endptr);
-                tok.is_null()
-            }
-        {
-            return -1i32;
-        }
-        if pst_type_of(tok) == PstType::Integer {
-            let dstCID = pst_getIV(tok);
+        )?;
+        let tok = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+        if tok.typ() == PstType::Integer {
+            let dstCID = tok.getIV();
             if dstCID >= 0i32 && dstCID <= 65535i32 {
                 CMap_add_cidrange(
                     cmap,
@@ -412,11 +362,10 @@ unsafe fn do_cidrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> 
         } else {
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
         }
-        pst_release_obj(tok);
     }
     check_next_token(input, b"endcidrange\x00" as *const u8 as *const i8)
 }
-unsafe fn do_notdefchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
+unsafe fn do_notdefchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Result<(), ()> {
     loop {
         let fresh6 = count;
         count = count - 1;
@@ -424,36 +373,27 @@ unsafe fn do_notdefchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -
             break;
         }
         if ifreader_read(input, (127i32 * 2i32) as size_t) == 0 {
-            return -1i32;
+            return Err(());
         }
-        let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-        if tok1.is_null() {
-            return -1i32;
-        }
-        let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-        if tok2.is_null() {
-            pst_release_obj(tok1);
-            return -1i32;
-        }
-        if pst_type_of(tok1) == PstType::String && pst_type_of(tok2) == PstType::Integer {
-            let dstCID = pst_getIV(tok2);
+        let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+        let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+        if tok1.typ() == PstType::String && tok2.typ() == PstType::Integer {
+            let dstCID = tok2.getIV();
             if dstCID >= 0i32 && dstCID <= 65535i32 {
                 CMap_add_notdefchar(
                     cmap,
-                    pst_data_ptr(tok1) as *const u8,
-                    pst_length_of(tok1) as size_t,
+                    tok1.data_ptr() as *const u8,
+                    tok1.length() as size_t,
                     dstCID as CID,
                 );
             }
         } else {
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
         }
-        pst_release_obj(tok1);
-        pst_release_obj(tok2);
     }
     check_next_token(input, b"endnotdefchar\x00" as *const u8 as *const i8)
 }
-unsafe fn do_bfchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
+unsafe fn do_bfchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Result<(), ()> {
     loop {
         let fresh7 = count;
         count = count - 1;
@@ -461,37 +401,28 @@ unsafe fn do_bfchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i3
             break;
         }
         if ifreader_read(input, (127i32 * 2i32) as size_t) == 0 {
-            return -1i32;
+            return Err(());
         }
-        let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-        if tok1.is_null() {
-            return -1i32;
-        }
-        let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-        if tok2.is_null() {
-            pst_release_obj(tok1);
-            return -1i32;
-        }
+        let mut tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+        let mut tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
         /* We only support single CID font as descendant font, charName should not come here. */
-        if pst_type_of(tok1) == PstType::String && pst_type_of(tok2) == PstType::String {
+        if tok1.typ() == PstType::String && tok2.typ() == PstType::String {
             CMap_add_bfchar(
                 cmap,
-                pst_data_ptr(tok1) as *mut u8,
-                pst_length_of(tok1) as size_t,
-                pst_data_ptr(tok2) as *mut u8,
-                pst_length_of(tok2) as size_t,
+                tok1.data_mut_ptr() as *mut u8,
+                tok1.length() as size_t,
+                tok2.data_mut_ptr() as *mut u8,
+                tok2.length() as size_t,
             );
-        } else if pst_type_of(tok2) == PstType::Name {
+        } else if tok2.typ() == PstType::Name {
             panic!("{}: Mapping to charName not supported.", "CMap_parse:",);
         } else {
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
         }
-        pst_release_obj(tok1);
-        pst_release_obj(tok2);
     }
     check_next_token(input, b"endbfchar\x00" as *const u8 as *const i8)
 }
-unsafe fn do_cidchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i32 {
+unsafe fn do_cidchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Result<(), ()> {
     loop {
         let fresh8 = count;
         count = count - 1;
@@ -499,32 +430,23 @@ unsafe fn do_cidchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> i
             break;
         }
         if ifreader_read(input, (127i32 * 2i32) as size_t) == 0 {
-            return -1i32;
+            return Err(());
         }
-        let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-        if tok1.is_null() {
-            return -1i32;
-        }
-        let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-        if tok2.is_null() {
-            pst_release_obj(tok1);
-            return -1i32;
-        }
-        if pst_type_of(tok1) == PstType::String && pst_type_of(tok2) == PstType::Integer {
-            let dstCID = pst_getIV(tok2);
+        let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+        let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+        if tok1.typ() == PstType::String && tok2.typ() == PstType::Integer {
+            let dstCID = tok2.getIV();
             if dstCID >= 0i32 && dstCID <= 65535i32 {
                 CMap_add_cidchar(
                     cmap,
-                    pst_data_ptr(tok1) as *const u8,
-                    pst_length_of(tok1) as size_t,
+                    tok1.data_ptr() as *const u8,
+                    tok1.length() as size_t,
                     dstCID as CID,
                 );
             }
         } else {
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
         }
-        pst_release_obj(tok1);
-        pst_release_obj(tok2);
     }
     check_next_token(input, b"endcidchar\x00" as *const u8 as *const i8)
 }
@@ -544,138 +466,120 @@ unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
      */
     {
         let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-        if tok1.is_null() {
+        if tok1.is_none() {
             break;
         }
-        if pst_type_of(tok1) == PstType::Mark {
+        let tok1 = tok1.unwrap();
+        if tok1.typ() == PstType::Mark {
             simpledict = 1i32;
-            pst_release_obj(tok1);
             break;
-        } else if pst_type_of(tok1) == PstType::Unknown
+        } else if tok1.typ() == PstType::Unknown
             && memcmp(
-                pst_data_ptr(tok1),
+                tok1.data_ptr(),
                 b"begin\x00" as *const u8 as *const i8 as *const libc::c_void,
                 strlen(b"begin\x00" as *const u8 as *const i8),
             ) == 0
         {
             simpledict = 0i32;
-            pst_release_obj(tok1);
             break;
-        } else {
-            pst_release_obj(tok1);
-            /* continue */
         }
     }
-    let mut tok2 = ptr::null_mut();
-    let mut tok1 = tok2;
-    while error == 0 && {
-        tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-        !tok1.is_null()
-    } {
-        if pst_type_of(tok1) == PstType::Unknown
+    while error == 0 {
+        let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
+        if tok1.is_none() {
+            break;
+        }
+        let tok1 = tok1.unwrap();
+        if tok1.typ() == PstType::Unknown
             && memcmp(
-                pst_data_ptr(tok1),
+                tok1.data_ptr(),
                 b">>\x00" as *const u8 as *const i8 as *const libc::c_void,
                 strlen(b">>\x00" as *const u8 as *const i8),
             ) == 0
             && simpledict != 0
         {
-            pst_release_obj(tok1);
             break;
-        } else if pst_type_of(tok1) == PstType::Unknown
+        } else if tok1.typ() == PstType::Unknown
             && memcmp(
-                pst_data_ptr(tok1),
+                tok1.data_ptr(),
                 b"end\x00" as *const u8 as *const i8 as *const libc::c_void,
                 strlen(b"end\x00" as *const u8 as *const i8),
             ) == 0
             && simpledict == 0
         {
-            pst_release_obj(tok1);
             break;
         } else {
-            if pst_type_of(tok1) == PstType::Name
+            let mut tok2 = None;
+            if tok1.typ() == PstType::Name
                 && memcmp(
-                    pst_data_ptr(tok1),
+                    tok1.data_ptr(),
                     b"Registry\x00" as *const u8 as *const i8 as *const libc::c_void,
                     strlen(b"Registry\x00" as *const u8 as *const i8),
                 ) == 0
                 && {
                     tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-                    !tok2.is_null()
+                    tok2.is_some()
                 }
             {
-                if !(pst_type_of(tok2) == PstType::String) {
+                let tok2 = tok2.take().unwrap();
+                if !(tok2.typ() == PstType::String) {
                     error = -1i32
                 } else if simpledict == 0
-                    && check_next_token(input, b"def\x00" as *const u8 as *const i8) != 0
+                    && check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err()
                 {
                     error = -1i32
                 }
                 if error == 0 {
-                    csi.registry = CStr::from_ptr(pst_getSV(tok2) as *const i8)
-                        .to_str()
-                        .unwrap()
-                        .to_owned()
-                        .into();
+                    csi.registry = tok2.getSV().unwrap().to_str().unwrap().to_owned().into();
                 }
-            } else if pst_type_of(tok1) == PstType::Name
+            } else if tok1.typ() == PstType::Name
                 && memcmp(
-                    pst_data_ptr(tok1),
+                    tok1.data_ptr(),
                     b"Ordering\x00" as *const u8 as *const i8 as *const libc::c_void,
                     strlen(b"Ordering\x00" as *const u8 as *const i8),
                 ) == 0
                 && {
                     tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-                    !tok2.is_null()
+                    tok2.is_some()
                 }
             {
-                if !(pst_type_of(tok2) == PstType::String) {
+                let tok2 = tok2.take().unwrap();
+                if !(tok2.typ() == PstType::String) {
                     error = -1i32
                 } else if simpledict == 0
-                    && check_next_token(input, b"def\x00" as *const u8 as *const i8) != 0
+                    && check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err()
                 {
                     error = -1i32
                 }
                 if error == 0 {
-                    csi.ordering = CStr::from_ptr(pst_getSV(tok2) as *const i8)
-                        .to_str()
-                        .unwrap()
-                        .to_owned()
-                        .into();
+                    csi.ordering = tok2.getSV().unwrap().to_str().unwrap().to_owned().into();
                 }
-            } else if pst_type_of(tok1) == PstType::Name
+            } else if tok1.typ() == PstType::Name
                 && memcmp(
-                    pst_data_ptr(tok1),
+                    tok1.data_ptr(),
                     b"Supplement\x00" as *const u8 as *const i8 as *const libc::c_void,
                     strlen(b"Supplement\x00" as *const u8 as *const i8),
                 ) == 0
                 && {
                     tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-                    !tok2.is_null()
+                    tok2.is_some()
                 }
             {
-                if !(pst_type_of(tok2) == PstType::Integer) {
+                let tok2 = tok2.take().unwrap();
+                if !(tok2.typ() == PstType::Integer) {
                     error = -1i32
                 } else if simpledict == 0
-                    && check_next_token(input, b"def\x00" as *const u8 as *const i8) != 0
+                    && check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err()
                 {
                     error = -1i32
                 }
                 if error == 0 {
-                    csi.supplement = pst_getIV(tok2)
+                    csi.supplement = tok2.getIV()
                 }
             }
-            if !tok2.is_null() {
-                pst_release_obj(tok2);
-            }
-            if !tok1.is_null() {
-                pst_release_obj(tok1);
-            }
-            tok2 = ptr::null_mut();
-            tok1 = tok2
         }
     }
-    if error == 0 && check_next_token(input, b"def\x00" as *const u8 as *const i8) != 0 {
+    if error == 0 && check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err() {
         error = -1i32
     }
     if error == 0 && !csi.registry.is_empty() && !csi.ordering.is_empty() && csi.supplement >= 0i32
@@ -712,110 +616,109 @@ pub(crate) unsafe fn CMap_parse_check_sig(handle: Option<&mut InputHandleWrapper
     result
 }
 
-pub(crate) unsafe fn CMap_parse(cmap: *mut CMap, mut handle: InputHandleWrapper) -> i32 {
+pub(crate) unsafe fn CMap_parse(
+    cmap: *mut CMap,
+    mut handle: InputHandleWrapper,
+) -> Result<i32, ()> {
     let mut status: i32 = 0i32;
     let mut tmpint: i32 = -1i32;
     assert!(!cmap.is_null());
     let size = ttstub_input_get_size(&mut handle);
     let input = ifreader_create(handle, size, (4096i32 - 1i32) as size_t);
     while status >= 0i32 {
-        let mut tok2 = ptr::null_mut();
         ifreader_read(input, (4096i32 / 2i32) as size_t);
         let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-        if tok1.is_null() {
+        if tok1.is_none() {
             break;
         }
-        if pst_type_of(tok1) == PstType::Name
+        let tok1 = tok1.unwrap();
+        if tok1.typ() == PstType::Name
             && memcmp(
-                pst_data_ptr(tok1),
+                tok1.data_ptr(),
                 b"CMapName\x00" as *const u8 as *const i8 as *const libc::c_void,
                 strlen(b"CMapName\x00" as *const u8 as *const i8),
             ) == 0
         {
-            tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-            if tok2.is_null()
-                || !(pst_type_of(tok2) == PstType::Name || pst_type_of(tok2) == PstType::String)
-                || check_next_token(input, b"def\x00" as *const u8 as *const i8) < 0i32
+            let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+            if !(tok2.typ() == PstType::Name || tok2.typ() == PstType::String)
+                || check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err()
             {
                 status = -1i32
             } else {
                 CMap_set_name(
                     cmap,
-                    &CStr::from_ptr(pst_data_ptr(tok2) as *const i8).to_string_lossy(),
+                    &CStr::from_ptr(tok2.data_ptr() as *const i8).to_string_lossy(),
                 );
             }
-        } else if pst_type_of(tok1) == PstType::Name
+        } else if tok1.typ() == PstType::Name
             && memcmp(
-                pst_data_ptr(tok1),
+                tok1.data_ptr(),
                 b"CMapType\x00" as *const u8 as *const i8 as *const libc::c_void,
                 strlen(b"CMapType\x00" as *const u8 as *const i8),
             ) == 0
         {
-            tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-            if tok2.is_null()
-                || !(pst_type_of(tok2) == PstType::Integer)
-                || check_next_token(input, b"def\x00" as *const u8 as *const i8) < 0i32
+            let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+            if !(tok2.typ() == PstType::Integer)
+                || check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err()
             {
                 status = -1i32
             } else {
-                CMap_set_type(cmap, pst_getIV(tok2));
+                CMap_set_type(cmap, tok2.getIV());
             }
-        } else if pst_type_of(tok1) == PstType::Name
+        } else if tok1.typ() == PstType::Name
             && memcmp(
-                pst_data_ptr(tok1),
+                tok1.data_ptr(),
                 b"WMode\x00" as *const u8 as *const i8 as *const libc::c_void,
                 strlen(b"WMode\x00" as *const u8 as *const i8),
             ) == 0
         {
-            tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-            if tok2.is_null()
-                || !(pst_type_of(tok2) == PstType::Integer)
-                || check_next_token(input, b"def\x00" as *const u8 as *const i8) < 0i32
+            let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+            if !(tok2.typ() == PstType::Integer)
+                || check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err()
             {
                 status = -1i32
             } else {
-                CMap_set_wmode(cmap, pst_getIV(tok2));
+                CMap_set_wmode(cmap, tok2.getIV());
             }
-        } else if pst_type_of(tok1) == PstType::Name
+        } else if tok1.typ() == PstType::Name
             && memcmp(
-                pst_data_ptr(tok1),
+                tok1.data_ptr(),
                 b"CIDSystemInfo\x00" as *const u8 as *const i8 as *const libc::c_void,
                 strlen(b"CIDSystemInfo\x00" as *const u8 as *const i8),
             ) == 0
         {
             status = do_cidsysteminfo(cmap, input)
-        } else if !(pst_type_of(tok1) == PstType::Name
+        } else if !(tok1.typ() == PstType::Name
             && memcmp(
-                pst_data_ptr(tok1),
+                tok1.data_ptr(),
                 b"Version\x00" as *const u8 as *const i8 as *const libc::c_void,
                 strlen(b"Version\x00" as *const u8 as *const i8),
             ) == 0
-            || pst_type_of(tok1) == PstType::Name
+            || tok1.typ() == PstType::Name
                 && memcmp(
-                    pst_data_ptr(tok1),
+                    tok1.data_ptr(),
                     b"UIDOffset\x00" as *const u8 as *const i8 as *const libc::c_void,
                     strlen(b"UIDOffset\x00" as *const u8 as *const i8),
                 ) == 0
-            || pst_type_of(tok1) == PstType::Name
+            || tok1.typ() == PstType::Name
                 && memcmp(
-                    pst_data_ptr(tok1),
+                    tok1.data_ptr(),
                     b"XUID\x00" as *const u8 as *const i8 as *const libc::c_void,
                     strlen(b"XUID\x00" as *const u8 as *const i8),
                 ) == 0)
         {
-            if pst_type_of(tok1) == PstType::Name {
+            if tok1.typ() == PstType::Name {
                 /* Possibly usecmap comes next */
-                tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr);
-                if !tok2.is_null()
-                    && (pst_type_of(tok2) == PstType::Unknown
-                        && memcmp(
-                            pst_data_ptr(tok2),
-                            b"usecmap\x00" as *const u8 as *const i8 as *const libc::c_void,
-                            strlen(b"usecmap\x00" as *const u8 as *const i8),
-                        ) == 0)
+                let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr).unwrap();
+                if tok2.typ() == PstType::Unknown
+                    && memcmp(
+                        tok2.data_ptr(),
+                        b"usecmap\x00" as *const u8 as *const i8 as *const libc::c_void,
+                        strlen(b"usecmap\x00" as *const u8 as *const i8),
+                    ) == 0
                 {
                     let id = CMap_cache_find(
-                        &CStr::from_ptr(pst_data_ptr(tok1) as *const i8).to_string_lossy(),
+                        &CStr::from_ptr(tok1.data_ptr() as *const i8).to_string_lossy(),
                     );
                     if id < 0i32 {
                         status = -1i32
@@ -824,77 +727,71 @@ pub(crate) unsafe fn CMap_parse(cmap: *mut CMap, mut handle: InputHandleWrapper)
                         CMap_set_usecmap(cmap, ucmap);
                     }
                 }
-            } else if pst_type_of(tok1) == PstType::Unknown
+            } else if tok1.typ() == PstType::Unknown
                 && memcmp(
-                    pst_data_ptr(tok1),
+                    tok1.data_ptr(),
                     b"begincodespacerange\x00" as *const u8 as *const i8 as *const libc::c_void,
                     strlen(b"begincodespacerange\x00" as *const u8 as *const i8),
                 ) == 0
             {
-                status = do_codespacerange(cmap, input, tmpint)
-            } else if pst_type_of(tok1) == PstType::Unknown
+                do_codespacerange(cmap, input, tmpint)?;
+            } else if tok1.typ() == PstType::Unknown
                 && memcmp(
-                    pst_data_ptr(tok1),
+                    tok1.data_ptr(),
                     b"beginnotdefrange\x00" as *const u8 as *const i8 as *const libc::c_void,
                     strlen(b"beginnotdefrange\x00" as *const u8 as *const i8),
                 ) == 0
             {
-                status = do_notdefrange(cmap, input, tmpint)
-            } else if pst_type_of(tok1) == PstType::Unknown
+                do_notdefrange(cmap, input, tmpint)?;
+            } else if tok1.typ() == PstType::Unknown
                 && memcmp(
-                    pst_data_ptr(tok1),
+                    tok1.data_ptr(),
                     b"beginnotdefchar\x00" as *const u8 as *const i8 as *const libc::c_void,
                     strlen(b"beginnotdefchar\x00" as *const u8 as *const i8),
                 ) == 0
             {
-                status = do_notdefchar(cmap, input, tmpint)
-            } else if pst_type_of(tok1) == PstType::Unknown
+                do_notdefchar(cmap, input, tmpint)?;
+            } else if tok1.typ() == PstType::Unknown
                 && memcmp(
-                    pst_data_ptr(tok1),
+                    tok1.data_ptr(),
                     b"beginbfrange\x00" as *const u8 as *const i8 as *const libc::c_void,
                     strlen(b"beginbfrange\x00" as *const u8 as *const i8),
                 ) == 0
             {
-                status = do_bfrange(cmap, input, tmpint)
-            } else if pst_type_of(tok1) == PstType::Unknown
+                do_bfrange(cmap, input, tmpint)?;
+            } else if tok1.typ() == PstType::Unknown
                 && memcmp(
-                    pst_data_ptr(tok1),
+                    tok1.data_ptr(),
                     b"beginbfchar\x00" as *const u8 as *const i8 as *const libc::c_void,
                     strlen(b"beginbfchar\x00" as *const u8 as *const i8),
                 ) == 0
             {
-                status = do_bfchar(cmap, input, tmpint)
-            } else if pst_type_of(tok1) == PstType::Unknown
+                do_bfchar(cmap, input, tmpint)?;
+            } else if tok1.typ() == PstType::Unknown
                 && memcmp(
-                    pst_data_ptr(tok1),
+                    tok1.data_ptr(),
                     b"begincidrange\x00" as *const u8 as *const i8 as *const libc::c_void,
                     strlen(b"begincidrange\x00" as *const u8 as *const i8),
                 ) == 0
             {
-                status = do_cidrange(cmap, input, tmpint)
-            } else if pst_type_of(tok1) == PstType::Unknown
+                do_cidrange(cmap, input, tmpint)?;
+            } else if tok1.typ() == PstType::Unknown
                 && memcmp(
-                    pst_data_ptr(tok1),
+                    tok1.data_ptr(),
                     b"begincidchar\x00" as *const u8 as *const i8 as *const libc::c_void,
                     strlen(b"begincidchar\x00" as *const u8 as *const i8),
                 ) == 0
             {
-                status = do_cidchar(cmap, input, tmpint)
-            } else if pst_type_of(tok1) == PstType::Integer {
-                tmpint = pst_getIV(tok1)
+                do_cidchar(cmap, input, tmpint)?;
+            } else if tok1.typ() == PstType::Integer {
+                tmpint = tok1.getIV()
             }
-        }
-        if !tok1.is_null() {
-            pst_release_obj(tok1);
-        }
-        if !tok2.is_null() {
-            pst_release_obj(tok2);
         }
     }
     ifreader_destroy(input);
     if status < 0i32 {
-        -1i32
+        Err(())
     } else {
-        CMap_is_valid(cmap) as i32
+        Ok(CMap_is_valid(cmap) as i32)
     }
 }
