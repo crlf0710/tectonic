@@ -6,6 +6,7 @@ use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow};
 use crate::xetex_ext::{
     apply_tfm_font_mapping, makeXDVGlyphArrayData, make_font_def, store_justified_native_glyphs,
+    AAT_FONT_FLAG, OTGR_FONT_FLAG,
 };
 use crate::xetex_ini::{
     avail, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
@@ -45,9 +46,9 @@ use crate::xetex_xetexd::{
     BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height, BOX_list_ptr, BOX_lr_mode,
     BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font, EDGE_NODE_edge_dist,
     GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_SPEC_ref_count, GLUE_SPEC_shrink,
-    GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LLIST_info, LLIST_link,
-    NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length,
-    NODE_subtype, NODE_type, SYNCTEX_tag, TeXOpt, FONT_CHARACTER_WIDTH,
+    GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LIGATURE_NODE_lig_ptr,
+    LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_glyph_info_ptr,
+    NATIVE_NODE_length, NODE_subtype, NODE_type, SYNCTEX_tag, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::{strerror, strlen};
@@ -891,7 +892,7 @@ unsafe fn hlist_out() {
                                     edge =
                                         cur_h +
                                             *BOX_width(p as usize);
-                                    pic_out(p);
+                                    pic_out(p as usize);
                                     dvi_h = save_h;
                                     dvi_v = save_v;
                                     cur_h = edge;
@@ -902,7 +903,7 @@ unsafe fn hlist_out() {
                                     pdf_last_y_pos =
                                         cur_page_height - cur_v - cur_v_offset
                                 }
-                                _ => { out_what(p); }
+                                _ => { out_what(p as usize); }
                             }
                             current_block = 13889995436552222973;
                             break ;
@@ -1409,7 +1410,7 @@ unsafe fn vlist_out() {
                             save_h = dvi_h;
                             save_v = dvi_v;
                             cur_v = cur_v + *BOX_height(p as usize);
-                            pic_out(p);
+                            pic_out(p as usize);
                             dvi_h = save_h;
                             dvi_v = save_v;
                             cur_v = save_v + *BOX_depth(p as usize);
@@ -1419,7 +1420,7 @@ unsafe fn vlist_out() {
                             pdf_last_x_pos = cur_h + cur_h_offset;
                             pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
                         }
-                        _ => out_what(p),
+                        _ => out_what(p as usize),
                     }
                     current_block = 5241535548500397784;
                 }
@@ -1629,15 +1630,13 @@ unsafe fn reverse(
     let mut l: i32 = 0;
     let mut p: i32 = 0;
     let mut q: i32 = 0;
-    let mut g_order: glue_ord = 0;
-    let mut g_sign: u8 = 0;
     let mut glue_temp: f64 = 0.;
     let mut m: i32 = 0;
     let mut n: i32 = 0;
     let mut c: u16 = 0;
     let mut f: internal_font_number = 0;
-    g_order = MEM[(this_box + 5) as usize].b16.s0 as glue_ord;
-    g_sign = MEM[(this_box + 5) as usize].b16.s1 as u8;
+    let mut g_order = *BOX_glue_order(this_box as usize);
+    let mut g_sign = GlueSign::from(*BOX_glue_sign(this_box as usize));
     l = t;
     p = temp_ptr;
     m = MIN_HALFWORD;
@@ -1651,16 +1650,16 @@ unsafe fn reverse(
             {
                 if is_char_node(p) {
                     loop {
-                        f = MEM[p as usize].b16.s1 as internal_font_number;
-                        c = MEM[p as usize].b16.s0;
+                        f = *CHAR_NODE_font(p as usize) as usize;
+                        c = *CHAR_NODE_character(p as usize);
                         cur_h += FONT_INFO[(WIDTH_BASE[f]
                             + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize]
                                 .b16
                                 .s3 as i32) as usize]
                             .b32
                             .s1;
-                        q = MEM[p as usize].b32.s1;
-                        MEM[p as usize].b32.s1 = l;
+                        q = *LLIST_link(p as usize);
+                        *LLIST_link(p as usize) = l;
                         l = p;
                         p = q;
                         if !is_char_node(p) {
@@ -1669,19 +1668,19 @@ unsafe fn reverse(
                     }
                     continue 's_58;
                 } else {
-                    q = MEM[p as usize].b32.s1;
-                    match MEM[p as usize].b16.s1 as i32 {
-                        0 | 1 | 2 | 11 => {
-                            rule_wd = MEM[(p + 1) as usize].b32.s1;
+                    q = *LLIST_link(p as usize);
+                    match NODE_type(p as usize) {
+                        HLIST_NODE | VLIST_NODE | RULE_NODE | KERN_NODE => {
+                            rule_wd = *BOX_width(p as usize);
                             current_block = 3812947724376655173;
                             break;
                         }
-                        8 => {
-                            if MEM[p as usize].b16.s0 as i32 == 40
-                                || MEM[p as usize].b16.s0 as i32 == 41
-                                || MEM[p as usize].b16.s0 as i32 == 42
-                                || MEM[p as usize].b16.s0 as i32 == 43
-                                || MEM[p as usize].b16.s0 as i32 == 44
+                        WHATSIT_NODE => {
+                            if NODE_subtype(p as usize) == NATIVE_WORD_NODE
+                                || NODE_subtype(p as usize) == NATIVE_WORD_NODE_AT
+                                || NODE_subtype(p as usize) == GLYPH_NODE
+                                || NODE_subtype(p as usize) == PIC_NODE
+                                || NODE_subtype(p as usize) == PDF_NODE
                             {
                                 current_block = 7056779235015430508;
                                 break;
@@ -1690,74 +1689,80 @@ unsafe fn reverse(
                                 break;
                             }
                         }
-                        10 => {
+                        GLUE_NODE => {
                             /*1486: "Handle a glue node for mixed direction typesetting" */
-                            g = MEM[(p + 1) as usize].b32.s0; /* "will never match" */
-                            rule_wd = MEM[(g + 1) as usize].b32.s1 - *cur_g; /* = mem[lig_char(temp_ptr)] */
-                            if g_sign as i32 != 0i32 {
-                                if g_sign as i32 == 1i32 {
-                                    if MEM[g as usize].b16.s1 as i32 == g_order as i32 {
-                                        *cur_glue = *cur_glue + MEM[(g + 2) as usize].b32.s1 as f64;
-                                        glue_temp = MEM[(this_box + 6) as usize].gr * *cur_glue;
-                                        if glue_temp > 1000000000.0f64 {
-                                            glue_temp = 1000000000.0f64
-                                        } else if glue_temp < -1000000000.0f64 {
-                                            glue_temp = -1000000000.0f64
+                            g = *GLUE_NODE_glue_ptr(p as usize); /* "will never match" */
+                            rule_wd = *BOX_width(g as usize) - *cur_g; /* = mem[lig_char(temp_ptr)] */
+
+                            if g_sign != GlueSign::Normal {
+                                if g_sign == GlueSign::Stretching {
+                                    if *GLUE_SPEC_stretch_order(g as usize) == g_order as u16 {
+                                        *cur_glue =
+                                            *cur_glue + *GLUE_SPEC_stretch(g as usize) as f64;
+                                        glue_temp = *BOX_glue_set(this_box as usize) * *cur_glue;
+                                        if glue_temp > 1000000000. {
+                                            glue_temp = 1000000000.
+                                        } else if glue_temp < -1000000000. {
+                                            glue_temp = -1000000000.
                                         }
                                         *cur_g = tex_round(glue_temp)
                                     }
-                                } else if MEM[g as usize].b16.s0 as i32 == g_order as i32 {
-                                    *cur_glue = *cur_glue - MEM[(g + 3) as usize].b32.s1 as f64;
-                                    glue_temp = MEM[(this_box + 6) as usize].gr * *cur_glue;
-                                    if glue_temp > 1000000000.0f64 {
-                                        glue_temp = 1000000000.0f64
-                                    } else if glue_temp < -1000000000.0f64 {
-                                        glue_temp = -1000000000.0f64
+                                } else if *GLUE_SPEC_shrink_order(g as usize) == g_order as u16 {
+                                    *cur_glue = *cur_glue - *GLUE_SPEC_shrink(g as usize) as f64;
+                                    glue_temp = *BOX_glue_set(this_box as usize) * *cur_glue;
+                                    if glue_temp > 1000000000. {
+                                        glue_temp = 1000000000.
+                                    } else if glue_temp < -1000000000. {
+                                        glue_temp = -1000000000.
                                     }
                                     *cur_g = tex_round(glue_temp)
                                 }
                             }
                             rule_wd += *cur_g;
-                            if g_sign as i32 == 1i32
-                                && MEM[g as usize].b16.s1 as i32 == g_order as i32
-                                || g_sign as i32 == 2i32
-                                    && MEM[g as usize].b16.s0 as i32 == g_order as i32
+                            if g_sign == GlueSign::Stretching
+                                && MEM[g as usize].b16.s1 == g_order as u16
+                                || g_sign == GlueSign::Shrinking
+                                    && MEM[g as usize].b16.s0 == g_order as u16
                             {
-                                if MEM[g as usize].b32.s1 == TEX_NULL {
-                                    free_node(g as usize, 4i32);
+                                if GLUE_SPEC_ref_count(g as usize).is_texnull() {
+                                    free_node(g as usize, GLUE_SPEC_SIZE);
                                 } else {
-                                    MEM[g as usize].b32.s1 -= 1;
+                                    *GLUE_SPEC_ref_count(g as usize) -= 1;
                                 }
-                                if (MEM[p as usize].b16.s0 as i32) < 100 {
-                                    MEM[p as usize].b16.s1 = 11_u16;
-                                    MEM[(p + 1) as usize].b32.s1 = rule_wd
+                                if MEM[p as usize].b16.s0 < A_LEADERS {
+                                    // NODE_subtype(p)
+                                    set_NODE_type(p as usize, KERN_NODE);
+                                    *BOX_width(p as usize) = rule_wd;
                                 } else {
-                                    g = get_node(4i32) as i32;
-                                    MEM[g as usize].b16.s1 = (3 + 1) as u16;
-                                    MEM[g as usize].b16.s0 = (3 + 1) as u16;
-                                    MEM[(g + 1) as usize].b32.s1 = rule_wd;
-                                    MEM[(g + 2) as usize].b32.s1 = 0;
-                                    MEM[(g + 3) as usize].b32.s1 = 0;
-                                    MEM[(p + 1) as usize].b32.s0 = g
+                                    g = get_node(GLUE_SPEC_SIZE) as i32;
+                                    *GLUE_SPEC_stretch_order(g as usize) =
+                                        GlueOrder::Incorrect as u16;
+                                    *GLUE_SPEC_shrink_order(g as usize) =
+                                        GlueOrder::Incorrect as u16;
+                                    *BOX_width(g as usize) = rule_wd;
+                                    *GLUE_SPEC_stretch(g as usize) = 0;
+                                    *GLUE_SPEC_shrink(g as usize) = 0;
+                                    *GLUE_NODE_glue_ptr(p as usize) = g
                                 }
                             }
                             current_block = 3812947724376655173;
                             break;
                         }
-                        6 => {
-                            flush_node_list(MEM[(p + 1) as usize].b32.s1.opt());
+                        LIGATURE_NODE => {
+                            flush_node_list(LIGATURE_NODE_lig_ptr(p as usize).opt());
                             temp_ptr = p;
                             p = get_avail() as i32;
                             MEM[p as usize] = MEM[(temp_ptr + 1) as usize];
-                            MEM[p as usize].b32.s1 = q;
-                            free_node(temp_ptr as usize, 2i32);
+                            *LLIST_link(p as usize) = q;
+                            free_node(temp_ptr as usize, SMALL_NODE_SIZE);
                         }
-                        9 => {
+                        MATH_NODE => {
                             /*1516: "Math nodes in an inner reflected segment are
                              * modified, those at the outer level are changed into
                              * kern nodes." */
-                            rule_wd = MEM[(p + 1) as usize].b32.s1;
-                            if MEM[p as usize].b16.s0 as i32 & 1 != 0 {
+                            rule_wd = *BOX_width(p as usize);
+
+                            if *BOX_lr_mode(p as usize) & 1 != 0 {
                                 current_block = 5873035170358615968;
                                 break;
                             } else {
@@ -1765,7 +1770,7 @@ unsafe fn reverse(
                                 break;
                             }
                         }
-                        14 => confusion(b"LR2"),
+                        EDGE_NODE => confusion(b"LR2"),
                         _ => {
                             current_block = 10883403804712335414;
                             break;
@@ -1775,27 +1780,28 @@ unsafe fn reverse(
             }
             match current_block {
                 5873035170358615968 => {
-                    if MEM[LR_ptr as usize].b32.s0 != 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3 {
-                        MEM[p as usize].b16.s1 = 11_u16;
-                        LR_problems += 1
+                    if *LLIST_info(LR_ptr as usize) != 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3 {
+                        set_NODE_type(p as usize, KERN_NODE);
+                        LR_problems += 1;
                     } else {
                         temp_ptr = LR_ptr;
-                        LR_ptr = MEM[temp_ptr as usize].b32.s1;
-                        MEM[temp_ptr as usize].b32.s1 = avail;
+                        LR_ptr = *LLIST_link(temp_ptr as usize);
+                        *LLIST_link(temp_ptr as usize) = avail;
                         avail = temp_ptr;
+
                         if n > MIN_HALFWORD {
                             n -= 1;
-                            MEM[p as usize].b16.s0 -= 1;
+                            MEM[p as usize].b16.s0 -= 1; // NODE_subtype(p)
                         } else {
-                            MEM[p as usize].b16.s1 = 11_u16;
+                            set_NODE_type(p as usize, KERN_NODE);
                             if m > MIN_HALFWORD {
                                 m -= 1
                             } else {
                                 /*1517: "Finish the reverse hlist segment and goto done" */
-                                free_node(p as usize, 3i32); /* end GLUE_NODE case */
-                                MEM[t as usize].b32.s1 = q;
-                                MEM[(t + 1) as usize].b32.s1 = rule_wd;
-                                MEM[(t + 2) as usize].b32.s1 = -cur_h - rule_wd;
+                                free_node(p as usize, MEDIUM_NODE_SIZE); /* end GLUE_NODE case */
+                                *LLIST_link(t as usize) = q;
+                                *BOX_width(t as usize) = rule_wd;
+                                *EDGE_NODE_edge_dist(t as usize) = -cur_h - rule_wd;
                                 break;
                             }
                         }
@@ -1804,20 +1810,20 @@ unsafe fn reverse(
                 }
                 17239133558811367971 => {
                     temp_ptr = get_avail() as i32;
-                    MEM[temp_ptr as usize].b32.s0 = 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3;
-                    MEM[temp_ptr as usize].b32.s1 = LR_ptr;
+                    *LLIST_info(temp_ptr as usize) = 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3;
+                    *LLIST_link(temp_ptr as usize) = LR_ptr;
                     LR_ptr = temp_ptr;
-                    if n > MIN_HALFWORD || MEM[p as usize].b16.s0 as i32 / 8 != cur_dir as i32 {
+                    if n > MIN_HALFWORD || MEM[p as usize].b16.s0 / 8 != cur_dir as u16 {
                         n += 1;
-                        MEM[p as usize].b16.s0 += 1;
+                        MEM[p as usize].b16.s0 += 1; // NODE_subtype(p)
                     } else {
-                        MEM[p as usize].b16.s1 = 11_u16;
-                        m += 1
+                        set_NODE_type(p as usize, KERN_NODE);
+                        m += 1;
                     }
                     current_block = 3812947724376655173;
                 }
                 7056779235015430508 => {
-                    rule_wd = MEM[(p + 1) as usize].b32.s1;
+                    rule_wd = *BOX_width(p as usize);
                     current_block = 3812947724376655173;
                 }
                 _ => {}
@@ -1828,7 +1834,7 @@ unsafe fn reverse(
             }
             MEM[p as usize].b32.s1 = l;
             if MEM[p as usize].b16.s1 as i32 == 11 {
-                if rule_wd == 0i32 || l == TEX_NULL {
+                if rule_wd == 0 || l.is_texnull() {
                     free_node(p as usize, 3i32);
                     p = l
                 }
@@ -1837,10 +1843,10 @@ unsafe fn reverse(
             p = q
         } else {
             /* ... resuming 1510 ... */
-            if t == TEX_NULL && m == TEX_NULL && n == TEX_NULL {
+            if t == TEX_NULL && m.is_texnull() && n.is_texnull() {
                 break; /* "Manufacture a missing math node" */
             }
-            p = new_math(0i32, MEM[LR_ptr as usize].b32.s0 as small_number) as i32;
+            p = new_math(0, *LLIST_info(LR_ptr as usize) as small_number) as i32;
             LR_problems += 10000i32
         }
     }
@@ -1857,16 +1863,16 @@ pub(crate) unsafe fn new_edge(s: LR, w: scaled_t) -> usize {
     p
 }
 
-pub(crate) unsafe fn out_what(mut p: i32) {
+pub(crate) unsafe fn out_what(p: usize) {
     let mut j: small_number;
-    match NODE_subtype(p as usize) {
+    match NODE_subtype(p) {
         OPEN_NODE | WRITE_NODE | CLOSE_NODE => {
             if doing_leaders {
                 return;
             }
 
-            j = MEM[(p + 1) as usize].b32.s0 as small_number;
-            if NODE_subtype(p as usize) == WRITE_NODE {
+            j = MEM[p + 1].b32.s0 as small_number;
+            if NODE_subtype(p) == WRITE_NODE {
                 write_out(p);
                 return;
             }
@@ -1875,7 +1881,7 @@ pub(crate) unsafe fn out_what(mut p: i32) {
                 ttstub_output_close(write_file[j as usize].take().unwrap());
             }
 
-            if NODE_subtype(p as usize) == CLOSE_NODE {
+            if NODE_subtype(p) == CLOSE_NODE {
                 write_open[j as usize] = false;
                 return;
             }
@@ -1885,9 +1891,9 @@ pub(crate) unsafe fn out_what(mut p: i32) {
                 return;
             }
 
-            cur_name = MEM[(p + 1) as usize].b32.s1;
-            cur_area = MEM[(p + 2) as usize].b32.s0;
-            cur_ext = MEM[(p + 2) as usize].b32.s1;
+            cur_name = MEM[p + 1].b32.s1;
+            cur_area = MEM[p + 2].b32.s0;
+            cur_ext = MEM[p + 2].b32.s1;
             if length(cur_ext) == 0 {
                 cur_ext = maketexstring(b".tex")
             }
@@ -1940,14 +1946,14 @@ unsafe fn dvi_native_font_def(f: internal_font_number) {
 unsafe fn dvi_font_def(f: internal_font_number) {
     let mut k: pool_pointer = 0;
     let mut l: i32 = 0;
-    if FONT_AREA[f] as u32 == 0xffffu32 || FONT_AREA[f] as u32 == 0xfffeu32 {
+    if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
         dvi_native_font_def(f);
     } else {
         if f <= 256 {
-            dvi_out(FNT_DEF1 as _);
+            dvi_out(FNT_DEF1);
             dvi_out((f - 1) as u8);
         } else {
-            dvi_out(FNT_DEF1 as u8 + 1);
+            dvi_out(FNT_DEF1 + 1);
             dvi_out(((f - 1) / 256) as u8);
             dvi_out(((f - 1) % 256) as u8);
         }
@@ -1961,19 +1967,18 @@ unsafe fn dvi_font_def(f: internal_font_number) {
         l = 0;
         k = str_start[(FONT_NAME[f] as i64 - 65536) as usize];
 
-        while l == 0i32 && k < str_start[((FONT_NAME[f] + 1i32) as i64 - 65536) as usize] {
+        while l == 0i32 && k < str_start[((FONT_NAME[f] + 1) as i64 - 65536) as usize] {
             if str_pool[k as usize] as i32 == ':' as i32 {
                 l = k - str_start[(FONT_NAME[f] as i64 - 65536) as usize]
             }
-            k += 1
+            k += 1;
         }
         if l == 0i32 {
             l = length(FONT_NAME[f])
         }
         dvi_out(l as u8);
-        let mut for_end: i32 = 0;
         k = str_start[(FONT_AREA[f] as i64 - 65536) as usize];
-        for_end = str_start[((FONT_AREA[f] + 1i32) as i64 - 65536) as usize] - 1i32;
+        let mut for_end = str_start[((FONT_AREA[f] + 1) as i64 - 65536) as usize] - 1i32;
         if k <= for_end {
             loop {
                 dvi_out(str_pool[k as usize] as u8);
@@ -1984,9 +1989,8 @@ unsafe fn dvi_font_def(f: internal_font_number) {
                 }
             }
         }
-        let mut for_end_0: i32 = 0;
         k = str_start[(FONT_NAME[f] as i64 - 65536) as usize];
-        for_end_0 = str_start[(FONT_NAME[f] as i64 - 65536) as usize] + l - 1i32;
+        let mut for_end_0 = str_start[(FONT_NAME[f] as i64 - 65536) as usize] + l - 1i32;
         if k <= for_end_0 {
             loop {
                 dvi_out(str_pool[k as usize] as u8);
@@ -2002,32 +2006,36 @@ unsafe fn dvi_font_def(f: internal_font_number) {
 
 unsafe fn movement(mut w: scaled_t, mut o: u8) {
     let mut current_block: u64;
-    let mut mstate: small_number = 0;
     let mut p: i32 = 0;
-    let mut q: i32 = 0;
     let mut k: i32 = 0;
-    q = get_node(3i32) as i32;
-    MEM[(q + 1) as usize].b32.s1 = w;
-    MEM[(q + 2) as usize].b32.s1 = (dvi_offset + dvi_ptr) as i32;
-    if o as i32 == 157i32 {
-        MEM[q as usize].b32.s1 = down_ptr;
-        down_ptr = q
+    let mut q = get_node(MOVEMENT_NODE_SIZE);
+    MEM[q + 1].b32.s1 = w;
+    MEM[q + 2].b32.s1 = (dvi_offset + dvi_ptr) as i32;
+    if o == DOWN1 {
+        MEM[q].b32.s1 = down_ptr;
+        down_ptr = q as i32;
     } else {
-        MEM[q as usize].b32.s1 = right_ptr;
-        right_ptr = q
+        MEM[q].b32.s1 = right_ptr;
+        right_ptr = q as i32;
     }
-    p = MEM[q as usize].b32.s1;
-    mstate = 0i32 as small_number;
+
+    p = MEM[q].b32.s1;
+    let mut mstate: i16 = MOV_NONE_SEEN;
+
     loop {
-        if !(p != TEX_NULL) {
+        if p.is_texnull() {
             current_block = 18071914750955744041;
             break;
         }
         if MEM[(p + 1) as usize].b32.s1 == w {
             /* By this point must be OPEN_NODE */
             /*632:*/
-            match mstate as i32 + MEM[p as usize].b32.s0 {
-                3 | 4 | 15 | 16 => {
+            match (mstate, MEM[p as usize].b32.s0) {
+                (MOV_NONE_SEEN, MOV_YZ_OK)
+                | (MOV_NONE_SEEN, MOV_Y_OK)
+                | (MOV_Z_SEEN, MOV_YZ_OK)
+                | (MOV_Z_SEEN, MOV_Y_OK) => {
+                    // TODO check all variants
                     current_block = 2415380317517078313; /*633:*/
                     match current_block {
                         15378387224937501455 => {
@@ -2036,11 +2044,11 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
                                 break;
                             }
                             k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
-                            if k < 0i32 {
-                                k = k + 16384i32
+                            if k < 0 {
+                                k = k + DVI_BUF_SIZE as i32;
                             }
                             dvi_buf[k as usize] += 10;
-                            MEM[p as usize].b32.s0 = 2;
+                            MEM[p as usize].b32.s0 = MOV_Z_HERE;
                             current_block = 8542251818650148540;
                             break;
                         }
@@ -2050,49 +2058,52 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
                                 break;
                             } else {
                                 k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
-                                if k < 0i32 {
-                                    k = k + 16384i32
+                                if k < 0 {
+                                    k = k + DVI_BUF_SIZE as i32;
                                 }
                                 dvi_buf[k as usize] += 5;
-                                MEM[p as usize].b32.s0 = 1;
+                                MEM[p as usize].b32.s0 = MOV_Y_HERE;
                                 current_block = 8542251818650148540;
                                 break;
                             }
                         }
                     }
                 }
-                5 | 9 | 11 => {
+                (MOV_NONE_SEEN, MOV_Z_OK) | (MOV_Y_SEEN, MOV_YZ_OK) | (MOV_Y_SEEN, MOV_Z_OK) => {
                     current_block = 15378387224937501455;
                     if MEM[(p + 2) as usize].b32.s1 < dvi_gone {
                         current_block = 18071914750955744041;
                         break;
                     }
                     k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
-                    if k < 0i32 {
-                        k = k + 16384i32
+                    if k < 0 {
+                        k = k + DVI_BUF_SIZE as i32;
                     }
                     dvi_buf[k as usize] += 10;
-                    MEM[p as usize].b32.s0 = 2;
+                    MEM[p as usize].b32.s0 = MOV_Z_HERE;
                     current_block = 8542251818650148540;
                     break;
                 }
-                1 | 2 | 8 | 13 => {
+                (MOV_NONE_SEEN, MOV_Y_HERE)
+                | (MOV_NONE_SEEN, MOV_Z_HERE)
+                | (MOV_Y_SEEN, MOV_Z_HERE)
+                | (MOV_Z_SEEN, MOV_Y_HERE) => {
                     current_block = 8542251818650148540;
                     break;
                 }
                 _ => {}
             }
         } else {
-            match mstate as i32 + MEM[p as usize].b32.s0 {
-                1 => {
+            match (mstate, MEM[p as usize].b32.s0) {
+                (MOV_NONE_SEEN, MOV_Y_HERE) => {
                     current_block = 8114521223357534250;
                     mstate = 6i32 as small_number;
                 }
-                2 => {
+                (MOV_NONE_SEEN, MOV_Z_HERE) => {
                     current_block = 15905285856240674276;
                     mstate = 12i32 as small_number;
                 }
-                8 | 13 => {
+                (MOV_Y_SEEN, MOV_Z_HERE) | (MOV_Z_SEEN, MOV_Y_HERE) => {
                     current_block = 18071914750955744041;
                     break;
                 }
@@ -2103,25 +2114,27 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
     }
     match current_block {
         8542251818650148540 => {
-            /*629:*/
-            MEM[q as usize].b32.s0 = MEM[p as usize].b32.s0; /*634:*/
-            if MEM[q as usize].b32.s0 == 1 {
-                dvi_out((o as i32 + 4i32) as u8); /* max_selector enum */
-                while MEM[q as usize].b32.s1 != p {
-                    q = MEM[q as usize].b32.s1;
-                    match MEM[q as usize].b32.s0 {
-                        3 => MEM[q as usize].b32.s0 = 5,
-                        4 => MEM[q as usize].b32.s0 = 6,
+            /*629: found:*/
+            MEM[q].b32.s0 = MEM[p as usize].b32.s0; /*634:*/
+            if MEM[q].b32.s0 == MOV_Y_HERE {
+                dvi_out(o + 4); /* max_selector enum */
+                while MEM[q].b32.s1 != p {
+                    q = *LLIST_link(q) as usize;
+
+                    match MEM[q].b32.s0 {
+                        MOV_YZ_OK => MEM[q].b32.s0 = MOV_Z_OK,
+                        MOV_Y_OK => MEM[q].b32.s0 = MOV_D_FIXED,
                         _ => {}
                     }
                 }
             } else {
-                dvi_out((o as i32 + 9i32) as u8);
-                while MEM[q as usize].b32.s1 != p {
-                    q = MEM[q as usize].b32.s1;
-                    match MEM[q as usize].b32.s0 {
-                        3 => MEM[q as usize].b32.s0 = 4,
-                        5 => MEM[q as usize].b32.s0 = 6,
+                dvi_out(o + 9);
+                while MEM[q].b32.s1 != p {
+                    q = *LLIST_link(q) as usize;
+
+                    match MEM[q].b32.s0 {
+                        MOV_YZ_OK => MEM[q].b32.s0 = MOV_Y_OK,
+                        MOV_Z_OK => MEM[q].b32.s0 = MOV_D_FIXED,
                         _ => {}
                     }
                 }
@@ -2129,38 +2142,42 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
             return;
         }
         _ => {
-            MEM[q as usize].b32.s0 = 3;
-            if w.abs() >= 0x800000i32 {
-                dvi_out((o as i32 + 3i32) as u8);
+            // not_found:
+            MEM[q].b32.s0 = MOV_YZ_OK;
+
+            if w.abs() >= 0x800000 {
+                dvi_out(o + 3);
                 dvi_four(w);
                 return;
             }
-            if w.abs() >= 0x8000i32 {
-                dvi_out((o as i32 + 2i32) as u8);
-                if w < 0i32 {
-                    w = w + 0x1000000i32
+            if w.abs() >= 0x8000 {
+                dvi_out(o + 2);
+                if w < 0 {
+                    w = w + 0x1000000;
                 }
-                dvi_out((w / 0x10000i32) as u8);
-                w = w % 0x10000i32;
+                dvi_out((w / 0x10000) as u8);
+                w = w % 0x10000;
                 current_block = 14567512515169274304;
-            } else if w.abs() >= 128i32 {
-                dvi_out((o as i32 + 1i32) as u8);
-                if w < 0i32 {
-                    w = w + 0x10000i32
+            } else if w.abs() >= 128 {
+                dvi_out(o + 1);
+                if w < 0 {
+                    w = w + 0x10000;
                 }
                 current_block = 14567512515169274304;
             } else {
                 dvi_out(o);
-                if w < 0i32 {
-                    w = w + 256i32
+                if w < 0 {
+                    w = w + 256;
                 }
                 current_block = 18026793543132934442;
             }
             match current_block {
-                14567512515169274304 => dvi_out((w / 256i32) as u8),
+                // lab2:
+                14567512515169274304 => dvi_out((w / 256) as u8),
                 _ => {}
             }
-            dvi_out((w % 256i32) as u8);
+            // lab1:
+            dvi_out((w % 256) as u8);
             return;
         }
     };
@@ -2186,20 +2203,20 @@ unsafe fn prune_movements(l: usize) {
     }
 }
 
-unsafe fn special_out(mut p: i32) {
+unsafe fn special_out(p: usize) {
     if cur_h != dvi_h {
-        movement(cur_h - dvi_h, RIGHT1 as _);
+        movement(cur_h - dvi_h, RIGHT1);
         dvi_h = cur_h
     }
     if cur_v != dvi_v {
-        movement(cur_v - dvi_v, DOWN1 as _);
+        movement(cur_v - dvi_v, DOWN1);
         dvi_v = cur_v
     }
     doing_special = true;
     let old_setting = selector;
     selector = Selector::NEW_STRING;
     show_token_list(
-        MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s1,
+        MEM[MEM[p + 1].b32.s1 as usize].b32.s1,
         TEX_NULL,
         pool_size - pool_ptr,
     );
@@ -2210,17 +2227,16 @@ unsafe fn special_out(mut p: i32) {
     }
 
     if cur_length() < 256 {
-        dvi_out(XXX1 as u8);
+        dvi_out(XXX1);
         dvi_out(cur_length() as u8);
     } else {
-        dvi_out(XXX4 as u8);
+        dvi_out(XXX4);
         dvi_four(cur_length());
     }
 
     {
-        let mut for_end: i32 = 0;
         let mut k = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-        for_end = pool_ptr - 1;
+        let mut for_end = pool_ptr - 1;
         if k <= for_end {
             loop {
                 dvi_out(str_pool[k as usize] as u8);
@@ -2236,14 +2252,14 @@ unsafe fn special_out(mut p: i32) {
     doing_special = false;
 }
 
-unsafe fn write_out(mut p: i32) {
+unsafe fn write_out(p: usize) {
     let q = get_avail();
     MEM[q].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
     let mut r = get_avail();
     MEM[q].b32.s1 = r as i32;
     MEM[r].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
     begin_token_list(q, Btl::Inserted);
-    begin_token_list(MEM[(p + 1) as usize].b32.s1 as usize, Btl::WriteText);
+    begin_token_list(MEM[p + 1].b32.s1 as usize, Btl::WriteText);
     let q = get_avail();
     MEM[q].b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
     begin_token_list(q, Btl::Inserted);
@@ -2278,7 +2294,7 @@ unsafe fn write_out(mut p: i32) {
     cur_list.mode = old_mode as i16;
     end_token_list();
     let old_setting = selector;
-    let j = MEM[(p + 1) as usize].b32.s0 as small_number;
+    let j = MEM[p + 1].b32.s0 as small_number;
 
     if j == 18 {
         selector = Selector::NEW_STRING
@@ -2316,21 +2332,19 @@ unsafe fn write_out(mut p: i32) {
         print_char('.' as i32);
         print_nl_cstr(b"");
         print_ln();
-        pool_ptr = str_start[(str_ptr - 65536) as usize]
+        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
     }
     selector = old_setting;
 }
 
-unsafe fn pic_out(mut p: i32) {
-    let mut i: i32 = 0;
-
+unsafe fn pic_out(p: usize) {
     if cur_h != dvi_h {
-        movement(cur_h - dvi_h, RIGHT1 as u8);
+        movement(cur_h - dvi_h, RIGHT1);
         dvi_h = cur_h
     }
 
     if cur_v != dvi_v {
-        movement(cur_v - dvi_v, DOWN1 as u8);
+        movement(cur_v - dvi_v, DOWN1);
         dvi_v = cur_v
     }
 
@@ -2338,23 +2352,23 @@ unsafe fn pic_out(mut p: i32) {
     selector = Selector::NEW_STRING;
     print_cstr(b"pdf:image ");
     print_cstr(b"matrix ");
-    print_scaled(MEM[(p + 5) as usize].b32.s0);
+    print_scaled(MEM[p + 5].b32.s0);
     print(' ' as i32);
-    print_scaled(MEM[(p + 5) as usize].b32.s1);
+    print_scaled(MEM[p + 5].b32.s1);
     print(' ' as i32);
-    print_scaled(MEM[(p + 6) as usize].b32.s0);
+    print_scaled(MEM[p + 6].b32.s0);
     print(' ' as i32);
-    print_scaled(MEM[(p + 6) as usize].b32.s1);
+    print_scaled(MEM[p + 6].b32.s1);
     print(' ' as i32);
-    print_scaled(MEM[(p + 7) as usize].b32.s0);
+    print_scaled(MEM[p + 7].b32.s0);
     print(' ' as i32);
-    print_scaled(MEM[(p + 7) as usize].b32.s1);
+    print_scaled(MEM[p + 7].b32.s1);
     print(' ' as i32);
     print_cstr(b"page ");
-    print_int(MEM[(p + 4) as usize].b16.s0 as i32);
+    print_int(MEM[p + 4].b16.s0 as i32);
     print(' ' as i32);
 
-    match MEM[(p + 8) as usize].b16.s1 {
+    match MEM[p + 8].b16.s1 {
         1 => print_cstr(b"pagebox cropbox "),
         2 => print_cstr(b"pagebox mediabox "),
         3 => print_cstr(b"pagebox bleedbox "),
@@ -2364,23 +2378,20 @@ unsafe fn pic_out(mut p: i32) {
     }
 
     print('(' as i32);
-    i = 0i32;
-    while i < MEM[(p + 4) as usize].b16.s1 as i32 {
+    for i in 0..(MEM[p + 4].b16.s1) {
         print_raw_char(
-            *(&mut MEM[(p + 9) as usize] as *mut memory_word as *mut u8).offset(i as isize)
-                as UTF16_code,
+            *(&mut MEM[p + 9] as *mut memory_word as *mut u8).offset(i as isize) as UTF16_code,
             true,
         );
-        i += 1
     }
     print(')' as i32);
 
     selector = old_setting;
     if cur_length() < 256 {
-        dvi_out(XXX1 as _);
+        dvi_out(XXX1);
         dvi_out(cur_length() as u8);
     } else {
-        dvi_out(XXX4 as _);
+        dvi_out(XXX4);
         dvi_four(cur_length());
     }
 
@@ -2395,12 +2406,12 @@ unsafe fn pic_out(mut p: i32) {
 pub(crate) unsafe fn finalize_dvi_file() {
     while cur_s > -1 {
         if cur_s > 0 {
-            dvi_out(POP as u8);
+            dvi_out(POP);
         } else {
-            dvi_out(EOP as u8);
+            dvi_out(EOP);
             TOTAL_PAGES += 1
         }
-        cur_s -= 1
+        cur_s -= 1;
     }
 
     if TOTAL_PAGES == 0 {
@@ -2413,7 +2424,7 @@ pub(crate) unsafe fn finalize_dvi_file() {
         return;
     }
 
-    dvi_out(POST as u8); /* magic values: conversion ratio for sp */
+    dvi_out(POST); /* magic values: conversion ratio for sp */
     dvi_four(last_bop);
     last_bop = (dvi_offset + dvi_ptr - 5) as i32;
     dvi_four(25400000); /* magic values: conversion ratio for sp */
@@ -2434,13 +2445,13 @@ pub(crate) unsafe fn finalize_dvi_file() {
         FONT_PTR -= 1
     }
 
-    dvi_out(POST_POST as u8);
+    dvi_out(POST_POST);
     dvi_four(last_bop);
 
     if semantic_pagination_enabled {
-        dvi_out(SPX_ID_BYTE as u8);
+        dvi_out(SPX_ID_BYTE);
     } else {
-        dvi_out(XDV_ID_BYTE as u8);
+        dvi_out(XDV_ID_BYTE);
     }
 
     let mut k = (4 + (DVI_BUF_SIZE - dvi_ptr) % 4) as u8;
@@ -2516,26 +2527,18 @@ unsafe fn dvi_swap() {
     dvi_gone = dvi_gone + HALF_BUF as i32;
 }
 
-unsafe fn dvi_four(mut x: i32) {
-    if x >= 0 {
-        dvi_out((x / 0x1000000) as u8);
-    } else {
-        x = x + 0x40000000;
-        x = x + 0x40000000;
-        dvi_out((x / 0x1000000 + 128) as u8);
-    }
-
-    x = x % 0x1000000;
-    dvi_out((x / 0x10000) as u8);
-
-    x = x % 0x10000;
-    dvi_out((x / 0x100) as u8);
-    dvi_out((x % 0x100) as u8);
+unsafe fn dvi_four(x: i32) {
+    let b = x.to_be_bytes();
+    dvi_out(b[0]);
+    dvi_out(b[1]);
+    dvi_out(b[2]);
+    dvi_out(b[3]);
 }
 
 unsafe fn dvi_two(s: UTF16_code) {
-    dvi_out((s as i32 / 0x100) as u8);
-    dvi_out((s as i32 % 0x100) as u8);
+    let b = s.to_be_bytes();
+    dvi_out(b[0]);
+    dvi_out(b[1]);
 }
 
 unsafe fn dvi_pop(l: usize) {

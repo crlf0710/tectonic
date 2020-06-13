@@ -1101,8 +1101,8 @@ pub(crate) const SKIP_BLANKS: placeholdertype = 17;
 pub(crate) const NEW_LINE: u16 = 33;
 
 /* DVI format codes */
-pub(crate) const XDV_ID_BYTE: placeholdertype = 7;
-pub(crate) const SPX_ID_BYTE: placeholdertype = 100;
+pub(crate) const XDV_ID_BYTE: u8 = 7;
+pub(crate) const SPX_ID_BYTE: u8 = 100;
 
 /* page_contents possibilities (EMPTY is overloaded) */
 pub(crate) const EMPTY: placeholdertype = 0;
@@ -1113,18 +1113,18 @@ pub(crate) const SET1: u8 = 128;
 pub(crate) const SET_RULE: u8 = 132;
 pub(crate) const PUT_RULE: u8 = 137;
 pub(crate) const BOP: placeholdertype = 139;
-pub(crate) const EOP: placeholdertype = 140;
+pub(crate) const EOP: u8 = 140;
 pub(crate) const PUSH: u8 = 141;
-pub(crate) const POP: placeholdertype = 142;
+pub(crate) const POP: u8 = 142;
 pub(crate) const RIGHT1: u8 = 143;
 pub(crate) const DOWN1: u8 = 157;
 pub(crate) const FNT1: u8 = 235;
-pub(crate) const XXX1: placeholdertype = 239;
-pub(crate) const XXX4: placeholdertype = 242;
-pub(crate) const FNT_DEF1: placeholdertype = 243;
+pub(crate) const XXX1: u8 = 239;
+pub(crate) const XXX4: u8 = 242;
+pub(crate) const FNT_DEF1: u8 = 243;
 pub(crate) const PRE: placeholdertype = 247;
-pub(crate) const POST: placeholdertype = 248;
-pub(crate) const POST_POST: placeholdertype = 249;
+pub(crate) const POST: u8 = 248;
+pub(crate) const POST_POST: u8 = 249;
 pub(crate) const DEFINE_NATIVE_FONT: placeholdertype = 252;
 pub(crate) const SET_GLYPHS: u8 = 253;
 pub(crate) const SET_TEXT_AND_GLYPHS: u8 = 254;
@@ -1308,15 +1308,15 @@ pub(crate) const IGNORE_DEPTH: placeholdertype = -65536000;
 pub(crate) const MIDDLE_NOAD: u16 = 1;
 
 /* movement() */
-pub(crate) const MOV_NONE_SEEN: placeholdertype = 0;
+pub(crate) const MOV_NONE_SEEN: i16 = 0;
 pub(crate) const MOV_Y_HERE: placeholdertype = 1;
 pub(crate) const MOV_Z_HERE: placeholdertype = 2;
 pub(crate) const MOV_YZ_OK: placeholdertype = 3;
 pub(crate) const MOV_Y_OK: placeholdertype = 4;
 pub(crate) const MOV_Z_OK: placeholdertype = 5;
-pub(crate) const MOV_Y_SEEN: placeholdertype = 6;
+pub(crate) const MOV_Y_SEEN: i16 = 6;
 pub(crate) const MOV_D_FIXED: placeholdertype = 6;
-pub(crate) const MOV_Z_SEEN: placeholdertype = 12;
+pub(crate) const MOV_Z_SEEN: i16 = 12;
 
 /* Increase this whenever the engine internals change such that the contents
  * of the "format" files must be regenerated -- this includes changes to the

@@ -15537,7 +15537,7 @@ pub(crate) unsafe fn do_extension() {
             if cur_cmd == EXTENSION as u8 && cur_chr <= CLOSE_NODE as i32 {
                 p = cur_list.tail;
                 do_extension();
-                out_what(cur_list.tail as i32);
+                out_what(cur_list.tail);
                 flush_node_list(Some(cur_list.tail));
                 cur_list.tail = p;
                 MEM[p].b32.s1 = TEX_NULL;
