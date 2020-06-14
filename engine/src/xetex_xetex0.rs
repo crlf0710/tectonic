@@ -999,7 +999,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                 MARGIN_KERN_NODE => {
                     print_esc_cstr(b"kern");
                     print_scaled(MEM[p + 1].b32.s1);
-                    if MEM[p].b16.s0 as i32 == 0 {
+                    if MEM[p].b16.s0 == 0 {
                         print_cstr(b" (left margin)");
                     } else {
                         print_cstr(b" (right margin)");
@@ -1074,7 +1074,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                 }
                 ADJUST_NODE => {
                     print_esc_cstr(b"vadjust");
-                    if MEM[p].b16.s0 as i32 != 0 {
+                    if MEM[p].b16.s0 != 0 {
                         print_cstr(b" pre ");
                     }
                     str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
@@ -2085,7 +2085,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         TOP_BOT_MARK => {
-            match chr_code % MARKS_CODE {
+            match (chr_code % MARKS_CODE) as usize {
                 FIRST_MARK_CODE => print_esc_cstr(b"firstmark"),
                 BOT_MARK_CODE => print_esc_cstr(b"botmark"),
                 SPLIT_FIRST_MARK_CODE => print_esc_cstr(b"splitfirstmark"),
@@ -2564,7 +2564,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
                 print_cstr(b"pt");
             }
         }
-        SET_INTERACTION => match chr_code {
+        SET_INTERACTION => match chr_code as u8 {
             BATCH_MODE => print_esc_cstr(b"batchmode"),
             NONSTOP_MODE => print_esc_cstr(b"nonstopmode"),
             SCROLL_MODE => print_esc_cstr(b"scrollmode"),
@@ -2775,19 +2775,19 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
     }
     p
 }
-pub(crate) unsafe fn prim_lookup(mut s: str_number) -> i32 {
+pub(crate) unsafe fn prim_lookup(mut s: str_number) -> usize {
     let mut current_block: u64;
-    let mut h: i32 = 0;
-    let mut p: i32 = 0;
+    let mut h: usize = 0;
+    let mut p: usize = 0;
     let mut k: i32 = 0;
     let mut j: i32 = 0;
     let mut l: i32 = 0;
     if s <= BIGGEST_CHAR {
         if s < 0 {
-            p = UNDEFINED_PRIMITIVE;
+            p = UNDEFINED_PRIMITIVE as usize;
             current_block = 12583739755984661121;
         } else {
-            p = (s % PRIM_PRIME) + 1;
+            p = ((s as usize) % PRIM_PRIME) + 1;
             current_block = 11307063007268554308;
         }
     } else {
@@ -2797,13 +2797,13 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> i32 {
         } else {
             l = length(s)
         }
-        h = str_pool[j as usize] as i32;
+        h = str_pool[j as usize] as usize;
         let mut for_end: i32 = 0;
         k = j + 1;
         for_end = j + l - 1;
         if k <= for_end {
             loop {
-                h = h + h + str_pool[k as usize] as i32;
+                h = h + h + str_pool[k as usize] as usize;
                 while h >= PRIM_PRIME {
                     h = h - 431
                 }
@@ -2820,40 +2820,40 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> i32 {
         match current_block {
             12583739755984661121 => return p,
             _ => {
-                if prim[p as usize].s1 as i64 > 65536 {
-                    if length(prim[p as usize].s1) - 1 == l {
-                        if str_eq_str(prim[p as usize].s1 - 1, s) {
+                if prim[p].s1 as i64 > 65536 {
+                    if length(prim[p].s1) - 1 == l {
+                        if str_eq_str(prim[p].s1 - 1, s) {
                             current_block = 12583739755984661121;
                             continue;
                         }
                     }
-                } else if prim[p as usize].s1 == 1 + s {
+                } else if prim[p].s1 == 1 + s {
                     current_block = 12583739755984661121;
                     continue;
                 }
-                if prim[p as usize].s0 == 0i32 {
+                if prim[p].s0 == 0i32 {
                     if no_new_control_sequence {
-                        p = UNDEFINED_PRIMITIVE
+                        p = UNDEFINED_PRIMITIVE as usize;
                     } else {
                         /*272:*/
-                        if prim[p as usize].s1 > 0 {
+                        if prim[p].s1 > 0 {
                             loop {
                                 if prim_used == PRIM_BASE {
                                     overflow(b"primitive size", PRIM_SIZE as usize);
                                 }
                                 prim_used -= 1;
-                                if prim[prim_used as usize].s1 == 0 {
+                                if prim[prim_used].s1 == 0 {
                                     break;
                                 }
                             }
-                            prim[p as usize].s0 = prim_used;
+                            prim[p].s0 = prim_used as i32;
                             p = prim_used
                         }
-                        prim[p as usize].s1 = s + 1i32
+                        prim[p].s1 = s + 1i32
                     }
                     current_block = 12583739755984661121;
                 } else {
-                    p = prim[p as usize].s0;
+                    p = prim[p].s0 as usize;
                     current_block = 11307063007268554308;
                 }
             }
@@ -3562,10 +3562,7 @@ pub(crate) unsafe fn show_context() {
                 bottom_line = true
             }
         }
-        if BASE_PTR == INPUT_PTR
-            || bottom_line as i32 != 0
-            || nn < *INTPAR(IntPar::error_context_lines)
-        {
+        if BASE_PTR == INPUT_PTR || bottom_line || nn < *INTPAR(IntPar::error_context_lines) {
             /*324: */
             if BASE_PTR == INPUT_PTR
                 || cur_input.state != TOKEN_LIST
@@ -5076,7 +5073,7 @@ pub(crate) unsafe fn find_sa_element(mut t: small_number, mut n: i32, mut w: boo
                     } else {
                         cur_ptr = MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
                     }
-                    if cur_ptr.is_texnull() && w as i32 != 0 {
+                    if cur_ptr.is_texnull() && w {
                         current_block = 10182473981606373355;
                     } else {
                         return;
@@ -5274,9 +5271,9 @@ pub(crate) unsafe fn expand() {
                         get_token();
                         scanner_status = save_scanner_status;
                         if cur_cs < HASH_BASE as i32 {
-                            cur_cs = prim_lookup(cur_cs - SINGLE_BASE as i32)
+                            cur_cs = prim_lookup(cur_cs - SINGLE_BASE as i32) as i32
                         } else {
-                            cur_cs = prim_lookup((*hash.offset(cur_cs as isize)).s1)
+                            cur_cs = prim_lookup((*hash.offset(cur_cs as isize)).s1) as i32
                         }
                         if !(cur_cs != UNDEFINED_PRIMITIVE) {
                             break;
@@ -6014,11 +6011,11 @@ pub(crate) unsafe fn scan_font_ident() {
         help_line[1] = b"I was looking for a control sequence whose";
         help_line[0] = b"current meaning has been defined by \\font.";
         back_error();
-        f = FONT_BASE as usize;
+        f = FONT_BASE;
     }
     cur_val = f as i32;
 }
-pub(crate) unsafe fn find_font_dimen(mut writing: bool) {
+pub(crate) unsafe fn find_font_dimen(writing: bool) {
     let mut n: i32 = 0;
     scan_int();
     n = cur_val;
@@ -6027,11 +6024,7 @@ pub(crate) unsafe fn find_font_dimen(mut writing: bool) {
     if n <= 0 {
         cur_val = fmem_ptr
     } else {
-        if writing as i32 != 0
-            && n <= SPACE_SHRINK_CODE
-            && n >= SPACE_CODE
-            && !FONT_GLUE[f].is_texnull()
-        {
+        if writing && n <= SPACE_SHRINK_CODE && n >= SPACE_CODE && !FONT_GLUE[f].is_texnull() {
             delete_glue_ref(FONT_GLUE[f] as usize);
             FONT_GLUE[f] = TEX_NULL
         }
@@ -7090,13 +7083,13 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 }
                 if cur_chr == LAST_NODE_TYPE_CODE as i32 {
                     cur_val_level = INT_VAL;
-                    if tx == cur_list.head as i32 || cur_list.mode as i32 == 0 {
+                    if tx == cur_list.head as i32 || cur_list.mode == 0 {
                         cur_val = -1;
                     }
                 } else {
                     cur_val_level = cur_chr as u8
                 }
-                if tx < hi_mem_min && cur_list.mode as i32 != 0 {
+                if tx < hi_mem_min && cur_list.mode != 0 {
                     match cur_chr as u8 {
                         INT_VAL => {
                             if NODE_type(tx as usize) == PENALTY_NODE {
@@ -7696,7 +7689,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
         }
         _ => {}
     }
-    if arith_error as i32 != 0 || cur_val.wrapping_abs() >= 0x40000000 {
+    if arith_error || cur_val.wrapping_abs() >= 0x40000000 {
         // TODO: check
         /*479:*/
         if file_line_error_style_p != 0 {
@@ -8387,7 +8380,7 @@ pub(crate) unsafe fn str_toks_cat(mut b: pool_pointer, mut cat: small_number) ->
                     + ((t - 0xd800) * 1024) as i64
                     + (str_pool[k as usize] as i32 - 0xdc00) as i64) as i32
             }
-            if cat as i32 == 0 {
+            if cat == 0 {
                 t = OTHER_TOKEN + t
             } else {
                 t = MAX_CHAR_VAL * cat as i32 + t
@@ -8795,7 +8788,7 @@ pub(crate) unsafe fn conv_toks() {
             if !p.is_texnull()
                 && p < hi_mem_min
                 && NODE_type(p as usize) == MARGIN_KERN_NODE
-                && MEM[p as usize].b16.s0 as i32 == 0
+                && MEM[p as usize].b16.s0 == 0
             {
                 print_scaled(MEM[(p + 1) as usize].b32.s1);
             } else {
@@ -8815,7 +8808,7 @@ pub(crate) unsafe fn conv_toks() {
                         || NODE_type(p as usize) == DISC_NODE
                             && MEM[(p + 1) as usize].b32.s0.is_texnull()
                             && MEM[(p + 1) as usize].b32.s1.is_texnull()
-                            && MEM[p as usize].b16.s0 as i32 == 0
+                            && MEM[p as usize].b16.s0 == 0
                         || NODE_type(p as usize) == MATH_NODE && MEM[(p + 1) as usize].b32.s1 == 0
                         || NODE_type(p as usize) == KERN_NODE
                             && (MEM[(p + 1) as usize].b32.s1 == 0
@@ -9250,7 +9243,7 @@ pub(crate) unsafe fn conditional() {
                 cur_cmd = RELAX as u8;
                 cur_chr = TOO_BIG_USV;
             }
-            if this_if as i32 == 0i32 {
+            if this_if == 0 {
                 b = n == cur_chr
             } else {
                 b = m == cur_cmd as i32
@@ -9535,10 +9528,10 @@ pub(crate) unsafe fn conditional() {
                 prim_lookup(cur_cs - SINGLE_BASE as i32)
             } else {
                 prim_lookup((*hash.offset(cur_cs as isize)).s1)
-            };
+            } as i32;
             b = cur_cmd != UNDEFINED_CS as u8
                 && m != UNDEFINED_PRIMITIVE
-                && cur_cmd as i32 == prim_eqtb[m as usize].cmd as i32
+                && cur_cmd as u16 == prim_eqtb[m as usize].cmd
                 && cur_chr == prim_eqtb[m as usize].val;
             current_block = 16915215315900843183;
         }
@@ -9750,7 +9743,7 @@ pub(crate) unsafe fn make_name_string() -> str_number {
     begin_name();
     stop_at_space = false;
     k = 0;
-    while k < name_length16 && more_name(*name_of_file16.offset(k as isize)) as i32 != 0 {
+    while k < name_length16 && more_name(*name_of_file16.offset(k as isize)) {
         k += 1
     }
     stop_at_space = save_stop_at_space;
@@ -9973,7 +9966,7 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     begin_name();
     stop_at_space = false;
     let mut k: i32 = 0i32;
-    while k < name_length16 && more_name(*name_of_file16.offset(k as isize)) as i32 != 0 {
+    while k < name_length16 && more_name(*name_of_file16.offset(k as isize)) {
         k += 1
     }
     stop_at_space = true;
@@ -10211,7 +10204,7 @@ pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u
     print_utf8_str(feature_name);
     print_cstr(b"\' in font `");
     let mut i: i32 = 0i32;
-    while *name_of_file.offset(i as isize) as i32 != 0 {
+    while *name_of_file.offset(i as isize) != 0 {
         print_raw_char(*name_of_file.offset(i as isize) as UTF16_code, true);
         i += 1
     }
@@ -10268,7 +10261,7 @@ pub(crate) unsafe fn load_native_font(
     let mut cap_ht: scaled_t = 0;
     let mut font_engine = find_native_font(name_of_file, s);
     if font_engine.is_null() {
-        return FONT_BASE as usize;
+        return FONT_BASE;
     }
     if s >= 0 {
         actual_size = s
@@ -10337,7 +10330,7 @@ pub(crate) unsafe fn load_native_font(
         help_line[1] = b"If you\'re really stuck, ask a wizard to enlarge me.";
         help_line[0] = b"Or maybe try `I\\font<same font id>=<name of loaded font>\'.";
         error();
-        return FONT_BASE as usize;
+        return FONT_BASE;
     }
     FONT_PTR += 1;
     FONT_AREA[FONT_PTR] = native_font_type_flag;
@@ -10381,7 +10374,7 @@ pub(crate) unsafe fn load_native_font(
     FONT_PARAMS[FONT_PTR] = num_font_dimens;
     FONT_BC[FONT_PTR] = 0 as UTF16_code;
     FONT_EC[FONT_PTR] = 65535 as UTF16_code;
-    *font_used.offset(FONT_PTR as isize) = false;
+    font_used[FONT_PTR] = false;
     HYPHEN_CHAR[FONT_PTR] = *INTPAR(IntPar::default_hyphen_char);
     SKEW_CHAR[FONT_PTR] = *INTPAR(IntPar::default_skew_char);
     PARAM_BASE[FONT_PTR] = fmem_ptr - 1;
@@ -10563,7 +10556,7 @@ pub(crate) unsafe fn read_font_info(
     let mut alpha: i32 = 0;
     let mut beta: u8 = 0;
 
-    let mut g = FONT_BASE as usize;
+    let mut g = FONT_BASE;
 
     pack_file_name(nom, aire, cur_ext);
 
@@ -10585,7 +10578,7 @@ pub(crate) unsafe fn read_font_info(
 
     if quoted_filename {
         g = load_native_font(u, nom, aire, s);
-        if g != FONT_BASE as usize {
+        if g != FONT_BASE {
             return done(None, g);
         }
     }
@@ -10601,7 +10594,7 @@ pub(crate) unsafe fn read_font_info(
     if tfm_file_owner.is_none() {
         if !quoted_filename {
             g = load_native_font(u, nom, aire, s);
-            if g != FONT_BASE as usize {
+            if g != FONT_BASE {
                 return done(None, g);
             }
         }
@@ -11030,11 +11023,11 @@ pub(crate) unsafe fn read_font_info(
             print_cstr(b"Font ");
             sprint_cs(u);
             print_char('=' as i32);
-            if file_name_quote_char as i32 != 0i32 {
+            if file_name_quote_char != 0 {
                 print_char(file_name_quote_char as i32);
             }
             print_file_name(nom, aire, cur_ext);
-            if file_name_quote_char as i32 != 0i32 {
+            if file_name_quote_char != 0 {
                 print_char(file_name_quote_char as i32);
             }
             if s >= 0 {
@@ -11072,7 +11065,7 @@ pub(crate) unsafe fn read_font_info(
         }
 
         if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
-            if g == FONT_BASE as usize {
+            if g == FONT_BASE {
                 begin_diagnostic();
                 print_nl_cstr(b" -> font not found, using \"nullfont\"");
                 end_diagnostic(false);
@@ -11302,7 +11295,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: small_number) -> 
                             q = MEM[q as usize].b32.s1
                         }
                         if NODE_type(p as usize) == ADJUST_NODE {
-                            if MEM[p as usize].b16.s0 as i32 != 0 {
+                            if MEM[p as usize].b16.s0 != 0 {
                                 if pre_adjust_tail.is_texnull() {
                                     confusion(b"pre vadjust");
                                 }
@@ -15085,7 +15078,7 @@ pub(crate) unsafe fn alter_integer() {
     if c == 0 {
         dead_cycles = cur_val
     } else if c == 2 {
-        if cur_val < BATCH_MODE || cur_val > ERROR_STOP_MODE as i32 {
+        if cur_val < BATCH_MODE as i32 || cur_val > ERROR_STOP_MODE as i32 {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
@@ -15151,9 +15144,9 @@ pub(crate) unsafe fn new_font(mut a: small_number) {
         make_string()
     };
     if a >= 4 {
-        geq_define(u as usize, SET_FONT, FONT_BASE);
+        geq_define(u as usize, SET_FONT, FONT_BASE as i32);
     } else {
-        eq_define(u as usize, SET_FONT, FONT_BASE);
+        eq_define(u as usize, SET_FONT, FONT_BASE as i32);
     }
     scan_optional_equals();
     scan_file_name();
@@ -15196,7 +15189,7 @@ pub(crate) unsafe fn new_font(mut a: small_number) {
         s = -1000;
     }
     name_in_progress = false;
-    let mut f = FONT_BASE as usize + 1;
+    let mut f = FONT_BASE + 1;
     let mut for_end = FONT_PTR;
     if f <= for_end {
         current_block = 17075014677070940716;
@@ -15210,11 +15203,11 @@ pub(crate) unsafe fn new_font(mut a: small_number) {
                 break;
             }
             _ => {
-                if str_eq_str(FONT_NAME[f], cur_name) as i32 != 0
+                if str_eq_str(FONT_NAME[f], cur_name)
                     && (length(cur_area) == 0
                         && (FONT_AREA[f] as u32 == AAT_FONT_FLAG
                             || FONT_AREA[f] as u32 == OTGR_FONT_FLAG)
-                        || str_eq_str(FONT_AREA[f], cur_area) as i32 != 0)
+                        || str_eq_str(FONT_AREA[f], cur_area))
                 {
                     if s > 0 {
                         if s == FONT_SIZE[f] {
@@ -15678,9 +15671,7 @@ pub(crate) unsafe fn fix_language() {
     };
 }
 pub(crate) unsafe fn insert_src_special() {
-    if SOURCE_FILENAME_STACK[IN_OPEN] > 0
-        && is_new_source(SOURCE_FILENAME_STACK[IN_OPEN], line) as i32 != 0
-    {
+    if SOURCE_FILENAME_STACK[IN_OPEN] > 0 && is_new_source(SOURCE_FILENAME_STACK[IN_OPEN], line) {
         let toklist = get_avail();
         let p = toklist;
         MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_SPECIAL as i32;
@@ -15698,9 +15689,7 @@ pub(crate) unsafe fn insert_src_special() {
     };
 }
 pub(crate) unsafe fn append_src_special() {
-    if SOURCE_FILENAME_STACK[IN_OPEN] > 0
-        && is_new_source(SOURCE_FILENAME_STACK[IN_OPEN], line) as i32 != 0
-    {
+    if SOURCE_FILENAME_STACK[IN_OPEN] > 0 && is_new_source(SOURCE_FILENAME_STACK[IN_OPEN], line) {
         new_whatsit(
             SPECIAL_NODE as small_number,
             WRITE_NODE_SIZE as small_number,
@@ -16014,9 +16003,9 @@ pub(crate) unsafe fn main_control() {
                                 get_next();
                                 scanner_status = t;
                                 if cur_cs < HASH_BASE as i32 {
-                                    cur_cs = prim_lookup(cur_cs - SINGLE_BASE as i32)
+                                    cur_cs = prim_lookup(cur_cs - SINGLE_BASE as i32) as i32
                                 } else {
-                                    cur_cs = prim_lookup((*hash.offset(cur_cs as isize)).s1)
+                                    cur_cs = prim_lookup((*hash.offset(cur_cs as isize)).s1) as i32
                                 }
                                 if !(cur_cs != UNDEFINED_PRIMITIVE) {
                                     continue 'c_125208;
@@ -16539,7 +16528,7 @@ pub(crate) unsafe fn main_control() {
                     is_hyph = cur_chr == HYPHEN_CHAR[main_f as usize]
                         || *INTPAR(IntPar::xetex_dash_break) > 0
                             && (cur_chr == 8212 || cur_chr == 8211);
-                    if main_h == 0 && is_hyph as i32 != 0 {
+                    if main_h == 0 && is_hyph {
                         main_h = native_len
                     }
                     get_next();
@@ -16784,7 +16773,7 @@ pub(crate) unsafe fn main_control() {
                                 main_h += 1
                             }
                         }
-                        if main_k > 0 || is_hyph as i32 != 0 {
+                        if main_k > 0 || is_hyph {
                             MEM[cur_list.tail].b32.s1 = new_disc() as i32;
                             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                             main_pp = cur_list.tail as i32;
@@ -17357,7 +17346,7 @@ pub(crate) unsafe fn main_control() {
                                     4014385708774270501 => {}
                                     4700797278417140031 => {}
                                     _ => {
-                                        if main_j.s3 as i32 == 0 {
+                                        if main_j.s3 == 0 {
                                             main_k += 1;
                                             current_block = 13962460947151495567;
                                             break;

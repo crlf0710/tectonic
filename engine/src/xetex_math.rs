@@ -1192,7 +1192,7 @@ pub(crate) unsafe fn after_math() {
         }
         MEM[cur_list.tail].b32.s1 = new_penalty(*INTPAR(IntPar::pre_display_penalty)) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-        if d + s <= *DIMENPAR(DimenPar::pre_display_size) || l as i32 != 0 {
+        if d + s <= *DIMENPAR(DimenPar::pre_display_size) || l {
             g1 = GluePar::above_display_skip as small_number;
             g2 = GluePar::below_display_skip as small_number
         } else {
@@ -1617,7 +1617,7 @@ unsafe fn clean_box(p: usize, mut s: small_number) -> usize {
     cur_mu = x_over_n(math_quad(cur_size), 18);
 
     unsafe fn found(q: i32) -> usize {
-        let x = if is_char_node(q) as i32 != 0 || q.is_texnull() {
+        let x = if is_char_node(q) || q.is_texnull() {
             hpack(q, 0, ADDITIONAL as small_number)
         } else if MEM[q as usize].b32.s1.is_texnull()
             && [HLIST_NODE, VLIST_NODE].contains(&NODE_type(q as usize))
@@ -1649,7 +1649,7 @@ unsafe fn fetch(a: usize) {
     cur_c = MEM[a].b16.s0 as i32;
     cur_f = MATH_FONT(MEM[a].b16.s1 as usize % 256 + cur_size);
     cur_c = (cur_c as i64 + (MEM[a].b16.s1 as i32 / 256) as i64 * 65536) as i32;
-    if cur_f == FONT_BASE as usize {
+    if cur_f == FONT_BASE {
         // 749:
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -1720,7 +1720,7 @@ unsafe fn make_vcenter(q: usize) {
 unsafe fn make_radical(q: usize) {
     let f = MATH_FONT(MEM[q + 4].b16.s3 as usize % 256 + cur_size);
     let rule_thickness = if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine) as i32 != 0
+        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
     {
         get_ot_math_constant(f, RADICALRULETHICKNESS)
     } else {
@@ -1728,7 +1728,7 @@ unsafe fn make_radical(q: usize) {
     };
     let x = clean_box(q + 1, (2 * (cur_style as i32 / 2) + 1) as small_number);
     let mut clr = if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine) as i32 != 0
+        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
     {
         if (cur_style as i32) < TEXT_STYLE {
             get_ot_math_constant(f, RADICALDISPLAYSTYLEVERTICALGAP)
@@ -1747,7 +1747,7 @@ unsafe fn make_radical(q: usize) {
         MEM[x + 3].b32.s1 + MEM[x + 2].b32.s1 + clr + rule_thickness,
     );
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine) as i32 != 0
+        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
     {
         MEM[y + 2].b32.s1 = MEM[y + 3].b32.s1 + MEM[y + 2].b32.s1 - rule_thickness;
         MEM[y + 3].b32.s1 = rule_thickness
@@ -1865,7 +1865,7 @@ unsafe fn make_math_accent(q: usize) {
     // :767
     if !x.is_texnull() {
         let mut delta = if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-            && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine) as i32 != 0
+            && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
         {
             if MEM[q].b16.s0 == BOTTOM_ACC || MEM[q].b16.s0 == BOTTOM_ACC + 1 {
                 0
@@ -2141,7 +2141,7 @@ unsafe fn make_op(q: usize) -> scaled_t {
         let mut c = 0;
         fetch(q + 1);
         if !(FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-            && usingOpenType(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32 != 0)
+            && usingOpenType(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine))
         {
             if (cur_style as i32) < TEXT_STYLE && cur_i.s1 as i32 % 4 == LIST_TAG {
                 c = cur_i.s0;
@@ -2418,7 +2418,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
     let mut script_f = 0;
     let mut sup_kern = 0i32;
     let mut sub_kern = 0i32;
-    if is_char_node(p) as i32 != 0
+    if is_char_node(p)
         || !p.is_texnull()
             && !is_char_node(p)
             && NODE_type(p as usize) == WHATSIT_NODE
@@ -3262,19 +3262,19 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
         s3: 0,
     };
 
-    let mut f = FONT_BASE as usize;
+    let mut f = FONT_BASE;
     let mut w = 0;
     let mut large_attempt = false;
     let mut z = MEM[d].b16.s3 as i32 % 256;
     let mut x = (MEM[d].b16.s2 as i64 + (MEM[d].b16.s3 as i32 / 256) as i64 * 65536) as u16;
     let mut ot_assembly_ptr = ptr::null_mut();
     's_62: loop {
-        if z != 0 || x as i32 != 0 {
+        if z != 0 || x != 0 {
             z = z + s as i32 + 256;
             loop {
                 z = z - 256;
                 let g = MATH_FONT(z as usize);
-                if g != FONT_BASE as usize {
+                if g != FONT_BASE {
                     /*734: */
                     if FONT_AREA[g as usize] as u32 == OTGR_FONT_FLAG
                         && usingOpenType(FONT_LAYOUT_ENGINE[g as usize] as XeTeXLayoutEngine) as i32
@@ -3355,9 +3355,9 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
         z = MEM[d].b16.s1 as i32 % 256;
         x = (MEM[d].b16.s0 as i64 + (MEM[d].b16.s1 as i32 / 256) as i64 * 65536) as u16
     }
-    if f != FONT_BASE as usize {
+    if f != FONT_BASE {
         if !(FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-            && usingOpenType(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine) as i32 != 0)
+            && usingOpenType(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine))
         {
             /*736: */
             if q.s1 as i32 % 4 == EXT_TAG {
@@ -3390,13 +3390,13 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
                     while w < v {
                         w = w + u;
                         n += 1;
-                        if r.s2 as i32 != 0 {
+                        if r.s2 != 0 {
                             w = w + u
                         }
                     }
                 }
                 c = r.s1;
-                if c as i32 != 0 {
+                if c != 0 {
                     stack_into_box(b, f, c);
                 }
                 c = r.s0;
@@ -3643,7 +3643,7 @@ unsafe fn build_opentype_assembly(
                 }
             }
         }
-        if s_max >= s || no_extenders as i32 != 0 {
+        if s_max >= s || no_extenders {
             break;
         }
     }
@@ -3749,7 +3749,7 @@ unsafe fn rebox(mut b: usize, mut w: scaled_t) -> usize {
             b = hpack(b as i32, 0, ADDITIONAL as small_number) as usize
         }
         p = MEM[b + 5].b32.s1;
-        if is_char_node(p) as i32 != 0 && MEM[p as usize].b32.s1.is_texnull() {
+        if is_char_node(p) && MEM[p as usize].b32.s1.is_texnull() {
             f = MEM[p as usize].b16.s1 as internal_font_number;
             v = FONT_INFO[(WIDTH_BASE[f]
                 + FONT_INFO

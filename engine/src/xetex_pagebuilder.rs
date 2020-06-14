@@ -802,7 +802,7 @@ pub(crate) unsafe fn build_page() {
                 page_so_far[(2i32 + MEM[slf.q as usize].b16.s1 as i32) as usize] +=
                     MEM[(slf.q + 2) as usize].b32.s1;
                 page_so_far[6] += MEM[(slf.q + 3) as usize].b32.s1;
-                if MEM[slf.q as usize].b16.s0 as i32 != 0 && MEM[(slf.q + 3) as usize].b32.s1 != 0 {
+                if MEM[slf.q as usize].b16.s0 != 0 && MEM[(slf.q + 3) as usize].b32.s1 != 0 {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
@@ -868,7 +868,7 @@ pub(crate) unsafe fn build_page() {
         }
     }
 
-    if LLIST_link(CONTRIB_HEAD).is_texnull() || output_active as i32 != 0 {
+    if LLIST_link(CONTRIB_HEAD).is_texnull() || output_active {
         return;
     }
 

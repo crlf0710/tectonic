@@ -688,9 +688,9 @@ unsafe fn hlist_out() {
                         }
                         if f != dvi_f {
                             /*643: "Change font dvi_f to f" */
-                            if !*font_used.offset(f as isize) {
+                            if !font_used[f] {
                                 dvi_font_def(f);
-                                *font_used.offset(f as isize) = true
+                                font_used[f] = true
                             }
                             if f <= 64 {
                                 dvi_out(f as u8 + FNT_NUM_0 - 1);
@@ -789,9 +789,9 @@ unsafe fn hlist_out() {
                                         *NATIVE_NODE_font(p as usize) as
                                             internal_font_number;
                                     if f != dvi_f {
-                                        if !*font_used.offset(f as isize) {
+                                        if !font_used[f] {
                                             dvi_font_def(f);
-                                            *font_used.offset(f as isize) =
+                                            font_used[f] =
                                                 true
                                         }
                                         if f <= 64 {
@@ -1380,9 +1380,9 @@ unsafe fn vlist_out() {
                             f = *NATIVE_NODE_font(p as usize) as usize;
                             if f != dvi_f {
                                 /*643:*/
-                                if !*font_used.offset(f as isize) {
+                                if !font_used[f] {
                                     dvi_font_def(f); /* width */
-                                    *font_used.offset(f as isize) = true
+                                    font_used[f] = true
                                 } /* glyph count */
                                 if f <= 64 {
                                     dvi_out((f + 170) as u8); /* x offset as fixed-point */
@@ -2439,7 +2439,7 @@ pub(crate) unsafe fn finalize_dvi_file() {
     dvi_out((TOTAL_PAGES % 256) as u8);
 
     while FONT_PTR > 0 {
-        if *font_used.offset(FONT_PTR as isize) {
+        if font_used[FONT_PTR] {
             dvi_font_def(FONT_PTR);
         }
         FONT_PTR -= 1

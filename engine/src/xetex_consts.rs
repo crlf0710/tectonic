@@ -388,11 +388,11 @@ pub(crate) const LEVEL_ZERO: u16 = 0;
 pub(crate) const LEVEL_ONE: u16 = 1;
 
 /* SET_INTERACTION */
-pub(crate) const BATCH_MODE: placeholdertype = 0;
-pub(crate) const NONSTOP_MODE: placeholdertype = 1;
-pub(crate) const SCROLL_MODE: placeholdertype = 2;
+pub(crate) const BATCH_MODE: u8 = 0;
+pub(crate) const NONSTOP_MODE: u8 = 1;
+pub(crate) const SCROLL_MODE: u8 = 2;
 pub(crate) const ERROR_STOP_MODE: u8 = 3;
-pub(crate) const UNSPECIFIED_MODE: placeholdertype = 4;
+pub(crate) const UNSPECIFIED_MODE: u8 = 4;
 
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
@@ -615,11 +615,11 @@ impl ND {
 }
 
 /* args to TOP_BOT_MARK */
-pub(crate) const TOP_MARK_CODE: placeholdertype = 0;
-pub(crate) const FIRST_MARK_CODE: placeholdertype = 1;
-pub(crate) const BOT_MARK_CODE: placeholdertype = 2;
-pub(crate) const SPLIT_FIRST_MARK_CODE: placeholdertype = 3;
-pub(crate) const SPLIT_BOT_MARK_CODE: placeholdertype = 4;
+pub(crate) const TOP_MARK_CODE: usize = 0;
+pub(crate) const FIRST_MARK_CODE: usize = 1;
+pub(crate) const BOT_MARK_CODE: usize = 2;
+pub(crate) const SPLIT_FIRST_MARK_CODE: usize = 3;
+pub(crate) const SPLIT_BOT_MARK_CODE: usize = 4;
 
 /* MATH_NODE stuff with L/R typesetting extras */
 pub(crate) const BEFORE: u16 = 0;
@@ -1132,7 +1132,7 @@ pub(crate) const SET_TEXT_AND_GLYPHS: u8 = 254;
 pub(crate) const XETEX_INPUT_MODE_AUTO: placeholdertype = 0;
 pub(crate) const XETEX_VERSION: placeholdertype = 0;
 pub(crate) const EXACTLY: u8 = 0;
-pub(crate) const FONT_BASE: placeholdertype = 0;
+pub(crate) const FONT_BASE: usize = 0;
 pub(crate) const INSERTING: ND = ND::Node(NodeType::HList);
 pub(crate) const NON_ADDRESS: placeholdertype = 0;
 pub(crate) const RESTORE_OLD_VALUE: u16 = 0;
@@ -1144,7 +1144,7 @@ pub(crate) const FIXED_ACC: placeholdertype = 1;
 pub(crate) const HYPHENATED: i16 = 1;
 pub(crate) const JUST_OPEN: placeholdertype = 1;
 pub(crate) const MATH_CHAR: placeholdertype = 1;
-pub(crate) const PRIM_BASE: placeholdertype = 1;
+pub(crate) const PRIM_BASE: usize = 1;
 pub(crate) const RESTORE_ZERO: u16 = 1;
 pub(crate) const REVERSED: u16 = 1;
 pub(crate) const SLANT_CODE: placeholdertype = 1;
@@ -1221,7 +1221,7 @@ pub(crate) const DONT_EXPAND: placeholdertype = 118;
 pub(crate) const GLUE_REF: u16 = 119;
 pub(crate) const SHAPE_REF: u16 = 120;
 pub(crate) const BOX_REF: u16 = 121;
-pub(crate) const DATA: placeholdertype = 122;
+pub(crate) const DATA: u16 = 122;
 pub(crate) const DIMEN_VAL_LIMIT: u16 = 128;
 pub(crate) const MMODE: i16 = 207;
 pub(crate) const BIGGEST_LANG: placeholdertype = 255;
@@ -1229,8 +1229,8 @@ pub(crate) const MU_VAL_LIMIT: u16 = 256;
 pub(crate) const TOO_BIG_LANG: placeholdertype = 256;
 pub(crate) const BOX_VAL_LIMIT: u16 = 320;
 pub(crate) const TOK_VAL_LIMIT: u16 = 384;
-pub(crate) const PRIM_PRIME: placeholdertype = 431;
-pub(crate) const PRIM_SIZE: placeholdertype = 500;
+pub(crate) const PRIM_PRIME: usize = 431;
+pub(crate) const PRIM_SIZE: usize = 500;
 pub(crate) const MAX_HLIST_STACK: placeholdertype = 512;
 pub(crate) const HYPH_PRIME: placeholdertype = 607;
 pub(crate) const HYPHENATABLE_LENGTH_LIMIT: placeholdertype = 4095;

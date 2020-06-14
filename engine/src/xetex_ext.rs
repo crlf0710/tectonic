@@ -174,9 +174,7 @@ pub(crate) unsafe fn linebreak_start(
 ) {
     let mut status: icu::UErrorCode = icu::U_ZERO_ERROR;
     let mut locale: *mut i8 = gettexstring(localeStrNum);
-    if FONT_AREA[f] as u32 == 0xfffeu32
-        && streq_ptr(locale, b"G\x00" as *const u8 as *const i8) as i32 != 0
-    {
+    if FONT_AREA[f] as u32 == 0xfffeu32 && streq_ptr(locale, b"G\x00" as *const u8 as *const i8) {
         let mut engine: XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine;
         if initGraphiteBreaking(engine, text, textLength) {
             /* user asked for Graphite line breaking and the font supports it */
@@ -318,7 +316,7 @@ unsafe fn load_mapping_file(
             );
         }
         ttstub_input_close(map);
-        if byteMapping as i32 != 0i32 {
+        if byteMapping != 0 {
             teckit::TECkit_CreateConverter(
                 mapping,
                 mappingSize as u32,
@@ -367,7 +365,7 @@ pub(crate) unsafe fn check_for_tfm_font_mapping() {
     if !cp.is_null() {
         *cp = 0_i8;
         cp = cp.offset(9);
-        while *cp as i32 != 0 && *cp as i32 <= ' ' as i32 {
+        while *cp != 0 && *cp as i32 <= ' ' as i32 {
             cp = cp.offset(1)
         }
         if *cp != 0 {
@@ -447,7 +445,7 @@ unsafe fn read_tag_with_param(mut cp: *const i8, mut param: *mut i32) -> hb_tag_
     let mut cp2: *const i8 = ptr::null();
     let mut tag: hb_tag_t = 0;
     cp2 = cp;
-    while *cp2 as i32 != 0
+    while *cp2 != 0
         && *cp2 as i32 != ':' as i32
         && *cp2 as i32 != ';' as i32
         && *cp2 as i32 != ',' as i32
@@ -724,11 +722,11 @@ unsafe fn loadOTfont(
                 /* skip leading whitespace */
                 cp1 = cp1.offset(1)
             }
-            if *cp1 as i32 == 0i32 {
+            if *cp1 == 0 {
                 break;
             }
             cp2 = cp1;
-            while *cp2 as i32 != 0
+            while *cp2 != 0
                 && *cp2 as i32 != ':' as i32
                 && *cp2 as i32 != ';' as i32
                 && *cp2 as i32 != ',' as i32
@@ -802,7 +800,7 @@ unsafe fn loadOTfont(
                         } else {
                             if reqEngine as i32 == 'G' as i32 {
                                 let mut value: i32 = 0i32;
-                                if readFeatureNumber(cp1, cp2, &mut tag, &mut value) as i32 != 0
+                                if readFeatureNumber(cp1, cp2, &mut tag, &mut value)
                                     || findGraphiteFeature(engine, cp1, cp2, &mut tag, &mut value)
                                         as i32
                                         != 0
@@ -1175,11 +1173,11 @@ pub(crate) unsafe fn find_native_font(
                 }
             }
             /* append the style and feature strings, so that \show\fontID will give a full result */
-            if !varString.is_null() && *varString as i32 != 0i32 {
+            if !varString.is_null() && *varString != 0 {
                 strcat(name_of_file, b"/\x00" as *const u8 as *const i8);
                 strcat(name_of_file, varString);
             }
-            if !featString.is_null() && *featString as i32 != 0i32 {
+            if !featString.is_null() && *featString != 0 {
                 strcat(name_of_file, b":\x00" as *const u8 as *const i8);
                 strcat(name_of_file, featString);
             }
@@ -2065,7 +2063,7 @@ pub(crate) unsafe fn measure_native_node(mut pNode: *mut libc::c_void, mut use_g
     } else {
         panic!("bad native font flag in `measure_native_node`");
     }
-    if use_glyph_metrics == 0i32 || (*node.offset(4)).b16.s0 as i32 == 0i32 {
+    if use_glyph_metrics == 0 || (*node.offset(4)).b16.s0 == 0 {
         /* for efficiency, height and depth are the font's ascent/descent,
         not true values based on the actual content of the word,
         unless use_glyph_metrics is non-zero */
@@ -2299,8 +2297,8 @@ pub(crate) unsafe fn real_get_native_word_cp(mut pNode: *mut libc::c_void, mut s
     let mut glyphCount: u16 = (*node.offset(4)).b16.s0;
     let mut f = (*node.offset(4)).b16.s2 as usize;
     let mut actual_glyph: u16 = 0;
-    if glyphCount as i32 == 0i32 {
-        return 0i32;
+    if glyphCount == 0 {
+        return 0;
     }
     match side {
         0 => {

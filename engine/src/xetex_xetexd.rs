@@ -33,9 +33,6 @@ impl TeXOpt for i32 {
     }
 }
 
-pub(crate) const MIN_TRIE_OP: i32 = 0;
-pub(crate) const TRIE_OP_SIZE: usize = 35111;
-
 pub(crate) unsafe fn LLIST_link(p: usize) -> &'static mut i32 {
     &mut MEM[p].b32.s1
 }

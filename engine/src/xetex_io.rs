@@ -479,7 +479,7 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> i32 {
                     bytesRead as i32,
                     &mut errorCode,
                 );
-                if errorCode as i32 != 0i32 {
+                if errorCode != 0 {
                     conversion_error(errorCode as i32);
                     return 0i32;
                 }
@@ -501,9 +501,9 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> i32 {
                     bytesRead as i32,
                     &mut errorCode,
                 );
-                if errorCode as i32 != 0i32 {
+                if errorCode != 0 {
                     conversion_error(errorCode as i32);
-                    return 0i32;
+                    return 0;
                 }
                 outLen = (outLen as u64).wrapping_div(::std::mem::size_of::<UnicodeScalar>() as u64)
                     as i32 as i32;
@@ -767,7 +767,7 @@ pub(crate) unsafe fn open_or_close_in() {
         u_close(read_file[n as usize]);
         read_open[n as usize] = 2_u8
     }
-    if c as i32 != 0i32 {
+    if c != 0 {
         scan_optional_equals();
         scan_file_name();
         pack_file_name(cur_name, cur_area, cur_ext);
@@ -784,7 +784,7 @@ pub(crate) unsafe fn open_or_close_in() {
             begin_name();
             stop_at_space = false;
             k = 0i32;
-            while k < name_length16 && more_name(*name_of_file16.offset(k as isize)) as i32 != 0 {
+            while k < name_length16 && more_name(*name_of_file16.offset(k as isize)) {
                 k += 1
             }
             stop_at_space = true;

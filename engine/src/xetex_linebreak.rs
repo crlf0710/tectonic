@@ -22,7 +22,7 @@ use crate::xetex_ini::{
     xtx_ligature_present, BCHAR_LABEL, CHAR_BASE, EQTB, FONT_BCHAR, FONT_INFO, HYPHEN_CHAR,
     HYPH_LINK, HYPH_LIST, HYPH_WORD, KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
 };
-use crate::xetex_ini::{b16x4, memory_word};
+use crate::xetex_ini::{b16x4, memory_word, MIN_TRIE_OP};
 use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
 use crate::xetex_stringpool::length;
 use crate::xetex_xetex0::{
@@ -45,7 +45,7 @@ use crate::xetex_xetexd::{
     LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length,
     NODE_subtype, NODE_type, PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break,
     PASSIVE_NODE_prev_break, PENALTY_NODE_penalty, TeXInt, TeXOpt, FONT_CHARACTER_INFO,
-    FONT_CHARACTER_WIDTH, MIN_TRIE_OP,
+    FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -1005,7 +1005,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     /* ... resuming 895 ... */
                     if kern_NODE_subtype(cur_p as usize) == KernNodeSubType::Explicit {
                         if (!is_char_node(*LLIST_link(cur_p as usize)) as i32) < hi_mem_min
-                            && auto_breaking as i32 != 0
+                            && auto_breaking
                         {
                             if NODE_type(*LLIST_link(cur_p as usize) as usize) == GLUE_NODE {
                                 try_break(0, UNHYPHENATED);
@@ -1444,7 +1444,7 @@ unsafe fn post_line_break(mut d: bool) {
          * the case of a discretionary break with non-empty pre_break -- then
          * q has been changed to the last node of the pre-break list" */
         if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
-            if disc_break as i32 != 0 && (is_char_node(q) || NODE_type(q as usize) != DISC_NODE) {
+            if disc_break && (is_char_node(q) || NODE_type(q as usize) != DISC_NODE) {
                 p = q; /*:915*/
                 ptmp = p
             } else {
@@ -1709,7 +1709,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
     let mut g: scaled_t = 0i32;
     /* Tectonic: no-op except at the end of the paragraph. We know we're at
      * the very end of the paragraph when cur_p is TEX_NULL. */
-    if semantic_pagination_enabled as i32 != 0 && !cur_p.is_texnull() {
+    if semantic_pagination_enabled && !cur_p.is_texnull() {
         return;
     }
     if pi.abs() >= INF_PENALTY {
@@ -2213,7 +2213,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
             if b > INF_BAD || pi == EJECT_PENALTY {
                 /*883: "Prepare to deactivate node r, and goto deactivate unless
                  * there is a reason to consider lines of text from r to cur_p" */
-                if final_pass as i32 != 0
+                if final_pass
                     && minimum_demerits == AWFUL_BAD
                     && *LLIST_link(r as usize) == LAST_ACTIVE as i32
                     && prev_r == ACTIVE_LIST as i32
@@ -2429,7 +2429,7 @@ unsafe fn hyphenate() {
             }
         }
         h = HYPH_LINK[h as usize];
-        if h as i32 == 0i32 {
+        if h == 0 {
             current_block = 10027897684796195291;
             break;
         }
@@ -2452,7 +2452,7 @@ unsafe fn hyphenate() {
                     z = *trie_trl.offset((cur_lang as i32 + 1) as isize) + hc[j as usize];
                     l = j;
                     while hc[l as usize] == *trie_trc.offset(z as isize) as i32 {
-                        if *trie_tro.offset(z as isize) != MIN_TRIE_OP {
+                        if *trie_tro.offset(z as isize) != MIN_TRIE_OP as i32 {
                             /*959: */
                             v = *trie_tro.offset(z as isize); /*:958 */
                             loop {
@@ -2462,7 +2462,7 @@ unsafe fn hyphenate() {
                                     hyf[i as usize] = hyf_num[v as usize] as u8
                                 }
                                 v = hyf_next[v as usize] as i32;
-                                if v == MIN_TRIE_OP {
+                                if v == MIN_TRIE_OP as i32 {
                                     break;
                                 }
                             }
@@ -3179,7 +3179,7 @@ unsafe fn find_protchar_left(mut l: i32, mut d: bool) -> i32 {
         l = *LLIST_link(l as usize);
     } else if d {
         while !MEM[l as usize].b32.s1.is_texnull()
-            && !(is_char_node(l) as i32 != 0 || is_non_discardable_node(l) as i32 != 0)
+            && !(is_char_node(l) || is_non_discardable_node(l))
         {
             l = *LLIST_link(l as usize);
         }
@@ -3188,14 +3188,14 @@ unsafe fn find_protchar_left(mut l: i32, mut d: bool) -> i32 {
     run = true;
     loop {
         t = l;
-        while run as i32 != 0
+        while run
             && NODE_type(l as usize) == HLIST_NODE
             && !MEM[(l + 5) as usize].b32.s1.is_texnull()
         {
             push_node(l);
             l = MEM[(l + 5) as usize].b32.s1
         }
-        while run as i32 != 0
+        while run
             && (!is_char_node(l)
                 && (NODE_type(l as usize) == INS_NODE
                     || NODE_type(l as usize) == MARK_NODE
@@ -3240,7 +3240,7 @@ unsafe fn find_protchar_right(mut l: i32, mut r: i32) -> i32 {
     run = true;
     loop {
         t = r;
-        while run as i32 != 0
+        while run
             && NODE_type(r as usize) == HLIST_NODE
             && !MEM[(r + 5) as usize].b32.s1.is_texnull()
         {
@@ -3252,7 +3252,7 @@ unsafe fn find_protchar_right(mut l: i32, mut r: i32) -> i32 {
                 r = *LLIST_link(r as usize)
             }
         }
-        while run as i32 != 0
+        while run
             && (!is_char_node(r)
                 && (NODE_type(r as usize) == INS_NODE
                     || NODE_type(r as usize) == MARK_NODE

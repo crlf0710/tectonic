@@ -166,9 +166,7 @@ unsafe fn compare_paths(mut p1: *const i8, mut p2: *const i8) -> i32 {
     let mut ret: i32 = 0;
     loop {
         ret = *p1 as i32 - *p2 as i32;
-        if !(ret == 0i32 && *p2 as i32 != 0i32
-            || *p1 as i32 == '/' as i32 && *p2 as i32 == '/' as i32)
-        {
+        if !(ret == 0i32 && *p2 != 0 || *p1 as i32 == '/' as i32 && *p2 as i32 == '/' as i32) {
             break;
         }
         p1 = p1.offset(1);
