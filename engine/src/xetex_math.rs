@@ -183,8 +183,8 @@ pub(crate) unsafe fn init_math() {
                 cur_dir = LR::RightToLeft;
             }
             v = v + 2i32
-                * FONT_INFO[(QUAD_CODE + PARAM_BASE[EQTB[(CUR_FONT_LOC) as usize].b32.s1 as usize])
-                    as usize]
+                * FONT_INFO
+                    [(QUAD_CODE + PARAM_BASE[EQTB[(CUR_FONT_LOC) as usize].val as usize]) as usize]
                     .b32
                     .s1;
             if *INTPAR(IntPar::texxet) > 0 {
@@ -431,7 +431,7 @@ pub(crate) unsafe fn init_math() {
     };
 }
 pub(crate) unsafe fn start_eq_no() {
-    SAVE_STACK[SAVE_PTR + 0].b32.s1 = cur_chr;
+    SAVE_STACK[SAVE_PTR + 0].val = cur_chr;
     SAVE_PTR += 1;
     push_math(GroupCode::MATH_SHIFT);
     eq_word_define(INT_BASE as usize + (IntPar::cur_fam as usize), -1);
@@ -478,7 +478,7 @@ unsafe fn scan_delimiter(p: usize, mut r: bool) {
             }
         }
         match cur_cmd as u16 {
-            LETTER | OTHER_CHAR => cur_val = EQTB[(DEL_CODE_BASE as i32 + cur_chr) as usize].b32.s1,
+            LETTER | OTHER_CHAR => cur_val = EQTB[(DEL_CODE_BASE as i32 + cur_chr) as usize].val,
             DELIM_NUM => {
                 if cur_chr == 1 {
                     cur_val1 = 0x40000000;
@@ -599,7 +599,7 @@ pub(crate) unsafe fn append_choices() {
     MEM[cur_list.tail].b32.s1 = new_choice() as i32;
     cur_list.tail = *LLIST_link(cur_list.tail) as usize;
     SAVE_PTR += 1;
-    SAVE_STACK[SAVE_PTR - 1].b32.s1 = 0;
+    SAVE_STACK[SAVE_PTR - 1].val = 0;
     push_math(GroupCode::MATH_CHOICE);
     scan_left_brace();
 }
@@ -633,7 +633,7 @@ pub(crate) unsafe fn build_choices() {
     let mut p: i32 = 0;
     unsave();
     p = fin_mlist(TEX_NULL);
-    match SAVE_STACK[SAVE_PTR - 1].b32.s1 {
+    match SAVE_STACK[SAVE_PTR - 1].val {
         0 => MEM[cur_list.tail + 1].b32.s0 = p,
         1 => MEM[cur_list.tail + 1].b32.s1 = p,
         2 => MEM[cur_list.tail + 2].b32.s0 = p,
@@ -644,7 +644,7 @@ pub(crate) unsafe fn build_choices() {
         }
         _ => {}
     }
-    SAVE_STACK[SAVE_PTR - 1].b32.s1 += 1;
+    SAVE_STACK[SAVE_PTR - 1].val += 1;
     push_math(GroupCode::MATH_CHOICE);
     scan_left_brace();
 }
@@ -1020,7 +1020,7 @@ pub(crate) unsafe fn after_math() {
         MEM[a as usize].b16.s0 = DLIST as u16;
         unsave();
         SAVE_PTR -= 1;
-        if SAVE_STACK[SAVE_PTR + 0].b32.s1 == 1 {
+        if SAVE_STACK[SAVE_PTR + 0].val == 1 {
             l = true
         }
         danger = false;
@@ -3199,7 +3199,7 @@ unsafe fn mlist_to_hlist() {
                         }
                     }
                     if x != 0 {
-                        y = math_glue(EQTB[GLUE_BASE + x as usize].b32.s1 as usize, cur_mu) as i32;
+                        y = math_glue(EQTB[GLUE_BASE + x as usize].val as usize, cur_mu) as i32;
                         let z = new_glue(y) as i32;
                         MEM[y as usize].b32.s1 = TEX_NULL;
                         MEM[p as usize].b32.s1 = z;

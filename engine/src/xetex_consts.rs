@@ -130,17 +130,17 @@ pub(crate) enum GluePar {
 pub(crate) const GLUE_PARS: usize = 19;
 
 pub(crate) unsafe fn GLUEPAR(s: GluePar) -> &'static mut i32 {
-    &mut EQTB[GLUE_BASE + s as usize].b32.s1
+    &mut EQTB[GLUE_BASE + s as usize].val
 }
 
 pub(crate) const SKIP_BASE: usize = GLUE_BASE + GLUE_PARS;
 pub(crate) unsafe fn SKIP_REG(n: usize) -> &'static mut i32 {
-    &mut EQTB[SKIP_BASE + n].b32.s1
+    &mut EQTB[SKIP_BASE + n].val
 }
 
 pub(crate) const MU_SKIP_BASE: usize = SKIP_BASE + NUMBER_REGS;
 pub(crate) unsafe fn MU_SKIP_REG(n: usize) -> &'static mut i32 {
-    &mut EQTB[MU_SKIP_BASE + n].b32.s1
+    &mut EQTB[MU_SKIP_BASE + n].val
 }
 
 /* "region 4": local halfword values like baselineskip. Some of these are
@@ -169,12 +169,12 @@ pub(crate) enum Local {
 pub(crate) const NUM_LOCALS: usize = 13;
 
 pub(crate) fn LOCAL(n: Local) -> &'static mut i32 {
-    unsafe { &mut EQTB[LOCAL_BASE + n as usize].b32.s1 }
+    unsafe { &mut EQTB[LOCAL_BASE + n as usize].val }
 }
 
 pub(crate) const TOKS_BASE: usize = LOCAL_BASE + NUM_LOCALS;
 pub(crate) unsafe fn TOKS_REG(n: usize) -> &'static mut i32 {
-    &mut EQTB[TOKS_BASE + n].b32.s1
+    &mut EQTB[TOKS_BASE + n].val
 }
 
 pub(crate) const ETEX_PEN_BASE: usize = TOKS_BASE + NUMBER_REGS;
@@ -186,44 +186,44 @@ pub(crate) const ETEX_PENS: usize = ETEX_PEN_BASE + 4;
 
 pub(crate) const BOX_BASE: usize = ETEX_PENS;
 pub(crate) unsafe fn BOX_REG(n: usize) -> &'static mut i32 {
-    &mut EQTB[BOX_BASE + n].b32.s1
+    &mut EQTB[BOX_BASE + n].val
 }
 
 pub(crate) const CUR_FONT_LOC: usize = BOX_BASE + NUMBER_REGS;
 pub(crate) const MATH_FONT_BASE: usize = CUR_FONT_LOC + 1;
 
 pub(crate) unsafe fn MATH_FONT(n: usize) -> usize {
-    EQTB[MATH_FONT_BASE + n].b32.s1 as usize
+    EQTB[MATH_FONT_BASE + n].val as usize
 }
 
 pub(crate) const CAT_CODE_BASE: usize = MATH_FONT_BASE + NUMBER_MATH_FONTS;
 pub(crate) unsafe fn CAT_CODE(n: usize) -> &'static mut i32 {
-    &mut EQTB[CAT_CODE_BASE + n].b32.s1
+    &mut EQTB[CAT_CODE_BASE + n].val
 }
 
 pub(crate) const LC_CODE_BASE: usize = CAT_CODE_BASE + NUMBER_USVS;
 pub(crate) unsafe fn LC_CODE(n: usize) -> &'static mut i32 {
-    &mut EQTB[LC_CODE_BASE + n].b32.s1
+    &mut EQTB[LC_CODE_BASE + n].val
 }
 
 pub(crate) const UC_CODE_BASE: usize = LC_CODE_BASE + NUMBER_USVS;
 pub(crate) unsafe fn UC_CODE(n: usize) -> &'static mut i32 {
-    &mut EQTB[UC_CODE_BASE + n].b32.s1
+    &mut EQTB[UC_CODE_BASE + n].val
 }
 
 pub(crate) const SF_CODE_BASE: usize = UC_CODE_BASE + NUMBER_USVS;
 pub(crate) unsafe fn SF_CODE(n: usize) -> &'static mut i32 {
-    &mut EQTB[SF_CODE_BASE + n].b32.s1
+    &mut EQTB[SF_CODE_BASE + n].val
 }
 
 pub(crate) const MATH_CODE_BASE: usize = SF_CODE_BASE + NUMBER_USVS;
 pub(crate) unsafe fn MATH_CODE(n: usize) -> &'static mut i32 {
-    &mut EQTB[MATH_CODE_BASE + n].b32.s1
+    &mut EQTB[MATH_CODE_BASE + n].val
 }
 
 pub(crate) const CHAR_SUB_CODE_BASE: usize = MATH_CODE_BASE + NUMBER_USVS;
 pub(crate) unsafe fn CHAR_SUB_CODE(n: usize) -> &'static mut i32 {
-    &mut EQTB[CHAR_SUB_CODE_BASE + n].b32.s1
+    &mut EQTB[CHAR_SUB_CODE_BASE + n].val
 }
 
 /* "region 5": current fullword integers like hyphenation penalty */
@@ -325,17 +325,17 @@ pub(crate) enum IntPar {
 pub(crate) const INT_PARS: usize = 85;
 
 pub(crate) unsafe fn INTPAR(x: IntPar) -> &'static mut i32 {
-    &mut EQTB[INT_BASE + x as usize].b32.s1
+    &mut EQTB[INT_BASE + x as usize].val
 }
 
 pub(crate) const COUNT_BASE: usize = INT_BASE + INT_PARS;
 pub(crate) unsafe fn COUNT_REG(n: usize) -> &'static mut i32 {
-    &mut EQTB[COUNT_BASE + n].b32.s1
+    &mut EQTB[COUNT_BASE + n].val
 }
 
 pub(crate) const DEL_CODE_BASE: usize = COUNT_BASE + NUMBER_REGS;
 pub(crate) unsafe fn DEL_CODE(n: usize) -> &'static mut i32 {
-    &mut EQTB[DEL_CODE_BASE + n].b32.s1
+    &mut EQTB[DEL_CODE_BASE + n].val
 }
 
 /* "region 6": current fullword dimensions like hsize */
@@ -373,12 +373,12 @@ pub(crate) enum DimenPar {
 pub(crate) const DIMEN_PARS: usize = 23;
 
 pub(crate) fn DIMENPAR(x: DimenPar) -> &'static mut i32 {
-    unsafe { &mut EQTB[DIMEN_BASE + x as usize].b32.s1 }
+    unsafe { &mut EQTB[DIMEN_BASE + x as usize].val }
 }
 
 pub(crate) const SCALED_BASE: usize = DIMEN_BASE + DIMEN_PARS;
 pub(crate) unsafe fn SCALED_REG(n: usize) -> &'static mut i32 {
-    &mut EQTB[SCALED_BASE + n].b32.s1
+    &mut EQTB[SCALED_BASE + n].val
 }
 
 pub(crate) const EQTB_SIZE: usize = SCALED_BASE + NUMBER_REGS - 1;

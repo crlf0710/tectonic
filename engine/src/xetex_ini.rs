@@ -211,6 +211,20 @@ impl Default for memory_word {
     }
 }
 
+#[derive(Copy, Clone, Default)]
+#[repr(C)]
+pub(crate) struct EqtbWord {
+    pub(crate) lvl: u16, // b16.s0
+    pub(crate) cmd: u16, // b16.s1
+    pub(crate) val: i32, // b32.s1
+}
+
+impl EqtbWord {
+    pub(crate) const fn new(lvl: u16, cmd: u16, val: i32) -> Self {
+        Self { lvl, cmd, val }
+    }
+}
+
 /* ## THE ORIGINAL SITUATION (archived for posterity)
  *
  * In XeTeX, a "quarterword" is 16 bits. Who knows why. A "halfword" is,
@@ -421,7 +435,7 @@ pub(crate) use super::xetex_io::UFILE;
 */
 /* All the following variables are declared in xetex-xetexd.h */
 #[no_mangle]
-pub(crate) static mut EQTB: Vec<memory_word> = Vec::new();
+pub(crate) static mut EQTB: Vec<EqtbWord> = Vec::new();
 #[no_mangle]
 pub(crate) static mut bad: i32 = 0;
 #[no_mangle]
@@ -635,11 +649,13 @@ pub(crate) static mut prim: [b32x2; 501] = [b32x2 { s0: 0, s1: 0 }; 501];
 #[no_mangle]
 pub(crate) static mut prim_used: i32 = 0;
 #[no_mangle]
-pub(crate) static mut prim_eqtb: [memory_word; 501] = [memory_word {
-    b32: b32x2 { s0: 0, s1: 0 },
+pub(crate) static mut prim_eqtb: [EqtbWord; 501] = [EqtbWord {
+    lvl: 0,
+    cmd: 0,
+    val: 0,
 }; 501];
 #[no_mangle]
-pub(crate) static mut SAVE_STACK: Vec<memory_word> = Vec::new();
+pub(crate) static mut SAVE_STACK: Vec<EqtbWord> = Vec::new();
 #[no_mangle]
 pub(crate) static mut SAVE_PTR: usize = 0;
 #[no_mangle]
@@ -1225,12 +1241,12 @@ where
         cur_val = ident[0] as i32 + (1i32 + (0x10ffffi32 + 1i32));
         prim_val = prim_lookup(ident[0] as str_number)
     }
-    EQTB[cur_val as usize].b16.s0 = 1_u16;
-    EQTB[cur_val as usize].b16.s1 = c;
-    EQTB[cur_val as usize].b32.s1 = o;
-    prim_eqtb[prim_val as usize].b16.s0 = 1_u16;
-    prim_eqtb[prim_val as usize].b16.s1 = c;
-    prim_eqtb[prim_val as usize].b32.s1 = o;
+    EQTB[cur_val as usize].lvl = 1_u16;
+    EQTB[cur_val as usize].cmd = c;
+    EQTB[cur_val as usize].val = o;
+    prim_eqtb[prim_val as usize].lvl = 1_u16;
+    prim_eqtb[prim_val as usize].cmd = c;
+    prim_eqtb[prim_val as usize].val = o;
 }
 /*:925*/
 /*977: */
@@ -2398,7 +2414,7 @@ pub(crate) unsafe fn prefixed_command() {
                                 MEM[(cur_ptr + 1) as
                                                  usize].b32.s1
                         }
-                    } else { q = EQTB[cur_chr as usize].b32.s1 }
+                    } else { q = EQTB[cur_chr as usize].val }
                     if q.is_texnull() {
                         if e {
                             if a as i32 >= 4i32 {
@@ -2601,7 +2617,7 @@ pub(crate) unsafe fn prefixed_command() {
             if p < MATH_CODE_BASE as i32 {
                 if p >= SF_CODE_BASE as i32 {
                     n =
-                        (EQTB[p as usize].b32.s1 as i64 /
+                        (EQTB[p as usize].val as i64 /
                              65536) as i32;
                     if a as i32 >= 4i32 {
                         geq_define(p as usize, 122_u16,
@@ -2924,9 +2940,9 @@ unsafe fn store_fmt_file() {
                 current_block = 7923086311623215889;
                 break;
             }
-            if EQTB[j as usize].b32.s1 == EQTB[(j + 1i32) as usize].b32.s1
-                && EQTB[j as usize].b16.s1 as i32 == EQTB[(j + 1i32) as usize].b16.s1 as i32
-                && EQTB[j as usize].b16.s0 as i32 == EQTB[(j + 1i32) as usize].b16.s0 as i32
+            if EQTB[j as usize].val == EQTB[(j + 1) as usize].val
+                && EQTB[j as usize].cmd as i32 == EQTB[(j + 1) as usize].cmd as i32
+                && EQTB[j as usize].lvl as i32 == EQTB[(j + 1) as usize].lvl as i32
             {
                 current_block = 8379985486002839332;
                 break;
@@ -2939,9 +2955,9 @@ unsafe fn store_fmt_file() {
                 j += 1;
                 l = j;
                 while j < (INT_BASE as i32) - 1 {
-                    if EQTB[j as usize].b32.s1 != EQTB[(j + 1i32) as usize].b32.s1
-                        || EQTB[j as usize].b16.s1 as i32 != EQTB[(j + 1i32) as usize].b16.s1 as i32
-                        || EQTB[j as usize].b16.s0 as i32 != EQTB[(j + 1i32) as usize].b16.s0 as i32
+                    if EQTB[j as usize].val != EQTB[(j + 1i32) as usize].val
+                        || EQTB[j as usize].cmd as i32 != EQTB[(j + 1i32) as usize].cmd as i32
+                        || EQTB[j as usize].lvl as i32 != EQTB[(j + 1i32) as usize].lvl as i32
                     {
                         break;
                     }
@@ -2964,7 +2980,7 @@ unsafe fn store_fmt_file() {
                 current_block = 10505255564575309249;
                 break;
             }
-            if EQTB[j as usize].b32.s1 == EQTB[(j + 1) as usize].b32.s1 {
+            if EQTB[j as usize].val == EQTB[(j + 1) as usize].val {
                 current_block = 18329769178042496632;
                 break;
             }
@@ -2976,7 +2992,7 @@ unsafe fn store_fmt_file() {
                 j += 1;
                 l = j;
                 while j < EQTB_SIZE as i32 {
-                    if EQTB[j as usize].b32.s1 != EQTB[(j + 1) as usize].b32.s1 {
+                    if EQTB[j as usize].val != EQTB[(j + 1) as usize].val {
                         break;
                     }
                     j += 1
@@ -3241,14 +3257,14 @@ unsafe fn load_fmt_file() -> bool {
         x += 1
     }
 
-    EQTB = vec![memory_word::default(); EQTB_TOP + 2];
-    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s1 = UNDEFINED_CS as _;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b32.s1 = TEX_NULL as _;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].b16.s0 = LEVEL_ZERO as _;
+    EQTB = vec![EqtbWord::default(); EQTB_TOP + 2];
+    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].cmd = UNDEFINED_CS as _;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].val = TEX_NULL as _;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].lvl = LEVEL_ZERO as _;
     x = EQTB_SIZE as i32 + 1;
     while x <= EQTB_TOP as i32 {
         EQTB[x as usize] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
-        x += 1
+        x += 1;
     }
     max_reg_num = 32767i32;
     max_reg_help_line = b"A register number must be between 0 and 32767.";
@@ -3972,9 +3988,9 @@ unsafe fn initialize_more_variables() {
     for k in 1..=500 {
         prim[k as usize] = prim[0];
     }
-    prim_eqtb[0].b16.s0 = 0_u16;
-    prim_eqtb[0].b16.s1 = 103_u16;
-    prim_eqtb[0].b32.s1 = TEX_NULL;
+    prim_eqtb[0].lvl = 0_u16;
+    prim_eqtb[0].cmd = 103_u16;
+    prim_eqtb[0].val = TEX_NULL;
     for k in 1..=500 {
         prim_eqtb[k] = prim_eqtb[0];
     }
@@ -4110,43 +4126,43 @@ unsafe fn initialize_more_initex_variables() {
     hi_mem_min = PRE_ADJUST_HEAD as i32;
     var_used = 20;
     dyn_used = HI_MEM_STAT_USAGE;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE].b16.s1 = UNDEFINED_CS as _;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE].b32.s1 = TEX_NULL;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE].b16.s0 = LEVEL_ZERO as _;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE].cmd = UNDEFINED_CS as _;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE].val = TEX_NULL;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE].lvl = LEVEL_ZERO as _;
     for k in ACTIVE_BASE..=EQTB_TOP {
         EQTB[k] = EQTB[UNDEFINED_CONTROL_SEQUENCE];
     }
-    EQTB[GLUE_BASE].b32.s1 = 0;
-    EQTB[GLUE_BASE].b16.s0 = LEVEL_ONE as _;
-    EQTB[GLUE_BASE].b16.s1 = GLUE_REF as _;
+    EQTB[GLUE_BASE].val = 0;
+    EQTB[GLUE_BASE].lvl = LEVEL_ONE as _;
+    EQTB[GLUE_BASE].cmd = GLUE_REF as _;
     for k in GLUE_BASE..=LOCAL_BASE {
         EQTB[k] = EQTB[GLUE_BASE];
     }
     MEM[0].b32.s1 += 531i32;
     *LOCAL(Local::par_shape) = TEX_NULL;
-    EQTB[LOCAL_BASE + Local::par_shape as usize].b16.s1 = SHAPE_REF as _;
-    EQTB[LOCAL_BASE + Local::par_shape as usize].b16.s0 = LEVEL_ONE as _;
+    EQTB[LOCAL_BASE + Local::par_shape as usize].cmd = SHAPE_REF as _;
+    EQTB[LOCAL_BASE + Local::par_shape as usize].lvl = LEVEL_ONE as _;
     for k in ETEX_PEN_BASE..=(ETEX_PENS - 1) {
         EQTB[k] = EQTB[LOCAL_BASE + Local::par_shape as usize];
     }
     for k in (LOCAL_BASE + Local::output_routine as usize)..=(TOKS_BASE + NUMBER_REGS - 1) {
         EQTB[k] = EQTB[UNDEFINED_CONTROL_SEQUENCE];
     }
-    EQTB[BOX_BASE].b32.s1 = TEX_NULL;
-    EQTB[BOX_BASE].b16.s1 = BOX_REF as _;
-    EQTB[BOX_BASE].b16.s0 = LEVEL_ONE as _;
+    EQTB[BOX_BASE].val = TEX_NULL;
+    EQTB[BOX_BASE].cmd = BOX_REF as _;
+    EQTB[BOX_BASE].lvl = LEVEL_ONE as _;
     for k in (BOX_BASE + 1)..=(BOX_BASE + NUMBER_REGS - 1) {
         EQTB[k] = EQTB[BOX_BASE];
     }
-    EQTB[CUR_FONT_LOC].b32.s1 = FONT_BASE;
-    EQTB[CUR_FONT_LOC].b16.s1 = DATA as _;
-    EQTB[CUR_FONT_LOC].b16.s0 = LEVEL_ONE as _;
+    EQTB[CUR_FONT_LOC].val = FONT_BASE;
+    EQTB[CUR_FONT_LOC].cmd = DATA as _;
+    EQTB[CUR_FONT_LOC].lvl = LEVEL_ONE as _;
     for k in MATH_FONT_BASE..=(MATH_FONT_BASE + NUMBER_MATH_FONTS - 1) {
         EQTB[k] = EQTB[CUR_FONT_LOC];
     }
-    EQTB[CAT_CODE_BASE].b32.s1 = 0;
-    EQTB[CAT_CODE_BASE].b16.s1 = DATA as _;
-    EQTB[CAT_CODE_BASE].b16.s0 = LEVEL_ONE as _;
+    EQTB[CAT_CODE_BASE].val = 0;
+    EQTB[CAT_CODE_BASE].cmd = DATA as _;
+    EQTB[CAT_CODE_BASE].lvl = LEVEL_ONE as _;
     for k in (CAT_CODE_BASE + 1)..=(INT_BASE as usize - 1) {
         EQTB[k] = EQTB[CAT_CODE_BASE];
     }
@@ -4160,7 +4176,7 @@ unsafe fn initialize_more_initex_variables() {
     *CAT_CODE(92) = ESCAPE as _;
     *CAT_CODE(37) = COMMENT as _;
     *CAT_CODE(127) = INVALID_CHAR as _;
-    EQTB[CAT_CODE_BASE].b32.s1 = IGNORE as _;
+    EQTB[CAT_CODE_BASE].val = IGNORE as _;
     for k in ('0' as i32)..=('9' as i32) {
         *MATH_CODE(k as usize) = (k as u32).wrapping_add((7_u32 & 0x7_u32) << 21i32) as i32;
     }
@@ -4180,7 +4196,7 @@ unsafe fn initialize_more_initex_variables() {
         *SF_CODE(k as usize) = 999;
     }
     for k in INT_BASE..=(DEL_CODE_BASE - 1) {
-        EQTB[k as usize].b32.s1 = 0;
+        EQTB[k as usize].val = 0;
     }
     *INTPAR(IntPar::char_sub_def_min) = 256;
     *INTPAR(IntPar::char_sub_def_max) = -1;
@@ -4195,17 +4211,17 @@ unsafe fn initialize_more_initex_variables() {
     }
     *DEL_CODE(46) = 0;
     for k in DIMEN_BASE..=EQTB_SIZE {
-        EQTB[k].b32.s1 = 0;
+        EQTB[k].val = 0;
     }
     prim_used = PRIM_SIZE;
     hash_used = FROZEN_CONTROL_SEQUENCE as i32;
     hash_high = 0;
     cs_count = 0;
-    EQTB[FROZEN_DONT_EXPAND as usize].b16.s1 = DONT_EXPAND as _;
+    EQTB[FROZEN_DONT_EXPAND as usize].cmd = DONT_EXPAND as _;
     (*hash.offset(FROZEN_DONT_EXPAND as isize)).s1 = maketexstring(b"notexpanded:");
-    EQTB[FROZEN_PRIMITIVE as usize].b16.s1 = IGNORE_SPACES;
-    EQTB[FROZEN_PRIMITIVE as usize].b32.s1 = 1;
-    EQTB[FROZEN_PRIMITIVE as usize].b16.s0 = LEVEL_ONE as _;
+    EQTB[FROZEN_PRIMITIVE as usize].cmd = IGNORE_SPACES;
+    EQTB[FROZEN_PRIMITIVE as usize].val = 1;
+    EQTB[FROZEN_PRIMITIVE as usize].lvl = LEVEL_ONE as _;
     (*hash.offset(FROZEN_PRIMITIVE as isize)).s1 = maketexstring(b"primitive");
     for k in (-35111_i32)..=35111 {
         _trie_op_hash_array[(k as i64 - -35111) as usize] = 0i32;
@@ -4219,9 +4235,9 @@ unsafe fn initialize_more_initex_variables() {
     (*hash.offset(FROZEN_PROTECTION as isize)).s1 = maketexstring(b"inaccessible");
     format_ident = maketexstring(b" (INITEX)");
     (*hash.offset(END_WRITE as isize)).s1 = maketexstring(b"endwrite");
-    EQTB[END_WRITE as usize].b16.s0 = LEVEL_ONE as _;
-    EQTB[END_WRITE as usize].b16.s1 = OUTER_CALL as _;
-    EQTB[END_WRITE as usize].b32.s1 = TEX_NULL;
+    EQTB[END_WRITE as usize].lvl = LEVEL_ONE as _;
+    EQTB[END_WRITE as usize].cmd = OUTER_CALL as _;
+    EQTB[END_WRITE as usize].val = TEX_NULL;
     max_reg_num = 32767;
     max_reg_help_line = b"A register number must be between 0 and 32767.";
     for i in (INT_VAL as usize)..=(INTER_CHAR_VAL as usize) {
@@ -4907,11 +4923,11 @@ unsafe fn initialize_primitives() {
 
     (*hash.offset(FROZEN_END_TEMPLATE as isize)).s1 = maketexstring(b"endtemplate");
     (*hash.offset(FROZEN_ENDV as isize)).s1 = maketexstring(b"endtemplate");
-    EQTB[FROZEN_ENDV].b16.s1 = 9_u16;
-    EQTB[FROZEN_ENDV].b32.s1 = 4999999i32 - 11i32;
-    EQTB[FROZEN_ENDV].b16.s0 = 1_u16;
+    EQTB[FROZEN_ENDV].cmd = 9_u16;
+    EQTB[FROZEN_ENDV].val = NULL_LIST as i32;
+    EQTB[FROZEN_ENDV].lvl = 1_u16;
     EQTB[FROZEN_END_TEMPLATE] = EQTB[FROZEN_ENDV];
-    EQTB[FROZEN_END_TEMPLATE].b16.s1 = 117_u16;
+    EQTB[FROZEN_END_TEMPLATE].cmd = 117_u16;
 
     primitive(b"pagegoal", SET_PAGE_DIMEN, 0);
     primitive(b"pagetotal", SET_PAGE_DIMEN, 1);
@@ -5168,7 +5184,7 @@ pub(crate) unsafe fn tt_run_engine(
     /* Allocate many of our big arrays. */
     BUFFER = vec![0; BUF_SIZE + 1];
     NEST = vec![list_state_record::default(); NEST_SIZE + 1];
-    SAVE_STACK = vec![memory_word::default(); SAVE_SIZE + 1];
+    SAVE_STACK = vec![EqtbWord::default(); SAVE_SIZE + 1];
     INPUT_STACK = vec![input_state_t::default(); STACK_SIZE + 1];
     INPUT_FILE = vec![0 as *mut UFILE; MAX_IN_OPEN + 1];
     LINE_STACK = vec![0; MAX_IN_OPEN + 1];
@@ -5201,7 +5217,7 @@ pub(crate) unsafe fn tt_run_engine(
             *hash.offset(hash_used as isize) = *hash.offset(HASH_BASE as isize);
             hash_used += 1
         }
-        EQTB = vec![memory_word::default(); EQTB_TOP + 1];
+        EQTB = vec![EqtbWord::default(); EQTB_TOP + 1];
         str_start = vec![pool_pointer::default(); max_strings + 1];
         str_pool = vec![0; pool_size as usize + 1];
         FONT_INFO = vec![memory_word::default(); FONT_MEM_SIZE + 1];
@@ -5855,7 +5871,15 @@ macro_rules! slice {
     };
 }
 
-slice!(i32, memory_word, b32x2, b16x4, UTF16_code, small_number);
+slice!(
+    i32,
+    memory_word,
+    b32x2,
+    b16x4,
+    UTF16_code,
+    small_number,
+    EqtbWord
+);
 
 /* Read and write dump files.  As distributed, these files are
 architecture dependent; specifically, BigEndian and LittleEndian
