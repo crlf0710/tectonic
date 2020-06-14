@@ -116,7 +116,7 @@ pub(crate) unsafe fn init_math() {
 
     get_token();
 
-    if cur_cmd == MATH_SHIFT as u8 && cur_list.mode as i32 > 0 {
+    if cur_cmd == MATH_SHIFT && cur_list.mode as i32 > 0 {
         // 1180:
         let mut j = None;
         let mut w = -MAX_HALFWORD;
@@ -473,11 +473,11 @@ unsafe fn scan_delimiter(p: usize, mut r: bool) {
     } else {
         loop {
             get_x_token();
-            if !(cur_cmd == SPACER as u8 || cur_cmd as u16 == RELAX) {
+            if !(cur_cmd == SPACER || cur_cmd == RELAX) {
                 break;
             }
         }
-        match cur_cmd as u16 {
+        match cur_cmd {
             LETTER | OTHER_CHAR => cur_val = EQTB[(DEL_CODE_BASE as i32 + cur_chr) as usize].val,
             DELIM_NUM => {
                 if cur_chr == 1 {
@@ -537,7 +537,7 @@ pub(crate) unsafe fn math_radical() {
 }
 pub(crate) unsafe fn math_ac() {
     let mut c: i32 = 0;
-    if cur_cmd == ACCENT as u8 {
+    if cur_cmd == ACCENT {
         /*1201: */
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -667,7 +667,7 @@ pub(crate) unsafe fn sub_sup() {
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         p = cur_list.tail as i32 + 2 + cur_cmd as i32 - 7;
         if t as i32 != EMPTY {
-            if cur_cmd == SUP_MARK as u8 {
+            if cur_cmd == SUP_MARK {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -999,7 +999,7 @@ pub(crate) unsafe fn after_math() {
     p = fin_mlist(TEX_NULL);
     if cur_list.mode as i32 == -m {
         get_x_token();
-        if cur_cmd != MATH_SHIFT as u8 {
+        if cur_cmd != MATH_SHIFT {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
@@ -1119,7 +1119,7 @@ pub(crate) unsafe fn after_math() {
         if a.is_texnull() {
             // 1232:
             get_x_token();
-            if cur_cmd != MATH_SHIFT as u8 {
+            if cur_cmd != MATH_SHIFT {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -1267,7 +1267,7 @@ pub(crate) unsafe fn resume_after_display() {
         * 65536
         + cur_lang as i64) as i32;
     get_x_token();
-    if cur_cmd != SPACER as u8 {
+    if cur_cmd != SPACER {
         back_input();
     }
     if NEST_PTR == 1 {

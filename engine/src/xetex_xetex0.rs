@@ -192,13 +192,13 @@ pub(crate) unsafe fn show_token_list(mut p: i32, mut q: i32, mut l: i32) {
         if MEM[p as usize].b32.s0 >= CS_TOKEN_FLAG {
             print_cs(MEM[p as usize].b32.s0 - CS_TOKEN_FLAG);
         } else {
-            let m = MEM[p as usize].b32.s0 / MAX_CHAR_VAL;
+            let m = Cmd::from((MEM[p as usize].b32.s0 / MAX_CHAR_VAL) as u16);
             let c = MEM[p as usize].b32.s0 % MAX_CHAR_VAL;
             if MEM[p as usize].b32.s0 < 0 {
                 print_esc_cstr(b"BAD.");
             } else {
                 /*306:*/
-                match m as u16 {
+                match m {
                     LEFT_BRACE | RIGHT_BRACE | MATH_SHIFT | TAB_MARK | SUP_MARK | SUB_MARK
                     | SPACER | LETTER | OTHER_CHAR => print_char(c),
                     MAC_PARAM => {
@@ -1809,7 +1809,7 @@ pub(crate) unsafe fn print_length_param(mut n: DimenPar) {
         pdf_page_height => print_esc_cstr(b"pdfpageheight"),
     }
 }
-pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
+pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
     let mut font_name_str: str_number = 0;
     let mut quote_char: UTF16_code = 0;
     match cmd {
@@ -2097,12 +2097,13 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
             }
         }
         REGISTER => {
+            let cmd;
             if chr_code < 0 || chr_code > 19 {
                 /*lo_mem_stat_max*/
                 cmd = (MEM[chr_code as usize].b16.s1 as i32 / 64) as u16
             } else {
                 cmd = chr_code as u16;
-                chr_code = TEX_NULL
+                chr_code = TEX_NULL;
             }
             if cmd == INT_VAL as u16 {
                 print_esc_cstr(b"count");
@@ -2602,7 +2603,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         },
         UNDEFINED_CS => print_cstr(b"undefined"),
         CALL | LONG_CALL | OUTER_CALL | LONG_OUTER_CALL => {
-            let mut n = cmd - CALL;
+            let mut n = cmd as u8 - CALL as u8;
             if MEM[MEM[chr_code as usize].b32.s1 as usize].b32.s0 == PROTECTED_TOKEN {
                 n = n + 4
             }
@@ -2640,7 +2641,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: u16, mut chr_code: i32) {
         _ => print_cstr(b"[unknown command code!]"),
     };
 }
-pub(crate) unsafe fn not_aat_font_error(cmd: u16, mut c: i32, f: usize) {
+pub(crate) unsafe fn not_aat_font_error(cmd: Cmd, mut c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -2653,7 +2654,7 @@ pub(crate) unsafe fn not_aat_font_error(cmd: u16, mut c: i32, f: usize) {
     print_cstr(b"; not an AAT font");
     error();
 }
-pub(crate) unsafe fn not_aat_gr_font_error(cmd: u16, mut c: i32, f: usize) {
+pub(crate) unsafe fn not_aat_gr_font_error(cmd: Cmd, mut c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -2666,7 +2667,7 @@ pub(crate) unsafe fn not_aat_gr_font_error(cmd: u16, mut c: i32, f: usize) {
     print_cstr(b"; not an AAT or Graphite font");
     error();
 }
-pub(crate) unsafe fn not_ot_font_error(cmd: u16, mut c: i32, f: usize) {
+pub(crate) unsafe fn not_ot_font_error(cmd: Cmd, mut c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -2679,7 +2680,7 @@ pub(crate) unsafe fn not_ot_font_error(cmd: u16, mut c: i32, f: usize) {
     print_cstr(b"; not an OpenType Layout font");
     error();
 }
-pub(crate) unsafe fn not_native_font_error(cmd: u16, c: i32, f: usize) {
+pub(crate) unsafe fn not_native_font_error(cmd: Cmd, c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -3032,14 +3033,14 @@ pub(crate) unsafe fn if_warning() {
     }
     if w {
         print_nl_cstr(b"Warning: end of ");
-        print_cmd_chr(107_u16, cur_if as i32);
-        if if_line != 0i32 {
+        print_cmd_chr(IF_TEST, cur_if as i32);
+        if if_line != 0 {
             print_cstr(b" entered on line ");
             print_int(if_line);
         }
         print_cstr(b" of a different file");
         print_ln();
-        if *INTPAR(IntPar::tracing_nesting) > 1i32 {
+        if *INTPAR(IntPar::tracing_nesting) > 1 {
             show_context();
         }
         if history == TTHistory::SPOTLESS {
@@ -3330,8 +3331,8 @@ pub(crate) unsafe fn eq_save(p: usize, l: u16) {
     SAVE_STACK[SAVE_PTR].val = p as i32;
     SAVE_PTR += 1;
 }
-pub(crate) unsafe fn eq_define(p: usize, t: u16, e: i32) {
-    if EQTB[p].cmd as i32 == t as i32 && EQTB[p].val == e {
+pub(crate) unsafe fn eq_define(p: usize, t: Cmd, e: i32) {
+    if Cmd::from(EQTB[p].cmd) == t && EQTB[p].val == e {
         eq_destroy(EQTB[p]);
         return;
     }
@@ -3341,7 +3342,7 @@ pub(crate) unsafe fn eq_define(p: usize, t: u16, e: i32) {
         eq_save(p, EQTB[p].lvl);
     }
     EQTB[p].lvl = cur_level;
-    EQTB[p].cmd = t;
+    EQTB[p].cmd = t as u16;
     EQTB[p].val = e;
 }
 pub(crate) unsafe fn eq_word_define(p: usize, w: i32) {
@@ -3354,10 +3355,10 @@ pub(crate) unsafe fn eq_word_define(p: usize, w: i32) {
     }
     EQTB[p].val = w;
 }
-pub(crate) unsafe fn geq_define(p: usize, t: u16, e: i32) {
+pub(crate) unsafe fn geq_define(p: usize, t: Cmd, e: i32) {
     eq_destroy(EQTB[p]);
     EQTB[p].lvl = LEVEL_ONE;
-    EQTB[p].cmd = t;
+    EQTB[p].cmd = t as u16;
     EQTB[p].val = e;
 }
 pub(crate) unsafe fn geq_word_define(p: usize, w: i32) {
@@ -3487,12 +3488,12 @@ pub(crate) unsafe fn token_show(p: Option<usize>) {
     };
 }
 pub(crate) unsafe fn print_meaning() {
-    print_cmd_chr(cur_cmd as u16, cur_chr);
-    if cur_cmd as u16 >= CALL {
+    print_cmd_chr(cur_cmd, cur_chr);
+    if cur_cmd >= CALL {
         print_char(':' as i32);
         print_ln();
         token_show(cur_chr.opt());
-    } else if cur_cmd as u16 == TOP_BOT_MARK && cur_chr < 5 {
+    } else if cur_cmd == TOP_BOT_MARK && cur_chr < 5 {
         print_char(':' as i32);
         print_ln();
         token_show(cur_mark[cur_chr as usize].opt());
@@ -3509,12 +3510,12 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
         print_cstr(b": ");
         shown_mode = cur_list.mode
     }
-    print_cmd_chr(cur_cmd as u16, cur_chr);
+    print_cmd_chr(cur_cmd, cur_chr);
     if *INTPAR(IntPar::tracing_ifs) > 0 {
-        if cur_cmd >= IF_TEST as u8 {
-            if cur_cmd <= FI_OR_ELSE as u8 {
+        if cur_cmd >= IF_TEST {
+            if cur_cmd <= FI_OR_ELSE {
                 print_cstr(b": ");
-                if cur_cmd == FI_OR_ELSE as u8 {
+                if cur_cmd == FI_OR_ELSE {
                     print_cmd_chr(IF_TEST, cur_if as i32);
                     print_char(' ' as i32);
                     n = 0;
@@ -3925,7 +3926,7 @@ pub(crate) unsafe fn check_outer_validity() {
                 MEM[p].b32.s0 = CS_TOKEN_FLAG + cur_cs;
                 begin_token_list(p, Btl::BackedUp);
             }
-            cur_cmd = SPACER as u8;
+            cur_cmd = SPACER;
             cur_chr = ' ' as i32
         }
         if scanner_status != ScannerStatus::Normal && scanner_status != ScannerStatus::Skipping {
@@ -4012,7 +4013,6 @@ pub(crate) unsafe fn get_next() {
     let mut current_block: u64;
     let mut k: i32 = 0;
     let mut t: i32 = 0;
-    let mut cat: u8 = 0;
     let mut c: UnicodeScalar = 0;
     let mut lower: UTF16_code = 0;
     let mut d: small_number = 0;
@@ -4038,7 +4038,7 @@ pub(crate) unsafe fn get_next() {
                         cur_chr = (65536 + ((cur_chr - 0xd800) * 1024) as i64 + lower as i64) as i32
                     }
                     'c_65186: loop {
-                        cur_cmd = *CAT_CODE(cur_chr as usize) as eight_bits;
+                        cur_cmd = Cmd::from(*CAT_CODE(cur_chr as usize) as u16);
                         match cur_input.state as i32 + cur_cmd as i32 {
                             10 | 26 | 42 | 27 | 43 => break, // ANY_STATE_PLUS(IGNORE) | SKIP_BLANKS + SPACER | NEW_LINE + SPACER
                             1 | 17 | 33 => {
@@ -4054,10 +4054,10 @@ pub(crate) unsafe fn get_next() {
                             14 | 30 | 46 => {
                                 //  ANY_STATE_PLUS(ACTIVE_CHAR)
                                 cur_cs = cur_chr + 1;
-                                cur_cmd = EQTB[cur_cs as usize].cmd as eight_bits;
+                                cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                                 cur_chr = EQTB[cur_cs as usize].val;
                                 cur_input.state = MID_LINE;
-                                if cur_cmd >= OUTER_CALL as u8 {
+                                if cur_cmd >= OUTER_CALL {
                                     check_outer_validity();
                                 }
                                 current_block = 14956172121224201915;
@@ -4161,7 +4161,7 @@ pub(crate) unsafe fn get_next() {
                             6 => {
                                 // MID_LINE + CAR_RET
                                 cur_input.loc = cur_input.limit + 1;
-                                cur_cmd = SPACER as u8;
+                                cur_cmd = SPACER;
                                 cur_chr = ' ' as i32;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
@@ -4175,9 +4175,9 @@ pub(crate) unsafe fn get_next() {
                                 // NEW_LINE + CAR_RET
                                 cur_input.loc = cur_input.limit + 1;
                                 cur_cs = par_loc;
-                                cur_cmd = EQTB[cur_cs as usize].cmd as eight_bits;
+                                cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                                 cur_chr = EQTB[cur_cs as usize].val;
-                                if cur_cmd >= OUTER_CALL as u8 {
+                                if cur_cmd >= OUTER_CALL {
                                     check_outer_validity();
                                 }
                                 current_block = 14956172121224201915;
@@ -4290,7 +4290,7 @@ pub(crate) unsafe fn get_next() {
                         }
                     } else {
                         if cur_input.name != 0 {
-                            cur_cmd = 0;
+                            cur_cmd = Cmd::Relax;
                             cur_chr = 0;
                             return;
                         }
@@ -4313,30 +4313,31 @@ pub(crate) unsafe fn get_next() {
                             current_block = 14956172121224201915;
                         }
                         7720778817628725688 => {
+                            let mut cat;
                             'c_65963: loop {
                                 k = cur_input.loc;
                                 cur_chr = BUFFER[k as usize];
-                                cat = *CAT_CODE(cur_chr as usize) as u8;
+                                cat = Cmd::from(*CAT_CODE(cur_chr as usize) as u16);
                                 k += 1;
-                                if cat == LETTER as u8 {
+                                if cat == LETTER {
                                     cur_input.state = SKIP_BLANKS as u16
-                                } else if cat == SPACER as u8 {
+                                } else if cat == SPACER {
                                     cur_input.state = SKIP_BLANKS as u16;
                                 } else {
                                     cur_input.state = MID_LINE;
                                 }
-                                if cat == LETTER as u8 && k <= cur_input.limit {
+                                if cat == LETTER && k <= cur_input.limit {
                                     loop
                                     /*368:*/
                                     {
                                         cur_chr = BUFFER[k as usize];
-                                        cat = *CAT_CODE(cur_chr as usize) as u8;
+                                        cat = Cmd::from(*CAT_CODE(cur_chr as usize) as u16);
                                         k += 1;
-                                        if !(cat == LETTER as u8 && k <= cur_input.limit) {
+                                        if !(cat == LETTER && k <= cur_input.limit) {
                                             break;
                                         }
                                     }
-                                    if !(cat == SUP_MARK as u8
+                                    if !(cat == SUP_MARK
                                         && BUFFER[k as usize] == cur_chr
                                         && k < cur_input.limit)
                                     {
@@ -4400,7 +4401,9 @@ pub(crate) unsafe fn get_next() {
                                         current_block = 5873035170358615968;
                                         break;
                                     }
+
                                     cur_chr = 0i32;
+
                                     d = 1i32 as small_number;
                                     while d as i32 <= sup_count as i32 {
                                         c = BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize];
@@ -4411,7 +4414,8 @@ pub(crate) unsafe fn get_next() {
                                         }
                                         d += 1
                                     }
-                                    if cur_chr > 0x10ffffi32 {
+
+                                    if cur_chr > BIGGEST_USV as i32 {
                                         cur_chr = BUFFER[k as usize];
                                         current_block = 5873035170358615968;
                                         break;
@@ -4425,7 +4429,7 @@ pub(crate) unsafe fn get_next() {
                                         }
                                     }
                                 } else {
-                                    if !(cat as i32 == 7i32
+                                    if !(cat == SUP_MARK
                                         && BUFFER[k as usize] == cur_chr
                                         && k < cur_input.limit)
                                     {
@@ -4482,6 +4486,7 @@ pub(crate) unsafe fn get_next() {
                                         }
                                         d += 1
                                     }
+
                                     if cur_chr > BIGGEST_USV as i32 {
                                         cur_chr = BUFFER[k as usize];
                                         current_block = 1604201581803946138;
@@ -4499,7 +4504,7 @@ pub(crate) unsafe fn get_next() {
                             }
                             match current_block {
                                 5873035170358615968 => {
-                                    if cat != LETTER as u8 {
+                                    if cat != LETTER {
                                         k -= 1
                                     }
                                     if k > cur_input.loc + 1 {
@@ -4562,7 +4567,7 @@ pub(crate) unsafe fn get_next() {
                     match current_block {
                         14956172121224201915 => {}
                         _ => {
-                            cur_cmd = EQTB[cur_cs as usize].cmd as eight_bits;
+                            cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                             cur_chr = EQTB[cur_cs as usize].val;
                             if cur_cmd as i32 >= 115i32 {
                                 check_outer_validity();
@@ -4577,17 +4582,17 @@ pub(crate) unsafe fn get_next() {
             cur_input.loc = MEM[cur_input.loc as usize].b32.s1;
             if t >= CS_TOKEN_FLAG {
                 cur_cs = t - CS_TOKEN_FLAG;
-                cur_cmd = EQTB[cur_cs as usize].cmd as u8;
+                cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                 cur_chr = EQTB[cur_cs as usize].val;
-                if cur_cmd >= OUTER_CALL as u8 {
-                    if cur_cmd == DONT_EXPAND as u8 {
+                if cur_cmd >= OUTER_CALL {
+                    if cur_cmd == DONT_EXPAND {
                         /*370:*/
                         cur_cs = MEM[cur_input.loc as usize].b32.s0 - CS_TOKEN_FLAG;
                         cur_input.loc = TEX_NULL;
-                        cur_cmd = EQTB[cur_cs as usize].cmd as u8;
+                        cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                         cur_chr = EQTB[cur_cs as usize].val;
-                        if cur_cmd > MAX_COMMAND as u8 {
-                            cur_cmd = RELAX as u8;
+                        if cur_cmd > MAX_COMMAND {
+                            cur_cmd = RELAX;
                             cur_chr = NO_EXPAND_FLAG;
                         }
                     } else {
@@ -4595,7 +4600,7 @@ pub(crate) unsafe fn get_next() {
                     }
                 }
             } else {
-                cur_cmd = (t / MAX_CHAR_VAL) as eight_bits;
+                cur_cmd = Cmd::from((t / MAX_CHAR_VAL) as u16);
                 cur_chr = t % MAX_CHAR_VAL;
                 match cur_cmd as i32 {
                     1 => {
@@ -4621,14 +4626,14 @@ pub(crate) unsafe fn get_next() {
             end_token_list();
             continue;
         }
-        if cur_cmd <= CAR_RET as u8 && cur_cmd >= TAB_MARK as u8 && align_state == 0 {
+        if cur_cmd <= CAR_RET && cur_cmd >= TAB_MARK && align_state == 0 {
             /*818:*/
             if scanner_status == ScannerStatus::Aligning || cur_align.is_texnull() {
                 fatal_error(b"(interwoven alignment preambles are not allowed)");
             }
-            cur_cmd = MEM[(cur_align + 5) as usize].b32.s0 as eight_bits;
+            cur_cmd = Cmd::from(MEM[(cur_align + 5) as usize].b32.s0 as u16);
             MEM[(cur_align + 5) as usize].b32.s0 = cur_chr;
-            if cur_cmd == OMIT as u8 {
+            if cur_cmd == OMIT {
                 begin_token_list(OMIT_TEMPLATE, Btl::VTemplate);
             } else {
                 begin_token_list(
@@ -4689,7 +4694,7 @@ pub(crate) unsafe fn macro_call() {
         scanner_status = ScannerStatus::Matching;
         unbalance = 0;
         long_state = EQTB[cur_cs as usize].cmd as u8;
-        if long_state as u16 >= OUTER_CALL {
+        if long_state as u16 >= OUTER_CALL as u16 {
             long_state = (long_state as i32 - 2) as u8
         }
         's_135: loop {
@@ -4773,9 +4778,9 @@ pub(crate) unsafe fn macro_call() {
                         }
                     }
                     if cur_tok == par_token {
-                        if long_state as u16 != LONG_CALL {
+                        if long_state as u16 != LONG_CALL as u16 {
                             /*414:*/
-                            if long_state as u16 == CALL {
+                            if long_state as u16 == CALL as u16 {
                                 runaway(); /*411:*/
                                 if file_line_error_style_p != 0 {
                                     print_file_line(); /*413:*/
@@ -4822,9 +4827,9 @@ pub(crate) unsafe fn macro_call() {
                                 p = q;
                                 get_token();
                                 if cur_tok == par_token {
-                                    if long_state as u16 != LONG_CALL {
+                                    if long_state as u16 != LONG_CALL as u16 {
                                         /*414:*/
-                                        if long_state as u16 == CALL {
+                                        if long_state as u16 == CALL as u16 {
                                             runaway();
                                             if file_line_error_style_p != 0 {
                                                 print_file_line();
@@ -5182,12 +5187,12 @@ pub(crate) unsafe fn expand() {
     co_backup = cur_order as small_number;
     backup_backup = MEM[BACKUP_HEAD].b32.s1;
     loop {
-        if (cur_cmd as u16) < CALL {
+        if (cur_cmd) < CALL {
             /*384:*/
             if *INTPAR(IntPar::tracing_commands) > 1 {
                 show_cur_cmd_chr(); /*1612:*/
             }
-            match cur_cmd as u16 {
+            match cur_cmd {
                 TOP_BOT_MARK => {
                     t = cur_chr % 5;
                     if cur_chr >= 5 {
@@ -5228,7 +5233,7 @@ pub(crate) unsafe fn expand() {
                         break;
                     } else {
                         get_token();
-                        if cur_cmd as u16 == IF_TEST && cur_chr != IF_CASE_CODE as i32 {
+                        if cur_cmd == IF_TEST && cur_chr != IF_CASE_CODE as i32 {
                             cur_chr = cur_chr + UNLESS_CODE
                         } else {
                             if file_line_error_style_p != 0 {
@@ -5239,7 +5244,7 @@ pub(crate) unsafe fn expand() {
                             print_cstr(b"You can\'t use `");
                             print_esc_cstr(b"unless");
                             print_cstr(b"\' before `");
-                            print_cmd_chr(cur_cmd as u16, cur_chr);
+                            print_cmd_chr(cur_cmd, cur_chr);
                             print_char('\'' as i32);
                             help_ptr = 1;
                             help_line[0] = b"Continue, and I\'ll forget that it ever happened.";
@@ -5280,7 +5285,7 @@ pub(crate) unsafe fn expand() {
                         }
                         t = prim_eqtb[cur_cs as usize].cmd as i32;
                         if t > MAX_COMMAND as i32 {
-                            cur_cmd = t as eight_bits;
+                            cur_cmd = Cmd::from(t as u16);
                             cur_chr = prim_eqtb[cur_cs as usize].val;
                             cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                             cur_cs = 0;
@@ -5312,7 +5317,7 @@ pub(crate) unsafe fn expand() {
                             break;
                         }
                     }
-                    if cur_cmd as u16 != END_CS_NAME {
+                    if cur_cmd != END_CS_NAME {
                         /*391:*/
                         if file_line_error_style_p != 0 {
                             print_file_line();
@@ -5352,7 +5357,7 @@ pub(crate) unsafe fn expand() {
                         /*:392*/
                     }
                     flush_list(Some(r));
-                    if EQTB[cur_cs as usize].cmd == UNDEFINED_CS {
+                    if Cmd::from(EQTB[cur_cs as usize].cmd) == UNDEFINED_CS {
                         eq_define(cur_cs as usize, RELAX, TOO_BIG_USV);
                     }
                     cur_tok = cur_cs + CS_TOKEN_FLAG;
@@ -5442,7 +5447,7 @@ pub(crate) unsafe fn expand() {
                 }
             }
         } else {
-            if (cur_cmd as u16) < END_TEMPLATE {
+            if (cur_cmd) < END_TEMPLATE {
                 macro_call();
             } else {
                 cur_tok = CS_TOKEN_FLAG + FROZEN_ENDV as i32;
@@ -5464,12 +5469,12 @@ pub(crate) unsafe fn get_x_token() {
         if cur_cmd <= MAX_COMMAND {
             break;
         }
-        if cur_cmd as u16 >= CALL {
-            if (cur_cmd as u16) < END_TEMPLATE {
+        if cur_cmd >= CALL {
+            if (cur_cmd) < END_TEMPLATE {
                 macro_call();
             } else {
                 cur_cs = FROZEN_ENDV as i32;
-                cur_cmd = ENDV as eight_bits;
+                cur_cmd = ENDV;
                 break;
             }
         } else {
@@ -5496,11 +5501,11 @@ pub(crate) unsafe fn x_token() {
 pub(crate) unsafe fn scan_left_brace() {
     loop {
         get_x_token();
-        if !(cur_cmd as u16 == SPACER || cur_cmd as u16 == RELAX) {
+        if !(cur_cmd == SPACER || cur_cmd == RELAX) {
             break;
         }
     }
-    if cur_cmd as u16 != LEFT_BRACE {
+    if cur_cmd != LEFT_BRACE {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -5514,7 +5519,7 @@ pub(crate) unsafe fn scan_left_brace() {
         help_line[0] = b"(If you\'re confused by all this, try typing `I}\' now.)";
         back_error();
         cur_tok = LEFT_BRACE_TOKEN + '{' as i32;
-        cur_cmd = LEFT_BRACE as eight_bits;
+        cur_cmd = LEFT_BRACE;
         cur_chr = '{' as i32;
         align_state += 1
     };
@@ -5522,7 +5527,7 @@ pub(crate) unsafe fn scan_left_brace() {
 pub(crate) unsafe fn scan_optional_equals() {
     loop {
         get_x_token();
-        if !(cur_cmd as u16 == SPACER) {
+        if !(cur_cmd == SPACER) {
             break;
         }
     }
@@ -5724,7 +5729,7 @@ pub(crate) unsafe fn scan_math(p: usize) {
         /*422:*/
         {
             get_x_token();
-            if !(cur_cmd as u16 == SPACER || cur_cmd as u16 == RELAX) {
+            if !(cur_cmd == SPACER || cur_cmd == RELAX) {
                 break;
             }
         }
@@ -5736,7 +5741,7 @@ pub(crate) unsafe fn scan_math(p: usize) {
                         break 'c_118470;
                     }
                     cur_cs = cur_chr + 1;
-                    cur_cmd = EQTB[cur_cs as usize].cmd as eight_bits;
+                    cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                     cur_chr = EQTB[cur_cs as usize].val;
                     x_token();
                     back_input();
@@ -5745,7 +5750,7 @@ pub(crate) unsafe fn scan_math(p: usize) {
                 16 => {
                     scan_char_num();
                     cur_chr = cur_val;
-                    cur_cmd = CHAR_GIVEN as eight_bits
+                    cur_cmd = CHAR_GIVEN;
                 }
                 17 => {
                     if cur_chr == 2 {
@@ -5821,7 +5826,7 @@ pub(crate) unsafe fn set_math_char(mut c: i32) {
     if c as u32 & 0x1fffff_u32 == ACTIVE_MATH_CHAR as u32 {
         /*1187: */
         cur_cs = cur_chr + 1; /* ... "between 0 and 15" */
-        cur_cmd = EQTB[cur_cs as usize].cmd as eight_bits; /* ... "between 0 and 15" */
+        cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd); /* ... "between 0 and 15" */
         cur_chr = EQTB[cur_cs as usize].val;
         x_token();
         back_input();
@@ -5961,10 +5966,10 @@ pub(crate) unsafe fn scan_four_bit_int_or_18() {
 pub(crate) unsafe fn get_x_or_protected() {
     loop {
         get_token();
-        if cur_cmd <= MAX_COMMAND as u8 {
+        if cur_cmd <= MAX_COMMAND {
             return;
         }
-        if cur_cmd as u16 >= CALL && (cur_cmd as u16) < END_TEMPLATE {
+        if cur_cmd >= CALL && (cur_cmd) < END_TEMPLATE {
             if MEM[MEM[cur_chr as usize].b32.s1 as usize].b32.s0 == PROTECTED_TOKEN {
                 return;
             }
@@ -5988,15 +5993,15 @@ pub(crate) unsafe fn scan_font_ident() {
     let mut m: i32 = 0;
     loop {
         get_x_token();
-        if !(cur_cmd as u16 == SPACER) {
+        if !(cur_cmd == SPACER) {
             break;
         }
     }
-    if cur_cmd as u16 == DEF_FONT {
+    if cur_cmd == DEF_FONT {
         f = EQTB[CUR_FONT_LOC].val as usize;
-    } else if cur_cmd as u16 == SET_FONT {
+    } else if cur_cmd == SET_FONT {
         f = cur_chr as usize;
-    } else if cur_cmd as u16 == DEF_FAMILY {
+    } else if cur_cmd == DEF_FAMILY {
         m = cur_chr;
         scan_math_fam_int();
         f = EQTB[(m + cur_val) as usize].val as usize
@@ -6083,7 +6088,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
         s3: 0,
     };
     m = cur_chr;
-    match cur_cmd as u16 {
+    match cur_cmd {
         DEF_CODE => {
             scan_usv_num();
             if m == MATH_CODE_BASE as i32 {
@@ -6195,8 +6200,8 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 back_error();
                 cur_val = 0;
                 cur_val_level = DIMEN_VAL;
-            } else if cur_cmd <= ASSIGN_TOKS as u8 {
-                if cur_cmd < ASSIGN_TOKS as u8 {
+            } else if cur_cmd <= ASSIGN_TOKS {
+                if cur_cmd < ASSIGN_TOKS {
                     if m == 0i32 {
                         scan_register_num();
                         if cur_val < 256 {
@@ -7140,7 +7145,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 print_nl_cstr(b"! ");
             }
             print_cstr(b"You can\'t use `");
-            print_cmd_chr(cur_cmd as u16, cur_chr);
+            print_cmd_chr(cur_cmd, cur_chr);
             print_cstr(b"\' after ");
             print_esc_cstr(b"the");
             help_ptr = 1;
@@ -7187,7 +7192,7 @@ pub(crate) unsafe fn scan_int() {
         /*424:*/
         {
             get_x_token();
-            if !(cur_cmd == SPACER as u8) {
+            if !(cur_cmd == SPACER) {
                 break;
             }
         }
@@ -7204,8 +7209,8 @@ pub(crate) unsafe fn scan_int() {
         get_token(); /*461:*/
         if cur_tok < CS_TOKEN_FLAG {
             cur_val = cur_chr; /*462:*/
-            if cur_cmd <= RIGHT_BRACE as u8 {
-                if cur_cmd == RIGHT_BRACE as u8 {
+            if cur_cmd <= RIGHT_BRACE {
+                if cur_cmd == RIGHT_BRACE {
                     align_state += 1;
                 } else {
                     align_state -= 1;
@@ -7230,7 +7235,7 @@ pub(crate) unsafe fn scan_int() {
             back_error();
         } else {
             get_x_token();
-            if cur_cmd != SPACER as u8 {
+            if cur_cmd != SPACER {
                 back_input();
             }
         }
@@ -7303,7 +7308,7 @@ pub(crate) unsafe fn scan_int() {
             help_line[1] = b"(If you can\'t figure out why I needed to see a number,";
             help_line[0] = b"look up `weird error\' in the index to The TeXbook.)";
             back_error();
-        } else if cur_cmd != SPACER as u8 {
+        } else if cur_cmd != SPACER {
             back_input();
         }
     }
@@ -7345,7 +7350,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
         loop {
             loop {
                 get_x_token();
-                if !(cur_cmd == SPACER as u8) {
+                if !(cur_cmd == SPACER) {
                     break;
                 }
             }
@@ -7424,7 +7429,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     kk -= 1
                 }
                 f = round_decimals(k);
-                if cur_cmd != SPACER as u8 {
+                if cur_cmd != SPACER {
                     back_input();
                 }
             }
@@ -7472,7 +7477,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                         save_cur_val = cur_val;
                         loop {
                             get_x_token();
-                            if !(cur_cmd == SPACER as u8) {
+                            if !(cur_cmd == SPACER) {
                                 break;
                             }
                         }
@@ -7502,7 +7507,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                                     17751730340908002208 => {}
                                     _ => {
                                         get_x_token();
-                                        if cur_cmd != SPACER as u8 {
+                                        if cur_cmd != SPACER {
                                             back_input();
                                         }
                                         current_block = 7531702508219610202;
@@ -7676,7 +7681,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                             _ => {}
                         }
                         get_x_token();
-                        if cur_cmd != SPACER as u8 {
+                        if cur_cmd != SPACER {
                             back_input();
                         }
                     }
@@ -7723,7 +7728,7 @@ pub(crate) unsafe fn scan_glue(mut level: small_number) {
     loop {
         loop {
             get_x_token();
-            if !(cur_cmd == SPACER as u8) {
+            if !(cur_cmd == SPACER) {
                 break;
             }
         }
@@ -7955,7 +7960,7 @@ pub(crate) unsafe fn scan_expr() {
             }
             loop {
                 get_x_token();
-                if !(cur_cmd == SPACER as u8) {
+                if !(cur_cmd == SPACER) {
                     break;
                 }
             }
@@ -7978,7 +7983,7 @@ pub(crate) unsafe fn scan_expr() {
                 /*1572:*//*424:*/
                 {
                     get_x_token();
-                    if !(cur_cmd == SPACER as u8) {
+                    if !(cur_cmd == SPACER) {
                         break;
                     }
                 }
@@ -7993,7 +7998,7 @@ pub(crate) unsafe fn scan_expr() {
                 } else {
                     o = EXPR_NONE as small_number;
                     if p.is_texnull() {
-                        if cur_cmd != RELAX as u8 {
+                        if cur_cmd != RELAX {
                             back_input();
                         }
                     } else if cur_tok != OTHER_TOKEN + 41 {
@@ -8206,7 +8211,7 @@ pub(crate) unsafe fn scan_mu_glue() {
 }
 pub(crate) unsafe fn scan_rule_spec() -> usize {
     let q = new_rule();
-    if cur_cmd == VRULE as u8 {
+    if cur_cmd == VRULE {
         MEM[q + 1].b32.s1 = DEFAULT_RULE
     } else {
         MEM[q + 3].b32.s1 = DEFAULT_RULE;
@@ -8244,7 +8249,7 @@ pub(crate) unsafe fn scan_general_text() {
     loop {
         get_token();
         if cur_tok < RIGHT_BRACE_LIMIT {
-            if cur_cmd < RIGHT_BRACE as u8 {
+            if cur_cmd < RIGHT_BRACE {
                 unbalance += 1
             } else {
                 unbalance -= 1;
@@ -8879,11 +8884,11 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                 current_block = 7086859973843054082;
                 break;
             }
-            if cur_cmd == MAC_PARAM as u8 {
+            if cur_cmd == MAC_PARAM {
                 /*495: */
                 s = MATCH_TOKEN + cur_chr;
                 get_token();
-                if cur_cmd == LEFT_BRACE as u8 {
+                if cur_cmd == LEFT_BRACE {
                     hash_brace = cur_tok;
                     let q = get_avail();
                     MEM[p].b32.s1 = q as i32;
@@ -8935,7 +8940,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                 MEM[p].b32.s1 = q as i32;
                 MEM[q].b32.s0 = END_MATCH_TOKEN;
                 p = q;
-                if cur_cmd == RIGHT_BRACE as u8 {
+                if cur_cmd == RIGHT_BRACE {
                     /*494: */
                     if file_line_error_style_p != 0 {
                         print_file_line();
@@ -8968,17 +8973,17 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                     /*497: */
                     {
                         get_next();
-                        if cur_cmd >= CALL as u8 {
+                        if cur_cmd >= CALL {
                             if MEM[MEM[cur_chr as usize].b32.s1 as usize].b32.s0 == PROTECTED_TOKEN
                             {
-                                cur_cmd = RELAX as u8;
+                                cur_cmd = RELAX;
                                 cur_chr = NO_EXPAND_FLAG;
                             }
                         }
                         if cur_cmd <= MAX_COMMAND {
                             break;
                         }
-                        if cur_cmd != THE as u8 {
+                        if cur_cmd != THE {
                             expand();
                         } else {
                             let q = the_toks();
@@ -8993,7 +8998,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                     get_token();
                 }
                 if cur_tok < RIGHT_BRACE_LIMIT {
-                    if cur_cmd < RIGHT_BRACE as u8 {
+                    if cur_cmd < RIGHT_BRACE {
                         unbalance += 1;
                     } else {
                         unbalance -= 1;
@@ -9001,7 +9006,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                             return found(p, hash_brace);
                         }
                     }
-                } else if cur_cmd == MAC_PARAM as u8 {
+                } else if cur_cmd == MAC_PARAM {
                     if macro_def {
                         /*498: */
                         s = cur_tok;
@@ -9010,7 +9015,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                         } else {
                             get_token();
                         }
-                        if cur_cmd != MAC_PARAM as u8 {
+                        if cur_cmd != MAC_PARAM {
                             if cur_tok <= ZERO_TOKEN || cur_tok > t {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
@@ -9161,14 +9166,14 @@ pub(crate) unsafe fn pass_text() {
     skip_line = line;
     loop {
         get_next();
-        if cur_cmd == FI_OR_ELSE as u8 {
+        if cur_cmd == FI_OR_ELSE {
             if l == 0 {
                 break;
             }
             if cur_chr == FI_CODE as i32 {
                 l -= 1;
             }
-        } else if cur_cmd == IF_TEST as u8 {
+        } else if cur_cmd == IF_TEST {
             l += 1;
         }
     }
@@ -9221,26 +9226,26 @@ pub(crate) unsafe fn conditional() {
     match this_if {
         IF_CHAR_CODE | IF_CAT_CODE => {
             get_x_token();
-            if cur_cmd == RELAX as u8 {
+            if cur_cmd == RELAX {
                 if cur_chr == NO_EXPAND_FLAG {
-                    cur_cmd = ACTIVE_CHAR as u8;
+                    cur_cmd = ACTIVE_CHAR;
                     cur_chr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
                 }
             }
-            let (m, n) = if cur_cmd > ACTIVE_CHAR as u8 || cur_chr > BIGGEST_USV as i32 {
+            let (m, n) = if cur_cmd > ACTIVE_CHAR || cur_chr > BIGGEST_USV as i32 {
                 (RELAX as i32, TOO_BIG_USV)
             } else {
                 (cur_cmd as i32, cur_chr)
             };
             get_x_token();
-            if cur_cmd == RELAX as u8 {
+            if cur_cmd == RELAX {
                 if cur_chr == NO_EXPAND_FLAG {
-                    cur_cmd = ACTIVE_CHAR as u8;
+                    cur_cmd = ACTIVE_CHAR;
                     cur_chr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
                 }
             }
-            if cur_cmd > ACTIVE_CHAR as u8 || cur_chr > BIGGEST_USV as i32 {
-                cur_cmd = RELAX as u8;
+            if cur_cmd > ACTIVE_CHAR || cur_chr > BIGGEST_USV as i32 {
+                cur_cmd = RELAX;
                 cur_chr = TOO_BIG_USV;
             }
             if this_if == 0 {
@@ -9259,7 +9264,7 @@ pub(crate) unsafe fn conditional() {
             let n = cur_val;
             loop {
                 get_x_token();
-                if !(cur_cmd == SPACER as u8) {
+                if !(cur_cmd == SPACER) {
                     break;
                 }
             }
@@ -9354,7 +9359,7 @@ pub(crate) unsafe fn conditional() {
             get_next();
             if cur_cmd as i32 != p {
                 b = false
-            } else if cur_cmd < CALL as u8 {
+            } else if cur_cmd < CALL {
                 b = cur_chr == q
             } else {
                 p = MEM[cur_chr as usize].b32.s1;
@@ -9397,7 +9402,7 @@ pub(crate) unsafe fn conditional() {
             let save_scanner_status = scanner_status;
             scanner_status = ScannerStatus::Normal;
             get_next();
-            b = cur_cmd != UNDEFINED_CS as u8;
+            b = cur_cmd != UNDEFINED_CS;
             scanner_status = save_scanner_status;
             current_block = 16915215315900843183;
         }
@@ -9418,7 +9423,7 @@ pub(crate) unsafe fn conditional() {
                     break;
                 }
             }
-            if cur_cmd != END_CS_NAME as u8 {
+            if cur_cmd != END_CS_NAME {
                 /*391:*/
                 if file_line_error_style_p != 0 {
                     print_file_line(); /*:1556*/
@@ -9455,7 +9460,7 @@ pub(crate) unsafe fn conditional() {
             };
 
             flush_list(Some(n));
-            b = EQTB[cur_cs as usize].cmd != UNDEFINED_CS;
+            b = Cmd::from(EQTB[cur_cs as usize].cmd) != UNDEFINED_CS;
             is_in_csname = e;
             current_block = 16915215315900843183;
         }
@@ -9529,9 +9534,9 @@ pub(crate) unsafe fn conditional() {
             } else {
                 prim_lookup((*hash.offset(cur_cs as isize)).s1)
             } as i32;
-            b = cur_cmd != UNDEFINED_CS as u8
+            b = cur_cmd != UNDEFINED_CS
                 && m != UNDEFINED_PRIMITIVE
-                && cur_cmd as u16 == prim_eqtb[m as usize].cmd
+                && cur_cmd == Cmd::from(prim_eqtb[m as usize].cmd)
                 && cur_chr == prim_eqtb[m as usize].val;
             current_block = 16915215315900843183;
         }
@@ -9758,12 +9763,12 @@ pub(crate) unsafe fn scan_file_name() {
     begin_name();
     loop {
         get_x_token();
-        if !(cur_cmd == SPACER as u8) {
+        if !(cur_cmd == SPACER) {
             break;
         }
     }
     loop {
-        if cur_cmd > OTHER_CHAR as u8 || cur_chr > BIGGEST_CHAR {
+        if cur_cmd > OTHER_CHAR || cur_chr > BIGGEST_CHAR {
             back_input();
             break;
         } else {
@@ -12039,18 +12044,17 @@ pub(crate) unsafe fn pop_alignment() {
 pub(crate) unsafe fn get_preamble_token() {
     loop {
         get_token();
-        while cur_chr == SPAN_CODE && cur_cmd == TAB_MARK as u8 {
+        while cur_chr == SPAN_CODE && cur_cmd == TAB_MARK {
             get_token();
             if cur_cmd > MAX_COMMAND {
                 expand();
                 get_token();
             }
         }
-        if cur_cmd == ENDV as u8 {
+        if cur_cmd == ENDV {
             fatal_error(b"(interwoven alignment preambles are not allowed)");
         }
-        if !(cur_cmd == ASSIGN_GLUE as u8 && cur_chr == GLUE_BASE as i32 + GluePar::tab_skip as i32)
-        {
+        if !(cur_cmd == ASSIGN_GLUE && cur_chr == GLUE_BASE as i32 + GluePar::tab_skip as i32) {
             break;
         }
         scan_optional_equals();
@@ -12113,21 +12117,18 @@ pub(crate) unsafe fn init_align() {
         MEM[cur_align as usize].b32.s1 = new_param_glue(GluePar::tab_skip as small_number) as i32;
         /*:808 */
         cur_align = *LLIST_link(cur_align as usize); /*:807*/
-        if cur_cmd == CAR_RET as u8 {
+        if cur_cmd == CAR_RET {
             break; /*:813*/
         } /*:806 */
         p = HOLD_HEAD as i32;
         MEM[p as usize].b32.s1 = TEX_NULL;
         loop {
             get_preamble_token();
-            if cur_cmd == MAC_PARAM as u8 {
+            if cur_cmd == MAC_PARAM {
                 break;
             }
-            if cur_cmd <= CAR_RET as u8
-                && cur_cmd >= TAB_MARK as u8
-                && align_state as i64 == -1000000
-            {
-                if p == HOLD_HEAD as i32 && cur_loop.is_texnull() && cur_cmd == TAB_MARK as u8 {
+            if cur_cmd <= CAR_RET && cur_cmd >= TAB_MARK && align_state as i64 == -1000000 {
+                if p == HOLD_HEAD as i32 && cur_loop.is_texnull() && cur_cmd == TAB_MARK {
                     cur_loop = cur_align
                 } else {
                     if file_line_error_style_p != 0 {
@@ -12143,7 +12144,7 @@ pub(crate) unsafe fn init_align() {
                     back_error();
                     break;
                 }
-            } else if cur_cmd != SPACER as u8 || p != HOLD_HEAD as i32 {
+            } else if cur_cmd != SPACER || p != HOLD_HEAD as i32 {
                 MEM[p as usize].b32.s1 = get_avail() as i32;
                 p = *LLIST_link(p as usize);
                 MEM[p as usize].b32.s0 = cur_tok;
@@ -12158,13 +12159,10 @@ pub(crate) unsafe fn init_align() {
         MEM[p as usize].b32.s1 = TEX_NULL;
         loop {
             get_preamble_token();
-            if cur_cmd <= CAR_RET as u8
-                && cur_cmd >= TAB_MARK as u8
-                && align_state as i64 == -1000000
-            {
+            if cur_cmd <= CAR_RET && cur_cmd >= TAB_MARK && align_state as i64 == -1000000 {
                 break;
             }
-            if cur_cmd == MAC_PARAM as u8 {
+            if cur_cmd == MAC_PARAM {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -12222,7 +12220,7 @@ pub(crate) unsafe fn init_row() {
 }
 pub(crate) unsafe fn init_col() {
     MEM[(cur_align + 5) as usize].b32.s0 = cur_cmd as i32;
-    if cur_cmd == OMIT as u8 {
+    if cur_cmd == OMIT {
         align_state = 0;
     } else {
         back_input();
@@ -12381,7 +12379,7 @@ pub(crate) unsafe fn fin_col() -> bool {
     align_state = 1000000;
     loop {
         get_x_or_protected();
-        if cur_cmd != SPACER as u8 {
+        if cur_cmd != SPACER {
             break;
         }
     }
@@ -12729,7 +12727,7 @@ pub(crate) unsafe fn fin_align() {
     if cur_list.mode == MMODE {
         /*1241: */
         do_assignments(); /*1232: */
-        if cur_cmd != MATH_SHIFT as u8 {
+        if cur_cmd != MATH_SHIFT {
             /*1242: */
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -12743,7 +12741,7 @@ pub(crate) unsafe fn fin_align() {
             back_error();
         } else {
             get_x_token();
-            if cur_cmd != MATH_SHIFT as u8 {
+            if cur_cmd != MATH_SHIFT {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -12790,22 +12788,22 @@ pub(crate) unsafe fn align_peek() {
         align_state = 1000000;
         loop {
             get_x_or_protected();
-            if cur_cmd != SPACER as u8 {
+            if cur_cmd != SPACER {
                 break;
             }
         }
-        if cur_cmd == NO_ALIGN as u8 {
+        if cur_cmd == NO_ALIGN {
             scan_left_brace();
             new_save_level(GroupCode::NO_ALIGN);
             if cur_list.mode as i32 == -1 {
                 normal_paragraph();
             }
             break;
-        } else if cur_cmd == RIGHT_BRACE as u8 {
+        } else if cur_cmd == RIGHT_BRACE {
             fin_align();
             break;
         } else {
-            if cur_cmd == CAR_RET as u8 && cur_chr == CR_CR_CODE {
+            if cur_cmd == CAR_RET && cur_chr == CR_CR_CODE {
                 continue;
             }
             init_row();
@@ -12820,7 +12818,7 @@ pub(crate) unsafe fn max_hyphenatable_length() -> i32 {
     }
     *INTPAR(IntPar::xetex_hyphenatable_length)
 }
-pub(crate) unsafe fn eTeX_enabled(mut b: bool, mut j: u16, mut k: i32) -> bool {
+pub(crate) unsafe fn eTeX_enabled(mut b: bool, j: Cmd, mut k: i32) -> bool {
     if !b {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -13391,7 +13389,7 @@ pub(crate) unsafe fn you_cant() {
         print_nl_cstr(b"! ");
     }
     print_cstr(b"You can\'t use `");
-    print_cmd_chr(cur_cmd as u16, cur_chr);
+    print_cmd_chr(cur_cmd, cur_chr);
     print_in_mode(cur_list.mode as i32);
 }
 pub(crate) unsafe fn report_illegal_case() {
@@ -13464,7 +13462,7 @@ pub(crate) unsafe fn off_save() {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Extra ");
-        print_cmd_chr(cur_cmd as u16, cur_chr);
+        print_cmd_chr(cur_cmd, cur_chr);
         help_ptr = 1;
         help_line[0] = b"Things are pretty mixed up, but I think the worst is over.";
         error();
@@ -13626,12 +13624,12 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
             /*1113:*/
             {
                 get_x_token();
-                if !(cur_cmd == SPACER as u8 || cur_cmd == RELAX as u8) {
+                if !(cur_cmd == SPACER || cur_cmd == RELAX) {
                     break;
                 }
             }
-            if cur_cmd == HSKIP as u8 && cur_list.mode.abs() != VMODE
-                || cur_cmd == VSKIP as u8 && cur_list.mode.abs() == VMODE
+            if cur_cmd == HSKIP && cur_list.mode.abs() != VMODE
+                || cur_cmd == VSKIP && cur_list.mode.abs() == VMODE
             {
                 append_glue();
                 MEM[cur_list.tail].b16.s0 =
@@ -13841,13 +13839,13 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
 pub(crate) unsafe fn scan_box(mut box_context: i32) {
     loop {
         get_x_token();
-        if !(cur_cmd == SPACER as u8 || cur_cmd == RELAX as u8) {
+        if !(cur_cmd == SPACER || cur_cmd == RELAX) {
             break;
         }
     }
-    if cur_cmd == MAKE_BOX as u8 {
+    if cur_cmd == MAKE_BOX {
         begin_box(box_context);
-    } else if box_context >= LEADER_FLAG && (cur_cmd == HRULE as u8 || cur_cmd == VRULE as u8) {
+    } else if box_context >= LEADER_FLAG && (cur_cmd == HRULE || cur_cmd == VRULE) {
         cur_box = scan_rule_spec() as i32;
         box_end(box_context);
     } else {
@@ -13965,7 +13963,7 @@ pub(crate) unsafe fn indent_in_hmode() {
 }
 pub(crate) unsafe fn head_for_vmode() {
     if (cur_list.mode as i32) < 0 {
-        if cur_cmd != HRULE as u8 {
+        if cur_cmd != HRULE {
             off_save();
         } else {
             if file_line_error_style_p != 0 {
@@ -14004,7 +14002,7 @@ pub(crate) unsafe fn end_graf() {
     };
 }
 pub(crate) unsafe fn begin_insert_or_adjust() {
-    if cur_cmd == VADJUST as u8 {
+    if cur_cmd == VADJUST {
         cur_val = 255;
     } else {
         scan_eight_bit_int();
@@ -14024,7 +14022,7 @@ pub(crate) unsafe fn begin_insert_or_adjust() {
         }
     }
     SAVE_STACK[SAVE_PTR + 0].val = cur_val;
-    if cur_cmd == VADJUST as u8 && scan_keyword(b"pre") {
+    if cur_cmd == VADJUST && scan_keyword(b"pre") {
         SAVE_STACK[SAVE_PTR + 1].val = 1;
     } else {
         SAVE_STACK[SAVE_PTR + 1].val = 0;
@@ -14397,10 +14395,10 @@ pub(crate) unsafe fn make_accent() {
         do_assignments();
         let mut q = None;
         f = EQTB[CUR_FONT_LOC].val as usize;
-        if cur_cmd == LETTER as u8 || cur_cmd == OTHER_CHAR as u8 || cur_cmd == CHAR_GIVEN as u8 {
+        if cur_cmd == LETTER || cur_cmd == OTHER_CHAR || cur_cmd == CHAR_GIVEN {
             q = new_character(f, cur_chr as UTF16_code);
             cur_val = cur_chr
-        } else if cur_cmd == CHAR_NUM as u8 {
+        } else if cur_cmd == CHAR_NUM {
             scan_char_num();
             q = new_character(f, cur_val as UTF16_code)
         } else {
@@ -14464,7 +14462,7 @@ pub(crate) unsafe fn align_error() {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Misplaced ");
-        print_cmd_chr(cur_cmd as u16, cur_chr);
+        print_cmd_chr(cur_cmd, cur_chr);
         if cur_tok == TAB_TOKEN + 38 {
             help_ptr = 6;
             help_line[5] = b"I can\'t figure out why you would want to use a tab mark";
@@ -14821,25 +14819,25 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
     let mut current_block: u64;
     let mut l: i32 = TEX_NULL;
     let mut p: u8 = 0;
-    let mut q = cur_cmd as usize;
+    let mut q = cur_cmd;
     let mut e = false;
-    if q != REGISTER as usize {
+    if q != REGISTER {
         get_x_token();
-        if cur_cmd >= ASSIGN_INT as u8 && cur_cmd <= ASSIGN_MU_GLUE as u8 {
+        if cur_cmd >= ASSIGN_INT && cur_cmd <= ASSIGN_MU_GLUE {
             l = cur_chr;
-            p = cur_cmd - ASSIGN_INT as u8;
+            p = cur_cmd as u8 - ASSIGN_INT as u8;
             current_block = 16534065480145571271;
         } else {
-            if cur_cmd != REGISTER as u8 {
+            if cur_cmd != REGISTER {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
                     print_nl_cstr(b"! ");
                 }
                 print_cstr(b"You can\'t use `");
-                print_cmd_chr(cur_cmd as u16, cur_chr);
+                print_cmd_chr(cur_cmd, cur_chr);
                 print_cstr(b"\' after ");
-                print_cmd_chr(q as u16, 0);
+                print_cmd_chr(q, 0);
                 help_ptr = 1;
                 help_line[0] = b"I\'m forgetting what you said and not changing anything.";
                 error();
@@ -14891,13 +14889,13 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
         s = EQTB[l as usize].val
         /*:1272*/
     } /*1275:*/
-    if q == REGISTER as usize {
+    if q == REGISTER {
         scan_optional_equals();
     } else {
         scan_keyword(b"by");
     }
     arith_error = false;
-    if q < MULTIPLY as usize {
+    if q < MULTIPLY {
         /*1273:*/
         if p < GLUE_VAL {
             if p == INT_VAL {
@@ -14905,14 +14903,14 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
             } else {
                 scan_dimen(false, false, false);
             }
-            if q == ADVANCE as usize {
+            if q == ADVANCE {
                 cur_val = cur_val + w
             }
         } else {
             scan_glue(p as small_number);
-            if q == ADVANCE as usize {
+            if q == ADVANCE {
                 /*1274:*/
-                q = new_spec(cur_val as usize) as usize;
+                let q = new_spec(cur_val as usize) as usize;
                 let r = s;
                 delete_glue_ref(cur_val as usize);
                 MEM[q + 1].b32.s1 = MEM[q + 1].b32.s1 + MEM[(r + 1) as usize].b32.s1;
@@ -14944,7 +14942,7 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
     } else {
         scan_int();
         if p < GLUE_VAL {
-            if q == MULTIPLY as usize {
+            if q == MULTIPLY {
                 if p == INT_VAL {
                     cur_val = mult_and_add(w, cur_val, 0, TEX_INFINITY)
                 } else {
@@ -14955,7 +14953,7 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
             }
         } else {
             let r = new_spec(s as usize);
-            if q == MULTIPLY as usize {
+            if q == MULTIPLY {
                 MEM[r + 1].b32.s1 =
                     mult_and_add(MEM[(s + 1) as usize].b32.s1, cur_val, 0, MAX_HALFWORD);
                 MEM[r + 2].b32.s1 =
@@ -15527,7 +15525,7 @@ pub(crate) unsafe fn do_extension() {
         }
         4 => {
             get_x_token();
-            if cur_cmd == EXTENSION as u8 && cur_chr <= CLOSE_NODE as i32 {
+            if cur_cmd == EXTENSION && cur_chr <= CLOSE_NODE as i32 {
                 p = cur_list.tail;
                 do_extension();
                 out_what(cur_list.tail);
@@ -15935,10 +15933,10 @@ pub(crate) unsafe fn main_control() {
                 }
                 169 => {
                     get_x_token();
-                    if cur_cmd == LETTER as u8
-                        || cur_cmd == OTHER_CHAR as u8
-                        || cur_cmd == CHAR_GIVEN as u8
-                        || cur_cmd == CHAR_NUM as u8
+                    if cur_cmd == LETTER
+                        || cur_cmd == OTHER_CHAR
+                        || cur_cmd == CHAR_GIVEN
+                        || cur_cmd == CHAR_NUM
                     {
                         cancel_boundary = true;
                     }
@@ -15958,8 +15956,8 @@ pub(crate) unsafe fn main_control() {
                             );
                             if !cur_ptr.is_texnull() {
                                 if cur_cs == 0 {
-                                    if cur_cmd == CHAR_NUM as u8 {
-                                        cur_cmd = OTHER_CHAR as u8
+                                    if cur_cmd == CHAR_NUM {
+                                        cur_cmd = OTHER_CHAR;
                                     }
                                     cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
                                 } else {
@@ -15992,7 +15990,7 @@ pub(crate) unsafe fn main_control() {
                             if cur_chr == 0 {
                                 loop {
                                     get_x_token();
-                                    if !(cur_cmd == SPACER as u8) {
+                                    if !(cur_cmd == SPACER) {
                                         break;
                                     }
                                 }
@@ -16010,7 +16008,7 @@ pub(crate) unsafe fn main_control() {
                                 if !(cur_cs != UNDEFINED_PRIMITIVE) {
                                     continue 'c_125208;
                                 }
-                                cur_cmd = prim_eqtb[cur_cs as usize].cmd as u8;
+                                cur_cmd = Cmd::from(prim_eqtb[cur_cs as usize].cmd);
                                 cur_chr = prim_eqtb[cur_cs as usize].val;
                                 continue;
                             }
@@ -16177,11 +16175,7 @@ pub(crate) unsafe fn main_control() {
                         }
                         137 => {
                             if cur_chr > 0 {
-                                if eTeX_enabled(
-                                    *INTPAR(IntPar::texxet) > 0,
-                                    cur_cmd as u16,
-                                    cur_chr,
-                                ) {
+                                if eTeX_enabled(*INTPAR(IntPar::texxet) > 0, cur_cmd, cur_chr) {
                                     MEM[cur_list.tail].b32.s1 =
                                         new_math(0, cur_chr as small_number) as i32;
                                     cur_list.tail = *LLIST_link(cur_list.tail) as usize;
@@ -16455,8 +16449,8 @@ pub(crate) unsafe fn main_control() {
                                     false,
                                 );
                                 if !cur_ptr.is_texnull() {
-                                    if cur_cmd != LETTER as u8 {
-                                        cur_cmd = OTHER_CHAR as u8
+                                    if cur_cmd != LETTER {
+                                        cur_cmd = OTHER_CHAR;
                                     }
                                     cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                     back_input();
@@ -16475,8 +16469,8 @@ pub(crate) unsafe fn main_control() {
                                 false,
                             );
                             if !cur_ptr.is_texnull() {
-                                if cur_cmd != LETTER as u8 {
-                                    cur_cmd = OTHER_CHAR as u8;
+                                if cur_cmd != LETTER {
+                                    cur_cmd = OTHER_CHAR;
                                 }
                                 cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                 back_input();
@@ -16532,20 +16526,14 @@ pub(crate) unsafe fn main_control() {
                         main_h = native_len
                     }
                     get_next();
-                    if cur_cmd == LETTER as u8
-                        || cur_cmd == OTHER_CHAR as u8
-                        || cur_cmd == CHAR_GIVEN as u8
-                    {
+                    if cur_cmd == LETTER || cur_cmd == OTHER_CHAR || cur_cmd == CHAR_GIVEN {
                         continue;
                     }
                     x_token();
-                    if cur_cmd == LETTER as u8
-                        || cur_cmd == OTHER_CHAR as u8
-                        || cur_cmd == CHAR_GIVEN as u8
-                    {
+                    if cur_cmd == LETTER || cur_cmd == OTHER_CHAR || cur_cmd == CHAR_GIVEN {
                         continue;
                     }
-                    if cur_cmd == CHAR_NUM as u8 {
+                    if cur_cmd == CHAR_NUM {
                         scan_usv_num();
                         cur_chr = cur_val
                     } else if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
@@ -16569,8 +16557,8 @@ pub(crate) unsafe fn main_control() {
                         );
                         if !cur_ptr.is_texnull() {
                             if cur_cs == 0 {
-                                if cur_cmd == CHAR_NUM as u8 {
-                                    cur_cmd = OTHER_CHAR as u8
+                                if cur_cmd == CHAR_NUM {
+                                    cur_cmd = OTHER_CHAR;
                                 }
                                 cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
                             } else {
@@ -17043,8 +17031,8 @@ pub(crate) unsafe fn main_control() {
                                 false,
                             );
                             if !cur_ptr.is_texnull() {
-                                if cur_cmd != LETTER as u8 {
-                                    cur_cmd = OTHER_CHAR as u8;
+                                if cur_cmd != LETTER {
+                                    cur_cmd = OTHER_CHAR;
                                 }
                                 cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                 back_input();
@@ -17063,8 +17051,8 @@ pub(crate) unsafe fn main_control() {
                             false,
                         );
                         if !cur_ptr.is_texnull() {
-                            if cur_cmd != LETTER as u8 {
-                                cur_cmd = OTHER_CHAR as u8;
+                            if cur_cmd != LETTER {
+                                cur_cmd = OTHER_CHAR;
                             }
                             cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                             back_input();
@@ -17363,26 +17351,26 @@ pub(crate) unsafe fn main_control() {
                                 // lab100:
                                 /*main_loop_lookahead *//*1073: */
                                 get_next();
-                                if cur_cmd == LETTER as u8 {
+                                if cur_cmd == LETTER {
                                     current_block = 10120566026430170701;
-                                } else if cur_cmd == OTHER_CHAR as u8 {
+                                } else if cur_cmd == OTHER_CHAR {
                                     current_block = 10120566026430170701;
-                                } else if cur_cmd == CHAR_GIVEN as u8 {
+                                } else if cur_cmd == CHAR_GIVEN {
                                     current_block = 10120566026430170701;
                                 } else {
                                     x_token();
-                                    if cur_cmd == LETTER as u8 {
+                                    if cur_cmd == LETTER {
                                         current_block = 10120566026430170701;
-                                    } else if cur_cmd == OTHER_CHAR as u8 {
+                                    } else if cur_cmd == OTHER_CHAR {
                                         current_block = 10120566026430170701;
-                                    } else if cur_cmd == CHAR_GIVEN as u8 {
+                                    } else if cur_cmd == CHAR_GIVEN {
                                         current_block = 10120566026430170701;
-                                    } else if cur_cmd == CHAR_NUM as u8 {
+                                    } else if cur_cmd == CHAR_NUM {
                                         scan_char_num();
                                         cur_chr = cur_val;
                                         current_block = 10120566026430170701;
                                     } else {
-                                        if cur_cmd == NO_BOUNDARY as u8 {
+                                        if cur_cmd == NO_BOUNDARY {
                                             bchar = TOO_BIG_CHAR;
                                         }
                                         cur_r = bchar;
@@ -17424,8 +17412,8 @@ pub(crate) unsafe fn main_control() {
                                                         false,
                                                     );
                                                     if !cur_ptr.is_texnull() {
-                                                        if cur_cmd != LETTER as u8 {
-                                                            cur_cmd = OTHER_CHAR as u8
+                                                        if cur_cmd != LETTER {
+                                                            cur_cmd = OTHER_CHAR
                                                         }
                                                         cur_tok =
                                                             cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
@@ -17446,8 +17434,8 @@ pub(crate) unsafe fn main_control() {
                                                     false,
                                                 );
                                                 if !cur_ptr.is_texnull() {
-                                                    if cur_cmd != LETTER as u8 {
-                                                        cur_cmd = OTHER_CHAR as u8;
+                                                    if cur_cmd != LETTER {
+                                                        cur_cmd = OTHER_CHAR;
                                                     }
                                                     cur_tok =
                                                         cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
@@ -17621,8 +17609,8 @@ pub(crate) unsafe fn main_control() {
                     );
                     if !cur_ptr.is_texnull() {
                         if cur_cs == 0 {
-                            if cur_cmd == CHAR_NUM as u8 {
-                                cur_cmd = OTHER_CHAR as u8;
+                            if cur_cmd == CHAR_NUM {
+                                cur_cmd = OTHER_CHAR;
                             }
                             cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
                         } else {
@@ -17881,11 +17869,11 @@ pub(crate) unsafe fn do_assignments() {
     loop {
         loop {
             get_x_token();
-            if !(cur_cmd == SPACER as u8 || cur_cmd == RELAX as u8) {
+            if !(cur_cmd == SPACER || cur_cmd == RELAX) {
                 break;
             }
         }
-        if cur_cmd <= MAX_NON_PREFIXED_COMMAND as u8 {
+        if cur_cmd as u8 <= MAX_NON_PREFIXED_COMMAND as u8 {
             return;
         }
         set_box_allowed = false;

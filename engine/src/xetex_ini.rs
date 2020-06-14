@@ -45,7 +45,7 @@ use crate::xetex_xetex0::{
     scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int, show_cur_cmd_chr,
     show_save_groups, start_input, trap_zero_glue,
 };
-use crate::xetex_xetexd::{set_class, set_family, LLIST_link, TeXOpt};
+use crate::xetex_xetexd::{set_class, set_family, LLIST_link, TeXOpt, UTF8};
 use bridge::{
     ttstub_input_close, ttstub_input_open, ttstub_output_close, ttstub_output_open,
     ttstub_output_open_stdout,
@@ -217,18 +217,12 @@ impl Default for memory_word {
     }
 }
 
-#[derive(Copy, Clone, Default, PartialEq, Eq)]
+#[derive(Copy, Clone, Default, PartialEq, Eq, derive_more::Constructor)]
 #[repr(C)]
 pub(crate) struct EqtbWord {
     pub(crate) lvl: u16, // b16.s0
     pub(crate) cmd: u16, // b16.s1
     pub(crate) val: i32, // b32.s1
-}
-
-impl EqtbWord {
-    pub(crate) const fn new(lvl: u16, cmd: u16, val: i32) -> Self {
-        Self { lvl, cmd, val }
-    }
 }
 
 /* ## THE ORIGINAL SITUATION (archived for posterity)
@@ -675,7 +669,7 @@ pub(crate) static mut cur_boundary: i32 = 0;
 #[no_mangle]
 pub(crate) static mut mag_set: i32 = 0;
 #[no_mangle]
-pub(crate) static mut cur_cmd: eight_bits = 0;
+pub(crate) static mut cur_cmd: Cmd = Cmd::Relax;
 #[no_mangle]
 pub(crate) static mut cur_chr: i32 = 0;
 #[no_mangle]
@@ -1222,7 +1216,7 @@ unsafe fn sort_avail() {
 }
 /*:271*/
 /*276: */
-unsafe fn primitive<I>(ident: &[u8], c: u16, o: I)
+unsafe fn primitive<I>(ident: &[u8], c: Cmd, o: I)
 where
     I: std::convert::TryInto<i32>,
     <I as std::convert::TryInto<i32>>::Error: std::fmt::Debug,
@@ -1248,10 +1242,10 @@ where
         prim_val = prim_lookup(ident[0] as str_number)
     }
     EQTB[cur_val as usize].lvl = LEVEL_ONE;
-    EQTB[cur_val as usize].cmd = c;
+    EQTB[cur_val as usize].cmd = c as u16;
     EQTB[cur_val as usize].val = o;
     prim_eqtb[prim_val as usize].lvl = LEVEL_ONE;
-    prim_eqtb[prim_val as usize].cmd = c;
+    prim_eqtb[prim_val as usize].cmd = c as u16;
     prim_eqtb[prim_val as usize].val = o;
 }
 /*:925*/
@@ -1471,7 +1465,7 @@ unsafe fn new_patterns() {
         digit_sensed = false;
         loop {
             get_x_token();
-            match cur_cmd as u16 {
+            match cur_cmd {
                 LETTER | OTHER_CHAR => {
                     if digit_sensed || cur_chr < '0' as i32 || cur_chr > '9' as i32 {
                         if cur_chr == '.' as i32 {
@@ -1572,7 +1566,7 @@ unsafe fn new_patterns() {
                         }
                         *trie_o.offset(q as isize) = v
                     }
-                    if cur_cmd as u16 == RIGHT_BRACE {
+                    if cur_cmd == RIGHT_BRACE {
                         break;
                     }
                     k = 0;
@@ -1886,7 +1880,7 @@ unsafe fn new_hyph_exceptions() {
     's_91: loop {
         get_x_token();
         loop {
-            match cur_cmd as u16 {
+            match cur_cmd {
                 LETTER | OTHER_CHAR | CHAR_GIVEN => {
                     if cur_chr == '-' as i32 {
                         /*973:*/
@@ -1934,7 +1928,7 @@ unsafe fn new_hyph_exceptions() {
                 CHAR_NUM => {
                     scan_char_num();
                     cur_chr = cur_val;
-                    cur_cmd = CHAR_GIVEN as u8;
+                    cur_cmd = CHAR_GIVEN;
                 }
                 SPACER | RIGHT_BRACE => {
                     if n > 1 {
@@ -2041,7 +2035,7 @@ unsafe fn new_hyph_exceptions() {
             _ => {}
         }
 
-        if cur_cmd as u16 == RIGHT_BRACE {
+        if cur_cmd == RIGHT_BRACE {
             return;
         }
 
@@ -2061,17 +2055,17 @@ pub(crate) unsafe fn prefixed_command() {
 
     let mut a = 0 as small_number;
 
-    while cur_cmd == PREFIX as u8 {
+    while cur_cmd == PREFIX {
         if a as i32 / cur_chr & 1i32 == 0 {
             a = (a as i32 + cur_chr) as small_number
         }
         loop {
             get_x_token();
-            if !(cur_cmd == SPACER as u8 || cur_cmd == RELAX as u8) {
+            if !(cur_cmd == SPACER || cur_cmd == RELAX) {
                 break;
             }
         }
-        if cur_cmd <= MAX_NON_PREFIXED_COMMAND as u8 {
+        if cur_cmd <= MAX_NON_PREFIXED_COMMAND {
             /*1247:*/
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -2079,7 +2073,7 @@ pub(crate) unsafe fn prefixed_command() {
                 print_nl_cstr(b"! ");
             }
             print_cstr(b"You can\'t use a prefix with `");
-            print_cmd_chr(cur_cmd as u16, cur_chr);
+            print_cmd_chr(cur_cmd, cur_chr);
             print_char('\'' as i32);
             help_ptr = 1_u8;
             help_line[0] =
@@ -2097,7 +2091,7 @@ pub(crate) unsafe fn prefixed_command() {
     } else {
         j = 0;
     }
-    if cur_cmd != DEF as u8 && (a % 4 != 0 || j != 0) {
+    if cur_cmd != DEF && (a % 4 != 0 || j != 0) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -2112,7 +2106,7 @@ pub(crate) unsafe fn prefixed_command() {
         print_cstr(b"\' or `");
         print_esc_cstr(b"protected");
         print_cstr(b"\' with `");
-        print_cmd_chr(cur_cmd as u16, cur_chr);
+        print_cmd_chr(cur_cmd, cur_chr);
         print_char('\'' as i32);
         error();
     }
@@ -2150,10 +2144,10 @@ pub(crate) unsafe fn prefixed_command() {
                 MEM[def_ref].b32.s1 = q
             }
             if a >= 4 {
-                geq_define(p as usize, CALL + (a % 4) as u16,
+                geq_define(p as usize, Cmd::from(CALL as u16 + (a % 4) as u16),
                            def_ref as i32);
             } else {
-                eq_define(p as usize, CALL + (a % 4) as u16,
+                eq_define(p as usize, Cmd::from(CALL as u16 + (a % 4) as u16),
                           def_ref as i32);
             }
         }
@@ -2164,11 +2158,11 @@ pub(crate) unsafe fn prefixed_command() {
             if n == NORMAL as i32 {
                 loop  {
                     get_token();
-                    if !(cur_cmd == SPACER as u8) { break ; }
+                    if !(cur_cmd == SPACER) { break ; }
                 }
                 if cur_tok == OTHER_TOKEN + '=' as i32 {
                     get_token();
-                    if cur_cmd == SPACER as u8 { get_token(); }
+                    if cur_cmd == SPACER { get_token(); }
                 }
             } else {
                 get_token();
@@ -2178,18 +2172,18 @@ pub(crate) unsafe fn prefixed_command() {
                 cur_tok = q;
                 back_input();
             }
-            if cur_cmd >= CALL as u8 {
+            if cur_cmd >= CALL {
                 MEM[cur_chr as usize].b32.s0 += 1
-            } else if cur_cmd == REGISTER as u8 ||
-                          cur_cmd == TOKS_REGISTER as u8 {
+            } else if cur_cmd == REGISTER ||
+                          cur_cmd == TOKS_REGISTER {
                 if cur_chr < 0 || cur_chr > 19 {
                     /* 19 = lo_mem_stat_max, I think */
                     MEM[(cur_chr + 1) as usize].b32.s0 += 1;
                 }
             }
             if a >= 4 {
-                geq_define(p as usize, cur_cmd as u16, cur_chr);
-            } else { eq_define(p as usize, cur_cmd as u16, cur_chr); }
+                geq_define(p as usize, cur_cmd, cur_chr);
+            } else { eq_define(p as usize, cur_cmd, cur_chr); }
         }
         SHORTHAND_DEF => {
             if cur_chr == CHAR_SUB_DEF_CODE {
@@ -2277,10 +2271,10 @@ pub(crate) unsafe fn prefixed_command() {
                                             true);
                             MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
 
-                            if j == TOK_VAL as i32 { j = TOKS_REGISTER as i32 } else { j = REGISTER as i32 }
+                            let j = if j == TOK_VAL as i32 { TOKS_REGISTER } else { REGISTER };
                             if a >= 4 {
-                                geq_define(p as usize, j as u16, cur_ptr);
-                            } else { eq_define(p as usize, j as u16, cur_ptr); }
+                                geq_define(p as usize, j, cur_ptr);
+                            } else { eq_define(p as usize, j, cur_ptr); }
                         } else {
                             match n {
                                 COUNT_DEF_CODE => {
@@ -2353,7 +2347,7 @@ pub(crate) unsafe fn prefixed_command() {
         TOKS_REGISTER | ASSIGN_TOKS => {
             q = cur_cs;
             e = false;
-            if cur_cmd == TOKS_REGISTER as u8 {
+            if cur_cmd == TOKS_REGISTER {
                 if cur_chr == 0 {
                     scan_register_num();
                     if cur_val > 255 {
@@ -2378,16 +2372,16 @@ pub(crate) unsafe fn prefixed_command() {
             scan_optional_equals();
             loop  {
                 get_x_token();
-                if !(cur_cmd == SPACER as u8 ||
-                         cur_cmd == RELAX as u8) {
+                if !(cur_cmd == SPACER ||
+                         cur_cmd == RELAX) {
                     break ;
                 }
             }
-            if cur_cmd != LEFT_BRACE as u8 {
+            if cur_cmd != LEFT_BRACE {
                 /*1262:*/
-                if cur_cmd == TOKS_REGISTER as u8 ||
-                       cur_cmd == ASSIGN_TOKS as u8 {
-                    if cur_cmd == TOKS_REGISTER as u8 {
+                if cur_cmd == TOKS_REGISTER ||
+                       cur_cmd == ASSIGN_TOKS {
+                    if cur_cmd == TOKS_REGISTER {
                         if cur_chr == 0 {
                             scan_register_num(); /* "extended delimiter code flag" */
                             if cur_val < 256 {
@@ -2508,7 +2502,7 @@ pub(crate) unsafe fn prefixed_command() {
             p = cur_chr;
             let n = cur_cmd;
             scan_optional_equals();
-            if n == ASSIGN_MU_GLUE as u8 {
+            if n == ASSIGN_MU_GLUE {
                 scan_glue(MU_VAL as i16);
             } else { scan_glue(GLUE_VAL as i16); }
             trap_zero_glue();
@@ -2746,7 +2740,7 @@ pub(crate) unsafe fn prefixed_command() {
                     error();
                     loop  {
                         get_token();
-                        if cur_cmd == RIGHT_BRACE as u8 { break ; }
+                        if cur_cmd == RIGHT_BRACE { break ; }
                     }
                     return
                 }
@@ -3897,27 +3891,26 @@ unsafe fn load_fmt_file() -> bool {
 }
 
 unsafe fn final_cleanup() {
-    let mut c: small_number = 0;
-    c = cur_chr as small_number;
-    if job_name == 0i32 {
+    let mut c = cur_chr as small_number;
+    if job_name == 0 {
         open_log_file();
     }
     while INPUT_PTR > 0 {
-        if cur_input.state == 0 {
+        if cur_input.state == TOKEN_LIST {
             end_token_list();
         } else {
             end_file_reading();
         }
     }
-    while open_parens > 0i32 {
+    while open_parens > 0 {
         print_cstr(b" )");
-        open_parens -= 1
+        open_parens -= 1;
     }
-    if cur_level as i32 > 1i32 {
+    if cur_level > LEVEL_ONE {
         print_nl('(' as i32);
         print_esc_cstr(b"end occurred ");
         print_cstr(b"inside a group at level ");
-        print_int(cur_level as i32 - 1i32);
+        print_int(cur_level as i32 - 1);
         print_char(')' as i32);
         show_save_groups();
     }
@@ -3925,8 +3918,8 @@ unsafe fn final_cleanup() {
         print_nl('(' as i32);
         print_esc_cstr(b"end occurred ");
         print_cstr(b"when ");
-        print_cmd_chr(107_u16, cur_if as i32);
-        if if_line != 0i32 {
+        print_cmd_chr(IF_TEST, cur_if as i32);
+        if if_line != 0 {
             print_cstr(b" on line ");
             print_int(if_line);
         }
@@ -3935,10 +3928,10 @@ unsafe fn final_cleanup() {
         cur_if = MEM[cond_ptr as usize].b16.s0 as small_number;
         temp_ptr = cond_ptr;
         cond_ptr = MEM[cond_ptr as usize].b32.s1;
-        free_node(temp_ptr as usize, 2i32);
+        free_node(temp_ptr as usize, IF_NODE_SIZE);
     }
     if history != TTHistory::SPOTLESS {
-        if history == TTHistory::WARNING_ISSUED || (interaction as i32) < 3i32 {
+        if history == TTHistory::WARNING_ISSUED || interaction < ERROR_STOP_MODE {
             if selector == Selector::TERM_AND_LOG {
                 selector = Selector::TERM_ONLY;
                 print_nl_cstr(b"(see the transcript file for additional information)");
@@ -3946,11 +3939,10 @@ unsafe fn final_cleanup() {
             }
         }
     }
-    if c as i32 == 1i32 {
+    if c == 1 {
         if in_initex_mode {
-            let mut for_end: i32 = 0;
-            c = 0i32 as small_number;
-            for_end = 4i32;
+            c = TOP_MARK_CODE as i16;
+            let mut for_end = SPLIT_BOT_MARK_CODE as i32;
             if c as i32 <= for_end {
                 loop {
                     if !cur_mark[c as usize].is_texnull() {
@@ -3963,14 +3955,13 @@ unsafe fn final_cleanup() {
                     }
                 }
             }
-            if !sa_root[7].is_texnull() {
-                if do_marks(3i32 as small_number, 0i32 as small_number, sa_root[7]) {
-                    sa_root[7] = TEX_NULL
+            if !sa_root[MARK_VAL as usize].is_texnull() {
+                if do_marks(3, 0, sa_root[MARK_VAL as usize]) {
+                    sa_root[MARK_VAL as usize] = TEX_NULL;
                 }
             }
-            let mut for_end_0: i32 = 0;
-            c = 2i32 as small_number;
-            for_end_0 = 3i32;
+            c = LAST_BOX_CODE as i16;
+            let mut for_end_0 = VSPLIT_CODE;
             if c as i32 <= for_end_0 {
                 loop {
                     flush_node_list(disc_ptr[c as usize].opt());
@@ -3981,7 +3972,7 @@ unsafe fn final_cleanup() {
                     }
                 }
             }
-            if last_glue != 0x3fffffffi32 {
+            if last_glue != MAX_HALFWORD {
                 delete_glue_ref(last_glue as usize);
             }
             store_fmt_file();
@@ -4002,19 +3993,19 @@ static mut stdin_ufile: UFILE = UFILE {
 unsafe fn init_io() {
     /* This is largely vestigial at this point */
     stdin_ufile.handle = None;
-    stdin_ufile.savedChar = -1i32 as i64;
-    stdin_ufile.skipNextLF = 0_i16;
-    stdin_ufile.encodingMode = 1_i16;
+    stdin_ufile.savedChar = -1;
+    stdin_ufile.skipNextLF = 0;
+    stdin_ufile.encodingMode = UTF8;
     stdin_ufile.conversionData = 0 as *mut libc::c_void;
     INPUT_FILE[0] = &mut stdin_ufile;
+
     BUFFER[first as usize] = 0;
     last = first;
     cur_input.loc = first;
     cur_input.limit = last;
-    first = last + 1i32;
+    first = last + 1;
 }
 unsafe fn initialize_more_variables() {
-    let mut z: hyph_pointer = 0;
     doing_special = false;
     native_text_size = 128;
     native_text = xmalloc(
@@ -4058,7 +4049,7 @@ unsafe fn initialize_more_variables() {
     }
 
     prim_eqtb[0].lvl = LEVEL_ZERO;
-    prim_eqtb[0].cmd = UNDEFINED_CS;
+    prim_eqtb[0].cmd = UNDEFINED_CS as u16;
     prim_eqtb[0].val = TEX_NULL;
 
     for k in 1..=PRIM_SIZE {
@@ -4206,7 +4197,7 @@ unsafe fn initialize_more_initex_variables() {
     hi_mem_min = PRE_ADJUST_HEAD as i32;
     var_used = 20;
     dyn_used = HI_MEM_STAT_USAGE;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE].cmd = UNDEFINED_CS;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE].cmd = UNDEFINED_CS as u16;
     EQTB[UNDEFINED_CONTROL_SEQUENCE].val = TEX_NULL;
     EQTB[UNDEFINED_CONTROL_SEQUENCE].lvl = LEVEL_ZERO;
 
@@ -4216,7 +4207,7 @@ unsafe fn initialize_more_initex_variables() {
 
     EQTB[GLUE_BASE].val = 0;
     EQTB[GLUE_BASE].lvl = LEVEL_ONE;
-    EQTB[GLUE_BASE].cmd = GLUE_REF;
+    EQTB[GLUE_BASE].cmd = GLUE_REF as u16;
 
     for k in GLUE_BASE..=LOCAL_BASE {
         EQTB[k] = EQTB[GLUE_BASE];
@@ -4236,7 +4227,7 @@ unsafe fn initialize_more_initex_variables() {
     }
 
     EQTB[BOX_BASE].val = TEX_NULL;
-    EQTB[BOX_BASE].cmd = BOX_REF;
+    EQTB[BOX_BASE].cmd = BOX_REF as u16;
     EQTB[BOX_BASE].lvl = LEVEL_ONE;
 
     for k in (BOX_BASE + 1)..=(BOX_BASE + NUMBER_REGS - 1) {
@@ -4244,7 +4235,7 @@ unsafe fn initialize_more_initex_variables() {
     }
 
     EQTB[CUR_FONT_LOC].val = FONT_BASE as i32;
-    EQTB[CUR_FONT_LOC].cmd = DATA;
+    EQTB[CUR_FONT_LOC].cmd = DATA as u16;
     EQTB[CUR_FONT_LOC].lvl = LEVEL_ONE;
 
     for k in MATH_FONT_BASE..=(MATH_FONT_BASE + NUMBER_MATH_FONTS - 1) {
@@ -4252,7 +4243,7 @@ unsafe fn initialize_more_initex_variables() {
     }
 
     EQTB[CAT_CODE_BASE].val = 0;
-    EQTB[CAT_CODE_BASE].cmd = DATA;
+    EQTB[CAT_CODE_BASE].cmd = DATA as u16;
     EQTB[CAT_CODE_BASE].lvl = LEVEL_ONE;
 
     for k in (CAT_CODE_BASE + 1)..=(INT_BASE as usize - 1) {
@@ -4317,9 +4308,9 @@ unsafe fn initialize_more_initex_variables() {
     cs_count = 0;
     EQTB[FROZEN_DONT_EXPAND as usize].cmd = DONT_EXPAND as _;
     (*hash.offset(FROZEN_DONT_EXPAND as isize)).s1 = maketexstring(b"notexpanded:");
-    EQTB[FROZEN_PRIMITIVE as usize].cmd = IGNORE_SPACES;
+    EQTB[FROZEN_PRIMITIVE as usize].cmd = IGNORE_SPACES as u16;
     EQTB[FROZEN_PRIMITIVE as usize].val = 1;
-    EQTB[FROZEN_PRIMITIVE as usize].lvl = LEVEL_ONE as _;
+    EQTB[FROZEN_PRIMITIVE as usize].lvl = LEVEL_ONE;
     (*hash.offset(FROZEN_PRIMITIVE as isize)).s1 = maketexstring(b"primitive");
 
     for k in (-TRIE_OP_SIZE)..=TRIE_OP_SIZE {
@@ -4339,7 +4330,7 @@ unsafe fn initialize_more_initex_variables() {
 
     (*hash.offset(END_WRITE as isize)).s1 = maketexstring(b"endwrite");
     EQTB[END_WRITE as usize].lvl = LEVEL_ONE;
-    EQTB[END_WRITE as usize].cmd = OUTER_CALL;
+    EQTB[END_WRITE as usize].cmd = OUTER_CALL as u16;
     EQTB[END_WRITE as usize].val = TEX_NULL;
 
     max_reg_num = 32767;
@@ -4928,7 +4919,7 @@ unsafe fn initialize_primitives() {
     primitive(b"omit", OMIT, 0);
     primitive(
         b"parshape",
-        85_u16,
+        SET_SHAPE,
         LOCAL_BASE as i32 + Local::par_shape as i32,
     );
     primitive(b"penalty", BREAK_PENALTY, 0);
