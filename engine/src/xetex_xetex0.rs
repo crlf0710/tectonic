@@ -15930,13 +15930,17 @@ pub(crate) unsafe fn main_control() {
             if *INTPAR(IntPar::tracing_commands) > 0i32 {
                 show_cur_cmd_chr(); /*:1490 */
             }
-            match cur_list.mode.1 as i16 + cur_cmd as i16 {
-                115 | 116 | 172 => {}
-                120 => {
+            use ListMode::*;
+            match (cur_list.mode.1, cur_cmd) {
+                (HMode, Cmd::Letter) | (HMode, Cmd::OtherChar) | (HMode, Cmd::CharGiven) => { // 115 | 116 | 172
+                }
+                (HMode, Cmd::CharNum) => {
+                    // 120
                     scan_usv_num();
                     cur_chr = cur_val;
                 }
-                169 => {
+                (HMode, Cmd::NoBoundary) => {
+                    // 169
                     get_x_token();
                     if cur_cmd == Cmd::Letter
                         || cur_cmd == Cmd::OtherChar
@@ -15977,8 +15981,9 @@ pub(crate) unsafe fn main_control() {
                             }
                         }
                     }
-                    match cur_list.mode.1 as i16 + cur_cmd as i16 {
-                        114 => {
+                    match (cur_list.mode.1, cur_cmd) {
+                        (HMode, Cmd::Spacer) => {
+                            // 114
                             if cur_list.aux.b32.s0 == 1000 {
                                 current_block = 1496671425652391013;
                                 break;
@@ -15987,11 +15992,15 @@ pub(crate) unsafe fn main_control() {
                                 break;
                             }
                         }
-                        168 | 271 => {
+                        (HMode, Cmd::ExSpace) | (MMode, Cmd::ExSpace) => {
+                            // 168 | 271
                             current_block = 1496671425652391013;
                             break;
                         }
-                        40 | 143 | 246 => {
+                        (VMode, Cmd::IgnoreSpaces)
+                        | (HMode, Cmd::IgnoreSpaces)
+                        | (MMode, Cmd::IgnoreSpaces) => {
+                            // 40 | 143 | 246
                             if cur_chr == 0 {
                                 loop {
                                     get_x_token();
@@ -16018,24 +16027,82 @@ pub(crate) unsafe fn main_control() {
                                 continue;
                             }
                         }
-                        15 => {
+                        (VMode, Cmd::Comment) => {
+                            // 15
                             if its_all_over() {
                                 return;
                             }
                             continue 'c_125208;
                         }
-                        23 | 125 | 228 | 72 | 175 | 278 | 39 | 45 | 49 | 152 | 7 | 110 | 213 => {
+                        (VMode, Cmd::VMove)
+                        | (HMode, Cmd::HMove)
+                        | (MMode, Cmd::HMove)
+                        | (VMode, Cmd::LastItem)
+                        | (HMode, Cmd::LastItem)
+                        | (MMode, Cmd::LastItem)
+                        | (VMode, Cmd::VAdjust)
+                        | (VMode, Cmd::ItalCorr)
+                        | (VMode, Cmd::EqNo)
+                        | (HMode, Cmd::EqNo)
+                        | (VMode, Cmd::MacParam)
+                        | (HMode, Cmd::MacParam)
+                        | (MMode, Cmd::MacParam) => {
+                            // 23 | 125 | 228 | 72 | 175 | 278 | 39 | 45 | 49 | 152 | 7 | 110 | 213
                             report_illegal_case();
                             continue 'c_125208;
                         }
-                        8 | 111 | 9 | 112 | 18 | 121 | 70 | 173 | 71 | 174 | 51 | 154 | 16
-                        | 119 | 50 | 153 | 53 | 156 | 67 | 170 | 54 | 157 | 55 | 158 | 57 | 160
-                        | 56 | 159 | 31 | 134 | 52 | 155 | 29 | 132 | 47 | 150 | 216 | 220
-                        | 221 | 234 | 231 | 240 | 243 => {
+                        (VMode, Cmd::SupMark)
+                        | (HMode, Cmd::SupMark)
+                        | (VMode, Cmd::SubMark)
+                        | (HMode, Cmd::SubMark)
+                        | (VMode, Cmd::MathCharNum)
+                        | (HMode, Cmd::MathCharNum)
+                        | (VMode, Cmd::MathGiven)
+                        | (HMode, Cmd::MathGiven)
+                        | (VMode, Cmd::XetexMathGiven)
+                        | (HMode, Cmd::XetexMathGiven)
+                        | (VMode, Cmd::MathComp)
+                        | (HMode, Cmd::MathComp)
+                        | (VMode, Cmd::DelimNum)
+                        | (HMode, Cmd::DelimNum)
+                        | (VMode, Cmd::LeftRight)
+                        | (HMode, Cmd::LeftRight)
+                        | (VMode, Cmd::Above)
+                        | (HMode, Cmd::Above)
+                        | (VMode, Cmd::Radical)
+                        | (HMode, Cmd::Radical)
+                        | (VMode, Cmd::MathStyle)
+                        | (HMode, Cmd::MathStyle)
+                        | (VMode, Cmd::MathChoice)
+                        | (HMode, Cmd::MathChoice)
+                        | (VMode, Cmd::VCenter)
+                        | (HMode, Cmd::VCenter)
+                        | (VMode, Cmd::NonScript)
+                        | (HMode, Cmd::NonScript)
+                        | (VMode, Cmd::MKern)
+                        | (HMode, Cmd::MKern)
+                        | (VMode, Cmd::LimitSwitch)
+                        | (HMode, Cmd::LimitSwitch)
+                        | (VMode, Cmd::MSkip)
+                        | (HMode, Cmd::MSkip)
+                        | (VMode, Cmd::MathAccent)
+                        | (HMode, Cmd::MathAccent)
+                        | (MMode, Cmd::EndV)
+                        | (MMode, Cmd::ActiveChar)
+                        | (MMode, Cmd::Comment)
+                        | (MMode, Cmd::VSkip)
+                        | (MMode, Cmd::UnVBox)
+                        | (MMode, Cmd::VAlign)
+                        | (MMode, Cmd::HRule) => {
+                            // 8 | 111 | 9 | 112 | 18 | 121 | 70 | 173 | 71 | 174 | 51 | 154 | 16
+                            //| 119 | 50 | 153 | 53 | 156 | 67 | 170 | 54 | 157 | 55 | 158 | 57 | 160
+                            //| 56 | 159 | 31 | 134 | 52 | 155 | 29 | 132 | 47 | 150 | 216 | 220
+                            //| 221 | 234 | 231 | 240 | 243
                             insert_dollar_sign();
                             continue 'c_125208;
                         }
-                        37 | 139 | 242 => {
+                        (VMode, Cmd::HRule) | (HMode, Cmd::VRule) | (MMode, Cmd::VRule) => {
+                            // 37 | 139 | 242
                             MEM[cur_list.tail].b32.s1 = scan_rule_spec() as i32;
                             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                             if cur_list.mode.1 == ListMode::VMode {
@@ -16045,23 +16112,38 @@ pub(crate) unsafe fn main_control() {
                             }
                             continue 'c_125208;
                         }
-                        28 | 130 | 233 | 235 => {
+                        (VMode, Cmd::VSkip)
+                        | (HMode, Cmd::HSkip)
+                        | (MMode, Cmd::HSkip)
+                        | (MMode, Cmd::MSkip) => {
+                            // 28 | 130 | 233 | 235
                             append_glue();
                             continue 'c_125208;
                         }
-                        30 | 133 | 236 | 237 => {
+                        (VMode, Cmd::Kern)
+                        | (HMode, Cmd::Kern)
+                        | (MMode, Cmd::Kern)
+                        | (MMode, Cmd::MKern) => {
+                            // 30 | 133 | 236 | 237
                             append_kern();
                             continue 'c_125208;
                         }
-                        2 | 105 => {
+                        (VMode, Cmd::LeftBrace) | (HMode, Cmd::LeftBrace) => {
+                            // 2 | 105
                             new_save_level(GroupCode::SIMPLE);
                             continue 'c_125208;
                         }
-                        62 | 165 | 268 => {
+                        (VMode, Cmd::BeginGroup)
+                        | (HMode, Cmd::BeginGroup)
+                        | (MMode, Cmd::BeginGroup) => {
+                            // 62 | 165 | 268
                             new_save_level(GroupCode::SEMI_SIMPLE);
                             continue 'c_125208;
                         }
-                        63 | 166 | 269 => {
+                        (VMode, Cmd::EndGroup)
+                        | (HMode, Cmd::EndGroup)
+                        | (MMode, Cmd::EndGroup) => {
+                            // 63 | 166 | 269
                             if cur_group == GroupCode::SEMI_SIMPLE {
                                 unsave();
                             } else {
@@ -16069,11 +16151,15 @@ pub(crate) unsafe fn main_control() {
                             }
                             continue 'c_125208;
                         }
-                        3 | 106 | 209 => {
+                        (VMode, Cmd::RightBrace)
+                        | (HMode, Cmd::RightBrace)
+                        | (MMode, Cmd::RightBrace) => {
+                            // 3 | 106 | 209
                             handle_right_brace();
                             continue 'c_125208;
                         }
-                        22 | 126 | 229 => {
+                        (VMode, Cmd::HMove) | (HMode, Cmd::VMove) | (MMode, Cmd::VMove) => {
+                            // 22 | 126 | 229
                             let t = cur_chr;
                             scan_dimen(false, false, false);
                             if t == 0 {
@@ -16083,35 +16169,56 @@ pub(crate) unsafe fn main_control() {
                             }
                             continue 'c_125208;
                         }
-                        32 | 135 | 238 => {
+                        (VMode, Cmd::LeaderShip)
+                        | (HMode, Cmd::LeaderShip)
+                        | (MMode, Cmd::LeaderShip) => {
+                            // 32 | 135 | 238
                             scan_box(LEADER_FLAG - (A_LEADERS as i32) + cur_chr);
                             continue 'c_125208;
                         }
-                        21 | 124 | 227 => {
+                        (VMode, Cmd::MakeBox) | (HMode, Cmd::MakeBox) | (MMode, Cmd::MakeBox) => {
+                            // 21 | 124 | 227
                             begin_box(0);
                             continue 'c_125208;
                         }
-                        44 => {
+                        (VMode, Cmd::StartPar) => {
+                            // 44
                             new_graf(cur_chr > 0);
                             continue 'c_125208;
                         }
-                        12 | 13 | 17 | 69 | 4 | 24 | 36 | 46 | 48 | 27 | 34 | 65 | 66 => {
+                        (VMode, Cmd::Letter)
+                        | (VMode, Cmd::OtherChar)
+                        | (VMode, Cmd::CharNum)
+                        | (VMode, Cmd::CharGiven)
+                        | (VMode, Cmd::MathShift)
+                        | (VMode, Cmd::UnHBox)
+                        | (VMode, Cmd::VRule)
+                        | (VMode, Cmd::Accent)
+                        | (VMode, Cmd::Discretionary)
+                        | (VMode, Cmd::HSkip)
+                        | (VMode, Cmd::VAlign)
+                        | (VMode, Cmd::ExSpace)
+                        | (VMode, Cmd::NoBoundary) => {
+                            // 12 | 13 | 17 | 69 | 4 | 24 | 36 | 46 | 48 | 27 | 34 | 65 | 66
                             back_input();
                             new_graf(true);
                             continue 'c_125208;
                         }
-                        147 | 250 => {
+                        (HMode, Cmd::StartPar) | (MMode, Cmd::StartPar) => {
+                            // 147 | 250
                             indent_in_hmode();
                             continue 'c_125208;
                         }
-                        14 => {
+                        (VMode, Cmd::ActiveChar) => {
+                            // 14
                             normal_paragraph();
                             if cur_list.mode.0 == false {
                                 build_page();
                             }
                             continue 'c_125208;
                         }
-                        117 => {
+                        (HMode, Cmd::ActiveChar) => {
+                            // 117
                             if align_state < 0 {
                                 off_save();
                             }
@@ -16121,64 +16228,96 @@ pub(crate) unsafe fn main_control() {
                             }
                             continue 'c_125208;
                         }
-                        118 | 131 | 140 | 128 | 136 => {
+                        (HMode, Cmd::Comment)
+                        | (HMode, Cmd::VSkip)
+                        | (HMode, Cmd::HRule)
+                        | (HMode, Cmd::UnVBox)
+                        | (HMode, Cmd::HAlign) => {
+                            // 118 | 131 | 140 | 128 | 136
                             head_for_vmode();
                             continue 'c_125208;
                         }
-                        38 | 141 | 244 | 142 | 245 => {
+                        (VMode, Cmd::Insert)
+                        | (HMode, Cmd::Insert)
+                        | (MMode, Cmd::Insert)
+                        | (HMode, Cmd::VAdjust)
+                        | (MMode, Cmd::VAdjust) => {
+                            // 38 | 141 | 244 | 142 | 245
                             begin_insert_or_adjust();
                             continue 'c_125208;
                         }
-                        19 | 122 | 225 => {
+                        (VMode, Cmd::Mark) | (HMode, Cmd::Mark) | (MMode, Cmd::Mark) => {
+                            // 19 | 122 | 225
                             make_mark();
                             continue 'c_125208;
                         }
-                        43 | 146 | 249 => {
+                        (VMode, Cmd::BreakPenalty)
+                        | (HMode, Cmd::BreakPenalty)
+                        | (MMode, Cmd::BreakPenalty) => {
+                            // 43 | 146 | 249
                             append_penalty();
                             continue 'c_125208;
                         }
-                        26 | 129 | 232 => {
+                        (VMode, Cmd::RemoveItem)
+                        | (HMode, Cmd::RemoveItem)
+                        | (MMode, Cmd::RemoveItem) => {
+                            // 26 | 129 | 232
                             delete_last();
                             continue 'c_125208;
                         }
-                        25 | 127 | 230 => {
+                        (VMode, Cmd::UnVBox) | (HMode, Cmd::UnHBox) | (MMode, Cmd::UnHBox) => {
+                            // 25 | 127 | 230
                             unpackage();
                             continue 'c_125208;
                         }
-                        148 => {
+                        (HMode, Cmd::ItalCorr) => {
+                            // 148
                             append_italic_correction();
                             continue 'c_125208;
                         }
-                        251 => {
+                        (MMode, Cmd::ItalCorr) => {
+                            // 251
                             MEM[cur_list.tail].b32.s1 = new_kern(0) as i32;
                             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                             continue 'c_125208;
                         }
-                        151 | 254 => {
+                        (HMode, Cmd::Discretionary) | (MMode, Cmd::Discretionary) => {
+                            // 151 | 254
                             append_discretionary();
                             continue 'c_125208;
                         }
-                        149 => {
+                        (HMode, Cmd::Accent) => {
+                            // 149
                             make_accent();
                             continue 'c_125208;
                         }
-                        6 | 109 | 212 | 5 | 108 | 211 => {
+                        (VMode, Cmd::CarRet)
+                        | (HMode, Cmd::CarRet)
+                        | (MMode, Cmd::CarRet)
+                        | (VMode, Cmd::TabMark)
+                        | (HMode, Cmd::TabMark)
+                        | (MMode, Cmd::TabMark) => {
+                            // 6 | 109 | 212 | 5 | 108 | 211
                             align_error();
                             continue 'c_125208;
                         }
-                        35 | 138 | 241 => {
+                        (VMode, Cmd::NoAlign) | (HMode, Cmd::NoAlign) | (MMode, Cmd::NoAlign) => {
+                            // 35 | 138 | 241
                             no_align_error();
                             continue 'c_125208;
                         }
-                        64 | 167 | 270 => {
+                        (VMode, Cmd::Omit) | (HMode, Cmd::Omit) | (MMode, Cmd::Omit) => {
+                            // 64 | 167 | 270
                             omit_error();
                             continue 'c_125208;
                         }
-                        33 => {
+                        (VMode, Cmd::HAlign) => {
+                            // 33
                             init_align();
                             continue 'c_125208;
                         }
-                        137 => {
+                        (HMode, Cmd::VAlign) => {
+                            // 137
                             if cur_chr > 0 {
                                 if eTeX_enabled(*INTPAR(IntPar::texxet) > 0, cur_cmd, cur_chr) {
                                     MEM[cur_list.tail].b32.s1 =
@@ -16190,7 +16329,8 @@ pub(crate) unsafe fn main_control() {
                             }
                             continue 'c_125208;
                         }
-                        239 => {
+                        (MMode, Cmd::HAlign) => {
+                            // 239
                             if privileged() {
                                 if cur_group == GroupCode::MATH_SHIFT {
                                     init_align();
@@ -16200,19 +16340,25 @@ pub(crate) unsafe fn main_control() {
                             }
                             continue 'c_125208;
                         }
-                        10 | 113 => {
+                        (VMode, Cmd::EndV) | (HMode, Cmd::EndV) => {
+                            // 10 | 113
                             do_endv();
                             continue 'c_125208;
                         }
-                        68 | 171 | 274 => {
+                        (VMode, Cmd::EndCSName)
+                        | (HMode, Cmd::EndCSName)
+                        | (MMode, Cmd::EndCSName) => {
+                            // 68 | 171 | 274
                             cs_error();
                             continue 'c_125208;
                         }
-                        107 => {
+                        (HMode, Cmd::MathShift) => {
+                            // 107
                             init_math();
                             continue 'c_125208;
                         }
-                        255 => {
+                        (MMode, Cmd::EqNo) => {
+                            // 255
                             if privileged() {
                                 if cur_group == GroupCode::MATH_SHIFT {
                                     start_eq_no();
@@ -16222,24 +16368,30 @@ pub(crate) unsafe fn main_control() {
                             }
                             continue 'c_125208;
                         }
-                        208 => {
+                        (MMode, Cmd::LeftBrace) => {
+                            // 208
                             MEM[cur_list.tail].b32.s1 = new_noad() as i32;
                             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                             back_input();
                             scan_math(cur_list.tail + 1);
                             continue 'c_125208;
                         }
-                        218 | 219 | 275 => {
+                        (MMode, Cmd::Letter)
+                        | (MMode, Cmd::OtherChar)
+                        | (MMode, Cmd::CharGiven) => {
+                            // 218 | 219 | 275
                             set_math_char(*MATH_CODE(cur_chr as usize));
                             continue 'c_125208;
                         }
-                        223 => {
+                        (MMode, Cmd::CharNum) => {
+                            // 223
                             scan_char_num();
                             cur_chr = cur_val;
                             set_math_char(*MATH_CODE(cur_chr as usize));
                             continue 'c_125208;
                         }
-                        224 => {
+                        (MMode, Cmd::MathCharNum) => {
+                            // 224
                             if cur_chr == 2 {
                                 scan_math_class_int();
                                 let t = set_class(cur_val);
@@ -16261,7 +16413,8 @@ pub(crate) unsafe fn main_control() {
                             }
                             continue 'c_125208;
                         }
-                        276 => {
+                        (MMode, Cmd::MathGiven) => {
+                            // 276
                             set_math_char(
                                 set_class(cur_chr / 4096)
                                     + set_family((cur_chr % 4096) / 256)
@@ -16269,11 +16422,13 @@ pub(crate) unsafe fn main_control() {
                             );
                             continue 'c_125208;
                         }
-                        277 => {
+                        (MMode, Cmd::XetexMathGiven) => {
+                            // 277
                             set_math_char(cur_chr);
                             continue 'c_125208;
                         }
-                        222 => {
+                        (MMode, Cmd::DelimNum) => {
+                            // 222
                             if cur_chr == 1i32 {
                                 scan_math_class_int();
                                 scan_math_class_int();
@@ -16294,26 +16449,31 @@ pub(crate) unsafe fn main_control() {
                             }
                             continue 'c_125208;
                         }
-                        257 => {
+                        (MMode, Cmd::MathComp) => {
+                            // 257
                             MEM[cur_list.tail].b32.s1 = new_noad() as i32;
                             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                             MEM[cur_list.tail].b16.s1 = cur_chr as u16;
                             scan_math(cur_list.tail + 1);
                             continue 'c_125208;
                         }
-                        258 => {
+                        (MMode, Cmd::LimitSwitch) => {
+                            // 258
                             math_limit_switch();
                             continue 'c_125208;
                         }
-                        273 => {
+                        (MMode, Cmd::Radical) => {
+                            // 273
                             math_radical();
                             continue 'c_125208;
                         }
-                        252 | 253 => {
+                        (MMode, Cmd::Accent) | (MMode, Cmd::MathAccent) => {
+                            // 252 | 253
                             math_ac();
                             continue 'c_125208;
                         }
-                        263 => {
+                        (MMode, Cmd::VCenter) => {
+                            // 263
                             scan_spec(GroupCode::VCENTER, false);
                             normal_paragraph();
                             push_nest();
@@ -16330,34 +16490,41 @@ pub(crate) unsafe fn main_control() {
                             }
                             continue 'c_125208;
                         }
-                        260 => {
+                        (MMode, Cmd::MathStyle) => {
+                            // 260
                             MEM[cur_list.tail].b32.s1 = new_style(cur_chr as small_number) as i32;
                             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                             continue 'c_125208;
                         }
-                        262 => {
+                        (MMode, Cmd::NonScript) => {
+                            // 262
                             MEM[cur_list.tail].b32.s1 = new_glue(0) as i32;
                             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                             MEM[cur_list.tail].b16.s0 = COND_MATH_GLUE;
                             continue 'c_125208;
                         }
-                        261 => {
+                        (MMode, Cmd::MathChoice) => {
+                            // 261
                             append_choices();
                             continue 'c_125208;
                         }
-                        215 | 214 => {
+                        (MMode, Cmd::SubMark) | (MMode, Cmd::SupMark) => {
+                            // 215 | 214
                             sub_sup();
                             continue 'c_125208;
                         }
-                        259 => {
+                        (MMode, Cmd::Above) => {
+                            // 259
                             math_fraction();
                             continue 'c_125208;
                         }
-                        256 => {
+                        (MMode, Cmd::LeftRight) => {
+                            // 256
                             math_left_right();
                             continue 'c_125208;
                         }
-                        210 => {
+                        (MMode, Cmd::MathShift) => {
+                            // 210
                             if cur_group == GroupCode::MATH_SHIFT {
                                 after_math();
                             } else {
@@ -16365,48 +16532,167 @@ pub(crate) unsafe fn main_control() {
                             }
                             continue 'c_125208;
                         }
-                        73 | 176 | 279 | 74 | 177 | 280 | 75 | 178 | 281 | 76 | 179 | 282 | 77
-                        | 180 | 283 | 78 | 181 | 284 | 79 | 182 | 285 | 80 | 183 | 286 | 81
-                        | 184 | 287 | 82 | 185 | 288 | 83 | 186 | 289 | 84 | 187 | 290 | 85
-                        | 188 | 291 | 86 | 189 | 292 | 87 | 190 | 293 | 88 | 191 | 294 | 89
-                        | 192 | 295 | 90 | 193 | 296 | 91 | 194 | 297 | 92 | 195 | 298 | 93
-                        | 196 | 299 | 94 | 197 | 300 | 95 | 198 | 301 | 96 | 199 | 302 | 97
-                        | 200 | 303 | 98 | 201 | 304 | 99 | 202 | 305 | 100 | 203 | 306 | 101
-                        | 204 | 307 | 102 | 205 | 308 | 103 | 206 | 309 => {
+                        (VMode, Cmd::ToksRegister)
+                        | (HMode, Cmd::ToksRegister)
+                        | (MMode, Cmd::ToksRegister)
+                        | (VMode, Cmd::AssignToks)
+                        | (HMode, Cmd::AssignToks)
+                        | (MMode, Cmd::AssignToks)
+                        | (VMode, Cmd::AssignInt)
+                        | (HMode, Cmd::AssignInt)
+                        | (MMode, Cmd::AssignInt)
+                        | (VMode, Cmd::AssignDimen)
+                        | (HMode, Cmd::AssignDimen)
+                        | (MMode, Cmd::AssignDimen)
+                        | (VMode, Cmd::AssignGlue)
+                        | (HMode, Cmd::AssignGlue)
+                        | (MMode, Cmd::AssignGlue)
+                        | (VMode, Cmd::AssignMuGlue)
+                        | (HMode, Cmd::AssignMuGlue)
+                        | (MMode, Cmd::AssignMuGlue)
+                        | (VMode, Cmd::AssignFontDimen)
+                        | (HMode, Cmd::AssignFontDimen)
+                        | (MMode, Cmd::AssignFontDimen)
+                        | (VMode, Cmd::AssignFontInt)
+                        | (HMode, Cmd::AssignFontInt)
+                        | (MMode, Cmd::AssignFontInt)
+                        | (VMode, Cmd::SetAux)
+                        | (HMode, Cmd::SetAux)
+                        | (MMode, Cmd::SetAux)
+                        | (VMode, Cmd::SetPrevGraf)
+                        | (HMode, Cmd::SetPrevGraf)
+                        | (MMode, Cmd::SetPrevGraf)
+                        | (VMode, Cmd::SetPageDimen)
+                        | (HMode, Cmd::SetPageDimen)
+                        | (MMode, Cmd::SetPageDimen)
+                        | (VMode, Cmd::SetPageInt)
+                        | (HMode, Cmd::SetPageInt)
+                        | (MMode, Cmd::SetPageInt)
+                        | (VMode, Cmd::SetBoxDimen)
+                        | (HMode, Cmd::SetBoxDimen)
+                        | (MMode, Cmd::SetBoxDimen)
+                        | (VMode, Cmd::SetShape)
+                        | (HMode, Cmd::SetShape)
+                        | (MMode, Cmd::SetShape)
+                        | (VMode, Cmd::DefCode)
+                        | (HMode, Cmd::DefCode)
+                        | (MMode, Cmd::DefCode)
+                        | (VMode, Cmd::XetexDefCode)
+                        | (HMode, Cmd::XetexDefCode)
+                        | (MMode, Cmd::XetexDefCode)
+                        | (VMode, Cmd::DefFamily)
+                        | (HMode, Cmd::DefFamily)
+                        | (MMode, Cmd::DefFamily)
+                        | (VMode, Cmd::SetFont)
+                        | (HMode, Cmd::SetFont)
+                        | (MMode, Cmd::SetFont)
+                        | (VMode, Cmd::DefFont)
+                        | (HMode, Cmd::DefFont)
+                        | (MMode, Cmd::DefFont)
+                        | (VMode, Cmd::Register)
+                        | (HMode, Cmd::Register)
+                        | (MMode, Cmd::Register)
+                        | (VMode, Cmd::Advance)
+                        | (HMode, Cmd::Advance)
+                        | (MMode, Cmd::Advance)
+                        | (VMode, Cmd::Multiply)
+                        | (HMode, Cmd::Multiply)
+                        | (MMode, Cmd::Multiply)
+                        | (VMode, Cmd::Divide)
+                        | (HMode, Cmd::Divide)
+                        | (MMode, Cmd::Divide)
+                        | (VMode, Cmd::Prefix)
+                        | (HMode, Cmd::Prefix)
+                        | (MMode, Cmd::Prefix)
+                        | (VMode, Cmd::Let)
+                        | (HMode, Cmd::Let)
+                        | (MMode, Cmd::Let)
+                        | (VMode, Cmd::ShorthandDef)
+                        | (HMode, Cmd::ShorthandDef)
+                        | (MMode, Cmd::ShorthandDef)
+                        | (VMode, Cmd::ReadToCS)
+                        | (HMode, Cmd::ReadToCS)
+                        | (MMode, Cmd::ReadToCS)
+                        | (VMode, Cmd::Def)
+                        | (HMode, Cmd::Def)
+                        | (MMode, Cmd::Def)
+                        | (VMode, Cmd::SetBox)
+                        | (HMode, Cmd::SetBox)
+                        | (MMode, Cmd::SetBox)
+                        | (VMode, Cmd::HyphData)
+                        | (HMode, Cmd::HyphData)
+                        | (MMode, Cmd::HyphData)
+                        | (VMode, Cmd::SetInteraction)
+                        | (HMode, Cmd::SetInteraction)
+                        | (MMode, Cmd::SetInteraction) => {
+                            // 73 | 176 | 279 | 74 | 177 | 280 | 75 | 178 | 281 | 76 | 179 | 282 | 77
+                            //| 180 | 283 | 78 | 181 | 284 | 79 | 182 | 285 | 80 | 183 | 286 | 81
+                            //| 184 | 287 | 82 | 185 | 288 | 83 | 186 | 289 | 84 | 187 | 290 | 85
+                            //| 188 | 291 | 86 | 189 | 292 | 87 | 190 | 293 | 88 | 191 | 294 | 89
+                            //| 192 | 295 | 90 | 193 | 296 | 91 | 194 | 297 | 92 | 195 | 298 | 93
+                            //| 196 | 299 | 94 | 197 | 300 | 95 | 198 | 301 | 96 | 199 | 302 | 97
+                            //| 200 | 303 | 98 | 201 | 304 | 99 | 202 | 305 | 100 | 203 | 306 | 101
+                            //| 204 | 307 | 102 | 205 | 308 | 103 | 206 | 309
                             prefixed_command();
                             continue 'c_125208;
                         }
-                        41 | 144 | 247 => {
+                        (VMode, Cmd::AfterAssignment)
+                        | (HMode, Cmd::AfterAssignment)
+                        | (MMode, Cmd::AfterAssignment) => {
+                            // 41 | 144 | 247
                             get_token();
                             after_token = cur_tok;
                             continue 'c_125208;
                         }
-                        42 | 145 | 248 => {
+                        (VMode, Cmd::AfterGroup)
+                        | (HMode, Cmd::AfterGroup)
+                        | (MMode, Cmd::AfterGroup) => {
+                            // 42 | 145 | 248
                             get_token();
                             save_for_after(cur_tok);
                             continue 'c_125208;
                         }
-                        61 | 164 | 267 => {
+                        (VMode, Cmd::InStream)
+                        | (HMode, Cmd::InStream)
+                        | (MMode, Cmd::InStream) => {
+                            // 61 | 164 | 267
                             open_or_close_in();
                             continue 'c_125208;
                         }
-                        59 | 162 | 265 => {
+                        (VMode, Cmd::Message) | (HMode, Cmd::Message) | (MMode, Cmd::Message) => {
+                            // 59 | 162 | 265
                             issue_message();
                             continue 'c_125208;
                         }
-                        58 | 161 | 264 => {
+                        (VMode, Cmd::CaseShift)
+                        | (HMode, Cmd::CaseShift)
+                        | (MMode, Cmd::CaseShift) => {
+                            // 58 | 161 | 264
                             shift_case();
                             continue 'c_125208;
                         }
-                        20 | 123 | 226 => {
+                        (VMode, Cmd::XRay) | (HMode, Cmd::XRay) | (MMode, Cmd::XRay) => {
+                            // 20 | 123 | 226
                             show_whatever();
                             continue 'c_125208;
                         }
-                        60 | 163 | 266 => {
+                        (VMode, Cmd::Extension)
+                        | (HMode, Cmd::Extension)
+                        | (MMode, Cmd::Extension) => {
+                            // 60 | 163 | 266
                             do_extension();
                             continue 'c_125208;
                         }
-                        1 | 104 | 207 | 11 | 217 | 272 | _ => continue 'c_125208,
+                        (VMode, Cmd::Relax)
+                        | (HMode, Cmd::Relax)
+                        | (MMode, Cmd::Relax)
+                        | (VMode, Cmd::Spacer)
+                        | (MMode, Cmd::Spacer)
+                        | (MMode, Cmd::NoBoundary)
+                        | _ => {
+                            // 1 | 104 | 207 | 11 | 217 | 272 | _
+                            continue 'c_125208;
+                        }
                     }
                 }
             }
