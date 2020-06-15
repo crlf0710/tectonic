@@ -413,7 +413,7 @@ unsafe fn fire_up(mut c: i32) {
             output_active = true;
             dead_cycles += 1;
             push_nest();
-            cur_list.mode = -VMODE as _;
+            cur_list.mode = (true, ListMode::VMode);
             cur_list.aux.b32.s1 = IGNORE_DEPTH; /* this is `prev_depth` */
             cur_list.mode_line = -line;
             begin_token_list(*LOCAL(Local::output_routine) as usize, Btl::OutputText);

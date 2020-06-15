@@ -2264,8 +2264,8 @@ unsafe fn write_out(p: usize) {
     MEM[q].b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
     begin_token_list(q, Btl::Inserted);
 
-    let old_mode = cur_list.mode as i32;
-    cur_list.mode = 0;
+    let old_mode = cur_list.mode;
+    cur_list.mode = (false, ListMode::NoMode);
     cur_cs = write_loc;
     let _q = scan_toks(false, true);
     get_token();
@@ -2291,7 +2291,7 @@ unsafe fn write_out(p: usize) {
         }
     }
 
-    cur_list.mode = old_mode as i16;
+    cur_list.mode = old_mode;
     end_token_list();
     let old_setting = selector;
     let j = MEM[p + 1].b32.s0 as small_number;

@@ -116,7 +116,7 @@ pub(crate) unsafe fn init_math() {
 
     get_token();
 
-    if cur_cmd == Cmd::MathShift && cur_list.mode as i32 > 0 {
+    if cur_cmd == Cmd::MathShift && cur_list.mode.0 == false {
         // 1180:
         let mut j = None;
         let mut w = -MAX_HALFWORD;
@@ -402,7 +402,7 @@ pub(crate) unsafe fn init_math() {
             l = MEM[p as usize].b32.s1
         }
         push_math(GroupCode::MATH_SHIFT);
-        cur_list.mode = MMODE as i16;
+        cur_list.mode = (false, ListMode::MMode);
         eq_word_define(INT_BASE as usize + IntPar::cur_fam as usize, -1i32);
         eq_word_define(DIMEN_BASE as usize + DimenPar::pre_display_size as usize, w);
         cur_list.eTeX_aux = j;
@@ -911,7 +911,6 @@ unsafe fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
 pub(crate) unsafe fn after_math() {
     let mut l: bool = false;
     let mut danger: bool = false;
-    let mut m: i32 = 0;
     let mut p: i32 = 0;
     let mut a: i32 = 0;
     let mut b: i32 = 0;
@@ -929,7 +928,7 @@ pub(crate) unsafe fn after_math() {
 
     danger = false;
 
-    if cur_list.mode == MMODE {
+    if cur_list.mode == (false, ListMode::MMode) {
         j = cur_list.eTeX_aux; // :1530
     }
     if FONT_PARAMS[MATH_FONT(2)] < TOTAL_MATHSY_PARAMS
@@ -996,10 +995,10 @@ pub(crate) unsafe fn after_math() {
         flush_math();
         danger = true
     }
-    m = cur_list.mode as i32;
+    let mut m = cur_list.mode;
     l = false;
     p = fin_mlist(TEX_NULL);
-    if cur_list.mode as i32 == -m {
+    if cur_list.mode == (!m.0, m.1) {
         get_x_token();
         if cur_cmd != Cmd::MathShift {
             if file_line_error_style_p != 0 {
@@ -1026,7 +1025,7 @@ pub(crate) unsafe fn after_math() {
             l = true
         }
         danger = false;
-        if cur_list.mode == MMODE {
+        if cur_list.mode == (false, ListMode::MMode) {
             j = cur_list.eTeX_aux
         }
         if FONT_PARAMS[MATH_FONT(2)] < TOTAL_MATHSY_PARAMS
@@ -1094,19 +1093,19 @@ pub(crate) unsafe fn after_math() {
             flush_math();
             danger = true
         }
-        m = cur_list.mode as i32;
+        m = cur_list.mode;
         p = fin_mlist(TEX_NULL)
     } else {
         a = TEX_NULL
     }
-    if m < 0 {
+    if m.0 == true {
         // 1231:
         MEM[cur_list.tail].b32.s1 =
             new_math(*DIMENPAR(DimenPar::math_surround), BEFORE as small_number) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         cur_mlist = p;
         cur_style = TEXT_STYLE as small_number;
-        mlist_penalties = cur_list.mode as i32 > 0;
+        mlist_penalties = cur_list.mode.0 == false;
         mlist_to_hlist();
         MEM[cur_list.tail].b32.s1 = MEM[TEMP_HEAD].b32.s1;
         while !MEM[cur_list.tail].b32.s1.is_texnull() {
@@ -1254,7 +1253,7 @@ pub(crate) unsafe fn resume_after_display() {
     unsave();
     cur_list.prev_graf = cur_list.prev_graf + 3;
     push_nest();
-    cur_list.mode = HMODE as i16;
+    cur_list.mode = (false, ListMode::HMode);
     cur_list.aux.b32.s0 = 1000;
     if *INTPAR(IntPar::language) <= 0 {
         cur_lang = 0;

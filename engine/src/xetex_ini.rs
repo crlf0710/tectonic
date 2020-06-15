@@ -404,7 +404,7 @@ pub(crate) type save_pointer = i32;
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub(crate) struct list_state_record {
-    pub(crate) mode: i16,
+    pub(crate) mode: (bool, ListMode),
     pub(crate) head: usize,
     pub(crate) tail: usize,
     pub(crate) eTeX_aux: Option<usize>,
@@ -614,7 +614,7 @@ pub(crate) static mut NEST_PTR: usize = 0;
 pub(crate) static mut MAX_NEST_STACK: usize = 0;
 #[no_mangle]
 pub(crate) static mut cur_list: list_state_record = list_state_record {
-    mode: 0,
+    mode: (false, ListMode::NoMode),
     head: 0,
     tail: 0,
     eTeX_aux: None,
@@ -625,7 +625,7 @@ pub(crate) static mut cur_list: list_state_record = list_state_record {
     },
 };
 #[no_mangle]
-pub(crate) static mut shown_mode: i16 = 0;
+pub(crate) static mut shown_mode: (bool, ListMode) = (false, ListMode::NoMode);
 #[no_mangle]
 pub(crate) static mut old_setting: Selector = Selector::FILE_0;
 #[no_mangle]
@@ -4021,14 +4021,14 @@ unsafe fn initialize_more_variables() {
     use_err_help = false;
     NEST_PTR = 0;
     MAX_NEST_STACK = 0;
-    cur_list.mode = VMODE;
+    cur_list.mode = (false, ListMode::VMode);
     cur_list.head = CONTRIB_HEAD;
     cur_list.tail = CONTRIB_HEAD;
     cur_list.eTeX_aux = None;
     cur_list.aux.b32.s1 = IGNORE_DEPTH;
     cur_list.mode_line = 0;
     cur_list.prev_graf = 0;
-    shown_mode = 0;
+    shown_mode = (false, ListMode::NoMode);
     page_contents = EMPTY as u8;
     page_tail = PAGE_HEAD as i32;
     last_glue = MAX_HALFWORD;
@@ -4964,8 +4964,8 @@ unsafe fn initialize_primitives() {
     primitive(b"skip", Cmd::Register, 2);
     primitive(b"muskip", Cmd::Register, 3);
 
-    primitive(b"spacefactor", Cmd::SetAux, HMODE as i32);
-    primitive(b"prevdepth", Cmd::SetAux, VMODE as i32);
+    primitive(b"spacefactor", Cmd::SetAux, ListMode::HMode as i32);
+    primitive(b"prevdepth", Cmd::SetAux, ListMode::VMode as i32);
 
     primitive(b"deadcycles", Cmd::SetPageInt, 0);
     primitive(b"insertpenalties", Cmd::SetPageInt, 1);

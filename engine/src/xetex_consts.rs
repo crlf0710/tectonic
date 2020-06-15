@@ -1140,6 +1140,27 @@ impl Default for InputState {
     }
 }
 
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
+pub(crate) enum ListMode {
+    NoMode = 0,
+    VMode = 1,
+    HMode = 104,
+    MMode = 207,
+}
+
+impl Default for ListMode {
+    fn default() -> Self {
+        Self::NoMode
+    }
+}
+
+impl From<u8> for ListMode {
+    fn from(n: u8) -> Self {
+        Self::n(n).unwrap()
+    }
+}
+
 /* DVI format codes */
 pub(crate) const XDV_ID_BYTE: u8 = 7;
 pub(crate) const SPX_ID_BYTE: u8 = 100;
@@ -1189,7 +1210,6 @@ pub(crate) const REVERSED: u16 = 1;
 pub(crate) const SLANT_CODE: placeholdertype = 1;
 pub(crate) const SPLIT_UP: ND = ND::Node(NodeType::VList);
 pub(crate) const STRETCHING: GlueSign = GlueSign::Stretching;
-pub(crate) const VMODE: i16 = 1;
 pub(crate) const BOTTOM_ACC: u16 = 2;
 pub(crate) const CLOSED: u8 = 2;
 pub(crate) const DLIST: u16 = 2;
@@ -1240,10 +1260,8 @@ pub(crate) const ETEX_GLUE: placeholdertype = 57;
 pub(crate) const ETEX_MU: placeholdertype = 58;
 pub(crate) const COND_MATH_GLUE: u16 = 98;
 pub(crate) const MU_GLUE: u16 = 99;
-pub(crate) const HMODE: i16 = 104;
 
 pub(crate) const DIMEN_VAL_LIMIT: u16 = 128;
-pub(crate) const MMODE: i16 = 207;
 pub(crate) const BIGGEST_LANG: placeholdertype = 255;
 pub(crate) const MU_VAL_LIMIT: u16 = 256;
 pub(crate) const TOO_BIG_LANG: placeholdertype = 256;

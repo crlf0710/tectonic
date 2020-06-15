@@ -1500,43 +1500,27 @@ pub(crate) unsafe fn copy_node_list(mut p: i32) -> i32 {
     avail = h;
     q
 }
-pub(crate) unsafe fn print_mode(mut m: i32) {
-    if m > 0 {
-        match m / (MAX_COMMAND as i32 + 1) {
-            0 => print_cstr(b"vertical mode"),
-            1 => print_cstr(b"horizontal mode"),
-            2 => print_cstr(b"display math mode"),
-            _ => {}
-        }
-    } else if m == 0 {
-        print_cstr(b"no mode");
-    } else {
-        match -m / (MAX_COMMAND as i32 + 1) {
-            0 => print_cstr(b"internal vertical mode"),
-            1 => print_cstr(b"restricted horizontal mode"),
-            2 => print_cstr(b"math mode"),
-            _ => {}
-        }
-    };
+pub(crate) unsafe fn print_mode(mut m: (bool, ListMode)) {
+    match m {
+        (_, ListMode::NoMode) => print_cstr(b"no mode"),
+        (false, ListMode::VMode) => print_cstr(b"vertical mode"),
+        (false, ListMode::HMode) => print_cstr(b"horizontal mode"),
+        (false, ListMode::MMode) => print_cstr(b"display math mode"),
+        (true, ListMode::VMode) => print_cstr(b"internal vertical mode"),
+        (true, ListMode::HMode) => print_cstr(b"restricted horizontal mode"),
+        (true, ListMode::MMode) => print_cstr(b"math mode"),
+    }
 }
-pub(crate) unsafe fn print_in_mode(mut m: i32) {
-    if m > 0 {
-        match m / (MAX_COMMAND as i32 + 1) {
-            0 => print_cstr(b"\' in vertical mode"),
-            1 => print_cstr(b"\' in horizontal mode"),
-            2 => print_cstr(b"\' in display math mode"),
-            _ => {}
-        }
-    } else if m == 0 {
-        print_cstr(b"\' in no mode");
-    } else {
-        match -m / (MAX_COMMAND as i32 + 1) {
-            0 => print_cstr(b"\' in internal vertical mode"),
-            1 => print_cstr(b"\' in restricted horizontal mode"),
-            2 => print_cstr(b"\' in math mode"),
-            _ => {}
-        }
-    };
+pub(crate) unsafe fn print_in_mode(m: (bool, ListMode)) {
+    match m {
+        (_, ListMode::NoMode) => print_cstr(b"\' in no mode"),
+        (false, ListMode::VMode) => print_cstr(b"\' in vertical mode"),
+        (false, ListMode::HMode) => print_cstr(b"\' in horizontal mode"),
+        (false, ListMode::MMode) => print_cstr(b"\' in display math mode"),
+        (true, ListMode::VMode) => print_cstr(b"\' in internal vertical mode"),
+        (true, ListMode::HMode) => print_cstr(b"\' in restricted horizontal mode"),
+        (true, ListMode::MMode) => print_cstr(b"\' in math mode"),
+    }
 }
 pub(crate) unsafe fn push_nest() {
     if NEST_PTR > MAX_NEST_STACK {
@@ -1570,10 +1554,10 @@ pub(crate) unsafe fn show_activities() {
             let mut m = NEST[p].mode;
             let a = NEST[p].aux;
             print_nl_cstr(b"### ");
-            print_mode(m as i32);
+            print_mode(m);
             print_cstr(b" entered at line ");
             print_int(NEST[p].mode_line.abs());
-            if m == HMODE {
+            if m == (false, ListMode::HMode) {
                 if NEST[p].prev_graf != 0x830000 {
                     print_cstr(b" (language");
                     print_int((NEST[p].prev_graf as i64 % 65536) as i32);
@@ -1639,8 +1623,8 @@ pub(crate) unsafe fn show_activities() {
                 }
             }
             show_box(MEM[NEST[p].head as usize].b32.s1);
-            match (m as i32).abs() / (MAX_COMMAND as i32 + 1) {
-                0 => {
+            match m.1 {
+                ListMode::VMode => {
                     print_nl_cstr(b"prevdepth ");
                     if a.b32.s1 <= IGNORE_DEPTH {
                         print_cstr(b"ignored");
@@ -1657,23 +1641,23 @@ pub(crate) unsafe fn show_activities() {
                         }
                     }
                 }
-                1 => {
+                ListMode::HMode => {
                     print_nl_cstr(b"spacefactor ");
                     print_int(a.b32.s0);
-                    if m as i32 > 0 {
+                    if m.0 == false {
                         if a.b32.s1 > 0 {
                             print_cstr(b", current language ");
                             print_int(a.b32.s1);
                         }
                     }
                 }
-                2 => {
+                ListMode::MMode => {
                     if !a.b32.s1.is_texnull() {
                         print_cstr(b"this will be denominator of:");
                         show_box(a.b32.s1);
                     }
                 }
-                _ => {}
+                ListMode::NoMode => {}
             }
             if !(p > for_end) {
                 break;
@@ -2124,7 +2108,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             }
         }
         Cmd::SetAux => {
-            if chr_code == VMODE as i32 {
+            if chr_code == ListMode::VMode as i32 {
                 print_esc_cstr(b"prevdepth");
             } else {
                 print_esc_cstr(b"spacefactor");
@@ -3506,8 +3490,8 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
     let mut p: i32 = 0;
     begin_diagnostic();
     print_nl('{' as i32);
-    if cur_list.mode as i32 != shown_mode as i32 {
-        print_mode(cur_list.mode as i32);
+    if cur_list.mode != shown_mode {
+        print_mode(cur_list.mode);
         print_cstr(b": ");
         shown_mode = cur_list.mode
     }
@@ -6274,7 +6258,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
             cur_val_level = MU_VAL;
         }
         Cmd::SetAux => {
-            if (cur_list.mode as i32).abs() != m {
+            if cur_list.mode.1 as i32 != m {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -6295,7 +6279,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     cur_val = 0;
                     cur_val_level = INT_VAL;
                 }
-            } else if m == VMODE as i32 {
+            } else if m == ListMode::VMode as i32 {
                 cur_val = cur_list.aux.b32.s1;
                 cur_val_level = DIMEN_VAL;
             } else {
@@ -6304,13 +6288,13 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
             }
         }
         Cmd::SetPrevGraf => {
-            if cur_list.mode == 0 {
+            if cur_list.mode.1 == ListMode::NoMode {
                 cur_val = 0;
                 cur_val_level = INT_VAL
             } else {
                 NEST[NEST_PTR] = cur_list;
                 let mut p = NEST_PTR;
-                while NEST[p].mode.abs() != VMODE {
+                while NEST[p].mode.1 != ListMode::VMode {
                     p -= 1
                 }
                 cur_val = NEST[p].prev_graf;
@@ -7103,13 +7087,13 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 }
                 if cur_chr == LAST_NODE_TYPE_CODE as i32 {
                     cur_val_level = INT_VAL;
-                    if tx == cur_list.head as i32 || cur_list.mode == 0 {
+                    if tx == cur_list.head as i32 || cur_list.mode.1 == ListMode::NoMode {
                         cur_val = -1;
                     }
                 } else {
                     cur_val_level = cur_chr as u8
                 }
-                if tx < hi_mem_min && cur_list.mode != 0 {
+                if tx < hi_mem_min && cur_list.mode.1 != ListMode::NoMode {
                     match cur_chr as u8 {
                         INT_VAL => {
                             if NODE_type(tx as usize) == PENALTY_NODE {
@@ -7138,7 +7122,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                         }
                         _ => {}
                     }
-                } else if cur_list.mode == VMODE && tx == cur_list.head as i32 {
+                } else if cur_list.mode == (false, ListMode::VMode) && tx == cur_list.head as i32 {
                     match cur_chr as u8 {
                         INT_VAL => cur_val = last_penalty,
                         DIMEN_VAL => cur_val = last_kern,
@@ -9326,19 +9310,19 @@ pub(crate) unsafe fn conditional() {
             current_block = 16915215315900843183;
         }
         IF_VMODE_CODE => {
-            b = cur_list.mode.abs() == VMODE;
+            b = cur_list.mode.1 == ListMode::VMode;
             current_block = 16915215315900843183;
         }
         IF_HMODE_CODE => {
-            b = cur_list.mode.abs() == HMODE;
+            b = cur_list.mode.1 == ListMode::HMode;
             current_block = 16915215315900843183;
         }
         IF_MMODE_CODE => {
-            b = cur_list.mode.abs() == MMODE;
+            b = cur_list.mode.1 == ListMode::MMode;
             current_block = 16915215315900843183;
         }
         IF_INNER_CODE => {
-            b = cur_list.mode < 0;
+            b = cur_list.mode.0 == true;
             current_block = 16915215315900843183;
         }
         IF_VOID_CODE | IF_HBOX_CODE | IF_VBOX_CODE => {
@@ -12095,7 +12079,7 @@ pub(crate) unsafe fn init_align() {
     save_cs_ptr = cur_cs;
     push_alignment();
     align_state = -1000000;
-    if cur_list.mode == MMODE
+    if cur_list.mode == (false, ListMode::MMode)
         && (cur_list.tail != cur_list.head || !cur_list.aux.b32.s1.is_texnull())
     {
         if file_line_error_style_p != 0 {
@@ -12114,11 +12098,11 @@ pub(crate) unsafe fn init_align() {
         flush_math();
     }
     push_nest();
-    if cur_list.mode == MMODE {
-        cur_list.mode = -1;
+    if cur_list.mode == (false, ListMode::MMode) {
+        cur_list.mode = (true, ListMode::VMode);
         cur_list.aux.b32.s1 = NEST[NEST_PTR - 2].aux.b32.s1
-    } else if cur_list.mode > 0 {
-        cur_list.mode = -(cur_list.mode as i32) as i16
+    } else if cur_list.mode.0 == false {
+        cur_list.mode = (!cur_list.mode.0, cur_list.mode.1);
         /*:804*/
     }
     scan_spec(GroupCode::ALIGN, false);
@@ -12209,7 +12193,7 @@ pub(crate) unsafe fn init_align() {
 }
 pub(crate) unsafe fn init_span(p: i32) {
     push_nest();
-    if cur_list.mode as i32 == -104 {
+    if cur_list.mode == (true, ListMode::HMode) {
         cur_list.aux.b32.s0 = 1000;
     } else {
         cur_list.aux.b32.s1 = IGNORE_DEPTH;
@@ -12219,8 +12203,14 @@ pub(crate) unsafe fn init_span(p: i32) {
 }
 pub(crate) unsafe fn init_row() {
     push_nest();
-    cur_list.mode = (-105 - cur_list.mode as i32) as i16;
-    if cur_list.mode as i32 == -104 {
+    let a = if cur_list.mode.0 {
+        -(cur_list.mode.1 as i32)
+    } else {
+        cur_list.mode.1 as i32
+    };
+    let a = (-105 - a) as i16; // TODO: fix
+    cur_list.mode = (a < 0, ListMode::from(a.abs() as u8));
+    if cur_list.mode == (true, ListMode::HMode) {
         cur_list.aux.b32.s0 = 0;
     } else {
         cur_list.aux.b32.s1 = 0;
@@ -12312,7 +12302,7 @@ pub(crate) unsafe fn fin_col() -> bool {
     if MEM[(cur_align + 5) as usize].b32.s0 != SPAN_CODE {
         unsave();
         new_save_level(GroupCode::ALIGN);
-        if cur_list.mode == -104 {
+        if cur_list.mode == (true, ListMode::HMode) {
             adjust_tail = cur_tail;
             pre_adjust_tail = cur_pre_tail;
             u = hpack(MEM[cur_list.head].b32.s1, 0, ADDITIONAL as small_number);
@@ -12404,7 +12394,7 @@ pub(crate) unsafe fn fin_col() -> bool {
 }
 pub(crate) unsafe fn fin_row() {
     let mut p: i32 = 0;
-    if cur_list.mode as i32 == -104 {
+    if cur_list.mode == (true, ListMode::HMode) {
         p = hpack(MEM[cur_list.head].b32.s1, 0, ADDITIONAL as small_number);
         pop_nest();
         if cur_pre_head != cur_pre_tail {
@@ -12456,7 +12446,7 @@ pub(crate) unsafe fn fin_align() {
         confusion(b"align0");
     }
     unsave();
-    let o = if NEST[(NEST_PTR - 1) as usize].mode == MMODE {
+    let o = if NEST[(NEST_PTR - 1) as usize].mode == (false, ListMode::MMode) {
         *DIMENPAR(DimenPar::display_indent)
     } else {
         0
@@ -12529,7 +12519,7 @@ pub(crate) unsafe fn fin_align() {
     }
     SAVE_PTR -= 2;
     pack_begin_line = -cur_list.mode_line;
-    if cur_list.mode == -1 {
+    if cur_list.mode == (true, ListMode::VMode) {
         rule_save = *DIMENPAR(DimenPar::overfull_rule);
         *DIMENPAR(DimenPar::overfull_rule) = 0;
         p = hpack(
@@ -12571,10 +12561,10 @@ pub(crate) unsafe fn fin_align() {
         if !is_char_node(q) {
             if NODE_type(q as usize) == UNSET_NODE {
                 /*836: */
-                if cur_list.mode as i32 == -1 {
+                if cur_list.mode == (true, ListMode::VMode) {
                     set_NODE_type(q as usize, HLIST_NODE);
                     MEM[(q + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
-                    if NEST[(NEST_PTR - 1) as usize].mode == MMODE {
+                    if NEST[(NEST_PTR - 1) as usize].mode == (false, ListMode::MMode) {
                         MEM[q as usize].b16.s0 = DLIST
                     }
                 } else {
@@ -12623,14 +12613,14 @@ pub(crate) unsafe fn fin_align() {
                         MEM[u as usize].b32.s1 = new_null_box() as i32;
                         u = *LLIST_link(u as usize);
                         t = t + MEM[(s + 1) as usize].b32.s1;
-                        if cur_list.mode == -1 {
+                        if cur_list.mode == (true, ListMode::VMode) {
                             MEM[(u + 1) as usize].b32.s1 = MEM[(s + 1) as usize].b32.s1
                         } else {
                             set_NODE_type(u as usize, VLIST_NODE);
                             MEM[(u + 3) as usize].b32.s1 = MEM[(s + 1) as usize].b32.s1
                         }
                     }
-                    if cur_list.mode == -1 {
+                    if cur_list.mode == (true, ListMode::VMode) {
                         /*839: */
                         MEM[(r + 3) as usize].b32.s1 = MEM[(q + 3) as usize].b32.s1;
                         MEM[(r + 2) as usize].b32.s1 = MEM[(q + 2) as usize].b32.s1;
@@ -12739,7 +12729,7 @@ pub(crate) unsafe fn fin_align() {
     p = MEM[cur_list.head].b32.s1;
     q = cur_list.tail as i32;
     pop_nest();
-    if cur_list.mode == MMODE {
+    if cur_list.mode == (false, ListMode::MMode) {
         /*1241: */
         do_assignments(); /*1232: */
         if cur_cmd != Cmd::MathShift {
@@ -12793,7 +12783,7 @@ pub(crate) unsafe fn fin_align() {
         if !p.is_texnull() {
             cur_list.tail = q as usize;
         }
-        if cur_list.mode == VMODE {
+        if cur_list.mode == (false, ListMode::VMode) {
             build_page();
         }
     };
@@ -12810,7 +12800,7 @@ pub(crate) unsafe fn align_peek() {
         if cur_cmd == Cmd::NoAlign {
             scan_left_brace();
             new_save_level(GroupCode::NO_ALIGN);
-            if cur_list.mode as i32 == -1 {
+            if cur_list.mode == (true, ListMode::VMode) {
                 normal_paragraph();
             }
             break;
@@ -12855,18 +12845,17 @@ pub(crate) unsafe fn show_save_groups() {
         if cur_group == GroupCode::BOTTOM_LEVEL {
             return (true, p, a);
         }
-        let mut m: i16 = 0;
-        loop {
-            m = NEST[p].mode;
+        let m = loop {
+            let mut m = NEST[p].mode;
             if p > 0 {
                 p -= 1
             } else {
-                m = VMODE
+                m = (false, ListMode::VMode);
             }
-            if !(m == HMODE) {
-                break;
+            if m != (false, ListMode::HMode) {
+                break m;
             }
-        }
+        };
         print_cstr(b" (");
         let mut s: &[u8] = &[];
         match cur_group {
@@ -12886,7 +12875,7 @@ pub(crate) unsafe fn show_save_groups() {
             }
             GroupCode::ALIGN => {
                 if a == 0 {
-                    if m == -VMODE {
+                    if m == (true, ListMode::VMode) {
                         s = b"halign"
                     } else {
                         s = b"valign"
@@ -12951,9 +12940,9 @@ pub(crate) unsafe fn show_save_groups() {
                 return found(p, a);
             }
             GroupCode::MATH_SHIFT => {
-                if m == MMODE {
+                if m == (false, ListMode::MMode) {
                     print_char('$' as i32);
-                } else if NEST[p].mode == MMODE {
+                } else if NEST[p].mode == (false, ListMode::MMode) {
                     print_cmd_chr(Cmd::EqNo, SAVE_STACK[SAVE_PTR - 2].val);
                     return found(p, a);
                 }
@@ -12974,7 +12963,7 @@ pub(crate) unsafe fn show_save_groups() {
 
         if i != 0 {
             if i < BOX_FLAG {
-                let j = if NEST[p].mode.abs() == VMODE {
+                let j = if NEST[p].mode.1 == ListMode::VMode {
                     Cmd::HMove
                 } else {
                     Cmd::VMove
@@ -13405,7 +13394,7 @@ pub(crate) unsafe fn you_cant() {
     }
     print_cstr(b"You can\'t use `");
     print_cmd_chr(cur_cmd, cur_chr);
-    print_in_mode(cur_list.mode as i32);
+    print_in_mode(cur_list.mode);
 }
 pub(crate) unsafe fn report_illegal_case() {
     you_cant();
@@ -13417,7 +13406,7 @@ pub(crate) unsafe fn report_illegal_case() {
     error();
 }
 pub(crate) unsafe fn privileged() -> bool {
-    if cur_list.mode > 0 {
+    if cur_list.mode.0 == false {
         true
     } else {
         report_illegal_case();
@@ -13578,7 +13567,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
         /*1111:*/
         if !cur_box.is_texnull() {
             MEM[(cur_box + 4) as usize].b32.s1 = box_context;
-            if cur_list.mode.abs() == VMODE {
+            if cur_list.mode.1 == ListMode::VMode {
                 if !pre_adjust_tail.is_texnull() {
                     if PRE_ADJUST_HEAD as i32 != pre_adjust_tail {
                         MEM[cur_list.tail].b32.s1 = MEM[PRE_ADJUST_HEAD].b32.s1;
@@ -13594,11 +13583,11 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
                     }
                     adjust_tail = TEX_NULL
                 }
-                if cur_list.mode > 0 {
+                if cur_list.mode.0 == false {
                     build_page();
                 }
             } else {
-                if cur_list.mode.abs() == HMODE {
+                if cur_list.mode.1 == ListMode::HMode {
                     cur_list.aux.b32.s0 = 1000
                 } else {
                     let p = new_noad();
@@ -13643,8 +13632,8 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
                     break;
                 }
             }
-            if cur_cmd == Cmd::HSkip && cur_list.mode.abs() != VMODE
-                || cur_cmd == Cmd::VSkip && cur_list.mode.abs() == VMODE
+            if cur_cmd == Cmd::HSkip && cur_list.mode.1 != ListMode::VMode
+                || cur_cmd == Cmd::VSkip && cur_list.mode.1 == ListMode::VMode
             {
                 append_glue();
                 MEM[cur_list.tail].b16.s0 =
@@ -13710,12 +13699,12 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
         }
         LAST_BOX_CODE => {
             cur_box = TEX_NULL;
-            if cur_list.mode.abs() == MMODE {
+            if cur_list.mode.1 == ListMode::MMode {
                 you_cant();
                 help_ptr = 1;
                 help_line[0] = b"Sorry; this \\lastbox will be void.";
                 error();
-            } else if cur_list.mode == VMODE && cur_list.head == cur_list.tail {
+            } else if cur_list.mode == (false, ListMode::VMode) && cur_list.head == cur_list.tail {
                 you_cant();
                 help_ptr = 2;
                 help_line[1] = b"Sorry...I usually can\'t take things from the current page.";
@@ -13816,26 +13805,27 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
             cur_box = vsplit(n, cur_val)
         }
         _ => {
-            let mut k = cur_chr - 4;
+            let k = cur_chr - 4;
+            let mut k = (k < 0, ListMode::from(k.abs() as u8));
             SAVE_STACK[SAVE_PTR + 0].val = box_context;
-            if k == HMODE as i32 {
-                if box_context < BOX_FLAG && cur_list.mode.abs() == VMODE {
+            if k == (false, ListMode::HMode) {
+                if box_context < BOX_FLAG && cur_list.mode.1 == ListMode::VMode {
                     scan_spec(GroupCode::ADJUSTED_HBOX, true);
                 } else {
                     scan_spec(GroupCode::HBOX, true);
                 }
             } else {
-                if k == VMODE as i32 {
+                if k == (false, ListMode::VMode) {
                     scan_spec(GroupCode::VBOX, true);
                 } else {
                     scan_spec(GroupCode::VTOP, true);
-                    k = VMODE as i32;
+                    k = (false, ListMode::VMode);
                 }
                 normal_paragraph();
             }
             push_nest();
-            cur_list.mode = -k as i16;
-            if k == VMODE as i32 {
+            cur_list.mode = (!k.0, k.1);
+            if k == (false, ListMode::VMode) {
                 cur_list.aux.b32.s1 = IGNORE_DEPTH;
                 if !LOCAL(Local::every_vbox).is_texnull() {
                     begin_token_list(*LOCAL(Local::every_vbox) as usize, Btl::EveryVBoxText);
@@ -13884,7 +13874,7 @@ pub(crate) unsafe fn package(mut c: small_number) {
     SAVE_PTR -= 3;
     let v = *INTPAR(IntPar::xetex_upwards);
     *INTPAR(IntPar::xetex_upwards) = u;
-    if cur_list.mode == -104 {
+    if cur_list.mode == (true, ListMode::HMode) {
         cur_box = hpack(
             MEM[cur_list.head].b32.s1,
             SAVE_STACK[SAVE_PTR + 2].val,
@@ -13926,12 +13916,12 @@ pub(crate) unsafe fn norm_min(mut h: i32) -> small_number {
 }
 pub(crate) unsafe fn new_graf(mut indented: bool) {
     cur_list.prev_graf = 0;
-    if cur_list.mode == VMODE || cur_list.head != cur_list.tail {
+    if cur_list.mode == (false, ListMode::VMode) || cur_list.head != cur_list.tail {
         MEM[cur_list.tail].b32.s1 = new_param_glue(GluePar::par_skip as small_number) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
     }
     push_nest();
-    cur_list.mode = HMODE;
+    cur_list.mode = (false, ListMode::HMode);
     cur_list.aux.b32.s0 = 1000;
     cur_lang = if *INTPAR(IntPar::language) <= 0 {
         0
@@ -13964,7 +13954,7 @@ pub(crate) unsafe fn indent_in_hmode() {
     if cur_chr > 0 {
         let mut p = new_null_box();
         MEM[p + 1].b32.s1 = EQTB[DIMEN_BASE].val;
-        if cur_list.mode.abs() == HMODE {
+        if cur_list.mode.1 == ListMode::HMode {
             cur_list.aux.b32.s0 = 1000
         } else {
             let q = new_noad();
@@ -13977,7 +13967,7 @@ pub(crate) unsafe fn indent_in_hmode() {
     };
 }
 pub(crate) unsafe fn head_for_vmode() {
-    if (cur_list.mode as i32) < 0 {
+    if cur_list.mode.0 == true {
         if cur_cmd != Cmd::HRule {
             off_save();
         } else {
@@ -14002,7 +13992,7 @@ pub(crate) unsafe fn head_for_vmode() {
     };
 }
 pub(crate) unsafe fn end_graf() {
-    if cur_list.mode == HMODE {
+    if cur_list.mode == (false, ListMode::HMode) {
         if cur_list.head == cur_list.tail {
             pop_nest();
         } else {
@@ -14047,7 +14037,7 @@ pub(crate) unsafe fn begin_insert_or_adjust() {
     scan_left_brace();
     normal_paragraph();
     push_nest();
-    cur_list.mode = -1;
+    cur_list.mode = (true, ListMode::VMode);
     cur_list.aux.b32.s1 = IGNORE_DEPTH;
 }
 pub(crate) unsafe fn make_mark() {
@@ -14070,12 +14060,12 @@ pub(crate) unsafe fn append_penalty() {
     scan_int();
     MEM[cur_list.tail].b32.s1 = new_penalty(cur_val) as i32;
     cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-    if cur_list.mode == VMODE {
+    if cur_list.mode == (false, ListMode::VMode) {
         build_page();
     };
 }
 pub(crate) unsafe fn delete_last() {
-    if cur_list.mode == VMODE && cur_list.tail == cur_list.head {
+    if cur_list.mode == (false, ListMode::VMode) && cur_list.tail == cur_list.head {
         /*1141: */
         if cur_chr != GLUE_NODE.u16() as i32 || last_glue != MAX_HALFWORD {
             you_cant();
@@ -14187,9 +14177,9 @@ pub(crate) unsafe fn unpackage() {
         if p.is_texnull() {
             return;
         }
-        if cur_list.mode.abs() == MMODE
-            || cur_list.mode.abs() == VMODE && NODE_type(p as usize) != VLIST_NODE
-            || cur_list.mode.abs() == HMODE && NODE_type(p as usize) != HLIST_NODE
+        if cur_list.mode.1 == ListMode::MMode
+            || cur_list.mode.1 == ListMode::VMode && NODE_type(p as usize) != VLIST_NODE
+            || cur_list.mode.1 == ListMode::HMode && NODE_type(p as usize) != HLIST_NODE
         {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -14287,7 +14277,7 @@ pub(crate) unsafe fn append_discretionary() {
         new_save_level(GroupCode::DISC);
         scan_left_brace();
         push_nest();
-        cur_list.mode = -104;
+        cur_list.mode = (true, ListMode::HMode);
         cur_list.aux.b32.s0 = 1000;
     };
 }
@@ -14341,7 +14331,7 @@ pub(crate) unsafe fn build_discretionary() {
         0 => MEM[cur_list.tail + 1].b32.s0 = p,
         1 => MEM[cur_list.tail + 1].b32.s1 = p,
         2 => {
-            if n > 0 && cur_list.mode.abs() == MMODE {
+            if n > 0 && cur_list.mode.1 == ListMode::MMode {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -14384,7 +14374,7 @@ pub(crate) unsafe fn build_discretionary() {
     new_save_level(GroupCode::DISC);
     scan_left_brace();
     push_nest();
-    cur_list.mode = -104;
+    cur_list.mode = (true, ListMode::HMode);
     cur_list.aux.b32.s0 = 1000;
 }
 pub(crate) unsafe fn make_accent() {
@@ -14587,7 +14577,7 @@ pub(crate) unsafe fn cs_error() {
 }
 pub(crate) unsafe fn push_math(c: GroupCode) {
     push_nest();
-    cur_list.mode = -207;
+    cur_list.mode = (true, ListMode::MMode);
     cur_list.aux.b32.s1 = TEX_NULL;
     new_save_level(c);
 }
@@ -15027,12 +15017,12 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
     };
 }
 pub(crate) unsafe fn alter_aux() {
-    if cur_chr != (cur_list.mode as i32).abs() {
+    if cur_chr != cur_list.mode.1 as i32 {
         report_illegal_case();
     } else {
         let c = cur_chr;
         scan_optional_equals();
-        if c == VMODE as i32 {
+        if c == ListMode::VMode as i32 {
             scan_dimen(false, false, false);
             cur_list.aux.b32.s1 = cur_val
         } else {
@@ -15056,7 +15046,7 @@ pub(crate) unsafe fn alter_aux() {
 pub(crate) unsafe fn alter_prev_graf() {
     NEST[NEST_PTR] = cur_list;
     let mut p = NEST_PTR;
-    while NEST[p as usize].mode.abs() != VMODE {
+    while NEST[p as usize].mode.1 != ListMode::VMode {
         p -= 1;
     }
     scan_optional_equals();
@@ -15552,7 +15542,7 @@ pub(crate) unsafe fn do_extension() {
             }
         }
         5 => {
-            if cur_list.mode.abs() != HMODE {
+            if cur_list.mode.1 != ListMode::HMode {
                 report_illegal_case();
             } else {
                 new_whatsit(
@@ -15573,24 +15563,24 @@ pub(crate) unsafe fn do_extension() {
             }
         }
         41 => {
-            if cur_list.mode.abs() == MMODE {
+            if cur_list.mode.1 == ListMode::MMode {
                 report_illegal_case();
             } else {
                 load_picture(false);
             }
         }
         42 => {
-            if cur_list.mode.abs() == MMODE {
+            if cur_list.mode.1 == ListMode::MMode {
                 report_illegal_case();
             } else {
                 load_picture(true);
             }
         }
         43 => {
-            if cur_list.mode.abs() == VMODE {
+            if cur_list.mode.1 == ListMode::VMode {
                 back_input();
                 new_graf(true);
-            } else if cur_list.mode.abs() == MMODE {
+            } else if cur_list.mode.1 == ListMode::MMode {
                 report_illegal_case();
             } else if FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == AAT_FONT_FLAG
                 || FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == OTGR_FONT_FLAG
@@ -15940,7 +15930,7 @@ pub(crate) unsafe fn main_control() {
             if *INTPAR(IntPar::tracing_commands) > 0i32 {
                 show_cur_cmd_chr(); /*:1490 */
             }
-            match cur_list.mode.abs() + cur_cmd as i16 {
+            match cur_list.mode.1 as i16 + cur_cmd as i16 {
                 115 | 116 | 172 => {}
                 120 => {
                     scan_usv_num();
@@ -15958,7 +15948,7 @@ pub(crate) unsafe fn main_control() {
                     continue;
                 }
                 _ => {
-                    if cur_list.mode.abs() == HMODE {
+                    if cur_list.mode.1 == ListMode::HMode {
                         if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
                             && space_class != CHAR_CLASS_LIMIT
                             && prev_class != CHAR_CLASS_LIMIT - 1
@@ -15987,7 +15977,7 @@ pub(crate) unsafe fn main_control() {
                             }
                         }
                     }
-                    match cur_list.mode.abs() + cur_cmd as i16 {
+                    match cur_list.mode.1 as i16 + cur_cmd as i16 {
                         114 => {
                             if cur_list.aux.b32.s0 == 1000 {
                                 current_block = 1496671425652391013;
@@ -16048,9 +16038,9 @@ pub(crate) unsafe fn main_control() {
                         37 | 139 | 242 => {
                             MEM[cur_list.tail].b32.s1 = scan_rule_spec() as i32;
                             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-                            if cur_list.mode.abs() == VMODE {
+                            if cur_list.mode.1 == ListMode::VMode {
                                 cur_list.aux.b32.s1 = IGNORE_DEPTH;
-                            } else if cur_list.mode.abs() == HMODE {
+                            } else if cur_list.mode.1 == ListMode::HMode {
                                 cur_list.aux.b32.s0 = 1000;
                             }
                             continue 'c_125208;
@@ -16116,7 +16106,7 @@ pub(crate) unsafe fn main_control() {
                         }
                         14 => {
                             normal_paragraph();
-                            if cur_list.mode > 0 {
+                            if cur_list.mode.0 == false {
                                 build_page();
                             }
                             continue 'c_125208;
@@ -16126,7 +16116,7 @@ pub(crate) unsafe fn main_control() {
                                 off_save();
                             }
                             end_graf();
-                            if cur_list.mode == VMODE {
+                            if cur_list.mode == (false, ListMode::VMode) {
                                 build_page();
                             }
                             continue 'c_125208;
@@ -16327,7 +16317,7 @@ pub(crate) unsafe fn main_control() {
                             scan_spec(GroupCode::VCENTER, false);
                             normal_paragraph();
                             push_nest();
-                            cur_list.mode = -1;
+                            cur_list.mode = (true, ListMode::VMode);
                             cur_list.aux.b32.s1 = IGNORE_DEPTH;
                             if insert_src_special_every_vbox {
                                 insert_src_special();
@@ -16421,7 +16411,7 @@ pub(crate) unsafe fn main_control() {
                 }
             }
             /*main_loop *//*1069: */
-            if cur_list.head == cur_list.tail && cur_list.mode > 0 {
+            if cur_list.head == cur_list.tail && cur_list.mode.0 == false {
                 if insert_src_special_auto {
                     append_src_special();
                 }
@@ -16430,7 +16420,7 @@ pub(crate) unsafe fn main_control() {
             if FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == AAT_FONT_FLAG
                 || FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == OTGR_FONT_FLAG
             {
-                if cur_list.mode > 0 {
+                if cur_list.mode.0 == false {
                     if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
                         fix_language();
                     }
@@ -16652,7 +16642,7 @@ pub(crate) unsafe fn main_control() {
                 }
                 main_k = native_len;
                 main_pp = cur_list.tail as i32;
-                if cur_list.mode == HMODE {
+                if cur_list.mode == (false, ListMode::HMode) {
                     main_ppp = cur_list.head as i32;
                     if main_ppp != main_pp {
                         while MEM[main_ppp as usize].b32.s1 != main_pp {
@@ -17094,7 +17084,7 @@ pub(crate) unsafe fn main_control() {
                 main_f = EQTB[CUR_FONT_LOC].val as usize;
                 bchar = FONT_BCHAR[main_f as usize];
                 false_bchar = FONT_FALSE_BCHAR[main_f as usize];
-                if cur_list.mode > 0 {
+                if cur_list.mode.0 == false {
                     if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
                         fix_language();
                     }
@@ -17200,7 +17190,7 @@ pub(crate) unsafe fn main_control() {
                                                 }
                                                 if ins_disc {
                                                     ins_disc = false;
-                                                    if cur_list.mode as i32 > 0 {
+                                                    if cur_list.mode.0 == false {
                                                         MEM[cur_list.tail].b32.s1 =
                                                             new_disc() as i32;
                                                         cur_list.tail =
@@ -17287,7 +17277,7 @@ pub(crate) unsafe fn main_control() {
                                                         }
                                                         if ins_disc {
                                                             ins_disc = false;
-                                                            if cur_list.mode > 0 {
+                                                            if cur_list.mode.0 == false {
                                                                 MEM[cur_list.tail].b32.s1 =
                                                                     new_disc() as i32;
                                                                 cur_list.tail =
@@ -17529,7 +17519,7 @@ pub(crate) unsafe fn main_control() {
                                         }
                                         if ins_disc {
                                             ins_disc = false;
-                                            if cur_list.mode > 0 {
+                                            if cur_list.mode.0 == false {
                                                 MEM[cur_list.tail].b32.s1 = new_disc() as i32;
                                                 cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                                             }
