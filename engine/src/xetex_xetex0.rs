@@ -199,9 +199,16 @@ pub(crate) unsafe fn show_token_list(mut p: i32, mut q: i32, mut l: i32) {
             } else {
                 /*306:*/
                 match m {
-                    LEFT_BRACE | RIGHT_BRACE | MATH_SHIFT | TAB_MARK | SUP_MARK | SUB_MARK
-                    | SPACER | LETTER | OTHER_CHAR => print_char(c),
-                    MAC_PARAM => {
+                    Cmd::LeftBrace
+                    | Cmd::RightBrace
+                    | Cmd::MathShift
+                    | Cmd::TabMark
+                    | Cmd::SupMark
+                    | Cmd::SubMark
+                    | Cmd::Spacer
+                    | Cmd::Letter
+                    | Cmd::OtherChar => print_char(c),
+                    Cmd::MacParam => {
                         print_char(c);
                         print_char(c);
                     }
@@ -1140,12 +1147,10 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                         _ => {}
                     }
                     if MEM[p].b16.s1 < LEFT_NOAD.u16() {
-                        if MEM[p].b16.s0 != NORMAL {
-                            if MEM[p].b16.s0 == LIMITS {
-                                print_esc_cstr(b"limits");
-                            } else {
-                                print_esc_cstr(b"nolimits");
-                            }
+                        match Limit::from(MEM[p].b16.s0) {
+                            Limit::Limits => print_esc_cstr(b"limits"),
+                            Limit::NoLimits => print_esc_cstr(b"nolimits"),
+                            Limit::Normal => {}
                         }
                         print_subsidiary_data(p + 1, '.' as i32 as UTF16_code);
                     }
@@ -1813,7 +1818,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
     let mut font_name_str: str_number = 0;
     let mut quote_char: UTF16_code = 0;
     match cmd {
-        LEFT_BRACE => {
+        Cmd::LeftBrace => {
             print_cstr(b"begin-group character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
@@ -1821,7 +1826,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_char(chr_code);
             }
         }
-        RIGHT_BRACE => {
+        Cmd::RightBrace => {
             print_cstr(b"end-group character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
@@ -1829,7 +1834,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_char(chr_code);
             }
         }
-        MATH_SHIFT => {
+        Cmd::MathShift => {
             print_cstr(b"math shift character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
@@ -1837,7 +1842,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_char(chr_code);
             }
         }
-        MAC_PARAM => {
+        Cmd::MacParam => {
             print_cstr(b"macro parameter character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
@@ -1845,7 +1850,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_char(chr_code);
             }
         }
-        SUP_MARK => {
+        Cmd::SupMark => {
             print_cstr(b"superscript character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
@@ -1853,7 +1858,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_char(chr_code);
             }
         }
-        SUB_MARK => {
+        Cmd::SubMark => {
             print_cstr(b"subscript character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
@@ -1861,8 +1866,8 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_char(chr_code);
             }
         }
-        ENDV => print_cstr(b"end of alignment template"),
-        SPACER => {
+        Cmd::EndV => print_cstr(b"end of alignment template"),
+        Cmd::Spacer => {
             print_cstr(b"blank space ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
@@ -1870,7 +1875,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_char(chr_code);
             }
         }
-        LETTER => {
+        Cmd::Letter => {
             print_cstr(b"the letter ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
@@ -1878,7 +1883,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_char(chr_code);
             }
         }
-        OTHER_CHAR => {
+        Cmd::OtherChar => {
             print_cstr(b"the character ");
             if (chr_code as i64) < 65536 {
                 print(chr_code);
@@ -1886,7 +1891,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_char(chr_code);
             }
         }
-        ASSIGN_GLUE | ASSIGN_MU_GLUE => {
+        Cmd::AssignGlue | Cmd::AssignMuGlue => {
             if chr_code < SKIP_BASE as i32 {
                 match GluePar::n((chr_code - GLUE_BASE as i32) as u16) {
                     Some(dimen) => print_skip_param(dimen),
@@ -1900,7 +1905,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_int(chr_code - MU_SKIP_BASE as i32);
             }
         }
-        ASSIGN_TOKS => {
+        Cmd::AssignToks => {
             if chr_code >= TOKS_BASE as i32 {
                 print_esc_cstr(b"toks");
                 print_int(chr_code - TOKS_BASE as i32);
@@ -1921,7 +1926,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 }
             }
         }
-        ASSIGN_INT => {
+        Cmd::AssignInt => {
             if chr_code < COUNT_BASE as i32 {
                 match IntPar::n(chr_code - INT_BASE as i32) {
                     Some(dimen) => print_param(dimen),
@@ -1932,7 +1937,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_int(chr_code - COUNT_BASE as i32);
             }
         }
-        ASSIGN_DIMEN => {
+        Cmd::AssignDimen => {
             if chr_code < SCALED_BASE as i32 {
                 match DimenPar::n(chr_code - DIMEN_BASE as i32) {
                     Some(dimen) => print_length_param(dimen),
@@ -1943,59 +1948,59 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_int(chr_code - SCALED_BASE as i32);
             }
         }
-        ACCENT => print_esc_cstr(b"accent"),
-        ADVANCE => print_esc_cstr(b"advance"),
-        AFTER_ASSIGNMENT => print_esc_cstr(b"afterassignment"),
-        AFTER_GROUP => print_esc_cstr(b"aftergroup"),
-        ASSIGN_FONT_DIMEN => print_esc_cstr(b"fontdimen"),
-        BEGIN_GROUP => print_esc_cstr(b"begingroup"),
-        BREAK_PENALTY => print_esc_cstr(b"penalty"),
-        CHAR_NUM => print_esc_cstr(b"char"),
-        CS_NAME => print_esc_cstr(b"csname"),
-        DEF_FONT => print_esc_cstr(b"font"),
-        DELIM_NUM => {
+        Cmd::Accent => print_esc_cstr(b"accent"),
+        Cmd::Advance => print_esc_cstr(b"advance"),
+        Cmd::AfterAssignment => print_esc_cstr(b"afterassignment"),
+        Cmd::AfterGroup => print_esc_cstr(b"aftergroup"),
+        Cmd::AssignFontDimen => print_esc_cstr(b"fontdimen"),
+        Cmd::BeginGroup => print_esc_cstr(b"begingroup"),
+        Cmd::BreakPenalty => print_esc_cstr(b"penalty"),
+        Cmd::CharNum => print_esc_cstr(b"char"),
+        Cmd::CSName => print_esc_cstr(b"csname"),
+        Cmd::DefFont => print_esc_cstr(b"font"),
+        Cmd::DelimNum => {
             if chr_code == 1 {
                 print_esc_cstr(b"Udelimiter");
             } else {
                 print_esc_cstr(b"delimiter");
             }
         }
-        DIVIDE => print_esc_cstr(b"divide"),
-        END_CS_NAME => print_esc_cstr(b"endcsname"),
-        END_GROUP => print_esc_cstr(b"endgroup"),
-        EX_SPACE => print_esc(' ' as i32),
-        EXPAND_AFTER => {
+        Cmd::Divide => print_esc_cstr(b"divide"),
+        Cmd::EndCSName => print_esc_cstr(b"endcsname"),
+        Cmd::EndGroup => print_esc_cstr(b"endgroup"),
+        Cmd::ExSpace => print_esc(' ' as i32),
+        Cmd::ExpandAfter => {
             if chr_code == 0 {
                 print_esc_cstr(b"expandafter");
             } else {
                 print_esc_cstr(b"unless");
             }
         }
-        HALIGN => print_esc_cstr(b"halign"),
-        HRULE => print_esc_cstr(b"hrule"),
-        IGNORE_SPACES => {
+        Cmd::HAlign => print_esc_cstr(b"halign"),
+        Cmd::HRule => print_esc_cstr(b"hrule"),
+        Cmd::IgnoreSpaces => {
             if chr_code == 0 {
                 print_esc_cstr(b"ignorespaces");
             } else {
                 print_esc_cstr(b"primitive");
             }
         }
-        INSERT => print_esc_cstr(b"insert"),
-        ITAL_CORR => print_esc('/' as i32),
-        MARK => {
+        Cmd::Insert => print_esc_cstr(b"insert"),
+        Cmd::ItalCorr => print_esc('/' as i32),
+        Cmd::Mark => {
             print_esc_cstr(b"mark");
             if chr_code > 0 {
                 print_char('s' as i32);
             }
         }
-        MATH_ACCENT => {
+        Cmd::MathAccent => {
             if chr_code == 1 {
                 print_esc_cstr(b"Umathaccent");
             } else {
                 print_esc_cstr(b"mathaccent");
             }
         }
-        MATH_CHAR_NUM => {
+        Cmd::MathCharNum => {
             if chr_code == 2 {
                 print_esc_cstr(b"Umathchar");
             } else if chr_code == 1 {
@@ -2004,37 +2009,37 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"mathchar");
             }
         }
-        MATH_CHOICE => print_esc_cstr(b"mathchoice"),
-        MULTIPLY => print_esc_cstr(b"multiply"),
-        NO_ALIGN => print_esc_cstr(b"noalign"),
-        NO_BOUNDARY => print_esc_cstr(b"noboundary"),
-        NO_EXPAND => {
+        Cmd::MathChoice => print_esc_cstr(b"mathchoice"),
+        Cmd::Multiply => print_esc_cstr(b"multiply"),
+        Cmd::NoAlign => print_esc_cstr(b"noalign"),
+        Cmd::NoBoundary => print_esc_cstr(b"noboundary"),
+        Cmd::NoExpand => {
             if chr_code == 0 {
                 print_esc_cstr(b"noexpand");
             } else {
                 print_esc_cstr(b"primitive");
             }
         }
-        NON_SCRIPT => print_esc_cstr(b"nonscript"),
-        OMIT => print_esc_cstr(b"omit"),
-        RADICAL => {
+        Cmd::NonScript => print_esc_cstr(b"nonscript"),
+        Cmd::Omit => print_esc_cstr(b"omit"),
+        Cmd::Radical => {
             if chr_code == 1 {
                 print_esc_cstr(b"Uradical");
             } else {
                 print_esc_cstr(b"radical");
             }
         }
-        READ_TO_CS => {
+        Cmd::ReadToCS => {
             if chr_code == 0 {
                 print_esc_cstr(b"read");
             } else {
                 print_esc_cstr(b"readline");
             }
         }
-        RELAX => print_esc_cstr(b"relax"),
-        SET_BOX => print_esc_cstr(b"setbox"),
-        SET_PREV_GRAF => print_esc_cstr(b"prevgraf"),
-        SET_SHAPE => match chr_code as usize {
+        Cmd::Relax => print_esc_cstr(b"relax"),
+        Cmd::SetBox => print_esc_cstr(b"setbox"),
+        Cmd::SetPrevGraf => print_esc_cstr(b"prevgraf"),
+        Cmd::SetShape => match chr_code as usize {
             c if c == LOCAL_BASE as usize + Local::par_shape as usize => {
                 print_esc_cstr(b"parshape")
             }
@@ -2044,7 +2049,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             DISPLAY_WIDOW_PENALTIES_LOC => print_esc_cstr(b"displaywidowpenalties"),
             _ => {}
         },
-        THE => {
+        Cmd::The => {
             if chr_code == 0 {
                 print_esc_cstr(b"the");
             } else if chr_code == 1 {
@@ -2053,14 +2058,14 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"detokenize");
             }
         }
-        TOKS_REGISTER => {
+        Cmd::ToksRegister => {
             print_esc_cstr(b"toks");
             if chr_code != 0 {
                 print_sa_num(chr_code);
             }
         }
-        VADJUST => print_esc_cstr(b"vadjust"),
-        VALIGN => {
+        Cmd::VAdjust => print_esc_cstr(b"vadjust"),
+        Cmd::VAlign => {
             if chr_code == 0 {
                 print_esc_cstr(b"valign");
             } else {
@@ -2072,10 +2077,10 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 }
             }
         }
-        VCENTER => print_esc_cstr(b"vcenter"),
-        VRULE => print_esc_cstr(b"vrule"),
+        Cmd::VCenter => print_esc_cstr(b"vcenter"),
+        Cmd::VRule => print_esc_cstr(b"vrule"),
         PAR_END => print_esc_cstr(b"par"),
-        INPUT => {
+        Cmd::Input => {
             if chr_code == 0 {
                 print_esc_cstr(b"input");
             } else if chr_code == 2i32 {
@@ -2084,7 +2089,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"endinput");
             }
         }
-        TOP_BOT_MARK => {
+        Cmd::TopBotMark => {
             match (chr_code % MARKS_CODE) as usize {
                 FIRST_MARK_CODE => print_esc_cstr(b"firstmark"),
                 BOT_MARK_CODE => print_esc_cstr(b"botmark"),
@@ -2096,7 +2101,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_char('s' as i32);
             }
         }
-        REGISTER => {
+        Cmd::Register => {
             let cmd;
             if chr_code < 0 || chr_code > 19 {
                 /*lo_mem_stat_max*/
@@ -2118,14 +2123,14 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_sa_num(chr_code);
             }
         }
-        SET_AUX => {
+        Cmd::SetAux => {
             if chr_code == VMODE as i32 {
                 print_esc_cstr(b"prevdepth");
             } else {
                 print_esc_cstr(b"spacefactor");
             }
         }
-        SET_PAGE_INT => {
+        Cmd::SetPageInt => {
             if chr_code == 0 {
                 print_esc_cstr(b"deadcycles");
             } else if chr_code == 2 {
@@ -2134,7 +2139,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"insertpenalties");
             }
         }
-        SET_BOX_DIMEN => {
+        Cmd::SetBoxDimen => {
             if chr_code == WIDTH_OFFSET {
                 print_esc_cstr(b"wd");
             } else if chr_code == HEIGHT_OFFSET {
@@ -2143,7 +2148,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"dp");
             }
         }
-        LAST_ITEM => match chr_code {
+        Cmd::LastItem => match chr_code {
             0 => print_esc_cstr(b"lastpenalty"), // INT_VAL
             1 => print_esc_cstr(b"lastkern"),    // DIMEN_VAL
             2 => print_esc_cstr(b"lastskip"),    // GLUE_VAL
@@ -2210,7 +2215,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             GLUE_TO_MU_CODE => print_esc_cstr(b"gluetomu"),
             _ => print_esc_cstr(b"badness"),
         },
-        CONVERT => match chr_code {
+        Cmd::Convert => match chr_code {
             NUMBER_CODE => print_esc_cstr(b"number"),
             ROMAN_NUMERAL_CODE => print_esc_cstr(b"romannumeral"),
             STRING_CODE => print_esc_cstr(b"string"),
@@ -2230,7 +2235,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             XETEX_UCHARCAT_CODE => print_esc_cstr(b"Ucharcat"),
             _ => print_esc_cstr(b"jobname"),
         },
-        IF_TEST => {
+        Cmd::IfTest => {
             if chr_code >= UNLESS_CODE {
                 print_esc_cstr(b"unless");
             }
@@ -2259,7 +2264,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 _ => print_esc_cstr(b"if"),
             }
         }
-        FI_OR_ELSE => {
+        Cmd::FiOrElse => {
             if chr_code == FI_CODE as i32 {
                 print_esc_cstr(b"fi");
             } else if chr_code == OR_CODE as i32 {
@@ -2268,7 +2273,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"else");
             }
         }
-        TAB_MARK => {
+        Cmd::TabMark => {
             if chr_code == SPAN_CODE {
                 print_esc_cstr(b"span");
             } else {
@@ -2280,14 +2285,14 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 }
             }
         }
-        CAR_RET => {
+        Cmd::CarRet => {
             if chr_code == CR_CODE {
                 print_esc_cstr(b"cr");
             } else {
                 print_esc_cstr(b"crcr");
             }
         }
-        SET_PAGE_DIMEN => {
+        Cmd::SetPageDimen => {
             match chr_code {
                 0 => print_esc_cstr(b"pagegoal"),         // genuine literal in WEB
                 1 => print_esc_cstr(b"pagetotal"),        // genuine literal in WEB
@@ -2306,38 +2311,38 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"end");
             }
         }
-        HSKIP => match chr_code {
+        Cmd::HSkip => match chr_code {
             SKIP_CODE => print_esc_cstr(b"hskip"),
             FIL_CODE => print_esc_cstr(b"hfil"),
             FILL_CODE => print_esc_cstr(b"hfill"),
             SS_CODE => print_esc_cstr(b"hss"),
             _ => print_esc_cstr(b"hfilneg"),
         },
-        VSKIP => match chr_code {
+        Cmd::VSkip => match chr_code {
             SKIP_CODE => print_esc_cstr(b"vskip"),
             FIL_CODE => print_esc_cstr(b"vfil"),
             FILL_CODE => print_esc_cstr(b"vfill"),
             SS_CODE => print_esc_cstr(b"vss"),
             _ => print_esc_cstr(b"vfilneg"),
         },
-        MSKIP => print_esc_cstr(b"mskip"),
-        KERN => print_esc_cstr(b"kern"),
-        MKERN => print_esc_cstr(b"mkern"),
-        HMOVE => {
+        Cmd::MSkip => print_esc_cstr(b"mskip"),
+        Cmd::Kern => print_esc_cstr(b"kern"),
+        Cmd::MKern => print_esc_cstr(b"mkern"),
+        Cmd::HMove => {
             if chr_code == 1i32 {
                 print_esc_cstr(b"moveleft");
             } else {
                 print_esc_cstr(b"moveright");
             }
         }
-        VMOVE => {
+        Cmd::VMove => {
             if chr_code == 1 {
                 print_esc_cstr(b"raise");
             } else {
                 print_esc_cstr(b"lower");
             }
         }
-        MAKE_BOX => match chr_code {
+        Cmd::MakeBox => match chr_code {
             BOX_CODE => print_esc_cstr(b"box"),
             COPY_CODE => print_esc_cstr(b"copy"),
             LAST_BOX_CODE => print_esc_cstr(b"lastbox"),
@@ -2347,32 +2352,32 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             5 => print_esc_cstr(b"vbox"),
             _ => print_esc_cstr(b"hbox"),
         },
-        LEADER_SHIP => match chr_code as u16 {
+        Cmd::LeaderShip => match chr_code as u16 {
             A_LEADERS => print_esc_cstr(b"leaders"),
             C_LEADERS => print_esc_cstr(b"cleaders"),
             X_LEADERS => print_esc_cstr(b"xleaders"),
             _ => print_esc_cstr(b"shipout"),
         },
-        START_PAR => {
+        Cmd::StartPar => {
             if chr_code == 0 {
                 print_esc_cstr(b"noindent");
             } else {
                 print_esc_cstr(b"indent");
             }
         }
-        REMOVE_ITEM => match ND::from(chr_code as u16) {
+        Cmd::RemoveItem => match ND::from(chr_code as u16) {
             GLUE_NODE => print_esc_cstr(b"unskip"),
             KERN_NODE => print_esc_cstr(b"unkern"),
             _ => print_esc_cstr(b"unpenalty"),
         },
-        UN_HBOX => {
+        Cmd::UnHBox => {
             if chr_code == COPY_CODE {
                 print_esc_cstr(b"unhcopy");
             } else {
                 print_esc_cstr(b"unhbox");
             }
         }
-        UN_VBOX => {
+        Cmd::UnVBox => {
             if chr_code == COPY_CODE {
                 print_esc_cstr(b"unvcopy");
             } else if chr_code == LAST_BOX_CODE {
@@ -2383,21 +2388,21 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"unvbox");
             }
         }
-        DISCRETIONARY => {
+        Cmd::Discretionary => {
             if chr_code == 1 {
                 print_esc('-' as i32);
             } else {
                 print_esc_cstr(b"discretionary");
             }
         }
-        EQ_NO => {
+        Cmd::EqNo => {
             if chr_code == 1 {
                 print_esc_cstr(b"leqno");
             } else {
                 print_esc_cstr(b"eqno");
             }
         }
-        MATH_COMP => match ND::from(chr_code as u16) {
+        Cmd::MathComp => match ND::from(chr_code as u16) {
             ORD_NOAD => print_esc_cstr(b"mathord"),
             OP_NOAD => print_esc_cstr(b"mathop"),
             BIN_NOAD => print_esc_cstr(b"mathbin"),
@@ -2409,17 +2414,13 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             UNDER_NOAD => print_esc_cstr(b"underline"),
             _ => print_esc_cstr(b"overline"),
         },
-        LIMIT_SWITCH => {
-            if chr_code as u16 == LIMITS {
-                print_esc_cstr(b"limits");
-            } else if chr_code as u16 == NO_LIMITS {
-                print_esc_cstr(b"nolimits");
-            } else {
-                print_esc_cstr(b"displaylimits");
-            }
-        }
-        MATH_STYLE => print_style(chr_code),
-        ABOVE => match chr_code {
+        Cmd::LimitSwitch => match Limit::from(chr_code as u16) {
+            Limit::Limits => print_esc_cstr(b"limits"),
+            Limit::NoLimits => print_esc_cstr(b"nolimits"),
+            Limit::Normal => print_esc_cstr(b"displaylimits"),
+        },
+        Cmd::MathStyle => print_style(chr_code),
+        Cmd::Above => match chr_code {
             OVER_CODE => print_esc_cstr(b"over"),
             ATOP_CODE => print_esc_cstr(b"atop"),
             // DELIMITED_CODE + ABOVE_CODE
@@ -2430,7 +2431,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             5 => print_esc_cstr(b"atopwithdelims"),
             _ => print_esc_cstr(b"above"),
         },
-        LEFT_RIGHT => {
+        Cmd::LeftRight => {
             if chr_code as u16 == LEFT_NOAD.u16() {
                 print_esc_cstr(b"left");
             } else if chr_code as u16 == MIDDLE_NOAD {
@@ -2439,7 +2440,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"right");
             }
         }
-        PREFIX => {
+        Cmd::Prefix => {
             if chr_code == 1 {
                 print_esc_cstr(b"long");
             } else if chr_code == 2 {
@@ -2450,7 +2451,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"global");
             }
         }
-        DEF => {
+        Cmd::Def => {
             if chr_code == 0 {
                 print_esc_cstr(b"def");
             } else if chr_code == 1 {
@@ -2461,14 +2462,14 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"xdef");
             }
         }
-        LET => {
+        Cmd::Let => {
             if chr_code as u16 != NORMAL {
                 print_esc_cstr(b"futurelet");
             } else {
                 print_esc_cstr(b"let");
             }
         }
-        SHORTHAND_DEF => match chr_code {
+        Cmd::ShorthandDef => match chr_code {
             CHAR_DEF_CODE => print_esc_cstr(b"chardef"),
             MATH_CHAR_DEF_CODE => print_esc_cstr(b"mathchardef"),
             XETEX_MATH_CHAR_DEF_CODE => print_esc_cstr(b"Umathchardef"),
@@ -2480,21 +2481,21 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             CHAR_SUB_DEF_CODE => print_esc_cstr(b"charsubdef"),
             _ => print_esc_cstr(b"toksdef"),
         },
-        CHAR_GIVEN => {
+        Cmd::CharGiven => {
             print_esc_cstr(b"char");
             print_hex(chr_code);
         }
-        MATH_GIVEN => {
+        Cmd::MathGiven => {
             print_esc_cstr(b"mathchar");
             print_hex(chr_code);
         }
-        XETEX_MATH_GIVEN => {
+        Cmd::XetexMathGiven => {
             print_esc_cstr(b"Umathchar");
             print_hex(math_class(chr_code) as i32);
             print_hex(math_fam(chr_code) as i32);
             print_hex(math_char(chr_code) as i32);
         }
-        DEF_CODE => {
+        Cmd::DefCode => {
             if chr_code == CAT_CODE_BASE as i32 {
                 print_esc_cstr(b"catcode");
             } else if chr_code == MATH_CODE_BASE as i32 {
@@ -2509,7 +2510,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"delcode");
             }
         }
-        XETEX_DEF_CODE => {
+        Cmd::XetexDefCode => {
             if chr_code == SF_CODE_BASE as i32 {
                 print_esc_cstr(b"XeTeXcharclass");
             } else if chr_code == MATH_CODE_BASE as i32 {
@@ -2522,22 +2523,22 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"Udelcode");
             }
         }
-        DEF_FAMILY => print_size(chr_code - (MATH_FONT_BASE as i32)),
-        HYPH_DATA => {
+        Cmd::DefFamily => print_size(chr_code - (MATH_FONT_BASE as i32)),
+        Cmd::HyphData => {
             if chr_code == 1 {
                 print_esc_cstr(b"patterns");
             } else {
                 print_esc_cstr(b"hyphenation");
             }
         }
-        ASSIGN_FONT_INT => match chr_code {
+        Cmd::AssignFontInt => match chr_code {
             0 => print_esc_cstr(b"hyphenchar"),
             1 => print_esc_cstr(b"skewchar"),
             LP_CODE_BASE => print_esc_cstr(b"lpcode"),
             RP_CODE_BASE => print_esc_cstr(b"rpcode"),
             _ => {}
         },
-        SET_FONT => {
+        Cmd::SetFont => {
             print_cstr(b"select font ");
             font_name_str = FONT_NAME[chr_code as usize];
             if FONT_AREA[chr_code as usize] as u32 == AAT_FONT_FLAG
@@ -2565,34 +2566,34 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_cstr(b"pt");
             }
         }
-        SET_INTERACTION => match chr_code as u8 {
+        Cmd::SetInteraction => match chr_code as u8 {
             BATCH_MODE => print_esc_cstr(b"batchmode"),
             NONSTOP_MODE => print_esc_cstr(b"nonstopmode"),
             SCROLL_MODE => print_esc_cstr(b"scrollmode"),
             _ => print_esc_cstr(b"errorstopmode"),
         },
-        IN_STREAM => {
+        Cmd::InStream => {
             if chr_code == 0 {
                 print_esc_cstr(b"closein");
             } else {
                 print_esc_cstr(b"openin");
             }
         }
-        MESSAGE => {
+        Cmd::Message => {
             if chr_code == 0 {
                 print_esc_cstr(b"message");
             } else {
                 print_esc_cstr(b"errmessage");
             }
         }
-        CASE_SHIFT => {
+        Cmd::CaseShift => {
             if chr_code == LC_CODE_BASE as i32 {
                 print_esc_cstr(b"lowercase");
             } else {
                 print_esc_cstr(b"uppercase");
             }
         }
-        XRAY => match chr_code {
+        Cmd::XRay => match chr_code {
             SHOW_BOX_CODE => print_esc_cstr(b"showbox"),
             SHOW_THE_CODE => print_esc_cstr(b"showthe"),
             SHOW_LISTS => print_esc_cstr(b"showlists"),
@@ -2601,9 +2602,9 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             SHOW_IFS => print_esc_cstr(b"showifs"),
             _ => print_esc_cstr(b"show"),
         },
-        UNDEFINED_CS => print_cstr(b"undefined"),
-        CALL | LONG_CALL | OUTER_CALL | LONG_OUTER_CALL => {
-            let mut n = cmd as u8 - CALL as u8;
+        Cmd::UndefinedCS => print_cstr(b"undefined"),
+        Cmd::Call | Cmd::LongCall | Cmd::OuterCall | Cmd::LongOuterCall => {
+            let mut n = cmd as u8 - Cmd::Call as u8;
             if MEM[MEM[chr_code as usize].b32.s1 as usize].b32.s0 == PROTECTED_TOKEN {
                 n = n + 4
             }
@@ -2621,8 +2622,8 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             }
             print_cstr(b"macro");
         }
-        END_TEMPLATE => print_esc_cstr(b"outer endtemplate"),
-        EXTENSION => match chr_code as u16 {
+        Cmd::EndTemplate => print_esc_cstr(b"outer endtemplate"),
+        Cmd::Extension => match chr_code as u16 {
             0 => print_esc_cstr(b"openout"),               // OPEN_NODE
             1 => print_esc_cstr(b"write"),                 // WRITE_NODE
             2 => print_esc_cstr(b"closeout"),              // CLOSE_NODE
@@ -2986,7 +2987,7 @@ pub(crate) unsafe fn group_warning() {
     w = false;
     while GRP_STACK[i] == cur_boundary && i > 0 {
         if *INTPAR(IntPar::tracing_nesting) > 0 {
-            while INPUT_STACK[BASE_PTR].state == TOKEN_LIST
+            while INPUT_STACK[BASE_PTR].state == InputState::TokenList
                 || INPUT_STACK[BASE_PTR].index as usize > i
             {
                 BASE_PTR -= 1;
@@ -3019,7 +3020,7 @@ pub(crate) unsafe fn if_warning() {
     w = false;
     while IF_STACK[i] == cond_ptr {
         if *INTPAR(IntPar::tracing_nesting) > 0 {
-            while INPUT_STACK[BASE_PTR].state == TOKEN_LIST
+            while INPUT_STACK[BASE_PTR].state == InputState::TokenList
                 || INPUT_STACK[BASE_PTR].index as usize > i
             {
                 BASE_PTR -= 1
@@ -3033,7 +3034,7 @@ pub(crate) unsafe fn if_warning() {
     }
     if w {
         print_nl_cstr(b"Warning: end of ");
-        print_cmd_chr(IF_TEST, cur_if as i32);
+        print_cmd_chr(Cmd::IfTest, cur_if as i32);
         if if_line != 0 {
             print_cstr(b" entered on line ");
             print_int(if_line);
@@ -3073,7 +3074,7 @@ pub(crate) unsafe fn file_warning() {
     i = if_line;
     while IF_STACK[IN_OPEN] != cond_ptr {
         print_nl_cstr(b"Warning: end of file when ");
-        print_cmd_chr(IF_TEST, cur_if as i32);
+        print_cmd_chr(Cmd::IfTest, cur_if as i32);
         if if_limit == FI_CODE {
             print_esc_cstr(b"else");
         }
@@ -3489,11 +3490,11 @@ pub(crate) unsafe fn token_show(p: Option<usize>) {
 }
 pub(crate) unsafe fn print_meaning() {
     print_cmd_chr(cur_cmd, cur_chr);
-    if cur_cmd >= CALL {
+    if cur_cmd >= Cmd::Call {
         print_char(':' as i32);
         print_ln();
         token_show(cur_chr.opt());
-    } else if cur_cmd == TOP_BOT_MARK && cur_chr < 5 {
+    } else if cur_cmd == Cmd::TopBotMark && cur_chr < 5 {
         print_char(':' as i32);
         print_ln();
         token_show(cur_mark[cur_chr as usize].opt());
@@ -3512,11 +3513,11 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
     }
     print_cmd_chr(cur_cmd, cur_chr);
     if *INTPAR(IntPar::tracing_ifs) > 0 {
-        if cur_cmd >= IF_TEST {
-            if cur_cmd <= FI_OR_ELSE {
+        if cur_cmd >= Cmd::IfTest {
+            if cur_cmd <= Cmd::FiOrElse {
                 print_cstr(b": ");
-                if cur_cmd == FI_OR_ELSE {
-                    print_cmd_chr(IF_TEST, cur_if as i32);
+                if cur_cmd == Cmd::FiOrElse {
+                    print_cmd_chr(Cmd::IfTest, cur_if as i32);
                     print_char(' ' as i32);
                     n = 0;
                     l = if_line
@@ -3558,7 +3559,7 @@ pub(crate) unsafe fn show_context() {
     bottom_line = false;
     loop {
         cur_input = INPUT_STACK[BASE_PTR];
-        if cur_input.state != TOKEN_LIST {
+        if cur_input.state != InputState::TokenList {
             if cur_input.name > 19 || BASE_PTR == 0 {
                 bottom_line = true
             }
@@ -3566,13 +3567,13 @@ pub(crate) unsafe fn show_context() {
         if BASE_PTR == INPUT_PTR || bottom_line || nn < *INTPAR(IntPar::error_context_lines) {
             /*324: */
             if BASE_PTR == INPUT_PTR
-                || cur_input.state != TOKEN_LIST
+                || cur_input.state != InputState::TokenList
                 || cur_input.index != Btl::BackedUp
                 || !cur_input.loc.is_texnull()
             {
                 tally = 0i32;
                 let old_setting_0 = selector;
-                if cur_input.state != TOKEN_LIST {
+                if cur_input.state != InputState::TokenList {
                     if cur_input.name <= 17 {
                         if cur_input.name == 0 {
                             if BASE_PTR == 0 {
@@ -3774,7 +3775,7 @@ pub(crate) unsafe fn begin_token_list(p: usize, t: Btl) {
     }
     INPUT_STACK[INPUT_PTR] = cur_input;
     INPUT_PTR += 1;
-    cur_input.state = 0_u16;
+    cur_input.state = InputState::TokenList;
     cur_input.start = p as i32;
     cur_input.index = t;
     if ![
@@ -3800,7 +3801,7 @@ pub(crate) unsafe fn begin_token_list(p: usize, t: Btl) {
                     Btl::WriteText => print_esc_cstr(b"write"),
                     _ => {
                         print_cmd_chr(
-                            ASSIGN_TOKS,
+                            Cmd::AssignToks,
                             (t as i32) + LOCAL_BASE as i32 + (Local::output_routine as i32)
                                 - (Btl::OutputText) as i32,
                         );
@@ -3840,7 +3841,7 @@ pub(crate) unsafe fn end_token_list() {
 }
 pub(crate) unsafe fn back_input() {
     let mut p: i32 = 0;
-    while cur_input.state == TOKEN_LIST
+    while cur_input.state == InputState::TokenList
         && cur_input.loc.is_texnull()
         && cur_input.index != Btl::VTemplate
     {
@@ -3863,7 +3864,7 @@ pub(crate) unsafe fn back_input() {
     }
     INPUT_STACK[INPUT_PTR] = cur_input;
     INPUT_PTR += 1;
-    cur_input.state = TOKEN_LIST;
+    cur_input.state = InputState::TokenList;
     cur_input.start = p;
     cur_input.index = Btl::BackedUp;
     cur_input.loc = p;
@@ -3901,7 +3902,7 @@ pub(crate) unsafe fn begin_file_reading() {
     IF_STACK[cur_input.index as usize] = cond_ptr;
     LINE_STACK[cur_input.index as usize] = line;
     cur_input.start = first;
-    cur_input.state = MID_LINE;
+    cur_input.state = InputState::MidLine;
     cur_input.name = 0;
     cur_input.synctex_tag = 0;
 }
@@ -3921,12 +3922,13 @@ pub(crate) unsafe fn check_outer_validity() {
     if scanner_status != ScannerStatus::Normal {
         deletions_allowed = false;
         if cur_cs != 0 {
-            if cur_input.state == TOKEN_LIST || cur_input.name < 1 || cur_input.name > 17 {
+            if cur_input.state == InputState::TokenList || cur_input.name < 1 || cur_input.name > 17
+            {
                 let p = get_avail();
                 MEM[p].b32.s0 = CS_TOKEN_FLAG + cur_cs;
                 begin_token_list(p, Btl::BackedUp);
             }
-            cur_cmd = SPACER;
+            cur_cmd = Cmd::Spacer;
             cur_chr = ' ' as i32
         }
         if scanner_status != ScannerStatus::Normal && scanner_status != ScannerStatus::Skipping {
@@ -3957,7 +3959,7 @@ pub(crate) unsafe fn check_outer_validity() {
                 ScannerStatus::Matching => {
                     print_cstr(b" while scanning use");
                     MEM[p].b32.s0 = par_token;
-                    long_state = OUTER_CALL as u8
+                    long_state = Cmd::OuterCall as u8
                 }
                 ScannerStatus::Aligning => {
                     print_cstr(b" while scanning preamble");
@@ -3990,7 +3992,7 @@ pub(crate) unsafe fn check_outer_validity() {
                 print_nl_cstr(b"! ");
             }
             print_cstr(b"Incomplete ");
-            print_cmd_chr(IF_TEST, cur_if as i32);
+            print_cmd_chr(Cmd::IfTest, cur_if as i32);
             print_cstr(b"; all text was ignored after line ");
             print_int(skip_line);
             help_ptr = 3;
@@ -4019,7 +4021,7 @@ pub(crate) unsafe fn get_next() {
     let mut sup_count: small_number = 0;
     'c_63502: loop {
         cur_cs = 0i32;
-        if cur_input.state != TOKEN_LIST {
+        if cur_input.state != InputState::TokenList {
             /*355:*/
             'c_63807: loop
             /*357:*/
@@ -4039,10 +4041,15 @@ pub(crate) unsafe fn get_next() {
                     }
                     'c_65186: loop {
                         cur_cmd = Cmd::from(*CAT_CODE(cur_chr as usize) as u16);
-                        match cur_input.state as i32 + cur_cmd as i32 {
-                            10 | 26 | 42 | 27 | 43 => break, // ANY_STATE_PLUS(IGNORE) | SKIP_BLANKS + SPACER | NEW_LINE + SPACER
-                            1 | 17 | 33 => {
-                                // ANY_STATE_PLUS(ESCAPE)
+                        match (cur_input.state, cur_cmd) {
+                            (InputState::MidLine, IGNORE)
+                            | (InputState::SkipBlanks, IGNORE)
+                            | (InputState::NewLine, IGNORE)
+                            | (InputState::SkipBlanks, Cmd::Spacer)
+                            | (InputState::NewLine, Cmd::Spacer) => break,
+                            (InputState::MidLine, ESCAPE)
+                            | (InputState::SkipBlanks, ESCAPE)
+                            | (InputState::NewLine, ESCAPE) => {
                                 if cur_input.loc > cur_input.limit {
                                     current_block = 17833034027772472439;
                                     break 'c_63807;
@@ -4051,20 +4058,22 @@ pub(crate) unsafe fn get_next() {
                                     break 'c_63807;
                                 }
                             }
-                            14 | 30 | 46 => {
-                                //  ANY_STATE_PLUS(ACTIVE_CHAR)
+                            (InputState::MidLine, Cmd::ActiveChar)
+                            | (InputState::SkipBlanks, Cmd::ActiveChar)
+                            | (InputState::NewLine, Cmd::ActiveChar) => {
                                 cur_cs = cur_chr + 1;
                                 cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                                 cur_chr = EQTB[cur_cs as usize].val;
-                                cur_input.state = MID_LINE;
-                                if cur_cmd >= OUTER_CALL {
+                                cur_input.state = InputState::MidLine;
+                                if cur_cmd >= Cmd::OuterCall {
                                     check_outer_validity();
                                 }
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
-                            8 | 24 | 40 => {
-                                // ANY_STATE_PLUS(SUP_MARK)
+                            (InputState::MidLine, Cmd::SupMark)
+                            | (InputState::SkipBlanks, Cmd::SupMark)
+                            | (InputState::NewLine, Cmd::SupMark) => {
                                 if !(cur_chr == BUFFER[cur_input.loc as usize]) {
                                     current_block = 8567661057257693057;
                                     break 'c_63807;
@@ -4120,13 +4129,13 @@ pub(crate) unsafe fn get_next() {
                                     c = BUFFER[(cur_input.loc + sup_count as i32 - 2 + d as i32)
                                         as usize];
                                     if c <= '9' as i32 {
-                                        cur_chr = 16i32 * cur_chr + c - '0' as i32
+                                        cur_chr = 16 * cur_chr + c - '0' as i32
                                     } else {
-                                        cur_chr = 16i32 * cur_chr + c - 'a' as i32 + 10i32
+                                        cur_chr = 16 * cur_chr + c - 'a' as i32 + 10
                                     }
                                     d += 1
                                 }
-                                if cur_chr > 0x10ffffi32 {
+                                if cur_chr > BIGGEST_USV as i32 {
                                     cur_chr = BUFFER[cur_input.loc as usize];
                                     current_block = 8567661057257693057;
                                     break 'c_63807;
@@ -4134,8 +4143,9 @@ pub(crate) unsafe fn get_next() {
                                     cur_input.loc = cur_input.loc + 2i32 * sup_count as i32 - 1i32
                                 }
                             }
-                            16 | 32 | 48 => {
-                                // ANY_STATE_PLUS(INVALID_CHAR)
+                            (InputState::MidLine, INVALID_CHAR)
+                            | (InputState::SkipBlanks, INVALID_CHAR)
+                            | (InputState::NewLine, INVALID_CHAR) => {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
                                 } else {
@@ -4151,67 +4161,74 @@ pub(crate) unsafe fn get_next() {
                                 deletions_allowed = true;
                                 continue 'c_63502;
                             }
-                            11 => {
-                                // MID_LINE + SPACER
-                                cur_input.state = SKIP_BLANKS as u16;
+                            (InputState::MidLine, Cmd::Spacer) => {
+                                cur_input.state = InputState::SkipBlanks;
                                 cur_chr = ' ' as i32;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
-                            6 => {
-                                // MID_LINE + CAR_RET
+                            (InputState::MidLine, Cmd::CarRet) => {
                                 cur_input.loc = cur_input.limit + 1;
-                                cur_cmd = SPACER;
+                                cur_cmd = Cmd::Spacer;
                                 cur_chr = ' ' as i32;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
-                            15 | 31 | 47 | 22 => {
-                                // ANY_STATE_PLUS(COMMENT) | SKIP_BLANKS + CAR_RET
+                            (InputState::MidLine, Cmd::Comment)
+                            | (InputState::SkipBlanks, Cmd::Comment)
+                            | (InputState::NewLine, Cmd::Comment)
+                            | (InputState::SkipBlanks, Cmd::CarRet) => {
                                 cur_input.loc = cur_input.limit + 1;
                                 break;
                             }
-                            38 => {
-                                // NEW_LINE + CAR_RET
+                            (InputState::NewLine, Cmd::CarRet) => {
                                 cur_input.loc = cur_input.limit + 1;
                                 cur_cs = par_loc;
                                 cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                                 cur_chr = EQTB[cur_cs as usize].val;
-                                if cur_cmd >= OUTER_CALL {
+                                if cur_cmd >= Cmd::OuterCall {
                                     check_outer_validity();
                                 }
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
-                            2 => {
-                                // MID_LINE + LEFT_BRACE
+                            (InputState::MidLine, Cmd::LeftBrace) => {
                                 align_state += 1;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
-                            18 | 34 => {
-                                // SKIP_BLANKS + LEFT_BRACE | NEW_LINE + LEFT_BRACE
-                                cur_input.state = MID_LINE;
+                            (InputState::SkipBlanks, Cmd::LeftBrace)
+                            | (InputState::NewLine, Cmd::LeftBrace) => {
+                                cur_input.state = InputState::MidLine;
                                 align_state += 1;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
-                            3 => {
-                                // MID_LINE + RIGHT_BRACE
+                            (InputState::MidLine, Cmd::RightBrace) => {
                                 align_state -= 1;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
-                            19 | 35 => {
-                                // SKIP_BLANKS + RIGHT_BRACE | NEW_LINE + RIGHT_BRACE
-                                cur_input.state = MID_LINE;
+                            (InputState::SkipBlanks, Cmd::RightBrace)
+                            | (InputState::NewLine, Cmd::RightBrace) => {
+                                cur_input.state = InputState::MidLine;
                                 align_state -= 1;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
-                            20 | 21 | 23 | 25 | 28 | 29 | 36 | 37 | 39 | 41 | 44 | 45 => {
-                                // ADD_DELIMS_TO(SKIP_BLANKS) | ADD_DELIMS_TO(NEW_LINE)
-                                cur_input.state = MID_LINE;
+                            (InputState::SkipBlanks, Cmd::MathShift)
+                            | (InputState::SkipBlanks, Cmd::TabMark)
+                            | (InputState::SkipBlanks, Cmd::MacParam)
+                            | (InputState::SkipBlanks, Cmd::SubMark)
+                            | (InputState::SkipBlanks, Cmd::Letter)
+                            | (InputState::SkipBlanks, Cmd::OtherChar)
+                            | (InputState::NewLine, Cmd::MathShift)
+                            | (InputState::NewLine, Cmd::TabMark)
+                            | (InputState::NewLine, Cmd::MacParam)
+                            | (InputState::NewLine, Cmd::SubMark)
+                            | (InputState::NewLine, Cmd::Letter)
+                            | (InputState::NewLine, Cmd::OtherChar) => {
+                                cur_input.state = InputState::MidLine;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
@@ -4222,7 +4239,7 @@ pub(crate) unsafe fn get_next() {
                         }
                     }
                 } else {
-                    cur_input.state = NEW_LINE;
+                    cur_input.state = InputState::NewLine;
                     if cur_input.name > 17 {
                         /*374:*/
                         line += 1; /*367:*/
@@ -4309,7 +4326,7 @@ pub(crate) unsafe fn get_next() {
                 _ => {
                     match current_block {
                         8567661057257693057 => {
-                            cur_input.state = 1_u16;
+                            cur_input.state = InputState::MidLine;
                             current_block = 14956172121224201915;
                         }
                         7720778817628725688 => {
@@ -4319,25 +4336,25 @@ pub(crate) unsafe fn get_next() {
                                 cur_chr = BUFFER[k as usize];
                                 cat = Cmd::from(*CAT_CODE(cur_chr as usize) as u16);
                                 k += 1;
-                                if cat == LETTER {
-                                    cur_input.state = SKIP_BLANKS as u16
-                                } else if cat == SPACER {
-                                    cur_input.state = SKIP_BLANKS as u16;
+                                if cat == Cmd::Letter {
+                                    cur_input.state = InputState::SkipBlanks; // TODO: check
+                                } else if cat == Cmd::Spacer {
+                                    cur_input.state = InputState::SkipBlanks;
                                 } else {
-                                    cur_input.state = MID_LINE;
+                                    cur_input.state = InputState::MidLine;
                                 }
-                                if cat == LETTER && k <= cur_input.limit {
+                                if cat == Cmd::Letter && k <= cur_input.limit {
                                     loop
                                     /*368:*/
                                     {
                                         cur_chr = BUFFER[k as usize];
                                         cat = Cmd::from(*CAT_CODE(cur_chr as usize) as u16);
                                         k += 1;
-                                        if !(cat == LETTER && k <= cur_input.limit) {
+                                        if !(cat == Cmd::Letter && k <= cur_input.limit) {
                                             break;
                                         }
                                     }
-                                    if !(cat == SUP_MARK
+                                    if !(cat == Cmd::SupMark
                                         && BUFFER[k as usize] == cur_chr
                                         && k < cur_input.limit)
                                     {
@@ -4429,7 +4446,7 @@ pub(crate) unsafe fn get_next() {
                                         }
                                     }
                                 } else {
-                                    if !(cat == SUP_MARK
+                                    if !(cat == Cmd::SupMark
                                         && BUFFER[k as usize] == cur_chr
                                         && k < cur_input.limit)
                                     {
@@ -4504,7 +4521,7 @@ pub(crate) unsafe fn get_next() {
                             }
                             match current_block {
                                 5873035170358615968 => {
-                                    if cat != LETTER {
+                                    if cat != Cmd::Letter {
                                         k -= 1
                                     }
                                     if k > cur_input.loc + 1 {
@@ -4567,9 +4584,10 @@ pub(crate) unsafe fn get_next() {
                     match current_block {
                         14956172121224201915 => {}
                         _ => {
+                            // found:
                             cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                             cur_chr = EQTB[cur_cs as usize].val;
-                            if cur_cmd as i32 >= 115i32 {
+                            if cur_cmd >= Cmd::OuterCall {
                                 check_outer_validity();
                             }
                         }
@@ -4584,15 +4602,15 @@ pub(crate) unsafe fn get_next() {
                 cur_cs = t - CS_TOKEN_FLAG;
                 cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                 cur_chr = EQTB[cur_cs as usize].val;
-                if cur_cmd >= OUTER_CALL {
-                    if cur_cmd == DONT_EXPAND {
+                if cur_cmd >= Cmd::OuterCall {
+                    if cur_cmd == Cmd::DontExpand {
                         /*370:*/
                         cur_cs = MEM[cur_input.loc as usize].b32.s0 - CS_TOKEN_FLAG;
                         cur_input.loc = TEX_NULL;
                         cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                         cur_chr = EQTB[cur_cs as usize].val;
                         if cur_cmd > MAX_COMMAND {
-                            cur_cmd = RELAX;
+                            cur_cmd = Cmd::Relax;
                             cur_chr = NO_EXPAND_FLAG;
                         }
                     } else {
@@ -4602,16 +4620,16 @@ pub(crate) unsafe fn get_next() {
             } else {
                 cur_cmd = Cmd::from((t / MAX_CHAR_VAL) as u16);
                 cur_chr = t % MAX_CHAR_VAL;
-                match cur_cmd as i32 {
-                    1 => {
+                match cur_cmd {
+                    Cmd::LeftBrace => {
                         current_block = 17818108259648334471;
                         align_state += 1;
                     }
-                    2 => {
+                    Cmd::RightBrace => {
                         current_block = 1336783539463924428;
                         align_state -= 1;
                     }
-                    5 => {
+                    OUT_PARAM => {
                         current_block = 1132450443677887731;
                         begin_token_list(
                             PARAM_STACK[(cur_input.limit + cur_chr - 1) as usize] as usize,
@@ -4626,14 +4644,14 @@ pub(crate) unsafe fn get_next() {
             end_token_list();
             continue;
         }
-        if cur_cmd <= CAR_RET && cur_cmd >= TAB_MARK && align_state == 0 {
+        if cur_cmd <= Cmd::CarRet && cur_cmd >= Cmd::TabMark && align_state == 0 {
             /*818:*/
             if scanner_status == ScannerStatus::Aligning || cur_align.is_texnull() {
                 fatal_error(b"(interwoven alignment preambles are not allowed)");
             }
             cur_cmd = Cmd::from(MEM[(cur_align + 5) as usize].b32.s0 as u16);
             MEM[(cur_align + 5) as usize].b32.s0 = cur_chr;
-            if cur_cmd == OMIT {
+            if cur_cmd == Cmd::Omit {
                 begin_token_list(OMIT_TEMPLATE, Btl::VTemplate);
             } else {
                 begin_token_list(
@@ -4694,7 +4712,7 @@ pub(crate) unsafe fn macro_call() {
         scanner_status = ScannerStatus::Matching;
         unbalance = 0;
         long_state = EQTB[cur_cs as usize].cmd as u8;
-        if long_state as u16 >= OUTER_CALL as u16 {
+        if long_state as u16 >= Cmd::OuterCall as u16 {
             long_state = (long_state as i32 - 2) as u8
         }
         's_135: loop {
@@ -4778,9 +4796,9 @@ pub(crate) unsafe fn macro_call() {
                         }
                     }
                     if cur_tok == par_token {
-                        if long_state as u16 != LONG_CALL as u16 {
+                        if long_state as u16 != Cmd::LongCall as u16 {
                             /*414:*/
-                            if long_state as u16 == CALL as u16 {
+                            if long_state as u16 == Cmd::Call as u16 {
                                 runaway(); /*411:*/
                                 if file_line_error_style_p != 0 {
                                     print_file_line(); /*413:*/
@@ -4827,9 +4845,9 @@ pub(crate) unsafe fn macro_call() {
                                 p = q;
                                 get_token();
                                 if cur_tok == par_token {
-                                    if long_state as u16 != LONG_CALL as u16 {
+                                    if long_state as u16 != Cmd::LongCall as u16 {
                                         /*414:*/
-                                        if long_state as u16 == CALL as u16 {
+                                        if long_state as u16 == Cmd::Call as u16 {
                                             runaway();
                                             if file_line_error_style_p != 0 {
                                                 print_file_line();
@@ -4899,7 +4917,7 @@ pub(crate) unsafe fn macro_call() {
                             help_line[0] =
                                 b"your `}\' was spurious, just type `2\' and it will go away.";
                             align_state += 1;
-                            long_state = CALL as u8;
+                            long_state = Cmd::Call as u8;
                             cur_tok = par_token;
                             ins_error();
                             continue;
@@ -4959,7 +4977,7 @@ pub(crate) unsafe fn macro_call() {
     }
     match current_block {
         12717620301112128284 => {
-            while cur_input.state == TOKEN_LIST
+            while cur_input.state == InputState::TokenList
                 && cur_input.loc.is_texnull()
                 && cur_input.index != Btl::VTemplate
             {
@@ -5187,13 +5205,13 @@ pub(crate) unsafe fn expand() {
     co_backup = cur_order as small_number;
     backup_backup = MEM[BACKUP_HEAD].b32.s1;
     loop {
-        if (cur_cmd) < CALL {
+        if cur_cmd < Cmd::Call {
             /*384:*/
             if *INTPAR(IntPar::tracing_commands) > 1 {
                 show_cur_cmd_chr(); /*1612:*/
             }
             match cur_cmd {
-                TOP_BOT_MARK => {
+                Cmd::TopBotMark => {
                     t = cur_chr % 5;
                     if cur_chr >= 5 {
                         scan_register_num();
@@ -5217,7 +5235,7 @@ pub(crate) unsafe fn expand() {
                     }
                     break;
                 }
-                EXPAND_AFTER => {
+                Cmd::ExpandAfter => {
                     /*385:*/
                     if cur_chr == 0 {
                         get_token(); /*1553: "\unless" implementation */
@@ -5233,7 +5251,7 @@ pub(crate) unsafe fn expand() {
                         break;
                     } else {
                         get_token();
-                        if cur_cmd == IF_TEST && cur_chr != IF_CASE_CODE as i32 {
+                        if cur_cmd == Cmd::IfTest && cur_chr != IF_CASE_CODE as i32 {
                             cur_chr = cur_chr + UNLESS_CODE
                         } else {
                             if file_line_error_style_p != 0 {
@@ -5253,7 +5271,7 @@ pub(crate) unsafe fn expand() {
                         }
                     }
                 }
-                NO_EXPAND => {
+                Cmd::NoExpand => {
                     /*386:*/
                     if cur_chr == 0 {
                         let save_scanner_status = scanner_status; /*387: \primitive implementation */
@@ -5300,7 +5318,7 @@ pub(crate) unsafe fn expand() {
                         }
                     }
                 }
-                CS_NAME => {
+                Cmd::CSName => {
                     let r = get_avail();
                     p = r as i32;
                     b = is_in_csname;
@@ -5317,7 +5335,7 @@ pub(crate) unsafe fn expand() {
                             break;
                         }
                     }
-                    if cur_cmd != END_CS_NAME {
+                    if cur_cmd != Cmd::EndCSName {
                         /*391:*/
                         if file_line_error_style_p != 0 {
                             print_file_line();
@@ -5357,26 +5375,26 @@ pub(crate) unsafe fn expand() {
                         /*:392*/
                     }
                     flush_list(Some(r));
-                    if Cmd::from(EQTB[cur_cs as usize].cmd) == UNDEFINED_CS {
-                        eq_define(cur_cs as usize, RELAX, TOO_BIG_USV);
+                    if Cmd::from(EQTB[cur_cs as usize].cmd) == Cmd::UndefinedCS {
+                        eq_define(cur_cs as usize, Cmd::Relax, TOO_BIG_USV);
                     }
                     cur_tok = cur_cs + CS_TOKEN_FLAG;
                     back_input();
                     break;
                 }
-                CONVERT => {
+                Cmd::Convert => {
                     conv_toks();
                     break;
                 }
-                THE => {
+                Cmd::The => {
                     ins_the_toks();
                     break;
                 }
-                IF_TEST => {
+                Cmd::IfTest => {
                     conditional();
                     break;
                 }
-                FI_OR_ELSE => {
+                Cmd::FiOrElse => {
                     if *INTPAR(IntPar::tracing_ifs) > 0 {
                         if *INTPAR(IntPar::tracing_commands) <= 1i32 {
                             show_cur_cmd_chr();
@@ -5392,7 +5410,7 @@ pub(crate) unsafe fn expand() {
                                 print_nl_cstr(b"! ");
                             }
                             print_cstr(b"Extra ");
-                            print_cmd_chr(FI_OR_ELSE, cur_chr);
+                            print_cmd_chr(Cmd::FiOrElse, cur_chr);
                             help_ptr = 1;
                             help_line[0] = b"I\'m ignoring this; it doesn\'t match any \\if.";
                             error();
@@ -5413,7 +5431,7 @@ pub(crate) unsafe fn expand() {
                     }
                     break;
                 }
-                INPUT => {
+                Cmd::Input => {
                     if cur_chr == 1 {
                         /* \endinput */
                         force_eof = true
@@ -5447,7 +5465,7 @@ pub(crate) unsafe fn expand() {
                 }
             }
         } else {
-            if (cur_cmd) < END_TEMPLATE {
+            if cur_cmd < Cmd::EndTemplate {
                 macro_call();
             } else {
                 cur_tok = CS_TOKEN_FLAG + FROZEN_ENDV as i32;
@@ -5469,12 +5487,12 @@ pub(crate) unsafe fn get_x_token() {
         if cur_cmd <= MAX_COMMAND {
             break;
         }
-        if cur_cmd >= CALL {
-            if (cur_cmd) < END_TEMPLATE {
+        if cur_cmd >= Cmd::Call {
+            if cur_cmd < Cmd::EndTemplate {
                 macro_call();
             } else {
                 cur_cs = FROZEN_ENDV as i32;
-                cur_cmd = ENDV;
+                cur_cmd = Cmd::EndV;
                 break;
             }
         } else {
@@ -5501,11 +5519,11 @@ pub(crate) unsafe fn x_token() {
 pub(crate) unsafe fn scan_left_brace() {
     loop {
         get_x_token();
-        if !(cur_cmd == SPACER || cur_cmd == RELAX) {
+        if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
             break;
         }
     }
-    if cur_cmd != LEFT_BRACE {
+    if cur_cmd != Cmd::LeftBrace {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -5519,7 +5537,7 @@ pub(crate) unsafe fn scan_left_brace() {
         help_line[0] = b"(If you\'re confused by all this, try typing `I}\' now.)";
         back_error();
         cur_tok = LEFT_BRACE_TOKEN + '{' as i32;
-        cur_cmd = LEFT_BRACE;
+        cur_cmd = Cmd::LeftBrace;
         cur_chr = '{' as i32;
         align_state += 1
     };
@@ -5527,7 +5545,7 @@ pub(crate) unsafe fn scan_left_brace() {
 pub(crate) unsafe fn scan_optional_equals() {
     loop {
         get_x_token();
-        if !(cur_cmd == SPACER) {
+        if !(cur_cmd == Cmd::Spacer) {
             break;
         }
     }
@@ -5552,7 +5570,7 @@ pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
                 flush_list(MEM[BACKUP_HEAD].b32.s1.opt());
                 return true;
             } else {
-                if cur_cmd as i32 != SPACER as _ || p != BACKUP_HEAD {
+                if cur_cmd != Cmd::Spacer || p != BACKUP_HEAD {
                     back_input();
                     if p != BACKUP_HEAD {
                         begin_token_list(MEM[BACKUP_HEAD].b32.s1 as usize, Btl::BackedUp);
@@ -5574,7 +5592,7 @@ pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
             MEM[q].b32.s0 = cur_tok;
             p = q;
             i = i.wrapping_add(1)
-        } else if cur_cmd as i32 != SPACER as _ || p != BACKUP_HEAD {
+        } else if cur_cmd != Cmd::Spacer || p != BACKUP_HEAD {
             back_input();
             if p != BACKUP_HEAD {
                 begin_token_list(MEM[BACKUP_HEAD].b32.s1 as usize, Btl::BackedUp);
@@ -5729,15 +5747,15 @@ pub(crate) unsafe fn scan_math(p: usize) {
         /*422:*/
         {
             get_x_token();
-            if !(cur_cmd == SPACER || cur_cmd == RELAX) {
+            if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
                 break;
             }
         }
         loop {
-            match cur_cmd as i32 {
-                11 | 12 | 68 => {
+            match cur_cmd {
+                Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {
                     c = *MATH_CODE(cur_chr as usize);
-                    if !(c as u32 & 0x1fffff_u32 == ACTIVE_MATH_CHAR as u32) {
+                    if !(math_char(c) == ACTIVE_MATH_CHAR as u32) {
                         break 'c_118470;
                     }
                     cur_cs = cur_chr + 1;
@@ -5747,54 +5765,52 @@ pub(crate) unsafe fn scan_math(p: usize) {
                     back_input();
                     break;
                 }
-                16 => {
+                Cmd::CharNum => {
                     scan_char_num();
                     cur_chr = cur_val;
-                    cur_cmd = CHAR_GIVEN;
+                    cur_cmd = Cmd::CharGiven;
                 }
-                17 => {
+                Cmd::MathCharNum => {
                     if cur_chr == 2 {
                         scan_math_class_int();
-                        c = ((cur_val as u32 & 0x7_u32) << 21i32) as i32;
+                        c = set_class(cur_val);
                         scan_math_fam_int();
-                        c = (c as u32).wrapping_add((cur_val as u32 & 0xff_u32) << 24i32) as i32;
+                        c = c + set_family(cur_val);
                         scan_usv_num();
-                        c = c + cur_val
-                    } else if cur_chr == 1i32 {
+                        c = c + cur_val;
+                    } else if cur_chr == 1 {
                         scan_xetex_math_char_int();
                         c = cur_val
                     } else {
                         scan_fifteen_bit_int();
-                        c = (((cur_val / 4096) as u32 & 0x7_u32) << 21)
-                            .wrapping_add(((cur_val % 4096 / 256) as u32 & 0xff_u32) << 24)
-                            .wrapping_add((cur_val % 256) as u32) as i32
+                        c = set_class(cur_val / 4096)
+                            + set_family((cur_val % 4096) / 256)
+                            + (cur_val % 256);
                     }
                     break 'c_118470;
                 }
-                69 => {
-                    c = (((cur_chr / 4096) as u32 & 0x7_u32) << 21)
-                        .wrapping_add(((cur_chr % 4096 / 256) as u32 & 0xff_u32) << 24)
-                        .wrapping_add((cur_chr % 256) as u32) as i32;
+                Cmd::MathGiven => {
+                    c = set_class(cur_chr / 4096)
+                        + set_family((cur_chr % 4096) / 256)
+                        + (cur_chr % 256);
                     break 'c_118470;
                 }
-                70 => {
+                Cmd::XetexMathGiven => {
                     c = cur_chr;
                     break 'c_118470;
                 }
-                15 => {
+                Cmd::DelimNum => {
                     if cur_chr == 1 {
                         scan_math_class_int();
-                        c = ((cur_val as u32 & 0x7_u32) << 21) as i32;
+                        c = set_class(cur_val);
                         scan_math_fam_int();
-                        c = (c as u32).wrapping_add((cur_val as u32 & 0xff_u32) << 24) as i32;
+                        c = c + set_family(cur_val);
                         scan_usv_num();
-                        c = c + cur_val
+                        c = c + cur_val;
                     } else {
                         scan_delimiter_int();
                         c = cur_val / 4096;
-                        c = (((c / 4096) as u32 & 0x7_u32) << 21)
-                            .wrapping_add(((c % 4096 / 256) as u32 & 0xff_u32) << 24)
-                            .wrapping_add((c % 256) as u32) as i32
+                        c = set_class(c / 4096) + set_family((c % 4096) / 256) + (c % 256);
                     }
                     break 'c_118470;
                 }
@@ -5812,18 +5828,17 @@ pub(crate) unsafe fn scan_math(p: usize) {
     MEM[p].b32.s1 = MATH_CHAR;
     MEM[p].b16.s0 = (c as i64 % 65536) as u16;
     if (math_class(c) == 7)
-        && (*INTPAR(IntPar::cur_fam) >= 0i32 && *INTPAR(IntPar::cur_fam) < 256i32)
+        && (*INTPAR(IntPar::cur_fam) >= 0 && *INTPAR(IntPar::cur_fam) < NUMBER_MATH_FAMILIES as i32)
     {
         MEM[p].b16.s1 = *INTPAR(IntPar::cur_fam) as u16
     } else {
-        MEM[p].b16.s1 = (c as u32 >> 24 & 0xff_u32) as u16
+        MEM[p].b16.s1 = math_fam(c) as u16;
     }
-    MEM[p].b16.s1 =
-        (MEM[p].b16.s1 as i64 + (c as u32 & 0x1fffff_u32) as i64 / 65536 * 256i32 as i64) as u16;
+    MEM[p].b16.s1 = (MEM[p].b16.s1 as i64 + ((math_char(c) as i64) / 65536) * 256) as u16;
 }
 pub(crate) unsafe fn set_math_char(mut c: i32) {
     let mut ch: UnicodeScalar = 0;
-    if c as u32 & 0x1fffff_u32 == ACTIVE_MATH_CHAR as u32 {
+    if math_char(c) == ACTIVE_MATH_CHAR as u32 {
         /*1187: */
         cur_cs = cur_chr + 1; /* ... "between 0 and 15" */
         cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd); /* ... "between 0 and 15" */
@@ -5833,10 +5848,10 @@ pub(crate) unsafe fn set_math_char(mut c: i32) {
     } else {
         let p = new_noad();
         MEM[p + 1].b32.s1 = MATH_CHAR;
-        ch = (c as u32 & 0x1fffff_u32) as UnicodeScalar;
+        ch = math_char(c) as UnicodeScalar;
         MEM[p + 1].b16.s0 = (ch as i64 % 65536) as u16;
-        MEM[p + 1].b16.s1 = (c as u32 >> 24 & 0xff_u32) as u16;
-        if c as u32 >> 21i32 & 0x7_u32 == 7 {
+        MEM[p + 1].b16.s1 = math_fam(c) as u16;
+        if math_class(c) == 7 {
             if *INTPAR(IntPar::cur_fam) >= 0
                 && *INTPAR(IntPar::cur_fam) < NUMBER_MATH_FAMILIES as i32
             {
@@ -5969,7 +5984,7 @@ pub(crate) unsafe fn get_x_or_protected() {
         if cur_cmd <= MAX_COMMAND {
             return;
         }
-        if cur_cmd >= CALL && (cur_cmd) < END_TEMPLATE {
+        if cur_cmd >= Cmd::Call && cur_cmd < Cmd::EndTemplate {
             if MEM[MEM[cur_chr as usize].b32.s1 as usize].b32.s0 == PROTECTED_TOKEN {
                 return;
             }
@@ -5993,15 +6008,15 @@ pub(crate) unsafe fn scan_font_ident() {
     let mut m: i32 = 0;
     loop {
         get_x_token();
-        if !(cur_cmd == SPACER) {
+        if !(cur_cmd == Cmd::Spacer) {
             break;
         }
     }
-    if cur_cmd == DEF_FONT {
+    if cur_cmd == Cmd::DefFont {
         f = EQTB[CUR_FONT_LOC].val as usize;
-    } else if cur_cmd == SET_FONT {
+    } else if cur_cmd == Cmd::SetFont {
         f = cur_chr as usize;
-    } else if cur_cmd == DEF_FAMILY {
+    } else if cur_cmd == Cmd::DefFamily {
         m = cur_chr;
         scan_math_fam_int();
         f = EQTB[(m + cur_val) as usize].val as usize
@@ -6089,7 +6104,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
     };
     m = cur_chr;
     match cur_cmd {
-        DEF_CODE => {
+        Cmd::DefCode => {
             scan_usv_num();
             if m == MATH_CODE_BASE as i32 {
                 cur_val1 = *MATH_CODE(cur_val as usize);
@@ -6146,7 +6161,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 cur_val_level = INT_VAL;
             }
         }
-        XETEX_DEF_CODE => {
+        Cmd::XetexDefCode => {
             scan_usv_num();
             if m == SF_CODE_BASE as i32 {
                 cur_val = (*SF_CODE(cur_val as usize) as i64 / 65536) as i32;
@@ -6185,7 +6200,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 cur_val_level = INT_VAL;
             }
         }
-        TOKS_REGISTER | ASSIGN_TOKS | DEF_FAMILY | SET_FONT | DEF_FONT => {
+        Cmd::ToksRegister | Cmd::AssignToks | Cmd::DefFamily | Cmd::SetFont | Cmd::DefFont => {
             if level != TOK_VAL as i16 {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -6200,8 +6215,8 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 back_error();
                 cur_val = 0;
                 cur_val_level = DIMEN_VAL;
-            } else if cur_cmd <= ASSIGN_TOKS {
-                if cur_cmd < ASSIGN_TOKS {
+            } else if cur_cmd <= Cmd::AssignToks {
+                if cur_cmd < Cmd::AssignToks {
                     if m == 0i32 {
                         scan_register_num();
                         if cur_val < 256 {
@@ -6242,23 +6257,23 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 cur_val_level = IDENT_VAL;
             }
         }
-        ASSIGN_INT => {
+        Cmd::AssignInt => {
             cur_val = EQTB[m as usize].val;
             cur_val_level = INT_VAL;
         }
-        ASSIGN_DIMEN => {
+        Cmd::AssignDimen => {
             cur_val = EQTB[m as usize].val;
             cur_val_level = DIMEN_VAL;
         }
-        ASSIGN_GLUE => {
+        Cmd::AssignGlue => {
             cur_val = EQTB[m as usize].val;
             cur_val_level = GLUE_VAL;
         }
-        ASSIGN_MU_GLUE => {
+        Cmd::AssignMuGlue => {
             cur_val = EQTB[m as usize].val;
             cur_val_level = MU_VAL;
         }
-        SET_AUX => {
+        Cmd::SetAux => {
             if (cur_list.mode as i32).abs() != m {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -6266,7 +6281,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                     print_nl_cstr(b"! ");
                 }
                 print_cstr(b"Improper ");
-                print_cmd_chr(SET_AUX, m);
+                print_cmd_chr(Cmd::SetAux, m);
                 help_ptr = 4;
                 help_line[3] = b"You can refer to \\spacefactor only in horizontal mode;";
                 help_line[2] = b"you can refer to \\prevdepth only in vertical mode; and";
@@ -6288,7 +6303,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 cur_val_level = INT_VAL;
             }
         }
-        SET_PREV_GRAF => {
+        Cmd::SetPrevGraf => {
             if cur_list.mode == 0 {
                 cur_val = 0;
                 cur_val_level = INT_VAL
@@ -6302,7 +6317,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 cur_val_level = INT_VAL
             }
         }
-        SET_PAGE_INT => {
+        Cmd::SetPageInt => {
             if m == 0 {
                 cur_val = dead_cycles
             } else if m == 2 {
@@ -6312,7 +6327,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
             }
             cur_val_level = INT_VAL
         }
-        SET_PAGE_DIMEN => {
+        Cmd::SetPageDimen => {
             if page_contents as i32 == EMPTY && !output_active {
                 if m == 0 {
                     cur_val = MAX_HALFWORD;
@@ -6324,7 +6339,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
             }
             cur_val_level = DIMEN_VAL
         }
-        SET_SHAPE => {
+        Cmd::SetShape => {
             if m > LOCAL_BASE as i32 + Local::par_shape as i32 {
                 /*1654:*/
                 scan_int();
@@ -6343,7 +6358,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
             }
             cur_val_level = INT_VAL;
         }
-        SET_BOX_DIMEN => {
+        Cmd::SetBoxDimen => {
             scan_register_num();
             if cur_val < 256 {
                 q = *BOX_REG(cur_val as usize)
@@ -6362,17 +6377,17 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
             }
             cur_val_level = DIMEN_VAL
         }
-        CHAR_GIVEN | MATH_GIVEN => {
+        Cmd::CharGiven | Cmd::MathGiven => {
             cur_val = cur_chr;
             cur_val_level = INT_VAL
         }
-        ASSIGN_FONT_DIMEN => {
+        Cmd::AssignFontDimen => {
             find_font_dimen(false);
             FONT_INFO[fmem_ptr as usize].b32.s1 = 0;
             cur_val = FONT_INFO[cur_val as usize].b32.s1;
             cur_val_level = DIMEN_VAL
         }
-        ASSIGN_FONT_INT => {
+        Cmd::AssignFontInt => {
             scan_font_ident();
             if m == 0 {
                 cur_val = HYPHEN_CHAR[cur_val as usize];
@@ -6403,7 +6418,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 }
             }
         }
-        REGISTER => {
+        Cmd::Register => {
             if m < 0 || m > 19 {
                 /* 19 = "lo_mem_stat_max" */
                 cur_val_level = (MEM[m as usize].b16.s1 as i32 / 64) as u8;
@@ -6435,7 +6450,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                 }
             }
         }
-        LAST_ITEM => {
+        Cmd::LastItem => {
             if m >= INPUT_LINE_NO_CODE {
                 if m >= ETEX_GLUE {
                     /*1568:*/
@@ -6519,7 +6534,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                 }
                             } else {
                                 not_native_font_error(
-                                    LAST_ITEM,
+                                    Cmd::LastItem,
                                     m,
                                     EQTB[CUR_FONT_LOC].val as usize,
                                 );
@@ -6701,12 +6716,12 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                         cur_val =
                                             ot_font_get_1(m - 14, FONT_LAYOUT_ENGINE[n as usize], k)
                                     } else {
-                                        not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                        not_aat_gr_font_error(Cmd::LastItem, m, n as usize);
                                         cur_val = -1;
                                     }
                                 }
                                 _ => {
-                                    not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                    not_aat_gr_font_error(Cmd::LastItem, m, n as usize);
                                     cur_val = -1;
                                 }
                             }
@@ -6750,12 +6765,12 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                             cur_val,
                                         )
                                     } else {
-                                        not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                        not_aat_gr_font_error(Cmd::LastItem, m, n as usize);
                                         cur_val = -1;
                                     }
                                 }
                                 _ => {
-                                    not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                    not_aat_gr_font_error(Cmd::LastItem, m, n as usize);
                                     cur_val = -1;
                                 }
                             }
@@ -6778,7 +6793,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                     cur_val = -1;
                                 }
                                 _ => {
-                                    not_aat_font_error(LAST_ITEM, m, n as usize);
+                                    not_aat_font_error(Cmd::LastItem, m, n as usize);
                                     cur_val = -1;
                                 }
                             }
@@ -6812,12 +6827,12 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                             FONT_LAYOUT_ENGINE[n as usize],
                                         )
                                     } else {
-                                        not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                        not_aat_gr_font_error(Cmd::LastItem, m, n as usize);
                                         cur_val = -1;
                                     }
                                 }
                                 _ => {
-                                    not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                    not_aat_gr_font_error(Cmd::LastItem, m, n as usize);
                                     cur_val = -1;
                                 }
                             }
@@ -6859,12 +6874,12 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                             k,
                                         )
                                     } else {
-                                        not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                        not_aat_gr_font_error(Cmd::LastItem, m, n as usize);
                                         cur_val = -1;
                                     }
                                 }
                                 _ => {
-                                    not_aat_gr_font_error(LAST_ITEM, m, n as usize);
+                                    not_aat_gr_font_error(Cmd::LastItem, m, n as usize);
                                     cur_val = -1;
                                 }
                             }
@@ -6896,7 +6911,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                 cur_val =
                                     ot_font_get_1(m - 14, FONT_LAYOUT_ENGINE[n as usize], cur_val)
                             } else {
-                                not_ot_font_error(LAST_ITEM, m, n as usize);
+                                not_ot_font_error(Cmd::LastItem, m, n as usize);
                                 cur_val = -1;
                             }
                         }
@@ -6919,7 +6934,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                     cur_val,
                                 )
                             } else {
-                                not_ot_font_error(LAST_ITEM, m, n as usize);
+                                not_ot_font_error(Cmd::LastItem, m, n as usize);
                                 cur_val = -1;
                             }
                         }
@@ -6945,7 +6960,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                     cur_val,
                                 )
                             } else {
-                                not_ot_font_error(LAST_ITEM, m, n as usize);
+                                not_ot_font_error(Cmd::LastItem, m, n as usize);
                                 cur_val = -1;
                             }
                         }
@@ -6959,7 +6974,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                 cur_val = map_char_to_glyph(EQTB[CUR_FONT_LOC].val as usize, n)
                             } else {
                                 not_native_font_error(
-                                    LAST_ITEM,
+                                    Cmd::LastItem,
                                     m,
                                     EQTB[CUR_FONT_LOC].val as usize,
                                 );
@@ -6975,7 +6990,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: small_number, mut negati
                                 cur_val = map_glyph_to_index(EQTB[CUR_FONT_LOC].val as usize)
                             } else {
                                 not_native_font_error(
-                                    LAST_ITEM,
+                                    Cmd::LastItem,
                                     m,
                                     EQTB[CUR_FONT_LOC].val as usize,
                                 );
@@ -7192,7 +7207,7 @@ pub(crate) unsafe fn scan_int() {
         /*424:*/
         {
             get_x_token();
-            if !(cur_cmd == SPACER) {
+            if !(cur_cmd == Cmd::Spacer) {
                 break;
             }
         }
@@ -7209,8 +7224,8 @@ pub(crate) unsafe fn scan_int() {
         get_token(); /*461:*/
         if cur_tok < CS_TOKEN_FLAG {
             cur_val = cur_chr; /*462:*/
-            if cur_cmd <= RIGHT_BRACE {
-                if cur_cmd == RIGHT_BRACE {
+            if cur_cmd <= Cmd::RightBrace {
+                if cur_cmd == Cmd::RightBrace {
                     align_state += 1;
                 } else {
                     align_state -= 1;
@@ -7235,7 +7250,7 @@ pub(crate) unsafe fn scan_int() {
             back_error();
         } else {
             get_x_token();
-            if cur_cmd != SPACER {
+            if cur_cmd != Cmd::Spacer {
                 back_input();
             }
         }
@@ -7308,7 +7323,7 @@ pub(crate) unsafe fn scan_int() {
             help_line[1] = b"(If you can\'t figure out why I needed to see a number,";
             help_line[0] = b"look up `weird error\' in the index to The TeXbook.)";
             back_error();
-        } else if cur_cmd != SPACER {
+        } else if cur_cmd != Cmd::Spacer {
             back_input();
         }
     }
@@ -7350,7 +7365,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
         loop {
             loop {
                 get_x_token();
-                if !(cur_cmd == SPACER) {
+                if !(cur_cmd == Cmd::Spacer) {
                     break;
                 }
             }
@@ -7429,7 +7444,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     kk -= 1
                 }
                 f = round_decimals(k);
-                if cur_cmd != SPACER {
+                if cur_cmd != Cmd::Spacer {
                     back_input();
                 }
             }
@@ -7477,7 +7492,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                         save_cur_val = cur_val;
                         loop {
                             get_x_token();
-                            if !(cur_cmd == SPACER) {
+                            if !(cur_cmd == Cmd::Spacer) {
                                 break;
                             }
                         }
@@ -7507,7 +7522,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                                     17751730340908002208 => {}
                                     _ => {
                                         get_x_token();
-                                        if cur_cmd != SPACER {
+                                        if cur_cmd != Cmd::Spacer {
                                             back_input();
                                         }
                                         current_block = 7531702508219610202;
@@ -7681,7 +7696,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                             _ => {}
                         }
                         get_x_token();
-                        if cur_cmd != SPACER {
+                        if cur_cmd != Cmd::Spacer {
                             back_input();
                         }
                     }
@@ -7728,7 +7743,7 @@ pub(crate) unsafe fn scan_glue(mut level: small_number) {
     loop {
         loop {
             get_x_token();
-            if !(cur_cmd == SPACER) {
+            if !(cur_cmd == Cmd::Spacer) {
                 break;
             }
         }
@@ -7960,7 +7975,7 @@ pub(crate) unsafe fn scan_expr() {
             }
             loop {
                 get_x_token();
-                if !(cur_cmd == SPACER) {
+                if !(cur_cmd == Cmd::Spacer) {
                     break;
                 }
             }
@@ -7983,7 +7998,7 @@ pub(crate) unsafe fn scan_expr() {
                 /*1572:*//*424:*/
                 {
                     get_x_token();
-                    if !(cur_cmd == SPACER) {
+                    if !(cur_cmd == Cmd::Spacer) {
                         break;
                     }
                 }
@@ -7998,7 +8013,7 @@ pub(crate) unsafe fn scan_expr() {
                 } else {
                     o = EXPR_NONE as small_number;
                     if p.is_texnull() {
-                        if cur_cmd != RELAX {
+                        if cur_cmd != Cmd::Relax {
                             back_input();
                         }
                     } else if cur_tok != OTHER_TOKEN + 41 {
@@ -8211,7 +8226,7 @@ pub(crate) unsafe fn scan_mu_glue() {
 }
 pub(crate) unsafe fn scan_rule_spec() -> usize {
     let q = new_rule();
-    if cur_cmd == VRULE {
+    if cur_cmd == Cmd::VRule {
         MEM[q + 1].b32.s1 = DEFAULT_RULE
     } else {
         MEM[q + 3].b32.s1 = DEFAULT_RULE;
@@ -8249,7 +8264,7 @@ pub(crate) unsafe fn scan_general_text() {
     loop {
         get_token();
         if cur_tok < RIGHT_BRACE_LIMIT {
-            if cur_cmd < RIGHT_BRACE {
+            if cur_cmd < Cmd::RightBrace {
                 unbalance += 1
             } else {
                 unbalance -= 1;
@@ -8515,8 +8530,8 @@ pub(crate) unsafe fn conv_toks() {
             scan_usv_num();
             saved_chr = cur_val;
             scan_int();
-            if cur_val < LEFT_BRACE as i32
-                || cur_val > OTHER_CHAR as i32
+            if cur_val < Cmd::LeftBrace as i32
+                || cur_val > Cmd::OtherChar as i32
                 || cur_val == OUT_PARAM as i32
                 || cur_val == IGNORE as i32
             {
@@ -8601,7 +8616,7 @@ pub(crate) unsafe fn conv_toks() {
                 arg1 = cur_val;
                 arg2 = 0;
             } else {
-                not_aat_font_error(CONVERT, c as i32, fnt);
+                not_aat_font_error(Cmd::Convert, c as i32, fnt);
             }
         }
         XETEX_FEATURE_NAME_CODE => {
@@ -8616,7 +8631,7 @@ pub(crate) unsafe fn conv_toks() {
                 arg1 = cur_val;
                 arg2 = 0;
             } else {
-                not_aat_gr_font_error(CONVERT, c as i32, fnt);
+                not_aat_gr_font_error(Cmd::Convert, c as i32, fnt);
             }
         }
         XETEX_SELECTOR_NAME_CODE => {
@@ -8632,7 +8647,7 @@ pub(crate) unsafe fn conv_toks() {
                 scan_int();
                 arg2 = cur_val
             } else {
-                not_aat_gr_font_error(CONVERT, c as i32, fnt);
+                not_aat_gr_font_error(Cmd::Convert, c as i32, fnt);
             }
         }
         XETEX_GLYPH_NAME_CODE => {
@@ -8644,7 +8659,7 @@ pub(crate) unsafe fn conv_toks() {
                 scan_int();
                 arg1 = cur_val
             } else {
-                not_native_font_error(CONVERT, c as i32, fnt);
+                not_native_font_error(Cmd::Convert, c as i32, fnt);
             }
         }
         LEFT_MARGIN_KERN_CODE | RIGHT_MARGIN_KERN_CODE => {
@@ -8884,11 +8899,11 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                 current_block = 7086859973843054082;
                 break;
             }
-            if cur_cmd == MAC_PARAM {
+            if cur_cmd == Cmd::MacParam {
                 /*495: */
                 s = MATCH_TOKEN + cur_chr;
                 get_token();
-                if cur_cmd == LEFT_BRACE {
+                if cur_cmd == Cmd::LeftBrace {
                     hash_brace = cur_tok;
                     let q = get_avail();
                     MEM[p].b32.s1 = q as i32;
@@ -8940,7 +8955,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                 MEM[p].b32.s1 = q as i32;
                 MEM[q].b32.s0 = END_MATCH_TOKEN;
                 p = q;
-                if cur_cmd == RIGHT_BRACE {
+                if cur_cmd == Cmd::RightBrace {
                     /*494: */
                     if file_line_error_style_p != 0 {
                         print_file_line();
@@ -8973,17 +8988,17 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                     /*497: */
                     {
                         get_next();
-                        if cur_cmd >= CALL {
+                        if cur_cmd >= Cmd::Call {
                             if MEM[MEM[cur_chr as usize].b32.s1 as usize].b32.s0 == PROTECTED_TOKEN
                             {
-                                cur_cmd = RELAX;
+                                cur_cmd = Cmd::Relax;
                                 cur_chr = NO_EXPAND_FLAG;
                             }
                         }
                         if cur_cmd <= MAX_COMMAND {
                             break;
                         }
-                        if cur_cmd != THE {
+                        if cur_cmd != Cmd::The {
                             expand();
                         } else {
                             let q = the_toks();
@@ -8998,7 +9013,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                     get_token();
                 }
                 if cur_tok < RIGHT_BRACE_LIMIT {
-                    if cur_cmd < RIGHT_BRACE {
+                    if cur_cmd < Cmd::RightBrace {
                         unbalance += 1;
                     } else {
                         unbalance -= 1;
@@ -9006,7 +9021,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                             return found(p, hash_brace);
                         }
                     }
-                } else if cur_cmd == MAC_PARAM {
+                } else if cur_cmd == Cmd::MacParam {
                     if macro_def {
                         /*498: */
                         s = cur_tok;
@@ -9015,7 +9030,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                         } else {
                             get_token();
                         }
-                        if cur_cmd != MAC_PARAM {
+                        if cur_cmd != Cmd::MacParam {
                             if cur_tok <= ZERO_TOKEN || cur_tok > t {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
@@ -9111,7 +9126,7 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
         }
         first = cur_input.limit + 1;
         cur_input.loc = cur_input.start;
-        cur_input.state = NEW_LINE;
+        cur_input.state = InputState::NewLine;
         if j == 1 {
             while cur_input.loc <= cur_input.limit {
                 cur_chr = BUFFER[cur_input.loc as usize];
@@ -9166,14 +9181,14 @@ pub(crate) unsafe fn pass_text() {
     skip_line = line;
     loop {
         get_next();
-        if cur_cmd == FI_OR_ELSE {
+        if cur_cmd == Cmd::FiOrElse {
             if l == 0 {
                 break;
             }
             if cur_chr == FI_CODE as i32 {
                 l -= 1;
             }
-        } else if cur_cmd == IF_TEST {
+        } else if cur_cmd == Cmd::IfTest {
             l += 1;
         }
     }
@@ -9211,12 +9226,12 @@ pub(crate) unsafe fn conditional() {
             show_cur_cmd_chr();
         }
     }
-    let mut p = get_node(IF_NODE_SIZE) as i32;
-    MEM[p as usize].b32.s1 = cond_ptr;
-    MEM[p as usize].b16.s1 = if_limit as u16;
-    MEM[p as usize].b16.s0 = cur_if as u16;
-    MEM[(p + 1) as usize].b32.s1 = if_line;
-    cond_ptr = p;
+    let mut p = get_node(IF_NODE_SIZE);
+    MEM[p].b32.s1 = cond_ptr;
+    MEM[p].b16.s1 = if_limit as u16;
+    MEM[p].b16.s0 = cur_if as u16;
+    MEM[p + 1].b32.s1 = if_line;
+    cond_ptr = p as i32;
     cur_if = cur_chr as small_number;
     if_limit = IF_CODE;
     if_line = line;
@@ -9226,32 +9241,32 @@ pub(crate) unsafe fn conditional() {
     match this_if {
         IF_CHAR_CODE | IF_CAT_CODE => {
             get_x_token();
-            if cur_cmd == RELAX {
+            if cur_cmd == Cmd::Relax {
                 if cur_chr == NO_EXPAND_FLAG {
-                    cur_cmd = ACTIVE_CHAR;
+                    cur_cmd = Cmd::ActiveChar;
                     cur_chr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
                 }
             }
-            let (m, n) = if cur_cmd > ACTIVE_CHAR || cur_chr > BIGGEST_USV as i32 {
-                (RELAX as i32, TOO_BIG_USV)
+            let (m, n) = if cur_cmd > Cmd::ActiveChar || cur_chr > BIGGEST_USV as i32 {
+                (Cmd::Relax, TOO_BIG_USV)
             } else {
-                (cur_cmd as i32, cur_chr)
+                (cur_cmd, cur_chr)
             };
             get_x_token();
-            if cur_cmd == RELAX {
+            if cur_cmd == Cmd::Relax {
                 if cur_chr == NO_EXPAND_FLAG {
-                    cur_cmd = ACTIVE_CHAR;
+                    cur_cmd = Cmd::ActiveChar;
                     cur_chr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
                 }
             }
-            if cur_cmd > ACTIVE_CHAR || cur_chr > BIGGEST_USV as i32 {
-                cur_cmd = RELAX;
+            if cur_cmd > Cmd::ActiveChar || cur_chr > BIGGEST_USV as i32 {
+                cur_cmd = Cmd::Relax;
                 cur_chr = TOO_BIG_USV;
             }
             if this_if == 0 {
                 b = n == cur_chr
             } else {
-                b = m == cur_cmd as i32
+                b = m == cur_cmd
             }
             current_block = 16915215315900843183;
         }
@@ -9264,7 +9279,7 @@ pub(crate) unsafe fn conditional() {
             let n = cur_val;
             loop {
                 get_x_token();
-                if !(cur_cmd == SPACER) {
+                if !(cur_cmd == Cmd::Spacer) {
                     break;
                 }
             }
@@ -9277,7 +9292,7 @@ pub(crate) unsafe fn conditional() {
                     print_nl_cstr(b"! ");
                 }
                 print_cstr(b"Missing = inserted for ");
-                print_cmd_chr(IF_TEST, this_if as i32);
+                print_cmd_chr(Cmd::IfTest, this_if as i32);
                 help_ptr = 1;
                 help_line[0] = b"I was expecting to see `<\', `=\', or `>\'. Didn\'t.";
                 back_error();
@@ -9328,16 +9343,16 @@ pub(crate) unsafe fn conditional() {
         }
         IF_VOID_CODE | IF_HBOX_CODE | IF_VBOX_CODE => {
             scan_register_num();
-            if cur_val < 256 {
-                p = *BOX_REG(cur_val as usize)
+            let p = if cur_val < 256 {
+                *BOX_REG(cur_val as usize)
             } else {
                 find_sa_element(4, cur_val, false);
                 if cur_ptr.is_texnull() {
-                    p = TEX_NULL
+                    TEX_NULL
                 } else {
-                    p = MEM[(cur_ptr + 1) as usize].b32.s1
+                    MEM[(cur_ptr + 1) as usize].b32.s1
                 }
-            }
+            };
             if this_if == IF_VOID_CODE {
                 b = p.is_texnull()
             } else if p.is_texnull() {
@@ -9354,15 +9369,15 @@ pub(crate) unsafe fn conditional() {
             scanner_status = ScannerStatus::Normal;
             get_next();
             let n = cur_cs;
-            p = cur_cmd as i32;
+            let p = cur_cmd;
             q = cur_chr;
             get_next();
-            if cur_cmd as i32 != p {
+            if cur_cmd != p {
                 b = false
-            } else if cur_cmd < CALL {
+            } else if cur_cmd < Cmd::Call {
                 b = cur_chr == q
             } else {
-                p = MEM[cur_chr as usize].b32.s1;
+                let mut p = MEM[cur_chr as usize].b32.s1;
                 q = MEM[EQTB[n as usize].val as usize].b32.s1;
                 if p == q {
                     b = true
@@ -9402,13 +9417,13 @@ pub(crate) unsafe fn conditional() {
             let save_scanner_status = scanner_status;
             scanner_status = ScannerStatus::Normal;
             get_next();
-            b = cur_cmd != UNDEFINED_CS;
+            b = cur_cmd != Cmd::UndefinedCS;
             scanner_status = save_scanner_status;
             current_block = 16915215315900843183;
         }
         IF_CS_CODE => {
             let n = get_avail();
-            p = n as i32;
+            let mut p = n as i32;
             e = is_in_csname;
             is_in_csname = true;
             loop {
@@ -9423,7 +9438,7 @@ pub(crate) unsafe fn conditional() {
                     break;
                 }
             }
-            if cur_cmd != END_CS_NAME {
+            if cur_cmd != Cmd::EndCSName {
                 /*391:*/
                 if file_line_error_style_p != 0 {
                     print_file_line(); /*:1556*/
@@ -9439,7 +9454,7 @@ pub(crate) unsafe fn conditional() {
                 back_error();
             }
             let mut m = first;
-            p = MEM[n].b32.s1;
+            let mut p = MEM[n].b32.s1;
             while !p.is_texnull() {
                 if m >= max_buf_stack {
                     max_buf_stack = m + 1i32;
@@ -9460,7 +9475,7 @@ pub(crate) unsafe fn conditional() {
             };
 
             flush_list(Some(n));
-            b = Cmd::from(EQTB[cur_cs as usize].cmd) != UNDEFINED_CS;
+            b = Cmd::from(EQTB[cur_cs as usize].cmd) != Cmd::UndefinedCS;
             is_in_csname = e;
             current_block = 16915215315900843183;
         }
@@ -9508,12 +9523,12 @@ pub(crate) unsafe fn conditional() {
                     if IF_STACK[IN_OPEN] == cond_ptr {
                         if_warning();
                     }
-                    p = cond_ptr;
-                    if_line = MEM[(p + 1) as usize].b32.s1;
-                    cur_if = MEM[p as usize].b16.s0 as small_number;
-                    if_limit = MEM[p as usize].b16.s1 as u8;
-                    cond_ptr = MEM[p as usize].b32.s1;
-                    free_node(p as usize, IF_NODE_SIZE);
+                    let p = cond_ptr as usize;
+                    if_line = MEM[p + 1].b32.s1;
+                    cur_if = MEM[p].b16.s0 as small_number;
+                    if_limit = MEM[p].b16.s1 as u8;
+                    cond_ptr = MEM[p].b32.s1;
+                    free_node(p, IF_NODE_SIZE);
                 }
             }
             match current_block {
@@ -9534,7 +9549,7 @@ pub(crate) unsafe fn conditional() {
             } else {
                 prim_lookup((*hash.offset(cur_cs as isize)).s1)
             } as i32;
-            b = cur_cmd != UNDEFINED_CS
+            b = cur_cmd != Cmd::UndefinedCS
                 && m != UNDEFINED_PRIMITIVE
                 && cur_cmd == Cmd::from(prim_eqtb[m as usize].cmd)
                 && cur_chr == prim_eqtb[m as usize].val;
@@ -9582,12 +9597,12 @@ pub(crate) unsafe fn conditional() {
                     if IF_STACK[IN_OPEN] == cond_ptr {
                         if_warning();
                     }
-                    p = cond_ptr;
-                    if_line = MEM[(p + 1) as usize].b32.s1;
-                    cur_if = MEM[p as usize].b16.s0 as small_number;
-                    if_limit = MEM[p as usize].b16.s1 as u8;
-                    cond_ptr = MEM[p as usize].b32.s1;
-                    free_node(p as usize, IF_NODE_SIZE);
+                    let p = cond_ptr as usize;
+                    if_line = MEM[p + 1].b32.s1;
+                    cur_if = MEM[p].b16.s0 as small_number;
+                    if_limit = MEM[p].b16.s1 as u8;
+                    cond_ptr = MEM[p].b32.s1;
+                    free_node(p, IF_NODE_SIZE);
                 }
             }
         }
@@ -9598,12 +9613,12 @@ pub(crate) unsafe fn conditional() {
         if IF_STACK[IN_OPEN] == cond_ptr {
             if_warning();
         }
-        p = cond_ptr;
-        if_line = MEM[(p + 1) as usize].b32.s1;
-        cur_if = MEM[p as usize].b16.s0 as small_number;
-        if_limit = MEM[p as usize].b16.s1 as u8;
-        cond_ptr = MEM[p as usize].b32.s1;
-        free_node(p as usize, IF_NODE_SIZE);
+        let p = cond_ptr as usize;
+        if_line = MEM[p + 1].b32.s1;
+        cur_if = MEM[p].b16.s0 as small_number;
+        if_limit = MEM[p].b16.s1 as u8;
+        cond_ptr = MEM[p].b32.s1;
+        free_node(p, IF_NODE_SIZE);
     } else {
         if_limit = FI_CODE;
     };
@@ -9763,12 +9778,12 @@ pub(crate) unsafe fn scan_file_name() {
     begin_name();
     loop {
         get_x_token();
-        if !(cur_cmd == SPACER) {
+        if !(cur_cmd == Cmd::Spacer) {
             break;
         }
     }
     loop {
-        if cur_cmd > OTHER_CHAR || cur_chr > BIGGEST_CHAR {
+        if cur_cmd > Cmd::OtherChar || cur_chr > BIGGEST_CHAR {
             back_input();
             break;
         } else {
@@ -10008,7 +10023,7 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     open_parens += 1;
     print(FULL_SOURCE_FILENAME_STACK[IN_OPEN]);
     rust_stdout.as_mut().unwrap().flush().unwrap();
-    cur_input.state = NEW_LINE;
+    cur_input.state = InputState::NewLine;
     synctex_start_input();
     line = 1;
     input_line(INPUT_FILE[cur_input.index as usize]);
@@ -12044,17 +12059,17 @@ pub(crate) unsafe fn pop_alignment() {
 pub(crate) unsafe fn get_preamble_token() {
     loop {
         get_token();
-        while cur_chr == SPAN_CODE && cur_cmd == TAB_MARK {
+        while cur_chr == SPAN_CODE && cur_cmd == Cmd::TabMark {
             get_token();
             if cur_cmd > MAX_COMMAND {
                 expand();
                 get_token();
             }
         }
-        if cur_cmd == ENDV {
+        if cur_cmd == Cmd::EndV {
             fatal_error(b"(interwoven alignment preambles are not allowed)");
         }
-        if !(cur_cmd == ASSIGN_GLUE && cur_chr == GLUE_BASE as i32 + GluePar::tab_skip as i32) {
+        if !(cur_cmd == Cmd::AssignGlue && cur_chr == GLUE_BASE as i32 + GluePar::tab_skip as i32) {
             break;
         }
         scan_optional_equals();
@@ -12062,13 +12077,13 @@ pub(crate) unsafe fn get_preamble_token() {
         if *INTPAR(IntPar::global_defs) > 0 {
             geq_define(
                 (GLUE_BASE as usize) + (GluePar::tab_skip as usize),
-                GLUE_REF,
+                Cmd::GlueRef,
                 cur_val,
             );
         } else {
             eq_define(
                 (GLUE_BASE as usize) + (GluePar::tab_skip as usize),
-                GLUE_REF,
+                Cmd::GlueRef,
                 cur_val,
             );
         }
@@ -12117,18 +12132,18 @@ pub(crate) unsafe fn init_align() {
         MEM[cur_align as usize].b32.s1 = new_param_glue(GluePar::tab_skip as small_number) as i32;
         /*:808 */
         cur_align = *LLIST_link(cur_align as usize); /*:807*/
-        if cur_cmd == CAR_RET {
+        if cur_cmd == Cmd::CarRet {
             break; /*:813*/
         } /*:806 */
         p = HOLD_HEAD as i32;
         MEM[p as usize].b32.s1 = TEX_NULL;
         loop {
             get_preamble_token();
-            if cur_cmd == MAC_PARAM {
+            if cur_cmd == Cmd::MacParam {
                 break;
             }
-            if cur_cmd <= CAR_RET && cur_cmd >= TAB_MARK && align_state as i64 == -1000000 {
-                if p == HOLD_HEAD as i32 && cur_loop.is_texnull() && cur_cmd == TAB_MARK {
+            if cur_cmd <= Cmd::CarRet && cur_cmd >= Cmd::TabMark && align_state as i64 == -1000000 {
+                if p == HOLD_HEAD as i32 && cur_loop.is_texnull() && cur_cmd == Cmd::TabMark {
                     cur_loop = cur_align
                 } else {
                     if file_line_error_style_p != 0 {
@@ -12144,7 +12159,7 @@ pub(crate) unsafe fn init_align() {
                     back_error();
                     break;
                 }
-            } else if cur_cmd != SPACER || p != HOLD_HEAD as i32 {
+            } else if cur_cmd != Cmd::Spacer || p != HOLD_HEAD as i32 {
                 MEM[p as usize].b32.s1 = get_avail() as i32;
                 p = *LLIST_link(p as usize);
                 MEM[p as usize].b32.s0 = cur_tok;
@@ -12159,10 +12174,10 @@ pub(crate) unsafe fn init_align() {
         MEM[p as usize].b32.s1 = TEX_NULL;
         loop {
             get_preamble_token();
-            if cur_cmd <= CAR_RET && cur_cmd >= TAB_MARK && align_state as i64 == -1000000 {
+            if cur_cmd <= Cmd::CarRet && cur_cmd >= Cmd::TabMark && align_state as i64 == -1000000 {
                 break;
             }
-            if cur_cmd == MAC_PARAM {
+            if cur_cmd == Cmd::MacParam {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -12220,7 +12235,7 @@ pub(crate) unsafe fn init_row() {
 }
 pub(crate) unsafe fn init_col() {
     MEM[(cur_align + 5) as usize].b32.s0 = cur_cmd as i32;
-    if cur_cmd == OMIT {
+    if cur_cmd == Cmd::Omit {
         align_state = 0;
     } else {
         back_input();
@@ -12379,7 +12394,7 @@ pub(crate) unsafe fn fin_col() -> bool {
     align_state = 1000000;
     loop {
         get_x_or_protected();
-        if cur_cmd != SPACER {
+        if cur_cmd != Cmd::Spacer {
             break;
         }
     }
@@ -12727,7 +12742,7 @@ pub(crate) unsafe fn fin_align() {
     if cur_list.mode == MMODE {
         /*1241: */
         do_assignments(); /*1232: */
-        if cur_cmd != MATH_SHIFT {
+        if cur_cmd != Cmd::MathShift {
             /*1242: */
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -12741,7 +12756,7 @@ pub(crate) unsafe fn fin_align() {
             back_error();
         } else {
             get_x_token();
-            if cur_cmd != MATH_SHIFT {
+            if cur_cmd != Cmd::MathShift {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -12788,22 +12803,22 @@ pub(crate) unsafe fn align_peek() {
         align_state = 1000000;
         loop {
             get_x_or_protected();
-            if cur_cmd != SPACER {
+            if cur_cmd != Cmd::Spacer {
                 break;
             }
         }
-        if cur_cmd == NO_ALIGN {
+        if cur_cmd == Cmd::NoAlign {
             scan_left_brace();
             new_save_level(GroupCode::NO_ALIGN);
             if cur_list.mode as i32 == -1 {
                 normal_paragraph();
             }
             break;
-        } else if cur_cmd == RIGHT_BRACE {
+        } else if cur_cmd == Cmd::RightBrace {
             fin_align();
             break;
         } else {
-            if cur_cmd == CAR_RET && cur_chr == CR_CR_CODE {
+            if cur_cmd == Cmd::CarRet && cur_chr == CR_CR_CODE {
                 continue;
             }
             init_row();
@@ -12939,7 +12954,7 @@ pub(crate) unsafe fn show_save_groups() {
                 if m == MMODE {
                     print_char('$' as i32);
                 } else if NEST[p].mode == MMODE {
-                    print_cmd_chr(EQ_NO, SAVE_STACK[SAVE_PTR - 2].val);
+                    print_cmd_chr(Cmd::EqNo, SAVE_STACK[SAVE_PTR - 2].val);
                     return found(p, a);
                 }
                 print_char('$' as i32);
@@ -12960,9 +12975,9 @@ pub(crate) unsafe fn show_save_groups() {
         if i != 0 {
             if i < BOX_FLAG {
                 let j = if NEST[p].mode.abs() == VMODE {
-                    HMOVE
+                    Cmd::HMove
                 } else {
-                    VMOVE
+                    Cmd::VMove
                 };
                 if i > 0 {
                     print_cmd_chr(j, 0);
@@ -12980,7 +12995,7 @@ pub(crate) unsafe fn show_save_groups() {
                 print_int(i - BOX_FLAG);
                 print_char('=' as i32);
             } else {
-                print_cmd_chr(LEADER_SHIP, i - (LEADER_FLAG - (A_LEADERS as i32)));
+                print_cmd_chr(Cmd::LeaderShip, i - (LEADER_FLAG - (A_LEADERS as i32)));
             }
         }
         found1(s, p, a)
@@ -13543,12 +13558,12 @@ pub(crate) unsafe fn normal_paragraph() {
     if !LOCAL(Local::par_shape).is_texnull() {
         eq_define(
             LOCAL_BASE as usize + Local::par_shape as usize,
-            SHAPE_REF,
+            Cmd::ShapeRef,
             TEX_NULL,
         );
     }
     if !EQTB[INTER_LINE_PENALTIES_LOC].val.is_texnull() {
-        eq_define(INTER_LINE_PENALTIES_LOC, SHAPE_REF, TEX_NULL);
+        eq_define(INTER_LINE_PENALTIES_LOC, Cmd::ShapeRef, TEX_NULL);
     };
 }
 /*1110: "The box_end procedure does the right thing with cur_box, if
@@ -13606,9 +13621,9 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
         }
         if cur_val < 256 {
             if a >= 4 {
-                geq_define(BOX_BASE + cur_val as usize, BOX_REF, cur_box);
+                geq_define(BOX_BASE + cur_val as usize, Cmd::BoxRef, cur_box);
             } else {
-                eq_define(BOX_BASE + cur_val as usize, BOX_REF, cur_box);
+                eq_define(BOX_BASE + cur_val as usize, Cmd::BoxRef, cur_box);
             }
         } else {
             find_sa_element(4, cur_val, true);
@@ -13624,12 +13639,12 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
             /*1113:*/
             {
                 get_x_token();
-                if !(cur_cmd == SPACER || cur_cmd == RELAX) {
+                if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
                     break;
                 }
             }
-            if cur_cmd == HSKIP && cur_list.mode.abs() != VMODE
-                || cur_cmd == VSKIP && cur_list.mode.abs() == VMODE
+            if cur_cmd == Cmd::HSkip && cur_list.mode.abs() != VMODE
+                || cur_cmd == Cmd::VSkip && cur_list.mode.abs() == VMODE
             {
                 append_glue();
                 MEM[cur_list.tail].b16.s0 =
@@ -13839,13 +13854,13 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
 pub(crate) unsafe fn scan_box(mut box_context: i32) {
     loop {
         get_x_token();
-        if !(cur_cmd == SPACER || cur_cmd == RELAX) {
+        if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
             break;
         }
     }
-    if cur_cmd == MAKE_BOX {
+    if cur_cmd == Cmd::MakeBox {
         begin_box(box_context);
-    } else if box_context >= LEADER_FLAG && (cur_cmd == HRULE || cur_cmd == VRULE) {
+    } else if box_context >= LEADER_FLAG && (cur_cmd == Cmd::HRule || cur_cmd == Cmd::VRule) {
         cur_box = scan_rule_spec() as i32;
         box_end(box_context);
     } else {
@@ -13963,7 +13978,7 @@ pub(crate) unsafe fn indent_in_hmode() {
 }
 pub(crate) unsafe fn head_for_vmode() {
     if (cur_list.mode as i32) < 0 {
-        if cur_cmd != HRULE {
+        if cur_cmd != Cmd::HRule {
             off_save();
         } else {
             if file_line_error_style_p != 0 {
@@ -14002,7 +14017,7 @@ pub(crate) unsafe fn end_graf() {
     };
 }
 pub(crate) unsafe fn begin_insert_or_adjust() {
-    if cur_cmd == VADJUST {
+    if cur_cmd == Cmd::VAdjust {
         cur_val = 255;
     } else {
         scan_eight_bit_int();
@@ -14022,7 +14037,7 @@ pub(crate) unsafe fn begin_insert_or_adjust() {
         }
     }
     SAVE_STACK[SAVE_PTR + 0].val = cur_val;
-    if cur_cmd == VADJUST && scan_keyword(b"pre") {
+    if cur_cmd == Cmd::VAdjust && scan_keyword(b"pre") {
         SAVE_STACK[SAVE_PTR + 1].val = 1;
     } else {
         SAVE_STACK[SAVE_PTR + 1].val = 0;
@@ -14395,10 +14410,10 @@ pub(crate) unsafe fn make_accent() {
         do_assignments();
         let mut q = None;
         f = EQTB[CUR_FONT_LOC].val as usize;
-        if cur_cmd == LETTER || cur_cmd == OTHER_CHAR || cur_cmd == CHAR_GIVEN {
+        if cur_cmd == Cmd::Letter || cur_cmd == Cmd::OtherChar || cur_cmd == Cmd::CharGiven {
             q = new_character(f, cur_chr as UTF16_code);
             cur_val = cur_chr
-        } else if cur_cmd == CHAR_NUM {
+        } else if cur_cmd == Cmd::CharNum {
             scan_char_num();
             q = new_character(f, cur_val as UTF16_code)
         } else {
@@ -14539,13 +14554,13 @@ pub(crate) unsafe fn do_endv() {
     INPUT_STACK[BASE_PTR] = cur_input;
     while INPUT_STACK[BASE_PTR].index != Btl::VTemplate
         && INPUT_STACK[BASE_PTR].loc.is_texnull()
-        && INPUT_STACK[BASE_PTR].state == TOKEN_LIST
+        && INPUT_STACK[BASE_PTR].state == InputState::TokenList
     {
         BASE_PTR -= 1
     }
     if INPUT_STACK[BASE_PTR].index != Btl::VTemplate
         || !INPUT_STACK[BASE_PTR].loc.is_texnull()
-        || INPUT_STACK[BASE_PTR].state != TOKEN_LIST
+        || INPUT_STACK[BASE_PTR].state != InputState::TokenList
     {
         fatal_error(b"(interwoven alignment preambles are not allowed)");
     }
@@ -14821,14 +14836,14 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
     let mut p: u8 = 0;
     let mut q = cur_cmd;
     let mut e = false;
-    if q != REGISTER {
+    if q != Cmd::Register {
         get_x_token();
-        if cur_cmd >= ASSIGN_INT && cur_cmd <= ASSIGN_MU_GLUE {
+        if cur_cmd >= Cmd::AssignInt && cur_cmd <= Cmd::AssignMuGlue {
             l = cur_chr;
-            p = cur_cmd as u8 - ASSIGN_INT as u8;
+            p = cur_cmd as u8 - Cmd::AssignInt as u8;
             current_block = 16534065480145571271;
         } else {
-            if cur_cmd != REGISTER {
+            if cur_cmd != Cmd::Register {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -14889,13 +14904,13 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
         s = EQTB[l as usize].val
         /*:1272*/
     } /*1275:*/
-    if q == REGISTER {
+    if q == Cmd::Register {
         scan_optional_equals();
     } else {
         scan_keyword(b"by");
     }
     arith_error = false;
-    if q < MULTIPLY {
+    if q < Cmd::Multiply {
         /*1273:*/
         if p < GLUE_VAL {
             if p == INT_VAL {
@@ -14903,12 +14918,12 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
             } else {
                 scan_dimen(false, false, false);
             }
-            if q == ADVANCE {
+            if q == Cmd::Advance {
                 cur_val = cur_val + w
             }
         } else {
             scan_glue(p as small_number);
-            if q == ADVANCE {
+            if q == Cmd::Advance {
                 /*1274:*/
                 let q = new_spec(cur_val as usize) as usize;
                 let r = s;
@@ -14942,7 +14957,7 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
     } else {
         scan_int();
         if p < GLUE_VAL {
-            if q == MULTIPLY {
+            if q == Cmd::Multiply {
                 if p == INT_VAL {
                     cur_val = mult_and_add(w, cur_val, 0, TEX_INFINITY)
                 } else {
@@ -14953,7 +14968,7 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
             }
         } else {
             let r = new_spec(s as usize);
-            if q == MULTIPLY {
+            if q == Cmd::Multiply {
                 MEM[r + 1].b32.s1 =
                     mult_and_add(MEM[(s + 1) as usize].b32.s1, cur_val, 0, MAX_HALFWORD);
                 MEM[r + 2].b32.s1 =
@@ -15005,9 +15020,9 @@ pub(crate) unsafe fn do_register_command(mut a: small_number) {
                 sa_def(l as usize, cur_val);
             }
         } else if a >= 4 {
-            geq_define(l as usize, GLUE_REF, cur_val);
+            geq_define(l as usize, Cmd::GlueRef, cur_val);
         } else {
-            eq_define(l as usize, GLUE_REF, cur_val);
+            eq_define(l as usize, Cmd::GlueRef, cur_val);
         }
     };
 }
@@ -15142,9 +15157,9 @@ pub(crate) unsafe fn new_font(mut a: small_number) {
         make_string()
     };
     if a >= 4 {
-        geq_define(u as usize, SET_FONT, FONT_BASE as i32);
+        geq_define(u as usize, Cmd::SetFont, FONT_BASE as i32);
     } else {
-        eq_define(u as usize, SET_FONT, FONT_BASE as i32);
+        eq_define(u as usize, Cmd::SetFont, FONT_BASE as i32);
     }
     scan_optional_equals();
     scan_file_name();
@@ -15246,9 +15261,9 @@ pub(crate) unsafe fn new_font(mut a: small_number) {
         }
     }
     if a >= 4 {
-        geq_define(u as usize, SET_FONT, f as i32);
+        geq_define(u as usize, Cmd::SetFont, f as i32);
     } else {
-        eq_define(u as usize, SET_FONT, f as i32);
+        eq_define(u as usize, Cmd::SetFont, f as i32);
     }
     EQTB[(FROZEN_NULL_FONT + f) as usize] = EQTB[u as usize];
     (*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1 = t;
@@ -15407,7 +15422,7 @@ pub(crate) unsafe fn show_whatever() {
                     print_nl_cstr(b"### level ");
                     print_int(n);
                     print_cstr(b": ");
-                    print_cmd_chr(IF_TEST, t as i32);
+                    print_cmd_chr(Cmd::IfTest, t as i32);
                     if m == FI_CODE {
                         print_esc_cstr(b"else");
                     }
@@ -15525,7 +15540,7 @@ pub(crate) unsafe fn do_extension() {
         }
         4 => {
             get_x_token();
-            if cur_cmd == EXTENSION && cur_chr <= CLOSE_NODE as i32 {
+            if cur_cmd == Cmd::Extension && cur_chr <= CLOSE_NODE as i32 {
                 p = cur_list.tail;
                 do_extension();
                 out_what(cur_list.tail);
@@ -15603,7 +15618,7 @@ pub(crate) unsafe fn do_extension() {
                 );
             } else {
                 not_native_font_error(
-                    EXTENSION,
+                    Cmd::Extension,
                     GLYPH_CODE as i32,
                     EQTB[CUR_FONT_LOC].val as usize,
                 );
@@ -15933,10 +15948,10 @@ pub(crate) unsafe fn main_control() {
                 }
                 169 => {
                     get_x_token();
-                    if cur_cmd == LETTER
-                        || cur_cmd == OTHER_CHAR
-                        || cur_cmd == CHAR_GIVEN
-                        || cur_cmd == CHAR_NUM
+                    if cur_cmd == Cmd::Letter
+                        || cur_cmd == Cmd::OtherChar
+                        || cur_cmd == Cmd::CharGiven
+                        || cur_cmd == Cmd::CharNum
                     {
                         cancel_boundary = true;
                     }
@@ -15956,8 +15971,8 @@ pub(crate) unsafe fn main_control() {
                             );
                             if !cur_ptr.is_texnull() {
                                 if cur_cs == 0 {
-                                    if cur_cmd == CHAR_NUM {
-                                        cur_cmd = OTHER_CHAR;
+                                    if cur_cmd == Cmd::CharNum {
+                                        cur_cmd = Cmd::OtherChar;
                                     }
                                     cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
                                 } else {
@@ -15990,7 +16005,7 @@ pub(crate) unsafe fn main_control() {
                             if cur_chr == 0 {
                                 loop {
                                     get_x_token();
-                                    if !(cur_cmd == SPACER) {
+                                    if !(cur_cmd == Cmd::Spacer) {
                                         break;
                                     }
                                 }
@@ -16441,7 +16456,8 @@ pub(crate) unsafe fn main_control() {
                     space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
                     if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != 4096 {
                         if prev_class == CHAR_CLASS_LIMIT - 1 {
-                            if cur_input.state != TOKEN_LIST || cur_input.index != Btl::BackedUpChar
+                            if cur_input.state != InputState::TokenList
+                                || cur_input.index != Btl::BackedUpChar
                             {
                                 find_sa_element(
                                     INTER_CHAR_VAL as small_number,
@@ -16449,8 +16465,8 @@ pub(crate) unsafe fn main_control() {
                                     false,
                                 );
                                 if !cur_ptr.is_texnull() {
-                                    if cur_cmd != LETTER {
-                                        cur_cmd = OTHER_CHAR;
+                                    if cur_cmd != Cmd::Letter {
+                                        cur_cmd = Cmd::OtherChar;
                                     }
                                     cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                     back_input();
@@ -16469,8 +16485,8 @@ pub(crate) unsafe fn main_control() {
                                 false,
                             );
                             if !cur_ptr.is_texnull() {
-                                if cur_cmd != LETTER {
-                                    cur_cmd = OTHER_CHAR;
+                                if cur_cmd != Cmd::Letter {
+                                    cur_cmd = Cmd::OtherChar;
                                 }
                                 cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                 back_input();
@@ -16526,14 +16542,20 @@ pub(crate) unsafe fn main_control() {
                         main_h = native_len
                     }
                     get_next();
-                    if cur_cmd == LETTER || cur_cmd == OTHER_CHAR || cur_cmd == CHAR_GIVEN {
+                    if cur_cmd == Cmd::Letter
+                        || cur_cmd == Cmd::OtherChar
+                        || cur_cmd == Cmd::CharGiven
+                    {
                         continue;
                     }
                     x_token();
-                    if cur_cmd == LETTER || cur_cmd == OTHER_CHAR || cur_cmd == CHAR_GIVEN {
+                    if cur_cmd == Cmd::Letter
+                        || cur_cmd == Cmd::OtherChar
+                        || cur_cmd == Cmd::CharGiven
+                    {
                         continue;
                     }
-                    if cur_cmd == CHAR_NUM {
+                    if cur_cmd == Cmd::CharNum {
                         scan_usv_num();
                         cur_chr = cur_val
                     } else if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
@@ -16557,8 +16579,8 @@ pub(crate) unsafe fn main_control() {
                         );
                         if !cur_ptr.is_texnull() {
                             if cur_cs == 0 {
-                                if cur_cmd == CHAR_NUM {
-                                    cur_cmd = OTHER_CHAR;
+                                if cur_cmd == Cmd::CharNum {
+                                    cur_cmd = Cmd::OtherChar;
                                 }
                                 cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
                             } else {
@@ -17024,15 +17046,17 @@ pub(crate) unsafe fn main_control() {
                 space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
                 if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != CHAR_CLASS_LIMIT {
                     if prev_class == CHAR_CLASS_LIMIT - 1 {
-                        if cur_input.state != TOKEN_LIST || cur_input.index != Btl::BackedUpChar {
+                        if cur_input.state != InputState::TokenList
+                            || cur_input.index != Btl::BackedUpChar
+                        {
                             find_sa_element(
                                 INTER_CHAR_VAL as small_number,
                                 (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
                                 false,
                             );
                             if !cur_ptr.is_texnull() {
-                                if cur_cmd != LETTER {
-                                    cur_cmd = OTHER_CHAR;
+                                if cur_cmd != Cmd::Letter {
+                                    cur_cmd = Cmd::OtherChar;
                                 }
                                 cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                 back_input();
@@ -17051,8 +17075,8 @@ pub(crate) unsafe fn main_control() {
                             false,
                         );
                         if !cur_ptr.is_texnull() {
-                            if cur_cmd != LETTER {
-                                cur_cmd = OTHER_CHAR;
+                            if cur_cmd != Cmd::Letter {
+                                cur_cmd = Cmd::OtherChar;
                             }
                             cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                             back_input();
@@ -17351,26 +17375,26 @@ pub(crate) unsafe fn main_control() {
                                 // lab100:
                                 /*main_loop_lookahead *//*1073: */
                                 get_next();
-                                if cur_cmd == LETTER {
+                                if cur_cmd == Cmd::Letter {
                                     current_block = 10120566026430170701;
-                                } else if cur_cmd == OTHER_CHAR {
+                                } else if cur_cmd == Cmd::OtherChar {
                                     current_block = 10120566026430170701;
-                                } else if cur_cmd == CHAR_GIVEN {
+                                } else if cur_cmd == Cmd::CharGiven {
                                     current_block = 10120566026430170701;
                                 } else {
                                     x_token();
-                                    if cur_cmd == LETTER {
+                                    if cur_cmd == Cmd::Letter {
                                         current_block = 10120566026430170701;
-                                    } else if cur_cmd == OTHER_CHAR {
+                                    } else if cur_cmd == Cmd::OtherChar {
                                         current_block = 10120566026430170701;
-                                    } else if cur_cmd == CHAR_GIVEN {
+                                    } else if cur_cmd == Cmd::CharGiven {
                                         current_block = 10120566026430170701;
-                                    } else if cur_cmd == CHAR_NUM {
+                                    } else if cur_cmd == Cmd::CharNum {
                                         scan_char_num();
                                         cur_chr = cur_val;
                                         current_block = 10120566026430170701;
                                     } else {
-                                        if cur_cmd == NO_BOUNDARY {
+                                        if cur_cmd == Cmd::NoBoundary {
                                             bchar = TOO_BIG_CHAR;
                                         }
                                         cur_r = bchar;
@@ -17402,7 +17426,7 @@ pub(crate) unsafe fn main_control() {
                                             && space_class != CHAR_CLASS_LIMIT
                                         {
                                             if prev_class == CHAR_CLASS_LIMIT - 1 {
-                                                if cur_input.state != TOKEN_LIST
+                                                if cur_input.state != InputState::TokenList
                                                     || cur_input.index != Btl::BackedUpChar
                                                 {
                                                     find_sa_element(
@@ -17412,8 +17436,8 @@ pub(crate) unsafe fn main_control() {
                                                         false,
                                                     );
                                                     if !cur_ptr.is_texnull() {
-                                                        if cur_cmd != LETTER {
-                                                            cur_cmd = OTHER_CHAR
+                                                        if cur_cmd != Cmd::Letter {
+                                                            cur_cmd = Cmd::OtherChar
                                                         }
                                                         cur_tok =
                                                             cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
@@ -17434,8 +17458,8 @@ pub(crate) unsafe fn main_control() {
                                                     false,
                                                 );
                                                 if !cur_ptr.is_texnull() {
-                                                    if cur_cmd != LETTER {
-                                                        cur_cmd = OTHER_CHAR;
+                                                    if cur_cmd != Cmd::Letter {
+                                                        cur_cmd = Cmd::OtherChar;
                                                     }
                                                     cur_tok =
                                                         cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
@@ -17609,8 +17633,8 @@ pub(crate) unsafe fn main_control() {
                     );
                     if !cur_ptr.is_texnull() {
                         if cur_cs == 0 {
-                            if cur_cmd == CHAR_NUM {
-                                cur_cmd = OTHER_CHAR;
+                            if cur_cmd == Cmd::CharNum {
+                                cur_cmd = Cmd::OtherChar;
                             }
                             cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
                         } else {
@@ -17869,11 +17893,11 @@ pub(crate) unsafe fn do_assignments() {
     loop {
         loop {
             get_x_token();
-            if !(cur_cmd == SPACER || cur_cmd == RELAX) {
+            if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
                 break;
             }
         }
-        if cur_cmd as u8 <= MAX_NON_PREFIXED_COMMAND as u8 {
+        if cur_cmd <= MAX_NON_PREFIXED_COMMAND {
             return;
         }
         set_box_allowed = false;

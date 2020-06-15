@@ -116,7 +116,7 @@ pub(crate) unsafe fn init_math() {
 
     get_token();
 
-    if cur_cmd == MATH_SHIFT && cur_list.mode as i32 > 0 {
+    if cur_cmd == Cmd::MathShift && cur_list.mode as i32 > 0 {
         // 1180:
         let mut j = None;
         let mut w = -MAX_HALFWORD;
@@ -473,13 +473,15 @@ unsafe fn scan_delimiter(p: usize, mut r: bool) {
     } else {
         loop {
             get_x_token();
-            if !(cur_cmd == SPACER || cur_cmd == RELAX) {
+            if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
                 break;
             }
         }
         match cur_cmd {
-            LETTER | OTHER_CHAR => cur_val = EQTB[(DEL_CODE_BASE as i32 + cur_chr) as usize].val,
-            DELIM_NUM => {
+            Cmd::Letter | Cmd::OtherChar => {
+                cur_val = EQTB[(DEL_CODE_BASE as i32 + cur_chr) as usize].val
+            }
+            Cmd::DelimNum => {
                 if cur_chr == 1 {
                     cur_val1 = 0x40000000;
                     scan_math_class_int();
@@ -537,7 +539,7 @@ pub(crate) unsafe fn math_radical() {
 }
 pub(crate) unsafe fn math_ac() {
     let mut c: i32 = 0;
-    if cur_cmd == ACCENT {
+    if cur_cmd == Cmd::Accent {
         /*1201: */
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -667,7 +669,7 @@ pub(crate) unsafe fn sub_sup() {
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         p = cur_list.tail as i32 + 2 + cur_cmd as i32 - 7;
         if t as i32 != EMPTY {
-            if cur_cmd == SUP_MARK {
+            if cur_cmd == Cmd::SupMark {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -999,7 +1001,7 @@ pub(crate) unsafe fn after_math() {
     p = fin_mlist(TEX_NULL);
     if cur_list.mode as i32 == -m {
         get_x_token();
-        if cur_cmd != MATH_SHIFT {
+        if cur_cmd != Cmd::MathShift {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
@@ -1119,7 +1121,7 @@ pub(crate) unsafe fn after_math() {
         if a.is_texnull() {
             // 1232:
             get_x_token();
-            if cur_cmd != MATH_SHIFT {
+            if cur_cmd != Cmd::MathShift {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -1267,7 +1269,7 @@ pub(crate) unsafe fn resume_after_display() {
         * 65536
         + cur_lang as i64) as i32;
     get_x_token();
-    if cur_cmd != SPACER {
+    if cur_cmd != Cmd::Spacer {
         back_input();
     }
     if NEST_PTR == 1 {
@@ -2132,8 +2134,8 @@ unsafe fn make_fraction(q: usize) {
     // :775
 }
 unsafe fn make_op(q: usize) -> scaled_t {
-    if MEM[q].b16.s0 == NORMAL && (cur_style as i32) < TEXT_STYLE {
-        MEM[q].b16.s0 = LIMITS as u16;
+    if MEM[q].b16.s0 == Limit::Normal as u16 && (cur_style as i32) < TEXT_STYLE {
+        MEM[q].b16.s0 = Limit::Limits as u16;
     }
     let mut delta = 0;
     let mut ot_assembly_ptr = ptr::null_mut();
@@ -2228,7 +2230,7 @@ unsafe fn make_op(q: usize) -> scaled_t {
                 MEM[x + 2].b32.s1 = MEM[(p + 2) as usize].b32.s1
             }
         }
-        if MEM[q + 3].b32.s1 != 0 && MEM[q as usize].b16.s0 != LIMITS {
+        if MEM[q + 3].b32.s1 != 0 && MEM[q as usize].b16.s0 != Limit::Limits as u16 {
             MEM[x + 1].b32.s1 = MEM[x + 1].b32.s1 - delta
         }
         MEM[x + 4].b32.s1 = half(MEM[(x + 3) as usize].b32.s1 - MEM[(x + 2) as usize].b32.s1)
@@ -2237,7 +2239,7 @@ unsafe fn make_op(q: usize) -> scaled_t {
         MEM[q + 1].b32.s0 = x as i32;
     }
     let save_f = cur_f;
-    if MEM[q].b16.s0 == LIMITS {
+    if MEM[q].b16.s0 == Limit::Limits as u16 {
         // 777:
         let x = clean_box(
             q + 2,
@@ -2810,7 +2812,7 @@ unsafe fn mlist_to_hlist() {
                 }
                 OP_NOAD => {
                     delta = make_op(q as usize);
-                    if MEM[q as usize].b16.s0 == LIMITS {
+                    if MEM[q as usize].b16.s0 == Limit::Limits as u16 {
                         current_block = 454865348394072936;
                         break;
                     } else {

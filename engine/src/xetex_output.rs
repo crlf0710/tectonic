@@ -9,8 +9,8 @@
 )]
 
 use super::xetex_consts::{
-    IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE, INTPAR,
-    LETTER, NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
+    Cmd, IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE, INTPAR,
+    NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
 };
 
 use super::xetex_ini::{
@@ -328,7 +328,7 @@ pub(crate) unsafe fn print_cs(mut p: i32) {
                 print_char(' ' as i32);
             } else {
                 print_esc(p - SINGLE_BASE as i32);
-                if *CAT_CODE(p as usize - SINGLE_BASE) == LETTER as _ {
+                if *CAT_CODE(p as usize - SINGLE_BASE) == Cmd::Letter as _ {
                     print_char(' ' as i32);
                 }
             }

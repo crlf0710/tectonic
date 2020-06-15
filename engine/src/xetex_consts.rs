@@ -387,7 +387,7 @@ pub(crate) const EQTB_SIZE: usize = SCALED_BASE + NUMBER_REGS - 1;
 pub(crate) const LEVEL_ZERO: u16 = 0;
 pub(crate) const LEVEL_ONE: u16 = 1;
 
-/* SET_INTERACTION */
+/* Cmd::SetInteraction */
 pub(crate) const BATCH_MODE: u8 = 0;
 pub(crate) const NONSTOP_MODE: u8 = 1;
 pub(crate) const SCROLL_MODE: u8 = 2;
@@ -542,7 +542,7 @@ pub(crate) const ACCENT_NOAD_SIZE: placeholdertype = 5;
 pub(crate) const RADICAL_NOAD_SIZE: placeholdertype = 5;
 pub(crate) const FRACTION_NOAD_SIZE: placeholdertype = 6;
 
-/* MATH_COMP and others */
+/* Cmd::MathComp and others */
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
 pub(crate) enum NoadType {
@@ -614,7 +614,7 @@ impl ND {
     }
 }
 
-/* args to TOP_BOT_MARK */
+/* args to Cmd::TopBotMark */
 pub(crate) const TOP_MARK_CODE: usize = 0;
 pub(crate) const FIRST_MARK_CODE: usize = 1;
 pub(crate) const BOT_MARK_CODE: usize = 2;
@@ -840,148 +840,28 @@ impl From<u16> for Cmd {
 }
 
 pub(crate) const ESCAPE: Cmd = Cmd::Relax;
-pub(crate) const RELAX: Cmd = Cmd::Relax;
-pub(crate) const LEFT_BRACE: Cmd = Cmd::LeftBrace;
-pub(crate) const RIGHT_BRACE: Cmd = Cmd::RightBrace;
-pub(crate) const MATH_SHIFT: Cmd = Cmd::MathShift;
-pub(crate) const TAB_MARK: Cmd = Cmd::TabMark;
-pub(crate) const CAR_RET: Cmd = Cmd::CarRet;
 pub(crate) const OUT_PARAM: Cmd = Cmd::CarRet;
-pub(crate) const MAC_PARAM: Cmd = Cmd::MacParam;
-pub(crate) const SUP_MARK: Cmd = Cmd::SupMark;
-pub(crate) const SUB_MARK: Cmd = Cmd::SubMark;
 pub(crate) const IGNORE: Cmd = Cmd::EndV;
-pub(crate) const ENDV: Cmd = Cmd::EndV;
-pub(crate) const SPACER: Cmd = Cmd::Spacer;
-pub(crate) const LETTER: Cmd = Cmd::Letter;
-pub(crate) const OTHER_CHAR: Cmd = Cmd::OtherChar;
-pub(crate) const ACTIVE_CHAR: Cmd = Cmd::ActiveChar;
+
 pub(crate) const PAR_END: Cmd = Cmd::ActiveChar;
 pub(crate) const MATCH: Cmd = Cmd::ActiveChar;
-pub(crate) const COMMENT: Cmd = Cmd::Comment;
+
 pub(crate) const END_MATCH: Cmd = Cmd::Comment;
 pub(crate) const STOP: Cmd = Cmd::Comment;
-pub(crate) const DELIM_NUM: Cmd = Cmd::DelimNum;
-pub(crate) const CHAR_NUM: Cmd = Cmd::CharNum;
-pub(crate) const MATH_CHAR_NUM: Cmd = Cmd::MathCharNum;
-pub(crate) const MARK: Cmd = Cmd::Mark;
-pub(crate) const XRAY: Cmd = Cmd::XRay;
-pub(crate) const MAKE_BOX: Cmd = Cmd::MakeBox;
-pub(crate) const HMOVE: Cmd = Cmd::HMove;
-pub(crate) const VMOVE: Cmd = Cmd::VMove;
-pub(crate) const UN_HBOX: Cmd = Cmd::UnHBox;
-pub(crate) const UN_VBOX: Cmd = Cmd::UnVBox;
-pub(crate) const REMOVE_ITEM: Cmd = Cmd::RemoveItem;
-pub(crate) const HSKIP: Cmd = Cmd::HSkip;
-pub(crate) const VSKIP: Cmd = Cmd::VSkip;
-pub(crate) const MSKIP: Cmd = Cmd::MSkip;
-pub(crate) const KERN: Cmd = Cmd::Kern;
-pub(crate) const MKERN: Cmd = Cmd::MKern;
-pub(crate) const LEADER_SHIP: Cmd = Cmd::LeaderShip;
-pub(crate) const HALIGN: Cmd = Cmd::HAlign;
-pub(crate) const VALIGN: Cmd = Cmd::VAlign;
-pub(crate) const NO_ALIGN: Cmd = Cmd::NoAlign;
-pub(crate) const VRULE: Cmd = Cmd::VRule;
-pub(crate) const HRULE: Cmd = Cmd::HRule;
-pub(crate) const INSERT: Cmd = Cmd::Insert;
-pub(crate) const VADJUST: Cmd = Cmd::VAdjust;
-pub(crate) const IGNORE_SPACES: Cmd = Cmd::IgnoreSpaces;
-pub(crate) const AFTER_ASSIGNMENT: Cmd = Cmd::AfterAssignment;
-pub(crate) const AFTER_GROUP: Cmd = Cmd::AfterGroup;
-pub(crate) const BREAK_PENALTY: Cmd = Cmd::BreakPenalty;
-pub(crate) const START_PAR: Cmd = Cmd::StartPar;
-pub(crate) const ITAL_CORR: Cmd = Cmd::ItalCorr;
-pub(crate) const ACCENT: Cmd = Cmd::Accent;
-pub(crate) const MATH_ACCENT: Cmd = Cmd::MathAccent;
-pub(crate) const DISCRETIONARY: Cmd = Cmd::Discretionary;
-pub(crate) const EQ_NO: Cmd = Cmd::EqNo;
-pub(crate) const LEFT_RIGHT: Cmd = Cmd::LeftRight;
-pub(crate) const MATH_COMP: Cmd = Cmd::MathComp;
-pub(crate) const LIMIT_SWITCH: Cmd = Cmd::LimitSwitch;
-pub(crate) const ABOVE: Cmd = Cmd::Above;
-pub(crate) const MATH_STYLE: Cmd = Cmd::MathStyle;
-pub(crate) const MATH_CHOICE: Cmd = Cmd::MathChoice;
-pub(crate) const NON_SCRIPT: Cmd = Cmd::NonScript;
-pub(crate) const VCENTER: Cmd = Cmd::VCenter;
-pub(crate) const CASE_SHIFT: Cmd = Cmd::CaseShift;
-pub(crate) const MESSAGE: Cmd = Cmd::Message;
-pub(crate) const EXTENSION: Cmd = Cmd::Extension;
-pub(crate) const IN_STREAM: Cmd = Cmd::InStream;
-pub(crate) const BEGIN_GROUP: Cmd = Cmd::BeginGroup;
-pub(crate) const END_GROUP: Cmd = Cmd::EndGroup;
-pub(crate) const OMIT: Cmd = Cmd::Omit;
-pub(crate) const EX_SPACE: Cmd = Cmd::ExSpace;
-pub(crate) const NO_BOUNDARY: Cmd = Cmd::NoBoundary;
-pub(crate) const RADICAL: Cmd = Cmd::Radical;
-pub(crate) const END_CS_NAME: Cmd = Cmd::EndCSName;
-pub(crate) const CHAR_GIVEN: Cmd = Cmd::CharGiven;
-pub(crate) const MATH_GIVEN: Cmd = Cmd::MathGiven;
-pub(crate) const XETEX_MATH_GIVEN: Cmd = Cmd::XetexMathGiven;
-pub(crate) const LAST_ITEM: Cmd = Cmd::LastItem;
+
+pub(crate) const INVALID_CHAR: Cmd = Cmd::DelimNum;
+
 pub(crate) const MAX_NON_PREFIXED_COMMAND: Cmd = Cmd::LastItem;
-pub(crate) const TOKS_REGISTER: Cmd = Cmd::ToksRegister;
-pub(crate) const ASSIGN_TOKS: Cmd = Cmd::AssignToks;
-pub(crate) const ASSIGN_INT: Cmd = Cmd::AssignInt;
-pub(crate) const ASSIGN_DIMEN: Cmd = Cmd::AssignDimen;
-pub(crate) const ASSIGN_GLUE: Cmd = Cmd::AssignGlue;
-pub(crate) const ASSIGN_MU_GLUE: Cmd = Cmd::AssignMuGlue;
-pub(crate) const ASSIGN_FONT_DIMEN: Cmd = Cmd::AssignFontDimen;
-pub(crate) const ASSIGN_FONT_INT: Cmd = Cmd::AssignFontInt;
-pub(crate) const SET_AUX: Cmd = Cmd::SetAux;
-pub(crate) const SET_PREV_GRAF: Cmd = Cmd::SetPrevGraf;
-pub(crate) const SET_PAGE_DIMEN: Cmd = Cmd::SetPageDimen;
-pub(crate) const SET_PAGE_INT: Cmd = Cmd::SetPageInt;
-pub(crate) const SET_BOX_DIMEN: Cmd = Cmd::SetBoxDimen;
-pub(crate) const SET_SHAPE: Cmd = Cmd::SetShape;
-pub(crate) const DEF_CODE: Cmd = Cmd::DefCode;
-pub(crate) const XETEX_DEF_CODE: Cmd = Cmd::XetexDefCode;
-pub(crate) const DEF_FAMILY: Cmd = Cmd::DefFamily;
-pub(crate) const SET_FONT: Cmd = Cmd::SetFont;
-pub(crate) const DEF_FONT: Cmd = Cmd::DefFont;
-pub(crate) const REGISTER: Cmd = Cmd::Register;
-pub(crate) const ADVANCE: Cmd = Cmd::Advance;
-pub(crate) const MULTIPLY: Cmd = Cmd::Multiply;
-pub(crate) const DIVIDE: Cmd = Cmd::Divide;
-pub(crate) const PREFIX: Cmd = Cmd::Prefix;
-pub(crate) const LET: Cmd = Cmd::Let;
-pub(crate) const SHORTHAND_DEF: Cmd = Cmd::ShorthandDef;
-pub(crate) const READ_TO_CS: Cmd = Cmd::ReadToCS;
-pub(crate) const DEF: Cmd = Cmd::Def;
-pub(crate) const SET_BOX: Cmd = Cmd::SetBox;
-pub(crate) const HYPH_DATA: Cmd = Cmd::HyphData;
-pub(crate) const SET_INTERACTION: Cmd = Cmd::SetInteraction;
-pub(crate) const UNDEFINED_CS: Cmd = Cmd::UndefinedCS;
-pub(crate) const EXPAND_AFTER: Cmd = Cmd::ExpandAfter;
-pub(crate) const NO_EXPAND: Cmd = Cmd::NoExpand;
-pub(crate) const INPUT: Cmd = Cmd::Input;
-pub(crate) const IF_TEST: Cmd = Cmd::IfTest;
-pub(crate) const FI_OR_ELSE: Cmd = Cmd::FiOrElse;
-pub(crate) const CS_NAME: Cmd = Cmd::CSName;
-pub(crate) const CONVERT: Cmd = Cmd::Convert;
-pub(crate) const THE: Cmd = Cmd::The;
-pub(crate) const TOP_BOT_MARK: Cmd = Cmd::TopBotMark;
-
-pub(crate) const CALL: Cmd = Cmd::Call;
-pub(crate) const LONG_CALL: Cmd = Cmd::LongCall;
-pub(crate) const OUTER_CALL: Cmd = Cmd::OuterCall;
-pub(crate) const LONG_OUTER_CALL: Cmd = Cmd::LongOuterCall;
-pub(crate) const END_TEMPLATE: Cmd = Cmd::EndTemplate;
-pub(crate) const DONT_EXPAND: Cmd = Cmd::DontExpand;
-pub(crate) const GLUE_REF: Cmd = Cmd::GlueRef;
-pub(crate) const SHAPE_REF: Cmd = Cmd::ShapeRef;
-pub(crate) const BOX_REF: Cmd = Cmd::BoxRef;
-pub(crate) const DATA: Cmd = Cmd::Data;
-
 pub(crate) const MIN_INTERNAL: Cmd = Cmd::CharGiven;
 pub(crate) const MAX_INTERNAL: Cmd = Cmd::Register;
 pub(crate) const MAX_COMMAND: Cmd = Cmd::SetInteraction;
 
-/* args to SET_BOX_DIMEN */
+/* args to Cmd::SetBoxDimen */
 pub(crate) const WIDTH_OFFSET: placeholdertype = 1;
 pub(crate) const DEPTH_OFFSET: placeholdertype = 2;
 pub(crate) const HEIGHT_OFFSET: placeholdertype = 3;
 
-/* args to LAST_ITEM -- heavily overloaded by (X)eTeX for extensions */
+/* args to Cmd::LastItem -- heavily overloaded by (X)eTeX for extensions */
 pub(crate) const INT_VAL: u8 = 0;
 pub(crate) const DIMEN_VAL: u8 = 1;
 pub(crate) const GLUE_VAL: u8 = 2;
@@ -1042,7 +922,7 @@ pub(crate) const MU_TO_GLUE_CODE: placeholdertype = 57;
 pub(crate) const GLUE_TO_MU_CODE: placeholdertype = 58;
 pub(crate) const ETEX_EXPR: placeholdertype = 59;
 
-/* args to CONVERT -- also heavily overloaded */
+/* args to Cmd::Convert -- also heavily overloaded */
 pub(crate) const NUMBER_CODE: placeholdertype = 0;
 pub(crate) const ROMAN_NUMERAL_CODE: placeholdertype = 1;
 pub(crate) const STRING_CODE: placeholdertype = 2;
@@ -1062,7 +942,7 @@ pub(crate) const JOB_NAME_CODE: placeholdertype = 15;
 pub(crate) const PDF_STRCMP_CODE: placeholdertype = 43;
 pub(crate) const PDF_MDFIVE_SUM_CODE: placeholdertype = 44;
 
-/* args to IF_TEST */
+/* args to Cmd::IfTest */
 pub(crate) const IF_CHAR_CODE: i16 = 0;
 pub(crate) const IF_CODE: u8 = 1;
 pub(crate) const IF_CAT_CODE: i16 = 1;
@@ -1087,17 +967,17 @@ pub(crate) const IF_FONT_CHAR_CODE: i16 = 19;
 pub(crate) const IF_IN_CSNAME_CODE: i16 = 20;
 pub(crate) const IF_PRIMITIVE_CODE: i16 = 21;
 
-/* args to FI_OR_ELSE */
+/* args to Cmd::FiOrElse */
 pub(crate) const FI_CODE: u8 = 2;
 pub(crate) const ELSE_CODE: u8 = 3;
 pub(crate) const OR_CODE: u8 = 4;
 
-/* special args for TAB_MARK, CAR_RET */
+/* special args for Cmd::TabMark, Cmd::CarRet */
 pub(crate) const SPAN_CODE: placeholdertype = BIGGEST_USV as i32 + 2;
 pub(crate) const CR_CODE: placeholdertype = BIGGEST_USV as i32 + 3;
 pub(crate) const CR_CR_CODE: placeholdertype = BIGGEST_USV as i32 + 4;
 
-/* HSKIP, VSKIP, MSKIP */
+/* Cmd::HSkip, Cmd::VSkip, Cmd::MSkip */
 pub(crate) const FIL_CODE: placeholdertype = 0;
 pub(crate) const FILL_CODE: placeholdertype = 1;
 pub(crate) const SS_CODE: placeholdertype = 2;
@@ -1105,36 +985,46 @@ pub(crate) const FIL_NEG_CODE: placeholdertype = 3;
 pub(crate) const SKIP_CODE: placeholdertype = 4;
 pub(crate) const MSKIP_CODE: placeholdertype = 5;
 
-/* MAKE_BOX, UN_HBOX, UN_VBOX */
+/* Cmd::MakeBox, Cmd::UnHBox, Cmd::UnVBox */
 pub(crate) const BOX_CODE: placeholdertype = 0;
 pub(crate) const COPY_CODE: placeholdertype = 1;
 pub(crate) const LAST_BOX_CODE: placeholdertype = 2;
 pub(crate) const VSPLIT_CODE: placeholdertype = 3;
 pub(crate) const VTOP_CODE: placeholdertype = 4;
 
-/* LEADER_SHIP */
+/* Cmd::LeaderShip */
 pub(crate) const A_LEADERS: u16 = 100;
 pub(crate) const C_LEADERS: u16 = 101;
 pub(crate) const X_LEADERS: u16 = 102;
 
-/* LIMIT_SWITCH */
-/* also NORMAL = 0 */
-pub(crate) const LIMITS: u16 = 1;
-pub(crate) const NO_LIMITS: u16 = 2;
+/* Cmd::LimitSwitch */
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum Limit {
+    Normal = 0,
+    Limits = 1,
+    NoLimits = 2,
+}
 
-/* MATH_STYLE */
+impl From<u16> for Limit {
+    fn from(n: u16) -> Self {
+        Self::n(n).unwrap()
+    }
+}
+
+/* Cmd::MathStyle */
 pub(crate) const DISPLAY_STYLE: placeholdertype = 0;
 pub(crate) const TEXT_STYLE: placeholdertype = 2;
 pub(crate) const SCRIPT_STYLE: placeholdertype = 4;
 pub(crate) const SCRIPT_SCRIPT_STYLE: placeholdertype = 6;
 
-/* ABOVE */
+/* Cmd::Above */
 pub(crate) const ABOVE_CODE: placeholdertype = 0;
 pub(crate) const OVER_CODE: placeholdertype = 1;
 pub(crate) const ATOP_CODE: placeholdertype = 2;
 pub(crate) const DELIMITED_CODE: placeholdertype = 3;
 
-/* SHORTHAND_DEF */
+/* Cmd::ShorthandDef */
 pub(crate) const CHAR_DEF_CODE: placeholdertype = 0;
 pub(crate) const MATH_CHAR_DEF_CODE: placeholdertype = 1;
 pub(crate) const COUNT_DEF_CODE: placeholdertype = 2;
@@ -1155,7 +1045,7 @@ pub(crate) const SHOW_GROUPS: placeholdertype = 4;
 pub(crate) const SHOW_TOKENS: placeholdertype = 5;
 pub(crate) const SHOW_IFS: placeholdertype = 6;
 
-/* EXTENSION */
+/* Cmd::Extension */
 pub(crate) const OPEN_NODE: NodeSubType = NodeSubType::Open;
 pub(crate) const WRITE_NODE: NodeSubType = NodeSubType::Write;
 pub(crate) const CLOSE_NODE: NodeSubType = NodeSubType::Close;
@@ -1175,7 +1065,7 @@ pub(crate) const XETEX_INPUT_ENCODING_EXTENSION_CODE: u16 = 44;
 pub(crate) const XETEX_DEFAULT_ENCODING_EXTENSION_CODE: u16 = 45;
 pub(crate) const XETEX_LINEBREAK_LOCALE_EXTENSION_CODE: u16 = 46;
 
-/* VALIGN overloads */
+/* Cmd::VAlign overloads */
 pub(crate) const BEGIN_L_CODE: placeholdertype = 6;
 pub(crate) const END_L_CODE: placeholdertype = 7;
 pub(crate) const BEGIN_R_CODE: placeholdertype = 10;
@@ -1235,9 +1125,20 @@ impl From<u16> for GlueSign {
 }
 
 /* input state */
-pub(crate) const MID_LINE: u16 = 1;
-pub(crate) const SKIP_BLANKS: placeholdertype = 17;
-pub(crate) const NEW_LINE: u16 = 33;
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum InputState {
+    TokenList = 0,
+    MidLine = 1,
+    SkipBlanks = 17,
+    NewLine = 33,
+}
+
+impl Default for InputState {
+    fn default() -> Self {
+        Self::TokenList
+    }
+}
 
 /* DVI format codes */
 pub(crate) const XDV_ID_BYTE: u8 = 7;
@@ -1275,7 +1176,6 @@ pub(crate) const FONT_BASE: usize = 0;
 pub(crate) const INSERTING: ND = ND::Node(NodeType::HList);
 pub(crate) const NON_ADDRESS: placeholdertype = 0;
 pub(crate) const RESTORE_OLD_VALUE: u16 = 0;
-pub(crate) const TOKEN_LIST: u16 = 0;
 pub(crate) const UNDEFINED_PRIMITIVE: placeholdertype = 0;
 pub(crate) const UNHYPHENATED: i16 = 0;
 pub(crate) const ADDITIONAL: u8 = 1;
@@ -1300,7 +1200,6 @@ pub(crate) const SPACE_CODE: placeholdertype = 2;
 pub(crate) const SUB_BOX: placeholdertype = 2;
 pub(crate) const DISPLAYOPERATORMINHEIGHT: placeholdertype = 3;
 pub(crate) const LEVEL_BOUNDARY: u16 = 3;
-// pub(crate) const MATH_SHIFT: placeholdertype = 3;
 pub(crate) const SUB_MLIST: placeholdertype = 3;
 pub(crate) const IDENT_VAL: u8 = 4;
 pub(crate) const MATH_TEXT_CHAR: placeholdertype = 4;
@@ -1314,7 +1213,6 @@ pub(crate) const INTER_CHAR_VAL: placeholdertype = 6;
 pub(crate) const QUAD_CODE: placeholdertype = 6;
 pub(crate) const EXTRA_SPACE_CODE: placeholdertype = 7;
 pub(crate) const MARK_VAL: placeholdertype = 7;
-// pub(crate) const SUP_MARK: placeholdertype = 7;
 pub(crate) const VAR_FAM_CLASS: placeholdertype = 7;
 pub(crate) const SUBSCRIPTTOPMAX: placeholdertype = 9;
 pub(crate) const NATIVE_GLYPH_INFO_SIZE: placeholdertype = 10;
@@ -1322,7 +1220,6 @@ pub(crate) const CARRIAGE_RETURN: placeholdertype = 13;
 pub(crate) const SUPERSCRIPTBOTTOMMIN: placeholdertype = 13;
 pub(crate) const TOTAL_MATHEX_PARAMS: placeholdertype = 13;
 pub(crate) const HI_MEM_STAT_USAGE: placeholdertype = 15;
-pub(crate) const INVALID_CHAR: placeholdertype = 15;
 pub(crate) const MAX_CHAR_CODE: placeholdertype = 15;
 pub(crate) const SUBSUPERSCRIPTGAPMIN: placeholdertype = 15;
 pub(crate) const SUPERSCRIPTBOTTOMMAXWITHSUBSCRIPT: placeholdertype = 16;
@@ -1330,7 +1227,6 @@ pub(crate) const TOTAL_MATHSY_PARAMS: placeholdertype = 22;
 pub(crate) const STACKGAPMIN: placeholdertype = 26;
 pub(crate) const STACKDISPLAYSTYLEGAPMIN: placeholdertype = 27;
 pub(crate) const UNLESS_CODE: placeholdertype = 32;
-// pub(crate) const VRULE: placeholdertype = 35;
 pub(crate) const FRACTIONNUMERATORGAPMIN: placeholdertype = 36;
 pub(crate) const FRACTIONNUMDISPLAYSTYLEGAPMIN: placeholdertype = 37;
 // pub(crate) const XETEX_FIRST_CHAR_CODE: placeholdertype = 39;
