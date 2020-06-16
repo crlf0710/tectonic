@@ -466,7 +466,7 @@ impl From<u16> for NodeType {
 
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
-pub(crate) enum NodeSubType {
+pub(crate) enum WhatsItNST {
     Open = 0,
     Write = 1,
     Close = 2,
@@ -478,35 +478,42 @@ pub(crate) enum NodeSubType {
     Glyph = 42,
     Pic = 43,
     Pdf = 44,
+}
+
+impl From<u16> for WhatsItNST {
+    fn from(n: u16) -> Self {
+        Self::n(n).expect(&format!("Incorrect WhatsItNST = {}", n))
+    }
+}
+
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
+pub(crate) enum InsNST {
     NS100 = 100, // Unknown
     NS200 = 200,
     NS253 = 253,
 }
 
+impl From<u16> for InsNST {
+    fn from(n: u16) -> Self {
+        Self::n(n).expect(&format!("Incorrect InsNST = {}", n))
+    }
+}
+
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
-pub(crate) enum KernNodeSubType {
+pub(crate) enum KernNST {
     Normal = 0,
     Explicit = 1,
     AccKern = 2,
     SpaceAdjustment = 3,
 }
 
-impl From<u16> for NodeSubType {
+impl From<u16> for KernNST {
     fn from(n: u16) -> Self {
-        Self::n(n).expect(&format!("Incorrect NodeSubType = {}", n))
+        Self::n(n).expect(&format!("Incorrect KernNST = {}", n))
     }
 }
-impl From<u16> for KernNodeSubType {
-    fn from(n: u16) -> Self {
-        Self::n(n).expect(&format!("Incorrect KernNodeSubType = {}", n))
-    }
-}
-pub(crate) const NATIVE_WORD_NODE: NodeSubType = NodeSubType::NativeWord;
-pub(crate) const NATIVE_WORD_NODE_AT: NodeSubType = NodeSubType::NativeWordAt;
-pub(crate) const GLYPH_NODE: NodeSubType = NodeSubType::Glyph;
-pub(crate) const PIC_NODE: NodeSubType = NodeSubType::Pic;
-pub(crate) const PDF_NODE: NodeSubType = NodeSubType::Pdf;
 
 pub(crate) const IF_NODE_SIZE: placeholdertype = 2;
 pub(crate) const PASSIVE_NODE_SIZE: placeholdertype = 2;
@@ -1046,20 +1053,11 @@ pub(crate) const SHOW_TOKENS: placeholdertype = 5;
 pub(crate) const SHOW_IFS: placeholdertype = 6;
 
 /* Cmd::Extension */
-pub(crate) const OPEN_NODE: NodeSubType = NodeSubType::Open;
-pub(crate) const WRITE_NODE: NodeSubType = NodeSubType::Write;
-pub(crate) const CLOSE_NODE: NodeSubType = NodeSubType::Close;
-pub(crate) const SPECIAL_NODE: NodeSubType = NodeSubType::Special;
-pub(crate) const LANGUAGE_NODE: NodeSubType = NodeSubType::Language;
 pub(crate) const IMMEDIATE_CODE: u16 = 4;
 pub(crate) const SET_LANGUAGE_CODE: u16 = 5;
 pub(crate) const PDFTEX_FIRST_EXTENSION_CODE: u16 = 6;
-pub(crate) const PDF_SAVE_POS_NODE: NodeSubType = NodeSubType::PdfSavePos;
-/// not to be confused with PIC_NODE = 43!
 pub(crate) const PIC_FILE_CODE: u16 = 41;
-/// not to be confused with PDF_NODE = 44!
 pub(crate) const PDF_FILE_CODE: u16 = 42;
-/// not to be confused with GLYPH_NODE = 42!
 pub(crate) const GLYPH_CODE: u16 = 43;
 pub(crate) const XETEX_INPUT_ENCODING_EXTENSION_CODE: u16 = 44;
 pub(crate) const XETEX_DEFAULT_ENCODING_EXTENSION_CODE: u16 = 45;

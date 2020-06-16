@@ -365,7 +365,7 @@ pub(crate) struct EqtbWord {
 /* "the mark class" */
 /* To check: do these really only apply to MATH_NODEs? */
 /* number of UTF16 items in the text */
-/* ... or the glyph number, if subtype==GLYPH_NODE */
+/* ... or the glyph number, if subtype==WhatsItNST::Glyph */
 /* "an insertion for this class will break here if anywhere" */
 /* "this insertion might break at broken_ptr" */
 /* "the most recent insertion for this subtype" */
@@ -5058,7 +5058,7 @@ unsafe fn initialize_primitives() {
     primitive(b"vfilneg", Cmd::VSkip, FIL_NEG_CODE);
     primitive(b"mskip", Cmd::MSkip, MSKIP_CODE);
 
-    primitive(b"kern", Cmd::Kern, KernNodeSubType::Explicit as i32);
+    primitive(b"kern", Cmd::Kern, KernNST::Explicit as i32);
     primitive(b"mkern", Cmd::MKern, MU_GLUE as i32);
     primitive(b"moveleft", Cmd::HMove, 1);
     primitive(b"moveright", Cmd::HMove, 0);
@@ -5229,11 +5229,11 @@ unsafe fn initialize_primitives() {
     primitive(b"showthe", Cmd::XRay, SHOW_THE_CODE);
     primitive(b"showlists", Cmd::XRay, SHOW_LISTS);
 
-    primitive(b"openout", Cmd::Extension, OPEN_NODE as i32);
-    primitive(b"write", Cmd::Extension, WRITE_NODE as i32);
+    primitive(b"openout", Cmd::Extension, WhatsItNST::Open as i32);
+    primitive(b"write", Cmd::Extension, WhatsItNST::Write as i32);
     write_loc = cur_val;
-    primitive(b"closeout", Cmd::Extension, CLOSE_NODE as i32);
-    primitive(b"special", Cmd::Extension, SPECIAL_NODE as i32);
+    primitive(b"closeout", Cmd::Extension, WhatsItNST::Close as i32);
+    primitive(b"special", Cmd::Extension, WhatsItNST::Special as i32);
     (*hash.offset(FROZEN_SPECIAL as isize)).s1 = maketexstring(b"special");
     EQTB[FROZEN_SPECIAL] = EQTB[cur_val as usize];
     primitive(b"immediate", Cmd::Extension, IMMEDIATE_CODE as i32);

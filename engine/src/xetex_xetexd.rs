@@ -1,4 +1,4 @@
-use crate::xetex_consts::{KernNodeSubType, NodeSubType, ND, SYNCTEX_FIELD_SIZE};
+use crate::xetex_consts::{KernNST, WhatsItNST, ND, SYNCTEX_FIELD_SIZE};
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
 
@@ -52,16 +52,16 @@ pub(crate) unsafe fn set_NODE_type(p: usize, n: ND) {
     }
 }
 /// the other half of LLIST_info(p)
-pub(crate) unsafe fn NODE_subtype(p: usize) -> NodeSubType {
-    NodeSubType::from(MEM[p].b16.s0)
+pub(crate) unsafe fn whatsit_NODE_subtype(p: usize) -> WhatsItNST {
+    WhatsItNST::from(MEM[p].b16.s0)
 }
-pub(crate) unsafe fn set_NODE_subtype(p: usize, n: NodeSubType) {
+pub(crate) unsafe fn set_whatsit_NODE_subtype(p: usize, n: WhatsItNST) {
     MEM[p].b16.s0 = n as u16;
 }
-pub(crate) unsafe fn kern_NODE_subtype(p: usize) -> KernNodeSubType {
-    KernNodeSubType::from(MEM[p].b16.s0)
+pub(crate) unsafe fn kern_NODE_subtype(p: usize) -> KernNST {
+    KernNST::from(MEM[p].b16.s0)
 }
-pub(crate) unsafe fn set_kern_NODE_subtype(p: usize, n: KernNodeSubType) {
+pub(crate) unsafe fn set_kern_NODE_subtype(p: usize, n: KernNST) {
     MEM[p].b16.s0 = n as u16;
 }
 pub(crate) unsafe fn clear_NODE_subtype(p: usize) {
@@ -246,7 +246,7 @@ pub(crate) unsafe fn NATIVE_NODE_font(p: usize) -> &'static mut u16 {
 pub(crate) unsafe fn NATIVE_NODE_length(p: usize) -> &'static mut u16 {
     &mut MEM[p + 4].b16.s1
 }
-/// ... or the glyph number, if subtype==GLYPH_NODE
+/// ... or the glyph number, if subtype==WhatsItNST::Glyph
 pub(crate) unsafe fn NATIVE_NODE_glyph(p: usize) -> &'static mut u16 {
     &mut MEM[p + 4].b16.s1
 }

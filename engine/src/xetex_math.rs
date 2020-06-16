@@ -44,8 +44,9 @@ use crate::xetex_xetex0::{
     scan_math_fam_int, scan_usv_num, unsave, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_char_node, set_NODE_subtype, set_NODE_type, set_kern_NODE_subtype, BOX_glue_set,
-    CHAR_NODE_font, GLUE_SPEC_shrink_order, LLIST_link, NODE_subtype, NODE_type, TeXInt, TeXOpt,
+    is_char_node, set_NODE_type, set_kern_NODE_subtype, set_whatsit_NODE_subtype,
+    whatsit_NODE_subtype, BOX_glue_set, CHAR_NODE_font, GLUE_SPEC_shrink_order, LLIST_link,
+    NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -274,11 +275,11 @@ pub(crate) unsafe fn init_math() {
                                 }
                             }
                             NodeType::WhatsIt => {
-                                if NODE_subtype(p as usize) == NATIVE_WORD_NODE
-                                    || NODE_subtype(p as usize) == NATIVE_WORD_NODE_AT
-                                    || NODE_subtype(p as usize) == GLYPH_NODE
-                                    || NODE_subtype(p as usize) == PIC_NODE
-                                    || NODE_subtype(p as usize) == PDF_NODE
+                                if whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWord
+                                    || whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWordAt
+                                    || whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
+                                    || whatsit_NODE_subtype(p as usize) == WhatsItNST::Pic
+                                    || whatsit_NODE_subtype(p as usize) == WhatsItNST::Pdf
                                 {
                                     current_block = 11064061988481400464;
                                     break;
@@ -1577,7 +1578,7 @@ unsafe fn math_kern(p: usize, mut m: scaled_t) {
             xn_over_d(MEM[p + 1].b32.s1, f, 65536),
             MAX_HALFWORD,
         );
-        set_kern_NODE_subtype(p, KernNodeSubType::Explicit);
+        set_kern_NODE_subtype(p, KernNST::Explicit);
     };
 }
 pub(crate) unsafe fn flush_math() {
@@ -1901,7 +1902,7 @@ unsafe fn make_math_accent(q: usize) {
         if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
             let mut p = get_node(GLYPH_NODE_SIZE) as i32;
             set_NODE_type(p as usize, WHATSIT_NODE);
-            set_NODE_subtype(p as usize, GLYPH_NODE);
+            set_whatsit_NODE_subtype(p as usize, WhatsItNST::Glyph);
             MEM[(p + 4) as usize].b16.s2 = f as u16;
             MEM[(p + 4) as usize].b16.s1 = real_get_native_glyph(
                 &mut MEM[MEM[y + 5].b32.s1 as usize] as *mut memory_word as *mut libc::c_void,
@@ -1966,7 +1967,7 @@ unsafe fn make_math_accent(q: usize) {
             if !p.is_texnull()
                 && !is_char_node(p)
                 && NODE_type(p as usize) == WHATSIT_NODE
-                && NODE_subtype(p as usize) == GLYPH_NODE
+                && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
             {
                 sa = get_ot_math_accent_pos(f, MEM[(p + 4) as usize].b16.s1 as i32);
                 if sa == TEX_INFINITY {
@@ -2166,7 +2167,7 @@ unsafe fn make_op(q: usize) -> scaled_t {
             if !p.is_texnull()
                 && !is_char_node(p)
                 && NODE_type(p as usize) == WHATSIT_NODE
-                && NODE_subtype(p as usize) == GLYPH_NODE
+                && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
             {
                 let mut current_block_41: u64;
                 if (cur_style as i32) < TEXT_STYLE {
@@ -2423,7 +2424,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
         || !p.is_texnull()
             && !is_char_node(p)
             && NODE_type(p as usize) == WHATSIT_NODE
-            && NODE_subtype(p as usize) == GLYPH_NODE
+            && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
     {
         shift_up = 0;
         shift_down = 0;
@@ -2488,7 +2489,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
             if !p.is_texnull()
                 && !is_char_node(p)
                 && NODE_type(p as usize) == WHATSIT_NODE
-                && NODE_subtype(p as usize) == GLYPH_NODE
+                && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
             {
                 sub_kern = get_ot_math_kern(
                     MEM[(p + 4) as usize].b16.s2 as usize,
@@ -2560,7 +2561,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
             if !p.is_texnull()
                 && !is_char_node(p)
                 && NODE_type(p as usize) == WHATSIT_NODE
-                && NODE_subtype(p as usize) == GLYPH_NODE
+                && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
             {
                 sup_kern = get_ot_math_kern(
                     MEM[(p + 4) as usize].b16.s2 as usize,
@@ -2643,7 +2644,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                 if !p.is_texnull()
                     && !is_char_node(p)
                     && NODE_type(p as usize) == WHATSIT_NODE
-                    && NODE_subtype(p as usize) == GLYPH_NODE
+                    && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
                 {
                     sub_kern = get_ot_math_kern(
                         MEM[(p + 4) as usize].b16.s2 as usize,
@@ -2681,7 +2682,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                 if !p.is_texnull()
                     && !is_char_node(p)
                     && NODE_type(p as usize) == WHATSIT_NODE
-                    && NODE_subtype(p as usize) == GLYPH_NODE
+                    && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
                 {
                     sup_kern = get_ot_math_kern(
                         MEM[(p + 4) as usize].b16.s2 as usize,
@@ -2958,7 +2959,7 @@ unsafe fn mlist_to_hlist() {
                             let z = new_native_character(cur_f, cur_c);
                             p = get_node(GLYPH_NODE_SIZE) as i32;
                             set_NODE_type(p as usize, WHATSIT_NODE);
-                            set_NODE_subtype(p as usize, GLYPH_NODE);
+                            set_whatsit_NODE_subtype(p as usize, WhatsItNST::Glyph);
                             MEM[(p + 4) as usize].b16.s2 = cur_f as u16;
                             MEM[(p + 4) as usize].b16.s1 = real_get_native_glyph(
                                 &mut MEM[z] as *mut memory_word as *mut libc::c_void,
@@ -3464,7 +3465,7 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
             set_NODE_type(b, VLIST_NODE);
             MEM[b + 5].b32.s1 = get_node(GLYPH_NODE_SIZE) as i32;
             set_NODE_type(MEM[b + 5].b32.s1 as usize, WHATSIT_NODE);
-            set_NODE_subtype(MEM[b + 5].b32.s1 as usize, GLYPH_NODE);
+            set_whatsit_NODE_subtype(MEM[b + 5].b32.s1 as usize, WhatsItNST::Glyph);
             MEM[(MEM[b + 5].b32.s1 + 4) as usize].b16.s2 = f as u16;
             MEM[(MEM[b + 5].b32.s1 + 4) as usize].b16.s1 = c;
             measure_native_glyph(
@@ -3535,7 +3536,7 @@ unsafe fn height_plus_depth(mut f: internal_font_number, mut c: u16) -> scaled_t
 unsafe fn stack_glyph_into_box(b: usize, mut f: internal_font_number, mut g: i32) {
     let p = get_node(GLYPH_NODE_SIZE);
     set_NODE_type(p, WHATSIT_NODE);
-    set_NODE_subtype(p, GLYPH_NODE);
+    set_whatsit_NODE_subtype(p, WhatsItNST::Glyph);
     MEM[p + 4].b16.s2 = f as u16;
     MEM[p + 4].b16.s1 = g as u16;
     measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1);

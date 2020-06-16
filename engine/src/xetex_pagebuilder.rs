@@ -26,9 +26,10 @@ use crate::xetex_xetex0::{
     scan_left_brace, vert_break, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_non_discardable_node, set_NODE_type, BOX_depth, BOX_height, BOX_width, GLUE_NODE_glue_ptr,
-    GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order,
-    LLIST_link, NODE_subtype, NODE_type, PENALTY_NODE_penalty, TeXOpt,
+    is_non_discardable_node, set_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width,
+    GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
+    GLUE_SPEC_stretch_order, LLIST_link, /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty,
+    TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -185,7 +186,7 @@ unsafe fn fire_up(mut c: i32) {
         r = *LLIST_link(PAGE_INS_HEAD);
         while r != PAGE_INS_HEAD as i32 {
             if !MEM[(r + 2) as usize].b32.s0.is_texnull() {
-                n = NODE_subtype(r as _) as _;
+                n = MEM[r as usize].b16.s0 as _; // NODE_subtype(r as _)
                 ensure_vbox(n);
 
                 if BOX_REG(n as _).is_texnull() {
@@ -215,7 +216,8 @@ unsafe fn fire_up(mut c: i32) {
                  * delete node p from the current page." */
                 r = *LLIST_link(PAGE_INS_HEAD);
 
-                while NODE_subtype(r as usize) != NODE_subtype(p as usize) {
+                while MEM[r as usize].b16.s0 != MEM[p as usize].b16.s0 {
+                    // NODE_subtype(r as usize) != NODE_subtype(p as usize)
                     r = *LLIST_link(r as usize);
                 }
                 if MEM[(r + 2) as usize].b32.s0.is_texnull() {
@@ -256,7 +258,7 @@ unsafe fn fire_up(mut c: i32) {
                             }
                         }
                         MEM[(r + 2) as usize].b32.s0 = TEX_NULL;
-                        n = NODE_subtype(r as usize) as _;
+                        n = MEM[r as usize].b16.s0 as _; // NODE_subtype(r as usize)
                         temp_ptr = MEM[(*BOX_REG(n as usize) + 5) as usize].b32.s1;
                         free_node(*BOX_REG(n as _) as usize, BOX_NODE_SIZE);
                         *BOX_REG(n as _) =
@@ -546,7 +548,7 @@ pub(crate) unsafe fn build_page() {
             }
             WHATSIT_NODE => {
                 /*1401: "Prepare to move whatsit p to the current page, then goto contribute" */
-                if NODE_subtype(slf.p as usize) == PIC_NODE || NODE_subtype(slf.p as usize) == PDF_NODE {
+                if whatsit_NODE_subtype(slf.p as usize) == WhatsItNST::Pic || whatsit_NODE_subtype(slf.p as usize) == WhatsItNST::Pdf {
                     page_so_far[1] += page_so_far[7] + *BOX_height(slf.p as usize);
                     page_so_far[7] = *BOX_depth(slf.p as usize);
                 }

@@ -33,19 +33,20 @@ use crate::xetex_xetex0::{
     prev_rightmost,
 };
 use crate::xetex_xetexd::{
-    clear_NODE_subtype, is_char_node, is_non_discardable_node, kern_NODE_subtype, set_NODE_subtype,
-    set_NODE_type, ACTIVE_NODE_break_node, ACTIVE_NODE_fitness, ACTIVE_NODE_glue,
-    ACTIVE_NODE_line_number, ACTIVE_NODE_shortfall, ACTIVE_NODE_total_demerits, BOX_shift_amount,
-    BOX_width, CHAR_NODE_character, CHAR_NODE_font, DELTA_NODE_dshrink, DELTA_NODE_dstretch0,
-    DELTA_NODE_dstretch1, DELTA_NODE_dstretch2, DELTA_NODE_dstretch3, DELTA_NODE_dwidth,
-    DISCRETIONARY_NODE_post_break, DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count,
-    GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_SPEC_ref_count, GLUE_SPEC_shrink,
-    GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LANGUAGE_NODE_what_lang,
-    LANGUAGE_NODE_what_lhm, LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
-    LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length,
-    NODE_subtype, NODE_type, PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break,
-    PASSIVE_NODE_prev_break, PENALTY_NODE_penalty, TeXInt, TeXOpt, FONT_CHARACTER_INFO,
-    FONT_CHARACTER_WIDTH,
+    clear_NODE_subtype, is_char_node, is_non_discardable_node,
+    kern_NODE_subtype, /*set_NODE_subtype,*/
+    set_NODE_type, whatsit_NODE_subtype, ACTIVE_NODE_break_node, ACTIVE_NODE_fitness,
+    ACTIVE_NODE_glue, ACTIVE_NODE_line_number, ACTIVE_NODE_shortfall, ACTIVE_NODE_total_demerits,
+    BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font, DELTA_NODE_dshrink,
+    DELTA_NODE_dstretch0, DELTA_NODE_dstretch1, DELTA_NODE_dstretch2, DELTA_NODE_dstretch3,
+    DELTA_NODE_dwidth, DISCRETIONARY_NODE_post_break, DISCRETIONARY_NODE_pre_break,
+    DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
+    GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
+    GLUE_SPEC_stretch_order, LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm,
+    LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
+    LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length, NODE_type,
+    PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty,
+    TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -363,7 +364,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     active_width[1] += *BOX_width(cur_p as usize)
                 }
                 WHATSIT_NODE => {
-                    if NODE_subtype(cur_p as usize) == LANGUAGE_NODE as _ {
+                    if whatsit_NODE_subtype(cur_p as usize) == WhatsItNST::Language as _ {
                         cur_lang = MEM[(cur_p + 1) as usize].b32.s1 as u8;
                         l_hyf = MEM[(cur_p + 1) as usize].b16.s1 as i32;
                         r_hyf = MEM[(cur_p + 1) as usize].b16.s0 as i32;
@@ -374,11 +375,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         } else {
                             hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
                         }
-                    } else if NODE_subtype(cur_p as usize) == NATIVE_WORD_NODE
-                        || NODE_subtype(cur_p as usize) == NATIVE_WORD_NODE_AT
-                        || NODE_subtype(cur_p as usize) == GLYPH_NODE
-                        || NODE_subtype(cur_p as usize) == PIC_NODE
-                        || NODE_subtype(cur_p as usize) == PDF_NODE
+                    } else if whatsit_NODE_subtype(cur_p as usize) == WhatsItNST::NativeWord
+                        || whatsit_NODE_subtype(cur_p as usize) == WhatsItNST::NativeWordAt
+                        || whatsit_NODE_subtype(cur_p as usize) == WhatsItNST::Glyph
+                        || whatsit_NODE_subtype(cur_p as usize) == WhatsItNST::Pic
+                        || whatsit_NODE_subtype(cur_p as usize) == WhatsItNST::Pdf
                     {
                         active_width[1] += *BOX_width(cur_p as usize);
                     }
@@ -390,7 +391,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         } else if is_non_discardable_node(prev_p) {
                             try_break(0, UNHYPHENATED as _);
                         } else if NODE_type(prev_p as usize) == KERN_NODE
-                            && kern_NODE_subtype(prev_p as usize) != KernNodeSubType::Explicit
+                            && kern_NODE_subtype(prev_p as usize) != KernNST::Explicit
                         {
                             try_break(0, UNHYPHENATED as _);
                         }
@@ -432,7 +433,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         current_block = 11202235766349324107;
                                     }
                                 } else if NODE_type(s as usize) == KERN_NODE
-                                    && kern_NODE_subtype(s as usize) == KernNodeSubType::Normal
+                                    && kern_NODE_subtype(s as usize) == KernNST::Normal
                                 {
                                     current_block = 13855806088735179493;
                                 } else if NODE_type(s as usize) == MATH_NODE
@@ -445,8 +446,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         current_block = 8166967358843938227;
                                         break;
                                     }
-                                    if NODE_subtype(s as usize) == NATIVE_WORD_NODE
-                                        || NODE_subtype(s as usize) == NATIVE_WORD_NODE_AT
+                                    if whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWord
+                                        || whatsit_NODE_subtype(s as usize)
+                                            == WhatsItNST::NativeWordAt
                                     {
                                         l = 0;
                                         while l < *NATIVE_NODE_length(s as usize) as i32 {
@@ -465,7 +467,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         }
                                     }
 
-                                    if NODE_subtype(s as usize) == LANGUAGE_NODE {
+                                    if whatsit_NODE_subtype(s as usize) == WhatsItNST::Language {
                                         cur_lang = *LANGUAGE_NODE_what_lang(s as usize) as u8;
                                         l_hyf = *LANGUAGE_NODE_what_lhm(s as usize) as i32;
                                         r_hyf = *LANGUAGE_NODE_what_rhm(s as usize) as i32;
@@ -520,10 +522,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                 if !ha.is_texnull()
                                                     && ha < hi_mem_min
                                                     && NODE_type(ha as usize) == WHATSIT_NODE
-                                                    && (NODE_subtype(ha as usize)
-                                                        == NATIVE_WORD_NODE
-                                                        || NODE_subtype(ha as usize)
-                                                            == NATIVE_WORD_NODE_AT)
+                                                    && (whatsit_NODE_subtype(ha as usize)
+                                                        == WhatsItNST::NativeWord
+                                                        || whatsit_NODE_subtype(ha as usize)
+                                                            == WhatsItNST::NativeWordAt)
                                                 {
                                                     /*926: check that nodes after native_word permit hyphenation; if not, goto done1 */
                                                     s = *LLIST_link(ha as usize);
@@ -534,7 +536,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                 LIGATURE_NODE => {}
                                                                 KERN_NODE => {
                                                                     if kern_NODE_subtype(s as usize)
-                                                                        != KernNodeSubType::Normal
+                                                                        != KernNST::Normal
                                                                     {
                                                                         current_block =
                                                                             2606747282402567793;
@@ -608,12 +610,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                                     - l,
                                                                             )
                                                                                 as i32;
-                                                                            set_NODE_subtype(
-                                                                                q as usize,
-                                                                                NODE_subtype(
-                                                                                    ha as usize,
-                                                                                ),
-                                                                            );
+                                                                            //set_NODE_subtype(q as usize, NODE_subtype( ha as usize));
+                                                                            MEM[q as usize]
+                                                                                .b16
+                                                                                .s0 = MEM
+                                                                                [ha as usize]
+                                                                                .b16
+                                                                                .s0;
                                                                             i = l;
                                                                             while i < *NATIVE_NODE_length(ha as usize)
                                                                                 as i32
@@ -692,12 +695,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                                 - l,
                                                                         )
                                                                             as i32;
-                                                                        set_NODE_subtype(
-                                                                            q as usize,
-                                                                            NODE_subtype(
-                                                                                ha as usize,
-                                                                            ),
-                                                                        );
+                                                                        //set_NODE_subtype(q as usize, NODE_subtype( ha as usize));
+                                                                        MEM[q as usize].b16.s0 =
+                                                                            MEM[ha as usize].b16.s0;
                                                                         i = l;
                                                                         while i
                                                                             < *NATIVE_NODE_length(
@@ -907,7 +907,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                         } else {
                                                             if !(NODE_type(s as usize) == KERN_NODE
                                                                 && kern_NODE_subtype(s as usize)
-                                                                    == KernNodeSubType::Normal)
+                                                                    == KernNST::Normal)
                                                             {
                                                                 break;
                                                             }
@@ -935,7 +935,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                                 5935670669791948619;
                                                                             if kern_NODE_subtype(
                                                                                 s as usize,
-                                                                            ) != KernNodeSubType::Normal
+                                                                            ) != KernNST::Normal
                                                                             {
                                                                                 current_block
                                                                                             =
@@ -1003,7 +1003,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 }
                 KERN_NODE => {
                     /* ... resuming 895 ... */
-                    if kern_NODE_subtype(cur_p as usize) == KernNodeSubType::Explicit {
+                    if kern_NODE_subtype(cur_p as usize) == KernNST::Explicit {
                         if (!is_char_node(*LLIST_link(cur_p as usize)) as i32) < hi_mem_min
                             && auto_breaking
                         {
@@ -1056,11 +1056,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         disc_width += *BOX_width(s as usize)
                                     }
                                     WHATSIT_NODE => {
-                                        if NODE_subtype(s as usize) == NATIVE_WORD_NODE
-                                            || NODE_subtype(s as usize) == NATIVE_WORD_NODE_AT
-                                            || NODE_subtype(s as usize) == GLYPH_NODE
-                                            || NODE_subtype(s as usize) == PIC_NODE
-                                            || NODE_subtype(s as usize) == PDF_NODE
+                                        if whatsit_NODE_subtype(s as usize)
+                                            == WhatsItNST::NativeWord
+                                            || whatsit_NODE_subtype(s as usize)
+                                                == WhatsItNST::NativeWordAt
+                                            || whatsit_NODE_subtype(s as usize) == WhatsItNST::Glyph
+                                            || whatsit_NODE_subtype(s as usize) == WhatsItNST::Pic
+                                            || whatsit_NODE_subtype(s as usize) == WhatsItNST::Pdf
                                         {
                                             disc_width += *BOX_width(s as usize);
                                         } else {
@@ -1102,11 +1104,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     active_width[1] += *BOX_width(s as usize)
                                 }
                                 WHATSIT_NODE => {
-                                    if NODE_subtype(s as usize) == NATIVE_WORD_NODE
-                                        || NODE_subtype(s as usize) == NATIVE_WORD_NODE_AT
-                                        || NODE_subtype(s as usize) == GLYPH_NODE
-                                        || NODE_subtype(s as usize) == PIC_NODE
-                                        || NODE_subtype(s as usize) == PDF_NODE
+                                    if whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWord
+                                        || whatsit_NODE_subtype(s as usize)
+                                            == WhatsItNST::NativeWordAt
+                                        || whatsit_NODE_subtype(s as usize) == WhatsItNST::Glyph
+                                        || whatsit_NODE_subtype(s as usize) == WhatsItNST::Pic
+                                        || whatsit_NODE_subtype(s as usize) == WhatsItNST::Pdf
                                     {
                                         active_width[1] += *BOX_width(s as usize);
                                     } else {
@@ -1127,7 +1130,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 MATH_NODE => {
                     if MEM[cur_p as usize].b16.s0 < L_CODE {
                         // NODE_subtype(cur_p as usize)
-                        auto_breaking = NODE_subtype(cur_p as usize) as i32 & 1 != 0
+                        auto_breaking = MEM[cur_p as usize].b16.s0 as i32 & 1 != 0
                     }
                     if !is_char_node(*LLIST_link(cur_p as usize)) && auto_breaking {
                         if NODE_type(*LLIST_link(cur_p as usize) as usize) == GLUE_NODE {
@@ -1629,8 +1632,8 @@ unsafe fn post_line_break(mut d: bool) {
                         break;
                     }
                     if NODE_type(q as usize) == KERN_NODE
-                        && kern_NODE_subtype(q as usize) != KernNodeSubType::Explicit
-                        && kern_NODE_subtype(q as usize) != KernNodeSubType::SpaceAdjustment
+                        && kern_NODE_subtype(q as usize) != KernNST::Explicit
+                        && kern_NODE_subtype(q as usize) != KernNST::SpaceAdjustment
                     {
                         break;
                     }
@@ -1800,12 +1803,16 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                                 break_width[1] -= *BOX_width(v as usize);
                                             }
                                             WHATSIT_NODE => {
-                                                if NODE_subtype(v as usize) == NATIVE_WORD_NODE
-                                                    || NODE_subtype(v as usize)
-                                                        == NATIVE_WORD_NODE_AT
-                                                    || NODE_subtype(v as usize) == GLYPH_NODE
-                                                    || NODE_subtype(v as usize) == PIC_NODE
-                                                    || NODE_subtype(v as usize) == PDF_NODE
+                                                if whatsit_NODE_subtype(v as usize)
+                                                    == WhatsItNST::NativeWord
+                                                    || whatsit_NODE_subtype(v as usize)
+                                                        == WhatsItNST::NativeWordAt
+                                                    || whatsit_NODE_subtype(v as usize)
+                                                        == WhatsItNST::Glyph
+                                                    || whatsit_NODE_subtype(v as usize)
+                                                        == WhatsItNST::Pic
+                                                    || whatsit_NODE_subtype(v as usize)
+                                                        == WhatsItNST::Pdf
                                                 {
                                                     break_width[1] -= *BOX_width(v as usize);
                                                 } else {
@@ -1843,12 +1850,16 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                                 break_width[1] += *BOX_width(s as usize);
                                             }
                                             WHATSIT_NODE => {
-                                                if NODE_subtype(s as usize) == NATIVE_WORD_NODE
-                                                    || NODE_subtype(s as usize)
-                                                        == NATIVE_WORD_NODE_AT
-                                                    || NODE_subtype(s as usize) == GLYPH_NODE
-                                                    || NODE_subtype(s as usize) == PIC_NODE
-                                                    || NODE_subtype(s as usize) == PDF_NODE
+                                                if whatsit_NODE_subtype(s as usize)
+                                                    == WhatsItNST::NativeWord
+                                                    || whatsit_NODE_subtype(s as usize)
+                                                        == WhatsItNST::NativeWordAt
+                                                    || whatsit_NODE_subtype(s as usize)
+                                                        == WhatsItNST::Glyph
+                                                    || whatsit_NODE_subtype(s as usize)
+                                                        == WhatsItNST::Pic
+                                                    || whatsit_NODE_subtype(s as usize)
+                                                        == WhatsItNST::Pdf
                                                 {
                                                     break_width[1] += *BOX_width(s as usize);
                                                 } else {
@@ -1882,7 +1893,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                                 PENALTY_NODE => {}
                                 MATH_NODE => break_width[1] -= *BOX_width(s as usize),
                                 KERN_NODE => {
-                                    if kern_NODE_subtype(s as usize) != KernNodeSubType::Explicit {
+                                    if kern_NODE_subtype(s as usize) != KernNST::Explicit {
                                         break;
                                     }
                                     break_width[1] -= *BOX_width(s as usize)
@@ -2534,8 +2545,8 @@ unsafe fn hyphenate() {
     if !ha.is_texnull()
         && !is_char_node(ha)
         && NODE_type(ha as usize) == WHATSIT_NODE
-        && (NODE_subtype(ha as usize) == NATIVE_WORD_NODE
-            || NODE_subtype(ha as usize) == NATIVE_WORD_NODE_AT)
+        && (whatsit_NODE_subtype(ha as usize) == WhatsItNST::NativeWord
+            || whatsit_NODE_subtype(ha as usize) == WhatsItNST::NativeWordAt)
     {
         s = cur_p;
         while MEM[s as usize].b32.s1 != ha {
