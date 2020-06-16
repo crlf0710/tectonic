@@ -4188,9 +4188,9 @@ unsafe fn initialize_more_initex_variables() {
     MEM[ACTIVE_LIST + 1].b32.s0 = MAX_HALFWORD;
     MEM[ACTIVE_LIST].b16.s0 = 0;
     MEM[PAGE_INS_HEAD].b16.s0 = 255;
-    MEM[PAGE_INS_HEAD].b16.s1 = SPLIT_UP.u16();
+    MEM[PAGE_INS_HEAD].b16.s1 = SPLIT_UP as u16;
     MEM[PAGE_INS_HEAD].b32.s1 = PAGE_INS_HEAD as i32;
-    MEM[PAGE_HEAD].b16.s1 = GLUE_NODE.u16();
+    MEM[PAGE_HEAD].b16.s1 = NodeType::Glue as u16;
     MEM[PAGE_HEAD].b16.s0 = NORMAL;
     avail = TEX_NULL;
     mem_end = MEM_TOP as i32;

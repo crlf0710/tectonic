@@ -440,7 +440,6 @@ pub(crate) enum NodeType {
 }
 pub(crate) const HLIST_NODE: ND = ND::Node(NodeType::HList);
 pub(crate) const VLIST_NODE: ND = ND::Node(NodeType::VList);
-pub(crate) const DELTA_NODE: ND = ND::Node(NodeType::Rule);
 pub(crate) const RULE_NODE: ND = ND::Node(NodeType::Rule);
 pub(crate) const INS_NODE: ND = ND::Node(NodeType::Ins);
 pub(crate) const MARK_NODE: ND = ND::Node(NodeType::Mark);
@@ -453,10 +452,14 @@ pub(crate) const GLUE_NODE: ND = ND::Node(NodeType::Glue);
 pub(crate) const KERN_NODE: ND = ND::Node(NodeType::Kern);
 pub(crate) const PENALTY_NODE: ND = ND::Node(NodeType::Penalty);
 pub(crate) const UNSET_NODE: ND = ND::Node(NodeType::Unset);
-pub(crate) const EDGE_NODE: ND = ND::Node(NodeType::Style);
 pub(crate) const STYLE_NODE: ND = ND::Node(NodeType::Style);
 pub(crate) const CHOICE_NODE: ND = ND::Node(NodeType::Choice);
 pub(crate) const MARGIN_KERN_NODE: ND = ND::Node(NodeType::MarginKern);
+
+pub(crate) const INSERTING: NodeType = NodeType::HList;
+pub(crate) const SPLIT_UP: NodeType = NodeType::VList;
+pub(crate) const DELTA_NODE: NodeType = NodeType::Rule;
+pub(crate) const EDGE_NODE: NodeType = NodeType::Style;
 
 impl From<u16> for NodeType {
     fn from(n: u16) -> Self {
@@ -566,27 +569,10 @@ pub(crate) enum NoadType {
     Under = 26,
     Over = 27,
     Accent = 28,
-    Vcenter = 29,
+    VCenter = 29,
     Left = 30,
     Right = 31,
 }
-
-pub(crate) const ORD_NOAD: ND = ND::Noad(NoadType::Ord);
-pub(crate) const OP_NOAD: ND = ND::Noad(NoadType::Op);
-pub(crate) const BIN_NOAD: ND = ND::Noad(NoadType::Bin);
-pub(crate) const REL_NOAD: ND = ND::Noad(NoadType::Rel);
-pub(crate) const OPEN_NOAD: ND = ND::Noad(NoadType::Open);
-pub(crate) const CLOSE_NOAD: ND = ND::Noad(NoadType::Close);
-pub(crate) const PUNCT_NOAD: ND = ND::Noad(NoadType::Punct);
-pub(crate) const INNER_NOAD: ND = ND::Noad(NoadType::Inner);
-pub(crate) const RADICAL_NOAD: ND = ND::Noad(NoadType::Radical);
-pub(crate) const FRACTION_NOAD: ND = ND::Noad(NoadType::Fraction);
-pub(crate) const UNDER_NOAD: ND = ND::Noad(NoadType::Under);
-pub(crate) const OVER_NOAD: ND = ND::Noad(NoadType::Over);
-pub(crate) const ACCENT_NOAD: ND = ND::Noad(NoadType::Accent);
-pub(crate) const VCENTER_NOAD: ND = ND::Noad(NoadType::Vcenter);
-pub(crate) const LEFT_NOAD: ND = ND::Noad(NoadType::Left);
-pub(crate) const RIGHT_NOAD: ND = ND::Noad(NoadType::Right);
 
 impl From<u16> for NoadType {
     fn from(n: u16) -> Self {
@@ -1192,7 +1178,6 @@ pub(crate) const XETEX_INPUT_MODE_AUTO: placeholdertype = 0;
 pub(crate) const XETEX_VERSION: placeholdertype = 0;
 pub(crate) const EXACTLY: u8 = 0;
 pub(crate) const FONT_BASE: usize = 0;
-pub(crate) const INSERTING: ND = ND::Node(NodeType::HList);
 pub(crate) const NON_ADDRESS: placeholdertype = 0;
 pub(crate) const RESTORE_OLD_VALUE: u16 = 0;
 pub(crate) const UNDEFINED_PRIMITIVE: placeholdertype = 0;
@@ -1206,7 +1191,6 @@ pub(crate) const PRIM_BASE: usize = 1;
 pub(crate) const RESTORE_ZERO: u16 = 1;
 pub(crate) const REVERSED: u16 = 1;
 pub(crate) const SLANT_CODE: placeholdertype = 1;
-pub(crate) const SPLIT_UP: ND = ND::Node(NodeType::VList);
 pub(crate) const STRETCHING: GlueSign = GlueSign::Stretching;
 pub(crate) const BOTTOM_ACC: u16 = 2;
 pub(crate) const CLOSED: u8 = 2;

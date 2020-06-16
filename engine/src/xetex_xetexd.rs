@@ -1,4 +1,4 @@
-use crate::xetex_consts::{KernNST, WhatsItNST, ND, SYNCTEX_FIELD_SIZE};
+use crate::xetex_consts::{KernNST, WhatsItNST, ND, SYNCTEX_FIELD_SIZE, NodeType};
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
 
@@ -44,12 +44,8 @@ pub(crate) unsafe fn LLIST_info(p: usize) -> &'static mut i32 {
 pub(crate) unsafe fn NODE_type(p: usize) -> ND {
     ND::from(MEM[p].b16.s1)
 }
-pub(crate) unsafe fn set_NODE_type(p: usize, n: ND) {
-    match n {
-        ND::Node(i) => MEM[p].b16.s1 = i as u16,
-        ND::Noad(_) => todo!(),
-        ND::Unknown(_) => todo!(),
-    }
+pub(crate) unsafe fn set_NODE_type(p: usize, n: NodeType) {
+    MEM[p].b16.s1 = n as u16;
 }
 /// the other half of LLIST_info(p)
 pub(crate) unsafe fn whatsit_NODE_subtype(p: usize) -> WhatsItNST {

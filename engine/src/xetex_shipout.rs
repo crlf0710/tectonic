@@ -966,7 +966,7 @@ unsafe fn hlist_out() {
                                     *GLUE_SPEC_ref_count(g as usize) -= 1;
                                 }
                                 if MEM[p as usize].b16.s0 < A_LEADERS { // NODE_subtype(p)
-                                    set_NODE_type(p as usize, KERN_NODE);
+                                    set_NODE_type(p as usize, NodeType::Kern);
                                     *BOX_width(p as usize)
                                         = rule_wd;
                                 } else {
@@ -1072,7 +1072,7 @@ unsafe fn hlist_out() {
                             p = LIG_TRICK as i32;
                             xtx_ligature_present = true;
                         }
-                        EDGE_NODE => {
+                        ND::Node(EDGE_NODE) => {
                             /*1507: "Cases of hlist_out that arise in mixed direction text only" */
                             cur_h +=
                                 *BOX_width(p as usize);
@@ -1169,7 +1169,7 @@ unsafe fn hlist_out() {
                 }
             }
             330672039582001856 => {
-                set_NODE_type(p as usize, KERN_NODE);
+                set_NODE_type(p as usize, NodeType::Kern);
                 cur_h += *BOX_width(p as usize);
                 current_block = 13889995436552222973;
             }
@@ -1735,7 +1735,7 @@ unsafe fn reverse(
                                 }
                                 if MEM[p as usize].b16.s0 < A_LEADERS {
                                     // NODE_subtype(p)
-                                    set_NODE_type(p as usize, KERN_NODE);
+                                    set_NODE_type(p as usize, NodeType::Kern);
                                     *BOX_width(p as usize) = rule_wd;
                                 } else {
                                     g = get_node(GLUE_SPEC_SIZE) as i32;
@@ -1774,7 +1774,7 @@ unsafe fn reverse(
                                 break;
                             }
                         }
-                        EDGE_NODE => confusion(b"LR2"),
+                        ND::Node(EDGE_NODE) => confusion(b"LR2"),
                         _ => {
                             current_block = 10883403804712335414;
                             break;
@@ -1785,7 +1785,7 @@ unsafe fn reverse(
             match current_block {
                 5873035170358615968 => {
                     if *LLIST_info(LR_ptr as usize) != 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3 {
-                        set_NODE_type(p as usize, KERN_NODE);
+                        set_NODE_type(p as usize, NodeType::Kern);
                         LR_problems += 1;
                     } else {
                         temp_ptr = LR_ptr;
@@ -1797,7 +1797,7 @@ unsafe fn reverse(
                             n -= 1;
                             MEM[p as usize].b16.s0 -= 1; // NODE_subtype(p)
                         } else {
-                            set_NODE_type(p as usize, KERN_NODE);
+                            set_NODE_type(p as usize, NodeType::Kern);
                             if m > MIN_HALFWORD {
                                 m -= 1
                             } else {
@@ -1821,7 +1821,7 @@ unsafe fn reverse(
                         n += 1;
                         MEM[p as usize].b16.s0 += 1; // NODE_subtype(p)
                     } else {
-                        set_NODE_type(p as usize, KERN_NODE);
+                        set_NODE_type(p as usize, NodeType::Kern);
                         m += 1;
                     }
                     current_block = 3812947724376655173;

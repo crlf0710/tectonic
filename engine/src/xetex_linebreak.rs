@@ -159,7 +159,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         *LLIST_link(cur_list.tail) = new_penalty(INF_PENALTY) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
     } else {
-        set_NODE_type(cur_list.tail, PENALTY_NODE);
+        set_NODE_type(cur_list.tail, NodeType::Penalty);
         delete_glue_ref(*GLUE_NODE_glue_ptr(cur_list.tail) as usize);
         flush_node_list(GLUE_NODE_leader_ptr(cur_list.tail).opt());
         *PENALTY_NODE_penalty(cur_list.tail) = INF_PENALTY;
@@ -1157,7 +1157,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 fewest_demerits = MAX_HALFWORD;
 
                 loop {
-                    if NODE_type(r as usize) != DELTA_NODE {
+                    if NODE_type(r as usize).u16() != DELTA_NODE as u16 {
                         if *ACTIVE_NODE_total_demerits(r as usize) < fewest_demerits {
                             fewest_demerits = *ACTIVE_NODE_total_demerits(r as usize); /*:904*/
                             best_bet = r;
@@ -1177,7 +1177,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 actual_looseness = 0;
 
                 loop {
-                    if NODE_type(r as usize) != DELTA_NODE {
+                    if NODE_type(r as usize).u16() != DELTA_NODE as u16 {
                         line_diff = *ACTIVE_NODE_line_number(r as usize) - best_line;
 
                         if line_diff < actual_looseness && *INTPAR(IntPar::looseness) <= line_diff
@@ -1209,7 +1209,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         q = *LLIST_link(ACTIVE_LIST);
         while q != LAST_ACTIVE as i32 {
             cur_p = *LLIST_link(q as usize);
-            if NODE_type(q as usize) == DELTA_NODE {
+            if NODE_type(q as usize).u16() == DELTA_NODE as u16 {
                 free_node(q as usize, DELTA_NODE_SIZE);
             } else {
                 free_node(q as usize, active_node_size as i32);
@@ -1255,7 +1255,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     while q != ACTIVE_LIST as i32 {
         let mut next: i32 = *LLIST_link(q as usize);
 
-        if NODE_type(q as usize) == DELTA_NODE {
+        if NODE_type(q as usize).u16() == DELTA_NODE as u16 {
             free_node(q as usize, DELTA_NODE_SIZE);
         } else {
             free_node(q as usize, active_node_size as i32);
@@ -1734,7 +1734,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
         r = *LLIST_link(prev_r as usize);
         /*861: "If node r is of type delta_node, update cur_active_width, set
          * prev_r and prev_prev_r, then goto continue" */
-        if NODE_type(r as usize) == DELTA_NODE {
+        if NODE_type(r as usize).u16() == DELTA_NODE as u16 {
             cur_active_width[1] += *DELTA_NODE_dwidth(r as usize);
             cur_active_width[2] += *DELTA_NODE_dstretch0(r as usize);
             cur_active_width[3] += *DELTA_NODE_dstretch1(r as usize);
@@ -2311,7 +2311,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
             if prev_r == ACTIVE_LIST as i32 {
                 /*890: "Update the active widths, since the first active node has been deleted" */
                 r = *LLIST_link(ACTIVE_LIST); /*:966 */
-                if NODE_type(r as usize) == DELTA_NODE {
+                if NODE_type(r as usize).u16() == DELTA_NODE as u16 {
                     active_width[1] += *DELTA_NODE_dwidth(r as usize);
                     active_width[2] += *DELTA_NODE_dstretch0(r as usize);
                     active_width[3] += *DELTA_NODE_dstretch1(r as usize);
@@ -2327,7 +2327,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                     *LLIST_link(ACTIVE_LIST) = *LLIST_link(r as usize);
                     free_node(r as usize, DELTA_NODE_SIZE);
                 }
-            } else if NODE_type(prev_r as usize) == DELTA_NODE {
+            } else if NODE_type(prev_r as usize).u16() == DELTA_NODE as u16 {
                 r = *LLIST_link(prev_r as usize);
 
                 let r = r as usize;
@@ -2341,7 +2341,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: small_number) {
                     *LLIST_link(prev_prev_r as usize) = LAST_ACTIVE as i32;
                     free_node(prev_r as usize, DELTA_NODE_SIZE);
                     prev_r = prev_prev_r
-                } else if NODE_type(r) == DELTA_NODE {
+                } else if NODE_type(r).u16() == DELTA_NODE as u16 {
                     cur_active_width[1] += *DELTA_NODE_dwidth(r);
                     cur_active_width[2] += *DELTA_NODE_dstretch0(r);
                     cur_active_width[3] += *DELTA_NODE_dstretch1(r);
@@ -2717,7 +2717,7 @@ unsafe fn hyphenate() {
                 {
                     let r = get_node(SMALL_NODE_SIZE);
                     MEM[r].b32.s1 = MEM[HOLD_HEAD].b32.s1;
-                    set_NODE_type(r, DISC_NODE);
+                    set_NODE_type(r, NodeType::Disc);
                     major_tail = r as i32;
                     r_count = 0;
                     while MEM[major_tail as usize].b32.s1 > TEX_NULL {

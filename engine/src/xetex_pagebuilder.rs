@@ -231,7 +231,7 @@ unsafe fn fire_up(mut c: i32) {
                         /*1056: "Wrap up the box specified by node r,
                          * splitting node p if called for; set wait = true if
                          * node p holds a remainder after splitting" */
-                        if NODE_type(r as usize) == SPLIT_UP as _ {
+                        if NODE_type(r as usize) == ND::Node(SPLIT_UP) {
                             if MEM[(r + 1) as usize].b32.s0 == p
                                 && MEM[(r + 1) as usize].b32.s1 != -0xfffffff
                             {
@@ -643,7 +643,7 @@ pub(crate) unsafe fn build_page() {
                     }
                 }
 
-                if NODE_type(slf.r as usize) == SPLIT_UP as _ {
+                if NODE_type(slf.r as usize) == ND::Node(SPLIT_UP) {
                     insert_penalties +=
                         MEM[(slf.p + 1) as usize].b32.s1
                 } else {
@@ -704,7 +704,7 @@ pub(crate) unsafe fn build_page() {
                                 x_over_n(best_height_plus_depth, 1000i32) * *COUNT_REG(n as _);
                         }
                         page_so_far[0] -= best_height_plus_depth;
-                        set_NODE_type(slf.r as usize, SPLIT_UP as _);
+                        set_NODE_type(slf.r as usize, SPLIT_UP);
                         MEM[(slf.r + 1) as usize].b32.s1 = slf.q;
                         MEM[(slf.r + 1) as usize].b32.s0 = slf.p;
 
