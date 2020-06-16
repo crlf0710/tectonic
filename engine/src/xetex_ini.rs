@@ -4149,24 +4149,24 @@ unsafe fn initialize_more_variables() {
 }
 unsafe fn initialize_more_initex_variables() {
     for k in 1..=19 {
-        MEM[k as usize].b32.s1 = 0;
+        MEM[k].b32.s1 = 0;
     }
 
     for k in (0..=19).step_by(4) {
-        MEM[k as usize].b32.s1 = TEX_NULL + 1;
-        MEM[k as usize].b16.s1 = NORMAL;
-        MEM[k as usize].b16.s0 = NORMAL;
+        MEM[k].b32.s1 = TEX_NULL + 1;
+        MEM[k].b16.s1 = NORMAL;
+        MEM[k].b16.s0 = NORMAL;
     }
 
-    MEM[6].b32.s1 = 65536 as i32;
+    MEM[6].b32.s1 = 65536;
     MEM[4].b16.s1 = FIL as u16;
-    MEM[10].b32.s1 = 65536 as i32;
+    MEM[10].b32.s1 = 65536;
     MEM[8].b16.s1 = FILL as u16;
-    MEM[14].b32.s1 = 65536 as i32;
+    MEM[14].b32.s1 = 65536;
     MEM[12].b16.s1 = FIL as u16;
-    MEM[15].b32.s1 = 65536 as i32;
+    MEM[15].b32.s1 = 65536;
     MEM[12].b16.s0 = FIL as u16;
-    MEM[18].b32.s1 = -65536 as i32;
+    MEM[18].b32.s1 = -65536;
     MEM[16].b16.s1 = FIL as u16;
     rover = 20;
     MEM[rover as usize].b32.s1 = MAX_HALFWORD;
@@ -4181,7 +4181,7 @@ unsafe fn initialize_more_initex_variables() {
         MEM[k] = MEM[lo_mem_max as usize];
     }
 
-    MEM[(OMIT_TEMPLATE) as usize].b32.s0 = CS_TOKEN_FLAG + FROZEN_END_TEMPLATE as i32;
+    MEM[OMIT_TEMPLATE as usize].b32.s0 = CS_TOKEN_FLAG + FROZEN_END_TEMPLATE as i32;
     MEM[END_SPAN].b32.s1 = std::u16::MAX as i32 + 1;
     MEM[END_SPAN].b32.s0 = TEX_NULL;
     MEM[ACTIVE_LIST].b16.s1 = HYPHENATED as _;

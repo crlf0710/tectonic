@@ -209,29 +209,29 @@ pub(crate) unsafe fn init_math() {
                         current_block = 9427725525305667067;
                         break;
                     } else {
-                        match MEM[p as usize].b16.s1 as i32 {
-                            0 | 1 | 2 => {
+                        match NodeType::n(MEM[p as usize].b16.s1).unwrap() {
+                            NodeType::HList | NodeType::VList | NodeType::Rule => {
                                 d = MEM[(p + 1) as usize].b32.s1;
                                 current_block = 9427725525305667067;
                                 break;
                             }
-                            6 => {
+                            NodeType::Ligature => {
                                 MEM[GARBAGE] = MEM[(p + 1) as usize];
                                 MEM[GARBAGE].b32.s1 = MEM[p as usize].b32.s1;
                                 p = GARBAGE as i32;
                                 xtx_ligature_present = true
                             }
-                            11 => {
+                            NodeType::Kern => {
                                 d = MEM[(p + 1) as usize].b32.s1;
                                 current_block = 1677945370889843322;
                                 break;
                             }
-                            40 => {
+                            NodeType::MarginKern => {
                                 d = MEM[(p + 1) as usize].b32.s1;
                                 current_block = 1677945370889843322;
                                 break;
                             }
-                            9 => {
+                            NodeType::Math => {
                                 d = MEM[(p + 1) as usize].b32.s1;
                                 if *INTPAR(IntPar::texxet) > 0i32 {
                                     current_block = 13660591889533726445;
@@ -241,13 +241,13 @@ pub(crate) unsafe fn init_math() {
                                     break;
                                 }
                             }
-                            14 => {
+                            NodeType::Style => {
                                 d = MEM[(p + 1) as usize].b32.s1;
                                 cur_dir = LR::n(MEM[p as usize].b16.s0).unwrap();
                                 current_block = 1677945370889843322;
                                 break;
                             }
-                            10 => {
+                            NodeType::Glue => {
                                 q = MEM[(p + 1) as usize].b32.s0;
                                 d = MEM[(q + 1) as usize].b32.s1;
                                 if MEM[(just_box + 5) as usize].b16.s1 == STRETCHING as u16 {
@@ -273,7 +273,7 @@ pub(crate) unsafe fn init_math() {
                                     break;
                                 }
                             }
-                            8 => {
+                            NodeType::WhatsIt => {
                                 if NODE_subtype(p as usize) == NATIVE_WORD_NODE
                                     || NODE_subtype(p as usize) == NATIVE_WORD_NODE_AT
                                     || NODE_subtype(p as usize) == GLYPH_NODE
@@ -718,7 +718,7 @@ pub(crate) unsafe fn math_fraction() {
         error();
     } else {
         cur_list.aux.b32.s1 = get_node(FRACTION_NOAD_SIZE) as i32;
-        MEM[cur_list.aux.b32.s1 as usize].b16.s1 = FRACTION_NOAD.u16() as u16;
+        MEM[cur_list.aux.b32.s1 as usize].b16.s1 = NoadType::Fraction as u16;
         MEM[cur_list.aux.b32.s1 as usize].b16.s0 = NORMAL as u16;
         MEM[(cur_list.aux.b32.s1 + 2) as usize].b32.s1 = SUB_MLIST;
         MEM[(cur_list.aux.b32.s1 + 2) as usize].b32.s0 = MEM[cur_list.head].b32.s1;
@@ -2789,10 +2789,10 @@ unsafe fn mlist_to_hlist() {
                     MEM[q as usize].b16.s1 = ORD_NOAD.u16()
                 }
                 REL_NOAD | CLOSE_NOAD | PUNCT_NOAD | RIGHT_NOAD => {
-                    if r_type as u16 == BIN_NOAD.u16() {
-                        MEM[r as usize].b16.s1 = ORD_NOAD.u16()
+                    if r_type as u16 == NoadType::Bin as u16 {
+                        MEM[r as usize].b16.s1 = NoadType::Ord as u16;
                     }
-                    if MEM[q as usize].b16.s1 == RIGHT_NOAD.u16() {
+                    if MEM[q as usize].b16.s1 == NoadType::Right as u16 {
                         current_block = 2476306051584715158;
                         break;
                     } else {
@@ -3088,59 +3088,75 @@ unsafe fn mlist_to_hlist() {
         s = NOAD_SIZE as small_number;
         pen = INF_PENALTY;
         match ND::from(MEM[q as usize].b16.s1) {
-            OP_NOAD | OPEN_NOAD | CLOSE_NOAD | PUNCT_NOAD | INNER_NOAD => {
-                t = MEM[q as usize].b16.s1 as small_number;
-                current_block_236 = 15067367080042895309;
-            }
-            BIN_NOAD => {
-                t = BIN_NOAD.u16() as small_number;
-                pen = *INTPAR(IntPar::bin_op_penalty);
-                current_block_236 = 15067367080042895309;
-            }
-            REL_NOAD => {
-                t = REL_NOAD.u16() as small_number;
-                pen = *INTPAR(IntPar::rel_penalty);
-                current_block_236 = 15067367080042895309;
-            }
-            ORD_NOAD | VCENTER_NOAD | OVER_NOAD | UNDER_NOAD => {
-                current_block_236 = 15067367080042895309
-            }
-            RADICAL_NOAD => {
-                s = RADICAL_NOAD_SIZE as small_number;
-                current_block_236 = 15067367080042895309;
-            }
-            ACCENT_NOAD => {
-                s = ACCENT_NOAD_SIZE as small_number;
-                current_block_236 = 15067367080042895309;
-            }
-            FRACTION_NOAD => {
-                t = INNER_NOAD.u16() as small_number;
-                s = FRACTION_NOAD_SIZE as small_number;
-                current_block_236 = 15067367080042895309;
-            }
-            LEFT_NOAD | RIGHT_NOAD => {
-                t = make_left_right(q as usize, style, max_d, max_h);
-                current_block_236 = 15067367080042895309;
-            }
-            STYLE_NODE => {
-                cur_style = MEM[q as usize].b16.s0 as small_number;
-                s = STYLE_NODE_SIZE as small_number;
-                if (cur_style as i32) < SCRIPT_STYLE {
-                    cur_size = TEXT_SIZE
-                } else {
-                    cur_size = SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
+            ND::Noad(n) => match n {
+                NoadType::Op
+                | NoadType::Open
+                | NoadType::Close
+                | NoadType::Punct
+                | NoadType::Inner => {
+                    t = MEM[q as usize].b16.s1 as small_number;
+                    current_block_236 = 15067367080042895309;
                 }
-                cur_mu = x_over_n(math_quad(cur_size), 18);
-                current_block_236 = 11920828421623439930;
-            }
-            WHATSIT_NODE | PENALTY_NODE | RULE_NODE | DISC_NODE | ADJUST_NODE | INS_NODE
-            | MARK_NODE | GLUE_NODE | KERN_NODE => {
-                MEM[p as usize].b32.s1 = q;
-                p = q;
-                q = MEM[q as usize].b32.s1;
-                MEM[p as usize].b32.s1 = TEX_NULL;
-                current_block_236 = 7344615536999694015;
-            }
+                NoadType::Bin => {
+                    t = BIN_NOAD.u16() as small_number;
+                    pen = *INTPAR(IntPar::bin_op_penalty);
+                    current_block_236 = 15067367080042895309;
+                }
+                NoadType::Rel => {
+                    t = REL_NOAD.u16() as small_number;
+                    pen = *INTPAR(IntPar::rel_penalty);
+                    current_block_236 = 15067367080042895309;
+                }
+                NoadType::Ord | NoadType::Vcenter | NoadType::Over | NoadType::Under => {
+                    current_block_236 = 15067367080042895309
+                }
+                NoadType::Radical => {
+                    s = RADICAL_NOAD_SIZE as small_number;
+                    current_block_236 = 15067367080042895309;
+                }
+                NoadType::Accent => {
+                    s = ACCENT_NOAD_SIZE as small_number;
+                    current_block_236 = 15067367080042895309;
+                }
+                NoadType::Fraction => {
+                    t = NoadType::Inner as small_number;
+                    s = FRACTION_NOAD_SIZE as small_number;
+                    current_block_236 = 15067367080042895309;
+                }
+                NoadType::Left | NoadType::Right => {
+                    t = make_left_right(q as usize, style, max_d, max_h);
+                    current_block_236 = 15067367080042895309;
+                }
+            },
+            ND::Node(n) => match n {
+                NodeType::Style => {
+                    cur_style = MEM[q as usize].b16.s0 as small_number;
+                    s = STYLE_NODE_SIZE as small_number;
+                    if (cur_style as i32) < SCRIPT_STYLE {
+                        cur_size = TEXT_SIZE
+                    } else {
+                        cur_size = SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
+                    }
+                    cur_mu = x_over_n(math_quad(cur_size), 18);
+                    current_block_236 = 11920828421623439930;
+                }
+                NodeType::WhatsIt
+                | NodeType::Penalty
+                | NodeType::Rule
+                | NodeType::Disc
+                | NodeType::Adjust
+                | NodeType::Ins
+                | NodeType::Mark
+                | NodeType::Glue
+                | NodeType::Kern => {
+                    MEM[p as usize].b32.s1 = q;
+                    p = q;
+                    q = MEM[q as usize].b32.s1;
+                    MEM[p as usize].b32.s1 = TEX_NULL;
+                    current_block_236 = 7344615536999694015;
+                }
+                _ => confusion(b"mlist3"),
+            },
             _ => confusion(b"mlist3"),
         }
         match current_block_236 {

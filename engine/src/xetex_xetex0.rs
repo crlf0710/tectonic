@@ -22,7 +22,7 @@ use crate::core_memory::{mfree, xmalloc_array, xrealloc};
 #[cfg(target_os = "macos")]
 use crate::xetex_aatfont as aat;
 use crate::xetex_consts::*;
-use crate::xetex_errors::{confusion, error, fatal_error, overflow, pdf_error};
+use crate::xetex_errors::{confusion, error, fatal_error, overflow, pdf_error, Confuse};
 use crate::xetex_ext::{
     apply_mapping, apply_tfm_font_mapping, check_for_tfm_font_mapping, find_native_font,
     get_encoding_mode_and_info, get_font_char_range, get_glyph_bounds,
@@ -550,11 +550,14 @@ pub(crate) unsafe fn short_display(mut p: i32) {
             }
         } else {
             /*183:*/
-            match ND::from(MEM[p as usize].b16.s1) {
-                HLIST_NODE | VLIST_NODE | INS_NODE | MARK_NODE | ADJUST_NODE | UNSET_NODE => {
-                    print_cstr(b"[]")
-                }
-                WHATSIT_NODE => match NODE_subtype(p as usize) {
+            match NodeType::n(MEM[p as usize].b16.s1).unwrap() {
+                NodeType::HList
+                | NodeType::VList
+                | NodeType::Ins
+                | NodeType::Mark
+                | NodeType::Adjust
+                | NodeType::Unset => print_cstr(b"[]"),
+                NodeType::WhatsIt => match NODE_subtype(p as usize) {
                     NATIVE_WORD_NODE | NATIVE_WORD_NODE_AT => {
                         if MEM[(p + 4) as usize].b16.s2 as i32 != font_in_short_display {
                             print_esc(
@@ -571,21 +574,21 @@ pub(crate) unsafe fn short_display(mut p: i32) {
                     }
                     _ => print_cstr(b"[]"),
                 },
-                RULE_NODE => print_char('|' as i32),
-                GLUE_NODE => {
+                NodeType::Rule => print_char('|' as i32),
+                NodeType::Glue => {
                     if MEM[(p + 1) as usize].b32.s0 != 0 {
                         print_char(' ' as i32);
                     }
                 }
-                MATH_NODE => {
+                NodeType::Math => {
                     if MEM[p as usize].b16.s0 >= L_CODE {
                         print_cstr(b"[]");
                     } else {
                         print_char('$' as i32);
                     }
                 }
-                LIGATURE_NODE => short_display(MEM[(p + 1) as usize].b32.s1),
-                DISC_NODE => {
+                NodeType::Ligature => short_display(MEM[(p + 1) as usize].b32.s1),
+                NodeType::Disc => {
                     short_display(MEM[(p + 1) as usize].b32.s0);
                     short_display(MEM[(p + 1) as usize].b32.s1);
                     let mut n = MEM[p as usize].b16.s0 as i32;
@@ -782,415 +785,438 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
         } else {
             let p = p as usize;
             match ND::from(MEM[p].b16.s1) {
-                HLIST_NODE | VLIST_NODE | UNSET_NODE => {
-                    if ND::from(MEM[p].b16.s1) == HLIST_NODE {
-                        print_esc('h' as i32);
-                    } else if ND::from(MEM[p].b16.s1) == VLIST_NODE {
-                        print_esc('v' as i32);
-                    } else {
-                        print_esc_cstr(b"unset");
-                    }
-                    print_cstr(b"box(");
-                    print_scaled(MEM[p + 3].b32.s1);
-                    print_char('+' as i32);
-                    print_scaled(MEM[p + 2].b32.s1);
-                    print_cstr(b")x");
-                    print_scaled(MEM[p + 1].b32.s1);
-                    if NODE_type(p) == UNSET_NODE {
-                        /*193:*/
-                        if MEM[p].b16.s0 != 0 {
-                            print_cstr(b" (");
-                            print_int(MEM[p].b16.s0 as i32 + 1);
-                            print_cstr(b" columns)");
+                ND::Node(n) => match n {
+                    NodeType::HList | NodeType::VList | NodeType::Unset => {
+                        if ND::from(MEM[p].b16.s1) == HLIST_NODE {
+                            print_esc('h' as i32);
+                        } else if ND::from(MEM[p].b16.s1) == VLIST_NODE {
+                            print_esc('v' as i32);
+                        } else {
+                            print_esc_cstr(b"unset");
                         }
-                        if MEM[p + 6].b32.s1 != 0 {
-                            print_cstr(b", stretch ");
-                            print_glue(
-                                MEM[p + 6].b32.s1,
-                                GlueOrder::from(MEM[p + 5].b16.s0 as u8),
-                                b"",
-                            );
-                        }
-                        if MEM[p + 4].b32.s1 != 0 {
-                            print_cstr(b", shrink ");
-                            print_glue(
-                                MEM[p + 4].b32.s1,
-                                GlueOrder::from(MEM[p + 5].b16.s1 as u8),
-                                b"",
-                            );
-                        }
-                    } else {
-                        g = *BOX_glue_set(p);
-                        if g != 0.0f64 && MEM[p + 5].b16.s1 != NORMAL {
-                            print_cstr(b", glue set ");
-                            if MEM[p + 5].b16.s1 == SHRINKING as u16 {
-                                print_cstr(b"- ");
+                        print_cstr(b"box(");
+                        print_scaled(MEM[p + 3].b32.s1);
+                        print_char('+' as i32);
+                        print_scaled(MEM[p + 2].b32.s1);
+                        print_cstr(b")x");
+                        print_scaled(MEM[p + 1].b32.s1);
+                        if NODE_type(p) == UNSET_NODE {
+                            /*193:*/
+                            if MEM[p].b16.s0 != 0 {
+                                print_cstr(b" (");
+                                print_int(MEM[p].b16.s0 as i32 + 1);
+                                print_cstr(b" columns)");
                             }
-                            if g.abs() > 20000. {
-                                if g > 0. {
-                                    print_char('>' as i32);
-                                } else {
-                                    print_cstr(b"< -");
+                            if MEM[p + 6].b32.s1 != 0 {
+                                print_cstr(b", stretch ");
+                                print_glue(
+                                    MEM[p + 6].b32.s1,
+                                    GlueOrder::from(MEM[p + 5].b16.s0 as u8),
+                                    b"",
+                                );
+                            }
+                            if MEM[p + 4].b32.s1 != 0 {
+                                print_cstr(b", shrink ");
+                                print_glue(
+                                    MEM[p + 4].b32.s1,
+                                    GlueOrder::from(MEM[p + 5].b16.s1 as u8),
+                                    b"",
+                                );
+                            }
+                        } else {
+                            g = *BOX_glue_set(p);
+                            if g != 0.0f64 && MEM[p + 5].b16.s1 != NORMAL {
+                                print_cstr(b", glue set ");
+                                if MEM[p + 5].b16.s1 == SHRINKING as u16 {
+                                    print_cstr(b"- ");
                                 }
-                                print_glue(
-                                    (20000_i64 * 65536) as scaled_t,
-                                    GlueOrder::from(MEM[p + 5].b16.s0 as u8),
-                                    b"",
-                                );
-                            } else {
-                                print_glue(
-                                    tex_round(65536_f64 * g),
-                                    GlueOrder::from(MEM[p + 5].b16.s0 as u8),
-                                    b"",
-                                );
+                                if g.abs() > 20000. {
+                                    if g > 0. {
+                                        print_char('>' as i32);
+                                    } else {
+                                        print_cstr(b"< -");
+                                    }
+                                    print_glue(
+                                        (20000_i64 * 65536) as scaled_t,
+                                        GlueOrder::from(MEM[p + 5].b16.s0 as u8),
+                                        b"",
+                                    );
+                                } else {
+                                    print_glue(
+                                        tex_round(65536_f64 * g),
+                                        GlueOrder::from(MEM[p + 5].b16.s0 as u8),
+                                        b"",
+                                    );
+                                }
+                            }
+                            if MEM[p + 4].b32.s1 != 0 {
+                                print_cstr(b", shifted ");
+                                print_scaled(MEM[p + 4].b32.s1);
+                            }
+                            /*1491:*/
+                            if NODE_type(p) == HLIST_NODE && MEM[p].b16.s0 == DLIST {
+                                print_cstr(b", display");
                             }
                         }
-                        if MEM[p + 4].b32.s1 != 0 {
-                            print_cstr(b", shifted ");
-                            print_scaled(MEM[p + 4].b32.s1);
-                        }
-                        /*1491:*/
-                        if NODE_type(p) == HLIST_NODE && MEM[p].b16.s0 == DLIST {
-                            print_cstr(b", display");
-                        }
+                        str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                        pool_ptr += 1;
+                        show_node_list(MEM[p + 5].b32.s1);
+                        pool_ptr -= 1
                     }
-                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
-                    pool_ptr += 1;
-                    show_node_list(MEM[p + 5].b32.s1);
-                    pool_ptr -= 1
-                }
-                RULE_NODE => {
-                    print_esc_cstr(b"rule(");
-                    print_rule_dimen(MEM[p + 3].b32.s1);
-                    print_char('+' as i32);
-                    print_rule_dimen(MEM[p + 2].b32.s1);
-                    print_cstr(b")x");
-                    print_rule_dimen(MEM[p + 1].b32.s1);
-                }
-                INS_NODE => {
-                    print_esc_cstr(b"insert");
-                    print_int(MEM[p].b16.s0 as i32);
-                    print_cstr(b", natural size ");
-                    print_scaled(MEM[p + 3].b32.s1);
-                    print_cstr(b"; split(");
-                    print_spec(MEM[p + 4].b32.s1, b"");
-                    print_char(',' as i32);
-                    print_scaled(MEM[p + 2].b32.s1);
-                    print_cstr(b"); float cost ");
-                    print_int(MEM[p + 1].b32.s1);
-                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
-                    pool_ptr += 1;
-                    show_node_list(MEM[p + 4].b32.s0);
-                    pool_ptr -= 1
-                }
-                WHATSIT_NODE => match NODE_subtype(p) {
-                    OPEN_NODE => {
-                        print_write_whatsit(b"openout", p);
-                        print_char('=' as i32);
-                        print_file_name(MEM[p + 1].b32.s1, MEM[p + 2].b32.s0, MEM[p + 2].b32.s1);
+                    NodeType::Rule => {
+                        print_esc_cstr(b"rule(");
+                        print_rule_dimen(MEM[p + 3].b32.s1);
+                        print_char('+' as i32);
+                        print_rule_dimen(MEM[p + 2].b32.s1);
+                        print_cstr(b")x");
+                        print_rule_dimen(MEM[p + 1].b32.s1);
                     }
-                    WRITE_NODE => {
-                        print_write_whatsit(b"write", p);
-                        print_mark(MEM[p + 1].b32.s1);
-                    }
-                    CLOSE_NODE => print_write_whatsit(b"closeout", p),
-                    SPECIAL_NODE => {
-                        print_esc_cstr(b"special");
-                        print_mark(MEM[p + 1].b32.s1);
-                    }
-                    LANGUAGE_NODE => {
-                        print_esc_cstr(b"setlanguage");
-                        print_int(MEM[p + 1].b32.s1);
-                        print_cstr(b" (hyphenmin ");
-                        print_int(MEM[p + 1].b16.s1 as i32);
+                    NodeType::Ins => {
+                        print_esc_cstr(b"insert");
+                        print_int(MEM[p].b16.s0 as i32);
+                        print_cstr(b", natural size ");
+                        print_scaled(MEM[p + 3].b32.s1);
+                        print_cstr(b"; split(");
+                        print_spec(MEM[p + 4].b32.s1, b"");
                         print_char(',' as i32);
-                        print_int(MEM[p + 1].b16.s0 as i32);
+                        print_scaled(MEM[p + 2].b32.s1);
+                        print_cstr(b"); float cost ");
+                        print_int(MEM[p + 1].b32.s1);
+                        str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                        pool_ptr += 1;
+                        show_node_list(MEM[p + 4].b32.s0);
+                        pool_ptr -= 1
+                    }
+                    NodeType::WhatsIt => match NODE_subtype(p) {
+                        OPEN_NODE => {
+                            print_write_whatsit(b"openout", p);
+                            print_char('=' as i32);
+                            print_file_name(
+                                MEM[p + 1].b32.s1,
+                                MEM[p + 2].b32.s0,
+                                MEM[p + 2].b32.s1,
+                            );
+                        }
+                        WRITE_NODE => {
+                            print_write_whatsit(b"write", p);
+                            print_mark(MEM[p + 1].b32.s1);
+                        }
+                        CLOSE_NODE => print_write_whatsit(b"closeout", p),
+                        SPECIAL_NODE => {
+                            print_esc_cstr(b"special");
+                            print_mark(MEM[p + 1].b32.s1);
+                        }
+                        LANGUAGE_NODE => {
+                            print_esc_cstr(b"setlanguage");
+                            print_int(MEM[p + 1].b32.s1);
+                            print_cstr(b" (hyphenmin ");
+                            print_int(MEM[p + 1].b16.s1 as i32);
+                            print_char(',' as i32);
+                            print_int(MEM[p + 1].b16.s0 as i32);
+                            print_char(')' as i32);
+                        }
+                        NATIVE_WORD_NODE | NATIVE_WORD_NODE_AT => {
+                            print_esc(
+                                (*hash.offset(
+                                    (FONT_ID_BASE as i32 + MEM[p + 4].b16.s2 as i32) as isize,
+                                ))
+                                .s1,
+                            );
+                            print_char(' ' as i32);
+                            print_native_word(p);
+                        }
+                        GLYPH_NODE => {
+                            print_esc(
+                                (*hash.offset(
+                                    (FONT_ID_BASE as i32 + MEM[p + 4].b16.s2 as i32) as isize,
+                                ))
+                                .s1,
+                            );
+                            print_cstr(b" glyph#");
+                            print_int(MEM[p + 4].b16.s1 as i32);
+                        }
+                        PIC_NODE | PDF_NODE => {
+                            if NODE_subtype(p) == PIC_NODE {
+                                print_esc_cstr(b"XeTeXpicfile");
+                            } else {
+                                print_esc_cstr(b"XeTeXpdffile");
+                            }
+                            print_cstr(b"( ");
+                            for i in 0..MEM[p + 4].b16.s1 {
+                                print_raw_char(
+                                    *(&mut MEM[p + 9] as *mut memory_word as *mut u8)
+                                        .offset(i as isize)
+                                        as UTF16_code,
+                                    true,
+                                );
+                            }
+                            print('\"' as i32);
+                        }
+                        PDF_SAVE_POS_NODE => print_esc_cstr(b"pdfsavepos"),
+                        _ => print_cstr(b"whatsit?"),
+                    },
+                    NodeType::Glue => {
+                        if MEM[p].b16.s0 >= A_LEADERS {
+                            /*198: */
+                            print_esc_cstr(b""); /*:244 */
+                            if MEM[p].b16.s0 == C_LEADERS {
+                                print_char('c' as i32); /*214:*/
+                            } else if MEM[p].b16.s0 == X_LEADERS {
+                                print_char('x' as i32);
+                            }
+                            print_cstr(b"leaders ");
+                            print_spec(MEM[p + 1].b32.s0, b"");
+                            str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                            pool_ptr += 1;
+                            show_node_list(MEM[p + 1].b32.s1);
+                            pool_ptr -= 1
+                        } else {
+                            print_esc_cstr(b"glue");
+                            if MEM[p].b16.s0 != NORMAL {
+                                print_char('(' as i32);
+                                if MEM[p].b16.s0 < COND_MATH_GLUE {
+                                    match GluePar::n(MEM[p].b16.s0 - 1) {
+                                        Some(dimen) => print_skip_param(dimen),
+                                        None => print_cstr(b"[unknown glue parameter!]"),
+                                    }
+                                } else if MEM[p].b16.s0 == COND_MATH_GLUE {
+                                    print_esc_cstr(b"nonscript");
+                                } else {
+                                    print_esc_cstr(b"mskip");
+                                }
+                                print_char(')' as i32);
+                            }
+                            if MEM[p].b16.s0 != COND_MATH_GLUE {
+                                print_char(' ' as i32);
+                                if MEM[p].b16.s0 < COND_MATH_GLUE {
+                                    print_spec(MEM[p + 1].b32.s0, b"");
+                                } else {
+                                    print_spec(MEM[p + 1].b32.s0, b"mu");
+                                }
+                            }
+                        }
+                    }
+                    NodeType::Kern => {
+                        if MEM[p].b16.s0 != MU_GLUE {
+                            print_esc_cstr(b"kern");
+                            if MEM[p].b16.s0 != NORMAL {
+                                print_char(' ' as i32);
+                            }
+                            print_scaled(MEM[p + 1].b32.s1);
+                            if kern_NODE_subtype(p) == KernNodeSubType::AccKern {
+                                print_cstr(b" (for accent)");
+                            } else if kern_NODE_subtype(p) == KernNodeSubType::SpaceAdjustment {
+                                print_cstr(b" (space adjustment)");
+                            }
+                        } else {
+                            print_esc_cstr(b"mkern");
+                            print_scaled(MEM[p + 1].b32.s1);
+                            print_cstr(b"mu");
+                        }
+                    }
+                    NodeType::MarginKern => {
+                        print_esc_cstr(b"kern");
+                        print_scaled(MEM[p + 1].b32.s1);
+                        if MEM[p].b16.s0 == 0 {
+                            print_cstr(b" (left margin)");
+                        } else {
+                            print_cstr(b" (right margin)");
+                        }
+                    }
+                    NodeType::Math => {
+                        if MEM[p].b16.s0 > AFTER {
+                            if MEM[p].b16.s0 as i32 & 1 != 0 {
+                                print_esc_cstr(b"end");
+                            } else {
+                                print_esc_cstr(b"begin");
+                            }
+                            if MEM[p].b16.s0 > R_CODE {
+                                print_char('R' as i32);
+                            } else if MEM[p].b16.s0 > L_CODE {
+                                print_char('L' as i32);
+                            } else {
+                                print_char('M' as i32);
+                            }
+                        } else {
+                            print_esc_cstr(b"math");
+                            if MEM[p].b16.s0 == BEFORE {
+                                print_cstr(b"on");
+                            } else {
+                                print_cstr(b"off");
+                            }
+                            if MEM[p + 1].b32.s1 != 0 {
+                                print_cstr(b", surrounded ");
+                                print_scaled(MEM[p + 1].b32.s1);
+                            }
+                        }
+                    }
+                    NodeType::Ligature => {
+                        print_font_and_char(p as i32 + 1);
+                        print_cstr(b" (ligature ");
+                        if MEM[p].b16.s0 > 1 {
+                            print_char('|' as i32);
+                        }
+                        font_in_short_display = MEM[p + 1].b16.s1 as i32;
+                        short_display(MEM[p + 1].b32.s1);
+                        if MEM[p].b16.s0 as i32 & 1 != 0 {
+                            print_char('|' as i32);
+                        }
                         print_char(')' as i32);
                     }
-                    NATIVE_WORD_NODE | NATIVE_WORD_NODE_AT => {
-                        print_esc(
-                            (*hash
-                                .offset((FONT_ID_BASE as i32 + MEM[p + 4].b16.s2 as i32) as isize))
-                            .s1,
-                        );
-                        print_char(' ' as i32);
-                        print_native_word(p);
+                    NodeType::Penalty => {
+                        print_esc_cstr(b"penalty ");
+                        print_int(MEM[p + 1].b32.s1);
                     }
-                    GLYPH_NODE => {
-                        print_esc(
-                            (*hash
-                                .offset((FONT_ID_BASE as i32 + MEM[p + 4].b16.s2 as i32) as isize))
-                            .s1,
-                        );
-                        print_cstr(b" glyph#");
-                        print_int(MEM[p + 4].b16.s1 as i32);
+                    NodeType::Disc => {
+                        print_esc_cstr(b"discretionary");
+                        if MEM[p].b16.s0 > 0 {
+                            print_cstr(b" replacing ");
+                            print_int(MEM[p].b16.s0 as i32);
+                        }
+                        str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                        pool_ptr += 1;
+                        show_node_list(MEM[p + 1].b32.s0);
+                        pool_ptr -= 1;
+                        str_pool[pool_ptr as usize] = '|' as i32 as packed_UTF16_code;
+                        pool_ptr += 1;
+                        show_node_list(MEM[p + 1].b32.s1);
+                        pool_ptr -= 1
                     }
-                    PIC_NODE | PDF_NODE => {
-                        if NODE_subtype(p) == PIC_NODE {
-                            print_esc_cstr(b"XeTeXpicfile");
-                        } else {
-                            print_esc_cstr(b"XeTeXpdffile");
+                    NodeType::Mark => {
+                        print_esc_cstr(b"mark");
+                        if MEM[p + 1].b32.s0 != 0 {
+                            print_char('s' as i32);
+                            print_int(MEM[p + 1].b32.s0);
                         }
-                        print_cstr(b"( ");
-                        for i in 0..MEM[p + 4].b16.s1 {
-                            print_raw_char(
-                                *(&mut MEM[p + 9] as *mut memory_word as *mut u8).offset(i as isize)
-                                    as UTF16_code,
-                                true,
-                            );
-                        }
-                        print('\"' as i32);
+                        print_mark(MEM[p + 1].b32.s1);
                     }
-                    PDF_SAVE_POS_NODE => print_esc_cstr(b"pdfsavepos"),
-                    _ => print_cstr(b"whatsit?"),
-                },
-                GLUE_NODE => {
-                    if MEM[p].b16.s0 >= A_LEADERS {
-                        /*198: */
-                        print_esc_cstr(b""); /*:244 */
-                        if MEM[p].b16.s0 == C_LEADERS {
-                            print_char('c' as i32); /*214:*/
-                        } else if MEM[p].b16.s0 == X_LEADERS {
-                            print_char('x' as i32);
+                    NodeType::Adjust => {
+                        print_esc_cstr(b"vadjust");
+                        if MEM[p].b16.s0 != 0 {
+                            print_cstr(b" pre ");
                         }
-                        print_cstr(b"leaders ");
-                        print_spec(MEM[p + 1].b32.s0, b"");
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
                         show_node_list(MEM[p + 1].b32.s1);
                         pool_ptr -= 1
-                    } else {
-                        print_esc_cstr(b"glue");
-                        if MEM[p].b16.s0 != NORMAL {
-                            print_char('(' as i32);
-                            if MEM[p].b16.s0 < COND_MATH_GLUE {
-                                match GluePar::n(MEM[p].b16.s0 - 1) {
-                                    Some(dimen) => print_skip_param(dimen),
-                                    None => print_cstr(b"[unknown glue parameter!]"),
+                    }
+                    NodeType::Style => print_style(MEM[p].b16.s0 as i32),
+                    NodeType::Choice => {
+                        print_esc_cstr(b"mathchoice");
+                        str_pool[pool_ptr as usize] = 'D' as i32 as packed_UTF16_code;
+                        pool_ptr += 1;
+                        show_node_list(MEM[p + 1].b32.s0);
+                        pool_ptr -= 1;
+                        str_pool[pool_ptr as usize] = 'T' as i32 as packed_UTF16_code;
+                        pool_ptr += 1;
+                        show_node_list(MEM[p + 1].b32.s1);
+                        pool_ptr -= 1;
+                        str_pool[pool_ptr as usize] = 'S' as i32 as packed_UTF16_code;
+                        pool_ptr += 1;
+                        show_node_list(MEM[p + 2].b32.s0);
+                        pool_ptr -= 1;
+                        str_pool[pool_ptr as usize] = 's' as i32 as packed_UTF16_code;
+                        pool_ptr += 1;
+                        show_node_list(MEM[p + 2].b32.s1);
+                        pool_ptr -= 1
+                    }
+                },
+                ND::Noad(n) => match n {
+                    NoadType::Ord
+                    | NoadType::Op
+                    | NoadType::Bin
+                    | NoadType::Rel
+                    | NoadType::Open
+                    | NoadType::Close
+                    | NoadType::Punct
+                    | NoadType::Inner
+                    | NoadType::Radical
+                    | NoadType::Over
+                    | NoadType::Under
+                    | NoadType::Vcenter
+                    | NoadType::Accent
+                    | NoadType::Left
+                    | NoadType::Right => {
+                        match n {
+                            NoadType::Ord => print_esc_cstr(b"mathord"),
+                            NoadType::Op => print_esc_cstr(b"mathop"),
+                            NoadType::Bin => print_esc_cstr(b"mathbin"),
+                            NoadType::Rel => print_esc_cstr(b"mathrel"),
+                            NoadType::Open => print_esc_cstr(b"mathopen"),
+                            NoadType::Close => print_esc_cstr(b"mathclose"),
+                            NoadType::Punct => print_esc_cstr(b"mathpunct"),
+                            NoadType::Inner => print_esc_cstr(b"mathinner"),
+                            NoadType::Over => print_esc_cstr(b"overline"),
+                            NoadType::Under => print_esc_cstr(b"underline"),
+                            NoadType::Vcenter => print_esc_cstr(b"vcenter"),
+                            NoadType::Radical => {
+                                print_esc_cstr(b"radical");
+                                print_delimiter(p + 4);
+                            }
+                            NoadType::Accent => {
+                                print_esc_cstr(b"accent");
+                                print_fam_and_char(p + 4);
+                            }
+                            NoadType::Left => {
+                                print_esc_cstr(b"left");
+                                print_delimiter(p + 1);
+                            }
+                            NoadType::Right => {
+                                if MEM[p].b16.s0 == NORMAL {
+                                    print_esc_cstr(b"right");
+                                } else {
+                                    print_esc_cstr(b"middle");
                                 }
-                            } else if MEM[p].b16.s0 == COND_MATH_GLUE {
-                                print_esc_cstr(b"nonscript");
-                            } else {
-                                print_esc_cstr(b"mskip");
+                                print_delimiter(p + 1);
                             }
-                            print_char(')' as i32);
+                            _ => {}
                         }
-                        if MEM[p].b16.s0 != COND_MATH_GLUE {
-                            print_char(' ' as i32);
-                            if MEM[p].b16.s0 < COND_MATH_GLUE {
-                                print_spec(MEM[p + 1].b32.s0, b"");
-                            } else {
-                                print_spec(MEM[p + 1].b32.s0, b"mu");
+                        if MEM[p].b16.s1 < LEFT_NOAD.u16() {
+                            match Limit::from(MEM[p].b16.s0) {
+                                Limit::Limits => print_esc_cstr(b"limits"),
+                                Limit::NoLimits => print_esc_cstr(b"nolimits"),
+                                Limit::Normal => {}
                             }
+                            print_subsidiary_data(p + 1, '.' as i32 as UTF16_code);
                         }
+                        print_subsidiary_data(p + 2, '^' as i32 as UTF16_code);
+                        print_subsidiary_data(p + 3, '_' as i32 as UTF16_code);
                     }
-                }
-                KERN_NODE => {
-                    if MEM[p].b16.s0 != MU_GLUE {
-                        print_esc_cstr(b"kern");
-                        if MEM[p].b16.s0 != NORMAL {
-                            print_char(' ' as i32);
-                        }
-                        print_scaled(MEM[p + 1].b32.s1);
-                        if kern_NODE_subtype(p) == KernNodeSubType::AccKern {
-                            print_cstr(b" (for accent)");
-                        } else if kern_NODE_subtype(p) == KernNodeSubType::SpaceAdjustment {
-                            print_cstr(b" (space adjustment)");
-                        }
-                    } else {
-                        print_esc_cstr(b"mkern");
-                        print_scaled(MEM[p + 1].b32.s1);
-                        print_cstr(b"mu");
-                    }
-                }
-                MARGIN_KERN_NODE => {
-                    print_esc_cstr(b"kern");
-                    print_scaled(MEM[p + 1].b32.s1);
-                    if MEM[p].b16.s0 == 0 {
-                        print_cstr(b" (left margin)");
-                    } else {
-                        print_cstr(b" (right margin)");
-                    }
-                }
-                MATH_NODE => {
-                    if MEM[p].b16.s0 > AFTER {
-                        if MEM[p].b16.s0 as i32 & 1 != 0 {
-                            print_esc_cstr(b"end");
+                    NoadType::Fraction => {
+                        print_esc_cstr(b"fraction, thickness ");
+                        if MEM[p + 1].b32.s1 == DEFAULT_CODE {
+                            print_cstr(b"= default");
                         } else {
-                            print_esc_cstr(b"begin");
-                        }
-                        if MEM[p].b16.s0 > R_CODE {
-                            print_char('R' as i32);
-                        } else if MEM[p].b16.s0 > L_CODE {
-                            print_char('L' as i32);
-                        } else {
-                            print_char('M' as i32);
-                        }
-                    } else {
-                        print_esc_cstr(b"math");
-                        if MEM[p].b16.s0 == BEFORE {
-                            print_cstr(b"on");
-                        } else {
-                            print_cstr(b"off");
-                        }
-                        if MEM[p + 1].b32.s1 != 0 {
-                            print_cstr(b", surrounded ");
                             print_scaled(MEM[p + 1].b32.s1);
                         }
-                    }
-                }
-                LIGATURE_NODE => {
-                    print_font_and_char(p as i32 + 1);
-                    print_cstr(b" (ligature ");
-                    if MEM[p].b16.s0 > 1 {
-                        print_char('|' as i32);
-                    }
-                    font_in_short_display = MEM[p + 1].b16.s1 as i32;
-                    short_display(MEM[p + 1].b32.s1);
-                    if MEM[p].b16.s0 as i32 & 1 != 0 {
-                        print_char('|' as i32);
-                    }
-                    print_char(')' as i32);
-                }
-                PENALTY_NODE => {
-                    print_esc_cstr(b"penalty ");
-                    print_int(MEM[p + 1].b32.s1);
-                }
-                DISC_NODE => {
-                    print_esc_cstr(b"discretionary");
-                    if MEM[p].b16.s0 > 0 {
-                        print_cstr(b" replacing ");
-                        print_int(MEM[p].b16.s0 as i32);
-                    }
-                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
-                    pool_ptr += 1;
-                    show_node_list(MEM[p + 1].b32.s0);
-                    pool_ptr -= 1;
-                    str_pool[pool_ptr as usize] = '|' as i32 as packed_UTF16_code;
-                    pool_ptr += 1;
-                    show_node_list(MEM[p + 1].b32.s1);
-                    pool_ptr -= 1
-                }
-                MARK_NODE => {
-                    print_esc_cstr(b"mark");
-                    if MEM[p + 1].b32.s0 != 0 {
-                        print_char('s' as i32);
-                        print_int(MEM[p + 1].b32.s0);
-                    }
-                    print_mark(MEM[p + 1].b32.s1);
-                }
-                ADJUST_NODE => {
-                    print_esc_cstr(b"vadjust");
-                    if MEM[p].b16.s0 != 0 {
-                        print_cstr(b" pre ");
-                    }
-                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
-                    pool_ptr += 1;
-                    show_node_list(MEM[p + 1].b32.s1);
-                    pool_ptr -= 1
-                }
-                STYLE_NODE => print_style(MEM[p].b16.s0 as i32),
-                CHOICE_NODE => {
-                    print_esc_cstr(b"mathchoice");
-                    str_pool[pool_ptr as usize] = 'D' as i32 as packed_UTF16_code;
-                    pool_ptr += 1;
-                    show_node_list(MEM[p + 1].b32.s0);
-                    pool_ptr -= 1;
-                    str_pool[pool_ptr as usize] = 'T' as i32 as packed_UTF16_code;
-                    pool_ptr += 1;
-                    show_node_list(MEM[p + 1].b32.s1);
-                    pool_ptr -= 1;
-                    str_pool[pool_ptr as usize] = 'S' as i32 as packed_UTF16_code;
-                    pool_ptr += 1;
-                    show_node_list(MEM[p + 2].b32.s0);
-                    pool_ptr -= 1;
-                    str_pool[pool_ptr as usize] = 's' as i32 as packed_UTF16_code;
-                    pool_ptr += 1;
-                    show_node_list(MEM[p + 2].b32.s1);
-                    pool_ptr -= 1
-                }
-                ORD_NOAD | OP_NOAD | BIN_NOAD | REL_NOAD | OPEN_NOAD | CLOSE_NOAD | PUNCT_NOAD
-                | INNER_NOAD | RADICAL_NOAD | OVER_NOAD | UNDER_NOAD | VCENTER_NOAD
-                | ACCENT_NOAD | LEFT_NOAD | RIGHT_NOAD => {
-                    match ND::from(MEM[p as usize].b16.s1) {
-                        ORD_NOAD => print_esc_cstr(b"mathord"),
-                        OP_NOAD => print_esc_cstr(b"mathop"),
-                        BIN_NOAD => print_esc_cstr(b"mathbin"),
-                        REL_NOAD => print_esc_cstr(b"mathrel"),
-                        OPEN_NOAD => print_esc_cstr(b"mathopen"),
-                        CLOSE_NOAD => print_esc_cstr(b"mathclose"),
-                        PUNCT_NOAD => print_esc_cstr(b"mathpunct"),
-                        INNER_NOAD => print_esc_cstr(b"mathinner"),
-                        OVER_NOAD => print_esc_cstr(b"overline"),
-                        UNDER_NOAD => print_esc_cstr(b"underline"),
-                        VCENTER_NOAD => print_esc_cstr(b"vcenter"),
-                        RADICAL_NOAD => {
-                            print_esc_cstr(b"radical");
+                        if MEM[p + 4].b16.s3 as i32 % 256 != 0
+                            || MEM[p + 4].b16.s2 as i64
+                                + (MEM[p + 4].b16.s3 as i32 / 256) as i64 * 65536
+                                != 0
+                            || MEM[p + 4].b16.s1 as i32 % 256 != 0
+                            || MEM[p + 4].b16.s0 as i64
+                                + (MEM[p + 4].b16.s1 as i32 / 256) as i64 * 65536
+                                != 0
+                        {
+                            print_cstr(b", left-delimiter ");
                             print_delimiter(p + 4);
                         }
-                        ACCENT_NOAD => {
-                            print_esc_cstr(b"accent");
-                            print_fam_and_char(p + 4);
+                        if MEM[p + 5].b16.s3 as i32 % 256 != 0
+                            || MEM[p + 5].b16.s2 as i64
+                                + (MEM[p + 5].b16.s3 as i32 / 256) as i64 * 65536
+                                != 0
+                            || MEM[p + 5].b16.s1 as i32 % 256 != 0
+                            || MEM[p + 5].b16.s0 as i64
+                                + (MEM[p + 5].b16.s1 as i32 / 256) as i64 * 65536
+                                != 0
+                        {
+                            print_cstr(b", right-delimiter ");
+                            print_delimiter(p + 5);
                         }
-                        LEFT_NOAD => {
-                            print_esc_cstr(b"left");
-                            print_delimiter(p + 1);
-                        }
-                        RIGHT_NOAD => {
-                            if MEM[p].b16.s0 == NORMAL {
-                                print_esc_cstr(b"right");
-                            } else {
-                                print_esc_cstr(b"middle");
-                            }
-                            print_delimiter(p + 1);
-                        }
-                        _ => {}
+                        print_subsidiary_data(p + 2, '\\' as i32 as UTF16_code);
+                        print_subsidiary_data(p + 3, '/' as i32 as UTF16_code);
                     }
-                    if MEM[p].b16.s1 < LEFT_NOAD.u16() {
-                        match Limit::from(MEM[p].b16.s0) {
-                            Limit::Limits => print_esc_cstr(b"limits"),
-                            Limit::NoLimits => print_esc_cstr(b"nolimits"),
-                            Limit::Normal => {}
-                        }
-                        print_subsidiary_data(p + 1, '.' as i32 as UTF16_code);
-                    }
-                    print_subsidiary_data(p + 2, '^' as i32 as UTF16_code);
-                    print_subsidiary_data(p + 3, '_' as i32 as UTF16_code);
-                }
-                FRACTION_NOAD => {
-                    print_esc_cstr(b"fraction, thickness ");
-                    if MEM[p + 1].b32.s1 == DEFAULT_CODE {
-                        print_cstr(b"= default");
-                    } else {
-                        print_scaled(MEM[p + 1].b32.s1);
-                    }
-                    if MEM[p + 4].b16.s3 as i32 % 256 != 0
-                        || MEM[p + 4].b16.s2 as i64
-                            + (MEM[p + 4].b16.s3 as i32 / 256) as i64 * 65536
-                            != 0
-                        || MEM[p + 4].b16.s1 as i32 % 256 != 0
-                        || MEM[p + 4].b16.s0 as i64
-                            + (MEM[p + 4].b16.s1 as i32 / 256) as i64 * 65536
-                            != 0
-                    {
-                        print_cstr(b", left-delimiter ");
-                        print_delimiter(p + 4);
-                    }
-                    if MEM[p + 5].b16.s3 as i32 % 256 != 0
-                        || MEM[p + 5].b16.s2 as i64
-                            + (MEM[p + 5].b16.s3 as i32 / 256) as i64 * 65536
-                            != 0
-                        || MEM[p + 5].b16.s1 as i32 % 256 != 0
-                        || MEM[p + 5].b16.s0 as i64
-                            + (MEM[p + 5].b16.s1 as i32 / 256) as i64 * 65536
-                            != 0
-                    {
-                        print_cstr(b", right-delimiter ");
-                        print_delimiter(p + 5);
-                    }
-                    print_subsidiary_data(p + 2, '\\' as i32 as UTF16_code);
-                    print_subsidiary_data(p + 3, '/' as i32 as UTF16_code);
-                }
+                },
                 ND::Unknown(_) => print_cstr(b"Unknown node type!"),
             }
         }
@@ -1238,133 +1264,151 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
             avail = p as i32;
         } else {
             match ND::from(MEM[p].b16.s1) {
-                HLIST_NODE | VLIST_NODE | UNSET_NODE => {
-                    flush_node_list(MEM[p + 5].b32.s1.opt());
-                    free_node(p, BOX_NODE_SIZE);
-                    current_block = 16791665189521845338;
-                }
-                RULE_NODE => {
-                    free_node(p, RULE_NODE_SIZE);
-                    current_block = 16791665189521845338;
-                }
-                INS_NODE => {
-                    flush_node_list(MEM[p + 4].b32.s0.opt());
-                    delete_glue_ref(*INSERTION_NODE_split_top_ptr(p) as usize);
-                    free_node(p, INS_NODE_SIZE);
-                    current_block = 16791665189521845338;
-                }
-                WHATSIT_NODE => {
-                    match NODE_subtype(p) {
-                        OPEN_NODE => free_node(p, OPEN_NODE_SIZE),
-                        WRITE_NODE | SPECIAL_NODE => {
-                            delete_token_ref(MEM[p + 1].b32.s1 as usize);
-                            free_node(p, WRITE_NODE_SIZE);
-                        }
-                        CLOSE_NODE | LANGUAGE_NODE => free_node(p, SMALL_NODE_SIZE),
-                        NATIVE_WORD_NODE | NATIVE_WORD_NODE_AT => {
-                            if !MEM[p + 5].ptr.is_null() {
-                                MEM[p + 5].ptr = mfree(*NATIVE_NODE_glyph_info_ptr(p));
-                                MEM[p + 4].b16.s0 = 0_u16
+                ND::Node(n) => match n {
+                    NodeType::HList | NodeType::VList | NodeType::Unset => {
+                        flush_node_list(MEM[p + 5].b32.s1.opt());
+                        free_node(p, BOX_NODE_SIZE);
+                        current_block = 16791665189521845338;
+                    }
+                    NodeType::Rule => {
+                        free_node(p, RULE_NODE_SIZE);
+                        current_block = 16791665189521845338;
+                    }
+                    NodeType::Ins => {
+                        flush_node_list(MEM[p + 4].b32.s0.opt());
+                        delete_glue_ref(*INSERTION_NODE_split_top_ptr(p) as usize);
+                        free_node(p, INS_NODE_SIZE);
+                        current_block = 16791665189521845338;
+                    }
+                    NodeType::WhatsIt => {
+                        match NODE_subtype(p) {
+                            OPEN_NODE => free_node(p, OPEN_NODE_SIZE),
+                            WRITE_NODE | SPECIAL_NODE => {
+                                delete_token_ref(MEM[p + 1].b32.s1 as usize);
+                                free_node(p, WRITE_NODE_SIZE);
                             }
-                            free_node(p, *NATIVE_NODE_size(p) as i32);
+                            CLOSE_NODE | LANGUAGE_NODE => free_node(p, SMALL_NODE_SIZE),
+                            NATIVE_WORD_NODE | NATIVE_WORD_NODE_AT => {
+                                if !MEM[p + 5].ptr.is_null() {
+                                    MEM[p + 5].ptr = mfree(*NATIVE_NODE_glyph_info_ptr(p));
+                                    MEM[p + 4].b16.s0 = 0_u16
+                                }
+                                free_node(p, *NATIVE_NODE_size(p) as i32);
+                            }
+                            GLYPH_NODE => free_node(p, GLYPH_NODE_SIZE),
+                            PIC_NODE | PDF_NODE => {
+                                free_node(
+                                    p,
+                                    (PIC_NODE_SIZE as u64).wrapping_add(
+                                        (MEM[p + 4].b16.s1 as u64)
+                                            .wrapping_add(
+                                                ::std::mem::size_of::<memory_word>() as u64
+                                            )
+                                            .wrapping_sub(1i32 as u64)
+                                            .wrapping_div(
+                                                ::std::mem::size_of::<memory_word>() as u64
+                                            ),
+                                    ) as i32,
+                                );
+                            }
+                            PDF_SAVE_POS_NODE => free_node(p, SMALL_NODE_SIZE),
+                            _ => confusion(b"ext3"),
                         }
-                        GLYPH_NODE => free_node(p, GLYPH_NODE_SIZE),
-                        PIC_NODE | PDF_NODE => {
-                            free_node(
-                                p,
-                                (PIC_NODE_SIZE as u64).wrapping_add(
-                                    (MEM[p + 4].b16.s1 as u64)
-                                        .wrapping_add(::std::mem::size_of::<memory_word>() as u64)
-                                        .wrapping_sub(1i32 as u64)
-                                        .wrapping_div(::std::mem::size_of::<memory_word>() as u64),
-                                ) as i32,
-                            );
+                        current_block = 16791665189521845338;
+                    }
+                    NodeType::Glue => {
+                        if MEM[MEM[p + 1].b32.s0 as usize].b32.s1.is_texnull() {
+                            free_node(MEM[p + 1].b32.s0 as usize, 4);
+                        } else {
+                            MEM[MEM[p + 1].b32.s0 as usize].b32.s1 -= 1
                         }
-                        PDF_SAVE_POS_NODE => free_node(p, SMALL_NODE_SIZE),
-                        _ => confusion(b"ext3"),
+                        if let Some(nd) = MEM[p + 1].b32.s1.opt() {
+                            flush_node_list(Some(nd));
+                        }
+                        free_node(p, MEDIUM_NODE_SIZE);
+                        current_block = 16791665189521845338;
                     }
-                    current_block = 16791665189521845338;
-                }
-                GLUE_NODE => {
-                    if MEM[MEM[p + 1].b32.s0 as usize].b32.s1.is_texnull() {
-                        free_node(MEM[p + 1].b32.s0 as usize, 4);
-                    } else {
-                        MEM[MEM[p + 1].b32.s0 as usize].b32.s1 -= 1
+                    NodeType::Kern | NodeType::Math | NodeType::Penalty => {
+                        free_node(p, MEDIUM_NODE_SIZE);
+                        current_block = 16791665189521845338;
                     }
-                    if let Some(nd) = MEM[p + 1].b32.s1.opt() {
-                        flush_node_list(Some(nd));
+                    NodeType::MarginKern => {
+                        free_node(p, MARGIN_KERN_NODE_SIZE);
+                        current_block = 16791665189521845338;
                     }
-                    free_node(p, MEDIUM_NODE_SIZE);
-                    current_block = 16791665189521845338;
-                }
-                KERN_NODE | MATH_NODE | PENALTY_NODE => {
-                    free_node(p, MEDIUM_NODE_SIZE);
-                    current_block = 16791665189521845338;
-                }
-                MARGIN_KERN_NODE => {
-                    free_node(p, MARGIN_KERN_NODE_SIZE);
-                    current_block = 16791665189521845338;
-                }
-                LIGATURE_NODE => {
-                    flush_node_list(MEM[p + 1].b32.s1.opt());
-                    current_block = 8062065914618164218;
-                }
-                MARK_NODE => {
-                    delete_token_ref(MEM[p + 1].b32.s1 as usize);
-                    current_block = 8062065914618164218;
-                }
-                DISC_NODE => {
-                    flush_node_list(MEM[p + 1].b32.s0.opt());
-                    flush_node_list(MEM[p + 1].b32.s1.opt());
-                    current_block = 8062065914618164218;
-                }
-                ADJUST_NODE => {
-                    flush_node_list(MEM[p + 1].b32.s1.opt());
-                    current_block = 8062065914618164218;
-                }
-                STYLE_NODE => {
-                    free_node(p, STYLE_NODE_SIZE);
-                    current_block = 16791665189521845338;
-                }
-                CHOICE_NODE => {
-                    flush_node_list(MEM[p + 1].b32.s0.opt());
-                    flush_node_list(MEM[p + 1].b32.s1.opt());
-                    flush_node_list(MEM[p + 2].b32.s0.opt());
-                    flush_node_list(MEM[p + 2].b32.s1.opt());
-                    free_node(p, STYLE_NODE_SIZE);
-                    current_block = 16791665189521845338;
-                }
-                ORD_NOAD | OP_NOAD | BIN_NOAD | REL_NOAD | OPEN_NOAD | CLOSE_NOAD | PUNCT_NOAD
-                | INNER_NOAD | RADICAL_NOAD | OVER_NOAD | UNDER_NOAD | VCENTER_NOAD
-                | ACCENT_NOAD => {
-                    if MEM[p + 1].b32.s1 >= SUB_BOX {
+                    NodeType::Ligature => {
+                        flush_node_list(MEM[p + 1].b32.s1.opt());
+                        current_block = 8062065914618164218;
+                    }
+                    NodeType::Mark => {
+                        delete_token_ref(MEM[p + 1].b32.s1 as usize);
+                        current_block = 8062065914618164218;
+                    }
+                    NodeType::Disc => {
                         flush_node_list(MEM[p + 1].b32.s0.opt());
+                        flush_node_list(MEM[p + 1].b32.s1.opt());
+                        current_block = 8062065914618164218;
                     }
-                    if MEM[p + 2].b32.s1 >= SUB_BOX {
+                    NodeType::Adjust => {
+                        flush_node_list(MEM[p + 1].b32.s1.opt());
+                        current_block = 8062065914618164218;
+                    }
+                    NodeType::Style => {
+                        free_node(p, STYLE_NODE_SIZE);
+                        current_block = 16791665189521845338;
+                    }
+                    NodeType::Choice => {
+                        flush_node_list(MEM[p + 1].b32.s0.opt());
+                        flush_node_list(MEM[p + 1].b32.s1.opt());
                         flush_node_list(MEM[p + 2].b32.s0.opt());
+                        flush_node_list(MEM[p + 2].b32.s1.opt());
+                        free_node(p, STYLE_NODE_SIZE);
+                        current_block = 16791665189521845338;
                     }
-                    if MEM[p + 3].b32.s1 >= SUB_BOX {
-                        flush_node_list(MEM[p + 3].b32.s0.opt());
+                },
+                ND::Noad(n) => match n {
+                    NoadType::Ord
+                    | NoadType::Op
+                    | NoadType::Bin
+                    | NoadType::Rel
+                    | NoadType::Open
+                    | NoadType::Close
+                    | NoadType::Punct
+                    | NoadType::Inner
+                    | NoadType::Radical
+                    | NoadType::Over
+                    | NoadType::Under
+                    | NoadType::Vcenter
+                    | NoadType::Accent => {
+                        if MEM[p + 1].b32.s1 >= SUB_BOX {
+                            flush_node_list(MEM[p + 1].b32.s0.opt());
+                        }
+                        if MEM[p + 2].b32.s1 >= SUB_BOX {
+                            flush_node_list(MEM[p + 2].b32.s0.opt());
+                        }
+                        if MEM[p + 3].b32.s1 >= SUB_BOX {
+                            flush_node_list(MEM[p + 3].b32.s0.opt());
+                        }
+                        if MEM[p].b16.s1 == RADICAL_NOAD.u16() {
+                            free_node(p, RADICAL_NOAD_SIZE);
+                        } else if MEM[p].b16.s1 == ACCENT_NOAD.u16() {
+                            free_node(p, ACCENT_NOAD_SIZE);
+                        } else {
+                            free_node(p, NOAD_SIZE);
+                        }
+                        current_block = 16791665189521845338;
                     }
-                    if MEM[p].b16.s1 == RADICAL_NOAD.u16() {
-                        free_node(p, RADICAL_NOAD_SIZE);
-                    } else if MEM[p].b16.s1 == ACCENT_NOAD.u16() {
-                        free_node(p, ACCENT_NOAD_SIZE);
-                    } else {
+                    NoadType::Left | NoadType::Right => {
                         free_node(p, NOAD_SIZE);
+                        current_block = 16791665189521845338;
                     }
-                    current_block = 16791665189521845338;
-                }
-                LEFT_NOAD | RIGHT_NOAD => {
-                    free_node(p, NOAD_SIZE);
-                    current_block = 16791665189521845338;
-                }
-                FRACTION_NOAD => {
-                    flush_node_list(MEM[p + 2].b32.s0.opt());
-                    flush_node_list(MEM[p + 3].b32.s0.opt());
-                    free_node(p, FRACTION_NOAD_SIZE);
-                    current_block = 16791665189521845338;
-                }
+                    NoadType::Fraction => {
+                        flush_node_list(MEM[p + 2].b32.s0.opt());
+                        flush_node_list(MEM[p + 3].b32.s0.opt());
+                        free_node(p, FRACTION_NOAD_SIZE);
+                        current_block = 16791665189521845338;
+                    }
+                },
                 ND::Unknown(_) => confusion(b"flushing"),
             }
             match current_block {
@@ -1386,8 +1430,8 @@ pub(crate) unsafe fn copy_node_list(mut p: i32) -> i32 {
             r = get_avail() as i32;
         } else {
             let p = p as usize;
-            match ND::from(MEM[p].b16.s1) {
-                HLIST_NODE | VLIST_NODE | UNSET_NODE => {
+            match NodeType::n(MEM[p].b16.s1).confuse(b"copying") {
+                NodeType::HList | NodeType::VList | NodeType::Unset => {
                     r = get_node(BOX_NODE_SIZE) as i32;
                     *SYNCTEX_tag(r as usize, BOX_NODE_SIZE) = *SYNCTEX_tag(p, BOX_NODE_SIZE);
                     *SYNCTEX_line(r as usize, BOX_NODE_SIZE) = *SYNCTEX_line(p, BOX_NODE_SIZE);
@@ -1396,18 +1440,18 @@ pub(crate) unsafe fn copy_node_list(mut p: i32) -> i32 {
                     MEM[(r + 5) as usize].b32.s1 = copy_node_list(MEM[p + 5].b32.s1);
                     words = 5_u8
                 }
-                RULE_NODE => {
+                NodeType::Rule => {
                     r = get_node(RULE_NODE_SIZE) as i32;
                     words = (RULE_NODE_SIZE - 1) as u8
                 }
-                INS_NODE => {
+                NodeType::Ins => {
                     r = get_node(INS_NODE_SIZE) as i32;
                     MEM[(r + 4) as usize] = MEM[p + 4];
                     *GLUE_SPEC_ref_count(MEM[p + 4].b32.s1 as usize) += 1;
                     MEM[(r + 4) as usize].b32.s0 = copy_node_list(MEM[p + 4].b32.s0);
                     words = (INS_NODE_SIZE - 1) as u8
                 }
-                WHATSIT_NODE => match NODE_subtype(p) {
+                NodeType::WhatsIt => match NODE_subtype(p) {
                     OPEN_NODE => {
                         r = get_node(OPEN_NODE_SIZE) as i32;
                         words = OPEN_NODE_SIZE as u8
@@ -1448,7 +1492,7 @@ pub(crate) unsafe fn copy_node_list(mut p: i32) -> i32 {
                     PDF_SAVE_POS_NODE => r = get_node(SMALL_NODE_SIZE) as i32,
                     _ => confusion(b"ext2"),
                 },
-                GLUE_NODE => {
+                NodeType::Glue => {
                     r = get_node(MEDIUM_NODE_SIZE) as i32;
                     *GLUE_SPEC_ref_count(MEM[p + 1].b32.s0 as usize) += 1;
                     MEM[(r + 2) as usize].b32.s0 = MEM[p + 2].b32.s0;
@@ -1456,30 +1500,30 @@ pub(crate) unsafe fn copy_node_list(mut p: i32) -> i32 {
                     MEM[(r + 1) as usize].b32.s0 = MEM[p + 1].b32.s0;
                     MEM[(r + 1) as usize].b32.s1 = copy_node_list(MEM[p + 1].b32.s1)
                 }
-                KERN_NODE | MATH_NODE | PENALTY_NODE => {
+                NodeType::Kern | NodeType::Math | NodeType::Penalty => {
                     r = get_node(MEDIUM_NODE_SIZE) as i32;
                     words = MEDIUM_NODE_SIZE as u8
                 }
-                MARGIN_KERN_NODE => {
+                NodeType::MarginKern => {
                     r = get_node(MARGIN_KERN_NODE_SIZE) as i32;
                     words = MARGIN_KERN_NODE_SIZE as u8
                 }
-                LIGATURE_NODE => {
+                NodeType::Ligature => {
                     r = get_node(SMALL_NODE_SIZE) as i32;
                     MEM[(r + 1) as usize] = MEM[p + 1];
                     MEM[(r + 1) as usize].b32.s1 = copy_node_list(MEM[p + 1].b32.s1)
                 }
-                DISC_NODE => {
+                NodeType::Disc => {
                     r = get_node(SMALL_NODE_SIZE) as i32;
                     MEM[(r + 1) as usize].b32.s0 = copy_node_list(MEM[p + 1].b32.s0);
                     MEM[(r + 1) as usize].b32.s1 = copy_node_list(MEM[p + 1].b32.s1)
                 }
-                MARK_NODE => {
+                NodeType::Mark => {
                     r = get_node(SMALL_NODE_SIZE) as i32;
                     MEM[MEM[p + 1].b32.s1 as usize].b32.s0 += 1;
                     words = SMALL_NODE_SIZE as u8
                 }
-                ADJUST_NODE => {
+                NodeType::Adjust => {
                     r = get_node(SMALL_NODE_SIZE) as i32;
                     MEM[(r + 1) as usize].b32.s1 = copy_node_list(MEM[p + 1].b32.s1)
                 }
@@ -2386,16 +2430,16 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"eqno");
             }
         }
-        Cmd::MathComp => match ND::from(chr_code as u16) {
-            ORD_NOAD => print_esc_cstr(b"mathord"),
-            OP_NOAD => print_esc_cstr(b"mathop"),
-            BIN_NOAD => print_esc_cstr(b"mathbin"),
-            REL_NOAD => print_esc_cstr(b"mathrel"),
-            OPEN_NOAD => print_esc_cstr(b"mathopen"),
-            CLOSE_NOAD => print_esc_cstr(b"mathclose"),
-            PUNCT_NOAD => print_esc_cstr(b"mathpunct"),
-            INNER_NOAD => print_esc_cstr(b"mathinner"),
-            UNDER_NOAD => print_esc_cstr(b"underline"),
+        Cmd::MathComp => match NoadType::n(chr_code as u16).unwrap() {
+            NoadType::Ord => print_esc_cstr(b"mathord"),
+            NoadType::Op => print_esc_cstr(b"mathop"),
+            NoadType::Bin => print_esc_cstr(b"mathbin"),
+            NoadType::Rel => print_esc_cstr(b"mathrel"),
+            NoadType::Open => print_esc_cstr(b"mathopen"),
+            NoadType::Close => print_esc_cstr(b"mathclose"),
+            NoadType::Punct => print_esc_cstr(b"mathpunct"),
+            NoadType::Inner => print_esc_cstr(b"mathinner"),
+            NoadType::Under => print_esc_cstr(b"underline"),
             _ => print_esc_cstr(b"overline"),
         },
         Cmd::LimitSwitch => match Limit::from(chr_code as u16) {
@@ -11945,20 +11989,19 @@ pub(crate) unsafe fn vpackage(
     r
 }
 pub(crate) unsafe fn append_to_vlist(b: usize) {
-    let mut d: scaled_t = 0;
     let mut p: i32 = 0;
     let mut upwards: bool = false;
     upwards = *INTPAR(IntPar::xetex_upwards) > 0;
     if cur_list.aux.b32.s1 > IGNORE_DEPTH {
-        if upwards {
-            d = MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1
+        let d = if upwards {
+            MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1
                 - cur_list.aux.b32.s1
                 - MEM[b + 2].b32.s1
         } else {
-            d = MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1
+            MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1
                 - cur_list.aux.b32.s1
                 - MEM[b + 3].b32.s1
-        }
+        };
         if d < *DIMENPAR(DimenPar::line_skip_limit) {
             p = new_param_glue(GluePar::line_skip as small_number) as i32;
         } else {
@@ -11970,10 +12013,10 @@ pub(crate) unsafe fn append_to_vlist(b: usize) {
     }
     MEM[cur_list.tail].b32.s1 = b as i32;
     cur_list.tail = b;
-    if upwards {
-        cur_list.aux.b32.s1 = MEM[b + 3].b32.s1
+    cur_list.aux.b32.s1 = if upwards {
+        MEM[b + 3].b32.s1
     } else {
-        cur_list.aux.b32.s1 = MEM[b + 2].b32.s1
+        MEM[b + 2].b32.s1
     };
 }
 pub(crate) unsafe fn new_noad() -> usize {
@@ -12203,13 +12246,11 @@ pub(crate) unsafe fn init_span(p: i32) {
 }
 pub(crate) unsafe fn init_row() {
     push_nest();
-    let a = if cur_list.mode.0 {
-        -(cur_list.mode.1 as i32)
-    } else {
-        cur_list.mode.1 as i32
+    cur_list.mode = match cur_list.mode {
+        (true, ListMode::VMode) => (true, ListMode::HMode),
+        (true, ListMode::HMode) => (true, ListMode::VMode),
+        _ => panic!(),
     };
-    let a = (-105 - a) as i16; // TODO: fix
-    cur_list.mode = (a < 0, ListMode::from(a.abs() as u8));
     if cur_list.mode == (true, ListMode::HMode) {
         cur_list.aux.b32.s0 = 0;
     } else {
@@ -14590,8 +14631,8 @@ pub(crate) unsafe fn just_copy(mut p: i32, mut h: usize, mut t: i32) {
             r = get_avail() as i32;
             current_block_50 = 2500484646272006982;
         } else {
-            match NODE_type(p as usize) {
-                HLIST_NODE | VLIST_NODE => {
+            match NodeType::n(MEM[p as usize].b16.s1).unwrap() {
+                NodeType::HList | NodeType::VList => {
                     r = get_node(BOX_NODE_SIZE) as i32;
                     *SYNCTEX_tag(r as usize, BOX_NODE_SIZE) =
                         *SYNCTEX_tag(p as usize, BOX_NODE_SIZE);
@@ -14603,22 +14644,22 @@ pub(crate) unsafe fn just_copy(mut p: i32, mut h: usize, mut t: i32) {
                     *BOX_list_ptr(r as usize) = TEX_NULL;
                     current_block_50 = 2500484646272006982;
                 }
-                RULE_NODE => {
+                NodeType::Rule => {
                     r = get_node(RULE_NODE_SIZE) as i32;
                     words = RULE_NODE_SIZE as u8;
                     current_block_50 = 2500484646272006982;
                 }
-                LIGATURE_NODE => {
+                NodeType::Ligature => {
                     r = get_avail() as i32;
                     MEM[r as usize] = MEM[(p + 1) as usize];
                     current_block_50 = 1668590571950580537;
                 }
-                KERN_NODE | MATH_NODE => {
+                NodeType::Kern | NodeType::Math => {
                     words = MEDIUM_NODE_SIZE as u8;
                     r = get_node(words as i32) as i32;
                     current_block_50 = 2500484646272006982;
                 }
-                GLUE_NODE => {
+                NodeType::Glue => {
                     r = get_node(MEDIUM_NODE_SIZE) as i32;
                     *GLUE_SPEC_ref_count(*GLUE_NODE_glue_ptr(p as usize) as usize) += 1;
                     *SYNCTEX_tag(r as usize, MEDIUM_NODE_SIZE) =
@@ -14629,7 +14670,7 @@ pub(crate) unsafe fn just_copy(mut p: i32, mut h: usize, mut t: i32) {
                     *GLUE_NODE_leader_ptr(r as usize) = TEX_NULL;
                     current_block_50 = 2500484646272006982;
                 }
-                WHATSIT_NODE => {
+                NodeType::WhatsIt => {
                     match NODE_subtype(p as usize) {
                         OPEN_NODE => {
                             r = get_node(OPEN_NODE_SIZE) as i32;
@@ -18037,8 +18078,8 @@ pub(crate) unsafe fn prune_page_top(mut p: i32, mut s: bool) -> i32 {
     let mut prev_p = TEMP_HEAD;
     MEM[TEMP_HEAD].b32.s1 = p;
     while !p.is_texnull() {
-        match ND::from(MEM[p as usize].b16.s1) {
-            HLIST_NODE | VLIST_NODE | RULE_NODE => {
+        match NodeType::n(MEM[p as usize].b16.s1).confuse(b"pruning") {
+            NodeType::HList | NodeType::VList | NodeType::Rule => {
                 let q = new_skip_param(GluePar::split_top_skip as small_number);
                 MEM[prev_p].b32.s1 = q as i32;
                 MEM[q as usize].b32.s1 = p;
@@ -18050,11 +18091,11 @@ pub(crate) unsafe fn prune_page_top(mut p: i32, mut s: bool) -> i32 {
                 }
                 p = TEX_NULL
             }
-            WHATSIT_NODE | MARK_NODE | INS_NODE => {
+            NodeType::WhatsIt | NodeType::Mark | NodeType::Ins => {
                 prev_p = p as usize;
                 p = MEM[prev_p].b32.s1
             }
-            GLUE_NODE | KERN_NODE | PENALTY_NODE => {
+            NodeType::Glue | NodeType::Kern | NodeType::Penalty => {
                 let q = p;
                 p = MEM[q as usize].b32.s1;
                 MEM[q as usize].b32.s1 = TEX_NULL;

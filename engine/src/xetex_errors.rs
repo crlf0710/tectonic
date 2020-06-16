@@ -26,6 +26,21 @@ use crate::bridge::TTHistory;
 
 use crate::xetex_ini::Selector;
 
+pub(crate) trait Confuse {
+    type Output;
+    fn confuse(self, message: &[u8]) -> Self::Output;
+}
+
+impl<T> Confuse for Option<T> {
+    type Output = T;
+    fn confuse(self, message: &[u8]) -> Self::Output {
+        match self {
+            Some(v) => v,
+            None => unsafe { confusion(message) },
+        }
+    }
+}
+
 pub(crate) type str_number = i32;
 /* tectonic/errors.c -- error handling
  * Copyright 2016 the Tectonic Project
