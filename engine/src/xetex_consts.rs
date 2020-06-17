@@ -419,7 +419,7 @@ pub(crate) const SYNCTEX_FIELD_SIZE: placeholdertype = 1;
 
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
-pub(crate) enum NodeType {
+pub(crate) enum TextNode {
     HList = 0,
     VList = 1,
     Rule = 2,
@@ -438,32 +438,32 @@ pub(crate) enum NodeType {
     Choice = 15,
     MarginKern = 40,
 }
-pub(crate) const HLIST_NODE: ND = ND::Node(NodeType::HList);
-pub(crate) const VLIST_NODE: ND = ND::Node(NodeType::VList);
-pub(crate) const RULE_NODE: ND = ND::Node(NodeType::Rule);
-pub(crate) const INS_NODE: ND = ND::Node(NodeType::Ins);
-pub(crate) const MARK_NODE: ND = ND::Node(NodeType::Mark);
-pub(crate) const ADJUST_NODE: ND = ND::Node(NodeType::Adjust);
-pub(crate) const LIGATURE_NODE: ND = ND::Node(NodeType::Ligature);
-pub(crate) const DISC_NODE: ND = ND::Node(NodeType::Disc);
-pub(crate) const WHATSIT_NODE: ND = ND::Node(NodeType::WhatsIt);
-pub(crate) const MATH_NODE: ND = ND::Node(NodeType::Math);
-pub(crate) const GLUE_NODE: ND = ND::Node(NodeType::Glue);
-pub(crate) const KERN_NODE: ND = ND::Node(NodeType::Kern);
-pub(crate) const PENALTY_NODE: ND = ND::Node(NodeType::Penalty);
-pub(crate) const UNSET_NODE: ND = ND::Node(NodeType::Unset);
-pub(crate) const STYLE_NODE: ND = ND::Node(NodeType::Style);
-pub(crate) const CHOICE_NODE: ND = ND::Node(NodeType::Choice);
-pub(crate) const MARGIN_KERN_NODE: ND = ND::Node(NodeType::MarginKern);
+pub(crate) const HLIST_NODE: ND = ND::Text(TextNode::HList);
+pub(crate) const VLIST_NODE: ND = ND::Text(TextNode::VList);
+pub(crate) const RULE_NODE: ND = ND::Text(TextNode::Rule);
+pub(crate) const INS_NODE: ND = ND::Text(TextNode::Ins);
+pub(crate) const MARK_NODE: ND = ND::Text(TextNode::Mark);
+pub(crate) const ADJUST_NODE: ND = ND::Text(TextNode::Adjust);
+pub(crate) const LIGATURE_NODE: ND = ND::Text(TextNode::Ligature);
+pub(crate) const DISC_NODE: ND = ND::Text(TextNode::Disc);
+pub(crate) const WHATSIT_NODE: ND = ND::Text(TextNode::WhatsIt);
+pub(crate) const MATH_NODE: ND = ND::Text(TextNode::Math);
+pub(crate) const GLUE_NODE: ND = ND::Text(TextNode::Glue);
+pub(crate) const KERN_NODE: ND = ND::Text(TextNode::Kern);
+pub(crate) const PENALTY_NODE: ND = ND::Text(TextNode::Penalty);
+pub(crate) const UNSET_NODE: ND = ND::Text(TextNode::Unset);
+pub(crate) const STYLE_NODE: ND = ND::Text(TextNode::Style);
+pub(crate) const CHOICE_NODE: ND = ND::Text(TextNode::Choice);
+pub(crate) const MARGIN_KERN_NODE: ND = ND::Text(TextNode::MarginKern);
 
-pub(crate) const INSERTING: NodeType = NodeType::HList;
-pub(crate) const SPLIT_UP: NodeType = NodeType::VList;
-pub(crate) const DELTA_NODE: NodeType = NodeType::Rule;
-pub(crate) const EDGE_NODE: NodeType = NodeType::Style;
+pub(crate) const INSERTING: TextNode = TextNode::HList;
+pub(crate) const SPLIT_UP: TextNode = TextNode::VList;
+pub(crate) const DELTA_NODE: TextNode = TextNode::Rule;
+pub(crate) const EDGE_NODE: TextNode = TextNode::Style;
 
-impl From<u16> for NodeType {
+impl From<u16> for TextNode {
     fn from(n: u16) -> Self {
-        Self::n(n).expect(&format!("Incorrect NodeType = {}", n))
+        Self::n(n).expect(&format!("Incorrect TextNode = {}", n))
     }
 }
 
@@ -555,7 +555,7 @@ pub(crate) const FRACTION_NOAD_SIZE: placeholdertype = 6;
 /* Cmd::MathComp and others */
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
-pub(crate) enum NoadType {
+pub(crate) enum MathNode {
     Ord = 16,
     Op = 17,
     Bin = 18,
@@ -574,34 +574,39 @@ pub(crate) enum NoadType {
     Right = 31,
 }
 
-impl From<u16> for NoadType {
+impl From<u16> for MathNode {
     fn from(n: u16) -> Self {
-        Self::n(n).expect(&format!("Incorrect NoadType = {}", n))
+        Self::n(n).expect(&format!("Incorrect MathNode = {}", n))
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ND {
-    Node(NodeType),
-    Noad(NoadType),
+    Text(TextNode),
+    Math(MathNode),
     Unknown(u16),
 }
 
 impl From<u16> for ND {
     fn from(n: u16) -> Self {
         match n {
-            0..=15 | 40 => Self::Node(NodeType::from(n)),
-            16..=31 => Self::Noad(NoadType::from(n)),
+            0..=15 | 40 => Self::Text(TextNode::from(n)),
+            16..=31 => Self::Math(MathNode::from(n)),
             _ => Self::Unknown(n),
         }
+    }
+}
+impl From<TextNode> for ND {
+    fn from(n: TextNode) -> Self {
+        Self::Text(n)
     }
 }
 
 impl ND {
     pub fn u16(self) -> u16 {
         match self {
-            Self::Node(n) => n as u16,
-            Self::Noad(n) => n as u16,
+            Self::Text(n) => n as u16,
+            Self::Math(n) => n as u16,
             Self::Unknown(n) => n,
         }
     }

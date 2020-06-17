@@ -9,7 +9,7 @@
 )]
 
 use crate::xetex_consts::*;
-use crate::xetex_errors::{confusion, error};
+use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ini::{
     best_height_plus_depth, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr,
     file_line_error_style_p, help_line, help_ptr, insert_penalties, last_glue, last_kern,
@@ -33,8 +33,6 @@ use crate::xetex_xetexd::{
 };
 
 pub(crate) type scaled_t = i32;
-pub(crate) type eight_bits = u8;
-pub(crate) type small_number = i16;
 /* tectonic/xetex-pagebuilder.c: the page builder
    Copyright 2017-2018 The Tectonic Project
    Licensed under the MIT License.
@@ -57,7 +55,7 @@ pub(crate) unsafe fn initialize_pagebuilder_variables() {
     page_max_depth = 0;
 }
 
-unsafe fn freeze_page_specs(mut s: small_number) {
+unsafe fn freeze_page_specs(mut s: i16) {
     page_contents = s as _;
     page_so_far[0] = *DIMENPAR(DimenPar::vsize);
     page_max_depth = *DIMENPAR(DimenPar::max_depth);
@@ -71,7 +69,7 @@ unsafe fn freeze_page_specs(mut s: small_number) {
     least_page_cost = MAX_HALFWORD;
 }
 
-unsafe fn ensure_vbox(mut n: eight_bits) {
+unsafe fn ensure_vbox(mut n: u8) {
     let p = *BOX_REG(n as _);
     if p.is_texnull() {
         return;
@@ -231,7 +229,7 @@ unsafe fn fire_up(mut c: i32) {
                         /*1056: "Wrap up the box specified by node r,
                          * splitting node p if called for; set wait = true if
                          * node p holds a remainder after splitting" */
-                        if NODE_type(r as usize) == ND::Node(SPLIT_UP) {
+                        if NODE_type(r as usize) == ND::Text(SPLIT_UP) {
                             if MEM[(r + 1) as usize].b32.s0 == p
                                 && MEM[(r + 1) as usize].b32.s1 != -0xfffffff
                             {
@@ -262,7 +260,7 @@ unsafe fn fire_up(mut c: i32) {
                         temp_ptr = MEM[(*BOX_REG(n as usize) + 5) as usize].b32.s1;
                         free_node(*BOX_REG(n as _) as usize, BOX_NODE_SIZE);
                         *BOX_REG(n as _) =
-                            vpackage(temp_ptr, 0i32, 1i32 as small_number, 0x3fffffffi32) as i32;
+                            vpackage(temp_ptr, 0i32, 1i32 as i16, 0x3fffffffi32) as i32;
                     } else {
                         while !LLIST_link(s as usize).is_texnull() {
                             s = *LLIST_link(s as usize);
@@ -475,6 +473,7 @@ pub(crate) unsafe fn build_page() {
 
     unsafe fn do_smth(mut slf: Args) -> (Args, bool) {
         slf.p = *LLIST_link(CONTRIB_HEAD);
+        let p_node = TextNode::n(MEM[slf.p as usize].b16.s1).confuse(b"page");
 
         /*1031: "Update the values of last_glue, last_penalty, and last_kern" */
         if last_glue != MAX_HALFWORD {
@@ -483,17 +482,17 @@ pub(crate) unsafe fn build_page() {
 
         last_penalty = 0;
         last_kern = 0;
-        last_node_type = NODE_type(slf.p as usize).u16() as i32 + 1;
+        last_node_type = p_node as i32 + 1;
 
-        if NODE_type(slf.p as usize) == GLUE_NODE {
+        if p_node == TextNode::Glue {
             last_glue = *GLUE_NODE_glue_ptr(slf.p as usize);
             MEM[last_glue as usize].b32.s1 += 1;
         } else {
             last_glue = MAX_HALFWORD;
 
-            if NODE_type(slf.p as usize) == PENALTY_NODE {
+            if p_node == TextNode::Penalty {
                 last_penalty = MEM[(slf.p + 1) as usize].b32.s1
-            } else if NODE_type(slf.p as usize) == KERN_NODE {
+            } else if p_node == TextNode::Kern {
                 last_kern = *BOX_width(slf.p as usize);
             }
         }
@@ -518,8 +517,8 @@ pub(crate) unsafe fn build_page() {
          * contribution list will not be contributed until we know its
          * successor." */
 
-        match NODE_type(slf.p as usize) {
-            HLIST_NODE | VLIST_NODE | RULE_NODE => {
+        match p_node {
+            TextNode::HList | TextNode::VList | TextNode::Rule => {
                 if page_contents < BOX_THERE as _ {
                     /*1036: "Initialize the current page, insert the \topskip glue
                      * ahead of p, and goto continue." */
@@ -546,7 +545,7 @@ pub(crate) unsafe fn build_page() {
                     return contribute(slf);
                 }
             }
-            WHATSIT_NODE => {
+            TextNode::WhatsIt => {
                 /*1401: "Prepare to move whatsit p to the current page, then goto contribute" */
                 if whatsit_NODE_subtype(slf.p as usize) == WhatsItNST::Pic || whatsit_NODE_subtype(slf.p as usize) == WhatsItNST::Pdf {
                     page_so_far[1] += page_so_far[7] + *BOX_height(slf.p as usize);
@@ -554,14 +553,14 @@ pub(crate) unsafe fn build_page() {
                 }
                 return contribute(slf);
             }
-            GLUE_NODE => {
+            TextNode::Glue => {
                 if page_contents < BOX_THERE as _ {
                     return done1(slf);
                 } else if is_non_discardable_node(page_tail) {
                     slf.pi = 0;
                 } else { return update_heights(slf); }
             }
-            KERN_NODE => {
+            TextNode::Kern => {
                 if page_contents  < BOX_THERE as _ {
                     return done1(slf);
                 } else if LLIST_link(slf.p as usize).is_texnull() {
@@ -570,15 +569,15 @@ pub(crate) unsafe fn build_page() {
                     slf.pi = 0;
                 } else { return update_heights(slf); }
             }
-            PENALTY_NODE => {
+            TextNode::Penalty => {
                 if page_contents < BOX_THERE as _ {
                     return done1(slf);
                 } else {
                     slf.pi = MEM[(slf.p + 1) as usize].b32.s1;
                 }
             }
-            MARK_NODE => { return contribute(slf); }
-            INS_NODE => {
+            TextNode::Mark => { return contribute(slf); }
+            TextNode::Ins => {
                 /*1043: "Append an insertion to the current page and goto contribute" */
                 if page_contents == EMPTY as _ {
                     freeze_page_specs(INSERTS_ONLY as _);
@@ -643,7 +642,7 @@ pub(crate) unsafe fn build_page() {
                     }
                 }
 
-                if NODE_type(slf.r as usize) == ND::Node(SPLIT_UP) {
+                if NODE_type(slf.r as usize) == ND::Text(SPLIT_UP) {
                     insert_penalties +=
                         MEM[(slf.p + 1) as usize].b32.s1
                 } else {

@@ -38,7 +38,7 @@ use crate::xetex_xetex0::{
     flush_list, flush_node_list, free_node, get_avail, get_node, get_token, glue_ord,
     internal_font_number, make_name_string, new_kern, new_math, new_native_word_node,
     open_log_file, pack_file_name, pack_job_name, packed_UTF16_code, pool_pointer, prepare_mag,
-    scaled_t, scan_toks, show_box, show_token_list, small_number, str_number, token_show,
+    scaled_t, scan_toks, show_box, show_token_list, str_number, token_show,
     UTF16_code,
 };
 use crate::xetex_xetexd::{
@@ -966,7 +966,7 @@ unsafe fn hlist_out() {
                                     *GLUE_SPEC_ref_count(g as usize) -= 1;
                                 }
                                 if MEM[p as usize].b16.s0 < A_LEADERS { // NODE_subtype(p)
-                                    set_NODE_type(p as usize, NodeType::Kern);
+                                    set_NODE_type(p as usize, TextNode::Kern);
                                     *BOX_width(p as usize)
                                         = rule_wd;
                                 } else {
@@ -1072,7 +1072,7 @@ unsafe fn hlist_out() {
                             p = LIG_TRICK as i32;
                             xtx_ligature_present = true;
                         }
-                        ND::Node(EDGE_NODE) => {
+                        ND::Text(EDGE_NODE) => {
                             /*1507: "Cases of hlist_out that arise in mixed direction text only" */
                             cur_h +=
                                 *BOX_width(p as usize);
@@ -1169,7 +1169,7 @@ unsafe fn hlist_out() {
                 }
             }
             330672039582001856 => {
-                set_NODE_type(p as usize, NodeType::Kern);
+                set_NODE_type(p as usize, TextNode::Kern);
                 cur_h += *BOX_width(p as usize);
                 current_block = 13889995436552222973;
             }
@@ -1735,7 +1735,7 @@ unsafe fn reverse(
                                 }
                                 if MEM[p as usize].b16.s0 < A_LEADERS {
                                     // NODE_subtype(p)
-                                    set_NODE_type(p as usize, NodeType::Kern);
+                                    set_NODE_type(p as usize, TextNode::Kern);
                                     *BOX_width(p as usize) = rule_wd;
                                 } else {
                                     g = get_node(GLUE_SPEC_SIZE) as i32;
@@ -1774,7 +1774,7 @@ unsafe fn reverse(
                                 break;
                             }
                         }
-                        ND::Node(EDGE_NODE) => confusion(b"LR2"),
+                        ND::Text(EDGE_NODE) => confusion(b"LR2"),
                         _ => {
                             current_block = 10883403804712335414;
                             break;
@@ -1785,7 +1785,7 @@ unsafe fn reverse(
             match current_block {
                 5873035170358615968 => {
                     if *LLIST_info(LR_ptr as usize) != 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3 {
-                        set_NODE_type(p as usize, NodeType::Kern);
+                        set_NODE_type(p as usize, TextNode::Kern);
                         LR_problems += 1;
                     } else {
                         temp_ptr = LR_ptr;
@@ -1797,7 +1797,7 @@ unsafe fn reverse(
                             n -= 1;
                             MEM[p as usize].b16.s0 -= 1; // NODE_subtype(p)
                         } else {
-                            set_NODE_type(p as usize, NodeType::Kern);
+                            set_NODE_type(p as usize, TextNode::Kern);
                             if m > MIN_HALFWORD {
                                 m -= 1
                             } else {
@@ -1821,7 +1821,7 @@ unsafe fn reverse(
                         n += 1;
                         MEM[p as usize].b16.s0 += 1; // NODE_subtype(p)
                     } else {
-                        set_NODE_type(p as usize, NodeType::Kern);
+                        set_NODE_type(p as usize, TextNode::Kern);
                         m += 1;
                     }
                     current_block = 3812947724376655173;
@@ -1850,7 +1850,7 @@ unsafe fn reverse(
             if t.is_texnull() && m.is_texnull() && n.is_texnull() {
                 break; /* "Manufacture a missing math node" */
             }
-            p = new_math(0, *LLIST_info(LR_ptr as usize) as small_number) as i32;
+            p = new_math(0, *LLIST_info(LR_ptr as usize) as i16) as i32;
             LR_problems += 10000i32
         }
     }
@@ -1868,14 +1868,14 @@ pub(crate) unsafe fn new_edge(s: LR, w: scaled_t) -> usize {
 }
 
 pub(crate) unsafe fn out_what(p: usize) {
-    let mut j: small_number;
+    let mut j: i16;
     match whatsit_NODE_subtype(p) {
         WhatsItNST::Open | WhatsItNST::Write | WhatsItNST::Close => {
             if doing_leaders {
                 return;
             }
 
-            j = MEM[p + 1].b32.s0 as small_number;
+            j = MEM[p + 1].b32.s0 as i16;
             if whatsit_NODE_subtype(p) == WhatsItNST::Write {
                 write_out(p);
                 return;
@@ -2101,11 +2101,11 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
             match (mstate, MEM[p as usize].b32.s0) {
                 (MOV_NONE_SEEN, MOV_Y_HERE) => {
                     current_block = 8114521223357534250;
-                    mstate = 6i32 as small_number;
+                    mstate = 6i32 as i16;
                 }
                 (MOV_NONE_SEEN, MOV_Z_HERE) => {
                     current_block = 15905285856240674276;
-                    mstate = 12i32 as small_number;
+                    mstate = 12i32 as i16;
                 }
                 (MOV_Y_SEEN, MOV_Z_HERE) | (MOV_Z_SEEN, MOV_Y_HERE) => {
                     current_block = 18071914750955744041;
@@ -2298,7 +2298,7 @@ unsafe fn write_out(p: usize) {
     cur_list.mode = old_mode;
     end_token_list();
     let old_setting = selector;
-    let j = MEM[p + 1].b32.s0 as small_number;
+    let j = MEM[p + 1].b32.s0 as i16;
 
     if j == 18 {
         selector = Selector::NEW_STRING

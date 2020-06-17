@@ -145,11 +145,9 @@ const NEG_TRIE_OP_SIZE: i32 = -35111;
 pub(crate) type UTF16_code = u16;
 pub(crate) type UTF8_code = u8;
 pub(crate) type UnicodeScalar = i32;
-pub(crate) type eight_bits = u8;
 pub(crate) type pool_pointer = i32;
 pub(crate) type str_number = i32;
 pub(crate) type packed_UTF16_code = u16;
-pub(crate) type small_number = i16;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct b32x2_le_t {
@@ -745,7 +743,7 @@ pub(crate) static mut cur_val1: i32 = 0;
 #[no_mangle]
 pub(crate) static mut cur_val_level: u8 = 0;
 #[no_mangle]
-pub(crate) static mut radix: small_number = 0;
+pub(crate) static mut radix: i16 = 0;
 #[no_mangle]
 pub(crate) static mut cur_order: glue_ord = 0;
 #[no_mangle]
@@ -757,7 +755,7 @@ pub(crate) static mut cond_ptr: i32 = 0;
 #[no_mangle]
 pub(crate) static mut if_limit: u8 = 0;
 #[no_mangle]
-pub(crate) static mut cur_if: small_number = 0;
+pub(crate) static mut cur_if: i16 = 0;
 #[no_mangle]
 pub(crate) static mut if_line: i32 = 0;
 #[no_mangle]
@@ -957,7 +955,7 @@ pub(crate) static mut init_lig: bool = false;
 #[no_mangle]
 pub(crate) static mut init_lft: bool = false;
 #[no_mangle]
-pub(crate) static mut hyphen_passed: small_number = 0;
+pub(crate) static mut hyphen_passed: i16 = 0;
 #[no_mangle]
 pub(crate) static mut cur_l: i32 = 0;
 #[no_mangle]
@@ -979,9 +977,9 @@ pub(crate) static mut trie_tro: *mut trie_pointer = ptr::null_mut();
 #[no_mangle]
 pub(crate) static mut trie_trc: *mut u16 = ptr::null_mut();
 #[no_mangle]
-pub(crate) static mut hyf_distance: [small_number; 35112] = [0; 35112];
+pub(crate) static mut hyf_distance: [i16; 35112] = [0; 35112];
 #[no_mangle]
-pub(crate) static mut hyf_num: [small_number; 35112] = [0; 35112];
+pub(crate) static mut hyf_num: [i16; 35112] = [0; 35112];
 #[no_mangle]
 pub(crate) static mut hyf_next: [trie_opcode; 35112] = [0; 35112];
 #[no_mangle]
@@ -1251,8 +1249,8 @@ where
 /*:925*/
 /*977: */
 pub(crate) unsafe fn new_trie_op(
-    mut d: small_number,
-    mut n: small_number,
+    mut d: i16,
+    mut n: i16,
     mut v: trie_opcode,
 ) -> trie_opcode {
     let mut h: i32 = 0;
@@ -1512,8 +1510,8 @@ unsafe fn new_patterns() {
                         loop {
                             if hyf[l as usize] != 0 {
                                 v = new_trie_op(
-                                    (k as i32 - l as i32) as small_number,
-                                    hyf[l as usize] as small_number,
+                                    (k as i32 - l as i32) as i16,
+                                    hyf[l as usize] as i16,
                                     v,
                                 )
                             }
@@ -1717,10 +1715,10 @@ pub(crate) unsafe fn init_trie() {
                 k = _trie_op_hash_array[(j as i64 - -35111) as usize];
                 t = hyf_distance[k as usize] as i32;
                 hyf_distance[k as usize] = hyf_distance[j as usize];
-                hyf_distance[j as usize] = t as small_number;
+                hyf_distance[j as usize] = t as i16;
                 t = hyf_num[k as usize] as i32;
                 hyf_num[k as usize] = hyf_num[j as usize];
-                hyf_num[j as usize] = t as small_number;
+                hyf_num[j as usize] = t as i16;
                 t = hyf_next[k as usize] as i32;
                 hyf_next[k as usize] = hyf_next[j as usize];
                 hyf_next[j as usize] = t as trie_opcode;
@@ -2053,11 +2051,11 @@ pub(crate) unsafe fn prefixed_command() {
     let mut q: i32 = 0;
     let mut e: bool = false;
 
-    let mut a = 0 as small_number;
+    let mut a = 0 as i16;
 
     while cur_cmd == Cmd::Prefix {
         if a as i32 / cur_chr & 1i32 == 0 {
-            a = (a as i32 + cur_chr) as small_number
+            a = (a as i32 + cur_chr) as i16
         }
         loop {
             get_x_token();
@@ -2130,7 +2128,7 @@ pub(crate) unsafe fn prefixed_command() {
         }
         Cmd::Def => {
             if cur_chr & 1i32 != 0 && (a as i32) < 4i32 && *INTPAR(IntPar::global_defs) >= 0 {
-                a = (a as i32 + 4i32) as small_number
+                a = (a as i32 + 4i32) as i16
             }
             e = cur_chr >= 2;
             get_r_token();
@@ -2267,7 +2265,7 @@ pub(crate) unsafe fn prefixed_command() {
                             j = n - 2;
                             if j > MU_VAL as i32 { j = TOK_VAL as i32 }
 
-                            find_sa_element(j as small_number, cur_val,
+                            find_sa_element(j as i16, cur_val,
                                             true);
                             MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
 
@@ -3207,7 +3205,7 @@ unsafe fn store_fmt_file() {
     *INTPAR(IntPar::tracing_stats) = 0; /*:1361*/
     ttstub_output_close(fmt_out_owner);
 }
-unsafe fn pack_buffered_name(mut _n: small_number, mut _a: i32, mut _b: i32) {
+unsafe fn pack_buffered_name(mut _n: i16, mut _a: i32, mut _b: i32) {
     free(name_of_file as *mut libc::c_void);
     name_of_file = xmalloc_array(format_default_length as usize + 1);
 
@@ -3227,7 +3225,7 @@ unsafe fn load_fmt_file() -> bool {
     /* This is where a first line starting with "&" used to
      * trigger code that would change the format file. */
 
-    pack_buffered_name((format_default_length - 4) as small_number, 1, 0);
+    pack_buffered_name((format_default_length - 4) as i16, 1, 0);
 
     let fmt_in_owner = ttstub_input_open(name_of_file, TTInputFormat::FORMAT, 0);
     if fmt_in_owner.is_none() {
@@ -3891,7 +3889,7 @@ unsafe fn load_fmt_file() -> bool {
 }
 
 unsafe fn final_cleanup() {
-    let mut c = cur_chr as small_number;
+    let mut c = cur_chr as i16;
     if job_name == 0 {
         open_log_file();
     }
@@ -3925,7 +3923,7 @@ unsafe fn final_cleanup() {
         }
         print_cstr(b" was incomplete)");
         if_line = MEM[(cond_ptr + 1) as usize].b32.s1;
-        cur_if = MEM[cond_ptr as usize].b16.s0 as small_number;
+        cur_if = MEM[cond_ptr as usize].b16.s0 as i16;
         temp_ptr = cond_ptr;
         cond_ptr = MEM[cond_ptr as usize].b32.s1;
         free_node(temp_ptr as usize, IF_NODE_SIZE);
@@ -4190,7 +4188,7 @@ unsafe fn initialize_more_initex_variables() {
     MEM[PAGE_INS_HEAD].b16.s0 = 255;
     MEM[PAGE_INS_HEAD].b16.s1 = SPLIT_UP as u16;
     MEM[PAGE_INS_HEAD].b32.s1 = PAGE_INS_HEAD as i32;
-    MEM[PAGE_HEAD].b16.s1 = NodeType::Glue as u16;
+    MEM[PAGE_HEAD].b16.s1 = TextNode::Glue as u16;
     MEM[PAGE_HEAD].b16.s0 = NORMAL;
     avail = TEX_NULL;
     mem_end = MEM_TOP as i32;
@@ -5080,9 +5078,9 @@ unsafe fn initialize_primitives() {
 
     primitive(b"indent", Cmd::StartPar, 1);
     primitive(b"noindent", Cmd::StartPar, 0);
-    primitive(b"unpenalty", Cmd::RemoveItem, NodeType::Penalty as i32);
-    primitive(b"unkern", Cmd::RemoveItem, NodeType::Kern as i32);
-    primitive(b"unskip", Cmd::RemoveItem, NodeType::Glue as i32);
+    primitive(b"unpenalty", Cmd::RemoveItem, TextNode::Penalty as i32);
+    primitive(b"unkern", Cmd::RemoveItem, TextNode::Kern as i32);
+    primitive(b"unskip", Cmd::RemoveItem, TextNode::Glue as i32);
     primitive(b"unhbox", Cmd::UnHBox, BOX_CODE);
     primitive(b"unhcopy", Cmd::UnHBox, COPY_CODE);
     primitive(b"unvbox", Cmd::UnVBox, BOX_CODE);
@@ -5094,16 +5092,16 @@ unsafe fn initialize_primitives() {
     primitive(b"eqno", Cmd::EqNo, 0);
     primitive(b"leqno", Cmd::EqNo, 1);
 
-    primitive(b"mathord", Cmd::MathComp, NoadType::Ord as i32);
-    primitive(b"mathop", Cmd::MathComp, NoadType::Op as i32);
-    primitive(b"mathbin", Cmd::MathComp, NoadType::Bin as i32);
-    primitive(b"mathrel", Cmd::MathComp, NoadType::Rel as i32);
-    primitive(b"mathopen", Cmd::MathComp, NoadType::Open as i32);
-    primitive(b"mathclose", Cmd::MathComp, NoadType::Close as i32);
-    primitive(b"mathpunct", Cmd::MathComp, NoadType::Punct as i32);
-    primitive(b"mathinner", Cmd::MathComp, NoadType::Inner as i32);
-    primitive(b"underline", Cmd::MathComp, NoadType::Under as i32);
-    primitive(b"overline", Cmd::MathComp, NoadType::Over as i32);
+    primitive(b"mathord", Cmd::MathComp, MathNode::Ord as i32);
+    primitive(b"mathop", Cmd::MathComp, MathNode::Op as i32);
+    primitive(b"mathbin", Cmd::MathComp, MathNode::Bin as i32);
+    primitive(b"mathrel", Cmd::MathComp, MathNode::Rel as i32);
+    primitive(b"mathopen", Cmd::MathComp, MathNode::Open as i32);
+    primitive(b"mathclose", Cmd::MathComp, MathNode::Close as i32);
+    primitive(b"mathpunct", Cmd::MathComp, MathNode::Punct as i32);
+    primitive(b"mathinner", Cmd::MathComp, MathNode::Inner as i32);
+    primitive(b"underline", Cmd::MathComp, MathNode::Under as i32);
+    primitive(b"overline", Cmd::MathComp, MathNode::Over as i32);
 
     primitive(b"displaylimits", Cmd::LimitSwitch, Limit::Normal as i32);
     primitive(b"limits", Cmd::LimitSwitch, Limit::Limits as i32);
@@ -5121,8 +5119,8 @@ unsafe fn initialize_primitives() {
     primitive(b"overwithdelims", Cmd::Above, DELIMITED_CODE + 1);
     primitive(b"atopwithdelims", Cmd::Above, DELIMITED_CODE + 2);
 
-    primitive(b"left", Cmd::LeftRight, NoadType::Left as i32);
-    primitive(b"right", Cmd::LeftRight, NoadType::Right as i32);
+    primitive(b"left", Cmd::LeftRight, MathNode::Left as i32);
+    primitive(b"right", Cmd::LeftRight, MathNode::Right as i32);
     (*hash.offset(FROZEN_RIGHT as isize)).s1 = maketexstring(b"right");
     EQTB[FROZEN_RIGHT] = EQTB[cur_val as usize];
 
@@ -6048,7 +6046,7 @@ slice!(
     b32x2,
     b16x4,
     UTF16_code,
-    small_number,
+    i16,
     EqtbWord
 );
 

@@ -32,11 +32,9 @@ pub(crate) type scaled_t = i32;
 /*11:*/
 /*18: */
 pub(crate) type UTF16_code = u16;
-pub(crate) type eight_bits = u8;
 pub(crate) type pool_pointer = i32;
 pub(crate) type str_number = i32;
 pub(crate) type packed_UTF16_code = u16;
-pub(crate) type small_number = i16;
 /* xetex-output */
 /* tectonic/output.c -- functions related to outputting messages
  * Copyright 2016 the Tectonic Project
@@ -127,7 +125,7 @@ pub(crate) unsafe fn print_raw_char(mut s: UTF16_code, mut incr_offset: bool) {
     tally += 1;
 }
 pub(crate) unsafe fn print_char(mut s: i32) {
-    let mut l: small_number = 0;
+    let mut l: i16 = 0;
     if (u8::from(selector) > u8::from(Selector::PSEUDO)) && !doing_special {
         if s >= 0x10000i32 {
             print_raw_char((0xd800i32 + (s - 0x10000i32) / 1024i32) as UTF16_code, true);
@@ -161,13 +159,13 @@ pub(crate) unsafe fn print_char(mut s: i32) {
     } else if s < 160i32 && !doing_special {
         print_raw_char('^' as i32 as UTF16_code, true);
         print_raw_char('^' as i32 as UTF16_code, true);
-        l = (s % 256i32 / 16i32) as small_number;
+        l = (s % 256i32 / 16i32) as i16;
         if (l as i32) < 10i32 {
             print_raw_char(('0' as i32 + l as i32) as UTF16_code, true);
         } else {
             print_raw_char(('a' as i32 + l as i32 - 10i32) as UTF16_code, true);
         }
-        l = (s % 16i32) as small_number;
+        l = (s % 16i32) as i16;
         if (l as i32) < 10i32 {
             print_raw_char(('0' as i32 + l as i32) as UTF16_code, true);
         } else {
@@ -279,7 +277,7 @@ pub(crate) unsafe fn print_esc_cstr(s: &[u8]) {
     }
     print_cstr(s);
 }
-unsafe fn print_the_digs(mut k: eight_bits) {
+unsafe fn print_the_digs(mut k: u8) {
     while k as i32 > 0i32 {
         k = k.wrapping_sub(1);
         if (dig[k as usize] as i32) < 10i32 {

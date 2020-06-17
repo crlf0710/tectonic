@@ -36,7 +36,6 @@ use libc::{free, memcpy, strlen};
 pub type scaled_t = i32;
 pub type Fixed = scaled_t;
 pub type str_number = i32;
-pub type small_number = i16;
 
 use euclid::{point2, size2, Angle};
 type Transform = euclid::Transform2D<f64, (), ()>;
@@ -376,13 +375,13 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
     t = t.post_transform(&t2);
     if result == 0i32 {
         new_whatsit(
-            43i32 as small_number,
+            43i32 as i16,
             (9usize).wrapping_add(
                 strlen(pic_path)
                     .wrapping_add(::std::mem::size_of::<memory_word>())
                     .wrapping_sub(1)
                     .wrapping_div(::std::mem::size_of::<memory_word>()),
-            ) as small_number,
+            ) as i16,
         );
         if is_pdf {
             MEM[cur_list.tail as usize].b16.s0 = 44
