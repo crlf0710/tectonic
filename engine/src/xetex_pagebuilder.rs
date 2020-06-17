@@ -242,7 +242,7 @@ unsafe fn fire_up(mut c: i32) {
                                     prune_page_top(MEM[(r + 1) as usize].b32.s1, false);
                                 if !MEM[(p + 4) as usize].b32.s0.is_texnull() {
                                     temp_ptr = vpackage(
-                                        MEM[(p + 4) as usize].b32.s0,
+                                        MEM[(p + 4) as usize].b32.s0.opt(),
                                         0,
                                         ADDITIONAL as _,
                                         MAX_HALFWORD,
@@ -260,7 +260,7 @@ unsafe fn fire_up(mut c: i32) {
                         temp_ptr = MEM[(*BOX_REG(n as usize) + 5) as usize].b32.s1;
                         free_node(*BOX_REG(n as _) as usize, BOX_NODE_SIZE);
                         *BOX_REG(n as _) =
-                            vpackage(temp_ptr, 0i32, 1i32 as i16, 0x3fffffffi32) as i32;
+                            vpackage(temp_ptr.opt(), 0i32, 1i32 as i16, 0x3fffffffi32) as i32;
                     } else {
                         while !LLIST_link(s as usize).is_texnull() {
                             s = *LLIST_link(s as usize);
@@ -338,7 +338,7 @@ unsafe fn fire_up(mut c: i32) {
     save_vfuzz = *DIMENPAR(DimenPar::vfuzz);
     *DIMENPAR(DimenPar::vfuzz) = MAX_HALFWORD;
     *BOX_REG(255) = vpackage(
-        *LLIST_link(PAGE_HEAD as usize),
+        LLIST_link(PAGE_HEAD as usize).opt(),
         best_size,
         EXACTLY as _,
         page_max_depth,

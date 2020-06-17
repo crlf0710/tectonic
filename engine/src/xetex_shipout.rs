@@ -2221,8 +2221,8 @@ unsafe fn special_out(p: usize) {
     let old_setting = selector;
     selector = Selector::NEW_STRING;
     show_token_list(
-        MEM[MEM[p + 1].b32.s1 as usize].b32.s1,
-        TEX_NULL,
+        MEM[MEM[p + 1].b32.s1 as usize].b32.s1.opt(),
+        None,
         pool_size - pool_ptr,
     );
     selector = old_setting;

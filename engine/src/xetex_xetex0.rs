@@ -169,21 +169,26 @@ pub(crate) unsafe fn badness(mut t: scaled_t, mut s: scaled_t) -> i32 {
 
 /*:112*/
 /*118:*/
-pub(crate) unsafe fn show_token_list(mut p: i32, mut q: i32, mut l: i32) {
+pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, mut l: i32) {
     let mut n: UTF16_code = 0;
     let mut match_chr = '#' as i32;
     n = '0' as UTF16_code;
     tally = 0;
-    while !p.is_texnull() && tally < l {
+    while let Some(p) = popt {
+        if !(tally < l) {
+            break;
+        }
         /*332:*/
-        if p == q {
-            first_count = tally;
-            trick_count = tally + 1 + error_line - half_error_line;
-            if trick_count < error_line {
-                trick_count = error_line
+        if let Some(q) = q {
+            if p == q {
+                first_count = tally;
+                trick_count = tally + 1 + error_line - half_error_line;
+                if trick_count < error_line {
+                    trick_count = error_line
+                }
             }
         }
-        if p < hi_mem_min || p > mem_end {
+        if p < hi_mem_min as usize || p > mem_end as usize {
             print_esc_cstr(b"CLOBBERED.");
             return;
         }
@@ -237,9 +242,9 @@ pub(crate) unsafe fn show_token_list(mut p: i32, mut q: i32, mut l: i32) {
                 }
             }
         }
-        p = *LLIST_link(p as usize);
+        popt = LLIST_link(p as usize).opt();
     }
-    if !p.is_texnull() {
+    if popt.is_some() {
         print_esc_cstr(b"ETC.");
     };
 }
@@ -266,7 +271,7 @@ pub(crate) unsafe fn runaway() {
         };
         print_char('?' as i32);
         print_ln();
-        show_token_list(MEM[p].b32.s1, TEX_NULL, error_line - 10);
+        show_token_list(MEM[p].b32.s1.opt(), None, error_line - 10);
     };
 }
 pub(crate) unsafe fn get_avail() -> usize {
@@ -624,7 +629,7 @@ pub(crate) unsafe fn print_mark(mut p: i32) {
     if p < hi_mem_min || p > mem_end {
         print_esc_cstr(b"CLOBBERED.");
     } else {
-        show_token_list(MEM[p as usize].b32.s1, TEX_NULL, max_print_line - 10);
+        show_token_list(MEM[p as usize].b32.s1.opt(), None, max_print_line - 10);
     }
     print_char('}' as i32);
 }
@@ -1419,65 +1424,64 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
         popt = q.opt()
     }
 }
-pub(crate) unsafe fn copy_node_list(mut p: i32) -> i32 {
-    let mut r: i32 = 0;
+pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
     let mut words: u8 = 0;
-    let h = get_avail() as i32;
+    let h = get_avail();
     let mut q = h;
-    while !p.is_texnull() {
+    while let Some(p) = popt {
+        let r;
         words = 1;
-        if is_char_node(p) {
-            r = get_avail() as i32;
+        if is_char_node(p as i32) {
+            r = get_avail();
         } else {
-            let p = p as usize;
             match TextNode::n(MEM[p].b16.s1).confuse(b"copying") {
                 TextNode::HList | TextNode::VList | TextNode::Unset => {
-                    r = get_node(BOX_NODE_SIZE) as i32;
-                    *SYNCTEX_tag(r as usize, BOX_NODE_SIZE) = *SYNCTEX_tag(p, BOX_NODE_SIZE);
-                    *SYNCTEX_line(r as usize, BOX_NODE_SIZE) = *SYNCTEX_line(p, BOX_NODE_SIZE);
-                    MEM[(r + 6) as usize] = MEM[p + 6];
-                    MEM[(r + 5) as usize] = MEM[p + 5];
-                    MEM[(r + 5) as usize].b32.s1 = copy_node_list(MEM[p + 5].b32.s1);
+                    r = get_node(BOX_NODE_SIZE);
+                    *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p, BOX_NODE_SIZE);
+                    *SYNCTEX_line(r, BOX_NODE_SIZE) = *SYNCTEX_line(p, BOX_NODE_SIZE);
+                    MEM[r + 6] = MEM[p + 6];
+                    MEM[r + 5] = MEM[p + 5];
+                    MEM[r + 5].b32.s1 = copy_node_list(MEM[p + 5].b32.s1.opt());
                     words = 5_u8
                 }
                 TextNode::Rule => {
-                    r = get_node(RULE_NODE_SIZE) as i32;
+                    r = get_node(RULE_NODE_SIZE);
                     words = (RULE_NODE_SIZE - 1) as u8
                 }
                 TextNode::Ins => {
-                    r = get_node(INS_NODE_SIZE) as i32;
-                    MEM[(r + 4) as usize] = MEM[p + 4];
+                    r = get_node(INS_NODE_SIZE);
+                    MEM[r + 4] = MEM[p + 4];
                     *GLUE_SPEC_ref_count(MEM[p + 4].b32.s1 as usize) += 1;
-                    MEM[(r + 4) as usize].b32.s0 = copy_node_list(MEM[p + 4].b32.s0);
+                    MEM[r + 4].b32.s0 = copy_node_list(MEM[p + 4].b32.s0.opt());
                     words = (INS_NODE_SIZE - 1) as u8
                 }
                 TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
                     WhatsItNST::Open => {
-                        r = get_node(OPEN_NODE_SIZE) as i32;
+                        r = get_node(OPEN_NODE_SIZE);
                         words = OPEN_NODE_SIZE as u8
                     }
                     WhatsItNST::Write | WhatsItNST::Special => {
-                        r = get_node(WRITE_NODE_SIZE) as i32;
+                        r = get_node(WRITE_NODE_SIZE);
                         MEM[MEM[p + 1].b32.s1 as usize].b32.s0 += 1;
                         words = WRITE_NODE_SIZE as u8
                     }
                     WhatsItNST::Close | WhatsItNST::Language => {
-                        r = get_node(SMALL_NODE_SIZE) as i32;
+                        r = get_node(SMALL_NODE_SIZE);
                         words = SMALL_NODE_SIZE as u8
                     }
                     WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
                         words = *NATIVE_NODE_size(p) as u8;
-                        r = get_node(words as i32) as i32;
+                        r = get_node(words as i32);
                         while words > 0 {
                             words -= 1;
-                            MEM[(r + words as i32) as usize] = MEM[p + (words as usize)]
+                            MEM[r + words as usize] = MEM[p + (words as usize)]
                         }
-                        *NATIVE_NODE_glyph_info_ptr(r as usize) = ptr::null_mut();
-                        *NATIVE_NODE_glyph_count(r as usize) = 0;
-                        copy_native_glyph_info(p, r as usize);
+                        *NATIVE_NODE_glyph_info_ptr(r) = ptr::null_mut();
+                        *NATIVE_NODE_glyph_count(r) = 0;
+                        copy_native_glyph_info(p, r);
                     }
                     WhatsItNST::Glyph => {
-                        r = get_node(GLYPH_NODE_SIZE) as i32;
+                        r = get_node(GLYPH_NODE_SIZE);
                         words = GLYPH_NODE_SIZE as u8
                     }
                     WhatsItNST::Pic | WhatsItNST::Pdf => {
@@ -1487,61 +1491,61 @@ pub(crate) unsafe fn copy_node_list(mut p: i32) -> i32 {
                                 .wrapping_sub(1)
                                 .wrapping_div(::std::mem::size_of::<memory_word>() as u64),
                         ) as u8;
-                        r = get_node(words as i32) as i32;
+                        r = get_node(words as i32);
                     }
-                    WhatsItNST::PdfSavePos => r = get_node(SMALL_NODE_SIZE) as i32,
+                    WhatsItNST::PdfSavePos => r = get_node(SMALL_NODE_SIZE),
                     //_ => confusion(b"ext2"),
                 },
                 TextNode::Glue => {
-                    r = get_node(MEDIUM_NODE_SIZE) as i32;
+                    r = get_node(MEDIUM_NODE_SIZE);
                     *GLUE_SPEC_ref_count(MEM[p + 1].b32.s0 as usize) += 1;
-                    MEM[(r + 2) as usize].b32.s0 = MEM[p + 2].b32.s0;
-                    MEM[(r + 2) as usize].b32.s1 = MEM[p + 2].b32.s1;
-                    MEM[(r + 1) as usize].b32.s0 = MEM[p + 1].b32.s0;
-                    MEM[(r + 1) as usize].b32.s1 = copy_node_list(MEM[p + 1].b32.s1)
+                    MEM[r + 2].b32.s0 = MEM[p + 2].b32.s0;
+                    MEM[r + 2].b32.s1 = MEM[p + 2].b32.s1;
+                    MEM[r + 1].b32.s0 = MEM[p + 1].b32.s0;
+                    MEM[r + 1].b32.s1 = copy_node_list(MEM[p + 1].b32.s1.opt())
                 }
                 TextNode::Kern | TextNode::Math | TextNode::Penalty => {
-                    r = get_node(MEDIUM_NODE_SIZE) as i32;
+                    r = get_node(MEDIUM_NODE_SIZE);
                     words = MEDIUM_NODE_SIZE as u8
                 }
                 TextNode::MarginKern => {
-                    r = get_node(MARGIN_KERN_NODE_SIZE) as i32;
+                    r = get_node(MARGIN_KERN_NODE_SIZE);
                     words = MARGIN_KERN_NODE_SIZE as u8
                 }
                 TextNode::Ligature => {
-                    r = get_node(SMALL_NODE_SIZE) as i32;
-                    MEM[(r + 1) as usize] = MEM[p + 1];
-                    MEM[(r + 1) as usize].b32.s1 = copy_node_list(MEM[p + 1].b32.s1)
+                    r = get_node(SMALL_NODE_SIZE);
+                    MEM[r + 1] = MEM[p + 1];
+                    MEM[r + 1].b32.s1 = copy_node_list(MEM[p + 1].b32.s1.opt())
                 }
                 TextNode::Disc => {
-                    r = get_node(SMALL_NODE_SIZE) as i32;
-                    MEM[(r + 1) as usize].b32.s0 = copy_node_list(MEM[p + 1].b32.s0);
-                    MEM[(r + 1) as usize].b32.s1 = copy_node_list(MEM[p + 1].b32.s1)
+                    r = get_node(SMALL_NODE_SIZE);
+                    MEM[r + 1].b32.s0 = copy_node_list(MEM[p + 1].b32.s0.opt());
+                    MEM[r + 1].b32.s1 = copy_node_list(MEM[p + 1].b32.s1.opt())
                 }
                 TextNode::Mark => {
-                    r = get_node(SMALL_NODE_SIZE) as i32;
+                    r = get_node(SMALL_NODE_SIZE);
                     MEM[MEM[p + 1].b32.s1 as usize].b32.s0 += 1;
                     words = SMALL_NODE_SIZE as u8
                 }
                 TextNode::Adjust => {
-                    r = get_node(SMALL_NODE_SIZE) as i32;
-                    MEM[(r + 1) as usize].b32.s1 = copy_node_list(MEM[p + 1].b32.s1)
+                    r = get_node(SMALL_NODE_SIZE);
+                    MEM[r + 1].b32.s1 = copy_node_list(MEM[p + 1].b32.s1.opt())
                 }
                 _ => confusion(b"copying"),
             }
         }
         while words as i32 > 0i32 {
             words = words.wrapping_sub(1);
-            MEM[(r + words as i32) as usize] = MEM[(p + words as i32) as usize]
+            MEM[r + (words as usize)] = MEM[p + (words as usize)]
         }
-        MEM[q as usize].b32.s1 = r;
+        MEM[q].b32.s1 = r as i32;
         q = r;
-        p = *LLIST_link(p as usize)
+        popt = LLIST_link(p).opt();
     }
-    MEM[q as usize].b32.s1 = TEX_NULL;
-    q = MEM[h as usize].b32.s1;
-    MEM[h as usize].b32.s1 = avail;
-    avail = h;
+    MEM[q].b32.s1 = TEX_NULL;
+    let q = MEM[h].b32.s1;
+    MEM[h].b32.s1 = avail;
+    avail = h as i32;
     q
 }
 pub(crate) unsafe fn print_mode(mut m: (bool, ListMode)) {
@@ -2994,17 +2998,14 @@ pub(crate) unsafe fn pseudo_input() -> bool {
     }
 }
 pub(crate) unsafe fn pseudo_close() {
-    let mut p: i32 = 0;
-    let mut q: i32 = 0;
-    p = MEM[pseudo_files as usize].b32.s1;
-    q = MEM[pseudo_files as usize].b32.s0;
+    let mut p = MEM[pseudo_files as usize].b32.s1;
+    let mut q = MEM[pseudo_files as usize].b32.s0.opt();
     MEM[pseudo_files as usize].b32.s1 = avail;
     avail = pseudo_files;
     pseudo_files = p;
-    while !q.is_texnull() {
-        p = q;
-        q = MEM[p as usize].b32.s1;
-        free_node(p as usize, MEM[p as usize].b32.s0);
+    while let Some(p) = q {
+        q = LLIST_link(p).opt();
+        free_node(p, MEM[p].b32.s0);
     }
 }
 pub(crate) unsafe fn group_warning() {
@@ -3513,7 +3514,7 @@ pub(crate) unsafe fn prepare_mag() {
 }
 pub(crate) unsafe fn token_show(p: Option<usize>) {
     if let Some(p) = p {
-        show_token_list(MEM[p].b32.s1, TEX_NULL, 10000000);
+        show_token_list(MEM[p].b32.s1.opt(), None, 10000000);
     };
 }
 pub(crate) unsafe fn print_meaning() {
@@ -3531,7 +3532,6 @@ pub(crate) unsafe fn print_meaning() {
 pub(crate) unsafe fn show_cur_cmd_chr() {
     let mut n: i32 = 0;
     let mut l: i32 = 0;
-    let mut p: i32 = 0;
     begin_diagnostic();
     print_nl('{' as i32);
     if cur_list.mode != shown_mode {
@@ -3553,10 +3553,10 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
                     n = 1;
                     l = line
                 }
-                p = cond_ptr;
-                while !p.is_texnull() {
+                let mut popt = cond_ptr.opt();
+                while let Some(p) = popt {
                     n += 1;
-                    p = *LLIST_link(p as usize)
+                    popt = LLIST_link(p).opt()
                 }
                 print_cstr(b"(level ");
                 print_int(n);
@@ -3703,11 +3703,11 @@ pub(crate) unsafe fn show_context() {
                     ]
                     .contains(&cur_input.index)
                     {
-                        show_token_list(cur_input.start, cur_input.loc, 100000);
+                        show_token_list(cur_input.start.opt(), cur_input.loc.opt(), 100000);
                     } else {
                         show_token_list(
-                            MEM[cur_input.start as usize].b32.s1,
-                            cur_input.loc,
+                            MEM[cur_input.start as usize].b32.s1.opt(),
+                            cur_input.loc.opt(),
                             100_000,
                         );
                     }
@@ -4991,7 +4991,7 @@ pub(crate) unsafe fn macro_call() {
                     print_nl(match_chr as str_number);
                     print_int(n as i32);
                     print_cstr(b"<-");
-                    show_token_list(pstack[(n as i32 - 1) as usize], TEX_NULL, 1000);
+                    show_token_list(pstack[(n as i32 - 1) as usize].opt(), None, 1000);
                     end_diagnostic(false);
                 }
             }
@@ -5215,7 +5215,6 @@ pub(crate) unsafe fn find_sa_element(mut t: i16, mut n: i32, mut w: bool) {
 pub(crate) unsafe fn expand() {
     let mut t: i32 = 0;
     let mut b: bool = false;
-    let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut j: i32 = 0;
     let mut cv_backup: i32 = 0;
@@ -5309,11 +5308,11 @@ pub(crate) unsafe fn expand() {
                         t = cur_tok;
                         back_input();
                         if t >= CS_TOKEN_FLAG {
-                            p = get_avail() as i32;
-                            MEM[p as usize].b32.s0 = CS_TOKEN_FLAG + FROZEN_DONT_EXPAND as i32;
-                            MEM[p as usize].b32.s1 = cur_input.loc;
-                            cur_input.start = p;
-                            cur_input.loc = p
+                            let p = get_avail();
+                            MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_DONT_EXPAND as i32;
+                            MEM[p].b32.s1 = cur_input.loc;
+                            cur_input.start = p as i32;
+                            cur_input.loc = p as i32;
                         }
                         break;
                     } else {
@@ -5337,18 +5336,18 @@ pub(crate) unsafe fn expand() {
                             cur_cs = 0;
                         } else {
                             back_input();
-                            p = get_avail() as i32;
-                            MEM[p as usize].b32.s0 = CS_TOKEN_FLAG + FROZEN_PRIMITIVE as i32;
-                            MEM[p as usize].b32.s1 = cur_input.loc;
-                            cur_input.loc = p;
-                            cur_input.start = p;
+                            let p = get_avail();
+                            MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_PRIMITIVE as i32;
+                            MEM[p].b32.s1 = cur_input.loc;
+                            cur_input.loc = p as i32;
+                            cur_input.start = p as i32;
                             break;
                         }
                     }
                 }
                 Cmd::CSName => {
                     let r = get_avail();
-                    p = r as i32;
+                    let mut p = r as i32;
                     b = is_in_csname;
                     is_in_csname = true;
                     loop {
@@ -5380,17 +5379,17 @@ pub(crate) unsafe fn expand() {
                     }
                     is_in_csname = b;
                     j = first;
-                    p = MEM[r].b32.s1;
-                    while !p.is_texnull() {
+                    let mut popt = MEM[r].b32.s1.opt();
+                    while let Some(p) = popt {
                         if j >= max_buf_stack {
                             max_buf_stack = j + 1;
                             if max_buf_stack as usize == BUF_SIZE {
                                 overflow(b"buffer size", BUF_SIZE);
                             }
                         }
-                        BUFFER[j as usize] = MEM[p as usize].b32.s0 % MAX_CHAR_VAL;
+                        BUFFER[j as usize] = MEM[p].b32.s0 % MAX_CHAR_VAL;
                         j += 1;
-                        p = *LLIST_link(p as usize)
+                        popt = LLIST_link(p).opt();
                     }
                     if j > first + 1 || BUFFER[first as usize] as i64 > 65535 {
                         no_new_control_sequence = false;
@@ -5450,12 +5449,12 @@ pub(crate) unsafe fn expand() {
                         if IF_STACK[IN_OPEN] == cond_ptr {
                             if_warning();
                         }
-                        p = cond_ptr;
-                        if_line = MEM[(p + 1) as usize].b32.s1;
-                        cur_if = MEM[p as usize].b16.s0 as i16;
-                        if_limit = MEM[p as usize].b16.s1 as u8;
-                        cond_ptr = MEM[p as usize].b32.s1;
-                        free_node(p as usize, IF_NODE_SIZE);
+                        let p = cond_ptr as usize;
+                        if_line = MEM[p + 1].b32.s1;
+                        cur_if = MEM[p].b16.s0 as i16;
+                        if_limit = MEM[p].b16.s1 as u8;
+                        cond_ptr = MEM[p].b32.s1;
+                        free_node(p, IF_NODE_SIZE);
                     }
                     break;
                 }
@@ -6121,7 +6120,6 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
     let mut n: i32 = 0;
     let mut k: i32 = 0;
     let mut kk: i32 = 0;
-    let mut q: i32 = 0;
     let mut r: i32 = 0;
     let mut tx: i32 = 0;
     let mut i: b16x4 = b16x4 {
@@ -6388,16 +6386,16 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
         }
         Cmd::SetBoxDimen => {
             scan_register_num();
-            if cur_val < 256 {
-                q = *BOX_REG(cur_val as usize)
+            let q = if cur_val < 256 {
+                *BOX_REG(cur_val as usize)
             } else {
                 find_sa_element(4, cur_val, false);
                 if cur_ptr.is_texnull() {
-                    q = TEX_NULL
+                    TEX_NULL
                 } else {
-                    q = MEM[(cur_ptr + 1) as usize].b32.s1
+                    MEM[(cur_ptr + 1) as usize].b32.s1
                 }
-            }
+            };
             if q.is_texnull() {
                 cur_val = 0;
             } else {
@@ -6572,45 +6570,35 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                         FONT_CHAR_WD_CODE | FONT_CHAR_HT_CODE | FONT_CHAR_DP_CODE
                         | FONT_CHAR_IC_CODE => {
                             scan_font_ident();
-                            q = cur_val;
+                            let q = cur_val as usize;
                             scan_usv_num();
-                            if FONT_AREA[q as usize] as u32 == AAT_FONT_FLAG
-                                || FONT_AREA[q as usize] as u32 == OTGR_FONT_FLAG
+                            if FONT_AREA[q] as u32 == AAT_FONT_FLAG
+                                || FONT_AREA[q] as u32 == OTGR_FONT_FLAG
                             {
                                 match m {
-                                    FONT_CHAR_WD_CODE => {
-                                        cur_val = getnativecharwd(q as usize, cur_val)
-                                    }
-                                    FONT_CHAR_HT_CODE => {
-                                        cur_val = getnativecharht(q as usize, cur_val)
-                                    }
-                                    FONT_CHAR_DP_CODE => {
-                                        cur_val = getnativechardp(q as usize, cur_val)
-                                    }
-                                    FONT_CHAR_IC_CODE => {
-                                        cur_val = getnativecharic(q as usize, cur_val)
-                                    }
+                                    FONT_CHAR_WD_CODE => cur_val = getnativecharwd(q, cur_val),
+                                    FONT_CHAR_HT_CODE => cur_val = getnativecharht(q, cur_val),
+                                    FONT_CHAR_DP_CODE => cur_val = getnativechardp(q, cur_val),
+                                    FONT_CHAR_IC_CODE => cur_val = getnativecharic(q, cur_val),
                                     _ => {}
                                 }
-                            } else if FONT_BC[q as usize] as i32 <= cur_val
-                                && FONT_EC[q as usize] as i32 >= cur_val
-                            {
+                            } else if FONT_BC[q] as i32 <= cur_val && FONT_EC[q] as i32 >= cur_val {
                                 i = FONT_CHARACTER_INFO(
-                                    q as usize,
-                                    effective_char(true, q as usize, cur_val as u16) as usize,
+                                    q,
+                                    effective_char(true, q, cur_val as u16) as usize,
                                 );
                                 match m {
                                     FONT_CHAR_WD_CODE => {
-                                        cur_val = *FONT_CHARINFO_WIDTH(q as usize, i);
+                                        cur_val = *FONT_CHARINFO_WIDTH(q, i);
                                     }
                                     FONT_CHAR_HT_CODE => {
-                                        cur_val = *FONT_CHARINFO_HEIGHT(q as usize, i);
+                                        cur_val = *FONT_CHARINFO_HEIGHT(q, i);
                                     }
                                     FONT_CHAR_DP_CODE => {
-                                        cur_val = *FONT_CHARINFO_DEPTH(q as usize, i);
+                                        cur_val = *FONT_CHARINFO_DEPTH(q, i);
                                     }
                                     FONT_CHAR_IC_CODE => {
-                                        cur_val = *FONT_CHARINFO_ITALCORR(q as usize, i);
+                                        cur_val = *FONT_CHARINFO_ITALCORR(q, i);
                                     }
                                     _ => {}
                                 }
@@ -6619,7 +6607,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                             }
                         }
                         PAR_SHAPE_LENGTH_CODE | PAR_SHAPE_INDENT_CODE | PAR_SHAPE_DIMEN_CODE => {
-                            q = cur_chr - PAR_SHAPE_LENGTH_CODE;
+                            let mut q = cur_chr - PAR_SHAPE_LENGTH_CODE;
                             scan_int();
                             if LOCAL(Local::par_shape).is_texnull() || cur_val <= 0 {
                                 cur_val = 0;
@@ -6639,13 +6627,13 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                         }
                         GLUE_STRETCH_CODE | GLUE_SHRINK_CODE => {
                             scan_normal_glue();
-                            q = cur_val;
+                            let q = cur_val as usize;
                             if m == GLUE_STRETCH_CODE {
-                                cur_val = MEM[(q + 2) as usize].b32.s1
+                                cur_val = MEM[q + 2].b32.s1
                             } else {
-                                cur_val = MEM[(q + 3) as usize].b32.s1
+                                cur_val = MEM[q + 3].b32.s1
                             }
-                            delete_glue_ref(q as usize);
+                            delete_glue_ref(q);
                         }
                         _ => {}
                     }
@@ -7073,11 +7061,11 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                         CURRENT_GROUP_LEVEL_CODE => cur_val = cur_level as i32 - 1,
                         CURRENT_GROUP_TYPE_CODE => cur_val = cur_group as i32,
                         CURRENT_IF_LEVEL_CODE => {
-                            q = cond_ptr;
+                            let mut qopt = cond_ptr.opt();
                             cur_val = 0;
-                            while !q.is_texnull() {
+                            while let Some(q) = qopt {
                                 cur_val += 1;
-                                q = *LLIST_link(q as usize)
+                                qopt = LLIST_link(q).opt();
                             }
                         }
                         CURRENT_IF_TYPE_CODE => {
@@ -7100,13 +7088,13 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                         }
                         GLUE_STRETCH_ORDER_CODE | GLUE_SHRINK_ORDER_CODE => {
                             scan_normal_glue();
-                            q = cur_val;
+                            let q = cur_val as usize;
                             if m == GLUE_STRETCH_ORDER_CODE {
-                                cur_val = MEM[q as usize].b16.s1 as i32
+                                cur_val = MEM[q].b16.s1 as i32
                             } else {
-                                cur_val = MEM[q as usize].b16.s0 as i32
+                                cur_val = MEM[q].b16.s0 as i32
                             }
-                            delete_glue_ref(q as usize);
+                            delete_glue_ref(q);
                         }
                         _ => {}
                     }
@@ -7120,6 +7108,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                         && MEM[tx as usize].b16.s0 == END_M_CODE
                     {
                         r = cur_list.head as i32;
+                        let mut q;
                         loop {
                             q = r;
                             r = MEM[q as usize].b32.s1;
@@ -8484,8 +8473,8 @@ pub(crate) unsafe fn the_toks() -> usize {
             MEM[q].b32.s0 = CS_TOKEN_FLAG + cur_val;
             p = q;
         } else if !cur_val.is_texnull() {
-            let mut r = MEM[cur_val as usize].b32.s1;
-            while !r.is_texnull() {
+            let mut ropt = MEM[cur_val as usize].b32.s1.opt();
+            while let Some(r) = ropt {
                 let q = if avail.is_texnull() {
                     get_avail()
                 } else {
@@ -8495,9 +8484,9 @@ pub(crate) unsafe fn the_toks() -> usize {
                     q
                 };
                 MEM[p].b32.s1 = q as i32;
-                MEM[q].b32.s0 = MEM[r as usize].b32.s0;
+                MEM[q].b32.s0 = MEM[r].b32.s0;
                 p = q;
-                r = *LLIST_link(r as usize);
+                ropt = LLIST_link(r).opt();
             }
         }
         return p;
@@ -8617,7 +8606,7 @@ pub(crate) unsafe fn conv_toks() {
             }
             let old_setting_0 = selector;
             selector = Selector::NEW_STRING;
-            show_token_list(MEM[def_ref].b32.s1, TEX_NULL, pool_size - pool_ptr);
+            show_token_list(MEM[def_ref].b32.s1.opt(), None, pool_size - pool_ptr);
             selector = old_setting_0;
             s = make_string();
             delete_token_ref(def_ref);
@@ -9253,7 +9242,6 @@ pub(crate) unsafe fn conditional() {
     let mut b: bool = false;
     let mut e: bool = false;
     let mut r: u8 = 0;
-    let mut q: i32 = 0;
     if *INTPAR(IntPar::tracing_ifs) > 0 {
         if *INTPAR(IntPar::tracing_commands) <= 1 {
             show_cur_cmd_chr();
@@ -9403,27 +9391,27 @@ pub(crate) unsafe fn conditional() {
             get_next();
             let n = cur_cs;
             let p = cur_cmd;
-            q = cur_chr;
+            let q = cur_chr;
             get_next();
             if cur_cmd != p {
                 b = false
             } else if cur_cmd < Cmd::Call {
                 b = cur_chr == q
             } else {
-                let mut p = MEM[cur_chr as usize].b32.s1;
-                q = MEM[EQTB[n as usize].val as usize].b32.s1;
-                if p == q {
+                let mut popt = MEM[cur_chr as usize].b32.s1.opt();
+                let mut qopt = MEM[EQTB[n as usize].val as usize].b32.s1.opt();
+                if popt == qopt {
                     b = true
                 } else {
-                    while !p.is_texnull() && !q.is_texnull() {
-                        if MEM[p as usize].b32.s0 != MEM[q as usize].b32.s0 {
-                            p = TEX_NULL
+                    while let (Some(p), Some(q)) = (popt, qopt) {
+                        if MEM[p].b32.s0 != MEM[q as usize].b32.s0 {
+                            popt = None
                         } else {
-                            p = *LLIST_link(p as usize);
-                            q = *LLIST_link(q as usize);
+                            popt = LLIST_link(p).opt();
+                            qopt = LLIST_link(q).opt();
                         }
                     }
-                    b = p.is_texnull() && q.is_texnull()
+                    b = popt.is_none() && qopt.is_none();
                 }
             }
             scanner_status = save_scanner_status;
@@ -9456,16 +9444,16 @@ pub(crate) unsafe fn conditional() {
         }
         IF_CS_CODE => {
             let n = get_avail();
-            let mut p = n as i32;
+            let mut p = n;
             e = is_in_csname;
             is_in_csname = true;
             loop {
                 get_x_token();
                 if cur_cs == 0 {
-                    q = get_avail() as i32;
-                    MEM[p as usize].b32.s1 = q;
-                    MEM[q as usize].b32.s0 = cur_tok;
-                    p = q
+                    let q = get_avail();
+                    MEM[p].b32.s1 = q as i32;
+                    MEM[q].b32.s0 = cur_tok;
+                    p = q;
                 }
                 if !(cur_cs == 0) {
                     break;
@@ -9487,8 +9475,8 @@ pub(crate) unsafe fn conditional() {
                 back_error();
             }
             let mut m = first;
-            let mut p = MEM[n].b32.s1;
-            while !p.is_texnull() {
+            let mut popt = MEM[n].b32.s1.opt();
+            while let Some(p) = popt {
                 if m >= max_buf_stack {
                     max_buf_stack = m + 1i32;
                     if max_buf_stack as usize == BUF_SIZE {
@@ -9497,7 +9485,7 @@ pub(crate) unsafe fn conditional() {
                 }
                 BUFFER[m as usize] = MEM[p as usize].b32.s0 % MAX_CHAR_VAL;
                 m += 1;
-                p = *LLIST_link(p as usize)
+                popt = LLIST_link(p).opt();
             }
             cur_cs = if m == first {
                 NULL_CS as i32
@@ -11259,7 +11247,7 @@ pub(crate) unsafe fn new_margin_kern(w: scaled_t, _p: i32, side: i16) -> usize {
     MEM[k + 1].b32.s1 = w;
     k
 }
-pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
+pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> usize {
     let mut current_block: u64;
     let mut s: scaled_t = 0;
     let mut g: i32 = 0;
@@ -11275,11 +11263,11 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
     let mut ppp: i32 = TEX_NULL;
     let mut total_chars: i32 = 0;
     last_badness = 0;
-    let r = get_node(BOX_NODE_SIZE) as i32;
-    MEM[r as usize].b16.s1 = 0_u16;
-    MEM[r as usize].b16.s0 = 0_u16;
-    MEM[(r + 4) as usize].b32.s1 = 0;
-    let mut q = r + 5;
+    let r = get_node(BOX_NODE_SIZE);
+    MEM[r].b16.s1 = 0_u16;
+    MEM[r].b16.s0 = 0_u16;
+    MEM[r + 4].b32.s1 = 0;
+    let mut q = (r + 5) as i32;
     MEM[q as usize].b32.s1 = p;
     let mut h = 0;
     let mut d = 0;
@@ -11324,8 +11312,8 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
             if p.is_texnull() {
                 continue 's_130;
             }
-            match MEM[p as usize].b16.s1 as i32 {
-                0 | 1 | 2 | 13 => {
+            match text_NODE_type(p as usize).unwrap() {
+                TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Unset => {
                     x = x + MEM[(p + 1) as usize].b32.s1;
                     if ![TextNode::HList.into(), TextNode::VList.into()]
                         .contains(&NODE_type(p as usize))
@@ -11343,7 +11331,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
                     current_block = 1176253869785344635;
                     break;
                 }
-                3 | 4 | 5 => {
+                TextNode::Ins | TextNode::Mark | TextNode::Adjust => {
                     if !adjust_tail.is_texnull() || !pre_adjust_tail.is_texnull() {
                         /*680: */
                         while MEM[q as usize].b32.s1 != p {
@@ -11380,12 +11368,12 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
                     current_block = 1176253869785344635;
                     break;
                 }
-                8 => match MEM[p as usize].b16.s0 as i32 {
-                    40 | 41 => {
+                TextNode::WhatsIt => match whatsit_NODE_subtype(p as usize) {
+                    WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
                         current_block = 10435735846551762309;
                         break;
                     }
-                    42 | 43 | 44 => {
+                    WhatsItNST::Glyph | WhatsItNST::Pic | WhatsItNST::Pdf => {
                         current_block = 9371553318591620115;
                         break;
                     }
@@ -11394,7 +11382,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
                         break;
                     }
                 },
-                10 => {
+                TextNode::Glue => {
                     g = MEM[(p + 1) as usize].b32.s0;
                     x = x + MEM[(g + 1) as usize].b32.s1;
                     o = MEM[g as usize].b16.s1 as glue_ord;
@@ -11415,17 +11403,17 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
                     current_block = 1176253869785344635;
                     break;
                 }
-                11 => {
+                TextNode::Kern => {
                     x = x + MEM[(p + 1) as usize].b32.s1;
                     current_block = 1176253869785344635;
                     break;
                 }
-                40 => {
+                TextNode::MarginKern => {
                     x = x + MEM[(p + 1) as usize].b32.s1;
                     current_block = 1176253869785344635;
                     break;
                 }
-                9 => {
+                TextNode::Math => {
                     x = x + MEM[(p + 1) as usize].b32.s1;
                     if *INTPAR(IntPar::texxet) > 0 {
                         /*1498: */
@@ -11453,7 +11441,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
                     current_block = 1176253869785344635;
                     break;
                 }
-                6 => {
+                TextNode::Ligature => {
                     MEM[GARBAGE] = MEM[(p + 1) as usize];
                     MEM[GARBAGE].b32.s1 = MEM[p as usize].b32.s1;
                     p = GARBAGE as i32;
@@ -11467,7 +11455,8 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
         }
         match current_block {
             10435735846551762309 => {
-                let mut k = if q != r + 5 && NODE_type(q as usize) == TextNode::Disc.into() {
+                let mut k = if q != (r as i32) + 5 && NODE_type(q as usize) == TextNode::Disc.into()
+                {
                     MEM[q as usize].b16.s0 as i32
                 } else {
                     0
@@ -11587,17 +11576,17 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
     if !pre_adjust_tail.is_texnull() {
         MEM[pre_adjust_tail as usize].b32.s1 = TEX_NULL;
     }
-    MEM[(r + 3) as usize].b32.s1 = h;
-    MEM[(r + 2) as usize].b32.s1 = d;
+    MEM[r + 3].b32.s1 = h;
+    MEM[r + 2].b32.s1 = d;
     if m == ADDITIONAL as i16 {
         w = x + w;
     }
-    MEM[(r + 1) as usize].b32.s1 = w;
+    MEM[r + 1].b32.s1 = w;
     x = w - x;
     if x == 0 {
-        MEM[(r + 5) as usize].b16.s1 = NORMAL;
-        MEM[(r + 5) as usize].b16.s0 = NORMAL;
-        *BOX_glue_set(r as usize) = 0.;
+        MEM[r + 5].b16.s1 = NORMAL;
+        MEM[r + 5].b16.s0 = NORMAL;
+        *BOX_glue_set(r) = 0.;
         current_block = 2380354494544673732;
     } else if x > 0 {
         /*683: */
@@ -11610,16 +11599,16 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
         } else {
             o = 0 as glue_ord
         } /*normal *//*:684 */
-        MEM[(r + 5) as usize].b16.s0 = o as u16;
-        MEM[(r + 5) as usize].b16.s1 = STRETCHING as u16;
+        MEM[r + 5].b16.s0 = o as u16;
+        MEM[r + 5].b16.s1 = STRETCHING as u16;
         if total_stretch[o as usize] != 0 {
-            MEM[(r + 6) as usize].gr = x as f64 / total_stretch[o as usize] as f64
+            MEM[r + 6].gr = x as f64 / total_stretch[o as usize] as f64
         } else {
-            MEM[(r + 5) as usize].b16.s1 = NORMAL;
-            MEM[(r + 6) as usize].gr = 0.;
+            MEM[r + 5].b16.s1 = NORMAL;
+            MEM[r + 6].gr = 0.;
         }
         if o == NORMAL as u8 {
-            if !MEM[(r + 5) as usize].b32.s1.is_texnull() {
+            if !MEM[r + 5].b32.s1.is_texnull() {
                 /*685: */
                 last_badness = badness(x, total_stretch[NORMAL as usize]); /*normal *//*:690 */
                 if last_badness > *INTPAR(IntPar::hbadness) {
@@ -11651,20 +11640,17 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
         } else {
             o = 0 as glue_ord
         }
-        MEM[(r + 5) as usize].b16.s0 = o as u16;
-        MEM[(r + 5) as usize].b16.s1 = SHRINKING as u16;
+        MEM[r + 5].b16.s0 = o as u16;
+        MEM[r + 5].b16.s1 = SHRINKING as u16;
         if total_shrink[o as usize] != 0 {
-            *BOX_glue_set(r as usize) = -x as f64 / total_shrink[o as usize] as f64
+            *BOX_glue_set(r) = -x as f64 / total_shrink[o as usize] as f64
         } else {
-            MEM[(r + 5) as usize].b16.s1 = NORMAL;
-            *BOX_glue_set(r as usize) = 0.;
+            MEM[r + 5].b16.s1 = NORMAL;
+            *BOX_glue_set(r) = 0.;
         }
-        if total_shrink[o as usize] < -x
-            && o == NORMAL as u8
-            && !MEM[(r + 5) as usize].b32.s1.is_texnull()
-        {
+        if total_shrink[o as usize] < -x && o == NORMAL as u8 && !MEM[r + 5].b32.s1.is_texnull() {
             last_badness = 1000000;
-            MEM[(r + 6) as usize].gr = 1.;
+            MEM[r + 6].gr = 1.;
             if -x - total_shrink[0] > *DIMENPAR(DimenPar::hfuzz) || *INTPAR(IntPar::hbadness) < 100
             {
                 if *DIMENPAR(DimenPar::overfull_rule) > 0
@@ -11686,7 +11672,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
                 current_block = 2380354494544673732;
             }
         } else if o == NORMAL as u8 {
-            if !MEM[(r + 5) as usize].b32.s1.is_texnull() {
+            if !MEM[r + 5].b32.s1.is_texnull() {
                 /*692: */
                 last_badness = badness(-x, total_shrink[NORMAL as usize]);
                 if last_badness > *INTPAR(IntPar::hbadness) {
@@ -11725,10 +11711,10 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
                 }
                 print_ln();
                 font_in_short_display = 0i32;
-                short_display(MEM[(r + 5) as usize].b32.s1);
+                short_display(MEM[r + 5].b32.s1);
                 print_ln();
                 begin_diagnostic();
-                show_box(r);
+                show_box(r as i32);
                 end_diagnostic(true);
                 current_block = 2380354494544673732;
             }
@@ -11779,7 +11765,12 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> i32 {
     }
     r
 }
-pub(crate) unsafe fn vpackage(mut p: i32, mut h: scaled_t, mut m: i16, mut l: scaled_t) -> usize {
+pub(crate) unsafe fn vpackage(
+    mut popt: Option<usize>,
+    mut h: scaled_t,
+    mut m: i16,
+    mut l: scaled_t,
+) -> usize {
     let mut current_block: u64;
     last_badness = 0;
     let r = get_node(BOX_NODE_SIZE) as usize;
@@ -11790,7 +11781,7 @@ pub(crate) unsafe fn vpackage(mut p: i32, mut h: scaled_t, mut m: i16, mut l: sc
         MEM[r].b16.s0 = 0;
     }
     MEM[r + 4].b32.s1 = 0;
-    MEM[r + 5].b32.s1 = p;
+    MEM[r + 5].b32.s1 = popt.tex_int();
     let mut w = 0;
     let mut d = 0;
     let mut x = 0;
@@ -11802,19 +11793,17 @@ pub(crate) unsafe fn vpackage(mut p: i32, mut h: scaled_t, mut m: i16, mut l: sc
     total_shrink[FILL as usize] = 0;
     total_stretch[FILLL as usize] = 0;
     total_shrink[FILLL as usize] = 0;
-    while !p.is_texnull() {
+    while let Some(p) = popt {
         /*694: */
-        if is_char_node(p) {
+        if is_char_node(p as i32) {
             confusion(b"vpack"); /*701: */
         } else {
-            let p = p as usize;
-            match MEM[p].b16.s1 as i32 {
-                0 | 1 | 2 | 13 => {
+            let n = text_NODE_type(p).unwrap();
+            match n {
+                TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Unset => {
                     x = x + d + MEM[p + 3].b32.s1;
                     d = MEM[p + 2].b32.s1;
-                    let s = if ![TextNode::HList.into(), TextNode::VList.into()]
-                        .contains(&NODE_type(p))
-                    {
+                    let s = if ![TextNode::HList, TextNode::VList].contains(&n) {
                         0
                     } else {
                         MEM[p + 4].b32.s1
@@ -11823,7 +11812,7 @@ pub(crate) unsafe fn vpackage(mut p: i32, mut h: scaled_t, mut m: i16, mut l: sc
                         w = MEM[p + 1].b32.s1 + s
                     }
                 }
-                8 => {
+                TextNode::WhatsIt => {
                     if whatsit_NODE_subtype(p) == WhatsItNST::Pic
                         || whatsit_NODE_subtype(p) == WhatsItNST::Pdf
                     {
@@ -11834,7 +11823,7 @@ pub(crate) unsafe fn vpackage(mut p: i32, mut h: scaled_t, mut m: i16, mut l: sc
                         }
                     }
                 }
-                10 => {
+                TextNode::Glue => {
                     x = x + d;
                     d = 0;
                     let g = MEM[p + 1].b32.s0 as usize;
@@ -11850,14 +11839,14 @@ pub(crate) unsafe fn vpackage(mut p: i32, mut h: scaled_t, mut m: i16, mut l: sc
                         }
                     }
                 }
-                11 => {
+                TextNode::Kern => {
                     x = x + d + MEM[p + 1].b32.s1;
                     d = 0;
                 }
                 _ => {}
             }
         }
-        p = *LLIST_link(p as usize)
+        popt = LLIST_link(p).opt();
     }
     MEM[r + 1].b32.s1 = w;
     if d > l {
@@ -12283,9 +12272,7 @@ pub(crate) unsafe fn init_col() {
     };
 }
 pub(crate) unsafe fn fin_col() -> bool {
-    let mut r: i32 = 0;
     let mut s: i32 = 0;
-    let mut u: i32 = 0;
     let mut w: scaled_t = 0;
     let mut o: glue_ord = 0;
     let mut n: i32 = 0;
@@ -12309,22 +12296,22 @@ pub(crate) unsafe fn fin_col() -> bool {
             MEM[(p + 1) as usize].b32.s1 = NULL_FLAG;
             cur_loop = MEM[cur_loop as usize].b32.s1;
             q = HOLD_HEAD as i32;
-            r = MEM[(cur_loop + 3) as usize].b32.s1;
-            while !r.is_texnull() {
+            let mut ropt = MEM[(cur_loop + 3) as usize].b32.s1.opt();
+            while let Some(r) = ropt {
                 MEM[q as usize].b32.s1 = get_avail() as i32;
                 q = *LLIST_link(q as usize);
-                MEM[q as usize].b32.s0 = MEM[r as usize].b32.s0;
-                r = *LLIST_link(r as usize);
+                MEM[q as usize].b32.s0 = MEM[r].b32.s0;
+                ropt = LLIST_link(r).opt();
             }
             MEM[q as usize].b32.s1 = TEX_NULL;
             MEM[(p + 3) as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1;
             q = HOLD_HEAD as i32;
-            r = MEM[(cur_loop + 2) as usize].b32.s1;
-            while !r.is_texnull() {
+            let mut ropt = MEM[(cur_loop + 2) as usize].b32.s1.opt();
+            while let Some(r) = ropt {
                 MEM[q as usize].b32.s1 = get_avail() as i32;
                 q = *LLIST_link(q as usize);
-                MEM[q as usize].b32.s0 = MEM[r as usize].b32.s0;
-                r = *LLIST_link(r as usize);
+                MEM[q as usize].b32.s0 = MEM[r].b32.s0;
+                ropt = LLIST_link(r).opt();
             }
             MEM[q as usize].b32.s1 = TEX_NULL;
             MEM[(p + 2) as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1;
@@ -12349,18 +12336,19 @@ pub(crate) unsafe fn fin_col() -> bool {
     if MEM[(cur_align + 5) as usize].b32.s0 != SPAN_CODE {
         unsave();
         new_save_level(GroupCode::ALIGN);
+        let mut u;
         if cur_list.mode == (true, ListMode::HMode) {
             adjust_tail = cur_tail;
             pre_adjust_tail = cur_pre_tail;
             u = hpack(MEM[cur_list.head].b32.s1, 0, ADDITIONAL as i16);
-            w = MEM[(u + 1) as usize].b32.s1;
+            w = MEM[u + 1].b32.s1;
             cur_tail = adjust_tail;
             adjust_tail = TEX_NULL;
             cur_pre_tail = pre_adjust_tail;
             pre_adjust_tail = TEX_NULL
         } else {
-            u = vpackage(MEM[cur_list.head].b32.s1, 0, ADDITIONAL as i16, 0) as i32;
-            w = MEM[(u + 3) as usize].b32.s1
+            u = vpackage(MEM[cur_list.head].b32.s1.opt(), 0, ADDITIONAL as i16, 0);
+            w = MEM[u + 3].b32.s1
         }
         n = 0;
         if cur_span != cur_align {
@@ -12392,8 +12380,8 @@ pub(crate) unsafe fn fin_col() -> bool {
         } else if w > MEM[(cur_align + 1) as usize].b32.s1 {
             MEM[(cur_align + 1) as usize].b32.s1 = w
         }
-        set_NODE_type(u as usize, TextNode::Unset);
-        MEM[u as usize].b16.s0 = n as u16;
+        set_NODE_type(u, TextNode::Unset);
+        MEM[u].b16.s0 = n as u16;
         if total_stretch[FILLL as usize] != 0 {
             o = FILLL as glue_ord
         } else if total_stretch[FILL as usize] != 0 {
@@ -12403,8 +12391,8 @@ pub(crate) unsafe fn fin_col() -> bool {
         } else {
             o = 0 as glue_ord
         }
-        MEM[(u + 5) as usize].b16.s0 = o as u16;
-        MEM[(u + 6) as usize].b32.s1 = total_stretch[o as usize];
+        MEM[u + 5].b16.s0 = o as u16;
+        MEM[u + 6].b32.s1 = total_stretch[o as usize];
         if total_shrink[FILLL as usize] != 0 {
             o = FILLL as glue_ord
         } else if total_shrink[FILL as usize] != 0 {
@@ -12414,11 +12402,11 @@ pub(crate) unsafe fn fin_col() -> bool {
         } else {
             o = 0 as glue_ord
         }
-        MEM[(u + 5) as usize].b16.s1 = o as u16;
-        MEM[(u + 4) as usize].b32.s1 = total_shrink[o as usize];
+        MEM[u + 5].b16.s1 = o as u16;
+        MEM[u + 4].b32.s1 = total_shrink[o as usize];
         pop_nest();
-        MEM[cur_list.tail].b32.s1 = u;
-        cur_list.tail = u as usize;
+        MEM[cur_list.tail].b32.s1 = u as i32;
+        cur_list.tail = u;
         MEM[cur_list.tail].b32.s1 =
             new_glue(MEM[(MEM[cur_align as usize].b32.s1 + 1) as usize].b32.s0) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
@@ -12440,7 +12428,7 @@ pub(crate) unsafe fn fin_col() -> bool {
     false
 }
 pub(crate) unsafe fn fin_row() {
-    let mut p: i32 = 0;
+    let mut p;
     if cur_list.mode == (true, ListMode::HMode) {
         p = hpack(MEM[cur_list.head].b32.s1, 0, ADDITIONAL as i16);
         pop_nest();
@@ -12448,25 +12436,25 @@ pub(crate) unsafe fn fin_row() {
             MEM[cur_list.tail].b32.s1 = MEM[cur_pre_head as usize].b32.s1;
             cur_list.tail = cur_pre_tail as usize;
         }
-        append_to_vlist(p as usize);
+        append_to_vlist(p);
         if cur_head != cur_tail {
             MEM[cur_list.tail].b32.s1 = MEM[cur_head as usize].b32.s1;
             cur_list.tail = cur_tail as usize;
         }
     } else {
         p = vpackage(
-            MEM[cur_list.head].b32.s1,
+            MEM[cur_list.head].b32.s1.opt(),
             0,
             ADDITIONAL as i16,
             MAX_HALFWORD,
-        ) as i32;
+        );
         pop_nest();
-        MEM[cur_list.tail].b32.s1 = p;
-        cur_list.tail = p as usize;
+        MEM[cur_list.tail].b32.s1 = p as i32;
+        cur_list.tail = p;
         cur_list.aux.b32.s0 = 1000i32
     }
-    MEM[p as usize].b16.s1 = 13_u16;
-    MEM[(p + 6) as usize].b32.s1 = 0;
+    MEM[p].b16.s1 = 13_u16;
+    MEM[p + 6].b32.s1 = 0;
     if !LOCAL(Local::every_cr).is_texnull() {
         begin_token_list(*LOCAL(Local::every_cr) as usize, Btl::EveryCRText);
     }
@@ -12474,9 +12462,6 @@ pub(crate) unsafe fn fin_row() {
 }
 pub(crate) unsafe fn fin_align() {
     let mut p: i32 = 0;
-    let mut r: i32 = 0;
-    let mut s: i32 = 0;
-    let mut u: i32 = 0;
     let mut v: i32 = 0;
     let mut t: scaled_t = 0;
     let mut w: scaled_t = 0;
@@ -12506,9 +12491,9 @@ pub(crate) unsafe fn fin_align() {
         if MEM[(q + 1) as usize].b32.s1 == NULL_FLAG {
             /*831: */
             MEM[(q + 1) as usize].b32.s1 = 0;
-            r = MEM[q as usize].b32.s1;
-            s = MEM[(r + 1) as usize].b32.s0;
-            if s != 0i32 {
+            let r = MEM[q as usize].b32.s1;
+            let s = MEM[(r + 1) as usize].b32.s0;
+            if s != 0 {
                 *GLUE_SPEC_ref_count(0) += 1;
                 delete_glue_ref(s as usize);
                 MEM[(r + 1) as usize].b32.s0 = 0
@@ -12520,33 +12505,30 @@ pub(crate) unsafe fn fin_align() {
                 + MEM[(MEM[(MEM[q as usize].b32.s1 + 1) as usize].b32.s0 + 1) as usize]
                     .b32
                     .s1; /*:833 */
-            r = MEM[q as usize].b32.s0;
-            s = END_SPAN as i32;
-            MEM[s as usize].b32.s0 = p;
+            let mut r = MEM[q as usize].b32.s0 as usize;
+            let mut s = END_SPAN;
+            MEM[s].b32.s0 = p;
             n = 1;
             loop {
-                MEM[(r + 1) as usize].b32.s1 = MEM[(r + 1) as usize].b32.s1 - t;
-                u = MEM[r as usize].b32.s0;
-                while MEM[r as usize].b32.s1 > n {
-                    s = MEM[s as usize].b32.s0;
-                    n = MEM[MEM[s as usize].b32.s0 as usize].b32.s1 + 1;
+                MEM[r + 1].b32.s1 = MEM[r + 1].b32.s1 - t;
+                let u = MEM[r].b32.s0 as usize;
+                while MEM[r].b32.s1 > n {
+                    s = MEM[s].b32.s0 as usize;
+                    n = MEM[MEM[s].b32.s0 as usize].b32.s1 + 1;
                 }
-                if MEM[r as usize].b32.s1 < n {
-                    MEM[r as usize].b32.s0 = MEM[s as usize].b32.s0;
-                    MEM[s as usize].b32.s0 = r;
-                    MEM[r as usize].b32.s1 -= 1;
+                if MEM[r].b32.s1 < n {
+                    MEM[r].b32.s0 = MEM[s].b32.s0;
+                    MEM[s].b32.s0 = r as i32;
+                    MEM[r].b32.s1 -= 1;
                     s = r
                 } else {
-                    if MEM[(r + 1) as usize].b32.s1
-                        > MEM[(MEM[s as usize].b32.s0 + 1) as usize].b32.s1
-                    {
-                        MEM[(MEM[s as usize].b32.s0 + 1) as usize].b32.s1 =
-                            MEM[(r + 1) as usize].b32.s1;
+                    if MEM[r + 1].b32.s1 > MEM[(MEM[s].b32.s0 + 1) as usize].b32.s1 {
+                        MEM[(MEM[s].b32.s0 + 1) as usize].b32.s1 = MEM[r + 1].b32.s1;
                     }
-                    free_node(r as usize, SPAN_NODE_SIZE);
+                    free_node(r, SPAN_NODE_SIZE);
                 }
                 r = u;
-                if r == END_SPAN as i32 {
+                if r == END_SPAN {
                     break;
                 }
             }
@@ -12566,6 +12548,7 @@ pub(crate) unsafe fn fin_align() {
     }
     SAVE_PTR -= 2;
     pack_begin_line = -cur_list.mode_line;
+    let p;
     if cur_list.mode == (true, ListMode::VMode) {
         rule_save = *DIMENPAR(DimenPar::overfull_rule);
         *DIMENPAR(DimenPar::overfull_rule) = 0;
@@ -12576,7 +12559,7 @@ pub(crate) unsafe fn fin_align() {
         );
         *DIMENPAR(DimenPar::overfull_rule) = rule_save
     } else {
-        q = MEM[MEM[ALIGN_HEAD].b32.s1 as usize].b32.s1;
+        let mut q = MEM[MEM[ALIGN_HEAD].b32.s1 as usize].b32.s1;
         loop {
             MEM[(q + 3) as usize].b32.s1 = MEM[(q + 1) as usize].b32.s1;
             MEM[(q + 1) as usize].b32.s1 = 0;
@@ -12586,12 +12569,12 @@ pub(crate) unsafe fn fin_align() {
             }
         }
         p = vpackage(
-            MEM[ALIGN_HEAD].b32.s1,
+            MEM[ALIGN_HEAD].b32.s1.opt(),
             SAVE_STACK[SAVE_PTR + 1].val,
             SAVE_STACK[SAVE_PTR + 0].val as i16,
             MAX_HALFWORD,
-        ) as i32;
-        q = MEM[MEM[ALIGN_HEAD].b32.s1 as usize].b32.s1;
+        );
+        let mut q = MEM[MEM[ALIGN_HEAD].b32.s1 as usize].b32.s1;
         loop {
             MEM[(q + 1) as usize].b32.s1 = MEM[(q + 3) as usize].b32.s1;
             MEM[(q + 3) as usize].b32.s1 = 0;
@@ -12602,42 +12585,42 @@ pub(crate) unsafe fn fin_align() {
         }
     }
     pack_begin_line = 0;
-    q = MEM[cur_list.head].b32.s1;
-    s = cur_list.head as i32;
-    while !q.is_texnull() {
-        if !is_char_node(q) {
-            if NODE_type(q as usize) == TextNode::Unset.into() {
+    let mut qopt = MEM[cur_list.head].b32.s1.opt();
+    let mut s = cur_list.head;
+    while let Some(q) = qopt {
+        if !is_char_node(q as i32) {
+            if NODE_type(q) == TextNode::Unset.into() {
                 /*836: */
                 if cur_list.mode == (true, ListMode::VMode) {
-                    set_NODE_type(q as usize, TextNode::HList);
-                    MEM[(q + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
-                    if NEST[(NEST_PTR - 1) as usize].mode == (false, ListMode::MMode) {
-                        MEM[q as usize].b16.s0 = LRMode::DList as u16;
+                    set_NODE_type(q, TextNode::HList);
+                    MEM[q + 1].b32.s1 = MEM[(p + 1) as usize].b32.s1;
+                    if NEST[NEST_PTR - 1].mode == (false, ListMode::MMode) {
+                        MEM[q].b16.s0 = LRMode::DList as u16;
                     }
                 } else {
-                    set_NODE_type(q as usize, TextNode::VList);
-                    MEM[(q + 3) as usize].b32.s1 = MEM[(p + 3) as usize].b32.s1;
+                    set_NODE_type(q, TextNode::VList);
+                    MEM[q + 3].b32.s1 = MEM[(p + 3) as usize].b32.s1;
                 }
-                MEM[(q + 5) as usize].b16.s0 = MEM[(p + 5) as usize].b16.s0;
-                MEM[(q + 5) as usize].b16.s1 = MEM[(p + 5) as usize].b16.s1;
-                MEM[(q + 6) as usize].gr = MEM[(p + 6) as usize].gr;
-                MEM[(q + 4) as usize].b32.s1 = o;
-                r = MEM[MEM[(q + 5) as usize].b32.s1 as usize].b32.s1;
-                s = MEM[MEM[(p + 5) as usize].b32.s1 as usize].b32.s1;
+                MEM[q + 5].b16.s0 = MEM[(p + 5) as usize].b16.s0;
+                MEM[q + 5].b16.s1 = MEM[(p + 5) as usize].b16.s1;
+                MEM[q + 6].gr = MEM[(p + 6) as usize].gr;
+                MEM[q + 4].b32.s1 = o;
+                let mut r = MEM[MEM[q + 5].b32.s1 as usize].b32.s1 as usize;
+                s = MEM[MEM[(p + 5) as usize].b32.s1 as usize].b32.s1 as usize;
                 loop {
                     /*837: */
-                    n = MEM[r as usize].b16.s0 as i32; /*840: */
-                    t = MEM[(s + 1) as usize].b32.s1;
+                    n = MEM[r].b16.s0 as i32; /*840: */
+                    t = MEM[s + 1].b32.s1;
                     w = t;
-                    u = HOLD_HEAD as i32;
-                    MEM[r as usize].b16.s0 = 0;
+                    let mut u = HOLD_HEAD;
+                    MEM[r].b16.s0 = 0;
                     while n > 0 {
                         n -= 1;
-                        s = *LLIST_link(s as usize);
-                        v = MEM[(s + 1) as usize].b32.s0;
-                        MEM[u as usize].b32.s1 = new_glue(v) as i32;
-                        u = *LLIST_link(u as usize);
-                        MEM[u as usize].b16.s0 = GluePar::tab_skip as u16 + 1;
+                        s = *LLIST_link(s) as usize;
+                        v = MEM[s + 1].b32.s0;
+                        MEM[u].b32.s1 = new_glue(v) as i32;
+                        u = *LLIST_link(u) as usize;
+                        MEM[u].b16.s0 = GluePar::tab_skip as u16 + 1;
                         t = t + MEM[(v + 1) as usize].b32.s1;
                         if MEM[(p + 5) as usize].b16.s1 == STRETCHING as u16 {
                             if MEM[v as usize].b16.s1 as i32 == MEM[(p + 5) as usize].b16.s0 as i32
@@ -12656,125 +12639,124 @@ pub(crate) unsafe fn fin_align() {
                                 )
                             }
                         }
-                        s = *LLIST_link(s as usize);
-                        MEM[u as usize].b32.s1 = new_null_box() as i32;
-                        u = *LLIST_link(u as usize);
-                        t = t + MEM[(s + 1) as usize].b32.s1;
+                        s = *LLIST_link(s) as usize;
+                        MEM[u].b32.s1 = new_null_box() as i32;
+                        u = *LLIST_link(u) as usize;
+                        t = t + MEM[s + 1].b32.s1;
                         if cur_list.mode == (true, ListMode::VMode) {
-                            MEM[(u + 1) as usize].b32.s1 = MEM[(s + 1) as usize].b32.s1
+                            MEM[u + 1].b32.s1 = MEM[s + 1].b32.s1
                         } else {
-                            set_NODE_type(u as usize, TextNode::VList);
-                            MEM[(u + 3) as usize].b32.s1 = MEM[(s + 1) as usize].b32.s1
+                            set_NODE_type(u, TextNode::VList);
+                            MEM[u + 3].b32.s1 = MEM[s + 1].b32.s1
                         }
                     }
                     if cur_list.mode == (true, ListMode::VMode) {
                         /*839: */
-                        MEM[(r + 3) as usize].b32.s1 = MEM[(q + 3) as usize].b32.s1;
-                        MEM[(r + 2) as usize].b32.s1 = MEM[(q + 2) as usize].b32.s1;
-                        if t == MEM[(r + 1) as usize].b32.s1 {
-                            MEM[(r + 5) as usize].b16.s1 = NORMAL;
-                            MEM[(r + 5) as usize].b16.s0 = NORMAL;
-                            *BOX_glue_set(r as usize) = 0.;
-                        } else if t > MEM[(r + 1) as usize].b32.s1 {
-                            MEM[(r + 5) as usize].b16.s1 = STRETCHING as u16;
-                            if MEM[(r + 6) as usize].b32.s1 == 0 {
-                                *BOX_glue_set(r as usize) = 0.;
+                        MEM[r + 3].b32.s1 = MEM[q + 3].b32.s1;
+                        MEM[r + 2].b32.s1 = MEM[q + 2].b32.s1;
+                        if t == MEM[r + 1].b32.s1 {
+                            MEM[r + 5].b16.s1 = NORMAL;
+                            MEM[r + 5].b16.s0 = NORMAL;
+                            *BOX_glue_set(r) = 0.;
+                        } else if t > MEM[r + 1].b32.s1 {
+                            MEM[r + 5].b16.s1 = STRETCHING as u16;
+                            if MEM[r + 6].b32.s1 == 0 {
+                                *BOX_glue_set(r) = 0.;
                             } else {
-                                *BOX_glue_set(r as usize) = (t - MEM[(r + 1) as usize].b32.s1)
-                                    as f64
-                                    / MEM[(r + 6) as usize].b32.s1 as f64
+                                *BOX_glue_set(r) =
+                                    (t - MEM[r + 1].b32.s1) as f64 / MEM[r + 6].b32.s1 as f64
                             }
                         } else {
-                            MEM[(r + 5) as usize].b16.s0 = MEM[(r + 5) as usize].b16.s1;
-                            MEM[(r + 5) as usize].b16.s1 = SHRINKING as u16;
-                            if MEM[(r + 4) as usize].b32.s1 == 0 {
-                                MEM[(r + 6) as usize].gr = 0.;
-                            } else if MEM[(r + 5) as usize].b16.s0 == NORMAL
-                                && MEM[(r + 1) as usize].b32.s1 - t > MEM[(r + 4) as usize].b32.s1
+                            MEM[r + 5].b16.s0 = MEM[r + 5].b16.s1;
+                            MEM[r + 5].b16.s1 = SHRINKING as u16;
+                            if MEM[r + 4].b32.s1 == 0 {
+                                MEM[r + 6].gr = 0.;
+                            } else if MEM[r + 5].b16.s0 == NORMAL
+                                && MEM[r + 1].b32.s1 - t > MEM[r + 4].b32.s1
                             {
-                                *BOX_glue_set(r as usize) = 1.;
+                                *BOX_glue_set(r) = 1.;
                             } else {
-                                *BOX_glue_set(r as usize) = (MEM[(r + 1) as usize].b32.s1 - t)
-                                    as f64
-                                    / MEM[(r + 4) as usize].b32.s1 as f64;
+                                *BOX_glue_set(r) =
+                                    (MEM[r + 1].b32.s1 - t) as f64 / MEM[r + 4].b32.s1 as f64;
                             }
                         }
-                        MEM[(r + 1) as usize].b32.s1 = w;
-                        set_NODE_type(r as usize, TextNode::HList);
+                        MEM[r + 1].b32.s1 = w;
+                        set_NODE_type(r, TextNode::HList);
                     } else {
-                        MEM[(r + 1) as usize].b32.s1 = MEM[(q + 1) as usize].b32.s1;
-                        if t == MEM[(r + 3) as usize].b32.s1 {
-                            MEM[(r + 5) as usize].b16.s1 = NORMAL;
-                            MEM[(r + 5) as usize].b16.s0 = NORMAL;
-                            *BOX_glue_set(r as usize) = 0.;
-                        } else if t > MEM[(r + 3) as usize].b32.s1 {
-                            MEM[(r + 5) as usize].b16.s1 = STRETCHING as u16;
-                            if MEM[(r + 6) as usize].b32.s1 == 0 {
-                                *BOX_glue_set(r as usize) = 0.;
+                        MEM[r + 1].b32.s1 = MEM[q + 1].b32.s1;
+                        if t == MEM[r + 3].b32.s1 {
+                            MEM[r + 5].b16.s1 = NORMAL;
+                            MEM[r + 5].b16.s0 = NORMAL;
+                            *BOX_glue_set(r) = 0.;
+                        } else if t > MEM[r + 3].b32.s1 {
+                            MEM[r + 5].b16.s1 = STRETCHING as u16;
+                            if MEM[r + 6].b32.s1 == 0 {
+                                *BOX_glue_set(r) = 0.;
                             } else {
-                                *BOX_glue_set(r as usize) = (t - MEM[(r + 3) as usize].b32.s1)
-                                    as f64
-                                    / MEM[(r + 6) as usize].b32.s1 as f64
+                                *BOX_glue_set(r) =
+                                    (t - MEM[r + 3].b32.s1) as f64 / MEM[r + 6].b32.s1 as f64
                             }
                         } else {
-                            MEM[(r + 5) as usize].b16.s0 = MEM[(r + 5) as usize].b16.s1;
-                            MEM[(r + 5) as usize].b16.s1 = SHRINKING as u16;
-                            if MEM[(r + 4) as usize].b32.s1 == 0 {
-                                *BOX_glue_set(r as usize) = 0.0;
-                            } else if MEM[(r + 5) as usize].b16.s0 == NORMAL
-                                && MEM[(r + 3) as usize].b32.s1 - t > MEM[(r + 4) as usize].b32.s1
+                            MEM[r + 5].b16.s0 = MEM[r + 5].b16.s1;
+                            MEM[r + 5].b16.s1 = SHRINKING as u16;
+                            if MEM[r + 4].b32.s1 == 0 {
+                                *BOX_glue_set(r) = 0.0;
+                            } else if MEM[r + 5].b16.s0 == NORMAL
+                                && MEM[r + 3].b32.s1 - t > MEM[r + 4].b32.s1
                             {
-                                *BOX_glue_set(r as usize) = 1.;
+                                *BOX_glue_set(r) = 1.;
                             } else {
-                                *BOX_glue_set(r as usize) = (MEM[(r + 3) as usize].b32.s1 - t)
-                                    as f64
-                                    / MEM[(r + 4) as usize].b32.s1 as f64
+                                *BOX_glue_set(r) =
+                                    (MEM[r + 3].b32.s1 - t) as f64 / MEM[r + 4].b32.s1 as f64
                             }
                         }
-                        MEM[(r + 3) as usize].b32.s1 = w;
-                        set_NODE_type(r as usize, TextNode::VList);
+                        MEM[r + 3].b32.s1 = w;
+                        set_NODE_type(r, TextNode::VList);
                     }
-                    MEM[(r + 4) as usize].b32.s1 = 0;
-                    if u != HOLD_HEAD as i32 {
-                        MEM[u as usize].b32.s1 = MEM[r as usize].b32.s1;
-                        MEM[r as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1;
+                    MEM[r + 4].b32.s1 = 0;
+                    if u != HOLD_HEAD {
+                        MEM[u].b32.s1 = MEM[r].b32.s1;
+                        MEM[r].b32.s1 = MEM[HOLD_HEAD].b32.s1;
                         r = u;
                     }
-                    r = MEM[MEM[r as usize].b32.s1 as usize].b32.s1;
-                    s = MEM[MEM[s as usize].b32.s1 as usize].b32.s1;
-                    if r.is_texnull() {
+                    let ropt = MEM[MEM[r].b32.s1 as usize].b32.s1.opt();
+                    s = MEM[MEM[s].b32.s1 as usize].b32.s1 as usize;
+                    if let Some(r_) = ropt {
+                        r = r_;
+                    } else {
                         break;
                     }
                 }
-            } else if NODE_type(q as usize) == TextNode::Rule.into() {
+            } else if NODE_type(q) == TextNode::Rule.into() {
                 /*835: */
-                if MEM[(q + 1) as usize].b32.s1 == NULL_FLAG {
-                    MEM[(q + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1
+                if MEM[q + 1].b32.s1 == NULL_FLAG {
+                    MEM[q + 1].b32.s1 = MEM[(p + 1) as usize].b32.s1
                 }
-                if MEM[(q + 3) as usize].b32.s1 == NULL_FLAG {
-                    MEM[(q + 3) as usize].b32.s1 = MEM[(p + 3) as usize].b32.s1
+                if MEM[q + 3].b32.s1 == NULL_FLAG {
+                    MEM[q + 3].b32.s1 = MEM[(p + 3) as usize].b32.s1
                 }
-                if MEM[(q + 2) as usize].b32.s1 == NULL_FLAG {
-                    MEM[(q + 2) as usize].b32.s1 = MEM[(p + 2) as usize].b32.s1
+                if MEM[q + 2].b32.s1 == NULL_FLAG {
+                    MEM[q + 2].b32.s1 = MEM[(p + 2) as usize].b32.s1
                 }
                 if o != 0 {
-                    r = MEM[q as usize].b32.s1;
-                    MEM[q as usize].b32.s1 = TEX_NULL;
-                    q = hpack(q, 0, ADDITIONAL as i16);
-                    MEM[(q + 4) as usize].b32.s1 = o;
-                    MEM[q as usize].b32.s1 = r;
-                    MEM[s as usize].b32.s1 = q
+                    let r = MEM[q].b32.s1;
+                    MEM[q].b32.s1 = TEX_NULL;
+                    let q = hpack(q as i32, 0, ADDITIONAL as i16);
+                    MEM[q + 4].b32.s1 = o;
+                    MEM[q].b32.s1 = r;
+                    MEM[s].b32.s1 = q as i32;
+                    qopt = Some(q);
                 }
             }
         }
         s = q;
-        q = *LLIST_link(q as usize);
+        qopt = LLIST_link(q).opt();
     }
-    flush_node_list(p.opt());
+    flush_node_list(Some(p));
     pop_alignment();
     aux_save = cur_list.aux;
-    p = MEM[cur_list.head].b32.s1;
-    q = cur_list.tail as i32;
+    let p = MEM[cur_list.head].b32.s1;
+    let q = cur_list.tail;
     pop_nest();
     if cur_list.mode == (false, ListMode::MMode) {
         /*1241: */
@@ -12814,7 +12796,7 @@ pub(crate) unsafe fn fin_align() {
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         MEM[cur_list.tail].b32.s1 = p;
         if !p.is_texnull() {
-            cur_list.tail = q as usize;
+            cur_list.tail = q;
         }
         MEM[cur_list.tail].b32.s1 = new_penalty(*INTPAR(IntPar::post_display_penalty)) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
@@ -12826,7 +12808,7 @@ pub(crate) unsafe fn fin_align() {
         cur_list.aux = aux_save;
         MEM[cur_list.tail].b32.s1 = p;
         if !p.is_texnull() {
-            cur_list.tail = q as usize;
+            cur_list.tail = q;
         }
         if cur_list.mode == (false, ListMode::VMode) {
             build_page();
@@ -13328,10 +13310,10 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
         }
     }
     let mut q = prune_page_top(q, *INTPAR(IntPar::saving_vdiscards) > 0);
-    let p = MEM[v + 5].b32.s1;
+    let p = MEM[v + 5].b32.s1.opt();
     free_node(v, BOX_NODE_SIZE);
     if !q.is_texnull() {
-        q = vpackage(q, 0, ADDITIONAL as i16, MAX_HALFWORD) as i32
+        q = vpackage(q.opt(), 0, ADDITIONAL as i16, MAX_HALFWORD) as i32
     }
     if cur_val < 256 {
         *BOX_REG(cur_val as usize) = q;
@@ -13741,7 +13723,7 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
                     MEM[(cur_ptr + 1) as usize].b32.s1
                 }
             };
-            cur_box = copy_node_list(q)
+            cur_box = copy_node_list(q.opt())
         }
         LAST_BOX_CODE => {
             cur_box = TEX_NULL;
@@ -13927,10 +13909,10 @@ pub(crate) unsafe fn package(mut c: i16) {
             MEM[cur_list.head].b32.s1,
             SAVE_STACK[SAVE_PTR + 2].val,
             SAVE_STACK[SAVE_PTR + 1].val as i16,
-        )
+        ) as i32;
     } else {
         cur_box = vpackage(
-            MEM[cur_list.head].b32.s1,
+            MEM[cur_list.head].b32.s1.opt(),
             SAVE_STACK[SAVE_PTR + 2].val,
             SAVE_STACK[SAVE_PTR + 1].val as i16,
             d,
@@ -14251,7 +14233,7 @@ pub(crate) unsafe fn unpackage() {
             return;
         }
         if c == COPY_CODE as u8 {
-            MEM[cur_list.tail].b32.s1 = copy_node_list(MEM[(p + 5) as usize].b32.s1)
+            MEM[cur_list.tail].b32.s1 = copy_node_list(MEM[(p + 5) as usize].b32.s1.opt())
         } else {
             MEM[cur_list.tail].b32.s1 = MEM[(p + 5) as usize].b32.s1;
             if cur_val < 256 {
@@ -15793,7 +15775,7 @@ pub(crate) unsafe fn handle_right_brace() {
             unsave();
             SAVE_PTR -= 2;
             p = vpackage(
-                MEM[cur_list.head].b32.s1,
+                MEM[cur_list.head].b32.s1.opt(),
                 0,
                 ADDITIONAL as i16,
                 MAX_HALFWORD,
@@ -15911,7 +15893,7 @@ pub(crate) unsafe fn handle_right_brace() {
             unsave();
             SAVE_PTR -= 2;
             p = vpackage(
-                MEM[cur_list.head].b32.s1,
+                MEM[cur_list.head].b32.s1.opt(),
                 SAVE_STACK[SAVE_PTR + 1].val,
                 SAVE_STACK[SAVE_PTR + 0].val as i16,
                 MAX_HALFWORD,
@@ -18032,7 +18014,7 @@ pub(crate) unsafe fn tokens_to_string(mut p: i32) -> str_number {
     }
     old_setting = selector;
     selector = Selector::NEW_STRING;
-    show_token_list(MEM[p as usize].b32.s1, TEX_NULL, pool_size - pool_ptr);
+    show_token_list(MEM[p as usize].b32.s1.opt(), None, pool_size - pool_ptr);
     selector = old_setting;
     make_string()
 }
