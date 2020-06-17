@@ -38,18 +38,17 @@ use crate::xetex_xetex0::{
     flush_list, flush_node_list, free_node, get_avail, get_node, get_token, glue_ord,
     internal_font_number, make_name_string, new_kern, new_math, new_native_word_node,
     open_log_file, pack_file_name, pack_job_name, packed_UTF16_code, pool_pointer, prepare_mag,
-    scaled_t, scan_toks, show_box, show_token_list, str_number, token_show,
-    UTF16_code,
+    scaled_t, scan_toks, show_box, show_token_list, str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
     is_char_node, kern_NODE_subtype, print_c_string, /*set_NODE_subtype, */ set_NODE_type,
-    whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height,
-    BOX_list_ptr, BOX_lr_mode, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
-    EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_SPEC_ref_count,
-    GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order,
-    LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph,
-    NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length, NODE_type, SYNCTEX_tag, TeXOpt,
-    FONT_CHARACTER_WIDTH,
+    text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign,
+    BOX_height, BOX_list_ptr, BOX_lr_mode, BOX_shift_amount, BOX_width, CHAR_NODE_character,
+    CHAR_NODE_font, EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
+    GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
+    GLUE_SPEC_stretch_order, LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font,
+    NATIVE_NODE_glyph, NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length, NODE_type, SYNCTEX_tag,
+    TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::{strerror, strlen};
@@ -295,7 +294,7 @@ pub(crate) unsafe fn ship_out(p: usize) {
 
         cur_v = *BOX_height(p) + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
         temp_ptr = p as i32;
-        if NODE_type(p) == VLIST_NODE {
+        if NODE_type(p) == TextNode::VList.into() {
             vlist_out();
         } else {
             hlist_out();
@@ -376,7 +375,7 @@ unsafe fn hlist_out() {
             if !LLIST_link(p as usize).is_texnull() {
                 if !p.is_texnull()
                     && !is_char_node(p)
-                    && NODE_type(p as usize) != WHATSIT_NODE
+                    && NODE_type(p as usize) != TextNode::WhatsIt.into()
                     && (whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWord
                         || whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWordAt)
                     && FONT_LETTER_SPACE[MEM[(p + 4) as usize].b16.s2 as usize] == 0
@@ -391,11 +390,11 @@ unsafe fn hlist_out() {
                          * reused a few times here. */
                         while !q.is_texnull()
                             && !is_char_node(q)
-                            && (NODE_type(q as usize) == PENALTY_NODE
-                                || NODE_type(q as usize) == INS_NODE
-                                || NODE_type(q as usize) == MARK_NODE
-                                || NODE_type(q as usize) == ADJUST_NODE
-                                || (NODE_type(q as usize) == WHATSIT_NODE
+                            && (NODE_type(q as usize) == TextNode::Penalty.into()
+                                || NODE_type(q as usize) == TextNode::Ins.into()
+                                || NODE_type(q as usize) == TextNode::Mark.into()
+                                || NODE_type(q as usize) == TextNode::Adjust.into()
+                                || (NODE_type(q as usize) == TextNode::WhatsIt.into()
                                     && [
                                         WhatsItNST::Open,
                                         WhatsItNST::Write,
@@ -410,7 +409,7 @@ unsafe fn hlist_out() {
                         if !(!q.is_texnull() && !is_char_node(q)) {
                             break;
                         }
-                        if NODE_type(q as usize) == GLUE_NODE
+                        if NODE_type(q as usize) == TextNode::Glue.into()
                             && *GLUE_SPEC_shrink_order(q as usize) == GlueOrder::Normal as _
                         {
                             if *GLUE_NODE_glue_ptr(q as usize)
@@ -423,11 +422,11 @@ unsafe fn hlist_out() {
 
                                 while !q.is_texnull()
                                     && !is_char_node(q)
-                                    && (NODE_type(q as usize) == PENALTY_NODE
-                                        || NODE_type(q as usize) == INS_NODE
-                                        || NODE_type(q as usize) == MARK_NODE
-                                        || NODE_type(q as usize) == ADJUST_NODE
-                                        || (NODE_type(q as usize) == WHATSIT_NODE
+                                    && (NODE_type(q as usize) == TextNode::Penalty.into()
+                                        || NODE_type(q as usize) == TextNode::Ins.into()
+                                        || NODE_type(q as usize) == TextNode::Mark.into()
+                                        || NODE_type(q as usize) == TextNode::Adjust.into()
+                                        || (NODE_type(q as usize) == TextNode::WhatsIt.into()
                                             && [
                                                 WhatsItNST::Open,
                                                 WhatsItNST::Write,
@@ -442,7 +441,7 @@ unsafe fn hlist_out() {
 
                                 if !q.is_texnull()
                                     && !is_char_node(q)
-                                    && NODE_type(q as usize) == WHATSIT_NODE
+                                    && NODE_type(q as usize) == TextNode::WhatsIt.into()
                                     && (whatsit_NODE_subtype(q as usize) == WhatsItNST::NativeWord
                                         || whatsit_NODE_subtype(q as usize)
                                             == WhatsItNST::NativeWordAt)
@@ -459,7 +458,7 @@ unsafe fn hlist_out() {
                             }
                             if !(!q.is_texnull()
                                 && !is_char_node(q)
-                                && NODE_type(q as usize) == KERN_NODE
+                                && NODE_type(q as usize) == TextNode::Kern.into()
                                 && kern_NODE_subtype(q as usize) == KernNST::SpaceAdjustment)
                             {
                                 break;
@@ -467,18 +466,18 @@ unsafe fn hlist_out() {
                             q = MEM[q as usize].b32.s1;
                             while !q.is_texnull()
                                 && !is_char_node(q)
-                                && (NODE_type(q as usize) == PENALTY_NODE
-                                    || NODE_type(q as usize) == INS_NODE
-                                    || NODE_type(q as usize) == MARK_NODE
-                                    || NODE_type(q as usize) == ADJUST_NODE
-                                    || NODE_type(q as usize) == WHATSIT_NODE
+                                && (NODE_type(q as usize) == TextNode::Penalty.into()
+                                    || NODE_type(q as usize) == TextNode::Ins.into()
+                                    || NODE_type(q as usize) == TextNode::Mark.into()
+                                    || NODE_type(q as usize) == TextNode::Adjust.into()
+                                    || NODE_type(q as usize) == TextNode::WhatsIt.into()
                                         && whatsit_NODE_subtype(q as usize) as u16 <= 4)
                             {
                                 q = *LLIST_link(q as usize);
                             }
                             if !(!q.is_texnull()
                                 && !is_char_node(q)
-                                && NODE_type(q as usize) == WHATSIT_NODE
+                                && NODE_type(q as usize) == TextNode::WhatsIt.into()
                                 && (whatsit_NODE_subtype(q as usize) == WhatsItNST::NativeWord
                                     || whatsit_NODE_subtype(q as usize)
                                         == WhatsItNST::NativeWordAt)
@@ -492,7 +491,7 @@ unsafe fn hlist_out() {
                         } else {
                             if !(!q.is_texnull()
                                 && !is_char_node(q)
-                                && NODE_type(q as usize) == WHATSIT_NODE
+                                && NODE_type(q as usize) == TextNode::WhatsIt.into()
                                 && (whatsit_NODE_subtype(q as usize) == WhatsItNST::NativeWord
                                     || whatsit_NODE_subtype(q as usize)
                                         == WhatsItNST::NativeWordAt)
@@ -513,7 +512,7 @@ unsafe fn hlist_out() {
                         k = 0;
                         q = r;
                         loop {
-                            if NODE_type(q as usize) == WHATSIT_NODE {
+                            if NODE_type(q as usize) == TextNode::WhatsIt.into() {
                                 if whatsit_NODE_subtype(q as usize) == WhatsItNST::NativeWord
                                     || whatsit_NODE_subtype(q as usize) == WhatsItNST::NativeWordAt
                                 {
@@ -528,7 +527,7 @@ unsafe fn hlist_out() {
                                     }
                                     k += *BOX_width(q as usize);
                                 }
-                            } else if NODE_type(q as usize) == GLUE_NODE {
+                            } else if NODE_type(q as usize) == TextNode::Glue.into() {
                                 str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
                                 pool_ptr += 1;
                                 g = *GLUE_NODE_glue_ptr(q as usize);
@@ -549,7 +548,7 @@ unsafe fn hlist_out() {
                                         )
                                     }
                                 }
-                            } else if NODE_type(q as usize) == KERN_NODE {
+                            } else if NODE_type(q as usize) == TextNode::Kern.into() {
                                 k += *BOX_width(q as usize);
                             }
                             if q == p {
@@ -590,11 +589,11 @@ unsafe fn hlist_out() {
 
                         while !p.is_texnull() {
                             if !is_char_node(p)
-                                && (NODE_type(p as usize) == PENALTY_NODE
-                                    || NODE_type(p as usize) == INS_NODE
-                                    || NODE_type(p as usize) == MARK_NODE
-                                    || NODE_type(p as usize) == ADJUST_NODE
-                                    || NODE_type(p as usize) == WHATSIT_NODE
+                                && (NODE_type(p as usize) == TextNode::Penalty.into()
+                                    || NODE_type(p as usize) == TextNode::Ins.into()
+                                    || NODE_type(p as usize) == TextNode::Mark.into()
+                                    || NODE_type(p as usize) == TextNode::Adjust.into()
+                                    || NODE_type(p as usize) == TextNode::WhatsIt.into()
                                         && whatsit_NODE_subtype(p as usize) as u16 <= 4)
                             {
                                 *LLIST_link(prev_p as usize) = *LLIST_link(p as usize);
@@ -638,7 +637,7 @@ unsafe fn hlist_out() {
     *LLIST_info(temp_ptr as usize) = BEFORE as i32;
     *LLIST_link(temp_ptr as usize) = LR_ptr;
     LR_ptr = temp_ptr;
-    if *BOX_lr_mode(this_box as usize) == DLIST {
+    if *BOX_lr_mode(this_box as usize) == LRMode::DList as u16 {
         if cur_dir == LR::RightToLeft {
             cur_dir = LR::LeftToRight;
             cur_h -= *BOX_width(this_box as usize);
@@ -646,7 +645,7 @@ unsafe fn hlist_out() {
             MEM[this_box as usize].b16.s0 = 0;
         }
     }
-    if cur_dir == LR::RightToLeft && *BOX_lr_mode(this_box as usize) != REVERSED {
+    if cur_dir == LR::RightToLeft && *BOX_lr_mode(this_box as usize) != LRMode::Reversed as u16 {
         /*1508: "Reverse the complete hlist and set the subtype to reversed." */
         save_h = cur_h; /* "SyncTeX: do nothing, it is too late" */
         temp_ptr = p;
@@ -657,7 +656,7 @@ unsafe fn hlist_out() {
         *LLIST_link(p as usize) = reverse(this_box, TEX_NULL, &mut cur_g, &mut cur_glue);
         MEM[(p + 1) as usize].b32.s1 = -cur_h;
         cur_h = save_h;
-        *BOX_lr_mode(this_box as usize) = REVERSED;
+        *BOX_lr_mode(this_box as usize) = LRMode::Reversed as u16;
     }
 
     /* ... resuming 639 ... */
@@ -734,10 +733,11 @@ unsafe fn hlist_out() {
                     continue 's_726 ;
                 } else {
                     /*644: "Output the non-char_node `p` and move to the next node" */
-                    match NODE_type(p as usize) {
-                        HLIST_NODE | VLIST_NODE => {
+                    let n = text_NODE_type(p as usize).unwrap();
+                    match n {
+                        TextNode::HList | TextNode::VList => {
                             if BOX_list_ptr(p as usize).is_texnull() {
-                                if NODE_type(p as usize) == VLIST_NODE {
+                                if n == TextNode::VList {
                                     synctex_void_vlist(p, this_box);
                                 } else { synctex_void_hlist(p, this_box); }
                                 cur_h += *BOX_width(p as usize);
@@ -754,7 +754,7 @@ unsafe fn hlist_out() {
                                 if cur_dir == LR::RightToLeft {
                                     cur_h = edge;
                                 }
-                                if NODE_type(p as usize) == VLIST_NODE {
+                                if n == TextNode::VList {
                                     vlist_out();
                                 } else { hlist_out(); }
                                 dvi_h = save_h;
@@ -765,7 +765,7 @@ unsafe fn hlist_out() {
                             current_block = 13889995436552222973;
                             break ;
                         }
-                        RULE_NODE => {
+                        TextNode::Rule => {
                             rule_ht =
                                 *BOX_height(p as usize);
                             rule_dp =
@@ -775,7 +775,7 @@ unsafe fn hlist_out() {
                             current_block = 18357984655869314713;
                             break ;
                         }
-                        WHATSIT_NODE => {
+                        TextNode::WhatsIt => {
                             /*1407: "Output the whatsit node p in an hlist" */
                             match whatsit_NODE_subtype(p as usize) {
                                 WhatsItNST::NativeWord | WhatsItNST::NativeWordAt | WhatsItNST::Glyph => {
@@ -788,7 +788,7 @@ unsafe fn hlist_out() {
                                         movement(cur_v - dvi_v,
                                                  DOWN1); /* y offset, as fixed-point */
                                         dvi_v = cur_v
-                                    } /* end of WHATSIT_NODE case */
+                                    } /* end of TextNode::WhatsIt case */
                                     f =
                                         *NATIVE_NODE_font(p as usize) as
                                             internal_font_number;
@@ -912,7 +912,7 @@ unsafe fn hlist_out() {
                             current_block = 13889995436552222973;
                             break ;
                         }
-                        GLUE_NODE => {
+                        TextNode::Glue => {
                             /*647: "Move right or output leaders" */
                             g = *GLUE_NODE_glue_ptr(p as usize);
                             rule_wd =
@@ -990,20 +990,20 @@ unsafe fn hlist_out() {
                                 break ;
                             }
                         }
-                        MARGIN_KERN_NODE => {
+                        TextNode::MarginKern => {
                             cur_h +=
                                 *BOX_width(p as usize);
                             current_block = 13889995436552222973;
                             break ;
                         }
-                        KERN_NODE => {
+                        TextNode::Kern => {
                             synctex_kern(p, this_box);
                             cur_h +=
                                 *BOX_width(p as usize);
                             current_block = 13889995436552222973;
                             break ;
                         }
-                        MATH_NODE => {
+                        TextNode::Math => {
                             synctex_math(p, this_box);
                             /* 1504: "Adjust the LR stack...; if necessary reverse and
                  * hlist segment and goto reswitch." "Breaking a paragraph
@@ -1064,7 +1064,7 @@ unsafe fn hlist_out() {
                                 cur_h = save_h;
                             }
                         }
-                        LIGATURE_NODE => {
+                        TextNode::Ligature => {
                             /* 675: "Make node p look like a char_node and goto reswitch" */
                             MEM[LIG_TRICK] =
                                 MEM[(p + 1) as usize];
@@ -1072,7 +1072,7 @@ unsafe fn hlist_out() {
                             p = LIG_TRICK as i32;
                             xtx_ligature_present = true;
                         }
-                        ND::Text(EDGE_NODE) => {
+                        EDGE_NODE => {
                             /*1507: "Cases of hlist_out that arise in mixed direction text only" */
                             cur_h +=
                                 *BOX_width(p as usize);
@@ -1092,7 +1092,7 @@ unsafe fn hlist_out() {
                 /*648: "Output leaders into an hlist, goto fin_rule if a
                  * rule or next_p if done." */
                 leader_box = *GLUE_NODE_leader_ptr(p as usize); /* "compensate for floating-point rounding" ?? */
-                if NODE_type(leader_box as usize) == RULE_NODE {
+                if NODE_type(leader_box as usize) == TextNode::Rule.into() {
                     rule_ht = *BOX_height(leader_box as usize);
                     rule_dp = *BOX_depth(leader_box as usize);
                     current_block = 18357984655869314713;
@@ -1146,7 +1146,7 @@ unsafe fn hlist_out() {
                             }
                             outer_doing_leaders = doing_leaders;
                             doing_leaders = true;
-                            if NODE_type(leader_box as usize) == VLIST_NODE {
+                            if NODE_type(leader_box as usize) == TextNode::VList.into() {
                                 vlist_out();
                             } else {
                                 hlist_out();
@@ -1239,7 +1239,7 @@ unsafe fn hlist_out() {
     *LLIST_link(temp_ptr as usize) = avail;
     avail = temp_ptr;
 
-    if *BOX_lr_mode(this_box as usize) == DLIST {
+    if *BOX_lr_mode(this_box as usize) == LRMode::DList as u16 {
         cur_dir = LR::RightToLeft;
     }
 
@@ -1308,8 +1308,9 @@ unsafe fn vlist_out() {
             confusion(b"vlistout");
         } else {
             /*653: "Output the non-char_node p" */
-            match NODE_type(p as usize) {
-                HLIST_NODE | VLIST_NODE => {
+            let n = text_NODE_type(p as usize).unwrap();
+            match n {
+                TextNode::HList | TextNode::VList => {
                     /*654: "Output a box in a vlist" */
                     if BOX_list_ptr(p as usize).is_texnull() {
                         if upwards {
@@ -1317,7 +1318,7 @@ unsafe fn vlist_out() {
                         } else {
                             cur_v += *BOX_height(p as usize);
                         }
-                        if NODE_type(p as usize) == VLIST_NODE {
+                        if n == TextNode::VList {
                             synctex_void_vlist(p, this_box);
                         } else {
                             synctex_void_hlist(p, this_box);
@@ -1345,7 +1346,7 @@ unsafe fn vlist_out() {
                             cur_h = left_edge + *BOX_shift_amount(p as usize);
                         }
                         temp_ptr = p;
-                        if NODE_type(p as usize) == VLIST_NODE {
+                        if n == TextNode::VList {
                             vlist_out();
                         } else {
                             hlist_out();
@@ -1361,13 +1362,13 @@ unsafe fn vlist_out() {
                     }
                     current_block = 5241535548500397784;
                 }
-                RULE_NODE => {
+                TextNode::Rule => {
                     rule_ht = *BOX_height(p as usize);
                     rule_dp = *BOX_depth(p as usize);
                     rule_wd = *BOX_width(p as usize);
                     current_block = 9653381107620864133;
                 }
-                WHATSIT_NODE => {
+                TextNode::WhatsIt => {
                     /*1403: "Output the whatsit node p in a vlist" */
                     match whatsit_NODE_subtype(p as usize) {
                         WhatsItNST::Glyph => {
@@ -1428,7 +1429,7 @@ unsafe fn vlist_out() {
                     }
                     current_block = 5241535548500397784;
                 }
-                GLUE_NODE => {
+                TextNode::Glue => {
                     /*656: "Move down or output leaders" */
                     g = *GLUE_NODE_glue_ptr(p as usize);
                     rule_ht = *BOX_width(g as usize) - cur_g;
@@ -1465,7 +1466,7 @@ unsafe fn vlist_out() {
                          * or next_p if done" */
                         leader_box = *GLUE_NODE_leader_ptr(p as usize); /* "compensate for floating-point rounding" */
 
-                        if NODE_type(leader_box as usize) == RULE_NODE {
+                        if NODE_type(leader_box as usize) == TextNode::Rule.into() {
                             rule_wd = *BOX_width(leader_box as usize);
                             rule_dp = 0;
                             current_block = 9653381107620864133;
@@ -1525,7 +1526,7 @@ unsafe fn vlist_out() {
                                     outer_doing_leaders = doing_leaders;
                                     doing_leaders = true;
 
-                                    if NODE_type(leader_box as usize) == VLIST_NODE {
+                                    if NODE_type(leader_box as usize) == TextNode::VList.into() {
                                         vlist_out();
                                     } else {
                                         hlist_out();
@@ -1560,7 +1561,7 @@ unsafe fn vlist_out() {
                         }
                     }
                 }
-                KERN_NODE => {
+                TextNode::Kern => {
                     if upwards {
                         cur_v -= *BOX_width(p as usize);
                     } else {
@@ -1673,13 +1674,13 @@ unsafe fn reverse(
                     continue 's_58;
                 } else {
                     q = *LLIST_link(p as usize);
-                    match NODE_type(p as usize) {
-                        HLIST_NODE | VLIST_NODE | RULE_NODE | KERN_NODE => {
+                    match text_NODE_type(p as usize).unwrap() {
+                        TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => {
                             rule_wd = *BOX_width(p as usize);
                             current_block = 3812947724376655173;
                             break;
                         }
-                        WHATSIT_NODE => {
+                        TextNode::WhatsIt => {
                             if whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWord
                                 || whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWordAt
                                 || whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
@@ -1693,7 +1694,7 @@ unsafe fn reverse(
                                 break;
                             }
                         }
-                        GLUE_NODE => {
+                        TextNode::Glue => {
                             /*1486: "Handle a glue node for mixed direction typesetting" */
                             g = *GLUE_NODE_glue_ptr(p as usize); /* "will never match" */
                             rule_wd = *BOX_width(g as usize) - *cur_g; /* = mem[lig_char(temp_ptr)] */
@@ -1752,7 +1753,7 @@ unsafe fn reverse(
                             current_block = 3812947724376655173;
                             break;
                         }
-                        LIGATURE_NODE => {
+                        TextNode::Ligature => {
                             flush_node_list(LIGATURE_NODE_lig_ptr(p as usize).opt());
                             temp_ptr = p;
                             p = get_avail() as i32;
@@ -1760,7 +1761,7 @@ unsafe fn reverse(
                             *LLIST_link(p as usize) = q;
                             free_node(temp_ptr as usize, SMALL_NODE_SIZE);
                         }
-                        MATH_NODE => {
+                        TextNode::Math => {
                             /*1516: "Math nodes in an inner reflected segment are
                              * modified, those at the outer level are changed into
                              * kern nodes." */
@@ -1774,7 +1775,7 @@ unsafe fn reverse(
                                 break;
                             }
                         }
-                        ND::Text(EDGE_NODE) => confusion(b"LR2"),
+                        EDGE_NODE => confusion(b"LR2"),
                         _ => {
                             current_block = 10883403804712335414;
                             break;

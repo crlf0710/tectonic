@@ -411,6 +411,19 @@ impl core::ops::Not for LR {
     }
 }
 
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
+pub(crate) enum LRMode {
+    Reversed = 1,
+    DList = 2,
+}
+
+impl From<u16> for LRMode {
+    fn from(n: u16) -> Self {
+        Self::n(n).expect(&format!("Incorrect LRMode = {}", n))
+    }
+}
+
 /* How many memory words are needed for storing synctex information on various
  * kinds of nodes. This extra size is already included in the *_NODE_SIZE
  * definitions below.
@@ -438,23 +451,6 @@ pub(crate) enum TextNode {
     Choice = 15,
     MarginKern = 40,
 }
-pub(crate) const HLIST_NODE: ND = ND::Text(TextNode::HList);
-pub(crate) const VLIST_NODE: ND = ND::Text(TextNode::VList);
-pub(crate) const RULE_NODE: ND = ND::Text(TextNode::Rule);
-pub(crate) const INS_NODE: ND = ND::Text(TextNode::Ins);
-pub(crate) const MARK_NODE: ND = ND::Text(TextNode::Mark);
-pub(crate) const ADJUST_NODE: ND = ND::Text(TextNode::Adjust);
-pub(crate) const LIGATURE_NODE: ND = ND::Text(TextNode::Ligature);
-pub(crate) const DISC_NODE: ND = ND::Text(TextNode::Disc);
-pub(crate) const WHATSIT_NODE: ND = ND::Text(TextNode::WhatsIt);
-pub(crate) const MATH_NODE: ND = ND::Text(TextNode::Math);
-pub(crate) const GLUE_NODE: ND = ND::Text(TextNode::Glue);
-pub(crate) const KERN_NODE: ND = ND::Text(TextNode::Kern);
-pub(crate) const PENALTY_NODE: ND = ND::Text(TextNode::Penalty);
-pub(crate) const UNSET_NODE: ND = ND::Text(TextNode::Unset);
-pub(crate) const STYLE_NODE: ND = ND::Text(TextNode::Style);
-pub(crate) const CHOICE_NODE: ND = ND::Text(TextNode::Choice);
-pub(crate) const MARGIN_KERN_NODE: ND = ND::Text(TextNode::MarginKern);
 
 pub(crate) const INSERTING: TextNode = TextNode::HList;
 pub(crate) const SPLIT_UP: TextNode = TextNode::VList;
@@ -1194,12 +1190,10 @@ pub(crate) const JUST_OPEN: placeholdertype = 1;
 pub(crate) const MATH_CHAR: placeholdertype = 1;
 pub(crate) const PRIM_BASE: usize = 1;
 pub(crate) const RESTORE_ZERO: u16 = 1;
-pub(crate) const REVERSED: u16 = 1;
 pub(crate) const SLANT_CODE: placeholdertype = 1;
 pub(crate) const STRETCHING: GlueSign = GlueSign::Stretching;
 pub(crate) const BOTTOM_ACC: u16 = 2;
 pub(crate) const CLOSED: u8 = 2;
-pub(crate) const DLIST: u16 = 2;
 pub(crate) const ETEX_VERSION: placeholdertype = 2;
 pub(crate) const INSERT_TOKEN: u16 = 2;
 pub(crate) const SHRINKING: GlueSign = GlueSign::Shrinking;

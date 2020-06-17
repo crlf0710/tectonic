@@ -1248,11 +1248,7 @@ where
 }
 /*:925*/
 /*977: */
-pub(crate) unsafe fn new_trie_op(
-    mut d: i16,
-    mut n: i16,
-    mut v: trie_opcode,
-) -> trie_opcode {
+pub(crate) unsafe fn new_trie_op(mut d: i16, mut n: i16, mut v: trie_opcode) -> trie_opcode {
     let mut h: i32 = 0;
     let mut u: trie_opcode = 0;
     let mut l: i32 = 0;
@@ -6040,15 +6036,7 @@ macro_rules! slice {
     };
 }
 
-slice!(
-    i32,
-    memory_word,
-    b32x2,
-    b16x4,
-    UTF16_code,
-    i16,
-    EqtbWord
-);
+slice!(i32, memory_word, b32x2, b16x4, UTF16_code, i16, EqtbWord);
 
 /* Read and write dump files.  As distributed, these files are
 architecture dependent; specifically, BigEndian and LittleEndian

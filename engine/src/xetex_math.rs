@@ -824,7 +824,7 @@ unsafe fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
             d = d + s;
             e = e + MEM[(b + 1) as usize].b32.s1 - z - s
         }
-        if MEM[p as usize].b16.s0 == DLIST {
+        if MEM[p as usize].b16.s0 == LRMode::DList as u16 {
             q = p
         } else {
             r = MEM[(p + 5) as usize].b32.s1;
@@ -864,7 +864,7 @@ unsafe fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
             t = MEM[r as usize].b32.s1 as usize;
         }
         let u = new_math(0i32, END_M_CODE as i16);
-        if NODE_type(t) == GLUE_NODE {
+        if NODE_type(t) == TextNode::Glue.into() {
             j = new_skip_param(GluePar::right_skip as i16) as i32;
             MEM[q as usize].b32.s1 = j;
             MEM[j as usize].b32.s1 = u as i32;
@@ -881,7 +881,7 @@ unsafe fn app_display(mut j: i32, mut b: i32, mut d: scaled_t) {
             MEM[q as usize].b32.s1 = t as i32;
         }
         let u = new_math(0, BEGIN_M_CODE as i16);
-        if NODE_type(r as usize) == GLUE_NODE {
+        if NODE_type(r as usize) == TextNode::Glue.into() {
             j = new_skip_param(GluePar::left_skip as i16) as i32;
             MEM[u].b32.s1 = j;
             MEM[j as usize].b32.s1 = p;
@@ -1016,7 +1016,7 @@ pub(crate) unsafe fn after_math() {
         mlist_penalties = false;
         mlist_to_hlist();
         a = hpack(MEM[TEMP_HEAD].b32.s1, 0, ADDITIONAL as i16);
-        MEM[a as usize].b16.s0 = DLIST as u16;
+        MEM[a as usize].b16.s0 = LRMode::DList as u16;
         unsave();
         SAVE_PTR -= 1;
         if SAVE_STACK[SAVE_PTR + 0].val == 1 {
@@ -1177,13 +1177,13 @@ pub(crate) unsafe fn after_math() {
             }
             w = MEM[(b + 1) as usize].b32.s1
         }
-        MEM[b as usize].b16.s0 = DLIST as u16;
+        MEM[b as usize].b16.s0 = LRMode::DList as u16;
         d = half(z - w);
         if e > 0 && d < 2 * e {
             d = half(z - w - e);
             if !p.is_texnull() {
                 if !is_char_node(p) {
-                    if NODE_type(p as usize) == GLUE_NODE {
+                    if NODE_type(p as usize) == TextNode::Glue.into() {
                         d = 0
                     }
                 }
@@ -1619,7 +1619,7 @@ unsafe fn clean_box(p: usize, mut s: i16) -> usize {
         let x = if is_char_node(q) || q.is_texnull() {
             hpack(q, 0, ADDITIONAL as i16)
         } else if MEM[q as usize].b32.s1.is_texnull()
-            && [HLIST_NODE, VLIST_NODE].contains(&NODE_type(q as usize))
+            && [TextNode::HList.into(), TextNode::VList.into()].contains(&NODE_type(q as usize))
             && MEM[(q + 4) as usize].b32.s1 == 0
         {
             q
@@ -1632,7 +1632,7 @@ unsafe fn clean_box(p: usize, mut s: i16) -> usize {
             if !r.is_texnull() {
                 if MEM[r as usize].b32.s1.is_texnull() {
                     if !is_char_node(r) {
-                        if NODE_type(r as usize) == KERN_NODE {
+                        if NODE_type(r as usize) == TextNode::Kern.into() {
                             free_node(r as usize, MEDIUM_NODE_SIZE);
                             MEM[q as usize].b32.s1 = TEX_NULL
                         }
@@ -1709,7 +1709,7 @@ unsafe fn make_under(q: usize) {
 }
 unsafe fn make_vcenter(q: usize) {
     let v = MEM[q + 1].b32.s0;
-    if NODE_type(v as usize) != VLIST_NODE {
+    if NODE_type(v as usize) != TextNode::VList.into() {
         confusion(b"vcenter");
     }
     let delta = MEM[(v + 3) as usize].b32.s1 + MEM[(v + 2) as usize].b32.s1;
@@ -1963,7 +1963,7 @@ unsafe fn make_math_accent(q: usize) {
             let mut sa;
             if !p.is_texnull()
                 && !is_char_node(p)
-                && NODE_type(p as usize) == WHATSIT_NODE
+                && NODE_type(p as usize) == TextNode::WhatsIt.into()
                 && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
             {
                 sa = get_ot_math_accent_pos(f, MEM[(p + 4) as usize].b16.s1 as i32);
@@ -2163,7 +2163,7 @@ unsafe fn make_op(q: usize) -> scaled_t {
             let mut p = MEM[x + 5].b32.s1;
             if !p.is_texnull()
                 && !is_char_node(p)
-                && NODE_type(p as usize) == WHATSIT_NODE
+                && NODE_type(p as usize) == TextNode::WhatsIt.into()
                 && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
             {
                 let mut current_block_41: u64;
@@ -2421,7 +2421,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
     if is_char_node(p)
         || !p.is_texnull()
             && !is_char_node(p)
-            && NODE_type(p as usize) == WHATSIT_NODE
+            && NODE_type(p as usize) == TextNode::WhatsIt.into()
             && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
     {
         shift_up = 0;
@@ -2486,7 +2486,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
             }
             if !p.is_texnull()
                 && !is_char_node(p)
-                && NODE_type(p as usize) == WHATSIT_NODE
+                && NODE_type(p as usize) == TextNode::WhatsIt.into()
                 && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
             {
                 sub_kern = get_ot_math_kern(
@@ -2558,7 +2558,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
             }
             if !p.is_texnull()
                 && !is_char_node(p)
-                && NODE_type(p as usize) == WHATSIT_NODE
+                && NODE_type(p as usize) == TextNode::WhatsIt.into()
                 && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
             {
                 sup_kern = get_ot_math_kern(
@@ -2641,7 +2641,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                 }
                 if !p.is_texnull()
                     && !is_char_node(p)
-                    && NODE_type(p as usize) == WHATSIT_NODE
+                    && NODE_type(p as usize) == TextNode::WhatsIt.into()
                     && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
                 {
                     sub_kern = get_ot_math_kern(
@@ -2679,7 +2679,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                 }
                 if !p.is_texnull()
                     && !is_char_node(p)
-                    && NODE_type(p as usize) == WHATSIT_NODE
+                    && NODE_type(p as usize) == TextNode::WhatsIt.into()
                     && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
                 {
                     sup_kern = get_ot_math_kern(
@@ -2947,8 +2947,8 @@ unsafe fn mlist_to_hlist() {
                         {
                             p = MEM[q as usize].b32.s1;
                             if !p.is_texnull() {
-                                if NODE_type(p as usize) == GLUE_NODE
-                                    || NODE_type(p as usize) == KERN_NODE
+                                if NODE_type(p as usize) == TextNode::Glue.into()
+                                    || NODE_type(p as usize) == TextNode::Kern.into()
                                 {
                                     MEM[q as usize].b32.s1 = MEM[p as usize].b32.s1;
                                     MEM[p as usize].b32.s1 = TEX_NULL;
@@ -3259,7 +3259,7 @@ unsafe fn mlist_to_hlist() {
                     if !MEM[q as usize].b32.s1.is_texnull() {
                         if pen < INF_PENALTY {
                             r_type = MEM[MEM[q as usize].b32.s1 as usize].b16.s1 as i16;
-                            if ND::from(r_type as u16) != PENALTY_NODE {
+                            if ND::from(r_type as u16) != TextNode::Penalty.into() {
                                 if r_type != MathNode::Rel as i16 {
                                     let z = new_penalty(pen) as i32;
                                     MEM[p as usize].b32.s1 = z;
@@ -3561,7 +3561,7 @@ unsafe fn stack_glyph_into_box(b: usize, mut f: internal_font_number, mut g: i32
     MEM[p + 4].b16.s2 = f as u16;
     MEM[p + 4].b16.s1 = g as u16;
     measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1);
-    if NODE_type(b as usize) == HLIST_NODE {
+    if NODE_type(b as usize) == TextNode::HList.into() {
         let mut q = MEM[(b + 5) as usize].b32.s1;
         if q.is_texnull() {
             MEM[(b + 5) as usize].b32.s1 = p as i32;
@@ -3591,7 +3591,7 @@ unsafe fn stack_glue_into_box(b: usize, mut min: scaled_t, mut max: scaled_t) {
     MEM[q + 1].b32.s1 = min;
     MEM[q + 2].b32.s1 = max - min;
     let p = new_glue(q as i32) as usize;
-    if NODE_type(b) == HLIST_NODE {
+    if NODE_type(b) == TextNode::HList.into() {
         let mut q = MEM[b + 5].b32.s1;
         if q.is_texnull() {
             MEM[b + 5].b32.s1 = p as i32;
@@ -3628,7 +3628,14 @@ unsafe fn build_opentype_assembly(
     let mut nat: scaled_t = 0;
     let mut str: scaled_t = 0;
     let mut b = new_null_box() as usize;
-    set_NODE_type(b, if horiz { TextNode::HList } else { TextNode::VList });
+    set_NODE_type(
+        b,
+        if horiz {
+            TextNode::HList
+        } else {
+            TextNode::VList
+        },
+    );
     n = -1;
     no_extenders = true;
     min_o = ot_min_connector_overlap(f);
@@ -3746,13 +3753,13 @@ unsafe fn build_opentype_assembly(
     nat = 0i32;
     str = 0i32;
     while !p.is_texnull() {
-        if NODE_type(p as usize) == WHATSIT_NODE {
+        if NODE_type(p as usize) == TextNode::WhatsIt.into() {
             if horiz {
                 nat = nat + MEM[(p + 1) as usize].b32.s1
             } else {
                 nat = nat + MEM[(p + 3) as usize].b32.s1 + MEM[(p + 2) as usize].b32.s1
             }
-        } else if NODE_type(p as usize) == GLUE_NODE {
+        } else if NODE_type(p as usize) == TextNode::Glue.into() {
             nat = nat + MEM[(MEM[(p + 1) as usize].b32.s0 + 1) as usize].b32.s1;
             str = str + MEM[(MEM[(p + 1) as usize].b32.s0 + 2) as usize].b32.s1
         }
@@ -3784,7 +3791,7 @@ unsafe fn rebox(mut b: usize, mut w: scaled_t) -> usize {
     let mut f: internal_font_number = 0;
     let mut v: scaled_t = 0;
     if MEM[b + 1].b32.s1 != w && !MEM[b + 5].b32.s1.is_texnull() {
-        if NODE_type(b as usize) == VLIST_NODE {
+        if NODE_type(b as usize) == TextNode::VList.into() {
             b = hpack(b as i32, 0, ADDITIONAL as i16) as usize
         }
         p = MEM[b + 5].b32.s1;

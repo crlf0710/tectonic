@@ -434,7 +434,7 @@ pub(crate) unsafe fn synctex_tsilv(mut this_box: i32) {
  *  There is no need to balance a void vlist.  */
 /*  This message is sent when a void vlist will be shipped out.
  *  There is no need to balance a void vlist.  */
-pub(crate) unsafe fn synctex_void_vlist(mut p: i32, mut _this_box: i32) {
+pub(crate) unsafe fn synctex_void_vlist(p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
@@ -498,7 +498,7 @@ pub(crate) unsafe fn synctex_tsilh(mut this_box: i32) {
  *  There is no need to balance a void hlist.  */
 /*  This message is sent when a void hlist will be shipped out.
  *  There is no need to balance a void hlist.  */
-pub(crate) unsafe fn synctex_void_hlist(mut p: i32, mut _this_box: i32) {
+pub(crate) unsafe fn synctex_void_hlist(p: i32, mut _this_box: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()

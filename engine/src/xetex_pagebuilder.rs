@@ -74,7 +74,7 @@ unsafe fn ensure_vbox(mut n: u8) {
     if p.is_texnull() {
         return;
     }
-    if NODE_type(p as usize) != HLIST_NODE {
+    if NODE_type(p as usize) != TextNode::HList.into() {
         return;
     }
     if file_line_error_style_p != 0 {
@@ -107,7 +107,7 @@ unsafe fn fire_up(mut c: i32) {
     let mut save_vfuzz: scaled_t = 0;
     let mut save_split_top_skip: i32 = 0;
     /*1048: "Set the value of output_penalty" */
-    if NODE_type(best_page_break as usize) == PENALTY_NODE {
+    if NODE_type(best_page_break as usize) == TextNode::Penalty.into() {
         geq_word_define(
             INT_BASE as usize + (IntPar::output_penalty as usize),
             *PENALTY_NODE_penalty(best_page_break as usize),
@@ -207,7 +207,7 @@ unsafe fn fire_up(mut c: i32) {
     p = *LLIST_link(prev_p as usize);
 
     while p != best_page_break {
-        if NODE_type(p as usize) == INS_NODE {
+        if NODE_type(p as usize) == TextNode::Ins.into() {
             if process_inserts {
                 /*1055: "Either insert the material specified by node p into
                  * the appropriate box, or hold it for the next page; also
@@ -285,7 +285,7 @@ unsafe fn fire_up(mut c: i32) {
                 }
                 p = prev_p /*:1057 */
             }
-        } else if NODE_type(p as usize) == MARK_NODE {
+        } else if NODE_type(p as usize) == TextNode::Mark.into() {
             if MEM[(p + 1) as usize].b32.s0 != 0 {
                 /*1618: "Update the current marks" */
                 find_sa_element(MARK_VAL as _, MEM[(p + 1) as usize].b32.s0, true);
@@ -565,7 +565,7 @@ pub(crate) unsafe fn build_page() {
                     return done1(slf);
                 } else if LLIST_link(slf.p as usize).is_texnull() {
                     return (slf, true)
-                } else if NODE_type(*LLIST_link(slf.p as usize) as usize) == GLUE_NODE {
+                } else if NODE_type(*LLIST_link(slf.p as usize) as usize) == TextNode::Glue.into() {
                     slf.pi = 0;
                 } else { return update_heights(slf); }
             }
@@ -709,7 +709,7 @@ pub(crate) unsafe fn build_page() {
 
                         if slf.q.is_texnull() {
                             insert_penalties += EJECT_PENALTY;
-                        } else if NODE_type(slf.q as usize) == PENALTY_NODE {
+                        } else if NODE_type(slf.q as usize) == TextNode::Penalty.into() {
                             insert_penalties +=
                                 MEM[(slf.q + 1) as usize].b32.s1
                         }
@@ -785,8 +785,8 @@ pub(crate) unsafe fn build_page() {
         /* ... resuming 1032 ... I believe the "goto" here can only be
          * triggered if p is a penalty node, and we decided not to break. */
 
-        if NODE_type(slf.p as usize).u16() < GLUE_NODE.u16()
-            || NODE_type(slf.p as usize).u16() > KERN_NODE.u16()
+        if NODE_type(slf.p as usize).u16() < TextNode::Glue as u16
+            || NODE_type(slf.p as usize).u16() > TextNode::Kern as u16
         {
             return contribute(slf);
         }
@@ -796,7 +796,7 @@ pub(crate) unsafe fn build_page() {
         unsafe fn update_heights(mut slf: Args) -> (Args, bool) {
             /*1039: "Update the current page measurements with respect to the glue or kern
              * specified by node p" */
-            if NODE_type(slf.p as usize) == KERN_NODE {
+            if NODE_type(slf.p as usize) == TextNode::Kern.into() {
                 slf.q = slf.p
             } else {
                 slf.q = MEM[(slf.p + 1) as usize].b32.s0;
