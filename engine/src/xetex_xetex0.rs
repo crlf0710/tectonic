@@ -517,18 +517,18 @@ pub(crate) unsafe fn new_penalty(mut m: i32) -> usize {
     p
 }
 /*:165*/
-pub(crate) unsafe fn prev_rightmost(mut s: i32, mut e: i32) -> i32 {
+pub(crate) unsafe fn prev_rightmost(mut s: i32, mut e: i32) -> Option<usize> {
     let mut p = s;
     if p.is_texnull() {
-        return TEX_NULL;
+        return None;
     }
     while MEM[p as usize].b32.s1 != e {
         p = *LLIST_link(p as usize);
         if p.is_texnull() {
-            return TEX_NULL;
+            return None;
         }
     }
-    p
+    p.opt()
 }
 pub(crate) unsafe fn short_display(mut p: i32) {
     while p > 0 {
@@ -8796,41 +8796,40 @@ pub(crate) unsafe fn conv_toks() {
             _ => {}
         },
         LEFT_MARGIN_KERN_CODE => {
-            p = MEM[(p + 5) as usize].b32.s1;
-            while !p.is_texnull()
-                && (p < hi_mem_min
-                    && (NODE_type(p as usize) == TextNode::Ins.into()
-                        || NODE_type(p as usize) == TextNode::Mark.into()
-                        || NODE_type(p as usize) == TextNode::Adjust.into()
-                        || NODE_type(p as usize) == TextNode::Penalty.into()
-                        || NODE_type(p as usize) == TextNode::Disc.into()
-                            && MEM[(p + 1) as usize].b32.s0.is_texnull()
-                            && MEM[(p + 1) as usize].b32.s1.is_texnull()
-                            && MEM[p as usize].b16.s0 == 0
-                        || NODE_type(p as usize) == TextNode::Math.into()
-                            && MEM[(p + 1) as usize].b32.s1 == 0
-                        || NODE_type(p as usize) == TextNode::Kern.into()
-                            && (MEM[(p + 1) as usize].b32.s1 == 0
-                                || MEM[p as usize].b16.s0 == NORMAL)
-                        || NODE_type(p as usize) == TextNode::Glue.into()
-                            && MEM[(p + 1) as usize].b32.s0 == 0
-                        || NODE_type(p as usize) == TextNode::HList.into()
-                            && MEM[(p + 1) as usize].b32.s1 == 0
-                            && MEM[(p + 3) as usize].b32.s1 == 0
-                            && MEM[(p + 2) as usize].b32.s1 == 0
-                            && MEM[(p + 5) as usize].b32.s1.is_texnull())
-                    || p < hi_mem_min
-                        && NODE_type(p as usize) == TextNode::Glue.into()
-                        && MEM[p as usize].b16.s0 == (GluePar::left_skip as u16) + 1)
-            {
-                p = *LLIST_link(p as usize)
+            let mut popt = MEM[(p + 5) as usize].b32.s1.opt();
+            while let Some(p) = popt {
+                if !(p < hi_mem_min as usize
+                    && (NODE_type(p) == TextNode::Ins.into()
+                        || NODE_type(p) == TextNode::Mark.into()
+                        || NODE_type(p) == TextNode::Adjust.into()
+                        || NODE_type(p) == TextNode::Penalty.into()
+                        || NODE_type(p) == TextNode::Disc.into()
+                            && MEM[p + 1].b32.s0.is_texnull()
+                            && MEM[p + 1].b32.s1.is_texnull()
+                            && MEM[p].b16.s0 == 0
+                        || NODE_type(p) == TextNode::Math.into() && MEM[p + 1].b32.s1 == 0
+                        || NODE_type(p) == TextNode::Kern.into()
+                            && (MEM[p + 1].b32.s1 == 0 || MEM[p].b16.s0 == NORMAL)
+                        || NODE_type(p) == TextNode::Glue.into() && MEM[p + 1].b32.s0 == 0
+                        || NODE_type(p) == TextNode::HList.into()
+                            && MEM[p + 1].b32.s1 == 0
+                            && MEM[p + 3].b32.s1 == 0
+                            && MEM[p + 2].b32.s1 == 0
+                            && MEM[p + 5].b32.s1.is_texnull())
+                    || p < hi_mem_min as usize
+                        && NODE_type(p) == TextNode::Glue.into()
+                        && MEM[p].b16.s0 == (GluePar::left_skip as u16) + 1)
+                {
+                    break;
+                }
+                popt = LLIST_link(p).opt();
             }
-            if !p.is_texnull()
-                && p < hi_mem_min
-                && NODE_type(p as usize) == TextNode::MarginKern.into()
-                && MEM[p as usize].b16.s0 == 0
-            {
-                print_scaled(MEM[(p + 1) as usize].b32.s1);
+            if let Some(p) = popt.filter(|&p| {
+                p < hi_mem_min as usize
+                    && NODE_type(p) == TextNode::MarginKern.into()
+                    && MEM[p].b16.s0 == 0
+            }) {
+                print_scaled(MEM[p + 1].b32.s1);
             } else {
                 print('0' as i32);
             }
@@ -8838,41 +8837,40 @@ pub(crate) unsafe fn conv_toks() {
         }
         RIGHT_MARGIN_KERN_CODE => {
             q = MEM[(p + 5) as usize].b32.s1;
-            p = prev_rightmost(q, TEX_NULL);
-            while !p.is_texnull()
-                && (p < hi_mem_min
-                    && (NODE_type(p as usize) == TextNode::Ins.into()
-                        || NODE_type(p as usize) == TextNode::Mark.into()
-                        || NODE_type(p as usize) == TextNode::Adjust.into()
-                        || NODE_type(p as usize) == TextNode::Penalty.into()
-                        || NODE_type(p as usize) == TextNode::Disc.into()
-                            && MEM[(p + 1) as usize].b32.s0.is_texnull()
-                            && MEM[(p + 1) as usize].b32.s1.is_texnull()
-                            && MEM[p as usize].b16.s0 == 0
-                        || NODE_type(p as usize) == TextNode::Math.into()
-                            && MEM[(p + 1) as usize].b32.s1 == 0
-                        || NODE_type(p as usize) == TextNode::Kern.into()
-                            && (MEM[(p + 1) as usize].b32.s1 == 0
-                                || MEM[p as usize].b16.s0 == NORMAL)
-                        || NODE_type(p as usize) == TextNode::Glue.into()
-                            && MEM[(p + 1) as usize].b32.s0 == 0
-                        || NODE_type(p as usize) == TextNode::HList.into()
-                            && MEM[(p + 1) as usize].b32.s1 == 0
-                            && MEM[(p + 3) as usize].b32.s1 == 0
-                            && MEM[(p + 2) as usize].b32.s1 == 0
-                            && MEM[(p + 5) as usize].b32.s1.is_texnull())
-                    || p < hi_mem_min
-                        && NODE_type(p as usize) == TextNode::Glue.into()
-                        && MEM[p as usize].b16.s0 == (GluePar::right_skip as u16) + 1)
-            {
-                p = prev_rightmost(q, p)
+            let mut popt = prev_rightmost(q, TEX_NULL);
+            while let Some(p) = popt {
+                if !(p < hi_mem_min as usize
+                    && (NODE_type(p) == TextNode::Ins.into()
+                        || NODE_type(p) == TextNode::Mark.into()
+                        || NODE_type(p) == TextNode::Adjust.into()
+                        || NODE_type(p) == TextNode::Penalty.into()
+                        || NODE_type(p) == TextNode::Disc.into()
+                            && MEM[p + 1].b32.s0.is_texnull()
+                            && MEM[p + 1].b32.s1.is_texnull()
+                            && MEM[p].b16.s0 == 0
+                        || NODE_type(p) == TextNode::Math.into() && MEM[p + 1].b32.s1 == 0
+                        || NODE_type(p) == TextNode::Kern.into()
+                            && (MEM[p + 1].b32.s1 == 0 || MEM[p].b16.s0 == NORMAL)
+                        || NODE_type(p) == TextNode::Glue.into() && MEM[p + 1].b32.s0 == 0
+                        || NODE_type(p) == TextNode::HList.into()
+                            && MEM[p + 1].b32.s1 == 0
+                            && MEM[p + 3].b32.s1 == 0
+                            && MEM[p + 2].b32.s1 == 0
+                            && MEM[p + 5].b32.s1.is_texnull())
+                    || p < hi_mem_min as usize
+                        && NODE_type(p) == TextNode::Glue.into()
+                        && MEM[p].b16.s0 == (GluePar::right_skip as u16) + 1)
+                {
+                    break;
+                }
+                popt = prev_rightmost(q, p as i32);
             }
-            if !p.is_texnull()
-                && p < hi_mem_min
-                && NODE_type(p as usize) == TextNode::MarginKern.into()
-                && MEM[p as usize].b16.s0 == 1
-            {
-                print_scaled(MEM[(p + 1) as usize].b32.s1);
+            if let Some(p) = popt.filter(|&p| {
+                p < hi_mem_min as usize
+                    && NODE_type(p) == TextNode::MarginKern.into()
+                    && MEM[p].b16.s0 == 1
+            }) {
+                print_scaled(MEM[p + 1].b32.s1);
             } else {
                 print('0' as i32);
             }

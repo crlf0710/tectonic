@@ -1464,7 +1464,7 @@ unsafe fn post_line_break(mut d: bool) {
                 p = q; /*:915*/
                 ptmp = p
             } else {
-                p = prev_rightmost(MEM[TEMP_HEAD].b32.s1, q);
+                p = prev_rightmost(MEM[TEMP_HEAD].b32.s1, q).tex_int();
                 ptmp = p;
                 p = find_protchar_right(MEM[TEMP_HEAD].b32.s1, p)
             }
@@ -3155,14 +3155,13 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
 }
 unsafe fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
     let mut l: i32 = 0;
-    let mut r: i32 = 0;
     let mut n: i32 = 0;
     if MEM[(q + 1) as usize].b32.s1.is_texnull() {
         l = first_p
     } else {
         l = MEM[(MEM[(q + 1) as usize].b32.s1 + 1) as usize].b32.s1
     }
-    r = prev_rightmost(global_prev_p, p);
+    let mut r = prev_rightmost(global_prev_p, p).tex_int();
     if !p.is_texnull()
         && NODE_type(p as usize) == TextNode::Disc.into()
         && !MEM[(p + 1) as usize].b32.s0.is_texnull()
@@ -3307,7 +3306,7 @@ unsafe fn find_protchar_right(mut l: i32, mut r: i32) -> i32 {
                 l = pop_node()
             }
             if r != l && !r.is_texnull() {
-                r = prev_rightmost(l, r)
+                r = prev_rightmost(l, r).tex_int();
             } else if r == l && hlist_stack_level == 0 {
                 run = false
             }

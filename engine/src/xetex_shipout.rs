@@ -348,7 +348,6 @@ unsafe fn hlist_out() {
     let mut edge: scaled_t = 0;
     let mut prev_p: i32 = 0;
     let mut len: i32 = 0;
-    let mut q: i32 = 0;
     let mut r: i32 = 0;
     let mut k: i32 = 0;
     let mut j: i32 = 0;
@@ -382,7 +381,7 @@ unsafe fn hlist_out() {
                     /* "got a word in an AAT font, might be the start of a run" */
                     r = p;
                     k = MEM[(r + 4) as usize].b16.s1 as i32;
-                    q = *LLIST_link(p as usize);
+                    let mut q = *LLIST_link(p as usize);
                     loop {
                         /*641: "Advance `q` past ignorable nodes." This test is
                          * mostly `node_is_invisible_to_interword_space`. 641 is
@@ -509,7 +508,7 @@ unsafe fn hlist_out() {
                             overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
                         }
                         k = 0;
-                        q = r;
+                        let mut q = r;
                         loop {
                             if NODE_type(q as usize) == TextNode::WhatsIt.into() {
                                 if whatsit_NODE_subtype(q as usize) == WhatsItNST::NativeWord
@@ -554,7 +553,7 @@ unsafe fn hlist_out() {
                             }
                             q = *LLIST_link(q as usize);
                         }
-                        q = new_native_word_node(
+                        let mut q = new_native_word_node(
                             MEM[(r + 4) as usize].b16.s2 as internal_font_number,
                             cur_length(),
                         ) as i32;
