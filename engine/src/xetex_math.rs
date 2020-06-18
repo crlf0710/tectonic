@@ -175,7 +175,7 @@ pub(crate) unsafe fn init_math() {
                 p = new_math(0, BEGIN_L_CODE as i16) as i32;
                 MEM[TEMP_HEAD].b32.s1 = p;
                 just_copy(
-                    MEM[(just_box + 5) as usize].b32.s1,
+                    MEM[(just_box + 5) as usize].b32.s1.opt(),
                     p as usize,
                     new_math(0, END_L_CODE as i16) as i32,
                 );

@@ -13309,7 +13309,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
             }
         }
     }
-    let mut q = prune_page_top(q, *INTPAR(IntPar::saving_vdiscards) > 0);
+    let mut q = prune_page_top(q.opt(), *INTPAR(IntPar::saving_vdiscards) > 0);
     let p = MEM[v + 5].b32.s1.opt();
     free_node(v, BOX_NODE_SIZE);
     if !q.is_texnull() {
@@ -14320,23 +14320,20 @@ pub(crate) unsafe fn append_discretionary() {
     };
 }
 pub(crate) unsafe fn build_discretionary() {
-    let mut p: i32 = 0;
-    let mut q: i32 = 0;
-    let mut n: i32 = 0;
     unsave();
-    q = cur_list.head as i32;
-    p = MEM[q as usize].b32.s1;
-    n = 0;
-    while !p.is_texnull() {
-        if !is_char_node(p) {
-            let nodetype = TextNode::n(MEM[p as usize].b16.s1).unwrap();
+    let mut q = cur_list.head;
+    let mut popt = MEM[q].b32.s1.opt();
+    let mut n = 0;
+    while let Some(p) = popt {
+        if !is_char_node(p as i32) {
+            let nodetype = TextNode::n(MEM[p].b16.s1).unwrap();
             if ![TextNode::HList, TextNode::VList, TextNode::Rule].contains(&nodetype) {
                 if nodetype != TextNode::Kern {
                     if nodetype != TextNode::Ligature {
                         if nodetype != TextNode::WhatsIt
-                            || whatsit_NODE_subtype(p as usize) != WhatsItNST::NativeWord
-                                && whatsit_NODE_subtype(p as usize) != WhatsItNST::NativeWordAt
-                                && whatsit_NODE_subtype(p as usize) != WhatsItNST::Glyph
+                            || whatsit_NODE_subtype(p) != WhatsItNST::NativeWord
+                                && whatsit_NODE_subtype(p) != WhatsItNST::NativeWordAt
+                                && whatsit_NODE_subtype(p) != WhatsItNST::Glyph
                         {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
@@ -14350,9 +14347,9 @@ pub(crate) unsafe fn build_discretionary() {
                             error();
                             begin_diagnostic();
                             print_nl_cstr(b"The following discretionary sublist has been deleted:");
-                            show_box(p);
+                            show_box(p as i32);
                             end_diagnostic(true);
-                            flush_node_list(p.opt());
+                            flush_node_list(Some(p));
                             MEM[q as usize].b32.s1 = TEX_NULL;
                             break;
                         }
@@ -14361,10 +14358,10 @@ pub(crate) unsafe fn build_discretionary() {
             }
         }
         q = p;
-        p = MEM[q as usize].b32.s1;
+        popt = LLIST_link(q).opt();
         n += 1;
     }
-    p = MEM[cur_list.head].b32.s1;
+    let p = MEM[cur_list.head].b32.s1;
     pop_nest();
     match SAVE_STACK[SAVE_PTR - 1].val {
         0 => MEM[cur_list.tail + 1].b32.s0 = p,
@@ -14620,96 +14617,92 @@ pub(crate) unsafe fn push_math(c: GroupCode) {
     cur_list.aux.b32.s1 = TEX_NULL;
     new_save_level(c);
 }
-pub(crate) unsafe fn just_copy(mut p: i32, mut h: usize, mut t: i32) {
-    while !p.is_texnull() {
+pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32) {
+    while let Some(p) = popt {
         let mut current_block_50: u64;
-        let mut r: i32 = 0;
+        let mut r = 0;
         let mut words = 1_u8;
-        if is_char_node(p) {
-            r = get_avail() as i32;
+        if is_char_node(p as i32) {
+            r = get_avail();
             current_block_50 = 2500484646272006982;
         } else {
-            match TextNode::n(MEM[p as usize].b16.s1).unwrap() {
+            match TextNode::n(MEM[p].b16.s1).unwrap() {
                 TextNode::HList | TextNode::VList => {
-                    r = get_node(BOX_NODE_SIZE) as i32;
-                    *SYNCTEX_tag(r as usize, BOX_NODE_SIZE) =
-                        *SYNCTEX_tag(p as usize, BOX_NODE_SIZE);
-                    *SYNCTEX_line(r as usize, BOX_NODE_SIZE) =
-                        *SYNCTEX_line(p as usize, BOX_NODE_SIZE);
-                    MEM[(r + 6) as usize] = MEM[(p + 6) as usize];
-                    MEM[(r + 5) as usize] = MEM[(p + 5) as usize];
+                    r = get_node(BOX_NODE_SIZE);
+                    *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p, BOX_NODE_SIZE);
+                    *SYNCTEX_line(r, BOX_NODE_SIZE) = *SYNCTEX_line(p, BOX_NODE_SIZE);
+                    MEM[r + 6] = MEM[p + 6];
+                    MEM[r + 5] = MEM[p + 5];
                     words = 5;
-                    *BOX_list_ptr(r as usize) = TEX_NULL;
+                    *BOX_list_ptr(r) = TEX_NULL;
                     current_block_50 = 2500484646272006982;
                 }
                 TextNode::Rule => {
-                    r = get_node(RULE_NODE_SIZE) as i32;
+                    r = get_node(RULE_NODE_SIZE);
                     words = RULE_NODE_SIZE as u8;
                     current_block_50 = 2500484646272006982;
                 }
                 TextNode::Ligature => {
-                    r = get_avail() as i32;
+                    r = get_avail();
                     MEM[r as usize] = MEM[(p + 1) as usize];
                     current_block_50 = 1668590571950580537;
                 }
                 TextNode::Kern | TextNode::Math => {
                     words = MEDIUM_NODE_SIZE as u8;
-                    r = get_node(words as i32) as i32;
+                    r = get_node(words as i32);
                     current_block_50 = 2500484646272006982;
                 }
                 TextNode::Glue => {
-                    r = get_node(MEDIUM_NODE_SIZE) as i32;
-                    *GLUE_SPEC_ref_count(*GLUE_NODE_glue_ptr(p as usize) as usize) += 1;
-                    *SYNCTEX_tag(r as usize, MEDIUM_NODE_SIZE) =
-                        *SYNCTEX_tag(p as usize, MEDIUM_NODE_SIZE);
-                    *SYNCTEX_line(r as usize, MEDIUM_NODE_SIZE) =
-                        *SYNCTEX_line(p as usize, MEDIUM_NODE_SIZE);
-                    *GLUE_NODE_glue_ptr(r as usize) = *GLUE_NODE_glue_ptr(p as usize);
-                    *GLUE_NODE_leader_ptr(r as usize) = TEX_NULL;
+                    r = get_node(MEDIUM_NODE_SIZE);
+                    *GLUE_SPEC_ref_count(*GLUE_NODE_glue_ptr(p) as usize) += 1;
+                    *SYNCTEX_tag(r, MEDIUM_NODE_SIZE) = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
+                    *SYNCTEX_line(r, MEDIUM_NODE_SIZE) = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
+                    *GLUE_NODE_glue_ptr(r) = *GLUE_NODE_glue_ptr(p);
+                    *GLUE_NODE_leader_ptr(r) = TEX_NULL;
                     current_block_50 = 2500484646272006982;
                 }
                 TextNode::WhatsIt => {
-                    match whatsit_NODE_subtype(p as usize) {
+                    match whatsit_NODE_subtype(p) {
                         WhatsItNST::Open => {
-                            r = get_node(OPEN_NODE_SIZE) as i32;
+                            r = get_node(OPEN_NODE_SIZE);
                             words = OPEN_NODE_SIZE as u8;
                         }
                         WhatsItNST::Write | WhatsItNST::Special => {
-                            r = get_node(WRITE_NODE_SIZE) as i32;
-                            MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
+                            r = get_node(WRITE_NODE_SIZE);
+                            MEM[MEM[p + 1].b32.s1 as usize].b32.s0 += 1;
                             words = WRITE_NODE_SIZE as u8;
                         }
                         WhatsItNST::Close | WhatsItNST::Language => {
-                            r = get_node(SMALL_NODE_SIZE) as i32;
+                            r = get_node(SMALL_NODE_SIZE);
                             words = SMALL_NODE_SIZE as u8;
                         }
                         WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                            words = *NATIVE_NODE_size(p as usize) as u8;
-                            r = get_node(words as i32) as i32;
+                            words = *NATIVE_NODE_size(p) as u8;
+                            r = get_node(words as i32);
 
                             while words > 0 {
                                 words -= 1;
-                                MEM[(r + words as i32) as usize] = MEM[(p + words as i32) as usize]
+                                MEM[r + (words as usize)] = MEM[p + (words as usize)]
                             }
 
-                            *NATIVE_NODE_glyph_info_ptr(r as usize) = 0 as *mut libc::c_void;
-                            *NATIVE_NODE_glyph_count(r as usize) = 0;
-                            copy_native_glyph_info(p as usize, r as usize);
+                            *NATIVE_NODE_glyph_info_ptr(r) = 0 as *mut libc::c_void;
+                            *NATIVE_NODE_glyph_count(r) = 0;
+                            copy_native_glyph_info(p, r);
                         }
                         WhatsItNST::Glyph => {
-                            r = get_node(GLYPH_NODE_SIZE) as i32;
+                            r = get_node(GLYPH_NODE_SIZE);
                             words = GLYPH_NODE_SIZE as u8;
                         }
                         WhatsItNST::Pic | WhatsItNST::Pdf => {
                             words = (9i32 as u64).wrapping_add(
-                                (MEM[(p + 4) as usize].b16.s1 as u64)
+                                (MEM[p + 4].b16.s1 as u64)
                                     .wrapping_add(::std::mem::size_of::<memory_word>() as u64)
                                     .wrapping_sub(1i32 as u64)
                                     .wrapping_div(::std::mem::size_of::<memory_word>() as u64),
                             ) as u8;
-                            r = get_node(words as i32) as i32;
+                            r = get_node(words as i32);
                         }
-                        WhatsItNST::PdfSavePos => r = get_node(SMALL_NODE_SIZE) as i32,
+                        WhatsItNST::PdfSavePos => r = get_node(SMALL_NODE_SIZE),
                         //_ => confusion(b"ext2"),
                     }
                     current_block_50 = 2500484646272006982;
@@ -14721,7 +14714,7 @@ pub(crate) unsafe fn just_copy(mut p: i32, mut h: usize, mut t: i32) {
             2500484646272006982 => {
                 while words > 0 {
                     words -= 1;
-                    MEM[(r + words as i32) as usize] = MEM[(p + words as i32) as usize]
+                    MEM[r + (words as usize)] = MEM[p + (words as usize)]
                 }
                 current_block_50 = 1668590571950580537;
             }
@@ -14729,12 +14722,12 @@ pub(crate) unsafe fn just_copy(mut p: i32, mut h: usize, mut t: i32) {
         }
         match current_block_50 {
             1668590571950580537 => {
-                *LLIST_link(h) = r;
-                h = r as usize
+                *LLIST_link(h) = r as i32;
+                h = r;
             }
             _ => {}
         }
-        p = *LLIST_link(p as usize)
+        popt = LLIST_link(p).opt();
     }
     *LLIST_link(h) = t;
 }
@@ -14743,7 +14736,7 @@ pub(crate) unsafe fn just_reverse(mut p: i32) {
     let mut m = MIN_HALFWORD;
     let mut n = MIN_HALFWORD;
     if MEM[TEMP_HEAD].b32.s1.is_texnull() {
-        just_copy(MEM[p as usize].b32.s1, TEMP_HEAD, TEX_NULL);
+        just_copy(MEM[p as usize].b32.s1.opt(), TEMP_HEAD, TEX_NULL);
         q = MEM[TEMP_HEAD].b32.s1
     } else {
         q = MEM[p as usize].b32.s1;
@@ -15364,16 +15357,16 @@ pub(crate) unsafe fn issue_message() {
 pub(crate) unsafe fn shift_case() {
     let b = cur_chr;
     let _p = scan_toks(false, false);
-    let mut p = MEM[def_ref].b32.s1;
-    while !p.is_texnull() {
-        let t = MEM[p as usize].b32.s0;
+    let mut popt = MEM[def_ref].b32.s1.opt();
+    while let Some(p) = popt {
+        let t = MEM[p].b32.s0;
         if t < CS_TOKEN_FLAG + SINGLE_BASE as i32 {
             let c = t % MAX_CHAR_VAL;
             if EQTB[(b + c) as usize].val != 0 {
-                MEM[p as usize].b32.s0 = t - c + EQTB[(b + c) as usize].val
+                MEM[p].b32.s0 = t - c + EQTB[(b + c) as usize].val
             }
         }
-        p = *LLIST_link(p as usize)
+        popt = LLIST_link(p).opt();
     }
     begin_token_list(MEM[def_ref].b32.s1 as usize, Btl::BackedUp);
     MEM[def_ref].b32.s1 = avail;
@@ -18061,42 +18054,42 @@ pub(crate) unsafe fn compare_strings() {
     }
     done(s1, s2);
 }
-pub(crate) unsafe fn prune_page_top(mut p: i32, mut s: bool) -> i32 {
+pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32 {
     let mut r: i32 = TEX_NULL;
     let mut prev_p = TEMP_HEAD;
-    MEM[TEMP_HEAD].b32.s1 = p;
-    while !p.is_texnull() {
-        match TextNode::n(MEM[p as usize].b16.s1).confuse(b"pruning") {
+    MEM[TEMP_HEAD].b32.s1 = popt.tex_int();
+    while let Some(p) = popt {
+        match TextNode::n(MEM[p].b16.s1).confuse(b"pruning") {
             TextNode::HList | TextNode::VList | TextNode::Rule => {
                 let q = new_skip_param(GluePar::split_top_skip as i16);
                 MEM[prev_p].b32.s1 = q as i32;
-                MEM[q as usize].b32.s1 = p;
-                if MEM[(temp_ptr + 1) as usize].b32.s1 > MEM[(p + 3) as usize].b32.s1 {
+                MEM[q].b32.s1 = p as i32;
+                if MEM[(temp_ptr + 1) as usize].b32.s1 > MEM[p + 3].b32.s1 {
                     MEM[(temp_ptr + 1) as usize].b32.s1 =
-                        MEM[(temp_ptr + 1) as usize].b32.s1 - MEM[(p + 3) as usize].b32.s1
+                        MEM[(temp_ptr + 1) as usize].b32.s1 - MEM[p + 3].b32.s1
                 } else {
                     MEM[(temp_ptr + 1) as usize].b32.s1 = 0
                 }
-                p = TEX_NULL
+                popt = None;
             }
             TextNode::WhatsIt | TextNode::Mark | TextNode::Ins => {
                 prev_p = p as usize;
-                p = MEM[prev_p].b32.s1
+                popt = LLIST_link(prev_p).opt();
             }
             TextNode::Glue | TextNode::Kern | TextNode::Penalty => {
                 let q = p;
-                p = MEM[q as usize].b32.s1;
-                MEM[q as usize].b32.s1 = TEX_NULL;
-                MEM[prev_p].b32.s1 = p;
+                popt = LLIST_link(q).opt();
+                MEM[q].b32.s1 = TEX_NULL;
+                MEM[prev_p].b32.s1 = popt.tex_int();
                 if s {
                     if disc_ptr[VSPLIT_CODE as usize].is_texnull() {
-                        disc_ptr[VSPLIT_CODE as usize] = q
+                        disc_ptr[VSPLIT_CODE as usize] = q as i32;
                     } else {
-                        MEM[r as usize].b32.s1 = q
+                        MEM[r as usize].b32.s1 = q as i32;
                     }
-                    r = q
+                    r = q as i32;
                 } else {
-                    flush_node_list(q.opt());
+                    flush_node_list(Some(q));
                 }
             }
             _ => confusion(b"pruning"),

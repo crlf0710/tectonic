@@ -239,7 +239,7 @@ unsafe fn fire_up(mut c: i32) {
                                 *LLIST_link(s as usize) = TEX_NULL;
                                 *GLUEPAR(GluePar::split_top_skip) = MEM[(p + 4) as usize].b32.s1;
                                 MEM[(p + 4) as usize].b32.s0 =
-                                    prune_page_top(MEM[(r + 1) as usize].b32.s1, false);
+                                    prune_page_top(MEM[(r + 1) as usize].b32.s1.opt(), false);
                                 if !MEM[(p + 4) as usize].b32.s0.is_texnull() {
                                     temp_ptr = vpackage(
                                         MEM[(p + 4) as usize].b32.s0.opt(),
