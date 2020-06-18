@@ -476,7 +476,7 @@ pub(crate) unsafe fn new_spec(p: usize) -> usize {
     MEM[q + 3].b32.s1 = MEM[p + 3].b32.s1;
     q
 }
-pub(crate) unsafe fn new_param_glue(mut n: i16) -> usize {
+pub(crate) unsafe fn new_param_glue(n: GluePar) -> usize {
     let p = get_node(MEDIUM_NODE_SIZE);
     set_NODE_type(p, TextNode::Glue);
     MEM[p].b16.s0 = n as u16 + 1;
@@ -495,7 +495,7 @@ pub(crate) unsafe fn new_glue(mut q: i32) -> usize {
     *GLUE_SPEC_ref_count(q as usize) += 1;
     p
 }
-pub(crate) unsafe fn new_skip_param(mut n: i16) -> usize {
+pub(crate) unsafe fn new_skip_param(n: GluePar) -> usize {
     temp_ptr = new_spec(EQTB[(GLUE_BASE as i32 + n as i32) as usize].val as usize) as i32; // 232
     let p = new_glue(temp_ptr);
     MEM[temp_ptr as usize].b32.s1 = TEX_NULL;
@@ -10503,7 +10503,7 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
                         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                     }
                     if use_skip {
-                        MEM[cur_list.tail].b32.s1 = new_param_glue(15 as i16) as i32;
+                        MEM[cur_list.tail].b32.s1 = new_param_glue(GluePar::xetex_linebreak_skip) as i32;
                         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                     }
                 }
@@ -11996,9 +11996,9 @@ pub(crate) unsafe fn append_to_vlist(b: usize) {
                 - MEM[b + 3].b32.s1
         };
         if d < *DIMENPAR(DimenPar::line_skip_limit) {
-            p = new_param_glue(GluePar::line_skip as i16) as i32;
+            p = new_param_glue(GluePar::line_skip) as i32;
         } else {
-            p = new_skip_param(GluePar::baseline_skip as i16) as i32;
+            p = new_skip_param(GluePar::baseline_skip) as i32;
             MEM[(temp_ptr + 1) as usize].b32.s1 = d
         }
         MEM[cur_list.tail].b32.s1 = p;
@@ -12149,7 +12149,7 @@ pub(crate) unsafe fn init_align() {
     warning_index = save_cs_ptr;
     align_state = -1000000;
     loop {
-        MEM[cur_align as usize].b32.s1 = new_param_glue(GluePar::tab_skip as i16) as i32;
+        MEM[cur_align as usize].b32.s1 = new_param_glue(GluePar::tab_skip) as i32;
         /*:808 */
         cur_align = *LLIST_link(cur_align as usize); /*:807*/
         if cur_cmd == Cmd::CarRet {
@@ -12790,7 +12790,7 @@ pub(crate) unsafe fn fin_align() {
         pop_nest();
         MEM[cur_list.tail].b32.s1 = new_penalty(*INTPAR(IntPar::pre_display_penalty)) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-        MEM[cur_list.tail].b32.s1 = new_param_glue(GluePar::above_display_skip as i16) as i32;
+        MEM[cur_list.tail].b32.s1 = new_param_glue(GluePar::above_display_skip) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         MEM[cur_list.tail].b32.s1 = p;
         if !p.is_texnull() {
@@ -12798,7 +12798,7 @@ pub(crate) unsafe fn fin_align() {
         }
         MEM[cur_list.tail].b32.s1 = new_penalty(*INTPAR(IntPar::post_display_penalty)) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-        MEM[cur_list.tail].b32.s1 = new_param_glue(GluePar::below_display_skip as i16) as i32;
+        MEM[cur_list.tail].b32.s1 = new_param_glue(GluePar::below_display_skip) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         cur_list.aux.b32.s1 = aux_save.b32.s1;
         resume_after_display();
@@ -13364,7 +13364,7 @@ pub(crate) unsafe fn box_error(mut n: u8) {
 pub(crate) unsafe fn app_space() {
     let q;
     if cur_list.aux.b32.s0 >= 2000 && *GLUEPAR(GluePar::xspace_skip) != 0i32 {
-        q = new_param_glue(GluePar::xspace_skip as i16)
+        q = new_param_glue(GluePar::xspace_skip)
     } else {
         if *GLUEPAR(GluePar::space_skip) != 0 {
             main_p = *GLUEPAR(GluePar::space_skip)
@@ -13951,7 +13951,7 @@ pub(crate) unsafe fn norm_min(mut h: i32) -> i16 {
 pub(crate) unsafe fn new_graf(mut indented: bool) {
     cur_list.prev_graf = 0;
     if cur_list.mode == (false, ListMode::VMode) || cur_list.head != cur_list.tail {
-        MEM[cur_list.tail].b32.s1 = new_param_glue(GluePar::par_skip as i16) as i32;
+        MEM[cur_list.tail].b32.s1 = new_param_glue(GluePar::par_skip) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
     }
     push_nest();
@@ -17957,7 +17957,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     temp_ptr = new_glue(main_p) as i32
                 } else {
-                    temp_ptr = new_param_glue(GluePar::space_skip as i16) as i32
+                    temp_ptr = new_param_glue(GluePar::space_skip) as i32
                 }
                 MEM[cur_list.tail].b32.s1 = temp_ptr;
                 cur_list.tail = temp_ptr as usize;
@@ -18059,7 +18059,7 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
     while let Some(p) = popt {
         match TextNode::n(MEM[p].b16.s1).confuse(b"pruning") {
             TextNode::HList | TextNode::VList | TextNode::Rule => {
-                let q = new_skip_param(GluePar::split_top_skip as i16);
+                let q = new_skip_param(GluePar::split_top_skip);
                 MEM[prev_p].b32.s1 = q as i32;
                 MEM[q].b32.s1 = p as i32;
                 if MEM[(temp_ptr + 1) as usize].b32.s1 > MEM[p + 3].b32.s1 {

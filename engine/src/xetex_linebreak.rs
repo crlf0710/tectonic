@@ -1479,7 +1479,7 @@ unsafe fn post_line_break(mut d: bool) {
             }
         }
         if !glue_break {
-            r = new_param_glue(GluePar::right_skip as i16) as i32;
+            r = new_param_glue(GluePar::right_skip) as i32;
             MEM[r as usize].b32.s1 = *LLIST_link(q as usize);
             MEM[q as usize].b32.s1 = r;
             q = r
@@ -1525,7 +1525,7 @@ unsafe fn post_line_break(mut d: bool) {
             }
         }
         if *GLUEPAR(GluePar::left_skip) != 0 {
-            r = new_param_glue(GluePar::left_skip as i16) as i32;
+            r = new_param_glue(GluePar::left_skip) as i32;
             *LLIST_link(r as usize) = q;
             q = r
         }

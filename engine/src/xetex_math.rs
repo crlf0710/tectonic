@@ -137,13 +137,13 @@ pub(crate) unsafe fn init_math() {
             j = Some(if *GLUEPAR(GluePar::right_skip) == 0 {
                 new_kern(0)
             } else {
-                new_param_glue(GluePar::right_skip as i16)
+                new_param_glue(GluePar::right_skip)
             });
 
             p = if *GLUEPAR(GluePar::left_skip) == 0 {
                 new_kern(0)
             } else {
-                new_param_glue(GluePar::left_skip as i16)
+                new_param_glue(GluePar::left_skip)
             } as i32;
 
             MEM[p as usize].b32.s1 = j.tex_int();
@@ -865,7 +865,7 @@ unsafe fn app_display(mut j: i32, mut b: usize, mut d: scaled_t) {
         }
         let u = new_math(0i32, END_M_CODE as i16);
         if NODE_type(t) == TextNode::Glue.into() {
-            j = new_skip_param(GluePar::right_skip as i16) as i32;
+            j = new_skip_param(GluePar::right_skip) as i32;
             MEM[q as usize].b32.s1 = j;
             MEM[j as usize].b32.s1 = u as i32;
             j = MEM[t + 1].b32.s0;
@@ -882,7 +882,7 @@ unsafe fn app_display(mut j: i32, mut b: usize, mut d: scaled_t) {
         }
         let u = new_math(0, BEGIN_M_CODE as i16);
         if NODE_type(r as usize) == TextNode::Glue.into() {
-            j = new_skip_param(GluePar::left_skip as i16) as i32;
+            j = new_skip_param(GluePar::left_skip) as i32;
             MEM[u].b32.s1 = j;
             MEM[j as usize].b32.s1 = p;
             j = MEM[(r + 1) as usize].b32.s0;
@@ -917,8 +917,6 @@ pub(crate) unsafe fn after_math() {
     let mut q: scaled_t = 0;
     let mut d: scaled_t = 0;
     let mut s: scaled_t = 0;
-    let mut g1: i16 = 0;
-    let mut g2: i16 = 0;
     let mut t: i32 = 0;
     let mut pre_t: i32 = 0;
     let mut j = None;
@@ -1188,14 +1186,16 @@ pub(crate) unsafe fn after_math() {
                 }
             }
         }
+        let mut g1;
+        let mut g2;
         MEM[cur_list.tail].b32.s1 = new_penalty(*INTPAR(IntPar::pre_display_penalty)) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         if d + s <= *DIMENPAR(DimenPar::pre_display_size) || l {
-            g1 = GluePar::above_display_skip as i16;
-            g2 = GluePar::below_display_skip as i16
+            g1 = GluePar::above_display_skip;
+            g2 = Some(GluePar::below_display_skip);
         } else {
-            g1 = GluePar::above_display_short_skip as i16;
-            g2 = GluePar::below_display_short_skip as i16
+            g1 = GluePar::above_display_short_skip;
+            g2 = Some(GluePar::below_display_short_skip);
         }
         if l && e == 0 {
             app_display(j.tex_int(), a as usize, 0);
@@ -1223,7 +1223,7 @@ pub(crate) unsafe fn after_math() {
             MEM[cur_list.tail].b32.s1 = new_penalty(INF_PENALTY) as i32;
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
             app_display(j.tex_int(), a as usize, z - MEM[(a + 1) as usize].b32.s1);
-            g2 = 0;
+            g2 = None;
         }
         if t != ADJUST_HEAD as i32 {
             MEM[cur_list.tail].b32.s1 = MEM[ADJUST_HEAD as usize].b32.s1;
@@ -1235,7 +1235,7 @@ pub(crate) unsafe fn after_math() {
         }
         MEM[cur_list.tail].b32.s1 = new_penalty(*INTPAR(IntPar::post_display_penalty)) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-        if g2 > 0 {
+        if let Some(g2) = g2 {
             MEM[cur_list.tail].b32.s1 = new_param_glue(g2) as i32;
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         }

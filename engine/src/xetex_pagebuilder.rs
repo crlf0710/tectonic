@@ -260,7 +260,7 @@ unsafe fn fire_up(mut c: i32) {
                         temp_ptr = MEM[(*BOX_REG(n as usize) + 5) as usize].b32.s1;
                         free_node(*BOX_REG(n as _) as usize, BOX_NODE_SIZE);
                         *BOX_REG(n as _) =
-                            vpackage(temp_ptr.opt(), 0i32, 1i32 as i16, 0x3fffffffi32) as i32;
+                            vpackage(temp_ptr.opt(), 0i32, ADDITIONAL as i16, MAX_HALFWORD) as i32;
                     } else {
                         while !LLIST_link(s as usize).is_texnull() {
                             s = *LLIST_link(s as usize);
@@ -526,7 +526,7 @@ pub(crate) unsafe fn build_page() {
                         freeze_page_specs(BOX_THERE as _);
                     } else { page_contents = BOX_THERE as _}
 
-                    slf.q = new_skip_param(GluePar::top_skip as _) as i32; /* "now temp_ptr = glue_ptr(q) */
+                    slf.q = new_skip_param(GluePar::top_skip) as i32; /* "now temp_ptr = glue_ptr(q) */
 
                     if *BOX_width(temp_ptr as usize) > *BOX_height(slf.p as usize) {
                         *BOX_width(temp_ptr as usize) -= *BOX_height(slf.p as usize);
