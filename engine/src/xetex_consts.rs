@@ -856,10 +856,6 @@ pub(crate) const DEPTH_OFFSET: placeholdertype = 2;
 pub(crate) const HEIGHT_OFFSET: placeholdertype = 3;
 
 /* args to Cmd::LastItem -- heavily overloaded by (X)eTeX for extensions */
-pub(crate) const INT_VAL: u8 = 0;
-pub(crate) const DIMEN_VAL: u8 = 1;
-pub(crate) const GLUE_VAL: u8 = 2;
-pub(crate) const MU_VAL: u8 = 3;
 pub(crate) const LAST_NODE_TYPE_CODE: u8 = 3;
 pub(crate) const INPUT_LINE_NO_CODE: placeholdertype = 4;
 pub(crate) const BADNESS_CODE: placeholdertype = 5;
@@ -1150,6 +1146,18 @@ impl From<u8> for ListMode {
 pub(crate) const XDV_ID_BYTE: u8 = 7;
 pub(crate) const SPX_ID_BYTE: u8 = 100;
 
+
+
+pub(crate) const INT_VAL: u8 = 0;
+pub(crate) const DIMEN_VAL: u8 = 1;
+pub(crate) const GLUE_VAL: u8 = 2;
+pub(crate) const MU_VAL: u8 = 3;
+pub(crate) const IDENT_VAL: u8 = 4;
+pub(crate) const TOK_VAL: u8 = 5;
+pub(crate) const INTER_CHAR_VAL: u8 = 6;
+pub(crate) const MARK_VAL: u8 = 7;
+
+
 /* page_contents possibilities (EMPTY is overloaded) */
 pub(crate) const EMPTY: placeholdertype = 0;
 pub(crate) const INSERTS_ONLY: placeholdertype = 1;
@@ -1202,18 +1210,14 @@ pub(crate) const SUB_BOX: placeholdertype = 2;
 pub(crate) const DISPLAYOPERATORMINHEIGHT: placeholdertype = 3;
 pub(crate) const LEVEL_BOUNDARY: u16 = 3;
 pub(crate) const SUB_MLIST: placeholdertype = 3;
-pub(crate) const IDENT_VAL: u8 = 4;
 pub(crate) const MATH_TEXT_CHAR: placeholdertype = 4;
 pub(crate) const RESTORE_SA: u16 = 4;
 pub(crate) const SPACE_SHRINK_CODE: placeholdertype = 4;
 // pub(crate) const OUT_PARAM: placeholdertype = 5;
-pub(crate) const TOK_VAL: u8 = 5;
 pub(crate) const X_HEIGHT_CODE: placeholdertype = 5;
 pub(crate) const ACCENTBASEHEIGHT: placeholdertype = 6;
-pub(crate) const INTER_CHAR_VAL: placeholdertype = 6;
 pub(crate) const QUAD_CODE: placeholdertype = 6;
 pub(crate) const EXTRA_SPACE_CODE: placeholdertype = 7;
-pub(crate) const MARK_VAL: placeholdertype = 7;
 pub(crate) const VAR_FAM_CLASS: placeholdertype = 7;
 pub(crate) const SUBSCRIPTTOPMAX: placeholdertype = 9;
 pub(crate) const NATIVE_GLYPH_INFO_SIZE: placeholdertype = 10;
@@ -1252,7 +1256,7 @@ pub(crate) const PRIM_PRIME: usize = 431;
 pub(crate) const PRIM_SIZE: usize = 500;
 pub(crate) const MAX_HLIST_STACK: placeholdertype = 512;
 pub(crate) const HYPH_PRIME: placeholdertype = 607;
-pub(crate) const HYPHENATABLE_LENGTH_LIMIT: placeholdertype = 4095;
+pub(crate) const HYPHENATABLE_LENGTH_LIMIT: usize = 4095;
 pub(crate) const CHAR_CLASS_LIMIT: placeholdertype = 4096;
 pub(crate) const EJECT_PENALTY: placeholdertype = -10000;
 pub(crate) const INF_BAD: placeholdertype = 10000;

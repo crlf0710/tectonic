@@ -2728,17 +2728,15 @@ pub(crate) unsafe fn not_native_font_error(cmd: Cmd, c: i32, f: usize) {
 }
 /*:1434*/
 pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
-    let mut h: i32 = 0; /*269:*/
-    let mut p: i32 = 0;
     let mut ll: i32 = 0;
-    h = 0i32;
+    let mut h = 0;
     for k in j..=j + l - 1 {
         h = h + h + BUFFER[k as usize];
         while h >= HASH_PRIME as i32 {
             h = h - 8501;
         }
     }
-    p = h + HASH_BASE as i32;
+    let mut p = h + HASH_BASE as i32;
     ll = l;
     for d in 0..=l - 1 {
         if BUFFER[(j + d) as usize] as i64 >= 65536 {
@@ -5059,9 +5057,9 @@ pub(crate) unsafe fn new_index(mut i: u16, mut q: i32) {
         }
     };
 }
-pub(crate) unsafe fn find_sa_element(mut t: i16, mut n: i32, mut w: bool) {
+pub(crate) unsafe fn find_sa_element(t: i16, mut n: i32, mut w: bool) {
     let mut current_block: u64;
-    let mut q: i32 = 0;
+    let mut q;
     let mut i: i16 = 0;
     cur_ptr = sa_root[t as usize];
     if cur_ptr.is_texnull() {
@@ -5181,13 +5179,13 @@ pub(crate) unsafe fn find_sa_element(mut t: i16, mut n: i32, mut w: bool) {
         _ => {}
     }
     /*not_found4 *//*1608: */
-    if t as i32 == MARK_VAL {
+    if t == MARK_VAL as i16 {
         cur_ptr = get_node(MARK_CLASS_NODE_SIZE) as i32; /*level_one *//*:1608 */
         MEM[(cur_ptr + 1) as usize] = sa_null;
         MEM[(cur_ptr + 2) as usize] = sa_null;
         MEM[(cur_ptr + 3) as usize] = sa_null
     } else {
-        if t as i32 <= 1i32 {
+        if t == INT_VAL as i16 || t == DIMEN_VAL as i16 {
             cur_ptr = get_node(WORD_NODE_SIZE) as i32;
             MEM[(cur_ptr + 2) as usize].b32.s1 = 0;
             MEM[(cur_ptr + 1) as usize].b32.s1 = n
@@ -12842,11 +12840,8 @@ pub(crate) unsafe fn align_peek() {
         }
     }
 }
-pub(crate) unsafe fn max_hyphenatable_length() -> i32 {
-    if *INTPAR(IntPar::xetex_hyphenatable_length) > HYPHENATABLE_LENGTH_LIMIT {
-        return HYPHENATABLE_LENGTH_LIMIT;
-    }
-    *INTPAR(IntPar::xetex_hyphenatable_length)
+pub(crate) unsafe fn max_hyphenatable_length() -> usize {
+    (*INTPAR(IntPar::xetex_hyphenatable_length) as usize).min(HYPHENATABLE_LENGTH_LIMIT)
 }
 pub(crate) unsafe fn eTeX_enabled(mut b: bool, j: Cmd, mut k: i32) -> bool {
     if !b {
@@ -13216,20 +13211,20 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
             prev_dp = d
         }
         prev_p = p;
-        p = MEM[prev_p as usize].b32.s1
+        p = *LLIST_link(p as usize);
     }
     best_place
 }
-pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
+pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
     cur_val = n;
     let v = if cur_val < 256 {
-        *BOX_REG(cur_val as usize)
+        BOX_REG(cur_val as usize).opt()
     } else {
         find_sa_element(4, cur_val, false);
         if cur_ptr.is_texnull() {
-            TEX_NULL
+            None
         } else {
-            MEM[(cur_ptr + 1) as usize].b32.s1
+            MEM[(cur_ptr + 1) as usize].b32.s1.opt()
         }
     };
     flush_node_list(disc_ptr[VSPLIT_CODE as usize].opt());
@@ -13245,10 +13240,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
         delete_token_ref(cur_mark[SPLIT_BOT_MARK_CODE as usize] as usize);
         cur_mark[SPLIT_BOT_MARK_CODE as usize] = TEX_NULL;
     }
-    if v.is_texnull() {
-        return TEX_NULL;
-    }
-    let v = v as usize;
+    let v = v?;
     if NODE_type(v as usize) != TextNode::VList.into() {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -13263,7 +13255,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
         help_line[1] = b"The box you are trying to split is an \\hbox.";
         help_line[0] = b"I can\'t split such a box, so I\'ll leave it alone.";
         error();
-        return TEX_NULL;
+        return None;
     }
     let q = vert_break(MEM[v + 5].b32.s1, h, *DIMENPAR(DimenPar::split_max_depth));
     let mut p = MEM[v + 5].b32.s1;
@@ -13307,23 +13299,25 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> i32 {
             }
         }
     }
-    let mut q = prune_page_top(q.opt(), *INTPAR(IntPar::saving_vdiscards) > 0);
+    let q = prune_page_top(q.opt(), *INTPAR(IntPar::saving_vdiscards) > 0).opt();
     let p = MEM[v + 5].b32.s1.opt();
     free_node(v, BOX_NODE_SIZE);
-    if !q.is_texnull() {
-        q = vpackage(q.opt(), 0, ADDITIONAL as i16, MAX_HALFWORD) as i32
-    }
+    let q = if let Some(q) = q {
+        Some(vpackage(Some(q), 0, ADDITIONAL as i16, MAX_HALFWORD))
+    } else {
+        None
+    };
     if cur_val < 256 {
-        *BOX_REG(cur_val as usize) = q;
+        *BOX_REG(cur_val as usize) = q.tex_int();
     } else {
         find_sa_element(4, cur_val, false);
         if !cur_ptr.is_texnull() {
-            MEM[(cur_ptr + 1) as usize].b32.s1 = q;
+            MEM[(cur_ptr + 1) as usize].b32.s1 = q.tex_int();
             MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
             delete_sa_ref(cur_ptr as usize);
         }
     }
-    vpackage(p, h, EXACTLY as i16, *DIMENPAR(DimenPar::split_max_depth)) as i32
+    Some(vpackage(p, h, EXACTLY as i16, *DIMENPAR(DimenPar::split_max_depth)))
 }
 pub(crate) unsafe fn print_totals() {
     print_scaled(page_so_far[1]);
@@ -13830,7 +13824,7 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
                 error();
             }
             scan_dimen(false, false, false);
-            cur_box = vsplit(n, cur_val)
+            cur_box = vsplit(n, cur_val).tex_int();
         }
         _ => {
             let k = cur_chr - 4;
@@ -15136,7 +15130,7 @@ pub(crate) unsafe fn alter_box_dimen() {
     let b = if cur_val < 256 {
         *BOX_REG(cur_val as usize)
     } else {
-        find_sa_element(4i32 as i16, cur_val, false);
+        find_sa_element(4, cur_val, false);
         if cur_ptr.is_texnull() {
             TEX_NULL
         } else {

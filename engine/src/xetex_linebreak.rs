@@ -517,7 +517,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         if !(hyf_char > BIGGEST_CHAR) {
                                             ha = prev_s;
 
-                                            if !(l_hyf + r_hyf > max_hyphenatable_length()) {
+                                            if !((l_hyf + r_hyf) as usize > max_hyphenatable_length()) {
                                                 if !ha.is_texnull()
                                                     && ha < hi_mem_min
                                                     && NODE_type(ha as usize)
@@ -765,7 +765,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                     } else {
                                                                         if hn
                                                                                    as
-                                                                                   i32
+                                                                                   usize
                                                                                    ==
                                                                                    max_hyphenatable_length()
                                                                                {
@@ -838,7 +838,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                             if hc[0] > max_hyph_char {
                                                                 break;
                                                             }
-                                                            if hn as i32
+                                                            if hn as usize
                                                                 == max_hyphenatable_length()
                                                             {
                                                                 break;
@@ -889,7 +889,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                 if hc[0] > max_hyph_char {
                                                                     break 's_1342;
                                                                 }
-                                                                if j as i32
+                                                                if j as usize
                                                                     == max_hyphenatable_length()
                                                                 {
                                                                     break 's_1342;

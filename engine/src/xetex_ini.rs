@@ -1481,13 +1481,13 @@ unsafe fn new_patterns() {
                         if cur_chr > max_hyph_char {
                             max_hyph_char = cur_chr
                         }
-                        if (k as i32) < max_hyphenatable_length() {
+                        if (k as usize) < max_hyphenatable_length() {
                             k += 1;
                             hc[k as usize] = cur_chr;
                             hyf[k as usize] = 0;
                             digit_sensed = false
                         }
-                    } else if (k as i32) < max_hyphenatable_length() {
+                    } else if (k as usize) < max_hyphenatable_length() {
                         hyf[k as usize] = (cur_chr - 48) as u8;
                         digit_sensed = true
                     }
@@ -1878,7 +1878,7 @@ unsafe fn new_hyph_exceptions() {
                 Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {
                     if cur_chr == '-' as i32 {
                         /*973:*/
-                        if (n as i32) < max_hyphenatable_length() {
+                        if (n as usize) < max_hyphenatable_length() {
                             q = get_avail() as i32;
                             MEM[q as usize].b32.s1 = p;
                             MEM[q as usize].b32.s0 = n as i32;
@@ -1905,7 +1905,7 @@ unsafe fn new_hyph_exceptions() {
                             help_line[1] = b"Letters in \\hyphenation words must have \\lccode>0.";
                             help_line[0] = b"Proceed; I\'ll ignore the character I just read.";
                             error();
-                        } else if (n as i32) < max_hyphenatable_length() {
+                        } else if (n as usize) < max_hyphenatable_length() {
                             n += 1;
                             if (hc[0] as i64) < 65536 {
                                 hc[n as usize] = hc[0]
@@ -3211,7 +3211,6 @@ unsafe fn pack_buffered_name(mut _n: i16, mut _a: i32, mut _b: i32) {
 unsafe fn load_fmt_file() -> bool {
     let mut _current_block: u64;
     let mut j: i32 = 0;
-    let mut k: i32 = 0;
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut x: i32 = 0;
@@ -3396,18 +3395,13 @@ unsafe fn load_fmt_file() -> bool {
     } else {
         rover = x;
     }
-    k = INT_VAL as i32;
-    loop {
-        if !(k <= INTER_CHAR_VAL) {
-            break;
-        }
+    for k in INT_VAL..=INTER_CHAR_VAL {
         fmt_in.undump_one(&mut x);
         if x < MIN_HALFWORD || x > lo_mem_max {
             bad_fmt();
         } else {
             sa_root[k as usize] = x;
         }
-        k += 1
     }
 
     p = 0;
@@ -3458,7 +3452,7 @@ unsafe fn load_fmt_file() -> bool {
      * $(x_1, \ldots, x_n, x_n, \ldots, x_n)$"
      */
 
-    k = ACTIVE_BASE as i32;
+    let mut k = ACTIVE_BASE as i32;
 
     loop {
         fmt_in.undump_one(&mut x);
