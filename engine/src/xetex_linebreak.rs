@@ -305,7 +305,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             }
         }
         q = get_node(active_node_size as i32) as i32;
-        MEM[q as usize].b16.s1 = UNHYPHENATED as _; //set_NODE_type(q as usize, UNHYPHENATED as _);
+        MEM[q as usize].b16.s1 = BreakType::Unhyphenated as _; //set_NODE_type(q as usize, UNHYPHENATED as _);
         MEM[q as usize].b16.s0 = DECENT_FIT as _;
         *LLIST_link(q as usize) = LAST_ACTIVE as i32;
         MEM[(q + 1) as usize].b32.s1 = TEX_NULL;
@@ -386,13 +386,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 TextNode::Glue => {
                     if auto_breaking {
                         if is_char_node(prev_p) {
-                            try_break(0, UNHYPHENATED as _);
+                            try_break(0, BreakType::Unhyphenated);
                         } else if is_non_discardable_node(prev_p) {
-                            try_break(0, UNHYPHENATED as _);
+                            try_break(0, BreakType::Unhyphenated);
                         } else if NODE_type(prev_p as usize) == TextNode::Kern.into()
                             && kern_NODE_subtype(prev_p as usize) != KernNST::Explicit
                         {
-                            try_break(0, UNHYPHENATED as _);
+                            try_break(0, BreakType::Unhyphenated);
                         }
                     }
                     q = *GLUE_NODE_glue_ptr(cur_p as usize);
@@ -1020,7 +1020,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             if NODE_type(*LLIST_link(cur_p as usize) as usize)
                                 == TextNode::Glue.into()
                             {
-                                try_break(0, UNHYPHENATED);
+                                try_break(0, BreakType::Unhyphenated);
                             }
                         }
                         active_width[1] += *BOX_width(cur_p as usize);
@@ -1042,7 +1042,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     disc_width = 0;
 
                     if s.is_texnull() {
-                        try_break(*INTPAR(IntPar::ex_hyphen_penalty), HYPHENATED as _);
+                        try_break(*INTPAR(IntPar::ex_hyphen_penalty), BreakType::Hyphenated);
                     } else {
                         loop {
                             /*899:*/
@@ -1091,7 +1091,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             }
                         }
                         active_width[1] += disc_width;
-                        try_break(*INTPAR(IntPar::hyphen_penalty), HYPHENATED as _);
+                        try_break(*INTPAR(IntPar::hyphen_penalty), BreakType::Hyphenated);
                         active_width[1] -= disc_width;
                     }
                     r = *DISCRETIONARY_NODE_replace_count(cur_p as usize) as i32;
@@ -1149,12 +1149,15 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     if !is_char_node(*LLIST_link(cur_p as usize)) && auto_breaking {
                         if NODE_type(*LLIST_link(cur_p as usize) as usize) == TextNode::Glue.into()
                         {
-                            try_break(0, UNHYPHENATED);
+                            try_break(0, BreakType::Unhyphenated);
                         }
                     }
                     active_width[1] += *BOX_width(cur_p as usize);
                 }
-                TextNode::Penalty => try_break(*PENALTY_NODE_penalty(cur_p as usize), UNHYPHENATED),
+                TextNode::Penalty => try_break(
+                    *PENALTY_NODE_penalty(cur_p as usize),
+                    BreakType::Unhyphenated,
+                ),
                 TextNode::Mark | TextNode::Ins | TextNode::Adjust => {}
                 _ => confusion(b"paragraph"),
             }
@@ -1165,7 +1168,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         if cur_p.is_texnull() {
             /*902: "Try the final line break at the end of the paragraph, and
              * goto done if the desired breakpoints have been found." */
-            try_break(EJECT_PENALTY, HYPHENATED);
+            try_break(EJECT_PENALTY, BreakType::Hyphenated);
             if *LLIST_link(ACTIVE_LIST as usize) != LAST_ACTIVE as i32 {
                 /*903:*/
                 r = *LLIST_link(ACTIVE_LIST as usize);
@@ -1706,7 +1709,7 @@ unsafe fn post_line_break(mut d: bool) {
  * or UNHYPHENATED, depending on whether or not the current break is at a
  * disc_node. The end of a paragraph is also regarded as hyphenated; this case
  * is distinguishable by the condition cur_p = null." */
-unsafe fn try_break(mut pi: i32, mut break_type: i16) {
+unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
     let mut current_block: u64;
     let mut r: i32 = 0;
     let mut prev_r: i32 = 0;
@@ -1780,7 +1783,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: i16) {
                         break_width[5] = background[5];
                         break_width[6] = background[6];
                         s = cur_p;
-                        if break_type > UNHYPHENATED {
+                        if break_type == BreakType::Hyphenated {
                             /*869: "Compute the discretionary break_width values" */
                             if !cur_p.is_texnull() {
                                 t = *DISCRETIONARY_NODE_replace_count(cur_p as usize) as i32;
@@ -2293,7 +2296,8 @@ unsafe fn try_break(mut pi: i32, mut break_type: i16) {
                                 d = d - pi * pi
                             }
                         }
-                        if break_type == HYPHENATED && MEM[r as usize].b16.s1 == HYPHENATED as u16
+                        if break_type == BreakType::Hyphenated
+                            && MEM[r as usize].b16.s1 == BreakType::Hyphenated as u16
                         // NODE_type(r as usize) == HYPHENATED
                         {
                             if !cur_p.is_texnull() {

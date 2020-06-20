@@ -400,7 +400,7 @@ pub(crate) unsafe fn init_math() {
             s = MEM[p - 1].b32.s1;
             l = MEM[p].b32.s1
         }
-        push_math(GroupCode::MATH_SHIFT);
+        push_math(GroupCode::MathShift);
         cur_list.mode = (false, ListMode::MMode);
         eq_word_define(INT_BASE as usize + IntPar::cur_fam as usize, -1i32);
         eq_word_define(DIMEN_BASE as usize + DimenPar::pre_display_size as usize, w);
@@ -419,7 +419,7 @@ pub(crate) unsafe fn init_math() {
         }
     } else {
         back_input();
-        push_math(GroupCode::MATH_SHIFT);
+        push_math(GroupCode::MathShift);
         eq_word_define(INT_BASE as usize + IntPar::cur_fam as usize, -1);
         if insert_src_special_every_math {
             insert_src_special();
@@ -432,7 +432,7 @@ pub(crate) unsafe fn init_math() {
 pub(crate) unsafe fn start_eq_no() {
     SAVE_STACK[SAVE_PTR + 0].val = cur_chr;
     SAVE_PTR += 1;
-    push_math(GroupCode::MATH_SHIFT);
+    push_math(GroupCode::MathShift);
     eq_word_define(INT_BASE as usize + (IntPar::cur_fam as usize), -1);
     if insert_src_special_every_math {
         insert_src_special();
@@ -601,7 +601,7 @@ pub(crate) unsafe fn append_choices() {
     cur_list.tail = *LLIST_link(cur_list.tail) as usize;
     SAVE_PTR += 1;
     SAVE_STACK[SAVE_PTR - 1].val = 0;
-    push_math(GroupCode::MATH_CHOICE);
+    push_math(GroupCode::MathChoice);
     scan_left_brace();
 }
 pub(crate) unsafe fn fin_mlist(mut p: i32) -> i32 {
@@ -646,7 +646,7 @@ pub(crate) unsafe fn build_choices() {
         _ => {}
     }
     SAVE_STACK[SAVE_PTR - 1].val += 1;
-    push_math(GroupCode::MATH_CHOICE);
+    push_math(GroupCode::MathChoice);
     scan_left_brace();
 }
 pub(crate) unsafe fn sub_sup() {
@@ -744,9 +744,9 @@ pub(crate) unsafe fn math_fraction() {
 pub(crate) unsafe fn math_left_right() {
     let mut q: i32 = 0;
     let mut t = cur_chr as i16;
-    if t != MathNode::Left as i16 && cur_group != GroupCode::MATH_LEFT {
+    if t != MathNode::Left as i16 && cur_group != GroupCode::MathLeft {
         /*1227: */
-        if cur_group == GroupCode::MATH_SHIFT {
+        if cur_group == GroupCode::MathShift {
             scan_delimiter(GARBAGE, false); /*:1530 */
             if file_line_error_style_p != 0 {
                 print_file_line(); /*:1530 */
@@ -782,7 +782,7 @@ pub(crate) unsafe fn math_left_right() {
             unsave();
         }
         if t != MathNode::Right as i16 {
-            push_math(GroupCode::MATH_LEFT);
+            push_math(GroupCode::MathLeft);
             MEM[cur_list.head].b32.s1 = q;
             cur_list.tail = p;
             cur_list.eTeX_aux = Some(p);
@@ -1244,7 +1244,7 @@ pub(crate) unsafe fn after_math() {
     };
 }
 pub(crate) unsafe fn resume_after_display() {
-    if cur_group != GroupCode::MATH_SHIFT {
+    if cur_group != GroupCode::MathShift {
         confusion(b"display");
     }
     unsave();

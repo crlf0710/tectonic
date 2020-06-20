@@ -55,8 +55,8 @@ pub(crate) unsafe fn initialize_pagebuilder_variables() {
     page_max_depth = 0;
 }
 
-unsafe fn freeze_page_specs(mut s: i16) {
-    page_contents = s as _;
+unsafe fn freeze_page_specs(s: PageContents) {
+    page_contents = s;
     page_so_far[0] = *DIMENPAR(DimenPar::vsize);
     page_max_depth = *DIMENPAR(DimenPar::max_depth);
     page_so_far[7] = 0;
@@ -351,7 +351,7 @@ unsafe fn fire_up(mut c: i32) {
     }
 
     /*1026: "Start a new current page" */
-    page_contents = EMPTY as _;
+    page_contents = PageContents::Empty;
     page_tail = PAGE_HEAD as i32;
     *LLIST_link(PAGE_HEAD as usize) = TEX_NULL;
     last_glue = MAX_HALFWORD;
@@ -417,7 +417,7 @@ unsafe fn fire_up(mut c: i32) {
             cur_list.aux.b32.s1 = IGNORE_DEPTH; /* this is `prev_depth` */
             cur_list.mode_line = -line;
             begin_token_list(*LOCAL(Local::output_routine) as usize, Btl::OutputText);
-            new_save_level(GroupCode::OUTPUT);
+            new_save_level(GroupCode::Output);
             normal_paragraph();
             scan_left_brace();
             return;
@@ -519,12 +519,12 @@ pub(crate) unsafe fn build_page() {
 
         match p_node {
             TextNode::HList | TextNode::VList | TextNode::Rule => {
-                if page_contents < BOX_THERE as _ {
+                if page_contents == PageContents::Empty || page_contents == PageContents::InsertsOnly {
                     /*1036: "Initialize the current page, insert the \topskip glue
                      * ahead of p, and goto continue." */
-                    if page_contents == EMPTY as _{
-                        freeze_page_specs(BOX_THERE as _);
-                    } else { page_contents = BOX_THERE as _}
+                    if page_contents == PageContents::Empty {
+                        freeze_page_specs(PageContents::BoxThere);
+                    } else { page_contents = PageContents::BoxThere }
 
                     slf.q = new_skip_param(GluePar::top_skip) as i32; /* "now temp_ptr = glue_ptr(q) */
 
@@ -554,14 +554,14 @@ pub(crate) unsafe fn build_page() {
                 return contribute(slf);
             }
             TextNode::Glue => {
-                if page_contents < BOX_THERE as _ {
+                if page_contents == PageContents::Empty || page_contents == PageContents::InsertsOnly {
                     return done1(slf);
                 } else if is_non_discardable_node(page_tail) {
                     slf.pi = 0;
                 } else { return update_heights(slf); }
             }
             TextNode::Kern => {
-                if page_contents  < BOX_THERE as _ {
+                if page_contents == PageContents::Empty || page_contents == PageContents::InsertsOnly {
                     return done1(slf);
                 } else if LLIST_link(slf.p as usize).is_texnull() {
                     return (slf, true)
@@ -570,7 +570,7 @@ pub(crate) unsafe fn build_page() {
                 } else { return update_heights(slf); }
             }
             TextNode::Penalty => {
-                if page_contents < BOX_THERE as _ {
+                if page_contents == PageContents::Empty || page_contents == PageContents::InsertsOnly {
                     return done1(slf);
                 } else {
                     slf.pi = MEM[(slf.p + 1) as usize].b32.s1;
@@ -579,8 +579,8 @@ pub(crate) unsafe fn build_page() {
             TextNode::Mark => { return contribute(slf); }
             TextNode::Ins => {
                 /*1043: "Append an insertion to the current page and goto contribute" */
-                if page_contents == EMPTY as _ {
-                    freeze_page_specs(INSERTS_ONLY as _);
+                if page_contents == PageContents::Empty {
+                    freeze_page_specs(PageContents::InsertsOnly);
                 }
 
                 let n = MEM[slf.p as usize].b16.s0; //NODE_subtype(slf.p as usize) as u8;

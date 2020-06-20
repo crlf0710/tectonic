@@ -662,11 +662,11 @@ pub(crate) unsafe fn print_spec(p: i32, s: &[u8]) {
         }
         if MEM[p + 2].b32.s1 != 0 {
             print_cstr(b" plus ");
-            print_glue(MEM[p + 2].b32.s1, GlueOrder::from(MEM[p].b16.s1 as u8), s);
+            print_glue(MEM[p + 2].b32.s1, GlueOrder::from(MEM[p].b16.s1), s);
         }
         if MEM[p + 3].b32.s1 != 0 {
             print_cstr(b" minus ");
-            print_glue(MEM[p + 3].b32.s1, GlueOrder::from(MEM[p].b16.s0 as u8), s);
+            print_glue(MEM[p + 3].b32.s1, GlueOrder::from(MEM[p].b16.s0), s);
         }
     };
 }
@@ -812,7 +812,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                                 print_cstr(b", stretch ");
                                 print_glue(
                                     MEM[p + 6].b32.s1,
-                                    GlueOrder::from(MEM[p + 5].b16.s0 as u8),
+                                    GlueOrder::from(MEM[p + 5].b16.s0),
                                     b"",
                                 );
                             }
@@ -820,7 +820,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                                 print_cstr(b", shrink ");
                                 print_glue(
                                     MEM[p + 4].b32.s1,
-                                    GlueOrder::from(MEM[p + 5].b16.s1 as u8),
+                                    GlueOrder::from(MEM[p + 5].b16.s1),
                                     b"",
                                 );
                             }
@@ -839,13 +839,13 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                                     }
                                     print_glue(
                                         (20000_i64 * 65536) as scaled_t,
-                                        GlueOrder::from(MEM[p + 5].b16.s0 as u8),
+                                        GlueOrder::from(MEM[p + 5].b16.s0),
                                         b"",
                                     );
                                 } else {
                                     print_glue(
                                         tex_round(65536_f64 * g),
-                                        GlueOrder::from(MEM[p + 5].b16.s0 as u8),
+                                        GlueOrder::from(MEM[p + 5].b16.s0),
                                         b"",
                                     );
                                 }
@@ -856,7 +856,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                             }
                             /*1491:*/
                             if NODE_type(p) == TextNode::HList.into()
-                                && MEM[p].b16.s0 == LRMode::DList as u16
+                                && BOX_lr_mode(p) == LRMode::DList
                             {
                                 print_cstr(b", display");
                             }
@@ -1626,7 +1626,9 @@ pub(crate) unsafe fn show_activities() {
                         print_cstr(b" (held over for next output)");
                     }
                     show_box(MEM[PAGE_HEAD].b32.s1);
-                    if page_contents as i32 > EMPTY {
+                    if page_contents == PageContents::InsertsOnly
+                        || page_contents == PageContents::BoxThere
+                    {
                         print_nl_cstr(b"total height ");
                         print_totals();
                         print_nl_cstr(b" goal height ");
@@ -2896,41 +2898,41 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> usize {
 /*280: *//*296: */
 pub(crate) unsafe fn print_group(mut e: bool) {
     match cur_group {
-        GroupCode::BOTTOM_LEVEL => {
+        GroupCode::BottomLevel => {
             print_cstr(b"bottom level");
             return;
         }
-        GroupCode::SIMPLE | GroupCode::SEMI_SIMPLE => {
-            if cur_group == GroupCode::SEMI_SIMPLE {
+        GroupCode::Simple | GroupCode::SemiSimple => {
+            if cur_group == GroupCode::SemiSimple {
                 print_cstr(b"semi ");
             }
             print_cstr(b"simple");
         }
-        GroupCode::HBOX | GroupCode::ADJUSTED_HBOX => {
-            if cur_group == GroupCode::ADJUSTED_HBOX {
+        GroupCode::HBox | GroupCode::AdjustedHBox => {
+            if cur_group == GroupCode::AdjustedHBox {
                 print_cstr(b"adjusted ");
             }
             print_cstr(b"hbox");
         }
-        GroupCode::VBOX => print_cstr(b"vbox"),
-        GroupCode::VTOP => print_cstr(b"vtop"),
-        GroupCode::ALIGN | GroupCode::NO_ALIGN => {
-            if cur_group == GroupCode::NO_ALIGN {
+        GroupCode::VBox => print_cstr(b"vbox"),
+        GroupCode::VTop => print_cstr(b"vtop"),
+        GroupCode::Align | GroupCode::NoAlign => {
+            if cur_group == GroupCode::NoAlign {
                 print_cstr(b"no ");
             }
             print_cstr(b"align");
         }
-        GroupCode::OUTPUT => print_cstr(b"output"),
-        GroupCode::DISC => print_cstr(b"disc"),
-        GroupCode::INSERT => print_cstr(b"insert"),
-        GroupCode::VCENTER => print_cstr(b"vcenter"),
-        GroupCode::MATH | GroupCode::MATH_CHOICE | GroupCode::MATH_SHIFT | GroupCode::MATH_LEFT => {
+        GroupCode::Output => print_cstr(b"output"),
+        GroupCode::Disc => print_cstr(b"disc"),
+        GroupCode::Insert => print_cstr(b"insert"),
+        GroupCode::VCenter => print_cstr(b"vcenter"),
+        GroupCode::Math | GroupCode::MathChoice | GroupCode::MathShift | GroupCode::MathLeft => {
             print_cstr(b"math");
-            if cur_group == GroupCode::MATH_CHOICE {
+            if cur_group == GroupCode::MathChoice {
                 print_cstr(b" choice");
-            } else if cur_group == GroupCode::MATH_SHIFT {
+            } else if cur_group == GroupCode::MathShift {
                 print_cstr(b" shift");
-            } else if cur_group == GroupCode::MATH_LEFT {
+            } else if cur_group == GroupCode::MathLeft {
                 print_cstr(b" left");
             }
         }
@@ -5846,7 +5848,7 @@ pub(crate) unsafe fn scan_math(p: usize) {
                     scan_left_brace();
                     SAVE_STACK[SAVE_PTR + 0].val = p as i32;
                     SAVE_PTR += 1;
-                    push_math(GroupCode::MATH);
+                    push_math(GroupCode::Math);
                     return;
                 }
             }
@@ -6354,7 +6356,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
             cur_val_level = INT_VAL
         }
         Cmd::SetPageDimen => {
-            if page_contents as i32 == EMPTY && !output_active {
+            if page_contents == PageContents::Empty && !output_active {
                 if m == 0 {
                     cur_val = MAX_HALFWORD;
                 } else {
@@ -7968,9 +7970,6 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, mut max_answer: i
     }
 }
 pub(crate) unsafe fn scan_expr() {
-    let mut r: i16 = 0;
-    let mut s: i16 = 0;
-    let mut o: i16 = 0;
     let mut e: i32 = 0;
     let mut t: i32 = 0;
     let mut f: i32 = 0;
@@ -7980,17 +7979,14 @@ pub(crate) unsafe fn scan_expr() {
     let mut b = false;
     let mut p = TEX_NULL;
     'c_78022: loop {
-        r = EXPR_NONE as i16;
+        let mut o;
+        let mut r = Expr::None;
         e = 0;
-        s = EXPR_NONE as i16;
+        let mut s = Expr::None;
         t = 0;
         n = 0;
         loop {
-            if s == EXPR_NONE {
-                o = l
-            } else {
-                o = INT_VAL as i16
-            }
+            o = if s == Expr::None { l } else { INT_VAL as i16 };
             loop {
                 get_x_token();
                 if !(cur_cmd == Cmd::Spacer) {
@@ -8020,16 +8016,17 @@ pub(crate) unsafe fn scan_expr() {
                         break;
                     }
                 }
+                let mut o;
                 if cur_tok == OTHER_TOKEN + 43 {
-                    o = EXPR_ADD as i16
+                    o = Expr::Add;
                 } else if cur_tok == OTHER_TOKEN + 45 {
-                    o = EXPR_SUB as i16
+                    o = Expr::Sub;
                 } else if cur_tok == OTHER_TOKEN + 42 {
-                    o = EXPR_MULT as i16
+                    o = Expr::Mult;
                 } else if cur_tok == OTHER_TOKEN + 47 {
-                    o = EXPR_DIV as i16
+                    o = Expr::Div;
                 } else {
-                    o = EXPR_NONE as i16;
+                    o = Expr::None;
                     if p.is_texnull() {
                         if cur_cmd != Cmd::Relax {
                             back_input();
@@ -8048,7 +8045,7 @@ pub(crate) unsafe fn scan_expr() {
                     }
                 }
                 arith_error = b;
-                if l == INT_VAL as i16 || s > EXPR_SUB {
+                if l == INT_VAL as i16 || (s == Expr::Mult || s == Expr::Div || s == Expr::Scale) {
                     if f > TEX_INFINITY || f < -TEX_INFINITY {
                         arith_error = true;
                         f = 0;
@@ -8069,7 +8066,7 @@ pub(crate) unsafe fn scan_expr() {
                 match s as i32 {
                     0 => {
                         /*1579: */
-                        t = if l >= GLUE_VAL as i16 && o != EXPR_NONE {
+                        t = if l >= GLUE_VAL as i16 && o != Expr::None {
                             let t = new_spec(f as usize);
                             delete_glue_ref(f as usize);
                             if MEM[t + 2].b32.s1 == 0 {
@@ -8084,9 +8081,9 @@ pub(crate) unsafe fn scan_expr() {
                         };
                     }
                     3 => {
-                        if o == EXPR_DIV {
+                        if o == Expr::Div {
                             n = f;
-                            o = EXPR_SCALE as i16
+                            o = Expr::Scale;
                         } else if l == INT_VAL as i16 {
                             t = mult_and_add(t, f, 0, TEX_INFINITY)
                         } else if l == DIMEN_VAL as i16 {
@@ -8127,31 +8124,31 @@ pub(crate) unsafe fn scan_expr() {
                     }
                     _ => {}
                 }
-                if o > EXPR_SUB {
+                if o == Expr::Mult || o == Expr::Div || o == Expr::Scale {
                     s = o;
                 } else {
                     /*1580: */
-                    s = EXPR_NONE as i16;
-                    if r == EXPR_NONE {
+                    s = Expr::None;
+                    if r == Expr::None {
                         e = t
                     } else if l == INT_VAL as i16 {
-                        e = add_or_sub(e, t, TEX_INFINITY, r == EXPR_SUB)
+                        e = add_or_sub(e, t, TEX_INFINITY, r == Expr::Sub)
                     } else if l == DIMEN_VAL as i16 {
-                        e = add_or_sub(e, t, MAX_HALFWORD, r == EXPR_SUB)
+                        e = add_or_sub(e, t, MAX_HALFWORD, r == Expr::Sub)
                     } else {
                         /*1582: */
                         MEM[(e + 1) as usize].b32.s1 = add_or_sub(
                             MEM[(e + 1) as usize].b32.s1,
                             MEM[(t + 1) as usize].b32.s1,
                             MAX_HALFWORD,
-                            r == EXPR_SUB,
+                            r == Expr::Sub,
                         );
                         if MEM[e as usize].b16.s1 as i32 == MEM[t as usize].b16.s1 as i32 {
                             MEM[(e + 2) as usize].b32.s1 = add_or_sub(
                                 MEM[(e + 2) as usize].b32.s1,
                                 MEM[(t + 2) as usize].b32.s1,
                                 MAX_HALFWORD,
-                                r == EXPR_SUB,
+                                r == Expr::Sub,
                             )
                         } else if (MEM[e as usize].b16.s1 as i32) < MEM[t as usize].b16.s1 as i32
                             && MEM[(t + 2) as usize].b32.s1 != 0
@@ -8164,7 +8161,7 @@ pub(crate) unsafe fn scan_expr() {
                                 MEM[(e + 3) as usize].b32.s1,
                                 MEM[(t + 3) as usize].b32.s1,
                                 MAX_HALFWORD,
-                                r == EXPR_SUB,
+                                r == Expr::Sub,
                             )
                         } else if (MEM[e as usize].b16.s0 as i32) < MEM[t as usize].b16.s0 as i32
                             && MEM[(t + 3) as usize].b32.s1 != 0
@@ -8183,7 +8180,7 @@ pub(crate) unsafe fn scan_expr() {
                     r = o;
                 }
                 b = arith_error;
-                if o != EXPR_NONE as i16 {
+                if o != Expr::None {
                     break;
                 }
                 if p.is_texnull() {
@@ -8195,8 +8192,8 @@ pub(crate) unsafe fn scan_expr() {
                 e = MEM[q + 1].b32.s1;
                 t = MEM[q + 2].b32.s1;
                 n = MEM[q + 3].b32.s1;
-                s = (MEM[q].b16.s0 as i32 / 4) as i16;
-                r = (MEM[q].b16.s0 as i32 % 4) as i16;
+                s = Expr::from(MEM[q].b16.s0 as i32 / 4);
+                r = Expr::from(MEM[q].b16.s0 as i32 % 4);
                 l = MEM[q].b16.s1 as i16;
                 p = MEM[q].b32.s1;
                 free_node(q, EXPR_NODE_SIZE);
@@ -8211,7 +8208,7 @@ pub(crate) unsafe fn scan_expr() {
         MEM[q + 2].b32.s1 = t;
         MEM[q + 3].b32.s1 = n;
         p = q as i32;
-        l = o
+        l = o;
     }
     if b {
         if file_line_error_style_p != 0 {
@@ -9107,7 +9104,7 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
         begin_file_reading();
         cur_input.name = m as i32 + 1;
         assert!(
-            read_open[m as usize] as i32 != 2,
+            read_open[m as usize] != CLOSED,
             /*503:*/
             "terminal input forbidden"
         );
@@ -12142,7 +12139,7 @@ pub(crate) unsafe fn init_align() {
         cur_list.mode = (!cur_list.mode.0, cur_list.mode.1);
         /*:804*/
     }
-    scan_spec(GroupCode::ALIGN, false);
+    scan_spec(GroupCode::Align, false);
     MEM[ALIGN_HEAD].b32.s1 = TEX_NULL;
     cur_align = ALIGN_HEAD as i32;
     cur_loop = TEX_NULL;
@@ -12222,7 +12219,7 @@ pub(crate) unsafe fn init_align() {
         MEM[(cur_align + 2) as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1
     }
     scanner_status = ScannerStatus::Normal;
-    new_save_level(GroupCode::ALIGN);
+    new_save_level(GroupCode::Align);
     if !LOCAL(Local::every_cr).is_texnull() {
         begin_token_list(*LOCAL(Local::every_cr) as usize, Btl::EveryCRText);
     }
@@ -12334,7 +12331,7 @@ pub(crate) unsafe fn fin_col() -> bool {
     }
     if MEM[(cur_align + 5) as usize].b32.s0 != SPAN_CODE {
         unsave();
-        new_save_level(GroupCode::ALIGN);
+        new_save_level(GroupCode::Align);
         let mut u;
         if cur_list.mode == (true, ListMode::HMode) {
             adjust_tail = cur_tail;
@@ -12469,11 +12466,11 @@ pub(crate) unsafe fn fin_align() {
     let mut aux_save: memory_word = memory_word {
         b32: b32x2 { s0: 0, s1: 0 },
     };
-    if cur_group != GroupCode::ALIGN {
+    if cur_group != GroupCode::Align {
         confusion(b"align1");
     }
     unsave();
-    if cur_group != GroupCode::ALIGN {
+    if cur_group != GroupCode::Align {
         confusion(b"align0");
     }
     unsave();
@@ -12594,7 +12591,7 @@ pub(crate) unsafe fn fin_align() {
                     set_NODE_type(q, TextNode::HList);
                     MEM[q + 1].b32.s1 = MEM[(p + 1) as usize].b32.s1;
                     if NEST[NEST_PTR - 1].mode == (false, ListMode::MMode) {
-                        MEM[q].b16.s0 = LRMode::DList as u16;
+                        set_BOX_lr_mode(q, LRMode::DList);
                     }
                 } else {
                     set_NODE_type(q, TextNode::VList);
@@ -12825,7 +12822,7 @@ pub(crate) unsafe fn align_peek() {
         }
         if cur_cmd == Cmd::NoAlign {
             scan_left_brace();
-            new_save_level(GroupCode::NO_ALIGN);
+            new_save_level(GroupCode::NoAlign);
             if cur_list.mode == (true, ListMode::VMode) {
                 normal_paragraph();
             }
@@ -12865,7 +12862,7 @@ pub(crate) unsafe fn show_save_groups() {
     unsafe fn do_loop(mut p: usize, mut a: i8) -> (bool, usize, i8) {
         print_nl_cstr(b"### ");
         print_group(true);
-        if cur_group == GroupCode::BOTTOM_LEVEL {
+        if cur_group == GroupCode::BottomLevel {
             return (true, p, a);
         }
         let m = loop {
@@ -12882,21 +12879,21 @@ pub(crate) unsafe fn show_save_groups() {
         print_cstr(b" (");
         let mut s: &[u8] = &[];
         match cur_group {
-            GroupCode::BOTTOM_LEVEL => unreachable!(),
-            GroupCode::SIMPLE => {
+            GroupCode::BottomLevel => unreachable!(),
+            GroupCode::Simple => {
                 p += 1;
                 return found2(p, a);
             }
-            GroupCode::HBOX | GroupCode::ADJUSTED_HBOX => {
+            GroupCode::HBox | GroupCode::AdjustedHBox => {
                 s = b"hbox";
             }
-            GroupCode::VBOX => {
+            GroupCode::VBox => {
                 s = b"vbox";
             }
-            GroupCode::VTOP => {
+            GroupCode::VTop => {
                 s = b"vtop";
             }
-            GroupCode::ALIGN => {
+            GroupCode::Align => {
                 if a == 0 {
                     if m == (true, ListMode::VMode) {
                         s = b"halign"
@@ -12918,19 +12915,19 @@ pub(crate) unsafe fn show_save_groups() {
                     return found(p, a);
                 }
             }
-            GroupCode::NO_ALIGN => {
+            GroupCode::NoAlign => {
                 p += 1;
                 a = -1;
                 print_esc_cstr(b"noalign");
                 return found2(p, a);
             }
-            GroupCode::OUTPUT => {
+            GroupCode::Output => {
                 print_esc_cstr(b"output");
                 return found(p, a);
             }
-            GroupCode::MATH => return found2(p, a),
-            GroupCode::DISC | GroupCode::MATH_CHOICE => {
-                if cur_group == GroupCode::DISC {
+            GroupCode::Math => return found2(p, a),
+            GroupCode::Disc | GroupCode::MathChoice => {
+                if cur_group == GroupCode::Disc {
                     print_esc_cstr(b"discretionary");
                 } else {
                     print_esc_cstr(b"mathchoice");
@@ -12944,7 +12941,7 @@ pub(crate) unsafe fn show_save_groups() {
                 }
                 return found2(p, a);
             }
-            GroupCode::INSERT => {
+            GroupCode::Insert => {
                 if SAVE_STACK[SAVE_PTR - 2].val == 255 {
                     print_esc_cstr(b"vadjust");
                 } else {
@@ -12953,16 +12950,16 @@ pub(crate) unsafe fn show_save_groups() {
                 }
                 return found2(p, a);
             }
-            GroupCode::VCENTER => {
+            GroupCode::VCenter => {
                 s = b"vcenter";
                 return found1(s, p, a);
             }
-            GroupCode::SEMI_SIMPLE => {
+            GroupCode::SemiSimple => {
                 p += 1;
                 print_esc_cstr(b"begingroup");
                 return found(p, a);
             }
-            GroupCode::MATH_SHIFT => {
+            GroupCode::MathShift => {
                 if m == (false, ListMode::MMode) {
                     print_char('$' as i32);
                 } else if NEST[p].mode == (false, ListMode::MMode) {
@@ -12972,7 +12969,7 @@ pub(crate) unsafe fn show_save_groups() {
                 print_char('$' as i32);
                 return found(p, a);
             }
-            GroupCode::MATH_LEFT => {
+            GroupCode::MathLeft => {
                 if MEM[NEST[p + 1].eTeX_aux.unwrap()].b16.s1 == MathNode::Left as u16 {
                     print_esc_cstr(b"left");
                 } else {
@@ -13486,7 +13483,7 @@ pub(crate) unsafe fn append_kern() {
     MEM[cur_list.tail].b16.s0 = s;
 }
 pub(crate) unsafe fn off_save() {
-    if cur_group == GroupCode::BOTTOM_LEVEL {
+    if cur_group == GroupCode::BottomLevel {
         /*1101:*/
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -13509,15 +13506,15 @@ pub(crate) unsafe fn off_save() {
         }
         print_cstr(b"Missing ");
         match cur_group {
-            GroupCode::SEMI_SIMPLE => {
+            GroupCode::SemiSimple => {
                 MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_END_GROUP as i32;
                 print_esc_cstr(b"endgroup");
             }
-            GroupCode::MATH_SHIFT => {
+            GroupCode::MathShift => {
                 MEM[p].b32.s0 = MATH_SHIFT_TOKEN + '$' as i32;
                 print_char('$' as i32);
             }
-            GroupCode::MATH_LEFT => {
+            GroupCode::MathLeft => {
                 MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_RIGHT as i32;
                 MEM[p].b32.s1 = get_avail() as i32;
                 p = *LLIST_link(p) as usize;
@@ -13548,9 +13545,9 @@ pub(crate) unsafe fn extra_right_brace() {
     }
     print_cstr(b"Extra }, or forgotten ");
     match cur_group {
-        GroupCode::SEMI_SIMPLE => print_esc_cstr(b"endgroup"),
-        GroupCode::MATH_SHIFT => print_char('$' as i32),
-        GroupCode::MATH_LEFT => print_esc_cstr(b"right"),
+        GroupCode::SemiSimple => print_esc_cstr(b"endgroup"),
+        GroupCode::MathShift => print_char('$' as i32),
+        GroupCode::MathLeft => print_esc_cstr(b"right"),
         _ => {}
     }
     help_ptr = 5;
@@ -13840,15 +13837,15 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
             SAVE_STACK[SAVE_PTR + 0].val = box_context;
             if k == (false, ListMode::HMode) {
                 if box_context < BOX_FLAG && cur_list.mode.1 == ListMode::VMode {
-                    scan_spec(GroupCode::ADJUSTED_HBOX, true);
+                    scan_spec(GroupCode::AdjustedHBox, true);
                 } else {
-                    scan_spec(GroupCode::HBOX, true);
+                    scan_spec(GroupCode::HBox, true);
                 }
             } else {
                 if k == (false, ListMode::VMode) {
-                    scan_spec(GroupCode::VBOX, true);
+                    scan_spec(GroupCode::VBox, true);
                 } else {
-                    scan_spec(GroupCode::VTOP, true);
+                    scan_spec(GroupCode::VTop, true);
                     k = (false, ListMode::VMode);
                 }
                 normal_paragraph();
@@ -14069,7 +14066,7 @@ pub(crate) unsafe fn begin_insert_or_adjust() {
         SAVE_STACK[SAVE_PTR + 1].val = 0;
     }
     SAVE_PTR += 2;
-    new_save_level(GroupCode::INSERT);
+    new_save_level(GroupCode::Insert);
     scan_left_brace();
     normal_paragraph();
     push_nest();
@@ -14312,7 +14309,7 @@ pub(crate) unsafe fn append_discretionary() {
     } else {
         SAVE_PTR += 1;
         SAVE_STACK[SAVE_PTR - 1].val = 0;
-        new_save_level(GroupCode::DISC);
+        new_save_level(GroupCode::Disc);
         scan_left_brace();
         push_nest();
         cur_list.mode = (true, ListMode::HMode);
@@ -14407,7 +14404,7 @@ pub(crate) unsafe fn build_discretionary() {
         _ => {}
     }
     SAVE_STACK[SAVE_PTR - 1].val += 1;
-    new_save_level(GroupCode::DISC);
+    new_save_level(GroupCode::Disc);
     scan_left_brace();
     push_nest();
     cur_list.mode = (true, ListMode::HMode);
@@ -14590,7 +14587,7 @@ pub(crate) unsafe fn do_endv() {
     {
         fatal_error(b"(interwoven alignment preambles are not allowed)");
     }
-    if cur_group == GroupCode::ALIGN {
+    if cur_group == GroupCode::Align {
         end_graf();
         if fin_col() {
             fin_row();
@@ -15729,8 +15726,8 @@ pub(crate) unsafe fn handle_right_brace() {
     let mut d: scaled_t = 0;
     let mut f: i32 = 0;
     match cur_group {
-        GroupCode::SIMPLE => unsave(),
-        GroupCode::BOTTOM_LEVEL => {
+        GroupCode::Simple => unsave(),
+        GroupCode::BottomLevel => {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
@@ -15742,24 +15739,22 @@ pub(crate) unsafe fn handle_right_brace() {
             help_line[0] = b"Such booboos are generally harmless, so keep going.";
             error();
         }
-        GroupCode::SEMI_SIMPLE | GroupCode::MATH_SHIFT | GroupCode::MATH_LEFT => {
-            extra_right_brace()
-        }
-        GroupCode::HBOX => package(0),
-        GroupCode::ADJUSTED_HBOX => {
+        GroupCode::SemiSimple | GroupCode::MathShift | GroupCode::MathLeft => extra_right_brace(),
+        GroupCode::HBox => package(0),
+        GroupCode::AdjustedHBox => {
             adjust_tail = ADJUST_HEAD as i32;
             pre_adjust_tail = PRE_ADJUST_HEAD as i32;
             package(0);
         }
-        GroupCode::VBOX => {
+        GroupCode::VBox => {
             end_graf();
             package(0);
         }
-        GroupCode::VTOP => {
+        GroupCode::VTop => {
             end_graf();
             package(VTOP_CODE as i16);
         }
-        GroupCode::INSERT => {
+        GroupCode::Insert => {
             end_graf();
             q = *GLUEPAR(GluePar::split_top_skip);
             MEM[q as usize].b32.s1 += 1;
@@ -15798,7 +15793,7 @@ pub(crate) unsafe fn handle_right_brace() {
                 build_page();
             }
         }
-        GroupCode::OUTPUT => {
+        GroupCode::Output => {
             /*1062:*/
             if !cur_input.loc.is_texnull()
                 || cur_input.index != Btl::OutputText && cur_input.index != Btl::BackedUp
@@ -15860,8 +15855,8 @@ pub(crate) unsafe fn handle_right_brace() {
             pop_nest();
             build_page();
         }
-        GroupCode::DISC => build_discretionary(),
-        GroupCode::ALIGN => {
+        GroupCode::Disc => build_discretionary(),
+        GroupCode::Align => {
             back_input();
             cur_tok = CS_TOKEN_FLAG + FROZEN_CR as i32;
             if file_line_error_style_p != 0 {
@@ -15876,12 +15871,12 @@ pub(crate) unsafe fn handle_right_brace() {
             help_line[0] = b"I\'m guessing that you meant to end an alignment here.";
             ins_error();
         }
-        GroupCode::NO_ALIGN => {
+        GroupCode::NoAlign => {
             end_graf();
             unsave();
             align_peek();
         }
-        GroupCode::VCENTER => {
+        GroupCode::VCenter => {
             end_graf();
             unsave();
             SAVE_PTR -= 2;
@@ -15898,8 +15893,8 @@ pub(crate) unsafe fn handle_right_brace() {
             MEM[cur_list.tail + 1].b32.s1 = SUB_BOX;
             MEM[cur_list.tail + 1].b32.s0 = p
         }
-        GroupCode::MATH_CHOICE => build_choices(),
-        GroupCode::MATH => {
+        GroupCode::MathChoice => build_choices(),
+        GroupCode::Math => {
             unsave();
             SAVE_PTR -= 1;
             MEM[SAVE_STACK[SAVE_PTR + 0].val as usize].b32.s1 = SUB_MLIST;
@@ -16147,21 +16142,21 @@ pub(crate) unsafe fn main_control() {
                         }
                         (VMode, Cmd::LeftBrace) | (HMode, Cmd::LeftBrace) => {
                             // 2 | 105
-                            new_save_level(GroupCode::SIMPLE);
+                            new_save_level(GroupCode::Simple);
                             continue 'c_125208;
                         }
                         (VMode, Cmd::BeginGroup)
                         | (HMode, Cmd::BeginGroup)
                         | (MMode, Cmd::BeginGroup) => {
                             // 62 | 165 | 268
-                            new_save_level(GroupCode::SEMI_SIMPLE);
+                            new_save_level(GroupCode::SemiSimple);
                             continue 'c_125208;
                         }
                         (VMode, Cmd::EndGroup)
                         | (HMode, Cmd::EndGroup)
                         | (MMode, Cmd::EndGroup) => {
                             // 63 | 166 | 269
-                            if cur_group == GroupCode::SEMI_SIMPLE {
+                            if cur_group == GroupCode::SemiSimple {
                                 unsave();
                             } else {
                                 off_save();
@@ -16348,7 +16343,7 @@ pub(crate) unsafe fn main_control() {
                         (MMode, Cmd::HAlign) => {
                             // 239
                             if privileged() {
-                                if cur_group == GroupCode::MATH_SHIFT {
+                                if cur_group == GroupCode::MathShift {
                                     init_align();
                                 } else {
                                     off_save();
@@ -16376,7 +16371,7 @@ pub(crate) unsafe fn main_control() {
                         (MMode, Cmd::EqNo) => {
                             // 255
                             if privileged() {
-                                if cur_group == GroupCode::MATH_SHIFT {
+                                if cur_group == GroupCode::MathShift {
                                     start_eq_no();
                                 } else {
                                     off_save();
@@ -16490,7 +16485,7 @@ pub(crate) unsafe fn main_control() {
                         }
                         (MMode, Cmd::VCenter) => {
                             // 263
-                            scan_spec(GroupCode::VCENTER, false);
+                            scan_spec(GroupCode::VCenter, false);
                             normal_paragraph();
                             push_nest();
                             cur_list.mode = (true, ListMode::VMode);
@@ -16541,7 +16536,7 @@ pub(crate) unsafe fn main_control() {
                         }
                         (MMode, Cmd::MathShift) => {
                             // 210
-                            if cur_group == GroupCode::MATH_SHIFT {
+                            if cur_group == GroupCode::MathShift {
                                 after_math();
                             } else {
                                 off_save();

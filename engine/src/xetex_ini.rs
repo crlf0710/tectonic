@@ -661,7 +661,7 @@ pub(crate) static mut MAX_SAVE_STACK: usize = 0;
 #[no_mangle]
 pub(crate) static mut cur_level: u16 = 0;
 #[no_mangle]
-pub(crate) static mut cur_group: GroupCode = GroupCode::BOTTOM_LEVEL;
+pub(crate) static mut cur_group: GroupCode = GroupCode::BottomLevel;
 #[no_mangle]
 pub(crate) static mut cur_boundary: i32 = 0;
 #[no_mangle]
@@ -1154,7 +1154,7 @@ pub(crate) static mut gave_char_warning_help: bool = false;
 #[no_mangle]
 pub(crate) static mut page_tail: i32 = 0;
 #[no_mangle]
-pub(crate) static mut page_contents: u8 = 0;
+pub(crate) static mut page_contents: PageContents = PageContents::Empty;
 #[no_mangle]
 pub(crate) static mut page_so_far: [scaled_t; 8] = [0; 8];
 #[no_mangle]
@@ -4017,7 +4017,7 @@ unsafe fn initialize_more_variables() {
     cur_list.mode_line = 0;
     cur_list.prev_graf = 0;
     shown_mode = (false, ListMode::NoMode);
-    page_contents = EMPTY as u8;
+    page_contents = PageContents::Empty;
     page_tail = PAGE_HEAD as i32;
     last_glue = MAX_HALFWORD;
     last_penalty = 0;
@@ -4046,7 +4046,7 @@ unsafe fn initialize_more_variables() {
 
     SAVE_PTR = 0;
     cur_level = LEVEL_ONE;
-    cur_group = GroupCode::BOTTOM_LEVEL;
+    cur_group = GroupCode::BottomLevel;
     cur_boundary = 0;
     MAX_SAVE_STACK = 0;
     mag_set = 0;
@@ -4172,7 +4172,7 @@ unsafe fn initialize_more_initex_variables() {
     MEM[OMIT_TEMPLATE as usize].b32.s0 = CS_TOKEN_FLAG + FROZEN_END_TEMPLATE as i32;
     MEM[END_SPAN].b32.s1 = std::u16::MAX as i32 + 1;
     MEM[END_SPAN].b32.s0 = TEX_NULL;
-    MEM[ACTIVE_LIST].b16.s1 = HYPHENATED as _;
+    MEM[ACTIVE_LIST].b16.s1 = BreakType::Hyphenated as _;
     MEM[ACTIVE_LIST + 1].b32.s0 = MAX_HALFWORD;
     MEM[ACTIVE_LIST].b16.s0 = 0;
     MEM[PAGE_INS_HEAD].b16.s0 = 255;

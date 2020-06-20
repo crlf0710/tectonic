@@ -414,6 +414,7 @@ impl core::ops::Not for LR {
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
 pub(crate) enum LRMode {
+    Normal = 0, // TODO: check name
     Reversed = 1,
     DList = 2,
 }
@@ -623,33 +624,42 @@ pub(crate) const END_M_CODE: u16 = 3;
 pub(crate) const L_CODE: u16 = 4;
 pub(crate) const R_CODE: u16 = 8;
 
-pub(crate) const EXPR_NONE: i16 = 0;
-pub(crate) const EXPR_ADD: i16 = 1;
-pub(crate) const EXPR_SUB: i16 = 2;
-pub(crate) const EXPR_MULT: i16 = 3;
-pub(crate) const EXPR_DIV: i16 = 4;
-pub(crate) const EXPR_SCALE: i16 = 5;
+#[repr(i16)]
+#[derive(Clone, Copy, PartialEq, enumn::N)]
+pub(crate) enum Expr {
+    None = 0,
+    Add = 1,
+    Sub = 2,
+    Mult = 3,
+    Div = 4,
+    Scale = 5,
+}
+impl From<i32> for Expr {
+    fn from(n: i32) -> Self {
+        Self::n(n as i16).expect(&format!("incorrect expression = {}", n))
+    }
+}
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, enumn::N)]
 pub(crate) enum GroupCode {
-    BOTTOM_LEVEL = 0,
-    SIMPLE = 1,
-    HBOX = 2,
-    ADJUSTED_HBOX = 3,
-    VBOX = 4,
-    VTOP = 5,
-    ALIGN = 6,
-    NO_ALIGN = 7,
-    OUTPUT = 8,
-    MATH = 9,
-    DISC = 10,
-    INSERT = 11,
-    VCENTER = 12,
-    MATH_CHOICE = 13,
-    SEMI_SIMPLE = 14,
-    MATH_SHIFT = 15,
-    MATH_LEFT = 16,
+    BottomLevel = 0,
+    Simple = 1,
+    HBox = 2,
+    AdjustedHBox = 3,
+    VBox = 4,
+    VTop = 5,
+    Align = 6,
+    NoAlign = 7,
+    Output = 8,
+    Math = 9,
+    Disc = 10,
+    Insert = 11,
+    VCenter = 12,
+    MathChoice = 13,
+    SemiSimple = 14,
+    MathShift = 15,
+    MathLeft = 16,
 }
 impl From<u16> for GroupCode {
     fn from(n: u16) -> Self {
@@ -670,9 +680,9 @@ pub(crate) enum GlueOrder {
     Incorrect = 4,
 }
 
-impl From<u8> for GlueOrder {
-    fn from(n: u8) -> Self {
-        Self::n(n).unwrap_or(GlueOrder::Incorrect)
+impl From<u16> for GlueOrder {
+    fn from(n: u16) -> Self {
+        Self::n(n as u8).unwrap_or(GlueOrder::Incorrect)
     }
 }
 
@@ -1161,6 +1171,13 @@ impl From<u16> for SaveCmd {
     }
 }
 
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, enumn::N)]
+pub(crate) enum BreakType {
+    Unhyphenated = 0,
+    Hyphenated = 1,
+}
+
 pub(crate) const INT_VAL: u8 = 0;
 pub(crate) const DIMEN_VAL: u8 = 1;
 pub(crate) const GLUE_VAL: u8 = 2;
@@ -1170,10 +1187,14 @@ pub(crate) const TOK_VAL: u8 = 5;
 pub(crate) const INTER_CHAR_VAL: u8 = 6;
 pub(crate) const MARK_VAL: u8 = 7;
 
-/* page_contents possibilities (EMPTY is overloaded) */
-pub(crate) const EMPTY: placeholdertype = 0;
-pub(crate) const INSERTS_ONLY: placeholdertype = 1;
-pub(crate) const BOX_THERE: placeholdertype = 2;
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd)]
+pub(crate) enum PageContents {
+    Empty = 0,
+    InsertsOnly = 1,
+    BoxThere = 2,
+}
+
+pub(crate) const EMPTY: i32 = 0;
 
 pub(crate) const SET1: u8 = 128;
 pub(crate) const SET_RULE: u8 = 132;
@@ -1191,7 +1212,7 @@ pub(crate) const FNT_DEF1: u8 = 243;
 pub(crate) const PRE: u8 = 247;
 pub(crate) const POST: u8 = 248;
 pub(crate) const POST_POST: u8 = 249;
-pub(crate) const DEFINE_NATIVE_FONT: placeholdertype = 252;
+pub(crate) const DEFINE_NATIVE_FONT: u8 = 252;
 pub(crate) const SET_GLYPHS: u8 = 253;
 pub(crate) const SET_TEXT_AND_GLYPHS: u8 = 254;
 
@@ -1201,10 +1222,8 @@ pub(crate) const EXACTLY: u8 = 0;
 pub(crate) const FONT_BASE: usize = 0;
 pub(crate) const NON_ADDRESS: placeholdertype = 0;
 pub(crate) const UNDEFINED_PRIMITIVE: placeholdertype = 0;
-pub(crate) const UNHYPHENATED: i16 = 0;
 pub(crate) const ADDITIONAL: u8 = 1;
 pub(crate) const FIXED_ACC: placeholdertype = 1;
-pub(crate) const HYPHENATED: i16 = 1;
 pub(crate) const JUST_OPEN: placeholdertype = 1;
 pub(crate) const MATH_CHAR: placeholdertype = 1;
 pub(crate) const PRIM_BASE: usize = 1;
@@ -1220,7 +1239,6 @@ pub(crate) const DISPLAYOPERATORMINHEIGHT: placeholdertype = 3;
 pub(crate) const SUB_MLIST: placeholdertype = 3;
 pub(crate) const MATH_TEXT_CHAR: placeholdertype = 4;
 pub(crate) const SPACE_SHRINK_CODE: placeholdertype = 4;
-// pub(crate) const OUT_PARAM: placeholdertype = 5;
 pub(crate) const X_HEIGHT_CODE: placeholdertype = 5;
 pub(crate) const ACCENTBASEHEIGHT: placeholdertype = 6;
 pub(crate) const QUAD_CODE: placeholdertype = 6;
@@ -1339,8 +1357,7 @@ pub(crate) const MIDDLE_NOAD: u16 = 1;
 
 /* movement() */
 
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, enumn::N)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd)]
 pub(crate) enum MoveSeen {
     None = 0,
     Y = 6,

@@ -1,4 +1,4 @@
-use crate::xetex_consts::{KernNST, TextNode, WhatsItNST, ND, SYNCTEX_FIELD_SIZE};
+use crate::xetex_consts::{KernNST, LRMode, TextNode, WhatsItNST, ND, SYNCTEX_FIELD_SIZE};
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
 
@@ -69,8 +69,11 @@ pub(crate) unsafe fn clear_NODE_subtype(p: usize) {
 }
 
 /// subtype; records L/R direction mode
-pub(crate) unsafe fn BOX_lr_mode(p: usize) -> &'static mut u16 {
-    &mut MEM[p].b16.s0
+pub(crate) unsafe fn BOX_lr_mode(p: usize) -> LRMode {
+    LRMode::from(MEM[p].b16.s0)
+}
+pub(crate) unsafe fn set_BOX_lr_mode(p: usize, mode: LRMode) {
+    MEM[p].b16.s0 = mode as u16
 }
 /// a scaled; 1 <=> WEB const `width_offset`
 pub(crate) unsafe fn BOX_width(p: usize) -> &'static mut i32 {

@@ -41,14 +41,14 @@ use crate::xetex_xetex0::{
     scaled_t, scan_toks, show_box, show_token_list, str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, kern_NODE_subtype, print_c_string, /*set_NODE_subtype, */ set_NODE_type,
-    text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign,
-    BOX_height, BOX_list_ptr, BOX_lr_mode, BOX_shift_amount, BOX_width, CHAR_NODE_character,
-    CHAR_NODE_font, EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
-    GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
-    GLUE_SPEC_stretch_order, LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font,
-    NATIVE_NODE_glyph, NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length, NODE_type, SYNCTEX_tag,
-    TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    is_char_node, kern_NODE_subtype, print_c_string, set_BOX_lr_mode,
+    /*set_NODE_subtype, */ set_NODE_type, text_NODE_type, whatsit_NODE_subtype, BOX_depth,
+    BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height, BOX_list_ptr, BOX_lr_mode,
+    BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font, EDGE_NODE_edge_dist,
+    GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_SPEC_ref_count, GLUE_SPEC_shrink,
+    GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LIGATURE_NODE_lig_ptr,
+    LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_glyph_info_ptr,
+    NATIVE_NODE_length, NODE_type, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::{strerror, strlen};
@@ -634,7 +634,7 @@ unsafe fn hlist_out() {
     *LLIST_info(temp_ptr as usize) = BEFORE as i32;
     *LLIST_link(temp_ptr as usize) = LR_ptr;
     LR_ptr = temp_ptr;
-    if *BOX_lr_mode(this_box as usize) == LRMode::DList as u16 {
+    if BOX_lr_mode(this_box as usize) == LRMode::DList {
         if cur_dir == LR::RightToLeft {
             cur_dir = LR::LeftToRight;
             cur_h -= *BOX_width(this_box as usize);
@@ -642,7 +642,7 @@ unsafe fn hlist_out() {
             MEM[this_box as usize].b16.s0 = 0;
         }
     }
-    if cur_dir == LR::RightToLeft && *BOX_lr_mode(this_box as usize) != LRMode::Reversed as u16 {
+    if cur_dir == LR::RightToLeft && BOX_lr_mode(this_box as usize) != LRMode::Reversed {
         /*1508: "Reverse the complete hlist and set the subtype to reversed." */
         save_h = cur_h; /* "SyncTeX: do nothing, it is too late" */
         temp_ptr = p;
@@ -653,7 +653,7 @@ unsafe fn hlist_out() {
         *LLIST_link(p as usize) = reverse(this_box, TEX_NULL, &mut cur_g, &mut cur_glue);
         MEM[(p + 1) as usize].b32.s1 = -cur_h;
         cur_h = save_h;
-        *BOX_lr_mode(this_box as usize) = LRMode::Reversed as u16;
+        set_BOX_lr_mode(this_box as usize, LRMode::Reversed);
     }
 
     /* ... resuming 639 ... */
@@ -1236,7 +1236,7 @@ unsafe fn hlist_out() {
     *LLIST_link(temp_ptr as usize) = avail;
     avail = temp_ptr;
 
-    if *BOX_lr_mode(this_box as usize) == LRMode::DList as u16 {
+    if BOX_lr_mode(this_box as usize) == LRMode::DList {
         cur_dir = LR::RightToLeft;
     }
 
@@ -1758,7 +1758,7 @@ unsafe fn reverse(
                              * kern nodes." */
                             rule_wd = *BOX_width(p as usize);
 
-                            if *BOX_lr_mode(p as usize) & 1 != 0 {
+                            if (BOX_lr_mode(p as usize) as u16) & 1 != 0 {
                                 current_block = 5873035170358615968;
                                 break;
                             } else {
