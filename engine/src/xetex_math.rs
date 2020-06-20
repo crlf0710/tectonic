@@ -3793,8 +3793,7 @@ unsafe fn rebox(mut b: usize, mut w: scaled_t) -> usize {
         if is_char_node(p as i32) && MEM[p].b32.s1.is_texnull() {
             f = MEM[p as usize].b16.s1 as internal_font_number;
             v = FONT_INFO[(WIDTH_BASE[f]
-                + FONT_INFO
-                    [(CHAR_BASE[f] + effective_char(true, f, MEM[p].b16.s0)) as usize]
+                + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, MEM[p].b16.s0)) as usize]
                     .b16
                     .s3 as i32) as usize]
                 .b32

@@ -517,7 +517,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         if !(hyf_char > BIGGEST_CHAR) {
                                             ha = prev_s;
 
-                                            if !((l_hyf + r_hyf) as usize > max_hyphenatable_length()) {
+                                            if !((l_hyf + r_hyf) as usize
+                                                > max_hyphenatable_length())
+                                            {
                                                 if !ha.is_texnull()
                                                     && ha < hi_mem_min
                                                     && NODE_type(ha as usize)

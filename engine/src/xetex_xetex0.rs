@@ -3186,7 +3186,7 @@ pub(crate) unsafe fn sa_save(p: usize) {
                 overflow(b"save size", SAVE_SIZE);
             }
         }
-        SAVE_STACK[SAVE_PTR].cmd = RESTORE_SA;
+        SAVE_STACK[SAVE_PTR].cmd = SaveCmd::RestoreSA as u16;
         SAVE_STACK[SAVE_PTR].lvl = sa_level;
         SAVE_STACK[SAVE_PTR].val = sa_chain;
         SAVE_PTR += 1;
@@ -3307,7 +3307,7 @@ pub(crate) unsafe fn new_save_level(c: GroupCode) {
     }
     SAVE_STACK[SAVE_PTR + 0].val = line;
     SAVE_PTR += 1;
-    SAVE_STACK[SAVE_PTR].cmd = LEVEL_BOUNDARY;
+    SAVE_STACK[SAVE_PTR].cmd = SaveCmd::LevelBoundary as u16;
     SAVE_STACK[SAVE_PTR].lvl = cur_group as u16;
     SAVE_STACK[SAVE_PTR].val = cur_boundary;
     if cur_level == u16::max_value() {
@@ -3321,7 +3321,9 @@ pub(crate) unsafe fn new_save_level(c: GroupCode) {
 pub(crate) unsafe fn eq_destroy(w: EqtbWord) {
     let mut q: i32 = 0;
     match Cmd::from(w.cmd) {
-        Cmd::Call | Cmd::LongCall | Cmd::OuterCall | Cmd::LongOuterCall => delete_token_ref(w.val as usize),
+        Cmd::Call | Cmd::LongCall | Cmd::OuterCall | Cmd::LongOuterCall => {
+            delete_token_ref(w.val as usize)
+        }
         Cmd::GlueRef => delete_glue_ref(w.val as usize),
         Cmd::ShapeRef => {
             q = w.val;
@@ -3349,11 +3351,11 @@ pub(crate) unsafe fn eq_save(p: usize, l: u16) {
         }
     }
     if l == LEVEL_ZERO {
-        SAVE_STACK[SAVE_PTR].cmd = RESTORE_ZERO
+        SAVE_STACK[SAVE_PTR].cmd = SaveCmd::RestoreZero as u16;
     } else {
         SAVE_STACK[SAVE_PTR] = EQTB[p];
         SAVE_PTR += 1;
-        SAVE_STACK[SAVE_PTR].cmd = RESTORE_OLD_VALUE
+        SAVE_STACK[SAVE_PTR].cmd = SaveCmd::RestoreOldValue as u16;
     }
     SAVE_STACK[SAVE_PTR].lvl = l;
     SAVE_STACK[SAVE_PTR].val = p as i32;
@@ -3401,7 +3403,7 @@ pub(crate) unsafe fn save_for_after(mut t: i32) {
                 overflow(b"save size", SAVE_SIZE);
             }
         }
-        SAVE_STACK[SAVE_PTR].cmd = INSERT_TOKEN;
+        SAVE_STACK[SAVE_PTR].cmd = SaveCmd::InsertToken as u16;
         SAVE_STACK[SAVE_PTR].lvl = LEVEL_ZERO;
         SAVE_STACK[SAVE_PTR].val = t;
         SAVE_PTR += 1;
@@ -3417,11 +3419,11 @@ pub(crate) unsafe fn unsave() {
         cur_level -= 1;
         loop {
             SAVE_PTR -= 1;
-            if SAVE_STACK[SAVE_PTR].cmd == LEVEL_BOUNDARY {
+            if SAVE_STACK[SAVE_PTR].cmd == SaveCmd::LevelBoundary as u16 {
                 break;
             }
             p = SAVE_STACK[SAVE_PTR].val;
-            if SAVE_STACK[SAVE_PTR].cmd == INSERT_TOKEN {
+            if SAVE_STACK[SAVE_PTR].cmd == SaveCmd::InsertToken as u16 {
                 /*338: */
                 t = cur_tok;
                 cur_tok = p;
@@ -3443,12 +3445,12 @@ pub(crate) unsafe fn unsave() {
                     a = true
                 }
                 cur_tok = t
-            } else if SAVE_STACK[SAVE_PTR].cmd == RESTORE_SA {
+            } else if SAVE_STACK[SAVE_PTR].cmd == SaveCmd::RestoreSA as u16 {
                 sa_restore();
                 sa_chain = p;
                 sa_level = SAVE_STACK[SAVE_PTR].lvl
             } else {
-                if SAVE_STACK[SAVE_PTR].cmd == RESTORE_OLD_VALUE {
+                if SAVE_STACK[SAVE_PTR].cmd == SaveCmd::RestoreOldValue as u16 {
                     l = SAVE_STACK[SAVE_PTR].lvl;
                     SAVE_PTR -= 1;
                 } else {
@@ -10501,7 +10503,8 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
                         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                     }
                     if use_skip {
-                        MEM[cur_list.tail].b32.s1 = new_param_glue(GluePar::xetex_linebreak_skip) as i32;
+                        MEM[cur_list.tail].b32.s1 =
+                            new_param_glue(GluePar::xetex_linebreak_skip) as i32;
                         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                     }
                 }
@@ -13317,7 +13320,12 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
             delete_sa_ref(cur_ptr as usize);
         }
     }
-    Some(vpackage(p, h, EXACTLY as i16, *DIMENPAR(DimenPar::split_max_depth)))
+    Some(vpackage(
+        p,
+        h,
+        EXACTLY as i16,
+        *DIMENPAR(DimenPar::split_max_depth),
+    ))
 }
 pub(crate) unsafe fn print_totals() {
     print_scaled(page_so_far[1]);

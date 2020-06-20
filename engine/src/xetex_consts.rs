@@ -1146,12 +1146,20 @@ impl From<u8> for ListMode {
 pub(crate) const XDV_ID_BYTE: u8 = 7;
 pub(crate) const SPX_ID_BYTE: u8 = 100;
 
-pub(crate) const RESTORE_OLD_VALUE: u16 = 0;
-pub(crate) const RESTORE_ZERO: u16 = 1;
-pub(crate) const INSERT_TOKEN: u16 = 2;
-pub(crate) const LEVEL_BOUNDARY: u16 = 3;
-pub(crate) const RESTORE_SA: u16 = 4;
-
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, enumn::N)]
+pub(crate) enum SaveCmd {
+    RestoreOldValue = 0,
+    RestoreZero = 1,
+    InsertToken = 2,
+    LevelBoundary = 3,
+    RestoreSA = 4,
+}
+impl From<u16> for SaveCmd {
+    fn from(n: u16) -> Self {
+        Self::n(n as u8).expect(&format!("incorrect save command = {}", n))
+    }
+}
 
 pub(crate) const INT_VAL: u8 = 0;
 pub(crate) const DIMEN_VAL: u8 = 1;
@@ -1161,7 +1169,6 @@ pub(crate) const IDENT_VAL: u8 = 4;
 pub(crate) const TOK_VAL: u8 = 5;
 pub(crate) const INTER_CHAR_VAL: u8 = 6;
 pub(crate) const MARK_VAL: u8 = 7;
-
 
 /* page_contents possibilities (EMPTY is overloaded) */
 pub(crate) const EMPTY: placeholdertype = 0;
@@ -1331,15 +1338,29 @@ pub(crate) const IGNORE_DEPTH: placeholdertype = -65536000;
 pub(crate) const MIDDLE_NOAD: u16 = 1;
 
 /* movement() */
-pub(crate) const MOV_NONE_SEEN: i16 = 0;
-pub(crate) const MOV_Y_HERE: placeholdertype = 1;
-pub(crate) const MOV_Z_HERE: placeholdertype = 2;
-pub(crate) const MOV_YZ_OK: placeholdertype = 3;
-pub(crate) const MOV_Y_OK: placeholdertype = 4;
-pub(crate) const MOV_Z_OK: placeholdertype = 5;
-pub(crate) const MOV_Y_SEEN: i16 = 6;
-pub(crate) const MOV_D_FIXED: placeholdertype = 6;
-pub(crate) const MOV_Z_SEEN: i16 = 12;
+
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, enumn::N)]
+pub(crate) enum MoveSeen {
+    None = 0,
+    Y = 6,
+    Z = 12,
+}
+#[repr(i32)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, enumn::N)]
+pub(crate) enum MoveDir {
+    YHere = 1,
+    ZHere = 2,
+    YZOk = 3,
+    YOk = 4,
+    ZOk = 5,
+    DFixed = 6,
+}
+impl From<i32> for MoveDir {
+    fn from(n: i32) -> Self {
+        Self::n(n).expect(&format!("incorrect move direction = {}", n))
+    }
+}
 
 /* Increase this whenever the engine internals change such that the contents
  * of the "format" files must be regenerated -- this includes changes to the

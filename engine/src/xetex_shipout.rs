@@ -2001,7 +2001,6 @@ unsafe fn dvi_font_def(f: internal_font_number) {
 }
 
 unsafe fn movement(mut w: scaled_t, mut o: u8) {
-    let mut current_block: u64;
     let mut p: i32 = 0;
     let mut k: i32 = 0;
     let mut q = get_node(MOVEMENT_NODE_SIZE);
@@ -2016,167 +2015,132 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
     }
 
     p = MEM[q].b32.s1;
-    let mut mstate: i16 = MOV_NONE_SEEN;
+    let mut mstate = MoveSeen::None;
 
     loop {
         if p.is_texnull() {
-            current_block = 18071914750955744041;
-            break;
+            return not_found(q, o, w);
         }
         if MEM[(p + 1) as usize].b32.s1 == w {
             /* By this point must be WhatsItNST::Open */
             /*632:*/
-            match (mstate, MEM[p as usize].b32.s0) {
-                (MOV_NONE_SEEN, MOV_YZ_OK)
-                | (MOV_NONE_SEEN, MOV_Y_OK)
-                | (MOV_Z_SEEN, MOV_YZ_OK)
-                | (MOV_Z_SEEN, MOV_Y_OK) => {
-                    // TODO check all variants
-                    current_block = 2415380317517078313; /*633:*/
-                    match current_block {
-                        15378387224937501455 => {
-                            if MEM[(p + 2) as usize].b32.s1 < dvi_gone {
-                                current_block = 18071914750955744041;
-                                break;
-                            }
-                            k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
-                            if k < 0 {
-                                k = k + DVI_BUF_SIZE as i32;
-                            }
-                            dvi_buf[k as usize] += 10;
-                            MEM[p as usize].b32.s0 = MOV_Z_HERE;
-                            current_block = 8542251818650148540;
-                            break;
+            match (mstate, MoveDir::from(MEM[p as usize].b32.s0)) {
+                (MoveSeen::None, MoveDir::YZOk)
+                | (MoveSeen::None, MoveDir::YOk)
+                | (MoveSeen::Z, MoveDir::YZOk)
+                | (MoveSeen::Z, MoveDir::YOk) => {
+                    if MEM[(p + 2) as usize].b32.s1 < dvi_gone {
+                        return not_found(q, o, w);
+                    } else {
+                        /*633:*/
+                        k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
+                        if k < 0 {
+                            k = k + DVI_BUF_SIZE as i32;
                         }
-                        _ => {
-                            if MEM[(p + 2) as usize].b32.s1 < dvi_gone {
-                                current_block = 18071914750955744041;
-                                break;
-                            } else {
-                                k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
-                                if k < 0 {
-                                    k = k + DVI_BUF_SIZE as i32;
-                                }
-                                dvi_buf[k as usize] += 5;
-                                MEM[p as usize].b32.s0 = MOV_Y_HERE;
-                                current_block = 8542251818650148540;
-                                break;
-                            }
-                        }
+                        dvi_buf[k as usize] += 5;
+                        MEM[p as usize].b32.s0 = MoveDir::YHere as i32;
+                        return found(q, o, p as usize);
                     }
                 }
-                (MOV_NONE_SEEN, MOV_Z_OK) | (MOV_Y_SEEN, MOV_YZ_OK) | (MOV_Y_SEEN, MOV_Z_OK) => {
-                    current_block = 15378387224937501455;
+                (MoveSeen::None, MoveDir::ZOk)
+                | (MoveSeen::Y, MoveDir::YZOk)
+                | (MoveSeen::Y, MoveDir::ZOk) => {
                     if MEM[(p + 2) as usize].b32.s1 < dvi_gone {
-                        current_block = 18071914750955744041;
-                        break;
+                        return not_found(q, o, w);
                     }
                     k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
                     if k < 0 {
                         k = k + DVI_BUF_SIZE as i32;
                     }
                     dvi_buf[k as usize] += 10;
-                    MEM[p as usize].b32.s0 = MOV_Z_HERE;
-                    current_block = 8542251818650148540;
-                    break;
+                    MEM[p as usize].b32.s0 = MoveDir::ZHere as i32;
+                    return found(q, o, p as usize);
                 }
-                (MOV_NONE_SEEN, MOV_Y_HERE)
-                | (MOV_NONE_SEEN, MOV_Z_HERE)
-                | (MOV_Y_SEEN, MOV_Z_HERE)
-                | (MOV_Z_SEEN, MOV_Y_HERE) => {
-                    current_block = 8542251818650148540;
-                    break;
+                (MoveSeen::None, MoveDir::YHere)
+                | (MoveSeen::None, MoveDir::ZHere)
+                | (MoveSeen::Y, MoveDir::ZHere)
+                | (MoveSeen::Z, MoveDir::YHere) => {
+                    return found(q, o, p as usize);
                 }
                 _ => {}
             }
         } else {
-            match (mstate, MEM[p as usize].b32.s0) {
-                (MOV_NONE_SEEN, MOV_Y_HERE) => {
-                    current_block = 8114521223357534250;
-                    mstate = 6i32 as i16;
+            match (mstate, MoveDir::from(MEM[p as usize].b32.s0)) {
+                (MoveSeen::None, MoveDir::YHere) => {
+                    mstate = MoveSeen::Y;
                 }
-                (MOV_NONE_SEEN, MOV_Z_HERE) => {
-                    current_block = 15905285856240674276;
-                    mstate = 12i32 as i16;
+                (MoveSeen::None, MoveDir::ZHere) => {
+                    mstate = MoveSeen::Z;
                 }
-                (MOV_Y_SEEN, MOV_Z_HERE) | (MOV_Z_SEEN, MOV_Y_HERE) => {
-                    current_block = 18071914750955744041;
-                    break;
+                (MoveSeen::Y, MoveDir::ZHere) | (MoveSeen::Z, MoveDir::YHere) => {
+                    return not_found(q, o, w);
                 }
                 _ => {}
             }
         }
-        p = MEM[p as usize].b32.s1
+        p = *LLIST_link(p as usize);
     }
-    match current_block {
-        8542251818650148540 => {
-            /*629: found:*/
-            MEM[q].b32.s0 = MEM[p as usize].b32.s0; /*634:*/
-            if MEM[q].b32.s0 == MOV_Y_HERE {
-                dvi_out(o + 4); /* max_selector enum */
-                while MEM[q].b32.s1 != p {
-                    q = *LLIST_link(q) as usize;
 
-                    match MEM[q].b32.s0 {
-                        MOV_YZ_OK => MEM[q].b32.s0 = MOV_Z_OK,
-                        MOV_Y_OK => MEM[q].b32.s0 = MOV_D_FIXED,
-                        _ => {}
-                    }
-                }
-            } else {
-                dvi_out(o + 9);
-                while MEM[q].b32.s1 != p {
-                    q = *LLIST_link(q) as usize;
+    /*629: found:*/
+    unsafe fn found(mut q: usize, o: u8, p: usize) {
+        MEM[q].b32.s0 = MEM[p as usize].b32.s0; /*634:*/
+        if MEM[q].b32.s0 == MoveDir::YHere as i32 {
+            dvi_out(o + 4); /* max_selector enum */
+            while MEM[q].b32.s1 != p as i32 {
+                q = *LLIST_link(q) as usize;
 
-                    match MEM[q].b32.s0 {
-                        MOV_YZ_OK => MEM[q].b32.s0 = MOV_Y_OK,
-                        MOV_Z_OK => MEM[q].b32.s0 = MOV_D_FIXED,
-                        _ => {}
-                    }
+                match MoveDir::from(MEM[q].b32.s0) {
+                    MoveDir::YZOk => MEM[q].b32.s0 = MoveDir::ZOk as i32,
+                    MoveDir::YOk => MEM[q].b32.s0 = MoveDir::DFixed as i32,
+                    _ => {}
                 }
             }
+        } else {
+            dvi_out(o + 9);
+            while MEM[q].b32.s1 != p as i32 {
+                q = *LLIST_link(q) as usize;
+
+                match MoveDir::from(MEM[q].b32.s0) {
+                    MoveDir::YZOk => MEM[q].b32.s0 = MoveDir::YOk as i32,
+                    MoveDir::ZOk => MEM[q].b32.s0 = MoveDir::DFixed as i32,
+                    _ => {}
+                }
+            }
+        }
+    }
+    unsafe fn not_found(q: usize, o: u8, mut w: scaled_t) {
+        MEM[q].b32.s0 = MoveDir::YZOk as i32;
+
+        if w.abs() >= 0x800000 {
+            dvi_out(o + 3);
+            dvi_four(w);
             return;
         }
-        _ => {
-            // not_found:
-            MEM[q].b32.s0 = MOV_YZ_OK;
-
-            if w.abs() >= 0x800000 {
-                dvi_out(o + 3);
-                dvi_four(w);
-                return;
+        if w.abs() >= 0x8000 {
+            dvi_out(o + 2);
+            if w < 0 {
+                w = w + 0x1000000;
             }
-            if w.abs() >= 0x8000 {
-                dvi_out(o + 2);
-                if w < 0 {
-                    w = w + 0x1000000;
-                }
-                dvi_out((w / 0x10000) as u8);
-                w = w % 0x10000;
-                current_block = 14567512515169274304;
-            } else if w.abs() >= 128 {
-                dvi_out(o + 1);
-                if w < 0 {
-                    w = w + 0x10000;
-                }
-                current_block = 14567512515169274304;
-            } else {
-                dvi_out(o);
-                if w < 0 {
-                    w = w + 256;
-                }
-                current_block = 18026793543132934442;
+            dvi_out((w / 0x10000) as u8);
+            w = w % 0x10000;
+            // lab2:
+            dvi_out((w / 256) as u8);
+        } else if w.abs() >= 128 {
+            dvi_out(o + 1);
+            if w < 0 {
+                w = w + 0x10000;
             }
-            match current_block {
-                // lab2:
-                14567512515169274304 => dvi_out((w / 256) as u8),
-                _ => {}
+            // lab2:
+            dvi_out((w / 256) as u8);
+        } else {
+            dvi_out(o);
+            if w < 0 {
+                w = w + 256;
             }
-            // lab1:
-            dvi_out((w % 256) as u8);
-            return;
         }
-    };
+        // lab1:
+        dvi_out((w % 256) as u8);
+    }
 }
 
 unsafe fn prune_movements(l: usize) {
