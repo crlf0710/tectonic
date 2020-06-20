@@ -1146,6 +1146,11 @@ impl From<u8> for ListMode {
 pub(crate) const XDV_ID_BYTE: u8 = 7;
 pub(crate) const SPX_ID_BYTE: u8 = 100;
 
+pub(crate) const RESTORE_OLD_VALUE: u16 = 0;
+pub(crate) const RESTORE_ZERO: u16 = 1;
+pub(crate) const INSERT_TOKEN: u16 = 2;
+pub(crate) const LEVEL_BOUNDARY: u16 = 3;
+pub(crate) const RESTORE_SA: u16 = 4;
 
 
 pub(crate) const INT_VAL: u8 = 0;
@@ -1188,7 +1193,6 @@ pub(crate) const XETEX_VERSION: placeholdertype = 0;
 pub(crate) const EXACTLY: u8 = 0;
 pub(crate) const FONT_BASE: usize = 0;
 pub(crate) const NON_ADDRESS: placeholdertype = 0;
-pub(crate) const RESTORE_OLD_VALUE: u16 = 0;
 pub(crate) const UNDEFINED_PRIMITIVE: placeholdertype = 0;
 pub(crate) const UNHYPHENATED: i16 = 0;
 pub(crate) const ADDITIONAL: u8 = 1;
@@ -1197,21 +1201,17 @@ pub(crate) const HYPHENATED: i16 = 1;
 pub(crate) const JUST_OPEN: placeholdertype = 1;
 pub(crate) const MATH_CHAR: placeholdertype = 1;
 pub(crate) const PRIM_BASE: usize = 1;
-pub(crate) const RESTORE_ZERO: u16 = 1;
 pub(crate) const SLANT_CODE: placeholdertype = 1;
 pub(crate) const STRETCHING: GlueSign = GlueSign::Stretching;
 pub(crate) const BOTTOM_ACC: u16 = 2;
 pub(crate) const CLOSED: u8 = 2;
 pub(crate) const ETEX_VERSION: placeholdertype = 2;
-pub(crate) const INSERT_TOKEN: u16 = 2;
 pub(crate) const SHRINKING: GlueSign = GlueSign::Shrinking;
 pub(crate) const SPACE_CODE: placeholdertype = 2;
 pub(crate) const SUB_BOX: placeholdertype = 2;
 pub(crate) const DISPLAYOPERATORMINHEIGHT: placeholdertype = 3;
-pub(crate) const LEVEL_BOUNDARY: u16 = 3;
 pub(crate) const SUB_MLIST: placeholdertype = 3;
 pub(crate) const MATH_TEXT_CHAR: placeholdertype = 4;
-pub(crate) const RESTORE_SA: u16 = 4;
 pub(crate) const SPACE_SHRINK_CODE: placeholdertype = 4;
 // pub(crate) const OUT_PARAM: placeholdertype = 5;
 pub(crate) const X_HEIGHT_CODE: placeholdertype = 5;

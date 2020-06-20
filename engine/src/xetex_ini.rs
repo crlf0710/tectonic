@@ -5016,11 +5016,11 @@ unsafe fn initialize_primitives() {
 
     (*hash.offset(FROZEN_END_TEMPLATE as isize)).s1 = maketexstring(b"endtemplate");
     (*hash.offset(FROZEN_ENDV as isize)).s1 = maketexstring(b"endtemplate");
-    EQTB[FROZEN_ENDV].cmd = 9_u16;
+    EQTB[FROZEN_ENDV].cmd = Cmd::EndV as u16;
     EQTB[FROZEN_ENDV].val = NULL_LIST as i32;
-    EQTB[FROZEN_ENDV].lvl = 1_u16;
+    EQTB[FROZEN_ENDV].lvl = LEVEL_ONE;
     EQTB[FROZEN_END_TEMPLATE] = EQTB[FROZEN_ENDV];
-    EQTB[FROZEN_END_TEMPLATE].cmd = 117_u16;
+    EQTB[FROZEN_END_TEMPLATE].cmd = Cmd::EndTemplate as u16;
 
     primitive(b"pagegoal", Cmd::SetPageDimen, 0);
     primitive(b"pagetotal", Cmd::SetPageDimen, 1);

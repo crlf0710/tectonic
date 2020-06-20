@@ -3320,10 +3320,10 @@ pub(crate) unsafe fn new_save_level(c: GroupCode) {
 }
 pub(crate) unsafe fn eq_destroy(w: EqtbWord) {
     let mut q: i32 = 0;
-    match w.cmd as i32 {
-        113 | 114 | 115 | 116 => delete_token_ref(w.val as usize),
-        119 => delete_glue_ref(w.val as usize),
-        120 => {
+    match Cmd::from(w.cmd) {
+        Cmd::Call | Cmd::LongCall | Cmd::OuterCall | Cmd::LongOuterCall => delete_token_ref(w.val as usize),
+        Cmd::GlueRef => delete_glue_ref(w.val as usize),
+        Cmd::ShapeRef => {
             q = w.val;
             if !q.is_texnull() {
                 free_node(
@@ -3332,8 +3332,8 @@ pub(crate) unsafe fn eq_destroy(w: EqtbWord) {
                 );
             }
         }
-        121 => flush_node_list(w.val.opt()),
-        72 | 91 => {
+        Cmd::BoxRef => flush_node_list(w.val.opt()),
+        Cmd::ToksRegister | Cmd::Register => {
             if w.val < 0 || w.val > 19 {
                 delete_sa_ref(w.val as usize);
             }
@@ -5303,7 +5303,7 @@ pub(crate) unsafe fn expand() {
                         scanner_status = ScannerStatus::Normal;
                         get_token();
                         scanner_status = save_scanner_status;
-                        t = cur_tok;
+                        let t = cur_tok;
                         back_input();
                         if t >= CS_TOKEN_FLAG {
                             let p = get_avail();
@@ -5326,7 +5326,7 @@ pub(crate) unsafe fn expand() {
                         if !(cur_cs != UNDEFINED_PRIMITIVE) {
                             break;
                         }
-                        t = prim_eqtb[cur_cs as usize].cmd as i32;
+                        let t = prim_eqtb[cur_cs as usize].cmd as i32;
                         if t > MAX_COMMAND as i32 {
                             cur_cmd = Cmd::from(t as u16);
                             cur_chr = prim_eqtb[cur_cs as usize].val;
