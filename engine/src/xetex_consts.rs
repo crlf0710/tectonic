@@ -32,7 +32,7 @@ pub(crate) const DEFAULT_CODE: placeholdertype = 0x40000000;
 pub(crate) const BIGGEST_CHAR: placeholdertype = u16::MAX as i32;
 pub(crate) const BIGGEST_USV: usize = 0x10FFFF;
 pub(crate) const NUMBER_USVS: usize = BIGGEST_USV + 1;
-pub(crate) const TOO_BIG_USV: placeholdertype = BIGGEST_USV as i32 + 1;
+pub(crate) const TOO_BIG_USV: usize = BIGGEST_USV + 1;
 
 /* Various buffer sizes */
 
@@ -1231,6 +1231,19 @@ pub(crate) enum OpenMode {
     Closed = 2,
 }
 
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum PackMode {
+    Exactly = 0,
+    Additional = 1,
+}
+
+impl From<i32> for PackMode {
+    fn from(n: i32) -> Self {
+        Self::n(n as u8).expect(&format!("incorrect PackMode = {}", n))
+    }
+}
+
 pub(crate) const DISPLAYOPERATORMINHEIGHT: placeholdertype = 3;
 pub(crate) const ACCENTBASEHEIGHT: placeholdertype = 6;
 pub(crate) const SUBSCRIPTTOPMAX: placeholdertype = 9;
@@ -1268,11 +1281,9 @@ pub(crate) const SET_GLYPHS: u8 = 253;
 pub(crate) const SET_TEXT_AND_GLYPHS: u8 = 254;
 
 pub(crate) const XETEX_VERSION: placeholdertype = 0;
-pub(crate) const EXACTLY: u8 = 0;
 pub(crate) const FONT_BASE: usize = 0;
 pub(crate) const NON_ADDRESS: placeholdertype = 0;
 pub(crate) const UNDEFINED_PRIMITIVE: placeholdertype = 0;
-pub(crate) const ADDITIONAL: u8 = 1;
 pub(crate) const FIXED_ACC: placeholdertype = 1;
 pub(crate) const MATH_CHAR: placeholdertype = 1;
 pub(crate) const PRIM_BASE: usize = 1;

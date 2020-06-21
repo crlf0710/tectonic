@@ -308,7 +308,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         MEM[q as usize].b16.s1 = BreakType::Unhyphenated as _; //set_NODE_type(q as usize, UNHYPHENATED as _);
         MEM[q as usize].b16.s0 = DECENT_FIT as _;
         *LLIST_link(q as usize) = LAST_ACTIVE as i32;
-        MEM[(q + 1) as usize].b32.s1 = TEX_NULL;
+        MEM[(q + 1) as usize].b32.s1 = None.tex_int();
         MEM[(q + 1) as usize].b32.s0 = cur_list.prev_graf + 1;
         MEM[(q + 2) as usize].b32.s1 = 0;
         *LLIST_link(ACTIVE_LIST as usize) = q;
@@ -324,7 +324,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         active_width[4] = background[4];
         active_width[5] = background[5];
         active_width[6] = background[6];
-        passive = TEX_NULL;
+        passive = None.tex_int();
         font_in_short_display = 0; /*:893*/
         cur_p = *LLIST_link(TEMP_HEAD as usize);
         let mut auto_breaking = true;
@@ -863,12 +863,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                             }
                                                             j = hn;
                                                             q = *LIGATURE_NODE_lig_ptr(s as usize);
-                                                            if q > TEX_NULL {
+                                                            if !q.is_texnull() {
                                                                 hyf_bchar =
                                                                     *CHAR_NODE_character(q as usize)
                                                                         as i32
                                                             }
-                                                            while q > TEX_NULL {
+                                                            while !q.is_texnull() {
                                                                 c = *CHAR_NODE_character(q as usize)
                                                                     as UnicodeScalar;
                                                                 if hyph_index == 0 || c > 255 {
@@ -1312,7 +1312,7 @@ unsafe fn post_line_break(mut d: bool) {
     LR_ptr = cur_list.eTeX_aux.tex_int();
     /* Reverse the list of break nodes (907) */
     q = *ACTIVE_NODE_break_node(best_bet as usize); /*:907*/
-    cur_p = TEX_NULL;
+    cur_p = None.tex_int();
     loop {
         r = q;
         q = *PASSIVE_NODE_prev_break(q as usize);
@@ -1404,7 +1404,7 @@ unsafe fn post_line_break(mut d: bool) {
                 }
                 s = *LLIST_link(r as usize);
                 r = *LLIST_link(s as usize);
-                *LLIST_link(s as usize) = TEX_NULL;
+                *LLIST_link(s as usize) = None.tex_int();
                 flush_node_list(LLIST_link(q as usize).opt());
                 *DISCRETIONARY_NODE_replace_count(q as usize) = 0;
             }
@@ -1419,7 +1419,7 @@ unsafe fn post_line_break(mut d: bool) {
                 *LLIST_link(s as usize) = r;
 
                 r = *DISCRETIONARY_NODE_post_break(q as usize);
-                *DISCRETIONARY_NODE_post_break(q as usize) = TEX_NULL;
+                *DISCRETIONARY_NODE_post_break(q as usize) = None.tex_int();
                 post_disc_break = true;
             }
             if !DISCRETIONARY_NODE_pre_break(q as usize).is_texnull() {
@@ -1430,7 +1430,7 @@ unsafe fn post_line_break(mut d: bool) {
                 while !LLIST_link(s as usize).is_texnull() {
                     s = *LLIST_link(s as usize);
                 }
-                *DISCRETIONARY_NODE_pre_break(q as usize) = TEX_NULL;
+                *DISCRETIONARY_NODE_pre_break(q as usize) = None.tex_int();
                 q = s;
             }
             *LLIST_link(q as usize) = r;
@@ -1514,7 +1514,7 @@ unsafe fn post_line_break(mut d: bool) {
         }
         /* 916: Put \leftskip at the left and detach this line. */
         r = *LLIST_link(q as usize);
-        *LLIST_link(q as usize) = TEX_NULL;
+        *LLIST_link(q as usize) = None.tex_int();
         q = *LLIST_link(TEMP_HEAD as usize);
         *LLIST_link(TEMP_HEAD as usize) = r;
         /* "at this point q is the leftmost node; all discardable nodes have been discarded */
@@ -1556,9 +1556,9 @@ unsafe fn post_line_break(mut d: bool) {
         /* Tectonic: in semantic pagination mode, set each "line" (really the
          * whole paragraph) at its natural width. */
         if semantic_pagination_enabled {
-            just_box = hpack(q, 0, ADDITIONAL as i16) as i32;
+            just_box = hpack(q, 0, PackMode::Additional) as i32;
         } else {
-            just_box = hpack(q, cur_width, EXACTLY as i16) as i32;
+            just_box = hpack(q, cur_width, PackMode::Exactly) as i32;
         } /*:918*/
         *BOX_shift_amount(just_box as usize) = cur_indent;
         /* 917: append the new box to the current vertical list, followed
@@ -1569,7 +1569,7 @@ unsafe fn post_line_break(mut d: bool) {
             cur_list.tail = pre_adjust_tail as usize;
         }
 
-        pre_adjust_tail = TEX_NULL;
+        pre_adjust_tail = None.tex_int();
         append_to_vlist(just_box as usize);
 
         if ADJUST_HEAD as i32 != adjust_tail {
@@ -1577,7 +1577,7 @@ unsafe fn post_line_break(mut d: bool) {
             cur_list.tail = adjust_tail as usize;
         }
 
-        adjust_tail = TEX_NULL;
+        adjust_tail = None.tex_int();
 
         /* 919: Set `pen` to all of the penalties relevant to this line. */
         if cur_line + 1 != best_line {
@@ -1682,7 +1682,7 @@ unsafe fn post_line_break(mut d: bool) {
                     }
                 }
                 if r != TEMP_HEAD {
-                    *LLIST_link(r as usize) = TEX_NULL;
+                    *LLIST_link(r as usize) = None.tex_int();
                     flush_node_list(LLIST_link(TEMP_HEAD).opt());
                     *LLIST_link(TEMP_HEAD) = q;
                 }
@@ -1715,7 +1715,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
     let mut prev_r: i32 = 0;
     let mut old_l: i32 = 0;
     let mut no_break_yet: bool = false;
-    let mut prev_prev_r: i32 = TEX_NULL;
+    let mut prev_prev_r: i32 = None.tex_int();
     let mut s: i32 = 0;
     let mut v: i32 = 0;
     let mut t: i32 = 0;
@@ -2647,13 +2647,13 @@ unsafe fn hyphenate() {
         s = q as i32;
         let q = MEM[ha as usize].b32.s1;
         MEM[s as usize].b32.s1 = q;
-        MEM[ha as usize].b32.s1 = TEX_NULL;
+        MEM[ha as usize].b32.s1 = None.tex_int();
         flush_node_list(ha.opt());
     } else {
         let q = MEM[hb as usize].b32.s1;
-        MEM[hb as usize].b32.s1 = TEX_NULL;
+        MEM[hb as usize].b32.s1 = None.tex_int();
         let r = MEM[ha as usize].b32.s1;
-        MEM[ha as usize].b32.s1 = TEX_NULL;
+        MEM[ha as usize].b32.s1 = None.tex_int();
         bchar = hyf_bchar;
         if is_char_node(ha) {
             if MEM[ha as usize].b16.s1 as usize != hf {
@@ -2700,7 +2700,7 @@ unsafe fn hyphenate() {
                 _ => {
                     j = 1_i16;
                     s = ha;
-                    init_list = TEX_NULL;
+                    init_list = None.tex_int();
                     current_block = 5209103994167801282;
                 }
             }
@@ -2718,7 +2718,7 @@ unsafe fn hyphenate() {
                 j = 0_i16;
                 hu[0] = max_hyph_char;
                 init_lig = false;
-                init_list = TEX_NULL
+                init_list = None.tex_int()
             }
             _ => {}
         }
@@ -2728,13 +2728,13 @@ unsafe fn hyphenate() {
             j = (reconstitute(j, hn, bchar, hyf_char) as i32 + 1) as i16;
             if hyphen_passed == 0 {
                 MEM[s as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1;
-                while MEM[s as usize].b32.s1 > TEX_NULL {
+                while !MEM[s as usize].b32.s1.is_texnull() {
                     s = MEM[s as usize].b32.s1
                 }
                 if hyf[(j as i32 - 1i32) as usize] as i32 & 1i32 != 0 {
                     l = j;
                     hyphen_passed = (j as i32 - 1i32) as i16;
-                    MEM[HOLD_HEAD].b32.s1 = TEX_NULL
+                    MEM[HOLD_HEAD].b32.s1 = None.tex_int()
                 }
             }
             if hyphen_passed as i32 > 0 {
@@ -2746,14 +2746,14 @@ unsafe fn hyphenate() {
                     set_NODE_type(r, TextNode::Disc);
                     major_tail = r as i32;
                     r_count = 0;
-                    while MEM[major_tail as usize].b32.s1 > TEX_NULL {
+                    while !MEM[major_tail as usize].b32.s1.is_texnull() {
                         major_tail = *LLIST_link(major_tail as usize);
                         r_count += 1;
                     }
                     i = hyphen_passed;
                     hyf[i as usize] = 0;
-                    minor_tail = TEX_NULL;
-                    MEM[r + 1].b32.s0 = TEX_NULL;
+                    minor_tail = None.tex_int();
+                    MEM[r + 1].b32.s0 = None.tex_int();
                     let hyf_node = new_character(hf, hyf_char as UTF16_code);
                     if let Some(hyf_node) = hyf_node {
                         i += 1;
@@ -2765,14 +2765,14 @@ unsafe fn hyphenate() {
                     while l as i32 <= i as i32 {
                         l = (reconstitute(l, i, FONT_BCHAR[hf as usize], TOO_BIG_CHAR) as i32 + 1)
                             as i16;
-                        if MEM[HOLD_HEAD].b32.s1 > TEX_NULL {
+                        if !MEM[HOLD_HEAD].b32.s1.is_texnull() {
                             if minor_tail.is_texnull() {
                                 MEM[r + 1].b32.s0 = MEM[HOLD_HEAD].b32.s1
                             } else {
                                 MEM[minor_tail as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1
                             }
                             minor_tail = MEM[HOLD_HEAD].b32.s1;
-                            while MEM[minor_tail as usize].b32.s1 > TEX_NULL {
+                            while !MEM[minor_tail as usize].b32.s1.is_texnull() {
                                 minor_tail = *LLIST_link(minor_tail as usize);
                             }
                         }
@@ -2782,8 +2782,8 @@ unsafe fn hyphenate() {
                         l = i;
                         i -= 1
                     }
-                    minor_tail = TEX_NULL;
-                    MEM[r + 1].b32.s1 = TEX_NULL;
+                    minor_tail = None.tex_int();
+                    MEM[r + 1].b32.s1 = None.tex_int();
                     c_loc = 0_i16;
                     if BCHAR_LABEL[hf as usize] != NON_ADDRESS {
                         l -= 1;
@@ -2798,14 +2798,14 @@ unsafe fn hyphenate() {
                                 hu[c_loc as usize] = c;
                                 c_loc = 0_i16
                             }
-                            if MEM[HOLD_HEAD].b32.s1 > TEX_NULL {
+                            if !MEM[HOLD_HEAD].b32.s1.is_texnull() {
                                 if minor_tail.is_texnull() {
                                     MEM[r + 1].b32.s1 = MEM[HOLD_HEAD].b32.s1
                                 } else {
                                     MEM[minor_tail as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1
                                 }
                                 minor_tail = MEM[HOLD_HEAD].b32.s1;
-                                while MEM[minor_tail as usize].b32.s1 > TEX_NULL {
+                                while !MEM[minor_tail as usize].b32.s1.is_texnull() {
                                     minor_tail = *LLIST_link(minor_tail as usize);
                                 }
                             }
@@ -2817,7 +2817,7 @@ unsafe fn hyphenate() {
                             /*952: */
                             j = (reconstitute(j, hn, bchar, TOO_BIG_CHAR) as i32 + 1i32) as i16; /*:944*/
                             MEM[major_tail as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1;
-                            while MEM[major_tail as usize].b32.s1 > TEX_NULL {
+                            while !MEM[major_tail as usize].b32.s1.is_texnull() {
                                 major_tail = *LLIST_link(major_tail as usize);
                                 r_count += 1;
                             }
@@ -2825,7 +2825,7 @@ unsafe fn hyphenate() {
                     }
                     if r_count > 127 {
                         MEM[s as usize].b32.s1 = MEM[r].b32.s1;
-                        MEM[r].b32.s1 = TEX_NULL;
+                        MEM[r].b32.s1 = None.tex_int();
                         flush_node_list(Some(r));
                     } else {
                         MEM[s as usize].b32.s1 = r as i32;
@@ -2833,7 +2833,7 @@ unsafe fn hyphenate() {
                     }
                     s = major_tail;
                     hyphen_passed = (j - 1) as i16;
-                    MEM[HOLD_HEAD].b32.s1 = TEX_NULL;
+                    MEM[HOLD_HEAD].b32.s1 = None.tex_int();
                     if !(hyf[(j as i32 - 1i32) as usize] as i32 & 1i32 != 0) {
                         break;
                     }
@@ -2885,7 +2885,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
     hyphen_passed = 0;
     let mut t = HOLD_HEAD as i32;
     let mut w = 0;
-    MEM[HOLD_HEAD].b32.s1 = TEX_NULL;
+    MEM[HOLD_HEAD].b32.s1 = None.tex_int();
     cur_l = hu[j as usize];
     cur_q = t;
     if j == 0 {
@@ -2894,7 +2894,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
         if ligature_present {
             lft_hit = init_lft
         }
-        while p > TEX_NULL {
+        while !p.is_texnull() {
             MEM[t as usize].b32.s1 = get_avail() as i32;
             t = MEM[t as usize].b32.s1;
             MEM[t as usize].b16.s1 = hf as u16;
@@ -2907,7 +2907,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
         MEM[t as usize].b16.s1 = hf as u16;
         MEM[t as usize].b16.s0 = cur_l as u16
     }
-    lig_stack = TEX_NULL;
+    lig_stack = None.tex_int();
     if (j as i32) < n as i32 {
         cur_r = hu[(j + 1) as usize]
     } else {
@@ -2982,7 +2982,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                         }
                                         2 | 6 => {
                                             cur_r = q.s0 as i32;
-                                            if lig_stack > TEX_NULL {
+                                            if !lig_stack.is_texnull() {
                                                 MEM[lig_stack as usize].b16.s0 = cur_r as u16
                                             } else {
                                                 lig_stack = new_lig_item(cur_r as u16) as i32;
@@ -3026,8 +3026,8 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                         _ => {
                                             cur_l = q.s0 as i32;
                                             ligature_present = true;
-                                            if lig_stack > TEX_NULL {
-                                                if MEM[(lig_stack + 1) as usize].b32.s1 > TEX_NULL {
+                                            if !lig_stack.is_texnull() {
+                                                if !MEM[(lig_stack + 1) as usize].b32.s1.is_texnull() {
                                                     MEM[t as usize].b32.s1 =
                                                         MEM[(lig_stack + 1) as usize].b32.s1;
                                                     t = *LLIST_link(t as usize);
@@ -3128,13 +3128,13 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
             w = 0;
             MEM[(t + 2) as usize].b32.s0 = 0
         }
-        if !(lig_stack > TEX_NULL) {
+        if lig_stack.is_texnull() {
             break;
         }
         cur_q = t;
         cur_l = MEM[lig_stack as usize].b16.s0 as i32;
         ligature_present = true;
-        if MEM[(lig_stack + 1) as usize].b32.s1 > TEX_NULL {
+        if !MEM[(lig_stack + 1) as usize].b32.s1.is_texnull() {
             MEM[t as usize].b32.s1 = MEM[(lig_stack + 1) as usize].b32.s1;
             t = *LLIST_link(t as usize);
             j += 1;
@@ -3267,7 +3267,7 @@ unsafe fn find_protchar_right(mut l: i32, mut r: i32) -> i32 {
     let mut t: i32 = 0;
     let mut run: bool = false;
     if r.is_texnull() {
-        return TEX_NULL;
+        return None.tex_int();
     }
     hlist_stack_level = 0;
     run = true;

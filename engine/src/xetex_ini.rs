@@ -45,7 +45,7 @@ use crate::xetex_xetex0::{
     scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int, show_cur_cmd_chr,
     show_save_groups, start_input, trap_zero_glue,
 };
-use crate::xetex_xetexd::{set_class, set_family, LLIST_link, TeXOpt};
+use crate::xetex_xetexd::{set_class, set_family, LLIST_link, TeXOpt, TeXInt};
 use bridge::{
     ttstub_input_close, ttstub_input_open, ttstub_output_close, ttstub_output_open,
     ttstub_output_open_stdout,
@@ -1869,7 +1869,7 @@ unsafe fn new_hyph_exceptions() {
 
     /*970: not_found:*/
     n = 0_i16;
-    p = TEX_NULL;
+    p = None.tex_int();
 
     's_91: loop {
         get_x_token();
@@ -2034,7 +2034,7 @@ unsafe fn new_hyph_exceptions() {
         }
 
         n = 0;
-        p = TEX_NULL;
+        p = None.tex_int();
     }
 }
 pub(crate) unsafe fn prefixed_command() {
@@ -2043,7 +2043,6 @@ pub(crate) unsafe fn prefixed_command() {
     let mut f: internal_font_number = 0;
     let mut j: i32 = 0;
     let mut k: font_index = 0;
-    let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut e: bool = false;
 
@@ -2117,9 +2116,9 @@ pub(crate) unsafe fn prefixed_command() {
         Cmd::SetFont => {
             /*1252:*/
             if a >= 4 {
-                geq_define(CUR_FONT_LOC, Cmd::Data, cur_chr);
+                geq_define(CUR_FONT_LOC, Cmd::Data, cur_chr.opt());
             } else {
-                eq_define(CUR_FONT_LOC, Cmd::Data, cur_chr);
+                eq_define(CUR_FONT_LOC, Cmd::Data, cur_chr.opt());
             }
         }
         Cmd::Def => {
@@ -2128,7 +2127,7 @@ pub(crate) unsafe fn prefixed_command() {
             }
             e = cur_chr >= 2;
             get_r_token();
-            p = cur_cs;
+            let p = cur_cs;
             q = scan_toks(true, e) as i32;
             if j != 0 {
                 q = get_avail() as i32;
@@ -2139,16 +2138,16 @@ pub(crate) unsafe fn prefixed_command() {
             }
             if a >= 4 {
                 geq_define(p as usize, Cmd::from(Cmd::Call as u16 + (a % 4) as u16),
-                           def_ref as i32);
+                           Some(def_ref));
             } else {
                 eq_define(p as usize, Cmd::from(Cmd::Call as u16 + (a % 4) as u16),
-                          def_ref as i32);
+                          Some(def_ref));
             }
         }
         Cmd::Let => {
             let n = cur_chr;
             get_r_token();
-            p = cur_cs;
+            let p = cur_cs;
             if n == NORMAL as i32 {
                 loop  {
                     get_token();
@@ -2176,13 +2175,13 @@ pub(crate) unsafe fn prefixed_command() {
                 }
             }
             if a >= 4 {
-                geq_define(p as usize, cur_cmd, cur_chr);
-            } else { eq_define(p as usize, cur_cmd, cur_chr); }
+                geq_define(p as usize, cur_cmd, cur_chr.opt());
+            } else { eq_define(p as usize, cur_cmd, cur_chr.opt()); }
         }
         Cmd::ShorthandDef => {
             if cur_chr == CHAR_SUB_DEF_CODE {
                 scan_char_num();
-                p = CHAR_SUB_CODE_BASE as i32 + cur_val;
+                let p = CHAR_SUB_CODE_BASE as i32 + cur_val;
                 scan_optional_equals();
                 scan_char_num();
                 let mut n = cur_val;
@@ -2199,8 +2198,8 @@ pub(crate) unsafe fn prefixed_command() {
                 }
                 n = n * 256 + cur_val;
                 if a >= 4 {
-                    geq_define(p as usize, Cmd::Data, n);
-                } else { eq_define(p as usize, Cmd::Data, n); }
+                    geq_define(p as usize, Cmd::Data, Some(n as usize));
+                } else { eq_define(p as usize, Cmd::Data, Some(n as usize)); }
                 if (p - CHAR_SUB_CODE_BASE as i32) < *INTPAR(IntPar::char_sub_def_min) {
                     if a >= 4 {
                         geq_word_define(INT_BASE as usize + IntPar::char_sub_def_min as usize, p - CHAR_SUB_CODE_BASE as i32);
@@ -2218,31 +2217,31 @@ pub(crate) unsafe fn prefixed_command() {
             } else {
                 let mut n = cur_chr;
                 get_r_token();
-                p = cur_cs;
+                let p = cur_cs;
                 if a >= 4 {
-                    geq_define(p as usize, Cmd::Relax, TOO_BIG_USV);
+                    geq_define(p as usize, Cmd::Relax, Some(TOO_BIG_USV));
                 } else {
-                    eq_define(p as usize, Cmd::Relax, TOO_BIG_USV);
+                    eq_define(p as usize, Cmd::Relax, Some(TOO_BIG_USV));
                 }
                 scan_optional_equals();
                 match n {
                     CHAR_DEF_CODE => {
                         scan_usv_num();
                         if a >= 4 {
-                            geq_define(p as usize, Cmd::CharGiven, cur_val);
-                        } else { eq_define(p as usize, Cmd::CharGiven, cur_val); }
+                            geq_define(p as usize, Cmd::CharGiven, cur_val.opt());
+                        } else { eq_define(p as usize, Cmd::CharGiven, cur_val.opt()); }
                     }
                     MATH_CHAR_DEF_CODE => {
                         scan_fifteen_bit_int();
                         if a >= 4 {
-                            geq_define(p as usize, Cmd::MathGiven, cur_val);
-                        } else { eq_define(p as usize, Cmd::MathGiven, cur_val); }
+                            geq_define(p as usize, Cmd::MathGiven, cur_val.opt());
+                        } else { eq_define(p as usize, Cmd::MathGiven, cur_val.opt()); }
                     }
                     XETEX_MATH_CHAR_NUM_DEF_CODE => {
                         scan_xetex_math_char_int();
                         if a >= 4 {
-                            geq_define(p as usize, Cmd::XetexMathGiven, cur_val);
-                        } else { eq_define(p as usize, Cmd::XetexMathGiven, cur_val); }
+                            geq_define(p as usize, Cmd::XetexMathGiven, cur_val.opt());
+                        } else { eq_define(p as usize, Cmd::XetexMathGiven, cur_val.opt()); }
                     }
                     XETEX_MATH_CHAR_DEF_CODE => {
                         scan_math_class_int();
@@ -2252,8 +2251,8 @@ pub(crate) unsafe fn prefixed_command() {
                         scan_usv_num();
                         n = n + cur_val;
                         if a >= 4 {
-                            geq_define(p as usize, Cmd::XetexMathGiven, n);
-                        } else { eq_define(p as usize, Cmd::XetexMathGiven, n); }
+                            geq_define(p as usize, Cmd::XetexMathGiven, n.opt());
+                        } else { eq_define(p as usize, Cmd::XetexMathGiven, n.opt()); }
                     }
                     _ => {
                         scan_register_num();
@@ -2267,43 +2266,43 @@ pub(crate) unsafe fn prefixed_command() {
 
                             let j = if j == ValLevel::Tok as i32 { Cmd::ToksRegister } else { Cmd::Register };
                             if a >= 4 {
-                                geq_define(p as usize, j, cur_ptr);
-                            } else { eq_define(p as usize, j, cur_ptr); }
+                                geq_define(p as usize, j, Some(cur_ptr as usize));
+                            } else { eq_define(p as usize, j, Some(cur_ptr as usize)); }
                         } else {
                             match n {
                                 COUNT_DEF_CODE => {
                                     if a >= 4 {
-                                        geq_define(p as usize, Cmd::AssignInt, COUNT_BASE as i32 + cur_val);
+                                        geq_define(p as usize, Cmd::AssignInt, Some(COUNT_BASE + cur_val as usize));
                                     } else {
-                                        eq_define(p as usize, Cmd::AssignInt, COUNT_BASE as i32 + cur_val);
+                                        eq_define(p as usize, Cmd::AssignInt, Some(COUNT_BASE + cur_val as usize));
                                     }
                                 }
                                 DIMEN_DEF_CODE => {
                                     if a >= 4 {
-                                        geq_define(p as usize, Cmd::AssignDimen, SCALED_BASE as i32 + cur_val);
+                                        geq_define(p as usize, Cmd::AssignDimen, Some(SCALED_BASE + cur_val as usize));
                                     } else {
-                                        eq_define(p as usize, Cmd::AssignDimen, SCALED_BASE as i32 + cur_val);
+                                        eq_define(p as usize, Cmd::AssignDimen, Some(SCALED_BASE + cur_val as usize));
                                     }
                                 }
                                 SKIP_DEF_CODE => {
                                     if a >= 4 {
-                                        geq_define(p as usize, Cmd::AssignGlue, SKIP_BASE as i32 + cur_val);
+                                        geq_define(p as usize, Cmd::AssignGlue, Some(SKIP_BASE + cur_val as usize));
                                     } else {
-                                        eq_define(p as usize, Cmd::AssignGlue, SKIP_BASE as i32 + cur_val);
+                                        eq_define(p as usize, Cmd::AssignGlue, Some(SKIP_BASE + cur_val as usize));
                                     }
                                 }
                                 MU_SKIP_DEF_CODE => {
                                     if a >= 4 {
-                                        geq_define(p as usize, Cmd::AssignMuGlue, MU_SKIP_BASE as i32 + cur_val);
+                                        geq_define(p as usize, Cmd::AssignMuGlue, Some(MU_SKIP_BASE + cur_val as usize));
                                     } else {
-                                        eq_define(p as usize, Cmd::AssignMuGlue, MU_SKIP_BASE as i32 + cur_val);
+                                        eq_define(p as usize, Cmd::AssignMuGlue, Some(MU_SKIP_BASE + cur_val as usize));
                                     }
                                 }
                                 TOKS_DEF_CODE => {
                                     if a >= 4 {
-                                        geq_define(p as usize, Cmd::AssignToks, TOKS_BASE as i32 + cur_val);
+                                        geq_define(p as usize, Cmd::AssignToks, Some(TOKS_BASE + cur_val as usize));
                                     } else {
-                                        eq_define(p as usize, Cmd::AssignToks, TOKS_BASE as i32 + cur_val);
+                                        eq_define(p as usize, Cmd::AssignToks, Some(TOKS_BASE + cur_val as usize));
                                     }
                                 }
                                 _ => { }
@@ -2332,11 +2331,11 @@ pub(crate) unsafe fn prefixed_command() {
                 error();
             }
             get_r_token();
-            p = cur_cs;
+            let p = cur_cs;
             read_toks(n, p, j);
             if a >= 4 {
-                geq_define(p as usize, Cmd::Call, cur_val);
-            } else { eq_define(p as usize, Cmd::Call, cur_val); }
+                geq_define(p as usize, Cmd::Call, cur_val.opt());
+            } else { eq_define(p as usize, Cmd::Call, cur_val.opt()); }
         }
         Cmd::ToksRegister | Cmd::AssignToks => {
             q = cur_cs;
@@ -2362,7 +2361,7 @@ pub(crate) unsafe fn prefixed_command() {
                 cur_chr = cur_ptr;
                 e = true
             }
-            p = cur_chr;
+            let p = cur_chr;
             scan_optional_equals();
             loop  {
                 get_x_token();
@@ -2384,7 +2383,7 @@ pub(crate) unsafe fn prefixed_command() {
                                 find_sa_element(ValLevel::Tok as i16, cur_val,
                                                 false); /* "extended delimiter code family */
                                 if cur_ptr.is_texnull() {
-                                    q = TEX_NULL
+                                    q = None.tex_int()
                                 } else {
                                     q =
                                         MEM[(cur_ptr + 1) as
@@ -2404,32 +2403,32 @@ pub(crate) unsafe fn prefixed_command() {
                                         cur_ptr * CHAR_CLASS_LIMIT + cur_val,
                                         false);
                         if cur_ptr.is_texnull() {
-                            q = TEX_NULL
+                            q = None.tex_int()
                         } else {
                             q =
                                 MEM[(cur_ptr + 1) as
                                                  usize].b32.s1
                         }
                     } else { q = EQTB[cur_chr as usize].val }
-                    if q.is_texnull() {
+                    if let Some(q) = q.opt() {
+                        MEM[q].b32.s0 += 1;
                         if e {
                             if a >= 4 {
-                                gsa_def(p as usize, TEX_NULL);
-                            } else { sa_def(p as usize, TEX_NULL); }
+                                gsa_def(p as usize, Some(q));
+                            } else { sa_def(p as usize, Some(q)); }
                         } else if a >= 4 {
-                            geq_define(p as usize, Cmd::UndefinedCS, TEX_NULL);
-                        } else {
-                            eq_define(p as usize, Cmd::UndefinedCS, TEX_NULL);
-                        }
+                            geq_define(p as usize, Cmd::Call, Some(q));
+                        } else { eq_define(p as usize, Cmd::Call, Some(q)); }
                     } else {
-                        MEM[q as usize].b32.s0 += 1;
                         if e {
                             if a >= 4 {
-                                gsa_def(p as usize, q);
-                            } else { sa_def(p as usize, q); }
+                                gsa_def(p as usize, None);
+                            } else { sa_def(p as usize, None); }
                         } else if a >= 4 {
-                            geq_define(p as usize, Cmd::Call, q);
-                        } else { eq_define(p as usize, Cmd::Call, q); }
+                            geq_define(p as usize, Cmd::UndefinedCS, None);
+                        } else {
+                            eq_define(p as usize, Cmd::UndefinedCS, None);
+                        }
                     }
                     current_block = 1862445865460439639;
                 } else { current_block = 15174492983169363256; }
@@ -2443,12 +2442,12 @@ pub(crate) unsafe fn prefixed_command() {
                     if MEM[def_ref].b32.s1.is_texnull() {
                         if e {
                             if a >= 4 {
-                                gsa_def(p as usize, TEX_NULL);
-                            } else { sa_def(p as usize, TEX_NULL); }
+                                gsa_def(p as usize, None);
+                            } else { sa_def(p as usize, None); }
                         } else if a >= 4 {
-                            geq_define(p as usize, Cmd::UndefinedCS, TEX_NULL);
+                            geq_define(p as usize, Cmd::UndefinedCS, None);
                         } else {
-                            eq_define(p as usize, Cmd::UndefinedCS, TEX_NULL);
+                            eq_define(p as usize, Cmd::UndefinedCS, None);
                         }
                         MEM[def_ref].b32.s1 = avail;
                         avail = def_ref as i32;
@@ -2467,33 +2466,33 @@ pub(crate) unsafe fn prefixed_command() {
                         }
                         if e {
                             if a >= 4 {
-                                gsa_def(p as usize, def_ref as i32);
-                            } else { sa_def(p as usize, def_ref as i32); }
+                                gsa_def(p as usize, Some(def_ref));
+                            } else { sa_def(p as usize, Some(def_ref)); }
                         } else if a >= 4 {
-                            geq_define(p as usize, Cmd::Call, def_ref as i32);
-                        } else { eq_define(p as usize, Cmd::Call, def_ref as i32); }
+                            geq_define(p as usize, Cmd::Call, Some(def_ref));
+                        } else { eq_define(p as usize, Cmd::Call, Some(def_ref)); }
                     }
                 }
             }
         }
         Cmd::AssignInt => {
-            p = cur_chr;
+            let p = cur_chr as usize;
             scan_optional_equals();
             scan_int();
             if a >= 4 {
-                geq_word_define(p as usize, cur_val);
-            } else { eq_word_define(p as usize, cur_val); }
+                geq_word_define(p, cur_val);
+            } else { eq_word_define(p, cur_val); }
         }
         Cmd::AssignDimen => {
-            p = cur_chr;
+            let p = cur_chr as usize;
             scan_optional_equals();
             scan_dimen(false, false, false);
             if a >= 4 {
-                geq_word_define(p as usize, cur_val);
-            } else { eq_word_define(p as usize, cur_val); }
+                geq_word_define(p, cur_val);
+            } else { eq_word_define(p, cur_val); }
         }
         Cmd::AssignGlue | Cmd::AssignMuGlue => {
-            p = cur_chr;
+            let p = cur_chr as usize;
             let n = cur_cmd;
             scan_optional_equals();
             if n == Cmd::AssignMuGlue {
@@ -2501,39 +2500,39 @@ pub(crate) unsafe fn prefixed_command() {
             } else { scan_glue(ValLevel::Glue as i16); }
             trap_zero_glue();
             if a >= 4 {
-                geq_define(p as usize, Cmd::GlueRef, cur_val);
-            } else { eq_define(p as usize, Cmd::GlueRef, cur_val); }
+                geq_define(p, Cmd::GlueRef, cur_val.opt());
+            } else { eq_define(p, Cmd::GlueRef, cur_val.opt()); }
         }
         Cmd::XetexDefCode => {
             if cur_chr == SF_CODE_BASE as i32 {
-                p = cur_chr;
+                let p = cur_chr;
                 scan_usv_num();
-                p = p + cur_val;
+                let p = p + cur_val;
                 let n = *SF_CODE(cur_val as usize) % 65536;
                 scan_optional_equals();
                 scan_char_class();
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Data,
-                               (cur_val as i64 * 65536 +
-                                    n as i64) as i32);
+                               ((cur_val as i64 * 65536 +
+                                    n as i64) as i32).opt());
                 } else {
                     eq_define(p as usize, Cmd::Data,
-                              (cur_val as i64 * 65536 +
-                                   n as i64) as i32);
+                              ((cur_val as i64 * 65536 +
+                                   n as i64) as i32).opt());
                 }
             } else if cur_chr == MATH_CODE_BASE as i32 {
-                p = cur_chr;
+                let p = cur_chr;
                 scan_usv_num();
-                p = p + cur_val;
+                let p = p + cur_val;
                 scan_optional_equals();
                 scan_xetex_math_char_int();
                 if a >= 4 {
-                    geq_define(p as usize, Cmd::Data, cur_val);
-                } else { eq_define(p as usize, Cmd::Data, cur_val); }
+                    geq_define(p as usize, Cmd::Data, cur_val.opt());
+                } else { eq_define(p as usize, Cmd::Data, cur_val.opt()); }
             } else if cur_chr == MATH_CODE_BASE as i32 + 1 {
-                p = cur_chr - 1;
+                let p = cur_chr - 1;
                 scan_usv_num();
-                p = p + cur_val;
+                let p = p + cur_val;
                 scan_optional_equals();
                 scan_math_class_int();
                 let mut n = set_class(cur_val);
@@ -2542,21 +2541,21 @@ pub(crate) unsafe fn prefixed_command() {
                 scan_usv_num();
                 n = n + cur_val;
                 if a >= 4 {
-                    geq_define(p as usize, Cmd::Data, n);
-                } else { eq_define(p as usize, Cmd::Data, n); }
+                    geq_define(p as usize, Cmd::Data, n.opt());
+                } else { eq_define(p as usize, Cmd::Data, n.opt()); }
             } else if cur_chr == DEL_CODE_BASE as i32 {
-                p = cur_chr;
+                let p = cur_chr;
                 scan_usv_num();
-                p = p + cur_val;
+                let p = p + cur_val;
                 scan_optional_equals();
                 scan_int();
                 if a >= 4 {
                     geq_word_define(p as usize, cur_val);
                 } else { eq_word_define(p as usize, cur_val); }
             } else {
-                p = cur_chr - 1;
+                let p = cur_chr - 1;
                 scan_usv_num();
-                p = p + cur_val;
+                let p = p + cur_val;
                 scan_optional_equals();
                 let mut n = 0x40000000;
                 scan_math_fam_int();
@@ -2579,9 +2578,9 @@ pub(crate) unsafe fn prefixed_command() {
                 0xffffff
             } else { BIGGEST_USV as i32 }; // :1268
 
-            p = cur_chr;
+            let p = cur_chr;
             scan_usv_num();
-            p = p + cur_val;
+            let p = p + cur_val;
             scan_optional_equals();
             scan_int();
 
@@ -2613,16 +2612,16 @@ pub(crate) unsafe fn prefixed_command() {
                              65536) as i32;
                     if a >= 4 {
                         geq_define(p as usize, Cmd::Data,
-                                   (n as i64 * 65536 +
-                                        cur_val as i64) as i32);
+                                   ((n as i64 * 65536 +
+                                        cur_val as i64) as i32).opt());
                     } else {
                         eq_define(p as usize, Cmd::Data,
-                                  (n as i64 * 65536 +
-                                       cur_val as i64) as i32);
+                                  ((n as i64 * 65536 +
+                                       cur_val as i64) as i32).opt());
                     }
                 } else if a >= 4 {
-                    geq_define(p as usize, Cmd::Data, cur_val);
-                } else { eq_define(p as usize, Cmd::Data, cur_val); }
+                    geq_define(p as usize, Cmd::Data, cur_val.opt());
+                } else { eq_define(p as usize, Cmd::Data, cur_val.opt()); }
 
             } else if p < DEL_CODE_BASE as i32 {
                 if cur_val as i64 == 32768 {
@@ -2631,21 +2630,21 @@ pub(crate) unsafe fn prefixed_command() {
                     cur_val = set_class(cur_val / 4096) + set_family((cur_val % 4096) / 256) + (cur_val % 256);
                 }
                 if a >= 4 {
-                    geq_define(p as usize, Cmd::Data, cur_val);
-                } else { eq_define(p as usize, Cmd::Data, cur_val); }
+                    geq_define(p as usize, Cmd::Data, cur_val.opt());
+                } else { eq_define(p as usize, Cmd::Data, cur_val.opt()); }
             } else if a >= 4 {
                 geq_word_define(p as usize, cur_val);
             } else { eq_word_define(p as usize, cur_val); }
         }
         Cmd::DefFamily => {
-            p = cur_chr;
+            let p = cur_chr;
             scan_math_fam_int();
-            p = p + cur_val;
+            let p = p + cur_val;
             scan_optional_equals();
             scan_font_ident();
             if a >= 4 {
-                geq_define(p as usize, Cmd::Data, cur_val);
-            } else { eq_define(p as usize, Cmd::Data, cur_val); }
+                geq_define(p as usize, Cmd::Data, cur_val.opt());
+            } else { eq_define(p as usize, Cmd::Data, cur_val.opt()); }
         }
         Cmd::Register | Cmd::Advance | Cmd::Multiply | Cmd::Divide => { do_register_command(a); }
         Cmd::SetBox => {
@@ -2682,39 +2681,37 @@ pub(crate) unsafe fn prefixed_command() {
             scan_optional_equals();
             scan_int();
             let mut n = cur_val;
-            if n <= 0 {
-                p = TEX_NULL
+            let p = if n <= 0 {
+                None
             } else if q > LOCAL_BASE as i32 + Local::par_shape as i32 {
                 n = cur_val / 2 + 1;
-                p = get_node(2 * n + 1) as i32;
-                MEM[p as usize].b32.s0 = n;
+                let p = get_node(2 * n + 1);
+                MEM[p].b32.s0 = n;
                 n = cur_val;
-                MEM[(p + 1) as usize].b32.s1 = n;
+                MEM[p + 1].b32.s1 = n;
 
-                j = p + 2;
-                while j <= p + n + 1 {
+                for j in (p + 2)..=(p + (n as usize) + 1) {
                     scan_int();
-                    MEM[j as usize].b32.s1 = cur_val;
-                    j += 1;
+                    MEM[j].b32.s1 = cur_val;
                 }
 
                 if n & 1 == 0 {
-                    MEM[(p + n + 2) as usize].b32.s1 = 0
+                    MEM[p + (n as usize) + 2].b32.s1 = 0
                 }
+                Some(p)
             } else {
-                p = get_node(2 * n + 1) as i32;
-                MEM[p as usize].b32.s0 = n;
+                let p = get_node(2 * n + 1);
+                MEM[p].b32.s0 = n;
     
-                j = 1i32;
-                while j <= n {
+                for j in 1..=(n as usize) {
                     scan_dimen(false, false, false);
-                    MEM[(p + 2 * j - 1) as usize].b32.s1 =
+                    MEM[p + 2 * j - 1].b32.s1 =
                         cur_val;
                     scan_dimen(false, false, false);
-                    MEM[(p + 2 * j) as usize].b32.s1 = cur_val;
-                    j += 1
+                    MEM[p + 2 * j].b32.s1 = cur_val;
                 }
-            }
+                Some(p)
+            };
             if a >= 4 {
                 geq_define(q as usize, Cmd::ShapeRef, p);
             } else { eq_define(q as usize, Cmd::ShapeRef, p); }
@@ -2764,7 +2761,7 @@ pub(crate) unsafe fn prefixed_command() {
                            OTGR_FONT_FLAG {
                     scan_glyph_number(f);
                 } else { scan_char_num(); }
-                p = cur_val;
+                let p = cur_val;
                 scan_optional_equals();
                 scan_int();
                 match n {
@@ -3294,7 +3291,7 @@ unsafe fn load_fmt_file() -> bool {
 
     EQTB = vec![EqtbWord::default(); EQTB_TOP + 2];
     EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].cmd = Cmd::UndefinedCS as _;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].val = TEX_NULL as _;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].val = None.tex_int() as _;
     EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].lvl = LEVEL_ZERO as _;
 
     x = EQTB_SIZE as i32 + 1;
@@ -3943,9 +3940,9 @@ unsafe fn final_cleanup() {
                     }
                 }
             }
-            if !sa_root[ValLevel::Mark as usize].is_texnull() {
-                if do_marks(MarkMode::DestroyMarks, 0, sa_root[ValLevel::Mark as usize]) {
-                    sa_root[ValLevel::Mark as usize] = TEX_NULL;
+            if let Some(m) = sa_root[ValLevel::Mark as usize].opt() {
+                if do_marks(MarkMode::DestroyMarks, 0, m) {
+                    sa_root[ValLevel::Mark as usize] = None.tex_int();
                 }
             }
             c = LAST_BOX_CODE as i16;
@@ -4038,7 +4035,7 @@ unsafe fn initialize_more_variables() {
 
     prim_eqtb[0].lvl = LEVEL_ZERO;
     prim_eqtb[0].cmd = Cmd::UndefinedCS as u16;
-    prim_eqtb[0].val = TEX_NULL;
+    prim_eqtb[0].val = None.tex_int();
 
     for k in 1..=PRIM_SIZE {
         prim_eqtb[k] = prim_eqtb[0];
@@ -4052,11 +4049,11 @@ unsafe fn initialize_more_variables() {
     mag_set = 0;
     expand_depth_count = 0;
     is_in_csname = false;
-    cur_mark[TOP_MARK_CODE] = TEX_NULL;
-    cur_mark[FIRST_MARK_CODE] = TEX_NULL;
-    cur_mark[BOT_MARK_CODE] = TEX_NULL;
-    cur_mark[SPLIT_FIRST_MARK_CODE] = TEX_NULL;
-    cur_mark[SPLIT_BOT_MARK_CODE] = TEX_NULL;
+    cur_mark[TOP_MARK_CODE] = None.tex_int();
+    cur_mark[FIRST_MARK_CODE] = None.tex_int();
+    cur_mark[BOT_MARK_CODE] = None.tex_int();
+    cur_mark[SPLIT_FIRST_MARK_CODE] = None.tex_int();
+    cur_mark[SPLIT_BOT_MARK_CODE] = None.tex_int();
     cur_val = 0;
     cur_val_level = ValLevel::Int;
     radix = 0;
@@ -4066,7 +4063,7 @@ unsafe fn initialize_more_variables() {
         read_open[k] = OpenMode::Closed;
     }
 
-    cond_ptr = TEX_NULL;
+    cond_ptr = None.tex_int();
     if_limit = NORMAL as u8;
     cur_if = 0;
     if_line = 0;
@@ -4077,26 +4074,26 @@ unsafe fn initialize_more_variables() {
     last_bop = -1;
     doing_leaders = false;
     dead_cycles = 0;
-    adjust_tail = TEX_NULL;
+    adjust_tail = None.tex_int();
     last_badness = 0;
-    pre_adjust_tail = TEX_NULL;
+    pre_adjust_tail = None.tex_int();
     pack_begin_line = 0;
     empty.s1 = EMPTY;
-    empty.s0 = TEX_NULL;
-    align_ptr = TEX_NULL;
-    cur_align = TEX_NULL;
-    cur_span = TEX_NULL;
-    cur_loop = TEX_NULL;
-    cur_head = TEX_NULL;
-    cur_tail = TEX_NULL;
-    cur_pre_head = TEX_NULL;
-    cur_pre_tail = TEX_NULL;
+    empty.s0 = None.tex_int();
+    align_ptr = None.tex_int();
+    cur_align = None.tex_int();
+    cur_span = None.tex_int();
+    cur_loop = None.tex_int();
+    cur_head = None.tex_int();
+    cur_tail = None.tex_int();
+    cur_pre_head = None.tex_int();
+    cur_pre_tail = None.tex_int();
     cur_f = 0;
     max_hyph_char = TOO_BIG_LANG;
 
     for z in 0..=HYPH_SIZE {
         HYPH_WORD[z as usize] = 0;
-        HYPH_LIST[z as usize] = TEX_NULL;
+        HYPH_LIST[z as usize] = None.tex_int();
         HYPH_LINK[z as usize] = 0;
     }
 
@@ -4121,17 +4118,17 @@ unsafe fn initialize_more_variables() {
         write_open[k] = false;
     }
 
-    LR_ptr = TEX_NULL;
+    LR_ptr = None.tex_int();
     LR_problems = 0i32;
     cur_dir = LR::LeftToRight;
-    pseudo_files = TEX_NULL;
-    sa_root[7] = TEX_NULL;
-    sa_null.b32.s0 = TEX_NULL;
-    sa_null.b32.s1 = TEX_NULL;
-    sa_chain = TEX_NULL;
+    pseudo_files = None.tex_int();
+    sa_root[ValLevel::Mark as usize] = None.tex_int();
+    sa_null.b32.s0 = None.tex_int();
+    sa_null.b32.s1 = None.tex_int();
+    sa_chain = None.tex_int();
     sa_level = LEVEL_ZERO;
-    disc_ptr[2] = TEX_NULL;
-    disc_ptr[3] = TEX_NULL;
+    disc_ptr[2] = None.tex_int();
+    disc_ptr[3] = None.tex_int();
     edit_name_start = 0;
     stop_at_space = true;
 }
@@ -4141,7 +4138,7 @@ unsafe fn initialize_more_initex_variables() {
     }
 
     for k in (0..=19).step_by(4) {
-        MEM[k].b32.s1 = TEX_NULL + 1;
+        MEM[k].b32.s1 = None.tex_int() + 1;
         MEM[k].b16.s1 = NORMAL;
         MEM[k].b16.s0 = NORMAL;
     }
@@ -4162,8 +4159,8 @@ unsafe fn initialize_more_initex_variables() {
     MEM[(rover + 1) as usize].b32.s0 = rover;
     MEM[(rover + 1) as usize].b32.s1 = rover;
     lo_mem_max = rover + 1000;
-    MEM[lo_mem_max as usize].b32.s1 = TEX_NULL;
-    MEM[lo_mem_max as usize].b32.s0 = TEX_NULL;
+    MEM[lo_mem_max as usize].b32.s1 = None.tex_int();
+    MEM[lo_mem_max as usize].b32.s0 = None.tex_int();
 
     for k in PRE_ADJUST_HEAD..=MEM_TOP {
         MEM[k] = MEM[lo_mem_max as usize];
@@ -4171,7 +4168,7 @@ unsafe fn initialize_more_initex_variables() {
 
     MEM[OMIT_TEMPLATE as usize].b32.s0 = CS_TOKEN_FLAG + FROZEN_END_TEMPLATE as i32;
     MEM[END_SPAN].b32.s1 = std::u16::MAX as i32 + 1;
-    MEM[END_SPAN].b32.s0 = TEX_NULL;
+    MEM[END_SPAN].b32.s0 = None.tex_int();
     MEM[ACTIVE_LIST].b16.s1 = BreakType::Hyphenated as _;
     MEM[ACTIVE_LIST + 1].b32.s0 = MAX_HALFWORD;
     MEM[ACTIVE_LIST].b16.s0 = 0;
@@ -4180,13 +4177,13 @@ unsafe fn initialize_more_initex_variables() {
     MEM[PAGE_INS_HEAD].b32.s1 = PAGE_INS_HEAD as i32;
     MEM[PAGE_HEAD].b16.s1 = TextNode::Glue as u16;
     MEM[PAGE_HEAD].b16.s0 = NORMAL;
-    avail = TEX_NULL;
+    avail = None.tex_int();
     mem_end = MEM_TOP as i32;
     hi_mem_min = PRE_ADJUST_HEAD as i32;
     var_used = 20;
     dyn_used = HI_MEM_STAT_USAGE;
     EQTB[UNDEFINED_CONTROL_SEQUENCE].cmd = Cmd::UndefinedCS as u16;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE].val = TEX_NULL;
+    EQTB[UNDEFINED_CONTROL_SEQUENCE].val = None.tex_int();
     EQTB[UNDEFINED_CONTROL_SEQUENCE].lvl = LEVEL_ZERO;
 
     for k in ACTIVE_BASE..=EQTB_TOP {
@@ -4202,7 +4199,7 @@ unsafe fn initialize_more_initex_variables() {
     }
 
     MEM[0].b32.s1 += 531;
-    *LOCAL(Local::par_shape) = TEX_NULL;
+    *LOCAL(Local::par_shape) = None.tex_int();
     EQTB[LOCAL_BASE + Local::par_shape as usize].cmd = Cmd::ShapeRef as _;
     EQTB[LOCAL_BASE + Local::par_shape as usize].lvl = LEVEL_ONE as _;
 
@@ -4214,7 +4211,7 @@ unsafe fn initialize_more_initex_variables() {
         EQTB[k] = EQTB[UNDEFINED_CONTROL_SEQUENCE];
     }
 
-    EQTB[BOX_BASE].val = TEX_NULL;
+    EQTB[BOX_BASE].val = None.tex_int();
     EQTB[BOX_BASE].cmd = Cmd::BoxRef as u16;
     EQTB[BOX_BASE].lvl = LEVEL_ONE;
 
@@ -4319,13 +4316,13 @@ unsafe fn initialize_more_initex_variables() {
     (*hash.offset(END_WRITE as isize)).s1 = maketexstring(b"endwrite");
     EQTB[END_WRITE as usize].lvl = LEVEL_ONE;
     EQTB[END_WRITE as usize].cmd = Cmd::OuterCall as u16;
-    EQTB[END_WRITE as usize].val = TEX_NULL;
+    EQTB[END_WRITE as usize].val = None.tex_int();
 
     max_reg_num = 32767;
     max_reg_help_line = b"A register number must be between 0 and 32767.";
 
     for i in (ValLevel::Int as usize)..=(ValLevel::InterChar as usize) {
-        sa_root[i] = TEX_NULL;
+        sa_root[i] = None.tex_int();
     }
 
     *INTPAR(IntPar::xetex_hyphenatable_length) = 63;
@@ -4924,7 +4921,7 @@ unsafe fn initialize_primitives() {
     primitive(b"XeTeXradical", Cmd::Radical, 1);
     primitive(b"Uradical", Cmd::Radical, 1);
     primitive(b"read", Cmd::ReadToCS, 0);
-    primitive(b"relax", Cmd::Relax, TOO_BIG_USV);
+    primitive(b"relax", Cmd::Relax, TOO_BIG_USV as i32);
     (*hash.offset(FROZEN_RELAX as isize)).s1 = maketexstring(b"relax");
     EQTB[FROZEN_RELAX] = EQTB[cur_val as usize];
     primitive(b"setbox", Cmd::SetBox, 0);
@@ -4934,7 +4931,7 @@ unsafe fn initialize_primitives() {
     primitive(b"valign", Cmd::VAlign, 0);
     primitive(b"vcenter", Cmd::VCenter, 0);
     primitive(b"vrule", Cmd::VRule, 0);
-    primitive(b"par", PAR_END, TOO_BIG_USV);
+    primitive(b"par", PAR_END, TOO_BIG_USV as i32);
     par_loc = cur_val;
     par_token = 0x1ffffffi32 + par_loc;
 
@@ -5425,7 +5422,7 @@ pub(crate) unsafe fn tt_run_engine(
     open_parens = 0i32;
     max_buf_stack = 0i32;
     GRP_STACK[0] = 0;
-    IF_STACK[0] = TEX_NULL;
+    IF_STACK[0] = None.tex_int();
     PARAM_PTR = 0;
     MAX_PARAM_STACK = 0;
     used_tectonic_coda_tokens = false;
@@ -5439,7 +5436,7 @@ pub(crate) unsafe fn tt_run_engine(
     first = 0;
 
     scanner_status = ScannerStatus::Normal;
-    warning_index = TEX_NULL;
+    warning_index = None.tex_int();
     first = 1;
     cur_input.state = InputState::NewLine;
     cur_input.start = 1;
@@ -5889,7 +5886,7 @@ pub(crate) unsafe fn tt_run_engine(
         LIG_KERN_BASE[0] = 0;
         KERN_BASE[0] = 0;
         EXTEN_BASE[0] = 0;
-        FONT_GLUE[0] = TEX_NULL;
+        FONT_GLUE[0] = None.tex_int();
         FONT_PARAMS[0] = 7;
         FONT_MAPPING[0] = 0 as *mut libc::c_void;
         PARAM_BASE[0] = -1;

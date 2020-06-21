@@ -84,7 +84,7 @@ pub(crate) unsafe fn initialize_shipout_variables() {
     dvi_offset = 0;
     dvi_gone = 0;
     down_ptr = None;
-    right_ptr = TEX_NULL;
+    right_ptr = None.tex_int();
     cur_s = -1;
 }
 
@@ -574,7 +574,7 @@ unsafe fn hlist_out() {
                         );
                         *LLIST_link(prev_p as usize) = q;
                         *LLIST_link(q as usize) = *LLIST_link(p as usize);
-                        *LLIST_link(p as usize) = TEX_NULL;
+                        *LLIST_link(p as usize) = None.tex_int();
                         prev_p = r;
                         let mut popt2 = LLIST_link(r as usize).opt();
 
@@ -650,7 +650,7 @@ unsafe fn hlist_out() {
         *SYNCTEX_tag(p as usize, MEDIUM_NODE_SIZE) = 0;
         *LLIST_link(prev_p as usize) = p;
         cur_h = 0;
-        *LLIST_link(p as usize) = reverse(this_box, TEX_NULL, &mut cur_g, &mut cur_glue);
+        *LLIST_link(p as usize) = reverse(this_box, None.tex_int(), &mut cur_g, &mut cur_glue);
         MEM[(p + 1) as usize].b32.s1 = -cur_h;
         cur_h = save_h;
         set_BOX_lr_mode(this_box as usize, LRMode::Reversed);
