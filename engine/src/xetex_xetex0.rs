@@ -828,7 +828,7 @@ pub(crate) unsafe fn show_node_list(mut p: i32) {
                             g = *BOX_glue_set(p);
                             if g != 0.0f64 && MEM[p + 5].b16.s1 != NORMAL {
                                 print_cstr(b", glue set ");
-                                if MEM[p + 5].b16.s1 == SHRINKING as u16 {
+                                if MEM[p + 5].b16.s1 == GlueSign::Shrinking as u16 {
                                     print_cstr(b"- ");
                                 }
                                 if g.abs() > 20000. {
@@ -4291,7 +4291,7 @@ pub(crate) unsafe fn get_next() {
                                 } else {
                                     force_eof = true
                                 }
-                            } else if input_line(INPUT_FILE[cur_input.index as usize]) != 0 {
+                            } else if input_line(INPUT_FILE[cur_input.index as usize]) {
                                 cur_input.limit = last
                             } else if !LOCAL(Local::every_eof).is_texnull()
                                 && !EOF_SEEN[cur_input.index as usize]
@@ -6430,11 +6430,11 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                 k = cur_val;
                 match m {
                     LP_CODE_BASE => {
-                        cur_val = get_cp_code(n as usize, k as u32, LEFT_SIDE);
+                        cur_val = get_cp_code(n as usize, k as u32, Side::Left);
                         cur_val_level = ValLevel::Int
                     }
                     RP_CODE_BASE => {
-                        cur_val = get_cp_code(n as usize, k as u32, RIGHT_SIDE);
+                        cur_val = get_cp_code(n as usize, k as u32, Side::Right);
                         cur_val_level = ValLevel::Int
                     }
                     _ => {}
@@ -9109,22 +9109,22 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
         begin_file_reading();
         cur_input.name = m as i32 + 1;
         assert!(
-            read_open[m as usize] != CLOSED,
+            read_open[m as usize] != OpenMode::Closed,
             /*503:*/
             "terminal input forbidden"
         );
         /*505:*/
-        if read_open[m as usize] == CLOSED {
+        if read_open[m as usize] == OpenMode::JustOpen {
             /*504:*/
-            if input_line(read_file[m as usize]) != JUST_OPEN {
-                read_open[m as usize] = NORMAL as u8;
+            if input_line(read_file[m as usize]) {
+                read_open[m as usize] = OpenMode::Normal;
             } else {
                 u_close(read_file[m as usize]);
-                read_open[m as usize] = CLOSED;
+                read_open[m as usize] = OpenMode::Closed;
             }
-        } else if input_line(read_file[m as usize]) == 0 {
+        } else if !input_line(read_file[m as usize]) {
             u_close(read_file[m as usize]);
-            read_open[m as usize] = CLOSED;
+            read_open[m as usize] = OpenMode::Closed;
             if align_state as i64 != 1000000 {
                 runaway();
                 if file_line_error_style_p != 0 {
@@ -9422,7 +9422,7 @@ pub(crate) unsafe fn conditional() {
             b = if cur_val == 18 {
                 true
             } else {
-                read_open[cur_val as usize] == CLOSED
+                read_open[cur_val as usize] == OpenMode::Closed
             };
             current_block = 16915215315900843183;
         }
@@ -9991,7 +9991,7 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
         &mut INPUT_FILE[cur_input.index as usize],
         format,
         b"rb",
-        *INTPAR(IntPar::xetex_default_input_mode),
+        UnicodeMode::from(*INTPAR(IntPar::xetex_default_input_mode)),
         *INTPAR(IntPar::xetex_default_input_encoding),
     ) == 0
     {
@@ -11177,8 +11177,8 @@ pub(crate) unsafe fn scan_spec(c: GroupCode, mut three_codes: bool) {
     new_save_level(c);
     scan_left_brace();
 }
-pub(crate) unsafe fn char_pw(mut p: i32, mut side: i16) -> scaled_t {
-    if side == 0 {
+pub(crate) unsafe fn char_pw(mut p: i32, side: Side) -> scaled_t {
+    if side == Side::Left {
         last_leftmost_char = TEX_NULL
     } else {
         last_rightmost_char = TEX_NULL
@@ -11198,7 +11198,7 @@ pub(crate) unsafe fn char_pw(mut p: i32, mut side: i16) -> scaled_t {
                 FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1,
                 real_get_native_word_cp(
                     &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
-                    side as i32,
+                    side,
                 ),
                 1000,
             );
@@ -11214,7 +11214,7 @@ pub(crate) unsafe fn char_pw(mut p: i32, mut side: i16) -> scaled_t {
         let f = MEM[(p + 4) as usize].b16.s2 as internal_font_number;
         return round_xn_over_d(
             FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1,
-            get_cp_code(f, MEM[(p + 4) as usize].b16.s1 as u32, side as i32),
+            get_cp_code(f, MEM[(p + 4) as usize].b16.s1 as u32, side),
             1000,
         );
     }
@@ -11226,11 +11226,10 @@ pub(crate) unsafe fn char_pw(mut p: i32, mut side: i16) -> scaled_t {
         }
     }
     let f = *CHAR_NODE_font(p as usize) as internal_font_number;
-    let c = get_cp_code(f, MEM[p as usize].b16.s0 as u32, side as i32);
-    match side as i32 {
-        0 => last_leftmost_char = p,
-        1 => last_rightmost_char = p,
-        _ => {}
+    let c = get_cp_code(f, MEM[p as usize].b16.s0 as u32, side);
+    match side {
+        Side::Left => last_leftmost_char = p,
+        Side::Right => last_rightmost_char = p,
     }
     if c == 0 {
         return 0;
@@ -11601,7 +11600,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> usize {
             o = 0 as glue_ord
         } /*normal *//*:684 */
         MEM[r + 5].b16.s0 = o as u16;
-        MEM[r + 5].b16.s1 = STRETCHING as u16;
+        MEM[r + 5].b16.s1 = GlueSign::Stretching as u16;
         if total_stretch[o as usize] != 0 {
             MEM[r + 6].gr = x as f64 / total_stretch[o as usize] as f64
         } else {
@@ -11642,7 +11641,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, mut m: i16) -> usize {
             o = 0 as glue_ord
         }
         MEM[r + 5].b16.s0 = o as u16;
-        MEM[r + 5].b16.s1 = SHRINKING as u16;
+        MEM[r + 5].b16.s1 = GlueSign::Shrinking as u16;
         if total_shrink[o as usize] != 0 {
             *BOX_glue_set(r) = -x as f64 / total_shrink[o as usize] as f64
         } else {
@@ -11878,7 +11877,7 @@ pub(crate) unsafe fn vpackage(
                 0 as glue_ord
             }; /*normal *//*:684 */
             MEM[r + 5].b16.s0 = o as u16;
-            MEM[r + 5].b16.s1 = STRETCHING as u16;
+            MEM[r + 5].b16.s1 = GlueSign::Stretching as u16;
             if total_stretch[o as usize] != 0 {
                 MEM[r + 6].gr = x as f64 / total_stretch[o as usize] as f64
             } else {
@@ -11919,7 +11918,7 @@ pub(crate) unsafe fn vpackage(
                 0 as glue_ord
             };
             MEM[r + 5].b16.s0 = o as u16;
-            MEM[r + 5].b16.s1 = SHRINKING as u16;
+            MEM[r + 5].b16.s1 = GlueSign::Shrinking as u16;
             if total_shrink[o as usize] != 0 {
                 MEM[r + 6].gr = -x as f64 / total_shrink[o as usize] as f64
             } else {
@@ -12623,7 +12622,7 @@ pub(crate) unsafe fn fin_align() {
                         u = *LLIST_link(u) as usize;
                         MEM[u].b16.s0 = GluePar::tab_skip as u16 + 1;
                         t = t + MEM[(v + 1) as usize].b32.s1;
-                        if MEM[(p + 5) as usize].b16.s1 == STRETCHING as u16 {
+                        if MEM[(p + 5) as usize].b16.s1 == GlueSign::Stretching as u16 {
                             if MEM[v as usize].b16.s1 as i32 == MEM[(p + 5) as usize].b16.s0 as i32
                             {
                                 t = t + tex_round(
@@ -12631,7 +12630,7 @@ pub(crate) unsafe fn fin_align() {
                                         * MEM[(v + 2) as usize].b32.s1 as f64,
                                 )
                             }
-                        } else if MEM[(p + 5) as usize].b16.s1 == SHRINKING as u16 {
+                        } else if MEM[(p + 5) as usize].b16.s1 == GlueSign::Shrinking as u16 {
                             if MEM[v as usize].b16.s0 as i32 == MEM[(p + 5) as usize].b16.s0 as i32
                             {
                                 t = t - tex_round(
@@ -12660,7 +12659,7 @@ pub(crate) unsafe fn fin_align() {
                             MEM[r + 5].b16.s0 = NORMAL;
                             *BOX_glue_set(r) = 0.;
                         } else if t > MEM[r + 1].b32.s1 {
-                            MEM[r + 5].b16.s1 = STRETCHING as u16;
+                            MEM[r + 5].b16.s1 = GlueSign::Stretching as u16;
                             if MEM[r + 6].b32.s1 == 0 {
                                 *BOX_glue_set(r) = 0.;
                             } else {
@@ -12669,7 +12668,7 @@ pub(crate) unsafe fn fin_align() {
                             }
                         } else {
                             MEM[r + 5].b16.s0 = MEM[r + 5].b16.s1;
-                            MEM[r + 5].b16.s1 = SHRINKING as u16;
+                            MEM[r + 5].b16.s1 = GlueSign::Shrinking as u16;
                             if MEM[r + 4].b32.s1 == 0 {
                                 MEM[r + 6].gr = 0.;
                             } else if MEM[r + 5].b16.s0 == NORMAL
@@ -12690,7 +12689,7 @@ pub(crate) unsafe fn fin_align() {
                             MEM[r + 5].b16.s0 = NORMAL;
                             *BOX_glue_set(r) = 0.;
                         } else if t > MEM[r + 3].b32.s1 {
-                            MEM[r + 5].b16.s1 = STRETCHING as u16;
+                            MEM[r + 5].b16.s1 = GlueSign::Stretching as u16;
                             if MEM[r + 6].b32.s1 == 0 {
                                 *BOX_glue_set(r) = 0.;
                             } else {
@@ -12699,7 +12698,7 @@ pub(crate) unsafe fn fin_align() {
                             }
                         } else {
                             MEM[r + 5].b16.s0 = MEM[r + 5].b16.s1;
-                            MEM[r + 5].b16.s1 = SHRINKING as u16;
+                            MEM[r + 5].b16.s1 = GlueSign::Shrinking as u16;
                             if MEM[r + 4].b32.s1 == 0 {
                                 *BOX_glue_set(r) = 0.0;
                             } else if MEM[r + 5].b16.s0 == NORMAL
@@ -13235,7 +13234,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
     flush_node_list(disc_ptr[VSPLIT_CODE as usize].opt());
     disc_ptr[VSPLIT_CODE as usize] = TEX_NULL;
     if !sa_root[ValLevel::Mark as usize].is_texnull() {
-        if do_marks(0, 0, sa_root[ValLevel::Mark as usize]) {
+        if do_marks(MarkMode::VSplitInit, 0, sa_root[ValLevel::Mark as usize]) {
             sa_root[ValLevel::Mark as usize] = TEX_NULL
         }
     }
@@ -15539,7 +15538,6 @@ pub(crate) unsafe fn scan_and_pack_name() {
     pack_file_name(cur_name, cur_area, cur_ext);
 }
 pub(crate) unsafe fn do_extension() {
-    let mut i: i32 = 0;
     let mut j: i32 = 0;
     let mut p: usize = 0;
     match cur_chr {
@@ -15653,8 +15651,8 @@ pub(crate) unsafe fn do_extension() {
         }
         44 => {
             scan_and_pack_name();
-            i = get_encoding_mode_and_info(&mut j);
-            if i == XETEX_INPUT_MODE_AUTO {
+            let i = get_encoding_mode_and_info(&mut j);
+            if i == UnicodeMode::Auto {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -15672,8 +15670,8 @@ pub(crate) unsafe fn do_extension() {
         }
         45 => {
             scan_and_pack_name();
-            i = get_encoding_mode_and_info(&mut j);
-            *INTPAR(IntPar::xetex_default_input_mode) = i;
+            let i = get_encoding_mode_and_info(&mut j);
+            *INTPAR(IntPar::xetex_default_input_mode) = i as i32;
             *INTPAR(IntPar::xetex_default_input_encoding) = j
         }
         46 => {
@@ -18106,7 +18104,7 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
     }
     MEM[TEMP_HEAD].b32.s1
 }
-pub(crate) unsafe fn do_marks(mut a: i16, mut l: i16, mut q: i32) -> bool {
+pub(crate) unsafe fn do_marks(a: MarkMode, mut l: i16, mut q: i32) -> bool {
     if l < 4 {
         for i in 0..=15 {
             if i as i32 & 1i32 != 0 {
@@ -18131,7 +18129,7 @@ pub(crate) unsafe fn do_marks(mut a: i16, mut l: i16, mut q: i32) -> bool {
         }
     } else {
         match a {
-            VSPLIT_INIT => {
+            MarkMode::VSplitInit => {
                 /*1614: */
                 if !MEM[(q + 2) as usize].b32.s1.is_texnull() {
                     delete_token_ref(MEM[(q + 2) as usize].b32.s1 as usize);
@@ -18140,7 +18138,7 @@ pub(crate) unsafe fn do_marks(mut a: i16, mut l: i16, mut q: i32) -> bool {
                     MEM[(q + 3) as usize].b32.s0 = TEX_NULL
                 }
             }
-            FIRE_UP_INIT => {
+            MarkMode::FireUpInit => {
                 if !MEM[(q + 2) as usize].b32.s0.is_texnull() {
                     if !MEM[(q + 1) as usize].b32.s0.is_texnull() {
                         delete_token_ref(MEM[(q + 1) as usize].b32.s0 as usize);
@@ -18160,7 +18158,7 @@ pub(crate) unsafe fn do_marks(mut a: i16, mut l: i16, mut q: i32) -> bool {
                     MEM[(q + 1) as usize].b32.s0 = MEM[(q + 2) as usize].b32.s0
                 }
             }
-            FIRE_UP_DONE => {
+            MarkMode::FireUpDone => {
                 if !MEM[(q + 1) as usize].b32.s0.is_texnull()
                     && MEM[(q + 1) as usize].b32.s1.is_texnull()
                 {
@@ -18168,7 +18166,7 @@ pub(crate) unsafe fn do_marks(mut a: i16, mut l: i16, mut q: i32) -> bool {
                     MEM[MEM[(q + 1) as usize].b32.s0 as usize].b32.s0 += 1;
                 }
             }
-            DESTROY_MARKS => {
+            MarkMode::DestroyMarks => {
                 for i in 0..=4 {
                     if i as i32 & 1i32 != 0 {
                         cur_ptr = MEM[(q + i / 2 + 1) as usize].b32.s1
@@ -18185,7 +18183,6 @@ pub(crate) unsafe fn do_marks(mut a: i16, mut l: i16, mut q: i32) -> bool {
                     }
                 }
             }
-            _ => {}
         }
         if MEM[(q + 2) as usize].b32.s0.is_texnull() {
             if MEM[(q + 3) as usize].b32.s0.is_texnull() {

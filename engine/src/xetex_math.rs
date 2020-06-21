@@ -249,14 +249,18 @@ pub(crate) unsafe fn init_math() {
                             TextNode::Glue => {
                                 q = MEM[(p + 1) as usize].b32.s0;
                                 d = MEM[(q + 1) as usize].b32.s1;
-                                if MEM[(just_box + 5) as usize].b16.s1 == STRETCHING as u16 {
+                                if MEM[(just_box + 5) as usize].b16.s1
+                                    == GlueSign::Stretching as u16
+                                {
                                     if MEM[(just_box + 5) as usize].b16.s0 as i32
                                         == MEM[q as usize].b16.s1 as i32
                                         && MEM[(q + 2) as usize].b32.s1 != 0
                                     {
                                         v = 0x3fffffffi32
                                     }
-                                } else if MEM[(just_box + 5) as usize].b16.s1 == SHRINKING as u16 {
+                                } else if MEM[(just_box + 5) as usize].b16.s1
+                                    == GlueSign::Shrinking as u16
+                                {
                                     if MEM[(just_box + 5) as usize].b16.s0 as i32
                                         == MEM[q as usize].b16.s0 as i32
                                         && MEM[(q + 3) as usize].b32.s1 != 0
@@ -3768,7 +3772,7 @@ unsafe fn build_opentype_assembly(
             o = str
         }
         MEM[b + 5].b16.s0 = NORMAL as u16;
-        MEM[b + 5].b16.s1 = STRETCHING as u16;
+        MEM[b + 5].b16.s1 = GlueSign::Stretching as u16;
         MEM[b + 6].gr = o as f64 / str as f64;
         if horiz {
             MEM[b + 1].b32.s1 = nat + tex_round(str as f64 * *BOX_glue_set(b))

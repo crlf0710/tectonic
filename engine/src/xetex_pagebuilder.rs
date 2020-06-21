@@ -129,7 +129,7 @@ unsafe fn fire_up(mut c: i32) {
      * e-TeX. */
 
     if !sa_root[ValLevel::Mark as usize].is_texnull() {
-        if do_marks(FIRE_UP_INIT as _, 0, sa_root[ValLevel::Mark as usize]) {
+        if do_marks(MarkMode::FireUpInit, 0, sa_root[ValLevel::Mark as usize]) {
             sa_root[7] = TEX_NULL;
         }
     }
@@ -379,7 +379,7 @@ unsafe fn fire_up(mut c: i32) {
     /* ... resuming 1047 ... */
 
     if !sa_root[ValLevel::Mark as usize].is_texnull() {
-        if do_marks(FIRE_UP_DONE as _, 0, sa_root[ValLevel::Mark as usize]) {
+        if do_marks(MarkMode::FireUpDone, 0, sa_root[ValLevel::Mark as usize]) {
             sa_root[ValLevel::Mark as usize] = TEX_NULL;
         }
     }

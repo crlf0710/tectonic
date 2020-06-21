@@ -6,6 +6,7 @@
          unused_assignments,
          unused_mut)]
 
+use crate::xetex_consts::Side;
 use harfbuzz_sys::{hb_feature_t, hb_ot_math_glyph_part_t, hb_tag_t};
 
 #[cfg(target_os = "macos")]
@@ -481,32 +482,31 @@ unsafe extern "C" fn GlyphId_create(mut fontNum: usize, mut code: libc::c_uint) 
     };
     return id;
 }
-pub(crate) unsafe fn getProtrusionFactor(mut side: libc::c_int) -> *mut ProtrusionFactor {
+pub(crate) unsafe fn getProtrusionFactor(side: Side) -> *mut ProtrusionFactor {
     static mut leftProt: *mut ProtrusionFactor = ptr::null_mut();
     static mut rightProt: *mut ProtrusionFactor = ptr::null_mut();
     let mut container: *mut ProtrusionFactor = 0 as *mut ProtrusionFactor;
     match side {
-        0 => {
+        Side::Left => {
             if leftProt.is_null() {
                 leftProt = CppStdMap_create()
             }
             container = leftProt
             // we should not reach here
         }
-        1 => {
+        Side::Right => {
             if rightProt.is_null() {
                 rightProt = CppStdMap_create()
             }
             container = rightProt
         }
-        _ => unreachable!(),
     }
     return container;
 }
 pub(crate) unsafe fn set_cp_code(
     mut fontNum: usize,
     mut code: libc::c_uint,
-    mut side: libc::c_int,
+    side: Side,
     mut value: libc::c_int,
 ) {
     let mut id: GlyphId = GlyphId_create(fontNum, code);
@@ -516,7 +516,7 @@ pub(crate) unsafe fn set_cp_code(
 pub(crate) unsafe fn get_cp_code(
     mut fontNum: usize,
     mut code: libc::c_uint,
-    mut side: libc::c_int,
+    side: Side,
 ) -> libc::c_int {
     let mut id: GlyphId = GlyphId_create(fontNum, code);
     let mut container: *mut ProtrusionFactor = getProtrusionFactor(side);

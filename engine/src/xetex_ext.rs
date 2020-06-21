@@ -13,6 +13,7 @@ use std::ffi::CStr;
 
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
+use crate::xetex_consts::{Side, UnicodeMode};
 use crate::xetex_xetexd::print_c_string;
 use crate::{streq_ptr, strstartswith};
 use bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read};
@@ -230,7 +231,7 @@ pub(crate) unsafe fn linebreak_next() -> i32 {
     }
 }
 
-pub(crate) unsafe fn get_encoding_mode_and_info(mut info: *mut i32) -> i32 {
+pub(crate) unsafe fn get_encoding_mode_and_info(mut info: *mut i32) -> UnicodeMode {
     /* \XeTeXinputencoding "enc-name"
      *   -> name is packed in |nameoffile| as a C string, starting at [1]
      * Check if it's a built-in name; if not, try to open an ICU converter by that name
@@ -239,23 +240,23 @@ pub(crate) unsafe fn get_encoding_mode_and_info(mut info: *mut i32) -> i32 {
     let mut cnv: *mut icu::UConverter = 0 as *mut icu::UConverter;
     *info = 0i32;
     if strcasecmp(name_of_file, b"auto\x00" as *const u8 as *const i8) == 0i32 {
-        return 0i32;
+        return UnicodeMode::Auto;
     }
     if strcasecmp(name_of_file, b"utf8\x00" as *const u8 as *const i8) == 0i32 {
-        return 1i32;
+        return UnicodeMode::Utf8;
     }
     if strcasecmp(name_of_file, b"utf16\x00" as *const u8 as *const i8) == 0i32 {
         /* depends on host platform */
-        return 3i32;
+        return UnicodeMode::Utf16le;
     }
     if strcasecmp(name_of_file, b"utf16be\x00" as *const u8 as *const i8) == 0i32 {
-        return 2i32;
+        return UnicodeMode::Utf16be;
     }
     if strcasecmp(name_of_file, b"utf16le\x00" as *const u8 as *const i8) == 0i32 {
-        return 3i32;
+        return UnicodeMode::Utf16le;
     }
     if strcasecmp(name_of_file, b"bytes\x00" as *const u8 as *const i8) == 0i32 {
-        return 4i32;
+        return UnicodeMode::Raw;
     }
     /* try for an ICU converter */
     cnv = icu::ucnv_open(name_of_file, &mut err); /* ensure message starts on a new line */
@@ -266,11 +267,11 @@ pub(crate) unsafe fn get_encoding_mode_and_info(mut info: *mut i32) -> i32 {
         print_c_string(name_of_file);
         print_c_string(b"\'; reading as raw bytes\x00" as *const u8 as *const i8);
         end_diagnostic(true);
-        4i32
+        UnicodeMode::Raw
     } else {
         icu::ucnv_close(cnv);
         *info = maketexstring(CStr::from_ptr(name_of_file).to_bytes());
-        5i32
+        UnicodeMode::ICUMapping
     }
 }
 
@@ -2289,7 +2290,7 @@ pub(crate) unsafe fn print_glyph_name(mut font: usize, mut gid: i32) {
         print_char(*fresh34 as i32);
     }
 }
-pub(crate) unsafe fn real_get_native_word_cp(mut pNode: *mut libc::c_void, mut side: i32) -> i32 {
+pub(crate) unsafe fn real_get_native_word_cp(mut pNode: *mut libc::c_void, side: Side) -> i32 {
     let mut node: *mut memory_word = pNode as *mut memory_word;
     let mut locations: *mut FixedPoint = (*node.offset(5)).ptr as *mut FixedPoint;
     let mut glyphIDs: *mut u16 =
@@ -2301,12 +2302,11 @@ pub(crate) unsafe fn real_get_native_word_cp(mut pNode: *mut libc::c_void, mut s
         return 0;
     }
     match side {
-        0 => {
+        Side::Left => {
             actual_glyph = *glyphIDs
             // we should not reach this point
         }
-        1 => actual_glyph = *glyphIDs.offset((glyphCount as i32 - 1i32) as isize),
-        _ => unreachable!(),
+        Side::Right => actual_glyph = *glyphIDs.offset((glyphCount as i32 - 1i32) as isize),
     }
     get_cp_code(f, actual_glyph as u32, side)
 }

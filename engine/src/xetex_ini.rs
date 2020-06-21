@@ -45,7 +45,7 @@ use crate::xetex_xetex0::{
     scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int, show_cur_cmd_chr,
     show_save_groups, start_input, trap_zero_glue,
 };
-use crate::xetex_xetexd::{set_class, set_family, LLIST_link, TeXOpt, UTF8};
+use crate::xetex_xetexd::{set_class, set_family, LLIST_link, TeXOpt};
 use bridge::{
     ttstub_input_close, ttstub_input_open, ttstub_output_close, ttstub_output_open,
     ttstub_output_open_stdout,
@@ -749,7 +749,7 @@ pub(crate) static mut cur_order: glue_ord = 0;
 #[no_mangle]
 pub(crate) static mut read_file: [*mut UFILE; 16] = [ptr::null_mut(); 16];
 #[no_mangle]
-pub(crate) static mut read_open: [u8; 17] = [0; 17];
+pub(crate) static mut read_open: [OpenMode; 17] = [OpenMode::Normal; 17];
 #[no_mangle]
 pub(crate) static mut cond_ptr: i32 = 0;
 #[no_mangle]
@@ -2768,8 +2768,8 @@ pub(crate) unsafe fn prefixed_command() {
                 scan_optional_equals();
                 scan_int();
                 match n {
-                    LP_CODE_BASE => { set_cp_code(f, p as u32, LEFT_SIDE, cur_val); }
-                    RP_CODE_BASE => { set_cp_code(f, p as u32, RIGHT_SIDE, cur_val); }
+                    LP_CODE_BASE => { set_cp_code(f, p as u32, Side::Left, cur_val); }
+                    RP_CODE_BASE => { set_cp_code(f, p as u32, Side::Right, cur_val); }
                     _ => { }
                 }
             }
@@ -3944,7 +3944,7 @@ unsafe fn final_cleanup() {
                 }
             }
             if !sa_root[ValLevel::Mark as usize].is_texnull() {
-                if do_marks(3, 0, sa_root[ValLevel::Mark as usize]) {
+                if do_marks(MarkMode::DestroyMarks, 0, sa_root[ValLevel::Mark as usize]) {
                     sa_root[ValLevel::Mark as usize] = TEX_NULL;
                 }
             }
@@ -3975,7 +3975,7 @@ static mut stdin_ufile: UFILE = UFILE {
     handle: None,
     savedChar: 0,
     skipNextLF: 0,
-    encodingMode: 0,
+    encodingMode: UnicodeMode::Auto,
     conversionData: ptr::null_mut(),
 };
 unsafe fn init_io() {
@@ -3983,7 +3983,7 @@ unsafe fn init_io() {
     stdin_ufile.handle = None;
     stdin_ufile.savedChar = -1;
     stdin_ufile.skipNextLF = 0;
-    stdin_ufile.encodingMode = UTF8;
+    stdin_ufile.encodingMode = UnicodeMode::Utf8;
     stdin_ufile.conversionData = 0 as *mut libc::c_void;
     INPUT_FILE[0] = &mut stdin_ufile;
 
@@ -4063,7 +4063,7 @@ unsafe fn initialize_more_variables() {
     cur_order = GlueOrder::Normal as u8;
 
     for k in 0..=16 {
-        read_open[k] = CLOSED;
+        read_open[k] = OpenMode::Closed;
     }
 
     cond_ptr = TEX_NULL;

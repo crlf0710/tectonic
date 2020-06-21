@@ -436,14 +436,3 @@ pub(crate) fn set_family(x: i32) -> i32 {
 pub(crate) fn set_class(x: i32) -> i32 {
     ((x as u32 & 0x7) << 21) as i32
 }
-
-/*
-/* Unicode file reading modes */
-#define AUTO       0 /* default: will become one of 1..3 at file open time, after sniffing */
-*/
-pub(crate) const UTF8: i16 = 1;
-/*#define UTF16BE    2
-#define UTF16LE    3
-#define RAW        4
-#define ICUMAPPING 5
-*/

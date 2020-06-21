@@ -1214,7 +1214,7 @@ impl ValLevel {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum PageContents {
     Empty = 0,
     InsertsOnly = 1,
@@ -1222,6 +1222,30 @@ pub(crate) enum PageContents {
 }
 
 pub(crate) const EMPTY: i32 = 0;
+
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum OpenMode {
+    Normal = 0,
+    JustOpen = 1,
+    Closed = 2,
+}
+
+pub(crate) const DISPLAYOPERATORMINHEIGHT: placeholdertype = 3;
+pub(crate) const ACCENTBASEHEIGHT: placeholdertype = 6;
+pub(crate) const SUBSCRIPTTOPMAX: placeholdertype = 9;
+pub(crate) const SUPERSCRIPTBOTTOMMIN: placeholdertype = 13;
+pub(crate) const SUBSUPERSCRIPTGAPMIN: placeholdertype = 15;
+pub(crate) const SUPERSCRIPTBOTTOMMAXWITHSUBSCRIPT: placeholdertype = 16;
+pub(crate) const STACKGAPMIN: placeholdertype = 26;
+pub(crate) const STACKDISPLAYSTYLEGAPMIN: placeholdertype = 27;
+pub(crate) const FRACTIONNUMERATORGAPMIN: placeholdertype = 36;
+pub(crate) const FRACTIONNUMDISPLAYSTYLEGAPMIN: placeholdertype = 37;
+pub(crate) const FRACTIONDENOMINATORGAPMIN: placeholdertype = 39;
+pub(crate) const FRACTIONDENOMDISPLAYSTYLEGAPMIN: placeholdertype = 40;
+pub(crate) const RADICALVERTICALGAP: placeholdertype = 49;
+pub(crate) const RADICALDISPLAYSTYLEVERTICALGAP: placeholdertype = 50;
+pub(crate) const RADICALRULETHICKNESS: placeholdertype = 51;
 
 pub(crate) const SET1: u8 = 128;
 pub(crate) const SET_RULE: u8 = 132;
@@ -1243,7 +1267,6 @@ pub(crate) const DEFINE_NATIVE_FONT: u8 = 252;
 pub(crate) const SET_GLYPHS: u8 = 253;
 pub(crate) const SET_TEXT_AND_GLYPHS: u8 = 254;
 
-pub(crate) const XETEX_INPUT_MODE_AUTO: placeholdertype = 0;
 pub(crate) const XETEX_VERSION: placeholdertype = 0;
 pub(crate) const EXACTLY: u8 = 0;
 pub(crate) const FONT_BASE: usize = 0;
@@ -1251,48 +1274,28 @@ pub(crate) const NON_ADDRESS: placeholdertype = 0;
 pub(crate) const UNDEFINED_PRIMITIVE: placeholdertype = 0;
 pub(crate) const ADDITIONAL: u8 = 1;
 pub(crate) const FIXED_ACC: placeholdertype = 1;
-pub(crate) const JUST_OPEN: placeholdertype = 1;
 pub(crate) const MATH_CHAR: placeholdertype = 1;
 pub(crate) const PRIM_BASE: usize = 1;
 pub(crate) const SLANT_CODE: placeholdertype = 1;
-pub(crate) const STRETCHING: GlueSign = GlueSign::Stretching;
 pub(crate) const BOTTOM_ACC: u16 = 2;
-pub(crate) const CLOSED: u8 = 2;
 pub(crate) const ETEX_VERSION: placeholdertype = 2;
-pub(crate) const SHRINKING: GlueSign = GlueSign::Shrinking;
 pub(crate) const SPACE_CODE: placeholdertype = 2;
 pub(crate) const SUB_BOX: placeholdertype = 2;
-pub(crate) const DISPLAYOPERATORMINHEIGHT: placeholdertype = 3;
 pub(crate) const SUB_MLIST: placeholdertype = 3;
 pub(crate) const MATH_TEXT_CHAR: placeholdertype = 4;
 pub(crate) const SPACE_SHRINK_CODE: placeholdertype = 4;
 pub(crate) const X_HEIGHT_CODE: placeholdertype = 5;
-pub(crate) const ACCENTBASEHEIGHT: placeholdertype = 6;
 pub(crate) const QUAD_CODE: placeholdertype = 6;
 pub(crate) const EXTRA_SPACE_CODE: placeholdertype = 7;
 pub(crate) const VAR_FAM_CLASS: placeholdertype = 7;
-pub(crate) const SUBSCRIPTTOPMAX: placeholdertype = 9;
 pub(crate) const NATIVE_GLYPH_INFO_SIZE: placeholdertype = 10;
 pub(crate) const CARRIAGE_RETURN: placeholdertype = 13;
-pub(crate) const SUPERSCRIPTBOTTOMMIN: placeholdertype = 13;
 pub(crate) const TOTAL_MATHEX_PARAMS: placeholdertype = 13;
 pub(crate) const HI_MEM_STAT_USAGE: placeholdertype = 15;
 pub(crate) const MAX_CHAR_CODE: placeholdertype = 15;
-pub(crate) const SUBSUPERSCRIPTGAPMIN: placeholdertype = 15;
-pub(crate) const SUPERSCRIPTBOTTOMMAXWITHSUBSCRIPT: placeholdertype = 16;
 pub(crate) const TOTAL_MATHSY_PARAMS: placeholdertype = 22;
-pub(crate) const STACKGAPMIN: placeholdertype = 26;
-pub(crate) const STACKDISPLAYSTYLEGAPMIN: placeholdertype = 27;
 pub(crate) const UNLESS_CODE: placeholdertype = 32;
-pub(crate) const FRACTIONNUMERATORGAPMIN: placeholdertype = 36;
-pub(crate) const FRACTIONNUMDISPLAYSTYLEGAPMIN: placeholdertype = 37;
-// pub(crate) const XETEX_FIRST_CHAR_CODE: placeholdertype = 39;
-pub(crate) const FRACTIONDENOMINATORGAPMIN: placeholdertype = 39;
-pub(crate) const FRACTIONDENOMDISPLAYSTYLEGAPMIN: placeholdertype = 40;
 pub(crate) const XETEX_DIM: placeholdertype = 47;
-pub(crate) const RADICALVERTICALGAP: placeholdertype = 49;
-pub(crate) const RADICALDISPLAYSTYLEVERTICALGAP: placeholdertype = 50;
-pub(crate) const RADICALRULETHICKNESS: placeholdertype = 51;
 pub(crate) const ETEX_GLUE: placeholdertype = 57;
 pub(crate) const ETEX_MU: placeholdertype = 58;
 pub(crate) const COND_MATH_GLUE: u16 = 98;
@@ -1367,14 +1370,21 @@ pub(crate) const LEADER_FLAG: placeholdertype = 0x40010001;
 pub(crate) const LP_CODE_BASE: placeholdertype = 2;
 pub(crate) const RP_CODE_BASE: placeholdertype = 3;
 
-pub(crate) const LEFT_SIDE: placeholdertype = 0;
-pub(crate) const RIGHT_SIDE: placeholdertype = 1;
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum Side {
+    Left = 0,
+    Right = 1,
+}
 
 /* modes to do_marks() */
-pub(crate) const VSPLIT_INIT: i16 = 0;
-pub(crate) const FIRE_UP_INIT: i16 = 1;
-pub(crate) const FIRE_UP_DONE: i16 = 2;
-pub(crate) const DESTROY_MARKS: i16 = 3;
+#[repr(i16)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MarkMode {
+    VSplitInit = 0,
+    FireUpInit = 1,
+    FireUpDone = 2,
+    DestroyMarks = 3,
+}
 
 pub(crate) const MARKS_CODE: placeholdertype = 5;
 
@@ -1384,14 +1394,14 @@ pub(crate) const MIDDLE_NOAD: u16 = 1;
 
 /* movement() */
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum MoveSeen {
     None = 0,
     Y = 6,
     Z = 12,
 }
 #[repr(i32)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, enumn::N)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
 pub(crate) enum MoveDir {
     YHere = 1,
     ZHere = 2,
@@ -1411,3 +1421,21 @@ impl From<i32> for MoveDir {
  * string pool. KEEP SYNCHRONIZED WITH src/lib.rs!!! */
 
 pub(crate) const FORMAT_SERIAL: placeholdertype = 28;
+
+/// Unicode file reading modes
+#[repr(i32)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum UnicodeMode {
+    /// default: will become one of 1..3 at file open time, after sniffing
+    Auto = 0,
+    Utf8 = 1,
+    Utf16be = 2,
+    Utf16le = 3,
+    Raw = 4,
+    ICUMapping = 5,
+}
+impl From<i32> for UnicodeMode {
+    fn from(n: i32) -> Self {
+        Self::n(n).expect(&format!("incorrect unicode encoding mode = {}", n))
+    }
+}
