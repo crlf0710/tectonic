@@ -2144,11 +2144,11 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 cmd = chr_code as u16;
                 chr_code = TEX_NULL;
             }
-            if cmd == INT_VAL as u16 {
+            if cmd == ValLevel::Int as u16 {
                 print_esc_cstr(b"count");
-            } else if cmd == DIMEN_VAL as u16 {
+            } else if cmd == ValLevel::Dimen as u16 {
                 print_esc_cstr(b"dimen");
-            } else if cmd == GLUE_VAL as u16 {
+            } else if cmd == ValLevel::Glue as u16 {
                 print_esc_cstr(b"skip");
             } else {
                 print_esc_cstr(b"muskip");
@@ -2183,9 +2183,9 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             }
         }
         Cmd::LastItem => match chr_code {
-            0 => print_esc_cstr(b"lastpenalty"), // INT_VAL
-            1 => print_esc_cstr(b"lastkern"),    // DIMEN_VAL
-            2 => print_esc_cstr(b"lastskip"),    // GLUE_VAL
+            0 => print_esc_cstr(b"lastpenalty"), // ValLevel::Int
+            1 => print_esc_cstr(b"lastkern"),    // ValLevel::Dimen
+            2 => print_esc_cstr(b"lastskip"),    // ValLevel::Glue
             INPUT_LINE_NO_CODE => print_esc_cstr(b"inputlineno"),
             PDF_SHELL_ESCAPE_CODE => print_esc_cstr(b"shellescape"),
             3 => print_esc_cstr(b"lastnodetype"), // LAST_NODE_TYPE_CODE
@@ -2233,13 +2233,13 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             PAR_SHAPE_LENGTH_CODE => print_esc_cstr(b"parshapelength"),
             PAR_SHAPE_INDENT_CODE => print_esc_cstr(b"parshapeindent"),
             PAR_SHAPE_DIMEN_CODE => print_esc_cstr(b"parshapedimen"),
-            // (ETEX_EXPR - INT_VAL + INT_VAL)
+            // (ETEX_EXPR - ValLevel::Int + ValLevel::Int)
             59 => print_esc_cstr(b"numexpr"),
-            // (ETEX_EXPR - INT_VAL + DIMEN_VAL)
+            // (ETEX_EXPR - ValLevel::Int + ValLevel::Dimen)
             60 => print_esc_cstr(b"dimexpr"),
-            // (ETEX_EXPR - INT_VAL + GLUE_VAL)
+            // (ETEX_EXPR - ValLevel::Int + ValLevel::Glue)
             61 => print_esc_cstr(b"glueexpr"),
-            // (ETEX_EXPR - INT_VAL + MU_VAL)
+            // (ETEX_EXPR - ValLevel::Int + ValLevel::Mu)
             62 => print_esc_cstr(b"muexpr"),
             GLUE_STRETCH_ORDER_CODE => print_esc_cstr(b"gluestretchorder"),
             GLUE_SHRINK_ORDER_CODE => print_esc_cstr(b"glueshrinkorder"),
@@ -5183,19 +5183,19 @@ pub(crate) unsafe fn find_sa_element(t: i16, mut n: i32, mut w: bool) {
         _ => {}
     }
     /*not_found4 *//*1608: */
-    if t == MARK_VAL as i16 {
+    if t == ValLevel::Mark as i16 {
         cur_ptr = get_node(MARK_CLASS_NODE_SIZE) as i32; /*level_one *//*:1608 */
         MEM[(cur_ptr + 1) as usize] = sa_null;
         MEM[(cur_ptr + 2) as usize] = sa_null;
         MEM[(cur_ptr + 3) as usize] = sa_null
     } else {
-        if t == INT_VAL as i16 || t == DIMEN_VAL as i16 {
+        if t == ValLevel::Int as i16 || t == ValLevel::Dimen as i16 {
             cur_ptr = get_node(WORD_NODE_SIZE) as i32;
             MEM[(cur_ptr + 2) as usize].b32.s1 = 0;
             MEM[(cur_ptr + 1) as usize].b32.s1 = n
         } else {
             cur_ptr = get_node(POINTER_NODE_SIZE) as i32;
-            if t <= MU_VAL as i16 {
+            if t <= ValLevel::Mu as i16 {
                 MEM[(cur_ptr + 1) as usize].b32.s1 = 0;
                 MEM[0].b32.s1 += 1;
             } else {
@@ -5219,20 +5219,15 @@ pub(crate) unsafe fn expand() {
     let mut b: bool = false;
     let mut q: i32 = 0;
     let mut j: i32 = 0;
-    let mut cv_backup: i32 = 0;
-    let mut cvl_backup: i16 = 0;
-    let mut radix_backup: i16 = 0;
-    let mut co_backup: i16 = 0;
-    let mut backup_backup: i32 = 0;
     expand_depth_count += 1;
     if expand_depth_count >= expand_depth {
         overflow(b"expansion depth", expand_depth as usize);
     }
-    cv_backup = cur_val;
-    cvl_backup = cur_val_level as i16;
-    radix_backup = radix;
-    co_backup = cur_order as i16;
-    backup_backup = MEM[BACKUP_HEAD].b32.s1;
+    let cv_backup = cur_val;
+    let cvl_backup = cur_val_level;
+    let radix_backup = radix;
+    let co_backup = cur_order;
+    let backup_backup = MEM[BACKUP_HEAD].b32.s1;
     loop {
         if cur_cmd < Cmd::Call {
             /*384:*/
@@ -5250,7 +5245,7 @@ pub(crate) unsafe fn expand() {
                     if cur_val == 0 {
                         cur_ptr = cur_mark[t as usize]
                     } else {
-                        find_sa_element(MARK_VAL as i16, cur_val, false);
+                        find_sa_element(ValLevel::Mark as i16, cur_val, false);
                         if !cur_ptr.is_texnull() {
                             if t & 1i32 != 0 {
                                 cur_ptr = MEM[(cur_ptr + t / 2 + 1) as usize].b32.s1
@@ -5504,9 +5499,9 @@ pub(crate) unsafe fn expand() {
         }
     }
     cur_val = cv_backup;
-    cur_val_level = cvl_backup as u8;
+    cur_val_level = cvl_backup;
     radix = radix_backup;
-    cur_order = co_backup as glue_ord;
+    cur_order = co_backup;
     MEM[BACKUP_HEAD].b32.s1 = backup_backup;
     expand_depth_count -= 1;
 }
@@ -5648,11 +5643,11 @@ pub(crate) unsafe fn scan_glyph_number(mut f: internal_font_number) {
     if scan_keyword(b"/") {
         scan_and_pack_name();
         cur_val = map_glyph_to_index(f);
-        cur_val_level = INT_VAL as u8;
+        cur_val_level = ValLevel::Int;
     } else if scan_keyword(b"u") {
         scan_char_num();
         cur_val = map_char_to_glyph(f, cur_val);
-        cur_val_level = INT_VAL as u8;
+        cur_val_level = ValLevel::Int;
     } else {
         scan_int();
     };
@@ -6158,7 +6153,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                     + math_fam(cur_val1) * 0x100
                     + math_char(cur_val1)) as i32;
                 cur_val = cur_val1;
-                cur_val_level = INT_VAL
+                cur_val_level = ValLevel::Int
             } else if m == DEL_CODE_BASE as i32 {
                 cur_val1 = EQTB[DEL_CODE_BASE + cur_val as usize].val;
                 if cur_val1 >= 0x40000000 {
@@ -6173,30 +6168,30 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                     help_line[0] = b"I changed this one to zero.";
                     error();
                     cur_val = 0;
-                    cur_val_level = INT_VAL;
+                    cur_val_level = ValLevel::Int;
                 } else {
                     cur_val = cur_val1;
-                    cur_val_level = INT_VAL;
+                    cur_val_level = ValLevel::Int;
                 }
             } else if m < SF_CODE_BASE as i32 {
                 cur_val = EQTB[(m + cur_val) as usize].val;
-                cur_val_level = INT_VAL;
+                cur_val_level = ValLevel::Int;
             } else if m < MATH_CODE_BASE as i32 {
                 cur_val = (EQTB[(m + cur_val) as usize].val as i64 % 65536) as i32;
-                cur_val_level = INT_VAL;
+                cur_val_level = ValLevel::Int;
             } else {
                 cur_val = EQTB[(m + cur_val) as usize].val;
-                cur_val_level = INT_VAL;
+                cur_val_level = ValLevel::Int;
             }
         }
         Cmd::XetexDefCode => {
             scan_usv_num();
             if m == SF_CODE_BASE as i32 {
                 cur_val = (*SF_CODE(cur_val as usize) as i64 / 65536) as i32;
-                cur_val_level = INT_VAL
+                cur_val_level = ValLevel::Int
             } else if m == MATH_CODE_BASE as i32 {
                 cur_val = *MATH_CODE(cur_val as usize);
-                cur_val_level = INT_VAL
+                cur_val_level = ValLevel::Int
             } else if m == MATH_CODE_BASE as i32 + 1 {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -6209,10 +6204,10 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                 help_line[0] = b"use \\Umathcodenum to access them as single values.";
                 error();
                 cur_val = 0;
-                cur_val_level = INT_VAL;
+                cur_val_level = ValLevel::Int;
             } else if m == DEL_CODE_BASE as i32 {
                 cur_val = EQTB[DEL_CODE_BASE + cur_val as usize].val;
-                cur_val_level = INT_VAL;
+                cur_val_level = ValLevel::Int;
             } else {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -6225,11 +6220,11 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                 help_line[0] = b"use \\Udelcodenum to access them as single values.";
                 error();
                 cur_val = 0;
-                cur_val_level = INT_VAL;
+                cur_val_level = ValLevel::Int;
             }
         }
         Cmd::ToksRegister | Cmd::AssignToks | Cmd::DefFamily | Cmd::SetFont | Cmd::DefFont => {
-            if level != TOK_VAL as i16 {
+            if level != ValLevel::Tok as i16 {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -6242,7 +6237,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                 help_line[0] = b"look up `weird error\' in the index to The TeXbook.)";
                 back_error();
                 cur_val = 0;
-                cur_val_level = DIMEN_VAL;
+                cur_val_level = ValLevel::Dimen;
             } else if cur_cmd <= Cmd::AssignToks {
                 if cur_cmd < Cmd::AssignToks {
                     if m == 0i32 {
@@ -6250,7 +6245,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                         if cur_val < 256 {
                             cur_val = EQTB[TOKS_BASE + cur_val as usize].val
                         } else {
-                            find_sa_element(TOK_VAL as i16, cur_val, false);
+                            find_sa_element(ValLevel::Tok as i16, cur_val, false);
                             if cur_ptr.is_texnull() {
                                 cur_val = TEX_NULL
                             } else {
@@ -6265,7 +6260,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                     cur_ptr = cur_val;
                     scan_char_class_not_ignored();
                     find_sa_element(
-                        INTER_CHAR_VAL as i16,
+                        ValLevel::InterChar as i16,
                         cur_ptr * CHAR_CLASS_LIMIT + cur_val,
                         false,
                     );
@@ -6277,29 +6272,29 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                 } else {
                     cur_val = EQTB[m as usize].val
                 }
-                cur_val_level = TOK_VAL;
+                cur_val_level = ValLevel::Tok;
             } else {
                 back_input();
                 scan_font_ident();
                 cur_val = FONT_ID_BASE as i32 + cur_val;
-                cur_val_level = IDENT_VAL;
+                cur_val_level = ValLevel::Ident;
             }
         }
         Cmd::AssignInt => {
             cur_val = EQTB[m as usize].val;
-            cur_val_level = INT_VAL;
+            cur_val_level = ValLevel::Int;
         }
         Cmd::AssignDimen => {
             cur_val = EQTB[m as usize].val;
-            cur_val_level = DIMEN_VAL;
+            cur_val_level = ValLevel::Dimen;
         }
         Cmd::AssignGlue => {
             cur_val = EQTB[m as usize].val;
-            cur_val_level = GLUE_VAL;
+            cur_val_level = ValLevel::Glue;
         }
         Cmd::AssignMuGlue => {
             cur_val = EQTB[m as usize].val;
-            cur_val_level = MU_VAL;
+            cur_val_level = ValLevel::Mu;
         }
         Cmd::SetAux => {
             if cur_list.mode.1 as i32 != m {
@@ -6316,25 +6311,25 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                 help_line[1] = b"neither of these is meaningful inside \\write. So";
                 help_line[0] = b"I\'m forgetting what you said and using zero instead.";
                 error();
-                if level != TOK_VAL as i16 {
+                if level != ValLevel::Tok as i16 {
                     cur_val = 0;
-                    cur_val_level = DIMEN_VAL;
+                    cur_val_level = ValLevel::Dimen;
                 } else {
                     cur_val = 0;
-                    cur_val_level = INT_VAL;
+                    cur_val_level = ValLevel::Int;
                 }
             } else if m == ListMode::VMode as i32 {
                 cur_val = cur_list.aux.b32.s1;
-                cur_val_level = DIMEN_VAL;
+                cur_val_level = ValLevel::Dimen;
             } else {
                 cur_val = cur_list.aux.b32.s0;
-                cur_val_level = INT_VAL;
+                cur_val_level = ValLevel::Int;
             }
         }
         Cmd::SetPrevGraf => {
             if cur_list.mode.1 == ListMode::NoMode {
                 cur_val = 0;
-                cur_val_level = INT_VAL
+                cur_val_level = ValLevel::Int
             } else {
                 NEST[NEST_PTR] = cur_list;
                 let mut p = NEST_PTR;
@@ -6342,7 +6337,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                     p -= 1
                 }
                 cur_val = NEST[p].prev_graf;
-                cur_val_level = INT_VAL
+                cur_val_level = ValLevel::Int
             }
         }
         Cmd::SetPageInt => {
@@ -6353,7 +6348,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
             } else {
                 cur_val = insert_penalties
             }
-            cur_val_level = INT_VAL
+            cur_val_level = ValLevel::Int
         }
         Cmd::SetPageDimen => {
             if page_contents == PageContents::Empty && !output_active {
@@ -6365,7 +6360,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
             } else {
                 cur_val = page_so_far[m as usize]
             }
-            cur_val_level = DIMEN_VAL
+            cur_val_level = ValLevel::Dimen
         }
         Cmd::SetShape => {
             if m > LOCAL_BASE as i32 + Local::par_shape as i32 {
@@ -6384,7 +6379,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
             } else {
                 cur_val = MEM[*LOCAL(Local::par_shape) as usize].b32.s0
             }
-            cur_val_level = INT_VAL;
+            cur_val_level = ValLevel::Int;
         }
         Cmd::SetBoxDimen => {
             scan_register_num();
@@ -6403,26 +6398,26 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
             } else {
                 cur_val = MEM[(q + m) as usize].b32.s1
             }
-            cur_val_level = DIMEN_VAL
+            cur_val_level = ValLevel::Dimen
         }
         Cmd::CharGiven | Cmd::MathGiven => {
             cur_val = cur_chr;
-            cur_val_level = INT_VAL
+            cur_val_level = ValLevel::Int
         }
         Cmd::AssignFontDimen => {
             find_font_dimen(false);
             FONT_INFO[fmem_ptr as usize].b32.s1 = 0;
             cur_val = FONT_INFO[cur_val as usize].b32.s1;
-            cur_val_level = DIMEN_VAL
+            cur_val_level = ValLevel::Dimen
         }
         Cmd::AssignFontInt => {
             scan_font_ident();
             if m == 0 {
                 cur_val = HYPHEN_CHAR[cur_val as usize];
-                cur_val_level = INT_VAL
+                cur_val_level = ValLevel::Int
             } else if m == 1 {
                 cur_val = SKEW_CHAR[cur_val as usize];
-                cur_val_level = INT_VAL
+                cur_val_level = ValLevel::Int
             } else {
                 n = cur_val;
                 if FONT_AREA[n as usize] as u32 == AAT_FONT_FLAG
@@ -6436,11 +6431,11 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                 match m {
                     LP_CODE_BASE => {
                         cur_val = get_cp_code(n as usize, k as u32, LEFT_SIDE);
-                        cur_val_level = INT_VAL
+                        cur_val_level = ValLevel::Int
                     }
                     RP_CODE_BASE => {
                         cur_val = get_cp_code(n as usize, k as u32, RIGHT_SIDE);
-                        cur_val_level = INT_VAL
+                        cur_val_level = ValLevel::Int
                     }
                     _ => {}
                 }
@@ -6449,30 +6444,30 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
         Cmd::Register => {
             if m < 0 || m > 19 {
                 /* 19 = "lo_mem_stat_max" */
-                cur_val_level = (MEM[m as usize].b16.s1 as i32 / 64) as u8;
-                if cur_val_level < GLUE_VAL {
+                cur_val_level = ValLevel::from((MEM[m as usize].b16.s1 as i32 / 64) as u8);
+                if cur_val_level < ValLevel::Glue {
                     cur_val = MEM[(m + 2) as usize].b32.s1
                 } else {
                     cur_val = MEM[(m + 1) as usize].b32.s1
                 }
             } else {
                 scan_register_num();
-                cur_val_level = m as u8;
+                cur_val_level = ValLevel::from(m as u8);
                 if cur_val > 255 {
                     find_sa_element(cur_val_level as i16, cur_val, false);
                     if cur_ptr.is_texnull() {
                         cur_val = 0;
-                    } else if cur_val_level < GLUE_VAL {
+                    } else if cur_val_level < ValLevel::Glue {
                         cur_val = MEM[(cur_ptr + 2) as usize].b32.s1
                     } else {
                         cur_val = MEM[(cur_ptr + 1) as usize].b32.s1
                     }
                 } else {
                     match cur_val_level {
-                        INT_VAL => cur_val = *COUNT_REG(cur_val as usize),
-                        DIMEN_VAL => cur_val = *SCALED_REG(cur_val as usize),
-                        GLUE_VAL => cur_val = *SKIP_REG(cur_val as usize),
-                        MU_VAL => cur_val = *MU_SKIP_REG(cur_val as usize),
+                        ValLevel::Int => cur_val = *COUNT_REG(cur_val as usize),
+                        ValLevel::Dimen => cur_val = *SCALED_REG(cur_val as usize),
+                        ValLevel::Glue => cur_val = *SKIP_REG(cur_val as usize),
+                        ValLevel::Mu => cur_val = *MU_SKIP_REG(cur_val as usize),
                         _ => {}
                     }
                 }
@@ -6490,7 +6485,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                             }
                             _ => {}
                         }
-                        cur_val_level = GLUE_VAL
+                        cur_val_level = ValLevel::Glue
                     } else if m < ETEX_EXPR {
                         match m {
                             GLUE_TO_MU_CODE => {
@@ -6499,23 +6494,23 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                             }
                             _ => {}
                         }
-                        cur_val_level = MU_VAL;
+                        cur_val_level = ValLevel::Mu;
                     } else {
-                        cur_val_level = (m - ETEX_EXPR) as u8;
+                        cur_val_level = ValLevel::from((m - ETEX_EXPR) as u8);
                         scan_expr();
                     }
                     while cur_val_level as i32 > level as i32 {
-                        if cur_val_level == GLUE_VAL {
+                        if cur_val_level == ValLevel::Glue {
                             m = cur_val;
                             cur_val = MEM[(m + 1) as usize].b32.s1;
                             delete_glue_ref(m as usize);
-                        } else if cur_val_level == MU_VAL {
+                        } else if cur_val_level == ValLevel::Mu {
                             mu_error();
                         }
-                        cur_val_level -= 1;
+                        cur_val_level.prev();
                     }
                     if negative {
-                        if cur_val_level >= GLUE_VAL {
+                        if cur_val_level >= ValLevel::Glue {
                             m = cur_val;
                             let cur_val_ = new_spec(m as usize);
                             cur_val = cur_val_ as i32;
@@ -6625,7 +6620,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                                     .b32
                                     .s1
                             }
-                            cur_val_level = DIMEN_VAL
+                            cur_val_level = ValLevel::Dimen
                         }
                         GLUE_STRETCH_CODE | GLUE_SHRINK_CODE => {
                             scan_normal_glue();
@@ -6639,7 +6634,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                         }
                         _ => {}
                     }
-                    cur_val_level = DIMEN_VAL
+                    cur_val_level = ValLevel::Dimen
                 } else {
                     match m {
                         INPUT_LINE_NO_CODE => cur_val = line,
@@ -7100,7 +7095,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                         }
                         _ => {}
                     }
-                    cur_val_level = INT_VAL;
+                    cur_val_level = ValLevel::Int;
                 }
             } else {
                 cur_val = 0;
@@ -7122,30 +7117,33 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                     }
                 }
                 if cur_chr == LAST_NODE_TYPE_CODE as i32 {
-                    cur_val_level = INT_VAL;
+                    cur_val_level = ValLevel::Int;
                     if tx == cur_list.head as i32 || cur_list.mode.1 == ListMode::NoMode {
                         cur_val = -1;
                     }
                 } else {
-                    cur_val_level = cur_chr as u8
+                    cur_val_level = ValLevel::from(cur_chr as u8);
                 }
                 if tx < hi_mem_min && cur_list.mode.1 != ListMode::NoMode {
                     match cur_chr as u8 {
-                        INT_VAL => {
+                        0 => {
+                            // ValLevel::Int
                             if NODE_type(tx as usize) == TextNode::Penalty.into() {
                                 cur_val = MEM[(tx + 1) as usize].b32.s1;
                             }
                         }
-                        DIMEN_VAL => {
+                        1 => {
+                            // ValLevel::Dimen
                             if NODE_type(tx as usize) == TextNode::Kern.into() {
                                 cur_val = MEM[(tx + 1) as usize].b32.s1;
                             }
                         }
-                        GLUE_VAL => {
+                        2 => {
+                            // ValLevel::Glue
                             if NODE_type(tx as usize) == TextNode::Glue.into() {
                                 cur_val = MEM[(tx + 1) as usize].b32.s0;
                                 if MEM[tx as usize].b16.s0 == MU_GLUE {
-                                    cur_val_level = MU_VAL;
+                                    cur_val_level = ValLevel::Mu;
                                 }
                             }
                         }
@@ -7160,9 +7158,16 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                     }
                 } else if cur_list.mode == (false, ListMode::VMode) && tx == cur_list.head as i32 {
                     match cur_chr as u8 {
-                        INT_VAL => cur_val = last_penalty,
-                        DIMEN_VAL => cur_val = last_kern,
-                        GLUE_VAL => {
+                        0 => {
+                            // ValLevel::Int
+                            cur_val = last_penalty
+                        }
+                        1 => {
+                            // ValLevel::Dimen
+                            cur_val = last_kern
+                        }
+                        2 => {
+                            // ValLevel::Glue
                             if last_glue != MAX_HALFWORD {
                                 cur_val = last_glue
                             }
@@ -7187,24 +7192,24 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
             help_line[0] = b"I\'m forgetting what you said and using zero instead.";
             error();
             cur_val = 0;
-            if level != TOK_VAL as i16 {
-                cur_val_level = DIMEN_VAL;
+            if level != ValLevel::Tok as i16 {
+                cur_val_level = ValLevel::Dimen;
             } else {
-                cur_val_level = INT_VAL;
+                cur_val_level = ValLevel::Int;
             }
         }
     }
     while cur_val_level as i32 > level as i32 {
         /*447:*/
-        if cur_val_level == GLUE_VAL {
+        if cur_val_level == ValLevel::Glue {
             cur_val = MEM[(cur_val + 1) as usize].b32.s1
-        } else if cur_val_level == MU_VAL {
+        } else if cur_val_level == ValLevel::Mu {
             mu_error();
         }
-        cur_val_level -= 1;
+        cur_val_level.prev();
     }
     if negative {
-        if cur_val_level >= GLUE_VAL {
+        if cur_val_level >= ValLevel::Glue {
             let cur_val_ = new_spec(cur_val as usize);
             cur_val = cur_val_ as i32;
             MEM[cur_val_ + 1].b32.s1 = -MEM[cur_val_ + 1].b32.s1;
@@ -7213,7 +7218,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
         } else {
             cur_val = -cur_val;
         }
-    } else if cur_val_level >= GLUE_VAL && cur_val_level <= MU_VAL {
+    } else if cur_val_level >= ValLevel::Glue && cur_val_level <= ValLevel::Mu {
         MEM[cur_val as usize].b32.s1 += 1;
     };
 }
@@ -7275,7 +7280,7 @@ pub(crate) unsafe fn scan_int() {
             }
         }
     } else if cur_cmd >= MIN_INTERNAL && cur_cmd <= MAX_INTERNAL {
-        scan_something_internal(INT_VAL as i16, false);
+        scan_something_internal(ValLevel::Int as i16, false);
     } else {
         radix = 10;
         let mut m = 0xccccccc;
@@ -7400,23 +7405,23 @@ pub(crate) unsafe fn xetex_scan_dimen(
         if cur_cmd >= MIN_INTERNAL && cur_cmd <= MAX_INTERNAL {
             /*468:*/
             if mu {
-                scan_something_internal(MU_VAL as i16, false);
-                if cur_val_level >= GLUE_VAL {
+                scan_something_internal(ValLevel::Mu as i16, false);
+                if cur_val_level >= ValLevel::Glue {
                     v = MEM[(cur_val + 1) as usize].b32.s1;
                     delete_glue_ref(cur_val as usize);
                     cur_val = v;
                 }
-                if cur_val_level == MU_VAL {
+                if cur_val_level == ValLevel::Mu {
                     current_block = 16246449912548656671;
                 } else {
-                    if cur_val_level != INT_VAL {
+                    if cur_val_level != ValLevel::Int {
                         mu_error();
                     }
                     current_block = 5028470053297453708;
                 }
             } else {
-                scan_something_internal(DIMEN_VAL as i16, false);
-                if cur_val_level == DIMEN_VAL {
+                scan_something_internal(ValLevel::Dimen as i16, false);
+                if cur_val_level == ValLevel::Dimen {
                     current_block = 16246449912548656671;
                 } else {
                     current_block = 5028470053297453708;
@@ -7671,17 +7676,17 @@ pub(crate) unsafe fn xetex_scan_dimen(
                             }
                         } else {
                             if mu {
-                                scan_something_internal(MU_VAL as i16, false);
-                                if cur_val_level >= GLUE_VAL {
+                                scan_something_internal(ValLevel::Mu as i16, false);
+                                if cur_val_level >= ValLevel::Glue {
                                     v = MEM[(cur_val + 1) as usize].b32.s1;
                                     delete_glue_ref(cur_val as usize);
                                     cur_val = v
                                 }
-                                if cur_val_level != MU_VAL {
+                                if cur_val_level != ValLevel::Mu {
                                     mu_error();
                                 }
                             } else {
-                                scan_something_internal(DIMEN_VAL as i16, false);
+                                scan_something_internal(ValLevel::Dimen as i16, false);
                             }
                             v = cur_val;
                             current_block = 7531702508219610202;
@@ -7758,7 +7763,7 @@ pub(crate) unsafe fn scan_decimal() {
 pub(crate) unsafe fn scan_glue(mut level: i16) {
     let mut negative: bool = false;
     let mut mu: bool = false;
-    mu = level == MU_VAL as i16;
+    mu = level == ValLevel::Mu as i16;
     negative = false;
     loop {
         loop {
@@ -7780,15 +7785,15 @@ pub(crate) unsafe fn scan_glue(mut level: i16) {
     }
     if cur_cmd >= MIN_INTERNAL && cur_cmd <= MAX_INTERNAL {
         scan_something_internal(level, negative);
-        if cur_val_level >= GLUE_VAL {
+        if cur_val_level >= ValLevel::Glue {
             if cur_val_level as i16 != level {
                 mu_error();
             }
             return;
         }
-        if cur_val_level == INT_VAL {
+        if cur_val_level == ValLevel::Int {
             scan_dimen(mu, false, true);
-        } else if level == MU_VAL as i16 {
+        } else if level == ValLevel::Mu as i16 {
             mu_error();
         }
     } else {
@@ -7974,7 +7979,7 @@ pub(crate) unsafe fn scan_expr() {
     let mut t: i32 = 0;
     let mut f: i32 = 0;
     let mut n: i32 = 0;
-    let mut l = cur_val_level as i16;
+    let mut l = cur_val_level;
     let mut a = arith_error;
     let mut b = false;
     let mut p = TEX_NULL;
@@ -7986,7 +7991,7 @@ pub(crate) unsafe fn scan_expr() {
         t = 0;
         n = 0;
         loop {
-            o = if s == Expr::None { l } else { INT_VAL as i16 };
+            o = if s == Expr::None { l } else { ValLevel::Int };
             loop {
                 get_x_token();
                 if !(cur_cmd == Cmd::Spacer) {
@@ -7997,11 +8002,11 @@ pub(crate) unsafe fn scan_expr() {
                 break;
             }
             back_input();
-            if o == INT_VAL as i16 {
+            if o == ValLevel::Int {
                 scan_int();
-            } else if o == DIMEN_VAL as i16 {
+            } else if o == ValLevel::Dimen {
                 scan_dimen(false, false, false);
-            } else if o == GLUE_VAL as i16 {
+            } else if o == ValLevel::Glue {
                 scan_normal_glue();
             } else {
                 scan_mu_glue();
@@ -8045,12 +8050,12 @@ pub(crate) unsafe fn scan_expr() {
                     }
                 }
                 arith_error = b;
-                if l == INT_VAL as i16 || (s == Expr::Mult || s == Expr::Div || s == Expr::Scale) {
+                if l == ValLevel::Int || (s == Expr::Mult || s == Expr::Div || s == Expr::Scale) {
                     if f > TEX_INFINITY || f < -TEX_INFINITY {
                         arith_error = true;
                         f = 0;
                     }
-                } else if l == DIMEN_VAL as i16 {
+                } else if l == ValLevel::Dimen {
                     if f.abs() > MAX_HALFWORD {
                         arith_error = true;
                         f = 0;
@@ -8066,7 +8071,7 @@ pub(crate) unsafe fn scan_expr() {
                 match s as i32 {
                     0 => {
                         /*1579: */
-                        t = if l >= GLUE_VAL as i16 && o != Expr::None {
+                        t = if l >= ValLevel::Glue && o != Expr::None {
                             let t = new_spec(f as usize);
                             delete_glue_ref(f as usize);
                             if MEM[t + 2].b32.s1 == 0 {
@@ -8084,9 +8089,9 @@ pub(crate) unsafe fn scan_expr() {
                         if o == Expr::Div {
                             n = f;
                             o = Expr::Scale;
-                        } else if l == INT_VAL as i16 {
+                        } else if l == ValLevel::Int {
                             t = mult_and_add(t, f, 0, TEX_INFINITY)
-                        } else if l == DIMEN_VAL as i16 {
+                        } else if l == ValLevel::Dimen {
                             t = mult_and_add(t, f, 0, MAX_HALFWORD)
                         } else {
                             MEM[(t + 1) as usize].b32.s1 =
@@ -8098,7 +8103,7 @@ pub(crate) unsafe fn scan_expr() {
                         }
                     }
                     4 => {
-                        if l < GLUE_VAL as i16 {
+                        if l < ValLevel::Glue {
                             t = quotient(t, f)
                         } else {
                             MEM[(t + 1) as usize].b32.s1 =
@@ -8109,9 +8114,9 @@ pub(crate) unsafe fn scan_expr() {
                         }
                     }
                     5 => {
-                        if l == INT_VAL as i16 {
+                        if l == ValLevel::Int {
                             t = fract(t, n, f, TEX_INFINITY)
-                        } else if l == DIMEN_VAL as i16 {
+                        } else if l == ValLevel::Dimen {
                             t = fract(t, n, f, MAX_HALFWORD)
                         } else {
                             MEM[(t + 1) as usize].b32.s1 =
@@ -8131,9 +8136,9 @@ pub(crate) unsafe fn scan_expr() {
                     s = Expr::None;
                     if r == Expr::None {
                         e = t
-                    } else if l == INT_VAL as i16 {
+                    } else if l == ValLevel::Int {
                         e = add_or_sub(e, t, TEX_INFINITY, r == Expr::Sub)
-                    } else if l == DIMEN_VAL as i16 {
+                    } else if l == ValLevel::Dimen {
                         e = add_or_sub(e, t, MAX_HALFWORD, r == Expr::Sub)
                     } else {
                         /*1582: */
@@ -8194,7 +8199,7 @@ pub(crate) unsafe fn scan_expr() {
                 n = MEM[q + 3].b32.s1;
                 s = Expr::from(MEM[q].b16.s0 as i32 / 4);
                 r = Expr::from(MEM[q].b16.s0 as i32 % 4);
-                l = MEM[q].b16.s1 as i16;
+                l = ValLevel::from(MEM[q].b16.s1 as u8);
                 p = MEM[q].b32.s1;
                 free_node(q, EXPR_NODE_SIZE);
             }
@@ -8221,7 +8226,7 @@ pub(crate) unsafe fn scan_expr() {
         help_line[1] = b"I can\'t evaluate this expression,";
         help_line[0] = b"since the result is out of range.";
         error();
-        if l >= GLUE_VAL as i16 {
+        if l >= ValLevel::Glue {
             delete_glue_ref(e as usize);
             e = 0;
             MEM[e as usize].b32.s1 += 1;
@@ -8231,13 +8236,13 @@ pub(crate) unsafe fn scan_expr() {
     }
     arith_error = a;
     cur_val = e;
-    cur_val_level = l as u8;
+    cur_val_level = l;
 }
 pub(crate) unsafe fn scan_normal_glue() {
-    scan_glue(GLUE_VAL as i16);
+    scan_glue(ValLevel::Glue as i16);
 }
 pub(crate) unsafe fn scan_mu_glue() {
-    scan_glue(MU_VAL as i16);
+    scan_glue(ValLevel::Mu as i16);
 }
 pub(crate) unsafe fn scan_rule_spec() -> usize {
     let q = new_rule();
@@ -8459,12 +8464,12 @@ pub(crate) unsafe fn the_toks() -> usize {
         }
     }
     get_x_token();
-    scan_something_internal(TOK_VAL as i16, false);
-    if cur_val_level >= IDENT_VAL {
+    scan_something_internal(ValLevel::Tok as i16, false);
+    if cur_val_level >= ValLevel::Ident {
         /*485: */
         let mut p = TEMP_HEAD;
         MEM[p].b32.s1 = TEX_NULL;
-        if cur_val_level == IDENT_VAL {
+        if cur_val_level == ValLevel::Ident {
             let q = get_avail();
             MEM[p].b32.s1 = q as i32;
             MEM[q].b32.s0 = CS_TOKEN_FLAG + cur_val;
@@ -12091,7 +12096,7 @@ pub(crate) unsafe fn get_preamble_token() {
             break;
         }
         scan_optional_equals();
-        scan_glue(GLUE_VAL as i16);
+        scan_glue(ValLevel::Glue as i16);
         if *INTPAR(IntPar::global_defs) > 0 {
             geq_define(
                 (GLUE_BASE as usize) + (GluePar::tab_skip as usize),
@@ -13229,9 +13234,9 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
     };
     flush_node_list(disc_ptr[VSPLIT_CODE as usize].opt());
     disc_ptr[VSPLIT_CODE as usize] = TEX_NULL;
-    if !sa_root[MARK_VAL as usize].is_texnull() {
-        if do_marks(0, 0, sa_root[MARK_VAL as usize]) {
-            sa_root[MARK_VAL as usize] = TEX_NULL
+    if !sa_root[ValLevel::Mark as usize].is_texnull() {
+        if do_marks(0, 0, sa_root[ValLevel::Mark as usize]) {
+            sa_root[ValLevel::Mark as usize] = TEX_NULL
         }
     }
     if !cur_mark[SPLIT_FIRST_MARK_CODE as usize].is_texnull() {
@@ -13266,7 +13271,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
             if NODE_type(p as usize) == TextNode::Mark.into() {
                 if MEM[(p + 1) as usize].b32.s0 != 0 {
                     /*1615: */
-                    find_sa_element(MARK_VAL as i16, MEM[(p + 1) as usize].b32.s0, true);
+                    find_sa_element(ValLevel::Mark as i16, MEM[(p + 1) as usize].b32.s0, true);
                     if MEM[(cur_ptr + 2) as usize].b32.s1.is_texnull() {
                         MEM[(cur_ptr + 2) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
                         MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1
@@ -13462,8 +13467,8 @@ pub(crate) unsafe fn append_glue() {
         1 => cur_val = 8,
         2 => cur_val = 12,
         3 => cur_val = 16,
-        4 => scan_glue(GLUE_VAL as i16),
-        5 => scan_glue(MU_VAL as i16),
+        4 => scan_glue(ValLevel::Glue as i16),
+        5 => scan_glue(ValLevel::Mu as i16),
         _ => {}
     }
     MEM[cur_list.tail].b32.s1 = new_glue(cur_val) as i32;
@@ -14852,32 +14857,41 @@ pub(crate) unsafe fn trap_zero_glue() {
 pub(crate) unsafe fn do_register_command(mut a: i16) {
     let mut current_block: u64;
     let mut l: i32 = TEX_NULL;
-    let mut p: u8 = 0;
+    let mut p = ValLevel::Int;
     let mut q = cur_cmd;
     let mut e = false;
     if q != Cmd::Register {
         get_x_token();
-        if cur_cmd >= Cmd::AssignInt && cur_cmd <= Cmd::AssignMuGlue {
-            l = cur_chr;
-            p = cur_cmd as u8 - Cmd::AssignInt as u8;
-            current_block = 16534065480145571271;
-        } else {
-            if cur_cmd != Cmd::Register {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr(b"! ");
-                }
-                print_cstr(b"You can\'t use `");
-                print_cmd_chr(cur_cmd, cur_chr);
-                print_cstr(b"\' after ");
-                print_cmd_chr(q, 0);
-                help_ptr = 1;
-                help_line[0] = b"I\'m forgetting what you said and not changing anything.";
-                error();
-                return;
+        match cur_cmd {
+            Cmd::AssignInt | Cmd::AssignDimen | Cmd::AssignGlue | Cmd::AssignMuGlue => {
+                l = cur_chr;
+                p = match cur_cmd {
+                    Cmd::AssignInt => ValLevel::Int,
+                    Cmd::AssignDimen => ValLevel::Dimen,
+                    Cmd::AssignGlue => ValLevel::Glue,
+                    Cmd::AssignMuGlue => ValLevel::Mu,
+                    _ => unreachable!(),
+                };
+                current_block = 16534065480145571271;
             }
-            current_block = 4808432441040389987;
+            _ => {
+                if cur_cmd != Cmd::Register {
+                    if file_line_error_style_p != 0 {
+                        print_file_line();
+                    } else {
+                        print_nl_cstr(b"! ");
+                    }
+                    print_cstr(b"You can\'t use `");
+                    print_cmd_chr(cur_cmd, cur_chr);
+                    print_cstr(b"\' after ");
+                    print_cmd_chr(q, 0);
+                    help_ptr = 1;
+                    help_line[0] = b"I\'m forgetting what you said and not changing anything.";
+                    error();
+                    return;
+                }
+                current_block = 4808432441040389987;
+            }
         }
     } else {
         current_block = 4808432441040389987;
@@ -14887,10 +14901,10 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
             if cur_chr < 0 || cur_chr > 19 {
                 /*lo_mem_stat_max*/
                 l = cur_chr;
-                p = (MEM[l as usize].b16.s1 as i32 / 64) as u8;
+                p = ValLevel::from((MEM[l as usize].b16.s1 as i32 / 64) as u8);
                 e = true
             } else {
-                p = cur_chr as u8;
+                p = ValLevel::from(cur_chr as u8);
                 scan_register_num();
                 if cur_val > 255 {
                     find_sa_element(p as i16, cur_val, true);
@@ -14898,10 +14912,10 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
                     e = true
                 } else {
                     match p {
-                        INT_VAL => l = cur_val + COUNT_BASE as i32,
-                        DIMEN_VAL => l = cur_val + SCALED_BASE as i32,
-                        GLUE_VAL => l = cur_val + SKIP_BASE as i32,
-                        MU_VAL => l = cur_val + MU_SKIP_BASE as i32,
+                        ValLevel::Int => l = cur_val + COUNT_BASE as i32,
+                        ValLevel::Dimen => l = cur_val + SCALED_BASE as i32,
+                        ValLevel::Glue => l = cur_val + SKIP_BASE as i32,
+                        ValLevel::Mu => l = cur_val + MU_SKIP_BASE as i32,
                         _ => {}
                     }
                 }
@@ -14911,7 +14925,7 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
     }
     let mut w = 0i32;
     let mut s = TEX_NULL;
-    if p < GLUE_VAL {
+    if p < ValLevel::Glue {
         if e {
             w = MEM[(l + 2) as usize].b32.s1
         } else {
@@ -14931,8 +14945,8 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
     arith_error = false;
     if q < Cmd::Multiply {
         /*1273:*/
-        if p < GLUE_VAL {
-            if p == INT_VAL {
+        if p < ValLevel::Glue {
+            if p == ValLevel::Int {
                 scan_int();
             } else {
                 scan_dimen(false, false, false);
@@ -14975,9 +14989,9 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
         }
     } else {
         scan_int();
-        if p < GLUE_VAL {
+        if p < ValLevel::Glue {
             if q == Cmd::Multiply {
-                if p == INT_VAL {
+                if p == ValLevel::Int {
                     cur_val = mult_and_add(w, cur_val, 0, TEX_INFINITY)
                 } else {
                     cur_val = mult_and_add(w, cur_val, 0, MAX_HALFWORD)
@@ -15012,13 +15026,13 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
         help_ptr = 2;
         help_line[1] = b"I can\'t carry out that multiplication or division,";
         help_line[0] = b"since the result is out of range.";
-        if p >= GLUE_VAL {
+        if p >= ValLevel::Glue {
             delete_glue_ref(cur_val as usize);
         }
         error();
         return;
     }
-    if p < GLUE_VAL {
+    if p < ValLevel::Glue {
         if e {
             if a >= 4 {
                 gsa_w_def(l as usize, cur_val);
@@ -15971,7 +15985,7 @@ pub(crate) unsafe fn main_control() {
                         {
                             prev_class = CHAR_CLASS_LIMIT - 1;
                             find_sa_element(
-                                INTER_CHAR_VAL as i16,
+                                ValLevel::InterChar as i16,
                                 space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                                 false,
                             );
@@ -16747,7 +16761,7 @@ pub(crate) unsafe fn main_control() {
                                 || cur_input.index != Btl::BackedUpChar
                             {
                                 find_sa_element(
-                                    INTER_CHAR_VAL as i16,
+                                    ValLevel::InterChar as i16,
                                     (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
                                     false,
                                 );
@@ -16767,7 +16781,7 @@ pub(crate) unsafe fn main_control() {
                             }
                         } else {
                             find_sa_element(
-                                INTER_CHAR_VAL as i16,
+                                ValLevel::InterChar as i16,
                                 prev_class * CHAR_CLASS_LIMIT + space_class,
                                 false,
                             );
@@ -16860,7 +16874,7 @@ pub(crate) unsafe fn main_control() {
                     14170946608255986518 => {
                         prev_class = CHAR_CLASS_LIMIT - 1;
                         find_sa_element(
-                            INTER_CHAR_VAL as i16,
+                            ValLevel::InterChar as i16,
                             space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                             false,
                         );
@@ -17343,7 +17357,7 @@ pub(crate) unsafe fn main_control() {
                             || cur_input.index != Btl::BackedUpChar
                         {
                             find_sa_element(
-                                INTER_CHAR_VAL as i16,
+                                ValLevel::InterChar as i16,
                                 (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
                                 false,
                             );
@@ -17363,7 +17377,7 @@ pub(crate) unsafe fn main_control() {
                         }
                     } else {
                         find_sa_element(
-                            INTER_CHAR_VAL as i16,
+                            ValLevel::InterChar as i16,
                             prev_class * CHAR_CLASS_LIMIT + space_class,
                             false,
                         );
@@ -17723,7 +17737,7 @@ pub(crate) unsafe fn main_control() {
                                                     || cur_input.index != Btl::BackedUpChar
                                                 {
                                                     find_sa_element(
-                                                        INTER_CHAR_VAL as i16,
+                                                        ValLevel::InterChar as i16,
                                                         (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT
                                                             + space_class,
                                                         false,
@@ -17746,7 +17760,7 @@ pub(crate) unsafe fn main_control() {
                                                 }
                                             } else {
                                                 find_sa_element(
-                                                    INTER_CHAR_VAL as i16,
+                                                    ValLevel::InterChar as i16,
                                                     prev_class * CHAR_CLASS_LIMIT + space_class,
                                                     false,
                                                 );
@@ -17920,7 +17934,7 @@ pub(crate) unsafe fn main_control() {
                 {
                     prev_class = CHAR_CLASS_LIMIT - 1;
                     find_sa_element(
-                        INTER_CHAR_VAL as i16,
+                        ValLevel::InterChar as i16,
                         space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                         false,
                     );
@@ -18013,7 +18027,7 @@ pub(crate) unsafe fn compare_strings() {
     unsafe fn done(s1: str_number, s2: str_number) {
         flush_str(s2);
         flush_str(s1);
-        cur_val_level = 0_u8;
+        cur_val_level = ValLevel::Int;
     }
     scan_toks(false, true);
     let s1 = tokens_to_string(def_ref as i32);

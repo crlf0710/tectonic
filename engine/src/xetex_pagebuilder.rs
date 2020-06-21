@@ -128,8 +128,8 @@ unsafe fn fire_up(mut c: i32) {
      * beyond the default one -- a "mark class" being a concept introduced in
      * e-TeX. */
 
-    if !sa_root[MARK_VAL as usize].is_texnull() {
-        if do_marks(FIRE_UP_INIT as _, 0, sa_root[MARK_VAL as usize]) {
+    if !sa_root[ValLevel::Mark as usize].is_texnull() {
+        if do_marks(FIRE_UP_INIT as _, 0, sa_root[ValLevel::Mark as usize]) {
             sa_root[7] = TEX_NULL;
         }
     }
@@ -288,7 +288,7 @@ unsafe fn fire_up(mut c: i32) {
         } else if NODE_type(p as usize) == TextNode::Mark.into() {
             if MEM[(p + 1) as usize].b32.s0 != 0 {
                 /*1618: "Update the current marks" */
-                find_sa_element(MARK_VAL as _, MEM[(p + 1) as usize].b32.s0, true);
+                find_sa_element(ValLevel::Mark as _, MEM[(p + 1) as usize].b32.s0, true);
                 if MEM[(cur_ptr + 1) as usize].b32.s1.is_texnull() {
                     MEM[(cur_ptr + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
                     MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
@@ -378,9 +378,9 @@ unsafe fn fire_up(mut c: i32) {
 
     /* ... resuming 1047 ... */
 
-    if !sa_root[MARK_VAL as usize].is_texnull() {
-        if do_marks(FIRE_UP_DONE as _, 0, sa_root[MARK_VAL as usize]) {
-            sa_root[MARK_VAL as usize] = TEX_NULL;
+    if !sa_root[ValLevel::Mark as usize].is_texnull() {
+        if do_marks(FIRE_UP_DONE as _, 0, sa_root[ValLevel::Mark as usize]) {
+            sa_root[ValLevel::Mark as usize] = TEX_NULL;
         }
     }
     if !cur_mark[TOP_MARK_CODE as usize].is_texnull()

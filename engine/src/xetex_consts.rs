@@ -1172,20 +1172,47 @@ impl From<u16> for SaveCmd {
 }
 
 #[repr(u16)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, enumn::N)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
 pub(crate) enum BreakType {
     Unhyphenated = 0,
     Hyphenated = 1,
 }
 
-pub(crate) const INT_VAL: u8 = 0;
-pub(crate) const DIMEN_VAL: u8 = 1;
-pub(crate) const GLUE_VAL: u8 = 2;
-pub(crate) const MU_VAL: u8 = 3;
-pub(crate) const IDENT_VAL: u8 = 4;
-pub(crate) const TOK_VAL: u8 = 5;
-pub(crate) const INTER_CHAR_VAL: u8 = 6;
-pub(crate) const MARK_VAL: u8 = 7;
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, enumn::N)]
+pub(crate) enum ValLevel {
+    Int = 0,
+    Dimen = 1,
+    Glue = 2,
+    Mu = 3,
+    Ident = 4,
+    Tok = 5,
+    InterChar = 6,
+    Mark = 7,
+}
+
+impl From<u8> for ValLevel {
+    fn from(n: u8) -> Self {
+        Self::n(n).expect(&format!("incorrect value level = {}", n))
+    }
+}
+
+impl ValLevel {
+    pub(crate) fn prev(&mut self) {
+        // TODO: remove this
+        use ValLevel::*;
+        *self = match self {
+            Int => panic!("Minimal value level"),
+            Dimen => Self::Int,
+            Glue => Self::Dimen,
+            Mu => Self::Glue,
+            Ident => Self::Mu,
+            Tok => Self::Ident,
+            InterChar => Self::Tok,
+            Mark => Self::InterChar,
+        };
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd)]
 pub(crate) enum PageContents {

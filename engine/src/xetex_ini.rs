@@ -741,7 +741,7 @@ pub(crate) static mut cur_val: i32 = 0;
 #[no_mangle]
 pub(crate) static mut cur_val1: i32 = 0;
 #[no_mangle]
-pub(crate) static mut cur_val_level: u8 = 0;
+pub(crate) static mut cur_val_level: ValLevel = ValLevel::Int;
 #[no_mangle]
 pub(crate) static mut radix: i16 = 0;
 #[no_mangle]
@@ -2259,13 +2259,13 @@ pub(crate) unsafe fn prefixed_command() {
                         scan_register_num();
                         if cur_val > 255 {
                             j = n - 2;
-                            if j > MU_VAL as i32 { j = TOK_VAL as i32 }
+                            if j > ValLevel::Mu as i32 { j = ValLevel::Tok as i32 }
 
                             find_sa_element(j as i16, cur_val,
                                             true);
                             MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
 
-                            let j = if j == TOK_VAL as i32 { Cmd::ToksRegister } else { Cmd::Register };
+                            let j = if j == ValLevel::Tok as i32 { Cmd::ToksRegister } else { Cmd::Register };
                             if a >= 4 {
                                 geq_define(p as usize, j, cur_ptr);
                             } else { eq_define(p as usize, j, cur_ptr); }
@@ -2345,7 +2345,7 @@ pub(crate) unsafe fn prefixed_command() {
                 if cur_chr == 0 {
                     scan_register_num();
                     if cur_val > 255 {
-                        find_sa_element(TOK_VAL as i16, cur_val,
+                        find_sa_element(ValLevel::Tok as i16, cur_val,
                                         true);
                         cur_chr = cur_ptr;
                         e = true
@@ -2357,7 +2357,7 @@ pub(crate) unsafe fn prefixed_command() {
                 scan_char_class_not_ignored();
                 cur_ptr = cur_val;
                 scan_char_class_not_ignored();
-                find_sa_element(INTER_CHAR_VAL as i16,
+                find_sa_element(ValLevel::InterChar as i16,
                                 cur_ptr * CHAR_CLASS_LIMIT + cur_val, true);
                 cur_chr = cur_ptr;
                 e = true
@@ -2381,7 +2381,7 @@ pub(crate) unsafe fn prefixed_command() {
                             if cur_val < 256 {
                                 q = *TOKS_REG(cur_val as usize);
                             } else {
-                                find_sa_element(TOK_VAL as i16, cur_val,
+                                find_sa_element(ValLevel::Tok as i16, cur_val,
                                                 false); /* "extended delimiter code family */
                                 if cur_ptr.is_texnull() {
                                     q = TEX_NULL
@@ -2400,7 +2400,7 @@ pub(crate) unsafe fn prefixed_command() {
                         scan_char_class_not_ignored(); /*:1268 */
                         cur_ptr = cur_val;
                         scan_char_class_not_ignored();
-                        find_sa_element(INTER_CHAR_VAL as i16,
+                        find_sa_element(ValLevel::InterChar as i16,
                                         cur_ptr * CHAR_CLASS_LIMIT + cur_val,
                                         false);
                         if cur_ptr.is_texnull() {
@@ -2497,8 +2497,8 @@ pub(crate) unsafe fn prefixed_command() {
             let n = cur_cmd;
             scan_optional_equals();
             if n == Cmd::AssignMuGlue {
-                scan_glue(MU_VAL as i16);
-            } else { scan_glue(GLUE_VAL as i16); }
+                scan_glue(ValLevel::Mu as i16);
+            } else { scan_glue(ValLevel::Glue as i16); }
             trap_zero_glue();
             if a >= 4 {
                 geq_define(p as usize, Cmd::GlueRef, cur_val);
@@ -2894,7 +2894,7 @@ unsafe fn store_fmt_file() {
     fmt_out.dump_one(lo_mem_max);
     fmt_out.dump_one(rover);
 
-    for k in (INT_VAL as usize)..=(INTER_CHAR_VAL as usize) {
+    for k in (ValLevel::Int as usize)..=(ValLevel::InterChar as usize) {
         fmt_out.dump_one(sa_root[k as usize]);
     }
 
@@ -3395,12 +3395,12 @@ unsafe fn load_fmt_file() -> bool {
     } else {
         rover = x;
     }
-    for k in INT_VAL..=INTER_CHAR_VAL {
+    for k in (ValLevel::Int as usize)..=(ValLevel::InterChar as usize) {
         fmt_in.undump_one(&mut x);
         if x < MIN_HALFWORD || x > lo_mem_max {
             bad_fmt();
         } else {
-            sa_root[k as usize] = x;
+            sa_root[k] = x;
         }
     }
 
@@ -3943,9 +3943,9 @@ unsafe fn final_cleanup() {
                     }
                 }
             }
-            if !sa_root[MARK_VAL as usize].is_texnull() {
-                if do_marks(3, 0, sa_root[MARK_VAL as usize]) {
-                    sa_root[MARK_VAL as usize] = TEX_NULL;
+            if !sa_root[ValLevel::Mark as usize].is_texnull() {
+                if do_marks(3, 0, sa_root[ValLevel::Mark as usize]) {
+                    sa_root[ValLevel::Mark as usize] = TEX_NULL;
                 }
             }
             c = LAST_BOX_CODE as i16;
@@ -4058,7 +4058,7 @@ unsafe fn initialize_more_variables() {
     cur_mark[SPLIT_FIRST_MARK_CODE] = TEX_NULL;
     cur_mark[SPLIT_BOT_MARK_CODE] = TEX_NULL;
     cur_val = 0;
-    cur_val_level = INT_VAL;
+    cur_val_level = ValLevel::Int;
     radix = 0;
     cur_order = GlueOrder::Normal as u8;
 
@@ -4324,7 +4324,7 @@ unsafe fn initialize_more_initex_variables() {
     max_reg_num = 32767;
     max_reg_help_line = b"A register number must be between 0 and 32767.";
 
-    for i in (INT_VAL as usize)..=(INTER_CHAR_VAL as usize) {
+    for i in (ValLevel::Int as usize)..=(ValLevel::InterChar as usize) {
         sa_root[i] = TEX_NULL;
     }
 
@@ -4962,9 +4962,9 @@ unsafe fn initialize_primitives() {
     primitive(b"ht", Cmd::SetBoxDimen, HEIGHT_OFFSET);
     primitive(b"dp", Cmd::SetBoxDimen, DEPTH_OFFSET);
 
-    primitive(b"lastpenalty", Cmd::LastItem, INT_VAL as i32);
-    primitive(b"lastkern", Cmd::LastItem, DIMEN_VAL as i32);
-    primitive(b"lastskip", Cmd::LastItem, GLUE_VAL as i32);
+    primitive(b"lastpenalty", Cmd::LastItem, ValLevel::Int as i32);
+    primitive(b"lastkern", Cmd::LastItem, ValLevel::Dimen as i32);
+    primitive(b"lastskip", Cmd::LastItem, ValLevel::Glue as i32);
     primitive(b"inputlineno", Cmd::LastItem, INPUT_LINE_NO_CODE);
     primitive(b"badness", Cmd::LastItem, BADNESS_CODE);
 
