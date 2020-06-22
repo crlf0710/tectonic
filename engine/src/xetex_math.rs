@@ -3440,35 +3440,15 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
                     stack_into_box(b, f, c);
                 }
                 c = r.s0;
-                let mut for_end: i32 = 0;
-                let mut m = 1;
-                for_end = n;
-                if m <= for_end {
-                    loop {
-                        stack_into_box(b, f, c);
-                        let fresh1 = m;
-                        m = m + 1;
-                        if !(fresh1 < for_end) {
-                            break;
-                        }
-                    }
+                for _ in 0..n {
+                    stack_into_box(b, f, c);
                 }
                 c = r.s2;
                 if c != 0 {
                     stack_into_box(b, f, c);
                     c = r.s0;
-                    let mut for_end_0: i32 = 0;
-                    m = 1i32;
-                    for_end_0 = n;
-                    if m <= for_end_0 {
-                        loop {
-                            stack_into_box(b, f, c);
-                            let fresh2 = m;
-                            m = m + 1;
-                            if !(fresh2 < for_end_0) {
-                                break;
-                            }
-                        }
+                    for _ in 0..n {
+                        stack_into_box(b, f, c);
                     }
                 }
                 c = r.s3;
@@ -3615,16 +3595,11 @@ unsafe fn build_opentype_assembly(
     mut s: scaled_t,
     mut horiz: bool,
 ) -> usize {
-    let mut n: i32 = 0;
-    let mut i: i32 = 0;
-    let mut j: i32 = 0;
     let mut g: i32 = 0;
     let mut s_max: scaled_t = 0;
     let mut o: scaled_t = 0;
     let mut oo: scaled_t = 0;
     let mut prev_o: scaled_t = 0;
-    let mut min_o: scaled_t = 0;
-    let mut no_extenders: bool = false;
     let mut nat: scaled_t = 0;
     let mut str: scaled_t = 0;
     let mut b = new_null_box() as usize;
@@ -3636,42 +3611,17 @@ unsafe fn build_opentype_assembly(
             TextNode::VList
         },
     );
-    n = -1;
-    no_extenders = true;
-    min_o = ot_min_connector_overlap(f);
+    let mut n = -1;
+    let mut no_extenders = true;
+    let mut min_o = ot_min_connector_overlap(f);
     loop {
         n = n + 1;
         s_max = 0;
         prev_o = 0;
-        i = 0;
-        let mut for_end = ot_part_count(a as *const GlyphAssembly) - 1i32;
-        if i <= for_end {
-            loop {
-                if ot_part_is_extender(a as *const GlyphAssembly, i) {
-                    no_extenders = false;
-                    let mut for_end_0: i32 = 0;
-                    j = 1i32;
-                    for_end_0 = n;
-                    if j <= for_end_0 {
-                        loop {
-                            o = ot_part_start_connector(f, a as *const GlyphAssembly, i);
-                            if min_o < o {
-                                o = min_o
-                            }
-                            if prev_o < o {
-                                o = prev_o
-                            }
-                            s_max =
-                                s_max - o + ot_part_full_advance(f, a as *const GlyphAssembly, i);
-                            prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i);
-                            let fresh3 = j;
-                            j = j + 1;
-                            if !(fresh3 < for_end_0) {
-                                break;
-                            }
-                        }
-                    }
-                } else {
+        for i in 0..ot_part_count(a as *const GlyphAssembly) {
+            if ot_part_is_extender(a as *const GlyphAssembly, i) {
+                no_extenders = false;
+                for _ in 0..n {
                     o = ot_part_start_connector(f, a as *const GlyphAssembly, i);
                     if min_o < o {
                         o = min_o
@@ -3680,13 +3630,18 @@ unsafe fn build_opentype_assembly(
                         o = prev_o
                     }
                     s_max = s_max - o + ot_part_full_advance(f, a as *const GlyphAssembly, i);
-                    prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i)
+                    prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i);
                 }
-                let fresh4 = i;
-                i = i + 1;
-                if !(fresh4 < for_end) {
-                    break;
+            } else {
+                o = ot_part_start_connector(f, a as *const GlyphAssembly, i);
+                if min_o < o {
+                    o = min_o
                 }
+                if prev_o < o {
+                    o = prev_o
+                }
+                s_max = s_max - o + ot_part_full_advance(f, a as *const GlyphAssembly, i);
+                prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i)
             }
         }
         if s_max >= s || no_extenders {
@@ -3694,39 +3649,9 @@ unsafe fn build_opentype_assembly(
         }
     }
     prev_o = 0;
-    let mut for_end_1: i32 = 0;
-    i = 0;
-    for_end_1 = ot_part_count(a as *const GlyphAssembly) - 1i32;
-    if i <= for_end_1 {
-        loop {
-            if ot_part_is_extender(a as *const GlyphAssembly, i) {
-                let mut for_end_2: i32 = 0;
-                j = 1i32;
-                for_end_2 = n;
-                if j <= for_end_2 {
-                    loop {
-                        o = ot_part_start_connector(f, a as *const GlyphAssembly, i);
-                        if prev_o < o {
-                            o = prev_o
-                        }
-                        oo = o;
-                        if min_o < o {
-                            o = min_o
-                        }
-                        if oo > 0i32 {
-                            stack_glue_into_box(b, -oo, -o);
-                        }
-                        g = ot_part_glyph(a as *const GlyphAssembly, i);
-                        stack_glyph_into_box(b, f, g);
-                        prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i);
-                        let fresh5 = j;
-                        j = j + 1;
-                        if !(fresh5 < for_end_2) {
-                            break;
-                        }
-                    }
-                }
-            } else {
+    for i in 0..ot_part_count(a as *const GlyphAssembly) {
+        if ot_part_is_extender(a as *const GlyphAssembly, i) {
+            for _ in 0..n {
                 o = ot_part_start_connector(f, a as *const GlyphAssembly, i);
                 if prev_o < o {
                     o = prev_o
@@ -3735,18 +3660,28 @@ unsafe fn build_opentype_assembly(
                 if min_o < o {
                     o = min_o
                 }
-                if oo > 0 {
+                if oo > 0i32 {
                     stack_glue_into_box(b, -oo, -o);
                 }
                 g = ot_part_glyph(a as *const GlyphAssembly, i);
                 stack_glyph_into_box(b, f, g);
-                prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i)
+                prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i);
             }
-            let fresh6 = i;
-            i = i + 1;
-            if !(fresh6 < for_end_1) {
-                break;
+        } else {
+            o = ot_part_start_connector(f, a as *const GlyphAssembly, i);
+            if prev_o < o {
+                o = prev_o
             }
+            oo = o;
+            if min_o < o {
+                o = min_o
+            }
+            if oo > 0 {
+                stack_glue_into_box(b, -oo, -o);
+            }
+            g = ot_part_glyph(a as *const GlyphAssembly, i);
+            stack_glyph_into_box(b, f, g);
+            prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i)
         }
     }
     let mut popt = MEM[b + 5].b32.s1.opt();

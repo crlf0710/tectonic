@@ -1045,12 +1045,6 @@ pub(crate) static mut main_j: b16x4 = b16x4 {
 #[no_mangle]
 pub(crate) static mut main_k: font_index = 0;
 #[no_mangle]
-pub(crate) static mut main_p: i32 = 0;
-#[no_mangle]
-pub(crate) static mut main_pp: i32 = 0;
-#[no_mangle]
-pub(crate) static mut main_ppp: i32 = 0;
-#[no_mangle]
 pub(crate) static mut main_h: i32 = 0;
 #[no_mangle]
 pub(crate) static mut is_hyph: bool = false;
@@ -1118,9 +1112,12 @@ pub(crate) static mut max_reg_help_line: &[u8] = &[];
 pub(crate) static mut sa_root: [i32; 8] = [0; 8];
 #[no_mangle]
 pub(crate) static mut cur_ptr: i32 = 0;
-#[no_mangle]
-pub(crate) static mut sa_null: memory_word = memory_word {
-    b32: b32x2 { s0: 0, s1: 0 },
+
+pub(crate) const SA_NULL: memory_word = memory_word {
+    b32: b32x2 {
+        s0: TEX_NULL,
+        s1: TEX_NULL,
+    },
 };
 #[no_mangle]
 pub(crate) static mut sa_chain: i32 = 0;
@@ -1667,108 +1664,45 @@ unsafe fn new_patterns() {
     };
 }
 pub(crate) unsafe fn init_trie() {
-    let mut p: trie_pointer = 0;
-    let mut j: i32 = 0;
     let mut k: i32 = 0;
     let mut t: i32 = 0;
-    let mut r: trie_pointer = 0;
     let mut s: trie_pointer = 0;
     max_hyph_char += 1;
     op_start[0] = -(MIN_TRIE_OP as i32);
-    let mut for_end: i32 = 0;
-    j = 1;
-    for_end = BIGGEST_LANG;
-    if j <= for_end {
-        loop {
-            op_start[j as usize] = op_start[(j - 1) as usize] + trie_used[(j - 1) as usize] as i32;
-            let fresh4 = j;
-            j = j + 1;
-            if !(fresh4 < for_end) {
-                break;
-            }
-        }
+    for j in 1..=BIGGEST_LANG {
+        op_start[j as usize] = op_start[(j - 1) as usize] + trie_used[(j - 1) as usize] as i32;
     }
-    let mut for_end_0: i32 = 0;
-    j = 1;
-    for_end_0 = trie_op_ptr;
-    if j <= for_end_0 {
-        loop {
+    for j in 1..=trie_op_ptr {
+        _trie_op_hash_array[(j as i64 - -35111) as usize] =
+            op_start[trie_op_lang[j as usize] as usize] + trie_op_val[j as usize] as i32;
+    }
+    for j in 1..=trie_op_ptr {
+        while _trie_op_hash_array[(j as i64 - -35111) as usize] > j {
+            k = _trie_op_hash_array[(j as i64 - -35111) as usize];
+            t = hyf_distance[k as usize] as i32;
+            hyf_distance[k as usize] = hyf_distance[j as usize];
+            hyf_distance[j as usize] = t as i16;
+            t = hyf_num[k as usize] as i32;
+            hyf_num[k as usize] = hyf_num[j as usize];
+            hyf_num[j as usize] = t as i16;
+            t = hyf_next[k as usize] as i32;
+            hyf_next[k as usize] = hyf_next[j as usize];
+            hyf_next[j as usize] = t as trie_opcode;
             _trie_op_hash_array[(j as i64 - -35111) as usize] =
-                op_start[trie_op_lang[j as usize] as usize] + trie_op_val[j as usize] as i32;
-            let fresh5 = j;
-            j = j + 1;
-            if !(fresh5 < for_end_0) {
-                break;
-            }
+                _trie_op_hash_array[(k as i64 - -35111) as usize];
+            _trie_op_hash_array[(k as i64 - -35111) as usize] = k
         }
     }
-    let mut for_end_1: i32 = 0;
-    j = 1;
-    for_end_1 = trie_op_ptr;
-    if j <= for_end_1 {
-        loop {
-            while _trie_op_hash_array[(j as i64 - -35111) as usize] > j {
-                k = _trie_op_hash_array[(j as i64 - -35111) as usize];
-                t = hyf_distance[k as usize] as i32;
-                hyf_distance[k as usize] = hyf_distance[j as usize];
-                hyf_distance[j as usize] = t as i16;
-                t = hyf_num[k as usize] as i32;
-                hyf_num[k as usize] = hyf_num[j as usize];
-                hyf_num[j as usize] = t as i16;
-                t = hyf_next[k as usize] as i32;
-                hyf_next[k as usize] = hyf_next[j as usize];
-                hyf_next[j as usize] = t as trie_opcode;
-                _trie_op_hash_array[(j as i64 - -35111) as usize] =
-                    _trie_op_hash_array[(k as i64 - -35111) as usize];
-                _trie_op_hash_array[(k as i64 - -35111) as usize] = k
-            }
-            let fresh6 = j;
-            j = j + 1;
-            if !(fresh6 < for_end_1) {
-                break;
-            }
-        }
-    }
-    let mut for_end_2: i32 = 0;
-    p = 0;
-    for_end_2 = trie_size;
-    if p <= for_end_2 {
-        loop {
-            *trie_hash.offset(p as isize) = 0;
-            let fresh7 = p;
-            p = p + 1;
-            if !(fresh7 < for_end_2) {
-                break;
-            }
-        }
+    for p in 0..=trie_size {
+        *trie_hash.offset(p as isize) = 0;
     }
     *trie_r.offset(0) = compress_trie(*trie_r.offset(0));
     *trie_l.offset(0) = compress_trie(*trie_l.offset(0));
-    let mut for_end_3: i32 = 0;
-    p = 0;
-    for_end_3 = trie_ptr;
-    if p <= for_end_3 {
-        loop {
-            *trie_hash.offset(p as isize) = 0i32;
-            let fresh8 = p;
-            p = p + 1;
-            if !(fresh8 < for_end_3) {
-                break;
-            }
-        }
+    for p in 0..=trie_ptr {
+        *trie_hash.offset(p as isize) = 0;
     }
-    let mut for_end_4: i32 = 0;
-    p = 0i32;
-    for_end_4 = 0xffffi32;
-    if p <= for_end_4 {
-        loop {
-            trie_min[p as usize] = p + 1i32;
-            let fresh9 = p;
-            p = p + 1;
-            if !(fresh9 < for_end_4) {
-                break;
-            }
-        }
+    for p in 0..=0xffff {
+        trie_min[p as usize] = p + 1;
     }
     *trie_trl.offset(0) = 1i32;
     trie_max = 0i32;
@@ -1779,18 +1713,8 @@ pub(crate) unsafe fn init_trie() {
     if *trie_r.offset(0) != 0i32 {
         /*1645: */
         if *trie_l.offset(0) == 0i32 {
-            let mut for_end_5: i32 = 0;
-            p = 0i32;
-            for_end_5 = 255i32;
-            if p <= for_end_5 {
-                loop {
-                    trie_min[p as usize] = p + 2i32;
-                    let fresh10 = p;
-                    p = p + 1;
-                    if !(fresh10 < for_end_5) {
-                        break;
-                    }
-                }
+            for p in 0..256 {
+                trie_min[p as usize] = p + 2;
             }
         }
         first_fit(*trie_r.offset(0));
@@ -1798,20 +1722,10 @@ pub(crate) unsafe fn init_trie() {
         hyph_start = *trie_hash.offset(*trie_r.offset(0) as isize)
     }
     if trie_max == 0i32 {
-        let mut for_end_6: i32 = 0;
-        r = 0i32;
-        for_end_6 = max_hyph_char;
-        if r <= for_end_6 {
-            loop {
-                *trie_trl.offset(r as isize) = 0i32;
-                *trie_tro.offset(r as isize) = 0i32;
-                *trie_trc.offset(r as isize) = 0_u16;
-                let fresh11 = r;
-                r = r + 1;
-                if !(fresh11 < for_end_6) {
-                    break;
-                }
-            }
+        for r in 0..=max_hyph_char {
+            *trie_trl.offset(r as isize) = 0;
+            *trie_tro.offset(r as isize) = 0;
+            *trie_trc.offset(r as isize) = 0;
         }
         trie_max = max_hyph_char
     } else {
@@ -1821,12 +1735,12 @@ pub(crate) unsafe fn init_trie() {
         if *trie_l.offset(0) > 0i32 {
             trie_fix(*trie_l.offset(0));
         }
-        r = 0i32;
+        let mut r = 0;
         loop {
             s = *trie_trl.offset(r as isize);
-            *trie_trl.offset(r as isize) = 0i32;
-            *trie_tro.offset(r as isize) = 0i32;
-            *trie_trc.offset(r as isize) = 0_u16;
+            *trie_trl.offset(r as isize) = 0;
+            *trie_tro.offset(r as isize) = 0;
+            *trie_trc.offset(r as isize) = 0;
             r = s;
             if r > trie_max {
                 break;
@@ -3920,18 +3834,9 @@ unsafe fn final_cleanup() {
     }
     if c == 1 {
         if in_initex_mode {
-            c = TOP_MARK_CODE as i16;
-            let mut for_end = SPLIT_BOT_MARK_CODE as i32;
-            if c as i32 <= for_end {
-                loop {
-                    if let Some(m) = cur_mark[c as usize].opt() {
-                        delete_token_ref(m);
-                    }
-                    let fresh17 = c;
-                    c = c + 1;
-                    if !((fresh17 as i32) < for_end) {
-                        break;
-                    }
+            for c in TOP_MARK_CODE..=SPLIT_BOT_MARK_CODE {
+                if let Some(m) = cur_mark[c as usize].opt() {
+                    delete_token_ref(m);
                 }
             }
             if let Some(m) = sa_root[ValLevel::Mark as usize].opt() {
@@ -3939,17 +3844,8 @@ unsafe fn final_cleanup() {
                     sa_root[ValLevel::Mark as usize] = None.tex_int();
                 }
             }
-            c = LAST_BOX_CODE as i16;
-            let mut for_end_0 = VSPLIT_CODE;
-            if c as i32 <= for_end_0 {
-                loop {
-                    flush_node_list(disc_ptr[c as usize].opt());
-                    let fresh18 = c;
-                    c = c + 1;
-                    if !((fresh18 as i32) < for_end_0) {
-                        break;
-                    }
-                }
+            for c in LAST_BOX_CODE..=VSPLIT_CODE {
+                flush_node_list(disc_ptr[c as usize].opt());
             }
             if last_glue != MAX_HALFWORD {
                 delete_glue_ref(last_glue as usize);
@@ -4117,8 +4013,6 @@ unsafe fn initialize_more_variables() {
     cur_dir = LR::LeftToRight;
     pseudo_files = None.tex_int();
     sa_root[ValLevel::Mark as usize] = None.tex_int();
-    sa_null.b32.s0 = None.tex_int();
-    sa_null.b32.s1 = None.tex_int();
     sa_chain = None.tex_int();
     sa_level = LEVEL_ZERO;
     disc_ptr[2] = None.tex_int();

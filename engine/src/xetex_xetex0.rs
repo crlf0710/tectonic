@@ -52,27 +52,26 @@ use crate::xetex_ini::{
     last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack, ligature_present, line,
     lo_mem_max, loaded_font_design_size, loaded_font_flags, loaded_font_letter_space,
     loaded_font_mapping, log_file, log_opened, long_help_seen, long_state, mag_set, main_f, main_h,
-    main_i, main_j, main_k, main_p, main_pp, main_ppp, main_s, mapped_text, max_buf_stack,
-    max_print_line, max_reg_help_line, max_reg_num, max_strings, mem_end, name_in_progress,
-    name_length, name_length16, name_of_file, name_of_file16, native_font_type_flag, native_len,
-    native_text, native_text_size, no_new_control_sequence, old_setting, open_parens,
-    output_active, pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token,
-    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim,
-    prim_eqtb, prim_used, pseudo_files, pstack, quoted_filename, radix, read_file, read_open,
-    rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_null, sa_root, save_native_len,
-    scanner_status, selector, set_box_allowed, shown_mode, skip_line, space_class, stop_at_space,
-    str_pool, str_ptr, str_start, tally, temp_ptr, term_offset, tex_remainder, texmf_log_name,
-    total_shrink, total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens,
-    warning_index, write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, BASE_PTR,
-    BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE, DEPTH_BASE, EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE,
-    FONT_AREA, FONT_BC, FONT_BCHAR, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS,
-    FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_MAX,
-    FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK,
-    GRP_STACK, HEIGHT_BASE, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN,
-    ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK,
-    MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR,
-    PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK,
-    STACK_SIZE, WIDTH_BASE,
+    main_i, main_j, main_k, main_s, mapped_text, max_buf_stack, max_print_line, max_reg_help_line,
+    max_reg_num, max_strings, mem_end, name_in_progress, name_length, name_length16, name_of_file,
+    name_of_file16, native_font_type_flag, native_len, native_text, native_text_size,
+    no_new_control_sequence, old_setting, open_parens, output_active, pack_begin_line,
+    page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos,
+    pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files,
+    pstack, quoted_filename, radix, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain,
+    sa_level, sa_root, save_native_len, scanner_status, selector, set_box_allowed, shown_mode,
+    skip_line, space_class, stop_at_space, str_pool, str_ptr, str_start, tally, temp_ptr,
+    term_offset, tex_remainder, texmf_log_name, total_shrink, total_stretch, trick_buf,
+    trick_count, use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
+    xtx_ligature_present, LR_problems, LR_ptr, BASE_PTR, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE,
+    DEPTH_BASE, EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_CHECK,
+    FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE,
+    FONT_LETTER_SPACE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR,
+    FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HEIGHT_BASE, HYPHEN_CHAR, IF_STACK,
+    INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, LINE_STACK,
+    MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST,
+    NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE,
+    SAVE_STACK, SA_NULL, SKEW_CHAR, SOURCE_FILENAME_STACK, STACK_SIZE, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding, u_close};
@@ -2575,9 +2574,8 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             if FONT_AREA[chr_code as usize] as u32 == AAT_FONT_FLAG
                 || FONT_AREA[chr_code as usize] as u32 == OTGR_FONT_FLAG
             {
-                let mut for_end = length(font_name_str) - 1;
                 quote_char = '\"' as i32 as UTF16_code;
-                for n in 0..=for_end {
+                for n in 0..=length(font_name_str) {
                     if str_pool[(str_start[(font_name_str as i64 - 65536) as usize] + n) as usize]
                         as i32
                         == '\"' as i32
@@ -2810,7 +2808,6 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> usize {
     let mut current_block: u64;
     let mut h: usize = 0;
     let mut p: usize = 0;
-    let mut k: i32 = 0;
     let mut j: i32 = 0;
     let mut l: i32 = 0;
     if s <= BIGGEST_CHAR {
@@ -2829,19 +2826,10 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> usize {
             l = length(s)
         }
         h = str_pool[j as usize] as usize;
-        let mut for_end: i32 = 0;
-        k = j + 1;
-        for_end = j + l - 1;
-        if k <= for_end {
-            loop {
-                h = h + h + str_pool[k as usize] as usize;
-                while h >= PRIM_PRIME {
-                    h = h - 431
-                }
-                if !(k < for_end) {
-                    break;
-                }
-                k = k + 1;
+        for k in (j + 1)..(j + l) {
+            h = h + h + str_pool[k as usize] as usize;
+            while h >= PRIM_PRIME {
+                h = h - 431;
             }
         }
         p = h + 1;
@@ -2960,22 +2948,13 @@ pub(crate) unsafe fn pseudo_input() -> bool {
             overflow(b"buffer size", BUF_SIZE);
         }
         last = first;
-        let mut r = p + 1;
-        let for_end = p + sz - 1;
-        if r <= for_end {
-            loop {
-                let w = MEM[r].b16;
-                BUFFER[last as usize] = w.s3 as UnicodeScalar;
-                BUFFER[(last + 1) as usize] = w.s2 as UnicodeScalar;
-                BUFFER[(last + 2) as usize] = w.s1 as UnicodeScalar;
-                BUFFER[(last + 3) as usize] = w.s0 as UnicodeScalar;
-                last = last + 4;
-                let fresh15 = r;
-                r = r + 1;
-                if !(fresh15 < for_end) {
-                    break;
-                }
-            }
+        for r in (p + 1)..(p + sz) {
+            let w = MEM[r].b16;
+            BUFFER[last as usize] = w.s3 as UnicodeScalar;
+            BUFFER[(last + 1) as usize] = w.s2 as UnicodeScalar;
+            BUFFER[(last + 2) as usize] = w.s1 as UnicodeScalar;
+            BUFFER[(last + 3) as usize] = w.s0 as UnicodeScalar;
+            last = last + 4;
         }
         if last >= max_buf_stack {
             max_buf_stack = last + 1
@@ -3563,13 +3542,11 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
 pub(crate) unsafe fn show_context() {
     let mut nn: i32 = 0;
     let mut bottom_line: bool = false;
-    let mut i: i32 = 0;
     let mut j: i32 = 0;
     let mut l: i32 = 0;
     let mut m: i32 = 0;
     let mut n: i32 = 0;
     let mut p: i32 = 0;
-    let mut q: i32 = 0;
     BASE_PTR = INPUT_PTR;
     INPUT_STACK[BASE_PTR] = cur_input;
     nn = -1;
@@ -3626,25 +3603,15 @@ pub(crate) unsafe fn show_context() {
                         j = cur_input.limit + 1
                     }
                     if j > 0 {
-                        let mut for_end: i32 = 0;
-                        i = cur_input.start;
-                        for_end = j - 1;
-                        if i <= for_end {
-                            loop {
-                                if i == cur_input.loc {
-                                    first_count = tally;
-                                    trick_count = tally + 1 + error_line - half_error_line;
-                                    if trick_count < error_line {
-                                        trick_count = error_line
-                                    }
-                                }
-                                print_char(BUFFER[i as usize]);
-                                let fresh23 = i;
-                                i = i + 1;
-                                if !(fresh23 < for_end) {
-                                    break;
+                        for i in cur_input.start..j {
+                            if i == cur_input.loc {
+                                first_count = tally;
+                                trick_count = tally + 1 + error_line - half_error_line;
+                                if trick_count < error_line {
+                                    trick_count = error_line
                                 }
                             }
+                            print_char(BUFFER[i as usize]);
                         }
                     }
                 } else {
@@ -3722,50 +3689,20 @@ pub(crate) unsafe fn show_context() {
                     p = l + first_count - half_error_line + 3;
                     n = half_error_line
                 }
-                let mut for_end_0: i32 = 0;
-                q = p;
-                for_end_0 = first_count - 1;
-                if q <= for_end_0 {
-                    loop {
-                        print_raw_char(trick_buf[(q % error_line) as usize], true);
-                        let fresh24 = q;
-                        q = q + 1;
-                        if !(fresh24 < for_end_0) {
-                            break;
-                        }
-                    }
+                for q in p..first_count {
+                    print_raw_char(trick_buf[(q % error_line) as usize], true);
                 }
                 print_ln();
-                let mut for_end_1: i32 = 0;
-                q = 1;
-                for_end_1 = n;
-                if q <= for_end_1 {
-                    loop {
-                        print_raw_char(' ' as i32 as UTF16_code, true);
-                        let fresh25 = q;
-                        q = q + 1;
-                        if !(fresh25 < for_end_1) {
-                            break;
-                        }
-                    }
+                for _ in 0..n {
+                    print_raw_char(' ' as i32 as UTF16_code, true);
                 }
                 if m + n <= error_line {
                     p = first_count + m
                 } else {
                     p = first_count + (error_line - n - 3i32)
                 }
-                let mut for_end_2: i32 = 0;
-                q = first_count;
-                for_end_2 = p - 1i32;
-                if q <= for_end_2 {
-                    loop {
-                        print_raw_char(trick_buf[(q % error_line) as usize], true);
-                        let fresh26 = q;
-                        q = q + 1;
-                        if !(fresh26 < for_end_2) {
-                            break;
-                        }
-                    }
+                for q in first_count..p {
+                    print_raw_char(trick_buf[(q % error_line) as usize], true);
                 }
                 if m + n > error_line {
                     print_cstr(b"...");
@@ -5021,23 +4958,15 @@ pub(crate) unsafe fn insert_relax() {
     back_input();
     cur_input.index = Btl::Inserted;
 }
-pub(crate) unsafe fn new_index(mut i: u16, mut q: i32) {
+pub(crate) unsafe fn new_index(mut i: u16, mut q: i32) -> usize {
     let p = get_node(INDEX_NODE_SIZE);
-    cur_ptr = Some(p).tex_int();
     MEM[p].b16.s1 = i;
     MEM[p].b16.s0 = 0_u16;
     MEM[p].b32.s1 = q;
-    let mut k = 1;
-    let for_end = INDEX_NODE_SIZE as usize - 1;
-    if k <= for_end {
-        loop {
-            MEM[p + k] = sa_null;
-            if !(k < for_end) {
-                break;
-            }
-            k = k + 1;
-        }
-    };
+    for k in 1..(INDEX_NODE_SIZE as usize) {
+        MEM[p + k] = SA_NULL;
+    }
+    p
 }
 pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
     cur_ptr = sa_root[t as usize];
@@ -5104,7 +5033,8 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
     }
 
     unsafe fn not_found(t: ValLevel, n: i32) {
-        new_index(t as u16, None.tex_int());
+        let p = new_index(t as u16, None.tex_int());
+        cur_ptr = Some(p).tex_int();
         sa_root[t as usize] = cur_ptr;
         let q = cur_ptr;
         let i = (n / 0x40000) as i16;
@@ -5113,7 +5043,8 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
 
     /*not_found1 */
     unsafe fn lab46(t: ValLevel, n: i32, mut q: i32, mut i: i16) {
-        new_index(i as u16, q);
+        let p = new_index(i as u16, q);
+        cur_ptr = Some(p).tex_int();
         if i as i32 & 1i32 != 0 {
             MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
         } else {
@@ -5127,7 +5058,8 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
 
     /*not_found2 */
     unsafe fn lab47(t: ValLevel, n: i32, mut q: i32, mut i: i16) {
-        new_index(i as u16, q);
+        let p = new_index(i as u16, q);
+        cur_ptr = Some(p).tex_int();
         if i as i32 & 1i32 != 0 {
             MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
         } else {
@@ -5141,7 +5073,8 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
 
     /*not_found3 */
     unsafe fn lab48(t: ValLevel, n: i32, mut q: i32, mut i: i16) {
-        new_index(i as u16, q);
+        let p = new_index(i as u16, q);
+        cur_ptr = Some(p).tex_int();
         if i as i32 & 1i32 != 0 {
             MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
         } else {
@@ -5157,9 +5090,9 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
     unsafe fn lab49(t: ValLevel, n: i32, q: i32, i: i16) {
         let p = if t == ValLevel::Mark {
             let p = get_node(MARK_CLASS_NODE_SIZE); /*level_one *//*:1608 */
-            MEM[p + 1] = sa_null;
-            MEM[p + 2] = sa_null;
-            MEM[p + 3] = sa_null;
+            MEM[p + 1] = SA_NULL;
+            MEM[p + 2] = SA_NULL;
+            MEM[p + 3] = SA_NULL;
             p
         } else {
             let p = if t == ValLevel::Int || t == ValLevel::Dimen {
@@ -10441,25 +10374,14 @@ pub(crate) unsafe fn load_native_font(
 pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
     let mut offs: i32 = 0;
     let mut prevOffs: i32 = 0;
-    let mut i: i32 = 0;
     let mut use_penalty: bool = false;
     let mut use_skip: bool = false;
     if *INTPAR(IntPar::xetex_linebreak_locale) == 0 || len == 1 {
         MEM[cur_list.tail].b32.s1 = new_native_word_node(main_f, len) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-        let mut for_end: i32 = 0;
-        i = 0;
-        for_end = len - 1;
-        if i <= for_end {
-            loop {
-                *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16).offset(i as isize) =
-                    *native_text.offset((s + i) as isize);
-                let fresh64 = i;
-                i = i + 1;
-                if !(fresh64 < for_end) {
-                    break;
-                }
-            }
+        for i in 0..len {
+            *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16).offset(i as isize) =
+                *native_text.offset((s + i) as isize);
         }
         measure_native_node(
             &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
@@ -10493,20 +10415,10 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
                 }
                 MEM[cur_list.tail].b32.s1 = new_native_word_node(main_f, offs - prevOffs) as i32;
                 cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-                let mut for_end_0: i32 = 0;
-                i = prevOffs;
-                for_end_0 = offs - 1;
-                if i <= for_end_0 {
-                    loop {
-                        *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
-                            .offset((i - prevOffs) as isize) =
-                            *native_text.offset((s + i) as isize);
-                        let fresh65 = i;
-                        i = i + 1;
-                        if !(fresh65 < for_end_0) {
-                            break;
-                        }
-                    }
+
+                for i in prevOffs..offs {
+                    *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
+                        .offset((i - prevOffs) as isize) = *native_text.offset((s + i) as isize);
                 }
                 measure_native_node(
                     &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
@@ -11499,23 +11411,12 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                     ppp = p;
                     loop {
                         if NODE_type(ppp as usize) == TextNode::WhatsIt.into() {
-                            let mut for_end: i32 = 0;
-                            let mut k = 0;
-                            for_end = MEM[(ppp + 4) as usize].b16.s1 as i32 - 1;
-                            if k <= for_end {
-                                loop {
-                                    *(&mut MEM[(pp + 6) as usize] as *mut memory_word
-                                        as *mut u16)
-                                        .offset(total_chars as isize) =
-                                        *(&mut MEM[(ppp + 6) as usize] as *mut memory_word
-                                            as *mut u16)
-                                            .offset(k as isize);
-                                    total_chars += 1;
-                                    if !(k < for_end) {
-                                        break;
-                                    }
-                                    k = k + 1;
-                                }
+                            for k in 0..MEM[(ppp + 4) as usize].b16.s1 as i32 {
+                                *(&mut MEM[(pp + 6) as usize] as *mut memory_word as *mut u16)
+                                    .offset(total_chars as isize) =
+                                    *(&mut MEM[(ppp + 6) as usize] as *mut memory_word as *mut u16)
+                                        .offset(k as isize);
+                                total_chars += 1;
                             }
                         }
                         ppp = MEM[ppp as usize].b32.s1;
@@ -13350,6 +13251,7 @@ pub(crate) unsafe fn app_space() {
     if cur_list.aux.b32.s0 >= 2000 && *GLUEPAR(GluePar::xspace_skip) != 0i32 {
         q = new_param_glue(GluePar::xspace_skip)
     } else {
+        let mut main_p;
         if *GLUEPAR(GluePar::space_skip) != 0 {
             main_p = *GLUEPAR(GluePar::space_skip)
         } else {
@@ -13366,7 +13268,7 @@ pub(crate) unsafe fn app_space() {
             }
         }
         let main_p_ = new_spec(main_p as usize);
-        main_p = main_p_ as i32;
+        let main_p = main_p_ as i32;
         if cur_list.aux.b32.s0 >= 2000 {
             MEM[main_p_ + 1].b32.s1 = MEM[main_p_ + 1].b32.s1
                 + FONT_INFO
@@ -14127,18 +14029,8 @@ pub(crate) unsafe fn delete_last() {
                     fm = false;
                     if !is_char_node(q) {
                         if NODE_type(q as usize) == TextNode::Disc.into() {
-                            let mut for_end: i32 = 0;
-                            let mut m = 1_u16;
-                            for_end = MEM[q as usize].b16.s0 as i32;
-                            if m as i32 <= for_end {
-                                loop {
-                                    p = *LLIST_link(p as usize);
-                                    let fresh77 = m;
-                                    m = m.wrapping_add(1);
-                                    if !((fresh77 as i32) < for_end) {
-                                        break;
-                                    }
-                                }
+                            for _ in 1..=MEM[q as usize].b16.s0 as i32 {
+                                p = *LLIST_link(p as usize);
                             }
                             if p == tx {
                                 return;
@@ -16888,28 +16780,18 @@ pub(crate) unsafe fn main_control() {
                         ) as *mut UTF16_code
                     }
                     main_h = 0;
-                    let mut for_end: i32 = 0;
-                    main_p = 0;
-                    for_end = main_k - 1;
-                    if main_p <= for_end {
-                        loop {
-                            *native_text.offset(native_len as isize) =
-                                *mapped_text.offset(main_p as isize);
-                            native_len += 1;
-                            if main_h == 0
-                                && (*mapped_text.offset(main_p as isize) as i32
-                                    == HYPHEN_CHAR[main_f as usize]
-                                    || *INTPAR(IntPar::xetex_dash_break) > 0
-                                        && (*mapped_text.offset(main_p as isize) == 8212
-                                            || *mapped_text.offset(main_p as isize) == 8211))
-                            {
-                                main_h = native_len
-                            }
-                            let fresh88 = main_p;
-                            main_p = main_p + 1;
-                            if !(fresh88 < for_end) {
-                                break;
-                            }
+                    for main_p in 0..main_k {
+                        *native_text.offset(native_len as isize) =
+                            *mapped_text.offset(main_p as isize);
+                        native_len += 1;
+                        if main_h == 0
+                            && (*mapped_text.offset(main_p as isize) as i32
+                                == HYPHEN_CHAR[main_f as usize]
+                                || *INTPAR(IntPar::xetex_dash_break) > 0
+                                    && (*mapped_text.offset(main_p as isize) == 8212
+                                        || *mapped_text.offset(main_p as isize) == 8211))
+                        {
+                            main_h = native_len
                         }
                     }
                 }
@@ -16930,27 +16812,17 @@ pub(crate) unsafe fn main_control() {
                     }
                 }
                 main_k = native_len;
-                main_pp = cur_list.tail as i32;
+                let mut main_pp = cur_list.tail as i32;
                 if cur_list.mode == (false, ListMode::HMode) {
-                    main_ppp = cur_list.head as i32;
+                    let mut main_ppp = cur_list.head as i32;
                     if main_ppp != main_pp {
                         while MEM[main_ppp as usize].b32.s1 != main_pp {
                             if !is_char_node(main_ppp)
                                 && NODE_type(main_ppp as usize) == TextNode::Disc.into()
                             {
                                 temp_ptr = main_ppp;
-                                let mut for_end_0: i32 = 0;
-                                main_p = 1;
-                                for_end_0 = MEM[temp_ptr as usize].b16.s0 as i32;
-                                if main_p <= for_end_0 {
-                                    loop {
-                                        main_ppp = *LLIST_link(main_ppp as usize);
-                                        let fresh89 = main_p;
-                                        main_p = main_p + 1;
-                                        if !(fresh89 < for_end_0) {
-                                            break;
-                                        }
-                                    }
+                                for _ in 0..MEM[temp_ptr as usize].b16.s0 {
+                                    main_ppp = *LLIST_link(main_ppp as usize);
                                 }
                             }
                             if main_ppp != main_pp {
@@ -16987,36 +16859,17 @@ pub(crate) unsafe fn main_control() {
                                 ) as *mut UTF16_code
                             }
                             save_native_len = native_len;
-                            main_p = 0;
-                            let mut for_end_1 = MEM[(main_pp + 4) as usize].b16.s1 as i32 - 1;
-                            if main_p <= for_end_1 {
-                                loop {
-                                    *native_text.offset(native_len as isize) =
-                                        *(&mut MEM[(main_pp + 6) as usize] as *mut memory_word
-                                            as *mut u16)
-                                            .offset(main_p as isize);
-                                    native_len += 1;
-                                    let fresh90 = main_p;
-                                    main_p = main_p + 1;
-                                    if !(fresh90 < for_end_1) {
-                                        break;
-                                    }
-                                }
+                            for main_p in 0..MEM[(main_pp + 4) as usize].b16.s1 {
+                                *native_text.offset(native_len as isize) =
+                                    *(&mut MEM[(main_pp + 6) as usize] as *mut memory_word
+                                        as *mut u16)
+                                        .offset(main_p as isize);
+                                native_len += 1;
                             }
-                            let mut for_end_2: i32 = 0;
-                            main_p = 0i32;
-                            for_end_2 = main_h - 1i32;
-                            if main_p <= for_end_2 {
-                                loop {
-                                    *native_text.offset(native_len as isize) =
-                                        *native_text.offset((temp_ptr + main_p) as isize);
-                                    native_len += 1;
-                                    let fresh91 = main_p;
-                                    main_p = main_p + 1;
-                                    if !(fresh91 < for_end_2) {
-                                        break;
-                                    }
-                                }
+                            for main_p in 0..main_h {
+                                *native_text.offset(native_len as isize) =
+                                    *native_text.offset((temp_ptr + main_p) as isize);
+                                native_len += 1;
                             }
                             do_locale_linebreaks(save_native_len, main_k);
                             native_len = save_native_len;
@@ -17074,25 +16927,15 @@ pub(crate) unsafe fn main_control() {
                         }
                     }
                 } else {
-                    main_ppp = cur_list.head as i32;
+                    let mut main_ppp = cur_list.head as i32;
                     if main_ppp != main_pp {
                         while MEM[main_ppp as usize].b32.s1 != main_pp {
                             if !is_char_node(main_ppp)
                                 && NODE_type(main_ppp as usize) == TextNode::Disc.into()
                             {
                                 temp_ptr = main_ppp;
-                                let mut for_end_3: i32 = 0;
-                                main_p = 1i32;
-                                for_end_3 = MEM[temp_ptr as usize].b16.s0 as i32;
-                                if main_p <= for_end_3 {
-                                    loop {
-                                        main_ppp = *LLIST_link(main_ppp as usize);
-                                        let fresh92 = main_p;
-                                        main_p = main_p + 1;
-                                        if !(fresh92 < for_end_3) {
-                                            break;
-                                        }
-                                    }
+                                for _ in 0..MEM[temp_ptr as usize].b16.s0 {
+                                    main_ppp = *LLIST_link(main_ppp as usize);
                                 }
                             }
                             if main_ppp != main_pp {
@@ -17116,45 +16959,23 @@ pub(crate) unsafe fn main_control() {
                         ) as i32;
                         cur_list.tail = MEM[main_pp as usize].b32.s1 as usize;
 
-                        let mut for_end_4: i32 = 0;
-                        main_p = 0;
-                        for_end_4 = MEM[(main_pp + 4) as usize].b16.s1 as i32 - 1;
-                        if main_p <= for_end_4 {
-                            loop {
-                                *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
-                                    .offset(main_p as isize) = *(&mut MEM[(main_pp + 6) as usize]
-                                    as *mut memory_word
-                                    as *mut u16)
+                        for main_p in 0..MEM[(main_pp + 4) as usize].b16.s1 {
+                            *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
+                                .offset(main_p as isize) =
+                                *(&mut MEM[(main_pp + 6) as usize] as *mut memory_word as *mut u16)
                                     .offset(main_p as isize);
-                                let fresh93 = main_p;
-                                main_p = main_p + 1;
-                                if !(fresh93 < for_end_4) {
-                                    break;
-                                }
-                            }
                         }
-                        let mut for_end_5: i32 = 0;
-                        main_p = 0i32;
-                        for_end_5 = main_k - 1i32;
-                        if main_p <= for_end_5 {
-                            loop {
-                                *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
-                                    .offset(
-                                        (main_p + MEM[(main_pp + 4) as usize].b16.s1 as i32)
-                                            as isize,
-                                    ) = *native_text.offset(main_p as isize);
-                                let fresh94 = main_p;
-                                main_p = main_p + 1;
-                                if !(fresh94 < for_end_5) {
-                                    break;
-                                }
-                            }
+                        for main_p in 0..main_k {
+                            *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
+                                .offset(
+                                    (main_p + MEM[(main_pp + 4) as usize].b16.s1 as i32) as isize,
+                                ) = *native_text.offset(main_p as isize);
                         }
                         measure_native_node(
                             &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
                             (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
                         );
-                        main_p = cur_list.head as i32;
+                        let mut main_p = cur_list.head as i32;
                         if main_p != main_pp {
                             while MEM[main_p as usize].b32.s1 != main_pp {
                                 main_p = *LLIST_link(main_p as usize);
@@ -17166,18 +16987,9 @@ pub(crate) unsafe fn main_control() {
                     } else {
                         MEM[main_pp as usize].b32.s1 = new_native_word_node(main_f, main_k) as i32;
                         cur_list.tail = MEM[main_pp as usize].b32.s1 as usize;
-                        main_p = 0;
-                        let mut for_end_6 = main_k - 1;
-                        if main_p <= for_end_6 {
-                            loop {
-                                *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
-                                    .offset(main_p as isize) = *native_text.offset(main_p as isize);
-                                let fresh95 = main_p;
-                                main_p = main_p + 1;
-                                if !(fresh95 < for_end_6) {
-                                    break;
-                                }
-                            }
+                        for main_p in 0..main_k {
+                            *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
+                                .offset(main_p as isize) = *native_text.offset(main_p as isize);
                         }
                         measure_native_node(
                             &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
@@ -17186,8 +16998,8 @@ pub(crate) unsafe fn main_control() {
                     }
                 }
                 if *INTPAR(IntPar::xetex_interword_space_shaping) > 0 {
-                    main_p = cur_list.head as i32;
-                    main_pp = None.tex_int();
+                    let mut main_p = cur_list.head as i32;
+                    let mut main_pp = None.tex_int();
                     while main_p != cur_list.tail as i32 {
                         if !main_p.is_texnull()
                             && !is_char_node(main_p)
@@ -17202,7 +17014,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     if !main_pp.is_texnull() {
                         if MEM[(main_pp + 4) as usize].b16.s2 as usize == main_f {
-                            main_p = MEM[main_pp as usize].b32.s1;
+                            let mut main_p = MEM[main_pp as usize].b32.s1;
                             while !is_char_node(main_p)
                                 && (NODE_type(main_p as usize) == TextNode::Penalty.into()
                                     || NODE_type(main_p as usize) == TextNode::Ins.into()
@@ -17216,7 +17028,7 @@ pub(crate) unsafe fn main_control() {
                             if !is_char_node(main_p)
                                 && NODE_type(main_p as usize) == TextNode::Glue.into()
                             {
-                                main_ppp = MEM[main_p as usize].b32.s1;
+                                let mut main_ppp = MEM[main_p as usize].b32.s1;
                                 while !is_char_node(main_ppp)
                                     && (NODE_type(main_ppp as usize) == TextNode::Penalty.into()
                                         || NODE_type(main_ppp as usize) == TextNode::Ins.into()
@@ -17235,57 +17047,35 @@ pub(crate) unsafe fn main_control() {
                                             + MEM[cur_list.tail + 4].b16.s1 as i32,
                                     ) as i32;
                                     main_k = 0;
-                                    let mut t = 0;
-                                    let mut for_end_7 =
-                                        MEM[(main_pp + 4) as usize].b16.s1 as i32 - 1;
-                                    if t <= for_end_7 {
-                                        loop {
-                                            *(&mut MEM[(temp_ptr + 6) as usize]
-                                                as *mut memory_word
-                                                as *mut u16)
-                                                .offset(main_k as isize) = *(&mut MEM
-                                                [(main_pp + 6i32) as usize]
-                                                as *mut memory_word
-                                                as *mut u16)
-                                                .offset(t as isize);
-                                            main_k += 1;
-                                            let fresh96 = t;
-                                            t = t + 1;
-                                            if !(fresh96 < for_end_7) {
-                                                break;
-                                            }
-                                        }
+                                    for t in 0..(MEM[(main_pp + 4) as usize].b16.s1 as i32) {
+                                        *(&mut MEM[(temp_ptr + 6) as usize] as *mut memory_word
+                                            as *mut u16)
+                                            .offset(main_k as isize) = *(&mut MEM
+                                            [(main_pp + 6i32) as usize]
+                                            as *mut memory_word
+                                            as *mut u16)
+                                            .offset(t as isize);
+                                        main_k += 1;
                                     }
                                     *(&mut MEM[(temp_ptr + 6) as usize] as *mut memory_word
                                         as *mut u16)
                                         .offset(main_k as isize) = ' ' as i32 as u16;
                                     main_k += 1;
-                                    t = 0;
-                                    let mut for_end_8 = MEM[cur_list.tail + 4].b16.s1 as i32 - 1;
-                                    if t <= for_end_8 {
-                                        loop {
-                                            *(&mut MEM[(temp_ptr + 6) as usize]
-                                                as *mut memory_word
-                                                as *mut u16)
-                                                .offset(main_k as isize) = *(&mut MEM
-                                                [cur_list.tail + 6]
-                                                as *mut memory_word
+                                    for t in 0..(MEM[cur_list.tail + 4].b16.s1 as i32) {
+                                        *(&mut MEM[(temp_ptr + 6) as usize] as *mut memory_word
+                                            as *mut u16)
+                                            .offset(main_k as isize) =
+                                            *(&mut MEM[cur_list.tail + 6] as *mut memory_word
                                                 as *mut u16)
                                                 .offset(t as isize);
-                                            main_k += 1;
-                                            let fresh97 = t;
-                                            t = t + 1;
-                                            if !(fresh97 < for_end_8) {
-                                                break;
-                                            }
-                                        }
+                                        main_k += 1;
                                     }
                                     measure_native_node(
                                         &mut MEM[temp_ptr as usize] as *mut memory_word
                                             as *mut libc::c_void,
                                         (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
                                     );
-                                    t = MEM[(temp_ptr + 1) as usize].b32.s1
+                                    let t = MEM[(temp_ptr + 1) as usize].b32.s1
                                         - MEM[(main_pp + 1) as usize].b32.s1
                                         - MEM[cur_list.tail + 1].b32.s1;
                                     free_node(
@@ -17463,7 +17253,7 @@ pub(crate) unsafe fn main_control() {
                                                     }
                                                 }
                                                 if ligature_present {
-                                                    main_p = new_ligature(
+                                                    let main_p = new_ligature(
                                                         main_f,
                                                         cur_l as u16,
                                                         MEM[cur_q as usize].b32.s1,
@@ -17528,7 +17318,7 @@ pub(crate) unsafe fn main_control() {
                                                             new_lig_item(cur_r as u16) as i32;
                                                         bchar = TOO_BIG_CHAR
                                                     } else if is_char_node(lig_stack) {
-                                                        main_p = lig_stack;
+                                                        let main_p = lig_stack;
                                                         lig_stack =
                                                             new_lig_item(cur_r as u16) as i32;
                                                         MEM[(lig_stack + 1) as usize].b32.s1 =
@@ -17541,7 +17331,7 @@ pub(crate) unsafe fn main_control() {
                                                 }
                                                 3 => {
                                                     cur_r = main_j.s0 as i32;
-                                                    main_p = lig_stack;
+                                                    let main_p = lig_stack;
                                                     lig_stack = new_lig_item(cur_r as u16) as i32;
                                                     MEM[lig_stack as usize].b32.s1 = main_p;
                                                     current_block = 5062343687657450649;
@@ -17557,7 +17347,7 @@ pub(crate) unsafe fn main_control() {
                                                             }
                                                         }
                                                         if ligature_present {
-                                                            main_p = new_ligature(
+                                                            let main_p = new_ligature(
                                                                 main_f,
                                                                 cur_l as u16,
                                                                 MEM[cur_q as usize].b32.s1,
@@ -17793,7 +17583,7 @@ pub(crate) unsafe fn main_control() {
                                             }
                                         }
                                         if ligature_present {
-                                            main_p = new_ligature(
+                                            let main_p = new_ligature(
                                                 main_f,
                                                 cur_l as u16,
                                                 MEM[cur_q as usize].b32.s1 as i32,
@@ -17857,7 +17647,7 @@ pub(crate) unsafe fn main_control() {
                                     }
                                     // lab95:
                                     /*main_loop_move_lig *//*1072: */
-                                    main_p = MEM[(lig_stack + 1) as usize].b32.s1;
+                                    let main_p = MEM[(lig_stack + 1) as usize].b32.s1;
                                     if !main_p.is_texnull() {
                                         MEM[cur_list.tail].b32.s1 = main_p;
                                         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
@@ -17935,7 +17725,7 @@ pub(crate) unsafe fn main_control() {
                     }
                 }
                 if *GLUEPAR(GluePar::space_skip) == 0 {
-                    main_p = FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize];
+                    let mut main_p = FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize];
                     if main_p.is_texnull() {
                         let main_p_ = new_spec(0);
                         main_p = main_p_ as i32;

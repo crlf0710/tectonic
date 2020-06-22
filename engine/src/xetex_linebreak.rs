@@ -2389,7 +2389,6 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
 }
 unsafe fn hyphenate() {
     let mut current_block: u64;
-    let mut i: i16 = 0;
     let mut l: i16 = 0;
     let mut s: i32 = 0;
     let mut bchar: i32 = 0;
@@ -2402,33 +2401,14 @@ unsafe fn hyphenate() {
     let mut v: i32 = 0;
     let mut u: pool_pointer = 0;
 
-    let mut j = 0_i16;
-    let mut for_end = hn as i32;
-    if j as i32 <= for_end {
-        loop {
-            hyf[j as usize] = 0_u8;
-            let fresh18 = j;
-            j = j + 1;
-            if !((fresh18 as i32) < for_end) {
-                break;
-            }
-        }
+    for j in 0..=hn {
+        hyf[j as usize] = 0_u8;
     }
     let mut h = hc[1] as hyph_pointer;
     hn += 1;
     hc[hn as usize] = cur_lang as i32;
-    let mut for_end_0: i32 = 0;
-    j = 2_i16;
-    for_end_0 = hn as i32;
-    if j as i32 <= for_end_0 {
-        loop {
-            h = ((h as i32 + h as i32 + hc[j as usize]) % HYPH_PRIME) as hyph_pointer;
-            let fresh19 = j;
-            j = j + 1;
-            if !((fresh19 as i32) < for_end_0) {
-                break;
-            }
-        }
+    for j in 2..=hn {
+        h = ((h as i32 + h as i32 + hc[j as usize]) % HYPH_PRIME) as hyph_pointer;
     }
     loop {
         let k = HYPH_WORD[h as usize];
@@ -2437,7 +2417,7 @@ unsafe fn hyphenate() {
             break;
         }
         if length(k) == hn as i32 {
-            j = 1_i16;
+            let mut j = 1_i16;
             u = str_start[(k as i64 - 65536) as usize];
             loop {
                 if str_pool[u as usize] as i32 != hc[j as usize] {
@@ -2481,71 +2461,40 @@ unsafe fn hyphenate() {
             hc[0] = 0;
             hc[(hn as i32 + 1i32) as usize] = 0i32;
             hc[(hn as i32 + 2i32) as usize] = max_hyph_char;
-            let mut for_end_1: i32 = 0;
-            j = 0_i16;
-            for_end_1 = hn as i32 - r_hyf + 1;
-            if j as i32 <= for_end_1 {
-                loop {
-                    z = *trie_trl.offset((cur_lang as i32 + 1) as isize) + hc[j as usize];
-                    l = j;
-                    while hc[l as usize] == *trie_trc.offset(z as isize) as i32 {
-                        if *trie_tro.offset(z as isize) != MIN_TRIE_OP as i32 {
-                            /*959: */
-                            v = *trie_tro.offset(z as isize); /*:958 */
-                            loop {
-                                v = v + op_start[cur_lang as usize];
-                                i = (l as i32 - hyf_distance[v as usize] as i32) as i16;
-                                if hyf_num[v as usize] as i32 > hyf[i as usize] as i32 {
-                                    hyf[i as usize] = hyf_num[v as usize] as u8
-                                }
-                                v = hyf_next[v as usize] as i32;
-                                if v == MIN_TRIE_OP as i32 {
-                                    break;
-                                }
+            for j in 0..=(hn as i32 - r_hyf + 1) {
+                z = *trie_trl.offset((cur_lang as i32 + 1) as isize) + hc[j as usize];
+                l = j as i16;
+                while hc[l as usize] == *trie_trc.offset(z as isize) as i32 {
+                    if *trie_tro.offset(z as isize) != MIN_TRIE_OP as i32 {
+                        /*959: */
+                        v = *trie_tro.offset(z as isize); /*:958 */
+                        loop {
+                            v = v + op_start[cur_lang as usize];
+                            let i = (l as i32 - hyf_distance[v as usize] as i32) as i16;
+                            if hyf_num[v as usize] as i32 > hyf[i as usize] as i32 {
+                                hyf[i as usize] = hyf_num[v as usize] as u8
+                            }
+                            v = hyf_next[v as usize] as i32;
+                            if v == MIN_TRIE_OP as i32 {
+                                break;
                             }
                         }
-                        l += 1;
-                        z = *trie_trl.offset(z as isize) + hc[l as usize]
                     }
-                    let fresh20 = j;
-                    j = j + 1;
-                    if !((fresh20 as i32) < for_end_1) {
-                        break;
-                    }
+                    l += 1;
+                    z = *trie_trl.offset(z as isize) + hc[l as usize]
                 }
             }
         }
         _ => {}
     }
-    let mut for_end_2: i32 = 0;
-    j = 0_i16;
-    for_end_2 = l_hyf - 1;
-    if j as i32 <= for_end_2 {
-        loop {
-            hyf[j as usize] = 0_u8;
-            let fresh21 = j;
-            j = j + 1;
-            if !((fresh21 as i32) < for_end_2) {
-                break;
-            }
-        }
+    for j in 0..l_hyf {
+        hyf[j as usize] = 0_u8;
     }
-    let mut for_end_3: i32 = 0;
-    j = 0_i16;
-    for_end_3 = r_hyf - 1;
-    if j as i32 <= for_end_3 {
-        loop {
-            hyf[(hn as i32 - j as i32) as usize] = 0_u8;
-            let fresh22 = j;
-            j = j + 1;
-            if !((fresh22 as i32) < for_end_3) {
-                break;
-            }
-        }
+    for j in 0..r_hyf {
+        hyf[(hn as i32 - j as i32) as usize] = 0_u8;
     }
-    let mut for_end_4: i32 = 0;
-    j = l_hyf as i16;
-    for_end_4 = hn as i32 - r_hyf;
+    let mut j = l_hyf as i16;
+    let mut for_end_4 = hn as i32 - r_hyf;
     if j as i32 <= for_end_4 {
         current_block = 5207889489643863322;
     } else {
@@ -2579,65 +2528,35 @@ unsafe fn hyphenate() {
             s = MEM[s as usize].b32.s1
         }
         hyphen_passed = 0;
-        let mut for_end_5: i32 = 0;
-        j = l_hyf as i16;
-        for_end_5 = hn as i32 - r_hyf;
-        if j as i32 <= for_end_5 {
-            loop {
-                if hyf[j as usize] as i32 & 1i32 != 0 {
-                    let q = new_native_word_node(hf, j as i32 - hyphen_passed as i32);
-                    MEM[q].b16.s0 = MEM[ha as usize].b16.s0;
-                    let mut for_end_6: i32 = 0;
-                    i = 0_i16;
-                    for_end_6 = j as i32 - hyphen_passed as i32 - 1;
-                    if i as i32 <= for_end_6 {
-                        loop {
-                            *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset(i as isize) =
-                                *(&mut MEM[(ha + 6) as usize] as *mut memory_word as *mut u16)
-                                    .offset((i as i32 + hyphen_passed as i32) as isize);
-                            let fresh24 = i;
-                            i = i + 1;
-                            if !((fresh24 as i32) < for_end_6) {
-                                break;
-                            }
-                        }
-                    }
-                    measure_native_node(
-                        &mut MEM[q] as *mut memory_word as *mut libc::c_void,
-                        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
-                    );
-                    MEM[s as usize].b32.s1 = q as i32;
-                    s = q as i32;
-                    let q = new_disc();
-                    MEM[q + 1].b32.s0 = new_native_character(hf, hyf_char) as i32;
-                    MEM[s as usize].b32.s1 = q as i32;
-                    s = q as i32;
-                    hyphen_passed = j
+        for j in l_hyf..=(hn as i32 - r_hyf) {
+            if hyf[j as usize] as i32 & 1i32 != 0 {
+                let q = new_native_word_node(hf, j as i32 - hyphen_passed as i32);
+                MEM[q].b16.s0 = MEM[ha as usize].b16.s0;
+                for i in 0..(j as i32 - hyphen_passed as i32) {
+                    *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset(i as isize) =
+                        *(&mut MEM[(ha + 6) as usize] as *mut memory_word as *mut u16)
+                            .offset((i as i32 + hyphen_passed as i32) as isize);
                 }
-                let fresh25 = j;
-                j = j + 1;
-                if !((fresh25 as i32) < for_end_5) {
-                    break;
-                }
+                measure_native_node(
+                    &mut MEM[q] as *mut memory_word as *mut libc::c_void,
+                    (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
+                );
+                MEM[s as usize].b32.s1 = q as i32;
+                s = q as i32;
+                let q = new_disc();
+                MEM[q + 1].b32.s0 = new_native_character(hf, hyf_char) as i32;
+                MEM[s as usize].b32.s1 = q as i32;
+                s = q as i32;
+                hyphen_passed = j as i16;
             }
         }
         hn = MEM[(ha + 4) as usize].b16.s1 as i16;
         let q = new_native_word_node(hf, hn as i32 - hyphen_passed as i32);
         MEM[q].b16.s0 = MEM[ha as usize].b16.s0;
-        let mut for_end_7: i32 = 0;
-        i = 0_i16;
-        for_end_7 = hn as i32 - hyphen_passed as i32 - 1;
-        if i as i32 <= for_end_7 {
-            loop {
-                *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset(i as isize) =
-                    *(&mut MEM[(ha + 6) as usize] as *mut memory_word as *mut u16)
-                        .offset((i as i32 + hyphen_passed as i32) as isize);
-                let fresh26 = i;
-                i = i + 1;
-                if !((fresh26 as i32) < for_end_7) {
-                    break;
-                }
-            }
+        for i in 0..(hn as i32 - hyphen_passed as i32) {
+            *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset(i as isize) =
+                *(&mut MEM[(ha + 6) as usize] as *mut memory_word as *mut u16)
+                    .offset((i as i32 + hyphen_passed as i32) as isize);
         }
         measure_native_node(
             &mut MEM[q] as *mut memory_word as *mut libc::c_void,
@@ -2750,7 +2669,7 @@ unsafe fn hyphenate() {
                         major_tail = *LLIST_link(major_tail as usize);
                         r_count += 1;
                     }
-                    i = hyphen_passed;
+                    let mut i = hyphen_passed;
                     hyf[i as usize] = 0;
                     minor_tail = None.tex_int();
                     MEM[r + 1].b32.s0 = None.tex_int();

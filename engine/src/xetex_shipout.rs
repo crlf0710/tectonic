@@ -1940,7 +1940,6 @@ unsafe fn dvi_native_font_def(f: internal_font_number) {
 }
 
 unsafe fn dvi_font_def(f: internal_font_number) {
-    let mut k: pool_pointer = 0;
     let mut l: i32 = 0;
     if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
         dvi_native_font_def(f);
@@ -1961,7 +1960,7 @@ unsafe fn dvi_font_def(f: internal_font_number) {
         dvi_four(FONT_DSIZE[f]);
         dvi_out(length(FONT_AREA[f]) as u8);
         l = 0;
-        k = str_start[(FONT_NAME[f] as i64 - 65536) as usize];
+        let mut k = str_start[(FONT_NAME[f] as i64 - 65536) as usize];
 
         while l == 0i32 && k < str_start[((FONT_NAME[f] + 1) as i64 - 65536) as usize] {
             if str_pool[k as usize] as i32 == ':' as i32 {
@@ -1973,29 +1972,15 @@ unsafe fn dvi_font_def(f: internal_font_number) {
             l = length(FONT_NAME[f])
         }
         dvi_out(l as u8);
-        k = str_start[(FONT_AREA[f] as i64 - 65536) as usize];
-        let mut for_end = str_start[((FONT_AREA[f] + 1) as i64 - 65536) as usize] - 1i32;
-        if k <= for_end {
-            loop {
-                dvi_out(str_pool[k as usize] as u8);
-                let fresh6 = k;
-                k = k + 1;
-                if !(fresh6 < for_end) {
-                    break;
-                }
-            }
+        for k in str_start[(FONT_AREA[f] as i64 - 65536) as usize]
+            ..str_start[((FONT_AREA[f] + 1) as i64 - 65536) as usize]
+        {
+            dvi_out(str_pool[k as usize] as u8);
         }
-        k = str_start[(FONT_NAME[f] as i64 - 65536) as usize];
-        let mut for_end_0 = str_start[(FONT_NAME[f] as i64 - 65536) as usize] + l - 1i32;
-        if k <= for_end_0 {
-            loop {
-                dvi_out(str_pool[k as usize] as u8);
-                let fresh7 = k;
-                k = k + 1;
-                if !(fresh7 < for_end_0) {
-                    break;
-                }
-            }
+        for k in str_start[(FONT_NAME[f] as i64 - 65536) as usize]
+            ..(str_start[(FONT_NAME[f] as i64 - 65536) as usize] + l)
+        {
+            dvi_out(str_pool[k as usize] as u8);
         }
     };
 }
@@ -2193,17 +2178,8 @@ unsafe fn special_out(p: usize) {
     }
 
     {
-        let mut k = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-        let mut for_end = pool_ptr - 1;
-        if k <= for_end {
-            loop {
-                dvi_out(str_pool[k as usize] as u8);
-                let fresh8 = k;
-                k = k + 1;
-                if !(fresh8 < for_end) {
-                    break;
-                }
-            }
+        for k in str_start[(str_ptr - TOO_BIG_CHAR) as usize]..pool_ptr {
+            dvi_out(str_pool[k as usize] as u8);
         }
     }
     pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];

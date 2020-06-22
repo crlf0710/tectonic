@@ -415,63 +415,33 @@ pub(crate) unsafe fn print_file_name(mut n: i32, mut a: i32, mut e: i32) {
         print_char(quote_char);
     }
     if a != 0i32 {
-        let mut for_end: i32 = 0;
-        j = str_start[(a - 0x10000i32) as usize];
-        for_end = str_start[(a + 1i32 - 0x10000i32) as usize] - 1i32;
-        if j <= for_end {
-            loop {
-                if str_pool[j as usize] as i32 == quote_char {
-                    print(quote_char);
-                    quote_char = 73i32 - quote_char;
-                    print(quote_char);
-                }
-                print(str_pool[j as usize] as i32);
-                let fresh0 = j;
-                j = j + 1;
-                if !(fresh0 < for_end) {
-                    break;
-                }
+        for j in str_start[(a - 0x10000i32) as usize]..str_start[(a + 1i32 - 0x10000i32) as usize] {
+            if str_pool[j as usize] as i32 == quote_char {
+                print(quote_char);
+                quote_char = 73i32 - quote_char;
+                print(quote_char);
             }
+            print(str_pool[j as usize] as i32);
         }
     }
     if n != 0i32 {
-        let mut for_end_0: i32 = 0;
-        j = str_start[(n - 0x10000i32) as usize];
-        for_end_0 = str_start[(n + 1i32 - 0x10000i32) as usize] - 1i32;
-        if j <= for_end_0 {
-            loop {
-                if str_pool[j as usize] as i32 == quote_char {
-                    print(quote_char);
-                    quote_char = 73i32 - quote_char;
-                    print(quote_char);
-                }
-                print(str_pool[j as usize] as i32);
-                let fresh1 = j;
-                j = j + 1;
-                if !(fresh1 < for_end_0) {
-                    break;
-                }
+        for j in str_start[(n - 0x10000i32) as usize]..str_start[(n + 1i32 - 0x10000i32) as usize] {
+            if str_pool[j as usize] as i32 == quote_char {
+                print(quote_char);
+                quote_char = 73i32 - quote_char;
+                print(quote_char);
             }
+            print(str_pool[j as usize] as i32);
         }
     }
     if e != 0i32 {
-        let mut for_end_1: i32 = 0;
-        j = str_start[(e - 0x10000i32) as usize];
-        for_end_1 = str_start[(e + 1i32 - 0x10000i32) as usize] - 1i32;
-        if j <= for_end_1 {
-            loop {
-                if str_pool[j as usize] as i32 == quote_char {
-                    print(quote_char);
-                    quote_char = 73i32 - quote_char;
-                    print(quote_char);
-                }
-                print(str_pool[j as usize] as i32);
-                let fresh2 = j;
-                j = j + 1;
-                if !(fresh2 < for_end_1) {
-                    break;
-                }
+        for j in str_start[(e - 0x10000i32) as usize]..str_start[(e + 1i32 - 0x10000i32) as usize] {
+            if str_pool[j as usize] as i32 == quote_char {
+                print(quote_char);
+                quote_char = 73i32 - quote_char;
+                print(quote_char);
             }
+            print(str_pool[j as usize] as i32);
         }
     }
     if quote_char != 0i32 {
