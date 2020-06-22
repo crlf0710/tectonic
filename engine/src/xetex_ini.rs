@@ -2260,7 +2260,7 @@ pub(crate) unsafe fn prefixed_command() {
                             j = n - 2;
                             if j > ValLevel::Mu as i32 { j = ValLevel::Tok as i32 }
 
-                            find_sa_element(j as i16, cur_val,
+                            find_sa_element(ValLevel::from(j as u8), cur_val,
                                             true);
                             MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
 
@@ -2344,7 +2344,7 @@ pub(crate) unsafe fn prefixed_command() {
                 if cur_chr == 0 {
                     scan_register_num();
                     if cur_val > 255 {
-                        find_sa_element(ValLevel::Tok as i16, cur_val,
+                        find_sa_element(ValLevel::Tok, cur_val,
                                         true);
                         cur_chr = cur_ptr;
                         e = true
@@ -2356,7 +2356,7 @@ pub(crate) unsafe fn prefixed_command() {
                 scan_char_class_not_ignored();
                 cur_ptr = cur_val;
                 scan_char_class_not_ignored();
-                find_sa_element(ValLevel::InterChar as i16,
+                find_sa_element(ValLevel::InterChar,
                                 cur_ptr * CHAR_CLASS_LIMIT + cur_val, true);
                 cur_chr = cur_ptr;
                 e = true
@@ -2380,7 +2380,7 @@ pub(crate) unsafe fn prefixed_command() {
                             if cur_val < 256 {
                                 *TOKS_REG(cur_val as usize)
                             } else {
-                                find_sa_element(ValLevel::Tok as i16, cur_val,
+                                find_sa_element(ValLevel::Tok, cur_val,
                                                 false); /* "extended delimiter code family */
                                 if let Some(p) = cur_ptr.opt() {
                                     MEM[p + 1].b32.s1
@@ -2396,7 +2396,7 @@ pub(crate) unsafe fn prefixed_command() {
                         scan_char_class_not_ignored(); /*:1268 */
                         cur_ptr = cur_val;
                         scan_char_class_not_ignored();
-                        find_sa_element(ValLevel::InterChar as i16,
+                        find_sa_element(ValLevel::InterChar,
                                         cur_ptr * CHAR_CLASS_LIMIT + cur_val,
                                         false);
                         if let Some(p) = cur_ptr.opt() {

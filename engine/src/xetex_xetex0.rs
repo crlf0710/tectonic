@@ -3211,9 +3211,9 @@ pub(crate) unsafe fn sa_save(p: usize) {
 pub(crate) unsafe fn sa_destroy(p: usize) {
     if MEM[p].b16.s1 < MU_VAL_LIMIT {
         delete_glue_ref(MEM[p + 1].b32.s1 as usize);
-    } else if !MEM[p + 1].b32.s1.is_texnull() {
+    } else if let Some(n) = MEM[p + 1].b32.s1.opt() {
         if MEM[p].b16.s1 < BOX_VAL_LIMIT {
-            flush_node_list(MEM[p + 1].b32.s1.opt());
+            flush_node_list(Some(n));
         } else {
             delete_token_ref(MEM[p + 1].b32.s1 as usize);
         }
@@ -3287,7 +3287,7 @@ pub(crate) unsafe fn sa_restore() {
         } else {
             free_node(p as usize, POINTER_NODE_SIZE);
         }
-        if sa_chain.is_texnull() {
+        if sa_chain.opt().is_none() {
             break;
         }
     }
@@ -3313,19 +3313,14 @@ pub(crate) unsafe fn new_save_level(c: GroupCode) {
     SAVE_PTR += 1;
 }
 pub(crate) unsafe fn eq_destroy(w: EqtbWord) {
-    let mut q: i32 = 0;
     match Cmd::from(w.cmd) {
         Cmd::Call | Cmd::LongCall | Cmd::OuterCall | Cmd::LongOuterCall => {
             delete_token_ref(w.val as usize)
         }
         Cmd::GlueRef => delete_glue_ref(w.val as usize),
         Cmd::ShapeRef => {
-            q = w.val;
-            if !q.is_texnull() {
-                free_node(
-                    q as usize,
-                    MEM[q as usize].b32.s0 + MEM[q as usize].b32.s0 + 1,
-                );
+            if let Some(q) = w.val.opt() {
+                free_node(q, MEM[q].b32.s0 + MEM[q].b32.s0 + 1);
             }
         }
         Cmd::BoxRef => flush_node_list(w.val.opt()),
@@ -3591,7 +3586,7 @@ pub(crate) unsafe fn show_context() {
             if BASE_PTR == INPUT_PTR
                 || cur_input.state != InputState::TokenList
                 || cur_input.index != Btl::BackedUp
-                || !cur_input.loc.is_texnull()
+                || cur_input.loc.opt().is_some()
             {
                 tally = 0i32;
                 let old_setting_0 = selector;
@@ -3657,7 +3652,7 @@ pub(crate) unsafe fn show_context() {
                         Btl::Parameter => print_nl_cstr(b"<argument> "),
                         Btl::UTemplate | Btl::VTemplate => print_nl_cstr(b"<template> "),
                         Btl::BackedUp | Btl::BackedUpChar => {
-                            if cur_input.loc.is_texnull() {
+                            if cur_input.loc.opt().is_none() {
                                 print_nl_cstr(b"<recently read> ");
                             } else {
                                 print_nl_cstr(b"<to be read again> ");
@@ -3864,7 +3859,7 @@ pub(crate) unsafe fn end_token_list() {
 pub(crate) unsafe fn back_input() {
     let mut p: i32 = 0;
     while cur_input.state == InputState::TokenList
-        && cur_input.loc.is_texnull()
+        && cur_input.loc.opt().is_none()
         && cur_input.index != Btl::VTemplate
     {
         end_token_list();
@@ -4270,30 +4265,26 @@ pub(crate) unsafe fn get_next() {
                             if cur_input.name <= 19 {
                                 if pseudo_input() {
                                     cur_input.limit = last
-                                } else if !LOCAL(Local::every_eof).is_texnull()
-                                    && !EOF_SEEN[cur_input.index as usize]
+                                } else if let Some(l) = LOCAL(Local::every_eof)
+                                    .opt()
+                                    .filter(|_| !EOF_SEEN[cur_input.index as usize])
                                 {
                                     cur_input.limit = first - 1i32;
                                     EOF_SEEN[cur_input.index as usize] = true;
-                                    begin_token_list(
-                                        *LOCAL(Local::every_eof) as usize,
-                                        Btl::EveryEOFText,
-                                    );
+                                    begin_token_list(l, Btl::EveryEOFText);
                                     continue 'c_63502;
                                 } else {
                                     force_eof = true
                                 }
                             } else if input_line(INPUT_FILE[cur_input.index as usize]) {
                                 cur_input.limit = last
-                            } else if !LOCAL(Local::every_eof).is_texnull()
-                                && !EOF_SEEN[cur_input.index as usize]
+                            } else if let Some(l) = LOCAL(Local::every_eof)
+                                .opt()
+                                .filter(|_| !EOF_SEEN[cur_input.index as usize])
                             {
                                 cur_input.limit = first - 1;
                                 EOF_SEEN[cur_input.index as usize] = true;
-                                begin_token_list(
-                                    *LOCAL(Local::every_eof) as usize,
-                                    Btl::EveryEOFText,
-                                );
+                                begin_token_list(l, Btl::EveryEOFText);
                                 continue 'c_63502;
                             } else {
                                 force_eof = true
@@ -4586,20 +4577,21 @@ pub(crate) unsafe fn get_next() {
                          * \end or \dump has been seen. We just use a global state
                          * variable to make sure it only gets inserted once. */
                         {
-                            if !used_tectonic_coda_tokens
-                                && !LOCAL(Local::TectonicCodaTokens).is_texnull()
-                            {
-                                used_tectonic_coda_tokens = true; /* token list but no tokens left */
-                                begin_token_list(
-                                    *LOCAL(Local::TectonicCodaTokens) as usize,
-                                    Btl::TectonicCodaText,
-                                );
-                                continue;
-                            } else {
-                                if u8::from(selector) < u8::from(Selector::LOG_ONLY) {
-                                    open_log_file();
+                            match (
+                                used_tectonic_coda_tokens,
+                                LOCAL(Local::TectonicCodaTokens).opt(),
+                            ) {
+                                (false, Some(l)) => {
+                                    used_tectonic_coda_tokens = true; /* token list but no tokens left */
+                                    begin_token_list(l, Btl::TectonicCodaText);
+                                    continue;
                                 }
-                                fatal_error(b"*** (job aborted, no legal \\end found)");
+                                _ => {
+                                    if u8::from(selector) < u8::from(Selector::LOG_ONLY) {
+                                        open_log_file();
+                                    }
+                                    fatal_error(b"*** (job aborted, no legal \\end found)");
+                                }
                             }
                         }
                     }
@@ -4616,10 +4608,10 @@ pub(crate) unsafe fn get_next() {
                     }
                 }
             }
-        } else if !cur_input.loc.is_texnull() {
+        } else if let Some(loc) = cur_input.loc.opt() {
             /* if we're inputting from a non-null token list: */
-            t = MEM[cur_input.loc as usize].b32.s0;
-            cur_input.loc = MEM[cur_input.loc as usize].b32.s1;
+            t = MEM[loc].b32.s0;
+            cur_input.loc = *LLIST_link(loc);
             if t >= CS_TOKEN_FLAG {
                 cur_cs = t - CS_TOKEN_FLAG;
                 cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
@@ -4627,7 +4619,7 @@ pub(crate) unsafe fn get_next() {
                 if cur_cmd >= Cmd::OuterCall {
                     if cur_cmd == Cmd::DontExpand {
                         /*370:*/
-                        cur_cs = MEM[cur_input.loc as usize].b32.s0 - CS_TOKEN_FLAG;
+                        cur_cs = MEM[cur_input.loc.opt().unwrap()].b32.s0 - CS_TOKEN_FLAG;
                         cur_input.loc = None.tex_int();
                         cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                         cur_chr = EQTB[cur_cs as usize].val;
@@ -4668,20 +4660,21 @@ pub(crate) unsafe fn get_next() {
         }
         if cur_cmd <= Cmd::CarRet && cur_cmd >= Cmd::TabMark && align_state == 0 {
             /*818:*/
-            if scanner_status == ScannerStatus::Aligning || cur_align.is_texnull() {
+            if scanner_status == ScannerStatus::Aligning {
                 fatal_error(b"(interwoven alignment preambles are not allowed)");
             }
-            cur_cmd = Cmd::from(MEM[(cur_align + 5) as usize].b32.s0 as u16);
-            MEM[(cur_align + 5) as usize].b32.s0 = cur_chr;
-            if cur_cmd == Cmd::Omit {
-                begin_token_list(OMIT_TEMPLATE, Btl::VTemplate);
+            if let Some(a) = cur_align.opt() {
+                cur_cmd = Cmd::from(MEM[a + 5].b32.s0 as u16);
+                MEM[a + 5].b32.s0 = cur_chr;
+                if cur_cmd == Cmd::Omit {
+                    begin_token_list(OMIT_TEMPLATE, Btl::VTemplate);
+                } else {
+                    begin_token_list(MEM[a + 2].b32.s1 as usize, Btl::VTemplate);
+                }
+                align_state = 1000000;
             } else {
-                begin_token_list(
-                    MEM[(cur_align + 2) as usize].b32.s1 as usize,
-                    Btl::VTemplate,
-                );
+                fatal_error(b"(interwoven alignment preambles are not allowed)");
             }
-            align_state = 1000000;
         } else {
             return;
         }
@@ -4699,13 +4692,7 @@ pub(crate) unsafe fn get_token() {
 }
 pub(crate) unsafe fn macro_call() {
     let mut current_block: u64;
-    let mut r: i32 = 0;
     let mut p: i32 = None.tex_int();
-    let mut q: i32 = 0;
-    let mut s: i32 = 0;
-    let mut t: i32 = 0;
-    let mut u: i32 = 0;
-    let mut v: i32 = 0;
     let mut rbrace_ptr: i32 = None.tex_int();
     let mut n: i16 = 0;
     let mut unbalance: i32 = 0;
@@ -4716,7 +4703,7 @@ pub(crate) unsafe fn macro_call() {
     save_warning_index = warning_index;
     warning_index = cur_cs;
     let ref_count = cur_chr as usize;
-    r = MEM[ref_count].b32.s1;
+    let mut r = MEM[ref_count].b32.s1.opt().unwrap();
     n = 0 as i16;
     if *INTPAR(IntPar::tracing_macros) > 0 {
         /*419:*/
@@ -4726,10 +4713,10 @@ pub(crate) unsafe fn macro_call() {
         token_show(Some(ref_count));
         end_diagnostic(false);
     }
-    if MEM[r as usize].b32.s0 == PROTECTED_TOKEN {
-        r = MEM[r as usize].b32.s1
+    if MEM[r].b32.s0 == PROTECTED_TOKEN {
+        r = MEM[r].b32.s1.opt().unwrap();
     }
-    if MEM[r as usize].b32.s0 != END_MATCH_TOKEN {
+    if MEM[r].b32.s0 != END_MATCH_TOKEN {
         /*409:*/
         scanner_status = ScannerStatus::Matching;
         unbalance = 0;
@@ -4738,24 +4725,23 @@ pub(crate) unsafe fn macro_call() {
             long_state = (long_state as i32 - 2) as u8
         }
         's_135: loop {
+            let s;
             MEM[TEMP_HEAD].b32.s1 = None.tex_int();
-            if MEM[r as usize].b32.s0 >= END_MATCH_TOKEN || MEM[r as usize].b32.s0 < MATCH_TOKEN {
-                s = None.tex_int()
+            if MEM[r].b32.s0 >= END_MATCH_TOKEN || MEM[r].b32.s0 < MATCH_TOKEN {
+                s = None;
             } else {
-                match_chr = (MEM[r as usize].b32.s0 - MATCH_TOKEN) as UTF16_code;
-                s = MEM[r as usize].b32.s1;
-                r = s;
+                match_chr = (MEM[r].b32.s0 - MATCH_TOKEN) as UTF16_code;
+                s = MEM[r].b32.s1.opt();
+                r = s.unwrap();
                 p = TEMP_HEAD as i32;
                 m = 0;
             }
             'c_67378: loop {
                 get_token();
-                if cur_tok == MEM[r as usize].b32.s0 {
+                if cur_tok == MEM[r].b32.s0 {
                     /*412:*/
-                    r = MEM[r as usize].b32.s1;
-                    if !(MEM[r as usize].b32.s0 >= MATCH_TOKEN
-                        && MEM[r as usize].b32.s0 <= END_MATCH_TOKEN)
-                    {
+                    r = MEM[r].b32.s1.opt().unwrap();
+                    if !(MEM[r].b32.s0 >= MATCH_TOKEN && MEM[r].b32.s0 <= END_MATCH_TOKEN) {
                         continue;
                     }
                     if cur_tok < LEFT_BRACE_LIMIT {
@@ -4763,8 +4749,39 @@ pub(crate) unsafe fn macro_call() {
                     }
                     break;
                 } else {
-                    if s != r {
-                        if s.is_texnull() {
+                    if s != Some(r) {
+                        if let Some(s) = s {
+                            let mut t = s;
+                            loop {
+                                let q = get_avail();
+                                MEM[p as usize].b32.s1 = q as i32;
+                                MEM[q].b32.s0 = MEM[t].b32.s0;
+                                p = q as i32;
+                                m += 1;
+                                let mut u = LLIST_link(t).opt().unwrap();
+                                let mut v = s;
+                                loop {
+                                    if u == r {
+                                        if cur_tok != MEM[v].b32.s0 {
+                                            break;
+                                        }
+                                        r = LLIST_link(v).opt().unwrap();
+                                        continue 'c_67378;
+                                    } else {
+                                        if MEM[u].b32.s0 != MEM[v].b32.s0 {
+                                            break;
+                                        }
+                                        u = LLIST_link(u).opt().unwrap();
+                                        v = LLIST_link(v).opt().unwrap();
+                                    }
+                                }
+                                t = LLIST_link(t).opt().unwrap();
+                                if t == r {
+                                    break;
+                                }
+                            }
+                            r = s;
+                        } else {
                             /*416:*/
                             if file_line_error_style_p != 0 {
                                 print_file_line();
@@ -4784,37 +4801,6 @@ pub(crate) unsafe fn macro_call() {
                             error();
                             current_block = 16670727159935121194;
                             break 's_135;
-                        } else {
-                            t = s;
-                            loop {
-                                q = get_avail() as i32;
-                                MEM[p as usize].b32.s1 = q;
-                                MEM[q as usize].b32.s0 = MEM[t as usize].b32.s0;
-                                p = q;
-                                m += 1;
-                                u = MEM[t as usize].b32.s1;
-                                v = s;
-                                loop {
-                                    if u == r {
-                                        if cur_tok != MEM[v as usize].b32.s0 {
-                                            break;
-                                        }
-                                        r = MEM[v as usize].b32.s1;
-                                        continue 'c_67378;
-                                    } else {
-                                        if MEM[u as usize].b32.s0 != MEM[v as usize].b32.s0 {
-                                            break;
-                                        }
-                                        u = *LLIST_link(u as usize);
-                                        v = *LLIST_link(v as usize);
-                                    }
-                                }
-                                t = *LLIST_link(t as usize);
-                                if !(t != r) {
-                                    break;
-                                }
-                            }
-                            r = s
                         }
                     }
                     if cur_tok == par_token {
@@ -4855,16 +4841,16 @@ pub(crate) unsafe fn macro_call() {
                             /*417:*/
                             unbalance = 1;
                             loop {
-                                q = avail;
-                                if q.is_texnull() {
-                                    q = get_avail() as i32;
+                                let q = if let Some(a) = avail.opt() {
+                                    avail = MEM[a].b32.s1;
+                                    MEM[a].b32.s1 = None.tex_int();
+                                    a
                                 } else {
-                                    avail = MEM[q as usize].b32.s1;
-                                    MEM[q as usize].b32.s1 = None.tex_int()
-                                }
-                                MEM[p as usize].b32.s1 = q;
-                                MEM[q as usize].b32.s0 = cur_tok;
-                                p = q;
+                                    get_avail()
+                                };
+                                MEM[p as usize].b32.s1 = q as i32;
+                                MEM[q].b32.s0 = cur_tok;
+                                p = q as i32;
                                 get_token();
                                 if cur_tok == par_token {
                                     if long_state as u16 != Cmd::LongCall as u16 {
@@ -4912,10 +4898,10 @@ pub(crate) unsafe fn macro_call() {
                                 }
                             }
                             rbrace_ptr = p;
-                            q = get_avail() as i32;
-                            MEM[p as usize].b32.s1 = q;
-                            MEM[q as usize].b32.s0 = cur_tok;
-                            p = q
+                            let q = get_avail();
+                            MEM[p as usize].b32.s1 = q as i32;
+                            MEM[q].b32.s0 = cur_tok;
+                            p = q as i32;
                         } else {
                             back_input();
                             if file_line_error_style_p != 0 {
@@ -4946,27 +4932,27 @@ pub(crate) unsafe fn macro_call() {
                         }
                     } else {
                         if cur_tok == SPACE_TOKEN {
-                            if MEM[r as usize].b32.s0 <= END_MATCH_TOKEN {
-                                if MEM[r as usize].b32.s0 >= MATCH_TOKEN {
+                            if MEM[r].b32.s0 <= END_MATCH_TOKEN {
+                                if MEM[r].b32.s0 >= MATCH_TOKEN {
                                     continue;
                                 }
                             }
                         }
-                        q = get_avail() as i32;
-                        MEM[p as usize].b32.s1 = q;
-                        MEM[q as usize].b32.s0 = cur_tok;
-                        p = q
+                        let q = get_avail();
+                        MEM[p as usize].b32.s1 = q as i32;
+                        MEM[q].b32.s0 = cur_tok;
+                        p = q as i32;
                     }
                     m += 1;
-                    if MEM[r as usize].b32.s0 > END_MATCH_TOKEN {
+                    if MEM[r].b32.s0 > END_MATCH_TOKEN {
                         continue;
                     }
-                    if !(MEM[r as usize].b32.s0 < MATCH_TOKEN) {
+                    if !(MEM[r].b32.s0 < MATCH_TOKEN) {
                         break;
                     }
                 }
             }
-            if !s.is_texnull() {
+            if s.is_some() {
                 /*418:*/
                 if m == 1 && MEM[p as usize].b32.s0 < RIGHT_BRACE_LIMIT && p != TEMP_HEAD as i32 {
                     MEM[rbrace_ptr as usize].b32.s1 = None.tex_int();
@@ -4989,7 +4975,7 @@ pub(crate) unsafe fn macro_call() {
                     end_diagnostic(false);
                 }
             }
-            if !(MEM[r as usize].b32.s0 != END_MATCH_TOKEN) {
+            if !(MEM[r].b32.s0 != END_MATCH_TOKEN) {
                 current_block = 12717620301112128284;
                 break;
             }
@@ -5000,14 +4986,14 @@ pub(crate) unsafe fn macro_call() {
     match current_block {
         12717620301112128284 => {
             while cur_input.state == InputState::TokenList
-                && cur_input.loc.is_texnull()
+                && cur_input.loc.opt().is_none()
                 && cur_input.index != Btl::VTemplate
             {
                 end_token_list();
             }
             begin_token_list(ref_count, Btl::Macro);
             cur_input.name = warning_index;
-            cur_input.loc = MEM[r as usize].b32.s1;
+            cur_input.loc = MEM[r].b32.s1;
             if n as i32 > 0 {
                 if PARAM_PTR + n as usize > MAX_PARAM_STACK {
                     MAX_PARAM_STACK = PARAM_PTR + n as usize;
@@ -5036,175 +5022,175 @@ pub(crate) unsafe fn insert_relax() {
     cur_input.index = Btl::Inserted;
 }
 pub(crate) unsafe fn new_index(mut i: u16, mut q: i32) {
-    let mut k: i16 = 0;
-    cur_ptr = get_node(INDEX_NODE_SIZE) as i32;
-    MEM[cur_ptr as usize].b16.s1 = i;
-    MEM[cur_ptr as usize].b16.s0 = 0_u16;
-    MEM[cur_ptr as usize].b32.s1 = q;
-    k = 1 as i16;
-    let for_end = INDEX_NODE_SIZE - 1;
-    if k as i32 <= for_end {
+    let p = get_node(INDEX_NODE_SIZE);
+    cur_ptr = Some(p).tex_int();
+    MEM[p].b16.s1 = i;
+    MEM[p].b16.s0 = 0_u16;
+    MEM[p].b32.s1 = q;
+    let mut k = 1;
+    let for_end = INDEX_NODE_SIZE as usize - 1;
+    if k <= for_end {
         loop {
-            MEM[(cur_ptr + k as i32) as usize] = sa_null;
-            if !((k as i32) < for_end) {
+            MEM[p + k] = sa_null;
+            if !(k < for_end) {
                 break;
             }
             k = k + 1;
         }
     };
 }
-pub(crate) unsafe fn find_sa_element(t: i16, mut n: i32, mut w: bool) {
-    let mut current_block: u64;
-    let mut q;
-    let mut i: i16 = 0;
+pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
     cur_ptr = sa_root[t as usize];
     if cur_ptr.is_texnull() {
         if w {
-            new_index(t as u16, None.tex_int());
-            sa_root[t as usize] = cur_ptr;
-            q = cur_ptr;
-            i = (n / 0x40000) as i16
+            return not_found(t, n);
         } else {
             return;
         }
-        current_block = 15806769474000922024;
+    }
+    let q = cur_ptr;
+    let i = (n / 0x40000) as i16;
+    cur_ptr = if i as i32 & 1i32 != 0 {
+        MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
     } else {
-        q = cur_ptr;
-        i = (n / 0x40000) as i16;
+        MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
+    };
+    if cur_ptr.is_texnull() {
+        if w {
+            return lab46(t, n, q, i);
+        } else {
+            return;
+        }
+    }
+    let q = cur_ptr;
+    let i = (n / 4096 % 64) as i16;
+    cur_ptr = if i as i32 & 1i32 != 0 {
+        MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
+    } else {
+        MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
+    };
+    if cur_ptr.is_texnull() {
+        if w {
+            return lab47(t, n, q, i);
+        } else {
+            return;
+        }
+    }
+    let q = cur_ptr;
+    let i = (n / 64 % 64) as i16;
+    cur_ptr = if i as i32 & 1i32 != 0 {
+        MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
+    } else {
+        MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
+    };
+    if cur_ptr.is_texnull() {
+        if w {
+            return lab48(t, n, q, i);
+        } else {
+            return;
+        }
+    }
+    let q = cur_ptr;
+    let i = (n % 64) as i16;
+    cur_ptr = if i as i32 & 1i32 != 0 {
+        MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
+    } else {
+        MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
+    };
+    if cur_ptr.is_texnull() && w {
+        return lab49(t, n, q, i);
+    } else {
+        return;
+    }
+
+    unsafe fn not_found(t: ValLevel, n: i32) {
+        new_index(t as u16, None.tex_int());
+        sa_root[t as usize] = cur_ptr;
+        let q = cur_ptr;
+        let i = (n / 0x40000) as i16;
+        lab46(t, n, q, i)
+    }
+
+    /*not_found1 */
+    unsafe fn lab46(t: ValLevel, n: i32, mut q: i32, mut i: i16) {
+        new_index(i as u16, q);
         if i as i32 & 1i32 != 0 {
-            cur_ptr = MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
+            MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
         } else {
-            cur_ptr = MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
+            MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = cur_ptr
         }
-        if cur_ptr.is_texnull() {
-            if w {
-                current_block = 15806769474000922024;
-            } else {
-                return;
-            }
+        MEM[q as usize].b16.s0 += 1;
+        q = cur_ptr;
+        i = (n / 4096 % 64) as i16;
+        lab47(t, n, q, i)
+    }
+
+    /*not_found2 */
+    unsafe fn lab47(t: ValLevel, n: i32, mut q: i32, mut i: i16) {
+        new_index(i as u16, q);
+        if i as i32 & 1i32 != 0 {
+            MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
         } else {
-            q = cur_ptr;
-            i = (n / 4096 % 64) as i16;
-            if i as i32 & 1i32 != 0 {
-                cur_ptr = MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
-            } else {
-                cur_ptr = MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
-            }
-            if cur_ptr.is_texnull() {
-                if w {
-                    current_block = 14787586673191526541;
-                } else {
-                    return;
-                }
-            } else {
-                q = cur_ptr;
-                i = (n / 64 % 64) as i16;
-                if i as i32 & 1i32 != 0 {
-                    cur_ptr = MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
-                } else {
-                    cur_ptr = MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
-                }
-                if cur_ptr.is_texnull() {
-                    if w {
-                        current_block = 9497429165911859091;
-                    } else {
-                        return;
-                    }
-                } else {
-                    q = cur_ptr;
-                    i = (n % 64) as i16;
-                    if i as i32 & 1i32 != 0 {
-                        cur_ptr = MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
-                    } else {
-                        cur_ptr = MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
-                    }
-                    if cur_ptr.is_texnull() && w {
-                        current_block = 10182473981606373355;
-                    } else {
-                        return;
-                    }
-                }
-            }
+            MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = cur_ptr
         }
+        MEM[q as usize].b16.s0 += 1;
+        q = cur_ptr;
+        i = (n / 64 % 64) as i16;
+        lab48(t, n, q, i)
     }
-    match current_block {
-        15806769474000922024 => {
-            /*not_found1 */
-            new_index(i as u16, q);
-            if i as i32 & 1i32 != 0 {
-                MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
-            } else {
-                MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = cur_ptr
-            }
-            MEM[q as usize].b16.s0 += 1;
-            q = cur_ptr;
-            i = (n / 4096 % 64) as i16;
-            current_block = 14787586673191526541;
+
+    /*not_found3 */
+    unsafe fn lab48(t: ValLevel, n: i32, mut q: i32, mut i: i16) {
+        new_index(i as u16, q);
+        if i as i32 & 1i32 != 0 {
+            MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
+        } else {
+            MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = cur_ptr
         }
-        _ => {}
+        MEM[q as usize].b16.s0 += 1;
+        q = cur_ptr;
+        i = (n % 64i32) as i16;
+        lab49(t, n, q, i)
     }
-    match current_block {
-        14787586673191526541 => {
-            /*not_found2 */
-            new_index(i as u16, q);
-            if i as i32 & 1i32 != 0 {
-                MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
-            } else {
-                MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = cur_ptr
-            }
-            MEM[q as usize].b16.s0 += 1;
-            q = cur_ptr;
-            i = (n / 64 % 64) as i16;
-            current_block = 9497429165911859091;
-        }
-        _ => {}
-    }
-    match current_block {
-        9497429165911859091 => {
-            /*not_found3 */
-            new_index(i as u16, q);
-            if i as i32 & 1i32 != 0 {
-                MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
-            } else {
-                MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = cur_ptr
-            }
-            MEM[q as usize].b16.s0 += 1;
-            q = cur_ptr;
-            i = (n % 64i32) as i16
-        }
-        _ => {}
-    }
+
     /*not_found4 *//*1608: */
-    if t == ValLevel::Mark as i16 {
-        cur_ptr = get_node(MARK_CLASS_NODE_SIZE) as i32; /*level_one *//*:1608 */
-        MEM[(cur_ptr + 1) as usize] = sa_null;
-        MEM[(cur_ptr + 2) as usize] = sa_null;
-        MEM[(cur_ptr + 3) as usize] = sa_null
-    } else {
-        if t == ValLevel::Int as i16 || t == ValLevel::Dimen as i16 {
-            cur_ptr = get_node(WORD_NODE_SIZE) as i32;
-            MEM[(cur_ptr + 2) as usize].b32.s1 = 0;
-            MEM[(cur_ptr + 1) as usize].b32.s1 = n
+    unsafe fn lab49(t: ValLevel, n: i32, q: i32, i: i16) {
+        let p = if t == ValLevel::Mark {
+            let p = get_node(MARK_CLASS_NODE_SIZE); /*level_one *//*:1608 */
+            MEM[p + 1] = sa_null;
+            MEM[p + 2] = sa_null;
+            MEM[p + 3] = sa_null;
+            p
         } else {
-            cur_ptr = get_node(POINTER_NODE_SIZE) as i32;
-            if t <= ValLevel::Mu as i16 {
-                MEM[(cur_ptr + 1) as usize].b32.s1 = 0;
-                MEM[0].b32.s1 += 1;
+            let p = if t == ValLevel::Int || t == ValLevel::Dimen {
+                let p = get_node(WORD_NODE_SIZE);
+                MEM[p + 2].b32.s1 = 0;
+                MEM[p + 1].b32.s1 = n;
+                p
             } else {
-                MEM[(cur_ptr + 1) as usize].b32.s1 = None.tex_int()
-            }
+                let p = get_node(POINTER_NODE_SIZE);
+                if t <= ValLevel::Mu {
+                    MEM[p + 1].b32.s1 = 0;
+                    MEM[0].b32.s1 += 1;
+                } else {
+                    MEM[p + 1].b32.s1 = None.tex_int();
+                }
+                p
+            };
+            MEM[p + 1].b32.s0 = None.tex_int();
+            p
+        };
+        cur_ptr = Some(p).tex_int();
+        MEM[p].b16.s1 = (64 * t as i32 + i as i32) as u16;
+        MEM[p].b16.s0 = 1;
+        MEM[p].b32.s1 = q;
+        if i as i32 & 1i32 != 0 {
+            MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
+        } else {
+            MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = cur_ptr
         }
-        MEM[(cur_ptr + 1) as usize].b32.s0 = None.tex_int()
+        MEM[q as usize].b16.s0 += 1;
     }
-    MEM[cur_ptr as usize].b16.s1 = (64 * t as i32 + i as i32) as u16;
-    MEM[cur_ptr as usize].b16.s0 = 1;
-    MEM[cur_ptr as usize].b32.s1 = q;
-    if i as i32 & 1i32 != 0 {
-        MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
-    } else {
-        MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = cur_ptr
-    }
-    MEM[q as usize].b16.s0 += 1;
 }
 pub(crate) unsafe fn expand() {
     let mut t: i32 = 0;
@@ -5237,7 +5223,7 @@ pub(crate) unsafe fn expand() {
                     if cur_val == 0 {
                         cur_ptr = cur_mark[t as usize]
                     } else {
-                        find_sa_element(ValLevel::Mark as i16, cur_val, false);
+                        find_sa_element(ValLevel::Mark, cur_val, false);
                         if !cur_ptr.is_texnull() {
                             if t & 1i32 != 0 {
                                 cur_ptr = MEM[(cur_ptr + t / 2 + 1) as usize].b32.s1
@@ -6237,7 +6223,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                         if cur_val < 256 {
                             cur_val = EQTB[TOKS_BASE + cur_val as usize].val
                         } else {
-                            find_sa_element(ValLevel::Tok as i16, cur_val, false);
+                            find_sa_element(ValLevel::Tok, cur_val, false);
                             if cur_ptr.is_texnull() {
                                 cur_val = None.tex_int()
                             } else {
@@ -6252,7 +6238,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                     cur_ptr = cur_val;
                     scan_char_class_not_ignored();
                     find_sa_element(
-                        ValLevel::InterChar as i16,
+                        ValLevel::InterChar,
                         cur_ptr * CHAR_CLASS_LIMIT + cur_val,
                         false,
                     );
@@ -6378,7 +6364,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
             let q = if cur_val < 256 {
                 BOX_REG(cur_val as usize).opt()
             } else {
-                find_sa_element(4, cur_val, false);
+                find_sa_element(ValLevel::Ident, cur_val, false);
                 if let Some(p) = cur_ptr.opt() {
                     MEM[p + 1].b32.s1.opt()
                 } else {
@@ -6446,7 +6432,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                 scan_register_num();
                 cur_val_level = ValLevel::from(m as u8);
                 if cur_val > 255 {
-                    find_sa_element(cur_val_level as i16, cur_val, false);
+                    find_sa_element(cur_val_level, cur_val, false);
                     if cur_ptr.is_texnull() {
                         cur_val = 0;
                     } else if cur_val_level < ValLevel::Glue {
@@ -8679,7 +8665,7 @@ pub(crate) unsafe fn conv_toks() {
             if cur_val < 256 {
                 p = *BOX_REG(cur_val as usize)
             } else {
-                find_sa_element(4, cur_val, false);
+                find_sa_element(ValLevel::Ident, cur_val, false);
                 if cur_ptr.is_texnull() {
                     p = None.tex_int()
                 } else {
@@ -9359,7 +9345,7 @@ pub(crate) unsafe fn conditional() {
             let p = if cur_val < 256 {
                 BOX_REG(cur_val as usize).opt()
             } else {
-                find_sa_element(4, cur_val, false);
+                find_sa_element(ValLevel::Ident, cur_val, false);
                 if let Some(cp) = cur_ptr.opt() {
                     MEM[cp + 1].b32.s1.opt()
                 } else {
@@ -13219,7 +13205,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
     let v = if cur_val < 256 {
         BOX_REG(cur_val as usize).opt()
     } else {
-        find_sa_element(4, cur_val, false);
+        find_sa_element(ValLevel::Ident, cur_val, false);
         if cur_ptr.is_texnull() {
             None
         } else {
@@ -13265,7 +13251,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
             if NODE_type(p as usize) == TextNode::Mark.into() {
                 if MEM[(p + 1) as usize].b32.s0 != 0 {
                     /*1615: */
-                    find_sa_element(ValLevel::Mark as i16, MEM[(p + 1) as usize].b32.s0, true);
+                    find_sa_element(ValLevel::Mark, MEM[(p + 1) as usize].b32.s0, true);
                     if MEM[(cur_ptr + 2) as usize].b32.s1.is_texnull() {
                         MEM[(cur_ptr + 2) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
                         MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1
@@ -13309,7 +13295,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
     if cur_val < 256 {
         *BOX_REG(cur_val as usize) = q.tex_int();
     } else {
-        find_sa_element(4, cur_val, false);
+        find_sa_element(ValLevel::Ident, cur_val, false);
         if !cur_ptr.is_texnull() {
             MEM[(cur_ptr + 1) as usize].b32.s1 = q.tex_int();
             MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
@@ -13639,7 +13625,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
                 eq_define(BOX_BASE + cur_val as usize, Cmd::BoxRef, cur_box.opt());
             }
         } else {
-            find_sa_element(4, cur_val, true);
+            find_sa_element(ValLevel::Ident, cur_val, true);
             if a >= 4 {
                 gsa_def(cur_ptr as usize, cur_box.opt());
             } else {
@@ -13689,7 +13675,7 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
             if cur_val < 256 {
                 cur_box = *BOX_REG(cur_val as usize)
             } else {
-                find_sa_element(4, cur_val, false);
+                find_sa_element(ValLevel::Ident, cur_val, false);
                 if cur_ptr.is_texnull() {
                     cur_box = None.tex_int()
                 } else {
@@ -13699,7 +13685,7 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
             if cur_val < 256 {
                 *BOX_REG(cur_val as usize) = None.tex_int()
             } else {
-                find_sa_element(4, cur_val, false);
+                find_sa_element(ValLevel::Ident, cur_val, false);
                 if !cur_ptr.is_texnull() {
                     MEM[(cur_ptr + 1) as usize].b32.s1 = None.tex_int();
                     MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
@@ -13712,7 +13698,7 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
             let q = if cur_val < 256 {
                 BOX_REG(cur_val as usize).opt()
             } else {
-                find_sa_element(4, cur_val, false);
+                find_sa_element(ValLevel::Ident, cur_val, false);
                 if cur_ptr.is_texnull() {
                     None
                 } else {
@@ -14201,7 +14187,7 @@ pub(crate) unsafe fn unpackage() {
         if cur_val < 256 {
             p = *BOX_REG(cur_val as usize)
         } else {
-            find_sa_element(4 as i16, cur_val, false);
+            find_sa_element(ValLevel::Ident, cur_val, false);
             if cur_ptr.is_texnull() {
                 p = None.tex_int();
             } else {
@@ -14235,7 +14221,7 @@ pub(crate) unsafe fn unpackage() {
             if cur_val < 256 {
                 *BOX_REG(cur_val as usize) = None.tex_int()
             } else {
-                find_sa_element(4, cur_val, false);
+                find_sa_element(ValLevel::Ident, cur_val, false);
                 if !cur_ptr.is_texnull() {
                     MEM[(cur_ptr + 1) as usize].b32.s1 = None.tex_int();
                     MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
@@ -14901,7 +14887,7 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
                 p = ValLevel::from(cur_chr as u8);
                 scan_register_num();
                 if cur_val > 255 {
-                    find_sa_element(p as i16, cur_val, true);
+                    find_sa_element(p, cur_val, true);
                     l = cur_ptr;
                     e = true
                 } else {
@@ -15143,7 +15129,7 @@ pub(crate) unsafe fn alter_box_dimen() {
     let b = if cur_val < 256 {
         BOX_REG(cur_val as usize).opt()
     } else {
-        find_sa_element(4, cur_val, false);
+        find_sa_element(ValLevel::Ident, cur_val, false);
         if cur_ptr.is_texnull() {
             None
         } else {
@@ -15390,7 +15376,7 @@ pub(crate) unsafe fn show_whatever() {
             let p = if cur_val < 256 {
                 BOX_REG(cur_val as usize).opt()
             } else {
-                find_sa_element(4, cur_val, false);
+                find_sa_element(ValLevel::Ident, cur_val, false);
                 if cur_ptr.is_texnull() {
                     None
                 } else {
@@ -15977,7 +15963,7 @@ pub(crate) unsafe fn main_control() {
                         {
                             prev_class = CHAR_CLASS_LIMIT - 1;
                             find_sa_element(
-                                ValLevel::InterChar as i16,
+                                ValLevel::InterChar,
                                 space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                                 false,
                             );
@@ -16753,7 +16739,7 @@ pub(crate) unsafe fn main_control() {
                                 || cur_input.index != Btl::BackedUpChar
                             {
                                 find_sa_element(
-                                    ValLevel::InterChar as i16,
+                                    ValLevel::InterChar,
                                     (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
                                     false,
                                 );
@@ -16773,7 +16759,7 @@ pub(crate) unsafe fn main_control() {
                             }
                         } else {
                             find_sa_element(
-                                ValLevel::InterChar as i16,
+                                ValLevel::InterChar,
                                 prev_class * CHAR_CLASS_LIMIT + space_class,
                                 false,
                             );
@@ -16866,7 +16852,7 @@ pub(crate) unsafe fn main_control() {
                     14170946608255986518 => {
                         prev_class = CHAR_CLASS_LIMIT - 1;
                         find_sa_element(
-                            ValLevel::InterChar as i16,
+                            ValLevel::InterChar,
                             space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                             false,
                         );
@@ -17349,7 +17335,7 @@ pub(crate) unsafe fn main_control() {
                             || cur_input.index != Btl::BackedUpChar
                         {
                             find_sa_element(
-                                ValLevel::InterChar as i16,
+                                ValLevel::InterChar,
                                 (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
                                 false,
                             );
@@ -17369,7 +17355,7 @@ pub(crate) unsafe fn main_control() {
                         }
                     } else {
                         find_sa_element(
-                            ValLevel::InterChar as i16,
+                            ValLevel::InterChar,
                             prev_class * CHAR_CLASS_LIMIT + space_class,
                             false,
                         );
@@ -17730,7 +17716,7 @@ pub(crate) unsafe fn main_control() {
                                                     || cur_input.index != Btl::BackedUpChar
                                                 {
                                                     find_sa_element(
-                                                        ValLevel::InterChar as i16,
+                                                        ValLevel::InterChar,
                                                         (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT
                                                             + space_class,
                                                         false,
@@ -17753,7 +17739,7 @@ pub(crate) unsafe fn main_control() {
                                                 }
                                             } else {
                                                 find_sa_element(
-                                                    ValLevel::InterChar as i16,
+                                                    ValLevel::InterChar,
                                                     prev_class * CHAR_CLASS_LIMIT + space_class,
                                                     false,
                                                 );
@@ -17927,7 +17913,7 @@ pub(crate) unsafe fn main_control() {
                 {
                     prev_class = CHAR_CLASS_LIMIT - 1;
                     find_sa_element(
-                        ValLevel::InterChar as i16,
+                        ValLevel::InterChar,
                         space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                         false,
                     );
