@@ -9527,8 +9527,8 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
     str_ptr -= 1;
     pool_ptr = str_start[(str_ptr - 0x10000) as usize];
     ttstub_issue_warning(&format!(
-        "could not represent character \"{}\" in font \"{}\"",
-        chr, fn_0
+        "could not represent character \"{}\" (0x{:x}) in font \"{}\"",
+        chr, c as u32, fn_0
     ));
     if !gave_char_warning_help {
         ttstub_issue_warning(
