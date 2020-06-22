@@ -29,7 +29,7 @@ use crate::xetex_xetexd::{
     is_non_discardable_node, set_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width,
     GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
     GLUE_SPEC_stretch_order, LLIST_link, /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty,
-    TeXOpt, TeXInt,
+    TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -382,8 +382,8 @@ unsafe fn fire_up(mut c: i32) {
             sa_root[ValLevel::Mark as usize] = None.tex_int();
         }
     }
-    if let Some(m) = cur_mark[TOP_MARK_CODE as usize].opt()    {
-        if cur_mark[FIRST_MARK_CODE as usize].is_texnull() {
+    if let Some(m) = cur_mark[TOP_MARK_CODE as usize].opt() {
+        if cur_mark[FIRST_MARK_CODE as usize].opt().is_none() {
             cur_mark[FIRST_MARK_CODE as usize] = Some(m).tex_int();
             MEM[cur_mark[0] as usize].b32.s0 += 1;
         }
@@ -706,11 +706,13 @@ pub(crate) unsafe fn build_page() {
                         MEM[(slf.r + 1) as usize].b32.s1 = slf.q;
                         MEM[(slf.r + 1) as usize].b32.s0 = slf.p;
 
-                        if slf.q.is_texnull() {
+                        if let Some(q) = slf.q.opt() {
+                            if NODE_type(q) == TextNode::Penalty.into() {
+                                insert_penalties +=
+                                    MEM[q + 1].b32.s1;
+                            }
+                        } else {
                             insert_penalties += EJECT_PENALTY;
-                        } else if NODE_type(slf.q as usize) == TextNode::Penalty.into() {
-                            insert_penalties +=
-                                MEM[(slf.q + 1) as usize].b32.s1
                         }
                     }
                 }
@@ -857,8 +859,8 @@ pub(crate) unsafe fn build_page() {
                  * `page_disc`, the first item removed by the page builder.
                  * `disc_ptr[VSPLIT_CODE]` is `split_disc`, the first item removed
                  * by \vsplit. */
-                if disc_ptr[LAST_BOX_CODE as usize].is_texnull() {
-                    disc_ptr[LAST_BOX_CODE as usize] = slf.p
+                if disc_ptr[LAST_BOX_CODE as usize].opt().is_none() {
+                    disc_ptr[LAST_BOX_CODE as usize] = slf.p;
                 } else {
                     *LLIST_link(disc_ptr[COPY_CODE as usize] as usize) = slf.p;
                 }
@@ -868,7 +870,7 @@ pub(crate) unsafe fn build_page() {
         }
     }
 
-    if LLIST_link(CONTRIB_HEAD).is_texnull() || output_active {
+    if LLIST_link(CONTRIB_HEAD).opt().is_none() || output_active {
         return;
     }
 
@@ -880,7 +882,7 @@ pub(crate) unsafe fn build_page() {
         if halt {
             return;
         };
-        if LLIST_link(CONTRIB_HEAD).is_texnull() {
+        if LLIST_link(CONTRIB_HEAD).opt().is_none() {
             break;
         }
     }

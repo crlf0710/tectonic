@@ -70,7 +70,7 @@ static mut dvi_ptr: usize = 0;
 static mut dvi_offset: usize = 0;
 static mut dvi_gone: i32 = 0;
 static mut down_ptr: Option<usize> = Some(0);
-static mut right_ptr: i32 = 0;
+static mut right_ptr: Option<usize> = Some(0);
 static mut dvi_h: scaled_t = 0;
 static mut dvi_v: scaled_t = 0;
 static mut dvi_f: internal_font_number = 0;
@@ -84,7 +84,7 @@ pub(crate) unsafe fn initialize_shipout_variables() {
     dvi_offset = 0;
     dvi_gone = 0;
     down_ptr = None;
-    right_ptr = None.tex_int();
+    right_ptr = None;
     cur_s = -1;
 }
 
@@ -143,7 +143,7 @@ pub(crate) unsafe fn ship_out(p: usize) {
     if *INTPAR(IntPar::tracing_output) > 0 {
         print_char(']' as i32);
         begin_diagnostic();
-        show_box(p as i32);
+        show_box(Some(p));
         end_diagnostic(true);
     }
 
@@ -170,7 +170,7 @@ pub(crate) unsafe fn ship_out(p: usize) {
         if *INTPAR(IntPar::tracing_output) <= 0 {
             begin_diagnostic();
             print_nl_cstr(b"The following box has been deleted:");
-            show_box(p as i32);
+            show_box(Some(p));
             end_diagnostic(true);
         }
     } else {
@@ -319,7 +319,7 @@ pub(crate) unsafe fn ship_out(p: usize) {
         print_ln();
     }
 
-    if !LR_ptr.is_texnull() || cur_dir != LR::LeftToRight {
+    if LR_ptr.opt().is_some() || cur_dir != LR::LeftToRight {
         confusion(b"LR3");
     }
 
@@ -650,7 +650,7 @@ unsafe fn hlist_out() {
         *SYNCTEX_tag(p as usize, MEDIUM_NODE_SIZE) = 0;
         *LLIST_link(prev_p as usize) = p;
         cur_h = 0;
-        *LLIST_link(p as usize) = reverse(this_box, None.tex_int(), &mut cur_g, &mut cur_glue);
+        *LLIST_link(p as usize) = reverse(this_box, None, &mut cur_g, &mut cur_glue);
         MEM[(p + 1) as usize].b32.s1 = -cur_h;
         cur_h = save_h;
         set_BOX_lr_mode(this_box as usize, LRMode::Reversed);
@@ -733,7 +733,7 @@ unsafe fn hlist_out() {
                     let n = text_NODE_type(p as usize).unwrap();
                     match n {
                         TextNode::HList | TextNode::VList => {
-                            if BOX_list_ptr(p as usize).is_texnull() {
+                            if BOX_list_ptr(p as usize).opt().is_none() {
                                 if n == TextNode::VList {
                                     synctex_void_vlist(p, this_box);
                                 } else { synctex_void_hlist(p, this_box); }
@@ -956,7 +956,7 @@ unsafe fn hlist_out() {
                                    g_sign == GlueSign::Shrinking &&
                                        *GLUE_SPEC_shrink_order(g) ==
                                            g_order as u16 {
-                                if GLUE_SPEC_ref_count(g).is_texnull() {
+                                if GLUE_SPEC_ref_count(g).opt().is_none() {
                                     free_node(g,
                                               GLUE_SPEC_SIZE);
                                 } else {
@@ -1053,7 +1053,7 @@ unsafe fn hlist_out() {
                                 cur_h = cur_h - left_edge + rule_wd;
                                 *LLIST_link(p as usize) =
                                     reverse(this_box,
-                                            new_edge(!cur_dir, 0) as i32,
+                                            Some(new_edge(!cur_dir, 0)),
                                             &mut cur_g, &mut cur_glue);
                                 *EDGE_NODE_edge_dist(p as usize) =
                                     cur_h;
@@ -1308,7 +1308,7 @@ unsafe fn vlist_out() {
             match n {
                 TextNode::HList | TextNode::VList => {
                     /*654: "Output a box in a vlist" */
-                    if BOX_list_ptr(p).is_texnull() {
+                    if BOX_list_ptr(p).opt().is_none() {
                         if upwards {
                             cur_v -= *BOX_depth(p);
                         } else {
@@ -1623,12 +1623,11 @@ unsafe fn vlist_out() {
  */
 unsafe fn reverse(
     mut this_box: i32,
-    mut t: i32,
+    mut t: Option<usize>,
     mut cur_g: *mut scaled_t,
     mut cur_glue: *mut f64,
 ) -> i32 {
     let mut current_block: u64;
-    let mut l: i32 = 0;
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut glue_temp: f64 = 0.;
@@ -1638,7 +1637,7 @@ unsafe fn reverse(
     let mut f: internal_font_number = 0;
     let mut g_order = *BOX_glue_order(this_box as usize);
     let mut g_sign = GlueSign::from(*BOX_glue_sign(this_box as usize));
-    l = t;
+    let mut l = t.tex_int();
     p = temp_ptr;
     m = MIN_HALFWORD;
     n = MIN_HALFWORD;
@@ -1722,7 +1721,7 @@ unsafe fn reverse(
                             if g_sign == GlueSign::Stretching && MEM[g].b16.s1 == g_order as u16
                                 || g_sign == GlueSign::Shrinking && MEM[g].b16.s0 == g_order as u16
                             {
-                                if GLUE_SPEC_ref_count(g).is_texnull() {
+                                if GLUE_SPEC_ref_count(g).opt().is_none() {
                                     free_node(g, GLUE_SPEC_SIZE);
                                 } else {
                                     *GLUE_SPEC_ref_count(g) -= 1;
@@ -1795,9 +1794,10 @@ unsafe fn reverse(
                             } else {
                                 /*1517: "Finish the reverse hlist segment and goto done" */
                                 free_node(p as usize, MEDIUM_NODE_SIZE); /* end GLUE_NODE case */
-                                *LLIST_link(t as usize) = q;
-                                *BOX_width(t as usize) = rule_wd;
-                                *EDGE_NODE_edge_dist(t as usize) = -cur_h - rule_wd;
+                                let t = t.unwrap();
+                                *LLIST_link(t) = q;
+                                *BOX_width(t) = rule_wd;
+                                *EDGE_NODE_edge_dist(t) = -cur_h - rule_wd;
                                 break;
                             }
                         }
@@ -1839,7 +1839,7 @@ unsafe fn reverse(
             p = q
         } else {
             /* ... resuming 1510 ... */
-            if t.is_texnull() && m.is_texnull() && n.is_texnull() {
+            if t.is_none() && m.is_texnull() && n.is_texnull() {
                 break; /* "Manufacture a missing math node" */
             }
             p = new_math(0, *LLIST_info(LR_ptr as usize) as i16) as i32;
@@ -1851,7 +1851,7 @@ unsafe fn reverse(
 
 /*1506: Create a new edge node of subtype `s` and width `w` */
 pub(crate) unsafe fn new_edge(s: LR, w: scaled_t) -> usize {
-    let p = get_node(EDGE_NODE_SIZE) as usize;
+    let p = get_node(EDGE_NODE_SIZE);
     set_NODE_type(p, EDGE_NODE);
     MEM[p].b16.s0 = s as u16; // set_NODE_subtype
     *BOX_width(p) = w;
@@ -2001,7 +2001,6 @@ unsafe fn dvi_font_def(f: internal_font_number) {
 }
 
 unsafe fn movement(mut w: scaled_t, mut o: u8) {
-    let mut p: i32 = 0;
     let mut k: i32 = 0;
     let mut q = get_node(MOVEMENT_NODE_SIZE);
     MEM[q + 1].b32.s1 = w;
@@ -2010,75 +2009,76 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
         MEM[q].b32.s1 = down_ptr.tex_int();
         down_ptr = Some(q);
     } else {
-        MEM[q].b32.s1 = right_ptr;
-        right_ptr = q as i32;
+        MEM[q].b32.s1 = right_ptr.tex_int();
+        right_ptr = Some(q);
     }
 
-    p = MEM[q].b32.s1;
+    let mut popt = MEM[q].b32.s1.opt();
     let mut mstate = MoveSeen::None;
 
     loop {
-        if p.is_texnull() {
-            return not_found(q, o, w);
-        }
-        if MEM[(p + 1) as usize].b32.s1 == w {
-            /* By this point must be WhatsItNST::Open */
-            /*632:*/
-            match (mstate, MoveDir::from(MEM[p as usize].b32.s0)) {
-                (MoveSeen::None, MoveDir::YZOk)
-                | (MoveSeen::None, MoveDir::YOk)
-                | (MoveSeen::Z, MoveDir::YZOk)
-                | (MoveSeen::Z, MoveDir::YOk) => {
-                    if MEM[(p + 2) as usize].b32.s1 < dvi_gone {
-                        return not_found(q, o, w);
-                    } else {
-                        /*633:*/
+        if let Some(p) = popt {
+            if MEM[(p + 1) as usize].b32.s1 == w {
+                /* By this point must be WhatsItNST::Open */
+                /*632:*/
+                match (mstate, MoveDir::from(MEM[p as usize].b32.s0)) {
+                    (MoveSeen::None, MoveDir::YZOk)
+                    | (MoveSeen::None, MoveDir::YOk)
+                    | (MoveSeen::Z, MoveDir::YZOk)
+                    | (MoveSeen::Z, MoveDir::YOk) => {
+                        if MEM[(p + 2) as usize].b32.s1 < dvi_gone {
+                            return not_found(q, o, w);
+                        } else {
+                            /*633:*/
+                            k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
+                            if k < 0 {
+                                k = k + DVI_BUF_SIZE as i32;
+                            }
+                            dvi_buf[k as usize] += 5;
+                            MEM[p as usize].b32.s0 = MoveDir::YHere as i32;
+                            return found(q, o, p as usize);
+                        }
+                    }
+                    (MoveSeen::None, MoveDir::ZOk)
+                    | (MoveSeen::Y, MoveDir::YZOk)
+                    | (MoveSeen::Y, MoveDir::ZOk) => {
+                        if MEM[(p + 2) as usize].b32.s1 < dvi_gone {
+                            return not_found(q, o, w);
+                        }
                         k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
                         if k < 0 {
                             k = k + DVI_BUF_SIZE as i32;
                         }
-                        dvi_buf[k as usize] += 5;
-                        MEM[p as usize].b32.s0 = MoveDir::YHere as i32;
+                        dvi_buf[k as usize] += 10;
+                        MEM[p as usize].b32.s0 = MoveDir::ZHere as i32;
                         return found(q, o, p as usize);
                     }
+                    (MoveSeen::None, MoveDir::YHere)
+                    | (MoveSeen::None, MoveDir::ZHere)
+                    | (MoveSeen::Y, MoveDir::ZHere)
+                    | (MoveSeen::Z, MoveDir::YHere) => {
+                        return found(q, o, p as usize);
+                    }
+                    _ => {}
                 }
-                (MoveSeen::None, MoveDir::ZOk)
-                | (MoveSeen::Y, MoveDir::YZOk)
-                | (MoveSeen::Y, MoveDir::ZOk) => {
-                    if MEM[(p + 2) as usize].b32.s1 < dvi_gone {
+            } else {
+                match (mstate, MoveDir::from(MEM[p as usize].b32.s0)) {
+                    (MoveSeen::None, MoveDir::YHere) => {
+                        mstate = MoveSeen::Y;
+                    }
+                    (MoveSeen::None, MoveDir::ZHere) => {
+                        mstate = MoveSeen::Z;
+                    }
+                    (MoveSeen::Y, MoveDir::ZHere) | (MoveSeen::Z, MoveDir::YHere) => {
                         return not_found(q, o, w);
                     }
-                    k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
-                    if k < 0 {
-                        k = k + DVI_BUF_SIZE as i32;
-                    }
-                    dvi_buf[k as usize] += 10;
-                    MEM[p as usize].b32.s0 = MoveDir::ZHere as i32;
-                    return found(q, o, p as usize);
+                    _ => {}
                 }
-                (MoveSeen::None, MoveDir::YHere)
-                | (MoveSeen::None, MoveDir::ZHere)
-                | (MoveSeen::Y, MoveDir::ZHere)
-                | (MoveSeen::Z, MoveDir::YHere) => {
-                    return found(q, o, p as usize);
-                }
-                _ => {}
             }
+            popt = LLIST_link(p).opt();
         } else {
-            match (mstate, MoveDir::from(MEM[p as usize].b32.s0)) {
-                (MoveSeen::None, MoveDir::YHere) => {
-                    mstate = MoveSeen::Y;
-                }
-                (MoveSeen::None, MoveDir::ZHere) => {
-                    mstate = MoveSeen::Z;
-                }
-                (MoveSeen::Y, MoveDir::ZHere) | (MoveSeen::Z, MoveDir::YHere) => {
-                    return not_found(q, o, w);
-                }
-                _ => {}
-            }
+            return not_found(q, o, w);
         }
-        p = *LLIST_link(p as usize);
     }
 
     /*629: found:*/
@@ -2152,13 +2152,12 @@ unsafe fn prune_movements(l: usize) {
         down_ptr = LLIST_link(p).opt();
         free_node(p, MOVEMENT_NODE_SIZE);
     }
-    while !right_ptr.is_texnull() {
-        if MEM[(right_ptr + 2) as usize].b32.s1 < l as i32 {
+    while let Some(p) = right_ptr {
+        if MEM[p + 2].b32.s1 < l as i32 {
             return;
         }
-        let p = right_ptr;
-        right_ptr = MEM[p as usize].b32.s1;
-        free_node(p as usize, MOVEMENT_NODE_SIZE);
+        right_ptr = LLIST_link(p).opt();
+        free_node(p, MOVEMENT_NODE_SIZE);
     }
 }
 

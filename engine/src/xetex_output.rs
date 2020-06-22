@@ -525,19 +525,16 @@ pub(crate) unsafe fn print_native_word(p: usize) {
         i += 1
     }
 }
-pub(crate) unsafe fn print_sa_num(mut q: i32) {
+pub(crate) unsafe fn print_sa_num(mut q: usize) {
     let mut n: i32 = 0;
-    if MEM[q as usize].b16.s1 < DIMEN_VAL_LIMIT {
-        n = MEM[(q + 1) as usize].b32.s1
+    if MEM[q].b16.s1 < DIMEN_VAL_LIMIT {
+        n = MEM[q + 1].b32.s1
     } else {
-        n = MEM[q as usize].b16.s1 as i32 % 64;
-        q = MEM[q as usize].b32.s1;
-        n = n + 64 * MEM[q as usize].b16.s1 as i32;
-        q = MEM[q as usize].b32.s1;
-        n = n + 64
-            * 64
-            * (MEM[q as usize].b16.s1 as i32
-                + 64 * MEM[MEM[q as usize].b32.s1 as usize].b16.s1 as i32)
+        n = MEM[q].b16.s1 as i32 % 64;
+        q = MEM[q].b32.s1 as usize;
+        n = n + 64 * MEM[q].b16.s1 as i32;
+        q = MEM[q].b32.s1 as usize;
+        n = n + 64 * 64 * (MEM[q].b16.s1 as i32 + 64 * MEM[MEM[q].b32.s1 as usize].b16.s1 as i32)
     }
     print_int(n);
 }

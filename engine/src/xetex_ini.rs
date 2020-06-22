@@ -45,7 +45,7 @@ use crate::xetex_xetex0::{
     scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int, show_cur_cmd_chr,
     show_save_groups, start_input, trap_zero_glue,
 };
-use crate::xetex_xetexd::{set_class, set_family, LLIST_link, TeXOpt, TeXInt};
+use crate::xetex_xetexd::{set_class, set_family, LLIST_link, TeXInt, TeXOpt};
 use bridge::{
     ttstub_input_close, ttstub_input_open, ttstub_output_close, ttstub_output_open,
     ttstub_output_open_stdout,
@@ -2374,25 +2374,22 @@ pub(crate) unsafe fn prefixed_command() {
                 /*1262:*/
                 if cur_cmd == Cmd::ToksRegister ||
                        cur_cmd == Cmd::AssignToks {
-                    if cur_cmd == Cmd::ToksRegister {
+                    q = if cur_cmd == Cmd::ToksRegister {
                         if cur_chr == 0 {
                             scan_register_num(); /* "extended delimiter code flag" */
                             if cur_val < 256 {
-                                q = *TOKS_REG(cur_val as usize);
+                                *TOKS_REG(cur_val as usize)
                             } else {
                                 find_sa_element(ValLevel::Tok as i16, cur_val,
                                                 false); /* "extended delimiter code family */
-                                if cur_ptr.is_texnull() {
-                                    q = None.tex_int()
+                                if let Some(p) = cur_ptr.opt() {
+                                    MEM[p + 1].b32.s1
                                 } else {
-                                    q =
-                                        MEM[(cur_ptr + 1) as
-                                                         usize].b32.s1
+                                    None.tex_int()
                                 }
                             }
                         } else {
-                            q =
-                                MEM[(cur_chr + 1) as
+                            MEM[(cur_chr + 1) as
                                                  usize].b32.s1
                         }
                     } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
@@ -2402,14 +2399,12 @@ pub(crate) unsafe fn prefixed_command() {
                         find_sa_element(ValLevel::InterChar as i16,
                                         cur_ptr * CHAR_CLASS_LIMIT + cur_val,
                                         false);
-                        if cur_ptr.is_texnull() {
-                            q = None.tex_int()
+                        if let Some(p) = cur_ptr.opt() {
+                            MEM[p + 1].b32.s1
                         } else {
-                            q =
-                                MEM[(cur_ptr + 1) as
-                                                 usize].b32.s1
+                            None.tex_int()
                         }
-                    } else { q = EQTB[cur_chr as usize].val }
+                    } else { EQTB[cur_chr as usize].val };
                     if let Some(q) = q.opt() {
                         MEM[q].b32.s0 += 1;
                         if e {
@@ -2439,7 +2434,7 @@ pub(crate) unsafe fn prefixed_command() {
                     back_input();
                     cur_cs = q;
                     q = scan_toks(false, false) as i32;
-                    if MEM[def_ref].b32.s1.is_texnull() {
+                    if MEM[def_ref].b32.s1.opt().is_none() {
                         if e {
                             if a >= 4 {
                                 gsa_def(p as usize, None);
@@ -2788,7 +2783,6 @@ unsafe fn store_fmt_file() {
     let mut current_block: u64;
     let mut j: i32 = 0;
     let mut l: i32 = 0;
-    let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut x: i32 = 0;
     if SAVE_PTR != 0 {
@@ -2863,7 +2857,7 @@ unsafe fn store_fmt_file() {
     fmt_out.dump_one(FORMAT_SERIAL);
     fmt_out.dump_one(hash_high);
 
-    while !pseudo_files.is_texnull() {
+    while pseudo_files.opt().is_some() {
         pseudo_close();
     }
 
@@ -2895,7 +2889,7 @@ unsafe fn store_fmt_file() {
         fmt_out.dump_one(sa_root[k as usize]);
     }
 
-    p = 0;
+    let mut p = 0;
     q = rover;
     x = 0;
     loop {
@@ -2919,10 +2913,10 @@ unsafe fn store_fmt_file() {
     fmt_out.dump(&MEM[hi_mem_min as usize..(mem_end + 1) as usize]);
 
     x = x + mem_end + 1 - hi_mem_min;
-    p = avail;
-    while !p.is_texnull() {
+    let mut popt = avail.opt();
+    while let Some(p) = popt {
         dyn_used -= 1;
-        p = *LLIST_link(p as usize)
+        popt = LLIST_link(p).opt()
     }
 
     fmt_out.dump_one(var_used as i32);
@@ -3899,7 +3893,7 @@ unsafe fn final_cleanup() {
         print_char(')' as i32);
         show_save_groups();
     }
-    while !cond_ptr.is_texnull() {
+    while let Some(cp) = cond_ptr.opt() {
         print_nl('(' as i32);
         print_esc_cstr(b"end occurred ");
         print_cstr(b"when ");
@@ -3909,10 +3903,10 @@ unsafe fn final_cleanup() {
             print_int(if_line);
         }
         print_cstr(b" was incomplete)");
-        if_line = MEM[(cond_ptr + 1) as usize].b32.s1;
-        cur_if = MEM[cond_ptr as usize].b16.s0 as i16;
+        if_line = MEM[cp + 1].b32.s1;
+        cur_if = MEM[cp].b16.s0 as i16;
         temp_ptr = cond_ptr;
-        cond_ptr = MEM[cond_ptr as usize].b32.s1;
+        cond_ptr = *LLIST_link(cp);
         free_node(temp_ptr as usize, IF_NODE_SIZE);
     }
     if history != TTHistory::SPOTLESS {
@@ -3930,8 +3924,8 @@ unsafe fn final_cleanup() {
             let mut for_end = SPLIT_BOT_MARK_CODE as i32;
             if c as i32 <= for_end {
                 loop {
-                    if !cur_mark[c as usize].is_texnull() {
-                        delete_token_ref(cur_mark[c as usize] as usize);
+                    if let Some(m) = cur_mark[c as usize].opt() {
+                        delete_token_ref(m);
                     }
                     let fresh17 = c;
                     c = c + 1;

@@ -1469,7 +1469,7 @@ unsafe fn post_line_break(mut d: bool) {
                 p = q; /*:915*/
                 ptmp = p
             } else {
-                p = prev_rightmost(MEM[TEMP_HEAD].b32.s1, q).tex_int();
+                p = prev_rightmost(MEM[TEMP_HEAD].b32.s1.opt(), q).tex_int();
                 ptmp = p;
                 p = find_protchar_right(MEM[TEMP_HEAD].b32.s1, p)
             }
@@ -3027,7 +3027,11 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                             cur_l = q.s0 as i32;
                                             ligature_present = true;
                                             if !lig_stack.is_texnull() {
-                                                if !MEM[(lig_stack + 1) as usize].b32.s1.is_texnull() {
+                                                if !MEM[(lig_stack + 1) as usize]
+                                                    .b32
+                                                    .s1
+                                                    .is_texnull()
+                                                {
                                                     MEM[t as usize].b32.s1 =
                                                         MEM[(lig_stack + 1) as usize].b32.s1;
                                                     t = *LLIST_link(t as usize);
@@ -3167,7 +3171,7 @@ unsafe fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
     } else {
         l = MEM[(MEM[(q + 1) as usize].b32.s1 + 1) as usize].b32.s1
     }
-    let mut r = prev_rightmost(global_prev_p, p).tex_int();
+    let mut r = prev_rightmost(global_prev_p.opt(), p).tex_int();
     if !p.is_texnull()
         && NODE_type(p as usize) == TextNode::Disc.into()
         && !MEM[(p + 1) as usize].b32.s0.is_texnull()
@@ -3312,7 +3316,7 @@ unsafe fn find_protchar_right(mut l: i32, mut r: i32) -> i32 {
                 l = pop_node()
             }
             if r != l && !r.is_texnull() {
-                r = prev_rightmost(l, r).tex_int();
+                r = prev_rightmost(l.opt(), r).tex_int();
             } else if r == l && hlist_stack_level == 0 {
                 run = false
             }
