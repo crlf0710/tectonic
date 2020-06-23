@@ -1473,7 +1473,7 @@ unsafe fn post_line_break(mut d: bool) {
                 ptmp = p;
                 p = find_protchar_right(MEM[TEMP_HEAD].b32.s1, p)
             }
-            w = char_pw(p, Side::Right);
+            w = char_pw(p.opt(), Side::Right);
             if w != 0i32 {
                 let k = new_margin_kern(-w, last_rightmost_char, 1);
                 MEM[k].b32.s1 = MEM[ptmp as usize].b32.s1;
@@ -1522,7 +1522,7 @@ unsafe fn post_line_break(mut d: bool) {
         if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
             p = q;
             p = find_protchar_left(p, false);
-            w = char_pw(p, Side::Left);
+            w = char_pw(p.opt(), Side::Left);
             if w != 0 {
                 let k = new_margin_kern(-w, last_leftmost_char, 0);
                 MEM[k].b32.s1 = q;
@@ -3105,7 +3105,7 @@ unsafe fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
     if !l.is_texnull() && NODE_type(l as usize) == TextNode::Disc.into() {
         if !MEM[(l + 1) as usize].b32.s1.is_texnull() {
             l = MEM[(l + 1) as usize].b32.s1;
-            return char_pw(l, Side::Left) + char_pw(r, Side::Right);
+            return char_pw(l.opt(), Side::Left) + char_pw(r.opt(), Side::Right);
         } else {
             n = MEM[l as usize].b16.s0 as i32;
             l = *LLIST_link(l as usize);
@@ -3118,9 +3118,10 @@ unsafe fn total_pw(mut q: i32, mut p: i32) -> scaled_t {
         }
     }
     l = find_protchar_left(l, true);
-    char_pw(l, Side::Left) + char_pw(r, Side::Right)
+    char_pw(l.opt(), Side::Left) + char_pw(r.opt(), Side::Right)
 }
 unsafe fn find_protchar_left(mut l: i32, mut d: bool) -> i32 {
+    // TODO: change l to usize
     let mut t: i32 = 0;
     let mut run: bool = false;
     if !MEM[l as usize].b32.s1.is_texnull()

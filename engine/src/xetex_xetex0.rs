@@ -11069,59 +11069,55 @@ pub(crate) unsafe fn scan_spec(c: GroupCode, mut three_codes: bool) {
     new_save_level(c);
     scan_left_brace();
 }
-pub(crate) unsafe fn char_pw(mut p: i32, side: Side) -> scaled_t {
+pub(crate) unsafe fn char_pw(p: Option<usize>, side: Side) -> scaled_t {
     if side == Side::Left {
         last_leftmost_char = None.tex_int()
     } else {
         last_rightmost_char = None.tex_int()
     }
-    if p.is_texnull() {
+    if p.is_none() {
         return 0;
     }
-    if !p.is_texnull()
-        && !is_char_node(p)
-        && NODE_type(p as usize) == TextNode::WhatsIt.into()
-        && (whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWord
-            || whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWordAt)
+    let mut p = p.unwrap();
+    if !is_char_node(p as i32)
+        && NODE_type(p) == TextNode::WhatsIt.into()
+        && (whatsit_NODE_subtype(p) == WhatsItNST::NativeWord
+            || whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt)
     {
-        if !(*NATIVE_NODE_glyph_info_ptr(p as usize)).is_null() {
-            let f = *NATIVE_NODE_font(p as usize) as internal_font_number;
+        if !(*NATIVE_NODE_glyph_info_ptr(p)).is_null() {
+            let f = *NATIVE_NODE_font(p) as internal_font_number;
             return round_xn_over_d(
                 FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1,
-                real_get_native_word_cp(
-                    &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
-                    side,
-                ),
+                real_get_native_word_cp(&mut MEM[p] as *mut memory_word as *mut libc::c_void, side),
                 1000,
             );
         } else {
             return 0;
         }
     }
-    if !p.is_texnull()
-        && !is_char_node(p)
-        && NODE_type(p as usize) == TextNode::WhatsIt.into()
-        && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
+    if !is_char_node(p as i32)
+        && NODE_type(p) == TextNode::WhatsIt.into()
+        && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
     {
-        let f = MEM[(p + 4) as usize].b16.s2 as internal_font_number;
+        let f = MEM[p + 4].b16.s2 as internal_font_number;
         return round_xn_over_d(
             FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1,
-            get_cp_code(f, MEM[(p + 4) as usize].b16.s1 as u32, side),
+            get_cp_code(f, MEM[p + 4].b16.s1 as u32, side),
             1000,
         );
     }
-    if !is_char_node(p) {
-        if NODE_type(p as usize) == TextNode::Ligature.into() {
+    if !is_char_node(p as i32) {
+        if NODE_type(p) == TextNode::Ligature.into() {
             p = p + 1;
         } else {
             return 0;
         }
     }
-    let f = *CHAR_NODE_font(p as usize) as internal_font_number;
-    let c = get_cp_code(f, MEM[p as usize].b16.s0 as u32, side);
+    let f = *CHAR_NODE_font(p) as internal_font_number;
+    let c = get_cp_code(f, MEM[p].b16.s0 as u32, side);
     match side {
-        Side::Left => last_leftmost_char = p,
-        Side::Right => last_rightmost_char = p,
+        Side::Left => last_leftmost_char = Some(p).tex_int(),
+        Side::Right => last_rightmost_char = Some(p).tex_int(),
     }
     if c == 0 {
         return 0;
@@ -11142,7 +11138,6 @@ pub(crate) unsafe fn new_margin_kern(w: scaled_t, _p: i32, side: i16) -> usize {
 pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
     let mut current_block: u64;
     let mut s: scaled_t = 0;
-    let mut g: i32 = 0;
     let mut o: glue_ord = 0;
     let mut f: internal_font_number = 0;
     let mut i: b16x4 = b16x4 {
@@ -11159,8 +11154,8 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
     MEM[r].b16.s1 = 0_u16;
     MEM[r].b16.s0 = 0_u16;
     MEM[r + 4].b32.s1 = 0;
-    let mut q = (r + 5) as i32;
-    MEM[q as usize].b32.s1 = p;
+    let mut q = r + 5;
+    MEM[q].b32.s1 = p;
     let mut h = 0;
     let mut d = 0;
     let mut x = 0;
@@ -11227,7 +11222,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                     if !adjust_tail.is_texnull() || !pre_adjust_tail.is_texnull() {
                         /*680: */
                         while MEM[q as usize].b32.s1 != p {
-                            q = MEM[q as usize].b32.s1
+                            q = MEM[q as usize].b32.s1 as usize;
                         }
                         if NODE_type(p as usize) == TextNode::Adjust.into() {
                             if MEM[p as usize].b16.s0 != 0 {
@@ -11254,8 +11249,8 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                             adjust_tail = p;
                             p = *LLIST_link(p as usize)
                         }
-                        MEM[q as usize].b32.s1 = p;
-                        p = q
+                        MEM[q].b32.s1 = p;
+                        p = q as i32;
                     }
                     current_block = 1176253869785344635;
                     break;
@@ -11275,21 +11270,19 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                     }
                 },
                 TextNode::Glue => {
-                    g = MEM[(p + 1) as usize].b32.s0;
-                    x = x + MEM[(g + 1) as usize].b32.s1;
-                    o = MEM[g as usize].b16.s1 as glue_ord;
-                    total_stretch[o as usize] =
-                        total_stretch[o as usize] + MEM[(g + 2) as usize].b32.s1;
-                    o = MEM[g as usize].b16.s0 as glue_ord;
-                    total_shrink[o as usize] =
-                        total_shrink[o as usize] + MEM[(g + 3) as usize].b32.s1;
+                    let g = MEM[(p + 1) as usize].b32.s0 as usize;
+                    x = x + MEM[g + 1].b32.s1;
+                    o = MEM[g].b16.s1 as glue_ord;
+                    total_stretch[o as usize] = total_stretch[o as usize] + MEM[g + 2].b32.s1;
+                    o = MEM[g].b16.s0 as glue_ord;
+                    total_shrink[o as usize] = total_shrink[o as usize] + MEM[g + 3].b32.s1;
                     if MEM[p as usize].b16.s0 >= A_LEADERS {
-                        g = MEM[(p + 1) as usize].b32.s1;
-                        if MEM[(g + 3) as usize].b32.s1 > h {
-                            h = MEM[(g + 3) as usize].b32.s1
+                        let g = MEM[(p + 1) as usize].b32.s1 as usize;
+                        if MEM[g + 3].b32.s1 > h {
+                            h = MEM[g + 3].b32.s1
                         }
-                        if MEM[(g + 2) as usize].b32.s1 > d {
-                            d = MEM[(g + 2) as usize].b32.s1
+                        if MEM[g + 2].b32.s1 > d {
+                            d = MEM[g + 2].b32.s1
                         }
                     }
                     current_block = 1176253869785344635;
@@ -11347,17 +11340,16 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
         }
         match current_block {
             10435735846551762309 => {
-                let mut k = if q != (r as i32) + 5 && NODE_type(q as usize) == TextNode::Disc.into()
-                {
-                    MEM[q as usize].b16.s0 as i32
+                let mut k = if q != r + 5 && NODE_type(q) == TextNode::Disc.into() {
+                    MEM[q].b16.s0 as i32
                 } else {
                     0
                 };
-                while MEM[q as usize].b32.s1 != p {
+                while MEM[q].b32.s1 != p {
                     k -= 1;
-                    q = MEM[q as usize].b32.s1;
-                    if NODE_type(q as usize) == TextNode::Disc.into() {
-                        k = MEM[q as usize].b16.s0 as i32
+                    q = MEM[q].b32.s1 as usize;
+                    if NODE_type(q) == TextNode::Disc.into() {
+                        k = MEM[q].b16.s0 as i32
                     }
                 }
                 pp = *LLIST_link(p as usize);
@@ -11389,7 +11381,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                 }
                 if pp != MEM[p as usize].b32.s1 {
                     total_chars = 0;
-                    p = MEM[q as usize].b32.s1;
+                    p = MEM[q].b32.s1;
                     while p != pp {
                         if NODE_type(p as usize) == TextNode::WhatsIt.into() {
                             total_chars = total_chars + MEM[(p + 4) as usize].b16.s1 as i32
@@ -11397,13 +11389,13 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                         ppp = p;
                         p = *LLIST_link(p as usize)
                     }
-                    p = MEM[q as usize].b32.s1;
+                    p = MEM[q].b32.s1;
                     pp = new_native_word_node(
                         MEM[(p + 4) as usize].b16.s2 as internal_font_number,
                         total_chars,
                     ) as i32;
                     MEM[pp as usize].b16.s0 = MEM[p as usize].b16.s0;
-                    MEM[q as usize].b32.s1 = pp;
+                    MEM[q].b32.s1 = pp;
                     MEM[pp as usize].b32.s1 = MEM[ppp as usize].b32.s1;
                     MEM[ppp as usize].b32.s1 = None.tex_int();
                     total_chars = 0;
@@ -11424,7 +11416,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                         }
                     }
                     flush_node_list(p.opt());
-                    p = MEM[q as usize].b32.s1;
+                    p = MEM[q].b32.s1;
                     measure_native_node(
                         &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
                         (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
@@ -11451,11 +11443,11 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
         }
         p = *LLIST_link(p as usize)
     }
-    if !adjust_tail.is_texnull() {
-        MEM[adjust_tail as usize].b32.s1 = None.tex_int();
+    if let Some(a) = adjust_tail.opt() {
+        MEM[a].b32.s1 = None.tex_int();
     }
-    if !pre_adjust_tail.is_texnull() {
-        MEM[pre_adjust_tail as usize].b32.s1 = None.tex_int();
+    if let Some(a) = pre_adjust_tail.opt() {
+        MEM[a].b32.s1 = None.tex_int();
     }
     MEM[r + 3].b32.s1 = h;
     MEM[r + 2].b32.s1 = d;
@@ -11489,7 +11481,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
             MEM[r + 6].gr = 0.;
         }
         if o == NORMAL as u8 {
-            if !MEM[r + 5].b32.s1.is_texnull() {
+            if MEM[r + 5].b32.s1.opt().is_some() {
                 /*685: */
                 last_badness = badness(x, total_stretch[NORMAL as usize]); /*normal *//*:690 */
                 if last_badness > *INTPAR(IntPar::hbadness) {
@@ -11529,7 +11521,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
             MEM[r + 5].b16.s1 = NORMAL;
             *BOX_glue_set(r) = 0.;
         }
-        if total_shrink[o as usize] < -x && o == NORMAL as u8 && !MEM[r + 5].b32.s1.is_texnull() {
+        if total_shrink[o as usize] < -x && o == NORMAL as u8 && MEM[r + 5].b32.s1.opt().is_some() {
             last_badness = 1000000;
             MEM[r + 6].gr = 1.;
             if -x - total_shrink[0] > *DIMENPAR(DimenPar::hfuzz) || *INTPAR(IntPar::hbadness) < 100
@@ -11537,8 +11529,8 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                 if *DIMENPAR(DimenPar::overfull_rule) > 0
                     && -x - total_shrink[0] > *DIMENPAR(DimenPar::hfuzz)
                 {
-                    while !MEM[q as usize].b32.s1.is_texnull() {
-                        q = MEM[q as usize].b32.s1
+                    while let Some(next) = LLIST_link(q as usize).opt() {
+                        q = next;
                     }
                     MEM[q as usize].b32.s1 = new_rule() as i32;
                     MEM[(MEM[q as usize].b32.s1 + 1) as usize].b32.s1 =
@@ -11605,13 +11597,13 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                 }
                 /*1499: */
                 if MEM[LR_ptr as usize].b32.s0 != BEFORE as i32 {
-                    while !MEM[q as usize].b32.s1.is_texnull() {
-                        q = *LLIST_link(q as usize)
+                    while let Some(next) = LLIST_link(q).opt() {
+                        q = next;
                     } /*:673 */
                     loop {
-                        temp_ptr = q;
-                        q = new_math(0, MEM[LR_ptr as usize].b32.s0 as i16) as i32;
-                        MEM[temp_ptr as usize].b32.s1 = q;
+                        temp_ptr = Some(q).tex_int();
+                        q = new_math(0, MEM[LR_ptr as usize].b32.s0 as i16);
+                        MEM[temp_ptr as usize].b32.s1 = Some(q).tex_int();
                         LR_problems = LR_problems + 10000;
                         temp_ptr = LR_ptr;
                         LR_ptr = MEM[temp_ptr as usize].b32.s1;
