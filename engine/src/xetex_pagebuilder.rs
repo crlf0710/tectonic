@@ -244,22 +244,21 @@ unsafe fn fire_up(mut c: i32) {
                                         0,
                                         PackMode::Additional as _,
                                         MAX_HALFWORD,
-                                    ) as i32;
+                                    );
                                     MEM[(p + 3) as usize].b32.s1 =
-                                        MEM[(temp_ptr + 3) as usize].b32.s1
-                                            + MEM[(temp_ptr + 2) as usize].b32.s1;
-                                    free_node(temp_ptr as usize, BOX_NODE_SIZE);
+                                        MEM[temp_ptr + 3].b32.s1 + MEM[temp_ptr + 2].b32.s1;
+                                    free_node(temp_ptr, BOX_NODE_SIZE);
                                     wait = true
                                 }
                             }
                         }
                         MEM[(r + 2) as usize].b32.s0 = None.tex_int();
                         n = MEM[r as usize].b16.s0 as _; // NODE_subtype(r as usize)
-                        temp_ptr = MEM[(*BOX_REG(n as usize) + 5) as usize].b32.s1;
+                        let tmp_ptr = MEM[(*BOX_REG(n as usize) + 5) as usize].b32.s1.opt();
                         free_node(*BOX_REG(n as _) as usize, BOX_NODE_SIZE);
                         *BOX_REG(n as _) =
-                            vpackage(temp_ptr.opt(), 0i32, PackMode::Additional, MAX_HALFWORD)
-                                as i32;
+                            Some(vpackage(tmp_ptr, 0, PackMode::Additional, MAX_HALFWORD))
+                                .tex_int();
                     } else {
                         while let Some(next) = LLIST_link(s).opt() {
                             s = next;
@@ -528,10 +527,10 @@ pub(crate) unsafe fn build_page() {
 
                     slf.q = new_skip_param(GluePar::top_skip) as i32; /* "now temp_ptr = glue_ptr(q) */
 
-                    if *BOX_width(temp_ptr as usize) > *BOX_height(slf.p as usize) {
-                        *BOX_width(temp_ptr as usize) -= *BOX_height(slf.p as usize);
+                    if *BOX_width(temp_ptr) > *BOX_height(slf.p as usize) {
+                        *BOX_width(temp_ptr) -= *BOX_height(slf.p as usize);
                     } else {
-                        *BOX_width(temp_ptr as usize) = 0;
+                        *BOX_width(temp_ptr) = 0;
                     }
 
                     *LLIST_link(slf.q as usize) = slf.p;

@@ -434,7 +434,7 @@ pub(crate) unsafe fn synctex_tsilv(mut this_box: i32) {
  *  There is no need to balance a void vlist.  */
 /*  This message is sent when a void vlist will be shipped out.
  *  There is no need to balance a void vlist.  */
-pub(crate) unsafe fn synctex_void_vlist(p: i32, mut _this_box: i32) {
+pub(crate) unsafe fn synctex_void_vlist(p: i32, mut _this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
@@ -457,20 +457,20 @@ pub(crate) unsafe fn synctex_void_vlist(p: i32, mut _this_box: i32) {
  *  the beginning of the hlist_out procedure in *TeX.web.  It will be balanced
  *  by a synctex_tsilh, sent at the end of the hlist_out procedure.  p is the
  *  address of the hlist We assume that p is really an hlist node! */
-pub(crate) unsafe fn synctex_hlist(mut this_box: i32) {
+pub(crate) unsafe fn synctex_hlist(mut this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     } /*  0 to reset  */
-    synctex_ctxt.node = this_box; /*  reset  */
-    synctex_ctxt.tag = MEM[(this_box + 8 - 1) as usize].b32.s0;
-    synctex_ctxt.line = MEM[(this_box + 8 - 1) as usize].b32.s1;
+    synctex_ctxt.node = this_box as i32; /*  reset  */
+    synctex_ctxt.tag = MEM[this_box + 8 - 1].b32.s0;
+    synctex_ctxt.line = MEM[this_box + 8 - 1].b32.s1;
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
-    synctex_record_node_hlist(this_box);
+    synctex_record_node_hlist(this_box as i32);
 }
 /*  Send this message at the end of the various hlist_out procedure in *TeX.web
  *  to balance a former synctex_hlist.    */
@@ -498,7 +498,7 @@ pub(crate) unsafe fn synctex_tsilh(mut this_box: i32) {
  *  There is no need to balance a void hlist.  */
 /*  This message is sent when a void hlist will be shipped out.
  *  There is no need to balance a void hlist.  */
-pub(crate) unsafe fn synctex_void_hlist(p: i32, mut _this_box: i32) {
+pub(crate) unsafe fn synctex_void_hlist(p: i32, mut _this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()

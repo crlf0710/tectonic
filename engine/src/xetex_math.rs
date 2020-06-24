@@ -189,19 +189,18 @@ pub(crate) unsafe fn init_math() {
                     .s1;
             if *INTPAR(IntPar::texxet) > 0 {
                 // 1497:
-                temp_ptr = get_avail() as i32; /*1523:*/
-                MEM[temp_ptr as usize].b32.s0 = BEFORE as i32; /*:1398 */
-                MEM[temp_ptr as usize].b32.s1 = LR_ptr;
-                LR_ptr = temp_ptr
+                temp_ptr = get_avail(); /*1523:*/
+                MEM[temp_ptr].b32.s0 = BEFORE as i32; /*:1398 */
+                MEM[temp_ptr].b32.s1 = LR_ptr;
+                LR_ptr = Some(temp_ptr).tex_int();
             }
             while let Some(mut p) = popt {
                 loop {
                     if is_char_node(p as i32) {
                         f = *CHAR_NODE_font(p) as internal_font_number;
                         d = FONT_INFO[(WIDTH_BASE[f]
-                            + FONT_INFO[(CHAR_BASE[f]
-                                + effective_char(true, f, MEM[p].b16.s0))
-                                as usize]
+                            + FONT_INFO
+                                [(CHAR_BASE[f] + effective_char(true, f, MEM[p].b16.s0)) as usize]
                                 .b16
                                 .s3 as i32) as usize]
                             .b32
@@ -312,23 +311,21 @@ pub(crate) unsafe fn init_math() {
                     /*1525: */
                     {
                         if MEM[p].b16.s0 as i32 & 1 != 0 {
-                            if MEM[LR_ptr as usize].b32.s0
-                                == 4i32 * (MEM[p].b16.s0 as i32 / 4) + 3
+                            if MEM[LR_ptr as usize].b32.s0 == 4i32 * (MEM[p].b16.s0 as i32 / 4) + 3
                             {
-                                temp_ptr = LR_ptr;
-                                LR_ptr = MEM[temp_ptr as usize].b32.s1;
-                                MEM[temp_ptr as usize].b32.s1 = avail;
-                                avail = temp_ptr
+                                temp_ptr = LR_ptr as usize;
+                                LR_ptr = MEM[temp_ptr].b32.s1;
+                                MEM[temp_ptr].b32.s1 = avail;
+                                avail = Some(temp_ptr).tex_int();
                             } else if MEM[p].b16.s0 as i32 > 4 {
                                 w = 0x3fffffffi32;
                                 break;
                             }
                         } else {
-                            temp_ptr = get_avail() as i32;
-                            MEM[temp_ptr as usize].b32.s0 =
-                                4i32 * (MEM[p].b16.s0 as i32 / 4) + 3;
-                            MEM[temp_ptr as usize].b32.s1 = LR_ptr;
-                            LR_ptr = temp_ptr;
+                            temp_ptr = get_avail();
+                            MEM[temp_ptr].b32.s0 = 4i32 * (MEM[p].b16.s0 as i32 / 4) + 3;
+                            MEM[temp_ptr].b32.s1 = LR_ptr;
+                            LR_ptr = Some(temp_ptr).tex_int();
                             if MEM[p].b16.s0 as i32 / 8 != cur_dir as i32 {
                                 just_reverse(p as i32);
                                 p = TEMP_HEAD;
@@ -365,11 +362,11 @@ pub(crate) unsafe fn init_math() {
                 popt = LLIST_link(p).opt();
             }
             if *INTPAR(IntPar::texxet) > 0 {
-                while !LR_ptr.is_texnull() {
-                    temp_ptr = LR_ptr;
-                    LR_ptr = MEM[temp_ptr as usize].b32.s1;
-                    MEM[temp_ptr as usize].b32.s1 = avail;
-                    avail = temp_ptr
+                while let Some(l) = LR_ptr.opt() {
+                    temp_ptr = l;
+                    LR_ptr = MEM[temp_ptr].b32.s1;
+                    MEM[temp_ptr].b32.s1 = avail;
+                    avail = Some(temp_ptr).tex_int();
                 }
                 if LR_problems != 0 {
                     w = MAX_HALFWORD;
@@ -874,11 +871,11 @@ unsafe fn app_display(mut j: i32, mut b: usize, mut d: scaled_t) {
             MEM[q as usize].b32.s1 = j;
             MEM[j as usize].b32.s1 = u as i32;
             j = MEM[t + 1].b32.s0;
-            MEM[temp_ptr as usize].b16.s1 = MEM[j as usize].b16.s1;
-            MEM[temp_ptr as usize].b16.s0 = MEM[j as usize].b16.s0;
-            MEM[(temp_ptr + 1) as usize].b32.s1 = e - MEM[(j + 1) as usize].b32.s1;
-            MEM[(temp_ptr + 2) as usize].b32.s1 = -MEM[(j + 2) as usize].b32.s1;
-            MEM[(temp_ptr + 3) as usize].b32.s1 = -MEM[(j + 3) as usize].b32.s1;
+            MEM[temp_ptr].b16.s1 = MEM[j as usize].b16.s1;
+            MEM[temp_ptr].b16.s0 = MEM[j as usize].b16.s0;
+            MEM[temp_ptr + 1].b32.s1 = e - MEM[(j + 1) as usize].b32.s1;
+            MEM[temp_ptr + 2].b32.s1 = -MEM[(j + 2) as usize].b32.s1;
+            MEM[temp_ptr + 3].b32.s1 = -MEM[(j + 3) as usize].b32.s1;
             MEM[u].b32.s1 = t as i32;
         } else {
             MEM[t + 1].b32.s1 = e;
@@ -891,11 +888,11 @@ unsafe fn app_display(mut j: i32, mut b: usize, mut d: scaled_t) {
             MEM[u].b32.s1 = j;
             MEM[j as usize].b32.s1 = p;
             j = MEM[(r + 1) as usize].b32.s0;
-            MEM[temp_ptr as usize].b16.s1 = MEM[j as usize].b16.s1;
-            MEM[temp_ptr as usize].b16.s0 = MEM[j as usize].b16.s0;
-            MEM[(temp_ptr + 1) as usize].b32.s1 = d - MEM[(j + 1) as usize].b32.s1;
-            MEM[(temp_ptr + 2) as usize].b32.s1 = -MEM[(j + 2) as usize].b32.s1;
-            MEM[(temp_ptr + 3) as usize].b32.s1 = -MEM[(j + 3) as usize].b32.s1;
+            MEM[temp_ptr].b16.s1 = MEM[j as usize].b16.s1;
+            MEM[temp_ptr].b16.s0 = MEM[j as usize].b16.s0;
+            MEM[temp_ptr + 1].b32.s1 = d - MEM[(j + 1) as usize].b32.s1;
+            MEM[temp_ptr + 2].b32.s1 = -MEM[(j + 2) as usize].b32.s1;
+            MEM[temp_ptr + 3].b32.s1 = -MEM[(j + 3) as usize].b32.s1;
             MEM[r as usize].b32.s1 = u as i32;
         } else {
             MEM[(r + 1) as usize].b32.s1 = d;
@@ -2750,7 +2747,6 @@ unsafe fn mlist_to_hlist() {
     let mut r_type: i16 = 0;
     let mut t: i16 = 0;
     let mut x: i32 = 0;
-    let mut y: i32 = 0;
     let mut pen: i32 = 0;
     let mut s: i16 = 0;
     let mut max_h: scaled_t = 0;
@@ -2939,9 +2935,9 @@ unsafe fn mlist_to_hlist() {
                     TextNode::Glue => {
                         if MEM[q].b16.s0 == MU_GLUE {
                             x = MEM[q + 1].b32.s0;
-                            y = math_glue(x as usize, cur_mu) as i32;
+                            let y = math_glue(x as usize, cur_mu);
                             delete_glue_ref(x as usize);
-                            MEM[q + 1].b32.s0 = y;
+                            MEM[q + 1].b32.s0 = Some(y).tex_int();
                             MEM[q].b16.s0 = NORMAL as u16
                         } else if cur_size != TEXT_SIZE && MEM[q].b16.s0 == COND_MATH_GLUE {
                             let mut p = MEM[q].b32.s1;
@@ -3238,12 +3234,12 @@ unsafe fn mlist_to_hlist() {
                         }
                     }
                     if x != 0 {
-                        y = math_glue(EQTB[GLUE_BASE + x as usize].val as usize, cur_mu) as i32;
-                        let z = new_glue(y) as i32;
-                        MEM[y as usize].b32.s1 = None.tex_int();
-                        MEM[p as usize].b32.s1 = z;
-                        p = z;
-                        MEM[z as usize].b16.s0 = (x + 1) as u16
+                        let y = math_glue(EQTB[GLUE_BASE + x as usize].val as usize, cur_mu);
+                        let z = new_glue(y);
+                        MEM[y].b32.s1 = None.tex_int();
+                        MEM[p as usize].b32.s1 = z as i32;
+                        p = z as i32;
+                        MEM[z].b16.s0 = (x + 1) as u16
                     }
                 }
                 if !MEM[q + 1].b32.s1.is_texnull() {
@@ -3570,16 +3566,15 @@ unsafe fn stack_glue_into_box(b: usize, mut min: scaled_t, mut max: scaled_t) {
     let q = new_spec(0);
     MEM[q + 1].b32.s1 = min;
     MEM[q + 2].b32.s1 = max - min;
-    let p = new_glue(q as i32) as usize;
+    let p = new_glue(q);
     if NODE_type(b) == TextNode::HList.into() {
-        let mut q = MEM[b + 5].b32.s1;
-        if q.is_texnull() {
-            MEM[b + 5].b32.s1 = p as i32;
-        } else {
-            while !MEM[q as usize].b32.s1.is_texnull() {
-                q = *LLIST_link(q as usize);
+        if let Some(mut q) = MEM[b + 5].b32.s1.opt() {
+            while let Some(next) = MEM[q].b32.s1.opt() {
+                q = next;
             }
-            MEM[q as usize].b32.s1 = p as i32;
+            MEM[q].b32.s1 = p as i32;
+        } else {
+            MEM[b + 5].b32.s1 = p as i32;
         }
     } else {
         MEM[p].b32.s1 = MEM[b + 5].b32.s1;

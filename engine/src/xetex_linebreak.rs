@@ -1296,7 +1296,6 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 unsafe fn post_line_break(mut d: bool) {
     let mut q: i32 = 0;
     let mut r: i32 = 0;
-    let mut s: i32 = 0;
     let mut p: i32 = 0;
     let mut w: scaled_t = 0;
     let mut glue_break: bool = false;
@@ -1332,15 +1331,16 @@ unsafe fn post_line_break(mut d: bool) {
         if *INTPAR(IntPar::texxet) > 0 {
             /*1494:*/
             q = MEM[TEMP_HEAD].b32.s1;
-            if !LR_ptr.is_texnull() {
-                temp_ptr = LR_ptr;
+            if let Some(l) = LR_ptr.opt() {
+                temp_ptr = l;
                 r = q;
                 loop {
-                    s = new_math(0, (MEM[temp_ptr as usize].b32.s0 - 1) as i16) as i32;
-                    MEM[s as usize].b32.s1 = r;
-                    r = s;
-                    temp_ptr = *LLIST_link(temp_ptr as usize);
-                    if temp_ptr.is_texnull() {
+                    let s = new_math(0, (MEM[temp_ptr].b32.s0 - 1) as i16) as usize;
+                    MEM[s].b32.s1 = r;
+                    r = s as i32;
+                    temp_ptr = *LLIST_link(temp_ptr) as usize;
+                    if (temp_ptr as i32).is_texnull() {
+                        // TODO: fix
                         break;
                     }
                 }
@@ -1356,17 +1356,17 @@ unsafe fn post_line_break(mut d: bool) {
                                     * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32))
                                     + 3
                         {
-                            temp_ptr = LR_ptr;
-                            LR_ptr = MEM[temp_ptr as usize].b32.s1;
-                            MEM[temp_ptr as usize].b32.s1 = avail;
-                            avail = temp_ptr
+                            temp_ptr = LR_ptr as usize;
+                            LR_ptr = MEM[temp_ptr].b32.s1;
+                            MEM[temp_ptr].b32.s1 = avail;
+                            avail = Some(temp_ptr).tex_int();
                         }
                     } else {
-                        temp_ptr = get_avail() as i32;
-                        MEM[temp_ptr as usize].b32.s0 =
+                        temp_ptr = get_avail();
+                        MEM[temp_ptr].b32.s0 =
                             (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
-                        MEM[temp_ptr as usize].b32.s1 = LR_ptr;
-                        LR_ptr = temp_ptr;
+                        MEM[temp_ptr].b32.s1 = LR_ptr;
+                        LR_ptr = Some(temp_ptr).tex_int();
                     }
                 }
                 q = *LLIST_link(q as usize);
@@ -1402,18 +1402,18 @@ unsafe fn post_line_break(mut d: bool) {
                     r = *LLIST_link(r as usize);
                     t -= 1;
                 }
-                s = *LLIST_link(r as usize);
-                r = *LLIST_link(s as usize);
-                *LLIST_link(s as usize) = None.tex_int();
+                let s = *LLIST_link(r as usize) as usize;
+                r = *LLIST_link(s);
+                *LLIST_link(s) = None.tex_int();
                 flush_node_list(LLIST_link(q as usize).opt());
                 *DISCRETIONARY_NODE_replace_count(q as usize) = 0;
             }
             if !DISCRETIONARY_NODE_post_break(q as usize).is_texnull() {
                 /*913:*/
-                s = *DISCRETIONARY_NODE_post_break(q as usize);
+                let mut s = *DISCRETIONARY_NODE_post_break(q as usize) as usize;
 
-                while !LLIST_link(s as usize).is_texnull() {
-                    s = *LLIST_link(s as usize);
+                while let Some(next) = LLIST_link(s).opt() {
+                    s = next;
                 }
 
                 *LLIST_link(s as usize) = r;
@@ -1424,14 +1424,14 @@ unsafe fn post_line_break(mut d: bool) {
             }
             if !DISCRETIONARY_NODE_pre_break(q as usize).is_texnull() {
                 /*914:*/
-                s = *DISCRETIONARY_NODE_pre_break(q as usize);
-                *LLIST_link(q as usize) = s;
+                let mut s = *DISCRETIONARY_NODE_pre_break(q as usize) as usize;
+                *LLIST_link(q as usize) = Some(s).tex_int();
 
-                while !LLIST_link(s as usize).is_texnull() {
-                    s = *LLIST_link(s as usize);
+                while let Some(next) = LLIST_link(s).opt() {
+                    s = next;
                 }
                 *DISCRETIONARY_NODE_pre_break(q as usize) = None.tex_int();
-                q = s;
+                q = s as i32;
             }
             *LLIST_link(q as usize) = r;
             disc_break = true;
@@ -1447,17 +1447,17 @@ unsafe fn post_line_break(mut d: bool) {
                             == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32))
                                 + 3i32
                     {
-                        temp_ptr = LR_ptr;
-                        LR_ptr = MEM[temp_ptr as usize].b32.s1;
-                        MEM[temp_ptr as usize].b32.s1 = avail;
-                        avail = temp_ptr;
+                        temp_ptr = LR_ptr as usize;
+                        LR_ptr = MEM[temp_ptr].b32.s1;
+                        MEM[temp_ptr].b32.s1 = avail;
+                        avail = Some(temp_ptr).tex_int();
                     }
                 } else {
-                    temp_ptr = get_avail() as i32;
-                    MEM[temp_ptr as usize].b32.s0 =
+                    temp_ptr = get_avail();
+                    MEM[temp_ptr].b32.s0 =
                         (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
-                    MEM[temp_ptr as usize].b32.s1 = LR_ptr;
-                    LR_ptr = temp_ptr;
+                    MEM[temp_ptr].b32.s1 = LR_ptr;
+                    LR_ptr = Some(temp_ptr).tex_int();
                 }
             }
         }
@@ -1492,24 +1492,24 @@ unsafe fn post_line_break(mut d: bool) {
         if *INTPAR(IntPar::texxet) > 0 {
             /*1496:*/
             if !LR_ptr.is_texnull() {
-                s = TEMP_HEAD as i32;
-                r = MEM[s as usize].b32.s1;
+                let mut s = TEMP_HEAD;
+                r = MEM[s].b32.s1;
 
                 while r != q {
-                    s = r;
-                    r = MEM[s as usize].b32.s1
+                    s = r as usize;
+                    r = MEM[s].b32.s1
                 }
 
                 r = LR_ptr;
 
                 while !r.is_texnull() {
-                    temp_ptr = new_math(0, MEM[r as usize].b32.s0 as i16) as i32;
-                    MEM[s as usize].b32.s1 = temp_ptr;
+                    temp_ptr = new_math(0, MEM[r as usize].b32.s0 as i16);
+                    MEM[s].b32.s1 = Some(temp_ptr).tex_int();
                     s = temp_ptr;
                     r = *LLIST_link(r as usize);
                 }
 
-                MEM[s as usize].b32.s1 = q;
+                MEM[s].b32.s1 = q;
             }
         }
         /* 916: Put \leftskip at the left and detach this line. */
@@ -1666,18 +1666,18 @@ unsafe fn post_line_break(mut d: bool) {
                                         * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32))
                                         + 3
                             {
-                                temp_ptr = LR_ptr;
-                                LR_ptr = MEM[temp_ptr as usize].b32.s1;
-                                MEM[temp_ptr as usize].b32.s1 = avail;
-                                avail = temp_ptr
+                                temp_ptr = LR_ptr as usize;
+                                LR_ptr = MEM[temp_ptr].b32.s1;
+                                MEM[temp_ptr].b32.s1 = avail;
+                                avail = Some(temp_ptr).tex_int();
                             }
                         } else {
-                            temp_ptr = get_avail() as i32;
-                            MEM[temp_ptr as usize].b32.s0 = (L_CODE as i32)
+                            temp_ptr = get_avail();
+                            MEM[temp_ptr].b32.s0 = (L_CODE as i32)
                                 * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32))
                                 + 3;
-                            MEM[temp_ptr as usize].b32.s1 = LR_ptr;
-                            LR_ptr = temp_ptr
+                            MEM[temp_ptr].b32.s1 = LR_ptr;
+                            LR_ptr = Some(temp_ptr).tex_int();
                         }
                     }
                 }
