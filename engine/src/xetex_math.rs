@@ -106,7 +106,6 @@ pub(crate) unsafe fn init_math() {
     let mut x: i32 = 0;
     let mut l: scaled_t = 0;
     let mut s: scaled_t = 0;
-    let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut f: internal_font_number = 0;
     let mut n: i32 = 0;
@@ -140,19 +139,19 @@ pub(crate) unsafe fn init_math() {
                 new_param_glue(GluePar::right_skip)
             });
 
-            p = if *GLUEPAR(GluePar::left_skip) == 0 {
+            let p = if *GLUEPAR(GluePar::left_skip) == 0 {
                 new_kern(0)
             } else {
                 new_param_glue(GluePar::left_skip)
-            } as i32;
+            };
 
-            MEM[p as usize].b32.s1 = j.tex_int();
+            MEM[p].b32.s1 = j.tex_int();
 
             let j_ = new_null_box();
             j = Some(j_);
             MEM[j_ + 1].b32.s1 = MEM[(just_box + 1) as usize].b32.s1;
             MEM[j_ + 4].b32.s1 = MEM[(just_box + 4) as usize].b32.s1;
-            MEM[j_ + 5].b32.s1 = p;
+            MEM[j_ + 5].b32.s1 = Some(p).tex_int();
             MEM[j_ + 5].b16.s0 = MEM[(just_box + 5) as usize].b16.s0;
             MEM[j_ + 5].b16.s1 = MEM[(just_box + 5) as usize].b16.s1;
             *BOX_glue_set(j_) = *BOX_glue_set(just_box as usize);
@@ -167,20 +166,22 @@ pub(crate) unsafe fn init_math() {
             } else {
                 0
             };
-            if x >= 0 {
-                p = MEM[(just_box + 5) as usize].b32.s1;
-                MEM[TEMP_HEAD].b32.s1 = None.tex_int()
+            let mut popt = if x >= 0 {
+                let p = MEM[(just_box + 5) as usize].b32.s1.opt();
+                MEM[TEMP_HEAD].b32.s1 = None.tex_int();
+                p
             } else {
                 v = -v - MEM[(just_box + 1) as usize].b32.s1;
-                p = new_math(0, BEGIN_L_CODE as i16) as i32;
-                MEM[TEMP_HEAD].b32.s1 = p;
+                let p = new_math(0, BEGIN_L_CODE as i16);
+                MEM[TEMP_HEAD].b32.s1 = p as i32;
                 just_copy(
                     MEM[(just_box + 5) as usize].b32.s1.opt(),
-                    p as usize,
+                    p,
                     new_math(0, END_L_CODE as i16) as i32,
                 );
                 cur_dir = LR::RightToLeft;
-            }
+                Some(p)
+            };
             v = v + 2i32
                 * FONT_INFO
                     [(QUAD_CODE + PARAM_BASE[EQTB[(CUR_FONT_LOC) as usize].val as usize]) as usize]
@@ -193,13 +194,13 @@ pub(crate) unsafe fn init_math() {
                 MEM[temp_ptr as usize].b32.s1 = LR_ptr;
                 LR_ptr = temp_ptr
             }
-            while !p.is_texnull() {
+            while let Some(mut p) = popt {
                 loop {
-                    if is_char_node(p) {
-                        f = *CHAR_NODE_font(p as usize) as internal_font_number;
+                    if is_char_node(p as i32) {
+                        f = *CHAR_NODE_font(p) as internal_font_number;
                         d = FONT_INFO[(WIDTH_BASE[f]
                             + FONT_INFO[(CHAR_BASE[f]
-                                + effective_char(true, f, MEM[p as usize].b16.s0))
+                                + effective_char(true, f, MEM[p].b16.s0))
                                 as usize]
                                 .b16
                                 .s3 as i32) as usize]
@@ -208,30 +209,30 @@ pub(crate) unsafe fn init_math() {
                         current_block = 9427725525305667067;
                         break;
                     } else {
-                        match TextNode::n(MEM[p as usize].b16.s1).unwrap() {
+                        match TextNode::n(MEM[p].b16.s1).unwrap() {
                             TextNode::HList | TextNode::VList | TextNode::Rule => {
-                                d = MEM[(p + 1) as usize].b32.s1;
+                                d = MEM[p + 1].b32.s1;
                                 current_block = 9427725525305667067;
                                 break;
                             }
                             TextNode::Ligature => {
-                                MEM[GARBAGE] = MEM[(p + 1) as usize];
-                                MEM[GARBAGE].b32.s1 = MEM[p as usize].b32.s1;
-                                p = GARBAGE as i32;
+                                MEM[GARBAGE] = MEM[p + 1];
+                                MEM[GARBAGE].b32.s1 = MEM[p].b32.s1;
+                                p = GARBAGE;
                                 xtx_ligature_present = true
                             }
                             TextNode::Kern => {
-                                d = MEM[(p + 1) as usize].b32.s1;
+                                d = MEM[p + 1].b32.s1;
                                 current_block = 1677945370889843322;
                                 break;
                             }
                             TextNode::MarginKern => {
-                                d = MEM[(p + 1) as usize].b32.s1;
+                                d = MEM[p + 1].b32.s1;
                                 current_block = 1677945370889843322;
                                 break;
                             }
                             TextNode::Math => {
-                                d = MEM[(p + 1) as usize].b32.s1;
+                                d = MEM[p + 1].b32.s1;
                                 if *INTPAR(IntPar::texxet) > 0i32 {
                                     current_block = 13660591889533726445;
                                     break;
@@ -247,7 +248,7 @@ pub(crate) unsafe fn init_math() {
                                 break;
                             }
                             TextNode::Glue => {
-                                q = MEM[(p + 1) as usize].b32.s0;
+                                q = MEM[p + 1].b32.s0;
                                 d = MEM[(q + 1) as usize].b32.s1;
                                 if MEM[(just_box + 5) as usize].b16.s1
                                     == GlueSign::Stretching as u16
@@ -268,7 +269,7 @@ pub(crate) unsafe fn init_math() {
                                         v = 0x3fffffffi32
                                     }
                                 }
-                                if MEM[p as usize].b16.s0 as i32 >= 100 {
+                                if MEM[p].b16.s0 as i32 >= 100 {
                                     current_block = 9427725525305667067;
                                     break;
                                 } else {
@@ -277,11 +278,11 @@ pub(crate) unsafe fn init_math() {
                                 }
                             }
                             TextNode::WhatsIt => {
-                                if whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWord
-                                    || whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWordAt
-                                    || whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
-                                    || whatsit_NODE_subtype(p as usize) == WhatsItNST::Pic
-                                    || whatsit_NODE_subtype(p as usize) == WhatsItNST::Pdf
+                                if whatsit_NODE_subtype(p) == WhatsItNST::NativeWord
+                                    || whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt
+                                    || whatsit_NODE_subtype(p) == WhatsItNST::Glyph
+                                    || whatsit_NODE_subtype(p) == WhatsItNST::Pic
+                                    || whatsit_NODE_subtype(p) == WhatsItNST::Pdf
                                 {
                                     current_block = 11064061988481400464;
                                     break;
@@ -300,7 +301,7 @@ pub(crate) unsafe fn init_math() {
                 }
                 match current_block {
                     2631791190359682872 => {
-                        if MEM[p as usize].b16.s0 as i32 >= 4 {
+                        if MEM[p].b16.s0 as i32 >= 4 {
                             w = 0x3fffffffi32;
                             break;
                         } else {
@@ -310,27 +311,27 @@ pub(crate) unsafe fn init_math() {
                     13660591889533726445 =>
                     /*1525: */
                     {
-                        if MEM[p as usize].b16.s0 as i32 & 1 != 0 {
+                        if MEM[p].b16.s0 as i32 & 1 != 0 {
                             if MEM[LR_ptr as usize].b32.s0
-                                == 4i32 * (MEM[p as usize].b16.s0 as i32 / 4) + 3
+                                == 4i32 * (MEM[p].b16.s0 as i32 / 4) + 3
                             {
                                 temp_ptr = LR_ptr;
                                 LR_ptr = MEM[temp_ptr as usize].b32.s1;
                                 MEM[temp_ptr as usize].b32.s1 = avail;
                                 avail = temp_ptr
-                            } else if MEM[p as usize].b16.s0 as i32 > 4 {
+                            } else if MEM[p].b16.s0 as i32 > 4 {
                                 w = 0x3fffffffi32;
                                 break;
                             }
                         } else {
                             temp_ptr = get_avail() as i32;
                             MEM[temp_ptr as usize].b32.s0 =
-                                4i32 * (MEM[p as usize].b16.s0 as i32 / 4) + 3;
+                                4i32 * (MEM[p].b16.s0 as i32 / 4) + 3;
                             MEM[temp_ptr as usize].b32.s1 = LR_ptr;
                             LR_ptr = temp_ptr;
-                            if MEM[p as usize].b16.s0 as i32 / 8 != cur_dir as i32 {
-                                just_reverse(p);
-                                p = TEMP_HEAD as i32;
+                            if MEM[p].b16.s0 as i32 / 8 != cur_dir as i32 {
+                                just_reverse(p as i32);
+                                p = TEMP_HEAD;
                             }
                         }
                         current_block = 1677945370889843322;
@@ -361,7 +362,7 @@ pub(crate) unsafe fn init_math() {
                         }
                     }
                 }
-                p = *LLIST_link(p as usize);
+                popt = LLIST_link(p).opt();
             }
             if *INTPAR(IntPar::texxet) > 0 {
                 while !LR_ptr.is_texnull() {
