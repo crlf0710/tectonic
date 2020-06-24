@@ -4958,136 +4958,136 @@ pub(crate) unsafe fn insert_relax() {
     back_input();
     cur_input.index = Btl::Inserted;
 }
-pub(crate) unsafe fn new_index(mut i: u16, mut q: i32) -> usize {
+pub(crate) unsafe fn new_index(mut i: u16, mut q: Option<usize>) -> usize {
     let p = get_node(INDEX_NODE_SIZE);
     MEM[p].b16.s1 = i;
     MEM[p].b16.s0 = 0_u16;
-    MEM[p].b32.s1 = q;
+    MEM[p].b32.s1 = q.tex_int();
     for k in 1..(INDEX_NODE_SIZE as usize) {
         MEM[p + k] = SA_NULL;
     }
     p
 }
 pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
-    cur_ptr = sa_root[t as usize].tex_int();
-    if cur_ptr.opt().is_none() {
+    cur_ptr = sa_root[t as usize];
+    if cur_ptr.is_none() {
         if w {
             return not_found(t, n);
         } else {
             return;
         }
     }
-    let q = cur_ptr;
-    let i = (n / 0x40000) as i16;
-    cur_ptr = if i as i32 & 1i32 != 0 {
-        MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
+    let q = cur_ptr.unwrap();
+    let i = (n / 0x40000) as usize;
+    cur_ptr = if i & 1 != 0 {
+        MEM[q + i / 2 + 1].b32.s1.opt()
     } else {
-        MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
+        MEM[q + i / 2 + 1].b32.s0.opt()
     };
-    if cur_ptr.opt().is_none() {
+    if cur_ptr.is_none() {
         if w {
             return lab46(t, n, q, i);
         } else {
             return;
         }
     }
-    let q = cur_ptr;
-    let i = (n / 4096 % 64) as i16;
-    cur_ptr = if i as i32 & 1i32 != 0 {
-        MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
+    let q = cur_ptr.unwrap();
+    let i = (n / 4096 % 64) as usize;
+    cur_ptr = if i & 1 != 0 {
+        MEM[q + i / 2 + 1].b32.s1.opt()
     } else {
-        MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
+        MEM[q + i / 2 + 1].b32.s0.opt()
     };
-    if cur_ptr.opt().is_none() {
+    if cur_ptr.is_none() {
         if w {
             return lab47(t, n, q, i);
         } else {
             return;
         }
     }
-    let q = cur_ptr;
-    let i = (n / 64 % 64) as i16;
-    cur_ptr = if i as i32 & 1i32 != 0 {
-        MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
+    let q = cur_ptr.unwrap();
+    let i = (n / 64 % 64) as usize;
+    cur_ptr = if i & 1 != 0 {
+        MEM[q + i / 2 + 1].b32.s1.opt()
     } else {
-        MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
+        MEM[q + i / 2 + 1].b32.s0.opt()
     };
-    if cur_ptr.opt().is_none() {
+    if cur_ptr.is_none() {
         if w {
             return lab48(t, n, q, i);
         } else {
             return;
         }
     }
-    let q = cur_ptr;
-    let i = (n % 64) as i16;
-    cur_ptr = if i as i32 & 1i32 != 0 {
-        MEM[(q + i as i32 / 2 + 1) as usize].b32.s1
+    let q = cur_ptr.unwrap();
+    let i = (n % 64) as usize;
+    cur_ptr = if i & 1 != 0 {
+        MEM[q + i / 2 + 1].b32.s1.opt()
     } else {
-        MEM[(q + i as i32 / 2 + 1) as usize].b32.s0
+        MEM[q + i / 2 + 1].b32.s0.opt()
     };
-    if cur_ptr.opt().is_none() && w {
+    if cur_ptr.is_none() && w {
         return lab49(t, n, q, i);
     } else {
         return;
     }
 
     unsafe fn not_found(t: ValLevel, n: i32) {
-        let p = new_index(t as u16, None.tex_int());
-        cur_ptr = Some(p).tex_int();
-        sa_root[t as usize] = cur_ptr.opt();
-        let q = cur_ptr;
-        let i = (n / 0x40000) as i16;
+        let p = new_index(t as u16, None);
+        cur_ptr = Some(p);
+        sa_root[t as usize] = cur_ptr;
+        let q = p;
+        let i = (n / 0x40000) as usize;
         lab46(t, n, q, i)
     }
 
     /*not_found1 */
-    unsafe fn lab46(t: ValLevel, n: i32, mut q: i32, mut i: i16) {
-        let p = new_index(i as u16, q);
-        cur_ptr = Some(p).tex_int();
-        if i as i32 & 1i32 != 0 {
-            MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
+    unsafe fn lab46(t: ValLevel, n: i32, mut q: usize, mut i: usize) {
+        let p = new_index(i as u16, Some(q));
+        cur_ptr = Some(p);
+        if i & 1 != 0 {
+            MEM[q + i / 2 + 1].b32.s1 = cur_ptr.tex_int();
         } else {
-            MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = cur_ptr
+            MEM[q + i / 2 + 1].b32.s0 = cur_ptr.tex_int();
         }
-        MEM[q as usize].b16.s0 += 1;
-        q = cur_ptr;
-        i = (n / 4096 % 64) as i16;
+        MEM[q].b16.s0 += 1;
+        q = p;
+        i = (n / 4096 % 64) as usize;
         lab47(t, n, q, i)
     }
 
     /*not_found2 */
-    unsafe fn lab47(t: ValLevel, n: i32, mut q: i32, mut i: i16) {
-        let p = new_index(i as u16, q);
-        cur_ptr = Some(p).tex_int();
-        if i as i32 & 1i32 != 0 {
-            MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
+    unsafe fn lab47(t: ValLevel, n: i32, mut q: usize, mut i: usize) {
+        let p = new_index(i as u16, Some(q));
+        cur_ptr = Some(p);
+        if i & 1 != 0 {
+            MEM[q + i / 2 + 1].b32.s1 = cur_ptr.tex_int();
         } else {
-            MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = cur_ptr
+            MEM[q + i / 2 + 1].b32.s0 = cur_ptr.tex_int();
         }
-        MEM[q as usize].b16.s0 += 1;
-        q = cur_ptr;
-        i = (n / 64 % 64) as i16;
+        MEM[q].b16.s0 += 1;
+        q = p;
+        i = (n / 64 % 64) as usize;
         lab48(t, n, q, i)
     }
 
     /*not_found3 */
-    unsafe fn lab48(t: ValLevel, n: i32, mut q: i32, mut i: i16) {
-        let p = new_index(i as u16, q);
-        cur_ptr = Some(p).tex_int();
-        if i as i32 & 1i32 != 0 {
-            MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
+    unsafe fn lab48(t: ValLevel, n: i32, mut q: usize, mut i: usize) {
+        let p = new_index(i as u16, Some(q));
+        cur_ptr = Some(p);
+        if i & 1 != 0 {
+            MEM[q + i / 2 + 1].b32.s1 = cur_ptr.tex_int();
         } else {
-            MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = cur_ptr
+            MEM[q + i / 2 + 1].b32.s0 = cur_ptr.tex_int();
         }
-        MEM[q as usize].b16.s0 += 1;
-        q = cur_ptr;
-        i = (n % 64i32) as i16;
+        MEM[q].b16.s0 += 1;
+        q = p;
+        i = (n % 64i32) as usize;
         lab49(t, n, q, i)
     }
 
     /*not_found4 *//*1608: */
-    unsafe fn lab49(t: ValLevel, n: i32, q: i32, i: i16) {
+    unsafe fn lab49(t: ValLevel, n: i32, q: usize, i: usize) {
         let p = if t == ValLevel::Mark {
             let p = get_node(MARK_CLASS_NODE_SIZE); /*level_one *//*:1608 */
             MEM[p + 1] = SA_NULL;
@@ -5113,16 +5113,16 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
             MEM[p + 1].b32.s0 = None.tex_int();
             p
         };
-        cur_ptr = Some(p).tex_int();
+        cur_ptr = Some(p);
         MEM[p].b16.s1 = (64 * t as i32 + i as i32) as u16;
         MEM[p].b16.s0 = 1;
-        MEM[p].b32.s1 = q;
-        if i as i32 & 1i32 != 0 {
-            MEM[(q + i as i32 / 2 + 1) as usize].b32.s1 = cur_ptr
+        MEM[p].b32.s1 = q as i32;
+        if i & 1 != 0 {
+            MEM[q + i / 2 + 1].b32.s1 = cur_ptr.tex_int();
         } else {
-            MEM[(q + i as i32 / 2 + 1) as usize].b32.s0 = cur_ptr
+            MEM[q + i / 2 + 1].b32.s0 = cur_ptr.tex_int();
         }
-        MEM[q as usize].b16.s0 += 1;
+        MEM[q].b16.s0 += 1;
     }
 }
 pub(crate) unsafe fn expand() {
@@ -5152,19 +5152,19 @@ pub(crate) unsafe fn expand() {
                     } else {
                         cur_val = 0;
                     }
-                    if cur_val == 0 {
-                        cur_ptr = cur_mark[t as usize].tex_int();
+                    cur_ptr = if cur_val == 0 {
+                        cur_mark[t as usize]
                     } else {
                         find_sa_element(ValLevel::Mark, cur_val, false);
-                        if let Some(p) = cur_ptr.opt() {
-                            cur_ptr = if t & 1 != 0 {
-                                MEM[p + t / 2 + 1].b32.s1
+                        cur_ptr.and_then(|p| {
+                            if t & 1 != 0 {
+                                MEM[p + t / 2 + 1].b32.s1.opt()
                             } else {
-                                MEM[p + t / 2 + 1].b32.s0
-                            };
-                        }
-                    }
-                    if let Some(p) = cur_ptr.opt() {
+                                MEM[p + t / 2 + 1].b32.s0.opt()
+                            }
+                        })
+                    };
+                    if let Some(p) = cur_ptr {
                         begin_token_list(p, Btl::MarkText);
                     }
                     break;
@@ -6158,25 +6158,21 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                             cur_val = EQTB[TOKS_BASE + cur_val as usize].val
                         } else {
                             find_sa_element(ValLevel::Tok, cur_val, false);
-                            cur_val = if let Some(p) = cur_ptr.opt() {
-                                MEM[p + 1].b32.s1
-                            } else {
-                                None.tex_int()
-                            };
+                            cur_val = cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt()).tex_int();
                         }
                     } else {
                         cur_val = MEM[(m + 1) as usize].b32.s1
                     }
                 } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
                     scan_char_class_not_ignored();
-                    cur_ptr = cur_val;
+                    cur_ptr = cur_val.opt();
                     scan_char_class_not_ignored();
                     find_sa_element(
                         ValLevel::InterChar,
-                        cur_ptr * CHAR_CLASS_LIMIT + cur_val,
+                        cur_ptr.tex_int() * CHAR_CLASS_LIMIT + cur_val,
                         false,
                     );
-                    cur_val = if let Some(p) = cur_ptr.opt() {
+                    cur_val = if let Some(p) = cur_ptr {
                         MEM[p + 1].b32.s1
                     } else {
                         None.tex_int()
@@ -6301,7 +6297,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                 BOX_REG(cur_val as usize).opt()
             } else {
                 find_sa_element(ValLevel::Ident, cur_val, false);
-                if let Some(p) = cur_ptr.opt() {
+                if let Some(p) = cur_ptr {
                     MEM[p + 1].b32.s1.opt()
                 } else {
                     None
@@ -6370,7 +6366,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                 cur_val_level = ValLevel::from(m as u8);
                 if cur_val > 255 {
                     find_sa_element(cur_val_level, cur_val, false);
-                    cur_val = if let Some(p) = cur_ptr.opt() {
+                    cur_val = if let Some(p) = cur_ptr {
                         if cur_val_level < ValLevel::Glue {
                             MEM[p + 2].b32.s1
                         } else {
@@ -8603,7 +8599,7 @@ pub(crate) unsafe fn conv_toks() {
                 BOX_REG(cur_val as usize).opt()
             } else {
                 find_sa_element(ValLevel::Ident, cur_val, false);
-                cur_ptr.opt().and_then(|p| MEM[p + 1].b32.s1.opt())
+                cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt())
             };
             if p.filter(|&p| NODE_type(p) == TextNode::HList.into())
                 .is_none()
@@ -9278,11 +9274,7 @@ pub(crate) unsafe fn conditional() {
                 BOX_REG(cur_val as usize).opt()
             } else {
                 find_sa_element(ValLevel::Ident, cur_val, false);
-                if let Some(cp) = cur_ptr.opt() {
-                    MEM[cp + 1].b32.s1.opt()
-                } else {
-                    None
-                }
+                cur_ptr.and_then(|cp| MEM[cp + 1].b32.s1.opt())
             };
             b = if this_if == IF_VOID_CODE {
                 p.is_none()
@@ -13090,11 +13082,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
         BOX_REG(cur_val as usize).opt()
     } else {
         find_sa_element(ValLevel::Ident, cur_val, false);
-        if cur_ptr.is_texnull() {
-            None
-        } else {
-            MEM[(cur_ptr + 1) as usize].b32.s1.opt()
-        }
+        cur_ptr.and_then(|c| MEM[c + 1].b32.s1.opt())
     };
     flush_node_list(disc_ptr[VSPLIT_CODE as usize].opt());
     disc_ptr[VSPLIT_CODE as usize] = None.tex_int();
@@ -13137,13 +13125,14 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
                 if MEM[(p + 1) as usize].b32.s0 != 0 {
                     /*1615: */
                     find_sa_element(ValLevel::Mark, MEM[(p + 1) as usize].b32.s0, true);
-                    if MEM[(cur_ptr + 2) as usize].b32.s1.is_texnull() {
-                        MEM[(cur_ptr + 2) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
+                    let c = cur_ptr.unwrap();
+                    if MEM[c + 2].b32.s1.is_texnull() {
+                        MEM[c + 2].b32.s1 = MEM[(p + 1) as usize].b32.s1;
                         MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1
                     } else {
-                        delete_token_ref(MEM[(cur_ptr + 3) as usize].b32.s0 as usize);
+                        delete_token_ref(MEM[c + 3].b32.s0 as usize);
                     }
-                    MEM[(cur_ptr + 3) as usize].b32.s0 = MEM[(p + 1) as usize].b32.s1;
+                    MEM[c + 3].b32.s0 = MEM[(p + 1) as usize].b32.s1;
                     MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
                 } else if cur_mark[SPLIT_FIRST_MARK_CODE].is_none() {
                     let m = MEM[(p + 1) as usize].b32.s1.opt().unwrap();
@@ -13176,10 +13165,10 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
         *BOX_REG(cur_val as usize) = q.tex_int();
     } else {
         find_sa_element(ValLevel::Ident, cur_val, false);
-        if !cur_ptr.is_texnull() {
-            MEM[(cur_ptr + 1) as usize].b32.s1 = q.tex_int();
-            MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
-            delete_sa_ref(cur_ptr as usize);
+        if let Some(c) = cur_ptr {
+            MEM[c + 1].b32.s1 = q.tex_int();
+            MEM[c + 1].b32.s0 += 1;
+            delete_sa_ref(c);
         }
     }
     Some(vpackage(
@@ -13508,9 +13497,9 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
         } else {
             find_sa_element(ValLevel::Ident, cur_val, true);
             if a >= 4 {
-                gsa_def(cur_ptr as usize, cur_box.opt());
+                gsa_def(cur_ptr.unwrap(), cur_box.opt());
             } else {
-                sa_def(cur_ptr as usize, cur_box.opt());
+                sa_def(cur_ptr.unwrap(), cur_box.opt());
             }
         }
     } else if !cur_box.is_texnull() {
@@ -13553,24 +13542,21 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
     match cur_chr {
         BOX_CODE => {
             scan_register_num();
-            if cur_val < 256 {
-                cur_box = *BOX_REG(cur_val as usize)
+            cur_box = (if cur_val < 256 {
+                BOX_REG(cur_val as usize).opt()
             } else {
                 find_sa_element(ValLevel::Ident, cur_val, false);
-                if cur_ptr.is_texnull() {
-                    cur_box = None.tex_int()
-                } else {
-                    cur_box = MEM[(cur_ptr + 1) as usize].b32.s1
-                }
-            }
+                cur_ptr.and_then(|c| MEM[c + 1].b32.s1.opt())
+            })
+            .tex_int();
             if cur_val < 256 {
                 *BOX_REG(cur_val as usize) = None.tex_int()
             } else {
                 find_sa_element(ValLevel::Ident, cur_val, false);
-                if !cur_ptr.is_texnull() {
-                    MEM[(cur_ptr + 1) as usize].b32.s1 = None.tex_int();
-                    MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
-                    delete_sa_ref(cur_ptr as usize);
+                if let Some(c) = cur_ptr {
+                    MEM[c + 1].b32.s1 = None.tex_int();
+                    MEM[c + 1].b32.s0 += 1;
+                    delete_sa_ref(c);
                 }
             }
         }
@@ -13580,11 +13566,7 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
                 BOX_REG(cur_val as usize).opt()
             } else {
                 find_sa_element(ValLevel::Ident, cur_val, false);
-                if cur_ptr.is_texnull() {
-                    None
-                } else {
-                    MEM[(cur_ptr + 1) as usize].b32.s1.opt()
-                }
+                cur_ptr.and_then(|c| MEM[c + 1].b32.s1.opt())
             };
             cur_box = copy_node_list(q)
         }
@@ -14055,16 +14037,13 @@ pub(crate) unsafe fn unpackage() {
     } else {
         c = cur_chr as u8;
         scan_register_num();
-        if cur_val < 256 {
-            p = *BOX_REG(cur_val as usize)
+        p = (if cur_val < 256 {
+            BOX_REG(cur_val as usize).opt()
         } else {
             find_sa_element(ValLevel::Ident, cur_val, false);
-            if cur_ptr.is_texnull() {
-                p = None.tex_int();
-            } else {
-                p = MEM[(cur_ptr + 1) as usize].b32.s1;
-            }
-        }
+            cur_ptr.and_then(|c| MEM[c + 1].b32.s1.opt())
+        })
+        .tex_int();
         if p.is_texnull() {
             return;
         }
@@ -14093,10 +14072,10 @@ pub(crate) unsafe fn unpackage() {
                 *BOX_REG(cur_val as usize) = None.tex_int()
             } else {
                 find_sa_element(ValLevel::Ident, cur_val, false);
-                if !cur_ptr.is_texnull() {
-                    MEM[(cur_ptr + 1) as usize].b32.s1 = None.tex_int();
-                    MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
-                    delete_sa_ref(cur_ptr as usize);
+                if let Some(c) = cur_ptr {
+                    MEM[c + 1].b32.s1 = None.tex_int();
+                    MEM[c + 1].b32.s0 += 1;
+                    delete_sa_ref(c);
                 }
             }
             free_node(p as usize, BOX_NODE_SIZE);
@@ -14759,7 +14738,7 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
                 scan_register_num();
                 if cur_val > 255 {
                     find_sa_element(p, cur_val, true);
-                    l = cur_ptr;
+                    l = cur_ptr.tex_int();
                     e = true
                 } else {
                     match p {
@@ -15001,11 +14980,7 @@ pub(crate) unsafe fn alter_box_dimen() {
         BOX_REG(cur_val as usize).opt()
     } else {
         find_sa_element(ValLevel::Ident, cur_val, false);
-        if cur_ptr.is_texnull() {
-            None
-        } else {
-            MEM[(cur_ptr + 1) as usize].b32.s1.opt()
-        }
+        cur_ptr.and_then(|c| MEM[c + 1].b32.s1.opt())
     };
     scan_optional_equals();
     scan_dimen(false, false, false);
@@ -15248,11 +15223,7 @@ pub(crate) unsafe fn show_whatever() {
                 BOX_REG(cur_val as usize).opt()
             } else {
                 find_sa_element(ValLevel::Ident, cur_val, false);
-                if cur_ptr.is_texnull() {
-                    None
-                } else {
-                    MEM[(cur_ptr + 1) as usize].b32.s1.opt()
-                }
+                cur_ptr.and_then(|c| MEM[c + 1].b32.s1.opt())
             };
             begin_diagnostic();
             print_nl_cstr(b"> \\box");
@@ -15838,7 +15809,7 @@ pub(crate) unsafe fn main_control() {
                                 space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                                 false,
                             );
-                            if !cur_ptr.is_texnull() {
+                            if let Some(c) = cur_ptr {
                                 if cur_cs == 0 {
                                     if cur_cmd == Cmd::CharNum {
                                         cur_cmd = Cmd::OtherChar;
@@ -15848,10 +15819,7 @@ pub(crate) unsafe fn main_control() {
                                     cur_tok = CS_TOKEN_FLAG + cur_cs
                                 }
                                 back_input();
-                                begin_token_list(
-                                    MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                                    Btl::InterCharText,
-                                );
+                                begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                                 continue 'c_125208;
                             }
                         }
@@ -16602,7 +16570,7 @@ pub(crate) unsafe fn main_control() {
                     } else {
                         cur_list.aux.b32.s0 = main_s;
                     }
-                    cur_ptr = None.tex_int();
+                    cur_ptr = None;
                     space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
                     if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != 4096 {
                         if prev_class == CHAR_CLASS_LIMIT - 1 {
@@ -16614,7 +16582,7 @@ pub(crate) unsafe fn main_control() {
                                     (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
                                     false,
                                 );
-                                if !cur_ptr.is_texnull() {
+                                if let Some(c) = cur_ptr {
                                     if cur_cmd != Cmd::Letter {
                                         cur_cmd = Cmd::OtherChar;
                                     }
@@ -16622,7 +16590,7 @@ pub(crate) unsafe fn main_control() {
                                     back_input();
                                     cur_input.index = Btl::BackedUpChar;
                                     begin_token_list(
-                                        MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
+                                        MEM[c + 1].b32.s1 as usize,
                                         Btl::InterCharText,
                                     );
                                     continue 'c_125208;
@@ -16634,17 +16602,14 @@ pub(crate) unsafe fn main_control() {
                                 prev_class * CHAR_CLASS_LIMIT + space_class,
                                 false,
                             );
-                            if !cur_ptr.is_texnull() {
+                            if let Some(c) = cur_ptr {
                                 if cur_cmd != Cmd::Letter {
                                     cur_cmd = Cmd::OtherChar;
                                 }
                                 cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                 back_input();
                                 cur_input.index = Btl::BackedUpChar;
-                                begin_token_list(
-                                    MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                                    Btl::InterCharText,
-                                );
+                                begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                                 prev_class = CHAR_CLASS_LIMIT - 1;
                                 current_block = 9706274459985797855;
                                 break;
@@ -16727,20 +16692,17 @@ pub(crate) unsafe fn main_control() {
                             space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                             false,
                         );
-                        if !cur_ptr.is_texnull() {
-                            if cur_cs == 0 {
+                        if let Some(c) = cur_ptr {
+                            cur_tok = if cur_cs == 0 {
                                 if cur_cmd == Cmd::CharNum {
                                     cur_cmd = Cmd::OtherChar;
                                 }
-                                cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
+                                cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
                             } else {
-                                cur_tok = CS_TOKEN_FLAG + cur_cs
-                            }
+                                CS_TOKEN_FLAG + cur_cs
+                            };
                             back_input();
-                            begin_token_list(
-                                MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                                Btl::InterCharText,
-                            );
+                            begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                         }
                     }
                     _ => {}
@@ -17080,7 +17042,7 @@ pub(crate) unsafe fn main_control() {
                         }
                     }
                 }
-                if !cur_ptr.is_texnull() {
+                if cur_ptr.is_some() {
                     continue 'c_125208;
                 }
             } else {
@@ -17096,7 +17058,7 @@ pub(crate) unsafe fn main_control() {
                 } else {
                     cur_list.aux.b32.s0 = main_s
                 }
-                cur_ptr = None.tex_int();
+                cur_ptr = None;
                 space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
                 if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != CHAR_CLASS_LIMIT {
                     if prev_class == CHAR_CLASS_LIMIT - 1 {
@@ -17108,17 +17070,14 @@ pub(crate) unsafe fn main_control() {
                                 (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
                                 false,
                             );
-                            if !cur_ptr.is_texnull() {
+                            if let Some(c) = cur_ptr {
                                 if cur_cmd != Cmd::Letter {
                                     cur_cmd = Cmd::OtherChar;
                                 }
                                 cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                 back_input();
                                 cur_input.index = Btl::BackedUpChar;
-                                begin_token_list(
-                                    MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                                    Btl::InterCharText,
-                                );
+                                begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                                 continue 'c_125208;
                             }
                         }
@@ -17128,17 +17087,14 @@ pub(crate) unsafe fn main_control() {
                             prev_class * CHAR_CLASS_LIMIT + space_class,
                             false,
                         );
-                        if !cur_ptr.is_texnull() {
+                        if let Some(c) = cur_ptr {
                             if cur_cmd != Cmd::Letter {
                                 cur_cmd = Cmd::OtherChar;
                             }
                             cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                             back_input();
                             cur_input.index = Btl::BackedUpChar;
-                            begin_token_list(
-                                MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                                Btl::InterCharText,
-                            );
+                            begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                             prev_class = CHAR_CLASS_LIMIT - 1;
                             continue 'c_125208;
                         }
@@ -17474,7 +17430,7 @@ pub(crate) unsafe fn main_control() {
                                         } else {
                                             cur_list.aux.b32.s0 = main_s;
                                         }
-                                        cur_ptr = None.tex_int();
+                                        cur_ptr = None;
                                         space_class =
                                             (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
                                         if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
@@ -17490,7 +17446,7 @@ pub(crate) unsafe fn main_control() {
                                                             + space_class,
                                                         false,
                                                     );
-                                                    if !cur_ptr.is_texnull() {
+                                                    if let Some(c) = cur_ptr {
                                                         if cur_cmd != Cmd::Letter {
                                                             cur_cmd = Cmd::OtherChar
                                                         }
@@ -17499,8 +17455,7 @@ pub(crate) unsafe fn main_control() {
                                                         back_input();
                                                         cur_input.index = Btl::BackedUpChar;
                                                         begin_token_list(
-                                                            MEM[(cur_ptr + 1) as usize].b32.s1
-                                                                as usize,
+                                                            MEM[c + 1].b32.s1 as usize,
                                                             Btl::InterCharText,
                                                         );
                                                         continue 'c_125208;
@@ -17512,7 +17467,7 @@ pub(crate) unsafe fn main_control() {
                                                     prev_class * CHAR_CLASS_LIMIT + space_class,
                                                     false,
                                                 );
-                                                if !cur_ptr.is_texnull() {
+                                                if let Some(c) = cur_ptr {
                                                     if cur_cmd != Cmd::Letter {
                                                         cur_cmd = Cmd::OtherChar;
                                                     }
@@ -17521,7 +17476,7 @@ pub(crate) unsafe fn main_control() {
                                                     back_input();
                                                     cur_input.index = Btl::BackedUpChar;
                                                     begin_token_list(
-                                                        MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
+                                                        MEM[c + 1].b32.s1 as usize,
                                                         Btl::InterCharText,
                                                     );
                                                     prev_class = CHAR_CLASS_LIMIT - 1;
@@ -17686,7 +17641,7 @@ pub(crate) unsafe fn main_control() {
                         space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                         false,
                     );
-                    if !cur_ptr.is_texnull() {
+                    if let Some(c) = cur_ptr {
                         if cur_cs == 0 {
                             if cur_cmd == Cmd::CharNum {
                                 cur_cmd = Cmd::OtherChar;
@@ -17696,10 +17651,7 @@ pub(crate) unsafe fn main_control() {
                             cur_tok = CS_TOKEN_FLAG + cur_cs
                         }
                         back_input();
-                        begin_token_list(
-                            MEM[(cur_ptr + 1) as usize].b32.s1 as usize,
-                            Btl::InterCharText,
-                        );
+                        begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                         continue;
                     }
                 }
@@ -17857,12 +17809,12 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
 pub(crate) unsafe fn do_marks(a: MarkMode, mut l: i16, q: usize) -> bool {
     if l < 4 {
         for i in 0..=15 {
-            if i & 1 != 0 {
-                cur_ptr = MEM[q + i / 2 + 1].b32.s1
+            cur_ptr = if i & 1 != 0 {
+                MEM[q + i / 2 + 1].b32.s1.opt()
             } else {
-                cur_ptr = MEM[q + i / 2 + 1].b32.s0
-            }
-            if let Some(p) = cur_ptr.opt() {
+                MEM[q + i / 2 + 1].b32.s0.opt()
+            };
+            if let Some(p) = cur_ptr {
                 if do_marks(a, (l as i32 + 1i32) as i16, p) {
                     if i & 1 != 0 {
                         MEM[q + i / 2 + 1].b32.s1 = None.tex_int()
@@ -17912,13 +17864,13 @@ pub(crate) unsafe fn do_marks(a: MarkMode, mut l: i16, q: usize) -> bool {
             }
             MarkMode::DestroyMarks => {
                 for i in 0..=4 {
-                    if i & 1 != 0 {
-                        cur_ptr = MEM[q + i / 2 + 1].b32.s1
+                    cur_ptr = if i & 1 != 0 {
+                        MEM[q + i / 2 + 1].b32.s1.opt()
                     } else {
-                        cur_ptr = MEM[q + i / 2 + 1].b32.s0
-                    }
-                    if !cur_ptr.is_texnull() {
-                        delete_token_ref(cur_ptr as usize);
+                        MEM[q + i / 2 + 1].b32.s0.opt()
+                    };
+                    if let Some(c) = cur_ptr {
+                        delete_token_ref(c);
                         if i & 1 != 0 {
                             MEM[q + i / 2 + 1].b32.s1 = None.tex_int()
                         } else {

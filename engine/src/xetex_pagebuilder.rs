@@ -288,14 +288,15 @@ unsafe fn fire_up(mut c: i32) {
             if MEM[(p + 1) as usize].b32.s0 != 0 {
                 /*1618: "Update the current marks" */
                 find_sa_element(ValLevel::Mark as _, MEM[(p + 1) as usize].b32.s0, true);
-                if MEM[(cur_ptr + 1) as usize].b32.s1.opt().is_none() {
-                    MEM[(cur_ptr + 1) as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
+                let c = cur_ptr.unwrap();
+                if MEM[c + 1].b32.s1.opt().is_none() {
+                    MEM[c + 1].b32.s1 = MEM[(p + 1) as usize].b32.s1;
                     MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
                 }
-                if let Some(m) = MEM[(cur_ptr + 2) as usize].b32.s0.opt() {
+                if let Some(m) = MEM[c + 2].b32.s0.opt() {
                     delete_token_ref(m);
                 }
-                MEM[(cur_ptr + 2) as usize].b32.s0 = MEM[(p + 1) as usize].b32.s1;
+                MEM[c + 2].b32.s0 = MEM[(p + 1) as usize].b32.s1;
                 MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
             } else {
                 /*1051: "Update the values of first_mark and bot_mark" */

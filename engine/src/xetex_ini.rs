@@ -1111,7 +1111,7 @@ pub(crate) static mut max_reg_help_line: &[u8] = &[];
 #[no_mangle]
 pub(crate) static mut sa_root: [Option<usize>; 8] = [Some(0); 8];
 #[no_mangle]
-pub(crate) static mut cur_ptr: i32 = 0;
+pub(crate) static mut cur_ptr: Option<usize> = Some(0);
 
 pub(crate) const SA_NULL: memory_word = memory_word {
     b32: b32x2 {
@@ -1957,7 +1957,6 @@ pub(crate) unsafe fn prefixed_command() {
     let mut f: internal_font_number = 0;
     let mut j: i32 = 0;
     let mut k: font_index = 0;
-    let mut q: i32 = 0;
     let mut e: bool = false;
 
     let mut a = 0 as i16;
@@ -2042,13 +2041,13 @@ pub(crate) unsafe fn prefixed_command() {
             e = cur_chr >= 2;
             get_r_token();
             let p = cur_cs;
-            q = scan_toks(true, e) as i32;
+            let _q = scan_toks(true, e) as i32;
             if j != 0 {
-                q = get_avail() as i32;
-                MEM[q as usize].b32.s0 = j;
-                MEM[q as usize].b32.s1 =
+                let q = get_avail();
+                MEM[q].b32.s0 = j;
+                MEM[q].b32.s1 =
                     MEM[def_ref].b32.s1;
-                MEM[def_ref].b32.s1 = q
+                MEM[def_ref].b32.s1 = q as i32;
             }
             if a >= 4 {
                 geq_define(p as usize, Cmd::from(Cmd::Call as u16 + (a % 4) as u16),
@@ -2073,7 +2072,7 @@ pub(crate) unsafe fn prefixed_command() {
                 }
             } else {
                 get_token();
-                q = cur_tok;
+                let q = cur_tok;
                 get_token();
                 back_input();
                 cur_tok = q;
@@ -2176,12 +2175,13 @@ pub(crate) unsafe fn prefixed_command() {
 
                             find_sa_element(ValLevel::from(j as u8), cur_val,
                                             true);
-                            MEM[(cur_ptr + 1) as usize].b32.s0 += 1;
+                            let c = cur_ptr.unwrap();
+                            MEM[c + 1].b32.s0 += 1;
 
                             let j = if j == ValLevel::Tok as i32 { Cmd::ToksRegister } else { Cmd::Register };
                             if a >= 4 {
-                                geq_define(p as usize, j, Some(cur_ptr as usize));
-                            } else { eq_define(p as usize, j, Some(cur_ptr as usize)); }
+                                geq_define(p as usize, j, Some(c));
+                            } else { eq_define(p as usize, j, Some(c)); }
                         } else {
                             match n {
                                 COUNT_DEF_CODE => {
@@ -2252,7 +2252,7 @@ pub(crate) unsafe fn prefixed_command() {
             } else { eq_define(p as usize, Cmd::Call, cur_val.opt()); }
         }
         Cmd::ToksRegister | Cmd::AssignToks => {
-            q = cur_cs;
+            let mut q = cur_cs;
             e = false;
             if cur_cmd == Cmd::ToksRegister {
                 if cur_chr == 0 {
@@ -2260,7 +2260,7 @@ pub(crate) unsafe fn prefixed_command() {
                     if cur_val > 255 {
                         find_sa_element(ValLevel::Tok, cur_val,
                                         true);
-                        cur_chr = cur_ptr;
+                        cur_chr = cur_ptr.tex_int();
                         e = true
                     } else {
                         cur_chr = TOKS_BASE as i32 + cur_val;
@@ -2268,11 +2268,11 @@ pub(crate) unsafe fn prefixed_command() {
                 } else { e = true }
             } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
                 scan_char_class_not_ignored();
-                cur_ptr = cur_val;
+                cur_ptr = cur_val.opt();
                 scan_char_class_not_ignored();
                 find_sa_element(ValLevel::InterChar,
-                                cur_ptr * CHAR_CLASS_LIMIT + cur_val, true);
-                cur_chr = cur_ptr;
+                                cur_ptr.tex_int() * CHAR_CLASS_LIMIT + cur_val, true);
+                cur_chr = cur_ptr.tex_int();
                 e = true
             }
             let p = cur_chr;
@@ -2291,33 +2291,25 @@ pub(crate) unsafe fn prefixed_command() {
                     q = if cur_cmd == Cmd::ToksRegister {
                         if cur_chr == 0 {
                             scan_register_num(); /* "extended delimiter code flag" */
-                            if cur_val < 256 {
-                                *TOKS_REG(cur_val as usize)
+                            (if cur_val < 256 {
+                                TOKS_REG(cur_val as usize).opt()
                             } else {
                                 find_sa_element(ValLevel::Tok, cur_val,
                                                 false); /* "extended delimiter code family */
-                                if let Some(p) = cur_ptr.opt() {
-                                    MEM[p + 1].b32.s1
-                                } else {
-                                    None.tex_int()
-                                }
-                            }
+                                cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt())
+                            }).tex_int()
                         } else {
                             MEM[(cur_chr + 1) as
                                                  usize].b32.s1
                         }
                     } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
                         scan_char_class_not_ignored(); /*:1268 */
-                        cur_ptr = cur_val;
+                        cur_ptr = cur_val.opt();
                         scan_char_class_not_ignored();
                         find_sa_element(ValLevel::InterChar,
-                                        cur_ptr * CHAR_CLASS_LIMIT + cur_val,
+                                        cur_ptr.tex_int() * CHAR_CLASS_LIMIT + cur_val,
                                         false);
-                        if let Some(p) = cur_ptr.opt() {
-                            MEM[p + 1].b32.s1
-                        } else {
-                            None.tex_int()
-                        }
+                        cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt()).tex_int()
                     } else { EQTB[cur_chr as usize].val };
                     if let Some(q) = q.opt() {
                         MEM[q].b32.s0 += 1;
@@ -2347,7 +2339,7 @@ pub(crate) unsafe fn prefixed_command() {
                 _ => {
                     back_input();
                     cur_cs = q;
-                    q = scan_toks(false, false) as i32;
+                    let q = scan_toks(false, false);
                     if MEM[def_ref].b32.s1.opt().is_none() {
                         if e {
                             if a >= 4 {
@@ -2362,16 +2354,16 @@ pub(crate) unsafe fn prefixed_command() {
                         avail = def_ref as i32;
                     } else {
                         if p == LOCAL_BASE as i32 + Local::output_routine as i32 && !e {
-                            MEM[q as usize].b32.s1 = get_avail() as i32;
-                            q = *LLIST_link(q as usize);
-                            MEM[q as usize].b32.s0 =
+                            let v = get_avail();
+                            *LLIST_link(q as usize) = Some(v).tex_int();
+                            MEM[v].b32.s0 =
                                 RIGHT_BRACE_TOKEN + 125;
-                            q = get_avail() as i32;
-                            MEM[q as usize].b32.s0 =
+                            let q = get_avail();
+                            MEM[q].b32.s0 =
                                 LEFT_BRACE_TOKEN + 123;
-                            MEM[q as usize].b32.s1 =
+                            MEM[q].b32.s1 =
                                 MEM[def_ref].b32.s1;
-                            MEM[def_ref].b32.s1 = q
+                            MEM[def_ref].b32.s1 = q as i32;
                         }
                         if e {
                             if a >= 4 {
@@ -2586,7 +2578,7 @@ pub(crate) unsafe fn prefixed_command() {
         Cmd::SetPageInt => { alter_integer(); }
         Cmd::SetBoxDimen => { alter_box_dimen(); }
         Cmd::SetShape => {
-            q = cur_chr;
+            let q = cur_chr;
             scan_optional_equals();
             scan_int();
             let mut n = cur_val;
