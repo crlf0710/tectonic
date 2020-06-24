@@ -3142,7 +3142,7 @@ pub(crate) unsafe fn delete_sa_ref(mut q: usize) {
                 break;
             }
         } else {
-            sa_root[i as usize] = None.tex_int();
+            sa_root[i as usize] = None;
             return;
         }
     }
@@ -3494,7 +3494,7 @@ pub(crate) unsafe fn print_meaning() {
     } else if cur_cmd == Cmd::TopBotMark && cur_chr < 5 {
         print_char(':' as i32);
         print_ln();
-        token_show(cur_mark[cur_chr as usize].opt());
+        token_show(cur_mark[cur_chr as usize]);
     };
 }
 pub(crate) unsafe fn show_cur_cmd_chr() {
@@ -4969,7 +4969,7 @@ pub(crate) unsafe fn new_index(mut i: u16, mut q: i32) -> usize {
     p
 }
 pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
-    cur_ptr = sa_root[t as usize];
+    cur_ptr = sa_root[t as usize].tex_int();
     if cur_ptr.opt().is_none() {
         if w {
             return not_found(t, n);
@@ -5035,7 +5035,7 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
     unsafe fn not_found(t: ValLevel, n: i32) {
         let p = new_index(t as u16, None.tex_int());
         cur_ptr = Some(p).tex_int();
-        sa_root[t as usize] = cur_ptr;
+        sa_root[t as usize] = cur_ptr.opt();
         let q = cur_ptr;
         let i = (n / 0x40000) as i16;
         lab46(t, n, q, i)
@@ -5153,7 +5153,7 @@ pub(crate) unsafe fn expand() {
                         cur_val = 0;
                     }
                     if cur_val == 0 {
-                        cur_ptr = cur_mark[t as usize]
+                        cur_ptr = cur_mark[t as usize].tex_int();
                     } else {
                         find_sa_element(ValLevel::Mark, cur_val, false);
                         if let Some(p) = cur_ptr.opt() {
@@ -11219,34 +11219,29 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                     break;
                 }
                 TextNode::Ins | TextNode::Mark | TextNode::Adjust => {
-                    if !adjust_tail.is_texnull() || !pre_adjust_tail.is_texnull() {
+                    if let (Some(at), Some(pat)) = (adjust_tail.as_mut(), pre_adjust_tail.as_mut())
+                    {
                         /*680: */
                         while MEM[q as usize].b32.s1 != p {
                             q = MEM[q as usize].b32.s1 as usize;
                         }
                         if NODE_type(p as usize) == TextNode::Adjust.into() {
                             if MEM[p as usize].b16.s0 != 0 {
-                                if pre_adjust_tail.is_texnull() {
-                                    confusion(b"pre vadjust");
-                                }
-                                MEM[pre_adjust_tail as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
-                                while !MEM[pre_adjust_tail as usize].b32.s1.is_texnull() {
-                                    pre_adjust_tail = MEM[pre_adjust_tail as usize].b32.s1
+                                MEM[*pat].b32.s1 = MEM[(p + 1) as usize].b32.s1;
+                                while let Some(next) = MEM[*pat].b32.s1.opt() {
+                                    *pat = next;
                                 }
                             } else {
-                                if adjust_tail.is_texnull() {
-                                    confusion(b"pre vadjust");
-                                }
-                                MEM[adjust_tail as usize].b32.s1 = MEM[(p + 1) as usize].b32.s1;
-                                while !MEM[adjust_tail as usize].b32.s1.is_texnull() {
-                                    adjust_tail = MEM[adjust_tail as usize].b32.s1
+                                MEM[*at].b32.s1 = MEM[(p + 1) as usize].b32.s1;
+                                while let Some(next) = MEM[*at].b32.s1.opt() {
+                                    *at = next;
                                 }
                             }
                             p = *LLIST_link(p as usize);
                             free_node(MEM[q as usize].b32.s1 as usize, SMALL_NODE_SIZE);
                         } else {
-                            MEM[adjust_tail as usize].b32.s1 = p;
-                            adjust_tail = p;
+                            MEM[*at].b32.s1 = p;
+                            *at = p as usize;
                             p = *LLIST_link(p as usize)
                         }
                         MEM[q].b32.s1 = p;
@@ -11443,10 +11438,10 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
         }
         p = *LLIST_link(p as usize)
     }
-    if let Some(a) = adjust_tail.opt() {
+    if let Some(a) = adjust_tail {
         MEM[a].b32.s1 = None.tex_int();
     }
-    if let Some(a) = pre_adjust_tail.opt() {
+    if let Some(a) = pre_adjust_tail {
         MEM[a].b32.s1 = None.tex_int();
     }
     MEM[r + 3].b32.s1 = h;
@@ -11925,24 +11920,24 @@ pub(crate) unsafe fn push_alignment() {
     MEM[p + 1].b32.s1 = cur_span;
     MEM[p + 2].b32.s1 = cur_loop;
     MEM[p + 3].b32.s1 = align_state;
-    MEM[p + 4].b32.s0 = cur_head;
-    MEM[p + 4].b32.s1 = cur_tail;
-    MEM[p + 5].b32.s0 = cur_pre_head;
-    MEM[p + 5].b32.s1 = cur_pre_tail;
+    MEM[p + 4].b32.s0 = cur_head.tex_int();
+    MEM[p + 4].b32.s1 = cur_tail.tex_int();
+    MEM[p + 5].b32.s0 = cur_pre_head.tex_int();
+    MEM[p + 5].b32.s1 = cur_pre_tail.tex_int();
     align_ptr = p as i32;
-    cur_head = get_avail() as i32;
-    cur_pre_head = get_avail() as i32;
+    cur_head = Some(get_avail());
+    cur_pre_head = Some(get_avail());
 }
 pub(crate) unsafe fn pop_alignment() {
-    MEM[cur_head as usize].b32.s1 = avail;
-    avail = cur_head;
-    MEM[cur_pre_head as usize].b32.s1 = avail;
-    avail = cur_pre_head;
+    MEM[cur_head.unwrap()].b32.s1 = avail;
+    avail = cur_head.tex_int();
+    MEM[cur_pre_head.unwrap()].b32.s1 = avail;
+    avail = cur_pre_head.tex_int();
     let p = align_ptr as usize;
-    cur_tail = MEM[p + 4].b32.s1;
-    cur_head = MEM[p + 4].b32.s0;
-    cur_pre_tail = MEM[p + 5].b32.s1;
-    cur_pre_head = MEM[p + 5].b32.s0;
+    cur_tail = MEM[p + 4].b32.s1.opt();
+    cur_head = MEM[p + 4].b32.s0.opt();
+    cur_pre_tail = MEM[p + 5].b32.s1.opt();
+    cur_pre_head = MEM[p + 5].b32.s0.opt();
     align_state = MEM[p + 3].b32.s1;
     cur_loop = MEM[p + 2].b32.s1;
     cur_span = MEM[p + 1].b32.s1;
@@ -12097,8 +12092,8 @@ pub(crate) unsafe fn init_align() {
     }
     scanner_status = ScannerStatus::Normal;
     new_save_level(GroupCode::Align);
-    if !LOCAL(Local::every_cr).is_texnull() {
-        begin_token_list(*LOCAL(Local::every_cr) as usize, Btl::EveryCRText);
+    if let Some(l) = LOCAL(Local::every_cr).opt() {
+        begin_token_list(l, Btl::EveryCRText);
     }
     align_peek();
 }
@@ -12152,10 +12147,7 @@ pub(crate) unsafe fn fin_col() -> bool {
     if cur_align.is_texnull() {
         confusion(b"endv");
     }
-    let mut q = MEM[cur_align as usize].b32.s1;
-    if q.is_texnull() {
-        confusion(b"endv");
-    }
+    let mut q = MEM[cur_align as usize].b32.s1.opt().confuse(b"endv") as i32;
     if (align_state as i64) < 500000 {
         fatal_error(b"(interwoven alignment preambles are not allowed)");
     }
@@ -12216,9 +12208,9 @@ pub(crate) unsafe fn fin_col() -> bool {
             u = hpack(MEM[cur_list.head].b32.s1, 0, PackMode::Additional);
             w = MEM[u + 1].b32.s1;
             cur_tail = adjust_tail;
-            adjust_tail = None.tex_int();
+            adjust_tail = None;
             cur_pre_tail = pre_adjust_tail;
-            pre_adjust_tail = None.tex_int()
+            pre_adjust_tail = None;
         } else {
             u = vpackage(MEM[cur_list.head].b32.s1.opt(), 0, PackMode::Additional, 0);
             w = MEM[u + 3].b32.s1
@@ -12306,13 +12298,13 @@ pub(crate) unsafe fn fin_row() {
         p = hpack(MEM[cur_list.head].b32.s1, 0, PackMode::Additional);
         pop_nest();
         if cur_pre_head != cur_pre_tail {
-            MEM[cur_list.tail].b32.s1 = MEM[cur_pre_head as usize].b32.s1;
-            cur_list.tail = cur_pre_tail as usize;
+            MEM[cur_list.tail].b32.s1 = MEM[cur_pre_head.unwrap()].b32.s1;
+            cur_list.tail = cur_pre_tail.unwrap();
         }
         append_to_vlist(p);
         if cur_head != cur_tail {
-            MEM[cur_list.tail].b32.s1 = MEM[cur_head as usize].b32.s1;
-            cur_list.tail = cur_tail as usize;
+            MEM[cur_list.tail].b32.s1 = MEM[cur_head.unwrap()].b32.s1;
+            cur_list.tail = cur_tail.unwrap();
         }
     } else {
         p = vpackage(
@@ -13106,16 +13098,17 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
     };
     flush_node_list(disc_ptr[VSPLIT_CODE as usize].opt());
     disc_ptr[VSPLIT_CODE as usize] = None.tex_int();
-    if let Some(m) = sa_root[ValLevel::Mark as usize].opt() {
+    if let Some(m) = sa_root[ValLevel::Mark as usize] {
         if do_marks(MarkMode::VSplitInit, 0, m) {
-            sa_root[ValLevel::Mark as usize] = None.tex_int()
+            sa_root[ValLevel::Mark as usize] = None;
         }
     }
-    if !cur_mark[SPLIT_FIRST_MARK_CODE as usize].is_texnull() {
-        delete_token_ref(cur_mark[SPLIT_FIRST_MARK_CODE as usize] as usize);
-        cur_mark[SPLIT_FIRST_MARK_CODE as usize] = None.tex_int();
-        delete_token_ref(cur_mark[SPLIT_BOT_MARK_CODE as usize] as usize);
-        cur_mark[SPLIT_BOT_MARK_CODE as usize] = None.tex_int();
+    if let (Some(fm), Some(bm)) = (
+        cur_mark[SPLIT_FIRST_MARK_CODE].take(),
+        cur_mark[SPLIT_BOT_MARK_CODE].take(),
+    ) {
+        delete_token_ref(fm);
+        delete_token_ref(bm);
     }
     let v = v?;
     if NODE_type(v as usize) != TextNode::VList.into() {
@@ -13152,20 +13145,15 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
                     }
                     MEM[(cur_ptr + 3) as usize].b32.s0 = MEM[(p + 1) as usize].b32.s1;
                     MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
-                } else if cur_mark[SPLIT_FIRST_MARK_CODE as usize].is_texnull() {
-                    cur_mark[SPLIT_FIRST_MARK_CODE as usize] = MEM[(p + 1) as usize].b32.s1;
-                    cur_mark[SPLIT_BOT_MARK_CODE as usize] =
-                        cur_mark[SPLIT_FIRST_MARK_CODE as usize];
-                    MEM[cur_mark[SPLIT_FIRST_MARK_CODE as usize] as usize]
-                        .b32
-                        .s0 = MEM[cur_mark[SPLIT_FIRST_MARK_CODE as usize] as usize]
-                        .b32
-                        .s0
-                        + 2
+                } else if cur_mark[SPLIT_FIRST_MARK_CODE].is_none() {
+                    let m = MEM[(p + 1) as usize].b32.s1.opt().unwrap();
+                    cur_mark[SPLIT_FIRST_MARK_CODE] = Some(m);
+                    cur_mark[SPLIT_BOT_MARK_CODE] = Some(m);
+                    MEM[m].b32.s0 += 2;
                 } else {
-                    delete_token_ref(cur_mark[SPLIT_BOT_MARK_CODE as usize] as usize);
-                    cur_mark[SPLIT_BOT_MARK_CODE as usize] = MEM[(p + 1) as usize].b32.s1;
-                    MEM[cur_mark[SPLIT_BOT_MARK_CODE as usize] as usize].b32.s0 += 1;
+                    delete_token_ref(cur_mark[SPLIT_BOT_MARK_CODE].unwrap());
+                    cur_mark[SPLIT_BOT_MARK_CODE] = MEM[(p + 1) as usize].b32.s1.opt();
+                    MEM[cur_mark[SPLIT_BOT_MARK_CODE].unwrap()].b32.s0 += 1;
                 }
             }
             if MEM[p as usize].b32.s1 == q {
@@ -13471,20 +13459,20 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
         if !cur_box.is_texnull() {
             MEM[(cur_box + 4) as usize].b32.s1 = box_context;
             if cur_list.mode.1 == ListMode::VMode {
-                if !pre_adjust_tail.is_texnull() {
-                    if PRE_ADJUST_HEAD as i32 != pre_adjust_tail {
+                if let Some(a) = pre_adjust_tail {
+                    if PRE_ADJUST_HEAD != a {
                         MEM[cur_list.tail].b32.s1 = MEM[PRE_ADJUST_HEAD].b32.s1;
-                        cur_list.tail = pre_adjust_tail as usize;
+                        cur_list.tail = a;
                     }
-                    pre_adjust_tail = None.tex_int();
+                    pre_adjust_tail = None;
                 }
                 append_to_vlist(cur_box as usize);
-                if !adjust_tail.is_texnull() {
-                    if ADJUST_HEAD as i32 != adjust_tail {
+                if let Some(a) = adjust_tail {
+                    if ADJUST_HEAD != a {
                         MEM[cur_list.tail].b32.s1 = MEM[ADJUST_HEAD].b32.s1;
-                        cur_list.tail = adjust_tail as usize;
+                        cur_list.tail = a;
                     }
-                    adjust_tail = None.tex_int()
+                    adjust_tail = None;
                 }
                 if cur_list.mode.0 == false {
                     build_page();
@@ -15617,8 +15605,8 @@ pub(crate) unsafe fn handle_right_brace() {
         GroupCode::SemiSimple | GroupCode::MathShift | GroupCode::MathLeft => extra_right_brace(),
         GroupCode::HBox => package(0),
         GroupCode::AdjustedHBox => {
-            adjust_tail = ADJUST_HEAD as i32;
-            pre_adjust_tail = PRE_ADJUST_HEAD as i32;
+            adjust_tail = Some(ADJUST_HEAD);
+            pre_adjust_tail = Some(PRE_ADJUST_HEAD);
             package(0);
         }
         GroupCode::VBox => {

@@ -126,19 +126,19 @@ unsafe fn fire_up(mut c: i32) {
      * beyond the default one -- a "mark class" being a concept introduced in
      * e-TeX. */
 
-    if let Some(m) = sa_root[ValLevel::Mark as usize].opt() {
+    if let Some(m) = sa_root[ValLevel::Mark as usize] {
         if do_marks(MarkMode::FireUpInit, 0, m) {
-            sa_root[ValLevel::Mark as usize] = None.tex_int();
+            sa_root[ValLevel::Mark as usize] = None;
         }
     }
-    if let Some(mbot) = cur_mark[BOT_MARK_CODE as usize].opt() {
-        if let Some(mtop) = cur_mark[TOP_MARK_CODE as usize].opt() {
+    if let Some(mbot) = cur_mark[BOT_MARK_CODE] {
+        if let Some(mtop) = cur_mark[TOP_MARK_CODE] {
             delete_token_ref(mtop);
         }
-        cur_mark[TOP_MARK_CODE as usize] = Some(mbot).tex_int();
-        MEM[cur_mark[0] as usize].b32.s0 += 1;
-        delete_token_ref(cur_mark[FIRST_MARK_CODE as usize] as usize);
-        cur_mark[FIRST_MARK_CODE as usize] = None.tex_int();
+        cur_mark[TOP_MARK_CODE as usize] = Some(mbot);
+        MEM[mbot].b32.s0 += 1;
+        delete_token_ref(cur_mark[FIRST_MARK_CODE].unwrap());
+        cur_mark[FIRST_MARK_CODE] = None;
     }
 
     /*1049: "Put the optimal current page into box 255, update first_mark and
@@ -299,15 +299,15 @@ unsafe fn fire_up(mut c: i32) {
                 MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
             } else {
                 /*1051: "Update the values of first_mark and bot_mark" */
-                if cur_mark[FIRST_MARK_CODE as usize].opt().is_none() {
-                    cur_mark[FIRST_MARK_CODE as usize] = MEM[(p + 1) as usize].b32.s1;
-                    MEM[cur_mark[FIRST_MARK_CODE] as usize].b32.s0 += 1;
+                if cur_mark[FIRST_MARK_CODE].is_none() {
+                    cur_mark[FIRST_MARK_CODE] = MEM[(p + 1) as usize].b32.s1.opt();
+                    MEM[cur_mark[FIRST_MARK_CODE].unwrap()].b32.s0 += 1;
                 }
-                if let Some(m) = cur_mark[BOT_MARK_CODE].opt() {
+                if let Some(m) = cur_mark[BOT_MARK_CODE] {
                     delete_token_ref(m);
                 }
-                cur_mark[BOT_MARK_CODE as usize] = MEM[(p + 1) as usize].b32.s1;
-                MEM[cur_mark[BOT_MARK_CODE] as usize].b32.s0 += 1;
+                cur_mark[BOT_MARK_CODE] = MEM[(p + 1) as usize].b32.s1.opt();
+                MEM[cur_mark[BOT_MARK_CODE].unwrap()].b32.s0 += 1;
             }
         }
 
@@ -377,15 +377,15 @@ unsafe fn fire_up(mut c: i32) {
 
     /* ... resuming 1047 ... */
 
-    if let Some(m) = sa_root[ValLevel::Mark as usize].opt() {
+    if let Some(m) = sa_root[ValLevel::Mark as usize] {
         if do_marks(MarkMode::FireUpDone, 0, m) {
-            sa_root[ValLevel::Mark as usize] = None.tex_int();
+            sa_root[ValLevel::Mark as usize] = None;
         }
     }
-    if let Some(m) = cur_mark[TOP_MARK_CODE as usize].opt() {
-        if cur_mark[FIRST_MARK_CODE as usize].opt().is_none() {
-            cur_mark[FIRST_MARK_CODE as usize] = Some(m).tex_int();
-            MEM[cur_mark[0] as usize].b32.s0 += 1;
+    if let Some(m) = cur_mark[TOP_MARK_CODE] {
+        if cur_mark[FIRST_MARK_CODE].is_none() {
+            cur_mark[FIRST_MARK_CODE] = Some(m);
+            MEM[m].b32.s0 += 1;
         }
     }
 

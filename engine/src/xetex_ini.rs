@@ -731,7 +731,7 @@ pub(crate) static mut expand_depth_count: i32 = 0;
 #[no_mangle]
 pub(crate) static mut is_in_csname: bool = false;
 #[no_mangle]
-pub(crate) static mut cur_mark: [i32; 5] = [0; 5];
+pub(crate) static mut cur_mark: [Option<usize>; 5] = [Some(0); 5];
 #[no_mangle]
 pub(crate) static mut long_state: u8 = 0;
 #[no_mangle]
@@ -898,9 +898,9 @@ pub(crate) static mut total_shrink: [scaled_t; 4] = [0; 4];
 #[no_mangle]
 pub(crate) static mut last_badness: i32 = 0;
 #[no_mangle]
-pub(crate) static mut adjust_tail: i32 = 0;
+pub(crate) static mut adjust_tail: Option<usize> = Some(0);
 #[no_mangle]
-pub(crate) static mut pre_adjust_tail: i32 = 0;
+pub(crate) static mut pre_adjust_tail: Option<usize> = Some(0);
 #[no_mangle]
 pub(crate) static mut pack_begin_line: i32 = 0;
 #[no_mangle]
@@ -925,13 +925,13 @@ pub(crate) static mut cur_loop: i32 = 0;
 #[no_mangle]
 pub(crate) static mut align_ptr: i32 = 0;
 #[no_mangle]
-pub(crate) static mut cur_head: i32 = 0;
+pub(crate) static mut cur_head: Option<usize> = Some(0);
 #[no_mangle]
-pub(crate) static mut cur_tail: i32 = 0;
+pub(crate) static mut cur_tail: Option<usize> = Some(0);
 #[no_mangle]
-pub(crate) static mut cur_pre_head: i32 = 0;
+pub(crate) static mut cur_pre_head: Option<usize> = Some(0);
 #[no_mangle]
-pub(crate) static mut cur_pre_tail: i32 = 0;
+pub(crate) static mut cur_pre_tail: Option<usize> = Some(0);
 #[no_mangle]
 pub(crate) static mut just_box: i32 = 0;
 #[no_mangle]
@@ -1109,7 +1109,7 @@ pub(crate) static mut max_reg_num: i32 = 0;
 #[no_mangle]
 pub(crate) static mut max_reg_help_line: &[u8] = &[];
 #[no_mangle]
-pub(crate) static mut sa_root: [i32; 8] = [0; 8];
+pub(crate) static mut sa_root: [Option<usize>; 8] = [Some(0); 8];
 #[no_mangle]
 pub(crate) static mut cur_ptr: i32 = 0;
 
@@ -2800,7 +2800,7 @@ unsafe fn store_fmt_file() {
     fmt_out.dump_one(rover);
 
     for k in (ValLevel::Int as usize)..=(ValLevel::InterChar as usize) {
-        fmt_out.dump_one(sa_root[k as usize]);
+        fmt_out.dump_one(sa_root[k].tex_int());
     }
 
     let mut p = 0;
@@ -3305,7 +3305,7 @@ unsafe fn load_fmt_file() -> bool {
         if x < MIN_HALFWORD || x > lo_mem_max {
             bad_fmt();
         } else {
-            sa_root[k] = x;
+            sa_root[k] = x.opt();
         }
     }
 
@@ -3784,7 +3784,7 @@ unsafe fn load_fmt_file() -> bool {
 }
 
 unsafe fn final_cleanup() {
-    let mut c = cur_chr as i16;
+    let mut c = cur_chr as usize;
     if job_name == 0 {
         open_log_file();
     }
@@ -3835,13 +3835,13 @@ unsafe fn final_cleanup() {
     if c == 1 {
         if in_initex_mode {
             for c in TOP_MARK_CODE..=SPLIT_BOT_MARK_CODE {
-                if let Some(m) = cur_mark[c as usize].opt() {
+                if let Some(m) = cur_mark[c] {
                     delete_token_ref(m);
                 }
             }
-            if let Some(m) = sa_root[ValLevel::Mark as usize].opt() {
+            if let Some(m) = sa_root[ValLevel::Mark as usize] {
                 if do_marks(MarkMode::DestroyMarks, 0, m) {
-                    sa_root[ValLevel::Mark as usize] = None.tex_int();
+                    sa_root[ValLevel::Mark as usize] = None;
                 }
             }
             for c in LAST_BOX_CODE..=VSPLIT_CODE {
@@ -3939,11 +3939,11 @@ unsafe fn initialize_more_variables() {
     mag_set = 0;
     expand_depth_count = 0;
     is_in_csname = false;
-    cur_mark[TOP_MARK_CODE] = None.tex_int();
-    cur_mark[FIRST_MARK_CODE] = None.tex_int();
-    cur_mark[BOT_MARK_CODE] = None.tex_int();
-    cur_mark[SPLIT_FIRST_MARK_CODE] = None.tex_int();
-    cur_mark[SPLIT_BOT_MARK_CODE] = None.tex_int();
+    cur_mark[TOP_MARK_CODE] = None;
+    cur_mark[FIRST_MARK_CODE] = None;
+    cur_mark[BOT_MARK_CODE] = None;
+    cur_mark[SPLIT_FIRST_MARK_CODE] = None;
+    cur_mark[SPLIT_BOT_MARK_CODE] = None;
     cur_val = 0;
     cur_val_level = ValLevel::Int;
     radix = 0;
@@ -3964,9 +3964,9 @@ unsafe fn initialize_more_variables() {
     last_bop = -1;
     doing_leaders = false;
     dead_cycles = 0;
-    adjust_tail = None.tex_int();
+    adjust_tail = None;
     last_badness = 0;
-    pre_adjust_tail = None.tex_int();
+    pre_adjust_tail = None;
     pack_begin_line = 0;
     empty.s1 = EMPTY;
     empty.s0 = None.tex_int();
@@ -3974,10 +3974,10 @@ unsafe fn initialize_more_variables() {
     cur_align = None.tex_int();
     cur_span = None.tex_int();
     cur_loop = None.tex_int();
-    cur_head = None.tex_int();
-    cur_tail = None.tex_int();
-    cur_pre_head = None.tex_int();
-    cur_pre_tail = None.tex_int();
+    cur_head = None;
+    cur_tail = None;
+    cur_pre_head = None;
+    cur_pre_tail = None;
     cur_f = 0;
     max_hyph_char = TOO_BIG_LANG;
 
@@ -4012,7 +4012,7 @@ unsafe fn initialize_more_variables() {
     LR_problems = 0i32;
     cur_dir = LR::LeftToRight;
     pseudo_files = None.tex_int();
-    sa_root[ValLevel::Mark as usize] = None.tex_int();
+    sa_root[ValLevel::Mark as usize] = None;
     sa_chain = None.tex_int();
     sa_level = LEVEL_ZERO;
     disc_ptr[2] = None.tex_int();
@@ -4210,7 +4210,7 @@ unsafe fn initialize_more_initex_variables() {
     max_reg_help_line = b"A register number must be between 0 and 32767.";
 
     for i in (ValLevel::Int as usize)..=(ValLevel::InterChar as usize) {
-        sa_root[i] = None.tex_int();
+        sa_root[i] = None;
     }
 
     *INTPAR(IntPar::xetex_hyphenatable_length) = 63;

@@ -1551,8 +1551,8 @@ unsafe fn post_line_break(mut d: bool) {
                 .b32
                 .s1;
         }
-        adjust_tail = ADJUST_HEAD as i32;
-        pre_adjust_tail = PRE_ADJUST_HEAD as i32;
+        adjust_tail = Some(ADJUST_HEAD);
+        pre_adjust_tail = Some(PRE_ADJUST_HEAD);
         /* Tectonic: in semantic pagination mode, set each "line" (really the
          * whole paragraph) at its natural width. */
         if semantic_pagination_enabled {
@@ -1564,20 +1564,20 @@ unsafe fn post_line_break(mut d: bool) {
         /* 917: append the new box to the current vertical list, followed
          * by any of its special nodes that were taken out */
 
-        if PRE_ADJUST_HEAD as i32 != pre_adjust_tail {
-            MEM[cur_list.tail].b32.s1 = *LLIST_link(PRE_ADJUST_HEAD as usize); /*:917*/
-            cur_list.tail = pre_adjust_tail as usize;
+        if Some(PRE_ADJUST_HEAD) != pre_adjust_tail {
+            MEM[cur_list.tail].b32.s1 = *LLIST_link(PRE_ADJUST_HEAD); /*:917*/
+            cur_list.tail = pre_adjust_tail.unwrap();
         }
 
-        pre_adjust_tail = None.tex_int();
+        pre_adjust_tail = None;
         append_to_vlist(just_box as usize);
 
-        if ADJUST_HEAD as i32 != adjust_tail {
-            MEM[cur_list.tail].b32.s1 = *LLIST_link(ADJUST_HEAD as usize);
-            cur_list.tail = adjust_tail as usize;
+        if Some(ADJUST_HEAD) != adjust_tail {
+            MEM[cur_list.tail].b32.s1 = *LLIST_link(ADJUST_HEAD);
+            cur_list.tail = adjust_tail.unwrap();
         }
 
-        adjust_tail = None.tex_int();
+        adjust_tail = None;
 
         /* 919: Set `pen` to all of the penalties relevant to this line. */
         if cur_line + 1 != best_line {

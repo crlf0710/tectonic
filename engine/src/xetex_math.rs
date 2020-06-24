@@ -921,8 +921,6 @@ pub(crate) unsafe fn after_math() {
     let mut q: scaled_t = 0;
     let mut d: scaled_t = 0;
     let mut s: scaled_t = 0;
-    let mut t: i32 = 0;
-    let mut pre_t: i32 = 0;
     let mut j = None;
 
     danger = false;
@@ -1138,14 +1136,14 @@ pub(crate) unsafe fn after_math() {
         mlist_penalties = false;
         mlist_to_hlist();
         p = MEM[TEMP_HEAD].b32.s1;
-        adjust_tail = ADJUST_HEAD as i32;
-        pre_adjust_tail = PRE_ADJUST_HEAD as i32;
+        adjust_tail = Some(ADJUST_HEAD);
+        pre_adjust_tail = Some(PRE_ADJUST_HEAD);
         let mut b = hpack(p, 0, PackMode::Additional);
         p = MEM[b + 5].b32.s1;
-        t = adjust_tail;
-        adjust_tail = None.tex_int();
-        pre_t = pre_adjust_tail;
-        pre_adjust_tail = None.tex_int();
+        let t = adjust_tail.unwrap();
+        adjust_tail = None;
+        let pre_t = pre_adjust_tail.unwrap();
+        pre_adjust_tail = None;
         w = MEM[b + 1].b32.s1;
         z = *DIMENPAR(DimenPar::display_width);
         s = *DIMENPAR(DimenPar::display_indent);
@@ -1229,13 +1227,13 @@ pub(crate) unsafe fn after_math() {
             app_display(j.tex_int(), a as usize, z - MEM[(a + 1) as usize].b32.s1);
             g2 = None;
         }
-        if t != ADJUST_HEAD as i32 {
+        if t != ADJUST_HEAD {
             MEM[cur_list.tail].b32.s1 = MEM[ADJUST_HEAD as usize].b32.s1;
-            cur_list.tail = t as usize;
+            cur_list.tail = t;
         }
-        if pre_t != PRE_ADJUST_HEAD as i32 {
+        if pre_t != PRE_ADJUST_HEAD {
             MEM[cur_list.tail].b32.s1 = MEM[PRE_ADJUST_HEAD as usize].b32.s1;
-            cur_list.tail = pre_t as usize;
+            cur_list.tail = pre_t;
         }
         MEM[cur_list.tail].b32.s1 = new_penalty(*INTPAR(IntPar::post_display_penalty)) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
