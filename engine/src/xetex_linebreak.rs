@@ -1358,8 +1358,8 @@ unsafe fn post_line_break(mut d: bool) {
                         {
                             temp_ptr = LR_ptr as usize;
                             LR_ptr = MEM[temp_ptr].b32.s1;
-                            MEM[temp_ptr].b32.s1 = avail;
-                            avail = Some(temp_ptr).tex_int();
+                            MEM[temp_ptr].b32.s1 = avail.tex_int();
+                            avail = Some(temp_ptr);
                         }
                     } else {
                         temp_ptr = get_avail();
@@ -1449,8 +1449,8 @@ unsafe fn post_line_break(mut d: bool) {
                     {
                         temp_ptr = LR_ptr as usize;
                         LR_ptr = MEM[temp_ptr].b32.s1;
-                        MEM[temp_ptr].b32.s1 = avail;
-                        avail = Some(temp_ptr).tex_int();
+                        MEM[temp_ptr].b32.s1 = avail.tex_int();
+                        avail = Some(temp_ptr);
                     }
                 } else {
                     temp_ptr = get_avail();
@@ -1668,8 +1668,8 @@ unsafe fn post_line_break(mut d: bool) {
                             {
                                 temp_ptr = LR_ptr as usize;
                                 LR_ptr = MEM[temp_ptr].b32.s1;
-                                MEM[temp_ptr].b32.s1 = avail;
-                                avail = Some(temp_ptr).tex_int();
+                                MEM[temp_ptr].b32.s1 = avail.tex_int();
+                                avail = Some(temp_ptr);
                             }
                         } else {
                             temp_ptr = get_avail();
@@ -2678,8 +2678,8 @@ unsafe fn hyphenate() {
                         i += 1;
                         c = hu[i as usize];
                         hu[i as usize] = hyf_char;
-                        MEM[hyf_node].b32.s1 = avail;
-                        avail = hyf_node as i32;
+                        MEM[hyf_node].b32.s1 = avail.tex_int();
+                        avail = Some(hyf_node);
                     }
                     while l as i32 <= i as i32 {
                         l = (reconstitute(l, i, FONT_BCHAR[hf as usize], TOO_BIG_CHAR) as i32 + 1)
@@ -2790,7 +2790,6 @@ unsafe fn finite_shrink(p: usize) -> usize {
 }
 unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -> i16 {
     let mut current_block: u64;
-    let mut p: i32 = 0;
     let mut q: b16x4 = b16x4 {
         s0: 0,
         s1: 0,
@@ -2809,19 +2808,19 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
     cur_q = t;
     if j == 0 {
         ligature_present = init_lig;
-        p = init_list;
+        let mut popt = init_list.opt();
         if ligature_present {
             lft_hit = init_lft
         }
-        while !p.is_texnull() {
-            MEM[t as usize].b32.s1 = get_avail() as i32;
+        while let Some(p) = popt {
+            MEM[t as usize].b32.s1 = Some(get_avail()).tex_int();
             t = MEM[t as usize].b32.s1;
             MEM[t as usize].b16.s1 = hf as u16;
-            MEM[t as usize].b16.s0 = MEM[p as usize].b16.s0;
-            p = *LLIST_link(p as usize)
+            MEM[t as usize].b16.s0 = MEM[p].b16.s0;
+            popt = LLIST_link(p).opt()
         }
     } else if cur_l < TOO_BIG_CHAR {
-        MEM[t as usize].b32.s1 = get_avail() as i32;
+        MEM[t as usize].b32.s1 = Some(get_avail()).tex_int();
         t = *LLIST_link(t as usize);
         MEM[t as usize].b16.s1 = hf as u16;
         MEM[t as usize].b16.s0 = cur_l as u16
@@ -2908,34 +2907,34 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                                 if j as i32 == n as i32 {
                                                     bchar = TOO_BIG_CHAR
                                                 } else {
-                                                    p = get_avail() as i32;
-                                                    MEM[(lig_stack + 1) as usize].b32.s1 = p;
-                                                    MEM[p as usize].b16.s0 =
+                                                    let p = get_avail();
+                                                    MEM[(lig_stack + 1) as usize].b32.s1 =
+                                                        Some(p).tex_int();
+                                                    MEM[p].b16.s0 =
                                                         hu[(j as i32 + 1i32) as usize] as u16;
-                                                    MEM[p as usize].b16.s1 = hf as u16
+                                                    MEM[p].b16.s1 = hf as u16
                                                 }
                                             }
                                         }
                                         3 => {
                                             cur_r = q.s0 as i32;
-                                            p = lig_stack;
+                                            let p = lig_stack;
                                             lig_stack = new_lig_item(cur_r as u16) as i32;
                                             MEM[lig_stack as usize].b32.s1 = p
                                         }
                                         7 | 11 => {
                                             if ligature_present {
-                                                p = new_ligature(
+                                                let p = new_ligature(
                                                     hf,
                                                     cur_l as u16,
                                                     MEM[cur_q as usize].b32.s1,
-                                                )
-                                                    as i32;
+                                                );
                                                 if lft_hit {
                                                     MEM[p as usize].b16.s0 = 2_u16;
                                                     lft_hit = false
                                                 }
-                                                MEM[cur_q as usize].b32.s1 = p;
-                                                t = p;
+                                                MEM[cur_q as usize].b32.s1 = Some(p).tex_int();
+                                                t = p as i32;
                                                 ligature_present = false
                                             }
                                             cur_q = t;
@@ -2956,9 +2955,9 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                                     t = *LLIST_link(t as usize);
                                                     j += 1
                                                 }
-                                                p = lig_stack;
-                                                lig_stack = MEM[p as usize].b32.s1;
-                                                free_node(p as usize, SMALL_NODE_SIZE);
+                                                let p = lig_stack as usize;
+                                                lig_stack = MEM[p].b32.s1;
+                                                free_node(p, SMALL_NODE_SIZE);
                                                 if lig_stack.is_texnull() {
                                                     if (j as i32) < n as i32 {
                                                         cur_r = hu[(j as i32 + 1i32) as usize]
@@ -3030,9 +3029,9 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
             _ => {}
         }
         if ligature_present {
-            p = new_ligature(hf, cur_l as u16, MEM[cur_q as usize].b32.s1) as i32;
+            let p = new_ligature(hf, cur_l as u16, MEM[cur_q as usize].b32.s1);
             if lft_hit {
-                MEM[p as usize].b16.s0 = 2;
+                MEM[p].b16.s0 = 2;
                 lft_hit = false
             }
             if rt_hit {
@@ -3041,8 +3040,8 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                     rt_hit = false
                 }
             }
-            MEM[cur_q as usize].b32.s1 = p;
-            t = p;
+            MEM[cur_q as usize].b32.s1 = Some(p).tex_int();
+            t = p as i32;
             ligature_present = false
         }
         if w != 0 {
@@ -3062,9 +3061,9 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
             t = *LLIST_link(t as usize);
             j += 1;
         }
-        p = lig_stack;
-        lig_stack = MEM[p as usize].b32.s1;
-        free_node(p as usize, SMALL_NODE_SIZE);
+        let p = lig_stack as usize;
+        lig_stack = MEM[p].b32.s1;
+        free_node(p, SMALL_NODE_SIZE);
         if lig_stack.is_texnull() {
             if (j as i32) < n as i32 {
                 cur_r = hu[(j as i32 + 1i32) as usize]

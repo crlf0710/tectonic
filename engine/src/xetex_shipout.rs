@@ -1018,8 +1018,8 @@ unsafe fn hlist_out() {
                                     LR_ptr =
                                         *LLIST_link(temp_ptr);
                                     *LLIST_link(temp_ptr) =
-                                        avail;
-                                    avail = Some(temp_ptr).tex_int();
+                                        avail.tex_int();
+                                    avail = Some(temp_ptr);
                                 } else if MEM[p as usize].b16.s0 > L_CODE { // NODE_subtype(p)
                                     LR_problems += 1;
                                 }
@@ -1226,14 +1226,14 @@ unsafe fn hlist_out() {
         }
         temp_ptr = LR_ptr as usize;
         LR_ptr = *LLIST_link(temp_ptr);
-        *LLIST_link(temp_ptr) = avail;
-        avail = Some(temp_ptr).tex_int();
+        *LLIST_link(temp_ptr) = avail.tex_int();
+        avail = Some(temp_ptr);
     }
 
     temp_ptr = LR_ptr as usize;
     LR_ptr = *LLIST_link(temp_ptr);
-    *LLIST_link(temp_ptr) = avail;
-    avail = Some(temp_ptr).tex_int();
+    *LLIST_link(temp_ptr) = avail.tex_int();
+    avail = Some(temp_ptr);
 
     if BOX_lr_mode(this_box) == LRMode::DList {
         cur_dir = LR::RightToLeft;
@@ -1781,8 +1781,8 @@ unsafe fn reverse(
                     } else {
                         temp_ptr = LR_ptr as usize;
                         LR_ptr = *LLIST_link(temp_ptr);
-                        *LLIST_link(temp_ptr) = avail;
-                        avail = Some(temp_ptr).tex_int();
+                        *LLIST_link(temp_ptr) = avail.tex_int();
+                        avail = Some(temp_ptr);
 
                         if n > MIN_HALFWORD {
                             n -= 1;

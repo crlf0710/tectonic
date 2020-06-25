@@ -581,7 +581,7 @@ pub(crate) static mut var_used: i32 = 0;
 #[no_mangle]
 pub(crate) static mut dyn_used: i32 = 0;
 #[no_mangle]
-pub(crate) static mut avail: i32 = 0;
+pub(crate) static mut avail: Option<usize> = Some(0);
 #[no_mangle]
 pub(crate) static mut mem_end: i32 = 0;
 #[no_mangle]
@@ -1754,11 +1754,7 @@ pub(crate) unsafe fn init_trie() {
 unsafe fn new_hyph_exceptions() {
     let mut current_block: u64;
     let mut n: i16 = 0;
-    let mut j: i16 = 0;
-    let mut h: hyph_pointer = 0;
     let mut k: str_number = 0;
-    let mut p: i32 = 0;
-    let mut q: i32 = 0;
     let mut s: str_number = 0;
     let mut u: pool_pointer = 0;
     let mut v: pool_pointer = 0;
@@ -1783,7 +1779,7 @@ unsafe fn new_hyph_exceptions() {
 
     /*970: not_found:*/
     n = 0_i16;
-    p = None.tex_int();
+    let mut p = None;
 
     's_91: loop {
         get_x_token();
@@ -1793,10 +1789,10 @@ unsafe fn new_hyph_exceptions() {
                     if cur_chr == '-' as i32 {
                         /*973:*/
                         if (n as usize) < max_hyphenatable_length() {
-                            q = get_avail() as i32;
-                            MEM[q as usize].b32.s1 = p;
-                            MEM[q as usize].b32.s0 = n as i32;
-                            p = q
+                            let q = get_avail();
+                            MEM[q].b32.s1 = p.tex_int();
+                            MEM[q].b32.s0 = n as i32;
+                            p = Some(q);
                         }
                     } else {
                         if hyph_index == 0 || cur_chr > 255 {
@@ -1872,14 +1868,12 @@ unsafe fn new_hyph_exceptions() {
                 if pool_ptr + n as i32 > pool_size {
                     overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
                 }
-                h = 0;
+                let mut h = 0;
 
-                j = 1;
-                while j as i32 <= n as i32 {
-                    h = ((h as i32 + h as i32 + hc[j as usize]) % HYPH_PRIME) as hyph_pointer;
-                    str_pool[pool_ptr as usize] = hc[j as usize] as packed_UTF16_code;
+                for j in 1..=(n as usize) {
+                    h = ((h as i32 + h as i32 + hc[j]) % HYPH_PRIME) as hyph_pointer;
+                    str_pool[pool_ptr as usize] = hc[j] as packed_UTF16_code;
                     pool_ptr += 1;
-                    j += 1
                 }
 
                 s = make_string();
@@ -1938,7 +1932,7 @@ unsafe fn new_hyph_exceptions() {
                     h = (HYPH_LINK[h as usize] as i32 - 1) as hyph_pointer;
                 }
                 HYPH_WORD[h as usize] = s;
-                HYPH_LIST[h as usize] = p
+                HYPH_LIST[h as usize] = p.tex_int();
             }
             _ => {}
         }
@@ -1948,7 +1942,7 @@ unsafe fn new_hyph_exceptions() {
         }
 
         n = 0;
-        p = None.tex_int();
+        p = None;
     }
 }
 pub(crate) unsafe fn prefixed_command() {
@@ -2350,8 +2344,8 @@ pub(crate) unsafe fn prefixed_command() {
                         } else {
                             eq_define(p as usize, Cmd::UndefinedCS, None);
                         }
-                        MEM[def_ref].b32.s1 = avail;
-                        avail = def_ref as i32;
+                        MEM[def_ref].b32.s1 = avail.tex_int();
+                        avail = Some(def_ref);
                     } else {
                         if p == LOCAL_BASE as i32 + Local::output_routine as i32 && !e {
                             let v = get_avail();
@@ -2815,11 +2809,11 @@ unsafe fn store_fmt_file() {
 
     x = x + lo_mem_max + 1 - p;
     fmt_out.dump_one(hi_mem_min as i32);
-    fmt_out.dump_one(avail as i32);
+    fmt_out.dump_one(avail.tex_int());
     fmt_out.dump(&MEM[hi_mem_min as usize..(mem_end + 1) as usize]);
 
     x = x + mem_end + 1 - hi_mem_min;
-    let mut popt = avail.opt();
+    let mut popt = avail;
     while let Some(p) = popt {
         dyn_used -= 1;
         popt = LLIST_link(p).opt()
@@ -3331,7 +3325,7 @@ unsafe fn load_fmt_file() -> bool {
     if x < MIN_HALFWORD || x > MEM_TOP as i32 {
         bad_fmt();
     } else {
-        avail = x;
+        avail = x.opt();
     }
 
     mem_end = MEM_TOP as i32;
@@ -4057,7 +4051,7 @@ unsafe fn initialize_more_initex_variables() {
     MEM[PAGE_INS_HEAD].b32.s1 = PAGE_INS_HEAD as i32;
     MEM[PAGE_HEAD].b16.s1 = TextNode::Glue as u16;
     MEM[PAGE_HEAD].b16.s0 = NORMAL;
-    avail = None.tex_int();
+    avail = None;
     mem_end = MEM_TOP as i32;
     hi_mem_min = PRE_ADJUST_HEAD as i32;
     var_used = 20;
