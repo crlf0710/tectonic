@@ -914,7 +914,6 @@ pub(crate) unsafe fn after_math() {
     let mut l: bool = false;
     let mut danger: bool = false;
     let mut p: i32 = 0;
-    let mut a: i32 = 0;
     let mut w: scaled_t = 0;
     let mut z: scaled_t = 0;
     let mut e: scaled_t = 0;
@@ -995,7 +994,7 @@ pub(crate) unsafe fn after_math() {
     let mut m = cur_list.mode;
     l = false;
     p = fin_mlist(None);
-    if cur_list.mode == (!m.0, m.1) {
+    let a = if cur_list.mode == (!m.0, m.1) {
         get_x_token();
         if cur_cmd != Cmd::MathShift {
             if file_line_error_style_p != 0 {
@@ -1014,8 +1013,8 @@ pub(crate) unsafe fn after_math() {
         cur_style = TEXT_STYLE as i16;
         mlist_penalties = false;
         mlist_to_hlist();
-        a = hpack(MEM[TEMP_HEAD].b32.s1, 0, PackMode::Additional) as i32;
-        MEM[a as usize].b16.s0 = LRMode::DList as u16;
+        let a = hpack(MEM[TEMP_HEAD].b32.s1, 0, PackMode::Additional);
+        MEM[a].b16.s0 = LRMode::DList as u16;
         unsave();
         SAVE_PTR -= 1;
         if SAVE_STACK[SAVE_PTR + 0].val == 1 {
@@ -1091,10 +1090,11 @@ pub(crate) unsafe fn after_math() {
             danger = true
         }
         m = cur_list.mode;
-        p = fin_mlist(None)
+        p = fin_mlist(None);
+        Some(a)
     } else {
-        a = None.tex_int()
-    }
+        None
+    };
     if m.0 == true {
         // 1231:
         MEM[cur_list.tail].b32.s1 =
@@ -1105,8 +1105,8 @@ pub(crate) unsafe fn after_math() {
         mlist_penalties = cur_list.mode.0 == false;
         mlist_to_hlist();
         MEM[cur_list.tail].b32.s1 = MEM[TEMP_HEAD].b32.s1;
-        while !MEM[cur_list.tail].b32.s1.is_texnull() {
-            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        while let Some(next) = LLIST_link(cur_list.tail).opt() {
+            cur_list.tail = next;
         }
         MEM[cur_list.tail].b32.s1 =
             new_math(*DIMENPAR(DimenPar::math_surround), AFTER as i16) as i32;
@@ -1114,7 +1114,7 @@ pub(crate) unsafe fn after_math() {
         cur_list.aux.b32.s0 = 1000;
         unsave();
     } else {
-        if a.is_texnull() {
+        if a.is_none() {
             // 1232:
             get_x_token();
             if cur_cmd != Cmd::MathShift {
@@ -1150,12 +1150,15 @@ pub(crate) unsafe fn after_math() {
         if *INTPAR(IntPar::pre_display_correction) < 0i32 {
             s = -s - z
         }
-        if a.is_texnull() || danger {
+        if danger {
             e = 0;
-            q = 0
+            q = 0;
+        } else if let Some(a) = a {
+            e = MEM[a + 1].b32.s1;
+            q = e + math_quad(TEXT_SIZE);
         } else {
-            e = MEM[(a + 1) as usize].b32.s1;
-            q = e + math_quad(TEXT_SIZE)
+            e = 0;
+            q = 0;
         }
         if w + q > z {
             // 1236:
@@ -1200,7 +1203,7 @@ pub(crate) unsafe fn after_math() {
             g2 = Some(GluePar::below_display_short_skip);
         }
         if l && e == 0 {
-            app_display(j, a as usize, 0);
+            app_display(j, a.unwrap(), 0);
             MEM[cur_list.tail].b32.s1 = new_penalty(INF_PENALTY) as i32;
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         } else {
@@ -1208,24 +1211,27 @@ pub(crate) unsafe fn after_math() {
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         }
         if e != 0i32 {
+            let a = a.unwrap();
             let r = new_kern(z - w - e - d);
             if l {
-                MEM[a as usize].b32.s1 = r as i32;
+                MEM[a].b32.s1 = r as i32;
                 MEM[r].b32.s1 = b as i32;
-                b = a as usize;
+                b = a;
                 d = 0;
             } else {
                 MEM[b].b32.s1 = r as i32;
-                MEM[r].b32.s1 = a
+                MEM[r].b32.s1 = Some(a).tex_int();
             }
             b = hpack(b as i32, 0, PackMode::Additional);
         }
         app_display(j, b, d);
-        if !a.is_texnull() && e == 0 && !l {
-            MEM[cur_list.tail].b32.s1 = new_penalty(INF_PENALTY) as i32;
-            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-            app_display(j, a as usize, z - MEM[(a + 1) as usize].b32.s1);
-            g2 = None;
+        if let Some(a) = a {
+            if e == 0 && !l {
+                MEM[cur_list.tail].b32.s1 = new_penalty(INF_PENALTY) as i32;
+                cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                app_display(j, a, z - MEM[a + 1].b32.s1);
+                g2 = None;
+            }
         }
         if t != ADJUST_HEAD {
             MEM[cur_list.tail].b32.s1 = MEM[ADJUST_HEAD as usize].b32.s1;
