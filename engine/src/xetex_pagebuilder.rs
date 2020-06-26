@@ -391,48 +391,50 @@ unsafe fn fire_up(mut c: i32) {
 
     /* Tectonic: in semantic pagination mode, ignore the output routine. */
 
-    if LOCAL(Local::output_routine).opt().is_some() && !semantic_pagination_enabled {
-        if dead_cycles >= *INTPAR(IntPar::max_dead_cycles) {
-            /*1059: "Explain that too many dead cycles have happened in a row." */
-            if file_line_error_style_p != 0 {
-                print_file_line();
+    if let Some(l) = LOCAL(Local::output_routine).opt() {
+        if !semantic_pagination_enabled {
+            if dead_cycles >= *INTPAR(IntPar::max_dead_cycles) {
+                /*1059: "Explain that too many dead cycles have happened in a row." */
+                if file_line_error_style_p != 0 {
+                    print_file_line();
+                } else {
+                    print_nl_cstr(b"! ");
+                }
+                print_cstr(b"Output loop---");
+                print_int(dead_cycles);
+                print_cstr(b" consecutive dead cycles");
+                help_ptr = 3;
+                help_line[2] = b"I\'ve concluded that your \\output is awry; it never does a";
+                help_line[1] = b"\\shipout, so I\'m shipping \\box255 out myself. Next time";
+                help_line[0] = b"increase \\maxdeadcycles if you want me to be more patient!";
+                error();
             } else {
-                print_nl_cstr(b"! ");
+                /*1060: "Fire up the user's output routine and return" */
+                output_active = true;
+                dead_cycles += 1;
+                push_nest();
+                cur_list.mode = (true, ListMode::VMode);
+                cur_list.aux.b32.s1 = IGNORE_DEPTH; /* this is `prev_depth` */
+                cur_list.mode_line = -line;
+                begin_token_list(l, Btl::OutputText);
+                new_save_level(GroupCode::Output);
+                normal_paragraph();
+                scan_left_brace();
+                return;
             }
-            print_cstr(b"Output loop---");
-            print_int(dead_cycles);
-            print_cstr(b" consecutive dead cycles");
-            help_ptr = 3;
-            help_line[2] = b"I\'ve concluded that your \\output is awry; it never does a";
-            help_line[1] = b"\\shipout, so I\'m shipping \\box255 out myself. Next time";
-            help_line[0] = b"increase \\maxdeadcycles if you want me to be more patient!";
-            error();
-        } else {
-            /*1060: "Fire up the user's output routine and return" */
-            output_active = true;
-            dead_cycles += 1;
-            push_nest();
-            cur_list.mode = (true, ListMode::VMode);
-            cur_list.aux.b32.s1 = IGNORE_DEPTH; /* this is `prev_depth` */
-            cur_list.mode_line = -line;
-            begin_token_list(*LOCAL(Local::output_routine) as usize, Btl::OutputText);
-            new_save_level(GroupCode::Output);
-            normal_paragraph();
-            scan_left_brace();
-            return;
         }
     }
 
     /*1058: "Perform the default output routine." */
     if let Some(p) = LLIST_link(PAGE_HEAD as usize).opt() {
-        if LLIST_link(CONTRIB_HEAD).opt().is_none() {
+        if let Some(ch) = LLIST_link(CONTRIB_HEAD).opt() {
+            *LLIST_link(page_tail as usize) = Some(ch).tex_int();
+        } else {
             if NEST_PTR == 0 {
                 cur_list.tail = page_tail as usize;
             } else {
                 NEST[0].tail = page_tail as usize;
             }
-        } else {
-            *LLIST_link(page_tail as usize) = *LLIST_link(CONTRIB_HEAD);
         }
 
         *LLIST_link(CONTRIB_HEAD) = Some(p).tex_int();

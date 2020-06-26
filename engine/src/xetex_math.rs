@@ -654,44 +654,49 @@ pub(crate) unsafe fn build_choices() {
 }
 pub(crate) unsafe fn sub_sup() {
     let mut t = EMPTY as i16;
-    let mut p = None.tex_int();
+    let mut p = None;
     if cur_list.tail != cur_list.head {
         if MEM[cur_list.tail].b16.s1 >= MathNode::Ord as u16
             && MEM[cur_list.tail].b16.s1 < MathNode::Left as u16
         {
-            p = cur_list.tail as i32 + 2 + cur_cmd as i32 - 7;
-            t = MEM[p as usize].b32.s1 as i16
+            let g = cur_list.tail + 2 + cur_cmd as usize - 7;
+            t = MEM[g as usize].b32.s1 as i16;
+            p = Some(g);
         }
     }
-    if p.is_texnull() || t as i32 != EMPTY {
-        /*1212: */
-        MEM[cur_list.tail].b32.s1 = new_noad() as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-        p = cur_list.tail as i32 + 2 + cur_cmd as i32 - 7;
-        if t as i32 != EMPTY {
-            if cur_cmd == Cmd::SupMark {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
+    let p = match (p, t as i32) {
+        (Some(p), EMPTY) => p,
+        _ => {
+            /*1212: */
+            MEM[cur_list.tail].b32.s1 = new_noad() as i32;
+            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+            let p = cur_list.tail + 2 + cur_cmd as usize - 7;
+            if t as i32 != EMPTY {
+                if cur_cmd == Cmd::SupMark {
+                    if file_line_error_style_p != 0 {
+                        print_file_line();
+                    } else {
+                        print_nl_cstr(b"! ");
+                    }
+                    print_cstr(b"Double superscript");
+                    help_ptr = 1;
+                    help_line[0] = b"I treat `x^1^2\' essentially like `x^1{}^2\'."
                 } else {
-                    print_nl_cstr(b"! ");
+                    if file_line_error_style_p != 0 {
+                        print_file_line();
+                    } else {
+                        print_nl_cstr(b"! ");
+                    }
+                    print_cstr(b"Double subscript");
+                    help_ptr = 1_u8;
+                    help_line[0] = b"I treat `x_1_2\' essentially like `x_1{}_2\'."
                 }
-                print_cstr(b"Double superscript");
-                help_ptr = 1;
-                help_line[0] = b"I treat `x^1^2\' essentially like `x^1{}^2\'."
-            } else {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr(b"! ");
-                }
-                print_cstr(b"Double subscript");
-                help_ptr = 1_u8;
-                help_line[0] = b"I treat `x_1_2\' essentially like `x_1{}_2\'."
+                error();
             }
-            error();
+            p
         }
-    }
-    scan_math(p as usize);
+    };
+    scan_math(p);
 }
 pub(crate) unsafe fn math_fraction() {
     let mut c: i16 = 0;
@@ -1776,11 +1781,9 @@ unsafe fn compute_ot_math_accent_pos(p: usize) -> scaled_t {
         ) as scaled_t;
         get_ot_math_accent_pos(cur_f, g)
     } else if MEM[p + 1].b32.s1 == SUB_MLIST {
-        let r = MEM[p + 1].b32.s0;
-        if !r.is_texnull() && MEM[r as usize].b16.s1 == MathNode::Accent as u16 {
-            compute_ot_math_accent_pos(r as usize)
-        } else {
-            TEX_INFINITY
+        match MEM[p + 1].b32.s0.opt() {
+            Some(r) if MEM[r].b16.s1 == MathNode::Accent as u16 => compute_ot_math_accent_pos(r),
+            _ => TEX_INFINITY,
         }
     } else {
         TEX_INFINITY
@@ -2105,14 +2108,14 @@ unsafe fn make_fraction(q: usize) {
     let mut p;
     if MEM[q + 1].b32.s1 == 0 {
         p = new_kern(shift_up - MEM[x + 2].b32.s1 - (MEM[z + 3].b32.s1 - shift_down));
-        MEM[p].b32.s1 = z as i32;
+        MEM[p].b32.s1 = Some(z).tex_int();
     } else {
         let y = fraction_rule(MEM[q + 1].b32.s1);
         p = new_kern(axis_height(cur_size) - delta - (MEM[z + 3].b32.s1 - shift_down));
-        MEM[y as usize].b32.s1 = p as i32;
-        MEM[p].b32.s1 = z as i32;
+        MEM[y].b32.s1 = Some(p).tex_int();
+        MEM[p].b32.s1 = Some(z).tex_int();
         p = new_kern(shift_up - MEM[x + 2].b32.s1 - (axis_height(cur_size) + delta));
-        MEM[p].b32.s1 = y as i32;
+        MEM[p].b32.s1 = Some(y).tex_int();
     }
     MEM[x].b32.s1 = p as i32;
     MEM[v + 5].b32.s1 = x as i32;
@@ -2242,9 +2245,9 @@ unsafe fn make_op(q: usize) -> scaled_t {
         let z = clean_box(q + 3, (2 * (cur_style as i32 / 4) + 5) as i16);
         let v = new_null_box();
         set_NODE_type(v, TextNode::VList);
-        MEM[v + 1].b32.s1 = MEM[(y + 1) as usize].b32.s1;
-        if MEM[(x + 1) as usize].b32.s1 > MEM[v + 1].b32.s1 {
-            MEM[v + 1].b32.s1 = MEM[(x + 1) as usize].b32.s1
+        MEM[v + 1].b32.s1 = MEM[y + 1].b32.s1;
+        if MEM[x + 1].b32.s1 > MEM[v + 1].b32.s1 {
+            MEM[v + 1].b32.s1 = MEM[x + 1].b32.s1
         }
         if MEM[z + 1].b32.s1 > MEM[v + 1].b32.s1 {
             MEM[v + 1].b32.s1 = MEM[z + 1].b32.s1
@@ -3086,8 +3089,8 @@ unsafe fn mlist_to_hlist() {
     if r_type == MathNode::Bin as i16 {
         MEM[r as usize].b16.s1 = 16;
     }
-    let mut p = TEMP_HEAD as i32;
-    MEM[p as usize].b32.s1 = None.tex_int();
+    let mut p = TEMP_HEAD;
+    MEM[p].b32.s1 = None.tex_int();
     let mut qopt = mlist.opt();
     r_type = 0 as i16;
     cur_style = style;
@@ -3164,10 +3167,10 @@ unsafe fn mlist_to_hlist() {
                 | TextNode::Mark
                 | TextNode::Glue
                 | TextNode::Kern => {
-                    MEM[p as usize].b32.s1 = q as i32;
-                    p = q as i32;
+                    MEM[p].b32.s1 = q as i32;
+                    p = q;
                     qopt = LLIST_link(q).opt();
-                    MEM[p as usize].b32.s1 = None.tex_int();
+                    MEM[p].b32.s1 = None.tex_int();
                     current_block_236 = 7344615536999694015;
                 }
                 _ => confusion(b"mlist3"),
@@ -3234,15 +3237,15 @@ unsafe fn mlist_to_hlist() {
                         let y = math_glue(EQTB[GLUE_BASE + x as usize].val as usize, cur_mu);
                         let z = new_glue(y);
                         MEM[y].b32.s1 = None.tex_int();
-                        MEM[p as usize].b32.s1 = z as i32;
-                        p = z as i32;
+                        MEM[p].b32.s1 = Some(z).tex_int();
+                        p = z;
                         MEM[z].b16.s0 = (x + 1) as u16
                     }
                 }
                 if let Some(mut lst) = MEM[q + 1].b32.s1.opt() {
-                    *LLIST_link(p as usize) = Some(lst).tex_int();
+                    *LLIST_link(p) = Some(lst).tex_int();
                     loop {
-                        p = Some(lst).tex_int();
+                        p = lst;
                         if let Some(next) = LLIST_link(lst).opt() {
                             lst = next;
                         } else {
@@ -3251,13 +3254,13 @@ unsafe fn mlist_to_hlist() {
                     }
                 }
                 if penalties {
-                    if !MEM[q].b32.s1.is_texnull() {
+                    if let Some(m) = MEM[q].b32.s1.opt() {
                         if pen < INF_PENALTY {
-                            r_type = MEM[MEM[q].b32.s1 as usize].b16.s1 as i16;
+                            r_type = MEM[m].b16.s1 as i16;
                             if ND::from(r_type as u16) != TextNode::Penalty.into() {
                                 if r_type != MathNode::Rel as i16 {
-                                    let z = new_penalty(pen) as i32;
-                                    MEM[p as usize].b32.s1 = z;
+                                    let z = new_penalty(pen);
+                                    MEM[p].b32.s1 = Some(z).tex_int();
                                     p = z
                                 }
                             }
@@ -3536,28 +3539,27 @@ unsafe fn stack_glyph_into_box(b: usize, mut f: internal_font_number, mut g: i32
     MEM[p + 4].b16.s2 = f as u16;
     MEM[p + 4].b16.s1 = g as u16;
     measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1);
-    if NODE_type(b as usize) == TextNode::HList.into() {
-        let mut q = MEM[(b + 5) as usize].b32.s1;
-        if q.is_texnull() {
-            MEM[(b + 5) as usize].b32.s1 = p as i32;
+    if NODE_type(b) == TextNode::HList.into() {
+        if let Some(mut q) = MEM[b + 5].b32.s1.opt() {
+            while let Some(next) = LLIST_link(q).opt() {
+                q = next;
+            }
+            MEM[q].b32.s1 = Some(p).tex_int();
+            if MEM[b + 3].b32.s1 < MEM[p + 3].b32.s1 {
+                MEM[b + 3].b32.s1 = MEM[p + 3].b32.s1
+            }
+            if MEM[b + 2].b32.s1 < MEM[p + 2].b32.s1 {
+                MEM[b + 2].b32.s1 = MEM[p + 2].b32.s1
+            }
         } else {
-            while !MEM[q as usize].b32.s1.is_texnull() {
-                q = *LLIST_link(q as usize);
-            }
-            MEM[q as usize].b32.s1 = p as i32;
-            if MEM[(b + 3) as usize].b32.s1 < MEM[p + 3].b32.s1 {
-                MEM[(b + 3) as usize].b32.s1 = MEM[p + 3].b32.s1
-            }
-            if MEM[(b + 2) as usize].b32.s1 < MEM[p + 2].b32.s1 {
-                MEM[(b + 2) as usize].b32.s1 = MEM[p + 2].b32.s1
-            }
+            MEM[b + 5].b32.s1 = Some(p).tex_int();
         }
     } else {
-        MEM[p].b32.s1 = MEM[(b + 5) as usize].b32.s1;
-        MEM[(b + 5) as usize].b32.s1 = p as i32;
-        MEM[(b + 3) as usize].b32.s1 = MEM[p + 3].b32.s1;
-        if MEM[(b + 1) as usize].b32.s1 < MEM[p + 1].b32.s1 {
-            MEM[(b + 1) as usize].b32.s1 = MEM[p + 1].b32.s1
+        MEM[p].b32.s1 = MEM[b + 5].b32.s1;
+        MEM[b + 5].b32.s1 = Some(p).tex_int();
+        MEM[b + 3].b32.s1 = MEM[p + 3].b32.s1;
+        if MEM[b + 1].b32.s1 < MEM[p + 1].b32.s1 {
+            MEM[b + 1].b32.s1 = MEM[p + 1].b32.s1
         }
     };
 }
@@ -3737,8 +3739,8 @@ unsafe fn rebox(mut b: usize, mut w: scaled_t) -> usize {
         free_node(b, BOX_NODE_SIZE);
         b = new_glue(12);
         MEM[b].b32.s1 = p as i32;
-        while !MEM[p].b32.s1.is_texnull() {
-            p = *LLIST_link(p) as usize;
+        while let Some(next) = LLIST_link(p).opt() {
+            p = next;
         }
         MEM[p].b32.s1 = new_glue(12) as i32;
         hpack(b as i32, w, PackMode::Exactly) as usize

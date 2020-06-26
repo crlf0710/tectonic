@@ -591,10 +591,6 @@ pub(crate) static mut last_leftmost_char: i32 = 0;
 #[no_mangle]
 pub(crate) static mut last_rightmost_char: i32 = 0;
 #[no_mangle]
-pub(crate) static mut hlist_stack: [i32; 513] = [0; 513];
-#[no_mangle]
-pub(crate) static mut hlist_stack_level: i16 = 0;
-#[no_mangle]
 pub(crate) static mut first_p: i32 = 0;
 #[no_mangle]
 pub(crate) static mut global_prev_p: i32 = 0;

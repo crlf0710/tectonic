@@ -515,9 +515,9 @@ pub(crate) unsafe fn new_penalty(mut m: i32) -> usize {
     p
 }
 /*:165*/
-pub(crate) unsafe fn prev_rightmost(s: Option<usize>, mut e: i32) -> Option<usize> {
+pub(crate) unsafe fn prev_rightmost(s: Option<usize>, e: Option<usize>) -> Option<usize> {
     if let Some(mut p) = s {
-        while MEM[p].b32.s1 != e {
+        while MEM[p].b32.s1.opt() != e {
             if let Some(next) = LLIST_link(p).opt() {
                 p = next
             } else {
@@ -8746,7 +8746,7 @@ pub(crate) unsafe fn conv_toks() {
         }
         RIGHT_MARGIN_KERN_CODE => {
             let q = MEM[p.unwrap() + 5].b32.s1.opt();
-            let mut popt = prev_rightmost(q, None.tex_int());
+            let mut popt = prev_rightmost(q, None);
             while let Some(p) = popt {
                 if !(p < hi_mem_min as usize
                     && (NODE_type(p) == TextNode::Ins.into()
@@ -8772,7 +8772,7 @@ pub(crate) unsafe fn conv_toks() {
                 {
                     break;
                 }
-                popt = prev_rightmost(q, p as i32);
+                popt = prev_rightmost(q, Some(p));
             }
             if let Some(p) = popt.filter(|&p| {
                 p < hi_mem_min as usize

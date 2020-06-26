@@ -1320,7 +1320,6 @@ pub(crate) const BOX_VAL_LIMIT: u16 = 320;
 pub(crate) const TOK_VAL_LIMIT: u16 = 384;
 pub(crate) const PRIM_PRIME: usize = 431;
 pub(crate) const PRIM_SIZE: usize = 500;
-pub(crate) const MAX_HLIST_STACK: placeholdertype = 512;
 pub(crate) const HYPH_PRIME: placeholdertype = 607;
 pub(crate) const HYPHENATABLE_LENGTH_LIMIT: usize = 4095;
 pub(crate) const CHAR_CLASS_LIMIT: placeholdertype = 4096;
