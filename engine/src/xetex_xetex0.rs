@@ -17101,16 +17101,18 @@ pub(crate) unsafe fn main_control() {
                         fix_language();
                     }
                 }
-                lig_stack = avail.tex_int();
-                if lig_stack.is_texnull() {
-                    lig_stack = Some(get_avail()).tex_int();
+                lig_stack = avail;
+                let ls = if let Some(ls) = lig_stack {
+                    avail = MEM[ls].b32.s1.opt();
+                    MEM[ls].b32.s1 = None.tex_int();
+                    ls
                 } else {
-                    avail = MEM[lig_stack as usize].b32.s1.opt();
-                    MEM[lig_stack as usize].b32.s1 = None.tex_int();
-                }
-                MEM[lig_stack as usize].b16.s1 = main_f as u16;
+                    get_avail()
+                };
+                lig_stack = Some(ls);
+                MEM[ls].b16.s1 = main_f as u16;
                 cur_l = cur_chr;
-                MEM[lig_stack as usize].b16.s0 = cur_l as u16;
+                MEM[ls].b16.s0 = cur_l as u16;
                 cur_q = cur_list.tail as i32;
                 if cancel_boundary {
                     cancel_boundary = false;
@@ -17133,29 +17135,27 @@ pub(crate) unsafe fn main_control() {
                             main_j = FONT_INFO[main_k as usize].b16;
                             current_block = 11331079115679122507;
                         }
-                        _ =>
-                        // lab92:
-                        /*main_loop_move 2 */
-                        {
+                        _ => {
+                            let ls = lig_stack.unwrap();
                             if effective_char(false, main_f, cur_chr as u16)
                                 > FONT_EC[main_f as usize] as i32
                                 || effective_char(false, main_f, cur_chr as u16)
                                     < FONT_BC[main_f as usize] as i32
                             {
                                 char_warning(main_f, cur_chr);
-                                MEM[lig_stack as usize].b32.s1 = avail.tex_int();
-                                avail = lig_stack.opt();
+                                MEM[ls].b32.s1 = avail.tex_int();
+                                avail = lig_stack;
                                 continue 'c_125208;
                             } else {
                                 main_i = effective_char_info(main_f, cur_l as u16);
                                 if !(main_i.s3 > 0) {
                                     char_warning(main_f, cur_chr);
-                                    MEM[lig_stack as usize].b32.s1 = avail.tex_int();
-                                    avail = lig_stack.opt();
+                                    MEM[ls].b32.s1 = avail.tex_int();
+                                    avail = lig_stack;
                                     continue 'c_125208;
                                 } else {
-                                    MEM[cur_list.tail].b32.s1 = lig_stack;
-                                    cur_list.tail = lig_stack as usize;
+                                    MEM[cur_list.tail].b32.s1 = lig_stack.tex_int();
+                                    cur_list.tail = ls;
                                 }
                             }
                             current_block = 18270385712206273994;
@@ -17191,7 +17191,7 @@ pub(crate) unsafe fn main_control() {
                                                         lft_hit = false
                                                     }
                                                     if rt_hit {
-                                                        if lig_stack.is_texnull() {
+                                                        if lig_stack.is_some() {
                                                             MEM[main_p as usize].b16.s0 += 1;
                                                             rt_hit = false
                                                         }
@@ -17224,7 +17224,7 @@ pub(crate) unsafe fn main_control() {
                                         } else {
                                             if cur_l == TOO_BIG_CHAR {
                                                 lft_hit = true
-                                            } else if lig_stack.is_texnull() {
+                                            } else if lig_stack.is_none() {
                                                 rt_hit = true
                                             }
                                             match main_j.s1 {
@@ -17240,27 +17240,29 @@ pub(crate) unsafe fn main_control() {
                                                 }
                                                 2 | 6 => {
                                                     cur_r = main_j.s0 as i32;
-                                                    if lig_stack.is_texnull() {
-                                                        lig_stack =
-                                                            new_lig_item(cur_r as u16) as i32;
-                                                        bchar = TOO_BIG_CHAR
-                                                    } else if is_char_node(lig_stack) {
-                                                        let main_p = lig_stack;
-                                                        lig_stack =
-                                                            new_lig_item(cur_r as u16) as i32;
-                                                        MEM[(lig_stack + 1) as usize].b32.s1 =
-                                                            main_p
+                                                    if let Some(ls) = lig_stack {
+                                                        if is_char_node(ls as i32) {
+                                                            let main_p = ls;
+                                                            let ls = new_lig_item(cur_r as u16);
+                                                            lig_stack = Some(ls);
+                                                            MEM[ls + 1].b32.s1 =
+                                                                Some(main_p).tex_int();
+                                                        } else {
+                                                            MEM[ls].b16.s0 = cur_r as u16
+                                                        }
                                                     } else {
-                                                        MEM[lig_stack as usize].b16.s0 =
-                                                            cur_r as u16
+                                                        lig_stack =
+                                                            Some(new_lig_item(cur_r as u16));
+                                                        bchar = TOO_BIG_CHAR
                                                     }
                                                     current_block = 5062343687657450649;
                                                 }
                                                 3 => {
                                                     cur_r = main_j.s0 as i32;
                                                     let main_p = lig_stack;
-                                                    lig_stack = new_lig_item(cur_r as u16) as i32;
-                                                    MEM[lig_stack as usize].b32.s1 = main_p;
+                                                    let ls = new_lig_item(cur_r as u16);
+                                                    lig_stack = Some(ls);
+                                                    MEM[ls].b32.s1 = main_p.tex_int();
                                                     current_block = 5062343687657450649;
                                                 }
                                                 7 | 11 => {
@@ -17312,7 +17314,7 @@ pub(crate) unsafe fn main_control() {
                                                 _ => {
                                                     cur_l = main_j.s0 as i32;
                                                     ligature_present = true;
-                                                    if lig_stack.is_texnull() {
+                                                    if lig_stack.is_none() {
                                                         current_block = 7236688557761431611;
                                                     } else {
                                                         current_block = 4014385708774270501;
@@ -17401,7 +17403,7 @@ pub(crate) unsafe fn main_control() {
                                             bchar = TOO_BIG_CHAR;
                                         }
                                         cur_r = bchar;
-                                        lig_stack = None.tex_int();
+                                        lig_stack = None;
                                         current_block = 4700797278417140031;
                                     }
                                 }
@@ -17477,16 +17479,18 @@ pub(crate) unsafe fn main_control() {
                                             }
                                             prev_class = space_class
                                         }
-                                        lig_stack = avail.tex_int();
-                                        if lig_stack.is_texnull() {
-                                            lig_stack = get_avail() as i32;
+                                        lig_stack = avail;
+                                        let ls = if let Some(ls) = lig_stack {
+                                            avail = MEM[ls].b32.s1.opt();
+                                            MEM[ls].b32.s1 = None.tex_int();
+                                            ls
                                         } else {
-                                            avail = MEM[lig_stack as usize].b32.s1.opt();
-                                            MEM[lig_stack as usize].b32.s1 = None.tex_int()
-                                        }
-                                        MEM[lig_stack as usize].b16.s1 = main_f as u16;
+                                            get_avail()
+                                        };
+                                        lig_stack = Some(ls);
+                                        MEM[ls].b16.s1 = main_f as u16;
                                         cur_r = cur_chr;
-                                        MEM[lig_stack as usize].b16.s0 = cur_r as u16;
+                                        MEM[ls].b16.s0 = cur_r as u16;
                                         if cur_r == false_bchar {
                                             cur_r = TOO_BIG_CHAR;
                                         }
@@ -17520,7 +17524,7 @@ pub(crate) unsafe fn main_control() {
                                                 lft_hit = false
                                             }
                                             if rt_hit {
-                                                if lig_stack.is_texnull() {
+                                                if lig_stack.is_none() {
                                                     MEM[main_p as usize].b16.s0 += 1;
                                                     rt_hit = false
                                                 }
@@ -17552,49 +17556,48 @@ pub(crate) unsafe fn main_control() {
                                         break;
                                     }
                                 }
-                                2772858075894446251 =>
-                                // lab90:
-                                /*main_loop_move *//*1071: */
-                                {
-                                    if lig_stack.is_texnull() {
+                                2772858075894446251 => {
+                                    // lab90:
+                                    /*main_loop_move *//*1071: */
+                                    if lig_stack.is_none() {
                                         break 'c_125239;
                                     }
                                     cur_q = cur_list.tail as i32;
-                                    cur_l = MEM[lig_stack as usize].b16.s0 as i32;
+                                    cur_l = MEM[lig_stack.unwrap()].b16.s0 as i32;
                                     current_block = 4014385708774270501;
                                 }
-                                _ =>
-                                // lab91:
-                                /*main_loop_move 1 */
-                                {
-                                    if is_char_node(lig_stack) {
+                                _ => {
+                                    // lab91:
+                                    /*main_loop_move 1 */
+                                    if is_char_node(lig_stack.tex_int()) {
                                         current_block = 249799543778823886; // lab92
                                         break 'c_125244;
                                     }
                                     // lab95:
                                     /*main_loop_move_lig *//*1072: */
-                                    let main_p = MEM[(lig_stack + 1) as usize].b32.s1;
+                                    let ls = lig_stack.unwrap();
+                                    let main_p = MEM[ls + 1].b32.s1;
                                     if !main_p.is_texnull() {
                                         MEM[cur_list.tail].b32.s1 = main_p;
                                         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                                     }
-                                    temp_ptr = lig_stack as usize;
-                                    lig_stack = MEM[temp_ptr].b32.s1;
+                                    temp_ptr = ls;
+                                    lig_stack = MEM[temp_ptr].b32.s1.opt();
                                     free_node(temp_ptr, SMALL_NODE_SIZE);
                                     main_i = FONT_CHARACTER_INFO(
                                         main_f,
                                         effective_char(true, main_f, cur_l as u16) as usize,
                                     );
                                     ligature_present = true;
-                                    if lig_stack.is_texnull() {
+                                    if let Some(ls) = lig_stack {
+                                        cur_r = MEM[ls].b16.s0 as i32;
+                                        current_block = 4700797278417140031;
+                                    } else {
                                         if !main_p.is_texnull() {
                                             current_block = 18270385712206273994; // lab100
                                             continue 'c_125244;
                                         }
                                         cur_r = bchar;
-                                        current_block = 4700797278417140031;
-                                    } else {
-                                        cur_r = MEM[lig_stack as usize].b16.s0 as i32;
                                         current_block = 4700797278417140031;
                                     }
                                 }

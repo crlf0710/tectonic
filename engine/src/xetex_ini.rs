@@ -959,7 +959,7 @@ pub(crate) static mut cur_r: i32 = 0;
 #[no_mangle]
 pub(crate) static mut cur_q: i32 = 0;
 #[no_mangle]
-pub(crate) static mut lig_stack: i32 = 0;
+pub(crate) static mut lig_stack: Option<usize> = Some(0);
 #[no_mangle]
 pub(crate) static mut ligature_present: bool = false;
 #[no_mangle]

@@ -2760,7 +2760,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
         MEM[t as usize].b16.s1 = hf as u16;
         MEM[t as usize].b16.s0 = cur_l as u16
     }
-    lig_stack = None.tex_int();
+    lig_stack = None;
     if (j as i32) < n as i32 {
         cur_r = hu[(j + 1) as usize]
     } else {
@@ -2824,7 +2824,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                         lft_hit = true
                                     }
                                     if j as i32 == n as i32 {
-                                        if lig_stack.is_texnull() {
+                                        if lig_stack.is_none() {
                                             rt_hit = true
                                         }
                                     }
@@ -2835,16 +2835,16 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                         }
                                         2 | 6 => {
                                             cur_r = q.s0 as i32;
-                                            if !lig_stack.is_texnull() {
-                                                MEM[lig_stack as usize].b16.s0 = cur_r as u16
+                                            if let Some(ls) = lig_stack {
+                                                MEM[ls].b16.s0 = cur_r as u16
                                             } else {
-                                                lig_stack = new_lig_item(cur_r as u16) as i32;
+                                                let ls = new_lig_item(cur_r as u16);
+                                                lig_stack = Some(ls);
                                                 if j as i32 == n as i32 {
                                                     bchar = TOO_BIG_CHAR
                                                 } else {
                                                     let p = get_avail();
-                                                    MEM[(lig_stack + 1) as usize].b32.s1 =
-                                                        Some(p).tex_int();
+                                                    MEM[ls + 1].b32.s1 = Some(p).tex_int();
                                                     MEM[p].b16.s0 =
                                                         hu[(j as i32 + 1i32) as usize] as u16;
                                                     MEM[p].b16.s1 = hf as u16
@@ -2854,8 +2854,9 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                         3 => {
                                             cur_r = q.s0 as i32;
                                             let p = lig_stack;
-                                            lig_stack = new_lig_item(cur_r as u16) as i32;
-                                            MEM[lig_stack as usize].b32.s1 = p
+                                            let ls = new_lig_item(cur_r as u16);
+                                            lig_stack = Some(ls);
+                                            MEM[ls].b32.s1 = p.tex_int()
                                         }
                                         7 | 11 => {
                                             if ligature_present {
@@ -2879,21 +2880,18 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                         _ => {
                                             cur_l = q.s0 as i32;
                                             ligature_present = true;
-                                            if !lig_stack.is_texnull() {
-                                                if !MEM[(lig_stack + 1) as usize]
-                                                    .b32
-                                                    .s1
-                                                    .is_texnull()
+                                            if let Some(ls) = lig_stack {
+                                                if let Some(l) = MEM[(ls + 1) as usize].b32.s1.opt()
                                                 {
-                                                    MEM[t as usize].b32.s1 =
-                                                        MEM[(lig_stack + 1) as usize].b32.s1;
+                                                    MEM[t as usize].b32.s1 = Some(l).tex_int();
                                                     t = *LLIST_link(t as usize);
                                                     j += 1
                                                 }
-                                                let p = lig_stack as usize;
-                                                lig_stack = MEM[p].b32.s1;
-                                                free_node(p, SMALL_NODE_SIZE);
-                                                if lig_stack.is_texnull() {
+                                                lig_stack = MEM[ls].b32.s1.opt();
+                                                free_node(ls, SMALL_NODE_SIZE);
+                                                if let Some(ls) = lig_stack {
+                                                    cur_r = MEM[ls].b16.s0 as i32
+                                                } else {
                                                     if (j as i32) < n as i32 {
                                                         cur_r = hu[(j as i32 + 1i32) as usize]
                                                     } else {
@@ -2904,8 +2902,6 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                                     } else {
                                                         cur_rh = TOO_BIG_CHAR;
                                                     }
-                                                } else {
-                                                    cur_r = MEM[lig_stack as usize].b16.s0 as i32
                                                 }
                                             } else {
                                                 if j as i32 == n as i32 {
@@ -2970,7 +2966,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                 lft_hit = false
             }
             if rt_hit {
-                if lig_stack.is_texnull() {
+                if lig_stack.is_none() {
                     MEM[p as usize].b16.s0 += 1;
                     rt_hit = false
                 }
@@ -2985,33 +2981,34 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
             w = 0;
             MEM[(t + 2) as usize].b32.s0 = 0
         }
-        if lig_stack.is_texnull() {
-            break;
-        }
-        cur_q = t;
-        cur_l = MEM[lig_stack as usize].b16.s0 as i32;
-        ligature_present = true;
-        if !MEM[(lig_stack + 1) as usize].b32.s1.is_texnull() {
-            MEM[t as usize].b32.s1 = MEM[(lig_stack + 1) as usize].b32.s1;
-            t = *LLIST_link(t as usize);
-            j += 1;
-        }
-        let p = lig_stack as usize;
-        lig_stack = MEM[p].b32.s1;
-        free_node(p, SMALL_NODE_SIZE);
-        if lig_stack.is_texnull() {
-            if (j as i32) < n as i32 {
-                cur_r = hu[(j as i32 + 1i32) as usize]
-            } else {
-                cur_r = bchar
+        if let Some(ls) = lig_stack {
+            cur_q = t;
+            cur_l = MEM[ls].b16.s0 as i32;
+            ligature_present = true;
+            if let Some(l) = MEM[ls + 1].b32.s1.opt() {
+                MEM[t as usize].b32.s1 = Some(l).tex_int();
+                t = *LLIST_link(t as usize);
+                j += 1;
             }
-            if hyf[j as usize] as i32 & 1i32 != 0 {
-                cur_rh = hchar
+            let p = ls;
+            lig_stack = MEM[p].b32.s1.opt();
+            free_node(p, SMALL_NODE_SIZE);
+            if let Some(ls) = lig_stack {
+                cur_r = MEM[ls].b16.s0 as i32
             } else {
-                cur_rh = TOO_BIG_CHAR;
+                if (j as i32) < n as i32 {
+                    cur_r = hu[(j as i32 + 1i32) as usize]
+                } else {
+                    cur_r = bchar
+                }
+                if hyf[j as usize] as i32 & 1i32 != 0 {
+                    cur_rh = hchar
+                } else {
+                    cur_rh = TOO_BIG_CHAR;
+                }
             }
         } else {
-            cur_r = MEM[lig_stack as usize].b16.s0 as i32
+            break;
         }
     }
     j
@@ -3052,9 +3049,7 @@ unsafe fn total_pw(q: usize, p: Option<usize>) -> scaled_t {
             l
         }
         Some(l) => l,
-        None => {
-            panic!()
-        }
+        None => panic!(),
     };
     let l = find_protchar_left(l, true);
     char_pw(Some(l), Side::Left) + char_pw(r, Side::Right)
@@ -3062,11 +3057,15 @@ unsafe fn total_pw(q: usize, p: Option<usize>) -> scaled_t {
 unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     let mut run: bool = false;
     match LLIST_link(l).opt() {
-        Some(next) if NODE_type(l) == TextNode::HList.into()
-        && MEM[l + 1].b32.s1 == 0
-        && MEM[l + 3].b32.s1 == 0
-        && MEM[l + 2].b32.s1 == 0
-        && MEM[l + 5].b32.s1.opt().is_none() => l = next,
+        Some(next)
+            if NODE_type(l) == TextNode::HList.into()
+                && MEM[l + 1].b32.s1 == 0
+                && MEM[l + 3].b32.s1 == 0
+                && MEM[l + 2].b32.s1 == 0
+                && MEM[l + 5].b32.s1.opt().is_none() =>
+        {
+            l = next
+        }
         _ => {
             if d {
                 while let Some(next) = LLIST_link(l).opt() {
@@ -3100,12 +3099,10 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
                         && MEM[l + 1].b32.s0.opt().is_none()
                         && MEM[l + 1].b32.s1.opt().is_none()
                         && MEM[l].b16.s0 == 0
-                    || NODE_type(l) == TextNode::Math.into()
-                        && MEM[l + 1].b32.s1 == 0
+                    || NODE_type(l) == TextNode::Math.into() && MEM[l + 1].b32.s1 == 0
                     || NODE_type(l) == TextNode::Kern.into()
                         && (MEM[l + 1].b32.s1 == 0 || MEM[l].b16.s0 == NORMAL)
-                    || NODE_type(l) == TextNode::Glue.into()
-                        && MEM[l + 1].b32.s0 == 0
+                    || NODE_type(l) == TextNode::Glue.into() && MEM[l + 1].b32.s0 == 0
                     || NODE_type(l) == TextNode::HList.into()
                         && MEM[l + 1].b32.s1 == 0
                         && MEM[l + 3].b32.s1 == 0
@@ -3163,12 +3160,10 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
                         && MEM[r + 1].b32.s0.opt().is_none()
                         && MEM[r + 1].b32.s1.opt().is_none()
                         && MEM[r].b16.s0 == 0
-                    || NODE_type(r) == TextNode::Math.into()
-                        && MEM[r + 1].b32.s1 == 0
+                    || NODE_type(r) == TextNode::Math.into() && MEM[r + 1].b32.s1 == 0
                     || NODE_type(r) == TextNode::Kern.into()
                         && (MEM[r + 1].b32.s1 == 0 || MEM[r].b16.s0 == NORMAL)
-                    || NODE_type(r) == TextNode::Glue.into()
-                        && MEM[r + 1].b32.s0 == 0
+                    || NODE_type(r) == TextNode::Glue.into() && MEM[r + 1].b32.s0 == 0
                     || NODE_type(r) == TextNode::HList.into()
                         && MEM[r + 1].b32.s1 == 0
                         && MEM[r + 3].b32.s1 == 0
@@ -3183,7 +3178,9 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
                     break;
                 }
             }
-            if Some(r) != l/* && !r.is_texnull()*/ {
+            if Some(r) != l
+            /* && !r.is_texnull()*/
+            {
                 r = prev_rightmost(l, Some(r)).unwrap();
             } else if Some(r) == l && hlist_stack.is_empty() {
                 run = false
