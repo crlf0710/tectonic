@@ -913,11 +913,11 @@ pub(crate) static mut cur_i: b16x4 = b16x4 {
     s3: 0,
 };
 #[no_mangle]
-pub(crate) static mut cur_align: i32 = 0;
+pub(crate) static mut cur_align: Option<usize> = Some(0);
 #[no_mangle]
-pub(crate) static mut cur_span: i32 = 0;
+pub(crate) static mut cur_span: Option<usize> = Some(0);
 #[no_mangle]
-pub(crate) static mut cur_loop: i32 = 0;
+pub(crate) static mut cur_loop: Option<usize> = Some(0);
 #[no_mangle]
 pub(crate) static mut align_ptr: i32 = 0;
 #[no_mangle]
@@ -3953,9 +3953,9 @@ unsafe fn initialize_more_variables() {
     empty.s1 = EMPTY;
     empty.s0 = None.tex_int();
     align_ptr = None.tex_int();
-    cur_align = None.tex_int();
-    cur_span = None.tex_int();
-    cur_loop = None.tex_int();
+    cur_align = None;
+    cur_span = None;
+    cur_loop = None;
     cur_head = None;
     cur_tail = None;
     cur_pre_head = None;

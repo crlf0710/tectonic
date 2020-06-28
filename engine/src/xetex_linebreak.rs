@@ -1293,7 +1293,7 @@ unsafe fn post_line_break(mut d: bool) {
         q = *PASSIVE_NODE_prev_break(q as usize);
         *PASSIVE_NODE_next_break(r as usize) = cur_p;
         cur_p = r;
-        if q.is_texnull() {
+        if q.opt().is_none() {
             break;
         }
     }
@@ -2327,8 +2327,6 @@ unsafe fn hyphenate() {
     let mut l: i16 = 0;
     let mut s: i32 = 0;
     let mut bchar: i32 = 0;
-    let mut major_tail: i32 = 0;
-    let mut minor_tail: i32 = 0;
     let mut c: UnicodeScalar = 0i32;
     let mut c_loc: i16 = 0;
     let mut r_count: i32 = 0;
@@ -2598,15 +2596,15 @@ unsafe fn hyphenate() {
                     let r = get_node(SMALL_NODE_SIZE);
                     MEM[r].b32.s1 = MEM[HOLD_HEAD].b32.s1;
                     set_NODE_type(r, TextNode::Disc);
-                    major_tail = r as i32;
+                    let mut major_tail = r;
                     r_count = 0;
-                    while !MEM[major_tail as usize].b32.s1.is_texnull() {
-                        major_tail = *LLIST_link(major_tail as usize);
+                    while let Some(next) = LLIST_link(major_tail as usize).opt() {
+                        major_tail = next;
                         r_count += 1;
                     }
                     let mut i = hyphen_passed;
                     hyf[i as usize] = 0;
-                    minor_tail = None.tex_int();
+                    let mut minor_tail: Option<usize> = None;
                     MEM[r + 1].b32.s0 = None.tex_int();
                     let hyf_node = new_character(hf, hyf_char as UTF16_code);
                     if let Some(hyf_node) = hyf_node {
@@ -2619,15 +2617,17 @@ unsafe fn hyphenate() {
                     while l as i32 <= i as i32 {
                         l = (reconstitute(l, i, FONT_BCHAR[hf as usize], TOO_BIG_CHAR) as i32 + 1)
                             as i16;
-                        if !MEM[HOLD_HEAD].b32.s1.is_texnull() {
-                            if minor_tail.is_texnull() {
-                                MEM[r + 1].b32.s0 = MEM[HOLD_HEAD].b32.s1
+                        if let Some(hh) = MEM[HOLD_HEAD].b32.s1.opt() {
+                            if let Some(mt) = minor_tail {
+                                MEM[mt].b32.s1 = Some(hh).tex_int();
                             } else {
-                                MEM[minor_tail as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1
+                                MEM[r + 1].b32.s0 = Some(hh).tex_int();
                             }
-                            minor_tail = MEM[HOLD_HEAD].b32.s1;
-                            while !MEM[minor_tail as usize].b32.s1.is_texnull() {
-                                minor_tail = *LLIST_link(minor_tail as usize);
+                            let mut mt = hh;
+                            minor_tail = Some(mt);
+                            while let Some(next) = LLIST_link(mt).opt() {
+                                mt = next;
+                                minor_tail = Some(next);
                             }
                         }
                     }
@@ -2636,7 +2636,7 @@ unsafe fn hyphenate() {
                         l = i;
                         i -= 1
                     }
-                    minor_tail = None.tex_int();
+                    let mut minor_tail: Option<usize> = None;
                     MEM[r + 1].b32.s1 = None.tex_int();
                     c_loc = 0_i16;
                     if BCHAR_LABEL[hf as usize] != NON_ADDRESS {
@@ -2652,15 +2652,17 @@ unsafe fn hyphenate() {
                                 hu[c_loc as usize] = c;
                                 c_loc = 0_i16
                             }
-                            if !MEM[HOLD_HEAD].b32.s1.is_texnull() {
-                                if minor_tail.is_texnull() {
-                                    MEM[r + 1].b32.s1 = MEM[HOLD_HEAD].b32.s1
+                            if let Some(hh) = MEM[HOLD_HEAD].b32.s1.opt() {
+                                if let Some(mt) = minor_tail {
+                                    MEM[mt].b32.s1 = Some(hh).tex_int();
                                 } else {
-                                    MEM[minor_tail as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1
+                                    MEM[r + 1].b32.s1 = Some(hh).tex_int();
                                 }
-                                minor_tail = MEM[HOLD_HEAD].b32.s1;
-                                while !MEM[minor_tail as usize].b32.s1.is_texnull() {
-                                    minor_tail = *LLIST_link(minor_tail as usize);
+                                let mut mt = hh;
+                                minor_tail = Some(mt);
+                                while let Some(next) = LLIST_link(mt).opt() {
+                                    mt = next;
+                                    minor_tail = Some(next);
                                 }
                             }
                             if l as i32 >= j as i32 {
@@ -2670,9 +2672,9 @@ unsafe fn hyphenate() {
                         while l as i32 > j as i32 {
                             /*952: */
                             j = (reconstitute(j, hn, bchar, TOO_BIG_CHAR) as i32 + 1i32) as i16; /*:944*/
-                            MEM[major_tail as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1;
-                            while !MEM[major_tail as usize].b32.s1.is_texnull() {
-                                major_tail = *LLIST_link(major_tail as usize);
+                            MEM[major_tail].b32.s1 = MEM[HOLD_HEAD].b32.s1;
+                            while let Some(next) = LLIST_link(major_tail).opt() {
+                                major_tail = next;
                                 r_count += 1;
                             }
                         }
@@ -2685,7 +2687,7 @@ unsafe fn hyphenate() {
                         MEM[s as usize].b32.s1 = r as i32;
                         MEM[r].b16.s0 = r_count as u16;
                     }
-                    s = major_tail;
+                    s = major_tail as i32;
                     hyphen_passed = (j - 1) as i16;
                     MEM[HOLD_HEAD].b32.s1 = None.tex_int();
                     if !(hyf[(j as i32 - 1i32) as usize] as i32 & 1i32 != 0) {
@@ -2731,8 +2733,6 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
         s2: 0,
         s3: 0,
     };
-    let mut cur_rh: i32 = 0;
-    let mut test_char: i32 = 0;
     let mut k: font_index = 0;
 
     hyphen_passed = 0;
@@ -2761,16 +2761,16 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
         MEM[t as usize].b16.s0 = cur_l as u16
     }
     lig_stack = None;
-    if (j as i32) < n as i32 {
-        cur_r = hu[(j + 1) as usize]
+    cur_r = if (j as i32) < n as i32 {
+        hu[(j + 1) as usize]
     } else {
-        cur_r = bchar
-    }
-    if hyf[j as usize] as i32 & 1i32 != 0 {
-        cur_rh = hchar
+        bchar
+    };
+    let mut cur_rh = if hyf[j as usize] as i32 & 1i32 != 0 {
+        hchar
     } else {
-        cur_rh = TOO_BIG_CHAR
-    }
+        TOO_BIG_CHAR
+    };
     'c_27176: loop {
         if cur_l == TOO_BIG_CHAR {
             k = BCHAR_LABEL[hf as usize];
@@ -2798,11 +2798,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
         }
         match current_block {
             1434579379687443766 => {
-                if cur_rh < TOO_BIG_CHAR {
-                    test_char = cur_rh
-                } else {
-                    test_char = cur_r
-                }
+                let test_char = if cur_rh < TOO_BIG_CHAR { cur_rh } else { cur_r };
                 loop {
                     if q.s2 as i32 == test_char {
                         if q.s3 <= 128 {

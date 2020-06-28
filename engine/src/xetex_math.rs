@@ -327,7 +327,7 @@ pub(crate) unsafe fn init_math() {
                             MEM[temp_ptr].b32.s1 = LR_ptr;
                             LR_ptr = Some(temp_ptr).tex_int();
                             if MEM[p].b16.s0 as i32 / 8 != cur_dir as i32 {
-                                just_reverse(p as i32);
+                                just_reverse(p);
                                 p = TEMP_HEAD;
                             }
                         }
