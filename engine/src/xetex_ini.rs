@@ -747,7 +747,7 @@ pub(crate) static mut read_file: [*mut UFILE; 16] = [ptr::null_mut(); 16];
 #[no_mangle]
 pub(crate) static mut read_open: [OpenMode; 17] = [OpenMode::Normal; 17];
 #[no_mangle]
-pub(crate) static mut cond_ptr: i32 = 0;
+pub(crate) static mut cond_ptr: Option<usize> = None;
 #[no_mangle]
 pub(crate) static mut if_limit: u8 = 0;
 #[no_mangle]
@@ -913,21 +913,21 @@ pub(crate) static mut cur_i: b16x4 = b16x4 {
     s3: 0,
 };
 #[no_mangle]
-pub(crate) static mut cur_align: Option<usize> = Some(0);
+pub(crate) static mut cur_align: Option<usize> = None;
 #[no_mangle]
-pub(crate) static mut cur_span: Option<usize> = Some(0);
+pub(crate) static mut cur_span: Option<usize> = None;
 #[no_mangle]
-pub(crate) static mut cur_loop: Option<usize> = Some(0);
+pub(crate) static mut cur_loop: Option<usize> = None;
 #[no_mangle]
-pub(crate) static mut align_ptr: i32 = 0;
+pub(crate) static mut align_ptr: Option<usize> = None;
 #[no_mangle]
-pub(crate) static mut cur_head: Option<usize> = Some(0);
+pub(crate) static mut cur_head: Option<usize> = None;
 #[no_mangle]
-pub(crate) static mut cur_tail: Option<usize> = Some(0);
+pub(crate) static mut cur_tail: Option<usize> = None;
 #[no_mangle]
-pub(crate) static mut cur_pre_head: Option<usize> = Some(0);
+pub(crate) static mut cur_pre_head: Option<usize> = None;
 #[no_mangle]
-pub(crate) static mut cur_pre_tail: Option<usize> = Some(0);
+pub(crate) static mut cur_pre_tail: Option<usize> = None;
 #[no_mangle]
 pub(crate) static mut just_box: i32 = 0;
 #[no_mangle]
@@ -983,7 +983,7 @@ pub(crate) static mut op_start: [i32; 256] = [0; 256];
 #[no_mangle]
 pub(crate) static mut HYPH_WORD: Vec<str_number> = Vec::new();
 #[no_mangle]
-pub(crate) static mut HYPH_LIST: Vec<i32> = Vec::new();
+pub(crate) static mut HYPH_LIST: Vec<Option<usize>> = Vec::new();
 #[no_mangle]
 pub(crate) static mut HYPH_LINK: Vec<hyph_pointer> = Vec::new();
 #[no_mangle]
@@ -1059,7 +1059,7 @@ pub(crate) static mut cancel_boundary: bool = false;
 #[no_mangle]
 pub(crate) static mut ins_disc: bool = false;
 #[no_mangle]
-pub(crate) static mut cur_box: i32 = 0;
+pub(crate) static mut cur_box: Option<usize> = Some(0);
 #[no_mangle]
 pub(crate) static mut after_token: i32 = 0;
 #[no_mangle]
@@ -1099,7 +1099,7 @@ pub(crate) static mut pseudo_files: i32 = 0;
 #[no_mangle]
 pub(crate) static mut GRP_STACK: Vec<save_pointer> = Vec::new();
 #[no_mangle]
-pub(crate) static mut IF_STACK: Vec<i32> = Vec::new();
+pub(crate) static mut IF_STACK: Vec<Option<usize>> = Vec::new();
 #[no_mangle]
 pub(crate) static mut max_reg_num: i32 = 0;
 #[no_mangle]
@@ -1928,7 +1928,7 @@ unsafe fn new_hyph_exceptions() {
                     h = (HYPH_LINK[h as usize] as i32 - 1) as hyph_pointer;
                 }
                 HYPH_WORD[h as usize] = s;
-                HYPH_LIST[h as usize] = p.tex_int();
+                HYPH_LIST[h as usize] = p;
             }
             _ => {}
         }
@@ -3029,7 +3029,7 @@ unsafe fn store_fmt_file() {
         if HYPH_WORD[k] != 0 {
             fmt_out.dump_one((k as i64 + 65536 * HYPH_LINK[k] as i64) as i32);
             fmt_out.dump_one(HYPH_WORD[k]);
-            fmt_out.dump_one(HYPH_LIST[k]);
+            fmt_out.dump_one(HYPH_LIST[k].tex_int());
         }
     }
 
@@ -3655,7 +3655,7 @@ unsafe fn load_fmt_file() -> bool {
         if x < MIN_HALFWORD || x > MAX_HALFWORD {
             bad_fmt();
         } else {
-            HYPH_LIST[j as usize] = x;
+            HYPH_LIST[j as usize] = x.opt();
         }
     }
     j += 1;
@@ -3789,7 +3789,7 @@ unsafe fn final_cleanup() {
         print_char(')' as i32);
         show_save_groups();
     }
-    while let Some(cp) = cond_ptr.opt() {
+    while let Some(cp) = cond_ptr {
         print_nl('(' as i32);
         print_esc_cstr(b"end occurred ");
         print_cstr(b"when ");
@@ -3802,7 +3802,7 @@ unsafe fn final_cleanup() {
         if_line = MEM[cp + 1].b32.s1;
         cur_if = MEM[cp].b16.s0 as i16;
         temp_ptr = cp;
-        cond_ptr = *LLIST_link(cp);
+        cond_ptr = LLIST_link(cp).opt();
         free_node(temp_ptr, IF_NODE_SIZE);
     }
     if history != TTHistory::SPOTLESS {
@@ -3935,7 +3935,7 @@ unsafe fn initialize_more_variables() {
         read_open[k] = OpenMode::Closed;
     }
 
-    cond_ptr = None.tex_int();
+    cond_ptr = None;
     if_limit = NORMAL as u8;
     cur_if = 0;
     if_line = 0;
@@ -3952,7 +3952,7 @@ unsafe fn initialize_more_variables() {
     pack_begin_line = 0;
     empty.s1 = EMPTY;
     empty.s0 = None.tex_int();
-    align_ptr = None.tex_int();
+    align_ptr = None;
     cur_align = None;
     cur_span = None;
     cur_loop = None;
@@ -3965,7 +3965,7 @@ unsafe fn initialize_more_variables() {
 
     for z in 0..=HYPH_SIZE {
         HYPH_WORD[z as usize] = 0;
-        HYPH_LIST[z as usize] = None.tex_int();
+        HYPH_LIST[z as usize] = None;
         HYPH_LINK[z as usize] = 0;
     }
 
@@ -5169,12 +5169,12 @@ pub(crate) unsafe fn tt_run_engine(
     LINE_STACK = vec![0; MAX_IN_OPEN + 1];
     EOF_SEEN = vec![false; MAX_IN_OPEN + 1];
     GRP_STACK = vec![0; MAX_IN_OPEN + 1];
-    IF_STACK = vec![0; MAX_IN_OPEN + 1];
+    IF_STACK = vec![Some(0); MAX_IN_OPEN + 1];
     SOURCE_FILENAME_STACK = vec![0; MAX_IN_OPEN + 1];
     FULL_SOURCE_FILENAME_STACK = vec![0; MAX_IN_OPEN + 1];
     PARAM_STACK = vec![0; PARAM_SIZE + 1];
     HYPH_WORD = vec![0; HYPH_SIZE + 1];
-    HYPH_LIST = vec![0; HYPH_SIZE + 1];
+    HYPH_LIST = vec![Some(0); HYPH_SIZE + 1];
     HYPH_LINK = vec![0; HYPH_SIZE + 1];
 
     /* First bit of initex handling: more allocations. */
@@ -5292,7 +5292,7 @@ pub(crate) unsafe fn tt_run_engine(
     open_parens = 0i32;
     max_buf_stack = 0i32;
     GRP_STACK[0] = 0;
-    IF_STACK[0] = None.tex_int();
+    IF_STACK[0] = None;
     PARAM_PTR = 0;
     MAX_PARAM_STACK = 0;
     used_tectonic_coda_tokens = false;

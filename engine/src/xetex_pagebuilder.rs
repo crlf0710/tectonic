@@ -557,7 +557,7 @@ pub(crate) unsafe fn build_page() {
             TextNode::Glue => {
                 if page_contents == PageContents::Empty || page_contents == PageContents::InsertsOnly {
                     return done1(slf);
-                } else if is_non_discardable_node(page_tail) {
+                } else if is_non_discardable_node(page_tail as usize) {
                     slf.pi = 0;
                 } else { return update_heights(slf); }
             }

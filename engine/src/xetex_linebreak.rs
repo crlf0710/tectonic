@@ -148,7 +148,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     /* Remove trailing space or glue if present; add infinite penalty then par_fill_skip */
 
-    if is_char_node(cur_list.tail as i32) {
+    if is_char_node(Some(cur_list.tail)) {
         /* is_char_node */
         *LLIST_link(cur_list.tail) = new_penalty(INF_PENALTY) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
@@ -330,7 +330,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
              * second pass, also try to hyphenate the next word, if cur_p is a
              * glue node; then advance cur_p to the next node of the paragraph
              * that could possibly be a legal breakpoint." */
-            if is_char_node(cur_p) {
+            if is_char_node(cur_p.opt()) {
                 /*896:*/
                 global_prev_p = cur_p;
                 prev_p = global_prev_p;
@@ -345,7 +345,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         .b32
                         .s1;
                     cur_p = *LLIST_link(cur_p as usize);
-                    if !is_char_node(cur_p) {
+                    if !is_char_node(cur_p.opt()) {
                         break;
                     }
                 }
@@ -377,9 +377,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 }
                 TextNode::Glue => {
                     if auto_breaking {
-                        if is_char_node(prev_p) {
+                        if is_char_node(prev_p.opt()) {
                             try_break(0, BreakType::Unhyphenated);
-                        } else if is_non_discardable_node(prev_p) {
+                        } else if is_non_discardable_node(prev_p as usize) {
                             try_break(0, BreakType::Unhyphenated);
                         } else if NODE_type(prev_p as usize) == TextNode::Kern.into()
                             && kern_NODE_subtype(prev_p as usize) != KernNST::Explicit
@@ -408,7 +408,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             's_786: loop
                             /*930: skip to node ha, or goto done1 if no hyphenation should be attempted */
                             {
-                                if is_char_node(s) {
+                                if is_char_node(s.opt()) {
                                     c = *CHAR_NODE_character(s as usize) as UnicodeScalar; /*:930*/
                                     hf = *CHAR_NODE_font(s as usize) as usize;
                                     current_block = 11202235766349324107;
@@ -522,7 +522,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                     s = *LLIST_link(ha as usize);
 
                                                     loop {
-                                                        if !is_char_node(s) {
+                                                        if !is_char_node(s.opt()) {
                                                             match text_NODE_type(s as usize)
                                                                 .unwrap()
                                                             {
@@ -800,7 +800,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                     /*931: skip to node hb, putting letters into hu and hc */
                                                     hn = 0i32 as i16;
                                                     's_1342: loop {
-                                                        if is_char_node(s) {
+                                                        if is_char_node(s.opt()) {
                                                             if *CHAR_NODE_font(s as usize) as usize
                                                                 != hf
                                                             {
@@ -925,7 +925,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                     {
                                                         if !((hn as i32) < l_hyf + r_hyf) {
                                                             loop {
-                                                                if !is_char_node(s) {
+                                                                if !is_char_node(s.opt()) {
                                                                     match text_NODE_type(s as usize)
                                                                         .unwrap()
                                                                     {
@@ -1004,7 +1004,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 TextNode::Kern => {
                     /* ... resuming 895 ... */
                     if kern_NODE_subtype(cur_p as usize) == KernNST::Explicit {
-                        if (!is_char_node(*LLIST_link(cur_p as usize)) as i32) < hi_mem_min
+                        if (!is_char_node(LLIST_link(cur_p as usize).opt()) as i32) < hi_mem_min
                             && auto_breaking
                         {
                             if NODE_type(*LLIST_link(cur_p as usize) as usize)
@@ -1036,7 +1036,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     } else {
                         loop {
                             /*899:*/
-                            if is_char_node(s) {
+                            if is_char_node(s.opt()) {
                                 let mut eff_char_0: i32 = 0; /*:898 big DISC_NODE case */
                                 f = MEM[s as usize].b16.s1 as usize;
                                 eff_char_0 = effective_char(true, f, MEM[s as usize].b16.s0);
@@ -1087,7 +1087,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     r = *DISCRETIONARY_NODE_replace_count(cur_p as usize) as i32;
                     s = *LLIST_link(cur_p as usize);
                     while r > 0 {
-                        if is_char_node(s) {
+                        if is_char_node(s.opt()) {
                             let mut eff_char_2: i32 = 0;
                             f = MEM[s as usize].b16.s1 as usize;
                             eff_char_2 = effective_char(true, f, *CHAR_NODE_character(s as usize));
@@ -1136,7 +1136,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         // NODE_subtype(cur_p as usize)
                         auto_breaking = MEM[cur_p as usize].b16.s0 as i32 & 1 != 0
                     }
-                    if !is_char_node(*LLIST_link(cur_p as usize)) && auto_breaking {
+                    if !is_char_node(LLIST_link(cur_p as usize).opt()) && auto_breaking {
                         if NODE_type(*LLIST_link(cur_p as usize) as usize) == TextNode::Glue.into()
                         {
                             try_break(0, BreakType::Unhyphenated);
@@ -1444,7 +1444,7 @@ unsafe fn post_line_break(mut d: bool) {
         if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
             let ptmp;
             let p = if disc_break
-                && (is_char_node(q) || NODE_type(q as usize) != TextNode::Disc.into())
+                && (is_char_node(q.opt()) || NODE_type(q as usize) != TextNode::Disc.into())
             {
                 /*:915*/
                 ptmp = q;
@@ -1619,10 +1619,10 @@ unsafe fn post_line_break(mut d: bool) {
                     if q == *PASSIVE_NODE_cur_break(cur_p as usize) {
                         break;
                     }
-                    if is_char_node(q) {
+                    if is_char_node(q.opt()) {
                         break;
                     }
-                    if is_non_discardable_node(q) {
+                    if is_non_discardable_node(q as usize) {
                         break;
                     }
                     if NODE_type(q as usize) == TextNode::Kern.into()
@@ -1754,7 +1754,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                     t -= 1;
                                     v = *LLIST_link(v) as usize;
                                     /*870: "subtract the width of node v from break_width" */
-                                    if is_char_node(v as i32) {
+                                    if is_char_node(Some(v)) {
                                         let mut eff_char: i32 = 0;
 
                                         let f = *CHAR_NODE_font(v) as usize;
@@ -1800,7 +1800,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                 }
                                 /*871: "add the width of node s to break_width" */
                                 while !s.is_texnull() {
-                                    if is_char_node(s) {
+                                    if is_char_node(s.opt()) {
                                         let mut eff_char_1: i32 = 0;
                                         let f = *CHAR_NODE_font(s as usize) as usize;
                                         eff_char_1 =
@@ -1857,7 +1857,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                             }
                         }
                         while !s.is_texnull() {
-                            if is_char_node(s) {
+                            if is_char_node(s.opt()) {
                                 break;
                             }
                             match text_NODE_type(s as usize).unwrap() {
@@ -2367,7 +2367,7 @@ unsafe fn hyphenate() {
             match current_block {
                 1763490972649755258 => {}
                 _ => {
-                    s = HYPH_LIST[h as usize];
+                    s = HYPH_LIST[h as usize].tex_int();
                     while !s.is_texnull() {
                         hyf[MEM[s as usize].b32.s0 as usize] = 1_u8;
                         s = *LLIST_link(s as usize);
@@ -2451,14 +2451,14 @@ unsafe fn hyphenate() {
         }
     }
     if !ha.is_texnull()
-        && !is_char_node(ha)
+        && !is_char_node(ha.opt())
         && NODE_type(ha as usize) == TextNode::WhatsIt.into()
         && (whatsit_NODE_subtype(ha as usize) == WhatsItNST::NativeWord
             || whatsit_NODE_subtype(ha as usize) == WhatsItNST::NativeWordAt)
     {
-        s = cur_p;
-        while MEM[s as usize].b32.s1 != ha {
-            s = MEM[s as usize].b32.s1
+        let mut s = cur_p as usize;
+        while MEM[s].b32.s1 != ha {
+            s = MEM[s].b32.s1 as usize;
         }
         hyphen_passed = 0;
         for j in l_hyf..=(hn as i32 - r_hyf) {
@@ -2474,12 +2474,12 @@ unsafe fn hyphenate() {
                     &mut MEM[q] as *mut memory_word as *mut libc::c_void,
                     (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
                 );
-                MEM[s as usize].b32.s1 = q as i32;
-                s = q as i32;
+                MEM[s].b32.s1 = q as i32;
+                s = q;
                 let q = new_disc();
                 MEM[q + 1].b32.s0 = new_native_character(hf, hyf_char) as i32;
-                MEM[s as usize].b32.s1 = q as i32;
-                s = q as i32;
+                MEM[s].b32.s1 = q as i32;
+                s = q;
                 hyphen_passed = j as i16;
             }
         }
@@ -2495,10 +2495,10 @@ unsafe fn hyphenate() {
             &mut MEM[q] as *mut memory_word as *mut libc::c_void,
             (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
         );
-        MEM[s as usize].b32.s1 = q as i32;
-        s = q as i32;
+        MEM[s].b32.s1 = q as i32;
+        s = q;
         let q = MEM[ha as usize].b32.s1;
-        MEM[s as usize].b32.s1 = q;
+        MEM[s].b32.s1 = q;
         MEM[ha as usize].b32.s1 = None.tex_int();
         flush_node_list(ha.opt());
     } else {
@@ -2507,7 +2507,7 @@ unsafe fn hyphenate() {
         let r = MEM[ha as usize].b32.s1;
         MEM[ha as usize].b32.s1 = None.tex_int();
         bchar = hyf_bchar;
-        if is_char_node(ha) {
+        if is_char_node(ha.opt()) {
             if MEM[ha as usize].b16.s1 as usize != hf {
                 current_block = 6826215413708131726;
             } else {
@@ -2534,7 +2534,7 @@ unsafe fn hyphenate() {
                 current_block = 6662862405959679103;
             }
         } else {
-            if !is_char_node(r) {
+            if !is_char_node(r.opt()) {
                 if NODE_type(r as usize) == TextNode::Ligature.into() {
                     if MEM[r as usize].b16.s0 > 1 {
                         current_block = 6826215413708131726;
@@ -3065,7 +3065,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
         _ => {
             if d {
                 while let Some(next) = LLIST_link(l).opt() {
-                    if is_char_node(l as i32) || is_non_discardable_node(l as i32) {
+                    if is_char_node(Some(l)) || is_non_discardable_node(l) {
                         break;
                     }
                     l = next;
@@ -3086,7 +3086,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
             }
         }
         while run
-            && (!is_char_node(l as i32)
+            && (!is_char_node(Some(l))
                 && (NODE_type(l) == TextNode::Ins.into()
                     || NODE_type(l) == TextNode::Mark.into()
                     || NODE_type(l) == TextNode::Adjust.into()
@@ -3147,7 +3147,7 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
             }
         }
         while run
-            && (!is_char_node(r as i32)
+            && (!is_char_node(Some(r))
                 && (NODE_type(r) == TextNode::Ins.into()
                     || NODE_type(r) == TextNode::Mark.into()
                     || NODE_type(r) == TextNode::Adjust.into()

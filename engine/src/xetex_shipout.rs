@@ -372,7 +372,7 @@ unsafe fn hlist_out() {
         while !p.is_texnull() {
             if !LLIST_link(p as usize).is_texnull() {
                 if !p.is_texnull()
-                    && !is_char_node(p)
+                    && !is_char_node(p.opt())
                     && NODE_type(p as usize) != TextNode::WhatsIt.into()
                     && (whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWord
                         || whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWordAt)
@@ -387,7 +387,7 @@ unsafe fn hlist_out() {
                          * mostly `node_is_invisible_to_interword_space`. 641 is
                          * reused a few times here. */
                         while !q.is_texnull()
-                            && !is_char_node(q)
+                            && !is_char_node(q.opt())
                             && (NODE_type(q as usize) == TextNode::Penalty.into()
                                 || NODE_type(q as usize) == TextNode::Ins.into()
                                 || NODE_type(q as usize) == TextNode::Mark.into()
@@ -404,7 +404,7 @@ unsafe fn hlist_out() {
                         {
                             q = *LLIST_link(q as usize);
                         }
-                        if !(!q.is_texnull() && !is_char_node(q)) {
+                        if !(!q.is_texnull() && !is_char_node(q.opt())) {
                             break;
                         }
                         if NODE_type(q as usize) == TextNode::Glue.into()
@@ -419,7 +419,7 @@ unsafe fn hlist_out() {
                                 q = *LLIST_link(q as usize);
 
                                 while !q.is_texnull()
-                                    && !is_char_node(q)
+                                    && !is_char_node(q.opt())
                                     && (NODE_type(q as usize) == TextNode::Penalty.into()
                                         || NODE_type(q as usize) == TextNode::Ins.into()
                                         || NODE_type(q as usize) == TextNode::Mark.into()
@@ -438,7 +438,7 @@ unsafe fn hlist_out() {
                                 }
 
                                 if !q.is_texnull()
-                                    && !is_char_node(q)
+                                    && !is_char_node(q.opt())
                                     && NODE_type(q as usize) == TextNode::WhatsIt.into()
                                     && (whatsit_NODE_subtype(q as usize) == WhatsItNST::NativeWord
                                         || whatsit_NODE_subtype(q as usize)
@@ -455,7 +455,7 @@ unsafe fn hlist_out() {
                                 q = *LLIST_link(q as usize);
                             }
                             if !(!q.is_texnull()
-                                && !is_char_node(q)
+                                && !is_char_node(q.opt())
                                 && NODE_type(q as usize) == TextNode::Kern.into()
                                 && kern_NODE_subtype(q as usize) == KernNST::SpaceAdjustment)
                             {
@@ -463,7 +463,7 @@ unsafe fn hlist_out() {
                             }
                             q = MEM[q as usize].b32.s1;
                             while !q.is_texnull()
-                                && !is_char_node(q)
+                                && !is_char_node(q.opt())
                                 && (NODE_type(q as usize) == TextNode::Penalty.into()
                                     || NODE_type(q as usize) == TextNode::Ins.into()
                                     || NODE_type(q as usize) == TextNode::Mark.into()
@@ -474,7 +474,7 @@ unsafe fn hlist_out() {
                                 q = *LLIST_link(q as usize);
                             }
                             if !(!q.is_texnull()
-                                && !is_char_node(q)
+                                && !is_char_node(q.opt())
                                 && NODE_type(q as usize) == TextNode::WhatsIt.into()
                                 && (whatsit_NODE_subtype(q as usize) == WhatsItNST::NativeWord
                                     || whatsit_NODE_subtype(q as usize)
@@ -488,7 +488,7 @@ unsafe fn hlist_out() {
                             q = *LLIST_link(q as usize);
                         } else {
                             if !(!q.is_texnull()
-                                && !is_char_node(q)
+                                && !is_char_node(q.opt())
                                 && NODE_type(q as usize) == TextNode::WhatsIt.into()
                                 && (whatsit_NODE_subtype(q as usize) == WhatsItNST::NativeWord
                                     || whatsit_NODE_subtype(q as usize)
@@ -584,7 +584,7 @@ unsafe fn hlist_out() {
                          * at a native_word node." */
 
                         while let Some(p) = popt2 {
-                            if !is_char_node(p as i32)
+                            if !is_char_node(Some(p))
                                 && (NODE_type(p) == TextNode::Penalty.into()
                                     || NODE_type(p) == TextNode::Ins.into()
                                     || NODE_type(p) == TextNode::Mark.into()
@@ -669,7 +669,7 @@ unsafe fn hlist_out() {
         * by processing several nodes in succession[.] The program uses the
         * fact that `set_char_0 = 0`. */
                  {
-                if is_char_node(p) {
+                if is_char_node(p.opt()) {
                     if cur_h != dvi_h {
                         movement(cur_h - dvi_h, RIGHT1);
                         dvi_h = cur_h
@@ -722,7 +722,7 @@ unsafe fn hlist_out() {
                         }
                         prev_p = *LLIST_link(prev_p as usize);
                         p = *LLIST_link(p as usize);
-                        if !is_char_node(p) { break ; }
+                        if !is_char_node(p.opt()) { break ; }
                     }
                     synctex_current();
                     dvi_h = cur_h;
@@ -1299,7 +1299,7 @@ unsafe fn vlist_out() {
     while let Some(p) = popt {
         /*652: "Output node p and move to the next node, maintaining the
          * condition cur_h = left_edge" */
-        if is_char_node(p as i32) {
+        if is_char_node(Some(p)) {
             confusion(b"vlistout");
         } else {
             /*653: "Output the non-char_node p" */
@@ -1648,7 +1648,7 @@ unsafe fn reverse(
              * goto done if the end of the reflected segment has been
              * reached." */
             {
-                if is_char_node(p) {
+                if is_char_node(p.opt()) {
                     loop {
                         f = *CHAR_NODE_font(p as usize) as usize;
                         c = *CHAR_NODE_character(p as usize);
@@ -1662,7 +1662,7 @@ unsafe fn reverse(
                         *LLIST_link(p as usize) = l;
                         l = p;
                         p = q;
-                        if !is_char_node(p) {
+                        if !is_char_node(p.opt()) {
                             break;
                         }
                     }

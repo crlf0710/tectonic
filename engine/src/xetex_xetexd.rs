@@ -374,13 +374,16 @@ pub(crate) unsafe fn FONT_CHARACTER_WIDTH(f: usize, c: usize) -> &'static mut i3
 */
 
 #[inline]
-pub(crate) unsafe fn is_non_discardable_node(p: i32) -> bool {
-    (MEM[p as usize].b16.s1 as i32) < 9
+pub(crate) unsafe fn is_non_discardable_node(p: usize) -> bool {
+    (MEM[p].b16.s1 as i32) < 9
 }
 
 #[inline]
-pub(crate) unsafe fn is_char_node(p: i32) -> bool {
-    p >= xetex_ini::hi_mem_min
+pub(crate) unsafe fn is_char_node(p: Option<usize>) -> bool {
+    match p {
+        Some(p) => p >= xetex_ini::hi_mem_min as usize,
+        None => false,
+    }
 }
 
 #[inline]

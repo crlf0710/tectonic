@@ -196,7 +196,7 @@ pub(crate) unsafe fn init_math() {
             }
             while let Some(mut p) = popt {
                 loop {
-                    if is_char_node(p as i32) {
+                    if is_char_node(Some(p)) {
                         f = *CHAR_NODE_font(p) as internal_font_number;
                         d = FONT_INFO[(WIDTH_BASE[f]
                             + FONT_INFO
@@ -1189,7 +1189,7 @@ pub(crate) unsafe fn after_math() {
         if e > 0 && d < 2 * e {
             d = half(z - w - e);
             if let Some(p) = p.opt() {
-                if !is_char_node(p as i32) {
+                if !is_char_node(Some(p)) {
                     if NODE_type(p) == TextNode::Glue.into() {
                         d = 0
                     }
@@ -1628,7 +1628,7 @@ unsafe fn clean_box(p: usize, mut s: i16) -> usize {
     cur_mu = x_over_n(math_quad(cur_size), 18);
 
     unsafe fn found(q: i32) -> usize {
-        let x = if is_char_node(q) || q.is_texnull() {
+        let x = if is_char_node(q.opt()) || q.is_texnull() {
             hpack(q, 0, PackMode::Additional)
         } else if MEM[q as usize].b32.s1.is_texnull()
             && [TextNode::HList.into(), TextNode::VList.into()].contains(&NODE_type(q as usize))
@@ -1639,10 +1639,10 @@ unsafe fn clean_box(p: usize, mut s: i16) -> usize {
             hpack(q, 0, PackMode::Additional)
         };
         let q = MEM[x + 5].b32.s1;
-        if is_char_node(q) {
+        if is_char_node(q.opt()) {
             if let Some(r) = MEM[q as usize].b32.s1.opt() {
                 if MEM[r].b32.s1.opt().is_none() {
-                    if !is_char_node(r as i32) {
+                    if !is_char_node(Some(r)) {
                         if NODE_type(r) == TextNode::Kern.into() {
                             free_node(r, MEDIUM_NODE_SIZE);
                             MEM[q as usize].b32.s1 = None.tex_int()
@@ -1964,7 +1964,7 @@ unsafe fn make_math_accent(q: usize) {
                 MEM[y + 2].b32.s1 = 0
             }
             let mut sa;
-            if !is_char_node(p as i32)
+            if !is_char_node(Some(p))
                 && NODE_type(p) == TextNode::WhatsIt.into()
                 && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
             {
@@ -2163,7 +2163,7 @@ unsafe fn make_op(q: usize) -> scaled_t {
                 != 0
         {
             if let Some(mut p) = MEM[x + 5].b32.s1.opt() {
-                if !is_char_node(p as i32)
+                if !is_char_node(Some(p))
                     && NODE_type(p) == TextNode::WhatsIt.into()
                     && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
                 {
@@ -2414,9 +2414,9 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
     let mut script_f = 0;
     let mut sup_kern = 0i32;
     let mut sub_kern = 0i32;
-    if is_char_node(p)
+    if is_char_node(p.opt())
         || !p.is_texnull()
-            && !is_char_node(p)
+            && !is_char_node(p.opt())
             && NODE_type(p as usize) == TextNode::WhatsIt.into()
             && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
     {
@@ -2481,7 +2481,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                 cur_f = save_f
             }
             if let Some(p) = p.opt() {
-                if !is_char_node(p as i32)
+                if !is_char_node(Some(p))
                     && NODE_type(p) == TextNode::WhatsIt.into()
                     && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
                 {
@@ -2554,7 +2554,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                 cur_f = save_f
             }
             if let Some(p) = p.opt() {
-                if !is_char_node(p as i32)
+                if !is_char_node(Some(p))
                     && NODE_type(p) == TextNode::WhatsIt.into()
                     && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
                 {
@@ -2638,7 +2638,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                     cur_f = save_f
                 }
                 if let Some(p) = p.opt() {
-                    if !is_char_node(p as i32)
+                    if !is_char_node(Some(p))
                         && NODE_type(p) == TextNode::WhatsIt.into()
                         && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
                     {
@@ -2677,7 +2677,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                     cur_f = save_f
                 }
                 if let Some(p) = p.opt() {
-                    if !is_char_node(p as i32)
+                    if !is_char_node(Some(p))
                         && NODE_type(p) == TextNode::WhatsIt.into()
                         && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
                     {
@@ -3724,7 +3724,7 @@ unsafe fn rebox(mut b: usize, mut w: scaled_t) -> usize {
             b = hpack(b as i32, 0, PackMode::Additional) as usize
         }
         let mut p = MEM[b + 5].b32.s1 as usize;
-        if is_char_node(p as i32) && MEM[p].b32.s1.is_texnull() {
+        if is_char_node(Some(p)) && MEM[p].b32.s1.is_texnull() {
             f = MEM[p as usize].b16.s1 as internal_font_number;
             v = FONT_INFO[(WIDTH_BASE[f]
                 + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, MEM[p].b16.s0)) as usize]
