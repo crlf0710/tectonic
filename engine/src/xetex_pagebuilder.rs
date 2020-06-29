@@ -548,9 +548,12 @@ pub(crate) unsafe fn build_page() {
             }
             TextNode::WhatsIt => {
                 /*1401: "Prepare to move whatsit p to the current page, then goto contribute" */
-                if whatsit_NODE_subtype(slf.p as usize) == WhatsItNST::Pic || whatsit_NODE_subtype(slf.p as usize) == WhatsItNST::Pdf {
-                    page_so_far[1] += page_so_far[7] + *BOX_height(slf.p as usize);
-                    page_so_far[7] = *BOX_depth(slf.p as usize);
+                match whatsit_NODE_subtype(slf.p as usize) {
+                     WhatsItNST::Pic | WhatsItNST::Pdf => {
+                        page_so_far[1] += page_so_far[7] + *BOX_height(slf.p as usize);
+                        page_so_far[7] = *BOX_depth(slf.p as usize);
+                    }
+                    _ => {}
                 }
                 return contribute(slf);
             }

@@ -10030,11 +10030,14 @@ pub(crate) unsafe fn new_native_word_node(mut f: internal_font_number, mut n: i3
     ) as i32;
     let q = get_node(l) as usize;
     set_NODE_type(q, TextNode::WhatsIt);
-    if *INTPAR(IntPar::xetex_generate_actual_text) > 0i32 {
-        set_whatsit_NODE_subtype(q, WhatsItNST::NativeWordAt);
-    } else {
-        set_whatsit_NODE_subtype(q, WhatsItNST::NativeWord);
-    }
+    set_whatsit_NODE_subtype(
+        q,
+        if *INTPAR(IntPar::xetex_generate_actual_text) > 0i32 {
+            WhatsItNST::NativeWordAt
+        } else {
+            WhatsItNST::NativeWord
+        },
+    );
     *NATIVE_NODE_size(q) = l as u16;
     *NATIVE_NODE_font(q) = f as u16;
     *NATIVE_NODE_length(q) = n as u16;
@@ -11667,17 +11670,16 @@ pub(crate) unsafe fn vpackage(
                         w = MEM[p + 1].b32.s1 + s
                     }
                 }
-                TextNode::WhatsIt => {
-                    if whatsit_NODE_subtype(p) == WhatsItNST::Pic
-                        || whatsit_NODE_subtype(p) == WhatsItNST::Pdf
-                    {
+                TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
+                    WhatsItNST::Pic | WhatsItNST::Pdf => {
                         x = x + d + MEM[p + 3].b32.s1;
                         d = MEM[p + 2].b32.s1;
                         if MEM[p + 1].b32.s1 > w {
                             w = MEM[p + 1].b32.s1
                         }
                     }
-                }
+                    _ => {}
+                },
                 TextNode::Glue => {
                     x = x + d;
                     d = 0;
@@ -12944,11 +12946,13 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     current_block = 10249009913728301645;
                 }
                 TextNode::WhatsIt => {
-                    if whatsit_NODE_subtype(p as usize) == WhatsItNST::Pic
-                        || whatsit_NODE_subtype(p as usize) == WhatsItNST::Pdf
-                    {
-                        active_width[1] = active_width[1] + prev_dp + MEM[(p + 3) as usize].b32.s1;
-                        prev_dp = MEM[(p + 2) as usize].b32.s1
+                    match whatsit_NODE_subtype(p as usize) {
+                        WhatsItNST::Pic | WhatsItNST::Pdf => {
+                            active_width[1] =
+                                active_width[1] + prev_dp + MEM[(p + 3) as usize].b32.s1;
+                            prev_dp = MEM[(p + 2) as usize].b32.s1
+                        }
+                        _ => {}
                     }
                     current_block = 10249009913728301645;
                 }
@@ -14090,20 +14094,22 @@ pub(crate) unsafe fn append_italic_correction() {
         } else if NODE_type(cur_list.tail) == TextNode::Ligature.into() {
             p = cur_list.tail as i32 + 1;
         } else if NODE_type(cur_list.tail) == TextNode::WhatsIt.into() {
-            if whatsit_NODE_subtype(cur_list.tail) == WhatsItNST::NativeWord
-                || whatsit_NODE_subtype(cur_list.tail) == WhatsItNST::NativeWordAt
-            {
-                MEM[cur_list.tail].b32.s1 = new_kern(real_get_native_italic_correction(
-                    &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
-                )) as i32;
-                cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-                set_kern_NODE_subtype(cur_list.tail, KernNST::Explicit);
-            } else if whatsit_NODE_subtype(cur_list.tail) == WhatsItNST::Glyph {
-                MEM[cur_list.tail].b32.s1 = new_kern(real_get_native_glyph_italic_correction(
-                    &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
-                )) as i32;
-                cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-                set_kern_NODE_subtype(cur_list.tail, KernNST::Explicit);
+            match whatsit_NODE_subtype(cur_list.tail) {
+                WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
+                    MEM[cur_list.tail].b32.s1 = new_kern(real_get_native_italic_correction(
+                        &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
+                    )) as i32;
+                    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                    set_kern_NODE_subtype(cur_list.tail, KernNST::Explicit);
+                }
+                WhatsItNST::Glyph => {
+                    MEM[cur_list.tail].b32.s1 = new_kern(real_get_native_glyph_italic_correction(
+                        &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
+                    )) as i32;
+                    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                    set_kern_NODE_subtype(cur_list.tail, KernNST::Explicit);
+                }
+                _ => {}
             }
             return;
         } else {

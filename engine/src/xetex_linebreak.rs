@@ -344,22 +344,22 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             match text_NODE_type(cp).unwrap() {
                 TextNode::HList | TextNode::VList | TextNode::Rule => active_width[1] += *BOX_width(cp),
                 TextNode::WhatsIt => {
-                    if whatsit_NODE_subtype(cp) == WhatsItNST::Language as _ {
-                        cur_lang = MEM[cp + 1].b32.s1 as u8;
-                        l_hyf = MEM[cp + 1].b16.s1 as i32;
-                        r_hyf = MEM[cp + 1].b16.s0 as i32;
-                        if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32 != cur_lang as i32 {
-                            hyph_index = 0i32
-                        } else {
-                            hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
+                    match whatsit_NODE_subtype(cp) {
+                        WhatsItNST::Language => {
+                            cur_lang = MEM[cp + 1].b32.s1 as u8;
+                            l_hyf = MEM[cp + 1].b16.s1 as i32;
+                            r_hyf = MEM[cp + 1].b16.s0 as i32;
+                            if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32 != cur_lang as i32 {
+                                hyph_index = 0i32
+                            } else {
+                                hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
+                            }
                         }
-                    } else if whatsit_NODE_subtype(cp) == WhatsItNST::NativeWord
-                        || whatsit_NODE_subtype(cp) == WhatsItNST::NativeWordAt
-                        || whatsit_NODE_subtype(cp) == WhatsItNST::Glyph
-                        || whatsit_NODE_subtype(cp) == WhatsItNST::Pic
-                        || whatsit_NODE_subtype(cp) == WhatsItNST::Pdf
-                    {
-                        active_width[1] += *BOX_width(cp);
+                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt | WhatsItNST::Glyph | WhatsItNST::Pic | WhatsItNST::Pdf =>
+                        {
+                            active_width[1] += *BOX_width(cp);
+                        }
+                        _ => {}
                     }
                 }
                 TextNode::Glue => {
@@ -415,34 +415,36 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         current_block = 8166967358843938227;
                                         break;
                                     }
-                                    if whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWord || whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWordAt {
-                                        l = 0;
-                                        while l < *NATIVE_NODE_length(s as usize) as i32 {
-                                            c = get_native_usv(s as usize, l as usize);
-                                            if *LC_CODE(c as usize) != 0 {
-                                                hf = *NATIVE_NODE_font(s as usize) as usize;
-                                                prev_s = s;
-                                                current_block = 16581706250867416845;
-                                                break 's_786;
-                                            } else {
-                                                if c as i64 >= 65536 {
+                                    match whatsit_NODE_subtype(s as usize) {
+                                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
+                                            l = 0;
+                                            while l < *NATIVE_NODE_length(s as usize) as i32 {
+                                                c = get_native_usv(s as usize, l as usize);
+                                                if *LC_CODE(c as usize) != 0 {
+                                                    hf = *NATIVE_NODE_font(s as usize) as usize;
+                                                    prev_s = s;
+                                                    current_block = 16581706250867416845;
+                                                    break 's_786;
+                                                } else {
+                                                    if c as i64 >= 65536 {
+                                                        l += 1
+                                                    }
                                                     l += 1
                                                 }
-                                                l += 1
                                             }
                                         }
-                                    }
+                                        WhatsItNST::Language => {
+                                            cur_lang = *LANGUAGE_NODE_what_lang(s as usize) as u8;
+                                            l_hyf = *LANGUAGE_NODE_what_lhm(s as usize) as i32;
+                                            r_hyf = *LANGUAGE_NODE_what_rhm(s as usize) as i32;
 
-                                    if whatsit_NODE_subtype(s as usize) == WhatsItNST::Language {
-                                        cur_lang = *LANGUAGE_NODE_what_lang(s as usize) as u8;
-                                        l_hyf = *LANGUAGE_NODE_what_lhm(s as usize) as i32;
-                                        r_hyf = *LANGUAGE_NODE_what_rhm(s as usize) as i32;
-
-                                        hyph_index = if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32 != cur_lang as i32 {
-                                            0
-                                        } else {
-                                            *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
-                                        };
+                                            hyph_index = if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32 != cur_lang as i32 {
+                                                0
+                                            } else {
+                                                *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
+                                            };
+                                        }
+                                        _ => {}
                                     }
                                     current_block = 13855806088735179493;
                                 }
@@ -793,15 +795,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     }
                                     TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => disc_width += *BOX_width(s as usize),
                                     TextNode::WhatsIt => {
-                                        if whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWord
-                                            || whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWordAt
-                                            || whatsit_NODE_subtype(s as usize) == WhatsItNST::Glyph
-                                            || whatsit_NODE_subtype(s as usize) == WhatsItNST::Pic
-                                            || whatsit_NODE_subtype(s as usize) == WhatsItNST::Pdf
-                                        {
-                                            disc_width += *BOX_width(s as usize);
-                                        } else {
-                                            confusion(b"disc3a");
+                                        match whatsit_NODE_subtype(s as usize) {
+                                            WhatsItNST::NativeWord | WhatsItNST::NativeWordAt | WhatsItNST::Glyph | WhatsItNST::Pic | WhatsItNST::Pdf
+                                            => {
+                                                disc_width += *BOX_width(s as usize);
+                                            }
+                                            _ => confusion(b"disc3a"),
                                         }
                                     }
                                     _ => confusion(b"disc3"),
@@ -835,15 +834,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 }
                                 TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => active_width[1] += *BOX_width(s as usize),
                                 TextNode::WhatsIt => {
-                                    if whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWord
-                                        || whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWordAt
-                                        || whatsit_NODE_subtype(s as usize) == WhatsItNST::Glyph
-                                        || whatsit_NODE_subtype(s as usize) == WhatsItNST::Pic
-                                        || whatsit_NODE_subtype(s as usize) == WhatsItNST::Pdf
-                                    {
-                                        active_width[1] += *BOX_width(s as usize);
-                                    } else {
-                                        confusion(b"disc4a");
+                                    match whatsit_NODE_subtype(s as usize) {
+                                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt | WhatsItNST::Glyph | WhatsItNST::Pic | WhatsItNST::Pdf
+                                        => {
+                                            active_width[1] += *BOX_width(s as usize);
+                                        }
+                                        _ => confusion(b"disc4a"),
                                     }
                                 }
                                 _ => confusion(b"disc4"),
@@ -1467,19 +1463,16 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                             | TextNode::Kern => {
                                                 break_width[1] -= *BOX_width(v);
                                             }
-                                            TextNode::WhatsIt => {
-                                                if whatsit_NODE_subtype(v) == WhatsItNST::NativeWord
-                                                    || whatsit_NODE_subtype(v)
-                                                        == WhatsItNST::NativeWordAt
-                                                    || whatsit_NODE_subtype(v) == WhatsItNST::Glyph
-                                                    || whatsit_NODE_subtype(v) == WhatsItNST::Pic
-                                                    || whatsit_NODE_subtype(v) == WhatsItNST::Pdf
-                                                {
+                                            TextNode::WhatsIt => match whatsit_NODE_subtype(v) {
+                                                WhatsItNST::NativeWord
+                                                | WhatsItNST::NativeWordAt
+                                                | WhatsItNST::Glyph
+                                                | WhatsItNST::Pic
+                                                | WhatsItNST::Pdf => {
                                                     break_width[1] -= *BOX_width(v);
-                                                } else {
-                                                    confusion(b"disc1a");
                                                 }
-                                            }
+                                                _ => confusion(b"disc1a"),
+                                            },
                                             _ => confusion(b"disc1"),
                                         }
                                     }
@@ -1515,20 +1508,15 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                 break_width[1] += *BOX_width(s as usize);
                                             }
                                             TextNode::WhatsIt => {
-                                                if whatsit_NODE_subtype(s as usize)
-                                                    == WhatsItNST::NativeWord
-                                                    || whatsit_NODE_subtype(s as usize)
-                                                        == WhatsItNST::NativeWordAt
-                                                    || whatsit_NODE_subtype(s as usize)
-                                                        == WhatsItNST::Glyph
-                                                    || whatsit_NODE_subtype(s as usize)
-                                                        == WhatsItNST::Pic
-                                                    || whatsit_NODE_subtype(s as usize)
-                                                        == WhatsItNST::Pdf
-                                                {
-                                                    break_width[1] += *BOX_width(s as usize);
-                                                } else {
-                                                    confusion(b"disc2a");
+                                                match whatsit_NODE_subtype(s as usize) {
+                                                    WhatsItNST::NativeWord
+                                                    | WhatsItNST::NativeWordAt
+                                                    | WhatsItNST::Glyph
+                                                    | WhatsItNST::Pic
+                                                    | WhatsItNST::Pdf => {
+                                                        break_width[1] += *BOX_width(s as usize);
+                                                    }
+                                                    _ => confusion(b"disc2a"),
                                                 }
                                             }
                                             _ => confusion(b"disc2"),

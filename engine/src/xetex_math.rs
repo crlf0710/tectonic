@@ -276,20 +276,20 @@ pub(crate) unsafe fn init_math() {
                                     break;
                                 }
                             }
-                            TextNode::WhatsIt => {
-                                if whatsit_NODE_subtype(p) == WhatsItNST::NativeWord
-                                    || whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt
-                                    || whatsit_NODE_subtype(p) == WhatsItNST::Glyph
-                                    || whatsit_NODE_subtype(p) == WhatsItNST::Pic
-                                    || whatsit_NODE_subtype(p) == WhatsItNST::Pdf
-                                {
+                            TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
+                                WhatsItNST::NativeWord
+                                | WhatsItNST::NativeWordAt
+                                | WhatsItNST::Glyph
+                                | WhatsItNST::Pic
+                                | WhatsItNST::Pdf => {
                                     current_block = 11064061988481400464;
                                     break;
-                                } else {
+                                }
+                                _ => {
                                     current_block = 5846959088466685742;
                                     break;
                                 }
-                            }
+                            },
                             _ => {
                                 d = 0i32;
                                 current_block = 1677945370889843322;
@@ -535,8 +535,8 @@ pub(crate) unsafe fn math_radical() {
     MEM[cur_list.tail + 1].b32 = empty;
     MEM[cur_list.tail + 3].b32 = empty;
     MEM[cur_list.tail + 2].b32 = empty;
-    scan_delimiter((cur_list.tail + 4) as usize, true);
-    scan_math((cur_list.tail + 1) as usize);
+    scan_delimiter(cur_list.tail + 4, true);
+    scan_math(cur_list.tail + 1);
 }
 pub(crate) unsafe fn math_ac() {
     let mut c: i32 = 0;

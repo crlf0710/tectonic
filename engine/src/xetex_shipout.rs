@@ -511,19 +511,20 @@ unsafe fn hlist_out() {
                         let mut q = r;
                         loop {
                             if NODE_type(q as usize) == TextNode::WhatsIt.into() {
-                                if whatsit_NODE_subtype(q as usize) == WhatsItNST::NativeWord
-                                    || whatsit_NODE_subtype(q as usize) == WhatsItNST::NativeWordAt
-                                {
-                                    j = 0;
-                                    while j < *NATIVE_NODE_length(q as usize) as i32 {
-                                        str_pool[pool_ptr as usize] = *(&mut MEM[(q + 6) as usize]
-                                            as *mut memory_word
-                                            as *mut u16)
-                                            .offset(j as isize);
-                                        pool_ptr += 1;
-                                        j += 1
+                                match whatsit_NODE_subtype(q as usize) {
+                                    WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
+                                        j = 0;
+                                        while j < *NATIVE_NODE_length(q as usize) as i32 {
+                                            str_pool[pool_ptr as usize] =
+                                                *(&mut MEM[(q + 6) as usize] as *mut memory_word
+                                                    as *mut u16)
+                                                    .offset(j as isize);
+                                            pool_ptr += 1;
+                                            j += 1
+                                        }
+                                        k += *BOX_width(q as usize);
                                     }
-                                    k += *BOX_width(q as usize);
+                                    _ => {}
                                 }
                             } else if NODE_type(q as usize) == TextNode::Glue.into() {
                                 str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
@@ -1675,20 +1676,20 @@ unsafe fn reverse(
                             current_block = 3812947724376655173;
                             break;
                         }
-                        TextNode::WhatsIt => {
-                            if whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWord
-                                || whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWordAt
-                                || whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
-                                || whatsit_NODE_subtype(p as usize) == WhatsItNST::Pic
-                                || whatsit_NODE_subtype(p as usize) == WhatsItNST::Pdf
-                            {
+                        TextNode::WhatsIt => match whatsit_NODE_subtype(p as usize) {
+                            WhatsItNST::NativeWord
+                            | WhatsItNST::NativeWordAt
+                            | WhatsItNST::Glyph
+                            | WhatsItNST::Pic
+                            | WhatsItNST::Pdf => {
                                 current_block = 7056779235015430508;
                                 break;
-                            } else {
+                            }
+                            _ => {
                                 current_block = 10883403804712335414;
                                 break;
                             }
-                        }
+                        },
                         TextNode::Glue => {
                             /*1486: "Handle a glue node for mixed direction typesetting" */
                             g = *GLUE_NODE_glue_ptr(p as usize) as usize; /* "will never match" */
