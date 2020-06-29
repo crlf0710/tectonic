@@ -132,6 +132,7 @@ unsafe fn get_native_usv(p: usize, i: usize) -> UnicodeScalar {
  * starting line number (0 unless we're continuing after display math). After
  * completion, `just_box` will point to the final box created.
  */
+#[rustfmt::skip]
 pub(crate) unsafe fn line_break(mut d: bool) {
     let mut current_block: u64;
     let mut r: i32 = 0;
@@ -175,16 +176,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     no_shrink_error_yet = true;
 
-    if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::left_skip) as usize) != NORMAL as _
-        && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::left_skip) as usize) != 0
-    {
+    if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::left_skip) as usize) != NORMAL as _ && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::left_skip) as usize) != 0 {
         *GLUEPAR(GluePar::left_skip) = finite_shrink(*GLUEPAR(GluePar::left_skip) as usize) as i32;
     }
-    if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::right_skip) as usize) != NORMAL as _
-        && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::right_skip) as usize) != 0
-    {
-        *GLUEPAR(GluePar::right_skip) =
-            finite_shrink(*GLUEPAR(GluePar::right_skip) as usize) as i32;
+    if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::right_skip) as usize) != NORMAL as _ && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::right_skip) as usize) != 0 {
+        *GLUEPAR(GluePar::right_skip) = finite_shrink(*GLUEPAR(GluePar::right_skip) as usize) as i32;
     }
 
     let q = *GLUEPAR(GluePar::left_skip) as usize;
@@ -249,8 +245,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             } else {
                 first_width = *DIMENPAR(DimenPar::hsize);
                 first_indent = 0;
-                second_width =
-                    *DIMENPAR(DimenPar::hsize) - (*DIMENPAR(DimenPar::hang_indent)).abs();
+                second_width = *DIMENPAR(DimenPar::hsize) - (*DIMENPAR(DimenPar::hang_indent)).abs();
                 if *DIMENPAR(DimenPar::hang_indent) >= 0 {
                     second_indent = *DIMENPAR(DimenPar::hang_indent);
                 } else {
@@ -338,10 +333,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     let mut eff_char: i32 = 0;
                     f = MEM[cur_p as usize].b16.s1 as usize;
                     eff_char = effective_char(true, f, MEM[cur_p as usize].b16.s0);
-                    active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize]
-                        + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize]
-                            .b16
-                            .s3 as i32) as usize]
+                    active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize] + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize].b16.s3 as i32) as usize]
                         .b32
                         .s1;
                     cur_p = *LLIST_link(cur_p as usize);
@@ -351,17 +343,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 }
             }
             match text_NODE_type(cur_p as usize).unwrap() {
-                TextNode::HList | TextNode::VList | TextNode::Rule => {
-                    active_width[1] += *BOX_width(cur_p as usize)
-                }
+                TextNode::HList | TextNode::VList | TextNode::Rule => active_width[1] += *BOX_width(cur_p as usize),
                 TextNode::WhatsIt => {
                     if whatsit_NODE_subtype(cur_p as usize) == WhatsItNST::Language as _ {
                         cur_lang = MEM[(cur_p + 1) as usize].b32.s1 as u8;
                         l_hyf = MEM[(cur_p + 1) as usize].b16.s1 as i32;
                         r_hyf = MEM[(cur_p + 1) as usize].b16.s0 as i32;
-                        if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32
-                            != cur_lang as i32
-                        {
+                        if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32 != cur_lang as i32 {
                             hyph_index = 0i32
                         } else {
                             hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
@@ -381,9 +369,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             try_break(0, BreakType::Unhyphenated);
                         } else if is_non_discardable_node(prev_p as usize) {
                             try_break(0, BreakType::Unhyphenated);
-                        } else if NODE_type(prev_p as usize) == TextNode::Kern.into()
-                            && kern_NODE_subtype(prev_p as usize) != KernNST::Explicit
-                        {
+                        } else if NODE_type(prev_p as usize) == TextNode::Kern.into() && kern_NODE_subtype(prev_p as usize) != KernNST::Explicit {
                             try_break(0, BreakType::Unhyphenated);
                         }
                     }
@@ -394,8 +380,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         q = *fresh3 as usize
                     }
                     active_width[1] += *BOX_width(q);
-                    active_width[(2 + *GLUE_SPEC_stretch_order(q)) as usize] +=
-                        *GLUE_SPEC_stretch(q);
+                    active_width[(2 + *GLUE_SPEC_stretch_order(q)) as usize] += *GLUE_SPEC_stretch(q);
                     /*:895*/
                     active_width[6] += *GLUE_SPEC_shrink(q); /*:897*/
 
@@ -420,12 +405,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     } else {
                                         current_block = 13855806088735179493;
                                     }
-                                } else if NODE_type(s as usize) == TextNode::Kern.into()
-                                    && kern_NODE_subtype(s as usize) == KernNST::Normal
-                                {
+                                } else if NODE_type(s as usize) == TextNode::Kern.into() && kern_NODE_subtype(s as usize) == KernNST::Normal {
                                     current_block = 13855806088735179493;
-                                } else if NODE_type(s as usize) == TextNode::Math.into()
-                                    && MEM[s as usize].b16.s0 >= L_CODE
+                                } else if NODE_type(s as usize) == TextNode::Math.into() && MEM[s as usize].b16.s0 >= L_CODE
                                 // NODE_subtype(s as usize)
                                 {
                                     current_block = 13855806088735179493;
@@ -434,10 +416,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         current_block = 8166967358843938227;
                                         break;
                                     }
-                                    if whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWord
-                                        || whatsit_NODE_subtype(s as usize)
-                                            == WhatsItNST::NativeWordAt
-                                    {
+                                    if whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWord || whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWordAt {
                                         l = 0;
                                         while l < *NATIVE_NODE_length(s as usize) as i32 {
                                             c = get_native_usv(s as usize, l as usize);
@@ -460,14 +439,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         l_hyf = *LANGUAGE_NODE_what_lhm(s as usize) as i32;
                                         r_hyf = *LANGUAGE_NODE_what_rhm(s as usize) as i32;
 
-                                        if *trie_trc.offset((hyph_start + cur_lang as i32) as isize)
-                                            as i32
-                                            != cur_lang as i32
-                                        {
+                                        if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32 != cur_lang as i32 {
                                             hyph_index = 0
                                         } else {
-                                            hyph_index = *trie_trl
-                                                .offset((hyph_start + cur_lang as i32) as isize)
+                                            hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
                                         }
                                     }
                                     current_block = 13855806088735179493;
@@ -476,9 +451,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     11202235766349324107 => {
                                         if hyph_index == 0 || c > 255 {
                                             hc[0] = *LC_CODE(c as usize);
-                                        } else if *trie_trc.offset((hyph_index + c) as isize) as i32
-                                            != c
-                                        {
+                                        } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
                                             hc[0] = 0;
                                         } else {
                                             hc[0] = *trie_tro.offset((hyph_index + c) as isize)
@@ -506,49 +479,31 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         if !(hyf_char > BIGGEST_CHAR) {
                                             ha = prev_s;
 
-                                            if !((l_hyf + r_hyf) as usize
-                                                > max_hyphenatable_length())
-                                            {
+                                            if !((l_hyf + r_hyf) as usize > max_hyphenatable_length()) {
                                                 if !ha.is_texnull()
                                                     && ha < hi_mem_min
-                                                    && NODE_type(ha as usize)
-                                                        == TextNode::WhatsIt.into()
-                                                    && (whatsit_NODE_subtype(ha as usize)
-                                                        == WhatsItNST::NativeWord
-                                                        || whatsit_NODE_subtype(ha as usize)
-                                                            == WhatsItNST::NativeWordAt)
+                                                    && NODE_type(ha as usize) == TextNode::WhatsIt.into()
+                                                    && (whatsit_NODE_subtype(ha as usize) == WhatsItNST::NativeWord || whatsit_NODE_subtype(ha as usize) == WhatsItNST::NativeWordAt)
                                                 {
                                                     /*926: check that nodes after native_word permit hyphenation; if not, goto done1 */
                                                     s = *LLIST_link(ha as usize);
 
                                                     loop {
                                                         if !is_char_node(s.opt()) {
-                                                            match text_NODE_type(s as usize)
-                                                                .unwrap()
-                                                            {
+                                                            match text_NODE_type(s as usize).unwrap() {
                                                                 TextNode::Ligature => {}
                                                                 TextNode::Kern => {
-                                                                    if kern_NODE_subtype(s as usize)
-                                                                        != KernNST::Normal
-                                                                    {
-                                                                        current_block =
-                                                                            2606747282402567793;
+                                                                    if kern_NODE_subtype(s as usize) != KernNST::Normal {
+                                                                        current_block = 2606747282402567793;
                                                                         break;
                                                                     }
                                                                 }
-                                                                TextNode::WhatsIt
-                                                                | TextNode::Glue
-                                                                | TextNode::Penalty
-                                                                | TextNode::Ins
-                                                                | TextNode::Adjust
-                                                                | TextNode::Mark => {
-                                                                    current_block =
-                                                                        2606747282402567793;
+                                                                TextNode::WhatsIt | TextNode::Glue | TextNode::Penalty | TextNode::Ins | TextNode::Adjust | TextNode::Mark => {
+                                                                    current_block = 2606747282402567793;
                                                                     break;
                                                                 }
                                                                 _ => {
-                                                                    current_block =
-                                                                        8166967358843938227;
+                                                                    current_block = 8166967358843938227;
                                                                     break;
                                                                 }
                                                             }
@@ -565,227 +520,82 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                             hn = 0 as i16;
                                                             'c_31290: loop {
                                                                 /* 'ha' can change in the loop, so for safety: */
-                                                                for_end_1 = *NATIVE_NODE_length(
-                                                                    ha as usize,
-                                                                )
-                                                                    as i32;
+                                                                for_end_1 = *NATIVE_NODE_length(ha as usize) as i32;
 
                                                                 l = 0;
                                                                 loop {
                                                                     if !(l < for_end_1) {
                                                                         break 'c_31290;
                                                                     }
-                                                                    c = get_native_usv(
-                                                                        ha as usize,
-                                                                        l as usize,
-                                                                    );
+                                                                    c = get_native_usv(ha as usize, l as usize);
                                                                     if hyph_index == 0 || c > 255 {
-                                                                        hc[0] =
-                                                                            *LC_CODE(c as usize);
-                                                                    } else if *trie_trc.offset(
-                                                                        (hyph_index + c) as isize,
-                                                                    )
-                                                                        as i32
-                                                                        != c
-                                                                    {
+                                                                        hc[0] = *LC_CODE(c as usize);
+                                                                    } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
                                                                         hc[0] = 0
                                                                     } else {
-                                                                        hc[0] = *trie_tro.offset(
-                                                                            (hyph_index + c)
-                                                                                as isize,
-                                                                        )
+                                                                        hc[0] = *trie_tro.offset((hyph_index + c) as isize)
                                                                     }
                                                                     if hc[0] == 0 {
                                                                         if hn > 0 {
-                                                                            let q = new_native_word_node(
-                                                                                hf,
-                                                                                *NATIVE_NODE_length(
-                                                                                    ha as usize,
-                                                                                )
-                                                                                    as i32
-                                                                                    - l,
-                                                                            )
-                                                                                as i32;
+                                                                            let q = new_native_word_node(hf, *NATIVE_NODE_length(ha as usize) as i32 - l) as i32;
                                                                             //set_NODE_subtype(q as usize, NODE_subtype( ha as usize));
-                                                                            MEM[q as usize]
-                                                                                .b16
-                                                                                .s0 = MEM
-                                                                                [ha as usize]
-                                                                                .b16
-                                                                                .s0;
+                                                                            MEM[q as usize].b16.s0 = MEM[ha as usize].b16.s0;
                                                                             i = l;
-                                                                            while i < *NATIVE_NODE_length(ha as usize)
-                                                                                as i32
-                                                                            {
-                                                                                *(&mut MEM[(q
-                                                                                                            +
-                                                                                                            6i32)
-                                                                                                           as
-                                                                                                           usize]
-                                                                                          as
-                                                                                          *mut memory_word
-                                                                                          as
-                                                                                          *mut u16).offset((i
-                                                                                                                           -
-                                                                                                                           l)
-                                                                                                                          as
-                                                                                                                          isize)
-                                                                                        =
-                                                                                        *(&mut MEM[(ha
-                                                                                                                +
-                                                                                                                6i32)
-                                                                                                               as
-                                                                                                               usize]
-                                                                                              as
-                                                                                              *mut memory_word
-                                                                                              as
-                                                                                              *mut u16).offset(i
-                                                                                                                              as
-                                                                                                                              isize);
+                                                                            while i < *NATIVE_NODE_length(ha as usize) as i32 {
+                                                                                *(&mut MEM[(q + 6i32) as usize] as *mut memory_word as *mut u16).offset((i - l) as isize) =
+                                                                                    *(&mut MEM[(ha + 6i32) as usize] as *mut memory_word as *mut u16).offset(i as isize);
                                                                                 i += 1
                                                                             }
-                                                                            measure_native_node(&mut MEM[q
-                                                                                                                         as
-                                                                                                                         usize]
-                                                                                                        as
-                                                                                                        *mut memory_word
-                                                                                                        as
-                                                                                                        *mut libc::c_void,
-                                                                                                    (*INTPAR(IntPar::xetex_use_glyph_metrics)
-                                                                                                         >
-                                                                                                         0)
-                                                                                                        as
-                                                                                                        i32);
-                                                                            *LLIST_link(
-                                                                                q as usize,
-                                                                            ) = *LLIST_link(
-                                                                                ha as usize,
+                                                                            measure_native_node(
+                                                                                &mut MEM[q as usize] as *mut memory_word as *mut libc::c_void,
+                                                                                (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
                                                                             );
-                                                                            *LLIST_link(
-                                                                                ha as usize,
-                                                                            ) = q;
-                                                                            *NATIVE_NODE_length(
-                                                                                ha as usize,
-                                                                            ) = l as u16;
-                                                                            measure_native_node(&mut MEM[ha
-                                                                                                                         as
-                                                                                                                         usize]
-                                                                                                        as
-                                                                                                        *mut memory_word
-                                                                                                        as
-                                                                                                        *mut libc::c_void,
-                                                                                                    (*INTPAR(IntPar::xetex_use_glyph_metrics)
-                                                                                                         >
-                                                                                                         0)
-                                                                                                        as
-                                                                                                        i32);
+                                                                            *LLIST_link(q as usize) = *LLIST_link(ha as usize);
+                                                                            *LLIST_link(ha as usize) = q;
+                                                                            *NATIVE_NODE_length(ha as usize) = l as u16;
+                                                                            measure_native_node(
+                                                                                &mut MEM[ha as usize] as *mut memory_word as *mut libc::c_void,
+                                                                                (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
+                                                                            );
                                                                             break 'c_31290;
                                                                         }
                                                                     } else if hn == 0 && l > 0 {
-                                                                        let q = new_native_word_node(
-                                                                            hf,
-                                                                            *NATIVE_NODE_length(
-                                                                                ha as usize,
-                                                                            )
-                                                                                as i32
-                                                                                - l,
-                                                                        )
-                                                                            as i32;
+                                                                        let q = new_native_word_node(hf, *NATIVE_NODE_length(ha as usize) as i32 - l) as i32;
                                                                         //set_NODE_subtype(q as usize, NODE_subtype( ha as usize));
-                                                                        MEM[q as usize].b16.s0 =
-                                                                            MEM[ha as usize].b16.s0;
+                                                                        MEM[q as usize].b16.s0 = MEM[ha as usize].b16.s0;
                                                                         i = l;
-                                                                        while i
-                                                                            < *NATIVE_NODE_length(
-                                                                                ha as usize,
-                                                                            )
-                                                                                as i32
-                                                                        {
-                                                                            *(&mut MEM
-                                                                                [(q + 6) as usize]
-                                                                                as *mut memory_word
-                                                                                as *mut u16)
-                                                                                .offset(
-                                                                                    (i - l)
-                                                                                        as isize,
-                                                                                ) = *(&mut MEM[(ha
-                                                                                + 6i32)
-                                                                                as usize]
-                                                                                as *mut memory_word
-                                                                                as *mut u16)
-                                                                                .offset(i as isize);
+                                                                        while i < *NATIVE_NODE_length(ha as usize) as i32 {
+                                                                            *(&mut MEM[(q + 6) as usize] as *mut memory_word as *mut u16).offset((i - l) as isize) =
+                                                                                *(&mut MEM[(ha + 6i32) as usize] as *mut memory_word as *mut u16).offset(i as isize);
                                                                             i += 1
                                                                         }
-                                                                        measure_native_node(&mut MEM[q
-                                                                                                                     as
-                                                                                                                     usize]
-                                                                                                    as
-                                                                                                    *mut memory_word
-                                                                                                    as
-                                                                                                    *mut libc::c_void,
-                                                                                                (*INTPAR(IntPar::xetex_use_glyph_metrics)
-                                                                                                     >
-                                                                                                     0)
-                                                                                                    as
-                                                                                                    i32);
-                                                                        *LLIST_link(q as usize) =
-                                                                            *LLIST_link(
-                                                                                ha as usize,
-                                                                            );
-                                                                        *LLIST_link(ha as usize) =
-                                                                            q;
-                                                                        *NATIVE_NODE_length(
-                                                                            ha as usize,
-                                                                        ) = l as u16;
-                                                                        measure_native_node(&mut MEM[ha
-                                                                                                                     as
-                                                                                                                     usize]
-                                                                                                    as
-                                                                                                    *mut memory_word
-                                                                                                    as
-                                                                                                    *mut libc::c_void,
-                                                                                                (*INTPAR(IntPar::xetex_use_glyph_metrics)
-                                                                                                     >
-                                                                                                     0)
-                                                                                                    as
-                                                                                                    i32);
-                                                                        ha = *LLIST_link(
-                                                                            ha as usize,
+                                                                        measure_native_node(
+                                                                            &mut MEM[q as usize] as *mut memory_word as *mut libc::c_void,
+                                                                            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
                                                                         );
+                                                                        *LLIST_link(q as usize) = *LLIST_link(ha as usize);
+                                                                        *LLIST_link(ha as usize) = q;
+                                                                        *NATIVE_NODE_length(ha as usize) = l as u16;
+                                                                        measure_native_node(
+                                                                            &mut MEM[ha as usize] as *mut memory_word as *mut libc::c_void,
+                                                                            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
+                                                                        );
+                                                                        ha = *LLIST_link(ha as usize);
                                                                         break;
                                                                     } else {
-                                                                        if hn
-                                                                                   as
-                                                                                   usize
-                                                                                   ==
-                                                                                   max_hyphenatable_length()
-                                                                               {
-                                                                                break
-                                                                                    'c_31290
-                                                                                    ;
-                                                                            }
+                                                                        if hn as usize == max_hyphenatable_length() {
+                                                                            break 'c_31290;
+                                                                        }
                                                                         hn += 1;
                                                                         if (c as i64) < 65536 {
                                                                             hu[hn as usize] = c;
                                                                             hc[hn as usize] = hc[0]
                                                                         } else {
-                                                                            hu[hn as usize] =
-                                                                                ((c as i64 - 65536)
-                                                                                    / 1024
-                                                                                    + 0xd800)
-                                                                                    as i32;
-                                                                            hc[hn as usize] =
-                                                                                ((hc[0] as i64
-                                                                                    - 65536)
-                                                                                    / 1024
-                                                                                    + 0xd800)
-                                                                                    as i32;
+                                                                            hu[hn as usize] = ((c as i64 - 65536) / 1024 + 0xd800) as i32;
+                                                                            hc[hn as usize] = ((hc[0] as i64 - 65536) / 1024 + 0xd800) as i32;
                                                                             hn += 1;
-                                                                            hu[hn as usize] =
-                                                                                c % 1024 + 0xdc00;
-                                                                            hc[hn as usize] = hc[0]
-                                                                                % 1024
-                                                                                + 0xdc00;
+                                                                            hu[hn as usize] = c % 1024 + 0xdc00;
+                                                                            hc[hn as usize] = hc[0] % 1024 + 0xdc00;
                                                                             l += 1;
                                                                         }
                                                                         hyf_bchar = TOO_BIG_CHAR;
@@ -801,27 +611,17 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                     hn = 0i32 as i16;
                                                     's_1342: loop {
                                                         if is_char_node(s.opt()) {
-                                                            if *CHAR_NODE_font(s as usize) as usize
-                                                                != hf
-                                                            {
+                                                            if *CHAR_NODE_font(s as usize) as usize != hf {
                                                                 break;
                                                             }
-                                                            hyf_bchar =
-                                                                *CHAR_NODE_character(s as usize)
-                                                                    as i32;
+                                                            hyf_bchar = *CHAR_NODE_character(s as usize) as i32;
                                                             c = hyf_bchar;
                                                             if hyph_index == 0 || c > 255 {
                                                                 hc[0] = *LC_CODE(c as usize);
-                                                            } else if *trie_trc
-                                                                .offset((hyph_index + c) as isize)
-                                                                as i32
-                                                                != c
-                                                            {
+                                                            } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
                                                                 hc[0] = 0
                                                             } else {
-                                                                hc[0] = *trie_tro.offset(
-                                                                    (hyph_index + c) as isize,
-                                                                )
+                                                                hc[0] = *trie_tro.offset((hyph_index + c) as isize)
                                                             }
                                                             if hc[0] == 0 {
                                                                 break;
@@ -829,9 +629,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                             if hc[0] > max_hyph_char {
                                                                 break;
                                                             }
-                                                            if hn as usize
-                                                                == max_hyphenatable_length()
-                                                            {
+                                                            if hn as usize == max_hyphenatable_length() {
                                                                 break;
                                                             }
                                                             hb = s;
@@ -839,41 +637,25 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                             hu[hn as usize] = c;
                                                             hc[hn as usize] = hc[0];
                                                             hyf_bchar = TOO_BIG_CHAR;
-                                                        } else if NODE_type(s as usize)
-                                                            == TextNode::Ligature.into()
-                                                        {
+                                                        } else if NODE_type(s as usize) == TextNode::Ligature.into() {
                                                             /*932: move the characters of a ligature node to hu and hc; but goto done3
                                                              * if they are not all letters. */
-                                                            if *LIGATURE_NODE_lig_font(s as usize)
-                                                                as usize
-                                                                != hf
-                                                            {
+                                                            if *LIGATURE_NODE_lig_font(s as usize) as usize != hf {
                                                                 break;
                                                             }
                                                             j = hn;
-                                                            let mut q =
-                                                                *LIGATURE_NODE_lig_ptr(s as usize);
+                                                            let mut q = *LIGATURE_NODE_lig_ptr(s as usize);
                                                             if !q.is_texnull() {
-                                                                hyf_bchar =
-                                                                    *CHAR_NODE_character(q as usize)
-                                                                        as i32
+                                                                hyf_bchar = *CHAR_NODE_character(q as usize) as i32
                                                             }
                                                             while !q.is_texnull() {
-                                                                c = *CHAR_NODE_character(q as usize)
-                                                                    as UnicodeScalar;
+                                                                c = *CHAR_NODE_character(q as usize) as UnicodeScalar;
                                                                 if hyph_index == 0 || c > 255 {
                                                                     hc[0] = *LC_CODE(c as usize);
-                                                                } else if *trie_trc.offset(
-                                                                    (hyph_index + c) as isize,
-                                                                )
-                                                                    as i32
-                                                                    != c
-                                                                {
+                                                                } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
                                                                     hc[0] = 0;
                                                                 } else {
-                                                                    hc[0] = *trie_tro.offset(
-                                                                        (hyph_index + c) as isize,
-                                                                    )
+                                                                    hc[0] = *trie_tro.offset((hyph_index + c) as isize)
                                                                 }
                                                                 if hc[0] == 0 {
                                                                     break 's_1342;
@@ -881,9 +663,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                 if hc[0] > max_hyph_char {
                                                                     break 's_1342;
                                                                 }
-                                                                if j as usize
-                                                                    == max_hyphenatable_length()
-                                                                {
+                                                                if j as usize == max_hyphenatable_length() {
                                                                     break 's_1342;
                                                                 }
                                                                 j += 1;
@@ -893,20 +673,14 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                             }
                                                             hb = s;
                                                             hn = j;
-                                                            if MEM[s as usize].b16.s0 as i32 & 1
-                                                                != 0
-                                                            {
+                                                            if MEM[s as usize].b16.s0 as i32 & 1 != 0 {
                                                                 hyf_bchar = FONT_BCHAR[hf as usize]
                                                             } else {
                                                                 hyf_bchar = TOO_BIG_CHAR;
                                                             }
                                                         /*:932*/
                                                         } else {
-                                                            if !(NODE_type(s as usize)
-                                                                == TextNode::Kern.into()
-                                                                && kern_NODE_subtype(s as usize)
-                                                                    == KernNST::Normal)
-                                                            {
+                                                            if !(NODE_type(s as usize) == TextNode::Kern.into() && kern_NODE_subtype(s as usize) == KernNST::Normal) {
                                                                 break;
                                                             }
                                                             hb = s;
@@ -926,57 +700,32 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                         if !((hn as i32) < l_hyf + r_hyf) {
                                                             loop {
                                                                 if !is_char_node(s.opt()) {
-                                                                    match text_NODE_type(s as usize)
-                                                                        .unwrap()
-                                                                    {
+                                                                    match text_NODE_type(s as usize).unwrap() {
                                                                         TextNode::Ligature => {}
                                                                         TextNode::Kern => {
-                                                                            current_block =
-                                                                                5935670669791948619;
-                                                                            if kern_NODE_subtype(
-                                                                                s as usize,
-                                                                            ) != KernNST::Normal
-                                                                            {
-                                                                                current_block
-                                                                                            =
-                                                                                            16848571710846909653;
+                                                                            current_block = 5935670669791948619;
+                                                                            if kern_NODE_subtype(s as usize) != KernNST::Normal {
+                                                                                current_block = 16848571710846909653;
                                                                                 break;
                                                                             }
                                                                         }
-                                                                        TextNode::WhatsIt
-                                                                        | TextNode::Glue
-                                                                        | TextNode::Penalty
-                                                                        | TextNode::Ins
-                                                                        | TextNode::Adjust
-                                                                        | TextNode::Mark => {
-                                                                            current_block
-                                                                                =
-                                                                                16848571710846909653;
+                                                                        TextNode::WhatsIt | TextNode::Glue | TextNode::Penalty | TextNode::Ins | TextNode::Adjust | TextNode::Mark => {
+                                                                            current_block = 16848571710846909653;
                                                                             break;
                                                                         }
                                                                         TextNode::Math => {
-                                                                            current_block =
-                                                                                2529459302156174429;
-                                                                            if MEM[s as usize]
-                                                                                .b16
-                                                                                .s0
-                                                                                >= L_CODE
-                                                                            {
+                                                                            current_block = 2529459302156174429;
+                                                                            if MEM[s as usize].b16.s0 >= L_CODE {
                                                                                 // NODE_subtype(s as usize)
-                                                                                current_block
-                                                                                            =
-                                                                                            16848571710846909653;
+                                                                                current_block = 16848571710846909653;
                                                                                 break;
                                                                             } else {
-                                                                                current_block
-                                                                                            =
-                                                                                            8166967358843938227;
+                                                                                current_block = 8166967358843938227;
                                                                                 break;
                                                                             }
                                                                         }
                                                                         _ => {
-                                                                            current_block =
-                                                                                8166967358843938227;
+                                                                            current_block = 8166967358843938227;
                                                                             break;
                                                                         }
                                                                     }
@@ -1004,12 +753,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 TextNode::Kern => {
                     /* ... resuming 895 ... */
                     if kern_NODE_subtype(cur_p as usize) == KernNST::Explicit {
-                        if (!is_char_node(LLIST_link(cur_p as usize).opt()) as i32) < hi_mem_min
-                            && auto_breaking
-                        {
-                            if NODE_type(*LLIST_link(cur_p as usize) as usize)
-                                == TextNode::Glue.into()
-                            {
+                        if (!is_char_node(LLIST_link(cur_p as usize).opt()) as i32) < hi_mem_min && auto_breaking {
+                            if NODE_type(*LLIST_link(cur_p as usize) as usize) == TextNode::Glue.into() {
                                 try_break(0, BreakType::Unhyphenated);
                             }
                         }
@@ -1021,10 +766,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 TextNode::Ligature => {
                     f = *LIGATURE_NODE_lig_font(cur_p as usize) as usize;
                     xtx_ligature_present = true;
-                    active_width[1] += *FONT_CHARACTER_WIDTH(
-                        f,
-                        effective_char(true, f, *LIGATURE_NODE_lig_char(cur_p as usize)) as usize,
-                    );
+                    active_width[1] += *FONT_CHARACTER_WIDTH(f, effective_char(true, f, *LIGATURE_NODE_lig_char(cur_p as usize)) as usize);
                 }
                 TextNode::Disc => {
                     /*898: try to break after a discretionary fragment, then goto done5 */
@@ -1047,22 +789,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         let mut eff_char_1: i32 = 0;
                                         f = *LIGATURE_NODE_lig_font(s as usize) as usize;
                                         xtx_ligature_present = true;
-                                        eff_char_1 = effective_char(
-                                            true,
-                                            f,
-                                            *LIGATURE_NODE_lig_char(s as usize),
-                                        );
+                                        eff_char_1 = effective_char(true, f, *LIGATURE_NODE_lig_char(s as usize));
                                         disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
                                     }
-                                    TextNode::HList
-                                    | TextNode::VList
-                                    | TextNode::Rule
-                                    | TextNode::Kern => disc_width += *BOX_width(s as usize),
+                                    TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => disc_width += *BOX_width(s as usize),
                                     TextNode::WhatsIt => {
-                                        if whatsit_NODE_subtype(s as usize)
-                                            == WhatsItNST::NativeWord
-                                            || whatsit_NODE_subtype(s as usize)
-                                                == WhatsItNST::NativeWordAt
+                                        if whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWord
+                                            || whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWordAt
                                             || whatsit_NODE_subtype(s as usize) == WhatsItNST::Glyph
                                             || whatsit_NODE_subtype(s as usize) == WhatsItNST::Pic
                                             || whatsit_NODE_subtype(s as usize) == WhatsItNST::Pdf
@@ -1098,19 +831,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     let mut eff_char_3: i32 = 0;
                                     f = *LIGATURE_NODE_lig_font(s as usize) as usize;
                                     xtx_ligature_present = true;
-                                    eff_char_3 =
-                                        effective_char(true, f, MEM[(s + 1) as usize].b16.s0);
-                                    active_width[1] +=
-                                        *FONT_CHARACTER_WIDTH(f, eff_char_3 as usize);
+                                    eff_char_3 = effective_char(true, f, MEM[(s + 1) as usize].b16.s0);
+                                    active_width[1] += *FONT_CHARACTER_WIDTH(f, eff_char_3 as usize);
                                 }
-                                TextNode::HList
-                                | TextNode::VList
-                                | TextNode::Rule
-                                | TextNode::Kern => active_width[1] += *BOX_width(s as usize),
+                                TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => active_width[1] += *BOX_width(s as usize),
                                 TextNode::WhatsIt => {
                                     if whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWord
-                                        || whatsit_NODE_subtype(s as usize)
-                                            == WhatsItNST::NativeWordAt
+                                        || whatsit_NODE_subtype(s as usize) == WhatsItNST::NativeWordAt
                                         || whatsit_NODE_subtype(s as usize) == WhatsItNST::Glyph
                                         || whatsit_NODE_subtype(s as usize) == WhatsItNST::Pic
                                         || whatsit_NODE_subtype(s as usize) == WhatsItNST::Pdf
@@ -1137,17 +864,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         auto_breaking = MEM[cur_p as usize].b16.s0 as i32 & 1 != 0
                     }
                     if !is_char_node(LLIST_link(cur_p as usize).opt()) && auto_breaking {
-                        if NODE_type(*LLIST_link(cur_p as usize) as usize) == TextNode::Glue.into()
-                        {
+                        if NODE_type(*LLIST_link(cur_p as usize) as usize) == TextNode::Glue.into() {
                             try_break(0, BreakType::Unhyphenated);
                         }
                     }
                     active_width[1] += *BOX_width(cur_p as usize);
                 }
-                TextNode::Penalty => try_break(
-                    *PENALTY_NODE_penalty(cur_p as usize),
-                    BreakType::Unhyphenated,
-                ),
+                TextNode::Penalty => try_break(*PENALTY_NODE_penalty(cur_p as usize), BreakType::Unhyphenated),
                 TextNode::Mark | TextNode::Ins | TextNode::Adjust => {}
                 _ => confusion(b"paragraph"),
             }
@@ -1188,16 +911,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     if NODE_type(r as usize) != DELTA_NODE.into() {
                         line_diff = *ACTIVE_NODE_line_number(r as usize) - best_line;
 
-                        if line_diff < actual_looseness && *INTPAR(IntPar::looseness) <= line_diff
-                            || line_diff > actual_looseness
-                                && *INTPAR(IntPar::looseness) >= line_diff
-                        {
+                        if line_diff < actual_looseness && *INTPAR(IntPar::looseness) <= line_diff || line_diff > actual_looseness && *INTPAR(IntPar::looseness) >= line_diff {
                             best_bet = r;
                             actual_looseness = line_diff;
                             fewest_demerits = *ACTIVE_NODE_total_demerits(r as usize);
-                        } else if line_diff == actual_looseness
-                            && *ACTIVE_NODE_total_demerits(r as usize) < fewest_demerits
-                        {
+                        } else if line_diff == actual_looseness && *ACTIVE_NODE_total_demerits(r as usize) < fewest_demerits {
                             best_bet = r;
                             fewest_demerits = *ACTIVE_NODE_total_demerits(r as usize);
                         }
@@ -1249,8 +967,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         } else {
             let q = new_spec(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
             delete_glue_ref(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
-            MEM[q + 1].b32.s1 +=
-                *ACTIVE_NODE_shortfall(best_bet as usize) - *ACTIVE_NODE_glue(best_bet as usize);
+            MEM[q + 1].b32.s1 += *ACTIVE_NODE_shortfall(best_bet as usize) - *ACTIVE_NODE_glue(best_bet as usize);
             *GLUE_SPEC_stretch(q) = 0;
             *GLUE_NODE_glue_ptr(last_line_fill as usize) = q as i32;
         }
@@ -1326,12 +1043,7 @@ unsafe fn post_line_break(mut d: bool) {
                 if q < hi_mem_min && NODE_type(q as usize) == TextNode::Math.into() {
                     /*1495:*/
                     if MEM[q as usize].b16.s0 as i32 & 1 != 0 {
-                        if !LR_ptr.is_texnull()
-                            && MEM[LR_ptr as usize].b32.s0
-                                == (L_CODE as i32)
-                                    * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32))
-                                    + 3
-                        {
+                        if !LR_ptr.is_texnull() && MEM[LR_ptr as usize].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3 {
                             temp_ptr = LR_ptr as usize;
                             LR_ptr = MEM[temp_ptr].b32.s1;
                             MEM[temp_ptr].b32.s1 = avail.tex_int();
@@ -1339,8 +1051,7 @@ unsafe fn post_line_break(mut d: bool) {
                         }
                     } else {
                         temp_ptr = get_avail();
-                        MEM[temp_ptr].b32.s0 =
-                            (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
+                        MEM[temp_ptr].b32.s0 = (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
                         MEM[temp_ptr].b32.s1 = LR_ptr;
                         LR_ptr = Some(temp_ptr).tex_int();
                     }
@@ -1419,11 +1130,7 @@ unsafe fn post_line_break(mut d: bool) {
             if *INTPAR(IntPar::texxet) > 0 {
                 /*1495:*/
                 if *INTPAR(IntPar::texxet) as i32 & 1 != 0 {
-                    if !LR_ptr.is_texnull()
-                        && MEM[LR_ptr as usize].b32.s0
-                            == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32))
-                                + 3i32
-                    {
+                    if !LR_ptr.is_texnull() && MEM[LR_ptr as usize].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3i32 {
                         temp_ptr = LR_ptr as usize;
                         LR_ptr = MEM[temp_ptr].b32.s1;
                         MEM[temp_ptr].b32.s1 = avail.tex_int();
@@ -1431,8 +1138,7 @@ unsafe fn post_line_break(mut d: bool) {
                     }
                 } else {
                     temp_ptr = get_avail();
-                    MEM[temp_ptr].b32.s0 =
-                        (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
+                    MEM[temp_ptr].b32.s0 = (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
                     MEM[temp_ptr].b32.s1 = LR_ptr;
                     LR_ptr = Some(temp_ptr).tex_int();
                 }
@@ -1443,9 +1149,7 @@ unsafe fn post_line_break(mut d: bool) {
          * q has been changed to the last node of the pre-break list" */
         if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
             let ptmp;
-            let p = if disc_break
-                && (is_char_node(q.opt()) || NODE_type(q as usize) != TextNode::Disc.into())
-            {
+            let p = if disc_break && (is_char_node(q.opt()) || NODE_type(q as usize) != TextNode::Disc.into()) {
                 /*:915*/
                 ptmp = q;
                 q.opt()
@@ -1520,10 +1224,7 @@ unsafe fn post_line_break(mut d: bool) {
             (second_width, second_indent)
         } else if let Some(l) = LOCAL(Local::par_shape).opt() {
             /* These manual `mem` indices are in the original WEB code */
-            (
-                MEM[l + 2 * cur_line as usize].b32.s1,
-                MEM[l + 2 * cur_line as usize - 1].b32.s1
-            )
+            (MEM[l + 2 * cur_line as usize].b32.s1, MEM[l + 2 * cur_line as usize - 1].b32.s1)
         } else {
             (first_width, first_indent)
         };
@@ -1625,23 +1326,14 @@ unsafe fn post_line_break(mut d: bool) {
                     if is_non_discardable_node(q as usize) {
                         break;
                     }
-                    if NODE_type(q as usize) == TextNode::Kern.into()
-                        && kern_NODE_subtype(q as usize) != KernNST::Explicit
-                        && kern_NODE_subtype(q as usize) != KernNST::SpaceAdjustment
-                    {
+                    if NODE_type(q as usize) == TextNode::Kern.into() && kern_NODE_subtype(q as usize) != KernNST::Explicit && kern_NODE_subtype(q as usize) != KernNST::SpaceAdjustment {
                         break;
                     }
                     r = q as usize;
-                    if NODE_type(q as usize) == TextNode::Math.into() && *INTPAR(IntPar::texxet) > 0
-                    {
+                    if NODE_type(q as usize) == TextNode::Math.into() && *INTPAR(IntPar::texxet) > 0 {
                         /*1495:*/
                         if MEM[q as usize].b16.s0 as i32 & 1i32 != 0 {
-                            if !LR_ptr.is_texnull()
-                                && MEM[LR_ptr as usize].b32.s0
-                                    == (L_CODE as i32)
-                                        * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32))
-                                        + 3
-                            {
+                            if !LR_ptr.is_texnull() && MEM[LR_ptr as usize].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3 {
                                 temp_ptr = LR_ptr as usize;
                                 LR_ptr = MEM[temp_ptr].b32.s1;
                                 MEM[temp_ptr].b32.s1 = avail.tex_int();
@@ -1649,9 +1341,7 @@ unsafe fn post_line_break(mut d: bool) {
                             }
                         } else {
                             temp_ptr = get_avail();
-                            MEM[temp_ptr].b32.s0 = (L_CODE as i32)
-                                * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32))
-                                + 3;
+                            MEM[temp_ptr].b32.s0 = (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
                             MEM[temp_ptr].b32.s1 = LR_ptr;
                             LR_ptr = Some(temp_ptr).tex_int();
                         }
