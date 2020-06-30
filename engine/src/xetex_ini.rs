@@ -1164,7 +1164,7 @@ pub(crate) static mut insert_penalties: i32 = 0;
 pub(crate) static mut output_active: bool = false;
 #[no_mangle]
 pub(crate) static mut _xeq_level_array: [u16; 1114732] = [0; 1114732];
-static mut _trie_op_hash_array: [i32; 70223] = [0; 70223];
+static mut _trie_op_hash_array: [usize; 70223] = [0; 70223];
 static mut yhash: *mut b32x2 = ptr::null_mut();
 
 const hash_offset: i32 = 514;
@@ -1244,13 +1244,12 @@ where
 pub(crate) unsafe fn new_trie_op(mut d: i16, mut n: i16, mut v: trie_opcode) -> trie_opcode {
     let mut h: i32 = 0;
     let mut u: trie_opcode = 0;
-    let mut l: i32 = 0;
     h = ((n as i32 + 313 * d as i32 + 361 * v as i32 + 1009 * cur_lang as i32).abs() as i64
         % (TRIE_OP_SIZE as i64 - NEG_TRIE_OP_SIZE as i64)
         + NEG_TRIE_OP_SIZE as i64) as i32;
     loop {
-        l = _trie_op_hash_array[(h as i64 - -35111) as usize];
-        if l == 0i32 {
+        let l = _trie_op_hash_array[(h as i64 - -35111) as usize];
+        if l == 0 {
             if trie_op_ptr as i64 == 35111 {
                 overflow(b"pattern memory ops", 35111);
             }
@@ -1268,16 +1267,16 @@ pub(crate) unsafe fn new_trie_op(mut d: i16, mut n: i16, mut v: trie_opcode) -> 
             hyf_num[trie_op_ptr as usize] = n;
             hyf_next[trie_op_ptr as usize] = v;
             trie_op_lang[trie_op_ptr as usize] = cur_lang;
-            _trie_op_hash_array[(h as i64 - -35111) as usize] = trie_op_ptr;
+            _trie_op_hash_array[(h as i64 - -35111) as usize] = trie_op_ptr as usize;
             trie_op_val[trie_op_ptr as usize] = u;
             return u;
         }
-        if hyf_distance[l as usize] as i32 == d as i32
-            && hyf_num[l as usize] as i32 == n as i32
-            && hyf_next[l as usize] as i32 == v as i32
-            && trie_op_lang[l as usize] as i32 == cur_lang as i32
+        if hyf_distance[l] as i32 == d as i32
+            && hyf_num[l] as i32 == n as i32
+            && hyf_next[l] as i32 == v as i32
+            && trie_op_lang[l] as i32 == cur_lang as i32
         {
-            return trie_op_val[l as usize];
+            return trie_op_val[l];
         }
         if h > -(TRIE_OP_SIZE as i32) {
             h -= 1
@@ -1660,7 +1659,6 @@ unsafe fn new_patterns() {
     };
 }
 pub(crate) unsafe fn init_trie() {
-    let mut k: i32 = 0;
     let mut t: i32 = 0;
     let mut s: trie_pointer = 0;
     max_hyph_char += 1;
@@ -1670,23 +1668,23 @@ pub(crate) unsafe fn init_trie() {
     }
     for j in 1..=trie_op_ptr {
         _trie_op_hash_array[(j as i64 - -35111) as usize] =
-            op_start[trie_op_lang[j as usize] as usize] + trie_op_val[j as usize] as i32;
+            (op_start[trie_op_lang[j as usize] as usize] + trie_op_val[j as usize] as i32) as usize;
     }
     for j in 1..=trie_op_ptr {
-        while _trie_op_hash_array[(j as i64 - -35111) as usize] > j {
-            k = _trie_op_hash_array[(j as i64 - -35111) as usize];
-            t = hyf_distance[k as usize] as i32;
-            hyf_distance[k as usize] = hyf_distance[j as usize];
+        while _trie_op_hash_array[(j as i64 - -35111) as usize] as i32 > j {
+            let k = _trie_op_hash_array[(j as i64 - -35111) as usize] as usize;
+            t = hyf_distance[k] as i32;
+            hyf_distance[k] = hyf_distance[j as usize];
             hyf_distance[j as usize] = t as i16;
-            t = hyf_num[k as usize] as i32;
-            hyf_num[k as usize] = hyf_num[j as usize];
+            t = hyf_num[k] as i32;
+            hyf_num[k] = hyf_num[j as usize];
             hyf_num[j as usize] = t as i16;
-            t = hyf_next[k as usize] as i32;
-            hyf_next[k as usize] = hyf_next[j as usize];
+            t = hyf_next[k] as i32;
+            hyf_next[k] = hyf_next[j as usize];
             hyf_next[j as usize] = t as trie_opcode;
             _trie_op_hash_array[(j as i64 - -35111) as usize] =
                 _trie_op_hash_array[(k as i64 - -35111) as usize];
-            _trie_op_hash_array[(k as i64 - -35111) as usize] = k
+            _trie_op_hash_array[(k as i64 - -35111) as usize] = k;
         }
     }
     for p in 0..=trie_size {
@@ -4169,7 +4167,7 @@ unsafe fn initialize_more_initex_variables() {
     (*hash.offset(FROZEN_PRIMITIVE as isize)).s1 = maketexstring(b"primitive");
 
     for k in (-TRIE_OP_SIZE)..=TRIE_OP_SIZE {
-        _trie_op_hash_array[(k as i64 - -35111) as usize] = 0i32;
+        _trie_op_hash_array[(k as i64 - -35111) as usize] = 0;
     }
 
     for k in 0..=BIGGEST_LANG {

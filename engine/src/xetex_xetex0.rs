@@ -10367,8 +10367,9 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
     let mut use_penalty: bool = false;
     let mut use_skip: bool = false;
     if *INTPAR(IntPar::xetex_linebreak_locale) == 0 || len == 1 {
-        MEM[cur_list.tail].b32.s1 = new_native_word_node(main_f, len) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        let nwn = new_native_word_node(main_f, len);
+        *LLIST_link(cur_list.tail) = Some(nwn).tex_int();
+        cur_list.tail = nwn;
         for i in 0..len {
             *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16).offset(i as isize) =
                 *native_text.offset((s + i) as isize);
@@ -10393,18 +10394,19 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
             if offs > 0 {
                 if prevOffs != 0 {
                     if use_penalty {
-                        MEM[cur_list.tail].b32.s1 =
-                            new_penalty(*INTPAR(IntPar::xetex_linebreak_penalty)) as i32;
-                        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                        let pen = new_penalty(*INTPAR(IntPar::xetex_linebreak_penalty));
+                        *LLIST_link(cur_list.tail) = Some(pen).tex_int();
+                        cur_list.tail = pen as usize;
                     }
                     if use_skip {
-                        MEM[cur_list.tail].b32.s1 =
-                            new_param_glue(GluePar::xetex_linebreak_skip) as i32;
-                        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                        let pg = new_param_glue(GluePar::xetex_linebreak_skip);
+                        *LLIST_link(cur_list.tail) = Some(pg).tex_int();
+                        cur_list.tail = pg;
                     }
                 }
-                MEM[cur_list.tail].b32.s1 = new_native_word_node(main_f, offs - prevOffs) as i32;
-                cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                let nwn = new_native_word_node(main_f, offs - prevOffs);
+                *LLIST_link(cur_list.tail) = Some(nwn).tex_int();
+                cur_list.tail = nwn;
 
                 for i in prevOffs..offs {
                     *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
@@ -12111,9 +12113,9 @@ pub(crate) unsafe fn init_row() {
     } else {
         cur_list.aux.b32.s1 = 0;
     }
-    MEM[cur_list.tail].b32.s1 =
-        new_glue(MEM[(MEM[ALIGN_HEAD].b32.s1 + 1) as usize].b32.s0 as usize) as i32;
-    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+    let g = new_glue(MEM[(MEM[ALIGN_HEAD].b32.s1 + 1) as usize].b32.s0 as usize);
+    *LLIST_link(cur_list.tail) = Some(g).tex_int();
+    cur_list.tail = g;
     MEM[cur_list.tail].b16.s0 = GluePar::tab_skip as u16 + 1;
     cur_align = MEM[MEM[ALIGN_HEAD].b32.s1 as usize].b32.s1.opt();
     cur_tail = cur_head;
@@ -12263,9 +12265,9 @@ pub(crate) unsafe fn fin_col() -> bool {
         pop_nest();
         MEM[cur_list.tail].b32.s1 = u as i32;
         cur_list.tail = u;
-        MEM[cur_list.tail].b32.s1 =
-            new_glue(MEM[(MEM[ca].b32.s1 + 1) as usize].b32.s0 as usize) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        let g = new_glue(MEM[(MEM[ca].b32.s1 + 1) as usize].b32.s0 as usize);
+        *LLIST_link(cur_list.tail) = Some(g).tex_int();
+        cur_list.tail = g;
         MEM[cur_list.tail].b16.s0 = 12;
         if MEM[ca + 5].b32.s0 >= CR_CODE {
             return true;
@@ -12474,8 +12476,9 @@ pub(crate) unsafe fn fin_align() {
                         n -= 1;
                         s = *LLIST_link(s) as usize;
                         v = MEM[s + 1].b32.s0;
-                        MEM[u].b32.s1 = new_glue(v as usize) as i32;
-                        u = *LLIST_link(u) as usize;
+                        let g = new_glue(v as usize);
+                        *LLIST_link(u) = Some(g).tex_int();
+                        u = g;
                         MEM[u].b16.s0 = GluePar::tab_skip as u16 + 1;
                         t = t + MEM[(v + 1) as usize].b32.s1;
                         if MEM[(p + 5) as usize].b16.s1 == GlueSign::Stretching as u16 {
@@ -12496,8 +12499,9 @@ pub(crate) unsafe fn fin_align() {
                             }
                         }
                         s = *LLIST_link(s) as usize;
-                        MEM[u].b32.s1 = new_null_box() as i32;
-                        u = *LLIST_link(u) as usize;
+                        let nb = new_null_box();
+                        *LLIST_link(u) = Some(nb).tex_int();
+                        u = nb;
                         t = t + MEM[s + 1].b32.s1;
                         if cur_list.mode == (true, ListMode::VMode) {
                             MEM[u + 1].b32.s1 = MEM[s + 1].b32.s1
@@ -12646,18 +12650,22 @@ pub(crate) unsafe fn fin_align() {
         }
         flush_node_list(cur_list.eTeX_aux);
         pop_nest();
-        MEM[cur_list.tail].b32.s1 = new_penalty(*INTPAR(IntPar::pre_display_penalty)) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-        MEM[cur_list.tail].b32.s1 = new_param_glue(GluePar::above_display_skip) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        let pen = new_penalty(*INTPAR(IntPar::pre_display_penalty));
+        *LLIST_link(cur_list.tail) = Some(pen).tex_int();
+        cur_list.tail = pen;
+        let pg = new_param_glue(GluePar::above_display_skip);
+        *LLIST_link(cur_list.tail) = Some(pg).tex_int();
+        cur_list.tail = pg;
         MEM[cur_list.tail].b32.s1 = p;
         if !p.is_texnull() {
             cur_list.tail = q;
         }
-        MEM[cur_list.tail].b32.s1 = new_penalty(*INTPAR(IntPar::post_display_penalty)) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-        MEM[cur_list.tail].b32.s1 = new_param_glue(GluePar::below_display_skip) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        let pen = new_penalty(*INTPAR(IntPar::post_display_penalty));
+        *LLIST_link(cur_list.tail) = Some(pen).tex_int();
+        cur_list.tail = pen;
+        let pg = new_param_glue(GluePar::below_display_skip);
+        *LLIST_link(cur_list.tail) = Some(pg).tex_int();
+        cur_list.tail = pg;
         cur_list.aux.b32.s1 = aux_save.b32.s1;
         resume_after_display();
     } else {
@@ -12934,23 +12942,19 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
     active_width[1..].copy_from_slice(&[0; 6]);
     let mut prev_dp = 0;
     loop {
-        if p.is_texnull() {
-            pi = EJECT_PENALTY;
-            current_block = 9007357115414505193;
-        } else {
+        if let Some(p) = p.opt() {
             /*1008: */
-            match text_NODE_type(p as usize).unwrap() {
+            match text_NODE_type(p).unwrap() {
                 TextNode::HList | TextNode::VList | TextNode::Rule => {
-                    active_width[1] = active_width[1] + prev_dp + MEM[(p + 3) as usize].b32.s1;
-                    prev_dp = MEM[(p + 2) as usize].b32.s1;
+                    active_width[1] = active_width[1] + prev_dp + MEM[p + 3].b32.s1;
+                    prev_dp = MEM[p + 2].b32.s1;
                     current_block = 10249009913728301645;
                 }
                 TextNode::WhatsIt => {
                     match whatsit_NODE_subtype(p as usize) {
                         WhatsItNST::Pic | WhatsItNST::Pdf => {
-                            active_width[1] =
-                                active_width[1] + prev_dp + MEM[(p + 3) as usize].b32.s1;
-                            prev_dp = MEM[(p + 2) as usize].b32.s1
+                            active_width[1] = active_width[1] + prev_dp + MEM[p + 3].b32.s1;
+                            prev_dp = MEM[p + 2].b32.s1
                         }
                         _ => {}
                     }
@@ -12965,10 +12969,10 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     }
                 }
                 TextNode::Kern => {
-                    let t = if MEM[p as usize].b32.s1.is_texnull() {
+                    let t = if MEM[p].b32.s1.is_texnull() {
                         TextNode::Penalty.into()
                     } else {
-                        NODE_type(MEM[p as usize].b32.s1 as usize)
+                        NODE_type(MEM[p].b32.s1 as usize)
                     };
                     if t == TextNode::Glue.into() {
                         pi = 0;
@@ -12978,7 +12982,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     }
                 }
                 TextNode::Penalty => {
-                    pi = MEM[(p + 1) as usize].b32.s1;
+                    pi = MEM[p + 1].b32.s1;
                     current_block = 9007357115414505193;
                 }
                 TextNode::Mark | TextNode::Ins => current_block = 10249009913728301645,
@@ -12987,6 +12991,9 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     confusion(b"vertbreak");
                 }
             }
+        } else {
+            pi = EJECT_PENALTY;
+            current_block = 9007357115414505193;
         }
         match current_block {
             9007357115414505193 => {
@@ -13300,13 +13307,16 @@ pub(crate) unsafe fn its_all_over() -> bool {
             return true;
         }
         back_input();
-        MEM[cur_list.tail].b32.s1 = new_null_box() as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        let nb = new_null_box();
+        *LLIST_link(cur_list.tail) = Some(nb).tex_int();
+        cur_list.tail = nb;
         MEM[cur_list.tail + 1].b32.s1 = *DIMENPAR(DimenPar::hsize);
-        MEM[cur_list.tail].b32.s1 = new_glue(8) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-        MEM[cur_list.tail].b32.s1 = new_penalty(NULL_FLAG) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        let g = new_glue(8);
+        *LLIST_link(cur_list.tail) = Some(g).tex_int();
+        cur_list.tail = g;
+        let p = new_penalty(NULL_FLAG);
+        *LLIST_link(cur_list.tail) = Some(p).tex_int();
+        cur_list.tail = p;
         build_page();
     }
     false
@@ -13322,8 +13332,9 @@ pub(crate) unsafe fn append_glue() {
         5 => scan_glue(ValLevel::Mu as i16),
         _ => {}
     }
-    MEM[cur_list.tail].b32.s1 = new_glue(cur_val as usize) as i32;
-    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+    let g = new_glue(cur_val as usize);
+    *LLIST_link(cur_list.tail) = Some(g).tex_int();
+    cur_list.tail = g;
     if s >= SKIP_CODE as i16 {
         MEM[cur_val as usize].b32.s1 -= 1;
         if s > SKIP_CODE as i16 {
@@ -13334,8 +13345,9 @@ pub(crate) unsafe fn append_glue() {
 pub(crate) unsafe fn append_kern() {
     let s = cur_chr as u16;
     scan_dimen(s == MU_GLUE as u16, false, false);
-    MEM[cur_list.tail].b32.s1 = new_kern(cur_val) as i32;
-    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+    let k = new_kern(cur_val);
+    *LLIST_link(cur_list.tail) = Some(k).tex_int();
+    cur_list.tail = k;
     MEM[cur_list.tail].b16.s0 = s;
 }
 pub(crate) unsafe fn off_save() {
@@ -13798,8 +13810,9 @@ pub(crate) unsafe fn norm_min(mut h: i32) -> i16 {
 pub(crate) unsafe fn new_graf(mut indented: bool) {
     cur_list.prev_graf = 0;
     if cur_list.mode == (false, ListMode::VMode) || cur_list.head != cur_list.tail {
-        MEM[cur_list.tail].b32.s1 = new_param_glue(GluePar::par_skip) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        let pg = new_param_glue(GluePar::par_skip);
+        *LLIST_link(cur_list.tail) = Some(pg).tex_int();
+        cur_list.tail = pg;
     }
     push_nest();
     cur_list.mode = (false, ListMode::HMode);
@@ -13843,8 +13856,8 @@ pub(crate) unsafe fn indent_in_hmode() {
             MEM[q + 1].b32.s0 = p as i32;
             p = q;
         }
-        MEM[cur_list.tail].b32.s1 = p as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        *LLIST_link(cur_list.tail) = Some(p).tex_int();
+        cur_list.tail = p;
     };
 }
 pub(crate) unsafe fn head_for_vmode() {
@@ -13939,8 +13952,9 @@ pub(crate) unsafe fn make_mark() {
 }
 pub(crate) unsafe fn append_penalty() {
     scan_int();
-    MEM[cur_list.tail].b32.s1 = new_penalty(cur_val) as i32;
-    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+    let p = new_penalty(cur_val);
+    *LLIST_link(cur_list.tail) = Some(p).tex_int();
+    cur_list.tail = p;
     if cur_list.mode == (false, ListMode::VMode) {
         build_page();
     };
@@ -14096,17 +14110,19 @@ pub(crate) unsafe fn append_italic_correction() {
         } else if NODE_type(cur_list.tail) == TextNode::WhatsIt.into() {
             match whatsit_NODE_subtype(cur_list.tail) {
                 WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                    MEM[cur_list.tail].b32.s1 = new_kern(real_get_native_italic_correction(
+                    let k = new_kern(real_get_native_italic_correction(
                         &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
-                    )) as i32;
-                    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                    ));
+                    *LLIST_link(cur_list.tail) = Some(k).tex_int();
+                    cur_list.tail = k;
                     set_kern_NODE_subtype(cur_list.tail, KernNST::Explicit);
                 }
                 WhatsItNST::Glyph => {
-                    MEM[cur_list.tail].b32.s1 = new_kern(real_get_native_glyph_italic_correction(
+                    let k = new_kern(real_get_native_glyph_italic_correction(
                         &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
-                    )) as i32;
-                    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                    ));
+                    *LLIST_link(cur_list.tail) = Some(k).tex_int();
+                    cur_list.tail = k;
                     set_kern_NODE_subtype(cur_list.tail, KernNST::Explicit);
                 }
                 _ => {}
@@ -14116,20 +14132,22 @@ pub(crate) unsafe fn append_italic_correction() {
             return;
         }
         f = *CHAR_NODE_font(p as usize) as internal_font_number;
-        MEM[cur_list.tail].b32.s1 = new_kern(*FONT_CHARINFO_ITALCORR(
+        let k = new_kern(*FONT_CHARINFO_ITALCORR(
             f,
             FONT_CHARACTER_INFO(
                 f,
                 effective_char(true, f, *CHAR_NODE_character(p as usize)) as usize,
             ),
-        )) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        ));
+        *LLIST_link(cur_list.tail) = Some(k).tex_int();
+        cur_list.tail = k;
         set_kern_NODE_subtype(cur_list.tail, KernNST::Explicit);
     };
 }
 pub(crate) unsafe fn append_discretionary() {
-    MEM[cur_list.tail].b32.s1 = new_disc() as i32;
-    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+    let d = new_disc();
+    *LLIST_link(cur_list.tail) = Some(d).tex_int();
+    cur_list.tail = d;
     if cur_chr == 1 {
         let c = HYPHEN_CHAR[EQTB[CUR_FONT_LOC].val as usize];
         if c >= 0 {
@@ -14551,7 +14569,7 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
         }
         match current_block_50 {
             1668590571950580537 => {
-                *LLIST_link(h) = r as i32;
+                *LLIST_link(h) = Some(r).tex_int();
                 h = r;
             }
             _ => {}
@@ -15599,8 +15617,9 @@ pub(crate) unsafe fn handle_right_brace() {
             );
             pop_nest();
             if SAVE_STACK[SAVE_PTR + 0].val < 255 {
-                MEM[cur_list.tail].b32.s1 = get_node(INS_NODE_SIZE) as i32;
-                cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                let n = get_node(INS_NODE_SIZE);
+                *LLIST_link(cur_list.tail) = Some(n).tex_int();
+                cur_list.tail = n;
                 set_NODE_type(cur_list.tail, TextNode::Ins);
                 MEM[cur_list.tail].b16.s0 = SAVE_STACK[SAVE_PTR + 0].val as u16;
                 MEM[cur_list.tail + 3].b32.s1 = MEM[p + 3].b32.s1 + MEM[p + 2].b32.s1;
@@ -15609,8 +15628,9 @@ pub(crate) unsafe fn handle_right_brace() {
                 MEM[cur_list.tail + 2].b32.s1 = d;
                 MEM[cur_list.tail + 1].b32.s1 = f
             } else {
-                MEM[cur_list.tail].b32.s1 = get_node(SMALL_NODE_SIZE) as i32;
-                cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                let n = get_node(SMALL_NODE_SIZE);
+                *LLIST_link(cur_list.tail) = Some(n).tex_int();
+                cur_list.tail = n;
                 set_NODE_type(cur_list.tail, TextNode::Adjust);
                 MEM[cur_list.tail].b16.s0 = SAVE_STACK[SAVE_PTR + 1].val as u16;
                 MEM[cur_list.tail + 1].b32.s1 = MEM[p + 5].b32.s1;
@@ -15715,8 +15735,9 @@ pub(crate) unsafe fn handle_right_brace() {
                 MAX_HALFWORD,
             );
             pop_nest();
-            MEM[cur_list.tail].b32.s1 = new_noad() as i32;
-            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+            let n = new_noad();
+            *LLIST_link(cur_list.tail) = Some(n).tex_int();
+            cur_list.tail = n;
             MEM[cur_list.tail].b16.s1 = MathNode::VCenter as u16;
             MEM[cur_list.tail + 1].b32.s1 = SUB_BOX;
             MEM[cur_list.tail + 1].b32.s0 = Some(p).tex_int()
@@ -15939,8 +15960,9 @@ pub(crate) unsafe fn main_control() {
                         }
                         (VMode, Cmd::HRule) | (HMode, Cmd::VRule) | (MMode, Cmd::VRule) => {
                             // 37 | 139 | 242
-                            MEM[cur_list.tail].b32.s1 = scan_rule_spec() as i32;
-                            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                            let srs = scan_rule_spec();
+                            *LLIST_link(cur_list.tail) = Some(srs).tex_int();
+                            cur_list.tail = srs;
                             if cur_list.mode.1 == ListMode::VMode {
                                 cur_list.aux.b32.s1 = IGNORE_DEPTH;
                             } else if cur_list.mode.1 == ListMode::HMode {
@@ -16113,8 +16135,9 @@ pub(crate) unsafe fn main_control() {
                         }
                         (MMode, Cmd::ItalCorr) => {
                             // 251
-                            MEM[cur_list.tail].b32.s1 = new_kern(0) as i32;
-                            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                            let k = new_kern(0);
+                            *LLIST_link(cur_list.tail) = Some(k).tex_int();
+                            cur_list.tail = k;
                             continue 'c_125208;
                         }
                         (HMode, Cmd::Discretionary) | (MMode, Cmd::Discretionary) => {
@@ -16156,8 +16179,9 @@ pub(crate) unsafe fn main_control() {
                             // 137
                             if cur_chr > 0 {
                                 if eTeX_enabled(*INTPAR(IntPar::texxet) > 0, cur_cmd, cur_chr) {
-                                    MEM[cur_list.tail].b32.s1 = new_math(0, cur_chr as i16) as i32;
-                                    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                                    let m = new_math(0, cur_chr as i16);
+                                    *LLIST_link(cur_list.tail) = Some(m).tex_int();
+                                    cur_list.tail = m;
                                 }
                             } else {
                                 init_align();
@@ -16205,8 +16229,9 @@ pub(crate) unsafe fn main_control() {
                         }
                         (MMode, Cmd::LeftBrace) => {
                             // 208
-                            MEM[cur_list.tail].b32.s1 = new_noad() as i32;
-                            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                            let n = new_noad();
+                            *LLIST_link(cur_list.tail) = Some(n).tex_int();
+                            cur_list.tail = n;
                             back_input();
                             scan_math(cur_list.tail + 1);
                             continue 'c_125208;
@@ -16286,8 +16311,9 @@ pub(crate) unsafe fn main_control() {
                         }
                         (MMode, Cmd::MathComp) => {
                             // 257
-                            MEM[cur_list.tail].b32.s1 = new_noad() as i32;
-                            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                            let n = new_noad();
+                            *LLIST_link(cur_list.tail) = Some(n).tex_int();
+                            cur_list.tail = n;
                             MEM[cur_list.tail].b16.s1 = cur_chr as u16;
                             scan_math(cur_list.tail + 1);
                             continue 'c_125208;
@@ -16327,14 +16353,16 @@ pub(crate) unsafe fn main_control() {
                         }
                         (MMode, Cmd::MathStyle) => {
                             // 260
-                            MEM[cur_list.tail].b32.s1 = new_style(cur_chr as i16) as i32;
-                            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                            let s = new_style(cur_chr as i16);
+                            *LLIST_link(cur_list.tail) = Some(s).tex_int();
+                            cur_list.tail = s;
                             continue 'c_125208;
                         }
                         (MMode, Cmd::NonScript) => {
                             // 262
-                            MEM[cur_list.tail].b32.s1 = new_glue(0) as i32;
-                            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                            let g = new_glue(0);
+                            *LLIST_link(cur_list.tail) = Some(g).tex_int();
+                            cur_list.tail = g;
                             MEM[cur_list.tail].b16.s0 = COND_MATH_GLUE;
                             continue 'c_125208;
                         }
