@@ -46,9 +46,10 @@ use crate::xetex_xetexd::{
     BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height, BOX_list_ptr, BOX_lr_mode,
     BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font, EDGE_NODE_edge_dist,
     GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_SPEC_ref_count, GLUE_SPEC_shrink,
-    GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LIGATURE_NODE_lig_ptr,
-    LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_glyph_info_ptr,
-    NATIVE_NODE_length, NODE_type, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, GLUE_SPEC_width,
+    LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph,
+    NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length, NODE_type, SYNCTEX_tag, TeXInt, TeXOpt,
+    FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::{strerror, strlen};
@@ -530,7 +531,7 @@ unsafe fn hlist_out() {
                                 str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
                                 pool_ptr += 1;
                                 g = *GLUE_NODE_glue_ptr(q as usize) as usize;
-                                k += *BOX_width(g);
+                                k += *GLUE_SPEC_width(g);
                                 if g_sign != GlueSign::Normal {
                                     if g_sign == GlueSign::Stretching {
                                         if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
@@ -913,7 +914,7 @@ unsafe fn hlist_out() {
                             /*647: "Move right or output leaders" */
                             g = *GLUE_NODE_glue_ptr(p as usize) as usize;
                             rule_wd =
-                                *BOX_width(g) -
+                                *GLUE_SPEC_width(g) -
                                     cur_g;
                             if g_sign != GlueSign::Normal {
                                 if g_sign == GlueSign::Stretching {
@@ -964,7 +965,7 @@ unsafe fn hlist_out() {
                                 }
                                 if MEM[p as usize].b16.s0 < A_LEADERS { // NODE_subtype(p)
                                     set_NODE_type(p as usize, TextNode::Kern);
-                                    *BOX_width(p as usize)
+                                    *GLUE_SPEC_width(p as usize)
                                         = rule_wd;
                                 } else {
                                     g = get_node(GLUE_SPEC_SIZE);
@@ -972,7 +973,7 @@ unsafe fn hlist_out() {
                                         GlueOrder::Incorrect as u16; /* "will never match" */
                                     *GLUE_SPEC_shrink_order(g) =
                                         GlueOrder::Incorrect as u16;
-                                    *BOX_width(g) = rule_wd;
+                                    *GLUE_SPEC_width(g) = rule_wd;
                                     *GLUE_SPEC_stretch(g) = 0;
                                     *GLUE_SPEC_shrink(g) = 0;
                                     *GLUE_NODE_glue_ptr(p as usize) = g as i32;
@@ -1428,7 +1429,7 @@ unsafe fn vlist_out() {
                 TextNode::Glue => {
                     /*656: "Move down or output leaders" */
                     g = *GLUE_NODE_glue_ptr(p) as usize;
-                    rule_ht = *BOX_width(g) - cur_g;
+                    rule_ht = *GLUE_SPEC_width(g) - cur_g;
 
                     if g_sign != GlueSign::Normal {
                         if g_sign == GlueSign::Stretching {
@@ -1719,8 +1720,10 @@ unsafe fn reverse(
                                 }
                             }
                             rule_wd += *cur_g;
-                            if g_sign == GlueSign::Stretching && MEM[g].b16.s1 == g_order as u16
-                                || g_sign == GlueSign::Shrinking && MEM[g].b16.s0 == g_order as u16
+                            if g_sign == GlueSign::Stretching
+                                && *GLUE_SPEC_stretch_order(g) == g_order as u16
+                                || g_sign == GlueSign::Shrinking
+                                    && *GLUE_SPEC_shrink_order(g) == g_order as u16
                             {
                                 if GLUE_SPEC_ref_count(g).opt().is_none() {
                                     free_node(g, GLUE_SPEC_SIZE);
@@ -1735,7 +1738,7 @@ unsafe fn reverse(
                                     g = get_node(GLUE_SPEC_SIZE);
                                     *GLUE_SPEC_stretch_order(g) = GlueOrder::Incorrect as u16;
                                     *GLUE_SPEC_shrink_order(g) = GlueOrder::Incorrect as u16;
-                                    *BOX_width(g) = rule_wd;
+                                    *GLUE_SPEC_width(g) = rule_wd;
                                     *GLUE_SPEC_stretch(g) = 0;
                                     *GLUE_SPEC_shrink(g) = 0;
                                     *GLUE_NODE_glue_ptr(p as usize) = g as i32;

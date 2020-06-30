@@ -45,8 +45,8 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_char_node, set_NODE_type, set_kern_NODE_subtype, set_whatsit_NODE_subtype,
-    whatsit_NODE_subtype, BOX_glue_set, CHAR_NODE_font, GLUE_SPEC_shrink_order, LLIST_link,
-    NODE_type, TeXInt, TeXOpt,
+    whatsit_NODE_subtype, BOX_glue_set, CHAR_NODE_font, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
+    GLUE_SPEC_width, LLIST_link, NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -3565,8 +3565,8 @@ unsafe fn stack_glyph_into_box(b: usize, mut f: internal_font_number, mut g: i32
 }
 unsafe fn stack_glue_into_box(b: usize, mut min: scaled_t, mut max: scaled_t) {
     let q = new_spec(0);
-    MEM[q + 1].b32.s1 = min;
-    MEM[q + 2].b32.s1 = max - min;
+    *GLUE_SPEC_width(q) = min;
+    *GLUE_SPEC_stretch(q) = max - min;
     let p = new_glue(q);
     if NODE_type(b) == TextNode::HList.into() {
         if let Some(mut q) = MEM[b + 5].b32.s1.opt() {

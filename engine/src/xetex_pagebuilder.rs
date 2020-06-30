@@ -28,8 +28,8 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     is_non_discardable_node, set_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width,
     GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
-    GLUE_SPEC_stretch_order, LLIST_link, /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty,
-    TeXInt, TeXOpt,
+    GLUE_SPEC_stretch_order, GLUE_SPEC_width, LLIST_link, /*NODE_subtype, */ NODE_type,
+    PENALTY_NODE_penalty, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -45,7 +45,7 @@ pub(crate) type scaled_t = i32;
  * always true: inserts are kept in the page vlist rather than being
  * processed.
  */
-static mut best_page_break: i32 = 0;
+static mut best_page_break: Option<usize> = Some(0);
 static mut best_size: scaled_t = 0;
 static mut least_page_cost: i32 = 0;
 static mut page_max_depth: scaled_t = 0;
@@ -93,7 +93,7 @@ unsafe fn ensure_vbox(mut n: u8) {
  * simple ships out the page. There is one parameter, `c`, which represents
  * the node that was being contributed to the page when the decision to force
  * an output was made." */
-unsafe fn fire_up(mut c: i32) {
+unsafe fn fire_up(c: usize) {
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut r: i32 = 0;
@@ -105,12 +105,13 @@ unsafe fn fire_up(mut c: i32) {
     let mut save_vfuzz: scaled_t = 0;
     let mut save_split_top_skip: i32 = 0;
     /*1048: "Set the value of output_penalty" */
-    if NODE_type(best_page_break as usize) == TextNode::Penalty.into() {
+    let bpb = best_page_break.unwrap();
+    if NODE_type(bpb) == TextNode::Penalty.into() {
         geq_word_define(
             INT_BASE as usize + (IntPar::output_penalty as usize),
-            *PENALTY_NODE_penalty(best_page_break as usize),
+            *PENALTY_NODE_penalty(bpb),
         );
-        *PENALTY_NODE_penalty(best_page_break as usize) = INF_PENALTY;
+        *PENALTY_NODE_penalty(bpb) = INF_PENALTY;
     } else {
         geq_word_define(
             INT_BASE as usize + (IntPar::output_penalty as usize),
@@ -145,8 +146,8 @@ unsafe fn fire_up(mut c: i32) {
      * bot_mark, append insertions to their boxes, and put the remaining nodes
      * back on the contribution list." */
 
-    if c == best_page_break {
-        best_page_break = None.tex_int(); /* "c not yet linked in" */
+    if c == bpb {
+        best_page_break = None; /* "c not yet linked in" */
     }
     if BOX_REG(255).opt().is_some() {
         /*1050:*/
@@ -204,7 +205,7 @@ unsafe fn fire_up(mut c: i32) {
     prev_p = PAGE_HEAD as i32;
     p = *LLIST_link(prev_p as usize);
 
-    while p != best_page_break {
+    while p.opt() != best_page_break {
         if NODE_type(p as usize) == TextNode::Ins.into() {
             if process_inserts {
                 /*1055: "Either insert the material specified by node p into
@@ -466,15 +467,15 @@ const AWFUL_BAD: i32 = MAX_HALFWORD; /* XXX redundant with xetex-linebreak.c */
 pub(crate) unsafe fn build_page() {
     #[derive(Default)]
     struct Args {
-        p: i32,
+        p: usize,
         q: i32,
-        r: i32,
+        r: usize,
         pi: i32,
     }
 
     unsafe fn do_smth(mut slf: Args) -> (Args, bool) {
-        slf.p = *LLIST_link(CONTRIB_HEAD);
-        let p_node = TextNode::n(MEM[slf.p as usize].b16.s1).confuse(b"page");
+        slf.p = LLIST_link(CONTRIB_HEAD).opt().unwrap();
+        let p_node = TextNode::n(MEM[slf.p].b16.s1).confuse(b"page");
 
         /*1031: "Update the values of last_glue, last_penalty, and last_kern" */
         if last_glue != MAX_HALFWORD {
@@ -486,15 +487,15 @@ pub(crate) unsafe fn build_page() {
         last_node_type = p_node as i32 + 1;
 
         if p_node == TextNode::Glue {
-            last_glue = *GLUE_NODE_glue_ptr(slf.p as usize);
+            last_glue = *GLUE_NODE_glue_ptr(slf.p);
             MEM[last_glue as usize].b32.s1 += 1;
         } else {
             last_glue = MAX_HALFWORD;
 
             if p_node == TextNode::Penalty {
-                last_penalty = MEM[(slf.p + 1) as usize].b32.s1
+                last_penalty = MEM[slf.p + 1].b32.s1
             } else if p_node == TextNode::Kern {
-                last_kern = *BOX_width(slf.p as usize);
+                last_kern = *BOX_width(slf.p);
             }
         }
         /*1032: "Move node p to the current page; if it is time for a page
@@ -529,29 +530,29 @@ pub(crate) unsafe fn build_page() {
 
                     slf.q = new_skip_param(GluePar::top_skip) as i32; /* "now temp_ptr = glue_ptr(q) */
 
-                    if *BOX_width(temp_ptr) > *BOX_height(slf.p as usize) {
-                        *BOX_width(temp_ptr) -= *BOX_height(slf.p as usize);
+                    if *BOX_width(temp_ptr) > *BOX_height(slf.p) {
+                        *BOX_width(temp_ptr) -= *BOX_height(slf.p);
                     } else {
                         *BOX_width(temp_ptr) = 0;
                     }
 
-                    *LLIST_link(slf.q as usize) = slf.p;
+                    *LLIST_link(slf.q as usize) = Some(slf.p).tex_int();
                     *LLIST_link(CONTRIB_HEAD) = slf.q;
                     return (slf, false); // TODO: check
                 } else {
                     /*1037: "Prepare to move a box or rule node to the current
                  * page, then goto contribute." */
-                    page_so_far[1] += page_so_far[7] + *BOX_height(slf.p as usize);
-                    page_so_far[7] = *BOX_depth(slf.p as usize);
+                    page_so_far[1] += page_so_far[7] + *BOX_height(slf.p);
+                    page_so_far[7] = *BOX_depth(slf.p);
                     return contribute(slf);
                 }
             }
             TextNode::WhatsIt => {
                 /*1401: "Prepare to move whatsit p to the current page, then goto contribute" */
-                match whatsit_NODE_subtype(slf.p as usize) {
+                match whatsit_NODE_subtype(slf.p) {
                      WhatsItNST::Pic | WhatsItNST::Pdf => {
-                        page_so_far[1] += page_so_far[7] + *BOX_height(slf.p as usize);
-                        page_so_far[7] = *BOX_depth(slf.p as usize);
+                        page_so_far[1] += page_so_far[7] + *BOX_height(slf.p);
+                        page_so_far[7] = *BOX_depth(slf.p);
                     }
                     _ => {}
                 }
@@ -567,9 +568,9 @@ pub(crate) unsafe fn build_page() {
             TextNode::Kern => {
                 if page_contents == PageContents::Empty || page_contents == PageContents::InsertsOnly {
                     return done1(slf);
-                } else if LLIST_link(slf.p as usize).opt().is_none() {
+                } else if LLIST_link(slf.p).opt().is_none() {
                     return (slf, true)
-                } else if NODE_type(*LLIST_link(slf.p as usize) as usize) == TextNode::Glue.into() {
+                } else if NODE_type(*LLIST_link(slf.p) as usize) == TextNode::Glue.into() {
                     slf.pi = 0;
                 } else { return update_heights(slf); }
             }
@@ -577,7 +578,7 @@ pub(crate) unsafe fn build_page() {
                 if page_contents == PageContents::Empty || page_contents == PageContents::InsertsOnly {
                     return done1(slf);
                 } else {
-                    slf.pi = MEM[(slf.p + 1) as usize].b32.s1;
+                    slf.pi = MEM[slf.p + 1].b32.s1;
                 }
             }
             TextNode::Mark => { return contribute(slf); }
@@ -587,42 +588,42 @@ pub(crate) unsafe fn build_page() {
                     freeze_page_specs(PageContents::InsertsOnly);
                 }
 
-                let n = MEM[slf.p as usize].b16.s0; //NODE_subtype(slf.p as usize) as u8;
-                slf.r = PAGE_INS_HEAD as i32;
+                let n = MEM[slf.p].b16.s0; //NODE_subtype(slf.p) as u8;
+                slf.r = PAGE_INS_HEAD;
 
-                while n as u16 >= MEM[*LLIST_link(slf.r as usize) as usize].b16.s0 { // NODE_subtype(*LLIST_link(slf.r as usize) as usize) {
-                    slf.r = *LLIST_link(slf.r as usize);
+                while n as u16 >= MEM[*LLIST_link(slf.r) as usize].b16.s0 { // NODE_subtype(*LLIST_link(slf.r) as usize) {
+                    slf.r = *LLIST_link(slf.r) as usize;
                 }
 
-                if MEM[slf.r as usize].b16.s0 != n { //  NODE_subtype(slf.r as usize)
+                if MEM[slf.r].b16.s0 != n { //  NODE_subtype(slf.r)
                     /*1044: "Create a page insertion node with subtype(r) = n, and
                      * include the glue correction for box `n` in the current page
                      * state" */
                     slf.q = get_node(PAGE_INS_NODE_SIZE) as i32;
-                    *LLIST_link(slf.q as usize) = *LLIST_link(slf.r as usize);
-                    *LLIST_link(slf.r as usize) = slf.q;
-                    slf.r = slf.q;
+                    *LLIST_link(slf.q as usize) = *LLIST_link(slf.r);
+                    *LLIST_link(slf.r) = slf.q;
+                    slf.r = slf.q as usize;
 
-                    MEM[slf.r as usize].b16.s0 = n as _; // NODE_subtype(slf.r as usize)
-                    set_NODE_type(slf.r as usize, INSERTING);
+                    MEM[slf.r].b16.s0 = n as _; // NODE_subtype(slf.r as usize)
+                    set_NODE_type(slf.r, INSERTING);
                     ensure_vbox(n as _);
 
-                    if BOX_REG(n as _).opt().is_none() {
-                        *BOX_height(slf.r as usize) = 0;
+                    *BOX_height(slf.r) =  if let Some(br) = BOX_REG(n as _).opt() {
+                        *BOX_height(br) + *BOX_depth(br)
                     } else {
-                        *BOX_height(slf.r as usize) = *BOX_height(*BOX_REG(n as _) as usize) + *BOX_depth(*BOX_REG(n as _) as usize);
-                    }
+                        0
+                    };
 
-                    MEM[(slf.r + 2) as usize].b32.s0 = None.tex_int();
+                    MEM[slf.r + 2].b32.s0 = None.tex_int();
                     slf.q = *SKIP_REG(n as _);
 
                     let h: scaled_t = if *COUNT_REG(n as _) == 1000 {
-                        *BOX_height(slf.r as usize)
+                        *BOX_height(slf.r)
                     } else {
-                        x_over_n(*BOX_height(slf.r as usize), 1000) * *COUNT_REG(n as _)
+                        x_over_n(*BOX_height(slf.r), 1000) * *COUNT_REG(n as _)
                     };
 
-                    page_so_far[0] -= h + *BOX_width(slf.q as usize);
+                    page_so_far[0] -= h + *GLUE_SPEC_width(slf.q as usize);
                     page_so_far[2 + *GLUE_SPEC_stretch_order(slf.q as usize) as usize] += *GLUE_SPEC_stretch(slf.q as usize);
                     page_so_far[6] += *GLUE_SPEC_shrink(slf.q as usize);
 
@@ -646,25 +647,25 @@ pub(crate) unsafe fn build_page() {
                     }
                 }
 
-                if NODE_type(slf.r as usize) == ND::Text(SPLIT_UP) {
+                if NODE_type(slf.r) == ND::Text(SPLIT_UP) {
                     insert_penalties +=
-                        MEM[(slf.p + 1) as usize].b32.s1
+                        MEM[slf.p + 1].b32.s1
                 } else {
-                    MEM[(slf.r + 2) as usize].b32.s1 = slf.p;
+                    MEM[slf.r + 2].b32.s1 = Some(slf.p).tex_int();
                     let delta: scaled_t =
                         page_so_far[0] - page_so_far[1] - page_so_far[7] +
                             page_so_far[6];
 
                     let h: scaled_t = if *COUNT_REG(n as _) == 1000 {
-                        *BOX_height(slf.p as usize)
+                        *BOX_height(slf.p)
                     } else {
-                        x_over_n(*BOX_height(slf.p as usize), 1000) * *COUNT_REG(n as _)
+                        x_over_n(*BOX_height(slf.p), 1000) * *COUNT_REG(n as _)
                     };
 
                     if (h <= 0 || h <= delta) &&
-                        *BOX_height(slf.p as usize) + *BOX_height(slf.r as usize) <= *SCALED_REG(n as _) {
+                        *BOX_height(slf.p) + *BOX_height(slf.r) <= *SCALED_REG(n as _) {
                         page_so_far[0] -= h;
-                        *BOX_height(slf.r as usize) += *BOX_height(slf.p as usize);
+                        *BOX_height(slf.r) += *BOX_height(slf.p);
                     } else {
                         /*1045: "Find the best way to split the insertion, and
                          * change type(r) to split_up." ... "Here is code that
@@ -691,25 +692,21 @@ pub(crate) unsafe fn build_page() {
                             w
                         };
 
-                        if w > *SCALED_REG(n as _) - *BOX_height(slf.r as usize) {
-                            w = *SCALED_REG(n as _) - *BOX_height(slf.r as usize);
-                        }
+                        w = w.min(*SCALED_REG(n as _) - *BOX_height(slf.r));
 
                         slf.q =
-                            vert_break(MEM[(slf.p + 4) as
-                                                        usize].b32.s0, w,
-                                       MEM[(slf.p + 2) as
-                                                        usize].b32.s1);
-                        MEM[(slf.r + 3) as usize].b32.s1 += best_height_plus_depth;
+                            vert_break(MEM[slf.p + 4].b32.s0, w,
+                                       MEM[slf.p + 2].b32.s1);
+                        MEM[slf.r + 3].b32.s1 += best_height_plus_depth;
 
                         if *COUNT_REG(n as _) != 1000 {
                             best_height_plus_depth =
                                 x_over_n(best_height_plus_depth, 1000i32) * *COUNT_REG(n as _);
                         }
                         page_so_far[0] -= best_height_plus_depth;
-                        set_NODE_type(slf.r as usize, SPLIT_UP);
-                        MEM[(slf.r + 1) as usize].b32.s1 = slf.q;
-                        MEM[(slf.r + 1) as usize].b32.s0 = slf.p;
+                        set_NODE_type(slf.r, SPLIT_UP);
+                        MEM[slf.r + 1].b32.s1 = slf.q;
+                        MEM[slf.r + 1].b32.s0 = Some(slf.p).tex_int();
 
                         if let Some(q) = slf.q.opt() {
                             if NODE_type(q) == TextNode::Penalty.into() {
@@ -766,14 +763,14 @@ pub(crate) unsafe fn build_page() {
             }
 
             if c <= least_page_cost {
-                best_page_break = slf.p;
+                best_page_break = Some(slf.p);
                 best_size = page_so_far[0];
                 least_page_cost = c;
-                slf.r = *LLIST_link(PAGE_INS_HEAD);
+                slf.r = *LLIST_link(PAGE_INS_HEAD) as usize;
 
-                while slf.r != PAGE_INS_HEAD as i32 {
-                    MEM[(slf.r + 2) as usize].b32.s0 = MEM[(slf.r + 2) as usize].b32.s1;
-                    slf.r = *LLIST_link(slf.r as usize);
+                while slf.r != PAGE_INS_HEAD {
+                    MEM[slf.r + 2].b32.s0 = MEM[slf.r + 2].b32.s1;
+                    slf.r = *LLIST_link(slf.r) as usize;
                 }
             }
 
@@ -791,8 +788,8 @@ pub(crate) unsafe fn build_page() {
         /* ... resuming 1032 ... I believe the "goto" here can only be
          * triggered if p is a penalty node, and we decided not to break. */
 
-        if NODE_type(slf.p as usize).u16() < TextNode::Glue as u16
-            || NODE_type(slf.p as usize).u16() > TextNode::Kern as u16
+        if NODE_type(slf.p).u16() < TextNode::Glue as u16
+            || NODE_type(slf.p).u16() > TextNode::Kern as u16
         {
             return contribute(slf);
         }
@@ -802,10 +799,10 @@ pub(crate) unsafe fn build_page() {
         unsafe fn update_heights(mut slf: Args) -> (Args, bool) {
             /*1039: "Update the current page measurements with respect to the glue or kern
              * specified by node p" */
-            if NODE_type(slf.p as usize) == TextNode::Kern.into() {
-                slf.q = slf.p
+            if NODE_type(slf.p) == TextNode::Kern.into() {
+                slf.q = Some(slf.p).tex_int()
             } else {
-                slf.q = MEM[(slf.p + 1) as usize].b32.s0;
+                slf.q = MEM[slf.p + 1].b32.s0;
                 page_so_far[(2i32 + MEM[slf.q as usize].b16.s1 as i32) as usize] +=
                     MEM[(slf.q + 2) as usize].b32.s1;
                 page_so_far[6] += MEM[(slf.q + 3) as usize].b32.s1;
@@ -822,11 +819,11 @@ pub(crate) unsafe fn build_page() {
                     help_line[1] = b"Such glue doesn\'t belong there; but you can safely proceed,";
                     help_line[0] = b"since the offensive shrinkability has been made finite.";
                     error();
-                    slf.r = new_spec(slf.q as usize) as i32;
-                    MEM[slf.r as usize].b16.s0 = 0_u16;
+                    slf.r = new_spec(slf.q as usize);
+                    *GLUE_SPEC_shrink_order(slf.r) = GlueOrder::Normal as _;
                     delete_glue_ref(slf.q as usize);
-                    MEM[(slf.p + 1) as usize].b32.s0 = slf.r;
-                    slf.q = slf.r
+                    *GLUE_NODE_glue_ptr(slf.p) = Some(slf.r).tex_int();
+                    slf.q = Some(slf.r).tex_int();
                 }
             }
             page_so_far[1] += page_so_far[7] + MEM[(slf.q + 1) as usize].b32.s1;
@@ -841,10 +838,10 @@ pub(crate) unsafe fn build_page() {
                 page_so_far[7] = page_max_depth
             }
             /*1033: "Link node p into the current page and goto done." */
-            *LLIST_link(page_tail as usize) = slf.p;
-            page_tail = slf.p;
-            *LLIST_link(CONTRIB_HEAD) = *LLIST_link(slf.p as usize);
-            *LLIST_link(slf.p as usize) = None.tex_int();
+            *LLIST_link(page_tail as usize) = Some(slf.p).tex_int();
+            page_tail = Some(slf.p).tex_int();
+            *LLIST_link(CONTRIB_HEAD) = *LLIST_link(slf.p);
+            *LLIST_link(slf.p) = None.tex_int();
             (slf, false)
         }
 
@@ -853,11 +850,11 @@ pub(crate) unsafe fn build_page() {
              * something nonprinting (glue, kern, penalty) and there aren't any
              * yes-printing boxes at the top of the page yet. When that happens,
              * we just discard the nonprinting node. */
-            *LLIST_link(CONTRIB_HEAD) = *LLIST_link(slf.p as usize);
-            *LLIST_link(slf.p as usize) = None.tex_int();
+            *LLIST_link(CONTRIB_HEAD) = *LLIST_link(slf.p);
+            *LLIST_link(slf.p) = None.tex_int();
 
             if *INTPAR(IntPar::saving_vdiscards) <= 0 {
-                flush_node_list(slf.p.opt());
+                flush_node_list(Some(slf.p));
             } else {
                 /* `disc_ptr[LAST_BOX_CODE]` is `tail_page_disc`, the last item
                  * removed by the page builder. `disc_ptr[LAST_BOX_CODE]` is
@@ -865,11 +862,11 @@ pub(crate) unsafe fn build_page() {
                  * `disc_ptr[VSPLIT_CODE]` is `split_disc`, the first item removed
                  * by \vsplit. */
                 if disc_ptr[LAST_BOX_CODE as usize].opt().is_none() {
-                    disc_ptr[LAST_BOX_CODE as usize] = slf.p;
+                    disc_ptr[LAST_BOX_CODE as usize] = Some(slf.p).tex_int();
                 } else {
-                    *LLIST_link(disc_ptr[COPY_CODE as usize] as usize) = slf.p;
+                    *LLIST_link(disc_ptr[COPY_CODE as usize] as usize) = Some(slf.p).tex_int();
                 }
-                disc_ptr[COPY_CODE as usize] = slf.p
+                disc_ptr[COPY_CODE as usize] = Some(slf.p).tex_int()
             }
             (slf, false)
         }

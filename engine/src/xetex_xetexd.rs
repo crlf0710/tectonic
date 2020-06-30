@@ -323,6 +323,9 @@ pub(crate) unsafe fn GLUE_SPEC_stretch_order(p: usize) -> &'static mut u16 {
 pub(crate) unsafe fn GLUE_SPEC_shrink_order(p: usize) -> &'static mut u16 {
     &mut MEM[p].b16.s0
 }
+pub(crate) unsafe fn GLUE_SPEC_width(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
+}
 /// a scaled
 pub(crate) unsafe fn GLUE_SPEC_stretch(p: usize) -> &'static mut i32 {
     &mut MEM[p + 2].b32.s1

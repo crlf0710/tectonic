@@ -465,13 +465,13 @@ pub(crate) unsafe fn new_math(mut w: scaled_t, mut s: i16) -> usize {
     MEM[p + 1].b32.s1 = w;
     p
 }
-pub(crate) unsafe fn new_spec(p: usize) -> usize {
+pub(crate) unsafe fn new_spec(other: usize) -> usize {
     let q = get_node(GLUE_SPEC_SIZE);
-    MEM[q] = MEM[p];
-    MEM[q].b32.s1 = None.tex_int();
-    MEM[q + 1].b32.s1 = MEM[p + 1].b32.s1;
-    MEM[q + 2].b32.s1 = MEM[p + 2].b32.s1;
-    MEM[q + 3].b32.s1 = MEM[p + 3].b32.s1;
+    MEM[q] = MEM[other];
+    *GLUE_SPEC_ref_count(q) = None.tex_int();
+    *GLUE_SPEC_width(q) = *GLUE_SPEC_width(other);
+    *GLUE_SPEC_stretch(q) = *GLUE_SPEC_stretch(other);
+    *GLUE_SPEC_shrink(q) = *GLUE_SPEC_shrink(other);
     q
 }
 pub(crate) unsafe fn new_param_glue(n: GluePar) -> usize {
@@ -487,7 +487,7 @@ pub(crate) unsafe fn new_param_glue(n: GluePar) -> usize {
 pub(crate) unsafe fn new_glue(q: usize) -> usize {
     let p = get_node(MEDIUM_NODE_SIZE);
     set_NODE_type(p, TextNode::Glue);
-    *GLUE_SPEC_shrink_order(p) = NORMAL;
+    MEM[p].b16.s0 = 0;
     MEM[p + 1].b32.s1 = None.tex_int();
     MEM[p + 1].b32.s0 = q as i32;
     *GLUE_SPEC_ref_count(q) += 1;
@@ -496,14 +496,14 @@ pub(crate) unsafe fn new_glue(q: usize) -> usize {
 pub(crate) unsafe fn new_skip_param(n: GluePar) -> usize {
     temp_ptr = new_spec(EQTB[(GLUE_BASE as i32 + n as i32) as usize].val as usize); // 232
     let p = new_glue(temp_ptr);
-    MEM[temp_ptr].b32.s1 = None.tex_int();
+    *GLUE_SPEC_ref_count(temp_ptr) = None.tex_int();
     MEM[p].b16.s0 = n as u16 + 1;
     p
 }
-pub(crate) unsafe fn new_kern(mut w: scaled_t) -> usize {
+pub(crate) unsafe fn new_kern(w: i32) -> usize {
     let p = get_node(MEDIUM_NODE_SIZE);
     set_NODE_type(p, TextNode::Kern);
-    MEM[p].b16.s0 = NORMAL;
+    set_kern_NODE_subtype(p, KernNST::Normal);
     MEM[p + 1].b32.s1 = w;
     p
 }
@@ -1466,10 +1466,8 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                     WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
                         words = *NATIVE_NODE_size(p) as u8;
                         r = get_node(words as i32);
-                        while words > 0 {
-                            words -= 1;
-                            MEM[r + words as usize] = MEM[p + (words as usize)]
-                        }
+                        MEM[r..r + (words as usize)].copy_from_slice(&MEM[p..p + (words as usize)]);
+                        words = 0;
                         *NATIVE_NODE_glyph_info_ptr(r) = ptr::null_mut();
                         *NATIVE_NODE_glyph_count(r) = 0;
                         copy_native_glyph_info(p, r);
@@ -1528,10 +1526,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                 _ => confusion(b"copying"),
             }
         }
-        while words as i32 > 0i32 {
-            words = words.wrapping_sub(1);
-            MEM[r + (words as usize)] = MEM[p + (words as usize)]
-        }
+        MEM[r..r + (words as usize)].copy_from_slice(&MEM[p..p + (words as usize)]);
         MEM[q].b32.s1 = r as i32;
         q = r;
         popt = LLIST_link(p).opt();
@@ -1575,7 +1570,7 @@ pub(crate) unsafe fn push_nest() {
     NEST_PTR += 1;
     cur_list.head = get_avail();
     cur_list.tail = cur_list.head;
-    cur_list.prev_graf = 0i32;
+    cur_list.prev_graf = 0;
     cur_list.mode_line = line;
     cur_list.eTeX_aux = None;
 }
@@ -6424,9 +6419,9 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                             let cur_val_ = new_spec(m as usize);
                             cur_val = cur_val_ as i32;
                             delete_glue_ref(m as usize);
-                            MEM[cur_val_ + 1].b32.s1 = -MEM[cur_val_ + 1].b32.s1;
-                            MEM[cur_val_ + 2].b32.s1 = -MEM[cur_val_ + 2].b32.s1;
-                            MEM[cur_val_ + 3].b32.s1 = -MEM[cur_val_ + 3].b32.s1
+                            *GLUE_SPEC_width(cur_val_) = -(*GLUE_SPEC_width(cur_val_));
+                            *GLUE_SPEC_stretch(cur_val_) = -(*GLUE_SPEC_stretch(cur_val_));
+                            *GLUE_SPEC_shrink(cur_val_) = -(*GLUE_SPEC_shrink(cur_val_));
                         } else {
                             cur_val = -cur_val
                         }
@@ -7121,9 +7116,9 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
         if cur_val_level >= ValLevel::Glue {
             let cur_val_ = new_spec(cur_val as usize);
             cur_val = cur_val_ as i32;
-            MEM[cur_val_ + 1].b32.s1 = -MEM[cur_val_ + 1].b32.s1;
-            MEM[cur_val_ + 2].b32.s1 = -MEM[cur_val_ + 2].b32.s1;
-            MEM[cur_val_ + 3].b32.s1 = -MEM[cur_val_ + 3].b32.s1
+            *GLUE_SPEC_width(cur_val_) = -(*GLUE_SPEC_width(cur_val_));
+            *GLUE_SPEC_stretch(cur_val_) = -(*GLUE_SPEC_stretch(cur_val_));
+            *GLUE_SPEC_shrink(cur_val_) = -(*GLUE_SPEC_shrink(cur_val_));
         } else {
             cur_val = -cur_val;
         }
@@ -7713,16 +7708,16 @@ pub(crate) unsafe fn scan_glue(mut level: i16) {
         }
     }
     let q = new_spec(0);
-    MEM[(q + 1) as usize].b32.s1 = cur_val;
+    *GLUE_SPEC_width(q) = cur_val;
     if scan_keyword(b"plus") {
         scan_dimen(mu, true, false);
-        MEM[(q + 2) as usize].b32.s1 = cur_val;
-        MEM[q as usize].b16.s1 = cur_order as u16
+        *GLUE_SPEC_stretch(q) = cur_val;
+        *GLUE_SPEC_stretch_order(q) = cur_order as u16;
     }
     if scan_keyword(b"minus") {
         scan_dimen(mu, true, false);
-        MEM[(q + 3) as usize].b32.s1 = cur_val;
-        MEM[q as usize].b16.s0 = cur_order as u16
+        *GLUE_SPEC_shrink(q) = cur_val;
+        *GLUE_SPEC_shrink_order(q) = cur_order as u16;
     }
     cur_val = q as i32;
     /*:481*/
@@ -7983,11 +7978,11 @@ pub(crate) unsafe fn scan_expr() {
                         t = if l >= ValLevel::Glue && o != Expr::None {
                             let t = new_spec(f as usize);
                             delete_glue_ref(f as usize);
-                            if MEM[t + 2].b32.s1 == 0 {
-                                MEM[t].b16.s1 = NORMAL;
+                            if *GLUE_SPEC_stretch(t) == 0 {
+                                *GLUE_SPEC_stretch_order(t) = GlueOrder::Normal as _;
                             }
-                            if MEM[t + 3].b32.s1 == 0 {
-                                MEM[t].b16.s0 = NORMAL;
+                            if *GLUE_SPEC_shrink(t) == 0 {
+                                *GLUE_SPEC_shrink_order(t) = GlueOrder::Normal as _;
                             }
                             t as i32
                         } else {
@@ -8004,11 +7999,11 @@ pub(crate) unsafe fn scan_expr() {
                             t = mult_and_add(t, f, 0, MAX_HALFWORD)
                         } else {
                             MEM[(t + 1) as usize].b32.s1 =
-                                mult_and_add(MEM[(t + 1) as usize].b32.s1, f, 0, 0x3fffffff);
+                                mult_and_add(MEM[(t + 1) as usize].b32.s1, f, 0, MAX_HALFWORD);
                             MEM[(t + 2) as usize].b32.s1 =
-                                mult_and_add(MEM[(t + 2) as usize].b32.s1, f, 0, 0x3fffffff);
+                                mult_and_add(MEM[(t + 2) as usize].b32.s1, f, 0, MAX_HALFWORD);
                             MEM[(t + 3) as usize].b32.s1 =
-                                mult_and_add(MEM[(t + 3) as usize].b32.s1, f, 0, 0x3fffffff)
+                                mult_and_add(MEM[(t + 3) as usize].b32.s1, f, 0, MAX_HALFWORD)
                         }
                     }
                     4 => {
@@ -8028,12 +8023,12 @@ pub(crate) unsafe fn scan_expr() {
                         } else if l == ValLevel::Dimen {
                             t = fract(t, n, f, MAX_HALFWORD)
                         } else {
-                            MEM[(t + 1) as usize].b32.s1 =
-                                fract(MEM[(t + 1) as usize].b32.s1, n, f, 0x3fffffff);
-                            MEM[(t + 2) as usize].b32.s1 =
-                                fract(MEM[(t + 2) as usize].b32.s1, n, f, 0x3fffffff);
-                            MEM[(t + 3) as usize].b32.s1 =
-                                fract(MEM[(t + 3) as usize].b32.s1, n, f, 0x3fffffff)
+                            *GLUE_SPEC_width(t as usize) =
+                                fract(*GLUE_SPEC_width(t as usize), n, f, MAX_HALFWORD);
+                            *GLUE_SPEC_stretch(t as usize) =
+                                fract(*GLUE_SPEC_stretch(t as usize), n, f, MAX_HALFWORD);
+                            *GLUE_SPEC_shrink(e as usize) =
+                                fract(*GLUE_SPEC_shrink(e as usize), n, f, MAX_HALFWORD)
                         }
                     }
                     _ => {}
@@ -8051,44 +8046,52 @@ pub(crate) unsafe fn scan_expr() {
                         e = add_or_sub(e, t, MAX_HALFWORD, r == Expr::Sub)
                     } else {
                         /*1582: */
-                        MEM[(e + 1) as usize].b32.s1 = add_or_sub(
-                            MEM[(e + 1) as usize].b32.s1,
-                            MEM[(t + 1) as usize].b32.s1,
+                        *GLUE_SPEC_width(e as usize) = add_or_sub(
+                            *GLUE_SPEC_width(e as usize),
+                            *GLUE_SPEC_width(t as usize),
                             MAX_HALFWORD,
                             r == Expr::Sub,
                         );
-                        if MEM[e as usize].b16.s1 as i32 == MEM[t as usize].b16.s1 as i32 {
-                            MEM[(e + 2) as usize].b32.s1 = add_or_sub(
-                                MEM[(e + 2) as usize].b32.s1,
-                                MEM[(t + 2) as usize].b32.s1,
+                        if *GLUE_SPEC_stretch_order(e as usize)
+                            == *GLUE_SPEC_stretch_order(t as usize)
+                        {
+                            *GLUE_SPEC_stretch(e as usize) = add_or_sub(
+                                *GLUE_SPEC_stretch(e as usize),
+                                *GLUE_SPEC_stretch(t as usize),
                                 MAX_HALFWORD,
                                 r == Expr::Sub,
                             )
-                        } else if (MEM[e as usize].b16.s1 as i32) < MEM[t as usize].b16.s1 as i32
-                            && MEM[(t + 2) as usize].b32.s1 != 0
+                        } else if *GLUE_SPEC_stretch_order(e as usize)
+                            < *GLUE_SPEC_stretch_order(t as usize)
+                            && *GLUE_SPEC_stretch(t as usize) != 0
                         {
-                            MEM[(e + 2) as usize].b32.s1 = MEM[(t + 2) as usize].b32.s1;
-                            MEM[e as usize].b16.s1 = MEM[t as usize].b16.s1
+                            *GLUE_SPEC_stretch(e as usize) = *GLUE_SPEC_stretch(t as usize);
+                            *GLUE_SPEC_stretch_order(e as usize) =
+                                *GLUE_SPEC_stretch_order(t as usize);
                         }
-                        if MEM[e as usize].b16.s0 as i32 == MEM[t as usize].b16.s0 as i32 {
-                            MEM[(e + 3) as usize].b32.s1 = add_or_sub(
-                                MEM[(e + 3) as usize].b32.s1,
-                                MEM[(t + 3) as usize].b32.s1,
+                        if *GLUE_SPEC_shrink_order(e as usize)
+                            == *GLUE_SPEC_shrink_order(t as usize)
+                        {
+                            *GLUE_SPEC_shrink(e as usize) = add_or_sub(
+                                *GLUE_SPEC_shrink(e as usize),
+                                *GLUE_SPEC_shrink(t as usize),
                                 MAX_HALFWORD,
                                 r == Expr::Sub,
                             )
-                        } else if (MEM[e as usize].b16.s0 as i32) < MEM[t as usize].b16.s0 as i32
-                            && MEM[(t + 3) as usize].b32.s1 != 0
+                        } else if *GLUE_SPEC_shrink_order(e as usize)
+                            < *GLUE_SPEC_shrink_order(t as usize)
+                            && *GLUE_SPEC_shrink(t as usize) != 0
                         {
-                            MEM[(e + 3) as usize].b32.s1 = MEM[(t + 3) as usize].b32.s1;
-                            MEM[e as usize].b16.s0 = MEM[t as usize].b16.s0
+                            *GLUE_SPEC_shrink(e as usize) = *GLUE_SPEC_shrink(t as usize);
+                            *GLUE_SPEC_shrink_order(e as usize) =
+                                *GLUE_SPEC_shrink_order(t as usize);
                         }
                         delete_glue_ref(t as usize);
-                        if MEM[(e + 2) as usize].b32.s1 == 0 {
-                            MEM[e as usize].b16.s1 = NORMAL;
+                        if *GLUE_SPEC_stretch(e as usize) == 0 {
+                            *GLUE_SPEC_stretch_order(e as usize) = GlueOrder::Normal as _;
                         }
-                        if MEM[(e + 3) as usize].b32.s1 == 0 {
-                            MEM[e as usize].b16.s0 = NORMAL;
+                        if *GLUE_SPEC_shrink(e as usize) == 0 {
+                            *GLUE_SPEC_shrink_order(e as usize) = GlueOrder::Normal as _;
                         }
                     }
                     r = o;
@@ -11121,7 +11124,7 @@ pub(crate) unsafe fn char_pw(p: Option<usize>, side: Side) -> scaled_t {
         1000i32,
     )
 }
-pub(crate) unsafe fn new_margin_kern(w: scaled_t, _p: i32, side: i16) -> usize {
+pub(crate) unsafe fn new_margin_kern(w: scaled_t, _p: i32, side: Side) -> usize {
     let k = get_node(MARGIN_KERN_NODE_SIZE);
     set_NODE_type(k, TextNode::MarginKern);
     MEM[k].b16.s0 = side as u16;
@@ -12933,7 +12936,6 @@ pub(crate) unsafe fn show_save_groups() {
 }
 pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) -> i32 {
     let mut current_block: u64;
-    let mut q: i32 = 0;
     let mut pi: i32 = 0;
     let mut b: i32 = 0;
     let mut best_place: i32 = None.tex_int();
@@ -13040,15 +13042,14 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
         match current_block {
             11492179201936201469 => {
                 /*update_heights *//*1011: */
-                if NODE_type(p as usize) == TextNode::Kern.into() {
-                    q = p
+                let q = if NODE_type(p as usize) == TextNode::Kern.into() {
+                    p as usize
                 } else {
-                    q = MEM[(p + 1) as usize].b32.s0; /*:1011 */
-                    active_width[2 + MEM[q as usize].b16.s1 as usize] = active_width
-                        [(2i32 + MEM[q as usize].b16.s1 as i32) as usize]
-                        + MEM[(q + 2) as usize].b32.s1; /*:1014*/
-                    active_width[6] = active_width[6] + MEM[(q + 3) as usize].b32.s1;
-                    if MEM[q as usize].b16.s0 != NORMAL && MEM[(q + 3) as usize].b32.s1 != 0 {
+                    let q = MEM[(p + 1) as usize].b32.s0 as usize; /*:1011 */
+                    active_width[2 + MEM[q].b16.s1 as usize] =
+                        active_width[(2 + MEM[q].b16.s1 as i32) as usize] + MEM[q + 2].b32.s1; /*:1014*/
+                    active_width[6] = active_width[6] + MEM[q + 3].b32.s1;
+                    if MEM[q as usize].b16.s0 != NORMAL && MEM[q + 3].b32.s1 != 0 {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
@@ -13063,14 +13064,16 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                             b"Such glue doesn\'t belong there; but you can safely proceed,";
                         help_line[0] = b"since the offensive shrinkability has been made finite.";
                         error();
-                        let r = new_spec(q as usize);
-                        *GLUE_SPEC_shrink_order(r) = NORMAL;
-                        delete_glue_ref(q as usize);
-                        MEM[(p + 1) as usize].b32.s0 = r as i32;
-                        q = r as i32;
+                        let r = new_spec(q);
+                        *GLUE_SPEC_shrink_order(r) = GlueOrder::Normal as _;
+                        delete_glue_ref(q);
+                        *GLUE_NODE_glue_ptr(p as usize) = Some(r).tex_int();
+                        r
+                    } else {
+                        q
                     }
-                }
-                active_width[1] = active_width[1] + prev_dp + MEM[(q + 1) as usize].b32.s1;
+                };
+                active_width[1] = active_width[1] + prev_dp + MEM[q + 1].b32.s1;
                 prev_dp = 0;
             }
             _ => {}
@@ -13237,23 +13240,23 @@ pub(crate) unsafe fn app_space() {
                     /*:1079 */
                     let main_p = new_spec(0);
                     main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
-                    MEM[main_p + 1].b32.s1 = FONT_INFO[main_k as usize].b32.s1;
-                    MEM[main_p + 2].b32.s1 = FONT_INFO[(main_k + 1) as usize].b32.s1;
-                    MEM[main_p + 3].b32.s1 = FONT_INFO[(main_k + 2) as usize].b32.s1;
+                    *GLUE_SPEC_width(main_p) = FONT_INFO[main_k as usize].b32.s1;
+                    *GLUE_SPEC_stretch(main_p) = FONT_INFO[(main_k + 1) as usize].b32.s1;
+                    *GLUE_SPEC_shrink(main_p) = FONT_INFO[(main_k + 2) as usize].b32.s1;
                     FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p).tex_int();
                     main_p
                 })
         };
         let main_p = new_spec(main_p);
         if cur_list.aux.b32.s0 >= 2000 {
-            MEM[main_p + 1].b32.s1 = MEM[main_p + 1].b32.s1
-                + FONT_INFO
-                    [(EXTRA_SPACE_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
-                    .b32
-                    .s1
+            *GLUE_SPEC_width(main_p) += FONT_INFO
+                [(EXTRA_SPACE_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
+                .b32
+                .s1
         }
-        MEM[main_p + 2].b32.s1 = xn_over_d(MEM[main_p + 2].b32.s1, cur_list.aux.b32.s0, 1000);
-        MEM[main_p + 3].b32.s1 = xn_over_d(MEM[main_p + 3].b32.s1, 1000, cur_list.aux.b32.s0);
+        *GLUE_SPEC_stretch(main_p) =
+            xn_over_d(*GLUE_SPEC_stretch(main_p), cur_list.aux.b32.s0, 1000);
+        *GLUE_SPEC_shrink(main_p) = xn_over_d(*GLUE_SPEC_shrink(main_p), 1000, cur_list.aux.b32.s0);
         q = new_glue(main_p);
         MEM[main_p].b32.s1 = None.tex_int()
     }
@@ -14328,12 +14331,12 @@ pub(crate) unsafe fn make_accent() {
                 tex_round((w - a) as f64 / 2. + h as f64 * t - x as f64 * s)
             };
             let r = new_kern(delta);
-            set_kern_NODE_subtype(r as usize, KernNST::AccKern);
-            MEM[cur_list.tail].b32.s1 = r as i32;
-            MEM[r as usize].b32.s1 = p as i32;
+            set_kern_NODE_subtype(r, KernNST::AccKern);
+            MEM[cur_list.tail].b32.s1 = Some(r).tex_int();
+            MEM[r].b32.s1 = p as i32;
             cur_list.tail = new_kern(-a - delta);
             set_kern_NODE_subtype(cur_list.tail, KernNST::AccKern);
-            MEM[p].b32.s1 = cur_list.tail as i32;
+            MEM[p].b32.s1 = Some(cur_list.tail).tex_int();
             p = q;
         }
         MEM[cur_list.tail].b32.s1 = p as i32;
@@ -14801,31 +14804,31 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
             scan_glue(p as i16);
             if q == Cmd::Advance {
                 /*1274:*/
-                let q = new_spec(cur_val as usize) as usize;
+                let q = new_spec(cur_val as usize);
                 let r = s;
                 delete_glue_ref(cur_val as usize);
-                MEM[q + 1].b32.s1 = MEM[q + 1].b32.s1 + MEM[(r + 1) as usize].b32.s1;
-                if MEM[q + 2].b32.s1 == 0 {
-                    MEM[q].b16.s1 = NORMAL
+                *GLUE_SPEC_width(q) += *GLUE_SPEC_width(r as usize);
+                if *GLUE_SPEC_stretch(q) == 0 {
+                    *GLUE_SPEC_stretch_order(q) = GlueOrder::Normal as _;
                 }
-                if MEM[q].b16.s1 == MEM[r as usize].b16.s1 {
-                    MEM[q + 2].b32.s1 = MEM[q + 2].b32.s1 + MEM[(r + 2) as usize].b32.s1
-                } else if MEM[q].b16.s1 < MEM[r as usize].b16.s1
-                    && MEM[(r + 2) as usize].b32.s1 != 0
+                if *GLUE_SPEC_stretch_order(q) == *GLUE_SPEC_stretch_order(r as usize) {
+                    *GLUE_SPEC_stretch(q) += *GLUE_SPEC_stretch(r as usize);
+                } else if *GLUE_SPEC_stretch_order(q) < *GLUE_SPEC_stretch_order(r as usize)
+                    && *GLUE_SPEC_stretch(r as usize) != 0
                 {
-                    MEM[q + 2].b32.s1 = MEM[(r + 2) as usize].b32.s1;
-                    MEM[q].b16.s1 = MEM[r as usize].b16.s1
+                    *GLUE_SPEC_stretch(q) = *GLUE_SPEC_stretch(r as usize);
+                    *GLUE_SPEC_stretch_order(q) = *GLUE_SPEC_stretch_order(r as usize);
                 }
-                if MEM[q + 3].b32.s1 == 0 {
-                    MEM[q].b16.s0 = NORMAL
+                if *GLUE_SPEC_shrink(q) == 0 {
+                    *GLUE_SPEC_shrink_order(q) = GlueOrder::Normal as _;
                 }
-                if MEM[q].b16.s0 == MEM[r as usize].b16.s0 {
-                    MEM[q + 3].b32.s1 = MEM[q + 3].b32.s1 + MEM[(r + 3) as usize].b32.s1
-                } else if MEM[q].b16.s0 < MEM[r as usize].b16.s0
-                    && MEM[(r + 3) as usize].b32.s1 != 0
+                if *GLUE_SPEC_shrink_order(q) == *GLUE_SPEC_shrink_order(r as usize) {
+                    *GLUE_SPEC_shrink(q) += *GLUE_SPEC_shrink(r as usize);
+                } else if *GLUE_SPEC_shrink_order(q) < *GLUE_SPEC_shrink_order(r as usize)
+                    && *GLUE_SPEC_shrink(r as usize) != 0
                 {
-                    MEM[q + 3].b32.s1 = MEM[(r + 3) as usize].b32.s1;
-                    MEM[q].b16.s0 = MEM[r as usize].b16.s0
+                    *GLUE_SPEC_shrink(q) = *GLUE_SPEC_shrink(r as usize);
+                    *GLUE_SPEC_shrink_order(q) = *GLUE_SPEC_shrink_order(r as usize);
                 }
                 cur_val = q as i32;
             }
@@ -14845,16 +14848,16 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
         } else {
             let r = new_spec(s as usize);
             if q == Cmd::Multiply {
-                MEM[r + 1].b32.s1 =
-                    mult_and_add(MEM[(s + 1) as usize].b32.s1, cur_val, 0, MAX_HALFWORD);
-                MEM[r + 2].b32.s1 =
-                    mult_and_add(MEM[(s + 2) as usize].b32.s1, cur_val, 0, MAX_HALFWORD);
-                MEM[r + 3].b32.s1 =
-                    mult_and_add(MEM[(s + 3) as usize].b32.s1, cur_val, 0, MAX_HALFWORD)
+                *GLUE_SPEC_width(r) =
+                    mult_and_add(*GLUE_SPEC_width(s as usize), cur_val, 0, MAX_HALFWORD);
+                *GLUE_SPEC_stretch(r) =
+                    mult_and_add(*GLUE_SPEC_stretch(s as usize), cur_val, 0, MAX_HALFWORD);
+                *GLUE_SPEC_shrink(r) =
+                    mult_and_add(*GLUE_SPEC_shrink(s as usize), cur_val, 0, MAX_HALFWORD)
             } else {
-                MEM[r + 1].b32.s1 = x_over_n(MEM[(s + 1) as usize].b32.s1, cur_val);
-                MEM[r + 2].b32.s1 = x_over_n(MEM[(s + 2) as usize].b32.s1, cur_val);
-                MEM[r + 3].b32.s1 = x_over_n(MEM[(s + 3) as usize].b32.s1, cur_val)
+                *GLUE_SPEC_width(r) = x_over_n(*GLUE_SPEC_width(s as usize), cur_val);
+                *GLUE_SPEC_stretch(r) = x_over_n(*GLUE_SPEC_stretch(s as usize), cur_val);
+                *GLUE_SPEC_shrink(r) = x_over_n(*GLUE_SPEC_shrink(s as usize), cur_val)
             }
             cur_val = r as i32;
         }
@@ -17683,9 +17686,9 @@ pub(crate) unsafe fn main_control() {
                         .unwrap_or_else(|| {
                             let main_p = new_spec(0);
                             main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
-                            MEM[main_p + 1].b32.s1 = FONT_INFO[main_k as usize].b32.s1;
-                            MEM[main_p + 2].b32.s1 = FONT_INFO[(main_k + 1) as usize].b32.s1;
-                            MEM[main_p + 3].b32.s1 = FONT_INFO[(main_k + 2) as usize].b32.s1;
+                            *GLUE_SPEC_width(main_p) = FONT_INFO[main_k as usize].b32.s1;
+                            *GLUE_SPEC_stretch(main_p) = FONT_INFO[(main_k + 1) as usize].b32.s1;
+                            *GLUE_SPEC_shrink(main_p) = FONT_INFO[(main_k + 2) as usize].b32.s1;
                             FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p).tex_int();
                             main_p
                         });
