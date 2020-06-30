@@ -13,6 +13,7 @@ use std::io::Write;
 use crate::help;
 
 use crate::cmd::InteractionMode;
+use crate::xetex_ini::tt_cleanup;
 use crate::xetex_ini::{
     error_count, file_line_error_style_p, halt_on_error_p, help_line, help_ptr, history,
     interaction, job_name, log_opened, rust_stdout, selector, use_err_help,
@@ -76,6 +77,7 @@ unsafe fn post_error_message(mut need_to_print_it: i32) {
     }
     history = TTHistory::FATAL_ERROR;
     close_files_and_terminate();
+    tt_cleanup();
     rust_stdout.as_mut().unwrap().flush().unwrap();
 }
 pub(crate) unsafe fn error() {
@@ -123,6 +125,7 @@ pub(crate) unsafe fn fatal_error(s: &str) -> ! {
     print_cstr("Emergency stop");
     print_nl_cstr(s);
     close_files_and_terminate();
+    tt_cleanup();
     rust_stdout.as_mut().unwrap().flush().unwrap();
     abort!("{}", s);
 }
