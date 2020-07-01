@@ -400,14 +400,14 @@ pub(crate) unsafe fn free_node(p: usize, mut s: i32) {
 pub(crate) unsafe fn new_null_box() -> usize {
     let p = get_node(BOX_NODE_SIZE);
     set_NODE_type(p, TextNode::HList);
-    MEM[p].b16.s0 = 0;
-    MEM[p + 1].b32.s1 = 0;
-    MEM[p + 2].b32.s1 = 0;
-    MEM[p + 3].b32.s1 = 0;
-    MEM[p + 4].b32.s1 = 0;
-    MEM[p + 5].b32.s1 = None.tex_int();
-    MEM[p + 5].b16.s1 = NORMAL as u16;
-    MEM[p + 5].b16.s0 = NORMAL as u16;
+    MEM[p].b16.s0 = 0; // LRMode or counter
+    *BOX_width(p) = 0;
+    *BOX_depth(p) = 0;
+    *BOX_height(p) = 0;
+    *BOX_shift_amount(p) = 0;
+    *BOX_list_ptr(p) = None.tex_int();
+    *BOX_glue_sign(p) = GlueSign::Normal as _;
+    *BOX_glue_order(p) = GlueOrder::Normal as _;
     *BOX_glue_set(p) = 0.;
     p
 }
@@ -791,11 +791,11 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             _ => print_esc_cstr(b"unset"),
                         }
                         print_cstr(b"box(");
-                        print_scaled(MEM[p + 3].b32.s1);
+                        print_scaled(*BOX_height(p));
                         print_char('+' as i32);
-                        print_scaled(MEM[p + 2].b32.s1);
+                        print_scaled(*BOX_depth(p));
                         print_cstr(b")x");
-                        print_scaled(MEM[p + 1].b32.s1);
+                        print_scaled(*BOX_width(p));
                         if n == TextNode::Unset {
                             /*193:*/
                             if MEM[p].b16.s0 != 0 {
@@ -807,7 +807,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                                 print_cstr(b", stretch ");
                                 print_glue(
                                     MEM[p + 6].b32.s1,
-                                    GlueOrder::from(MEM[p + 5].b16.s0),
+                                    GlueOrder::from(*BOX_glue_order(p)),
                                     b"",
                                 );
                             }
@@ -815,15 +815,15 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                                 print_cstr(b", shrink ");
                                 print_glue(
                                     MEM[p + 4].b32.s1,
-                                    GlueOrder::from(MEM[p + 5].b16.s1),
+                                    GlueOrder::from(*BOX_glue_sign(p)), // TODO: check Very strange
                                     b"",
                                 );
                             }
                         } else {
                             g = *BOX_glue_set(p);
-                            if g != 0.0f64 && MEM[p + 5].b16.s1 != NORMAL {
+                            if g != 0.0f64 && *BOX_glue_sign(p) != GlueSign::Normal as _ {
                                 print_cstr(b", glue set ");
-                                if MEM[p + 5].b16.s1 == GlueSign::Shrinking as u16 {
+                                if *BOX_glue_sign(p) == GlueSign::Shrinking as u16 {
                                     print_cstr(b"- ");
                                 }
                                 if g.abs() > 20000. {
@@ -834,20 +834,20 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                                     }
                                     print_glue(
                                         (20000_i64 * 65536) as scaled_t,
-                                        GlueOrder::from(MEM[p + 5].b16.s0),
+                                        GlueOrder::from(*BOX_glue_order(p)),
                                         b"",
                                     );
                                 } else {
                                     print_glue(
                                         tex_round(65536_f64 * g),
-                                        GlueOrder::from(MEM[p + 5].b16.s0),
+                                        GlueOrder::from(*BOX_glue_order(p)),
                                         b"",
                                     );
                                 }
                             }
-                            if MEM[p + 4].b32.s1 != 0 {
+                            if *BOX_shift_amount(p) != 0 {
                                 print_cstr(b", shifted ");
-                                print_scaled(MEM[p + 4].b32.s1);
+                                print_scaled(*BOX_shift_amount(p));
                             }
                             /*1491:*/
                             if NODE_type(p) == TextNode::HList.into()
@@ -12140,11 +12140,11 @@ pub(crate) unsafe fn fin_col() -> bool {
     if p.is_none() && MEM[ca + 5].b32.s0 < CR_CODE {
         if let Some(cl) = cur_loop {
             /*822: */
-            MEM[q].b32.s1 = Some(new_null_box()).tex_int(); /*:823 */
-            let p_ = MEM[q].b32.s1 as usize;
-            p = Some(p_);
-            MEM[p_].b32.s0 = END_SPAN as i32;
-            MEM[p_ + 1].b32.s1 = NULL_FLAG;
+            let nb = new_null_box();
+            MEM[q].b32.s1 = Some(nb).tex_int(); /*:823 */
+            p = Some(nb);
+            MEM[nb].b32.s0 = END_SPAN as i32;
+            MEM[nb + 1].b32.s1 = NULL_FLAG;
             let cl = MEM[cl].b32.s1 as usize;
             cur_loop = Some(cl);
             let mut q = HOLD_HEAD;
@@ -12157,7 +12157,7 @@ pub(crate) unsafe fn fin_col() -> bool {
                 ropt = LLIST_link(r).opt();
             }
             MEM[q].b32.s1 = None.tex_int();
-            MEM[p_ + 3].b32.s1 = MEM[HOLD_HEAD].b32.s1;
+            MEM[nb + 3].b32.s1 = MEM[HOLD_HEAD].b32.s1;
             let mut q = HOLD_HEAD;
             let mut ropt = MEM[cl + 2].b32.s1.opt();
             while let Some(r) = ropt {
@@ -12168,10 +12168,10 @@ pub(crate) unsafe fn fin_col() -> bool {
                 ropt = LLIST_link(r).opt();
             }
             MEM[q].b32.s1 = None.tex_int();
-            MEM[p_ + 2].b32.s1 = MEM[HOLD_HEAD].b32.s1;
+            MEM[nb + 2].b32.s1 = MEM[HOLD_HEAD].b32.s1;
             let cl = MEM[cl].b32.s1 as usize;
             cur_loop = Some(cl);
-            MEM[p_].b32.s1 = new_glue(MEM[cl + 1].b32.s0 as usize) as i32;
+            MEM[nb].b32.s1 = new_glue(MEM[cl + 1].b32.s0 as usize) as i32;
         } else {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -12390,13 +12390,13 @@ pub(crate) unsafe fn fin_align() {
             }
         }
         set_NODE_type(q as usize, TextNode::Unset);
-        MEM[q as usize].b16.s0 = 0;
-        MEM[(q + 3) as usize].b32.s1 = 0;
-        MEM[(q + 2) as usize].b32.s1 = 0;
-        MEM[(q + 5) as usize].b16.s0 = NORMAL;
-        MEM[(q + 5) as usize].b16.s1 = NORMAL;
+        set_BOX_lr_mode(q as usize, LRMode::Normal);
+        *BOX_height(q as usize) = 0;
+        *BOX_depth(q as usize) = 0;
+        *BOX_glue_order(q as usize) = GlueOrder::Normal as _;
+        *BOX_glue_sign(q as usize) = GlueSign::Normal as _;
         MEM[(q + 6) as usize].b32.s1 = 0;
-        MEM[(q + 4) as usize].b32.s1 = 0;
+        *BOX_glue_sign(q as usize) = 0;
         q = p;
         if q.is_texnull() {
             break;

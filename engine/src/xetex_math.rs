@@ -45,10 +45,10 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_char_node, set_NODE_type, set_kern_NODE_subtype, set_whatsit_NODE_subtype,
-    whatsit_NODE_subtype, BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_list_ptr,
-    BOX_shift_amount, BOX_width, CHAR_NODE_font, GLUE_NODE_glue_ptr, GLUE_SPEC_shrink,
-    GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, GLUE_SPEC_width,
-    LLIST_link, NODE_type, TeXInt, TeXOpt,
+    whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height,
+    BOX_list_ptr, BOX_shift_amount, BOX_width, CHAR_NODE_font, GLUE_NODE_glue_ptr,
+    GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order,
+    GLUE_SPEC_width, LLIST_link, NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -2099,34 +2099,34 @@ unsafe fn make_fraction(q: usize) {
     }
     let v = new_null_box();
     set_NODE_type(v, TextNode::VList);
-    MEM[v + 3].b32.s1 = shift_up + MEM[x + 3].b32.s1;
-    MEM[v + 2].b32.s1 = MEM[z + 2].b32.s1 + shift_down;
-    MEM[v + 1].b32.s1 = MEM[x + 1].b32.s1;
+    *BOX_height(v) = shift_up + *BOX_height(x);
+    *BOX_depth(v) = *BOX_depth(z) + shift_down;
+    *BOX_width(v) = *BOX_width(x);
     let mut p;
     if MEM[q + 1].b32.s1 == 0 {
-        p = new_kern(shift_up - MEM[x + 2].b32.s1 - (MEM[z + 3].b32.s1 - shift_down));
+        p = new_kern(shift_up - *BOX_depth(x) - (*BOX_height(z) - shift_down));
         MEM[p].b32.s1 = Some(z).tex_int();
     } else {
         let y = fraction_rule(MEM[q + 1].b32.s1);
-        p = new_kern(axis_height(cur_size) - delta - (MEM[z + 3].b32.s1 - shift_down));
+        p = new_kern(axis_height(cur_size) - delta - (*BOX_height(z) - shift_down));
         MEM[y].b32.s1 = Some(p).tex_int();
         MEM[p].b32.s1 = Some(z).tex_int();
-        p = new_kern(shift_up - MEM[x + 2].b32.s1 - (axis_height(cur_size) + delta));
+        p = new_kern(shift_up - *BOX_depth(x) - (axis_height(cur_size) + delta));
         MEM[p].b32.s1 = Some(y).tex_int();
     }
     MEM[x].b32.s1 = p as i32;
-    MEM[v + 5].b32.s1 = x as i32;
+    *BOX_list_ptr(v) = Some(x).tex_int();
     // :774
-    if (cur_style as i32) < TEXT_STYLE {
-        delta = delim1(cur_size)
+    delta = if (cur_style as i32) < TEXT_STYLE {
+        delim1(cur_size)
     } else {
-        delta = delim2(cur_size)
-    }
+        delim2(cur_size)
+    };
     x = var_delimiter(q + 4, cur_size, delta);
-    MEM[x].b32.s1 = v as i32;
+    MEM[x].b32.s1 = Some(v).tex_int();
     z = var_delimiter(q + 5, cur_size, delta);
-    MEM[v].b32.s1 = z as i32;
-    MEM[q + 1].b32.s1 = hpack(x as i32, 0, PackMode::Additional) as i32;
+    MEM[v].b32.s1 = Some(z).tex_int();
+    MEM[q + 1].b32.s1 = Some(hpack(x as i32, 0, PackMode::Additional)).tex_int();
     // :775
 }
 unsafe fn make_op(q: usize) -> scaled_t {
@@ -3566,19 +3566,19 @@ unsafe fn stack_glue_into_box(b: usize, mut min: scaled_t, mut max: scaled_t) {
     *GLUE_SPEC_stretch(q) = max - min;
     let p = new_glue(q);
     if NODE_type(b) == TextNode::HList.into() {
-        if let Some(mut q) = MEM[b + 5].b32.s1.opt() {
-            while let Some(next) = MEM[q].b32.s1.opt() {
+        if let Some(mut q) = BOX_list_ptr(b).opt() {
+            while let Some(next) = LLIST_link(q).opt() {
                 q = next;
             }
-            MEM[q].b32.s1 = p as i32;
+            *LLIST_link(q) = Some(p).tex_int();
         } else {
-            MEM[b + 5].b32.s1 = p as i32;
+            *BOX_list_ptr(b) = Some(p).tex_int();
         }
     } else {
-        MEM[p].b32.s1 = MEM[b + 5].b32.s1;
-        MEM[b + 5].b32.s1 = p as i32;
-        MEM[b + 3].b32.s1 = MEM[p + 3].b32.s1;
-        MEM[b + 1].b32.s1 = MEM[p + 1].b32.s1;
+        *LLIST_link(p) = *BOX_list_ptr(b);
+        *BOX_list_ptr(b) = Some(p).tex_int();
+        *BOX_height(b) = MEM[p + 3].b32.s1; // TODO: strange
+        *BOX_width(b) = MEM[p + 1].b32.s1;
     };
 }
 unsafe fn build_opentype_assembly(
@@ -3676,7 +3676,7 @@ unsafe fn build_opentype_assembly(
             prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i)
         }
     }
-    let mut popt = MEM[b + 5].b32.s1.opt();
+    let mut popt = BOX_list_ptr(b).opt();
     nat = 0i32;
     str = 0i32;
     while let Some(p) = popt {
@@ -3687,8 +3687,8 @@ unsafe fn build_opentype_assembly(
                 MEM[p + 3].b32.s1 + MEM[p + 2].b32.s1
             };
         } else if NODE_type(p as usize) == TextNode::Glue.into() {
-            nat += MEM[(MEM[p + 1].b32.s0 + 1) as usize].b32.s1;
-            str += MEM[(MEM[p + 1].b32.s0 + 2) as usize].b32.s1
+            nat += MEM[(*GLUE_NODE_glue_ptr(p) + 1) as usize].b32.s1;
+            str += MEM[(*GLUE_NODE_glue_ptr(p) + 2) as usize].b32.s1
         }
         popt = LLIST_link(p).opt();
     }
@@ -3698,18 +3698,18 @@ unsafe fn build_opentype_assembly(
         if o > str {
             o = str
         }
-        MEM[b + 5].b16.s0 = NORMAL as u16;
-        MEM[b + 5].b16.s1 = GlueSign::Stretching as u16;
-        MEM[b + 6].gr = o as f64 / str as f64;
+        *BOX_glue_order(b) = GlueOrder::Normal as u16;
+        *BOX_glue_sign(b) = GlueSign::Stretching as u16;
+        *BOX_glue_set(b) = o as f64 / str as f64;
         if horiz {
-            MEM[b + 1].b32.s1 = nat + tex_round(str as f64 * *BOX_glue_set(b))
+            *BOX_width(b) = nat + tex_round(str as f64 * *BOX_glue_set(b));
         } else {
-            MEM[b + 3].b32.s1 = nat + tex_round(str as f64 * *BOX_glue_set(b))
+            *BOX_height(b) = nat + tex_round(str as f64 * *BOX_glue_set(b));
         }
     } else if horiz {
-        MEM[b + 1].b32.s1 = nat
+        *BOX_width(b) = nat;
     } else {
-        MEM[b + 3].b32.s1 = nat
+        *BOX_height(b) = nat;
     }
     b
 }
