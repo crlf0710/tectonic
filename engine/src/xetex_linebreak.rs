@@ -1228,12 +1228,12 @@ unsafe fn post_line_break(mut d: bool) {
         pre_adjust_tail = Some(PRE_ADJUST_HEAD);
         /* Tectonic: in semantic pagination mode, set each "line" (really the
          * whole paragraph) at its natural width. */
-        if semantic_pagination_enabled {
-            just_box = hpack(q, 0, PackMode::Additional) as i32;
+        just_box = if semantic_pagination_enabled {
+            hpack(q, 0, PackMode::Additional)
         } else {
-            just_box = hpack(q, cur_width, PackMode::Exactly) as i32;
-        } /*:918*/
-        *BOX_shift_amount(just_box as usize) = cur_indent;
+            hpack(q, cur_width, PackMode::Exactly)
+        }; /*:918*/
+        *BOX_shift_amount(just_box) = cur_indent;
         /* 917: append the new box to the current vertical list, followed
          * by any of its special nodes that were taken out */
 
@@ -1243,7 +1243,7 @@ unsafe fn post_line_break(mut d: bool) {
         }
 
         pre_adjust_tail = None;
-        append_to_vlist(just_box as usize);
+        append_to_vlist(just_box);
 
         if Some(ADJUST_HEAD) != adjust_tail {
             MEM[cur_list.tail].b32.s1 = *LLIST_link(ADJUST_HEAD);

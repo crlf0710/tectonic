@@ -1260,7 +1260,6 @@ unsafe fn vlist_out() {
     let mut save_h: scaled_t = 0;
     let mut save_v: scaled_t = 0;
     let mut save_loc: usize = 0;
-    let mut leader_box: i32 = 0;
     let mut leader_ht: scaled_t = 0;
     let mut lx: scaled_t = 0;
     let mut outer_doing_leaders: bool = false;
@@ -1461,15 +1460,14 @@ unsafe fn vlist_out() {
                         // NODE_subtype(p)
                         /*657: "Output leaders in a vlist, goto fin_rule if a rule
                          * or next_p if done" */
-                        leader_box = *GLUE_NODE_leader_ptr(p); /* "compensate for floating-point rounding" */
+                        let leader_box = *GLUE_NODE_leader_ptr(p) as usize; /* "compensate for floating-point rounding" */
 
-                        if NODE_type(leader_box as usize) == TextNode::Rule.into() {
-                            rule_wd = *BOX_width(leader_box as usize);
+                        if NODE_type(leader_box) == TextNode::Rule.into() {
+                            rule_wd = *BOX_width(leader_box);
                             rule_dp = 0;
                             current_block = 9653381107620864133;
                         } else {
-                            leader_ht = MEM[(leader_box + 3) as usize].b32.s1
-                                + MEM[(leader_box + 2) as usize].b32.s1;
+                            leader_ht = *BOX_height(leader_box) + *BOX_depth(leader_box);
                             if leader_ht > 0i32 && rule_ht > 0i32 {
                                 rule_ht += 10i32;
                                 edge = cur_v + rule_ht;
@@ -1501,9 +1499,9 @@ unsafe fn vlist_out() {
                                      * part of the program, cur_v indicates the top of
                                      * a leader box, not its baseline." */
                                     if cur_dir == LR::RightToLeft {
-                                        cur_h = left_edge - *BOX_shift_amount(leader_box as usize);
+                                        cur_h = left_edge - *BOX_shift_amount(leader_box);
                                     } else {
-                                        cur_h = left_edge + *BOX_shift_amount(leader_box as usize);
+                                        cur_h = left_edge + *BOX_shift_amount(leader_box);
                                     }
                                     if cur_h != dvi_h {
                                         movement(cur_h - dvi_h, RIGHT1);
@@ -1511,7 +1509,7 @@ unsafe fn vlist_out() {
                                     }
 
                                     save_h = dvi_h;
-                                    cur_v += *BOX_height(leader_box as usize);
+                                    cur_v += *BOX_height(leader_box);
 
                                     if cur_v != dvi_v {
                                         movement(cur_v - dvi_v, DOWN1);
@@ -1519,11 +1517,11 @@ unsafe fn vlist_out() {
                                     }
 
                                     save_v = dvi_v;
-                                    temp_ptr = leader_box as usize;
+                                    temp_ptr = leader_box;
                                     outer_doing_leaders = doing_leaders;
                                     doing_leaders = true;
 
-                                    if NODE_type(leader_box as usize) == TextNode::VList.into() {
+                                    if NODE_type(leader_box) == TextNode::VList.into() {
                                         vlist_out();
                                     } else {
                                         hlist_out();
@@ -1533,8 +1531,7 @@ unsafe fn vlist_out() {
                                     dvi_v = save_v;
                                     dvi_h = save_h;
                                     cur_h = left_edge;
-                                    cur_v =
-                                        save_v - *BOX_height(leader_box as usize) + leader_ht + lx
+                                    cur_v = save_v - *BOX_height(leader_box) + leader_ht + lx
                                 }
                                 cur_v = edge - 10;
                                 current_block = 5241535548500397784;

@@ -45,8 +45,10 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_char_node, set_NODE_type, set_kern_NODE_subtype, set_whatsit_NODE_subtype,
-    whatsit_NODE_subtype, BOX_glue_set, CHAR_NODE_font, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
-    GLUE_SPEC_width, LLIST_link, NODE_type, TeXInt, TeXOpt,
+    whatsit_NODE_subtype, BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_list_ptr,
+    BOX_shift_amount, BOX_width, CHAR_NODE_font, GLUE_NODE_glue_ptr, GLUE_SPEC_shrink,
+    GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, GLUE_SPEC_width,
+    LLIST_link, NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -106,7 +108,6 @@ pub(crate) unsafe fn init_math() {
     let mut x: i32 = 0;
     let mut l: scaled_t = 0;
     let mut s: scaled_t = 0;
-    let mut q: i32 = 0;
     let mut f: internal_font_number = 0;
     let mut n: i32 = 0;
     let mut v: scaled_t = 0;
@@ -149,14 +150,14 @@ pub(crate) unsafe fn init_math() {
 
             let j_ = new_null_box();
             j = Some(j_);
-            MEM[j_ + 1].b32.s1 = MEM[(just_box + 1) as usize].b32.s1;
-            MEM[j_ + 4].b32.s1 = MEM[(just_box + 4) as usize].b32.s1;
-            MEM[j_ + 5].b32.s1 = Some(p).tex_int();
-            MEM[j_ + 5].b16.s0 = MEM[(just_box + 5) as usize].b16.s0;
-            MEM[j_ + 5].b16.s1 = MEM[(just_box + 5) as usize].b16.s1;
-            *BOX_glue_set(j_) = *BOX_glue_set(just_box as usize);
+            *BOX_width(j_) = *BOX_width(just_box);
+            *BOX_shift_amount(j_) = *BOX_shift_amount(just_box);
+            *BOX_list_ptr(j_) = Some(p).tex_int();
+            *BOX_glue_order(j_) = *BOX_glue_order(just_box);
+            *BOX_glue_sign(j_) = *BOX_glue_sign(just_box);
+            *BOX_glue_set(j_) = *BOX_glue_set(just_box);
 
-            v = MEM[(just_box + 4) as usize].b32.s1;
+            v = *BOX_shift_amount(just_box);
             x = if let Some(aux) = cur_list.eTeX_aux {
                 if MEM[aux].b32.s0 >= R_CODE as i32 {
                     -1
@@ -167,15 +168,15 @@ pub(crate) unsafe fn init_math() {
                 0
             };
             let mut popt = if x >= 0 {
-                let p = MEM[(just_box + 5) as usize].b32.s1.opt();
+                let p = BOX_list_ptr(just_box).opt();
                 MEM[TEMP_HEAD].b32.s1 = None.tex_int();
                 p
             } else {
-                v = -v - MEM[(just_box + 1) as usize].b32.s1;
+                v = -v - *BOX_width(just_box);
                 let p = new_math(0, BEGIN_L_CODE as i16);
                 MEM[TEMP_HEAD].b32.s1 = p as i32;
                 just_copy(
-                    MEM[(just_box + 5) as usize].b32.s1.opt(),
+                    BOX_list_ptr(just_box).opt(),
                     p,
                     new_math(0, END_L_CODE as i16) as i32,
                 );
@@ -247,28 +248,22 @@ pub(crate) unsafe fn init_math() {
                                 break;
                             }
                             TextNode::Glue => {
-                                q = MEM[p + 1].b32.s0;
-                                d = MEM[(q + 1) as usize].b32.s1;
-                                if MEM[(just_box + 5) as usize].b16.s1
-                                    == GlueSign::Stretching as u16
-                                {
-                                    if MEM[(just_box + 5) as usize].b16.s0 as i32
-                                        == MEM[q as usize].b16.s1 as i32
-                                        && MEM[(q + 2) as usize].b32.s1 != 0
+                                let q = *GLUE_NODE_glue_ptr(p) as usize;
+                                d = *GLUE_SPEC_width(q);
+                                if *BOX_glue_sign(just_box) == GlueSign::Stretching as u16 {
+                                    if *BOX_glue_order(just_box) == *GLUE_SPEC_stretch_order(q)
+                                        && *GLUE_SPEC_stretch(q) != 0
                                     {
-                                        v = 0x3fffffffi32
+                                        v = MAX_HALFWORD
                                     }
-                                } else if MEM[(just_box + 5) as usize].b16.s1
-                                    == GlueSign::Shrinking as u16
-                                {
-                                    if MEM[(just_box + 5) as usize].b16.s0 as i32
-                                        == MEM[q as usize].b16.s0 as i32
-                                        && MEM[(q + 3) as usize].b32.s1 != 0
+                                } else if *BOX_glue_sign(just_box) == GlueSign::Shrinking as u16 {
+                                    if *BOX_glue_order(just_box) == *GLUE_SPEC_shrink_order(q)
+                                        && *GLUE_SPEC_shrink(q) != 0
                                     {
-                                        v = 0x3fffffffi32
+                                        v = MAX_HALFWORD
                                     }
                                 }
-                                if MEM[p].b16.s0 as i32 >= 100 {
+                                if MEM[p].b16.s0 >= A_LEADERS {
                                     current_block = 9427725525305667067;
                                     break;
                                 } else {
@@ -301,7 +296,7 @@ pub(crate) unsafe fn init_math() {
                 match current_block {
                     2631791190359682872 => {
                         if MEM[p].b16.s0 as i32 >= 4 {
-                            w = 0x3fffffffi32;
+                            w = MAX_HALFWORD;
                             break;
                         } else {
                             current_block = 1677945370889843322;
@@ -318,7 +313,7 @@ pub(crate) unsafe fn init_math() {
                                 MEM[temp_ptr].b32.s1 = avail.tex_int();
                                 avail = Some(temp_ptr);
                             } else if MEM[p].b16.s0 as i32 > 4 {
-                                w = 0x3fffffffi32;
+                                w = MAX_HALFWORD;
                                 break;
                             }
                         } else {
@@ -875,12 +870,12 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
             let j = new_skip_param(GluePar::right_skip);
             MEM[q as usize].b32.s1 = Some(j).tex_int();
             MEM[j].b32.s1 = Some(u).tex_int();
-            let j = MEM[t + 1].b32.s0 as usize;
-            MEM[temp_ptr].b16.s1 = MEM[j].b16.s1;
-            MEM[temp_ptr].b16.s0 = MEM[j].b16.s0;
-            MEM[temp_ptr + 1].b32.s1 = e - MEM[j + 1].b32.s1;
-            MEM[temp_ptr + 2].b32.s1 = -MEM[j + 2].b32.s1;
-            MEM[temp_ptr + 3].b32.s1 = -MEM[j + 3].b32.s1;
+            let j = *GLUE_NODE_glue_ptr(t) as usize;
+            *GLUE_SPEC_stretch_order(temp_ptr) = *GLUE_SPEC_stretch_order(j);
+            *GLUE_SPEC_shrink_order(temp_ptr) = *GLUE_SPEC_shrink_order(j);
+            *GLUE_SPEC_width(temp_ptr) = e - *GLUE_SPEC_width(j);
+            *GLUE_SPEC_stretch(temp_ptr) = -(*GLUE_SPEC_stretch(j));
+            *GLUE_SPEC_shrink(temp_ptr) = -(*GLUE_SPEC_shrink(j));
             MEM[u].b32.s1 = t as i32;
             Some(j)
         } else {
@@ -893,13 +888,13 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
         if NODE_type(r) == TextNode::Glue.into() {
             let j = new_skip_param(GluePar::left_skip);
             MEM[u].b32.s1 = Some(j).tex_int();
-            MEM[j as usize].b32.s1 = Some(p).tex_int();
-            let j = MEM[r + 1].b32.s0 as usize;
-            MEM[temp_ptr].b16.s1 = MEM[j].b16.s1;
-            MEM[temp_ptr].b16.s0 = MEM[j].b16.s0;
-            MEM[temp_ptr + 1].b32.s1 = d - MEM[j + 1].b32.s1;
-            MEM[temp_ptr + 2].b32.s1 = -MEM[j + 2].b32.s1;
-            MEM[temp_ptr + 3].b32.s1 = -MEM[j + 3].b32.s1;
+            MEM[j].b32.s1 = Some(p).tex_int();
+            let j = *GLUE_NODE_glue_ptr(r) as usize;
+            *GLUE_SPEC_stretch_order(temp_ptr) = *GLUE_SPEC_stretch_order(j);
+            *GLUE_SPEC_shrink_order(temp_ptr) = *GLUE_SPEC_shrink_order(j);
+            *GLUE_SPEC_width(temp_ptr) = d - *GLUE_SPEC_width(j);
+            *GLUE_SPEC_stretch(temp_ptr) = -(*GLUE_SPEC_stretch(j));
+            *GLUE_SPEC_shrink(temp_ptr) = -(*GLUE_SPEC_shrink(j));
             MEM[r].b32.s1 = Some(u).tex_int();
         } else {
             MEM[r + 1].b32.s1 = d;
@@ -2935,10 +2930,10 @@ unsafe fn mlist_to_hlist() {
                     }
                     TextNode::Glue => {
                         if MEM[q].b16.s0 == MU_GLUE {
-                            x = MEM[q + 1].b32.s0;
+                            x = *GLUE_NODE_glue_ptr(q);
                             let y = math_glue(x as usize, cur_mu);
                             delete_glue_ref(x as usize);
-                            MEM[q + 1].b32.s0 = Some(y).tex_int();
+                            *GLUE_NODE_glue_ptr(q) = Some(y).tex_int();
                             MEM[q].b16.s0 = NORMAL as u16
                         } else if cur_size != TEXT_SIZE && MEM[q].b16.s0 == COND_MATH_GLUE {
                             if let Some(p) = MEM[q].b32.s1.opt() {

@@ -929,7 +929,7 @@ pub(crate) static mut cur_pre_head: Option<usize> = None;
 #[no_mangle]
 pub(crate) static mut cur_pre_tail: Option<usize> = None;
 #[no_mangle]
-pub(crate) static mut just_box: i32 = 0;
+pub(crate) static mut just_box: usize = 0;
 #[no_mangle]
 pub(crate) static mut active_width: [scaled_t; 7] = [0; 7];
 #[no_mangle]

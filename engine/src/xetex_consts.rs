@@ -993,6 +993,10 @@ pub(crate) const VSPLIT_CODE: placeholdertype = 3;
 pub(crate) const VTOP_CODE: placeholdertype = 4;
 
 /* Cmd::LeaderShip */
+// NORMAL
+// GluePar
+pub(crate) const COND_MATH_GLUE: u16 = 98;
+pub(crate) const MU_GLUE: u16 = 99;
 pub(crate) const A_LEADERS: u16 = 100;
 pub(crate) const C_LEADERS: u16 = 101;
 pub(crate) const X_LEADERS: u16 = 102;
@@ -1309,8 +1313,6 @@ pub(crate) const UNLESS_CODE: placeholdertype = 32;
 pub(crate) const XETEX_DIM: placeholdertype = 47;
 pub(crate) const ETEX_GLUE: placeholdertype = 57;
 pub(crate) const ETEX_MU: placeholdertype = 58;
-pub(crate) const COND_MATH_GLUE: u16 = 98;
-pub(crate) const MU_GLUE: u16 = 99;
 
 pub(crate) const DIMEN_VAL_LIMIT: u16 = 128;
 pub(crate) const BIGGEST_LANG: placeholdertype = 255;
