@@ -427,7 +427,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
         let mut nameStr_len: libc::c_int = strlen(nameStr_cstr) as libc::c_int;
         let mut hyph_pos: *const libc::c_char = strchr(nameStr_cstr, '-' as i32);
         let mut hyph: libc::c_int = (if !hyph_pos.is_null() {
-            hyph_pos.wrapping_offset_from(nameStr_cstr) as libc::c_long
+            hyph_pos.offset_from(nameStr_cstr) as libc::c_long
         } else {
             -1i32 as libc::c_long
         }) as libc::c_int;

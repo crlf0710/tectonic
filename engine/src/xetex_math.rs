@@ -1204,11 +1204,13 @@ pub(crate) unsafe fn after_math() {
         }
         if l && e == 0 {
             app_display(j, a.unwrap(), 0);
-            MEM[cur_list.tail].b32.s1 = new_penalty(INF_PENALTY) as i32;
-            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+            let pen = new_penalty(INF_PENALTY);
+            *LLIST_link(cur_list.tail) = Some(pen).tex_int();
+            cur_list.tail = pen;
         } else {
-            MEM[cur_list.tail].b32.s1 = new_param_glue(g1) as i32;
-            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+            let pg = new_param_glue(g1);
+            *LLIST_link(cur_list.tail) = Some(pg).tex_int();
+            cur_list.tail = pg;
         }
         if e != 0i32 {
             let a = a.unwrap();
@@ -3679,14 +3681,14 @@ unsafe fn build_opentype_assembly(
     str = 0i32;
     while let Some(p) = popt {
         if NODE_type(p) == TextNode::WhatsIt.into() {
-            if horiz {
-                nat = nat + MEM[p + 1].b32.s1
+            nat += if horiz {
+                MEM[p + 1].b32.s1
             } else {
-                nat = nat + MEM[p + 3].b32.s1 + MEM[p + 2].b32.s1
-            }
+                MEM[p + 3].b32.s1 + MEM[p + 2].b32.s1
+            };
         } else if NODE_type(p as usize) == TextNode::Glue.into() {
-            nat = nat + MEM[(MEM[p + 1].b32.s0 + 1) as usize].b32.s1;
-            str = str + MEM[(MEM[p + 1].b32.s0 + 2) as usize].b32.s1
+            nat += MEM[(MEM[p + 1].b32.s0 + 1) as usize].b32.s1;
+            str += MEM[(MEM[p + 1].b32.s0 + 2) as usize].b32.s1
         }
         popt = LLIST_link(p).opt();
     }

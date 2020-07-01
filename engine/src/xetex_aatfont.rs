@@ -824,12 +824,12 @@ pub(crate) unsafe fn loadAATfont(
                     features,
                     kCTFontFeatureTypeNameKey as *const libc::c_void,
                     cp1,
-                    cp3.wrapping_offset_from(cp1) as libc::c_long as libc::c_int,
+                    cp3.offset_from(cp1) as libc::c_long as libc::c_int,
                 );
                 if !feature.is_null() {
                     // look past the '=' separator for setting names
                     let mut featLen: libc::c_int =
-                        cp3.wrapping_offset_from(cp1) as libc::c_long as libc::c_int;
+                        cp3.offset_from(cp1) as libc::c_long as libc::c_int;
                     let mut zeroInteger: libc::c_int = 0i32;
                     let mut zero: CFNumberRef = CFNumberCreate(
                         0 as CFAllocatorRef,
@@ -862,7 +862,7 @@ pub(crate) unsafe fn loadAATfont(
                         selector = findSelectorByName(
                             feature,
                             cp3,
-                            cp4.wrapping_offset_from(cp3) as libc::c_long as libc::c_int,
+                            cp4.offset_from(cp3) as libc::c_long as libc::c_int,
                         );
                         if !selector.is_null()
                             && comparison_was(
@@ -887,7 +887,7 @@ pub(crate) unsafe fn loadAATfont(
                                 std::slice::from_raw_parts(cp1 as *const u8, featLen as usize),
                                 std::slice::from_raw_parts(
                                     cp3 as *const u8,
-                                    cp4.wrapping_offset_from(cp3) as usize,
+                                    cp4.offset_from(cp3) as usize,
                                 ),
                             );
                         }
@@ -993,7 +993,7 @@ pub(crate) unsafe fn loadAATfont(
                             font_feature_warning(
                                 std::slice::from_raw_parts(
                                     cp1 as *const u8,
-                                    cp2.wrapping_offset_from(cp1) as usize,
+                                    cp2.offset_from(cp1) as usize,
                                 ),
                                 &[],
                             );

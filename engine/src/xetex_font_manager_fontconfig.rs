@@ -521,7 +521,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
     let mut hyph_pos: *mut libc::c_char = strchr(name, '-' as i32);
     let mut hyph: libc::c_int = 0;
     if !hyph_pos.is_null() {
-        hyph = hyph_pos.wrapping_offset_from(name) as libc::c_long as libc::c_int;
+        hyph = hyph_pos.offset_from(name) as libc::c_long as libc::c_int;
         CppStdString_assign_n_chars(famName, name, hyph as libc::size_t);
     } else {
         hyph = 0i32

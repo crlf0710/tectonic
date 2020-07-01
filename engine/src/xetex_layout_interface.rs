@@ -1088,11 +1088,7 @@ pub(crate) unsafe fn findGraphiteFeature(
     while cp < e && *cp as libc::c_int != '=' as i32 {
         cp = cp.offset(1)
     }
-    tmp = findGraphiteFeatureNamed(
-        engine,
-        s,
-        cp.wrapping_offset_from(s) as libc::c_long as libc::c_int,
-    );
+    tmp = findGraphiteFeatureNamed(engine, s, cp.offset_from(s) as libc::c_long as libc::c_int);
     *f = tmp as hb_tag_t;
     if tmp == -1i32 as libc::c_long {
         return false;
@@ -1109,7 +1105,7 @@ pub(crate) unsafe fn findGraphiteFeature(
         engine,
         *f,
         cp,
-        e.wrapping_offset_from(cp) as libc::c_long as libc::c_int,
+        e.offset_from(cp) as libc::c_long as libc::c_int,
     ) as libc::c_int;
     *v != -1
 }

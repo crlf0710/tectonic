@@ -301,10 +301,9 @@ unsafe fn load_mapping_file(
     mut byteMapping: i8,
 ) -> *mut libc::c_void {
     let mut cnv = 0 as teckit::TECkit_Converter;
-    let mut buffer: *mut i8 =
-        xmalloc((e.wrapping_offset_from(s) as i64 + 5i32 as i64) as size_t) as *mut i8;
-    strncpy(buffer, s, e.wrapping_offset_from(s) as usize);
-    *buffer.offset(e.wrapping_offset_from(s) as i64 as isize) = 0_i8;
+    let mut buffer: *mut i8 = xmalloc((e.offset_from(s) as i64 + 5i32 as i64) as size_t) as *mut i8;
+    strncpy(buffer, s, e.offset_from(s) as usize);
+    *buffer.offset(e.offset_from(s) as i64 as isize) = 0_i8;
     strcat(buffer, b".tec\x00" as *const u8 as *const i8);
     if let Some(mut map) = ttstub_input_open(buffer, TTInputFormat::MISCFONTS, 0i32) {
         let mut mappingSize: size_t = ttstub_input_get_size(&mut map);
@@ -454,7 +453,7 @@ unsafe fn read_tag_with_param(mut cp: *const i8, mut param: *mut i32) -> hb_tag_
     {
         cp2 = cp2.offset(1)
     }
-    tag = hb_tag_from_string(cp, cp2.wrapping_offset_from(cp) as i64 as i32);
+    tag = hb_tag_from_string(cp, cp2.offset_from(cp) as i64 as i32);
     cp = cp2;
     if *cp as i32 == '=' as i32 {
         let mut neg: i32 = 0i32;
@@ -740,7 +739,7 @@ unsafe fn loadOTfont(
                     current_block = 10622493848381539643;
                 } else {
                     cp3 = cp3.offset(1);
-                    script = hb_tag_from_string(cp3, cp2.wrapping_offset_from(cp3) as i64 as i32);
+                    script = hb_tag_from_string(cp3, cp2.offset_from(cp3) as i64 as i32);
                     current_block = 13857423536159756434;
                 }
             } else {
@@ -750,15 +749,14 @@ unsafe fn loadOTfont(
                         current_block = 10622493848381539643;
                     } else {
                         cp3 = cp3.offset(1);
-                        language =
-                            xmalloc((cp2.wrapping_offset_from(cp3) as i64 + 1i32 as i64) as size_t)
-                                as *mut i8;
-                        *language.offset(cp2.wrapping_offset_from(cp3) as i64 as isize) =
+                        language = xmalloc((cp2.offset_from(cp3) as i64 + 1i32 as i64) as size_t)
+                            as *mut i8;
+                        *language.offset(cp2.offset_from(cp3) as i64 as isize) =
                             '\u{0}' as i32 as i8;
                         memcpy(
                             language as *mut libc::c_void,
                             cp3 as *const libc::c_void,
-                            cp2.wrapping_offset_from(cp3) as usize,
+                            cp2.offset_from(cp3) as usize,
                         );
                         current_block = 13857423536159756434;
                     }
@@ -779,7 +777,7 @@ unsafe fn loadOTfont(
                             let ref mut fresh10 = *shapers.offset(nShapers as isize);
                             *fresh10 = strdup(cp3);
                             *(*shapers.offset(nShapers as isize))
-                                .offset(cp2.wrapping_offset_from(cp3) as i64 as isize) =
+                                .offset(cp2.offset_from(cp3) as i64 as isize) =
                                 '\u{0}' as i32 as i8;
                             nShapers += 1;
                             current_block = 13857423536159756434;
@@ -853,7 +851,7 @@ unsafe fn loadOTfont(
                                         cp1 = cp1.offset(1);
                                         tag = hb_tag_from_string(
                                             cp1,
-                                            cp2.wrapping_offset_from(cp1) as i64 as i32,
+                                            cp2.offset_from(cp1) as i64 as i32,
                                         );
                                         features = xrealloc(
                                             features as *mut libc::c_void,
@@ -909,10 +907,7 @@ unsafe fn loadOTfont(
             match current_block {
                 10622493848381539643 => {
                     font_feature_warning(
-                        std::slice::from_raw_parts(
-                            cp1 as *const u8,
-                            cp2.wrapping_offset_from(cp1) as usize,
-                        ),
+                        std::slice::from_raw_parts(cp1 as *const u8, cp2.offset_from(cp1) as usize),
                         &[],
                     );
                 }
@@ -1030,27 +1025,26 @@ pub(crate) unsafe fn find_native_font(
     loaded_font_flags = 0_i8;
     loaded_font_letter_space = 0i32;
     splitFontName(name, &mut var, &mut feat, &mut end, &mut index);
-    nameString =
-        xmalloc((var.wrapping_offset_from(name) as i64 + 1i32 as i64) as size_t) as *mut i8;
-    strncpy(nameString, name, var.wrapping_offset_from(name) as usize);
-    *nameString.offset(var.wrapping_offset_from(name) as i64 as isize) = 0_i8;
+    nameString = xmalloc((var.offset_from(name) as i64 + 1i32 as i64) as size_t) as *mut i8;
+    strncpy(nameString, name, var.offset_from(name) as usize);
+    *nameString.offset(var.offset_from(name) as i64 as isize) = 0_i8;
     if feat > var {
-        varString = xmalloc(feat.wrapping_offset_from(var) as i64 as size_t) as *mut i8;
+        varString = xmalloc(feat.offset_from(var) as i64 as size_t) as *mut i8;
         strncpy(
             varString,
             var.offset(1),
-            (feat.wrapping_offset_from(var) as i64 - 1i32 as i64) as usize,
+            (feat.offset_from(var) as i64 - 1i32 as i64) as usize,
         );
-        *varString.offset((feat.wrapping_offset_from(var) as i64 - 1i32 as i64) as isize) = 0_i8
+        *varString.offset((feat.offset_from(var) as i64 - 1i32 as i64) as isize) = 0_i8
     }
     if end > feat {
-        featString = xmalloc(end.wrapping_offset_from(feat) as i64 as size_t) as *mut i8;
+        featString = xmalloc(end.offset_from(feat) as i64 as size_t) as *mut i8;
         strncpy(
             featString,
             feat.offset(1),
-            (end.wrapping_offset_from(feat) as i64 - 1i32 as i64) as usize,
+            (end.offset_from(feat) as i64 - 1i32 as i64) as usize,
         );
-        *featString.offset((end.wrapping_offset_from(feat) as i64 - 1i32 as i64) as isize) = 0_i8
+        *featString.offset((end.offset_from(feat) as i64 - 1i32 as i64) as isize) = 0_i8
     }
     // check for "[filename]" form, don't search maps in this case
     if *nameString.offset(0) as i32 == '[' as i32 {
@@ -1461,7 +1455,7 @@ pub(crate) unsafe fn makeXDVGlyphArrayData(mut pNode: *mut libc::c_void) -> i32 
         *fresh28 = (g as i32 & 0xffi32) as u8;
         i += 1
     }
-    (cp as *mut i8).wrapping_offset_from(xdv_buffer) as i64 as i32
+    (cp as *mut i8).offset_from(xdv_buffer) as i64 as i32
 }
 pub(crate) unsafe fn make_font_def(f: usize) -> i32 {
     // XXX: seems like a good idea to make a struct FontDef

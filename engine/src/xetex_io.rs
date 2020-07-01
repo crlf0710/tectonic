@@ -753,7 +753,7 @@ pub(crate) unsafe fn make_utf16_name() {
             *fresh15 = rval as u16
         }
     }
-    name_length16 = t.wrapping_offset_from(name_of_file16) as i64 as i32;
+    name_length16 = t.offset_from(name_of_file16) as i64 as i32;
 }
 pub(crate) unsafe fn open_or_close_in() {
     use xetex_consts::*;
