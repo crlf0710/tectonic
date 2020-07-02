@@ -595,7 +595,7 @@ pub(crate) static mut first_p: i32 = 0;
 #[no_mangle]
 pub(crate) static mut global_prev_p: i32 = 0;
 #[no_mangle]
-pub(crate) static mut font_in_short_display: i32 = 0;
+pub(crate) static mut font_in_short_display: usize = 0;
 #[no_mangle]
 pub(crate) static mut depth_threshold: i32 = 0;
 #[no_mangle]
