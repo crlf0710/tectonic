@@ -194,17 +194,19 @@ pub(crate) unsafe fn GLUE_NODE_leader_ptr(p: usize) -> &'static mut i32 {
     &mut MEM[p + 1].b32.s1
 }
 
-/*
-#define INSERTION_NODE_float_cost(p) mem[(p) + 1].b32.s1 /* "the floating_penalty to be used" */
-*/
-
+/// "the floating_penalty to be used"
+pub(crate) unsafe fn INSERTION_NODE_float_cost(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
+}
 /// a glue pointer
 pub(crate) unsafe fn INSERTION_NODE_split_top_ptr(p: usize) -> &'static mut i32 {
     &mut MEM[p + 4].b32.s1
 }
+/// a pointer to a vlist
+pub(crate) unsafe fn INSERTION_NODE_ins_ptr(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 4].b32.s0
+}
 
-/*#define INSERTION_NODE_ins_ptr(p) mem[(p) + 4].b32.s0 /* a pointer to a vlist */
-*/
 /// language number, 0..255
 pub(crate) unsafe fn LANGUAGE_NODE_what_lang(p: usize) -> &'static mut i32 {
     &mut MEM[p + 1].b32.s1
@@ -294,8 +296,12 @@ pub(crate) unsafe fn PENALTY_NODE_penalty(p: usize) -> &'static mut i32 {
 #define PIC_NODE_path(p) ((unsigned char *) &mem[(p) + PIC_NODE_SIZE])
 #define PIC_NODE_total_size(p) (PIC_NODE_SIZE + (PIC_NODE_path_len(p) + sizeof(memory_word) - 1) / sizeof(memory_word))
 
-#define WRITE_NODE_tokens(p) mem[(p) + 1].b32.s1 /* "reference count of token list to write" */
 */
+/// "reference count of token list to write"
+pub(crate) unsafe fn WRITE_NODE_tokens(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
+}
+
 /* Synctex hacks various nodes to add an extra word at the end to store its
  * information, hence the need to know the node size to get the synctex
  * info. */
@@ -365,9 +371,11 @@ pub(crate) unsafe fn FONT_CHARINFO_ITALCORR(f: usize, info: b16x4) -> &'static m
 pub(crate) unsafe fn FONT_CHARACTER_WIDTH(f: usize, c: usize) -> &'static mut i32 {
     FONT_CHARINFO_WIDTH(f, FONT_CHARACTER_INFO(f, c))
 }
-/*
-#define TOKEN_LIST_ref_count(p) mem[p].b32.s0
 
+pub(crate) unsafe fn TOKEN_LIST_ref_count(p: usize) -> &'static mut i32 {
+    &mut MEM[p].b32.s0
+}
+/*
 /* e-TeX extended marks stuff ... not sure where to put these */
 #define ETEX_MARK_sa_top_mark(p) mem[(p) + 1].b32.s0 /* \topmarks<n> */
 #define ETEX_MARK_sa_first_mark(p) mem[(p) + 1].b32.s1 /* \firstmarks<n> */

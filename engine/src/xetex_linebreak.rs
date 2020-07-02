@@ -37,16 +37,17 @@ use crate::xetex_xetexd::{
     kern_NODE_subtype, /*set_NODE_subtype,*/
     set_NODE_type, text_NODE_type, whatsit_NODE_subtype, ACTIVE_NODE_break_node,
     ACTIVE_NODE_fitness, ACTIVE_NODE_glue, ACTIVE_NODE_line_number, ACTIVE_NODE_shortfall,
-    ACTIVE_NODE_total_demerits, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
-    DELTA_NODE_dshrink, DELTA_NODE_dstretch0, DELTA_NODE_dstretch1, DELTA_NODE_dstretch2,
-    DELTA_NODE_dstretch3, DELTA_NODE_dwidth, DISCRETIONARY_NODE_post_break,
-    DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr,
-    GLUE_NODE_leader_ptr, GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order,
-    GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, GLUE_SPEC_width, LANGUAGE_NODE_what_lang,
-    LANGUAGE_NODE_what_lhm, LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
-    LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length, NODE_type,
-    PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty,
-    TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
+    ACTIVE_NODE_total_demerits, BOX_depth, BOX_height, BOX_list_ptr, BOX_shift_amount, BOX_width,
+    CHAR_NODE_character, CHAR_NODE_font, DELTA_NODE_dshrink, DELTA_NODE_dstretch0,
+    DELTA_NODE_dstretch1, DELTA_NODE_dstretch2, DELTA_NODE_dstretch3, DELTA_NODE_dwidth,
+    DISCRETIONARY_NODE_post_break, DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count,
+    GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_SPEC_ref_count, GLUE_SPEC_shrink,
+    GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, GLUE_SPEC_width,
+    LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm, LANGUAGE_NODE_what_rhm,
+    LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link,
+    NATIVE_NODE_font, NATIVE_NODE_length, NODE_type, PASSIVE_NODE_cur_break,
+    PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty, TeXInt, TeXOpt,
+    FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -138,7 +139,6 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     let mut r: i32 = 0;
     let mut s: i32 = 0;
     let mut prev_s: i32 = 0;
-    let mut f: usize = 0;
     let mut j: i16 = 0;
     let mut c: UnicodeScalar = 0;
     let mut l: i32 = 0;
@@ -328,9 +328,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 global_prev_p = cp as i32;
                 prev_p = global_prev_p;
                 loop {
-                    let mut eff_char: i32 = 0;
-                    f = MEM[cp].b16.s1 as usize;
-                    eff_char = effective_char(true, f, MEM[cp].b16.s0);
+                    let f = MEM[cp].b16.s1 as usize;
+                    let eff_char = effective_char(true, f, MEM[cp].b16.s0);
                     active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize] + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize].b16.s3 as i32) as usize]
                         .b32
                         .s1;
@@ -765,7 +764,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     }
                 }
                 TextNode::Ligature => {
-                    f = *LIGATURE_NODE_lig_font(cp) as usize;
+                    let f = *LIGATURE_NODE_lig_font(cp) as usize;
                     xtx_ligature_present = true;
                     active_width[1] += *FONT_CHARACTER_WIDTH(f, effective_char(true, f, *LIGATURE_NODE_lig_char(cp)) as usize);
                 }
@@ -781,16 +780,15 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             /*899:*/
                             if is_char_node(s.opt()) {
                                 let mut eff_char_0: i32 = 0; /*:898 big DISC_NODE case */
-                                f = MEM[s as usize].b16.s1 as usize;
+                                let f = MEM[s as usize].b16.s1 as usize;
                                 eff_char_0 = effective_char(true, f, MEM[s as usize].b16.s0);
                                 disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_0 as usize);
                             } else {
                                 match text_NODE_type(s as usize).unwrap() {
                                     TextNode::Ligature => {
-                                        let mut eff_char_1: i32 = 0;
-                                        f = *LIGATURE_NODE_lig_font(s as usize) as usize;
+                                        let f = *LIGATURE_NODE_lig_font(s as usize) as usize;
                                         xtx_ligature_present = true;
-                                        eff_char_1 = effective_char(true, f, *LIGATURE_NODE_lig_char(s as usize));
+                                        let eff_char_1 = effective_char(true, f, *LIGATURE_NODE_lig_char(s as usize));
                                         disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
                                     }
                                     TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => disc_width += *BOX_width(s as usize),
@@ -819,17 +817,15 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     s = *LLIST_link(cp);
                     while r > 0 {
                         if is_char_node(s.opt()) {
-                            let mut eff_char_2: i32 = 0;
-                            f = MEM[s as usize].b16.s1 as usize;
-                            eff_char_2 = effective_char(true, f, *CHAR_NODE_character(s as usize));
+                            let f = *CHAR_NODE_font(s as usize) as usize;
+                            let eff_char_2 = effective_char(true, f, *CHAR_NODE_character(s as usize));
                             active_width[1] += *FONT_CHARACTER_WIDTH(f, eff_char_2 as usize);
                         } else {
                             match text_NODE_type(s as usize).confuse(b"disc4") {
                                 TextNode::Ligature => {
-                                    let mut eff_char_3: i32 = 0;
-                                    f = *LIGATURE_NODE_lig_font(s as usize) as usize;
+                                    let f = *LIGATURE_NODE_lig_font(s as usize) as usize;
                                     xtx_ligature_present = true;
-                                    eff_char_3 = effective_char(true, f, MEM[(s + 1) as usize].b16.s0);
+                                    let eff_char_3 = effective_char(true, f, *LIGATURE_NODE_lig_char(s as usize));
                                     active_width[1] += *FONT_CHARACTER_WIDTH(f, eff_char_3 as usize);
                                 }
                                 TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => active_width[1] += *BOX_width(s as usize),
@@ -1076,7 +1072,7 @@ unsafe fn post_line_break(mut d: bool) {
             glue_break = true;
         } else if NODE_type(q as usize) == TextNode::Disc.into() {
             /*911:*/
-            let mut t = MEM[q as usize].b16.s0;
+            let mut t = *DISCRETIONARY_NODE_replace_count(q as usize);
             let mut r;
             if t == 0 {
                 r = *LLIST_link(q as usize);
@@ -1446,10 +1442,9 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                     } else {
                                         match text_NODE_type(v).confuse(b"disc1") {
                                             TextNode::Ligature => {
-                                                let mut eff_char_0: i32 = 0;
                                                 let f = *LIGATURE_NODE_lig_font(v) as usize;
                                                 xtx_ligature_present = true;
-                                                eff_char_0 = effective_char(
+                                                let eff_char_0 = effective_char(
                                                     true,
                                                     f,
                                                     *LIGATURE_NODE_lig_char(v),
@@ -1489,11 +1484,10 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                     } else {
                                         match text_NODE_type(s as usize).confuse(b"disc2") {
                                             TextNode::Ligature => {
-                                                let mut eff_char_2: i32 = 0;
                                                 let f =
                                                     *LIGATURE_NODE_lig_font(s as usize) as usize;
                                                 xtx_ligature_present = true;
-                                                eff_char_2 = effective_char(
+                                                let eff_char_2 = effective_char(
                                                     true,
                                                     f,
                                                     *LIGATURE_NODE_lig_char(s as usize),
@@ -2146,8 +2140,8 @@ unsafe fn hyphenate() {
                 MEM[s].b32.s1 = q as i32;
                 s = q;
                 let q = new_disc();
-                MEM[q + 1].b32.s0 = new_native_character(hf, hyf_char) as i32;
-                MEM[s].b32.s1 = q as i32;
+                *DISCRETIONARY_NODE_pre_break(q) = new_native_character(hf, hyf_char) as i32;
+                *LLIST_link(s) = Some(q).tex_int();
                 s = q;
                 hyphen_passed = j as i16;
             }
@@ -2186,13 +2180,13 @@ unsafe fn hyphenate() {
                 current_block = 6662862405959679103;
             }
         } else if NODE_type(ha as usize) == TextNode::Ligature.into() {
-            if MEM[(ha + 1) as usize].b16.s1 as usize != hf {
+            if *LIGATURE_NODE_lig_font(ha as usize) as usize != hf {
                 current_block = 6826215413708131726;
             } else {
-                init_list = MEM[(ha + 1) as usize].b32.s1;
+                init_list = *LIGATURE_NODE_lig_ptr(ha as usize);
                 init_lig = true;
                 init_lft = MEM[ha as usize].b16.s0 as i32 > 1;
-                hu[0] = MEM[(ha + 1) as usize].b16.s0 as i32;
+                hu[0] = *LIGATURE_NODE_lig_char(ha as usize) as i32;
                 if init_list.is_texnull() {
                     if init_lft {
                         hu[0] = max_hyph_char;
@@ -2263,7 +2257,7 @@ unsafe fn hyphenate() {
                 /*949: */
                 {
                     let r = get_node(SMALL_NODE_SIZE);
-                    MEM[r].b32.s1 = MEM[HOLD_HEAD].b32.s1;
+                    *LLIST_link(r) = MEM[HOLD_HEAD].b32.s1;
                     set_NODE_type(r, TextNode::Disc);
                     let mut major_tail = r;
                     r_count = 0;
@@ -2274,7 +2268,7 @@ unsafe fn hyphenate() {
                     let mut i = hyphen_passed;
                     hyf[i as usize] = 0;
                     let mut minor_tail: Option<usize> = None;
-                    MEM[r + 1].b32.s0 = None.tex_int();
+                    *DISCRETIONARY_NODE_pre_break(r) = None.tex_int();
                     let hyf_node = new_character(hf, hyf_char as UTF16_code);
                     if let Some(hyf_node) = hyf_node {
                         i += 1;
@@ -2290,7 +2284,7 @@ unsafe fn hyphenate() {
                             if let Some(mt) = minor_tail {
                                 MEM[mt].b32.s1 = Some(hh).tex_int();
                             } else {
-                                MEM[r + 1].b32.s0 = Some(hh).tex_int();
+                                *DISCRETIONARY_NODE_pre_break(r) = Some(hh).tex_int();
                             }
                             let mut mt = hh;
                             minor_tail = Some(mt);
@@ -2325,7 +2319,7 @@ unsafe fn hyphenate() {
                                 if let Some(mt) = minor_tail {
                                     MEM[mt].b32.s1 = Some(hh).tex_int();
                                 } else {
-                                    MEM[r + 1].b32.s1 = Some(hh).tex_int();
+                                    *DISCRETIONARY_NODE_post_break(r) = Some(hh).tex_int();
                                 }
                                 let mut mt = hh;
                                 minor_tail = Some(mt);
@@ -2349,12 +2343,12 @@ unsafe fn hyphenate() {
                         }
                     }
                     if r_count > 127 {
-                        MEM[s as usize].b32.s1 = MEM[r].b32.s1;
-                        MEM[r].b32.s1 = None.tex_int();
+                        MEM[s as usize].b32.s1 = *LLIST_link(r);
+                        *LLIST_link(r) = None.tex_int();
                         flush_node_list(Some(r));
                     } else {
-                        MEM[s as usize].b32.s1 = r as i32;
-                        MEM[r].b16.s0 = r_count as u16;
+                        MEM[s as usize].b32.s1 = Some(r).tex_int();
+                        *DISCRETIONARY_NODE_replace_count(r) = r_count as u16;
                     }
                     s = major_tail as i32;
                     hyphen_passed = (j - 1) as i16;
@@ -2686,8 +2680,11 @@ unsafe fn total_pw(q: usize, p: Option<usize>) -> scaled_t {
     };
     let mut r = prev_rightmost(global_prev_p.opt(), p);
     match p {
-        Some(p) if NODE_type(p) == TextNode::Disc.into() && MEM[p + 1].b32.s0.opt().is_some() => {
-            if let Some(mut m) = MEM[p + 1].b32.s0.opt() {
+        Some(p)
+            if NODE_type(p) == TextNode::Disc.into()
+                && DISCRETIONARY_NODE_pre_break(p).opt().is_some() =>
+        {
+            if let Some(mut m) = DISCRETIONARY_NODE_pre_break(p).opt() {
                 while let Some(next) = LLIST_link(m).opt() {
                     m = next;
                 }
@@ -2698,11 +2695,11 @@ unsafe fn total_pw(q: usize, p: Option<usize>) -> scaled_t {
     }
     let l = match lopt {
         Some(mut l) if NODE_type(l) == TextNode::Disc.into() => {
-            if let Some(l1) = MEM[(l + 1) as usize].b32.s1.opt() {
+            if let Some(l1) = DISCRETIONARY_NODE_post_break(l).opt() {
                 l = l1;
                 return char_pw(Some(l), Side::Left) + char_pw(r, Side::Right);
             } else {
-                let mut n = MEM[l].b16.s0;
+                let mut n = *DISCRETIONARY_NODE_replace_count(l);
                 l = LLIST_link(l).opt().unwrap();
                 while n > 0 {
                     if let Some(next) = LLIST_link(l).opt() {
@@ -2724,10 +2721,10 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     match LLIST_link(l).opt() {
         Some(next)
             if NODE_type(l) == TextNode::HList.into()
-                && MEM[l + 1].b32.s1 == 0
-                && MEM[l + 3].b32.s1 == 0
-                && MEM[l + 2].b32.s1 == 0
-                && MEM[l + 5].b32.s1.opt().is_none() =>
+                && *BOX_width(l) == 0
+                && *BOX_height(l) == 0
+                && *BOX_depth(l) == 0
+                && BOX_list_ptr(l).opt().is_none() =>
         {
             l = next
         }
@@ -2761,18 +2758,18 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
                     || NODE_type(l) == TextNode::Adjust.into()
                     || NODE_type(l) == TextNode::Penalty.into()
                     || NODE_type(l) == TextNode::Disc.into()
-                        && MEM[l + 1].b32.s0.opt().is_none()
-                        && MEM[l + 1].b32.s1.opt().is_none()
-                        && MEM[l].b16.s0 == 0
+                        && DISCRETIONARY_NODE_pre_break(l).opt().is_none()
+                        && DISCRETIONARY_NODE_post_break(l).opt().is_none()
+                        && *DISCRETIONARY_NODE_replace_count(l) == 0
                     || NODE_type(l) == TextNode::Math.into() && MEM[l + 1].b32.s1 == 0
                     || NODE_type(l) == TextNode::Kern.into()
                         && (MEM[l + 1].b32.s1 == 0 || MEM[l].b16.s0 == NORMAL)
                     || NODE_type(l) == TextNode::Glue.into() && MEM[l + 1].b32.s0 == 0
                     || NODE_type(l) == TextNode::HList.into()
-                        && MEM[l + 1].b32.s1 == 0
-                        && MEM[l + 3].b32.s1 == 0
-                        && MEM[l + 2].b32.s1 == 0
-                        && MEM[l + 5].b32.s1.opt().is_none()))
+                        && *BOX_width(l) == 0
+                        && *BOX_height(l) == 0
+                        && *BOX_depth(l) == 0
+                        && BOX_list_ptr(l).opt().is_none()))
         {
             while MEM[l as usize].b32.s1.opt().is_none() {
                 if let Some(last) = hlist_stack.pop() {
@@ -2804,7 +2801,7 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
     loop {
         let t = r;
         while run && NODE_type(r) == TextNode::HList.into() {
-            if let Some(hnext) = MEM[r + 5].b32.s1.opt() {
+            if let Some(hnext) = BOX_list_ptr(r).opt() {
                 hlist_stack.push((l, r));
                 l = Some(hnext);
                 r = hnext;
@@ -2822,18 +2819,18 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
                     || NODE_type(r) == TextNode::Adjust.into()
                     || NODE_type(r) == TextNode::Penalty.into()
                     || NODE_type(r) == TextNode::Disc.into()
-                        && MEM[r + 1].b32.s0.opt().is_none()
-                        && MEM[r + 1].b32.s1.opt().is_none()
-                        && MEM[r].b16.s0 == 0
+                        && DISCRETIONARY_NODE_pre_break(r).opt().is_none()
+                        && DISCRETIONARY_NODE_post_break(r).opt().is_none()
+                        && *DISCRETIONARY_NODE_replace_count(r) == 0
                     || NODE_type(r) == TextNode::Math.into() && MEM[r + 1].b32.s1 == 0
                     || NODE_type(r) == TextNode::Kern.into()
-                        && (MEM[r + 1].b32.s1 == 0 || MEM[r].b16.s0 == NORMAL)
+                        && (MEM[r + 1].b32.s1 == 0 || kern_NODE_subtype(r) == KernNST::Normal)
                     || NODE_type(r) == TextNode::Glue.into() && MEM[r + 1].b32.s0 == 0
                     || NODE_type(r) == TextNode::HList.into()
-                        && MEM[r + 1].b32.s1 == 0
-                        && MEM[r + 3].b32.s1 == 0
-                        && MEM[r + 2].b32.s1 == 0
-                        && MEM[r + 5].b32.s1.opt().is_none()))
+                        && *BOX_width(r) == 0
+                        && *BOX_height(r) == 0
+                        && *BOX_depth(r) == 0
+                        && BOX_list_ptr(r).opt().is_none()))
         {
             while Some(r) == l {
                 if let Some(last) = hlist_stack.pop() {

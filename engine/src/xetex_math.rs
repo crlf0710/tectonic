@@ -46,9 +46,10 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     is_char_node, set_NODE_type, set_kern_NODE_subtype, set_whatsit_NODE_subtype,
     whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height,
-    BOX_list_ptr, BOX_shift_amount, BOX_width, CHAR_NODE_font, GLUE_NODE_glue_ptr,
-    GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order,
-    GLUE_SPEC_width, LLIST_link, NODE_type, TeXInt, TeXOpt,
+    BOX_list_ptr, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
+    GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
+    GLUE_SPEC_stretch_order, GLUE_SPEC_width, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
+    LLIST_link, NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -216,8 +217,9 @@ pub(crate) unsafe fn init_math() {
                                 break;
                             }
                             TextNode::Ligature => {
-                                MEM[GARBAGE] = MEM[p + 1];
-                                MEM[GARBAGE].b32.s1 = MEM[p].b32.s1;
+                                *CHAR_NODE_character(GARBAGE) = *LIGATURE_NODE_lig_char(p);
+                                *CHAR_NODE_font(GARBAGE) = *LIGATURE_NODE_lig_font(p);
+                                *LLIST_link(GARBAGE) = *LLIST_link(p);
                                 p = GARBAGE;
                                 xtx_ligature_present = true
                             }

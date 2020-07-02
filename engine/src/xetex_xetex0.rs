@@ -423,9 +423,9 @@ pub(crate) unsafe fn new_rule() -> usize {
 pub(crate) unsafe fn new_ligature(mut f: internal_font_number, mut c: u16, mut q: i32) -> usize {
     let p = get_node(SMALL_NODE_SIZE);
     set_NODE_type(p, TextNode::Ligature);
-    MEM[p + 1].b16.s1 = f as u16;
-    MEM[p + 1].b16.s0 = c;
-    MEM[p + 1].b32.s1 = q;
+    *LIGATURE_NODE_lig_font(p) = f as u16;
+    *LIGATURE_NODE_lig_char(p) = c;
+    *LIGATURE_NODE_lig_ptr(p) = q;
     MEM[p].b16.s0 = 0;
     p
 }
@@ -438,9 +438,9 @@ pub(crate) unsafe fn new_lig_item(mut c: u16) -> usize {
 pub(crate) unsafe fn new_disc() -> usize {
     let p = get_node(SMALL_NODE_SIZE);
     set_NODE_type(p, TextNode::Disc);
-    MEM[p].b16.s0 = 0;
-    MEM[p + 1].b32.s0 = None.tex_int();
-    MEM[p + 1].b32.s1 = None.tex_int();
+    *DISCRETIONARY_NODE_replace_count(p) = 0;
+    *DISCRETIONARY_NODE_pre_break(p) = None.tex_int();
+    *DISCRETIONARY_NODE_post_break(p) = None.tex_int();
     p
 }
 pub(crate) unsafe fn copy_native_glyph_info(src: usize, dest: usize) {
@@ -550,7 +550,7 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
             }
         } else {
             /*183:*/
-            match TextNode::n(MEM[p].b16.s1).unwrap() {
+            match text_NODE_type(p).unwrap() {
                 TextNode::HList
                 | TextNode::VList
                 | TextNode::Ins
@@ -559,7 +559,7 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                 | TextNode::Unset => print_cstr(b"[]"),
                 TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
                     WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                        if MEM[p + 4].b16.s2 as i32 != font_in_short_display {
+                        if *NATIVE_NODE_font(p) as i32 != font_in_short_display {
                             print_esc(
                                 (*hash.offset(
                                     (FONT_ID_BASE as i32 + MEM[p + 4].b16.s2 as i32) as isize,
@@ -587,10 +587,10 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                         print_char('$' as i32);
                     }
                 }
-                TextNode::Ligature => short_display(MEM[p + 1].b32.s1.opt()),
+                TextNode::Ligature => short_display(LIGATURE_NODE_lig_ptr(p).opt()),
                 TextNode::Disc => {
-                    short_display(MEM[p + 1].b32.s0.opt());
-                    short_display(MEM[p + 1].b32.s1.opt());
+                    short_display(DISCRETIONARY_NODE_pre_break(p).opt());
+                    short_display(DISCRETIONARY_NODE_post_break(p).opt());
                     let mut n = MEM[p].b16.s0 as i32;
                     while n > 0 {
                         if let Some(next) = LLIST_link(p).opt() {
@@ -875,11 +875,11 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_cstr(b", natural size ");
                         print_scaled(MEM[p + 3].b32.s1);
                         print_cstr(b"; split(");
-                        print_spec(MEM[p + 4].b32.s1, b"");
+                        print_spec(*INSERTION_NODE_split_top_ptr(p), b"");
                         print_char(',' as i32);
                         print_scaled(MEM[p + 2].b32.s1);
                         print_cstr(b"); float cost ");
-                        print_int(MEM[p + 1].b32.s1);
+                        print_int(*INSERTION_NODE_float_cost(p));
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
                         show_node_list(MEM[p + 4].b32.s0.opt());
@@ -1054,8 +1054,8 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         if MEM[p].b16.s0 > 1 {
                             print_char('|' as i32);
                         }
-                        font_in_short_display = MEM[p + 1].b16.s1 as i32;
-                        short_display(MEM[p + 1].b32.s1.opt());
+                        font_in_short_display = *LIGATURE_NODE_lig_font(p) as i32;
+                        short_display(LIGATURE_NODE_lig_ptr(p).opt());
                         if MEM[p].b16.s0 as i32 & 1 != 0 {
                             print_char('|' as i32);
                         }
@@ -1073,11 +1073,11 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         }
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(MEM[p + 1].b32.s0.opt());
+                        show_node_list(DISCRETIONARY_NODE_pre_break(p).opt());
                         pool_ptr -= 1;
                         str_pool[pool_ptr as usize] = '|' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(MEM[p + 1].b32.s1.opt());
+                        show_node_list(DISCRETIONARY_NODE_post_break(p).opt());
                         pool_ptr -= 1
                     }
                     TextNode::Mark => {
@@ -1273,7 +1273,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         current_block = 16791665189521845338;
                     }
                     TextNode::Ins => {
-                        flush_node_list(MEM[p + 4].b32.s0.opt());
+                        flush_node_list(INSERTION_NODE_ins_ptr(p).opt());
                         delete_glue_ref(*INSERTION_NODE_split_top_ptr(p) as usize);
                         free_node(p, INS_NODE_SIZE);
                         current_block = 16791665189521845338;
@@ -1338,7 +1338,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         current_block = 16791665189521845338;
                     }
                     TextNode::Ligature => {
-                        flush_node_list(MEM[p + 1].b32.s1.opt());
+                        flush_node_list(LIGATURE_NODE_lig_ptr(p).opt());
                         current_block = 8062065914618164218;
                     }
                     TextNode::Mark => {
@@ -1346,8 +1346,8 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         current_block = 8062065914618164218;
                     }
                     TextNode::Disc => {
-                        flush_node_list(MEM[p + 1].b32.s0.opt());
-                        flush_node_list(MEM[p + 1].b32.s1.opt());
+                        flush_node_list(DISCRETIONARY_NODE_pre_break(p).opt());
+                        flush_node_list(DISCRETIONARY_NODE_post_break(p).opt());
                         current_block = 8062065914618164218;
                     }
                     TextNode::Adjust => {
@@ -1430,7 +1430,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
         if is_char_node(Some(p)) {
             r = get_avail();
         } else {
-            match TextNode::n(MEM[p].b16.s1).confuse(b"copying") {
+            match text_NODE_type(p).confuse(b"copying") {
                 TextNode::HList | TextNode::VList | TextNode::Unset => {
                     r = get_node(BOX_NODE_SIZE);
                     *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p, BOX_NODE_SIZE);
@@ -1446,9 +1446,9 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                 }
                 TextNode::Ins => {
                     r = get_node(INS_NODE_SIZE);
-                    MEM[r + 4] = MEM[p + 4];
-                    *GLUE_SPEC_ref_count(MEM[p + 4].b32.s1 as usize) += 1;
-                    MEM[r + 4].b32.s0 = copy_node_list(MEM[p + 4].b32.s0.opt());
+                    *INSERTION_NODE_split_top_ptr(r) = *INSERTION_NODE_split_top_ptr(p);
+                    *GLUE_SPEC_ref_count(*INSERTION_NODE_split_top_ptr(p) as usize) += 1;
+                    *INSERTION_NODE_ins_ptr(r) = copy_node_list(INSERTION_NODE_ins_ptr(p).opt());
                     words = (INS_NODE_SIZE - 1) as u8
                 }
                 TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
@@ -1493,8 +1493,8 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                 TextNode::Glue => {
                     r = get_node(MEDIUM_NODE_SIZE);
                     *GLUE_SPEC_ref_count(*GLUE_NODE_glue_ptr(p) as usize) += 1;
-                    MEM[r + 2].b32.s0 = MEM[p + 2].b32.s0;
-                    MEM[r + 2].b32.s1 = MEM[p + 2].b32.s1;
+                    *SYNCTEX_tag(r, MEDIUM_NODE_SIZE) = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
+                    *SYNCTEX_line(r, MEDIUM_NODE_SIZE) = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
                     *GLUE_NODE_glue_ptr(r) = *GLUE_NODE_glue_ptr(p);
                     *GLUE_NODE_leader_ptr(r) = copy_node_list(GLUE_NODE_leader_ptr(p).opt())
                 }
@@ -1508,13 +1508,16 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                 }
                 TextNode::Ligature => {
                     r = get_node(SMALL_NODE_SIZE);
-                    MEM[r + 1] = MEM[p + 1];
-                    MEM[r + 1].b32.s1 = copy_node_list(MEM[p + 1].b32.s1.opt())
+                    *LIGATURE_NODE_lig_char(r) = *LIGATURE_NODE_lig_char(p);
+                    *LIGATURE_NODE_lig_font(r) = *LIGATURE_NODE_lig_font(p);
+                    *LIGATURE_NODE_lig_ptr(r) = copy_node_list(LIGATURE_NODE_lig_ptr(p).opt())
                 }
                 TextNode::Disc => {
                     r = get_node(SMALL_NODE_SIZE);
-                    MEM[r + 1].b32.s0 = copy_node_list(MEM[p + 1].b32.s0.opt());
-                    MEM[r + 1].b32.s1 = copy_node_list(MEM[p + 1].b32.s1.opt())
+                    *DISCRETIONARY_NODE_pre_break(r) =
+                        copy_node_list(DISCRETIONARY_NODE_pre_break(p).opt());
+                    *DISCRETIONARY_NODE_post_break(r) =
+                        copy_node_list(DISCRETIONARY_NODE_post_break(p).opt())
                 }
                 TextNode::Mark => {
                     r = get_node(SMALL_NODE_SIZE);
@@ -8713,9 +8716,9 @@ pub(crate) unsafe fn conv_toks() {
                         || NODE_type(p) == TextNode::Adjust.into()
                         || NODE_type(p) == TextNode::Penalty.into()
                         || NODE_type(p) == TextNode::Disc.into()
-                            && MEM[p + 1].b32.s0.opt().is_none()
-                            && MEM[p + 1].b32.s1.opt().is_none()
-                            && MEM[p].b16.s0 == 0
+                            && DISCRETIONARY_NODE_pre_break(p).opt().is_none()
+                            && DISCRETIONARY_NODE_post_break(p).opt().is_none()
+                            && *DISCRETIONARY_NODE_replace_count(p) == 0
                         || NODE_type(p) == TextNode::Math.into() && MEM[p + 1].b32.s1 == 0
                         || NODE_type(p) == TextNode::Kern.into()
                             && (MEM[p + 1].b32.s1 == 0 || MEM[p].b16.s0 == NORMAL)
@@ -8754,9 +8757,9 @@ pub(crate) unsafe fn conv_toks() {
                         || NODE_type(p) == TextNode::Adjust.into()
                         || NODE_type(p) == TextNode::Penalty.into()
                         || NODE_type(p) == TextNode::Disc.into()
-                            && MEM[p + 1].b32.s0.opt().is_none()
-                            && MEM[p + 1].b32.s1.opt().is_none()
-                            && MEM[p].b16.s0 == 0
+                            && DISCRETIONARY_NODE_pre_break(p).opt().is_none()
+                            && DISCRETIONARY_NODE_post_break(p).opt().is_none()
+                            && *DISCRETIONARY_NODE_replace_count(p) == 0
                         || NODE_type(p) == TextNode::Math.into() && MEM[p + 1].b32.s1 == 0
                         || NODE_type(p) == TextNode::Kern.into()
                             && (MEM[p + 1].b32.s1 == 0 || MEM[p].b16.s0 == NORMAL)
@@ -11311,8 +11314,9 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                     break;
                 }
                 TextNode::Ligature => {
-                    MEM[GARBAGE] = MEM[(p + 1) as usize];
-                    MEM[GARBAGE].b32.s1 = MEM[p as usize].b32.s1;
+                    *CHAR_NODE_character(GARBAGE) = *LIGATURE_NODE_lig_char(p as usize);
+                    *CHAR_NODE_font(GARBAGE) = *LIGATURE_NODE_lig_font(p as usize);
+                    *LLIST_link(GARBAGE) = *LLIST_link(p as usize);
                     p = GARBAGE as i32;
                     xtx_ligature_present = true;
                 }
@@ -11325,7 +11329,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
         match current_block {
             10435735846551762309 => {
                 let mut k = if q != r + 5 && NODE_type(q) == TextNode::Disc.into() {
-                    MEM[q].b16.s0 as i32
+                    *DISCRETIONARY_NODE_replace_count(q) as i32
                 } else {
                     0
                 };
@@ -11333,7 +11337,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                     k -= 1;
                     q = MEM[q].b32.s1 as usize;
                     if NODE_type(q) == TextNode::Disc.into() {
-                        k = MEM[q].b16.s0 as i32
+                        k = *DISCRETIONARY_NODE_replace_count(q) as i32
                     }
                 }
                 let mut pp = *LLIST_link(p as usize);
@@ -11349,7 +11353,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                         if !(NODE_type(pp as usize) == TextNode::Disc.into()) {
                             break;
                         }
-                        ppp = MEM[pp as usize].b32.s1;
+                        ppp = *LLIST_link(pp as usize);
                         if !(!ppp.is_texnull()
                             && !is_char_node(ppp.opt())
                             && NODE_type(ppp as usize) == TextNode::WhatsIt.into()
@@ -11360,7 +11364,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                         {
                             break;
                         }
-                        pp = MEM[ppp as usize].b32.s1
+                        pp = *LLIST_link(ppp as usize);
                     }
                 }
                 if pp != MEM[p as usize].b32.s1 {
@@ -13629,7 +13633,7 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
                             fm = false;
                             if q < hi_mem_min {
                                 if NODE_type(q as usize) == TextNode::Disc.into() {
-                                    for _ in 1..=MEM[q as usize].b16.s0 {
+                                    for _ in 0..(*DISCRETIONARY_NODE_replace_count(q as usize)) {
                                         p = *LLIST_link(p as usize);
                                     }
                                     if p == tx {
@@ -14001,7 +14005,7 @@ pub(crate) unsafe fn delete_last() {
                     fm = false;
                     if !is_char_node(q.opt()) {
                         if NODE_type(q as usize) == TextNode::Disc.into() {
-                            for _ in 1..=MEM[q as usize].b16.s0 as i32 {
+                            for _ in 0..(*DISCRETIONARY_NODE_replace_count(q as usize)) {
                                 p = *LLIST_link(p as usize);
                             }
                             if p == tx as i32 {
@@ -14172,7 +14176,7 @@ pub(crate) unsafe fn build_discretionary() {
     let mut n = 0;
     while let Some(p) = popt {
         if !is_char_node(Some(p)) {
-            let nodetype = TextNode::n(MEM[p].b16.s1).unwrap();
+            let nodetype = text_NODE_type(p).unwrap();
             if ![TextNode::HList, TextNode::VList, TextNode::Rule].contains(&nodetype) {
                 if nodetype != TextNode::Kern {
                     if nodetype != TextNode::Ligature {
@@ -14293,21 +14297,14 @@ pub(crate) unsafe fn make_accent() {
         }
         if let Some(q) = q {
             /*1160: */
-            let mut delta: scaled_t = 0;
-            let mut h: scaled_t = 0;
-            let mut w: scaled_t = 0;
-            let mut i: b16x4 = b16x4 {
-                s0: 0,
-                s1: 0,
-                s2: 0,
-                s3: 0,
-            };
+            let mut h;
+            let mut w;
             let t = FONT_INFO[(SLANT_CODE + PARAM_BASE[f]) as usize].b32.s1 as f64 / 65536.;
             if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
                 w = MEM[q + 1].b32.s1;
-                get_native_char_height_depth(f, cur_val, &mut h, &mut delta); // `delta` never used, BUG?
+                h = get_native_char_height_depth(f, cur_val).0;
             } else {
-                i = FONT_CHARACTER_INFO(
+                let i = FONT_CHARACTER_INFO(
                     f,
                     effective_char(true, f, *CHAR_NODE_character(q)) as usize,
                 );
@@ -14515,7 +14512,7 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
                         }
                         WhatsItNST::Write | WhatsItNST::Special => {
                             r = get_node(WRITE_NODE_SIZE);
-                            MEM[MEM[p + 1].b32.s1 as usize].b32.s0 += 1;
+                            *TOKEN_LIST_ref_count(*WRITE_NODE_tokens(p) as usize) += 1;
                             words = WRITE_NODE_SIZE as u8;
                         }
                         WhatsItNST::Close | WhatsItNST::Language => {
@@ -15603,7 +15600,7 @@ pub(crate) unsafe fn handle_right_brace() {
         GroupCode::Insert => {
             end_graf();
             let q = *GLUEPAR(GluePar::split_top_skip) as usize;
-            MEM[q].b32.s1 += 1;
+            *GLUE_SPEC_ref_count(q) += 1;
             d = *DIMENPAR(DimenPar::split_max_depth);
             f = *INTPAR(IntPar::floating_penalty);
             unsave();
@@ -15621,18 +15618,18 @@ pub(crate) unsafe fn handle_right_brace() {
                 cur_list.tail = n;
                 set_NODE_type(cur_list.tail, TextNode::Ins);
                 MEM[cur_list.tail].b16.s0 = SAVE_STACK[SAVE_PTR + 0].val as u16;
-                MEM[cur_list.tail + 3].b32.s1 = MEM[p + 3].b32.s1 + MEM[p + 2].b32.s1;
-                MEM[cur_list.tail + 4].b32.s0 = MEM[p + 5].b32.s1;
-                MEM[cur_list.tail + 4].b32.s1 = Some(q).tex_int();
+                MEM[cur_list.tail + 3].b32.s1 = *BOX_height(p) + *BOX_depth(p);
+                *INSERTION_NODE_ins_ptr(cur_list.tail) = *BOX_list_ptr(p);
+                *INSERTION_NODE_split_top_ptr(cur_list.tail) = Some(q).tex_int();
                 MEM[cur_list.tail + 2].b32.s1 = d;
-                MEM[cur_list.tail + 1].b32.s1 = f
+                *INSERTION_NODE_float_cost(cur_list.tail) = f
             } else {
                 let n = get_node(SMALL_NODE_SIZE);
                 *LLIST_link(cur_list.tail) = Some(n).tex_int();
                 cur_list.tail = n;
                 set_NODE_type(cur_list.tail, TextNode::Adjust);
                 MEM[cur_list.tail].b16.s0 = SAVE_STACK[SAVE_PTR + 1].val as u16;
-                MEM[cur_list.tail + 1].b32.s1 = MEM[p + 5].b32.s1;
+                MEM[cur_list.tail + 1].b32.s1 = *BOX_list_ptr(p);
                 delete_glue_ref(q);
             }
             free_node(p, BOX_NODE_SIZE);
@@ -16782,7 +16779,7 @@ pub(crate) unsafe fn main_control() {
                                 && NODE_type(main_ppp as usize) == TextNode::Disc.into()
                             {
                                 temp_ptr = main_ppp as usize;
-                                for _ in 0..MEM[temp_ptr].b16.s0 {
+                                for _ in 0..(*DISCRETIONARY_NODE_replace_count(temp_ptr)) {
                                     main_ppp = *LLIST_link(main_ppp as usize);
                                 }
                             }
@@ -16887,8 +16884,9 @@ pub(crate) unsafe fn main_control() {
                             }
                         }
                         if main_k > 0 || is_hyph {
-                            MEM[cur_list.tail].b32.s1 = new_disc() as i32;
-                            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                            let d = new_disc();
+                            *LLIST_link(cur_list.tail) = Some(d).tex_int();
+                            cur_list.tail = d;
                             main_pp = cur_list.tail as i32;
                         }
                         if main_k == 0 {
@@ -16903,7 +16901,7 @@ pub(crate) unsafe fn main_control() {
                                 && NODE_type(main_ppp as usize) == TextNode::Disc.into()
                             {
                                 temp_ptr = main_ppp as usize;
-                                for _ in 0..MEM[temp_ptr].b16.s0 {
+                                for _ in 0..(*DISCRETIONARY_NODE_replace_count(temp_ptr)) {
                                     main_ppp = *LLIST_link(main_ppp as usize);
                                 }
                             }
@@ -17229,10 +17227,10 @@ pub(crate) unsafe fn main_control() {
                                                 if ins_disc {
                                                     ins_disc = false;
                                                     if cur_list.mode.0 == false {
-                                                        MEM[cur_list.tail].b32.s1 =
-                                                            new_disc() as i32;
-                                                        cur_list.tail =
-                                                            *LLIST_link(cur_list.tail) as usize;
+                                                        let d = new_disc();
+                                                        *LLIST_link(cur_list.tail) =
+                                                            Some(d).tex_int();
+                                                        cur_list.tail = d;
                                                     }
                                                 }
                                             }
@@ -17319,11 +17317,10 @@ pub(crate) unsafe fn main_control() {
                                                         if ins_disc {
                                                             ins_disc = false;
                                                             if cur_list.mode.0 == false {
-                                                                MEM[cur_list.tail].b32.s1 =
-                                                                    new_disc() as i32;
-                                                                cur_list.tail =
-                                                                    *LLIST_link(cur_list.tail)
-                                                                        as usize;
+                                                                let d = new_disc();
+                                                                *LLIST_link(cur_list.tail) =
+                                                                    Some(d).tex_int();
+                                                                cur_list.tail = d;
                                                             }
                                                         }
                                                     }
@@ -17562,8 +17559,9 @@ pub(crate) unsafe fn main_control() {
                                         if ins_disc {
                                             ins_disc = false;
                                             if cur_list.mode.0 == false {
-                                                MEM[cur_list.tail].b32.s1 = new_disc() as i32;
-                                                cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                                                let d = new_disc();
+                                                *LLIST_link(cur_list.tail) = Some(d).tex_int();
+                                                cur_list.tail = d;
                                             }
                                         }
                                     }

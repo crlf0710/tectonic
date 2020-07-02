@@ -28,8 +28,8 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     is_non_discardable_node, set_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width,
     GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
-    GLUE_SPEC_stretch_order, GLUE_SPEC_width, LLIST_link, /*NODE_subtype, */ NODE_type,
-    PENALTY_NODE_penalty, TeXInt, TeXOpt,
+    GLUE_SPEC_stretch_order, GLUE_SPEC_width, INSERTION_NODE_ins_ptr, LLIST_link,
+    /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -223,12 +223,12 @@ unsafe fn fire_up(c: usize) {
                     wait = false;
 
                     s = MEM[(r + 2) as usize].b32.s1 as usize;
-                    *LLIST_link(s) = MEM[(p + 4) as usize].b32.s0;
+                    *LLIST_link(s) = *INSERTION_NODE_ins_ptr(p as usize);
                     if MEM[(r + 2) as usize].b32.s0 == p {
                         /*1056: "Wrap up the box specified by node r,
                          * splitting node p if called for; set wait = true if
                          * node p holds a remainder after splitting" */
-                        if NODE_type(r as usize) == ND::Text(SPLIT_UP) {
+                        if NODE_type(r as usize) == SPLIT_UP.into() {
                             if MEM[(r + 1) as usize].b32.s0 == p
                                 && MEM[(r + 1) as usize].b32.s1 != -0xfffffff
                             {

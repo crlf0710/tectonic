@@ -1663,18 +1663,13 @@ pub(crate) unsafe fn apply_mapping(
         }
     }
 }
-unsafe fn snap_zone(mut value: *mut scaled_t, mut snap_value: scaled_t, mut fuzz: scaled_t) {
+unsafe fn snap_zone(value: &mut i32, mut snap_value: scaled_t, mut fuzz: scaled_t) {
     let mut difference: scaled_t = *value - snap_value;
     if difference <= fuzz && difference >= -fuzz {
         *value = snap_value
     };
 }
-pub(crate) unsafe fn get_native_char_height_depth(
-    mut font: usize,
-    mut ch: i32,
-    mut height: *mut scaled_t,
-    mut depth: *mut scaled_t,
-) {
+pub(crate) unsafe fn get_native_char_height_depth(font: usize, ch: i32) -> (i32, i32) {
     let mut ht: f32 = 0.0f64 as f32;
     let mut dp: f32 = 0.0f64 as f32;
     let mut fuzz: Fixed = 0;
@@ -1692,34 +1687,29 @@ pub(crate) unsafe fn get_native_char_height_depth(
         }
         _ => panic!("bad native font flag in `get_native_char_height_depth`"),
     }
-    *height = D2Fix(ht as f64);
-    *depth = D2Fix(dp as f64);
+    let mut height = D2Fix(ht as f64);
+    let mut depth = D2Fix(dp as f64);
     /* snap to "known" zones for baseline, x-height, cap-height if within 4% of em-size */
     fuzz = FONT_INFO[(6 + PARAM_BASE[font]) as usize].b32.s1 / 25i32;
-    snap_zone(depth, 0i32, fuzz);
-    snap_zone(height, 0i32, fuzz);
+    snap_zone(&mut depth, 0i32, fuzz);
+    snap_zone(&mut height, 0i32, fuzz);
     snap_zone(
-        height,
+        &mut height,
         FONT_INFO[(5 + PARAM_BASE[font]) as usize].b32.s1,
         fuzz,
     );
     snap_zone(
-        height,
+        &mut height,
         FONT_INFO[(8 + PARAM_BASE[font]) as usize].b32.s1,
         fuzz,
     );
+    (height, depth)
 }
-pub(crate) unsafe fn getnativecharht(mut f: usize, mut c: i32) -> scaled_t {
-    let mut h: scaled_t = 0;
-    let mut d: scaled_t = 0;
-    get_native_char_height_depth(f, c, &mut h, &mut d);
-    h
+pub(crate) unsafe fn getnativecharht(f: usize, c: i32) -> i32 {
+    get_native_char_height_depth(f, c).0
 }
-pub(crate) unsafe fn getnativechardp(mut f: usize, mut c: i32) -> scaled_t {
-    let mut h: scaled_t = 0;
-    let mut d: scaled_t = 0;
-    get_native_char_height_depth(f, c, &mut h, &mut d);
-    d
+pub(crate) unsafe fn getnativechardp(f: usize, c: i32) -> i32 {
+    get_native_char_height_depth(f, c).1
 }
 pub(crate) unsafe fn get_native_char_sidebearings(
     mut font: usize,

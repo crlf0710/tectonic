@@ -47,9 +47,9 @@ use crate::xetex_xetexd::{
     BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font, EDGE_NODE_edge_dist,
     GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_SPEC_ref_count, GLUE_SPEC_shrink,
     GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, GLUE_SPEC_width,
-    LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph,
-    NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length, NODE_type, SYNCTEX_tag, TeXInt, TeXOpt,
-    FONT_CHARACTER_WIDTH,
+    LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link,
+    NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length, NODE_type,
+    SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::{strerror, strlen};
@@ -1064,8 +1064,8 @@ unsafe fn hlist_out() {
                         }
                         TextNode::Ligature => {
                             /* 675: "Make node p look like a char_node and goto reswitch" */
-                            MEM[LIG_TRICK] =
-                                MEM[(p + 1) as usize];
+                            *CHAR_NODE_character(LIG_TRICK) = *LIGATURE_NODE_lig_char(p as usize);
+                            *CHAR_NODE_font(LIG_TRICK) = *LIGATURE_NODE_lig_font(p as usize);
                             *LLIST_link(LIG_TRICK) = *LLIST_link(p as usize);
                             p = LIG_TRICK as i32;
                             xtx_ligature_present = true;
