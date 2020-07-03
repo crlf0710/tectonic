@@ -1084,11 +1084,11 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     }
                     TextNode::Mark => {
                         print_esc_cstr(b"mark");
-                        if MEM[p + 1].b32.s0 != 0 {
+                        if *MARK_NODE_class(p) != 0 {
                             print_char('s' as i32);
-                            print_int(MEM[p + 1].b32.s0);
+                            print_int(*MARK_NODE_class(p));
                         }
-                        print_mark(MEM[p + 1].b32.s1);
+                        print_mark(*MARK_NODE_ptr(p));
                     }
                     TextNode::Adjust => {
                         print_esc_cstr(b"vadjust");
@@ -1344,7 +1344,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         current_block = 8062065914618164218;
                     }
                     TextNode::Mark => {
-                        delete_token_ref(MEM[p + 1].b32.s1 as usize);
+                        delete_token_ref(*MARK_NODE_ptr(p) as usize);
                         current_block = 8062065914618164218;
                     }
                     TextNode::Disc => {
@@ -1523,7 +1523,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                 }
                 TextNode::Mark => {
                     r = get_node(SMALL_NODE_SIZE);
-                    MEM[MEM[p + 1].b32.s1 as usize].b32.s0 += 1;
+                    MEM[*MARK_NODE_ptr(p) as usize].b32.s0 += 1;
                     words = SMALL_NODE_SIZE as u8
                 }
                 TextNode::Adjust => {
@@ -13129,18 +13129,18 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
     } else {
         loop {
             if NODE_type(p as usize) == TextNode::Mark.into() {
-                if MEM[(p + 1) as usize].b32.s0 != 0 {
+                if *MARK_NODE_class(p as usize) != 0 {
                     /*1615: */
-                    find_sa_element(ValLevel::Mark, MEM[(p + 1) as usize].b32.s0, true);
+                    find_sa_element(ValLevel::Mark, *MARK_NODE_class(p as usize), true);
                     let c = cur_ptr.unwrap();
                     if MEM[c + 2].b32.s1.is_texnull() {
-                        MEM[c + 2].b32.s1 = MEM[(p + 1) as usize].b32.s1;
-                        MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1
+                        MEM[c + 2].b32.s1 = *MARK_NODE_ptr(p as usize);
+                        MEM[*MARK_NODE_ptr(p as usize) as usize].b32.s0 += 1
                     } else {
                         delete_token_ref(MEM[c + 3].b32.s0 as usize);
                     }
-                    MEM[c + 3].b32.s0 = MEM[(p + 1) as usize].b32.s1;
-                    MEM[MEM[(p + 1) as usize].b32.s1 as usize].b32.s0 += 1;
+                    MEM[c + 3].b32.s0 = *MARK_NODE_ptr(p as usize);
+                    MEM[*MARK_NODE_ptr(p as usize) as usize].b32.s0 += 1;
                 } else if cur_mark[SPLIT_FIRST_MARK_CODE].is_none() {
                     let m = MEM[(p + 1) as usize].b32.s1.opt().unwrap();
                     cur_mark[SPLIT_FIRST_MARK_CODE] = Some(m);
@@ -13942,11 +13942,11 @@ pub(crate) unsafe fn make_mark() {
     };
     let _p = scan_toks(false, true);
     let p = get_node(SMALL_NODE_SIZE);
-    MEM[p + 1].b32.s0 = c;
+    *MARK_NODE_class(p) = c;
     set_NODE_type(p as usize, TextNode::Mark);
     MEM[p].b16.s0 = 0;
-    MEM[p + 1].b32.s1 = def_ref as i32;
-    MEM[cur_list.tail].b32.s1 = p as i32;
+    *MARK_NODE_ptr(p) = def_ref as i32;
+    *LLIST_link(cur_list.tail) = Some(p).tex_int();
     cur_list.tail = p;
 }
 pub(crate) unsafe fn append_penalty() {
@@ -14589,8 +14589,8 @@ pub(crate) unsafe fn just_reverse(p: usize) {
         if is_char_node(Some(p)) {
             loop {
                 let p = q.unwrap();
-                q = MEM[p].b32.s1.opt();
-                MEM[p].b32.s1 = Some(l).tex_int();
+                q = LLIST_link(p).opt();
+                *LLIST_link(p) = Some(l).tex_int();
                 l = p;
                 if !is_char_node(q) {
                     break;

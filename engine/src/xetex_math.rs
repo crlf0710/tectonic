@@ -3718,33 +3718,33 @@ unsafe fn build_opentype_assembly(
 unsafe fn rebox(mut b: usize, mut w: scaled_t) -> usize {
     let mut f: internal_font_number = 0;
     let mut v: scaled_t = 0;
-    if MEM[b + 1].b32.s1 != w && !MEM[b + 5].b32.s1.is_texnull() {
+    if *BOX_width(b) != w && BOX_list_ptr(b).opt().is_some() {
         if NODE_type(b) == TextNode::VList.into() {
             b = hpack(b as i32, 0, PackMode::Additional) as usize
         }
-        let mut p = MEM[b + 5].b32.s1 as usize;
-        if is_char_node(Some(p)) && MEM[p].b32.s1.is_texnull() {
-            f = MEM[p as usize].b16.s1 as internal_font_number;
+        let mut p = *BOX_list_ptr(b) as usize;
+        if is_char_node(Some(p)) && LLIST_link(p).opt().is_none() {
+            f = *CHAR_NODE_font(p) as internal_font_number;
             v = FONT_INFO[(WIDTH_BASE[f]
-                + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, MEM[p].b16.s0)) as usize]
+                + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, *CHAR_NODE_character(p))) as usize]
                     .b16
                     .s3 as i32) as usize]
                 .b32
                 .s1;
-            if v != MEM[b + 1].b32.s1 {
-                MEM[p].b32.s1 = new_kern(MEM[b + 1].b32.s1 - v) as i32;
+            if v != *BOX_width(b) {
+                *LLIST_link(p) = new_kern(*BOX_width(b) - v) as i32;
             }
         }
         free_node(b, BOX_NODE_SIZE);
-        b = new_glue(12);
-        MEM[b].b32.s1 = p as i32;
+        let b = new_glue(12);
+        *LLIST_link(b) = Some(p).tex_int();
         while let Some(next) = LLIST_link(p).opt() {
             p = next;
         }
         MEM[p].b32.s1 = new_glue(12) as i32;
         hpack(b as i32, w, PackMode::Exactly) as usize
     } else {
-        MEM[b + 1].b32.s1 = w;
+        *BOX_width(b) = w;
         b
     }
 }
