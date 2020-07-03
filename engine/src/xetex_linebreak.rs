@@ -35,19 +35,19 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     clear_NODE_subtype, is_char_node, is_non_discardable_node,
     kern_NODE_subtype, /*set_NODE_subtype,*/
-    set_NODE_type, text_NODE_type, whatsit_NODE_subtype, ACTIVE_NODE_break_node,
-    ACTIVE_NODE_fitness, ACTIVE_NODE_glue, ACTIVE_NODE_line_number, ACTIVE_NODE_shortfall,
-    ACTIVE_NODE_total_demerits, BOX_depth, BOX_height, BOX_list_ptr, BOX_shift_amount, BOX_width,
-    CHAR_NODE_character, CHAR_NODE_font, DELTA_NODE_dshrink, DELTA_NODE_dstretch0,
-    DELTA_NODE_dstretch1, DELTA_NODE_dstretch2, DELTA_NODE_dstretch3, DELTA_NODE_dwidth,
-    DISCRETIONARY_NODE_post_break, DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count,
-    GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_SPEC_ref_count, GLUE_SPEC_shrink,
-    GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, GLUE_SPEC_width,
-    LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm, LANGUAGE_NODE_what_rhm,
-    LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link,
-    NATIVE_NODE_font, NATIVE_NODE_length, NODE_type, PASSIVE_NODE_cur_break,
-    PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty, TeXInt, TeXOpt,
-    FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
+    set_NODE_type, set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype,
+    ACTIVE_NODE_break_node, ACTIVE_NODE_fitness, ACTIVE_NODE_glue, ACTIVE_NODE_line_number,
+    ACTIVE_NODE_shortfall, ACTIVE_NODE_total_demerits, BOX_depth, BOX_height, BOX_list_ptr,
+    BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font, DELTA_NODE_dshrink,
+    DELTA_NODE_dstretch0, DELTA_NODE_dstretch1, DELTA_NODE_dstretch2, DELTA_NODE_dstretch3,
+    DELTA_NODE_dwidth, DISCRETIONARY_NODE_post_break, DISCRETIONARY_NODE_pre_break,
+    DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
+    GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
+    GLUE_SPEC_stretch_order, GLUE_SPEC_width, LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm,
+    LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
+    LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length, NODE_type,
+    PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty,
+    TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -345,9 +345,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 TextNode::WhatsIt => {
                     match whatsit_NODE_subtype(cp) {
                         WhatsItNST::Language => {
-                            cur_lang = MEM[cp + 1].b32.s1 as u8;
-                            l_hyf = MEM[cp + 1].b16.s1 as i32;
-                            r_hyf = MEM[cp + 1].b16.s0 as i32;
+                            cur_lang = *LANGUAGE_NODE_what_lang(cp) as u8;
+                            l_hyf = *LANGUAGE_NODE_what_lhm(cp) as i32;
+                            r_hyf = *LANGUAGE_NODE_what_rhm(cp) as i32;
                             if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32 != cur_lang as i32 {
                                 hyph_index = 0i32
                             } else {
@@ -538,8 +538,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                     if hc[0] == 0 {
                                                                         if hn > 0 {
                                                                             let q = new_native_word_node(hf, *NATIVE_NODE_length(ha as usize) as i32 - l);
-                                                                            //set_NODE_subtype(q as usize, NODE_subtype( ha as usize));
-                                                                            MEM[q].b16.s0 = MEM[ha as usize].b16.s0;
+                                                                            set_whatsit_NODE_subtype(q as usize, whatsit_NODE_subtype(ha as usize));
                                                                             i = l;
                                                                             while i < *NATIVE_NODE_length(ha as usize) as i32 {
                                                                                 *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset((i - l) as isize) =
@@ -561,8 +560,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                         }
                                                                     } else if hn == 0 && l > 0 {
                                                                         let q = new_native_word_node(hf, *NATIVE_NODE_length(ha as usize) as i32 - l);
-                                                                        //set_NODE_subtype(q, NODE_subtype( ha as usize));
-                                                                        MEM[q].b16.s0 = MEM[ha as usize].b16.s0;
+                                                                        set_whatsit_NODE_subtype(q as usize, whatsit_NODE_subtype(ha as usize));
                                                                         i = l;
                                                                         while i < *NATIVE_NODE_length(ha as usize) as i32 {
                                                                             *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset((i - l) as isize) =
@@ -2113,7 +2111,7 @@ unsafe fn hyphenate() {
             }
         }
     }
-    if !ha.is_texnull()
+    if !ha.is_texnull() // TODO: unwrap `ha`
         && !is_char_node(ha.opt())
         && NODE_type(ha as usize) == TextNode::WhatsIt.into()
         && (whatsit_NODE_subtype(ha as usize) == WhatsItNST::NativeWord
@@ -2127,7 +2125,7 @@ unsafe fn hyphenate() {
         for j in l_hyf..=(hn as i32 - r_hyf) {
             if hyf[j as usize] as i32 & 1i32 != 0 {
                 let q = new_native_word_node(hf, j as i32 - hyphen_passed as i32);
-                MEM[q].b16.s0 = MEM[ha as usize].b16.s0;
+                set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha as usize));
                 for i in 0..(j as i32 - hyphen_passed as i32) {
                     *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset(i as isize) =
                         *(&mut MEM[(ha + 6) as usize] as *mut memory_word as *mut u16)
@@ -2146,9 +2144,9 @@ unsafe fn hyphenate() {
                 hyphen_passed = j as i16;
             }
         }
-        hn = MEM[(ha + 4) as usize].b16.s1 as i16;
+        hn = *NATIVE_NODE_length(ha as usize) as i16;
         let q = new_native_word_node(hf, hn as i32 - hyphen_passed as i32);
-        MEM[q].b16.s0 = MEM[ha as usize].b16.s0;
+        set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha as usize));
         for i in 0..(hn as i32 - hyphen_passed as i32) {
             *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset(i as isize) =
                 *(&mut MEM[(ha + 6) as usize] as *mut memory_word as *mut u16)
@@ -2156,9 +2154,9 @@ unsafe fn hyphenate() {
         }
         measure_native_node(
             &mut MEM[q] as *mut memory_word as *mut libc::c_void,
-            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
+            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
         );
-        MEM[s].b32.s1 = q as i32;
+        *LLIST_link(s) = Some(q).tex_int();
         s = q;
         let q = MEM[ha as usize].b32.s1;
         MEM[s].b32.s1 = q;

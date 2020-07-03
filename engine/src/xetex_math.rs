@@ -288,7 +288,7 @@ pub(crate) unsafe fn init_math() {
                                 }
                             },
                             _ => {
-                                d = 0i32;
+                                d = 0;
                                 current_block = 1677945370889843322;
                                 break;
                             }
@@ -3166,7 +3166,7 @@ unsafe fn mlist_to_hlist() {
                 | TextNode::Mark
                 | TextNode::Glue
                 | TextNode::Kern => {
-                    MEM[p].b32.s1 = q as i32;
+                    MEM[p].b32.s1 = Some(q).tex_int();
                     p = q;
                     qopt = LLIST_link(q).opt();
                     MEM[p].b32.s1 = None.tex_int();

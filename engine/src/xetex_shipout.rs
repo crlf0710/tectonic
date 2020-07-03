@@ -347,9 +347,7 @@ unsafe fn hlist_out() {
     let mut lx: scaled_t = 0;
     let mut outer_doing_leaders: bool = false;
     let mut edge: scaled_t = 0;
-    let mut prev_p: i32 = 0;
     let mut len: i32 = 0;
-    let mut r: i32 = 0;
     let mut k: i32 = 0;
     let mut j: i32 = 0;
     let mut glue_temp: f64 = 0.;
@@ -367,22 +365,21 @@ unsafe fn hlist_out() {
          * words using native fonts and inter-word spaces into single
          * nodes" */
 
-        let mut p = *BOX_list_ptr(this_box);
-        prev_p = (this_box + 5) as i32; /* this gets the list within the box */
+        let mut popt = BOX_list_ptr(this_box).opt();
+        let mut prev_p = this_box + 5; /* this gets the list within the box */
 
-        while !p.is_texnull() {
-            if !LLIST_link(p as usize).is_texnull() {
-                if !p.is_texnull()
-                    && !is_char_node(p.opt())
-                    && NODE_type(p as usize) != TextNode::WhatsIt.into()
-                    && (whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWord
-                        || whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWordAt)
-                    && FONT_LETTER_SPACE[MEM[(p + 4) as usize].b16.s2 as usize] == 0
+        while let Some(mut p) = popt {
+            if !LLIST_link(p).is_texnull() {
+                if !is_char_node(Some(p))
+                    && NODE_type(p) != TextNode::WhatsIt.into()
+                    && (whatsit_NODE_subtype(p) == WhatsItNST::NativeWord
+                        || whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt)
+                    && FONT_LETTER_SPACE[*NATIVE_NODE_font(p) as usize] == 0
                 {
                     /* "got a word in an AAT font, might be the start of a run" */
-                    r = p;
-                    k = MEM[(r + 4) as usize].b16.s1 as i32;
-                    let mut q = *LLIST_link(p as usize);
+                    let r = p;
+                    k = *NATIVE_NODE_length(r) as i32;
+                    let mut q = *LLIST_link(p);
                     loop {
                         /*641: "Advance `q` past ignorable nodes." This test is
                          * mostly `node_is_invisible_to_interword_space`. 641 is
@@ -412,7 +409,7 @@ unsafe fn hlist_out() {
                             && *GLUE_SPEC_shrink_order(q as usize) == GlueOrder::Normal as _
                         {
                             if *GLUE_NODE_glue_ptr(q as usize)
-                                == FONT_GLUE[MEM[(r + 4) as usize].b16.s2 as usize]
+                                == FONT_GLUE[*NATIVE_NODE_font(r) as usize]
                             {
                                 /* "Found a normal space; if the next node is
                                  * another word in the same font, we'll
@@ -444,11 +441,11 @@ unsafe fn hlist_out() {
                                     && (whatsit_NODE_subtype(q as usize) == WhatsItNST::NativeWord
                                         || whatsit_NODE_subtype(q as usize)
                                             == WhatsItNST::NativeWordAt)
-                                    && MEM[(q + 4) as usize].b16.s2 as i32
-                                        == MEM[(r + 4) as usize].b16.s2 as i32
+                                    && *NATIVE_NODE_font(q as usize) as i32
+                                        == *NATIVE_NODE_font(r) as i32
                                 {
-                                    p = q;
-                                    k += 1 + MEM[(q + 4) as usize].b16.s1 as i32;
+                                    p = q as usize;
+                                    k += 1 + *NATIVE_NODE_length(q as usize) as i32;
                                     q = *LLIST_link(q as usize);
                                     continue;
                                 }
@@ -484,7 +481,7 @@ unsafe fn hlist_out() {
                             {
                                 break;
                             }
-                            p = q;
+                            p = q as usize;
                             k += (1 + *NATIVE_NODE_length(q as usize)) as i32;
                             q = *LLIST_link(q as usize);
                         } else {
@@ -498,7 +495,7 @@ unsafe fn hlist_out() {
                             {
                                 break;
                             }
-                            p = q;
+                            p = q as usize;
                             q = *LLIST_link(q as usize);
                         }
                     }
@@ -511,26 +508,25 @@ unsafe fn hlist_out() {
                         k = 0;
                         let mut q = r;
                         loop {
-                            if NODE_type(q as usize) == TextNode::WhatsIt.into() {
-                                match whatsit_NODE_subtype(q as usize) {
+                            if NODE_type(q) == TextNode::WhatsIt.into() {
+                                match whatsit_NODE_subtype(q) {
                                     WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
                                         j = 0;
-                                        while j < *NATIVE_NODE_length(q as usize) as i32 {
+                                        while j < *NATIVE_NODE_length(q) as i32 {
                                             str_pool[pool_ptr as usize] =
-                                                *(&mut MEM[(q + 6) as usize] as *mut memory_word
-                                                    as *mut u16)
+                                                *(&mut MEM[q + 6] as *mut memory_word as *mut u16)
                                                     .offset(j as isize);
                                             pool_ptr += 1;
                                             j += 1
                                         }
-                                        k += *BOX_width(q as usize);
+                                        k += *BOX_width(q);
                                     }
                                     _ => {}
                                 }
-                            } else if NODE_type(q as usize) == TextNode::Glue.into() {
+                            } else if NODE_type(q) == TextNode::Glue.into() {
                                 str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
                                 pool_ptr += 1;
-                                g = *GLUE_NODE_glue_ptr(q as usize) as usize;
+                                g = *GLUE_NODE_glue_ptr(q) as usize;
                                 k += *GLUE_SPEC_width(g);
                                 if g_sign != GlueSign::Normal {
                                     if g_sign == GlueSign::Stretching {
@@ -546,38 +542,38 @@ unsafe fn hlist_out() {
                                         )
                                     }
                                 }
-                            } else if NODE_type(q as usize) == TextNode::Kern.into() {
-                                k += *BOX_width(q as usize);
+                            } else if NODE_type(q) == TextNode::Kern.into() {
+                                k += *BOX_width(q);
                             }
                             if q == p {
                                 break;
                             }
-                            q = *LLIST_link(q as usize);
+                            q = *LLIST_link(q) as usize;
                         }
                         let mut q = new_native_word_node(
-                            MEM[(r + 4) as usize].b16.s2 as internal_font_number,
+                            *NATIVE_NODE_font(r) as internal_font_number,
                             cur_length(),
-                        ) as i32;
-                        //set_NODE_subtype(q as usize, NODE_subtype(r as usize));
-                        MEM[q as usize].b16.s0 = MEM[r as usize].b16.s0;
+                        );
+                        //set_NODE_subtype(q as usize, NODE_subtype(r));
+                        MEM[q].b16.s0 = MEM[r].b16.s0;
 
                         j = 0;
                         while j < cur_length() {
-                            *(&mut MEM[(q + 6) as usize] as *mut memory_word as *mut u16)
-                                .offset(j as isize) = str_pool
-                                [(str_start[(str_ptr - TOO_BIG_CHAR) as usize] + j) as usize];
+                            *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset(j as isize) =
+                                str_pool
+                                    [(str_start[(str_ptr - TOO_BIG_CHAR) as usize] + j) as usize];
                             j += 1;
                         }
                         /* "Link q into the list in place of r...p" */
-                        *BOX_width(q as usize) = k;
+                        *BOX_width(q) = k;
                         store_justified_native_glyphs(
-                            &mut MEM[q as usize] as *mut memory_word as *mut libc::c_void,
+                            &mut MEM[q] as *mut memory_word as *mut libc::c_void,
                         );
-                        *LLIST_link(prev_p as usize) = q;
-                        *LLIST_link(q as usize) = *LLIST_link(p as usize);
-                        *LLIST_link(p as usize) = None.tex_int();
+                        *LLIST_link(prev_p) = Some(q).tex_int();
+                        *LLIST_link(q) = *LLIST_link(p);
+                        *LLIST_link(p) = None.tex_int();
                         prev_p = r;
-                        let mut popt2 = LLIST_link(r as usize).opt();
+                        let mut popt2 = LLIST_link(r).opt();
 
                         /* "Extract any 'invisible' nodes from the old list
                          * and insert them after the new node, so we don't
@@ -594,22 +590,22 @@ unsafe fn hlist_out() {
                                     || NODE_type(p) == TextNode::WhatsIt.into()
                                         && whatsit_NODE_subtype(p) as u16 <= 4)
                             {
-                                *LLIST_link(prev_p as usize) = *LLIST_link(p);
-                                *LLIST_link(p) = *LLIST_link(q as usize);
-                                *LLIST_link(q as usize) = p as i32;
-                                q = p as i32;
+                                *LLIST_link(prev_p) = *LLIST_link(p);
+                                *LLIST_link(p) = *LLIST_link(q);
+                                *LLIST_link(q) = Some(p).tex_int();
+                                q = p;
                             }
-                            prev_p = p as i32;
-                            popt2 = LLIST_link(p as usize).opt();
+                            prev_p = p;
+                            popt2 = LLIST_link(p).opt();
                         }
-                        flush_node_list(r.opt());
+                        flush_node_list(Some(r));
                         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
                         p = q
                     }
                 }
                 prev_p = p;
             }
-            p = *LLIST_link(p as usize);
+            popt = LLIST_link(p).opt();
         }
     }
 
@@ -627,7 +623,7 @@ unsafe fn hlist_out() {
 
     save_loc = dvi_offset + dvi_ptr;
     base_line = cur_v;
-    prev_p = (this_box + 5) as i32; /* this is list_offset, the offset of the box list pointer */
+    let mut prev_p = (this_box + 5) as i32; /* this is list_offset, the offset of the box list pointer */
 
     /*1501: "Initialize hlist_out for mixed direction typesetting" */
 

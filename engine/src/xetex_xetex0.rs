@@ -564,12 +564,12 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                         if *NATIVE_NODE_font(p) as usize != font_in_short_display {
                             print_esc(
                                 (*hash.offset(
-                                    (FONT_ID_BASE as i32 + MEM[p + 4].b16.s2 as i32) as isize,
+                                    (FONT_ID_BASE as i32 + *NATIVE_NODE_font(p) as i32) as isize,
                                 ))
                                 .s1,
                             );
                             print_char(' ' as i32);
-                            font_in_short_display = MEM[p + 4].b16.s2 as usize
+                            font_in_short_display = *NATIVE_NODE_font(p) as usize
                         }
                         print_native_word(p);
                     }
@@ -908,17 +908,17 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         }
                         WhatsItNST::Language => {
                             print_esc_cstr(b"setlanguage");
-                            print_int(MEM[p + 1].b32.s1);
+                            print_int(*LANGUAGE_NODE_what_lang(p));
                             print_cstr(b" (hyphenmin ");
-                            print_int(MEM[p + 1].b16.s1 as i32);
+                            print_int(*LANGUAGE_NODE_what_lhm(p) as i32);
                             print_char(',' as i32);
-                            print_int(MEM[p + 1].b16.s0 as i32);
+                            print_int(*LANGUAGE_NODE_what_rhm(p) as i32);
                             print_char(')' as i32);
                         }
                         WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
                             print_esc(
                                 (*hash.offset(
-                                    (FONT_ID_BASE as i32 + MEM[p + 4].b16.s2 as i32) as isize,
+                                    (FONT_ID_BASE as i32 + *NATIVE_NODE_font(p) as i32) as isize,
                                 ))
                                 .s1,
                             );
@@ -928,12 +928,12 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         WhatsItNST::Glyph => {
                             print_esc(
                                 (*hash.offset(
-                                    (FONT_ID_BASE as i32 + MEM[p + 4].b16.s2 as i32) as isize,
+                                    (FONT_ID_BASE as i32 + *NATIVE_NODE_font(p) as i32) as isize,
                                 ))
                                 .s1,
                             );
                             print_cstr(b" glyph#");
-                            print_int(MEM[p + 4].b16.s1 as i32);
+                            print_int(*NATIVE_NODE_glyph(p) as i32);
                         }
                         WhatsItNST::Pic | WhatsItNST::Pdf => {
                             if whatsit_NODE_subtype(p) == WhatsItNST::Pic {
@@ -1291,9 +1291,9 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                                 free_node(p, SMALL_NODE_SIZE)
                             }
                             WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                                if !MEM[p + 5].ptr.is_null() {
-                                    MEM[p + 5].ptr = mfree(*NATIVE_NODE_glyph_info_ptr(p));
-                                    MEM[p + 4].b16.s0 = 0_u16
+                                if let Some(ptr) = NATIVE_NODE_glyph_info_ptr(p).as_mut() {
+                                    *NATIVE_NODE_glyph_info_ptr(p) = mfree(ptr);
+                                    *NATIVE_NODE_glyph_count(p) = 0;
                                 }
                                 free_node(p, *NATIVE_NODE_size(p) as i32);
                             }
@@ -10039,7 +10039,7 @@ pub(crate) unsafe fn new_native_word_node(mut f: internal_font_number, mut n: i3
     set_NODE_type(q, TextNode::WhatsIt);
     set_whatsit_NODE_subtype(
         q,
-        if *INTPAR(IntPar::xetex_generate_actual_text) > 0i32 {
+        if *INTPAR(IntPar::xetex_generate_actual_text) > 0 {
             WhatsItNST::NativeWordAt
         } else {
             WhatsItNST::NativeWord
@@ -10048,7 +10048,7 @@ pub(crate) unsafe fn new_native_word_node(mut f: internal_font_number, mut n: i3
     *NATIVE_NODE_size(q) = l as u16;
     *NATIVE_NODE_font(q) = f as u16;
     *NATIVE_NODE_length(q) = n as u16;
-    *NATIVE_NODE_glyph_count(q) = 0_u16;
+    *NATIVE_NODE_glyph_count(q) = 0;
     *NATIVE_NODE_glyph_info_ptr(q) = ptr::null_mut();
     q
 }
@@ -10123,18 +10123,18 @@ pub(crate) unsafe fn new_native_character(
         p = get_node(NATIVE_NODE_SIZE + 1);
         set_NODE_type(p, TextNode::WhatsIt);
         set_whatsit_NODE_subtype(p, WhatsItNST::NativeWord);
-        MEM[p + 4].b16.s3 = (NATIVE_NODE_SIZE + 1) as u16;
-        MEM[p + 4].b16.s0 = 0;
-        MEM[p + 5].ptr = ptr::null_mut();
-        MEM[p + 4].b16.s2 = f as u16;
+        *NATIVE_NODE_size(p) = (NATIVE_NODE_SIZE + 1) as u16;
+        *NATIVE_NODE_glyph_count(p) = 0;
+        *NATIVE_NODE_glyph_info_ptr(p) = ptr::null_mut();
+        *NATIVE_NODE_font(p) = f as u16;
         if c as i64 > 65535 {
-            MEM[p + 4].b16.s1 = 2;
+            *NATIVE_NODE_length(p) = 2;
             *(&mut MEM[p + 6] as *mut memory_word as *mut u16).offset(0) =
                 ((c as i64 - 65536) / 1024 as i64 + 0xd800) as u16;
             *(&mut MEM[p + 6] as *mut memory_word as *mut u16).offset(1) =
                 ((c as i64 - 65536) % 1024 as i64 + 0xdc00) as u16
         } else {
-            MEM[p + 4].b16.s1 = 1;
+            *NATIVE_NODE_length(p) = 1;
             *(&mut MEM[p + 6] as *mut memory_word as *mut u16).offset(0) = c as u16
         }
     }
@@ -11347,8 +11347,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                     if NODE_type(pp as usize) == TextNode::WhatsIt.into()
                         && (whatsit_NODE_subtype(pp as usize) == WhatsItNST::NativeWord
                             || whatsit_NODE_subtype(pp as usize) == WhatsItNST::NativeWordAt)
-                        && MEM[(pp + 4) as usize].b16.s2 as i32
-                            == MEM[(p + 4) as usize].b16.s2 as i32
+                        && *NATIVE_NODE_font(pp as usize) == *NATIVE_NODE_font(p as usize)
                     {
                         pp = MEM[pp as usize].b32.s1
                     } else {
@@ -11361,8 +11360,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                             && NODE_type(ppp as usize) == TextNode::WhatsIt.into()
                             && (whatsit_NODE_subtype(ppp as usize) == WhatsItNST::NativeWord
                                 || whatsit_NODE_subtype(ppp as usize) == WhatsItNST::NativeWordAt)
-                            && MEM[(ppp + 4) as usize].b16.s2 as i32
-                                == MEM[(p + 4) as usize].b16.s2 as i32)
+                            && *NATIVE_NODE_font(ppp as usize) == *NATIVE_NODE_font(p as usize))
                         {
                             break;
                         }
@@ -14526,7 +14524,7 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
                                 MEM[r + (words as usize)] = MEM[p + (words as usize)]
                             }
 
-                            *NATIVE_NODE_glyph_info_ptr(r) = 0 as *mut libc::c_void;
+                            *NATIVE_NODE_glyph_info_ptr(r) = core::ptr::null_mut();
                             *NATIVE_NODE_glyph_count(r) = 0;
                             copy_native_glyph_info(p, r);
                         }
@@ -15371,7 +15369,7 @@ pub(crate) unsafe fn scan_and_pack_name() {
 pub(crate) unsafe fn do_extension() {
     let mut j: i32 = 0;
     let mut p: usize = 0;
-    match cur_chr {
+    match cur_chr as u16 {
         0 => {
             new_write_whatsit(OPEN_NODE_SIZE as i16);
             scan_optional_equals();
@@ -15397,7 +15395,7 @@ pub(crate) unsafe fn do_extension() {
             p = scan_toks(false, true);
             MEM[cur_list.tail + 1].b32.s1 = def_ref as i32;
         }
-        4 => {
+        IMMEDIATE_CODE => {
             get_x_token();
             if cur_cmd == Cmd::Extension && cur_chr <= WhatsItNST::Close as i32 {
                 p = cur_list.tail;
@@ -15410,39 +15408,41 @@ pub(crate) unsafe fn do_extension() {
                 back_input();
             }
         }
-        5 => {
+        SET_LANGUAGE_CODE => {
             if cur_list.mode.1 != ListMode::HMode {
                 report_illegal_case();
             } else {
                 new_whatsit(WhatsItNST::Language as i16, SMALL_NODE_SIZE as i16);
                 scan_int();
-                if cur_val <= 0 {
-                    cur_list.aux.b32.s1 = 0
+                cur_list.aux.b32.s1 = if cur_val <= 0 {
+                    0
                 } else if cur_val > 255 {
-                    cur_list.aux.b32.s1 = 0
+                    0
                 } else {
-                    cur_list.aux.b32.s1 = cur_val
-                }
-                MEM[cur_list.tail + 1].b32.s1 = cur_list.aux.b32.s1;
-                MEM[cur_list.tail + 1].b16.s1 = norm_min(*INTPAR(IntPar::left_hyphen_min)) as u16;
-                MEM[cur_list.tail + 1].b16.s0 = norm_min(*INTPAR(IntPar::right_hyphen_min)) as u16
+                    cur_val
+                };
+                *LANGUAGE_NODE_what_lang(cur_list.tail) = cur_list.aux.b32.s1;
+                *LANGUAGE_NODE_what_lhm(cur_list.tail) =
+                    norm_min(*INTPAR(IntPar::left_hyphen_min)) as u16;
+                *LANGUAGE_NODE_what_rhm(cur_list.tail) =
+                    norm_min(*INTPAR(IntPar::right_hyphen_min)) as u16
             }
         }
-        41 => {
+        PIC_FILE_CODE => {
             if cur_list.mode.1 == ListMode::MMode {
                 report_illegal_case();
             } else {
                 load_picture(false);
             }
         }
-        42 => {
+        PDF_FILE_CODE => {
             if cur_list.mode.1 == ListMode::MMode {
                 report_illegal_case();
             } else {
                 load_picture(true);
             }
         }
-        43 => {
+        GLYPH_CODE => {
             if cur_list.mode.1 == ListMode::VMode {
                 back_input();
                 new_graf(true);
@@ -15480,7 +15480,7 @@ pub(crate) unsafe fn do_extension() {
                 );
             }
         }
-        44 => {
+        XETEX_INPUT_ENCODING_EXTENSION_CODE => {
             scan_and_pack_name();
             let i = get_encoding_mode_and_info(&mut j);
             if i == UnicodeMode::Auto {
@@ -15499,13 +15499,13 @@ pub(crate) unsafe fn do_extension() {
                 set_input_file_encoding(INPUT_FILE[IN_OPEN], i, j);
             }
         }
-        45 => {
+        XETEX_DEFAULT_ENCODING_EXTENSION_CODE => {
             scan_and_pack_name();
             let i = get_encoding_mode_and_info(&mut j);
             *INTPAR(IntPar::xetex_default_input_mode) = i as i32;
             *INTPAR(IntPar::xetex_default_input_encoding) = j
         }
-        46 => {
+        XETEX_LINEBREAK_LOCALE_EXTENSION_CODE => {
             scan_file_name();
             if length(cur_name) == 0 {
                 *INTPAR(IntPar::xetex_linebreak_locale) = 0;
@@ -15513,7 +15513,9 @@ pub(crate) unsafe fn do_extension() {
                 *INTPAR(IntPar::xetex_linebreak_locale) = cur_name;
             }
         }
-        6 => new_whatsit(PDFTEX_FIRST_EXTENSION_CODE as i16, SMALL_NODE_SIZE as i16),
+        PDFTEX_FIRST_EXTENSION_CODE => {
+            new_whatsit(PDFTEX_FIRST_EXTENSION_CODE as i16, SMALL_NODE_SIZE as i16)
+        }
         _ => confusion(b"ext1"),
     };
 }
@@ -15527,10 +15529,10 @@ pub(crate) unsafe fn fix_language() {
     };
     if l as i32 != cur_list.aux.b32.s1 {
         new_whatsit(WhatsItNST::Language as i16, SMALL_NODE_SIZE as i16);
-        MEM[cur_list.tail + 1].b32.s1 = l as i32;
+        *LANGUAGE_NODE_what_lang(cur_list.tail) = l as i32;
         cur_list.aux.b32.s1 = l as i32;
-        MEM[cur_list.tail + 1].b16.s1 = norm_min(*INTPAR(IntPar::left_hyphen_min)) as u16;
-        MEM[cur_list.tail + 1].b16.s0 = norm_min(*INTPAR(IntPar::right_hyphen_min)) as u16
+        *LANGUAGE_NODE_what_lhm(cur_list.tail) = norm_min(*INTPAR(IntPar::left_hyphen_min)) as u16;
+        *LANGUAGE_NODE_what_rhm(cur_list.tail) = norm_min(*INTPAR(IntPar::right_hyphen_min)) as u16
     };
 }
 pub(crate) unsafe fn insert_src_special() {
@@ -16797,12 +16799,12 @@ pub(crate) unsafe fn main_control() {
                             && (whatsit_NODE_subtype(main_pp as usize) == WhatsItNST::NativeWord
                                 || whatsit_NODE_subtype(main_pp as usize)
                                     == WhatsItNST::NativeWordAt)
-                            && MEM[(main_pp + 4) as usize].b16.s2 as usize == main_f
+                            && *NATIVE_NODE_font(main_pp as usize) as usize == main_f
                             && main_ppp != main_pp
                             && !is_char_node(main_ppp.opt())
                             && NODE_type(main_ppp as usize) != TextNode::Disc.into()
                         {
-                            main_k = main_h + MEM[(main_pp + 4) as usize].b16.s1 as i32;
+                            main_k = main_h + *NATIVE_NODE_length(main_pp as usize) as i32;
                             while native_text_size <= native_len + main_k {
                                 native_text_size = native_text_size + 128;
                                 native_text = xrealloc(
@@ -16815,7 +16817,7 @@ pub(crate) unsafe fn main_control() {
                                 ) as *mut UTF16_code
                             }
                             save_native_len = native_len;
-                            for main_p in 0..MEM[(main_pp + 4) as usize].b16.s1 {
+                            for main_p in 0..*NATIVE_NODE_length(main_pp as usize) {
                                 *native_text.offset(native_len as isize) =
                                     *(&mut MEM[(main_pp + 6) as usize] as *mut memory_word
                                         as *mut u16)
@@ -16913,18 +16915,18 @@ pub(crate) unsafe fn main_control() {
                         && NODE_type(main_pp as usize) == TextNode::WhatsIt.into()
                         && (whatsit_NODE_subtype(main_pp as usize) == WhatsItNST::NativeWord
                             || whatsit_NODE_subtype(main_pp as usize) == WhatsItNST::NativeWordAt)
-                        && MEM[(main_pp + 4) as usize].b16.s2 as usize == main_f
+                        && *NATIVE_NODE_font(main_pp as usize) as usize == main_f
                         && main_ppp != main_pp
                         && !is_char_node(main_ppp.opt())
                         && NODE_type(main_ppp as usize) != TextNode::Disc.into()
                     {
                         MEM[main_pp as usize].b32.s1 = new_native_word_node(
                             main_f,
-                            main_k + MEM[(main_pp + 4) as usize].b16.s1 as i32,
+                            main_k + *NATIVE_NODE_length(main_pp as usize) as i32,
                         ) as i32;
                         cur_list.tail = MEM[main_pp as usize].b32.s1 as usize;
 
-                        for main_p in 0..MEM[(main_pp + 4) as usize].b16.s1 {
+                        for main_p in 0..*NATIVE_NODE_length(main_pp as usize) {
                             *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
                                 .offset(main_p as isize) =
                                 *(&mut MEM[(main_pp + 6) as usize] as *mut memory_word as *mut u16)
@@ -16933,7 +16935,8 @@ pub(crate) unsafe fn main_control() {
                         for main_p in 0..main_k {
                             *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
                                 .offset(
-                                    (main_p + MEM[(main_pp + 4) as usize].b16.s1 as i32) as isize,
+                                    (main_p + *NATIVE_NODE_length(main_pp as usize) as i32)
+                                        as isize,
                                 ) = *native_text.offset(main_p as isize);
                         }
                         measure_native_node(
@@ -16978,7 +16981,7 @@ pub(crate) unsafe fn main_control() {
                         main_p = *LLIST_link(main_p as usize);
                     }
                     if !main_pp.is_texnull() {
-                        if MEM[(main_pp + 4) as usize].b16.s2 as usize == main_f {
+                        if *NATIVE_NODE_font(main_pp as usize) as usize == main_f {
                             let mut main_p = MEM[main_pp as usize].b32.s1;
                             while !is_char_node(main_p.opt())
                                 && (NODE_type(main_p as usize) == TextNode::Penalty.into()
