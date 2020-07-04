@@ -2,6 +2,7 @@ use bridge::{abort, DisplayExt};
 use std::ffi::CStr;
 use std::io::Write;
 
+use crate::help;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow};
 use crate::xetex_ext::{
@@ -11,14 +12,14 @@ use crate::xetex_ext::{
 use crate::xetex_ini::{
     avail, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_tok, cur_v, cur_v_offset, dead_cycles, def_ref,
-    doing_leaders, doing_special, file_line_error_style_p, file_offset, font_used, help_line,
-    help_ptr, init_pool_ptr, job_name, last_bop, log_opened, max_h, max_print_line, max_push,
-    max_v, name_of_file, output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr,
-    pool_size, rule_dp, rule_ht, rule_wd, rust_stdout, selector, semantic_pagination_enabled,
-    str_pool, str_ptr, str_start, temp_ptr, term_offset, write_file, write_loc, write_open,
-    xdv_buffer, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC,
-    FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO, FONT_LETTER_SPACE, FONT_MAPPING,
-    FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
+    doing_leaders, doing_special, file_line_error_style_p, file_offset, font_used, init_pool_ptr,
+    job_name, last_bop, log_opened, max_h, max_print_line, max_push, max_v, name_of_file,
+    output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht,
+    rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr, str_start,
+    temp_ptr, term_offset, write_file, write_loc, write_open, xdv_buffer, xtx_ligature_present,
+    LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE,
+    FONT_INFO, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES,
+    WIDTH_BASE,
 };
 use crate::xetex_ini::{memory_word, Selector};
 use crate::xetex_output::{
@@ -163,9 +164,10 @@ pub(crate) unsafe fn ship_out(p: usize) {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Huge page cannot be shipped out");
-        help_ptr = 2;
-        help_line[1] = b"The page just created is more than 18 feet tall or";
-        help_line[0] = b"more than 18 feet wide, so I suspect something went wrong.";
+        help!(
+            b"The page just created is more than 18 feet tall or",
+            b"more than 18 feet wide, so I suspect something went wrong."
+        );
         error();
 
         if *INTPAR(IntPar::tracing_output) <= 0 {
@@ -2209,9 +2211,10 @@ unsafe fn write_out(p: usize) {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Unbalanced write command");
-        help_ptr = 2;
-        help_line[1] = b"On this page there\'s a \\write with fewer real {\'s than }\'s.";
-        help_line[0] = b"I can\'t handle that very well; good luck.";
+        help!(
+            b"On this page there\'s a \\write with fewer real {\'s than }\'s.",
+            b"I can\'t handle that very well; good luck."
+        );
         error();
 
         loop {

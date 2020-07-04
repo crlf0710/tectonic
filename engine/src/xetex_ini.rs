@@ -15,6 +15,7 @@ use std::ptr;
 
 use super::xetex_texmfmp::get_date_and_time;
 use crate::core_memory::{mfree, xmalloc, xmalloc_array};
+use crate::help;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_ext::release_font_engine;
@@ -1465,8 +1466,7 @@ unsafe fn new_patterns() {
                                     print_nl_cstr(b"! ");
                                 }
                                 print_cstr(b"Nonletter");
-                                help_ptr = 1;
-                                help_line[0] = b"(See Appendix H.)";
+                                help!(b"(See Appendix H.)");
                                 error();
                             }
                         }
@@ -1546,8 +1546,7 @@ unsafe fn new_patterns() {
                                 print_nl_cstr(b"! ");
                             }
                             print_cstr(b"Duplicate pattern");
-                            help_ptr = 1;
-                            help_line[0] = b"(See Appendix H.)";
+                            help!(b"(See Appendix H.)");
                             error();
                         }
                         *trie_o.offset(q as isize) = v
@@ -1567,8 +1566,7 @@ unsafe fn new_patterns() {
                     }
                     print_cstr(b"Bad ");
                     print_esc_cstr(b"patterns");
-                    help_ptr = 1;
-                    help_line[0] = b"(See Appendix H.)";
+                    help!(b"(See Appendix H.)");
                     error();
                 }
             }
@@ -1651,8 +1649,7 @@ unsafe fn new_patterns() {
         }
         print_cstr(b"Too late for ");
         print_esc_cstr(b"patterns");
-        help_ptr = 1_u8;
-        help_line[0] = b"All patterns must be given before typesetting begins.";
+        help!(b"All patterns must be given before typesetting begins.");
         error();
         MEM[GARBAGE].b32.s1 = scan_toks(false, false) as i32;
         flush_list(Some(def_ref));
@@ -1805,9 +1802,10 @@ unsafe fn new_hyph_exceptions() {
                                 print_nl_cstr(b"! ");
                             }
                             print_cstr(b"Not a letter");
-                            help_ptr = 2_u8;
-                            help_line[1] = b"Letters in \\hyphenation words must have \\lccode>0.";
-                            help_line[0] = b"Proceed; I\'ll ignore the character I just read.";
+                            help!(
+                                b"Letters in \\hyphenation words must have \\lccode>0.",
+                                b"Proceed; I\'ll ignore the character I just read."
+                            );
                             error();
                         } else if (n as usize) < max_hyphenatable_length() {
                             n += 1;
@@ -1846,9 +1844,10 @@ unsafe fn new_hyph_exceptions() {
                     print_cstr(b"Improper ");
                     print_esc_cstr(b"hyphenation");
                     print_cstr(b" will be flushed");
-                    help_ptr = 2_u8;
-                    help_line[1] = b"Hyphenation exceptions must contain only letters";
-                    help_line[0] = b"and hyphens. But continue; I\'ll forgive and forget.";
+                    help!(
+                        b"Hyphenation exceptions must contain only letters",
+                        b"and hyphens. But continue; I\'ll forgive and forget."
+                    );
                     error();
                     continue 's_91;
                 }
@@ -1969,9 +1968,7 @@ pub(crate) unsafe fn prefixed_command() {
             print_cstr(b"You can\'t use a prefix with `");
             print_cmd_chr(cur_cmd, cur_chr);
             print_char('\'' as i32);
-            help_ptr = 1_u8;
-            help_line[0] =
-                b"I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.";
+            help!(b"I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.");
             back_error();
             return;
         }
@@ -1995,8 +1992,7 @@ pub(crate) unsafe fn prefixed_command() {
         print_esc_cstr(b"long");
         print_cstr(b"\' or `");
         print_esc_cstr(b"outer");
-        help_ptr = 1_u8;
-        help_line[0] = b"I\'ll pretend you didn\'t say \\long or \\outer or \\protected here.";
+        help!(b"I\'ll pretend you didn\'t say \\long or \\outer or \\protected here.");
         print_cstr(b"\' or `");
         print_esc_cstr(b"protected");
         print_cstr(b"\' with `");
@@ -2225,11 +2221,7 @@ pub(crate) unsafe fn prefixed_command() {
                     print_nl_cstr(b"! ");
                 }
                 print_cstr(b"Missing `to\' inserted");
-                help_ptr = 2_u8;
-                help_line[1] =
-                    b"You should have said `\\read<number> to \\cs\'.";
-                help_line[0] =
-                    b"I\'m going to look for the \\cs now.";
+                help!(b"You should have said `\\read<number> to \\cs\'.", b"I\'m going to look for the \\cs now.");
                 error();
             }
             get_r_token();
@@ -2487,9 +2479,7 @@ pub(crate) unsafe fn prefixed_command() {
                     print_cstr(b"), should be at most ");
                 }
                 print_int(n);
-                help_ptr = 1_u8;
-                help_line[0] =
-                    b"I\'m going to use 0 instead of that illegal code value.";
+                help!(b"I\'m going to use 0 instead of that illegal code value.");
                 error();
                 cur_val = 0
             }
@@ -2552,11 +2542,7 @@ pub(crate) unsafe fn prefixed_command() {
                 }
                 print_cstr(b"Improper ");
                 print_esc_cstr(b"setbox");
-                help_ptr = 2_u8;
-                help_line[1] =
-                    b"Sorry, \\setbox is not allowed after \\halign in a display,";
-                help_line[0] =
-                    b"or between \\accent and an accented character.";
+                help!(b"Sorry, \\setbox is not allowed after \\halign in a display,", b"or between \\accent and an accented character.");
                 error();
             }
         }
@@ -2616,7 +2602,7 @@ pub(crate) unsafe fn prefixed_command() {
                         print_nl_cstr(b"! ");
                     }
                     print_cstr(b"Patterns can be loaded only by INITEX");
-                    help_ptr = 0_u8;
+                    help!();
                     error();
                     loop  {
                         get_token();
@@ -2686,8 +2672,7 @@ unsafe fn store_fmt_file() {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"You can\'t dump inside a group");
-        help_ptr = 1_u8;
-        help_line[0] = b"`{...\\dump}\' is a no-no.";
+        help!(b"`{...\\dump}\' is a no-no.");
 
         if interaction == ERROR_STOP_MODE {
             interaction = SCROLL_MODE;
@@ -2989,10 +2974,11 @@ unsafe fn store_fmt_file() {
             }
             print_cstr(b"Can\'t \\dump a format with native fonts or font-mappings");
 
-            help_ptr = 3_u8;
-            help_line[2] = b"You really, really don\'t want to do this.";
-            help_line[1] = b"It won\'t work, and only confuses me.";
-            help_line[0] = b"(Load them at runtime, not as part of the format file.)";
+            help!(
+                b"You really, really don\'t want to do this.",
+                b"It won\'t work, and only confuses me.",
+                b"(Load them at runtime, not as part of the format file.)"
+            );
             error();
         } else {
             print_file_name(FONT_NAME[k], FONT_AREA[k], EMPTY_STRING);

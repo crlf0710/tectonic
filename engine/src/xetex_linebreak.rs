@@ -8,19 +8,19 @@
     unused_mut
 )]
 
+use crate::help;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ext::measure_native_node;
 use crate::xetex_ini::{
     active_width, adjust_tail, arith_error, avail, cur_l, cur_lang, cur_list, cur_q, cur_r,
-    file_line_error_style_p, first_p, font_in_short_display, global_prev_p, hc, help_line,
-    help_ptr, hf, hi_mem_min, hu, hyf, hyf_distance, hyf_next, hyf_num, hyph_index, hyph_start,
-    hyphen_passed, init_lft, init_lig, init_list, init_trie, just_box, last_leftmost_char,
-    last_rightmost_char, lft_hit, lig_stack, ligature_present, max_hyph_char, op_start,
-    pack_begin_line, pre_adjust_tail, rt_hit, semantic_pagination_enabled, str_pool, str_start,
-    temp_ptr, trie_not_ready, trie_trc, trie_trl, trie_tro, xtx_ligature_present, BCHAR_LABEL,
-    CHAR_BASE, EQTB, FONT_BCHAR, FONT_INFO, HYPHEN_CHAR, HYPH_LINK, HYPH_LIST, HYPH_WORD,
-    KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
+    file_line_error_style_p, first_p, font_in_short_display, global_prev_p, hc, hf, hi_mem_min, hu,
+    hyf, hyf_distance, hyf_next, hyf_num, hyph_index, hyph_start, hyphen_passed, init_lft,
+    init_lig, init_list, init_trie, just_box, last_leftmost_char, last_rightmost_char, lft_hit,
+    lig_stack, ligature_present, max_hyph_char, op_start, pack_begin_line, pre_adjust_tail, rt_hit,
+    semantic_pagination_enabled, str_pool, str_start, temp_ptr, trie_not_ready, trie_trc, trie_trl,
+    trie_tro, xtx_ligature_present, BCHAR_LABEL, CHAR_BASE, EQTB, FONT_BCHAR, FONT_INFO,
+    HYPHEN_CHAR, HYPH_LINK, HYPH_LIST, HYPH_WORD, KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, memory_word, MIN_TRIE_OP};
 use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
@@ -2373,12 +2373,13 @@ unsafe fn finite_shrink(p: usize) -> usize {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Infinite glue shrinkage found in a paragraph");
-        help_ptr = 5;
-        help_line[4] = b"The paragraph just ended includes some glue that has";
-        help_line[3] = b"infinite shrinkability, e.g., `\\hskip 0pt minus 1fil\'.";
-        help_line[2] = b"Such glue doesn\'t belong there---it allows a paragraph";
-        help_line[1] = b"of any length to fit on one line. But it\'s safe to proceed,";
-        help_line[0] = b"since the offensive shrinkability has been made finite.";
+        help!(
+            b"The paragraph just ended includes some glue that has",
+            b"infinite shrinkability, e.g., `\\hskip 0pt minus 1fil\'.",
+            b"Such glue doesn\'t belong there---it allows a paragraph",
+            b"of any length to fit on one line. But it\'s safe to proceed,",
+            b"since the offensive shrinkability has been made finite."
+        );
         error();
     }
     let q = new_spec(p);

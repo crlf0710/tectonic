@@ -653,3 +653,49 @@ pub(crate) mod cf_prelude {
         return rval;
     }
 }
+
+#[macro_export]
+macro_rules! help(
+    () => {
+        crate::xetex_ini::help_ptr = 0;
+    };
+    ($s0: expr) => {
+        crate::xetex_ini::help_ptr = 1;
+        crate::xetex_ini::help_line[0] = $s0;
+    };
+    ($s1: expr, $s0: expr) => {
+        crate::xetex_ini::help_ptr = 2;
+        crate::xetex_ini::help_line[1] = $s1;
+        crate::xetex_ini::help_line[0] = $s0;
+    };
+    ($s2: expr, $s1: expr, $s0: expr) => {
+        crate::xetex_ini::help_ptr = 3;
+        crate::xetex_ini::help_line[2] = $s2;
+        crate::xetex_ini::help_line[1] = $s1;
+        crate::xetex_ini::help_line[0] = $s0;
+    };
+    ($s3: expr, $s2: expr, $s1: expr, $s0: expr) => {
+        crate::xetex_ini::help_ptr = 4;
+        crate::xetex_ini::help_line[3] = $s3;
+        crate::xetex_ini::help_line[2] = $s2;
+        crate::xetex_ini::help_line[1] = $s1;
+        crate::xetex_ini::help_line[0] = $s0;
+    };
+    ($s4: expr, $s3: expr, $s2: expr, $s1: expr, $s0: expr) => {
+        crate::xetex_ini::help_ptr = 5;
+        crate::xetex_ini::help_line[4] = $s4;
+        crate::xetex_ini::help_line[3] = $s3;
+        crate::xetex_ini::help_line[2] = $s2;
+        crate::xetex_ini::help_line[1] = $s1;
+        crate::xetex_ini::help_line[0] = $s0;
+    };
+    ($s5: expr, $s4: expr, $s3: expr, $s2: expr, $s1: expr, $s0: expr) => {
+        crate::xetex_ini::help_ptr = 6;
+        crate::xetex_ini::help_line[5] = $s5;
+        crate::xetex_ini::help_line[4] = $s4;
+        crate::xetex_ini::help_line[3] = $s3;
+        crate::xetex_ini::help_line[2] = $s2;
+        crate::xetex_ini::help_line[1] = $s1;
+        crate::xetex_ini::help_line[0] = $s0;
+    };
+);

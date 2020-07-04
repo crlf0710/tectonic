@@ -10,6 +10,7 @@
 
 use core::ptr;
 
+use crate::help;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ext::{
@@ -17,12 +18,11 @@ use crate::xetex_ext::{
 };
 use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
-    cur_list, cur_val, cur_val1, empty, file_line_error_style_p, help_line, help_ptr,
-    insert_src_special_every_math, just_box, pre_adjust_tail, temp_ptr, tex_remainder,
-    total_shrink, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB,
-    EXTEN_BASE, FONT_AREA, FONT_BC, FONT_EC, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_PARAMS,
-    HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, NEST_PTR, NULL_CHARACTER, PARAM_BASE,
-    SAVE_PTR, SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
+    cur_list, cur_val, cur_val1, empty, file_line_error_style_p, insert_src_special_every_math,
+    just_box, pre_adjust_tail, temp_ptr, tex_remainder, total_shrink, xtx_ligature_present,
+    LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_EC,
+    FONT_INFO, FONT_LAYOUT_ENGINE, FONT_PARAMS, HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE,
+    MEM, NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t, memory_word};
 use crate::xetex_layout_interface::*;
@@ -453,8 +453,7 @@ pub(crate) unsafe fn math_limit_switch() {
         print_nl_cstr(b"! ");
     }
     print_cstr(b"Limit controls must follow a math operator");
-    help_ptr = 1_u8;
-    help_line[0] = b"I\'m ignoring this misplaced \\limits or \\nolimits command.";
+    help!(b"I\'m ignoring this misplaced \\limits or \\nolimits command.");
     error();
 }
 unsafe fn scan_delimiter(p: usize, mut r: bool) {
@@ -501,13 +500,14 @@ unsafe fn scan_delimiter(p: usize, mut r: bool) {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Missing delimiter (. inserted)");
-        help_ptr = 6;
-        help_line[5] = b"I was expecting to see something like `(\' or `\\{\' or";
-        help_line[4] = b"`\\}\' here. If you typed, e.g., `{\' instead of `\\{\', you";
-        help_line[3] = b"should probably delete the `{\' by typing `1\' now, so that";
-        help_line[2] = b"braces don\'t get unbalanced. Otherwise just proceed.";
-        help_line[1] = b"Acceptable delimiters are characters whose \\delcode is";
-        help_line[0] = b"nonnegative, or you can use `\\delimiter <delimiter code>\'.";
+        help!(
+            b"I was expecting to see something like `(\' or `\\{\' or",
+            b"`\\}\' here. If you typed, e.g., `{\' instead of `\\{\', you",
+            b"should probably delete the `{\' by typing `1\' now, so that",
+            b"braces don\'t get unbalanced. Otherwise just proceed.",
+            b"Acceptable delimiters are characters whose \\delcode is",
+            b"nonnegative, or you can use `\\delimiter <delimiter code>\'."
+        );
         back_error();
         cur_val = 0i32
     }
@@ -547,9 +547,10 @@ pub(crate) unsafe fn math_ac() {
         print_cstr(b"Please use ");
         print_esc_cstr(b"mathaccent");
         print_cstr(b" for accents in math mode");
-        help_ptr = 2_u8;
-        help_line[1] = b"I\'m changing \\accent to \\mathaccent here; wish me luck.";
-        help_line[0] = b"(Accents are not the same in formulas as they are in text.)";
+        help!(
+            b"I\'m changing \\accent to \\mathaccent here; wish me luck.",
+            b"(Accents are not the same in formulas as they are in text.)"
+        );
         error();
     }
     MEM[cur_list.tail].b32.s1 = get_node(ACCENT_NOAD_SIZE) as i32;
@@ -676,8 +677,7 @@ pub(crate) unsafe fn sub_sup() {
                         print_nl_cstr(b"! ");
                     }
                     print_cstr(b"Double superscript");
-                    help_ptr = 1;
-                    help_line[0] = b"I treat `x^1^2\' essentially like `x^1{}^2\'."
+                    help!(b"I treat `x^1^2\' essentially like `x^1{}^2\'.");
                 } else {
                     if file_line_error_style_p != 0 {
                         print_file_line();
@@ -685,8 +685,7 @@ pub(crate) unsafe fn sub_sup() {
                         print_nl_cstr(b"! ");
                     }
                     print_cstr(b"Double subscript");
-                    help_ptr = 1_u8;
-                    help_line[0] = b"I treat `x_1_2\' essentially like `x_1{}_2\'."
+                    help!(b"I treat `x_1_2\' essentially like `x_1{}_2\'.");
                 }
                 error();
             }
@@ -713,10 +712,11 @@ pub(crate) unsafe fn math_fraction() {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Ambiguous; you need another { and }");
-        help_ptr = 3_u8;
-        help_line[2] = b"I\'m ignoring this fraction specification, since I don\'t";
-        help_line[1] = b"know whether a construction like `x \\over y \\over z\'";
-        help_line[0] = b"means `{x \\over y} \\over z\' or `x \\over {y \\over z}\'.";
+        help!(
+            b"I\'m ignoring this fraction specification, since I don\'t",
+            b"know whether a construction like `x \\over y \\over z\'",
+            b"means `{x \\over y} \\over z\' or `x \\over {y \\over z}\'."
+        );
         error();
     } else {
         let a = get_node(FRACTION_NOAD_SIZE);
@@ -760,12 +760,10 @@ pub(crate) unsafe fn math_left_right() {
             print_cstr(b"Extra ");
             if t as u16 == 1 {
                 print_esc_cstr(b"middle");
-                help_ptr = 1_u8;
-                help_line[0] = b"I\'m ignoring a \\middle that had no matching \\left."
+                help!(b"I\'m ignoring a \\middle that had no matching \\left.");
             } else {
                 print_esc_cstr(b"right");
-                help_ptr = 1_u8;
-                help_line[0] = b"I\'m ignoring a \\right that had no matching \\left."
+                help!(b"I\'m ignoring a \\right that had no matching \\left.");
             }
             error();
         } else {
@@ -953,10 +951,11 @@ pub(crate) unsafe fn after_math() {
         }
         print_cstr(b"Math formula deleted: Insufficient symbol fonts");
 
-        help_ptr = 3_u8;
-        help_line[2] = b"Sorry, but I can\'t typeset math unless \\textfont 2";
-        help_line[1] = b"and \\scriptfont 2 and \\scriptscriptfont 2 have all";
-        help_line[0] = b"the \\fontdimen values needed in math symbol fonts.";
+        help!(
+            b"Sorry, but I can\'t typeset math unless \\textfont 2",
+            b"and \\scriptfont 2 and \\scriptscriptfont 2 have all",
+            b"the \\fontdimen values needed in math symbol fonts."
+        );
         error();
         flush_math();
         danger = true
@@ -985,10 +984,11 @@ pub(crate) unsafe fn after_math() {
         }
         print_cstr(b"Math formula deleted: Insufficient extension fonts");
 
-        help_ptr = 3;
-        help_line[2] = b"Sorry, but I can\'t typeset math unless \\textfont 3";
-        help_line[1] = b"and \\scriptfont 3 and \\scriptscriptfont 3 have all";
-        help_line[0] = b"the \\fontdimen values needed in math extension fonts.";
+        help!(
+            b"Sorry, but I can\'t typeset math unless \\textfont 3",
+            b"and \\scriptfont 3 and \\scriptscriptfont 3 have all",
+            b"the \\fontdimen values needed in math extension fonts."
+        );
         error();
         flush_math();
         danger = true
@@ -1006,9 +1006,10 @@ pub(crate) unsafe fn after_math() {
             }
             print_cstr(b"Display math should end with $$");
 
-            help_ptr = 2;
-            help_line[1] = b"The `$\' that I just saw supposedly matches a previous `$$\'.";
-            help_line[0] = b"So I shall assume that you typed `$$\' both times.";
+            help!(
+                b"The `$\' that I just saw supposedly matches a previous `$$\'.",
+                b"So I shall assume that you typed `$$\' both times."
+            );
             back_error();
         }
         cur_mlist = p;
@@ -1050,10 +1051,11 @@ pub(crate) unsafe fn after_math() {
             }
             print_cstr(b"Math formula deleted: Insufficient symbol fonts");
 
-            help_ptr = 3;
-            help_line[2] = b"Sorry, but I can\'t typeset math unless \\textfont 2";
-            help_line[1] = b"and \\scriptfont 2 and \\scriptscriptfont 2 have all";
-            help_line[0] = b"the \\fontdimen values needed in math symbol fonts.";
+            help!(
+                b"Sorry, but I can\'t typeset math unless \\textfont 2",
+                b"and \\scriptfont 2 and \\scriptscriptfont 2 have all",
+                b"the \\fontdimen values needed in math symbol fonts."
+            );
             error();
             flush_math();
             danger = true
@@ -1083,10 +1085,11 @@ pub(crate) unsafe fn after_math() {
             }
             print_cstr(b"Math formula deleted: Insufficient extension fonts");
 
-            help_ptr = 3;
-            help_line[2] = b"Sorry, but I can\'t typeset math unless \\textfont 3";
-            help_line[1] = b"and \\scriptfont 3 and \\scriptscriptfont 3 have all";
-            help_line[0] = b"the \\fontdimen values needed in math extension fonts.";
+            help!(
+                b"Sorry, but I can\'t typeset math unless \\textfont 3",
+                b"and \\scriptfont 3 and \\scriptscriptfont 3 have all",
+                b"the \\fontdimen values needed in math extension fonts."
+            );
             error();
             flush_math();
             danger = true
@@ -1127,9 +1130,10 @@ pub(crate) unsafe fn after_math() {
                 }
                 print_cstr(b"Display math should end with $$");
 
-                help_ptr = 2_u8;
-                help_line[1] = b"The `$\' that I just saw supposedly matches a previous `$$\'.";
-                help_line[0] = b"So I shall assume that you typed `$$\' both times.";
+                help!(
+                    b"The `$\' that I just saw supposedly matches a previous `$$\'.",
+                    b"So I shall assume that you typed `$$\' both times."
+                );
                 back_error();
             }
         }
@@ -1673,11 +1677,12 @@ unsafe fn fetch(a: usize) {
         print(cur_c);
         print_char(')' as i32);
 
-        help_ptr = 4_u8;
-        help_line[3] = b"Somewhere in the math formula just ended, you used the";
-        help_line[2] = b"stated character from an undefined font family. For example,";
-        help_line[1] = b"plain TeX doesn\'t allow \\it or \\sl in subscripts. Proceed,";
-        help_line[0] = b"and I\'ll try to forget that I needed that character.";
+        help!(
+            b"Somewhere in the math formula just ended, you used the",
+            b"stated character from an undefined font family. For example,",
+            b"plain TeX doesn\'t allow \\it or \\sl in subscripts. Proceed,",
+            b"and I\'ll try to forget that I needed that character."
+        );
         error();
         cur_i = NULL_CHARACTER;
         MEM[a].b32.s1 = 0
@@ -3726,7 +3731,8 @@ unsafe fn rebox(mut b: usize, mut w: scaled_t) -> usize {
         if is_char_node(Some(p)) && LLIST_link(p).opt().is_none() {
             f = *CHAR_NODE_font(p) as internal_font_number;
             v = FONT_INFO[(WIDTH_BASE[f]
-                + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, *CHAR_NODE_character(p))) as usize]
+                + FONT_INFO
+                    [(CHAR_BASE[f] + effective_char(true, f, *CHAR_NODE_character(p))) as usize]
                     .b16
                     .s3 as i32) as usize]
                 .b32

@@ -11,6 +11,7 @@
 use bridge::DisplayExt;
 use std::io::Write;
 
+use crate::help;
 use crate::xetex_consts::{BATCH_MODE, ERROR_STOP_MODE, SCROLL_MODE};
 
 use crate::xetex_ini::{
@@ -107,7 +108,7 @@ pub(crate) unsafe fn error() {
         give_err_help();
     } else {
         while help_ptr > 0 {
-            help_ptr = help_ptr.wrapping_sub(1);
+            help_ptr -= 1;
             print_nl_cstr(help_line[help_ptr as usize]);
         }
     }
@@ -132,9 +133,10 @@ pub(crate) unsafe fn overflow(s: &[u8], n: usize) -> ! {
     print_char('=' as i32);
     print_int(n as i32);
     print_char(']' as i32);
-    help_ptr = 2_u8;
-    help_line[1] = b"If you really absolutely need more capacity,";
-    help_line[0] = b"you can ask a wizard to enlarge me.";
+    help!(
+        b"If you really absolutely need more capacity,",
+        b"you can ask a wizard to enlarge me."
+    );
     post_error_message(1i32);
     panic!("halted on overflow()");
 }
@@ -144,13 +146,13 @@ pub(crate) unsafe fn confusion(s: &[u8]) -> ! {
         print_cstr(b"This can\'t happen (");
         print_cstr(s);
         print_char(')' as i32);
-        help_ptr = 1_u8;
-        help_line[0] = b"I\'m broken. Please show this to someone who can fix can fix";
+        help!(b"I\'m broken. Please show this to someone who can fix can fix");
     } else {
         print_cstr(b"I can\'t go on meeting you like this");
-        help_ptr = 2_u8;
-        help_line[1] = b"One of your faux pas seems to have wounded me deeply...";
-        help_line[0] = b"in fact, I\'m barely conscious. Please fix it and try again.";
+        help!(
+            b"One of your faux pas seems to have wounded me deeply...",
+            b"in fact, I\'m barely conscious. Please fix it and try again."
+        );
     }
     post_error_message(1i32);
     panic!("halted on confusion()");

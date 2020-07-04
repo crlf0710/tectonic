@@ -8,13 +8,14 @@
     unused_mut
 )]
 
+use crate::help;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ini::{
     best_height_plus_depth, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr,
-    file_line_error_style_p, help_line, help_ptr, insert_penalties, last_glue, last_kern,
-    last_node_type, last_penalty, line, output_active, page_contents, page_so_far, page_tail,
-    sa_root, semantic_pagination_enabled, temp_ptr, MEM, NEST, NEST_PTR,
+    file_line_error_style_p, insert_penalties, last_glue, last_kern, last_node_type, last_penalty,
+    line, output_active, page_contents, page_so_far, page_tail, sa_root,
+    semantic_pagination_enabled, temp_ptr, MEM, NEST, NEST_PTR,
 };
 use crate::xetex_output::{print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr};
 use crate::xetex_scaledmath::x_over_n;
@@ -28,8 +29,8 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     is_non_discardable_node, set_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width,
     GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
-    GLUE_SPEC_stretch_order, GLUE_SPEC_width, INSERTION_NODE_ins_ptr, LLIST_link,
-    /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty, TeXInt, TeXOpt, MARK_NODE_class, MARK_NODE_ptr,
+    GLUE_SPEC_stretch_order, GLUE_SPEC_width, INSERTION_NODE_ins_ptr, LLIST_link, MARK_NODE_class,
+    MARK_NODE_ptr, /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -80,10 +81,11 @@ unsafe fn ensure_vbox(mut n: u8) {
             print_nl_cstr(b"! ");
         }
         print_cstr(b"Insertions can only be added to a vbox");
-        help_ptr = 3;
-        help_line[2] = b"Tut tut: You\'re trying to \\insert into a";
-        help_line[1] = b"\\box register that now contains an \\hbox.";
-        help_line[0] = b"Proceed, and I\'ll discard its present contents.";
+        help!(
+            b"Tut tut: You\'re trying to \\insert into a",
+            b"\\box register that now contains an \\hbox.",
+            b"Proceed, and I\'ll discard its present contents."
+        );
         box_error(n);
     }
 }
@@ -157,9 +159,10 @@ unsafe fn fire_up(c: usize) {
         print_cstr(b"");
         print_esc_cstr(b"box");
         print_cstr(b"255 is not void");
-        help_ptr = 2;
-        help_line[1] = b"You shouldn\'t use \\box255 except in \\output routines.";
-        help_line[0] = b"Proceed, and I\'ll discard its present contents.";
+        help!(
+            b"You shouldn\'t use \\box255 except in \\output routines.",
+            b"Proceed, and I\'ll discard its present contents."
+        );
         box_error(255);
     }
     insert_penalties = 0; /* "this will count the number of insertions held over" */
@@ -403,10 +406,11 @@ unsafe fn fire_up(c: usize) {
                 print_cstr(b"Output loop---");
                 print_int(dead_cycles);
                 print_cstr(b" consecutive dead cycles");
-                help_ptr = 3;
-                help_line[2] = b"I\'ve concluded that your \\output is awry; it never does a";
-                help_line[1] = b"\\shipout, so I\'m shipping \\box255 out myself. Next time";
-                help_line[0] = b"increase \\maxdeadcycles if you want me to be more patient!";
+                help!(
+                    b"I\'ve concluded that your \\output is awry; it never does a",
+                    b"\\shipout, so I\'m shipping \\box255 out myself. Next time",
+                    b"increase \\maxdeadcycles if you want me to be more patient!"
+                );
                 error();
             } else {
                 /*1060: "Fire up the user's output routine and return" */
@@ -635,13 +639,10 @@ pub(crate) unsafe fn build_page() {
                         print_cstr(b"Infinite glue shrinkage inserted from ");
                         print_esc_cstr(b"skip");
                         print_int(n as i32);
-                        help_ptr = 3;
-                        help_line[2] =
-                            b"The correction glue for page breaking with insertions";
-                        help_line[1] =
-                            b"must have finite shrinkability. But you may proceed,";
-                        help_line[0] =
-                            b"since the offensive shrinkability has been made finite.";
+                        help!(b"The correction glue for page breaking with insertions",
+                        b"must have finite shrinkability. But you may proceed,",
+                        b"since the offensive shrinkability has been made finite."
+                        );
                         error();
                     }
                 }
@@ -812,11 +813,12 @@ pub(crate) unsafe fn build_page() {
                         print_nl_cstr(b"! ");
                     }
                     print_cstr(b"Infinite glue shrinkage found on current page");
-                    help_ptr = 4_u8;
-                    help_line[3] = b"The page about to be output contains some infinitely";
-                    help_line[2] = b"shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.";
-                    help_line[1] = b"Such glue doesn\'t belong there; but you can safely proceed,";
-                    help_line[0] = b"since the offensive shrinkability has been made finite.";
+                    help!(
+                        b"The page about to be output contains some infinitely",
+                        b"shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
+                        b"Such glue doesn\'t belong there; but you can safely proceed,",
+                        b"since the offensive shrinkability has been made finite."
+                    );
                     error();
                     slf.r = new_spec(slf.q as usize);
                     *GLUE_SPEC_shrink_order(slf.r) = GlueOrder::Normal as _;

@@ -9,12 +9,12 @@
 )]
 
 use crate::core_memory::xstrdup;
+use crate::help;
 use crate::xetex_errors::error;
 use crate::xetex_ext::{D2Fix, Fix2D};
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
-    cur_area, cur_ext, cur_list, cur_name, cur_val, file_line_error_style_p, help_line, help_ptr,
-    name_of_file, MEM,
+    cur_area, cur_ext, cur_list, cur_name, cur_val, file_line_error_style_p, name_of_file, MEM,
 };
 use crate::xetex_output::{
     print, print_cstr, print_file_line, print_file_name, print_nl_cstr, print_scaled,
@@ -286,9 +286,10 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
                 print_cstr(b"size (");
                 print_scaled(cur_val);
                 print_cstr(b"pt) will be ignored");
-                help_ptr = 2_u8;
-                help_line[1] = b"I can\'t scale images to zero or negative sizes,";
-                help_line[0] = b"so I\'m ignoring this.";
+                help!(
+                    b"I can\'t scale images to zero or negative sizes,",
+                    b"so I\'m ignoring this."
+                );
                 error();
             } else {
                 x_size_req = Fix2D(cur_val)
@@ -305,9 +306,10 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
                 print_cstr(b"size (");
                 print_scaled(cur_val);
                 print_cstr(b"pt) will be ignored");
-                help_ptr = 2_u8;
-                help_line[1] = b"I can\'t scale images to zero or negative sizes,";
-                help_line[0] = b"so I\'m ignoring this.";
+                help!(
+                    b"I can\'t scale images to zero or negative sizes,",
+                    b"so I\'m ignoring this."
+                );
                 error();
             } else {
                 y_size_req = Fix2D(cur_val)
@@ -415,13 +417,15 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
         print_file_name(cur_name, cur_area, cur_ext);
         print('\'' as i32);
         if result == -43i32 {
-            help_ptr = 2_u8;
-            help_line[1] = b"The requested image couldn\'t be read because";
-            help_line[0] = b"the file was not found."
+            help!(
+                b"The requested image couldn\'t be read because",
+                b"the file was not found."
+            );
         } else {
-            help_ptr = 2_u8;
-            help_line[1] = b"The requested image couldn\'t be read because";
-            help_line[0] = b"it was not a recognized image format."
+            help!(
+                b"The requested image couldn\'t be read because",
+                b"it was not a recognized image format."
+            );
         }
         error();
     };
