@@ -1172,7 +1172,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             }
                             _ => {}
                         }
-                        if MEM[p].b16.s1 < MathNode::Left as u16 {
+                        if n != MathNode::Left && n != MathNode::Right {
                             match Limit::from(MEM[p].b16.s0) {
                                 Limit::Limits => print_esc_cstr(b"limits"),
                                 Limit::NoLimits => print_esc_cstr(b"nolimits"),

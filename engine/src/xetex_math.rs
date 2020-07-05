@@ -49,7 +49,7 @@ use crate::xetex_xetexd::{
     BOX_list_ptr, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
     GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
     GLUE_SPEC_stretch_order, GLUE_SPEC_width, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
-    LLIST_link, NODE_type, TeXInt, TeXOpt,
+    LLIST_link, NODE_type, TeXInt, TeXOpt, NATIVE_NODE_glyph, NATIVE_NODE_font, NATIVE_NODE_size,
 };
 
 pub(crate) type scaled_t = i32;
@@ -525,8 +525,9 @@ unsafe fn scan_delimiter(p: usize, mut r: bool) {
     };
 }
 pub(crate) unsafe fn math_radical() {
-    MEM[cur_list.tail].b32.s1 = get_node(RADICAL_NOAD_SIZE) as i32;
-    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+    let rn = get_node(RADICAL_NOAD_SIZE);
+    *LLIST_link(cur_list.tail) = Some(rn).tex_int();
+    cur_list.tail = rn;
     MEM[cur_list.tail].b16.s1 = MathNode::Radical as u16;
     MEM[cur_list.tail].b16.s0 = NORMAL as u16;
     MEM[cur_list.tail + 1].b32 = empty;
@@ -1596,7 +1597,7 @@ unsafe fn math_kern(p: usize, mut m: scaled_t) {
 pub(crate) unsafe fn flush_math() {
     flush_node_list(MEM[cur_list.head].b32.s1.opt());
     flush_node_list(cur_list.aux.b32.s1.opt());
-    MEM[cur_list.head].b32.s1 = None.tex_int();
+    *LLIST_link(cur_list.head) = None.tex_int();
     cur_list.tail = cur_list.head;
     cur_list.aux.b32.s1 = None.tex_int();
 }
@@ -1621,7 +1622,7 @@ unsafe fn clean_box(p: usize, mut s: i16) -> usize {
     cur_style = s;
     mlist_penalties = false;
     mlist_to_hlist();
-    let q = MEM[TEMP_HEAD].b32.s1;
+    let q = *LLIST_link(TEMP_HEAD);
     cur_style = save_style;
     if (cur_style as i32) < SCRIPT_STYLE {
         cur_size = TEXT_SIZE;
@@ -1631,24 +1632,24 @@ unsafe fn clean_box(p: usize, mut s: i16) -> usize {
     cur_mu = x_over_n(math_quad(cur_size), 18);
 
     unsafe fn found(q: i32) -> usize {
-        let x = if is_char_node(q.opt()) || q.is_texnull() {
+        let x = if is_char_node(q.opt()) || q.opt().is_none() {
             hpack(q, 0, PackMode::Additional)
-        } else if MEM[q as usize].b32.s1.is_texnull()
+        } else if LLIST_link(q as usize).opt().is_none()
             && [TextNode::HList.into(), TextNode::VList.into()].contains(&NODE_type(q as usize))
-            && MEM[(q + 4) as usize].b32.s1 == 0
+            && *BOX_shift_amount(q as usize) == 0
         {
             q as usize
         } else {
             hpack(q, 0, PackMode::Additional)
         };
-        let q = MEM[x + 5].b32.s1;
+        let q = *BOX_list_ptr(x);
         if is_char_node(q.opt()) {
-            if let Some(r) = MEM[q as usize].b32.s1.opt() {
-                if MEM[r].b32.s1.opt().is_none() {
+            if let Some(r) = LLIST_link(q as usize).opt() {
+                if LLIST_link(r).opt().is_none() {
                     if !is_char_node(Some(r)) {
                         if NODE_type(r) == TextNode::Kern.into() {
                             free_node(r, MEDIUM_NODE_SIZE);
-                            MEM[q as usize].b32.s1 = None.tex_int()
+                            *LLIST_link(q as usize) = None.tex_int()
                         }
                     }
                 }
@@ -1713,23 +1714,23 @@ unsafe fn make_over(q: usize) {
 unsafe fn make_under(q: usize) {
     let x = clean_box(q + 1, cur_style);
     let p = new_kern(3 * default_rule_thickness());
-    MEM[x].b32.s1 = p as i32;
-    MEM[p].b32.s1 = fraction_rule(default_rule_thickness()) as i32;
+    *LLIST_link(x) = Some(p).tex_int();
+    *LLIST_link(p) = Some(fraction_rule(default_rule_thickness())).tex_int();
     let y = vpackage(Some(x), 0, PackMode::Additional, MAX_HALFWORD);
-    let delta = MEM[y + 3].b32.s1 + MEM[y + 2].b32.s1 + default_rule_thickness();
-    MEM[y + 3].b32.s1 = MEM[x + 3].b32.s1;
-    MEM[y + 2].b32.s1 = delta - MEM[y + 3].b32.s1;
+    let delta = *BOX_height(y) + *BOX_depth(y) + default_rule_thickness();
+    *BOX_height(y) = *BOX_height(x);
+    *BOX_depth(y) = delta - *BOX_height(y);
     MEM[q + 1].b32.s0 = y as i32;
     MEM[q + 1].b32.s1 = SUB_BOX;
 }
 unsafe fn make_vcenter(q: usize) {
-    let v = MEM[q + 1].b32.s0;
-    if NODE_type(v as usize) != TextNode::VList.into() {
+    let v = MEM[q + 1].b32.s0 as usize;
+    if NODE_type(v) != TextNode::VList.into() {
         confusion(b"vcenter");
     }
-    let delta = MEM[(v + 3) as usize].b32.s1 + MEM[(v + 2) as usize].b32.s1;
-    MEM[(v + 3) as usize].b32.s1 = axis_height(cur_size) + half(delta);
-    MEM[(v + 2) as usize].b32.s1 = delta - MEM[(v + 3) as usize].b32.s1;
+    let delta = *BOX_height(v) + *BOX_depth(v);
+    *BOX_height(v) = axis_height(cur_size) + half(delta);
+    *BOX_depth(v) = delta - *BOX_height(v);
 }
 unsafe fn make_radical(q: usize) {
     let f = MATH_FONT(MEM[q + 4].b16.s3 as usize % 256 + cur_size);
@@ -1758,20 +1759,20 @@ unsafe fn make_radical(q: usize) {
     let y = var_delimiter(
         q + 4,
         cur_size,
-        MEM[x + 3].b32.s1 + MEM[x + 2].b32.s1 + clr + rule_thickness,
+        *BOX_height(x) + *BOX_depth(x) + clr + rule_thickness,
     );
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
     {
-        MEM[y + 2].b32.s1 = MEM[y + 3].b32.s1 + MEM[y + 2].b32.s1 - rule_thickness;
-        MEM[y + 3].b32.s1 = rule_thickness
+        *BOX_depth(y) = *BOX_height(y) + *BOX_depth(y) - rule_thickness;
+        *BOX_height(y) = rule_thickness
     }
-    let delta = MEM[y + 2].b32.s1 - (MEM[x + 3].b32.s1 + MEM[x + 2].b32.s1 + clr);
+    let delta = *BOX_depth(y) - (*BOX_height(x) + *BOX_depth(x) + clr);
     if delta > 0 {
-        clr = clr + half(delta)
+        clr += half(delta);
     }
-    MEM[y + 4].b32.s1 = -((MEM[x + 3].b32.s1 + clr) as i32);
-    MEM[y].b32.s1 = overbar(x as i32, clr, MEM[y + 3].b32.s1) as i32;
+    *BOX_shift_amount(y) = -((*BOX_height(x) + clr) as i32);
+    MEM[y].b32.s1 = overbar(x as i32, clr, *BOX_height(y)) as i32;
     MEM[q + 1].b32.s0 = hpack(y as i32, 0, PackMode::Additional) as i32;
     MEM[q + 1].b32.s1 = SUB_BOX;
 }
@@ -1816,8 +1817,8 @@ unsafe fn make_math_accent(q: usize) {
             0
         };
         let x = clean_box(q + 1, (2 * (cur_style as i32 / 2) + 1) as i16);
-        w = MEM[x + 1].b32.s1;
-        h = MEM[x + 3].b32.s1;
+        w = *BOX_width(x);
+        h = *BOX_height(x);
         Some(x)
     } else if cur_i.s3 as i32 > 0 {
         let mut i = cur_i;
@@ -1860,8 +1861,8 @@ unsafe fn make_math_accent(q: usize) {
             }
         }
         let x = clean_box(q + 1, (2 * (cur_style as i32 / 2) + 1) as i16);
-        w = MEM[x + 1].b32.s1;
-        h = MEM[x + 3].b32.s1;
+        w = *BOX_width(x);
+        h = *BOX_height(x);
         while !(i.s1 as i32 % 4 != LIST_TAG) {
             let y = i.s0 as i32;
             i = FONT_INFO[(CHAR_BASE[f] + y) as usize].b16;
@@ -1898,17 +1899,17 @@ unsafe fn make_math_accent(q: usize) {
             if MEM[q + 1].b32.s1 == MATH_CHAR {
                 // 769:
                 flush_node_list(Some(x));
-                x = new_noad();
-                MEM[x + 1] = MEM[q + 1];
-                MEM[x + 2] = MEM[q + 2];
-                MEM[x + 3] = MEM[q + 3];
+                let xn = new_noad();
+                MEM[xn + 1] = MEM[q + 1];
+                MEM[xn + 2] = MEM[q + 2];
+                MEM[xn + 3] = MEM[q + 3];
                 MEM[q + 2].b32 = empty;
                 MEM[q + 3].b32 = empty;
                 MEM[q + 1].b32.s1 = SUB_MLIST;
-                MEM[q + 1].b32.s0 = Some(x).tex_int();
+                MEM[q + 1].b32.s0 = Some(xn).tex_int();
                 x = clean_box(q + 1, cur_style);
-                delta = delta + MEM[x + 3].b32.s1 - h;
-                h = MEM[x + 3].b32.s1
+                delta += *BOX_height(x) - h;
+                h = *BOX_height(x);
             }
         }
         let mut y = char_box(f, c);
@@ -1916,26 +1917,26 @@ unsafe fn make_math_accent(q: usize) {
             let mut p = get_node(GLYPH_NODE_SIZE);
             set_NODE_type(p, TextNode::WhatsIt);
             set_whatsit_NODE_subtype(p, WhatsItNST::Glyph);
-            MEM[p + 4].b16.s2 = f as u16;
-            MEM[p + 4].b16.s1 = real_get_native_glyph(
-                &mut MEM[MEM[y + 5].b32.s1 as usize] as *mut memory_word as *mut libc::c_void,
+            *NATIVE_NODE_font(p) = f as u16;
+            *NATIVE_NODE_glyph(p) = real_get_native_glyph(
+                &mut MEM[*BOX_list_ptr(y) as usize] as *mut memory_word as *mut libc::c_void,
                 0,
             );
             measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1i32);
             free_node(
-                MEM[y + 5].b32.s1 as usize,
-                MEM[(MEM[y + 5].b32.s1 + 4) as usize].b16.s3 as i32,
+                *BOX_list_ptr(y) as usize,
+                *NATIVE_NODE_size(*BOX_list_ptr(y) as usize) as i32,
             );
-            MEM[y + 5].b32.s1 = Some(p).tex_int();
+            *BOX_list_ptr(y) = Some(p).tex_int();
             if MEM[q].b16.s0 as i32 & 1 != 0 {
                 measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1);
             } else {
-                c = MEM[p + 4].b16.s1 as i32;
-                a = 0i32;
+                c = *NATIVE_NODE_glyph(p) as i32;
+                a = 0;
                 loop {
                     g = get_ot_math_variant(f, c, a, &mut w2, 1);
-                    if w2 > 0i32 && w2 <= w {
-                        MEM[p + 4].b16.s1 = g as u16;
+                    if w2 > 0 && w2 <= w {
+                        *NATIVE_NODE_glyph(p) = g as u16;
                         measure_native_glyph(
                             &mut MEM[p] as *mut memory_word as *mut libc::c_void,
                             1,
@@ -1951,72 +1952,66 @@ unsafe fn make_math_accent(q: usize) {
                     if !ot_assembly_ptr.is_null() {
                         free_node(p, GLYPH_NODE_SIZE);
                         p = build_opentype_assembly(f, ot_assembly_ptr, w, true);
-                        MEM[y + 5].b32.s1 = Some(p).tex_int();
+                        *BOX_list_ptr(y) = Some(p).tex_int();
                     }
                 } else {
                     measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1);
                 }
             }
-            MEM[y + 1].b32.s1 = MEM[p + 1].b32.s1;
-            MEM[y + 3].b32.s1 = MEM[p + 3].b32.s1;
-            MEM[y + 2].b32.s1 = MEM[p + 2].b32.s1;
+            *BOX_width(y) = *BOX_width(p);
+            *BOX_height(y) = *BOX_height(p);
+            *BOX_depth(y) = *BOX_depth(p);
             if MEM[q].b16.s0 == BOTTOM_ACC || MEM[q].b16.s0 == BOTTOM_ACC + 1 {
-                if MEM[y + 3].b32.s1 < 0 {
-                    MEM[y + 3].b32.s1 = 0
+                if *BOX_height(y) < 0 {
+                    *BOX_height(y) = 0;
                 }
-            } else if MEM[y + 2].b32.s1 < 0 {
-                MEM[y + 2].b32.s1 = 0
+            } else if *BOX_depth(y) < 0 {
+                *BOX_depth(y) = 0;
             }
             let mut sa;
             if !is_char_node(Some(p))
                 && NODE_type(p) == TextNode::WhatsIt.into()
                 && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
             {
-                sa = get_ot_math_accent_pos(f, MEM[p + 4].b16.s1 as i32);
+                sa = get_ot_math_accent_pos(f, *NATIVE_NODE_glyph(p) as i32);
                 if sa == TEX_INFINITY {
-                    sa = half(MEM[y + 1].b32.s1)
+                    sa = half(*BOX_width(y))
                 }
             } else {
-                sa = half(MEM[y + 1].b32.s1)
+                sa = half(*BOX_width(y))
             }
             if MEM[q].b16.s0 == BOTTOM_ACC || MEM[q].b16.s0 == BOTTOM_ACC + 1 || s == TEX_INFINITY {
                 s = half(w)
             }
-            MEM[y + 4].b32.s1 = s - sa
+            *BOX_shift_amount(y) = s - sa;
         } else {
-            MEM[y + 4].b32.s1 = s + half(w - MEM[y + 1].b32.s1)
+            *BOX_shift_amount(y) = s + half(w - *BOX_width(y));
         }
-        MEM[y + 1].b32.s1 = 0;
+        *BOX_width(y) = 0;
         if MEM[q].b16.s0 == BOTTOM_ACC || MEM[q].b16.s0 == BOTTOM_ACC + 1 {
-            MEM[x].b32.s1 = y as i32;
+            *LLIST_link(x) = y as i32;
             y = vpackage(Some(x), 0, PackMode::Additional, MAX_HALFWORD);
-            MEM[y + 4].b32.s1 = -((h - MEM[y + 3].b32.s1) as i32)
+            *BOX_shift_amount(y) = -((h - *BOX_height(y)) as i32)
         } else {
             let p = new_kern(-(delta as i32));
-            MEM[p].b32.s1 = Some(x).tex_int();
-            MEM[y].b32.s1 = p as i32;
+            *LLIST_link(p) = Some(x).tex_int();
+            *LLIST_link(y) = p as i32;
             y = vpackage(Some(y), 0, PackMode::Additional, MAX_HALFWORD);
-            if MEM[y + 3].b32.s1 < h {
+            if *BOX_height(y) < h {
                 // 765:
-                let p = new_kern(h - MEM[y + 3].b32.s1); /*773:*/
-                MEM[p].b32.s1 = MEM[y + 5].b32.s1;
-                MEM[y + 5].b32.s1 = p as i32;
-                MEM[y + 3].b32.s1 = h
+                let p = new_kern(h - *BOX_height(y)); /*773:*/
+                *LLIST_link(p) = *BOX_list_ptr(y);
+                *BOX_list_ptr(y) = p as i32;
+                *BOX_height(y) = h;
             }
         }
-        MEM[y + 1].b32.s1 = MEM[x + 1].b32.s1;
+        *BOX_width(y) = *BOX_width(x);
         MEM[q + 1].b32.s0 = y as i32;
         MEM[q + 1].b32.s1 = SUB_BOX;
     }
     free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
 }
 unsafe fn make_fraction(q: usize) {
-    let mut delta: scaled_t = 0;
-    let mut delta1: scaled_t = 0;
-    let mut delta2: scaled_t = 0;
-    let mut shift_up: scaled_t = 0;
-    let mut shift_down: scaled_t = 0;
-    let mut clr: scaled_t = 0;
     if MEM[q + 1].b32.s1 == DEFAULT_CODE {
         MEM[q + 1].b32.s1 = default_rule_thickness()
     }
@@ -2028,11 +2023,13 @@ unsafe fn make_fraction(q: usize) {
         q + 3,
         (2 * (cur_style as i32 / 2) + 3 - 2 * (cur_style as i32 / 6)) as i16,
     );
-    if MEM[x + 1].b32.s1 < MEM[z + 1].b32.s1 {
-        x = rebox(x, MEM[z + 1].b32.s1)
+    if *BOX_width(x) < *BOX_width(z) {
+        x = rebox(x, *BOX_width(z))
     } else {
-        z = rebox(z, MEM[x + 1].b32.s1)
+        z = rebox(z, *BOX_width(x))
     }
+    let mut shift_up;
+    let mut shift_down;
     if (cur_style as i32) < TEXT_STYLE {
         shift_up = num1(cur_size);
         shift_down = denom1(cur_size)
@@ -2044,9 +2041,10 @@ unsafe fn make_fraction(q: usize) {
             num3(cur_size)
         };
     }
+    let delta;
     if MEM[q + 1].b32.s1 == 0 {
         /*772:*/
-        clr = if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
+        let clr = if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
             && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
                 != 0
         {
@@ -2060,42 +2058,44 @@ unsafe fn make_fraction(q: usize) {
         } else {
             3 * default_rule_thickness()
         };
-        delta = half(clr - (shift_up - MEM[x + 2].b32.s1 - (MEM[z + 3].b32.s1 - shift_down)));
-        if delta > 0i32 {
+        delta = half(clr - (shift_up - *BOX_depth(x) - (*BOX_height(z) - shift_down)));
+        if delta > 0 {
             shift_up = shift_up + delta;
             shift_down = shift_down + delta
         }
     } else {
+        let delta1;
+        let delta2;
         if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
             && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
                 != 0
         {
             delta = half(MEM[q + 1].b32.s1);
-            clr = if (cur_style as i32) < TEXT_STYLE {
+            let clr = if (cur_style as i32) < TEXT_STYLE {
                 get_ot_math_constant(cur_f, FRACTIONNUMDISPLAYSTYLEGAPMIN)
             } else {
                 get_ot_math_constant(cur_f, FRACTIONNUMERATORGAPMIN)
             };
             delta1 =
-                clr - (shift_up - MEM[(x + 2) as usize].b32.s1 - (axis_height(cur_size) + delta));
-            clr = if (cur_style as i32) < TEXT_STYLE {
+                clr - (shift_up - *BOX_depth(x) - (axis_height(cur_size) + delta));
+            let clr = if (cur_style as i32) < TEXT_STYLE {
                 get_ot_math_constant(cur_f, FRACTIONDENOMDISPLAYSTYLEGAPMIN)
             } else {
                 get_ot_math_constant(cur_f, FRACTIONDENOMINATORGAPMIN)
             };
             delta2 =
-                clr - (axis_height(cur_size) - delta - (MEM[(z + 3) as usize].b32.s1 - shift_down))
+                clr - (axis_height(cur_size) - delta - (*BOX_height(z) - shift_down))
         } else {
-            if (cur_style as i32) < TEXT_STYLE {
-                clr = 3 * MEM[q + 1].b32.s1
+            let clr = if (cur_style as i32) < TEXT_STYLE {
+                3 * MEM[q + 1].b32.s1
             } else {
-                clr = MEM[q + 1].b32.s1
-            }
+                MEM[q + 1].b32.s1
+            };
             delta = half(MEM[q + 1].b32.s1);
             delta1 =
-                clr - (shift_up - MEM[(x + 2) as usize].b32.s1 - (axis_height(cur_size) + delta));
+                clr - (shift_up - *BOX_depth(x) - (axis_height(cur_size) + delta));
             delta2 =
-                clr - (axis_height(cur_size) - delta - (MEM[(z + 3) as usize].b32.s1 - shift_down))
+                clr - (axis_height(cur_size) - delta - (*BOX_height(z) - shift_down))
         }
         if delta1 > 0 {
             shift_up += delta1;
@@ -2112,27 +2112,27 @@ unsafe fn make_fraction(q: usize) {
     let mut p;
     if MEM[q + 1].b32.s1 == 0 {
         p = new_kern(shift_up - *BOX_depth(x) - (*BOX_height(z) - shift_down));
-        MEM[p].b32.s1 = Some(z).tex_int();
+        *LLIST_link(p) = Some(z).tex_int();
     } else {
         let y = fraction_rule(MEM[q + 1].b32.s1);
         p = new_kern(axis_height(cur_size) - delta - (*BOX_height(z) - shift_down));
-        MEM[y].b32.s1 = Some(p).tex_int();
-        MEM[p].b32.s1 = Some(z).tex_int();
+        *LLIST_link(y) = Some(p).tex_int();
+        *LLIST_link(p) = Some(z).tex_int();
         p = new_kern(shift_up - *BOX_depth(x) - (axis_height(cur_size) + delta));
-        MEM[p].b32.s1 = Some(y).tex_int();
+        *LLIST_link(p) = Some(y).tex_int();
     }
     MEM[x].b32.s1 = p as i32;
     *BOX_list_ptr(v) = Some(x).tex_int();
     // :774
-    delta = if (cur_style as i32) < TEXT_STYLE {
+    let delta = if (cur_style as i32) < TEXT_STYLE {
         delim1(cur_size)
     } else {
         delim2(cur_size)
     };
     x = var_delimiter(q + 4, cur_size, delta);
-    MEM[x].b32.s1 = Some(v).tex_int();
+    *LLIST_link(x) = Some(v).tex_int();
     z = var_delimiter(q + 5, cur_size, delta);
-    MEM[v].b32.s1 = Some(z).tex_int();
+    *LLIST_link(v) = Some(z).tex_int();
     MEM[q + 1].b32.s1 = Some(hpack(x as i32, 0, PackMode::Additional)).tex_int();
     // :775
 }
@@ -2166,28 +2166,28 @@ unsafe fn make_op(q: usize) -> scaled_t {
             && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
                 != 0
         {
-            if let Some(mut p) = MEM[x + 5].b32.s1.opt() {
+            if let Some(mut p) = BOX_list_ptr(x).opt() {
                 if !is_char_node(Some(p))
                     && NODE_type(p) == TextNode::WhatsIt.into()
                     && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
                 {
-                    let mut current_block_41: u64;
+                    let mut ital_corr = true;
                     if (cur_style as i32) < TEXT_STYLE {
                         let mut h1 = 0;
                         h1 = get_ot_math_constant(cur_f, DISPLAYOPERATORMINHEIGHT);
                         if (h1 as f64)
-                            < ((MEM[p + 3].b32.s1 + MEM[p + 2].b32.s1) * 5) as f64 / 4_f64
+                            < ((*BOX_height(p) + *BOX_depth(p)) * 5) as f64 / 4_f64
                         {
-                            h1 = (((MEM[p + 3].b32.s1 + MEM[p + 2].b32.s1) * 5) as f64 / 4_f64)
+                            h1 = (((*BOX_height(p) + *BOX_depth(p)) * 5) as f64 / 4_f64)
                                 as scaled_t
                         }
-                        c = MEM[p + 4].b16.s1;
+                        c = *NATIVE_NODE_glyph(p);
                         let mut n = 0;
                         let mut h2 = 0;
                         loop {
                             let g = get_ot_math_variant(cur_f, c as i32, n, &mut h2, 0);
                             if h2 > 0 {
-                                MEM[p + 4].b16.s1 = g as u16;
+                                *NATIVE_NODE_glyph(p) = g as u16;
                                 measure_native_glyph(
                                     &mut MEM[p] as *mut memory_word as *mut libc::c_void,
                                     1,
@@ -2203,38 +2203,30 @@ unsafe fn make_op(q: usize) -> scaled_t {
                             if !ot_assembly_ptr.is_null() {
                                 free_node(p, GLYPH_NODE_SIZE);
                                 p = build_opentype_assembly(cur_f, ot_assembly_ptr, h1, false);
-                                MEM[x + 5].b32.s1 = Some(p).tex_int();
+                                *BOX_list_ptr(x) = Some(p).tex_int();
                                 delta = 0;
-                                current_block_41 = 18116816373875863516;
-                            } else {
-                                current_block_41 = 6717214610478484138;
+                                ital_corr = false;
                             }
                         } else {
                             measure_native_glyph(
                                 &mut MEM[p] as *mut memory_word as *mut libc::c_void,
                                 1i32,
                             );
-                            current_block_41 = 6717214610478484138;
                         }
-                    } else {
-                        current_block_41 = 6717214610478484138;
                     }
-                    match current_block_41 {
-                        6717214610478484138 => {
-                            delta = get_ot_math_ital_corr(cur_f, MEM[p + 4].b16.s1 as i32)
-                        }
-                        _ => {}
+                    if ital_corr {
+                        delta = get_ot_math_ital_corr(cur_f, *NATIVE_NODE_glyph(p) as i32)
                     }
-                    MEM[x + 1].b32.s1 = MEM[p + 1].b32.s1;
-                    MEM[x + 3].b32.s1 = MEM[p + 3].b32.s1;
-                    MEM[x + 2].b32.s1 = MEM[p + 2].b32.s1;
+                    *BOX_width(x) = *BOX_width(p);
+                    *BOX_height(x) = *BOX_height(p);
+                    *BOX_depth(x) = *BOX_depth(p);
                 }
             }
         }
         if MEM[q + 3].b32.s1 != 0 && MEM[q as usize].b16.s0 != Limit::Limits as u16 {
-            MEM[x + 1].b32.s1 = MEM[x + 1].b32.s1 - delta
+            *BOX_width(x) -= delta;
         }
-        MEM[x + 4].b32.s1 = half(MEM[x + 3].b32.s1 - MEM[x + 2].b32.s1) - axis_height(cur_size);
+        *BOX_shift_amount(x) = half(*BOX_height(x) - *BOX_depth(x)) - axis_height(cur_size);
         MEM[q + 1].b32.s1 = SUB_BOX;
         MEM[q + 1].b32.s0 = Some(x).tex_int();
     }
@@ -2249,45 +2241,39 @@ unsafe fn make_op(q: usize) -> scaled_t {
         let z = clean_box(q + 3, (2 * (cur_style as i32 / 4) + 5) as i16);
         let v = new_null_box();
         set_NODE_type(v, TextNode::VList);
-        MEM[v + 1].b32.s1 = MEM[y + 1].b32.s1;
-        if MEM[x + 1].b32.s1 > MEM[v + 1].b32.s1 {
-            MEM[v + 1].b32.s1 = MEM[x + 1].b32.s1
-        }
-        if MEM[z + 1].b32.s1 > MEM[v + 1].b32.s1 {
-            MEM[v + 1].b32.s1 = MEM[z + 1].b32.s1
-        }
-        let x = rebox(x, MEM[v + 1].b32.s1);
-        let y = rebox(y, MEM[v + 1].b32.s1);
-        let z = rebox(z, MEM[v + 1].b32.s1);
-        MEM[x + 4].b32.s1 = half(delta);
-        MEM[z + 4].b32.s1 = -(MEM[x + 4].b32.s1 as i32);
-        MEM[v + 3].b32.s1 = MEM[y + 3].b32.s1;
-        MEM[v + 2].b32.s1 = MEM[y + 2].b32.s1;
+        *BOX_width(v) = (*BOX_width(y)).max(*BOX_width(x)).max(*BOX_width(z));
+        let x = rebox(x, *BOX_width(v));
+        let y = rebox(y, *BOX_width(v));
+        let z = rebox(z, *BOX_width(v));
+        *BOX_shift_amount(x) = half(delta);
+        *BOX_shift_amount(z) = -(*BOX_shift_amount(x));
+        *BOX_height(v) = *BOX_height(y);
+        *BOX_depth(v) = *BOX_depth(y);
         cur_f = save_f;
         if MEM[q + 2].b32.s1 == EMPTY {
             free_node(x, BOX_NODE_SIZE);
-            MEM[v + 5].b32.s1 = y as i32;
+            *BOX_list_ptr(v) = y as i32;
         } else {
-            let mut shift_up = big_op_spacing3() - MEM[x + 2].b32.s1;
+            let mut shift_up = big_op_spacing3() - *BOX_depth(x);
             if shift_up < big_op_spacing1() {
                 shift_up = big_op_spacing1()
             }
             let p = new_kern(shift_up);
-            MEM[p].b32.s1 = y as i32;
-            MEM[x].b32.s1 = p as i32;
+            *LLIST_link(p) = y as i32;
+            *LLIST_link(x) = p as i32;
             let p = new_kern(big_op_spacing5());
-            MEM[p].b32.s1 = x as i32;
-            MEM[v + 5].b32.s1 = p as i32;
-            MEM[v + 3].b32.s1 = MEM[v + 3].b32.s1
+            *LLIST_link(p) = x as i32;
+            *BOX_list_ptr(v) = p as i32;
+            *BOX_height(v) = *BOX_height(v)
                 + big_op_spacing5()
-                + MEM[x + 3].b32.s1
-                + MEM[x + 2].b32.s1
+                + *BOX_height(x)
+                + *BOX_depth(x)
                 + shift_up
         }
         if MEM[q + 3].b32.s1 == EMPTY {
             free_node(z, BOX_NODE_SIZE);
         } else {
-            let mut shift_down = big_op_spacing4() - MEM[z + 3].b32.s1;
+            let mut shift_down = big_op_spacing4() - *BOX_height(z);
             if shift_down < big_op_spacing2() {
                 shift_down = big_op_spacing2()
             }
@@ -2296,10 +2282,10 @@ unsafe fn make_op(q: usize) -> scaled_t {
             MEM[p].b32.s1 = z as i32;
             let p = new_kern(big_op_spacing5());
             MEM[z].b32.s1 = p as i32;
-            MEM[v + 2].b32.s1 = MEM[v + 2].b32.s1
+            *BOX_depth(v) = *BOX_depth(v)
                 + big_op_spacing5()
-                + MEM[z + 3].b32.s1
-                + MEM[z + 2].b32.s1
+                + *BOX_height(z)
+                + *BOX_depth(z)
                 + shift_down
         }
         MEM[q + 1].b32.s1 = v as i32
@@ -2981,8 +2967,8 @@ unsafe fn mlist_to_hlist() {
                             p = get_node(GLYPH_NODE_SIZE) as i32;
                             set_NODE_type(p as usize, TextNode::WhatsIt);
                             set_whatsit_NODE_subtype(p as usize, WhatsItNST::Glyph);
-                            MEM[(p + 4) as usize].b16.s2 = cur_f as u16;
-                            MEM[(p + 4) as usize].b16.s1 = real_get_native_glyph(
+                            *NATIVE_NODE_font(p as usize) = cur_f as u16;
+                            *NATIVE_NODE_glyph(p as usize) = real_get_native_glyph(
                                 &mut MEM[z] as *mut memory_word as *mut libc::c_void,
                                 0,
                             );
@@ -2990,7 +2976,7 @@ unsafe fn mlist_to_hlist() {
                                 &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
                                 1,
                             );
-                            free_node(z, MEM[z + 4].b16.s3 as i32);
+                            free_node(z, *NATIVE_NODE_size(z) as i32);
                             delta =
                                 get_ot_math_ital_corr(cur_f, MEM[(p + 4) as usize].b16.s1 as i32);
                             if MEM[q + 1].b32.s1 == MATH_TEXT_CHAR
@@ -3291,7 +3277,6 @@ unsafe fn mlist_to_hlist() {
     }
 }
 unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
-    let mut b: usize = 0;
     let mut c: u16 = 0;
     let mut y: u16 = 0;
     let mut n: i32 = 0;
@@ -3396,6 +3381,7 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
         z = MEM[d].b16.s1 as i32 % 256;
         x = (MEM[d].b16.s0 as i64 + (MEM[d].b16.s1 as i32 / 256) as i64 * 65536) as u16
     }
+    let b;
     if f != FONT_BASE {
         if !(FONT_AREA[f] as u32 == OTGR_FONT_FLAG
             && usingOpenType(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine))
@@ -3410,7 +3396,7 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
                 u = height_plus_depth(f, c);
                 w = 0;
                 q = FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize].b16;
-                MEM[b + 1].b32.s1 = FONT_INFO[(WIDTH_BASE[f] + q.s3 as i32) as usize].b32.s1
+                *BOX_width(b) = FONT_INFO[(WIDTH_BASE[f] + q.s3 as i32) as usize].b32.s1
                     + FONT_INFO[(ITALIC_BASE[f] + q.s1 as i32 / 4) as usize]
                         .b32
                         .s1;
@@ -3456,7 +3442,7 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
                 if c != 0 {
                     stack_into_box(b, f, c);
                 }
-                MEM[(b + 2) as usize].b32.s1 = w - MEM[(b + 3) as usize].b32.s1
+                *BOX_depth(b) = w - *BOX_height(b);
             } else {
                 b = char_box(f, c as i32)
             }
@@ -3466,24 +3452,25 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
         } else {
             b = new_null_box();
             set_NODE_type(b, TextNode::VList);
-            MEM[b + 5].b32.s1 = get_node(GLYPH_NODE_SIZE) as i32;
-            set_NODE_type(MEM[b + 5].b32.s1 as usize, TextNode::WhatsIt);
-            set_whatsit_NODE_subtype(MEM[b + 5].b32.s1 as usize, WhatsItNST::Glyph);
-            MEM[(MEM[b + 5].b32.s1 + 4) as usize].b16.s2 = f as u16;
-            MEM[(MEM[b + 5].b32.s1 + 4) as usize].b16.s1 = c;
+            let g = get_node(GLYPH_NODE_SIZE);
+            *BOX_list_ptr(b) = g as i32;
+            set_NODE_type(g, TextNode::WhatsIt);
+            set_whatsit_NODE_subtype(g, WhatsItNST::Glyph);
+            *NATIVE_NODE_font(g) = f as u16;
+            *NATIVE_NODE_glyph(g) = c;
             measure_native_glyph(
-                &mut MEM[MEM[b + 5].b32.s1 as usize] as *mut memory_word as *mut libc::c_void,
+                &mut MEM[g] as *mut memory_word as *mut libc::c_void,
                 1,
             );
-            MEM[b + 1].b32.s1 = MEM[(MEM[b + 5].b32.s1 + 1) as usize].b32.s1;
-            MEM[b + 3].b32.s1 = MEM[(MEM[b + 5].b32.s1 + 3) as usize].b32.s1;
-            MEM[b + 2].b32.s1 = MEM[(MEM[b + 5].b32.s1 + 2) as usize].b32.s1
+            *BOX_width(b) = *BOX_width(g);
+            *BOX_height(b) = *BOX_height(g);
+            *BOX_depth(b) = *BOX_depth(g);
         }
     } else {
         b = new_null_box();
-        MEM[b + 1].b32.s1 = *DIMENPAR(DimenPar::null_delimiter_space)
+        *BOX_width(b) = *DIMENPAR(DimenPar::null_delimiter_space)
     }
-    MEM[b + 4].b32.s1 = half(MEM[b + 3].b32.s1 - MEM[b + 2].b32.s1) - axis_height(s);
+    *BOX_shift_amount(b) = half(*BOX_height(b) - *BOX_depth(b)) - axis_height(s);
     free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
     b
 }
