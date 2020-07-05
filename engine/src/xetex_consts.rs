@@ -425,6 +425,13 @@ impl From<u16> for LRMode {
     }
 }
 
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
+pub(crate) enum AdjustType {
+    Post = 0,
+    Pre = 1,
+}
+
 /* How many memory words are needed for storing synctex information on various
  * kinds of nodes. This extra size is already included in the *_NODE_SIZE
  * definitions below.

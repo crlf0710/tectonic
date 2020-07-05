@@ -61,6 +61,9 @@ pub(crate) unsafe fn set_whatsit_NODE_subtype(p: usize, n: WhatsItNST) {
 pub(crate) unsafe fn kern_NODE_subtype(p: usize) -> KernNST {
     KernNST::from(MEM[p].b16.s0)
 }
+pub(crate) unsafe fn kern_NODE_width(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
+}
 pub(crate) unsafe fn set_kern_NODE_subtype(p: usize, n: KernNST) {
     MEM[p].b16.s0 = n as u16;
 }
@@ -240,6 +243,13 @@ pub(crate) unsafe fn MARK_NODE_ptr(p: usize) -> &'static mut i32 {
 /// "the mark class"
 pub(crate) unsafe fn MARK_NODE_class(p: usize) -> &'static mut i32 {
     &mut MEM[p + 1].b32.s0
+}
+
+pub(crate) unsafe fn ADJUST_NODE_type(p: usize) -> &'static mut u16 {
+    &mut MEM[p].b16.s0
+}
+pub(crate) unsafe fn ADJUST_NODE_ptr(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
 }
 
 /*
