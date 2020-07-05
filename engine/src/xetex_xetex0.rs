@@ -11182,12 +11182,11 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
             p = *LLIST_link(p as usize)
         }
         if !p.is_texnull() {
-            match text_NODE_type(p as usize).unwrap() {
+            let n = text_NODE_type(p as usize).unwrap();
+            match n {
                 TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Unset => {
                     x += *BOX_width(p as usize);
-                    let s = if [TextNode::HList.into(), TextNode::VList.into()]
-                        .contains(&text_NODE_type(p as usize))
-                    {
+                    let s = if [TextNode::HList, TextNode::VList].contains(&n) {
                         *BOX_shift_amount(p as usize)
                     } else {
                         0
@@ -11572,17 +11571,19 @@ pub(crate) unsafe fn vpackage(
     mut m: PackMode,
     mut l: scaled_t,
 ) -> usize {
-    let mut current_block: u64;
     last_badness = 0;
     let r = get_node(BOX_NODE_SIZE) as usize;
     set_NODE_type(r, TextNode::VList);
-    if *INTPAR(IntPar::xetex_upwards) > 0i32 {
-        MEM[r].b16.s0 = 1;
-    } else {
-        MEM[r].b16.s0 = 0;
-    }
-    MEM[r + 4].b32.s1 = 0;
-    MEM[r + 5].b32.s1 = popt.tex_int();
+    set_BOX_lr_mode(
+        r,
+        if *INTPAR(IntPar::xetex_upwards) > 0 {
+            LRMode::Reversed
+        } else {
+            LRMode::Normal
+        },
+    );
+    *BOX_shift_amount(r) = 0;
+    *BOX_list_ptr(r) = popt.tex_int();
     let mut w = 0;
     let mut d = 0;
     let mut x = 0;
@@ -11602,24 +11603,20 @@ pub(crate) unsafe fn vpackage(
             let n = text_NODE_type(p).unwrap();
             match n {
                 TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Unset => {
-                    x = x + d + MEM[p + 3].b32.s1;
-                    d = MEM[p + 2].b32.s1;
-                    let s = if ![TextNode::HList, TextNode::VList].contains(&n) {
-                        0
+                    x += d + *BOX_height(p);
+                    d = *BOX_depth(p);
+                    let s = if [TextNode::HList, TextNode::VList].contains(&n) {
+                        *BOX_shift_amount(p)
                     } else {
-                        MEM[p + 4].b32.s1
+                        0
                     };
-                    if MEM[p + 1].b32.s1 + s > w {
-                        w = MEM[p + 1].b32.s1 + s
-                    }
+                    w = w.max(*BOX_width(p) + s);
                 }
                 TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
                     WhatsItNST::Pic | WhatsItNST::Pdf => {
-                        x = x + d + MEM[p + 3].b32.s1;
-                        d = MEM[p + 2].b32.s1;
-                        if MEM[p + 1].b32.s1 > w {
-                            w = MEM[p + 1].b32.s1
-                        }
+                        x += d + *BOX_height(p);
+                        d = *BOX_depth(p);
+                        w = w.max(*BOX_width(p));
                     }
                     _ => {}
                 },
@@ -11638,7 +11635,7 @@ pub(crate) unsafe fn vpackage(
                     }
                 }
                 TextNode::Kern => {
-                    x = x + d + MEM[p + 1].b32.s1;
+                    x += d + *kern_NODE_width(p);
                     d = 0;
                 }
                 _ => {}
@@ -11646,140 +11643,127 @@ pub(crate) unsafe fn vpackage(
         }
         popt = LLIST_link(p).opt();
     }
-    MEM[r + 1].b32.s1 = w;
+    *BOX_width(r) = w;
     if d > l {
-        x = x + d - l;
-        MEM[r + 2].b32.s1 = l
+        x += d - l;
+        *BOX_depth(r) = l;
     } else {
-        MEM[r + 2].b32.s1 = d
+        *BOX_depth(r) = d;
     }
     if m == PackMode::Additional {
         h = x + h;
     }
-    MEM[r + 3].b32.s1 = h;
+    *BOX_height(r) = h;
     x = h - x;
     if x == 0 {
-        MEM[r + 5].b16.s1 = NORMAL;
-        MEM[r + 5].b16.s0 = NORMAL;
-        MEM[r + 6].gr = 0.;
-    } else {
-        if x > 0 {
-            /*698: */
-            let o = if total_stretch[FILLL as usize] != 0 {
-                FILLL as glue_ord
-            } else if total_stretch[FILL as usize] != 0 {
-                FILL as glue_ord
-            } else if total_stretch[FIL as usize] != 0 {
-                FIL as glue_ord
-            } else {
-                0 as glue_ord
-            }; /*normal *//*:684 */
-            MEM[r + 5].b16.s0 = o as u16;
-            MEM[r + 5].b16.s1 = GlueSign::Stretching as u16;
-            if total_stretch[o as usize] != 0 {
-                MEM[r + 6].gr = x as f64 / total_stretch[o as usize] as f64
-            } else {
-                MEM[r + 5].b16.s1 = NORMAL;
-                *BOX_glue_set(r) = 0.;
-            }
-            if o == NORMAL as u8 {
-                if !MEM[r + 5].b32.s1.is_texnull() {
-                    /*699: */
-                    last_badness = badness(x, total_stretch[NORMAL as usize]); /*normal *//*:690 */
-                    if last_badness > *INTPAR(IntPar::vbadness) {
-                        print_ln();
-                        if last_badness > 100 {
-                            print_nl_cstr(b"Underfull");
-                        } else {
-                            print_nl_cstr(b"Loose");
-                        }
-                        print_cstr(b" \\vbox (badness ");
-                        print_int(last_badness);
-                        current_block = 13130523023485106979;
-                    } else {
-                        current_block = 13281346226780081721;
-                    }
-                } else {
-                    current_block = 13281346226780081721;
-                }
-            } else {
-                current_block = 13281346226780081721;
-            }
+        *BOX_glue_sign(r) = GlueSign::Normal as _;
+        *BOX_glue_order(r) = GlueOrder::Normal as _;
+        *BOX_glue_set(r) = 0.;
+        return r;
+    } else if x > 0 {
+        /*698: */
+        let o = if total_stretch[FILLL as usize] != 0 {
+            GlueOrder::Filll
+        } else if total_stretch[FILL as usize] != 0 {
+            GlueOrder::Fill
+        } else if total_stretch[FIL as usize] != 0 {
+            GlueOrder::Fil
         } else {
-            let o = if total_shrink[FILLL as usize] != 0 {
-                FILLL as glue_ord
-            } else if total_shrink[FILL as usize] != 0 {
-                FILL as glue_ord
-            } else if total_shrink[FIL as usize] != 0 {
-                FIL as glue_ord
-            } else {
-                0 as glue_ord
-            };
-            MEM[r + 5].b16.s0 = o as u16;
-            MEM[r + 5].b16.s1 = GlueSign::Shrinking as u16;
-            if total_shrink[o as usize] != 0 {
-                MEM[r + 6].gr = -x as f64 / total_shrink[o as usize] as f64
-            } else {
-                MEM[r + 5].b16.s1 = NORMAL;
-                *BOX_glue_set(r) = 0.;
+            GlueOrder::Normal
+        }; /*normal *//*:684 */
+        *BOX_glue_order(r) = o as u16;
+        *BOX_glue_sign(r) = GlueSign::Stretching as u16;
+        if total_stretch[o as usize] != 0 {
+            *BOX_glue_set(r) = x as f64 / total_stretch[o as usize] as f64
+        } else {
+            *BOX_glue_sign(r) = GlueSign::Normal as _;
+            *BOX_glue_set(r) = 0.;
+        }
+        if o == GlueOrder::Normal {
+            if BOX_list_ptr(r).opt().is_some() {
+                /*699: */
+                last_badness = badness(x, total_stretch[GlueOrder::Normal as usize]); /*normal *//*:690 */
+                if last_badness > *INTPAR(IntPar::vbadness) {
+                    print_ln();
+                    if last_badness > 100 {
+                        print_nl_cstr(b"Underfull");
+                    } else {
+                        print_nl_cstr(b"Loose");
+                    }
+                    print_cstr(b" \\vbox (badness ");
+                    print_int(last_badness);
+                    return common_ending(r);
+                }
             }
-            if total_shrink[o as usize] < -x && o == NORMAL as u8 && !MEM[r + 5].b32.s1.is_texnull()
+        }
+        return r;
+    } else {
+        let o = if total_shrink[FILLL as usize] != 0 {
+            GlueOrder::Filll
+        } else if total_shrink[FILL as usize] != 0 {
+            GlueOrder::Fill
+        } else if total_shrink[FIL as usize] != 0 {
+            GlueOrder::Fil
+        } else {
+            GlueOrder::Normal
+        };
+        *BOX_glue_order(r) = o as u16;
+        *BOX_glue_sign(r) = GlueSign::Shrinking as u16;
+        if total_shrink[o as usize] != 0 {
+            *BOX_glue_set(r) = -x as f64 / total_shrink[o as usize] as f64
+        } else {
+            *BOX_glue_sign(r) = GlueSign::Normal as _;
+            *BOX_glue_set(r) = 0.;
+        }
+        if total_shrink[o as usize] < -x
+            && o == GlueOrder::Normal
+            && BOX_list_ptr(r).opt().is_some()
+        {
+            last_badness = 1000000;
+            *BOX_glue_set(r) = 1.;
+            if -x - total_shrink[GlueOrder::Normal as usize] > *DIMENPAR(DimenPar::vfuzz)
+                || *INTPAR(IntPar::vbadness) < 100
             {
-                last_badness = 1000000;
-                *BOX_glue_set(r) = 1.;
-                if -x - total_shrink[0] > *DIMENPAR(DimenPar::vfuzz)
-                    || *INTPAR(IntPar::vbadness) < 100
-                {
+                print_ln();
+                print_nl_cstr(b"Overfull \\vbox (");
+                print_scaled(-x - total_shrink[NORMAL as usize]);
+                print_cstr(b"pt too high");
+                return common_ending(r);
+            }
+        } else if o == GlueOrder::Normal {
+            if BOX_list_ptr(r).opt().is_some() {
+                /*703: */
+                last_badness = badness(-x, total_shrink[NORMAL as usize]);
+                if last_badness > *INTPAR(IntPar::vbadness) {
                     print_ln();
-                    print_nl_cstr(b"Overfull \\vbox (");
-                    print_scaled(-x - total_shrink[NORMAL as usize]);
-                    print_cstr(b"pt too high");
-                    current_block = 13130523023485106979;
-                } else {
-                    current_block = 13281346226780081721;
+                    print_nl_cstr(b"Tight \\vbox (badness ");
+                    print_int(last_badness);
+                    return common_ending(r);
                 }
-            } else if o == NORMAL as u8 {
-                if !MEM[r + 5].b32.s1.is_texnull() {
-                    /*703: */
-                    last_badness = badness(-x, total_shrink[NORMAL as usize]);
-                    if last_badness > *INTPAR(IntPar::vbadness) {
-                        print_ln();
-                        print_nl_cstr(b"Tight \\vbox (badness ");
-                        print_int(last_badness);
-                        current_block = 13130523023485106979;
-                    } else {
-                        current_block = 13281346226780081721;
-                    }
-                } else {
-                    current_block = 13281346226780081721;
-                }
-            } else {
-                current_block = 13281346226780081721;
             }
         }
-        match current_block {
-            13281346226780081721 => {}
-            _ => {
-                if output_active {
-                    print_cstr(b") has occurred while \\output is active");
-                } else {
-                    if pack_begin_line != 0 {
-                        print_cstr(b") in alignment at lines ");
-                        print_int(pack_begin_line.abs());
-                        print_cstr(b"--");
-                    } else {
-                        print_cstr(b") detected at line ");
-                    }
-                    print_int(line);
-                    print_ln();
-                }
-                begin_diagnostic();
-                show_box(Some(r));
-                end_diagnostic(true);
-            }
-        }
+        return r;
     }
-    r
+
+    unsafe fn common_ending(r: usize) -> usize {
+        if output_active {
+            print_cstr(b") has occurred while \\output is active");
+        } else {
+            if pack_begin_line != 0 {
+                print_cstr(b") in alignment at lines ");
+                print_int(pack_begin_line.abs());
+                print_cstr(b"--");
+            } else {
+                print_cstr(b") detected at line ");
+            }
+            print_int(line);
+            print_ln();
+        }
+        begin_diagnostic();
+        show_box(Some(r));
+        end_diagnostic(true);
+        return r;
+    }
 }
 pub(crate) unsafe fn append_to_vlist(b: usize) {
     let mut p: i32 = 0;
