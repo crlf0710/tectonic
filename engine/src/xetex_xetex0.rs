@@ -11137,14 +11137,14 @@ pub(crate) unsafe fn new_margin_kern(w: scaled_t, _p: i32, side: Side) -> usize 
     MEM[k + 1].b32.s1 = w;
     k
 }
-pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
+pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode) -> usize {
     last_badness = 0;
     let r = get_node(BOX_NODE_SIZE);
     set_NODE_type(r, TextNode::HList);
     set_BOX_lr_mode(r, LRMode::Normal);
     *BOX_shift_amount(r) = 0;
     let mut q = r + 5;
-    *BOX_list_ptr(r) = p;
+    *BOX_list_ptr(r) = popt.tex_int();
     let mut h = 0;
     let mut d = 0;
     let mut x = 0;
@@ -11163,11 +11163,10 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
         MEM[temp_ptr].b32.s1 = LR_ptr;
         LR_ptr = Some(temp_ptr).tex_int();
     }
-    let mut reswitch = true;
-    while !p.is_texnull() || reswitch {
+    while popt.is_some() {
         /*674: */
-        reswitch = false;
-        while is_char_node(p.opt()) {
+        while is_char_node(popt) {
+            let p = popt.unwrap();
             /*677: */
             let f = *CHAR_NODE_font(p as usize) as internal_font_number;
             let i = FONT_CHARACTER_INFO(
@@ -11179,9 +11178,9 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
             h = h.max(s);
             let s = *FONT_CHARINFO_DEPTH(f, i);
             d = d.max(s);
-            p = *LLIST_link(p as usize)
+            popt = LLIST_link(p as usize).opt();
         }
-        if !p.is_texnull() {
+        if let Some(mut p) = popt {
             let n = text_NODE_type(p as usize).unwrap();
             match n {
                 TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Unset => {
@@ -11198,7 +11197,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                     if let (Some(at), Some(pat)) = (adjust_tail.as_mut(), pre_adjust_tail.as_mut())
                     {
                         /*680: */
-                        while *LLIST_link(q) != p {
+                        while LLIST_link(q).opt() != Some(p) {
                             q = *LLIST_link(q) as usize;
                         }
                         if text_NODE_type(p as usize) == TextNode::Adjust.into() {
@@ -11213,15 +11212,15 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                                     *at = next;
                                 }
                             }
-                            p = *LLIST_link(p as usize);
+                            p = *LLIST_link(p as usize) as usize;
                             free_node(*LLIST_link(q) as usize, SMALL_NODE_SIZE);
                         } else {
-                            *LLIST_link(*at) = p;
+                            *LLIST_link(*at) = Some(p).tex_int();
                             *at = p as usize;
-                            p = *LLIST_link(p as usize)
+                            p = *LLIST_link(p as usize) as usize;
                         }
-                        *LLIST_link(q) = p;
-                        p = q as i32;
+                        *LLIST_link(q) = Some(p).tex_int();
+                        p = q;
                     }
                 }
                 TextNode::WhatsIt => match whatsit_NODE_subtype(p as usize) {
@@ -11231,7 +11230,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                         } else {
                             0
                         };
-                        while *LLIST_link(q) != p {
+                        while LLIST_link(q).opt() != Some(p) {
                             k -= 1;
                             q = *LLIST_link(q) as usize;
                             if NODE_type(q) == TextNode::Disc.into() {
@@ -11270,15 +11269,15 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                         }
                         if pp != MEM[p as usize].b32.s1 {
                             let mut total_chars = 0;
-                            p = *LLIST_link(q);
-                            while p != pp {
+                            p = *LLIST_link(q) as usize;
+                            while p as i32 != pp {
                                 if NODE_type(p as usize) == TextNode::WhatsIt.into() {
                                     total_chars += *NATIVE_NODE_length(p as usize) as i32;
                                 }
-                                ppp = p;
-                                p = *LLIST_link(p as usize)
+                                ppp = p as i32;
+                                p = *LLIST_link(p as usize) as usize
                             }
-                            p = *LLIST_link(q);
+                            p = *LLIST_link(q) as usize;
                             let pp = new_native_word_node(
                                 *NATIVE_NODE_font(p as usize) as usize,
                                 total_chars,
@@ -11288,7 +11287,7 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                             *LLIST_link(pp) = *LLIST_link(ppp as usize);
                             *LLIST_link(ppp as usize) = None.tex_int();
                             total_chars = 0;
-                            ppp = p;
+                            ppp = p as i32;
                             loop {
                                 if NODE_type(ppp as usize) == TextNode::WhatsIt.into() {
                                     for k in 0..MEM[(ppp + 4) as usize].b16.s1 as i32 {
@@ -11305,8 +11304,8 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                                     break;
                                 }
                             }
-                            flush_node_list(p.opt());
-                            p = MEM[q].b32.s1;
+                            flush_node_list(Some(p));
+                            p = *LLIST_link(q) as usize;
                             measure_native_node(
                                 &mut MEM[p as usize] as *mut memory_word as *mut libc::c_void,
                                 (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
@@ -11372,14 +11371,13 @@ pub(crate) unsafe fn hpack(mut p: i32, mut w: scaled_t, m: PackMode) -> usize {
                     *CHAR_NODE_character(GARBAGE) = *LIGATURE_NODE_lig_char(p as usize);
                     *CHAR_NODE_font(GARBAGE) = *LIGATURE_NODE_lig_font(p as usize);
                     *LLIST_link(GARBAGE) = *LLIST_link(p as usize);
-                    p = GARBAGE as i32;
+                    popt = Some(GARBAGE);
                     xtx_ligature_present = true;
-                    reswitch = true;
                     continue;
                 }
                 _ => {}
             }
-            p = *LLIST_link(p as usize);
+            popt = LLIST_link(p as usize).opt();
         }
     }
     if let Some(a) = adjust_tail {
@@ -12125,7 +12123,7 @@ pub(crate) unsafe fn fin_col() -> bool {
         if cur_list.mode == (true, ListMode::HMode) {
             adjust_tail = cur_tail;
             pre_adjust_tail = cur_pre_tail;
-            u = hpack(MEM[cur_list.head].b32.s1, 0, PackMode::Additional);
+            u = hpack(MEM[cur_list.head].b32.s1.opt(), 0, PackMode::Additional);
             w = MEM[u + 1].b32.s1;
             cur_tail = adjust_tail;
             adjust_tail = None;
@@ -12215,7 +12213,7 @@ pub(crate) unsafe fn fin_col() -> bool {
 pub(crate) unsafe fn fin_row() {
     let mut p;
     if cur_list.mode == (true, ListMode::HMode) {
-        p = hpack(MEM[cur_list.head].b32.s1, 0, PackMode::Additional);
+        p = hpack(MEM[cur_list.head].b32.s1.opt(), 0, PackMode::Additional);
         pop_nest();
         if cur_pre_head != cur_pre_tail {
             MEM[cur_list.tail].b32.s1 = MEM[cur_pre_head.unwrap()].b32.s1;
@@ -12337,7 +12335,7 @@ pub(crate) unsafe fn fin_align() {
         rule_save = *DIMENPAR(DimenPar::overfull_rule);
         *DIMENPAR(DimenPar::overfull_rule) = 0;
         p = hpack(
-            MEM[ALIGN_HEAD].b32.s1,
+            MEM[ALIGN_HEAD].b32.s1.opt(),
             SAVE_STACK[SAVE_PTR + 1].val,
             PackMode::from(SAVE_STACK[SAVE_PTR + 0].val),
         );
@@ -12524,7 +12522,7 @@ pub(crate) unsafe fn fin_align() {
                 if o != 0 {
                     let r = MEM[q].b32.s1;
                     MEM[q].b32.s1 = None.tex_int();
-                    let q = hpack(q as i32, 0, PackMode::Additional);
+                    let q = hpack(Some(q), 0, PackMode::Additional);
                     MEM[q + 4].b32.s1 = o;
                     MEM[q].b32.s1 = r;
                     MEM[s].b32.s1 = q as i32;
@@ -13695,7 +13693,7 @@ pub(crate) unsafe fn package(mut c: i16) {
     *INTPAR(IntPar::xetex_upwards) = u;
     if cur_list.mode == (true, ListMode::HMode) {
         cur_box = Some(hpack(
-            MEM[cur_list.head].b32.s1,
+            MEM[cur_list.head].b32.s1.opt(),
             SAVE_STACK[SAVE_PTR + 2].val,
             PackMode::from(SAVE_STACK[SAVE_PTR + 1].val),
         ));
@@ -14244,7 +14242,7 @@ pub(crate) unsafe fn make_accent() {
                 h = *FONT_CHARINFO_HEIGHT(f, i);
             }
             if h != x {
-                p = hpack(p as i32, 0, PackMode::Additional) as usize;
+                p = hpack(Some(p), 0, PackMode::Additional) as usize;
                 MEM[p + 4].b32.s1 = x - h;
             }
             let delta = if (FONT_AREA[f] as u32 == AAT_FONT_FLAG

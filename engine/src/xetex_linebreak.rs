@@ -1223,9 +1223,9 @@ unsafe fn post_line_break(mut d: bool) {
         /* Tectonic: in semantic pagination mode, set each "line" (really the
          * whole paragraph) at its natural width. */
         just_box = if semantic_pagination_enabled {
-            hpack(q, 0, PackMode::Additional)
+            hpack(q.opt(), 0, PackMode::Additional)
         } else {
-            hpack(q, cur_width, PackMode::Exactly)
+            hpack(q.opt(), cur_width, PackMode::Exactly)
         }; /*:918*/
         *BOX_shift_amount(just_box) = cur_indent;
         /* 917: append the new box to the current vertical list, followed
