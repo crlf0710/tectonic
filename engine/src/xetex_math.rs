@@ -44,9 +44,9 @@ use crate::xetex_xetex0::{
     scan_math_fam_int, scan_usv_num, unsave, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_char_node, set_NODE_type, set_kern_NODE_subtype, set_whatsit_NODE_subtype,
-    whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height,
-    BOX_list_ptr, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
+    is_char_node, kern_NODE_width, set_NODE_type, set_kern_NODE_subtype, set_whatsit_NODE_subtype,
+    text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign,
+    BOX_height, BOX_list_ptr, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
     GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
     GLUE_SPEC_stretch_order, GLUE_SPEC_width, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
     LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_size, NODE_type, TeXInt, TeXOpt,
@@ -105,14 +105,8 @@ pub(crate) unsafe fn initialize_math_variables() {
     null_delimiter.s0 = 0_u16;
 }
 pub(crate) unsafe fn init_math() {
-    let mut current_block: u64;
     let mut x: i32 = 0;
-    let mut l: scaled_t = 0;
-    let mut s: scaled_t = 0;
-    let mut f: internal_font_number = 0;
-    let mut n: i32 = 0;
     let mut v: scaled_t = 0;
-    let mut d: scaled_t = 0;
 
     get_token();
 
@@ -147,7 +141,7 @@ pub(crate) unsafe fn init_math() {
                 new_param_glue(GluePar::left_skip)
             };
 
-            MEM[p].b32.s1 = j.tex_int();
+            *LLIST_link(p) = j.tex_int();
 
             let j_ = new_null_box();
             j = Some(j_);
@@ -197,163 +191,134 @@ pub(crate) unsafe fn init_math() {
                 LR_ptr = Some(temp_ptr).tex_int();
             }
             while let Some(mut p) = popt {
-                loop {
-                    if is_char_node(Some(p)) {
-                        f = *CHAR_NODE_font(p) as internal_font_number;
-                        d = FONT_INFO[(WIDTH_BASE[f]
-                            + FONT_INFO
-                                [(CHAR_BASE[f] + effective_char(true, f, MEM[p].b16.s0)) as usize]
-                                .b16
-                                .s3 as i32) as usize]
-                            .b32
-                            .s1;
-                        current_block = 9427725525305667067;
-                        break;
-                    } else {
-                        match TextNode::n(MEM[p].b16.s1).unwrap() {
-                            TextNode::HList | TextNode::VList | TextNode::Rule => {
-                                d = MEM[p + 1].b32.s1;
-                                current_block = 9427725525305667067;
-                                break;
-                            }
-                            TextNode::Ligature => {
-                                *CHAR_NODE_character(GARBAGE) = *LIGATURE_NODE_lig_char(p);
-                                *CHAR_NODE_font(GARBAGE) = *LIGATURE_NODE_lig_font(p);
-                                *LLIST_link(GARBAGE) = *LLIST_link(p);
-                                p = GARBAGE;
-                                xtx_ligature_present = true
-                            }
-                            TextNode::Kern => {
-                                d = MEM[p + 1].b32.s1;
-                                current_block = 1677945370889843322;
-                                break;
-                            }
-                            TextNode::MarginKern => {
-                                d = MEM[p + 1].b32.s1;
-                                current_block = 1677945370889843322;
-                                break;
-                            }
-                            TextNode::Math => {
-                                d = MEM[p + 1].b32.s1;
-                                if *INTPAR(IntPar::texxet) > 0i32 {
-                                    current_block = 13660591889533726445;
-                                    break;
-                                } else {
-                                    current_block = 2631791190359682872;
-                                    break;
-                                }
-                            }
-                            TextNode::Style => {
-                                d = MEM[(p + 1) as usize].b32.s1;
-                                cur_dir = LR::n(MEM[p as usize].b16.s0).unwrap();
-                                current_block = 1677945370889843322;
-                                break;
-                            }
-                            TextNode::Glue => {
-                                let q = *GLUE_NODE_glue_ptr(p) as usize;
-                                d = *GLUE_SPEC_width(q);
-                                if *BOX_glue_sign(just_box) == GlueSign::Stretching as u16 {
-                                    if *BOX_glue_order(just_box) == *GLUE_SPEC_stretch_order(q)
-                                        && *GLUE_SPEC_stretch(q) != 0
+                let found;
+                let d;
+                if is_char_node(Some(p)) {
+                    let f = *CHAR_NODE_font(p) as internal_font_number;
+                    d = FONT_INFO[(WIDTH_BASE[f]
+                        + FONT_INFO
+                            [(CHAR_BASE[f] + effective_char(true, f, MEM[p].b16.s0)) as usize]
+                            .b16
+                            .s3 as i32) as usize]
+                        .b32
+                        .s1;
+                    found = true;
+                } else {
+                    match text_NODE_type(p).unwrap() {
+                        TextNode::HList | TextNode::VList | TextNode::Rule => {
+                            d = *BOX_width(p);
+                            found = true;
+                        }
+                        TextNode::Ligature => {
+                            *CHAR_NODE_character(GARBAGE) = *LIGATURE_NODE_lig_char(p);
+                            *CHAR_NODE_font(GARBAGE) = *LIGATURE_NODE_lig_font(p);
+                            *LLIST_link(GARBAGE) = *LLIST_link(p);
+                            popt = Some(GARBAGE);
+                            xtx_ligature_present = true;
+                            continue;
+                        }
+                        TextNode::Kern => {
+                            d = *kern_NODE_width(p);
+                            found = false;
+                        }
+                        TextNode::MarginKern => {
+                            d = *kern_NODE_width(p);
+                            found = false;
+                        }
+                        TextNode::Math => {
+                            d = MEM[p + 1].b32.s1;
+                            if *INTPAR(IntPar::texxet) > 0 {
+                                /*1525: */
+                                if MEM[p].b16.s0 as i32 & 1 != 0 {
+                                    if MEM[LR_ptr as usize].b32.s0
+                                        == 4i32 * (MEM[p].b16.s0 as i32 / 4) + 3
                                     {
-                                        v = MAX_HALFWORD
+                                        temp_ptr = LR_ptr as usize;
+                                        LR_ptr = MEM[temp_ptr].b32.s1;
+                                        MEM[temp_ptr].b32.s1 = avail.tex_int();
+                                        avail = Some(temp_ptr);
+                                    } else if MEM[p].b16.s0 as i32 > 4 {
+                                        w = MAX_HALFWORD;
+                                        break;
                                     }
-                                } else if *BOX_glue_sign(just_box) == GlueSign::Shrinking as u16 {
-                                    if *BOX_glue_order(just_box) == *GLUE_SPEC_shrink_order(q)
-                                        && *GLUE_SPEC_shrink(q) != 0
-                                    {
-                                        v = MAX_HALFWORD
+                                } else {
+                                    temp_ptr = get_avail();
+                                    MEM[temp_ptr].b32.s0 = 4i32 * (MEM[p].b16.s0 as i32 / 4) + 3;
+                                    MEM[temp_ptr].b32.s1 = LR_ptr;
+                                    LR_ptr = Some(temp_ptr).tex_int();
+                                    if MEM[p].b16.s0 as i32 / 8 != cur_dir as i32 {
+                                        just_reverse(p);
+                                        p = TEMP_HEAD;
                                     }
                                 }
-                                if MEM[p].b16.s0 >= A_LEADERS {
-                                    current_block = 9427725525305667067;
+                                found = false;
+                            } else {
+                                if MEM[p].b16.s0 as i32 >= 4 {
+                                    w = MAX_HALFWORD;
                                     break;
                                 } else {
-                                    current_block = 1677945370889843322;
-                                    break;
+                                    found = false;
                                 }
                             }
-                            TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
-                                WhatsItNST::NativeWord
-                                | WhatsItNST::NativeWordAt
-                                | WhatsItNST::Glyph
-                                | WhatsItNST::Pic
-                                | WhatsItNST::Pdf => {
-                                    current_block = 11064061988481400464;
-                                    break;
+                        }
+                        TextNode::Style => {
+                            d = MEM[(p + 1) as usize].b32.s1;
+                            cur_dir = LR::n(MEM[p as usize].b16.s0).unwrap();
+                            found = false;
+                        }
+                        TextNode::Glue => {
+                            let q = *GLUE_NODE_glue_ptr(p) as usize;
+                            d = *GLUE_SPEC_width(q);
+                            if *BOX_glue_sign(just_box) == GlueSign::Stretching as u16 {
+                                if *BOX_glue_order(just_box) == *GLUE_SPEC_stretch_order(q)
+                                    && *GLUE_SPEC_stretch(q) != 0
+                                {
+                                    v = MAX_HALFWORD
                                 }
-                                _ => {
-                                    current_block = 5846959088466685742;
-                                    break;
+                            } else if *BOX_glue_sign(just_box) == GlueSign::Shrinking as u16 {
+                                if *BOX_glue_order(just_box) == *GLUE_SPEC_shrink_order(q)
+                                    && *GLUE_SPEC_shrink(q) != 0
+                                {
+                                    v = MAX_HALFWORD
                                 }
-                            },
+                            }
+                            if MEM[p].b16.s0 >= A_LEADERS {
+                                found = true;
+                            } else {
+                                found = false;
+                            }
+                        }
+                        TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
+                            WhatsItNST::NativeWord
+                            | WhatsItNST::NativeWordAt
+                            | WhatsItNST::Glyph
+                            | WhatsItNST::Pic
+                            | WhatsItNST::Pdf => {
+                                d = *BOX_width(p);
+                                found = true;
+                            }
                             _ => {
                                 d = 0;
-                                current_block = 1677945370889843322;
-                                break;
+                                found = false;
                             }
+                        },
+                        _ => {
+                            d = 0;
+                            found = false;
                         }
                     }
                 }
-                match current_block {
-                    2631791190359682872 => {
-                        if MEM[p].b16.s0 as i32 >= 4 {
-                            w = MAX_HALFWORD;
-                            break;
-                        } else {
-                            current_block = 1677945370889843322;
-                        }
+                if found {
+                    if v < MAX_HALFWORD {
+                        v = v + d;
+                        w = v
+                    } else {
+                        w = MAX_HALFWORD;
+                        break;
                     }
-                    13660591889533726445 =>
-                    /*1525: */
-                    {
-                        if MEM[p].b16.s0 as i32 & 1 != 0 {
-                            if MEM[LR_ptr as usize].b32.s0 == 4i32 * (MEM[p].b16.s0 as i32 / 4) + 3
-                            {
-                                temp_ptr = LR_ptr as usize;
-                                LR_ptr = MEM[temp_ptr].b32.s1;
-                                MEM[temp_ptr].b32.s1 = avail.tex_int();
-                                avail = Some(temp_ptr);
-                            } else if MEM[p].b16.s0 as i32 > 4 {
-                                w = MAX_HALFWORD;
-                                break;
-                            }
-                        } else {
-                            temp_ptr = get_avail();
-                            MEM[temp_ptr].b32.s0 = 4i32 * (MEM[p].b16.s0 as i32 / 4) + 3;
-                            MEM[temp_ptr].b32.s1 = LR_ptr;
-                            LR_ptr = Some(temp_ptr).tex_int();
-                            if MEM[p].b16.s0 as i32 / 8 != cur_dir as i32 {
-                                just_reverse(p);
-                                p = TEMP_HEAD;
-                            }
-                        }
-                        current_block = 1677945370889843322;
-                    }
-                    5846959088466685742 => {
-                        d = 0i32;
-                        current_block = 1677945370889843322;
-                    }
-                    11064061988481400464 => {
-                        d = MEM[(p + 1) as usize].b32.s1;
-                        current_block = 9427725525305667067;
-                    }
-                    _ => {}
-                }
-                match current_block {
-                    1677945370889843322 => {
-                        if v < MAX_HALFWORD {
-                            v = v + d
-                        }
-                    }
-                    _ => {
-                        if v < MAX_HALFWORD {
-                            v = v + d;
-                            w = v
-                        } else {
-                            w = MAX_HALFWORD;
-                            break;
-                        }
+                } else {
+                    if v < MAX_HALFWORD {
+                        v = v + d
                     }
                 }
                 popt = LLIST_link(p).opt();
@@ -373,8 +338,10 @@ pub(crate) unsafe fn init_math() {
             cur_dir = LR::LeftToRight;
             flush_node_list(MEM[TEMP_HEAD].b32.s1.opt());
         }
+        let s;
+        let l;
         if let Some(ps) = LOCAL(Local::par_shape).opt() {
-            n = MEM[ps].b32.s0;
+            let n = MEM[ps].b32.s0;
             let p = if cur_list.prev_graf + 2 >= n {
                 ps + 2 * (n as usize)
             } else {
