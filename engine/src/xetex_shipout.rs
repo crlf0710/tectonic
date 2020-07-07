@@ -1621,7 +1621,6 @@ unsafe fn reverse(
     mut cur_g: *mut scaled_t,
     mut cur_glue: *mut f64,
 ) -> i32 {
-    let mut current_block: u64;
     let mut q: i32 = 0;
     let mut glue_temp: f64 = 0.;
     let mut m: i32 = 0;
@@ -1637,72 +1636,54 @@ unsafe fn reverse(
     m = MIN_HALFWORD;
     n = MIN_HALFWORD;
     's_58: loop {
-        if !p.is_texnull() {
-            loop
+        while !p.is_texnull() {
             /*1511: "Move node p to the new list and go to the next node; or
              * goto done if the end of the reflected segment has been
              * reached." */
-            {
-                if is_char_node(p.opt()) {
-                    loop {
-                        f = *CHAR_NODE_font(p as usize) as usize;
-                        c = *CHAR_NODE_character(p as usize);
-                        cur_h += FONT_INFO[(WIDTH_BASE[f]
-                            + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize]
-                                .b16
-                                .s3 as i32) as usize]
-                            .b32
-                            .s1;
-                        q = *LLIST_link(p as usize);
-                        *LLIST_link(p as usize) = l;
-                        l = p;
-                        p = q;
-                        if !is_char_node(p.opt()) {
-                            break;
-                        }
-                    }
-                    continue 's_58;
-                } else {
+            if is_char_node(p.opt()) {
+                loop {
+                    f = *CHAR_NODE_font(p as usize) as usize;
+                    c = *CHAR_NODE_character(p as usize);
+                    cur_h += FONT_INFO[(WIDTH_BASE[f]
+                        + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize]
+                            .b16
+                            .s3 as i32) as usize]
+                        .b32
+                        .s1;
                     q = *LLIST_link(p as usize);
-                    match text_NODE_type(p as usize).unwrap() {
-                        TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => {
+                    *LLIST_link(p as usize) = l;
+                    l = p;
+                    p = q;
+                    if !is_char_node(p.opt()) {
+                        break;
+                    }
+                }
+            } else {
+                let mut add_rule = true;
+                q = *LLIST_link(p as usize);
+                match text_NODE_type(p as usize).unwrap() {
+                    TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => {
+                        rule_wd = *BOX_width(p as usize);
+                    }
+                    TextNode::WhatsIt => match whatsit_NODE_subtype(p as usize) {
+                        WhatsItNST::NativeWord
+                        | WhatsItNST::NativeWordAt
+                        | WhatsItNST::Glyph
+                        | WhatsItNST::Pic
+                        | WhatsItNST::Pdf => {
                             rule_wd = *BOX_width(p as usize);
-                            current_block = 3812947724376655173;
-                            break;
                         }
-                        TextNode::WhatsIt => match whatsit_NODE_subtype(p as usize) {
-                            WhatsItNST::NativeWord
-                            | WhatsItNST::NativeWordAt
-                            | WhatsItNST::Glyph
-                            | WhatsItNST::Pic
-                            | WhatsItNST::Pdf => {
-                                current_block = 7056779235015430508;
-                                break;
-                            }
-                            _ => {
-                                current_block = 10883403804712335414;
-                                break;
-                            }
-                        },
-                        TextNode::Glue => {
-                            /*1486: "Handle a glue node for mixed direction typesetting" */
-                            g = *GLUE_NODE_glue_ptr(p as usize) as usize; /* "will never match" */
-                            rule_wd = *BOX_width(g) - *cur_g; /* = mem[lig_char(temp_ptr)] */
+                        _ => add_rule = false,
+                    },
+                    TextNode::Glue => {
+                        /*1486: "Handle a glue node for mixed direction typesetting" */
+                        g = *GLUE_NODE_glue_ptr(p as usize) as usize; /* "will never match" */
+                        rule_wd = *BOX_width(g) - *cur_g; /* = mem[lig_char(temp_ptr)] */
 
-                            if g_sign != GlueSign::Normal {
-                                if g_sign == GlueSign::Stretching {
-                                    if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
-                                        *cur_glue = *cur_glue + *GLUE_SPEC_stretch(g) as f64;
-                                        glue_temp = *BOX_glue_set(this_box) * *cur_glue;
-                                        if glue_temp > 1000000000. {
-                                            glue_temp = 1000000000.
-                                        } else if glue_temp < -1000000000. {
-                                            glue_temp = -1000000000.
-                                        }
-                                        *cur_g = tex_round(glue_temp)
-                                    }
-                                } else if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
-                                    *cur_glue = *cur_glue - *GLUE_SPEC_shrink(g) as f64;
+                        if g_sign != GlueSign::Normal {
+                            if g_sign == GlueSign::Stretching {
+                                if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
+                                    *cur_glue = *cur_glue + *GLUE_SPEC_stretch(g) as f64;
                                     glue_temp = *BOX_glue_set(this_box) * *cur_glue;
                                     if glue_temp > 1000000000. {
                                         glue_temp = 1000000000.
@@ -1711,139 +1692,132 @@ unsafe fn reverse(
                                     }
                                     *cur_g = tex_round(glue_temp)
                                 }
+                            } else if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
+                                *cur_glue = *cur_glue - *GLUE_SPEC_shrink(g) as f64;
+                                glue_temp = *BOX_glue_set(this_box) * *cur_glue;
+                                if glue_temp > 1000000000. {
+                                    glue_temp = 1000000000.
+                                } else if glue_temp < -1000000000. {
+                                    glue_temp = -1000000000.
+                                }
+                                *cur_g = tex_round(glue_temp)
                             }
-                            rule_wd += *cur_g;
-                            if g_sign == GlueSign::Stretching
-                                && *GLUE_SPEC_stretch_order(g) == g_order as u16
-                                || g_sign == GlueSign::Shrinking
-                                    && *GLUE_SPEC_shrink_order(g) == g_order as u16
+                        }
+
+                        rule_wd += *cur_g;
+
+                        if g_sign == GlueSign::Stretching
+                            && *GLUE_SPEC_stretch_order(g) == g_order as u16
+                            || g_sign == GlueSign::Shrinking
+                                && *GLUE_SPEC_shrink_order(g) == g_order as u16
+                        {
+                            if GLUE_SPEC_ref_count(g).opt().is_none() {
+                                free_node(g, GLUE_SPEC_SIZE);
+                            } else {
+                                *GLUE_SPEC_ref_count(g) -= 1;
+                            }
+                            if MEM[p as usize].b16.s0 < A_LEADERS {
+                                // NODE_subtype(p)
+                                set_NODE_type(p as usize, TextNode::Kern);
+                                *BOX_width(p as usize) = rule_wd;
+                            } else {
+                                g = get_node(GLUE_SPEC_SIZE);
+                                *GLUE_SPEC_stretch_order(g) = GlueOrder::Incorrect as u16;
+                                *GLUE_SPEC_shrink_order(g) = GlueOrder::Incorrect as u16;
+                                *GLUE_SPEC_width(g) = rule_wd;
+                                *GLUE_SPEC_stretch(g) = 0;
+                                *GLUE_SPEC_shrink(g) = 0;
+                                *GLUE_NODE_glue_ptr(p as usize) = g as i32;
+                            }
+                        }
+                    }
+                    TextNode::Ligature => {
+                        flush_node_list(LIGATURE_NODE_lig_ptr(p as usize).opt());
+                        temp_ptr = p as usize;
+                        p = get_avail() as i32;
+                        *LIGATURE_NODE_lig_char(p as usize) = *LIGATURE_NODE_lig_char(temp_ptr);
+                        *LIGATURE_NODE_lig_font(p as usize) = *LIGATURE_NODE_lig_font(temp_ptr);
+                        *LIGATURE_NODE_lig_ptr(p as usize) = *LIGATURE_NODE_lig_ptr(temp_ptr);
+                        *LLIST_link(p as usize) = q;
+                        free_node(temp_ptr, SMALL_NODE_SIZE);
+                        continue;
+                    }
+                    TextNode::Math => {
+                        /*1516: "Math nodes in an inner reflected segment are
+                         * modified, those at the outer level are changed into
+                         * kern nodes." */
+                        rule_wd = *BOX_width(p as usize);
+
+                        if (BOX_lr_mode(p as usize) as u16) & 1 != 0 {
+                            if *LLIST_info(LR_ptr as usize)
+                                != 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3
                             {
-                                if GLUE_SPEC_ref_count(g).opt().is_none() {
-                                    free_node(g, GLUE_SPEC_SIZE);
+                                set_NODE_type(p as usize, TextNode::Kern);
+                                LR_problems += 1;
+                            } else {
+                                temp_ptr = LR_ptr as usize;
+                                LR_ptr = *LLIST_link(temp_ptr);
+                                *LLIST_link(temp_ptr) = avail.tex_int();
+                                avail = Some(temp_ptr);
+
+                                if n > MIN_HALFWORD {
+                                    n -= 1;
+                                    MEM[p as usize].b16.s0 -= 1; // NODE_subtype(p)
                                 } else {
-                                    *GLUE_SPEC_ref_count(g) -= 1;
-                                }
-                                if MEM[p as usize].b16.s0 < A_LEADERS {
-                                    // NODE_subtype(p)
                                     set_NODE_type(p as usize, TextNode::Kern);
-                                    *BOX_width(p as usize) = rule_wd;
-                                } else {
-                                    g = get_node(GLUE_SPEC_SIZE);
-                                    *GLUE_SPEC_stretch_order(g) = GlueOrder::Incorrect as u16;
-                                    *GLUE_SPEC_shrink_order(g) = GlueOrder::Incorrect as u16;
-                                    *GLUE_SPEC_width(g) = rule_wd;
-                                    *GLUE_SPEC_stretch(g) = 0;
-                                    *GLUE_SPEC_shrink(g) = 0;
-                                    *GLUE_NODE_glue_ptr(p as usize) = g as i32;
+                                    if m > MIN_HALFWORD {
+                                        m -= 1
+                                    } else {
+                                        /*1517: "Finish the reverse hlist segment and goto done" */
+                                        free_node(p as usize, MEDIUM_NODE_SIZE); /* end GLUE_NODE case */
+                                        let t = t.unwrap();
+                                        *LLIST_link(t) = q;
+                                        *BOX_width(t) = rule_wd;
+                                        *EDGE_NODE_edge_dist(t) = -cur_h - rule_wd;
+                                        break 's_58;
+                                    }
                                 }
                             }
-                            current_block = 3812947724376655173;
-                            break;
-                        }
-                        TextNode::Ligature => {
-                            flush_node_list(LIGATURE_NODE_lig_ptr(p as usize).opt());
-                            temp_ptr = p as usize;
-                            p = get_avail() as i32;
-                            *LIGATURE_NODE_lig_char(p as usize) = *LIGATURE_NODE_lig_char(temp_ptr);
-                            *LIGATURE_NODE_lig_font(p as usize) = *LIGATURE_NODE_lig_font(temp_ptr);
-                            *LIGATURE_NODE_lig_ptr(p as usize) = *LIGATURE_NODE_lig_ptr(temp_ptr);
-                            *LLIST_link(p as usize) = q;
-                            free_node(temp_ptr, SMALL_NODE_SIZE);
-                        }
-                        TextNode::Math => {
-                            /*1516: "Math nodes in an inner reflected segment are
-                             * modified, those at the outer level are changed into
-                             * kern nodes." */
-                            rule_wd = *BOX_width(p as usize);
-
-                            if (BOX_lr_mode(p as usize) as u16) & 1 != 0 {
-                                current_block = 5873035170358615968;
-                                break;
-                            } else {
-                                current_block = 17239133558811367971;
-                                break;
-                            }
-                        }
-                        EDGE_NODE => confusion(b"LR2"),
-                        _ => {
-                            current_block = 10883403804712335414;
-                            break;
-                        }
-                    }
-                }
-            }
-            match current_block {
-                5873035170358615968 => {
-                    if *LLIST_info(LR_ptr as usize) != 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3 {
-                        set_NODE_type(p as usize, TextNode::Kern);
-                        LR_problems += 1;
-                    } else {
-                        temp_ptr = LR_ptr as usize;
-                        LR_ptr = *LLIST_link(temp_ptr);
-                        *LLIST_link(temp_ptr) = avail.tex_int();
-                        avail = Some(temp_ptr);
-
-                        if n > MIN_HALFWORD {
-                            n -= 1;
-                            MEM[p as usize].b16.s0 -= 1; // NODE_subtype(p)
                         } else {
-                            set_NODE_type(p as usize, TextNode::Kern);
-                            if m > MIN_HALFWORD {
-                                m -= 1
+                            temp_ptr = get_avail();
+                            *LLIST_info(temp_ptr) = 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3;
+                            *LLIST_link(temp_ptr) = LR_ptr;
+                            LR_ptr = Some(temp_ptr).tex_int();
+                            if n > MIN_HALFWORD || MEM[p as usize].b16.s0 / 8 != cur_dir as u16 {
+                                n += 1;
+                                MEM[p as usize].b16.s0 += 1; // NODE_subtype(p)
                             } else {
-                                /*1517: "Finish the reverse hlist segment and goto done" */
-                                free_node(p as usize, MEDIUM_NODE_SIZE); /* end GLUE_NODE case */
-                                let t = t.unwrap();
-                                *LLIST_link(t) = q;
-                                *BOX_width(t) = rule_wd;
-                                *EDGE_NODE_edge_dist(t) = -cur_h - rule_wd;
-                                break;
+                                set_NODE_type(p as usize, TextNode::Kern);
+                                m += 1;
                             }
                         }
                     }
-                    current_block = 3812947724376655173;
+                    EDGE_NODE => confusion(b"LR2"),
+                    _ => add_rule = false,
                 }
-                17239133558811367971 => {
-                    temp_ptr = get_avail();
-                    *LLIST_info(temp_ptr) = 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3;
-                    *LLIST_link(temp_ptr) = LR_ptr;
-                    LR_ptr = Some(temp_ptr).tex_int();
-                    if n > MIN_HALFWORD || MEM[p as usize].b16.s0 / 8 != cur_dir as u16 {
-                        n += 1;
-                        MEM[p as usize].b16.s0 += 1; // NODE_subtype(p)
-                    } else {
-                        set_NODE_type(p as usize, TextNode::Kern);
-                        m += 1;
+
+                if add_rule {
+                    cur_h += rule_wd;
+                }
+
+                // next_p
+                MEM[p as usize].b32.s1 = l;
+                if text_NODE_type(p as usize) == TextNode::Kern.into() {
+                    if rule_wd == 0 || l.is_texnull() {
+                        free_node(p as usize, MEDIUM_NODE_SIZE);
+                        p = l
                     }
-                    current_block = 3812947724376655173;
                 }
-                7056779235015430508 => {
-                    rule_wd = *BOX_width(p as usize);
-                    current_block = 3812947724376655173;
-                }
-                _ => {}
+                l = p;
+                p = q
             }
-            match current_block {
-                3812947724376655173 => cur_h += rule_wd,
-                _ => {}
-            }
-            MEM[p as usize].b32.s1 = l;
-            if text_NODE_type(p as usize) == TextNode::Kern.into() {
-                if rule_wd == 0 || l.is_texnull() {
-                    free_node(p as usize, MEDIUM_NODE_SIZE);
-                    p = l
-                }
-            }
-            l = p;
-            p = q
-        } else {
-            /* ... resuming 1510 ... */
-            if t.is_none() && m.is_texnull() && n.is_texnull() {
-                break; /* "Manufacture a missing math node" */
-            }
-            p = new_math(0, *LLIST_info(LR_ptr as usize) as i16) as i32;
-            LR_problems += 10000i32
         }
+        /* ... resuming 1510 ... */
+        if t.is_none() && m.is_texnull() && n.is_texnull() {
+            break; /* "Manufacture a missing math node" */
+        }
+        p = new_math(0, *LLIST_info(LR_ptr as usize) as i16) as i32;
+        LR_problems += 10000i32
     }
     l
 }
