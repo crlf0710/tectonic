@@ -38,8 +38,8 @@ use crate::xetex_xetex0::{
     begin_diagnostic, begin_token_list, cur_length, effective_char, end_diagnostic, end_token_list,
     flush_list, flush_node_list, free_node, get_avail, get_node, get_token, glue_ord,
     internal_font_number, make_name_string, new_kern, new_math, new_native_word_node,
-    open_log_file, pack_file_name, pack_job_name, packed_UTF16_code, pool_pointer, prepare_mag,
-    scaled_t, scan_toks, show_box, show_token_list, str_number, token_show, UTF16_code,
+    open_log_file, pack_file_name, pack_job_name, packed_UTF16_code, prepare_mag, scaled_t,
+    scan_toks, show_box, show_token_list, str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
     is_char_node, kern_NODE_subtype, kern_NODE_width, print_c_string, set_BOX_lr_mode,
@@ -50,10 +50,11 @@ use crate::xetex_xetexd::{
     GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order,
     GLUE_SPEC_width, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
     LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_glyph_info_ptr,
-    NATIVE_NODE_length, NODE_type, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    NATIVE_NODE_length, NODE_type, PIC_NODE_page, PIC_NODE_path_len, SYNCTEX_tag, TeXInt, TeXOpt,
+    FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
-use libc::{strerror, strlen};
+use libc::strerror;
 
 use bridge::OutputHandleWrapper;
 
@@ -65,9 +66,6 @@ static mut dvi_file: Option<OutputHandleWrapper> = None;
 static mut output_file_name: str_number = 0;
 static mut dvi_buf: Vec<u8> = Vec::new();
 static mut dvi_limit: usize = 0;
-static mut g: usize = 0;
-static mut lq: i32 = 0;
-static mut lr: i32 = 0;
 static mut dvi_ptr: usize = 0;
 static mut dvi_offset: usize = 0;
 static mut dvi_gone: i32 = 0;
@@ -105,9 +103,7 @@ unsafe fn dvi_out(c: u8) {
 
 /*660: output the box `p` */
 pub(crate) unsafe fn ship_out(p: usize) {
-    let mut s: pool_pointer = 0;
-    let mut l: u8 = 0;
-    let mut output_comment: *const i8 = b"tectonic\x00" as *const u8 as *const i8;
+    const output_comment: &[u8] = b"tectonic";
 
     synctex_sheet(*INTPAR(IntPar::mag));
 
@@ -240,12 +236,10 @@ pub(crate) unsafe fn ship_out(p: usize) {
             prepare_mag();
             dvi_four(*INTPAR(IntPar::mag));
 
-            l = strlen(output_comment) as u8;
-            dvi_out(l);
-            s = 0i32;
-            while s < l as i32 {
-                dvi_out(*output_comment.offset(s as isize) as u8);
-                s += 1
+            let l = output_comment.len();
+            dvi_out(l as u8);
+            for s in 0..l {
+                dvi_out(output_comment[s]);
             }
         }
 
@@ -285,10 +279,8 @@ pub(crate) unsafe fn ship_out(p: usize) {
         dvi_out(XXX1);
         dvi_out(cur_length() as u8);
 
-        s = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-        while s < pool_ptr {
+        for s in str_start[(str_ptr - TOO_BIG_CHAR) as usize]..pool_ptr {
             dvi_out(str_pool[s as usize] as u8);
-            s += 1
         }
 
         pool_ptr = str_start[(str_ptr - 65536) as usize];
@@ -506,7 +498,7 @@ unsafe fn hlist_out() {
                             } else if NODE_type(q) == TextNode::Glue.into() {
                                 str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
                                 pool_ptr += 1;
-                                g = *GLUE_NODE_glue_ptr(q) as usize;
+                                let g = *GLUE_NODE_glue_ptr(q) as usize;
                                 k += *GLUE_SPEC_width(g);
                                 if g_sign != GlueSign::Normal {
                                     if g_sign == GlueSign::Stretching {
@@ -899,7 +891,7 @@ unsafe fn hlist_out() {
                 }
                 TextNode::Glue => {
                     /*647: "Move right or output leaders" */
-                    g = *GLUE_NODE_glue_ptr(p) as usize;
+                    let g = *GLUE_NODE_glue_ptr(p) as usize;
                     rule_wd =
                         *GLUE_SPEC_width(g) -
                             cur_g;
@@ -959,7 +951,7 @@ unsafe fn hlist_out() {
                             *GLUE_SPEC_width(p)
                                 = rule_wd;
                         } else {
-                            g = get_node(GLUE_SPEC_SIZE);
+                            let g = get_node(GLUE_SPEC_SIZE);
                             *GLUE_SPEC_stretch_order(g) =
                                 GlueOrder::Incorrect as u16; /* "will never match" */
                             *GLUE_SPEC_shrink_order(g) =
@@ -1023,8 +1015,8 @@ unsafe fn hlist_out() {
                                         cur_h = cur_h + leader_wd
                                     }
                                 } else {
-                                    lq = rule_wd / leader_wd;
-                                    lr = rule_wd % leader_wd;
+                                    let lq = rule_wd / leader_wd;
+                                    let lr = rule_wd % leader_wd;
                                     if MEM[p].b16.s0 == C_LEADERS {
                                         // NODE_subtype(p)
                                         cur_h = cur_h + lr / 2;
@@ -1403,7 +1395,7 @@ unsafe fn vlist_out() {
             }
             TextNode::Glue => {
                 /*656: "Move down or output leaders" */
-                g = *GLUE_NODE_glue_ptr(p) as usize;
+                let g = *GLUE_NODE_glue_ptr(p) as usize;
                 rule_ht = *GLUE_SPEC_width(g) - cur_g;
 
                 if g_sign != GlueSign::Normal {
@@ -1491,8 +1483,8 @@ unsafe fn vlist_out() {
                                     cur_v = cur_v + leader_ht
                                 }
                             } else {
-                                lq = rule_ht / leader_ht;
-                                lr = rule_ht % leader_ht;
+                                let lq = rule_ht / leader_ht;
+                                let lr = rule_ht % leader_ht;
                                 if MEM[p].b16.s0 == C_LEADERS {
                                     cur_v = cur_v + lr / 2;
                                 } else {
@@ -1635,7 +1627,7 @@ unsafe fn reverse(
                     },
                     TextNode::Glue => {
                         /*1486: "Handle a glue node for mixed direction typesetting" */
-                        g = *GLUE_NODE_glue_ptr(p) as usize; /* "will never match" */
+                        let g = *GLUE_NODE_glue_ptr(p) as usize; /* "will never match" */
                         rule_wd = *BOX_width(g) - *cur_g; /* = mem[lig_char(temp_ptr)] */
 
                         if g_sign != GlueSign::Normal {
@@ -1679,7 +1671,7 @@ unsafe fn reverse(
                                 set_NODE_type(p, TextNode::Kern);
                                 *BOX_width(p) = rule_wd;
                             } else {
-                                g = get_node(GLUE_SPEC_SIZE);
+                                let g = get_node(GLUE_SPEC_SIZE);
                                 *GLUE_SPEC_stretch_order(g) = GlueOrder::Incorrect as u16;
                                 *GLUE_SPEC_shrink_order(g) = GlueOrder::Incorrect as u16;
                                 *GLUE_SPEC_width(g) = rule_wd;
@@ -1998,7 +1990,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
 
     /*629: found:*/
     unsafe fn found(mut q: usize, o: u8, p: usize) {
-        MEM[q].b32.s0 = MEM[p as usize].b32.s0; /*634:*/
+        MEM[q].b32.s0 = MEM[p].b32.s0; /*634:*/
         if MEM[q].b32.s0 == MoveDir::YHere as i32 {
             dvi_out(o + 4); /* max_selector enum */
             while MEM[q].b32.s1 != p as i32 {
@@ -2120,7 +2112,7 @@ unsafe fn write_out(p: usize) {
     let q = get_avail();
     MEM[q].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
     let mut r = get_avail();
-    MEM[q].b32.s1 = r as i32;
+    MEM[q].b32.s1 = Some(r).tex_int();
     MEM[r].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
     begin_token_list(q, Btl::Inserted);
     begin_token_list(MEM[p + 1].b32.s1 as usize, Btl::WriteText);
@@ -2230,7 +2222,7 @@ unsafe fn pic_out(p: usize) {
     print_scaled(MEM[p + 7].b32.s1);
     print(' ' as i32);
     print_cstr(b"page ");
-    print_int(MEM[p + 4].b16.s0 as i32);
+    print_int(*PIC_NODE_page(p) as i32);
     print(' ' as i32);
 
     match MEM[p + 8].b16.s1 {
@@ -2243,7 +2235,7 @@ unsafe fn pic_out(p: usize) {
     }
 
     print('(' as i32);
-    for i in 0..(MEM[p + 4].b16.s1) {
+    for i in 0..(*PIC_NODE_path_len(p)) {
         print_raw_char(
             *(&mut MEM[p + 9] as *mut memory_word as *mut u8).offset(i as isize) as UTF16_code,
             true,

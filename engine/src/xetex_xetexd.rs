@@ -307,8 +307,14 @@ pub(crate) unsafe fn PENALTY_NODE_penalty(p: usize) -> &'static mut i32 {
     &mut MEM[p + 1].b32.s1
 }
 
+pub(crate) unsafe fn PIC_NODE_page(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 4].b16.s0
+}
+/// number of bytes in the path item
+pub(crate) unsafe fn PIC_NODE_path_len(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 4].b16.s1
+}
 /*
-#define PIC_NODE_path_len(p) mem[(p) + 4].b16.s1 /* number of bytes in the path item */
 #define PIC_NODE_path(p) ((unsigned char *) &mem[(p) + PIC_NODE_SIZE])
 #define PIC_NODE_total_size(p) (PIC_NODE_SIZE + (PIC_NODE_path_len(p) + sizeof(memory_word) - 1) / sizeof(memory_word))
 

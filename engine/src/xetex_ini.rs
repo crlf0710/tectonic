@@ -1743,7 +1743,6 @@ pub(crate) unsafe fn init_trie() {
 }
 /*:1001*/
 unsafe fn new_hyph_exceptions() {
-    let mut current_block: u64;
     let mut n: i16 = 0;
     let mut k: str_number = 0;
     let mut s: str_number = 0;
@@ -1772,137 +1771,110 @@ unsafe fn new_hyph_exceptions() {
     n = 0_i16;
     let mut p = None;
 
-    's_91: loop {
-        get_x_token();
-        loop {
-            match cur_cmd {
-                Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {
-                    if cur_chr == '-' as i32 {
-                        /*973:*/
-                        if (n as usize) < max_hyphenatable_length() {
-                            let q = get_avail();
-                            MEM[q].b32.s1 = p.tex_int();
-                            MEM[q].b32.s0 = n as i32;
-                            p = Some(q);
-                        }
+    let mut reswitch = false;
+    loop {
+        if !reswitch {
+            get_x_token();
+        }
+        reswitch = false;
+
+        match cur_cmd {
+            Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {
+                if cur_chr == '-' as i32 {
+                    /*973:*/
+                    if (n as usize) < max_hyphenatable_length() {
+                        let q = get_avail();
+                        MEM[q].b32.s1 = p.tex_int();
+                        MEM[q].b32.s0 = n as i32;
+                        p = Some(q);
+                    }
+                } else {
+                    if hyph_index == 0 || cur_chr > 255 {
+                        hc[0] = *LC_CODE(cur_chr as usize) as _;
+                    } else if *trie_trc.offset((hyph_index + cur_chr) as isize) as i32 != cur_chr {
+                        hc[0] = 0;
                     } else {
-                        if hyph_index == 0 || cur_chr > 255 {
-                            hc[0] = *LC_CODE(cur_chr as usize) as _;
-                        } else if *trie_trc.offset((hyph_index + cur_chr) as isize) as i32
-                            != cur_chr
-                        {
-                            hc[0] = 0;
+                        hc[0] = *trie_tro.offset((hyph_index + cur_chr) as isize)
+                    }
+                    if hc[0] == 0 {
+                        if file_line_error_style_p != 0 {
+                            print_file_line();
                         } else {
-                            hc[0] = *trie_tro.offset((hyph_index + cur_chr) as isize)
+                            print_nl_cstr(b"! ");
                         }
-                        if hc[0] == 0 {
-                            if file_line_error_style_p != 0 {
-                                print_file_line();
-                            } else {
-                                print_nl_cstr(b"! ");
-                            }
-                            print_cstr(b"Not a letter");
-                            help!(
-                                b"Letters in \\hyphenation words must have \\lccode>0.",
-                                b"Proceed; I\'ll ignore the character I just read."
-                            );
-                            error();
-                        } else if (n as usize) < max_hyphenatable_length() {
+                        print_cstr(b"Not a letter");
+                        help!(
+                            b"Letters in \\hyphenation words must have \\lccode>0.",
+                            b"Proceed; I\'ll ignore the character I just read."
+                        );
+                        error();
+                    } else if (n as usize) < max_hyphenatable_length() {
+                        n += 1;
+                        if (hc[0] as i64) < 65536 {
+                            hc[n as usize] = hc[0]
+                        } else {
+                            hc[n as usize] = ((hc[0] as i64 - 65536) / 1024 as i64 + 55296) as i32;
                             n += 1;
-                            if (hc[0] as i64) < 65536 {
-                                hc[n as usize] = hc[0]
-                            } else {
-                                hc[n as usize] =
-                                    ((hc[0] as i64 - 65536) / 1024 as i64 + 55296) as i32;
-                                n += 1;
-                                hc[n as usize] = ((hc[0] % 1024) as i64 + 56320) as i32
-                            }
+                            hc[n as usize] = ((hc[0] % 1024) as i64 + 56320) as i32
                         }
                     }
-                    continue 's_91;
-                }
-                Cmd::CharNum => {
-                    scan_char_num();
-                    cur_chr = cur_val;
-                    cur_cmd = Cmd::CharGiven;
-                }
-                Cmd::Spacer | Cmd::RightBrace => {
-                    if n > 1 {
-                        current_block = 10753070352654377903;
-                        break;
-                    } else {
-                        current_block = 9500030526577190060;
-                        break;
-                    }
-                }
-                _ => {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr(b"! ");
-                    }
-                    print_cstr(b"Improper ");
-                    print_esc_cstr(b"hyphenation");
-                    print_cstr(b" will be flushed");
-                    help!(
-                        b"Hyphenation exceptions must contain only letters",
-                        b"and hyphens. But continue; I\'ll forgive and forget."
-                    );
-                    error();
-                    continue 's_91;
                 }
             }
-        }
-        match current_block {
-            10753070352654377903 => {
-                /*974:*/
-                n += 1;
-                hc[n as usize] = cur_lang as i32;
-                if pool_ptr + n as i32 > pool_size {
-                    overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
-                }
-                let mut h = 0;
-
-                for j in 1..=(n as usize) {
-                    h = ((h as i32 + h as i32 + hc[j]) % HYPH_PRIME) as hyph_pointer;
-                    str_pool[pool_ptr as usize] = hc[j] as packed_UTF16_code;
-                    pool_ptr += 1;
-                }
-
-                s = make_string();
-
-                if HYPH_NEXT <= HYPH_PRIME as usize {
-                    while HYPH_NEXT > 0 && HYPH_WORD[HYPH_NEXT - 1] > 0 {
-                        HYPH_NEXT -= 1;
+            Cmd::CharNum => {
+                scan_char_num();
+                cur_chr = cur_val;
+                cur_cmd = Cmd::CharGiven;
+                reswitch = true;
+                continue;
+            }
+            Cmd::Spacer | Cmd::RightBrace => {
+                if n > 1 {
+                    /*974:*/
+                    n += 1;
+                    hc[n as usize] = cur_lang as i32;
+                    if pool_ptr + n as i32 > pool_size {
+                        overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
                     }
-                }
+                    let mut h = 0;
 
-                if HYPH_COUNT == HYPH_SIZE || HYPH_NEXT == 0 {
-                    overflow(b"exception dictionary", HYPH_SIZE);
-                }
+                    for j in 1..=(n as usize) {
+                        h = ((h as i32 + h as i32 + hc[j]) % HYPH_PRIME) as hyph_pointer;
+                        str_pool[pool_ptr as usize] = hc[j] as packed_UTF16_code;
+                        pool_ptr += 1;
+                    }
 
-                HYPH_COUNT += 1;
+                    s = make_string();
 
-                while HYPH_WORD[h as usize] != 0 {
-                    k = HYPH_WORD[h as usize];
-                    if length(k) == length(s) {
-                        u = str_start[(k as i64 - 65536) as usize];
-                        v = str_start[(s as i64 - 65536) as usize];
-                        loop {
-                            if str_pool[u as usize] as i32 != str_pool[v as usize] as i32 {
-                                current_block = 876886731760051519;
-                                break;
-                            }
-                            u += 1;
-                            v += 1;
-                            if u == str_start[((k + 1i32) as i64 - 65536) as usize] {
-                                current_block = 8732226822098929438;
-                                break;
-                            }
+                    if HYPH_NEXT <= HYPH_PRIME as usize {
+                        while HYPH_NEXT > 0 && HYPH_WORD[HYPH_NEXT - 1] > 0 {
+                            HYPH_NEXT -= 1;
                         }
-                        match current_block {
-                            876886731760051519 => {}
-                            _ => {
+                    }
+
+                    if HYPH_COUNT == HYPH_SIZE || HYPH_NEXT == 0 {
+                        overflow(b"exception dictionary", HYPH_SIZE);
+                    }
+
+                    HYPH_COUNT += 1;
+
+                    while HYPH_WORD[h as usize] != 0 {
+                        k = HYPH_WORD[h as usize];
+                        let mut not_found = false;
+                        if length(k) == length(s) {
+                            u = str_start[(k as i64 - 65536) as usize];
+                            v = str_start[(s as i64 - 65536) as usize];
+                            loop {
+                                if str_pool[u as usize] as i32 != str_pool[v as usize] as i32 {
+                                    not_found = true;
+                                    break;
+                                }
+                                u += 1;
+                                v += 1;
+                                if u == str_start[((k + 1i32) as i64 - 65536) as usize] {
+                                    break;
+                                }
+                            }
+                            if !not_found {
                                 str_ptr -= 1;
                                 pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
                                 s = HYPH_WORD[h as usize];
@@ -1910,37 +1882,52 @@ unsafe fn new_hyph_exceptions() {
                                 break;
                             }
                         }
-                    }
-                    /*:975*/
-                    /*:976*/
-                    if HYPH_LINK[h as usize] == 0 {
-                        HYPH_LINK[h as usize] = HYPH_NEXT as hyph_pointer;
-                        if HYPH_NEXT >= HYPH_SIZE {
-                            HYPH_NEXT = HYPH_PRIME as usize;
+                        /*:975*/
+                        /*:976*/
+ // not_found
+                        if HYPH_LINK[h as usize] == 0 {
+                            HYPH_LINK[h as usize] = HYPH_NEXT as hyph_pointer;
+                            if HYPH_NEXT >= HYPH_SIZE {
+                                HYPH_NEXT = HYPH_PRIME as usize;
+                            }
+                            if HYPH_NEXT > HYPH_PRIME as usize {
+                                HYPH_NEXT += 1;
+                            }
                         }
-                        if HYPH_NEXT > HYPH_PRIME as usize {
-                            HYPH_NEXT += 1;
-                        }
+                        h = (HYPH_LINK[h as usize] as i32 - 1) as hyph_pointer;
                     }
-                    h = (HYPH_LINK[h as usize] as i32 - 1) as hyph_pointer;
+
+                    // found
+                    HYPH_WORD[h as usize] = s;
+                    HYPH_LIST[h as usize] = p;
                 }
-                HYPH_WORD[h as usize] = s;
-                HYPH_LIST[h as usize] = p;
+
+                if cur_cmd == Cmd::RightBrace {
+                    return;
+                }
+
+                n = 0;
+                p = None;
             }
-            _ => {}
+            _ => {
+                if file_line_error_style_p != 0 {
+                    print_file_line();
+                } else {
+                    print_nl_cstr(b"! ");
+                }
+                print_cstr(b"Improper ");
+                print_esc_cstr(b"hyphenation");
+                print_cstr(b" will be flushed");
+                help!(
+                    b"Hyphenation exceptions must contain only letters",
+                    b"and hyphens. But continue; I\'ll forgive and forget."
+                );
+                error();
+            }
         }
-
-        if cur_cmd == Cmd::RightBrace {
-            return;
-        }
-
-        n = 0;
-        p = None;
     }
 }
 pub(crate) unsafe fn prefixed_command() {
-    let mut current_block: u64;
-
     let mut f: internal_font_number = 0;
     let mut j: i32 = 0;
     let mut k: font_index = 0;
@@ -2291,6 +2278,7 @@ pub(crate) unsafe fn prefixed_command() {
                                         false);
                         cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt()).tex_int()
                     } else { EQTB[cur_chr as usize].val };
+
                     if let Some(q) = q.opt() {
                         MEM[q].b32.s0 += 1;
                         if e {
@@ -2311,49 +2299,46 @@ pub(crate) unsafe fn prefixed_command() {
                             eq_define(p as usize, Cmd::UndefinedCS, None);
                         }
                     }
-                    current_block = 1862445865460439639;
-                } else { current_block = 15174492983169363256; }
-            } else { current_block = 15174492983169363256; }
-            match current_block {
-                1862445865460439639 => { }
-                _ => {
-                    back_input();
-                    cur_cs = q;
-                    let q = scan_toks(false, false);
-                    if MEM[def_ref].b32.s1.opt().is_none() {
-                        if e {
-                            if a >= 4 {
-                                gsa_def(p as usize, None);
-                            } else { sa_def(p as usize, None); }
-                        } else if a >= 4 {
-                            geq_define(p as usize, Cmd::UndefinedCS, None);
-                        } else {
-                            eq_define(p as usize, Cmd::UndefinedCS, None);
-                        }
-                        MEM[def_ref].b32.s1 = avail.tex_int();
-                        avail = Some(def_ref);
-                    } else {
-                        if p == LOCAL_BASE as i32 + Local::output_routine as i32 && !e {
-                            let v = get_avail();
-                            *LLIST_link(q as usize) = Some(v).tex_int();
-                            MEM[v].b32.s0 =
-                                RIGHT_BRACE_TOKEN + 125;
-                            let q = get_avail();
-                            MEM[q].b32.s0 =
-                                LEFT_BRACE_TOKEN + 123;
-                            MEM[q].b32.s1 =
-                                MEM[def_ref].b32.s1;
-                            MEM[def_ref].b32.s1 = q as i32;
-                        }
-                        if e {
-                            if a >= 4 {
-                                gsa_def(p as usize, Some(def_ref));
-                            } else { sa_def(p as usize, Some(def_ref)); }
-                        } else if a >= 4 {
-                            geq_define(p as usize, Cmd::Call, Some(def_ref));
-                        } else { eq_define(p as usize, Cmd::Call, Some(def_ref)); }
-                    }
+                    return done();
                 }
+            }
+
+            back_input();
+            cur_cs = q;
+            let q = scan_toks(false, false);
+
+            if MEM[def_ref].b32.s1.opt().is_none() {
+                if e {
+                    if a >= 4 {
+                        gsa_def(p as usize, None);
+                    } else { sa_def(p as usize, None); }
+                } else if a >= 4 {
+                    geq_define(p as usize, Cmd::UndefinedCS, None);
+                } else {
+                    eq_define(p as usize, Cmd::UndefinedCS, None);
+                }
+                MEM[def_ref].b32.s1 = avail.tex_int();
+                avail = Some(def_ref);
+            } else {
+                if p == LOCAL_BASE as i32 + Local::output_routine as i32 && !e {
+                    let v = get_avail();
+                    *LLIST_link(q as usize) = Some(v).tex_int();
+                    MEM[v].b32.s0 =
+                        RIGHT_BRACE_TOKEN + 125;
+                    let q = get_avail();
+                    MEM[q].b32.s0 =
+                        LEFT_BRACE_TOKEN + 123;
+                    MEM[q].b32.s1 =
+                        MEM[def_ref].b32.s1;
+                    MEM[def_ref].b32.s1 = q as i32;
+                }
+                if e {
+                    if a >= 4 {
+                        gsa_def(p as usize, Some(def_ref));
+                    } else { sa_def(p as usize, Some(def_ref)); }
+                } else if a >= 4 {
+                    geq_define(p as usize, Cmd::Call, Some(def_ref));
+                } else { eq_define(p as usize, Cmd::Call, Some(def_ref)); }
             }
         }
         Cmd::AssignInt => {
@@ -2448,7 +2433,7 @@ pub(crate) unsafe fn prefixed_command() {
                 } else { eq_word_define(p as usize, n); }
             }
         }
-    Cmd::DefCode => {
+        Cmd::DefCode => {
             let n = if cur_chr == CAT_CODE_BASE as i32 {
                 MAX_CHAR_CODE
             } else if cur_chr == MATH_CODE_BASE as i32 {
@@ -2595,21 +2580,22 @@ pub(crate) unsafe fn prefixed_command() {
             if cur_chr == 1 {
                 if in_initex_mode {
                     new_patterns();
-                } else {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr(b"! ");
-                    }
-                    print_cstr(b"Patterns can be loaded only by INITEX");
-                    help!();
-                    error();
-                    loop  {
-                        get_token();
-                        if cur_cmd == Cmd::RightBrace { break ; }
-                    }
-                    return
+                    return done();
                 }
+
+                if file_line_error_style_p != 0 {
+                    print_file_line();
+                } else {
+                    print_nl_cstr(b"! ");
+                }
+                print_cstr(b"Patterns can be loaded only by INITEX");
+                help!();
+                error();
+                loop  {
+                    get_token();
+                    if cur_cmd == Cmd::RightBrace { break ; }
+                }
+                return;
             } else { new_hyph_exceptions(); }
         }
         Cmd::AssignFontDimen => {
@@ -2650,21 +2636,21 @@ pub(crate) unsafe fn prefixed_command() {
         Cmd::SetInteraction => { new_interaction(); }
         _ => { confusion(b"prefix"); }
     }
+
     /*1304:*/
-    if after_token != 0 {
-        cur_tok = after_token;
-        back_input();
-        after_token = 0;
-    };
+    unsafe fn done() {
+        if after_token != 0 {
+            cur_tok = after_token;
+            back_input();
+            after_token = 0;
+        }
+    }
+
+    done()
 }
 /*:1328*/
 /*1337:*/
 unsafe fn store_fmt_file() {
-    let mut current_block: u64;
-    let mut j: i32 = 0;
-    let mut l: i32 = 0;
-    let mut q: i32 = 0;
-    let mut x: i32 = 0;
     if SAVE_PTR != 0 {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -2769,8 +2755,8 @@ unsafe fn store_fmt_file() {
     }
 
     let mut p = 0;
-    q = rover;
-    x = 0;
+    let mut q = rover;
+    let mut x = 0;
     loop {
         fmt_out.dump(&MEM[p as usize..(q + 2) as usize]);
         x = x + q + 2 - p;
@@ -2810,80 +2796,73 @@ unsafe fn store_fmt_file() {
 
     /* equivalents table / primitive */
 
-    let mut k = ACTIVE_BASE as i32; /*:1350*/
+    let mut k = ACTIVE_BASE; /*:1350*/
+    let mut j;
     loop {
         j = k;
+        let l;
         loop {
-            if !(j < (INT_BASE as i32) - 1) {
-                current_block = 7923086311623215889;
+            if j >= INT_BASE - 1 {
+                l = INT_BASE;
                 break;
             }
-            if EQTB[j as usize] == EQTB[(j + 1) as usize] {
-                current_block = 8379985486002839332;
-                break;
-            }
-            j += 1
-        }
-        match current_block {
-            7923086311623215889 => l = INT_BASE as i32,
-            _ => {
+            if EQTB[j] == EQTB[j + 1] {
                 j += 1;
                 l = j;
-                while j < (INT_BASE as i32) - 1 {
-                    if EQTB[j as usize] != EQTB[(j + 1) as usize] {
+                while j < INT_BASE - 1 {
+                    if EQTB[j] != EQTB[j + 1] {
                         break;
                     }
                     j += 1;
                 }
+                break;
             }
+            j += 1;
         }
-        fmt_out.dump_one((l - k) as i32);
-        fmt_out.dump(&EQTB[k as usize..l as usize]);
+        fmt_out.dump_one((l as i32) - (k as i32));
+        fmt_out.dump(&EQTB[k..l]);
         k = j + 1;
-        fmt_out.dump_one((k - l) as i32);
-        if k == INT_BASE as i32 {
+        fmt_out.dump_one((k as i32) - (l as i32));
+        if k == INT_BASE {
             break;
         }
     }
+
+    let mut j;
     loop {
         j = k;
+        let l;
         loop {
-            if !(j < EQTB_SIZE as i32) {
-                current_block = 10505255564575309249;
+            if j >= EQTB_SIZE {
+                l = EQTB_SIZE + 1;
                 break;
             }
-            if EQTB[j as usize].val == EQTB[(j + 1) as usize].val {
-                current_block = 18329769178042496632;
-                break;
-            }
-            j += 1
-        }
-        match current_block {
-            10505255564575309249 => l = (EQTB_SIZE as i32) + 1,
-            _ => {
+            if EQTB[j].val == EQTB[j + 1].val {
                 j += 1;
                 l = j;
-                while j < EQTB_SIZE as i32 {
-                    if EQTB[j as usize].val != EQTB[(j + 1) as usize].val {
+                while j < EQTB_SIZE {
+                    if EQTB[j].val != EQTB[j + 1].val {
                         break;
                     }
-                    j += 1
+                    j += 1;
                 }
+                break;
             }
+            j += 1;
         }
 
         // done2:
-        fmt_out.dump_one((l - k) as i32);
-        fmt_out.dump(&EQTB[k as usize..l as usize]);
-        k = j + 1i32;
-        fmt_out.dump_one((k - l) as i32);
-        if !(k <= EQTB_SIZE as i32) {
+        fmt_out.dump_one((l as i32) - (k as i32));
+        fmt_out.dump(&EQTB[k..l]);
+        k = j + 1;
+        fmt_out.dump_one((k as i32) - (l as i32));
+        if !(k <= EQTB_SIZE) {
             break;
         }
     }
 
     if hash_high > 0 {
-        fmt_out.dump(&EQTB[EQTB_SIZE as usize + 1..EQTB_SIZE as usize + 1 + hash_high as usize]);
+        fmt_out.dump(&EQTB[EQTB_SIZE + 1..EQTB_SIZE + 1 + hash_high as usize]);
     }
 
     fmt_out.dump_one(par_loc as i32);
@@ -3080,7 +3059,6 @@ unsafe fn pack_buffered_name(mut _n: i16, mut _a: i32, mut _b: i32) {
     name_length = strlen(name_of_file) as i32;
 }
 unsafe fn load_fmt_file() -> bool {
-    let mut _current_block: u64;
     let mut j: i32 = 0;
     let mut p: i32 = 0;
     let mut q: i32 = 0;
