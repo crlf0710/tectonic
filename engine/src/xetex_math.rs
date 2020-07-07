@@ -1591,11 +1591,11 @@ unsafe fn clean_box(p: usize, mut s: i16) -> usize {
     mlist_to_hlist();
     let q = *LLIST_link(TEMP_HEAD);
     cur_style = save_style;
-    if (cur_style as i32) < SCRIPT_STYLE {
-        cur_size = TEXT_SIZE;
+    cur_size = if (cur_style as i32) < SCRIPT_STYLE {
+        TEXT_SIZE
     } else {
-        cur_size = SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-    }
+        SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
+    };
     cur_mu = x_over_n(math_quad(cur_size), 18);
 
     unsafe fn found(q: i32) -> usize {
@@ -2681,139 +2681,205 @@ unsafe fn make_left_right(
     (MEM[q].b16.s1 as i32 - (MathNode::Left as i32 - 20)) as i16
 }
 unsafe fn mlist_to_hlist() {
-    let mut current_block: u64;
-    let mut mlist: i32 = 0;
-    let mut penalties: bool = false;
-    let mut style: i16 = 0;
-    let mut save_style: i16 = 0;
-    let mut r: i32 = 0;
-    let mut t: i16 = 0;
-    let mut x: i32 = 0;
-    let mut pen: i32 = 0;
-    let mut s: i16 = 0;
-    let mut max_h: scaled_t = 0;
-    let mut max_d: scaled_t = 0;
-    let mut delta: scaled_t = 0;
-    mlist = cur_mlist;
-    penalties = mlist_penalties;
-    style = cur_style;
+    let mlist = cur_mlist;
+    let penalties = mlist_penalties;
+    let style = cur_style;
     let mut qopt = mlist.opt();
-    r = None.tex_int();
+    let mut r = None.tex_int();
     let mut r_type = MathNode::Op as i16;
-    max_h = 0;
-    max_d = 0;
-    if (cur_style as i32) < SCRIPT_STYLE {
-        cur_size = TEXT_SIZE;
+    let mut max_h = 0;
+    let mut max_d = 0;
+    cur_size = if (cur_style as i32) < SCRIPT_STYLE {
+        TEXT_SIZE
     } else {
-        cur_size = SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-    }
+        SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
+    };
     cur_mu = x_over_n(math_quad(cur_size), 18);
     while let Some(q) = qopt {
-        loop
         // 753:
-        {
-            delta = 0; /*:755 */
-            match ND::from(MEM[q].b16.s1) {
-                ND::Math(n) => match n {
-                    MathNode::Bin => {
-                        match ND::from(r_type as u16) {
-                            ND::Math(rt) => match rt {
-                                MathNode::Bin
-                                | MathNode::Op
-                                | MathNode::Rel
-                                | MathNode::Open
-                                | MathNode::Punct
-                                | MathNode::Left => {}
-                                _ => {
-                                    current_block = 1677945370889843322;
-                                    break;
-                                }
-                            },
-                            _ => {
-                                // TODO: check
-                                current_block = 1677945370889843322;
-                                break;
+        match ND::from(MEM[q].b16.s1) {
+            ND::Math(n) => {
+                let mut delta = 0; /*:755 */
+                let mut flag = true;
+                match n {
+                    MathNode::Bin => match ND::from(r_type as u16) {
+                        ND::Math(rt) => match rt {
+                            MathNode::Bin
+                            | MathNode::Op
+                            | MathNode::Rel
+                            | MathNode::Open
+                            | MathNode::Punct
+                            | MathNode::Left => {
+                                MEM[q].b16.s1 = MathNode::Ord as u16;
+                                continue;
                             }
+                            _ => {}
+                        },
+                        _ => {
+                            unreachable!();
                         }
-                        MEM[q as usize].b16.s1 = MathNode::Ord as u16;
-                    }
+                    },
                     MathNode::Rel | MathNode::Close | MathNode::Punct | MathNode::Right => {
                         if r_type as u16 == MathNode::Bin as u16 {
                             MEM[r as usize].b16.s1 = MathNode::Ord as u16;
                         }
                         if MEM[q].b16.s1 == MathNode::Right as u16 {
-                            current_block = 2476306051584715158;
-                            break;
-                        } else {
-                            current_block = 1677945370889843322;
-                            break;
+                            flag = false;
                         }
                     }
                     MathNode::Left => {
-                        current_block = 2476306051584715158;
-                        break;
+                        flag = false;
                     }
                     MathNode::Fraction => {
                         make_fraction(q);
-                        current_block = 454865348394072936;
-                        break;
+                        flag = false;
+                        /*check_dimensions */
+                        let z = hpack(MEM[q + 1].b32.s1.opt(), 0, PackMode::Additional);
+                        max_h = max_h.max(*BOX_height(z));
+                        max_d = max_d.max(*BOX_depth(z));
+                        free_node(z, BOX_NODE_SIZE);
                     }
                     MathNode::Op => {
                         delta = make_op(q);
                         if MEM[q].b16.s0 == Limit::Limits as u16 {
-                            current_block = 454865348394072936;
-                            break;
+                            flag = false;
+                            /*check_dimensions */
+                            let z = hpack(MEM[q + 1].b32.s1.opt(), 0, PackMode::Additional);
+                            max_h = max_h.max(*BOX_height(z));
+                            max_d = max_d.max(*BOX_depth(z));
+                            free_node(z, BOX_NODE_SIZE);
                         } else {
-                            current_block = 1677945370889843322;
-                            break;
                         }
                     }
                     MathNode::Ord => {
                         make_ord(q as usize);
-                        current_block = 1677945370889843322;
-                        break;
                     }
-                    MathNode::Open | MathNode::Inner => {
-                        current_block = 1677945370889843322;
-                        break;
-                    }
+                    MathNode::Open | MathNode::Inner => {}
                     MathNode::Radical => {
                         make_radical(q);
-                        current_block = 1677945370889843322;
-                        break;
                     }
                     MathNode::Over => {
                         make_over(q);
-                        current_block = 1677945370889843322;
-                        break;
                     }
                     MathNode::Under => {
                         make_under(q);
-                        current_block = 1677945370889843322;
-                        break;
                     }
                     MathNode::Accent => {
                         make_math_accent(q);
-                        current_block = 1677945370889843322;
-                        break;
                     }
                     MathNode::VCenter => {
                         make_vcenter(q);
-                        current_block = 1677945370889843322;
-                        break;
                     }
-                },
-                ND::Text(n) => match n {
+                }
+                if flag {
+                    let p = match MEM[q + 1].b32.s1 {
+                        1 | 4 => {
+                            fetch(q + 1);
+                            if FONT_AREA[cur_f as usize] as u32 == AAT_FONT_FLAG
+                                || FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
+                            {
+                                let z = new_native_character(cur_f, cur_c);
+                                let p = get_node(GLYPH_NODE_SIZE);
+                                set_NODE_type(p, TextNode::WhatsIt);
+                                set_whatsit_NODE_subtype(p, WhatsItNST::Glyph);
+                                *NATIVE_NODE_font(p) = cur_f as u16;
+                                *NATIVE_NODE_glyph(p) = real_get_native_glyph(
+                                    &mut MEM[z] as *mut memory_word as *mut libc::c_void,
+                                    0,
+                                );
+                                measure_native_glyph(
+                                    &mut MEM[p] as *mut memory_word as *mut libc::c_void,
+                                    1,
+                                );
+                                free_node(z, *NATIVE_NODE_size(z) as i32);
+                                delta = get_ot_math_ital_corr(cur_f, *NATIVE_NODE_glyph(p) as i32);
+                                if MEM[q + 1].b32.s1 == MATH_TEXT_CHAR
+                                    && !(FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
+                                        && isOpenTypeMathFont(
+                                            FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine,
+                                        ) as i32
+                                            != 0) as i32
+                                        != 0
+                                {
+                                    delta = 0;
+                                }
+                                if MEM[q + 3].b32.s1 == EMPTY && delta != 0 {
+                                    *LLIST_link(p) = Some(new_kern(delta)).tex_int();
+                                    delta = 0;
+                                }
+                                Some(p)
+                            } else if cur_i.s3 as i32 > 0 {
+                                delta = FONT_INFO
+                                    [(ITALIC_BASE[cur_f as usize] + cur_i.s1 as i32 / 4i32) as usize]
+                                    .b32
+                                    .s1;
+                                let p = new_character(cur_f, cur_c as UTF16_code);
+                                if MEM[q + 1].b32.s1 == MATH_TEXT_CHAR
+                                    && FONT_INFO[(2 + PARAM_BASE[cur_f as usize]) as usize].b32.s1 != 0
+                                {
+                                    delta = 0;
+                                }
+                                if MEM[q + 3].b32.s1 == EMPTY && delta != 0 {
+                                    *LLIST_link(p.unwrap()) = Some(new_kern(delta)).tex_int();
+                                    delta = 0i32
+                                }
+                                p
+                            } else {
+                                None
+                            }
+                        }
+                        0 => None,
+                        2 => MEM[q + 1].b32.s0.opt(),
+                        3 => {
+                            cur_mlist = MEM[q + 1].b32.s0;
+                            let save_style = cur_style;
+                            mlist_penalties = false;
+                            mlist_to_hlist();
+                            cur_style = save_style;
+                            cur_size = if (cur_style as i32) < SCRIPT_STYLE {
+                                TEXT_SIZE
+                            } else {
+                                SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
+                            };
+                            cur_mu = x_over_n(math_quad(cur_size), 18);
+                            Some(hpack(MEM[TEMP_HEAD].b32.s1.opt(), 0, PackMode::Additional))
+                        }
+                        _ => confusion(b"mlist2"),
+                    };
+                    MEM[q + 1].b32.s1 = p.tex_int();
+                    if !(MEM[q + 3].b32.s1 == EMPTY && MEM[q + 2].b32.s1 == EMPTY) {
+                        make_scripts(q, delta);
+                    }
+                    /*check_dimensions */
+                    let z = hpack(MEM[q + 1].b32.s1.opt(), 0, PackMode::Additional);
+                    max_h = max_h.max(*BOX_height(z));
+                    max_d = max_d.max(*BOX_depth(z));
+                    free_node(z, BOX_NODE_SIZE);
+                }
+                /*done_with_noad */
+                r = q as i32;
+                r_type = MEM[r as usize].b16.s1 as i16;
+                if r_type == MathNode::Right as i16 {
+                    r_type = MathNode::Left as i16;
+                    cur_style = style;
+                    cur_size = if (cur_style as i32) < SCRIPT_STYLE {
+                        TEXT_SIZE
+                    } else {
+                        SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
+                    };
+                    cur_mu = x_over_n(math_quad(cur_size), 18)
+                }
+            },
+            ND::Text(n) => {
+                match n {
                     TextNode::Style => {
                         cur_style = MEM[q].b16.s0 as i16;
-                        if (cur_style as i32) < SCRIPT_STYLE {
-                            cur_size = TEXT_SIZE;
+                        cur_size = if (cur_style as i32) < SCRIPT_STYLE {
+                            TEXT_SIZE
                         } else {
-                            cur_size = SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-                        }
+                            SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
+                        };
                         cur_mu = x_over_n(math_quad(cur_size), 18);
-                        current_block = 12027452349022962373;
-                        break;
                     }
                     TextNode::Choice => {
                         let mut p = None;
@@ -2852,29 +2918,22 @@ unsafe fn mlist_to_hlist() {
                             }
                             MEM[p].b32.s1 = z;
                         }
-                        current_block = 12027452349022962373;
-                        break;
                     }
                     TextNode::Ins
                     | TextNode::Mark
                     | TextNode::Adjust
                     | TextNode::WhatsIt
                     | TextNode::Penalty
-                    | TextNode::Disc => {
-                        current_block = 12027452349022962373;
-                        break;
-                    }
+                    | TextNode::Disc => {}
                     TextNode::Rule => {
                         max_h = max_h.max(*BOX_height(q));
                         max_d = max_d.max(*BOX_depth(q));
-                        current_block = 12027452349022962373;
-                        break;
                     }
                     TextNode::Glue => {
                         if MEM[q].b16.s0 == MU_GLUE {
-                            x = *GLUE_NODE_glue_ptr(q);
-                            let y = math_glue(x as usize, cur_mu);
-                            delete_glue_ref(x as usize);
+                            let x = *GLUE_NODE_glue_ptr(q) as usize;
+                            let y = math_glue(x, cur_mu);
+                            delete_glue_ref(x);
                             *GLUE_NODE_glue_ptr(q) = Some(y).tex_int();
                             MEM[q].b16.s0 = NORMAL as u16
                         } else if cur_size != TEXT_SIZE && MEM[q].b16.s0 == COND_MATH_GLUE {
@@ -2888,137 +2947,20 @@ unsafe fn mlist_to_hlist() {
                                 }
                             }
                         }
-                        current_block = 12027452349022962373;
-                        break;
                     }
                     TextNode::Kern => {
                         math_kern(q as usize, cur_mu);
-                        current_block = 12027452349022962373;
-                        break;
                     }
                     _ => confusion(b"mlist1"),
-                },
-                _ => confusion(b"mlist1"),
-            }
-        }
-        match current_block {
-            1677945370889843322 => {
-                let p = match MEM[q + 1].b32.s1 {
-                    1 | 4 => {
-                        fetch(q + 1);
-                        if FONT_AREA[cur_f as usize] as u32 == AAT_FONT_FLAG
-                            || FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-                        {
-                            let z = new_native_character(cur_f, cur_c);
-                            let p = get_node(GLYPH_NODE_SIZE);
-                            set_NODE_type(p, TextNode::WhatsIt);
-                            set_whatsit_NODE_subtype(p, WhatsItNST::Glyph);
-                            *NATIVE_NODE_font(p) = cur_f as u16;
-                            *NATIVE_NODE_glyph(p) = real_get_native_glyph(
-                                &mut MEM[z] as *mut memory_word as *mut libc::c_void,
-                                0,
-                            );
-                            measure_native_glyph(
-                                &mut MEM[p] as *mut memory_word as *mut libc::c_void,
-                                1,
-                            );
-                            free_node(z, *NATIVE_NODE_size(z) as i32);
-                            delta = get_ot_math_ital_corr(cur_f, *NATIVE_NODE_glyph(p) as i32);
-                            if MEM[q + 1].b32.s1 == MATH_TEXT_CHAR
-                                && !(FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-                                    && isOpenTypeMathFont(
-                                        FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine,
-                                    ) as i32
-                                        != 0) as i32
-                                    != 0
-                            {
-                                delta = 0;
-                            }
-                            if MEM[q + 3].b32.s1 == EMPTY && delta != 0 {
-                                *LLIST_link(p) = Some(new_kern(delta)).tex_int();
-                                delta = 0;
-                            }
-                            Some(p)
-                        } else if cur_i.s3 as i32 > 0 {
-                            delta = FONT_INFO
-                                [(ITALIC_BASE[cur_f as usize] + cur_i.s1 as i32 / 4i32) as usize]
-                                .b32
-                                .s1;
-                            let p = new_character(cur_f, cur_c as UTF16_code);
-                            if MEM[q + 1].b32.s1 == MATH_TEXT_CHAR
-                                && FONT_INFO[(2 + PARAM_BASE[cur_f as usize]) as usize].b32.s1 != 0
-                            {
-                                delta = 0;
-                            }
-                            if MEM[q + 3].b32.s1 == EMPTY && delta != 0 {
-                                *LLIST_link(p.unwrap()) = Some(new_kern(delta)).tex_int();
-                                delta = 0i32
-                            }
-                            p
-                        } else {
-                            None
-                        }
-                    }
-                    0 => None,
-                    2 => MEM[q + 1].b32.s0.opt(),
-                    3 => {
-                        cur_mlist = MEM[q + 1].b32.s0;
-                        save_style = cur_style;
-                        mlist_penalties = false;
-                        mlist_to_hlist();
-                        cur_style = save_style;
-                        if (cur_style as i32) < SCRIPT_STYLE {
-                            cur_size = TEXT_SIZE
-                        } else {
-                            cur_size = SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-                        }
-                        cur_mu = x_over_n(math_quad(cur_size), 18);
-                        Some(hpack(MEM[TEMP_HEAD].b32.s1.opt(), 0, PackMode::Additional))
-                    }
-                    _ => confusion(b"mlist2"),
-                };
-                MEM[q + 1].b32.s1 = p.tex_int();
-                if MEM[q + 3].b32.s1 == EMPTY && MEM[q + 2].b32.s1 == EMPTY {
-                    current_block = 454865348394072936;
-                } else {
-                    make_scripts(q, delta);
-                    current_block = 454865348394072936;
                 }
-            }
-            _ => {}
+            },
+            _ => confusion(b"mlist1"),
         }
-        match current_block {
-            454865348394072936 => {
-                /*check_dimensions */
-                let z = hpack(MEM[q + 1].b32.s1.opt(), 0, PackMode::Additional);
-                max_h = max_h.max(*BOX_height(z));
-                max_d = max_d.max(*BOX_depth(z));
-                free_node(z, BOX_NODE_SIZE);
-                current_block = 2476306051584715158;
-            }
-            _ => {}
-        }
-        match current_block {
-            2476306051584715158 => {
-                /*done_with_noad */
-                r = q as i32;
-                r_type = MEM[r as usize].b16.s1 as i16;
-                if r_type == MathNode::Right as i16 {
-                    r_type = MathNode::Left as i16;
-                    cur_style = style;
-                    if (cur_style as i32) < SCRIPT_STYLE {
-                        cur_size = TEXT_SIZE;
-                    } else {
-                        cur_size = SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-                    }
-                    cur_mu = x_over_n(math_quad(cur_size), 18)
-                }
-            }
-            _ => {}
-        }
+
         /*done_with_node */
         qopt = LLIST_link(q).opt();
     } /*ord_noad *//*:755 */
+
     if r_type == MathNode::Bin as i16 {
         MEM[r as usize].b16.s1 = 16;
     }
@@ -3027,17 +2969,16 @@ unsafe fn mlist_to_hlist() {
     let mut qopt = mlist.opt();
     let mut r_type = 0 as i16;
     cur_style = style;
-    if (cur_style as i32) < SCRIPT_STYLE {
-        cur_size = TEXT_SIZE
+    cur_size = if (cur_style as i32) < SCRIPT_STYLE {
+        TEXT_SIZE
     } else {
-        cur_size = SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-    }
+        SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
+    };
     cur_mu = x_over_n(math_quad(cur_size), 18);
     while let Some(q) = qopt {
-        let mut current_block_236: u64;
-        t = MathNode::Ord as i16;
-        s = NOAD_SIZE as i16;
-        pen = INF_PENALTY;
+        let mut t = MathNode::Ord as i16;
+        let mut s = NOAD_SIZE as i16;
+        let mut pen = INF_PENALTY;
         match NODE_type(q) {
             ND::Math(n) => match n {
                 MathNode::Op
@@ -3046,50 +2987,44 @@ unsafe fn mlist_to_hlist() {
                 | MathNode::Punct
                 | MathNode::Inner => {
                     t = MEM[q].b16.s1 as i16;
-                    current_block_236 = 15067367080042895309;
                 }
                 MathNode::Bin => {
                     t = MathNode::Bin as i16;
                     pen = *INTPAR(IntPar::bin_op_penalty);
-                    current_block_236 = 15067367080042895309;
                 }
                 MathNode::Rel => {
                     t = MathNode::Rel as i16;
                     pen = *INTPAR(IntPar::rel_penalty);
-                    current_block_236 = 15067367080042895309;
                 }
-                MathNode::Ord | MathNode::VCenter | MathNode::Over | MathNode::Under => {
-                    current_block_236 = 15067367080042895309
-                }
+                MathNode::Ord | MathNode::VCenter | MathNode::Over | MathNode::Under => {}
                 MathNode::Radical => {
                     s = RADICAL_NOAD_SIZE as i16;
-                    current_block_236 = 15067367080042895309;
                 }
                 MathNode::Accent => {
                     s = ACCENT_NOAD_SIZE as i16;
-                    current_block_236 = 15067367080042895309;
                 }
                 MathNode::Fraction => {
                     t = MathNode::Inner as i16;
                     s = FRACTION_NOAD_SIZE as i16;
-                    current_block_236 = 15067367080042895309;
                 }
                 MathNode::Left | MathNode::Right => {
                     t = make_left_right(q, style, max_d, max_h);
-                    current_block_236 = 15067367080042895309;
                 }
             },
             ND::Text(n) => match n {
                 TextNode::Style => {
                     cur_style = MEM[q].b16.s0 as i16;
                     s = STYLE_NODE_SIZE as i16;
-                    if (cur_style as i32) < SCRIPT_STYLE {
-                        cur_size = TEXT_SIZE
+                    cur_size = if (cur_style as i32) < SCRIPT_STYLE {
+                        TEXT_SIZE
                     } else {
-                        cur_size = SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-                    }
+                        SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
+                    };
                     cur_mu = x_over_n(math_quad(cur_size), 18);
-                    current_block_236 = 11920828421623439930;
+                    /*delete_q */
+                    qopt = LLIST_link(q).opt();
+                    free_node(q, s as i32);
+                    continue;
                 }
                 TextNode::WhatsIt
                 | TextNode::Penalty
@@ -3104,119 +3039,107 @@ unsafe fn mlist_to_hlist() {
                     p = q;
                     qopt = LLIST_link(q).opt();
                     MEM[p].b32.s1 = None.tex_int();
-                    current_block_236 = 7344615536999694015;
+                    continue;
                 }
                 _ => confusion(b"mlist3"),
             },
             _ => confusion(b"mlist3"),
         }
-        match current_block_236 {
-            15067367080042895309 => {
-                if r_type > 0 {
-                    const OFFSET_TABLE: [&[u8]; 8] = [
-                        b"02340001",
-                        b"22*40001",
-                        b"33**3**3",
-                        b"44*04004",
-                        b"00*00000",
-                        b"02340001",
-                        b"11*11111",
-                        b"12341011",
-                    ];
-                    // The inter-element spacing in math formulas depends on a 8x8 table.
-                    // The table indices range from MathNode::Ord to MathNode::Inner.
-                    // The chars of this table have the following significance:
-                    match OFFSET_TABLE[r_type as usize - MathNode::Ord as usize]
-                        [t as usize - MathNode::Ord as usize]
-                    {
-                        b'0' => {
-                            // no space
-                            x = 0i32
-                        }
-                        b'1' => {
-                            // a conditional thin space
-                            if (cur_style as i32) < SCRIPT_STYLE {
-                                x = GluePar::thin_mu_skip as i32;
-                            } else {
-                                x = 0;
-                            }
-                        }
-                        b'2' => {
-                            // a thin space
-                            x = GluePar::thin_mu_skip as i32;
-                        }
-                        b'3' => {
-                            // a conditional medium space
-                            if (cur_style as i32) < SCRIPT_STYLE {
-                                x = GluePar::med_mu_skip as i32;
-                            } else {
-                                x = 0;
-                            }
-                        }
-                        b'4' => {
-                            // a conditional thick space
-                            if (cur_style as i32) < SCRIPT_STYLE {
-                                x = GluePar::thick_mu_skip as i32;
-                            } else {
-                                x = 0;
-                            }
-                        }
-                        _ => {
-                            // impossible
-                            confusion(b"mlist4");
-                        }
-                    }
-                    if x != 0 {
-                        let y = math_glue(EQTB[GLUE_BASE + x as usize].val as usize, cur_mu);
-                        let z = new_glue(y);
-                        MEM[y].b32.s1 = None.tex_int();
-                        MEM[p].b32.s1 = Some(z).tex_int();
-                        p = z;
-                        MEM[z].b16.s0 = (x + 1) as u16
+        if r_type > 0 {
+            const OFFSET_TABLE: [&[u8]; 8] = [
+                b"02340001",
+                b"22*40001",
+                b"33**3**3",
+                b"44*04004",
+                b"00*00000",
+                b"02340001",
+                b"11*11111",
+                b"12341011",
+            ];
+            // The inter-element spacing in math formulas depends on a 8x8 table.
+            // The table indices range from MathNode::Ord to MathNode::Inner.
+            // The chars of this table have the following significance:
+            let x = match OFFSET_TABLE[r_type as usize - MathNode::Ord as usize]
+                [t as usize - MathNode::Ord as usize]
+            {
+                b'0' => {
+                    // no space
+                    0
+                }
+                b'1' => {
+                    // a conditional thin space
+                    if (cur_style as i32) < SCRIPT_STYLE {
+                        GluePar::thin_mu_skip as i32
+                    } else {
+                        0
                     }
                 }
-                if let Some(mut lst) = MEM[q + 1].b32.s1.opt() {
-                    *LLIST_link(p) = Some(lst).tex_int();
-                    loop {
-                        p = lst;
-                        if let Some(next) = LLIST_link(lst).opt() {
-                            lst = next;
-                        } else {
-                            break;
-                        }
+                b'2' => {
+                    // a thin space
+                    GluePar::thin_mu_skip as i32
+                }
+                b'3' => {
+                    // a conditional medium space
+                    if (cur_style as i32) < SCRIPT_STYLE {
+                        GluePar::med_mu_skip as i32
+                    } else {
+                        0
                     }
                 }
-                if penalties {
-                    if let Some(m) = MEM[q].b32.s1.opt() {
-                        if pen < INF_PENALTY {
-                            r_type = MEM[m].b16.s1 as i16;
-                            if ND::from(r_type as u16) != TextNode::Penalty.into() {
-                                if r_type != MathNode::Rel as i16 {
-                                    let z = new_penalty(pen);
-                                    MEM[p].b32.s1 = Some(z).tex_int();
-                                    p = z
-                                }
-                            }
-                        }
+                b'4' => {
+                    // a conditional thick space
+                    if (cur_style as i32) < SCRIPT_STYLE {
+                        GluePar::thick_mu_skip as i32
+                    } else {
+                        0
                     }
                 }
-                if MEM[q].b16.s1 == MathNode::Right as u16 {
-                    t = MathNode::Open as i16;
+                _ => {
+                    // impossible
+                    confusion(b"mlist4");
                 }
-                r_type = t;
-                current_block_236 = 11920828421623439930;
+            };
+            if x != 0 {
+                let y = math_glue(EQTB[GLUE_BASE + x as usize].val as usize, cur_mu);
+                let z = new_glue(y);
+                MEM[y].b32.s1 = None.tex_int();
+                MEM[p].b32.s1 = Some(z).tex_int();
+                p = z;
+                MEM[z].b16.s0 = (x + 1) as u16
             }
-            _ => {}
         }
-        match current_block_236 {
-            11920828421623439930 => {
-                /*delete_q */
-                r = q as i32;
-                qopt = LLIST_link(q).opt();
-                free_node(r as usize, s as i32);
+        if let Some(mut lst) = MEM[q + 1].b32.s1.opt() {
+            *LLIST_link(p) = Some(lst).tex_int();
+            loop {
+                p = lst;
+                if let Some(next) = LLIST_link(lst).opt() {
+                    lst = next;
+                } else {
+                    break;
+                }
             }
-            _ => {}
         }
+        if penalties {
+            if let Some(m) = MEM[q].b32.s1.opt() {
+                if pen < INF_PENALTY {
+                    r_type = MEM[m].b16.s1 as i16;
+                    if ND::from(r_type as u16) != TextNode::Penalty.into() {
+                        if r_type != MathNode::Rel as i16 {
+                            let z = new_penalty(pen);
+                            MEM[p].b32.s1 = Some(z).tex_int();
+                            p = z
+                        }
+                    }
+                }
+            }
+        }
+        if MEM[q].b16.s1 == MathNode::Right as u16 {
+            t = MathNode::Open as i16;
+        }
+        r_type = t;
+        /*delete_q */
+        qopt = LLIST_link(q).opt();
+        free_node(q, s as i32);
     }
 }
 unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
