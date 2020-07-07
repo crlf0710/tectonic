@@ -1251,27 +1251,13 @@ unsafe fn hlist_out() {
  * the vlist_node pointed to by temp_ptr. The reference point of that box has
  * coordinates (cur_h, cur_v)." */
 unsafe fn vlist_out() {
-    let mut current_block: u64;
-    let mut left_edge: scaled_t = 0;
-    let mut top_edge: scaled_t = 0;
-    let mut save_h: scaled_t = 0;
-    let mut save_v: scaled_t = 0;
-    let mut save_loc: usize = 0;
-    let mut leader_ht: scaled_t = 0;
-    let mut lx: scaled_t = 0;
-    let mut outer_doing_leaders: bool = false;
-    let mut edge: scaled_t = 0;
-    let mut glue_temp: f64 = 0.;
-    let mut upwards: bool = false;
-    let mut f: internal_font_number = 0;
-
-    let mut cur_g = 0i32;
-    let mut cur_glue = 0.0f64;
-    let mut this_box = temp_ptr;
-    let mut g_order = GlueOrder::from(*BOX_glue_order(this_box));
-    let mut g_sign = GlueSign::from(*BOX_glue_sign(this_box));
+    let mut cur_g = 0;
+    let mut cur_glue = 0_f64;
+    let this_box = temp_ptr;
+    let g_order = GlueOrder::from(*BOX_glue_order(this_box));
+    let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
     let mut popt = BOX_list_ptr(this_box).opt();
-    upwards = BOX_lr_mode(this_box) == LRMode::Reversed; // NODE_subtype(this_box)
+    let upwards = BOX_lr_mode(this_box) == LRMode::Reversed; // NODE_subtype(this_box)
 
     cur_s += 1;
     if cur_s > 0 {
@@ -1282,8 +1268,8 @@ unsafe fn vlist_out() {
         max_push = cur_s
     }
 
-    save_loc = dvi_offset + dvi_ptr;
-    left_edge = cur_h;
+    let save_loc = dvi_offset + dvi_ptr;
+    let left_edge = cur_h;
     synctex_vlist(this_box as i32);
 
     if upwards {
@@ -1292,296 +1278,110 @@ unsafe fn vlist_out() {
         cur_v -= *BOX_height(this_box);
     }
 
-    top_edge = cur_v;
+    let top_edge = cur_v;
 
     while let Some(p) = popt {
         /*652: "Output node p and move to the next node, maintaining the
          * condition cur_h = left_edge" */
         if is_char_node(Some(p)) {
             confusion(b"vlistout");
-        } else {
-            /*653: "Output the non-char_node p" */
-            let n = text_NODE_type(p).unwrap();
-            match n {
-                TextNode::HList | TextNode::VList => {
-                    /*654: "Output a box in a vlist" */
-                    if BOX_list_ptr(p).opt().is_none() {
-                        if upwards {
-                            cur_v -= *BOX_depth(p);
-                        } else {
-                            cur_v += *BOX_height(p);
-                        }
-                        if n == TextNode::VList {
-                            synctex_void_vlist(p as i32, this_box);
-                        } else {
-                            synctex_void_hlist(p as i32, this_box);
-                        }
-                        if upwards {
-                            cur_v -= *BOX_height(p);
-                        } else {
-                            cur_v += *BOX_depth(p);
-                        }
-                    } else {
-                        if upwards {
-                            cur_v -= *BOX_depth(p);
-                        } else {
-                            cur_v += *BOX_height(p);
-                        }
-                        if cur_v != dvi_v {
-                            movement(cur_v - dvi_v, DOWN1);
-                            dvi_v = cur_v
-                        }
-                        save_h = dvi_h;
-                        save_v = dvi_v;
-                        if cur_dir == LR::RightToLeft {
-                            cur_h = left_edge - *BOX_shift_amount(p);
-                        } else {
-                            cur_h = left_edge + *BOX_shift_amount(p);
-                        }
-                        temp_ptr = p;
-                        if n == TextNode::VList {
-                            vlist_out();
-                        } else {
-                            hlist_out();
-                        }
-                        dvi_h = save_h;
-                        dvi_v = save_v;
-                        if upwards {
-                            cur_v = save_v - *BOX_height(p);
-                        } else {
-                            cur_v = save_v + *BOX_depth(p);
-                        }
-                        cur_h = left_edge
-                    }
-                    current_block = 5241535548500397784;
-                }
-                TextNode::Rule => {
-                    rule_ht = *BOX_height(p);
-                    rule_dp = *BOX_depth(p);
-                    rule_wd = *BOX_width(p);
-                    current_block = 9653381107620864133;
-                }
-                TextNode::WhatsIt => {
-                    /*1403: "Output the whatsit node p in a vlist" */
-                    match whatsit_NODE_subtype(p) {
-                        WhatsItNST::Glyph => {
-                            cur_v = cur_v + *BOX_height(p);
-                            cur_h = left_edge;
-                            if cur_h != dvi_h {
-                                movement(cur_h - dvi_h, RIGHT1);
-                                dvi_h = cur_h
-                            }
-                            if cur_v != dvi_v {
-                                movement(cur_v - dvi_v, DOWN1);
-                                dvi_v = cur_v
-                            }
-                            f = *NATIVE_NODE_font(p) as usize;
-                            if f != dvi_f {
-                                /*643:*/
-                                if !font_used[f] {
-                                    dvi_font_def(f); /* width */
-                                    font_used[f] = true
-                                } /* glyph count */
-                                if f <= 64 {
-                                    dvi_out((f + 170) as u8); /* x offset as fixed-point */
-                                } else if f <= 256 {
-                                    dvi_out(FNT1); /* y offset as fixed-point */
-                                    dvi_out((f - 1) as u8);
-                                } else {
-                                    dvi_out(FNT1 + 1);
-                                    dvi_out(((f - 1) / 256) as u8);
-                                    dvi_out(((f - 1) % 256) as u8);
-                                }
-                                dvi_f = f
-                            }
-                            dvi_out(SET_GLYPHS);
-                            dvi_four(0); /* width */
-                            dvi_two(1 as UTF16_code); /* glyph count */
-                            dvi_four(0); /* x offset as fixed-point */
-                            dvi_four(0); /* y offset as fixed-point */
-                            dvi_two(*NATIVE_NODE_glyph(p));
-
-                            cur_v += *BOX_depth(p);
-                            cur_h = left_edge;
-                        }
-                        WhatsItNST::Pic | WhatsItNST::Pdf => {
-                            save_h = dvi_h;
-                            save_v = dvi_v;
-                            cur_v = cur_v + *BOX_height(p);
-                            pic_out(p);
-                            dvi_h = save_h;
-                            dvi_v = save_v;
-                            cur_v = save_v + *BOX_depth(p);
-                            cur_h = left_edge;
-                        }
-                        WhatsItNST::PdfSavePos => {
-                            pdf_last_x_pos = cur_h + cur_h_offset;
-                            pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
-                        }
-                        _ => out_what(p),
-                    }
-                    current_block = 5241535548500397784;
-                }
-                TextNode::Glue => {
-                    /*656: "Move down or output leaders" */
-                    g = *GLUE_NODE_glue_ptr(p) as usize;
-                    rule_ht = *GLUE_SPEC_width(g) - cur_g;
-
-                    if g_sign != GlueSign::Normal {
-                        if g_sign == GlueSign::Stretching {
-                            if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
-                                cur_glue += *GLUE_SPEC_stretch(g) as f64;
-                                glue_temp = *BOX_glue_set(this_box) * cur_glue;
-                                if glue_temp > 1000000000. {
-                                    glue_temp = 1000000000.
-                                } else if glue_temp < -1000000000. {
-                                    glue_temp = -1000000000.
-                                }
-                                cur_g = tex_round(glue_temp)
-                            }
-                        } else if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
-                            cur_glue -= *GLUE_SPEC_shrink(g) as f64;
-                            glue_temp = *BOX_glue_set(this_box) * cur_glue;
-                            if glue_temp > 1000000000. {
-                                glue_temp = 1000000000.
-                            } else if glue_temp < -1000000000. {
-                                glue_temp = -1000000000.
-                            }
-                            cur_g = tex_round(glue_temp)
-                        }
-                    }
-
-                    rule_ht += cur_g;
-
-                    if MEM[p].b16.s0 >= A_LEADERS {
-                        // NODE_subtype(p)
-                        /*657: "Output leaders in a vlist, goto fin_rule if a rule
-                         * or next_p if done" */
-                        let leader_box = *GLUE_NODE_leader_ptr(p) as usize; /* "compensate for floating-point rounding" */
-
-                        if NODE_type(leader_box) == TextNode::Rule.into() {
-                            rule_wd = *BOX_width(leader_box);
-                            rule_dp = 0;
-                            current_block = 9653381107620864133;
-                        } else {
-                            leader_ht = *BOX_height(leader_box) + *BOX_depth(leader_box);
-                            if leader_ht > 0i32 && rule_ht > 0i32 {
-                                rule_ht += 10i32;
-                                edge = cur_v + rule_ht;
-                                lx = 0i32;
-                                /*658: "Let cur_v be the position of the first box,
-                                 * and set leader_ht + lx to the spacing between
-                                 * corresponding parts of boxes" */
-                                if MEM[p].b16.s0 == A_LEADERS {
-                                    // NODE_subtype(p)
-                                    save_v = cur_v;
-                                    cur_v = top_edge + leader_ht * ((cur_v - top_edge) / leader_ht);
-                                    if cur_v < save_v {
-                                        cur_v = cur_v + leader_ht
-                                    }
-                                } else {
-                                    lq = rule_ht / leader_ht;
-                                    lr = rule_ht % leader_ht;
-                                    if MEM[p].b16.s0 == C_LEADERS {
-                                        cur_v = cur_v + lr / 2;
-                                    } else {
-                                        lx = lr / (lq + 1);
-                                        cur_v = cur_v + (lr - (lq - 1) * lx) / 2;
-                                    }
-                                }
-
-                                while cur_v + leader_ht <= edge {
-                                    /*659: "Output a leader box at cur_v, then advance
-                                     * cur_v by leader_ht + lx". "When we reach this
-                                     * part of the program, cur_v indicates the top of
-                                     * a leader box, not its baseline." */
-                                    if cur_dir == LR::RightToLeft {
-                                        cur_h = left_edge - *BOX_shift_amount(leader_box);
-                                    } else {
-                                        cur_h = left_edge + *BOX_shift_amount(leader_box);
-                                    }
-                                    if cur_h != dvi_h {
-                                        movement(cur_h - dvi_h, RIGHT1);
-                                        dvi_h = cur_h
-                                    }
-
-                                    save_h = dvi_h;
-                                    cur_v += *BOX_height(leader_box);
-
-                                    if cur_v != dvi_v {
-                                        movement(cur_v - dvi_v, DOWN1);
-                                        dvi_v = cur_v
-                                    }
-
-                                    save_v = dvi_v;
-                                    temp_ptr = leader_box;
-                                    outer_doing_leaders = doing_leaders;
-                                    doing_leaders = true;
-
-                                    if NODE_type(leader_box) == TextNode::VList.into() {
-                                        vlist_out();
-                                    } else {
-                                        hlist_out();
-                                    }
-
-                                    doing_leaders = outer_doing_leaders;
-                                    dvi_v = save_v;
-                                    dvi_h = save_h;
-                                    cur_h = left_edge;
-                                    cur_v = save_v - *BOX_height(leader_box) + leader_ht + lx
-                                }
-                                cur_v = edge - 10;
-                                current_block = 5241535548500397784;
-                            } else {
-                                current_block = 5246966788635068203;
-                            }
-                        }
-                    } else {
-                        current_block = 5246966788635068203;
-                    }
-                    match current_block {
-                        5241535548500397784 => {}
-                        9653381107620864133 => {}
-                        _ => {
-                            if upwards {
-                                cur_v -= rule_ht
-                            } else {
-                                cur_v += rule_ht
-                            }
-                            current_block = 5241535548500397784;
-                        }
-                    }
-                }
-                TextNode::Kern => {
+        }
+        /*653: "Output the non-char_node p" */
+        let n = text_NODE_type(p).unwrap();
+        match n {
+            TextNode::HList | TextNode::VList => {
+                /*654: "Output a box in a vlist" */
+                if BOX_list_ptr(p).opt().is_none() {
                     if upwards {
-                        cur_v -= *BOX_width(p);
+                        cur_v -= *BOX_depth(p);
                     } else {
-                        cur_v += *BOX_width(p);
+                        cur_v += *BOX_height(p);
                     }
-                    current_block = 5241535548500397784;
+                    if n == TextNode::VList {
+                        synctex_void_vlist(p as i32, this_box);
+                    } else {
+                        synctex_void_hlist(p as i32, this_box);
+                    }
+                    if upwards {
+                        cur_v -= *BOX_height(p);
+                    } else {
+                        cur_v += *BOX_depth(p);
+                    }
+                } else {
+                    if upwards {
+                        cur_v -= *BOX_depth(p);
+                    } else {
+                        cur_v += *BOX_height(p);
+                    }
+                    if cur_v != dvi_v {
+                        movement(cur_v - dvi_v, DOWN1);
+                        dvi_v = cur_v
+                    }
+                    let save_h = dvi_h;
+                    let save_v = dvi_v;
+                    if cur_dir == LR::RightToLeft {
+                        cur_h = left_edge - *BOX_shift_amount(p);
+                    } else {
+                        cur_h = left_edge + *BOX_shift_amount(p);
+                    }
+                    temp_ptr = p;
+                    if n == TextNode::VList {
+                        vlist_out();
+                    } else {
+                        hlist_out();
+                    }
+                    dvi_h = save_h;
+                    dvi_v = save_v;
+                    if upwards {
+                        cur_v = save_v - *BOX_height(p);
+                    } else {
+                        cur_v = save_v + *BOX_depth(p);
+                    }
+                    cur_h = left_edge
                 }
-                _ => current_block = 5241535548500397784,
             }
-            match current_block {
-                9653381107620864133 => {
-                    // 655: "Output a rule in a vlist, goto next_p
+            TextNode::Rule => {
+                rule_ht = *BOX_height(p);
+                rule_dp = *BOX_depth(p);
+                rule_wd = *BOX_width(p);
+                // 655: "Output a rule in a vlist, goto next_p
 
-                    if rule_wd == NULL_FLAG {
-                        rule_wd = *BOX_width(this_box);
+                if rule_wd == NULL_FLAG {
+                    rule_wd = *BOX_width(this_box);
+                }
+
+                rule_ht += rule_dp;
+
+                if upwards {
+                    cur_v -= rule_ht
+                } else {
+                    cur_v += rule_ht
+                }
+
+                if rule_ht > 0 && rule_wd > 0 {
+                    if cur_dir == LR::RightToLeft {
+                        cur_h -= rule_wd
                     }
-
-                    rule_ht += rule_dp;
-
-                    if upwards {
-                        cur_v -= rule_ht
-                    } else {
-                        cur_v += rule_ht
+                    if cur_h != dvi_h {
+                        movement(cur_h - dvi_h, RIGHT1);
+                        dvi_h = cur_h
                     }
-
-                    if rule_ht > 0 && rule_wd > 0 {
-                        if cur_dir == LR::RightToLeft {
-                            cur_h -= rule_wd
-                        }
+                    if cur_v != dvi_v {
+                        movement(cur_v - dvi_v, DOWN1);
+                        dvi_v = cur_v
+                    }
+                    dvi_out(PUT_RULE);
+                    dvi_four(rule_ht);
+                    dvi_four(rule_wd);
+                    cur_h = left_edge
+                }
+            }
+            TextNode::WhatsIt => {
+                /*1403: "Output the whatsit node p in a vlist" */
+                match whatsit_NODE_subtype(p) {
+                    WhatsItNST::Glyph => {
+                        cur_v = cur_v + *BOX_height(p);
+                        cur_h = left_edge;
                         if cur_h != dvi_h {
                             movement(cur_h - dvi_h, RIGHT1);
                             dvi_h = cur_h
@@ -1590,16 +1390,215 @@ unsafe fn vlist_out() {
                             movement(cur_v - dvi_v, DOWN1);
                             dvi_v = cur_v
                         }
-                        dvi_out(PUT_RULE);
-                        dvi_four(rule_ht);
-                        dvi_four(rule_wd);
-                        cur_h = left_edge
+                        let f = *NATIVE_NODE_font(p) as usize;
+                        if f != dvi_f {
+                            /*643:*/
+                            if !font_used[f] {
+                                dvi_font_def(f); /* width */
+                                font_used[f] = true
+                            } /* glyph count */
+                            if f <= 64 {
+                                dvi_out((f + 170) as u8); /* x offset as fixed-point */
+                            } else if f <= 256 {
+                                dvi_out(FNT1); /* y offset as fixed-point */
+                                dvi_out((f - 1) as u8);
+                            } else {
+                                dvi_out(FNT1 + 1);
+                                dvi_out(((f - 1) / 256) as u8);
+                                dvi_out(((f - 1) % 256) as u8);
+                            }
+                            dvi_f = f
+                        }
+                        dvi_out(SET_GLYPHS);
+                        dvi_four(0); /* width */
+                        dvi_two(1 as UTF16_code); /* glyph count */
+                        dvi_four(0); /* x offset as fixed-point */
+                        dvi_four(0); /* y offset as fixed-point */
+                        dvi_two(*NATIVE_NODE_glyph(p));
+
+                        cur_v += *BOX_depth(p);
+                        cur_h = left_edge;
+                    }
+                    WhatsItNST::Pic | WhatsItNST::Pdf => {
+                        let save_h = dvi_h;
+                        let save_v = dvi_v;
+                        cur_v = cur_v + *BOX_height(p);
+                        pic_out(p);
+                        dvi_h = save_h;
+                        dvi_v = save_v;
+                        cur_v = save_v + *BOX_depth(p);
+                        cur_h = left_edge;
+                    }
+                    WhatsItNST::PdfSavePos => {
+                        pdf_last_x_pos = cur_h + cur_h_offset;
+                        pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
+                    }
+                    _ => out_what(p),
+                }
+            }
+            TextNode::Glue => {
+                /*656: "Move down or output leaders" */
+                g = *GLUE_NODE_glue_ptr(p) as usize;
+                rule_ht = *GLUE_SPEC_width(g) - cur_g;
+
+                if g_sign != GlueSign::Normal {
+                    if g_sign == GlueSign::Stretching {
+                        if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
+                            cur_glue += *GLUE_SPEC_stretch(g) as f64;
+                            let mut glue_temp = *BOX_glue_set(this_box) * cur_glue;
+                            if glue_temp > 1000000000. {
+                                glue_temp = 1000000000.
+                            } else if glue_temp < -1000000000. {
+                                glue_temp = -1000000000.
+                            }
+                            cur_g = tex_round(glue_temp)
+                        }
+                    } else if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
+                        cur_glue -= *GLUE_SPEC_shrink(g) as f64;
+                        let mut glue_temp = *BOX_glue_set(this_box) * cur_glue;
+                        if glue_temp > 1000000000. {
+                            glue_temp = 1000000000.
+                        } else if glue_temp < -1000000000. {
+                            glue_temp = -1000000000.
+                        }
+                        cur_g = tex_round(glue_temp)
                     }
                 }
-                _ => {}
+
+                rule_ht += cur_g;
+
+                if MEM[p].b16.s0 >= A_LEADERS {
+                    // NODE_subtype(p)
+                    /*657: "Output leaders in a vlist, goto fin_rule if a rule
+                     * or next_p if done" */
+                    let leader_box = *GLUE_NODE_leader_ptr(p) as usize; /* "compensate for floating-point rounding" */
+
+                    if NODE_type(leader_box) == TextNode::Rule.into() {
+                        rule_wd = *BOX_width(leader_box);
+                        rule_dp = 0;
+                        // 655: "Output a rule in a vlist, goto next_p
+
+                        if rule_wd == NULL_FLAG {
+                            rule_wd = *BOX_width(this_box);
+                        }
+
+                        rule_ht += rule_dp;
+
+                        if upwards {
+                            cur_v -= rule_ht
+                        } else {
+                            cur_v += rule_ht
+                        }
+
+                        if rule_ht > 0 && rule_wd > 0 {
+                            if cur_dir == LR::RightToLeft {
+                                cur_h -= rule_wd
+                            }
+                            if cur_h != dvi_h {
+                                movement(cur_h - dvi_h, RIGHT1);
+                                dvi_h = cur_h
+                            }
+                            if cur_v != dvi_v {
+                                movement(cur_v - dvi_v, DOWN1);
+                                dvi_v = cur_v
+                            }
+                            dvi_out(PUT_RULE);
+                            dvi_four(rule_ht);
+                            dvi_four(rule_wd);
+                            cur_h = left_edge;
+                        }
+                        popt = LLIST_link(p).opt();
+                        continue;
+                    } else {
+                        let leader_ht = *BOX_height(leader_box) + *BOX_depth(leader_box);
+                        if leader_ht > 0i32 && rule_ht > 0i32 {
+                            rule_ht += 10i32;
+                            let edge = cur_v + rule_ht;
+                            let mut lx = 0;
+                            /*658: "Let cur_v be the position of the first box,
+                             * and set leader_ht + lx to the spacing between
+                             * corresponding parts of boxes" */
+                            if MEM[p].b16.s0 == A_LEADERS {
+                                // NODE_subtype(p)
+                                let save_v = cur_v;
+                                cur_v = top_edge + leader_ht * ((cur_v - top_edge) / leader_ht);
+                                if cur_v < save_v {
+                                    cur_v = cur_v + leader_ht
+                                }
+                            } else {
+                                lq = rule_ht / leader_ht;
+                                lr = rule_ht % leader_ht;
+                                if MEM[p].b16.s0 == C_LEADERS {
+                                    cur_v = cur_v + lr / 2;
+                                } else {
+                                    lx = lr / (lq + 1);
+                                    cur_v = cur_v + (lr - (lq - 1) * lx) / 2;
+                                }
+                            }
+
+                            while cur_v + leader_ht <= edge {
+                                /*659: "Output a leader box at cur_v, then advance
+                                 * cur_v by leader_ht + lx". "When we reach this
+                                 * part of the program, cur_v indicates the top of
+                                 * a leader box, not its baseline." */
+                                if cur_dir == LR::RightToLeft {
+                                    cur_h = left_edge - *BOX_shift_amount(leader_box);
+                                } else {
+                                    cur_h = left_edge + *BOX_shift_amount(leader_box);
+                                }
+                                if cur_h != dvi_h {
+                                    movement(cur_h - dvi_h, RIGHT1);
+                                    dvi_h = cur_h
+                                }
+
+                                let save_h = dvi_h;
+                                cur_v += *BOX_height(leader_box);
+
+                                if cur_v != dvi_v {
+                                    movement(cur_v - dvi_v, DOWN1);
+                                    dvi_v = cur_v
+                                }
+
+                                let save_v = dvi_v;
+                                temp_ptr = leader_box;
+                                let outer_doing_leaders = doing_leaders;
+                                doing_leaders = true;
+
+                                if NODE_type(leader_box) == TextNode::VList.into() {
+                                    vlist_out();
+                                } else {
+                                    hlist_out();
+                                }
+
+                                doing_leaders = outer_doing_leaders;
+                                dvi_v = save_v;
+                                dvi_h = save_h;
+                                cur_h = left_edge;
+                                cur_v = save_v - *BOX_height(leader_box) + leader_ht + lx
+                            }
+                            cur_v = edge - 10;
+                            popt = LLIST_link(p).opt();
+                            continue;
+                        }
+                    }
+                }
+                if upwards {
+                    cur_v -= rule_ht
+                } else {
+                    cur_v += rule_ht
+                }
             }
-            popt = LLIST_link(p).opt();
+            TextNode::Kern => {
+                if upwards {
+                    cur_v -= *BOX_width(p);
+                } else {
+                    cur_v += *BOX_width(p);
+                }
+            }
+            _ => {}
         }
+
+        popt = LLIST_link(p).opt();
     }
     synctex_tsilv(this_box as i32);
     prune_movements(save_loc);

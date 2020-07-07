@@ -2809,13 +2809,15 @@ unsafe fn mlist_to_hlist() {
                                 }
                                 Some(p)
                             } else if cur_i.s3 as i32 > 0 {
-                                delta = FONT_INFO
-                                    [(ITALIC_BASE[cur_f as usize] + cur_i.s1 as i32 / 4i32) as usize]
+                                delta = FONT_INFO[(ITALIC_BASE[cur_f as usize]
+                                    + cur_i.s1 as i32 / 4i32)
+                                    as usize]
                                     .b32
                                     .s1;
                                 let p = new_character(cur_f, cur_c as UTF16_code);
                                 if MEM[q + 1].b32.s1 == MATH_TEXT_CHAR
-                                    && FONT_INFO[(2 + PARAM_BASE[cur_f as usize]) as usize].b32.s1 != 0
+                                    && FONT_INFO[(2 + PARAM_BASE[cur_f as usize]) as usize].b32.s1
+                                        != 0
                                 {
                                     delta = 0;
                                 }
@@ -2869,90 +2871,88 @@ unsafe fn mlist_to_hlist() {
                     };
                     cur_mu = x_over_n(math_quad(cur_size), 18)
                 }
-            },
-            ND::Text(n) => {
-                match n {
-                    TextNode::Style => {
-                        cur_style = MEM[q].b16.s0 as i16;
-                        cur_size = if (cur_style as i32) < SCRIPT_STYLE {
-                            TEXT_SIZE
-                        } else {
-                            SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-                        };
-                        cur_mu = x_over_n(math_quad(cur_size), 18);
-                    }
-                    TextNode::Choice => {
-                        let mut p = None;
-                        match cur_style as i32 / 2 {
-                            0 => {
-                                p = MEM[q + 1].b32.s0.opt();
-                                MEM[q + 1].b32.s0 = None.tex_int();
-                            }
-                            1 => {
-                                p = MEM[q + 1].b32.s1.opt();
-                                MEM[q + 1].b32.s1 = None.tex_int();
-                            }
-                            2 => {
-                                p = MEM[q + 2].b32.s0.opt();
-                                MEM[q + 2].b32.s0 = None.tex_int();
-                            }
-                            3 => {
-                                p = MEM[q + 2].b32.s1.opt();
-                                MEM[q + 2].b32.s1 = None.tex_int();
-                            }
-                            _ => {}
-                        }
-                        flush_node_list(MEM[q + 1].b32.s0.opt());
-                        flush_node_list(MEM[q + 1].b32.s1.opt());
-                        flush_node_list(MEM[q + 2].b32.s0.opt());
-                        flush_node_list(MEM[q + 2].b32.s1.opt());
-                        set_NODE_type(q, TextNode::Style);
-                        MEM[q].b16.s0 = cur_style as u16;
-                        MEM[q + 1].b32.s1 = 0;
-                        MEM[q + 2].b32.s1 = 0;
-                        if let Some(mut p) = p {
-                            let z = MEM[q].b32.s1;
-                            MEM[q].b32.s1 = Some(p).tex_int();
-                            while let Some(next) = LLIST_link(p as usize).opt() {
-                                p = next;
-                            }
-                            MEM[p].b32.s1 = z;
-                        }
-                    }
-                    TextNode::Ins
-                    | TextNode::Mark
-                    | TextNode::Adjust
-                    | TextNode::WhatsIt
-                    | TextNode::Penalty
-                    | TextNode::Disc => {}
-                    TextNode::Rule => {
-                        max_h = max_h.max(*BOX_height(q));
-                        max_d = max_d.max(*BOX_depth(q));
-                    }
-                    TextNode::Glue => {
-                        if MEM[q].b16.s0 == MU_GLUE {
-                            let x = *GLUE_NODE_glue_ptr(q) as usize;
-                            let y = math_glue(x, cur_mu);
-                            delete_glue_ref(x);
-                            *GLUE_NODE_glue_ptr(q) = Some(y).tex_int();
-                            MEM[q].b16.s0 = NORMAL as u16
-                        } else if cur_size != TEXT_SIZE && MEM[q].b16.s0 == COND_MATH_GLUE {
-                            if let Some(p) = LLIST_link(q).opt() {
-                                if NODE_type(p) == TextNode::Glue.into()
-                                    || NODE_type(p) == TextNode::Kern.into()
-                                {
-                                    *LLIST_link(q) = *LLIST_link(p);
-                                    *LLIST_link(p) = None.tex_int();
-                                    flush_node_list(Some(p));
-                                }
-                            }
-                        }
-                    }
-                    TextNode::Kern => {
-                        math_kern(q as usize, cur_mu);
-                    }
-                    _ => confusion(b"mlist1"),
+            }
+            ND::Text(n) => match n {
+                TextNode::Style => {
+                    cur_style = MEM[q].b16.s0 as i16;
+                    cur_size = if (cur_style as i32) < SCRIPT_STYLE {
+                        TEXT_SIZE
+                    } else {
+                        SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
+                    };
+                    cur_mu = x_over_n(math_quad(cur_size), 18);
                 }
+                TextNode::Choice => {
+                    let mut p = None;
+                    match cur_style as i32 / 2 {
+                        0 => {
+                            p = MEM[q + 1].b32.s0.opt();
+                            MEM[q + 1].b32.s0 = None.tex_int();
+                        }
+                        1 => {
+                            p = MEM[q + 1].b32.s1.opt();
+                            MEM[q + 1].b32.s1 = None.tex_int();
+                        }
+                        2 => {
+                            p = MEM[q + 2].b32.s0.opt();
+                            MEM[q + 2].b32.s0 = None.tex_int();
+                        }
+                        3 => {
+                            p = MEM[q + 2].b32.s1.opt();
+                            MEM[q + 2].b32.s1 = None.tex_int();
+                        }
+                        _ => {}
+                    }
+                    flush_node_list(MEM[q + 1].b32.s0.opt());
+                    flush_node_list(MEM[q + 1].b32.s1.opt());
+                    flush_node_list(MEM[q + 2].b32.s0.opt());
+                    flush_node_list(MEM[q + 2].b32.s1.opt());
+                    set_NODE_type(q, TextNode::Style);
+                    MEM[q].b16.s0 = cur_style as u16;
+                    MEM[q + 1].b32.s1 = 0;
+                    MEM[q + 2].b32.s1 = 0;
+                    if let Some(mut p) = p {
+                        let z = MEM[q].b32.s1;
+                        MEM[q].b32.s1 = Some(p).tex_int();
+                        while let Some(next) = LLIST_link(p as usize).opt() {
+                            p = next;
+                        }
+                        MEM[p].b32.s1 = z;
+                    }
+                }
+                TextNode::Ins
+                | TextNode::Mark
+                | TextNode::Adjust
+                | TextNode::WhatsIt
+                | TextNode::Penalty
+                | TextNode::Disc => {}
+                TextNode::Rule => {
+                    max_h = max_h.max(*BOX_height(q));
+                    max_d = max_d.max(*BOX_depth(q));
+                }
+                TextNode::Glue => {
+                    if MEM[q].b16.s0 == MU_GLUE {
+                        let x = *GLUE_NODE_glue_ptr(q) as usize;
+                        let y = math_glue(x, cur_mu);
+                        delete_glue_ref(x);
+                        *GLUE_NODE_glue_ptr(q) = Some(y).tex_int();
+                        MEM[q].b16.s0 = NORMAL as u16
+                    } else if cur_size != TEXT_SIZE && MEM[q].b16.s0 == COND_MATH_GLUE {
+                        if let Some(p) = LLIST_link(q).opt() {
+                            if NODE_type(p) == TextNode::Glue.into()
+                                || NODE_type(p) == TextNode::Kern.into()
+                            {
+                                *LLIST_link(q) = *LLIST_link(p);
+                                *LLIST_link(p) = None.tex_int();
+                                flush_node_list(Some(p));
+                            }
+                        }
+                    }
+                }
+                TextNode::Kern => {
+                    math_kern(q as usize, cur_mu);
+                }
+                _ => confusion(b"mlist1"),
             },
             _ => confusion(b"mlist1"),
         }
