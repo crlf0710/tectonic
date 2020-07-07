@@ -338,28 +338,9 @@ pub(crate) unsafe fn ship_out(p: usize) {
 
 /*639: Output an hlist */
 unsafe fn hlist_out() {
-    let mut base_line: scaled_t = 0;
-    let mut left_edge: scaled_t = 0;
-    let mut save_h: scaled_t = 0;
-    let mut save_v: scaled_t = 0;
-    let mut save_loc: usize = 0;
-    let mut leader_box: i32 = 0;
-    let mut leader_wd: scaled_t = 0;
-    let mut lx: scaled_t = 0;
-    let mut outer_doing_leaders: bool = false;
-    let mut edge: scaled_t = 0;
-    let mut len: i32 = 0;
-    let mut k: i32 = 0;
-    let mut j: i32 = 0;
-    let mut glue_temp: f64 = 0.;
-    let mut c: u16 = 0;
-    let mut f: internal_font_number = 0;
-
-    let mut cur_g: scaled_t = 0;
-    let mut cur_glue: f64 = 0.0;
-    let mut this_box = temp_ptr;
-    let mut g_order: glue_ord = *BOX_glue_order(this_box) as _;
-    let mut g_sign = GlueSign::from(*BOX_glue_sign(this_box));
+    let this_box = temp_ptr;
+    let g_order: glue_ord = *BOX_glue_order(this_box) as _;
+    let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
 
     if *INTPAR(IntPar::xetex_interword_space_shaping) > 1 {
         /*640: "Extra stuff for justifiable AAT text..." "Merge sequences of
@@ -379,7 +360,7 @@ unsafe fn hlist_out() {
                 {
                     /* "got a word in an AAT font, might be the start of a run" */
                     let r = p;
-                    k = *NATIVE_NODE_length(r) as i32;
+                    let mut k = *NATIVE_NODE_length(r) as i32;
                     let mut q = *LLIST_link(p);
                     loop {
                         /*641: "Advance `q` past ignorable nodes." This test is
@@ -512,13 +493,11 @@ unsafe fn hlist_out() {
                             if NODE_type(q) == TextNode::WhatsIt.into() {
                                 match whatsit_NODE_subtype(q) {
                                     WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                                        j = 0;
-                                        while j < *NATIVE_NODE_length(q) as i32 {
+                                        for j in 0..(*NATIVE_NODE_length(q)) {
                                             str_pool[pool_ptr as usize] =
                                                 *(&mut MEM[q + 6] as *mut memory_word as *mut u16)
                                                     .offset(j as isize);
                                             pool_ptr += 1;
-                                            j += 1
                                         }
                                         k += *BOX_width(q);
                                     }
@@ -557,12 +536,10 @@ unsafe fn hlist_out() {
                         );
                         set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(r));
 
-                        j = 0;
-                        while j < cur_length() {
+                        for j in 0..cur_length() {
                             *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset(j as isize) =
                                 str_pool
                                     [(str_start[(str_ptr - TOO_BIG_CHAR) as usize] + j) as usize];
-                            j += 1;
                         }
                         /* "Link q into the list in place of r...p" */
                         *BOX_width(q) = k;
@@ -611,7 +588,7 @@ unsafe fn hlist_out() {
 
     /* ... resuming 639 ... */
 
-    let mut p = *BOX_list_ptr(this_box as _);
+    let mut popt = BOX_list_ptr(this_box as _).opt();
     cur_s += 1;
     if cur_s > 0 {
         dvi_out(PUSH as _);
@@ -621,9 +598,9 @@ unsafe fn hlist_out() {
         max_push = cur_s
     }
 
-    save_loc = dvi_offset + dvi_ptr;
-    base_line = cur_v;
-    let mut prev_p = (this_box + 5) as i32; /* this is list_offset, the offset of the box list pointer */
+    let save_loc = dvi_offset + dvi_ptr;
+    let base_line = cur_v;
+    let mut prev_p = this_box + 5; /* this is list_offset, the offset of the box list pointer */
 
     /*1501: "Initialize hlist_out for mixed direction typesetting" */
 
@@ -639,33 +616,37 @@ unsafe fn hlist_out() {
             set_BOX_lr_mode(this_box, LRMode::Normal);
         }
     }
+
+    let mut cur_g: scaled_t = 0;
+    let mut cur_glue: f64 = 0.0;
     if cur_dir == LR::RightToLeft && BOX_lr_mode(this_box) != LRMode::Reversed {
         /*1508: "Reverse the complete hlist and set the subtype to reversed." */
-        save_h = cur_h; /* "SyncTeX: do nothing, it is too late" */
-        temp_ptr = p.opt().unwrap();
-        p = new_kern(0) as i32;
-        *SYNCTEX_tag(p as usize, MEDIUM_NODE_SIZE) = 0;
-        *LLIST_link(prev_p as usize) = p;
+        let save_h = cur_h; /* "SyncTeX: do nothing, it is too late" */
+        temp_ptr = popt.unwrap();
+        let p = new_kern(0);
+        *SYNCTEX_tag(p, MEDIUM_NODE_SIZE) = 0;
+        *LLIST_link(prev_p) = Some(p).tex_int();
         cur_h = 0;
-        *LLIST_link(p as usize) = reverse(this_box, None, &mut cur_g, &mut cur_glue);
-        *kern_NODE_width(p as usize) = -cur_h;
+        *LLIST_link(p) = reverse(this_box, None, &mut cur_g, &mut cur_glue);
+        *kern_NODE_width(p) = -cur_h;
+        popt = Some(p);
         cur_h = save_h;
         set_BOX_lr_mode(this_box, LRMode::Reversed);
     }
 
     /* ... resuming 639 ... */
 
-    left_edge = cur_h;
+    let mut left_edge = cur_h;
     synctex_hlist(this_box);
 
-    while !p.is_texnull() {
+    while let Some(mut p) = popt {
                  /*642: "Output node `p` for `hlist_out` and move to the next node,
         * maintaining the condition `cur_v = base_line`." ... "We ought to
         * give special care to the efficiency [here] since it belongs to TeX's
         * inner loop. When a `char_node` is encountered, we save a little time
         * by processing several nodes in succession[.] The program uses the
         * fact that `set_char_0 = 0`. */
-        if is_char_node(p.opt()) {
+        if is_char_node(Some(p)) {
             if cur_h != dvi_h {
                 movement(cur_h - dvi_h, RIGHT1);
                 dvi_h = cur_h
@@ -675,9 +656,9 @@ unsafe fn hlist_out() {
                 dvi_v = cur_v
             }
             loop  {
-                f = *CHAR_NODE_font(p as usize) as usize;
-                c = *CHAR_NODE_character(p as usize);
-                if p != LIG_TRICK as i32 &&
+                let f = *CHAR_NODE_font(p) as usize;
+                let mut c = *CHAR_NODE_character(p);
+                if p != LIG_TRICK &&
                        !(FONT_MAPPING[f]).is_null() {
                     c = apply_tfm_font_mapping(FONT_MAPPING[f], c as i32) as u16;
                 }
@@ -716,32 +697,36 @@ unsafe fn hlist_out() {
                         }
                     }
                 }
-                prev_p = *LLIST_link(prev_p as usize);
-                p = *LLIST_link(p as usize);
-                if !is_char_node(p.opt()) { break ; }
+                prev_p = *LLIST_link(prev_p) as usize;
+                popt = LLIST_link(p).opt();
+                if !is_char_node(popt) {
+                    break;
+                } else {
+                    p = popt.unwrap();
+                }
             }
             synctex_current();
             dvi_h = cur_h;
         } else {
             /*644: "Output the non-char_node `p` and move to the next node" */
-            let n = text_NODE_type(p as usize).unwrap();
+            let n = text_NODE_type(p).unwrap();
             match n {
                 TextNode::HList | TextNode::VList => {
-                    if BOX_list_ptr(p as usize).opt().is_none() {
+                    if BOX_list_ptr(p).opt().is_none() {
                         if n == TextNode::VList {
                             synctex_void_vlist(p, this_box);
                         } else { synctex_void_hlist(p, this_box); }
-                        cur_h += *BOX_width(p as usize);
+                        cur_h += *BOX_width(p);
                     } else {
-                        save_h = dvi_h;
-                        save_v = dvi_v;
+                        let save_h = dvi_h;
+                        let save_v = dvi_v;
                         cur_v =
                             base_line +
-                                *BOX_shift_amount(p as usize);
-                        temp_ptr = p as usize;
-                        edge =
+                                *BOX_shift_amount(p);
+                        temp_ptr = p;
+                        let edge =
                             cur_h +
-                                *BOX_width(p as usize);
+                                *BOX_width(p);
                         if cur_dir == LR::RightToLeft {
                             cur_h = edge;
                         }
@@ -756,11 +741,11 @@ unsafe fn hlist_out() {
                 }
                 TextNode::Rule => {
                     rule_ht =
-                        *BOX_height(p as usize);
+                        *BOX_height(p);
                     rule_dp =
-                        *BOX_depth(p as usize);
+                        *BOX_depth(p);
                     rule_wd =
-                        *BOX_width(p as usize);
+                        *BOX_width(p);
                     /*646: "Output a rule in an hlist" */
                     if rule_ht == NULL_FLAG {
                         rule_ht = *BOX_height(this_box);
@@ -788,12 +773,12 @@ unsafe fn hlist_out() {
                     /* ... resuming 644 ... */
                     {
                         cur_h += rule_wd; /* end GLUE_NODE case */
-                        synctex_horizontal_rule_or_glue(p, this_box as i32);
+                        synctex_horizontal_rule_or_glue(p, this_box);
                     }
                 }
                 TextNode::WhatsIt => {
                     /*1407: "Output the whatsit node p in an hlist" */
-                    match whatsit_NODE_subtype(p as usize) {
+                    match whatsit_NODE_subtype(p) {
                         WhatsItNST::NativeWord | WhatsItNST::NativeWordAt | WhatsItNST::Glyph => {
                             if cur_h != dvi_h {
                                 movement(cur_h - dvi_h,
@@ -805,8 +790,8 @@ unsafe fn hlist_out() {
                                          DOWN1); /* y offset, as fixed-point */
                                 dvi_v = cur_v
                             } /* end of TextNode::WhatsIt case */
-                            f =
-                                *NATIVE_NODE_font(p as usize) as
+                            let f =
+                                *NATIVE_NODE_font(p) as
                                     internal_font_number;
                             if f != dvi_f {
                                 if !font_used[f] {
@@ -829,90 +814,76 @@ unsafe fn hlist_out() {
                                 }
                                 dvi_f = f
                             }
-                            if whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph {
+                            if whatsit_NODE_subtype(p) == WhatsItNST::Glyph {
                                 dvi_out(SET_GLYPHS);
-                                dvi_four(*BOX_width(p as usize));
+                                dvi_four(*BOX_width(p));
                                 dvi_two(1);
                                 dvi_four(0);
                                 dvi_four(0);
-                                dvi_two(*NATIVE_NODE_glyph(p as usize));
+                                dvi_two(*NATIVE_NODE_glyph(p));
                                 cur_h +=
-                                    *BOX_width(p as usize);
+                                    *BOX_width(p);
                             } else {
-                                if whatsit_NODE_subtype(p as usize) == WhatsItNST::NativeWordAt {
-                                    if *NATIVE_NODE_length(p as usize) > 0 ||
-                                           !NATIVE_NODE_glyph_info_ptr(p as usize).is_null()
+                                if whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt {
+                                    if *NATIVE_NODE_length(p) > 0 ||
+                                           !NATIVE_NODE_glyph_info_ptr(p).is_null()
                                        {
                                         dvi_out(SET_TEXT_AND_GLYPHS);
-                                        len =
-                                            *NATIVE_NODE_length(p as usize) as i32;
+                                        let len =
+                                            *NATIVE_NODE_length(p) as i32;
                                         dvi_two(len as UTF16_code);
-                                        k = 0;
-                                        while k < len {
-                                            dvi_two(*(&mut MEM[(p
-                                                                            +
-                                                                            6i32)
-                                                                           as
-                                                                           usize]
+                                        for k in 0..len {
+                                            dvi_two(*(&mut MEM[p + 6]
                                                           as
                                                           *mut memory_word
                                                           as
                                                           *mut u16).offset(k
                                                                                           as
                                                                                           isize));
-                                            k += 1
                                         }
-                                        len =
-                                            makeXDVGlyphArrayData(&mut MEM[p
-                                                                                       as
-                                                                                       usize]
+                                        let len =
+                                            makeXDVGlyphArrayData(&mut MEM[p]
                                                                       as
                                                                       *mut memory_word
                                                                       as
                                                                       *mut libc::c_void);
-                                        k = 0i32;
-                                        while k < len {
+                                        for k in 0..len {
                                             dvi_out(*xdv_buffer.offset(k
                                                                            as
                                                                            isize)
                                                         as
                                                         u8);
-                                            k += 1
                                         }
                                     }
-                                } else if !NATIVE_NODE_glyph_info_ptr(p as usize).is_null()
+                                } else if !NATIVE_NODE_glyph_info_ptr(p).is_null()
                                  {
                                     dvi_out(SET_GLYPHS);
-                                    len =
-                                        makeXDVGlyphArrayData(&mut MEM[p
-                                                                                   as
-                                                                                   usize]
+                                    let len =
+                                        makeXDVGlyphArrayData(&mut MEM[p]
                                                                   as
                                                                   *mut memory_word
                                                                   as
                                                                   *mut libc::c_void);
-                                    k = 0i32;
-                                    while k < len {
+                                    for k in 0..len {
                                         dvi_out(*xdv_buffer.offset(k
                                                                        as
                                                                        isize)
                                                     as u8);
-                                        k += 1
                                     }
                                 }
                                 cur_h +=
-                                    *BOX_width(p as usize);
+                                    *BOX_width(p);
                             }
                             dvi_h = cur_h
                         }
                         WhatsItNST::Pic | WhatsItNST::Pdf => {
-                            save_h = dvi_h;
-                            save_v = dvi_v;
+                            let save_h = dvi_h;
+                            let save_v = dvi_v;
                             cur_v = base_line;
-                            edge =
+                            let edge =
                                 cur_h +
-                                    *BOX_width(p as usize);
-                            pic_out(p as usize);
+                                    *BOX_width(p);
+                            pic_out(p);
                             dvi_h = save_h;
                             dvi_v = save_v;
                             cur_h = edge;
@@ -923,12 +894,12 @@ unsafe fn hlist_out() {
                             pdf_last_y_pos =
                                 cur_page_height - cur_v - cur_v_offset
                         }
-                        _ => { out_what(p as usize); }
+                        _ => { out_what(p); }
                     }
                 }
                 TextNode::Glue => {
                     /*647: "Move right or output leaders" */
-                    g = *GLUE_NODE_glue_ptr(p as usize) as usize;
+                    g = *GLUE_NODE_glue_ptr(p) as usize;
                     rule_wd =
                         *GLUE_SPEC_width(g) -
                             cur_g;
@@ -939,7 +910,7 @@ unsafe fn hlist_out() {
                                    g_order as u16 {
                                 cur_glue +=
                                     *GLUE_SPEC_stretch(g) as f64;
-                                glue_temp =
+                                let mut glue_temp =
                                     *BOX_glue_set(this_box) *
                                         cur_glue;
                                 if glue_temp > 1000000000. {
@@ -955,7 +926,7 @@ unsafe fn hlist_out() {
                             cur_glue -=
                                 *GLUE_SPEC_shrink(g) as
                                     f64;
-                            glue_temp =
+                            let mut glue_temp =
                                 *BOX_glue_set(this_box) *
                                     cur_glue;
                             if glue_temp > 1000000000. {
@@ -983,9 +954,9 @@ unsafe fn hlist_out() {
                         } else {
                             *GLUE_SPEC_ref_count(g) -= 1;
                         }
-                        if MEM[p as usize].b16.s0 < A_LEADERS { // NODE_subtype(p)
-                            set_NODE_type(p as usize, TextNode::Kern);
-                            *GLUE_SPEC_width(p as usize)
+                        if MEM[p].b16.s0 < A_LEADERS { // NODE_subtype(p)
+                            set_NODE_type(p, TextNode::Kern);
+                            *GLUE_SPEC_width(p)
                                 = rule_wd;
                         } else {
                             g = get_node(GLUE_SPEC_SIZE);
@@ -996,14 +967,14 @@ unsafe fn hlist_out() {
                             *GLUE_SPEC_width(g) = rule_wd;
                             *GLUE_SPEC_stretch(g) = 0;
                             *GLUE_SPEC_shrink(g) = 0;
-                            *GLUE_NODE_glue_ptr(p as usize) = g as i32;
+                            *GLUE_NODE_glue_ptr(p) = g as i32;
                         }
                     }
                     if MEM[p as usize].b16.s0
                            >= A_LEADERS { // NODE_subtype(p)
                         /*648: "Output leaders into an hlist, goto fin_rule if a
                          * rule or next_p if done." */
-                        leader_box = *GLUE_NODE_leader_ptr(p as usize); /* "compensate for floating-point rounding" ?? */
+                        let leader_box = *GLUE_NODE_leader_ptr(p); /* "compensate for floating-point rounding" ?? */
                         if NODE_type(leader_box as usize) == TextNode::Rule.into() {
                             rule_ht = *BOX_height(leader_box as usize);
                             rule_dp = *BOX_depth(leader_box as usize);
@@ -1032,21 +1003,21 @@ unsafe fn hlist_out() {
                                 dvi_h += rule_wd;
                             }
                         } else {
-                            leader_wd = *BOX_width(leader_box as usize);
+                            let leader_wd = *BOX_width(leader_box as usize);
                             if leader_wd > 0 && rule_wd > 0 {
                                 rule_wd += 10;
                                 if cur_dir == LR::RightToLeft {
                                     cur_h -= 10;
                                 }
-                                edge = cur_h + rule_wd;
-                                lx = 0;
+                                let edge = cur_h + rule_wd;
+                                let mut lx = 0;
                                 /*649: "Let cur_h be the position of the first pox,
                                  * and set leader_wd + lx to the spacing between
                                  * corresponding parts of boxes". Additional
                                  * explanator comments in XTTP. */
                                 if MEM[p as usize].b16.s0 == A_LEADERS {
                                     // NODE_subtype(p)
-                                    save_h = cur_h;
+                                    let save_h = cur_h;
                                     cur_h = left_edge + leader_wd * ((cur_h - left_edge) / leader_wd);
                                     if cur_h < save_h {
                                         cur_h = cur_h + leader_wd
@@ -1054,7 +1025,7 @@ unsafe fn hlist_out() {
                                 } else {
                                     lq = rule_wd / leader_wd;
                                     lr = rule_wd % leader_wd;
-                                    if MEM[p as usize].b16.s0 == C_LEADERS {
+                                    if MEM[p].b16.s0 == C_LEADERS {
                                         // NODE_subtype(p)
                                         cur_h = cur_h + lr / 2;
                                     } else {
@@ -1070,17 +1041,17 @@ unsafe fn hlist_out() {
                                         movement(cur_v - dvi_v, DOWN1);
                                         dvi_v = cur_v
                                     }
-                                    save_v = dvi_v;
+                                    let save_v = dvi_v;
                                     if cur_h != dvi_h {
                                         movement(cur_h - dvi_h, RIGHT1);
                                         dvi_h = cur_h
                                     }
-                                    save_h = dvi_h;
+                                    let save_h = dvi_h;
                                     temp_ptr = leader_box as usize;
                                     if cur_dir == LR::RightToLeft {
                                         cur_h += leader_wd;
                                     }
-                                    outer_doing_leaders = doing_leaders;
+                                    let outer_doing_leaders = doing_leaders;
                                     doing_leaders = true;
                                     if NODE_type(leader_box as usize) == TextNode::VList.into() {
                                         vlist_out();
@@ -1100,7 +1071,7 @@ unsafe fn hlist_out() {
                                     cur_h = edge - 10;
                                 }
                                 prev_p = p;
-                                p = *LLIST_link(p as usize);
+                                popt = LLIST_link(p).opt();
                                 continue;
                             }
                         }
@@ -1108,30 +1079,30 @@ unsafe fn hlist_out() {
 
                     /* ... resuming 644 ... */
                     cur_h += rule_wd; /* end GLUE_NODE case */
-                    synctex_horizontal_rule_or_glue(p, this_box as i32);
+                    synctex_horizontal_rule_or_glue(p, this_box);
                 }
                 TextNode::MarginKern => {
                     cur_h +=
-                        *BOX_width(p as usize);
+                        *BOX_width(p);
                 }
                 TextNode::Kern => {
-                    synctex_kern(p, this_box as i32);
+                    synctex_kern(p, this_box);
                     cur_h +=
-                        *BOX_width(p as usize);
+                        *BOX_width(p);
                 }
                 TextNode::Math => {
-                    synctex_math(p, this_box as i32);
+                    synctex_math(p, this_box);
                     /* 1504: "Adjust the LR stack...; if necessary reverse and
                      * hlist segment and goto reswitch." "Breaking a paragraph
                      * into lines while TeXXeT is disabled may result in lines
                      * with unpaired math nodes. Such hlists are silently accepted
                      * in the absence of text direction directives." */
-                    if MEM[p as usize].b16.s0
+                    if MEM[p].b16.s0
                            & 1 != 0 { // odd(NODE_subtype(p))
                         /* <= this is end_LR(p) */
                         if MEM[LR_ptr as usize].b32.s0 ==
                                4i32 *
-                                   (MEM[p as usize].b16.s0
+                                   (MEM[p].b16.s0
                                         as i32 / 4i32) + 3i32
                            {
                             temp_ptr = LR_ptr as usize;
@@ -1140,59 +1111,60 @@ unsafe fn hlist_out() {
                             *LLIST_link(temp_ptr) =
                                 avail.tex_int();
                             avail = Some(temp_ptr);
-                        } else if MEM[p as usize].b16.s0 > L_CODE { // NODE_subtype(p)
+                        } else if MEM[p].b16.s0 > L_CODE { // NODE_subtype(p)
                             LR_problems += 1;
                         }
                     } else {
                         temp_ptr = get_avail();
                         *LLIST_info(temp_ptr) =
                             4i32 *
-                                (MEM[p as usize].b16.s0 as
+                                (MEM[p].b16.s0 as
                                      i32 / 4i32) + 3i32;
                         *LLIST_link(temp_ptr) =
                             LR_ptr;
                         LR_ptr = Some(temp_ptr).tex_int();
-                        if MEM[p as usize].b16.s0 as
+                        if MEM[p].b16.s0 as
                                  i32 / 8i32 !=
                                  cur_dir as i32 {
                             /*1509: "Reverse an hlist segment and goto reswitch" */
-                            save_h = cur_h; /* = lig_char(p) */
-                            temp_ptr = LLIST_link(p as usize).opt().unwrap();
+                            let save_h = cur_h; /* = lig_char(p) */
+                            temp_ptr = LLIST_link(p).opt().unwrap();
                             rule_wd =
-                                *BOX_width(p as usize);
-                            free_node(p as usize, MEDIUM_NODE_SIZE);
+                                *BOX_width(p);
+                            free_node(p, MEDIUM_NODE_SIZE);
                             cur_dir = !cur_dir;
-                            p = new_edge(cur_dir, rule_wd) as i32;
-                            *LLIST_link(prev_p as usize) = p;
+                            p = new_edge(cur_dir, rule_wd);
+                            *LLIST_link(prev_p) = Some(p).tex_int();
                             cur_h = cur_h - left_edge + rule_wd;
-                            *LLIST_link(p as usize) =
+                            *LLIST_link(p) =
                                 reverse(this_box,
                                         Some(new_edge(!cur_dir, 0)),
                                         &mut cur_g, &mut cur_glue);
-                            *EDGE_NODE_edge_dist(p as usize) =
+                            *EDGE_NODE_edge_dist(p) =
                                 cur_h;
                             cur_dir = !cur_dir;
                             cur_h = save_h;
+                            popt = Some(p);
                             continue;
                         }
                     }
 
-                    set_NODE_type(p as usize, TextNode::Kern);
-                    cur_h += *BOX_width(p as usize);
+                    set_NODE_type(p, TextNode::Kern);
+                    cur_h += *BOX_width(p);
                 }
                 TextNode::Ligature => {
                     /* 675: "Make node p look like a char_node and goto reswitch" */
-                    *CHAR_NODE_character(LIG_TRICK) = *LIGATURE_NODE_lig_char(p as usize);
-                    *CHAR_NODE_font(LIG_TRICK) = *LIGATURE_NODE_lig_font(p as usize);
-                    *LLIST_link(LIG_TRICK) = *LLIST_link(p as usize);
-                    p = LIG_TRICK as i32;
+                    *CHAR_NODE_character(LIG_TRICK) = *LIGATURE_NODE_lig_char(p);
+                    *CHAR_NODE_font(LIG_TRICK) = *LIGATURE_NODE_lig_font(p);
+                    *LLIST_link(LIG_TRICK) = *LLIST_link(p);
+                    popt = Some(LIG_TRICK);
                     xtx_ligature_present = true;
                     continue;
                 }
                 EDGE_NODE => {
                     /*1507: "Cases of hlist_out that arise in mixed direction text only" */
                     cur_h +=
-                        *BOX_width(p as usize);
+                        *BOX_width(p);
                     left_edge =
                         cur_h +
                             *EDGE_NODE_edge_dist(p as usize);
@@ -1202,12 +1174,12 @@ unsafe fn hlist_out() {
             }
             // next_p
             prev_p = p;
-            p = *LLIST_link(p as usize);
+            popt = LLIST_link(p).opt();
         }
 
     }
 
-    synctex_tsilh(this_box as i32);
+    synctex_tsilh(this_box);
 
     /*1502: "Finish hlist_out for mixed direction typesetting" */
     /*1505: "Check for LR anomalies" */
@@ -1263,7 +1235,7 @@ unsafe fn vlist_out() {
 
     let save_loc = dvi_offset + dvi_ptr;
     let left_edge = cur_h;
-    synctex_vlist(this_box as i32);
+    synctex_vlist(this_box);
 
     if upwards {
         cur_v += *BOX_depth(this_box);
@@ -1291,9 +1263,9 @@ unsafe fn vlist_out() {
                         cur_v += *BOX_height(p);
                     }
                     if n == TextNode::VList {
-                        synctex_void_vlist(p as i32, this_box);
+                        synctex_void_vlist(p, this_box);
                     } else {
-                        synctex_void_hlist(p as i32, this_box);
+                        synctex_void_hlist(p, this_box);
                     }
                     if upwards {
                         cur_v -= *BOX_height(p);
@@ -1593,7 +1565,7 @@ unsafe fn vlist_out() {
 
         popt = LLIST_link(p).opt();
     }
-    synctex_tsilv(this_box as i32);
+    synctex_tsilv(this_box);
     prune_movements(save_loc);
     if cur_s > 0 {
         dvi_pop(save_loc);
@@ -1614,70 +1586,63 @@ unsafe fn reverse(
     mut cur_g: *mut scaled_t,
     mut cur_glue: *mut f64,
 ) -> i32 {
-    let mut q: i32 = 0;
-    let mut glue_temp: f64 = 0.;
-    let mut m: i32 = 0;
-    let mut n: i32 = 0;
-    let mut c: u16 = 0;
-    let mut f: internal_font_number = 0;
-    let mut g_order = *BOX_glue_order(this_box);
-    let mut g_sign = GlueSign::from(*BOX_glue_sign(this_box));
-    let mut l = t.tex_int();
-    let mut p = temp_ptr as i32;
-    // TODO: check
-    assert!(!p.is_texnull());
-    m = MIN_HALFWORD;
-    n = MIN_HALFWORD;
+    let g_order = *BOX_glue_order(this_box);
+    let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
+    let mut l = t;
+    let mut popt = Some(temp_ptr);
+    let mut m = MIN_HALFWORD;
+    let mut n = MIN_HALFWORD;
     's_58: loop {
-        while !p.is_texnull() {
+        while let Some(mut p) = popt {
             /*1511: "Move node p to the new list and go to the next node; or
              * goto done if the end of the reflected segment has been
              * reached." */
-            if is_char_node(p.opt()) {
+            if is_char_node(Some(p)) {
                 loop {
-                    f = *CHAR_NODE_font(p as usize) as usize;
-                    c = *CHAR_NODE_character(p as usize);
+                    let f = *CHAR_NODE_font(p) as usize;
+                    let c = *CHAR_NODE_character(p);
                     cur_h += FONT_INFO[(WIDTH_BASE[f]
                         + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize]
                             .b16
                             .s3 as i32) as usize]
                         .b32
                         .s1;
-                    q = *LLIST_link(p as usize);
-                    *LLIST_link(p as usize) = l;
-                    l = p;
-                    p = q;
-                    if !is_char_node(p.opt()) {
+                    popt = LLIST_link(p).opt();
+                    *LLIST_link(p) = l.tex_int();
+                    l = Some(p);
+                    if !is_char_node(popt) {
                         break;
+                    } else {
+                        p = popt.unwrap();
                     }
                 }
             } else {
                 let mut add_rule = true;
-                q = *LLIST_link(p as usize);
-                match text_NODE_type(p as usize).unwrap() {
+                let q = *LLIST_link(p);
+                match text_NODE_type(p).unwrap() {
                     TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => {
-                        rule_wd = *BOX_width(p as usize);
+                        rule_wd = *BOX_width(p);
                     }
-                    TextNode::WhatsIt => match whatsit_NODE_subtype(p as usize) {
+                    TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
                         WhatsItNST::NativeWord
                         | WhatsItNST::NativeWordAt
                         | WhatsItNST::Glyph
                         | WhatsItNST::Pic
                         | WhatsItNST::Pdf => {
-                            rule_wd = *BOX_width(p as usize);
+                            rule_wd = *BOX_width(p);
                         }
                         _ => add_rule = false,
                     },
                     TextNode::Glue => {
                         /*1486: "Handle a glue node for mixed direction typesetting" */
-                        g = *GLUE_NODE_glue_ptr(p as usize) as usize; /* "will never match" */
+                        g = *GLUE_NODE_glue_ptr(p) as usize; /* "will never match" */
                         rule_wd = *BOX_width(g) - *cur_g; /* = mem[lig_char(temp_ptr)] */
 
                         if g_sign != GlueSign::Normal {
                             if g_sign == GlueSign::Stretching {
                                 if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
                                     *cur_glue = *cur_glue + *GLUE_SPEC_stretch(g) as f64;
-                                    glue_temp = *BOX_glue_set(this_box) * *cur_glue;
+                                    let mut glue_temp = *BOX_glue_set(this_box) * *cur_glue;
                                     if glue_temp > 1000000000. {
                                         glue_temp = 1000000000.
                                     } else if glue_temp < -1000000000. {
@@ -1687,7 +1652,7 @@ unsafe fn reverse(
                                 }
                             } else if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
                                 *cur_glue = *cur_glue - *GLUE_SPEC_shrink(g) as f64;
-                                glue_temp = *BOX_glue_set(this_box) * *cur_glue;
+                                let mut glue_temp = *BOX_glue_set(this_box) * *cur_glue;
                                 if glue_temp > 1000000000. {
                                     glue_temp = 1000000000.
                                 } else if glue_temp < -1000000000. {
@@ -1709,10 +1674,10 @@ unsafe fn reverse(
                             } else {
                                 *GLUE_SPEC_ref_count(g) -= 1;
                             }
-                            if MEM[p as usize].b16.s0 < A_LEADERS {
+                            if MEM[p].b16.s0 < A_LEADERS {
                                 // NODE_subtype(p)
-                                set_NODE_type(p as usize, TextNode::Kern);
-                                *BOX_width(p as usize) = rule_wd;
+                                set_NODE_type(p, TextNode::Kern);
+                                *BOX_width(p) = rule_wd;
                             } else {
                                 g = get_node(GLUE_SPEC_SIZE);
                                 *GLUE_SPEC_stretch_order(g) = GlueOrder::Incorrect as u16;
@@ -1720,18 +1685,19 @@ unsafe fn reverse(
                                 *GLUE_SPEC_width(g) = rule_wd;
                                 *GLUE_SPEC_stretch(g) = 0;
                                 *GLUE_SPEC_shrink(g) = 0;
-                                *GLUE_NODE_glue_ptr(p as usize) = g as i32;
+                                *GLUE_NODE_glue_ptr(p) = g as i32;
                             }
                         }
                     }
                     TextNode::Ligature => {
-                        flush_node_list(LIGATURE_NODE_lig_ptr(p as usize).opt());
-                        temp_ptr = p as usize;
-                        p = get_avail() as i32;
-                        *LIGATURE_NODE_lig_char(p as usize) = *LIGATURE_NODE_lig_char(temp_ptr);
-                        *LIGATURE_NODE_lig_font(p as usize) = *LIGATURE_NODE_lig_font(temp_ptr);
-                        *LIGATURE_NODE_lig_ptr(p as usize) = *LIGATURE_NODE_lig_ptr(temp_ptr);
-                        *LLIST_link(p as usize) = q;
+                        flush_node_list(LIGATURE_NODE_lig_ptr(p).opt());
+                        temp_ptr = p;
+                        let p = get_avail();
+                        *LIGATURE_NODE_lig_char(p) = *LIGATURE_NODE_lig_char(temp_ptr);
+                        *LIGATURE_NODE_lig_font(p) = *LIGATURE_NODE_lig_font(temp_ptr);
+                        *LIGATURE_NODE_lig_ptr(p) = *LIGATURE_NODE_lig_ptr(temp_ptr);
+                        *LLIST_link(p) = q;
+                        popt = Some(p);
                         free_node(temp_ptr, SMALL_NODE_SIZE);
                         continue;
                     }
@@ -1739,13 +1705,11 @@ unsafe fn reverse(
                         /*1516: "Math nodes in an inner reflected segment are
                          * modified, those at the outer level are changed into
                          * kern nodes." */
-                        rule_wd = *BOX_width(p as usize);
+                        rule_wd = *BOX_width(p);
 
-                        if (BOX_lr_mode(p as usize) as u16) & 1 != 0 {
-                            if *LLIST_info(LR_ptr as usize)
-                                != 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3
-                            {
-                                set_NODE_type(p as usize, TextNode::Kern);
+                        if (BOX_lr_mode(p) as u16) & 1 != 0 {
+                            if *LLIST_info(LR_ptr as usize) != 4 * (MEM[p].b16.s0 as i32 / 4) + 3 {
+                                set_NODE_type(p, TextNode::Kern);
                                 LR_problems += 1;
                             } else {
                                 temp_ptr = LR_ptr as usize;
@@ -1755,14 +1719,14 @@ unsafe fn reverse(
 
                                 if n > MIN_HALFWORD {
                                     n -= 1;
-                                    MEM[p as usize].b16.s0 -= 1; // NODE_subtype(p)
+                                    MEM[p].b16.s0 -= 1; // NODE_subtype(p)
                                 } else {
-                                    set_NODE_type(p as usize, TextNode::Kern);
+                                    set_NODE_type(p, TextNode::Kern);
                                     if m > MIN_HALFWORD {
                                         m -= 1
                                     } else {
                                         /*1517: "Finish the reverse hlist segment and goto done" */
-                                        free_node(p as usize, MEDIUM_NODE_SIZE); /* end GLUE_NODE case */
+                                        free_node(p, MEDIUM_NODE_SIZE); /* end GLUE_NODE case */
                                         let t = t.unwrap();
                                         *LLIST_link(t) = q;
                                         *BOX_width(t) = rule_wd;
@@ -1773,14 +1737,14 @@ unsafe fn reverse(
                             }
                         } else {
                             temp_ptr = get_avail();
-                            *LLIST_info(temp_ptr) = 4 * (MEM[p as usize].b16.s0 as i32 / 4) + 3;
+                            *LLIST_info(temp_ptr) = 4 * (MEM[p].b16.s0 as i32 / 4) + 3;
                             *LLIST_link(temp_ptr) = LR_ptr;
                             LR_ptr = Some(temp_ptr).tex_int();
-                            if n > MIN_HALFWORD || MEM[p as usize].b16.s0 / 8 != cur_dir as u16 {
+                            if n > MIN_HALFWORD || MEM[p].b16.s0 / 8 != cur_dir as u16 {
                                 n += 1;
-                                MEM[p as usize].b16.s0 += 1; // NODE_subtype(p)
+                                MEM[p].b16.s0 += 1; // NODE_subtype(p)
                             } else {
-                                set_NODE_type(p as usize, TextNode::Kern);
+                                set_NODE_type(p, TextNode::Kern);
                                 m += 1;
                             }
                         }
@@ -1794,25 +1758,26 @@ unsafe fn reverse(
                 }
 
                 // next_p
-                MEM[p as usize].b32.s1 = l;
-                if text_NODE_type(p as usize) == TextNode::Kern.into() {
-                    if rule_wd == 0 || l.is_texnull() {
-                        free_node(p as usize, MEDIUM_NODE_SIZE);
-                        p = l
+                MEM[p].b32.s1 = l.tex_int();
+                let mut pp = Some(p);
+                if text_NODE_type(p) == TextNode::Kern.into() {
+                    if rule_wd == 0 || l.is_none() {
+                        free_node(p, MEDIUM_NODE_SIZE);
+                        pp = l
                     }
                 }
-                l = p;
-                p = q
+                l = pp;
+                popt = q.opt();
             }
         }
         /* ... resuming 1510 ... */
-        if t.is_none() && m.is_texnull() && n.is_texnull() {
+        if t.is_none() && m == MIN_HALFWORD && n == MIN_HALFWORD {
             break; /* "Manufacture a missing math node" */
         }
-        p = new_math(0, *LLIST_info(LR_ptr as usize) as i16) as i32;
+        popt = Some(new_math(0, *LLIST_info(LR_ptr as usize) as i16));
         LR_problems += 10000i32
     }
-    l
+    l.tex_int()
 }
 
 /*1506: Create a new edge node of subtype `s` and width `w` */
@@ -1906,7 +1871,6 @@ unsafe fn dvi_native_font_def(f: internal_font_number) {
 }
 
 unsafe fn dvi_font_def(f: internal_font_number) {
-    let mut l: i32 = 0;
     if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
         dvi_native_font_def(f);
     } else {
@@ -1925,10 +1889,10 @@ unsafe fn dvi_font_def(f: internal_font_number) {
         dvi_four(FONT_SIZE[f]);
         dvi_four(FONT_DSIZE[f]);
         dvi_out(length(FONT_AREA[f]) as u8);
-        l = 0;
+        let mut l = 0;
         let mut k = str_start[(FONT_NAME[f] as i64 - 65536) as usize];
 
-        while l == 0i32 && k < str_start[((FONT_NAME[f] + 1) as i64 - 65536) as usize] {
+        while l == 0 && k < str_start[((FONT_NAME[f] + 1) as i64 - 65536) as usize] {
             if str_pool[k as usize] as i32 == ':' as i32 {
                 l = k - str_start[(FONT_NAME[f] as i64 - 65536) as usize]
             }
