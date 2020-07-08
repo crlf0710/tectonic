@@ -1884,7 +1884,7 @@ unsafe fn new_hyph_exceptions() {
                         }
                         /*:975*/
                         /*:976*/
- // not_found
+                        // not_found
                         if HYPH_LINK[h as usize] == 0 {
                             HYPH_LINK[h as usize] = HYPH_NEXT as hyph_pointer;
                             if HYPH_NEXT >= HYPH_SIZE {

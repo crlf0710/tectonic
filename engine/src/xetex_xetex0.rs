@@ -1256,7 +1256,6 @@ pub(crate) unsafe fn delete_glue_ref(p: usize) {
     };
 }
 pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
-    let mut current_block: u64;
     let mut q: i32 = 0;
     while let Some(p) = popt {
         q = *LLIST_link(p);
@@ -1269,17 +1268,14 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     TextNode::HList | TextNode::VList | TextNode::Unset => {
                         flush_node_list(MEM[p + 5].b32.s1.opt());
                         free_node(p, BOX_NODE_SIZE);
-                        current_block = 16791665189521845338;
                     }
                     TextNode::Rule => {
                         free_node(p, RULE_NODE_SIZE);
-                        current_block = 16791665189521845338;
                     }
                     TextNode::Ins => {
                         flush_node_list(INSERTION_NODE_ins_ptr(p).opt());
                         delete_glue_ref(*INSERTION_NODE_split_top_ptr(p) as usize);
                         free_node(p, INS_NODE_SIZE);
-                        current_block = 16791665189521845338;
                     }
                     TextNode::WhatsIt => {
                         match whatsit_NODE_subtype(p) {
@@ -1317,7 +1313,6 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                             WhatsItNST::PdfSavePos => free_node(p, SMALL_NODE_SIZE),
                             //_ => confusion(b"ext3"),
                         }
-                        current_block = 16791665189521845338;
                     }
                     TextNode::Glue => {
                         let g = *GLUE_NODE_glue_ptr(p) as usize;
@@ -1330,36 +1325,32 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                             flush_node_list(Some(nd));
                         }
                         free_node(p, MEDIUM_NODE_SIZE);
-                        current_block = 16791665189521845338;
                     }
                     TextNode::Kern | TextNode::Math | TextNode::Penalty => {
                         free_node(p, MEDIUM_NODE_SIZE);
-                        current_block = 16791665189521845338;
                     }
                     TextNode::MarginKern => {
                         free_node(p, MARGIN_KERN_NODE_SIZE);
-                        current_block = 16791665189521845338;
                     }
                     TextNode::Ligature => {
                         flush_node_list(LIGATURE_NODE_lig_ptr(p).opt());
-                        current_block = 8062065914618164218;
+                        free_node(p, SMALL_NODE_SIZE);
                     }
                     TextNode::Mark => {
                         delete_token_ref(*MARK_NODE_ptr(p) as usize);
-                        current_block = 8062065914618164218;
+                        free_node(p, SMALL_NODE_SIZE);
                     }
                     TextNode::Disc => {
                         flush_node_list(DISCRETIONARY_NODE_pre_break(p).opt());
                         flush_node_list(DISCRETIONARY_NODE_post_break(p).opt());
-                        current_block = 8062065914618164218;
+                        free_node(p, SMALL_NODE_SIZE);
                     }
                     TextNode::Adjust => {
                         flush_node_list(ADJUST_NODE_ptr(p).opt());
-                        current_block = 8062065914618164218;
+                        free_node(p, SMALL_NODE_SIZE);
                     }
                     TextNode::Style => {
                         free_node(p, STYLE_NODE_SIZE);
-                        current_block = 16791665189521845338;
                     }
                     TextNode::Choice => {
                         flush_node_list(MEM[p + 1].b32.s0.opt());
@@ -1367,7 +1358,6 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         flush_node_list(MEM[p + 2].b32.s0.opt());
                         flush_node_list(MEM[p + 2].b32.s1.opt());
                         free_node(p, STYLE_NODE_SIZE);
-                        current_block = 16791665189521845338;
                     }
                 },
                 ND::Math(n) => match n {
@@ -1400,24 +1390,17 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         } else {
                             free_node(p, NOAD_SIZE);
                         }
-                        current_block = 16791665189521845338;
                     }
                     MathNode::Left | MathNode::Right => {
                         free_node(p, NOAD_SIZE);
-                        current_block = 16791665189521845338;
                     }
                     MathNode::Fraction => {
                         flush_node_list(MEM[p + 2].b32.s0.opt());
                         flush_node_list(MEM[p + 3].b32.s0.opt());
                         free_node(p, FRACTION_NOAD_SIZE);
-                        current_block = 16791665189521845338;
                     }
                 },
                 ND::Unknown(_) => confusion(b"flushing"),
-            }
-            match current_block {
-                16791665189521845338 => {}
-                _ => free_node(p, SMALL_NODE_SIZE),
             }
         }
         popt = q.opt()
@@ -2806,78 +2789,62 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
     p
 }
 pub(crate) unsafe fn prim_lookup(mut s: str_number) -> usize {
-    let mut current_block: u64;
-    let mut h: usize = 0;
-    let mut p: usize = 0;
-    let mut j: i32 = 0;
     let mut l: i32 = 0;
-    if s <= BIGGEST_CHAR {
+    let mut p = if s <= BIGGEST_CHAR {
         if s < 0 {
-            p = UNDEFINED_PRIMITIVE as usize;
-            current_block = 12583739755984661121;
+            return UNDEFINED_PRIMITIVE as usize;
         } else {
-            p = ((s as usize) % PRIM_PRIME) + 1;
-            current_block = 11307063007268554308;
+            ((s as usize) % PRIM_PRIME) + 1
         }
     } else {
-        j = str_start[(s as i64 - 65536) as usize];
+        let j = str_start[(s as i64 - 65536) as usize];
         if s == str_ptr {
             l = cur_length()
         } else {
             l = length(s)
         }
-        h = str_pool[j as usize] as usize;
+        let mut h = str_pool[j as usize] as usize;
         for k in (j + 1)..(j + l) {
             h = h + h + str_pool[k as usize] as usize;
             while h >= PRIM_PRIME {
                 h = h - 431;
             }
         }
-        p = h + 1;
-        current_block = 11307063007268554308;
-    }
+        h + 1
+    };
     loop {
-        match current_block {
-            12583739755984661121 => return p,
-            _ => {
-                if prim[p].s1 as i64 > 65536 {
-                    if length(prim[p].s1) - 1 == l {
-                        if str_eq_str(prim[p].s1 - 1, s) {
-                            current_block = 12583739755984661121;
-                            continue;
-                        }
-                    }
-                } else if prim[p].s1 == 1 + s {
-                    current_block = 12583739755984661121;
-                    continue;
-                }
-                if prim[p].s0 == 0i32 {
-                    if no_new_control_sequence {
-                        p = UNDEFINED_PRIMITIVE as usize;
-                    } else {
-                        /*272:*/
-                        if prim[p].s1 > 0 {
-                            loop {
-                                if prim_used == PRIM_BASE {
-                                    overflow(b"primitive size", PRIM_SIZE as usize);
-                                }
-                                prim_used -= 1;
-                                if prim[prim_used].s1 == 0 {
-                                    break;
-                                }
-                            }
-                            prim[p].s0 = prim_used as i32;
-                            p = prim_used
-                        }
-                        prim[p].s1 = s + 1i32
-                    }
-                    current_block = 12583739755984661121;
-                } else {
-                    p = prim[p].s0 as usize;
-                    current_block = 11307063007268554308;
+        if prim[p].s1 as i64 > 65536 {
+            if length(prim[p].s1) - 1 == l {
+                if str_eq_str(prim[p].s1 - 1, s) {
+                    return p;
                 }
             }
+        } else if prim[p].s1 == 1 + s {
+            return p;
         }
+        if prim[p].s0 == 0i32 {
+            if no_new_control_sequence {
+                p = UNDEFINED_PRIMITIVE as usize;
+            } else {
+                /*272:*/
+                if prim[p].s1 > 0 {
+                    loop {
+                        if prim_used == PRIM_BASE {
+                            overflow(b"primitive size", PRIM_SIZE as usize);
+                        }
+                        prim_used -= 1;
+                        if prim[prim_used].s1 == 0 {
+                            break;
+                        }
+                    }
+                    prim[p].s0 = prim_used as i32;
+                    p = prim_used
+                }
+                prim[p].s1 = s + 1i32
+            }
+            return p;
+        }
+        p = prim[p].s0 as usize;
     }
 }
 /*:276*/
@@ -7292,21 +7259,10 @@ pub(crate) unsafe fn xetex_scan_dimen(
     mut shortcut: bool,
     mut requires_units: bool,
 ) {
-    let mut current_block: u64;
-    let mut negative: bool = false;
-    let mut f: i32 = 0;
-    let mut num: i32 = 0;
-    let mut denom: i32 = 0;
-    let mut k: i16 = 0;
-    let mut kk: i16 = 0;
-    let mut p: i32 = 0;
-    let mut v: scaled_t = 0;
-    let mut save_cur_val: i32 = 0;
-
-    f = 0;
+    let mut f = 0;
     arith_error = false;
     cur_order = NORMAL as glue_ord;
-    negative = false;
+    let mut negative = false;
     if !shortcut {
         negative = false;
         loop {
@@ -7329,24 +7285,21 @@ pub(crate) unsafe fn xetex_scan_dimen(
             if mu {
                 scan_something_internal(ValLevel::Mu as i16, false);
                 if cur_val_level >= ValLevel::Glue {
-                    v = MEM[(cur_val + 1) as usize].b32.s1;
+                    let v = MEM[(cur_val + 1) as usize].b32.s1;
                     delete_glue_ref(cur_val as usize);
                     cur_val = v;
                 }
                 if cur_val_level == ValLevel::Mu {
-                    current_block = 16246449912548656671;
+                    return attach_sign(negative);
                 } else {
                     if cur_val_level != ValLevel::Int {
                         mu_error();
                     }
-                    current_block = 5028470053297453708;
                 }
             } else {
                 scan_something_internal(ValLevel::Dimen as i16, false);
                 if cur_val_level == ValLevel::Dimen {
-                    current_block = 16246449912548656671;
-                } else {
-                    current_block = 5028470053297453708;
+                    return attach_sign(negative);
                 }
             }
         } else {
@@ -7365,8 +7318,8 @@ pub(crate) unsafe fn xetex_scan_dimen(
             }
             if radix as i32 == 10 && cur_tok == POINT_TOKEN {
                 /*471:*/
-                k = 0; /* if(requires_units) */
-                p = None.tex_int();
+                let mut k = 0; /* if(requires_units) */
+                let mut p = None.tex_int();
                 get_token();
                 loop {
                     get_x_token();
@@ -7381,288 +7334,247 @@ pub(crate) unsafe fn xetex_scan_dimen(
                         k += 1
                     }
                 }
-                kk = k;
-                while kk as i32 >= 1 {
-                    dig[(kk as i32 - 1) as usize] = MEM[p as usize].b32.s0 as u8;
+
+                // done1:
+                for kk in (0..k as usize).rev() {
+                    dig[kk] = MEM[p as usize].b32.s0 as u8;
                     let q = p as usize;
                     p = *LLIST_link(p as usize);
                     MEM[q].b32.s1 = avail.tex_int();
                     avail = Some(q);
-                    kk -= 1
                 }
                 f = round_decimals(k);
                 if cur_cmd != Cmd::Spacer {
                     back_input();
                 }
             }
-            current_block = 5028470053297453708;
         }
-    } else {
-        current_block = 5028470053297453708;
     }
-    match current_block {
-        5028470053297453708 => {
-            if cur_val < 0 {
-                negative = !negative;
-                cur_val = -cur_val
-            }
-            if requires_units {
-                if inf {
-                    /*473:*/
-                    if scan_keyword(b"fil") {
-                        cur_order = FIL as glue_ord;
-                        while scan_keyword(b"l") {
-                            if cur_order == FILLL as u8 {
-                                if file_line_error_style_p != 0 {
-                                    print_file_line();
-                                } else {
-                                    print_nl_cstr(b"! ");
-                                }
-                                print_cstr(b"Illegal unit of measure (");
-                                print_cstr(b"replaced by filll)");
-                                help!(b"I dddon\'t go any higher than filll.");
-                                error();
-                            } else {
-                                cur_order += 1;
-                            }
-                        }
-                        current_block = 6063453238281986051;
-                    } else {
-                        current_block = 2750570471926810434;
-                    }
-                } else {
-                    current_block = 2750570471926810434;
-                }
-                match current_block {
-                    2750570471926810434 => {
-                        save_cur_val = cur_val;
-                        loop {
-                            get_x_token();
-                            if !(cur_cmd == Cmd::Spacer) {
-                                break;
-                            }
-                        }
-                        if cur_cmd < MIN_INTERNAL || cur_cmd > MAX_INTERNAL {
-                            back_input();
-                            if mu {
-                                current_block = 17751730340908002208;
-                            } else {
-                                if scan_keyword(b"em") {
-                                    v = FONT_INFO[(QUAD_CODE
-                                        + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize])
-                                        as usize]
-                                        .b32
-                                        .s1;
-                                    current_block = 5195798230510548452;
-                                } else if scan_keyword(b"ex") {
-                                    v = FONT_INFO[(X_HEIGHT_CODE
-                                        + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize])
-                                        as usize]
-                                        .b32
-                                        .s1;
-                                    current_block = 5195798230510548452;
-                                } else {
-                                    current_block = 17751730340908002208;
-                                }
-                                match current_block {
-                                    17751730340908002208 => {}
-                                    _ => {
-                                        get_x_token();
-                                        if cur_cmd != Cmd::Spacer {
-                                            back_input();
-                                        }
-                                        current_block = 7531702508219610202;
-                                    }
-                                }
-                            }
-                            match current_block {
-                                7531702508219610202 => {}
-                                _ => {
-                                    if mu {
-                                        /*475:*/
-                                        if scan_keyword(b"mu") {
-                                            current_block = 6063453238281986051;
-                                        } else {
-                                            if file_line_error_style_p != 0 {
-                                                print_file_line();
-                                            } else {
-                                                print_nl_cstr(b"! ");
-                                            }
-                                            print_cstr(b"Illegal unit of measure (");
-                                            print_cstr(b"mu inserted)");
-                                            help!(b"The unit of measurement in math glue must be mu.",
-                                            b"To recover gracefully from this error, it\'s best to",
-                                            b"delete the erroneous units; e.g., type `2\' to delete",
-                                            b"two letters. (See Chapter 27 of The TeXbook.)");
-                                            error();
-                                            current_block = 6063453238281986051;
-                                        }
-                                    } else {
-                                        if scan_keyword(b"true") {
-                                            /*476:*/
-                                            prepare_mag(); /* magic ratio consant */
-                                            if *INTPAR(IntPar::mag) != 1000 {
-                                                cur_val =
-                                                    xn_over_d(cur_val, 1000, *INTPAR(IntPar::mag)); /* magic ratio consant */
-                                                f = (((1000 * f) as i64
-                                                    + 65536 * tex_remainder as i64)
-                                                    / *INTPAR(IntPar::mag) as i64)
-                                                    as i32;
-                                                cur_val =
-                                                    (cur_val as i64 + f as i64 / 65536) as i32;
-                                                f = (f as i64 % 65536) as i32
-                                            }
-                                        }
-                                        if scan_keyword(b"pt") {
-                                            current_block = 6063453238281986051;
-                                        } else {
-                                            if scan_keyword(b"in") {
-                                                num = 7227;
-                                                denom = 100;
-                                                current_block = 15908231092227701503;
-                                            } else if scan_keyword(b"pc") {
-                                                num = 12;
-                                                denom = 1;
-                                                current_block = 15908231092227701503;
-                                            } else if scan_keyword(b"cm") {
-                                                num = 7227; // magic ratio consant
-                                                denom = 254; // magic ratio consant
-                                                current_block = 15908231092227701503;
-                                            } else if scan_keyword(b"mm") {
-                                                num = 7227; // magic ratio consant
-                                                denom = 2540; // magic ratio consant
-                                                current_block = 15908231092227701503;
-                                            } else if scan_keyword(b"bp") {
-                                                num = 7227; // magic ratio consant
-                                                denom = 7200; // magic ratio consant
-                                                current_block = 15908231092227701503;
-                                            } else if scan_keyword(b"dd") {
-                                                num = 1238; // magic ratio consant
-                                                denom = 1157; // magic ratio consant
-                                                current_block = 15908231092227701503;
-                                            } else if scan_keyword(b"cc") {
-                                                num = 14856; // magic ratio consant
-                                                denom = 1157; // magic ratio consant
-                                                current_block = 15908231092227701503;
-                                            } else if scan_keyword(b"sp") {
-                                                current_block = 8982780081639585757;
-                                            /*478:*/
-                                            } else {
-                                                if file_line_error_style_p != 0 {
-                                                    print_file_line();
-                                                } else {
-                                                    print_nl_cstr(b"! ");
-                                                }
-                                                print_cstr(b"Illegal unit of measure (");
-                                                print_cstr(b"pt inserted)");
-                                                help!(b"Dimensions can be in units of em, ex, in, pt, pc,",
-                                                b"cm, mm, dd, cc, bp, or sp; but yours is a new one!",
-                                                b"I\'ll assume that you meant to say pt, for printer\'s points.",
-                                                b"To recover gracefully from this error, it\'s best to",
-                                                b"delete the erroneous units; e.g., type `2\' to delete",
-                                                b"two letters. (See Chapter 27 of The TeXbook.)");
-                                                error();
-                                                current_block = 6063453238281986051;
-                                            }
-                                            match current_block {
-                                                6063453238281986051 => {}
-                                                8982780081639585757 => {}
-                                                _ => {
-                                                    cur_val = xn_over_d(cur_val, num, denom);
-                                                    f = (((num * f) as i64
-                                                        + 65536 * tex_remainder as i64)
-                                                        / denom as i64)
-                                                        as i32;
-                                                    cur_val =
-                                                        (cur_val as i64 + f as i64 / 65536) as i32;
-                                                    f = (f as i64 % 65536) as i32;
-                                                    current_block = 6063453238281986051;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            if mu {
-                                scan_something_internal(ValLevel::Mu as i16, false);
-                                if cur_val_level >= ValLevel::Glue {
-                                    v = MEM[(cur_val + 1) as usize].b32.s1;
-                                    delete_glue_ref(cur_val as usize);
-                                    cur_val = v
-                                }
-                                if cur_val_level != ValLevel::Mu {
-                                    mu_error();
-                                }
-                            } else {
-                                scan_something_internal(ValLevel::Dimen as i16, false);
-                            }
-                            v = cur_val;
-                            current_block = 7531702508219610202;
-                        }
-                        match current_block {
-                            6063453238281986051 => {}
-                            8982780081639585757 => {}
-                            _ => {
-                                cur_val = mult_and_add(
-                                    save_cur_val,
-                                    v,
-                                    xn_over_d(v, f, 65536 as i32),
-                                    0x3fffffff,
-                                );
-                                current_block = 16246449912548656671;
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-                match current_block {
-                    16246449912548656671 => {}
-                    _ => {
-                        match current_block {
-                            6063453238281986051 => {
-                                if cur_val >= 16384 {
-                                    arith_error = true
-                                } else {
-                                    cur_val = (cur_val as i64 * 65536 + f as i64) as i32
-                                }
-                            }
-                            _ => {}
-                        }
-                        get_x_token();
-                        if cur_cmd != Cmd::Spacer {
-                            back_input();
-                        }
-                    }
-                }
-            } else if cur_val >= 16384 {
-                arith_error = true
-            } else {
-                cur_val = (cur_val as i64 * 65536 + f as i64) as i32
-            }
-        }
-        _ => {}
-    }
-    if arith_error || cur_val.wrapping_abs() >= 0x40000000 {
-        // TODO: check
-        /*479:*/
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr(b"! ");
-        }
-        print_cstr(b"Dimension too large");
-        help!(
-            b"I can\'t work with sizes bigger than about 19 feet.",
-            b"Continue and I\'ll use the largest value I can."
-        );
-        error();
-        cur_val = MAX_HALFWORD;
-        arith_error = false
-    }
-    if negative {
+
+    if cur_val < 0 {
+        negative = !negative;
         cur_val = -cur_val
-    };
+    }
+    if requires_units {
+        if inf {
+            /*473:*/
+            if scan_keyword(b"fil") {
+                cur_order = FIL as glue_ord;
+                while scan_keyword(b"l") {
+                    if cur_order == FILLL as u8 {
+                        if file_line_error_style_p != 0 {
+                            print_file_line();
+                        } else {
+                            print_nl_cstr(b"! ");
+                        }
+                        print_cstr(b"Illegal unit of measure (");
+                        print_cstr(b"replaced by filll)");
+                        help!(b"I dddon\'t go any higher than filll.");
+                        error();
+                    } else {
+                        cur_order += 1;
+                    }
+                }
+                return attach_fraction(f, negative);
+            }
+        }
+
+        let save_cur_val = cur_val;
+
+        loop {
+            get_x_token();
+            if !(cur_cmd == Cmd::Spacer) {
+                break;
+            }
+        }
+        if cur_cmd < MIN_INTERNAL || cur_cmd > MAX_INTERNAL {
+            back_input();
+        } else {
+            if mu {
+                scan_something_internal(ValLevel::Mu as i16, false);
+                if cur_val_level >= ValLevel::Glue {
+                    let v = MEM[(cur_val + 1) as usize].b32.s1;
+                    delete_glue_ref(cur_val as usize);
+                    cur_val = v
+                }
+                if cur_val_level != ValLevel::Mu {
+                    mu_error();
+                }
+            } else {
+                scan_something_internal(ValLevel::Dimen as i16, false);
+            }
+            let v = cur_val;
+            return found(save_cur_val, v, f, negative);
+        }
+
+        if !mu {
+            if scan_keyword(b"em") {
+                let v = FONT_INFO
+                    [(QUAD_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
+                    .b32
+                    .s1;
+                get_x_token();
+                if cur_cmd != Cmd::Spacer {
+                    back_input();
+                }
+                return found(save_cur_val, v, f, negative);
+            } else if scan_keyword(b"ex") {
+                let v = FONT_INFO
+                    [(X_HEIGHT_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
+                    .b32
+                    .s1;
+                get_x_token();
+                if cur_cmd != Cmd::Spacer {
+                    back_input();
+                }
+                return found(save_cur_val, v, f, negative);
+            }
+        }
+
+        // not_found:
+        if mu {
+            /*475:*/
+            if scan_keyword(b"mu") {
+                return attach_fraction(f, negative);
+            } else {
+                if file_line_error_style_p != 0 {
+                    print_file_line();
+                } else {
+                    print_nl_cstr(b"! ");
+                }
+                print_cstr(b"Illegal unit of measure (");
+                print_cstr(b"mu inserted)");
+                help!(
+                    b"The unit of measurement in math glue must be mu.",
+                    b"To recover gracefully from this error, it\'s best to",
+                    b"delete the erroneous units; e.g., type `2\' to delete",
+                    b"two letters. (See Chapter 27 of The TeXbook.)"
+                );
+                error();
+                return attach_fraction(f, negative);
+            }
+        }
+
+        if scan_keyword(b"true") {
+            /*476:*/
+            prepare_mag(); /* magic ratio consant */
+            if *INTPAR(IntPar::mag) != 1000 {
+                cur_val = xn_over_d(cur_val, 1000, *INTPAR(IntPar::mag)); /* magic ratio consant */
+                f = (((1000 * f) as i64 + 65536 * tex_remainder as i64)
+                    / *INTPAR(IntPar::mag) as i64) as i32;
+                cur_val = (cur_val as i64 + f as i64 / 65536) as i32;
+                f = (f as i64 % 65536) as i32
+            }
+        }
+
+        if scan_keyword(b"pt") {
+            return attach_fraction(f, negative);
+        }
+
+        let num;
+        let denom;
+        if scan_keyword(b"in") {
+            num = 7227;
+            denom = 100;
+        } else if scan_keyword(b"pc") {
+            num = 12;
+            denom = 1;
+        } else if scan_keyword(b"cm") {
+            num = 7227; // magic ratio consant
+            denom = 254; // magic ratio consant
+        } else if scan_keyword(b"mm") {
+            num = 7227; // magic ratio consant
+            denom = 2540; // magic ratio consant
+        } else if scan_keyword(b"bp") {
+            num = 7227; // magic ratio consant
+            denom = 7200; // magic ratio consant
+        } else if scan_keyword(b"dd") {
+            num = 1238; // magic ratio consant
+            denom = 1157; // magic ratio consant
+        } else if scan_keyword(b"cc") {
+            num = 14856; // magic ratio consant
+            denom = 1157; // magic ratio consant
+        } else if scan_keyword(b"sp") {
+            return done(negative);
+        /*478:*/
+        } else {
+            if file_line_error_style_p != 0 {
+                print_file_line();
+            } else {
+                print_nl_cstr(b"! ");
+            }
+            print_cstr(b"Illegal unit of measure (");
+            print_cstr(b"pt inserted)");
+            help!(
+                b"Dimensions can be in units of em, ex, in, pt, pc,",
+                b"cm, mm, dd, cc, bp, or sp; but yours is a new one!",
+                b"I\'ll assume that you meant to say pt, for printer\'s points.",
+                b"To recover gracefully from this error, it\'s best to",
+                b"delete the erroneous units; e.g., type `2\' to delete",
+                b"two letters. (See Chapter 27 of The TeXbook.)"
+            );
+            error();
+            return attach_fraction(f, negative);
+        }
+
+        cur_val = xn_over_d(cur_val, num, denom);
+        f = (((num * f) as i64 + 65536 * tex_remainder as i64) / denom as i64) as i32;
+        cur_val = (cur_val as i64 + f as i64 / 65536) as i32;
+        f = (f as i64 % 65536) as i32;
+        return attach_fraction(f, negative);
+    } else if cur_val >= 16384 {
+        arith_error = true
+    } else {
+        cur_val = (cur_val as i64 * 65536 + f as i64) as i32
+    }
+
+    // done2:
+    unsafe fn attach_fraction(f: i32, negative: bool) {
+        if cur_val >= 16384 {
+            arith_error = true
+        } else {
+            cur_val = (cur_val as i64 * 65536 + f as i64) as i32
+        }
+        done(negative)
+    }
+
+    unsafe fn done(negative: bool) {
+        get_x_token();
+        if cur_cmd != Cmd::Spacer {
+            back_input();
+        }
+        attach_sign(negative)
+    }
+
+    unsafe fn found(save_cur_val: i32, v: i32, f: i32, negative: bool) {
+        cur_val = mult_and_add(save_cur_val, v, xn_over_d(v, f, 65536 as i32), 0x3fffffff);
+        attach_sign(negative)
+    }
+
+    unsafe fn attach_sign(negative: bool) {
+        if arith_error || cur_val.wrapping_abs() >= 0x40000000 {
+            // TODO: check
+            /*479:*/
+            if file_line_error_style_p != 0 {
+                print_file_line();
+            } else {
+                print_nl_cstr(b"! ");
+            }
+            print_cstr(b"Dimension too large");
+            help!(
+                b"I can\'t work with sizes bigger than about 19 feet.",
+                b"Continue and I\'ll use the largest value I can."
+            );
+            error();
+            cur_val = MAX_HALFWORD;
+            arith_error = false
+        }
+        if negative {
+            cur_val = -cur_val
+        };
+    }
+
+    attach_sign(negative)
 }
 pub(crate) unsafe fn scan_dimen(mut mu: bool, mut inf: bool, mut shortcut: bool) {
     xetex_scan_dimen(mu, inf, shortcut, true);
