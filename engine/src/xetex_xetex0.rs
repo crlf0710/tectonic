@@ -4598,20 +4598,15 @@ pub(crate) unsafe fn get_token() {
     };
 }
 pub(crate) unsafe fn macro_call() {
-    let mut current_block: u64;
     let mut p: i32 = None.tex_int();
     let mut rbrace_ptr: i32 = None.tex_int();
-    let mut n: i16 = 0;
-    let mut unbalance: i32 = 0;
-    let mut m: i32 = 0i32;
-    let mut save_warning_index: i32 = 0;
     let mut match_chr: UTF16_code = 0;
     let save_scanner_status = scanner_status;
-    save_warning_index = warning_index;
+    let save_warning_index = warning_index;
     warning_index = cur_cs;
     let ref_count = cur_chr as usize;
     let mut r = MEM[ref_count].b32.s1.opt().unwrap();
-    n = 0 as i16;
+    let mut n = 0_i16;
     if *INTPAR(IntPar::tracing_macros) > 0 {
         /*419:*/
         begin_diagnostic();
@@ -4626,228 +4621,259 @@ pub(crate) unsafe fn macro_call() {
     if MEM[r].b32.s0 != END_MATCH_TOKEN {
         /*409:*/
         scanner_status = ScannerStatus::Matching;
-        unbalance = 0;
+        let mut unbalance = 0;
         long_state = EQTB[cur_cs as usize].cmd as u8;
+
         if long_state as u16 >= Cmd::OuterCall as u16 {
             long_state = (long_state as i32 - 2) as u8
         }
+
+        let mut m = 0;
+        let mut s = None;
+        let mut cont = false;
         's_135: loop {
-            let s;
-            MEM[TEMP_HEAD].b32.s1 = None.tex_int();
-            if MEM[r].b32.s0 >= END_MATCH_TOKEN || MEM[r].b32.s0 < MATCH_TOKEN {
-                s = None;
-            } else {
-                match_chr = (MEM[r].b32.s0 - MATCH_TOKEN) as UTF16_code;
-                s = MEM[r].b32.s1.opt();
-                r = s.unwrap();
-                p = TEMP_HEAD as i32;
-                m = 0;
+            if !cont {
+                MEM[TEMP_HEAD].b32.s1 = None.tex_int();
+                if MEM[r].b32.s0 >= END_MATCH_TOKEN || MEM[r].b32.s0 < MATCH_TOKEN {
+                    s = None;
+                } else {
+                    match_chr = (MEM[r].b32.s0 - MATCH_TOKEN) as UTF16_code;
+                    s = MEM[r].b32.s1.opt();
+                    r = s.unwrap();
+                    p = TEMP_HEAD as i32;
+                    m = 0;
+                }
             }
-            'c_67378: loop {
-                get_token();
-                if cur_tok == MEM[r].b32.s0 {
-                    /*412:*/
-                    r = MEM[r].b32.s1.opt().unwrap();
-                    if !(MEM[r].b32.s0 >= MATCH_TOKEN && MEM[r].b32.s0 <= END_MATCH_TOKEN) {
-                        continue;
-                    }
+            cont = false;
+
+            get_token();
+            if cur_tok == MEM[r].b32.s0 {
+                /*412:*/
+                r = MEM[r].b32.s1.opt().unwrap();
+                if MEM[r].b32.s0 >= MATCH_TOKEN && MEM[r].b32.s0 <= END_MATCH_TOKEN {
                     if cur_tok < LEFT_BRACE_LIMIT {
                         align_state -= 1
                     }
-                    break;
                 } else {
-                    if s != Some(r) {
-                        if let Some(s) = s {
-                            let mut t = s;
+                    cont = true;
+                    continue;
+                }
+            } else {
+                if s != Some(r) {
+                    if let Some(s) = s {
+                        let mut t = s;
+                        loop {
+                            let q = get_avail();
+                            MEM[p as usize].b32.s1 = q as i32;
+                            MEM[q].b32.s0 = MEM[t].b32.s0;
+                            p = q as i32;
+                            m += 1;
+                            let mut u = LLIST_link(t).opt().unwrap();
+                            let mut v = s;
                             loop {
-                                let q = get_avail();
-                                MEM[p as usize].b32.s1 = q as i32;
-                                MEM[q].b32.s0 = MEM[t].b32.s0;
-                                p = q as i32;
-                                m += 1;
-                                let mut u = LLIST_link(t).opt().unwrap();
-                                let mut v = s;
-                                loop {
-                                    if u == r {
-                                        if cur_tok != MEM[v].b32.s0 {
-                                            break;
-                                        }
-                                        r = LLIST_link(v).opt().unwrap();
-                                        continue 'c_67378;
+                                if u == r {
+                                    if cur_tok != MEM[v].b32.s0 {
+                                        break;
                                     } else {
-                                        if MEM[u].b32.s0 != MEM[v].b32.s0 {
-                                            break;
-                                        }
-                                        u = LLIST_link(u).opt().unwrap();
-                                        v = LLIST_link(v).opt().unwrap();
+                                        r = LLIST_link(v).opt().unwrap();
+                                        cont = true;
+                                        continue 's_135;
                                     }
                                 }
-                                t = LLIST_link(t).opt().unwrap();
-                                if t == r {
+
+                                if MEM[u].b32.s0 != MEM[v].b32.s0 {
                                     break;
                                 }
+
+                                u = LLIST_link(u).opt().unwrap();
+                                v = LLIST_link(v).opt().unwrap();
                             }
-                            r = s;
+
+                            // done:
+                            t = LLIST_link(t).opt().unwrap();
+                            if t == r {
+                                break;
+                            }
+                        }
+                        r = s;
+                    } else {
+                        /*416:*/
+                        if file_line_error_style_p != 0 {
+                            print_file_line();
                         } else {
-                            /*416:*/
+                            print_nl_cstr(b"! ");
+                        }
+                        print_cstr(b"Use of ");
+                        sprint_cs(warning_index);
+                        print_cstr(b" doesn\'t match its definition");
+                        help!(
+                            b"If you say, e.g., `\\def\\a1{...}\', then you must always",
+                            b"put `1\' after `\\a\', since control sequence names are",
+                            b"made up of letters only. The macro here has not been",
+                            b"followed by the required stuff, so I\'m ignoring it."
+                        );
+                        error();
+                        return exit(save_scanner_status, save_warning_index);
+                    }
+                }
+
+                if cur_tok == par_token {
+                    if long_state as u16 != Cmd::LongCall as u16 {
+                        /*414:*/
+                        if long_state as u16 == Cmd::Call as u16 {
+                            runaway(); /*411:*/
                             if file_line_error_style_p != 0 {
-                                print_file_line();
+                                print_file_line(); /*413:*/
                             } else {
                                 print_nl_cstr(b"! ");
                             }
-                            print_cstr(b"Use of ");
+                            print_cstr(b"Paragraph ended before ");
                             sprint_cs(warning_index);
-                            print_cstr(b" doesn\'t match its definition");
+                            print_cstr(b" was complete");
                             help!(
-                                b"If you say, e.g., `\\def\\a1{...}\', then you must always",
-                                b"put `1\' after `\\a\', since control sequence names are",
-                                b"made up of letters only. The macro here has not been",
-                                b"followed by the required stuff, so I\'m ignoring it."
+                                b"I suspect you\'ve forgotten a `}\', causing me to apply this",
+                                b"control sequence to too much text. How can we recover?",
+                                b"My plan is to forget the whole thing and hope for the best."
                             );
-                            error();
-                            current_block = 16670727159935121194;
-                            break 's_135;
+                            back_error();
                         }
-                    }
-                    if cur_tok == par_token {
-                        if long_state as u16 != Cmd::LongCall as u16 {
-                            /*414:*/
-                            if long_state as u16 == Cmd::Call as u16 {
-                                runaway(); /*411:*/
-                                if file_line_error_style_p != 0 {
-                                    print_file_line(); /*413:*/
-                                } else {
-                                    print_nl_cstr(b"! ");
-                                }
-                                print_cstr(b"Paragraph ended before ");
-                                sprint_cs(warning_index);
-                                print_cstr(b" was complete");
-                                help!(
-                                    b"I suspect you\'ve forgotten a `}\', causing me to apply this",
-                                    b"control sequence to too much text. How can we recover?",
-                                    b"My plan is to forget the whole thing and hope for the best."
-                                );
-                                back_error();
-                            }
-                            pstack[n as usize] = MEM[TEMP_HEAD].b32.s1;
-                            align_state = align_state - unbalance;
-                            m = 0i32;
-                            while m <= n as i32 {
-                                flush_list(pstack[m as usize].opt());
-                                m += 1
-                            }
-                            current_block = 16670727159935121194;
-                            break 's_135;
+
+                        pstack[n as usize] = MEM[TEMP_HEAD].b32.s1;
+                        align_state = align_state - unbalance;
+
+                        for m in 0..=(n as usize) {
+                            flush_list(pstack[m].opt());
                         }
+
+                        return exit(save_scanner_status, save_warning_index);
                     }
-                    if cur_tok < RIGHT_BRACE_LIMIT {
-                        if cur_tok < LEFT_BRACE_LIMIT {
-                            /*417:*/
-                            unbalance = 1;
-                            loop {
-                                let q = if let Some(a) = avail {
-                                    avail = MEM[a].b32.s1.opt();
-                                    MEM[a].b32.s1 = None.tex_int();
-                                    a
-                                } else {
-                                    get_avail()
-                                };
-                                MEM[p as usize].b32.s1 = q as i32;
-                                MEM[q].b32.s0 = cur_tok;
-                                p = q as i32;
-                                get_token();
-                                if cur_tok == par_token {
-                                    if long_state as u16 != Cmd::LongCall as u16 {
-                                        /*414:*/
-                                        if long_state as u16 == Cmd::Call as u16 {
-                                            runaway();
-                                            if file_line_error_style_p != 0 {
-                                                print_file_line();
-                                            } else {
-                                                print_nl_cstr(b"! ");
-                                            }
-                                            print_cstr(b"Paragraph ended before ");
-                                            sprint_cs(warning_index);
-                                            print_cstr(b" was complete");
-                                            help!(b"I suspect you\'ve forgotten a `}\', causing me to apply this",
-                                            b"control sequence to too much text. How can we recover?",
-                                            b"My plan is to forget the whole thing and hope for the best.");
-                                            back_error();
+                }
+
+                if cur_tok < RIGHT_BRACE_LIMIT {
+                    if cur_tok < LEFT_BRACE_LIMIT {
+                        /*417:*/
+                        unbalance = 1;
+
+                        loop {
+                            let q = if let Some(a) = avail {
+                                avail = MEM[a].b32.s1.opt();
+                                MEM[a].b32.s1 = None.tex_int();
+                                a
+                            } else {
+                                get_avail()
+                            };
+
+                            MEM[p as usize].b32.s1 = q as i32;
+                            MEM[q].b32.s0 = cur_tok;
+                            p = q as i32;
+
+                            get_token();
+
+                            if cur_tok == par_token {
+                                if long_state as u16 != Cmd::LongCall as u16 {
+                                    /*414:*/
+                                    if long_state as u16 == Cmd::Call as u16 {
+                                        runaway();
+                                        if file_line_error_style_p != 0 {
+                                            print_file_line();
+                                        } else {
+                                            print_nl_cstr(b"! ");
                                         }
-                                        pstack[n as usize] = MEM[TEMP_HEAD].b32.s1;
-                                        align_state = align_state - unbalance;
-                                        m = 0i32;
-                                        while m <= n as i32 {
-                                            flush_list(pstack[m as usize].opt());
-                                            m += 1
-                                        }
-                                        current_block = 16670727159935121194;
-                                        break 's_135;
+                                        print_cstr(b"Paragraph ended before ");
+                                        sprint_cs(warning_index);
+                                        print_cstr(b" was complete");
+                                        help!(b"I suspect you\'ve forgotten a `}\', causing me to apply this",
+                                        b"control sequence to too much text. How can we recover?",
+                                        b"My plan is to forget the whole thing and hope for the best.");
+                                        back_error();
                                     }
+
+                                    pstack[n as usize] = MEM[TEMP_HEAD].b32.s1;
+                                    align_state = align_state - unbalance;
+
+                                    for m in 0..=(n as usize) {
+                                        flush_list(pstack[m].opt());
+                                    }
+
+                                    return exit(save_scanner_status, save_warning_index);
                                 }
-                                if !(cur_tok < 0x600000i32) {
-                                    continue;
-                                }
-                                if cur_tok < 0x400000i32 {
+                            }
+
+                            if cur_tok < RIGHT_BRACE_LIMIT {
+                                if cur_tok < LEFT_BRACE_LIMIT {
                                     unbalance += 1
                                 } else {
                                     unbalance -= 1;
-                                    if unbalance == 0i32 {
+                                    if unbalance == 0 {
                                         break;
                                     }
                                 }
                             }
-                            rbrace_ptr = p;
-                            let q = get_avail();
-                            MEM[p as usize].b32.s1 = q as i32;
-                            MEM[q].b32.s0 = cur_tok;
-                            p = q as i32;
-                        } else {
-                            back_input();
-                            if file_line_error_style_p != 0 {
-                                print_file_line();
-                            } else {
-                                print_nl_cstr(b"! ");
-                            }
-                            print_cstr(b"Argument of ");
-                            sprint_cs(warning_index);
-                            print_cstr(b" has an extra }");
-                            help!(
-                                b"I\'ve run across a `}\' that doesn\'t seem to match anything.",
-                                b"For example, `\\def\\a#1{...}\' and `\\a}\' would produce",
-                                b"this error. If you simply proceed now, the `\\par\' that",
-                                b"I\'ve just inserted will cause me to report a runaway",
-                                b"argument that might be the root of the problem. But if",
-                                b"your `}\' was spurious, just type `2\' and it will go away."
-                            );
-                            align_state += 1;
-                            long_state = Cmd::Call as u8;
-                            cur_tok = par_token;
-                            ins_error();
-                            continue;
                         }
-                    } else {
-                        if cur_tok == SPACE_TOKEN {
-                            if MEM[r].b32.s0 <= END_MATCH_TOKEN {
-                                if MEM[r].b32.s0 >= MATCH_TOKEN {
-                                    continue;
-                                }
-                            }
-                        }
+
+                        // done1:
+                        rbrace_ptr = p;
+
                         let q = get_avail();
                         MEM[p as usize].b32.s1 = q as i32;
                         MEM[q].b32.s0 = cur_tok;
                         p = q as i32;
-                    }
-                    m += 1;
-                    if MEM[r].b32.s0 > END_MATCH_TOKEN {
+                    } else {
+                        /* 413 */
+                        back_input();
+
+                        if file_line_error_style_p != 0 {
+                            print_file_line();
+                        } else {
+                            print_nl_cstr(b"! ");
+                        }
+                        print_cstr(b"Argument of ");
+                        sprint_cs(warning_index);
+                        print_cstr(b" has an extra }");
+                        help!(
+                            b"I\'ve run across a `}\' that doesn\'t seem to match anything.",
+                            b"For example, `\\def\\a#1{...}\' and `\\a}\' would produce",
+                            b"this error. If you simply proceed now, the `\\par\' that",
+                            b"I\'ve just inserted will cause me to report a runaway",
+                            b"argument that might be the root of the problem. But if",
+                            b"your `}\' was spurious, just type `2\' and it will go away."
+                        );
+                        align_state += 1;
+                        long_state = Cmd::Call as u8;
+                        cur_tok = par_token;
+                        ins_error();
+                        cont = true;
                         continue;
                     }
-                    if !(MEM[r].b32.s0 < MATCH_TOKEN) {
-                        break;
+                } else {
+                    if cur_tok == SPACE_TOKEN {
+                        if MEM[r].b32.s0 <= END_MATCH_TOKEN {
+                            if MEM[r].b32.s0 >= MATCH_TOKEN {
+                                cont = true;
+                                continue;
+                            }
+                        }
                     }
+
+                    let q = get_avail();
+                    MEM[p as usize].b32.s1 = q as i32;
+                    MEM[q].b32.s0 = cur_tok;
+                    p = q as i32;
+                }
+
+                m += 1;
+
+                if MEM[r].b32.s0 > END_MATCH_TOKEN {
+                    cont = true;
+                    continue;
+                }
+                if MEM[r].b32.s0 < MATCH_TOKEN {
+                    cont = true;
+                    continue;
                 }
             }
+
+            // found:
             if s.is_some() {
                 /*418:*/
                 if m == 1 && MEM[p as usize].b32.s0 < RIGHT_BRACE_LIMIT && p != TEMP_HEAD as i32 {
@@ -4872,43 +4898,42 @@ pub(crate) unsafe fn macro_call() {
                 }
             }
             if !(MEM[r].b32.s0 != END_MATCH_TOKEN) {
-                current_block = 12717620301112128284;
                 break;
             }
         }
-    } else {
-        current_block = 12717620301112128284;
     }
-    match current_block {
-        12717620301112128284 => {
-            while cur_input.state == InputState::TokenList
-                && cur_input.loc.opt().is_none()
-                && cur_input.index != Btl::VTemplate
-            {
-                end_token_list();
-            }
-            begin_token_list(ref_count, Btl::Macro);
-            cur_input.name = warning_index;
-            cur_input.loc = MEM[r].b32.s1;
-            if n as i32 > 0 {
-                if PARAM_PTR + n as usize > MAX_PARAM_STACK {
-                    MAX_PARAM_STACK = PARAM_PTR + n as usize;
-                    if MAX_PARAM_STACK > PARAM_SIZE {
-                        overflow(b"parameter stack size", PARAM_SIZE);
-                    }
-                }
-                m = 0i32;
-                while m <= n as i32 - 1i32 {
-                    PARAM_STACK[PARAM_PTR + m as usize] = pstack[m as usize];
-                    m += 1
-                }
-                PARAM_PTR += n as usize;
+
+    while cur_input.state == InputState::TokenList
+        && cur_input.loc.opt().is_none()
+        && cur_input.index != Btl::VTemplate
+    {
+        end_token_list();
+    }
+
+    begin_token_list(ref_count, Btl::Macro);
+    cur_input.name = warning_index;
+    cur_input.loc = MEM[r].b32.s1;
+
+    if n > 0 {
+        if PARAM_PTR + n as usize > MAX_PARAM_STACK {
+            MAX_PARAM_STACK = PARAM_PTR + n as usize;
+            if MAX_PARAM_STACK > PARAM_SIZE {
+                overflow(b"parameter stack size", PARAM_SIZE);
             }
         }
-        _ => {}
+
+        for m in 0..(n as usize) {
+            PARAM_STACK[PARAM_PTR + m] = pstack[m];
+        }
+        PARAM_PTR += n as usize;
     }
-    scanner_status = save_scanner_status;
-    warning_index = save_warning_index;
+
+    unsafe fn exit(save_scanner_status: ScannerStatus, save_warning_index: i32) {
+        scanner_status = save_scanner_status;
+        warning_index = save_warning_index;
+    }
+
+    exit(save_scanner_status, save_warning_index)
 }
 pub(crate) unsafe fn insert_relax() {
     cur_tok = CS_TOKEN_FLAG + cur_cs;
