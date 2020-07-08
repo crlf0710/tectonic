@@ -9075,15 +9075,16 @@ pub(crate) unsafe fn change_if_limit(l: u8, p: Option<usize>) {
     };
 }
 pub(crate) unsafe fn conditional() {
-    let mut current_block: u64;
     let mut b: bool = false;
     let mut e: bool = false;
     let mut r: u8 = 0;
+
     if *INTPAR(IntPar::tracing_ifs) > 0 {
         if *INTPAR(IntPar::tracing_commands) <= 1 {
             show_cur_cmd_chr();
         }
     }
+
     let mut p = get_node(IF_NODE_SIZE);
     MEM[p].b32.s1 = cond_ptr.tex_int();
     MEM[p].b16.s1 = if_limit as u16;
@@ -9093,9 +9094,11 @@ pub(crate) unsafe fn conditional() {
     cur_if = cur_chr as i16;
     if_limit = IF_CODE;
     if_line = line;
+
     let mut save_cond_ptr = cond_ptr;
     let mut is_unless = cur_chr >= UNLESS_CODE;
     let mut this_if = (cur_chr % UNLESS_CODE) as i16;
+
     match this_if {
         IF_CHAR_CODE | IF_CAT_CODE => {
             get_x_token();
@@ -9105,42 +9108,49 @@ pub(crate) unsafe fn conditional() {
                     cur_chr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
                 }
             }
+
             let (m, n) = if cur_cmd > Cmd::ActiveChar || cur_chr > BIGGEST_USV as i32 {
                 (Cmd::Relax, TOO_BIG_USV as i32)
             } else {
                 (cur_cmd, cur_chr)
             };
+
             get_x_token();
+
             if cur_cmd == Cmd::Relax {
                 if cur_chr == NO_EXPAND_FLAG {
                     cur_cmd = Cmd::ActiveChar;
                     cur_chr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
                 }
             }
+
             if cur_cmd > Cmd::ActiveChar || cur_chr > BIGGEST_USV as i32 {
                 cur_cmd = Cmd::Relax;
                 cur_chr = TOO_BIG_USV as i32;
             }
+
             if this_if == 0 {
                 b = n == cur_chr
             } else {
                 b = m == cur_cmd
             }
-            current_block = 16915215315900843183;
         }
         IF_INT_CODE | IF_DIM_CODE => {
-            if this_if as i32 == 2i32 {
+            if this_if == IF_INT_CODE {
                 scan_int();
             } else {
                 scan_dimen(false, false, false);
             }
+
             let n = cur_val;
+
             loop {
                 get_x_token();
                 if !(cur_cmd == Cmd::Spacer) {
                     break;
                 }
             }
+
             if cur_tok >= OTHER_TOKEN + 60 && cur_tok <= OTHER_TOKEN + 62 {
                 r = (cur_tok - OTHER_TOKEN) as u8
             } else {
@@ -9155,11 +9165,13 @@ pub(crate) unsafe fn conditional() {
                 back_error();
                 r = b'=';
             }
+
             if this_if == IF_INT_CODE as i16 {
                 scan_int();
             } else {
                 scan_dimen(false, false, false);
             }
+
             match r {
                 60 => {
                     /*"<"*/
@@ -9174,30 +9186,30 @@ pub(crate) unsafe fn conditional() {
                     b = n > cur_val
                 }
                 _ => {}
-            } /*527:*/
-            current_block = 16915215315900843183; /* !shellenabledp */
+            }
         }
+
         IF_ODD_CODE => {
             scan_int();
             b = cur_val & 1i32 != 0;
-            current_block = 16915215315900843183;
         }
+
         IF_VMODE_CODE => {
             b = cur_list.mode.1 == ListMode::VMode;
-            current_block = 16915215315900843183;
         }
+
         IF_HMODE_CODE => {
             b = cur_list.mode.1 == ListMode::HMode;
-            current_block = 16915215315900843183;
         }
+
         IF_MMODE_CODE => {
             b = cur_list.mode.1 == ListMode::MMode;
-            current_block = 16915215315900843183;
         }
+
         IF_INNER_CODE => {
             b = cur_list.mode.0 == true;
-            current_block = 16915215315900843183;
         }
+
         IF_VOID_CODE | IF_HBOX_CODE | IF_VBOX_CODE => {
             scan_register_num();
             let p = if cur_val < 256 {
@@ -9217,9 +9229,8 @@ pub(crate) unsafe fn conditional() {
             } else {
                 false
             };
-
-            current_block = 16915215315900843183;
         }
+
         IFX_CODE => {
             let save_scanner_status = scanner_status;
             scanner_status = ScannerStatus::Normal;
@@ -9228,6 +9239,7 @@ pub(crate) unsafe fn conditional() {
             let p = cur_cmd;
             let q = cur_chr;
             get_next();
+
             if cur_cmd != p {
                 b = false
             } else if cur_cmd < Cmd::Call {
@@ -9249,9 +9261,10 @@ pub(crate) unsafe fn conditional() {
                     b = popt.is_none() && qopt.is_none();
                 }
             }
+
             scanner_status = save_scanner_status;
-            current_block = 16915215315900843183;
         }
+
         IF_EOF_CODE => {
             scan_four_bit_int_or_18();
             b = if cur_val == 18 {
@@ -9259,29 +9272,30 @@ pub(crate) unsafe fn conditional() {
             } else {
                 read_open[cur_val as usize] == OpenMode::Closed
             };
-            current_block = 16915215315900843183;
         }
+
         IF_TRUE_CODE => {
             b = true;
-            current_block = 16915215315900843183;
         }
+
         IF_FALSE_CODE => {
             b = false;
-            current_block = 16915215315900843183;
         }
+
         IF_DEF_CODE => {
             let save_scanner_status = scanner_status;
             scanner_status = ScannerStatus::Normal;
             get_next();
             b = cur_cmd != Cmd::UndefinedCS;
             scanner_status = save_scanner_status;
-            current_block = 16915215315900843183;
         }
+
         IF_CS_CODE => {
             let n = get_avail();
             let mut p = n;
             e = is_in_csname;
             is_in_csname = true;
+
             loop {
                 get_x_token();
                 if cur_cs == 0 {
@@ -9294,6 +9308,7 @@ pub(crate) unsafe fn conditional() {
                     break;
                 }
             }
+
             if cur_cmd != Cmd::EndCSName {
                 /*391:*/
                 if file_line_error_style_p != 0 {
@@ -9310,8 +9325,10 @@ pub(crate) unsafe fn conditional() {
                 );
                 back_error();
             }
+
             let mut m = first;
             let mut popt = MEM[n].b32.s1.opt();
+
             while let Some(p) = popt {
                 if m >= max_buf_stack {
                     max_buf_stack = m + 1i32;
@@ -9323,6 +9340,7 @@ pub(crate) unsafe fn conditional() {
                 m += 1;
                 popt = LLIST_link(p).opt();
             }
+
             cur_cs = if m == first {
                 NULL_CS as i32
             } else if m == first + 1i32 {
@@ -9334,12 +9352,12 @@ pub(crate) unsafe fn conditional() {
             flush_list(Some(n));
             b = Cmd::from(EQTB[cur_cs as usize].cmd) != Cmd::UndefinedCS;
             is_in_csname = e;
-            current_block = 16915215315900843183;
         }
+
         IF_IN_CSNAME_CODE => {
             b = is_in_csname;
-            current_block = 16915215315900843183;
         }
+
         IF_FONT_CHAR_CODE => {
             scan_font_ident();
             let n = cur_val as usize;
@@ -9351,11 +9369,12 @@ pub(crate) unsafe fn conditional() {
             } else {
                 false
             };
-            current_block = 16915215315900843183;
         }
+
         IF_CASE_CODE => {
             scan_int();
             let mut n = cur_val;
+
             if *INTPAR(IntPar::tracing_commands) > 1 {
                 begin_diagnostic();
                 print_cstr(b"{case ");
@@ -9363,18 +9382,20 @@ pub(crate) unsafe fn conditional() {
                 print_char('}' as i32);
                 end_diagnostic(false);
             }
+
             loop {
-                if !(n != 0) {
-                    current_block = 8672804474533504599;
+                if n == 0 {
                     break;
                 }
+
                 pass_text();
+
                 if cond_ptr == save_cond_ptr {
-                    if !(cur_chr == OR_CODE as i32) {
-                        current_block = 17018179191097466409;
-                        break;
+                    if cur_chr == OR_CODE as i32 {
+                        n -= 1;
+                    } else {
+                        return common_ending();
                     }
-                    n -= 1
                 } else if cur_chr == FI_CODE as i32 {
                     /*515:*/
                     if IF_STACK[IN_OPEN] == cond_ptr {
@@ -9388,13 +9409,8 @@ pub(crate) unsafe fn conditional() {
                     free_node(p, IF_NODE_SIZE);
                 }
             }
-            match current_block {
-                17018179191097466409 => {}
-                _ => {
-                    change_if_limit(OR_CODE, save_cond_ptr);
-                    return;
-                }
-            }
+            change_if_limit(OR_CODE, save_cond_ptr);
+            return;
         }
         IF_PRIMITIVE_CODE => {
             let save_scanner_status = scanner_status;
@@ -9410,74 +9426,77 @@ pub(crate) unsafe fn conditional() {
                 && m != UNDEFINED_PRIMITIVE
                 && cur_cmd == Cmd::from(prim_eqtb[m as usize].cmd)
                 && cur_chr == prim_eqtb[m as usize].val;
-            current_block = 16915215315900843183;
         }
-        _ => current_block = 16915215315900843183,
+        _ => unreachable!(),
     }
-    match current_block {
-        16915215315900843183 => {
-            if is_unless {
-                b = !b
-            }
-            if *INTPAR(IntPar::tracing_commands) > 1 {
-                /*521:*/
-                begin_diagnostic();
-                if b {
-                    print_cstr(b"{true}");
-                } else {
-                    print_cstr(b"{false}");
-                }
-                end_diagnostic(false);
-            }
-            if b {
-                change_if_limit(ELSE_CODE, save_cond_ptr);
-                return;
-            }
-            loop {
-                pass_text();
-                if cond_ptr == save_cond_ptr {
-                    if cur_chr != OR_CODE as i32 {
-                        break;
-                    }
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr(b"! ");
-                    }
-                    print_cstr(b"Extra ");
-                    print_esc_cstr(b"or");
-                    help!(b"I\'m ignoring this; it doesn\'t match any \\if.");
-                    error();
-                } else if cur_chr == FI_CODE as i32 {
-                    /*515:*/
-                    if IF_STACK[IN_OPEN] == cond_ptr {
-                        if_warning();
-                    }
-                    let p = cond_ptr.unwrap();
-                    if_line = MEM[p + 1].b32.s1;
-                    cur_if = MEM[p].b16.s0 as i16;
-                    if_limit = MEM[p].b16.s1 as u8;
-                    cond_ptr = MEM[p].b32.s1.opt();
-                    free_node(p, IF_NODE_SIZE);
-                }
-            }
-        }
-        _ => {}
+
+    if is_unless {
+        b = !b
     }
-    if cur_chr == FI_CODE as i32 {
-        /*515:*/
-        if IF_STACK[IN_OPEN] == cond_ptr {
-            if_warning();
+
+    if *INTPAR(IntPar::tracing_commands) > 1 {
+        /*521:*/
+        begin_diagnostic();
+        if b {
+            print_cstr(b"{true}");
+        } else {
+            print_cstr(b"{false}");
         }
-        let p = cond_ptr.unwrap();
-        if_line = MEM[p + 1].b32.s1;
-        cur_if = MEM[p].b16.s0 as i16;
-        if_limit = MEM[p].b16.s1 as u8;
-        cond_ptr = MEM[p].b32.s1.opt();
-        free_node(p, IF_NODE_SIZE);
-    } else {
-        if_limit = FI_CODE;
-    };
+        end_diagnostic(false);
+    }
+
+    if b {
+        change_if_limit(ELSE_CODE, save_cond_ptr);
+        return;
+    }
+
+    loop {
+        pass_text();
+
+        if cond_ptr == save_cond_ptr {
+            if cur_chr != OR_CODE as i32 {
+                return common_ending();
+            }
+
+            if file_line_error_style_p != 0 {
+                print_file_line();
+            } else {
+                print_nl_cstr(b"! ");
+            }
+            print_cstr(b"Extra ");
+            print_esc_cstr(b"or");
+            help!(b"I\'m ignoring this; it doesn\'t match any \\if.");
+            error();
+        } else if cur_chr == FI_CODE as i32 {
+            /*515:*/
+            if IF_STACK[IN_OPEN] == cond_ptr {
+                if_warning();
+            }
+            let p = cond_ptr.unwrap();
+            if_line = MEM[p + 1].b32.s1;
+            cur_if = MEM[p].b16.s0 as i16;
+            if_limit = MEM[p].b16.s1 as u8;
+            cond_ptr = MEM[p].b32.s1.opt();
+            free_node(p, IF_NODE_SIZE);
+        }
+    }
+
+    unsafe fn common_ending() {
+        if cur_chr == FI_CODE as i32 {
+            /*515:*/
+            if IF_STACK[IN_OPEN] == cond_ptr {
+                if_warning();
+            }
+            let p = cond_ptr.unwrap();
+            if_line = MEM[p + 1].b32.s1;
+            cur_if = MEM[p].b16.s0 as i16;
+            if_limit = MEM[p].b16.s1 as u8;
+            cond_ptr = MEM[p].b32.s1.opt();
+            free_node(p, IF_NODE_SIZE);
+        } else {
+            if_limit = FI_CODE;
+        }
+    }
 }
 pub(crate) unsafe fn begin_name() {
     area_delimiter = 0;
