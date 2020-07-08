@@ -8739,19 +8739,6 @@ pub(crate) unsafe fn conv_toks() {
     begin_token_list(MEM[TEMP_HEAD].b32.s1 as usize, Btl::Inserted);
 }
 pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
-    unsafe fn found(p: usize, hash_brace: i32) -> usize {
-        scanner_status = ScannerStatus::Normal;
-        if hash_brace != 0 {
-            let q = get_avail();
-            MEM[p].b32.s1 = q as i32;
-            MEM[q].b32.s0 = hash_brace;
-            q
-        } else {
-            p
-        }
-    }
-
-    let mut current_block: u64;
     let mut s: i32 = 0;
     let mut unbalance: i32 = 0;
     scanner_status = if macro_def {
@@ -8766,12 +8753,12 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
     let mut hash_brace = 0;
     let mut t = ZERO_TOKEN;
     if macro_def {
+        let mut done1 = true;
         loop
         /*493: */
         {
             get_token();
             if cur_tok < RIGHT_BRACE_LIMIT {
-                current_block = 7086859973843054082;
                 break;
             }
             if cur_cmd == Cmd::MacParam {
@@ -8788,7 +8775,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                     MEM[p].b32.s1 = q as i32;
                     MEM[q].b32.s0 = END_MATCH_TOKEN;
                     p = q;
-                    current_block = 2723324002591448311;
+                    done1 = false;
                     break;
                 } else if t == ZERO_TOKEN + 9 {
                     if file_line_error_style_p != 0 {
@@ -8822,119 +8809,122 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
             MEM[q].b32.s0 = cur_tok;
             p = q;
         }
-        match current_block {
-            2723324002591448311 => {}
-            _ => {
-                let q = get_avail();
-                MEM[p].b32.s1 = q as i32;
-                MEM[q].b32.s0 = END_MATCH_TOKEN;
-                p = q;
-                if cur_cmd == Cmd::RightBrace {
-                    /*494: */
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr(b"! ");
-                    }
-                    print_cstr(b"Missing { inserted");
-                    align_state += 1;
-                    help!(
-                        b"Where was the left brace? You said something like `\\def\\a}\',",
-                        b"which I\'m going to interpret as `\\def\\a{}\'."
-                    );
-                    error();
-                    return found(p, hash_brace);
+
+        if done1 {
+            // done1:
+            let q = get_avail();
+            MEM[p].b32.s1 = q as i32;
+            MEM[q].b32.s0 = END_MATCH_TOKEN;
+            p = q;
+            if cur_cmd == Cmd::RightBrace {
+                /*494: */
+                if file_line_error_style_p != 0 {
+                    print_file_line();
                 } else {
-                    current_block = 2723324002591448311;
+                    print_nl_cstr(b"! ");
                 }
+                print_cstr(b"Missing { inserted");
+                align_state += 1;
+                help!(
+                    b"Where was the left brace? You said something like `\\def\\a}\',",
+                    b"which I\'m going to interpret as `\\def\\a{}\'."
+                );
+                error();
+                return found(p, hash_brace);
             }
         }
     } else {
         scan_left_brace();
-        current_block = 2723324002591448311;
     }
-    match current_block {
-        2723324002591448311 => {
-            unbalance = 1;
-            loop {
-                if xpand {
-                    loop
-                    /*497: */
-                    {
-                        get_next();
-                        if cur_cmd >= Cmd::Call {
-                            if MEM[MEM[cur_chr as usize].b32.s1 as usize].b32.s0 == PROTECTED_TOKEN
-                            {
-                                cur_cmd = Cmd::Relax;
-                                cur_chr = NO_EXPAND_FLAG;
-                            }
-                        }
-                        if cur_cmd <= MAX_COMMAND {
-                            break;
-                        }
-                        if cur_cmd != Cmd::The {
-                            expand();
-                        } else {
-                            let q = the_toks();
-                            if let Some(m) = MEM[TEMP_HEAD].b32.s1.opt() {
-                                MEM[p].b32.s1 = Some(m).tex_int();
-                                p = q
-                            }
-                        }
+
+    unbalance = 1;
+    loop {
+        if xpand {
+            loop
+            /*497: */
+            {
+                get_next();
+                if cur_cmd >= Cmd::Call {
+                    if MEM[MEM[cur_chr as usize].b32.s1 as usize].b32.s0 == PROTECTED_TOKEN {
+                        cur_cmd = Cmd::Relax;
+                        cur_chr = NO_EXPAND_FLAG;
                     }
-                    x_token();
+                }
+                if cur_cmd <= MAX_COMMAND {
+                    break;
+                }
+                if cur_cmd != Cmd::The {
+                    expand();
+                } else {
+                    let q = the_toks();
+                    if let Some(m) = MEM[TEMP_HEAD].b32.s1.opt() {
+                        MEM[p].b32.s1 = Some(m).tex_int();
+                        p = q
+                    }
+                }
+            }
+            // done2:
+            x_token();
+        } else {
+            get_token();
+        }
+        if cur_tok < RIGHT_BRACE_LIMIT {
+            if cur_cmd < Cmd::RightBrace {
+                unbalance += 1;
+            } else {
+                unbalance -= 1;
+                if unbalance == 0 {
+                    return found(p, hash_brace);
+                }
+            }
+        } else if cur_cmd == Cmd::MacParam {
+            if macro_def {
+                /*498: */
+                s = cur_tok;
+                if xpand {
+                    get_x_token();
                 } else {
                     get_token();
                 }
-                if cur_tok < RIGHT_BRACE_LIMIT {
-                    if cur_cmd < Cmd::RightBrace {
-                        unbalance += 1;
-                    } else {
-                        unbalance -= 1;
-                        if unbalance == 0 {
-                            return found(p, hash_brace);
-                        }
-                    }
-                } else if cur_cmd == Cmd::MacParam {
-                    if macro_def {
-                        /*498: */
-                        s = cur_tok;
-                        if xpand {
-                            get_x_token();
+                if cur_cmd != Cmd::MacParam {
+                    if cur_tok <= ZERO_TOKEN || cur_tok > t {
+                        if file_line_error_style_p != 0 {
+                            print_file_line();
                         } else {
-                            get_token();
+                            print_nl_cstr(b"! ");
                         }
-                        if cur_cmd != Cmd::MacParam {
-                            if cur_tok <= ZERO_TOKEN || cur_tok > t {
-                                if file_line_error_style_p != 0 {
-                                    print_file_line();
-                                } else {
-                                    print_nl_cstr(b"! ");
-                                }
-                                print_cstr(b"Illegal parameter number in definition of ");
-                                sprint_cs(warning_index);
-                                help!(
-                                    b"You meant to type ## instead of #, right?",
-                                    b"Or maybe a } was forgotten somewhere earlier, and things",
-                                    b"are all screwed up? I\'m going to assume that you meant ##."
-                                );
-                                back_error();
-                                cur_tok = s
-                            } else {
-                                cur_tok = OUT_PARAM_TOKEN - 48 + cur_chr
-                            }
-                        }
+                        print_cstr(b"Illegal parameter number in definition of ");
+                        sprint_cs(warning_index);
+                        help!(
+                            b"You meant to type ## instead of #, right?",
+                            b"Or maybe a } was forgotten somewhere earlier, and things",
+                            b"are all screwed up? I\'m going to assume that you meant ##."
+                        );
+                        back_error();
+                        cur_tok = s
+                    } else {
+                        cur_tok = OUT_PARAM_TOKEN - 48 + cur_chr
                     }
                 }
-                let q = get_avail();
-                MEM[p].b32.s1 = q as i32;
-                MEM[q].b32.s0 = cur_tok;
-                p = q;
             }
         }
-        _ => {}
+        let q = get_avail();
+        MEM[p].b32.s1 = q as i32;
+        MEM[q].b32.s0 = cur_tok;
+        p = q;
     }
-    found(p, hash_brace)
+
+    unsafe fn found(p: usize, hash_brace: i32) -> usize {
+        scanner_status = ScannerStatus::Normal;
+        if hash_brace != 0 {
+            let q = get_avail();
+            MEM[p].b32.s1 = q as i32;
+            MEM[q].b32.s0 = hash_brace;
+            q
+        } else {
+            p
+        }
+    }
 }
 pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
     let mut s: i32 = 0;
