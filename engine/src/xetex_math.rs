@@ -95,7 +95,7 @@ static mut null_delimiter: b16x4 = b16x4 {
     s3: 0,
 };
 static mut cur_mlist: i32 = 0;
-static mut cur_style: i16 = 0;
+static mut cur_style: (MathStyle, u8) = (MathStyle::Display, 0);
 static mut cur_size: usize = 0;
 static mut cur_mu: scaled_t = 0;
 static mut mlist_penalties: bool = false;
@@ -983,7 +983,7 @@ pub(crate) unsafe fn after_math() {
             back_error();
         }
         cur_mlist = p;
-        cur_style = TEXT_STYLE as i16;
+        cur_style = (MathStyle::Text, 0);
         mlist_penalties = false;
         mlist_to_hlist();
         let a = hpack(MEM[TEMP_HEAD].b32.s1.opt(), 0, PackMode::Additional);
@@ -1076,7 +1076,7 @@ pub(crate) unsafe fn after_math() {
             new_math(*DIMENPAR(DimenPar::math_surround), BEFORE as i16) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         cur_mlist = p;
-        cur_style = TEXT_STYLE as i16;
+        cur_style = (MathStyle::Text, 0);
         mlist_penalties = cur_list.mode.0 == false;
         mlist_to_hlist();
         MEM[cur_list.tail].b32.s1 = MEM[TEMP_HEAD].b32.s1;
@@ -1108,7 +1108,7 @@ pub(crate) unsafe fn after_math() {
             }
         }
         cur_mlist = p;
-        cur_style = DISPLAY_STYLE as i16;
+        cur_style = (MathStyle::Display, 0);
         mlist_penalties = false;
         mlist_to_hlist();
         let p = MEM[TEMP_HEAD].b32.s1.opt();
@@ -1570,7 +1570,7 @@ pub(crate) unsafe fn flush_math() {
     cur_list.tail = cur_list.head;
     cur_list.aux.b32.s1 = None.tex_int();
 }
-unsafe fn clean_box(p: usize, mut s: i16) -> usize {
+unsafe fn clean_box(p: usize, s: (MathStyle, u8)) -> usize {
     match MEM[p].b32.s1 {
         1 => {
             cur_mlist = new_noad() as i32;
@@ -1593,11 +1593,7 @@ unsafe fn clean_box(p: usize, mut s: i16) -> usize {
     mlist_to_hlist();
     let q = *LLIST_link(TEMP_HEAD);
     cur_style = save_style;
-    cur_size = if (cur_style as i32) < SCRIPT_STYLE {
-        TEXT_SIZE
-    } else {
-        SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-    };
+    cur_size = cur_style.0.size();
     cur_mu = x_over_n(math_quad(cur_size), 18);
 
     unsafe fn found(q: i32) -> usize {
@@ -1674,7 +1670,7 @@ unsafe fn fetch(a: usize) {
 }
 unsafe fn make_over(q: usize) {
     MEM[q + 1].b32.s0 = overbar(
-        clean_box(q + 1, (2 * (cur_style as i32 / 2) + 1) as i16) as i32,
+        clean_box(q + 1, (cur_style.0, 1)) as i32,
         3 * default_rule_thickness(),
         default_rule_thickness(),
     ) as i32;
@@ -1710,16 +1706,16 @@ unsafe fn make_radical(q: usize) {
     } else {
         default_rule_thickness()
     };
-    let x = clean_box(q + 1, (2 * (cur_style as i32 / 2) + 1) as i16);
+    let x = clean_box(q + 1, (cur_style.0, 1));
     let mut clr = if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
     {
-        if (cur_style as i32) < TEXT_STYLE {
+        if cur_style.0 == MathStyle::Display {
             get_ot_math_constant(f, RADICALDISPLAYSTYLEVERTICALGAP)
         } else {
             get_ot_math_constant(f, RADICALVERTICALGAP)
         }
-    } else if (cur_style as i32) < TEXT_STYLE {
+    } else if cur_style.0 == MathStyle::Display {
         rule_thickness + math_x_height(cur_size).abs() / 4
     } else {
         let clr = rule_thickness;
@@ -1785,7 +1781,7 @@ unsafe fn make_math_accent(q: usize) {
         } else {
             0
         };
-        let x = clean_box(q + 1, (2 * (cur_style as i32 / 2) + 1) as i16);
+        let x = clean_box(q + 1, (cur_style.0, 1));
         w = *BOX_width(x);
         h = *BOX_height(x);
         Some(x)
@@ -1829,7 +1825,7 @@ unsafe fn make_math_accent(q: usize) {
                 }
             }
         }
-        let x = clean_box(q + 1, (2 * (cur_style as i32 / 2) + 1) as i16);
+        let x = clean_box(q + 1, (cur_style.0, 1));
         w = *BOX_width(x);
         h = *BOX_height(x);
         while !(i.s1 as i32 % 4 != LIST_TAG) {
@@ -1986,11 +1982,25 @@ unsafe fn make_fraction(q: usize) {
     }
     let mut x = clean_box(
         q + 2,
-        (cur_style as i32 + 2 - 2 * (cur_style as i32 / 6)) as i16,
+        (
+            match cur_style.0 {
+                MathStyle::Display => MathStyle::Text,
+                MathStyle::Text => MathStyle::Script,
+                MathStyle::Script | MathStyle::ScriptScript => MathStyle::ScriptScript,
+            },
+            cur_style.1,
+        ),
     );
     let mut z = clean_box(
         q + 3,
-        (2 * (cur_style as i32 / 2) + 3 - 2 * (cur_style as i32 / 6)) as i16,
+        (
+            match cur_style.0 {
+                MathStyle::Display => MathStyle::Text,
+                MathStyle::Text => MathStyle::Script,
+                MathStyle::Script | MathStyle::ScriptScript => MathStyle::ScriptScript,
+            },
+            1,
+        ),
     );
     if *BOX_width(x) < *BOX_width(z) {
         x = rebox(x, *BOX_width(z))
@@ -1999,7 +2009,7 @@ unsafe fn make_fraction(q: usize) {
     }
     let mut shift_up;
     let mut shift_down;
-    if (cur_style as i32) < TEXT_STYLE {
+    if cur_style.0 == MathStyle::Display {
         shift_up = num1(cur_size);
         shift_down = denom1(cur_size)
     } else {
@@ -2017,12 +2027,12 @@ unsafe fn make_fraction(q: usize) {
             && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
                 != 0
         {
-            if (cur_style as i32) < TEXT_STYLE {
+            if cur_style.0 == MathStyle::Display {
                 get_ot_math_constant(cur_f, STACKDISPLAYSTYLEGAPMIN)
             } else {
                 get_ot_math_constant(cur_f, STACKGAPMIN)
             }
-        } else if (cur_style as i32) < TEXT_STYLE {
+        } else if cur_style.0 == MathStyle::Display {
             7 * default_rule_thickness()
         } else {
             3 * default_rule_thickness()
@@ -2040,20 +2050,20 @@ unsafe fn make_fraction(q: usize) {
                 != 0
         {
             delta = half(MEM[q + 1].b32.s1);
-            let clr = if (cur_style as i32) < TEXT_STYLE {
+            let clr = if cur_style.0 == MathStyle::Display {
                 get_ot_math_constant(cur_f, FRACTIONNUMDISPLAYSTYLEGAPMIN)
             } else {
                 get_ot_math_constant(cur_f, FRACTIONNUMERATORGAPMIN)
             };
             delta1 = clr - (shift_up - *BOX_depth(x) - (axis_height(cur_size) + delta));
-            let clr = if (cur_style as i32) < TEXT_STYLE {
+            let clr = if cur_style.0 == MathStyle::Display {
                 get_ot_math_constant(cur_f, FRACTIONDENOMDISPLAYSTYLEGAPMIN)
             } else {
                 get_ot_math_constant(cur_f, FRACTIONDENOMINATORGAPMIN)
             };
             delta2 = clr - (axis_height(cur_size) - delta - (*BOX_height(z) - shift_down))
         } else {
-            let clr = if (cur_style as i32) < TEXT_STYLE {
+            let clr = if cur_style.0 == MathStyle::Display {
                 3 * MEM[q + 1].b32.s1
             } else {
                 MEM[q + 1].b32.s1
@@ -2089,7 +2099,7 @@ unsafe fn make_fraction(q: usize) {
     MEM[x].b32.s1 = p as i32;
     *BOX_list_ptr(v) = Some(x).tex_int();
     // :774
-    let delta = if (cur_style as i32) < TEXT_STYLE {
+    let delta = if cur_style.0 == MathStyle::Display {
         delim1(cur_size)
     } else {
         delim2(cur_size)
@@ -2102,7 +2112,7 @@ unsafe fn make_fraction(q: usize) {
     // :775
 }
 unsafe fn make_op(q: usize) -> scaled_t {
-    if MEM[q].b16.s0 == Limit::Normal as u16 && (cur_style as i32) < TEXT_STYLE {
+    if MEM[q].b16.s0 == Limit::Normal as u16 && cur_style.0 == MathStyle::Display {
         MEM[q].b16.s0 = Limit::Limits as u16;
     }
     let mut delta = 0;
@@ -2113,7 +2123,7 @@ unsafe fn make_op(q: usize) -> scaled_t {
         if !(FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
             && usingOpenType(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine))
         {
-            if (cur_style as i32) < TEXT_STYLE && cur_i.s1 as i32 % 4 == LIST_TAG {
+            if cur_style.0 == MathStyle::Display && cur_i.s1 as i32 % 4 == LIST_TAG {
                 c = cur_i.s0;
                 let i = FONT_INFO[(CHAR_BASE[cur_f as usize] + c as i32) as usize].b16;
                 if i.s3 as i32 > 0 {
@@ -2137,7 +2147,7 @@ unsafe fn make_op(q: usize) -> scaled_t {
                     && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
                 {
                     let mut ital_corr = true;
-                    if (cur_style as i32) < TEXT_STYLE {
+                    if cur_style.0 == MathStyle::Display {
                         let mut h1 = 0;
                         h1 = get_ot_math_constant(cur_f, DISPLAYOPERATORMINHEIGHT);
                         if (h1 as f64) < ((*BOX_height(p) + *BOX_depth(p)) * 5) as f64 / 4_f64 {
@@ -2197,10 +2207,25 @@ unsafe fn make_op(q: usize) -> scaled_t {
         // 777:
         let x = clean_box(
             q + 2,
-            (2 * (cur_style as i32 / 4) + 4 + cur_style as i32 % 2) as i16,
+            (
+                match cur_style.0 {
+                    MathStyle::Display | MathStyle::Text => MathStyle::Script,
+                    MathStyle::Script | MathStyle::ScriptScript => MathStyle::ScriptScript,
+                },
+                cur_style.1,
+            ),
         );
         let y = clean_box(q + 1, cur_style);
-        let z = clean_box(q + 3, (2 * (cur_style as i32 / 4) + 5) as i16);
+        let z = clean_box(
+            q + 3,
+            (
+                match cur_style.0 {
+                    MathStyle::Display | MathStyle::Text => MathStyle::Script,
+                    MathStyle::Script | MathStyle::ScriptScript => MathStyle::ScriptScript,
+                },
+                1,
+            ),
+        );
         let v = new_null_box();
         set_NODE_type(v, TextNode::VList);
         *BOX_width(v) = (*BOX_width(y)).max(*BOX_width(x)).max(*BOX_width(z));
@@ -2370,10 +2395,9 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
         shift_down = 0;
     } else {
         let z = hpack(p.opt(), 0, PackMode::Additional);
-        let t = if (cur_style as i32) < SCRIPT_STYLE {
-            SCRIPT_SIZE
-        } else {
-            SCRIPT_SCRIPT_SIZE
+        let t = match cur_style.0 {
+            MathStyle::Display | MathStyle::Text => SCRIPT_SIZE,
+            MathStyle::Script | MathStyle::ScriptScript => SCRIPT_SCRIPT_SIZE,
         };
         shift_up = *BOX_height(z) - sup_drop(t);
         shift_down = *BOX_depth(z) + sub_drop(t);
@@ -2383,7 +2407,16 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
     if MEM[q + 2].b32.s1 == EMPTY {
         // 784:
         let save_f = cur_f;
-        x = clean_box(q + 3, (2 * (cur_style as i32 / 4) + 5) as i16);
+        x = clean_box(
+            q + 3,
+            (
+                match cur_style.0 {
+                    MathStyle::Display | MathStyle::Text => MathStyle::Script,
+                    MathStyle::Script | MathStyle::ScriptScript => MathStyle::ScriptScript,
+                },
+                1,
+            ),
+        );
         cur_f = save_f;
         *BOX_width(x) += *DIMENPAR(DimenPar::script_space);
         shift_down = shift_down.max(sub1(cur_size));
@@ -2447,13 +2480,19 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
         let save_f = cur_f;
         x = clean_box(
             q + 2,
-            (2 * (cur_style as i32 / 4) + 4 + cur_style as i32 % 2) as i16,
+            (
+                match cur_style.0 {
+                    MathStyle::Display | MathStyle::Text => MathStyle::Script,
+                    MathStyle::Script | MathStyle::ScriptScript => MathStyle::ScriptScript,
+                },
+                cur_style.1,
+            ),
         );
         cur_f = save_f;
         *BOX_width(x) += *DIMENPAR(DimenPar::script_space);
-        clr = if cur_style as i32 & 1i32 != 0 {
+        clr = if cur_style.1 != 0 {
             sup3(cur_size)
-        } else if (cur_style as i32) < TEXT_STYLE {
+        } else if cur_style.0 == MathStyle::Display {
             sup1(cur_size)
         } else {
             sup2(cur_size)
@@ -2521,7 +2560,16 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
         } else {
             // 786:
             let save_f = cur_f;
-            let y = clean_box(q + 3, (2 * (cur_style as i32 / 4) + 5) as i16);
+            let y = clean_box(
+                q + 3,
+                (
+                    match cur_style.0 {
+                        MathStyle::Display | MathStyle::Text => MathStyle::Script,
+                        MathStyle::Script | MathStyle::ScriptScript => MathStyle::ScriptScript,
+                    },
+                    1,
+                ),
+            );
             cur_f = save_f;
             *BOX_width(y) += *DIMENPAR(DimenPar::script_space);
             if shift_down < sub2(cur_size) {
@@ -2658,16 +2706,12 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
 }
 unsafe fn make_left_right(
     mut q: usize,
-    mut style: i16,
+    mut style: (MathStyle, u8),
     mut max_d: scaled_t,
     mut max_h: scaled_t,
 ) -> i16 {
     cur_style = style;
-    if (cur_style as i32) < SCRIPT_STYLE {
-        cur_size = TEXT_SIZE;
-    } else {
-        cur_size = SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-    }
+    cur_size = cur_style.0.size();
     cur_mu = x_over_n(math_quad(cur_size), 18);
     let delta2 = max_d + axis_height(cur_size);
     let mut delta1 = max_h + max_d - delta2;
@@ -2691,11 +2735,7 @@ unsafe fn mlist_to_hlist() {
     let mut r_type = MathNode::Op as i16;
     let mut max_h = 0;
     let mut max_d = 0;
-    cur_size = if (cur_style as i32) < SCRIPT_STYLE {
-        TEXT_SIZE
-    } else {
-        SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-    };
+    cur_size = cur_style.0.size();
     cur_mu = x_over_n(math_quad(cur_size), 18);
     while let Some(q) = qopt {
         // 753:
@@ -2840,11 +2880,7 @@ unsafe fn mlist_to_hlist() {
                             mlist_penalties = false;
                             mlist_to_hlist();
                             cur_style = save_style;
-                            cur_size = if (cur_style as i32) < SCRIPT_STYLE {
-                                TEXT_SIZE
-                            } else {
-                                SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-                            };
+                            cur_size = cur_style.0.size();
                             cur_mu = x_over_n(math_quad(cur_size), 18);
                             Some(hpack(MEM[TEMP_HEAD].b32.s1.opt(), 0, PackMode::Additional))
                         }
@@ -2866,29 +2902,20 @@ unsafe fn mlist_to_hlist() {
                 if r_type == MathNode::Right as i16 {
                     r_type = MathNode::Left as i16;
                     cur_style = style;
-                    cur_size = if (cur_style as i32) < SCRIPT_STYLE {
-                        TEXT_SIZE
-                    } else {
-                        SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-                    };
+                    cur_size = cur_style.0.size();
                     cur_mu = x_over_n(math_quad(cur_size), 18)
                 }
             }
             ND::Text(n) => match n {
                 TextNode::Style => {
-                    cur_style = MEM[q].b16.s0 as i16;
-                    cur_size = if (cur_style as i32) < SCRIPT_STYLE {
-                        TEXT_SIZE
-                    } else {
-                        SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-                    };
+                    let m = MEM[q].b16.s0;
+                    cur_style = (MathStyle::n((m / 2) as i16).unwrap(), (m % 2) as u8);
+                    cur_size = cur_style.0.size();
                     cur_mu = x_over_n(math_quad(cur_size), 18);
                 }
                 TextNode::Choice => {
                     let mut p = None;
-                    match MathStyle::from_cur(cur_style)
-                        .expect(&format!("incorrect current math style = {}", cur_style))
-                    {
+                    match cur_style.0 {
                         MathStyle::Display => {
                             p = CHOICE_NODE_display(q).opt();
                             *CHOICE_NODE_display(q) = None.tex_int();
@@ -2911,7 +2938,7 @@ unsafe fn mlist_to_hlist() {
                     flush_node_list(CHOICE_NODE_script(q).opt());
                     flush_node_list(CHOICE_NODE_scriptscript(q).opt());
                     set_NODE_type(q, TextNode::Style);
-                    MEM[q].b16.s0 = cur_style as u16;
+                    MEM[q].b16.s0 = (cur_style.0 as u16) * 2 + cur_style.1 as u16;
                     MEM[q + 1].b32.s1 = 0;
                     MEM[q + 2].b32.s1 = 0;
                     if let Some(mut p) = p {
@@ -2972,11 +2999,7 @@ unsafe fn mlist_to_hlist() {
     let mut qopt = mlist.opt();
     let mut r_type = 0 as i16;
     cur_style = style;
-    cur_size = if (cur_style as i32) < SCRIPT_STYLE {
-        TEXT_SIZE
-    } else {
-        SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-    };
+    cur_size = cur_style.0.size();
     cur_mu = x_over_n(math_quad(cur_size), 18);
     while let Some(q) = qopt {
         let mut t = MathNode::Ord as i16;
@@ -3016,13 +3039,10 @@ unsafe fn mlist_to_hlist() {
             },
             ND::Text(n) => match n {
                 TextNode::Style => {
-                    cur_style = MEM[q].b16.s0 as i16;
+                    let m = MEM[q].b16.s0;
+                    cur_style = (MathStyle::n((m / 2) as i16).unwrap(), (m % 2) as u8);
                     s = STYLE_NODE_SIZE as i16;
-                    cur_size = if (cur_style as i32) < SCRIPT_STYLE {
-                        TEXT_SIZE
-                    } else {
-                        SCRIPT_SIZE * ((cur_style as usize - 2) / 2)
-                    };
+                    cur_size = cur_style.0.size();
                     cur_mu = x_over_n(math_quad(cur_size), 18);
                     /*delete_q */
                     qopt = LLIST_link(q).opt();
@@ -3071,10 +3091,9 @@ unsafe fn mlist_to_hlist() {
                 }
                 b'1' => {
                     // a conditional thin space
-                    if (cur_style as i32) < SCRIPT_STYLE {
-                        GluePar::thin_mu_skip as i32
-                    } else {
-                        0
+                    match cur_style.0 {
+                        MathStyle::Display | MathStyle::Text => GluePar::thin_mu_skip as i32,
+                        _ => 0,
                     }
                 }
                 b'2' => {
@@ -3083,18 +3102,16 @@ unsafe fn mlist_to_hlist() {
                 }
                 b'3' => {
                     // a conditional medium space
-                    if (cur_style as i32) < SCRIPT_STYLE {
-                        GluePar::med_mu_skip as i32
-                    } else {
-                        0
+                    match cur_style.0 {
+                        MathStyle::Display | MathStyle::Text => GluePar::med_mu_skip as i32,
+                        _ => 0,
                     }
                 }
                 b'4' => {
                     // a conditional thick space
-                    if (cur_style as i32) < SCRIPT_STYLE {
-                        GluePar::thick_mu_skip as i32
-                    } else {
-                        0
+                    match cur_style.0 {
+                        MathStyle::Display | MathStyle::Text => GluePar::thick_mu_skip as i32,
+                        _ => 0,
                     }
                 }
                 _ => {

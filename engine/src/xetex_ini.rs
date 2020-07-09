@@ -4926,10 +4926,10 @@ unsafe fn initialize_primitives() {
     primitive(b"limits", Cmd::LimitSwitch, Limit::Limits as i32);
     primitive(b"nolimits", Cmd::LimitSwitch, Limit::NoLimits as i32);
 
-    primitive(b"displaystyle", Cmd::MathStyle, DISPLAY_STYLE);
-    primitive(b"textstyle", Cmd::MathStyle, TEXT_STYLE);
-    primitive(b"scriptstyle", Cmd::MathStyle, SCRIPT_STYLE);
-    primitive(b"scriptscriptstyle", Cmd::MathStyle, SCRIPT_SCRIPT_STYLE);
+    primitive(b"displaystyle", Cmd::MathStyle, (MathStyle::Display as i32) * 2);
+    primitive(b"textstyle", Cmd::MathStyle, (MathStyle::Text as i32) * 2);
+    primitive(b"scriptstyle", Cmd::MathStyle, (MathStyle::Script as i32) * 2);
+    primitive(b"scriptscriptstyle", Cmd::MathStyle, (MathStyle::ScriptScript as i32) * 2);
 
     primitive(b"above", Cmd::Above, ABOVE_CODE);
     primitive(b"over", Cmd::Above, OVER_CODE);

@@ -1037,12 +1037,14 @@ impl MathStyle {
     pub(crate) fn from_cur(cs: i16) -> Option<Self> {
         Self::n(cs / 2)
     }
+    pub(crate) fn size(self) -> usize {
+        match self {
+            MathStyle::Display | MathStyle::Text => TEXT_SIZE,
+            MathStyle::Script => SCRIPT_SIZE,
+            MathStyle::ScriptScript => SCRIPT_SCRIPT_SIZE,
+        }
+    }
 }
-
-pub(crate) const DISPLAY_STYLE: placeholdertype = 0;
-pub(crate) const TEXT_STYLE: placeholdertype = 2;
-pub(crate) const SCRIPT_STYLE: placeholdertype = 4;
-pub(crate) const SCRIPT_SCRIPT_STYLE: placeholdertype = 6;
 
 /* Cmd::Above */
 pub(crate) const ABOVE_CODE: placeholdertype = 0;
