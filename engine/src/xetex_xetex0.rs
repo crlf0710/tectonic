@@ -12281,12 +12281,13 @@ pub(crate) unsafe fn fin_align() {
         );
         *DIMENPAR(DimenPar::overfull_rule) = rule_save
     } else {
-        let mut q = MEM[MEM[ALIGN_HEAD].b32.s1 as usize].b32.s1;
+        let mut q = MEM[MEM[ALIGN_HEAD].b32.s1 as usize].b32.s1 as usize;
         loop {
-            MEM[(q + 3) as usize].b32.s1 = MEM[(q + 1) as usize].b32.s1;
-            MEM[(q + 1) as usize].b32.s1 = 0;
-            q = MEM[MEM[q as usize].b32.s1 as usize].b32.s1;
-            if q.is_texnull() {
+            MEM[q + 3].b32.s1 = MEM[q + 1].b32.s1;
+            MEM[q + 1].b32.s1 = 0;
+            if let Some(next) = MEM[MEM[q].b32.s1 as usize].b32.s1.opt() {
+                q = next;
+            } else {
                 break;
             }
         }
@@ -12296,12 +12297,13 @@ pub(crate) unsafe fn fin_align() {
             PackMode::from(SAVE_STACK[SAVE_PTR + 0].val),
             MAX_HALFWORD,
         );
-        let mut q = MEM[MEM[ALIGN_HEAD].b32.s1 as usize].b32.s1;
+        let mut q = MEM[MEM[ALIGN_HEAD].b32.s1 as usize].b32.s1 as usize;
         loop {
-            MEM[(q + 1) as usize].b32.s1 = MEM[(q + 3) as usize].b32.s1;
-            MEM[(q + 3) as usize].b32.s1 = 0;
-            q = MEM[MEM[q as usize].b32.s1 as usize].b32.s1;
-            if q.is_texnull() {
+            MEM[q + 1].b32.s1 = MEM[q + 3].b32.s1;
+            MEM[q + 3].b32.s1 = 0;
+            if let Some(next) = MEM[MEM[q].b32.s1 as usize].b32.s1.opt() {
+                q = next;
+            } else {
                 break;
             }
         }
