@@ -343,7 +343,7 @@ unsafe fn hlist_out() {
         let mut prev_p = this_box + 5; /* this gets the list within the box */
 
         while let Some(mut p) = popt {
-            if !LLIST_link(p).is_texnull() {
+            if LLIST_link(p).opt().is_some() {
                 if !is_char_node(Some(p))
                     && NODE_type(p) != TextNode::WhatsIt.into()
                     && (whatsit_NODE_subtype(p) == WhatsItNST::NativeWord
