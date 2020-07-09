@@ -722,17 +722,13 @@ pub(crate) unsafe fn print_subsidiary_data(p: usize, mut c: UTF16_code) {
         pool_ptr -= 1
     };
 }
-pub(crate) unsafe fn print_style(mut c: i32) {
-    match c / 2 {
-        // DISPLAY_STYLE / 2
-        0 => print_esc_cstr(b"displaystyle"),
-        // TEXT_STYLE / 2
-        1 => print_esc_cstr(b"textstyle"),
-        // SCRIPT_STYLE / 2
-        2 => print_esc_cstr(b"scriptstyle"),
-        // SCRIPT_SCRIPT_STYLE / 2
-        3 => print_esc_cstr(b"scriptscriptstyle"),
-        _ => print_cstr(b"Unknown style!"),
+pub(crate) unsafe fn print_style(c: i32) {
+    match MathStyle::from_cur(c as i16) {
+        Some(MathStyle::Display) => print_esc_cstr(b"displaystyle"),
+        Some(MathStyle::Text) => print_esc_cstr(b"textstyle"),
+        Some(MathStyle::Script) => print_esc_cstr(b"scriptstyle"),
+        Some(MathStyle::ScriptScript) => print_esc_cstr(b"scriptscriptstyle"),
+        None => print_cstr(b"Unknown style!"),
     };
 }
 pub(crate) unsafe fn print_skip_param(n: GluePar) {
@@ -1106,19 +1102,19 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_esc_cstr(b"mathchoice");
                         str_pool[pool_ptr as usize] = 'D' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(MEM[p + 1].b32.s0.opt());
+                        show_node_list(CHOICE_NODE_display(p).opt());
                         pool_ptr -= 1;
                         str_pool[pool_ptr as usize] = 'T' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(MEM[p + 1].b32.s1.opt());
+                        show_node_list(CHOICE_NODE_text(p).opt());
                         pool_ptr -= 1;
                         str_pool[pool_ptr as usize] = 'S' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(MEM[p + 2].b32.s0.opt());
+                        show_node_list(CHOICE_NODE_script(p).opt());
                         pool_ptr -= 1;
                         str_pool[pool_ptr as usize] = 's' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(MEM[p + 2].b32.s1.opt());
+                        show_node_list(CHOICE_NODE_scriptscript(p).opt());
                         pool_ptr -= 1
                     }
                 },
@@ -1353,10 +1349,10 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         free_node(p, STYLE_NODE_SIZE);
                     }
                     TextNode::Choice => {
-                        flush_node_list(MEM[p + 1].b32.s0.opt());
-                        flush_node_list(MEM[p + 1].b32.s1.opt());
-                        flush_node_list(MEM[p + 2].b32.s0.opt());
-                        flush_node_list(MEM[p + 2].b32.s1.opt());
+                        flush_node_list(CHOICE_NODE_display(p).opt());
+                        flush_node_list(CHOICE_NODE_text(p).opt());
+                        flush_node_list(CHOICE_NODE_script(p).opt());
+                        flush_node_list(CHOICE_NODE_scriptscript(p).opt());
                         free_node(p, STYLE_NODE_SIZE);
                     }
                 },
@@ -10986,27 +10982,25 @@ pub(crate) unsafe fn new_character(
     None
 }
 pub(crate) unsafe fn scan_spec(c: GroupCode, mut three_codes: bool) {
-    let mut current_block: u64;
     let mut s: i32 = 0;
     let mut spec_code: PackMode = PackMode::Exactly;
     if three_codes {
         s = SAVE_STACK[SAVE_PTR + 0].val
     }
+    let mut sd = true;
     if scan_keyword(b"to") {
         spec_code = PackMode::Exactly;
-        current_block = 8515828400728868193;
     } else if scan_keyword(b"spread") {
         spec_code = PackMode::Additional;
-        current_block = 8515828400728868193;
     } else {
         spec_code = PackMode::Additional;
         cur_val = 0;
-        current_block = 4427475217998452135;
+        sd = false;
     }
-    match current_block {
-        8515828400728868193 => scan_dimen(false, false, false),
-        _ => {}
+    if sd {
+        scan_dimen(false, false, false);
     }
+    // found
     if three_codes {
         SAVE_STACK[SAVE_PTR + 0].val = s;
         SAVE_PTR += 1;
@@ -11761,10 +11755,10 @@ pub(crate) unsafe fn new_choice() -> usize {
     let p = get_node(STYLE_NODE_SIZE);
     set_NODE_type(p, TextNode::Choice);
     MEM[p].b16.s0 = 0;
-    MEM[p + 1].b32.s0 = None.tex_int();
-    MEM[p + 1].b32.s1 = None.tex_int();
-    MEM[p + 2].b32.s0 = None.tex_int();
-    MEM[p + 2].b32.s1 = None.tex_int();
+    *CHOICE_NODE_display(p) = None.tex_int();
+    *CHOICE_NODE_text(p) = None.tex_int();
+    *CHOICE_NODE_script(p) = None.tex_int();
+    *CHOICE_NODE_scriptscript(p) = None.tex_int();
     p
 }
 pub(crate) unsafe fn show_info() {
@@ -12813,15 +12807,15 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
             /*1008: */
             match text_NODE_type(p).unwrap() {
                 TextNode::HList | TextNode::VList | TextNode::Rule => {
-                    active_width[1] = active_width[1] + prev_dp + MEM[p + 3].b32.s1;
-                    prev_dp = MEM[p + 2].b32.s1;
+                    active_width[1] += prev_dp + *BOX_height(p);
+                    prev_dp = *BOX_depth(p);
                     current_block = 10249009913728301645;
                 }
                 TextNode::WhatsIt => {
                     match whatsit_NODE_subtype(p as usize) {
                         WhatsItNST::Pic | WhatsItNST::Pdf => {
-                            active_width[1] = active_width[1] + prev_dp + MEM[p + 3].b32.s1;
-                            prev_dp = MEM[p + 2].b32.s1
+                            active_width[1] += prev_dp + *BOX_height(p);
+                            prev_dp = *BOX_depth(p);
                         }
                         _ => {}
                     }
@@ -12836,10 +12830,10 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     }
                 }
                 TextNode::Kern => {
-                    let t = if MEM[p].b32.s1.is_texnull() {
-                        TextNode::Penalty.into()
+                    let t = if let Some(next) = LLIST_link(p).opt() {
+                        NODE_type(next)
                     } else {
-                        NODE_type(MEM[p].b32.s1 as usize)
+                        TextNode::Penalty.into()
                     };
                     if t == TextNode::Glue.into() {
                         pi = 0;
@@ -12853,10 +12847,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     current_block = 9007357115414505193;
                 }
                 TextNode::Mark | TextNode::Ins => current_block = 10249009913728301645,
-                _ => {
-                    current_block = 5335814873276400744;
-                    confusion(b"vertbreak");
-                }
+                _ => confusion(b"vertbreak"),
             }
         } else {
             pi = EJECT_PENALTY;
@@ -12891,7 +12882,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                         best_height_plus_depth = active_width[1] + prev_dp
                     }
                     if b == MAX_HALFWORD || pi <= EJECT_PENALTY {
-                        break;
+                        return best_place;
                     }
                 }
                 if NODE_type(p as usize).u16() < TextNode::Glue as u16
@@ -12938,19 +12929,18 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                         q
                     }
                 };
-                active_width[1] = active_width[1] + prev_dp + MEM[q + 1].b32.s1;
+                active_width[1] += prev_dp + MEM[q + 1].b32.s1;
                 prev_dp = 0;
             }
             _ => {}
         }
         if prev_dp > d {
-            active_width[1] = active_width[1] + prev_dp - d;
+            active_width[1] += prev_dp - d;
             prev_dp = d
         }
         prev_p = p;
         p = *LLIST_link(p as usize);
     }
-    best_place
 }
 pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
     cur_val = n;
@@ -14575,11 +14565,12 @@ pub(crate) unsafe fn trap_zero_glue() {
     };
 }
 pub(crate) unsafe fn do_register_command(mut a: i16) {
-    let mut current_block: u64;
     let mut l: i32 = None.tex_int();
     let mut p = ValLevel::Int;
     let mut q = cur_cmd;
     let mut e = false;
+
+    let mut flag = true;
     if q != Cmd::Register {
         get_x_token();
         match cur_cmd {
@@ -14592,7 +14583,7 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
                     Cmd::AssignMuGlue => ValLevel::Mu,
                     _ => unreachable!(),
                 };
-                current_block = 16534065480145571271;
+                flag = false;
             }
             _ => {
                 if cur_cmd != Cmd::Register {
@@ -14609,40 +14600,36 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
                     error();
                     return;
                 }
-                current_block = 4808432441040389987;
             }
         }
-    } else {
-        current_block = 4808432441040389987;
     }
-    match current_block {
-        4808432441040389987 => {
-            if cur_chr < 0 || cur_chr > 19 {
-                /*lo_mem_stat_max*/
-                l = cur_chr;
-                p = ValLevel::from((MEM[l as usize].b16.s1 as i32 / 64) as u8);
+
+    if flag {
+        if cur_chr < 0 || cur_chr > 19 {
+            /*lo_mem_stat_max*/
+            l = cur_chr;
+            p = ValLevel::from((MEM[l as usize].b16.s1 as i32 / 64) as u8);
+            e = true
+        } else {
+            p = ValLevel::from(cur_chr as u8);
+            scan_register_num();
+            if cur_val > 255 {
+                find_sa_element(p, cur_val, true);
+                l = cur_ptr.tex_int();
                 e = true
             } else {
-                p = ValLevel::from(cur_chr as u8);
-                scan_register_num();
-                if cur_val > 255 {
-                    find_sa_element(p, cur_val, true);
-                    l = cur_ptr.tex_int();
-                    e = true
-                } else {
-                    match p {
-                        ValLevel::Int => l = cur_val + COUNT_BASE as i32,
-                        ValLevel::Dimen => l = cur_val + SCALED_BASE as i32,
-                        ValLevel::Glue => l = cur_val + SKIP_BASE as i32,
-                        ValLevel::Mu => l = cur_val + MU_SKIP_BASE as i32,
-                        _ => {}
-                    }
+                match p {
+                    ValLevel::Int => l = cur_val + COUNT_BASE as i32,
+                    ValLevel::Dimen => l = cur_val + SCALED_BASE as i32,
+                    ValLevel::Glue => l = cur_val + SKIP_BASE as i32,
+                    ValLevel::Mu => l = cur_val + MU_SKIP_BASE as i32,
+                    _ => {}
                 }
             }
         }
-        _ => {}
     }
-    let mut w = 0i32;
+
+    let mut w = 0;
     let mut s = None.tex_int();
     if p < ValLevel::Glue {
         if e {
@@ -14878,26 +14865,25 @@ pub(crate) unsafe fn alter_box_dimen() {
     };
 }
 pub(crate) unsafe fn new_font(mut a: i16) {
-    let mut current_block: u64;
     let mut s: scaled_t = 0;
     if job_name == 0 {
         open_log_file();
     }
     get_r_token();
-    let u = cur_cs;
-    let mut t = if u >= HASH_BASE as i32 {
+    let u = cur_cs as usize;
+    let mut t = if u >= HASH_BASE {
         (*hash.offset(u as isize)).s1
-    } else if u >= SINGLE_BASE as i32 {
-        if u == NULL_CS as i32 {
+    } else if u >= SINGLE_BASE {
+        if u == NULL_CS {
             maketexstring(b"FONT")
         } else {
-            u - SINGLE_BASE as i32
+            (u - SINGLE_BASE) as i32
         }
     } else {
         let old_setting_0 = selector;
         selector = Selector::NEW_STRING;
         print_cstr(b"FONT");
-        print(u - 1);
+        print((u - 1) as i32);
         selector = old_setting_0;
         if pool_ptr + 1 > pool_size {
             overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
@@ -14905,9 +14891,9 @@ pub(crate) unsafe fn new_font(mut a: i16) {
         make_string()
     };
     if a >= 4 {
-        geq_define(u as usize, Cmd::SetFont, Some(FONT_BASE));
+        geq_define(u, Cmd::SetFont, Some(FONT_BASE));
     } else {
-        eq_define(u as usize, Cmd::SetFont, Some(FONT_BASE));
+        eq_define(u, Cmd::SetFont, Some(FONT_BASE));
     }
     scan_optional_equals();
     scan_file_name();
@@ -14950,71 +14936,55 @@ pub(crate) unsafe fn new_font(mut a: i16) {
         s = -1000;
     }
     name_in_progress = false;
-    let mut f = FONT_BASE + 1;
-    let mut for_end = FONT_PTR;
-    if f <= for_end {
-        current_block = 17075014677070940716;
-    } else {
-        current_block = 6838274324784804404;
-    }
-    loop {
-        match current_block {
-            6838274324784804404 => {
-                f = read_font_info(u, cur_name, cur_area, s);
-                break;
-            }
-            _ => {
-                if str_eq_str(FONT_NAME[f], cur_name)
-                    && (length(cur_area) == 0
-                        && (FONT_AREA[f] as u32 == AAT_FONT_FLAG
-                            || FONT_AREA[f] as u32 == OTGR_FONT_FLAG)
-                        || str_eq_str(FONT_AREA[f], cur_area))
-                {
-                    if s > 0 {
-                        if s == FONT_SIZE[f] {
-                            break;
-                        }
-                    } else if FONT_SIZE[f] == xn_over_d(FONT_DSIZE[f], -s, 1000) {
-                        break;
-                    }
+
+    for f in (FONT_BASE + 1)..=FONT_PTR {
+        // TODO: check
+        if str_eq_str(FONT_NAME[f], cur_name)
+            && (length(cur_area) == 0
+                && (FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG)
+                || str_eq_str(FONT_AREA[f], cur_area))
+        {
+            if s > 0 {
+                if s == FONT_SIZE[f] {
+                    return common_ending(a, u, f, t);
                 }
-                append_str(cur_area);
-                append_str(cur_name);
-                append_str(cur_ext);
-                if str_eq_str(FONT_NAME[f], make_string()) {
-                    str_ptr -= 1;
-                    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-                    if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-                    {
-                        if s > 0 {
-                            if s == FONT_SIZE[f] {
-                                break;
-                            }
-                        } else if FONT_SIZE[f] == xn_over_d(FONT_DSIZE[f], -s, 1000) {
-                            break;
-                        }
-                    }
-                } else {
-                    str_ptr -= 1;
-                    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
-                }
-                let fresh86 = f;
-                f = f + 1;
-                if fresh86 < for_end {
-                    current_block = 17075014677070940716;
-                } else {
-                    current_block = 6838274324784804404;
-                }
+            } else if FONT_SIZE[f] == xn_over_d(FONT_DSIZE[f], -s, 1000) {
+                return common_ending(a, u, f, t);
             }
         }
+        append_str(cur_area);
+        append_str(cur_name);
+        append_str(cur_ext);
+        if str_eq_str(FONT_NAME[f], make_string()) {
+            str_ptr -= 1;
+            pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+            if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
+                if s > 0 {
+                    if s == FONT_SIZE[f] {
+                        return common_ending(a, u, f, t);
+                    }
+                } else if FONT_SIZE[f] == xn_over_d(FONT_DSIZE[f], -s, 1000) {
+                    return common_ending(a, u, f, t);
+                }
+            }
+        } else {
+            str_ptr -= 1;
+            pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
+        }
     }
-    if a >= 4 {
-        geq_define(u as usize, Cmd::SetFont, Some(f));
-    } else {
-        eq_define(u as usize, Cmd::SetFont, Some(f));
+
+    unsafe fn common_ending(a: i16, u: usize, f: usize, t: i32) {
+        if a >= 4 {
+            geq_define(u, Cmd::SetFont, Some(f));
+        } else {
+            eq_define(u, Cmd::SetFont, Some(f));
+        }
+        EQTB[(FROZEN_NULL_FONT + f) as usize] = EQTB[u];
+        (*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1 = t;
     }
-    EQTB[(FROZEN_NULL_FONT + f) as usize] = EQTB[u as usize];
-    (*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1 = t;
+
+    let f = read_font_info(u as i32, cur_name, cur_area, s);
+    common_ending(a, u, f, t)
 }
 pub(crate) unsafe fn new_interaction() {
     print_ln();
@@ -15099,12 +15069,10 @@ pub(crate) unsafe fn shift_case() {
     avail = Some(def_ref);
 }
 pub(crate) unsafe fn show_whatever() {
-    let mut current_block: u64;
     match cur_chr {
         3 => {
             begin_diagnostic();
             show_activities();
-            current_block = 7330218953828964527;
         }
         1 => {
             scan_register_num();
@@ -15123,7 +15091,6 @@ pub(crate) unsafe fn show_whatever() {
             } else {
                 show_box(p);
             }
-            current_block = 7330218953828964527;
         }
         0 => {
             get_token();
@@ -15133,12 +15100,11 @@ pub(crate) unsafe fn show_whatever() {
                 print_char('=' as i32);
             }
             print_meaning();
-            current_block = 6249296489108783913;
+            return common_ending();
         }
         4 => {
             begin_diagnostic();
             show_save_groups();
-            current_block = 7330218953828964527;
         }
         6 => {
             begin_diagnostic();
@@ -15185,54 +15151,53 @@ pub(crate) unsafe fn show_whatever() {
                 print_nl_cstr(b"### ");
                 print_cstr(b"no active conditionals");
             }
-            current_block = 7330218953828964527;
         }
         _ => {
             let _p = the_toks() as i32;
             print_nl_cstr(b"> ");
             token_show(Some(TEMP_HEAD));
             flush_list(MEM[TEMP_HEAD].b32.s1.opt());
-            current_block = 6249296489108783913;
+            return common_ending();
         }
     }
-    match current_block {
-        7330218953828964527 => {
-            end_diagnostic(true);
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr(b"! ");
-            }
-            print_cstr(b"OK");
-            if selector == Selector::TERM_AND_LOG {
-                if *INTPAR(IntPar::tracing_online) <= 0i32 {
-                    selector = Selector::TERM_ONLY;
-                    print_cstr(b" (see the transcript file)");
-                    selector = Selector::TERM_AND_LOG
-                }
-            }
-        }
-        _ => {}
-    }
-    if interaction < ERROR_STOP_MODE {
-        help!();
-        error_count -= 1;
-    } else if *INTPAR(IntPar::tracing_online) > 0 {
-        help!(
-            b"This isn\'t an error message; I\'m just \\showing something.",
-            b"Type `I\\show...\' to show more (e.g., \\show\\cs,",
-            b"\\showthe\\count10, \\showbox255, \\showlists)."
-        );
+
+    end_diagnostic(true);
+    if file_line_error_style_p != 0 {
+        print_file_line();
     } else {
-        help!(
-            b"This isn\'t an error message; I\'m just \\showing something.",
-            b"Type `I\\show...\' to show more (e.g., \\show\\cs,",
-            b"\\showthe\\count10, \\showbox255, \\showlists).",
-            b"And type `I\\tracingonline=1\\show...\' to show boxes and",
-            b"lists on your terminal as well as in the transcript file."
-        );
+        print_nl_cstr(b"! ");
     }
-    error();
+    print_cstr(b"OK");
+    if selector == Selector::TERM_AND_LOG {
+        if *INTPAR(IntPar::tracing_online) <= 0i32 {
+            selector = Selector::TERM_ONLY;
+            print_cstr(b" (see the transcript file)");
+            selector = Selector::TERM_AND_LOG
+        }
+    }
+
+    unsafe fn common_ending() {
+        if interaction < ERROR_STOP_MODE {
+            help!();
+            error_count -= 1;
+        } else if *INTPAR(IntPar::tracing_online) > 0 {
+            help!(
+                b"This isn\'t an error message; I\'m just \\showing something.",
+                b"Type `I\\show...\' to show more (e.g., \\show\\cs,",
+                b"\\showthe\\count10, \\showbox255, \\showlists)."
+            );
+        } else {
+            help!(
+                b"This isn\'t an error message; I\'m just \\showing something.",
+                b"Type `I\\show...\' to show more (e.g., \\show\\cs,",
+                b"\\showthe\\count10, \\showbox255, \\showlists).",
+                b"And type `I\\tracingonline=1\\show...\' to show boxes and",
+                b"lists on your terminal as well as in the transcript file."
+            );
+        }
+        error();
+    }
+    common_ending()
 }
 pub(crate) unsafe fn new_write_whatsit(mut w: i16) {
     new_whatsit(cur_chr as i16, w);

@@ -363,6 +363,19 @@ pub(crate) unsafe fn GLUE_SPEC_shrink(p: usize) -> &'static mut i32 {
     &mut MEM[p + 3].b32.s1
 }
 
+pub(crate) unsafe fn CHOICE_NODE_display(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s0
+}
+pub(crate) unsafe fn CHOICE_NODE_text(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 1].b32.s1
+}
+pub(crate) unsafe fn CHOICE_NODE_script(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 2].b32.s0
+}
+pub(crate) unsafe fn CHOICE_NODE_scriptscript(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 2].b32.s1
+}
+
 use super::xetex_ini::{
     b16x4, CHAR_BASE, DEPTH_BASE, FONT_INFO, HEIGHT_BASE, ITALIC_BASE, WIDTH_BASE,
 };

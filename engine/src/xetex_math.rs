@@ -47,6 +47,7 @@ use crate::xetex_xetexd::{
     is_char_node, kern_NODE_width, set_NODE_type, set_kern_NODE_subtype, set_whatsit_NODE_subtype,
     text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign,
     BOX_height, BOX_list_ptr, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
+    CHOICE_NODE_display, CHOICE_NODE_script, CHOICE_NODE_scriptscript, CHOICE_NODE_text,
     GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
     GLUE_SPEC_stretch_order, GLUE_SPEC_width, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
     LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_size, NODE_type, TeXInt, TeXOpt,
@@ -565,8 +566,9 @@ pub(crate) unsafe fn math_ac() {
     scan_math((cur_list.tail + 1) as usize);
 }
 pub(crate) unsafe fn append_choices() {
-    MEM[cur_list.tail].b32.s1 = new_choice() as i32;
-    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+    let c = new_choice();
+    *LLIST_link(cur_list.tail) = Some(c).tex_int();
+    cur_list.tail = c;
     SAVE_PTR += 1;
     SAVE_STACK[SAVE_PTR - 1].val = 0;
     push_math(GroupCode::MathChoice);
@@ -2884,29 +2886,30 @@ unsafe fn mlist_to_hlist() {
                 }
                 TextNode::Choice => {
                     let mut p = None;
-                    match cur_style as i32 / 2 {
-                        0 => {
-                            p = MEM[q + 1].b32.s0.opt();
-                            MEM[q + 1].b32.s0 = None.tex_int();
+                    match MathStyle::from_cur(cur_style)
+                        .expect(&format!("incorrect current math style = {}", cur_style))
+                    {
+                        MathStyle::Display => {
+                            p = CHOICE_NODE_display(q).opt();
+                            *CHOICE_NODE_display(q) = None.tex_int();
                         }
-                        1 => {
-                            p = MEM[q + 1].b32.s1.opt();
-                            MEM[q + 1].b32.s1 = None.tex_int();
+                        MathStyle::Text => {
+                            p = CHOICE_NODE_text(q).opt();
+                            *CHOICE_NODE_text(q) = None.tex_int();
                         }
-                        2 => {
-                            p = MEM[q + 2].b32.s0.opt();
-                            MEM[q + 2].b32.s0 = None.tex_int();
+                        MathStyle::Script => {
+                            p = CHOICE_NODE_script(q).opt();
+                            *CHOICE_NODE_script(q) = None.tex_int();
                         }
-                        3 => {
-                            p = MEM[q + 2].b32.s1.opt();
-                            MEM[q + 2].b32.s1 = None.tex_int();
+                        MathStyle::ScriptScript => {
+                            p = CHOICE_NODE_scriptscript(q).opt();
+                            *CHOICE_NODE_scriptscript(q) = None.tex_int();
                         }
-                        _ => {}
                     }
-                    flush_node_list(MEM[q + 1].b32.s0.opt());
-                    flush_node_list(MEM[q + 1].b32.s1.opt());
-                    flush_node_list(MEM[q + 2].b32.s0.opt());
-                    flush_node_list(MEM[q + 2].b32.s1.opt());
+                    flush_node_list(CHOICE_NODE_display(q).opt());
+                    flush_node_list(CHOICE_NODE_text(q).opt());
+                    flush_node_list(CHOICE_NODE_script(q).opt());
+                    flush_node_list(CHOICE_NODE_scriptscript(q).opt());
                     set_NODE_type(q, TextNode::Style);
                     MEM[q].b16.s0 = cur_style as u16;
                     MEM[q + 1].b32.s1 = 0;

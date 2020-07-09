@@ -1024,6 +1024,21 @@ impl From<u16> for Limit {
 }
 
 /* Cmd::MathStyle */
+#[repr(i16)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum MathStyle {
+    Display = 0,
+    Text = 1,
+    Script = 2,
+    ScriptScript = 3,
+}
+
+impl MathStyle {
+    pub(crate) fn from_cur(cs: i16) -> Option<Self> {
+        Self::n(cs / 2)
+    }
+}
+
 pub(crate) const DISPLAY_STYLE: placeholdertype = 0;
 pub(crate) const TEXT_STYLE: placeholdertype = 2;
 pub(crate) const SCRIPT_STYLE: placeholdertype = 4;

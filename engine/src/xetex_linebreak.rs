@@ -1367,7 +1367,6 @@ unsafe fn post_line_break(mut d: bool) {
  * disc_node. The end of a paragraph is also regarded as hyphenated; this case
  * is distinguishable by the condition cur_p = null." */
 unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
-    let mut current_block: u64;
     let mut prev_prev_r = None;
     let mut node_r_stays_active: bool = false;
     let mut line_width: scaled_t = 0i32;
@@ -1664,6 +1663,8 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                     shortfall = shortfall + total_pw(r, cur_p)
                 }
             }
+
+            let mut current_block: u64;
             if shortfall > 0 {
                 /*881: "Set the value of b to the badness for stretching the line,
                  * and compute the corresponding fit_class" */
