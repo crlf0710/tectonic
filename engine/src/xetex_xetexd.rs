@@ -106,9 +106,26 @@ pub(crate) unsafe fn BOX_glue_sign(p: usize) -> &'static mut u16 {
 pub(crate) unsafe fn BOX_glue_order(p: usize) -> &'static mut u16 {
     &mut MEM[p + 5].b16.s0
 }
+
 /// the glue ratio
 pub(crate) unsafe fn BOX_glue_set(p: usize) -> &'static mut f64 {
     &mut MEM[p + 6].gr
+}
+
+pub(crate) unsafe fn UNSET_NODE_columns(p: usize) -> &'static mut u16 {
+    &mut MEM[p].b16.s0
+}
+pub(crate) unsafe fn UNSET_NODE_shrink(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 4].b32.s1
+}
+pub(crate) unsafe fn UNSET_NODE_stretch(p: usize) -> &'static mut i32 {
+    &mut MEM[p + 6].b32.s1
+}
+pub(crate) unsafe fn UNSET_NODE_shrink_order(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 5].b16.s1
+}
+pub(crate) unsafe fn UNSET_NODE_stretch_order(p: usize) -> &'static mut u16 {
+    &mut MEM[p + 5].b16.s0
 }
 
 /// aka "subtype" of a node

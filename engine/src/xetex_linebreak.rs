@@ -990,7 +990,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 /* This was just separated out to prevent line_break() from becoming
  * proposterously long. */
 unsafe fn post_line_break(mut d: bool) {
-    let mut LR_ptr = cur_list.eTeX_aux.tex_int();
+    let mut LR_ptr = cur_list.eTeX_aux;
     /* Reverse the list of break nodes (907) */
     let mut q = *ACTIVE_NODE_break_node(best_bet as usize); /*:907*/
     cur_p = None;
@@ -1014,8 +1014,8 @@ unsafe fn post_line_break(mut d: bool) {
         if *INTPAR(IntPar::texxet) > 0 {
             /*1494:*/
             let mut q = MEM[TEMP_HEAD].b32.s1;
-            if let Some(l) = LR_ptr.opt() {
-                temp_ptr = l;
+            if let Some(lr) = LR_ptr {
+                temp_ptr = lr;
                 let mut r = q;
                 loop {
                     let s = new_math(0, (MEM[temp_ptr].b32.s0 - 1) as i16) as usize;
@@ -1033,17 +1033,19 @@ unsafe fn post_line_break(mut d: bool) {
                 if q < hi_mem_min && NODE_type(q as usize) == TextNode::Math.into() {
                     /*1495:*/
                     if MEM[q as usize].b16.s0 as i32 & 1 != 0 {
-                        if !LR_ptr.is_texnull() && MEM[LR_ptr as usize].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3 {
-                            temp_ptr = LR_ptr as usize;
-                            LR_ptr = MEM[temp_ptr].b32.s1;
-                            MEM[temp_ptr].b32.s1 = avail.tex_int();
-                            avail = Some(temp_ptr);
+                        if let Some(lr) = LR_ptr {
+                            if MEM[lr].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3 {
+                                temp_ptr = lr;
+                                LR_ptr = MEM[temp_ptr].b32.s1.opt();
+                                MEM[temp_ptr].b32.s1 = avail.tex_int();
+                                avail = Some(temp_ptr);
+                            }
                         }
                     } else {
                         temp_ptr = get_avail();
                         MEM[temp_ptr].b32.s0 = (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
-                        MEM[temp_ptr].b32.s1 = LR_ptr;
-                        LR_ptr = Some(temp_ptr).tex_int();
+                        MEM[temp_ptr].b32.s1 = LR_ptr.tex_int();
+                        LR_ptr = Some(temp_ptr);
                     }
                 }
                 q = *LLIST_link(q as usize);
@@ -1120,17 +1122,19 @@ unsafe fn post_line_break(mut d: bool) {
             if *INTPAR(IntPar::texxet) > 0 {
                 /*1495:*/
                 if *INTPAR(IntPar::texxet) as i32 & 1 != 0 {
-                    if !LR_ptr.is_texnull() && MEM[LR_ptr as usize].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3i32 {
-                        temp_ptr = LR_ptr as usize;
-                        LR_ptr = MEM[temp_ptr].b32.s1;
-                        MEM[temp_ptr].b32.s1 = avail.tex_int();
-                        avail = Some(temp_ptr);
+                    if let Some(lr) = LR_ptr {
+                        if MEM[lr].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3i32 {
+                            temp_ptr = lr;
+                            LR_ptr = MEM[temp_ptr].b32.s1.opt();
+                            MEM[temp_ptr].b32.s1 = avail.tex_int();
+                            avail = Some(temp_ptr);
+                        }
                     }
                 } else {
                     temp_ptr = get_avail();
                     MEM[temp_ptr].b32.s0 = (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
-                    MEM[temp_ptr].b32.s1 = LR_ptr;
-                    LR_ptr = Some(temp_ptr).tex_int();
+                    MEM[temp_ptr].b32.s1 = LR_ptr.tex_int();
+                    LR_ptr = Some(temp_ptr);
                 }
             }
         }
@@ -1166,7 +1170,7 @@ unsafe fn post_line_break(mut d: bool) {
         }
         if *INTPAR(IntPar::texxet) > 0 {
             /*1496:*/
-            if !LR_ptr.is_texnull() {
+            if let Some(lr) = LR_ptr {
                 let mut s = TEMP_HEAD;
                 let mut r = MEM[s].b32.s1;
 
@@ -1175,13 +1179,13 @@ unsafe fn post_line_break(mut d: bool) {
                     r = MEM[s].b32.s1
                 }
 
-                let mut r = LR_ptr;
+                let mut ropt = Some(lr);
 
-                while !r.is_texnull() {
-                    temp_ptr = new_math(0, MEM[r as usize].b32.s0 as i16);
+                while let Some(r) = ropt {
+                    temp_ptr = new_math(0, MEM[r].b32.s0 as i16);
                     MEM[s].b32.s1 = Some(temp_ptr).tex_int();
                     s = temp_ptr;
-                    r = *LLIST_link(r as usize);
+                    ropt = LLIST_link(r).opt();
                 }
 
                 MEM[s].b32.s1 = q;
@@ -1324,17 +1328,19 @@ unsafe fn post_line_break(mut d: bool) {
                     if NODE_type(q as usize) == TextNode::Math.into() && *INTPAR(IntPar::texxet) > 0 {
                         /*1495:*/
                         if MEM[q as usize].b16.s0 as i32 & 1i32 != 0 {
-                            if !LR_ptr.is_texnull() && MEM[LR_ptr as usize].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3 {
-                                temp_ptr = LR_ptr as usize;
-                                LR_ptr = MEM[temp_ptr].b32.s1;
-                                MEM[temp_ptr].b32.s1 = avail.tex_int();
-                                avail = Some(temp_ptr);
+                            if let Some(lr) = LR_ptr {
+                                if MEM[lr].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3 {
+                                    temp_ptr = lr;
+                                    LR_ptr = MEM[temp_ptr].b32.s1.opt();
+                                    MEM[temp_ptr].b32.s1 = avail.tex_int();
+                                    avail = Some(temp_ptr);
+                                }
                             }
                         } else {
                             temp_ptr = get_avail();
                             MEM[temp_ptr].b32.s0 = (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
-                            MEM[temp_ptr].b32.s1 = LR_ptr;
-                            LR_ptr = Some(temp_ptr).tex_int();
+                            MEM[temp_ptr].b32.s1 = LR_ptr.tex_int();
+                            LR_ptr = Some(temp_ptr);
                         }
                     }
                 }
@@ -1353,7 +1359,7 @@ unsafe fn post_line_break(mut d: bool) {
         confusion(b"line breaking");
     }
     cur_list.prev_graf = best_line - 1;
-    cur_list.eTeX_aux = LR_ptr.opt();
+    cur_list.eTeX_aux = LR_ptr;
 }
 /*858: "The heart of the line-breaking procedure is try_break, a subroutine
  * that tests if the current breakpoint cur_p is feasible, by running through
