@@ -380,6 +380,16 @@ pub(crate) unsafe fn PIC_NODE_path<'a>(p: usize) -> &'a mut [u8] {
 #define PIC_NODE_total_size(p) (PIC_NODE_SIZE + (PIC_NODE_path_len(p) + sizeof(memory_word) - 1) / sizeof(memory_word))
 
 */
+
+pub(crate) unsafe fn MARK_CLASS_indexes<'a>(p: usize) -> &'a mut [i32] {
+    let pp = &mut MEM[p + 1].b32.s0;
+    std::slice::from_raw_parts_mut(pp, 5) // TODO: check size
+}
+pub(crate) unsafe fn INDEX_NODE_indexes<'a>(p: usize) -> &'a mut [i32] {
+    let pp = &mut MEM[p + 1].b32.s0;
+    std::slice::from_raw_parts_mut(pp, 64)
+}
+
 /// "reference count of token list to write"
 pub(crate) unsafe fn WRITE_NODE_tokens<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s1

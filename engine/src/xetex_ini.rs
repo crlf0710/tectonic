@@ -1110,12 +1110,6 @@ pub(crate) static mut sa_root: [Option<usize>; 8] = [Some(0); 8];
 #[no_mangle]
 pub(crate) static mut cur_ptr: Option<usize> = Some(0);
 
-pub(crate) const SA_NULL: memory_word = memory_word {
-    b32: b32x2 {
-        s0: TEX_NULL,
-        s1: TEX_NULL,
-    },
-};
 #[no_mangle]
 pub(crate) static mut sa_chain: i32 = 0;
 #[no_mangle]

@@ -72,7 +72,7 @@ use crate::xetex_ini::{
     INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, LINE_STACK,
     MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST,
     NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE,
-    SAVE_STACK, SA_NULL, SKEW_CHAR, SOURCE_FILENAME_STACK, STACK_SIZE, WIDTH_BASE,
+    SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK, STACK_SIZE, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding, u_close};
@@ -4949,13 +4949,13 @@ pub(crate) unsafe fn insert_relax() {
     back_input();
     cur_input.index = Btl::Inserted;
 }
-pub(crate) unsafe fn new_index(mut i: u16, mut q: Option<usize>) -> usize {
+pub(crate) unsafe fn new_index(i: u16, q: Option<usize>) -> usize {
     let p = get_node(INDEX_NODE_SIZE);
     MEM[p].b16.s1 = i;
     MEM[p].b16.s0 = 0_u16;
     MEM[p].b32.s1 = q.tex_int();
-    for k in 1..(INDEX_NODE_SIZE as usize) {
-        MEM[p + k] = SA_NULL;
+    for k in INDEX_NODE_indexes(p) {
+        *k = None.tex_int();
     }
     p
 }
@@ -4970,11 +4970,7 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
     }
     let q = cur_ptr.unwrap();
     let i = (n / 0x40000) as usize;
-    cur_ptr = if i & 1 != 0 {
-        MEM[q + i / 2 + 1].b32.s1.opt()
-    } else {
-        MEM[q + i / 2 + 1].b32.s0.opt()
-    };
+    cur_ptr = INDEX_NODE_indexes(q)[i].opt();
     if cur_ptr.is_none() {
         if w {
             return lab46(t, n, q, i);
@@ -4984,11 +4980,7 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
     }
     let q = cur_ptr.unwrap();
     let i = (n / 4096 % 64) as usize;
-    cur_ptr = if i & 1 != 0 {
-        MEM[q + i / 2 + 1].b32.s1.opt()
-    } else {
-        MEM[q + i / 2 + 1].b32.s0.opt()
-    };
+    cur_ptr = INDEX_NODE_indexes(q)[i].opt();
     if cur_ptr.is_none() {
         if w {
             return lab47(t, n, q, i);
@@ -4998,11 +4990,7 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
     }
     let q = cur_ptr.unwrap();
     let i = (n / 64 % 64) as usize;
-    cur_ptr = if i & 1 != 0 {
-        MEM[q + i / 2 + 1].b32.s1.opt()
-    } else {
-        MEM[q + i / 2 + 1].b32.s0.opt()
-    };
+    cur_ptr = INDEX_NODE_indexes(q)[i].opt();
     if cur_ptr.is_none() {
         if w {
             return lab48(t, n, q, i);
@@ -5012,11 +5000,7 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
     }
     let q = cur_ptr.unwrap();
     let i = (n % 64) as usize;
-    cur_ptr = if i & 1 != 0 {
-        MEM[q + i / 2 + 1].b32.s1.opt()
-    } else {
-        MEM[q + i / 2 + 1].b32.s0.opt()
-    };
+    cur_ptr = INDEX_NODE_indexes(q)[i].opt();
     if cur_ptr.is_none() && w {
         return lab49(t, n, q, i);
     } else {
@@ -5027,63 +5011,47 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
         let p = new_index(t as u16, None);
         cur_ptr = Some(p);
         sa_root[t as usize] = cur_ptr;
-        let q = p;
         let i = (n / 0x40000) as usize;
-        lab46(t, n, q, i)
+        lab46(t, n, p, i)
     }
 
     /*not_found1 */
-    unsafe fn lab46(t: ValLevel, n: i32, mut q: usize, mut i: usize) {
+    unsafe fn lab46(t: ValLevel, n: i32, q: usize, mut i: usize) {
         let p = new_index(i as u16, Some(q));
         cur_ptr = Some(p);
-        if i & 1 != 0 {
-            MEM[q + i / 2 + 1].b32.s1 = cur_ptr.tex_int();
-        } else {
-            MEM[q + i / 2 + 1].b32.s0 = cur_ptr.tex_int();
-        }
+        INDEX_NODE_indexes(q)[i] = cur_ptr.tex_int();
         MEM[q].b16.s0 += 1;
-        q = p;
         i = (n / 4096 % 64) as usize;
-        lab47(t, n, q, i)
+        lab47(t, n, p, i)
     }
 
     /*not_found2 */
-    unsafe fn lab47(t: ValLevel, n: i32, mut q: usize, mut i: usize) {
+    unsafe fn lab47(t: ValLevel, n: i32, q: usize, mut i: usize) {
         let p = new_index(i as u16, Some(q));
         cur_ptr = Some(p);
-        if i & 1 != 0 {
-            MEM[q + i / 2 + 1].b32.s1 = cur_ptr.tex_int();
-        } else {
-            MEM[q + i / 2 + 1].b32.s0 = cur_ptr.tex_int();
-        }
+        INDEX_NODE_indexes(q)[i] = cur_ptr.tex_int();
         MEM[q].b16.s0 += 1;
-        q = p;
         i = (n / 64 % 64) as usize;
-        lab48(t, n, q, i)
+        lab48(t, n, p, i)
     }
 
     /*not_found3 */
-    unsafe fn lab48(t: ValLevel, n: i32, mut q: usize, mut i: usize) {
+    unsafe fn lab48(t: ValLevel, n: i32, q: usize, mut i: usize) {
         let p = new_index(i as u16, Some(q));
         cur_ptr = Some(p);
-        if i & 1 != 0 {
-            MEM[q + i / 2 + 1].b32.s1 = cur_ptr.tex_int();
-        } else {
-            MEM[q + i / 2 + 1].b32.s0 = cur_ptr.tex_int();
-        }
+        INDEX_NODE_indexes(q)[i] = cur_ptr.tex_int();
         MEM[q].b16.s0 += 1;
-        q = p;
-        i = (n % 64i32) as usize;
-        lab49(t, n, q, i)
+        i = (n % 64) as usize;
+        lab49(t, n, p, i)
     }
 
     /*not_found4 *//*1608: */
     unsafe fn lab49(t: ValLevel, n: i32, q: usize, i: usize) {
         let p = if t == ValLevel::Mark {
             let p = get_node(MARK_CLASS_NODE_SIZE); /*level_one *//*:1608 */
-            MEM[p + 1] = SA_NULL;
-            MEM[p + 2] = SA_NULL;
-            MEM[p + 3] = SA_NULL;
+            for k in MARK_CLASS_indexes(p) {
+                *k = None.tex_int();
+            }
             p
         } else {
             let p = if t == ValLevel::Int || t == ValLevel::Dimen {
@@ -5108,11 +5076,7 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
         MEM[p].b16.s1 = (64 * t as i32 + i as i32) as u16;
         MEM[p].b16.s0 = 1;
         MEM[p].b32.s1 = q as i32;
-        if i & 1 != 0 {
-            MEM[q + i / 2 + 1].b32.s1 = cur_ptr.tex_int();
-        } else {
-            MEM[q + i / 2 + 1].b32.s0 = cur_ptr.tex_int();
-        }
+        INDEX_NODE_indexes(q)[i] = cur_ptr.tex_int();
         MEM[q].b16.s0 += 1;
     }
 }
@@ -12982,10 +12946,10 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
         error();
         return None;
     }
-    let q = vert_break(MEM[v + 5].b32.s1, h, *DIMENPAR(DimenPar::split_max_depth));
-    let mut p = MEM[v + 5].b32.s1;
+    let q = vert_break(*BOX_list_ptr(v), h, *DIMENPAR(DimenPar::split_max_depth));
+    let mut p = *BOX_list_ptr(v);
     if p == q {
-        MEM[v + 5].b32.s1 = None.tex_int()
+        *BOX_list_ptr(v) = None.tex_int()
     } else {
         loop {
             if NODE_type(p as usize) == TextNode::Mark.into() {
@@ -12993,7 +12957,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
                     /*1615: */
                     find_sa_element(ValLevel::Mark, *MARK_NODE_class(p as usize), true);
                     let c = cur_ptr.unwrap();
-                    if MEM[c + 2].b32.s1.is_texnull() {
+                    if MEM[c + 2].b32.s1.opt().is_none() {
                         MEM[c + 2].b32.s1 = *MARK_NODE_ptr(p as usize);
                         MEM[*MARK_NODE_ptr(p as usize) as usize].b32.s0 += 1
                     } else {
@@ -13021,7 +12985,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
         }
     }
     let q = prune_page_top(q.opt(), *INTPAR(IntPar::saving_vdiscards) > 0).opt();
-    let p = MEM[v + 5].b32.s1.opt();
+    let p = BOX_list_ptr(v).opt();
     free_node(v, BOX_NODE_SIZE);
     let q = if let Some(q) = q {
         Some(vpackage(Some(q), 0, PackMode::Additional, MAX_HALFWORD))
@@ -17654,19 +17618,11 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
 }
 pub(crate) unsafe fn do_marks(a: MarkMode, mut l: i16, q: usize) -> bool {
     if l < 4 {
-        for i in 0..=15 {
-            cur_ptr = if i & 1 != 0 {
-                MEM[q + i / 2 + 1].b32.s1.opt()
-            } else {
-                MEM[q + i / 2 + 1].b32.s0.opt()
-            };
+        for i in &mut INDEX_NODE_indexes(q)[0..16] {
+            cur_ptr = (*i).opt();
             if let Some(p) = cur_ptr {
-                if do_marks(a, (l as i32 + 1i32) as i16, p) {
-                    if i & 1 != 0 {
-                        MEM[q + i / 2 + 1].b32.s1 = None.tex_int()
-                    } else {
-                        MEM[q + i / 2 + 1].b32.s0 = None.tex_int()
-                    }
+                if do_marks(a, l + 1, p) {
+                    *i = None.tex_int();
                     MEM[q].b16.s0 -= 1;
                 }
             }
@@ -17679,10 +17635,10 @@ pub(crate) unsafe fn do_marks(a: MarkMode, mut l: i16, q: usize) -> bool {
         match a {
             MarkMode::VSplitInit => {
                 /*1614: */
-                if !MEM[q + 2].b32.s1.is_texnull() {
-                    delete_token_ref(MEM[q + 2].b32.s1 as usize);
+                if let (Some(q2), Some(q3)) = (MEM[q + 2].b32.s1.opt(), MEM[q + 3].b32.s0.opt()) {
+                    delete_token_ref(q2);
                     MEM[q + 2].b32.s1 = None.tex_int();
-                    delete_token_ref(MEM[q + 3].b32.s0 as usize);
+                    delete_token_ref(q3);
                     MEM[q + 3].b32.s0 = None.tex_int()
                 }
             }
@@ -17709,19 +17665,11 @@ pub(crate) unsafe fn do_marks(a: MarkMode, mut l: i16, q: usize) -> bool {
                 }
             }
             MarkMode::DestroyMarks => {
-                for i in 0..=4 {
-                    cur_ptr = if i & 1 != 0 {
-                        MEM[q + i / 2 + 1].b32.s1.opt()
-                    } else {
-                        MEM[q + i / 2 + 1].b32.s0.opt()
-                    };
+                for i in MARK_CLASS_indexes(q) {
+                    cur_ptr = (*i).opt();
                     if let Some(c) = cur_ptr {
                         delete_token_ref(c);
-                        if i & 1 != 0 {
-                            MEM[q + i / 2 + 1].b32.s1 = None.tex_int()
-                        } else {
-                            MEM[q + i / 2 + 1].b32.s0 = None.tex_int()
-                        }
+                        *i = None.tex_int();
                     }
                 }
             }

@@ -303,13 +303,13 @@ unsafe fn fire_up(c: usize) {
             } else {
                 /*1051: "Update the values of first_mark and bot_mark" */
                 if cur_mark[FIRST_MARK_CODE].is_none() {
-                    cur_mark[FIRST_MARK_CODE] = MEM[p + 1].b32.s1.opt();
+                    cur_mark[FIRST_MARK_CODE] = MARK_NODE_ptr(p).opt();
                     MEM[cur_mark[FIRST_MARK_CODE].unwrap()].b32.s0 += 1;
                 }
                 if let Some(m) = cur_mark[BOT_MARK_CODE] {
                     delete_token_ref(m);
                 }
-                cur_mark[BOT_MARK_CODE] = MEM[p + 1].b32.s1.opt();
+                cur_mark[BOT_MARK_CODE] = MARK_NODE_ptr(p).opt();
                 MEM[cur_mark[BOT_MARK_CODE].unwrap()].b32.s0 += 1;
             }
         }
