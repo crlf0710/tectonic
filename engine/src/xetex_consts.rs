@@ -605,6 +605,11 @@ impl From<TextNode> for ND {
         Self::Text(n)
     }
 }
+impl From<MathNode> for ND {
+    fn from(n: MathNode) -> Self {
+        Self::Math(n)
+    }
+}
 
 impl ND {
     pub fn u16(self) -> u16 {
@@ -1249,8 +1254,6 @@ pub(crate) enum PageContents {
     BoxThere = 2,
 }
 
-pub(crate) const EMPTY: i32 = 0;
-
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum OpenMode {
@@ -1270,6 +1273,25 @@ impl From<i32> for PackMode {
     fn from(n: i32) -> Self {
         Self::n(n as u8).expect(&format!("incorrect PackMode = {}", n))
     }
+}
+
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum AccentType {
+    Normal = 0,
+    Fixed = 1,
+    Bottom = 2,
+    BottomFixed = 3,
+}
+
+#[repr(i32)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum MathCell {
+    Empty = 0,
+    MathChar = 1,
+    SubBox = 2,
+    SubMList = 3,
+    MathTextChar = 4,
 }
 
 pub(crate) const DISPLAYOPERATORMINHEIGHT: placeholdertype = 3;
@@ -1312,16 +1334,10 @@ pub(crate) const XETEX_VERSION: placeholdertype = 0;
 pub(crate) const FONT_BASE: usize = 0;
 pub(crate) const NON_ADDRESS: placeholdertype = 0;
 pub(crate) const UNDEFINED_PRIMITIVE: placeholdertype = 0;
-pub(crate) const FIXED_ACC: placeholdertype = 1;
-pub(crate) const MATH_CHAR: placeholdertype = 1;
 pub(crate) const PRIM_BASE: usize = 1;
 pub(crate) const SLANT_CODE: placeholdertype = 1;
-pub(crate) const BOTTOM_ACC: u16 = 2;
 pub(crate) const ETEX_VERSION: placeholdertype = 2;
 pub(crate) const SPACE_CODE: placeholdertype = 2;
-pub(crate) const SUB_BOX: placeholdertype = 2;
-pub(crate) const SUB_MLIST: placeholdertype = 3;
-pub(crate) const MATH_TEXT_CHAR: placeholdertype = 4;
 pub(crate) const SPACE_SHRINK_CODE: placeholdertype = 4;
 pub(crate) const X_HEIGHT_CODE: placeholdertype = 5;
 pub(crate) const QUAD_CODE: placeholdertype = 6;

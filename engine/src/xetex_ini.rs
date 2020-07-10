@@ -3912,7 +3912,7 @@ unsafe fn initialize_more_variables() {
     last_badness = 0;
     pre_adjust_tail = None;
     pack_begin_line = 0;
-    empty.s1 = EMPTY;
+    empty.s1 = MathCell::Empty as _;
     empty.s0 = None.tex_int();
     align_ptr = None;
     cur_align = None;

@@ -684,9 +684,9 @@ pub(crate) unsafe fn print_delimiter(p: usize) {
     let mut a: i32 = 0;
     a = ((MEM[p].b16.s3 as i32 % 256 * 256) as i64
         + (MEM[p].b16.s2 as i64 + (MEM[p].b16.s3 as i32 / 256) as i64 * 65536)) as i32;
-    a = ((a * 4096i32 + MEM[p].b16.s1 as i32 % 256 * 256) as i64
+    a = ((a * 4096 + MEM[p].b16.s1 as i32 % 256 * 256) as i64
         + (MEM[p].b16.s0 as i64 + (MEM[p].b16.s1 as i32 / 256) as i64 * 65536)) as i32;
-    if a < 0i32 {
+    if a < 0 {
         print_int(a);
     } else {
         print_hex(a);
@@ -701,14 +701,14 @@ pub(crate) unsafe fn print_subsidiary_data(p: usize, mut c: UTF16_code) {
         str_pool[pool_ptr as usize] = c;
         pool_ptr += 1;
         temp_ptr = p;
-        match MEM[p].b32.s1 {
-            MATH_CHAR => {
+        match MathCell::n(MEM[p].b32.s1).unwrap() {
+            MathCell::MathChar => {
                 print_ln();
                 print_current_string();
                 print_fam_and_char(p);
             }
-            SUB_BOX => show_info(),
-            SUB_MLIST => {
+            MathCell::SubBox => show_info(),
+            MathCell::SubMList => {
                 if MEM[p].b32.s0.opt().is_none() {
                     print_ln();
                     print_current_string();
@@ -1370,13 +1370,13 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     | MathNode::Under
                     | MathNode::VCenter
                     | MathNode::Accent => {
-                        if MEM[p + 1].b32.s1 >= SUB_BOX {
+                        if MEM[p + 1].b32.s1 >= MathCell::SubBox as _ {
                             flush_node_list(MEM[p + 1].b32.s0.opt());
                         }
-                        if MEM[p + 2].b32.s1 >= SUB_BOX {
+                        if MEM[p + 2].b32.s1 >= MathCell::SubBox as _ {
                             flush_node_list(MEM[p + 2].b32.s0.opt());
                         }
-                        if MEM[p + 3].b32.s1 >= SUB_BOX {
+                        if MEM[p + 3].b32.s1 >= MathCell::SubBox as _ {
                             flush_node_list(MEM[p + 3].b32.s0.opt());
                         }
                         if MEM[p].b16.s1 == MathNode::Radical as u16 {
@@ -5756,7 +5756,7 @@ pub(crate) unsafe fn scan_math(p: usize) {
             }
         }
     }
-    MEM[p].b32.s1 = MATH_CHAR;
+    MEM[p].b32.s1 = MathCell::MathChar as _;
     MEM[p].b16.s0 = (c as i64 % 65536) as u16;
     if (math_class(c) == 7)
         && (*INTPAR(IntPar::cur_fam) >= 0 && *INTPAR(IntPar::cur_fam) < NUMBER_MATH_FAMILIES as i32)
@@ -5778,7 +5778,7 @@ pub(crate) unsafe fn set_math_char(mut c: i32) {
         back_input();
     } else {
         let p = new_noad();
-        MEM[p + 1].b32.s1 = MATH_CHAR;
+        MEM[p + 1].b32.s1 = MathCell::MathChar as _;
         ch = math_char(c) as UnicodeScalar;
         MEM[p + 1].b16.s0 = (ch as i64 % 65536) as u16;
         MEM[p + 1].b16.s1 = math_fam(c) as u16;
@@ -13346,7 +13346,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
                     cur_list.aux.b32.s0 = 1000
                 } else {
                     let p = new_noad();
-                    MEM[p + 1].b32.s1 = SUB_BOX;
+                    MEM[p + 1].b32.s1 = MathCell::SubBox as _;
                     MEM[p + 1].b32.s0 = Some(cb).tex_int();
                     cb = p;
                     cur_box = Some(cb);
@@ -13717,7 +13717,7 @@ pub(crate) unsafe fn indent_in_hmode() {
             cur_list.aux.b32.s0 = 1000
         } else {
             let q = new_noad();
-            MEM[q + 1].b32.s1 = SUB_BOX;
+            MEM[q + 1].b32.s1 = MathCell::SubBox as _;
             MEM[q + 1].b32.s0 = p as i32;
             p = q;
         }
@@ -15589,34 +15589,34 @@ pub(crate) unsafe fn handle_right_brace() {
             *LLIST_link(cur_list.tail) = Some(n).tex_int();
             cur_list.tail = n;
             MEM[cur_list.tail].b16.s1 = MathNode::VCenter as u16;
-            MEM[cur_list.tail + 1].b32.s1 = SUB_BOX;
+            MEM[cur_list.tail + 1].b32.s1 = MathCell::SubBox as _;
             MEM[cur_list.tail + 1].b32.s0 = Some(p).tex_int()
         }
         GroupCode::MathChoice => build_choices(),
         GroupCode::Math => {
             unsave();
             SAVE_PTR -= 1;
-            MEM[SAVE_STACK[SAVE_PTR + 0].val as usize].b32.s1 = SUB_MLIST;
+            MEM[SAVE_STACK[SAVE_PTR + 0].val as usize].b32.s1 = MathCell::SubMList as _;
             let mut p = fin_mlist(None);
             MEM[SAVE_STACK[SAVE_PTR + 0].val as usize].b32.s0 = p;
             if let Some(p) = p.opt() {
-                if MEM[p].b32.s1.is_texnull() {
-                    if MEM[p].b16.s1 == MathNode::Ord as u16 {
-                        if MEM[p + 3].b32.s1 == EMPTY {
-                            if MEM[p + 2].b32.s1 == EMPTY {
+                if LLIST_link(p).opt().is_none() {
+                    if NODE_type(p) == MathNode::Ord.into() {
+                        if MEM[p + 3].b32.s1 == MathCell::Empty as _ {
+                            if MEM[p + 2].b32.s1 == MathCell::Empty as _ {
                                 MEM[SAVE_STACK[SAVE_PTR + 0].val as usize].b32 = MEM[p + 1].b32;
                                 free_node(p, NOAD_SIZE);
                             }
                         }
-                    } else if MEM[p].b16.s1 == MathNode::Accent as u16 {
+                    } else if NODE_type(p) == MathNode::Accent.into() {
                         if SAVE_STACK[SAVE_PTR + 0].val == cur_list.tail as i32 + 1 {
-                            if MEM[cur_list.tail].b16.s1 == MathNode::Ord as u16 {
+                            if NODE_type(cur_list.tail) == MathNode::Ord.into() {
                                 /*1222:*/
                                 let mut q = cur_list.head;
-                                while MEM[q].b32.s1 != cur_list.tail as i32 {
+                                while LLIST_link(q).opt() != Some(cur_list.tail) {
                                     q = *LLIST_link(q) as usize;
                                 }
-                                MEM[q].b32.s1 = Some(p).tex_int();
+                                *LLIST_link(q) = Some(p).tex_int();
                                 free_node(cur_list.tail, NOAD_SIZE);
                                 cur_list.tail = p;
                             }
