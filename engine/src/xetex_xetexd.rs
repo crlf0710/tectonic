@@ -359,6 +359,14 @@ pub(crate) unsafe fn PIC_NODE_transform_matrix(p: usize) -> (i32, i32, i32, i32,
         MEM[p + 7].b32.s1,
     )
 }
+pub(crate) unsafe fn set_PIC_NODE_transform_matrix(p: usize, m: (i32, i32, i32, i32, i32, i32)) {
+    MEM[p + 5].b32.s0 = m.0;
+    MEM[p + 5].b32.s1 = m.1;
+    MEM[p + 6].b32.s0 = m.2;
+    MEM[p + 6].b32.s1 = m.3;
+    MEM[p + 7].b32.s0 = m.4;
+    MEM[p + 7].b32.s1 = m.5;
+}
 pub(crate) unsafe fn PIC_NODE_pagebox<'a>(p: usize) -> &'a mut u16 {
     &mut MEM[p + 8].b16.s1
 }

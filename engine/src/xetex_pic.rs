@@ -22,6 +22,10 @@ use crate::xetex_output::{
 use crate::xetex_xetex0::{
     new_whatsit, pack_file_name, scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword,
 };
+use crate::xetex_xetexd::{
+    set_PIC_NODE_transform_matrix, BOX_depth, BOX_height, BOX_width, PIC_NODE_page,
+    PIC_NODE_pagebox, PIC_NODE_path, PIC_NODE_path_len,
+};
 use bridge::InputHandleWrapper;
 use bridge::TTInputFormat;
 use bridge::{ttstub_input_close, ttstub_input_open};
@@ -32,7 +36,7 @@ use dpx::{check_for_jpeg, jpeg_get_bbox};
 use dpx::{check_for_png, png_get_bbox};
 use dpx::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
 use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
-use libc::{free, memcpy, strlen};
+use libc::{free, strlen};
 pub type scaled_t = i32;
 pub type Fixed = scaled_t;
 pub type str_number = i32;
@@ -172,11 +176,7 @@ unsafe fn get_image_size_in_inches(handle: &mut InputHandleWrapper) -> Result<(f
   return full path in *path
   return bounds (tex points) in *bounds
 */
-unsafe fn find_pic_file(
-    mut path: *mut *mut i8,
-    mut pdfBoxType: i32,
-    mut page: i32,
-) -> Result<Rect, i32> {
+unsafe fn find_pic_file(mut pdfBoxType: i32, mut page: i32) -> Result<(Rect, *mut i8), i32> {
     let handle = ttstub_input_open(name_of_file, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         return Err(1);
@@ -197,8 +197,7 @@ unsafe fn find_pic_file(
             Err(e) => return Err(e),
         }
     };
-    *path = xstrdup(name_of_file);
-    Ok(bounds)
+    Ok((bounds, xstrdup(name_of_file)))
 }
 
 fn to_points(r: &Rect) -> [Point; 4] {
@@ -211,7 +210,6 @@ fn to_points(r: &Rect) -> [Point; 4] {
 }
 
 pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
-    let mut pic_path: *mut i8 = 0 as *mut i8;
     let mut check_keywords: bool = false;
     let mut page: i32 = 0;
     let mut pdf_box_type: i32 = 0;
@@ -238,14 +236,14 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
             pdf_box_type = 5i32
         }
     }
-    let bounds = if pdf_box_type == 6i32 {
-        find_pic_file(&mut pic_path, 1i32, page)
+    let (bounds, pic_path) = if pdf_box_type == 6i32 {
+        find_pic_file(1i32, page)
     } else {
-        find_pic_file(&mut pic_path, pdf_box_type, page)
+        find_pic_file(pdf_box_type, page)
     }
     .unwrap_or_else(|e| {
         result = e;
-        Rect::zero()
+        (Rect::zero(), std::ptr::null_mut())
     });
     let mut corners = bounds;
     let mut x_size_req = 0_f64;
@@ -376,11 +374,11 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
     );
     t = t.post_transform(&t2);
     if result == 0i32 {
+        let len = strlen(pic_path);
         new_whatsit(
             43i32 as i16,
             (9usize).wrapping_add(
-                strlen(pic_path)
-                    .wrapping_add(::std::mem::size_of::<memory_word>())
+                len.wrapping_add(::std::mem::size_of::<memory_word>())
                     .wrapping_sub(1)
                     .wrapping_div(::std::mem::size_of::<memory_word>()),
             ) as i16,
@@ -388,24 +386,27 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
         if is_pdf {
             MEM[cur_list.tail as usize].b16.s0 = 44
         }
-        MEM[(cur_list.tail + 4) as usize].b16.s1 = strlen(pic_path) as u16;
-        MEM[(cur_list.tail + 4) as usize].b16.s0 = page as u16;
-        MEM[(cur_list.tail + 8) as usize].b16.s1 = pdf_box_type as u16;
-        MEM[(cur_list.tail + 1) as usize].b32.s1 = D2Fix(xmax - xmin);
-        MEM[(cur_list.tail + 3) as usize].b32.s1 = D2Fix(ymax - ymin);
-        MEM[(cur_list.tail + 2) as usize].b32.s1 = 0;
-        MEM[(cur_list.tail + 5) as usize].b32.s0 = D2Fix(t.m11);
-        MEM[(cur_list.tail + 5) as usize].b32.s1 = D2Fix(t.m12);
-        MEM[(cur_list.tail + 6) as usize].b32.s0 = D2Fix(t.m21);
-        MEM[(cur_list.tail + 6) as usize].b32.s1 = D2Fix(t.m22);
-        MEM[(cur_list.tail + 7) as usize].b32.s0 = D2Fix(t.m31);
-        MEM[(cur_list.tail + 7) as usize].b32.s1 = D2Fix(t.m32);
-        memcpy(
-            &mut MEM[(cur_list.tail + 9) as usize] as *mut memory_word as *mut u8
-                as *mut libc::c_void,
-            pic_path as *const libc::c_void,
-            strlen(pic_path),
+        *PIC_NODE_path_len(cur_list.tail) = len as u16;
+        *PIC_NODE_page(cur_list.tail) = page as u16;
+        *PIC_NODE_pagebox(cur_list.tail) = pdf_box_type as u16;
+        *BOX_width(cur_list.tail) = D2Fix(xmax - xmin);
+        *BOX_height(cur_list.tail) = D2Fix(ymax - ymin);
+        *BOX_depth(cur_list.tail) = 0;
+        set_PIC_NODE_transform_matrix(
+            cur_list.tail,
+            (
+                D2Fix(t.m11),
+                D2Fix(t.m12),
+                D2Fix(t.m21),
+                D2Fix(t.m22),
+                D2Fix(t.m31),
+                D2Fix(t.m32),
+            ),
         );
+
+        let slice = std::slice::from_raw_parts(pic_path as *const u8, len as usize);
+        PIC_NODE_path(cur_list.tail).copy_from_slice(&slice);
+
         free(pic_path as *mut libc::c_void);
     } else {
         if file_line_error_style_p != 0 {
