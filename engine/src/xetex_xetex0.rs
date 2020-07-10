@@ -9982,11 +9982,10 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
 pub(crate) unsafe fn new_native_word_node(mut f: internal_font_number, mut n: i32) -> usize {
     let mut l: i32 = 0;
     l = (NATIVE_NODE_SIZE as u64).wrapping_add(
-        (n as u64)
-            .wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64)
-            .wrapping_add(::std::mem::size_of::<memory_word>() as u64)
-            .wrapping_sub(1i32 as u64)
-            .wrapping_div(::std::mem::size_of::<memory_word>() as u64),
+        ((n as u64) * (::std::mem::size_of::<UTF16_code>() as u64)
+            + (::std::mem::size_of::<memory_word>() as u64)
+            - 1)
+            / (::std::mem::size_of::<memory_word>() as u64),
     ) as i32;
     let q = get_node(l) as usize;
     set_NODE_type(q, TextNode::WhatsIt);
@@ -10010,8 +10009,6 @@ pub(crate) unsafe fn new_native_character(
     mut c: UnicodeScalar,
 ) -> usize {
     let p: usize;
-    let mut i: i32 = 0;
-    let mut len: i32 = 0;
     if !(FONT_MAPPING[f]).is_null() {
         if c as i64 > 65535 {
             if pool_ptr + 2 > pool_size {
@@ -10031,14 +10028,14 @@ pub(crate) unsafe fn new_native_character(
             pool_ptr += 1
         }
 
-        len = apply_mapping(
+        let len = apply_mapping(
             FONT_MAPPING[f],
             &mut str_pool[str_start[(str_ptr - TOO_BIG_CHAR) as usize] as usize],
             cur_length(),
         );
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
 
-        i = 0;
+        let mut i = 0;
 
         while i < len {
             if *mapped_text.offset(i as isize) as i32 >= 0xd800
@@ -10060,13 +10057,9 @@ pub(crate) unsafe fn new_native_character(
         }
 
         p = new_native_word_node(f, len);
-
-        i = 0;
-        while i <= len - 1 {
-            *(&mut MEM[p + 6] as *mut memory_word as *mut u16).offset(i as isize) =
-                *mapped_text.offset(i as isize);
-            i += 1
-        }
+        let p_text = NATIVE_NODE_text(p);
+        let slice = std::slice::from_raw_parts(mapped_text, len as usize);
+        p_text.copy_from_slice(&slice[..len as usize]);
     } else {
         if *INTPAR(IntPar::tracing_lost_chars) > 0 {
             if map_char_to_glyph(f, c) == 0 {
@@ -10331,10 +10324,10 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
         let nwn = new_native_word_node(main_f, len);
         *LLIST_link(cur_list.tail) = Some(nwn).tex_int();
         cur_list.tail = nwn;
-        for i in 0..len {
-            *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16).offset(i as isize) =
-                *native_text.offset((s + i) as isize);
-        }
+        let tail_text = NATIVE_NODE_text(cur_list.tail);
+        let slice = std::slice::from_raw_parts(native_text.offset(s as isize), len as usize);
+        tail_text.copy_from_slice(&slice[..len as usize]);
+
         measure_native_node(
             &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
             (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
@@ -10369,10 +10362,11 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
                 *LLIST_link(cur_list.tail) = Some(nwn).tex_int();
                 cur_list.tail = nwn;
 
-                for i in prevOffs..offs {
-                    *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
-                        .offset((i - prevOffs) as isize) = *native_text.offset((s + i) as isize);
-                }
+                let tail_text = NATIVE_NODE_text(cur_list.tail);
+                let slice =
+                    std::slice::from_raw_parts(native_text.offset(s as isize), offs as usize);
+                tail_text.copy_from_slice(&slice[prevOffs as usize..offs as usize]);
+
                 measure_native_node(
                     &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
                     (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
@@ -11237,13 +11231,11 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                             let mut ppp = p;
                             loop {
                                 if NODE_type(ppp) == TextNode::WhatsIt.into() {
-                                    for k in 0..MEM[ppp + 4].b16.s1 as i32 {
-                                        *(&mut MEM[pp + 6] as *mut memory_word as *mut u16)
-                                            .offset(total_chars as isize) =
-                                            *(&mut MEM[ppp + 6] as *mut memory_word as *mut u16)
-                                                .offset(k as isize);
-                                        total_chars += 1;
-                                    }
+                                    let ppp_text = NATIVE_NODE_text(ppp);
+                                    NATIVE_NODE_text(pp)[total_chars as usize
+                                        ..(total_chars as usize) + ppp_text.len()]
+                                        .copy_from_slice(&ppp_text);
+                                    total_chars += ppp_text.len() as i32;
                                 }
                                 if let Some(next) = LLIST_link(ppp).opt() {
                                     ppp = next;
@@ -16679,11 +16671,8 @@ pub(crate) unsafe fn main_control() {
                                 ) as *mut UTF16_code
                             }
                             save_native_len = native_len;
-                            for main_p in 0..*NATIVE_NODE_length(main_pp as usize) {
-                                *native_text.offset(native_len as isize) =
-                                    *(&mut MEM[(main_pp + 6) as usize] as *mut memory_word
-                                        as *mut u16)
-                                        .offset(main_p as isize);
+                            for c in NATIVE_NODE_text(main_pp as usize) {
+                                *native_text.offset(native_len as isize) = *c;
                                 native_len += 1;
                             }
                             for main_p in 0..main_h {
@@ -16756,74 +16745,67 @@ pub(crate) unsafe fn main_control() {
                         }
                     }
                 } else {
-                    let mut main_ppp = cur_list.head as i32;
+                    let main_pp = main_pp as usize;
+                    let mut main_ppp = cur_list.head;
                     if main_ppp != main_pp {
-                        while MEM[main_ppp as usize].b32.s1 != main_pp {
-                            if !is_char_node(main_ppp.opt())
-                                && NODE_type(main_ppp as usize) == TextNode::Disc.into()
+                        while MEM[main_ppp].b32.s1.opt() != Some(main_pp) {
+                            if !is_char_node(Some(main_ppp))
+                                && NODE_type(main_ppp) == TextNode::Disc.into()
                             {
-                                temp_ptr = main_ppp as usize;
+                                temp_ptr = main_ppp;
                                 for _ in 0..(*DISCRETIONARY_NODE_replace_count(temp_ptr)) {
-                                    main_ppp = *LLIST_link(main_ppp as usize);
+                                    main_ppp = *LLIST_link(main_ppp) as usize;
                                 }
                             }
                             if main_ppp != main_pp {
-                                main_ppp = *LLIST_link(main_ppp as usize);
+                                main_ppp = *LLIST_link(main_ppp) as usize;
                             }
                         }
                     }
-                    if !main_pp.is_texnull()
-                        && !is_char_node(main_pp.opt())
-                        && NODE_type(main_pp as usize) == TextNode::WhatsIt.into()
-                        && (whatsit_NODE_subtype(main_pp as usize) == WhatsItNST::NativeWord
-                            || whatsit_NODE_subtype(main_pp as usize) == WhatsItNST::NativeWordAt)
-                        && *NATIVE_NODE_font(main_pp as usize) as usize == main_f
+                    if !is_char_node(Some(main_pp))
+                        && NODE_type(main_pp) == TextNode::WhatsIt.into()
+                        && (whatsit_NODE_subtype(main_pp) == WhatsItNST::NativeWord
+                            || whatsit_NODE_subtype(main_pp) == WhatsItNST::NativeWordAt)
+                        && *NATIVE_NODE_font(main_pp) as usize == main_f
                         && main_ppp != main_pp
-                        && !is_char_node(main_ppp.opt())
-                        && NODE_type(main_ppp as usize) != TextNode::Disc.into()
+                        && !is_char_node(Some(main_ppp))
+                        && NODE_type(main_ppp) != TextNode::Disc.into()
                     {
-                        MEM[main_pp as usize].b32.s1 = new_native_word_node(
-                            main_f,
-                            main_k + *NATIVE_NODE_length(main_pp as usize) as i32,
-                        ) as i32;
-                        cur_list.tail = MEM[main_pp as usize].b32.s1 as usize;
+                        let text = NATIVE_NODE_text(main_pp);
+                        let nwn = new_native_word_node(main_f, main_k + text.len() as i32);
+                        *LLIST_link(main_pp) = Some(nwn).tex_int();
+                        cur_list.tail = nwn;
 
-                        for main_p in 0..*NATIVE_NODE_length(main_pp as usize) {
-                            *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
-                                .offset(main_p as isize) =
-                                *(&mut MEM[(main_pp + 6) as usize] as *mut memory_word as *mut u16)
-                                    .offset(main_p as isize);
-                        }
-                        for main_p in 0..main_k {
-                            *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
-                                .offset(
-                                    (main_p + *NATIVE_NODE_length(main_pp as usize) as i32)
-                                        as isize,
-                                ) = *native_text.offset(main_p as isize);
-                        }
+                        let tail_text = NATIVE_NODE_text(cur_list.tail);
+                        tail_text[..text.len()].copy_from_slice(text);
+
+                        let slice = std::slice::from_raw_parts(native_text, main_k as usize);
+                        tail_text[text.len()..].copy_from_slice(slice);
+
                         measure_native_node(
                             &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
                             (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
                         );
-                        let mut main_p = cur_list.head as i32;
+                        let mut main_p = cur_list.head;
                         if main_p != main_pp {
-                            while MEM[main_p as usize].b32.s1 != main_pp {
-                                main_p = *LLIST_link(main_p as usize);
+                            while MEM[main_p].b32.s1.opt() != Some(main_pp) {
+                                main_p = *LLIST_link(main_p) as usize;
                             }
                         }
-                        MEM[main_p as usize].b32.s1 = MEM[main_pp as usize].b32.s1;
-                        MEM[main_pp as usize].b32.s1 = None.tex_int();
-                        flush_node_list(main_pp.opt());
+                        MEM[main_p].b32.s1 = MEM[main_pp].b32.s1;
+                        MEM[main_pp].b32.s1 = None.tex_int();
+                        flush_node_list(Some(main_pp));
                     } else {
-                        MEM[main_pp as usize].b32.s1 = new_native_word_node(main_f, main_k) as i32;
-                        cur_list.tail = MEM[main_pp as usize].b32.s1 as usize;
-                        for main_p in 0..main_k {
-                            *(&mut MEM[cur_list.tail + 6] as *mut memory_word as *mut u16)
-                                .offset(main_p as isize) = *native_text.offset(main_p as isize);
-                        }
+                        let nwn = new_native_word_node(main_f, main_k);
+                        *LLIST_link(main_pp) = Some(nwn).tex_int();
+                        cur_list.tail = nwn;
+
+                        let slice = std::slice::from_raw_parts(native_text, main_k as usize);
+                        NATIVE_NODE_text(cur_list.tail).copy_from_slice(slice);
+
                         measure_native_node(
                             &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
-                            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
+                            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
                         );
                     }
                 }
@@ -16844,59 +16826,41 @@ pub(crate) unsafe fn main_control() {
                     }
                     if !main_pp.is_texnull() {
                         if *NATIVE_NODE_font(main_pp as usize) as usize == main_f {
-                            let mut main_p = MEM[main_pp as usize].b32.s1;
-                            while !is_char_node(main_p.opt())
-                                && (NODE_type(main_p as usize) == TextNode::Penalty.into()
-                                    || NODE_type(main_p as usize) == TextNode::Ins.into()
-                                    || NODE_type(main_p as usize) == TextNode::Mark.into()
-                                    || NODE_type(main_p as usize) == TextNode::Adjust.into()
-                                    || NODE_type(main_p as usize) == TextNode::WhatsIt.into()
-                                        && MEM[main_p as usize].b16.s0 <= 4)
+                            let mut main_p = MEM[main_pp as usize].b32.s1 as usize;
+                            while !is_char_node(Some(main_p))
+                                && (NODE_type(main_p) == TextNode::Penalty.into()
+                                    || NODE_type(main_p) == TextNode::Ins.into()
+                                    || NODE_type(main_p) == TextNode::Mark.into()
+                                    || NODE_type(main_p) == TextNode::Adjust.into()
+                                    || NODE_type(main_p) == TextNode::WhatsIt.into()
+                                        && MEM[main_p].b16.s0 <= 4)
                             {
-                                main_p = MEM[main_p as usize].b32.s1;
+                                main_p = *LLIST_link(main_p) as usize;
                             }
-                            if !is_char_node(main_p.opt())
-                                && NODE_type(main_p as usize) == TextNode::Glue.into()
+                            if !is_char_node(Some(main_p))
+                                && NODE_type(main_p) == TextNode::Glue.into()
                             {
-                                let mut main_ppp = MEM[main_p as usize].b32.s1;
-                                while !is_char_node(main_ppp.opt())
-                                    && (NODE_type(main_ppp as usize) == TextNode::Penalty.into()
-                                        || NODE_type(main_ppp as usize) == TextNode::Ins.into()
-                                        || NODE_type(main_ppp as usize) == TextNode::Mark.into()
-                                        || NODE_type(main_ppp as usize) == TextNode::Adjust.into()
-                                        || NODE_type(main_ppp as usize) == TextNode::WhatsIt.into()
-                                            && MEM[main_ppp as usize].b16.s0 <= 4)
+                                let mut main_ppp = MEM[main_p].b32.s1 as usize;
+                                while !is_char_node(Some(main_ppp))
+                                    && (NODE_type(main_ppp) == TextNode::Penalty.into()
+                                        || NODE_type(main_ppp) == TextNode::Ins.into()
+                                        || NODE_type(main_ppp) == TextNode::Mark.into()
+                                        || NODE_type(main_ppp) == TextNode::Adjust.into()
+                                        || NODE_type(main_ppp) == TextNode::WhatsIt.into()
+                                            && MEM[main_ppp].b16.s0 <= 4)
                                 {
-                                    main_ppp = *LLIST_link(main_ppp as usize)
+                                    main_ppp = *LLIST_link(main_ppp) as usize
                                 }
-                                if main_ppp == cur_list.tail as i32 {
-                                    temp_ptr = new_native_word_node(
-                                        main_f,
-                                        MEM[(main_pp + 4) as usize].b16.s1 as i32
-                                            + 1
-                                            + MEM[cur_list.tail + 4].b16.s1 as i32,
-                                    );
-                                    main_k = 0;
-                                    for t in 0..(MEM[(main_pp + 4) as usize].b16.s1 as i32) {
-                                        *(&mut MEM[temp_ptr + 6] as *mut memory_word as *mut u16)
-                                            .offset(main_k as isize) = *(&mut MEM
-                                            [(main_pp + 6i32) as usize]
-                                            as *mut memory_word
-                                            as *mut u16)
-                                            .offset(t as isize);
-                                        main_k += 1;
-                                    }
-                                    *(&mut MEM[temp_ptr + 6] as *mut memory_word as *mut u16)
-                                        .offset(main_k as isize) = ' ' as i32 as u16;
-                                    main_k += 1;
-                                    for t in 0..(MEM[cur_list.tail + 4].b16.s1 as i32) {
-                                        *(&mut MEM[temp_ptr + 6] as *mut memory_word as *mut u16)
-                                            .offset(main_k as isize) =
-                                            *(&mut MEM[cur_list.tail + 6] as *mut memory_word
-                                                as *mut u16)
-                                                .offset(t as isize);
-                                        main_k += 1;
-                                    }
+                                if main_ppp == cur_list.tail {
+                                    let pp_text = NATIVE_NODE_text(main_pp as usize);
+                                    let tail_text = NATIVE_NODE_text(cur_list.tail);
+                                    main_k = pp_text.len() as i32 + 1 + tail_text.len() as i32;
+                                    temp_ptr = new_native_word_node(main_f, main_k);
+                                    let temp_text = NATIVE_NODE_text(temp_ptr);
+                                    temp_text[..pp_text.len()].copy_from_slice(&pp_text);
+                                    temp_text[pp_text.len()] = ' ' as u16;
+                                    temp_text[pp_text.len() + 1..].copy_from_slice(&tail_text);
+
                                     measure_native_node(
                                         &mut MEM[temp_ptr] as *mut memory_word as *mut libc::c_void,
                                         (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,

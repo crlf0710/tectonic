@@ -46,12 +46,13 @@ use crate::xetex_xetexd::{
     /*set_NODE_subtype, */ set_NODE_type, set_whatsit_NODE_subtype, text_NODE_type,
     whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height,
     BOX_list_ptr, BOX_lr_mode, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
-    EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_SPEC_ref_count,
-    GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order,
-    GLUE_SPEC_width, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
-    LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_glyph_info_ptr,
-    NATIVE_NODE_length, NODE_type, PIC_NODE_page, PIC_NODE_path_len, SYNCTEX_tag, TeXInt, TeXOpt,
-    FONT_CHARACTER_WIDTH,
+    EDGE_NODE_edge_dist, FILE_NODE_id, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
+    GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
+    GLUE_SPEC_stretch_order, GLUE_SPEC_width, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
+    LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph,
+    NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length, NATIVE_NODE_text, NODE_type, OPEN_NODE_area,
+    OPEN_NODE_ext, OPEN_NODE_name, PIC_NODE_page, PIC_NODE_pagebox, PIC_NODE_path,
+    PIC_NODE_transform_matrix, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -495,10 +496,8 @@ unsafe fn hlist_out() {
                             if NODE_type(q) == TextNode::WhatsIt.into() {
                                 match whatsit_NODE_subtype(q) {
                                     WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                                        for j in 0..(*NATIVE_NODE_length(q)) {
-                                            str_pool[pool_ptr as usize] =
-                                                *(&mut MEM[q + 6] as *mut memory_word as *mut u16)
-                                                    .offset(j as isize);
+                                        for j in NATIVE_NODE_text(q) {
+                                            str_pool[pool_ptr as usize] = *j;
                                             pool_ptr += 1;
                                         }
                                         k += *BOX_width(q);
@@ -538,11 +537,11 @@ unsafe fn hlist_out() {
                         );
                         set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(r));
 
-                        for j in 0..cur_length() {
-                            *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset(j as isize) =
-                                str_pool
-                                    [(str_start[(str_ptr - TOO_BIG_CHAR) as usize] + j) as usize];
-                        }
+                        let start = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+                        NATIVE_NODE_text(q).copy_from_slice(
+                            &str_pool[start as usize..(start + cur_length()) as usize],
+                        );
+
                         /* "Link q into the list in place of r...p" */
                         *BOX_width(q) = k;
                         store_justified_native_glyphs(
@@ -596,9 +595,7 @@ unsafe fn hlist_out() {
         dvi_out(PUSH as _);
     }
 
-    if cur_s > max_push {
-        max_push = cur_s
-    }
+    max_push = max_push.max(cur_s);
 
     let save_loc = dvi_offset + dvi_ptr;
     let base_line = cur_v;
@@ -831,17 +828,10 @@ unsafe fn hlist_out() {
                                            !NATIVE_NODE_glyph_info_ptr(p).is_null()
                                        {
                                         dvi_out(SET_TEXT_AND_GLYPHS);
-                                        let len =
-                                            *NATIVE_NODE_length(p) as i32;
-                                        dvi_two(len as UTF16_code);
-                                        for k in 0..len {
-                                            dvi_two(*(&mut MEM[p + 6]
-                                                          as
-                                                          *mut memory_word
-                                                          as
-                                                          *mut u16).offset(k
-                                                                                          as
-                                                                                          isize));
+                                        let text = NATIVE_NODE_text(p);
+                                        dvi_two(text.len() as UTF16_code);
+                                        for k in text {
+                                            dvi_two(*k);
                                         }
                                         let len =
                                             makeXDVGlyphArrayData(&mut MEM[p]
@@ -912,31 +902,16 @@ unsafe fn hlist_out() {
                                    g_order as u16 {
                                 cur_glue +=
                                     *GLUE_SPEC_stretch(g) as f64;
-                                let mut glue_temp =
-                                    *BOX_glue_set(this_box) *
-                                        cur_glue;
-                                if glue_temp > 1000000000. {
-                                    glue_temp = 1000000000.
-                                } else if glue_temp < -1000000000.
-                                 {
-                                    glue_temp = -1000000000.
-                                }
-                                cur_g = tex_round(glue_temp)
+                                cur_g = tex_round((*BOX_glue_set(this_box) *
+                                        cur_glue).min(1_000_000_000.).max(-1_000_000_000.));
                             }
                         } else if *GLUE_SPEC_shrink_order(g) ==
                                       g_order as u16 {
                             cur_glue -=
                                 *GLUE_SPEC_shrink(g) as
                                     f64;
-                            let mut glue_temp =
-                                *BOX_glue_set(this_box) *
-                                    cur_glue;
-                            if glue_temp > 1000000000. {
-                                glue_temp = 1000000000.
-                            } else if glue_temp < -1000000000. {
-                                glue_temp = -1000000000.
-                            }
-                            cur_g = tex_round(glue_temp)
+                            cur_g = tex_round((*BOX_glue_set(this_box) *
+                                    cur_glue).min(1_000_000_000.).max(-1_000_000_000.));
                         }
                     }
 
@@ -1412,23 +1387,19 @@ unsafe fn vlist_out() {
                     if g_sign == GlueSign::Stretching {
                         if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
                             cur_glue += *GLUE_SPEC_stretch(g) as f64;
-                            let mut glue_temp = *BOX_glue_set(this_box) * cur_glue;
-                            if glue_temp > 1000000000. {
-                                glue_temp = 1000000000.
-                            } else if glue_temp < -1000000000. {
-                                glue_temp = -1000000000.
-                            }
-                            cur_g = tex_round(glue_temp)
+                            cur_g = tex_round(
+                                (*BOX_glue_set(this_box) * cur_glue)
+                                    .min(1_000_000_000.)
+                                    .max(-1_000_000_000.),
+                            )
                         }
                     } else if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
                         cur_glue -= *GLUE_SPEC_shrink(g) as f64;
-                        let mut glue_temp = *BOX_glue_set(this_box) * cur_glue;
-                        if glue_temp > 1000000000. {
-                            glue_temp = 1000000000.
-                        } else if glue_temp < -1000000000. {
-                            glue_temp = -1000000000.
-                        }
-                        cur_g = tex_round(glue_temp)
+                        cur_g = tex_round(
+                            (*BOX_glue_set(this_box) * cur_glue)
+                                .min(1_000_000_000.)
+                                .max(-1_000_000_000.),
+                        )
                     }
                 }
 
@@ -1588,7 +1559,7 @@ unsafe fn reverse(
     mut cur_g: *mut scaled_t,
     mut cur_glue: *mut f64,
 ) -> i32 {
-    let g_order = *BOX_glue_order(this_box);
+    let g_order = GlueOrder::from(*BOX_glue_order(this_box));
     let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
     let mut l = t;
     let mut popt = Some(temp_ptr);
@@ -1640,27 +1611,27 @@ unsafe fn reverse(
                         let g = *GLUE_NODE_glue_ptr(p) as usize; /* "will never match" */
                         rule_wd = *BOX_width(g) - *cur_g; /* = mem[lig_char(temp_ptr)] */
 
-                        if g_sign != GlueSign::Normal {
-                            if g_sign == GlueSign::Stretching {
+                        match g_sign {
+                            GlueSign::Normal => {}
+                            GlueSign::Stretching => {
                                 if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
                                     *cur_glue = *cur_glue + *GLUE_SPEC_stretch(g) as f64;
-                                    let mut glue_temp = *BOX_glue_set(this_box) * *cur_glue;
-                                    if glue_temp > 1000000000. {
-                                        glue_temp = 1000000000.
-                                    } else if glue_temp < -1000000000. {
-                                        glue_temp = -1000000000.
-                                    }
-                                    *cur_g = tex_round(glue_temp)
+                                    *cur_g = tex_round(
+                                        (*BOX_glue_set(this_box) * *cur_glue)
+                                            .min(1_000_000_000.)
+                                            .max(-1_000_000_000.),
+                                    );
                                 }
-                            } else if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
-                                *cur_glue = *cur_glue - *GLUE_SPEC_shrink(g) as f64;
-                                let mut glue_temp = *BOX_glue_set(this_box) * *cur_glue;
-                                if glue_temp > 1000000000. {
-                                    glue_temp = 1000000000.
-                                } else if glue_temp < -1000000000. {
-                                    glue_temp = -1000000000.
+                            }
+                            GlueSign::Shrinking => {
+                                if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
+                                    *cur_glue = *cur_glue - *GLUE_SPEC_shrink(g) as f64;
+                                    *cur_g = tex_round(
+                                        (*BOX_glue_set(this_box) * *cur_glue)
+                                            .min(1_000_000_000.)
+                                            .max(-1_000_000_000.),
+                                    );
                                 }
-                                *cur_g = tex_round(glue_temp)
                             }
                         }
 
@@ -1800,7 +1771,7 @@ pub(crate) unsafe fn out_what(p: usize) {
                 return;
             }
 
-            j = MEM[p + 1].b32.s0 as i16;
+            j = *FILE_NODE_id(p) as i16;
             if whatsit_NODE_subtype(p) == WhatsItNST::Write {
                 write_out(p);
                 return;
@@ -1820,9 +1791,9 @@ pub(crate) unsafe fn out_what(p: usize) {
                 return;
             }
 
-            cur_name = MEM[p + 1].b32.s1;
-            cur_area = MEM[p + 2].b32.s0;
-            cur_ext = MEM[p + 2].b32.s1;
+            cur_name = *OPEN_NODE_name(p);
+            cur_area = *OPEN_NODE_area(p);
+            cur_ext = *OPEN_NODE_ext(p);
             if length(cur_ext) == 0 {
                 cur_ext = maketexstring(b".tex")
             }
@@ -1936,7 +1907,6 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
     loop {
         if let Some(p) = popt {
             if MEM[(p + 1) as usize].b32.s1 == w {
-                /* By this point must be WhatsItNST::Open */
                 /*632:*/
                 match (mstate, MoveDir::from(MEM[p as usize].b32.s0)) {
                     (MoveSeen::None, MoveDir::YZOk)
@@ -2161,7 +2131,7 @@ unsafe fn write_out(p: usize) {
     cur_list.mode = old_mode;
     end_token_list();
     let old_setting = selector;
-    let j = MEM[p + 1].b32.s0 as i16;
+    let j = *FILE_NODE_id(p) as i16;
 
     if j == 18 {
         selector = Selector::NEW_STRING
@@ -2219,23 +2189,24 @@ unsafe fn pic_out(p: usize) {
     selector = Selector::NEW_STRING;
     print_cstr(b"pdf:image ");
     print_cstr(b"matrix ");
-    print_scaled(MEM[p + 5].b32.s0);
+    let matrix = PIC_NODE_transform_matrix(p);
+    print_scaled(matrix.0);
     print(' ' as i32);
-    print_scaled(MEM[p + 5].b32.s1);
+    print_scaled(matrix.1);
     print(' ' as i32);
-    print_scaled(MEM[p + 6].b32.s0);
+    print_scaled(matrix.2);
     print(' ' as i32);
-    print_scaled(MEM[p + 6].b32.s1);
+    print_scaled(matrix.3);
     print(' ' as i32);
-    print_scaled(MEM[p + 7].b32.s0);
+    print_scaled(matrix.4);
     print(' ' as i32);
-    print_scaled(MEM[p + 7].b32.s1);
+    print_scaled(matrix.5);
     print(' ' as i32);
     print_cstr(b"page ");
     print_int(*PIC_NODE_page(p) as i32);
     print(' ' as i32);
 
-    match MEM[p + 8].b16.s1 {
+    match *PIC_NODE_pagebox(p) {
         1 => print_cstr(b"pagebox cropbox "),
         2 => print_cstr(b"pagebox mediabox "),
         3 => print_cstr(b"pagebox bleedbox "),
@@ -2245,11 +2216,8 @@ unsafe fn pic_out(p: usize) {
     }
 
     print('(' as i32);
-    for i in 0..(*PIC_NODE_path_len(p)) {
-        print_raw_char(
-            *(&mut MEM[p + 9] as *mut memory_word as *mut u8).offset(i as isize) as UTF16_code,
-            true,
-        );
+    for i in PIC_NODE_path(p) {
+        print_raw_char(*i as UTF16_code, true);
     }
     print(')' as i32);
 

@@ -45,7 +45,7 @@ use crate::xetex_xetexd::{
     GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
     GLUE_SPEC_stretch_order, GLUE_SPEC_width, LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm,
     LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
-    LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length, NODE_type,
+    LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length, NATIVE_NODE_text, NODE_type,
     PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty,
     TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
@@ -142,7 +142,6 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     let mut j: i16 = 0;
     let mut c: UnicodeScalar = 0;
     let mut l: i32 = 0;
-    let mut i: i32 = 0;
     let mut for_end_1: i32 = 0;
     pack_begin_line = cur_list.mode_line; /* "this is for over/underfull box messages" */
     *LLIST_link(TEMP_HEAD as usize) = *LLIST_link(cur_list.head);
@@ -537,14 +536,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                     }
                                                                     if hc[0] == 0 {
                                                                         if hn > 0 {
-                                                                            let q = new_native_word_node(hf, *NATIVE_NODE_length(ha as usize) as i32 - l);
-                                                                            set_whatsit_NODE_subtype(q as usize, whatsit_NODE_subtype(ha as usize));
-                                                                            i = l;
-                                                                            while i < *NATIVE_NODE_length(ha as usize) as i32 {
-                                                                                *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset((i - l) as isize) =
-                                                                                    *(&mut MEM[(ha + 6) as usize] as *mut memory_word as *mut u16).offset(i as isize);
-                                                                                i += 1
-                                                                            }
+                                                                            let ha_text = NATIVE_NODE_text(ha as usize);
+                                                                            let q = new_native_word_node(hf, ha_text.len() as i32 - l);
+                                                                            set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha as usize));
+                                                                            NATIVE_NODE_text(q).copy_from_slice(&ha_text[l as usize..]);
+
                                                                             measure_native_node(
                                                                                 &mut MEM[q] as *mut memory_word as *mut libc::c_void,
                                                                                 (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
@@ -559,14 +555,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                                                             break 'c_31290;
                                                                         }
                                                                     } else if hn == 0 && l > 0 {
-                                                                        let q = new_native_word_node(hf, *NATIVE_NODE_length(ha as usize) as i32 - l);
+                                                                        let ha_text = NATIVE_NODE_text(ha as usize);
+                                                                        let q = new_native_word_node(hf, ha_text.len() as i32 - l);
                                                                         set_whatsit_NODE_subtype(q as usize, whatsit_NODE_subtype(ha as usize));
-                                                                        i = l;
-                                                                        while i < *NATIVE_NODE_length(ha as usize) as i32 {
-                                                                            *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset((i - l) as isize) =
-                                                                                *(&mut MEM[(ha + 6) as usize] as *mut memory_word as *mut u16).offset(i as isize);
-                                                                            i += 1
-                                                                        }
+                                                                        NATIVE_NODE_text(q).copy_from_slice(&ha_text[l as usize..]);
+
                                                                         measure_native_node(
                                                                             &mut MEM[q] as *mut memory_word as *mut libc::c_void,
                                                                             (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
@@ -2133,11 +2126,10 @@ unsafe fn hyphenate() {
             if hyf[j as usize] as i32 & 1i32 != 0 {
                 let q = new_native_word_node(hf, j as i32 - hyphen_passed as i32);
                 set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha as usize));
-                for i in 0..(j as i32 - hyphen_passed as i32) {
-                    *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset(i as isize) =
-                        *(&mut MEM[(ha + 6) as usize] as *mut memory_word as *mut u16)
-                            .offset((i as i32 + hyphen_passed as i32) as isize);
-                }
+
+                let ha_text = NATIVE_NODE_text(ha as usize);
+                NATIVE_NODE_text(q).copy_from_slice(&ha_text[hyphen_passed as usize..j as usize]);
+
                 measure_native_node(
                     &mut MEM[q] as *mut memory_word as *mut libc::c_void,
                     (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
@@ -2151,14 +2143,12 @@ unsafe fn hyphenate() {
                 hyphen_passed = j as i16;
             }
         }
-        hn = *NATIVE_NODE_length(ha as usize) as i16;
+        let ha_text = NATIVE_NODE_text(ha as usize);
+        hn = ha_text.len() as i16;
         let q = new_native_word_node(hf, hn as i32 - hyphen_passed as i32);
         set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha as usize));
-        for i in 0..(hn as i32 - hyphen_passed as i32) {
-            *(&mut MEM[q + 6] as *mut memory_word as *mut u16).offset(i as isize) =
-                *(&mut MEM[(ha + 6) as usize] as *mut memory_word as *mut u16)
-                    .offset((i as i32 + hyphen_passed as i32) as isize);
-        }
+        NATIVE_NODE_text(q).copy_from_slice(&ha_text[(hyphen_passed as usize)..]);
+
         measure_native_node(
             &mut MEM[q] as *mut memory_word as *mut libc::c_void,
             (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
