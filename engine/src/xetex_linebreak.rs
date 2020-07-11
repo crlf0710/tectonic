@@ -1006,13 +1006,13 @@ unsafe fn post_line_break(mut d: bool) {
         let cp = cur_p.unwrap();
         if *INTPAR(IntPar::texxet) > 0 {
             /*1494:*/
-            let mut q = MEM[TEMP_HEAD].b32.s1;
+            let mut q = *LLIST_link(TEMP_HEAD);
             if let Some(lr) = LR_ptr {
                 temp_ptr = lr;
                 let mut r = q;
                 loop {
                     let s = new_math(0, (MEM[temp_ptr].b32.s0 - 1) as i16) as usize;
-                    MEM[s].b32.s1 = r;
+                    *LLIST_link(s) = r;
                     r = s as i32;
                     temp_ptr = *LLIST_link(temp_ptr) as usize;
                     if (temp_ptr as i32).is_texnull() {
@@ -1020,7 +1020,7 @@ unsafe fn post_line_break(mut d: bool) {
                         break;
                     }
                 }
-                MEM[TEMP_HEAD].b32.s1 = r;
+                *LLIST_link(TEMP_HEAD) = r;
             }
             while q != MEM[cp + 1].b32.s1 {
                 if q < hi_mem_min && NODE_type(q as usize) == TextNode::Math.into() {
@@ -1029,15 +1029,15 @@ unsafe fn post_line_break(mut d: bool) {
                         if let Some(lr) = LR_ptr {
                             if MEM[lr].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3 {
                                 temp_ptr = lr;
-                                LR_ptr = MEM[temp_ptr].b32.s1.opt();
-                                MEM[temp_ptr].b32.s1 = avail.tex_int();
+                                LR_ptr = LLIST_link(temp_ptr).opt();
+                                *LLIST_link(temp_ptr) = avail.tex_int();
                                 avail = Some(temp_ptr);
                             }
                         }
                     } else {
                         temp_ptr = get_avail();
                         MEM[temp_ptr].b32.s0 = (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
-                        MEM[temp_ptr].b32.s1 = LR_ptr.tex_int();
+                        *LLIST_link(temp_ptr) = LR_ptr.tex_int();
                         LR_ptr = Some(temp_ptr);
                     }
                 }
@@ -1118,15 +1118,15 @@ unsafe fn post_line_break(mut d: bool) {
                     if let Some(lr) = LR_ptr {
                         if MEM[lr].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3i32 {
                             temp_ptr = lr;
-                            LR_ptr = MEM[temp_ptr].b32.s1.opt();
-                            MEM[temp_ptr].b32.s1 = avail.tex_int();
+                            LR_ptr = LLIST_link(temp_ptr).opt();
+                            *LLIST_link(temp_ptr) = avail.tex_int();
                             avail = Some(temp_ptr);
                         }
                     }
                 } else {
                     temp_ptr = get_avail();
                     MEM[temp_ptr].b32.s0 = (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
-                    MEM[temp_ptr].b32.s1 = LR_ptr.tex_int();
+                    *LLIST_link(temp_ptr) = LR_ptr.tex_int();
                     LR_ptr = Some(temp_ptr);
                 }
             }
@@ -1141,15 +1141,15 @@ unsafe fn post_line_break(mut d: bool) {
                 ptmp = q;
                 q.opt()
             } else {
-                let p = prev_rightmost(MEM[TEMP_HEAD].b32.s1.opt(), q.opt());
+                let p = prev_rightmost(LLIST_link(TEMP_HEAD).opt(), q.opt());
                 ptmp = p.tex_int();
-                find_protchar_right(MEM[TEMP_HEAD].b32.s1.opt(), p)
+                find_protchar_right(LLIST_link(TEMP_HEAD).opt(), p)
             };
             let w = char_pw(p, Side::Right);
             if w != 0 {
                 let k = new_margin_kern(-w, last_rightmost_char, Side::Right);
-                MEM[k].b32.s1 = MEM[ptmp as usize].b32.s1;
-                MEM[ptmp as usize].b32.s1 = k as i32;
+                *LLIST_link(k) = *LLIST_link(ptmp as usize);
+                *LLIST_link(ptmp as usize) = Some(k).tex_int();
                 if ptmp == q {
                     q = *LLIST_link(q as usize);
                 }
@@ -1157,31 +1157,31 @@ unsafe fn post_line_break(mut d: bool) {
         }
         if !glue_break {
             let r = new_param_glue(GluePar::right_skip);
-            MEM[r].b32.s1 = *LLIST_link(q as usize);
-            MEM[q as usize].b32.s1 = r as i32;
+            *LLIST_link(r) = *LLIST_link(q as usize);
+            *LLIST_link(q as usize) = Some(r).tex_int();
             q = r as i32;
         }
         if *INTPAR(IntPar::texxet) > 0 {
             /*1496:*/
             if let Some(lr) = LR_ptr {
                 let mut s = TEMP_HEAD;
-                let mut r = MEM[s].b32.s1;
+                let mut r = *LLIST_link(s);
 
                 while r != q {
                     s = r as usize;
-                    r = MEM[s].b32.s1
+                    r = *LLIST_link(s);
                 }
 
                 let mut ropt = Some(lr);
 
                 while let Some(r) = ropt {
                     temp_ptr = new_math(0, MEM[r].b32.s0 as i16);
-                    MEM[s].b32.s1 = Some(temp_ptr).tex_int();
+                    *LLIST_link(s) = Some(temp_ptr).tex_int();
                     s = temp_ptr;
                     ropt = LLIST_link(r).opt();
                 }
 
-                MEM[s].b32.s1 = q;
+                *LLIST_link(s) = q;
             }
         }
         /* 916: Put \leftskip at the left and detach this line. */
@@ -1196,7 +1196,7 @@ unsafe fn post_line_break(mut d: bool) {
             let w = char_pw(Some(p), Side::Left);
             if w != 0 {
                 let k = new_margin_kern(-w, last_leftmost_char, Side::Left);
-                MEM[k].b32.s1 = q;
+                *LLIST_link(k) = q;
                 q = k as i32;
             }
         }
@@ -1324,15 +1324,15 @@ unsafe fn post_line_break(mut d: bool) {
                             if let Some(lr) = LR_ptr {
                                 if MEM[lr].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3 {
                                     temp_ptr = lr;
-                                    LR_ptr = MEM[temp_ptr].b32.s1.opt();
-                                    MEM[temp_ptr].b32.s1 = avail.tex_int();
+                                    LR_ptr = LLIST_link(temp_ptr).opt();
+                                    *LLIST_link(temp_ptr) = avail.tex_int();
                                     avail = Some(temp_ptr);
                                 }
                             }
                         } else {
                             temp_ptr = get_avail();
                             MEM[temp_ptr].b32.s0 = (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
-                            MEM[temp_ptr].b32.s1 = LR_ptr.tex_int();
+                            *LLIST_link(temp_ptr) = LR_ptr.tex_int();
                             LR_ptr = Some(temp_ptr);
                         }
                     }
@@ -2118,8 +2118,8 @@ unsafe fn hyphenate() {
             || whatsit_NODE_subtype(ha as usize) == WhatsItNST::NativeWordAt)
     {
         let mut s = cur_p.unwrap();
-        while MEM[s].b32.s1 != ha {
-            s = MEM[s].b32.s1 as usize;
+        while *LLIST_link(s) != ha {
+            s = *LLIST_link(s) as usize;
         }
         hyphen_passed = 0;
         for j in l_hyf..=(hn as i32 - r_hyf) {
@@ -2134,7 +2134,7 @@ unsafe fn hyphenate() {
                     &mut MEM[q] as *mut memory_word as *mut libc::c_void,
                     (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
                 );
-                MEM[s].b32.s1 = q as i32;
+                *LLIST_link(s) = q as i32;
                 s = q;
                 let q = new_disc();
                 *DISCRETIONARY_NODE_pre_break(q) = new_native_character(hf, hyf_char) as i32;
@@ -2156,8 +2156,8 @@ unsafe fn hyphenate() {
         *LLIST_link(s) = Some(q).tex_int();
         s = q;
         let q = MEM[ha as usize].b32.s1;
-        MEM[s].b32.s1 = q;
-        MEM[ha as usize].b32.s1 = None.tex_int();
+        *LLIST_link(s) = q;
+        *LLIST_link(ha as usize) = None.tex_int();
         flush_node_list(ha.opt());
     } else {
         let q = MEM[hb as usize].b32.s1;
@@ -2237,14 +2237,14 @@ unsafe fn hyphenate() {
             l = j;
             j = (reconstitute(j, hn, bchar, hyf_char) as i32 + 1) as i16;
             if hyphen_passed == 0 {
-                MEM[s as usize].b32.s1 = MEM[HOLD_HEAD].b32.s1;
-                while !MEM[s as usize].b32.s1.is_texnull() {
-                    s = MEM[s as usize].b32.s1
+                *LLIST_link(s as usize) = *LLIST_link(HOLD_HEAD);
+                while let Some(next) = LLIST_link(s as usize).opt() {
+                    s = next as i32
                 }
                 if hyf[(j as i32 - 1i32) as usize] as i32 & 1i32 != 0 {
                     l = j;
                     hyphen_passed = (j as i32 - 1i32) as i16;
-                    MEM[HOLD_HEAD].b32.s1 = None.tex_int()
+                    *LLIST_link(HOLD_HEAD) = None.tex_int()
                 }
             }
             if hyphen_passed as i32 > 0 {
@@ -2252,7 +2252,7 @@ unsafe fn hyphenate() {
                 /*949: */
                 {
                     let r = get_node(SMALL_NODE_SIZE);
-                    *LLIST_link(r) = MEM[HOLD_HEAD].b32.s1;
+                    *LLIST_link(r) = *LLIST_link(HOLD_HEAD);
                     set_NODE_type(r, TextNode::Disc);
                     let mut major_tail = r;
                     r_count = 0;
@@ -2269,15 +2269,15 @@ unsafe fn hyphenate() {
                         i += 1;
                         c = hu[i as usize];
                         hu[i as usize] = hyf_char;
-                        MEM[hyf_node].b32.s1 = avail.tex_int();
+                        *LLIST_link(hyf_node) = avail.tex_int();
                         avail = Some(hyf_node);
                     }
                     while l as i32 <= i as i32 {
                         l = (reconstitute(l, i, FONT_BCHAR[hf as usize], TOO_BIG_CHAR) as i32 + 1)
                             as i16;
-                        if let Some(hh) = MEM[HOLD_HEAD].b32.s1.opt() {
+                        if let Some(hh) = LLIST_link(HOLD_HEAD).opt() {
                             if let Some(mt) = minor_tail {
-                                MEM[mt].b32.s1 = Some(hh).tex_int();
+                                *LLIST_link(mt) = Some(hh).tex_int();
                             } else {
                                 *DISCRETIONARY_NODE_pre_break(r) = Some(hh).tex_int();
                             }
@@ -2310,9 +2310,9 @@ unsafe fn hyphenate() {
                                 hu[c_loc as usize] = c;
                                 c_loc = 0_i16
                             }
-                            if let Some(hh) = MEM[HOLD_HEAD].b32.s1.opt() {
+                            if let Some(hh) = LLIST_link(HOLD_HEAD).opt() {
                                 if let Some(mt) = minor_tail {
-                                    MEM[mt].b32.s1 = Some(hh).tex_int();
+                                    *LLIST_link(mt) = Some(hh).tex_int();
                                 } else {
                                     *DISCRETIONARY_NODE_post_break(r) = Some(hh).tex_int();
                                 }
@@ -2330,7 +2330,7 @@ unsafe fn hyphenate() {
                         while l as i32 > j as i32 {
                             /*952: */
                             j = (reconstitute(j, hn, bchar, TOO_BIG_CHAR) as i32 + 1i32) as i16; /*:944*/
-                            MEM[major_tail].b32.s1 = MEM[HOLD_HEAD].b32.s1;
+                            *LLIST_link(major_tail) = *LLIST_link(HOLD_HEAD);
                             while let Some(next) = LLIST_link(major_tail).opt() {
                                 major_tail = next;
                                 r_count += 1;
@@ -2347,7 +2347,7 @@ unsafe fn hyphenate() {
                     }
                     s = major_tail as i32;
                     hyphen_passed = (j - 1) as i16;
-                    MEM[HOLD_HEAD].b32.s1 = None.tex_int();
+                    *LLIST_link(HOLD_HEAD) = None.tex_int();
                     if !(hyf[(j as i32 - 1i32) as usize] as i32 & 1i32 != 0) {
                         break;
                     }
@@ -2397,7 +2397,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
     hyphen_passed = 0;
     let mut t = HOLD_HEAD as i32;
     let mut w = 0;
-    MEM[HOLD_HEAD].b32.s1 = None.tex_int();
+    *LLIST_link(HOLD_HEAD) = None.tex_int();
     cur_l = hu[j as usize];
     cur_q = t;
     if j == 0 {
@@ -2511,7 +2511,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                             let p = lig_stack;
                                             let ls = new_lig_item(cur_r as u16);
                                             lig_stack = Some(ls);
-                                            MEM[ls].b32.s1 = p.tex_int()
+                                            *LLIST_link(ls) = p.tex_int()
                                         }
                                         7 | 11 => {
                                             if ligature_present {
@@ -2542,7 +2542,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                                     t = *LLIST_link(t as usize);
                                                     j += 1
                                                 }
-                                                lig_stack = MEM[ls].b32.s1.opt();
+                                                lig_stack = LLIST_link(ls).opt();
                                                 free_node(ls, SMALL_NODE_SIZE);
                                                 if let Some(ls) = lig_stack {
                                                     cur_r = MEM[ls].b16.s0 as i32
@@ -2646,7 +2646,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                 j += 1;
             }
             let p = ls;
-            lig_stack = MEM[p].b32.s1.opt();
+            lig_stack = LLIST_link(p).opt();
             free_node(p, SMALL_NODE_SIZE);
             if let Some(ls) = lig_stack {
                 cur_r = MEM[ls].b16.s0 as i32

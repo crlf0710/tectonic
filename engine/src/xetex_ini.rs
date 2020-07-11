@@ -1645,7 +1645,7 @@ unsafe fn new_patterns() {
         print_esc_cstr(b"patterns");
         help!(b"All patterns must be given before typesetting begins.");
         error();
-        MEM[GARBAGE].b32.s1 = scan_toks(false, false) as i32;
+        *LLIST_link(GARBAGE) = scan_toks(false, false) as i32;
         flush_list(Some(def_ref));
     };
 }
@@ -1778,7 +1778,7 @@ unsafe fn new_hyph_exceptions() {
                     /*973:*/
                     if (n as usize) < max_hyphenatable_length() {
                         let q = get_avail();
-                        MEM[q].b32.s1 = p.tex_int();
+                        *LLIST_link(q) = p.tex_int();
                         MEM[q].b32.s0 = n as i32;
                         p = Some(q);
                     }
@@ -2010,9 +2010,9 @@ pub(crate) unsafe fn prefixed_command() {
             if j != 0 {
                 let q = get_avail();
                 MEM[q].b32.s0 = j;
-                MEM[q].b32.s1 =
-                    MEM[def_ref].b32.s1;
-                MEM[def_ref].b32.s1 = q as i32;
+                *LLIST_link(q) =
+                    *LLIST_link(def_ref);
+                *LLIST_link(def_ref) = Some(q).tex_int();
             }
             if a >= 4 {
                 geq_define(p as usize, Cmd::from(Cmd::Call as u16 + (a % 4) as u16),
@@ -2301,7 +2301,7 @@ pub(crate) unsafe fn prefixed_command() {
             cur_cs = q;
             let q = scan_toks(false, false);
 
-            if MEM[def_ref].b32.s1.opt().is_none() {
+            if LLIST_link(def_ref).opt().is_none() {
                 if e {
                     if a >= 4 {
                         gsa_def(p as usize, None);
@@ -2311,7 +2311,7 @@ pub(crate) unsafe fn prefixed_command() {
                 } else {
                     eq_define(p as usize, Cmd::UndefinedCS, None);
                 }
-                MEM[def_ref].b32.s1 = avail.tex_int();
+                *LLIST_link(def_ref) = avail.tex_int();
                 avail = Some(def_ref);
             } else {
                 if p == LOCAL_BASE as i32 + Local::output_routine as i32 && !e {
@@ -2322,9 +2322,9 @@ pub(crate) unsafe fn prefixed_command() {
                     let q = get_avail();
                     MEM[q].b32.s0 =
                         LEFT_BRACE_TOKEN + 123;
-                    MEM[q].b32.s1 =
-                        MEM[def_ref].b32.s1;
-                    MEM[def_ref].b32.s1 = q as i32;
+                    *LLIST_link(q) =
+                        *LLIST_link(def_ref);
+                    *LLIST_link(def_ref) = Some(q).tex_int();
                 }
                 if e {
                     if a >= 4 {
@@ -4000,7 +4000,7 @@ unsafe fn initialize_more_initex_variables() {
     MEM[ACTIVE_LIST].b16.s0 = 0;
     MEM[PAGE_INS_HEAD].b16.s0 = 255;
     MEM[PAGE_INS_HEAD].b16.s1 = SPLIT_UP as u16;
-    MEM[PAGE_INS_HEAD].b32.s1 = PAGE_INS_HEAD as i32;
+    *LLIST_link(PAGE_INS_HEAD) = Some(PAGE_INS_HEAD).tex_int();
     MEM[PAGE_HEAD].b16.s1 = TextNode::Glue as u16;
     MEM[PAGE_HEAD].b16.s0 = NORMAL;
     avail = None;

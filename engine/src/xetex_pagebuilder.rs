@@ -630,7 +630,7 @@ pub(crate) unsafe fn build_page() {
                     page_so_far[2 + *GLUE_SPEC_stretch_order(slf.q as usize) as usize] += *GLUE_SPEC_stretch(slf.q as usize);
                     page_so_far[6] += *GLUE_SPEC_shrink(slf.q as usize);
 
-                    if *GLUE_SPEC_shrink_order(slf.q as usize) != NORMAL as _ && *GLUE_SPEC_shrink(slf.q as usize) != 0 {
+                    if *GLUE_SPEC_shrink_order(slf.q as usize) != GlueOrder::Normal as _ && *GLUE_SPEC_shrink(slf.q as usize) != 0 {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
