@@ -2155,15 +2155,15 @@ unsafe fn hyphenate() {
         );
         *LLIST_link(s) = Some(q).tex_int();
         s = q;
-        let q = MEM[ha as usize].b32.s1;
+        let q = *LLIST_link(ha as usize);
         *LLIST_link(s) = q;
         *LLIST_link(ha as usize) = None.tex_int();
         flush_node_list(ha.opt());
     } else {
-        let q = MEM[hb as usize].b32.s1;
-        MEM[hb as usize].b32.s1 = None.tex_int();
-        let r = MEM[ha as usize].b32.s1;
-        MEM[ha as usize].b32.s1 = None.tex_int();
+        let q = *LLIST_link(hb as usize);
+        *LLIST_link(hb as usize) = None.tex_int();
+        let r = *LLIST_link(ha as usize);
+        *LLIST_link(ha as usize) = None.tex_int();
         bchar = hyf_bchar;
         if is_char_node(ha.opt()) {
             if MEM[ha as usize].b16.s1 as usize != hf {
@@ -2218,7 +2218,7 @@ unsafe fn hyphenate() {
         match current_block {
             6662862405959679103 => {
                 s = cur_p.tex_int();
-                while MEM[s as usize].b32.s1 != ha {
+                while *LLIST_link(s as usize) != ha {
                     s = *LLIST_link(s as usize);
                 }
                 j = 0_i16
@@ -2338,11 +2338,11 @@ unsafe fn hyphenate() {
                         }
                     }
                     if r_count > 127 {
-                        MEM[s as usize].b32.s1 = *LLIST_link(r);
+                        *LLIST_link(s as usize) = *LLIST_link(r);
                         *LLIST_link(r) = None.tex_int();
                         flush_node_list(Some(r));
                     } else {
-                        MEM[s as usize].b32.s1 = Some(r).tex_int();
+                        *LLIST_link(s as usize) = Some(r).tex_int();
                         *DISCRETIONARY_NODE_replace_count(r) = r_count as u16;
                     }
                     s = major_tail as i32;
@@ -2357,7 +2357,7 @@ unsafe fn hyphenate() {
                 break;
             }
         }
-        MEM[s as usize].b32.s1 = q;
+        *LLIST_link(s as usize) = q;
         flush_list(init_list.opt());
     };
 }
@@ -2407,14 +2407,14 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
             lft_hit = init_lft
         }
         while let Some(p) = popt {
-            MEM[t as usize].b32.s1 = Some(get_avail()).tex_int();
-            t = MEM[t as usize].b32.s1;
+            *LLIST_link(t as usize) = Some(get_avail()).tex_int();
+            t = *LLIST_link(t as usize);
             MEM[t as usize].b16.s1 = hf as u16;
             MEM[t as usize].b16.s0 = MEM[p].b16.s0;
             popt = LLIST_link(p).opt()
         }
     } else if cur_l < TOO_BIG_CHAR {
-        MEM[t as usize].b32.s1 = Some(get_avail()).tex_int();
+        *LLIST_link(t as usize) = Some(get_avail()).tex_int();
         t = *LLIST_link(t as usize);
         MEM[t as usize].b16.s1 = hf as u16;
         MEM[t as usize].b16.s0 = cur_l as u16
@@ -2518,13 +2518,13 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                                 let p = new_ligature(
                                                     hf,
                                                     cur_l as u16,
-                                                    MEM[cur_q as usize].b32.s1,
+                                                    *LLIST_link(cur_q as usize),
                                                 );
                                                 if lft_hit {
                                                     MEM[p as usize].b16.s0 = 2_u16;
                                                     lft_hit = false
                                                 }
-                                                MEM[cur_q as usize].b32.s1 = Some(p).tex_int();
+                                                *LLIST_link(cur_q as usize) = Some(p).tex_int();
                                                 t = p as i32;
                                                 ligature_present = false
                                             }
@@ -2538,7 +2538,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                             if let Some(ls) = lig_stack {
                                                 if let Some(l) = MEM[(ls + 1) as usize].b32.s1.opt()
                                                 {
-                                                    MEM[t as usize].b32.s1 = Some(l).tex_int();
+                                                    *LLIST_link(t as usize) = Some(l).tex_int();
                                                     t = *LLIST_link(t as usize);
                                                     j += 1
                                                 }
@@ -2562,8 +2562,8 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                                 if j as i32 == n as i32 {
                                                     break;
                                                 }
-                                                MEM[t as usize].b32.s1 = get_avail() as i32;
-                                                t = MEM[t as usize].b32.s1;
+                                                *LLIST_link(t as usize) = get_avail() as i32;
+                                                t = *LLIST_link(t as usize);
                                                 MEM[t as usize].b16.s1 = hf as u16;
                                                 MEM[t as usize].b16.s0 = cur_r as u16;
                                                 j += 1;
@@ -2615,7 +2615,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
             _ => {}
         }
         if ligature_present {
-            let p = new_ligature(hf, cur_l as u16, MEM[cur_q as usize].b32.s1);
+            let p = new_ligature(hf, cur_l as u16, *LLIST_link(cur_q as usize));
             if lft_hit {
                 MEM[p].b16.s0 = 2;
                 lft_hit = false
@@ -2626,12 +2626,12 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                     rt_hit = false
                 }
             }
-            MEM[cur_q as usize].b32.s1 = Some(p).tex_int();
+            *LLIST_link(cur_q as usize) = Some(p).tex_int();
             t = p as i32;
             ligature_present = false
         }
         if w != 0 {
-            MEM[t as usize].b32.s1 = new_kern(w) as i32;
+            *LLIST_link(t as usize) = new_kern(w) as i32;
             t = *LLIST_link(t as usize);
             w = 0;
             MEM[(t + 2) as usize].b32.s0 = 0
@@ -2641,7 +2641,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
             cur_l = MEM[ls].b16.s0 as i32;
             ligature_present = true;
             if let Some(l) = MEM[ls + 1].b32.s1.opt() {
-                MEM[t as usize].b32.s1 = Some(l).tex_int();
+                *LLIST_link(t as usize) = Some(l).tex_int();
                 t = *LLIST_link(t as usize);
                 j += 1;
             }
@@ -2767,7 +2767,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
                         && *BOX_depth(l) == 0
                         && BOX_list_ptr(l).opt().is_none()))
         {
-            while MEM[l as usize].b32.s1.opt().is_none() {
+            while LLIST_link(l as usize).opt().is_none() {
                 if let Some(last) = hlist_stack.pop() {
                     l = last;
                 } else {

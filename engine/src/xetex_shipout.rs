@@ -1731,7 +1731,7 @@ unsafe fn reverse(
                 }
 
                 // next_p
-                MEM[p].b32.s1 = l.tex_int();
+                *LLIST_link(p) = l.tex_int();
                 let mut pp = Some(p);
                 if text_NODE_type(p) == TextNode::Kern.into() {
                     if rule_wd == 0 || l.is_none() {
@@ -1894,14 +1894,14 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
     MEM[q + 1].b32.s1 = w;
     MEM[q + 2].b32.s1 = (dvi_offset + dvi_ptr) as i32;
     if o == DOWN1 {
-        MEM[q].b32.s1 = down_ptr.tex_int();
+        *LLIST_link(q) = down_ptr.tex_int();
         down_ptr = Some(q);
     } else {
-        MEM[q].b32.s1 = right_ptr.tex_int();
+        *LLIST_link(q) = right_ptr.tex_int();
         right_ptr = Some(q);
     }
 
-    let mut popt = MEM[q].b32.s1.opt();
+    let mut popt = LLIST_link(q).opt();
     let mut mstate = MoveSeen::None;
 
     loop {
@@ -1973,7 +1973,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
         MEM[q].b32.s0 = MEM[p].b32.s0; /*634:*/
         if MEM[q].b32.s0 == MoveDir::YHere as i32 {
             dvi_out(o + 4); /* max_selector enum */
-            while MEM[q].b32.s1 != p as i32 {
+            while LLIST_link(q).opt() != Some(p) {
                 q = *LLIST_link(q) as usize;
 
                 match MoveDir::from(MEM[q].b32.s0) {
@@ -1984,7 +1984,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
             }
         } else {
             dvi_out(o + 9);
-            while MEM[q].b32.s1 != p as i32 {
+            while LLIST_link(q).opt() != Some(p) {
                 q = *LLIST_link(q) as usize;
 
                 match MoveDir::from(MEM[q].b32.s0) {
@@ -2092,7 +2092,7 @@ unsafe fn write_out(p: usize) {
     let q = get_avail();
     MEM[q].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
     let mut r = get_avail();
-    MEM[q].b32.s1 = Some(r).tex_int();
+    *LLIST_link(q) = Some(r).tex_int();
     MEM[r].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
     begin_token_list(q, Btl::Inserted);
     begin_token_list(MEM[p + 1].b32.s1 as usize, Btl::WriteText);

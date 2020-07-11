@@ -812,7 +812,7 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
                 let mut popt = None;
                 q = r;
                 loop {
-                    let t = MEM[r as usize].b32.s1.opt();
+                    let t = LLIST_link(r as usize).opt();
                     *LLIST_link(r) = popt.tex_int();
                     p = r;
                     popt = Some(p);
@@ -836,7 +836,7 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
         let u = new_math(0i32, END_M_CODE as i16);
         let j = if NODE_type(t) == TextNode::Glue.into() {
             let j = new_skip_param(GluePar::right_skip);
-            MEM[q as usize].b32.s1 = Some(j).tex_int();
+            *LLIST_link(q as usize) = Some(j).tex_int();
             *LLIST_link(j) = Some(u).tex_int();
             let j = *GLUE_NODE_glue_ptr(t) as usize;
             *GLUE_SPEC_stretch_order(temp_ptr) = *GLUE_SPEC_stretch_order(j);
@@ -1210,11 +1210,11 @@ pub(crate) unsafe fn after_math() {
             }
         }
         if t != ADJUST_HEAD {
-            MEM[cur_list.tail].b32.s1 = MEM[ADJUST_HEAD as usize].b32.s1;
+            MEM[cur_list.tail].b32.s1 = *LLIST_link(ADJUST_HEAD as usize);
             cur_list.tail = t;
         }
         if pre_t != PRE_ADJUST_HEAD {
-            MEM[cur_list.tail].b32.s1 = MEM[PRE_ADJUST_HEAD as usize].b32.s1;
+            MEM[cur_list.tail].b32.s1 = *LLIST_link(PRE_ADJUST_HEAD as usize);
             cur_list.tail = pre_t;
         }
         MEM[cur_list.tail].b32.s1 = new_penalty(*INTPAR(IntPar::post_display_penalty)) as i32;
@@ -2272,7 +2272,7 @@ unsafe fn make_op(q: usize) -> scaled_t {
                 shift_down = big_op_spacing2()
             }
             let p = new_kern(shift_down);
-            MEM[y as usize].b32.s1 = p as i32;
+            *LLIST_link(y as usize) = Some(p).tex_int();
             *LLIST_link(p) = Some(z).tex_int();
             let p = new_kern(big_op_spacing5());
             *LLIST_link(z) = Some(p).tex_int();
