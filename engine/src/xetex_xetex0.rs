@@ -470,7 +470,7 @@ pub(crate) unsafe fn new_spec(other: usize) -> usize {
     let q = get_node(GLUE_SPEC_SIZE);
     MEM[q] = MEM[other];
     *GLUE_SPEC_ref_count(q) = None.tex_int();
-    *GLUE_SPEC_width(q) = *GLUE_SPEC_width(other);
+    *GLUE_SPEC_size(q) = *GLUE_SPEC_size(other);
     *GLUE_SPEC_stretch(q) = *GLUE_SPEC_stretch(other);
     *GLUE_SPEC_shrink(q) = *GLUE_SPEC_shrink(other);
     q
@@ -628,6 +628,7 @@ pub(crate) unsafe fn print_mark(mut p: i32) {
         print_esc_cstr(b"CLOBBERED.");
     } else {
         show_token_list(LLIST_link(p as usize).opt(), None, max_print_line - 10);
+        // TODO
     }
     print_char('}' as i32);
 }
@@ -649,22 +650,22 @@ pub(crate) unsafe fn print_glue(mut d: scaled_t, order: GlueOrder, s: &[u8]) {
         GlueOrder::Normal => print_cstr(s),
     }
 }
-pub(crate) unsafe fn print_spec(p: i32, s: &[u8]) {
+pub(crate) unsafe fn print_spec(p: i32, unit: &[u8]) {
     if p < 0 || p >= lo_mem_max {
         print_char('*' as i32);
     } else {
         let p = p as usize;
-        print_scaled(MEM[p + 1].b32.s1);
-        if !s.is_empty() {
-            print_cstr(s);
+        print_scaled(*GLUE_SPEC_size(p));
+        if !unit.is_empty() {
+            print_cstr(unit);
         }
-        if MEM[p + 2].b32.s1 != 0 {
+        if *GLUE_SPEC_stretch(p) != 0 {
             print_cstr(b" plus ");
-            print_glue(MEM[p + 2].b32.s1, GlueOrder::from(MEM[p].b16.s1), s);
+            print_glue(*GLUE_SPEC_stretch(p), GlueOrder::from(MEM[p].b16.s1), unit);
         }
-        if MEM[p + 3].b32.s1 != 0 {
+        if *GLUE_SPEC_shrink(p) != 0 {
             print_cstr(b" minus ");
-            print_glue(MEM[p + 3].b32.s1, GlueOrder::from(MEM[p].b16.s0), s);
+            print_glue(*GLUE_SPEC_shrink(p), GlueOrder::from(MEM[p].b16.s0), unit);
         }
     };
 }
@@ -857,31 +858,31 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         }
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(MEM[p + 5].b32.s1.opt());
+                        show_node_list(BOX_list_ptr(p).opt());
                         pool_ptr -= 1
                     }
                     TextNode::Rule => {
                         print_esc_cstr(b"rule(");
-                        print_rule_dimen(MEM[p + 3].b32.s1);
+                        print_rule_dimen(*BOX_height(p));
                         print_char('+' as i32);
-                        print_rule_dimen(MEM[p + 2].b32.s1);
+                        print_rule_dimen(*BOX_depth(p));
                         print_cstr(b")x");
-                        print_rule_dimen(MEM[p + 1].b32.s1);
+                        print_rule_dimen(*BOX_width(p));
                     }
                     TextNode::Ins => {
                         print_esc_cstr(b"insert");
-                        print_int(MEM[p].b16.s0 as i32);
+                        print_int(*INSERTION_NODE_box_reg(p) as i32);
                         print_cstr(b", natural size ");
-                        print_scaled(MEM[p + 3].b32.s1);
+                        print_scaled(*INSERTION_NODE_height(p));
                         print_cstr(b"; split(");
                         print_spec(*INSERTION_NODE_split_top_ptr(p), b"");
                         print_char(',' as i32);
-                        print_scaled(MEM[p + 2].b32.s1);
+                        print_scaled(*INSERTION_NODE_depth(p));
                         print_cstr(b"); float cost ");
                         print_int(*INSERTION_NODE_float_cost(p));
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(MEM[p + 4].b32.s0.opt());
+                        show_node_list(INSERTION_NODE_ins_ptr(p).opt());
                         pool_ptr -= 1
                     }
                     TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
@@ -889,9 +890,9 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_write_whatsit(b"openout", p);
                             print_char('=' as i32);
                             print_file_name(
-                                MEM[p + 1].b32.s1,
-                                MEM[p + 2].b32.s0,
-                                MEM[p + 2].b32.s1,
+                                *OPEN_NODE_name(p),
+                                *OPEN_NODE_area(p),
+                                *OPEN_NODE_ext(p),
                             );
                         }
                         WhatsItNST::Write => {
@@ -2169,13 +2170,13 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr(b"dp");
             }
         }
-        Cmd::LastItem => match chr_code {
-            0 => print_esc_cstr(b"lastpenalty"), // ValLevel::Int
-            1 => print_esc_cstr(b"lastkern"),    // ValLevel::Dimen
-            2 => print_esc_cstr(b"lastskip"),    // ValLevel::Glue
+        Cmd::LastItem => match chr_code as u8 {
+            LAST_PENALTY_CODE => print_esc_cstr(b"lastpenalty"),
+            LAST_KERN_CODE => print_esc_cstr(b"lastkern"),
+            LAST_SKIP_CODE => print_esc_cstr(b"lastskip"),
             INPUT_LINE_NO_CODE => print_esc_cstr(b"inputlineno"),
             PDF_SHELL_ESCAPE_CODE => print_esc_cstr(b"shellescape"),
-            3 => print_esc_cstr(b"lastnodetype"), // LAST_NODE_TYPE_CODE
+            LAST_NODE_TYPE_CODE => print_esc_cstr(b"lastnodetype"),
             ETEX_VERSION_CODE => print_esc_cstr(b"eTeXversion"),
             XETEX_VERSION_CODE => print_esc_cstr(b"XeTeXversion"),
             XETEX_COUNT_GLYPHS_CODE => print_esc_cstr(b"XeTeXcountglyphs"),
@@ -2220,14 +2221,10 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             PAR_SHAPE_LENGTH_CODE => print_esc_cstr(b"parshapelength"),
             PAR_SHAPE_INDENT_CODE => print_esc_cstr(b"parshapeindent"),
             PAR_SHAPE_DIMEN_CODE => print_esc_cstr(b"parshapedimen"),
-            // (ETEX_EXPR - ValLevel::Int + ValLevel::Int)
-            59 => print_esc_cstr(b"numexpr"),
-            // (ETEX_EXPR - ValLevel::Int + ValLevel::Dimen)
-            60 => print_esc_cstr(b"dimexpr"),
-            // (ETEX_EXPR - ValLevel::Int + ValLevel::Glue)
-            61 => print_esc_cstr(b"glueexpr"),
-            // (ETEX_EXPR - ValLevel::Int + ValLevel::Mu)
-            62 => print_esc_cstr(b"muexpr"),
+            ETEX_EXPR_INT => print_esc_cstr(b"numexpr"),
+            ETEX_EXPR_DIMEN => print_esc_cstr(b"dimexpr"),
+            ETEX_EXPR_GLUE => print_esc_cstr(b"glueexpr"),
+            ETEX_EXPR_MU => print_esc_cstr(b"muexpr"),
             GLUE_STRETCH_ORDER_CODE => print_esc_cstr(b"gluestretchorder"),
             GLUE_SHRINK_ORDER_CODE => print_esc_cstr(b"glueshrinkorder"),
             GLUE_STRETCH_CODE => print_esc_cstr(b"gluestretch"),
@@ -5991,7 +5988,7 @@ pub(crate) unsafe fn find_font_dimen(writing: bool) {
         error();
     };
 }
-pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool) {
+pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool) {
     let mut m: i32 = 0;
     let mut n: i32 = 0;
     let mut k: i32 = 0;
@@ -6106,7 +6103,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
             }
         }
         Cmd::ToksRegister | Cmd::AssignToks | Cmd::DefFamily | Cmd::SetFont | Cmd::DefFont => {
-            if level != ValLevel::Tok as i16 {
+            if level != ValLevel::Tok {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -6191,7 +6188,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                     b"I\'m forgetting what you said and using zero instead."
                 );
                 error();
-                if level != ValLevel::Tok as i16 {
+                if level != ValLevel::Tok {
                     cur_val = 0;
                     cur_val_level = ValLevel::Dimen;
                 } else {
@@ -6328,10 +6325,9 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                 // TODO: may be bug
                 /* 19 = "lo_mem_stat_max" */
                 cur_val_level = ValLevel::from((MEM[m as usize].b16.s1 as i32 / 64) as u8);
-                cur_val = if cur_val_level < ValLevel::Glue {
-                    MEM[(m + 2) as usize].b32.s1
-                } else {
-                    MEM[(m + 1) as usize].b32.s1
+                cur_val = match cur_val_level {
+                    ValLevel::Int | ValLevel::Dimen => MEM[(m + 2) as usize].b32.s1,
+                    _ => MEM[(m + 1) as usize].b32.s1,
                 };
             } else {
                 scan_register_num();
@@ -6339,10 +6335,9 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                 if cur_val > 255 {
                     find_sa_element(cur_val_level, cur_val, false);
                     cur_val = if let Some(p) = cur_ptr {
-                        if cur_val_level < ValLevel::Glue {
-                            MEM[p + 2].b32.s1
-                        } else {
-                            MEM[p + 1].b32.s1
+                        match cur_val_level {
+                            ValLevel::Int | ValLevel::Dimen => MEM[p + 2].b32.s1,
+                            _ => MEM[p + 1].b32.s1,
                         }
                     } else {
                         0
@@ -6359,32 +6354,30 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
             }
         }
         Cmd::LastItem => {
-            if m >= INPUT_LINE_NO_CODE {
-                if m >= ETEX_GLUE {
+            if (m as u8) >= INPUT_LINE_NO_CODE {
+                if (m as u8) >= MU_TO_GLUE_CODE {
                     /*1568:*/
-                    if m < ETEX_MU {
-                        match m {
-                            MU_TO_GLUE_CODE => {
-                                /*1595:*/
-                                scan_mu_glue();
-                            }
-                            _ => {}
+                    match m as u8 {
+                        MU_TO_GLUE_CODE => {
+                            scan_mu_glue(); // 1595:
+                            cur_val_level = ValLevel::Glue;
                         }
-                        cur_val_level = ValLevel::Glue
-                    } else if m < ETEX_EXPR {
-                        match m {
-                            GLUE_TO_MU_CODE => {
-                                /*1596:*/
-                                scan_normal_glue(); /* if(m >= XETEX_DIM) */
-                            }
-                            _ => {}
+                        GLUE_TO_MU_CODE => {
+                            scan_normal_glue(); // 1596:
+                            cur_val_level = ValLevel::Mu;
                         }
-                        cur_val_level = ValLevel::Mu;
-                    } else {
-                        cur_val_level = ValLevel::from((m - ETEX_EXPR) as u8);
-                        scan_expr();
+                        _ => {
+                            cur_val_level = match m as u8 {
+                                ETEX_EXPR_INT => ValLevel::Int,
+                                ETEX_EXPR_DIMEN => ValLevel::Dimen,
+                                ETEX_EXPR_GLUE => ValLevel::Glue,
+                                ETEX_EXPR_MU => ValLevel::Mu,
+                                _ => unreachable!(),
+                            };
+                            scan_expr();
+                        }
                     }
-                    while cur_val_level as i32 > level as i32 {
+                    while cur_val_level > level {
                         if cur_val_level == ValLevel::Glue {
                             m = cur_val;
                             cur_val = MEM[(m + 1) as usize].b32.s1;
@@ -6395,22 +6388,23 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                         cur_val_level.prev();
                     }
                     if negative {
-                        if cur_val_level >= ValLevel::Glue {
-                            m = cur_val;
-                            let cur_val_ = new_spec(m as usize);
-                            cur_val = cur_val_ as i32;
-                            delete_glue_ref(m as usize);
-                            *GLUE_SPEC_width(cur_val_) = -(*GLUE_SPEC_width(cur_val_));
-                            *GLUE_SPEC_stretch(cur_val_) = -(*GLUE_SPEC_stretch(cur_val_));
-                            *GLUE_SPEC_shrink(cur_val_) = -(*GLUE_SPEC_shrink(cur_val_));
-                        } else {
-                            cur_val = -cur_val
+                        match cur_val_level {
+                            ValLevel::Int | ValLevel::Dimen => cur_val = -cur_val,
+                            _ => {
+                                m = cur_val;
+                                let cur_val_ = new_spec(m as usize);
+                                cur_val = cur_val_ as i32;
+                                delete_glue_ref(m as usize);
+                                *GLUE_SPEC_size(cur_val_) = -(*GLUE_SPEC_size(cur_val_));
+                                *GLUE_SPEC_stretch(cur_val_) = -(*GLUE_SPEC_stretch(cur_val_));
+                                *GLUE_SPEC_shrink(cur_val_) = -(*GLUE_SPEC_shrink(cur_val_));
+                            }
                         }
                     }
                     return;
                 }
                 if m >= XETEX_DIM {
-                    match m {
+                    match m as u8 {
                         XETEX_GLYPH_BOUNDS_CODE => {
                             /*1435:*/
                             if FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == AAT_FONT_FLAG
@@ -6457,7 +6451,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                             if FONT_AREA[q] as u32 == AAT_FONT_FLAG
                                 || FONT_AREA[q] as u32 == OTGR_FONT_FLAG
                             {
-                                match m {
+                                match m as u8 {
                                     FONT_CHAR_WD_CODE => cur_val = getnativecharwd(q, cur_val),
                                     FONT_CHAR_HT_CODE => cur_val = getnativecharht(q, cur_val),
                                     FONT_CHAR_DP_CODE => cur_val = getnativechardp(q, cur_val),
@@ -6469,19 +6463,11 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                                     q,
                                     effective_char(true, q, cur_val as u16) as usize,
                                 );
-                                match m {
-                                    FONT_CHAR_WD_CODE => {
-                                        cur_val = *FONT_CHARINFO_WIDTH(q, i);
-                                    }
-                                    FONT_CHAR_HT_CODE => {
-                                        cur_val = *FONT_CHARINFO_HEIGHT(q, i);
-                                    }
-                                    FONT_CHAR_DP_CODE => {
-                                        cur_val = *FONT_CHARINFO_DEPTH(q, i);
-                                    }
-                                    FONT_CHAR_IC_CODE => {
-                                        cur_val = *FONT_CHARINFO_ITALCORR(q, i);
-                                    }
+                                match m as u8 {
+                                    FONT_CHAR_WD_CODE => cur_val = *FONT_CHARINFO_WIDTH(q, i),
+                                    FONT_CHAR_HT_CODE => cur_val = *FONT_CHARINFO_HEIGHT(q, i),
+                                    FONT_CHAR_DP_CODE => cur_val = *FONT_CHARINFO_DEPTH(q, i),
+                                    FONT_CHAR_IC_CODE => cur_val = *FONT_CHARINFO_ITALCORR(q, i),
                                     _ => {}
                                 }
                             } else {
@@ -6489,7 +6475,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                             }
                         }
                         PAR_SHAPE_LENGTH_CODE | PAR_SHAPE_INDENT_CODE | PAR_SHAPE_DIMEN_CODE => {
-                            let mut q = cur_chr - PAR_SHAPE_LENGTH_CODE;
+                            let mut q = cur_chr - (PAR_SHAPE_LENGTH_CODE as i32);
                             scan_int();
                             if cur_val <= 0 {
                                 cur_val = 0;
@@ -6510,7 +6496,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                         GLUE_STRETCH_CODE | GLUE_SHRINK_CODE => {
                             scan_normal_glue();
                             let q = cur_val as usize;
-                            if m == GLUE_STRETCH_CODE {
+                            if (m as u8) == GLUE_STRETCH_CODE {
                                 cur_val = MEM[q + 2].b32.s1
                             } else {
                                 cur_val = MEM[q + 3].b32.s1
@@ -6521,7 +6507,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                     }
                     cur_val_level = ValLevel::Dimen
                 } else {
-                    match m {
+                    match m as u8 {
                         INPUT_LINE_NO_CODE => cur_val = line,
                         BADNESS_CODE => cur_val = last_badness,
                         PDF_SHELL_ESCAPE_CODE => cur_val = 0,
@@ -6926,9 +6912,9 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                             {
                                 cur_val = get_font_char_range(
                                     n as usize,
-                                    (m == XETEX_FIRST_CHAR_CODE) as i32,
+                                    ((m as u8) == XETEX_FIRST_CHAR_CODE) as i32,
                                 )
-                            } else if m == XETEX_FIRST_CHAR_CODE {
+                            } else if (m as u8) == XETEX_FIRST_CHAR_CODE {
                                 cur_val = FONT_BC[n as usize] as i32
                             } else {
                                 cur_val = FONT_EC[n as usize] as i32
@@ -6971,7 +6957,7 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                         GLUE_STRETCH_ORDER_CODE | GLUE_SHRINK_ORDER_CODE => {
                             scan_normal_glue();
                             let q = cur_val as usize;
-                            if m == GLUE_STRETCH_ORDER_CODE {
+                            if (m as u8) == GLUE_STRETCH_ORDER_CODE {
                                 cur_val = MEM[q].b16.s1 as i32
                             } else {
                                 cur_val = MEM[q].b16.s0 as i32
@@ -7009,20 +6995,17 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                 }
                 if tx < hi_mem_min as usize && cur_list.mode.1 != ListMode::NoMode {
                     match cur_chr as u8 {
-                        0 => {
-                            // ValLevel::Int
+                        LAST_PENALTY_CODE => {
                             if text_NODE_type(tx) == TextNode::Penalty.into() {
                                 cur_val = MEM[tx + 1].b32.s1;
                             }
                         }
-                        1 => {
-                            // ValLevel::Dimen
+                        LAST_KERN_CODE => {
                             if text_NODE_type(tx) == TextNode::Kern.into() {
                                 cur_val = MEM[tx + 1].b32.s1;
                             }
                         }
-                        2 => {
-                            // ValLevel::Glue
+                        LAST_SKIP_CODE => {
                             if text_NODE_type(tx) == TextNode::Glue.into() {
                                 cur_val = *GLUE_NODE_glue_ptr(tx);
                                 if MEM[tx].b16.s0 == MU_GLUE {
@@ -7041,16 +7024,9 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
                     }
                 } else if cur_list.mode == (false, ListMode::VMode) && tx == cur_list.head {
                     match cur_chr as u8 {
-                        0 => {
-                            // ValLevel::Int
-                            cur_val = last_penalty
-                        }
-                        1 => {
-                            // ValLevel::Dimen
-                            cur_val = last_kern
-                        }
-                        2 => {
-                            // ValLevel::Glue
+                        LAST_PENALTY_CODE => cur_val = last_penalty,
+                        LAST_KERN_CODE => cur_val = last_kern,
+                        LAST_SKIP_CODE => {
                             if last_glue != MAX_HALFWORD {
                                 cur_val = last_glue
                             }
@@ -7074,14 +7050,14 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
             help!(b"I\'m forgetting what you said and using zero instead.");
             error();
             cur_val = 0;
-            if level != ValLevel::Tok as i16 {
+            if level != ValLevel::Tok {
                 cur_val_level = ValLevel::Dimen;
             } else {
                 cur_val_level = ValLevel::Int;
             }
         }
     }
-    while cur_val_level as i32 > level as i32 {
+    while cur_val_level > level {
         /*447:*/
         if cur_val_level == ValLevel::Glue {
             cur_val = MEM[(cur_val + 1) as usize].b32.s1
@@ -7091,16 +7067,17 @@ pub(crate) unsafe fn scan_something_internal(mut level: i16, mut negative: bool)
         cur_val_level.prev();
     }
     if negative {
-        if cur_val_level >= ValLevel::Glue {
-            let cur_val_ = new_spec(cur_val as usize);
-            cur_val = cur_val_ as i32;
-            *GLUE_SPEC_width(cur_val_) = -(*GLUE_SPEC_width(cur_val_));
-            *GLUE_SPEC_stretch(cur_val_) = -(*GLUE_SPEC_stretch(cur_val_));
-            *GLUE_SPEC_shrink(cur_val_) = -(*GLUE_SPEC_shrink(cur_val_));
-        } else {
-            cur_val = -cur_val;
+        match cur_val_level {
+            ValLevel::Int | ValLevel::Dimen => cur_val = -cur_val,
+            _ => {
+                let cur_val_ = new_spec(cur_val as usize);
+                cur_val = cur_val_ as i32;
+                *GLUE_SPEC_size(cur_val_) = -(*GLUE_SPEC_size(cur_val_));
+                *GLUE_SPEC_stretch(cur_val_) = -(*GLUE_SPEC_stretch(cur_val_));
+                *GLUE_SPEC_shrink(cur_val_) = -(*GLUE_SPEC_shrink(cur_val_));
+            }
         }
-    } else if cur_val_level >= ValLevel::Glue && cur_val_level <= ValLevel::Mu {
+    } else if cur_val_level == ValLevel::Glue || cur_val_level == ValLevel::Mu {
         MEM[cur_val as usize].b32.s1 += 1;
     };
 }
@@ -7163,7 +7140,7 @@ pub(crate) unsafe fn scan_int() {
             }
         }
     } else if cur_cmd >= MIN_INTERNAL && cur_cmd <= MAX_INTERNAL {
-        scan_something_internal(ValLevel::Int as i16, false);
+        scan_something_internal(ValLevel::Int, false);
     } else {
         radix = 10;
         let mut m = 0xccccccc;
@@ -7279,21 +7256,22 @@ pub(crate) unsafe fn xetex_scan_dimen(
         if cur_cmd >= MIN_INTERNAL && cur_cmd <= MAX_INTERNAL {
             /*468:*/
             if mu {
-                scan_something_internal(ValLevel::Mu as i16, false);
-                if cur_val_level >= ValLevel::Glue {
-                    let v = MEM[(cur_val + 1) as usize].b32.s1;
-                    delete_glue_ref(cur_val as usize);
-                    cur_val = v;
+                scan_something_internal(ValLevel::Mu, false);
+                match cur_val_level {
+                    ValLevel::Int | ValLevel::Dimen => {}
+                    _ => {
+                        let v = MEM[(cur_val + 1) as usize].b32.s1;
+                        delete_glue_ref(cur_val as usize);
+                        cur_val = v;
+                    }
                 }
                 if cur_val_level == ValLevel::Mu {
                     return attach_sign(negative);
-                } else {
-                    if cur_val_level != ValLevel::Int {
-                        mu_error();
-                    }
+                } else if cur_val_level != ValLevel::Int {
+                    mu_error();
                 }
             } else {
-                scan_something_internal(ValLevel::Dimen as i16, false);
+                scan_something_internal(ValLevel::Dimen, false);
                 if cur_val_level == ValLevel::Dimen {
                     return attach_sign(negative);
                 }
@@ -7387,17 +7365,20 @@ pub(crate) unsafe fn xetex_scan_dimen(
             back_input();
         } else {
             if mu {
-                scan_something_internal(ValLevel::Mu as i16, false);
-                if cur_val_level >= ValLevel::Glue {
-                    let v = MEM[(cur_val + 1) as usize].b32.s1;
-                    delete_glue_ref(cur_val as usize);
-                    cur_val = v
+                scan_something_internal(ValLevel::Mu, false);
+                match cur_val_level {
+                    ValLevel::Int | ValLevel::Dimen => {}
+                    _ => {
+                        let v = MEM[(cur_val + 1) as usize].b32.s1;
+                        delete_glue_ref(cur_val as usize);
+                        cur_val = v
+                    }
                 }
                 if cur_val_level != ValLevel::Mu {
                     mu_error();
                 }
             } else {
-                scan_something_internal(ValLevel::Dimen as i16, false);
+                scan_something_internal(ValLevel::Dimen, false);
             }
             let v = cur_val;
             return found(save_cur_val, v, f, negative);
@@ -7578,10 +7559,10 @@ pub(crate) unsafe fn scan_dimen(mut mu: bool, mut inf: bool, mut shortcut: bool)
 pub(crate) unsafe fn scan_decimal() {
     xetex_scan_dimen(false, false, false, false);
 }
-pub(crate) unsafe fn scan_glue(mut level: i16) {
+pub(crate) unsafe fn scan_glue(level: ValLevel) {
     let mut negative: bool = false;
     let mut mu: bool = false;
-    mu = level == ValLevel::Mu as i16;
+    mu = level == ValLevel::Mu;
     negative = false;
     loop {
         loop {
@@ -7603,15 +7584,18 @@ pub(crate) unsafe fn scan_glue(mut level: i16) {
     }
     if cur_cmd >= MIN_INTERNAL && cur_cmd <= MAX_INTERNAL {
         scan_something_internal(level, negative);
-        if cur_val_level >= ValLevel::Glue {
-            if cur_val_level as i16 != level {
-                mu_error();
+        match cur_val_level {
+            ValLevel::Int | ValLevel::Dimen => {}
+            _ => {
+                if cur_val_level != level {
+                    mu_error();
+                }
+                return;
             }
-            return;
         }
         if cur_val_level == ValLevel::Int {
             scan_dimen(mu, false, true);
-        } else if level == ValLevel::Mu as i16 {
+        } else if level == ValLevel::Mu {
             mu_error();
         }
     } else {
@@ -7622,7 +7606,7 @@ pub(crate) unsafe fn scan_glue(mut level: i16) {
         }
     }
     let q = new_spec(0);
-    *GLUE_SPEC_width(q) = cur_val;
+    *GLUE_SPEC_size(q) = cur_val;
     if scan_keyword(b"plus") {
         scan_dimen(mu, true, false);
         *GLUE_SPEC_stretch(q) = cur_val;
@@ -7935,8 +7919,8 @@ pub(crate) unsafe fn scan_expr() {
                         } else if l == ValLevel::Dimen {
                             t = fract(t, n, f, MAX_HALFWORD)
                         } else {
-                            *GLUE_SPEC_width(t as usize) =
-                                fract(*GLUE_SPEC_width(t as usize), n, f, MAX_HALFWORD);
+                            *GLUE_SPEC_size(t as usize) =
+                                fract(*GLUE_SPEC_size(t as usize), n, f, MAX_HALFWORD);
                             *GLUE_SPEC_stretch(t as usize) =
                                 fract(*GLUE_SPEC_stretch(t as usize), n, f, MAX_HALFWORD);
                             *GLUE_SPEC_shrink(e as usize) =
@@ -7958,9 +7942,9 @@ pub(crate) unsafe fn scan_expr() {
                         e = add_or_sub(e, t, MAX_HALFWORD, r == Expr::Sub)
                     } else {
                         /*1582: */
-                        *GLUE_SPEC_width(e as usize) = add_or_sub(
-                            *GLUE_SPEC_width(e as usize),
-                            *GLUE_SPEC_width(t as usize),
+                        *GLUE_SPEC_size(e as usize) = add_or_sub(
+                            *GLUE_SPEC_size(e as usize),
+                            *GLUE_SPEC_size(t as usize),
                             MAX_HALFWORD,
                             r == Expr::Sub,
                         );
@@ -8064,10 +8048,10 @@ pub(crate) unsafe fn scan_expr() {
     cur_val_level = l;
 }
 pub(crate) unsafe fn scan_normal_glue() {
-    scan_glue(ValLevel::Glue as i16);
+    scan_glue(ValLevel::Glue);
 }
 pub(crate) unsafe fn scan_mu_glue() {
-    scan_glue(ValLevel::Mu as i16);
+    scan_glue(ValLevel::Mu);
 }
 pub(crate) unsafe fn scan_rule_spec() -> usize {
     let q = new_rule();
@@ -8289,56 +8273,59 @@ pub(crate) unsafe fn the_toks() -> usize {
         }
     }
     get_x_token();
-    scan_something_internal(ValLevel::Tok as i16, false);
-    if cur_val_level >= ValLevel::Ident {
-        /*485: */
-        let mut p = TEMP_HEAD;
-        *LLIST_link(p) = None.tex_int();
-        if cur_val_level == ValLevel::Ident {
-            let q = get_avail();
-            *LLIST_link(p) = Some(q).tex_int();
-            MEM[q].b32.s0 = CS_TOKEN_FLAG + cur_val;
-            p = q;
-        } else if let Some(v) = cur_val.opt() {
-            let mut ropt = LLIST_link(v).opt();
-            while let Some(r) = ropt {
-                let q = if let Some(q) = avail {
-                    avail = LLIST_link(q).opt();
-                    *LLIST_link(q) = None.tex_int();
-                    q
-                } else {
-                    get_avail()
-                };
+    scan_something_internal(ValLevel::Tok, false);
+    match cur_val_level {
+        ValLevel::Ident | ValLevel::Tok | ValLevel::InterChar | ValLevel::Mark => {
+            /*485: */
+            let mut p = TEMP_HEAD;
+            *LLIST_link(p) = None.tex_int();
+            if cur_val_level == ValLevel::Ident {
+                let q = get_avail();
                 *LLIST_link(p) = Some(q).tex_int();
-                MEM[q].b32.s0 = MEM[r].b32.s0;
+                MEM[q].b32.s0 = CS_TOKEN_FLAG + cur_val;
                 p = q;
-                ropt = LLIST_link(r).opt();
+            } else if let Some(v) = cur_val.opt() {
+                let mut ropt = LLIST_link(v).opt();
+                while let Some(r) = ropt {
+                    let q = if let Some(q) = avail {
+                        avail = LLIST_link(q).opt();
+                        *LLIST_link(q) = None.tex_int();
+                        q
+                    } else {
+                        get_avail()
+                    };
+                    *LLIST_link(p) = Some(q).tex_int();
+                    MEM[q].b32.s0 = MEM[r].b32.s0;
+                    p = q;
+                    ropt = LLIST_link(r).opt();
+                }
             }
+            p
         }
-        return p;
-    } else {
-        let old_setting_0 = selector;
-        selector = Selector::NEW_STRING;
-        let b = pool_ptr;
-        match cur_val_level as i32 {
-            0 => print_int(cur_val),
-            1 => {
-                print_scaled(cur_val);
-                print_cstr(b"pt");
+        _ => {
+            let old_setting_0 = selector;
+            selector = Selector::NEW_STRING;
+            let b = pool_ptr;
+            match cur_val_level {
+                ValLevel::Int => print_int(cur_val),
+                ValLevel::Dimen => {
+                    print_scaled(cur_val);
+                    print_cstr(b"pt");
+                }
+                ValLevel::Glue => {
+                    print_spec(cur_val, b"pt");
+                    delete_glue_ref(cur_val as usize);
+                }
+                ValLevel::Mu => {
+                    print_spec(cur_val, b"mu");
+                    delete_glue_ref(cur_val as usize);
+                }
+                _ => {}
             }
-            2 => {
-                print_spec(cur_val, b"pt");
-                delete_glue_ref(cur_val as usize);
-            }
-            3 => {
-                print_spec(cur_val, b"mu");
-                delete_glue_ref(cur_val as usize);
-            }
-            _ => {}
+            selector = old_setting_0;
+            str_toks(b)
         }
-        selector = old_setting_0;
-        return str_toks(b);
-    };
+    }
 }
 pub(crate) unsafe fn ins_the_toks() {
     *LLIST_link(GARBAGE as usize) = Some(the_toks()).tex_int();
@@ -11227,7 +11214,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 },
                 TextNode::Glue => {
                     let g = *GLUE_NODE_glue_ptr(p) as usize;
-                    x += *GLUE_SPEC_width(g);
+                    x += *GLUE_SPEC_size(g);
                     let o = *GLUE_SPEC_stretch_order(g) as usize;
                     total_stretch[o] += *GLUE_SPEC_stretch(g);
                     let o = *GLUE_SPEC_shrink_order(g) as usize;
@@ -11524,7 +11511,7 @@ pub(crate) unsafe fn vpackage(
                     x += d;
                     d = 0;
                     let g = *GLUE_NODE_glue_ptr(p) as usize;
-                    x += *GLUE_SPEC_width(g);
+                    x += *GLUE_SPEC_size(g);
                     let o = *GLUE_SPEC_stretch_order(g) as usize;
                     total_stretch[o] += *GLUE_SPEC_stretch(g);
                     let o = *GLUE_SPEC_shrink_order(g) as usize;
@@ -11673,11 +11660,11 @@ pub(crate) unsafe fn append_to_vlist(b: usize) {
         let d = if upwards {
             MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1
                 - cur_list.aux.b32.s1
-                - MEM[b + 2].b32.s1
+                - *BOX_depth(b)
         } else {
             MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1
                 - cur_list.aux.b32.s1
-                - MEM[b + 3].b32.s1
+                - *BOX_height(b)
         };
         if d < *DIMENPAR(DimenPar::line_skip_limit) {
             p = new_param_glue(GluePar::line_skip) as i32;
@@ -11691,9 +11678,9 @@ pub(crate) unsafe fn append_to_vlist(b: usize) {
     MEM[cur_list.tail].b32.s1 = b as i32;
     cur_list.tail = b;
     cur_list.aux.b32.s1 = if upwards {
-        MEM[b + 3].b32.s1
+        *BOX_height(b)
     } else {
-        MEM[b + 2].b32.s1
+        *BOX_depth(b)
     };
 }
 pub(crate) unsafe fn new_noad() -> usize {
@@ -11777,7 +11764,7 @@ pub(crate) unsafe fn get_preamble_token() {
             break;
         }
         scan_optional_equals();
-        scan_glue(ValLevel::Glue as i16);
+        scan_glue(ValLevel::Glue);
         if *INTPAR(IntPar::global_defs) > 0 {
             geq_define(
                 (GLUE_BASE as usize) + (GluePar::tab_skip as usize),
@@ -12308,7 +12295,7 @@ pub(crate) unsafe fn fin_align() {
                         *LLIST_link(u) = Some(g).tex_int();
                         u = g;
                         MEM[u].b16.s0 = GluePar::tab_skip as u16 + 1;
-                        t += *GLUE_SPEC_width(v);
+                        t += *GLUE_SPEC_size(v);
                         if *BOX_glue_sign(p as usize) == GlueSign::Stretching as u16 {
                             if *GLUE_SPEC_stretch_order(v) == *BOX_glue_order(p as usize) {
                                 t += tex_round(
@@ -12344,24 +12331,24 @@ pub(crate) unsafe fn fin_align() {
                             *BOX_glue_set(r) = 0.;
                         } else if t > *BOX_width(r) {
                             *BOX_glue_sign(r) = GlueSign::Stretching as u16;
-                            if MEM[r + 6].b32.s1 == 0 {
+                            if *UNSET_NODE_stretch(r) == 0 {
                                 *BOX_glue_set(r) = 0.;
                             } else {
                                 *BOX_glue_set(r) =
-                                    (t - *BOX_width(r)) as f64 / MEM[r + 6].b32.s1 as f64
+                                    (t - *BOX_width(r)) as f64 / *UNSET_NODE_stretch(r) as f64
                             }
                         } else {
-                            *BOX_glue_order(r) = MEM[r + 5].b16.s1;
+                            *BOX_glue_order(r) = *UNSET_NODE_shrink_order(r);
                             *BOX_glue_sign(r) = GlueSign::Shrinking as u16;
-                            if MEM[r + 4].b32.s1 == 0 {
+                            if *UNSET_NODE_shrink(r) == 0 {
                                 *BOX_glue_set(r) = 0.;
                             } else if *BOX_glue_order(r) == GlueOrder::Normal as _
-                                && *BOX_width(r) - t > MEM[r + 4].b32.s1
+                                && *BOX_width(r) - t > *UNSET_NODE_shrink(r)
                             {
                                 *BOX_glue_set(r) = 1.;
                             } else {
                                 *BOX_glue_set(r) =
-                                    (*BOX_width(r) - t) as f64 / MEM[r + 4].b32.s1 as f64;
+                                    (*BOX_width(r) - t) as f64 / *UNSET_NODE_shrink(r) as f64;
                                 // BOX_glue
                             }
                         }
@@ -12375,24 +12362,24 @@ pub(crate) unsafe fn fin_align() {
                             *BOX_glue_set(r) = 0.;
                         } else if t > *BOX_height(r) {
                             *BOX_glue_sign(r) = GlueSign::Stretching as u16;
-                            if MEM[r + 6].b32.s1 == 0 {
+                            if *UNSET_NODE_stretch(r) == 0 {
                                 *BOX_glue_set(r) = 0.;
                             } else {
                                 *BOX_glue_set(r) =
-                                    (t - *BOX_height(r)) as f64 / MEM[r + 6].b32.s1 as f64
+                                    (t - *BOX_height(r)) as f64 / *UNSET_NODE_stretch(r) as f64
                             }
                         } else {
-                            *BOX_glue_order(r) = MEM[r + 5].b16.s1;
+                            *BOX_glue_order(r) = *UNSET_NODE_shrink_order(r);
                             *BOX_glue_sign(r) = GlueSign::Shrinking as u16;
-                            if MEM[r + 4].b32.s1 == 0 {
+                            if *UNSET_NODE_shrink(r) == 0 {
                                 *BOX_glue_set(r) = 0.;
                             } else if *BOX_glue_order(r) == GlueOrder::Normal as _
-                                && *BOX_height(r) - t > MEM[r + 4].b32.s1
+                                && *BOX_height(r) - t > *UNSET_NODE_shrink(r)
                             {
                                 *BOX_glue_set(r) = 1.;
                             } else {
                                 *BOX_glue_set(r) =
-                                    (MEM[r + 3].b32.s1 - t) as f64 / MEM[r + 4].b32.s1 as f64
+                                    (*BOX_height(r) - t) as f64 / *UNSET_NODE_shrink(r) as f64
                             }
                         }
                         *BOX_height(r) = w;
@@ -13060,7 +13047,7 @@ pub(crate) unsafe fn app_space() {
                     /*:1079 */
                     let main_p = new_spec(0);
                     main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
-                    *GLUE_SPEC_width(main_p) = FONT_INFO[main_k as usize].b32.s1;
+                    *GLUE_SPEC_size(main_p) = FONT_INFO[main_k as usize].b32.s1;
                     *GLUE_SPEC_stretch(main_p) = FONT_INFO[(main_k + 1) as usize].b32.s1;
                     *GLUE_SPEC_shrink(main_p) = FONT_INFO[(main_k + 2) as usize].b32.s1;
                     FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p).tex_int();
@@ -13069,7 +13056,7 @@ pub(crate) unsafe fn app_space() {
         };
         let main_p = new_spec(main_p);
         if cur_list.aux.b32.s0 >= 2000 {
-            *GLUE_SPEC_width(main_p) += FONT_INFO
+            *GLUE_SPEC_size(main_p) += FONT_INFO
                 [(EXTRA_SPACE_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
                 .b32
                 .s1
@@ -13153,8 +13140,8 @@ pub(crate) unsafe fn append_glue() {
         1 => cur_val = 8,
         2 => cur_val = 12,
         3 => cur_val = 16,
-        4 => scan_glue(ValLevel::Glue as i16),
-        5 => scan_glue(ValLevel::Mu as i16),
+        4 => scan_glue(ValLevel::Glue),
+        5 => scan_glue(ValLevel::Mu),
         _ => {}
     }
     let g = new_glue(cur_val as usize);
@@ -14615,75 +14602,81 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
     arith_error = false;
     if q < Cmd::Multiply {
         /*1273:*/
-        if p < ValLevel::Glue {
-            if p == ValLevel::Int {
-                scan_int();
-            } else {
-                scan_dimen(false, false, false);
+        match p {
+            ValLevel::Int | ValLevel::Dimen => {
+                if p == ValLevel::Int {
+                    scan_int();
+                } else {
+                    scan_dimen(false, false, false);
+                }
+                if q == Cmd::Advance {
+                    cur_val = cur_val + w
+                }
             }
-            if q == Cmd::Advance {
-                cur_val = cur_val + w
-            }
-        } else {
-            scan_glue(p as i16);
-            if q == Cmd::Advance {
-                /*1274:*/
-                let q = new_spec(cur_val as usize);
-                let r = s;
-                delete_glue_ref(cur_val as usize);
-                *GLUE_SPEC_width(q) += *GLUE_SPEC_width(r as usize);
-                if *GLUE_SPEC_stretch(q) == 0 {
-                    *GLUE_SPEC_stretch_order(q) = GlueOrder::Normal as _;
+            _ => {
+                scan_glue(p);
+                if q == Cmd::Advance {
+                    /*1274:*/
+                    let q = new_spec(cur_val as usize);
+                    let r = s;
+                    delete_glue_ref(cur_val as usize);
+                    *GLUE_SPEC_size(q) += *GLUE_SPEC_size(r as usize);
+                    if *GLUE_SPEC_stretch(q) == 0 {
+                        *GLUE_SPEC_stretch_order(q) = GlueOrder::Normal as _;
+                    }
+                    if *GLUE_SPEC_stretch_order(q) == *GLUE_SPEC_stretch_order(r as usize) {
+                        *GLUE_SPEC_stretch(q) += *GLUE_SPEC_stretch(r as usize);
+                    } else if *GLUE_SPEC_stretch_order(q) < *GLUE_SPEC_stretch_order(r as usize)
+                        && *GLUE_SPEC_stretch(r as usize) != 0
+                    {
+                        *GLUE_SPEC_stretch(q) = *GLUE_SPEC_stretch(r as usize);
+                        *GLUE_SPEC_stretch_order(q) = *GLUE_SPEC_stretch_order(r as usize);
+                    }
+                    if *GLUE_SPEC_shrink(q) == 0 {
+                        *GLUE_SPEC_shrink_order(q) = GlueOrder::Normal as _;
+                    }
+                    if *GLUE_SPEC_shrink_order(q) == *GLUE_SPEC_shrink_order(r as usize) {
+                        *GLUE_SPEC_shrink(q) += *GLUE_SPEC_shrink(r as usize);
+                    } else if *GLUE_SPEC_shrink_order(q) < *GLUE_SPEC_shrink_order(r as usize)
+                        && *GLUE_SPEC_shrink(r as usize) != 0
+                    {
+                        *GLUE_SPEC_shrink(q) = *GLUE_SPEC_shrink(r as usize);
+                        *GLUE_SPEC_shrink_order(q) = *GLUE_SPEC_shrink_order(r as usize);
+                    }
+                    cur_val = q as i32;
                 }
-                if *GLUE_SPEC_stretch_order(q) == *GLUE_SPEC_stretch_order(r as usize) {
-                    *GLUE_SPEC_stretch(q) += *GLUE_SPEC_stretch(r as usize);
-                } else if *GLUE_SPEC_stretch_order(q) < *GLUE_SPEC_stretch_order(r as usize)
-                    && *GLUE_SPEC_stretch(r as usize) != 0
-                {
-                    *GLUE_SPEC_stretch(q) = *GLUE_SPEC_stretch(r as usize);
-                    *GLUE_SPEC_stretch_order(q) = *GLUE_SPEC_stretch_order(r as usize);
-                }
-                if *GLUE_SPEC_shrink(q) == 0 {
-                    *GLUE_SPEC_shrink_order(q) = GlueOrder::Normal as _;
-                }
-                if *GLUE_SPEC_shrink_order(q) == *GLUE_SPEC_shrink_order(r as usize) {
-                    *GLUE_SPEC_shrink(q) += *GLUE_SPEC_shrink(r as usize);
-                } else if *GLUE_SPEC_shrink_order(q) < *GLUE_SPEC_shrink_order(r as usize)
-                    && *GLUE_SPEC_shrink(r as usize) != 0
-                {
-                    *GLUE_SPEC_shrink(q) = *GLUE_SPEC_shrink(r as usize);
-                    *GLUE_SPEC_shrink_order(q) = *GLUE_SPEC_shrink_order(r as usize);
-                }
-                cur_val = q as i32;
             }
         }
     } else {
         scan_int();
-        if p < ValLevel::Glue {
-            if q == Cmd::Multiply {
-                if p == ValLevel::Int {
-                    cur_val = mult_and_add(w, cur_val, 0, TEX_INFINITY)
+        match p {
+            ValLevel::Int | ValLevel::Dimen => {
+                if q == Cmd::Multiply {
+                    if p == ValLevel::Int {
+                        cur_val = mult_and_add(w, cur_val, 0, TEX_INFINITY)
+                    } else {
+                        cur_val = mult_and_add(w, cur_val, 0, MAX_HALFWORD)
+                    }
                 } else {
-                    cur_val = mult_and_add(w, cur_val, 0, MAX_HALFWORD)
+                    cur_val = x_over_n(w, cur_val)
                 }
-            } else {
-                cur_val = x_over_n(w, cur_val)
             }
-        } else {
-            let r = new_spec(s as usize);
-            if q == Cmd::Multiply {
-                *GLUE_SPEC_width(r) =
-                    mult_and_add(*GLUE_SPEC_width(s as usize), cur_val, 0, MAX_HALFWORD);
-                *GLUE_SPEC_stretch(r) =
-                    mult_and_add(*GLUE_SPEC_stretch(s as usize), cur_val, 0, MAX_HALFWORD);
-                *GLUE_SPEC_shrink(r) =
-                    mult_and_add(*GLUE_SPEC_shrink(s as usize), cur_val, 0, MAX_HALFWORD)
-            } else {
-                *GLUE_SPEC_width(r) = x_over_n(*GLUE_SPEC_width(s as usize), cur_val);
-                *GLUE_SPEC_stretch(r) = x_over_n(*GLUE_SPEC_stretch(s as usize), cur_val);
-                *GLUE_SPEC_shrink(r) = x_over_n(*GLUE_SPEC_shrink(s as usize), cur_val)
+            _ => {
+                let r = new_spec(s as usize);
+                if q == Cmd::Multiply {
+                    *GLUE_SPEC_size(r) =
+                        mult_and_add(*GLUE_SPEC_size(s as usize), cur_val, 0, MAX_HALFWORD);
+                    *GLUE_SPEC_stretch(r) =
+                        mult_and_add(*GLUE_SPEC_stretch(s as usize), cur_val, 0, MAX_HALFWORD);
+                    *GLUE_SPEC_shrink(r) =
+                        mult_and_add(*GLUE_SPEC_shrink(s as usize), cur_val, 0, MAX_HALFWORD)
+                } else {
+                    *GLUE_SPEC_size(r) = x_over_n(*GLUE_SPEC_size(s as usize), cur_val);
+                    *GLUE_SPEC_stretch(r) = x_over_n(*GLUE_SPEC_stretch(s as usize), cur_val);
+                    *GLUE_SPEC_shrink(r) = x_over_n(*GLUE_SPEC_shrink(s as usize), cur_val)
+                }
+                cur_val = r as i32;
             }
-            cur_val = r as i32;
         }
     }
     if arith_error {
@@ -15434,11 +15427,11 @@ pub(crate) unsafe fn handle_right_brace() {
                 *LLIST_link(cur_list.tail) = Some(n).tex_int();
                 cur_list.tail = n;
                 set_NODE_type(cur_list.tail, TextNode::Ins);
-                MEM[cur_list.tail].b16.s0 = SAVE_STACK[SAVE_PTR + 0].val as u16;
-                MEM[cur_list.tail + 3].b32.s1 = *BOX_height(p) + *BOX_depth(p);
+                *INSERTION_NODE_box_reg(cur_list.tail) = SAVE_STACK[SAVE_PTR + 0].val as u16;
+                *INSERTION_NODE_height(cur_list.tail) = *BOX_height(p) + *BOX_depth(p);
                 *INSERTION_NODE_ins_ptr(cur_list.tail) = *BOX_list_ptr(p);
                 *INSERTION_NODE_split_top_ptr(cur_list.tail) = Some(q).tex_int();
-                MEM[cur_list.tail + 2].b32.s1 = d;
+                *INSERTION_NODE_depth(cur_list.tail) = d;
                 *INSERTION_NODE_float_cost(cur_list.tail) = f
             } else {
                 let n = get_node(SMALL_NODE_SIZE);
@@ -17473,7 +17466,7 @@ pub(crate) unsafe fn main_control() {
                         .unwrap_or_else(|| {
                             let main_p = new_spec(0);
                             main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
-                            *GLUE_SPEC_width(main_p) = FONT_INFO[main_k as usize].b32.s1;
+                            *GLUE_SPEC_size(main_p) = FONT_INFO[main_k as usize].b32.s1;
                             *GLUE_SPEC_stretch(main_p) = FONT_INFO[(main_k + 1) as usize].b32.s1;
                             *GLUE_SPEC_shrink(main_p) = FONT_INFO[(main_k + 2) as usize].b32.s1;
                             FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p).tex_int();
@@ -17594,7 +17587,7 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
                 popt = None;
             }
             TextNode::WhatsIt | TextNode::Mark | TextNode::Ins => {
-                prev_p = p as usize;
+                prev_p = p;
                 popt = LLIST_link(prev_p).opt();
             }
             TextNode::Glue | TextNode::Kern | TextNode::Penalty => {

@@ -42,8 +42,8 @@ use crate::xetex_xetexd::{
     DELTA_NODE_dstretch0, DELTA_NODE_dstretch1, DELTA_NODE_dstretch2, DELTA_NODE_dstretch3,
     DELTA_NODE_dwidth, DISCRETIONARY_NODE_post_break, DISCRETIONARY_NODE_pre_break,
     DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
-    GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
-    GLUE_SPEC_stretch_order, GLUE_SPEC_width, LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm,
+    GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_size,
+    GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm,
     LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
     LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length, NATIVE_NODE_text, NODE_type,
     PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty,
@@ -184,7 +184,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     let q = *GLUEPAR(GluePar::left_skip) as usize;
     r = *GLUEPAR(GluePar::right_skip);
-    background[1] = *GLUE_SPEC_width(q) + *GLUE_SPEC_width(r as usize);
+    background[1] = *GLUE_SPEC_size(q) + *GLUE_SPEC_size(r as usize);
     background[2] = 0;
     background[3] = 0;
     background[4] = 0;
@@ -376,7 +376,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         *fresh3 = finite_shrink(q) as i32;
                         q = *fresh3 as usize
                     }
-                    active_width[1] += *GLUE_SPEC_width(q);
+                    active_width[1] += *GLUE_SPEC_size(q);
                     active_width[(2 + *GLUE_SPEC_stretch_order(q)) as usize] += *GLUE_SPEC_stretch(q);
                     /*:895*/
                     active_width[6] += *GLUE_SPEC_shrink(q); /*:897*/
@@ -949,7 +949,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         } else {
             let q = new_spec(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
             delete_glue_ref(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
-            *GLUE_SPEC_width(q) += *ACTIVE_NODE_shortfall(best_bet as usize) - *ACTIVE_NODE_glue(best_bet as usize);
+            *GLUE_SPEC_size(q) += *ACTIVE_NODE_shortfall(best_bet as usize) - *ACTIVE_NODE_glue(best_bet as usize);
             *GLUE_SPEC_stretch(q) = 0;
             *GLUE_NODE_glue_ptr(last_line_fill as usize) = q as i32;
         }
@@ -1527,7 +1527,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                             match text_NODE_type(s as usize).unwrap() {
                                 TextNode::Glue => {
                                     let v = *GLUE_NODE_glue_ptr(s as usize) as usize;
-                                    break_width[1] -= *GLUE_SPEC_width(v);
+                                    break_width[1] -= *GLUE_SPEC_size(v);
                                     break_width[2 + *GLUE_SPEC_stretch_order(v) as usize] -=
                                         *GLUE_SPEC_stretch(v);
                                     break_width[6] -= *GLUE_SPEC_shrink(v);

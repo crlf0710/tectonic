@@ -216,9 +216,18 @@ pub(crate) unsafe fn GLUE_NODE_leader_ptr<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s1
 }
 
+pub(crate) unsafe fn INSERTION_NODE_box_reg<'a>(p: usize) -> &'a mut u16 {
+    &mut MEM[p].b16.s0
+}
 /// "the floating_penalty to be used"
 pub(crate) unsafe fn INSERTION_NODE_float_cost<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s1
+}
+pub(crate) unsafe fn INSERTION_NODE_depth<'a>(p: usize) -> &'a mut i32 {
+    &mut MEM[p + 2].b32.s1
+}
+pub(crate) unsafe fn INSERTION_NODE_height<'a>(p: usize) -> &'a mut i32 {
+    &mut MEM[p + 3].b32.s1
 }
 /// a glue pointer
 pub(crate) unsafe fn INSERTION_NODE_split_top_ptr<'a>(p: usize) -> &'a mut i32 {
@@ -422,7 +431,7 @@ pub(crate) unsafe fn GLUE_SPEC_stretch_order<'a>(p: usize) -> &'a mut u16 {
 pub(crate) unsafe fn GLUE_SPEC_shrink_order<'a>(p: usize) -> &'a mut u16 {
     &mut MEM[p].b16.s0
 }
-pub(crate) unsafe fn GLUE_SPEC_width<'a>(p: usize) -> &'a mut i32 {
+pub(crate) unsafe fn GLUE_SPEC_size<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s1
 }
 /// a scaled

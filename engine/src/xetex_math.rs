@@ -44,13 +44,13 @@ use crate::xetex_xetex0::{
     scan_math_fam_int, scan_usv_num, unsave, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_char_node, kern_NODE_width, math_char, math_class, math_fam, set_NODE_type, set_class,
-    set_family, set_kern_NODE_subtype, set_whatsit_NODE_subtype, text_NODE_type,
+    is_char_node, kern_NODE_width, math_char, math_class, math_fam, set_BOX_lr_mode, set_NODE_type,
+    set_class, set_family, set_kern_NODE_subtype, set_whatsit_NODE_subtype, text_NODE_type,
     whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height,
     BOX_list_ptr, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
     CHOICE_NODE_display, CHOICE_NODE_script, CHOICE_NODE_scriptscript, CHOICE_NODE_text,
-    GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
-    GLUE_SPEC_stretch_order, GLUE_SPEC_width, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
+    GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_size,
+    GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
     LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_size, NODE_type, TeXInt, TeXOpt,
 };
 
@@ -270,7 +270,7 @@ pub(crate) unsafe fn init_math() {
                         }
                         TextNode::Glue => {
                             let q = *GLUE_NODE_glue_ptr(p) as usize;
-                            d = *GLUE_SPEC_width(q);
+                            d = *GLUE_SPEC_size(q);
                             if *BOX_glue_sign(just_box) == GlueSign::Stretching as u16 {
                                 if *BOX_glue_order(just_box) == *GLUE_SPEC_stretch_order(q)
                                     && *GLUE_SPEC_stretch(q) != 0
@@ -841,7 +841,7 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
             let j = *GLUE_NODE_glue_ptr(t) as usize;
             *GLUE_SPEC_stretch_order(temp_ptr) = *GLUE_SPEC_stretch_order(j);
             *GLUE_SPEC_shrink_order(temp_ptr) = *GLUE_SPEC_shrink_order(j);
-            *GLUE_SPEC_width(temp_ptr) = e - *GLUE_SPEC_width(j);
+            *GLUE_SPEC_size(temp_ptr) = e - *GLUE_SPEC_size(j);
             *GLUE_SPEC_stretch(temp_ptr) = -(*GLUE_SPEC_stretch(j));
             *GLUE_SPEC_shrink(temp_ptr) = -(*GLUE_SPEC_shrink(j));
             *LLIST_link(u) = Some(t).tex_int();
@@ -860,7 +860,7 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
             let j = *GLUE_NODE_glue_ptr(r) as usize;
             *GLUE_SPEC_stretch_order(temp_ptr) = *GLUE_SPEC_stretch_order(j);
             *GLUE_SPEC_shrink_order(temp_ptr) = *GLUE_SPEC_shrink_order(j);
-            *GLUE_SPEC_width(temp_ptr) = d - *GLUE_SPEC_width(j);
+            *GLUE_SPEC_size(temp_ptr) = d - *GLUE_SPEC_size(j);
             *GLUE_SPEC_stretch(temp_ptr) = -(*GLUE_SPEC_stretch(j));
             *GLUE_SPEC_shrink(temp_ptr) = -(*GLUE_SPEC_shrink(j));
             *LLIST_link(r) = Some(u).tex_int();
@@ -1113,12 +1113,12 @@ pub(crate) unsafe fn after_math() {
         adjust_tail = Some(ADJUST_HEAD);
         pre_adjust_tail = Some(PRE_ADJUST_HEAD);
         let mut b = hpack(p, 0, PackMode::Additional);
-        let p = MEM[b + 5].b32.s1.opt();
+        let p = BOX_list_ptr(b).opt();
         let t = adjust_tail.unwrap();
         adjust_tail = None;
         let pre_t = pre_adjust_tail.unwrap();
         pre_adjust_tail = None;
-        w = MEM[b + 1].b32.s1;
+        w = *BOX_width(b);
         z = *DIMENPAR(DimenPar::display_width);
         s = *DIMENPAR(DimenPar::display_indent);
         if *INTPAR(IntPar::pre_display_correction) < 0i32 {
@@ -1151,9 +1151,9 @@ pub(crate) unsafe fn after_math() {
                     b = hpack(p, z, PackMode::Exactly);
                 }
             }
-            w = MEM[(b + 1) as usize].b32.s1
+            w = *BOX_width(b);
         }
-        MEM[b].b16.s0 = LRMode::DList as u16;
+        set_BOX_lr_mode(b, LRMode::DList);
         d = half(z - w);
         if e > 0 && d < 2 * e {
             d = half(z - w - e);
@@ -3382,21 +3382,21 @@ unsafe fn char_box(mut f: internal_font_number, mut c: i32) -> usize {
     } else {
         let q = FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c as u16)) as usize].b16;
         b = new_null_box();
-        MEM[b + 1].b32.s1 = FONT_INFO[(WIDTH_BASE[f] + q.s3 as i32) as usize].b32.s1
+        *BOX_width(b) = FONT_INFO[(WIDTH_BASE[f] + q.s3 as i32) as usize].b32.s1
             + FONT_INFO[(ITALIC_BASE[f] + q.s1 as i32 / 4) as usize]
                 .b32
                 .s1;
-        MEM[b + 3].b32.s1 = FONT_INFO[(HEIGHT_BASE[f] + q.s2 as i32 / 16) as usize]
+        *BOX_height(b) = FONT_INFO[(HEIGHT_BASE[f] + q.s2 as i32 / 16) as usize]
             .b32
             .s1;
-        MEM[b + 2].b32.s1 = FONT_INFO[(DEPTH_BASE[f] + q.s2 as i32 % 16) as usize]
+        *BOX_depth(b) = FONT_INFO[(DEPTH_BASE[f] + q.s2 as i32 % 16) as usize]
             .b32
             .s1;
         p = get_avail();
         MEM[p].b16.s0 = c as u16;
         MEM[p].b16.s1 = f as u16
     }
-    MEM[b + 5].b32.s1 = p as i32;
+    *BOX_list_ptr(b) = Some(p).tex_int();
     b
 }
 unsafe fn stack_into_box(b: usize, mut f: internal_font_number, mut c: u16) {
@@ -3441,7 +3441,7 @@ unsafe fn stack_glyph_into_box(b: usize, mut f: internal_font_number, mut g: i32
 }
 unsafe fn stack_glue_into_box(b: usize, mut min: scaled_t, mut max: scaled_t) {
     let q = new_spec(0);
-    *GLUE_SPEC_width(q) = min;
+    *GLUE_SPEC_size(q) = min;
     *GLUE_SPEC_stretch(q) = max - min;
     let p = new_glue(q);
     if NODE_type(b) == TextNode::HList.into() {
@@ -3549,7 +3549,7 @@ unsafe fn build_opentype_assembly(
                 *BOX_height(p) + *BOX_depth(p)
             };
         } else if NODE_type(p as usize) == TextNode::Glue.into() {
-            nat += *GLUE_SPEC_width(*GLUE_NODE_glue_ptr(p) as usize);
+            nat += *GLUE_SPEC_size(*GLUE_NODE_glue_ptr(p) as usize);
             str += *GLUE_SPEC_stretch(*GLUE_NODE_glue_ptr(p) as usize);
         }
         popt = LLIST_link(p).opt();

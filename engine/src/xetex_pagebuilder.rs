@@ -28,9 +28,10 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_non_discardable_node, set_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width,
-    GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_stretch,
-    GLUE_SPEC_stretch_order, GLUE_SPEC_width, INSERTION_NODE_ins_ptr, LLIST_link, MARK_NODE_class,
-    MARK_NODE_ptr, /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty, TeXInt, TeXOpt,
+    GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_size,
+    GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, INSERTION_NODE_ins_ptr, LLIST_link,
+    MARK_NODE_class, MARK_NODE_ptr, /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty,
+    TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -626,7 +627,7 @@ pub(crate) unsafe fn build_page() {
                         x_over_n(*BOX_height(slf.r), 1000) * *COUNT_REG(n as _)
                     };
 
-                    page_so_far[0] -= h + *GLUE_SPEC_width(slf.q as usize);
+                    page_so_far[0] -= h + *GLUE_SPEC_size(slf.q as usize);
                     page_so_far[2 + *GLUE_SPEC_stretch_order(slf.q as usize) as usize] += *GLUE_SPEC_stretch(slf.q as usize);
                     page_so_far[6] += *GLUE_SPEC_shrink(slf.q as usize);
 

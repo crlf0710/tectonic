@@ -2356,8 +2356,8 @@ pub(crate) unsafe fn prefixed_command() {
             let n = cur_cmd;
             scan_optional_equals();
             if n == Cmd::AssignMuGlue {
-                scan_glue(ValLevel::Mu as i16);
-            } else { scan_glue(ValLevel::Glue as i16); }
+                scan_glue(ValLevel::Mu);
+            } else { scan_glue(ValLevel::Glue); }
             trap_zero_glue();
             if a >= 4 {
                 geq_define(p, Cmd::GlueRef, cur_val.opt());
@@ -5593,10 +5593,10 @@ pub(crate) unsafe fn tt_run_engine(
 
         primitive(b"protected", Cmd::Prefix, 8);
 
-        primitive(b"numexpr", Cmd::LastItem, ETEX_EXPR + 0);
-        primitive(b"dimexpr", Cmd::LastItem, ETEX_EXPR + 1);
-        primitive(b"glueexpr", Cmd::LastItem, ETEX_EXPR + 2);
-        primitive(b"muexpr", Cmd::LastItem, ETEX_EXPR + 3);
+        primitive(b"numexpr", Cmd::LastItem, ETEX_EXPR_INT as i32);
+        primitive(b"dimexpr", Cmd::LastItem, ETEX_EXPR_DIMEN as i32);
+        primitive(b"glueexpr", Cmd::LastItem, ETEX_EXPR_GLUE as i32);
+        primitive(b"muexpr", Cmd::LastItem, ETEX_EXPR_MU as i32);
         primitive(b"gluestretchorder", Cmd::LastItem, GLUE_STRETCH_ORDER_CODE);
         primitive(b"glueshrinkorder", Cmd::LastItem, GLUE_SHRINK_ORDER_CODE);
         primitive(b"gluestretch", Cmd::LastItem, GLUE_STRETCH_CODE);
