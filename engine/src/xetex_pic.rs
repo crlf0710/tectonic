@@ -10,6 +10,7 @@
 
 use crate::core_memory::xstrdup;
 use crate::help;
+use crate::xetex_consts::WhatsItNST;
 use crate::xetex_errors::error;
 use crate::xetex_ext::{D2Fix, Fix2D};
 use crate::xetex_ini::memory_word;
@@ -26,6 +27,7 @@ use crate::xetex_xetexd::{
     set_PIC_NODE_transform_matrix, BOX_depth, BOX_height, BOX_width, PIC_NODE_page,
     PIC_NODE_pagebox, PIC_NODE_path, PIC_NODE_path_len,
 };
+
 use bridge::InputHandleWrapper;
 use bridge::TTInputFormat;
 use bridge::{ttstub_input_close, ttstub_input_open};
@@ -376,7 +378,7 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
     if result == 0i32 {
         let len = strlen(pic_path);
         new_whatsit(
-            43i32 as i16,
+            WhatsItNST::Pic,
             (9usize).wrapping_add(
                 len.wrapping_add(::std::mem::size_of::<memory_word>())
                     .wrapping_sub(1)
