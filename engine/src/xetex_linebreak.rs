@@ -94,8 +94,8 @@ static mut best_line: i32 = 0;
 static mut actual_looseness: i32 = 0;
 static mut line_diff: i32 = 0;
 static mut hn: i16 = 0;
-static mut ha: i32 = 0;
-static mut hb: i32 = 0;
+static mut ha: usize = 0;
+static mut hb: usize = 0;
 static mut hyf_char: i32 = 0;
 static mut init_cur_lang: u8 = 0;
 static mut l_hyf: i32 = 0;
@@ -133,16 +133,9 @@ unsafe fn get_native_usv(p: usize, i: usize) -> UnicodeScalar {
  * starting line number (0 unless we're continuing after display math). After
  * completion, `just_box` will point to the final box created.
  */
-#[rustfmt::skip]
+
 pub(crate) unsafe fn line_break(mut d: bool) {
-    let mut current_block: u64;
-    let mut r: i32 = 0;
-    let mut s: i32 = 0;
-    let mut prev_s: i32 = 0;
-    let mut j: i16 = 0;
     let mut c: UnicodeScalar = 0;
-    let mut l: i32 = 0;
-    let mut for_end_1: i32 = 0;
     pack_begin_line = cur_list.mode_line; /* "this is for over/underfull box messages" */
     *LLIST_link(TEMP_HEAD as usize) = *LLIST_link(cur_list.head);
 
@@ -175,15 +168,20 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     no_shrink_error_yet = true;
 
-    if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::left_skip) as usize) != NORMAL as _ && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::left_skip) as usize) != 0 {
+    if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::left_skip) as usize) != NORMAL as _
+        && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::left_skip) as usize) != 0
+    {
         *GLUEPAR(GluePar::left_skip) = finite_shrink(*GLUEPAR(GluePar::left_skip) as usize) as i32;
     }
-    if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::right_skip) as usize) != NORMAL as _ && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::right_skip) as usize) != 0 {
-        *GLUEPAR(GluePar::right_skip) = finite_shrink(*GLUEPAR(GluePar::right_skip) as usize) as i32;
+    if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::right_skip) as usize) != NORMAL as _
+        && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::right_skip) as usize) != 0
+    {
+        *GLUEPAR(GluePar::right_skip) =
+            finite_shrink(*GLUEPAR(GluePar::right_skip) as usize) as i32;
     }
 
     let q = *GLUEPAR(GluePar::left_skip) as usize;
-    r = *GLUEPAR(GluePar::right_skip);
+    let mut r = *GLUEPAR(GluePar::right_skip);
     background[1] = *GLUE_SPEC_size(q) + *GLUE_SPEC_size(r as usize);
     background[2] = 0;
     background[3] = 0;
@@ -218,11 +216,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     /* Prep relating to par_shape (877) */
 
-    if let Some(l) = LOCAL(Local::par_shape).opt() {
-        last_special_line = *LLIST_info(l) - 1;
+    if let Some(ps) = LOCAL(Local::par_shape).opt() {
+        last_special_line = *LLIST_info(ps) - 1;
         /* These direct `mem` accesses are in the original WEB code */
-        second_width = MEM[l + 2 * (last_special_line as usize + 1)].b32.s1;
-        second_indent = MEM[l + 2 * last_special_line as usize + 1].b32.s1;
+        second_width = MEM[ps + 2 * (last_special_line as usize + 1)].b32.s1;
+        second_indent = MEM[ps + 2 * last_special_line as usize + 1].b32.s1;
     } else {
         if *DIMENPAR(DimenPar::hang_indent) == 0 {
             last_special_line = 0;
@@ -244,7 +242,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             } else {
                 first_width = *DIMENPAR(DimenPar::hsize);
                 first_indent = 0;
-                second_width = *DIMENPAR(DimenPar::hsize) - (*DIMENPAR(DimenPar::hang_indent)).abs();
+                second_width =
+                    *DIMENPAR(DimenPar::hsize) - (*DIMENPAR(DimenPar::hang_indent)).abs();
                 if *DIMENPAR(DimenPar::hang_indent) >= 0 {
                     second_indent = *DIMENPAR(DimenPar::hang_indent);
                 } else {
@@ -284,7 +283,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             cur_lang = init_cur_lang;
             l_hyf = init_l_hyf;
             r_hyf = init_r_hyf;
-            hyph_index = if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32 != cur_lang as i32 {
+            hyph_index = if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32
+                != cur_lang as i32
+            {
                 0
             } else {
                 *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
@@ -329,7 +330,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 loop {
                     let f = MEM[cp].b16.s1 as usize;
                     let eff_char = effective_char(true, f, MEM[cp].b16.s0);
-                    active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize] + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize].b16.s3 as i32) as usize]
+                    active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize]
+                        + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize]
+                            .b16
+                            .s3 as i32) as usize]
                         .b32
                         .s1;
                     cur_p = LLIST_link(cp).opt();
@@ -340,411 +344,52 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 }
             }
             match text_NODE_type(cp).unwrap() {
-                TextNode::HList | TextNode::VList | TextNode::Rule => active_width[1] += *BOX_width(cp),
-                TextNode::WhatsIt => {
-                    match whatsit_NODE_subtype(cp) {
-                        WhatsItNST::Language => {
-                            cur_lang = *LANGUAGE_NODE_what_lang(cp) as u8;
-                            l_hyf = *LANGUAGE_NODE_what_lhm(cp) as i32;
-                            r_hyf = *LANGUAGE_NODE_what_rhm(cp) as i32;
-                            if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32 != cur_lang as i32 {
-                                hyph_index = 0i32
-                            } else {
-                                hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
-                            }
-                        }
-                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt | WhatsItNST::Glyph | WhatsItNST::Pic | WhatsItNST::Pdf =>
-                        {
-                            active_width[1] += *BOX_width(cp);
-                        }
-                        _ => {}
-                    }
+                TextNode::HList | TextNode::VList | TextNode::Rule => {
+                    active_width[1] += *BOX_width(cp)
                 }
+                TextNode::WhatsIt => match whatsit_NODE_subtype(cp) {
+                    WhatsItNST::Language => {
+                        cur_lang = *LANGUAGE_NODE_what_lang(cp) as u8;
+                        l_hyf = *LANGUAGE_NODE_what_lhm(cp) as i32;
+                        r_hyf = *LANGUAGE_NODE_what_rhm(cp) as i32;
+                        if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32
+                            != cur_lang as i32
+                        {
+                            hyph_index = 0i32
+                        } else {
+                            hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
+                        }
+                    }
+                    WhatsItNST::NativeWord
+                    | WhatsItNST::NativeWordAt
+                    | WhatsItNST::Glyph
+                    | WhatsItNST::Pic
+                    | WhatsItNST::Pdf => {
+                        active_width[1] += *BOX_width(cp);
+                    }
+                    _ => {}
+                },
                 TextNode::Glue => {
                     if auto_breaking {
                         if is_char_node(prev_p.opt()) {
                             try_break(0, BreakType::Unhyphenated);
                         } else if is_non_discardable_node(prev_p as usize) {
                             try_break(0, BreakType::Unhyphenated);
-                        } else if NODE_type(prev_p as usize) == TextNode::Kern.into() && kern_NODE_subtype(prev_p as usize) != KernNST::Explicit {
+                        } else if NODE_type(prev_p as usize) == TextNode::Kern.into()
+                            && kern_NODE_subtype(prev_p as usize) != KernNST::Explicit
+                        {
                             try_break(0, BreakType::Unhyphenated);
                         }
                     }
-                    let mut q = *GLUE_NODE_glue_ptr(cp) as usize;
-                    if *GLUE_SPEC_shrink_order(q) != NORMAL && *GLUE_SPEC_shrink(q) != 0 {
-                        let fresh3 = GLUE_NODE_glue_ptr(cp);
-                        *fresh3 = finite_shrink(q) as i32;
-                        q = *fresh3 as usize
-                    }
-                    active_width[1] += *GLUE_SPEC_size(q);
-                    active_width[(2 + *GLUE_SPEC_stretch_order(q)) as usize] += *GLUE_SPEC_stretch(q);
-                    /*:895*/
-                    active_width[6] += *GLUE_SPEC_shrink(q); /*:897*/
 
-                    if second_pass && auto_breaking {
-                        /*924: "Try to hyphenate the following word." */
-                        prev_s = cp as i32;
-                        s = *LLIST_link(prev_s as usize);
-
-                        if !s.is_texnull() {
-                            's_786: loop
-                            /*930: skip to node ha, or goto done1 if no hyphenation should be attempted */
-                            {
-                                if is_char_node(s.opt()) {
-                                    c = *CHAR_NODE_character(s as usize) as UnicodeScalar; /*:930*/
-                                    hf = *CHAR_NODE_font(s as usize) as usize;
-                                    current_block = 11202235766349324107;
-                                } else if NODE_type(s as usize) == TextNode::Ligature.into() {
-                                    if let Some(q) = LIGATURE_NODE_lig_ptr(s as usize).opt() {
-                                        c = *CHAR_NODE_character(q) as UnicodeScalar;
-                                        hf = *CHAR_NODE_font(q) as usize;
-                                        current_block = 11202235766349324107;
-                                    } else {
-                                        current_block = 13855806088735179493;
-                                    }
-                                } else if NODE_type(s as usize) == TextNode::Kern.into() && kern_NODE_subtype(s as usize) == KernNST::Normal {
-                                    current_block = 13855806088735179493;
-                                } else if NODE_type(s as usize) == TextNode::Math.into() && MEM[s as usize].b16.s0 >= L_CODE
-                                // NODE_subtype(s as usize)
-                                {
-                                    current_block = 13855806088735179493;
-                                } else {
-                                    if !(NODE_type(s as usize) == TextNode::WhatsIt.into()) {
-                                        current_block = 8166967358843938227;
-                                        break;
-                                    }
-                                    match whatsit_NODE_subtype(s as usize) {
-                                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                                            l = 0;
-                                            while l < *NATIVE_NODE_length(s as usize) as i32 {
-                                                c = get_native_usv(s as usize, l as usize);
-                                                if *LC_CODE(c as usize) != 0 {
-                                                    hf = *NATIVE_NODE_font(s as usize) as usize;
-                                                    prev_s = s;
-                                                    current_block = 16581706250867416845;
-                                                    break 's_786;
-                                                } else {
-                                                    if c as i64 >= 65536 {
-                                                        l += 1
-                                                    }
-                                                    l += 1
-                                                }
-                                            }
-                                        }
-                                        WhatsItNST::Language => {
-                                            cur_lang = *LANGUAGE_NODE_what_lang(s as usize) as u8;
-                                            l_hyf = *LANGUAGE_NODE_what_lhm(s as usize) as i32;
-                                            r_hyf = *LANGUAGE_NODE_what_rhm(s as usize) as i32;
-
-                                            hyph_index = if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32 != cur_lang as i32 {
-                                                0
-                                            } else {
-                                                *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
-                                            };
-                                        }
-                                        _ => {}
-                                    }
-                                    current_block = 13855806088735179493;
-                                }
-                                match current_block {
-                                    11202235766349324107 => {
-                                        hc[0] = if hyph_index == 0 || c > 255 {
-                                            *LC_CODE(c as usize)
-                                        } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
-                                            0
-                                        } else {
-                                            *trie_tro.offset((hyph_index + c) as isize)
-                                        };
-                                        if hc[0] != 0 {
-                                            if hc[0] == c || *INTPAR(IntPar::uc_hyph) > 0 {
-                                                current_block = 16581706250867416845;
-                                                break;
-                                            } else {
-                                                current_block = 8166967358843938227;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    _ => {}
-                                }
-                                prev_s = s;
-                                s = *LLIST_link(prev_s as usize);
-                            }
-                            match current_block {
-                                8166967358843938227 => {}
-                                _ => {
-                                    hyf_char = HYPHEN_CHAR[hf as usize];
-                                    if !(hyf_char < 0) {
-                                        if !(hyf_char > BIGGEST_CHAR) {
-                                            ha = prev_s;
-
-                                            if !((l_hyf + r_hyf) as usize > max_hyphenatable_length()) {
-                                                if !ha.is_texnull()
-                                                    && ha < hi_mem_min
-                                                    && NODE_type(ha as usize) == TextNode::WhatsIt.into()
-                                                    && (whatsit_NODE_subtype(ha as usize) == WhatsItNST::NativeWord || whatsit_NODE_subtype(ha as usize) == WhatsItNST::NativeWordAt)
-                                                {
-                                                    /*926: check that nodes after native_word permit hyphenation; if not, goto done1 */
-                                                    s = *LLIST_link(ha as usize);
-
-                                                    loop {
-                                                        if !is_char_node(s.opt()) {
-                                                            match text_NODE_type(s as usize).unwrap() {
-                                                                TextNode::Ligature => {}
-                                                                TextNode::Kern => {
-                                                                    if kern_NODE_subtype(s as usize) != KernNST::Normal {
-                                                                        current_block = 2606747282402567793;
-                                                                        break;
-                                                                    }
-                                                                }
-                                                                TextNode::WhatsIt | TextNode::Glue | TextNode::Penalty | TextNode::Ins | TextNode::Adjust | TextNode::Mark => {
-                                                                    current_block = 2606747282402567793;
-                                                                    break;
-                                                                }
-                                                                _ => {
-                                                                    current_block = 8166967358843938227;
-                                                                    break;
-                                                                }
-                                                            }
-                                                        }
-                                                        s = *LLIST_link(s as usize);
-                                                    }
-                                                    match current_block {
-                                                        8166967358843938227 => {}
-                                                        _ => {
-                                                            /*927: prepare a native_word_node for hyphenation.
-                                                             * "Note that if there are chars with lccode = 0,
-                                                             * we split them out into separate native_word
-                                                             * nodes." */
-                                                            hn = 0 as i16;
-                                                            'c_31290: loop {
-                                                                /* 'ha' can change in the loop, so for safety: */
-                                                                for_end_1 = *NATIVE_NODE_length(ha as usize) as i32;
-
-                                                                l = 0;
-                                                                loop {
-                                                                    if !(l < for_end_1) {
-                                                                        break 'c_31290;
-                                                                    }
-                                                                    c = get_native_usv(ha as usize, l as usize);
-                                                                    if hyph_index == 0 || c > 255 {
-                                                                        hc[0] = *LC_CODE(c as usize);
-                                                                    } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
-                                                                        hc[0] = 0
-                                                                    } else {
-                                                                        hc[0] = *trie_tro.offset((hyph_index + c) as isize)
-                                                                    }
-                                                                    if hc[0] == 0 {
-                                                                        if hn > 0 {
-                                                                            let ha_text = NATIVE_NODE_text(ha as usize);
-                                                                            let q = new_native_word_node(hf, ha_text.len() as i32 - l);
-                                                                            set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha as usize));
-                                                                            NATIVE_NODE_text(q).copy_from_slice(&ha_text[l as usize..]);
-
-                                                                            measure_native_node(
-                                                                                &mut MEM[q] as *mut memory_word as *mut libc::c_void,
-                                                                                (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
-                                                                            );
-                                                                            *LLIST_link(q) = *LLIST_link(ha as usize);
-                                                                            *LLIST_link(ha as usize) = Some(q).tex_int();
-                                                                            *NATIVE_NODE_length(ha as usize) = l as u16;
-                                                                            measure_native_node(
-                                                                                &mut MEM[ha as usize] as *mut memory_word as *mut libc::c_void,
-                                                                                (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
-                                                                            );
-                                                                            break 'c_31290;
-                                                                        }
-                                                                    } else if hn == 0 && l > 0 {
-                                                                        let ha_text = NATIVE_NODE_text(ha as usize);
-                                                                        let q = new_native_word_node(hf, ha_text.len() as i32 - l);
-                                                                        set_whatsit_NODE_subtype(q as usize, whatsit_NODE_subtype(ha as usize));
-                                                                        NATIVE_NODE_text(q).copy_from_slice(&ha_text[l as usize..]);
-
-                                                                        measure_native_node(
-                                                                            &mut MEM[q] as *mut memory_word as *mut libc::c_void,
-                                                                            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
-                                                                        );
-                                                                        *LLIST_link(q) = *LLIST_link(ha as usize);
-                                                                        *LLIST_link(ha as usize) = Some(q).tex_int();
-                                                                        *NATIVE_NODE_length(ha as usize) = l as u16;
-                                                                        measure_native_node(
-                                                                            &mut MEM[ha as usize] as *mut memory_word as *mut libc::c_void,
-                                                                            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
-                                                                        );
-                                                                        ha = *LLIST_link(ha as usize);
-                                                                        break;
-                                                                    } else {
-                                                                        if hn as usize == max_hyphenatable_length() {
-                                                                            break 'c_31290;
-                                                                        }
-                                                                        hn += 1;
-                                                                        if (c as i64) < 65536 {
-                                                                            hu[hn as usize] = c;
-                                                                            hc[hn as usize] = hc[0]
-                                                                        } else {
-                                                                            hu[hn as usize] = ((c as i64 - 65536) / 1024 + 0xd800) as i32;
-                                                                            hc[hn as usize] = ((hc[0] as i64 - 65536) / 1024 + 0xd800) as i32;
-                                                                            hn += 1;
-                                                                            hu[hn as usize] = c % 1024 + 0xdc00;
-                                                                            hc[hn as usize] = hc[0] % 1024 + 0xdc00;
-                                                                            l += 1;
-                                                                        }
-                                                                        hyf_bchar = TOO_BIG_CHAR;
-                                                                    }
-                                                                    l += 1;
-                                                                }
-                                                            }
-                                                            current_block = 4362442400146949691;
-                                                        }
-                                                    }
-                                                } else {
-                                                    /*931: skip to node hb, putting letters into hu and hc */
-                                                    hn = 0i32 as i16;
-                                                    's_1342: loop {
-                                                        if is_char_node(s.opt()) {
-                                                            if *CHAR_NODE_font(s as usize) as usize != hf {
-                                                                break;
-                                                            }
-                                                            hyf_bchar = *CHAR_NODE_character(s as usize) as i32;
-                                                            c = hyf_bchar;
-                                                            if hyph_index == 0 || c > 255 {
-                                                                hc[0] = *LC_CODE(c as usize);
-                                                            } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
-                                                                hc[0] = 0
-                                                            } else {
-                                                                hc[0] = *trie_tro.offset((hyph_index + c) as isize)
-                                                            }
-                                                            if hc[0] == 0 {
-                                                                break;
-                                                            }
-                                                            if hc[0] > max_hyph_char {
-                                                                break;
-                                                            }
-                                                            if hn as usize == max_hyphenatable_length() {
-                                                                break;
-                                                            }
-                                                            hb = s;
-                                                            hn += 1;
-                                                            hu[hn as usize] = c;
-                                                            hc[hn as usize] = hc[0];
-                                                            hyf_bchar = TOO_BIG_CHAR;
-                                                        } else if NODE_type(s as usize) == TextNode::Ligature.into() {
-                                                            /*932: move the characters of a ligature node to hu and hc; but goto done3
-                                                             * if they are not all letters. */
-                                                            if *LIGATURE_NODE_lig_font(s as usize) as usize != hf {
-                                                                break;
-                                                            }
-                                                            j = hn;
-                                                            let mut qopt = LIGATURE_NODE_lig_ptr(s as usize).opt();
-                                                            if let Some(q) = qopt {
-                                                                hyf_bchar = *CHAR_NODE_character(q as usize) as i32
-                                                            }
-                                                            while let Some(q) = qopt {
-                                                                c = *CHAR_NODE_character(q) as UnicodeScalar;
-                                                                if hyph_index == 0 || c > 255 {
-                                                                    hc[0] = *LC_CODE(c as usize);
-                                                                } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
-                                                                    hc[0] = 0;
-                                                                } else {
-                                                                    hc[0] = *trie_tro.offset((hyph_index + c) as isize)
-                                                                }
-                                                                if hc[0] == 0 {
-                                                                    break 's_1342;
-                                                                }
-                                                                if hc[0] > max_hyph_char {
-                                                                    break 's_1342;
-                                                                }
-                                                                if j as usize == max_hyphenatable_length() {
-                                                                    break 's_1342;
-                                                                }
-                                                                j += 1;
-                                                                hu[j as usize] = c;
-                                                                hc[j as usize] = hc[0];
-                                                                qopt = LLIST_link(q).opt();
-                                                            }
-                                                            hb = s;
-                                                            hn = j;
-                                                            if MEM[s as usize].b16.s0 as i32 & 1 != 0 {
-                                                                hyf_bchar = FONT_BCHAR[hf as usize]
-                                                            } else {
-                                                                hyf_bchar = TOO_BIG_CHAR;
-                                                            }
-                                                        /*:932*/
-                                                        } else {
-                                                            if !(NODE_type(s as usize) == TextNode::Kern.into() && kern_NODE_subtype(s as usize) == KernNST::Normal) {
-                                                                break;
-                                                            }
-                                                            hb = s;
-                                                            hyf_bchar = FONT_BCHAR[hf as usize]
-                                                        }
-                                                        s = *LLIST_link(s as usize);
-                                                    }
-                                                    current_block = 4362442400146949691;
-                                                }
-                                                match current_block {
-                                                    8166967358843938227 => {}
-                                                    _ =>
-                                                    /*933: check that the nodes following hb permit
-                                                     * hyphenation and that at least l_hyf + r_hyf letters
-                                                     * have been found, otherwise goto done1 */
-                                                    {
-                                                        if !((hn as i32) < l_hyf + r_hyf) {
-                                                            loop {
-                                                                if !is_char_node(s.opt()) {
-                                                                    match text_NODE_type(s as usize).unwrap() {
-                                                                        TextNode::Ligature => {}
-                                                                        TextNode::Kern => {
-                                                                            current_block = 5935670669791948619;
-                                                                            if kern_NODE_subtype(s as usize) != KernNST::Normal {
-                                                                                current_block = 16848571710846909653;
-                                                                                break;
-                                                                            }
-                                                                        }
-                                                                        TextNode::WhatsIt | TextNode::Glue | TextNode::Penalty | TextNode::Ins | TextNode::Adjust | TextNode::Mark => {
-                                                                            current_block = 16848571710846909653;
-                                                                            break;
-                                                                        }
-                                                                        TextNode::Math => {
-                                                                            current_block = 2529459302156174429;
-                                                                            if MEM[s as usize].b16.s0 >= L_CODE {
-                                                                                // NODE_subtype(s as usize)
-                                                                                current_block = 16848571710846909653;
-                                                                                break;
-                                                                            } else {
-                                                                                current_block = 8166967358843938227;
-                                                                                break;
-                                                                            }
-                                                                        }
-                                                                        _ => {
-                                                                            current_block = 8166967358843938227;
-                                                                            break;
-                                                                        }
-                                                                    }
-                                                                }
-                                                                s = *LLIST_link(s as usize);
-                                                            }
-                                                            match current_block {
-                                                                8166967358843938227 => {}
-                                                                _ => {
-                                                                    /*:933*/
-                                                                    hyphenate();
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    c = process_glue(cp, c, second_pass, auto_breaking);
                 }
                 TextNode::Kern => {
                     /* ... resuming 895 ... */
                     if kern_NODE_subtype(cp) == KernNST::Explicit {
-                        if (!is_char_node(LLIST_link(cp).opt()) as i32) < hi_mem_min && auto_breaking {
+                        if (!is_char_node(LLIST_link(cp).opt()) as i32) < hi_mem_min
+                            && auto_breaking
+                        {
                             if NODE_type(*LLIST_link(cp) as usize) == TextNode::Glue.into() {
                                 try_break(0, BreakType::Unhyphenated);
                             }
@@ -757,87 +402,105 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 TextNode::Ligature => {
                     let f = *LIGATURE_NODE_lig_font(cp) as usize;
                     xtx_ligature_present = true;
-                    active_width[1] += *FONT_CHARACTER_WIDTH(f, effective_char(true, f, *LIGATURE_NODE_lig_char(cp)) as usize);
+                    active_width[1] += *FONT_CHARACTER_WIDTH(
+                        f,
+                        effective_char(true, f, *LIGATURE_NODE_lig_char(cp)) as usize,
+                    );
                 }
                 TextNode::Disc => {
                     /*898: try to break after a discretionary fragment, then goto done5 */
-                    s = *DISCRETIONARY_NODE_pre_break(cp);
                     disc_width = 0;
 
-                    if s.is_texnull() {
-                        try_break(*INTPAR(IntPar::ex_hyphen_penalty), BreakType::Hyphenated);
-                    } else {
+                    if let Some(mut s) = DISCRETIONARY_NODE_pre_break(cp).opt() {
                         loop {
                             /*899:*/
-                            if is_char_node(s.opt()) {
+                            if is_char_node(Some(s)) {
                                 let mut eff_char_0: i32 = 0; /*:898 big DISC_NODE case */
-                                let f = MEM[s as usize].b16.s1 as usize;
-                                eff_char_0 = effective_char(true, f, MEM[s as usize].b16.s0);
+                                let f = MEM[s].b16.s1 as usize;
+                                eff_char_0 = effective_char(true, f, MEM[s].b16.s0);
                                 disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_0 as usize);
                             } else {
-                                match text_NODE_type(s as usize).unwrap() {
+                                match text_NODE_type(s).unwrap() {
                                     TextNode::Ligature => {
-                                        let f = *LIGATURE_NODE_lig_font(s as usize) as usize;
+                                        let f = *LIGATURE_NODE_lig_font(s) as usize;
                                         xtx_ligature_present = true;
-                                        let eff_char_1 = effective_char(true, f, *LIGATURE_NODE_lig_char(s as usize));
+                                        let eff_char_1 =
+                                            effective_char(true, f, *LIGATURE_NODE_lig_char(s));
                                         disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
                                     }
-                                    TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => disc_width += *BOX_width(s as usize),
-                                    TextNode::WhatsIt => {
-                                        match whatsit_NODE_subtype(s as usize) {
-                                            WhatsItNST::NativeWord | WhatsItNST::NativeWordAt | WhatsItNST::Glyph | WhatsItNST::Pic | WhatsItNST::Pdf
-                                            => {
-                                                disc_width += *BOX_width(s as usize);
-                                            }
-                                            _ => confusion(b"disc3a"),
+                                    TextNode::HList
+                                    | TextNode::VList
+                                    | TextNode::Rule
+                                    | TextNode::Kern => disc_width += *BOX_width(s),
+                                    TextNode::WhatsIt => match whatsit_NODE_subtype(s) {
+                                        WhatsItNST::NativeWord
+                                        | WhatsItNST::NativeWordAt
+                                        | WhatsItNST::Glyph
+                                        | WhatsItNST::Pic
+                                        | WhatsItNST::Pdf => {
+                                            disc_width += *BOX_width(s);
                                         }
-                                    }
+                                        _ => confusion(b"disc3a"),
+                                    },
                                     _ => confusion(b"disc3"),
                                 }
                             }
-                            s = *LLIST_link(s as usize);
-                            if s.is_texnull() {
+                            if let Some(next) = LLIST_link(s).opt() {
+                                s = next;
+                            } else {
                                 break;
                             }
                         }
                         active_width[1] += disc_width;
                         try_break(*INTPAR(IntPar::hyphen_penalty), BreakType::Hyphenated);
                         active_width[1] -= disc_width;
+                    } else {
+                        try_break(*INTPAR(IntPar::ex_hyphen_penalty), BreakType::Hyphenated);
                     }
                     r = *DISCRETIONARY_NODE_replace_count(cp) as i32;
-                    s = *LLIST_link(cp);
+                    let mut sopt = LLIST_link(cp).opt();
                     while r > 0 {
-                        if is_char_node(s.opt()) {
-                            let f = *CHAR_NODE_font(s as usize) as usize;
-                            let eff_char_2 = effective_char(true, f, *CHAR_NODE_character(s as usize));
+                        let s = sopt.unwrap();
+                        if is_char_node(Some(s)) {
+                            let f = *CHAR_NODE_font(s) as usize;
+                            let eff_char_2 = effective_char(true, f, *CHAR_NODE_character(s));
                             active_width[1] += *FONT_CHARACTER_WIDTH(f, eff_char_2 as usize);
                         } else {
-                            match text_NODE_type(s as usize).confuse(b"disc4") {
+                            match text_NODE_type(s).confuse(b"disc4") {
                                 TextNode::Ligature => {
-                                    let f = *LIGATURE_NODE_lig_font(s as usize) as usize;
+                                    let f = *LIGATURE_NODE_lig_font(s) as usize;
                                     xtx_ligature_present = true;
-                                    let eff_char_3 = effective_char(true, f, *LIGATURE_NODE_lig_char(s as usize));
-                                    active_width[1] += *FONT_CHARACTER_WIDTH(f, eff_char_3 as usize);
+                                    let eff_char_3 = effective_char(
+                                        true,
+                                        f,
+                                        *LIGATURE_NODE_lig_char(s as usize),
+                                    );
+                                    active_width[1] +=
+                                        *FONT_CHARACTER_WIDTH(f, eff_char_3 as usize);
                                 }
-                                TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => active_width[1] += *BOX_width(s as usize),
-                                TextNode::WhatsIt => {
-                                    match whatsit_NODE_subtype(s as usize) {
-                                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt | WhatsItNST::Glyph | WhatsItNST::Pic | WhatsItNST::Pdf
-                                        => {
-                                            active_width[1] += *BOX_width(s as usize);
-                                        }
-                                        _ => confusion(b"disc4a"),
+                                TextNode::HList
+                                | TextNode::VList
+                                | TextNode::Rule
+                                | TextNode::Kern => active_width[1] += *BOX_width(s),
+                                TextNode::WhatsIt => match whatsit_NODE_subtype(s) {
+                                    WhatsItNST::NativeWord
+                                    | WhatsItNST::NativeWordAt
+                                    | WhatsItNST::Glyph
+                                    | WhatsItNST::Pic
+                                    | WhatsItNST::Pdf => {
+                                        active_width[1] += *BOX_width(s);
                                     }
-                                }
+                                    _ => confusion(b"disc4a"),
+                                },
                                 _ => confusion(b"disc4"),
                             }
                         }
                         r -= 1;
-                        s = *LLIST_link(s as usize);
+                        sopt = LLIST_link(s).opt();
                     }
                     global_prev_p = cp as i32;
                     prev_p = global_prev_p;
-                    cur_p = s.opt();
+                    cur_p = sopt;
                     continue;
                 }
                 TextNode::Math => {
@@ -893,11 +556,16 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     if NODE_type(r as usize) != DELTA_NODE.into() {
                         line_diff = *ACTIVE_NODE_line_number(r as usize) - best_line;
 
-                        if line_diff < actual_looseness && *INTPAR(IntPar::looseness) <= line_diff || line_diff > actual_looseness && *INTPAR(IntPar::looseness) >= line_diff {
+                        if line_diff < actual_looseness && *INTPAR(IntPar::looseness) <= line_diff
+                            || line_diff > actual_looseness
+                                && *INTPAR(IntPar::looseness) >= line_diff
+                        {
                             best_bet = r;
                             actual_looseness = line_diff;
                             fewest_demerits = *ACTIVE_NODE_total_demerits(r as usize);
-                        } else if line_diff == actual_looseness && *ACTIVE_NODE_total_demerits(r as usize) < fewest_demerits {
+                        } else if line_diff == actual_looseness
+                            && *ACTIVE_NODE_total_demerits(r as usize) < fewest_demerits
+                        {
                             best_bet = r;
                             fewest_demerits = *ACTIVE_NODE_total_demerits(r as usize);
                         }
@@ -949,7 +617,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         } else {
             let q = new_spec(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
             delete_glue_ref(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
-            *GLUE_SPEC_size(q) += *ACTIVE_NODE_shortfall(best_bet as usize) - *ACTIVE_NODE_glue(best_bet as usize);
+            *GLUE_SPEC_size(q) +=
+                *ACTIVE_NODE_shortfall(best_bet as usize) - *ACTIVE_NODE_glue(best_bet as usize);
             *GLUE_SPEC_stretch(q) = 0;
             *GLUE_NODE_glue_ptr(last_line_fill as usize) = q as i32;
         }
@@ -979,6 +648,378 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     }
     /* All done */
     pack_begin_line = 0;
+
+    unsafe fn process_glue(
+        cp: usize,
+        mut c: UnicodeScalar,
+        second_pass: bool,
+        auto_breaking: bool,
+    ) -> UnicodeScalar {
+        let mut q = *GLUE_NODE_glue_ptr(cp) as usize;
+        if *GLUE_SPEC_shrink_order(q) != NORMAL && *GLUE_SPEC_shrink(q) != 0 {
+            let fresh3 = GLUE_NODE_glue_ptr(cp);
+            *fresh3 = finite_shrink(q) as i32;
+            q = *fresh3 as usize
+        }
+        active_width[1] += *GLUE_SPEC_size(q);
+        active_width[(2 + *GLUE_SPEC_stretch_order(q)) as usize] += *GLUE_SPEC_stretch(q);
+        /*:895*/
+        active_width[6] += *GLUE_SPEC_shrink(q); /*:897*/
+
+        if second_pass && auto_breaking {
+            /*924: "Try to hyphenate the following word." */
+            let mut prev_s = cp;
+
+            if let Some(mut s) = LLIST_link(prev_s).opt() {
+                's_786: loop
+                /*930: skip to node ha, or goto done1 if no hyphenation should be attempted */
+                {
+                    let mut flag = true;
+                    if is_char_node(Some(s)) {
+                        c = *CHAR_NODE_character(s) as UnicodeScalar; /*:930*/
+                        hf = *CHAR_NODE_font(s) as usize;
+                    } else if NODE_type(s) == TextNode::Ligature.into() {
+                        if let Some(q) = LIGATURE_NODE_lig_ptr(s).opt() {
+                            c = *CHAR_NODE_character(q) as UnicodeScalar;
+                            hf = *CHAR_NODE_font(q) as usize;
+                        } else {
+                            flag = false;
+                        }
+                    } else if NODE_type(s) == TextNode::Kern.into()
+                        && kern_NODE_subtype(s) == KernNST::Normal
+                    {
+                        flag = false;
+                    } else if NODE_type(s) == TextNode::Math.into() && MEM[s].b16.s0 >= L_CODE
+                    // NODE_subtype(s as usize)
+                    {
+                        flag = false;
+                    } else {
+                        if !(NODE_type(s) == TextNode::WhatsIt.into()) {
+                            return c;
+                        }
+                        match whatsit_NODE_subtype(s) {
+                            WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
+                                let mut l = 0;
+                                while l < *NATIVE_NODE_length(s) as i32 {
+                                    c = get_native_usv(s, l as usize);
+                                    if *LC_CODE(c as usize) != 0 {
+                                        hf = *NATIVE_NODE_font(s) as usize;
+                                        prev_s = s;
+                                        break 's_786;
+                                    } else {
+                                        if c as i64 >= 65536 {
+                                            l += 1
+                                        }
+                                        l += 1
+                                    }
+                                }
+                            }
+                            WhatsItNST::Language => {
+                                cur_lang = *LANGUAGE_NODE_what_lang(s) as u8;
+                                l_hyf = *LANGUAGE_NODE_what_lhm(s) as i32;
+                                r_hyf = *LANGUAGE_NODE_what_rhm(s) as i32;
+
+                                hyph_index = if *trie_trc
+                                    .offset((hyph_start + cur_lang as i32) as isize)
+                                    as i32
+                                    != cur_lang as i32
+                                {
+                                    0
+                                } else {
+                                    *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
+                                };
+                            }
+                            _ => {}
+                        }
+                        flag = false;
+                    }
+                    if flag {
+                        hc[0] = if hyph_index == 0 || c > 255 {
+                            *LC_CODE(c as usize)
+                        } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
+                            0
+                        } else {
+                            *trie_tro.offset((hyph_index + c) as isize)
+                        };
+                        if hc[0] != 0 {
+                            if hc[0] == c || *INTPAR(IntPar::uc_hyph) > 0 {
+                                break;
+                            } else {
+                                return c;
+                            }
+                        }
+                    }
+
+                    // continue:
+                    prev_s = s;
+                    s = LLIST_link(prev_s).opt().unwrap();
+                }
+
+                // done2:
+                hyf_char = HYPHEN_CHAR[hf as usize];
+                if hyf_char < 0 {
+                    return c;
+                }
+                if hyf_char > BIGGEST_CHAR {
+                    return c;
+                }
+
+                ha = prev_s; // :930
+
+                if (l_hyf + r_hyf) as usize > max_hyphenatable_length() {
+                    return c;
+                }
+
+                if ha < hi_mem_min as usize
+                    && NODE_type(ha) == TextNode::WhatsIt.into()
+                    && (whatsit_NODE_subtype(ha) == WhatsItNST::NativeWord
+                        || whatsit_NODE_subtype(ha) == WhatsItNST::NativeWordAt)
+                {
+                    /*926: check that nodes after native_word permit hyphenation; if not, goto done1 */
+                    s = LLIST_link(ha).opt().unwrap();
+
+                    loop {
+                        if !is_char_node(Some(s)) {
+                            match text_NODE_type(s).unwrap() {
+                                TextNode::Ligature => {}
+                                TextNode::Kern => {
+                                    if kern_NODE_subtype(s) != KernNST::Normal {
+                                        break;
+                                    }
+                                }
+                                TextNode::WhatsIt
+                                | TextNode::Glue
+                                | TextNode::Penalty
+                                | TextNode::Ins
+                                | TextNode::Adjust
+                                | TextNode::Mark => {
+                                    break;
+                                }
+                                _ => {
+                                    return c;
+                                }
+                            }
+                        }
+                        s = LLIST_link(s).opt().unwrap();
+                    }
+
+                    // done6:
+                    /*927: prepare a native_word_node for hyphenation.
+                     * "Note that if there are chars with lccode = 0,
+                     * we split them out into separate native_word
+                     * nodes." */
+                    hn = 0 as i16;
+
+                    'restart: loop {
+                        // 'ha' can change in the loop, so for safety:
+                        let for_end_1 = *NATIVE_NODE_length(ha) as i32;
+
+                        let mut l = 0;
+                        loop {
+                            if !(l < for_end_1) {
+                                break 'restart;
+                            }
+                            c = get_native_usv(ha, l as usize);
+                            hc[0] = if hyph_index == 0 || c > 255 {
+                                *LC_CODE(c as usize)
+                            } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
+                                0
+                            } else {
+                                *trie_tro.offset((hyph_index + c) as isize)
+                            };
+                            if hc[0] == 0 {
+                                if hn > 0 {
+                                    let ha_text = NATIVE_NODE_text(ha);
+                                    let q = new_native_word_node(hf, ha_text.len() as i32 - l);
+                                    set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha));
+                                    NATIVE_NODE_text(q).copy_from_slice(&ha_text[l as usize..]);
+
+                                    measure_native_node(
+                                        &mut MEM[q] as *mut memory_word as *mut libc::c_void,
+                                        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
+                                    );
+                                    *LLIST_link(q) = *LLIST_link(ha);
+                                    *LLIST_link(ha) = Some(q).tex_int();
+                                    *NATIVE_NODE_length(ha) = l as u16;
+                                    measure_native_node(
+                                        &mut MEM[ha] as *mut memory_word as *mut libc::c_void,
+                                        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
+                                    );
+                                    break 'restart;
+                                }
+                            } else if hn == 0 && l > 0 {
+                                let ha_text = NATIVE_NODE_text(ha);
+                                let q = new_native_word_node(hf, ha_text.len() as i32 - l);
+                                set_whatsit_NODE_subtype(q as usize, whatsit_NODE_subtype(ha));
+                                NATIVE_NODE_text(q).copy_from_slice(&ha_text[l as usize..]);
+
+                                measure_native_node(
+                                    &mut MEM[q] as *mut memory_word as *mut libc::c_void,
+                                    (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
+                                );
+                                *LLIST_link(q) = *LLIST_link(ha);
+                                *LLIST_link(ha) = Some(q).tex_int();
+                                *NATIVE_NODE_length(ha) = l as u16;
+                                measure_native_node(
+                                    &mut MEM[ha] as *mut memory_word as *mut libc::c_void,
+                                    (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
+                                );
+                                ha = *LLIST_link(ha) as usize;
+                                break;
+                            } else {
+                                if hn as usize == max_hyphenatable_length() {
+                                    break 'restart;
+                                }
+                                hn += 1;
+                                if (c as i64) < 65536 {
+                                    hu[hn as usize] = c;
+                                    hc[hn as usize] = hc[0]
+                                } else {
+                                    hu[hn as usize] = ((c as i64 - 65536) / 1024 + 0xd800) as i32;
+                                    hc[hn as usize] =
+                                        ((hc[0] as i64 - 65536) / 1024 + 0xd800) as i32;
+                                    hn += 1;
+                                    hu[hn as usize] = c % 1024 + 0xdc00;
+                                    hc[hn as usize] = hc[0] % 1024 + 0xdc00;
+                                    l += 1;
+                                }
+                                hyf_bchar = TOO_BIG_CHAR;
+                            }
+                            l += 1;
+                        }
+                    }
+                } else {
+                    /*931: skip to node hb, putting letters into hu and hc */
+                    hn = 0;
+
+                    's_1342: loop {
+                        if is_char_node(Some(s)) {
+                            if *CHAR_NODE_font(s) as usize != hf {
+                                break;
+                            }
+                            hyf_bchar = *CHAR_NODE_character(s) as i32;
+                            c = hyf_bchar;
+                            if hyph_index == 0 || c > 255 {
+                                hc[0] = *LC_CODE(c as usize);
+                            } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
+                                hc[0] = 0
+                            } else {
+                                hc[0] = *trie_tro.offset((hyph_index + c) as isize)
+                            }
+                            if hc[0] == 0 {
+                                break;
+                            }
+                            if hc[0] > max_hyph_char {
+                                break;
+                            }
+                            if hn as usize == max_hyphenatable_length() {
+                                break;
+                            }
+                            hb = s;
+                            hn += 1;
+                            hu[hn as usize] = c;
+                            hc[hn as usize] = hc[0];
+                            hyf_bchar = TOO_BIG_CHAR;
+                        } else if NODE_type(s) == TextNode::Ligature.into() {
+                            /*932: move the characters of a ligature node to hu and hc; but goto done3
+                             * if they are not all letters. */
+                            if *LIGATURE_NODE_lig_font(s) as usize != hf {
+                                break;
+                            }
+                            let mut j = hn;
+                            let mut qopt = LIGATURE_NODE_lig_ptr(s).opt();
+                            if let Some(q) = qopt {
+                                hyf_bchar = *CHAR_NODE_character(q as usize) as i32
+                            }
+                            while let Some(q) = qopt {
+                                c = *CHAR_NODE_character(q) as UnicodeScalar;
+                                hc[0] = if hyph_index == 0 || c > 255 {
+                                    *LC_CODE(c as usize)
+                                } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
+                                    0
+                                } else {
+                                    *trie_tro.offset((hyph_index + c) as isize)
+                                };
+                                if hc[0] == 0 {
+                                    break 's_1342;
+                                }
+                                if hc[0] > max_hyph_char {
+                                    break 's_1342;
+                                }
+                                if j as usize == max_hyphenatable_length() {
+                                    break 's_1342;
+                                }
+                                j += 1;
+                                hu[j as usize] = c;
+                                hc[j as usize] = hc[0];
+                                qopt = LLIST_link(q).opt();
+                            }
+                            hb = s;
+                            hn = j;
+                            if MEM[s].b16.s0 as i32 & 1 != 0 {
+                                hyf_bchar = FONT_BCHAR[hf as usize]
+                            } else {
+                                hyf_bchar = TOO_BIG_CHAR;
+                            }
+                        /*:932*/
+                        } else {
+                            if !(NODE_type(s) == TextNode::Kern.into()
+                                && kern_NODE_subtype(s) == KernNST::Normal)
+                            {
+                                break;
+                            }
+                            hb = s;
+                            hyf_bchar = FONT_BCHAR[hf as usize]
+                        }
+                        s = LLIST_link(s).opt().unwrap();
+                    }
+                }
+
+                /*933: check that the nodes following hb permit
+                 * hyphenation and that at least l_hyf + r_hyf letters
+                 * have been found, otherwise goto done1 */
+                if (hn as i32) < l_hyf + r_hyf {
+                    return c;
+                }
+
+                loop {
+                    if !is_char_node(Some(s)) {
+                        match text_NODE_type(s).unwrap() {
+                            TextNode::Ligature => {}
+                            TextNode::Kern => {
+                                if kern_NODE_subtype(s) != KernNST::Normal {
+                                    break;
+                                }
+                            }
+                            TextNode::WhatsIt
+                            | TextNode::Glue
+                            | TextNode::Penalty
+                            | TextNode::Ins
+                            | TextNode::Adjust
+                            | TextNode::Mark => {
+                                break;
+                            }
+                            TextNode::Math => {
+                                if MEM[s].b16.s0 >= L_CODE {
+                                    // NODE_subtype(s as usize)
+                                    break;
+                                } else {
+                                    return c;
+                                }
+                            }
+                            _ => {
+                                return c;
+                            }
+                        }
+                    }
+                    s = LLIST_link(s).opt().unwrap();
+                }
+                // done4: 933
+                hyphenate();
+            }
+        }
+        c
+    }
 }
 /* This was just separated out to prevent line_break() from becoming
  * proposterously long. */
@@ -2111,23 +2152,22 @@ unsafe fn hyphenate() {
             }
         }
     }
-    if !ha.is_texnull() // TODO: unwrap `ha`
-        && !is_char_node(ha.opt())
-        && NODE_type(ha as usize) == TextNode::WhatsIt.into()
-        && (whatsit_NODE_subtype(ha as usize) == WhatsItNST::NativeWord
-            || whatsit_NODE_subtype(ha as usize) == WhatsItNST::NativeWordAt)
+    if !is_char_node(Some(ha))
+        && NODE_type(ha) == TextNode::WhatsIt.into()
+        && (whatsit_NODE_subtype(ha) == WhatsItNST::NativeWord
+            || whatsit_NODE_subtype(ha) == WhatsItNST::NativeWordAt)
     {
         let mut s = cur_p.unwrap();
-        while *LLIST_link(s) != ha {
+        while LLIST_link(s).opt() != Some(ha) {
             s = *LLIST_link(s) as usize;
         }
         hyphen_passed = 0;
         for j in l_hyf..=(hn as i32 - r_hyf) {
             if hyf[j as usize] as i32 & 1i32 != 0 {
                 let q = new_native_word_node(hf, j as i32 - hyphen_passed as i32);
-                set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha as usize));
+                set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha));
 
-                let ha_text = NATIVE_NODE_text(ha as usize);
+                let ha_text = NATIVE_NODE_text(ha);
                 NATIVE_NODE_text(q).copy_from_slice(&ha_text[hyphen_passed as usize..j as usize]);
 
                 measure_native_node(
@@ -2143,10 +2183,10 @@ unsafe fn hyphenate() {
                 hyphen_passed = j as i16;
             }
         }
-        let ha_text = NATIVE_NODE_text(ha as usize);
+        let ha_text = NATIVE_NODE_text(ha);
         hn = ha_text.len() as i16;
         let q = new_native_word_node(hf, hn as i32 - hyphen_passed as i32);
-        set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha as usize));
+        set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha));
         NATIVE_NODE_text(q).copy_from_slice(&ha_text[(hyphen_passed as usize)..]);
 
         measure_native_node(
@@ -2155,40 +2195,40 @@ unsafe fn hyphenate() {
         );
         *LLIST_link(s) = Some(q).tex_int();
         s = q;
-        let q = *LLIST_link(ha as usize);
+        let q = *LLIST_link(ha);
         *LLIST_link(s) = q;
-        *LLIST_link(ha as usize) = None.tex_int();
-        flush_node_list(ha.opt());
+        *LLIST_link(ha) = None.tex_int();
+        flush_node_list(Some(ha));
     } else {
-        let q = *LLIST_link(hb as usize);
-        *LLIST_link(hb as usize) = None.tex_int();
-        let r = *LLIST_link(ha as usize);
-        *LLIST_link(ha as usize) = None.tex_int();
+        let q = *LLIST_link(hb);
+        *LLIST_link(hb) = None.tex_int();
+        let r = *LLIST_link(ha);
+        *LLIST_link(ha) = None.tex_int();
         bchar = hyf_bchar;
-        if is_char_node(ha.opt()) {
-            if MEM[ha as usize].b16.s1 as usize != hf {
+        if is_char_node(Some(ha)) {
+            if MEM[ha].b16.s1 as usize != hf {
                 current_block = 6826215413708131726;
             } else {
-                init_list = ha;
+                init_list = Some(ha).tex_int();
                 init_lig = false;
-                hu[0] = MEM[ha as usize].b16.s0 as i32;
+                hu[0] = MEM[ha].b16.s0 as i32;
                 current_block = 6662862405959679103;
             }
-        } else if NODE_type(ha as usize) == TextNode::Ligature.into() {
-            if *LIGATURE_NODE_lig_font(ha as usize) as usize != hf {
+        } else if NODE_type(ha) == TextNode::Ligature.into() {
+            if *LIGATURE_NODE_lig_font(ha) as usize != hf {
                 current_block = 6826215413708131726;
             } else {
-                init_list = *LIGATURE_NODE_lig_ptr(ha as usize);
+                init_list = *LIGATURE_NODE_lig_ptr(ha);
                 init_lig = true;
-                init_lft = MEM[ha as usize].b16.s0 as i32 > 1;
-                hu[0] = *LIGATURE_NODE_lig_char(ha as usize) as i32;
-                if init_list.is_texnull() {
+                init_lft = MEM[ha].b16.s0 as i32 > 1;
+                hu[0] = *LIGATURE_NODE_lig_char(ha) as i32;
+                if init_list.opt().is_none() {
                     if init_lft {
                         hu[0] = max_hyph_char;
                         init_lig = false
                     }
                 }
-                free_node(ha as usize, SMALL_NODE_SIZE);
+                free_node(ha, SMALL_NODE_SIZE);
                 current_block = 6662862405959679103;
             }
         } else {
@@ -2209,7 +2249,7 @@ unsafe fn hyphenate() {
                 6826215413708131726 => {}
                 _ => {
                     j = 1_i16;
-                    s = ha;
+                    s = ha as i32;
                     init_list = None.tex_int();
                     current_block = 5209103994167801282;
                 }
@@ -2218,13 +2258,13 @@ unsafe fn hyphenate() {
         match current_block {
             6662862405959679103 => {
                 s = cur_p.tex_int();
-                while *LLIST_link(s as usize) != ha {
+                while LLIST_link(s as usize).opt() != Some(ha) {
                     s = *LLIST_link(s as usize);
                 }
                 j = 0_i16
             }
             6826215413708131726 => {
-                s = ha;
+                s = ha as i32;
                 j = 0_i16;
                 hu[0] = max_hyph_char;
                 init_lig = false;

@@ -13289,7 +13289,7 @@ pub(crate) unsafe fn normal_paragraph() {
             None,
         );
     }
-    if !EQTB[INTER_LINE_PENALTIES_LOC].val.is_texnull() {
+    if EQTB[INTER_LINE_PENALTIES_LOC].val.opt().is_some() {
         eq_define(INTER_LINE_PENALTIES_LOC, Cmd::ShapeRef, None);
     };
 }
@@ -13501,7 +13501,7 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
                                 q = *LLIST_link(tx as usize);
                                 *LLIST_link(p as usize) = q;
                                 *LLIST_link(tx as usize) = None.tex_int();
-                                if q.is_texnull() {
+                                if q.opt().is_none() {
                                     if fm {
                                         confusion(b"tail1");
                                     } else {
@@ -13873,7 +13873,7 @@ pub(crate) unsafe fn delete_last() {
                 q = *LLIST_link(tx);
                 *LLIST_link(p as usize) = q;
                 *LLIST_link(tx) = None.tex_int();
-                if q.is_texnull() {
+                if q.opt().is_none() {
                     if fm {
                         confusion(b"tail1");
                     } else {
@@ -14278,13 +14278,13 @@ pub(crate) unsafe fn do_endv() {
     BASE_PTR = INPUT_PTR;
     INPUT_STACK[BASE_PTR] = cur_input;
     while INPUT_STACK[BASE_PTR].index != Btl::VTemplate
-        && INPUT_STACK[BASE_PTR].loc.is_texnull()
+        && INPUT_STACK[BASE_PTR].loc.opt().is_none()
         && INPUT_STACK[BASE_PTR].state == InputState::TokenList
     {
         BASE_PTR -= 1
     }
     if INPUT_STACK[BASE_PTR].index != Btl::VTemplate
-        || !INPUT_STACK[BASE_PTR].loc.is_texnull()
+        || INPUT_STACK[BASE_PTR].loc.opt().is_some()
         || INPUT_STACK[BASE_PTR].state != InputState::TokenList
     {
         fatal_error(b"(interwoven alignment preambles are not allowed)");
@@ -15020,7 +15020,7 @@ pub(crate) unsafe fn issue_message() {
         }
         print_cstr(b"");
         print(s);
-        if !LOCAL(Local::err_help).is_texnull() {
+        if LOCAL(Local::err_help).opt().is_some() {
             use_err_help = true;
         } else if long_help_seen {
             help!(b"(That was another \\errmessage.)");
@@ -15481,7 +15481,7 @@ pub(crate) unsafe fn handle_right_brace() {
         }
         GroupCode::Output => {
             /*1062:*/
-            if !cur_input.loc.is_texnull()
+            if cur_input.loc.opt().is_some()
                 || cur_input.index != Btl::OutputText && cur_input.index != Btl::BackedUp
             {
                 if file_line_error_style_p != 0 {
@@ -15497,7 +15497,7 @@ pub(crate) unsafe fn handle_right_brace() {
                 error();
                 loop {
                     get_token();
-                    if cur_input.loc.is_texnull() {
+                    if cur_input.loc.opt().is_none() {
                         break;
                     }
                 }
@@ -15509,7 +15509,7 @@ pub(crate) unsafe fn handle_right_brace() {
             output_active = false;
             insert_penalties = 0;
 
-            if !BOX_REG(255).is_texnull() {
+            if BOX_REG(255).opt().is_some() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -15618,8 +15618,8 @@ pub(crate) unsafe fn handle_right_brace() {
 }
 pub(crate) unsafe fn main_control() {
     let mut current_block: u64;
-    if !LOCAL(Local::every_job).is_texnull() {
-        begin_token_list(*LOCAL(Local::every_job) as usize, Btl::EveryJobText);
+    if let Some(ej) = LOCAL(Local::every_job).opt() {
+        begin_token_list(ej, Btl::EveryJobText);
     }
     'c_125208: loop {
         /* big_switch */
@@ -16182,11 +16182,8 @@ pub(crate) unsafe fn main_control() {
                             if insert_src_special_every_vbox {
                                 insert_src_special();
                             }
-                            if !LOCAL(Local::every_vbox).is_texnull() {
-                                begin_token_list(
-                                    *LOCAL(Local::every_vbox) as usize,
-                                    Btl::EveryVBoxText,
-                                );
+                            if let Some(ev) = LOCAL(Local::every_vbox).opt() {
+                                begin_token_list(ev, Btl::EveryVBoxText);
                             }
                             continue 'c_125208;
                         }
@@ -17628,7 +17625,7 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
                 *LLIST_link(q) = None.tex_int();
                 *LLIST_link(prev_p) = popt.tex_int();
                 if s {
-                    if disc_ptr[VSPLIT_CODE as usize].is_texnull() {
+                    if disc_ptr[VSPLIT_CODE as usize].opt().is_none() {
                         disc_ptr[VSPLIT_CODE as usize] = q as i32;
                     } else {
                         *LLIST_link(r as usize) = Some(q).tex_int();
@@ -17662,33 +17659,35 @@ pub(crate) unsafe fn do_marks(a: MarkMode, mut l: i16, q: usize) -> bool {
         match a {
             MarkMode::VSplitInit => {
                 /*1614: */
-                if let (Some(q2), Some(q3)) = (MEM[q + 2].b32.s1.opt(), MEM[q + 3].b32.s0.opt()) {
-                    delete_token_ref(q2);
+                if let (Some(q21), Some(q30)) = (MEM[q + 2].b32.s1.opt(), MEM[q + 3].b32.s0.opt()) {
+                    delete_token_ref(q21);
                     MEM[q + 2].b32.s1 = None.tex_int();
-                    delete_token_ref(q3);
+                    delete_token_ref(q30);
                     MEM[q + 3].b32.s0 = None.tex_int()
                 }
             }
             MarkMode::FireUpInit => {
-                if !MEM[q + 2].b32.s0.is_texnull() {
-                    if !MEM[q + 1].b32.s0.is_texnull() {
-                        delete_token_ref(MEM[q + 1].b32.s0 as usize);
+                if let (Some(q11), Some(q20)) = (MEM[q + 1].b32.s1.opt(), MEM[q + 2].b32.s0.opt()) {
+                    if let Some(q10) = MEM[q + 1].b32.s0.opt() {
+                        delete_token_ref(q10);
                     }
-                    delete_token_ref(MEM[q + 1].b32.s1 as usize);
+                    delete_token_ref(q11);
                     MEM[q + 1].b32.s1 = None.tex_int();
-                    if MEM[MEM[q + 2].b32.s0 as usize].b32.s1.is_texnull() {
-                        delete_token_ref(MEM[q + 2].b32.s0 as usize);
+                    if MEM[q20].b32.s1.opt().is_none() {
+                        delete_token_ref(q20);
                         MEM[q + 2].b32.s0 = None.tex_int()
                     } else {
-                        MEM[MEM[q + 2].b32.s0 as usize].b32.s0 += 1;
+                        MEM[q20].b32.s0 += 1;
                     }
                     MEM[q + 1].b32.s0 = MEM[q + 2].b32.s0
                 }
             }
             MarkMode::FireUpDone => {
-                if !MEM[q + 1].b32.s0.is_texnull() && MEM[q + 1].b32.s1.is_texnull() {
-                    MEM[q + 1].b32.s1 = MEM[q + 1].b32.s0;
-                    MEM[MEM[q + 1].b32.s0 as usize].b32.s0 += 1;
+                if let Some(q10) = MEM[q + 1].b32.s0.opt() {
+                    if MEM[q + 1].b32.s1.opt().is_none() {
+                        MEM[q + 1].b32.s1 = Some(q10).tex_int();
+                        MEM[q10].b32.s0 += 1;
+                    }
                 }
             }
             MarkMode::DestroyMarks => {
@@ -17701,11 +17700,9 @@ pub(crate) unsafe fn do_marks(a: MarkMode, mut l: i16, q: usize) -> bool {
                 }
             }
         }
-        if MEM[q + 2].b32.s0.is_texnull() {
-            if MEM[q + 3].b32.s0.is_texnull() {
-                free_node(q, MARK_CLASS_NODE_SIZE);
-                return true;
-            }
+        if MEM[q + 2].b32.s0.opt().is_none() && MEM[q + 3].b32.s0.opt().is_none() {
+            free_node(q, MARK_CLASS_NODE_SIZE);
+            return true;
         }
     }
     false

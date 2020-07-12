@@ -2396,7 +2396,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
     let mut sup_kern = 0i32;
     let mut sub_kern = 0i32;
     if is_char_node(p.opt())
-        || !p.is_texnull()
+        || p.opt().is_some()
             && !is_char_node(p.opt())
             && NODE_type(p as usize) == TextNode::WhatsIt.into()
             && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
