@@ -435,7 +435,7 @@ impl MathNST {
             Self::Eq(_, mode) => match mode {
                 MathMode::Right => LR::RightToLeft,
                 _ => LR::LeftToRight,
-            }
+            },
             Self::Before => LR::LeftToRight,
             Self::After => LR::LeftToRight,
         }
@@ -459,9 +459,7 @@ impl From<MathNST> for u16 {
         match mnt {
             MathNST::Before => 0,
             MathNST::After => 1,
-            MathNST::Eq(be, mode) => {
-                (be as u16) + (mode as u16)
-            }
+            MathNST::Eq(be, mode) => (be as u16) + (mode as u16),
         }
     }
 }

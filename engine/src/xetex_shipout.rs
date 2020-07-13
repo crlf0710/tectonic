@@ -1156,11 +1156,11 @@ unsafe fn hlist_out() {
     while MathNST::from(*LLIST_info(LR_ptr as usize) as u16) != MathNST::Before {
         match MathNST::from(*LLIST_info(LR_ptr as usize) as u16) {
             MathNST::Eq(_, MathMode::Left) | MathNST::Eq(_, MathMode::Right) => {
-				// LLIST_info(LR_ptr)
-				LR_problems += 10000;
-			}
-			_ => {}
-		}
+                // LLIST_info(LR_ptr)
+                LR_problems += 10000;
+            }
+            _ => {}
+        }
         temp_ptr = LR_ptr as usize;
         LR_ptr = *LLIST_link(temp_ptr);
         *LLIST_link(temp_ptr) = avail.tex_int();
@@ -1743,7 +1743,10 @@ unsafe fn reverse(
         if t.is_none() && m == MIN_HALFWORD && n == MIN_HALFWORD {
             break; /* "Manufacture a missing math node" */
         }
-        popt = Some(new_math(0, MathNST::from(*LLIST_info(LR_ptr as usize) as u16)));
+        popt = Some(new_math(
+            0,
+            MathNST::from(*LLIST_info(LR_ptr as usize) as u16),
+        ));
         LR_problems += 10000i32
     }
     l.tex_int()

@@ -505,8 +505,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 }
                 TextNode::Math => {
                     match MathNST::from(MEM[cp].b16.s0) {
-                        MathNST::Before | MathNST::Eq(BE::Begin, MathMode::Middle) => auto_breaking = false,
-                        MathNST::After | MathNST::Eq(BE::End, MathMode::Middle) => auto_breaking = true,
+                        MathNST::Before | MathNST::Eq(BE::Begin, MathMode::Middle) => {
+                            auto_breaking = false
+                        }
+                        MathNST::After | MathNST::Eq(BE::End, MathMode::Middle) => {
+                            auto_breaking = true
+                        }
                         _ => {}
                     }
                     if !is_char_node(LLIST_link(cp).opt()) && auto_breaking {
@@ -690,12 +694,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         && kern_NODE_subtype(s) == KernNST::Normal
                     {
                         flag = false;
-                    } else if NODE_type(s) == TextNode::Math.into() && (
-                        match MathNST::from(MEM[s].b16.s0) {
-                            MathNST::Eq(_, MathMode::Left) | MathNST::Eq(_, MathMode::Right) => true,
+                    } else if NODE_type(s) == TextNode::Math.into()
+                        && (match MathNST::from(MEM[s].b16.s0) {
+                            MathNST::Eq(_, MathMode::Left) | MathNST::Eq(_, MathMode::Right) => {
+                                true
+                            }
                             _ => false,
-                        }
-                    )
+                        })
                     // NODE_subtype(s as usize)
                     {
                         flag = false;
@@ -1007,7 +1012,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             }
                             TextNode::Math => {
                                 match MathNST::from(MEM[s].b16.s0) {
-                                    MathNST::Eq(_, MathMode::Left) | MathNST::Eq(_, MathMode::Right) => break,
+                                    MathNST::Eq(_, MathMode::Left)
+                                    | MathNST::Eq(_, MathMode::Right) => break,
                                     _ => return c,
                                 };
                             }

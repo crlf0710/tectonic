@@ -583,12 +583,12 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                         print_char(' ' as i32);
                     }
                 }
-                TextNode::Math => {
-                    match MathNST::from(MEM[p].b16.s0) {
-                        MathNST::Eq(_, MathMode::Left) | MathNST::Eq(_, MathMode::Right) => print_cstr(b"[]"),
-                        _ => print_char('$' as i32),
+                TextNode::Math => match MathNST::from(MEM[p].b16.s0) {
+                    MathNST::Eq(_, MathMode::Left) | MathNST::Eq(_, MathMode::Right) => {
+                        print_cstr(b"[]")
                     }
-                }
+                    _ => print_char('$' as i32),
+                },
                 TextNode::Ligature => short_display(LIGATURE_NODE_lig_ptr(p).opt()),
                 TextNode::Disc => {
                     short_display(DISCRETIONARY_NODE_pre_break(p).opt());
@@ -7006,7 +7006,9 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                 cur_val = 0;
                 let mut tx = cur_list.tail;
                 if tx < hi_mem_min as usize {
-                    if text_NODE_type(tx) == TextNode::Math.into() && MathNST::from(MEM[tx].b16.s0) == END_M_CODE {
+                    if text_NODE_type(tx) == TextNode::Math.into()
+                        && MathNST::from(MEM[tx].b16.s0) == END_M_CODE
+                    {
                         r = cur_list.head as i32;
                         let mut q;
                         loop {
@@ -13828,7 +13830,8 @@ pub(crate) unsafe fn delete_last() {
     } else {
         let mut tx = cur_list.tail;
         if !is_char_node(Some(tx)) {
-            if NODE_type(tx) == TextNode::Math.into() && MathNST::from(MEM[tx].b16.s0) == END_M_CODE {
+            if NODE_type(tx) == TextNode::Math.into() && MathNST::from(MEM[tx].b16.s0) == END_M_CODE
+            {
                 let mut r = cur_list.head as i32;
                 let mut q;
                 loop {
@@ -14453,7 +14456,9 @@ pub(crate) unsafe fn just_reverse(p: usize) {
                 /*1527: */
                 let (be, mode) = MathNST::from(MEM[p].b16.s0).equ();
                 if be == BE::End {
-                    if MathNST::from(MEM[LR_ptr as usize].b32.s0 as u16) != MathNST::Eq(BE::End, mode) {
+                    if MathNST::from(MEM[LR_ptr as usize].b32.s0 as u16)
+                        != MathNST::Eq(BE::End, mode)
+                    {
                         set_NODE_type(p, TextNode::Kern);
                         LR_problems += 1;
                     } else {
@@ -14479,8 +14484,7 @@ pub(crate) unsafe fn just_reverse(p: usize) {
                     MEM[temp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
                     *LLIST_link(temp_ptr) = LR_ptr;
                     LR_ptr = Some(temp_ptr).tex_int();
-                    if n > MIN_HALFWORD || MathNST::from(MEM[p].b16.s0).dir() != cur_dir
-                    {
+                    if n > MIN_HALFWORD || MathNST::from(MEM[p].b16.s0).dir() != cur_dir {
                         n += 1;
                         MEM[p].b16.s0 += 1;
                     } else {
@@ -15611,928 +15615,47 @@ pub(crate) unsafe fn main_control() {
     if let Some(ej) = LOCAL(Local::every_job).opt() {
         begin_token_list(ej, Btl::EveryJobText);
     }
+    let mut big_switch = true;
     'c_125208: loop {
         /* big_switch */
-        get_x_token();
-        loop {
-            /*1066: */
-            if *INTPAR(IntPar::tracing_commands) > 0i32 {
-                show_cur_cmd_chr(); /*:1490 */
+        if big_switch {
+            get_x_token();
+        }
+        big_switch = true;
+
+        // reswitch
+        /*1066: */
+        if *INTPAR(IntPar::tracing_commands) > 0i32 {
+            show_cur_cmd_chr(); /*:1490 */
+        }
+        use ListMode::*;
+        match (cur_list.mode.1, cur_cmd) {
+            (HMode, Cmd::Letter) | (HMode, Cmd::OtherChar) | (HMode, Cmd::CharGiven) => { // 115 | 116 | 172
             }
-            use ListMode::*;
-            match (cur_list.mode.1, cur_cmd) {
-                (HMode, Cmd::Letter) | (HMode, Cmd::OtherChar) | (HMode, Cmd::CharGiven) => { // 115 | 116 | 172
-                }
-                (HMode, Cmd::CharNum) => {
-                    // 120
-                    scan_usv_num();
-                    cur_chr = cur_val;
-                }
-                (HMode, Cmd::NoBoundary) => {
-                    // 169
-                    get_x_token();
-                    if cur_cmd == Cmd::Letter
-                        || cur_cmd == Cmd::OtherChar
-                        || cur_cmd == Cmd::CharGiven
-                        || cur_cmd == Cmd::CharNum
-                    {
-                        cancel_boundary = true;
-                    }
-                    continue;
-                }
-                _ => {
-                    if cur_list.mode.1 == ListMode::HMode {
-                        if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
-                            && space_class != CHAR_CLASS_LIMIT
-                            && prev_class != CHAR_CLASS_LIMIT - 1
-                        {
-                            prev_class = CHAR_CLASS_LIMIT - 1;
-                            find_sa_element(
-                                ValLevel::InterChar,
-                                space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
-                                false,
-                            );
-                            if let Some(c) = cur_ptr {
-                                if cur_cs == 0 {
-                                    if cur_cmd == Cmd::CharNum {
-                                        cur_cmd = Cmd::OtherChar;
-                                    }
-                                    cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
-                                } else {
-                                    cur_tok = CS_TOKEN_FLAG + cur_cs
-                                }
-                                back_input();
-                                begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
-                                continue 'c_125208;
-                            }
-                        }
-                    }
-                    match (cur_list.mode.1, cur_cmd) {
-                        (HMode, Cmd::Spacer) => {
-                            // 114
-                            if cur_list.aux.b32.s0 == 1000 {
-                                current_block = 1496671425652391013;
-                                break;
-                            } else {
-                                current_block = 11459959175219260272;
-                                break;
-                            }
-                        }
-                        (HMode, Cmd::ExSpace) | (MMode, Cmd::ExSpace) => {
-                            // 168 | 271
-                            current_block = 1496671425652391013;
-                            break;
-                        }
-                        (VMode, Cmd::IgnoreSpaces)
-                        | (HMode, Cmd::IgnoreSpaces)
-                        | (MMode, Cmd::IgnoreSpaces) => {
-                            // 40 | 143 | 246
-                            if cur_chr == 0 {
-                                loop {
-                                    get_x_token();
-                                    if !(cur_cmd == Cmd::Spacer) {
-                                        break;
-                                    }
-                                }
-                                continue;
-                            } else {
-                                let t = scanner_status;
-                                scanner_status = ScannerStatus::Normal;
-                                get_next();
-                                scanner_status = t;
-                                if cur_cs < HASH_BASE as i32 {
-                                    cur_cs = prim_lookup(cur_cs - SINGLE_BASE as i32) as i32
-                                } else {
-                                    cur_cs = prim_lookup((*hash.offset(cur_cs as isize)).s1) as i32
-                                }
-                                if !(cur_cs != UNDEFINED_PRIMITIVE) {
-                                    continue 'c_125208;
-                                }
-                                cur_cmd = Cmd::from(prim_eqtb[cur_cs as usize].cmd);
-                                cur_chr = prim_eqtb[cur_cs as usize].val;
-                                continue;
-                            }
-                        }
-                        (VMode, Cmd::Comment) => {
-                            // 15
-                            if its_all_over() {
-                                return;
-                            }
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::VMove)
-                        | (HMode, Cmd::HMove)
-                        | (MMode, Cmd::HMove)
-                        | (VMode, Cmd::LastItem)
-                        | (HMode, Cmd::LastItem)
-                        | (MMode, Cmd::LastItem)
-                        | (VMode, Cmd::VAdjust)
-                        | (VMode, Cmd::ItalCorr)
-                        | (VMode, Cmd::EqNo)
-                        | (HMode, Cmd::EqNo)
-                        | (VMode, Cmd::MacParam)
-                        | (HMode, Cmd::MacParam)
-                        | (MMode, Cmd::MacParam) => {
-                            // 23 | 125 | 228 | 72 | 175 | 278 | 39 | 45 | 49 | 152 | 7 | 110 | 213
-                            report_illegal_case();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::SupMark)
-                        | (HMode, Cmd::SupMark)
-                        | (VMode, Cmd::SubMark)
-                        | (HMode, Cmd::SubMark)
-                        | (VMode, Cmd::MathCharNum)
-                        | (HMode, Cmd::MathCharNum)
-                        | (VMode, Cmd::MathGiven)
-                        | (HMode, Cmd::MathGiven)
-                        | (VMode, Cmd::XetexMathGiven)
-                        | (HMode, Cmd::XetexMathGiven)
-                        | (VMode, Cmd::MathComp)
-                        | (HMode, Cmd::MathComp)
-                        | (VMode, Cmd::DelimNum)
-                        | (HMode, Cmd::DelimNum)
-                        | (VMode, Cmd::LeftRight)
-                        | (HMode, Cmd::LeftRight)
-                        | (VMode, Cmd::Above)
-                        | (HMode, Cmd::Above)
-                        | (VMode, Cmd::Radical)
-                        | (HMode, Cmd::Radical)
-                        | (VMode, Cmd::MathStyle)
-                        | (HMode, Cmd::MathStyle)
-                        | (VMode, Cmd::MathChoice)
-                        | (HMode, Cmd::MathChoice)
-                        | (VMode, Cmd::VCenter)
-                        | (HMode, Cmd::VCenter)
-                        | (VMode, Cmd::NonScript)
-                        | (HMode, Cmd::NonScript)
-                        | (VMode, Cmd::MKern)
-                        | (HMode, Cmd::MKern)
-                        | (VMode, Cmd::LimitSwitch)
-                        | (HMode, Cmd::LimitSwitch)
-                        | (VMode, Cmd::MSkip)
-                        | (HMode, Cmd::MSkip)
-                        | (VMode, Cmd::MathAccent)
-                        | (HMode, Cmd::MathAccent)
-                        | (MMode, Cmd::EndV)
-                        | (MMode, Cmd::ActiveChar)
-                        | (MMode, Cmd::Comment)
-                        | (MMode, Cmd::VSkip)
-                        | (MMode, Cmd::UnVBox)
-                        | (MMode, Cmd::VAlign)
-                        | (MMode, Cmd::HRule) => {
-                            // 8 | 111 | 9 | 112 | 18 | 121 | 70 | 173 | 71 | 174 | 51 | 154 | 16
-                            //| 119 | 50 | 153 | 53 | 156 | 67 | 170 | 54 | 157 | 55 | 158 | 57 | 160
-                            //| 56 | 159 | 31 | 134 | 52 | 155 | 29 | 132 | 47 | 150 | 216 | 220
-                            //| 221 | 234 | 231 | 240 | 243
-                            insert_dollar_sign();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::HRule) | (HMode, Cmd::VRule) | (MMode, Cmd::VRule) => {
-                            // 37 | 139 | 242
-                            let srs = scan_rule_spec();
-                            *LLIST_link(cur_list.tail) = Some(srs).tex_int();
-                            cur_list.tail = srs;
-                            if cur_list.mode.1 == ListMode::VMode {
-                                cur_list.aux.b32.s1 = IGNORE_DEPTH;
-                            } else if cur_list.mode.1 == ListMode::HMode {
-                                cur_list.aux.b32.s0 = 1000;
-                            }
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::VSkip)
-                        | (HMode, Cmd::HSkip)
-                        | (MMode, Cmd::HSkip)
-                        | (MMode, Cmd::MSkip) => {
-                            // 28 | 130 | 233 | 235
-                            append_glue();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::Kern)
-                        | (HMode, Cmd::Kern)
-                        | (MMode, Cmd::Kern)
-                        | (MMode, Cmd::MKern) => {
-                            // 30 | 133 | 236 | 237
-                            append_kern();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::LeftBrace) | (HMode, Cmd::LeftBrace) => {
-                            // 2 | 105
-                            new_save_level(GroupCode::Simple);
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::BeginGroup)
-                        | (HMode, Cmd::BeginGroup)
-                        | (MMode, Cmd::BeginGroup) => {
-                            // 62 | 165 | 268
-                            new_save_level(GroupCode::SemiSimple);
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::EndGroup)
-                        | (HMode, Cmd::EndGroup)
-                        | (MMode, Cmd::EndGroup) => {
-                            // 63 | 166 | 269
-                            if cur_group == GroupCode::SemiSimple {
-                                unsave();
-                            } else {
-                                off_save();
-                            }
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::RightBrace)
-                        | (HMode, Cmd::RightBrace)
-                        | (MMode, Cmd::RightBrace) => {
-                            // 3 | 106 | 209
-                            handle_right_brace();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::HMove) | (HMode, Cmd::VMove) | (MMode, Cmd::VMove) => {
-                            // 22 | 126 | 229
-                            let t = cur_chr;
-                            scan_dimen(false, false, false);
-                            if t == 0 {
-                                scan_box(cur_val);
-                            } else {
-                                scan_box(-cur_val);
-                            }
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::LeaderShip)
-                        | (HMode, Cmd::LeaderShip)
-                        | (MMode, Cmd::LeaderShip) => {
-                            // 32 | 135 | 238
-                            scan_box(LEADER_FLAG - (A_LEADERS as i32) + cur_chr);
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::MakeBox) | (HMode, Cmd::MakeBox) | (MMode, Cmd::MakeBox) => {
-                            // 21 | 124 | 227
-                            begin_box(0);
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::StartPar) => {
-                            // 44
-                            new_graf(cur_chr > 0);
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::Letter)
-                        | (VMode, Cmd::OtherChar)
-                        | (VMode, Cmd::CharNum)
-                        | (VMode, Cmd::CharGiven)
-                        | (VMode, Cmd::MathShift)
-                        | (VMode, Cmd::UnHBox)
-                        | (VMode, Cmd::VRule)
-                        | (VMode, Cmd::Accent)
-                        | (VMode, Cmd::Discretionary)
-                        | (VMode, Cmd::HSkip)
-                        | (VMode, Cmd::VAlign)
-                        | (VMode, Cmd::ExSpace)
-                        | (VMode, Cmd::NoBoundary) => {
-                            // 12 | 13 | 17 | 69 | 4 | 24 | 36 | 46 | 48 | 27 | 34 | 65 | 66
-                            back_input();
-                            new_graf(true);
-                            continue 'c_125208;
-                        }
-                        (HMode, Cmd::StartPar) | (MMode, Cmd::StartPar) => {
-                            // 147 | 250
-                            indent_in_hmode();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::ActiveChar) => {
-                            // 14
-                            normal_paragraph();
-                            if cur_list.mode.0 == false {
-                                build_page();
-                            }
-                            continue 'c_125208;
-                        }
-                        (HMode, Cmd::ActiveChar) => {
-                            // 117
-                            if align_state < 0 {
-                                off_save();
-                            }
-                            end_graf();
-                            if cur_list.mode == (false, ListMode::VMode) {
-                                build_page();
-                            }
-                            continue 'c_125208;
-                        }
-                        (HMode, Cmd::Comment)
-                        | (HMode, Cmd::VSkip)
-                        | (HMode, Cmd::HRule)
-                        | (HMode, Cmd::UnVBox)
-                        | (HMode, Cmd::HAlign) => {
-                            // 118 | 131 | 140 | 128 | 136
-                            head_for_vmode();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::Insert)
-                        | (HMode, Cmd::Insert)
-                        | (MMode, Cmd::Insert)
-                        | (HMode, Cmd::VAdjust)
-                        | (MMode, Cmd::VAdjust) => {
-                            // 38 | 141 | 244 | 142 | 245
-                            begin_insert_or_adjust();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::Mark) | (HMode, Cmd::Mark) | (MMode, Cmd::Mark) => {
-                            // 19 | 122 | 225
-                            make_mark();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::BreakPenalty)
-                        | (HMode, Cmd::BreakPenalty)
-                        | (MMode, Cmd::BreakPenalty) => {
-                            // 43 | 146 | 249
-                            append_penalty();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::RemoveItem)
-                        | (HMode, Cmd::RemoveItem)
-                        | (MMode, Cmd::RemoveItem) => {
-                            // 26 | 129 | 232
-                            delete_last();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::UnVBox) | (HMode, Cmd::UnHBox) | (MMode, Cmd::UnHBox) => {
-                            // 25 | 127 | 230
-                            unpackage();
-                            continue 'c_125208;
-                        }
-                        (HMode, Cmd::ItalCorr) => {
-                            // 148
-                            append_italic_correction();
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::ItalCorr) => {
-                            // 251
-                            let k = new_kern(0);
-                            *LLIST_link(cur_list.tail) = Some(k).tex_int();
-                            cur_list.tail = k;
-                            continue 'c_125208;
-                        }
-                        (HMode, Cmd::Discretionary) | (MMode, Cmd::Discretionary) => {
-                            // 151 | 254
-                            append_discretionary();
-                            continue 'c_125208;
-                        }
-                        (HMode, Cmd::Accent) => {
-                            // 149
-                            make_accent();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::CarRet)
-                        | (HMode, Cmd::CarRet)
-                        | (MMode, Cmd::CarRet)
-                        | (VMode, Cmd::TabMark)
-                        | (HMode, Cmd::TabMark)
-                        | (MMode, Cmd::TabMark) => {
-                            // 6 | 109 | 212 | 5 | 108 | 211
-                            align_error();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::NoAlign) | (HMode, Cmd::NoAlign) | (MMode, Cmd::NoAlign) => {
-                            // 35 | 138 | 241
-                            no_align_error();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::Omit) | (HMode, Cmd::Omit) | (MMode, Cmd::Omit) => {
-                            // 64 | 167 | 270
-                            omit_error();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::HAlign) => {
-                            // 33
-                            init_align();
-                            continue 'c_125208;
-                        }
-                        (HMode, Cmd::VAlign) => {
-                            // 137
-                            if cur_chr > 0 {
-                                if eTeX_enabled(*INTPAR(IntPar::texxet) > 0, cur_cmd, cur_chr) {
-                                    let m = new_math(0, MathNST::from(cur_chr as u16));
-                                    *LLIST_link(cur_list.tail) = Some(m).tex_int();
-                                    cur_list.tail = m;
-                                }
-                            } else {
-                                init_align();
-                            }
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::HAlign) => {
-                            // 239
-                            if privileged() {
-                                if cur_group == GroupCode::MathShift {
-                                    init_align();
-                                } else {
-                                    off_save();
-                                }
-                            }
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::EndV) | (HMode, Cmd::EndV) => {
-                            // 10 | 113
-                            do_endv();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::EndCSName)
-                        | (HMode, Cmd::EndCSName)
-                        | (MMode, Cmd::EndCSName) => {
-                            // 68 | 171 | 274
-                            cs_error();
-                            continue 'c_125208;
-                        }
-                        (HMode, Cmd::MathShift) => {
-                            // 107
-                            init_math();
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::EqNo) => {
-                            // 255
-                            if privileged() {
-                                if cur_group == GroupCode::MathShift {
-                                    start_eq_no();
-                                } else {
-                                    off_save();
-                                }
-                            }
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::LeftBrace) => {
-                            // 208
-                            let n = new_noad();
-                            *LLIST_link(cur_list.tail) = Some(n).tex_int();
-                            cur_list.tail = n;
-                            back_input();
-                            scan_math(cur_list.tail + 1);
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::Letter)
-                        | (MMode, Cmd::OtherChar)
-                        | (MMode, Cmd::CharGiven) => {
-                            // 218 | 219 | 275
-                            set_math_char(*MATH_CODE(cur_chr as usize));
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::CharNum) => {
-                            // 223
-                            scan_char_num();
-                            cur_chr = cur_val;
-                            set_math_char(*MATH_CODE(cur_chr as usize));
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::MathCharNum) => {
-                            // 224
-                            if cur_chr == 2 {
-                                scan_math_class_int();
-                                let t = set_class(cur_val);
-                                scan_math_fam_int();
-                                let t = t + set_family(cur_val);
-                                scan_usv_num();
-                                let t = t + cur_val;
-                                set_math_char(t);
-                            } else if cur_chr == 1 {
-                                scan_xetex_math_char_int();
-                                set_math_char(cur_val);
-                            } else {
-                                scan_fifteen_bit_int();
-                                set_math_char(
-                                    set_class(cur_val / 4096)
-                                        + set_family((cur_val % 4096) / 256)
-                                        + (cur_val % 256),
-                                );
-                            }
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::MathGiven) => {
-                            // 276
-                            set_math_char(
-                                set_class(cur_chr / 4096)
-                                    + set_family((cur_chr % 4096) / 256)
-                                    + (cur_chr % 256),
-                            );
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::XetexMathGiven) => {
-                            // 277
-                            set_math_char(cur_chr);
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::DelimNum) => {
-                            // 222
-                            if cur_chr == 1i32 {
-                                scan_math_class_int();
-                                scan_math_class_int();
-                                let t = set_class(cur_val);
-                                scan_math_fam_int();
-                                let t = t + set_family(cur_val);
-                                scan_usv_num();
-                                let t = t + cur_val;
-                                set_math_char(t);
-                            } else {
-                                scan_delimiter_int();
-                                cur_val = cur_val / 4096;
-                                set_math_char(
-                                    set_class(cur_val / 4096)
-                                        + set_family((cur_val % 4096) / 256)
-                                        + (cur_val % 256),
-                                );
-                            }
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::MathComp) => {
-                            // 257
-                            let n = new_noad();
-                            *LLIST_link(cur_list.tail) = Some(n).tex_int();
-                            cur_list.tail = n;
-                            MEM[cur_list.tail].b16.s1 = cur_chr as u16;
-                            scan_math(cur_list.tail + 1);
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::LimitSwitch) => {
-                            // 258
-                            math_limit_switch();
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::Radical) => {
-                            // 273
-                            math_radical();
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::Accent) | (MMode, Cmd::MathAccent) => {
-                            // 252 | 253
-                            math_ac();
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::VCenter) => {
-                            // 263
-                            scan_spec(GroupCode::VCenter, false);
-                            normal_paragraph();
-                            push_nest();
-                            cur_list.mode = (true, ListMode::VMode);
-                            cur_list.aux.b32.s1 = IGNORE_DEPTH;
-                            if insert_src_special_every_vbox {
-                                insert_src_special();
-                            }
-                            if let Some(ev) = LOCAL(Local::every_vbox).opt() {
-                                begin_token_list(ev, Btl::EveryVBoxText);
-                            }
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::MathStyle) => {
-                            // 260
-                            let s = new_style(cur_chr as i16);
-                            *LLIST_link(cur_list.tail) = Some(s).tex_int();
-                            cur_list.tail = s;
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::NonScript) => {
-                            // 262
-                            let g = new_glue(0);
-                            *LLIST_link(cur_list.tail) = Some(g).tex_int();
-                            cur_list.tail = g;
-                            MEM[cur_list.tail].b16.s0 = COND_MATH_GLUE;
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::MathChoice) => {
-                            // 261
-                            append_choices();
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::SubMark) | (MMode, Cmd::SupMark) => {
-                            // 215 | 214
-                            sub_sup();
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::Above) => {
-                            // 259
-                            math_fraction();
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::LeftRight) => {
-                            // 256
-                            math_left_right();
-                            continue 'c_125208;
-                        }
-                        (MMode, Cmd::MathShift) => {
-                            // 210
-                            if cur_group == GroupCode::MathShift {
-                                after_math();
-                            } else {
-                                off_save();
-                            }
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::ToksRegister)
-                        | (HMode, Cmd::ToksRegister)
-                        | (MMode, Cmd::ToksRegister)
-                        | (VMode, Cmd::AssignToks)
-                        | (HMode, Cmd::AssignToks)
-                        | (MMode, Cmd::AssignToks)
-                        | (VMode, Cmd::AssignInt)
-                        | (HMode, Cmd::AssignInt)
-                        | (MMode, Cmd::AssignInt)
-                        | (VMode, Cmd::AssignDimen)
-                        | (HMode, Cmd::AssignDimen)
-                        | (MMode, Cmd::AssignDimen)
-                        | (VMode, Cmd::AssignGlue)
-                        | (HMode, Cmd::AssignGlue)
-                        | (MMode, Cmd::AssignGlue)
-                        | (VMode, Cmd::AssignMuGlue)
-                        | (HMode, Cmd::AssignMuGlue)
-                        | (MMode, Cmd::AssignMuGlue)
-                        | (VMode, Cmd::AssignFontDimen)
-                        | (HMode, Cmd::AssignFontDimen)
-                        | (MMode, Cmd::AssignFontDimen)
-                        | (VMode, Cmd::AssignFontInt)
-                        | (HMode, Cmd::AssignFontInt)
-                        | (MMode, Cmd::AssignFontInt)
-                        | (VMode, Cmd::SetAux)
-                        | (HMode, Cmd::SetAux)
-                        | (MMode, Cmd::SetAux)
-                        | (VMode, Cmd::SetPrevGraf)
-                        | (HMode, Cmd::SetPrevGraf)
-                        | (MMode, Cmd::SetPrevGraf)
-                        | (VMode, Cmd::SetPageDimen)
-                        | (HMode, Cmd::SetPageDimen)
-                        | (MMode, Cmd::SetPageDimen)
-                        | (VMode, Cmd::SetPageInt)
-                        | (HMode, Cmd::SetPageInt)
-                        | (MMode, Cmd::SetPageInt)
-                        | (VMode, Cmd::SetBoxDimen)
-                        | (HMode, Cmd::SetBoxDimen)
-                        | (MMode, Cmd::SetBoxDimen)
-                        | (VMode, Cmd::SetShape)
-                        | (HMode, Cmd::SetShape)
-                        | (MMode, Cmd::SetShape)
-                        | (VMode, Cmd::DefCode)
-                        | (HMode, Cmd::DefCode)
-                        | (MMode, Cmd::DefCode)
-                        | (VMode, Cmd::XetexDefCode)
-                        | (HMode, Cmd::XetexDefCode)
-                        | (MMode, Cmd::XetexDefCode)
-                        | (VMode, Cmd::DefFamily)
-                        | (HMode, Cmd::DefFamily)
-                        | (MMode, Cmd::DefFamily)
-                        | (VMode, Cmd::SetFont)
-                        | (HMode, Cmd::SetFont)
-                        | (MMode, Cmd::SetFont)
-                        | (VMode, Cmd::DefFont)
-                        | (HMode, Cmd::DefFont)
-                        | (MMode, Cmd::DefFont)
-                        | (VMode, Cmd::Register)
-                        | (HMode, Cmd::Register)
-                        | (MMode, Cmd::Register)
-                        | (VMode, Cmd::Advance)
-                        | (HMode, Cmd::Advance)
-                        | (MMode, Cmd::Advance)
-                        | (VMode, Cmd::Multiply)
-                        | (HMode, Cmd::Multiply)
-                        | (MMode, Cmd::Multiply)
-                        | (VMode, Cmd::Divide)
-                        | (HMode, Cmd::Divide)
-                        | (MMode, Cmd::Divide)
-                        | (VMode, Cmd::Prefix)
-                        | (HMode, Cmd::Prefix)
-                        | (MMode, Cmd::Prefix)
-                        | (VMode, Cmd::Let)
-                        | (HMode, Cmd::Let)
-                        | (MMode, Cmd::Let)
-                        | (VMode, Cmd::ShorthandDef)
-                        | (HMode, Cmd::ShorthandDef)
-                        | (MMode, Cmd::ShorthandDef)
-                        | (VMode, Cmd::ReadToCS)
-                        | (HMode, Cmd::ReadToCS)
-                        | (MMode, Cmd::ReadToCS)
-                        | (VMode, Cmd::Def)
-                        | (HMode, Cmd::Def)
-                        | (MMode, Cmd::Def)
-                        | (VMode, Cmd::SetBox)
-                        | (HMode, Cmd::SetBox)
-                        | (MMode, Cmd::SetBox)
-                        | (VMode, Cmd::HyphData)
-                        | (HMode, Cmd::HyphData)
-                        | (MMode, Cmd::HyphData)
-                        | (VMode, Cmd::SetInteraction)
-                        | (HMode, Cmd::SetInteraction)
-                        | (MMode, Cmd::SetInteraction) => {
-                            // 73 | 176 | 279 | 74 | 177 | 280 | 75 | 178 | 281 | 76 | 179 | 282 | 77
-                            //| 180 | 283 | 78 | 181 | 284 | 79 | 182 | 285 | 80 | 183 | 286 | 81
-                            //| 184 | 287 | 82 | 185 | 288 | 83 | 186 | 289 | 84 | 187 | 290 | 85
-                            //| 188 | 291 | 86 | 189 | 292 | 87 | 190 | 293 | 88 | 191 | 294 | 89
-                            //| 192 | 295 | 90 | 193 | 296 | 91 | 194 | 297 | 92 | 195 | 298 | 93
-                            //| 196 | 299 | 94 | 197 | 300 | 95 | 198 | 301 | 96 | 199 | 302 | 97
-                            //| 200 | 303 | 98 | 201 | 304 | 99 | 202 | 305 | 100 | 203 | 306 | 101
-                            //| 204 | 307 | 102 | 205 | 308 | 103 | 206 | 309
-                            prefixed_command();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::AfterAssignment)
-                        | (HMode, Cmd::AfterAssignment)
-                        | (MMode, Cmd::AfterAssignment) => {
-                            // 41 | 144 | 247
-                            get_token();
-                            after_token = cur_tok;
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::AfterGroup)
-                        | (HMode, Cmd::AfterGroup)
-                        | (MMode, Cmd::AfterGroup) => {
-                            // 42 | 145 | 248
-                            get_token();
-                            save_for_after(cur_tok);
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::InStream)
-                        | (HMode, Cmd::InStream)
-                        | (MMode, Cmd::InStream) => {
-                            // 61 | 164 | 267
-                            open_or_close_in();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::Message) | (HMode, Cmd::Message) | (MMode, Cmd::Message) => {
-                            // 59 | 162 | 265
-                            issue_message();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::CaseShift)
-                        | (HMode, Cmd::CaseShift)
-                        | (MMode, Cmd::CaseShift) => {
-                            // 58 | 161 | 264
-                            shift_case();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::XRay) | (HMode, Cmd::XRay) | (MMode, Cmd::XRay) => {
-                            // 20 | 123 | 226
-                            show_whatever();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::Extension)
-                        | (HMode, Cmd::Extension)
-                        | (MMode, Cmd::Extension) => {
-                            // 60 | 163 | 266
-                            do_extension();
-                            continue 'c_125208;
-                        }
-                        (VMode, Cmd::Relax)
-                        | (HMode, Cmd::Relax)
-                        | (MMode, Cmd::Relax)
-                        | (VMode, Cmd::Spacer)
-                        | (MMode, Cmd::Spacer)
-                        | (MMode, Cmd::NoBoundary)
-                        | _ => {
-                            // 1 | 104 | 207 | 11 | 217 | 272 | _
-                            continue 'c_125208;
-                        }
-                    }
-                }
+            (HMode, Cmd::CharNum) => {
+                // 120
+                scan_usv_num();
+                cur_chr = cur_val;
             }
-            /*main_loop *//*1069: */
-            if cur_list.head == cur_list.tail && cur_list.mode.0 == false {
-                if insert_src_special_auto {
-                    append_src_special();
+            (HMode, Cmd::NoBoundary) => {
+                // 169
+                get_x_token();
+                if cur_cmd == Cmd::Letter
+                    || cur_cmd == Cmd::OtherChar
+                    || cur_cmd == Cmd::CharGiven
+                    || cur_cmd == Cmd::CharNum
+                {
+                    cancel_boundary = true;
                 }
+                big_switch = false;
+                continue 'c_125208;
             }
-            prev_class = CHAR_CLASS_LIMIT - 1;
-            if FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == AAT_FONT_FLAG
-                || FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == OTGR_FONT_FLAG
-            {
-                if cur_list.mode.0 == false {
-                    if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
-                        fix_language();
-                    }
-                }
-                main_h = 0;
-                main_f = EQTB[CUR_FONT_LOC].val as usize;
-                native_len = 0;
-                loop {
-                    /*collect_native */
-                    main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32;
-                    if main_s == 1000 {
-                        cur_list.aux.b32.s0 = 1000;
-                    } else if main_s < 1000 {
-                        if main_s > 0 {
-                            cur_list.aux.b32.s0 = main_s;
-                        }
-                    } else if cur_list.aux.b32.s0 < 1000 {
-                        cur_list.aux.b32.s0 = 1000;
-                    } else {
-                        cur_list.aux.b32.s0 = main_s;
-                    }
-                    cur_ptr = None;
-                    space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
-                    if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != 4096 {
-                        if prev_class == CHAR_CLASS_LIMIT - 1 {
-                            if cur_input.state != InputState::TokenList
-                                || cur_input.index != Btl::BackedUpChar
-                            {
-                                find_sa_element(
-                                    ValLevel::InterChar,
-                                    (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
-                                    false,
-                                );
-                                if let Some(c) = cur_ptr {
-                                    if cur_cmd != Cmd::Letter {
-                                        cur_cmd = Cmd::OtherChar;
-                                    }
-                                    cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                    back_input();
-                                    cur_input.index = Btl::BackedUpChar;
-                                    begin_token_list(
-                                        MEM[c + 1].b32.s1 as usize,
-                                        Btl::InterCharText,
-                                    );
-                                    continue 'c_125208;
-                                }
-                            }
-                        } else {
-                            find_sa_element(
-                                ValLevel::InterChar,
-                                prev_class * CHAR_CLASS_LIMIT + space_class,
-                                false,
-                            );
-                            if let Some(c) = cur_ptr {
-                                if cur_cmd != Cmd::Letter {
-                                    cur_cmd = Cmd::OtherChar;
-                                }
-                                cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                back_input();
-                                cur_input.index = Btl::BackedUpChar;
-                                begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
-                                prev_class = CHAR_CLASS_LIMIT - 1;
-                                current_block = 9706274459985797855;
-                                break;
-                            }
-                        }
-                        prev_class = space_class
-                    }
-                    if cur_chr as i64 > 65535 {
-                        while native_text_size <= native_len + 2 {
-                            native_text_size = native_text_size + 128;
-                            native_text = xrealloc(
-                                native_text as *mut libc::c_void,
-                                (native_text_size as u64).wrapping_mul(::std::mem::size_of::<
-                                    UTF16_code,
-                                >(
-                                )
-                                    as u64) as _,
-                            ) as *mut UTF16_code
-                        }
-                        *native_text.offset(native_len as isize) =
-                            ((cur_chr as i64 - 65536) / 1024 + 0xd800) as UTF16_code;
-                        native_len += 1;
-                        *native_text.offset(native_len as isize) =
-                            ((cur_chr as i64 - 65536) % 1024 + 0xdc00) as UTF16_code;
-                        native_len += 1
-                    } else {
-                        while native_text_size <= native_len + 1 {
-                            native_text_size = native_text_size + 128;
-                            native_text = xrealloc(
-                                native_text as *mut libc::c_void,
-                                (native_text_size as u64).wrapping_mul(::std::mem::size_of::<
-                                    UTF16_code,
-                                >(
-                                )
-                                    as u64) as _,
-                            ) as *mut UTF16_code
-                        }
-                        *native_text.offset(native_len as isize) = cur_chr as UTF16_code;
-                        native_len += 1
-                    }
-                    is_hyph = cur_chr == HYPHEN_CHAR[main_f as usize]
-                        || *INTPAR(IntPar::xetex_dash_break) > 0
-                            && (cur_chr == 8212 || cur_chr == 8211);
-                    if main_h == 0 && is_hyph {
-                        main_h = native_len
-                    }
-                    get_next();
-                    if cur_cmd == Cmd::Letter
-                        || cur_cmd == Cmd::OtherChar
-                        || cur_cmd == Cmd::CharGiven
-                    {
-                        continue;
-                    }
-                    x_token();
-                    if cur_cmd == Cmd::Letter
-                        || cur_cmd == Cmd::OtherChar
-                        || cur_cmd == Cmd::CharGiven
-                    {
-                        continue;
-                    }
-                    if cur_cmd == Cmd::CharNum {
-                        scan_usv_num();
-                        cur_chr = cur_val
-                    } else if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
+            _ => {
+                if cur_list.mode.1 == ListMode::HMode {
+                    if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
                         && space_class != CHAR_CLASS_LIMIT
                         && prev_class != CHAR_CLASS_LIMIT - 1
                     {
-                        current_block = 14170946608255986518;
-                        break;
-                    } else {
-                        current_block = 9706274459985797855;
-                        break;
-                    }
-                }
-                match current_block {
-                    14170946608255986518 => {
                         prev_class = CHAR_CLASS_LIMIT - 1;
                         find_sa_element(
                             ValLevel::InterChar,
@@ -16540,346 +15663,761 @@ pub(crate) unsafe fn main_control() {
                             false,
                         );
                         if let Some(c) = cur_ptr {
-                            cur_tok = if cur_cs == 0 {
+                            if cur_cs == 0 {
                                 if cur_cmd == Cmd::CharNum {
                                     cur_cmd = Cmd::OtherChar;
                                 }
-                                cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
+                                cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
                             } else {
-                                CS_TOKEN_FLAG + cur_cs
-                            };
+                                cur_tok = CS_TOKEN_FLAG + cur_cs
+                            }
                             back_input();
                             begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
-                        }
-                    }
-                    _ => {}
-                }
-                /*collected */
-                if !(FONT_MAPPING[main_f as usize]).is_null() {
-                    main_k = apply_mapping(FONT_MAPPING[main_f as usize], native_text, native_len);
-                    native_len = 0;
-                    while native_text_size <= native_len + main_k {
-                        native_text_size = native_text_size + 128;
-                        native_text = xrealloc(
-                            native_text as *mut libc::c_void,
-                            (native_text_size as u64)
-                                .wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64)
-                                as _,
-                        ) as *mut UTF16_code
-                    }
-                    main_h = 0;
-                    for main_p in 0..main_k {
-                        *native_text.offset(native_len as isize) =
-                            *mapped_text.offset(main_p as isize);
-                        native_len += 1;
-                        if main_h == 0
-                            && (*mapped_text.offset(main_p as isize) as i32
-                                == HYPHEN_CHAR[main_f as usize]
-                                || *INTPAR(IntPar::xetex_dash_break) > 0
-                                    && (*mapped_text.offset(main_p as isize) == 8212
-                                        || *mapped_text.offset(main_p as isize) == 8211))
-                        {
-                            main_h = native_len
+                            continue 'c_125208;
                         }
                     }
                 }
-                if *INTPAR(IntPar::tracing_lost_chars) > 0 {
-                    temp_ptr = 0;
-                    while temp_ptr < native_len as usize {
-                        main_k = *native_text.offset(temp_ptr as isize) as font_index;
-                        temp_ptr += 1;
-                        if main_k >= 0xd800 && main_k < 0xdc00 {
-                            main_k = (65536 + ((main_k - 0xd800) * 1024) as i64) as font_index;
-                            main_k =
-                                main_k + *native_text.offset(temp_ptr as isize) as i32 - 0xdc00;
-                            temp_ptr += 1;
-                        }
-                        if map_char_to_glyph(main_f, main_k) == 0 {
-                            char_warning(main_f, main_k);
+                match (cur_list.mode.1, cur_cmd) {
+                    (HMode, Cmd::Spacer) => {
+                        // 114
+                        if cur_list.aux.b32.s0 == 1000 {
+                            append_normal_space();
+                            continue 'c_125208;
+                        } else {
+                            app_space();
+                            continue 'c_125208;
                         }
                     }
-                }
-                main_k = native_len;
-                let mut main_pp = cur_list.tail as i32;
-                if cur_list.mode == (false, ListMode::HMode) {
-                    let mut main_ppp = cur_list.head as i32;
-                    if main_ppp != main_pp {
-                        while *LLIST_link(main_ppp as usize) != main_pp {
-                            if !is_char_node(main_ppp.opt())
-                                && NODE_type(main_ppp as usize) == TextNode::Disc.into()
-                            {
-                                temp_ptr = main_ppp as usize;
-                                for _ in 0..(*DISCRETIONARY_NODE_replace_count(temp_ptr)) {
-                                    main_ppp = *LLIST_link(main_ppp as usize);
+                    (HMode, Cmd::ExSpace) | (MMode, Cmd::ExSpace) => {
+                        // 168 | 271
+                        append_normal_space();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::IgnoreSpaces)
+                    | (HMode, Cmd::IgnoreSpaces)
+                    | (MMode, Cmd::IgnoreSpaces) => {
+                        // 40 | 143 | 246
+                        if cur_chr == 0 {
+                            loop {
+                                get_x_token();
+                                if !(cur_cmd == Cmd::Spacer) {
+                                    break;
                                 }
                             }
-                            if main_ppp != main_pp {
-                                main_ppp = *LLIST_link(main_ppp as usize);
+                            big_switch = false;
+                        } else {
+                            let t = scanner_status;
+                            scanner_status = ScannerStatus::Normal;
+                            get_next();
+                            scanner_status = t;
+                            if cur_cs < HASH_BASE as i32 {
+                                cur_cs = prim_lookup(cur_cs - SINGLE_BASE as i32) as i32
+                            } else {
+                                cur_cs = prim_lookup((*hash.offset(cur_cs as isize)).s1) as i32
+                            }
+                            if cur_cs != UNDEFINED_PRIMITIVE {
+                                cur_cmd = Cmd::from(prim_eqtb[cur_cs as usize].cmd);
+                                cur_chr = prim_eqtb[cur_cs as usize].val;
+                                big_switch = false;
                             }
                         }
+                        continue 'c_125208;
                     }
-                    temp_ptr = 0;
-                    loop {
-                        if main_h == 0 {
-                            main_h = main_k
+                    (VMode, Cmd::Comment) => {
+                        // 15
+                        if its_all_over() {
+                            return;
                         }
-                        if !main_pp.is_texnull()
-                            && !is_char_node(main_pp.opt())
-                            && NODE_type(main_pp as usize) == TextNode::WhatsIt.into()
-                            && (whatsit_NODE_subtype(main_pp as usize) == WhatsItNST::NativeWord
-                                || whatsit_NODE_subtype(main_pp as usize)
-                                    == WhatsItNST::NativeWordAt)
-                            && *NATIVE_NODE_font(main_pp as usize) as usize == main_f
-                            && main_ppp != main_pp
-                            && !is_char_node(main_ppp.opt())
-                            && NODE_type(main_ppp as usize) != TextNode::Disc.into()
-                        {
-                            main_k = main_h + *NATIVE_NODE_length(main_pp as usize) as i32;
-                            while native_text_size <= native_len + main_k {
-                                native_text_size = native_text_size + 128;
-                                native_text = xrealloc(
-                                    native_text as *mut libc::c_void,
-                                    (native_text_size as u64).wrapping_mul(::std::mem::size_of::<
-                                        UTF16_code,
-                                    >(
-                                    )
-                                        as u64) as _,
-                                ) as *mut UTF16_code
-                            }
-                            save_native_len = native_len;
-                            for c in NATIVE_NODE_text(main_pp as usize) {
-                                *native_text.offset(native_len as isize) = *c;
-                                native_len += 1;
-                            }
-                            for main_p in 0..main_h {
-                                *native_text.offset(native_len as isize) =
-                                    *native_text.offset((temp_ptr as isize) + (main_p as isize));
-                                native_len += 1;
-                            }
-                            do_locale_linebreaks(save_native_len, main_k);
-                            native_len = save_native_len;
-                            main_k = native_len - main_h - (temp_ptr as i32);
-                            temp_ptr = main_h as usize;
-                            main_h = 0;
-                            while main_h < main_k
-                                && *native_text.offset((temp_ptr as isize) + (main_h as isize))
-                                    as i32
-                                    != HYPHEN_CHAR[main_f as usize]
-                                && (!(*INTPAR(IntPar::xetex_dash_break) > 0)
-                                    || *native_text.offset((temp_ptr as isize) + (main_h as isize))
-                                        as i32
-                                        != 8212
-                                        && *native_text
-                                            .offset((temp_ptr as isize) + (main_h as isize))
-                                            as i32
-                                            != 8211)
-                            {
-                                main_h += 1
-                            }
-                            if main_h < main_k {
-                                main_h += 1
-                            }
-                            *LLIST_link(main_ppp as usize) = *LLIST_link(main_pp as usize);
-                            *LLIST_link(main_pp as usize) = None.tex_int();
-                            flush_node_list(main_pp.opt());
-                            main_pp = cur_list.tail as i32;
-                            while *LLIST_link(main_ppp as usize) != main_pp {
-                                main_ppp = *LLIST_link(main_ppp as usize);
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::VMove)
+                    | (HMode, Cmd::HMove)
+                    | (MMode, Cmd::HMove)
+                    | (VMode, Cmd::LastItem)
+                    | (HMode, Cmd::LastItem)
+                    | (MMode, Cmd::LastItem)
+                    | (VMode, Cmd::VAdjust)
+                    | (VMode, Cmd::ItalCorr)
+                    | (VMode, Cmd::EqNo)
+                    | (HMode, Cmd::EqNo)
+                    | (VMode, Cmd::MacParam)
+                    | (HMode, Cmd::MacParam)
+                    | (MMode, Cmd::MacParam) => {
+                        // 23 | 125 | 228 | 72 | 175 | 278 | 39 | 45 | 49 | 152 | 7 | 110 | 213
+                        report_illegal_case();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::SupMark)
+                    | (HMode, Cmd::SupMark)
+                    | (VMode, Cmd::SubMark)
+                    | (HMode, Cmd::SubMark)
+                    | (VMode, Cmd::MathCharNum)
+                    | (HMode, Cmd::MathCharNum)
+                    | (VMode, Cmd::MathGiven)
+                    | (HMode, Cmd::MathGiven)
+                    | (VMode, Cmd::XetexMathGiven)
+                    | (HMode, Cmd::XetexMathGiven)
+                    | (VMode, Cmd::MathComp)
+                    | (HMode, Cmd::MathComp)
+                    | (VMode, Cmd::DelimNum)
+                    | (HMode, Cmd::DelimNum)
+                    | (VMode, Cmd::LeftRight)
+                    | (HMode, Cmd::LeftRight)
+                    | (VMode, Cmd::Above)
+                    | (HMode, Cmd::Above)
+                    | (VMode, Cmd::Radical)
+                    | (HMode, Cmd::Radical)
+                    | (VMode, Cmd::MathStyle)
+                    | (HMode, Cmd::MathStyle)
+                    | (VMode, Cmd::MathChoice)
+                    | (HMode, Cmd::MathChoice)
+                    | (VMode, Cmd::VCenter)
+                    | (HMode, Cmd::VCenter)
+                    | (VMode, Cmd::NonScript)
+                    | (HMode, Cmd::NonScript)
+                    | (VMode, Cmd::MKern)
+                    | (HMode, Cmd::MKern)
+                    | (VMode, Cmd::LimitSwitch)
+                    | (HMode, Cmd::LimitSwitch)
+                    | (VMode, Cmd::MSkip)
+                    | (HMode, Cmd::MSkip)
+                    | (VMode, Cmd::MathAccent)
+                    | (HMode, Cmd::MathAccent)
+                    | (MMode, Cmd::EndV)
+                    | (MMode, Cmd::ActiveChar)
+                    | (MMode, Cmd::Comment)
+                    | (MMode, Cmd::VSkip)
+                    | (MMode, Cmd::UnVBox)
+                    | (MMode, Cmd::VAlign)
+                    | (MMode, Cmd::HRule) => {
+                        // 8 | 111 | 9 | 112 | 18 | 121 | 70 | 173 | 71 | 174 | 51 | 154 | 16
+                        //| 119 | 50 | 153 | 53 | 156 | 67 | 170 | 54 | 157 | 55 | 158 | 57 | 160
+                        //| 56 | 159 | 31 | 134 | 52 | 155 | 29 | 132 | 47 | 150 | 216 | 220
+                        //| 221 | 234 | 231 | 240 | 243
+                        insert_dollar_sign();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::HRule) | (HMode, Cmd::VRule) | (MMode, Cmd::VRule) => {
+                        // 37 | 139 | 242
+                        let srs = scan_rule_spec();
+                        *LLIST_link(cur_list.tail) = Some(srs).tex_int();
+                        cur_list.tail = srs;
+                        if cur_list.mode.1 == ListMode::VMode {
+                            cur_list.aux.b32.s1 = IGNORE_DEPTH;
+                        } else if cur_list.mode.1 == ListMode::HMode {
+                            cur_list.aux.b32.s0 = 1000;
+                        }
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::VSkip)
+                    | (HMode, Cmd::HSkip)
+                    | (MMode, Cmd::HSkip)
+                    | (MMode, Cmd::MSkip) => {
+                        // 28 | 130 | 233 | 235
+                        append_glue();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::Kern)
+                    | (HMode, Cmd::Kern)
+                    | (MMode, Cmd::Kern)
+                    | (MMode, Cmd::MKern) => {
+                        // 30 | 133 | 236 | 237
+                        append_kern();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::LeftBrace) | (HMode, Cmd::LeftBrace) => {
+                        // 2 | 105
+                        new_save_level(GroupCode::Simple);
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::BeginGroup)
+                    | (HMode, Cmd::BeginGroup)
+                    | (MMode, Cmd::BeginGroup) => {
+                        // 62 | 165 | 268
+                        new_save_level(GroupCode::SemiSimple);
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::EndGroup) | (HMode, Cmd::EndGroup) | (MMode, Cmd::EndGroup) => {
+                        // 63 | 166 | 269
+                        if cur_group == GroupCode::SemiSimple {
+                            unsave();
+                        } else {
+                            off_save();
+                        }
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::RightBrace)
+                    | (HMode, Cmd::RightBrace)
+                    | (MMode, Cmd::RightBrace) => {
+                        // 3 | 106 | 209
+                        handle_right_brace();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::HMove) | (HMode, Cmd::VMove) | (MMode, Cmd::VMove) => {
+                        // 22 | 126 | 229
+                        let t = cur_chr;
+                        scan_dimen(false, false, false);
+                        if t == 0 {
+                            scan_box(cur_val);
+                        } else {
+                            scan_box(-cur_val);
+                        }
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::LeaderShip)
+                    | (HMode, Cmd::LeaderShip)
+                    | (MMode, Cmd::LeaderShip) => {
+                        // 32 | 135 | 238
+                        scan_box(LEADER_FLAG - (A_LEADERS as i32) + cur_chr);
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::MakeBox) | (HMode, Cmd::MakeBox) | (MMode, Cmd::MakeBox) => {
+                        // 21 | 124 | 227
+                        begin_box(0);
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::StartPar) => {
+                        // 44
+                        new_graf(cur_chr > 0);
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::Letter)
+                    | (VMode, Cmd::OtherChar)
+                    | (VMode, Cmd::CharNum)
+                    | (VMode, Cmd::CharGiven)
+                    | (VMode, Cmd::MathShift)
+                    | (VMode, Cmd::UnHBox)
+                    | (VMode, Cmd::VRule)
+                    | (VMode, Cmd::Accent)
+                    | (VMode, Cmd::Discretionary)
+                    | (VMode, Cmd::HSkip)
+                    | (VMode, Cmd::VAlign)
+                    | (VMode, Cmd::ExSpace)
+                    | (VMode, Cmd::NoBoundary) => {
+                        // 12 | 13 | 17 | 69 | 4 | 24 | 36 | 46 | 48 | 27 | 34 | 65 | 66
+                        back_input();
+                        new_graf(true);
+                        continue 'c_125208;
+                    }
+                    (HMode, Cmd::StartPar) | (MMode, Cmd::StartPar) => {
+                        // 147 | 250
+                        indent_in_hmode();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::ActiveChar) => {
+                        // 14
+                        normal_paragraph();
+                        if cur_list.mode.0 == false {
+                            build_page();
+                        }
+                        continue 'c_125208;
+                    }
+                    (HMode, Cmd::ActiveChar) => {
+                        // 117
+                        if align_state < 0 {
+                            off_save();
+                        }
+                        end_graf();
+                        if cur_list.mode == (false, ListMode::VMode) {
+                            build_page();
+                        }
+                        continue 'c_125208;
+                    }
+                    (HMode, Cmd::Comment)
+                    | (HMode, Cmd::VSkip)
+                    | (HMode, Cmd::HRule)
+                    | (HMode, Cmd::UnVBox)
+                    | (HMode, Cmd::HAlign) => {
+                        // 118 | 131 | 140 | 128 | 136
+                        head_for_vmode();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::Insert)
+                    | (HMode, Cmd::Insert)
+                    | (MMode, Cmd::Insert)
+                    | (HMode, Cmd::VAdjust)
+                    | (MMode, Cmd::VAdjust) => {
+                        // 38 | 141 | 244 | 142 | 245
+                        begin_insert_or_adjust();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::Mark) | (HMode, Cmd::Mark) | (MMode, Cmd::Mark) => {
+                        // 19 | 122 | 225
+                        make_mark();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::BreakPenalty)
+                    | (HMode, Cmd::BreakPenalty)
+                    | (MMode, Cmd::BreakPenalty) => {
+                        // 43 | 146 | 249
+                        append_penalty();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::RemoveItem)
+                    | (HMode, Cmd::RemoveItem)
+                    | (MMode, Cmd::RemoveItem) => {
+                        // 26 | 129 | 232
+                        delete_last();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::UnVBox) | (HMode, Cmd::UnHBox) | (MMode, Cmd::UnHBox) => {
+                        // 25 | 127 | 230
+                        unpackage();
+                        continue 'c_125208;
+                    }
+                    (HMode, Cmd::ItalCorr) => {
+                        // 148
+                        append_italic_correction();
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::ItalCorr) => {
+                        // 251
+                        let k = new_kern(0);
+                        *LLIST_link(cur_list.tail) = Some(k).tex_int();
+                        cur_list.tail = k;
+                        continue 'c_125208;
+                    }
+                    (HMode, Cmd::Discretionary) | (MMode, Cmd::Discretionary) => {
+                        // 151 | 254
+                        append_discretionary();
+                        continue 'c_125208;
+                    }
+                    (HMode, Cmd::Accent) => {
+                        // 149
+                        make_accent();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::CarRet)
+                    | (HMode, Cmd::CarRet)
+                    | (MMode, Cmd::CarRet)
+                    | (VMode, Cmd::TabMark)
+                    | (HMode, Cmd::TabMark)
+                    | (MMode, Cmd::TabMark) => {
+                        // 6 | 109 | 212 | 5 | 108 | 211
+                        align_error();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::NoAlign) | (HMode, Cmd::NoAlign) | (MMode, Cmd::NoAlign) => {
+                        // 35 | 138 | 241
+                        no_align_error();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::Omit) | (HMode, Cmd::Omit) | (MMode, Cmd::Omit) => {
+                        // 64 | 167 | 270
+                        omit_error();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::HAlign) => {
+                        // 33
+                        init_align();
+                        continue 'c_125208;
+                    }
+                    (HMode, Cmd::VAlign) => {
+                        // 137
+                        if cur_chr > 0 {
+                            if eTeX_enabled(*INTPAR(IntPar::texxet) > 0, cur_cmd, cur_chr) {
+                                let m = new_math(0, MathNST::from(cur_chr as u16));
+                                *LLIST_link(cur_list.tail) = Some(m).tex_int();
+                                cur_list.tail = m;
                             }
                         } else {
-                            do_locale_linebreaks(temp_ptr as i32, main_h);
-                            temp_ptr = temp_ptr + main_h as usize;
-                            main_k = main_k - main_h;
-                            main_h = 0;
-                            while main_h < main_k
-                                && *native_text.offset((temp_ptr as isize) + (main_h as isize))
-                                    as i32
-                                    != HYPHEN_CHAR[main_f as usize]
-                                && (!(*INTPAR(IntPar::xetex_dash_break) > 0)
-                                    || *native_text.offset((temp_ptr as isize) + (main_h as isize))
-                                        as i32
-                                        != 8212
-                                        && *native_text
-                                            .offset((temp_ptr as isize) + (main_h as isize))
-                                            as i32
-                                            != 8211)
-                            {
-                                main_h += 1
-                            }
-                            if main_h < main_k {
-                                main_h += 1
-                            }
+                            init_align();
                         }
-                        if main_k > 0 || is_hyph {
-                            let d = new_disc();
-                            *LLIST_link(cur_list.tail) = Some(d).tex_int();
-                            cur_list.tail = d;
-                            main_pp = cur_list.tail as i32;
-                        }
-                        if main_k == 0 {
-                            break;
-                        }
+                        continue 'c_125208;
                     }
-                } else {
-                    let main_pp = main_pp as usize;
-                    let mut main_ppp = cur_list.head;
-                    if main_ppp != main_pp {
-                        while LLIST_link(main_ppp).opt() != Some(main_pp) {
-                            if !is_char_node(Some(main_ppp))
-                                && NODE_type(main_ppp) == TextNode::Disc.into()
-                            {
-                                temp_ptr = main_ppp;
-                                for _ in 0..(*DISCRETIONARY_NODE_replace_count(temp_ptr)) {
-                                    main_ppp = *LLIST_link(main_ppp) as usize;
-                                }
-                            }
-                            if main_ppp != main_pp {
-                                main_ppp = *LLIST_link(main_ppp) as usize;
+                    (MMode, Cmd::HAlign) => {
+                        // 239
+                        if privileged() {
+                            if cur_group == GroupCode::MathShift {
+                                init_align();
+                            } else {
+                                off_save();
                             }
                         }
+                        continue 'c_125208;
                     }
-                    if !is_char_node(Some(main_pp))
-                        && NODE_type(main_pp) == TextNode::WhatsIt.into()
-                        && (whatsit_NODE_subtype(main_pp) == WhatsItNST::NativeWord
-                            || whatsit_NODE_subtype(main_pp) == WhatsItNST::NativeWordAt)
-                        && *NATIVE_NODE_font(main_pp) as usize == main_f
-                        && main_ppp != main_pp
-                        && !is_char_node(Some(main_ppp))
-                        && NODE_type(main_ppp) != TextNode::Disc.into()
-                    {
-                        let text = NATIVE_NODE_text(main_pp);
-                        let nwn = new_native_word_node(main_f, main_k + text.len() as i32);
-                        *LLIST_link(main_pp) = Some(nwn).tex_int();
-                        cur_list.tail = nwn;
-
-                        let tail_text = NATIVE_NODE_text(cur_list.tail);
-                        tail_text[..text.len()].copy_from_slice(text);
-
-                        let slice = std::slice::from_raw_parts(native_text, main_k as usize);
-                        tail_text[text.len()..].copy_from_slice(slice);
-
-                        measure_native_node(
-                            &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
-                            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
+                    (VMode, Cmd::EndV) | (HMode, Cmd::EndV) => {
+                        // 10 | 113
+                        do_endv();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::EndCSName) | (HMode, Cmd::EndCSName) | (MMode, Cmd::EndCSName) => {
+                        // 68 | 171 | 274
+                        cs_error();
+                        continue 'c_125208;
+                    }
+                    (HMode, Cmd::MathShift) => {
+                        // 107
+                        init_math();
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::EqNo) => {
+                        // 255
+                        if privileged() {
+                            if cur_group == GroupCode::MathShift {
+                                start_eq_no();
+                            } else {
+                                off_save();
+                            }
+                        }
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::LeftBrace) => {
+                        // 208
+                        let n = new_noad();
+                        *LLIST_link(cur_list.tail) = Some(n).tex_int();
+                        cur_list.tail = n;
+                        back_input();
+                        scan_math(cur_list.tail + 1);
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::Letter) | (MMode, Cmd::OtherChar) | (MMode, Cmd::CharGiven) => {
+                        // 218 | 219 | 275
+                        set_math_char(*MATH_CODE(cur_chr as usize));
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::CharNum) => {
+                        // 223
+                        scan_char_num();
+                        cur_chr = cur_val;
+                        set_math_char(*MATH_CODE(cur_chr as usize));
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::MathCharNum) => {
+                        // 224
+                        if cur_chr == 2 {
+                            scan_math_class_int();
+                            let t = set_class(cur_val);
+                            scan_math_fam_int();
+                            let t = t + set_family(cur_val);
+                            scan_usv_num();
+                            let t = t + cur_val;
+                            set_math_char(t);
+                        } else if cur_chr == 1 {
+                            scan_xetex_math_char_int();
+                            set_math_char(cur_val);
+                        } else {
+                            scan_fifteen_bit_int();
+                            set_math_char(
+                                set_class(cur_val / 4096)
+                                    + set_family((cur_val % 4096) / 256)
+                                    + (cur_val % 256),
+                            );
+                        }
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::MathGiven) => {
+                        // 276
+                        set_math_char(
+                            set_class(cur_chr / 4096)
+                                + set_family((cur_chr % 4096) / 256)
+                                + (cur_chr % 256),
                         );
-                        let mut main_p = cur_list.head;
-                        if main_p != main_pp {
-                            while LLIST_link(main_p).opt() != Some(main_pp) {
-                                main_p = *LLIST_link(main_p) as usize;
-                            }
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::XetexMathGiven) => {
+                        // 277
+                        set_math_char(cur_chr);
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::DelimNum) => {
+                        // 222
+                        if cur_chr == 1i32 {
+                            scan_math_class_int();
+                            scan_math_class_int();
+                            let t = set_class(cur_val);
+                            scan_math_fam_int();
+                            let t = t + set_family(cur_val);
+                            scan_usv_num();
+                            let t = t + cur_val;
+                            set_math_char(t);
+                        } else {
+                            scan_delimiter_int();
+                            cur_val = cur_val / 4096;
+                            set_math_char(
+                                set_class(cur_val / 4096)
+                                    + set_family((cur_val % 4096) / 256)
+                                    + (cur_val % 256),
+                            );
                         }
-                        *LLIST_link(main_p) = *LLIST_link(main_pp);
-                        *LLIST_link(main_pp) = None.tex_int();
-                        flush_node_list(Some(main_pp));
-                    } else {
-                        let nwn = new_native_word_node(main_f, main_k);
-                        *LLIST_link(main_pp) = Some(nwn).tex_int();
-                        cur_list.tail = nwn;
-
-                        let slice = std::slice::from_raw_parts(native_text, main_k as usize);
-                        NATIVE_NODE_text(cur_list.tail).copy_from_slice(slice);
-
-                        measure_native_node(
-                            &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
-                            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
-                        );
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::MathComp) => {
+                        // 257
+                        let n = new_noad();
+                        *LLIST_link(cur_list.tail) = Some(n).tex_int();
+                        cur_list.tail = n;
+                        MEM[cur_list.tail].b16.s1 = cur_chr as u16;
+                        scan_math(cur_list.tail + 1);
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::LimitSwitch) => {
+                        // 258
+                        math_limit_switch();
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::Radical) => {
+                        // 273
+                        math_radical();
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::Accent) | (MMode, Cmd::MathAccent) => {
+                        // 252 | 253
+                        math_ac();
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::VCenter) => {
+                        // 263
+                        scan_spec(GroupCode::VCenter, false);
+                        normal_paragraph();
+                        push_nest();
+                        cur_list.mode = (true, ListMode::VMode);
+                        cur_list.aux.b32.s1 = IGNORE_DEPTH;
+                        if insert_src_special_every_vbox {
+                            insert_src_special();
+                        }
+                        if let Some(ev) = LOCAL(Local::every_vbox).opt() {
+                            begin_token_list(ev, Btl::EveryVBoxText);
+                        }
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::MathStyle) => {
+                        // 260
+                        let s = new_style(cur_chr as i16);
+                        *LLIST_link(cur_list.tail) = Some(s).tex_int();
+                        cur_list.tail = s;
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::NonScript) => {
+                        // 262
+                        let g = new_glue(0);
+                        *LLIST_link(cur_list.tail) = Some(g).tex_int();
+                        cur_list.tail = g;
+                        MEM[cur_list.tail].b16.s0 = COND_MATH_GLUE;
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::MathChoice) => {
+                        // 261
+                        append_choices();
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::SubMark) | (MMode, Cmd::SupMark) => {
+                        // 215 | 214
+                        sub_sup();
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::Above) => {
+                        // 259
+                        math_fraction();
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::LeftRight) => {
+                        // 256
+                        math_left_right();
+                        continue 'c_125208;
+                    }
+                    (MMode, Cmd::MathShift) => {
+                        // 210
+                        if cur_group == GroupCode::MathShift {
+                            after_math();
+                        } else {
+                            off_save();
+                        }
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::ToksRegister)
+                    | (HMode, Cmd::ToksRegister)
+                    | (MMode, Cmd::ToksRegister)
+                    | (VMode, Cmd::AssignToks)
+                    | (HMode, Cmd::AssignToks)
+                    | (MMode, Cmd::AssignToks)
+                    | (VMode, Cmd::AssignInt)
+                    | (HMode, Cmd::AssignInt)
+                    | (MMode, Cmd::AssignInt)
+                    | (VMode, Cmd::AssignDimen)
+                    | (HMode, Cmd::AssignDimen)
+                    | (MMode, Cmd::AssignDimen)
+                    | (VMode, Cmd::AssignGlue)
+                    | (HMode, Cmd::AssignGlue)
+                    | (MMode, Cmd::AssignGlue)
+                    | (VMode, Cmd::AssignMuGlue)
+                    | (HMode, Cmd::AssignMuGlue)
+                    | (MMode, Cmd::AssignMuGlue)
+                    | (VMode, Cmd::AssignFontDimen)
+                    | (HMode, Cmd::AssignFontDimen)
+                    | (MMode, Cmd::AssignFontDimen)
+                    | (VMode, Cmd::AssignFontInt)
+                    | (HMode, Cmd::AssignFontInt)
+                    | (MMode, Cmd::AssignFontInt)
+                    | (VMode, Cmd::SetAux)
+                    | (HMode, Cmd::SetAux)
+                    | (MMode, Cmd::SetAux)
+                    | (VMode, Cmd::SetPrevGraf)
+                    | (HMode, Cmd::SetPrevGraf)
+                    | (MMode, Cmd::SetPrevGraf)
+                    | (VMode, Cmd::SetPageDimen)
+                    | (HMode, Cmd::SetPageDimen)
+                    | (MMode, Cmd::SetPageDimen)
+                    | (VMode, Cmd::SetPageInt)
+                    | (HMode, Cmd::SetPageInt)
+                    | (MMode, Cmd::SetPageInt)
+                    | (VMode, Cmd::SetBoxDimen)
+                    | (HMode, Cmd::SetBoxDimen)
+                    | (MMode, Cmd::SetBoxDimen)
+                    | (VMode, Cmd::SetShape)
+                    | (HMode, Cmd::SetShape)
+                    | (MMode, Cmd::SetShape)
+                    | (VMode, Cmd::DefCode)
+                    | (HMode, Cmd::DefCode)
+                    | (MMode, Cmd::DefCode)
+                    | (VMode, Cmd::XetexDefCode)
+                    | (HMode, Cmd::XetexDefCode)
+                    | (MMode, Cmd::XetexDefCode)
+                    | (VMode, Cmd::DefFamily)
+                    | (HMode, Cmd::DefFamily)
+                    | (MMode, Cmd::DefFamily)
+                    | (VMode, Cmd::SetFont)
+                    | (HMode, Cmd::SetFont)
+                    | (MMode, Cmd::SetFont)
+                    | (VMode, Cmd::DefFont)
+                    | (HMode, Cmd::DefFont)
+                    | (MMode, Cmd::DefFont)
+                    | (VMode, Cmd::Register)
+                    | (HMode, Cmd::Register)
+                    | (MMode, Cmd::Register)
+                    | (VMode, Cmd::Advance)
+                    | (HMode, Cmd::Advance)
+                    | (MMode, Cmd::Advance)
+                    | (VMode, Cmd::Multiply)
+                    | (HMode, Cmd::Multiply)
+                    | (MMode, Cmd::Multiply)
+                    | (VMode, Cmd::Divide)
+                    | (HMode, Cmd::Divide)
+                    | (MMode, Cmd::Divide)
+                    | (VMode, Cmd::Prefix)
+                    | (HMode, Cmd::Prefix)
+                    | (MMode, Cmd::Prefix)
+                    | (VMode, Cmd::Let)
+                    | (HMode, Cmd::Let)
+                    | (MMode, Cmd::Let)
+                    | (VMode, Cmd::ShorthandDef)
+                    | (HMode, Cmd::ShorthandDef)
+                    | (MMode, Cmd::ShorthandDef)
+                    | (VMode, Cmd::ReadToCS)
+                    | (HMode, Cmd::ReadToCS)
+                    | (MMode, Cmd::ReadToCS)
+                    | (VMode, Cmd::Def)
+                    | (HMode, Cmd::Def)
+                    | (MMode, Cmd::Def)
+                    | (VMode, Cmd::SetBox)
+                    | (HMode, Cmd::SetBox)
+                    | (MMode, Cmd::SetBox)
+                    | (VMode, Cmd::HyphData)
+                    | (HMode, Cmd::HyphData)
+                    | (MMode, Cmd::HyphData)
+                    | (VMode, Cmd::SetInteraction)
+                    | (HMode, Cmd::SetInteraction)
+                    | (MMode, Cmd::SetInteraction) => {
+                        // 73 | 176 | 279 | 74 | 177 | 280 | 75 | 178 | 281 | 76 | 179 | 282 | 77
+                        //| 180 | 283 | 78 | 181 | 284 | 79 | 182 | 285 | 80 | 183 | 286 | 81
+                        //| 184 | 287 | 82 | 185 | 288 | 83 | 186 | 289 | 84 | 187 | 290 | 85
+                        //| 188 | 291 | 86 | 189 | 292 | 87 | 190 | 293 | 88 | 191 | 294 | 89
+                        //| 192 | 295 | 90 | 193 | 296 | 91 | 194 | 297 | 92 | 195 | 298 | 93
+                        //| 196 | 299 | 94 | 197 | 300 | 95 | 198 | 301 | 96 | 199 | 302 | 97
+                        //| 200 | 303 | 98 | 201 | 304 | 99 | 202 | 305 | 100 | 203 | 306 | 101
+                        //| 204 | 307 | 102 | 205 | 308 | 103 | 206 | 309
+                        prefixed_command();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::AfterAssignment)
+                    | (HMode, Cmd::AfterAssignment)
+                    | (MMode, Cmd::AfterAssignment) => {
+                        // 41 | 144 | 247
+                        get_token();
+                        after_token = cur_tok;
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::AfterGroup)
+                    | (HMode, Cmd::AfterGroup)
+                    | (MMode, Cmd::AfterGroup) => {
+                        // 42 | 145 | 248
+                        get_token();
+                        save_for_after(cur_tok);
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::InStream) | (HMode, Cmd::InStream) | (MMode, Cmd::InStream) => {
+                        // 61 | 164 | 267
+                        open_or_close_in();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::Message) | (HMode, Cmd::Message) | (MMode, Cmd::Message) => {
+                        // 59 | 162 | 265
+                        issue_message();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::CaseShift) | (HMode, Cmd::CaseShift) | (MMode, Cmd::CaseShift) => {
+                        // 58 | 161 | 264
+                        shift_case();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::XRay) | (HMode, Cmd::XRay) | (MMode, Cmd::XRay) => {
+                        // 20 | 123 | 226
+                        show_whatever();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::Extension) | (HMode, Cmd::Extension) | (MMode, Cmd::Extension) => {
+                        // 60 | 163 | 266
+                        do_extension();
+                        continue 'c_125208;
+                    }
+                    (VMode, Cmd::Relax)
+                    | (HMode, Cmd::Relax)
+                    | (MMode, Cmd::Relax)
+                    | (VMode, Cmd::Spacer)
+                    | (MMode, Cmd::Spacer)
+                    | (MMode, Cmd::NoBoundary)
+                    | _ => {
+                        // 1 | 104 | 207 | 11 | 217 | 272 | _
+                        continue 'c_125208;
                     }
                 }
-                if *INTPAR(IntPar::xetex_interword_space_shaping) > 0 {
-                    let mut main_p = cur_list.head as i32;
-                    let mut main_pp = None.tex_int();
-                    while main_p != cur_list.tail as i32 {
-                        if !main_p.is_texnull()
-                            && !is_char_node(main_p.opt())
-                            && NODE_type(main_p as usize) == TextNode::WhatsIt.into()
-                            && (whatsit_NODE_subtype(main_p as usize) == WhatsItNST::NativeWord
-                                || whatsit_NODE_subtype(main_p as usize)
-                                    == WhatsItNST::NativeWordAt)
-                        {
-                            main_pp = main_p;
-                        }
-                        main_p = *LLIST_link(main_p as usize);
-                    }
-                    if !main_pp.is_texnull() {
-                        if *NATIVE_NODE_font(main_pp as usize) as usize == main_f {
-                            let mut main_p = *LLIST_link(main_pp as usize) as usize;
-                            while !is_char_node(Some(main_p))
-                                && (NODE_type(main_p) == TextNode::Penalty.into()
-                                    || NODE_type(main_p) == TextNode::Ins.into()
-                                    || NODE_type(main_p) == TextNode::Mark.into()
-                                    || NODE_type(main_p) == TextNode::Adjust.into()
-                                    || NODE_type(main_p) == TextNode::WhatsIt.into()
-                                        && MEM[main_p].b16.s0 <= 4)
-                            {
-                                main_p = *LLIST_link(main_p) as usize;
-                            }
-                            if !is_char_node(Some(main_p))
-                                && NODE_type(main_p) == TextNode::Glue.into()
-                            {
-                                let mut main_ppp = *LLIST_link(main_p) as usize;
-                                while !is_char_node(Some(main_ppp))
-                                    && (NODE_type(main_ppp) == TextNode::Penalty.into()
-                                        || NODE_type(main_ppp) == TextNode::Ins.into()
-                                        || NODE_type(main_ppp) == TextNode::Mark.into()
-                                        || NODE_type(main_ppp) == TextNode::Adjust.into()
-                                        || NODE_type(main_ppp) == TextNode::WhatsIt.into()
-                                            && MEM[main_ppp].b16.s0 <= 4)
-                                {
-                                    main_ppp = *LLIST_link(main_ppp) as usize
-                                }
-                                if main_ppp == cur_list.tail {
-                                    let pp_text = NATIVE_NODE_text(main_pp as usize);
-                                    let tail_text = NATIVE_NODE_text(cur_list.tail);
-                                    main_k = pp_text.len() as i32 + 1 + tail_text.len() as i32;
-                                    temp_ptr = new_native_word_node(main_f, main_k);
-                                    let temp_text = NATIVE_NODE_text(temp_ptr);
-                                    temp_text[..pp_text.len()].copy_from_slice(&pp_text);
-                                    temp_text[pp_text.len()] = ' ' as u16;
-                                    temp_text[pp_text.len() + 1..].copy_from_slice(&tail_text);
-
-                                    measure_native_node(
-                                        &mut MEM[temp_ptr] as *mut memory_word as *mut libc::c_void,
-                                        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
-                                    );
-                                    let t = MEM[temp_ptr + 1].b32.s1
-                                        - MEM[(main_pp + 1) as usize].b32.s1
-                                        - MEM[cur_list.tail + 1].b32.s1;
-                                    free_node(temp_ptr, MEM[temp_ptr + 4].b16.s3 as i32);
-                                    if t != MEM[(FONT_GLUE[main_f as usize] + 1i32) as usize].b32.s1
-                                    {
-                                        temp_ptr = new_kern(
-                                            t - MEM[(FONT_GLUE[main_f as usize] + 1) as usize]
-                                                .b32
-                                                .s1,
-                                        );
-                                        set_kern_NODE_subtype(temp_ptr, KernNST::SpaceAdjustment);
-                                        *LLIST_link(temp_ptr) = *LLIST_link(main_p as usize);
-                                        *LLIST_link(main_p as usize) = Some(temp_ptr).tex_int();
-                                    }
-                                }
-                            }
-                        }
-                    }
+            }
+        }
+        /*main_loop *//*1069: */
+        if cur_list.head == cur_list.tail && cur_list.mode.0 == false {
+            if insert_src_special_auto {
+                append_src_special();
+            }
+        }
+        prev_class = CHAR_CLASS_LIMIT - 1;
+        if FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == AAT_FONT_FLAG
+            || FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == OTGR_FONT_FLAG
+        {
+            if cur_list.mode.0 == false {
+                if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
+                    fix_language();
                 }
-                if cur_ptr.is_some() {
-                    continue 'c_125208;
-                }
-            } else {
+            }
+            main_h = 0;
+            main_f = EQTB[CUR_FONT_LOC].val as usize;
+            native_len = 0;
+            loop {
+                /*collect_native */
                 main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32;
                 if main_s == 1000 {
-                    cur_list.aux.b32.s0 = 1000
+                    cur_list.aux.b32.s0 = 1000;
                 } else if main_s < 1000 {
                     if main_s > 0 {
-                        cur_list.aux.b32.s0 = main_s
+                        cur_list.aux.b32.s0 = main_s;
                     }
                 } else if cur_list.aux.b32.s0 < 1000 {
-                    cur_list.aux.b32.s0 = 1000
+                    cur_list.aux.b32.s0 = 1000;
                 } else {
-                    cur_list.aux.b32.s0 = main_s
+                    cur_list.aux.b32.s0 = main_s;
                 }
                 cur_ptr = None;
                 space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
-                if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != CHAR_CLASS_LIMIT {
+                if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != 4096 {
                     if prev_class == CHAR_CLASS_LIMIT - 1 {
                         if cur_input.state != InputState::TokenList
                             || cur_input.index != Btl::BackedUpChar
@@ -16915,383 +16453,794 @@ pub(crate) unsafe fn main_control() {
                             cur_input.index = Btl::BackedUpChar;
                             begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                             prev_class = CHAR_CLASS_LIMIT - 1;
-                            continue 'c_125208;
+                            current_block = 9706274459985797855;
+                            break;
                         }
                     }
                     prev_class = space_class
                 }
-                main_f = EQTB[CUR_FONT_LOC].val as usize;
-                bchar = FONT_BCHAR[main_f as usize];
-                false_bchar = FONT_FALSE_BCHAR[main_f as usize];
-                if cur_list.mode.0 == false {
-                    if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
-                        fix_language();
+                if cur_chr as i64 > 65535 {
+                    while native_text_size <= native_len + 2 {
+                        native_text_size = native_text_size + 128;
+                        native_text = xrealloc(
+                            native_text as *mut libc::c_void,
+                            (native_text_size as u64)
+                                .wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64)
+                                as _,
+                        ) as *mut UTF16_code
+                    }
+                    *native_text.offset(native_len as isize) =
+                        ((cur_chr as i64 - 65536) / 1024 + 0xd800) as UTF16_code;
+                    native_len += 1;
+                    *native_text.offset(native_len as isize) =
+                        ((cur_chr as i64 - 65536) % 1024 + 0xdc00) as UTF16_code;
+                    native_len += 1
+                } else {
+                    while native_text_size <= native_len + 1 {
+                        native_text_size = native_text_size + 128;
+                        native_text = xrealloc(
+                            native_text as *mut libc::c_void,
+                            (native_text_size as u64)
+                                .wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64)
+                                as _,
+                        ) as *mut UTF16_code
+                    }
+                    *native_text.offset(native_len as isize) = cur_chr as UTF16_code;
+                    native_len += 1
+                }
+                is_hyph = cur_chr == HYPHEN_CHAR[main_f as usize]
+                    || *INTPAR(IntPar::xetex_dash_break) > 0
+                        && (cur_chr == 8212 || cur_chr == 8211);
+                if main_h == 0 && is_hyph {
+                    main_h = native_len
+                }
+                get_next();
+                if cur_cmd == Cmd::Letter || cur_cmd == Cmd::OtherChar || cur_cmd == Cmd::CharGiven
+                {
+                    continue;
+                }
+                x_token();
+                if cur_cmd == Cmd::Letter || cur_cmd == Cmd::OtherChar || cur_cmd == Cmd::CharGiven
+                {
+                    continue;
+                }
+                if cur_cmd == Cmd::CharNum {
+                    scan_usv_num();
+                    cur_chr = cur_val
+                } else if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
+                    && space_class != CHAR_CLASS_LIMIT
+                    && prev_class != CHAR_CLASS_LIMIT - 1
+                {
+                    current_block = 14170946608255986518;
+                    break;
+                } else {
+                    current_block = 9706274459985797855;
+                    break;
+                }
+            }
+            match current_block {
+                14170946608255986518 => {
+                    prev_class = CHAR_CLASS_LIMIT - 1;
+                    find_sa_element(
+                        ValLevel::InterChar,
+                        space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
+                        false,
+                    );
+                    if let Some(c) = cur_ptr {
+                        cur_tok = if cur_cs == 0 {
+                            if cur_cmd == Cmd::CharNum {
+                                cur_cmd = Cmd::OtherChar;
+                            }
+                            cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
+                        } else {
+                            CS_TOKEN_FLAG + cur_cs
+                        };
+                        back_input();
+                        begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                     }
                 }
-                lig_stack = avail;
-                let ls = if let Some(ls) = lig_stack {
-                    avail = LLIST_link(ls).opt();
-                    *LLIST_link(ls) = None.tex_int();
-                    ls
-                } else {
-                    get_avail()
-                };
-                lig_stack = Some(ls);
-                MEM[ls].b16.s1 = main_f as u16;
-                cur_l = cur_chr;
-                MEM[ls].b16.s0 = cur_l as u16;
-                cur_q = cur_list.tail as i32;
-                if cancel_boundary {
-                    cancel_boundary = false;
-                    main_k = NON_ADDRESS;
-                } else {
-                    main_k = BCHAR_LABEL[main_f as usize]
+                _ => {}
+            }
+            /*collected */
+            if !(FONT_MAPPING[main_f as usize]).is_null() {
+                main_k = apply_mapping(FONT_MAPPING[main_f as usize], native_text, native_len);
+                native_len = 0;
+                while native_text_size <= native_len + main_k {
+                    native_text_size = native_text_size + 128;
+                    native_text = xrealloc(
+                        native_text as *mut libc::c_void,
+                        (native_text_size as u64)
+                            .wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64)
+                            as _,
+                    ) as *mut UTF16_code
                 }
-                if main_k == NON_ADDRESS {
-                    current_block = 249799543778823886;
-                } else {
-                    cur_r = cur_l;
-                    cur_l = TOO_BIG_CHAR;
-                    current_block = 13962460947151495567;
+                main_h = 0;
+                for main_p in 0..main_k {
+                    *native_text.offset(native_len as isize) = *mapped_text.offset(main_p as isize);
+                    native_len += 1;
+                    if main_h == 0
+                        && (*mapped_text.offset(main_p as isize) as i32
+                            == HYPHEN_CHAR[main_f as usize]
+                            || *INTPAR(IntPar::xetex_dash_break) > 0
+                                && (*mapped_text.offset(main_p as isize) == 8212
+                                    || *mapped_text.offset(main_p as isize) == 8211))
+                    {
+                        main_h = native_len
+                    }
                 }
-                'c_125239: loop {
-                    match current_block {
-                        13962460947151495567 => {
-                            // lab111
-                            /*main_lig_loop 1 */
-                            main_j = FONT_INFO[main_k as usize].b16;
-                            current_block = 11331079115679122507;
+            }
+            if *INTPAR(IntPar::tracing_lost_chars) > 0 {
+                temp_ptr = 0;
+                while temp_ptr < native_len as usize {
+                    main_k = *native_text.offset(temp_ptr as isize) as font_index;
+                    temp_ptr += 1;
+                    if main_k >= 0xd800 && main_k < 0xdc00 {
+                        main_k = (65536 + ((main_k - 0xd800) * 1024) as i64) as font_index;
+                        main_k = main_k + *native_text.offset(temp_ptr as isize) as i32 - 0xdc00;
+                        temp_ptr += 1;
+                    }
+                    if map_char_to_glyph(main_f, main_k) == 0 {
+                        char_warning(main_f, main_k);
+                    }
+                }
+            }
+            main_k = native_len;
+            let mut main_pp = cur_list.tail as i32;
+            if cur_list.mode == (false, ListMode::HMode) {
+                let mut main_ppp = cur_list.head as i32;
+                if main_ppp != main_pp {
+                    while *LLIST_link(main_ppp as usize) != main_pp {
+                        if !is_char_node(main_ppp.opt())
+                            && NODE_type(main_ppp as usize) == TextNode::Disc.into()
+                        {
+                            temp_ptr = main_ppp as usize;
+                            for _ in 0..(*DISCRETIONARY_NODE_replace_count(temp_ptr)) {
+                                main_ppp = *LLIST_link(main_ppp as usize);
+                            }
                         }
-                        _ => {
-                            let ls = lig_stack.unwrap();
-                            if effective_char(false, main_f, cur_chr as u16)
-                                > FONT_EC[main_f as usize] as i32
-                                || effective_char(false, main_f, cur_chr as u16)
-                                    < FONT_BC[main_f as usize] as i32
+                        if main_ppp != main_pp {
+                            main_ppp = *LLIST_link(main_ppp as usize);
+                        }
+                    }
+                }
+                temp_ptr = 0;
+                loop {
+                    if main_h == 0 {
+                        main_h = main_k
+                    }
+                    if !main_pp.is_texnull()
+                        && !is_char_node(main_pp.opt())
+                        && NODE_type(main_pp as usize) == TextNode::WhatsIt.into()
+                        && (whatsit_NODE_subtype(main_pp as usize) == WhatsItNST::NativeWord
+                            || whatsit_NODE_subtype(main_pp as usize) == WhatsItNST::NativeWordAt)
+                        && *NATIVE_NODE_font(main_pp as usize) as usize == main_f
+                        && main_ppp != main_pp
+                        && !is_char_node(main_ppp.opt())
+                        && NODE_type(main_ppp as usize) != TextNode::Disc.into()
+                    {
+                        main_k = main_h + *NATIVE_NODE_length(main_pp as usize) as i32;
+                        while native_text_size <= native_len + main_k {
+                            native_text_size = native_text_size + 128;
+                            native_text = xrealloc(
+                                native_text as *mut libc::c_void,
+                                (native_text_size as u64).wrapping_mul(::std::mem::size_of::<
+                                    UTF16_code,
+                                >(
+                                )
+                                    as u64) as _,
+                            ) as *mut UTF16_code
+                        }
+                        save_native_len = native_len;
+                        for c in NATIVE_NODE_text(main_pp as usize) {
+                            *native_text.offset(native_len as isize) = *c;
+                            native_len += 1;
+                        }
+                        for main_p in 0..main_h {
+                            *native_text.offset(native_len as isize) =
+                                *native_text.offset((temp_ptr as isize) + (main_p as isize));
+                            native_len += 1;
+                        }
+                        do_locale_linebreaks(save_native_len, main_k);
+                        native_len = save_native_len;
+                        main_k = native_len - main_h - (temp_ptr as i32);
+                        temp_ptr = main_h as usize;
+                        main_h = 0;
+                        while main_h < main_k
+                            && *native_text.offset((temp_ptr as isize) + (main_h as isize)) as i32
+                                != HYPHEN_CHAR[main_f as usize]
+                            && (!(*INTPAR(IntPar::xetex_dash_break) > 0)
+                                || *native_text.offset((temp_ptr as isize) + (main_h as isize))
+                                    as i32
+                                    != 8212
+                                    && *native_text.offset((temp_ptr as isize) + (main_h as isize))
+                                        as i32
+                                        != 8211)
+                        {
+                            main_h += 1
+                        }
+                        if main_h < main_k {
+                            main_h += 1
+                        }
+                        *LLIST_link(main_ppp as usize) = *LLIST_link(main_pp as usize);
+                        *LLIST_link(main_pp as usize) = None.tex_int();
+                        flush_node_list(main_pp.opt());
+                        main_pp = cur_list.tail as i32;
+                        while *LLIST_link(main_ppp as usize) != main_pp {
+                            main_ppp = *LLIST_link(main_ppp as usize);
+                        }
+                    } else {
+                        do_locale_linebreaks(temp_ptr as i32, main_h);
+                        temp_ptr = temp_ptr + main_h as usize;
+                        main_k = main_k - main_h;
+                        main_h = 0;
+                        while main_h < main_k
+                            && *native_text.offset((temp_ptr as isize) + (main_h as isize)) as i32
+                                != HYPHEN_CHAR[main_f as usize]
+                            && (!(*INTPAR(IntPar::xetex_dash_break) > 0)
+                                || *native_text.offset((temp_ptr as isize) + (main_h as isize))
+                                    as i32
+                                    != 8212
+                                    && *native_text.offset((temp_ptr as isize) + (main_h as isize))
+                                        as i32
+                                        != 8211)
+                        {
+                            main_h += 1
+                        }
+                        if main_h < main_k {
+                            main_h += 1
+                        }
+                    }
+                    if main_k > 0 || is_hyph {
+                        let d = new_disc();
+                        *LLIST_link(cur_list.tail) = Some(d).tex_int();
+                        cur_list.tail = d;
+                        main_pp = cur_list.tail as i32;
+                    }
+                    if main_k == 0 {
+                        break;
+                    }
+                }
+            } else {
+                let main_pp = main_pp as usize;
+                let mut main_ppp = cur_list.head;
+                if main_ppp != main_pp {
+                    while LLIST_link(main_ppp).opt() != Some(main_pp) {
+                        if !is_char_node(Some(main_ppp))
+                            && NODE_type(main_ppp) == TextNode::Disc.into()
+                        {
+                            temp_ptr = main_ppp;
+                            for _ in 0..(*DISCRETIONARY_NODE_replace_count(temp_ptr)) {
+                                main_ppp = *LLIST_link(main_ppp) as usize;
+                            }
+                        }
+                        if main_ppp != main_pp {
+                            main_ppp = *LLIST_link(main_ppp) as usize;
+                        }
+                    }
+                }
+                if !is_char_node(Some(main_pp))
+                    && NODE_type(main_pp) == TextNode::WhatsIt.into()
+                    && (whatsit_NODE_subtype(main_pp) == WhatsItNST::NativeWord
+                        || whatsit_NODE_subtype(main_pp) == WhatsItNST::NativeWordAt)
+                    && *NATIVE_NODE_font(main_pp) as usize == main_f
+                    && main_ppp != main_pp
+                    && !is_char_node(Some(main_ppp))
+                    && NODE_type(main_ppp) != TextNode::Disc.into()
+                {
+                    let text = NATIVE_NODE_text(main_pp);
+                    let nwn = new_native_word_node(main_f, main_k + text.len() as i32);
+                    *LLIST_link(main_pp) = Some(nwn).tex_int();
+                    cur_list.tail = nwn;
+
+                    let tail_text = NATIVE_NODE_text(cur_list.tail);
+                    tail_text[..text.len()].copy_from_slice(text);
+
+                    let slice = std::slice::from_raw_parts(native_text, main_k as usize);
+                    tail_text[text.len()..].copy_from_slice(slice);
+
+                    measure_native_node(
+                        &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
+                        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
+                    );
+                    let mut main_p = cur_list.head;
+                    if main_p != main_pp {
+                        while LLIST_link(main_p).opt() != Some(main_pp) {
+                            main_p = *LLIST_link(main_p) as usize;
+                        }
+                    }
+                    *LLIST_link(main_p) = *LLIST_link(main_pp);
+                    *LLIST_link(main_pp) = None.tex_int();
+                    flush_node_list(Some(main_pp));
+                } else {
+                    let nwn = new_native_word_node(main_f, main_k);
+                    *LLIST_link(main_pp) = Some(nwn).tex_int();
+                    cur_list.tail = nwn;
+
+                    let slice = std::slice::from_raw_parts(native_text, main_k as usize);
+                    NATIVE_NODE_text(cur_list.tail).copy_from_slice(slice);
+
+                    measure_native_node(
+                        &mut MEM[cur_list.tail] as *mut memory_word as *mut libc::c_void,
+                        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
+                    );
+                }
+            }
+            if *INTPAR(IntPar::xetex_interword_space_shaping) > 0 {
+                let mut main_p = cur_list.head as i32;
+                let mut main_pp = None.tex_int();
+                while main_p != cur_list.tail as i32 {
+                    if !main_p.is_texnull()
+                        && !is_char_node(main_p.opt())
+                        && NODE_type(main_p as usize) == TextNode::WhatsIt.into()
+                        && (whatsit_NODE_subtype(main_p as usize) == WhatsItNST::NativeWord
+                            || whatsit_NODE_subtype(main_p as usize) == WhatsItNST::NativeWordAt)
+                    {
+                        main_pp = main_p;
+                    }
+                    main_p = *LLIST_link(main_p as usize);
+                }
+                if !main_pp.is_texnull() {
+                    if *NATIVE_NODE_font(main_pp as usize) as usize == main_f {
+                        let mut main_p = *LLIST_link(main_pp as usize) as usize;
+                        while !is_char_node(Some(main_p))
+                            && (NODE_type(main_p) == TextNode::Penalty.into()
+                                || NODE_type(main_p) == TextNode::Ins.into()
+                                || NODE_type(main_p) == TextNode::Mark.into()
+                                || NODE_type(main_p) == TextNode::Adjust.into()
+                                || NODE_type(main_p) == TextNode::WhatsIt.into()
+                                    && MEM[main_p].b16.s0 <= 4)
+                        {
+                            main_p = *LLIST_link(main_p) as usize;
+                        }
+                        if !is_char_node(Some(main_p)) && NODE_type(main_p) == TextNode::Glue.into()
+                        {
+                            let mut main_ppp = *LLIST_link(main_p) as usize;
+                            while !is_char_node(Some(main_ppp))
+                                && (NODE_type(main_ppp) == TextNode::Penalty.into()
+                                    || NODE_type(main_ppp) == TextNode::Ins.into()
+                                    || NODE_type(main_ppp) == TextNode::Mark.into()
+                                    || NODE_type(main_ppp) == TextNode::Adjust.into()
+                                    || NODE_type(main_ppp) == TextNode::WhatsIt.into()
+                                        && MEM[main_ppp].b16.s0 <= 4)
                             {
+                                main_ppp = *LLIST_link(main_ppp) as usize
+                            }
+                            if main_ppp == cur_list.tail {
+                                let pp_text = NATIVE_NODE_text(main_pp as usize);
+                                let tail_text = NATIVE_NODE_text(cur_list.tail);
+                                main_k = pp_text.len() as i32 + 1 + tail_text.len() as i32;
+                                temp_ptr = new_native_word_node(main_f, main_k);
+                                let temp_text = NATIVE_NODE_text(temp_ptr);
+                                temp_text[..pp_text.len()].copy_from_slice(&pp_text);
+                                temp_text[pp_text.len()] = ' ' as u16;
+                                temp_text[pp_text.len() + 1..].copy_from_slice(&tail_text);
+
+                                measure_native_node(
+                                    &mut MEM[temp_ptr] as *mut memory_word as *mut libc::c_void,
+                                    (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
+                                );
+                                let t = MEM[temp_ptr + 1].b32.s1
+                                    - MEM[(main_pp + 1) as usize].b32.s1
+                                    - MEM[cur_list.tail + 1].b32.s1;
+                                free_node(temp_ptr, MEM[temp_ptr + 4].b16.s3 as i32);
+                                if t != MEM[(FONT_GLUE[main_f as usize] + 1i32) as usize].b32.s1 {
+                                    temp_ptr = new_kern(
+                                        t - MEM[(FONT_GLUE[main_f as usize] + 1) as usize].b32.s1,
+                                    );
+                                    set_kern_NODE_subtype(temp_ptr, KernNST::SpaceAdjustment);
+                                    *LLIST_link(temp_ptr) = *LLIST_link(main_p as usize);
+                                    *LLIST_link(main_p as usize) = Some(temp_ptr).tex_int();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if cur_ptr.is_some() {
+                continue 'c_125208;
+            } else {
+                big_switch = false;
+                continue 'c_125208;
+            }
+        } else {
+            main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32;
+            if main_s == 1000 {
+                cur_list.aux.b32.s0 = 1000
+            } else if main_s < 1000 {
+                if main_s > 0 {
+                    cur_list.aux.b32.s0 = main_s
+                }
+            } else if cur_list.aux.b32.s0 < 1000 {
+                cur_list.aux.b32.s0 = 1000
+            } else {
+                cur_list.aux.b32.s0 = main_s
+            }
+            cur_ptr = None;
+            space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
+            if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != CHAR_CLASS_LIMIT {
+                if prev_class == CHAR_CLASS_LIMIT - 1 {
+                    if cur_input.state != InputState::TokenList
+                        || cur_input.index != Btl::BackedUpChar
+                    {
+                        find_sa_element(
+                            ValLevel::InterChar,
+                            (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
+                            false,
+                        );
+                        if let Some(c) = cur_ptr {
+                            if cur_cmd != Cmd::Letter {
+                                cur_cmd = Cmd::OtherChar;
+                            }
+                            cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
+                            back_input();
+                            cur_input.index = Btl::BackedUpChar;
+                            begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
+                            continue 'c_125208;
+                        }
+                    }
+                } else {
+                    find_sa_element(
+                        ValLevel::InterChar,
+                        prev_class * CHAR_CLASS_LIMIT + space_class,
+                        false,
+                    );
+                    if let Some(c) = cur_ptr {
+                        if cur_cmd != Cmd::Letter {
+                            cur_cmd = Cmd::OtherChar;
+                        }
+                        cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
+                        back_input();
+                        cur_input.index = Btl::BackedUpChar;
+                        begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
+                        prev_class = CHAR_CLASS_LIMIT - 1;
+                        continue 'c_125208;
+                    }
+                }
+                prev_class = space_class
+            }
+            main_f = EQTB[CUR_FONT_LOC].val as usize;
+            bchar = FONT_BCHAR[main_f as usize];
+            false_bchar = FONT_FALSE_BCHAR[main_f as usize];
+            if cur_list.mode.0 == false {
+                if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
+                    fix_language();
+                }
+            }
+            lig_stack = avail;
+            let ls = if let Some(ls) = lig_stack {
+                avail = LLIST_link(ls).opt();
+                *LLIST_link(ls) = None.tex_int();
+                ls
+            } else {
+                get_avail()
+            };
+            lig_stack = Some(ls);
+            MEM[ls].b16.s1 = main_f as u16;
+            cur_l = cur_chr;
+            MEM[ls].b16.s0 = cur_l as u16;
+            cur_q = cur_list.tail as i32;
+            if cancel_boundary {
+                cancel_boundary = false;
+                main_k = NON_ADDRESS;
+            } else {
+                main_k = BCHAR_LABEL[main_f as usize]
+            }
+            if main_k == NON_ADDRESS {
+                current_block = 249799543778823886;
+            } else {
+                cur_r = cur_l;
+                cur_l = TOO_BIG_CHAR;
+                current_block = 13962460947151495567;
+            }
+            loop {
+                match current_block {
+                    13962460947151495567 => {
+                        // lab111
+                        /*main_lig_loop 1 */
+                        main_j = FONT_INFO[main_k as usize].b16;
+                        current_block = 11331079115679122507;
+                    }
+                    _ => {
+                        let ls = lig_stack.unwrap();
+                        if effective_char(false, main_f, cur_chr as u16)
+                            > FONT_EC[main_f as usize] as i32
+                            || effective_char(false, main_f, cur_chr as u16)
+                                < FONT_BC[main_f as usize] as i32
+                        {
+                            char_warning(main_f, cur_chr);
+                            *LLIST_link(ls) = avail.tex_int();
+                            avail = lig_stack;
+                            continue 'c_125208;
+                        } else {
+                            main_i = effective_char_info(main_f, cur_l as u16);
+                            if !(main_i.s3 > 0) {
                                 char_warning(main_f, cur_chr);
                                 *LLIST_link(ls) = avail.tex_int();
                                 avail = lig_stack;
                                 continue 'c_125208;
                             } else {
-                                main_i = effective_char_info(main_f, cur_l as u16);
-                                if !(main_i.s3 > 0) {
-                                    char_warning(main_f, cur_chr);
-                                    *LLIST_link(ls) = avail.tex_int();
-                                    avail = lig_stack;
-                                    continue 'c_125208;
-                                } else {
-                                    MEM[cur_list.tail].b32.s1 = lig_stack.tex_int();
-                                    cur_list.tail = ls;
-                                }
+                                MEM[cur_list.tail].b32.s1 = lig_stack.tex_int();
+                                cur_list.tail = ls;
                             }
-                            current_block = 18270385712206273994;
                         }
+                        current_block = 18270385712206273994;
                     }
-                    'c_125244: loop {
-                        match current_block {
-                            11331079115679122507 =>
-                            // lab112
-                            /*main_lig_loop 2 */
-                            {
-                                if main_j.s2 as i32 == cur_r {
-                                    if main_j.s3 <= 128 {
-                                        /*1075: */
-                                        if main_j.s1 >= 128 {
-                                            if cur_l < TOO_BIG_CHAR {
-                                                if LLIST_link(cur_q as usize).opt().is_some() {
-                                                    if MEM[cur_list.tail].b16.s0 as i32
-                                                        == HYPHEN_CHAR[main_f as usize]
-                                                    {
-                                                        ins_disc = true
-                                                    }
-                                                }
-                                                if ligature_present {
-                                                    let main_p = new_ligature(
-                                                        main_f,
-                                                        cur_l as u16,
-                                                        *LLIST_link(cur_q as usize),
-                                                    )
-                                                        as i32;
-                                                    if lft_hit {
-                                                        MEM[main_p as usize].b16.s0 = 2;
-                                                        lft_hit = false
-                                                    }
-                                                    if rt_hit {
-                                                        if lig_stack.is_some() {
-                                                            MEM[main_p as usize].b16.s0 += 1;
-                                                            rt_hit = false
-                                                        }
-                                                    }
-                                                    *LLIST_link(cur_q as usize) = main_p;
-                                                    cur_list.tail = main_p as usize;
-                                                    ligature_present = false
-                                                }
-                                                if ins_disc {
-                                                    ins_disc = false;
-                                                    if cur_list.mode.0 == false {
-                                                        let d = new_disc();
-                                                        *LLIST_link(cur_list.tail) =
-                                                            Some(d).tex_int();
-                                                        cur_list.tail = d;
-                                                    }
+                }
+                'c_125244: loop {
+                    match current_block {
+                        11331079115679122507 =>
+                        // lab112
+                        /*main_lig_loop 2 */
+                        {
+                            if main_j.s2 as i32 == cur_r {
+                                if main_j.s3 <= 128 {
+                                    /*1075: */
+                                    if main_j.s1 >= 128 {
+                                        if cur_l < TOO_BIG_CHAR {
+                                            if LLIST_link(cur_q as usize).opt().is_some() {
+                                                if MEM[cur_list.tail].b16.s0 as i32
+                                                    == HYPHEN_CHAR[main_f as usize]
+                                                {
+                                                    ins_disc = true
                                                 }
                                             }
-                                            MEM[cur_list.tail].b32.s1 = new_kern(
-                                                FONT_INFO[(KERN_BASE[main_f as usize]
-                                                    + 256 * main_j.s1 as i32
-                                                    + main_j.s0 as i32)
-                                                    as usize]
-                                                    .b32
-                                                    .s1,
-                                            )
-                                                as i32;
-                                            cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-                                            current_block = 2772858075894446251;
-                                        } else {
-                                            if cur_l == TOO_BIG_CHAR {
-                                                lft_hit = true
-                                            } else if lig_stack.is_none() {
-                                                rt_hit = true
-                                            }
-                                            match main_j.s1 {
-                                                1 | 5 => {
-                                                    cur_l = main_j.s0 as i32;
-                                                    main_i = FONT_CHARACTER_INFO(
-                                                        main_f,
-                                                        effective_char(true, main_f, cur_l as u16)
-                                                            as usize,
-                                                    );
-                                                    ligature_present = true;
-                                                    current_block = 5062343687657450649;
+                                            if ligature_present {
+                                                let main_p = new_ligature(
+                                                    main_f,
+                                                    cur_l as u16,
+                                                    *LLIST_link(cur_q as usize),
+                                                )
+                                                    as i32;
+                                                if lft_hit {
+                                                    MEM[main_p as usize].b16.s0 = 2;
+                                                    lft_hit = false
                                                 }
-                                                2 | 6 => {
-                                                    cur_r = main_j.s0 as i32;
-                                                    if let Some(ls) = lig_stack {
-                                                        if is_char_node(Some(ls)) {
-                                                            let main_p = ls;
-                                                            let ls = new_lig_item(cur_r as u16);
-                                                            lig_stack = Some(ls);
-                                                            MEM[ls + 1].b32.s1 =
-                                                                Some(main_p).tex_int();
-                                                        } else {
-                                                            MEM[ls].b16.s0 = cur_r as u16
-                                                        }
+                                                if rt_hit {
+                                                    if lig_stack.is_some() {
+                                                        MEM[main_p as usize].b16.s0 += 1;
+                                                        rt_hit = false
+                                                    }
+                                                }
+                                                *LLIST_link(cur_q as usize) = main_p;
+                                                cur_list.tail = main_p as usize;
+                                                ligature_present = false
+                                            }
+                                            if ins_disc {
+                                                ins_disc = false;
+                                                if cur_list.mode.0 == false {
+                                                    let d = new_disc();
+                                                    *LLIST_link(cur_list.tail) = Some(d).tex_int();
+                                                    cur_list.tail = d;
+                                                }
+                                            }
+                                        }
+                                        MEM[cur_list.tail].b32.s1 = new_kern(
+                                            FONT_INFO[(KERN_BASE[main_f as usize]
+                                                + 256 * main_j.s1 as i32
+                                                + main_j.s0 as i32)
+                                                as usize]
+                                                .b32
+                                                .s1,
+                                        )
+                                            as i32;
+                                        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                                        current_block = 2772858075894446251;
+                                    } else {
+                                        if cur_l == TOO_BIG_CHAR {
+                                            lft_hit = true
+                                        } else if lig_stack.is_none() {
+                                            rt_hit = true
+                                        }
+                                        match main_j.s1 {
+                                            1 | 5 => {
+                                                cur_l = main_j.s0 as i32;
+                                                main_i = FONT_CHARACTER_INFO(
+                                                    main_f,
+                                                    effective_char(true, main_f, cur_l as u16)
+                                                        as usize,
+                                                );
+                                                ligature_present = true;
+                                                current_block = 5062343687657450649;
+                                            }
+                                            2 | 6 => {
+                                                cur_r = main_j.s0 as i32;
+                                                if let Some(ls) = lig_stack {
+                                                    if is_char_node(Some(ls)) {
+                                                        let main_p = ls;
+                                                        let ls = new_lig_item(cur_r as u16);
+                                                        lig_stack = Some(ls);
+                                                        MEM[ls + 1].b32.s1 = Some(main_p).tex_int();
                                                     } else {
-                                                        lig_stack =
-                                                            Some(new_lig_item(cur_r as u16));
-                                                        bchar = TOO_BIG_CHAR
+                                                        MEM[ls].b16.s0 = cur_r as u16
                                                     }
-                                                    current_block = 5062343687657450649;
+                                                } else {
+                                                    lig_stack = Some(new_lig_item(cur_r as u16));
+                                                    bchar = TOO_BIG_CHAR
                                                 }
-                                                3 => {
-                                                    cur_r = main_j.s0 as i32;
-                                                    let main_p = lig_stack;
-                                                    let ls = new_lig_item(cur_r as u16);
-                                                    lig_stack = Some(ls);
-                                                    *LLIST_link(ls) = main_p.tex_int();
-                                                    current_block = 5062343687657450649;
-                                                }
-                                                7 | 11 => {
-                                                    if cur_l < TOO_BIG_CHAR {
-                                                        if LLIST_link(cur_q as usize)
-                                                            .opt()
-                                                            .is_some()
+                                                current_block = 5062343687657450649;
+                                            }
+                                            3 => {
+                                                cur_r = main_j.s0 as i32;
+                                                let main_p = lig_stack;
+                                                let ls = new_lig_item(cur_r as u16);
+                                                lig_stack = Some(ls);
+                                                *LLIST_link(ls) = main_p.tex_int();
+                                                current_block = 5062343687657450649;
+                                            }
+                                            7 | 11 => {
+                                                if cur_l < TOO_BIG_CHAR {
+                                                    if LLIST_link(cur_q as usize).opt().is_some() {
+                                                        if MEM[cur_list.tail].b16.s0 as i32
+                                                            == HYPHEN_CHAR[main_f as usize]
                                                         {
-                                                            if MEM[cur_list.tail].b16.s0 as i32
-                                                                == HYPHEN_CHAR[main_f as usize]
-                                                            {
-                                                                ins_disc = true
-                                                            }
-                                                        }
-                                                        if ligature_present {
-                                                            let main_p = new_ligature(
-                                                                main_f,
-                                                                cur_l as u16,
-                                                                *LLIST_link(cur_q as usize),
-                                                            )
-                                                                as i32;
-                                                            if lft_hit {
-                                                                MEM[main_p as usize].b16.s0 = 2;
-                                                                lft_hit = false
-                                                            }
-                                                            *LLIST_link(cur_q as usize) = main_p;
-                                                            cur_list.tail = main_p as usize;
-                                                            ligature_present = false
-                                                        }
-                                                        if ins_disc {
-                                                            ins_disc = false;
-                                                            if cur_list.mode.0 == false {
-                                                                let d = new_disc();
-                                                                *LLIST_link(cur_list.tail) =
-                                                                    Some(d).tex_int();
-                                                                cur_list.tail = d;
-                                                            }
+                                                            ins_disc = true
                                                         }
                                                     }
-                                                    cur_q = cur_list.tail as i32;
-                                                    cur_l = main_j.s0 as i32;
-                                                    main_i = FONT_CHARACTER_INFO(
-                                                        main_f,
-                                                        effective_char(true, main_f, cur_l as u16)
-                                                            as usize,
-                                                    );
-                                                    ligature_present = true;
-                                                    current_block = 5062343687657450649;
+                                                    if ligature_present {
+                                                        let main_p = new_ligature(
+                                                            main_f,
+                                                            cur_l as u16,
+                                                            *LLIST_link(cur_q as usize),
+                                                        )
+                                                            as i32;
+                                                        if lft_hit {
+                                                            MEM[main_p as usize].b16.s0 = 2;
+                                                            lft_hit = false
+                                                        }
+                                                        *LLIST_link(cur_q as usize) = main_p;
+                                                        cur_list.tail = main_p as usize;
+                                                        ligature_present = false
+                                                    }
+                                                    if ins_disc {
+                                                        ins_disc = false;
+                                                        if cur_list.mode.0 == false {
+                                                            let d = new_disc();
+                                                            *LLIST_link(cur_list.tail) =
+                                                                Some(d).tex_int();
+                                                            cur_list.tail = d;
+                                                        }
+                                                    }
                                                 }
-                                                _ => {
-                                                    cur_l = main_j.s0 as i32;
-                                                    ligature_present = true;
-                                                    if lig_stack.is_none() {
-                                                        current_block = 7236688557761431611;
-                                                    } else {
-                                                        current_block = 4014385708774270501;
-                                                    }
+                                                cur_q = cur_list.tail as i32;
+                                                cur_l = main_j.s0 as i32;
+                                                main_i = FONT_CHARACTER_INFO(
+                                                    main_f,
+                                                    effective_char(true, main_f, cur_l as u16)
+                                                        as usize,
+                                                );
+                                                ligature_present = true;
+                                                current_block = 5062343687657450649;
+                                            }
+                                            _ => {
+                                                cur_l = main_j.s0 as i32;
+                                                ligature_present = true;
+                                                if lig_stack.is_none() {
+                                                    current_block = 7236688557761431611;
+                                                } else {
+                                                    current_block = 4014385708774270501;
                                                 }
                                             }
-                                            match current_block {
-                                                7236688557761431611 => {}
-                                                4014385708774270501 => {}
-                                                _ => {
-                                                    if main_j.s1 > 4 {
-                                                        if main_j.s1 != 7 {
-                                                            current_block = 7236688557761431611;
-                                                        } else {
-                                                            current_block = 17785146416239343017;
-                                                        }
+                                        }
+                                        match current_block {
+                                            7236688557761431611 => {}
+                                            4014385708774270501 => {}
+                                            _ => {
+                                                if main_j.s1 > 4 {
+                                                    if main_j.s1 != 7 {
+                                                        current_block = 7236688557761431611;
                                                     } else {
                                                         current_block = 17785146416239343017;
                                                     }
-                                                    match current_block {
-                                                        7236688557761431611 => {}
-                                                        _ => {
-                                                            if cur_l < TOO_BIG_CHAR {
-                                                                current_block = 4700797278417140031;
-                                                            } else {
-                                                                main_k =
-                                                                    BCHAR_LABEL[main_f as usize];
-                                                                current_block =
-                                                                    13962460947151495567;
-                                                                break;
-                                                            }
+                                                } else {
+                                                    current_block = 17785146416239343017;
+                                                }
+                                                match current_block {
+                                                    7236688557761431611 => {}
+                                                    _ => {
+                                                        if cur_l < TOO_BIG_CHAR {
+                                                            current_block = 4700797278417140031;
+                                                        } else {
+                                                            main_k = BCHAR_LABEL[main_f as usize];
+                                                            current_block = 13962460947151495567;
+                                                            break;
                                                         }
                                                     }
                                                 }
                                             }
                                         }
-                                    } else {
-                                        current_block = 17910696963991344696;
                                     }
                                 } else {
                                     current_block = 17910696963991344696;
                                 }
-                                match current_block {
-                                    2772858075894446251 => {}
-                                    7236688557761431611 => {}
-                                    4014385708774270501 => {}
-                                    4700797278417140031 => {}
-                                    _ => {
-                                        if main_j.s3 == 0 {
-                                            main_k += 1;
-                                            current_block = 13962460947151495567;
-                                            break;
-                                        } else if !(main_j.s3 >= 128) {
-                                            main_k = main_k + main_j.s3 as i32 + 1;
-                                            current_block = 13962460947151495567;
-                                            break;
-                                        }
-                                        current_block = 7236688557761431611;
+                            } else {
+                                current_block = 17910696963991344696;
+                            }
+                            match current_block {
+                                2772858075894446251 => {}
+                                7236688557761431611 => {}
+                                4014385708774270501 => {}
+                                4700797278417140031 => {}
+                                _ => {
+                                    if main_j.s3 == 0 {
+                                        main_k += 1;
+                                        current_block = 13962460947151495567;
+                                        break;
+                                    } else if !(main_j.s3 >= 128) {
+                                        main_k = main_k + main_j.s3 as i32 + 1;
+                                        current_block = 13962460947151495567;
+                                        break;
                                     }
+                                    current_block = 7236688557761431611;
                                 }
                             }
-                            _ => {
-                                // lab100:
-                                /*main_loop_lookahead *//*1073: */
-                                get_next();
+                        }
+                        _ => {
+                            // lab100:
+                            /*main_loop_lookahead *//*1073: */
+                            get_next();
+                            if cur_cmd == Cmd::Letter {
+                                current_block = 10120566026430170701;
+                            } else if cur_cmd == Cmd::OtherChar {
+                                current_block = 10120566026430170701;
+                            } else if cur_cmd == Cmd::CharGiven {
+                                current_block = 10120566026430170701;
+                            } else {
+                                x_token();
                                 if cur_cmd == Cmd::Letter {
                                     current_block = 10120566026430170701;
                                 } else if cur_cmd == Cmd::OtherChar {
                                     current_block = 10120566026430170701;
                                 } else if cur_cmd == Cmd::CharGiven {
                                     current_block = 10120566026430170701;
+                                } else if cur_cmd == Cmd::CharNum {
+                                    scan_char_num();
+                                    cur_chr = cur_val;
+                                    current_block = 10120566026430170701;
                                 } else {
-                                    x_token();
-                                    if cur_cmd == Cmd::Letter {
-                                        current_block = 10120566026430170701;
-                                    } else if cur_cmd == Cmd::OtherChar {
-                                        current_block = 10120566026430170701;
-                                    } else if cur_cmd == Cmd::CharGiven {
-                                        current_block = 10120566026430170701;
-                                    } else if cur_cmd == Cmd::CharNum {
-                                        scan_char_num();
-                                        cur_chr = cur_val;
-                                        current_block = 10120566026430170701;
-                                    } else {
-                                        if cur_cmd == Cmd::NoBoundary {
-                                            bchar = TOO_BIG_CHAR;
-                                        }
-                                        cur_r = bchar;
-                                        lig_stack = None;
-                                        current_block = 4700797278417140031;
+                                    if cur_cmd == Cmd::NoBoundary {
+                                        bchar = TOO_BIG_CHAR;
                                     }
+                                    cur_r = bchar;
+                                    lig_stack = None;
+                                    current_block = 4700797278417140031;
                                 }
-                                match current_block {
-                                    4700797278417140031 => {}
-                                    _ => {
-                                        // lab101:
-                                        /*main_loop_lookahead 1 */
-                                        main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32; /*:1073 */
-                                        if main_s == 1000 {
-                                            cur_list.aux.b32.s0 = 1000
-                                        } else if main_s < 1000 {
-                                            if main_s > 0 {
-                                                cur_list.aux.b32.s0 = main_s;
-                                            }
-                                        } else if cur_list.aux.b32.s0 < 1000 {
-                                            cur_list.aux.b32.s0 = 1000;
-                                        } else {
+                            }
+                            match current_block {
+                                4700797278417140031 => {}
+                                _ => {
+                                    // lab101:
+                                    /*main_loop_lookahead 1 */
+                                    main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32; /*:1073 */
+                                    if main_s == 1000 {
+                                        cur_list.aux.b32.s0 = 1000
+                                    } else if main_s < 1000 {
+                                        if main_s > 0 {
                                             cur_list.aux.b32.s0 = main_s;
                                         }
-                                        cur_ptr = None;
-                                        space_class =
-                                            (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
-                                        if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
-                                            && space_class != CHAR_CLASS_LIMIT
-                                        {
-                                            if prev_class == CHAR_CLASS_LIMIT - 1 {
-                                                if cur_input.state != InputState::TokenList
-                                                    || cur_input.index != Btl::BackedUpChar
-                                                {
-                                                    find_sa_element(
-                                                        ValLevel::InterChar,
-                                                        (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT
-                                                            + space_class,
-                                                        false,
-                                                    );
-                                                    if let Some(c) = cur_ptr {
-                                                        if cur_cmd != Cmd::Letter {
-                                                            cur_cmd = Cmd::OtherChar
-                                                        }
-                                                        cur_tok =
-                                                            cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                                        back_input();
-                                                        cur_input.index = Btl::BackedUpChar;
-                                                        begin_token_list(
-                                                            MEM[c + 1].b32.s1 as usize,
-                                                            Btl::InterCharText,
-                                                        );
-                                                        continue 'c_125208;
-                                                    }
-                                                }
-                                            } else {
+                                    } else if cur_list.aux.b32.s0 < 1000 {
+                                        cur_list.aux.b32.s0 = 1000;
+                                    } else {
+                                        cur_list.aux.b32.s0 = main_s;
+                                    }
+                                    cur_ptr = None;
+                                    space_class =
+                                        (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
+                                    if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
+                                        && space_class != CHAR_CLASS_LIMIT
+                                    {
+                                        if prev_class == CHAR_CLASS_LIMIT - 1 {
+                                            if cur_input.state != InputState::TokenList
+                                                || cur_input.index != Btl::BackedUpChar
+                                            {
                                                 find_sa_element(
                                                     ValLevel::InterChar,
-                                                    prev_class * CHAR_CLASS_LIMIT + space_class,
+                                                    (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT
+                                                        + space_class,
                                                     false,
                                                 );
                                                 if let Some(c) = cur_ptr {
                                                     if cur_cmd != Cmd::Letter {
-                                                        cur_cmd = Cmd::OtherChar;
+                                                        cur_cmd = Cmd::OtherChar
                                                     }
                                                     cur_tok =
                                                         cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
@@ -17301,204 +17250,219 @@ pub(crate) unsafe fn main_control() {
                                                         MEM[c + 1].b32.s1 as usize,
                                                         Btl::InterCharText,
                                                     );
-                                                    prev_class = CHAR_CLASS_LIMIT - 1;
                                                     continue 'c_125208;
                                                 }
                                             }
-                                            prev_class = space_class
-                                        }
-                                        lig_stack = avail;
-                                        let ls = if let Some(ls) = lig_stack {
-                                            avail = LLIST_link(ls).opt();
-                                            *LLIST_link(ls) = None.tex_int();
-                                            ls
                                         } else {
-                                            get_avail()
-                                        };
-                                        lig_stack = Some(ls);
-                                        MEM[ls].b16.s1 = main_f as u16;
-                                        cur_r = cur_chr;
-                                        MEM[ls].b16.s0 = cur_r as u16;
-                                        if cur_r == false_bchar {
-                                            cur_r = TOO_BIG_CHAR;
-                                        }
-                                        current_block = 4700797278417140031; // lab110
-                                    }
-                                }
-                            }
-                        }
-                        loop {
-                            match current_block {
-                                7236688557761431611 => {
-                                    // lab80:
-                                    /*main_loop_wrapup *//*1070: */
-                                    if cur_l < TOO_BIG_CHAR {
-                                        if LLIST_link(cur_q as usize).opt().is_some() {
-                                            if MEM[cur_list.tail].b16.s0 as i32
-                                                == HYPHEN_CHAR[main_f as usize]
-                                            {
-                                                ins_disc = true
-                                            }
-                                        }
-                                        if ligature_present {
-                                            let main_p = new_ligature(
-                                                main_f,
-                                                cur_l as u16,
-                                                *LLIST_link(cur_q as usize) as i32,
-                                            )
-                                                as i32;
-                                            if lft_hit {
-                                                MEM[main_p as usize].b16.s0 = 2;
-                                                lft_hit = false
-                                            }
-                                            if rt_hit {
-                                                if lig_stack.is_none() {
-                                                    MEM[main_p as usize].b16.s0 += 1;
-                                                    rt_hit = false
+                                            find_sa_element(
+                                                ValLevel::InterChar,
+                                                prev_class * CHAR_CLASS_LIMIT + space_class,
+                                                false,
+                                            );
+                                            if let Some(c) = cur_ptr {
+                                                if cur_cmd != Cmd::Letter {
+                                                    cur_cmd = Cmd::OtherChar;
                                                 }
-                                            }
-                                            *LLIST_link(cur_q as usize) = main_p;
-                                            cur_list.tail = main_p as usize;
-                                            ligature_present = false
-                                        }
-                                        if ins_disc {
-                                            ins_disc = false;
-                                            if cur_list.mode.0 == false {
-                                                let d = new_disc();
-                                                *LLIST_link(cur_list.tail) = Some(d).tex_int();
-                                                cur_list.tail = d;
+                                                cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
+                                                back_input();
+                                                cur_input.index = Btl::BackedUpChar;
+                                                begin_token_list(
+                                                    MEM[c + 1].b32.s1 as usize,
+                                                    Btl::InterCharText,
+                                                );
+                                                prev_class = CHAR_CLASS_LIMIT - 1;
+                                                continue 'c_125208;
                                             }
                                         }
+                                        prev_class = space_class
                                     }
-                                    current_block = 2772858075894446251;
-                                }
-                                4700797278417140031 =>
-                                /*main_lig_loop *//*1074: */
-                                {
-                                    if main_i.s1 as i32 % 4i32 != 1i32 {
-                                        current_block = 7236688557761431611;
-                                        continue;
-                                    }
-                                    if cur_r == 65536i32 {
-                                        current_block = 7236688557761431611;
+                                    lig_stack = avail;
+                                    let ls = if let Some(ls) = lig_stack {
+                                        avail = LLIST_link(ls).opt();
+                                        *LLIST_link(ls) = None.tex_int();
+                                        ls
                                     } else {
-                                        break;
+                                        get_avail()
+                                    };
+                                    lig_stack = Some(ls);
+                                    MEM[ls].b16.s1 = main_f as u16;
+                                    cur_r = cur_chr;
+                                    MEM[ls].b16.s0 = cur_r as u16;
+                                    if cur_r == false_bchar {
+                                        cur_r = TOO_BIG_CHAR;
                                     }
-                                }
-                                2772858075894446251 => {
-                                    // lab90:
-                                    /*main_loop_move *//*1071: */
-                                    if lig_stack.is_none() {
-                                        break 'c_125239;
-                                    }
-                                    cur_q = cur_list.tail as i32;
-                                    cur_l = MEM[lig_stack.unwrap()].b16.s0 as i32;
-                                    current_block = 4014385708774270501;
-                                }
-                                _ => {
-                                    // lab91:
-                                    /*main_loop_move 1 */
-                                    if is_char_node(lig_stack) {
-                                        current_block = 249799543778823886; // lab92
-                                        break 'c_125244;
-                                    }
-                                    // lab95:
-                                    /*main_loop_move_lig *//*1072: */
-                                    let ls = lig_stack.unwrap();
-                                    let main_p = MEM[ls + 1].b32.s1;
-                                    if !main_p.is_texnull() {
-                                        MEM[cur_list.tail].b32.s1 = main_p;
-                                        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-                                    }
-                                    temp_ptr = ls;
-                                    lig_stack = LLIST_link(temp_ptr).opt();
-                                    free_node(temp_ptr, SMALL_NODE_SIZE);
-                                    main_i = FONT_CHARACTER_INFO(
-                                        main_f,
-                                        effective_char(true, main_f, cur_l as u16) as usize,
-                                    );
-                                    ligature_present = true;
-                                    if let Some(ls) = lig_stack {
-                                        cur_r = MEM[ls].b16.s0 as i32;
-                                        current_block = 4700797278417140031;
-                                    } else {
-                                        if !main_p.is_texnull() {
-                                            current_block = 18270385712206273994; // lab100
-                                            continue 'c_125244;
-                                        }
-                                        cur_r = bchar;
-                                        current_block = 4700797278417140031;
-                                    }
+                                    current_block = 4700797278417140031; // lab110
                                 }
                             }
                         }
-                        main_k = LIG_KERN_BASE[main_f as usize] + main_i.s0 as i32;
-                        main_j = FONT_INFO[main_k as usize].b16;
-                        if main_j.s3 as i32 <= 128 {
-                            current_block = 11331079115679122507; // lab112
-                            continue;
-                        }
-                        main_k = ((LIG_KERN_BASE[main_f as usize]
-                            + 256 * main_j.s1 as i32
-                            + main_j.s0 as i32) as i64
-                            + 32768
-                            - (256 * 128) as i64) as font_index;
-                        current_block = 13962460947151495567; // lab111
-                        break;
                     }
-                }
-            }
-        }
-        match current_block {
-            11459959175219260272 => app_space(),
-            _ =>
-            // lab100:
-            /*append_normal_space */
-            {
-                if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
-                    && space_class != CHAR_CLASS_LIMIT
-                    && prev_class != CHAR_CLASS_LIMIT - 1
-                {
-                    prev_class = CHAR_CLASS_LIMIT - 1;
-                    find_sa_element(
-                        ValLevel::InterChar,
-                        space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
-                        false,
-                    );
-                    if let Some(c) = cur_ptr {
-                        if cur_cs == 0 {
-                            if cur_cmd == Cmd::CharNum {
-                                cur_cmd = Cmd::OtherChar;
+                    loop {
+                        match current_block {
+                            7236688557761431611 => {
+                                // lab80:
+                                /*main_loop_wrapup *//*1070: */
+                                if cur_l < TOO_BIG_CHAR {
+                                    if LLIST_link(cur_q as usize).opt().is_some() {
+                                        if MEM[cur_list.tail].b16.s0 as i32
+                                            == HYPHEN_CHAR[main_f as usize]
+                                        {
+                                            ins_disc = true
+                                        }
+                                    }
+                                    if ligature_present {
+                                        let main_p = new_ligature(
+                                            main_f,
+                                            cur_l as u16,
+                                            *LLIST_link(cur_q as usize) as i32,
+                                        )
+                                            as i32;
+                                        if lft_hit {
+                                            MEM[main_p as usize].b16.s0 = 2;
+                                            lft_hit = false
+                                        }
+                                        if rt_hit {
+                                            if lig_stack.is_none() {
+                                                MEM[main_p as usize].b16.s0 += 1;
+                                                rt_hit = false
+                                            }
+                                        }
+                                        *LLIST_link(cur_q as usize) = main_p;
+                                        cur_list.tail = main_p as usize;
+                                        ligature_present = false
+                                    }
+                                    if ins_disc {
+                                        ins_disc = false;
+                                        if cur_list.mode.0 == false {
+                                            let d = new_disc();
+                                            *LLIST_link(cur_list.tail) = Some(d).tex_int();
+                                            cur_list.tail = d;
+                                        }
+                                    }
+                                }
+                                current_block = 2772858075894446251;
                             }
-                            cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
-                        } else {
-                            cur_tok = CS_TOKEN_FLAG + cur_cs
+                            4700797278417140031 =>
+                            /*main_lig_loop *//*1074: */
+                            {
+                                if main_i.s1 as i32 % 4i32 != 1i32 {
+                                    current_block = 7236688557761431611;
+                                    continue;
+                                }
+                                if cur_r == 65536i32 {
+                                    current_block = 7236688557761431611;
+                                } else {
+                                    break;
+                                }
+                            }
+                            2772858075894446251 => {
+                                // lab90:
+                                /*main_loop_move *//*1071: */
+                                if lig_stack.is_none() {
+                                    big_switch = false;
+                                    continue 'c_125208;
+                                }
+                                cur_q = cur_list.tail as i32;
+                                cur_l = MEM[lig_stack.unwrap()].b16.s0 as i32;
+                                current_block = 4014385708774270501;
+                            }
+                            _ => {
+                                // lab91:
+                                /*main_loop_move 1 */
+                                if is_char_node(lig_stack) {
+                                    current_block = 249799543778823886; // lab92
+                                    break 'c_125244;
+                                }
+                                // lab95:
+                                /*main_loop_move_lig *//*1072: */
+                                let ls = lig_stack.unwrap();
+                                let main_p = MEM[ls + 1].b32.s1;
+                                if !main_p.is_texnull() {
+                                    MEM[cur_list.tail].b32.s1 = main_p;
+                                    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                                }
+                                temp_ptr = ls;
+                                lig_stack = LLIST_link(temp_ptr).opt();
+                                free_node(temp_ptr, SMALL_NODE_SIZE);
+                                main_i = FONT_CHARACTER_INFO(
+                                    main_f,
+                                    effective_char(true, main_f, cur_l as u16) as usize,
+                                );
+                                ligature_present = true;
+                                if let Some(ls) = lig_stack {
+                                    cur_r = MEM[ls].b16.s0 as i32;
+                                    current_block = 4700797278417140031;
+                                } else {
+                                    if !main_p.is_texnull() {
+                                        current_block = 18270385712206273994; // lab100
+                                        continue 'c_125244;
+                                    }
+                                    cur_r = bchar;
+                                    current_block = 4700797278417140031;
+                                }
+                            }
                         }
-                        back_input();
-                        begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
+                    }
+                    main_k = LIG_KERN_BASE[main_f as usize] + main_i.s0 as i32;
+                    main_j = FONT_INFO[main_k as usize].b16;
+                    if main_j.s3 as i32 <= 128 {
+                        current_block = 11331079115679122507; // lab112
                         continue;
                     }
+                    main_k = ((LIG_KERN_BASE[main_f as usize]
+                        + 256 * main_j.s1 as i32
+                        + main_j.s0 as i32) as i64
+                        + 32768
+                        - (256 * 128) as i64) as font_index;
+                    current_block = 13962460947151495567; // lab111
+                    break;
                 }
-                temp_ptr = if *GLUEPAR(GluePar::space_skip) == 0 {
-                    let mut main_p = FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize]
-                        .opt()
-                        .unwrap_or_else(|| {
-                            let main_p = new_spec(0);
-                            main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
-                            *GLUE_SPEC_size(main_p) = FONT_INFO[main_k as usize].b32.s1;
-                            *GLUE_SPEC_stretch(main_p) = FONT_INFO[(main_k + 1) as usize].b32.s1;
-                            *GLUE_SPEC_shrink(main_p) = FONT_INFO[(main_k + 2) as usize].b32.s1;
-                            FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p).tex_int();
-                            main_p
-                        });
-                    new_glue(main_p as usize)
-                } else {
-                    new_param_glue(GluePar::space_skip)
-                };
-                MEM[cur_list.tail].b32.s1 = Some(temp_ptr).tex_int();
-                cur_list.tail = temp_ptr;
             }
         }
+    }
+
+    unsafe fn append_normal_space() {
+        if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
+            && space_class != CHAR_CLASS_LIMIT
+            && prev_class != CHAR_CLASS_LIMIT - 1
+        {
+            prev_class = CHAR_CLASS_LIMIT - 1;
+            find_sa_element(
+                ValLevel::InterChar,
+                space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
+                false,
+            );
+            if let Some(c) = cur_ptr {
+                if cur_cs == 0 {
+                    if cur_cmd == Cmd::CharNum {
+                        cur_cmd = Cmd::OtherChar;
+                    }
+                    cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
+                } else {
+                    cur_tok = CS_TOKEN_FLAG + cur_cs
+                }
+                back_input();
+                begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
+                return;
+            }
+        }
+        temp_ptr = if *GLUEPAR(GluePar::space_skip) == 0 {
+            let mut main_p = FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize]
+                .opt()
+                .unwrap_or_else(|| {
+                    let main_p = new_spec(0);
+                    main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
+                    *GLUE_SPEC_size(main_p) = FONT_INFO[main_k as usize].b32.s1;
+                    *GLUE_SPEC_stretch(main_p) = FONT_INFO[(main_k + 1) as usize].b32.s1;
+                    *GLUE_SPEC_shrink(main_p) = FONT_INFO[(main_k + 2) as usize].b32.s1;
+                    FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p).tex_int();
+                    main_p
+                });
+            new_glue(main_p as usize)
+        } else {
+            new_param_glue(GluePar::space_skip)
+        };
+        MEM[cur_list.tail].b32.s1 = Some(temp_ptr).tex_int();
+        cur_list.tail = temp_ptr;
     }
 }
 pub(crate) unsafe fn give_err_help() {
