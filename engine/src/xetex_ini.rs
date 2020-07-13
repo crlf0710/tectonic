@@ -550,7 +550,7 @@ pub(crate) static mut native_len: i32 = 0;
 #[no_mangle]
 pub(crate) static mut save_native_len: i32 = 0;
 #[no_mangle]
-pub(crate) static mut interaction: u8 = 0;
+pub(crate) static mut interaction: InteractionMode = InteractionMode::Batch;
 #[no_mangle]
 pub(crate) static mut deletions_allowed: bool = false;
 #[no_mangle]
@@ -2654,8 +2654,8 @@ unsafe fn store_fmt_file() {
         print_cstr(b"You can\'t dump inside a group");
         help!(b"`{...\\dump}\' is a no-no.");
 
-        if interaction == ERROR_STOP_MODE {
-            interaction = SCROLL_MODE;
+        if interaction == InteractionMode::ErrorStop {
+            interaction = InteractionMode::Scroll;
         }
         if log_opened {
             error();
@@ -2678,11 +2678,11 @@ unsafe fn store_fmt_file() {
     print_int(*INTPAR(IntPar::day));
     print_char(')' as i32);
 
-    if interaction == BATCH_MODE {
-        selector = Selector::LOG_ONLY
+    selector = if interaction == InteractionMode::Batch {
+        Selector::LOG_ONLY
     } else {
-        selector = Selector::TERM_AND_LOG
-    }
+        Selector::TERM_AND_LOG
+    };
 
     if pool_ptr + 1 > pool_size {
         overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
@@ -3762,7 +3762,7 @@ unsafe fn final_cleanup() {
         free_node(temp_ptr, IF_NODE_SIZE);
     }
     if history != TTHistory::SPOTLESS {
-        if history == TTHistory::WARNING_ISSUED || interaction < ERROR_STOP_MODE {
+        if history == TTHistory::WARNING_ISSUED || interaction != InteractionMode::ErrorStop {
             if selector == Selector::TERM_AND_LOG {
                 selector = Selector::TERM_ONLY;
                 print_nl_cstr(b"(see the transcript file for additional information)");
@@ -3825,7 +3825,7 @@ unsafe fn initialize_more_variables() {
         (native_text_size as u64).wrapping_mul(::std::mem::size_of::<UTF16_code>() as _) as _,
     ) as *mut UTF16_code;
 
-    interaction = ERROR_STOP_MODE;
+    interaction = InteractionMode::ErrorStop;
 
     deletions_allowed = true;
     set_box_allowed = true;
@@ -5047,13 +5047,17 @@ unsafe fn initialize_primitives() {
     primitive(b"lpcode", Cmd::AssignFontInt, 2);
     primitive(b"rpcode", Cmd::AssignFontInt, 3);
 
-    primitive(b"batchmode", Cmd::SetInteraction, BATCH_MODE);
-    primitive(b"nonstopmode", Cmd::SetInteraction, NONSTOP_MODE);
-    primitive(b"scrollmode", Cmd::SetInteraction, SCROLL_MODE);
+    primitive(b"batchmode", Cmd::SetInteraction, InteractionMode::Batch);
+    primitive(
+        b"nonstopmode",
+        Cmd::SetInteraction,
+        InteractionMode::NonStop,
+    );
+    primitive(b"scrollmode", Cmd::SetInteraction, InteractionMode::Scroll);
     primitive(
         b"errorstopmode",
         Cmd::SetInteraction,
-        ERROR_STOP_MODE as i32,
+        InteractionMode::ErrorStop,
     );
 
     primitive(b"openin", Cmd::InStream, 1);
@@ -5661,10 +5665,10 @@ pub(crate) unsafe fn tt_run_engine(
             XETEX_DEFAULT_ENCODING_EXTENSION_CODE as usize,
         );
 
-        primitive(b"beginL", Cmd::VAlign, BEGIN_L_CODE);
-        primitive(b"endL", Cmd::VAlign, END_L_CODE);
-        primitive(b"beginR", Cmd::VAlign, BEGIN_R_CODE);
-        primitive(b"endR", Cmd::VAlign, END_R_CODE);
+        primitive(b"beginL", Cmd::VAlign, u16::from(BEGIN_L_CODE));
+        primitive(b"endL", Cmd::VAlign, u16::from(END_L_CODE));
+        primitive(b"beginR", Cmd::VAlign, u16::from(BEGIN_R_CODE));
+        primitive(b"endR", Cmd::VAlign, u16::from(END_R_CODE));
 
         primitive(b"scantokens", Cmd::Input, 2);
         primitive(b"readline", Cmd::ReadToCS, 1);
@@ -5828,11 +5832,11 @@ pub(crate) unsafe fn tt_run_engine(
 
     font_used = vec![false; FONT_MAX + 1];
 
-    if interaction == BATCH_MODE {
-        selector = Selector::NO_PRINT
+    selector = if interaction == InteractionMode::Batch {
+        Selector::NO_PRINT
     } else {
-        selector = Selector::TERM_ONLY
-    }
+        Selector::TERM_ONLY
+    };
     if semantic_pagination_enabled {
         *INTPAR(IntPar::xetex_generate_actual_text) = 1;
     }

@@ -12,7 +12,7 @@ use bridge::DisplayExt;
 use std::io::Write;
 
 use crate::help;
-use crate::xetex_consts::{BATCH_MODE, ERROR_STOP_MODE, SCROLL_MODE};
+use crate::xetex_consts::InteractionMode;
 
 use crate::xetex_ini::{
     error_count, file_line_error_style_p, halt_on_error_p, help_line, help_ptr, history,
@@ -58,7 +58,7 @@ unsafe fn pre_error_message() {
     if job_name == 0i32 {
         open_log_file();
     }
-    if interaction == BATCH_MODE {
+    if interaction == InteractionMode::Batch {
         selector = (u8::from(selector) - 1).into()
     }
     if file_line_error_style_p != 0 {
@@ -69,8 +69,8 @@ unsafe fn pre_error_message() {
 }
 /*82: */
 unsafe fn post_error_message(mut need_to_print_it: i32) {
-    if interaction == ERROR_STOP_MODE {
-        interaction = SCROLL_MODE;
+    if interaction == InteractionMode::ErrorStop {
+        interaction = InteractionMode::Scroll;
     }
     if need_to_print_it != 0 && log_opened {
         error();
@@ -100,7 +100,7 @@ pub(crate) unsafe fn error() {
         post_error_message(0);
         panic!("halted after 100 potentially-recoverable errors");
     }
-    if interaction > BATCH_MODE {
+    if interaction != InteractionMode::Batch {
         selector = (u8::from(selector) - 1).into()
     }
     if use_err_help {
@@ -113,7 +113,7 @@ pub(crate) unsafe fn error() {
         }
     }
     print_ln();
-    if interaction > BATCH_MODE {
+    if interaction != InteractionMode::Batch {
         selector = (u8::from(selector) + 1).into()
     }
     print_ln();

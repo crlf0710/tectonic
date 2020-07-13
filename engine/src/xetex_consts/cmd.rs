@@ -418,18 +418,16 @@ pub(crate) const XETEX_INPUT_ENCODING_EXTENSION_CODE: u16 = 44;
 pub(crate) const XETEX_DEFAULT_ENCODING_EXTENSION_CODE: u16 = 45;
 pub(crate) const XETEX_LINEBREAK_LOCALE_EXTENSION_CODE: u16 = 46;
 
-/* Cmd::VAlign overloads */
-pub(crate) const BEGIN_L_CODE: i32 = 6;
-pub(crate) const END_L_CODE: i32 = 7;
-pub(crate) const BEGIN_R_CODE: i32 = 10;
-pub(crate) const END_R_CODE: i32 = 11;
-
-/* Cmd::SetInteraction */
-pub(crate) const BATCH_MODE: u8 = 0;
-pub(crate) const NONSTOP_MODE: u8 = 1;
-pub(crate) const SCROLL_MODE: u8 = 2;
-pub(crate) const ERROR_STOP_MODE: u8 = 3;
-pub(crate) const UNSPECIFIED_MODE: u8 = 4;
+/// Cmd::SetInteraction
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum InteractionMode {
+    Batch = 0,
+    NonStop = 1,
+    Scroll = 2,
+    ErrorStop = 3,
+}
+//pub(crate) const UNSPECIFIED_MODE: u8 = 4;
 
 macro_rules! try_into {
     ($($T:ty),+) => (
@@ -453,5 +451,6 @@ try_into!(
     SkipCode,
     BoxCode,
     FiOrElseCode,
-    ShorthandDefCode
+    ShorthandDefCode,
+    InteractionMode
 );

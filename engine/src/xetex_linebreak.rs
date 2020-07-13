@@ -504,9 +504,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     continue;
                 }
                 TextNode::Math => {
-                    if MEM[cp].b16.s0 < L_CODE {
-                        // NODE_subtype(cp)
-                        auto_breaking = MEM[cp].b16.s0 as i32 & 1 != 0
+                    match MathNST::from(MEM[cp].b16.s0) {
+                        MathNST::Before | MathNST::Eq(BE::Begin, MathMode::Middle) => auto_breaking = false,
+                        MathNST::After | MathNST::Eq(BE::End, MathMode::Middle) => auto_breaking = true,
+                        _ => {}
                     }
                     if !is_char_node(LLIST_link(cp).opt()) && auto_breaking {
                         if NODE_type(*LLIST_link(cp) as usize) == TextNode::Glue.into() {
@@ -689,7 +690,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         && kern_NODE_subtype(s) == KernNST::Normal
                     {
                         flag = false;
-                    } else if NODE_type(s) == TextNode::Math.into() && MEM[s].b16.s0 >= L_CODE
+                    } else if NODE_type(s) == TextNode::Math.into() && (
+                        match MathNST::from(MEM[s].b16.s0) {
+                            MathNST::Eq(_, MathMode::Left) | MathNST::Eq(_, MathMode::Right) => true,
+                            _ => false,
+                        }
+                    )
                     // NODE_subtype(s as usize)
                     {
                         flag = false;
@@ -1000,12 +1006,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 break;
                             }
                             TextNode::Math => {
-                                if MEM[s].b16.s0 >= L_CODE {
-                                    // NODE_subtype(s as usize)
-                                    break;
-                                } else {
-                                    return c;
-                                }
+                                match MathNST::from(MEM[s].b16.s0) {
+                                    MathNST::Eq(_, MathMode::Left) | MathNST::Eq(_, MathMode::Right) => break,
+                                    _ => return c,
+                                };
                             }
                             _ => {
                                 return c;
@@ -1052,7 +1056,7 @@ unsafe fn post_line_break(mut d: bool) {
                 temp_ptr = lr;
                 let mut r = q;
                 loop {
-                    let s = new_math(0, (MEM[temp_ptr].b32.s0 - 1) as i16) as usize;
+                    let s = new_math(0, MathNST::from((MEM[temp_ptr].b32.s0 - 1) as u16)) as usize;
                     *LLIST_link(s) = r;
                     r = s as i32;
                     temp_ptr = *LLIST_link(temp_ptr) as usize;
@@ -1066,9 +1070,10 @@ unsafe fn post_line_break(mut d: bool) {
             while q != MEM[cp + 1].b32.s1 {
                 if q < hi_mem_min && NODE_type(q as usize) == TextNode::Math.into() {
                     /*1495:*/
-                    if MEM[q as usize].b16.s0 as i32 & 1 != 0 {
+                    let (be, mode) = MathNST::from(MEM[q as usize].b16.s0).equ();
+                    if be == BE::End {
                         if let Some(lr) = LR_ptr {
-                            if MEM[lr].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3 {
+                            if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
                                 temp_ptr = lr;
                                 LR_ptr = LLIST_link(temp_ptr).opt();
                                 *LLIST_link(temp_ptr) = avail.tex_int();
@@ -1077,7 +1082,7 @@ unsafe fn post_line_break(mut d: bool) {
                         }
                     } else {
                         temp_ptr = get_avail();
-                        MEM[temp_ptr].b32.s0 = (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
+                        MEM[temp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
                         *LLIST_link(temp_ptr) = LR_ptr.tex_int();
                         LR_ptr = Some(temp_ptr);
                     }
@@ -1155,9 +1160,11 @@ unsafe fn post_line_break(mut d: bool) {
             *BOX_width(q as usize) = 0;
             if *INTPAR(IntPar::texxet) > 0 {
                 /*1495:*/
-                if *INTPAR(IntPar::texxet) as i32 & 1 != 0 {
+                let (be, _) = MathNST::from(*INTPAR(IntPar::texxet) as u16).equ();
+                let (_, mode) = MathNST::from(MEM[q as usize].b16.s0 as u16).equ();
+                if be == BE::End {
                     if let Some(lr) = LR_ptr {
-                        if MEM[lr].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3i32 {
+                        if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
                             temp_ptr = lr;
                             LR_ptr = LLIST_link(temp_ptr).opt();
                             *LLIST_link(temp_ptr) = avail.tex_int();
@@ -1166,7 +1173,7 @@ unsafe fn post_line_break(mut d: bool) {
                     }
                 } else {
                     temp_ptr = get_avail();
-                    MEM[temp_ptr].b32.s0 = (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
+                    MEM[temp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
                     *LLIST_link(temp_ptr) = LR_ptr.tex_int();
                     LR_ptr = Some(temp_ptr);
                 }
@@ -1216,7 +1223,7 @@ unsafe fn post_line_break(mut d: bool) {
                 let mut ropt = Some(lr);
 
                 while let Some(r) = ropt {
-                    temp_ptr = new_math(0, MEM[r].b32.s0 as i16);
+                    temp_ptr = new_math(0, MathNST::from(MEM[r].b32.s0 as u16));
                     *LLIST_link(s) = Some(temp_ptr).tex_int();
                     s = temp_ptr;
                     ropt = LLIST_link(r).opt();
@@ -1361,9 +1368,10 @@ unsafe fn post_line_break(mut d: bool) {
                     r = q as usize;
                     if NODE_type(q as usize) == TextNode::Math.into() && *INTPAR(IntPar::texxet) > 0 {
                         /*1495:*/
-                        if MEM[q as usize].b16.s0 as i32 & 1i32 != 0 {
+                        let (be, mode) = MathNST::from(MEM[q as usize].b16.s0).equ();
+                        if be == BE::End {
                             if let Some(lr) = LR_ptr {
-                                if MEM[lr].b32.s0 == (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3 {
+                                if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
                                     temp_ptr = lr;
                                     LR_ptr = LLIST_link(temp_ptr).opt();
                                     *LLIST_link(temp_ptr) = avail.tex_int();
@@ -1372,7 +1380,7 @@ unsafe fn post_line_break(mut d: bool) {
                             }
                         } else {
                             temp_ptr = get_avail();
-                            MEM[temp_ptr].b32.s0 = (L_CODE as i32) * (MEM[q as usize].b16.s0 as i32 / (L_CODE as i32)) + 3;
+                            MEM[temp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
                             *LLIST_link(temp_ptr) = LR_ptr.tex_int();
                             LR_ptr = Some(temp_ptr);
                         }

@@ -120,7 +120,7 @@ pub(crate) unsafe fn init_math() {
             // 1520:
             pop_nest();
             x = if let Some(aux) = cur_list.eTeX_aux {
-                if MEM[aux].b32.s0 >= R_CODE as i32 {
+                if MathNST::from(MEM[aux].b32.s0 as u16).dir() == LR::RightToLeft {
                     -1
                 } else {
                     1 // :1519
@@ -156,7 +156,7 @@ pub(crate) unsafe fn init_math() {
 
             v = *BOX_shift_amount(just_box);
             x = if let Some(aux) = cur_list.eTeX_aux {
-                if MEM[aux].b32.s0 >= R_CODE as i32 {
+                if MathNST::from(MEM[aux].b32.s0 as u16).dir() == LR::RightToLeft {
                     -1
                 } else {
                     1 // :1519
@@ -170,12 +170,12 @@ pub(crate) unsafe fn init_math() {
                 p
             } else {
                 v = -v - *BOX_width(just_box);
-                let p = new_math(0, BEGIN_L_CODE as i16);
+                let p = new_math(0, BEGIN_L_CODE);
                 *LLIST_link(TEMP_HEAD) = p as i32;
                 just_copy(
                     BOX_list_ptr(just_box).opt(),
                     p,
-                    new_math(0, END_L_CODE as i16) as i32,
+                    new_math(0, END_L_CODE) as i32,
                 );
                 cur_dir = LR::RightToLeft;
                 Some(p)
@@ -188,7 +188,7 @@ pub(crate) unsafe fn init_math() {
             if *INTPAR(IntPar::texxet) > 0 {
                 // 1497:
                 temp_ptr = get_avail(); /*1523:*/
-                MEM[temp_ptr].b32.s0 = BEFORE as i32; /*:1398 */
+                MEM[temp_ptr].b32.s0 = u16::from(MathNST::Before) as i32; /*:1398 */
                 *LLIST_link(temp_ptr) = LR_ptr;
                 LR_ptr = Some(temp_ptr).tex_int();
             }
@@ -833,7 +833,7 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
             r = *BOX_list_ptr(b) as usize;
             t = *LLIST_link(r) as usize;
         }
-        let u = new_math(0i32, END_M_CODE as i16);
+        let u = new_math(0, END_M_CODE);
         let j = if NODE_type(t) == TextNode::Glue.into() {
             let j = new_skip_param(GluePar::right_skip);
             *LLIST_link(q as usize) = Some(j).tex_int();
@@ -852,7 +852,7 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
             *LLIST_link(q as usize) = Some(t).tex_int();
             j
         };
-        let u = new_math(0, BEGIN_M_CODE as i16);
+        let u = new_math(0, BEGIN_M_CODE);
         if NODE_type(r) == TextNode::Glue.into() {
             let j = new_skip_param(GluePar::left_skip);
             *LLIST_link(u) = Some(j).tex_int();
@@ -1071,7 +1071,7 @@ pub(crate) unsafe fn after_math() {
     if m.0 == true {
         // 1231:
         MEM[cur_list.tail].b32.s1 =
-            new_math(*DIMENPAR(DimenPar::math_surround), BEFORE as i16) as i32;
+            new_math(*DIMENPAR(DimenPar::math_surround), MathNST::Before) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         cur_mlist = p;
         cur_style = (MathStyle::Text, 0);
@@ -1082,7 +1082,7 @@ pub(crate) unsafe fn after_math() {
             cur_list.tail = next;
         }
         MEM[cur_list.tail].b32.s1 =
-            new_math(*DIMENPAR(DimenPar::math_surround), AFTER as i16) as i32;
+            new_math(*DIMENPAR(DimenPar::math_surround), MathNST::After) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         cur_list.aux.b32.s0 = 1000;
         unsave();

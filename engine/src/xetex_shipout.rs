@@ -604,7 +604,7 @@ unsafe fn hlist_out() {
     /*1501: "Initialize hlist_out for mixed direction typesetting" */
 
     temp_ptr = get_avail();
-    *LLIST_info(temp_ptr) = BEFORE as i32;
+    *LLIST_info(temp_ptr) = u16::from(MathNST::Before) as i32;
     *LLIST_link(temp_ptr) = LR_ptr;
     LR_ptr = Some(temp_ptr).tex_int();
     if BOX_lr_mode(this_box) == LRMode::DList {
@@ -1074,13 +1074,10 @@ unsafe fn hlist_out() {
                      * into lines while TeXXeT is disabled may result in lines
                      * with unpaired math nodes. Such hlists are silently accepted
                      * in the absence of text direction directives." */
-                    if MEM[p].b16.s0
-                           & 1 != 0 { // odd(NODE_subtype(p))
+                    let (be, mode) = MathNST::from(MEM[p].b16.s0).equ();
+                    if be == BE::End { // odd(NODE_subtype(p))
                         /* <= this is end_LR(p) */
-                        if MEM[LR_ptr as usize].b32.s0 ==
-                               4i32 *
-                                   (MEM[p].b16.s0
-                                        as i32 / 4i32) + 3i32
+                        if MathNST::from(MEM[LR_ptr as usize].b32.s0 as u16) == MathNST::Eq(BE::End, mode)
                            {
                             temp_ptr = LR_ptr as usize;
                             LR_ptr =
@@ -1088,21 +1085,17 @@ unsafe fn hlist_out() {
                             *LLIST_link(temp_ptr) =
                                 avail.tex_int();
                             avail = Some(temp_ptr);
-                        } else if MEM[p].b16.s0 > L_CODE { // NODE_subtype(p)
+                        } else if mode != MathMode::Middle { // NODE_subtype(p)
                             LR_problems += 1;
                         }
                     } else {
                         temp_ptr = get_avail();
-                        *LLIST_info(temp_ptr) =
-                            4i32 *
-                                (MEM[p].b16.s0 as
-                                     i32 / 4i32) + 3i32;
+                        *LLIST_info(temp_ptr) = u16::from(MathNST::Eq(BE::End, mode)) as i32;
                         *LLIST_link(temp_ptr) =
                             LR_ptr;
                         LR_ptr = Some(temp_ptr).tex_int();
-                        if MEM[p].b16.s0 as
-                                 i32 / 8i32 !=
-                                 cur_dir as i32 {
+                        if MathNST::from(MEM[p].b16.s0).dir() !=
+                                 cur_dir {
                             /*1509: "Reverse an hlist segment and goto reswitch" */
                             let save_h = cur_h; /* = lig_char(p) */
                             temp_ptr = LLIST_link(p).opt().unwrap();
@@ -1160,11 +1153,14 @@ unsafe fn hlist_out() {
 
     /*1502: "Finish hlist_out for mixed direction typesetting" */
     /*1505: "Check for LR anomalies" */
-    while *LLIST_info(LR_ptr as usize) != BEFORE as i32 {
-        if MEM[LR_ptr as usize].b32.s0 > L_CODE as i32 {
-            // LLIST_info(LR_ptr)
-            LR_problems += 10000;
-        }
+    while MathNST::from(*LLIST_info(LR_ptr as usize) as u16) != MathNST::Before {
+        match MathNST::from(*LLIST_info(LR_ptr as usize) as u16) {
+            MathNST::Eq(_, MathMode::Left) | MathNST::Eq(_, MathMode::Right) => {
+				// LLIST_info(LR_ptr)
+				LR_problems += 10000;
+			}
+			_ => {}
+		}
         temp_ptr = LR_ptr as usize;
         LR_ptr = *LLIST_link(temp_ptr);
         *LLIST_link(temp_ptr) = avail.tex_int();
@@ -1747,7 +1743,7 @@ unsafe fn reverse(
         if t.is_none() && m == MIN_HALFWORD && n == MIN_HALFWORD {
             break; /* "Manufacture a missing math node" */
         }
-        popt = Some(new_math(0, *LLIST_info(LR_ptr as usize) as i16));
+        popt = Some(new_math(0, MathNST::from(*LLIST_info(LR_ptr as usize) as u16)));
         LR_problems += 10000i32
     }
     l.tex_int()
