@@ -650,7 +650,7 @@ pub(crate) unsafe fn agl_sput_UTF16BE(
                 delim = endptr
             }
         }
-        let sub_len = delim.wrapping_offset_from(p) as i64 as i32;
+        let sub_len = delim.offset_from(p) as i64 as i32;
         let name_p = new(((sub_len + 1i32) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
             as *mut i8;
@@ -749,7 +749,7 @@ pub(crate) unsafe fn agl_get_unicodes(
                 delim = endptr
             }
         }
-        let sub_len = delim.wrapping_offset_from(p) as i32;
+        let sub_len = delim.offset_from(p) as i32;
         let name_p = new(((sub_len + 1i32) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
             as *mut i8;

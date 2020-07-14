@@ -621,13 +621,13 @@ unsafe fn chop_sfd_name(tex_name: *const i8, sfd_name: *mut *mut i8) -> *mut i8 
     if p.is_null() || *p.offset(1) as i32 == '\u{0}' as i32 || p == tex_name as *mut i8 {
         return ptr::null_mut();
     }
-    let m = p.wrapping_offset_from(tex_name) as i64 as i32;
+    let m = p.offset_from(tex_name) as i64 as i32;
     p = p.offset(1);
     let mut q = strchr(p, '@' as i32);
     if q.is_null() || q == p {
         return ptr::null_mut();
     }
-    let n = q.wrapping_offset_from(p) as i64 as i32;
+    let n = q.offset_from(p) as i64 as i32;
     q = q.offset(1);
     let len = strlen(tex_name).wrapping_sub(n as _) as i32;
     let fontname =
@@ -662,12 +662,12 @@ unsafe fn make_subfont_name(
     if p.is_null() || p == map_name as *mut i8 {
         return ptr::null_mut();
     }
-    let m = p.wrapping_offset_from(map_name) as i64 as i32;
+    let m = p.offset_from(map_name) as i64 as i32;
     let q = strchr(p.offset(1), '@' as i32);
     if q.is_null() || q == p.offset(1) {
         return ptr::null_mut();
     }
-    let n = q.wrapping_offset_from(p) as i64 as i32 + 1i32;
+    let n = q.offset_from(p) as i64 as i32 + 1i32;
     if strlen(sfd_name) != (n - 2i32) as _
         || memcmp(
             p.offset(1) as *const libc::c_void,
@@ -1170,15 +1170,15 @@ unsafe fn substr(str: *mut *const i8, stop: i8) -> *mut i8 {
         return ptr::null_mut();
     }
     let sstr = new(
-        ((endptr.wrapping_offset_from(*str) as i64 + 1i32 as i64) as u32 as u64)
+        ((endptr.offset_from(*str) as i64 + 1i32 as i64) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
     ) as *mut i8;
     memcpy(
         sstr as *mut libc::c_void,
         *str as *const libc::c_void,
-        endptr.wrapping_offset_from(*str) as _,
+        endptr.offset_from(*str) as _,
     );
-    *sstr.offset(endptr.wrapping_offset_from(*str) as i64 as isize) = '\u{0}' as i32 as i8;
+    *sstr.offset(endptr.offset_from(*str) as i64 as isize) = '\u{0}' as i32 as i8;
     *str = endptr.offset(1);
     sstr
 }

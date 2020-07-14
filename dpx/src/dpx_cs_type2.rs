@@ -906,5 +906,5 @@ pub(crate) unsafe fn cs_copy_charstring(
             (*ginfo).wx = default_width
         }
     }
-    dst.wrapping_offset_from(save) as i64 as i32
+    dst.offset_from(save) as i64 as i32
 }

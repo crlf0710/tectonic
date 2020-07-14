@@ -509,7 +509,7 @@ unsafe fn spc_handler_tpic_bk(_spe: &mut spc_env, _ap: &mut spc_arg) -> i32
 }
 unsafe fn spc_handler_tpic_tx(spe: &mut spc_env, _ap: &mut spc_arg) -> i32
 /* , void *dp) */ {
-    let tp = &mut _TPIC_STATE; /* NULL terminate */
+    let _tp = &mut _TPIC_STATE; /* NULL terminate */
     spc_warn!(spe, "TPIC command \"tx\" not supported.");
     -1i32
 }

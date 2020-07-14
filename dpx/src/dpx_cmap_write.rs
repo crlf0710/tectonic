@@ -209,7 +209,7 @@ unsafe fn write_map(
             stream.add_str(&format!("{} beginbfchar\n", count));
             stream.add(
                 (*wbuf).buf as *const libc::c_void,
-                (*wbuf).curptr.wrapping_offset_from((*wbuf).buf) as i64 as i32,
+                (*wbuf).curptr.offset_from((*wbuf).buf) as i64 as i32,
             );
             (*wbuf).curptr = (*wbuf).buf;
             stream.add_str("endbfchar\n");
@@ -222,7 +222,7 @@ unsafe fn write_map(
             stream.add_str(&format!("{} beginbfchar\n", count));
             stream.add(
                 (*wbuf).buf as *const libc::c_void,
-                (*wbuf).curptr.wrapping_offset_from((*wbuf).buf) as i64 as i32,
+                (*wbuf).curptr.offset_from((*wbuf).buf) as i64 as i32,
             );
             (*wbuf).curptr = (*wbuf).buf;
             stream.add_str("endbfchar\n");
@@ -288,7 +288,7 @@ unsafe fn write_map(
         }
         stream.add(
             (*wbuf).buf as *const libc::c_void,
-            (*wbuf).curptr.wrapping_offset_from((*wbuf).buf) as i64 as i32,
+            (*wbuf).curptr.offset_from((*wbuf).buf) as i64 as i32,
         );
         (*wbuf).curptr = (*wbuf).buf;
         stream.add_str("endbfrange\n");
@@ -389,7 +389,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
     wbuf.curptr = wbuf.curptr.add(s.len());
     stream.add(
         wbuf.buf as *const libc::c_void,
-        wbuf.curptr.wrapping_offset_from(wbuf.buf) as i64 as i32,
+        wbuf.curptr.offset_from(wbuf.buf) as i64 as i32,
     );
     wbuf.curptr = wbuf.buf;
     /* codespacerange */
@@ -435,7 +435,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
     }
     stream.add(
         wbuf.buf as *const libc::c_void,
-        wbuf.curptr.wrapping_offset_from(wbuf.buf) as i64 as i32,
+        wbuf.curptr.offset_from(wbuf.buf) as i64 as i32,
     );
     wbuf.curptr = wbuf.buf;
     stream.add_str("endcodespacerange\n");
@@ -457,7 +457,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
             stream.add_str(&format!("{} beginbfchar\n", count));
             stream.add(
                 wbuf.buf as *const libc::c_void,
-                wbuf.curptr.wrapping_offset_from(wbuf.buf) as i64 as i32,
+                wbuf.curptr.offset_from(wbuf.buf) as i64 as i32,
             );
             stream.add_str("endbfchar\n");
             wbuf.curptr = wbuf.buf

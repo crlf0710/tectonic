@@ -346,7 +346,7 @@ unsafe fn unsigned_byte(start: *mut *mut u8, end: *mut u8) -> i32 {
 }
 unsafe fn get_pkt_signed_num(start: *mut *mut u8, end: *mut u8, num: u8) -> i32 {
     let mut val;
-    if end.wrapping_offset_from(*start) as i64 > num as i64 {
+    if end.offset_from(*start) as i64 > num as i64 {
         val = **start as i32;
         *start = (*start).offset(1);
         if val > 0x7fi32 {
@@ -365,7 +365,7 @@ unsafe fn get_pkt_signed_num(start: *mut *mut u8, end: *mut u8, num: u8) -> i32 
 }
 unsafe fn get_pkt_unsigned_num(start: *mut *mut u8, end: *mut u8, num: u8) -> i32 {
     let mut val;
-    if end.wrapping_offset_from(*start) as i64 > num as i64 {
+    if end.offset_from(*start) as i64 > num as i64 {
         val = **start as i32;
         *start = (*start).offset(1);
         match num as i32 {

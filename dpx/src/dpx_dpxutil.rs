@@ -398,11 +398,11 @@ impl ParseCString for &[u8] {
                             + (if p[0].is_ascii_digit() {
                                 (p[0] - b'0') as i32
                             } else {
-                                (if p[0].is_ascii_lowercase() {
+                                if p[0].is_ascii_lowercase() {
                                     (p[0] - b'a' + 10) as i32
                                 } else {
                                     (p[0] - b'A' + 10) as i32
-                                })
+                                }
                             });
                         i_0 += 1;
                         p = &p[1..];

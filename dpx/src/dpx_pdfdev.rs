@@ -949,7 +949,7 @@ unsafe fn handle_multibyte_string(
             *fresh37 = (gid & 0xff_u32) as u8;
         }
         p = sbuf0.as_mut_ptr();
-        length = outbuf.wrapping_offset_from(sbuf0.as_mut_ptr()) as i64 as size_t
+        length = outbuf.offset_from(sbuf0.as_mut_ptr()) as i64 as size_t
     } else if (*font).is_unicode != 0 {
         /* _FIXME_ */
         /* UCS-4 */
@@ -1055,7 +1055,7 @@ static mut max_dev_coords: i32 = 0i32;
 
 pub(crate) unsafe fn pdf_dev_get_coord() -> Point {
     if num_dev_coords > 0i32 {
-        (*dev_coords.offset((num_dev_coords - 1i32) as isize))
+        *dev_coords.offset((num_dev_coords - 1i32) as isize)
     } else {
         Point::zero()
     }

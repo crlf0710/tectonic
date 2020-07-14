@@ -1,6 +1,4 @@
-#![feature(extern_types)]
-#![feature(ptr_wrapping_offset_from)]
-#![feature(c_variadic)]
+#![feature(ptr_offset_from)]
 #![allow(unused_unsafe)]
 #![deny(unused_assignments)]
 #![deny(clippy::reverse_range_loop)]
@@ -68,7 +66,7 @@ macro_rules! warn(
 pub(crate) trait Warn<E>: Sized {}
 
 fn isblank(c: libc::c_int) -> bool {
-    (c == ' ' as _ || c == '\t' as _)
+    c == ' ' as _ || c == '\t' as _
 }
 
 trait SkipBlank {

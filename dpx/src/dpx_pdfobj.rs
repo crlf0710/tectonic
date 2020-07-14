@@ -54,15 +54,15 @@ pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
 use bridge::{InputHandleWrapper, OutputHandleWrapper};
 
-pub(crate) const STREAM_COMPRESS: i32 = (1 << 0);
-pub(crate) const STREAM_USE_PREDICTOR: i32 = (1 << 1);
+pub(crate) const STREAM_COMPRESS: i32 = 1 << 0;
+pub(crate) const STREAM_USE_PREDICTOR: i32 = 1 << 1;
 
 /// Objects with this flag will not be put into an object stream.
 /// For instance, all stream objects have this flag set.
-const OBJ_NO_OBJSTM: i32 = (1 << 0);
+const OBJ_NO_OBJSTM: i32 = 1 << 0;
 /// Objects with this flag will not be encrypted.
 /// This implies OBJ_NO_OBJSTM if encryption is turned on.
-const OBJ_NO_ENCRYPT: i32 = (1 << 1);
+const OBJ_NO_ENCRYPT: i32 = 1 << 1;
 
 /// (label, generation)
 pub(crate) type ObjectId = (u32, u16);
@@ -3059,10 +3059,10 @@ unsafe fn pdf_get_object(pf: *mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
             && (*(*pf).xref_table.offset(objstm_num as isize)).typ as i32 == 1i32
             && {
                 objstm = (*(*pf).xref_table.offset(objstm_num as isize)).direct;
-                (!objstm.is_null() || {
+                !objstm.is_null() || {
                     objstm = read_objstm(pf, objstm_num);
                     !objstm.is_null()
-                })
+                }
             }
         {
             let mut data = get_objstm_data(&*objstm);
@@ -3224,7 +3224,7 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                      * might have started to read the trailer dictionary and
                      * parse_trailer would fail.
                      */
-                    current_pos += p.wrapping_offset_from(buf.as_mut_ptr()) as u64; /* Jump to the beginning of "trailer" keyword. */
+                    current_pos += p.offset_from(buf.as_mut_ptr()) as u64; /* Jump to the beginning of "trailer" keyword. */
                     (*pf).handle.seek(SeekFrom::Start(current_pos)).unwrap();
                     break;
                 } else {
