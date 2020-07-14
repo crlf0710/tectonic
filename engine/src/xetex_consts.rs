@@ -5,15 +5,6 @@ pub(crate) use node::*;
 
 use crate::xetex_ini::EQTB;
 
-pub trait IsTexNull {
-    fn is_texnull(&self) -> bool;
-}
-impl IsTexNull for i32 {
-    fn is_texnull(&self) -> bool {
-        *self == TEX_NULL
-    }
-}
-
 pub(crate) type placeholdertype = i32;
 pub(crate) const MIN_HALFWORD: placeholdertype = -0x0FFFFFFF;
 pub(crate) const MAX_HALFWORD: placeholdertype = 0x3FFFFFFF;

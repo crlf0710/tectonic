@@ -587,23 +587,23 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             }
         }
         /*894: clean up the memory by removing the break nodes */
-        let mut q = *LLIST_link(ACTIVE_LIST);
-        while q != LAST_ACTIVE as i32 {
-            cur_p = LLIST_link(q as usize).opt();
-            if NODE_type(q as usize) == DELTA_NODE.into() {
-                free_node(q as usize, DELTA_NODE_SIZE);
+        let mut q = LLIST_link(ACTIVE_LIST).opt().unwrap();
+        while q != LAST_ACTIVE {
+            cur_p = LLIST_link(q).opt();
+            if NODE_type(q) == DELTA_NODE.into() {
+                free_node(q, DELTA_NODE_SIZE);
             } else {
-                free_node(q as usize, active_node_size as i32);
+                free_node(q, active_node_size as i32);
             }
-            q = cur_p.tex_int()
+            q = cur_p.unwrap();
         }
 
-        let mut q = passive;
+        let mut qopt = passive.opt();
 
-        while !q.is_texnull() {
-            cur_p = LLIST_link(q as usize).opt();
-            free_node(q as usize, PASSIVE_NODE_SIZE);
-            q = cur_p.tex_int();
+        while let Some(q) = qopt {
+            cur_p = LLIST_link(q).opt();
+            free_node(q, PASSIVE_NODE_SIZE);
+            qopt = cur_p;
         }
         /* ... resuming 892 ... */
         if !second_pass {
@@ -632,24 +632,24 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     post_line_break(d);
 
     /* Clean up by removing break nodes (894, again) */
-    let mut q = *LLIST_link(ACTIVE_LIST);
-    while q != ACTIVE_LIST as i32 {
-        let mut next: i32 = *LLIST_link(q as usize);
+    let mut q = LLIST_link(ACTIVE_LIST).opt().unwrap();
+    while q != ACTIVE_LIST {
+        let mut next = LLIST_link(q).opt();
 
-        if NODE_type(q as usize) == DELTA_NODE.into() {
-            free_node(q as usize, DELTA_NODE_SIZE);
+        if NODE_type(q) == DELTA_NODE.into() {
+            free_node(q, DELTA_NODE_SIZE);
         } else {
-            free_node(q as usize, active_node_size as i32);
+            free_node(q, active_node_size as i32);
         }
-        q = next;
+        q = next.unwrap();
     }
 
-    let mut q = passive;
+    let mut qopt = passive.opt();
 
-    while !q.is_texnull() {
-        let mut next_0: i32 = *LLIST_link(q as usize);
-        free_node(q as usize, PASSIVE_NODE_SIZE);
-        q = next_0;
+    while let Some(q) = qopt {
+        let next_0 = LLIST_link(q).opt();
+        free_node(q, PASSIVE_NODE_SIZE);
+        qopt = next_0;
     }
     /* All done */
     pack_begin_line = 0;
@@ -1065,9 +1065,9 @@ unsafe fn post_line_break(mut d: bool) {
                     let s = new_math(0, MathNST::from((MEM[temp_ptr].b32.s0 - 1) as u16)) as usize;
                     *LLIST_link(s) = r;
                     r = s as i32;
-                    temp_ptr = *LLIST_link(temp_ptr) as usize;
-                    if (temp_ptr as i32).is_texnull() {
-                        // TODO: fix
+                    if let Some(next) = LLIST_link(temp_ptr).opt() {
+                        temp_ptr = next;
+                    } else {
                         break;
                     }
                 }
@@ -1099,121 +1099,128 @@ unsafe fn post_line_break(mut d: bool) {
         /* 910: "Modify the end of the line to reflect the nature of the break
          * and to include \rightskip; also set the proper value of
          * disc_break" */
-        let mut q = *PASSIVE_NODE_cur_break(cp);
         let mut disc_break = false;
         let mut post_disc_break = false;
         let mut glue_break = false;
 
-        if q.is_texnull() {
-            q = TEMP_HEAD as i32;
-            while !LLIST_link(q as usize).is_texnull() {
-                q = *LLIST_link(q as usize);
-            }
-        } else if NODE_type(q as usize) == TextNode::Glue.into() {
-            delete_glue_ref(*GLUE_NODE_glue_ptr(q as usize) as usize);
-            *GLUE_NODE_glue_ptr(q as usize) = *GLUEPAR(GluePar::right_skip);
-            MEM[q as usize].b16.s0 = GluePar::right_skip as u16 + 1; // NODE_subtype(q as usize)
-            *GLUE_SPEC_ref_count(*GLUEPAR(GluePar::right_skip) as usize) += 1;
-            glue_break = true;
-        } else if NODE_type(q as usize) == TextNode::Disc.into() {
-            /*911:*/
-            let mut t = *DISCRETIONARY_NODE_replace_count(q as usize);
-            let mut r;
-            if t == 0 {
-                r = *LLIST_link(q as usize);
-            } else {
-                r = q;
-                while t > 1 {
-                    r = *LLIST_link(r as usize);
-                    t -= 1;
+        let mut q = if let Some(mut q) = PASSIVE_NODE_cur_break(cp).opt() {
+            match text_NODE_type(q).unwrap() {
+                TextNode::Glue => {
+                    delete_glue_ref(*GLUE_NODE_glue_ptr(q) as usize);
+                    *GLUE_NODE_glue_ptr(q) = *GLUEPAR(GluePar::right_skip);
+                    MEM[q].b16.s0 = GluePar::right_skip as u16 + 1; // NODE_subtype(q)
+                    *GLUE_SPEC_ref_count(*GLUEPAR(GluePar::right_skip) as usize) += 1;
+                    glue_break = true;
                 }
-                let s = *LLIST_link(r as usize) as usize;
-                r = *LLIST_link(s);
-                *LLIST_link(s) = None.tex_int();
-                flush_node_list(LLIST_link(q as usize).opt());
-                *DISCRETIONARY_NODE_replace_count(q as usize) = 0;
-            }
-            if !DISCRETIONARY_NODE_post_break(q as usize).is_texnull() {
-                /*913:*/
-                let mut s = *DISCRETIONARY_NODE_post_break(q as usize) as usize;
+                TextNode::Disc => {
+                    /*911:*/
+                    let mut t = *DISCRETIONARY_NODE_replace_count(q);
+                    let mut r;
+                    if t == 0 {
+                        r = *LLIST_link(q);
+                    } else {
+                        r = Some(q).tex_int();
+                        while t > 1 {
+                            r = *LLIST_link(r as usize);
+                            t -= 1;
+                        }
+                        let s = *LLIST_link(r as usize) as usize;
+                        r = *LLIST_link(s);
+                        *LLIST_link(s) = None.tex_int();
+                        flush_node_list(LLIST_link(q).opt());
+                        *DISCRETIONARY_NODE_replace_count(q) = 0;
+                    }
+                    if let Some(mut s) = DISCRETIONARY_NODE_post_break(q).opt() {
+                        /*913:*/
+                        while let Some(next) = LLIST_link(s).opt() {
+                            s = next;
+                        }
 
-                while let Some(next) = LLIST_link(s).opt() {
-                    s = next;
+                        *LLIST_link(s) = r;
+
+                        r = *DISCRETIONARY_NODE_post_break(q);
+                        *DISCRETIONARY_NODE_post_break(q) = None.tex_int();
+                        post_disc_break = true;
+                    }
+                    if let Some(mut s) = DISCRETIONARY_NODE_pre_break(q).opt() {
+                        /*914:*/
+                        *LLIST_link(q) = Some(s).tex_int();
+
+                        while let Some(next) = LLIST_link(s).opt() {
+                            s = next;
+                        }
+                        *DISCRETIONARY_NODE_pre_break(q) = None.tex_int();
+                        q = s;
+                    }
+                    *LLIST_link(q) = r;
+                    disc_break = true;
                 }
-
-                *LLIST_link(s as usize) = r;
-
-                r = *DISCRETIONARY_NODE_post_break(q as usize);
-                *DISCRETIONARY_NODE_post_break(q as usize) = None.tex_int();
-                post_disc_break = true;
-            }
-            if !DISCRETIONARY_NODE_pre_break(q as usize).is_texnull() {
-                /*914:*/
-                let mut s = *DISCRETIONARY_NODE_pre_break(q as usize) as usize;
-                *LLIST_link(q as usize) = Some(s).tex_int();
-
-                while let Some(next) = LLIST_link(s).opt() {
-                    s = next;
+                TextNode::Kern => {
+                    *BOX_width(q) = 0
                 }
-                *DISCRETIONARY_NODE_pre_break(q as usize) = None.tex_int();
-                q = s as i32;
-            }
-            *LLIST_link(q as usize) = r;
-            disc_break = true;
-        } else if NODE_type(q as usize) == TextNode::Kern.into() {
-            *BOX_width(q as usize) = 0
-        } else if NODE_type(q as usize) == TextNode::Math.into() {
-            *BOX_width(q as usize) = 0;
-            if *INTPAR(IntPar::texxet) > 0 {
-                /*1495:*/
-                let (be, _) = MathNST::from(*INTPAR(IntPar::texxet) as u16).equ();
-                let (_, mode) = MathNST::from(MEM[q as usize].b16.s0 as u16).equ();
-                if be == BE::End {
-                    if let Some(lr) = LR_ptr {
-                        if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
-                            temp_ptr = lr;
-                            LR_ptr = LLIST_link(temp_ptr).opt();
-                            *LLIST_link(temp_ptr) = avail.tex_int();
-                            avail = Some(temp_ptr);
+                TextNode::Math => {
+                    *BOX_width(q) = 0;
+                    if *INTPAR(IntPar::texxet) > 0 {
+                        /*1495:*/
+                        let (be, _) = MathNST::from(*INTPAR(IntPar::texxet) as u16).equ();
+                        let (_, mode) = MathNST::from(MEM[q].b16.s0 as u16).equ();
+                        if be == BE::End {
+                            if let Some(lr) = LR_ptr {
+                                if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
+                                    temp_ptr = lr;
+                                    LR_ptr = LLIST_link(temp_ptr).opt();
+                                    *LLIST_link(temp_ptr) = avail.tex_int();
+                                    avail = Some(temp_ptr);
+                                }
+                            }
+                        } else {
+                            temp_ptr = get_avail();
+                            MEM[temp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
+                            *LLIST_link(temp_ptr) = LR_ptr.tex_int();
+                            LR_ptr = Some(temp_ptr);
                         }
                     }
-                } else {
-                    temp_ptr = get_avail();
-                    MEM[temp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                    *LLIST_link(temp_ptr) = LR_ptr.tex_int();
-                    LR_ptr = Some(temp_ptr);
                 }
+                _ => {}
             }
-        }
+            q
+        } else {
+            let mut q = TEMP_HEAD;
+            while let Some(next) = LLIST_link(q).opt() {
+                q = next
+            }
+            q
+        };
         /* "at this point q is the rightmost breakpoint; the only exception is
          * the case of a discretionary break with non-empty pre_break -- then
          * q has been changed to the last node of the pre-break list" */
         if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
             let ptmp;
-            let p = if disc_break && (is_char_node(q.opt()) || NODE_type(q as usize) != TextNode::Disc.into()) {
+            let p = if disc_break && (is_char_node(Some(q)) || NODE_type(q) != TextNode::Disc.into()) {
                 /*:915*/
-                ptmp = q;
-                q.opt()
+                ptmp = Some(q);
+                Some(q)
             } else {
-                let p = prev_rightmost(LLIST_link(TEMP_HEAD).opt(), q.opt());
-                ptmp = p.tex_int();
+                let p = prev_rightmost(LLIST_link(TEMP_HEAD).opt(), Some(q));
+                ptmp = p;
                 find_protchar_right(LLIST_link(TEMP_HEAD).opt(), p)
             };
             let w = char_pw(p, Side::Right);
             if w != 0 {
+                let ptmp = ptmp.unwrap();
                 let k = new_margin_kern(-w, last_rightmost_char, Side::Right);
-                *LLIST_link(k) = *LLIST_link(ptmp as usize);
-                *LLIST_link(ptmp as usize) = Some(k).tex_int();
+                *LLIST_link(k) = *LLIST_link(ptmp);
+                *LLIST_link(ptmp) = Some(k).tex_int();
                 if ptmp == q {
-                    q = *LLIST_link(q as usize);
+                    q = LLIST_link(q).opt().unwrap();
                 }
             }
         }
         if !glue_break {
             let r = new_param_glue(GluePar::right_skip);
-            *LLIST_link(r) = *LLIST_link(q as usize);
-            *LLIST_link(q as usize) = Some(r).tex_int();
-            q = r as i32;
+            *LLIST_link(r) = *LLIST_link(q);
+            *LLIST_link(q) = Some(r).tex_int();
+            q = r;
         }
         if *INTPAR(IntPar::texxet) > 0 {
             /*1496:*/
@@ -1221,7 +1228,7 @@ unsafe fn post_line_break(mut d: bool) {
                 let mut s = TEMP_HEAD;
                 let mut r = *LLIST_link(s);
 
-                while r != q {
+                while r.opt() != Some(q) {
                     s = r as usize;
                     r = *LLIST_link(s);
                 }
@@ -1235,14 +1242,14 @@ unsafe fn post_line_break(mut d: bool) {
                     ropt = LLIST_link(r).opt();
                 }
 
-                *LLIST_link(s) = q;
+                *LLIST_link(s) = Some(q).tex_int();
             }
         }
         /* 916: Put \leftskip at the left and detach this line. */
-        let r = *LLIST_link(q as usize);
-        *LLIST_link(q as usize) = None.tex_int();
-        let mut q = *LLIST_link(TEMP_HEAD as usize);
-        *LLIST_link(TEMP_HEAD as usize) = r;
+        let r = *LLIST_link(q);
+        *LLIST_link(q) = None.tex_int();
+        let mut q = *LLIST_link(TEMP_HEAD);
+        *LLIST_link(TEMP_HEAD) = r;
         /* "at this point q is the leftmost node; all discardable nodes have been discarded */
         
         if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
@@ -1299,37 +1306,35 @@ unsafe fn post_line_break(mut d: bool) {
 
         /* 919: Set `pen` to all of the penalties relevant to this line. */
         if cur_line + 1 != best_line {
-            let q = EQTB[INTER_LINE_PENALTIES_LOC].val;
-            let mut pen = if !q.is_texnull() {
+            let mut pen = if let Some(q) = EQTB[INTER_LINE_PENALTIES_LOC].val.opt() {
                 let mut r = cur_line;
-                if r > *PENALTY_NODE_penalty(q as usize) {
-                    r = *PENALTY_NODE_penalty(q as usize)
+                if r > *PENALTY_NODE_penalty(q) {
+                    r = *PENALTY_NODE_penalty(q)
                 }
-                *PENALTY_NODE_penalty((q + r) as usize)
+                *PENALTY_NODE_penalty(q + (r as usize))
             } else {
                 *INTPAR(IntPar::inter_line_penalty)
             };
-            let q = EQTB[CLUB_PENALTIES_LOC].val;
-            if !q.is_texnull() {
+            if let Some(q) = EQTB[CLUB_PENALTIES_LOC].val.opt() {
                 let mut r = cur_line - cur_list.prev_graf;
-                if r > *PENALTY_NODE_penalty(q as usize) {
-                    r = *PENALTY_NODE_penalty(q as usize)
+                if r > *PENALTY_NODE_penalty(q) {
+                    r = *PENALTY_NODE_penalty(q)
                 }
-                pen += *PENALTY_NODE_penalty((q + r) as usize)
+                pen += *PENALTY_NODE_penalty(q + (r as usize))
             } else if cur_line == cur_list.prev_graf + 1 {
                 pen += *INTPAR(IntPar::club_penalty)
             }
             let q = if d {
-                EQTB[DISPLAY_WIDOW_PENALTIES_LOC].val
+                EQTB[DISPLAY_WIDOW_PENALTIES_LOC].val.opt()
             } else {
-                EQTB[WIDOW_PENALTIES_LOC].val
+                EQTB[WIDOW_PENALTIES_LOC].val.opt()
             };
-            if !q.is_texnull() {
+            if let Some(q) = q {
                 let mut r = best_line - cur_line - 1;
-                if r > *PENALTY_NODE_penalty(q as usize) {
-                    r = *PENALTY_NODE_penalty(q as usize)
+                if r > *PENALTY_NODE_penalty(q) {
+                    r = *PENALTY_NODE_penalty(q)
                 }
-                pen += *PENALTY_NODE_penalty((q + r) as usize);
+                pen += *PENALTY_NODE_penalty(q + (r as usize));
             } else if cur_line + 2i32 == best_line {
                 if d {
                     pen += *INTPAR(IntPar::display_widow_penalty)
@@ -1342,7 +1347,7 @@ unsafe fn post_line_break(mut d: bool) {
             }
             if pen != 0 {
                 let r = new_penalty(pen);
-                *LLIST_link(cur_list.tail) = r as i32;
+                *LLIST_link(cur_list.tail) = Some(r).tex_int();
                 cur_list.tail = r;
             }
         }
@@ -1403,7 +1408,7 @@ unsafe fn post_line_break(mut d: bool) {
             break;
         }
     }
-    if cur_line != best_line || !LLIST_link(TEMP_HEAD).is_texnull() {
+    if cur_line != best_line || LLIST_link(TEMP_HEAD).opt().is_some() {
         confusion(b"line breaking");
     }
     cur_list.prev_graf = best_line - 1;
@@ -1472,13 +1477,13 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                         /*866: "Compute the values of break_width". */
                         no_break_yet = false;
                         break_width[1..].copy_from_slice(&background[1..]);
-                        let mut s = cur_p.tex_int();
+                        let mut sopt = cur_p;
                         if break_type == BreakType::Hyphenated {
                             /*869: "Compute the discretionary break_width values" */
                             if let Some(cp) = cur_p {
                                 let mut t = *DISCRETIONARY_NODE_replace_count(cp) as i32;
                                 let mut v = cp;
-                                s = *DISCRETIONARY_NODE_post_break(cp);
+                                sopt = DISCRETIONARY_NODE_post_break(cp).opt();
                                 while t > 0 {
                                     t -= 1;
                                     v = *LLIST_link(v) as usize;
@@ -1524,24 +1529,22 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                     }
                                 }
                                 /*871: "add the width of node s to break_width" */
-                                while !s.is_texnull() {
-                                    if is_char_node(s.opt()) {
+                                while let Some(s) = sopt {
+                                    if is_char_node(Some(s)) {
                                         let mut eff_char_1: i32 = 0;
-                                        let f = *CHAR_NODE_font(s as usize) as usize;
-                                        eff_char_1 =
-                                            effective_char(true, f, MEM[s as usize].b16.s0);
+                                        let f = *CHAR_NODE_font(s) as usize;
+                                        eff_char_1 = effective_char(true, f, MEM[s].b16.s0);
                                         break_width[1] +=
                                             *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
                                     } else {
-                                        match text_NODE_type(s as usize).confuse(b"disc2") {
+                                        match text_NODE_type(s).confuse(b"disc2") {
                                             TextNode::Ligature => {
-                                                let f =
-                                                    *LIGATURE_NODE_lig_font(s as usize) as usize;
+                                                let f = *LIGATURE_NODE_lig_font(s) as usize;
                                                 xtx_ligature_present = true;
                                                 let eff_char_2 = effective_char(
                                                     true,
                                                     f,
-                                                    *LIGATURE_NODE_lig_char(s as usize),
+                                                    *LIGATURE_NODE_lig_char(s),
                                                 );
                                                 break_width[1] +=
                                                     *FONT_CHARACTER_WIDTH(f, eff_char_2 as usize);
@@ -1550,54 +1553,52 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                             | TextNode::VList
                                             | TextNode::Rule
                                             | TextNode::Kern => {
-                                                break_width[1] += *BOX_width(s as usize);
+                                                break_width[1] += *BOX_width(s);
                                             }
-                                            TextNode::WhatsIt => {
-                                                match whatsit_NODE_subtype(s as usize) {
-                                                    WhatsItNST::NativeWord
-                                                    | WhatsItNST::NativeWordAt
-                                                    | WhatsItNST::Glyph
-                                                    | WhatsItNST::Pic
-                                                    | WhatsItNST::Pdf => {
-                                                        break_width[1] += *BOX_width(s as usize);
-                                                    }
-                                                    _ => confusion(b"disc2a"),
+                                            TextNode::WhatsIt => match whatsit_NODE_subtype(s) {
+                                                WhatsItNST::NativeWord
+                                                | WhatsItNST::NativeWordAt
+                                                | WhatsItNST::Glyph
+                                                | WhatsItNST::Pic
+                                                | WhatsItNST::Pdf => {
+                                                    break_width[1] += *BOX_width(s);
                                                 }
-                                            }
+                                                _ => confusion(b"disc2a"),
+                                            },
                                             _ => confusion(b"disc2"),
                                         }
                                     }
-                                    s = *LLIST_link(s as usize);
+                                    sopt = LLIST_link(s).opt();
                                 }
                                 break_width[1] += disc_width;
                                 if DISCRETIONARY_NODE_post_break(cp).opt().is_none() {
-                                    s = *LLIST_link(v);
+                                    sopt = LLIST_link(v).opt();
                                 }
                             }
                         }
-                        while !s.is_texnull() {
-                            if is_char_node(s.opt()) {
+                        while let Some(s) = sopt {
+                            if is_char_node(Some(s)) {
                                 break;
                             }
-                            match text_NODE_type(s as usize).unwrap() {
+                            match text_NODE_type(s).unwrap() {
                                 TextNode::Glue => {
-                                    let v = *GLUE_NODE_glue_ptr(s as usize) as usize;
+                                    let v = *GLUE_NODE_glue_ptr(s) as usize;
                                     break_width[1] -= *GLUE_SPEC_size(v);
                                     break_width[2 + *GLUE_SPEC_stretch_order(v) as usize] -=
                                         *GLUE_SPEC_stretch(v);
                                     break_width[6] -= *GLUE_SPEC_shrink(v);
                                 }
                                 TextNode::Penalty => {}
-                                TextNode::Math => break_width[1] -= *BOX_width(s as usize),
+                                TextNode::Math => break_width[1] -= *BOX_width(s),
                                 TextNode::Kern => {
-                                    if kern_NODE_subtype(s as usize) != KernNST::Explicit {
+                                    if kern_NODE_subtype(s) != KernNST::Explicit {
                                         break;
                                     }
-                                    break_width[1] -= *BOX_width(s as usize)
+                                    break_width[1] -= *BOX_width(s)
                                 }
                                 _ => break,
                             }
-                            s = *LLIST_link(s as usize);
+                            sopt = LLIST_link(s).opt();
                         }
                     }
                     /*872: "Insert a delta node to prepare for breaks at cur_p" */
@@ -2041,7 +2042,6 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
 unsafe fn hyphenate() {
     let mut current_block: u64;
     let mut l: i16 = 0;
-    let mut s: i32 = 0;
     let mut bchar: i32 = 0;
     let mut c: UnicodeScalar = 0i32;
     let mut c_loc: i16 = 0;
@@ -2083,10 +2083,10 @@ unsafe fn hyphenate() {
             match current_block {
                 1763490972649755258 => {}
                 _ => {
-                    s = HYPH_LIST[h as usize].tex_int();
-                    while !s.is_texnull() {
-                        hyf[MEM[s as usize].b32.s0 as usize] = 1_u8;
-                        s = *LLIST_link(s as usize);
+                    let mut sopt = HYPH_LIST[h as usize];
+                    while let Some(s) = sopt {
+                        hyf[MEM[s].b32.s0 as usize] = 1_u8;
+                        sopt = LLIST_link(s).opt();
                     }
                     hn -= 1;
                     current_block = 15736053877802236303;
@@ -2214,6 +2214,7 @@ unsafe fn hyphenate() {
         *LLIST_link(ha) = None.tex_int();
         flush_node_list(Some(ha));
     } else {
+        let mut s = 0; // TODO: check
         let q = *LLIST_link(hb);
         *LLIST_link(hb) = None.tex_int();
         let r = *LLIST_link(ha);
@@ -2891,7 +2892,7 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
                 }
             }
             if Some(r) != l
-            /* && !r.is_texnull()*/
+            /* && r.is_some()*/
             {
                 r = prev_rightmost(l, Some(r)).unwrap();
             } else if Some(r) == l && hlist_stack.is_empty() {
