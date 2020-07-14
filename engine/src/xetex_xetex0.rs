@@ -15611,12 +15611,11 @@ pub(crate) unsafe fn handle_right_brace() {
     };
 }
 pub(crate) unsafe fn main_control() {
-    let mut current_block: u64;
     if let Some(ej) = LOCAL(Local::every_job).opt() {
         begin_token_list(ej, Btl::EveryJobText);
     }
     let mut big_switch = true;
-    'c_125208: loop {
+    'big_switch: loop {
         /* big_switch */
         if big_switch {
             get_x_token();
@@ -15648,7 +15647,7 @@ pub(crate) unsafe fn main_control() {
                     cancel_boundary = true;
                 }
                 big_switch = false;
-                continue 'c_125208;
+                continue 'big_switch;
             }
             _ => {
                 if cur_list.mode.1 == ListMode::HMode {
@@ -15673,7 +15672,7 @@ pub(crate) unsafe fn main_control() {
                             }
                             back_input();
                             begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
-                            continue 'c_125208;
+                            continue 'big_switch;
                         }
                     }
                 }
@@ -15682,16 +15681,13 @@ pub(crate) unsafe fn main_control() {
                         // 114
                         if cur_list.aux.b32.s0 == 1000 {
                             append_normal_space();
-                            continue 'c_125208;
                         } else {
                             app_space();
-                            continue 'c_125208;
                         }
                     }
                     (HMode, Cmd::ExSpace) | (MMode, Cmd::ExSpace) => {
                         // 168 | 271
                         append_normal_space();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::IgnoreSpaces)
                     | (HMode, Cmd::IgnoreSpaces)
@@ -15721,14 +15717,12 @@ pub(crate) unsafe fn main_control() {
                                 big_switch = false;
                             }
                         }
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::Comment) => {
                         // 15
                         if its_all_over() {
                             return;
                         }
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::VMove)
                     | (HMode, Cmd::HMove)
@@ -15745,7 +15739,6 @@ pub(crate) unsafe fn main_control() {
                     | (MMode, Cmd::MacParam) => {
                         // 23 | 125 | 228 | 72 | 175 | 278 | 39 | 45 | 49 | 152 | 7 | 110 | 213
                         report_illegal_case();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::SupMark)
                     | (HMode, Cmd::SupMark)
@@ -15795,7 +15788,6 @@ pub(crate) unsafe fn main_control() {
                         //| 56 | 159 | 31 | 134 | 52 | 155 | 29 | 132 | 47 | 150 | 216 | 220
                         //| 221 | 234 | 231 | 240 | 243
                         insert_dollar_sign();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::HRule) | (HMode, Cmd::VRule) | (MMode, Cmd::VRule) => {
                         // 37 | 139 | 242
@@ -15807,7 +15799,6 @@ pub(crate) unsafe fn main_control() {
                         } else if cur_list.mode.1 == ListMode::HMode {
                             cur_list.aux.b32.s0 = 1000;
                         }
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::VSkip)
                     | (HMode, Cmd::HSkip)
@@ -15815,7 +15806,6 @@ pub(crate) unsafe fn main_control() {
                     | (MMode, Cmd::MSkip) => {
                         // 28 | 130 | 233 | 235
                         append_glue();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::Kern)
                     | (HMode, Cmd::Kern)
@@ -15823,19 +15813,16 @@ pub(crate) unsafe fn main_control() {
                     | (MMode, Cmd::MKern) => {
                         // 30 | 133 | 236 | 237
                         append_kern();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::LeftBrace) | (HMode, Cmd::LeftBrace) => {
                         // 2 | 105
                         new_save_level(GroupCode::Simple);
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::BeginGroup)
                     | (HMode, Cmd::BeginGroup)
                     | (MMode, Cmd::BeginGroup) => {
                         // 62 | 165 | 268
                         new_save_level(GroupCode::SemiSimple);
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::EndGroup) | (HMode, Cmd::EndGroup) | (MMode, Cmd::EndGroup) => {
                         // 63 | 166 | 269
@@ -15844,14 +15831,12 @@ pub(crate) unsafe fn main_control() {
                         } else {
                             off_save();
                         }
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::RightBrace)
                     | (HMode, Cmd::RightBrace)
                     | (MMode, Cmd::RightBrace) => {
                         // 3 | 106 | 209
                         handle_right_brace();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::HMove) | (HMode, Cmd::VMove) | (MMode, Cmd::VMove) => {
                         // 22 | 126 | 229
@@ -15862,24 +15847,20 @@ pub(crate) unsafe fn main_control() {
                         } else {
                             scan_box(-cur_val);
                         }
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::LeaderShip)
                     | (HMode, Cmd::LeaderShip)
                     | (MMode, Cmd::LeaderShip) => {
                         // 32 | 135 | 238
                         scan_box(LEADER_FLAG - (A_LEADERS as i32) + cur_chr);
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::MakeBox) | (HMode, Cmd::MakeBox) | (MMode, Cmd::MakeBox) => {
                         // 21 | 124 | 227
                         begin_box(0);
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::StartPar) => {
                         // 44
                         new_graf(cur_chr > 0);
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::Letter)
                     | (VMode, Cmd::OtherChar)
@@ -15897,12 +15878,10 @@ pub(crate) unsafe fn main_control() {
                         // 12 | 13 | 17 | 69 | 4 | 24 | 36 | 46 | 48 | 27 | 34 | 65 | 66
                         back_input();
                         new_graf(true);
-                        continue 'c_125208;
                     }
                     (HMode, Cmd::StartPar) | (MMode, Cmd::StartPar) => {
                         // 147 | 250
                         indent_in_hmode();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::ActiveChar) => {
                         // 14
@@ -15910,7 +15889,6 @@ pub(crate) unsafe fn main_control() {
                         if cur_list.mode.0 == false {
                             build_page();
                         }
-                        continue 'c_125208;
                     }
                     (HMode, Cmd::ActiveChar) => {
                         // 117
@@ -15921,7 +15899,6 @@ pub(crate) unsafe fn main_control() {
                         if cur_list.mode == (false, ListMode::VMode) {
                             build_page();
                         }
-                        continue 'c_125208;
                     }
                     (HMode, Cmd::Comment)
                     | (HMode, Cmd::VSkip)
@@ -15930,7 +15907,6 @@ pub(crate) unsafe fn main_control() {
                     | (HMode, Cmd::HAlign) => {
                         // 118 | 131 | 140 | 128 | 136
                         head_for_vmode();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::Insert)
                     | (HMode, Cmd::Insert)
@@ -15939,53 +15915,44 @@ pub(crate) unsafe fn main_control() {
                     | (MMode, Cmd::VAdjust) => {
                         // 38 | 141 | 244 | 142 | 245
                         begin_insert_or_adjust();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::Mark) | (HMode, Cmd::Mark) | (MMode, Cmd::Mark) => {
                         // 19 | 122 | 225
                         make_mark();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::BreakPenalty)
                     | (HMode, Cmd::BreakPenalty)
                     | (MMode, Cmd::BreakPenalty) => {
                         // 43 | 146 | 249
                         append_penalty();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::RemoveItem)
                     | (HMode, Cmd::RemoveItem)
                     | (MMode, Cmd::RemoveItem) => {
                         // 26 | 129 | 232
                         delete_last();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::UnVBox) | (HMode, Cmd::UnHBox) | (MMode, Cmd::UnHBox) => {
                         // 25 | 127 | 230
                         unpackage();
-                        continue 'c_125208;
                     }
                     (HMode, Cmd::ItalCorr) => {
                         // 148
                         append_italic_correction();
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::ItalCorr) => {
                         // 251
                         let k = new_kern(0);
                         *LLIST_link(cur_list.tail) = Some(k).tex_int();
                         cur_list.tail = k;
-                        continue 'c_125208;
                     }
                     (HMode, Cmd::Discretionary) | (MMode, Cmd::Discretionary) => {
                         // 151 | 254
                         append_discretionary();
-                        continue 'c_125208;
                     }
                     (HMode, Cmd::Accent) => {
                         // 149
                         make_accent();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::CarRet)
                     | (HMode, Cmd::CarRet)
@@ -15995,22 +15962,18 @@ pub(crate) unsafe fn main_control() {
                     | (MMode, Cmd::TabMark) => {
                         // 6 | 109 | 212 | 5 | 108 | 211
                         align_error();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::NoAlign) | (HMode, Cmd::NoAlign) | (MMode, Cmd::NoAlign) => {
                         // 35 | 138 | 241
                         no_align_error();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::Omit) | (HMode, Cmd::Omit) | (MMode, Cmd::Omit) => {
                         // 64 | 167 | 270
                         omit_error();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::HAlign) => {
                         // 33
                         init_align();
-                        continue 'c_125208;
                     }
                     (HMode, Cmd::VAlign) => {
                         // 137
@@ -16023,7 +15986,6 @@ pub(crate) unsafe fn main_control() {
                         } else {
                             init_align();
                         }
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::HAlign) => {
                         // 239
@@ -16034,22 +15996,18 @@ pub(crate) unsafe fn main_control() {
                                 off_save();
                             }
                         }
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::EndV) | (HMode, Cmd::EndV) => {
                         // 10 | 113
                         do_endv();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::EndCSName) | (HMode, Cmd::EndCSName) | (MMode, Cmd::EndCSName) => {
                         // 68 | 171 | 274
                         cs_error();
-                        continue 'c_125208;
                     }
                     (HMode, Cmd::MathShift) => {
                         // 107
                         init_math();
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::EqNo) => {
                         // 255
@@ -16060,7 +16018,6 @@ pub(crate) unsafe fn main_control() {
                                 off_save();
                             }
                         }
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::LeftBrace) => {
                         // 208
@@ -16069,19 +16026,16 @@ pub(crate) unsafe fn main_control() {
                         cur_list.tail = n;
                         back_input();
                         scan_math(cur_list.tail + 1);
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::Letter) | (MMode, Cmd::OtherChar) | (MMode, Cmd::CharGiven) => {
                         // 218 | 219 | 275
                         set_math_char(*MATH_CODE(cur_chr as usize));
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::CharNum) => {
                         // 223
                         scan_char_num();
                         cur_chr = cur_val;
                         set_math_char(*MATH_CODE(cur_chr as usize));
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::MathCharNum) => {
                         // 224
@@ -16104,7 +16058,6 @@ pub(crate) unsafe fn main_control() {
                                     + (cur_val % 256),
                             );
                         }
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::MathGiven) => {
                         // 276
@@ -16113,12 +16066,10 @@ pub(crate) unsafe fn main_control() {
                                 + set_family((cur_chr % 4096) / 256)
                                 + (cur_chr % 256),
                         );
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::XetexMathGiven) => {
                         // 277
                         set_math_char(cur_chr);
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::DelimNum) => {
                         // 222
@@ -16140,7 +16091,6 @@ pub(crate) unsafe fn main_control() {
                                     + (cur_val % 256),
                             );
                         }
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::MathComp) => {
                         // 257
@@ -16149,22 +16099,18 @@ pub(crate) unsafe fn main_control() {
                         cur_list.tail = n;
                         MEM[cur_list.tail].b16.s1 = cur_chr as u16;
                         scan_math(cur_list.tail + 1);
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::LimitSwitch) => {
                         // 258
                         math_limit_switch();
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::Radical) => {
                         // 273
                         math_radical();
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::Accent) | (MMode, Cmd::MathAccent) => {
                         // 252 | 253
                         math_ac();
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::VCenter) => {
                         // 263
@@ -16179,14 +16125,12 @@ pub(crate) unsafe fn main_control() {
                         if let Some(ev) = LOCAL(Local::every_vbox).opt() {
                             begin_token_list(ev, Btl::EveryVBoxText);
                         }
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::MathStyle) => {
                         // 260
                         let s = new_style(cur_chr as i16);
                         *LLIST_link(cur_list.tail) = Some(s).tex_int();
                         cur_list.tail = s;
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::NonScript) => {
                         // 262
@@ -16194,27 +16138,22 @@ pub(crate) unsafe fn main_control() {
                         *LLIST_link(cur_list.tail) = Some(g).tex_int();
                         cur_list.tail = g;
                         MEM[cur_list.tail].b16.s0 = COND_MATH_GLUE;
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::MathChoice) => {
                         // 261
                         append_choices();
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::SubMark) | (MMode, Cmd::SupMark) => {
                         // 215 | 214
                         sub_sup();
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::Above) => {
                         // 259
                         math_fraction();
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::LeftRight) => {
                         // 256
                         math_left_right();
-                        continue 'c_125208;
                     }
                     (MMode, Cmd::MathShift) => {
                         // 210
@@ -16223,7 +16162,6 @@ pub(crate) unsafe fn main_control() {
                         } else {
                             off_save();
                         }
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::ToksRegister)
                     | (HMode, Cmd::ToksRegister)
@@ -16327,7 +16265,6 @@ pub(crate) unsafe fn main_control() {
                         //| 200 | 303 | 98 | 201 | 304 | 99 | 202 | 305 | 100 | 203 | 306 | 101
                         //| 204 | 307 | 102 | 205 | 308 | 103 | 206 | 309
                         prefixed_command();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::AfterAssignment)
                     | (HMode, Cmd::AfterAssignment)
@@ -16335,7 +16272,6 @@ pub(crate) unsafe fn main_control() {
                         // 41 | 144 | 247
                         get_token();
                         after_token = cur_tok;
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::AfterGroup)
                     | (HMode, Cmd::AfterGroup)
@@ -16343,32 +16279,26 @@ pub(crate) unsafe fn main_control() {
                         // 42 | 145 | 248
                         get_token();
                         save_for_after(cur_tok);
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::InStream) | (HMode, Cmd::InStream) | (MMode, Cmd::InStream) => {
                         // 61 | 164 | 267
                         open_or_close_in();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::Message) | (HMode, Cmd::Message) | (MMode, Cmd::Message) => {
                         // 59 | 162 | 265
                         issue_message();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::CaseShift) | (HMode, Cmd::CaseShift) | (MMode, Cmd::CaseShift) => {
                         // 58 | 161 | 264
                         shift_case();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::XRay) | (HMode, Cmd::XRay) | (MMode, Cmd::XRay) => {
                         // 20 | 123 | 226
                         show_whatever();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::Extension) | (HMode, Cmd::Extension) | (MMode, Cmd::Extension) => {
                         // 60 | 163 | 266
                         do_extension();
-                        continue 'c_125208;
                     }
                     (VMode, Cmd::Relax)
                     | (HMode, Cmd::Relax)
@@ -16378,11 +16308,12 @@ pub(crate) unsafe fn main_control() {
                     | (MMode, Cmd::NoBoundary)
                     | _ => {
                         // 1 | 104 | 207 | 11 | 217 | 272 | _
-                        continue 'c_125208;
                     }
                 }
+                continue 'big_switch;
             }
         }
+
         /*main_loop *//*1069: */
         if cur_list.head == cur_list.tail && cur_list.mode.0 == false {
             if insert_src_special_auto {
@@ -16401,8 +16332,8 @@ pub(crate) unsafe fn main_control() {
             main_h = 0;
             main_f = EQTB[CUR_FONT_LOC].val as usize;
             native_len = 0;
-            loop {
-                /*collect_native */
+            let lab72 = loop {
+                // lab71: collect_native
                 main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32;
                 if main_s == 1000 {
                     cur_list.aux.b32.s0 = 1000;
@@ -16435,7 +16366,7 @@ pub(crate) unsafe fn main_control() {
                                 back_input();
                                 cur_input.index = Btl::BackedUpChar;
                                 begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
-                                continue 'c_125208;
+                                continue 'big_switch;
                             }
                         }
                     } else {
@@ -16453,8 +16384,7 @@ pub(crate) unsafe fn main_control() {
                             cur_input.index = Btl::BackedUpChar;
                             begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                             prev_class = CHAR_CLASS_LIMIT - 1;
-                            current_block = 9706274459985797855;
-                            break;
+                            break false;
                         }
                     }
                     prev_class = space_class
@@ -16511,35 +16441,30 @@ pub(crate) unsafe fn main_control() {
                     && space_class != CHAR_CLASS_LIMIT
                     && prev_class != CHAR_CLASS_LIMIT - 1
                 {
-                    current_block = 14170946608255986518;
-                    break;
+                    break true;
                 } else {
-                    current_block = 9706274459985797855;
-                    break;
+                    break false;
                 }
-            }
-            match current_block {
-                14170946608255986518 => {
-                    prev_class = CHAR_CLASS_LIMIT - 1;
-                    find_sa_element(
-                        ValLevel::InterChar,
-                        space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
-                        false,
-                    );
-                    if let Some(c) = cur_ptr {
-                        cur_tok = if cur_cs == 0 {
-                            if cur_cmd == Cmd::CharNum {
-                                cur_cmd = Cmd::OtherChar;
-                            }
-                            cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
-                        } else {
-                            CS_TOKEN_FLAG + cur_cs
-                        };
-                        back_input();
-                        begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
-                    }
+            };
+            if lab72 {
+                prev_class = CHAR_CLASS_LIMIT - 1;
+                find_sa_element(
+                    ValLevel::InterChar,
+                    space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
+                    false,
+                );
+                if let Some(c) = cur_ptr {
+                    cur_tok = if cur_cs == 0 {
+                        if cur_cmd == Cmd::CharNum {
+                            cur_cmd = Cmd::OtherChar;
+                        }
+                        cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
+                    } else {
+                        CS_TOKEN_FLAG + cur_cs
+                    };
+                    back_input();
+                    begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                 }
-                _ => {}
             }
             /*collected */
             if !(FONT_MAPPING[main_f as usize]).is_null() {
@@ -16585,21 +16510,21 @@ pub(crate) unsafe fn main_control() {
                 }
             }
             main_k = native_len;
-            let mut main_pp = cur_list.tail as i32;
+            let mut main_pp = cur_list.tail;
             if cur_list.mode == (false, ListMode::HMode) {
-                let mut main_ppp = cur_list.head as i32;
+                let mut main_ppp = cur_list.head;
                 if main_ppp != main_pp {
-                    while *LLIST_link(main_ppp as usize) != main_pp {
-                        if !is_char_node(main_ppp.opt())
-                            && NODE_type(main_ppp as usize) == TextNode::Disc.into()
+                    while LLIST_link(main_ppp).opt() != Some(main_pp) {
+                        if !is_char_node(Some(main_ppp))
+                            && NODE_type(main_ppp) == TextNode::Disc.into()
                         {
-                            temp_ptr = main_ppp as usize;
+                            temp_ptr = main_ppp;
                             for _ in 0..(*DISCRETIONARY_NODE_replace_count(temp_ptr)) {
-                                main_ppp = *LLIST_link(main_ppp as usize);
+                                main_ppp = LLIST_link(main_ppp).opt().unwrap();
                             }
                         }
                         if main_ppp != main_pp {
-                            main_ppp = *LLIST_link(main_ppp as usize);
+                            main_ppp = LLIST_link(main_ppp).opt().unwrap();
                         }
                     }
                 }
@@ -16608,17 +16533,16 @@ pub(crate) unsafe fn main_control() {
                     if main_h == 0 {
                         main_h = main_k
                     }
-                    if !main_pp.is_texnull()
-                        && !is_char_node(main_pp.opt())
-                        && NODE_type(main_pp as usize) == TextNode::WhatsIt.into()
-                        && (whatsit_NODE_subtype(main_pp as usize) == WhatsItNST::NativeWord
-                            || whatsit_NODE_subtype(main_pp as usize) == WhatsItNST::NativeWordAt)
-                        && *NATIVE_NODE_font(main_pp as usize) as usize == main_f
+                    if !is_char_node(Some(main_pp))
+                        && NODE_type(main_pp) == TextNode::WhatsIt.into()
+                        && (whatsit_NODE_subtype(main_pp) == WhatsItNST::NativeWord
+                            || whatsit_NODE_subtype(main_pp) == WhatsItNST::NativeWordAt)
+                        && *NATIVE_NODE_font(main_pp) as usize == main_f
                         && main_ppp != main_pp
-                        && !is_char_node(main_ppp.opt())
-                        && NODE_type(main_ppp as usize) != TextNode::Disc.into()
+                        && !is_char_node(Some(main_ppp))
+                        && NODE_type(main_ppp) != TextNode::Disc.into()
                     {
-                        main_k = main_h + *NATIVE_NODE_length(main_pp as usize) as i32;
+                        main_k = main_h + *NATIVE_NODE_length(main_pp) as i32;
                         while native_text_size <= native_len + main_k {
                             native_text_size = native_text_size + 128;
                             native_text = xrealloc(
@@ -16631,7 +16555,7 @@ pub(crate) unsafe fn main_control() {
                             ) as *mut UTF16_code
                         }
                         save_native_len = native_len;
-                        for c in NATIVE_NODE_text(main_pp as usize) {
+                        for c in NATIVE_NODE_text(main_pp) {
                             *native_text.offset(native_len as isize) = *c;
                             native_len += 1;
                         }
@@ -16661,12 +16585,12 @@ pub(crate) unsafe fn main_control() {
                         if main_h < main_k {
                             main_h += 1
                         }
-                        *LLIST_link(main_ppp as usize) = *LLIST_link(main_pp as usize);
-                        *LLIST_link(main_pp as usize) = None.tex_int();
-                        flush_node_list(main_pp.opt());
-                        main_pp = cur_list.tail as i32;
-                        while *LLIST_link(main_ppp as usize) != main_pp {
-                            main_ppp = *LLIST_link(main_ppp as usize);
+                        *LLIST_link(main_ppp) = *LLIST_link(main_pp);
+                        *LLIST_link(main_pp) = None.tex_int();
+                        flush_node_list(Some(main_pp));
+                        main_pp = cur_list.tail;
+                        while LLIST_link(main_ppp).opt() != Some(main_pp) {
+                            main_ppp = LLIST_link(main_ppp).opt().unwrap();
                         }
                     } else {
                         do_locale_linebreaks(temp_ptr as i32, main_h);
@@ -16694,14 +16618,13 @@ pub(crate) unsafe fn main_control() {
                         let d = new_disc();
                         *LLIST_link(cur_list.tail) = Some(d).tex_int();
                         cur_list.tail = d;
-                        main_pp = cur_list.tail as i32;
+                        main_pp = cur_list.tail;
                     }
                     if main_k == 0 {
                         break;
                     }
                 }
             } else {
-                let main_pp = main_pp as usize;
                 let mut main_ppp = cur_list.head;
                 if main_ppp != main_pp {
                     while LLIST_link(main_ppp).opt() != Some(main_pp) {
@@ -16766,22 +16689,21 @@ pub(crate) unsafe fn main_control() {
                 }
             }
             if *INTPAR(IntPar::xetex_interword_space_shaping) > 0 {
-                let mut main_p = cur_list.head as i32;
-                let mut main_pp = None.tex_int();
-                while main_p != cur_list.tail as i32 {
-                    if !main_p.is_texnull()
-                        && !is_char_node(main_p.opt())
-                        && NODE_type(main_p as usize) == TextNode::WhatsIt.into()
-                        && (whatsit_NODE_subtype(main_p as usize) == WhatsItNST::NativeWord
-                            || whatsit_NODE_subtype(main_p as usize) == WhatsItNST::NativeWordAt)
+                let mut main_p = cur_list.head;
+                let mut main_pp = None;
+                while main_p != cur_list.tail {
+                    if !is_char_node(Some(main_p))
+                        && NODE_type(main_p) == TextNode::WhatsIt.into()
+                        && (whatsit_NODE_subtype(main_p) == WhatsItNST::NativeWord
+                            || whatsit_NODE_subtype(main_p) == WhatsItNST::NativeWordAt)
                     {
-                        main_pp = main_p;
+                        main_pp = Some(main_p);
                     }
-                    main_p = *LLIST_link(main_p as usize);
+                    main_p = LLIST_link(main_p).opt().unwrap();
                 }
-                if !main_pp.is_texnull() {
-                    if *NATIVE_NODE_font(main_pp as usize) as usize == main_f {
-                        let mut main_p = *LLIST_link(main_pp as usize) as usize;
+                if let Some(main_pp) = main_pp {
+                    if *NATIVE_NODE_font(main_pp) as usize == main_f {
+                        let mut main_p = LLIST_link(main_pp).opt().unwrap();
                         while !is_char_node(Some(main_p))
                             && (NODE_type(main_p) == TextNode::Penalty.into()
                                 || NODE_type(main_p) == TextNode::Ins.into()
@@ -16790,11 +16712,11 @@ pub(crate) unsafe fn main_control() {
                                 || NODE_type(main_p) == TextNode::WhatsIt.into()
                                     && MEM[main_p].b16.s0 <= 4)
                         {
-                            main_p = *LLIST_link(main_p) as usize;
+                            main_p = LLIST_link(main_p).opt().unwrap();
                         }
                         if !is_char_node(Some(main_p)) && NODE_type(main_p) == TextNode::Glue.into()
                         {
-                            let mut main_ppp = *LLIST_link(main_p) as usize;
+                            let mut main_ppp = LLIST_link(main_p).opt().unwrap();
                             while !is_char_node(Some(main_ppp))
                                 && (NODE_type(main_ppp) == TextNode::Penalty.into()
                                     || NODE_type(main_ppp) == TextNode::Ins.into()
@@ -16803,10 +16725,10 @@ pub(crate) unsafe fn main_control() {
                                     || NODE_type(main_ppp) == TextNode::WhatsIt.into()
                                         && MEM[main_ppp].b16.s0 <= 4)
                             {
-                                main_ppp = *LLIST_link(main_ppp) as usize
+                                main_ppp = LLIST_link(main_ppp).opt().unwrap();
                             }
                             if main_ppp == cur_list.tail {
-                                let pp_text = NATIVE_NODE_text(main_pp as usize);
+                                let pp_text = NATIVE_NODE_text(main_pp);
                                 let tail_text = NATIVE_NODE_text(cur_list.tail);
                                 main_k = pp_text.len() as i32 + 1 + tail_text.len() as i32;
                                 temp_ptr = new_native_word_node(main_f, main_k);
@@ -16820,7 +16742,7 @@ pub(crate) unsafe fn main_control() {
                                     (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
                                 );
                                 let t = MEM[temp_ptr + 1].b32.s1
-                                    - MEM[(main_pp + 1) as usize].b32.s1
+                                    - MEM[main_pp + 1].b32.s1
                                     - MEM[cur_list.tail + 1].b32.s1;
                                 free_node(temp_ptr, MEM[temp_ptr + 4].b16.s3 as i32);
                                 if t != MEM[(FONT_GLUE[main_f as usize] + 1i32) as usize].b32.s1 {
@@ -16828,60 +16750,41 @@ pub(crate) unsafe fn main_control() {
                                         t - MEM[(FONT_GLUE[main_f as usize] + 1) as usize].b32.s1,
                                     );
                                     set_kern_NODE_subtype(temp_ptr, KernNST::SpaceAdjustment);
-                                    *LLIST_link(temp_ptr) = *LLIST_link(main_p as usize);
-                                    *LLIST_link(main_p as usize) = Some(temp_ptr).tex_int();
+                                    *LLIST_link(temp_ptr) = *LLIST_link(main_p);
+                                    *LLIST_link(main_p) = Some(temp_ptr).tex_int();
                                 }
                             }
                         }
                     }
                 }
             }
-            if cur_ptr.is_some() {
-                continue 'c_125208;
-            } else {
+            if cur_ptr.is_none() {
                 big_switch = false;
-                continue 'c_125208;
             }
-        } else {
-            main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32;
-            if main_s == 1000 {
-                cur_list.aux.b32.s0 = 1000
-            } else if main_s < 1000 {
-                if main_s > 0 {
-                    cur_list.aux.b32.s0 = main_s
-                }
-            } else if cur_list.aux.b32.s0 < 1000 {
-                cur_list.aux.b32.s0 = 1000
-            } else {
+            continue 'big_switch;
+        }
+
+        main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32;
+        if main_s == 1000 {
+            cur_list.aux.b32.s0 = 1000
+        } else if main_s < 1000 {
+            if main_s > 0 {
                 cur_list.aux.b32.s0 = main_s
             }
-            cur_ptr = None;
-            space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
-            if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != CHAR_CLASS_LIMIT {
-                if prev_class == CHAR_CLASS_LIMIT - 1 {
-                    if cur_input.state != InputState::TokenList
-                        || cur_input.index != Btl::BackedUpChar
-                    {
-                        find_sa_element(
-                            ValLevel::InterChar,
-                            (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
-                            false,
-                        );
-                        if let Some(c) = cur_ptr {
-                            if cur_cmd != Cmd::Letter {
-                                cur_cmd = Cmd::OtherChar;
-                            }
-                            cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                            back_input();
-                            cur_input.index = Btl::BackedUpChar;
-                            begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
-                            continue 'c_125208;
-                        }
-                    }
-                } else {
+        } else if cur_list.aux.b32.s0 < 1000 {
+            cur_list.aux.b32.s0 = 1000
+        } else {
+            cur_list.aux.b32.s0 = main_s
+        }
+        cur_ptr = None;
+        space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
+        if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != CHAR_CLASS_LIMIT {
+            if prev_class == CHAR_CLASS_LIMIT - 1 {
+                if cur_input.state != InputState::TokenList || cur_input.index != Btl::BackedUpChar
+                {
                     find_sa_element(
                         ValLevel::InterChar,
-                        prev_class * CHAR_CLASS_LIMIT + space_class,
+                        (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
                         false,
                     );
                     if let Some(c) = cur_ptr {
@@ -16892,530 +16795,533 @@ pub(crate) unsafe fn main_control() {
                         back_input();
                         cur_input.index = Btl::BackedUpChar;
                         begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
-                        prev_class = CHAR_CLASS_LIMIT - 1;
-                        continue 'c_125208;
+                        continue 'big_switch;
                     }
                 }
-                prev_class = space_class
-            }
-            main_f = EQTB[CUR_FONT_LOC].val as usize;
-            bchar = FONT_BCHAR[main_f as usize];
-            false_bchar = FONT_FALSE_BCHAR[main_f as usize];
-            if cur_list.mode.0 == false {
-                if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
-                    fix_language();
+            } else {
+                find_sa_element(
+                    ValLevel::InterChar,
+                    prev_class * CHAR_CLASS_LIMIT + space_class,
+                    false,
+                );
+                if let Some(c) = cur_ptr {
+                    if cur_cmd != Cmd::Letter {
+                        cur_cmd = Cmd::OtherChar;
+                    }
+                    cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
+                    back_input();
+                    cur_input.index = Btl::BackedUpChar;
+                    begin_token_list(MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
+                    prev_class = CHAR_CLASS_LIMIT - 1;
+                    continue 'big_switch;
                 }
             }
-            lig_stack = avail;
-            let ls = if let Some(ls) = lig_stack {
-                avail = LLIST_link(ls).opt();
-                *LLIST_link(ls) = None.tex_int();
-                ls
-            } else {
-                get_avail()
-            };
-            lig_stack = Some(ls);
-            MEM[ls].b16.s1 = main_f as u16;
-            cur_l = cur_chr;
-            MEM[ls].b16.s0 = cur_l as u16;
-            cur_q = cur_list.tail as i32;
-            if cancel_boundary {
-                cancel_boundary = false;
-                main_k = NON_ADDRESS;
-            } else {
-                main_k = BCHAR_LABEL[main_f as usize]
+            prev_class = space_class
+        }
+        main_f = EQTB[CUR_FONT_LOC].val as usize;
+        bchar = FONT_BCHAR[main_f as usize];
+        false_bchar = FONT_FALSE_BCHAR[main_f as usize];
+        if cur_list.mode.0 == false {
+            if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
+                fix_language();
             }
-            if main_k == NON_ADDRESS {
-                current_block = 249799543778823886;
-            } else {
-                cur_r = cur_l;
-                cur_l = TOO_BIG_CHAR;
-                current_block = 13962460947151495567;
-            }
-            loop {
-                match current_block {
-                    13962460947151495567 => {
-                        // lab111
-                        /*main_lig_loop 1 */
-                        main_j = FONT_INFO[main_k as usize].b16;
-                        current_block = 11331079115679122507;
-                    }
-                    _ => {
-                        let ls = lig_stack.unwrap();
-                        if effective_char(false, main_f, cur_chr as u16)
-                            > FONT_EC[main_f as usize] as i32
-                            || effective_char(false, main_f, cur_chr as u16)
-                                < FONT_BC[main_f as usize] as i32
-                        {
+        }
+        lig_stack = avail;
+        let ls = if let Some(ls) = lig_stack {
+            avail = LLIST_link(ls).opt();
+            *LLIST_link(ls) = None.tex_int();
+            ls
+        } else {
+            get_avail()
+        };
+        lig_stack = Some(ls);
+        MEM[ls].b16.s1 = main_f as u16;
+        cur_l = cur_chr;
+        MEM[ls].b16.s0 = cur_l as u16;
+        cur_q = cur_list.tail as i32;
+
+        let mut current_block: u64;
+        if cancel_boundary {
+            cancel_boundary = false;
+            main_k = NON_ADDRESS;
+        } else {
+            main_k = BCHAR_LABEL[main_f as usize]
+        }
+        if main_k == NON_ADDRESS {
+            current_block = 249799543778823886;
+        } else {
+            cur_r = cur_l;
+            cur_l = TOO_BIG_CHAR;
+            current_block = 13962460947151495567;
+        }
+        loop {
+            match current_block {
+                13962460947151495567 => {
+                    // lab111
+                    /*main_lig_loop 1 */
+                    main_j = FONT_INFO[main_k as usize].b16;
+                    current_block = 11331079115679122507;
+                }
+                _ => {
+                    let ls = lig_stack.unwrap();
+                    if effective_char(false, main_f, cur_chr as u16)
+                        > FONT_EC[main_f as usize] as i32
+                        || effective_char(false, main_f, cur_chr as u16)
+                            < FONT_BC[main_f as usize] as i32
+                    {
+                        char_warning(main_f, cur_chr);
+                        *LLIST_link(ls) = avail.tex_int();
+                        avail = lig_stack;
+                        continue 'big_switch;
+                    } else {
+                        main_i = effective_char_info(main_f, cur_l as u16);
+                        if !(main_i.s3 > 0) {
                             char_warning(main_f, cur_chr);
                             *LLIST_link(ls) = avail.tex_int();
                             avail = lig_stack;
-                            continue 'c_125208;
+                            continue 'big_switch;
                         } else {
-                            main_i = effective_char_info(main_f, cur_l as u16);
-                            if !(main_i.s3 > 0) {
-                                char_warning(main_f, cur_chr);
-                                *LLIST_link(ls) = avail.tex_int();
-                                avail = lig_stack;
-                                continue 'c_125208;
-                            } else {
-                                MEM[cur_list.tail].b32.s1 = lig_stack.tex_int();
-                                cur_list.tail = ls;
-                            }
+                            MEM[cur_list.tail].b32.s1 = lig_stack.tex_int();
+                            cur_list.tail = ls;
                         }
-                        current_block = 18270385712206273994;
                     }
+                    current_block = 18270385712206273994;
                 }
-                'c_125244: loop {
-                    match current_block {
-                        11331079115679122507 =>
-                        // lab112
-                        /*main_lig_loop 2 */
-                        {
-                            if main_j.s2 as i32 == cur_r {
-                                if main_j.s3 <= 128 {
-                                    /*1075: */
-                                    if main_j.s1 >= 128 {
-                                        if cur_l < TOO_BIG_CHAR {
-                                            if LLIST_link(cur_q as usize).opt().is_some() {
-                                                if MEM[cur_list.tail].b16.s0 as i32
-                                                    == HYPHEN_CHAR[main_f as usize]
-                                                {
-                                                    ins_disc = true
-                                                }
-                                            }
-                                            if ligature_present {
-                                                let main_p = new_ligature(
-                                                    main_f,
-                                                    cur_l as u16,
-                                                    *LLIST_link(cur_q as usize),
-                                                )
-                                                    as i32;
-                                                if lft_hit {
-                                                    MEM[main_p as usize].b16.s0 = 2;
-                                                    lft_hit = false
-                                                }
-                                                if rt_hit {
-                                                    if lig_stack.is_some() {
-                                                        MEM[main_p as usize].b16.s0 += 1;
-                                                        rt_hit = false
-                                                    }
-                                                }
-                                                *LLIST_link(cur_q as usize) = main_p;
-                                                cur_list.tail = main_p as usize;
-                                                ligature_present = false
-                                            }
-                                            if ins_disc {
-                                                ins_disc = false;
-                                                if cur_list.mode.0 == false {
-                                                    let d = new_disc();
-                                                    *LLIST_link(cur_list.tail) = Some(d).tex_int();
-                                                    cur_list.tail = d;
-                                                }
+            }
+            'c_125244: loop {
+                match current_block {
+                    11331079115679122507 =>
+                    // lab112
+                    /*main_lig_loop 2 */
+                    {
+                        if main_j.s2 as i32 == cur_r {
+                            if main_j.s3 <= 128 {
+                                /*1075: */
+                                if main_j.s1 >= 128 {
+                                    if cur_l < TOO_BIG_CHAR {
+                                        if LLIST_link(cur_q as usize).opt().is_some() {
+                                            if MEM[cur_list.tail].b16.s0 as i32
+                                                == HYPHEN_CHAR[main_f as usize]
+                                            {
+                                                ins_disc = true
                                             }
                                         }
-                                        MEM[cur_list.tail].b32.s1 = new_kern(
-                                            FONT_INFO[(KERN_BASE[main_f as usize]
-                                                + 256 * main_j.s1 as i32
-                                                + main_j.s0 as i32)
-                                                as usize]
-                                                .b32
-                                                .s1,
-                                        )
-                                            as i32;
-                                        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-                                        current_block = 2772858075894446251;
-                                    } else {
-                                        if cur_l == TOO_BIG_CHAR {
-                                            lft_hit = true
-                                        } else if lig_stack.is_none() {
-                                            rt_hit = true
-                                        }
-                                        match main_j.s1 {
-                                            1 | 5 => {
-                                                cur_l = main_j.s0 as i32;
-                                                main_i = FONT_CHARACTER_INFO(
-                                                    main_f,
-                                                    effective_char(true, main_f, cur_l as u16)
-                                                        as usize,
-                                                );
-                                                ligature_present = true;
-                                                current_block = 5062343687657450649;
+                                        if ligature_present {
+                                            let main_p = new_ligature(
+                                                main_f,
+                                                cur_l as u16,
+                                                *LLIST_link(cur_q as usize),
+                                            );
+                                            if lft_hit {
+                                                MEM[main_p].b16.s0 = 2;
+                                                lft_hit = false
                                             }
-                                            2 | 6 => {
-                                                cur_r = main_j.s0 as i32;
-                                                if let Some(ls) = lig_stack {
-                                                    if is_char_node(Some(ls)) {
-                                                        let main_p = ls;
-                                                        let ls = new_lig_item(cur_r as u16);
-                                                        lig_stack = Some(ls);
-                                                        MEM[ls + 1].b32.s1 = Some(main_p).tex_int();
-                                                    } else {
-                                                        MEM[ls].b16.s0 = cur_r as u16
-                                                    }
+                                            if rt_hit {
+                                                if lig_stack.is_some() {
+                                                    MEM[main_p].b16.s0 += 1;
+                                                    rt_hit = false
+                                                }
+                                            }
+                                            *LLIST_link(cur_q as usize) = Some(main_p).tex_int();
+                                            cur_list.tail = main_p;
+                                            ligature_present = false
+                                        }
+                                        if ins_disc {
+                                            ins_disc = false;
+                                            if cur_list.mode.0 == false {
+                                                let d = new_disc();
+                                                *LLIST_link(cur_list.tail) = Some(d).tex_int();
+                                                cur_list.tail = d;
+                                            }
+                                        }
+                                    }
+                                    MEM[cur_list.tail].b32.s1 = new_kern(
+                                        FONT_INFO[(KERN_BASE[main_f as usize]
+                                            + 256 * main_j.s1 as i32
+                                            + main_j.s0 as i32)
+                                            as usize]
+                                            .b32
+                                            .s1,
+                                    )
+                                        as i32;
+                                    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                                    current_block = 2772858075894446251;
+                                } else {
+                                    if cur_l == TOO_BIG_CHAR {
+                                        lft_hit = true
+                                    } else if lig_stack.is_none() {
+                                        rt_hit = true
+                                    }
+                                    match main_j.s1 {
+                                        1 | 5 => {
+                                            cur_l = main_j.s0 as i32;
+                                            main_i = FONT_CHARACTER_INFO(
+                                                main_f,
+                                                effective_char(true, main_f, cur_l as u16) as usize,
+                                            );
+                                            ligature_present = true;
+                                            current_block = 5062343687657450649;
+                                        }
+                                        2 | 6 => {
+                                            cur_r = main_j.s0 as i32;
+                                            if let Some(ls) = lig_stack {
+                                                if is_char_node(Some(ls)) {
+                                                    let main_p = ls;
+                                                    let ls = new_lig_item(cur_r as u16);
+                                                    lig_stack = Some(ls);
+                                                    MEM[ls + 1].b32.s1 = Some(main_p).tex_int();
                                                 } else {
-                                                    lig_stack = Some(new_lig_item(cur_r as u16));
-                                                    bchar = TOO_BIG_CHAR
+                                                    MEM[ls].b16.s0 = cur_r as u16
                                                 }
-                                                current_block = 5062343687657450649;
+                                            } else {
+                                                lig_stack = Some(new_lig_item(cur_r as u16));
+                                                bchar = TOO_BIG_CHAR
                                             }
-                                            3 => {
-                                                cur_r = main_j.s0 as i32;
-                                                let main_p = lig_stack;
-                                                let ls = new_lig_item(cur_r as u16);
-                                                lig_stack = Some(ls);
-                                                *LLIST_link(ls) = main_p.tex_int();
-                                                current_block = 5062343687657450649;
-                                            }
-                                            7 | 11 => {
-                                                if cur_l < TOO_BIG_CHAR {
-                                                    if LLIST_link(cur_q as usize).opt().is_some() {
-                                                        if MEM[cur_list.tail].b16.s0 as i32
-                                                            == HYPHEN_CHAR[main_f as usize]
-                                                        {
-                                                            ins_disc = true
-                                                        }
-                                                    }
-                                                    if ligature_present {
-                                                        let main_p = new_ligature(
-                                                            main_f,
-                                                            cur_l as u16,
-                                                            *LLIST_link(cur_q as usize),
-                                                        )
-                                                            as i32;
-                                                        if lft_hit {
-                                                            MEM[main_p as usize].b16.s0 = 2;
-                                                            lft_hit = false
-                                                        }
-                                                        *LLIST_link(cur_q as usize) = main_p;
-                                                        cur_list.tail = main_p as usize;
-                                                        ligature_present = false
-                                                    }
-                                                    if ins_disc {
-                                                        ins_disc = false;
-                                                        if cur_list.mode.0 == false {
-                                                            let d = new_disc();
-                                                            *LLIST_link(cur_list.tail) =
-                                                                Some(d).tex_int();
-                                                            cur_list.tail = d;
-                                                        }
+                                            current_block = 5062343687657450649;
+                                        }
+                                        3 => {
+                                            cur_r = main_j.s0 as i32;
+                                            let main_p = lig_stack;
+                                            let ls = new_lig_item(cur_r as u16);
+                                            lig_stack = Some(ls);
+                                            *LLIST_link(ls) = main_p.tex_int();
+                                            current_block = 5062343687657450649;
+                                        }
+                                        7 | 11 => {
+                                            if cur_l < TOO_BIG_CHAR {
+                                                if LLIST_link(cur_q as usize).opt().is_some() {
+                                                    if MEM[cur_list.tail].b16.s0 as i32
+                                                        == HYPHEN_CHAR[main_f as usize]
+                                                    {
+                                                        ins_disc = true
                                                     }
                                                 }
-                                                cur_q = cur_list.tail as i32;
-                                                cur_l = main_j.s0 as i32;
-                                                main_i = FONT_CHARACTER_INFO(
-                                                    main_f,
-                                                    effective_char(true, main_f, cur_l as u16)
-                                                        as usize,
-                                                );
-                                                ligature_present = true;
-                                                current_block = 5062343687657450649;
+                                                if ligature_present {
+                                                    let main_p = new_ligature(
+                                                        main_f,
+                                                        cur_l as u16,
+                                                        *LLIST_link(cur_q as usize),
+                                                    );
+                                                    if lft_hit {
+                                                        MEM[main_p].b16.s0 = 2;
+                                                        lft_hit = false
+                                                    }
+                                                    *LLIST_link(cur_q as usize) =
+                                                        Some(main_p).tex_int();
+                                                    cur_list.tail = main_p;
+                                                    ligature_present = false
+                                                }
+                                                if ins_disc {
+                                                    ins_disc = false;
+                                                    if cur_list.mode.0 == false {
+                                                        let d = new_disc();
+                                                        *LLIST_link(cur_list.tail) =
+                                                            Some(d).tex_int();
+                                                        cur_list.tail = d;
+                                                    }
+                                                }
                                             }
-                                            _ => {
-                                                cur_l = main_j.s0 as i32;
-                                                ligature_present = true;
-                                                if lig_stack.is_none() {
+                                            cur_q = cur_list.tail as i32;
+                                            cur_l = main_j.s0 as i32;
+                                            main_i = FONT_CHARACTER_INFO(
+                                                main_f,
+                                                effective_char(true, main_f, cur_l as u16) as usize,
+                                            );
+                                            ligature_present = true;
+                                            current_block = 5062343687657450649;
+                                        }
+                                        _ => {
+                                            cur_l = main_j.s0 as i32;
+                                            ligature_present = true;
+                                            if lig_stack.is_none() {
+                                                current_block = 7236688557761431611;
+                                            } else {
+                                                current_block = 4014385708774270501;
+                                            }
+                                        }
+                                    }
+                                    match current_block {
+                                        7236688557761431611 => {}
+                                        4014385708774270501 => {}
+                                        _ => {
+                                            if main_j.s1 > 4 {
+                                                if main_j.s1 != 7 {
                                                     current_block = 7236688557761431611;
-                                                } else {
-                                                    current_block = 4014385708774270501;
-                                                }
-                                            }
-                                        }
-                                        match current_block {
-                                            7236688557761431611 => {}
-                                            4014385708774270501 => {}
-                                            _ => {
-                                                if main_j.s1 > 4 {
-                                                    if main_j.s1 != 7 {
-                                                        current_block = 7236688557761431611;
-                                                    } else {
-                                                        current_block = 17785146416239343017;
-                                                    }
                                                 } else {
                                                     current_block = 17785146416239343017;
                                                 }
-                                                match current_block {
-                                                    7236688557761431611 => {}
-                                                    _ => {
-                                                        if cur_l < TOO_BIG_CHAR {
-                                                            current_block = 4700797278417140031;
-                                                        } else {
-                                                            main_k = BCHAR_LABEL[main_f as usize];
-                                                            current_block = 13962460947151495567;
-                                                            break;
-                                                        }
+                                            } else {
+                                                current_block = 17785146416239343017;
+                                            }
+                                            match current_block {
+                                                7236688557761431611 => {}
+                                                _ => {
+                                                    if cur_l < TOO_BIG_CHAR {
+                                                        current_block = 4700797278417140031;
+                                                    } else {
+                                                        main_k = BCHAR_LABEL[main_f as usize];
+                                                        current_block = 13962460947151495567;
+                                                        break;
                                                     }
                                                 }
                                             }
                                         }
                                     }
-                                } else {
-                                    current_block = 17910696963991344696;
                                 }
                             } else {
                                 current_block = 17910696963991344696;
                             }
-                            match current_block {
-                                2772858075894446251 => {}
-                                7236688557761431611 => {}
-                                4014385708774270501 => {}
-                                4700797278417140031 => {}
-                                _ => {
-                                    if main_j.s3 == 0 {
-                                        main_k += 1;
-                                        current_block = 13962460947151495567;
-                                        break;
-                                    } else if !(main_j.s3 >= 128) {
-                                        main_k = main_k + main_j.s3 as i32 + 1;
-                                        current_block = 13962460947151495567;
-                                        break;
-                                    }
-                                    current_block = 7236688557761431611;
-                                }
-                            }
+                        } else {
+                            current_block = 17910696963991344696;
                         }
-                        _ => {
-                            // lab100:
-                            /*main_loop_lookahead *//*1073: */
-                            get_next();
-                            if cur_cmd == Cmd::Letter {
-                                current_block = 10120566026430170701;
-                            } else if cur_cmd == Cmd::OtherChar {
-                                current_block = 10120566026430170701;
-                            } else if cur_cmd == Cmd::CharGiven {
-                                current_block = 10120566026430170701;
-                            } else {
-                                x_token();
-                                if cur_cmd == Cmd::Letter {
-                                    current_block = 10120566026430170701;
-                                } else if cur_cmd == Cmd::OtherChar {
-                                    current_block = 10120566026430170701;
-                                } else if cur_cmd == Cmd::CharGiven {
-                                    current_block = 10120566026430170701;
-                                } else if cur_cmd == Cmd::CharNum {
-                                    scan_char_num();
-                                    cur_chr = cur_val;
-                                    current_block = 10120566026430170701;
-                                } else {
-                                    if cur_cmd == Cmd::NoBoundary {
-                                        bchar = TOO_BIG_CHAR;
-                                    }
-                                    cur_r = bchar;
-                                    lig_stack = None;
-                                    current_block = 4700797278417140031;
-                                }
-                            }
-                            match current_block {
-                                4700797278417140031 => {}
-                                _ => {
-                                    // lab101:
-                                    /*main_loop_lookahead 1 */
-                                    main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32; /*:1073 */
-                                    if main_s == 1000 {
-                                        cur_list.aux.b32.s0 = 1000
-                                    } else if main_s < 1000 {
-                                        if main_s > 0 {
-                                            cur_list.aux.b32.s0 = main_s;
-                                        }
-                                    } else if cur_list.aux.b32.s0 < 1000 {
-                                        cur_list.aux.b32.s0 = 1000;
-                                    } else {
-                                        cur_list.aux.b32.s0 = main_s;
-                                    }
-                                    cur_ptr = None;
-                                    space_class =
-                                        (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
-                                    if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
-                                        && space_class != CHAR_CLASS_LIMIT
-                                    {
-                                        if prev_class == CHAR_CLASS_LIMIT - 1 {
-                                            if cur_input.state != InputState::TokenList
-                                                || cur_input.index != Btl::BackedUpChar
-                                            {
-                                                find_sa_element(
-                                                    ValLevel::InterChar,
-                                                    (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT
-                                                        + space_class,
-                                                    false,
-                                                );
-                                                if let Some(c) = cur_ptr {
-                                                    if cur_cmd != Cmd::Letter {
-                                                        cur_cmd = Cmd::OtherChar
-                                                    }
-                                                    cur_tok =
-                                                        cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                                    back_input();
-                                                    cur_input.index = Btl::BackedUpChar;
-                                                    begin_token_list(
-                                                        MEM[c + 1].b32.s1 as usize,
-                                                        Btl::InterCharText,
-                                                    );
-                                                    continue 'c_125208;
-                                                }
-                                            }
-                                        } else {
-                                            find_sa_element(
-                                                ValLevel::InterChar,
-                                                prev_class * CHAR_CLASS_LIMIT + space_class,
-                                                false,
-                                            );
-                                            if let Some(c) = cur_ptr {
-                                                if cur_cmd != Cmd::Letter {
-                                                    cur_cmd = Cmd::OtherChar;
-                                                }
-                                                cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                                back_input();
-                                                cur_input.index = Btl::BackedUpChar;
-                                                begin_token_list(
-                                                    MEM[c + 1].b32.s1 as usize,
-                                                    Btl::InterCharText,
-                                                );
-                                                prev_class = CHAR_CLASS_LIMIT - 1;
-                                                continue 'c_125208;
-                                            }
-                                        }
-                                        prev_class = space_class
-                                    }
-                                    lig_stack = avail;
-                                    let ls = if let Some(ls) = lig_stack {
-                                        avail = LLIST_link(ls).opt();
-                                        *LLIST_link(ls) = None.tex_int();
-                                        ls
-                                    } else {
-                                        get_avail()
-                                    };
-                                    lig_stack = Some(ls);
-                                    MEM[ls].b16.s1 = main_f as u16;
-                                    cur_r = cur_chr;
-                                    MEM[ls].b16.s0 = cur_r as u16;
-                                    if cur_r == false_bchar {
-                                        cur_r = TOO_BIG_CHAR;
-                                    }
-                                    current_block = 4700797278417140031; // lab110
-                                }
-                            }
-                        }
-                    }
-                    loop {
                         match current_block {
-                            7236688557761431611 => {
-                                // lab80:
-                                /*main_loop_wrapup *//*1070: */
-                                if cur_l < TOO_BIG_CHAR {
-                                    if LLIST_link(cur_q as usize).opt().is_some() {
-                                        if MEM[cur_list.tail].b16.s0 as i32
-                                            == HYPHEN_CHAR[main_f as usize]
-                                        {
-                                            ins_disc = true
-                                        }
-                                    }
-                                    if ligature_present {
-                                        let main_p = new_ligature(
-                                            main_f,
-                                            cur_l as u16,
-                                            *LLIST_link(cur_q as usize) as i32,
-                                        )
-                                            as i32;
-                                        if lft_hit {
-                                            MEM[main_p as usize].b16.s0 = 2;
-                                            lft_hit = false
-                                        }
-                                        if rt_hit {
-                                            if lig_stack.is_none() {
-                                                MEM[main_p as usize].b16.s0 += 1;
-                                                rt_hit = false
-                                            }
-                                        }
-                                        *LLIST_link(cur_q as usize) = main_p;
-                                        cur_list.tail = main_p as usize;
-                                        ligature_present = false
-                                    }
-                                    if ins_disc {
-                                        ins_disc = false;
-                                        if cur_list.mode.0 == false {
-                                            let d = new_disc();
-                                            *LLIST_link(cur_list.tail) = Some(d).tex_int();
-                                            cur_list.tail = d;
-                                        }
-                                    }
-                                }
-                                current_block = 2772858075894446251;
-                            }
-                            4700797278417140031 =>
-                            /*main_lig_loop *//*1074: */
-                            {
-                                if main_i.s1 as i32 % 4i32 != 1i32 {
-                                    current_block = 7236688557761431611;
-                                    continue;
-                                }
-                                if cur_r == 65536i32 {
-                                    current_block = 7236688557761431611;
-                                } else {
+                            2772858075894446251 => {}
+                            7236688557761431611 => {}
+                            4014385708774270501 => {}
+                            4700797278417140031 => {}
+                            _ => {
+                                if main_j.s3 == 0 {
+                                    main_k += 1;
+                                    current_block = 13962460947151495567;
+                                    break;
+                                } else if !(main_j.s3 >= 128) {
+                                    main_k = main_k + main_j.s3 as i32 + 1;
+                                    current_block = 13962460947151495567;
                                     break;
                                 }
-                            }
-                            2772858075894446251 => {
-                                // lab90:
-                                /*main_loop_move *//*1071: */
-                                if lig_stack.is_none() {
-                                    big_switch = false;
-                                    continue 'c_125208;
-                                }
-                                cur_q = cur_list.tail as i32;
-                                cur_l = MEM[lig_stack.unwrap()].b16.s0 as i32;
-                                current_block = 4014385708774270501;
-                            }
-                            _ => {
-                                // lab91:
-                                /*main_loop_move 1 */
-                                if is_char_node(lig_stack) {
-                                    current_block = 249799543778823886; // lab92
-                                    break 'c_125244;
-                                }
-                                // lab95:
-                                /*main_loop_move_lig *//*1072: */
-                                let ls = lig_stack.unwrap();
-                                let main_p = MEM[ls + 1].b32.s1;
-                                if !main_p.is_texnull() {
-                                    MEM[cur_list.tail].b32.s1 = main_p;
-                                    cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-                                }
-                                temp_ptr = ls;
-                                lig_stack = LLIST_link(temp_ptr).opt();
-                                free_node(temp_ptr, SMALL_NODE_SIZE);
-                                main_i = FONT_CHARACTER_INFO(
-                                    main_f,
-                                    effective_char(true, main_f, cur_l as u16) as usize,
-                                );
-                                ligature_present = true;
-                                if let Some(ls) = lig_stack {
-                                    cur_r = MEM[ls].b16.s0 as i32;
-                                    current_block = 4700797278417140031;
-                                } else {
-                                    if !main_p.is_texnull() {
-                                        current_block = 18270385712206273994; // lab100
-                                        continue 'c_125244;
-                                    }
-                                    cur_r = bchar;
-                                    current_block = 4700797278417140031;
-                                }
+                                current_block = 7236688557761431611;
                             }
                         }
                     }
-                    main_k = LIG_KERN_BASE[main_f as usize] + main_i.s0 as i32;
-                    main_j = FONT_INFO[main_k as usize].b16;
-                    if main_j.s3 as i32 <= 128 {
-                        current_block = 11331079115679122507; // lab112
-                        continue;
+                    _ => {
+                        // lab100:
+                        /*main_loop_lookahead *//*1073: */
+                        let mut lab101 = true;
+                        get_next();
+                        match cur_cmd {
+                            Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {}
+                            _ => {
+                                x_token();
+                                match cur_cmd {
+                                    Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {}
+                                    Cmd::CharNum => {
+                                        scan_char_num();
+                                        cur_chr = cur_val;
+                                    }
+                                    _ => {
+                                        if cur_cmd == Cmd::NoBoundary {
+                                            bchar = TOO_BIG_CHAR;
+                                        }
+                                        cur_r = bchar;
+                                        lig_stack = None;
+                                        lab101 = false;
+                                    }
+                                }
+                            }
+                        }
+                        if lab101 {
+                            // lab101:
+                            /*main_loop_lookahead 1 */
+                            main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32; /*:1073 */
+                            if main_s == 1000 {
+                                cur_list.aux.b32.s0 = 1000
+                            } else if main_s < 1000 {
+                                if main_s > 0 {
+                                    cur_list.aux.b32.s0 = main_s;
+                                }
+                            } else if cur_list.aux.b32.s0 < 1000 {
+                                cur_list.aux.b32.s0 = 1000;
+                            } else {
+                                cur_list.aux.b32.s0 = main_s;
+                            }
+                            cur_ptr = None;
+                            space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
+                            if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
+                                && space_class != CHAR_CLASS_LIMIT
+                            {
+                                if prev_class == CHAR_CLASS_LIMIT - 1 {
+                                    if cur_input.state != InputState::TokenList
+                                        || cur_input.index != Btl::BackedUpChar
+                                    {
+                                        find_sa_element(
+                                            ValLevel::InterChar,
+                                            (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
+                                            false,
+                                        );
+                                        if let Some(c) = cur_ptr {
+                                            if cur_cmd != Cmd::Letter {
+                                                cur_cmd = Cmd::OtherChar
+                                            }
+                                            cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
+                                            back_input();
+                                            cur_input.index = Btl::BackedUpChar;
+                                            begin_token_list(
+                                                MEM[c + 1].b32.s1 as usize,
+                                                Btl::InterCharText,
+                                            );
+                                            continue 'big_switch;
+                                        }
+                                    }
+                                } else {
+                                    find_sa_element(
+                                        ValLevel::InterChar,
+                                        prev_class * CHAR_CLASS_LIMIT + space_class,
+                                        false,
+                                    );
+                                    if let Some(c) = cur_ptr {
+                                        if cur_cmd != Cmd::Letter {
+                                            cur_cmd = Cmd::OtherChar;
+                                        }
+                                        cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
+                                        back_input();
+                                        cur_input.index = Btl::BackedUpChar;
+                                        begin_token_list(
+                                            MEM[c + 1].b32.s1 as usize,
+                                            Btl::InterCharText,
+                                        );
+                                        prev_class = CHAR_CLASS_LIMIT - 1;
+                                        continue 'big_switch;
+                                    }
+                                }
+                                prev_class = space_class
+                            }
+                            lig_stack = avail;
+                            let ls = if let Some(ls) = lig_stack {
+                                avail = LLIST_link(ls).opt();
+                                *LLIST_link(ls) = None.tex_int();
+                                ls
+                            } else {
+                                get_avail()
+                            };
+                            lig_stack = Some(ls);
+                            MEM[ls].b16.s1 = main_f as u16;
+                            cur_r = cur_chr;
+                            MEM[ls].b16.s0 = cur_r as u16;
+                            if cur_r == false_bchar {
+                                cur_r = TOO_BIG_CHAR;
+                            }
+                        }
+                        current_block = 4700797278417140031; // lab110
                     }
-                    main_k = ((LIG_KERN_BASE[main_f as usize]
-                        + 256 * main_j.s1 as i32
-                        + main_j.s0 as i32) as i64
-                        + 32768
-                        - (256 * 128) as i64) as font_index;
-                    current_block = 13962460947151495567; // lab111
-                    break;
                 }
+                loop {
+                    match current_block {
+                        7236688557761431611 => {
+                            // lab80:
+                            /*main_loop_wrapup *//*1070: */
+                            if cur_l < TOO_BIG_CHAR {
+                                if LLIST_link(cur_q as usize).opt().is_some() {
+                                    if MEM[cur_list.tail].b16.s0 as i32
+                                        == HYPHEN_CHAR[main_f as usize]
+                                    {
+                                        ins_disc = true
+                                    }
+                                }
+                                if ligature_present {
+                                    let main_p = new_ligature(
+                                        main_f,
+                                        cur_l as u16,
+                                        *LLIST_link(cur_q as usize) as i32,
+                                    );
+                                    if lft_hit {
+                                        MEM[main_p].b16.s0 = 2;
+                                        lft_hit = false
+                                    }
+                                    if rt_hit {
+                                        if lig_stack.is_none() {
+                                            MEM[main_p].b16.s0 += 1;
+                                            rt_hit = false
+                                        }
+                                    }
+                                    *LLIST_link(cur_q as usize) = Some(main_p).tex_int();
+                                    cur_list.tail = main_p;
+                                    ligature_present = false
+                                }
+                                if ins_disc {
+                                    ins_disc = false;
+                                    if cur_list.mode.0 == false {
+                                        let d = new_disc();
+                                        *LLIST_link(cur_list.tail) = Some(d).tex_int();
+                                        cur_list.tail = d;
+                                    }
+                                }
+                            }
+                            current_block = 2772858075894446251;
+                        }
+                        4700797278417140031 =>
+                        /*main_lig_loop *//*1074: */
+                        {
+                            if main_i.s1 % 4 != LIG_TAG as u16 {
+                                current_block = 7236688557761431611;
+                                continue;
+                            }
+                            if cur_r == TOO_BIG_CHAR {
+                                current_block = 7236688557761431611;
+                            } else {
+                                break;
+                            }
+                        }
+                        2772858075894446251 => {
+                            // lab90:
+                            /*main_loop_move *//*1071: */
+                            if lig_stack.is_none() {
+                                big_switch = false;
+                                continue 'big_switch;
+                            }
+                            cur_q = cur_list.tail as i32;
+                            cur_l = MEM[lig_stack.unwrap()].b16.s0 as i32;
+                            current_block = 4014385708774270501;
+                        }
+                        _ => {
+                            // lab91:
+                            /*main_loop_move 1 */
+                            if is_char_node(lig_stack) {
+                                current_block = 249799543778823886; // lab92
+                                break 'c_125244;
+                            }
+                            // lab95:
+                            /*main_loop_move_lig *//*1072: */
+                            let ls = lig_stack.unwrap();
+                            let main_p = MEM[ls + 1].b32.s1.opt();
+                            if let Some(main_p) = main_p {
+                                MEM[cur_list.tail].b32.s1 = Some(main_p).tex_int();
+                                cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                            }
+                            temp_ptr = ls;
+                            lig_stack = LLIST_link(temp_ptr).opt();
+                            free_node(temp_ptr, SMALL_NODE_SIZE);
+                            main_i = FONT_CHARACTER_INFO(
+                                main_f,
+                                effective_char(true, main_f, cur_l as u16) as usize,
+                            );
+                            ligature_present = true;
+                            if let Some(ls) = lig_stack {
+                                cur_r = MEM[ls].b16.s0 as i32;
+                                current_block = 4700797278417140031;
+                            } else {
+                                if main_p.is_some() {
+                                    current_block = 18270385712206273994; // lab100
+                                    continue 'c_125244;
+                                }
+                                cur_r = bchar;
+                                current_block = 4700797278417140031;
+                            }
+                        }
+                    }
+                }
+                main_k = LIG_KERN_BASE[main_f as usize] + main_i.s0 as i32;
+                main_j = FONT_INFO[main_k as usize].b16;
+                if main_j.s3 as i32 <= 128 {
+                    current_block = 11331079115679122507; // lab112
+                    continue;
+                }
+                main_k = ((LIG_KERN_BASE[main_f as usize]
+                    + 256 * main_j.s1 as i32
+                    + main_j.s0 as i32) as i64
+                    + 32768
+                    - (256 * 128) as i64) as font_index;
+                current_block = 13962460947151495567; // lab111
+                break;
             }
         }
     }
