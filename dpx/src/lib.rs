@@ -1,7 +1,6 @@
 #![feature(extern_types)]
 #![feature(ptr_wrapping_offset_from)]
 #![feature(c_variadic)]
-#![feature(const_transmute)]
 #![allow(unused_unsafe)]
 #![deny(unused_assignments)]
 #![deny(clippy::reverse_range_loop)]
