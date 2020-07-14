@@ -24,24 +24,24 @@ matrix:
     - os: osx
       osx_image: xcode10.3
       rust: nightly
-    - os: windows
-      rust: nightly-msvc
-      env:
-        - VS15=true
-        - VCPKG_ROOT=${HOME}\\vcpkg
-        - VCPKGRS_DYNAMIC=1
-        - VCPKG_DEFAULT_TRIPLET=x64-windows
-        - TECTONIC_DEP_BACKEND=vcpkg
-        - RUST_TEST_THREADS=1
-        - FC_CACHEDIR=${VCPKG_ROOT}\\installed\\${VCPKG_DEFAULT_TRIPLET}\\tools\\fontconfig\\fonts\\cache
-        - FONTCONFIG_FILE=${VCPKG_ROOT}\\installed\\${VCPKG_DEFAULT_TRIPLET}\\tools\\fontconfig\\fonts\\fonts.conf
-        - FONTCONFIG_PATH=${VCPKG_ROOT}\\installed\\${VCPKG_DEFAULT_TRIPLET}\\tools\\fontconfig\\fonts\\conf.d
-      script:
-        - dist/prepare-win-ci-deps.bat
-        - sh dist/travis.sh
-      cache:
-        directories:
-          - ${VCPKG_ROOT}/installed
+    #- os: windows
+      #rust: nightly-msvc
+      #env:
+        #- VS15=true
+        #- VCPKG_ROOT=${HOME}\\vcpkg
+        #- VCPKGRS_DYNAMIC=1
+        #- VCPKG_DEFAULT_TRIPLET=x64-windows
+        #- TECTONIC_DEP_BACKEND=vcpkg
+        #- RUST_TEST_THREADS=1
+        #- FC_CACHEDIR=${VCPKG_ROOT}\\installed\\${VCPKG_DEFAULT_TRIPLET}\\tools\\fontconfig\\fonts\\cache
+        #- FONTCONFIG_FILE=${VCPKG_ROOT}\\installed\\${VCPKG_DEFAULT_TRIPLET}\\tools\\fontconfig\\fonts\\fonts.conf
+        #- FONTCONFIG_PATH=${VCPKG_ROOT}\\installed\\${VCPKG_DEFAULT_TRIPLET}\\tools\\fontconfig\\fonts\\conf.d
+      #script:
+        #- dist/prepare-win-ci-deps.bat
+        #- sh dist/travis.sh
+      #cache:
+        #directories:
+          #- ${VCPKG_ROOT}/installed
 
 
 # Don't CI branches besides master. Pull requests still get CI'd -- but

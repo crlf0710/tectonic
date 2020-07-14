@@ -1251,7 +1251,7 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
         {
             let mut next: *mut i8 = ptr::null_mut();
             let value = strtod(start.as_ptr() as *const i8, &mut next);
-            let pos = next.wrapping_offset_from(start.as_ptr() as *const i8) as usize;
+            let pos = next.offset_from(start.as_ptr() as *const i8) as usize;
             if pos < start.len()
                 && !b"<([{/%".contains(&(*next as u8))
                 && libc::isspace(start[pos] as _) == 0

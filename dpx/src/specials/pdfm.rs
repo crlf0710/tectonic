@@ -436,7 +436,7 @@ unsafe fn maybe_reencode_utf8(instring: *mut pdf_string) -> i32 {
             return -1i32;
         }
     }
-    (*instring).set(&wbuf[..(op.wrapping_offset_from(wbuf.as_ptr()) as usize)]);
+    (*instring).set(&wbuf[..(op.offset_from(wbuf.as_ptr()) as usize)]);
     0i32
 }
 /* The purpose of this routine is to check if given string object is

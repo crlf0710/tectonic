@@ -149,7 +149,7 @@ impl SkipWhite for &[u8] {
 }
 unsafe fn parsed_string(start: *const i8, end: *const i8) -> *mut i8 {
     let mut result: *mut i8 = ptr::null_mut();
-    let len = end.wrapping_offset_from(start) as i64 as i32;
+    let len = end.offset_from(start) as i64 as i32;
     if len > 0i32 {
         result = new(
             ((len + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
@@ -320,7 +320,7 @@ pub(crate) unsafe fn parse_pdf_object(
 ) -> *mut pdf_obj {
     let mut b = std::slice::from_raw_parts(
         *pp as *const i8 as *const u8,
-        endptr.wrapping_offset_from(*pp) as usize,
+        endptr.offset_from(*pp) as usize,
     );
     let obj = b.parse_pdf_object(pf);
     *pp = b.as_ptr() as *const i8;

@@ -1134,7 +1134,7 @@ unsafe fn t1char_build_charpath(
         if !(*data == endptr.offset(-1) && **data as i32 == 11i32) {
             warn!(
                 "Garbage after endchar. ({} bytes)",
-                endptr.wrapping_offset_from(*data) as i64 as i32
+                endptr.offset_from(*data) as i64 as i32
             );
         }
     } else if status < 0i32 {
@@ -1865,7 +1865,7 @@ unsafe fn t1char_encode_charpath(
     let fresh33 = dst;
     dst = dst.offset(1);
     *fresh33 = 14i32 as u8;
-    dst.wrapping_offset_from(save) as i64 as i32
+    dst.offset_from(save) as i64 as i32
 }
 
 pub(crate) unsafe fn t1char_convert_charstring(

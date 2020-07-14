@@ -69,7 +69,7 @@ unsafe fn pst_parse_any(inbuf: *mut *mut u8, inbufend: *mut u8) -> pst_obj {
     {
         cur = cur.offset(1)
     }
-    let len = cur.wrapping_offset_from(*inbuf) as i64 as u32;
+    let len = cur.offset_from(*inbuf) as i64 as u32;
     let data = new(
         (len.wrapping_add(1_u32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
     ) as *mut u8;

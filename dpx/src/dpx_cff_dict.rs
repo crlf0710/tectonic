@@ -628,7 +628,11 @@ unsafe fn pack_real(dest: &mut [u8], mut value: f64) -> usize {
             buffer[i] - b'0'
         } else if buffer[i] == b'e' {
             i += 1;
-            (if buffer[i] == b'-' { 0xc } else { 0xb })
+            if buffer[i] == b'-' {
+                0xc
+            } else {
+                0xb
+            }
         } else {
             panic!("{}: Invalid character.", "CFF")
         };
