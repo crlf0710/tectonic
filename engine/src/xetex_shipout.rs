@@ -16,10 +16,9 @@ use crate::xetex_ini::{
     job_name, last_bop, log_opened, max_h, max_print_line, max_push, max_v, name_of_file,
     output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht,
     rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr, str_start,
-    temp_ptr, term_offset, write_file, write_loc, write_open, xdv_buffer, xtx_ligature_present,
-    LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE,
-    FONT_INFO, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES,
-    WIDTH_BASE,
+    term_offset, write_file, write_loc, write_open, xdv_buffer, xtx_ligature_present, LR_problems,
+    LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
+    FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
 };
 use crate::xetex_ini::{memory_word, Selector};
 use crate::xetex_output::{
@@ -289,11 +288,11 @@ pub(crate) unsafe fn ship_out(p: usize) {
         /* Done with the synthesized special. The meat: emit this page box. */
 
         cur_v = *BOX_height(p) + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
-        temp_ptr = p;
+        let tmp_ptr = p;
         if NODE_type(p) == TextNode::VList.into() {
-            vlist_out();
+            vlist_out(tmp_ptr);
         } else {
-            hlist_out();
+            hlist_out(tmp_ptr);
         }
 
         dvi_out(EOP);
@@ -330,8 +329,8 @@ pub(crate) unsafe fn ship_out(p: usize) {
 }
 
 /*639: Output an hlist */
-unsafe fn hlist_out() {
-    let this_box = temp_ptr;
+unsafe fn hlist_out(tmp_ptr: usize) {
+    let this_box = tmp_ptr;
     let g_order: glue_ord = *BOX_glue_order(this_box) as _;
     let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
 
@@ -603,10 +602,10 @@ unsafe fn hlist_out() {
 
     /*1501: "Initialize hlist_out for mixed direction typesetting" */
 
-    temp_ptr = get_avail();
-    *LLIST_info(temp_ptr) = u16::from(MathNST::Before) as i32;
-    *LLIST_link(temp_ptr) = LR_ptr;
-    LR_ptr = Some(temp_ptr).tex_int();
+    let tmp_ptr = get_avail();
+    *LLIST_info(tmp_ptr) = u16::from(MathNST::Before) as i32;
+    *LLIST_link(tmp_ptr) = LR_ptr;
+    LR_ptr = Some(tmp_ptr).tex_int();
     if BOX_lr_mode(this_box) == LRMode::DList {
         if cur_dir == LR::RightToLeft {
             cur_dir = LR::LeftToRight;
@@ -621,12 +620,12 @@ unsafe fn hlist_out() {
     if cur_dir == LR::RightToLeft && BOX_lr_mode(this_box) != LRMode::Reversed {
         /*1508: "Reverse the complete hlist and set the subtype to reversed." */
         let save_h = cur_h; /* "SyncTeX: do nothing, it is too late" */
-        temp_ptr = popt.unwrap();
+        let tmp_ptr = popt.unwrap();
         let p = new_kern(0);
         *SYNCTEX_tag(p, MEDIUM_NODE_SIZE) = 0;
         *LLIST_link(prev_p) = Some(p).tex_int();
         cur_h = 0;
-        *LLIST_link(p) = reverse(this_box, None, &mut cur_g, &mut cur_glue);
+        *LLIST_link(p) = reverse(this_box, tmp_ptr, None, &mut cur_g, &mut cur_glue);
         *kern_NODE_width(p) = -cur_h;
         popt = Some(p);
         cur_h = save_h;
@@ -722,7 +721,7 @@ unsafe fn hlist_out() {
                         cur_v =
                             base_line +
                                 *BOX_shift_amount(p);
-                        temp_ptr = p;
+                        let tmp_ptr = p;
                         let edge =
                             cur_h +
                                 *BOX_width(p);
@@ -730,8 +729,8 @@ unsafe fn hlist_out() {
                             cur_h = edge;
                         }
                         if n == TextNode::VList {
-                            vlist_out();
-                        } else { hlist_out(); }
+                            vlist_out(tmp_ptr);
+                        } else { hlist_out(tmp_ptr); }
                         dvi_h = save_h;
                         dvi_v = save_v;
                         cur_h = edge;
@@ -1024,16 +1023,16 @@ unsafe fn hlist_out() {
                                         dvi_h = cur_h
                                     }
                                     let save_h = dvi_h;
-                                    temp_ptr = leader_box as usize;
+                                    let tmp_ptr = leader_box as usize;
                                     if cur_dir == LR::RightToLeft {
                                         cur_h += leader_wd;
                                     }
                                     let outer_doing_leaders = doing_leaders;
                                     doing_leaders = true;
                                     if NODE_type(leader_box as usize) == TextNode::VList.into() {
-                                        vlist_out();
+                                        vlist_out(tmp_ptr);
                                     } else {
-                                        hlist_out();
+                                        hlist_out(tmp_ptr);
                                     }
                                     doing_leaders = outer_doing_leaders;
                                     dvi_v = save_v;
@@ -1079,26 +1078,26 @@ unsafe fn hlist_out() {
                         /* <= this is end_LR(p) */
                         if MathNST::from(MEM[LR_ptr as usize].b32.s0 as u16) == MathNST::Eq(BE::End, mode)
                            {
-                            temp_ptr = LR_ptr as usize;
+                            let tmp_ptr = LR_ptr as usize;
                             LR_ptr =
-                                *LLIST_link(temp_ptr);
-                            *LLIST_link(temp_ptr) =
+                                *LLIST_link(tmp_ptr);
+                            *LLIST_link(tmp_ptr) =
                                 avail.tex_int();
-                            avail = Some(temp_ptr);
+                            avail = Some(tmp_ptr);
                         } else if mode != MathMode::Middle { // NODE_subtype(p)
                             LR_problems += 1;
                         }
                     } else {
-                        temp_ptr = get_avail();
-                        *LLIST_info(temp_ptr) = u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                        *LLIST_link(temp_ptr) =
+                        let tmp_ptr = get_avail();
+                        *LLIST_info(tmp_ptr) = u16::from(MathNST::Eq(BE::End, mode)) as i32;
+                        *LLIST_link(tmp_ptr) =
                             LR_ptr;
-                        LR_ptr = Some(temp_ptr).tex_int();
+                        LR_ptr = Some(tmp_ptr).tex_int();
                         if MathNST::from(MEM[p].b16.s0).dir() !=
                                  cur_dir {
                             /*1509: "Reverse an hlist segment and goto reswitch" */
                             let save_h = cur_h; /* = lig_char(p) */
-                            temp_ptr = LLIST_link(p).opt().unwrap();
+                            let tmp_ptr = LLIST_link(p).opt().unwrap();
                             rule_wd =
                                 *BOX_width(p);
                             free_node(p, MEDIUM_NODE_SIZE);
@@ -1107,7 +1106,7 @@ unsafe fn hlist_out() {
                             *LLIST_link(prev_p) = Some(p).tex_int();
                             cur_h = cur_h - left_edge + rule_wd;
                             *LLIST_link(p) =
-                                reverse(this_box,
+                                reverse(this_box, tmp_ptr,
                                         Some(new_edge(!cur_dir, 0)),
                                         &mut cur_g, &mut cur_glue);
                             *EDGE_NODE_edge_dist(p) =
@@ -1161,16 +1160,16 @@ unsafe fn hlist_out() {
             }
             _ => {}
         }
-        temp_ptr = LR_ptr as usize;
-        LR_ptr = *LLIST_link(temp_ptr);
-        *LLIST_link(temp_ptr) = avail.tex_int();
-        avail = Some(temp_ptr);
+        let tmp_ptr = LR_ptr as usize;
+        LR_ptr = *LLIST_link(tmp_ptr);
+        *LLIST_link(tmp_ptr) = avail.tex_int();
+        avail = Some(tmp_ptr);
     }
 
-    temp_ptr = LR_ptr as usize;
-    LR_ptr = *LLIST_link(temp_ptr);
-    *LLIST_link(temp_ptr) = avail.tex_int();
-    avail = Some(temp_ptr);
+    let tmp_ptr = LR_ptr as usize;
+    LR_ptr = *LLIST_link(tmp_ptr);
+    *LLIST_link(tmp_ptr) = avail.tex_int();
+    avail = Some(tmp_ptr);
 
     if BOX_lr_mode(this_box) == LRMode::DList {
         cur_dir = LR::RightToLeft;
@@ -1186,12 +1185,12 @@ unsafe fn hlist_out() {
 }
 
 /*651: "When vlist_out is called, its duty is to output the box represented by
- * the vlist_node pointed to by temp_ptr. The reference point of that box has
+ * the vlist_node pointed to by tmp_ptr. The reference point of that box has
  * coordinates (cur_h, cur_v)." */
-unsafe fn vlist_out() {
+unsafe fn vlist_out(tmp_ptr: usize) {
     let mut cur_g = 0;
     let mut cur_glue = 0_f64;
-    let this_box = temp_ptr;
+    let this_box = tmp_ptr;
     let g_order = GlueOrder::from(*BOX_glue_order(this_box));
     let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
     let mut popt = BOX_list_ptr(this_box).opt();
@@ -1262,11 +1261,11 @@ unsafe fn vlist_out() {
                     } else {
                         cur_h = left_edge + *BOX_shift_amount(p);
                     }
-                    temp_ptr = p;
+                    let tmp_ptr = p;
                     if n == TextNode::VList {
-                        vlist_out();
+                        vlist_out(tmp_ptr);
                     } else {
-                        hlist_out();
+                        hlist_out(tmp_ptr);
                     }
                     dvi_h = save_h;
                     dvi_v = save_v;
@@ -1494,14 +1493,14 @@ unsafe fn vlist_out() {
                                 }
 
                                 let save_v = dvi_v;
-                                temp_ptr = leader_box;
+                                let tmp_ptr = leader_box;
                                 let outer_doing_leaders = doing_leaders;
                                 doing_leaders = true;
 
                                 if NODE_type(leader_box) == TextNode::VList.into() {
-                                    vlist_out();
+                                    vlist_out(tmp_ptr);
                                 } else {
-                                    hlist_out();
+                                    hlist_out(tmp_ptr);
                                 }
 
                                 doing_leaders = outer_doing_leaders;
@@ -1544,13 +1543,14 @@ unsafe fn vlist_out() {
 
 /*1510: "The reverse function defined here is responsible for reversing the
  * nodes of an hlist (segment). this_box is the enclosing hlist_node; t is to
- * become the tail of the reversed list; and the global variable temp_ptr is
+ * become the tail of the reversed list; and the variable tmp_ptr is
  * the head of the list to be reversed. cur_g and cur_glue are the current
  * glue rounding state variables, to be updated by this function. We remove
  * nodes from the original list and add them to the head of the new one."
  */
 unsafe fn reverse(
     this_box: usize,
+    tmp_ptr: usize,
     mut t: Option<usize>,
     mut cur_g: *mut scaled_t,
     mut cur_glue: *mut f64,
@@ -1558,7 +1558,7 @@ unsafe fn reverse(
     let g_order = GlueOrder::from(*BOX_glue_order(this_box));
     let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
     let mut l = t;
-    let mut popt = Some(temp_ptr);
+    let mut popt = Some(tmp_ptr);
     let mut m = MIN_HALFWORD;
     let mut n = MIN_HALFWORD;
     's_58: loop {
@@ -1605,7 +1605,7 @@ unsafe fn reverse(
                     TextNode::Glue => {
                         /*1486: "Handle a glue node for mixed direction typesetting" */
                         let g = *GLUE_NODE_glue_ptr(p) as usize; /* "will never match" */
-                        rule_wd = *BOX_width(g) - *cur_g; /* = mem[lig_char(temp_ptr)] */
+                        rule_wd = *BOX_width(g) - *cur_g; /* = mem[lig_char(tmp_ptr)] */
 
                         match g_sign {
                             GlueSign::Normal => {}
@@ -1660,14 +1660,14 @@ unsafe fn reverse(
                     }
                     TextNode::Ligature => {
                         flush_node_list(LIGATURE_NODE_lig_ptr(p).opt());
-                        temp_ptr = p;
+                        let tmp_ptr = p;
                         let p = get_avail();
-                        *LIGATURE_NODE_lig_char(p) = *LIGATURE_NODE_lig_char(temp_ptr);
-                        *LIGATURE_NODE_lig_font(p) = *LIGATURE_NODE_lig_font(temp_ptr);
-                        *LIGATURE_NODE_lig_ptr(p) = *LIGATURE_NODE_lig_ptr(temp_ptr);
+                        *LIGATURE_NODE_lig_char(p) = *LIGATURE_NODE_lig_char(tmp_ptr);
+                        *LIGATURE_NODE_lig_font(p) = *LIGATURE_NODE_lig_font(tmp_ptr);
+                        *LIGATURE_NODE_lig_ptr(p) = *LIGATURE_NODE_lig_ptr(tmp_ptr);
                         *LLIST_link(p) = q;
                         popt = Some(p);
-                        free_node(temp_ptr, SMALL_NODE_SIZE);
+                        free_node(tmp_ptr, SMALL_NODE_SIZE);
                         continue;
                     }
                     TextNode::Math => {
@@ -1681,10 +1681,10 @@ unsafe fn reverse(
                                 set_NODE_type(p, TextNode::Kern);
                                 LR_problems += 1;
                             } else {
-                                temp_ptr = LR_ptr as usize;
-                                LR_ptr = *LLIST_link(temp_ptr);
-                                *LLIST_link(temp_ptr) = avail.tex_int();
-                                avail = Some(temp_ptr);
+                                let tmp_ptr = LR_ptr as usize;
+                                LR_ptr = *LLIST_link(tmp_ptr);
+                                *LLIST_link(tmp_ptr) = avail.tex_int();
+                                avail = Some(tmp_ptr);
 
                                 if n > MIN_HALFWORD {
                                     n -= 1;
@@ -1705,10 +1705,10 @@ unsafe fn reverse(
                                 }
                             }
                         } else {
-                            temp_ptr = get_avail();
-                            *LLIST_info(temp_ptr) = 4 * (MEM[p].b16.s0 as i32 / 4) + 3;
-                            *LLIST_link(temp_ptr) = LR_ptr;
-                            LR_ptr = Some(temp_ptr).tex_int();
+                            let tmp_ptr = get_avail();
+                            *LLIST_info(tmp_ptr) = 4 * (MEM[p].b16.s0 as i32 / 4) + 3;
+                            *LLIST_link(tmp_ptr) = LR_ptr;
+                            LR_ptr = Some(tmp_ptr).tex_int();
                             if n > MIN_HALFWORD || MEM[p].b16.s0 / 8 != cur_dir as u16 {
                                 n += 1;
                                 MEM[p].b16.s0 += 1; // NODE_subtype(p)

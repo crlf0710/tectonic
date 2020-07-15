@@ -570,8 +570,6 @@ pub(crate) static mut arith_error: bool = false;
 #[no_mangle]
 pub(crate) static mut tex_remainder: scaled_t = 0;
 #[no_mangle]
-pub(crate) static mut temp_ptr: usize = 0;
-#[no_mangle]
 pub(crate) static mut MEM: Vec<memory_word> = Vec::new();
 #[no_mangle]
 pub(crate) static mut lo_mem_max: i32 = 0;
@@ -3757,9 +3755,9 @@ unsafe fn final_cleanup() {
         print_cstr(b" was incomplete)");
         if_line = MEM[cp + 1].b32.s1;
         cur_if = MEM[cp].b16.s0 as i16;
-        temp_ptr = cp;
+        let tmp_ptr = cp;
         cond_ptr = LLIST_link(cp).opt();
-        free_node(temp_ptr, IF_NODE_SIZE);
+        free_node(tmp_ptr, IF_NODE_SIZE);
     }
     if history != TTHistory::SPOTLESS {
         if history == TTHistory::WARNING_ISSUED || interaction != InteractionMode::ErrorStop {

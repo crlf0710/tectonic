@@ -19,10 +19,10 @@ use crate::xetex_ext::{
 use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
     cur_list, cur_val, cur_val1, empty, file_line_error_style_p, insert_src_special_every_math,
-    just_box, pre_adjust_tail, temp_ptr, tex_remainder, total_shrink, xtx_ligature_present,
-    LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_EC,
-    FONT_INFO, FONT_LAYOUT_ENGINE, FONT_PARAMS, HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE,
-    MEM, NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
+    just_box, pre_adjust_tail, tex_remainder, total_shrink, xtx_ligature_present, LR_problems,
+    LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_EC, FONT_INFO,
+    FONT_LAYOUT_ENGINE, FONT_PARAMS, HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM,
+    NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t, memory_word};
 use crate::xetex_layout_interface::*;
@@ -187,10 +187,10 @@ pub(crate) unsafe fn init_math() {
                     .s1;
             if *INTPAR(IntPar::texxet) > 0 {
                 // 1497:
-                temp_ptr = get_avail(); /*1523:*/
-                MEM[temp_ptr].b32.s0 = u16::from(MathNST::Before) as i32; /*:1398 */
-                *LLIST_link(temp_ptr) = LR_ptr;
-                LR_ptr = Some(temp_ptr).tex_int();
+                let tmp_ptr = get_avail(); /*1523:*/
+                MEM[tmp_ptr].b32.s0 = u16::from(MathNST::Before) as i32; /*:1398 */
+                *LLIST_link(tmp_ptr) = LR_ptr;
+                LR_ptr = Some(tmp_ptr).tex_int();
             }
             while let Some(mut p) = popt {
                 let found;
@@ -235,19 +235,19 @@ pub(crate) unsafe fn init_math() {
                                     if MEM[LR_ptr as usize].b32.s0
                                         == 4i32 * (MEM[p].b16.s0 as i32 / 4) + 3
                                     {
-                                        temp_ptr = LR_ptr as usize;
-                                        LR_ptr = *LLIST_link(temp_ptr);
-                                        *LLIST_link(temp_ptr) = avail.tex_int();
-                                        avail = Some(temp_ptr);
+                                        let tmp_ptr = LR_ptr as usize;
+                                        LR_ptr = *LLIST_link(tmp_ptr);
+                                        *LLIST_link(tmp_ptr) = avail.tex_int();
+                                        avail = Some(tmp_ptr);
                                     } else if MEM[p].b16.s0 as i32 > 4 {
                                         w = MAX_HALFWORD;
                                         break;
                                     }
                                 } else {
-                                    temp_ptr = get_avail();
-                                    MEM[temp_ptr].b32.s0 = 4i32 * (MEM[p].b16.s0 as i32 / 4) + 3;
-                                    *LLIST_link(temp_ptr) = LR_ptr;
-                                    LR_ptr = Some(temp_ptr).tex_int();
+                                    let tmp_ptr = get_avail();
+                                    MEM[tmp_ptr].b32.s0 = 4i32 * (MEM[p].b16.s0 as i32 / 4) + 3;
+                                    *LLIST_link(tmp_ptr) = LR_ptr;
+                                    LR_ptr = Some(tmp_ptr).tex_int();
                                     if MEM[p].b16.s0 as i32 / 8 != cur_dir as i32 {
                                         just_reverse(p);
                                         p = TEMP_HEAD;
@@ -327,10 +327,10 @@ pub(crate) unsafe fn init_math() {
             }
             if *INTPAR(IntPar::texxet) > 0 {
                 while let Some(l) = LR_ptr.opt() {
-                    temp_ptr = l;
-                    LR_ptr = *LLIST_link(temp_ptr);
-                    *LLIST_link(temp_ptr) = avail.tex_int();
-                    avail = Some(temp_ptr);
+                    let tmp_ptr = l;
+                    LR_ptr = *LLIST_link(tmp_ptr);
+                    *LLIST_link(tmp_ptr) = avail.tex_int();
+                    avail = Some(tmp_ptr);
                 }
                 if LR_problems != 0 {
                     w = MAX_HALFWORD;
@@ -835,15 +835,15 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
         }
         let u = new_math(0, END_M_CODE);
         let j = if NODE_type(t) == TextNode::Glue.into() {
-            let j = new_skip_param(GluePar::right_skip);
+            let (j, tmp_ptr) = new_skip_param(GluePar::right_skip);
             *LLIST_link(q as usize) = Some(j).tex_int();
             *LLIST_link(j) = Some(u).tex_int();
             let j = *GLUE_NODE_glue_ptr(t) as usize;
-            *GLUE_SPEC_stretch_order(temp_ptr) = *GLUE_SPEC_stretch_order(j);
-            *GLUE_SPEC_shrink_order(temp_ptr) = *GLUE_SPEC_shrink_order(j);
-            *GLUE_SPEC_size(temp_ptr) = e - *GLUE_SPEC_size(j);
-            *GLUE_SPEC_stretch(temp_ptr) = -(*GLUE_SPEC_stretch(j));
-            *GLUE_SPEC_shrink(temp_ptr) = -(*GLUE_SPEC_shrink(j));
+            *GLUE_SPEC_stretch_order(tmp_ptr) = *GLUE_SPEC_stretch_order(j);
+            *GLUE_SPEC_shrink_order(tmp_ptr) = *GLUE_SPEC_shrink_order(j);
+            *GLUE_SPEC_size(tmp_ptr) = e - *GLUE_SPEC_size(j);
+            *GLUE_SPEC_stretch(tmp_ptr) = -(*GLUE_SPEC_stretch(j));
+            *GLUE_SPEC_shrink(tmp_ptr) = -(*GLUE_SPEC_shrink(j));
             *LLIST_link(u) = Some(t).tex_int();
             Some(j)
         } else {
@@ -854,15 +854,15 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
         };
         let u = new_math(0, BEGIN_M_CODE);
         if NODE_type(r) == TextNode::Glue.into() {
-            let j = new_skip_param(GluePar::left_skip);
+            let (j, tmp_ptr) = new_skip_param(GluePar::left_skip);
             *LLIST_link(u) = Some(j).tex_int();
             *LLIST_link(j) = Some(p).tex_int();
             let j = *GLUE_NODE_glue_ptr(r) as usize;
-            *GLUE_SPEC_stretch_order(temp_ptr) = *GLUE_SPEC_stretch_order(j);
-            *GLUE_SPEC_shrink_order(temp_ptr) = *GLUE_SPEC_shrink_order(j);
-            *GLUE_SPEC_size(temp_ptr) = d - *GLUE_SPEC_size(j);
-            *GLUE_SPEC_stretch(temp_ptr) = -(*GLUE_SPEC_stretch(j));
-            *GLUE_SPEC_shrink(temp_ptr) = -(*GLUE_SPEC_shrink(j));
+            *GLUE_SPEC_stretch_order(tmp_ptr) = *GLUE_SPEC_stretch_order(j);
+            *GLUE_SPEC_shrink_order(tmp_ptr) = *GLUE_SPEC_shrink_order(j);
+            *GLUE_SPEC_size(tmp_ptr) = d - *GLUE_SPEC_size(j);
+            *GLUE_SPEC_stretch(tmp_ptr) = -(*GLUE_SPEC_stretch(j));
+            *GLUE_SPEC_shrink(tmp_ptr) = -(*GLUE_SPEC_shrink(j));
             *LLIST_link(r) = Some(u).tex_int();
         } else {
             MEM[r + 1].b32.s1 = d;

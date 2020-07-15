@@ -15,7 +15,7 @@ use crate::xetex_ini::{
     best_height_plus_depth, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr,
     file_line_error_style_p, insert_penalties, last_glue, last_kern, last_node_type, last_penalty,
     line, output_active, page_contents, page_so_far, page_tail, sa_root,
-    semantic_pagination_enabled, temp_ptr, MEM, NEST, NEST_PTR,
+    semantic_pagination_enabled, MEM, NEST, NEST_PTR,
 };
 use crate::xetex_output::{print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr};
 use crate::xetex_scaledmath::x_over_n;
@@ -243,15 +243,15 @@ unsafe fn fire_up(c: usize) {
                                 MEM[p + 4].b32.s0 =
                                     prune_page_top(MEM[(r + 1) as usize].b32.s1.opt(), false);
                                 if MEM[p + 4].b32.s0.opt().is_some() {
-                                    temp_ptr = vpackage(
+                                    let tmp_ptr = vpackage(
                                         MEM[p + 4].b32.s0.opt(),
                                         0,
                                         PackMode::Additional as _,
                                         MAX_HALFWORD,
                                     );
                                     MEM[p + 3].b32.s1 =
-                                        MEM[temp_ptr + 3].b32.s1 + MEM[temp_ptr + 2].b32.s1;
-                                    free_node(temp_ptr, BOX_NODE_SIZE);
+                                        MEM[tmp_ptr + 3].b32.s1 + MEM[tmp_ptr + 2].b32.s1;
+                                    free_node(tmp_ptr, BOX_NODE_SIZE);
                                     wait = true
                                 }
                             }
@@ -532,12 +532,13 @@ pub(crate) unsafe fn build_page() {
                         freeze_page_specs(PageContents::BoxThere);
                     } else { page_contents = PageContents::BoxThere }
 
-                    slf.q = new_skip_param(GluePar::top_skip) as i32; /* "now temp_ptr = glue_ptr(q) */
+                    let (q, tmp_ptr) = new_skip_param(GluePar::top_skip);
+                    slf.q = q as i32; /* "now tmp_ptr = glue_ptr(q) */
 
-                    if *BOX_width(temp_ptr) > *BOX_height(slf.p) {
-                        *BOX_width(temp_ptr) -= *BOX_height(slf.p);
+                    if *BOX_width(tmp_ptr) > *BOX_height(slf.p) {
+                        *BOX_width(tmp_ptr) -= *BOX_height(slf.p);
                     } else {
-                        *BOX_width(temp_ptr) = 0;
+                        *BOX_width(tmp_ptr) = 0;
                     }
 
                     *LLIST_link(slf.q as usize) = Some(slf.p).tex_int();

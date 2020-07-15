@@ -18,9 +18,9 @@ use crate::xetex_ini::{
     hyf, hyf_distance, hyf_next, hyf_num, hyph_index, hyph_start, hyphen_passed, init_lft,
     init_lig, init_list, init_trie, just_box, last_leftmost_char, last_rightmost_char, lft_hit,
     lig_stack, ligature_present, max_hyph_char, op_start, pack_begin_line, pre_adjust_tail, rt_hit,
-    semantic_pagination_enabled, str_pool, str_start, temp_ptr, trie_not_ready, trie_trc, trie_trl,
-    trie_tro, xtx_ligature_present, BCHAR_LABEL, CHAR_BASE, EQTB, FONT_BCHAR, FONT_INFO,
-    HYPHEN_CHAR, HYPH_LINK, HYPH_LIST, HYPH_WORD, KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
+    semantic_pagination_enabled, str_pool, str_start, trie_not_ready, trie_trc, trie_trl, trie_tro,
+    xtx_ligature_present, BCHAR_LABEL, CHAR_BASE, EQTB, FONT_BCHAR, FONT_INFO, HYPHEN_CHAR,
+    HYPH_LINK, HYPH_LIST, HYPH_WORD, KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, memory_word, MIN_TRIE_OP};
 use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
@@ -1059,14 +1059,14 @@ unsafe fn post_line_break(mut d: bool) {
             /*1494:*/
             let mut q = *LLIST_link(TEMP_HEAD);
             if let Some(lr) = LR_ptr {
-                temp_ptr = lr;
+                let mut tmp_ptr = lr;
                 let mut r = q;
                 loop {
-                    let s = new_math(0, MathNST::from((MEM[temp_ptr].b32.s0 - 1) as u16)) as usize;
+                    let s = new_math(0, MathNST::from((MEM[tmp_ptr].b32.s0 - 1) as u16)) as usize;
                     *LLIST_link(s) = r;
                     r = s as i32;
-                    if let Some(next) = LLIST_link(temp_ptr).opt() {
-                        temp_ptr = next;
+                    if let Some(next) = LLIST_link(tmp_ptr).opt() {
+                        tmp_ptr = next;
                     } else {
                         break;
                     }
@@ -1080,17 +1080,17 @@ unsafe fn post_line_break(mut d: bool) {
                     if be == BE::End {
                         if let Some(lr) = LR_ptr {
                             if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
-                                temp_ptr = lr;
-                                LR_ptr = LLIST_link(temp_ptr).opt();
-                                *LLIST_link(temp_ptr) = avail.tex_int();
-                                avail = Some(temp_ptr);
+                                let tmp_ptr = lr;
+                                LR_ptr = LLIST_link(tmp_ptr).opt();
+                                *LLIST_link(tmp_ptr) = avail.tex_int();
+                                avail = Some(tmp_ptr);
                             }
                         }
                     } else {
-                        temp_ptr = get_avail();
-                        MEM[temp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                        *LLIST_link(temp_ptr) = LR_ptr.tex_int();
-                        LR_ptr = Some(temp_ptr);
+                        let tmp_ptr = get_avail();
+                        MEM[tmp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
+                        *LLIST_link(tmp_ptr) = LR_ptr.tex_int();
+                        LR_ptr = Some(tmp_ptr);
                     }
                 }
                 q = *LLIST_link(q as usize);
@@ -1167,17 +1167,17 @@ unsafe fn post_line_break(mut d: bool) {
                         if be == BE::End {
                             if let Some(lr) = LR_ptr {
                                 if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
-                                    temp_ptr = lr;
-                                    LR_ptr = LLIST_link(temp_ptr).opt();
-                                    *LLIST_link(temp_ptr) = avail.tex_int();
-                                    avail = Some(temp_ptr);
+                                    let tmp_ptr = lr;
+                                    LR_ptr = LLIST_link(tmp_ptr).opt();
+                                    *LLIST_link(tmp_ptr) = avail.tex_int();
+                                    avail = Some(tmp_ptr);
                                 }
                             }
                         } else {
-                            temp_ptr = get_avail();
-                            MEM[temp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                            *LLIST_link(temp_ptr) = LR_ptr.tex_int();
-                            LR_ptr = Some(temp_ptr);
+                            let tmp_ptr = get_avail();
+                            MEM[tmp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
+                            *LLIST_link(tmp_ptr) = LR_ptr.tex_int();
+                            LR_ptr = Some(tmp_ptr);
                         }
                     }
                 }
@@ -1236,9 +1236,9 @@ unsafe fn post_line_break(mut d: bool) {
                 let mut ropt = Some(lr);
 
                 while let Some(r) = ropt {
-                    temp_ptr = new_math(0, MathNST::from(MEM[r].b32.s0 as u16));
-                    *LLIST_link(s) = Some(temp_ptr).tex_int();
-                    s = temp_ptr;
+                    let tmp_ptr = new_math(0, MathNST::from(MEM[r].b32.s0 as u16));
+                    *LLIST_link(s) = Some(tmp_ptr).tex_int();
+                    s = tmp_ptr;
                     ropt = LLIST_link(r).opt();
                 }
 
@@ -1383,17 +1383,17 @@ unsafe fn post_line_break(mut d: bool) {
                         if be == BE::End {
                             if let Some(lr) = LR_ptr {
                                 if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
-                                    temp_ptr = lr;
-                                    LR_ptr = LLIST_link(temp_ptr).opt();
-                                    *LLIST_link(temp_ptr) = avail.tex_int();
-                                    avail = Some(temp_ptr);
+                                    let tmp_ptr = lr;
+                                    LR_ptr = LLIST_link(tmp_ptr).opt();
+                                    *LLIST_link(tmp_ptr) = avail.tex_int();
+                                    avail = Some(tmp_ptr);
                                 }
                             }
                         } else {
-                            temp_ptr = get_avail();
-                            MEM[temp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                            *LLIST_link(temp_ptr) = LR_ptr.tex_int();
-                            LR_ptr = Some(temp_ptr);
+                            let tmp_ptr = get_avail();
+                            MEM[tmp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
+                            *LLIST_link(tmp_ptr) = LR_ptr.tex_int();
+                            LR_ptr = Some(tmp_ptr);
                         }
                     }
                 }

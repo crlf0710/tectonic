@@ -61,9 +61,9 @@ use crate::xetex_ini::{
     pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files,
     pstack, quoted_filename, radix, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain,
     sa_level, sa_root, save_native_len, scanner_status, selector, set_box_allowed, shown_mode,
-    skip_line, space_class, stop_at_space, str_pool, str_ptr, str_start, tally, temp_ptr,
-    term_offset, tex_remainder, texmf_log_name, total_shrink, total_stretch, trick_buf,
-    trick_count, use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
+    skip_line, space_class, stop_at_space, str_pool, str_ptr, str_start, tally, term_offset,
+    tex_remainder, texmf_log_name, total_shrink, total_stretch, trick_buf, trick_count,
+    use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
     xtx_ligature_present, LR_problems, LR_ptr, BASE_PTR, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE,
     DEPTH_BASE, EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_CHECK,
     FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE,
@@ -494,12 +494,12 @@ pub(crate) unsafe fn new_glue(q: usize) -> usize {
     *GLUE_SPEC_ref_count(q) += 1;
     p
 }
-pub(crate) unsafe fn new_skip_param(n: GluePar) -> usize {
-    temp_ptr = new_spec(EQTB[(GLUE_BASE as i32 + n as i32) as usize].val as usize); // 232
-    let p = new_glue(temp_ptr);
-    *GLUE_SPEC_ref_count(temp_ptr) = None.tex_int();
+pub(crate) unsafe fn new_skip_param(n: GluePar) -> (usize, usize) {
+    let tmp_ptr = new_spec(EQTB[(GLUE_BASE as i32 + n as i32) as usize].val as usize); // 232
+    let p = new_glue(tmp_ptr);
+    *GLUE_SPEC_ref_count(tmp_ptr) = None.tex_int();
     MEM[p].b16.s0 = n as u16 + 1;
-    p
+    (p, tmp_ptr)
 }
 pub(crate) unsafe fn new_kern(w: i32) -> usize {
     let p = get_node(MEDIUM_NODE_SIZE);
@@ -700,21 +700,21 @@ pub(crate) unsafe fn print_subsidiary_data(p: usize, mut c: UTF16_code) {
     } else {
         str_pool[pool_ptr as usize] = c;
         pool_ptr += 1;
-        temp_ptr = p;
+        let tmp_ptr = p;
         match MathCell::n(MEM[p].b32.s1).unwrap() {
             MathCell::MathChar => {
                 print_ln();
                 print_current_string();
                 print_fam_and_char(p);
             }
-            MathCell::SubBox => show_info(),
+            MathCell::SubBox => show_info(tmp_ptr),
             MathCell::SubMList => {
                 if MEM[p].b32.s0.opt().is_none() {
                     print_ln();
                     print_current_string();
                     print_cstr(b"{}");
                 } else {
-                    show_info();
+                    show_info(tmp_ptr);
                 }
             }
             _ => {}
@@ -11088,10 +11088,10 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
     total_shrink[FILLL as usize] = 0;
     if *INTPAR(IntPar::texxet) > 0 {
         /*1497: */
-        temp_ptr = get_avail();
-        MEM[temp_ptr].b32.s0 = u16::from(MathNST::Before) as i32;
-        *LLIST_link(temp_ptr) = LR_ptr;
-        LR_ptr = Some(temp_ptr).tex_int();
+        let tmp_ptr = get_avail();
+        MEM[tmp_ptr].b32.s0 = u16::from(MathNST::Before) as i32;
+        *LLIST_link(tmp_ptr) = LR_ptr;
+        LR_ptr = Some(tmp_ptr).tex_int();
     }
     while popt.is_some() {
         /*674: */
@@ -11274,20 +11274,20 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                             if MathNST::from(MEM[LR_ptr as usize].b32.s0 as u16)
                                 == MathNST::Eq(BE::End, mode)
                             {
-                                temp_ptr = LR_ptr as usize; /*689: */
-                                LR_ptr = *LLIST_link(temp_ptr);
-                                *LLIST_link(temp_ptr) = avail.tex_int();
-                                avail = Some(temp_ptr);
+                                let tmp_ptr = LR_ptr as usize; /*689: */
+                                LR_ptr = *LLIST_link(tmp_ptr);
+                                *LLIST_link(tmp_ptr) = avail.tex_int();
+                                avail = Some(tmp_ptr);
                             } else {
                                 LR_problems += 1;
                                 set_NODE_type(p, TextNode::Kern);
                                 set_kern_NODE_subtype(p, KernNST::Explicit);
                             }
                         } else {
-                            temp_ptr = get_avail();
-                            MEM[temp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                            *LLIST_link(temp_ptr) = LR_ptr;
-                            LR_ptr = Some(temp_ptr).tex_int();
+                            let tmp_ptr = get_avail();
+                            MEM[tmp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
+                            *LLIST_link(tmp_ptr) = LR_ptr;
+                            LR_ptr = Some(tmp_ptr).tex_int();
                         }
                     }
                 }
@@ -11452,14 +11452,14 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                     q = next;
                 } /*:673 */
                 loop {
-                    temp_ptr = q;
+                    let tmp_ptr = q;
                     q = new_math(0, MathNST::from(*LLIST_info(LR_ptr as usize) as u16));
-                    *LLIST_link(temp_ptr) = Some(q).tex_int();
+                    *LLIST_link(tmp_ptr) = Some(q).tex_int();
                     LR_problems = LR_problems + 10000;
-                    temp_ptr = LR_ptr as usize;
-                    LR_ptr = *LLIST_link(temp_ptr);
-                    *LLIST_link(temp_ptr) = avail.tex_int();
-                    avail = Some(temp_ptr);
+                    let tmp_ptr = LR_ptr as usize;
+                    LR_ptr = *LLIST_link(tmp_ptr);
+                    *LLIST_link(tmp_ptr) = avail.tex_int();
+                    avail = Some(tmp_ptr);
                     if MathNST::from(MEM[LR_ptr as usize].b32.s0 as u16) == MathNST::Before {
                         break;
                     }
@@ -11475,10 +11475,10 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 LR_problems = 0;
                 return common_ending(r, q);
             } else {
-                temp_ptr = LR_ptr as usize;
-                LR_ptr = *LLIST_link(temp_ptr);
-                *LLIST_link(temp_ptr) = avail.tex_int();
-                avail = Some(temp_ptr);
+                let tmp_ptr = LR_ptr as usize;
+                LR_ptr = *LLIST_link(tmp_ptr);
+                *LLIST_link(tmp_ptr) = avail.tex_int();
+                avail = Some(tmp_ptr);
                 if LR_ptr.opt().is_some() {
                     confusion(b"LR1");
                 }
@@ -11688,7 +11688,6 @@ pub(crate) unsafe fn vpackage(
     }
 }
 pub(crate) unsafe fn append_to_vlist(b: usize) {
-    let mut p: i32 = 0;
     let mut upwards: bool = false;
     upwards = *INTPAR(IntPar::xetex_upwards) > 0;
     if cur_list.aux.b32.s1 > IGNORE_DEPTH {
@@ -11701,14 +11700,15 @@ pub(crate) unsafe fn append_to_vlist(b: usize) {
                 - cur_list.aux.b32.s1
                 - *BOX_height(b)
         };
-        if d < *DIMENPAR(DimenPar::line_skip_limit) {
-            p = new_param_glue(GluePar::line_skip) as i32;
+        let p = if d < *DIMENPAR(DimenPar::line_skip_limit) {
+            new_param_glue(GluePar::line_skip)
         } else {
-            p = new_skip_param(GluePar::baseline_skip) as i32;
-            MEM[temp_ptr + 1].b32.s1 = d
-        }
-        MEM[cur_list.tail].b32.s1 = p;
-        cur_list.tail = p as usize;
+            let (p, tmp_ptr) = new_skip_param(GluePar::baseline_skip);
+            MEM[tmp_ptr + 1].b32.s1 = d;
+            p
+        };
+        MEM[cur_list.tail].b32.s1 = Some(p).tex_int();
+        cur_list.tail = p;
     }
     MEM[cur_list.tail].b32.s1 = b as i32;
     cur_list.tail = b;
@@ -11745,8 +11745,8 @@ pub(crate) unsafe fn new_choice() -> usize {
     *CHOICE_NODE_scriptscript(p) = None.tex_int();
     p
 }
-pub(crate) unsafe fn show_info() {
-    show_node_list(MEM[temp_ptr].b32.s0.opt());
+pub(crate) unsafe fn show_info(tmp_ptr: usize) {
+    show_node_list(MEM[tmp_ptr].b32.s0.opt());
 }
 pub(crate) unsafe fn push_alignment() {
     let p = get_node(ALIGN_STACK_NODE_SIZE);
@@ -14462,10 +14462,10 @@ pub(crate) unsafe fn just_reverse(p: usize) {
                         set_NODE_type(p, TextNode::Kern);
                         LR_problems += 1;
                     } else {
-                        temp_ptr = LR_ptr as usize;
-                        LR_ptr = *LLIST_link(temp_ptr);
-                        *LLIST_link(temp_ptr) = avail.tex_int();
-                        avail = Some(temp_ptr);
+                        let tmp_ptr = LR_ptr as usize;
+                        LR_ptr = *LLIST_link(tmp_ptr);
+                        *LLIST_link(tmp_ptr) = avail.tex_int();
+                        avail = Some(tmp_ptr);
                         if n > MIN_HALFWORD {
                             n -= 1;
                             MEM[p].b16.s0 -= 1;
@@ -14480,10 +14480,10 @@ pub(crate) unsafe fn just_reverse(p: usize) {
                         }
                     }
                 } else {
-                    temp_ptr = get_avail();
-                    MEM[temp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                    *LLIST_link(temp_ptr) = LR_ptr;
-                    LR_ptr = Some(temp_ptr).tex_int();
+                    let tmp_ptr = get_avail();
+                    MEM[tmp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
+                    *LLIST_link(tmp_ptr) = LR_ptr;
+                    LR_ptr = Some(tmp_ptr).tex_int();
                     if n > MIN_HALFWORD || MathNST::from(MEM[p].b16.s0).dir() != cur_dir {
                         n += 1;
                         MEM[p].b16.s0 += 1;
@@ -16495,14 +16495,14 @@ pub(crate) unsafe fn main_control() {
                 }
             }
             if *INTPAR(IntPar::tracing_lost_chars) > 0 {
-                temp_ptr = 0;
-                while temp_ptr < native_len as usize {
-                    main_k = *native_text.offset(temp_ptr as isize) as font_index;
-                    temp_ptr += 1;
+                let mut tmp_ptr = 0;
+                while tmp_ptr < native_len as usize {
+                    main_k = *native_text.offset(tmp_ptr as isize) as font_index;
+                    tmp_ptr += 1;
                     if main_k >= 0xd800 && main_k < 0xdc00 {
                         main_k = (65536 + ((main_k - 0xd800) * 1024) as i64) as font_index;
-                        main_k = main_k + *native_text.offset(temp_ptr as isize) as i32 - 0xdc00;
-                        temp_ptr += 1;
+                        main_k = main_k + *native_text.offset(tmp_ptr as isize) as i32 - 0xdc00;
+                        tmp_ptr += 1;
                     }
                     if map_char_to_glyph(main_f, main_k) == 0 {
                         char_warning(main_f, main_k);
@@ -16518,8 +16518,8 @@ pub(crate) unsafe fn main_control() {
                         if !is_char_node(Some(main_ppp))
                             && NODE_type(main_ppp) == TextNode::Disc.into()
                         {
-                            temp_ptr = main_ppp;
-                            for _ in 0..(*DISCRETIONARY_NODE_replace_count(temp_ptr)) {
+                            let tmp_ptr = main_ppp;
+                            for _ in 0..(*DISCRETIONARY_NODE_replace_count(tmp_ptr)) {
                                 main_ppp = LLIST_link(main_ppp).opt().unwrap();
                             }
                         }
@@ -16528,7 +16528,7 @@ pub(crate) unsafe fn main_control() {
                         }
                     }
                 }
-                temp_ptr = 0;
+                let mut tmp_ptr = 0;
                 loop {
                     if main_h == 0 {
                         main_h = main_k
@@ -16561,22 +16561,22 @@ pub(crate) unsafe fn main_control() {
                         }
                         for main_p in 0..main_h {
                             *native_text.offset(native_len as isize) =
-                                *native_text.offset((temp_ptr as isize) + (main_p as isize));
+                                *native_text.offset((tmp_ptr as isize) + (main_p as isize));
                             native_len += 1;
                         }
                         do_locale_linebreaks(save_native_len, main_k);
                         native_len = save_native_len;
-                        main_k = native_len - main_h - (temp_ptr as i32);
-                        temp_ptr = main_h as usize;
+                        main_k = native_len - main_h - (tmp_ptr as i32);
+                        tmp_ptr = main_h as usize;
                         main_h = 0;
                         while main_h < main_k
-                            && *native_text.offset((temp_ptr as isize) + (main_h as isize)) as i32
+                            && *native_text.offset((tmp_ptr as isize) + (main_h as isize)) as i32
                                 != HYPHEN_CHAR[main_f as usize]
                             && (!(*INTPAR(IntPar::xetex_dash_break) > 0)
-                                || *native_text.offset((temp_ptr as isize) + (main_h as isize))
+                                || *native_text.offset((tmp_ptr as isize) + (main_h as isize))
                                     as i32
                                     != 8212
-                                    && *native_text.offset((temp_ptr as isize) + (main_h as isize))
+                                    && *native_text.offset((tmp_ptr as isize) + (main_h as isize))
                                         as i32
                                         != 8211)
                         {
@@ -16593,18 +16593,18 @@ pub(crate) unsafe fn main_control() {
                             main_ppp = LLIST_link(main_ppp).opt().unwrap();
                         }
                     } else {
-                        do_locale_linebreaks(temp_ptr as i32, main_h);
-                        temp_ptr = temp_ptr + main_h as usize;
+                        do_locale_linebreaks(tmp_ptr as i32, main_h);
+                        tmp_ptr = tmp_ptr + main_h as usize;
                         main_k = main_k - main_h;
                         main_h = 0;
                         while main_h < main_k
-                            && *native_text.offset((temp_ptr as isize) + (main_h as isize)) as i32
+                            && *native_text.offset((tmp_ptr as isize) + (main_h as isize)) as i32
                                 != HYPHEN_CHAR[main_f as usize]
                             && (!(*INTPAR(IntPar::xetex_dash_break) > 0)
-                                || *native_text.offset((temp_ptr as isize) + (main_h as isize))
+                                || *native_text.offset((tmp_ptr as isize) + (main_h as isize))
                                     as i32
                                     != 8212
-                                    && *native_text.offset((temp_ptr as isize) + (main_h as isize))
+                                    && *native_text.offset((tmp_ptr as isize) + (main_h as isize))
                                         as i32
                                         != 8211)
                         {
@@ -16631,8 +16631,8 @@ pub(crate) unsafe fn main_control() {
                         if !is_char_node(Some(main_ppp))
                             && NODE_type(main_ppp) == TextNode::Disc.into()
                         {
-                            temp_ptr = main_ppp;
-                            for _ in 0..(*DISCRETIONARY_NODE_replace_count(temp_ptr)) {
+                            let tmp_ptr = main_ppp;
+                            for _ in 0..(*DISCRETIONARY_NODE_replace_count(tmp_ptr)) {
                                 main_ppp = *LLIST_link(main_ppp) as usize;
                             }
                         }
@@ -16731,27 +16731,27 @@ pub(crate) unsafe fn main_control() {
                                 let pp_text = NATIVE_NODE_text(main_pp);
                                 let tail_text = NATIVE_NODE_text(cur_list.tail);
                                 main_k = pp_text.len() as i32 + 1 + tail_text.len() as i32;
-                                temp_ptr = new_native_word_node(main_f, main_k);
-                                let temp_text = NATIVE_NODE_text(temp_ptr);
+                                let tmp_ptr = new_native_word_node(main_f, main_k);
+                                let temp_text = NATIVE_NODE_text(tmp_ptr);
                                 temp_text[..pp_text.len()].copy_from_slice(&pp_text);
                                 temp_text[pp_text.len()] = ' ' as u16;
                                 temp_text[pp_text.len() + 1..].copy_from_slice(&tail_text);
 
                                 measure_native_node(
-                                    &mut MEM[temp_ptr] as *mut memory_word as *mut libc::c_void,
+                                    &mut MEM[tmp_ptr] as *mut memory_word as *mut libc::c_void,
                                     (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0i32) as i32,
                                 );
-                                let t = MEM[temp_ptr + 1].b32.s1
+                                let t = MEM[tmp_ptr + 1].b32.s1
                                     - MEM[main_pp + 1].b32.s1
                                     - MEM[cur_list.tail + 1].b32.s1;
-                                free_node(temp_ptr, MEM[temp_ptr + 4].b16.s3 as i32);
+                                free_node(tmp_ptr, MEM[tmp_ptr + 4].b16.s3 as i32);
                                 if t != MEM[(FONT_GLUE[main_f as usize] + 1i32) as usize].b32.s1 {
-                                    temp_ptr = new_kern(
+                                    let tmp_ptr = new_kern(
                                         t - MEM[(FONT_GLUE[main_f as usize] + 1) as usize].b32.s1,
                                     );
-                                    set_kern_NODE_subtype(temp_ptr, KernNST::SpaceAdjustment);
-                                    *LLIST_link(temp_ptr) = *LLIST_link(main_p);
-                                    *LLIST_link(main_p) = Some(temp_ptr).tex_int();
+                                    set_kern_NODE_subtype(tmp_ptr, KernNST::SpaceAdjustment);
+                                    *LLIST_link(tmp_ptr) = *LLIST_link(main_p);
+                                    *LLIST_link(main_p) = Some(tmp_ptr).tex_int();
                                 }
                             }
                         }
@@ -17287,9 +17287,9 @@ pub(crate) unsafe fn main_control() {
                                 MEM[cur_list.tail].b32.s1 = Some(main_p).tex_int();
                                 cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                             }
-                            temp_ptr = ls;
-                            lig_stack = LLIST_link(temp_ptr).opt();
-                            free_node(temp_ptr, SMALL_NODE_SIZE);
+                            let tmp_ptr = ls;
+                            lig_stack = LLIST_link(tmp_ptr).opt();
+                            free_node(tmp_ptr, SMALL_NODE_SIZE);
                             main_i = FONT_CHARACTER_INFO(
                                 main_f,
                                 effective_char(true, main_f, cur_l as u16) as usize,
@@ -17351,7 +17351,7 @@ pub(crate) unsafe fn main_control() {
                 return;
             }
         }
-        temp_ptr = if *GLUEPAR(GluePar::space_skip) == 0 {
+        let tmp_ptr = if *GLUEPAR(GluePar::space_skip) == 0 {
             let mut main_p = FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize]
                 .opt()
                 .unwrap_or_else(|| {
@@ -17367,8 +17367,8 @@ pub(crate) unsafe fn main_control() {
         } else {
             new_param_glue(GluePar::space_skip)
         };
-        MEM[cur_list.tail].b32.s1 = Some(temp_ptr).tex_int();
-        cur_list.tail = temp_ptr;
+        MEM[cur_list.tail].b32.s1 = Some(tmp_ptr).tex_int();
+        cur_list.tail = tmp_ptr;
     }
 }
 pub(crate) unsafe fn give_err_help() {
@@ -17465,13 +17465,13 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
     while let Some(p) = popt {
         match TextNode::n(MEM[p].b16.s1).confuse(b"pruning") {
             TextNode::HList | TextNode::VList | TextNode::Rule => {
-                let q = new_skip_param(GluePar::split_top_skip);
+                let (q, tmp_ptr) = new_skip_param(GluePar::split_top_skip);
                 *LLIST_link(prev_p) = Some(q).tex_int();
                 *LLIST_link(q) = Some(p).tex_int();
-                if MEM[temp_ptr + 1].b32.s1 > MEM[p + 3].b32.s1 {
-                    MEM[temp_ptr + 1].b32.s1 = MEM[temp_ptr + 1].b32.s1 - MEM[p + 3].b32.s1
+                if MEM[tmp_ptr + 1].b32.s1 > MEM[p + 3].b32.s1 {
+                    MEM[tmp_ptr + 1].b32.s1 = MEM[tmp_ptr + 1].b32.s1 - MEM[p + 3].b32.s1
                 } else {
-                    MEM[temp_ptr + 1].b32.s1 = 0
+                    MEM[tmp_ptr + 1].b32.s1 = 0
                 }
                 popt = None;
             }
