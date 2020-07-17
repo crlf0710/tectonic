@@ -12,6 +12,7 @@
 )]
 #[macro_use]
 extern crate tectonic_bridge as bridge;
+extern crate tectonic_bibtex as bibtex;
 extern crate tectonic_dvipdfmx as dpx;
 
 use std::ptr;
@@ -161,7 +162,6 @@ mod core_memory {
     }
 }
 
-mod bibtex;
 mod xetex_aatfont;
 mod xetex_consts;
 mod xetex_engine_interface;
