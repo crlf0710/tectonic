@@ -8,9 +8,48 @@
     unused_mut
 )]
 
+extern crate tectonic_bridge as bridge;
+
 use std::io::Write;
 
 use crate::core_memory::{xmalloc, xmalloc_array, xrealloc};
+
+mod core_memory {
+    use bridge::size_t;
+    #[no_mangle]
+    pub(crate) unsafe fn xmalloc(mut size: size_t) -> *mut libc::c_void {
+        let size = size as libc::size_t; //FIXME
+
+        let mut new_mem: *mut libc::c_void = libc::malloc(if size != 0 { size } else { 1 });
+        if new_mem.is_null() {
+            panic!("xmalloc request for {} bytes failed", size,);
+        }
+        new_mem
+    }
+    #[no_mangle]
+    pub(crate) unsafe fn xrealloc(
+        mut old_ptr: *mut libc::c_void,
+        mut size: size_t,
+    ) -> *mut libc::c_void {
+        let size = size as libc::size_t; //FIXME
+        let mut new_mem: *mut libc::c_void = 0 as *mut libc::c_void;
+        if old_ptr.is_null() {
+            new_mem = xmalloc(size as size_t)
+        } else {
+            new_mem = libc::realloc(old_ptr, if size != 0 { size } else { 1 });
+            if new_mem.is_null() {
+                panic!("xrealloc() to {} bytes failed", size,);
+            }
+        }
+        new_mem
+    }
+
+    #[inline]
+    pub(crate) unsafe fn xmalloc_array<T>(size: usize) -> *mut T {
+        xmalloc(((size + 1) * std::mem::size_of::<T>()) as _) as *mut T
+    }
+}
+
 use bridge::{
     ttstub_input_close, ttstub_input_getc, ttstub_input_open, ttstub_output_close,
     ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
@@ -7151,7 +7190,7 @@ unsafe fn initialize(mut aux_file_name: *const i8) -> i32 {
    Copyright 2017 the Tectonic Project
    Licensed under the MIT License.
 */
-pub(crate) unsafe fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
+pub unsafe fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
     pool_size = POOL_SIZE;
     buf_size = BUF_SIZE;
     MAX_BIB_FILES = MAX_BIBFILES;

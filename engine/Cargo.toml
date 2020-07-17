@@ -25,6 +25,7 @@ vcpkg = "0.2.7"
 
 [dependencies]
 tectonic_bridge = { version = "0.0.1-dev", path = "../bridge" }
+tectonic_bibtex = { version = "0.0.1-dev", path = "../bibtex" }
 tectonic_dvipdfmx = { version = "0.0.1-dev", path = "../dpx" }
 bitflags = "1.2.1"
 libc = "0.2"
