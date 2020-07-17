@@ -279,7 +279,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_searchForHostPlatformFonts(
     }
     let mut hyph_pos: *const libc::c_char = strchr(name, '-' as i32);
     let mut hyph: libc::c_int = (if !hyph_pos.is_null() {
-        hyph_pos.wrapping_offset_from(name) as libc::c_long
+        hyph_pos.offset_from(name) as libc::c_long
     } else {
         -1i32 as libc::c_long
     }) as libc::c_int;

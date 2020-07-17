@@ -69,7 +69,7 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
-pub(crate) unsafe fn get_ot_math_constant(mut f: libc::c_int, mut n: libc::c_int) -> libc::c_int {
+pub(crate) unsafe fn get_ot_math_constant(mut f: usize, mut n: libc::c_int) -> libc::c_int {
     let mut constant: hb_ot_math_constant_t = n as hb_ot_math_constant_t;
     let mut rval: hb_position_t = 0i32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
@@ -80,11 +80,7 @@ pub(crate) unsafe fn get_ot_math_constant(mut f: libc::c_int, mut n: libc::c_int
         /* scale according to font size, except the ones that are percentages */
         match constant as libc::c_uint {
             0 | 1 | 55 => {}
-            _ => {
-                rval = D2Fix(
-                    XeTeXFontInst_unitsToPoints(font, rval as libc::c_float) as libc::c_double
-                )
-            }
+            _ => rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as f32) as f64),
         }
     }
     return rval;
@@ -117,13 +113,10 @@ pub(crate) static mut TeX_sym_to_OT_map: [hb_ot_math_constant_t; 23] = [
     4294967295 as hb_ot_math_constant_t,
     HB_OT_MATH_CONSTANT_AXIS_HEIGHT,
 ];
-unsafe extern "C" fn min_int(mut a: libc::c_int, mut b: libc::c_int) -> libc::c_int {
+unsafe fn min_int(mut a: libc::c_int, mut b: libc::c_int) -> libc::c_int {
     return if a < b { a } else { b };
 }
-pub(crate) unsafe fn get_native_mathsy_param(
-    mut f: libc::c_int,
-    mut n: libc::c_int,
-) -> libc::c_int {
+pub(crate) unsafe fn get_native_mathsy_param(mut f: usize, mut n: libc::c_int) -> libc::c_int {
     let mut rval: libc::c_int = 0i32;
     if n == 6i32 {
         rval = FONT_SIZE[f as usize];
@@ -131,7 +124,7 @@ pub(crate) unsafe fn get_native_mathsy_param(
         // XXX not sure what OT parameter we should use here;
         // for now we use 1.5em, clamped to delim1 height
         rval = min_int(
-            (1.5f64 * FONT_SIZE[f as usize] as libc::c_double) as libc::c_int,
+            (1.5f64 * FONT_SIZE[f as usize] as f64) as libc::c_int,
             get_native_mathsy_param(f, 20i32),
         )
     } else if n
@@ -171,10 +164,7 @@ pub(crate) static mut TeX_ext_to_OT_map: [hb_ot_math_constant_t; 14] = [
     HB_OT_MATH_CONSTANT_LOWER_LIMIT_BASELINE_DROP_MIN,
     HB_OT_MATH_CONSTANT_STACK_GAP_MIN,
 ];
-pub(crate) unsafe fn get_native_mathex_param(
-    mut f: libc::c_int,
-    mut n: libc::c_int,
-) -> libc::c_int {
+pub(crate) unsafe fn get_native_mathex_param(mut f: usize, mut n: libc::c_int) -> libc::c_int {
     let mut rval: libc::c_int = 0i32;
     if n == 6i32 {
         rval = FONT_SIZE[f as usize];
@@ -192,7 +182,7 @@ pub(crate) unsafe fn get_native_mathex_param(
     return rval;
 }
 pub(crate) unsafe fn get_ot_math_variant(
-    mut f: libc::c_int,
+    mut f: usize,
     mut g: libc::c_int,
     mut v: libc::c_int,
     mut adv: *mut int32_t,
@@ -223,16 +213,15 @@ pub(crate) unsafe fn get_ot_math_variant(
         );
         if count > 0i32 as libc::c_uint {
             rval = (*variant.as_mut_ptr()).glyph;
-            *adv = D2Fix(XeTeXFontInst_unitsToPoints(
-                font,
-                (*variant.as_mut_ptr()).advance as libc::c_float,
-            ) as libc::c_double)
+            *adv = D2Fix(
+                XeTeXFontInst_unitsToPoints(font, (*variant.as_mut_ptr()).advance as f32) as f64,
+            )
         }
     }
     return rval as libc::c_int;
 }
 pub(crate) unsafe fn get_ot_assembly_ptr(
-    mut f: libc::c_int,
+    mut f: usize,
     mut g: libc::c_int,
     mut horiz: libc::c_int,
 ) -> *mut libc::c_void {
@@ -288,41 +277,41 @@ pub(crate) unsafe fn free_ot_assembly(mut a: *mut GlyphAssembly) {
     free((*a).parts as *mut libc::c_void);
     free(a as *mut libc::c_void);
 }
-pub(crate) unsafe fn get_ot_math_ital_corr(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_int {
+pub(crate) unsafe fn get_ot_math_ital_corr(mut f: usize, mut g: libc::c_int) -> libc::c_int {
     let mut rval: hb_position_t = 0i32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let mut font: *mut XeTeXFontInst =
             getFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as *mut XeTeXFontInst;
         let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
         rval = hb_ot_math_get_glyph_italics_correction(hbFont, g as hb_codepoint_t);
-        rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as libc::c_float) as libc::c_double)
+        rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as f32) as f64)
     }
     return rval;
 }
-pub(crate) unsafe fn get_ot_math_accent_pos(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_int {
+pub(crate) unsafe fn get_ot_math_accent_pos(mut f: usize, mut g: libc::c_int) -> libc::c_int {
     let mut rval: hb_position_t = 0x7fffffffu64 as hb_position_t;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let mut font: *mut XeTeXFontInst =
             getFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as *mut XeTeXFontInst;
         let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
         rval = hb_ot_math_get_glyph_top_accent_attachment(hbFont, g as hb_codepoint_t);
-        rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as libc::c_float) as libc::c_double)
+        rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as f32) as f64)
     }
     return rval;
 }
-pub(crate) unsafe fn ot_min_connector_overlap(mut f: libc::c_int) -> libc::c_int {
+pub(crate) unsafe fn ot_min_connector_overlap(mut f: usize) -> libc::c_int {
     let mut rval: hb_position_t = 0i32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let mut font: *mut XeTeXFontInst =
             getFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as *mut XeTeXFontInst;
         let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
         rval = hb_ot_math_get_min_connector_overlap(hbFont, HB_DIRECTION_RTL);
-        rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as libc::c_float) as libc::c_double)
+        rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as f32) as f64)
     }
     return rval;
 }
-unsafe extern "C" fn getMathKernAt(
-    mut f: libc::c_int,
+unsafe fn getMathKernAt(
+    mut f: usize,
     mut g: libc::c_int,
     mut side: hb_ot_math_kern_t,
     mut height: libc::c_int,
@@ -336,26 +325,26 @@ unsafe extern "C" fn getMathKernAt(
     }
     return rval;
 }
-unsafe extern "C" fn glyph_height(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_float {
-    let mut rval: libc::c_float = 0.0f64 as libc::c_float;
+unsafe fn glyph_height(mut f: usize, mut g: libc::c_int) -> f32 {
+    let mut rval: f32 = 0.0f64 as f32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let mut engine: XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine;
-        getGlyphHeightDepth(engine, g as uint32_t, &mut rval, 0 as *mut libc::c_float);
+        getGlyphHeightDepth(engine, g as uint32_t, &mut rval, 0 as *mut f32);
     }
     return rval;
 }
-unsafe extern "C" fn glyph_depth(mut f: libc::c_int, mut g: libc::c_int) -> libc::c_float {
-    let mut rval: libc::c_float = 0.0f64 as libc::c_float;
+unsafe fn glyph_depth(mut f: usize, mut g: libc::c_int) -> f32 {
+    let mut rval: f32 = 0.0f64 as f32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let mut engine: XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine;
-        getGlyphHeightDepth(engine, g as uint32_t, 0 as *mut libc::c_float, &mut rval);
+        getGlyphHeightDepth(engine, g as uint32_t, 0 as *mut f32, &mut rval);
     }
     return rval;
 }
 pub(crate) unsafe fn get_ot_math_kern(
-    mut f: libc::c_int,
+    mut f: usize,
     mut g: libc::c_int,
-    mut sf: libc::c_int,
+    mut sf: usize,
     mut sg: libc::c_int,
     mut cmd: libc::c_int,
     mut shift: libc::c_int,
@@ -366,14 +355,14 @@ pub(crate) unsafe fn get_ot_math_kern(
             getFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as *mut XeTeXFontInst;
         let mut kern: libc::c_int = 0i32;
         let mut skern: libc::c_int = 0i32;
-        let mut corr_height_top: libc::c_float = 0.0f64 as libc::c_float;
-        let mut corr_height_bot: libc::c_float = 0.0f64 as libc::c_float;
+        let mut corr_height_top: f32 = 0.0f64 as f32;
+        let mut corr_height_bot: f32 = 0.0f64 as f32;
         if cmd == 0i32 {
             // superscript
             corr_height_top = XeTeXFontInst_pointsToUnits(font, glyph_height(f, g));
             corr_height_bot = -XeTeXFontInst_pointsToUnits(
                 font,
-                (glyph_depth(sf, sg) as libc::c_double + Fix2D(shift)) as libc::c_float,
+                (glyph_depth(sf, sg) as f64 + Fix2D(shift)) as f32,
             );
             kern = getMathKernAt(
                 f,
@@ -407,7 +396,7 @@ pub(crate) unsafe fn get_ot_math_kern(
             // subscript
             corr_height_top = XeTeXFontInst_pointsToUnits(
                 font,
-                (glyph_height(sf, sg) as libc::c_double - Fix2D(shift)) as libc::c_float,
+                (glyph_height(sf, sg) as f64 - Fix2D(shift)) as f32,
             );
             corr_height_bot = -XeTeXFontInst_pointsToUnits(font, glyph_depth(f, g));
             kern = getMathKernAt(
@@ -442,7 +431,7 @@ pub(crate) unsafe fn get_ot_math_kern(
             unreachable!()
             // we should not reach here
         }
-        return D2Fix(XeTeXFontInst_unitsToPoints(font, rval as libc::c_float) as libc::c_double);
+        return D2Fix(XeTeXFontInst_unitsToPoints(font, rval as f32) as f64);
     }
     return 0i32;
 }
@@ -458,7 +447,7 @@ pub(crate) unsafe fn ot_part_is_extender(mut a: *const GlyphAssembly, mut i: lib
         != 0i32 as libc::c_uint;
 }
 pub(crate) unsafe fn ot_part_start_connector(
-    mut f: libc::c_int,
+    mut f: usize,
     mut a: *const GlyphAssembly,
     mut i: libc::c_int,
 ) -> libc::c_int {
@@ -468,13 +457,13 @@ pub(crate) unsafe fn ot_part_start_connector(
             getFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as *mut XeTeXFontInst;
         rval = D2Fix(XeTeXFontInst_unitsToPoints(
             font,
-            (*(*a).parts.offset(i as isize)).start_connector_length as libc::c_float,
-        ) as libc::c_double)
+            (*(*a).parts.offset(i as isize)).start_connector_length as f32,
+        ) as f64)
     }
     return rval;
 }
 pub(crate) unsafe fn ot_part_end_connector(
-    mut f: libc::c_int,
+    mut f: usize,
     mut a: *const GlyphAssembly,
     mut i: libc::c_int,
 ) -> libc::c_int {
@@ -484,8 +473,8 @@ pub(crate) unsafe fn ot_part_end_connector(
             getFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as *mut XeTeXFontInst;
         rval = D2Fix(XeTeXFontInst_unitsToPoints(
             font,
-            (*(*a).parts.offset(i as isize)).end_connector_length as libc::c_float,
-        ) as libc::c_double)
+            (*(*a).parts.offset(i as isize)).end_connector_length as f32,
+        ) as f64)
     }
     return rval;
 }
@@ -521,7 +510,7 @@ use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
 pub(crate) unsafe fn ot_part_full_advance(
-    mut f: libc::c_int,
+    mut f: usize,
     mut a: *const GlyphAssembly,
     mut i: libc::c_int,
 ) -> libc::c_int {
@@ -531,8 +520,8 @@ pub(crate) unsafe fn ot_part_full_advance(
             getFont(FONT_LAYOUT_ENGINE[f as usize] as XeTeXLayoutEngine) as *mut XeTeXFontInst;
         rval = D2Fix(XeTeXFontInst_unitsToPoints(
             font,
-            (*(*a).parts.offset(i as isize)).full_advance as libc::c_float,
-        ) as libc::c_double)
+            (*(*a).parts.offset(i as isize)).full_advance as f32,
+        ) as f64)
     }
     return rval;
 }

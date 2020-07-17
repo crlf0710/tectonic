@@ -33,6 +33,8 @@ chrono = "0.4.9"
 harfbuzz-sys = {version = "^0.3", default-features = false}
 freetype-rs = "0.23.0"
 euclid = "0.20"
+enumn = "0.1.2"
+derive_more = "0.99.7"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.7.0"

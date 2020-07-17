@@ -12,13 +12,17 @@ use std::ffi::CStr;
 use std::io::Write;
 
 use crate::core_memory::{mfree, xmalloc, xrealloc, xstrdup};
-use crate::xetex_consts::INT_BASE;
+use crate::xetex_consts::{
+    IntPar, TextNode, BOX_NODE_SIZE, INTPAR, MEDIUM_NODE_SIZE, RULE_NODE_SIZE,
+};
 use crate::xetex_ini::{
-    cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, total_pages,
-    EQTB, MEM,
+    cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, MEM, TOTAL_PAGES,
 };
 use crate::xetex_io::name_of_input_file;
 use crate::xetex_texmfmp::gettexstring;
+use crate::xetex_xetexd::{
+    kern_NODE_width, text_NODE_type, BOX_depth, BOX_height, BOX_width, SYNCTEX_line, SYNCTEX_tag,
+};
 use bridge::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
 use libc::{free, strcat, strcpy, strlen};
 use std::ptr;
@@ -43,7 +47,7 @@ pub(crate) struct Context {
     pub(crate) file: Option<OutputHandleWrapper>,
     pub(crate) root_name: *mut i8,
     pub(crate) count: i32,
-    pub(crate) node: i32,
+    pub(crate) node: usize,
     pub(crate) recorder: synctex_recorder_t,
     pub(crate) tag: i32,
     pub(crate) line: i32,
@@ -79,13 +83,13 @@ pub(crate) struct Context {
  *  for dvi mode, we'll have to record the 1in offset in both directions,
  *  eventually modified by the magnification.
  */
-type synctex_recorder_t = Option<unsafe extern "C" fn(_: i32) -> ()>;
+type synctex_recorder_t = Option<unsafe fn(_: usize) -> ()>;
 
 const default_synctex_ctxt: Context = Context {
     file: None,
     root_name: ptr::null_mut(),
     count: 0i32,
-    node: 0i32,
+    node: 0,
     recorder: None,
     tag: 0i32,
     line: 0i32,
@@ -101,7 +105,7 @@ const default_synctex_ctxt: Context = Context {
 };
 static mut synctex_ctxt: Context = default_synctex_ctxt;
 
-unsafe extern "C" fn get_current_name() -> *mut i8 {
+unsafe fn get_current_name() -> *mut i8 {
     /* This used to always make the pathname absolute but I'm getting rid of
      * that since it ends up adding dependencies on a bunch of functions I
      * don't want to have to deal with. */
@@ -159,16 +163,16 @@ pub(crate) unsafe fn synctex_init_command() {
     /* Reset state */
     synctex_ctxt = default_synctex_ctxt;
     if synctex_enabled != 0 {
-        EQTB[(INT_BASE + 83i32) as usize].b32.s1 = 1i32
+        *INTPAR(IntPar::synctex) = 1i32
     } else {
-        EQTB[(INT_BASE + 83i32) as usize].b32.s1 = 0i32
+        *INTPAR(IntPar::synctex) = 0i32
         /* \synctex=0 : don't record stuff */
     };
 }
 /*  Free all memory used, close the file if any,
  *  It is sent locally when there is a problem with synctex output.
  *  It is sent by pdftex when a fatal error occurred in pdftex.web. */
-unsafe extern "C" fn synctexabort() {
+unsafe fn synctexabort() {
     if let Some(_file) = synctex_ctxt.file.as_mut() {
         ttstub_output_close(synctex_ctxt.file.take().unwrap());
     }
@@ -186,10 +190,10 @@ static mut synctex_suffix_gz: *const i8 = b".gz\x00" as *const u8 as *const i8;
  *  For example foo-i.synctex would contain input synchronization
  *  information for page i alone.
  */
-unsafe extern "C" fn synctex_dot_open() -> bool {
+unsafe fn synctex_dot_open() -> bool {
     let mut tmp: *mut i8 = ptr::null_mut();
     let mut the_name: *mut i8 = ptr::null_mut();
-    if synctex_ctxt.flags.contains(Flags::OFF) || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0 {
+    if synctex_ctxt.flags.contains(Flags::OFF) || *INTPAR(IntPar::synctex) == 0 {
         return false;
     }
     if synctex_ctxt.file.is_some() {
@@ -234,7 +238,7 @@ unsafe extern "C" fn synctex_dot_open() -> bool {
  *  only once there is an opportunity to know whether
  *  in pdf or dvi mode.
  */
-unsafe extern "C" fn synctex_prepare_content() -> bool {
+unsafe fn synctex_prepare_content() -> bool {
     if synctex_ctxt.flags.contains(Flags::CONTENT_READY) {
         return synctex_ctxt.file.is_some();
     }
@@ -338,9 +342,7 @@ pub(crate) unsafe fn synctex_terminate(mut _log_opened: bool) {
  */
 pub(crate) unsafe fn synctex_sheet(mut mag: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
-        if EQTB[(INT_BASE + 83i32) as usize].b32.s1 != 0
-            && !synctex_ctxt.flags.contains(Flags::WARN)
-        {
+        if *INTPAR(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
             synctex_ctxt.flags.insert(Flags::WARN);
             ttstub_issue_warning(
                 b"SyncTeX was disabled -- changing the value of \\synctex has no effect\x00"
@@ -354,13 +356,13 @@ pub(crate) unsafe fn synctex_sheet(mut mag: i32) {
          *  or it was activated with the \synctex macro and the first page is already shipped out.
          *  Second possibility: tries to open the .synctex, useful if synchronization was enabled
          *  from the source file and not from the CLI. */
-        if total_pages == 0i32 {
+        if TOTAL_PAGES == 0 {
             /*  Now it is time to properly set up the scale factor. */
             if mag > 0i32 {
                 synctex_ctxt.magnification = mag
             }
         }
-        synctex_record_sheet(total_pages + 1i32);
+        synctex_record_sheet(TOTAL_PAGES + 1);
     };
 }
 /*  Recording the "}..." line.  In *tex.web, use synctex_teehs at
@@ -372,8 +374,8 @@ pub(crate) unsafe fn synctex_sheet(mut mag: i32) {
 pub(crate) unsafe fn synctex_teehs() {
     if synctex_ctxt.flags.contains(Flags::OFF) || synctex_ctxt.file.is_none() {
         return;
-    } /* not total_pages+1*/
-    synctex_record_teehs(total_pages);
+    } /* not TOTAL_PAGES+1*/
+    synctex_record_teehs(TOTAL_PAGES);
 }
 /*  This message is sent when a vlist will be shipped out, more precisely at
  *  the beginning of the vlist_out procedure in *TeX.web.  It will be balanced
@@ -394,17 +396,17 @@ pub(crate) unsafe fn synctex_teehs() {
  *  the beginning of the vlist_out procedure in *TeX.web.  It will be balanced
  *  by a synctex_tsilv, sent at the end of the vlist_out procedure.  p is the
  *  address of the vlist. We assume that p is really a vlist node! */
-pub(crate) unsafe fn synctex_vlist(mut this_box: i32) {
+pub(crate) unsafe fn synctex_vlist(this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     } /*  0 to reset  */
     synctex_ctxt.node = this_box; /*  reset  */
     synctex_ctxt.recorder = None;
-    synctex_ctxt.tag = MEM[(this_box + 8 - 1) as usize].b32.s0;
-    synctex_ctxt.line = MEM[(this_box + 8 - 1) as usize].b32.s1;
+    synctex_ctxt.tag = *SYNCTEX_tag(this_box, BOX_NODE_SIZE);
+    synctex_ctxt.line = *SYNCTEX_line(this_box, BOX_NODE_SIZE);
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_record_node_vlist(this_box);
@@ -417,17 +419,17 @@ pub(crate) unsafe fn synctex_vlist(mut this_box: i32) {
  *  has been shipped out. It is used to close the vlist nesting level. It is
  *  sent at the end of the vlist_out procedure in *TeX.web to balance a former
  *  synctex_vlist sent at the beginning of that procedure.    */
-pub(crate) unsafe fn synctex_tsilv(mut this_box: i32) {
+pub(crate) unsafe fn synctex_tsilv(this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     }
     /*  Ignoring any pending info to be recorded  */
     synctex_ctxt.node = this_box; /*  0 to reset  */
-    synctex_ctxt.tag = MEM[(this_box + 8 - 1) as usize].b32.s0;
-    synctex_ctxt.line = MEM[(this_box + 8 - 1) as usize].b32.s1;
+    synctex_ctxt.tag = *SYNCTEX_tag(this_box, BOX_NODE_SIZE);
+    synctex_ctxt.line = *SYNCTEX_line(this_box, BOX_NODE_SIZE);
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -437,16 +439,16 @@ pub(crate) unsafe fn synctex_tsilv(mut this_box: i32) {
  *  There is no need to balance a void vlist.  */
 /*  This message is sent when a void vlist will be shipped out.
  *  There is no need to balance a void vlist.  */
-pub(crate) unsafe fn synctex_void_vlist(mut p: i32, mut _this_box: i32) {
+pub(crate) unsafe fn synctex_void_vlist(p: usize, mut _this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     } /*  reset  */
     synctex_ctxt.node = p; /*  reset  */
-    synctex_ctxt.tag = MEM[(p + 8 - 1) as usize].b32.s0;
-    synctex_ctxt.line = MEM[(p + 8 - 1) as usize].b32.s1;
+    synctex_ctxt.tag = *SYNCTEX_tag(p, BOX_NODE_SIZE);
+    synctex_ctxt.line = *SYNCTEX_line(p, BOX_NODE_SIZE);
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -460,16 +462,16 @@ pub(crate) unsafe fn synctex_void_vlist(mut p: i32, mut _this_box: i32) {
  *  the beginning of the hlist_out procedure in *TeX.web.  It will be balanced
  *  by a synctex_tsilh, sent at the end of the hlist_out procedure.  p is the
  *  address of the hlist We assume that p is really an hlist node! */
-pub(crate) unsafe fn synctex_hlist(mut this_box: i32) {
+pub(crate) unsafe fn synctex_hlist(this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     } /*  0 to reset  */
     synctex_ctxt.node = this_box; /*  reset  */
-    synctex_ctxt.tag = MEM[(this_box + 8 - 1) as usize].b32.s0;
-    synctex_ctxt.line = MEM[(this_box + 8 - 1) as usize].b32.s1;
+    synctex_ctxt.tag = *SYNCTEX_tag(this_box, BOX_NODE_SIZE);
+    synctex_ctxt.line = *SYNCTEX_line(this_box, BOX_NODE_SIZE);
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -481,17 +483,17 @@ pub(crate) unsafe fn synctex_hlist(mut this_box: i32) {
  *  has been shipped out it is used to close the hlist nesting level. It is
  *  sent at the end of the hlist_out procedure in *TeX.web to balance a former
  *  synctex_hlist sent at the beginning of that procedure.    */
-pub(crate) unsafe fn synctex_tsilh(mut this_box: i32) {
+pub(crate) unsafe fn synctex_tsilh(this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     }
     /*  Ignoring any pending info to be recorded  */
     synctex_ctxt.node = this_box; /*  0 to force next node to be recorded!  */
-    synctex_ctxt.tag = MEM[(this_box + 8 - 1) as usize].b32.s0; /*  reset  */
-    synctex_ctxt.line = MEM[(this_box + 8 - 1) as usize].b32.s1;
+    synctex_ctxt.tag = *SYNCTEX_tag(this_box, BOX_NODE_SIZE); /*  reset  */
+    synctex_ctxt.line = *SYNCTEX_line(this_box, BOX_NODE_SIZE);
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -501,9 +503,9 @@ pub(crate) unsafe fn synctex_tsilh(mut this_box: i32) {
  *  There is no need to balance a void hlist.  */
 /*  This message is sent when a void hlist will be shipped out.
  *  There is no need to balance a void hlist.  */
-pub(crate) unsafe fn synctex_void_hlist(mut p: i32, mut _this_box: i32) {
+pub(crate) unsafe fn synctex_void_hlist(p: usize, _this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -515,8 +517,8 @@ pub(crate) unsafe fn synctex_void_hlist(mut p: i32, mut _this_box: i32) {
         /*  0 to reset  */
     } /*  reset  */
     synctex_ctxt.node = p;
-    synctex_ctxt.tag = MEM[(p + 8 - 1) as usize].b32.s0;
-    synctex_ctxt.line = MEM[(p + 8 - 1) as usize].b32.s1;
+    synctex_ctxt.tag = *SYNCTEX_tag(p, BOX_NODE_SIZE);
+    synctex_ctxt.line = *SYNCTEX_line(p, BOX_NODE_SIZE);
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -529,25 +531,25 @@ pub(crate) unsafe fn synctex_void_hlist(mut p: i32, mut _this_box: i32) {
  *  has changed when either the line number or the file tag has changed.  */
 /*  glue code, this message is sent whenever an inline math node will ship out
 See: @ @<Output the non-|char_node| |p| for...  */
-pub(crate) unsafe fn synctex_math(mut p: i32, mut _this_box: i32) {
+pub(crate) unsafe fn synctex_math(p: usize, mut _this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     }
     if synctex_ctxt.recorder.is_some()
-        && (0i32 == synctex_ctxt.node
-            || MEM[(p + 3 - 1) as usize].b32.s0 != synctex_ctxt.tag
-            || MEM[(p + 3 - 1) as usize].b32.s1 != synctex_ctxt.line)
+        && (0 == synctex_ctxt.node
+            || *SYNCTEX_tag(p, MEDIUM_NODE_SIZE) != synctex_ctxt.tag
+            || *SYNCTEX_line(p, MEDIUM_NODE_SIZE) != synctex_ctxt.line)
     {
         /*  the sync context did change  */
         synctex_ctxt.recorder.expect("non-null function pointer")(synctex_ctxt.node);
         /*  no need to record once more  */
     }
     synctex_ctxt.node = p;
-    synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
-    synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
+    synctex_ctxt.tag = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
+    synctex_ctxt.line = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -557,31 +559,31 @@ pub(crate) unsafe fn synctex_math(mut p: i32, mut _this_box: i32) {
 /*  Send this message whenever an horizontal rule or glue node will ship out. */
 /*  this message is sent whenever an horizontal glue node or rule node ships out
 See: move_past:...    */
-pub(crate) unsafe fn synctex_horizontal_rule_or_glue(mut p: i32, mut _this_box: i32) {
-    match MEM[p as usize].b16.s1 as i32 {
-        2 => {
+pub(crate) unsafe fn synctex_horizontal_rule_or_glue(p: usize, mut _this_box: usize) {
+    match text_NODE_type(p).unwrap() {
+        TextNode::Rule => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
-                || 0i32 >= MEM[(p + 5 - 1) as usize].b32.s0
-                || 0i32 >= MEM[(p + 5 - 1) as usize].b32.s1
+                || *INTPAR(IntPar::synctex) == 0
+                || 0i32 >= *SYNCTEX_tag(p, RULE_NODE_SIZE)
+                || 0i32 >= *SYNCTEX_line(p, RULE_NODE_SIZE)
             {
                 return;
             }
         }
-        10 => {
+        TextNode::Glue => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
-                || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
-                || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
+                || *INTPAR(IntPar::synctex) == 0
+                || 0i32 >= *SYNCTEX_tag(p, MEDIUM_NODE_SIZE)
+                || 0i32 >= *SYNCTEX_line(p, MEDIUM_NODE_SIZE)
             {
                 return;
             }
         }
-        11 => {
+        TextNode::Kern => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
-                || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
-                || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
+                || *INTPAR(IntPar::synctex) == 0
+                || 0i32 >= *SYNCTEX_tag(p, MEDIUM_NODE_SIZE)
+                || 0i32 >= *SYNCTEX_line(p, MEDIUM_NODE_SIZE)
             {
                 return;
             }
@@ -589,7 +591,7 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(mut p: i32, mut _this_box: 
         _ => {
             ttstub_issue_error(
                 b"unknown node type %d in SyncTeX\x00" as *const u8 as *const i8,
-                MEM[p as usize].b16.s1 as i32,
+                MEM[p].b16.s1 as i32,
             ); /*  always record synchronously: maybe some text is outside the box  */
         }
     } /*  always record synchronously: maybe some text is outside the box  */
@@ -597,26 +599,26 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(mut p: i32, mut _this_box: 
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
-    match MEM[p as usize].b16.s1 as i32 {
-        2 => {
-            synctex_ctxt.tag = MEM[(p + 5 - 1) as usize].b32.s0;
-            synctex_ctxt.line = MEM[(p + 5 - 1) as usize].b32.s1;
+    match text_NODE_type(p).unwrap() {
+        TextNode::Rule => {
+            synctex_ctxt.tag = *SYNCTEX_tag(p, RULE_NODE_SIZE);
+            synctex_ctxt.line = *SYNCTEX_line(p, RULE_NODE_SIZE);
             synctex_record_node_rule(p);
         }
-        10 => {
-            synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
-            synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
+        TextNode::Glue => {
+            synctex_ctxt.tag = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
+            synctex_ctxt.line = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
             synctex_record_node_glue(p);
         }
-        11 => {
-            synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
-            synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
+        TextNode::Kern => {
+            synctex_ctxt.tag = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
+            synctex_ctxt.line = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
             synctex_record_node_kern(p);
         }
         _ => {
             ttstub_issue_error(
                 b"unknown node type %d in SyncTeX\x00" as *const u8 as *const i8,
-                MEM[p as usize].b16.s1 as i32,
+                MEM[p].b16.s1 as i32,
             );
         }
     };
@@ -624,17 +626,17 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(mut p: i32, mut _this_box: 
 /*  Send this message whenever a kern node will ship out. */
 /*  this message is sent whenever a kern node ships out
 See: @ @<Output the non-|char_node| |p| for...    */
-pub(crate) unsafe fn synctex_kern(mut p: i32, mut this_box: i32) {
+pub(crate) unsafe fn synctex_kern(p: usize, this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
-        || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s0
-        || 0i32 >= MEM[(p + 3 - 1) as usize].b32.s1
+        || *INTPAR(IntPar::synctex) == 0
+        || 0i32 >= *SYNCTEX_tag(p, MEDIUM_NODE_SIZE)
+        || 0i32 >= *SYNCTEX_line(p, MEDIUM_NODE_SIZE)
     {
         return;
     }
-    if 0i32 == synctex_ctxt.node
-        || MEM[(p + 3 - 1) as usize].b32.s0 != synctex_ctxt.tag
-        || MEM[(p + 3 - 1) as usize].b32.s1 != synctex_ctxt.line
+    if 0 == synctex_ctxt.node
+        || *SYNCTEX_tag(p, MEDIUM_NODE_SIZE) != synctex_ctxt.tag
+        || *SYNCTEX_line(p, MEDIUM_NODE_SIZE) != synctex_ctxt.line
     {
         /*  the sync context has changed  */
         if synctex_ctxt.recorder.is_some() {
@@ -644,14 +646,13 @@ pub(crate) unsafe fn synctex_kern(mut p: i32, mut this_box: i32) {
         if synctex_ctxt.node == this_box {
             /* first node in the list */
             synctex_ctxt.node = p;
-            synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
-            synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
-            synctex_ctxt.recorder =
-                Some(synctex_record_node_kern as unsafe extern "C" fn(_: i32) -> ())
+            synctex_ctxt.tag = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
+            synctex_ctxt.line = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
+            synctex_ctxt.recorder = Some(synctex_record_node_kern as unsafe fn(_: usize) -> ())
         } else {
             synctex_ctxt.node = p;
-            synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
-            synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
+            synctex_ctxt.tag = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
+            synctex_ctxt.line = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
             synctex_ctxt.recorder = None;
             /*  always record when the context has just changed
              *  and when not the first node  */
@@ -660,9 +661,9 @@ pub(crate) unsafe fn synctex_kern(mut p: i32, mut this_box: i32) {
     } else {
         /*  just update the geometry and type (for future improvements)  */
         synctex_ctxt.node = p;
-        synctex_ctxt.tag = MEM[(p + 3 - 1) as usize].b32.s0;
-        synctex_ctxt.line = MEM[(p + 3 - 1) as usize].b32.s1;
-        synctex_ctxt.recorder = Some(synctex_record_node_kern as unsafe extern "C" fn(_: i32) -> ())
+        synctex_ctxt.tag = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
+        synctex_ctxt.line = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
+        synctex_ctxt.recorder = Some(synctex_record_node_kern as unsafe fn(_: usize) -> ())
     };
 }
 /*  For debugging purpose only    */
@@ -671,7 +672,7 @@ synchronously for the current location    */
 pub(crate) unsafe fn synctex_current() {
     /* magic pt/in conversion */
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -691,7 +692,7 @@ pub(crate) unsafe fn synctex_current() {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_settings() -> i32 {
+unsafe fn synctex_record_settings() -> i32 {
     if synctex_ctxt.file.is_none() {
         return 0i32;
     }
@@ -707,7 +708,7 @@ unsafe extern "C" fn synctex_record_settings() -> i32 {
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_preamble() -> i32 {
+unsafe fn synctex_record_preamble() -> i32 {
     let s = format!("SyncTeX Version:{}\n", 1,);
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length = len;
@@ -717,7 +718,7 @@ unsafe extern "C" fn synctex_record_preamble() -> i32 {
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_input(mut tag: i32, mut name: *mut i8) -> i32 {
+unsafe fn synctex_record_input(mut tag: i32, mut name: *mut i8) -> i32 {
     let s = format!("Input:{}:{}\n", tag, CStr::from_ptr(name).to_string_lossy(),);
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
@@ -727,7 +728,7 @@ unsafe extern "C" fn synctex_record_input(mut tag: i32, mut name: *mut i8) -> i3
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_anchor() -> i32 {
+unsafe fn synctex_record_anchor() -> i32 {
     let s = format!("!{}\n", synctex_ctxt.total_length,);
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length = len;
@@ -738,7 +739,7 @@ unsafe extern "C" fn synctex_record_anchor() -> i32 {
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_content() -> i32 {
+unsafe fn synctex_record_content() -> i32 {
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(b"Content:\n") {
         synctex_ctxt.total_length += len;
         return 0i32;
@@ -747,9 +748,9 @@ unsafe extern "C" fn synctex_record_content() -> i32 {
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_sheet(mut sheet: i32) -> i32 {
+unsafe fn synctex_record_sheet(mut sheet: usize) -> i32 {
     if 0i32 == synctex_record_anchor() {
-        let s = format!("{{{}\n", sheet,);
+        let s = format!("{{{}\n", sheet);
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
             synctex_ctxt.total_length += len;
             synctex_ctxt.count += 1;
@@ -761,9 +762,9 @@ unsafe extern "C" fn synctex_record_sheet(mut sheet: i32) -> i32 {
 }
 /*  Recording a "}..." or a ">" line  */
 #[inline]
-unsafe extern "C" fn synctex_record_teehs(mut sheet: i32) -> i32 {
+unsafe fn synctex_record_teehs(mut sheet: usize) -> i32 {
     if 0i32 == synctex_record_anchor() {
-        let s = format!("}}{}\n", sheet,);
+        let s = format!("}}{}\n", sheet);
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
             synctex_ctxt.total_length += len;
             synctex_ctxt.count += 1;
@@ -778,9 +779,7 @@ unsafe extern "C" fn synctex_record_teehs(mut sheet: i32) -> i32 {
  */
 pub(crate) unsafe fn synctex_pdfxform(mut p: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
-        if EQTB[(INT_BASE + 83i32) as usize].b32.s1 != 0
-            && !synctex_ctxt.flags.contains(Flags::WARN)
-        {
+        if *INTPAR(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
             synctex_ctxt.flags.insert(Flags::WARN);
             ttstub_issue_warning(
                 b"SyncTeX was disabled - changing the value of \\synctex has no effect\x00"
@@ -808,9 +807,9 @@ pub(crate) unsafe fn synctex_pdfrefxform(mut objnum: i32) {
 }
 /*  Recording a "<..." line  */
 #[inline]
-unsafe extern "C" fn synctex_record_pdfxform(mut _form: i32) -> i32 {
+unsafe fn synctex_record_pdfxform(mut _form: i32) -> i32 {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return 0i32;
@@ -829,7 +828,7 @@ unsafe extern "C" fn synctex_record_pdfxform(mut _form: i32) -> i32 {
 }
 /*  Recording a ">" line  */
 #[inline]
-unsafe extern "C" fn synctex_record_mrofxfdp() -> i32 {
+unsafe fn synctex_record_mrofxfdp() -> i32 {
     if 0i32 == synctex_record_anchor() {
         /* XXX Tectonic: mistake here in original source, no %d in format string */
         synctex_ctxt.form_depth -= 1;
@@ -844,12 +843,12 @@ unsafe extern "C" fn synctex_record_mrofxfdp() -> i32 {
 }
 /*  Recording a "f..." line  */
 #[inline]
-unsafe extern "C" fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
+unsafe fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
 /* UNUSED form JL */ {
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || EQTB[(INT_BASE + 83i32) as usize].b32.s1 == 0
+        || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return 0i32;
@@ -871,16 +870,16 @@ unsafe extern "C" fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_void_vlist(mut p: i32) {
+unsafe fn synctex_record_node_void_vlist(p: usize) {
     let s = format!(
         "v{},{}:{},{}:{},{},{}\n",
-        MEM[(p + 8 - 1) as usize].b32.s0,
-        MEM[(p + 8 - 1) as usize].b32.s1,
+        *SYNCTEX_tag(p, BOX_NODE_SIZE),
+        *SYNCTEX_line(p, BOX_NODE_SIZE),
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        MEM[(p + 1) as usize].b32.s1 / synctex_ctxt.unit,
-        MEM[(p + 3) as usize].b32.s1 / synctex_ctxt.unit,
-        MEM[(p + 2) as usize].b32.s1 / synctex_ctxt.unit,
+        *BOX_width(p) / synctex_ctxt.unit,
+        *BOX_height(p) / synctex_ctxt.unit,
+        *BOX_depth(p) / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -891,17 +890,17 @@ unsafe extern "C" fn synctex_record_node_void_vlist(mut p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_vlist(mut p: i32) {
+unsafe fn synctex_record_node_vlist(p: usize) {
     synctex_ctxt.flags.insert(Flags::NOT_VOID);
     let s = format!(
         "[{},{}:{},{}:{},{},{}\n",
-        MEM[(p + 8 - 1) as usize].b32.s0,
-        MEM[(p + 8 - 1) as usize].b32.s1,
+        *SYNCTEX_tag(p, BOX_NODE_SIZE),
+        *SYNCTEX_line(p, BOX_NODE_SIZE),
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        MEM[(p + 1) as usize].b32.s1 / synctex_ctxt.unit,
-        MEM[(p + 3) as usize].b32.s1 / synctex_ctxt.unit,
-        MEM[(p + 2) as usize].b32.s1 / synctex_ctxt.unit,
+        *BOX_width(p) / synctex_ctxt.unit,
+        *BOX_height(p) / synctex_ctxt.unit,
+        *BOX_depth(p) / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -912,7 +911,7 @@ unsafe extern "C" fn synctex_record_node_vlist(mut p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_tsilv(mut _p: i32) {
+unsafe fn synctex_record_node_tsilv(_p: usize) {
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(b"]\n") {
         synctex_ctxt.total_length += len
     /* is it correct that synctex_ctxt.count is not incremented here? */
@@ -921,16 +920,16 @@ unsafe extern "C" fn synctex_record_node_tsilv(mut _p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_void_hlist(mut p: i32) {
+unsafe fn synctex_record_node_void_hlist(p: usize) {
     let s = format!(
         "h{},{}:{},{}:{},{},{}\n",
-        MEM[(p + 8 - 1) as usize].b32.s0,
-        MEM[(p + 8 - 1) as usize].b32.s1,
+        *SYNCTEX_tag(p, BOX_NODE_SIZE),
+        *SYNCTEX_line(p, BOX_NODE_SIZE),
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        MEM[(p + 1) as usize].b32.s1 / synctex_ctxt.unit,
-        MEM[(p + 3) as usize].b32.s1 / synctex_ctxt.unit,
-        MEM[(p + 2) as usize].b32.s1 / synctex_ctxt.unit,
+        *BOX_width(p) / synctex_ctxt.unit,
+        *BOX_height(p) / synctex_ctxt.unit,
+        *BOX_depth(p) / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -941,17 +940,17 @@ unsafe extern "C" fn synctex_record_node_void_hlist(mut p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_hlist(mut p: i32) {
+unsafe fn synctex_record_node_hlist(p: usize) {
     synctex_ctxt.flags.insert(Flags::NOT_VOID);
     let s = format!(
         "({},{}:{},{}:{},{},{}\n",
-        MEM[(p + 8 - 1) as usize].b32.s0,
-        MEM[(p + 8 - 1) as usize].b32.s1,
+        *SYNCTEX_tag(p, BOX_NODE_SIZE),
+        *SYNCTEX_line(p, BOX_NODE_SIZE),
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        MEM[(p + 1) as usize].b32.s1 / synctex_ctxt.unit,
-        MEM[(p + 3) as usize].b32.s1 / synctex_ctxt.unit,
-        MEM[(p + 2) as usize].b32.s1 / synctex_ctxt.unit,
+        *BOX_width(p) / synctex_ctxt.unit,
+        *BOX_height(p) / synctex_ctxt.unit,
+        *BOX_depth(p) / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -962,7 +961,7 @@ unsafe extern "C" fn synctex_record_node_hlist(mut p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_tsilh(mut _p: i32) {
+unsafe fn synctex_record_node_tsilh(_p: usize) {
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(b")\n") {
         synctex_ctxt.total_length += len;
         synctex_ctxt.count += 1
@@ -971,7 +970,7 @@ unsafe extern "C" fn synctex_record_node_tsilh(mut _p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_count() -> i32 {
+unsafe fn synctex_record_count() -> i32 {
     let s = format!("Count:{}\n", synctex_ctxt.count,);
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
@@ -981,7 +980,7 @@ unsafe extern "C" fn synctex_record_count() -> i32 {
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_postamble() -> i32 {
+unsafe fn synctex_record_postamble() -> i32 {
     if 0i32 == synctex_record_anchor() {
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(b"Postamble:\n") {
             synctex_ctxt.total_length += len;
@@ -1002,11 +1001,11 @@ unsafe extern "C" fn synctex_record_postamble() -> i32 {
     -1i32
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_glue(mut p: i32) {
+unsafe fn synctex_record_node_glue(p: usize) {
     let s = format!(
         "g{},{}:{},{}\n",
-        MEM[(p + 3 - 1) as usize].b32.s0,
-        MEM[(p + 3 - 1) as usize].b32.s1,
+        *SYNCTEX_tag(p, MEDIUM_NODE_SIZE),
+        *SYNCTEX_line(p, MEDIUM_NODE_SIZE),
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
     );
@@ -1019,14 +1018,14 @@ unsafe extern "C" fn synctex_record_node_glue(mut p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_kern(mut p: i32) {
+unsafe fn synctex_record_node_kern(p: usize) {
     let s = format!(
         "k{},{}:{},{}:{}\n",
-        MEM[(p + 3 - 1) as usize].b32.s0,
-        MEM[(p + 3 - 1) as usize].b32.s1,
+        *SYNCTEX_tag(p, MEDIUM_NODE_SIZE),
+        *SYNCTEX_line(p, MEDIUM_NODE_SIZE),
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        MEM[(p + 1) as usize].b32.s1 / synctex_ctxt.unit,
+        *kern_NODE_width(p) / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -1037,11 +1036,11 @@ unsafe extern "C" fn synctex_record_node_kern(mut p: i32) {
     };
 }
 #[inline]
-unsafe extern "C" fn synctex_record_node_rule(mut p: i32) {
+unsafe fn synctex_record_node_rule(p: usize) {
     let s = format!(
         "r{},{}:{},{}:{},{},{}\n",
-        MEM[(p + 5 - 1) as usize].b32.s0,
-        MEM[(p + 5 - 1) as usize].b32.s1,
+        *SYNCTEX_tag(p, RULE_NODE_SIZE),
+        *SYNCTEX_line(p, RULE_NODE_SIZE),
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
         rule_wd / synctex_ctxt.unit,
@@ -1056,11 +1055,11 @@ unsafe extern "C" fn synctex_record_node_rule(mut p: i32) {
         synctexabort();
     };
 }
-unsafe extern "C" fn synctex_record_node_math(mut p: i32) {
+unsafe fn synctex_record_node_math(p: usize) {
     let s = format!(
         "${},{}:{},{}\n",
-        MEM[(p + 3 - 1) as usize].b32.s0,
-        MEM[(p + 3 - 1) as usize].b32.s1,
+        *SYNCTEX_tag(p, MEDIUM_NODE_SIZE),
+        *SYNCTEX_line(p, MEDIUM_NODE_SIZE),
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit
     );

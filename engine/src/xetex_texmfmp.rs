@@ -54,7 +54,7 @@ pub(crate) fn get_date_and_time() -> (i32, i32, i32, i32) {
 
     (minutes as _, day as _, month as _, year)
 }
-unsafe extern "C" fn checkpool_pointer(mut pool_ptr_0: pool_pointer, mut len: size_t) {
+unsafe fn checkpool_pointer(mut pool_ptr_0: pool_pointer, mut len: size_t) {
     assert!(
         !((pool_ptr_0 as u64).wrapping_add(len as u64) >= pool_size as u64),
         "string pool overflow [{} bytes]",
@@ -88,16 +88,16 @@ pub(crate) unsafe fn maketexstring(s: &[u8]) -> i32 {
             rval = (rval as u32).wrapping_sub(0x10000_u32) as UInt32 as UInt32;
             let fresh6 = pool_ptr;
             pool_ptr = pool_ptr + 1;
-            *str_pool.offset(fresh6 as isize) =
+            str_pool[fresh6 as usize] =
                 (0xd800_u32).wrapping_add(rval.wrapping_div(0x400_u32)) as packed_UTF16_code;
             let fresh7 = pool_ptr;
             pool_ptr = pool_ptr + 1;
-            *str_pool.offset(fresh7 as isize) =
+            str_pool[fresh7 as usize] =
                 (0xdc00_u32).wrapping_add(rval.wrapping_rem(0x400_u32)) as packed_UTF16_code
         } else {
             let fresh8 = pool_ptr;
             pool_ptr = pool_ptr + 1;
-            *str_pool.offset(fresh8 as isize) = rval as packed_UTF16_code
+            str_pool[fresh8 as usize] = rval as packed_UTF16_code
         }
     }
     make_string()
@@ -108,8 +108,8 @@ pub(crate) unsafe fn gettexstring(mut s: str_number) -> *mut i8 {
     let mut j: pool_pointer = 0;
     let mut name: *mut i8 = ptr::null_mut();
     if s as i64 >= 65536 {
-        len = *str_start.offset(((s + 1i32) as i64 - 65536) as isize)
-            - *str_start.offset((s as i64 - 65536) as isize)
+        len =
+            str_start[((s + 1i32) as i64 - 65536) as usize] - str_start[(s as i64 - 65536) as usize]
     } else {
         len = 0i32
     }
@@ -117,13 +117,11 @@ pub(crate) unsafe fn gettexstring(mut s: str_number) -> *mut i8 {
     i = 0i32;
     j = 0i32;
     while i < len {
-        let mut c: u32 =
-            *str_pool.offset((i + *str_start.offset((s as i64 - 65536) as isize)) as isize) as u32;
+        let mut c: u32 = str_pool[(i + str_start[(s as i64 - 65536) as usize]) as usize] as u32;
         if c >= 0xd800_u32 && c <= 0xdbff_u32 {
             i += 1;
-            let mut lo: u32 = *str_pool
-                .offset((i + *str_start.offset((s as i64 - 65536) as isize)) as isize)
-                as u32;
+            let mut lo: u32 =
+                str_pool[(i + str_start[(s as i64 - 65536) as usize]) as usize] as u32;
             if lo >= 0xdc00_u32 && lo <= 0xdfff_u32 {
                 c = c
                     .wrapping_sub(0xd800_u32)
@@ -164,13 +162,11 @@ pub(crate) unsafe fn gettexstring(mut s: str_number) -> *mut i8 {
     *name.offset(j as isize) = 0_i8;
     name
 }
-unsafe extern "C" fn compare_paths(mut p1: *const i8, mut p2: *const i8) -> i32 {
+unsafe fn compare_paths(mut p1: *const i8, mut p2: *const i8) -> i32 {
     let mut ret: i32 = 0;
     loop {
         ret = *p1 as i32 - *p2 as i32;
-        if !(ret == 0i32 && *p2 as i32 != 0i32
-            || *p1 as i32 == '/' as i32 && *p2 as i32 == '/' as i32)
-        {
+        if !(ret == 0i32 && *p2 != 0 || *p1 as i32 == '/' as i32 && *p2 as i32 == '/' as i32) {
             break;
         }
         p1 = p1.offset(1);
@@ -224,7 +220,7 @@ pub(crate) unsafe fn make_src_special(
         s = s.offset(1);
         let fresh10 = pool_ptr;
         pool_ptr = pool_ptr + 1;
-        *str_pool.offset(fresh10 as isize) = *fresh9 as packed_UTF16_code
+        str_pool[fresh10 as usize] = *fresh9 as packed_UTF16_code
     }
     s = filename;
     while *s != 0 {
@@ -232,7 +228,7 @@ pub(crate) unsafe fn make_src_special(
         s = s.offset(1);
         let fresh12 = pool_ptr;
         pool_ptr = pool_ptr + 1;
-        *str_pool.offset(fresh12 as isize) = *fresh11 as packed_UTF16_code
+        str_pool[fresh12 as usize] = *fresh11 as packed_UTF16_code
     }
     oldpool_ptr
 }
@@ -240,7 +236,7 @@ pub(crate) unsafe fn make_src_special(
  * hexadecimal encoded;
  * sizeof(out) should be at least lin*2+1.
  */
-unsafe extern "C" fn convertStringToHexString(mut in_0: *const i8, mut out: *mut i8, mut lin: i32) {
+unsafe fn convertStringToHexString(mut in_0: *const i8, mut out: *mut i8, mut lin: i32) {
     static mut hexchars: [i8; 17] = [
         48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 0,
     ];
@@ -286,7 +282,7 @@ pub(crate) unsafe fn getmd5sum(mut s: str_number, mut file: bool) {
     while i < 2i32 * 16i32 {
         let fresh15 = pool_ptr;
         pool_ptr = pool_ptr + 1;
-        *str_pool.offset(fresh15 as isize) = outbuf[i as usize] as u16;
+        str_pool[fresh15 as usize] = outbuf[i as usize] as u16;
         i += 1
     }
 }
