@@ -46,7 +46,7 @@ use crate::xetex_xetex0::{
     scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int, show_cur_cmd_chr,
     show_save_groups, start_input, trap_zero_glue,
 };
-use crate::xetex_xetexd::{set_class, set_family, LLIST_link, TeXInt, TeXOpt};
+use crate::xetex_xetexd::{llist_link, set_class, set_family, LLIST_link, TeXInt, TeXOpt};
 use bridge::{
     ttstub_input_close, ttstub_input_open, ttstub_output_close, ttstub_output_open,
     ttstub_output_open_stdout,
@@ -1138,7 +1138,7 @@ pub(crate) static mut semantic_pagination_enabled: bool = false;
 pub(crate) static mut gave_char_warning_help: bool = false;
 /* These ought to live in xetex-pagebuilder.c but are shared a lot: */
 #[no_mangle]
-pub(crate) static mut page_tail: i32 = 0;
+pub(crate) static mut page_tail: usize = 0;
 #[no_mangle]
 pub(crate) static mut page_contents: PageContents = PageContents::Empty;
 #[no_mangle]
@@ -2299,7 +2299,7 @@ pub(crate) unsafe fn prefixed_command() {
             cur_cs = q;
             let q = scan_toks(false, false);
 
-            if LLIST_link(def_ref).opt().is_none() {
+            if llist_link(def_ref).is_none() {
                 if e {
                     if a >= 4 {
                         gsa_def(p as usize, None);
@@ -2773,7 +2773,7 @@ unsafe fn store_fmt_file() {
     let mut popt = avail;
     while let Some(p) = popt {
         dyn_used -= 1;
-        popt = LLIST_link(p).opt()
+        popt = llist_link(p)
     }
 
     fmt_out.dump_one(var_used as i32);
@@ -3156,7 +3156,7 @@ unsafe fn load_fmt_file() -> bool {
 
     cur_list.head = CONTRIB_HEAD;
     cur_list.tail = CONTRIB_HEAD;
-    page_tail = PAGE_HEAD as i32;
+    page_tail = PAGE_HEAD;
     MEM = vec![memory_word::default(); MEM_TOP as usize + 2];
 
     fmt_in.undump_one(&mut x);
@@ -3756,7 +3756,7 @@ unsafe fn final_cleanup() {
         if_line = MEM[cp + 1].b32.s1;
         cur_if = MEM[cp].b16.s0 as i16;
         let tmp_ptr = cp;
-        cond_ptr = LLIST_link(cp).opt();
+        cond_ptr = llist_link(cp);
         free_node(tmp_ptr, IF_NODE_SIZE);
     }
     if history != TTHistory::SPOTLESS {
@@ -3841,7 +3841,7 @@ unsafe fn initialize_more_variables() {
     cur_list.prev_graf = 0;
     shown_mode = (false, ListMode::NoMode);
     page_contents = PageContents::Empty;
-    page_tail = PAGE_HEAD as i32;
+    page_tail = PAGE_HEAD;
     last_glue = MAX_HALFWORD;
     last_penalty = 0;
     last_kern = 0;

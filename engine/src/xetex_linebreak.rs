@@ -35,7 +35,7 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     clear_NODE_subtype, is_char_node, is_non_discardable_node,
     kern_NODE_subtype, /*set_NODE_subtype,*/
-    set_NODE_type, set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype,
+    llist_link, set_NODE_type, set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype,
     ACTIVE_NODE_break_node, ACTIVE_NODE_fitness, ACTIVE_NODE_glue, ACTIVE_NODE_line_number,
     ACTIVE_NODE_shortfall, ACTIVE_NODE_total_demerits, BOX_depth, BOX_height, BOX_list_ptr,
     BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font, DELTA_NODE_dshrink,
@@ -316,7 +316,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         first_p = cur_p.tex_int();
 
         while let Some(mut cp) = cur_p {
-            if LLIST_link(ACTIVE_LIST).opt() == Some(LAST_ACTIVE) {
+            if llist_link(ACTIVE_LIST) == Some(LAST_ACTIVE) {
                 break;
             }
             /*895: "Call try_break if cur_p is a legal breakpoint; on the
@@ -336,7 +336,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             .s3 as i32) as usize]
                         .b32
                         .s1;
-                    cur_p = LLIST_link(cp).opt();
+                    cur_p = llist_link(cp);
                     cp = cur_p.unwrap();
                     if !is_char_node(Some(cp)) {
                         break;
@@ -387,9 +387,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 TextNode::Kern => {
                     /* ... resuming 895 ... */
                     if kern_NODE_subtype(cp) == KernNST::Explicit {
-                        if (!is_char_node(LLIST_link(cp).opt()) as i32) < hi_mem_min
-                            && auto_breaking
-                        {
+                        if (!is_char_node(llist_link(cp)) as i32) < hi_mem_min && auto_breaking {
                             if NODE_type(*LLIST_link(cp) as usize) == TextNode::Glue.into() {
                                 try_break(0, BreakType::Unhyphenated);
                             }
@@ -445,7 +443,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     _ => confusion(b"disc3"),
                                 }
                             }
-                            if let Some(next) = LLIST_link(s).opt() {
+                            if let Some(next) = llist_link(s) {
                                 s = next;
                             } else {
                                 break;
@@ -458,7 +456,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         try_break(*INTPAR(IntPar::ex_hyphen_penalty), BreakType::Hyphenated);
                     }
                     r = *DISCRETIONARY_NODE_replace_count(cp) as i32;
-                    let mut sopt = LLIST_link(cp).opt();
+                    let mut sopt = llist_link(cp);
                     while r > 0 {
                         let s = sopt.unwrap();
                         if is_char_node(Some(s)) {
@@ -496,7 +494,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             }
                         }
                         r -= 1;
-                        sopt = LLIST_link(s).opt();
+                        sopt = llist_link(s);
                     }
                     global_prev_p = cp as i32;
                     prev_p = global_prev_p;
@@ -513,7 +511,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         }
                         _ => {}
                     }
-                    if !is_char_node(LLIST_link(cp).opt()) && auto_breaking {
+                    if !is_char_node(llist_link(cp)) && auto_breaking {
                         if NODE_type(*LLIST_link(cp) as usize) == TextNode::Glue.into() {
                             try_break(0, BreakType::Unhyphenated);
                         }
@@ -526,7 +524,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             }
             global_prev_p = cp as i32;
             prev_p = global_prev_p;
-            cur_p = LLIST_link(cp).opt();
+            cur_p = llist_link(cp);
         }
         if cur_p.is_none() {
             /*902: "Try the final line break at the end of the paragraph, and
@@ -587,9 +585,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             }
         }
         /*894: clean up the memory by removing the break nodes */
-        let mut q = LLIST_link(ACTIVE_LIST).opt().unwrap();
+        let mut q = llist_link(ACTIVE_LIST).unwrap();
         while q != LAST_ACTIVE {
-            cur_p = LLIST_link(q).opt();
+            cur_p = llist_link(q);
             if NODE_type(q) == DELTA_NODE.into() {
                 free_node(q, DELTA_NODE_SIZE);
             } else {
@@ -601,7 +599,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         let mut qopt = passive.opt();
 
         while let Some(q) = qopt {
-            cur_p = LLIST_link(q).opt();
+            cur_p = llist_link(q);
             free_node(q, PASSIVE_NODE_SIZE);
             qopt = cur_p;
         }
@@ -632,9 +630,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     post_line_break(d);
 
     /* Clean up by removing break nodes (894, again) */
-    let mut q = LLIST_link(ACTIVE_LIST).opt().unwrap();
+    let mut q = llist_link(ACTIVE_LIST).unwrap();
     while q != ACTIVE_LIST {
-        let mut next = LLIST_link(q).opt();
+        let mut next = llist_link(q);
 
         if NODE_type(q) == DELTA_NODE.into() {
             free_node(q, DELTA_NODE_SIZE);
@@ -647,7 +645,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     let mut qopt = passive.opt();
 
     while let Some(q) = qopt {
-        let next_0 = LLIST_link(q).opt();
+        let next_0 = llist_link(q);
         free_node(q, PASSIVE_NODE_SIZE);
         qopt = next_0;
     }
@@ -675,7 +673,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             /*924: "Try to hyphenate the following word." */
             let mut prev_s = cp;
 
-            if let Some(mut s) = LLIST_link(prev_s).opt() {
+            if let Some(mut s) = llist_link(prev_s) {
                 's_786: loop
                 /*930: skip to node ha, or goto done1 if no hyphenation should be attempted */
                 {
@@ -763,7 +761,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
                     // continue:
                     prev_s = s;
-                    s = LLIST_link(prev_s).opt().unwrap();
+                    s = llist_link(prev_s).unwrap();
                 }
 
                 // done2:
@@ -787,7 +785,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         || whatsit_NODE_subtype(ha) == WhatsItNST::NativeWordAt)
                 {
                     /*926: check that nodes after native_word permit hyphenation; if not, goto done1 */
-                    s = LLIST_link(ha).opt().unwrap();
+                    s = llist_link(ha).unwrap();
 
                     loop {
                         if !is_char_node(Some(s)) {
@@ -811,7 +809,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 }
                             }
                         }
-                        s = LLIST_link(s).opt().unwrap();
+                        s = llist_link(s).unwrap();
                     }
 
                     // done6:
@@ -963,7 +961,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 j += 1;
                                 hu[j as usize] = c;
                                 hc[j as usize] = hc[0];
-                                qopt = LLIST_link(q).opt();
+                                qopt = llist_link(q);
                             }
                             hb = s;
                             hn = j;
@@ -982,7 +980,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             hb = s;
                             hyf_bchar = FONT_BCHAR[hf as usize]
                         }
-                        s = LLIST_link(s).opt().unwrap();
+                        s = llist_link(s).unwrap();
                     }
                 }
 
@@ -1022,7 +1020,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             }
                         }
                     }
-                    s = LLIST_link(s).opt().unwrap();
+                    s = llist_link(s).unwrap();
                 }
                 // done4: 933
                 hyphenate();
@@ -1065,7 +1063,7 @@ unsafe fn post_line_break(mut d: bool) {
                     let s = new_math(0, MathNST::from((MEM[tmp_ptr].b32.s0 - 1) as u16)) as usize;
                     *LLIST_link(s) = r;
                     r = s as i32;
-                    if let Some(next) = LLIST_link(tmp_ptr).opt() {
+                    if let Some(next) = llist_link(tmp_ptr) {
                         tmp_ptr = next;
                     } else {
                         break;
@@ -1081,7 +1079,7 @@ unsafe fn post_line_break(mut d: bool) {
                         if let Some(lr) = LR_ptr {
                             if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
                                 let tmp_ptr = lr;
-                                LR_ptr = LLIST_link(tmp_ptr).opt();
+                                LR_ptr = llist_link(tmp_ptr);
                                 *LLIST_link(tmp_ptr) = avail.tex_int();
                                 avail = Some(tmp_ptr);
                             }
@@ -1127,12 +1125,12 @@ unsafe fn post_line_break(mut d: bool) {
                         let s = *LLIST_link(r as usize) as usize;
                         r = *LLIST_link(s);
                         *LLIST_link(s) = None.tex_int();
-                        flush_node_list(LLIST_link(q).opt());
+                        flush_node_list(llist_link(q));
                         *DISCRETIONARY_NODE_replace_count(q) = 0;
                     }
                     if let Some(mut s) = DISCRETIONARY_NODE_post_break(q).opt() {
                         /*913:*/
-                        while let Some(next) = LLIST_link(s).opt() {
+                        while let Some(next) = llist_link(s) {
                             s = next;
                         }
 
@@ -1146,7 +1144,7 @@ unsafe fn post_line_break(mut d: bool) {
                         /*914:*/
                         *LLIST_link(q) = Some(s).tex_int();
 
-                        while let Some(next) = LLIST_link(s).opt() {
+                        while let Some(next) = llist_link(s) {
                             s = next;
                         }
                         *DISCRETIONARY_NODE_pre_break(q) = None.tex_int();
@@ -1168,7 +1166,7 @@ unsafe fn post_line_break(mut d: bool) {
                             if let Some(lr) = LR_ptr {
                                 if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
                                     let tmp_ptr = lr;
-                                    LR_ptr = LLIST_link(tmp_ptr).opt();
+                                    LR_ptr = llist_link(tmp_ptr);
                                     *LLIST_link(tmp_ptr) = avail.tex_int();
                                     avail = Some(tmp_ptr);
                                 }
@@ -1186,7 +1184,7 @@ unsafe fn post_line_break(mut d: bool) {
             q
         } else {
             let mut q = TEMP_HEAD;
-            while let Some(next) = LLIST_link(q).opt() {
+            while let Some(next) = llist_link(q) {
                 q = next
             }
             q
@@ -1201,9 +1199,9 @@ unsafe fn post_line_break(mut d: bool) {
                 ptmp = Some(q);
                 Some(q)
             } else {
-                let p = prev_rightmost(LLIST_link(TEMP_HEAD).opt(), Some(q));
+                let p = prev_rightmost(llist_link(TEMP_HEAD), Some(q));
                 ptmp = p;
-                find_protchar_right(LLIST_link(TEMP_HEAD).opt(), p)
+                find_protchar_right(llist_link(TEMP_HEAD), p)
             };
             let w = char_pw(p, Side::Right);
             if w != 0 {
@@ -1212,7 +1210,7 @@ unsafe fn post_line_break(mut d: bool) {
                 *LLIST_link(k) = *LLIST_link(ptmp);
                 *LLIST_link(ptmp) = Some(k).tex_int();
                 if ptmp == q {
-                    q = LLIST_link(q).opt().unwrap();
+                    q = llist_link(q).unwrap();
                 }
             }
         }
@@ -1239,7 +1237,7 @@ unsafe fn post_line_break(mut d: bool) {
                     let tmp_ptr = new_math(0, MathNST::from(MEM[r].b32.s0 as u16));
                     *LLIST_link(s) = Some(tmp_ptr).tex_int();
                     s = tmp_ptr;
-                    ropt = LLIST_link(r).opt();
+                    ropt = llist_link(r);
                 }
 
                 *LLIST_link(s) = Some(q).tex_int();
@@ -1384,7 +1382,7 @@ unsafe fn post_line_break(mut d: bool) {
                             if let Some(lr) = LR_ptr {
                                 if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
                                     let tmp_ptr = lr;
-                                    LR_ptr = LLIST_link(tmp_ptr).opt();
+                                    LR_ptr = llist_link(tmp_ptr);
                                     *LLIST_link(tmp_ptr) = avail.tex_int();
                                     avail = Some(tmp_ptr);
                                 }
@@ -1399,7 +1397,7 @@ unsafe fn post_line_break(mut d: bool) {
                 }
                 if r != TEMP_HEAD {
                     *LLIST_link(r as usize) = None.tex_int();
-                    flush_node_list(LLIST_link(TEMP_HEAD).opt());
+                    flush_node_list(llist_link(TEMP_HEAD));
                     *LLIST_link(TEMP_HEAD) = q;
                 }
             }
@@ -1408,7 +1406,7 @@ unsafe fn post_line_break(mut d: bool) {
             break;
         }
     }
-    if cur_line != best_line || LLIST_link(TEMP_HEAD).opt().is_some() {
+    if cur_line != best_line || llist_link(TEMP_HEAD).is_some() {
         confusion(b"line breaking");
     }
     cur_list.prev_graf = best_line - 1;
@@ -1450,7 +1448,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
     let mut old_l = 0;
     cur_active_width[1..].copy_from_slice(&active_width[1..]);
     loop {
-        let r = LLIST_link(prev_r).opt().unwrap();
+        let r = llist_link(prev_r).unwrap();
         /*861: "If node r is of type delta_node, update cur_active_width, set
          * prev_r and prev_prev_r, then goto continue" */
         if NODE_type(r) == DELTA_NODE.into() {
@@ -1568,11 +1566,11 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                             _ => confusion(b"disc2"),
                                         }
                                     }
-                                    sopt = LLIST_link(s).opt();
+                                    sopt = llist_link(s);
                                 }
                                 break_width[1] += disc_width;
                                 if DISCRETIONARY_NODE_post_break(cp).opt().is_none() {
-                                    sopt = LLIST_link(v).opt();
+                                    sopt = llist_link(v);
                                 }
                             }
                         }
@@ -1598,7 +1596,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                 }
                                 _ => break,
                             }
-                            sopt = LLIST_link(s).opt();
+                            sopt = llist_link(s);
                         }
                     }
                     /*872: "Insert a delta node to prepare for breaks at cur_p" */
@@ -1909,7 +1907,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                  * there is a reason to consider lines of text from r to cur_p" */
                 if final_pass
                     && minimum_demerits == AWFUL_BAD
-                    && LLIST_link(r).opt() == Some(LAST_ACTIVE)
+                    && llist_link(r) == Some(LAST_ACTIVE)
                     && prev_r == ACTIVE_LIST
                 {
                     artificial_demerits = true;
@@ -1995,7 +1993,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
             free_node(r, active_node_size as i32);
             if prev_r == ACTIVE_LIST {
                 /*890: "Update the active widths, since the first active node has been deleted" */
-                let r = LLIST_link(ACTIVE_LIST).opt().unwrap(); /*:966 */
+                let r = llist_link(ACTIVE_LIST).unwrap(); /*:966 */
                 if NODE_type(r) == DELTA_NODE.into() {
                     active_width[1] += *DELTA_NODE_dwidth(r);
                     active_width[2] += *DELTA_NODE_dstretch0(r);
@@ -2008,7 +2006,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                     free_node(r, DELTA_NODE_SIZE);
                 }
             } else if NODE_type(prev_r) == DELTA_NODE.into() {
-                let r = LLIST_link(prev_r).opt().unwrap();
+                let r = llist_link(prev_r).unwrap();
                 if r == LAST_ACTIVE {
                     cur_active_width[1] -= *DELTA_NODE_dwidth(prev_r);
                     cur_active_width[2] -= *DELTA_NODE_dstretch0(prev_r);
@@ -2086,7 +2084,7 @@ unsafe fn hyphenate() {
                     let mut sopt = HYPH_LIST[h as usize];
                     while let Some(s) = sopt {
                         hyf[MEM[s].b32.s0 as usize] = 1_u8;
-                        sopt = LLIST_link(s).opt();
+                        sopt = llist_link(s);
                     }
                     hn -= 1;
                     current_block = 15736053877802236303;
@@ -2172,7 +2170,7 @@ unsafe fn hyphenate() {
             || whatsit_NODE_subtype(ha) == WhatsItNST::NativeWordAt)
     {
         let mut s = cur_p.unwrap();
-        while LLIST_link(s).opt() != Some(ha) {
+        while llist_link(s) != Some(ha) {
             s = *LLIST_link(s) as usize;
         }
         hyphen_passed = 0;
@@ -2330,7 +2328,7 @@ unsafe fn hyphenate() {
                     while l as i32 <= i as i32 {
                         l = (reconstitute(l, i, FONT_BCHAR[hf as usize], TOO_BIG_CHAR) as i32 + 1)
                             as i16;
-                        if let Some(hh) = LLIST_link(HOLD_HEAD).opt() {
+                        if let Some(hh) = llist_link(HOLD_HEAD) {
                             if let Some(mt) = minor_tail {
                                 *LLIST_link(mt) = Some(hh).tex_int();
                             } else {
@@ -2338,7 +2336,7 @@ unsafe fn hyphenate() {
                             }
                             let mut mt = hh;
                             minor_tail = Some(mt);
-                            while let Some(next) = LLIST_link(mt).opt() {
+                            while let Some(next) = llist_link(mt) {
                                 mt = next;
                                 minor_tail = Some(next);
                             }
@@ -2365,7 +2363,7 @@ unsafe fn hyphenate() {
                                 hu[c_loc as usize] = c;
                                 c_loc = 0_i16
                             }
-                            if let Some(hh) = LLIST_link(HOLD_HEAD).opt() {
+                            if let Some(hh) = llist_link(HOLD_HEAD) {
                                 if let Some(mt) = minor_tail {
                                     *LLIST_link(mt) = Some(hh).tex_int();
                                 } else {
@@ -2373,7 +2371,7 @@ unsafe fn hyphenate() {
                                 }
                                 let mut mt = hh;
                                 minor_tail = Some(mt);
-                                while let Some(next) = LLIST_link(mt).opt() {
+                                while let Some(next) = llist_link(mt) {
                                     mt = next;
                                     minor_tail = Some(next);
                                 }
@@ -2386,7 +2384,7 @@ unsafe fn hyphenate() {
                             /*952: */
                             j = (reconstitute(j, hn, bchar, TOO_BIG_CHAR) as i32 + 1i32) as i16; /*:944*/
                             *LLIST_link(major_tail) = *LLIST_link(HOLD_HEAD);
-                            while let Some(next) = LLIST_link(major_tail).opt() {
+                            while let Some(next) = llist_link(major_tail) {
                                 major_tail = next;
                                 r_count += 1;
                             }
@@ -2466,7 +2464,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
             t = *LLIST_link(t as usize);
             MEM[t as usize].b16.s1 = hf as u16;
             MEM[t as usize].b16.s0 = MEM[p].b16.s0;
-            popt = LLIST_link(p).opt()
+            popt = llist_link(p)
         }
     } else if cur_l < TOO_BIG_CHAR {
         *LLIST_link(t as usize) = Some(get_avail()).tex_int();
@@ -2597,7 +2595,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                                     t = *LLIST_link(t as usize);
                                                     j += 1
                                                 }
-                                                lig_stack = LLIST_link(ls).opt();
+                                                lig_stack = llist_link(ls);
                                                 free_node(ls, SMALL_NODE_SIZE);
                                                 if let Some(ls) = lig_stack {
                                                     cur_r = MEM[ls].b16.s0 as i32
@@ -2701,7 +2699,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                 j += 1;
             }
             let p = ls;
-            lig_stack = LLIST_link(p).opt();
+            lig_stack = llist_link(p);
             free_node(p, SMALL_NODE_SIZE);
             if let Some(ls) = lig_stack {
                 cur_r = MEM[ls].b16.s0 as i32
@@ -2736,7 +2734,7 @@ unsafe fn total_pw(q: usize, p: Option<usize>) -> scaled_t {
                 && DISCRETIONARY_NODE_pre_break(p).opt().is_some() =>
         {
             if let Some(mut m) = DISCRETIONARY_NODE_pre_break(p).opt() {
-                while let Some(next) = LLIST_link(m).opt() {
+                while let Some(next) = llist_link(m) {
                     m = next;
                 }
                 r = Some(m);
@@ -2751,9 +2749,9 @@ unsafe fn total_pw(q: usize, p: Option<usize>) -> scaled_t {
                 return char_pw(Some(l), Side::Left) + char_pw(r, Side::Right);
             } else {
                 let mut n = *DISCRETIONARY_NODE_replace_count(l);
-                l = LLIST_link(l).opt().unwrap();
+                l = llist_link(l).unwrap();
                 while n > 0 {
-                    if let Some(next) = LLIST_link(l).opt() {
+                    if let Some(next) = llist_link(l) {
                         l = next;
                     }
                     n -= 1;
@@ -2769,7 +2767,7 @@ unsafe fn total_pw(q: usize, p: Option<usize>) -> scaled_t {
 }
 unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     let mut run: bool = false;
-    match LLIST_link(l).opt() {
+    match llist_link(l) {
         Some(next)
             if NODE_type(l) == TextNode::HList.into()
                 && *BOX_width(l) == 0
@@ -2781,7 +2779,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
         }
         _ => {
             if d {
-                while let Some(next) = LLIST_link(l).opt() {
+                while let Some(next) = llist_link(l) {
                     if is_char_node(Some(l)) || is_non_discardable_node(l) {
                         break;
                     }
@@ -2829,7 +2827,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
                     break;
                 }
             }
-            if let Some(next) = LLIST_link(l).opt() {
+            if let Some(next) = llist_link(l) {
                 l = next;
             } else if hlist_stack.is_empty() {
                 run = false
@@ -2856,7 +2854,7 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
                 hlist_stack.push((l, r));
                 l = Some(hnext);
                 r = hnext;
-                while let Some(next) = LLIST_link(r).opt() {
+                while let Some(next) = llist_link(r) {
                     r = next;
                 }
             } else {

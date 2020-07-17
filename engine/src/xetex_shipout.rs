@@ -41,7 +41,7 @@ use crate::xetex_xetex0::{
     scan_toks, show_box, show_token_list, str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, kern_NODE_subtype, kern_NODE_width, print_c_string, set_BOX_lr_mode,
+    is_char_node, kern_NODE_subtype, kern_NODE_width, llist_link, print_c_string, set_BOX_lr_mode,
     /*set_NODE_subtype, */ set_NODE_type, set_whatsit_NODE_subtype, text_NODE_type,
     whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height,
     BOX_list_ptr, BOX_lr_mode, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
@@ -343,7 +343,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
         let mut prev_p = this_box + 5; /* this gets the list within the box */
 
         while let Some(mut p) = popt {
-            if LLIST_link(p).opt().is_some() {
+            if llist_link(p).is_some() {
                 if !is_char_node(Some(p))
                     && NODE_type(p) != TextNode::WhatsIt.into()
                     && (whatsit_NODE_subtype(p) == WhatsItNST::NativeWord
@@ -353,7 +353,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                     /* "got a word in an AAT font, might be the start of a run" */
                     let r = p;
                     let mut k = *NATIVE_NODE_length(r) as i32;
-                    let mut qopt = LLIST_link(p).opt();
+                    let mut qopt = llist_link(p);
                     loop {
                         /*641: "Advance `q` past ignorable nodes." This test is
                          * mostly `node_is_invisible_to_interword_space`. 641 is
@@ -374,7 +374,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                         ]
                                         .contains(&whatsit_NODE_subtype(q))))
                         }) {
-                            qopt = LLIST_link(q).opt();
+                            qopt = llist_link(q);
                         }
                         if let Some(q) = qopt.filter(|&q| !is_char_node(Some(q))) {
                             if NODE_type(q) == TextNode::Glue.into()
@@ -386,7 +386,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                     /* "Found a normal space; if the next node is
                                      * another word in the same font, we'll
                                      * merge." */
-                                    qopt = LLIST_link(q).opt();
+                                    qopt = llist_link(q);
 
                                     while let Some(q) = qopt.filter(|&q| {
                                         !is_char_node(Some(q))
@@ -404,7 +404,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                                     ]
                                                     .contains(&whatsit_NODE_subtype(q))))
                                     }) {
-                                        qopt = LLIST_link(q).opt();
+                                        qopt = llist_link(q);
                                     }
 
                                     if let Some(q) = qopt.filter(|&q| {
@@ -418,18 +418,18 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                     }) {
                                         p = q;
                                         k += 1 + *NATIVE_NODE_length(q) as i32;
-                                        qopt = LLIST_link(q).opt();
+                                        qopt = llist_link(q);
                                         continue;
                                     }
                                 } else {
-                                    qopt = LLIST_link(q).opt();
+                                    qopt = llist_link(q);
                                 }
                                 if let Some(q) = qopt.filter(|&q| {
                                     !is_char_node(Some(q))
                                         && NODE_type(q) == TextNode::Kern.into()
                                         && kern_NODE_subtype(q) == KernNST::SpaceAdjustment
                                 }) {
-                                    qopt = LLIST_link(q).opt();
+                                    qopt = llist_link(q);
                                     while let Some(q) = qopt.filter(|&q| {
                                         !is_char_node(Some(q))
                                             && (NODE_type(q) == TextNode::Penalty.into()
@@ -446,7 +446,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                                     ]
                                                     .contains(&whatsit_NODE_subtype(q)))
                                     }) {
-                                        qopt = LLIST_link(q).opt();
+                                        qopt = llist_link(q);
                                     }
                                     if let Some(q) = qopt.filter(|&q| {
                                         !is_char_node(Some(q))
@@ -458,7 +458,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                     }) {
                                         p = q;
                                         k += (1 + *NATIVE_NODE_length(q)) as i32;
-                                        qopt = LLIST_link(q).opt();
+                                        qopt = llist_link(q);
                                     } else {
                                         break;
                                     }
@@ -474,7 +474,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                         && *NATIVE_NODE_font(q) == *NATIVE_NODE_font(r)
                                 }) {
                                     p = q;
-                                    qopt = LLIST_link(q).opt();
+                                    qopt = llist_link(q);
                                 } else {
                                     break;
                                 }
@@ -550,7 +550,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                         *LLIST_link(q) = *LLIST_link(p);
                         *LLIST_link(p) = None.tex_int();
                         prev_p = r;
-                        let mut popt2 = LLIST_link(r).opt();
+                        let mut popt2 = llist_link(r);
 
                         /* "Extract any 'invisible' nodes from the old list
                          * and insert them after the new node, so we don't
@@ -573,7 +573,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                 q = p;
                             }
                             prev_p = p;
-                            popt2 = LLIST_link(p).opt();
+                            popt2 = llist_link(p);
                         }
                         flush_node_list(Some(r));
                         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
@@ -582,7 +582,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                 }
                 prev_p = p;
             }
-            popt = LLIST_link(p).opt();
+            popt = llist_link(p);
         }
     }
 
@@ -696,7 +696,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                     }
                 }
                 prev_p = *LLIST_link(prev_p) as usize;
-                popt = LLIST_link(p).opt();
+                popt = llist_link(p);
                 if !is_char_node(popt) {
                     break;
                 } else {
@@ -1047,7 +1047,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                     cur_h = edge - 10;
                                 }
                                 prev_p = p;
-                                popt = LLIST_link(p).opt();
+                                popt = llist_link(p);
                                 continue;
                             }
                         }
@@ -1097,7 +1097,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                  cur_dir {
                             /*1509: "Reverse an hlist segment and goto reswitch" */
                             let save_h = cur_h; /* = lig_char(p) */
-                            let tmp_ptr = LLIST_link(p).opt().unwrap();
+                            let tmp_ptr = llist_link(p).unwrap();
                             rule_wd =
                                 *BOX_width(p);
                             free_node(p, MEDIUM_NODE_SIZE);
@@ -1143,7 +1143,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
             }
             // next_p
             prev_p = p;
-            popt = LLIST_link(p).opt();
+            popt = llist_link(p);
         }
 
     }
@@ -1440,7 +1440,7 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                             dvi_four(rule_wd);
                             cur_h = left_edge;
                         }
-                        popt = LLIST_link(p).opt();
+                        popt = llist_link(p);
                         continue;
                     } else {
                         let leader_ht = *BOX_height(leader_box) + *BOX_depth(leader_box);
@@ -1510,7 +1510,7 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                                 cur_v = save_v - *BOX_height(leader_box) + leader_ht + lx
                             }
                             cur_v = edge - 10;
-                            popt = LLIST_link(p).opt();
+                            popt = llist_link(p);
                             continue;
                         }
                     }
@@ -1531,7 +1531,7 @@ unsafe fn vlist_out(tmp_ptr: usize) {
             _ => {}
         }
 
-        popt = LLIST_link(p).opt();
+        popt = llist_link(p);
     }
     synctex_tsilv(this_box);
     prune_movements(save_loc);
@@ -1576,7 +1576,7 @@ unsafe fn reverse(
                             .s3 as i32) as usize]
                         .b32
                         .s1;
-                    popt = LLIST_link(p).opt();
+                    popt = llist_link(p);
                     *LLIST_link(p) = l.tex_int();
                     l = Some(p);
                     if !is_char_node(popt) {
@@ -1900,7 +1900,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
         right_ptr = Some(q);
     }
 
-    let mut popt = LLIST_link(q).opt();
+    let mut popt = llist_link(q);
     let mut mstate = MoveSeen::None;
 
     loop {
@@ -1961,7 +1961,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
                     _ => {}
                 }
             }
-            popt = LLIST_link(p).opt();
+            popt = llist_link(p);
         } else {
             return not_found(q, o, w);
         }
@@ -1972,7 +1972,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
         MEM[q].b32.s0 = MEM[p].b32.s0; /*634:*/
         if MEM[q].b32.s0 == MoveDir::YHere as i32 {
             dvi_out(o + 4); /* max_selector enum */
-            while LLIST_link(q).opt() != Some(p) {
+            while llist_link(q) != Some(p) {
                 q = *LLIST_link(q) as usize;
 
                 match MoveDir::from(MEM[q].b32.s0) {
@@ -1983,7 +1983,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
             }
         } else {
             dvi_out(o + 9);
-            while LLIST_link(q).opt() != Some(p) {
+            while llist_link(q) != Some(p) {
                 q = *LLIST_link(q) as usize;
 
                 match MoveDir::from(MEM[q].b32.s0) {
@@ -2035,14 +2035,14 @@ unsafe fn prune_movements(l: usize) {
             break;
         }
 
-        down_ptr = LLIST_link(p).opt();
+        down_ptr = llist_link(p);
         free_node(p, MOVEMENT_NODE_SIZE);
     }
     while let Some(p) = right_ptr {
         if MEM[p + 2].b32.s1 < l as i32 {
             return;
         }
-        right_ptr = LLIST_link(p).opt();
+        right_ptr = llist_link(p);
         free_node(p, MOVEMENT_NODE_SIZE);
     }
 }

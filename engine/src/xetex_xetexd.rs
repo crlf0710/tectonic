@@ -38,6 +38,9 @@ impl TeXOpt for i32 {
 pub(crate) unsafe fn LLIST_link<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p].b32.s1
 }
+pub(crate) unsafe fn llist_link<'a>(p: usize) -> Option<usize> {
+    MEM[p].b32.s1.opt()
+}
 pub(crate) unsafe fn LLIST_info<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p].b32.s0
 }
