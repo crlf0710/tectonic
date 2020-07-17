@@ -44,10 +44,10 @@ use crate::xetex_xetex0::{
     scan_math_fam_int, scan_usv_num, unsave, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_char_node, kern_NODE_width, math_char, math_class, math_fam, set_BOX_lr_mode, set_NODE_type,
-    set_class, set_family, set_kern_NODE_subtype, set_whatsit_NODE_subtype, text_NODE_type,
-    whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height,
-    BOX_list_ptr, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
+    is_char_node, kern_NODE_width, llist_link, math_char, math_class, math_fam, set_BOX_lr_mode,
+    set_NODE_type, set_class, set_family, set_kern_NODE_subtype, set_whatsit_NODE_subtype,
+    text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign,
+    BOX_height, BOX_list_ptr, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
     CHOICE_NODE_display, CHOICE_NODE_script, CHOICE_NODE_scriptscript, CHOICE_NODE_text,
     GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_size,
     GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
@@ -228,12 +228,14 @@ pub(crate) unsafe fn init_math() {
                             found = false;
                         }
                         TextNode::Math => {
+                            let nst = MathNST::from(MEM[p].b16.s0);
                             d = MEM[p + 1].b32.s1;
                             if *INTPAR(IntPar::texxet) > 0 {
                                 /*1525: */
-                                if MEM[p].b16.s0 as i32 & 1 != 0 {
-                                    if MEM[LR_ptr as usize].b32.s0
-                                        == 4i32 * (MEM[p].b16.s0 as i32 / 4) + 3
+                                let (be, mode) = nst.equ();
+                                if be == BE::End {
+                                    if MathNST::from(MEM[LR_ptr as usize].b32.s0 as u16)
+                                        == MathNST::Eq(BE::End, mode)
                                     {
                                         let tmp_ptr = LR_ptr as usize;
                                         LR_ptr = *LLIST_link(tmp_ptr);
@@ -245,21 +247,26 @@ pub(crate) unsafe fn init_math() {
                                     }
                                 } else {
                                     let tmp_ptr = get_avail();
-                                    MEM[tmp_ptr].b32.s0 = 4i32 * (MEM[p].b16.s0 as i32 / 4) + 3;
+                                    MEM[tmp_ptr].b32.s0 =
+                                        u16::from(MathNST::Eq(BE::End, mode)) as i32;
                                     *LLIST_link(tmp_ptr) = LR_ptr;
                                     LR_ptr = Some(tmp_ptr).tex_int();
-                                    if MEM[p].b16.s0 as i32 / 8 != cur_dir as i32 {
+                                    if nst.dir() != cur_dir {
                                         just_reverse(p);
                                         p = TEMP_HEAD;
                                     }
                                 }
                                 found = false;
                             } else {
-                                if MEM[p].b16.s0 as i32 >= 4 {
-                                    w = MAX_HALFWORD;
-                                    break;
-                                } else {
-                                    found = false;
+                                match nst {
+                                    MathNST::Eq(_, MathMode::Left)
+                                    | MathNST::Eq(_, MathMode::Right) => {
+                                        w = MAX_HALFWORD;
+                                        break;
+                                    }
+                                    _ => {
+                                        found = false;
+                                    }
                                 }
                             }
                         }
@@ -323,7 +330,7 @@ pub(crate) unsafe fn init_math() {
                         v = v + d
                     }
                 }
-                popt = LLIST_link(p).opt();
+                popt = llist_link(p);
             }
             if *INTPAR(IntPar::texxet) > 0 {
                 while let Some(l) = LR_ptr.opt() {
@@ -338,7 +345,7 @@ pub(crate) unsafe fn init_math() {
                 }
             }
             cur_dir = LR::LeftToRight;
-            flush_node_list(LLIST_link(TEMP_HEAD).opt());
+            flush_node_list(llist_link(TEMP_HEAD));
         }
         let s;
         let l;
@@ -984,7 +991,7 @@ pub(crate) unsafe fn after_math() {
         cur_style = (MathStyle::Text, 0);
         mlist_penalties = false;
         mlist_to_hlist();
-        let a = hpack(LLIST_link(TEMP_HEAD).opt(), 0, PackMode::Additional);
+        let a = hpack(llist_link(TEMP_HEAD), 0, PackMode::Additional);
         MEM[a].b16.s0 = LRMode::DList as u16;
         unsave();
         SAVE_PTR -= 1;
@@ -1109,7 +1116,7 @@ pub(crate) unsafe fn after_math() {
         cur_style = (MathStyle::Display, 0);
         mlist_penalties = false;
         mlist_to_hlist();
-        let p = LLIST_link(TEMP_HEAD).opt();
+        let p = llist_link(TEMP_HEAD);
         adjust_tail = Some(ADJUST_HEAD);
         pre_adjust_tail = Some(PRE_ADJUST_HEAD);
         let mut b = hpack(p, 0, PackMode::Additional);
@@ -1608,7 +1615,7 @@ unsafe fn clean_box(p: usize, s: (MathStyle, u8)) -> usize {
         let q = *BOX_list_ptr(x);
         if is_char_node(q.opt()) {
             if let Some(r) = LLIST_link(q as usize).opt() {
-                if LLIST_link(r).opt().is_none() {
+                if llist_link(r).is_none() {
                     if !is_char_node(Some(r)) {
                         if NODE_type(r) == TextNode::Kern.into() {
                             free_node(r, MEDIUM_NODE_SIZE);
@@ -2292,7 +2299,7 @@ unsafe fn make_ord(q: usize) {
         if !(MEM[q + 1].b32.s1 == MathCell::MathChar as _) {
             break;
         }
-        let p = LLIST_link(q).opt();
+        let p = llist_link(q);
         if p.is_none() {
             break;
         }
@@ -2377,7 +2384,7 @@ unsafe fn make_ord(q: usize) {
 unsafe fn attach_hkern_to_new_hlist(q: usize, mut delta: scaled_t) -> usize {
     let mut z = Some(new_kern(delta)).tex_int();
     if let Some(mut y) = MEM[q + 1].b32.s1.opt() {
-        while let Some(next) = LLIST_link(y).opt() {
+        while let Some(next) = llist_link(y) {
             y = next;
         }
         *LLIST_link(y) = z;
@@ -2706,7 +2713,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
         }
     }
     if let Some(mut p) = MEM[q + 1].b32.s1.opt() {
-        while let Some(next) = LLIST_link(p).opt() {
+        while let Some(next) = llist_link(p) {
             p = next;
         }
         *LLIST_link(p) = Some(x).tex_int();
@@ -2892,7 +2899,7 @@ unsafe fn mlist_to_hlist() {
                             cur_style = save_style;
                             cur_size = cur_style.0.size();
                             cur_mu = x_over_n(math_quad(cur_size), 18);
-                            Some(hpack(LLIST_link(TEMP_HEAD).opt(), 0, PackMode::Additional))
+                            Some(hpack(llist_link(TEMP_HEAD), 0, PackMode::Additional))
                         }
                         _ => confusion(b"mlist2"),
                     };
@@ -2980,7 +2987,7 @@ unsafe fn mlist_to_hlist() {
                         *GLUE_NODE_glue_ptr(q) = Some(y).tex_int();
                         MEM[q].b16.s0 = NORMAL as u16
                     } else if cur_size != TEXT_SIZE && MEM[q].b16.s0 == COND_MATH_GLUE {
-                        if let Some(p) = LLIST_link(q).opt() {
+                        if let Some(p) = llist_link(q) {
                             if NODE_type(p) == TextNode::Glue.into()
                                 || NODE_type(p) == TextNode::Kern.into()
                             {
@@ -3000,7 +3007,7 @@ unsafe fn mlist_to_hlist() {
         }
 
         /*done_with_node */
-        qopt = LLIST_link(q).opt();
+        qopt = llist_link(q);
     } /*ord_noad *//*:755 */
 
     if r_type == MathNode::Bin as i16 {
@@ -3057,7 +3064,7 @@ unsafe fn mlist_to_hlist() {
                     cur_size = cur_style.0.size();
                     cur_mu = x_over_n(math_quad(cur_size), 18);
                     /*delete_q */
-                    qopt = LLIST_link(q).opt();
+                    qopt = llist_link(q);
                     free_node(q, s as i32);
                     continue;
                 }
@@ -3072,7 +3079,7 @@ unsafe fn mlist_to_hlist() {
                 | TextNode::Kern => {
                     *LLIST_link(p) = Some(q).tex_int();
                     p = q;
-                    qopt = LLIST_link(q).opt();
+                    qopt = llist_link(q);
                     *LLIST_link(p) = None.tex_int();
                     continue;
                 }
@@ -3144,7 +3151,7 @@ unsafe fn mlist_to_hlist() {
             *LLIST_link(p) = Some(lst).tex_int();
             loop {
                 p = lst;
-                if let Some(next) = LLIST_link(lst).opt() {
+                if let Some(next) = llist_link(lst) {
                     lst = next;
                 } else {
                     break;
@@ -3152,7 +3159,7 @@ unsafe fn mlist_to_hlist() {
             }
         }
         if penalties {
-            if let Some(m) = LLIST_link(q).opt() {
+            if let Some(m) = llist_link(q) {
                 if pen < INF_PENALTY {
                     r_type = MEM[m].b16.s1 as i16;
                     if ND::from(r_type as u16) != TextNode::Penalty.into() {
@@ -3170,7 +3177,7 @@ unsafe fn mlist_to_hlist() {
         }
         r_type = t;
         /*delete_q */
-        qopt = LLIST_link(q).opt();
+        qopt = llist_link(q);
         free_node(q, s as i32);
     }
 }
@@ -3423,7 +3430,7 @@ unsafe fn stack_glyph_into_box(b: usize, mut f: internal_font_number, mut g: i32
     measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1);
     if NODE_type(b) == TextNode::HList.into() {
         if let Some(mut q) = BOX_list_ptr(b).opt() {
-            while let Some(next) = LLIST_link(q).opt() {
+            while let Some(next) = llist_link(q) {
                 q = next;
             }
             *LLIST_link(q) = Some(p).tex_int();
@@ -3446,7 +3453,7 @@ unsafe fn stack_glue_into_box(b: usize, mut min: scaled_t, mut max: scaled_t) {
     let p = new_glue(q);
     if NODE_type(b) == TextNode::HList.into() {
         if let Some(mut q) = BOX_list_ptr(b).opt() {
-            while let Some(next) = LLIST_link(q).opt() {
+            while let Some(next) = llist_link(q) {
                 q = next;
             }
             *LLIST_link(q) = Some(p).tex_int();
@@ -3552,7 +3559,7 @@ unsafe fn build_opentype_assembly(
             nat += *GLUE_SPEC_size(*GLUE_NODE_glue_ptr(p) as usize);
             str += *GLUE_SPEC_stretch(*GLUE_NODE_glue_ptr(p) as usize);
         }
-        popt = LLIST_link(p).opt();
+        popt = llist_link(p);
     }
 
     if s > nat && str > 0 {
@@ -3581,7 +3588,7 @@ unsafe fn rebox(mut b: usize, mut w: scaled_t) -> usize {
             b = hpack(Some(b), 0, PackMode::Additional) as usize
         }
         let mut p = *BOX_list_ptr(b) as usize;
-        if is_char_node(Some(p)) && LLIST_link(p).opt().is_none() {
+        if is_char_node(Some(p)) && llist_link(p).is_none() {
             f = *CHAR_NODE_font(p) as internal_font_number;
             v = FONT_INFO[(WIDTH_BASE[f]
                 + FONT_INFO
@@ -3597,7 +3604,7 @@ unsafe fn rebox(mut b: usize, mut w: scaled_t) -> usize {
         free_node(b, BOX_NODE_SIZE);
         let b = new_glue(12);
         *LLIST_link(b) = Some(p).tex_int();
-        while let Some(next) = LLIST_link(p).opt() {
+        while let Some(next) = llist_link(p) {
             p = next;
         }
         *LLIST_link(p) = new_glue(12) as i32;
