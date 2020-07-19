@@ -35,23 +35,22 @@ use crate::xetex_synctex::{
 use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{
     begin_diagnostic, begin_token_list, cur_length, effective_char, end_diagnostic, end_token_list,
-    flush_list, flush_node_list, free_node, get_avail, get_node, get_token, glue_ord,
-    internal_font_number, make_name_string, new_kern, new_math, new_native_word_node,
-    open_log_file, pack_file_name, pack_job_name, packed_UTF16_code, prepare_mag, scaled_t,
-    scan_toks, show_box, show_token_list, str_number, token_show, UTF16_code,
+    flush_list, flush_node_list, free_node, get_avail, get_node, get_token, internal_font_number,
+    make_name_string, new_kern, new_math, new_native_word_node, open_log_file, pack_file_name,
+    pack_job_name, packed_UTF16_code, prepare_mag, scaled_t, scan_toks, show_box, show_token_list,
+    str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
     is_char_node, kern_NODE_subtype, kern_NODE_width, llist_link, print_c_string, set_BOX_lr_mode,
     /*set_NODE_subtype, */ set_NODE_type, set_whatsit_NODE_subtype, text_NODE_type,
     whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height,
     BOX_list_ptr, BOX_lr_mode, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
-    EDGE_NODE_edge_dist, FILE_NODE_id, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
-    GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_size,
-    GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
-    LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph,
-    NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length, NATIVE_NODE_text, NODE_type, OPEN_NODE_area,
-    OPEN_NODE_ext, OPEN_NODE_name, PIC_NODE_page, PIC_NODE_pagebox, PIC_NODE_path,
-    PIC_NODE_transform_matrix, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    EDGE_NODE_edge_dist, FILE_NODE_id, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_NODE_param,
+    LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link,
+    NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length,
+    NATIVE_NODE_text, NODE_type, OPEN_NODE_area, OPEN_NODE_ext, OPEN_NODE_name, PIC_NODE_page,
+    PIC_NODE_pagebox, PIC_NODE_path, PIC_NODE_transform_matrix, SYNCTEX_tag, TeXInt, TeXOpt,
+    FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -331,7 +330,7 @@ pub(crate) unsafe fn ship_out(p: usize) {
 /*639: Output an hlist */
 unsafe fn hlist_out(tmp_ptr: usize) {
     let this_box = tmp_ptr;
-    let g_order: glue_ord = *BOX_glue_order(this_box) as _;
+    let g_order = GlueOrder::from(*BOX_glue_order(this_box));
     let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
 
     if *INTPAR(IntPar::xetex_interword_space_shaping) > 1 {
@@ -377,9 +376,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                             qopt = llist_link(q);
                         }
                         if let Some(q) = qopt.filter(|&q| !is_char_node(Some(q))) {
-                            if NODE_type(q) == TextNode::Glue.into()
-                                && *GLUE_SPEC_shrink_order(q) == GlueOrder::Normal as _
-                            {
+                            if NODE_type(q) == TextNode::Glue.into() && *GLUE_NODE_param(q) == 0 {
                                 if *GLUE_NODE_glue_ptr(q)
                                     == FONT_GLUE[*NATIVE_NODE_font(r) as usize]
                                 {
@@ -506,20 +503,17 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                             } else if NODE_type(q) == TextNode::Glue.into() {
                                 str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
                                 pool_ptr += 1;
-                                let g = *GLUE_NODE_glue_ptr(q) as usize;
-                                k += *GLUE_SPEC_size(g);
+                                let mut g = GlueSpec(*GLUE_NODE_glue_ptr(q) as usize);
+                                k += g.size();
                                 if g_sign != GlueSign::Normal {
                                     if g_sign == GlueSign::Stretching {
-                                        if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
+                                        if g.stretch_order() == g_order {
                                             k += tex_round(
-                                                *BOX_glue_set(this_box)
-                                                    * *GLUE_SPEC_stretch(g) as f64,
+                                                *BOX_glue_set(this_box) * g.stretch() as f64,
                                             )
                                         }
-                                    } else if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
-                                        k -= tex_round(
-                                            *BOX_glue_set(this_box) * *GLUE_SPEC_shrink(g) as f64,
-                                        )
+                                    } else if g.shrink_order() == g_order {
+                                        k -= tex_round(*BOX_glue_set(this_box) * g.shrink() as f64)
                                     }
                                 }
                             } else if NODE_type(q) == TextNode::Kern.into() {
@@ -890,24 +884,24 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                 }
                 TextNode::Glue => {
                     /*647: "Move right or output leaders" */
-                    let g = *GLUE_NODE_glue_ptr(p) as usize;
+                    let mut g = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize);
                     rule_wd =
-                        *GLUE_SPEC_size(g) -
+                        g.size() -
                             cur_g;
 
                     if g_sign != GlueSign::Normal {
                         if g_sign == GlueSign::Stretching {
-                            if *GLUE_SPEC_stretch_order(g) ==
-                                   g_order as u16 {
+                            if g.stretch_order() ==
+                                   g_order {
                                 cur_glue +=
-                                    *GLUE_SPEC_stretch(g) as f64;
+                                    g.stretch() as f64;
                                 cur_g = tex_round((*BOX_glue_set(this_box) *
                                         cur_glue).min(1_000_000_000.).max(-1_000_000_000.));
                             }
-                        } else if *GLUE_SPEC_shrink_order(g) ==
-                                      g_order as u16 {
+                        } else if g.shrink_order() ==
+                                      g_order {
                             cur_glue -=
-                                *GLUE_SPEC_shrink(g) as
+                                g.shrink() as
                                     f64;
                             cur_g = tex_round((*BOX_glue_set(this_box) *
                                     cur_glue).min(1_000_000_000.).max(-1_000_000_000.));
@@ -919,31 +913,29 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                     /*1486: "Handle a glue node for mixed direction typesetting". */
 
                     if g_sign == GlueSign::Stretching &&
-                           *GLUE_SPEC_stretch_order(g) == g_order as u16
+                           g.stretch_order() == g_order
                            ||
                            g_sign == GlueSign::Shrinking &&
-                               *GLUE_SPEC_shrink_order(g) ==
-                                   g_order as u16 {
-                        if GLUE_SPEC_ref_count(g).opt().is_none() {
-                            free_node(g,
+                               g.shrink_order() ==
+                                   g_order {
+                        if g.rc().opt().is_none() {
+                            free_node(g.ptr(),
                                       GLUE_SPEC_SIZE);
                         } else {
-                            *GLUE_SPEC_ref_count(g) -= 1;
+                            g.rc_dec();
                         }
                         if MEM[p].b16.s0 < A_LEADERS { // NODE_subtype(p)
                             set_NODE_type(p, TextNode::Kern);
-                            *GLUE_SPEC_size(p)
+                            *kern_NODE_width(p)
                                 = rule_wd;
                         } else {
-                            let g = get_node(GLUE_SPEC_SIZE);
-                            *GLUE_SPEC_stretch_order(g) =
-                                GlueOrder::Incorrect as u16; /* "will never match" */
-                            *GLUE_SPEC_shrink_order(g) =
-                                GlueOrder::Incorrect as u16;
-                            *GLUE_SPEC_size(g) = rule_wd;
-                            *GLUE_SPEC_stretch(g) = 0;
-                            *GLUE_SPEC_shrink(g) = 0;
-                            *GLUE_NODE_glue_ptr(p) = g as i32;
+                            let mut g = GlueSpec(get_node(GLUE_SPEC_SIZE));
+                            g.set_stretch_order(GlueOrder::Incorrect) /* "will never match" */
+                            .set_shrink_order(GlueOrder::Incorrect)
+                            .set_size(rule_wd)
+                            .set_stretch(0)
+                            .set_shrink(0);
+                            *GLUE_NODE_glue_ptr(p) = g.ptr() as i32;
                         }
                     }
                     if MEM[p as usize].b16.s0
@@ -1375,21 +1367,21 @@ unsafe fn vlist_out(tmp_ptr: usize) {
             }
             TextNode::Glue => {
                 /*656: "Move down or output leaders" */
-                let g = *GLUE_NODE_glue_ptr(p) as usize;
-                rule_ht = *GLUE_SPEC_size(g) - cur_g;
+                let g = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize);
+                rule_ht = g.size() - cur_g;
 
                 if g_sign != GlueSign::Normal {
                     if g_sign == GlueSign::Stretching {
-                        if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
-                            cur_glue += *GLUE_SPEC_stretch(g) as f64;
+                        if g.stretch_order() == g_order {
+                            cur_glue += g.stretch() as f64;
                             cur_g = tex_round(
                                 (*BOX_glue_set(this_box) * cur_glue)
                                     .min(1_000_000_000.)
                                     .max(-1_000_000_000.),
                             )
                         }
-                    } else if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
-                        cur_glue -= *GLUE_SPEC_shrink(g) as f64;
+                    } else if g.shrink_order() == g_order {
+                        cur_glue -= g.shrink() as f64;
                         cur_g = tex_round(
                             (*BOX_glue_set(this_box) * cur_glue)
                                 .min(1_000_000_000.)
@@ -1604,14 +1596,14 @@ unsafe fn reverse(
                     },
                     TextNode::Glue => {
                         /*1486: "Handle a glue node for mixed direction typesetting" */
-                        let g = *GLUE_NODE_glue_ptr(p) as usize; /* "will never match" */
-                        rule_wd = *BOX_width(g) - *cur_g; /* = mem[lig_char(tmp_ptr)] */
+                        let mut g = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize); /* "will never match" */
+                        rule_wd = g.size() - *cur_g; /* = mem[lig_char(tmp_ptr)] */
 
                         match g_sign {
                             GlueSign::Normal => {}
                             GlueSign::Stretching => {
-                                if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
-                                    *cur_glue = *cur_glue + *GLUE_SPEC_stretch(g) as f64;
+                                if g.stretch_order() == g_order {
+                                    *cur_glue = *cur_glue + g.stretch() as f64;
                                     *cur_g = tex_round(
                                         (*BOX_glue_set(this_box) * *cur_glue)
                                             .min(1_000_000_000.)
@@ -1620,8 +1612,8 @@ unsafe fn reverse(
                                 }
                             }
                             GlueSign::Shrinking => {
-                                if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
-                                    *cur_glue = *cur_glue - *GLUE_SPEC_shrink(g) as f64;
+                                if g.shrink_order() == g_order {
+                                    *cur_glue = *cur_glue - g.shrink() as f64;
                                     *cur_g = tex_round(
                                         (*BOX_glue_set(this_box) * *cur_glue)
                                             .min(1_000_000_000.)
@@ -1633,28 +1625,26 @@ unsafe fn reverse(
 
                         rule_wd += *cur_g;
 
-                        if g_sign == GlueSign::Stretching
-                            && *GLUE_SPEC_stretch_order(g) == g_order as u16
-                            || g_sign == GlueSign::Shrinking
-                                && *GLUE_SPEC_shrink_order(g) == g_order as u16
+                        if g_sign == GlueSign::Stretching && g.stretch_order() == g_order
+                            || g_sign == GlueSign::Shrinking && g.shrink_order() == g_order
                         {
-                            if GLUE_SPEC_ref_count(g).opt().is_none() {
-                                free_node(g, GLUE_SPEC_SIZE);
+                            if g.rc().opt().is_none() {
+                                free_node(g.ptr(), GLUE_SPEC_SIZE);
                             } else {
-                                *GLUE_SPEC_ref_count(g) -= 1;
+                                g.rc_dec();
                             }
                             if MEM[p].b16.s0 < A_LEADERS {
                                 // NODE_subtype(p)
                                 set_NODE_type(p, TextNode::Kern);
                                 *BOX_width(p) = rule_wd;
                             } else {
-                                let g = get_node(GLUE_SPEC_SIZE);
-                                *GLUE_SPEC_stretch_order(g) = GlueOrder::Incorrect as u16;
-                                *GLUE_SPEC_shrink_order(g) = GlueOrder::Incorrect as u16;
-                                *GLUE_SPEC_size(g) = rule_wd;
-                                *GLUE_SPEC_stretch(g) = 0;
-                                *GLUE_SPEC_shrink(g) = 0;
-                                *GLUE_NODE_glue_ptr(p) = g as i32;
+                                let mut g = GlueSpec(get_node(GLUE_SPEC_SIZE));
+                                g.set_stretch_order(GlueOrder::Incorrect)
+                                    .set_shrink_order(GlueOrder::Incorrect)
+                                    .set_size(rule_wd)
+                                    .set_stretch(0)
+                                    .set_shrink(0);
+                                *GLUE_NODE_glue_ptr(p) = g.ptr() as i32;
                             }
                         }
                     }

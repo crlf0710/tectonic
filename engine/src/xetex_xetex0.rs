@@ -467,18 +467,19 @@ pub(crate) unsafe fn new_math(w: i32, s: MathNST) -> usize {
     p
 }
 pub(crate) unsafe fn new_spec(other: usize) -> usize {
-    let q = get_node(GLUE_SPEC_SIZE);
-    MEM[q] = MEM[other];
-    *GLUE_SPEC_ref_count(q) = None.tex_int();
-    *GLUE_SPEC_size(q) = *GLUE_SPEC_size(other);
-    *GLUE_SPEC_stretch(q) = *GLUE_SPEC_stretch(other);
-    *GLUE_SPEC_shrink(q) = *GLUE_SPEC_shrink(other);
-    q
+    let other = GlueSpec(other);
+    let mut q = GlueSpec(get_node(GLUE_SPEC_SIZE));
+    MEM[q.ptr()] = MEM[other.ptr()];
+    q.rc_none();
+    q.set_size(other.size())
+        .set_stretch(other.stretch())
+        .set_shrink(other.shrink());
+    q.ptr()
 }
 pub(crate) unsafe fn new_param_glue(n: GluePar) -> usize {
     let p = get_node(MEDIUM_NODE_SIZE);
     set_NODE_type(p, TextNode::Glue);
-    MEM[p].b16.s0 = n as u16 + 1;
+    *GLUE_NODE_param(p) = n as u16 + 1;
     MEM[p + 1].b32.s1 = None.tex_int();
     let q = EQTB[GLUE_BASE + n as usize].val as usize;
     MEM[p + 1].b32.s0 = q as i32;
@@ -491,13 +492,15 @@ pub(crate) unsafe fn new_glue(q: usize) -> usize {
     MEM[p].b16.s0 = NORMAL as _;
     *GLUE_NODE_leader_ptr(p) = None.tex_int();
     *GLUE_NODE_glue_ptr(p) = q as i32;
-    *GLUE_SPEC_ref_count(q) += 1;
+    GlueSpec(q).rc_inc();
     p
 }
-pub(crate) unsafe fn new_skip_param(n: GluePar) -> (usize, usize) {
-    let tmp_ptr = new_spec(EQTB[(GLUE_BASE as i32 + n as i32) as usize].val as usize); // 232
-    let p = new_glue(tmp_ptr);
-    *GLUE_SPEC_ref_count(tmp_ptr) = None.tex_int();
+pub(crate) unsafe fn new_skip_param(n: GluePar) -> (usize, GlueSpec) {
+    let mut tmp_ptr = GlueSpec(new_spec(
+        EQTB[(GLUE_BASE as i32 + n as i32) as usize].val as usize,
+    )); // 232
+    let p = new_glue(tmp_ptr.ptr());
+    tmp_ptr.rc_none();
     MEM[p].b16.s0 = n as u16 + 1;
     (p, tmp_ptr)
 }
@@ -653,18 +656,18 @@ pub(crate) unsafe fn print_spec(p: i32, unit: &[u8]) {
     if p < 0 || p >= lo_mem_max {
         print_char('*' as i32);
     } else {
-        let p = p as usize;
-        print_scaled(*GLUE_SPEC_size(p));
+        let p = GlueSpec(p as usize);
+        print_scaled(p.size());
         if !unit.is_empty() {
             print_cstr(unit);
         }
-        if *GLUE_SPEC_stretch(p) != 0 {
+        if p.stretch() != 0 {
             print_cstr(b" plus ");
-            print_glue(*GLUE_SPEC_stretch(p), GlueOrder::from(MEM[p].b16.s1), unit);
+            print_glue(p.stretch(), p.stretch_order(), unit);
         }
-        if *GLUE_SPEC_shrink(p) != 0 {
+        if p.shrink() != 0 {
             print_cstr(b" minus ");
-            print_glue(*GLUE_SPEC_shrink(p), GlueOrder::from(MEM[p].b16.s0), unit);
+            print_glue(p.shrink(), p.shrink_order(), unit);
         }
     };
 }
@@ -869,19 +872,20 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_rule_dimen(*BOX_width(p));
                     }
                     TextNode::Ins => {
+                        let p_ins = Insertion(p);
                         print_esc_cstr(b"insert");
-                        print_int(*INSERTION_NODE_box_reg(p) as i32);
+                        print_int(p_ins.box_reg() as i32);
                         print_cstr(b", natural size ");
-                        print_scaled(*INSERTION_NODE_height(p));
+                        print_scaled(p_ins.height());
                         print_cstr(b"; split(");
-                        print_spec(*INSERTION_NODE_split_top_ptr(p), b"");
+                        print_spec(p_ins.split_top_ptr(), b"");
                         print_char(',' as i32);
-                        print_scaled(*INSERTION_NODE_depth(p));
+                        print_scaled(p_ins.depth());
                         print_cstr(b"); float cost ");
-                        print_int(*INSERTION_NODE_float_cost(p));
+                        print_int(p_ins.float_cost());
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(INSERTION_NODE_ins_ptr(p).opt());
+                        show_node_list(p_ins.ins_ptr().opt());
                         pool_ptr -= 1
                     }
                     TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
@@ -1270,8 +1274,9 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         free_node(p, RULE_NODE_SIZE);
                     }
                     TextNode::Ins => {
-                        flush_node_list(INSERTION_NODE_ins_ptr(p).opt());
-                        delete_glue_ref(*INSERTION_NODE_split_top_ptr(p) as usize);
+                        let p_ins = Insertion(p);
+                        flush_node_list(p_ins.ins_ptr().opt());
+                        delete_glue_ref(p_ins.split_top_ptr() as usize);
                         free_node(p, INS_NODE_SIZE);
                     }
                     TextNode::WhatsIt => {
@@ -1313,8 +1318,9 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     }
                     TextNode::Glue => {
                         let g = *GLUE_NODE_glue_ptr(p) as usize;
-                        if let Some(_rc) = GLUE_SPEC_ref_count(g).opt() {
-                            *GLUE_SPEC_ref_count(g) -= 1;
+                        let mut g_spec = GlueSpec(g);
+                        if let Some(_rc) = g_spec.rc().opt() {
+                            g_spec.rc_dec();
                         } else {
                             free_node(g, 4);
                         }
@@ -1439,9 +1445,11 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                 }
                 TextNode::Ins => {
                     r = get_node(INS_NODE_SIZE);
-                    *INSERTION_NODE_split_top_ptr(r) = *INSERTION_NODE_split_top_ptr(p);
-                    *GLUE_SPEC_ref_count(*INSERTION_NODE_split_top_ptr(p) as usize) += 1;
-                    *INSERTION_NODE_ins_ptr(r) = copy_node_list(INSERTION_NODE_ins_ptr(p).opt());
+                    let p_ins = Insertion(p);
+                    let mut r_ins = Insertion(r);
+                    r_ins.set_split_top_ptr(p_ins.split_top_ptr());
+                    GlueSpec(p_ins.split_top_ptr() as usize).rc_inc();
+                    r_ins.set_ins_ptr(copy_node_list(p_ins.ins_ptr().opt()));
                     words = (INS_NODE_SIZE - 1) as u8
                 }
                 TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
@@ -1485,7 +1493,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                 },
                 TextNode::Glue => {
                     r = get_node(MEDIUM_NODE_SIZE);
-                    *GLUE_SPEC_ref_count(*GLUE_NODE_glue_ptr(p) as usize) += 1;
+                    GlueSpec(*GLUE_NODE_glue_ptr(p) as usize).rc_inc();
                     *SYNCTEX_tag(r, MEDIUM_NODE_SIZE) = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
                     *SYNCTEX_line(r, MEDIUM_NODE_SIZE) = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
                     *GLUE_NODE_glue_ptr(r) = *GLUE_NODE_glue_ptr(p);
@@ -5051,7 +5059,7 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
                 let p = get_node(POINTER_NODE_SIZE);
                 if t <= ValLevel::Mu {
                     MEM[p + 1].b32.s1 = 0;
-                    *GLUE_SPEC_ref_count(0) += 1; // TODO: looks like a BUG
+                    GlueSpec(0).rc_inc(); // TODO: looks like a BUG
                 } else {
                     MEM[p + 1].b32.s1 = None.tex_int();
                 }
@@ -6394,12 +6402,12 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             ValLevel::Int | ValLevel::Dimen => cur_val = -cur_val,
                             _ => {
                                 let m = cur_val as usize;
-                                let cur_val_ = new_spec(m);
-                                cur_val = cur_val_ as i32;
+                                let mut cur_val_ = GlueSpec(new_spec(m));
+                                cur_val = cur_val_.ptr() as i32;
                                 delete_glue_ref(m);
-                                *GLUE_SPEC_size(cur_val_) = -(*GLUE_SPEC_size(cur_val_));
-                                *GLUE_SPEC_stretch(cur_val_) = -(*GLUE_SPEC_stretch(cur_val_));
-                                *GLUE_SPEC_shrink(cur_val_) = -(*GLUE_SPEC_shrink(cur_val_));
+                                cur_val_.set_size(-cur_val_.size());
+                                cur_val_.set_stretch(-cur_val_.stretch());
+                                cur_val_.set_shrink(-cur_val_.shrink());
                             }
                         }
                     }
@@ -7104,15 +7112,15 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
         match cur_val_level {
             ValLevel::Int | ValLevel::Dimen => cur_val = -cur_val,
             _ => {
-                let cur_val_ = new_spec(cur_val as usize);
-                cur_val = cur_val_ as i32;
-                *GLUE_SPEC_size(cur_val_) = -(*GLUE_SPEC_size(cur_val_));
-                *GLUE_SPEC_stretch(cur_val_) = -(*GLUE_SPEC_stretch(cur_val_));
-                *GLUE_SPEC_shrink(cur_val_) = -(*GLUE_SPEC_shrink(cur_val_));
+                let mut cur_val_ = GlueSpec(new_spec(cur_val as usize));
+                cur_val = cur_val_.ptr() as i32;
+                cur_val_.set_size(-cur_val_.size());
+                cur_val_.set_stretch(-cur_val_.stretch());
+                cur_val_.set_shrink(-cur_val_.shrink());
             }
         }
     } else if cur_val_level == ValLevel::Glue || cur_val_level == ValLevel::Mu {
-        MEM[cur_val as usize].b32.s1 += 1;
+        GlueSpec(cur_val as usize).rc_inc();
     };
 }
 pub(crate) unsafe fn scan_int() {
@@ -7268,7 +7276,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
 ) {
     let mut f = 0;
     arith_error = false;
-    cur_order = NORMAL as glue_ord;
+    cur_order = GlueOrder::Normal;
     let mut negative = false;
     if !shortcut {
         negative = false;
@@ -7367,9 +7375,9 @@ pub(crate) unsafe fn xetex_scan_dimen(
         if inf {
             /*473:*/
             if scan_keyword(b"fil") {
-                cur_order = FIL as glue_ord;
+                cur_order = GlueOrder::Fil;
                 while scan_keyword(b"l") {
-                    if cur_order == FILLL as u8 {
+                    if cur_order == GlueOrder::Filll {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
@@ -7380,7 +7388,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                         help!(b"I dddon\'t go any higher than filll.");
                         error();
                     } else {
-                        cur_order += 1;
+                        cur_order = GlueOrder::from((cur_order as u16) + 1);
                     }
                 }
                 return attach_fraction(f, negative);
@@ -7639,19 +7647,17 @@ pub(crate) unsafe fn scan_glue(level: ValLevel) {
             cur_val = -cur_val;
         }
     }
-    let q = new_spec(0);
-    *GLUE_SPEC_size(q) = cur_val;
+    let mut q = GlueSpec(new_spec(0));
+    q.set_size(cur_val);
     if scan_keyword(b"plus") {
         scan_dimen(mu, true, false);
-        *GLUE_SPEC_stretch(q) = cur_val;
-        *GLUE_SPEC_stretch_order(q) = cur_order as u16;
+        q.set_stretch(cur_val).set_stretch_order(cur_order);
     }
     if scan_keyword(b"minus") {
         scan_dimen(mu, true, false);
-        *GLUE_SPEC_shrink(q) = cur_val;
-        *GLUE_SPEC_shrink_order(q) = cur_order as u16;
+        q.set_shrink(cur_val).set_shrink_order(cur_order);
     }
-    cur_val = q as i32;
+    cur_val = q.ptr() as i32;
     /*:481*/
 }
 pub(crate) unsafe fn add_or_sub(
@@ -7902,15 +7908,15 @@ pub(crate) unsafe fn scan_expr() {
                     0 => {
                         /*1579: */
                         t = if l >= ValLevel::Glue && o != Expr::None {
-                            let t = new_spec(f as usize);
+                            let mut t = GlueSpec(new_spec(f as usize));
                             delete_glue_ref(f as usize);
-                            if *GLUE_SPEC_stretch(t) == 0 {
-                                *GLUE_SPEC_stretch_order(t) = GlueOrder::Normal as _;
+                            if t.stretch() == 0 {
+                                t.set_stretch_order(GlueOrder::Normal);
                             }
-                            if *GLUE_SPEC_shrink(t) == 0 {
-                                *GLUE_SPEC_shrink_order(t) = GlueOrder::Normal as _;
+                            if t.shrink() == 0 {
+                                t.set_shrink_order(GlueOrder::Normal);
                             }
-                            t as i32
+                            t.ptr() as i32
                         } else {
                             f
                         };
@@ -7949,12 +7955,11 @@ pub(crate) unsafe fn scan_expr() {
                         } else if l == ValLevel::Dimen {
                             t = fract(t, n, f, MAX_HALFWORD)
                         } else {
-                            *GLUE_SPEC_size(t as usize) =
-                                fract(*GLUE_SPEC_size(t as usize), n, f, MAX_HALFWORD);
-                            *GLUE_SPEC_stretch(t as usize) =
-                                fract(*GLUE_SPEC_stretch(t as usize), n, f, MAX_HALFWORD);
-                            *GLUE_SPEC_shrink(e as usize) =
-                                fract(*GLUE_SPEC_shrink(e as usize), n, f, MAX_HALFWORD)
+                            let mut e = GlueSpec(e as usize);
+                            let mut t = GlueSpec(t as usize);
+                            t.set_size(fract(t.size(), n, f, MAX_HALFWORD));
+                            t.set_stretch(fract(t.stretch(), n, f, MAX_HALFWORD));
+                            e.set_shrink(fract(e.shrink(), n, f, MAX_HALFWORD));
                         }
                     }
                     _ => {}
@@ -7972,52 +7977,36 @@ pub(crate) unsafe fn scan_expr() {
                         e = add_or_sub(e, t, MAX_HALFWORD, r == Expr::Sub)
                     } else {
                         /*1582: */
-                        *GLUE_SPEC_size(e as usize) = add_or_sub(
-                            *GLUE_SPEC_size(e as usize),
-                            *GLUE_SPEC_size(t as usize),
-                            MAX_HALFWORD,
-                            r == Expr::Sub,
-                        );
-                        if *GLUE_SPEC_stretch_order(e as usize)
-                            == *GLUE_SPEC_stretch_order(t as usize)
-                        {
-                            *GLUE_SPEC_stretch(e as usize) = add_or_sub(
-                                *GLUE_SPEC_stretch(e as usize),
-                                *GLUE_SPEC_stretch(t as usize),
+                        let mut e = GlueSpec(e as usize);
+                        let t = GlueSpec(t as usize);
+                        e.set_size(add_or_sub(e.size(), t.size(), MAX_HALFWORD, r == Expr::Sub));
+                        if e.stretch_order() == t.stretch_order() {
+                            e.set_stretch(add_or_sub(
+                                e.stretch(),
+                                t.stretch(),
                                 MAX_HALFWORD,
                                 r == Expr::Sub,
-                            )
-                        } else if *GLUE_SPEC_stretch_order(e as usize)
-                            < *GLUE_SPEC_stretch_order(t as usize)
-                            && *GLUE_SPEC_stretch(t as usize) != 0
-                        {
-                            *GLUE_SPEC_stretch(e as usize) = *GLUE_SPEC_stretch(t as usize);
-                            *GLUE_SPEC_stretch_order(e as usize) =
-                                *GLUE_SPEC_stretch_order(t as usize);
+                            ));
+                        } else if e.stretch_order() < t.stretch_order() && t.stretch() != 0 {
+                            e.set_stretch(t.stretch())
+                                .set_stretch_order(t.stretch_order());
                         }
-                        if *GLUE_SPEC_shrink_order(e as usize)
-                            == *GLUE_SPEC_shrink_order(t as usize)
-                        {
-                            *GLUE_SPEC_shrink(e as usize) = add_or_sub(
-                                *GLUE_SPEC_shrink(e as usize),
-                                *GLUE_SPEC_shrink(t as usize),
+                        if e.shrink_order() == t.shrink_order() {
+                            e.set_shrink(add_or_sub(
+                                e.shrink(),
+                                t.shrink(),
                                 MAX_HALFWORD,
                                 r == Expr::Sub,
-                            )
-                        } else if *GLUE_SPEC_shrink_order(e as usize)
-                            < *GLUE_SPEC_shrink_order(t as usize)
-                            && *GLUE_SPEC_shrink(t as usize) != 0
-                        {
-                            *GLUE_SPEC_shrink(e as usize) = *GLUE_SPEC_shrink(t as usize);
-                            *GLUE_SPEC_shrink_order(e as usize) =
-                                *GLUE_SPEC_shrink_order(t as usize);
+                            ));
+                        } else if e.shrink_order() < t.shrink_order() && t.shrink() != 0 {
+                            e.set_shrink(t.shrink()).set_shrink_order(t.shrink_order());
                         }
-                        delete_glue_ref(t as usize);
-                        if *GLUE_SPEC_stretch(e as usize) == 0 {
-                            *GLUE_SPEC_stretch_order(e as usize) = GlueOrder::Normal as _;
+                        delete_glue_ref(t.ptr());
+                        if e.stretch() == 0 {
+                            e.set_stretch_order(GlueOrder::Normal);
                         }
-                        if *GLUE_SPEC_shrink(e as usize) == 0 {
-                            *GLUE_SPEC_shrink_order(e as usize) = GlueOrder::Normal as _;
+                        if e.shrink() == 0 {
+                            e.set_shrink_order(GlueOrder::Normal);
                         }
                     }
                     r = o;
@@ -11241,12 +11230,12 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                     _ => {}
                 },
                 TextNode::Glue => {
-                    let g = *GLUE_NODE_glue_ptr(p) as usize;
-                    x += *GLUE_SPEC_size(g);
-                    let o = *GLUE_SPEC_stretch_order(g) as usize;
-                    total_stretch[o] += *GLUE_SPEC_stretch(g);
-                    let o = *GLUE_SPEC_shrink_order(g) as usize;
-                    total_shrink[o] += *GLUE_SPEC_shrink(g);
+                    let g = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize);
+                    x += g.size();
+                    let o = g.stretch_order() as usize;
+                    total_stretch[o] += g.stretch();
+                    let o = g.shrink_order() as usize;
+                    total_shrink[o] += g.shrink();
                     if MEM[p as usize].b16.s0 >= A_LEADERS {
                         let g = *GLUE_NODE_leader_ptr(p) as usize;
                         h = h.max(*BOX_height(g));
@@ -11539,12 +11528,12 @@ pub(crate) unsafe fn vpackage(
                 TextNode::Glue => {
                     x += d;
                     d = 0;
-                    let g = *GLUE_NODE_glue_ptr(p) as usize;
-                    x += *GLUE_SPEC_size(g);
-                    let o = *GLUE_SPEC_stretch_order(g) as usize;
-                    total_stretch[o] += *GLUE_SPEC_stretch(g);
-                    let o = *GLUE_SPEC_shrink_order(g) as usize;
-                    total_shrink[o] += *GLUE_SPEC_shrink(g);
+                    let g = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize);
+                    x += g.size();
+                    let o = g.stretch_order() as usize;
+                    total_stretch[o] += g.stretch();
+                    let o = g.shrink_order() as usize;
+                    total_shrink[o] += g.shrink();
                     if MEM[p].b16.s0 >= A_LEADERS {
                         let g = *GLUE_NODE_leader_ptr(p) as usize;
                         w = w.max(*BOX_width(g));
@@ -11697,8 +11686,8 @@ pub(crate) unsafe fn append_to_vlist(b: usize) {
         let p = if d < *DIMENPAR(DimenPar::line_skip_limit) {
             new_param_glue(GluePar::line_skip)
         } else {
-            let (p, tmp_ptr) = new_skip_param(GluePar::baseline_skip);
-            MEM[tmp_ptr + 1].b32.s1 = d;
+            let (p, mut tmp_ptr) = new_skip_param(GluePar::baseline_skip);
+            tmp_ptr.set_size(d);
             p
         };
         MEM[cur_list.tail].b32.s1 = Some(p).tex_int();
@@ -12193,7 +12182,7 @@ pub(crate) unsafe fn fin_align() {
             let r = *LLIST_link(q) as usize;
             let s = MEM[r + 1].b32.s0;
             if s != 0 {
-                *GLUE_SPEC_ref_count(0) += 1;
+                GlueSpec(0).rc_inc();
                 delete_glue_ref(s as usize);
                 MEM[r + 1].b32.s0 = 0
             }
@@ -12319,23 +12308,19 @@ pub(crate) unsafe fn fin_align() {
                     while n > 0 {
                         n -= 1;
                         s = *LLIST_link(s) as usize;
-                        let v = *GLUE_NODE_glue_ptr(s) as usize;
-                        let g = new_glue(v);
+                        let v = GlueSpec(*GLUE_NODE_glue_ptr(s) as usize);
+                        let g = new_glue(v.ptr());
                         *LLIST_link(u) = Some(g).tex_int();
                         u = g;
                         MEM[u].b16.s0 = GluePar::tab_skip as u16 + 1;
-                        t += *GLUE_SPEC_size(v);
+                        t += v.size();
                         if *BOX_glue_sign(p as usize) == GlueSign::Stretching as u16 {
-                            if *GLUE_SPEC_stretch_order(v) == *BOX_glue_order(p as usize) {
-                                t += tex_round(
-                                    (*BOX_glue_set(p as usize)) * *GLUE_SPEC_stretch(v) as f64,
-                                );
+                            if v.stretch_order() == GlueOrder::from(*BOX_glue_order(p as usize)) {
+                                t += tex_round((*BOX_glue_set(p as usize)) * v.stretch() as f64);
                             }
                         } else if *BOX_glue_sign(p as usize) == GlueSign::Shrinking as u16 {
-                            if *GLUE_SPEC_shrink_order(v) == *BOX_glue_order(p as usize) {
-                                t -= tex_round(
-                                    (*BOX_glue_set(p as usize)) * *GLUE_SPEC_shrink(v) as f64,
-                                );
+                            if v.shrink_order() == GlueOrder::from(*BOX_glue_order(p as usize)) {
+                                t -= tex_round((*BOX_glue_set(p as usize)) * v.shrink() as f64);
                             }
                         }
                         s = *LLIST_link(s) as usize;
@@ -12880,12 +12865,10 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                 let q = if NODE_type(p as usize) == TextNode::Kern.into() {
                     p as usize
                 } else {
-                    let q = *GLUE_NODE_glue_ptr(p as usize) as usize; /*:1011 */
-                    active_width[2 + *GLUE_SPEC_stretch_order(q) as usize] += *GLUE_SPEC_stretch(q); /*:1014*/
-                    active_width[6] += *GLUE_SPEC_shrink(q);
-                    if *GLUE_SPEC_shrink_order(q) != GlueOrder::Normal as _
-                        && *GLUE_SPEC_shrink(q) != 0
-                    {
+                    let mut q = GlueSpec(*GLUE_NODE_glue_ptr(p as usize) as usize); /*:1011 */
+                    active_width[2 + q.stretch_order() as usize] += q.stretch(); /*:1014*/
+                    active_width[6] += q.shrink();
+                    if q.shrink_order() != GlueOrder::Normal && q.shrink() != 0 {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
@@ -12899,13 +12882,13 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                             b"since the offensive shrinkability has been made finite."
                         );
                         error();
-                        let r = new_spec(q);
-                        *GLUE_SPEC_shrink_order(r) = GlueOrder::Normal as _;
-                        delete_glue_ref(q);
+                        let r = new_spec(q.ptr());
+                        GlueSpec(r).set_shrink_order(GlueOrder::Normal);
+                        delete_glue_ref(q.ptr());
                         *GLUE_NODE_glue_ptr(p as usize) = Some(r).tex_int();
                         r
                     } else {
-                        q
+                        q.ptr()
                     }
                 };
                 active_width[1] += prev_dp + MEM[q + 1].b32.s1;
@@ -13062,7 +13045,7 @@ pub(crate) unsafe fn box_error(mut n: u8) {
 }
 pub(crate) unsafe fn app_space() {
     let q;
-    if cur_list.aux.b32.s0 >= 2000 && *GLUEPAR(GluePar::xspace_skip) != 0i32 {
+    if cur_list.aux.b32.s0 >= 2000 && *GLUEPAR(GluePar::xspace_skip) != 0 {
         q = new_param_glue(GluePar::xspace_skip)
     } else {
         let mut main_p = if *GLUEPAR(GluePar::space_skip) != 0 {
@@ -13075,27 +13058,30 @@ pub(crate) unsafe fn app_space() {
                     /*:1079 */
                     let main_p = new_spec(0);
                     main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
-                    *GLUE_SPEC_size(main_p) = FONT_INFO[main_k as usize].b32.s1;
-                    *GLUE_SPEC_stretch(main_p) = FONT_INFO[(main_k + 1) as usize].b32.s1;
-                    *GLUE_SPEC_shrink(main_p) = FONT_INFO[(main_k + 2) as usize].b32.s1;
+                    GlueSpec(main_p)
+                        .set_size(FONT_INFO[main_k as usize].b32.s1)
+                        .set_stretch(FONT_INFO[(main_k + 1) as usize].b32.s1)
+                        .set_shrink(FONT_INFO[(main_k + 2) as usize].b32.s1);
                     FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p).tex_int();
                     main_p
                 })
         };
-        let main_p = new_spec(main_p);
+        let mut main_p = GlueSpec(new_spec(main_p));
         if cur_list.aux.b32.s0 >= 2000 {
-            *GLUE_SPEC_size(main_p) += FONT_INFO
-                [(EXTRA_SPACE_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
-                .b32
-                .s1
+            main_p.set_size(
+                main_p.size()
+                    + FONT_INFO
+                        [(EXTRA_SPACE_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
+                        .b32
+                        .s1,
+            );
         }
-        *GLUE_SPEC_stretch(main_p) =
-            xn_over_d(*GLUE_SPEC_stretch(main_p), cur_list.aux.b32.s0, 1000);
-        *GLUE_SPEC_shrink(main_p) = xn_over_d(*GLUE_SPEC_shrink(main_p), 1000, cur_list.aux.b32.s0);
-        q = new_glue(main_p);
-        *LLIST_link(main_p) = None.tex_int()
+        main_p.set_stretch(xn_over_d(main_p.stretch(), cur_list.aux.b32.s0, 1000));
+        main_p.set_shrink(xn_over_d(main_p.shrink(), 1000, cur_list.aux.b32.s0));
+        q = new_glue(main_p.ptr());
+        main_p.rc_none();
     }
-    MEM[cur_list.tail].b32.s1 = q as i32;
+    *LLIST_link(cur_list.tail) = Some(q).tex_int();
     cur_list.tail = q;
 }
 pub(crate) unsafe fn insert_dollar_sign() {
@@ -14346,7 +14332,7 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
                 }
                 TextNode::Glue => {
                     r = get_node(MEDIUM_NODE_SIZE);
-                    *GLUE_SPEC_ref_count(*GLUE_NODE_glue_ptr(p) as usize) += 1;
+                    GlueSpec(*GLUE_NODE_glue_ptr(p) as usize).rc_inc();
                     *SYNCTEX_tag(r, MEDIUM_NODE_SIZE) = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
                     *SYNCTEX_line(r, MEDIUM_NODE_SIZE) = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
                     *GLUE_NODE_glue_ptr(r) = *GLUE_NODE_glue_ptr(p);
@@ -14531,7 +14517,7 @@ pub(crate) unsafe fn trap_zero_glue() {
         && MEM[(cur_val + 2) as usize].b32.s1 == 0
         && MEM[(cur_val + 3) as usize].b32.s1 == 0
     {
-        *GLUE_SPEC_ref_count(0) += 1;
+        GlueSpec(0).rc_inc(); // TODO: check
         delete_glue_ref(cur_val as usize);
         cur_val = 0;
     };
@@ -14638,33 +14624,28 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
                 scan_glue(p);
                 if q == Cmd::Advance {
                     /*1274:*/
-                    let q = new_spec(cur_val as usize);
-                    let r = s;
+                    let mut q = GlueSpec(new_spec(cur_val as usize));
+                    let r = GlueSpec(s as usize);
                     delete_glue_ref(cur_val as usize);
-                    *GLUE_SPEC_size(q) += *GLUE_SPEC_size(r as usize);
-                    if *GLUE_SPEC_stretch(q) == 0 {
-                        *GLUE_SPEC_stretch_order(q) = GlueOrder::Normal as _;
+                    q.set_size(q.size() + r.size());
+                    if q.stretch() == 0 {
+                        q.set_stretch_order(GlueOrder::Normal);
                     }
-                    if *GLUE_SPEC_stretch_order(q) == *GLUE_SPEC_stretch_order(r as usize) {
-                        *GLUE_SPEC_stretch(q) += *GLUE_SPEC_stretch(r as usize);
-                    } else if *GLUE_SPEC_stretch_order(q) < *GLUE_SPEC_stretch_order(r as usize)
-                        && *GLUE_SPEC_stretch(r as usize) != 0
-                    {
-                        *GLUE_SPEC_stretch(q) = *GLUE_SPEC_stretch(r as usize);
-                        *GLUE_SPEC_stretch_order(q) = *GLUE_SPEC_stretch_order(r as usize);
+                    if q.stretch_order() == r.stretch_order() {
+                        q.set_stretch(q.stretch() + r.stretch());
+                    } else if q.stretch_order() < r.stretch_order() && r.stretch() != 0 {
+                        q.set_stretch(r.stretch())
+                            .set_stretch_order(r.stretch_order());
                     }
-                    if *GLUE_SPEC_shrink(q) == 0 {
-                        *GLUE_SPEC_shrink_order(q) = GlueOrder::Normal as _;
+                    if q.shrink() == 0 {
+                        q.set_shrink_order(GlueOrder::Normal);
                     }
-                    if *GLUE_SPEC_shrink_order(q) == *GLUE_SPEC_shrink_order(r as usize) {
-                        *GLUE_SPEC_shrink(q) += *GLUE_SPEC_shrink(r as usize);
-                    } else if *GLUE_SPEC_shrink_order(q) < *GLUE_SPEC_shrink_order(r as usize)
-                        && *GLUE_SPEC_shrink(r as usize) != 0
-                    {
-                        *GLUE_SPEC_shrink(q) = *GLUE_SPEC_shrink(r as usize);
-                        *GLUE_SPEC_shrink_order(q) = *GLUE_SPEC_shrink_order(r as usize);
+                    if q.shrink_order() == r.shrink_order() {
+                        q.set_shrink(q.shrink() + r.shrink());
+                    } else if q.shrink_order() < r.shrink_order() && r.shrink() != 0 {
+                        q.set_shrink(r.shrink()).set_shrink_order(r.shrink_order());
                     }
-                    cur_val = q as i32;
+                    cur_val = q.ptr() as i32;
                 }
             }
         }
@@ -14683,20 +14664,18 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
                 }
             }
             _ => {
-                let r = new_spec(s as usize);
+                let s_spec = GlueSpec(s as usize);
+                let mut r = GlueSpec(new_spec(s as usize));
                 if q == Cmd::Multiply {
-                    *GLUE_SPEC_size(r) =
-                        mult_and_add(*GLUE_SPEC_size(s as usize), cur_val, 0, MAX_HALFWORD);
-                    *GLUE_SPEC_stretch(r) =
-                        mult_and_add(*GLUE_SPEC_stretch(s as usize), cur_val, 0, MAX_HALFWORD);
-                    *GLUE_SPEC_shrink(r) =
-                        mult_and_add(*GLUE_SPEC_shrink(s as usize), cur_val, 0, MAX_HALFWORD)
+                    r.set_size(mult_and_add(s_spec.size(), cur_val, 0, MAX_HALFWORD))
+                        .set_stretch(mult_and_add(s_spec.stretch(), cur_val, 0, MAX_HALFWORD))
+                        .set_shrink(mult_and_add(s_spec.shrink(), cur_val, 0, MAX_HALFWORD));
                 } else {
-                    *GLUE_SPEC_size(r) = x_over_n(*GLUE_SPEC_size(s as usize), cur_val);
-                    *GLUE_SPEC_stretch(r) = x_over_n(*GLUE_SPEC_stretch(s as usize), cur_val);
-                    *GLUE_SPEC_shrink(r) = x_over_n(*GLUE_SPEC_shrink(s as usize), cur_val)
+                    r.set_size(x_over_n(s_spec.size(), cur_val))
+                        .set_stretch(x_over_n(s_spec.stretch(), cur_val))
+                        .set_shrink(x_over_n(s_spec.shrink(), cur_val));
                 }
-                cur_val = r as i32;
+                cur_val = r.ptr() as i32;
             }
         }
     }
@@ -15429,7 +15408,7 @@ pub(crate) unsafe fn handle_right_brace() {
         GroupCode::Insert => {
             end_graf();
             let q = *GLUEPAR(GluePar::split_top_skip) as usize;
-            *GLUE_SPEC_ref_count(q) += 1;
+            GlueSpec(q).rc_inc();
             d = *DIMENPAR(DimenPar::split_max_depth);
             f = *INTPAR(IntPar::floating_penalty);
             unsave();
@@ -15446,12 +15425,13 @@ pub(crate) unsafe fn handle_right_brace() {
                 *LLIST_link(cur_list.tail) = Some(n).tex_int();
                 cur_list.tail = n;
                 set_NODE_type(cur_list.tail, TextNode::Ins);
-                *INSERTION_NODE_box_reg(cur_list.tail) = SAVE_STACK[SAVE_PTR + 0].val as u16;
-                *INSERTION_NODE_height(cur_list.tail) = *BOX_height(p) + *BOX_depth(p);
-                *INSERTION_NODE_ins_ptr(cur_list.tail) = *BOX_list_ptr(p);
-                *INSERTION_NODE_split_top_ptr(cur_list.tail) = Some(q).tex_int();
-                *INSERTION_NODE_depth(cur_list.tail) = d;
-                *INSERTION_NODE_float_cost(cur_list.tail) = f
+                Insertion(cur_list.tail)
+                    .set_box_reg(SAVE_STACK[SAVE_PTR + 0].val as u16)
+                    .set_height(*BOX_height(p) + *BOX_depth(p))
+                    .set_ins_ptr(*BOX_list_ptr(p))
+                    .set_split_top_ptr(Some(q).tex_int())
+                    .set_depth(d)
+                    .set_float_cost(f);
             } else {
                 let n = get_node(SMALL_NODE_SIZE);
                 *LLIST_link(cur_list.tail) = Some(n).tex_int();
@@ -17350,9 +17330,10 @@ pub(crate) unsafe fn main_control() {
                 .unwrap_or_else(|| {
                     let main_p = new_spec(0);
                     main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
-                    *GLUE_SPEC_size(main_p) = FONT_INFO[main_k as usize].b32.s1;
-                    *GLUE_SPEC_stretch(main_p) = FONT_INFO[(main_k + 1) as usize].b32.s1;
-                    *GLUE_SPEC_shrink(main_p) = FONT_INFO[(main_k + 2) as usize].b32.s1;
+                    GlueSpec(main_p)
+                        .set_size(FONT_INFO[main_k as usize].b32.s1)
+                        .set_stretch(FONT_INFO[(main_k + 1) as usize].b32.s1)
+                        .set_shrink(FONT_INFO[(main_k + 2) as usize].b32.s1);
                     FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p).tex_int();
                     main_p
                 });
@@ -17458,13 +17439,13 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
     while let Some(p) = popt {
         match TextNode::n(MEM[p].b16.s1).confuse(b"pruning") {
             TextNode::HList | TextNode::VList | TextNode::Rule => {
-                let (q, tmp_ptr) = new_skip_param(GluePar::split_top_skip);
+                let (q, mut tmp_ptr) = new_skip_param(GluePar::split_top_skip);
                 *LLIST_link(prev_p) = Some(q).tex_int();
                 *LLIST_link(q) = Some(p).tex_int();
-                if MEM[tmp_ptr + 1].b32.s1 > MEM[p + 3].b32.s1 {
-                    MEM[tmp_ptr + 1].b32.s1 = MEM[tmp_ptr + 1].b32.s1 - MEM[p + 3].b32.s1
+                if tmp_ptr.size() > *BOX_height(p) {
+                    tmp_ptr.set_size(tmp_ptr.size() - *BOX_height(p));
                 } else {
-                    MEM[tmp_ptr + 1].b32.s1 = 0
+                    tmp_ptr.set_size(0);
                 }
                 popt = None;
             }

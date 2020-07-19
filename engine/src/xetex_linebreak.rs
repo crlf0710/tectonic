@@ -42,12 +42,11 @@ use crate::xetex_xetexd::{
     DELTA_NODE_dstretch0, DELTA_NODE_dstretch1, DELTA_NODE_dstretch2, DELTA_NODE_dstretch3,
     DELTA_NODE_dwidth, DISCRETIONARY_NODE_post_break, DISCRETIONARY_NODE_pre_break,
     DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
-    GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_size,
-    GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm,
-    LANGUAGE_NODE_what_rhm, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
-    LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_length, NATIVE_NODE_text, NODE_type,
-    PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty,
-    TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
+    LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm, LANGUAGE_NODE_what_rhm,
+    LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link,
+    NATIVE_NODE_font, NATIVE_NODE_length, NATIVE_NODE_text, NODE_type, PASSIVE_NODE_cur_break,
+    PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty, TeXInt, TeXOpt,
+    FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -168,43 +167,43 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     no_shrink_error_yet = true;
 
-    if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::left_skip) as usize) != NORMAL as _
-        && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::left_skip) as usize) != 0
+    if GlueSpec(*GLUEPAR(GluePar::left_skip) as usize).shrink_order() != GlueOrder::Normal
+        && GlueSpec(*GLUEPAR(GluePar::left_skip) as usize).shrink() != 0
     {
         *GLUEPAR(GluePar::left_skip) = finite_shrink(*GLUEPAR(GluePar::left_skip) as usize) as i32;
     }
-    if *GLUE_SPEC_shrink_order(*GLUEPAR(GluePar::right_skip) as usize) != NORMAL as _
-        && *GLUE_SPEC_shrink(*GLUEPAR(GluePar::right_skip) as usize) != 0
+    if GlueSpec(*GLUEPAR(GluePar::right_skip) as usize).shrink_order() != GlueOrder::Normal
+        && GlueSpec(*GLUEPAR(GluePar::right_skip) as usize).shrink() != 0
     {
         *GLUEPAR(GluePar::right_skip) =
             finite_shrink(*GLUEPAR(GluePar::right_skip) as usize) as i32;
     }
 
-    let q = *GLUEPAR(GluePar::left_skip) as usize;
-    let mut r = *GLUEPAR(GluePar::right_skip);
-    background[1] = *GLUE_SPEC_size(q) + *GLUE_SPEC_size(r as usize);
+    let q = GlueSpec(*GLUEPAR(GluePar::left_skip) as usize);
+    let r = GlueSpec(*GLUEPAR(GluePar::right_skip) as usize);
+    background[1] = q.size() + r.size();
     background[2] = 0;
     background[3] = 0;
     background[4] = 0;
     background[5] = 0;
-    background[2 + *GLUE_SPEC_stretch_order(q) as usize] = *GLUE_SPEC_stretch(q);
-    background[2 + *GLUE_SPEC_stretch_order(r as usize) as usize] += *GLUE_SPEC_stretch(r as usize);
-    background[6] = *GLUE_SPEC_shrink(q) + *GLUE_SPEC_shrink(r as usize);
+    background[2 + q.stretch_order() as usize] = q.stretch();
+    background[2 + r.stretch_order() as usize] += r.stretch();
+    background[6] = q.shrink() + r.shrink();
 
     /* 1631: "check for special treatment of last line of paragraph" (\lastlinefit > 0) */
 
     do_last_line_fit = false; /*863:*/
     active_node_size = ACTIVE_NODE_SIZE_NORMAL as _;
     if *INTPAR(IntPar::last_line_fit) > 0 {
-        let q = *GLUE_NODE_glue_ptr(last_line_fill as usize) as usize;
-        if *GLUE_SPEC_stretch(q) > 0 && *GLUE_SPEC_stretch_order(q) > NORMAL as _ {
+        let q = GlueSpec(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
+        if q.stretch() > 0 && q.stretch_order() > GlueOrder::Normal {
             if background[3] == 0 && background[4] == 0 && background[5] == 0 {
                 do_last_line_fit = true;
                 active_node_size = ACTIVE_NODE_SIZE_EXTENDED as _;
                 fill_width[0] = 0;
                 fill_width[1] = 0;
                 fill_width[2] = 0;
-                fill_width[*GLUE_SPEC_stretch_order(q) as usize - 1] = *GLUE_SPEC_stretch(q);
+                fill_width[q.stretch_order() as usize - 1] = q.stretch();
             }
         }
     }
@@ -455,7 +454,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     } else {
                         try_break(*INTPAR(IntPar::ex_hyphen_penalty), BreakType::Hyphenated);
                     }
-                    r = *DISCRETIONARY_NODE_replace_count(cp) as i32;
+                    let mut r = *DISCRETIONARY_NODE_replace_count(cp) as i32;
                     let mut sopt = llist_link(cp);
                     while r > 0 {
                         let s = sopt.unwrap();
@@ -532,7 +531,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             try_break(EJECT_PENALTY, BreakType::Hyphenated);
             if *LLIST_link(ACTIVE_LIST as usize) != LAST_ACTIVE as i32 {
                 /*903:*/
-                r = *LLIST_link(ACTIVE_LIST as usize);
+                let mut r = *LLIST_link(ACTIVE_LIST as usize);
                 fewest_demerits = MAX_HALFWORD;
 
                 loop {
@@ -552,7 +551,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     break;
                 }
 
-                r = *LLIST_link(ACTIVE_LIST as usize); /*904:*/
+                let mut r = *LLIST_link(ACTIVE_LIST as usize); /*904:*/
                 actual_looseness = 0;
 
                 loop {
@@ -618,12 +617,16 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         if *ACTIVE_NODE_shortfall(best_bet as usize) == 0 {
             do_last_line_fit = false
         } else {
-            let q = new_spec(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
+            let mut q = GlueSpec(new_spec(
+                *GLUE_NODE_glue_ptr(last_line_fill as usize) as usize
+            ));
             delete_glue_ref(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
-            *GLUE_SPEC_size(q) +=
-                *ACTIVE_NODE_shortfall(best_bet as usize) - *ACTIVE_NODE_glue(best_bet as usize);
-            *GLUE_SPEC_stretch(q) = 0;
-            *GLUE_NODE_glue_ptr(last_line_fill as usize) = q as i32;
+            q.set_size(
+                q.size() + *ACTIVE_NODE_shortfall(best_bet as usize)
+                    - *ACTIVE_NODE_glue(best_bet as usize),
+            )
+            .set_stretch(0);
+            *GLUE_NODE_glue_ptr(last_line_fill as usize) = q.ptr() as i32;
         }
     }
 
@@ -658,16 +661,16 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         second_pass: bool,
         auto_breaking: bool,
     ) -> UnicodeScalar {
-        let mut q = *GLUE_NODE_glue_ptr(cp) as usize;
-        if *GLUE_SPEC_shrink_order(q) != NORMAL && *GLUE_SPEC_shrink(q) != 0 {
+        let mut q = GlueSpec(*GLUE_NODE_glue_ptr(cp) as usize);
+        if q.shrink_order() != GlueOrder::Normal && q.shrink() != 0 {
             let fresh3 = GLUE_NODE_glue_ptr(cp);
-            *fresh3 = finite_shrink(q) as i32;
-            q = *fresh3 as usize
+            *fresh3 = finite_shrink(q.ptr()) as i32;
+            q = GlueSpec(*fresh3 as usize);
         }
-        active_width[1] += *GLUE_SPEC_size(q);
-        active_width[(2 + *GLUE_SPEC_stretch_order(q)) as usize] += *GLUE_SPEC_stretch(q);
+        active_width[1] += q.size();
+        active_width[2 + (q.stretch_order() as usize)] += q.stretch();
         /*:895*/
-        active_width[6] += *GLUE_SPEC_shrink(q); /*:897*/
+        active_width[6] += q.shrink(); /*:897*/
 
         if second_pass && auto_breaking {
             /*924: "Try to hyphenate the following word." */
@@ -1107,7 +1110,7 @@ unsafe fn post_line_break(mut d: bool) {
                     delete_glue_ref(*GLUE_NODE_glue_ptr(q) as usize);
                     *GLUE_NODE_glue_ptr(q) = *GLUEPAR(GluePar::right_skip);
                     MEM[q].b16.s0 = GluePar::right_skip as u16 + 1; // NODE_subtype(q)
-                    *GLUE_SPEC_ref_count(*GLUEPAR(GluePar::right_skip) as usize) += 1;
+                    GlueSpec(*GLUEPAR(GluePar::right_skip) as usize).rc_inc();
                     glue_break = true;
                 }
                 TextNode::Disc => {
@@ -1580,11 +1583,10 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                             }
                             match text_NODE_type(s).unwrap() {
                                 TextNode::Glue => {
-                                    let v = *GLUE_NODE_glue_ptr(s) as usize;
-                                    break_width[1] -= *GLUE_SPEC_size(v);
-                                    break_width[2 + *GLUE_SPEC_stretch_order(v) as usize] -=
-                                        *GLUE_SPEC_stretch(v);
-                                    break_width[6] -= *GLUE_SPEC_shrink(v);
+                                    let v = GlueSpec(*GLUE_NODE_glue_ptr(s) as usize);
+                                    break_width[1] -= v.size();
+                                    break_width[2 + v.stretch_order() as usize] -= v.stretch();
+                                    break_width[6] -= v.shrink();
                                 }
                                 TextNode::Penalty => {}
                                 TextNode::Math => break_width[1] -= *BOX_width(s),
@@ -2432,10 +2434,10 @@ unsafe fn finite_shrink(p: usize) -> usize {
         );
         error();
     }
-    let q = new_spec(p);
-    *GLUE_SPEC_shrink_order(q) = GlueOrder::Normal as _;
+    let mut q = GlueSpec(new_spec(p));
+    q.set_shrink_order(GlueOrder::Normal);
     delete_glue_ref(p);
-    q
+    q.ptr()
 }
 unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -> i16 {
     let mut current_block: u64;

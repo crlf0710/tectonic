@@ -740,7 +740,7 @@ pub(crate) static mut cur_val_level: ValLevel = ValLevel::Int;
 #[no_mangle]
 pub(crate) static mut radix: i16 = 0;
 #[no_mangle]
-pub(crate) static mut cur_order: glue_ord = 0;
+pub(crate) static mut cur_order: GlueOrder = GlueOrder::Normal;
 #[no_mangle]
 pub(crate) static mut read_file: [*mut UFILE; 16] = [ptr::null_mut(); 16];
 #[no_mangle]
@@ -3883,7 +3883,7 @@ unsafe fn initialize_more_variables() {
     cur_val = 0;
     cur_val_level = ValLevel::Int;
     radix = 0;
-    cur_order = GlueOrder::Normal as u8;
+    cur_order = GlueOrder::Normal;
 
     for k in 0..=16 {
         read_open[k] = OpenMode::Closed;

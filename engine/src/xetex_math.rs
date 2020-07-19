@@ -49,9 +49,8 @@ use crate::xetex_xetexd::{
     text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign,
     BOX_height, BOX_list_ptr, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
     CHOICE_NODE_display, CHOICE_NODE_script, CHOICE_NODE_scriptscript, CHOICE_NODE_text,
-    GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_size,
-    GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
-    LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_size, NODE_type, TeXInt, TeXOpt,
+    GLUE_NODE_glue_ptr, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LLIST_link,
+    NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_size, NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -276,17 +275,17 @@ pub(crate) unsafe fn init_math() {
                             found = false;
                         }
                         TextNode::Glue => {
-                            let q = *GLUE_NODE_glue_ptr(p) as usize;
-                            d = *GLUE_SPEC_size(q);
+                            let q = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize);
+                            d = q.size();
                             if *BOX_glue_sign(just_box) == GlueSign::Stretching as u16 {
-                                if *BOX_glue_order(just_box) == *GLUE_SPEC_stretch_order(q)
-                                    && *GLUE_SPEC_stretch(q) != 0
+                                if *BOX_glue_order(just_box) == q.stretch_order() as u16
+                                    && q.stretch() != 0
                                 {
                                     v = MAX_HALFWORD
                                 }
                             } else if *BOX_glue_sign(just_box) == GlueSign::Shrinking as u16 {
-                                if *BOX_glue_order(just_box) == *GLUE_SPEC_shrink_order(q)
-                                    && *GLUE_SPEC_shrink(q) != 0
+                                if *BOX_glue_order(just_box) == q.shrink_order() as u16
+                                    && q.shrink() != 0
                                 {
                                     v = MAX_HALFWORD
                                 }
@@ -842,17 +841,18 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
         }
         let u = new_math(0, END_M_CODE);
         let j = if NODE_type(t) == TextNode::Glue.into() {
-            let (j, tmp_ptr) = new_skip_param(GluePar::right_skip);
+            let (j, mut tmp_ptr) = new_skip_param(GluePar::right_skip);
             *LLIST_link(q as usize) = Some(j).tex_int();
             *LLIST_link(j) = Some(u).tex_int();
-            let j = *GLUE_NODE_glue_ptr(t) as usize;
-            *GLUE_SPEC_stretch_order(tmp_ptr) = *GLUE_SPEC_stretch_order(j);
-            *GLUE_SPEC_shrink_order(tmp_ptr) = *GLUE_SPEC_shrink_order(j);
-            *GLUE_SPEC_size(tmp_ptr) = e - *GLUE_SPEC_size(j);
-            *GLUE_SPEC_stretch(tmp_ptr) = -(*GLUE_SPEC_stretch(j));
-            *GLUE_SPEC_shrink(tmp_ptr) = -(*GLUE_SPEC_shrink(j));
+            let j = GlueSpec(*GLUE_NODE_glue_ptr(t) as usize);
+            tmp_ptr
+                .set_stretch_order(j.stretch_order())
+                .set_shrink_order(j.shrink_order())
+                .set_size(e - j.size())
+                .set_stretch(-j.stretch())
+                .set_shrink(-j.shrink());
             *LLIST_link(u) = Some(t).tex_int();
-            Some(j)
+            Some(j.ptr())
         } else {
             MEM[t + 1].b32.s1 = e;
             *LLIST_link(t) = Some(u).tex_int();
@@ -861,15 +861,16 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
         };
         let u = new_math(0, BEGIN_M_CODE);
         if NODE_type(r) == TextNode::Glue.into() {
-            let (j, tmp_ptr) = new_skip_param(GluePar::left_skip);
+            let (j, mut tmp_ptr) = new_skip_param(GluePar::left_skip);
             *LLIST_link(u) = Some(j).tex_int();
             *LLIST_link(j) = Some(p).tex_int();
-            let j = *GLUE_NODE_glue_ptr(r) as usize;
-            *GLUE_SPEC_stretch_order(tmp_ptr) = *GLUE_SPEC_stretch_order(j);
-            *GLUE_SPEC_shrink_order(tmp_ptr) = *GLUE_SPEC_shrink_order(j);
-            *GLUE_SPEC_size(tmp_ptr) = d - *GLUE_SPEC_size(j);
-            *GLUE_SPEC_stretch(tmp_ptr) = -(*GLUE_SPEC_stretch(j));
-            *GLUE_SPEC_shrink(tmp_ptr) = -(*GLUE_SPEC_shrink(j));
+            let j = GlueSpec(*GLUE_NODE_glue_ptr(r) as usize);
+            tmp_ptr
+                .set_stretch_order(j.stretch_order())
+                .set_shrink_order(j.shrink_order())
+                .set_size(d - j.size())
+                .set_stretch(-j.stretch())
+                .set_shrink(-j.shrink());
             *LLIST_link(r) = Some(u).tex_int();
         } else {
             MEM[r + 1].b32.s1 = d;
@@ -1511,43 +1512,43 @@ unsafe fn overbar(b: i32, k: scaled_t, mut t: scaled_t) -> usize {
     *LLIST_link(p) = Some(q).tex_int();
     vpackage(Some(p), 0, PackMode::Additional, MAX_HALFWORD)
 }
-unsafe fn math_glue(g: usize, mut m: scaled_t) -> usize {
+unsafe fn math_glue(g: &GlueSpec, mut m: scaled_t) -> usize {
     let mut n = x_over_n(m, 65536);
     let mut f = tex_remainder;
     if f < 0 {
         n -= 1;
         f = (f as i64 + 65536) as scaled_t
     }
-    let p = get_node(GLUE_SPEC_SIZE);
-    MEM[p + 1].b32.s1 = mult_and_add(
+    let mut p = GlueSpec(get_node(GLUE_SPEC_SIZE));
+    p.set_size(mult_and_add(
         n,
-        MEM[g + 1].b32.s1,
-        xn_over_d(MEM[g + 1].b32.s1, f, 65536),
+        g.size(),
+        xn_over_d(g.size(), f, 65536),
         MAX_HALFWORD,
-    );
-    MEM[p].b16.s1 = MEM[g].b16.s1;
-    if MEM[p].b16.s1 == NORMAL {
-        MEM[p + 2].b32.s1 = mult_and_add(
+    ));
+    p.set_stretch_order(g.stretch_order());
+    if p.stretch_order() == GlueOrder::Normal {
+        p.set_stretch(mult_and_add(
             n,
-            MEM[g + 2].b32.s1,
-            xn_over_d(MEM[g + 2].b32.s1, f, 65536),
+            g.stretch(),
+            xn_over_d(g.stretch(), f, 65536),
             MAX_HALFWORD,
-        )
+        ));
     } else {
-        MEM[p + 2].b32.s1 = MEM[g + 2].b32.s1
+        p.set_stretch(g.stretch());
     }
-    MEM[p].b16.s0 = MEM[g].b16.s0;
-    if *GLUE_SPEC_shrink_order(p) == NORMAL {
-        MEM[p + 3].b32.s1 = mult_and_add(
+    p.set_shrink_order(g.shrink_order());
+    if p.shrink_order() == GlueOrder::Normal {
+        p.set_shrink(mult_and_add(
             n,
-            MEM[g + 3].b32.s1,
-            xn_over_d(MEM[g + 3].b32.s1, f, 65536),
+            g.shrink(),
+            xn_over_d(g.shrink(), f, 65536),
             MAX_HALFWORD,
-        )
+        ));
     } else {
-        MEM[p + 3].b32.s1 = MEM[g + 3].b32.s1
+        p.set_shrink(g.shrink());
     }
-    p
+    p.ptr()
 }
 unsafe fn math_kern(p: usize, mut m: scaled_t) {
     let mut n: i32 = 0;
@@ -2982,7 +2983,7 @@ unsafe fn mlist_to_hlist() {
                 TextNode::Glue => {
                     if MEM[q].b16.s0 == MU_GLUE {
                         let x = *GLUE_NODE_glue_ptr(q) as usize;
-                        let y = math_glue(x, cur_mu);
+                        let y = math_glue(&GlueSpec(x), cur_mu);
                         delete_glue_ref(x);
                         *GLUE_NODE_glue_ptr(q) = Some(y).tex_int();
                         MEM[q].b16.s0 = NORMAL as u16
@@ -3139,7 +3140,7 @@ unsafe fn mlist_to_hlist() {
                 }
             };
             if x != 0 {
-                let y = math_glue(EQTB[GLUE_BASE + x as usize].val as usize, cur_mu);
+                let y = math_glue(&GlueSpec(EQTB[GLUE_BASE + x as usize].val as usize), cur_mu);
                 let z = new_glue(y);
                 *LLIST_link(y) = None.tex_int();
                 *LLIST_link(p) = Some(z).tex_int();
@@ -3448,8 +3449,7 @@ unsafe fn stack_glyph_into_box(b: usize, mut f: internal_font_number, mut g: i32
 }
 unsafe fn stack_glue_into_box(b: usize, mut min: scaled_t, mut max: scaled_t) {
     let q = new_spec(0);
-    *GLUE_SPEC_size(q) = min;
-    *GLUE_SPEC_stretch(q) = max - min;
+    GlueSpec(q).set_size(min).set_stretch(max - min);
     let p = new_glue(q);
     if NODE_type(b) == TextNode::HList.into() {
         if let Some(mut q) = BOX_list_ptr(b).opt() {
@@ -3556,8 +3556,9 @@ unsafe fn build_opentype_assembly(
                 *BOX_height(p) + *BOX_depth(p)
             };
         } else if NODE_type(p as usize) == TextNode::Glue.into() {
-            nat += *GLUE_SPEC_size(*GLUE_NODE_glue_ptr(p) as usize);
-            str += *GLUE_SPEC_stretch(*GLUE_NODE_glue_ptr(p) as usize);
+            let spec = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize);
+            nat += spec.size();
+            str += spec.stretch();
         }
         popt = llist_link(p);
     }

@@ -28,10 +28,8 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_non_discardable_node, llist_link, set_NODE_type, whatsit_NODE_subtype, BOX_depth,
-    BOX_height, BOX_width, GLUE_NODE_glue_ptr, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order,
-    GLUE_SPEC_size, GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, INSERTION_NODE_ins_ptr, LLIST_link,
-    MARK_NODE_class, MARK_NODE_ptr, /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty,
-    TeXInt, TeXOpt,
+    BOX_height, BOX_width, GLUE_NODE_glue_ptr, LLIST_link, MARK_NODE_class, MARK_NODE_ptr,
+    /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -208,13 +206,14 @@ unsafe fn fire_up(c: usize) {
     while popt != best_page_break {
         let mut p = popt.unwrap();
         if NODE_type(p) == TextNode::Ins.into() {
+            let mut p_ins = Insertion(p);
             if process_inserts {
                 /*1055: "Either insert the material specified by node p into
                  * the appropriate box, or hold it for the next page; also
                  * delete node p from the current page." */
                 let mut r = llist_link(PAGE_INS_HEAD).unwrap();
 
-                while MEM[r].b16.s0 != MEM[p].b16.s0 {
+                while MEM[r].b16.s0 != p_ins.box_reg() {
                     // NODE_subtype(r) != NODE_subtype(p)
                     r = llist_link(r).unwrap();
                 }
@@ -224,7 +223,7 @@ unsafe fn fire_up(c: usize) {
                     wait = false;
 
                     s = MEM[r + 2].b32.s1 as usize;
-                    *LLIST_link(s) = *INSERTION_NODE_ins_ptr(p);
+                    *LLIST_link(s) = p_ins.ins_ptr();
                     if MEM[r + 2].b32.s0.opt() == Some(p) {
                         /*1056: "Wrap up the box specified by node r,
                          * splitting node p if called for; set wait = true if
@@ -236,17 +235,16 @@ unsafe fn fire_up(c: usize) {
                                     s = *LLIST_link(s) as usize;
                                 }
                                 *LLIST_link(s) = None.tex_int();
-                                *GLUEPAR(GluePar::split_top_skip) = MEM[p + 4].b32.s1;
-                                MEM[p + 4].b32.s0 = prune_page_top(MEM[r + 1].b32.s1.opt(), false);
-                                if MEM[p + 4].b32.s0.opt().is_some() {
+                                *GLUEPAR(GluePar::split_top_skip) = p_ins.split_top_ptr();
+                                p_ins.set_ins_ptr(prune_page_top(MEM[r + 1].b32.s1.opt(), false));
+                                if p_ins.ins_ptr().opt().is_some() {
                                     let tmp_ptr = vpackage(
-                                        MEM[p + 4].b32.s0.opt(),
+                                        p_ins.ins_ptr().opt(),
                                         0,
                                         PackMode::Additional as _,
                                         MAX_HALFWORD,
                                     );
-                                    MEM[p + 3].b32.s1 =
-                                        MEM[tmp_ptr + 3].b32.s1 + MEM[tmp_ptr + 2].b32.s1;
+                                    p_ins.set_height(*BOX_height(tmp_ptr) + *BOX_depth(tmp_ptr));
                                     free_node(tmp_ptr, BOX_NODE_SIZE);
                                     wait = true
                                 }
@@ -278,7 +276,7 @@ unsafe fn fire_up(c: usize) {
                     q = p;
                     insert_penalties += 1;
                 } else {
-                    delete_glue_ref(MEM[p + 4].b32.s1 as usize);
+                    delete_glue_ref(p_ins.split_top_ptr() as usize);
                     free_node(p, INS_NODE_SIZE);
                 }
                 p = prev_p /*:1057 */
@@ -528,13 +526,13 @@ pub(crate) unsafe fn build_page() {
                         freeze_page_specs(PageContents::BoxThere);
                     } else { page_contents = PageContents::BoxThere }
 
-                    let (q, tmp_ptr) = new_skip_param(GluePar::top_skip);
+                    let (q, mut tmp_ptr) = new_skip_param(GluePar::top_skip);
                     slf.q = q as i32; /* "now tmp_ptr = glue_ptr(q) */
 
-                    if *BOX_width(tmp_ptr) > *BOX_height(slf.p) {
-                        *BOX_width(tmp_ptr) -= *BOX_height(slf.p);
+                    if tmp_ptr.size() > *BOX_height(slf.p) {
+                        tmp_ptr.set_size(tmp_ptr.size() - *BOX_height(slf.p));
                     } else {
-                        *BOX_width(tmp_ptr) = 0;
+                        tmp_ptr.set_size(0);
                     }
 
                     *LLIST_link(slf.q as usize) = Some(slf.p).tex_int();
@@ -624,11 +622,12 @@ pub(crate) unsafe fn build_page() {
                         x_over_n(*BOX_height(slf.r), 1000) * *COUNT_REG(n as _)
                     };
 
-                    page_so_far[0] -= h + *GLUE_SPEC_size(slf.q as usize);
-                    page_so_far[2 + *GLUE_SPEC_stretch_order(slf.q as usize) as usize] += *GLUE_SPEC_stretch(slf.q as usize);
-                    page_so_far[6] += *GLUE_SPEC_shrink(slf.q as usize);
+                    let mut q_spec = GlueSpec(slf.q as usize);
+                    page_so_far[0] -= h + q_spec.size();
+                    page_so_far[2 + q_spec.stretch_order() as usize] += q_spec.stretch();
+                    page_so_far[6] += q_spec.shrink();
 
-                    if *GLUE_SPEC_shrink_order(slf.q as usize) != GlueOrder::Normal as _ && *GLUE_SPEC_shrink(slf.q as usize) != 0 {
+                    if q_spec.shrink_order() != GlueOrder::Normal && q_spec.shrink() != 0 {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
@@ -819,7 +818,7 @@ pub(crate) unsafe fn build_page() {
                     );
                     error();
                     slf.r = new_spec(slf.q as usize);
-                    *GLUE_SPEC_shrink_order(slf.r) = GlueOrder::Normal as _;
+                    GlueSpec(slf.r).set_shrink_order(GlueOrder::Normal);
                     delete_glue_ref(slf.q as usize);
                     *GLUE_NODE_glue_ptr(slf.p) = Some(slf.r).tex_int();
                     slf.q = Some(slf.r).tex_int();
