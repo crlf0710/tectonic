@@ -526,7 +526,7 @@ pub(crate) const SUP_CMD: placeholdertype = 0;
 pub(crate) const SUB_CMD: placeholdertype = 1;
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, enumn::N)]
 pub(crate) enum GlueOrder {
     Normal = 0,
     Fil = 1,

@@ -209,7 +209,9 @@ pub(crate) unsafe fn DISCRETIONARY_NODE_post_break<'a>(p: usize) -> &'a mut i32 
 pub(crate) unsafe fn EDGE_NODE_edge_dist<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 2].b32.s1
 }
-
+pub(crate) unsafe fn GLUE_NODE_param<'a>(p: usize) -> &'a mut u16 {
+    &mut MEM[p].b16.s0
+}
 /// aka "llink" in doubly-linked list
 pub(crate) unsafe fn GLUE_NODE_glue_ptr<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s0
@@ -217,28 +219,6 @@ pub(crate) unsafe fn GLUE_NODE_glue_ptr<'a>(p: usize) -> &'a mut i32 {
 /// aka "rlink" in double-linked list
 pub(crate) unsafe fn GLUE_NODE_leader_ptr<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s1
-}
-
-pub(crate) unsafe fn INSERTION_NODE_box_reg<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p].b16.s0
-}
-/// "the floating_penalty to be used"
-pub(crate) unsafe fn INSERTION_NODE_float_cost<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-pub(crate) unsafe fn INSERTION_NODE_depth<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 2].b32.s1
-}
-pub(crate) unsafe fn INSERTION_NODE_height<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 3].b32.s1
-}
-/// a glue pointer
-pub(crate) unsafe fn INSERTION_NODE_split_top_ptr<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 4].b32.s1
-}
-/// a pointer to a vlist
-pub(crate) unsafe fn INSERTION_NODE_ins_ptr<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 4].b32.s0
 }
 
 /// language number, 0..255
@@ -420,30 +400,6 @@ pub(crate) unsafe fn SYNCTEX_line<'a>(p: usize, nodesize: i32) -> &'a mut i32 {
     &mut MEM[p + (nodesize as usize) - (SYNCTEX_FIELD_SIZE as usize)]
         .b32
         .s1
-}
-
-/// aka "link" of a link-list node
-pub(crate) unsafe fn GLUE_SPEC_ref_count<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p].b32.s1
-}
-/// aka "type" of a node
-pub(crate) unsafe fn GLUE_SPEC_stretch_order<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p].b16.s1
-}
-/// aka "subtype" of a node
-pub(crate) unsafe fn GLUE_SPEC_shrink_order<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p].b16.s0
-}
-pub(crate) unsafe fn GLUE_SPEC_size<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-/// a scaled
-pub(crate) unsafe fn GLUE_SPEC_stretch<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 2].b32.s1
-}
-/// a scaled
-pub(crate) unsafe fn GLUE_SPEC_shrink<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 3].b32.s1
 }
 
 pub(crate) unsafe fn CHOICE_NODE_display<'a>(p: usize) -> &'a mut i32 {
