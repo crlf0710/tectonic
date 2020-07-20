@@ -1,5 +1,5 @@
 use crate::xetex_consts::{
-    KernNST, LRMode, TextNode, WhatsItNST, NATIVE_NODE_SIZE, ND, PIC_NODE_SIZE, SYNCTEX_FIELD_SIZE,
+    KernNST, TextNode, WhatsItNST, NATIVE_NODE_SIZE, ND, PIC_NODE_SIZE, SYNCTEX_FIELD_SIZE,
 };
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
@@ -76,13 +76,6 @@ pub(crate) unsafe fn clear_NODE_subtype(p: usize) {
     MEM[p].b16.s0 = 0;
 }
 
-/// subtype; records L/R direction mode
-pub(crate) unsafe fn BOX_lr_mode(p: usize) -> LRMode {
-    LRMode::from(MEM[p].b16.s0)
-}
-pub(crate) unsafe fn set_BOX_lr_mode(p: usize, mode: LRMode) {
-    MEM[p].b16.s0 = mode as u16
-}
 /// a scaled; 1 <=> WEB const `width_offset`
 pub(crate) unsafe fn BOX_width<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s1
@@ -95,44 +88,6 @@ pub(crate) unsafe fn BOX_depth<'a>(p: usize) -> &'a mut i32 {
 pub(crate) unsafe fn BOX_height<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 3].b32.s1
 }
-/// a scaled
-pub(crate) unsafe fn BOX_shift_amount<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 4].b32.s1
-}
-/// aka `link` of p+5
-pub(crate) unsafe fn BOX_list_ptr<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 5].b32.s1
-}
-/// aka `type` of p+5
-pub(crate) unsafe fn BOX_glue_sign<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 5].b16.s1
-}
-/// aka `subtype` of p+5
-pub(crate) unsafe fn BOX_glue_order<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 5].b16.s0
-}
-
-/// the glue ratio
-pub(crate) unsafe fn BOX_glue_set<'a>(p: usize) -> &'a mut f64 {
-    &mut MEM[p + 6].gr
-}
-
-pub(crate) unsafe fn UNSET_NODE_columns<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p].b16.s0
-}
-pub(crate) unsafe fn UNSET_NODE_shrink<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 4].b32.s1
-}
-pub(crate) unsafe fn UNSET_NODE_stretch<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 6].b32.s1
-}
-pub(crate) unsafe fn UNSET_NODE_shrink_order<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 5].b16.s1
-}
-pub(crate) unsafe fn UNSET_NODE_stretch_order<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 5].b16.s0
-}
-
 /// aka "subtype" of a node
 pub(crate) unsafe fn ACTIVE_NODE_fitness<'a>(p: usize) -> &'a mut u16 {
     &mut MEM[p].b16.s0
@@ -165,31 +120,6 @@ pub(crate) unsafe fn CHAR_NODE_font<'a>(p: usize) -> &'a mut u16 {
 /// aka "subtype" of a node
 pub(crate) unsafe fn CHAR_NODE_character<'a>(p: usize) -> &'a mut u16 {
     &mut MEM[p].b16.s0
-}
-
-/// the "natural width" difference
-pub(crate) unsafe fn DELTA_NODE_dwidth<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-/// the stretch difference in points
-pub(crate) unsafe fn DELTA_NODE_dstretch0<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 2].b32.s1
-}
-/// the stretch difference in fil
-pub(crate) unsafe fn DELTA_NODE_dstretch1<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 3].b32.s1
-}
-/// the stretch difference in fill
-pub(crate) unsafe fn DELTA_NODE_dstretch2<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 4].b32.s1
-}
-/// the stretch difference in filll
-pub(crate) unsafe fn DELTA_NODE_dstretch3<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 5].b32.s1
-}
-/// the shrink difference
-pub(crate) unsafe fn DELTA_NODE_dshrink<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 6].b32.s1
 }
 
 /// aka "subtype" of a node
@@ -400,19 +330,6 @@ pub(crate) unsafe fn SYNCTEX_line<'a>(p: usize, nodesize: i32) -> &'a mut i32 {
     &mut MEM[p + (nodesize as usize) - (SYNCTEX_FIELD_SIZE as usize)]
         .b32
         .s1
-}
-
-pub(crate) unsafe fn CHOICE_NODE_display<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s0
-}
-pub(crate) unsafe fn CHOICE_NODE_text<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-pub(crate) unsafe fn CHOICE_NODE_script<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 2].b32.s0
-}
-pub(crate) unsafe fn CHOICE_NODE_scriptscript<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 2].b32.s1
 }
 
 use super::xetex_ini::{

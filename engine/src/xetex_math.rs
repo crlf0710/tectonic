@@ -44,11 +44,9 @@ use crate::xetex_xetex0::{
     scan_math_fam_int, scan_usv_num, unsave, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_char_node, kern_NODE_width, llist_link, math_char, math_class, math_fam, set_BOX_lr_mode,
-    set_NODE_type, set_class, set_family, set_kern_NODE_subtype, set_whatsit_NODE_subtype,
-    text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign,
-    BOX_height, BOX_list_ptr, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
-    CHOICE_NODE_display, CHOICE_NODE_script, CHOICE_NODE_scriptscript, CHOICE_NODE_text,
+    is_char_node, kern_NODE_width, llist_link, math_char, math_class, math_fam, set_NODE_type,
+    set_class, set_family, set_kern_NODE_subtype, set_whatsit_NODE_subtype, text_NODE_type,
+    whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
     GLUE_NODE_glue_ptr, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LLIST_link,
     NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_size, NODE_type, TeXInt, TeXOpt,
 };
@@ -144,16 +142,17 @@ pub(crate) unsafe fn init_math() {
 
             *LLIST_link(p) = j.tex_int();
 
-            let j_ = new_null_box();
-            j = Some(j_);
-            *BOX_width(j_) = *BOX_width(just_box);
-            *BOX_shift_amount(j_) = *BOX_shift_amount(just_box);
-            *BOX_list_ptr(j_) = Some(p).tex_int();
-            *BOX_glue_order(j_) = *BOX_glue_order(just_box);
-            *BOX_glue_sign(j_) = *BOX_glue_sign(just_box);
-            *BOX_glue_set(j_) = *BOX_glue_set(just_box);
+            let jb = Box::from(just_box);
+            let mut j_ = Box::from(new_null_box());
+            j = Some(j_.ptr());
+            j_.set_width(jb.width());
+            j_.set_shift_amount(jb.shift_amount());
+            j_.set_list_ptr(Some(p).tex_int());
+            j_.set_glue_order(jb.glue_order());
+            j_.set_glue_sign(jb.glue_sign());
+            j_.set_glue_set(jb.glue_set());
 
-            v = *BOX_shift_amount(just_box);
+            v = jb.shift_amount();
             x = if let Some(aux) = cur_list.eTeX_aux {
                 if MathNST::from(MEM[aux].b32.s0 as u16).dir() == LR::RightToLeft {
                     -1
@@ -164,18 +163,14 @@ pub(crate) unsafe fn init_math() {
                 0
             };
             let mut popt = if x >= 0 {
-                let p = BOX_list_ptr(just_box).opt();
+                let p = jb.list_ptr().opt();
                 *LLIST_link(TEMP_HEAD) = None.tex_int();
                 p
             } else {
-                v = -v - *BOX_width(just_box);
+                v = -v - jb.width();
                 let p = new_math(0, BEGIN_L_CODE);
                 *LLIST_link(TEMP_HEAD) = p as i32;
-                just_copy(
-                    BOX_list_ptr(just_box).opt(),
-                    p,
-                    new_math(0, END_L_CODE) as i32,
-                );
+                just_copy(jb.list_ptr().opt(), p, new_math(0, END_L_CODE) as i32);
                 cur_dir = LR::RightToLeft;
                 Some(p)
             };
@@ -277,16 +272,13 @@ pub(crate) unsafe fn init_math() {
                         TextNode::Glue => {
                             let q = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize);
                             d = q.size();
-                            if *BOX_glue_sign(just_box) == GlueSign::Stretching as u16 {
-                                if *BOX_glue_order(just_box) == q.stretch_order() as u16
-                                    && q.stretch() != 0
-                                {
+                            let jb = Box::from(just_box);
+                            if jb.glue_sign() == GlueSign::Stretching {
+                                if jb.glue_order() == q.stretch_order() && q.stretch() != 0 {
                                     v = MAX_HALFWORD
                                 }
-                            } else if *BOX_glue_sign(just_box) == GlueSign::Shrinking as u16 {
-                                if *BOX_glue_order(just_box) == q.shrink_order() as u16
-                                    && q.shrink() != 0
-                                {
+                            } else if jb.glue_sign() == GlueSign::Shrinking {
+                                if jb.glue_order() == q.shrink_order() && q.shrink() != 0 {
                                     v = MAX_HALFWORD
                                 }
                             }
@@ -609,13 +601,14 @@ pub(crate) unsafe fn fin_mlist(p: Option<usize>) -> i32 {
 }
 pub(crate) unsafe fn build_choices() {
     unsave();
-    let mut p = fin_mlist(None);
+    let mut p = fin_mlist(None).opt();
+    let mut tail_choice = Choice(cur_list.tail);
     match MathStyle::n(SAVE_STACK[SAVE_PTR - 1].val as i16).unwrap() {
-        MathStyle::Display => *CHOICE_NODE_display(cur_list.tail) = p,
-        MathStyle::Text => *CHOICE_NODE_text(cur_list.tail) = p,
-        MathStyle::Script => *CHOICE_NODE_script(cur_list.tail) = p,
+        MathStyle::Display => tail_choice.set_display(p),
+        MathStyle::Text => tail_choice.set_text(p),
+        MathStyle::Script => tail_choice.set_script(p),
         MathStyle::ScriptScript => {
-            *CHOICE_NODE_scriptscript(cur_list.tail) = p;
+            tail_choice.set_scriptscript(p);
             SAVE_PTR -= 1;
             return;
         }
@@ -771,7 +764,7 @@ pub(crate) unsafe fn math_left_right() {
         }
     };
 }
-unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
+unsafe fn app_display(j: Option<usize>, mut b: Box, mut d: scaled_t) {
     let mut z: scaled_t = 0;
     let mut s: scaled_t = 0;
     let mut e: scaled_t = 0;
@@ -779,31 +772,32 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
     s = *DIMENPAR(DimenPar::display_indent);
     x = *INTPAR(IntPar::pre_display_correction);
     if x == 0 {
-        *BOX_shift_amount(b) = s + d
+        b.set_shift_amount(s + d);
     } else {
         let mut q;
         z = *DIMENPAR(DimenPar::display_width);
         let mut p = b;
         if x > 0 {
-            e = z - d - MEM[p + 1].b32.s1
+            e = z - d - p.width();
         } else {
             e = d;
-            d = z - e - MEM[p + 1].b32.s1
+            d = z - e - p.width();
         }
         if let Some(j) = j {
-            b = copy_node_list(Some(j)) as usize;
-            *BOX_height(b) = *BOX_height(p);
-            *BOX_depth(b) = *BOX_depth(p);
-            s = s - *BOX_shift_amount(b);
+            b = Box::from(copy_node_list(Some(j)) as usize);
+            b.set_height(p.height()).set_depth(p.depth());
+            s = s - b.shift_amount();
             d = d + s;
-            e = e + *BOX_width(b) - z - s
+            e = e + b.width() - z - s
         }
-        if MEM[p].b16.s0 == LRMode::DList as u16 {
-            q = p;
+        let p = if p.lr_mode() == LRMode::DList {
+            q = p.ptr();
+            p.ptr()
         } else {
-            let r = BOX_list_ptr(p).opt();
-            free_node(p, BOX_NODE_SIZE);
+            let r = p.list_ptr().opt();
+            free_node(p.ptr(), BOX_NODE_SIZE);
             let mut r = r.confuse(b"LR4");
+            let mut p;
             if x > 0 {
                 p = r;
                 loop {
@@ -829,14 +823,15 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
                     }
                 }
             }
-        }
+            p
+        };
         let r;
         let t;
         if j.is_none() {
             r = new_kern(0);
             t = new_kern(0)
         } else {
-            r = *BOX_list_ptr(b) as usize;
+            r = b.list_ptr() as usize;
             t = *LLIST_link(r) as usize;
         }
         let u = new_math(0, END_M_CODE);
@@ -877,14 +872,14 @@ unsafe fn app_display(j: Option<usize>, mut b: usize, mut d: scaled_t) {
             *LLIST_link(r) = Some(p).tex_int();
             *LLIST_link(u) = Some(r).tex_int();
             if j.is_none() {
-                b = hpack(Some(u), 0, PackMode::Additional);
-                *BOX_shift_amount(b) = s;
+                b = Box::from(hpack(Some(u), 0, PackMode::Additional));
+                b.set_shift_amount(s);
             } else {
-                *BOX_list_ptr(b) = Some(u).tex_int();
+                b.set_list_ptr(Some(u).tex_int());
             }
         }
     }
-    append_to_vlist(b);
+    append_to_vlist(b.ptr());
 }
 pub(crate) unsafe fn after_math() {
     let mut l: bool = false;
@@ -992,8 +987,8 @@ pub(crate) unsafe fn after_math() {
         cur_style = (MathStyle::Text, 0);
         mlist_penalties = false;
         mlist_to_hlist();
-        let a = hpack(llist_link(TEMP_HEAD), 0, PackMode::Additional);
-        MEM[a].b16.s0 = LRMode::DList as u16;
+        let mut a = Box::from(hpack(llist_link(TEMP_HEAD), 0, PackMode::Additional));
+        a.set_lr_mode(LRMode::DList);
         unsave();
         SAVE_PTR -= 1;
         if SAVE_STACK[SAVE_PTR + 0].val == 1 {
@@ -1120,13 +1115,13 @@ pub(crate) unsafe fn after_math() {
         let p = llist_link(TEMP_HEAD);
         adjust_tail = Some(ADJUST_HEAD);
         pre_adjust_tail = Some(PRE_ADJUST_HEAD);
-        let mut b = hpack(p, 0, PackMode::Additional);
-        let p = BOX_list_ptr(b).opt();
+        let mut b = Box::from(hpack(p, 0, PackMode::Additional));
+        let p = b.list_ptr().opt();
         let t = adjust_tail.unwrap();
         adjust_tail = None;
         let pre_t = pre_adjust_tail.unwrap();
         pre_adjust_tail = None;
-        w = *BOX_width(b);
+        w = b.width();
         z = *DIMENPAR(DimenPar::display_width);
         s = *DIMENPAR(DimenPar::display_indent);
         if *INTPAR(IntPar::pre_display_correction) < 0i32 {
@@ -1136,7 +1131,7 @@ pub(crate) unsafe fn after_math() {
             e = 0;
             q = 0;
         } else if let Some(a) = a {
-            e = MEM[a + 1].b32.s1;
+            e = a.width();
             q = e + math_quad(TEXT_SIZE);
         } else {
             e = 0;
@@ -1150,18 +1145,18 @@ pub(crate) unsafe fn after_math() {
                     || total_shrink[FILL as usize] != 0
                     || total_shrink[FILLL as usize] != 0)
             {
-                free_node(b, BOX_NODE_SIZE);
-                b = hpack(p, z - q, PackMode::Exactly);
+                free_node(b.ptr(), BOX_NODE_SIZE);
+                b = Box::from(hpack(p, z - q, PackMode::Exactly));
             } else {
                 e = 0;
                 if w > z {
-                    free_node(b, BOX_NODE_SIZE);
-                    b = hpack(p, z, PackMode::Exactly);
+                    free_node(b.ptr(), BOX_NODE_SIZE);
+                    b = Box::from(hpack(p, z, PackMode::Exactly));
                 }
             }
-            w = *BOX_width(b);
+            w = b.width();
         }
-        set_BOX_lr_mode(b, LRMode::DList);
+        b.set_lr_mode(LRMode::DList);
         d = half(z - w);
         if e > 0 && d < 2 * e {
             d = half(z - w - e);
@@ -1194,26 +1189,27 @@ pub(crate) unsafe fn after_math() {
             *LLIST_link(cur_list.tail) = Some(pg).tex_int();
             cur_list.tail = pg;
         }
-        if e != 0i32 {
+        if e != 0 {
             let a = a.unwrap();
             let r = new_kern(z - w - e - d);
             if l {
-                *LLIST_link(a) = Some(r).tex_int();
-                *LLIST_link(r) = Some(b).tex_int();
+                *LLIST_link(a.ptr()) = Some(r).tex_int();
+                *LLIST_link(r) = Some(b.ptr()).tex_int();
                 b = a;
                 d = 0;
             } else {
-                *LLIST_link(b) = Some(r).tex_int();
-                *LLIST_link(r) = Some(a).tex_int();
+                *LLIST_link(b.ptr()) = Some(r).tex_int();
+                *LLIST_link(r) = Some(a.ptr()).tex_int();
             }
-            b = hpack(Some(b), 0, PackMode::Additional);
+            b = Box::from(hpack(Some(b.ptr()), 0, PackMode::Additional));
         }
         app_display(j, b, d);
         if let Some(a) = a {
             if e == 0 && !l {
                 MEM[cur_list.tail].b32.s1 = new_penalty(INF_PENALTY) as i32;
                 cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-                app_display(j, a, z - MEM[a + 1].b32.s1);
+                let w = a.width();
+                app_display(j, a, z - w);
                 g2 = None;
             }
         }
@@ -1510,7 +1506,7 @@ unsafe fn overbar(b: i32, k: scaled_t, mut t: scaled_t) -> usize {
     *LLIST_link(q) = Some(p).tex_int();
     let p = new_kern(t);
     *LLIST_link(p) = Some(q).tex_int();
-    vpackage(Some(p), 0, PackMode::Additional, MAX_HALFWORD)
+    vpackage(Some(p), 0, PackMode::Additional, MAX_HALFWORD).ptr()
 }
 unsafe fn math_glue(g: &GlueSpec, mut m: scaled_t) -> usize {
     let mut n = x_over_n(m, 65536);
@@ -1607,13 +1603,13 @@ unsafe fn clean_box(p: usize, s: (MathStyle, u8)) -> usize {
             hpack(q.opt(), 0, PackMode::Additional)
         } else if LLIST_link(q as usize).opt().is_none()
             && [TextNode::HList.into(), TextNode::VList.into()].contains(&NODE_type(q as usize))
-            && *BOX_shift_amount(q as usize) == 0
+            && Box::from(q as usize).shift_amount() == 0
         {
             q as usize
         } else {
             hpack(q.opt(), 0, PackMode::Additional)
         };
-        let q = *BOX_list_ptr(x);
+        let q = Box::from(x).list_ptr();
         if is_char_node(q.opt()) {
             if let Some(r) = LLIST_link(q as usize).opt() {
                 if llist_link(r).is_none() {
@@ -1687,11 +1683,12 @@ unsafe fn make_under(q: usize) {
     let p = new_kern(3 * default_rule_thickness());
     *LLIST_link(x) = Some(p).tex_int();
     *LLIST_link(p) = Some(fraction_rule(default_rule_thickness())).tex_int();
-    let y = vpackage(Some(x), 0, PackMode::Additional, MAX_HALFWORD);
-    let delta = *BOX_height(y) + *BOX_depth(y) + default_rule_thickness();
-    *BOX_height(y) = *BOX_height(x);
-    *BOX_depth(y) = delta - *BOX_height(y);
-    MEM[q + 1].b32.s0 = y as i32;
+    let mut y = vpackage(Some(x), 0, PackMode::Additional, MAX_HALFWORD);
+    let delta = y.height() + y.depth() + default_rule_thickness();
+    y.set_height(*BOX_height(x));
+    let h = y.height();
+    y.set_depth(delta - h);
+    MEM[q + 1].b32.s0 = Some(y.ptr()).tex_int();
     MEM[q + 1].b32.s1 = MathCell::SubBox as _;
 }
 unsafe fn make_vcenter(q: usize) {
@@ -1727,24 +1724,26 @@ unsafe fn make_radical(q: usize) {
         let clr = rule_thickness;
         clr + clr.abs() / 4
     };
-    let y = var_delimiter(
+    let mut y = Box::from(var_delimiter(
         q + 4,
         cur_size,
         *BOX_height(x) + *BOX_depth(x) + clr + rule_thickness,
-    );
+    ));
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
     {
-        *BOX_depth(y) = *BOX_height(y) + *BOX_depth(y) - rule_thickness;
-        *BOX_height(y) = rule_thickness
+        let h = y.height();
+        let d = y.depth();
+        y.set_depth(h + d - rule_thickness);
+        y.set_height(rule_thickness);
     }
-    let delta = *BOX_depth(y) - (*BOX_height(x) + *BOX_depth(x) + clr);
+    let delta = y.depth() - (*BOX_height(x) + *BOX_depth(x) + clr);
     if delta > 0 {
         clr += half(delta);
     }
-    *BOX_shift_amount(y) = -((*BOX_height(x) + clr) as i32);
-    *LLIST_link(y) = overbar(x as i32, clr, *BOX_height(y)) as i32;
-    MEM[q + 1].b32.s0 = hpack(Some(y), 0, PackMode::Additional) as i32;
+    y.set_shift_amount(-((*BOX_height(x) + clr) as i32));
+    *LLIST_link(y.ptr()) = overbar(x as i32, clr, y.height()) as i32;
+    MEM[q + 1].b32.s0 = hpack(Some(y.ptr()), 0, PackMode::Additional) as i32;
     MEM[q + 1].b32.s1 = MathCell::SubBox as _;
 }
 unsafe fn compute_ot_math_accent_pos(p: usize) -> scaled_t {
@@ -1896,15 +1895,15 @@ unsafe fn make_math_accent(q: usize) {
             set_whatsit_NODE_subtype(p, WhatsItNST::Glyph);
             *NATIVE_NODE_font(p) = f as u16;
             *NATIVE_NODE_glyph(p) = real_get_native_glyph(
-                &mut MEM[*BOX_list_ptr(y) as usize] as *mut memory_word as *mut libc::c_void,
+                &mut MEM[y.list_ptr() as usize] as *mut memory_word as *mut libc::c_void,
                 0,
             );
             measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1i32);
             free_node(
-                *BOX_list_ptr(y) as usize,
-                *NATIVE_NODE_size(*BOX_list_ptr(y) as usize) as i32,
+                y.list_ptr() as usize,
+                *NATIVE_NODE_size(y.list_ptr() as usize) as i32,
             );
-            *BOX_list_ptr(y) = Some(p).tex_int();
+            y.set_list_ptr(Some(p).tex_int());
             if MEM[q].b16.s0 as i32 & 1 != 0 {
                 measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1);
             } else {
@@ -1928,24 +1927,24 @@ unsafe fn make_math_accent(q: usize) {
                     ot_assembly_ptr = get_ot_assembly_ptr(f, c, 1);
                     if !ot_assembly_ptr.is_null() {
                         free_node(p, GLYPH_NODE_SIZE);
-                        p = build_opentype_assembly(f, ot_assembly_ptr, w, true);
-                        *BOX_list_ptr(y) = Some(p).tex_int();
+                        p = build_opentype_assembly(f, ot_assembly_ptr, w, true).ptr();
+                        y.set_list_ptr(Some(p).tex_int());
                     }
                 } else {
                     measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1);
                 }
             }
-            *BOX_width(y) = *BOX_width(p);
-            *BOX_height(y) = *BOX_height(p);
-            *BOX_depth(y) = *BOX_depth(p);
+            y.set_width(*BOX_width(p))
+                .set_height(*BOX_height(p))
+                .set_depth(*BOX_depth(p));
             if MEM[q].b16.s0 == AccentType::Bottom as _
                 || MEM[q].b16.s0 == AccentType::BottomFixed as _
             {
-                if *BOX_height(y) < 0 {
-                    *BOX_height(y) = 0;
+                if y.height() < 0 {
+                    y.set_height(0);
                 }
-            } else if *BOX_depth(y) < 0 {
-                *BOX_depth(y) = 0;
+            } else if y.depth() < 0 {
+                y.set_depth(0);
             }
             let mut sa;
             if !is_char_node(Some(p))
@@ -1954,10 +1953,10 @@ unsafe fn make_math_accent(q: usize) {
             {
                 sa = get_ot_math_accent_pos(f, *NATIVE_NODE_glyph(p) as i32);
                 if sa == TEX_INFINITY {
-                    sa = half(*BOX_width(y))
+                    sa = half(y.width())
                 }
             } else {
-                sa = half(*BOX_width(y))
+                sa = half(y.width())
             }
             if MEM[q].b16.s0 == AccentType::Bottom as _
                 || MEM[q].b16.s0 == AccentType::BottomFixed as _
@@ -1965,31 +1964,31 @@ unsafe fn make_math_accent(q: usize) {
             {
                 s = half(w)
             }
-            *BOX_shift_amount(y) = s - sa;
+            y.set_shift_amount(s - sa);
         } else {
-            *BOX_shift_amount(y) = s + half(w - *BOX_width(y));
+            y.set_shift_amount(s + half(w - y.width()));
         }
-        *BOX_width(y) = 0;
+        y.set_width(0);
         if MEM[q].b16.s0 == AccentType::Bottom as _ || MEM[q].b16.s0 == AccentType::BottomFixed as _
         {
-            *LLIST_link(x) = y as i32;
+            *LLIST_link(x) = Some(y.ptr()).tex_int();
             y = vpackage(Some(x), 0, PackMode::Additional, MAX_HALFWORD);
-            *BOX_shift_amount(y) = -((h - *BOX_height(y)) as i32)
+            y.set_shift_amount(-((h - y.height()) as i32));
         } else {
             let p = new_kern(-(delta as i32));
             *LLIST_link(p) = Some(x).tex_int();
-            *LLIST_link(y) = p as i32;
-            y = vpackage(Some(y), 0, PackMode::Additional, MAX_HALFWORD);
-            if *BOX_height(y) < h {
+            *LLIST_link(y.ptr()) = p as i32;
+            y = vpackage(Some(y.ptr()), 0, PackMode::Additional, MAX_HALFWORD);
+            if y.height() < h {
                 // 765:
-                let p = new_kern(h - *BOX_height(y)); /*773:*/
-                *LLIST_link(p) = *BOX_list_ptr(y);
-                *BOX_list_ptr(y) = p as i32;
-                *BOX_height(y) = h;
+                let p = new_kern(h - y.height()); /*773:*/
+                *LLIST_link(p) = y.list_ptr();
+                y.set_list_ptr(Some(p).tex_int());
+                y.set_height(h);
             }
         }
-        *BOX_width(y) = *BOX_width(x);
-        MEM[q + 1].b32.s0 = y as i32;
+        y.set_width(*BOX_width(x));
+        MEM[q + 1].b32.s0 = Some(y.ptr()).tex_int();
         MEM[q + 1].b32.s1 = MathCell::SubBox as _;
     }
     free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
@@ -2097,11 +2096,11 @@ unsafe fn make_fraction(q: usize) {
             shift_down += delta2;
         }
     }
-    let v = new_null_box();
-    set_NODE_type(v, TextNode::VList);
-    *BOX_height(v) = shift_up + *BOX_height(x);
-    *BOX_depth(v) = *BOX_depth(z) + shift_down;
-    *BOX_width(v) = *BOX_width(x);
+    let mut v = Box::from(new_null_box());
+    set_NODE_type(v.ptr(), TextNode::VList);
+    v.set_height(shift_up + *BOX_height(x))
+        .set_depth(*BOX_depth(z) + shift_down)
+        .set_width(*BOX_width(x));
     let mut p;
     if MEM[q + 1].b32.s1 == 0 {
         p = new_kern(shift_up - *BOX_depth(x) - (*BOX_height(z) - shift_down));
@@ -2115,7 +2114,7 @@ unsafe fn make_fraction(q: usize) {
         *LLIST_link(p) = Some(y).tex_int();
     }
     *LLIST_link(x) = Some(p).tex_int();
-    *BOX_list_ptr(v) = Some(x).tex_int();
+    v.set_list_ptr(Some(x).tex_int());
     // :774
     let delta = if cur_style.0 == MathStyle::Display {
         delim1(cur_size)
@@ -2123,9 +2122,9 @@ unsafe fn make_fraction(q: usize) {
         delim2(cur_size)
     };
     x = var_delimiter(q + 4, cur_size, delta);
-    *LLIST_link(x) = Some(v).tex_int();
+    *LLIST_link(x) = Some(v.ptr()).tex_int();
     z = var_delimiter(q + 5, cur_size, delta);
-    *LLIST_link(v) = Some(z).tex_int();
+    *LLIST_link(v.ptr()) = Some(z).tex_int();
     MEM[q + 1].b32.s1 = Some(hpack(Some(x), 0, PackMode::Additional)).tex_int();
     // :775
 }
@@ -2154,12 +2153,12 @@ unsafe fn make_op(q: usize) -> scaled_t {
                 .b32
                 .s1
         }
-        let x = clean_box(q + 1, cur_style);
+        let mut x = Box::from(clean_box(q + 1, cur_style));
         if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
             && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
                 != 0
         {
-            if let Some(mut p) = BOX_list_ptr(x).opt() {
+            if let Some(mut p) = x.list_ptr().opt() {
                 if !is_char_node(Some(p))
                     && NODE_type(p) == TextNode::WhatsIt.into()
                     && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
@@ -2192,8 +2191,9 @@ unsafe fn make_op(q: usize) -> scaled_t {
                             ot_assembly_ptr = get_ot_assembly_ptr(cur_f, c as i32, 0);
                             if !ot_assembly_ptr.is_null() {
                                 free_node(p, GLYPH_NODE_SIZE);
-                                p = build_opentype_assembly(cur_f, ot_assembly_ptr, h1, false);
-                                *BOX_list_ptr(x) = Some(p).tex_int();
+                                p = build_opentype_assembly(cur_f, ot_assembly_ptr, h1, false)
+                                    .ptr();
+                                x.set_list_ptr(Some(p).tex_int());
                                 delta = 0;
                                 ital_corr = false;
                             }
@@ -2207,18 +2207,19 @@ unsafe fn make_op(q: usize) -> scaled_t {
                     if ital_corr {
                         delta = get_ot_math_ital_corr(cur_f, *NATIVE_NODE_glyph(p) as i32)
                     }
-                    *BOX_width(x) = *BOX_width(p);
-                    *BOX_height(x) = *BOX_height(p);
-                    *BOX_depth(x) = *BOX_depth(p);
+                    x.set_width(*BOX_width(p))
+                        .set_height(*BOX_height(p))
+                        .set_depth(*BOX_depth(p));
                 }
             }
         }
         if MEM[q + 3].b32.s1 != 0 && MEM[q as usize].b16.s0 != Limit::Limits as u16 {
-            *BOX_width(x) -= delta;
+            let w = x.width();
+            x.set_width(w - delta);
         }
-        *BOX_shift_amount(x) = half(*BOX_height(x) - *BOX_depth(x)) - axis_height(cur_size);
+        x.set_shift_amount(half(x.height() - x.depth()) - axis_height(cur_size));
         MEM[q + 1].b32.s1 = MathCell::SubBox as _;
-        MEM[q + 1].b32.s0 = Some(x).tex_int();
+        MEM[q + 1].b32.s0 = Some(x.ptr()).tex_int();
     }
     let save_f = cur_f;
     if MEM[q].b16.s0 == Limit::Limits as u16 {
@@ -2244,50 +2245,50 @@ unsafe fn make_op(q: usize) -> scaled_t {
                 1,
             ),
         );
-        let v = new_null_box();
-        set_NODE_type(v, TextNode::VList);
-        *BOX_width(v) = (*BOX_width(y)).max(*BOX_width(x)).max(*BOX_width(z));
-        let x = rebox(x, *BOX_width(v));
-        let y = rebox(y, *BOX_width(v));
-        let z = rebox(z, *BOX_width(v));
-        *BOX_shift_amount(x) = half(delta);
-        *BOX_shift_amount(z) = -(*BOX_shift_amount(x));
-        *BOX_height(v) = *BOX_height(y);
-        *BOX_depth(v) = *BOX_depth(y);
+        let mut v = Box::from(new_null_box());
+        set_NODE_type(v.ptr(), TextNode::VList);
+        v.set_width((*BOX_width(y)).max(*BOX_width(x)).max(*BOX_width(z)));
+        let mut x = Box::from(rebox(x, v.width()));
+        let y = rebox(y, v.width());
+        let mut z = Box::from(rebox(z, v.width()));
+        x.set_shift_amount(half(delta));
+        z.set_shift_amount(-x.shift_amount());
+        v.set_height(*BOX_height(y));
+        v.set_depth(*BOX_depth(y));
         cur_f = save_f;
         if MEM[q + 2].b32.s1 == MathCell::Empty as _ {
-            free_node(x, BOX_NODE_SIZE);
-            *BOX_list_ptr(v) = y as i32;
+            free_node(x.ptr(), BOX_NODE_SIZE);
+            v.set_list_ptr(y as i32);
         } else {
-            let mut shift_up = big_op_spacing3() - *BOX_depth(x);
+            let mut shift_up = big_op_spacing3() - x.depth();
             if shift_up < big_op_spacing1() {
                 shift_up = big_op_spacing1()
             }
             let p = new_kern(shift_up);
             *LLIST_link(p) = y as i32;
-            *LLIST_link(x) = p as i32;
+            *LLIST_link(x.ptr()) = p as i32;
             let p = new_kern(big_op_spacing5());
-            *LLIST_link(p) = x as i32;
-            *BOX_list_ptr(v) = p as i32;
-            *BOX_height(v) =
-                *BOX_height(v) + big_op_spacing5() + *BOX_height(x) + *BOX_depth(x) + shift_up
+            *LLIST_link(p) = Some(x.ptr()).tex_int();
+            v.set_list_ptr(p as i32);
+            let h = v.height();
+            v.set_height(h + big_op_spacing5() + x.height() + x.depth() + shift_up);
         }
         if MEM[q + 3].b32.s1 == MathCell::Empty as _ {
-            free_node(z, BOX_NODE_SIZE);
+            free_node(z.ptr(), BOX_NODE_SIZE);
         } else {
-            let mut shift_down = big_op_spacing4() - *BOX_height(z);
+            let mut shift_down = big_op_spacing4() - z.height();
             if shift_down < big_op_spacing2() {
                 shift_down = big_op_spacing2()
             }
             let p = new_kern(shift_down);
             *LLIST_link(y as usize) = Some(p).tex_int();
-            *LLIST_link(p) = Some(z).tex_int();
+            *LLIST_link(p) = Some(z.ptr()).tex_int();
             let p = new_kern(big_op_spacing5());
-            *LLIST_link(z) = Some(p).tex_int();
-            *BOX_depth(v) =
-                *BOX_depth(v) + big_op_spacing5() + *BOX_height(z) + *BOX_depth(z) + shift_down
+            *LLIST_link(z.ptr()) = Some(p).tex_int();
+            let d = v.depth();
+            v.set_depth(d + big_op_spacing5() + z.height() + z.depth() + shift_down);
         }
-        MEM[q + 1].b32.s1 = v as i32
+        MEM[q + 1].b32.s1 = Some(v.ptr()).tex_int()
     }
     free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
     delta
@@ -2421,11 +2422,11 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
         shift_down = *BOX_depth(z) + sub_drop(t);
         free_node(z, BOX_NODE_SIZE);
     }
-    let mut x: usize;
+    let mut x;
     if MEM[q + 2].b32.s1 == MathCell::Empty as _ {
         // 784:
         let save_f = cur_f;
-        x = clean_box(
+        x = Box::from(clean_box(
             q + 3,
             (
                 match cur_style.0 {
@@ -2434,22 +2435,23 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                 },
                 1,
             ),
-        );
+        ));
         cur_f = save_f;
-        *BOX_width(x) += *DIMENPAR(DimenPar::script_space);
+        let w = x.width();
+        x.set_width(w + *DIMENPAR(DimenPar::script_space));
         shift_down = shift_down.max(sub1(cur_size));
         clr = if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
             && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
                 != 0
         {
-            *BOX_height(x) - get_ot_math_constant(cur_f, SUBSCRIPTTOPMAX)
+            x.height() - get_ot_math_constant(cur_f, SUBSCRIPTTOPMAX)
         } else {
-            *BOX_height(x) - (math_x_height(cur_size) * 4).abs() / 5
+            x.height() - (math_x_height(cur_size) * 4).abs() / 5
         };
         if shift_down < clr {
             shift_down = clr;
         }
-        *BOX_shift_amount(x) = shift_down;
+        x.set_shift_amount(shift_down);
         if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
             && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
                 != 0
@@ -2496,7 +2498,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
         }
     } else {
         let save_f = cur_f;
-        x = clean_box(
+        x = Box::from(clean_box(
             q + 2,
             (
                 match cur_style.0 {
@@ -2505,9 +2507,10 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                 },
                 cur_style.1,
             ),
-        );
+        ));
         cur_f = save_f;
-        *BOX_width(x) += *DIMENPAR(DimenPar::script_space);
+        let w = x.width();
+        x.set_width(w + *DIMENPAR(DimenPar::script_space));
         clr = if cur_style.1 != 0 {
             sup3(cur_size)
         } else if cur_style.0 == MathStyle::Display {
@@ -2522,9 +2525,9 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
             && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
                 != 0
         {
-            *BOX_depth(x) + get_ot_math_constant(cur_f, SUPERSCRIPTBOTTOMMIN)
+            x.depth() + get_ot_math_constant(cur_f, SUPERSCRIPTBOTTOMMIN)
         } else {
-            *BOX_depth(x) + math_x_height(cur_size).abs() / 4
+            x.depth() + math_x_height(cur_size).abs() / 4
         };
         if shift_up < clr {
             shift_up = clr
@@ -2574,7 +2577,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
             }
         }
         if MEM[q + 3].b32.s1 == MathCell::Empty as _ {
-            *BOX_shift_amount(x) = -(shift_up as i32)
+            x.set_shift_amount(-(shift_up as i32));
         } else {
             // 786:
             let save_f = cur_f;
@@ -2599,10 +2602,10 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                     != 0
             {
                 clr = get_ot_math_constant(cur_f, SUBSUPERSCRIPTGAPMIN)
-                    - (shift_up - *BOX_depth(x) - (*BOX_height(y) - shift_down))
+                    - (shift_up - x.depth() - (*BOX_height(y) - shift_down))
             } else {
                 clr = 4 * default_rule_thickness()
-                    - (shift_up - *BOX_depth(x) - (*BOX_height(y) - shift_down))
+                    - (shift_up - x.depth() - (*BOX_height(y) - shift_down))
             }
             if clr > 0 {
                 shift_down = shift_down + clr;
@@ -2612,9 +2615,9 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                         != 0
                 {
                     clr = get_ot_math_constant(cur_f, SUPERSCRIPTBOTTOMMAXWITHSUBSCRIPT)
-                        - (shift_up - *BOX_depth(x))
+                        - (shift_up - x.depth())
                 } else {
-                    clr = (math_x_height(cur_size) * 4).abs() / 5 - (shift_up - *BOX_depth(x))
+                    clr = (math_x_height(cur_size) * 4).abs() / 5 - (shift_up - x.depth())
                 }
                 if clr > 0i32 {
                     shift_up = shift_up + clr;
@@ -2705,21 +2708,21 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                     p = attach_hkern_to_new_hlist(q, sup_kern) as i32;
                 }
             }
-            *BOX_shift_amount(x) = sup_kern + delta - sub_kern;
-            let p = new_kern(shift_up - *BOX_depth(x) - (*BOX_height(y) - shift_down));
-            *LLIST_link(x) = Some(p).tex_int();
+            x.set_shift_amount(sup_kern + delta - sub_kern);
+            let p = new_kern(shift_up - x.depth() - (*BOX_height(y) - shift_down));
+            *LLIST_link(x.ptr()) = Some(p).tex_int();
             *LLIST_link(p) = y as i32;
-            x = vpackage(Some(x), 0, PackMode::Additional, MAX_HALFWORD) as usize;
-            *BOX_shift_amount(x) = shift_down;
+            x = vpackage(Some(x.ptr()), 0, PackMode::Additional, MAX_HALFWORD);
+            x.set_shift_amount(shift_down);
         }
     }
     if let Some(mut p) = MEM[q + 1].b32.s1.opt() {
         while let Some(next) = llist_link(p) {
             p = next;
         }
-        *LLIST_link(p) = Some(x).tex_int();
+        *LLIST_link(p) = Some(x.ptr()).tex_int();
     } else {
-        MEM[q + 1].b32.s1 = Some(x).tex_int();
+        MEM[q + 1].b32.s1 = Some(x.ptr()).tex_int();
     }
 }
 unsafe fn make_left_right(
@@ -2935,28 +2938,29 @@ unsafe fn mlist_to_hlist() {
                 }
                 TextNode::Choice => {
                     let mut p = None;
+                    let mut q_choice = Choice(q);
                     match cur_style.0 {
                         MathStyle::Display => {
-                            p = CHOICE_NODE_display(q).opt();
-                            *CHOICE_NODE_display(q) = None.tex_int();
+                            p = q_choice.display();
+                            q_choice.set_display(None);
                         }
                         MathStyle::Text => {
-                            p = CHOICE_NODE_text(q).opt();
-                            *CHOICE_NODE_text(q) = None.tex_int();
+                            p = q_choice.text();
+                            q_choice.set_text(None);
                         }
                         MathStyle::Script => {
-                            p = CHOICE_NODE_script(q).opt();
-                            *CHOICE_NODE_script(q) = None.tex_int();
+                            p = q_choice.script();
+                            q_choice.set_script(None);
                         }
                         MathStyle::ScriptScript => {
-                            p = CHOICE_NODE_scriptscript(q).opt();
-                            *CHOICE_NODE_scriptscript(q) = None.tex_int();
+                            p = q_choice.scriptscript();
+                            q_choice.set_scriptscript(None);
                         }
                     }
-                    flush_node_list(CHOICE_NODE_display(q).opt());
-                    flush_node_list(CHOICE_NODE_text(q).opt());
-                    flush_node_list(CHOICE_NODE_script(q).opt());
-                    flush_node_list(CHOICE_NODE_scriptscript(q).opt());
+                    flush_node_list(q_choice.display());
+                    flush_node_list(q_choice.text());
+                    flush_node_list(q_choice.script());
+                    flush_node_list(q_choice.scriptscript());
                     set_NODE_type(q, TextNode::Style);
                     MEM[q].b16.s0 = (cur_style.0 as u16) * 2 + cur_style.1 as u16;
                     MEM[q + 1].b32.s1 = 0;
@@ -3287,25 +3291,26 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
         z = MEM[d].b16.s1 as i32 % 256;
         x = (MEM[d].b16.s0 as i64 + (MEM[d].b16.s1 as i32 / 256) as i64 * 65536) as u16
     }
-    let b;
-    if f != FONT_BASE {
+    let mut b = if f != FONT_BASE {
         if !(FONT_AREA[f] as u32 == OTGR_FONT_FLAG
             && usingOpenType(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine))
         {
             /*736: */
             if q.s1 as i32 % 4 == EXT_TAG {
                 /*739: */
-                b = new_null_box();
-                set_NODE_type(b, TextNode::VList);
+                let mut b = Box::from(new_null_box());
+                set_NODE_type(b.ptr(), TextNode::VList);
                 let r = FONT_INFO[(EXTEN_BASE[f] + q.s0 as i32) as usize].b16;
                 c = r.s0;
                 u = height_plus_depth(f, c);
                 w = 0;
                 q = FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize].b16;
-                *BOX_width(b) = FONT_INFO[(WIDTH_BASE[f] + q.s3 as i32) as usize].b32.s1
-                    + FONT_INFO[(ITALIC_BASE[f] + q.s1 as i32 / 4) as usize]
-                        .b32
-                        .s1;
+                b.set_width(
+                    FONT_INFO[(WIDTH_BASE[f] + q.s3 as i32) as usize].b32.s1
+                        + FONT_INFO[(ITALIC_BASE[f] + q.s1 as i32 / 4) as usize]
+                            .b32
+                            .s1,
+                );
                 c = r.s1;
                 if c != 0 {
                     w = w + height_plus_depth(f, c)
@@ -3330,88 +3335,98 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
                 }
                 c = r.s1;
                 if c != 0 {
-                    stack_into_box(b, f, c);
+                    stack_into_box(&mut b, f, c);
                 }
                 c = r.s0;
                 for _ in 0..n {
-                    stack_into_box(b, f, c);
+                    stack_into_box(&mut b, f, c);
                 }
                 c = r.s2;
                 if c != 0 {
-                    stack_into_box(b, f, c);
+                    stack_into_box(&mut b, f, c);
                     c = r.s0;
                     for _ in 0..n {
-                        stack_into_box(b, f, c);
+                        stack_into_box(&mut b, f, c);
                     }
                 }
                 c = r.s3;
                 if c != 0 {
-                    stack_into_box(b, f, c);
+                    stack_into_box(&mut b, f, c);
                 }
-                *BOX_depth(b) = w - *BOX_height(b);
+                let h = b.height();
+                b.set_depth(w - h);
+                b
             } else {
-                b = char_box(f, c as i32)
+                char_box(f, c as i32)
             }
         /*:736 */
         } else if !ot_assembly_ptr.is_null() {
-            b = build_opentype_assembly(f, ot_assembly_ptr, v, false) as usize
+            build_opentype_assembly(f, ot_assembly_ptr, v, false)
         } else {
-            b = new_null_box();
-            set_NODE_type(b, TextNode::VList);
+            let mut b = Box::from(new_null_box());
+            set_NODE_type(b.ptr(), TextNode::VList);
             let g = get_node(GLYPH_NODE_SIZE);
-            *BOX_list_ptr(b) = g as i32;
+            b.set_list_ptr(g as i32);
             set_NODE_type(g, TextNode::WhatsIt);
             set_whatsit_NODE_subtype(g, WhatsItNST::Glyph);
             *NATIVE_NODE_font(g) = f as u16;
             *NATIVE_NODE_glyph(g) = c;
             measure_native_glyph(&mut MEM[g] as *mut memory_word as *mut libc::c_void, 1);
-            *BOX_width(b) = *BOX_width(g);
-            *BOX_height(b) = *BOX_height(g);
-            *BOX_depth(b) = *BOX_depth(g);
+            b.set_width(*BOX_width(g))
+                .set_height(*BOX_height(g))
+                .set_depth(*BOX_depth(g));
+            b
         }
     } else {
-        b = new_null_box();
-        *BOX_width(b) = *DIMENPAR(DimenPar::null_delimiter_space)
-    }
-    *BOX_shift_amount(b) = half(*BOX_height(b) - *BOX_depth(b)) - axis_height(s);
+        let mut b = Box::from(new_null_box());
+        b.set_width(*DIMENPAR(DimenPar::null_delimiter_space));
+        b
+    };
+    b.set_shift_amount(half(b.height() - b.depth()) - axis_height(s));
     free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
-    b
+    b.ptr()
 }
-unsafe fn char_box(mut f: internal_font_number, mut c: i32) -> usize {
-    let b;
+unsafe fn char_box(mut f: usize, mut c: i32) -> Box {
+    let mut b;
     let p;
     if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
-        b = new_null_box();
+        b = Box::from(new_null_box());
         p = new_native_character(f, c);
-        *BOX_list_ptr(b) = Some(p).tex_int();
-        *BOX_height(b) = *BOX_height(p);
-        *BOX_width(b) = *BOX_width(p);
-        *BOX_depth(b) = (*BOX_depth(p)).max(0);
+        b.set_list_ptr(Some(p).tex_int());
+        b.set_height(*BOX_height(p))
+            .set_width(*BOX_width(p))
+            .set_depth((*BOX_depth(p)).max(0));
     } else {
         let q = FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c as u16)) as usize].b16;
-        b = new_null_box();
-        *BOX_width(b) = FONT_INFO[(WIDTH_BASE[f] + q.s3 as i32) as usize].b32.s1
-            + FONT_INFO[(ITALIC_BASE[f] + q.s1 as i32 / 4) as usize]
+        b = Box::from(new_null_box());
+        b.set_width(
+            FONT_INFO[(WIDTH_BASE[f] + q.s3 as i32) as usize].b32.s1
+                + FONT_INFO[(ITALIC_BASE[f] + q.s1 as i32 / 4) as usize]
+                    .b32
+                    .s1,
+        )
+        .set_height(
+            FONT_INFO[(HEIGHT_BASE[f] + q.s2 as i32 / 16) as usize]
                 .b32
-                .s1;
-        *BOX_height(b) = FONT_INFO[(HEIGHT_BASE[f] + q.s2 as i32 / 16) as usize]
-            .b32
-            .s1;
-        *BOX_depth(b) = FONT_INFO[(DEPTH_BASE[f] + q.s2 as i32 % 16) as usize]
-            .b32
-            .s1;
+                .s1,
+        )
+        .set_depth(
+            FONT_INFO[(DEPTH_BASE[f] + q.s2 as i32 % 16) as usize]
+                .b32
+                .s1,
+        );
         p = get_avail();
         MEM[p].b16.s0 = c as u16;
         MEM[p].b16.s1 = f as u16
     }
-    *BOX_list_ptr(b) = Some(p).tex_int();
+    b.set_list_ptr(Some(p).tex_int());
     b
 }
-unsafe fn stack_into_box(b: usize, mut f: internal_font_number, mut c: u16) {
+unsafe fn stack_into_box(b: &mut Box, f: usize, c: u16) {
     let p = char_box(f, c as i32);
-    *LLIST_link(p) = *BOX_list_ptr(b);
-    *BOX_list_ptr(b) = Some(p).tex_int();
-    *BOX_height(b) = *BOX_height(p);
+    *LLIST_link(p.ptr()) = b.list_ptr();
+    b.set_list_ptr(Some(p.ptr()).tex_int());
+    b.set_height(p.height());
 }
 unsafe fn height_plus_depth(mut f: internal_font_number, mut c: u16) -> scaled_t {
     let mut q: b16x4 = FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize].b16;
@@ -3422,49 +3437,52 @@ unsafe fn height_plus_depth(mut f: internal_font_number, mut c: u16) -> scaled_t
             .b32
             .s1
 }
-unsafe fn stack_glyph_into_box(b: usize, mut f: internal_font_number, mut g: i32) {
+unsafe fn stack_glyph_into_box(b: &mut Box, mut f: internal_font_number, mut g: i32) {
     let p = get_node(GLYPH_NODE_SIZE);
     set_NODE_type(p, TextNode::WhatsIt);
     set_whatsit_NODE_subtype(p, WhatsItNST::Glyph);
     MEM[p + 4].b16.s2 = f as u16;
     MEM[p + 4].b16.s1 = g as u16;
     measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1);
-    if NODE_type(b) == TextNode::HList.into() {
-        if let Some(mut q) = BOX_list_ptr(b).opt() {
+    if NODE_type(b.ptr()) == TextNode::HList.into() {
+        if let Some(mut q) = b.list_ptr().opt() {
             while let Some(next) = llist_link(q) {
                 q = next;
             }
             *LLIST_link(q) = Some(p).tex_int();
-            *BOX_height(b) = (*BOX_height(b)).max(*BOX_height(p));
-            *BOX_depth(b) = (*BOX_depth(b)).max(*BOX_depth(p));
+            let h = b.height();
+            b.set_height(h.max(*BOX_height(p)));
+            let d = b.depth();
+            b.set_depth(d.max(*BOX_depth(p)));
         } else {
-            *BOX_list_ptr(b) = Some(p).tex_int();
+            b.set_list_ptr(Some(p).tex_int());
         }
     } else {
-        *LLIST_link(p) = *BOX_list_ptr(b);
-        *BOX_list_ptr(b) = Some(p).tex_int();
-        *BOX_height(b) = *BOX_height(p);
-        *BOX_width(b) = (*BOX_width(b)).max(*BOX_width(p));
+        *LLIST_link(p) = b.list_ptr();
+        b.set_list_ptr(Some(p).tex_int());
+        b.set_height(*BOX_height(p));
+        let w = b.width();
+        b.set_width(w.max(*BOX_width(p)));
     };
 }
-unsafe fn stack_glue_into_box(b: usize, mut min: scaled_t, mut max: scaled_t) {
+unsafe fn stack_glue_into_box(b: &mut Box, mut min: scaled_t, mut max: scaled_t) {
     let q = new_spec(0);
     GlueSpec(q).set_size(min).set_stretch(max - min);
     let p = new_glue(q);
-    if NODE_type(b) == TextNode::HList.into() {
-        if let Some(mut q) = BOX_list_ptr(b).opt() {
+    if NODE_type(b.ptr()) == TextNode::HList.into() {
+        if let Some(mut q) = b.list_ptr().opt() {
             while let Some(next) = llist_link(q) {
                 q = next;
             }
             *LLIST_link(q) = Some(p).tex_int();
         } else {
-            *BOX_list_ptr(b) = Some(p).tex_int();
+            b.set_list_ptr(Some(p).tex_int());
         }
     } else {
-        *LLIST_link(p) = *BOX_list_ptr(b);
-        *BOX_list_ptr(b) = Some(p).tex_int();
-        *BOX_height(b) = MEM[p + 3].b32.s1; // TODO: strange, maybe BUG
-        *BOX_width(b) = MEM[p + 1].b32.s1;
+        *LLIST_link(p) = b.list_ptr();
+        b.set_list_ptr(Some(p).tex_int());
+        b.set_height(MEM[p + 3].b32.s1); // TODO: strange, maybe BUG
+        b.set_width(MEM[p + 1].b32.s1);
     };
 }
 unsafe fn build_opentype_assembly(
@@ -3472,10 +3490,10 @@ unsafe fn build_opentype_assembly(
     mut a: *mut libc::c_void,
     mut s: scaled_t,
     mut horiz: bool,
-) -> usize {
-    let mut b = new_null_box();
+) -> Box {
+    let mut b = Box::from(new_null_box());
     set_NODE_type(
-        b,
+        b.ptr(),
         if horiz {
             TextNode::HList
         } else {
@@ -3524,10 +3542,10 @@ unsafe fn build_opentype_assembly(
                 let o = o.min(min_o);
 
                 if oo > 0 {
-                    stack_glue_into_box(b, -oo, -o);
+                    stack_glue_into_box(&mut b, -oo, -o);
                 }
                 let g = ot_part_glyph(a as *const GlyphAssembly, i);
-                stack_glyph_into_box(b, f, g);
+                stack_glyph_into_box(&mut b, f, g);
                 prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i);
             }
         } else {
@@ -3538,14 +3556,14 @@ unsafe fn build_opentype_assembly(
             let o = o.min(min_o);
 
             if oo > 0 {
-                stack_glue_into_box(b, -oo, -o);
+                stack_glue_into_box(&mut b, -oo, -o);
             }
             let g = ot_part_glyph(a as *const GlyphAssembly, i);
-            stack_glyph_into_box(b, f, g);
+            stack_glyph_into_box(&mut b, f, g);
             prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i)
         }
     }
-    let mut popt = BOX_list_ptr(b).opt();
+    let mut popt = b.list_ptr().opt();
     let mut nat = 0;
     let mut str = 0;
     while let Some(p) = popt {
@@ -3566,52 +3584,53 @@ unsafe fn build_opentype_assembly(
     if s > nat && str > 0 {
         let o = (s - nat).min(str);
 
-        *BOX_glue_order(b) = GlueOrder::Normal as u16;
-        *BOX_glue_sign(b) = GlueSign::Stretching as u16;
-        *BOX_glue_set(b) = o as f64 / str as f64;
+        b.set_glue_order(GlueOrder::Normal)
+            .set_glue_sign(GlueSign::Stretching)
+            .set_glue_set(o as f64 / str as f64);
+        let glue = b.glue_set();
         if horiz {
-            *BOX_width(b) = nat + tex_round(str as f64 * *BOX_glue_set(b));
+            b.set_width(nat + tex_round(str as f64 * glue));
         } else {
-            *BOX_height(b) = nat + tex_round(str as f64 * *BOX_glue_set(b));
+            b.set_height(nat + tex_round(str as f64 * glue));
         }
     } else if horiz {
-        *BOX_width(b) = nat;
+        b.set_width(nat);
     } else {
-        *BOX_height(b) = nat;
+        b.set_height(nat);
     }
     b
 }
 unsafe fn rebox(mut b: usize, mut w: scaled_t) -> usize {
-    let mut f: internal_font_number = 0;
-    let mut v: scaled_t = 0;
-    if *BOX_width(b) != w && BOX_list_ptr(b).opt().is_some() {
-        if NODE_type(b) == TextNode::VList.into() {
-            b = hpack(Some(b), 0, PackMode::Additional) as usize
+    let mut b = Box::from(b);
+
+    if b.width() != w && b.list_ptr().opt().is_some() {
+        if NODE_type(b.ptr()) == TextNode::VList.into() {
+            b = Box::from(hpack(Some(b.ptr()), 0, PackMode::Additional) as usize);
         }
-        let mut p = *BOX_list_ptr(b) as usize;
+        let mut p = b.list_ptr() as usize;
         if is_char_node(Some(p)) && llist_link(p).is_none() {
-            f = *CHAR_NODE_font(p) as internal_font_number;
-            v = FONT_INFO[(WIDTH_BASE[f]
+            let f = *CHAR_NODE_font(p) as usize;
+            let v = FONT_INFO[(WIDTH_BASE[f]
                 + FONT_INFO
                     [(CHAR_BASE[f] + effective_char(true, f, *CHAR_NODE_character(p))) as usize]
                     .b16
                     .s3 as i32) as usize]
                 .b32
                 .s1;
-            if v != *BOX_width(b) {
-                *LLIST_link(p) = new_kern(*BOX_width(b) - v) as i32;
+            if v != b.width() {
+                *LLIST_link(p) = new_kern(b.width() - v) as i32;
             }
         }
-        free_node(b, BOX_NODE_SIZE);
-        let b = new_glue(12);
-        *LLIST_link(b) = Some(p).tex_int();
+        free_node(b.ptr(), BOX_NODE_SIZE);
+        let g = new_glue(12);
+        *LLIST_link(g) = Some(p).tex_int();
         while let Some(next) = llist_link(p) {
             p = next;
         }
         *LLIST_link(p) = new_glue(12) as i32;
-        hpack(Some(b), w, PackMode::Exactly) as usize
+        hpack(Some(g), w, PackMode::Exactly) as usize
     } else {
-        *BOX_width(b) = w;
-        b
+        b.set_width(w);
+        b.ptr()
     }
 }
