@@ -399,18 +399,18 @@ pub(crate) unsafe fn free_node(p: usize, mut s: i32) {
     MEM[(q + 1) as usize].b32.s1 = p as i32;
 }
 pub(crate) unsafe fn new_null_box() -> usize {
-    let p = get_node(BOX_NODE_SIZE);
-    set_NODE_type(p, TextNode::HList);
-    MEM[p].b16.s0 = 0; // LRMode or counter
-    *BOX_width(p) = 0;
-    *BOX_depth(p) = 0;
-    *BOX_height(p) = 0;
-    *BOX_shift_amount(p) = 0;
-    *BOX_list_ptr(p) = None.tex_int();
-    *BOX_glue_sign(p) = GlueSign::Normal as _;
-    *BOX_glue_order(p) = GlueOrder::Normal as _;
-    *BOX_glue_set(p) = 0.;
-    p
+    let mut p = Box::from(get_node(BOX_NODE_SIZE));
+    set_NODE_type(p.ptr(), TextNode::HList);
+    p.set_lr_mode(LRMode::Normal)
+        .set_width(0)
+        .set_depth(0)
+        .set_height(0);
+    p.set_shift_amount(0)
+        .set_list_ptr(None.tex_int())
+        .set_glue_sign(GlueSign::Normal)
+        .set_glue_order(GlueOrder::Normal)
+        .set_glue_set(0.);
+    p.ptr()
 }
 pub(crate) unsafe fn new_rule() -> usize {
     let p = get_node(RULE_NODE_SIZE);
@@ -799,33 +799,27 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_cstr(b")x");
                         print_scaled(*BOX_width(p));
                         if n == TextNode::Unset {
+                            let p = Unset::from(p);
                             /*193:*/
-                            if *UNSET_NODE_columns(p) != 0 {
+                            if p.columns() != 0 {
                                 print_cstr(b" (");
-                                print_int(MEM[p].b16.s0 as i32 + 1);
+                                print_int(p.columns() as i32 + 1);
                                 print_cstr(b" columns)");
                             }
-                            if *UNSET_NODE_stretch(p) != 0 {
+                            if p.stretch() != 0 {
                                 print_cstr(b", stretch ");
-                                print_glue(
-                                    *UNSET_NODE_stretch(p),
-                                    GlueOrder::from(*BOX_glue_order(p)),
-                                    b"",
-                                );
+                                print_glue(p.stretch(), p.stretch_order(), b"");
                             }
-                            if *UNSET_NODE_shrink(p) != 0 {
+                            if p.shrink() != 0 {
                                 print_cstr(b", shrink ");
-                                print_glue(
-                                    *UNSET_NODE_shrink(p),
-                                    GlueOrder::from(*BOX_glue_sign(p)), // TODO: check Very strange
-                                    b"",
-                                );
+                                print_glue(p.shrink(), p.shrink_order(), b"");
                             }
                         } else {
-                            g = *BOX_glue_set(p);
-                            if g != 0.0f64 && *BOX_glue_sign(p) != GlueSign::Normal as _ {
+                            let p_box = Box::from(p);
+                            g = p_box.glue_set();
+                            if g != 0. && p_box.glue_sign() != GlueSign::Normal {
                                 print_cstr(b", glue set ");
-                                if *BOX_glue_sign(p) == GlueSign::Shrinking as u16 {
+                                if p_box.glue_sign() == GlueSign::Shrinking {
                                     print_cstr(b"- ");
                                 }
                                 if g.abs() > 20000. {
@@ -836,40 +830,37 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                                     }
                                     print_glue(
                                         (20000_i64 * 65536) as scaled_t,
-                                        GlueOrder::from(*BOX_glue_order(p)),
+                                        p_box.glue_order(),
                                         b"",
                                     );
                                 } else {
-                                    print_glue(
-                                        tex_round(65536_f64 * g),
-                                        GlueOrder::from(*BOX_glue_order(p)),
-                                        b"",
-                                    );
+                                    print_glue(tex_round(65536_f64 * g), p_box.glue_order(), b"");
                                 }
                             }
-                            if *BOX_shift_amount(p) != 0 {
+                            if p_box.shift_amount() != 0 {
                                 print_cstr(b", shifted ");
-                                print_scaled(*BOX_shift_amount(p));
+                                print_scaled(p_box.shift_amount());
                             }
                             /*1491:*/
                             if text_NODE_type(p) == TextNode::HList.into()
-                                && BOX_lr_mode(p) == LRMode::DList
+                                && p_box.lr_mode() == LRMode::DList
                             {
                                 print_cstr(b", display");
                             }
                         }
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(BOX_list_ptr(p).opt());
+                        show_node_list(Box::from(p).list_ptr().opt());
                         pool_ptr -= 1
                     }
                     TextNode::Rule => {
+                        let p = Rule::from(p);
                         print_esc_cstr(b"rule(");
-                        print_rule_dimen(*BOX_height(p));
+                        print_rule_dimen(p.height());
                         print_char('+' as i32);
-                        print_rule_dimen(*BOX_depth(p));
+                        print_rule_dimen(p.depth());
                         print_cstr(b")x");
-                        print_rule_dimen(*BOX_width(p));
+                        print_rule_dimen(p.width());
                     }
                     TextNode::Ins => {
                         let p_ins = Insertion(p);
@@ -1104,22 +1095,23 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     }
                     TextNode::Style => print_style(MEM[p].b16.s0 as i32),
                     TextNode::Choice => {
+                        let p_choice = Choice(p);
                         print_esc_cstr(b"mathchoice");
                         str_pool[pool_ptr as usize] = 'D' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(CHOICE_NODE_display(p).opt());
+                        show_node_list(p_choice.display());
                         pool_ptr -= 1;
                         str_pool[pool_ptr as usize] = 'T' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(CHOICE_NODE_text(p).opt());
+                        show_node_list(p_choice.text());
                         pool_ptr -= 1;
                         str_pool[pool_ptr as usize] = 'S' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(CHOICE_NODE_script(p).opt());
+                        show_node_list(p_choice.script());
                         pool_ptr -= 1;
                         str_pool[pool_ptr as usize] = 's' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(CHOICE_NODE_scriptscript(p).opt());
+                        show_node_list(p_choice.scriptscript());
                         pool_ptr -= 1
                     }
                 },
@@ -1266,9 +1258,15 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
         } else {
             match ND::from(MEM[p].b16.s1) {
                 ND::Text(n) => match n {
-                    TextNode::HList | TextNode::VList | TextNode::Unset => {
-                        flush_node_list(BOX_list_ptr(p).opt());
-                        free_node(p, BOX_NODE_SIZE);
+                    TextNode::HList | TextNode::VList => {
+                        let p = Box::from(p);
+                        flush_node_list(p.list_ptr().opt());
+                        free_node(p.ptr(), BOX_NODE_SIZE);
+                    }
+                    TextNode::Unset => {
+                        let p = Unset::from(p);
+                        flush_node_list(p.list_ptr().opt());
+                        free_node(p.ptr(), BOX_NODE_SIZE);
                     }
                     TextNode::Rule => {
                         free_node(p, RULE_NODE_SIZE);
@@ -1356,10 +1354,11 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         free_node(p, STYLE_NODE_SIZE);
                     }
                     TextNode::Choice => {
-                        flush_node_list(CHOICE_NODE_display(p).opt());
-                        flush_node_list(CHOICE_NODE_text(p).opt());
-                        flush_node_list(CHOICE_NODE_script(p).opt());
-                        flush_node_list(CHOICE_NODE_scriptscript(p).opt());
+                        let p_choice = Choice(p);
+                        flush_node_list(p_choice.display());
+                        flush_node_list(p_choice.text());
+                        flush_node_list(p_choice.script());
+                        flush_node_list(p_choice.scriptscript());
                         free_node(p, STYLE_NODE_SIZE);
                     }
                 },
@@ -1420,23 +1419,29 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
         } else {
             match text_NODE_type(p).confuse(b"copying") {
                 TextNode::HList | TextNode::VList => {
+                    let p = Box::from(p);
                     r = get_node(BOX_NODE_SIZE);
-                    *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p, BOX_NODE_SIZE);
-                    *SYNCTEX_line(r, BOX_NODE_SIZE) = *SYNCTEX_line(p, BOX_NODE_SIZE);
-                    *BOX_glue_set(r) = *BOX_glue_set(p);
-                    *BOX_glue_order(r) = *BOX_glue_order(p);
-                    *BOX_glue_sign(r) = *BOX_glue_sign(p);
-                    *BOX_list_ptr(r) = copy_node_list(BOX_list_ptr(p).opt());
+                    let mut r_box = Box::from(r);
+                    *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE);
+                    *SYNCTEX_line(r, BOX_NODE_SIZE) = *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE);
+                    r_box
+                        .set_glue_set(p.glue_set())
+                        .set_glue_order(p.glue_order())
+                        .set_glue_sign(p.glue_sign())
+                        .set_list_ptr(copy_node_list(p.list_ptr().opt()));
                     words = 5_u8
                 }
                 TextNode::Unset => {
+                    let p = Unset::from(p);
                     r = get_node(BOX_NODE_SIZE);
-                    *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p, BOX_NODE_SIZE);
-                    *SYNCTEX_line(r, BOX_NODE_SIZE) = *SYNCTEX_line(p, BOX_NODE_SIZE);
-                    *UNSET_NODE_stretch(r) = *UNSET_NODE_stretch(p);
-                    *UNSET_NODE_stretch_order(r) = *UNSET_NODE_stretch_order(p);
-                    *UNSET_NODE_shrink_order(r) = *UNSET_NODE_shrink_order(p);
-                    *BOX_list_ptr(r) = copy_node_list(BOX_list_ptr(p).opt());
+                    let mut r_unset = Unset::from(r);
+                    *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE);
+                    *SYNCTEX_line(r, BOX_NODE_SIZE) = *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE);
+                    r_unset
+                        .set_stretch(p.stretch())
+                        .set_stretch_order(p.stretch_order())
+                        .set_shrink_order(p.shrink_order())
+                        .set_list_ptr(copy_node_list(p.list_ptr().opt()));
                     words = 5_u8
                 }
                 TextNode::Rule => {
@@ -8624,7 +8629,7 @@ pub(crate) unsafe fn conv_toks() {
             _ => {}
         },
         ConvertCode::LeftMarginKern => {
-            let mut popt = BOX_list_ptr(p.unwrap()).opt();
+            let mut popt = Box::from(p.unwrap()).list_ptr().opt();
             while let Some(p) = popt {
                 if !(p < hi_mem_min as usize
                     && (text_NODE_type(p) == TextNode::Ins.into()
@@ -8645,7 +8650,7 @@ pub(crate) unsafe fn conv_toks() {
                             && *BOX_width(p) == 0
                             && *BOX_height(p) == 0
                             && *BOX_depth(p) == 0
-                            && BOX_list_ptr(p).opt().is_none())
+                            && Box::from(p).list_ptr().opt().is_none())
                     || p < hi_mem_min as usize
                         && text_NODE_type(p) == TextNode::Glue.into()
                         && MEM[p].b16.s0 == (GluePar::left_skip as u16) + 1)
@@ -8666,7 +8671,7 @@ pub(crate) unsafe fn conv_toks() {
             print_cstr(b"pt");
         }
         ConvertCode::RightMarginKern => {
-            let q = BOX_list_ptr(p.unwrap()).opt();
+            let q = Box::from(p.unwrap()).list_ptr().opt();
             let mut popt = prev_rightmost(q, None);
             while let Some(p) = popt {
                 if !(p < hi_mem_min as usize
@@ -8688,7 +8693,7 @@ pub(crate) unsafe fn conv_toks() {
                             && *BOX_width(p) == 0
                             && *BOX_height(p) == 0
                             && *BOX_depth(p) == 0
-                            && BOX_list_ptr(p).opt().is_none())
+                            && Box::from(p).list_ptr().opt().is_none())
                     || p < hi_mem_min as usize
                         && text_NODE_type(p) == TextNode::Glue.into()
                         && MEM[p].b16.s0 == (GluePar::right_skip as u16) + 1)
@@ -11052,12 +11057,12 @@ pub(crate) unsafe fn new_margin_kern(w: scaled_t, _p: i32, side: Side) -> usize 
 }
 pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode) -> usize {
     last_badness = 0;
-    let r = get_node(BOX_NODE_SIZE);
-    set_NODE_type(r, TextNode::HList);
-    set_BOX_lr_mode(r, LRMode::Normal);
-    *BOX_shift_amount(r) = 0;
-    let mut q = r + 5;
-    *BOX_list_ptr(r) = popt.tex_int();
+    let mut r = Box::from(get_node(BOX_NODE_SIZE));
+    set_NODE_type(r.ptr(), TextNode::HList);
+    r.set_lr_mode(LRMode::Normal);
+    r.set_shift_amount(0);
+    let mut q = r.ptr() + 5;
+    r.set_list_ptr(popt.tex_int());
     let mut h = 0;
     let mut d = 0;
     let mut x = 0;
@@ -11099,7 +11104,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Unset => {
                     x += *BOX_width(p);
                     let s = if [TextNode::HList, TextNode::VList].contains(&n) {
-                        *BOX_shift_amount(p)
+                        Box::from(p).shift_amount()
                     } else {
                         0
                     };
@@ -11138,7 +11143,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 }
                 TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
                     WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                        let mut k = if q != r + 5 && NODE_type(q) == TextNode::Disc.into() {
+                        let mut k = if q != r.ptr() + 5 && NODE_type(q) == TextNode::Disc.into() {
                             *DISCRETIONARY_NODE_replace_count(q) as i32
                         } else {
                             0
@@ -11293,17 +11298,16 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
     if let Some(a) = pre_adjust_tail {
         *LLIST_link(a) = None.tex_int();
     }
-    *BOX_height(r) = h;
-    *BOX_depth(r) = d;
+    r.set_height(h).set_depth(d);
     if m == PackMode::Additional {
         w = x + w;
     }
-    *BOX_width(r) = w;
+    r.set_width(w);
     x = w - x;
     if x == 0 {
-        *BOX_glue_sign(r) = GlueSign::Normal as _;
-        *BOX_glue_order(r) = GlueOrder::Normal as _;
-        *BOX_glue_set(r) = 0.;
+        r.set_glue_sign(GlueSign::Normal)
+            .set_glue_order(GlueOrder::Normal)
+            .set_glue_set(0.);
         return exit(r, q);
     } else if x > 0 {
         /*683: */
@@ -11316,16 +11320,14 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
         } else {
             GlueOrder::Normal
         }; /*normal *//*:684 */
-        *BOX_glue_order(r) = o as u16;
-        *BOX_glue_sign(r) = GlueSign::Stretching as u16;
+        r.set_glue_order(o).set_glue_sign(GlueSign::Stretching);
         if total_stretch[o as usize] != 0 {
-            *BOX_glue_set(r) = x as f64 / total_stretch[o as usize] as f64
+            r.set_glue_set(x as f64 / total_stretch[o as usize] as f64);
         } else {
-            *BOX_glue_sign(r) = GlueSign::Normal as _;
-            *BOX_glue_set(r) = 0.;
+            r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
         }
         if o == GlueOrder::Normal {
-            if BOX_list_ptr(r).opt().is_some() {
+            if r.list_ptr().opt().is_some() {
                 /*685: */
                 last_badness = badness(x, total_stretch[NORMAL as usize]); /*normal *//*:690 */
                 if last_badness > *INTPAR(IntPar::hbadness) {
@@ -11352,20 +11354,15 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
         } else {
             GlueOrder::Normal
         };
-        *BOX_glue_order(r) = o as u16;
-        *BOX_glue_sign(r) = GlueSign::Shrinking as u16;
+        r.set_glue_order(o).set_glue_sign(GlueSign::Shrinking);
         if total_shrink[o as usize] != 0 {
-            *BOX_glue_set(r) = -x as f64 / total_shrink[o as usize] as f64
+            r.set_glue_set(-x as f64 / total_shrink[o as usize] as f64);
         } else {
-            *BOX_glue_sign(r) = GlueSign::Normal as _;
-            *BOX_glue_set(r) = 0.;
+            r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
         }
-        if total_shrink[o as usize] < -x
-            && o == GlueOrder::Normal
-            && BOX_list_ptr(r).opt().is_some()
-        {
+        if total_shrink[o as usize] < -x && o == GlueOrder::Normal && r.list_ptr().opt().is_some() {
             last_badness = 1000000;
-            *BOX_glue_set(r) = 1.;
+            r.set_glue_set(1.);
             if -x - total_shrink[0] > *DIMENPAR(DimenPar::hfuzz) || *INTPAR(IntPar::hbadness) < 100
             {
                 if *DIMENPAR(DimenPar::overfull_rule) > 0
@@ -11385,7 +11382,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 return common_ending(r, q);
             }
         } else if o == GlueOrder::Normal {
-            if BOX_list_ptr(r).opt().is_some() {
+            if r.list_ptr().opt().is_some() {
                 /*692: */
                 last_badness = badness(-x, total_shrink[NORMAL as usize]);
                 if last_badness > *INTPAR(IntPar::hbadness) {
@@ -11400,7 +11397,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
         return exit(r, q);
     }
 
-    unsafe fn common_ending(r: usize, q: usize) -> usize {
+    unsafe fn common_ending(r: Box, q: usize) -> usize {
         if output_active {
             print_cstr(b") has occurred while \\output is active");
         } else {
@@ -11419,15 +11416,15 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
         }
         print_ln();
         font_in_short_display = 0;
-        short_display(BOX_list_ptr(r).opt());
+        short_display(r.list_ptr().opt());
         print_ln();
         begin_diagnostic();
-        show_box(Some(r));
+        show_box(Some(r.ptr()));
         end_diagnostic(true);
         return exit(r, q);
     }
 
-    unsafe fn exit(r: usize, mut q: usize) -> usize {
+    unsafe fn exit(r: Box, mut q: usize) -> usize {
         if *INTPAR(IntPar::texxet) > 0 {
             /*1499: */
             if MathNST::from(MEM[LR_ptr as usize].b32.s0 as u16) != MathNST::Before {
@@ -11467,7 +11464,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 }
             }
         }
-        r
+        r.ptr()
     }
 }
 pub(crate) unsafe fn vpackage(
@@ -11475,20 +11472,17 @@ pub(crate) unsafe fn vpackage(
     mut h: scaled_t,
     mut m: PackMode,
     mut l: scaled_t,
-) -> usize {
+) -> Box {
     last_badness = 0;
-    let r = get_node(BOX_NODE_SIZE) as usize;
-    set_NODE_type(r, TextNode::VList);
-    set_BOX_lr_mode(
-        r,
-        if *INTPAR(IntPar::xetex_upwards) > 0 {
-            LRMode::Reversed
-        } else {
-            LRMode::Normal
-        },
-    );
-    *BOX_shift_amount(r) = 0;
-    *BOX_list_ptr(r) = popt.tex_int();
+    let mut r = Box::from(get_node(BOX_NODE_SIZE) as usize);
+    set_NODE_type(r.ptr(), TextNode::VList);
+    r.set_lr_mode(if *INTPAR(IntPar::xetex_upwards) > 0 {
+        LRMode::Reversed
+    } else {
+        LRMode::Normal
+    });
+    r.set_shift_amount(0);
+    r.set_list_ptr(popt.tex_int());
     let mut w = 0;
     let mut d = 0;
     let mut x = 0;
@@ -11511,7 +11505,7 @@ pub(crate) unsafe fn vpackage(
                     x += d + *BOX_height(p);
                     d = *BOX_depth(p);
                     let s = if [TextNode::HList, TextNode::VList].contains(&n) {
-                        *BOX_shift_amount(p)
+                        Box::from(p).shift_amount()
                     } else {
                         0
                     };
@@ -11548,23 +11542,22 @@ pub(crate) unsafe fn vpackage(
         }
         popt = llist_link(p);
     }
-    *BOX_width(r) = w;
+    r.set_width(w);
     if d > l {
         x += d - l;
-        *BOX_depth(r) = l;
+        r.set_depth(l);
     } else {
-        *BOX_depth(r) = d;
+        r.set_depth(d);
     }
     if m == PackMode::Additional {
         h = x + h;
     }
-    *BOX_height(r) = h;
+    r.set_height(h);
     x = h - x;
     if x == 0 {
-        *BOX_glue_sign(r) = GlueSign::Normal as _;
-        *BOX_glue_order(r) = GlueOrder::Normal as _;
-        *BOX_glue_set(r) = 0.;
-        return r;
+        r.set_glue_sign(GlueSign::Normal)
+            .set_glue_order(GlueOrder::Normal)
+            .set_glue_set(0.);
     } else if x > 0 {
         /*698: */
         let o = if total_stretch[FILLL as usize] != 0 {
@@ -11576,16 +11569,14 @@ pub(crate) unsafe fn vpackage(
         } else {
             GlueOrder::Normal
         }; /*normal *//*:684 */
-        *BOX_glue_order(r) = o as u16;
-        *BOX_glue_sign(r) = GlueSign::Stretching as u16;
+        r.set_glue_order(o).set_glue_sign(GlueSign::Stretching);
         if total_stretch[o as usize] != 0 {
-            *BOX_glue_set(r) = x as f64 / total_stretch[o as usize] as f64
+            r.set_glue_set(x as f64 / total_stretch[o as usize] as f64);
         } else {
-            *BOX_glue_sign(r) = GlueSign::Normal as _;
-            *BOX_glue_set(r) = 0.;
+            r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
         }
         if o == GlueOrder::Normal {
-            if BOX_list_ptr(r).opt().is_some() {
+            if r.list_ptr().opt().is_some() {
                 /*699: */
                 last_badness = badness(x, total_stretch[GlueOrder::Normal as usize]); /*normal *//*:690 */
                 if last_badness > *INTPAR(IntPar::vbadness) {
@@ -11601,7 +11592,6 @@ pub(crate) unsafe fn vpackage(
                 }
             }
         }
-        return r;
     } else {
         let o = if total_shrink[FILLL as usize] != 0 {
             GlueOrder::Filll
@@ -11612,20 +11602,15 @@ pub(crate) unsafe fn vpackage(
         } else {
             GlueOrder::Normal
         };
-        *BOX_glue_order(r) = o as u16;
-        *BOX_glue_sign(r) = GlueSign::Shrinking as u16;
+        r.set_glue_order(o).set_glue_sign(GlueSign::Shrinking);
         if total_shrink[o as usize] != 0 {
-            *BOX_glue_set(r) = -x as f64 / total_shrink[o as usize] as f64
+            r.set_glue_set(-x as f64 / total_shrink[o as usize] as f64);
         } else {
-            *BOX_glue_sign(r) = GlueSign::Normal as _;
-            *BOX_glue_set(r) = 0.;
+            r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
         }
-        if total_shrink[o as usize] < -x
-            && o == GlueOrder::Normal
-            && BOX_list_ptr(r).opt().is_some()
-        {
+        if total_shrink[o as usize] < -x && o == GlueOrder::Normal && r.list_ptr().opt().is_some() {
             last_badness = 1000000;
-            *BOX_glue_set(r) = 1.;
+            r.set_glue_set(1.);
             if -x - total_shrink[GlueOrder::Normal as usize] > *DIMENPAR(DimenPar::vfuzz)
                 || *INTPAR(IntPar::vbadness) < 100
             {
@@ -11636,7 +11621,7 @@ pub(crate) unsafe fn vpackage(
                 return common_ending(r);
             }
         } else if o == GlueOrder::Normal {
-            if BOX_list_ptr(r).opt().is_some() {
+            if r.list_ptr().opt().is_some() {
                 /*703: */
                 last_badness = badness(-x, total_shrink[NORMAL as usize]);
                 if last_badness > *INTPAR(IntPar::vbadness) {
@@ -11647,10 +11632,10 @@ pub(crate) unsafe fn vpackage(
                 }
             }
         }
-        return r;
     }
+    return r;
 
-    unsafe fn common_ending(r: usize) -> usize {
+    unsafe fn common_ending(r: Box) -> Box {
         if output_active {
             print_cstr(b") has occurred while \\output is active");
         } else {
@@ -11665,7 +11650,7 @@ pub(crate) unsafe fn vpackage(
             print_ln();
         }
         begin_diagnostic();
-        show_box(Some(r));
+        show_box(Some(r.ptr()));
         end_diagnostic(true);
         return r;
     }
@@ -11719,14 +11704,14 @@ pub(crate) unsafe fn new_style(mut s: i16) -> usize {
     p
 }
 pub(crate) unsafe fn new_choice() -> usize {
-    let p = get_node(STYLE_NODE_SIZE);
-    set_NODE_type(p, TextNode::Choice);
-    MEM[p].b16.s0 = 0;
-    *CHOICE_NODE_display(p) = None.tex_int();
-    *CHOICE_NODE_text(p) = None.tex_int();
-    *CHOICE_NODE_script(p) = None.tex_int();
-    *CHOICE_NODE_scriptscript(p) = None.tex_int();
-    p
+    let mut p = Choice(get_node(STYLE_NODE_SIZE));
+    set_NODE_type(p.ptr(), TextNode::Choice);
+    MEM[p.ptr()].b16.s0 = 0;
+    p.set_display(None);
+    p.set_text(None);
+    p.set_script(None);
+    p.set_scriptscript(None);
+    p.ptr()
 }
 pub(crate) unsafe fn show_info(tmp_ptr: usize) {
     show_node_list(MEM[tmp_ptr].b32.s0.opt());
@@ -12025,20 +12010,24 @@ pub(crate) unsafe fn fin_col() -> bool {
     if MEM[ca + 5].b32.s0 != SPAN_CODE {
         unsave();
         new_save_level(GroupCode::Align);
-        let mut u;
+        let u;
         let w;
         if cur_list.mode == (true, ListMode::HMode) {
             adjust_tail = cur_tail;
             pre_adjust_tail = cur_pre_tail;
-            u = hpack(MEM[cur_list.head].b32.s1.opt(), 0, PackMode::Additional);
-            w = *BOX_width(u);
+            u = Box::from(hpack(
+                MEM[cur_list.head].b32.s1.opt(),
+                0,
+                PackMode::Additional,
+            ));
+            w = u.width();
             cur_tail = adjust_tail;
             adjust_tail = None;
             cur_pre_tail = pre_adjust_tail;
             pre_adjust_tail = None;
         } else {
             u = vpackage(MEM[cur_list.head].b32.s1.opt(), 0, PackMode::Additional, 0);
-            w = *BOX_height(u);
+            w = u.height();
         }
         let mut n = 0;
         if cur_span != Some(ca) {
@@ -12070,8 +12059,9 @@ pub(crate) unsafe fn fin_col() -> bool {
         } else if w > MEM[ca + 1].b32.s1 {
             MEM[ca + 1].b32.s1 = w
         }
-        set_NODE_type(u, TextNode::Unset);
-        *UNSET_NODE_columns(u) = n as u16;
+        let mut u = Unset::from(u.ptr());
+        set_NODE_type(u.ptr(), TextNode::Unset);
+        u.set_columns(n as u16);
         let o = if total_stretch[FILLL as usize] != 0 {
             GlueOrder::Filll
         } else if total_stretch[FILL as usize] != 0 {
@@ -12081,8 +12071,8 @@ pub(crate) unsafe fn fin_col() -> bool {
         } else {
             GlueOrder::Normal
         };
-        *UNSET_NODE_stretch_order(u) = o as u16;
-        *UNSET_NODE_stretch(u) = total_stretch[o as usize];
+        u.set_stretch_order(o);
+        u.set_stretch(total_stretch[o as usize]);
         let o = if total_shrink[FILLL as usize] != 0 {
             GlueOrder::Filll
         } else if total_shrink[FILL as usize] != 0 {
@@ -12092,11 +12082,11 @@ pub(crate) unsafe fn fin_col() -> bool {
         } else {
             GlueOrder::Normal
         };
-        *UNSET_NODE_shrink_order(u) = o as u16;
-        *UNSET_NODE_shrink(u) = total_shrink[o as usize];
+        u.set_shrink_order(o);
+        u.set_shrink(total_shrink[o as usize]);
         pop_nest();
-        MEM[cur_list.tail].b32.s1 = Some(u).tex_int();
-        cur_list.tail = u;
+        MEM[cur_list.tail].b32.s1 = Some(u.ptr()).tex_int();
+        cur_list.tail = u.ptr();
         let g = new_glue(MEM[(*LLIST_link(ca) + 1) as usize].b32.s0 as usize);
         *LLIST_link(cur_list.tail) = Some(g).tex_int();
         cur_list.tail = g;
@@ -12137,14 +12127,15 @@ pub(crate) unsafe fn fin_row() {
             0,
             PackMode::Additional,
             MAX_HALFWORD,
-        );
+        )
+        .ptr();
         pop_nest();
         MEM[cur_list.tail].b32.s1 = p as i32;
         cur_list.tail = p;
         cur_list.aux.b32.s0 = 1000i32
     }
-    MEM[p].b16.s1 = 13_u16;
-    MEM[p + 6].b32.s1 = 0;
+    set_NODE_type(p, TextNode::Unset);
+    Unset::from(p).set_stretch(0);
     if let Some(ecr) = LOCAL(Local::every_cr).opt() {
         begin_token_list(ecr, Btl::EveryCRText);
     }
@@ -12221,14 +12212,15 @@ pub(crate) unsafe fn fin_align() {
                 }
             }
         }
-        set_NODE_type(q, TextNode::Unset);
-        *UNSET_NODE_columns(q) = 0;
-        *BOX_height(q) = 0;
-        *BOX_depth(q) = 0;
-        *UNSET_NODE_stretch_order(q) = GlueOrder::Normal as _;
-        *UNSET_NODE_shrink_order(q) = GlueOrder::Normal as _;
-        *UNSET_NODE_stretch(q) = 0;
-        *UNSET_NODE_shrink(q) = 0;
+        let mut q_unset = Unset::from(q);
+        set_NODE_type(q_unset.ptr(), TextNode::Unset);
+        q_unset.set_columns(0);
+        q_unset.set_height(0).set_depth(0);
+        q_unset
+            .set_stretch_order(GlueOrder::Normal)
+            .set_shrink_order(GlueOrder::Normal)
+            .set_stretch(0)
+            .set_shrink(0);
         if let Some(pp) = p {
             q = pp;
         } else {
@@ -12241,11 +12233,11 @@ pub(crate) unsafe fn fin_align() {
     if cur_list.mode == (true, ListMode::VMode) {
         rule_save = *DIMENPAR(DimenPar::overfull_rule);
         *DIMENPAR(DimenPar::overfull_rule) = 0;
-        p = hpack(
+        p = Box::from(hpack(
             llist_link(ALIGN_HEAD),
             SAVE_STACK[SAVE_PTR + 1].val,
             PackMode::from(SAVE_STACK[SAVE_PTR + 0].val),
-        );
+        ));
         *DIMENPAR(DimenPar::overfull_rule) = rule_save
     } else {
         let mut q = MEM[*LLIST_link(ALIGN_HEAD) as usize].b32.s1 as usize;
@@ -12282,22 +12274,23 @@ pub(crate) unsafe fn fin_align() {
         if !is_char_node(Some(q)) {
             if NODE_type(q) == TextNode::Unset.into() {
                 /*836: */
+                let mut q = Box::from(q);
                 if cur_list.mode == (true, ListMode::VMode) {
-                    set_NODE_type(q, TextNode::HList);
-                    *BOX_width(q) = *BOX_width(p as usize);
+                    set_NODE_type(q.ptr(), TextNode::HList);
+                    q.set_width(p.width());
                     if NEST[NEST_PTR - 1].mode == (false, ListMode::MMode) {
-                        set_BOX_lr_mode(q, LRMode::DList);
+                        q.set_lr_mode(LRMode::DList);
                     }
                 } else {
-                    set_NODE_type(q, TextNode::VList);
-                    *BOX_height(q) = *BOX_height(p as usize);
+                    set_NODE_type(q.ptr(), TextNode::VList);
+                    q.set_height(p.height());
                 }
-                *BOX_glue_order(q) = *BOX_glue_order(p as usize);
-                *BOX_glue_sign(q) = *BOX_glue_sign(p as usize);
-                *BOX_glue_set(q) = *BOX_glue_set(p as usize);
-                *BOX_shift_amount(q) = o;
-                let mut r = *LLIST_link(*BOX_list_ptr(q) as usize) as usize;
-                s = *LLIST_link(*BOX_list_ptr(p as usize) as usize) as usize;
+                q.set_glue_order(p.glue_order())
+                    .set_glue_sign(p.glue_sign())
+                    .set_glue_set(p.glue_set())
+                    .set_shift_amount(o);
+                let mut r = *LLIST_link(q.list_ptr() as usize) as usize;
+                s = *LLIST_link(p.list_ptr() as usize) as usize;
                 loop {
                     /*837: */
                     n = MEM[r].b16.s0 as i32; /*840: */
@@ -12314,13 +12307,13 @@ pub(crate) unsafe fn fin_align() {
                         u = g;
                         MEM[u].b16.s0 = GluePar::tab_skip as u16 + 1;
                         t += v.size();
-                        if *BOX_glue_sign(p as usize) == GlueSign::Stretching as u16 {
-                            if v.stretch_order() == GlueOrder::from(*BOX_glue_order(p as usize)) {
-                                t += tex_round((*BOX_glue_set(p as usize)) * v.stretch() as f64);
+                        if p.glue_sign() == GlueSign::Stretching {
+                            if v.stretch_order() == p.glue_order() {
+                                t += tex_round(p.glue_set() * v.stretch() as f64);
                             }
-                        } else if *BOX_glue_sign(p as usize) == GlueSign::Shrinking as u16 {
-                            if v.shrink_order() == GlueOrder::from(*BOX_glue_order(p as usize)) {
-                                t -= tex_round((*BOX_glue_set(p as usize)) * v.shrink() as f64);
+                        } else if p.glue_sign() == GlueSign::Shrinking {
+                            if v.shrink_order() == p.glue_order() {
+                                t -= tex_round(p.glue_set() * v.shrink() as f64);
                             }
                         }
                         s = *LLIST_link(s) as usize;
@@ -12335,71 +12328,74 @@ pub(crate) unsafe fn fin_align() {
                             *BOX_height(u) = *BOX_width(s);
                         }
                     }
+                    let mut r_box = Box::from(r);
+                    let r_unset = Unset::from(r);
                     if cur_list.mode == (true, ListMode::VMode) {
                         /*839: */
-                        *BOX_height(r) = *BOX_height(q);
-                        *BOX_depth(r) = *BOX_depth(q);
-                        if t == *BOX_width(r) {
-                            *BOX_glue_sign(r) = GlueSign::Normal as _;
-                            *BOX_glue_order(r) = GlueOrder::Normal as _;
-                            *BOX_glue_set(r) = 0.;
-                        } else if t > *BOX_width(r) {
-                            *BOX_glue_sign(r) = GlueSign::Stretching as u16;
-                            if *UNSET_NODE_stretch(r) == 0 {
-                                *BOX_glue_set(r) = 0.;
-                            } else {
-                                *BOX_glue_set(r) =
-                                    (t - *BOX_width(r)) as f64 / *UNSET_NODE_stretch(r) as f64
-                            }
+                        r_box.set_height(q.height()).set_depth(q.depth());
+                        if t == r_unset.width() {
+                            r_box
+                                .set_glue_sign(GlueSign::Normal)
+                                .set_glue_order(GlueOrder::Normal)
+                                .set_glue_set(0.);
+                        } else if t > r_unset.width() {
+                            r_box.set_glue_sign(GlueSign::Stretching).set_glue_set(
+                                if r_unset.stretch() == 0 {
+                                    0.
+                                } else {
+                                    (t - r_unset.width()) as f64 / r_unset.stretch() as f64
+                                },
+                            );
                         } else {
-                            *BOX_glue_order(r) = *UNSET_NODE_shrink_order(r);
-                            *BOX_glue_sign(r) = GlueSign::Shrinking as u16;
-                            if *UNSET_NODE_shrink(r) == 0 {
-                                *BOX_glue_set(r) = 0.;
-                            } else if *BOX_glue_order(r) == GlueOrder::Normal as _
-                                && *BOX_width(r) - t > *UNSET_NODE_shrink(r)
+                            r_box
+                                .set_glue_order(r_unset.shrink_order())
+                                .set_glue_sign(GlueSign::Shrinking);
+                            r_box.set_glue_set(if r_unset.shrink() == 0 {
+                                0.
+                            } else if r_box.glue_order() == GlueOrder::Normal
+                                && r_unset.width() - t > r_unset.shrink()
                             {
-                                *BOX_glue_set(r) = 1.;
+                                1.
                             } else {
-                                *BOX_glue_set(r) =
-                                    (*BOX_width(r) - t) as f64 / *UNSET_NODE_shrink(r) as f64;
+                                (r_unset.width() - t) as f64 / r_unset.shrink() as f64
                                 // BOX_glue
-                            }
+                            });
                         }
-                        *BOX_width(r) = w;
+                        r_box.set_width(w);
                         set_NODE_type(r, TextNode::HList);
                     } else {
-                        *BOX_width(r) = *BOX_width(q);
-                        if t == *BOX_height(r) {
-                            *BOX_glue_sign(r) = GlueSign::Normal as _;
-                            *BOX_glue_order(r) = GlueOrder::Normal as _;
-                            *BOX_glue_set(r) = 0.;
-                        } else if t > *BOX_height(r) {
-                            *BOX_glue_sign(r) = GlueSign::Stretching as u16;
-                            if *UNSET_NODE_stretch(r) == 0 {
-                                *BOX_glue_set(r) = 0.;
-                            } else {
-                                *BOX_glue_set(r) =
-                                    (t - *BOX_height(r)) as f64 / *UNSET_NODE_stretch(r) as f64
-                            }
+                        r_box.set_width(q.width());
+                        if t == r_unset.height() {
+                            r_box
+                                .set_glue_sign(GlueSign::Normal)
+                                .set_glue_order(GlueOrder::Normal)
+                                .set_glue_set(0.);
+                        } else if t > r_unset.height() {
+                            r_box.set_glue_sign(GlueSign::Stretching).set_glue_set(
+                                if r_unset.stretch() == 0 {
+                                    0.
+                                } else {
+                                    (t - r_unset.height()) as f64 / r_unset.stretch() as f64
+                                },
+                            );
                         } else {
-                            *BOX_glue_order(r) = *UNSET_NODE_shrink_order(r);
-                            *BOX_glue_sign(r) = GlueSign::Shrinking as u16;
-                            if *UNSET_NODE_shrink(r) == 0 {
-                                *BOX_glue_set(r) = 0.;
-                            } else if *BOX_glue_order(r) == GlueOrder::Normal as _
-                                && *BOX_height(r) - t > *UNSET_NODE_shrink(r)
+                            r_box
+                                .set_glue_order(r_unset.shrink_order())
+                                .set_glue_sign(GlueSign::Shrinking);
+                            r_box.set_glue_set(if r_unset.shrink() == 0 {
+                                0.
+                            } else if r_box.glue_order() == GlueOrder::Normal
+                                && r_unset.height() - t > r_unset.shrink()
                             {
-                                *BOX_glue_set(r) = 1.;
+                                1.
                             } else {
-                                *BOX_glue_set(r) =
-                                    (*BOX_height(r) - t) as f64 / *UNSET_NODE_shrink(r) as f64
-                            }
+                                (r_unset.height() - t) as f64 / r_unset.shrink() as f64
+                            });
                         }
-                        *BOX_height(r) = w;
+                        r_box.set_height(w);
                         set_NODE_type(r, TextNode::VList);
                     }
-                    *BOX_shift_amount(r) = 0;
+                    r_box.set_shift_amount(0);
                     if u != HOLD_HEAD {
                         *LLIST_link(u) = *LLIST_link(r);
                         *LLIST_link(r) = *LLIST_link(HOLD_HEAD);
@@ -12416,13 +12412,13 @@ pub(crate) unsafe fn fin_align() {
             } else if NODE_type(q) == TextNode::Rule.into() {
                 /*835: */
                 if MEM[q + 1].b32.s1 == NULL_FLAG {
-                    MEM[q + 1].b32.s1 = MEM[(p + 1) as usize].b32.s1
+                    MEM[q + 1].b32.s1 = p.width();
                 }
                 if MEM[q + 3].b32.s1 == NULL_FLAG {
-                    MEM[q + 3].b32.s1 = MEM[(p + 3) as usize].b32.s1
+                    MEM[q + 3].b32.s1 = p.height();
                 }
                 if MEM[q + 2].b32.s1 == NULL_FLAG {
-                    MEM[q + 2].b32.s1 = MEM[(p + 2) as usize].b32.s1
+                    MEM[q + 2].b32.s1 = p.depth();
                 }
                 if o != 0 {
                     let r = *LLIST_link(q);
@@ -12437,7 +12433,7 @@ pub(crate) unsafe fn fin_align() {
         s = q;
         qopt = llist_link(q);
     }
-    flush_node_list(Some(p));
+    flush_node_list(Some(p.ptr()));
     pop_alignment();
     aux_save = cur_list.aux;
     let p = MEM[cur_list.head].b32.s1.opt();
@@ -12944,10 +12940,11 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
         error();
         return None;
     }
-    let q = vert_break(*BOX_list_ptr(v), h, *DIMENPAR(DimenPar::split_max_depth));
-    let mut p = *BOX_list_ptr(v);
+    let mut v = Box::from(v);
+    let q = vert_break(v.list_ptr(), h, *DIMENPAR(DimenPar::split_max_depth));
+    let mut p = v.list_ptr();
     if p == q {
-        *BOX_list_ptr(v) = None.tex_int()
+        v.set_list_ptr(None.tex_int());
     } else {
         loop {
             if NODE_type(p as usize) == TextNode::Mark.into() {
@@ -12983,10 +12980,10 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
         }
     }
     let q = prune_page_top(q.opt(), *INTPAR(IntPar::saving_vdiscards) > 0).opt();
-    let p = BOX_list_ptr(v).opt();
-    free_node(v, BOX_NODE_SIZE);
+    let p = v.list_ptr().opt();
+    free_node(v.ptr(), BOX_NODE_SIZE);
     let q = if let Some(q) = q {
-        Some(vpackage(Some(q), 0, PackMode::Additional, MAX_HALFWORD))
+        Some(vpackage(Some(q), 0, PackMode::Additional, MAX_HALFWORD).ptr())
     } else {
         None
     };
@@ -13000,12 +12997,15 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
             delete_sa_ref(c);
         }
     }
-    Some(vpackage(
-        p,
-        h,
-        PackMode::Exactly,
-        *DIMENPAR(DimenPar::split_max_depth),
-    ))
+    Some(
+        vpackage(
+            p,
+            h,
+            PackMode::Exactly,
+            *DIMENPAR(DimenPar::split_max_depth),
+        )
+        .ptr(),
+    )
 }
 pub(crate) unsafe fn print_totals() {
     print_scaled(page_so_far[1]);
@@ -13598,17 +13598,17 @@ pub(crate) unsafe fn package(mut c: i16) {
             PackMode::from(SAVE_STACK[SAVE_PTR + 1].val),
         ));
     } else {
-        let cb = vpackage(
+        let mut cb = vpackage(
             MEM[cur_list.head].b32.s1.opt(),
             SAVE_STACK[SAVE_PTR + 2].val,
             PackMode::from(SAVE_STACK[SAVE_PTR + 1].val),
             d,
         );
-        cur_box = Some(cb);
+        cur_box = Some(cb.ptr());
         if c == BoxCode::VTop as i16 {
             /*1122: */
             let mut h = 0;
-            if let Some(p) = MEM[cb + 5].b32.s1.opt() {
+            if let Some(p) = cb.list_ptr().opt() {
                 if [
                     TextNode::HList.into(),
                     TextNode::VList.into(),
@@ -13619,8 +13619,10 @@ pub(crate) unsafe fn package(mut c: i16) {
                     h = MEM[p + 3].b32.s1
                 }
             }
-            MEM[cb + 2].b32.s1 = MEM[cb + 2].b32.s1 - h + MEM[cb + 3].b32.s1;
-            MEM[cb + 3].b32.s1 = h
+            let cbd = cb.depth();
+            let cbh = cb.height();
+            cb.set_depth(cbd - h + cbh);
+            cb.set_height(h);
         }
     }
     *INTPAR(IntPar::xetex_upwards) = v;
@@ -14315,7 +14317,7 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
                     MEM[r + 6] = MEM[p + 6];
                     MEM[r + 5] = MEM[p + 5];
                     words = 5;
-                    *BOX_list_ptr(r) = None.tex_int();
+                    Box::from(r).set_list_ptr(None.tex_int());
                 }
                 TextNode::Rule => {
                     r = get_node(RULE_NODE_SIZE);
@@ -15427,8 +15429,8 @@ pub(crate) unsafe fn handle_right_brace() {
                 set_NODE_type(cur_list.tail, TextNode::Ins);
                 Insertion(cur_list.tail)
                     .set_box_reg(SAVE_STACK[SAVE_PTR + 0].val as u16)
-                    .set_height(*BOX_height(p) + *BOX_depth(p))
-                    .set_ins_ptr(*BOX_list_ptr(p))
+                    .set_height(p.height() + p.depth())
+                    .set_ins_ptr(p.list_ptr())
                     .set_split_top_ptr(Some(q).tex_int())
                     .set_depth(d)
                     .set_float_cost(f);
@@ -15438,10 +15440,10 @@ pub(crate) unsafe fn handle_right_brace() {
                 cur_list.tail = n;
                 set_NODE_type(cur_list.tail, TextNode::Adjust);
                 MEM[cur_list.tail].b16.s0 = SAVE_STACK[SAVE_PTR + 1].val as u16;
-                MEM[cur_list.tail + 1].b32.s1 = *BOX_list_ptr(p);
+                MEM[cur_list.tail + 1].b32.s1 = p.list_ptr();
                 delete_glue_ref(q);
             }
-            free_node(p, BOX_NODE_SIZE);
+            free_node(p.ptr(), BOX_NODE_SIZE);
             if NEST_PTR == 0 {
                 build_page();
             }
@@ -15546,7 +15548,7 @@ pub(crate) unsafe fn handle_right_brace() {
             cur_list.tail = n;
             MEM[cur_list.tail].b16.s1 = MathNode::VCenter as u16;
             MEM[cur_list.tail + 1].b32.s1 = MathCell::SubBox as _;
-            MEM[cur_list.tail + 1].b32.s0 = Some(p).tex_int()
+            MEM[cur_list.tail + 1].b32.s0 = Some(p.ptr()).tex_int()
         }
         GroupCode::MathChoice => build_choices(),
         GroupCode::Math => {

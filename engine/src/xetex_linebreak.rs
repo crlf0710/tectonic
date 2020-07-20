@@ -37,12 +37,10 @@ use crate::xetex_xetexd::{
     kern_NODE_subtype, /*set_NODE_subtype,*/
     llist_link, set_NODE_type, set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype,
     ACTIVE_NODE_break_node, ACTIVE_NODE_fitness, ACTIVE_NODE_glue, ACTIVE_NODE_line_number,
-    ACTIVE_NODE_shortfall, ACTIVE_NODE_total_demerits, BOX_depth, BOX_height, BOX_list_ptr,
-    BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font, DELTA_NODE_dshrink,
-    DELTA_NODE_dstretch0, DELTA_NODE_dstretch1, DELTA_NODE_dstretch2, DELTA_NODE_dstretch3,
-    DELTA_NODE_dwidth, DISCRETIONARY_NODE_post_break, DISCRETIONARY_NODE_pre_break,
-    DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
-    LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm, LANGUAGE_NODE_what_rhm,
+    ACTIVE_NODE_shortfall, ACTIVE_NODE_total_demerits, BOX_depth, BOX_height, BOX_width,
+    CHAR_NODE_character, CHAR_NODE_font, DISCRETIONARY_NODE_post_break,
+    DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr,
+    GLUE_NODE_leader_ptr, LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm, LANGUAGE_NODE_what_rhm,
     LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link,
     NATIVE_NODE_font, NATIVE_NODE_length, NATIVE_NODE_text, NODE_type, PASSIVE_NODE_cur_break,
     PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty, TeXInt, TeXOpt,
@@ -1286,7 +1284,7 @@ unsafe fn post_line_break(mut d: bool) {
         } else {
             hpack(q.opt(), cur_width, PackMode::Exactly)
         }; /*:918*/
-        *BOX_shift_amount(just_box) = cur_indent;
+        Box::from(just_box).set_shift_amount(cur_indent);
         /* 917: append the new box to the current vertical list, followed
          * by any of its special nodes that were taken out */
 
@@ -1455,14 +1453,15 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
         /*861: "If node r is of type delta_node, update cur_active_width, set
          * prev_r and prev_prev_r, then goto continue" */
         if NODE_type(r) == DELTA_NODE.into() {
-            cur_active_width[1] += *DELTA_NODE_dwidth(r);
-            cur_active_width[2] += *DELTA_NODE_dstretch0(r);
-            cur_active_width[3] += *DELTA_NODE_dstretch1(r);
-            cur_active_width[4] += *DELTA_NODE_dstretch2(r);
-            cur_active_width[5] += *DELTA_NODE_dstretch3(r);
-            cur_active_width[6] += *DELTA_NODE_dshrink(r);
+            let r = Delta(r);
+            cur_active_width[1] += r.dwidth();
+            cur_active_width[2] += r.dstretch0();
+            cur_active_width[3] += r.dstretch1();
+            cur_active_width[4] += r.dstretch2();
+            cur_active_width[5] += r.dstretch3();
+            cur_active_width[6] += r.dshrink();
             prev_prev_r = Some(prev_r);
-            prev_r = r;
+            prev_r = r.ptr();
         } else {
             /*864: "If a line number class has ended, create new active nodes for
              * the best feasible breaks in that class; then return if r =
@@ -1602,14 +1601,23 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                         }
                     }
                     /*872: "Insert a delta node to prepare for breaks at cur_p" */
-                    if MEM[prev_r].b16.s1 as i32 == 2 {
+                    if NODE_type(prev_r) == DELTA_NODE.into() {
                         /* this is unused */
-                        *DELTA_NODE_dwidth(prev_r) += -cur_active_width[1] + break_width[1];
-                        *DELTA_NODE_dstretch0(prev_r) += -cur_active_width[2] + break_width[2];
-                        *DELTA_NODE_dstretch1(prev_r) += -cur_active_width[3] + break_width[3];
-                        *DELTA_NODE_dstretch2(prev_r) += -cur_active_width[4] + break_width[4];
-                        *DELTA_NODE_dstretch3(prev_r) += -cur_active_width[5] + break_width[5];
-                        *DELTA_NODE_dshrink(prev_r) += -cur_active_width[6] + break_width[6]
+                        let mut prev_r = Delta(prev_r);
+                        prev_r.set_dwidth(prev_r.dwidth() - cur_active_width[1] + break_width[1]);
+                        prev_r.set_dstretch0(
+                            prev_r.dstretch0() - cur_active_width[2] + break_width[2],
+                        );
+                        prev_r.set_dstretch1(
+                            prev_r.dstretch1() - cur_active_width[3] + break_width[3],
+                        );
+                        prev_r.set_dstretch2(
+                            prev_r.dstretch2() - cur_active_width[4] + break_width[4],
+                        );
+                        prev_r.set_dstretch3(
+                            prev_r.dstretch3() - cur_active_width[5] + break_width[5],
+                        );
+                        prev_r.set_dshrink(prev_r.dshrink() - cur_active_width[6] + break_width[6]);
                     } else if prev_r == ACTIVE_LIST {
                         active_width[1..].copy_from_slice(&break_width[1..]);
                     } else {
@@ -1617,12 +1625,13 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                         *LLIST_link(q) = Some(r).tex_int();
                         set_NODE_type(q, DELTA_NODE);
                         clear_NODE_subtype(q);
-                        *DELTA_NODE_dwidth(q) = break_width[1] - cur_active_width[1];
-                        *DELTA_NODE_dstretch0(q) = break_width[2] - cur_active_width[2];
-                        *DELTA_NODE_dstretch1(q) = break_width[3] - cur_active_width[3];
-                        *DELTA_NODE_dstretch2(q) = break_width[4] - cur_active_width[4];
-                        *DELTA_NODE_dstretch3(q) = break_width[5] - cur_active_width[5];
-                        *DELTA_NODE_dshrink(q) = break_width[6] - cur_active_width[6];
+                        Delta(q)
+                            .set_dwidth(break_width[1] - cur_active_width[1])
+                            .set_dstretch0(break_width[2] - cur_active_width[2])
+                            .set_dstretch1(break_width[3] - cur_active_width[3])
+                            .set_dstretch2(break_width[4] - cur_active_width[4])
+                            .set_dstretch3(break_width[5] - cur_active_width[5])
+                            .set_dshrink(break_width[6] - cur_active_width[6]);
                         *LLIST_link(prev_r) = Some(q).tex_int();
                         prev_prev_r = Some(prev_r);
                         prev_r = q;
@@ -1669,12 +1678,13 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                         *LLIST_link(q) = Some(r).tex_int();
                         set_NODE_type(q, DELTA_NODE);
                         clear_NODE_subtype(q); /* subtype is not used */
-                        *DELTA_NODE_dwidth(q) = cur_active_width[1] - break_width[1];
-                        *DELTA_NODE_dstretch0(q) = cur_active_width[2] - break_width[2];
-                        *DELTA_NODE_dstretch1(q) = cur_active_width[3] - break_width[3];
-                        *DELTA_NODE_dstretch2(q) = cur_active_width[4] - break_width[4];
-                        *DELTA_NODE_dstretch3(q) = cur_active_width[5] - break_width[5];
-                        *DELTA_NODE_dshrink(q) = cur_active_width[6] - break_width[6];
+                        Delta(q)
+                            .set_dwidth(cur_active_width[1] - break_width[1])
+                            .set_dstretch0(cur_active_width[2] - break_width[2])
+                            .set_dstretch1(cur_active_width[3] - break_width[3])
+                            .set_dstretch2(cur_active_width[4] - break_width[4])
+                            .set_dstretch3(cur_active_width[5] - break_width[5])
+                            .set_dshrink(cur_active_width[6] - break_width[6]);
                         *LLIST_link(prev_r) = Some(q).tex_int();
                         prev_prev_r = Some(prev_r);
                         prev_r = q;
@@ -1997,43 +2007,47 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                 /*890: "Update the active widths, since the first active node has been deleted" */
                 let r = llist_link(ACTIVE_LIST).unwrap(); /*:966 */
                 if NODE_type(r) == DELTA_NODE.into() {
-                    active_width[1] += *DELTA_NODE_dwidth(r);
-                    active_width[2] += *DELTA_NODE_dstretch0(r);
-                    active_width[3] += *DELTA_NODE_dstretch1(r);
-                    active_width[4] += *DELTA_NODE_dstretch2(r);
-                    active_width[5] += *DELTA_NODE_dstretch3(r);
-                    active_width[6] += *DELTA_NODE_dshrink(r);
+                    let r = Delta(r);
+                    active_width[1] += r.dwidth();
+                    active_width[2] += r.dstretch0();
+                    active_width[3] += r.dstretch1();
+                    active_width[4] += r.dstretch2();
+                    active_width[5] += r.dstretch3();
+                    active_width[6] += r.dshrink();
                     cur_active_width[1..].copy_from_slice(&active_width[1..]);
-                    *LLIST_link(ACTIVE_LIST) = *LLIST_link(r);
-                    free_node(r, DELTA_NODE_SIZE);
+                    *LLIST_link(ACTIVE_LIST) = *LLIST_link(r.ptr());
+                    free_node(r.ptr(), DELTA_NODE_SIZE);
                 }
             } else if NODE_type(prev_r) == DELTA_NODE.into() {
                 let r = llist_link(prev_r).unwrap();
                 if r == LAST_ACTIVE {
-                    cur_active_width[1] -= *DELTA_NODE_dwidth(prev_r);
-                    cur_active_width[2] -= *DELTA_NODE_dstretch0(prev_r);
-                    cur_active_width[3] -= *DELTA_NODE_dstretch1(prev_r);
-                    cur_active_width[4] -= *DELTA_NODE_dstretch2(prev_r);
-                    cur_active_width[5] -= *DELTA_NODE_dstretch3(prev_r);
-                    cur_active_width[6] -= *DELTA_NODE_dshrink(prev_r);
+                    let prev_r_delta = Delta(prev_r);
+                    cur_active_width[1] -= prev_r_delta.dwidth();
+                    cur_active_width[2] -= prev_r_delta.dstretch0();
+                    cur_active_width[3] -= prev_r_delta.dstretch1();
+                    cur_active_width[4] -= prev_r_delta.dstretch2();
+                    cur_active_width[5] -= prev_r_delta.dstretch3();
+                    cur_active_width[6] -= prev_r_delta.dshrink();
                     *LLIST_link(prev_prev_r.unwrap()) = Some(LAST_ACTIVE).tex_int();
                     free_node(prev_r, DELTA_NODE_SIZE);
                     prev_r = prev_prev_r.unwrap();
                 } else if NODE_type(r) == DELTA_NODE.into() {
-                    cur_active_width[1] += *DELTA_NODE_dwidth(r);
-                    cur_active_width[2] += *DELTA_NODE_dstretch0(r);
-                    cur_active_width[3] += *DELTA_NODE_dstretch1(r);
-                    cur_active_width[4] += *DELTA_NODE_dstretch2(r);
-                    cur_active_width[5] += *DELTA_NODE_dstretch3(r);
-                    cur_active_width[6] += *DELTA_NODE_dshrink(r);
-                    *DELTA_NODE_dwidth(prev_r) += *DELTA_NODE_dwidth(r);
-                    *DELTA_NODE_dstretch0(prev_r) += *DELTA_NODE_dstretch0(r);
-                    *DELTA_NODE_dstretch2(prev_r) += *DELTA_NODE_dstretch1(r);
-                    *DELTA_NODE_dstretch2(prev_r) += *DELTA_NODE_dstretch2(r);
-                    *DELTA_NODE_dstretch3(prev_r) += *DELTA_NODE_dstretch3(r);
-                    *DELTA_NODE_dshrink(prev_r) += *DELTA_NODE_dshrink(r);
-                    *LLIST_link(prev_r) = *LLIST_link(r);
-                    free_node(r, DELTA_NODE_SIZE);
+                    let r = Delta(r);
+                    let mut prev_r_delta = Delta(prev_r);
+                    cur_active_width[1] += r.dwidth();
+                    cur_active_width[2] += r.dstretch0();
+                    cur_active_width[3] += r.dstretch1();
+                    cur_active_width[4] += r.dstretch2();
+                    cur_active_width[5] += r.dstretch3();
+                    cur_active_width[6] += r.dshrink();
+                    prev_r_delta.set_dwidth(prev_r_delta.dwidth() + r.dwidth());
+                    prev_r_delta.set_dstretch0(prev_r_delta.dstretch0() + r.dstretch0());
+                    prev_r_delta.set_dstretch2(prev_r_delta.dstretch2() + r.dstretch1()); // TODO: looks like typo
+                    prev_r_delta.set_dstretch2(prev_r_delta.dstretch2() + r.dstretch2());
+                    prev_r_delta.set_dstretch3(prev_r_delta.dstretch3() + r.dstretch3());
+                    prev_r_delta.set_dshrink(prev_r_delta.dshrink() + r.dshrink());
+                    *LLIST_link(prev_r) = *LLIST_link(r.ptr());
+                    free_node(r.ptr(), DELTA_NODE_SIZE);
                 }
             }
         }
@@ -2775,7 +2789,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
                 && *BOX_width(l) == 0
                 && *BOX_height(l) == 0
                 && *BOX_depth(l) == 0
-                && BOX_list_ptr(l).opt().is_none() =>
+                && Box::from(l).list_ptr().opt().is_none() =>
         {
             l = next
         }
@@ -2795,7 +2809,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     loop {
         let t = l;
         while run && NODE_type(l) == TextNode::HList.into() {
-            if let Some(next) = MEM[l + 5].b32.s1.opt() {
+            if let Some(next) = Box::from(l).list_ptr().opt() {
                 hlist_stack.push(l);
                 l = next;
             } else {
@@ -2820,7 +2834,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
                         && *BOX_width(l) == 0
                         && *BOX_height(l) == 0
                         && *BOX_depth(l) == 0
-                        && BOX_list_ptr(l).opt().is_none()))
+                        && Box::from(l).list_ptr().opt().is_none()))
         {
             while LLIST_link(l as usize).opt().is_none() {
                 if let Some(last) = hlist_stack.pop() {
@@ -2852,7 +2866,7 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
     loop {
         let t = r;
         while run && NODE_type(r) == TextNode::HList.into() {
-            if let Some(hnext) = BOX_list_ptr(r).opt() {
+            if let Some(hnext) = Box::from(r).list_ptr().opt() {
                 hlist_stack.push((l, r));
                 l = Some(hnext);
                 r = hnext;
@@ -2881,7 +2895,7 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
                         && *BOX_width(r) == 0
                         && *BOX_height(r) == 0
                         && *BOX_depth(r) == 0
-                        && BOX_list_ptr(r).opt().is_none()))
+                        && Box::from(r).list_ptr().opt().is_none()))
         {
             while Some(r) == l {
                 if let Some(last) = hlist_stack.pop() {

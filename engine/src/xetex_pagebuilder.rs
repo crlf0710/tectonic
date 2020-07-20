@@ -27,9 +27,9 @@ use crate::xetex_xetex0::{
     scan_left_brace, vert_break, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_non_discardable_node, llist_link, set_NODE_type, whatsit_NODE_subtype, BOX_depth,
-    BOX_height, BOX_width, GLUE_NODE_glue_ptr, LLIST_link, MARK_NODE_class, MARK_NODE_ptr,
-    /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty, TeXInt, TeXOpt,
+    is_non_discardable_node, llist_link, set_NODE_type, text_NODE_type, whatsit_NODE_subtype,
+    BOX_depth, BOX_height, BOX_width, GLUE_NODE_glue_ptr, LLIST_link, MARK_NODE_class,
+    MARK_NODE_ptr, /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -244,8 +244,8 @@ unsafe fn fire_up(c: usize) {
                                         PackMode::Additional as _,
                                         MAX_HALFWORD,
                                     );
-                                    p_ins.set_height(*BOX_height(tmp_ptr) + *BOX_depth(tmp_ptr));
-                                    free_node(tmp_ptr, BOX_NODE_SIZE);
+                                    p_ins.set_height(tmp_ptr.height() + tmp_ptr.depth());
+                                    free_node(tmp_ptr.ptr(), BOX_NODE_SIZE);
                                     wait = true
                                 }
                             }
@@ -255,7 +255,7 @@ unsafe fn fire_up(c: usize) {
                         let tmp_ptr = MEM[(*BOX_REG(n as usize) + 5) as usize].b32.s1.opt();
                         free_node(*BOX_REG(n as _) as usize, BOX_NODE_SIZE);
                         *BOX_REG(n as _) =
-                            Some(vpackage(tmp_ptr, 0, PackMode::Additional, MAX_HALFWORD))
+                            Some(vpackage(tmp_ptr, 0, PackMode::Additional, MAX_HALFWORD).ptr())
                                 .tex_int();
                     } else {
                         while let Some(next) = llist_link(s) {
@@ -339,7 +339,8 @@ unsafe fn fire_up(c: usize) {
         best_size,
         PackMode::Exactly as _,
         page_max_depth,
-    ) as i32;
+    )
+    .ptr() as i32;
     *INTPAR(IntPar::vbadness) = save_vbadness;
     *DIMENPAR(DimenPar::vfuzz) = save_vfuzz;
 
@@ -796,36 +797,38 @@ pub(crate) unsafe fn build_page() {
         unsafe fn update_heights(mut slf: Args) -> (Args, bool) {
             /*1039: "Update the current page measurements with respect to the glue or kern
              * specified by node p" */
-            if NODE_type(slf.p) == TextNode::Kern.into() {
-                slf.q = Some(slf.p).tex_int()
-            } else {
-                slf.q = MEM[slf.p + 1].b32.s0;
-                page_so_far[(2i32 + MEM[slf.q as usize].b16.s1 as i32) as usize] +=
-                    MEM[(slf.q + 2) as usize].b32.s1;
-                page_so_far[6] += MEM[(slf.q + 3) as usize].b32.s1;
-                if MEM[slf.q as usize].b16.s0 != 0 && MEM[(slf.q + 3) as usize].b32.s1 != 0 {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr(b"! ");
+            match text_NODE_type(slf.p).unwrap() {
+                TextNode::Kern => slf.q = Some(slf.p).tex_int(),
+                TextNode::Glue => {
+                    slf.q = *GLUE_NODE_glue_ptr(slf.p);
+                    let q_spec = GlueSpec(slf.q as usize);
+                    page_so_far[2 + q_spec.stretch_order() as usize] += q_spec.stretch();
+                    page_so_far[6] += q_spec.shrink();
+                    if q_spec.shrink_order() != GlueOrder::Normal && q_spec.shrink() != 0 {
+                        if file_line_error_style_p != 0 {
+                            print_file_line();
+                        } else {
+                            print_nl_cstr(b"! ");
+                        }
+                        print_cstr(b"Infinite glue shrinkage found on current page");
+                        help!(
+                            b"The page about to be output contains some infinitely",
+                            b"shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
+                            b"Such glue doesn\'t belong there; but you can safely proceed,",
+                            b"since the offensive shrinkability has been made finite."
+                        );
+                        error();
+                        slf.r = new_spec(slf.q as usize);
+                        GlueSpec(slf.r).set_shrink_order(GlueOrder::Normal);
+                        delete_glue_ref(slf.q as usize);
+                        *GLUE_NODE_glue_ptr(slf.p) = Some(slf.r).tex_int();
+                        slf.q = Some(slf.r).tex_int();
                     }
-                    print_cstr(b"Infinite glue shrinkage found on current page");
-                    help!(
-                        b"The page about to be output contains some infinitely",
-                        b"shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
-                        b"Such glue doesn\'t belong there; but you can safely proceed,",
-                        b"since the offensive shrinkability has been made finite."
-                    );
-                    error();
-                    slf.r = new_spec(slf.q as usize);
-                    GlueSpec(slf.r).set_shrink_order(GlueOrder::Normal);
-                    delete_glue_ref(slf.q as usize);
-                    *GLUE_NODE_glue_ptr(slf.p) = Some(slf.r).tex_int();
-                    slf.q = Some(slf.r).tex_int();
                 }
+                _ => unreachable!(),
             }
             page_so_far[1] += page_so_far[7] + MEM[(slf.q + 1) as usize].b32.s1;
-            page_so_far[7] = 0i32;
+            page_so_far[7] = 0;
             return contribute(slf);
         }
 

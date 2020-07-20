@@ -41,16 +41,14 @@ use crate::xetex_xetex0::{
     str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, kern_NODE_subtype, kern_NODE_width, llist_link, print_c_string, set_BOX_lr_mode,
-    /*set_NODE_subtype, */ set_NODE_type, set_whatsit_NODE_subtype, text_NODE_type,
-    whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height,
-    BOX_list_ptr, BOX_lr_mode, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
-    EDGE_NODE_edge_dist, FILE_NODE_id, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_NODE_param,
-    LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link,
-    NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length,
-    NATIVE_NODE_text, NODE_type, OPEN_NODE_area, OPEN_NODE_ext, OPEN_NODE_name, PIC_NODE_page,
-    PIC_NODE_pagebox, PIC_NODE_path, PIC_NODE_transform_matrix, SYNCTEX_tag, TeXInt, TeXOpt,
-    FONT_CHARACTER_WIDTH,
+    is_char_node, kern_NODE_subtype, kern_NODE_width, llist_link, print_c_string, set_NODE_type,
+    set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height,
+    BOX_width, CHAR_NODE_character, CHAR_NODE_font, EDGE_NODE_edge_dist, FILE_NODE_id,
+    GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_NODE_param, LIGATURE_NODE_lig_char,
+    LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font,
+    NATIVE_NODE_glyph, NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length, NATIVE_NODE_text, NODE_type,
+    OPEN_NODE_area, OPEN_NODE_ext, OPEN_NODE_name, PIC_NODE_page, PIC_NODE_pagebox, PIC_NODE_path,
+    PIC_NODE_transform_matrix, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -287,11 +285,11 @@ pub(crate) unsafe fn ship_out(p: usize) {
         /* Done with the synthesized special. The meat: emit this page box. */
 
         cur_v = *BOX_height(p) + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
-        let tmp_ptr = p;
+        let mut tmp_ptr = Box::from(p);
         if NODE_type(p) == TextNode::VList.into() {
-            vlist_out(tmp_ptr);
+            vlist_out(&tmp_ptr);
         } else {
-            hlist_out(tmp_ptr);
+            hlist_out(&mut tmp_ptr);
         }
 
         dvi_out(EOP);
@@ -328,18 +326,17 @@ pub(crate) unsafe fn ship_out(p: usize) {
 }
 
 /*639: Output an hlist */
-unsafe fn hlist_out(tmp_ptr: usize) {
-    let this_box = tmp_ptr;
-    let g_order = GlueOrder::from(*BOX_glue_order(this_box));
-    let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
+unsafe fn hlist_out(this_box: &mut Box) {
+    let g_order = this_box.glue_order();
+    let g_sign = this_box.glue_sign();
 
     if *INTPAR(IntPar::xetex_interword_space_shaping) > 1 {
         /*640: "Extra stuff for justifiable AAT text..." "Merge sequences of
          * words using native fonts and inter-word spaces into single
          * nodes" */
 
-        let mut popt = BOX_list_ptr(this_box).opt();
-        let mut prev_p = this_box + 5; /* this gets the list within the box */
+        let mut popt = this_box.list_ptr().opt();
+        let mut prev_p = this_box.ptr() + 5; /* this gets the list within the box */
 
         while let Some(mut p) = popt {
             if llist_link(p).is_some() {
@@ -508,12 +505,10 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                 if g_sign != GlueSign::Normal {
                                     if g_sign == GlueSign::Stretching {
                                         if g.stretch_order() == g_order {
-                                            k += tex_round(
-                                                *BOX_glue_set(this_box) * g.stretch() as f64,
-                                            )
+                                            k += tex_round(this_box.glue_set() * g.stretch() as f64)
                                         }
                                     } else if g.shrink_order() == g_order {
-                                        k -= tex_round(*BOX_glue_set(this_box) * g.shrink() as f64)
+                                        k -= tex_round(this_box.glue_set() * g.shrink() as f64)
                                     }
                                 }
                             } else if NODE_type(q) == TextNode::Kern.into() {
@@ -582,7 +577,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
 
     /* ... resuming 639 ... */
 
-    let mut popt = BOX_list_ptr(this_box as _).opt();
+    let mut popt = this_box.list_ptr().opt();
     cur_s += 1;
     if cur_s > 0 {
         dvi_out(PUSH as _);
@@ -592,7 +587,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
 
     let save_loc = dvi_offset + dvi_ptr;
     let base_line = cur_v;
-    let mut prev_p = this_box + 5; /* this is list_offset, the offset of the box list pointer */
+    let mut prev_p = this_box.ptr() + 5; /* this is list_offset, the offset of the box list pointer */
 
     /*1501: "Initialize hlist_out for mixed direction typesetting" */
 
@@ -600,18 +595,18 @@ unsafe fn hlist_out(tmp_ptr: usize) {
     *LLIST_info(tmp_ptr) = u16::from(MathNST::Before) as i32;
     *LLIST_link(tmp_ptr) = LR_ptr;
     LR_ptr = Some(tmp_ptr).tex_int();
-    if BOX_lr_mode(this_box) == LRMode::DList {
+    if this_box.lr_mode() == LRMode::DList {
         if cur_dir == LR::RightToLeft {
             cur_dir = LR::LeftToRight;
-            cur_h -= *BOX_width(this_box);
+            cur_h -= this_box.width();
         } else {
-            set_BOX_lr_mode(this_box, LRMode::Normal);
+            this_box.set_lr_mode(LRMode::Normal);
         }
     }
 
     let mut cur_g: scaled_t = 0;
     let mut cur_glue: f64 = 0.0;
-    if cur_dir == LR::RightToLeft && BOX_lr_mode(this_box) != LRMode::Reversed {
+    if cur_dir == LR::RightToLeft && this_box.lr_mode() != LRMode::Reversed {
         /*1508: "Reverse the complete hlist and set the subtype to reversed." */
         let save_h = cur_h; /* "SyncTeX: do nothing, it is too late" */
         let tmp_ptr = popt.unwrap();
@@ -623,13 +618,13 @@ unsafe fn hlist_out(tmp_ptr: usize) {
         *kern_NODE_width(p) = -cur_h;
         popt = Some(p);
         cur_h = save_h;
-        set_BOX_lr_mode(this_box, LRMode::Reversed);
+        this_box.set_lr_mode(LRMode::Reversed);
     }
 
     /* ... resuming 639 ... */
 
     let mut left_edge = cur_h;
-    synctex_hlist(this_box);
+    synctex_hlist(this_box.ptr());
 
     while let Some(mut p) = popt {
                  /*642: "Output node `p` for `hlist_out` and move to the next node,
@@ -704,27 +699,27 @@ unsafe fn hlist_out(tmp_ptr: usize) {
             let n = text_NODE_type(p).unwrap();
             match n {
                 TextNode::HList | TextNode::VList => {
-                    if BOX_list_ptr(p).opt().is_none() {
+                    let mut p = Box::from(p);
+                    if p.list_ptr().opt().is_none() {
                         if n == TextNode::VList {
-                            synctex_void_vlist(p, this_box);
-                        } else { synctex_void_hlist(p, this_box); }
-                        cur_h += *BOX_width(p);
+                            synctex_void_vlist(p.ptr(), this_box.ptr());
+                        } else { synctex_void_hlist(p.ptr(), this_box.ptr()); }
+                        cur_h += p.width();
                     } else {
                         let save_h = dvi_h;
                         let save_v = dvi_v;
                         cur_v =
                             base_line +
-                                *BOX_shift_amount(p);
-                        let tmp_ptr = p;
+                                p.shift_amount();
                         let edge =
                             cur_h +
-                                *BOX_width(p);
+                                p.width();
                         if cur_dir == LR::RightToLeft {
                             cur_h = edge;
                         }
                         if n == TextNode::VList {
-                            vlist_out(tmp_ptr);
-                        } else { hlist_out(tmp_ptr); }
+                            vlist_out(&p);
+                        } else { hlist_out(&mut p); }
                         dvi_h = save_h;
                         dvi_v = save_v;
                         cur_h = edge;
@@ -740,10 +735,10 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                         *BOX_width(p);
                     /*646: "Output a rule in an hlist" */
                     if rule_ht == NULL_FLAG {
-                        rule_ht = *BOX_height(this_box);
+                        rule_ht = this_box.height();
                     }
                     if rule_dp == NULL_FLAG {
-                        rule_dp = *BOX_depth(this_box);
+                        rule_dp = this_box.depth();
                     }
                     rule_ht += rule_dp;
                     if rule_ht > 0 && rule_wd > 0 {
@@ -765,7 +760,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                     /* ... resuming 644 ... */
                     {
                         cur_h += rule_wd; /* end GLUE_NODE case */
-                        synctex_horizontal_rule_or_glue(p, this_box);
+                        synctex_horizontal_rule_or_glue(p, this_box.ptr());
                     }
                 }
                 TextNode::WhatsIt => {
@@ -895,7 +890,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                    g_order {
                                 cur_glue +=
                                     g.stretch() as f64;
-                                cur_g = tex_round((*BOX_glue_set(this_box) *
+                                cur_g = tex_round((this_box.glue_set() *
                                         cur_glue).min(1_000_000_000.).max(-1_000_000_000.));
                             }
                         } else if g.shrink_order() ==
@@ -903,7 +898,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                             cur_glue -=
                                 g.shrink() as
                                     f64;
-                            cur_g = tex_round((*BOX_glue_set(this_box) *
+                            cur_g = tex_round((this_box.glue_set() *
                                     cur_glue).min(1_000_000_000.).max(-1_000_000_000.));
                         }
                     }
@@ -944,14 +939,15 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                          * rule or next_p if done." */
                         let leader_box = *GLUE_NODE_leader_ptr(p); /* "compensate for floating-point rounding" ?? */
                         if NODE_type(leader_box as usize) == TextNode::Rule.into() {
-                            rule_ht = *BOX_height(leader_box as usize);
-                            rule_dp = *BOX_depth(leader_box as usize);
+                            let lb = Rule::from(leader_box as usize);
+                            rule_ht = lb.height();
+                            rule_dp = lb.depth();
                             /*646: "Output a rule in an hlist" */
                             if rule_ht == NULL_FLAG {
-                                rule_ht = *BOX_height(this_box);
+                                rule_ht = this_box.height();
                             }
                             if rule_dp == NULL_FLAG {
-                                rule_dp = *BOX_depth(this_box);
+                                rule_dp = this_box.depth();
                             }
                             rule_ht += rule_dp;
                             if rule_ht > 0 && rule_wd > 0 {
@@ -971,7 +967,8 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                 dvi_h += rule_wd;
                             }
                         } else {
-                            let leader_wd = *BOX_width(leader_box as usize);
+                            let mut lb = Box::from(leader_box as usize);
+                            let leader_wd = lb.width();
                             if leader_wd > 0 && rule_wd > 0 {
                                 rule_wd += 10;
                                 if cur_dir == LR::RightToLeft {
@@ -1004,7 +1001,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
 
                                 while cur_h + leader_wd <= edge {
                                     /*650: "Output a leader box at cur_h, then advance cur_h by leader_wd + lx" */
-                                    cur_v = base_line + *BOX_shift_amount(leader_box as usize);
+                                    cur_v = base_line + lb.shift_amount();
                                     if cur_v != dvi_v {
                                         movement(cur_v - dvi_v, DOWN1);
                                         dvi_v = cur_v
@@ -1015,16 +1012,15 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                         dvi_h = cur_h
                                     }
                                     let save_h = dvi_h;
-                                    let tmp_ptr = leader_box as usize;
                                     if cur_dir == LR::RightToLeft {
                                         cur_h += leader_wd;
                                     }
                                     let outer_doing_leaders = doing_leaders;
                                     doing_leaders = true;
                                     if NODE_type(leader_box as usize) == TextNode::VList.into() {
-                                        vlist_out(tmp_ptr);
+                                        vlist_out(&lb);
                                     } else {
-                                        hlist_out(tmp_ptr);
+                                        hlist_out(&mut lb);
                                     }
                                     doing_leaders = outer_doing_leaders;
                                     dvi_v = save_v;
@@ -1047,19 +1043,19 @@ unsafe fn hlist_out(tmp_ptr: usize) {
 
                     /* ... resuming 644 ... */
                     cur_h += rule_wd; /* end GLUE_NODE case */
-                    synctex_horizontal_rule_or_glue(p, this_box);
+                    synctex_horizontal_rule_or_glue(p, this_box.ptr());
                 }
                 TextNode::MarginKern => {
                     cur_h +=
                         *BOX_width(p);
                 }
                 TextNode::Kern => {
-                    synctex_kern(p, this_box);
+                    synctex_kern(p, this_box.ptr());
                     cur_h +=
                         *BOX_width(p);
                 }
                 TextNode::Math => {
-                    synctex_math(p, this_box);
+                    synctex_math(p, this_box.ptr());
                     /* 1504: "Adjust the LR stack...; if necessary reverse and
                      * hlist segment and goto reswitch." "Breaking a paragraph
                      * into lines while TeXXeT is disabled may result in lines
@@ -1140,7 +1136,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
 
     }
 
-    synctex_tsilh(this_box);
+    synctex_tsilh(this_box.ptr());
 
     /*1502: "Finish hlist_out for mixed direction typesetting" */
     /*1505: "Check for LR anomalies" */
@@ -1163,7 +1159,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
     *LLIST_link(tmp_ptr) = avail.tex_int();
     avail = Some(tmp_ptr);
 
-    if BOX_lr_mode(this_box) == LRMode::DList {
+    if this_box.lr_mode() == LRMode::DList {
         cur_dir = LR::RightToLeft;
     }
 
@@ -1179,14 +1175,13 @@ unsafe fn hlist_out(tmp_ptr: usize) {
 /*651: "When vlist_out is called, its duty is to output the box represented by
  * the vlist_node pointed to by tmp_ptr. The reference point of that box has
  * coordinates (cur_h, cur_v)." */
-unsafe fn vlist_out(tmp_ptr: usize) {
+unsafe fn vlist_out(this_box: &Box) {
     let mut cur_g = 0;
     let mut cur_glue = 0_f64;
-    let this_box = tmp_ptr;
-    let g_order = GlueOrder::from(*BOX_glue_order(this_box));
-    let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
-    let mut popt = BOX_list_ptr(this_box).opt();
-    let upwards = BOX_lr_mode(this_box) == LRMode::Reversed; // NODE_subtype(this_box)
+    let g_order = this_box.glue_order();
+    let g_sign = this_box.glue_sign();
+    let mut popt = this_box.list_ptr().opt();
+    let upwards = this_box.lr_mode() == LRMode::Reversed;
 
     cur_s += 1;
     if cur_s > 0 {
@@ -1199,12 +1194,12 @@ unsafe fn vlist_out(tmp_ptr: usize) {
 
     let save_loc = dvi_offset + dvi_ptr;
     let left_edge = cur_h;
-    synctex_vlist(this_box);
+    synctex_vlist(this_box.ptr());
 
     if upwards {
-        cur_v += *BOX_depth(this_box);
+        cur_v += this_box.depth();
     } else {
-        cur_v -= *BOX_height(this_box);
+        cur_v -= this_box.height();
     }
 
     let top_edge = cur_v;
@@ -1219,28 +1214,29 @@ unsafe fn vlist_out(tmp_ptr: usize) {
         let n = text_NODE_type(p).unwrap();
         match n {
             TextNode::HList | TextNode::VList => {
+                let mut p = Box::from(p);
                 /*654: "Output a box in a vlist" */
-                if BOX_list_ptr(p).opt().is_none() {
+                if p.list_ptr().opt().is_none() {
                     if upwards {
-                        cur_v -= *BOX_depth(p);
+                        cur_v -= p.depth();
                     } else {
-                        cur_v += *BOX_height(p);
+                        cur_v += p.height();
                     }
                     if n == TextNode::VList {
-                        synctex_void_vlist(p, this_box);
+                        synctex_void_vlist(p.ptr(), this_box.ptr());
                     } else {
-                        synctex_void_hlist(p, this_box);
+                        synctex_void_hlist(p.ptr(), this_box.ptr());
                     }
                     if upwards {
-                        cur_v -= *BOX_height(p);
+                        cur_v -= p.height();
                     } else {
-                        cur_v += *BOX_depth(p);
+                        cur_v += p.depth();
                     }
                 } else {
                     if upwards {
-                        cur_v -= *BOX_depth(p);
+                        cur_v -= p.depth();
                     } else {
-                        cur_v += *BOX_height(p);
+                        cur_v += p.height();
                     }
                     if cur_v != dvi_v {
                         movement(cur_v - dvi_v, DOWN1);
@@ -1249,22 +1245,21 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                     let save_h = dvi_h;
                     let save_v = dvi_v;
                     if cur_dir == LR::RightToLeft {
-                        cur_h = left_edge - *BOX_shift_amount(p);
+                        cur_h = left_edge - p.shift_amount();
                     } else {
-                        cur_h = left_edge + *BOX_shift_amount(p);
+                        cur_h = left_edge + p.shift_amount();
                     }
-                    let tmp_ptr = p;
                     if n == TextNode::VList {
-                        vlist_out(tmp_ptr);
+                        vlist_out(&p);
                     } else {
-                        hlist_out(tmp_ptr);
+                        hlist_out(&mut p);
                     }
                     dvi_h = save_h;
                     dvi_v = save_v;
                     if upwards {
-                        cur_v = save_v - *BOX_height(p);
+                        cur_v = save_v - p.height();
                     } else {
-                        cur_v = save_v + *BOX_depth(p);
+                        cur_v = save_v + p.depth();
                     }
                     cur_h = left_edge
                 }
@@ -1276,7 +1271,7 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                 // 655: "Output a rule in a vlist, goto next_p
 
                 if rule_wd == NULL_FLAG {
-                    rule_wd = *BOX_width(this_box);
+                    rule_wd = this_box.width();
                 }
 
                 rule_ht += rule_dp;
@@ -1375,7 +1370,7 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                         if g.stretch_order() == g_order {
                             cur_glue += g.stretch() as f64;
                             cur_g = tex_round(
-                                (*BOX_glue_set(this_box) * cur_glue)
+                                (this_box.glue_set() * cur_glue)
                                     .min(1_000_000_000.)
                                     .max(-1_000_000_000.),
                             )
@@ -1383,7 +1378,7 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                     } else if g.shrink_order() == g_order {
                         cur_glue -= g.shrink() as f64;
                         cur_g = tex_round(
-                            (*BOX_glue_set(this_box) * cur_glue)
+                            (this_box.glue_set() * cur_glue)
                                 .min(1_000_000_000.)
                                 .max(-1_000_000_000.),
                         )
@@ -1399,12 +1394,12 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                     let leader_box = *GLUE_NODE_leader_ptr(p) as usize; /* "compensate for floating-point rounding" */
 
                     if NODE_type(leader_box) == TextNode::Rule.into() {
-                        rule_wd = *BOX_width(leader_box);
+                        rule_wd = Rule::from(leader_box).width();
                         rule_dp = 0;
                         // 655: "Output a rule in a vlist, goto next_p
 
                         if rule_wd == NULL_FLAG {
-                            rule_wd = *BOX_width(this_box);
+                            rule_wd = this_box.width();
                         }
 
                         rule_ht += rule_dp;
@@ -1435,7 +1430,8 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                         popt = llist_link(p);
                         continue;
                     } else {
-                        let leader_ht = *BOX_height(leader_box) + *BOX_depth(leader_box);
+                        let mut lb = Box::from(leader_box);
+                        let leader_ht = lb.height() + lb.depth();
                         if leader_ht > 0i32 && rule_ht > 0i32 {
                             rule_ht += 10i32;
                             let edge = cur_v + rule_ht;
@@ -1467,9 +1463,9 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                                  * part of the program, cur_v indicates the top of
                                  * a leader box, not its baseline." */
                                 if cur_dir == LR::RightToLeft {
-                                    cur_h = left_edge - *BOX_shift_amount(leader_box);
+                                    cur_h = left_edge - lb.shift_amount();
                                 } else {
-                                    cur_h = left_edge + *BOX_shift_amount(leader_box);
+                                    cur_h = left_edge + lb.shift_amount();
                                 }
                                 if cur_h != dvi_h {
                                     movement(cur_h - dvi_h, RIGHT1);
@@ -1477,7 +1473,7 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                                 }
 
                                 let save_h = dvi_h;
-                                cur_v += *BOX_height(leader_box);
+                                cur_v += lb.height();
 
                                 if cur_v != dvi_v {
                                     movement(cur_v - dvi_v, DOWN1);
@@ -1485,14 +1481,13 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                                 }
 
                                 let save_v = dvi_v;
-                                let tmp_ptr = leader_box;
                                 let outer_doing_leaders = doing_leaders;
                                 doing_leaders = true;
 
                                 if NODE_type(leader_box) == TextNode::VList.into() {
-                                    vlist_out(tmp_ptr);
+                                    vlist_out(&lb);
                                 } else {
-                                    hlist_out(tmp_ptr);
+                                    hlist_out(&mut lb);
                                 }
 
                                 doing_leaders = outer_doing_leaders;
@@ -1525,7 +1520,7 @@ unsafe fn vlist_out(tmp_ptr: usize) {
 
         popt = llist_link(p);
     }
-    synctex_tsilv(this_box);
+    synctex_tsilv(this_box.ptr());
     prune_movements(save_loc);
     if cur_s > 0 {
         dvi_pop(save_loc);
@@ -1541,14 +1536,14 @@ unsafe fn vlist_out(tmp_ptr: usize) {
  * nodes from the original list and add them to the head of the new one."
  */
 unsafe fn reverse(
-    this_box: usize,
+    this_box: &Box,
     tmp_ptr: usize,
     mut t: Option<usize>,
     mut cur_g: *mut scaled_t,
     mut cur_glue: *mut f64,
 ) -> i32 {
-    let g_order = GlueOrder::from(*BOX_glue_order(this_box));
-    let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
+    let g_order = this_box.glue_order();
+    let g_sign = this_box.glue_sign();
     let mut l = t;
     let mut popt = Some(tmp_ptr);
     let mut m = MIN_HALFWORD;
@@ -1605,7 +1600,7 @@ unsafe fn reverse(
                                 if g.stretch_order() == g_order {
                                     *cur_glue = *cur_glue + g.stretch() as f64;
                                     *cur_g = tex_round(
-                                        (*BOX_glue_set(this_box) * *cur_glue)
+                                        (this_box.glue_set() * *cur_glue)
                                             .min(1_000_000_000.)
                                             .max(-1_000_000_000.),
                                     );
@@ -1615,7 +1610,7 @@ unsafe fn reverse(
                                 if g.shrink_order() == g_order {
                                     *cur_glue = *cur_glue - g.shrink() as f64;
                                     *cur_g = tex_round(
-                                        (*BOX_glue_set(this_box) * *cur_glue)
+                                        (this_box.glue_set() * *cur_glue)
                                             .min(1_000_000_000.)
                                             .max(-1_000_000_000.),
                                     );
@@ -1666,8 +1661,12 @@ unsafe fn reverse(
                          * kern nodes." */
                         rule_wd = *BOX_width(p);
 
-                        if (BOX_lr_mode(p) as u16) & 1 != 0 {
-                            if *LLIST_info(LR_ptr as usize) != 4 * (MEM[p].b16.s0 as i32 / 4) + 3 {
+                        let nst = MathNST::from(MEM[p].b16.s0);
+                        let (be, mode) = nst.equ();
+                        if be == BE::End {
+                            if MathNST::from(*LLIST_info(LR_ptr as usize) as u16)
+                                != MathNST::Eq(BE::End, mode)
+                            {
                                 set_NODE_type(p, TextNode::Kern);
                                 LR_problems += 1;
                             } else {
@@ -1696,10 +1695,10 @@ unsafe fn reverse(
                             }
                         } else {
                             let tmp_ptr = get_avail();
-                            *LLIST_info(tmp_ptr) = 4 * (MEM[p].b16.s0 as i32 / 4) + 3;
+                            *LLIST_info(tmp_ptr) = u16::from(MathNST::Eq(BE::End, mode)) as i32;
                             *LLIST_link(tmp_ptr) = LR_ptr;
                             LR_ptr = Some(tmp_ptr).tex_int();
-                            if n > MIN_HALFWORD || MEM[p].b16.s0 / 8 != cur_dir as u16 {
+                            if n > MIN_HALFWORD || nst.dir() != cur_dir {
                                 n += 1;
                                 MEM[p].b16.s0 += 1; // NODE_subtype(p)
                             } else {
