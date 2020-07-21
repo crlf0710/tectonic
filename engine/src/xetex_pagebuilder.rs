@@ -444,7 +444,7 @@ unsafe fn fire_up(c: usize) {
 
     flush_node_list(disc_ptr[LAST_BOX_CODE as usize].opt());
     disc_ptr[LAST_BOX_CODE as usize] = None.tex_int();
-    ship_out(*BOX_REG(255) as usize);
+    ship_out(Box::from(*BOX_REG(255) as usize));
     *BOX_REG(255) = None.tex_int();
 }
 

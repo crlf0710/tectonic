@@ -99,7 +99,7 @@ unsafe fn dvi_out(c: u8) {
 }
 
 /*660: output the box `p` */
-pub(crate) unsafe fn ship_out(p: usize) {
+pub(crate) unsafe fn ship_out(mut p: Box) {
     const output_comment: &[u8] = b"tectonic";
 
     synctex_sheet(*INTPAR(IntPar::mag));
@@ -138,7 +138,7 @@ pub(crate) unsafe fn ship_out(p: usize) {
     if *INTPAR(IntPar::tracing_output) > 0 {
         print_char(']' as i32);
         begin_diagnostic();
-        show_box(Some(p));
+        show_box(Some(p.ptr()));
         end_diagnostic(true);
     }
 
@@ -146,10 +146,10 @@ pub(crate) unsafe fn ship_out(p: usize) {
     /*663: "Update the values of max_h and max_v; but if the page is too
      * large, goto done". */
 
-    if *BOX_height(p) > MAX_HALFWORD
-        || *BOX_depth(p) > MAX_HALFWORD
-        || *BOX_height(p) + *BOX_depth(p) + *DIMENPAR(DimenPar::v_offset) > MAX_HALFWORD
-        || *BOX_width(p) + *DIMENPAR(DimenPar::h_offset) > MAX_HALFWORD
+    if p.height() > MAX_HALFWORD
+        || p.depth() > MAX_HALFWORD
+        || p.height() + p.depth() + *DIMENPAR(DimenPar::v_offset) > MAX_HALFWORD
+        || p.width() + *DIMENPAR(DimenPar::h_offset) > MAX_HALFWORD
     {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -166,15 +166,15 @@ pub(crate) unsafe fn ship_out(p: usize) {
         if *INTPAR(IntPar::tracing_output) <= 0 {
             begin_diagnostic();
             print_nl_cstr(b"The following box has been deleted:");
-            show_box(Some(p));
+            show_box(Some(p.ptr()));
             end_diagnostic(true);
         }
     } else {
-        if *BOX_height(p) + *BOX_depth(p) + *DIMENPAR(DimenPar::v_offset) > max_v {
-            max_v = *BOX_height(p) + *BOX_depth(p) + *DIMENPAR(DimenPar::v_offset);
+        if p.height() + p.depth() + *DIMENPAR(DimenPar::v_offset) > max_v {
+            max_v = p.height() + p.depth() + *DIMENPAR(DimenPar::v_offset);
         }
-        if *BOX_width(p) + *DIMENPAR(DimenPar::h_offset) > max_h {
-            max_h = *BOX_width(p) + *DIMENPAR(DimenPar::h_offset);
+        if p.width() + *DIMENPAR(DimenPar::h_offset) > max_h {
+            max_h = p.width() + *DIMENPAR(DimenPar::h_offset);
         }
 
         /*637: "Initialize variables as ship_out begins." */
@@ -192,12 +192,12 @@ pub(crate) unsafe fn ship_out(p: usize) {
         if *DIMENPAR(DimenPar::pdf_page_width) != 0 {
             cur_page_width = *DIMENPAR(DimenPar::pdf_page_width);
         } else {
-            cur_page_width = *BOX_width(p as usize) + 2 * cur_h_offset;
+            cur_page_width = p.width() + 2 * cur_h_offset;
         }
         if *DIMENPAR(DimenPar::pdf_page_height) != 0 {
             cur_page_height = *DIMENPAR(DimenPar::pdf_page_height);
         } else {
-            cur_page_height = *BOX_height(p as usize) + *BOX_depth(p as usize) + 2 * cur_v_offset;
+            cur_page_height = p.height() + p.depth() + 2 * cur_v_offset;
         }
 
         /* ... resuming 637 ... open up the DVI file if needed */
@@ -284,12 +284,11 @@ pub(crate) unsafe fn ship_out(p: usize) {
 
         /* Done with the synthesized special. The meat: emit this page box. */
 
-        cur_v = *BOX_height(p) + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
-        let mut tmp_ptr = Box::from(p);
-        if NODE_type(p) == TextNode::VList.into() {
-            vlist_out(&tmp_ptr);
+        cur_v = p.height() + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
+        if NODE_type(p.ptr()) == TextNode::VList.into() {
+            vlist_out(&p);
         } else {
-            hlist_out(&mut tmp_ptr);
+            hlist_out(&mut p);
         }
 
         dvi_out(EOP);
@@ -321,7 +320,7 @@ pub(crate) unsafe fn ship_out(p: usize) {
 
     dead_cycles = 0;
     rust_stdout.as_mut().unwrap().flush().unwrap();
-    flush_node_list(Some(p));
+    flush_node_list(Some(p.ptr()));
     synctex_teehs();
 }
 

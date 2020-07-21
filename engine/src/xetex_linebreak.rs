@@ -1279,12 +1279,13 @@ unsafe fn post_line_break(mut d: bool) {
         pre_adjust_tail = Some(PRE_ADJUST_HEAD);
         /* Tectonic: in semantic pagination mode, set each "line" (really the
          * whole paragraph) at its natural width. */
-        just_box = if semantic_pagination_enabled {
+        let mut jb = if semantic_pagination_enabled {
             hpack(q.opt(), 0, PackMode::Additional)
         } else {
             hpack(q.opt(), cur_width, PackMode::Exactly)
         }; /*:918*/
-        Box::from(just_box).set_shift_amount(cur_indent);
+        jb.set_shift_amount(cur_indent);
+        just_box = jb.ptr();
         /* 917: append the new box to the current vertical list, followed
          * by any of its special nodes that were taken out */
 
