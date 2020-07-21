@@ -11055,7 +11055,7 @@ pub(crate) unsafe fn new_margin_kern(w: scaled_t, _p: i32, side: Side) -> usize 
     MEM[k + 1].b32.s1 = w;
     k
 }
-pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode) -> usize {
+pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode) -> Box {
     last_badness = 0;
     let mut r = Box::from(get_node(BOX_NODE_SIZE));
     set_NODE_type(r.ptr(), TextNode::HList);
@@ -11397,7 +11397,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
         return exit(r, q);
     }
 
-    unsafe fn common_ending(r: Box, q: usize) -> usize {
+    unsafe fn common_ending(r: Box, q: usize) -> Box {
         if output_active {
             print_cstr(b") has occurred while \\output is active");
         } else {
@@ -11424,7 +11424,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
         return exit(r, q);
     }
 
-    unsafe fn exit(r: Box, mut q: usize) -> usize {
+    unsafe fn exit(r: Box, mut q: usize) -> Box {
         if *INTPAR(IntPar::texxet) > 0 {
             /*1499: */
             if MathNST::from(MEM[LR_ptr as usize].b32.s0 as u16) != MathNST::Before {
@@ -11464,7 +11464,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 }
             }
         }
-        r.ptr()
+        r
     }
 }
 pub(crate) unsafe fn vpackage(
@@ -13596,7 +13596,7 @@ pub(crate) unsafe fn package(mut c: i16) {
             MEM[cur_list.head].b32.s1.opt(),
             SAVE_STACK[SAVE_PTR + 2].val,
             PackMode::from(SAVE_STACK[SAVE_PTR + 1].val),
-        ));
+        ).ptr());
     } else {
         let mut cb = vpackage(
             MEM[cur_list.head].b32.s1.opt(),
@@ -14147,8 +14147,9 @@ pub(crate) unsafe fn make_accent() {
                 h = *FONT_CHARINFO_HEIGHT(f, i);
             }
             if h != x {
-                p = hpack(Some(p), 0, PackMode::Additional) as usize;
-                MEM[p + 4].b32.s1 = x - h;
+                let mut p_box = hpack(Some(p), 0, PackMode::Additional);
+                p_box.set_shift_amount(x - h);
+                p = p_box.ptr();
             }
             let delta = if (FONT_AREA[f] as u32 == AAT_FONT_FLAG
                 || FONT_AREA[f] as u32 == OTGR_FONT_FLAG)
@@ -15375,8 +15376,6 @@ pub(crate) unsafe fn append_src_special() {
     };
 }
 pub(crate) unsafe fn handle_right_brace() {
-    let mut d: scaled_t = 0;
-    let mut f: i32 = 0;
     match cur_group {
         GroupCode::Simple => unsave(),
         GroupCode::BottomLevel => {
@@ -15411,8 +15410,8 @@ pub(crate) unsafe fn handle_right_brace() {
             end_graf();
             let q = *GLUEPAR(GluePar::split_top_skip) as usize;
             GlueSpec(q).rc_inc();
-            d = *DIMENPAR(DimenPar::split_max_depth);
-            f = *INTPAR(IntPar::floating_penalty);
+            let d = *DIMENPAR(DimenPar::split_max_depth);
+            let f = *INTPAR(IntPar::floating_penalty);
             unsave();
             SAVE_PTR -= 2;
             let p = vpackage(
