@@ -12295,7 +12295,7 @@ pub(crate) unsafe fn fin_align() {
     pack_begin_line = 0;
     let mut qopt = MEM[cur_list.head].b32.s1.opt();
     let mut s = cur_list.head;
-    while let Some(q) = qopt {
+    while let Some(mut q) = qopt {
         if !is_char_node(Some(q)) {
             if NODE_type(q) == TextNode::Unset.into() {
                 /*836: */
@@ -12448,11 +12448,10 @@ pub(crate) unsafe fn fin_align() {
                 if o != 0 {
                     let r = *LLIST_link(q);
                     *LLIST_link(q) = None.tex_int();
-                    let q = hpack(Some(q), 0, PackMode::Additional);
+                    q = hpack(Some(q), 0, PackMode::Additional);
                     MEM[q + 4].b32.s1 = o;
                     *LLIST_link(q) = r;
                     *LLIST_link(s) = Some(q).tex_int();
-                    qopt = Some(q);
                 }
             }
         }
