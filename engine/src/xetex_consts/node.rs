@@ -225,7 +225,7 @@ impl DerefMut for Box {
     }
 }
 impl Box {
-    pub(crate) fn from(p: usize) -> Self {
+    pub(crate) const fn from(p: usize) -> Self {
         Self(BaseBox(p))
     }
     /// subtype; records L/R direction mode
@@ -287,7 +287,7 @@ impl DerefMut for Unset {
     }
 }
 impl Unset {
-    pub(crate) fn from(p: usize) -> Self {
+    pub(crate) const fn from(p: usize) -> Self {
         Self(BaseBox(p))
     }
     pub(crate) unsafe fn columns(&self) -> u16 {
@@ -349,7 +349,7 @@ impl DerefMut for Rule {
     }
 }
 impl Rule {
-    pub(crate) fn from(p: usize) -> Self {
+    pub(crate) const fn from(p: usize) -> Self {
         Self(BaseBox(p))
     }
 }
