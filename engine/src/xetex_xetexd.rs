@@ -1,6 +1,4 @@
-use crate::xetex_consts::{
-    KernNST, TextNode, WhatsItNST, NATIVE_NODE_SIZE, ND, PIC_NODE_SIZE, SYNCTEX_FIELD_SIZE,
-};
+use crate::xetex_consts::{KernNST, TextNode, WhatsItNST, ND, PIC_NODE_SIZE, SYNCTEX_FIELD_SIZE};
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
 
@@ -151,19 +149,6 @@ pub(crate) unsafe fn GLUE_NODE_leader_ptr<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s1
 }
 
-/// language number, 0..255
-pub(crate) unsafe fn LANGUAGE_NODE_what_lang<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-/// "minimum left fragment, range 1..63"
-pub(crate) unsafe fn LANGUAGE_NODE_what_lhm<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 1].b16.s1
-}
-/// "minimum right fragment, range 1..63"
-pub(crate) unsafe fn LANGUAGE_NODE_what_rhm<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 1].b16.s0
-}
-
 /// WEB: font(lig_char(p))
 pub(crate) unsafe fn LIGATURE_NODE_lig_font<'a>(p: usize) -> &'a mut u16 {
     &mut MEM[p + 1].b16.s1
@@ -198,50 +183,13 @@ pub(crate) unsafe fn ADJUST_NODE_ptr<'a>(p: usize) -> &'a mut i32 {
 #define MATH_NODE_lr_dir(p) (NODE_subtype(p) / R_CODE)
 #define MATH_NODE_end_lr_type(p) (L_CODE * (NODE_subtype(p) / L_CODE) + END_M_CODE)
 */
-pub(crate) unsafe fn NATIVE_NODE_size<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 4].b16.s3
-}
-pub(crate) unsafe fn NATIVE_NODE_font<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 4].b16.s2
-}
-/// number of UTF16 items in the text
-pub(crate) unsafe fn NATIVE_NODE_length<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 4].b16.s1
-}
-/// ... or the glyph number, if subtype==WhatsItNST::Glyph
-pub(crate) unsafe fn NATIVE_NODE_glyph<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 4].b16.s1
-}
 
-pub(crate) unsafe fn NATIVE_NODE_glyph_count<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 4].b16.s0
-}
-pub(crate) unsafe fn NATIVE_NODE_glyph_info_ptr<'a>(p: usize) -> &'a mut *mut core::ffi::c_void {
-    &mut MEM[p + 5].ptr
-}
-pub(crate) unsafe fn NATIVE_NODE_text<'a>(p: usize) -> &'a mut [u16] {
-    let len = *NATIVE_NODE_length(p) as usize;
-    let pp = &mut MEM[p + NATIVE_NODE_SIZE as usize].b16.s0 as *mut u16;
-    std::slice::from_raw_parts_mut(pp, len)
-}
 /*
 #define PAGE_INS_NODE_broken_ptr(p) mem[(p) + 1].b32.s1 /* "an insertion for this class will break here if anywhere" */
 #define PAGE_INS_NODE_broken_ins(p) mem[(p) + 1].b32.s0 /* "this insertion might break at broken_ptr" */
 #define PAGE_INS_NODE_last_ins_ptr(p) mem[(p) + 2].b32.s1 /* "the most recent insertion for this subtype" */
 #define PAGE_INS_NODE_best_ins_ptr(p) mem[(p) + 2].b32.s0 /* "the optimum most recent insertion" */
 */
-pub(crate) unsafe fn FILE_NODE_id<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s0
-}
-pub(crate) unsafe fn OPEN_NODE_name<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-pub(crate) unsafe fn OPEN_NODE_area<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 2].b32.s0
-}
-pub(crate) unsafe fn OPEN_NODE_ext<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 2].b32.s1
-}
 
 /// aka "llink" in doubly-linked list
 pub(crate) unsafe fn PASSIVE_NODE_prev_break<'a>(p: usize) -> &'a mut i32 {
@@ -310,11 +258,6 @@ pub(crate) unsafe fn MARK_CLASS_indexes<'a>(p: usize) -> &'a mut [i32] {
 pub(crate) unsafe fn INDEX_NODE_indexes<'a>(p: usize) -> &'a mut [i32] {
     let pp = &mut MEM[p + 1].b32.s0;
     std::slice::from_raw_parts_mut(pp, 64)
-}
-
-/// "reference count of token list to write"
-pub(crate) unsafe fn WRITE_NODE_tokens<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
 }
 
 /* Synctex hacks various nodes to add an extra word at the end to store its
@@ -408,19 +351,6 @@ cur_length(void) {
 /* Tectonic related functions */
 tt_history_t tt_run_engine(char *dump_name, char *input_file_name, time_t build_date);
 
-
-/* formerly xetex.h: */
-/* additional declarations we want to slip in for xetex */
-
-/* p is native_word node; g is XeTeX_use_glyph_metrics flag */
-#define set_native_metrics(p,g)               measure_native_node(&(mem[p]), g)
-#define set_native_glyph_metrics(p,g)         measure_native_glyph(&(mem[p]), g)
-#define set_justified_native_glyphs(p)        store_justified_native_glyphs(&(mem[p]))
-#define get_native_italic_correction(p)       real_get_native_italic_correction(&(mem[p]))
-#define get_native_glyph_italic_correction(p) real_get_native_glyph_italic_correction(&(mem[p]))
-#define get_native_glyph(p,i)                 real_get_native_glyph(&(mem[p]), i)
-#define make_xdv_glyph_array_data(p)          makeXDVGlyphArrayData(&(mem[p]))
-#define get_native_word_cp(p,s)               real_get_native_word_cp(&(mem[p]), s)
 */
 
 /* easier to do the bit-twiddling here than in Pascal */

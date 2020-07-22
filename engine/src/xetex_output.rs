@@ -9,16 +9,16 @@
 )]
 
 use super::xetex_consts::{
-    Cmd, IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE, INTPAR,
-    NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
+    Cmd, IntPar, NativeWord, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE,
+    HASH_BASE, INTPAR, NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
 };
 
+use super::xetex_ini::Selector;
 use super::xetex_ini::{
     dig, doing_special, error_line, file_offset, hash, line, log_file, max_print_line, pool_ptr,
     pool_size, rust_stdout, selector, str_pool, str_ptr, str_start, tally, term_offset, trick_buf,
     trick_count, write_file, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
-use super::xetex_ini::{memory_word, Selector};
 use bridge::ttstub_output_putc;
 
 pub(crate) type scaled_t = i32;
@@ -124,12 +124,12 @@ pub(crate) unsafe fn print_raw_char(mut s: UTF16_code, mut incr_offset: bool) {
     }
     tally += 1;
 }
-pub(crate) unsafe fn print_char(mut s: i32) {
+pub(crate) unsafe fn print_char(s: i32) {
     let mut l: i16 = 0;
     if (u8::from(selector) > u8::from(Selector::PSEUDO)) && !doing_special {
-        if s >= 0x10000i32 {
-            print_raw_char((0xd800i32 + (s - 0x10000i32) / 1024i32) as UTF16_code, true);
-            print_raw_char((0xdc00i32 + (s - 0x10000i32) % 1024i32) as UTF16_code, true);
+        if s >= 0x10000 {
+            print_raw_char((0xd800 + (s - 0x10000) / 1024) as UTF16_code, true);
+            print_raw_char((0xdc00 + (s - 0x10000) % 1024) as UTF16_code, true);
         } else {
             print_raw_char(s as UTF16_code, true);
         }
@@ -142,13 +142,13 @@ pub(crate) unsafe fn print_char(mut s: i32) {
             return;
         }
     }
-    if s < 32i32 && !doing_special {
+    if s < 32 && !doing_special {
         print_raw_char('^' as i32 as UTF16_code, true);
         print_raw_char('^' as i32 as UTF16_code, true);
-        print_raw_char((s + 64i32) as UTF16_code, true);
-    } else if s < 127i32 {
+        print_raw_char((s + 64) as UTF16_code, true);
+    } else if s < 127 {
         print_raw_char(s as UTF16_code, true);
-    } else if s == 127i32 {
+    } else if s == 127 {
         if !doing_special {
             print_raw_char('^' as i32 as UTF16_code, true);
             print_raw_char('^' as i32 as UTF16_code, true);
@@ -156,33 +156,33 @@ pub(crate) unsafe fn print_char(mut s: i32) {
         } else {
             print_raw_char(s as UTF16_code, true);
         }
-    } else if s < 160i32 && !doing_special {
+    } else if s < 160 && !doing_special {
         print_raw_char('^' as i32 as UTF16_code, true);
         print_raw_char('^' as i32 as UTF16_code, true);
-        l = (s % 256i32 / 16i32) as i16;
-        if (l as i32) < 10i32 {
+        l = (s % 256 / 16) as i16;
+        if l < 10 {
             print_raw_char(('0' as i32 + l as i32) as UTF16_code, true);
         } else {
-            print_raw_char(('a' as i32 + l as i32 - 10i32) as UTF16_code, true);
+            print_raw_char(('a' as i32 + l as i32 - 10) as UTF16_code, true);
         }
-        l = (s % 16i32) as i16;
-        if (l as i32) < 10i32 {
+        l = (s % 16) as i16;
+        if l < 10 {
             print_raw_char(('0' as i32 + l as i32) as UTF16_code, true);
         } else {
-            print_raw_char(('a' as i32 + l as i32 - 10i32) as UTF16_code, true);
+            print_raw_char(('a' as i32 + l as i32 - 10) as UTF16_code, true);
         }
-    } else if s < 2048i32 {
-        print_raw_char((192i32 + s / 64i32) as UTF16_code, false);
-        print_raw_char((128i32 + s % 64i32) as UTF16_code, true);
-    } else if s < 0x10000i32 {
-        print_raw_char((224i32 + s / 4096i32) as UTF16_code, false);
-        print_raw_char((128i32 + s % 4096i32 / 64i32) as UTF16_code, false);
-        print_raw_char((128i32 + s % 64i32) as UTF16_code, true);
+    } else if s < 2048 {
+        print_raw_char((192 + s / 64) as UTF16_code, false);
+        print_raw_char((128 + s % 64) as UTF16_code, true);
+    } else if s < 0x10000 {
+        print_raw_char((224 + s / 4096) as UTF16_code, false);
+        print_raw_char((128 + s % 4096 / 64) as UTF16_code, false);
+        print_raw_char((128 + s % 64) as UTF16_code, true);
     } else {
-        print_raw_char((240i32 + s / 0x40000i32) as UTF16_code, false);
-        print_raw_char((128i32 + s % 0x40000i32 / 4096i32) as UTF16_code, false);
-        print_raw_char((128i32 + s % 4096i32 / 64i32) as UTF16_code, false);
-        print_raw_char((128i32 + s % 64i32) as UTF16_code, true);
+        print_raw_char((240 + s / 0x40000) as UTF16_code, false);
+        print_raw_char((128 + s % 0x40000 / 4096) as UTF16_code, false);
+        print_raw_char((128 + s % 4096 / 64) as UTF16_code, false);
+        print_raw_char((128 + s % 64) as UTF16_code, true);
     };
 }
 pub(crate) unsafe fn print(mut s: i32) {
@@ -467,20 +467,17 @@ pub(crate) unsafe fn print_write_whatsit(s: &[u8], p: usize) {
         print_char('-' as i32);
     };
 }
-pub(crate) unsafe fn print_native_word(p: usize) {
-    let mut i: i32 = 0;
+pub(crate) unsafe fn print_native_word(p: &NativeWord) {
     let mut c: i32 = 0;
-    let mut cc: i32 = 0;
-    let mut for_end: i32 = MEM[p + 4].b16.s1 as i32 - 1;
-    i = 0i32;
-    while i <= for_end {
-        c = *(&mut MEM[p + 6] as *mut memory_word as *mut u16).offset(i as isize) as i32;
-        if c >= 0xd800i32 && c < 0xdc00i32 {
-            if i < MEM[p + 4].b16.s1 as i32 - 1 {
-                cc = *(&mut MEM[p + 6] as *mut memory_word as *mut u16).offset((i + 1i32) as isize)
-                    as i32;
-                if cc >= 0xdc00i32 && cc < 0xe000i32 {
-                    c = 0x10000i32 + (c - 0xd800i32) * 1024i32 + (cc - 0xdc00i32);
+    let text = p.text();
+    let mut i = 0;
+    while i < text.len() {
+        c = text[i] as i32;
+        if c >= 0xd800 && c < 0xdc00 {
+            if i < text.len() - 1 {
+                let cc = text[i + 1] as i32;
+                if cc >= 0xdc00 && cc < 0xe000 {
+                    c = 0x10000 + (c - 0xd800) * 1024 + (cc - 0xdc00);
                     print_char(c);
                     i += 1
                 } else {
@@ -492,7 +489,7 @@ pub(crate) unsafe fn print_native_word(p: usize) {
         } else {
             print_char(c);
         }
-        i += 1
+        i += 1;
     }
 }
 pub(crate) unsafe fn print_sa_num(mut q: usize) {

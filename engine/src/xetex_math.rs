@@ -13,9 +13,7 @@ use core::ptr;
 use crate::help;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
-use crate::xetex_ext::{
-    map_char_to_glyph, measure_native_glyph, real_get_native_glyph, AAT_FONT_FLAG, OTGR_FONT_FLAG,
-};
+use crate::xetex_ext::{map_char_to_glyph, AAT_FONT_FLAG, OTGR_FONT_FLAG};
 use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
     cur_list, cur_val, cur_val1, empty, file_line_error_style_p, insert_src_special_every_math,
@@ -24,7 +22,7 @@ use crate::xetex_ini::{
     FONT_LAYOUT_ENGINE, FONT_PARAMS, HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM,
     NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
 };
-use crate::xetex_ini::{b16x4, b16x4_le_t, memory_word};
+use crate::xetex_ini::{b16x4, b16x4_le_t};
 use crate::xetex_layout_interface::*;
 use crate::xetex_linebreak::line_break;
 use crate::xetex_output::{
@@ -47,8 +45,8 @@ use crate::xetex_xetexd::{
     is_char_node, kern_NODE_width, llist_link, math_char, math_class, math_fam, set_NODE_type,
     set_class, set_family, set_kern_NODE_subtype, set_whatsit_NODE_subtype, text_NODE_type,
     whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
-    GLUE_NODE_glue_ptr, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LLIST_link,
-    NATIVE_NODE_font, NATIVE_NODE_glyph, NATIVE_NODE_size, NODE_type, TeXInt, TeXOpt,
+    GLUE_NODE_glue_ptr, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LLIST_link, NODE_type,
+    TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -1754,10 +1752,7 @@ unsafe fn compute_ot_math_accent_pos(p: usize) -> scaled_t {
     if MEM[p + 1].b32.s1 == MathCell::MathChar as _ {
         fetch(p + 1);
         let q = new_native_character(cur_f, cur_c);
-        let g = real_get_native_glyph(
-            &mut MEM[q as usize] as *mut memory_word as *mut libc::c_void,
-            0_u32,
-        ) as scaled_t;
+        let g = q.native_glyph(0) as scaled_t;
         get_ot_math_accent_pos(cur_f, g)
     } else if MEM[p + 1].b32.s1 == MathCell::SubMList as _ {
         match MEM[p + 1].b32.s0.opt() {
@@ -1771,7 +1766,6 @@ unsafe fn compute_ot_math_accent_pos(p: usize) -> scaled_t {
 unsafe fn make_math_accent(q: usize) {
     let mut a: i32 = 0;
     let mut c: i32 = 0;
-    let mut g: i32 = 0;
     let mut f: internal_font_number = 0;
     let mut s: scaled_t = 0;
     let mut h: scaled_t = 0;
@@ -1894,33 +1888,26 @@ unsafe fn make_math_accent(q: usize) {
         }
         let mut y = char_box(f, c);
         if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
-            let mut p = get_node(GLYPH_NODE_SIZE);
-            set_NODE_type(p, TextNode::WhatsIt);
-            set_whatsit_NODE_subtype(p, WhatsItNST::Glyph);
-            *NATIVE_NODE_font(p) = f as u16;
-            *NATIVE_NODE_glyph(p) = real_get_native_glyph(
-                &mut MEM[y.list_ptr() as usize] as *mut memory_word as *mut libc::c_void,
-                0,
-            );
-            measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1i32);
-            free_node(
-                y.list_ptr() as usize,
-                *NATIVE_NODE_size(y.list_ptr() as usize) as i32,
-            );
-            y.set_list_ptr(Some(p).tex_int());
-            if MEM[q].b16.s0 as i32 & 1 != 0 {
-                measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1);
+            let mut p = Glyph::from(get_node(GLYPH_NODE_SIZE));
+            set_NODE_type(p.ptr(), TextNode::WhatsIt);
+            set_whatsit_NODE_subtype(p.ptr(), WhatsItNST::Glyph);
+            p.set_font(f as u16);
+            let nw = NativeWord::from(y.list_ptr() as usize);
+            p.set_glyph(nw.native_glyph(0));
+            p.set_metrics(true);
+            nw.free();
+            y.set_list_ptr(Some(p.ptr()).tex_int());
+            let (p, whd) = if MEM[q].b16.s0 as i32 & 1 != 0 {
+                p.set_metrics(true);
+                (p.ptr(), (p.width(), p.height(), p.depth()))
             } else {
-                c = *NATIVE_NODE_glyph(p) as i32;
+                c = p.glyph() as i32;
                 a = 0;
                 loop {
-                    g = get_ot_math_variant(f, c, a, &mut w2, 1);
+                    let g = get_ot_math_variant(f, c, a, &mut w2, 1);
                     if w2 > 0 && w2 <= w {
-                        *NATIVE_NODE_glyph(p) = g as u16;
-                        measure_native_glyph(
-                            &mut MEM[p] as *mut memory_word as *mut libc::c_void,
-                            1,
-                        );
+                        p.set_glyph(g as u16);
+                        p.set_metrics(true);
                         a += 1
                     }
                     if w2 < 0 || w2 >= w {
@@ -1930,17 +1917,19 @@ unsafe fn make_math_accent(q: usize) {
                 if w2 < 0 {
                     ot_assembly_ptr = get_ot_assembly_ptr(f, c, 1);
                     if !ot_assembly_ptr.is_null() {
-                        free_node(p, GLYPH_NODE_SIZE);
-                        p = build_opentype_assembly(f, ot_assembly_ptr, w, true).ptr();
-                        y.set_list_ptr(Some(p).tex_int());
+                        free_node(p.ptr(), GLYPH_NODE_SIZE);
+                        let b = build_opentype_assembly(f, ot_assembly_ptr, w, true);
+                        y.set_list_ptr(Some(b.ptr()).tex_int());
+                        (b.ptr(), (b.width(), b.height(), b.depth()))
+                    } else {
+                        (p.ptr(), (p.width(), p.height(), p.depth()))
                     }
                 } else {
-                    measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1);
+                    p.set_metrics(true);
+                    (p.ptr(), (p.width(), p.height(), p.depth()))
                 }
-            }
-            y.set_width(*BOX_width(p))
-                .set_height(*BOX_height(p))
-                .set_depth(*BOX_depth(p));
+            };
+            y.set_width(whd.0).set_height(whd.1).set_depth(whd.2);
             if MEM[q].b16.s0 == AccentType::Bottom as _
                 || MEM[q].b16.s0 == AccentType::BottomFixed as _
             {
@@ -1955,7 +1944,8 @@ unsafe fn make_math_accent(q: usize) {
                 && NODE_type(p) == TextNode::WhatsIt.into()
                 && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
             {
-                sa = get_ot_math_accent_pos(f, *NATIVE_NODE_glyph(p) as i32);
+                let p = Glyph::from(p);
+                sa = get_ot_math_accent_pos(f, p.glyph() as i32);
                 if sa == TEX_INFINITY {
                     sa = half(y.width())
                 }
@@ -2167,24 +2157,25 @@ unsafe fn make_op(q: usize) -> scaled_t {
                     && NODE_type(p) == TextNode::WhatsIt.into()
                     && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
                 {
+                    let mut p = Glyph::from(p);
                     let mut ital_corr = true;
+                    let mut width = p.width();
+                    let mut depth = p.depth();
+                    let mut height = p.height();
                     if cur_style.0 == MathStyle::Display {
                         let mut h1 = 0;
                         h1 = get_ot_math_constant(cur_f, DISPLAYOPERATORMINHEIGHT);
-                        if (h1 as f64) < ((*BOX_height(p) + *BOX_depth(p)) * 5) as f64 / 4_f64 {
-                            h1 = (((*BOX_height(p) + *BOX_depth(p)) * 5) as f64 / 4_f64) as scaled_t
+                        if (h1 as f64) < ((p.height() + p.depth()) * 5) as f64 / 4_f64 {
+                            h1 = (((p.height() + p.depth()) * 5) as f64 / 4_f64) as scaled_t
                         }
-                        c = *NATIVE_NODE_glyph(p);
+                        c = p.glyph();
                         let mut n = 0;
                         let mut h2 = 0;
                         loop {
                             let g = get_ot_math_variant(cur_f, c as i32, n, &mut h2, 0);
                             if h2 > 0 {
-                                *NATIVE_NODE_glyph(p) = g as u16;
-                                measure_native_glyph(
-                                    &mut MEM[p] as *mut memory_word as *mut libc::c_void,
-                                    1,
-                                );
+                                p.set_glyph(g as u16);
+                                p.set_metrics(true);
                             }
                             n += 1;
                             if h2 < 0 || h2 >= h1 {
@@ -2194,26 +2185,26 @@ unsafe fn make_op(q: usize) -> scaled_t {
                         if h2 < 0 {
                             ot_assembly_ptr = get_ot_assembly_ptr(cur_f, c as i32, 0);
                             if !ot_assembly_ptr.is_null() {
-                                free_node(p, GLYPH_NODE_SIZE);
-                                p = build_opentype_assembly(cur_f, ot_assembly_ptr, h1, false)
-                                    .ptr();
-                                x.set_list_ptr(Some(p).tex_int());
+                                free_node(p.ptr(), GLYPH_NODE_SIZE);
+                                let b = build_opentype_assembly(cur_f, ot_assembly_ptr, h1, false);
+                                x.set_list_ptr(Some(b.ptr()).tex_int());
                                 delta = 0;
+                                width = b.width();
+                                depth = b.depth();
+                                height = b.height();
                                 ital_corr = false;
                             }
                         } else {
-                            measure_native_glyph(
-                                &mut MEM[p] as *mut memory_word as *mut libc::c_void,
-                                1i32,
-                            );
+                            p.set_metrics(true);
                         }
                     }
                     if ital_corr {
-                        delta = get_ot_math_ital_corr(cur_f, *NATIVE_NODE_glyph(p) as i32)
+                        delta = get_ot_math_ital_corr(cur_f, p.glyph() as i32);
+                        width = p.width();
+                        depth = p.depth();
+                        height = p.height();
                     }
-                    x.set_width(*BOX_width(p))
-                        .set_height(*BOX_height(p))
-                        .set_depth(*BOX_depth(p));
+                    x.set_width(width).set_height(depth).set_depth(height);
                 }
             }
         }
@@ -2470,10 +2461,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                         != 0
                 {
                     let script_c = new_native_character(cur_f, cur_c);
-                    script_g = real_get_native_glyph(
-                        &mut MEM[script_c] as *mut memory_word as *mut libc::c_void,
-                        0,
-                    );
+                    script_g = script_c.native_glyph(0);
                     script_f = cur_f;
                 } else {
                     script_g = 0;
@@ -2486,9 +2474,10 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                     && NODE_type(p) == TextNode::WhatsIt.into()
                     && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
                 {
+                    let p = Glyph::from(p);
                     sub_kern = get_ot_math_kern(
-                        *NATIVE_NODE_font(p) as usize,
-                        *NATIVE_NODE_glyph(p) as i32,
+                        p.font() as usize,
+                        p.glyph() as i32,
                         script_f,
                         script_g as i32,
                         SUB_CMD,
@@ -2550,10 +2539,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                         != 0
                 {
                     let script_c = new_native_character(cur_f, cur_c);
-                    script_g = real_get_native_glyph(
-                        &mut MEM[script_c] as *mut memory_word as *mut libc::c_void,
-                        0,
-                    );
+                    script_g = script_c.native_glyph(0);
                     script_f = cur_f
                 } else {
                     script_g = 0;
@@ -2566,9 +2552,10 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                     && NODE_type(p) == TextNode::WhatsIt.into()
                     && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
                 {
+                    let p = Glyph::from(p);
                     sup_kern = get_ot_math_kern(
-                        *NATIVE_NODE_font(p) as usize,
-                        *NATIVE_NODE_glyph(p) as i32,
+                        p.font() as usize,
+                        p.glyph() as i32,
                         script_f,
                         script_g as i32,
                         SUP_CMD,
@@ -2644,10 +2631,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                             != 0
                     {
                         let script_c = new_native_character(cur_f, cur_c);
-                        script_g = real_get_native_glyph(
-                            &mut MEM[script_c] as *mut memory_word as *mut libc::c_void,
-                            0,
-                        );
+                        script_g = script_c.native_glyph(0);
                         script_f = cur_f
                     } else {
                         script_g = 0;
@@ -2660,9 +2644,10 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                         && NODE_type(p) == TextNode::WhatsIt.into()
                         && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
                     {
+                        let p = Glyph::from(p);
                         sub_kern = get_ot_math_kern(
-                            *NATIVE_NODE_font(p) as usize,
-                            *NATIVE_NODE_glyph(p) as i32,
+                            p.font() as usize,
+                            p.glyph() as i32,
                             script_f,
                             script_g as i32,
                             SUB_CMD,
@@ -2683,10 +2668,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                             != 0
                     {
                         let script_c = new_native_character(cur_f, cur_c);
-                        script_g = real_get_native_glyph(
-                            &mut MEM[script_c] as *mut memory_word as *mut libc::c_void,
-                            0,
-                        );
+                        script_g = script_c.native_glyph(0);
                         script_f = cur_f
                     } else {
                         script_g = 0;
@@ -2699,9 +2681,10 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                         && NODE_type(p) == TextNode::WhatsIt.into()
                         && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
                     {
+                        let p = Glyph::from(p);
                         sup_kern = get_ot_math_kern(
-                            *NATIVE_NODE_font(p) as usize,
-                            *NATIVE_NODE_glyph(p) as i32,
+                            p.font() as usize,
+                            p.glyph() as i32,
                             script_f,
                             script_g as i32,
                             SUP_CMD,
@@ -2847,20 +2830,14 @@ unsafe fn mlist_to_hlist() {
                                 || FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
                             {
                                 let z = new_native_character(cur_f, cur_c);
-                                let p = get_node(GLYPH_NODE_SIZE);
-                                set_NODE_type(p, TextNode::WhatsIt);
-                                set_whatsit_NODE_subtype(p, WhatsItNST::Glyph);
-                                *NATIVE_NODE_font(p) = cur_f as u16;
-                                *NATIVE_NODE_glyph(p) = real_get_native_glyph(
-                                    &mut MEM[z] as *mut memory_word as *mut libc::c_void,
-                                    0,
-                                );
-                                measure_native_glyph(
-                                    &mut MEM[p] as *mut memory_word as *mut libc::c_void,
-                                    1,
-                                );
-                                free_node(z, *NATIVE_NODE_size(z) as i32);
-                                delta = get_ot_math_ital_corr(cur_f, *NATIVE_NODE_glyph(p) as i32);
+                                let mut p = Glyph::from(get_node(GLYPH_NODE_SIZE));
+                                set_NODE_type(p.ptr(), TextNode::WhatsIt);
+                                set_whatsit_NODE_subtype(p.ptr(), WhatsItNST::Glyph);
+                                p.set_font(cur_f as u16);
+                                p.set_glyph(z.native_glyph(0));
+                                p.set_metrics(true);
+                                z.free();
+                                delta = get_ot_math_ital_corr(cur_f, p.glyph() as i32);
                                 if MEM[q + 1].b32.s1 == MathCell::MathTextChar as _
                                     && !(FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
                                         && isOpenTypeMathFont(
@@ -2872,10 +2849,10 @@ unsafe fn mlist_to_hlist() {
                                     delta = 0;
                                 }
                                 if MEM[q + 3].b32.s1 == MathCell::Empty as _ && delta != 0 {
-                                    *LLIST_link(p) = Some(new_kern(delta)).tex_int();
+                                    *LLIST_link(p.ptr()) = Some(new_kern(delta)).tex_int();
                                     delta = 0;
                                 }
-                                Some(p)
+                                Some(p.ptr())
                             } else if cur_i.s3 as i32 > 0 {
                                 delta = FONT_INFO[(ITALIC_BASE[cur_f as usize]
                                     + cur_i.s1 as i32 / 4i32)
@@ -3370,16 +3347,15 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
         } else {
             let mut b = Box::from(new_null_box());
             set_NODE_type(b.ptr(), TextNode::VList);
-            let g = get_node(GLYPH_NODE_SIZE);
-            b.set_list_ptr(g as i32);
-            set_NODE_type(g, TextNode::WhatsIt);
-            set_whatsit_NODE_subtype(g, WhatsItNST::Glyph);
-            *NATIVE_NODE_font(g) = f as u16;
-            *NATIVE_NODE_glyph(g) = c;
-            measure_native_glyph(&mut MEM[g] as *mut memory_word as *mut libc::c_void, 1);
-            b.set_width(*BOX_width(g))
-                .set_height(*BOX_height(g))
-                .set_depth(*BOX_depth(g));
+            let mut g = Glyph::from(get_node(GLYPH_NODE_SIZE));
+            b.set_list_ptr(g.ptr() as i32);
+            set_NODE_type(g.ptr(), TextNode::WhatsIt);
+            set_whatsit_NODE_subtype(g.ptr(), WhatsItNST::Glyph);
+            g.set_font(f as u16).set_glyph(c);
+            g.set_metrics(true);
+            b.set_width(g.width())
+                .set_height(g.height())
+                .set_depth(g.depth());
             b
         }
     } else {
@@ -3393,14 +3369,14 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
 }
 unsafe fn char_box(mut f: usize, mut c: i32) -> Box {
     let mut b;
-    let p;
-    if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
+    let p = if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
         b = Box::from(new_null_box());
-        p = new_native_character(f, c);
-        b.set_list_ptr(Some(p).tex_int());
-        b.set_height(*BOX_height(p))
-            .set_width(*BOX_width(p))
-            .set_depth((*BOX_depth(p)).max(0));
+        let p = new_native_character(f, c);
+        b.set_list_ptr(Some(p.ptr()).tex_int());
+        b.set_height(p.height())
+            .set_width(p.width())
+            .set_depth((p.depth()).max(0));
+        p.ptr()
     } else {
         let q = FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c as u16)) as usize].b16;
         b = Box::from(new_null_box());
@@ -3420,10 +3396,11 @@ unsafe fn char_box(mut f: usize, mut c: i32) -> Box {
                 .b32
                 .s1,
         );
-        p = get_avail();
+        let p = get_avail();
         MEM[p].b16.s0 = c as u16;
-        MEM[p].b16.s1 = f as u16
-    }
+        MEM[p].b16.s1 = f as u16;
+        p
+    };
     b.set_list_ptr(Some(p).tex_int());
     b
 }
@@ -3443,31 +3420,30 @@ unsafe fn height_plus_depth(mut f: internal_font_number, mut c: u16) -> scaled_t
             .s1
 }
 unsafe fn stack_glyph_into_box(b: &mut Box, mut f: internal_font_number, mut g: i32) {
-    let p = get_node(GLYPH_NODE_SIZE);
-    set_NODE_type(p, TextNode::WhatsIt);
-    set_whatsit_NODE_subtype(p, WhatsItNST::Glyph);
-    MEM[p + 4].b16.s2 = f as u16;
-    MEM[p + 4].b16.s1 = g as u16;
-    measure_native_glyph(&mut MEM[p] as *mut memory_word as *mut libc::c_void, 1);
+    let mut p = Glyph::from(get_node(GLYPH_NODE_SIZE));
+    set_NODE_type(p.ptr(), TextNode::WhatsIt);
+    set_whatsit_NODE_subtype(p.ptr(), WhatsItNST::Glyph);
+    p.set_font(f as u16).set_glyph(g as u16);
+    p.set_metrics(true);
     if NODE_type(b.ptr()) == TextNode::HList.into() {
         if let Some(mut q) = b.list_ptr().opt() {
             while let Some(next) = llist_link(q) {
                 q = next;
             }
-            *LLIST_link(q) = Some(p).tex_int();
+            *LLIST_link(q) = Some(p.ptr()).tex_int();
             let h = b.height();
-            b.set_height(h.max(*BOX_height(p)));
+            b.set_height(h.max(p.height()));
             let d = b.depth();
-            b.set_depth(d.max(*BOX_depth(p)));
+            b.set_depth(d.max(p.depth()));
         } else {
-            b.set_list_ptr(Some(p).tex_int());
+            b.set_list_ptr(Some(p.ptr()).tex_int());
         }
     } else {
-        *LLIST_link(p) = b.list_ptr();
-        b.set_list_ptr(Some(p).tex_int());
-        b.set_height(*BOX_height(p));
+        *LLIST_link(p.ptr()) = b.list_ptr();
+        b.set_list_ptr(Some(p.ptr()).tex_int());
+        b.set_height(p.height());
         let w = b.width();
-        b.set_width(w.max(*BOX_width(p)));
+        b.set_width(w.max(p.width()));
     };
 }
 unsafe fn stack_glue_into_box(b: &mut Box, mut min: scaled_t, mut max: scaled_t) {

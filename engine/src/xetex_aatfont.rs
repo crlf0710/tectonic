@@ -22,7 +22,7 @@ use std::cell::RefCell;
 use std::ptr;
 
 use crate::core_memory::{xcalloc, xmalloc};
-use crate::xetex_consts::ExtCmd;
+use crate::xetex_consts::{ExtCmd, NativeWord};
 use crate::xetex_ext::{print_chars, readCommonFeatures, read_double, D2Fix, Fix2D};
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
@@ -115,7 +115,7 @@ pub(crate) unsafe fn font_from_integer(mut font: usize) -> CTFontRef {
     return font_from_attributes(attributes);
 }
 
-pub(crate) unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::c_int) {
+pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     let mut glyphRuns: CFArrayRef = ptr::null_mut();
     let mut i: CFIndex = 0;
     let mut j: CFIndex = 0;
@@ -133,22 +133,22 @@ pub(crate) unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::
     let mut attrString: CFAttributedStringRef = ptr::null_mut();
     let mut typesetter: CTTypesetterRef = 0 as CTTypesetterRef;
     let mut line: CTLineRef = ptr::null_mut();
-    let mut node: *mut memory_word = p as *mut memory_word;
-    let mut f: libc::c_uint = (*node.offset(4)).b16.s2 as libc::c_uint;
+    let mut f: libc::c_uint = node.font() as libc::c_uint;
     if FONT_AREA[f as usize] as libc::c_uint != 0xffffu32 {
         panic!("do_aat_layout called for non-AAT font");
     }
-    txtLen = (*node.offset(4)).b16.s1 as CFIndex;
-    txtPtr = node.offset(6) as *mut UniChar;
-    attributes = FONT_LAYOUT_ENGINE[(*node.offset(4)).b16.s2 as usize] as CFDictionaryRef;
+    let txt = node.text();
+    txtLen = txt.len() as CFIndex;
+    txtPtr = txt.as_ptr() as *const UniChar;
+    attributes = FONT_LAYOUT_ENGINE[node.font() as usize] as CFDictionaryRef;
     string = CFStringCreateWithCharactersNoCopy(ptr::null(), txtPtr, txtLen, kCFAllocatorNull);
     attrString = CFAttributedStringCreate(ptr::null(), string, attributes);
     CFRelease(string as CFTypeRef);
     typesetter = CTTypesetterCreateWithAttributedString(attrString);
     CFRelease(attrString as CFTypeRef);
     line = CTTypesetterCreateLine(typesetter, CFRangeMake(0i32 as CFIndex, txtLen));
-    if justify != 0 {
-        let mut lineWidth: CGFloat = TeXtoPSPoints(Fix2D((*node.offset(1)).b32.s1));
+    if justify {
+        let mut lineWidth: CGFloat = TeXtoPSPoints(Fix2D(node.width()));
         let mut justifiedLine: CTLineRef = CTLineCreateJustifiedLine(
             line,
             TeXtoPSPoints(Fix2D(0x40000000i64 as Fract)),
@@ -247,11 +247,10 @@ pub(crate) unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::
             i += 1
         }
     }
-    (*node.offset(4)).b16.s0 = totalGlyphCount as uint16_t;
-    let ref mut fresh0 = (*node.offset(5)).ptr;
-    *fresh0 = glyph_info;
-    if justify == 0 {
-        (*node.offset(1)).b32.s1 = width as int32_t;
+    node.set_glyph_count(totalGlyphCount as uint16_t);
+    node.set_glyph_info_ptr(glyph_info);
+    if !justify {
+        node.set_width(width as int32_t);
         if totalGlyphCount > 0 {
             /* this is essentially a copy from similar code in XeTeX_ext.c, easier
              * to be done here */
@@ -270,8 +269,8 @@ pub(crate) unsafe fn do_aat_layout(mut p: *mut libc::c_void, mut justify: libc::
                 }
                 if lsDelta != 0i32 {
                     lsDelta -= lsUnit;
-                    let ref mut fresh2 = (*node.offset(1)).b32.s1;
-                    *fresh2 += lsDelta
+                    let w = node.width();
+                    node.set_width(w + lsDelta);
                 }
             }
         }

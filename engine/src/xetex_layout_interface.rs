@@ -1273,7 +1273,7 @@ unsafe extern "C" fn _get_unicode_funcs() -> *mut hb_unicode_funcs_t {
 static mut hbUnicodeFuncs: *mut hb_unicode_funcs_t = ptr::null_mut();
 pub(crate) unsafe fn layoutChars(
     mut engine: XeTeXLayoutEngine,
-    mut chars: *mut uint16_t,
+    mut chars: *const uint16_t,
     mut offset: int32_t,
     mut count: int32_t,
     mut max: int32_t,
@@ -1306,7 +1306,7 @@ pub(crate) unsafe fn layoutChars(
     hb_buffer_set_unicode_funcs((*engine).hbBuffer, hbUnicodeFuncs);
     hb_buffer_add_utf16(
         (*engine).hbBuffer,
-        chars as *const uint16_t,
+        chars,
         max,
         offset as libc::c_uint,
         count,

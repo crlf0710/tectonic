@@ -1,3 +1,4 @@
+use crate::xetex_xetex0::free_node;
 use std::ops::{Deref, DerefMut};
 
 use crate::xetex_consts::{GlueOrder, GlueSign};
@@ -74,29 +75,308 @@ impl From<u16> for TextNode {
     }
 }
 
-#[repr(u16)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
-pub(crate) enum WhatsItNST {
-    Open = 0,
-    Write = 1,
-    Close = 2,
-    Special = 3,
-    Language = 4,
-    PdfSavePos = 6,
-    NativeWord = 40,
-    NativeWordAt = 41,
-    Glyph = 42,
-    Pic = 43,
-    Pdf = 44,
-}
+pub(crate) use whatsit::*;
+pub(crate) mod whatsit {
+    use super::{free_node, BaseBox, Deref, DerefMut, MEM};
 
-impl From<u16> for WhatsItNST {
-    fn from(n: u16) -> Self {
-        Self::n(n).expect(&format!("Incorrect WhatsItNST = {}", n))
+    #[repr(u16)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
+    pub(crate) enum WhatsItNST {
+        Open = 0,
+        Write = 1,
+        Close = 2,
+        Special = 3,
+        Language = 4,
+        PdfSavePos = 6,
+        NativeWord = 40,
+        NativeWordAt = 41,
+        Glyph = 42,
+        Pic = 43,
+        Pdf = 44,
+    }
+
+    impl From<u16> for WhatsItNST {
+        fn from(n: u16) -> Self {
+            Self::n(n).expect(&format!("Incorrect WhatsItNST = {}", n))
+        }
+    }
+
+    pub(crate) struct OpenFile(pub usize);
+    impl OpenFile {
+        pub(crate) const fn ptr(&self) -> usize {
+            self.0
+        }
+        pub(crate) unsafe fn id(&self) -> i32 {
+            MEM[self.ptr() + 1].b32.s0
+        }
+        pub(crate) unsafe fn set_id(&mut self, v: i32) -> &mut Self {
+            MEM[self.ptr() + 1].b32.s0 = v;
+            self
+        }
+        pub(crate) unsafe fn name(&self) -> i32 {
+            MEM[self.ptr() + 1].b32.s1
+        }
+        pub(crate) unsafe fn set_name(&mut self, v: i32) -> &mut Self {
+            MEM[self.ptr() + 1].b32.s1 = v;
+            self
+        }
+        pub(crate) unsafe fn area(&self) -> i32 {
+            MEM[self.ptr() + 2].b32.s0
+        }
+        pub(crate) unsafe fn set_area(&mut self, v: i32) -> &mut Self {
+            MEM[self.ptr() + 2].b32.s0 = v;
+            self
+        }
+        pub(crate) unsafe fn ext(&self) -> i32 {
+            MEM[self.ptr() + 2].b32.s1
+        }
+        pub(crate) unsafe fn set_ext(&mut self, v: i32) -> &mut Self {
+            MEM[self.ptr() + 2].b32.s1 = v;
+            self
+        }
+        pub(crate) unsafe fn free(self) {
+            free_node(self.ptr(), super::OPEN_NODE_SIZE);
+        }
+    }
+
+    pub(crate) struct WriteFile(pub usize);
+    impl WriteFile {
+        pub(crate) const fn ptr(&self) -> usize {
+            self.0
+        }
+        pub(crate) unsafe fn id(&self) -> i32 {
+            MEM[self.ptr() + 1].b32.s0
+        }
+        pub(crate) unsafe fn set_id(&mut self, v: i32) -> &mut Self {
+            MEM[self.ptr() + 1].b32.s0 = v;
+            self
+        }
+        /// "reference count of token list to write"
+        pub(crate) unsafe fn tokens(&self) -> i32 {
+            MEM[self.ptr() + 1].b32.s1
+        }
+        pub(crate) unsafe fn set_tokens(&mut self, v: i32) -> &mut Self {
+            MEM[self.ptr() + 1].b32.s1 = v;
+            self
+        }
+        pub(crate) unsafe fn free(self) {
+            free_node(self.ptr(), super::WRITE_NODE_SIZE);
+        }
+    }
+
+    pub(crate) struct CloseFile(pub usize);
+    impl CloseFile {
+        pub(crate) const fn ptr(&self) -> usize {
+            self.0
+        }
+        pub(crate) unsafe fn id(&self) -> i32 {
+            MEM[self.ptr() + 1].b32.s0
+        }
+        pub(crate) unsafe fn set_id(&mut self, v: i32) -> &mut Self {
+            MEM[self.ptr() + 1].b32.s0 = v;
+            self
+        }
+        pub(crate) unsafe fn free(self) {
+            free_node(self.ptr(), super::SMALL_NODE_SIZE);
+        }
+    }
+
+    pub(crate) struct Language(pub usize);
+    impl Language {
+        pub(crate) const fn ptr(&self) -> usize {
+            self.0
+        }
+        /// language number, 0..255
+        pub(crate) unsafe fn lang(&self) -> i32 {
+            MEM[self.ptr() + 1].b32.s1
+        }
+        pub(crate) unsafe fn set_lang(&mut self, v: i32) -> &mut Self {
+            MEM[self.ptr() + 1].b32.s1 = v;
+            self
+        }
+        /// "minimum left fragment, range 1..63"
+        pub(crate) unsafe fn lhm(&self) -> u16 {
+            MEM[self.ptr() + 1].b16.s1
+        }
+        pub(crate) unsafe fn set_lhm(&mut self, v: u16) -> &mut Self {
+            MEM[self.ptr() + 1].b16.s1 = v;
+            self
+        }
+        /// "minimum right fragment, range 1..63"
+        pub(crate) unsafe fn rhm(&self) -> u16 {
+            MEM[self.ptr() + 1].b16.s0
+        }
+        pub(crate) unsafe fn set_rhm(&mut self, v: u16) -> &mut Self {
+            MEM[self.ptr() + 1].b16.s0 = v;
+            self
+        }
+        pub(crate) unsafe fn free(self) {
+            free_node(self.ptr(), super::SMALL_NODE_SIZE);
+        }
+    }
+
+    pub(crate) struct Special(pub usize);
+    impl Special {
+        pub(crate) const fn ptr(&self) -> usize {
+            self.0
+        }
+        pub(crate) unsafe fn tokens(&self) -> i32 {
+            MEM[self.ptr() + 1].b32.s1
+        }
+        pub(crate) unsafe fn set_tokens(&mut self, v: i32) -> &mut Self {
+            MEM[self.ptr() + 1].b32.s1 = v;
+            self
+        }
+        pub(crate) unsafe fn free(self) {
+            free_node(self.ptr(), super::WRITE_NODE_SIZE);
+        }
+    }
+
+    pub(crate) struct NativeWord(BaseBox);
+    impl Deref for NativeWord {
+        type Target = BaseBox;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+    impl DerefMut for NativeWord {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.0
+        }
+    }
+    impl NativeWord {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseBox(p))
+        }
+        pub(crate) unsafe fn size(&self) -> u16 {
+            MEM[self.ptr() + 4].b16.s3
+        }
+        pub(crate) unsafe fn set_size(&mut self, v: u16) -> &mut Self {
+            MEM[self.ptr() + 4].b16.s3 = v;
+            self
+        }
+        pub(crate) unsafe fn font(&self) -> u16 {
+            MEM[self.ptr() + 4].b16.s2
+        }
+        pub(crate) unsafe fn set_font(&mut self, v: u16) -> &mut Self {
+            MEM[self.ptr() + 4].b16.s2 = v;
+            self
+        }
+        /// number of UTF16 items in the text
+        pub(crate) unsafe fn length(&self) -> u16 {
+            MEM[self.ptr() + 4].b16.s1
+        }
+        pub(crate) unsafe fn set_length(&mut self, v: u16) -> &mut Self {
+            MEM[self.ptr() + 4].b16.s1 = v;
+            self
+        }
+        pub(crate) unsafe fn glyph_count(&self) -> u16 {
+            MEM[self.ptr() + 4].b16.s0
+        }
+        pub(crate) unsafe fn set_glyph_count(&mut self, v: u16) -> &mut Self {
+            MEM[self.ptr() + 4].b16.s0 = v;
+            self
+        }
+        pub(crate) unsafe fn glyph_info_ptr(&self) -> *mut core::ffi::c_void {
+            MEM[self.ptr() + 5].ptr
+        }
+        pub(crate) unsafe fn set_glyph_info_ptr(&mut self, p: *mut core::ffi::c_void) {
+            MEM[self.ptr() + 5].ptr = p;
+        }
+        pub(crate) unsafe fn text(&self) -> &[u16] {
+            let len = self.length() as usize;
+            let pp = &MEM[self.ptr() + super::NATIVE_NODE_SIZE as usize].b16.s0 as *const u16;
+            std::slice::from_raw_parts(pp, len)
+        }
+        pub(crate) unsafe fn text_mut(&mut self) -> &mut [u16] {
+            let len = self.length() as usize;
+            let pp = &mut MEM[self.ptr() + super::NATIVE_NODE_SIZE as usize].b16.s0 as *mut u16;
+            std::slice::from_raw_parts_mut(pp, len)
+        }
+        pub(crate) unsafe fn set_metrics(&mut self, use_glyph_metrics: bool) {
+            crate::xetex_ext::measure_native_node(self, use_glyph_metrics)
+        }
+        pub(crate) unsafe fn set_justified_native_glyphs(&mut self) {
+            crate::xetex_ext::store_justified_native_glyphs(self)
+        }
+        pub(crate) unsafe fn italic_correction(&self) -> i32 {
+            crate::xetex_ext::real_get_native_italic_correction(self)
+        }
+        pub(crate) unsafe fn make_xdv_glyph_array_data(&self) -> i32 {
+            crate::xetex_ext::makeXDVGlyphArrayData(self)
+        }
+        pub(crate) unsafe fn native_glyph(&self, index: u32) -> u16 {
+            crate::xetex_ext::real_get_native_glyph(self, index)
+        }
+        pub(crate) unsafe fn native_word_cp(&self, side: crate::xetex_consts::Side) -> i32 {
+            crate::xetex_ext::real_get_native_word_cp(self, side)
+        }
+        pub(crate) unsafe fn free(self) {
+            free_node(self.ptr(), self.size() as i32);
+        }
+    }
+
+    pub(crate) struct Glyph(BaseBox);
+    impl Deref for Glyph {
+        type Target = BaseBox;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+    impl DerefMut for Glyph {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.0
+        }
+    }
+    impl Glyph {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseBox(p))
+        }
+        pub(crate) unsafe fn font(&self) -> u16 {
+            MEM[self.ptr() + 4].b16.s2
+        }
+        pub(crate) unsafe fn set_font(&mut self, v: u16) -> &mut Self {
+            MEM[self.ptr() + 4].b16.s2 = v;
+            self
+        }
+        pub(crate) unsafe fn glyph(&self) -> u16 {
+            MEM[self.ptr() + 4].b16.s1
+        }
+        pub(crate) unsafe fn set_glyph(&mut self, v: u16) -> &mut Self {
+            MEM[self.ptr() + 4].b16.s1 = v;
+            self
+        }
+        pub(crate) unsafe fn set_metrics(&mut self, use_glyph_metrics: bool) {
+            crate::xetex_ext::measure_native_glyph(self, use_glyph_metrics)
+        }
+        pub(crate) unsafe fn italic_correction(&self) -> i32 {
+            crate::xetex_ext::real_get_native_glyph_italic_correction(self)
+        }
+    }
+
+    pub(crate) struct Picture(BaseBox);
+    impl Deref for Picture {
+        type Target = BaseBox;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+    impl DerefMut for Picture {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.0
+        }
+    }
+    impl Picture {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseBox(p))
+        }
     }
 }
 
 pub(crate) struct Insertion(pub usize);
+impl NodeSize for Insertion {
+    const SIZE: i32 = INS_NODE_SIZE;
+}
 impl Insertion {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
@@ -146,9 +426,15 @@ impl Insertion {
         MEM[self.ptr() + 4].b32.s1 = v;
         self
     }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
 }
 
 pub(crate) struct Choice(pub usize);
+impl NodeSize for Choice {
+    const SIZE: i32 = STYLE_NODE_SIZE;
+}
 impl Choice {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
@@ -176,6 +462,9 @@ impl Choice {
     }
     pub(crate) unsafe fn set_scriptscript(&mut self, v: Option<usize>) {
         MEM[self.ptr() + 2].b32.s1 = v.tex_int();
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
     }
 }
 
@@ -223,6 +512,9 @@ impl DerefMut for Box {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
+}
+impl NodeSize for Box {
+    const SIZE: i32 = BOX_NODE_SIZE;
 }
 impl Box {
     pub(crate) const fn from(p: usize) -> Self {
@@ -272,6 +564,9 @@ impl Box {
         MEM[self.ptr() + 6].gr = v;
         self
     }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
 }
 
 pub(crate) struct Unset(BaseBox);
@@ -285,6 +580,9 @@ impl DerefMut for Unset {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
+}
+impl NodeSize for Unset {
+    const SIZE: i32 = BOX_NODE_SIZE;
 }
 impl Unset {
     pub(crate) const fn from(p: usize) -> Self {
@@ -334,6 +632,9 @@ impl Unset {
         MEM[self.ptr() + 5].b32.s1 = v;
         self
     }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
 }
 
 pub(crate) struct Rule(BaseBox);
@@ -348,13 +649,22 @@ impl DerefMut for Rule {
         &mut self.0
     }
 }
+impl NodeSize for Rule {
+    const SIZE: i32 = RULE_NODE_SIZE;
+}
 impl Rule {
     pub(crate) const fn from(p: usize) -> Self {
         Self(BaseBox(p))
     }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
 }
 
 pub(crate) struct Delta(pub usize);
+impl NodeSize for Delta {
+    const SIZE: i32 = DELTA_NODE_SIZE;
+}
 impl Delta {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
@@ -410,6 +720,9 @@ impl Delta {
 }
 
 pub(crate) struct GlueSpec(pub usize);
+impl NodeSize for GlueSpec {
+    const SIZE: i32 = GLUE_SPEC_SIZE;
+}
 impl GlueSpec {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
@@ -600,3 +913,7 @@ pub(crate) const FRACTION_NOAD_SIZE: i32 = 6;
  * definitions below.
  */
 pub(crate) const SYNCTEX_FIELD_SIZE: i32 = 1;
+
+pub(crate) trait NodeSize {
+    const SIZE: i32;
+}
