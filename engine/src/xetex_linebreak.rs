@@ -11,7 +11,6 @@
 use crate::help;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
-use crate::xetex_ext::measure_native_node;
 use crate::xetex_ini::{
     active_width, adjust_tail, arith_error, avail, cur_l, cur_lang, cur_list, cur_q, cur_r,
     file_line_error_style_p, first_p, font_in_short_display, global_prev_p, hc, hf, hi_mem_min, hu,
@@ -40,11 +39,10 @@ use crate::xetex_xetexd::{
     ACTIVE_NODE_shortfall, ACTIVE_NODE_total_demerits, BOX_depth, BOX_height, BOX_width,
     CHAR_NODE_character, CHAR_NODE_font, DISCRETIONARY_NODE_post_break,
     DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr,
-    GLUE_NODE_leader_ptr, LANGUAGE_NODE_what_lang, LANGUAGE_NODE_what_lhm, LANGUAGE_NODE_what_rhm,
-    LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link,
-    NATIVE_NODE_font, NATIVE_NODE_length, NATIVE_NODE_text, NODE_type, PASSIVE_NODE_cur_break,
-    PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty, TeXInt, TeXOpt,
-    FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
+    GLUE_NODE_leader_ptr, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
+    LLIST_info, LLIST_link, NODE_type, PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break,
+    PASSIVE_NODE_prev_break, PENALTY_NODE_penalty, TeXInt, TeXOpt, FONT_CHARACTER_INFO,
+    FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -346,13 +344,14 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 }
                 TextNode::WhatsIt => match whatsit_NODE_subtype(cp) {
                     WhatsItNST::Language => {
-                        cur_lang = *LANGUAGE_NODE_what_lang(cp) as u8;
-                        l_hyf = *LANGUAGE_NODE_what_lhm(cp) as i32;
-                        r_hyf = *LANGUAGE_NODE_what_rhm(cp) as i32;
+                        let l = Language(cp);
+                        cur_lang = l.lang() as u8;
+                        l_hyf = l.lhm() as i32;
+                        r_hyf = l.rhm() as i32;
                         if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32
                             != cur_lang as i32
                         {
-                            hyph_index = 0i32
+                            hyph_index = 0
                         } else {
                             hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
                         }
@@ -709,12 +708,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         }
                         match whatsit_NODE_subtype(s) {
                             WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
+                                let s = NativeWord::from(s);
                                 let mut l = 0;
-                                while l < *NATIVE_NODE_length(s) as i32 {
-                                    c = get_native_usv(s, l as usize);
+                                while l < s.text().len() as i32 {
+                                    c = get_native_usv(s.ptr(), l as usize);
                                     if *LC_CODE(c as usize) != 0 {
-                                        hf = *NATIVE_NODE_font(s) as usize;
-                                        prev_s = s;
+                                        hf = s.font() as usize;
+                                        prev_s = s.ptr();
                                         break 's_786;
                                     } else {
                                         if c as i64 >= 65536 {
@@ -725,9 +725,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 }
                             }
                             WhatsItNST::Language => {
-                                cur_lang = *LANGUAGE_NODE_what_lang(s) as u8;
-                                l_hyf = *LANGUAGE_NODE_what_lhm(s) as i32;
-                                r_hyf = *LANGUAGE_NODE_what_rhm(s) as i32;
+                                let l = Language(s);
+                                cur_lang = l.lang() as u8;
+                                l_hyf = l.lhm() as i32;
+                                r_hyf = l.rhm() as i32;
 
                                 hyph_index = if *trie_trc
                                     .offset((hyph_start + cur_lang as i32) as isize)
@@ -785,6 +786,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     && (whatsit_NODE_subtype(ha) == WhatsItNST::NativeWord
                         || whatsit_NODE_subtype(ha) == WhatsItNST::NativeWordAt)
                 {
+                    let mut ha_nw = NativeWord::from(ha);
                     /*926: check that nodes after native_word permit hyphenation; if not, goto done1 */
                     s = llist_link(ha).unwrap();
 
@@ -822,7 +824,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
                     'restart: loop {
                         // 'ha' can change in the loop, so for safety:
-                        let for_end_1 = *NATIVE_NODE_length(ha) as i32;
+                        let for_end_1 = ha_nw.text().len() as i32;
 
                         let mut l = 0;
                         loop {
@@ -839,42 +841,31 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             };
                             if hc[0] == 0 {
                                 if hn > 0 {
-                                    let ha_text = NATIVE_NODE_text(ha);
-                                    let q = new_native_word_node(hf, ha_text.len() as i32 - l);
-                                    set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha));
-                                    NATIVE_NODE_text(q).copy_from_slice(&ha_text[l as usize..]);
+                                    let ha_text = ha_nw.text();
+                                    let mut q = new_native_word_node(hf, ha_text.len() as i32 - l);
+                                    set_whatsit_NODE_subtype(q.ptr(), whatsit_NODE_subtype(ha));
+                                    q.text_mut().copy_from_slice(&ha_text[l as usize..]);
 
-                                    measure_native_node(
-                                        &mut MEM[q] as *mut memory_word as *mut libc::c_void,
-                                        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
-                                    );
-                                    *LLIST_link(q) = *LLIST_link(ha);
-                                    *LLIST_link(ha) = Some(q).tex_int();
-                                    *NATIVE_NODE_length(ha) = l as u16;
-                                    measure_native_node(
-                                        &mut MEM[ha] as *mut memory_word as *mut libc::c_void,
-                                        (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
-                                    );
+                                    q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                                    *LLIST_link(q.ptr()) = *LLIST_link(ha);
+                                    *LLIST_link(ha) = Some(q.ptr()).tex_int();
+                                    ha_nw.set_length(l as u16);
+                                    ha_nw.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
                                     break 'restart;
                                 }
                             } else if hn == 0 && l > 0 {
-                                let ha_text = NATIVE_NODE_text(ha);
-                                let q = new_native_word_node(hf, ha_text.len() as i32 - l);
-                                set_whatsit_NODE_subtype(q as usize, whatsit_NODE_subtype(ha));
-                                NATIVE_NODE_text(q).copy_from_slice(&ha_text[l as usize..]);
+                                let ha_text = ha_nw.text();
+                                let mut q = new_native_word_node(hf, ha_text.len() as i32 - l);
+                                set_whatsit_NODE_subtype(q.ptr(), whatsit_NODE_subtype(ha));
+                                q.text_mut().copy_from_slice(&ha_text[l as usize..]);
 
-                                measure_native_node(
-                                    &mut MEM[q] as *mut memory_word as *mut libc::c_void,
-                                    (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
-                                );
-                                *LLIST_link(q) = *LLIST_link(ha);
-                                *LLIST_link(ha) = Some(q).tex_int();
-                                *NATIVE_NODE_length(ha) = l as u16;
-                                measure_native_node(
-                                    &mut MEM[ha] as *mut memory_word as *mut libc::c_void,
-                                    (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
-                                );
+                                q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                                *LLIST_link(q.ptr()) = *LLIST_link(ha);
+                                *LLIST_link(ha) = Some(q.ptr()).tex_int();
+                                ha_nw.set_length(l as u16);
+                                ha_nw.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
                                 ha = *LLIST_link(ha) as usize;
+                                ha_nw = NativeWord::from(ha);
                                 break;
                             } else {
                                 if hn as usize == max_hyphenatable_length() {
@@ -2186,6 +2177,7 @@ unsafe fn hyphenate() {
         && (whatsit_NODE_subtype(ha) == WhatsItNST::NativeWord
             || whatsit_NODE_subtype(ha) == WhatsItNST::NativeWordAt)
     {
+        let ha_nw = NativeWord::from(ha);
         let mut s = cur_p.unwrap();
         while llist_link(s) != Some(ha) {
             s = *LLIST_link(s) as usize;
@@ -2193,37 +2185,33 @@ unsafe fn hyphenate() {
         hyphen_passed = 0;
         for j in l_hyf..=(hn as i32 - r_hyf) {
             if hyf[j as usize] as i32 & 1i32 != 0 {
-                let q = new_native_word_node(hf, j as i32 - hyphen_passed as i32);
-                set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha));
+                let mut q = new_native_word_node(hf, j as i32 - hyphen_passed as i32);
+                set_whatsit_NODE_subtype(q.ptr(), whatsit_NODE_subtype(ha));
 
-                let ha_text = NATIVE_NODE_text(ha);
-                NATIVE_NODE_text(q).copy_from_slice(&ha_text[hyphen_passed as usize..j as usize]);
+                let ha_text = ha_nw.text();
+                q.text_mut()
+                    .copy_from_slice(&ha_text[hyphen_passed as usize..j as usize]);
 
-                measure_native_node(
-                    &mut MEM[q] as *mut memory_word as *mut libc::c_void,
-                    (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
-                );
-                *LLIST_link(s) = q as i32;
-                s = q;
+                q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                *LLIST_link(s) = Some(q.ptr()).tex_int();
+                s = q.ptr();
                 let q = new_disc();
-                *DISCRETIONARY_NODE_pre_break(q) = new_native_character(hf, hyf_char) as i32;
+                *DISCRETIONARY_NODE_pre_break(q) = new_native_character(hf, hyf_char).ptr() as i32;
                 *LLIST_link(s) = Some(q).tex_int();
                 s = q;
                 hyphen_passed = j as i16;
             }
         }
-        let ha_text = NATIVE_NODE_text(ha);
+        let ha_text = ha_nw.text();
         hn = ha_text.len() as i16;
-        let q = new_native_word_node(hf, hn as i32 - hyphen_passed as i32);
-        set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(ha));
-        NATIVE_NODE_text(q).copy_from_slice(&ha_text[(hyphen_passed as usize)..]);
+        let mut q = new_native_word_node(hf, hn as i32 - hyphen_passed as i32);
+        set_whatsit_NODE_subtype(q.ptr(), whatsit_NODE_subtype(ha));
+        q.text_mut()
+            .copy_from_slice(&ha_text[(hyphen_passed as usize)..]);
 
-        measure_native_node(
-            &mut MEM[q] as *mut memory_word as *mut libc::c_void,
-            (*INTPAR(IntPar::xetex_use_glyph_metrics) > 0) as i32,
-        );
-        *LLIST_link(s) = Some(q).tex_int();
-        s = q;
+        q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+        *LLIST_link(s) = Some(q.ptr()).tex_int();
+        s = q.ptr();
         let q = *LLIST_link(ha);
         *LLIST_link(s) = q;
         *LLIST_link(ha) = None.tex_int();

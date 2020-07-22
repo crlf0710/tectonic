@@ -5,10 +5,8 @@ use std::io::Write;
 use crate::help;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow};
-use crate::xetex_ext::{
-    apply_tfm_font_mapping, makeXDVGlyphArrayData, make_font_def, store_justified_native_glyphs,
-    AAT_FONT_FLAG, OTGR_FONT_FLAG,
-};
+use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, AAT_FONT_FLAG, OTGR_FONT_FLAG};
+use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
     avail, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_tok, cur_v, cur_v_offset, dead_cycles, def_ref,
@@ -20,7 +18,6 @@ use crate::xetex_ini::{
     LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
     FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
 };
-use crate::xetex_ini::{memory_word, Selector};
 use crate::xetex_output::{
     print, print_char, print_cstr, print_file_line, print_file_name, print_int, print_ln,
     print_nl_cstr, print_raw_char, print_scaled,
@@ -43,12 +40,10 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     is_char_node, kern_NODE_subtype, kern_NODE_width, llist_link, print_c_string, set_NODE_type,
     set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height,
-    BOX_width, CHAR_NODE_character, CHAR_NODE_font, EDGE_NODE_edge_dist, FILE_NODE_id,
-    GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_NODE_param, LIGATURE_NODE_lig_char,
-    LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font,
-    NATIVE_NODE_glyph, NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length, NATIVE_NODE_text, NODE_type,
-    OPEN_NODE_area, OPEN_NODE_ext, OPEN_NODE_name, PIC_NODE_page, PIC_NODE_pagebox, PIC_NODE_path,
-    PIC_NODE_transform_matrix, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    BOX_width, CHAR_NODE_character, CHAR_NODE_font, EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr,
+    GLUE_NODE_leader_ptr, GLUE_NODE_param, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
+    LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NODE_type, PIC_NODE_page, PIC_NODE_pagebox,
+    PIC_NODE_path, PIC_NODE_transform_matrix, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -343,11 +338,12 @@ unsafe fn hlist_out(this_box: &mut Box) {
                     && NODE_type(p) != TextNode::WhatsIt.into()
                     && (whatsit_NODE_subtype(p) == WhatsItNST::NativeWord
                         || whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt)
-                    && FONT_LETTER_SPACE[*NATIVE_NODE_font(p) as usize] == 0
+                    && FONT_LETTER_SPACE[NativeWord::from(p).font() as usize] == 0
                 {
                     /* "got a word in an AAT font, might be the start of a run" */
                     let r = p;
-                    let mut k = *NATIVE_NODE_length(r) as i32;
+                    let r_nw = NativeWord::from(r);
+                    let mut k = r_nw.text().len() as i32;
                     let mut qopt = llist_link(p);
                     loop {
                         /*641: "Advance `q` past ignorable nodes." This test is
@@ -373,9 +369,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                         }
                         if let Some(q) = qopt.filter(|&q| !is_char_node(Some(q))) {
                             if NODE_type(q) == TextNode::Glue.into() && *GLUE_NODE_param(q) == 0 {
-                                if *GLUE_NODE_glue_ptr(q)
-                                    == FONT_GLUE[*NATIVE_NODE_font(r) as usize]
-                                {
+                                if *GLUE_NODE_glue_ptr(q) == FONT_GLUE[r_nw.font() as usize] {
                                     /* "Found a normal space; if the next node is
                                      * another word in the same font, we'll
                                      * merge." */
@@ -406,11 +400,10 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                             && (whatsit_NODE_subtype(q) == WhatsItNST::NativeWord
                                                 || whatsit_NODE_subtype(q)
                                                     == WhatsItNST::NativeWordAt)
-                                            && *NATIVE_NODE_font(q) as i32
-                                                == *NATIVE_NODE_font(r) as i32
+                                            && NativeWord::from(q).font() == r_nw.font()
                                     }) {
                                         p = q;
-                                        k += 1 + *NATIVE_NODE_length(q) as i32;
+                                        k += 1 + NativeWord::from(q).text().len() as i32;
                                         qopt = llist_link(q);
                                         continue;
                                     }
@@ -447,10 +440,10 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                             && (whatsit_NODE_subtype(q) == WhatsItNST::NativeWord
                                                 || whatsit_NODE_subtype(q)
                                                     == WhatsItNST::NativeWordAt)
-                                            && *NATIVE_NODE_font(q) == *NATIVE_NODE_font(r)
+                                            && NativeWord::from(q).font() == r_nw.font()
                                     }) {
                                         p = q;
-                                        k += (1 + *NATIVE_NODE_length(q)) as i32;
+                                        k += (1 + NativeWord::from(q).text().len()) as i32;
                                         qopt = llist_link(q);
                                     } else {
                                         break;
@@ -464,7 +457,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                         && NODE_type(q) == TextNode::WhatsIt.into()
                                         && (whatsit_NODE_subtype(q) == WhatsItNST::NativeWord
                                             || whatsit_NODE_subtype(q) == WhatsItNST::NativeWordAt)
-                                        && *NATIVE_NODE_font(q) == *NATIVE_NODE_font(r)
+                                        && NativeWord::from(q).font() == r_nw.font()
                                 }) {
                                     p = q;
                                     qopt = llist_link(q);
@@ -488,11 +481,12 @@ unsafe fn hlist_out(this_box: &mut Box) {
                             if NODE_type(q) == TextNode::WhatsIt.into() {
                                 match whatsit_NODE_subtype(q) {
                                     WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                                        for j in NATIVE_NODE_text(q) {
+                                        let q = NativeWord::from(q);
+                                        for j in q.text() {
                                             str_pool[pool_ptr as usize] = *j;
                                             pool_ptr += 1;
                                         }
-                                        k += *BOX_width(q);
+                                        k += q.width();
                                     }
                                     _ => {}
                                 }
@@ -518,22 +512,19 @@ unsafe fn hlist_out(this_box: &mut Box) {
                             }
                             q = *LLIST_link(q) as usize;
                         }
-                        let mut q = new_native_word_node(
-                            *NATIVE_NODE_font(r) as internal_font_number,
-                            cur_length(),
-                        );
-                        set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(r));
+                        let mut nw =
+                            new_native_word_node(r_nw.font() as internal_font_number, cur_length());
+                        set_whatsit_NODE_subtype(nw.ptr(), whatsit_NODE_subtype(r));
 
                         let start = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-                        NATIVE_NODE_text(q).copy_from_slice(
+                        nw.text_mut().copy_from_slice(
                             &str_pool[start as usize..(start + cur_length()) as usize],
                         );
 
                         /* "Link q into the list in place of r...p" */
-                        *BOX_width(q) = k;
-                        store_justified_native_glyphs(
-                            &mut MEM[q] as *mut memory_word as *mut libc::c_void,
-                        );
+                        nw.set_width(k);
+                        nw.set_justified_native_glyphs();
+                        let mut q = nw.ptr();
                         *LLIST_link(prev_p) = Some(q).tex_int();
                         *LLIST_link(q) = *LLIST_link(p);
                         *LLIST_link(p) = None.tex_int();
@@ -764,96 +755,89 @@ unsafe fn hlist_out(this_box: &mut Box) {
                 }
                 TextNode::WhatsIt => {
                     /*1407: "Output the whatsit node p in an hlist" */
-                    match whatsit_NODE_subtype(p) {
-                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt | WhatsItNST::Glyph => {
-                            if cur_h != dvi_h {
-                                movement(cur_h - dvi_h,
-                                         RIGHT1); /* glyph count */
-                                dvi_h = cur_h
-                            } /* x offset, as fixed-point */
-                            if cur_v != dvi_v {
-                                movement(cur_v - dvi_v,
-                                         DOWN1); /* y offset, as fixed-point */
-                                dvi_v = cur_v
-                            } /* end of TextNode::WhatsIt case */
-                            let f =
-                                *NATIVE_NODE_font(p) as
-                                    internal_font_number;
-                            if f != dvi_f {
-                                if !font_used[f] {
-                                    dvi_font_def(f);
-                                    font_used[f] =
-                                        true
-                                }
-                                if f <= 64 {
-                                    dvi_out((f + 170) as
-                                                u8);
-                                } else if f <= 256 {
-                                    dvi_out(FNT1);
-                                    dvi_out((f - 1) as u8);
-                                } else {
-                                    dvi_out(FNT1 + 1);
-                                    dvi_out(((f - 1) / 256) as
-                                                u8);
-                                    dvi_out(((f - 1) % 256) as
-                                                u8);
-                                }
-                                dvi_f = f
+                    unsafe fn out_font(f: usize) {
+                        if cur_h != dvi_h {
+                            movement(cur_h - dvi_h,
+                                     RIGHT1); /* glyph count */
+                            dvi_h = cur_h
+                        } /* x offset, as fixed-point */
+                        if cur_v != dvi_v {
+                            movement(cur_v - dvi_v,
+                                     DOWN1); /* y offset, as fixed-point */
+                            dvi_v = cur_v
+                        } /* end of TextNode::WhatsIt case */
+                        if f != dvi_f {
+                            if !font_used[f] {
+                                dvi_font_def(f);
+                                font_used[f] =
+                                    true
                             }
-                            if whatsit_NODE_subtype(p) == WhatsItNST::Glyph {
-                                dvi_out(SET_GLYPHS);
-                                dvi_four(*BOX_width(p));
-                                dvi_two(1);
-                                dvi_four(0);
-                                dvi_four(0);
-                                dvi_two(*NATIVE_NODE_glyph(p));
-                                cur_h +=
-                                    *BOX_width(p);
+                            if f <= 64 {
+                                dvi_out((f + 170) as
+                                            u8);
+                            } else if f <= 256 {
+                                dvi_out(FNT1);
+                                dvi_out((f - 1) as u8);
                             } else {
-                                if whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt {
-                                    if *NATIVE_NODE_length(p) > 0 ||
-                                           !NATIVE_NODE_glyph_info_ptr(p).is_null()
-                                       {
-                                        dvi_out(SET_TEXT_AND_GLYPHS);
-                                        let text = NATIVE_NODE_text(p);
-                                        dvi_two(text.len() as UTF16_code);
-                                        for k in text {
-                                            dvi_two(*k);
-                                        }
-                                        let len =
-                                            makeXDVGlyphArrayData(&mut MEM[p]
-                                                                      as
-                                                                      *mut memory_word
-                                                                      as
-                                                                      *mut libc::c_void);
-                                        for k in 0..len {
-                                            dvi_out(*xdv_buffer.offset(k
-                                                                           as
-                                                                           isize)
-                                                        as
-                                                        u8);
-                                        }
+                                dvi_out(FNT1 + 1);
+                                dvi_out(((f - 1) / 256) as
+                                            u8);
+                                dvi_out(((f - 1) % 256) as
+                                            u8);
+                            }
+                            dvi_f = f
+                        }
+                    }
+                    match whatsit_NODE_subtype(p) {
+                        WhatsItNST::Glyph => {
+                            let g = Glyph::from(p);
+                            out_font(g.font() as usize);
+                            dvi_out(SET_GLYPHS);
+                            dvi_four(g.width());
+                            dvi_two(1);
+                            dvi_four(0);
+                            dvi_four(0);
+                            dvi_two(g.glyph());
+                            cur_h +=
+                                g.width();
+                            dvi_h = cur_h;
+                        }
+                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
+                            let nw = NativeWord::from(p);
+                            out_font(nw.font() as usize);
+                            if whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt {
+                                if nw.text().len() > 0 ||
+                                       !nw.glyph_info_ptr().is_null()
+                                   {
+                                    dvi_out(SET_TEXT_AND_GLYPHS);
+                                    let text = nw.text();
+                                    dvi_two(text.len() as UTF16_code);
+                                    for k in text {
+                                        dvi_two(*k);
                                     }
-                                } else if !NATIVE_NODE_glyph_info_ptr(p).is_null()
-                                 {
-                                    dvi_out(SET_GLYPHS);
-                                    let len =
-                                        makeXDVGlyphArrayData(&mut MEM[p]
-                                                                  as
-                                                                  *mut memory_word
-                                                                  as
-                                                                  *mut libc::c_void);
+                                    let len = nw.make_xdv_glyph_array_data();
                                     for k in 0..len {
                                         dvi_out(*xdv_buffer.offset(k
                                                                        as
                                                                        isize)
-                                                    as u8);
+                                                    as
+                                                    u8);
                                     }
                                 }
-                                cur_h +=
-                                    *BOX_width(p);
+                            } else if !nw.glyph_info_ptr().is_null()
+                             {
+                                dvi_out(SET_GLYPHS);
+                                let len = nw.make_xdv_glyph_array_data();
+                                for k in 0..len {
+                                    dvi_out(*xdv_buffer.offset(k
+                                                                   as
+                                                                   isize)
+                                                as u8);
+                                }
                             }
-                            dvi_h = cur_h
+                            cur_h +=
+                                *BOX_width(p);
+                            dvi_h = cur_h;
                         }
                         WhatsItNST::Pic | WhatsItNST::Pdf => {
                             let save_h = dvi_h;
@@ -1303,7 +1287,8 @@ unsafe fn vlist_out(this_box: &Box) {
                 /*1403: "Output the whatsit node p in a vlist" */
                 match whatsit_NODE_subtype(p) {
                     WhatsItNST::Glyph => {
-                        cur_v = cur_v + *BOX_height(p);
+                        let g = Glyph::from(p);
+                        cur_v = cur_v + g.height();
                         cur_h = left_edge;
                         if cur_h != dvi_h {
                             movement(cur_h - dvi_h, RIGHT1);
@@ -1313,7 +1298,7 @@ unsafe fn vlist_out(this_box: &Box) {
                             movement(cur_v - dvi_v, DOWN1);
                             dvi_v = cur_v
                         }
-                        let f = *NATIVE_NODE_font(p) as usize;
+                        let f = g.font() as usize;
                         if f != dvi_f {
                             /*643:*/
                             if !font_used[f] {
@@ -1337,9 +1322,9 @@ unsafe fn vlist_out(this_box: &Box) {
                         dvi_two(1 as UTF16_code); /* glyph count */
                         dvi_four(0); /* x offset as fixed-point */
                         dvi_four(0); /* y offset as fixed-point */
-                        dvi_two(*NATIVE_NODE_glyph(p));
+                        dvi_two(g.glyph());
 
-                        cur_v += *BOX_depth(p);
+                        cur_v += g.depth();
                         cur_h = left_edge;
                     }
                     WhatsItNST::Pic | WhatsItNST::Pdf => {
@@ -1753,34 +1738,25 @@ pub(crate) unsafe fn new_edge(s: LR, w: scaled_t) -> usize {
 pub(crate) unsafe fn out_what(p: usize) {
     let mut j: i16;
     match whatsit_NODE_subtype(p) {
-        WhatsItNST::Open | WhatsItNST::Write | WhatsItNST::Close => {
+        WhatsItNST::Open => {
+            let p = OpenFile(p);
             if doing_leaders {
                 return;
             }
 
-            j = *FILE_NODE_id(p) as i16;
-            if whatsit_NODE_subtype(p) == WhatsItNST::Write {
-                write_out(p);
-                return;
-            }
+            j = p.id() as i16;
 
             if write_open[j as usize] {
                 ttstub_output_close(write_file[j as usize].take().unwrap());
             }
 
-            if whatsit_NODE_subtype(p) == WhatsItNST::Close {
-                write_open[j as usize] = false;
-                return;
-            }
-
-            /* By this point must be WhatsItNST::Open */
             if j >= 16 {
                 return;
             }
 
-            cur_name = *OPEN_NODE_name(p);
-            cur_area = *OPEN_NODE_area(p);
-            cur_ext = *OPEN_NODE_ext(p);
+            cur_name = p.name();
+            cur_area = p.area();
+            cur_ext = p.ext();
             if length(cur_ext) == 0 {
                 cur_ext = maketexstring(b".tex")
             }
@@ -1813,6 +1789,28 @@ pub(crate) unsafe fn out_what(p: usize) {
                 print_ln();
                 selector = old_setting
             }
+        }
+        WhatsItNST::Write => {
+            let p = WriteFile(p);
+            if doing_leaders {
+                return;
+            }
+            write_out(&p);
+            return;
+        }
+        WhatsItNST::Close => {
+            let p = CloseFile(p);
+            if doing_leaders {
+                return;
+            }
+
+            j = p.id() as i16;
+            if write_open[j as usize] {
+                ttstub_output_close(write_file[j as usize].take().unwrap());
+            }
+
+            write_open[j as usize] = false;
+            return;
         }
         WhatsItNST::Special => special_out(p),
         WhatsItNST::Language => {}
@@ -2075,14 +2073,14 @@ unsafe fn special_out(p: usize) {
     doing_special = false;
 }
 
-unsafe fn write_out(p: usize) {
+unsafe fn write_out(p: &WriteFile) {
     let q = get_avail();
     MEM[q].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
     let mut r = get_avail();
     *LLIST_link(q) = Some(r).tex_int();
     MEM[r].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
     begin_token_list(q, Btl::Inserted);
-    begin_token_list(MEM[p + 1].b32.s1 as usize, Btl::WriteText);
+    begin_token_list(p.tokens() as usize, Btl::WriteText);
     let q = get_avail();
     MEM[q].b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
     begin_token_list(q, Btl::Inserted);
@@ -2118,7 +2116,7 @@ unsafe fn write_out(p: usize) {
     cur_list.mode = old_mode;
     end_token_list();
     let old_setting = selector;
-    let j = *FILE_NODE_id(p) as i16;
+    let j = p.id() as i16;
 
     if j == 18 {
         selector = Selector::NEW_STRING
