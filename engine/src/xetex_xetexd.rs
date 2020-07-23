@@ -86,30 +86,6 @@ pub(crate) unsafe fn BOX_depth<'a>(p: usize) -> &'a mut i32 {
 pub(crate) unsafe fn BOX_height<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 3].b32.s1
 }
-/// aka "subtype" of a node
-pub(crate) unsafe fn ACTIVE_NODE_fitness<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p].b16.s0
-}
-/// aka "rlink" in double-linked list
-pub(crate) unsafe fn ACTIVE_NODE_break_node<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-/// aka "llink" in doubly-linked list
-pub(crate) unsafe fn ACTIVE_NODE_line_number<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s0
-}
-/// was originally the `mem[x+2].int` field
-pub(crate) unsafe fn ACTIVE_NODE_total_demerits<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 2].b32.s1
-}
-/// a scaled; "active_short" in the WEB
-pub(crate) unsafe fn ACTIVE_NODE_shortfall<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 3].b32.s1
-}
-/// a scaled
-pub(crate) unsafe fn ACTIVE_NODE_glue<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 4].b32.s1
-}
 
 /// aka "type" of a node
 pub(crate) unsafe fn CHAR_NODE_font<'a>(p: usize) -> &'a mut u16 {
@@ -176,22 +152,6 @@ pub(crate) unsafe fn ADJUST_NODE_ptr<'a>(p: usize) -> &'a mut i32 {
 #define PAGE_INS_NODE_broken_ins(p) mem[(p) + 1].b32.s0 /* "this insertion might break at broken_ptr" */
 #define PAGE_INS_NODE_last_ins_ptr(p) mem[(p) + 2].b32.s1 /* "the most recent insertion for this subtype" */
 #define PAGE_INS_NODE_best_ins_ptr(p) mem[(p) + 2].b32.s0 /* "the optimum most recent insertion" */
-*/
-
-/// aka "llink" in doubly-linked list
-pub(crate) unsafe fn PASSIVE_NODE_prev_break<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s0
-}
-/// siggggghhhhh
-pub(crate) unsafe fn PASSIVE_NODE_next_break<'a>(p: usize) -> &'a mut i32 {
-    PASSIVE_NODE_prev_break(p)
-}
-/// aka "rlink" in double-linked list
-pub(crate) unsafe fn PASSIVE_NODE_cur_break<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-/*
-#define PASSIVE_NODE_serial(p) mem[p].b32.s0 /* aka "info" */
 */
 
 /// was originally the `mem[x+1].int` field

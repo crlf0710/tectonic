@@ -1,7 +1,7 @@
 use crate::xetex_xetex0::free_node;
 use std::ops::{Deref, DerefMut};
 
-use crate::xetex_consts::{GlueOrder, GlueSign};
+use crate::xetex_consts::{BreakType, GlueOrder, GlueSign};
 use crate::xetex_ini::MEM;
 use crate::xetex_xetexd::{TeXInt, TeXOpt};
 
@@ -715,6 +715,23 @@ impl Rule {
     }
 }
 
+pub(crate) enum ActiveNode {
+    Active(Active),
+    Delta(Delta),
+}
+
+impl From<usize> for ActiveNode {
+    fn from(p: usize) -> Self {
+        const DELTA: u16 = 2;
+        let n = unsafe { MEM[p].b16.s1 };
+        match n {
+            0 | 1 => Self::Active(Active(p)),
+            DELTA => Self::Delta(Delta(p)),
+            _ => panic!(format!("Incorrect node {}", n)),
+        }
+    }
+}
+
 pub(crate) struct Delta(pub usize);
 impl NodeSize for Delta {
     const SIZE: i32 = DELTA_NODE_SIZE;
@@ -770,6 +787,110 @@ impl Delta {
     pub(crate) unsafe fn set_dshrink(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 6].b32.s1 = v;
         self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[derive(Clone, Copy)] // TODO: remove this
+pub(crate) struct Active(pub usize);
+impl Active {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn fitness(&self) -> u16 {
+        MEM[self.ptr()].b16.s0
+    }
+    pub(crate) unsafe fn set_fitness(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v;
+        self
+    }
+    pub(crate) unsafe fn break_type(&self) -> BreakType {
+        BreakType::from(MEM[self.ptr()].b16.s1)
+    }
+    pub(crate) unsafe fn set_break_type(&mut self, v: BreakType) -> &mut Self {
+        MEM[self.ptr()].b16.s1 = v as u16;
+        self
+    }
+    pub(crate) unsafe fn break_node(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_break_node(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn line_number(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s0
+    }
+    pub(crate) unsafe fn set_line_number(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s0 = v;
+        self
+    }
+    pub(crate) unsafe fn total_demerits(&self) -> i32 {
+        MEM[self.ptr() + 2].b32.s1
+    }
+    pub(crate) unsafe fn set_total_demerits(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v;
+        self
+    }
+    /// a scaled; "active_short" in the WEB
+    pub(crate) unsafe fn shortfall(&self) -> i32 {
+        MEM[self.ptr() + 3].b32.s1
+    }
+    pub(crate) unsafe fn set_shortfall(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 3].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn glue(&self) -> i32 {
+        MEM[self.ptr() + 4].b32.s1
+    }
+    pub(crate) unsafe fn set_glue(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 4].b32.s1 = v;
+        self
+    }
+}
+
+#[derive(Clone, Copy)] // TODO: remove this
+pub(crate) struct Passive(pub usize);
+impl NodeSize for Passive {
+    const SIZE: i32 = PASSIVE_NODE_SIZE;
+}
+impl Passive {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn serial(&self) -> i32 {
+        MEM[self.ptr()].b32.s0
+    }
+    pub(crate) unsafe fn set_serial(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr()].b32.s0 = v;
+        self
+    }
+    /// aka "llink" in doubly-linked list
+    pub(crate) unsafe fn prev_break(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s0
+    }
+    pub(crate) unsafe fn set_prev_break(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s0 = v;
+        self
+    }
+    pub(crate) unsafe fn next_break(&self) -> i32 {
+        self.prev_break()
+    }
+    pub(crate) unsafe fn set_next_break(&mut self, v: i32) -> &mut Self {
+        self.set_prev_break(v)
+    }
+    /// aka "rlink" in double-linked list
+    pub(crate) unsafe fn cur_break(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_cur_break(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
     }
 }
 
