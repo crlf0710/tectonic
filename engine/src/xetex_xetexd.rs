@@ -141,19 +141,6 @@ pub(crate) unsafe fn ADJUST_NODE_ptr<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s1
 }
 
-/*
-/* To check: do these really only apply to MATH_NODEs? */
-#define MATH_NODE_lr_dir(p) (NODE_subtype(p) / R_CODE)
-#define MATH_NODE_end_lr_type(p) (L_CODE * (NODE_subtype(p) / L_CODE) + END_M_CODE)
-*/
-
-/*
-#define PAGE_INS_NODE_broken_ptr(p) mem[(p) + 1].b32.s1 /* "an insertion for this class will break here if anywhere" */
-#define PAGE_INS_NODE_broken_ins(p) mem[(p) + 1].b32.s0 /* "this insertion might break at broken_ptr" */
-#define PAGE_INS_NODE_last_ins_ptr(p) mem[(p) + 2].b32.s1 /* "the most recent insertion for this subtype" */
-#define PAGE_INS_NODE_best_ins_ptr(p) mem[(p) + 2].b32.s0 /* "the optimum most recent insertion" */
-*/
-
 /// was originally the `mem[x+1].int` field
 pub(crate) unsafe fn PENALTY_NODE_penalty<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s1
@@ -217,14 +204,6 @@ pub(crate) unsafe fn FONT_CHARACTER_WIDTH<'a>(f: usize, c: usize) -> &'a mut i32
 pub(crate) unsafe fn TOKEN_LIST_ref_count<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p].b32.s0
 }
-/*
-/* e-TeX extended marks stuff ... not sure where to put these */
-#define ETEX_MARK_sa_top_mark(p) mem[(p) + 1].b32.s0 /* \topmarks<n> */
-#define ETEX_MARK_sa_first_mark(p) mem[(p) + 1].b32.s1 /* \firstmarks<n> */
-#define ETEX_MARK_sa_bot_mark(p) mem[(p) + 2].b32.s0 /* \botmarks<n> */
-#define ETEX_MARK_sa_split_first_mark(p) mem[(p) + 2].b32.s1 /* \splitfirstmarks<n> */
-#define ETEX_MARK_sa_split_bot_mark(p) mem[(p) + 3].b32.s0 /* \splitbotmarks<n> */
-*/
 
 #[inline]
 pub(crate) unsafe fn is_non_discardable_node(p: usize) -> bool {

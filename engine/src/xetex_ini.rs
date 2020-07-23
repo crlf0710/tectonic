@@ -3996,8 +3996,9 @@ unsafe fn initialize_more_initex_variables() {
     MEM[ACTIVE_LIST].b16.s1 = BreakType::Hyphenated as _;
     MEM[ACTIVE_LIST + 1].b32.s0 = MAX_HALFWORD;
     MEM[ACTIVE_LIST].b16.s0 = 0;
-    MEM[PAGE_INS_HEAD].b16.s0 = 255;
-    MEM[PAGE_INS_HEAD].b16.s1 = SPLIT_UP as u16;
+    PageInsertion(PAGE_INS_HEAD)
+        .set_box_reg(255)
+        .set_subtype(PageInsType::SplitUp);
     *LLIST_link(PAGE_INS_HEAD) = Some(PAGE_INS_HEAD).tex_int();
     MEM[PAGE_HEAD].b16.s1 = TextNode::Glue as u16;
     MEM[PAGE_HEAD].b16.s0 = NORMAL;

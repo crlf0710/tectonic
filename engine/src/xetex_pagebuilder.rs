@@ -15,7 +15,7 @@ use crate::xetex_ini::{
     best_height_plus_depth, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr,
     file_line_error_style_p, insert_penalties, last_glue, last_kern, last_node_type, last_penalty,
     line, output_active, page_contents, page_so_far, page_tail, sa_root,
-    semantic_pagination_enabled, MEM, NEST, NEST_PTR,
+    semantic_pagination_enabled, NEST, NEST_PTR,
 };
 use crate::xetex_output::{print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr};
 use crate::xetex_scaledmath::x_over_n;
@@ -27,9 +27,9 @@ use crate::xetex_xetex0::{
     scan_left_brace, vert_break, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_non_discardable_node, llist_link, set_NODE_type, text_NODE_type, whatsit_NODE_subtype,
-    BOX_depth, BOX_height, BOX_width, GLUE_NODE_glue_ptr, LLIST_link, MARK_NODE_class,
-    MARK_NODE_ptr, /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty, TeXInt, TeXOpt,
+    is_non_discardable_node, kern_NODE_width, llist_link, text_NODE_type, whatsit_NODE_subtype,
+    BOX_depth, BOX_height, GLUE_NODE_glue_ptr, LLIST_link, MARK_NODE_class, MARK_NODE_ptr,
+    /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty, TOKEN_LIST_ref_count, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -134,7 +134,7 @@ unsafe fn fire_up(c: usize) {
             delete_token_ref(mtop);
         }
         cur_mark[TOP_MARK_CODE as usize] = Some(mbot);
-        MEM[mbot].b32.s0 += 1;
+        *TOKEN_LIST_ref_count(mbot) += 1;
         delete_token_ref(cur_mark[FIRST_MARK_CODE].unwrap());
         cur_mark[FIRST_MARK_CODE] = None;
     }
@@ -178,10 +178,10 @@ unsafe fn fire_up(c: usize) {
          * just kept in the page vlist without any processing, I believe with
          * the expectation that the output routine will do something clever
          * with them. */
-        let mut r = llist_link(PAGE_INS_HEAD).unwrap();
-        while r != PAGE_INS_HEAD {
-            if MEM[r + 2].b32.s0.opt().is_some() {
-                n = MEM[r].b16.s0 as _; // NODE_subtype(r as _)
+        let mut r = PageInsertion(llist_link(PAGE_INS_HEAD).unwrap());
+        while r.ptr() != PAGE_INS_HEAD {
+            if r.best_ins_ptr().opt().is_some() {
+                n = r.box_reg() as _;
                 ensure_vbox(n);
 
                 if BOX_REG(n as _).opt().is_none() {
@@ -193,9 +193,9 @@ unsafe fn fire_up(c: usize) {
                     p = next;
                 }
 
-                MEM[r + 2].b32.s1 = Some(p).tex_int();
+                r.set_last_ins_ptr(Some(p).tex_int());
             }
-            r = llist_link(r).unwrap();
+            r = PageInsertion(llist_link(r.ptr()).unwrap());
         }
     }
     let mut q = HOLD_HEAD;
@@ -211,32 +211,31 @@ unsafe fn fire_up(c: usize) {
                 /*1055: "Either insert the material specified by node p into
                  * the appropriate box, or hold it for the next page; also
                  * delete node p from the current page." */
-                let mut r = llist_link(PAGE_INS_HEAD).unwrap();
+                let mut r = PageInsertion(llist_link(PAGE_INS_HEAD).unwrap());
 
-                while MEM[r].b16.s0 != p_ins.box_reg() {
-                    // NODE_subtype(r) != NODE_subtype(p)
-                    r = llist_link(r).unwrap();
+                while r.box_reg() != p_ins.box_reg() {
+                    r = PageInsertion(llist_link(r.ptr()).unwrap());
                 }
-                if MEM[r + 2].b32.s0.opt().is_none() {
+                if r.best_ins_ptr().opt().is_none() {
                     wait = true
                 } else {
                     wait = false;
 
-                    s = MEM[r + 2].b32.s1 as usize;
+                    s = r.last_ins_ptr() as usize;
                     *LLIST_link(s) = p_ins.ins_ptr();
-                    if MEM[r + 2].b32.s0.opt() == Some(p) {
+                    if r.best_ins_ptr().opt() == Some(p) {
                         /*1056: "Wrap up the box specified by node r,
                          * splitting node p if called for; set wait = true if
                          * node p holds a remainder after splitting" */
-                        if NODE_type(r) == SPLIT_UP.into() {
-                            if MEM[r + 1].b32.s0.opt() == Some(p) && MEM[r + 1].b32.s1 != -0xfffffff
-                            {
-                                while *LLIST_link(s) != MEM[r + 1].b32.s1 {
+                        if r.subtype() == PageInsType::SplitUp {
+                            if r.broken_ins().opt() == Some(p) && r.broken_ptr().opt().is_some() {
+                                while *LLIST_link(s) != r.broken_ptr() {
                                     s = *LLIST_link(s) as usize;
                                 }
                                 *LLIST_link(s) = None.tex_int();
                                 *GLUEPAR(GluePar::split_top_skip) = p_ins.split_top_ptr();
-                                p_ins.set_ins_ptr(prune_page_top(MEM[r + 1].b32.s1.opt(), false));
+                                p_ins.set_ins_ptr(prune_page_top(r.broken_ptr().opt(), false));
+
                                 if p_ins.ins_ptr().opt().is_some() {
                                     let tmp_ptr = vpackage(
                                         p_ins.ins_ptr().opt(),
@@ -250,10 +249,12 @@ unsafe fn fire_up(c: usize) {
                                 }
                             }
                         }
-                        MEM[r + 2].b32.s0 = None.tex_int();
-                        n = MEM[r].b16.s0 as _; // NODE_subtype(r)
-                        let tmp_ptr = MEM[(*BOX_REG(n as usize) + 5) as usize].b32.s1.opt();
-                        free_node(*BOX_REG(n as _) as usize, BOX_NODE_SIZE);
+
+                        r.set_best_ins_ptr(None.tex_int());
+                        n = r.box_reg() as _; // NODE_subtype(r)
+                        let b = Box::from(*BOX_REG(n as usize) as usize);
+                        let tmp_ptr = b.list_ptr().opt();
+                        b.free();
                         *BOX_REG(n as _) =
                             Some(vpackage(tmp_ptr, 0, PackMode::Additional, MAX_HALFWORD).ptr())
                                 .tex_int();
@@ -261,7 +262,7 @@ unsafe fn fire_up(c: usize) {
                         while let Some(next) = llist_link(s) {
                             s = next;
                         }
-                        MEM[r + 2].b32.s1 = s as i32;
+                        r.set_last_ins_ptr(s as i32);
                     }
                 }
 
@@ -285,27 +286,30 @@ unsafe fn fire_up(c: usize) {
             if *MARK_NODE_class(p) != 0 {
                 /*1618: "Update the current marks" */
                 find_sa_element(ValLevel::Mark as _, *MARK_NODE_class(p), true);
-                let c = cur_ptr.unwrap();
-                if MEM[c + 1].b32.s1.opt().is_none() {
-                    MEM[c + 1].b32.s1 = *MARK_NODE_ptr(p);
-                    MEM[*MARK_NODE_ptr(p) as usize].b32.s0 += 1;
+
+                let mut c = EtexMark(cur_ptr.unwrap());
+                if c.sa_first_mark().opt().is_none() {
+                    c.set_sa_first_mark(*MARK_NODE_ptr(p));
+                    *TOKEN_LIST_ref_count(*MARK_NODE_ptr(p) as usize) += 1;
                 }
-                if let Some(m) = MEM[c + 2].b32.s0.opt() {
+
+                if let Some(m) = c.sa_bot_mark().opt() {
                     delete_token_ref(m);
                 }
-                MEM[c + 2].b32.s0 = *MARK_NODE_ptr(p);
-                MEM[*MARK_NODE_ptr(p) as usize].b32.s0 += 1;
+
+                c.set_sa_bot_mark(*MARK_NODE_ptr(p));
+                *TOKEN_LIST_ref_count(*MARK_NODE_ptr(p) as usize) += 1;
             } else {
                 /*1051: "Update the values of first_mark and bot_mark" */
                 if cur_mark[FIRST_MARK_CODE].is_none() {
                     cur_mark[FIRST_MARK_CODE] = MARK_NODE_ptr(p).opt();
-                    MEM[cur_mark[FIRST_MARK_CODE].unwrap()].b32.s0 += 1;
+                    *TOKEN_LIST_ref_count(cur_mark[FIRST_MARK_CODE].unwrap()) += 1;
                 }
                 if let Some(m) = cur_mark[BOT_MARK_CODE] {
                     delete_token_ref(m);
                 }
                 cur_mark[BOT_MARK_CODE] = MARK_NODE_ptr(p).opt();
-                MEM[cur_mark[BOT_MARK_CODE].unwrap()].b32.s0 += 1;
+                *TOKEN_LIST_ref_count(cur_mark[BOT_MARK_CODE].unwrap()) += 1;
             }
         }
 
@@ -384,7 +388,7 @@ unsafe fn fire_up(c: usize) {
     if let Some(m) = cur_mark[TOP_MARK_CODE] {
         if cur_mark[FIRST_MARK_CODE].is_none() {
             cur_mark[FIRST_MARK_CODE] = Some(m);
-            MEM[m].b32.s0 += 1;
+            *TOKEN_LIST_ref_count(m) += 1;
         }
     }
 
@@ -474,7 +478,7 @@ pub(crate) unsafe fn build_page() {
 
     unsafe fn do_smth(mut slf: Args) -> (Args, bool) {
         slf.p = llist_link(CONTRIB_HEAD).unwrap();
-        let p_node = TextNode::n(MEM[slf.p].b16.s1).confuse(b"page");
+        let p_node = text_NODE_type(slf.p).confuse(b"page");
 
         /*1031: "Update the values of last_glue, last_penalty, and last_kern" */
         if last_glue != MAX_HALFWORD {
@@ -487,14 +491,14 @@ pub(crate) unsafe fn build_page() {
 
         if p_node == TextNode::Glue {
             last_glue = *GLUE_NODE_glue_ptr(slf.p);
-            MEM[last_glue as usize].b32.s1 += 1;
+            GlueSpec(last_glue as usize).rc_inc();
         } else {
             last_glue = MAX_HALFWORD;
 
             if p_node == TextNode::Penalty {
-                last_penalty = MEM[slf.p + 1].b32.s1
+                last_penalty = *PENALTY_NODE_penalty(slf.p);
             } else if p_node == TextNode::Kern {
-                last_kern = *BOX_width(slf.p);
+                last_kern = *kern_NODE_width(slf.p);
             }
         }
         /*1032: "Move node p to the current page; if it is time for a page
@@ -551,8 +555,9 @@ pub(crate) unsafe fn build_page() {
                 /*1401: "Prepare to move whatsit p to the current page, then goto contribute" */
                 match whatsit_NODE_subtype(slf.p) {
                      WhatsItNST::Pic | WhatsItNST::Pdf => {
-                        page_so_far[1] += page_so_far[7] + *BOX_height(slf.p);
-                        page_so_far[7] = *BOX_depth(slf.p);
+                        let p = Picture::from(slf.p);
+                        page_so_far[1] += page_so_far[7] + p.height();
+                        page_so_far[7] = p.depth();
                     }
                     _ => {}
                 }
@@ -578,24 +583,27 @@ pub(crate) unsafe fn build_page() {
                 if page_contents == PageContents::Empty || page_contents == PageContents::InsertsOnly {
                     return done1(slf);
                 } else {
-                    slf.pi = MEM[slf.p + 1].b32.s1;
+                    slf.pi = *PENALTY_NODE_penalty(slf.p);
                 }
             }
             TextNode::Mark => { return contribute(slf); }
             TextNode::Ins => {
+                let p_ins = Insertion(slf.p);
                 /*1043: "Append an insertion to the current page and goto contribute" */
                 if page_contents == PageContents::Empty {
                     freeze_page_specs(PageContents::InsertsOnly);
                 }
 
-                let n = MEM[slf.p].b16.s0; //NODE_subtype(slf.p) as u8;
+                let n = p_ins.box_reg();
                 slf.r = PAGE_INS_HEAD;
 
-                while n as u16 >= MEM[*LLIST_link(slf.r) as usize].b16.s0 { // NODE_subtype(*LLIST_link(slf.r) as usize) {
+                while n >= PageInsertion(*LLIST_link(slf.r) as usize).box_reg() {
                     slf.r = *LLIST_link(slf.r) as usize;
                 }
 
-                if MEM[slf.r].b16.s0 != n { //  NODE_subtype(slf.r)
+                let mut r_pins = PageInsertion(slf.r);
+
+                if r_pins.box_reg() != n {
                     /*1044: "Create a page insertion node with subtype(r) = n, and
                      * include the glue correction for box `n` in the current page
                      * state" */
@@ -603,24 +611,26 @@ pub(crate) unsafe fn build_page() {
                     *LLIST_link(slf.q as usize) = *LLIST_link(slf.r);
                     *LLIST_link(slf.r) = slf.q;
                     slf.r = slf.q as usize;
+                    r_pins = PageInsertion(slf.r);
 
-                    MEM[slf.r].b16.s0 = n as _; // NODE_subtype(slf.r as usize)
-                    set_NODE_type(slf.r, INSERTING);
+                    r_pins.set_box_reg(n)
+                    .set_subtype(PageInsType::Inserting);
                     ensure_vbox(n as _);
 
-                    *BOX_height(slf.r) =  if let Some(br) = BOX_REG(n as _).opt() {
-                        *BOX_height(br) + *BOX_depth(br)
+                    r_pins.set_height(if let Some(br) = BOX_REG(n as _).opt() {
+                        let br = Box::from(br);
+                        br.height() + br.depth()
                     } else {
                         0
-                    };
+                    });
 
-                    MEM[slf.r + 2].b32.s0 = None.tex_int();
+                    r_pins.set_best_ins_ptr(None.tex_int());
                     slf.q = *SKIP_REG(n as _);
 
                     let h: scaled_t = if *COUNT_REG(n as _) == 1000 {
-                        *BOX_height(slf.r)
+                        r_pins.height()
                     } else {
-                        x_over_n(*BOX_height(slf.r), 1000) * *COUNT_REG(n as _)
+                        x_over_n(r_pins.height(), 1000) * *COUNT_REG(n as _)
                     };
 
                     let mut q_spec = GlueSpec(slf.q as usize);
@@ -645,25 +655,25 @@ pub(crate) unsafe fn build_page() {
                     }
                 }
 
-                if NODE_type(slf.r) == ND::Text(SPLIT_UP) {
+                if r_pins.subtype() == PageInsType::SplitUp {
                     insert_penalties +=
-                        MEM[slf.p + 1].b32.s1
+                        p_ins.float_cost()
                 } else {
-                    MEM[slf.r + 2].b32.s1 = Some(slf.p).tex_int();
+                    r_pins.set_last_ins_ptr(Some(slf.p).tex_int());
                     let delta: scaled_t =
                         page_so_far[0] - page_so_far[1] - page_so_far[7] +
                             page_so_far[6];
 
                     let h: scaled_t = if *COUNT_REG(n as _) == 1000 {
-                        *BOX_height(slf.p)
+                        p_ins.height()
                     } else {
-                        x_over_n(*BOX_height(slf.p), 1000) * *COUNT_REG(n as _)
+                        x_over_n(p_ins.height(), 1000) * *COUNT_REG(n as _)
                     };
 
                     if (h <= 0 || h <= delta) &&
-                        *BOX_height(slf.p) + *BOX_height(slf.r) <= *SCALED_REG(n as _) {
+                        p_ins.height() + r_pins.height() <= *SCALED_REG(n as _) {
                         page_so_far[0] -= h;
-                        *BOX_height(slf.r) += *BOX_height(slf.p);
+                        r_pins.set_height(r_pins.height() + p_ins.height());
                     } else {
                         /*1045: "Find the best way to split the insertion, and
                          * change type(r) to split_up." ... "Here is code that
@@ -685,7 +695,7 @@ pub(crate) unsafe fn build_page() {
                                 page_so_far[0] - page_so_far[1] -
                                     page_so_far[7];
                             if *COUNT_REG(n as _) != 1000 {
-                                w = x_over_n(w, *COUNT_REG(n as _))* 1000;
+                                w = x_over_n(w, *COUNT_REG(n as _)) * 1000;
                             }
                             w
                         };
@@ -693,23 +703,24 @@ pub(crate) unsafe fn build_page() {
                         w = w.min(*SCALED_REG(n as _) - *BOX_height(slf.r));
 
                         slf.q =
-                            vert_break(MEM[slf.p + 4].b32.s0, w,
-                                       MEM[slf.p + 2].b32.s1);
-                        MEM[slf.r + 3].b32.s1 += best_height_plus_depth;
+                            vert_break(p_ins.ins_ptr(), w,
+                                       p_ins.depth());
+                        r_pins.set_height(r_pins.height() + best_height_plus_depth);
 
                         if *COUNT_REG(n as _) != 1000 {
                             best_height_plus_depth =
-                                x_over_n(best_height_plus_depth, 1000i32) * *COUNT_REG(n as _);
+                                x_over_n(best_height_plus_depth, 1000) * *COUNT_REG(n as _);
                         }
                         page_so_far[0] -= best_height_plus_depth;
-                        set_NODE_type(slf.r, SPLIT_UP);
-                        MEM[slf.r + 1].b32.s1 = slf.q;
-                        MEM[slf.r + 1].b32.s0 = Some(slf.p).tex_int();
+                        PageInsertion(slf.r)
+                        .set_subtype(PageInsType::SplitUp)
+                        .set_broken_ptr(slf.q)
+                        .set_broken_ins(Some(slf.p).tex_int());
 
                         if let Some(q) = slf.q.opt() {
                             if NODE_type(q) == TextNode::Penalty.into() {
                                 insert_penalties +=
-                                    MEM[q + 1].b32.s1;
+                                    *PENALTY_NODE_penalty(q);
                             }
                         } else {
                             insert_penalties += EJECT_PENALTY;
@@ -767,7 +778,8 @@ pub(crate) unsafe fn build_page() {
                 slf.r = *LLIST_link(PAGE_INS_HEAD) as usize;
 
                 while slf.r != PAGE_INS_HEAD {
-                    MEM[slf.r + 2].b32.s0 = MEM[slf.r + 2].b32.s1;
+                    let mut r_pins = PageInsertion(slf.r);
+                    r_pins.set_best_ins_ptr(r_pins.last_ins_ptr());
                     slf.r = *LLIST_link(slf.r) as usize;
                 }
             }
@@ -797,8 +809,11 @@ pub(crate) unsafe fn build_page() {
         unsafe fn update_heights(mut slf: Args) -> (Args, bool) {
             /*1039: "Update the current page measurements with respect to the glue or kern
              * specified by node p" */
-            match text_NODE_type(slf.p).unwrap() {
-                TextNode::Kern => slf.q = Some(slf.p).tex_int(),
+            let width = match text_NODE_type(slf.p).unwrap() {
+                TextNode::Kern => {
+                    slf.q = Some(slf.p).tex_int();
+                    *kern_NODE_width(slf.p)
+                }
                 TextNode::Glue => {
                     slf.q = *GLUE_NODE_glue_ptr(slf.p);
                     let q_spec = GlueSpec(slf.q as usize);
@@ -819,15 +834,19 @@ pub(crate) unsafe fn build_page() {
                         );
                         error();
                         slf.r = new_spec(slf.q as usize);
-                        GlueSpec(slf.r).set_shrink_order(GlueOrder::Normal);
+                        let mut r_spec = GlueSpec(slf.r);
+                        r_spec.set_shrink_order(GlueOrder::Normal);
                         delete_glue_ref(slf.q as usize);
                         *GLUE_NODE_glue_ptr(slf.p) = Some(slf.r).tex_int();
                         slf.q = Some(slf.r).tex_int();
+                        r_spec.size()
+                    } else {
+                        q_spec.size()
                     }
                 }
                 _ => unreachable!(),
-            }
-            page_so_far[1] += page_so_far[7] + MEM[(slf.q + 1) as usize].b32.s1;
+            };
+            page_so_far[1] += page_so_far[7] + width;
             page_so_far[7] = 0;
             return contribute(slf);
         }

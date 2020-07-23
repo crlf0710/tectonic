@@ -64,9 +64,6 @@ pub(crate) enum TextNode {
     MarginKern = 40,
 }
 
-pub(crate) const INSERTING: TextNode = TextNode::HList;
-pub(crate) const SPLIT_UP: TextNode = TextNode::VList;
-pub(crate) const DELTA_NODE: TextNode = TextNode::Rule;
 pub(crate) const EDGE_NODE: TextNode = TextNode::Style;
 
 impl From<u16> for TextNode {
@@ -77,7 +74,7 @@ impl From<u16> for TextNode {
 
 pub(crate) use whatsit::*;
 pub(crate) mod whatsit {
-    use super::{free_node, BaseBox, Deref, DerefMut, MEM};
+    use super::{free_node, BaseBox, Deref, DerefMut, NodeSize, MEM};
 
     #[repr(u16)]
     #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
@@ -425,6 +422,19 @@ pub(crate) mod whatsit {
             free_node(self.ptr(), self.total_size() as i32);
         }
     }
+
+    pub(crate) struct PdfSavePos(pub usize);
+    impl NodeSize for PdfSavePos {
+        const SIZE: i32 = super::SMALL_NODE_SIZE;
+    }
+    impl PdfSavePos {
+        pub(crate) const fn ptr(&self) -> usize {
+            self.0
+        }
+        pub(crate) unsafe fn free(self) {
+            free_node(self.ptr(), Self::SIZE);
+        }
+    }
 }
 
 pub(crate) struct Insertion(pub usize);
@@ -483,6 +493,80 @@ impl Insertion {
     pub(crate) unsafe fn free(self) {
         free_node(self.ptr(), Self::SIZE);
     }
+}
+
+pub(crate) struct PageInsertion(pub usize);
+impl NodeSize for PageInsertion {
+    const SIZE: i32 = PAGE_INS_NODE_SIZE;
+}
+impl PageInsertion {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn subtype(&self) -> PageInsType {
+        let n = MEM[self.ptr()].b16.s1;
+        PageInsType::n(n).expect(&format!("Incorrect Page Insertion subtype {}", n))
+    }
+    pub(crate) unsafe fn set_subtype(&mut self, v: PageInsType) -> &mut Self {
+        MEM[self.ptr()].b16.s1 = v as u16;
+        self
+    }
+    pub(crate) unsafe fn box_reg(&self) -> u16 {
+        MEM[self.ptr()].b16.s0
+    }
+    pub(crate) unsafe fn set_box_reg(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v;
+        self
+    }
+    /// an insertion for this class will break here if anywhere
+    pub(crate) unsafe fn broken_ptr(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_broken_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    /// this insertion might break at broken_ptr
+    pub(crate) unsafe fn broken_ins(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s0
+    }
+    pub(crate) unsafe fn set_broken_ins(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s0 = v;
+        self
+    }
+    /// the most recent insertion for this subtype
+    pub(crate) unsafe fn last_ins_ptr(&self) -> i32 {
+        MEM[self.ptr() + 2].b32.s1
+    }
+    pub(crate) unsafe fn set_last_ins_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v;
+        self
+    }
+    /// the optimum most recent insertion
+    pub(crate) unsafe fn best_ins_ptr(&self) -> i32 {
+        MEM[self.ptr() + 2].b32.s0
+    }
+    pub(crate) unsafe fn set_best_ins_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s0 = v;
+        self
+    }
+    pub(crate) unsafe fn height(&self) -> i32 {
+        MEM[self.ptr() + 3].b32.s1
+    }
+    pub(crate) unsafe fn set_height(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 3].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
+pub(crate) enum PageInsType {
+    Inserting = 0,
+    SplitUp = 1,
 }
 
 pub(crate) struct Choice(pub usize);
@@ -997,6 +1081,54 @@ impl GlueSpec {
     }
     pub(crate) unsafe fn set_shrink(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 3].b32.s1 = v;
+        self
+    }
+}
+
+/// e-TeX extended marks stuff
+pub(crate) struct EtexMark(pub usize);
+impl EtexMark {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    /// \topmarks<n>
+    pub(crate) unsafe fn sa_top_mark(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s0
+    }
+    pub(crate) unsafe fn set_sa_top_mark(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s0 = v;
+        self
+    }
+    /// \firstmarks<n>
+    pub(crate) unsafe fn sa_first_mark(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_sa_first_mark(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    /// \botmarks<n>
+    pub(crate) unsafe fn sa_bot_mark(&self) -> i32 {
+        MEM[self.ptr() + 2].b32.s0
+    }
+    pub(crate) unsafe fn set_sa_bot_mark(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s0 = v;
+        self
+    }
+    /// \splitfirstmarks<n>
+    pub(crate) unsafe fn sa_split_first_mark(&self) -> i32 {
+        MEM[self.ptr() + 2].b32.s1
+    }
+    pub(crate) unsafe fn set_sa_split_first_mark(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v;
+        self
+    }
+    /// \splitbotmarks<n>
+    pub(crate) unsafe fn sa_split_bot_mark(&self) -> i32 {
+        MEM[self.ptr() + 3].b32.s0
+    }
+    pub(crate) unsafe fn set_sa_split_bot_mark(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 23].b32.s0 = v;
         self
     }
 }

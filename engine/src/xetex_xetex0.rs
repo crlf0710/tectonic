@@ -1320,7 +1320,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                                     ) as i32,
                                 );
                             }
-                            WhatsItNST::PdfSavePos => free_node(p, SMALL_NODE_SIZE),
+                            WhatsItNST::PdfSavePos => PdfSavePos(p).free(),
                             //_ => confusion(b"ext3"),
                         }
                     }
@@ -1649,30 +1649,30 @@ pub(crate) unsafe fn show_activities() {
                         print_totals();
                         print_nl_cstr(b" goal height ");
                         print_scaled(page_so_far[0]);
-                        let mut r = *LLIST_link(PAGE_INS_HEAD) as usize;
-                        while r != PAGE_INS_HEAD {
+                        let mut r = PageInsertion(*LLIST_link(PAGE_INS_HEAD) as usize);
+                        while r.ptr() != PAGE_INS_HEAD {
                             print_ln();
                             print_esc_cstr(b"insert");
-                            let mut t = MEM[r].b16.s0 as i32;
+                            let mut t = r.box_reg() as i32;
                             print_int(t);
                             print_cstr(b" adds ");
                             if *COUNT_REG(t as usize) == 1000 {
-                                t = MEM[r + 3].b32.s1
+                                t = r.height();
                             } else {
-                                t = x_over_n(MEM[r + 3].b32.s1, 1000) * *COUNT_REG(t as usize)
+                                t = x_over_n(r.height(), 1000) * *COUNT_REG(t as usize)
                             }
                             print_scaled(t);
-                            if MEM[r].b16.s1 == SPLIT_UP as u16 {
+                            if r.subtype() == PageInsType::SplitUp {
                                 let mut q = PAGE_HEAD;
                                 t = 0;
                                 loop {
                                     q = *LLIST_link(q as usize) as usize;
-                                    if MEM[q].b16.s1 as i32 == 3
-                                        && MEM[q].b16.s0 as i32 == MEM[r].b16.s0 as i32
+                                    if NODE_type(q) == TextNode::Ins.into()
+                                        && Insertion(q).box_reg() == r.box_reg()
                                     {
                                         t += 1
                                     }
-                                    if q == MEM[r + 1].b32.s0 as usize {
+                                    if q == r.broken_ins() as usize {
                                         break;
                                     }
                                 }
@@ -1680,7 +1680,7 @@ pub(crate) unsafe fn show_activities() {
                                 print_int(t);
                                 print_cstr(b" might split");
                             }
-                            r = *LLIST_link(r as usize) as usize;
+                            r = PageInsertion(*LLIST_link(r.ptr()) as usize);
                         }
                     }
                 }
