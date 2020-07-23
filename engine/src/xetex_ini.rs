@@ -357,9 +357,9 @@ pub(crate) struct EqtbWord {
 /* language number, 0..255 */
 /* "minimum left fragment, range 1..63" */
 /* "minimum right fragment, range 1..63" */
-/* WEB: font(lig_char(p)) */
-/* WEB: character(lig_char(p)) */
-/* WEB: link(lig_char(p)) */
+/* WEB: font(char(p)) */
+/* WEB: character(char(p)) */
+/* WEB: link(char(p)) */
 /* "head of the token list for the mark" */
 /* "the mark class" */
 /* To check: do these really only apply to MATH_NODEs? */

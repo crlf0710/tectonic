@@ -39,10 +39,9 @@ use crate::xetex_xetexd::{
     ACTIVE_NODE_shortfall, ACTIVE_NODE_total_demerits, BOX_depth, BOX_height, BOX_width,
     CHAR_NODE_character, CHAR_NODE_font, DISCRETIONARY_NODE_post_break,
     DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr,
-    GLUE_NODE_leader_ptr, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LIGATURE_NODE_lig_ptr,
-    LLIST_info, LLIST_link, NODE_type, PASSIVE_NODE_cur_break, PASSIVE_NODE_next_break,
-    PASSIVE_NODE_prev_break, PENALTY_NODE_penalty, TeXInt, TeXOpt, FONT_CHARACTER_INFO,
-    FONT_CHARACTER_WIDTH,
+    GLUE_NODE_leader_ptr, LLIST_info, LLIST_link, NODE_type, PASSIVE_NODE_cur_break,
+    PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty, TeXInt, TeXOpt,
+    FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -394,12 +393,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     }
                 }
                 TextNode::Ligature => {
-                    let f = *LIGATURE_NODE_lig_font(cp) as usize;
+                    let l = Ligature(cp);
+                    let f = l.font() as usize;
                     xtx_ligature_present = true;
-                    active_width[1] += *FONT_CHARACTER_WIDTH(
-                        f,
-                        effective_char(true, f, *LIGATURE_NODE_lig_char(cp)) as usize,
-                    );
+                    active_width[1] +=
+                        *FONT_CHARACTER_WIDTH(f, effective_char(true, f, l.char()) as usize);
                 }
                 TextNode::Disc => {
                     /*898: try to break after a discretionary fragment, then goto done5 */
@@ -416,10 +414,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             } else {
                                 match text_NODE_type(s).unwrap() {
                                     TextNode::Ligature => {
-                                        let f = *LIGATURE_NODE_lig_font(s) as usize;
+                                        let l = Ligature(s);
+                                        let f = l.font() as usize;
                                         xtx_ligature_present = true;
-                                        let eff_char_1 =
-                                            effective_char(true, f, *LIGATURE_NODE_lig_char(s));
+                                        let eff_char_1 = effective_char(true, f, l.char());
                                         disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
                                     }
                                     TextNode::HList
@@ -462,13 +460,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         } else {
                             match text_NODE_type(s).confuse(b"disc4") {
                                 TextNode::Ligature => {
-                                    let f = *LIGATURE_NODE_lig_font(s) as usize;
+                                    let l = Ligature(s);
+                                    let f = l.font() as usize;
                                     xtx_ligature_present = true;
-                                    let eff_char_3 = effective_char(
-                                        true,
-                                        f,
-                                        *LIGATURE_NODE_lig_char(s as usize),
-                                    );
+                                    let eff_char_3 = effective_char(true, f, l.char());
                                     active_width[1] +=
                                         *FONT_CHARACTER_WIDTH(f, eff_char_3 as usize);
                                 }
@@ -682,7 +677,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         c = *CHAR_NODE_character(s) as UnicodeScalar; /*:930*/
                         hf = *CHAR_NODE_font(s) as usize;
                     } else if NODE_type(s) == TextNode::Ligature.into() {
-                        if let Some(q) = LIGATURE_NODE_lig_ptr(s).opt() {
+                        let l = Ligature(s);
+                        if let Some(q) = l.lig_ptr().opt() {
                             c = *CHAR_NODE_character(q) as UnicodeScalar;
                             hf = *CHAR_NODE_font(q) as usize;
                         } else {
@@ -922,13 +918,14 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             hc[hn as usize] = hc[0];
                             hyf_bchar = TOO_BIG_CHAR;
                         } else if NODE_type(s) == TextNode::Ligature.into() {
+                            let l = Ligature(s);
                             /*932: move the characters of a ligature node to hu and hc; but goto done3
                              * if they are not all letters. */
-                            if *LIGATURE_NODE_lig_font(s) as usize != hf {
+                            if l.font() as usize != hf {
                                 break;
                             }
                             let mut j = hn;
-                            let mut qopt = LIGATURE_NODE_lig_ptr(s).opt();
+                            let mut qopt = l.lig_ptr().opt();
                             if let Some(q) = qopt {
                                 hyf_bchar = *CHAR_NODE_character(q as usize) as i32
                             }
@@ -955,9 +952,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 hc[j as usize] = hc[0];
                                 qopt = llist_link(q);
                             }
-                            hb = s;
+                            hb = l.ptr();
                             hn = j;
-                            if MEM[s].b16.s0 as i32 & 1 != 0 {
+                            if l.right_hit() {
                                 hyf_bchar = FONT_BCHAR[hf as usize]
                             } else {
                                 hyf_bchar = TOO_BIG_CHAR;
@@ -1490,13 +1487,10 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                     } else {
                                         match text_NODE_type(v).confuse(b"disc1") {
                                             TextNode::Ligature => {
-                                                let f = *LIGATURE_NODE_lig_font(v) as usize;
+                                                let l = Ligature(v);
+                                                let f = l.font() as usize;
                                                 xtx_ligature_present = true;
-                                                let eff_char_0 = effective_char(
-                                                    true,
-                                                    f,
-                                                    *LIGATURE_NODE_lig_char(v),
-                                                );
+                                                let eff_char_0 = effective_char(true, f, l.char());
                                                 break_width[1] -=
                                                     *FONT_CHARACTER_WIDTH(f, eff_char_0 as usize);
                                             }
@@ -1531,13 +1525,10 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                     } else {
                                         match text_NODE_type(s).confuse(b"disc2") {
                                             TextNode::Ligature => {
-                                                let f = *LIGATURE_NODE_lig_font(s) as usize;
+                                                let l = Ligature(s);
+                                                let f = l.font() as usize;
                                                 xtx_ligature_present = true;
-                                                let eff_char_2 = effective_char(
-                                                    true,
-                                                    f,
-                                                    *LIGATURE_NODE_lig_char(s),
-                                                );
+                                                let eff_char_2 = effective_char(true, f, l.char());
                                                 break_width[1] +=
                                                     *FONT_CHARACTER_WIDTH(f, eff_char_2 as usize);
                                             }
@@ -2233,20 +2224,21 @@ unsafe fn hyphenate() {
                 current_block = 6662862405959679103;
             }
         } else if NODE_type(ha) == TextNode::Ligature.into() {
-            if *LIGATURE_NODE_lig_font(ha) as usize != hf {
+            let l = Ligature(ha);
+            if l.font() as usize != hf {
                 current_block = 6826215413708131726;
             } else {
-                init_list = *LIGATURE_NODE_lig_ptr(ha);
+                init_list = l.lig_ptr();
                 init_lig = true;
-                init_lft = MEM[ha].b16.s0 as i32 > 1;
-                hu[0] = *LIGATURE_NODE_lig_char(ha) as i32;
+                init_lft = l.left_hit();
+                hu[0] = l.char() as i32;
                 if init_list.opt().is_none() {
                     if init_lft {
                         hu[0] = max_hyph_char;
                         init_lig = false
                     }
                 }
-                free_node(ha, SMALL_NODE_SIZE);
+                l.free();
                 current_block = 6662862405959679103;
             }
         } else {

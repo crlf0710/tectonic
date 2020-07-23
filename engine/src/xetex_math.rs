@@ -45,8 +45,7 @@ use crate::xetex_xetexd::{
     is_char_node, kern_NODE_width, llist_link, math_char, math_class, math_fam, set_NODE_type,
     set_class, set_family, set_kern_NODE_subtype, set_whatsit_NODE_subtype, text_NODE_type,
     whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
-    GLUE_NODE_glue_ptr, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font, LLIST_link, NODE_type,
-    TeXInt, TeXOpt,
+    GLUE_NODE_glue_ptr, LLIST_link, NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -204,9 +203,10 @@ pub(crate) unsafe fn init_math() {
                             found = true;
                         }
                         TextNode::Ligature => {
-                            *CHAR_NODE_character(GARBAGE) = *LIGATURE_NODE_lig_char(p);
-                            *CHAR_NODE_font(GARBAGE) = *LIGATURE_NODE_lig_font(p);
-                            *LLIST_link(GARBAGE) = *LLIST_link(p);
+                            let l = Ligature(p);
+                            *CHAR_NODE_character(GARBAGE) = l.char();
+                            *CHAR_NODE_font(GARBAGE) = l.font();
+                            *LLIST_link(GARBAGE) = *LLIST_link(l.ptr());
                             popt = Some(GARBAGE);
                             xtx_ligature_present = true;
                             continue;
