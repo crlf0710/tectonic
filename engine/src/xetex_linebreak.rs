@@ -35,13 +35,10 @@ use crate::xetex_xetexd::{
     clear_NODE_subtype, is_char_node, is_non_discardable_node,
     kern_NODE_subtype, /*set_NODE_subtype,*/
     llist_link, set_NODE_type, set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype,
-    ACTIVE_NODE_break_node, ACTIVE_NODE_fitness, ACTIVE_NODE_glue, ACTIVE_NODE_line_number,
-    ACTIVE_NODE_shortfall, ACTIVE_NODE_total_demerits, BOX_depth, BOX_height, BOX_width,
-    CHAR_NODE_character, CHAR_NODE_font, DISCRETIONARY_NODE_post_break,
-    DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr,
-    GLUE_NODE_leader_ptr, LLIST_info, LLIST_link, NODE_type, PASSIVE_NODE_cur_break,
-    PASSIVE_NODE_next_break, PASSIVE_NODE_prev_break, PENALTY_NODE_penalty, TeXInt, TeXOpt,
-    FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
+    BOX_depth, BOX_height, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
+    DISCRETIONARY_NODE_post_break, DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count,
+    GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, LLIST_info, LLIST_link, NODE_type,
+    PENALTY_NODE_penalty, TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -82,7 +79,7 @@ static mut first_width: scaled_t = 0;
 static mut second_width: scaled_t = 0;
 static mut first_indent: scaled_t = 0;
 static mut second_indent: scaled_t = 0;
-static mut best_bet: i32 = 0;
+static mut best_bet: Active = Active(0);
 static mut fewest_demerits: i32 = 0;
 static mut best_line: i32 = 0;
 static mut actual_looseness: i32 = 0;
@@ -527,18 +524,18 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 fewest_demerits = MAX_HALFWORD;
 
                 loop {
-                    if NODE_type(r as usize) != DELTA_NODE.into() {
-                        if *ACTIVE_NODE_total_demerits(r as usize) < fewest_demerits {
-                            fewest_demerits = *ACTIVE_NODE_total_demerits(r as usize); /*:904*/
+                    if let ActiveNode::Active(r) = ActiveNode::from(r as usize) {
+                        if r.total_demerits() < fewest_demerits {
+                            fewest_demerits = r.total_demerits(); /*:904*/
                             best_bet = r;
                         }
                     }
                     r = *LLIST_link(r as usize);
-                    if !(r != LAST_ACTIVE as i32) {
+                    if r == LAST_ACTIVE as i32 {
                         break;
                     }
                 }
-                best_line = *ACTIVE_NODE_line_number(best_bet as usize);
+                best_line = best_bet.line_number();
                 if *INTPAR(IntPar::looseness) == 0 {
                     break;
                 }
@@ -547,8 +544,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 actual_looseness = 0;
 
                 loop {
-                    if NODE_type(r as usize) != DELTA_NODE.into() {
-                        line_diff = *ACTIVE_NODE_line_number(r as usize) - best_line;
+                    if let ActiveNode::Active(r) = ActiveNode::from(r as usize) {
+                        line_diff = r.line_number() - best_line;
 
                         if line_diff < actual_looseness && *INTPAR(IntPar::looseness) <= line_diff
                             || line_diff > actual_looseness
@@ -556,12 +553,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         {
                             best_bet = r;
                             actual_looseness = line_diff;
-                            fewest_demerits = *ACTIVE_NODE_total_demerits(r as usize);
+                            fewest_demerits = r.total_demerits();
                         } else if line_diff == actual_looseness
-                            && *ACTIVE_NODE_total_demerits(r as usize) < fewest_demerits
+                            && r.total_demerits() < fewest_demerits
                         {
                             best_bet = r;
-                            fewest_demerits = *ACTIVE_NODE_total_demerits(r as usize);
+                            fewest_demerits = r.total_demerits();
                         }
                     }
                     r = *LLIST_link(r as usize);
@@ -569,7 +566,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         break;
                     }
                 }
-                best_line = *ACTIVE_NODE_line_number(best_bet as usize);
+                best_line = best_bet.line_number();
                 if actual_looseness == *INTPAR(IntPar::looseness) || final_pass {
                     break;
                 }
@@ -579,10 +576,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         let mut q = llist_link(ACTIVE_LIST).unwrap();
         while q != LAST_ACTIVE {
             cur_p = llist_link(q);
-            if NODE_type(q) == DELTA_NODE.into() {
-                free_node(q, DELTA_NODE_SIZE);
-            } else {
-                free_node(q, active_node_size as i32);
+            match ActiveNode::from(q) {
+                ActiveNode::Delta(q) => q.free(),
+                ActiveNode::Active(q) => free_node(q.ptr(), active_node_size as i32),
             }
             q = cur_p.unwrap();
         }
@@ -606,18 +602,15 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     }
     if do_last_line_fit {
         /*1641:*/
-        if *ACTIVE_NODE_shortfall(best_bet as usize) == 0 {
+        if best_bet.shortfall() == 0 {
             do_last_line_fit = false
         } else {
             let mut q = GlueSpec(new_spec(
                 *GLUE_NODE_glue_ptr(last_line_fill as usize) as usize
             ));
             delete_glue_ref(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
-            q.set_size(
-                q.size() + *ACTIVE_NODE_shortfall(best_bet as usize)
-                    - *ACTIVE_NODE_glue(best_bet as usize),
-            )
-            .set_stretch(0);
+            q.set_size(q.size() + best_bet.shortfall() - best_bet.glue())
+                .set_stretch(0);
             *GLUE_NODE_glue_ptr(last_line_fill as usize) = q.ptr() as i32;
         }
     }
@@ -628,11 +621,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     let mut q = llist_link(ACTIVE_LIST).unwrap();
     while q != ACTIVE_LIST {
         let mut next = llist_link(q);
-
-        if NODE_type(q) == DELTA_NODE.into() {
-            free_node(q, DELTA_NODE_SIZE);
-        } else {
-            free_node(q, active_node_size as i32);
+        match ActiveNode::from(q) {
+            ActiveNode::Delta(q) => q.free(),
+            ActiveNode::Active(q) => free_node(q.ptr(), active_node_size as i32),
         }
         q = next.unwrap();
     }
@@ -1023,14 +1014,16 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 unsafe fn post_line_break(mut d: bool) {
     let mut LR_ptr = cur_list.eTeX_aux;
     /* Reverse the list of break nodes (907) */
-    let mut q = *ACTIVE_NODE_break_node(best_bet as usize); /*:907*/
+    let mut q = Passive(best_bet.break_node() as usize); /*:907*/
     cur_p = None;
     loop {
         let mut r = q;
-        q = *PASSIVE_NODE_prev_break(q as usize);
-        *PASSIVE_NODE_next_break(r as usize) = cur_p.tex_int();
-        cur_p = Some(r as usize);
-        if q.opt().is_none() {
+        let prev = q.prev_break().opt();
+        r.set_next_break(cur_p.tex_int());
+        cur_p = Some(r.ptr());
+        if let Some(prev) = prev {
+            q = Passive(prev);
+        } else {
             break;
         }
     }
@@ -1041,7 +1034,7 @@ unsafe fn post_line_break(mut d: bool) {
          * insertions. The current line starts a TEMP_HEAD.link and ends at
          * cur_p.cur_break.
          **/
-        let cp = cur_p.unwrap();
+        let cp = Passive(cur_p.unwrap());
         if *INTPAR(IntPar::texxet) > 0 {
             /*1494:*/
             let mut q = *LLIST_link(TEMP_HEAD);
@@ -1060,7 +1053,7 @@ unsafe fn post_line_break(mut d: bool) {
                 }
                 *LLIST_link(TEMP_HEAD) = r;
             }
-            while q != MEM[cp + 1].b32.s1 {
+            while q != cp.cur_break() {
                 if q < hi_mem_min && NODE_type(q as usize) == TextNode::Math.into() {
                     /*1495:*/
                     let (be, mode) = MathNST::from(MEM[q as usize].b16.s0).equ();
@@ -1090,7 +1083,7 @@ unsafe fn post_line_break(mut d: bool) {
         let mut post_disc_break = false;
         let mut glue_break = false;
 
-        let mut q = if let Some(mut q) = PASSIVE_NODE_cur_break(cp).opt() {
+        let mut q = if let Some(mut q) = cp.cur_break().opt() {
             match text_NODE_type(q).unwrap() {
                 TextNode::Glue => {
                     delete_glue_ref(*GLUE_NODE_glue_ptr(q) as usize);
@@ -1341,7 +1334,7 @@ unsafe fn post_line_break(mut d: bool) {
         }
         /* Done justifying this line. */
         cur_line += 1;
-        cur_p = PASSIVE_NODE_next_break(cp).opt();
+        cur_p = cp.next_break().opt();
         if let Some(cp) = cur_p {
             if !post_disc_break {
                 /* 908: "prune unwanted nodes at the beginning of the next
@@ -1352,7 +1345,7 @@ unsafe fn post_line_break(mut d: bool) {
                 let mut q;
                 loop {
                     q = *LLIST_link(r as usize);
-                    if q == *PASSIVE_NODE_cur_break(cp) {
+                    if q == Passive(cp).cur_break() {
                         break;
                     }
                     if is_char_node(q.opt()) {
@@ -1441,596 +1434,609 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
         let r = llist_link(prev_r).unwrap();
         /*861: "If node r is of type delta_node, update cur_active_width, set
          * prev_r and prev_prev_r, then goto continue" */
-        if NODE_type(r) == DELTA_NODE.into() {
-            let r = Delta(r);
-            cur_active_width[1] += r.dwidth();
-            cur_active_width[2] += r.dstretch0();
-            cur_active_width[3] += r.dstretch1();
-            cur_active_width[4] += r.dstretch2();
-            cur_active_width[5] += r.dstretch3();
-            cur_active_width[6] += r.dshrink();
-            prev_prev_r = Some(prev_r);
-            prev_r = r.ptr();
-        } else {
-            /*864: "If a line number class has ended, create new active nodes for
-             * the best feasible breaks in that class; then return if r =
-             * last_active, otherwise compute the new line_width." */
-            let l = *ACTIVE_NODE_line_number(r);
+        match ActiveNode::from(r) {
+            ActiveNode::Delta(r) => {
+                cur_active_width[1] += r.dwidth();
+                cur_active_width[2] += r.dstretch0();
+                cur_active_width[3] += r.dstretch1();
+                cur_active_width[4] += r.dstretch2();
+                cur_active_width[5] += r.dstretch3();
+                cur_active_width[6] += r.dshrink();
+                prev_prev_r = Some(prev_r);
+                prev_r = r.ptr();
+            }
+            ActiveNode::Active(r) => {
+                /*864: "If a line number class has ended, create new active nodes for
+                 * the best feasible breaks in that class; then return if r =
+                 * last_active, otherwise compute the new line_width." */
+                let l = r.line_number();
 
-            if l > old_l {
-                /* "now we are no longer in the inner loop" */
-                if minimum_demerits < AWFUL_BAD && (old_l != easy_line || r == LAST_ACTIVE) {
-                    /*865: "Create new active nodes for the best feasible breaks
-                     * just found." */
-                    if no_break_yet {
-                        /*866: "Compute the values of break_width". */
-                        no_break_yet = false;
-                        break_width[1..].copy_from_slice(&background[1..]);
-                        let mut sopt = cur_p;
-                        if break_type == BreakType::Hyphenated {
-                            /*869: "Compute the discretionary break_width values" */
-                            if let Some(cp) = cur_p {
-                                let mut t = *DISCRETIONARY_NODE_replace_count(cp) as i32;
-                                let mut v = cp;
-                                sopt = DISCRETIONARY_NODE_post_break(cp).opt();
-                                while t > 0 {
-                                    t -= 1;
-                                    v = *LLIST_link(v) as usize;
-                                    /*870: "subtract the width of node v from break_width" */
-                                    if is_char_node(Some(v)) {
-                                        let mut eff_char: i32 = 0;
+                if l > old_l {
+                    /* "now we are no longer in the inner loop" */
+                    if minimum_demerits < AWFUL_BAD
+                        && (old_l != easy_line || r.ptr() == LAST_ACTIVE)
+                    {
+                        /*865: "Create new active nodes for the best feasible breaks
+                         * just found." */
+                        if no_break_yet {
+                            /*866: "Compute the values of break_width". */
+                            no_break_yet = false;
+                            break_width[1..].copy_from_slice(&background[1..]);
+                            let mut sopt = cur_p;
+                            if break_type == BreakType::Hyphenated {
+                                /*869: "Compute the discretionary break_width values" */
+                                if let Some(cp) = cur_p {
+                                    let mut t = *DISCRETIONARY_NODE_replace_count(cp) as i32;
+                                    let mut v = cp;
+                                    sopt = DISCRETIONARY_NODE_post_break(cp).opt();
+                                    while t > 0 {
+                                        t -= 1;
+                                        v = *LLIST_link(v) as usize;
+                                        /*870: "subtract the width of node v from break_width" */
+                                        if is_char_node(Some(v)) {
+                                            let mut eff_char: i32 = 0;
 
-                                        let f = *CHAR_NODE_font(v) as usize;
-                                        eff_char = effective_char(true, f, *CHAR_NODE_character(v));
-                                        break_width[1] -=
-                                            *FONT_CHARACTER_WIDTH(f, eff_char as usize);
-                                    } else {
-                                        match text_NODE_type(v).confuse(b"disc1") {
-                                            TextNode::Ligature => {
-                                                let l = Ligature(v);
-                                                let f = l.font() as usize;
-                                                xtx_ligature_present = true;
-                                                let eff_char_0 = effective_char(true, f, l.char());
-                                                break_width[1] -=
-                                                    *FONT_CHARACTER_WIDTH(f, eff_char_0 as usize);
-                                            }
-                                            TextNode::HList
-                                            | TextNode::VList
-                                            | TextNode::Rule
-                                            | TextNode::Kern => {
-                                                break_width[1] -= *BOX_width(v);
-                                            }
-                                            TextNode::WhatsIt => match whatsit_NODE_subtype(v) {
-                                                WhatsItNST::NativeWord
-                                                | WhatsItNST::NativeWordAt
-                                                | WhatsItNST::Glyph
-                                                | WhatsItNST::Pic
-                                                | WhatsItNST::Pdf => {
+                                            let f = *CHAR_NODE_font(v) as usize;
+                                            eff_char =
+                                                effective_char(true, f, *CHAR_NODE_character(v));
+                                            break_width[1] -=
+                                                *FONT_CHARACTER_WIDTH(f, eff_char as usize);
+                                        } else {
+                                            match text_NODE_type(v).confuse(b"disc1") {
+                                                TextNode::Ligature => {
+                                                    let l = Ligature(v);
+                                                    let f = l.font() as usize;
+                                                    xtx_ligature_present = true;
+                                                    let eff_char_0 =
+                                                        effective_char(true, f, l.char());
+                                                    break_width[1] -= *FONT_CHARACTER_WIDTH(
+                                                        f,
+                                                        eff_char_0 as usize,
+                                                    );
+                                                }
+                                                TextNode::HList
+                                                | TextNode::VList
+                                                | TextNode::Rule
+                                                | TextNode::Kern => {
                                                     break_width[1] -= *BOX_width(v);
                                                 }
-                                                _ => confusion(b"disc1a"),
-                                            },
-                                            _ => confusion(b"disc1"),
+                                                TextNode::WhatsIt => {
+                                                    match whatsit_NODE_subtype(v) {
+                                                        WhatsItNST::NativeWord
+                                                        | WhatsItNST::NativeWordAt
+                                                        | WhatsItNST::Glyph
+                                                        | WhatsItNST::Pic
+                                                        | WhatsItNST::Pdf => {
+                                                            break_width[1] -= *BOX_width(v);
+                                                        }
+                                                        _ => confusion(b"disc1a"),
+                                                    }
+                                                }
+                                                _ => confusion(b"disc1"),
+                                            }
                                         }
                                     }
-                                }
-                                /*871: "add the width of node s to break_width" */
-                                while let Some(s) = sopt {
-                                    if is_char_node(Some(s)) {
-                                        let mut eff_char_1: i32 = 0;
-                                        let f = *CHAR_NODE_font(s) as usize;
-                                        eff_char_1 = effective_char(true, f, MEM[s].b16.s0);
-                                        break_width[1] +=
-                                            *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
-                                    } else {
-                                        match text_NODE_type(s).confuse(b"disc2") {
-                                            TextNode::Ligature => {
-                                                let l = Ligature(s);
-                                                let f = l.font() as usize;
-                                                xtx_ligature_present = true;
-                                                let eff_char_2 = effective_char(true, f, l.char());
-                                                break_width[1] +=
-                                                    *FONT_CHARACTER_WIDTH(f, eff_char_2 as usize);
-                                            }
-                                            TextNode::HList
-                                            | TextNode::VList
-                                            | TextNode::Rule
-                                            | TextNode::Kern => {
-                                                break_width[1] += *BOX_width(s);
-                                            }
-                                            TextNode::WhatsIt => match whatsit_NODE_subtype(s) {
-                                                WhatsItNST::NativeWord
-                                                | WhatsItNST::NativeWordAt
-                                                | WhatsItNST::Glyph
-                                                | WhatsItNST::Pic
-                                                | WhatsItNST::Pdf => {
+                                    /*871: "add the width of node s to break_width" */
+                                    while let Some(s) = sopt {
+                                        if is_char_node(Some(s)) {
+                                            let mut eff_char_1: i32 = 0;
+                                            let f = *CHAR_NODE_font(s) as usize;
+                                            eff_char_1 = effective_char(true, f, MEM[s].b16.s0);
+                                            break_width[1] +=
+                                                *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
+                                        } else {
+                                            match text_NODE_type(s).confuse(b"disc2") {
+                                                TextNode::Ligature => {
+                                                    let l = Ligature(s);
+                                                    let f = l.font() as usize;
+                                                    xtx_ligature_present = true;
+                                                    let eff_char_2 =
+                                                        effective_char(true, f, l.char());
+                                                    break_width[1] += *FONT_CHARACTER_WIDTH(
+                                                        f,
+                                                        eff_char_2 as usize,
+                                                    );
+                                                }
+                                                TextNode::HList
+                                                | TextNode::VList
+                                                | TextNode::Rule
+                                                | TextNode::Kern => {
                                                     break_width[1] += *BOX_width(s);
                                                 }
-                                                _ => confusion(b"disc2a"),
-                                            },
-                                            _ => confusion(b"disc2"),
+                                                TextNode::WhatsIt => {
+                                                    match whatsit_NODE_subtype(s) {
+                                                        WhatsItNST::NativeWord
+                                                        | WhatsItNST::NativeWordAt
+                                                        | WhatsItNST::Glyph
+                                                        | WhatsItNST::Pic
+                                                        | WhatsItNST::Pdf => {
+                                                            break_width[1] += *BOX_width(s);
+                                                        }
+                                                        _ => confusion(b"disc2a"),
+                                                    }
+                                                }
+                                                _ => confusion(b"disc2"),
+                                            }
                                         }
+                                        sopt = llist_link(s);
                                     }
-                                    sopt = llist_link(s);
+                                    break_width[1] += disc_width;
+                                    if DISCRETIONARY_NODE_post_break(cp).opt().is_none() {
+                                        sopt = llist_link(v);
+                                    }
                                 }
-                                break_width[1] += disc_width;
-                                if DISCRETIONARY_NODE_post_break(cp).opt().is_none() {
-                                    sopt = llist_link(v);
+                            }
+                            while let Some(s) = sopt {
+                                if is_char_node(Some(s)) {
+                                    break;
                                 }
+                                match text_NODE_type(s).unwrap() {
+                                    TextNode::Glue => {
+                                        let v = GlueSpec(*GLUE_NODE_glue_ptr(s) as usize);
+                                        break_width[1] -= v.size();
+                                        break_width[2 + v.stretch_order() as usize] -= v.stretch();
+                                        break_width[6] -= v.shrink();
+                                    }
+                                    TextNode::Penalty => {}
+                                    TextNode::Math => break_width[1] -= *BOX_width(s),
+                                    TextNode::Kern => {
+                                        if kern_NODE_subtype(s) != KernNST::Explicit {
+                                            break;
+                                        }
+                                        break_width[1] -= *BOX_width(s)
+                                    }
+                                    _ => break,
+                                }
+                                sopt = llist_link(s);
                             }
                         }
-                        while let Some(s) = sopt {
-                            if is_char_node(Some(s)) {
-                                break;
+                        /*872: "Insert a delta node to prepare for breaks at cur_p" */
+                        if let ActiveNode::Delta(mut prev_r) = ActiveNode::from(prev_r) {
+                            /* this is unused */
+                            prev_r
+                                .set_dwidth(prev_r.dwidth() - cur_active_width[1] + break_width[1]);
+                            prev_r.set_dstretch0(
+                                prev_r.dstretch0() - cur_active_width[2] + break_width[2],
+                            );
+                            prev_r.set_dstretch1(
+                                prev_r.dstretch1() - cur_active_width[3] + break_width[3],
+                            );
+                            prev_r.set_dstretch2(
+                                prev_r.dstretch2() - cur_active_width[4] + break_width[4],
+                            );
+                            prev_r.set_dstretch3(
+                                prev_r.dstretch3() - cur_active_width[5] + break_width[5],
+                            );
+                            prev_r.set_dshrink(
+                                prev_r.dshrink() - cur_active_width[6] + break_width[6],
+                            );
+                        } else {
+                            if prev_r == ACTIVE_LIST {
+                                active_width[1..].copy_from_slice(&break_width[1..]);
+                            } else {
+                                let q = get_node(DELTA_NODE_SIZE);
+                                *LLIST_link(q) = Some(r.ptr()).tex_int();
+                                set_NODE_type(q, DELTA_NODE);
+                                clear_NODE_subtype(q);
+                                Delta(q)
+                                    .set_dwidth(break_width[1] - cur_active_width[1])
+                                    .set_dstretch0(break_width[2] - cur_active_width[2])
+                                    .set_dstretch1(break_width[3] - cur_active_width[3])
+                                    .set_dstretch2(break_width[4] - cur_active_width[4])
+                                    .set_dstretch3(break_width[5] - cur_active_width[5])
+                                    .set_dshrink(break_width[6] - cur_active_width[6]);
+                                *LLIST_link(prev_r) = Some(q).tex_int();
+                                prev_prev_r = Some(prev_r);
+                                prev_r = q;
                             }
-                            match text_NODE_type(s).unwrap() {
-                                TextNode::Glue => {
-                                    let v = GlueSpec(*GLUE_NODE_glue_ptr(s) as usize);
-                                    break_width[1] -= v.size();
-                                    break_width[2 + v.stretch_order() as usize] -= v.stretch();
-                                    break_width[6] -= v.shrink();
-                                }
-                                TextNode::Penalty => {}
-                                TextNode::Math => break_width[1] -= *BOX_width(s),
-                                TextNode::Kern => {
-                                    if kern_NODE_subtype(s) != KernNST::Explicit {
-                                        break;
-                                    }
-                                    break_width[1] -= *BOX_width(s)
-                                }
-                                _ => break,
-                            }
-                            sopt = llist_link(s);
                         }
-                    }
-                    /*872: "Insert a delta node to prepare for breaks at cur_p" */
-                    if NODE_type(prev_r) == DELTA_NODE.into() {
-                        /* this is unused */
-                        let mut prev_r = Delta(prev_r);
-                        prev_r.set_dwidth(prev_r.dwidth() - cur_active_width[1] + break_width[1]);
-                        prev_r.set_dstretch0(
-                            prev_r.dstretch0() - cur_active_width[2] + break_width[2],
-                        );
-                        prev_r.set_dstretch1(
-                            prev_r.dstretch1() - cur_active_width[3] + break_width[3],
-                        );
-                        prev_r.set_dstretch2(
-                            prev_r.dstretch2() - cur_active_width[4] + break_width[4],
-                        );
-                        prev_r.set_dstretch3(
-                            prev_r.dstretch3() - cur_active_width[5] + break_width[5],
-                        );
-                        prev_r.set_dshrink(prev_r.dshrink() - cur_active_width[6] + break_width[6]);
-                    } else if prev_r == ACTIVE_LIST {
-                        active_width[1..].copy_from_slice(&break_width[1..]);
-                    } else {
-                        let q = get_node(DELTA_NODE_SIZE);
-                        *LLIST_link(q) = Some(r).tex_int();
-                        set_NODE_type(q, DELTA_NODE);
-                        clear_NODE_subtype(q);
-                        Delta(q)
-                            .set_dwidth(break_width[1] - cur_active_width[1])
-                            .set_dstretch0(break_width[2] - cur_active_width[2])
-                            .set_dstretch1(break_width[3] - cur_active_width[3])
-                            .set_dstretch2(break_width[4] - cur_active_width[4])
-                            .set_dstretch3(break_width[5] - cur_active_width[5])
-                            .set_dshrink(break_width[6] - cur_active_width[6]);
-                        *LLIST_link(prev_r) = Some(q).tex_int();
-                        prev_prev_r = Some(prev_r);
-                        prev_r = q;
-                    }
-                    /* ... resuming 865 ... */
-                    if (*INTPAR(IntPar::adj_demerits)).abs() >= MAX_HALFWORD - minimum_demerits {
-                        minimum_demerits = AWFUL_BAD - 1;
-                    } else {
-                        minimum_demerits = minimum_demerits + (*INTPAR(IntPar::adj_demerits)).abs()
-                    }
-                    fit_class = VERY_LOOSE_FIT;
-                    while fit_class <= TIGHT_FIT {
-                        if minimal_demerits[fit_class as usize] <= minimum_demerits {
-                            /*874: "Insert a new active node from best_place[fit_class] to cur_p" */
-                            let q = get_node(PASSIVE_NODE_SIZE);
-                            *LLIST_link(q) = passive;
-                            passive = q as i32;
-                            *PASSIVE_NODE_cur_break(q) = cur_p.tex_int();
-                            *PASSIVE_NODE_prev_break(q) = best_place[fit_class as usize];
+                        /* ... resuming 865 ... */
+                        if (*INTPAR(IntPar::adj_demerits)).abs() >= MAX_HALFWORD - minimum_demerits
+                        {
+                            minimum_demerits = AWFUL_BAD - 1;
+                        } else {
+                            minimum_demerits =
+                                minimum_demerits + (*INTPAR(IntPar::adj_demerits)).abs()
+                        }
+                        fit_class = VERY_LOOSE_FIT;
+                        while fit_class <= TIGHT_FIT {
+                            if minimal_demerits[fit_class as usize] <= minimum_demerits {
+                                /*874: "Insert a new active node from best_place[fit_class] to cur_p" */
+                                let mut q = Passive(get_node(PASSIVE_NODE_SIZE));
+                                *LLIST_link(q.ptr()) = passive;
+                                passive = Some(q.ptr()).tex_int();
+                                q.set_cur_break(cur_p.tex_int());
+                                q.set_prev_break(best_place[fit_class as usize]);
 
-                            let q = get_node(active_node_size as i32);
-                            *ACTIVE_NODE_break_node(q) = passive;
-                            *ACTIVE_NODE_line_number(q) = best_pl_line[fit_class as usize] + 1;
-                            *ACTIVE_NODE_fitness(q) = fit_class as u16;
-                            MEM[q as usize].b16.s1 = break_type as u16; //set_NODE_type(q, break_type as u16);
-                            *ACTIVE_NODE_total_demerits(q) = minimal_demerits[fit_class as usize];
+                                let mut q = Active(get_node(active_node_size as i32));
+                                q.set_break_node(passive);
+                                q.set_line_number(best_pl_line[fit_class as usize] + 1);
+                                q.set_fitness(fit_class as u16);
+                                q.set_break_type(break_type);
+                                q.set_total_demerits(minimal_demerits[fit_class as usize]);
 
-                            if do_last_line_fit {
-                                /*1639: */
-                                *ACTIVE_NODE_shortfall(q) = best_pl_short[fit_class as usize];
-                                *ACTIVE_NODE_glue(q) = best_pl_glue[fit_class as usize];
+                                if do_last_line_fit {
+                                    /*1639: */
+                                    q.set_shortfall(best_pl_short[fit_class as usize]);
+                                    q.set_glue(best_pl_glue[fit_class as usize]);
+                                }
+                                *LLIST_link(q.ptr()) = Some(r.ptr()).tex_int();
+                                *LLIST_link(prev_r) = Some(q.ptr()).tex_int();
+                                prev_r = q.ptr();
                             }
-                            *LLIST_link(q) = Some(r).tex_int();
+                            minimal_demerits[fit_class as usize] = MAX_HALFWORD;
+                            fit_class = fit_class.wrapping_add(1)
+                        }
+                        minimum_demerits = MAX_HALFWORD;
+                        /*873: "Insert a delta node to prepare for the next active node" */
+                        if r.ptr() != LAST_ACTIVE {
+                            let q = get_node(DELTA_NODE_SIZE);
+                            *LLIST_link(q) = Some(r.ptr()).tex_int();
+                            set_NODE_type(q, DELTA_NODE);
+                            clear_NODE_subtype(q); /* subtype is not used */
+                            Delta(q)
+                                .set_dwidth(cur_active_width[1] - break_width[1])
+                                .set_dstretch0(cur_active_width[2] - break_width[2])
+                                .set_dstretch1(cur_active_width[3] - break_width[3])
+                                .set_dstretch2(cur_active_width[4] - break_width[4])
+                                .set_dstretch3(cur_active_width[5] - break_width[5])
+                                .set_dshrink(cur_active_width[6] - break_width[6]);
                             *LLIST_link(prev_r) = Some(q).tex_int();
+                            prev_prev_r = Some(prev_r);
                             prev_r = q;
                         }
-                        minimal_demerits[fit_class as usize] = MAX_HALFWORD;
-                        fit_class = fit_class.wrapping_add(1)
                     }
-                    minimum_demerits = MAX_HALFWORD;
-                    /*873: "Insert a delta node to prepare for the next active node" */
-                    if r != LAST_ACTIVE {
-                        let q = get_node(DELTA_NODE_SIZE);
-                        *LLIST_link(q) = Some(r).tex_int();
-                        set_NODE_type(q, DELTA_NODE);
-                        clear_NODE_subtype(q); /* subtype is not used */
-                        Delta(q)
-                            .set_dwidth(cur_active_width[1] - break_width[1])
-                            .set_dstretch0(cur_active_width[2] - break_width[2])
-                            .set_dstretch1(cur_active_width[3] - break_width[3])
-                            .set_dstretch2(cur_active_width[4] - break_width[4])
-                            .set_dstretch3(cur_active_width[5] - break_width[5])
-                            .set_dshrink(cur_active_width[6] - break_width[6]);
-                        *LLIST_link(prev_r) = Some(q).tex_int();
-                        prev_prev_r = Some(prev_r);
-                        prev_r = q;
+                    /* ... resuming 864 ... */
+                    if r.ptr() == LAST_ACTIVE {
+                        return;
                     }
-                }
-                /* ... resuming 864 ... */
-                if r == LAST_ACTIVE {
-                    return;
-                }
-                /*879: "Compute the new line width" */
-                if l > easy_line {
-                    line_width = second_width;
-                    old_l = MAX_HALFWORD - 1;
-                } else {
-                    old_l = l;
-                    line_width = if l > last_special_line {
-                        second_width
-                    } else if let Some(ps) = LOCAL(Local::par_shape).opt() {
-                        MEM[ps + 2 * (l as usize)].b32.s1
+                    /*879: "Compute the new line width" */
+                    if l > easy_line {
+                        line_width = second_width;
+                        old_l = MAX_HALFWORD - 1;
                     } else {
-                        first_width
-                    };
-                    /* this mem access is in the WEB */
+                        old_l = l;
+                        line_width = if l > last_special_line {
+                            second_width
+                        } else if let Some(ps) = LOCAL(Local::par_shape).opt() {
+                            MEM[ps + 2 * (l as usize)].b32.s1
+                        } else {
+                            first_width
+                        };
+                        /* this mem access is in the WEB */
+                    }
                 }
-            }
-            /*880: "Consider the demerits for a line from r to cur_p; deactivate
-             * node r if it should no longer be active; then goto continue if a
-             * line from r to cur_p is infeasible; otherwise record a new feasible
-             * break" */
-            /* Tectonic: if we got here, we must be "considering" a linebreak
-             * at the very end of the paragraph. How amazing, it's a perfect fit!
-             */
-            if semantic_pagination_enabled {
-                line_width = cur_active_width[1];
-                artificial_demerits = true;
-                shortfall = 0;
-            } else {
-                artificial_demerits = false;
-                shortfall = line_width - cur_active_width[1];
-                if *INTPAR(IntPar::xetex_protrude_chars) > 1 {
-                    shortfall = shortfall + total_pw(r, cur_p)
+                /*880: "Consider the demerits for a line from r to cur_p; deactivate
+                 * node r if it should no longer be active; then goto continue if a
+                 * line from r to cur_p is infeasible; otherwise record a new feasible
+                 * break" */
+                /* Tectonic: if we got here, we must be "considering" a linebreak
+                 * at the very end of the paragraph. How amazing, it's a perfect fit!
+                 */
+                if semantic_pagination_enabled {
+                    line_width = cur_active_width[1];
+                    artificial_demerits = true;
+                    shortfall = 0;
+                } else {
+                    artificial_demerits = false;
+                    shortfall = line_width - cur_active_width[1];
+                    if *INTPAR(IntPar::xetex_protrude_chars) > 1 {
+                        shortfall = shortfall + total_pw(r.ptr(), cur_p)
+                    }
                 }
-            }
 
-            let mut current_block: u64;
-            if shortfall > 0 {
-                /*881: "Set the value of b to the badness for stretching the line,
-                 * and compute the corresponding fit_class" */
-                if cur_active_width[3] != 0 || cur_active_width[4] != 0 || cur_active_width[5] != 0
-                {
-                    if do_last_line_fit {
-                        if cur_p.is_none() {
-                            /*1634: "Perform computations for the last line and goto found" */
-                            if *ACTIVE_NODE_shortfall(r) == 0 || *ACTIVE_NODE_glue(r) <= 0 {
-                                current_block = 5565703735569783978;
-                            } else if cur_active_width[3] != fill_width[0]
-                                || cur_active_width[4] != fill_width[1]
-                                || cur_active_width[5] != fill_width[2]
-                            {
-                                current_block = 5565703735569783978;
-                            } else {
-                                g = if *ACTIVE_NODE_shortfall(r) > 0 {
-                                    cur_active_width[2]
-                                } else {
-                                    cur_active_width[6]
-                                };
-                                if g <= 0 {
+                let mut current_block: u64;
+                if shortfall > 0 {
+                    /*881: "Set the value of b to the badness for stretching the line,
+                     * and compute the corresponding fit_class" */
+                    if cur_active_width[3] != 0
+                        || cur_active_width[4] != 0
+                        || cur_active_width[5] != 0
+                    {
+                        if do_last_line_fit {
+                            if cur_p.is_none() {
+                                /*1634: "Perform computations for the last line and goto found" */
+                                if r.shortfall() == 0 || r.glue() <= 0 {
+                                    current_block = 5565703735569783978;
+                                } else if cur_active_width[3] != fill_width[0]
+                                    || cur_active_width[4] != fill_width[1]
+                                    || cur_active_width[5] != fill_width[2]
+                                {
                                     current_block = 5565703735569783978;
                                 } else {
-                                    arith_error = false;
-                                    g = fract(
-                                        g,
-                                        *ACTIVE_NODE_shortfall(r),
-                                        *ACTIVE_NODE_glue(r),
-                                        MAX_HALFWORD,
-                                    );
-                                    if *INTPAR(IntPar::last_line_fit) < 1000 {
-                                        g = fract(
-                                            g,
-                                            *INTPAR(IntPar::last_line_fit),
-                                            1000,
-                                            MAX_HALFWORD,
-                                        )
-                                    }
-                                    if arith_error {
-                                        g = if *ACTIVE_NODE_shortfall(r) > 0 {
-                                            MAX_HALFWORD
-                                        } else {
-                                            -MAX_HALFWORD
-                                        };
-                                    }
-                                    if g > 0 {
-                                        /*1635: "Set the value of b to the badness of the
-                                         * last line for stretching, compute the
-                                         * corresponding fit_class, and goto found" */
-                                        if g > shortfall {
-                                            g = shortfall
+                                    g = if r.shortfall() > 0 {
+                                        cur_active_width[2]
+                                    } else {
+                                        cur_active_width[6]
+                                    };
+                                    if g <= 0 {
+                                        current_block = 5565703735569783978;
+                                    } else {
+                                        arith_error = false;
+                                        g = fract(g, r.shortfall(), r.glue(), MAX_HALFWORD);
+                                        if *INTPAR(IntPar::last_line_fit) < 1000 {
+                                            g = fract(
+                                                g,
+                                                *INTPAR(IntPar::last_line_fit),
+                                                1000,
+                                                MAX_HALFWORD,
+                                            )
                                         }
-                                        if g > 7230584 {
-                                            /* XXX: magic number in original WEB code */
-                                            if (cur_active_width[2] as i64) < 1663497 {
+                                        if arith_error {
+                                            g = if r.shortfall() > 0 {
+                                                MAX_HALFWORD
+                                            } else {
+                                                -MAX_HALFWORD
+                                            };
+                                        }
+                                        if g > 0 {
+                                            /*1635: "Set the value of b to the badness of the
+                                             * last line for stretching, compute the
+                                             * corresponding fit_class, and goto found" */
+                                            if g > shortfall {
+                                                g = shortfall
+                                            }
+                                            if g > 7230584 {
                                                 /* XXX: magic number in original WEB code */
-                                                b = INF_BAD;
-                                                fit_class = VERY_LOOSE_FIT;
-                                                current_block = 11849408527845460430;
+                                                if (cur_active_width[2] as i64) < 1663497 {
+                                                    /* XXX: magic number in original WEB code */
+                                                    b = INF_BAD;
+                                                    fit_class = VERY_LOOSE_FIT;
+                                                    current_block = 11849408527845460430;
+                                                } else {
+                                                    current_block = 16221891950104054966;
+                                                }
                                             } else {
                                                 current_block = 16221891950104054966;
                                             }
-                                        } else {
-                                            current_block = 16221891950104054966;
-                                        }
-                                        match current_block {
-                                            11849408527845460430 => {}
-                                            _ => {
-                                                b = badness(g, cur_active_width[2]);
-                                                fit_class = if b > 12 {
-                                                    if b > 99 {
-                                                        VERY_LOOSE_FIT
+                                            match current_block {
+                                                11849408527845460430 => {}
+                                                _ => {
+                                                    b = badness(g, cur_active_width[2]);
+                                                    fit_class = if b > 12 {
+                                                        if b > 99 {
+                                                            VERY_LOOSE_FIT
+                                                        } else {
+                                                            LOOSE_FIT
+                                                        }
                                                     } else {
-                                                        LOOSE_FIT
-                                                    }
-                                                } else {
-                                                    DECENT_FIT
-                                                };
-                                                current_block = 11849408527845460430;
+                                                        DECENT_FIT
+                                                    };
+                                                    current_block = 11849408527845460430;
+                                                }
                                             }
-                                        }
-                                    } else if g < 0 {
-                                        /*1636: "Set the value of b to the badness of the
-                                         * last line for shrinking, compute the
-                                         * corresponding fit_class, and goto found" */
-                                        if -g > cur_active_width[6] {
-                                            g = -cur_active_width[6]
-                                        }
-                                        b = badness(-g, cur_active_width[6]);
-                                        fit_class = if b > 12 {
-                                            /* XXX hardcoded in WEB */
-                                            TIGHT_FIT
+                                        } else if g < 0 {
+                                            /*1636: "Set the value of b to the badness of the
+                                             * last line for shrinking, compute the
+                                             * corresponding fit_class, and goto found" */
+                                            if -g > cur_active_width[6] {
+                                                g = -cur_active_width[6]
+                                            }
+                                            b = badness(-g, cur_active_width[6]);
+                                            fit_class = if b > 12 {
+                                                /* XXX hardcoded in WEB */
+                                                TIGHT_FIT
+                                            } else {
+                                                DECENT_FIT
+                                            };
+                                            current_block = 11849408527845460430;
                                         } else {
-                                            DECENT_FIT
-                                        };
-                                        current_block = 11849408527845460430;
-                                    } else {
-                                        current_block = 5565703735569783978;
+                                            current_block = 5565703735569783978;
+                                        }
                                     }
+                                }
+                            } else {
+                                current_block = 5565703735569783978;
+                            }
+                            match current_block {
+                                11849408527845460430 => {}
+                                _ => {
+                                    shortfall = 0i32;
+                                    current_block = 16988252441985098516;
                                 }
                             }
                         } else {
-                            current_block = 5565703735569783978;
+                            current_block = 16988252441985098516;
                         }
                         match current_block {
                             11849408527845460430 => {}
                             _ => {
-                                shortfall = 0i32;
-                                current_block = 16988252441985098516;
+                                b = 0i32;
+                                fit_class = DECENT_FIT;
+                                current_block = 8633396468472091231;
                             }
                         }
                     } else {
-                        current_block = 16988252441985098516;
-                    }
-                    match current_block {
-                        11849408527845460430 => {}
-                        _ => {
-                            b = 0i32;
-                            fit_class = DECENT_FIT;
-                            current_block = 8633396468472091231;
-                        }
-                    }
-                } else {
-                    let mut current_block_230: u64;
-                    if shortfall as i64 > 7230584 {
-                        /* XXX: magic number in original WEB code */
-                        if (cur_active_width[2] as i64) < 1663497 {
+                        let mut current_block_230: u64;
+                        if shortfall as i64 > 7230584 {
                             /* XXX: magic number in original WEB code */
-                            b = INF_BAD;
-                            fit_class = VERY_LOOSE_FIT;
-                            current_block_230 = 4001239642700071046;
+                            if (cur_active_width[2] as i64) < 1663497 {
+                                /* XXX: magic number in original WEB code */
+                                b = INF_BAD;
+                                fit_class = VERY_LOOSE_FIT;
+                                current_block_230 = 4001239642700071046;
+                            } else {
+                                current_block_230 = 15455430299222214173;
+                            }
                         } else {
                             current_block_230 = 15455430299222214173;
                         }
-                    } else {
-                        current_block_230 = 15455430299222214173;
-                    }
-                    match current_block_230 {
-                        15455430299222214173 => {
-                            b = badness(shortfall, cur_active_width[2]);
-                            fit_class = if b > 12 {
-                                if b > 99 {
-                                    VERY_LOOSE_FIT
+                        match current_block_230 {
+                            15455430299222214173 => {
+                                b = badness(shortfall, cur_active_width[2]);
+                                fit_class = if b > 12 {
+                                    if b > 99 {
+                                        VERY_LOOSE_FIT
+                                    } else {
+                                        LOOSE_FIT
+                                    }
                                 } else {
-                                    LOOSE_FIT
-                                }
-                            } else {
-                                DECENT_FIT
-                            };
+                                    DECENT_FIT
+                                };
+                            }
+                            _ => {}
                         }
-                        _ => {}
+                        current_block = 8633396468472091231;
                     }
+                } else {
+                    /*882: "Set the value of b to the badness for shrinking the line,
+                     * and compute the corresponding fit_class" */
+                    if -shortfall > cur_active_width[6] {
+                        b = INF_BAD + 1
+                    } else {
+                        b = badness(-shortfall, cur_active_width[6])
+                    }
+                    fit_class = if b > 12 { TIGHT_FIT } else { DECENT_FIT };
                     current_block = 8633396468472091231;
                 }
-            } else {
-                /*882: "Set the value of b to the badness for shrinking the line,
-                 * and compute the corresponding fit_class" */
-                if -shortfall > cur_active_width[6] {
-                    b = INF_BAD + 1
-                } else {
-                    b = badness(-shortfall, cur_active_width[6])
-                }
-                fit_class = if b > 12 { TIGHT_FIT } else { DECENT_FIT };
-                current_block = 8633396468472091231;
-            }
-            match current_block {
-                8633396468472091231 => {
-                    if do_last_line_fit {
-                        /*1637: "Adjust the additional data for last line" */
-                        if cur_p.is_none() {
-                            shortfall = 0
-                        }
-                        g = if shortfall > 0 {
-                            cur_active_width[2]
-                        } else if shortfall < 0 {
-                            cur_active_width[6]
-                        } else {
-                            0
-                        };
-                    }
-                }
-                _ => {}
-            }
-            if b > INF_BAD || pi == EJECT_PENALTY {
-                /*883: "Prepare to deactivate node r, and goto deactivate unless
-                 * there is a reason to consider lines of text from r to cur_p" */
-                if final_pass
-                    && minimum_demerits == AWFUL_BAD
-                    && llist_link(r) == Some(LAST_ACTIVE)
-                    && prev_r == ACTIVE_LIST
-                {
-                    artificial_demerits = true;
-                    current_block = 8298116646536739282;
-                } else if b > threshold {
-                    current_block = 4955522990288899513;
-                } else {
-                    current_block = 8298116646536739282;
-                }
                 match current_block {
-                    4955522990288899513 => {}
-                    _ => {
-                        node_r_stays_active = false;
-                        current_block = 14114736409816581360;
-                    }
-                }
-            } else {
-                prev_r = r;
-                if b > threshold {
-                    continue;
-                }
-                node_r_stays_active = true;
-                current_block = 14114736409816581360;
-            }
-            match current_block {
-                14114736409816581360 => {
-                    let mut d;
-                    if artificial_demerits {
-                        d = 0
-                    } else {
-                        /*888: "Compute the demerits, d, from r to cur_p" */
-                        d = *INTPAR(IntPar::line_penalty) + b;
-                        d = if d.abs() >= 10_000 {
-                            100_000_000
-                        /* algorithmic constant */
-                        } else {
-                            d * d
-                        };
-                        if pi != 0 {
-                            if pi > 0 {
-                                d = d + pi * pi
-                            } else if pi > EJECT_PENALTY {
-                                d = d - pi * pi
+                    8633396468472091231 => {
+                        if do_last_line_fit {
+                            /*1637: "Adjust the additional data for last line" */
+                            if cur_p.is_none() {
+                                shortfall = 0
                             }
-                        }
-                        if break_type == BreakType::Hyphenated
-                            && MEM[r].b16.s1 == BreakType::Hyphenated as u16
-                        // NODE_type(r) == HYPHENATED
-                        {
-                            d += if cur_p.is_some() {
-                                *INTPAR(IntPar::double_hyphen_demerits)
+                            g = if shortfall > 0 {
+                                cur_active_width[2]
+                            } else if shortfall < 0 {
+                                cur_active_width[6]
                             } else {
-                                *INTPAR(IntPar::final_hyphen_demerits)
+                                0
                             };
                         }
-                        if (fit_class as i32 - *ACTIVE_NODE_fitness(r) as i32).abs() > 1 {
-                            d += *INTPAR(IntPar::adj_demerits);
+                    }
+                    _ => {}
+                }
+                if b > INF_BAD || pi == EJECT_PENALTY {
+                    /*883: "Prepare to deactivate node r, and goto deactivate unless
+                     * there is a reason to consider lines of text from r to cur_p" */
+                    if final_pass
+                        && minimum_demerits == AWFUL_BAD
+                        && llist_link(r.ptr()) == Some(LAST_ACTIVE)
+                        && prev_r == ACTIVE_LIST
+                    {
+                        artificial_demerits = true;
+                        current_block = 8298116646536739282;
+                    } else if b > threshold {
+                        current_block = 4955522990288899513;
+                    } else {
+                        current_block = 8298116646536739282;
+                    }
+                    match current_block {
+                        4955522990288899513 => {}
+                        _ => {
+                            node_r_stays_active = false;
+                            current_block = 14114736409816581360;
                         }
                     }
-                    /* resuming 884: */
-                    d += *ACTIVE_NODE_total_demerits(r as usize);
-                    if d <= minimal_demerits[fit_class as usize] {
-                        minimal_demerits[fit_class as usize] = d;
-                        best_place[fit_class as usize] = *ACTIVE_NODE_break_node(r);
-                        best_pl_line[fit_class as usize] = l;
-                        if do_last_line_fit {
-                            /*1638:*/
-                            best_pl_short[fit_class as usize] = shortfall;
-                            best_pl_glue[fit_class as usize] = g
-                        }
-                        if d < minimum_demerits {
-                            minimum_demerits = d
-                        }
-                    }
-                    if node_r_stays_active {
+                } else {
+                    prev_r = r.ptr();
+                    if b > threshold {
                         continue;
                     }
+                    node_r_stays_active = true;
+                    current_block = 14114736409816581360;
                 }
-                _ => {}
-            }
-            /*889: "Deactivate node r" */
-            *LLIST_link(prev_r) = *LLIST_link(r);
-            free_node(r, active_node_size as i32);
-            if prev_r == ACTIVE_LIST {
-                /*890: "Update the active widths, since the first active node has been deleted" */
-                let r = llist_link(ACTIVE_LIST).unwrap(); /*:966 */
-                if NODE_type(r) == DELTA_NODE.into() {
-                    let r = Delta(r);
-                    active_width[1] += r.dwidth();
-                    active_width[2] += r.dstretch0();
-                    active_width[3] += r.dstretch1();
-                    active_width[4] += r.dstretch2();
-                    active_width[5] += r.dstretch3();
-                    active_width[6] += r.dshrink();
-                    cur_active_width[1..].copy_from_slice(&active_width[1..]);
-                    *LLIST_link(ACTIVE_LIST) = *LLIST_link(r.ptr());
-                    free_node(r.ptr(), DELTA_NODE_SIZE);
+                match current_block {
+                    14114736409816581360 => {
+                        let mut d;
+                        if artificial_demerits {
+                            d = 0
+                        } else {
+                            /*888: "Compute the demerits, d, from r to cur_p" */
+                            d = *INTPAR(IntPar::line_penalty) + b;
+                            d = if d.abs() >= 10_000 {
+                                100_000_000
+                            /* algorithmic constant */
+                            } else {
+                                d * d
+                            };
+                            if pi != 0 {
+                                if pi > 0 {
+                                    d = d + pi * pi
+                                } else if pi > EJECT_PENALTY {
+                                    d = d - pi * pi
+                                }
+                            }
+                            if break_type == BreakType::Hyphenated
+                                && r.break_type() == BreakType::Hyphenated
+                            {
+                                d += if cur_p.is_some() {
+                                    *INTPAR(IntPar::double_hyphen_demerits)
+                                } else {
+                                    *INTPAR(IntPar::final_hyphen_demerits)
+                                };
+                            }
+                            if (fit_class as i32 - r.fitness() as i32).abs() > 1 {
+                                d += *INTPAR(IntPar::adj_demerits);
+                            }
+                        }
+                        /* resuming 884: */
+                        d += r.total_demerits();
+                        if d <= minimal_demerits[fit_class as usize] {
+                            minimal_demerits[fit_class as usize] = d;
+                            best_place[fit_class as usize] = r.break_node();
+                            best_pl_line[fit_class as usize] = l;
+                            if do_last_line_fit {
+                                /*1638:*/
+                                best_pl_short[fit_class as usize] = shortfall;
+                                best_pl_glue[fit_class as usize] = g
+                            }
+                            if d < minimum_demerits {
+                                minimum_demerits = d
+                            }
+                        }
+                        if node_r_stays_active {
+                            continue;
+                        }
+                    }
+                    _ => {}
                 }
-            } else if NODE_type(prev_r) == DELTA_NODE.into() {
-                let r = llist_link(prev_r).unwrap();
-                if r == LAST_ACTIVE {
-                    let prev_r_delta = Delta(prev_r);
-                    cur_active_width[1] -= prev_r_delta.dwidth();
-                    cur_active_width[2] -= prev_r_delta.dstretch0();
-                    cur_active_width[3] -= prev_r_delta.dstretch1();
-                    cur_active_width[4] -= prev_r_delta.dstretch2();
-                    cur_active_width[5] -= prev_r_delta.dstretch3();
-                    cur_active_width[6] -= prev_r_delta.dshrink();
-                    *LLIST_link(prev_prev_r.unwrap()) = Some(LAST_ACTIVE).tex_int();
-                    free_node(prev_r, DELTA_NODE_SIZE);
-                    prev_r = prev_prev_r.unwrap();
-                } else if NODE_type(r) == DELTA_NODE.into() {
-                    let r = Delta(r);
-                    let mut prev_r_delta = Delta(prev_r);
-                    cur_active_width[1] += r.dwidth();
-                    cur_active_width[2] += r.dstretch0();
-                    cur_active_width[3] += r.dstretch1();
-                    cur_active_width[4] += r.dstretch2();
-                    cur_active_width[5] += r.dstretch3();
-                    cur_active_width[6] += r.dshrink();
-                    prev_r_delta.set_dwidth(prev_r_delta.dwidth() + r.dwidth());
-                    prev_r_delta.set_dstretch0(prev_r_delta.dstretch0() + r.dstretch0());
-                    prev_r_delta.set_dstretch2(prev_r_delta.dstretch2() + r.dstretch1()); // TODO: looks like typo
-                    prev_r_delta.set_dstretch2(prev_r_delta.dstretch2() + r.dstretch2());
-                    prev_r_delta.set_dstretch3(prev_r_delta.dstretch3() + r.dstretch3());
-                    prev_r_delta.set_dshrink(prev_r_delta.dshrink() + r.dshrink());
-                    *LLIST_link(prev_r) = *LLIST_link(r.ptr());
-                    free_node(r.ptr(), DELTA_NODE_SIZE);
+                /*889: "Deactivate node r" */
+                *LLIST_link(prev_r) = *LLIST_link(r.ptr());
+                free_node(r.ptr(), active_node_size as i32);
+                if prev_r == ACTIVE_LIST {
+                    /*890: "Update the active widths, since the first active node has been deleted" */
+                    let r = llist_link(ACTIVE_LIST).unwrap(); /*:966 */
+                    if let ActiveNode::Delta(r) = ActiveNode::from(r) {
+                        active_width[1] += r.dwidth();
+                        active_width[2] += r.dstretch0();
+                        active_width[3] += r.dstretch1();
+                        active_width[4] += r.dstretch2();
+                        active_width[5] += r.dstretch3();
+                        active_width[6] += r.dshrink();
+                        cur_active_width[1..].copy_from_slice(&active_width[1..]);
+                        *LLIST_link(ACTIVE_LIST) = *LLIST_link(r.ptr());
+                        r.free();
+                    }
+                } else if let ActiveNode::Delta(mut prev_r_delta) = ActiveNode::from(prev_r) {
+                    let r = llist_link(prev_r).unwrap();
+                    if r == LAST_ACTIVE {
+                        cur_active_width[1] -= prev_r_delta.dwidth();
+                        cur_active_width[2] -= prev_r_delta.dstretch0();
+                        cur_active_width[3] -= prev_r_delta.dstretch1();
+                        cur_active_width[4] -= prev_r_delta.dstretch2();
+                        cur_active_width[5] -= prev_r_delta.dstretch3();
+                        cur_active_width[6] -= prev_r_delta.dshrink();
+                        *LLIST_link(prev_prev_r.unwrap()) = Some(LAST_ACTIVE).tex_int();
+                        prev_r_delta.free();
+                        prev_r = prev_prev_r.unwrap();
+                    } else if let ActiveNode::Delta(r) = ActiveNode::from(r) {
+                        cur_active_width[1] += r.dwidth();
+                        cur_active_width[2] += r.dstretch0();
+                        cur_active_width[3] += r.dstretch1();
+                        cur_active_width[4] += r.dstretch2();
+                        cur_active_width[5] += r.dstretch3();
+                        cur_active_width[6] += r.dshrink();
+                        prev_r_delta.set_dwidth(prev_r_delta.dwidth() + r.dwidth());
+                        prev_r_delta.set_dstretch0(prev_r_delta.dstretch0() + r.dstretch0());
+                        prev_r_delta.set_dstretch2(prev_r_delta.dstretch2() + r.dstretch1()); // TODO: looks like typo
+                        prev_r_delta.set_dstretch2(prev_r_delta.dstretch2() + r.dstretch2());
+                        prev_r_delta.set_dstretch3(prev_r_delta.dstretch3() + r.dstretch3());
+                        prev_r_delta.set_dshrink(prev_r_delta.dshrink() + r.dshrink());
+                        *LLIST_link(prev_r) = *LLIST_link(r.ptr());
+                        r.free();
+                    }
                 }
             }
         }

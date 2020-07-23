@@ -734,6 +734,11 @@ pub(crate) enum BreakType {
     Unhyphenated = 0,
     Hyphenated = 1,
 }
+impl From<u16> for BreakType {
+    fn from(n: u16) -> Self {
+        Self::n(n).expect(&format!("incorrect break type = {}", n))
+    }
+}
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, enumn::N)]
