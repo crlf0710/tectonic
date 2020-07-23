@@ -370,6 +370,60 @@ pub(crate) mod whatsit {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseBox(p))
         }
+        pub(crate) unsafe fn page(&self) -> u16 {
+            MEM[self.ptr() + 4].b16.s0
+        }
+        pub(crate) unsafe fn set_page(&mut self, v: u16) -> &mut Self {
+            MEM[self.ptr() + 4].b16.s0 = v;
+            self
+        }
+        /// number of bytes in the path item
+        pub(crate) unsafe fn path_len(&self) -> u16 {
+            MEM[self.ptr() + 4].b16.s1
+        }
+        pub(crate) unsafe fn set_path_len(&mut self, v: u16) -> &mut Self {
+            MEM[self.ptr() + 4].b16.s1 = v;
+            self
+        }
+        pub(crate) unsafe fn transform_matrix(&self) -> [i32; 6] {
+            [
+                MEM[self.ptr() + 5].b32.s0,
+                MEM[self.ptr() + 5].b32.s1,
+                MEM[self.ptr() + 6].b32.s0,
+                MEM[self.ptr() + 6].b32.s1,
+                MEM[self.ptr() + 7].b32.s0,
+                MEM[self.ptr() + 7].b32.s1,
+            ]
+        }
+        pub(crate) unsafe fn set_transform_matrix(&self, m: [i32; 6]) {
+            std::slice::from_raw_parts_mut(&mut MEM[self.ptr() + 5].b32.s0, 6).copy_from_slice(&m);
+        }
+        pub(crate) unsafe fn pagebox(&self) -> u16 {
+            MEM[self.ptr() + 8].b16.s1
+        }
+        pub(crate) unsafe fn set_pagebox(&mut self, v: u16) -> &mut Self {
+            MEM[self.ptr() + 8].b16.s1 = v;
+            self
+        }
+        pub(crate) unsafe fn path(&self) -> &[u8] {
+            let len = self.path_len() as usize;
+            let pp = &MEM[self.ptr() + super::PIC_NODE_SIZE as usize]
+                as *const crate::xetex_ini::memory_word as *const u8;
+            std::slice::from_raw_parts(pp, len)
+        }
+        pub(crate) unsafe fn path_mut(&mut self) -> &mut [u8] {
+            let len = self.path_len() as usize;
+            let pp = &mut MEM[self.ptr() + super::PIC_NODE_SIZE as usize]
+                as *mut crate::xetex_ini::memory_word as *mut u8;
+            std::slice::from_raw_parts_mut(pp, len)
+        }
+        pub(crate) unsafe fn total_size(&self) -> usize {
+            let mw_size = std::mem::size_of::<crate::xetex_ini::memory_word>();
+            (super::PIC_NODE_SIZE as usize) + ((self.path_len() as usize) + mw_size - 1) / mw_size
+        }
+        pub(crate) unsafe fn free(self) {
+            free_node(self.ptr(), self.total_size() as i32);
+        }
     }
 }
 
@@ -716,6 +770,53 @@ impl Delta {
     pub(crate) unsafe fn set_dshrink(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 6].b32.s1 = v;
         self
+    }
+}
+
+pub(crate) struct Ligature(pub usize);
+impl NodeSize for Ligature {
+    const SIZE: i32 = SMALL_NODE_SIZE;
+}
+impl Ligature {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn left_hit(&self) -> bool {
+        MEM[self.ptr()].b16.s0 > 1
+    }
+    pub(crate) unsafe fn right_hit(&self) -> bool {
+        MEM[self.ptr()].b16.s0 & 1 != 0
+    }
+    pub(crate) unsafe fn set_hits(&mut self, v: (bool, bool)) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = (v.0 as u16) * 2 + (v.1 as u16);
+        self
+    }
+    /// WEB: font(char(p))
+    pub(crate) unsafe fn font(&self) -> u16 {
+        MEM[self.ptr() + 1].b16.s1
+    }
+    pub(crate) unsafe fn set_font(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr() + 1].b16.s1 = v;
+        self
+    }
+    ///  WEB: character(char(p))
+    pub(crate) unsafe fn char(&self) -> u16 {
+        MEM[self.ptr() + 1].b16.s0
+    }
+    pub(crate) unsafe fn set_char(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr() + 1].b16.s0 = v;
+        self
+    }
+    /// WEB: link(char(p))
+    pub(crate) unsafe fn lig_ptr(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_lig_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
     }
 }
 

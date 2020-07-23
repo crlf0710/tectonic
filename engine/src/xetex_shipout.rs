@@ -41,9 +41,8 @@ use crate::xetex_xetexd::{
     is_char_node, kern_NODE_subtype, kern_NODE_width, llist_link, print_c_string, set_NODE_type,
     set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height,
     BOX_width, CHAR_NODE_character, CHAR_NODE_font, EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr,
-    GLUE_NODE_leader_ptr, GLUE_NODE_param, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
-    LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NODE_type, PIC_NODE_page, PIC_NODE_pagebox,
-    PIC_NODE_path, PIC_NODE_transform_matrix, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    GLUE_NODE_leader_ptr, GLUE_NODE_param, LLIST_info, LLIST_link, NODE_type, SYNCTEX_tag, TeXInt,
+    TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -840,13 +839,14 @@ unsafe fn hlist_out(this_box: &mut Box) {
                             dvi_h = cur_h;
                         }
                         WhatsItNST::Pic | WhatsItNST::Pdf => {
+                            let p = Picture::from(p);
                             let save_h = dvi_h;
                             let save_v = dvi_v;
                             cur_v = base_line;
                             let edge =
                                 cur_h +
-                                    *BOX_width(p);
-                            pic_out(p);
+                                    p.width();
+                            pic_out(&p);
                             dvi_h = save_h;
                             dvi_v = save_v;
                             cur_h = edge;
@@ -1067,7 +1067,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                         if MathNST::from(MEM[p].b16.s0).dir() !=
                                  cur_dir {
                             /*1509: "Reverse an hlist segment and goto reswitch" */
-                            let save_h = cur_h; /* = lig_char(p) */
+                            let save_h = cur_h; /* = char(p) */
                             let tmp_ptr = llist_link(p).unwrap();
                             rule_wd =
                                 *BOX_width(p);
@@ -1093,10 +1093,11 @@ unsafe fn hlist_out(this_box: &mut Box) {
                     cur_h += *BOX_width(p);
                 }
                 TextNode::Ligature => {
+                    let l = Ligature(p);
                     /* 675: "Make node p look like a char_node and goto reswitch" */
-                    *CHAR_NODE_character(LIG_TRICK) = *LIGATURE_NODE_lig_char(p);
-                    *CHAR_NODE_font(LIG_TRICK) = *LIGATURE_NODE_lig_font(p);
-                    *LLIST_link(LIG_TRICK) = *LLIST_link(p);
+                    *CHAR_NODE_character(LIG_TRICK) = l.char();
+                    *CHAR_NODE_font(LIG_TRICK) = l.font();
+                    *LLIST_link(LIG_TRICK) = *LLIST_link(l.ptr());
                     popt = Some(LIG_TRICK);
                     xtx_ligature_present = true;
                     continue;
@@ -1328,13 +1329,14 @@ unsafe fn vlist_out(this_box: &Box) {
                         cur_h = left_edge;
                     }
                     WhatsItNST::Pic | WhatsItNST::Pdf => {
+                        let p = Picture::from(p);
                         let save_h = dvi_h;
                         let save_v = dvi_v;
-                        cur_v = cur_v + *BOX_height(p);
-                        pic_out(p);
+                        cur_v = cur_v + p.height();
+                        pic_out(&p);
                         dvi_h = save_h;
                         dvi_v = save_v;
-                        cur_v = save_v + *BOX_depth(p);
+                        cur_v = save_v + p.depth();
                         cur_h = left_edge;
                     }
                     WhatsItNST::PdfSavePos => {
@@ -1576,7 +1578,7 @@ unsafe fn reverse(
                     TextNode::Glue => {
                         /*1486: "Handle a glue node for mixed direction typesetting" */
                         let mut g = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize); /* "will never match" */
-                        rule_wd = g.size() - *cur_g; /* = mem[lig_char(tmp_ptr)] */
+                        rule_wd = g.size() - *cur_g; /* = mem[char(tmp_ptr)] */
 
                         match g_sign {
                             GlueSign::Normal => {}
@@ -1628,15 +1630,15 @@ unsafe fn reverse(
                         }
                     }
                     TextNode::Ligature => {
-                        flush_node_list(LIGATURE_NODE_lig_ptr(p).opt());
-                        let tmp_ptr = p;
-                        let p = get_avail();
-                        *LIGATURE_NODE_lig_char(p) = *LIGATURE_NODE_lig_char(tmp_ptr);
-                        *LIGATURE_NODE_lig_font(p) = *LIGATURE_NODE_lig_font(tmp_ptr);
-                        *LIGATURE_NODE_lig_ptr(p) = *LIGATURE_NODE_lig_ptr(tmp_ptr);
-                        *LLIST_link(p) = q;
-                        popt = Some(p);
-                        free_node(tmp_ptr, SMALL_NODE_SIZE);
+                        let tmp_ptr = Ligature(p);
+                        flush_node_list(tmp_ptr.lig_ptr().opt());
+                        let mut p = Ligature(get_avail());
+                        p.set_char(tmp_ptr.char())
+                            .set_font(tmp_ptr.font())
+                            .set_lig_ptr(tmp_ptr.lig_ptr());
+                        *LLIST_link(p.ptr()) = q;
+                        popt = Some(p.ptr());
+                        tmp_ptr.free();
                         continue;
                     }
                     TextNode::Math => {
@@ -2159,7 +2161,7 @@ unsafe fn write_out(p: &WriteFile) {
     selector = old_setting;
 }
 
-unsafe fn pic_out(p: usize) {
+unsafe fn pic_out(p: &Picture) {
     if cur_h != dvi_h {
         movement(cur_h - dvi_h, RIGHT1);
         dvi_h = cur_h
@@ -2174,24 +2176,24 @@ unsafe fn pic_out(p: usize) {
     selector = Selector::NEW_STRING;
     print_cstr(b"pdf:image ");
     print_cstr(b"matrix ");
-    let matrix = PIC_NODE_transform_matrix(p);
-    print_scaled(matrix.0);
+    let matrix = p.transform_matrix();
+    print_scaled(matrix[0]);
     print(' ' as i32);
-    print_scaled(matrix.1);
+    print_scaled(matrix[1]);
     print(' ' as i32);
-    print_scaled(matrix.2);
+    print_scaled(matrix[2]);
     print(' ' as i32);
-    print_scaled(matrix.3);
+    print_scaled(matrix[3]);
     print(' ' as i32);
-    print_scaled(matrix.4);
+    print_scaled(matrix[4]);
     print(' ' as i32);
-    print_scaled(matrix.5);
+    print_scaled(matrix[5]);
     print(' ' as i32);
     print_cstr(b"page ");
-    print_int(*PIC_NODE_page(p) as i32);
+    print_int(p.page() as i32);
     print(' ' as i32);
 
-    match *PIC_NODE_pagebox(p) {
+    match p.pagebox() {
         1 => print_cstr(b"pagebox cropbox "),
         2 => print_cstr(b"pagebox mediabox "),
         3 => print_cstr(b"pagebox bleedbox "),
@@ -2201,7 +2203,7 @@ unsafe fn pic_out(p: usize) {
     }
 
     print('(' as i32);
-    for i in PIC_NODE_path(p) {
+    for i in p.path() {
         print_raw_char(*i as UTF16_code, true);
     }
     print(')' as i32);

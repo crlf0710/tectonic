@@ -1,4 +1,4 @@
-use crate::xetex_consts::{KernNST, TextNode, WhatsItNST, ND, PIC_NODE_SIZE, SYNCTEX_FIELD_SIZE};
+use crate::xetex_consts::{KernNST, TextNode, WhatsItNST, ND, SYNCTEX_FIELD_SIZE};
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
 
@@ -149,19 +149,6 @@ pub(crate) unsafe fn GLUE_NODE_leader_ptr<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s1
 }
 
-/// WEB: font(lig_char(p))
-pub(crate) unsafe fn LIGATURE_NODE_lig_font<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 1].b16.s1
-}
-///  WEB: character(lig_char(p))
-pub(crate) unsafe fn LIGATURE_NODE_lig_char<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 1].b16.s0
-}
-/// WEB: link(lig_char(p))
-pub(crate) unsafe fn LIGATURE_NODE_lig_ptr<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-
 /// "head of the token list for the mark"
 pub(crate) unsafe fn MARK_NODE_ptr<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s1
@@ -211,45 +198,6 @@ pub(crate) unsafe fn PASSIVE_NODE_cur_break<'a>(p: usize) -> &'a mut i32 {
 pub(crate) unsafe fn PENALTY_NODE_penalty<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s1
 }
-
-pub(crate) unsafe fn PIC_NODE_page<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 4].b16.s0
-}
-/// number of bytes in the path item
-pub(crate) unsafe fn PIC_NODE_path_len<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 4].b16.s1
-}
-pub(crate) unsafe fn PIC_NODE_transform_matrix(p: usize) -> (i32, i32, i32, i32, i32, i32) {
-    (
-        MEM[p + 5].b32.s0,
-        MEM[p + 5].b32.s1,
-        MEM[p + 6].b32.s0,
-        MEM[p + 6].b32.s1,
-        MEM[p + 7].b32.s0,
-        MEM[p + 7].b32.s1,
-    )
-}
-pub(crate) unsafe fn set_PIC_NODE_transform_matrix(p: usize, m: (i32, i32, i32, i32, i32, i32)) {
-    MEM[p + 5].b32.s0 = m.0;
-    MEM[p + 5].b32.s1 = m.1;
-    MEM[p + 6].b32.s0 = m.2;
-    MEM[p + 6].b32.s1 = m.3;
-    MEM[p + 7].b32.s0 = m.4;
-    MEM[p + 7].b32.s1 = m.5;
-}
-pub(crate) unsafe fn PIC_NODE_pagebox<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p + 8].b16.s1
-}
-
-pub(crate) unsafe fn PIC_NODE_path<'a>(p: usize) -> &'a mut [u8] {
-    let len = *PIC_NODE_path_len(p) as usize;
-    let pp = &mut MEM[p + PIC_NODE_SIZE as usize] as *mut crate::xetex_ini::memory_word as *mut u8;
-    std::slice::from_raw_parts_mut(pp, len)
-}
-/*
-#define PIC_NODE_total_size(p) (PIC_NODE_SIZE + (PIC_NODE_path_len(p) + sizeof(memory_word) - 1) / sizeof(memory_word))
-
-*/
 
 pub(crate) unsafe fn MARK_CLASS_indexes<'a>(p: usize) -> &'a mut [i32] {
     let pp = &mut MEM[p + 1].b32.s0;

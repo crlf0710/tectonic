@@ -420,13 +420,13 @@ pub(crate) unsafe fn new_rule() -> usize {
     p
 }
 pub(crate) unsafe fn new_ligature(mut f: internal_font_number, mut c: u16, mut q: i32) -> usize {
-    let p = get_node(SMALL_NODE_SIZE);
-    set_NODE_type(p, TextNode::Ligature);
-    *LIGATURE_NODE_lig_font(p) = f as u16;
-    *LIGATURE_NODE_lig_char(p) = c;
-    *LIGATURE_NODE_lig_ptr(p) = q;
-    MEM[p].b16.s0 = 0;
-    p
+    let mut p = Ligature(get_node(SMALL_NODE_SIZE));
+    set_NODE_type(p.ptr(), TextNode::Ligature);
+    p.set_font(f as u16)
+        .set_char(c)
+        .set_lig_ptr(q)
+        .set_hits((false, false));
+    p.ptr()
 }
 pub(crate) unsafe fn new_lig_item(mut c: u16) -> usize {
     let p = get_node(SMALL_NODE_SIZE);
@@ -589,7 +589,7 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                     }
                     _ => print_char('$' as i32),
                 },
-                TextNode::Ligature => short_display(LIGATURE_NODE_lig_ptr(p).opt()),
+                TextNode::Ligature => short_display(Ligature(p).lig_ptr().opt()),
                 TextNode::Disc => {
                     short_display(DISCRETIONARY_NODE_pre_break(p).opt());
                     short_display(DISCRETIONARY_NODE_post_break(p).opt());
@@ -1037,14 +1037,15 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         }
                     }
                     TextNode::Ligature => {
-                        print_font_and_char(p + 1);
+                        let l = Ligature(p);
+                        print_font_and_char(l.ptr() + 1);
                         print_cstr(b" (ligature ");
-                        if MEM[p].b16.s0 > 1 {
+                        if l.left_hit() {
                             print_char('|' as i32);
                         }
-                        font_in_short_display = *LIGATURE_NODE_lig_font(p) as usize;
-                        short_display(LIGATURE_NODE_lig_ptr(p).opt());
-                        if MEM[p].b16.s0 as i32 & 1 != 0 {
+                        font_in_short_display = l.font() as usize;
+                        short_display(l.lig_ptr().opt());
+                        if l.right_hit() {
                             print_char('|' as i32);
                         }
                         print_char(')' as i32);
@@ -1343,8 +1344,9 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         free_node(p, MARGIN_KERN_NODE_SIZE);
                     }
                     TextNode::Ligature => {
-                        flush_node_list(LIGATURE_NODE_lig_ptr(p).opt());
-                        free_node(p, SMALL_NODE_SIZE);
+                        let l = Ligature(p);
+                        flush_node_list(l.lig_ptr().opt());
+                        l.free();
                     }
                     TextNode::Mark => {
                         delete_token_ref(*MARK_NODE_ptr(p) as usize);
@@ -1525,10 +1527,12 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                     words = MARGIN_KERN_NODE_SIZE as u8
                 }
                 TextNode::Ligature => {
+                    let p = Ligature(p);
                     r = get_node(SMALL_NODE_SIZE);
-                    *LIGATURE_NODE_lig_char(r) = *LIGATURE_NODE_lig_char(p);
-                    *LIGATURE_NODE_lig_font(r) = *LIGATURE_NODE_lig_font(p);
-                    *LIGATURE_NODE_lig_ptr(r) = copy_node_list(LIGATURE_NODE_lig_ptr(p).opt())
+                    let mut r_lig = Ligature(r);
+                    r_lig.set_char(p.char());
+                    r_lig.set_font(p.font());
+                    r_lig.set_lig_ptr(copy_node_list(p.lig_ptr().opt()));
                 }
                 TextNode::Disc => {
                     r = get_node(SMALL_NODE_SIZE);
@@ -11284,9 +11288,10 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                     }
                 }
                 TextNode::Ligature => {
-                    *CHAR_NODE_character(GARBAGE) = *LIGATURE_NODE_lig_char(p);
-                    *CHAR_NODE_font(GARBAGE) = *LIGATURE_NODE_lig_font(p);
-                    *LLIST_link(GARBAGE) = *LLIST_link(p);
+                    let l = Ligature(p);
+                    *CHAR_NODE_character(GARBAGE) = l.char();
+                    *CHAR_NODE_font(GARBAGE) = l.font();
+                    *LLIST_link(GARBAGE) = *LLIST_link(l.ptr());
                     popt = Some(GARBAGE);
                     xtx_ligature_present = true;
                     continue;
