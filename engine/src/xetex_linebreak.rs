@@ -32,13 +32,12 @@ use crate::xetex_xetex0::{
     prev_rightmost,
 };
 use crate::xetex_xetexd::{
-    clear_NODE_subtype, is_char_node, is_non_discardable_node,
-    kern_NODE_subtype, /*set_NODE_subtype,*/
-    llist_link, set_NODE_type, set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype,
-    BOX_depth, BOX_height, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
-    DISCRETIONARY_NODE_post_break, DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count,
-    GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, LLIST_info, LLIST_link, NODE_type,
-    PENALTY_NODE_penalty, TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
+    clear_NODE_subtype, is_char_node, is_non_discardable_node, kern_NODE_subtype, llist_link,
+    set_NODE_type, set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, BOX_depth,
+    BOX_height, BOX_width, CHAR_NODE_character, CHAR_NODE_font, DISCRETIONARY_NODE_post_break,
+    DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr,
+    GLUE_NODE_leader_ptr, GLUE_NODE_param, LLIST_info, LLIST_link, NODE_type, PENALTY_NODE_penalty,
+    TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -282,19 +281,19 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
             };
         }
-        let q = get_node(active_node_size as i32);
-        MEM[q].b16.s1 = BreakType::Unhyphenated as _; //set_NODE_type(q as usize, UNHYPHENATED as _);
-        MEM[q].b16.s0 = DECENT_FIT as _;
-        *LLIST_link(q) = LAST_ACTIVE as i32;
-        MEM[q + 1].b32.s1 = None.tex_int();
-        MEM[q + 1].b32.s0 = cur_list.prev_graf + 1;
-        MEM[q + 2].b32.s1 = 0;
-        *LLIST_link(ACTIVE_LIST as usize) = q as i32;
+        let mut q = Active(get_node(active_node_size as i32));
+        q.set_break_type(BreakType::Unhyphenated)
+            .set_fitness(DECENT_FIT as _);
+        *LLIST_link(q.ptr()) = LAST_ACTIVE as i32;
+        q.set_break_node(None.tex_int())
+            .set_line_number(cur_list.prev_graf + 1)
+            .set_total_demerits(0);
+        *LLIST_link(ACTIVE_LIST as usize) = Some(q.ptr()).tex_int();
 
         if do_last_line_fit {
             /*1633:*/
-            MEM[q + 3].b32.s1 = 0; /*:893*/
-            MEM[q + 4].b32.s1 = 0
+            q.set_shortfall(0) /*:893*/
+                .set_glue(0);
         }
         active_width[1..].copy_from_slice(&background[1..]);
         passive = None.tex_int();
@@ -319,8 +318,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 global_prev_p = cp as i32;
                 prev_p = global_prev_p;
                 loop {
-                    let f = MEM[cp].b16.s1 as usize;
-                    let eff_char = effective_char(true, f, MEM[cp].b16.s0);
+                    let f = *CHAR_NODE_font(cp) as usize;
+                    let eff_char = effective_char(true, f, *CHAR_NODE_character(cp));
                     active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize]
                         + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize]
                             .b16
@@ -405,8 +404,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             /*899:*/
                             if is_char_node(Some(s)) {
                                 let mut eff_char_0: i32 = 0; /*:898 big DISC_NODE case */
-                                let f = MEM[s].b16.s1 as usize;
-                                eff_char_0 = effective_char(true, f, MEM[s].b16.s0);
+                                let f = *CHAR_NODE_font(s) as usize;
+                                eff_char_0 = effective_char(true, f, *CHAR_NODE_character(s));
                                 disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_0 as usize);
                             } else {
                                 match text_NODE_type(s).unwrap() {
@@ -1088,7 +1087,7 @@ unsafe fn post_line_break(mut d: bool) {
                 TextNode::Glue => {
                     delete_glue_ref(*GLUE_NODE_glue_ptr(q) as usize);
                     *GLUE_NODE_glue_ptr(q) = *GLUEPAR(GluePar::right_skip);
-                    MEM[q].b16.s0 = GluePar::right_skip as u16 + 1; // NODE_subtype(q)
+                    *GLUE_NODE_param(q) = GluePar::right_skip as u16 + 1;
                     GlueSpec(*GLUEPAR(GluePar::right_skip) as usize).rc_inc();
                     glue_break = true;
                 }
@@ -1616,7 +1615,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                             } else {
                                 let q = get_node(DELTA_NODE_SIZE);
                                 *LLIST_link(q) = Some(r.ptr()).tex_int();
-                                set_NODE_type(q, DELTA_NODE);
+                                MEM[q].b16.s1 = 2; // DELTA_NODE
                                 clear_NODE_subtype(q);
                                 Delta(q)
                                     .set_dwidth(break_width[1] - cur_active_width[1])
@@ -1672,7 +1671,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                         if r.ptr() != LAST_ACTIVE {
                             let q = get_node(DELTA_NODE_SIZE);
                             *LLIST_link(q) = Some(r.ptr()).tex_int();
-                            set_NODE_type(q, DELTA_NODE);
+                            MEM[q].b16.s1 = 2; // DELTA_NODE
                             clear_NODE_subtype(q); /* subtype is not used */
                             Delta(q)
                                 .set_dwidth(cur_active_width[1] - break_width[1])
