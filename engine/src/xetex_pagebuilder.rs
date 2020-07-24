@@ -27,9 +27,9 @@ use crate::xetex_xetex0::{
     scan_left_brace, vert_break, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_non_discardable_node, kern_NODE_width, llist_link, text_NODE_type, whatsit_NODE_subtype,
-    BOX_depth, BOX_height, GLUE_NODE_glue_ptr, LLIST_link, MARK_NODE_class, MARK_NODE_ptr,
-    /*NODE_subtype, */ NODE_type, PENALTY_NODE_penalty, TOKEN_LIST_ref_count, TeXInt, TeXOpt,
+    is_non_discardable_node, llist_link, text_NODE_type, whatsit_NODE_subtype, BOX_depth,
+    BOX_height, GLUE_NODE_glue_ptr, LLIST_link, MARK_NODE_class, MARK_NODE_ptr, NODE_type,
+    TOKEN_LIST_ref_count, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -104,11 +104,12 @@ unsafe fn fire_up(c: usize) {
     /*1048: "Set the value of output_penalty" */
     let bpb = best_page_break.unwrap();
     if NODE_type(bpb) == TextNode::Penalty.into() {
+        let mut bpb = Penalty(bpb);
         geq_word_define(
             INT_BASE as usize + (IntPar::output_penalty as usize),
-            *PENALTY_NODE_penalty(bpb),
+            bpb.penalty(),
         );
-        *PENALTY_NODE_penalty(bpb) = INF_PENALTY;
+        bpb.set_penalty(INF_PENALTY);
     } else {
         geq_word_define(
             INT_BASE as usize + (IntPar::output_penalty as usize),
@@ -496,9 +497,11 @@ pub(crate) unsafe fn build_page() {
             last_glue = MAX_HALFWORD;
 
             if p_node == TextNode::Penalty {
-                last_penalty = *PENALTY_NODE_penalty(slf.p);
+                let p = Penalty(slf.p);
+                last_penalty = p.penalty();
             } else if p_node == TextNode::Kern {
-                last_kern = *kern_NODE_width(slf.p);
+                let k = Kern(slf.p);
+                last_kern = k.width();
             }
         }
         /*1032: "Move node p to the current page; if it is time for a page
@@ -580,10 +583,11 @@ pub(crate) unsafe fn build_page() {
                 } else { return update_heights(slf); }
             }
             TextNode::Penalty => {
+                let p = Penalty(slf.p);
                 if page_contents == PageContents::Empty || page_contents == PageContents::InsertsOnly {
                     return done1(slf);
                 } else {
-                    slf.pi = *PENALTY_NODE_penalty(slf.p);
+                    slf.pi = p.penalty();
                 }
             }
             TextNode::Mark => { return contribute(slf); }
@@ -719,8 +723,9 @@ pub(crate) unsafe fn build_page() {
 
                         if let Some(q) = slf.q.opt() {
                             if NODE_type(q) == TextNode::Penalty.into() {
+                                let q = Penalty(q);
                                 insert_penalties +=
-                                    *PENALTY_NODE_penalty(q);
+                                    q.penalty();
                             }
                         } else {
                             insert_penalties += EJECT_PENALTY;
@@ -811,8 +816,9 @@ pub(crate) unsafe fn build_page() {
              * specified by node p" */
             let width = match text_NODE_type(slf.p).unwrap() {
                 TextNode::Kern => {
+                    let p = Kern(slf.p);
                     slf.q = Some(slf.p).tex_int();
-                    *kern_NODE_width(slf.p)
+                    p.width()
                 }
                 TextNode::Glue => {
                     slf.q = *GLUE_NODE_glue_ptr(slf.p);

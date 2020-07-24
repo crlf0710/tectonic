@@ -32,12 +32,11 @@ use crate::xetex_xetex0::{
     prev_rightmost,
 };
 use crate::xetex_xetexd::{
-    clear_NODE_subtype, is_char_node, is_non_discardable_node, kern_NODE_subtype, llist_link,
-    set_NODE_type, set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, BOX_depth,
-    BOX_height, BOX_width, CHAR_NODE_character, CHAR_NODE_font, DISCRETIONARY_NODE_post_break,
-    DISCRETIONARY_NODE_pre_break, DISCRETIONARY_NODE_replace_count, GLUE_NODE_glue_ptr,
-    GLUE_NODE_leader_ptr, GLUE_NODE_param, LLIST_info, LLIST_link, NODE_type, PENALTY_NODE_penalty,
-    TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
+    clear_NODE_subtype, is_char_node, is_non_discardable_node, llist_link, set_NODE_type,
+    set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height,
+    BOX_width, CHAR_NODE_character, CHAR_NODE_font, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
+    GLUE_NODE_param, LLIST_info, LLIST_link, NODE_type, TeXInt, TeXOpt, FONT_CHARACTER_INFO,
+    FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -142,7 +141,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         set_NODE_type(cur_list.tail, TextNode::Penalty);
         delete_glue_ref(*GLUE_NODE_glue_ptr(cur_list.tail) as usize);
         flush_node_list(GLUE_NODE_leader_ptr(cur_list.tail).opt());
-        *PENALTY_NODE_penalty(cur_list.tail) = INF_PENALTY;
+        Penalty(cur_list.tail).set_penalty(INF_PENALTY);
     }
 
     *LLIST_link(cur_list.tail) = new_param_glue(GluePar::par_fill_skip as _) as i32;
@@ -367,7 +366,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         } else if is_non_discardable_node(prev_p as usize) {
                             try_break(0, BreakType::Unhyphenated);
                         } else if NODE_type(prev_p as usize) == TextNode::Kern.into()
-                            && kern_NODE_subtype(prev_p as usize) != KernNST::Explicit
+                            && Kern(prev_p as usize).subtype() != KernType::Explicit
                         {
                             try_break(0, BreakType::Unhyphenated);
                         }
@@ -376,16 +375,17 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     c = process_glue(cp, c, second_pass, auto_breaking);
                 }
                 TextNode::Kern => {
+                    let k = Kern(cp);
                     /* ... resuming 895 ... */
-                    if kern_NODE_subtype(cp) == KernNST::Explicit {
+                    if k.subtype() == KernType::Explicit {
                         if (!is_char_node(llist_link(cp)) as i32) < hi_mem_min && auto_breaking {
                             if NODE_type(*LLIST_link(cp) as usize) == TextNode::Glue.into() {
                                 try_break(0, BreakType::Unhyphenated);
                             }
                         }
-                        active_width[1] += *BOX_width(cp);
+                        active_width[1] += k.width();
                     } else {
-                        active_width[1] += *BOX_width(cp);
+                        active_width[1] += k.width();
                     }
                 }
                 TextNode::Ligature => {
@@ -396,10 +396,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         *FONT_CHARACTER_WIDTH(f, effective_char(true, f, l.char()) as usize);
                 }
                 TextNode::Disc => {
+                    let cp = Discretionary(cp);
                     /*898: try to break after a discretionary fragment, then goto done5 */
                     disc_width = 0;
 
-                    if let Some(mut s) = DISCRETIONARY_NODE_pre_break(cp).opt() {
+                    if let Some(mut s) = cp.pre_break().opt() {
                         loop {
                             /*899:*/
                             if is_char_node(Some(s)) {
@@ -445,8 +446,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     } else {
                         try_break(*INTPAR(IntPar::ex_hyphen_penalty), BreakType::Hyphenated);
                     }
-                    let mut r = *DISCRETIONARY_NODE_replace_count(cp) as i32;
-                    let mut sopt = llist_link(cp);
+                    let mut r = cp.replace_count() as i32;
+                    let mut sopt = llist_link(cp.ptr());
                     while r > 0 {
                         let s = sopt.unwrap();
                         if is_char_node(Some(s)) {
@@ -466,7 +467,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 TextNode::HList
                                 | TextNode::VList
                                 | TextNode::Rule
-                                | TextNode::Kern => active_width[1] += *BOX_width(s),
+                                | TextNode::Kern => {
+                                    let k = Kern(s);
+                                    active_width[1] += k.width();
+                                }
                                 TextNode::WhatsIt => match whatsit_NODE_subtype(s) {
                                     WhatsItNST::NativeWord
                                     | WhatsItNST::NativeWordAt
@@ -483,7 +487,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         r -= 1;
                         sopt = llist_link(s);
                     }
-                    global_prev_p = cp as i32;
+                    global_prev_p = Some(cp.ptr()).tex_int();
                     prev_p = global_prev_p;
                     cur_p = sopt;
                     continue;
@@ -505,7 +509,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     }
                     active_width[1] += *BOX_width(cp);
                 }
-                TextNode::Penalty => try_break(*PENALTY_NODE_penalty(cp), BreakType::Unhyphenated),
+                TextNode::Penalty => {
+                    let p = Penalty(cp);
+                    try_break(p.penalty(), BreakType::Unhyphenated);
+                }
                 TextNode::Mark | TextNode::Ins | TextNode::Adjust => {}
                 _ => confusion(b"paragraph"),
             }
@@ -675,7 +682,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             flag = false;
                         }
                     } else if NODE_type(s) == TextNode::Kern.into()
-                        && kern_NODE_subtype(s) == KernNST::Normal
+                        && Kern(s).subtype() == KernType::Normal
                     {
                         flag = false;
                     } else if NODE_type(s) == TextNode::Math.into()
@@ -781,7 +788,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             match text_NODE_type(s).unwrap() {
                                 TextNode::Ligature => {}
                                 TextNode::Kern => {
-                                    if kern_NODE_subtype(s) != KernNST::Normal {
+                                    let k = Kern(s);
+                                    if k.subtype() != KernType::Normal {
                                         break;
                                     }
                                 }
@@ -952,7 +960,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         /*:932*/
                         } else {
                             if !(NODE_type(s) == TextNode::Kern.into()
-                                && kern_NODE_subtype(s) == KernNST::Normal)
+                                && Kern(s).subtype() == KernType::Normal)
                             {
                                 break;
                             }
@@ -975,7 +983,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         match text_NODE_type(s).unwrap() {
                             TextNode::Ligature => {}
                             TextNode::Kern => {
-                                if kern_NODE_subtype(s) != KernNST::Normal {
+                                let k = Kern(s);
+                                if k.subtype() != KernType::Normal {
                                     break;
                                 }
                             }
@@ -1092,8 +1101,9 @@ unsafe fn post_line_break(mut d: bool) {
                     glue_break = true;
                 }
                 TextNode::Disc => {
+                    let mut d = Discretionary(q);
                     /*911:*/
-                    let mut t = *DISCRETIONARY_NODE_replace_count(q);
+                    let mut t = d.replace_count();
                     let mut r;
                     if t == 0 {
                         r = *LLIST_link(q);
@@ -1107,9 +1117,9 @@ unsafe fn post_line_break(mut d: bool) {
                         r = *LLIST_link(s);
                         *LLIST_link(s) = None.tex_int();
                         flush_node_list(llist_link(q));
-                        *DISCRETIONARY_NODE_replace_count(q) = 0;
+                        d.set_replace_count(0);
                     }
-                    if let Some(mut s) = DISCRETIONARY_NODE_post_break(q).opt() {
+                    if let Some(mut s) = d.post_break().opt() {
                         /*913:*/
                         while let Some(next) = llist_link(s) {
                             s = next;
@@ -1117,18 +1127,18 @@ unsafe fn post_line_break(mut d: bool) {
 
                         *LLIST_link(s) = r;
 
-                        r = *DISCRETIONARY_NODE_post_break(q);
-                        *DISCRETIONARY_NODE_post_break(q) = None.tex_int();
+                        r = d.post_break();
+                        d.set_post_break(None.tex_int());
                         post_disc_break = true;
                     }
-                    if let Some(mut s) = DISCRETIONARY_NODE_pre_break(q).opt() {
+                    if let Some(mut s) = d.pre_break().opt() {
                         /*914:*/
                         *LLIST_link(q) = Some(s).tex_int();
 
                         while let Some(next) = llist_link(s) {
                             s = next;
                         }
-                        *DISCRETIONARY_NODE_pre_break(q) = None.tex_int();
+                        d.set_pre_break(None.tex_int());
                         q = s;
                     }
                     *LLIST_link(q) = r;
@@ -1287,20 +1297,16 @@ unsafe fn post_line_break(mut d: bool) {
         /* 919: Set `pen` to all of the penalties relevant to this line. */
         if cur_line + 1 != best_line {
             let mut pen = if let Some(q) = EQTB[INTER_LINE_PENALTIES_LOC].val.opt() {
-                let mut r = cur_line;
-                if r > *PENALTY_NODE_penalty(q) {
-                    r = *PENALTY_NODE_penalty(q)
-                }
-                *PENALTY_NODE_penalty(q + (r as usize))
+                let q = Penalty(q);
+                let r = cur_line.min(q.penalty()) as usize;
+                Penalty(q.ptr() + r).penalty()
             } else {
                 *INTPAR(IntPar::inter_line_penalty)
             };
             if let Some(q) = EQTB[CLUB_PENALTIES_LOC].val.opt() {
-                let mut r = cur_line - cur_list.prev_graf;
-                if r > *PENALTY_NODE_penalty(q) {
-                    r = *PENALTY_NODE_penalty(q)
-                }
-                pen += *PENALTY_NODE_penalty(q + (r as usize))
+                let q = Penalty(q);
+                let r = (cur_line - cur_list.prev_graf).min(q.penalty()) as usize;
+                pen += Penalty(q.ptr() + r).penalty()
             } else if cur_line == cur_list.prev_graf + 1 {
                 pen += *INTPAR(IntPar::club_penalty)
             }
@@ -1310,12 +1316,10 @@ unsafe fn post_line_break(mut d: bool) {
                 EQTB[WIDOW_PENALTIES_LOC].val.opt()
             };
             if let Some(q) = q {
-                let mut r = best_line - cur_line - 1;
-                if r > *PENALTY_NODE_penalty(q) {
-                    r = *PENALTY_NODE_penalty(q)
-                }
-                pen += *PENALTY_NODE_penalty(q + (r as usize));
-            } else if cur_line + 2i32 == best_line {
+                let q = Penalty(q);
+                let mut r = (best_line - cur_line - 1).min(q.penalty()) as usize;
+                pen += Penalty(q.ptr() + r).penalty()
+            } else if cur_line + 2 == best_line {
                 if d {
                     pen += *INTPAR(IntPar::display_widow_penalty)
                 } else {
@@ -1353,7 +1357,7 @@ unsafe fn post_line_break(mut d: bool) {
                     if is_non_discardable_node(q as usize) {
                         break;
                     }
-                    if NODE_type(q as usize) == TextNode::Kern.into() && kern_NODE_subtype(q as usize) != KernNST::Explicit && kern_NODE_subtype(q as usize) != KernNST::SpaceAdjustment {
+                    if NODE_type(q as usize) == TextNode::Kern.into() && Kern(q as usize).subtype() != KernType::Explicit && Kern(q as usize).subtype() != KernType::SpaceAdjustment {
                         break;
                     }
                     r = q as usize;
@@ -1465,9 +1469,10 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                             if break_type == BreakType::Hyphenated {
                                 /*869: "Compute the discretionary break_width values" */
                                 if let Some(cp) = cur_p {
-                                    let mut t = *DISCRETIONARY_NODE_replace_count(cp) as i32;
-                                    let mut v = cp;
-                                    sopt = DISCRETIONARY_NODE_post_break(cp).opt();
+                                    let cp = Discretionary(cp);
+                                    let mut t = cp.replace_count() as i32;
+                                    let mut v = cp.ptr();
+                                    sopt = cp.post_break().opt();
                                     while t > 0 {
                                         t -= 1;
                                         v = *LLIST_link(v) as usize;
@@ -1560,7 +1565,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                         sopt = llist_link(s);
                                     }
                                     break_width[1] += disc_width;
-                                    if DISCRETIONARY_NODE_post_break(cp).opt().is_none() {
+                                    if cp.post_break().opt().is_none() {
                                         sopt = llist_link(v);
                                     }
                                 }
@@ -1579,7 +1584,8 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                     TextNode::Penalty => {}
                                     TextNode::Math => break_width[1] -= *BOX_width(s),
                                     TextNode::Kern => {
-                                        if kern_NODE_subtype(s) != KernNST::Explicit {
+                                        let k = Kern(s);
+                                        if k.subtype() != KernType::Explicit {
                                             break;
                                         }
                                         break_width[1] -= *BOX_width(s)
@@ -2191,10 +2197,10 @@ unsafe fn hyphenate() {
                 q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
                 *LLIST_link(s) = Some(q.ptr()).tex_int();
                 s = q.ptr();
-                let q = new_disc();
-                *DISCRETIONARY_NODE_pre_break(q) = new_native_character(hf, hyf_char).ptr() as i32;
-                *LLIST_link(s) = Some(q).tex_int();
-                s = q;
+                let mut q = Discretionary(new_disc());
+                q.set_pre_break(new_native_character(hf, hyf_char).ptr() as i32);
+                *LLIST_link(s) = Some(q.ptr()).tex_int();
+                s = q.ptr();
                 hyphen_passed = j as i16;
             }
         }
@@ -2306,10 +2312,10 @@ unsafe fn hyphenate() {
                 loop
                 /*949: */
                 {
-                    let r = get_node(SMALL_NODE_SIZE);
-                    *LLIST_link(r) = *LLIST_link(HOLD_HEAD);
-                    set_NODE_type(r, TextNode::Disc);
-                    let mut major_tail = r;
+                    let mut r = Discretionary(get_node(SMALL_NODE_SIZE));
+                    *LLIST_link(r.ptr()) = *LLIST_link(HOLD_HEAD);
+                    set_NODE_type(r.ptr(), TextNode::Disc);
+                    let mut major_tail = r.ptr();
                     r_count = 0;
                     while let Some(next) = LLIST_link(major_tail as usize).opt() {
                         major_tail = next;
@@ -2318,7 +2324,7 @@ unsafe fn hyphenate() {
                     let mut i = hyphen_passed;
                     hyf[i as usize] = 0;
                     let mut minor_tail: Option<usize> = None;
-                    *DISCRETIONARY_NODE_pre_break(r) = None.tex_int();
+                    r.set_pre_break(None.tex_int());
                     let hyf_node = new_character(hf, hyf_char as UTF16_code);
                     if let Some(hyf_node) = hyf_node {
                         i += 1;
@@ -2334,7 +2340,7 @@ unsafe fn hyphenate() {
                             if let Some(mt) = minor_tail {
                                 *LLIST_link(mt) = Some(hh).tex_int();
                             } else {
-                                *DISCRETIONARY_NODE_pre_break(r) = Some(hh).tex_int();
+                                r.set_pre_break(Some(hh).tex_int());
                             }
                             let mut mt = hh;
                             minor_tail = Some(mt);
@@ -2350,7 +2356,7 @@ unsafe fn hyphenate() {
                         i -= 1
                     }
                     let mut minor_tail: Option<usize> = None;
-                    MEM[r + 1].b32.s1 = None.tex_int();
+                    r.set_post_break(None.tex_int());
                     c_loc = 0_i16;
                     if BCHAR_LABEL[hf as usize] != NON_ADDRESS {
                         l -= 1;
@@ -2369,7 +2375,7 @@ unsafe fn hyphenate() {
                                 if let Some(mt) = minor_tail {
                                     *LLIST_link(mt) = Some(hh).tex_int();
                                 } else {
-                                    *DISCRETIONARY_NODE_post_break(r) = Some(hh).tex_int();
+                                    r.set_post_break(Some(hh).tex_int());
                                 }
                                 let mut mt = hh;
                                 minor_tail = Some(mt);
@@ -2384,7 +2390,7 @@ unsafe fn hyphenate() {
                         }
                         while l as i32 > j as i32 {
                             /*952: */
-                            j = (reconstitute(j, hn, bchar, TOO_BIG_CHAR) as i32 + 1i32) as i16; /*:944*/
+                            j = (reconstitute(j, hn, bchar, TOO_BIG_CHAR) as i32 + 1) as i16; /*:944*/
                             *LLIST_link(major_tail) = *LLIST_link(HOLD_HEAD);
                             while let Some(next) = llist_link(major_tail) {
                                 major_tail = next;
@@ -2393,17 +2399,17 @@ unsafe fn hyphenate() {
                         }
                     }
                     if r_count > 127 {
-                        *LLIST_link(s as usize) = *LLIST_link(r);
-                        *LLIST_link(r) = None.tex_int();
-                        flush_node_list(Some(r));
+                        *LLIST_link(s as usize) = *LLIST_link(r.ptr());
+                        *LLIST_link(r.ptr()) = None.tex_int();
+                        flush_node_list(Some(r.ptr()));
                     } else {
-                        *LLIST_link(s as usize) = Some(r).tex_int();
-                        *DISCRETIONARY_NODE_replace_count(r) = r_count as u16;
+                        *LLIST_link(s as usize) = Some(r.ptr()).tex_int();
+                        r.set_replace_count(r_count as u16);
                     }
                     s = major_tail as i32;
                     hyphen_passed = (j - 1) as i16;
                     *LLIST_link(HOLD_HEAD) = None.tex_int();
-                    if !(hyf[(j as i32 - 1i32) as usize] as i32 & 1i32 != 0) {
+                    if !(hyf[(j as i32 - 1) as usize] as i32 & 1 != 0) {
                         break;
                     }
                 }
@@ -2733,9 +2739,10 @@ unsafe fn total_pw(q: usize, p: Option<usize>) -> scaled_t {
     match p {
         Some(p)
             if NODE_type(p) == TextNode::Disc.into()
-                && DISCRETIONARY_NODE_pre_break(p).opt().is_some() =>
+                && Discretionary(p).pre_break().opt().is_some() =>
         {
-            if let Some(mut m) = DISCRETIONARY_NODE_pre_break(p).opt() {
+            let p = Discretionary(p);
+            if let Some(mut m) = p.pre_break().opt() {
                 while let Some(next) = llist_link(m) {
                     m = next;
                 }
@@ -2746,11 +2753,11 @@ unsafe fn total_pw(q: usize, p: Option<usize>) -> scaled_t {
     }
     let l = match lopt {
         Some(mut l) if NODE_type(l) == TextNode::Disc.into() => {
-            if let Some(l1) = DISCRETIONARY_NODE_post_break(l).opt() {
+            if let Some(l1) = Discretionary(l).post_break().opt() {
                 l = l1;
                 return char_pw(Some(l), Side::Left) + char_pw(r, Side::Right);
             } else {
-                let mut n = *DISCRETIONARY_NODE_replace_count(l);
+                let mut n = Discretionary(l).replace_count();
                 l = llist_link(l).unwrap();
                 while n > 0 {
                     if let Some(next) = llist_link(l) {
@@ -2809,9 +2816,9 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
                     || NODE_type(l) == TextNode::Adjust.into()
                     || NODE_type(l) == TextNode::Penalty.into()
                     || NODE_type(l) == TextNode::Disc.into()
-                        && DISCRETIONARY_NODE_pre_break(l).opt().is_none()
-                        && DISCRETIONARY_NODE_post_break(l).opt().is_none()
-                        && *DISCRETIONARY_NODE_replace_count(l) == 0
+                        && Discretionary(l).pre_break().opt().is_none()
+                        && Discretionary(l).post_break().opt().is_none()
+                        && Discretionary(l).replace_count() == 0
                     || NODE_type(l) == TextNode::Math.into() && MEM[l + 1].b32.s1 == 0
                     || NODE_type(l) == TextNode::Kern.into()
                         && (MEM[l + 1].b32.s1 == 0 || MEM[l].b16.s0 == NORMAL)
@@ -2870,12 +2877,12 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
                     || NODE_type(r) == TextNode::Adjust.into()
                     || NODE_type(r) == TextNode::Penalty.into()
                     || NODE_type(r) == TextNode::Disc.into()
-                        && DISCRETIONARY_NODE_pre_break(r).opt().is_none()
-                        && DISCRETIONARY_NODE_post_break(r).opt().is_none()
-                        && *DISCRETIONARY_NODE_replace_count(r) == 0
+                        && Discretionary(r).pre_break().opt().is_none()
+                        && Discretionary(r).post_break().opt().is_none()
+                        && Discretionary(r).replace_count() == 0
                     || NODE_type(r) == TextNode::Math.into() && MEM[r + 1].b32.s1 == 0
                     || NODE_type(r) == TextNode::Kern.into()
-                        && (MEM[r + 1].b32.s1 == 0 || kern_NODE_subtype(r) == KernNST::Normal)
+                        && (Kern(r).width() == 0 || Kern(r).subtype() == KernType::Normal)
                     || NODE_type(r) == TextNode::Glue.into() && MEM[r + 1].b32.s0 == 0
                     || NODE_type(r) == TextNode::HList.into()
                         && *BOX_width(r) == 0

@@ -42,10 +42,10 @@ use crate::xetex_xetex0::{
     scan_math_fam_int, scan_usv_num, unsave, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_char_node, kern_NODE_width, llist_link, math_char, math_class, math_fam, set_NODE_type,
-    set_class, set_family, set_kern_NODE_subtype, set_whatsit_NODE_subtype, text_NODE_type,
-    whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
-    GLUE_NODE_glue_ptr, LLIST_link, NODE_type, TeXInt, TeXOpt,
+    is_char_node, llist_link, math_char, math_class, math_fam, set_NODE_type, set_class,
+    set_family, set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, BOX_depth,
+    BOX_height, BOX_width, CHAR_NODE_character, CHAR_NODE_font, GLUE_NODE_glue_ptr, LLIST_link,
+    NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -212,11 +212,13 @@ pub(crate) unsafe fn init_math() {
                             continue;
                         }
                         TextNode::Kern => {
-                            d = *kern_NODE_width(p);
+                            let k = Kern(p);
+                            d = k.width();
                             found = false;
                         }
                         TextNode::MarginKern => {
-                            d = *kern_NODE_width(p);
+                            let k = MarginKern(p);
+                            d = k.width();
                             found = false;
                         }
                         TextNode::Math => {
@@ -1547,20 +1549,21 @@ unsafe fn math_glue(g: &GlueSpec, mut m: scaled_t) -> usize {
 unsafe fn math_kern(p: usize, mut m: scaled_t) {
     let mut n: i32 = 0;
     let mut f: scaled_t = 0;
-    if MEM[p].b16.s0 == MU_GLUE {
+    let mut k = Kern(p);
+    if k.subtype() == KernType::Math {
         n = x_over_n(m, 65536);
         f = tex_remainder;
         if f < 0 {
             n -= 1;
             f = (f as i64 + 65536) as scaled_t
         }
-        MEM[p + 1].b32.s1 = mult_and_add(
+        k.set_width(mult_and_add(
             n,
-            MEM[p + 1].b32.s1,
-            xn_over_d(MEM[p + 1].b32.s1, f, 65536),
+            k.width(),
+            xn_over_d(k.width(), f, 65536),
             MAX_HALFWORD,
-        );
-        set_kern_NODE_subtype(p, KernNST::Explicit);
+        ));
+        k.set_subtype(KernType::Explicit);
     };
 }
 pub(crate) unsafe fn flush_math() {
