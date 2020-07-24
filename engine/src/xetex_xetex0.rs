@@ -475,23 +475,22 @@ pub(crate) unsafe fn new_spec(other: usize) -> usize {
     q.ptr()
 }
 pub(crate) unsafe fn new_param_glue(n: GluePar) -> usize {
-    let p = get_node(MEDIUM_NODE_SIZE);
-    set_NODE_type(p, TextNode::Glue);
-    *GLUE_NODE_param(p) = n as u16 + 1;
-    MEM[p + 1].b32.s1 = None.tex_int();
+    let mut p = Glue(get_node(MEDIUM_NODE_SIZE));
+    set_NODE_type(p.ptr(), TextNode::Glue);
+    p.set_param(n as u16 + 1).set_leader_ptr(None.tex_int());
     let q = EQTB[GLUE_BASE + n as usize].val as usize;
-    MEM[p + 1].b32.s0 = q as i32;
-    MEM[q].b32.s1 += 1;
-    p
+    p.set_glue_ptr(q as i32);
+    GlueSpec(q).rc_inc();
+    p.ptr()
 }
 pub(crate) unsafe fn new_glue(q: usize) -> usize {
-    let p = get_node(MEDIUM_NODE_SIZE);
-    set_NODE_type(p, TextNode::Glue);
-    MEM[p].b16.s0 = NORMAL as _;
-    *GLUE_NODE_leader_ptr(p) = None.tex_int();
-    *GLUE_NODE_glue_ptr(p) = q as i32;
+    let mut p = Glue(get_node(MEDIUM_NODE_SIZE));
+    set_NODE_type(p.ptr(), TextNode::Glue);
+    p.set_param(NORMAL as _)
+        .set_leader_ptr(None.tex_int())
+        .set_glue_ptr(q as i32);
     GlueSpec(q).rc_inc();
-    p
+    p.ptr()
 }
 pub(crate) unsafe fn new_skip_param(n: GluePar) -> (usize, GlueSpec) {
     let mut tmp_ptr = GlueSpec(new_spec(
@@ -941,42 +940,43 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         //_ => print_cstr(b"whatsit?"),
                     },
                     TextNode::Glue => {
-                        if MEM[p].b16.s0 >= A_LEADERS {
+                        let g = Glue(p);
+                        if g.param() >= A_LEADERS {
                             /*198: */
                             print_esc_cstr(b""); /*:244 */
-                            if MEM[p].b16.s0 == C_LEADERS {
+                            if g.param() == C_LEADERS {
                                 print_char('c' as i32); /*214:*/
-                            } else if MEM[p].b16.s0 == X_LEADERS {
+                            } else if g.param() == X_LEADERS {
                                 print_char('x' as i32);
                             }
                             print_cstr(b"leaders ");
-                            print_spec(*GLUE_NODE_glue_ptr(p), b"");
+                            print_spec(g.glue_ptr(), b"");
                             str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                             pool_ptr += 1;
-                            show_node_list(MEM[p + 1].b32.s1.opt());
+                            show_node_list(g.leader_ptr().opt());
                             pool_ptr -= 1
                         } else {
                             print_esc_cstr(b"glue");
-                            if MEM[p].b16.s0 != NORMAL {
+                            if g.param() != NORMAL {
                                 print_char('(' as i32);
-                                if MEM[p].b16.s0 < COND_MATH_GLUE {
-                                    match GluePar::n(MEM[p].b16.s0 - 1) {
+                                if g.param() < COND_MATH_GLUE {
+                                    match GluePar::n(g.param() - 1) {
                                         Some(dimen) => print_skip_param(dimen),
                                         None => print_cstr(b"[unknown glue parameter!]"),
                                     }
-                                } else if MEM[p].b16.s0 == COND_MATH_GLUE {
+                                } else if g.param() == COND_MATH_GLUE {
                                     print_esc_cstr(b"nonscript");
                                 } else {
                                     print_esc_cstr(b"mskip");
                                 }
                                 print_char(')' as i32);
                             }
-                            if MEM[p].b16.s0 != COND_MATH_GLUE {
+                            if g.param() != COND_MATH_GLUE {
                                 print_char(' ' as i32);
-                                if MEM[p].b16.s0 < COND_MATH_GLUE {
-                                    print_spec(*GLUE_NODE_glue_ptr(p), b"");
+                                if g.param() < COND_MATH_GLUE {
+                                    print_spec(g.glue_ptr(), b"");
                                 } else {
-                                    print_spec(*GLUE_NODE_glue_ptr(p), b"mu");
+                                    print_spec(g.glue_ptr(), b"mu");
                                 }
                             }
                         }
@@ -1329,17 +1329,17 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         }
                     }
                     TextNode::Glue => {
-                        let g = *GLUE_NODE_glue_ptr(p) as usize;
-                        let mut g_spec = GlueSpec(g);
-                        if let Some(_rc) = g_spec.rc().opt() {
-                            g_spec.rc_dec();
+                        let mut p = Glue(p);
+                        let mut g = GlueSpec(p.glue_ptr() as usize);
+                        if let Some(_rc) = g.rc().opt() {
+                            g.rc_dec();
                         } else {
-                            free_node(g, 4);
+                            free_node(g.ptr(), 4);
                         }
-                        if let Some(nd) = GLUE_NODE_leader_ptr(p).opt() {
+                        if let Some(nd) = p.leader_ptr().opt() {
                             flush_node_list(Some(nd));
                         }
-                        free_node(p, MEDIUM_NODE_SIZE);
+                        p.free();
                     }
                     TextNode::Kern | TextNode::Math | TextNode::Penalty => {
                         free_node(p, MEDIUM_NODE_SIZE);
@@ -1517,12 +1517,14 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                     //_ => confusion(b"ext2"),
                 },
                 TextNode::Glue => {
+                    let p = Glue(p);
                     r = get_node(MEDIUM_NODE_SIZE);
-                    GlueSpec(*GLUE_NODE_glue_ptr(p) as usize).rc_inc();
-                    *SYNCTEX_tag(r, MEDIUM_NODE_SIZE) = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
-                    *SYNCTEX_line(r, MEDIUM_NODE_SIZE) = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
-                    *GLUE_NODE_glue_ptr(r) = *GLUE_NODE_glue_ptr(p);
-                    *GLUE_NODE_leader_ptr(r) = copy_node_list(GLUE_NODE_leader_ptr(p).opt())
+                    let mut r_glue = Glue(r);
+                    GlueSpec(p.glue_ptr() as usize).rc_inc();
+                    *SYNCTEX_tag(r, MEDIUM_NODE_SIZE) = *SYNCTEX_tag(p.ptr(), MEDIUM_NODE_SIZE);
+                    *SYNCTEX_line(r, MEDIUM_NODE_SIZE) = *SYNCTEX_line(p.ptr(), MEDIUM_NODE_SIZE);
+                    r_glue.set_glue_ptr(p.glue_ptr());
+                    r_glue.set_leader_ptr(copy_node_list(p.leader_ptr().opt()));
                 }
                 TextNode::Kern | TextNode::Math | TextNode::Penalty => {
                     r = get_node(MEDIUM_NODE_SIZE);
@@ -7077,8 +7079,9 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                         }
                         LastItemCode::LastSkip => {
                             if text_NODE_type(tx) == TextNode::Glue.into() {
-                                cur_val = *GLUE_NODE_glue_ptr(tx);
-                                if MEM[tx].b16.s0 == MU_GLUE {
+                                let g = Glue(tx);
+                                cur_val = g.glue_ptr();
+                                if g.param() == MU_GLUE {
                                     cur_val_level = ValLevel::Mu;
                                 }
                             }
@@ -8666,8 +8669,7 @@ pub(crate) unsafe fn conv_toks() {
                         || text_NODE_type(p) == TextNode::Math.into() && MEM[p + 1].b32.s1 == 0
                         || text_NODE_type(p) == TextNode::Kern.into()
                             && (Kern(p).width() == 0 || Kern(p).subtype() == KernType::Normal)
-                        || text_NODE_type(p) == TextNode::Glue.into()
-                            && *GLUE_NODE_glue_ptr(p) == 0
+                        || text_NODE_type(p) == TextNode::Glue.into() && Glue(p).glue_ptr() == 0
                         || text_NODE_type(p) == TextNode::HList.into()
                             && *BOX_width(p) == 0
                             && *BOX_height(p) == 0
@@ -8708,8 +8710,7 @@ pub(crate) unsafe fn conv_toks() {
                         || text_NODE_type(p) == TextNode::Math.into() && MEM[p + 1].b32.s1 == 0
                         || text_NODE_type(p) == TextNode::Kern.into()
                             && (Kern(p).width() == 0 || Kern(p).subtype() == KernType::Normal)
-                        || text_NODE_type(p) == TextNode::Glue.into()
-                            && *GLUE_NODE_glue_ptr(p) == 0
+                        || text_NODE_type(p) == TextNode::Glue.into() && Glue(p).glue_ptr() == 0
                         || text_NODE_type(p) == TextNode::HList.into()
                             && *BOX_width(p) == 0
                             && *BOX_height(p) == 0
@@ -11254,14 +11255,15 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                     _ => {}
                 },
                 TextNode::Glue => {
-                    let g = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize);
+                    let p = Glue(p);
+                    let g = GlueSpec(p.glue_ptr() as usize);
                     x += g.size();
                     let o = g.stretch_order() as usize;
                     total_stretch[o] += g.stretch();
                     let o = g.shrink_order() as usize;
                     total_shrink[o] += g.shrink();
-                    if MEM[p as usize].b16.s0 >= A_LEADERS {
-                        let g = *GLUE_NODE_leader_ptr(p) as usize;
+                    if p.param() >= A_LEADERS {
+                        let g = p.leader_ptr() as usize;
                         h = h.max(*BOX_height(g));
                         d = d.max(*BOX_depth(g));
                     }
@@ -11535,23 +11537,25 @@ pub(crate) unsafe fn vpackage(
                 }
                 TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
                     WhatsItNST::Pic | WhatsItNST::Pdf => {
-                        x += d + *BOX_height(p);
-                        d = *BOX_depth(p);
-                        w = w.max(*BOX_width(p));
+                        let p = Picture::from(p);
+                        x += d + p.height();
+                        d = p.depth();
+                        w = w.max(p.width());
                     }
                     _ => {}
                 },
                 TextNode::Glue => {
+                    let p = Glue(p);
                     x += d;
                     d = 0;
-                    let g = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize);
+                    let g = GlueSpec(p.glue_ptr() as usize);
                     x += g.size();
                     let o = g.stretch_order() as usize;
                     total_stretch[o] += g.stretch();
                     let o = g.shrink_order() as usize;
                     total_shrink[o] += g.shrink();
-                    if MEM[p].b16.s0 >= A_LEADERS {
-                        let g = *GLUE_NODE_leader_ptr(p) as usize;
+                    if p.param() >= A_LEADERS {
+                        let g = p.leader_ptr() as usize;
                         w = w.max(*BOX_width(g));
                     }
                 }
@@ -12320,7 +12324,7 @@ pub(crate) unsafe fn fin_align() {
                     while n > 0 {
                         n -= 1;
                         s = *LLIST_link(s) as usize;
-                        let v = GlueSpec(*GLUE_NODE_glue_ptr(s) as usize);
+                        let v = GlueSpec(Glue(s).glue_ptr() as usize);
                         let g = new_glue(v.ptr());
                         *LLIST_link(u) = Some(g).tex_int();
                         u = g;
@@ -12883,7 +12887,8 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                 let width = if NODE_type(p as usize) == TextNode::Kern.into() {
                     Kern(p as usize).width()
                 } else {
-                    let mut q = GlueSpec(*GLUE_NODE_glue_ptr(p as usize) as usize); /*:1011 */
+                    let mut p = Glue(p as usize);
+                    let mut q = GlueSpec(p.glue_ptr() as usize); /*:1011 */
                     active_width[2 + q.stretch_order() as usize] += q.stretch(); /*:1014*/
                     active_width[6] += q.shrink();
                     if q.shrink_order() != GlueOrder::Normal && q.shrink() != 0 {
@@ -12903,7 +12908,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                         let mut r = GlueSpec(new_spec(q.ptr()));
                         r.set_shrink_order(GlueOrder::Normal);
                         delete_glue_ref(q.ptr());
-                        *GLUE_NODE_glue_ptr(p as usize) = Some(r.ptr()).tex_int();
+                        p.set_glue_ptr(Some(r.ptr()).tex_int());
                         r.size()
                     } else {
                         q.size()
@@ -14358,12 +14363,15 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
                     r = get_node(words as i32);
                 }
                 TextNode::Glue => {
+                    let p = Glue(p);
                     r = get_node(MEDIUM_NODE_SIZE);
-                    GlueSpec(*GLUE_NODE_glue_ptr(p) as usize).rc_inc();
-                    *SYNCTEX_tag(r, MEDIUM_NODE_SIZE) = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
-                    *SYNCTEX_line(r, MEDIUM_NODE_SIZE) = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
-                    *GLUE_NODE_glue_ptr(r) = *GLUE_NODE_glue_ptr(p);
-                    *GLUE_NODE_leader_ptr(r) = None.tex_int();
+                    let mut r_glue = Glue(r);
+                    GlueSpec(p.glue_ptr() as usize).rc_inc();
+                    *SYNCTEX_tag(r, MEDIUM_NODE_SIZE) = *SYNCTEX_tag(p.ptr(), MEDIUM_NODE_SIZE);
+                    *SYNCTEX_line(r, MEDIUM_NODE_SIZE) = *SYNCTEX_line(p.ptr(), MEDIUM_NODE_SIZE);
+                    r_glue
+                        .set_glue_ptr(p.glue_ptr())
+                        .set_leader_ptr(None.tex_int());
                 }
                 TextNode::WhatsIt => {
                     match whatsit_NODE_subtype(p) {

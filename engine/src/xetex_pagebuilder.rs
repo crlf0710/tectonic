@@ -28,8 +28,8 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_non_discardable_node, llist_link, text_NODE_type, whatsit_NODE_subtype, BOX_depth,
-    BOX_height, GLUE_NODE_glue_ptr, LLIST_link, MARK_NODE_class, MARK_NODE_ptr, NODE_type,
-    TOKEN_LIST_ref_count, TeXInt, TeXOpt,
+    BOX_height, LLIST_link, MARK_NODE_class, MARK_NODE_ptr, NODE_type, TOKEN_LIST_ref_count,
+    TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -491,7 +491,8 @@ pub(crate) unsafe fn build_page() {
         last_node_type = p_node as i32 + 1;
 
         if p_node == TextNode::Glue {
-            last_glue = *GLUE_NODE_glue_ptr(slf.p);
+            let g = Glue(slf.p);
+            last_glue = g.glue_ptr();
             GlueSpec(last_glue as usize).rc_inc();
         } else {
             last_glue = MAX_HALFWORD;
@@ -821,7 +822,8 @@ pub(crate) unsafe fn build_page() {
                     p.width()
                 }
                 TextNode::Glue => {
-                    slf.q = *GLUE_NODE_glue_ptr(slf.p);
+                    let mut p = Glue(slf.p);
+                    slf.q = p.glue_ptr();
                     let q_spec = GlueSpec(slf.q as usize);
                     page_so_far[2 + q_spec.stretch_order() as usize] += q_spec.stretch();
                     page_so_far[6] += q_spec.shrink();
@@ -843,7 +845,7 @@ pub(crate) unsafe fn build_page() {
                         let mut r_spec = GlueSpec(slf.r);
                         r_spec.set_shrink_order(GlueOrder::Normal);
                         delete_glue_ref(slf.q as usize);
-                        *GLUE_NODE_glue_ptr(slf.p) = Some(slf.r).tex_int();
+                        p.set_glue_ptr(Some(slf.r).tex_int());
                         slf.q = Some(slf.r).tex_int();
                         r_spec.size()
                     } else {

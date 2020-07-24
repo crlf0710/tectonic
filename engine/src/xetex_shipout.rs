@@ -40,8 +40,8 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     is_char_node, llist_link, print_c_string, set_NODE_type, set_whatsit_NODE_subtype,
     text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width, CHAR_NODE_character,
-    CHAR_NODE_font, EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_NODE_param,
-    LLIST_info, LLIST_link, NODE_type, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    CHAR_NODE_font, EDGE_NODE_edge_dist, LLIST_info, LLIST_link, NODE_type, SYNCTEX_tag, TeXInt,
+    TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -366,8 +366,8 @@ unsafe fn hlist_out(this_box: &mut Box) {
                             qopt = llist_link(q);
                         }
                         if let Some(q) = qopt.filter(|&q| !is_char_node(Some(q))) {
-                            if NODE_type(q) == TextNode::Glue.into() && *GLUE_NODE_param(q) == 0 {
-                                if *GLUE_NODE_glue_ptr(q) == FONT_GLUE[r_nw.font() as usize] {
+                            if NODE_type(q) == TextNode::Glue.into() && Glue(q).param() == 0 {
+                                if Glue(q).glue_ptr() == FONT_GLUE[r_nw.font() as usize] {
                                     /* "Found a normal space; if the next node is
                                      * another word in the same font, we'll
                                      * merge." */
@@ -489,9 +489,10 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                     _ => {}
                                 }
                             } else if NODE_type(q) == TextNode::Glue.into() {
+                                let q = Glue(q);
                                 str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
                                 pool_ptr += 1;
-                                let mut g = GlueSpec(*GLUE_NODE_glue_ptr(q) as usize);
+                                let mut g = GlueSpec(q.glue_ptr() as usize);
                                 k += g.size();
                                 if g_sign != GlueSign::Normal {
                                     if g_sign == GlueSign::Stretching {
@@ -860,8 +861,9 @@ unsafe fn hlist_out(this_box: &mut Box) {
                     }
                 }
                 TextNode::Glue => {
+                    let mut p = Glue(p);
                     /*647: "Move right or output leaders" */
-                    let mut g = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize);
+                    let mut g = GlueSpec(p.glue_ptr() as usize);
                     rule_wd =
                         g.size() -
                             cur_g;
@@ -901,9 +903,9 @@ unsafe fn hlist_out(this_box: &mut Box) {
                         } else {
                             g.rc_dec();
                         }
-                        if MEM[p].b16.s0 < A_LEADERS { // NODE_subtype(p)
-                            set_NODE_type(p, TextNode::Kern);
-                            Kern(p).set_width(rule_wd);
+                        if p.param() < A_LEADERS {
+                            set_NODE_type(p.ptr(), TextNode::Kern);
+                            Kern(p.ptr()).set_width(rule_wd);
                         } else {
                             let mut g = GlueSpec(get_node(GLUE_SPEC_SIZE));
                             g.set_stretch_order(GlueOrder::Incorrect) /* "will never match" */
@@ -911,14 +913,13 @@ unsafe fn hlist_out(this_box: &mut Box) {
                             .set_size(rule_wd)
                             .set_stretch(0)
                             .set_shrink(0);
-                            *GLUE_NODE_glue_ptr(p) = g.ptr() as i32;
+                            p.set_glue_ptr(g.ptr() as i32);
                         }
                     }
-                    if MEM[p as usize].b16.s0
-                           >= A_LEADERS { // NODE_subtype(p)
+                    if p.param() >= A_LEADERS {
                         /*648: "Output leaders into an hlist, goto fin_rule if a
                          * rule or next_p if done." */
-                        let leader_box = *GLUE_NODE_leader_ptr(p); /* "compensate for floating-point rounding" ?? */
+                        let leader_box = p.leader_ptr(); /* "compensate for floating-point rounding" ?? */
                         if NODE_type(leader_box as usize) == TextNode::Rule.into() {
                             let lb = Rule::from(leader_box as usize);
                             rule_ht = lb.height();
@@ -961,8 +962,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                  * and set leader_wd + lx to the spacing between
                                  * corresponding parts of boxes". Additional
                                  * explanator comments in XTTP. */
-                                if MEM[p as usize].b16.s0 == A_LEADERS {
-                                    // NODE_subtype(p)
+                                if p.param() == A_LEADERS {
                                     let save_h = cur_h;
                                     cur_h = left_edge + leader_wd * ((cur_h - left_edge) / leader_wd);
                                     if cur_h < save_h {
@@ -971,8 +971,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                 } else {
                                     let lq = rule_wd / leader_wd;
                                     let lr = rule_wd % leader_wd;
-                                    if MEM[p].b16.s0 == C_LEADERS {
-                                        // NODE_subtype(p)
+                                    if p.param() == C_LEADERS {
                                         cur_h = cur_h + lr / 2;
                                     } else {
                                         lx = lr / (lq + 1);
@@ -1015,8 +1014,8 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                 } else {
                                     cur_h = edge - 10;
                                 }
-                                prev_p = p;
-                                popt = llist_link(p);
+                                prev_p = p.ptr();
+                                popt = llist_link(p.ptr());
                                 continue;
                             }
                         }
@@ -1024,7 +1023,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
 
                     /* ... resuming 644 ... */
                     cur_h += rule_wd; /* end GLUE_NODE case */
-                    synctex_horizontal_rule_or_glue(p, this_box.ptr());
+                    synctex_horizontal_rule_or_glue(p.ptr(), this_box.ptr());
                 }
                 TextNode::MarginKern => {
                     cur_h +=
@@ -1345,8 +1344,9 @@ unsafe fn vlist_out(this_box: &Box) {
                 }
             }
             TextNode::Glue => {
+                let p = Glue(p);
                 /*656: "Move down or output leaders" */
-                let g = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize);
+                let g = GlueSpec(p.glue_ptr() as usize);
                 rule_ht = g.size() - cur_g;
 
                 if g_sign != GlueSign::Normal {
@@ -1371,11 +1371,10 @@ unsafe fn vlist_out(this_box: &Box) {
 
                 rule_ht += cur_g;
 
-                if MEM[p].b16.s0 >= A_LEADERS {
-                    // NODE_subtype(p)
+                if p.param() >= A_LEADERS {
                     /*657: "Output leaders in a vlist, goto fin_rule if a rule
                      * or next_p if done" */
-                    let leader_box = *GLUE_NODE_leader_ptr(p) as usize; /* "compensate for floating-point rounding" */
+                    let leader_box = p.leader_ptr() as usize; /* "compensate for floating-point rounding" */
 
                     if NODE_type(leader_box) == TextNode::Rule.into() {
                         rule_wd = Rule::from(leader_box).width();
@@ -1411,7 +1410,7 @@ unsafe fn vlist_out(this_box: &Box) {
                             dvi_four(rule_wd);
                             cur_h = left_edge;
                         }
-                        popt = llist_link(p);
+                        popt = llist_link(p.ptr());
                         continue;
                     } else {
                         let mut lb = Box::from(leader_box);
@@ -1423,8 +1422,7 @@ unsafe fn vlist_out(this_box: &Box) {
                             /*658: "Let cur_v be the position of the first box,
                              * and set leader_ht + lx to the spacing between
                              * corresponding parts of boxes" */
-                            if MEM[p].b16.s0 == A_LEADERS {
-                                // NODE_subtype(p)
+                            if p.param() == A_LEADERS {
                                 let save_v = cur_v;
                                 cur_v = top_edge + leader_ht * ((cur_v - top_edge) / leader_ht);
                                 if cur_v < save_v {
@@ -1433,7 +1431,7 @@ unsafe fn vlist_out(this_box: &Box) {
                             } else {
                                 let lq = rule_ht / leader_ht;
                                 let lr = rule_ht % leader_ht;
-                                if MEM[p].b16.s0 == C_LEADERS {
+                                if p.param() == C_LEADERS {
                                     cur_v = cur_v + lr / 2;
                                 } else {
                                     lx = lr / (lq + 1);
@@ -1481,7 +1479,7 @@ unsafe fn vlist_out(this_box: &Box) {
                                 cur_v = save_v - *BOX_height(leader_box) + leader_ht + lx
                             }
                             cur_v = edge - 10;
-                            popt = llist_link(p);
+                            popt = llist_link(p.ptr());
                             continue;
                         }
                     }
@@ -1574,8 +1572,9 @@ unsafe fn reverse(
                         _ => add_rule = false,
                     },
                     TextNode::Glue => {
+                        let mut p = Glue(p);
                         /*1486: "Handle a glue node for mixed direction typesetting" */
-                        let mut g = GlueSpec(*GLUE_NODE_glue_ptr(p) as usize); /* "will never match" */
+                        let mut g = GlueSpec(p.glue_ptr() as usize); /* "will never match" */
                         rule_wd = g.size() - *cur_g; /* = mem[char(tmp_ptr)] */
 
                         match g_sign {
@@ -1612,10 +1611,10 @@ unsafe fn reverse(
                             } else {
                                 g.rc_dec();
                             }
-                            if MEM[p].b16.s0 < A_LEADERS {
-                                // NODE_subtype(p)
-                                set_NODE_type(p, TextNode::Kern);
-                                *BOX_width(p) = rule_wd;
+                            if p.param() < A_LEADERS {
+                                set_NODE_type(p.ptr(), TextNode::Kern);
+                                let mut k = Kern(p.ptr());
+                                k.set_width(rule_wd);
                             } else {
                                 let mut g = GlueSpec(get_node(GLUE_SPEC_SIZE));
                                 g.set_stretch_order(GlueOrder::Incorrect)
@@ -1623,7 +1622,7 @@ unsafe fn reverse(
                                     .set_size(rule_wd)
                                     .set_stretch(0)
                                     .set_shrink(0);
-                                *GLUE_NODE_glue_ptr(p) = g.ptr() as i32;
+                                p.set_glue_ptr(g.ptr() as i32);
                             }
                         }
                     }

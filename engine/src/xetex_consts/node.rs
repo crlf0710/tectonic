@@ -543,6 +543,40 @@ impl Insertion {
     }
 }
 
+pub(crate) struct Glue(pub usize);
+impl NodeSize for Glue {
+    const SIZE: i32 = MEDIUM_NODE_SIZE;
+}
+impl Glue {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn param(&self) -> u16 {
+        MEM[self.ptr()].b16.s0
+    }
+    pub(crate) unsafe fn set_param(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v;
+        self
+    }
+    pub(crate) unsafe fn glue_ptr(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s0
+    }
+    pub(crate) unsafe fn set_glue_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s0 = v;
+        self
+    }
+    pub(crate) unsafe fn leader_ptr(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_leader_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
 pub(crate) struct PageInsertion(pub usize);
 impl NodeSize for PageInsertion {
     const SIZE: i32 = PAGE_INS_NODE_SIZE;
