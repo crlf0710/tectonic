@@ -38,11 +38,10 @@ use crate::xetex_xetex0::{
     str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, kern_NODE_subtype, kern_NODE_width, llist_link, print_c_string, set_NODE_type,
-    set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height,
-    BOX_width, CHAR_NODE_character, CHAR_NODE_font, EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr,
-    GLUE_NODE_leader_ptr, GLUE_NODE_param, LLIST_info, LLIST_link, NODE_type, SYNCTEX_tag, TeXInt,
-    TeXOpt, FONT_CHARACTER_WIDTH,
+    is_char_node, llist_link, print_c_string, set_NODE_type, set_whatsit_NODE_subtype,
+    text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width, CHAR_NODE_character,
+    CHAR_NODE_font, EDGE_NODE_edge_dist, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr, GLUE_NODE_param,
+    LLIST_info, LLIST_link, NODE_type, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -412,7 +411,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                 if let Some(q) = qopt.filter(|&q| {
                                     !is_char_node(Some(q))
                                         && NODE_type(q) == TextNode::Kern.into()
-                                        && kern_NODE_subtype(q) == KernNST::SpaceAdjustment
+                                        && Kern(q).subtype() == KernType::SpaceAdjustment
                                 }) {
                                     qopt = llist_link(q);
                                     while let Some(q) = qopt.filter(|&q| {
@@ -599,13 +598,13 @@ unsafe fn hlist_out(this_box: &mut Box) {
         /*1508: "Reverse the complete hlist and set the subtype to reversed." */
         let save_h = cur_h; /* "SyncTeX: do nothing, it is too late" */
         let tmp_ptr = popt.unwrap();
-        let p = new_kern(0);
-        *SYNCTEX_tag(p, MEDIUM_NODE_SIZE) = 0;
-        *LLIST_link(prev_p) = Some(p).tex_int();
+        let mut p = Kern(new_kern(0));
+        *SYNCTEX_tag(p.ptr(), MEDIUM_NODE_SIZE) = 0;
+        *LLIST_link(prev_p) = Some(p.ptr()).tex_int();
         cur_h = 0;
-        *LLIST_link(p) = reverse(this_box, tmp_ptr, None, &mut cur_g, &mut cur_glue);
-        *kern_NODE_width(p) = -cur_h;
-        popt = Some(p);
+        *LLIST_link(p.ptr()) = reverse(this_box, tmp_ptr, None, &mut cur_g, &mut cur_glue);
+        p.set_width(-cur_h);
+        popt = Some(p.ptr());
         cur_h = save_h;
         this_box.set_lr_mode(LRMode::Reversed);
     }
@@ -904,8 +903,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                         }
                         if MEM[p].b16.s0 < A_LEADERS { // NODE_subtype(p)
                             set_NODE_type(p, TextNode::Kern);
-                            *kern_NODE_width(p)
-                                = rule_wd;
+                            Kern(p).set_width(rule_wd);
                         } else {
                             let mut g = GlueSpec(get_node(GLUE_SPEC_SIZE));
                             g.set_stretch_order(GlueOrder::Incorrect) /* "will never match" */

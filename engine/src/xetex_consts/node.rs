@@ -437,6 +437,54 @@ pub(crate) mod whatsit {
     }
 }
 
+pub(crate) struct Kern(pub usize);
+impl NodeSize for Kern {
+    const SIZE: i32 = MEDIUM_NODE_SIZE;
+}
+impl Kern {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn subtype(&self) -> KernType {
+        let n = MEM[self.ptr()].b16.s0;
+        KernType::n(n).expect(&format!("Incorrect Kern type {}", n))
+    }
+    pub(crate) unsafe fn set_subtype(&mut self, v: KernType) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v as u16;
+        self
+    }
+    pub(crate) unsafe fn width(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+pub(crate) struct MarginKern(pub usize);
+impl NodeSize for MarginKern {
+    const SIZE: i32 = MEDIUM_NODE_SIZE;
+}
+impl MarginKern {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn width(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
 pub(crate) struct Insertion(pub usize);
 impl NodeSize for Insertion {
     const SIZE: i32 = INS_NODE_SIZE;
@@ -505,7 +553,7 @@ impl PageInsertion {
     }
     pub(crate) unsafe fn subtype(&self) -> PageInsType {
         let n = MEM[self.ptr()].b16.s1;
-        PageInsType::n(n).expect(&format!("Incorrect Page Insertion subtype {}", n))
+        PageInsType::n(n).expect(&format!("Incorrect Page Insertion type {}", n))
     }
     pub(crate) unsafe fn set_subtype(&mut self, v: PageInsType) -> &mut Self {
         MEM[self.ptr()].b16.s1 = v as u16;
@@ -555,6 +603,26 @@ impl PageInsertion {
     }
     pub(crate) unsafe fn set_height(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 3].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+pub(crate) struct Penalty(pub usize);
+impl NodeSize for Penalty {
+    const SIZE: i32 = MEDIUM_NODE_SIZE;
+}
+impl Penalty {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn penalty(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_penalty(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
         self
     }
     pub(crate) unsafe fn free(self) {
@@ -978,6 +1046,71 @@ impl Passive {
     }
 }
 
+pub(crate) struct Adjust(pub usize);
+impl NodeSize for Adjust {
+    const SIZE: i32 = SMALL_NODE_SIZE;
+}
+impl Adjust {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn subtype(&self) -> AdjustType {
+        let n = MEM[self.ptr()].b16.s0;
+        AdjustType::n(n).expect(&format!("Incorrect Adjust type {}", n))
+    }
+    pub(crate) unsafe fn set_subtype(&mut self, v: AdjustType) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v as u16;
+        self
+    }
+    pub(crate) unsafe fn adj_ptr(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_adj_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+pub(crate) struct Discretionary(pub usize);
+impl NodeSize for Discretionary {
+    const SIZE: i32 = SMALL_NODE_SIZE;
+}
+impl Discretionary {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn replace_count(&self) -> u16 {
+        MEM[self.ptr()].b16.s0
+    }
+    pub(crate) unsafe fn set_replace_count(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v;
+        self
+    }
+    /// aka "llink" in doubly-linked list
+    pub(crate) unsafe fn pre_break(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s0
+    }
+    pub(crate) unsafe fn set_pre_break(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s0 = v;
+        self
+    }
+    /// aka "rlink" in double-linked list
+    pub(crate) unsafe fn post_break(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_post_break(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
 pub(crate) struct Ligature(pub usize);
 impl NodeSize for Ligature {
     const SIZE: i32 = SMALL_NODE_SIZE;
@@ -1187,17 +1320,12 @@ impl From<u16> for InsNST {
 
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
-pub(crate) enum KernNST {
+pub(crate) enum KernType {
     Normal = 0,
     Explicit = 1,
     AccKern = 2,
     SpaceAdjustment = 3,
-}
-
-impl From<u16> for KernNST {
-    fn from(n: u16) -> Self {
-        Self::n(n).expect(&format!("Incorrect KernNST = {}", n))
-    }
+    Math = 99,
 }
 
 /* Cmd::MathComp and others */

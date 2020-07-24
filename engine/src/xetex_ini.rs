@@ -4876,8 +4876,8 @@ unsafe fn initialize_primitives() {
     primitive(b"vfilneg", Cmd::VSkip, SkipCode::FilNeg);
     primitive(b"mskip", Cmd::MSkip, SkipCode::MSkip);
 
-    primitive(b"kern", Cmd::Kern, KernNST::Explicit as i32);
-    primitive(b"mkern", Cmd::MKern, MU_GLUE as i32);
+    primitive(b"kern", Cmd::Kern, KernType::Explicit as i32);
+    primitive(b"mkern", Cmd::MKern, KernType::Math as i32);
     primitive(b"moveleft", Cmd::HMove, 1);
     primitive(b"moveright", Cmd::HMove, 0);
     primitive(b"raise", Cmd::VMove, 1);

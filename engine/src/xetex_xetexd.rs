@@ -1,4 +1,4 @@
-use crate::xetex_consts::{KernNST, TextNode, WhatsItNST, ND, SYNCTEX_FIELD_SIZE};
+use crate::xetex_consts::{TextNode, WhatsItNST, ND, SYNCTEX_FIELD_SIZE};
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
 
@@ -61,15 +61,7 @@ pub(crate) unsafe fn whatsit_NODE_subtype(p: usize) -> WhatsItNST {
 pub(crate) unsafe fn set_whatsit_NODE_subtype(p: usize, n: WhatsItNST) {
     MEM[p].b16.s0 = n as u16;
 }
-pub(crate) unsafe fn kern_NODE_subtype(p: usize) -> KernNST {
-    KernNST::from(MEM[p].b16.s0)
-}
-pub(crate) unsafe fn kern_NODE_width<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-pub(crate) unsafe fn set_kern_NODE_subtype(p: usize, n: KernNST) {
-    MEM[p].b16.s0 = n as u16;
-}
+
 pub(crate) unsafe fn clear_NODE_subtype(p: usize) {
     MEM[p].b16.s0 = 0;
 }
@@ -96,19 +88,6 @@ pub(crate) unsafe fn CHAR_NODE_character<'a>(p: usize) -> &'a mut u16 {
     &mut MEM[p].b16.s0
 }
 
-/// aka "subtype" of a node
-pub(crate) unsafe fn DISCRETIONARY_NODE_replace_count<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p].b16.s0
-}
-/// aka "llink" in doubly-linked list
-pub(crate) unsafe fn DISCRETIONARY_NODE_pre_break<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s0
-}
-/// aka "rlink" in double-linked list
-pub(crate) unsafe fn DISCRETIONARY_NODE_post_break<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-
 /// "new left_edge position relative to cur_h"
 pub(crate) unsafe fn EDGE_NODE_edge_dist<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 2].b32.s1
@@ -132,18 +111,6 @@ pub(crate) unsafe fn MARK_NODE_ptr<'a>(p: usize) -> &'a mut i32 {
 /// "the mark class"
 pub(crate) unsafe fn MARK_NODE_class<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s0
-}
-
-pub(crate) unsafe fn ADJUST_NODE_type<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p].b16.s0
-}
-pub(crate) unsafe fn ADJUST_NODE_ptr<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-
-/// was originally the `mem[x+1].int` field
-pub(crate) unsafe fn PENALTY_NODE_penalty<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
 }
 
 pub(crate) unsafe fn MARK_CLASS_indexes<'a>(p: usize) -> &'a mut [i32] {

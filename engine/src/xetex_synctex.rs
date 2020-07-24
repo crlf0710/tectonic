@@ -13,7 +13,7 @@ use std::io::Write;
 
 use crate::core_memory::{mfree, xmalloc, xrealloc, xstrdup};
 use crate::xetex_consts::{
-    IntPar, TextNode, BOX_NODE_SIZE, INTPAR, MEDIUM_NODE_SIZE, RULE_NODE_SIZE,
+    IntPar, Kern, TextNode, BOX_NODE_SIZE, INTPAR, MEDIUM_NODE_SIZE, RULE_NODE_SIZE,
 };
 use crate::xetex_ini::{
     cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, MEM, TOTAL_PAGES,
@@ -21,7 +21,7 @@ use crate::xetex_ini::{
 use crate::xetex_io::name_of_input_file;
 use crate::xetex_texmfmp::gettexstring;
 use crate::xetex_xetexd::{
-    kern_NODE_width, text_NODE_type, BOX_depth, BOX_height, BOX_width, SYNCTEX_line, SYNCTEX_tag,
+    text_NODE_type, BOX_depth, BOX_height, BOX_width, SYNCTEX_line, SYNCTEX_tag,
 };
 use bridge::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
 use libc::{free, strcat, strcpy, strlen};
@@ -1025,7 +1025,7 @@ unsafe fn synctex_record_node_kern(p: usize) {
         *SYNCTEX_line(p, MEDIUM_NODE_SIZE),
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        *kern_NODE_width(p) / synctex_ctxt.unit,
+        Kern(p).width() / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
