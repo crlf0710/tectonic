@@ -34,9 +34,8 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     clear_NODE_subtype, is_char_node, is_non_discardable_node, llist_link, set_NODE_type,
     set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height,
-    BOX_width, CHAR_NODE_character, CHAR_NODE_font, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
-    GLUE_NODE_param, LLIST_info, LLIST_link, NODE_type, TeXInt, TeXOpt, FONT_CHARACTER_INFO,
-    FONT_CHARACTER_WIDTH,
+    BOX_width, CHAR_NODE_character, CHAR_NODE_font, LLIST_info, LLIST_link, NODE_type, TeXInt,
+    TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -139,8 +138,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
     } else {
         set_NODE_type(cur_list.tail, TextNode::Penalty);
-        delete_glue_ref(*GLUE_NODE_glue_ptr(cur_list.tail) as usize);
-        flush_node_list(GLUE_NODE_leader_ptr(cur_list.tail).opt());
+        delete_glue_ref(Glue(cur_list.tail).glue_ptr() as usize);
+        flush_node_list(Glue(cur_list.tail).leader_ptr().opt());
         Penalty(cur_list.tail).set_penalty(INF_PENALTY);
     }
 
@@ -185,7 +184,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     do_last_line_fit = false; /*863:*/
     active_node_size = ACTIVE_NODE_SIZE_NORMAL as _;
     if *INTPAR(IntPar::last_line_fit) > 0 {
-        let q = GlueSpec(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
+        let llf = Glue(last_line_fill as usize);
+        let q = GlueSpec(llf.glue_ptr() as usize);
         if q.stretch() > 0 && q.stretch_order() > GlueOrder::Normal {
             if background[3] == 0 && background[4] == 0 && background[5] == 0 {
                 do_last_line_fit = true;
@@ -360,6 +360,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     _ => {}
                 },
                 TextNode::Glue => {
+                    let mut cp = Glue(cp);
                     if auto_breaking {
                         if is_char_node(prev_p.opt()) {
                             try_break(0, BreakType::Unhyphenated);
@@ -372,7 +373,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         }
                     }
 
-                    c = process_glue(cp, c, second_pass, auto_breaking);
+                    c = process_glue(&mut cp, c, second_pass, auto_breaking);
                 }
                 TextNode::Kern => {
                     let k = Kern(cp);
@@ -611,13 +612,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         if best_bet.shortfall() == 0 {
             do_last_line_fit = false
         } else {
-            let mut q = GlueSpec(new_spec(
-                *GLUE_NODE_glue_ptr(last_line_fill as usize) as usize
-            ));
-            delete_glue_ref(*GLUE_NODE_glue_ptr(last_line_fill as usize) as usize);
+            let mut llf = Glue(last_line_fill as usize);
+            let mut q = GlueSpec(new_spec(llf.glue_ptr() as usize));
+            delete_glue_ref(llf.glue_ptr() as usize);
             q.set_size(q.size() + best_bet.shortfall() - best_bet.glue())
                 .set_stretch(0);
-            *GLUE_NODE_glue_ptr(last_line_fill as usize) = q.ptr() as i32;
+            llf.set_glue_ptr(q.ptr() as i32);
         }
     }
 
@@ -645,16 +645,16 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     pack_begin_line = 0;
 
     unsafe fn process_glue(
-        cp: usize,
+        cp: &mut Glue,
         mut c: UnicodeScalar,
         second_pass: bool,
         auto_breaking: bool,
     ) -> UnicodeScalar {
-        let mut q = GlueSpec(*GLUE_NODE_glue_ptr(cp) as usize);
+        let mut q = GlueSpec(cp.glue_ptr() as usize);
         if q.shrink_order() != GlueOrder::Normal && q.shrink() != 0 {
-            let fresh3 = GLUE_NODE_glue_ptr(cp);
-            *fresh3 = finite_shrink(q.ptr()) as i32;
-            q = GlueSpec(*fresh3 as usize);
+            let g = finite_shrink(q.ptr());
+            cp.set_glue_ptr(g as i32);
+            q = GlueSpec(g as usize);
         }
         active_width[1] += q.size();
         active_width[2 + (q.stretch_order() as usize)] += q.stretch();
@@ -663,7 +663,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
         if second_pass && auto_breaking {
             /*924: "Try to hyphenate the following word." */
-            let mut prev_s = cp;
+            let mut prev_s = cp.ptr();
 
             if let Some(mut s) = llist_link(prev_s) {
                 's_786: loop
@@ -1094,9 +1094,10 @@ unsafe fn post_line_break(mut d: bool) {
         let mut q = if let Some(mut q) = cp.cur_break().opt() {
             match text_NODE_type(q).unwrap() {
                 TextNode::Glue => {
-                    delete_glue_ref(*GLUE_NODE_glue_ptr(q) as usize);
-                    *GLUE_NODE_glue_ptr(q) = *GLUEPAR(GluePar::right_skip);
-                    *GLUE_NODE_param(q) = GluePar::right_skip as u16 + 1;
+                    let mut q = Glue(q);
+                    delete_glue_ref(q.glue_ptr() as usize);
+                    q.set_glue_ptr(*GLUEPAR(GluePar::right_skip));
+                    q.set_param(GluePar::right_skip as u16 + 1);
                     GlueSpec(*GLUEPAR(GluePar::right_skip) as usize).rc_inc();
                     glue_break = true;
                 }
@@ -1576,7 +1577,8 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                 }
                                 match text_NODE_type(s).unwrap() {
                                     TextNode::Glue => {
-                                        let v = GlueSpec(*GLUE_NODE_glue_ptr(s) as usize);
+                                        let mut s = Glue(s);
+                                        let v = GlueSpec(s.glue_ptr() as usize);
                                         break_width[1] -= v.size();
                                         break_width[2 + v.stretch_order() as usize] -= v.stretch();
                                         break_width[6] -= v.shrink();
@@ -1588,7 +1590,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                         if k.subtype() != KernType::Explicit {
                                             break;
                                         }
-                                        break_width[1] -= *BOX_width(s)
+                                        break_width[1] -= k.width()
                                     }
                                     _ => break,
                                 }

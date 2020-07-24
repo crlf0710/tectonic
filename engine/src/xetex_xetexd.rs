@@ -92,18 +92,6 @@ pub(crate) unsafe fn CHAR_NODE_character<'a>(p: usize) -> &'a mut u16 {
 pub(crate) unsafe fn EDGE_NODE_edge_dist<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 2].b32.s1
 }
-pub(crate) unsafe fn GLUE_NODE_param<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p].b16.s0
-}
-/// aka "llink" in doubly-linked list
-pub(crate) unsafe fn GLUE_NODE_glue_ptr<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s0
-}
-/// aka "rlink" in double-linked list
-pub(crate) unsafe fn GLUE_NODE_leader_ptr<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-
 /// "head of the token list for the mark"
 pub(crate) unsafe fn MARK_NODE_ptr<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 1].b32.s1
