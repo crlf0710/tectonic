@@ -28,8 +28,7 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_non_discardable_node, llist_link, text_NODE_type, whatsit_NODE_subtype, BOX_depth,
-    BOX_height, LLIST_link, MARK_NODE_class, MARK_NODE_ptr, NODE_type, TOKEN_LIST_ref_count,
-    TeXInt, TeXOpt,
+    BOX_height, LLIST_link, NODE_type, TOKEN_LIST_ref_count, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -284,32 +283,33 @@ unsafe fn fire_up(c: usize) {
                 p = prev_p /*:1057 */
             }
         } else if NODE_type(p) == TextNode::Mark.into() {
-            if *MARK_NODE_class(p) != 0 {
+            let p = Mark(p);
+            if p.class() != 0 {
                 /*1618: "Update the current marks" */
-                find_sa_element(ValLevel::Mark as _, *MARK_NODE_class(p), true);
+                find_sa_element(ValLevel::Mark as _, p.class(), true);
 
                 let mut c = EtexMark(cur_ptr.unwrap());
                 if c.sa_first_mark().opt().is_none() {
-                    c.set_sa_first_mark(*MARK_NODE_ptr(p));
-                    *TOKEN_LIST_ref_count(*MARK_NODE_ptr(p) as usize) += 1;
+                    c.set_sa_first_mark(p.mark_ptr());
+                    MarkClass(p.mark_ptr() as usize).rc_inc();
                 }
 
                 if let Some(m) = c.sa_bot_mark().opt() {
                     delete_token_ref(m);
                 }
 
-                c.set_sa_bot_mark(*MARK_NODE_ptr(p));
-                *TOKEN_LIST_ref_count(*MARK_NODE_ptr(p) as usize) += 1;
+                c.set_sa_bot_mark(p.mark_ptr());
+                MarkClass(p.mark_ptr() as usize).rc_inc();
             } else {
                 /*1051: "Update the values of first_mark and bot_mark" */
                 if cur_mark[FIRST_MARK_CODE].is_none() {
-                    cur_mark[FIRST_MARK_CODE] = MARK_NODE_ptr(p).opt();
+                    cur_mark[FIRST_MARK_CODE] = p.mark_ptr().opt();
                     *TOKEN_LIST_ref_count(cur_mark[FIRST_MARK_CODE].unwrap()) += 1;
                 }
                 if let Some(m) = cur_mark[BOT_MARK_CODE] {
                     delete_token_ref(m);
                 }
-                cur_mark[BOT_MARK_CODE] = MARK_NODE_ptr(p).opt();
+                cur_mark[BOT_MARK_CODE] = p.mark_ptr().opt();
                 *TOKEN_LIST_ref_count(cur_mark[BOT_MARK_CODE].unwrap()) += 1;
             }
         }

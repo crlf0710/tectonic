@@ -79,37 +79,6 @@ pub(crate) unsafe fn BOX_height<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p + 3].b32.s1
 }
 
-/// aka "type" of a node
-pub(crate) unsafe fn CHAR_NODE_font<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p].b16.s1
-}
-/// aka "subtype" of a node
-pub(crate) unsafe fn CHAR_NODE_character<'a>(p: usize) -> &'a mut u16 {
-    &mut MEM[p].b16.s0
-}
-
-/// "new left_edge position relative to cur_h"
-pub(crate) unsafe fn EDGE_NODE_edge_dist<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 2].b32.s1
-}
-/// "head of the token list for the mark"
-pub(crate) unsafe fn MARK_NODE_ptr<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-/// "the mark class"
-pub(crate) unsafe fn MARK_NODE_class<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s0
-}
-
-pub(crate) unsafe fn MARK_CLASS_indexes<'a>(p: usize) -> &'a mut [i32] {
-    let pp = &mut MEM[p + 1].b32.s0;
-    std::slice::from_raw_parts_mut(pp, 5) // TODO: check size
-}
-pub(crate) unsafe fn INDEX_NODE_indexes<'a>(p: usize) -> &'a mut [i32] {
-    let pp = &mut MEM[p + 1].b32.s0;
-    std::slice::from_raw_parts_mut(pp, 64)
-}
-
 /* Synctex hacks various nodes to add an extra word at the end to store its
  * information, hence the need to know the node size to get the synctex
  * info. */
