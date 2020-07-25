@@ -44,8 +44,7 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     is_char_node, llist_link, math_char, math_class, math_fam, set_NODE_type, set_class,
     set_family, set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, BOX_depth,
-    BOX_height, BOX_width, CHAR_NODE_character, CHAR_NODE_font, LLIST_link, NODE_type, TeXInt,
-    TeXOpt,
+    BOX_height, BOX_width, LLIST_link, NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -187,10 +186,11 @@ pub(crate) unsafe fn init_math() {
                 let found;
                 let d;
                 if is_char_node(Some(p)) {
-                    let f = *CHAR_NODE_font(p) as internal_font_number;
+                    let p = Char(p);
+                    let f = p.font() as internal_font_number;
                     d = FONT_INFO[(WIDTH_BASE[f]
                         + FONT_INFO
-                            [(CHAR_BASE[f] + effective_char(true, f, MEM[p].b16.s0)) as usize]
+                            [(CHAR_BASE[f] + effective_char(true, f, p.character())) as usize]
                             .b16
                             .s3 as i32) as usize]
                         .b32
@@ -204,8 +204,9 @@ pub(crate) unsafe fn init_math() {
                         }
                         TextNode::Ligature => {
                             let l = Ligature(p);
-                            *CHAR_NODE_character(GARBAGE) = l.char();
-                            *CHAR_NODE_font(GARBAGE) = l.font();
+                            let mut c = Char(GARBAGE);
+                            c.set_character(l.char());
+                            c.set_font(l.font());
                             *LLIST_link(GARBAGE) = *LLIST_link(l.ptr());
                             popt = Some(GARBAGE);
                             xtx_ligature_present = true;
@@ -265,8 +266,9 @@ pub(crate) unsafe fn init_math() {
                             }
                         }
                         TextNode::Style => {
-                            d = MEM[(p + 1) as usize].b32.s1;
-                            cur_dir = LR::n(MEM[p as usize].b16.s0).unwrap();
+                            let p = Edge(p);
+                            d = p.width();
+                            cur_dir = p.lr();
                             found = false;
                         }
                         TextNode::Glue => {
@@ -882,7 +884,7 @@ unsafe fn app_display(j: Option<usize>, mut b: Box, mut d: scaled_t) {
             }
         }
     }
-    append_to_vlist(b.ptr());
+    append_to_vlist(b);
 }
 pub(crate) unsafe fn after_math() {
     let mut l: bool = false;
@@ -3596,16 +3598,16 @@ unsafe fn rebox(mut b: Box, mut w: scaled_t) -> Box {
         }
         let mut p = b.list_ptr() as usize;
         if is_char_node(Some(p)) && llist_link(p).is_none() {
-            let f = *CHAR_NODE_font(p) as usize;
+            let p = Char(p);
+            let f = p.font() as usize;
             let v = FONT_INFO[(WIDTH_BASE[f]
-                + FONT_INFO
-                    [(CHAR_BASE[f] + effective_char(true, f, *CHAR_NODE_character(p))) as usize]
+                + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, p.character())) as usize]
                     .b16
                     .s3 as i32) as usize]
                 .b32
                 .s1;
             if v != b.width() {
-                *LLIST_link(p) = new_kern(b.width() - v) as i32;
+                *LLIST_link(p.ptr()) = new_kern(b.width() - v) as i32;
             }
         }
         free_node(b.ptr(), BOX_NODE_SIZE);

@@ -445,6 +445,9 @@ impl Kern {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
     }
+    pub(crate) unsafe fn is_empty(&self) -> bool {
+        self.width() == 0 || self.subtype() == KernType::Normal
+    }
     pub(crate) unsafe fn subtype(&self) -> KernType {
         let n = MEM[self.ptr()].b16.s0;
         KernType::n(n).expect(&format!("Incorrect Kern type {}", n))
@@ -550,6 +553,9 @@ impl NodeSize for Glue {
 impl Glue {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
+    }
+    pub(crate) unsafe fn is_empty(&self) -> bool {
+        self.glue_ptr() == 0
     }
     pub(crate) unsafe fn param(&self) -> u16 {
         MEM[self.ptr()].b16.s0
@@ -759,6 +765,12 @@ impl NodeSize for Box {
 impl Box {
     pub(crate) const fn from(p: usize) -> Self {
         Self(BaseBox(p))
+    }
+    pub(crate) unsafe fn is_empty(&self) -> bool {
+        self.width() == 0
+            && self.height() == 0
+            && self.depth() == 0
+            && self.list_ptr().opt().is_none()
     }
     /// subtype; records L/R direction mode
     pub(crate) unsafe fn lr_mode(&self) -> LRMode {
@@ -1116,6 +1128,11 @@ impl Discretionary {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
     }
+    pub(crate) unsafe fn is_empty(&self) -> bool {
+        self.pre_break().opt().is_none()
+            && self.post_break().opt().is_none()
+            && self.replace_count() == 0
+    }
     pub(crate) unsafe fn replace_count(&self) -> u16 {
         MEM[self.ptr()].b16.s0
     }
@@ -1144,6 +1161,81 @@ impl Discretionary {
         free_node(self.ptr(), Self::SIZE);
     }
 }
+pub(crate) struct Mark(pub usize);
+impl Mark {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    /// "head of the token list for the mark"
+    pub(crate) unsafe fn mark_ptr(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_mark_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    /// /// "the mark class"
+    pub(crate) unsafe fn class(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s0
+    }
+    pub(crate) unsafe fn set_class(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s0 = v;
+        self
+    }
+}
+pub(crate) struct MarkClass(pub usize);
+impl MarkClass {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn rc(&self) -> i32 {
+        MEM[self.ptr()].b32.s0
+    }
+    pub(crate) unsafe fn rc_inc(&mut self) {
+        MEM[self.ptr()].b32.s0 += 1;
+    }
+    pub(crate) unsafe fn rc_dec(&mut self) {
+        MEM[self.ptr()].b32.s0 -= 1;
+    }
+    pub(crate) unsafe fn indexes(&self) -> &[i32] {
+        let pp = &MEM[self.ptr() + 1].b32.s0;
+        std::slice::from_raw_parts(pp, 5)
+    }
+    pub(crate) unsafe fn indexes_mut(&mut self) -> &mut [i32] {
+        let pp = &mut MEM[self.ptr() + 1].b32.s0;
+        std::slice::from_raw_parts_mut(pp, 5)
+    }
+}
+pub(crate) struct Index(pub usize);
+impl NodeSize for Index {
+    const SIZE: i32 = INDEX_NODE_SIZE;
+}
+impl Index {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn rc(&self) -> u16 {
+        // TODO: check. Not sure is it ref.counter
+        MEM[self.ptr()].b16.s0
+    }
+    pub(crate) unsafe fn rc_inc(&mut self) {
+        MEM[self.ptr()].b16.s0 += 1;
+    }
+    pub(crate) unsafe fn rc_dec(&mut self) {
+        MEM[self.ptr()].b16.s0 -= 1;
+    }
+    pub(crate) unsafe fn indexes(&self) -> &[i32] {
+        let pp = &MEM[self.ptr() + 1].b32.s0;
+        std::slice::from_raw_parts(pp, 64)
+    }
+    pub(crate) unsafe fn indexes_mut(&mut self) -> &mut [i32] {
+        let pp = &mut MEM[self.ptr() + 1].b32.s0;
+        std::slice::from_raw_parts_mut(pp, 64)
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
 
 pub(crate) struct Ligature(pub usize);
 impl NodeSize for Ligature {
@@ -1153,14 +1245,17 @@ impl Ligature {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
     }
+    pub(crate) const fn as_char(&self) -> Char {
+        Char(self.0 + 1)
+    }
     pub(crate) unsafe fn left_hit(&self) -> bool {
         MEM[self.ptr()].b16.s0 > 1
     }
     pub(crate) unsafe fn right_hit(&self) -> bool {
         MEM[self.ptr()].b16.s0 & 1 != 0
     }
-    pub(crate) unsafe fn set_hits(&mut self, v: (bool, bool)) -> &mut Self {
-        MEM[self.ptr()].b16.s0 = (v.0 as u16) * 2 + (v.1 as u16);
+    pub(crate) unsafe fn set_hits(&mut self, left: bool, right: bool) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = (left as u16) * 2 + (right as u16);
         self
     }
     /// WEB: font(char(p))
@@ -1216,9 +1311,6 @@ impl GlueSpec {
     }
     pub(crate) unsafe fn rc(&self) -> i32 {
         MEM[self.ptr()].b32.s1
-    }
-    pub(crate) unsafe fn rc_zero(&mut self) {
-        MEM[self.ptr()].b32.s1 = 0;
     }
     pub(crate) unsafe fn rc_none(&mut self) {
         MEM[self.ptr()].b32.s1 = None.tex_int();
@@ -1297,6 +1389,62 @@ impl EtexMark {
     pub(crate) unsafe fn set_sa_split_bot_mark(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 23].b32.s0 = v;
         self
+    }
+}
+pub(crate) struct Char(pub usize);
+impl Char {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn font(&self) -> u16 {
+        MEM[self.ptr()].b16.s1
+    }
+    pub(crate) unsafe fn set_font(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr()].b16.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn character(&self) -> u16 {
+        MEM[self.ptr()].b16.s0
+    }
+    pub(crate) unsafe fn set_character(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v;
+        self
+    }
+}
+
+pub(crate) struct Edge(pub usize);
+impl NodeSize for Edge {
+    const SIZE: i32 = EDGE_NODE_SIZE;
+}
+impl Edge {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn lr(&self) -> LR {
+        let n = unsafe { MEM[self.ptr()].b16.s0 };
+        LR::n(n).expect(&format!("Incorrect LR = {}", n))
+    }
+    pub(crate) unsafe fn set_lr(&mut self, v: LR) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v as _;
+        self
+    }
+    pub(crate) unsafe fn width(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    /// "new left_edge position relative to cur_h"
+    pub(crate) unsafe fn edge_dist(&self) -> i32 {
+        MEM[self.ptr() + 2].b32.s1
+    }
+    pub(crate) unsafe fn set_edge_dist(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
     }
 }
 

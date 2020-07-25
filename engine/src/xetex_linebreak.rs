@@ -34,8 +34,8 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     clear_NODE_subtype, is_char_node, is_non_discardable_node, llist_link, set_NODE_type,
     set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height,
-    BOX_width, CHAR_NODE_character, CHAR_NODE_font, LLIST_info, LLIST_link, NODE_type, TeXInt,
-    TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
+    BOX_width, LLIST_info, LLIST_link, NODE_type, TeXInt, TeXOpt, FONT_CHARACTER_INFO,
+    FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -317,8 +317,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 global_prev_p = cp as i32;
                 prev_p = global_prev_p;
                 loop {
-                    let f = *CHAR_NODE_font(cp) as usize;
-                    let eff_char = effective_char(true, f, *CHAR_NODE_character(cp));
+                    let chr = Char(cp);
+                    let f = chr.font() as usize;
+                    let eff_char = effective_char(true, f, chr.character());
                     active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize]
                         + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize]
                             .b16
@@ -405,9 +406,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         loop {
                             /*899:*/
                             if is_char_node(Some(s)) {
-                                let mut eff_char_0: i32 = 0; /*:898 big DISC_NODE case */
-                                let f = *CHAR_NODE_font(s) as usize;
-                                eff_char_0 = effective_char(true, f, *CHAR_NODE_character(s));
+                                /*:898 big DISC_NODE case */
+                                let s = Char(s);
+                                let f = s.font() as usize;
+                                let eff_char_0 = effective_char(true, f, s.character());
                                 disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_0 as usize);
                             } else {
                                 match text_NODE_type(s).unwrap() {
@@ -452,8 +454,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     while r > 0 {
                         let s = sopt.unwrap();
                         if is_char_node(Some(s)) {
-                            let f = *CHAR_NODE_font(s) as usize;
-                            let eff_char_2 = effective_char(true, f, *CHAR_NODE_character(s));
+                            let s = Char(s);
+                            let f = s.font() as usize;
+                            let eff_char_2 = effective_char(true, f, s.character());
                             active_width[1] += *FONT_CHARACTER_WIDTH(f, eff_char_2 as usize);
                         } else {
                             match text_NODE_type(s).confuse(b"disc4") {
@@ -671,13 +674,15 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 {
                     let mut flag = true;
                     if is_char_node(Some(s)) {
-                        c = *CHAR_NODE_character(s) as UnicodeScalar; /*:930*/
-                        hf = *CHAR_NODE_font(s) as usize;
+                        let s = Char(s);
+                        c = s.character() as UnicodeScalar; /*:930*/
+                        hf = s.font() as usize;
                     } else if NODE_type(s) == TextNode::Ligature.into() {
                         let l = Ligature(s);
                         if let Some(q) = l.lig_ptr().opt() {
-                            c = *CHAR_NODE_character(q) as UnicodeScalar;
-                            hf = *CHAR_NODE_font(q) as usize;
+                            let q = Char(q);
+                            c = q.character() as UnicodeScalar;
+                            hf = q.font() as usize;
                         } else {
                             flag = false;
                         }
@@ -889,10 +894,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
                     's_1342: loop {
                         if is_char_node(Some(s)) {
-                            if *CHAR_NODE_font(s) as usize != hf {
+                            let s = Char(s);
+                            if s.font() as usize != hf {
                                 break;
                             }
-                            hyf_bchar = *CHAR_NODE_character(s) as i32;
+                            hyf_bchar = s.character() as i32;
                             c = hyf_bchar;
                             if hyph_index == 0 || c > 255 {
                                 hc[0] = *LC_CODE(c as usize);
@@ -910,7 +916,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             if hn as usize == max_hyphenatable_length() {
                                 break;
                             }
-                            hb = s;
+                            hb = s.ptr();
                             hn += 1;
                             hu[hn as usize] = c;
                             hc[hn as usize] = hc[0];
@@ -925,10 +931,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             let mut j = hn;
                             let mut qopt = l.lig_ptr().opt();
                             if let Some(q) = qopt {
-                                hyf_bchar = *CHAR_NODE_character(q as usize) as i32
+                                let q = Char(q);
+                                hyf_bchar = q.character() as i32;
                             }
                             while let Some(q) = qopt {
-                                c = *CHAR_NODE_character(q) as UnicodeScalar;
+                                let q = Char(q);
+                                c = q.character() as UnicodeScalar;
                                 hc[0] = if hyph_index == 0 || c > 255 {
                                     *LC_CODE(c as usize)
                                 } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
@@ -948,7 +956,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 j += 1;
                                 hu[j as usize] = c;
                                 hc[j as usize] = hc[0];
-                                qopt = llist_link(q);
+                                qopt = llist_link(q.ptr());
                             }
                             hb = l.ptr();
                             hn = j;
@@ -1286,7 +1294,7 @@ unsafe fn post_line_break(mut d: bool) {
         }
 
         pre_adjust_tail = None;
-        append_to_vlist(just_box);
+        append_to_vlist(jb);
 
         if Some(ADJUST_HEAD) != adjust_tail {
             MEM[cur_list.tail].b32.s1 = *LLIST_link(ADJUST_HEAD);
@@ -1479,11 +1487,9 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                         v = *LLIST_link(v) as usize;
                                         /*870: "subtract the width of node v from break_width" */
                                         if is_char_node(Some(v)) {
-                                            let mut eff_char: i32 = 0;
-
-                                            let f = *CHAR_NODE_font(v) as usize;
-                                            eff_char =
-                                                effective_char(true, f, *CHAR_NODE_character(v));
+                                            let v = Char(v);
+                                            let f = v.font() as usize;
+                                            let eff_char = effective_char(true, f, v.character());
                                             break_width[1] -=
                                                 *FONT_CHARACTER_WIDTH(f, eff_char as usize);
                                         } else {
@@ -1524,9 +1530,9 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                     /*871: "add the width of node s to break_width" */
                                     while let Some(s) = sopt {
                                         if is_char_node(Some(s)) {
-                                            let mut eff_char_1: i32 = 0;
-                                            let f = *CHAR_NODE_font(s) as usize;
-                                            eff_char_1 = effective_char(true, f, MEM[s].b16.s0);
+                                            let s = Char(s);
+                                            let f = s.font() as usize;
+                                            let eff_char_1 = effective_char(true, f, s.character());
                                             break_width[1] +=
                                                 *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
                                         } else {

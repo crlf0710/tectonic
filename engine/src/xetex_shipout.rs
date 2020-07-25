@@ -39,9 +39,8 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_char_node, llist_link, print_c_string, set_NODE_type, set_whatsit_NODE_subtype,
-    text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width, CHAR_NODE_character,
-    CHAR_NODE_font, EDGE_NODE_edge_dist, LLIST_info, LLIST_link, NODE_type, SYNCTEX_tag, TeXInt,
-    TeXOpt, FONT_CHARACTER_WIDTH,
+    text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width, LLIST_info, LLIST_link,
+    NODE_type, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -632,8 +631,9 @@ unsafe fn hlist_out(this_box: &mut Box) {
                 dvi_v = cur_v
             }
             loop  {
-                let f = *CHAR_NODE_font(p) as usize;
-                let mut c = *CHAR_NODE_character(p);
+                let chr = Char(p);
+                let f = chr.font() as usize;
+                let mut c = chr.character();
                 if p != LIG_TRICK &&
                        !(FONT_MAPPING[f]).is_null() {
                     c = apply_tfm_font_mapping(FONT_MAPPING[f], c as i32) as u16;
@@ -1077,8 +1077,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                 reverse(this_box, tmp_ptr,
                                         Some(new_edge(!cur_dir, 0)),
                                         &mut cur_g, &mut cur_glue);
-                            *EDGE_NODE_edge_dist(p) =
-                                cur_h;
+                            Edge(p).set_edge_dist(cur_h);
                             cur_dir = !cur_dir;
                             cur_h = save_h;
                             popt = Some(p);
@@ -1092,21 +1091,23 @@ unsafe fn hlist_out(this_box: &mut Box) {
                 TextNode::Ligature => {
                     let l = Ligature(p);
                     /* 675: "Make node p look like a char_node and goto reswitch" */
-                    *CHAR_NODE_character(LIG_TRICK) = l.char();
-                    *CHAR_NODE_font(LIG_TRICK) = l.font();
+                    let mut c = Char(LIG_TRICK);
+                    c.set_character(l.char());
+                    c.set_font(l.font());
                     *LLIST_link(LIG_TRICK) = *LLIST_link(l.ptr());
                     popt = Some(LIG_TRICK);
                     xtx_ligature_present = true;
                     continue;
                 }
                 EDGE_NODE => {
+                    let p = Edge(p);
                     /*1507: "Cases of hlist_out that arise in mixed direction text only" */
                     cur_h +=
-                        *BOX_width(p);
+                        p.width();
                     left_edge =
                         cur_h +
-                            *EDGE_NODE_edge_dist(p as usize);
-                    cur_dir = LR::n(MEM[p as usize].b16.s0).unwrap();
+                            p.edge_dist();
+                    cur_dir = p.lr();
                 }
                 _ => {  }
             }
@@ -1246,9 +1247,10 @@ unsafe fn vlist_out(this_box: &Box) {
                 }
             }
             TextNode::Rule => {
-                rule_ht = *BOX_height(p);
-                rule_dp = *BOX_depth(p);
-                rule_wd = *BOX_width(p);
+                let r = Rule::from(p);
+                rule_ht = r.height();
+                rule_dp = r.depth();
+                rule_wd = r.width();
                 // 655: "Output a rule in a vlist, goto next_p
 
                 if rule_wd == NULL_FLAG {
@@ -1537,8 +1539,9 @@ unsafe fn reverse(
              * reached." */
             if is_char_node(Some(p)) {
                 loop {
-                    let f = *CHAR_NODE_font(p) as usize;
-                    let c = *CHAR_NODE_character(p);
+                    let chr = Char(p);
+                    let f = chr.font() as usize;
+                    let c = chr.character();
                     cur_h += FONT_INFO[(WIDTH_BASE[f]
                         + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize]
                             .b16
@@ -1668,10 +1671,9 @@ unsafe fn reverse(
                                     } else {
                                         /*1517: "Finish the reverse hlist segment and goto done" */
                                         free_node(p, MEDIUM_NODE_SIZE); /* end GLUE_NODE case */
-                                        let t = t.unwrap();
-                                        *LLIST_link(t) = q;
-                                        *BOX_width(t) = rule_wd;
-                                        *EDGE_NODE_edge_dist(t) = -cur_h - rule_wd;
+                                        let mut t = Edge(t.unwrap());
+                                        *LLIST_link(t.ptr()) = q;
+                                        t.set_width(rule_wd).set_edge_dist(-cur_h - rule_wd);
                                         break 's_58;
                                     }
                                 }
@@ -1726,12 +1728,10 @@ unsafe fn reverse(
 
 /*1506: Create a new edge node of subtype `s` and width `w` */
 pub(crate) unsafe fn new_edge(s: LR, w: scaled_t) -> usize {
-    let p = get_node(EDGE_NODE_SIZE);
-    set_NODE_type(p, EDGE_NODE);
-    MEM[p].b16.s0 = s as u16; // set_NODE_subtype
-    *BOX_width(p) = w;
-    *EDGE_NODE_edge_dist(p) = 0;
-    p
+    let mut p = Edge(get_node(EDGE_NODE_SIZE));
+    set_NODE_type(p.ptr(), EDGE_NODE);
+    p.set_lr(s).set_width(w).set_edge_dist(0);
+    p.ptr()
 }
 
 pub(crate) unsafe fn out_what(p: usize) {

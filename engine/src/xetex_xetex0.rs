@@ -162,7 +162,7 @@ pub(crate) unsafe fn badness(mut t: scaled_t, mut s: scaled_t) -> i32 {
         /* magic constant */
         return INF_BAD;
     }
-    (r * r * r + 0x20000i32) / 0x40000i32
+    (r * r * r + 0x20000) / 0x40000
 }
 
 /*:112*/
@@ -425,7 +425,7 @@ pub(crate) unsafe fn new_ligature(mut f: internal_font_number, mut c: u16, mut q
     p.set_font(f as u16)
         .set_char(c)
         .set_lig_ptr(q)
-        .set_hits((false, false));
+        .set_hits(false, false);
     p.ptr()
 }
 pub(crate) unsafe fn new_lig_item(mut c: u16) -> usize {
@@ -450,8 +450,8 @@ pub(crate) unsafe fn copy_native_glyph_info(src: &NativeWord, dest: &mut NativeW
             glyph_count as usize * NATIVE_GLYPH_INFO_SIZE as usize,
         ) as *mut _);
         memcpy(
-            MEM[dest.ptr() + 5].ptr,
-            MEM[src.ptr() + 5].ptr,
+            dest.glyph_info_ptr(),
+            src.glyph_info_ptr(),
             (glyph_count * NATIVE_GLYPH_INFO_SIZE) as usize,
         );
         dest.set_glyph_count(glyph_count as u16);
@@ -532,23 +532,21 @@ pub(crate) unsafe fn prev_rightmost(s: Option<usize>, e: Option<usize>) -> Optio
 pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
     while let Some(mut p) = popt.filter(|&p| p != 0) {
         if is_char_node(Some(p)) {
-            if p <= mem_end as usize {
-                if *CHAR_NODE_font(p) as usize != font_in_short_display {
-                    if *CHAR_NODE_font(p) as i32 > FONT_MAX as i32 {
+            let p = Char(p);
+            if p.ptr() <= mem_end as usize {
+                if p.font() as usize != font_in_short_display {
+                    if p.font() as i32 > FONT_MAX as i32 {
                         print_char('*' as i32);
                     } else {
                         /*279:*/
                         print_esc(
-                            (*hash.offset(
-                                (FONT_ID_BASE as i32 + *CHAR_NODE_font(p) as i32) as isize,
-                            ))
-                            .s1,
+                            (*hash.offset((FONT_ID_BASE as i32 + p.font() as i32) as isize)).s1,
                         );
                     }
                     print_char(' ' as i32);
-                    font_in_short_display = *CHAR_NODE_font(p) as usize
+                    font_in_short_display = p.font() as usize
                 }
-                print(*CHAR_NODE_character(p) as i32);
+                print(p.character() as i32);
             }
         } else {
             /*183:*/
@@ -1073,12 +1071,13 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         pool_ptr -= 1
                     }
                     TextNode::Mark => {
+                        let m = Mark(p);
                         print_esc_cstr(b"mark");
-                        if *MARK_NODE_class(p) != 0 {
+                        if m.class() != 0 {
                             print_char('s' as i32);
-                            print_int(*MARK_NODE_class(p));
+                            print_int(m.class());
                         }
-                        print_mark(*MARK_NODE_ptr(p));
+                        print_mark(m.mark_ptr());
                     }
                     TextNode::Adjust => {
                         let a = Adjust(p);
@@ -1353,7 +1352,8 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         l.free();
                     }
                     TextNode::Mark => {
-                        delete_token_ref(*MARK_NODE_ptr(p) as usize);
+                        let m = Mark(p);
+                        delete_token_ref(m.mark_ptr() as usize);
                         free_node(p, SMALL_NODE_SIZE);
                     }
                     TextNode::Disc => {
@@ -1550,8 +1550,9 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                     r_disc.set_post_break(copy_node_list(p.post_break().opt()));
                 }
                 TextNode::Mark => {
+                    let p = Mark(p);
                     r = get_node(SMALL_NODE_SIZE);
-                    MEM[*MARK_NODE_ptr(p) as usize].b32.s0 += 1;
+                    MarkClass(p.mark_ptr() as usize).rc_inc();
                     words = SMALL_NODE_SIZE as u8
                 }
                 TextNode::Adjust => {
@@ -3102,7 +3103,6 @@ pub(crate) unsafe fn file_warning() {
     };
 }
 pub(crate) unsafe fn delete_sa_ref(mut q: usize) {
-    let mut i: i16 = 0;
     let mut s: i16 = 0;
     MEM[q + 1].b32.s0 -= 1;
     if MEM[q + 1].b32.s0.opt().is_some() {
@@ -3127,23 +3127,20 @@ pub(crate) unsafe fn delete_sa_ref(mut q: usize) {
         s = POINTER_NODE_SIZE as i16
     }
     loop {
-        i = (MEM[q].b16.s1 as i32 % 64) as i16;
+        let i = MEM[q].b16.s1 as usize % 64;
         let qi = llist_link(q);
         free_node(q, s as i32);
         if let Some(qii) = qi {
             q = qii;
-            if i as i32 & 1 != 0 {
-                MEM[q + i as usize / 2 + 1].b32.s1 = None.tex_int()
-            } else {
-                MEM[q + i as usize / 2 + 1].b32.s0 = None.tex_int()
-            }
-            MEM[q].b16.s0 -= 1;
+            let mut qii = Index(qii);
+            qii.indexes_mut()[i] = None.tex_int();
+            qii.rc_dec();
             s = INDEX_NODE_SIZE as i16;
             if MEM[q].b16.s0 as i32 > 0 {
                 break;
             }
         } else {
-            sa_root[i as usize] = None;
+            sa_root[i] = None;
             return;
         }
     }
@@ -3239,33 +3236,32 @@ pub(crate) unsafe fn gsa_w_def(p: usize, w: i32) {
     delete_sa_ref(p);
 }
 pub(crate) unsafe fn sa_restore() {
-    let mut p: i32 = 0;
     loop {
-        p = MEM[(sa_chain + 1) as usize].b32.s0;
-        if MEM[p as usize].b16.s0 == LEVEL_ONE {
-            if MEM[p as usize].b16.s1 >= DIMEN_VAL_LIMIT {
+        let p = MEM[(sa_chain + 1) as usize].b32.s0 as usize;
+        if MEM[p].b16.s0 == LEVEL_ONE {
+            if MEM[p].b16.s1 >= DIMEN_VAL_LIMIT {
                 sa_destroy(sa_chain as usize);
             }
         } else {
-            if MEM[p as usize].b16.s1 < DIMEN_VAL_LIMIT {
+            if MEM[p].b16.s1 < DIMEN_VAL_LIMIT {
                 if MEM[sa_chain as usize].b16.s1 < DIMEN_VAL_LIMIT {
-                    MEM[(p + 2) as usize].b32.s1 = MEM[(sa_chain + 2) as usize].b32.s1
+                    MEM[p + 2].b32.s1 = MEM[(sa_chain + 2) as usize].b32.s1
                 } else {
-                    MEM[(p + 2) as usize].b32.s1 = 0
+                    MEM[p + 2].b32.s1 = 0
                 }
             } else {
-                sa_destroy(p as usize);
-                MEM[(p + 1) as usize].b32.s1 = MEM[(sa_chain + 1) as usize].b32.s1
+                sa_destroy(p);
+                MEM[p + 1].b32.s1 = MEM[(sa_chain + 1) as usize].b32.s1
             }
-            MEM[p as usize].b16.s0 = MEM[sa_chain as usize].b16.s0
+            MEM[p].b16.s0 = MEM[sa_chain as usize].b16.s0
         }
-        delete_sa_ref(p as usize);
-        p = sa_chain;
-        sa_chain = *LLIST_link(p as usize);
-        if MEM[p as usize].b16.s1 < DIMEN_VAL_LIMIT {
-            free_node(p as usize, WORD_NODE_SIZE);
+        delete_sa_ref(p);
+        let p = sa_chain as usize;
+        sa_chain = *LLIST_link(p);
+        if MEM[p].b16.s1 < DIMEN_VAL_LIMIT {
+            free_node(p, WORD_NODE_SIZE);
         } else {
-            free_node(p as usize, POINTER_NODE_SIZE);
+            free_node(p, POINTER_NODE_SIZE);
         }
         if sa_chain.opt().is_none() {
             break;
@@ -3499,8 +3495,6 @@ pub(crate) unsafe fn print_meaning() {
     };
 }
 pub(crate) unsafe fn show_cur_cmd_chr() {
-    let mut n: i32 = 0;
-    let mut l: i32 = 0;
     begin_diagnostic();
     print_nl('{' as i32);
     if cur_list.mode != shown_mode {
@@ -3513,6 +3507,8 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
         if cur_cmd >= Cmd::IfTest {
             if cur_cmd <= Cmd::FiOrElse {
                 print_cstr(b": ");
+                let mut n;
+                let l;
                 if cur_cmd == Cmd::FiOrElse {
                     print_cmd_chr(Cmd::IfTest, cur_if as i32);
                     print_char(' ' as i32);
@@ -3541,17 +3537,10 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
     end_diagnostic(false);
 }
 pub(crate) unsafe fn show_context() {
-    let mut nn: i32 = 0;
-    let mut bottom_line: bool = false;
-    let mut j: i32 = 0;
-    let mut l: i32 = 0;
-    let mut m: i32 = 0;
-    let mut n: i32 = 0;
-    let mut p: i32 = 0;
     BASE_PTR = INPUT_PTR;
     INPUT_STACK[BASE_PTR] = cur_input;
-    nn = -1;
-    bottom_line = false;
+    let mut nn = -1;
+    let mut bottom_line = false;
     loop {
         cur_input = INPUT_STACK[BASE_PTR];
         if cur_input.state != InputState::TokenList {
@@ -3568,6 +3557,7 @@ pub(crate) unsafe fn show_context() {
             {
                 tally = 0i32;
                 let old_setting_0 = selector;
+                let l;
                 if cur_input.state != InputState::TokenList {
                     if cur_input.name <= 17 {
                         if cur_input.name == 0 {
@@ -3598,11 +3588,11 @@ pub(crate) unsafe fn show_context() {
                     tally = 0;
                     selector = Selector::PSEUDO;
                     trick_count = 1000000;
-                    if BUFFER[cur_input.limit as usize] == *INTPAR(IntPar::end_line_char) {
-                        j = cur_input.limit
+                    let j = if BUFFER[cur_input.limit as usize] == *INTPAR(IntPar::end_line_char) {
+                        cur_input.limit
                     } else {
-                        j = cur_input.limit + 1
-                    }
+                        cur_input.limit + 1
+                    };
                     if j > 0 {
                         for i in cur_input.start..j {
                             if i == cur_input.loc {
@@ -3677,11 +3667,13 @@ pub(crate) unsafe fn show_context() {
                         trick_count = error_line
                     }
                 }
-                if tally < trick_count {
-                    m = tally - first_count
+                let m = if tally < trick_count {
+                    tally - first_count
                 } else {
-                    m = trick_count - first_count
-                }
+                    trick_count - first_count
+                };
+                let p;
+                let n;
                 if l + first_count <= half_error_line {
                     p = 0;
                     n = l + first_count
@@ -3697,11 +3689,11 @@ pub(crate) unsafe fn show_context() {
                 for _ in 0..n {
                     print_raw_char(' ' as i32 as UTF16_code, true);
                 }
-                if m + n <= error_line {
-                    p = first_count + m
+                let p = if m + n <= error_line {
+                    first_count + m
                 } else {
-                    p = first_count + (error_line - n - 3i32)
-                }
+                    first_count + (error_line - n - 3)
+                };
                 for q in first_count..p {
                     print_raw_char(trick_buf[(q % error_line) as usize], true);
                 }
@@ -3970,14 +3962,8 @@ pub(crate) unsafe fn check_outer_validity() {
 /* These macros are kinda scary, but convenient */
 pub(crate) unsafe fn get_next() {
     let mut current_block: u64;
-    let mut k: i32 = 0;
-    let mut t: i32 = 0;
-    let mut c: UnicodeScalar = 0;
-    let mut lower: UTF16_code = 0;
-    let mut d: i16 = 0;
-    let mut sup_count: i16 = 0;
     'c_63502: loop {
-        cur_cs = 0i32;
+        cur_cs = 0;
         if cur_input.state != InputState::TokenList {
             /*355:*/
             'c_63807: loop
@@ -3992,7 +3978,7 @@ pub(crate) unsafe fn get_next() {
                         && BUFFER[cur_input.loc as usize] >= 0xdc00
                         && BUFFER[cur_input.loc as usize] < 0xe000
                     {
-                        lower = (BUFFER[cur_input.loc as usize] - 0xdc00) as UTF16_code;
+                        let lower = (BUFFER[cur_input.loc as usize] - 0xdc00) as UTF16_code;
                         cur_input.loc += 1;
                         cur_chr = (65536 + ((cur_chr - 0xd800) * 1024) as i64 + lower as i64) as i32
                     }
@@ -4039,17 +4025,15 @@ pub(crate) unsafe fn get_next() {
                                     current_block = 8567661057257693057;
                                     break 'c_63807;
                                 }
-                                sup_count = 2i32 as i16;
-                                while (sup_count as i32) < 6i32
-                                    && cur_input.loc + 2i32 * sup_count as i32 - 2i32
-                                        <= cur_input.limit
+                                let mut sup_count = 2;
+                                while sup_count < 6
+                                    && cur_input.loc + 2 * sup_count as i32 - 2 <= cur_input.limit
                                     && cur_chr
                                         == BUFFER[(cur_input.loc + sup_count as i32 - 1) as usize]
                                 {
                                     sup_count += 1
                                 }
-                                d = 1i32 as i16;
-                                while d as i32 <= sup_count as i32 {
+                                for d in 1..=sup_count as i32 {
                                     if !(BUFFER[(cur_input.loc + sup_count as i32 - 2 + d as i32)
                                         as usize]
                                         >= '0' as i32
@@ -4064,33 +4048,25 @@ pub(crate) unsafe fn get_next() {
                                                 as usize]
                                                 <= 'f' as i32)
                                     {
-                                        c = BUFFER[(cur_input.loc + 1i32) as usize];
-                                        if !(c < 128i32) {
+                                        let c = BUFFER[(cur_input.loc + 1) as usize];
+                                        if !(c < 128) {
                                             current_block = 8567661057257693057;
                                             break 'c_63807;
                                         }
-                                        cur_input.loc = cur_input.loc + 2i32;
-                                        if c < 64i32 {
-                                            cur_chr = c + 64i32
-                                        } else {
-                                            cur_chr = c - 64i32
-                                        }
+                                        cur_input.loc = cur_input.loc + 2;
+                                        cur_chr = if c < 64 { c + 64 } else { c - 64 };
                                         continue 'c_65186;
-                                    } else {
-                                        d += 1
                                     }
                                 }
                                 cur_chr = 0i32;
-                                d = 1i32 as i16;
-                                while d as i32 <= sup_count as i32 {
-                                    c = BUFFER[(cur_input.loc + sup_count as i32 - 2 + d as i32)
+                                for d in 1..=sup_count as i32 {
+                                    let c = BUFFER[(cur_input.loc + sup_count as i32 - 2 + d as i32)
                                         as usize];
                                     if c <= '9' as i32 {
                                         cur_chr = 16 * cur_chr + c - '0' as i32
                                     } else {
                                         cur_chr = 16 * cur_chr + c - 'a' as i32 + 10
                                     }
-                                    d += 1
                                 }
                                 if cur_chr > BIGGEST_USV as i32 {
                                     cur_chr = BUFFER[cur_input.loc as usize];
@@ -4209,7 +4185,7 @@ pub(crate) unsafe fn get_next() {
                                     .opt()
                                     .filter(|_| !EOF_SEEN[cur_input.index as usize])
                                 {
-                                    cur_input.limit = first - 1i32;
+                                    cur_input.limit = first - 1;
                                     EOF_SEEN[cur_input.index as usize] = true;
                                     begin_token_list(l, Btl::EveryEOFText);
                                     continue 'c_63502;
@@ -4283,6 +4259,7 @@ pub(crate) unsafe fn get_next() {
                             current_block = 14956172121224201915;
                         }
                         7720778817628725688 => {
+                            let mut k;
                             let mut cat;
                             'c_65963: loop {
                                 k = cur_input.loc;
@@ -4319,20 +4296,19 @@ pub(crate) unsafe fn get_next() {
                                      * ^. */
                                     let mut sup_count_save: i32 = 0;
                                     /* How many ^'s are there? */
-                                    sup_count = 2;
+                                    let mut sup_count = 2;
                                     while sup_count < 6
                                         && k + 2 * sup_count as i32 - 2 <= cur_input.limit
                                         && BUFFER[(k + sup_count as i32 - 1) as usize] == cur_chr
                                     {
-                                        sup_count += 1
+                                        sup_count += 1;
                                     }
                                     /* If they are followed by a sufficient number of
                                      * hex characters, treat it as an extended ^^^
                                      * sequence. If not, treat it as original-style
                                      * ^^X. */
                                     sup_count_save = sup_count as i32;
-                                    d = 1;
-                                    while d as i32 <= sup_count_save {
+                                    for d in 1..=sup_count_save {
                                         if !(BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize]
                                             >= '0' as i32
                                             && BUFFER
@@ -4346,14 +4322,14 @@ pub(crate) unsafe fn get_next() {
                                                     <= 'f' as i32)
                                         {
                                             /* Non-hex: do it old style */
-                                            c = BUFFER[(k + 1i32) as usize];
-                                            if c < 128i32 {
-                                                if c < 64i32 {
-                                                    BUFFER[(k - 1i32) as usize] = c + 64i32
+                                            let c = BUFFER[(k + 1) as usize];
+                                            if c < 128 {
+                                                if c < 64 {
+                                                    BUFFER[(k - 1) as usize] = c + 64
                                                 } else {
-                                                    BUFFER[(k - 1i32) as usize] = c - 64i32
+                                                    BUFFER[(k - 1) as usize] = c - 64
                                                 }
-                                                d = 2i32 as i16;
+                                                let d = 2;
                                                 cur_input.limit = cur_input.limit - d as i32;
                                                 while k <= cur_input.limit {
                                                     BUFFER[k as usize] =
@@ -4362,27 +4338,25 @@ pub(crate) unsafe fn get_next() {
                                                 }
                                                 continue 'c_65963;
                                             } else {
-                                                sup_count = 0i32 as i16
+                                                sup_count = 0;
                                             }
                                         }
-                                        d += 1
                                     }
-                                    if !(sup_count as i32 > 0i32) {
+                                    if !(sup_count as i32 > 0) {
                                         current_block = 5873035170358615968;
                                         break;
                                     }
 
-                                    cur_chr = 0i32;
+                                    cur_chr = 0;
 
-                                    d = 1i32 as i16;
-                                    while d as i32 <= sup_count as i32 {
-                                        c = BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize];
-                                        if c <= '9' as i32 {
-                                            cur_chr = 16i32 * cur_chr + c - '0' as i32
+                                    for d in 1..=sup_count as i32 {
+                                        let c =
+                                            BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize];
+                                        cur_chr = if c <= '9' as i32 {
+                                            16 * cur_chr + c - '0' as i32
                                         } else {
-                                            cur_chr = 16i32 * cur_chr + c - 'a' as i32 + 10i32
-                                        }
-                                        d += 1
+                                            16 * cur_chr + c - 'a' as i32 + 10
+                                        };
                                     }
 
                                     if cur_chr > BIGGEST_USV as i32 {
@@ -4390,8 +4364,8 @@ pub(crate) unsafe fn get_next() {
                                         current_block = 5873035170358615968;
                                         break;
                                     } else {
-                                        BUFFER[(k - 1i32) as usize] = cur_chr;
-                                        d = (2i32 * sup_count as i32 - 1i32) as i16;
+                                        BUFFER[(k - 1) as usize] = cur_chr;
+                                        let d = (2 * sup_count as i32 - 1) as i16;
                                         cur_input.limit = cur_input.limit - d as i32;
                                         while k <= cur_input.limit {
                                             BUFFER[k as usize] = BUFFER[(k + d as i32) as usize];
@@ -4407,27 +4381,26 @@ pub(crate) unsafe fn get_next() {
                                         break;
                                     }
                                     let mut sup_count_save_0: i32 = 0;
-                                    sup_count = 2i32 as i16;
-                                    while (sup_count as i32) < 6i32
-                                        && k + 2i32 * sup_count as i32 - 2i32 <= cur_input.limit
-                                        && BUFFER[(k + sup_count as i32 - 1i32) as usize] == cur_chr
+                                    let mut sup_count = 2;
+                                    while sup_count < 6
+                                        && k + 2 * sup_count as i32 - 2 <= cur_input.limit
+                                        && BUFFER[(k + sup_count as i32 - 1) as usize] == cur_chr
                                     {
                                         sup_count += 1
                                     }
                                     sup_count_save_0 = sup_count as i32;
-                                    d = 1 as i16;
-                                    while d as i32 <= sup_count_save_0 {
+                                    for d in 1..=sup_count_save_0 {
                                         if !IS_LC_HEX(
                                             BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize],
                                         ) {
-                                            c = BUFFER[(k + 1) as usize];
+                                            let c = BUFFER[(k + 1) as usize];
                                             if c < 128 {
                                                 if c < 64 {
                                                     BUFFER[(k - 1) as usize] = c + 64
                                                 } else {
                                                     BUFFER[(k - 1) as usize] = c - 64
                                                 }
-                                                d = 2;
+                                                let d = 2;
                                                 cur_input.limit = cur_input.limit - d as i32;
                                                 while k <= cur_input.limit {
                                                     BUFFER[k as usize] =
@@ -4439,22 +4412,20 @@ pub(crate) unsafe fn get_next() {
                                                 sup_count = 0;
                                             }
                                         }
-                                        d += 1
                                     }
                                     if !(sup_count > 0) {
                                         current_block = 1604201581803946138;
                                         break;
                                     }
                                     cur_chr = 0;
-                                    d = 1 as i16;
-                                    while d as i32 <= sup_count as i32 {
-                                        c = BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize];
+                                    for d in 1..=sup_count as i32 {
+                                        let c =
+                                            BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize];
                                         if c <= '9' as i32 {
                                             cur_chr = 16 * cur_chr + c - '0' as i32
                                         } else {
                                             cur_chr = 16 * cur_chr + c - 'a' as i32 + 10
                                         }
-                                        d += 1
                                     }
 
                                     if cur_chr > BIGGEST_USV as i32 {
@@ -4463,7 +4434,7 @@ pub(crate) unsafe fn get_next() {
                                         break;
                                     } else {
                                         BUFFER[(k - 1) as usize] = cur_chr;
-                                        d = (2 * sup_count as i32 - 1) as i16;
+                                        let d = (2 * sup_count as i32 - 1) as i16;
                                         cur_input.limit = cur_input.limit - d as i32;
                                         while k <= cur_input.limit {
                                             BUFFER[k as usize] = BUFFER[(k + d as i32) as usize];
@@ -4550,7 +4521,7 @@ pub(crate) unsafe fn get_next() {
             }
         } else if let Some(loc) = cur_input.loc.opt() {
             /* if we're inputting from a non-null token list: */
-            t = MEM[loc].b32.s0;
+            let t = MEM[loc].b32.s0;
             cur_input.loc = *LLIST_link(loc);
             if t >= CS_TOKEN_FLAG {
                 cur_cs = t - CS_TOKEN_FLAG;
@@ -4624,7 +4595,7 @@ pub(crate) unsafe fn get_token() {
     no_new_control_sequence = false;
     get_next();
     no_new_control_sequence = true;
-    if cur_cs == 0i32 {
+    if cur_cs == 0 {
         cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
     } else {
         cur_tok = CS_TOKEN_FLAG + cur_cs
@@ -4976,14 +4947,14 @@ pub(crate) unsafe fn insert_relax() {
     cur_input.index = Btl::Inserted;
 }
 pub(crate) unsafe fn new_index(i: u16, q: Option<usize>) -> usize {
-    let p = get_node(INDEX_NODE_SIZE);
-    MEM[p].b16.s1 = i;
-    MEM[p].b16.s0 = 0_u16;
-    *LLIST_link(p) = q.tex_int();
-    for k in INDEX_NODE_indexes(p) {
+    let mut p = Index(get_node(INDEX_NODE_SIZE));
+    MEM[p.ptr()].b16.s1 = i;
+    MEM[p.ptr()].b16.s0 = 0_u16;
+    *LLIST_link(p.ptr()) = q.tex_int();
+    for k in p.indexes_mut() {
         *k = None.tex_int();
     }
-    p
+    p.ptr()
 }
 pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
     cur_ptr = sa_root[t as usize];
@@ -4994,41 +4965,41 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
             return;
         }
     }
-    let q = cur_ptr.unwrap();
+    let q = Index(cur_ptr.unwrap());
     let i = (n / 0x40000) as usize;
-    cur_ptr = INDEX_NODE_indexes(q)[i].opt();
+    cur_ptr = q.indexes()[i].opt();
     if cur_ptr.is_none() {
         if w {
-            return lab46(t, n, q, i);
+            return lab46(t, n, q.ptr(), i);
         } else {
             return;
         }
     }
-    let q = cur_ptr.unwrap();
+    let q = Index(cur_ptr.unwrap());
     let i = (n / 4096 % 64) as usize;
-    cur_ptr = INDEX_NODE_indexes(q)[i].opt();
+    cur_ptr = q.indexes()[i].opt();
     if cur_ptr.is_none() {
         if w {
-            return lab47(t, n, q, i);
+            return lab47(t, n, q.ptr(), i);
         } else {
             return;
         }
     }
-    let q = cur_ptr.unwrap();
+    let q = Index(cur_ptr.unwrap());
     let i = (n / 64 % 64) as usize;
-    cur_ptr = INDEX_NODE_indexes(q)[i].opt();
+    cur_ptr = q.indexes()[i].opt();
     if cur_ptr.is_none() {
         if w {
-            return lab48(t, n, q, i);
+            return lab48(t, n, q.ptr(), i);
         } else {
             return;
         }
     }
-    let q = cur_ptr.unwrap();
+    let q = Index(cur_ptr.unwrap());
     let i = (n % 64) as usize;
-    cur_ptr = INDEX_NODE_indexes(q)[i].opt();
+    cur_ptr = q.indexes()[i].opt();
     if cur_ptr.is_none() && w {
-        return lab49(t, n, q, i);
+        return lab49(t, n, q.ptr(), i);
     } else {
         return;
     }
@@ -5045,8 +5016,9 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
     unsafe fn lab46(t: ValLevel, n: i32, q: usize, mut i: usize) {
         let p = new_index(i as u16, Some(q));
         cur_ptr = Some(p);
-        INDEX_NODE_indexes(q)[i] = cur_ptr.tex_int();
-        MEM[q].b16.s0 += 1;
+        let mut q = Index(q);
+        q.indexes_mut()[i] = cur_ptr.tex_int();
+        q.rc_inc();
         i = (n / 4096 % 64) as usize;
         lab47(t, n, p, i)
     }
@@ -5055,8 +5027,9 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
     unsafe fn lab47(t: ValLevel, n: i32, q: usize, mut i: usize) {
         let p = new_index(i as u16, Some(q));
         cur_ptr = Some(p);
-        INDEX_NODE_indexes(q)[i] = cur_ptr.tex_int();
-        MEM[q].b16.s0 += 1;
+        let mut q = Index(q);
+        q.indexes_mut()[i] = cur_ptr.tex_int();
+        q.rc_inc();
         i = (n / 64 % 64) as usize;
         lab48(t, n, p, i)
     }
@@ -5065,45 +5038,51 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
     unsafe fn lab48(t: ValLevel, n: i32, q: usize, mut i: usize) {
         let p = new_index(i as u16, Some(q));
         cur_ptr = Some(p);
-        INDEX_NODE_indexes(q)[i] = cur_ptr.tex_int();
-        MEM[q].b16.s0 += 1;
+        let mut q = Index(q);
+        q.indexes_mut()[i] = cur_ptr.tex_int();
+        q.rc_inc();
         i = (n % 64) as usize;
         lab49(t, n, p, i)
     }
 
     /*not_found4 *//*1608: */
     unsafe fn lab49(t: ValLevel, n: i32, q: usize, i: usize) {
-        let p = if t == ValLevel::Mark {
-            let p = get_node(MARK_CLASS_NODE_SIZE); /*level_one *//*:1608 */
-            for k in MARK_CLASS_indexes(p) {
-                *k = None.tex_int();
+        let p = match t {
+            ValLevel::Mark => {
+                let mut p = MarkClass(get_node(MARK_CLASS_NODE_SIZE));
+                for k in p.indexes_mut() {
+                    *k = None.tex_int();
+                }
+                p.ptr()
             }
-            p
-        } else {
-            let p = if t == ValLevel::Int || t == ValLevel::Dimen {
+            ValLevel::Int | ValLevel::Dimen => {
                 let p = get_node(WORD_NODE_SIZE);
                 MEM[p + 2].b32.s1 = 0;
                 MEM[p + 1].b32.s1 = n;
+                MEM[p + 1].b32.s0 = None.tex_int();
                 p
-            } else {
+            }
+            ValLevel::Glue | ValLevel::Mu => {
                 let p = get_node(POINTER_NODE_SIZE);
-                if t <= ValLevel::Mu {
-                    MEM[p + 1].b32.s1 = 0;
-                    GlueSpec(0).rc_inc(); // TODO: looks like a BUG
-                } else {
-                    MEM[p + 1].b32.s1 = None.tex_int();
-                }
+                MEM[p + 1].b32.s1 = 0;
+                GlueSpec(0).rc_inc();
+                MEM[p + 1].b32.s0 = None.tex_int();
                 p
-            };
-            MEM[p + 1].b32.s0 = None.tex_int();
-            p
+            }
+            _ => {
+                let p = get_node(POINTER_NODE_SIZE);
+                MEM[p + 1].b32.s1 = None.tex_int();
+                MEM[p + 1].b32.s0 = None.tex_int();
+                p
+            }
         };
         cur_ptr = Some(p);
         MEM[p].b16.s1 = (64 * t as i32 + i as i32) as u16;
-        MEM[p].b16.s0 = 1;
+        MEM[p].b16.s0 = 1; /*level_one *//*:1608 */
         *LLIST_link(p) = Some(q).tex_int();
-        INDEX_NODE_indexes(q)[i] = cur_ptr.tex_int();
-        MEM[q].b16.s0 += 1;
+        let mut q = Index(q);
+        q.indexes_mut()[i] = cur_ptr.tex_int();
+        q.rc_inc();
     }
 }
 pub(crate) unsafe fn expand() {
@@ -8663,21 +8642,14 @@ pub(crate) unsafe fn conv_toks() {
                         || text_NODE_type(p) == TextNode::Adjust.into()
                         || text_NODE_type(p) == TextNode::Penalty.into()
                         || text_NODE_type(p) == TextNode::Disc.into()
-                            && Discretionary(p).pre_break().opt().is_none()
-                            && Discretionary(p).post_break().opt().is_none()
-                            && Discretionary(p).replace_count() == 0
+                            && Discretionary(p).is_empty()
                         || text_NODE_type(p) == TextNode::Math.into() && MEM[p + 1].b32.s1 == 0
-                        || text_NODE_type(p) == TextNode::Kern.into()
-                            && (Kern(p).width() == 0 || Kern(p).subtype() == KernType::Normal)
-                        || text_NODE_type(p) == TextNode::Glue.into() && Glue(p).glue_ptr() == 0
-                        || text_NODE_type(p) == TextNode::HList.into()
-                            && *BOX_width(p) == 0
-                            && *BOX_height(p) == 0
-                            && *BOX_depth(p) == 0
-                            && Box::from(p).list_ptr().opt().is_none())
+                        || text_NODE_type(p) == TextNode::Kern.into() && Kern(p).is_empty()
+                        || text_NODE_type(p) == TextNode::Glue.into() && Glue(p).is_empty()
+                        || text_NODE_type(p) == TextNode::HList.into() && Box::from(p).is_empty())
                     || p < hi_mem_min as usize
                         && text_NODE_type(p) == TextNode::Glue.into()
-                        && MEM[p].b16.s0 == (GluePar::left_skip as u16) + 1)
+                        && Glue(p).param() == (GluePar::left_skip as u16) + 1)
                 {
                     break;
                 }
@@ -8704,21 +8676,14 @@ pub(crate) unsafe fn conv_toks() {
                         || text_NODE_type(p) == TextNode::Adjust.into()
                         || text_NODE_type(p) == TextNode::Penalty.into()
                         || text_NODE_type(p) == TextNode::Disc.into()
-                            && Discretionary(p).pre_break().opt().is_none()
-                            && Discretionary(p).post_break().opt().is_none()
-                            && Discretionary(p).replace_count() == 0
+                            && Discretionary(p).is_empty()
                         || text_NODE_type(p) == TextNode::Math.into() && MEM[p + 1].b32.s1 == 0
-                        || text_NODE_type(p) == TextNode::Kern.into()
-                            && (Kern(p).width() == 0 || Kern(p).subtype() == KernType::Normal)
-                        || text_NODE_type(p) == TextNode::Glue.into() && Glue(p).glue_ptr() == 0
-                        || text_NODE_type(p) == TextNode::HList.into()
-                            && *BOX_width(p) == 0
-                            && *BOX_height(p) == 0
-                            && *BOX_depth(p) == 0
-                            && Box::from(p).list_ptr().opt().is_none())
+                        || text_NODE_type(p) == TextNode::Kern.into() && Kern(p).is_empty()
+                        || text_NODE_type(p) == TextNode::Glue.into() && Glue(p).is_empty()
+                        || text_NODE_type(p) == TextNode::HList.into() && Box::from(p).is_empty())
                     || p < hi_mem_min as usize
                         && text_NODE_type(p) == TextNode::Glue.into()
-                        && MEM[p].b16.s0 == (GluePar::right_skip as u16) + 1)
+                        && Glue(p).param() == (GluePar::right_skip as u16) + 1)
                 {
                     break;
                 }
@@ -10960,10 +10925,10 @@ pub(crate) unsafe fn new_character(
     if FONT_BC[f] as i32 <= ec as i32 {
         if FONT_EC[f] as i32 >= ec as i32 {
             if FONT_INFO[(CHAR_BASE[f] + ec as i32) as usize].b16.s3 > 0 {
-                let p = get_avail();
-                MEM[p].b16.s1 = f as u16;
-                MEM[p].b16.s0 = c;
-                return Some(p);
+                let mut p = Char(get_avail());
+                p.set_font(f as u16);
+                p.set_character(c);
+                return Some(p.ptr());
             }
         }
     }
@@ -11031,25 +10996,28 @@ pub(crate) unsafe fn char_pw(p: Option<usize>, side: Side) -> scaled_t {
         && text_NODE_type(p) == TextNode::WhatsIt.into()
         && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
     {
-        let f = MEM[p + 4].b16.s2 as internal_font_number;
+        let p = Glyph::from(p);
+        let f = p.font() as internal_font_number;
         return round_xn_over_d(
             FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1,
-            get_cp_code(f, MEM[p + 4].b16.s1 as u32, side),
+            get_cp_code(f, p.glyph() as u32, side),
             1000,
         );
     }
-    if !is_char_node(Some(p)) {
+    let p = if !is_char_node(Some(p)) {
         if text_NODE_type(p) == TextNode::Ligature.into() {
-            p = p + 1; // as CharNode
+            Ligature(p).as_char() // as CharNode
         } else {
             return 0;
         }
-    }
-    let f = *CHAR_NODE_font(p) as internal_font_number;
-    let c = get_cp_code(f, *CHAR_NODE_character(p) as u32, side);
+    } else {
+        Char(p)
+    };
+    let f = p.font() as internal_font_number;
+    let c = get_cp_code(f, p.character() as u32, side);
     match side {
-        Side::Left => last_leftmost_char = Some(p).tex_int(),
-        Side::Right => last_rightmost_char = Some(p).tex_int(),
+        Side::Left => last_leftmost_char = Some(p.ptr()).tex_int(),
+        Side::Right => last_rightmost_char = Some(p.ptr()).tex_int(),
     }
     if c == 0 {
         return 0;
@@ -11096,19 +11064,16 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
     while popt.is_some() {
         /*674: */
         while is_char_node(popt) {
-            let p = popt.unwrap();
+            let p = Char(popt.unwrap());
             /*677: */
-            let f = *CHAR_NODE_font(p as usize) as internal_font_number;
-            let i = FONT_CHARACTER_INFO(
-                f,
-                effective_char(true, f, *CHAR_NODE_character(p as usize)) as usize,
-            );
+            let f = p.font() as internal_font_number;
+            let i = FONT_CHARACTER_INFO(f, effective_char(true, f, p.character()) as usize);
             x += *FONT_CHARINFO_WIDTH(f, i);
             let s = *FONT_CHARINFO_HEIGHT(f, i);
             h = h.max(s);
             let s = *FONT_CHARINFO_DEPTH(f, i);
             d = d.max(s);
-            popt = LLIST_link(p as usize).opt();
+            popt = LLIST_link(p.ptr()).opt();
         }
         if let Some(mut p) = popt {
             let n = text_NODE_type(p).unwrap();
@@ -11247,10 +11212,17 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                         d = d.max(*BOX_depth(p));
                         x += *BOX_width(p);
                     }
-                    WhatsItNST::Glyph | WhatsItNST::Pic | WhatsItNST::Pdf => {
-                        h = h.max(*BOX_height(p));
-                        d = d.max(*BOX_depth(p));
-                        x += *BOX_width(p);
+                    WhatsItNST::Glyph => {
+                        let g = Glyph::from(p);
+                        h = h.max(g.height());
+                        d = d.max(g.depth());
+                        x += g.width();
+                    }
+                    WhatsItNST::Pic | WhatsItNST::Pdf => {
+                        let p = Picture::from(p);
+                        h = h.max(p.height());
+                        d = d.max(p.depth());
+                        x += p.width();
                     }
                     _ => {}
                 },
@@ -11263,9 +11235,9 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                     let o = g.shrink_order() as usize;
                     total_shrink[o] += g.shrink();
                     if p.param() >= A_LEADERS {
-                        let g = p.leader_ptr() as usize;
-                        h = h.max(*BOX_height(g));
-                        d = d.max(*BOX_depth(g));
+                        let g = Box::from(p.leader_ptr() as usize);
+                        h = h.max(g.height());
+                        d = d.max(g.depth());
                     }
                 }
                 TextNode::Kern => {
@@ -11304,8 +11276,9 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 }
                 TextNode::Ligature => {
                     let l = Ligature(p);
-                    *CHAR_NODE_character(GARBAGE) = l.char();
-                    *CHAR_NODE_font(GARBAGE) = l.font();
+                    let mut g = Char(GARBAGE);
+                    g.set_character(l.char());
+                    g.set_font(l.font());
                     *LLIST_link(GARBAGE) = *LLIST_link(l.ptr());
                     popt = Some(GARBAGE);
                     xtx_ligature_present = true;
@@ -11523,17 +11496,24 @@ pub(crate) unsafe fn vpackage(
         if is_char_node(Some(p)) {
             confusion(b"vpack"); /*701: */
         } else {
-            let n = text_NODE_type(p).unwrap();
-            match n {
-                TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Unset => {
-                    x += d + *BOX_height(p);
-                    d = *BOX_depth(p);
-                    let s = if [TextNode::HList, TextNode::VList].contains(&n) {
-                        Box::from(p).shift_amount()
-                    } else {
-                        0
-                    };
-                    w = w.max(*BOX_width(p) + s);
+            match text_NODE_type(p).unwrap() {
+                TextNode::HList | TextNode::VList => {
+                    let b = Box::from(p);
+                    x += d + b.height();
+                    d = b.depth();
+                    w = w.max(b.width() + b.shift_amount());
+                }
+                TextNode::Rule => {
+                    let r = Rule::from(p);
+                    x += d + r.height();
+                    d = r.depth();
+                    w = w.max(r.width());
+                }
+                TextNode::Unset => {
+                    let u = Unset::from(p);
+                    x += d + u.height();
+                    d = u.depth();
+                    w = w.max(u.width());
                 }
                 TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
                     WhatsItNST::Pic | WhatsItNST::Pdf => {
@@ -11556,7 +11536,7 @@ pub(crate) unsafe fn vpackage(
                     total_shrink[o] += g.shrink();
                     if p.param() >= A_LEADERS {
                         let g = p.leader_ptr() as usize;
-                        w = w.max(*BOX_width(g));
+                        w = w.max(Box::from(g).width());
                     }
                 }
                 TextNode::Kern => {
@@ -11682,18 +11662,18 @@ pub(crate) unsafe fn vpackage(
         return r;
     }
 }
-pub(crate) unsafe fn append_to_vlist(b: usize) {
+pub(crate) unsafe fn append_to_vlist(b: Box) {
     let mut upwards: bool = false;
     upwards = *INTPAR(IntPar::xetex_upwards) > 0;
     if cur_list.aux.b32.s1 > IGNORE_DEPTH {
         let d = if upwards {
             MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1
                 - cur_list.aux.b32.s1
-                - *BOX_depth(b)
+                - b.depth()
         } else {
             MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1
                 - cur_list.aux.b32.s1
-                - *BOX_height(b)
+                - b.height()
         };
         let p = if d < *DIMENPAR(DimenPar::line_skip_limit) {
             new_param_glue(GluePar::line_skip)
@@ -11705,13 +11685,9 @@ pub(crate) unsafe fn append_to_vlist(b: usize) {
         MEM[cur_list.tail].b32.s1 = Some(p).tex_int();
         cur_list.tail = p;
     }
-    MEM[cur_list.tail].b32.s1 = b as i32;
-    cur_list.tail = b;
-    cur_list.aux.b32.s1 = if upwards {
-        *BOX_height(b)
-    } else {
-        *BOX_depth(b)
-    };
+    *LLIST_link(cur_list.tail) = Some(b.ptr()).tex_int();
+    cur_list.tail = b.ptr();
+    cur_list.aux.b32.s1 = if upwards { b.height() } else { b.depth() };
 }
 pub(crate) unsafe fn new_noad() -> usize {
     let p = get_node(NOAD_SIZE);
@@ -12139,7 +12115,7 @@ pub(crate) unsafe fn fin_row() {
             MEM[cur_list.tail].b32.s1 = MEM[cur_pre_head.unwrap()].b32.s1;
             cur_list.tail = cur_pre_tail.unwrap();
         }
-        append_to_vlist(p.ptr());
+        append_to_vlist(p);
         if cur_head != cur_tail {
             MEM[cur_list.tail].b32.s1 = MEM[cur_head.unwrap()].b32.s1;
             cur_list.tail = cur_tail.unwrap();
@@ -12340,15 +12316,15 @@ pub(crate) unsafe fn fin_align() {
                             }
                         }
                         s = *LLIST_link(s) as usize;
-                        let nb = new_null_box();
-                        *LLIST_link(u) = Some(nb).tex_int();
-                        u = nb;
+                        let mut nb = Box::from(new_null_box());
+                        *LLIST_link(u) = Some(nb.ptr()).tex_int();
+                        u = nb.ptr();
                         t += *BOX_width(s);
                         if cur_list.mode == (true, ListMode::VMode) {
-                            *BOX_width(u) = *BOX_width(s);
+                            nb.set_width(*BOX_width(s));
                         } else {
-                            set_NODE_type(u, TextNode::VList);
-                            *BOX_height(u) = *BOX_width(s);
+                            set_NODE_type(nb.ptr(), TextNode::VList);
+                            nb.set_height(*BOX_width(s));
                         }
                     }
                     let mut r_box = Box::from(r);
@@ -12791,16 +12767,24 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
         if let Some(p) = p.opt() {
             /*1008: */
             match text_NODE_type(p).unwrap() {
-                TextNode::HList | TextNode::VList | TextNode::Rule => {
-                    active_width[1] += prev_dp + *BOX_height(p);
-                    prev_dp = *BOX_depth(p);
+                TextNode::HList | TextNode::VList => {
+                    let b = Box::from(p);
+                    active_width[1] += prev_dp + b.height();
+                    prev_dp = b.depth();
+                    current_block = 10249009913728301645;
+                }
+                TextNode::Rule => {
+                    let r = Rule::from(p);
+                    active_width[1] += prev_dp + r.height();
+                    prev_dp = r.depth();
                     current_block = 10249009913728301645;
                 }
                 TextNode::WhatsIt => {
                     match whatsit_NODE_subtype(p as usize) {
                         WhatsItNST::Pic | WhatsItNST::Pdf => {
-                            active_width[1] += prev_dp + *BOX_height(p);
-                            prev_dp = *BOX_depth(p);
+                            let p = Picture::from(p);
+                            active_width[1] += prev_dp + p.height();
+                            prev_dp = p.depth();
                         }
                         _ => {}
                     }
@@ -12975,27 +12959,29 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
     } else {
         loop {
             if NODE_type(p as usize) == TextNode::Mark.into() {
-                if *MARK_NODE_class(p as usize) != 0 {
+                let p = Mark(p as usize);
+                if p.class() != 0 {
                     /*1615: */
-                    find_sa_element(ValLevel::Mark, *MARK_NODE_class(p as usize), true);
+                    find_sa_element(ValLevel::Mark, p.class(), true);
                     let c = cur_ptr.unwrap();
                     if MEM[c + 2].b32.s1.opt().is_none() {
-                        MEM[c + 2].b32.s1 = *MARK_NODE_ptr(p as usize);
-                        MEM[*MARK_NODE_ptr(p as usize) as usize].b32.s0 += 1
+                        MEM[c + 2].b32.s1 = p.mark_ptr();
+                        MEM[p.mark_ptr() as usize].b32.s0 += 1
                     } else {
                         delete_token_ref(MEM[c + 3].b32.s0 as usize);
                     }
-                    MEM[c + 3].b32.s0 = *MARK_NODE_ptr(p as usize);
-                    MEM[*MARK_NODE_ptr(p as usize) as usize].b32.s0 += 1;
+                    MEM[c + 3].b32.s0 = p.mark_ptr();
+                    MarkClass(p.mark_ptr() as usize).rc_inc();
                 } else if cur_mark[SPLIT_FIRST_MARK_CODE].is_none() {
-                    let m = MEM[(p + 1) as usize].b32.s1.opt().unwrap();
-                    cur_mark[SPLIT_FIRST_MARK_CODE] = Some(m);
-                    cur_mark[SPLIT_BOT_MARK_CODE] = Some(m);
-                    MEM[m].b32.s0 += 2;
+                    let mut m = MarkClass(p.mark_ptr().opt().unwrap());
+                    cur_mark[SPLIT_FIRST_MARK_CODE] = Some(m.ptr());
+                    m.rc_inc();
+                    cur_mark[SPLIT_BOT_MARK_CODE] = Some(m.ptr());
+                    m.rc_inc();
                 } else {
                     delete_token_ref(cur_mark[SPLIT_BOT_MARK_CODE].unwrap());
-                    cur_mark[SPLIT_BOT_MARK_CODE] = MEM[(p + 1) as usize].b32.s1.opt();
-                    MEM[cur_mark[SPLIT_BOT_MARK_CODE].unwrap()].b32.s0 += 1;
+                    cur_mark[SPLIT_BOT_MARK_CODE] = p.mark_ptr().opt();
+                    MarkClass(cur_mark[SPLIT_BOT_MARK_CODE].unwrap()).rc_inc();
                 }
             }
             if *LLIST_link(p as usize) == q {
@@ -13312,7 +13298,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
     if box_context < BOX_FLAG {
         /*1111:*/
         if let Some(mut cb) = cur_box {
-            MEM[cb + 4].b32.s1 = box_context;
+            Box::from(cb).set_shift_amount(box_context);
             if cur_list.mode.1 == ListMode::VMode {
                 if let Some(a) = pre_adjust_tail {
                     if PRE_ADJUST_HEAD != a {
@@ -13321,7 +13307,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
                     }
                     pre_adjust_tail = None;
                 }
-                append_to_vlist(cb);
+                append_to_vlist(Box::from(cb));
                 if let Some(a) = adjust_tail {
                     if ADJUST_HEAD != a {
                         MEM[cur_list.tail].b32.s1 = *LLIST_link(ADJUST_HEAD);
@@ -13803,13 +13789,13 @@ pub(crate) unsafe fn make_mark() {
         cur_val
     };
     let _p = scan_toks(false, true);
-    let p = get_node(SMALL_NODE_SIZE);
-    *MARK_NODE_class(p) = c;
-    set_NODE_type(p as usize, TextNode::Mark);
-    MEM[p].b16.s0 = 0;
-    *MARK_NODE_ptr(p) = def_ref as i32;
-    *LLIST_link(cur_list.tail) = Some(p).tex_int();
-    cur_list.tail = p;
+    let mut p = Mark(get_node(SMALL_NODE_SIZE));
+    p.set_class(c);
+    set_NODE_type(p.ptr() as usize, TextNode::Mark);
+    MEM[p.ptr()].b16.s0 = 0;
+    p.set_mark_ptr(def_ref as i32);
+    *LLIST_link(cur_list.tail) = Some(p.ptr()).tex_int();
+    cur_list.tail = p.ptr();
 }
 pub(crate) unsafe fn append_penalty() {
     scan_int();
@@ -13968,13 +13954,12 @@ pub(crate) unsafe fn unpackage() {
     }
 }
 pub(crate) unsafe fn append_italic_correction() {
-    let mut p: i32 = 0;
     let mut f: internal_font_number = 0;
     if cur_list.tail != cur_list.head {
-        if is_char_node(Some(cur_list.tail)) {
-            p = cur_list.tail as i32
+        let p = if is_char_node(Some(cur_list.tail)) {
+            Char(cur_list.tail)
         } else if NODE_type(cur_list.tail) == TextNode::Ligature.into() {
-            p = cur_list.tail as i32 + 1;
+            Ligature(cur_list.tail).as_char()
         } else if NODE_type(cur_list.tail) == TextNode::WhatsIt.into() {
             match whatsit_NODE_subtype(cur_list.tail) {
                 WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
@@ -13996,14 +13981,11 @@ pub(crate) unsafe fn append_italic_correction() {
             return;
         } else {
             return;
-        }
-        f = *CHAR_NODE_font(p as usize) as internal_font_number;
+        };
+        f = p.font() as internal_font_number;
         let mut k = Kern(new_kern(*FONT_CHARINFO_ITALCORR(
             f,
-            FONT_CHARACTER_INFO(
-                f,
-                effective_char(true, f, *CHAR_NODE_character(p as usize)) as usize,
-            ),
+            FONT_CHARACTER_INFO(f, effective_char(true, f, p.character()) as usize),
         )));
         *LLIST_link(cur_list.tail) = Some(k.ptr()).tex_int();
         cur_list.tail = k.ptr();
@@ -14135,16 +14117,13 @@ pub(crate) unsafe fn make_accent() {
         let x = FONT_INFO[(X_HEIGHT_CODE + PARAM_BASE[f]) as usize].b32.s1;
         let s = FONT_INFO[(SLANT_CODE + PARAM_BASE[f]) as usize].b32.s1 as f64 / 65536.;
         let a = if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
-            let a = MEM[p + 1].b32.s1;
+            let a = NativeWord::from(p).width();
             if a == 0 {
                 get_native_char_sidebearings(f, cur_val, &mut lsb, &mut rsb);
             }
             a
         } else {
-            *FONT_CHARACTER_WIDTH(
-                f,
-                effective_char(true, f, *CHAR_NODE_character(p as usize)) as usize,
-            )
+            *FONT_CHARACTER_WIDTH(f, effective_char(true, f, Char(p).character()) as usize)
         };
         do_assignments();
         let mut q = None;
@@ -14164,13 +14143,11 @@ pub(crate) unsafe fn make_accent() {
             let mut w;
             let t = FONT_INFO[(SLANT_CODE + PARAM_BASE[f]) as usize].b32.s1 as f64 / 65536.;
             if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
-                w = MEM[q + 1].b32.s1;
+                w = NativeWord::from(q).width();
                 h = get_native_char_height_depth(f, cur_val).0;
             } else {
-                let i = FONT_CHARACTER_INFO(
-                    f,
-                    effective_char(true, f, *CHAR_NODE_character(q)) as usize,
-                );
+                let i =
+                    FONT_CHARACTER_INFO(f, effective_char(true, f, Char(q).character()) as usize);
                 w = *FONT_CHARINFO_WIDTH(f, i);
                 h = *FONT_CHARINFO_HEIGHT(f, i);
             }
@@ -16912,23 +16889,19 @@ pub(crate) unsafe fn main_control() {
                                             }
                                         }
                                         if ligature_present {
-                                            let main_p = new_ligature(
+                                            let mut main_p = Ligature(new_ligature(
                                                 main_f,
                                                 cur_l as u16,
                                                 *LLIST_link(cur_q as usize),
-                                            );
-                                            if lft_hit {
-                                                MEM[main_p].b16.s0 = 2;
-                                                lft_hit = false
+                                            ));
+                                            main_p.set_hits(lft_hit, rt_hit && lig_stack.is_some());
+                                            lft_hit = false;
+                                            if rt_hit && lig_stack.is_some() {
+                                                rt_hit = false;
                                             }
-                                            if rt_hit {
-                                                if lig_stack.is_some() {
-                                                    MEM[main_p].b16.s0 += 1;
-                                                    rt_hit = false
-                                                }
-                                            }
-                                            *LLIST_link(cur_q as usize) = Some(main_p).tex_int();
-                                            cur_list.tail = main_p;
+                                            *LLIST_link(cur_q as usize) =
+                                                Some(main_p.ptr()).tex_int();
+                                            cur_list.tail = main_p.ptr();
                                             ligature_present = false
                                         }
                                         if ins_disc {
@@ -17509,56 +17482,61 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
 }
 pub(crate) unsafe fn do_marks(a: MarkMode, mut l: i16, q: usize) -> bool {
     if l < 4 {
-        for i in &mut INDEX_NODE_indexes(q)[0..16] {
+        let mut qi = Index(q);
+        for i in &mut qi.indexes_mut()[0..16] {
             cur_ptr = (*i).opt();
             if let Some(p) = cur_ptr {
                 if do_marks(a, l + 1, p) {
                     *i = None.tex_int();
-                    MEM[q].b16.s0 -= 1;
+                    MEM[q].b16.s0 -= 1; //q.rc_dec();
                 }
             }
         }
-        if MEM[q].b16.s0 == 0 {
-            free_node(q, INDEX_NODE_SIZE);
+        if qi.rc() == 0 {
+            qi.free();
             return true;
         }
     } else {
+        let mut q = MarkClass(q);
         match a {
             MarkMode::VSplitInit => {
                 /*1614: */
-                if let (Some(q21), Some(q30)) = (MEM[q + 2].b32.s1.opt(), MEM[q + 3].b32.s0.opt()) {
-                    delete_token_ref(q21);
-                    MEM[q + 2].b32.s1 = None.tex_int();
-                    delete_token_ref(q30);
-                    MEM[q + 3].b32.s0 = None.tex_int()
+                let qi = q.indexes_mut();
+                if let (Some(qi3), Some(qi4)) = (qi[3].opt(), qi[4].opt()) {
+                    delete_token_ref(qi3);
+                    qi[3] = None.tex_int();
+                    delete_token_ref(qi4);
+                    qi[4] = None.tex_int()
                 }
             }
             MarkMode::FireUpInit => {
-                if let (Some(q11), Some(q20)) = (MEM[q + 1].b32.s1.opt(), MEM[q + 2].b32.s0.opt()) {
-                    if let Some(q10) = MEM[q + 1].b32.s0.opt() {
-                        delete_token_ref(q10);
+                let qi = q.indexes_mut();
+                if let (Some(qi1), Some(qi2)) = (qi[1].opt(), qi[2].opt()) {
+                    if let Some(qi0) = qi[0].opt() {
+                        delete_token_ref(qi0);
                     }
-                    delete_token_ref(q11);
-                    MEM[q + 1].b32.s1 = None.tex_int();
-                    if MEM[q20].b32.s1.opt().is_none() {
-                        delete_token_ref(q20);
-                        MEM[q + 2].b32.s0 = None.tex_int()
+                    delete_token_ref(qi1);
+                    qi[1] = None.tex_int();
+                    if MEM[qi2].b32.s1.opt().is_none() {
+                        delete_token_ref(qi2);
+                        qi[2] = None.tex_int()
                     } else {
-                        MEM[q20].b32.s0 += 1;
+                        MEM[qi2].b32.s0 += 1;
                     }
-                    MEM[q + 1].b32.s0 = MEM[q + 2].b32.s0
+                    qi[0] = qi[2];
                 }
             }
             MarkMode::FireUpDone => {
-                if let Some(q10) = MEM[q + 1].b32.s0.opt() {
-                    if MEM[q + 1].b32.s1.opt().is_none() {
-                        MEM[q + 1].b32.s1 = Some(q10).tex_int();
-                        MEM[q10].b32.s0 += 1;
+                let qi = q.indexes_mut();
+                if let Some(qi0) = qi[0].opt() {
+                    if qi[1].opt().is_none() {
+                        qi[1] = Some(qi0).tex_int();
+                        MEM[qi0].b32.s0 += 1;
                     }
                 }
             }
             MarkMode::DestroyMarks => {
-                for i in MARK_CLASS_indexes(q) {
+                for i in q.indexes_mut() {
                     cur_ptr = (*i).opt();
                     if let Some(c) = cur_ptr {
                         delete_token_ref(c);
@@ -17567,8 +17545,9 @@ pub(crate) unsafe fn do_marks(a: MarkMode, mut l: i16, q: usize) -> bool {
                 }
             }
         }
-        if MEM[q + 2].b32.s0.opt().is_none() && MEM[q + 3].b32.s0.opt().is_none() {
-            free_node(q, MARK_CLASS_NODE_SIZE);
+        let qi = q.indexes();
+        if qi[2].opt().is_none() && qi[4].opt().is_none() {
+            free_node(q.ptr(), MARK_CLASS_NODE_SIZE);
             return true;
         }
     }
