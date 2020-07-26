@@ -779,71 +779,77 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
             let p = p as usize;
             match NODE_type(p) {
                 ND::Text(n) => match n {
-                    TextNode::HList | TextNode::VList | TextNode::Unset => {
+                    TextNode::HList | TextNode::VList => {
+                        let p = Box::from(p);
                         match n {
                             TextNode::HList => print_esc('h' as i32),
                             TextNode::VList => print_esc('v' as i32),
-                            _ => print_esc_cstr(b"unset"),
+                            _ => unreachable!(),
                         }
                         print_cstr(b"box(");
-                        print_scaled(*BOX_height(p));
+                        print_scaled(p.height());
                         print_char('+' as i32);
-                        print_scaled(*BOX_depth(p));
+                        print_scaled(p.depth());
                         print_cstr(b")x");
-                        print_scaled(*BOX_width(p));
-                        if n == TextNode::Unset {
-                            let p = Unset::from(p);
-                            /*193:*/
-                            if p.columns() != 0 {
-                                print_cstr(b" (");
-                                print_int(p.columns() as i32 + 1);
-                                print_cstr(b" columns)");
+                        print_scaled(p.width());
+                        g = p.glue_set();
+                        if g != 0. && p.glue_sign() != GlueSign::Normal {
+                            print_cstr(b", glue set ");
+                            if p.glue_sign() == GlueSign::Shrinking {
+                                print_cstr(b"- ");
                             }
-                            if p.stretch() != 0 {
-                                print_cstr(b", stretch ");
-                                print_glue(p.stretch(), p.stretch_order(), b"");
-                            }
-                            if p.shrink() != 0 {
-                                print_cstr(b", shrink ");
-                                print_glue(p.shrink(), p.shrink_order(), b"");
-                            }
-                        } else {
-                            let p_box = Box::from(p);
-                            g = p_box.glue_set();
-                            if g != 0. && p_box.glue_sign() != GlueSign::Normal {
-                                print_cstr(b", glue set ");
-                                if p_box.glue_sign() == GlueSign::Shrinking {
-                                    print_cstr(b"- ");
-                                }
-                                if g.abs() > 20000. {
-                                    if g > 0. {
-                                        print_char('>' as i32);
-                                    } else {
-                                        print_cstr(b"< -");
-                                    }
-                                    print_glue(
-                                        (20000_i64 * 65536) as scaled_t,
-                                        p_box.glue_order(),
-                                        b"",
-                                    );
+                            if g.abs() > 20000. {
+                                if g > 0. {
+                                    print_char('>' as i32);
                                 } else {
-                                    print_glue(tex_round(65536_f64 * g), p_box.glue_order(), b"");
+                                    print_cstr(b"< -");
                                 }
+                                print_glue((20000_i64 * 65536) as scaled_t, p.glue_order(), b"");
+                            } else {
+                                print_glue(tex_round(65536_f64 * g), p.glue_order(), b"");
                             }
-                            if p_box.shift_amount() != 0 {
-                                print_cstr(b", shifted ");
-                                print_scaled(p_box.shift_amount());
-                            }
-                            /*1491:*/
-                            if text_NODE_type(p) == TextNode::HList.into()
-                                && p_box.lr_mode() == LRMode::DList
-                            {
-                                print_cstr(b", display");
-                            }
+                        }
+                        if p.shift_amount() != 0 {
+                            print_cstr(b", shifted ");
+                            print_scaled(p.shift_amount());
+                        }
+                        /*1491:*/
+                        if text_NODE_type(p.ptr()) == TextNode::HList.into()
+                            && p.lr_mode() == LRMode::DList
+                        {
+                            print_cstr(b", display");
                         }
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(Box::from(p).list_ptr().opt());
+                        show_node_list(p.list_ptr().opt());
+                        pool_ptr -= 1
+                    }
+                    TextNode::Unset => {
+                        let p = Unset::from(p);
+                        print_esc_cstr(b"unset");
+                        print_cstr(b"box(");
+                        print_scaled(p.height());
+                        print_char('+' as i32);
+                        print_scaled(p.depth());
+                        print_cstr(b")x");
+                        print_scaled(p.width());
+                        /*193:*/
+                        if p.columns() != 0 {
+                            print_cstr(b" (");
+                            print_int(p.columns() as i32 + 1);
+                            print_cstr(b" columns)");
+                        }
+                        if p.stretch() != 0 {
+                            print_cstr(b", stretch ");
+                            print_glue(p.stretch(), p.stretch_order(), b"");
+                        }
+                        if p.shrink() != 0 {
+                            print_cstr(b", shrink ");
+                            print_glue(p.shrink(), p.shrink_order(), b"");
+                        }
+                        str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                        pool_ptr += 1;
+                        show_node_list(p.list_ptr().opt());
                         pool_ptr -= 1
                     }
                     TextNode::Rule => {
@@ -12298,7 +12304,7 @@ pub(crate) unsafe fn fin_align() {
                 loop {
                     /*837: */
                     n = MEM[r].b16.s0 as i32; /*840: */
-                    t = MEM[s + 1].b32.s1;
+                    t = BaseBox(s).width(); // TODO: check
                     w = t;
                     let mut u = HOLD_HEAD;
                     MEM[r].b16.s0 = 0;
@@ -12324,12 +12330,12 @@ pub(crate) unsafe fn fin_align() {
                         let mut nb = Box::from(new_null_box());
                         *LLIST_link(u) = Some(nb.ptr()).tex_int();
                         u = nb.ptr();
-                        t += *BOX_width(s);
+                        t += BaseBox(s).width();
                         if cur_list.mode == (true, ListMode::VMode) {
-                            nb.set_width(*BOX_width(s));
+                            nb.set_width(BaseBox(s).width());
                         } else {
                             set_NODE_type(nb.ptr(), TextNode::VList);
-                            nb.set_height(*BOX_width(s));
+                            nb.set_height(BaseBox(s).width());
                         }
                     }
                     let mut r_box = Box::from(r);

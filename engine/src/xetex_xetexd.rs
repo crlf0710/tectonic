@@ -66,19 +66,6 @@ pub(crate) unsafe fn clear_NODE_subtype(p: usize) {
     MEM[p].b16.s0 = 0;
 }
 
-/// a scaled; 1 <=> WEB const `width_offset`
-pub(crate) unsafe fn BOX_width<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 1].b32.s1
-}
-/// a scaled; 2 <=> WEB const `depth_offset`
-pub(crate) unsafe fn BOX_depth<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 2].b32.s1
-}
-/// a scaled; 3 <=> WEB const `height_offset`
-pub(crate) unsafe fn BOX_height<'a>(p: usize) -> &'a mut i32 {
-    &mut MEM[p + 3].b32.s1
-}
-
 /* Synctex hacks various nodes to add an extra word at the end to store its
  * information, hence the need to know the node size to get the synctex
  * info. */

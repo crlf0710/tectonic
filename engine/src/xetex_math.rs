@@ -43,8 +43,8 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_char_node, llist_link, math_char, math_class, math_fam, set_NODE_type, set_class,
-    set_family, set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, BOX_depth,
-    BOX_height, BOX_width, LLIST_link, NODE_type, TeXInt, TeXOpt,
+    set_family, set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, LLIST_link,
+    NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -202,8 +202,12 @@ pub(crate) unsafe fn init_math() {
                     found = true;
                 } else {
                     match text_NODE_type(p).unwrap() {
-                        TextNode::HList | TextNode::VList | TextNode::Rule => {
-                            d = *BOX_width(p);
+                        TextNode::HList | TextNode::VList => {
+                            d = Box::from(p).width();
+                            found = true;
+                        }
+                        TextNode::Rule => {
+                            d = Rule::from(p).width();
                             found = true;
                         }
                         TextNode::Ligature => {
@@ -301,12 +305,16 @@ pub(crate) unsafe fn init_math() {
                             }
                         }
                         TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
-                            WhatsItNST::NativeWord
-                            | WhatsItNST::NativeWordAt
-                            | WhatsItNST::Glyph
-                            | WhatsItNST::Pic
-                            | WhatsItNST::Pdf => {
-                                d = *BOX_width(p);
+                            WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
+                                d = NativeWord::from(p).width();
+                                found = true;
+                            }
+                            WhatsItNST::Glyph => {
+                                d = Glyph::from(p).width();
+                                found = true;
+                            }
+                            WhatsItNST::Pic | WhatsItNST::Pdf => {
+                                d = Picture::from(p).width();
                                 found = true;
                             }
                             _ => {
@@ -1711,13 +1719,14 @@ unsafe fn make_under(q: usize) {
     MEM[q + 1].b32.s1 = MathCell::SubBox as _;
 }
 unsafe fn make_vcenter(q: usize) {
-    let v = MEM[q + 1].b32.s0 as usize;
-    if NODE_type(v) != TextNode::VList.into() {
+    let mut v = Box::from(MEM[q + 1].b32.s0 as usize);
+    if NODE_type(v.ptr()) != TextNode::VList.into() {
         confusion(b"vcenter");
     }
-    let delta = *BOX_height(v) + *BOX_depth(v);
-    *BOX_height(v) = axis_height(cur_size) + half(delta);
-    *BOX_depth(v) = delta - *BOX_height(v);
+    let delta = v.height() + v.depth();
+    v.set_height(axis_height(cur_size) + half(delta));
+    let d = v.height();
+    v.set_depth(delta - d);
 }
 unsafe fn make_radical(q: usize) {
     let f = MATH_FONT(MEM[q + 4].b16.s3 as usize % 256 + cur_size);
@@ -3568,10 +3577,11 @@ unsafe fn build_opentype_assembly(
     let mut str = 0;
     while let Some(p) = popt {
         if NODE_type(p) == TextNode::WhatsIt.into() {
+            let p = BaseBox(p); // TODO: check
             nat += if horiz {
-                *BOX_width(p)
+                p.width()
             } else {
-                *BOX_height(p) + *BOX_depth(p)
+                p.height() + p.depth()
             };
         } else if NODE_type(p as usize) == TextNode::Glue.into() {
             let g = Glue(p);
