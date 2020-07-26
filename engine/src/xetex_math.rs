@@ -2971,8 +2971,9 @@ unsafe fn mlist_to_hlist() {
                 | TextNode::Penalty
                 | TextNode::Disc => {}
                 TextNode::Rule => {
-                    max_h = max_h.max(*BOX_height(q));
-                    max_d = max_d.max(*BOX_depth(q));
+                    let q = Rule::from(q);
+                    max_h = max_h.max(q.height());
+                    max_d = max_d.max(q.depth());
                 }
                 TextNode::Glue => {
                     let mut q = Glue(q);

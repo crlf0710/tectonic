@@ -11078,15 +11078,24 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
         if let Some(mut p) = popt {
             let n = text_NODE_type(p).unwrap();
             match n {
-                TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Unset => {
-                    x += *BOX_width(p);
-                    let s = if [TextNode::HList, TextNode::VList].contains(&n) {
-                        Box::from(p).shift_amount()
-                    } else {
-                        0
-                    };
-                    h = h.max(*BOX_height(p) - s);
-                    d = d.max(*BOX_depth(p) + s);
+                TextNode::HList | TextNode::VList => {
+                    let b = Box::from(p);
+                    x += b.width();
+                    let s = b.shift_amount();
+                    h = h.max(b.height() - s);
+                    d = d.max(b.depth() + s);
+                }
+                TextNode::Rule => {
+                    let r = Rule::from(p);
+                    x += r.width();
+                    h = h.max(r.height());
+                    d = d.max(r.depth());
+                }
+                TextNode::Unset => {
+                    let u = Unset::from(p);
+                    x += u.width();
+                    h = h.max(u.height());
+                    d = d.max(u.depth());
                 }
                 TextNode::Ins | TextNode::Mark | TextNode::Adjust => {
                     if let (Some(at), Some(pat)) = (adjust_tail.as_mut(), pre_adjust_tail.as_mut())
@@ -11124,7 +11133,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 }
                 TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
                     WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                        let p_nw = NativeWord::from(p);
+                        let mut p_nw = NativeWord::from(p);
                         let mut k = if q != r.ptr() + 5 && NODE_type(q) == TextNode::Disc.into() {
                             let q = Discretionary(q);
                             q.replace_count() as i32
@@ -11178,8 +11187,9 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                                 z = llist_link(ppp);
                             }
                             p = llist_link(q).unwrap();
+                            p_nw = NativeWord::from(p);
                             let mut pp = new_native_word_node(
-                                NativeWord::from(p).font() as usize,
+                                p_nw.font() as usize,
                                 total_chars,
                             );
                             set_whatsit_NODE_subtype(pp.ptr(), whatsit_NODE_subtype(p));
@@ -11205,12 +11215,12 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                             }
                             flush_node_list(Some(p));
                             p = *LLIST_link(q) as usize;
-                            NativeWord::from(p)
-                                .set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                            p_nw = NativeWord::from(p);
+                            p_nw.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
                         }
-                        h = h.max(*BOX_height(p));
-                        d = d.max(*BOX_depth(p));
-                        x += *BOX_width(p);
+                        h = h.max(p_nw.height());
+                        d = d.max(p_nw.depth());
+                        x += p_nw.width();
                     }
                     WhatsItNST::Glyph => {
                         let g = Glyph::from(p);
