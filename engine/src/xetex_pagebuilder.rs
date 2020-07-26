@@ -705,7 +705,7 @@ pub(crate) unsafe fn build_page() {
                             w
                         };
 
-                        w = w.min(*SCALED_REG(n as _) - *BOX_height(slf.r));
+                        w = w.min(*SCALED_REG(n as _) - r_pins.height());
 
                         slf.q =
                             vert_break(p_ins.ins_ptr(), w,
@@ -717,7 +717,7 @@ pub(crate) unsafe fn build_page() {
                                 x_over_n(best_height_plus_depth, 1000) * *COUNT_REG(n as _);
                         }
                         page_so_far[0] -= best_height_plus_depth;
-                        PageInsertion(slf.r)
+                        r_pins
                         .set_subtype(PageInsType::SplitUp)
                         .set_broken_ptr(slf.q)
                         .set_broken_ins(Some(slf.p).tex_int());

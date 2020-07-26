@@ -39,8 +39,8 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_char_node, llist_link, print_c_string, set_NODE_type, set_whatsit_NODE_subtype,
-    text_NODE_type, whatsit_NODE_subtype, BOX_depth, BOX_height, BOX_width, LLIST_info, LLIST_link,
-    NODE_type, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    text_NODE_type, whatsit_NODE_subtype, BOX_width, LLIST_info, LLIST_link, NODE_type,
+    SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -503,7 +503,8 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                     }
                                 }
                             } else if NODE_type(q) == TextNode::Kern.into() {
-                                k += *BOX_width(q);
+                                let q = Kern(q);
+                                k += q.width();
                             }
                             if q == p {
                                 break;
@@ -716,12 +717,13 @@ unsafe fn hlist_out(this_box: &mut Box) {
                     }
                 }
                 TextNode::Rule => {
+                    let mut p = Rule::from(p);
                     rule_ht =
-                        *BOX_height(p);
+                        p.height();
                     rule_dp =
-                        *BOX_depth(p);
+                        p.depth();
                     rule_wd =
-                        *BOX_width(p);
+                        p.width();
                     /*646: "Output a rule in an hlist" */
                     if rule_ht == NULL_FLAG {
                         rule_ht = this_box.height();
@@ -749,7 +751,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                     /* ... resuming 644 ... */
                     {
                         cur_h += rule_wd; /* end GLUE_NODE case */
-                        synctex_horizontal_rule_or_glue(p, this_box.ptr());
+                        synctex_horizontal_rule_or_glue(p.ptr(), this_box.ptr());
                     }
                 }
                 TextNode::WhatsIt => {
@@ -835,7 +837,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                 }
                             }
                             cur_h +=
-                                *BOX_width(p);
+                                nw.width();
                             dvi_h = cur_h;
                         }
                         WhatsItNST::Pic | WhatsItNST::Pdf => {
@@ -1026,13 +1028,15 @@ unsafe fn hlist_out(this_box: &mut Box) {
                     synctex_horizontal_rule_or_glue(p.ptr(), this_box.ptr());
                 }
                 TextNode::MarginKern => {
+                    let p = MarginKern(p);
                     cur_h +=
-                        *BOX_width(p);
+                        p.width();
                 }
                 TextNode::Kern => {
-                    synctex_kern(p, this_box.ptr());
+                    let p = Kern(p);
+                    synctex_kern(p.ptr(), this_box.ptr());
                     cur_h +=
-                        *BOX_width(p);
+                        p.width();
                 }
                 TextNode::Math => {
                     synctex_math(p, this_box.ptr());
@@ -1086,7 +1090,8 @@ unsafe fn hlist_out(this_box: &mut Box) {
                     }
 
                     set_NODE_type(p, TextNode::Kern);
-                    cur_h += *BOX_width(p);
+                    let p = Kern(p);
+                    cur_h += p.width();
                 }
                 TextNode::Ligature => {
                     let l = Ligature(p);
@@ -1478,7 +1483,7 @@ unsafe fn vlist_out(this_box: &Box) {
                                 dvi_v = save_v;
                                 dvi_h = save_h;
                                 cur_h = left_edge;
-                                cur_v = save_v - *BOX_height(leader_box) + leader_ht + lx
+                                cur_v = save_v - lb.height() + leader_ht + lx
                             }
                             cur_v = edge - 10;
                             popt = llist_link(p.ptr());
@@ -1493,10 +1498,11 @@ unsafe fn vlist_out(this_box: &Box) {
                 }
             }
             TextNode::Kern => {
+                let k = Kern(p);
                 if upwards {
-                    cur_v -= *BOX_width(p);
+                    cur_v -= k.width();
                 } else {
-                    cur_v += *BOX_width(p);
+                    cur_v += k.width();
                 }
             }
             _ => {}
@@ -1561,16 +1567,30 @@ unsafe fn reverse(
                 let mut add_rule = true;
                 let q = *LLIST_link(p);
                 match text_NODE_type(p).unwrap() {
-                    TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => {
-                        rule_wd = *BOX_width(p);
+                    TextNode::HList | TextNode::VList => {
+                        let p = Box::from(p);
+                        rule_wd = p.width();
+                    }
+                    TextNode::Rule => {
+                        let p = Rule::from(p);
+                        rule_wd = p.width();
+                    }
+                    TextNode::Kern => {
+                        let p = Kern(p);
+                        rule_wd = p.width();
                     }
                     TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
-                        WhatsItNST::NativeWord
-                        | WhatsItNST::NativeWordAt
-                        | WhatsItNST::Glyph
-                        | WhatsItNST::Pic
-                        | WhatsItNST::Pdf => {
-                            rule_wd = *BOX_width(p);
+                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
+                            let p = NativeWord::from(p);
+                            rule_wd = p.width();
+                        }
+                        WhatsItNST::Glyph => {
+                            let p = Glyph::from(p);
+                            rule_wd = p.width();
+                        }
+                        WhatsItNST::Pic | WhatsItNST::Pdf => {
+                            let p = Picture::from(p);
+                            rule_wd = p.width();
                         }
                         _ => add_rule = false,
                     },
