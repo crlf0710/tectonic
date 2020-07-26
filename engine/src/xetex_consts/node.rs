@@ -1510,6 +1510,123 @@ pub(crate) enum KernType {
     Math = 99,
 }
 
+pub(crate) struct Math(pub usize);
+impl NodeSize for Math {
+    const SIZE: i32 = MEDIUM_NODE_SIZE;
+}
+impl Math {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn subtype(&self) -> MathType {
+        MathType::from(MEM[self.ptr()].b16.s0)
+    }
+    pub(crate) unsafe fn subtype_i32(&self) -> MathType {
+        MathType::from(MEM[self.ptr()].b32.s0 as u16)
+    }
+    pub(crate) unsafe fn set_subtype(&mut self, v: MathType) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = u16::from(v);
+        self
+    }
+    pub(crate) unsafe fn set_subtype_i32(&mut self, v: MathType) -> &mut Self {
+        MEM[self.ptr()].b32.s0 = u16::from(v) as i32;
+        self
+    }
+    pub(crate) unsafe fn dir(&self) -> LR {
+        self.subtype().dir()
+    }
+    pub(crate) unsafe fn width(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum BE {
+    Begin = 2,
+    End = 3,
+}
+
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum MathMode {
+    Middle = 0,
+    Left = 4,
+    Right = 8,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MathType {
+    Before,
+    After,
+    Eq(BE, MathMode),
+}
+
+impl MathType {
+    pub(crate) fn dir(self) -> LR {
+        /*if let Self::Eq(_, mode) = self {
+            match mode {
+                MathMode::Right => LR::RightToLeft,
+                _ => LR::LeftToRight,
+            }
+        } else {
+            panic!("No MathType direction");
+        }*/
+        match self {
+            Self::Eq(_, mode) => match mode {
+                MathMode::Right => LR::RightToLeft,
+                _ => LR::LeftToRight,
+            },
+            Self::Before => LR::LeftToRight,
+            Self::After => LR::LeftToRight,
+        }
+    }
+    pub(crate) fn equ(self) -> (BE, MathMode) {
+        /*if let Self::Eq(be, mode) = self {
+            (be, mode)
+        } else {
+            panic!("Not inner MathNode data {:?}", self);
+        }*/
+        match self {
+            Self::Eq(be, mode) => (be, mode),
+            Self::Before => (BE::Begin, MathMode::Middle),
+            Self::After => (BE::End, MathMode::Middle),
+        }
+    }
+}
+
+impl From<MathType> for u16 {
+    fn from(mnt: MathType) -> Self {
+        match mnt {
+            MathType::Before => 0,
+            MathType::After => 1,
+            MathType::Eq(be, mode) => (be as u16) + (mode as u16),
+        }
+    }
+}
+impl From<u16> for MathType {
+    fn from(n: u16) -> Self {
+        match n {
+            0 => Self::Before,
+            1 => Self::After,
+            2 => Self::Eq(BE::Begin, MathMode::Middle),
+            3 => Self::Eq(BE::End, MathMode::Middle),
+            6 => Self::Eq(BE::Begin, MathMode::Left),
+            7 => Self::Eq(BE::End, MathMode::Left),
+            10 => Self::Eq(BE::Begin, MathMode::Right),
+            11 => Self::Eq(BE::End, MathMode::Right),
+            _ => panic!(format!("Incorrect Math node subtype {}", n)),
+        }
+    }
+}
+
 /* Cmd::MathComp and others */
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]

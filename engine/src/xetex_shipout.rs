@@ -39,8 +39,8 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_char_node, llist_link, print_c_string, set_NODE_type, set_whatsit_NODE_subtype,
-    text_NODE_type, whatsit_NODE_subtype, BOX_width, LLIST_info, LLIST_link, NODE_type,
-    SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    text_NODE_type, whatsit_NODE_subtype, LLIST_link, NODE_type, SYNCTEX_tag, TeXInt, TeXOpt,
+    FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -580,10 +580,10 @@ unsafe fn hlist_out(this_box: &mut Box) {
 
     /*1501: "Initialize hlist_out for mixed direction typesetting" */
 
-    let tmp_ptr = get_avail();
-    *LLIST_info(tmp_ptr) = u16::from(MathNST::Before) as i32;
-    *LLIST_link(tmp_ptr) = LR_ptr;
-    LR_ptr = Some(tmp_ptr).tex_int();
+    let mut tmp_ptr = Math(get_avail());
+    tmp_ptr.set_subtype_i32(MathType::Before);
+    *LLIST_link(tmp_ptr.ptr()) = LR_ptr;
+    LR_ptr = Some(tmp_ptr.ptr()).tex_int();
     if this_box.lr_mode() == LRMode::DList {
         if cur_dir == LR::RightToLeft {
             cur_dir = LR::LeftToRight;
@@ -1039,16 +1039,17 @@ unsafe fn hlist_out(this_box: &mut Box) {
                         p.width();
                 }
                 TextNode::Math => {
-                    synctex_math(p, this_box.ptr());
+                    let p = Math(p);
+                    synctex_math(p.ptr(), this_box.ptr());
                     /* 1504: "Adjust the LR stack...; if necessary reverse and
                      * hlist segment and goto reswitch." "Breaking a paragraph
                      * into lines while TeXXeT is disabled may result in lines
                      * with unpaired math nodes. Such hlists are silently accepted
                      * in the absence of text direction directives." */
-                    let (be, mode) = MathNST::from(MEM[p].b16.s0).equ();
-                    if be == BE::End { // odd(NODE_subtype(p))
+                    let (be, mode) = p.subtype().equ();
+                    if be == BE::End {
                         /* <= this is end_LR(p) */
-                        if MathNST::from(MEM[LR_ptr as usize].b32.s0 as u16) == MathNST::Eq(BE::End, mode)
+                        if Math(LR_ptr as usize).subtype_i32() == MathType::Eq(BE::End, mode)
                            {
                             let tmp_ptr = LR_ptr as usize;
                             LR_ptr =
@@ -1056,41 +1057,41 @@ unsafe fn hlist_out(this_box: &mut Box) {
                             *LLIST_link(tmp_ptr) =
                                 avail.tex_int();
                             avail = Some(tmp_ptr);
-                        } else if mode != MathMode::Middle { // NODE_subtype(p)
+                        } else if mode != MathMode::Middle {
                             LR_problems += 1;
                         }
                     } else {
-                        let tmp_ptr = get_avail();
-                        *LLIST_info(tmp_ptr) = u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                        *LLIST_link(tmp_ptr) =
+                        let mut tmp_ptr = Math(get_avail());
+                        tmp_ptr.set_subtype_i32(MathType::Eq(BE::End, mode));
+                        *LLIST_link(tmp_ptr.ptr()) =
                             LR_ptr;
-                        LR_ptr = Some(tmp_ptr).tex_int();
-                        if MathNST::from(MEM[p].b16.s0).dir() !=
+                        LR_ptr = Some(tmp_ptr.ptr()).tex_int();
+                        if p.dir() !=
                                  cur_dir {
                             /*1509: "Reverse an hlist segment and goto reswitch" */
                             let save_h = cur_h; /* = char(p) */
-                            let tmp_ptr = llist_link(p).unwrap();
+                            let tmp_ptr = llist_link(p.ptr()).unwrap();
                             rule_wd =
-                                *BOX_width(p);
-                            free_node(p, MEDIUM_NODE_SIZE);
+                                p.width();
+                            p.free();
                             cur_dir = !cur_dir;
-                            p = new_edge(cur_dir, rule_wd);
-                            *LLIST_link(prev_p) = Some(p).tex_int();
+                            let mut p = Edge(new_edge(cur_dir, rule_wd));
+                            *LLIST_link(prev_p) = Some(p.ptr()).tex_int();
                             cur_h = cur_h - left_edge + rule_wd;
-                            *LLIST_link(p) =
+                            *LLIST_link(p.ptr()) =
                                 reverse(this_box, tmp_ptr,
                                         Some(new_edge(!cur_dir, 0)),
                                         &mut cur_g, &mut cur_glue);
-                            Edge(p).set_edge_dist(cur_h);
+                            p.set_edge_dist(cur_h);
                             cur_dir = !cur_dir;
                             cur_h = save_h;
-                            popt = Some(p);
+                            popt = Some(p.ptr());
                             continue;
                         }
                     }
 
-                    set_NODE_type(p, TextNode::Kern);
-                    let p = Kern(p);
+                    set_NODE_type(p.ptr(), TextNode::Kern);
+                    let p = Kern(p.ptr());
                     cur_h += p.width();
                 }
                 TextNode::Ligature => {
@@ -1127,9 +1128,9 @@ unsafe fn hlist_out(this_box: &mut Box) {
 
     /*1502: "Finish hlist_out for mixed direction typesetting" */
     /*1505: "Check for LR anomalies" */
-    while MathNST::from(*LLIST_info(LR_ptr as usize) as u16) != MathNST::Before {
-        match MathNST::from(*LLIST_info(LR_ptr as usize) as u16) {
-            MathNST::Eq(_, MathMode::Left) | MathNST::Eq(_, MathMode::Right) => {
+    while Math(LR_ptr as usize).subtype_i32() != MathType::Before {
+        match Math(LR_ptr as usize).subtype_i32() {
+            MathType::Eq(_, MathMode::Left) | MathType::Eq(_, MathMode::Right) => {
                 // LLIST_info(LR_ptr)
                 LR_problems += 10000;
             }
@@ -1662,18 +1663,16 @@ unsafe fn reverse(
                         continue;
                     }
                     TextNode::Math => {
+                        let mut p = Math(p);
                         /*1516: "Math nodes in an inner reflected segment are
                          * modified, those at the outer level are changed into
                          * kern nodes." */
-                        rule_wd = *BOX_width(p);
+                        rule_wd = p.width();
 
-                        let nst = MathNST::from(MEM[p].b16.s0);
-                        let (be, mode) = nst.equ();
+                        let (be, mode) = p.subtype().equ();
                         if be == BE::End {
-                            if MathNST::from(*LLIST_info(LR_ptr as usize) as u16)
-                                != MathNST::Eq(BE::End, mode)
-                            {
-                                set_NODE_type(p, TextNode::Kern);
+                            if Math(LR_ptr as usize).subtype_i32() != MathType::Eq(BE::End, mode) {
+                                set_NODE_type(p.ptr(), TextNode::Kern);
                                 LR_problems += 1;
                             } else {
                                 let tmp_ptr = LR_ptr as usize;
@@ -1683,14 +1682,20 @@ unsafe fn reverse(
 
                                 if n > MIN_HALFWORD {
                                     n -= 1;
-                                    MEM[p].b16.s0 -= 1; // NODE_subtype(p)
+                                    p.set_subtype(match p.subtype() {
+                                        MathType::After => MathType::Before,
+                                        MathType::Eq(BE::End, mode) => {
+                                            MathType::Eq(BE::Begin, mode)
+                                        }
+                                        _ => unreachable!(),
+                                    });
                                 } else {
-                                    set_NODE_type(p, TextNode::Kern);
                                     if m > MIN_HALFWORD {
+                                        set_NODE_type(p.ptr(), TextNode::Kern);
                                         m -= 1
                                     } else {
                                         /*1517: "Finish the reverse hlist segment and goto done" */
-                                        free_node(p, MEDIUM_NODE_SIZE); /* end GLUE_NODE case */
+                                        p.free(); /* end GLUE_NODE case */
                                         let mut t = Edge(t.unwrap());
                                         *LLIST_link(t.ptr()) = q;
                                         t.set_width(rule_wd).set_edge_dist(-cur_h - rule_wd);
@@ -1699,15 +1704,19 @@ unsafe fn reverse(
                                 }
                             }
                         } else {
-                            let tmp_ptr = get_avail();
-                            *LLIST_info(tmp_ptr) = u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                            *LLIST_link(tmp_ptr) = LR_ptr;
-                            LR_ptr = Some(tmp_ptr).tex_int();
-                            if n > MIN_HALFWORD || nst.dir() != cur_dir {
+                            let mut tmp_ptr = Math(get_avail());
+                            tmp_ptr.set_subtype_i32(MathType::Eq(BE::End, mode));
+                            *LLIST_link(tmp_ptr.ptr()) = LR_ptr;
+                            LR_ptr = Some(tmp_ptr.ptr()).tex_int();
+                            if n > MIN_HALFWORD || p.dir() != cur_dir {
                                 n += 1;
-                                MEM[p].b16.s0 += 1; // NODE_subtype(p)
+                                p.set_subtype(match p.subtype() {
+                                    MathType::Before => MathType::After,
+                                    MathType::Eq(BE::Begin, mode) => MathType::Eq(BE::End, mode),
+                                    _ => unreachable!(),
+                                });
                             } else {
-                                set_NODE_type(p, TextNode::Kern);
+                                set_NODE_type(p.ptr(), TextNode::Kern);
                                 m += 1;
                             }
                         }
@@ -1737,10 +1746,7 @@ unsafe fn reverse(
         if t.is_none() && m == MIN_HALFWORD && n == MIN_HALFWORD {
             break; /* "Manufacture a missing math node" */
         }
-        popt = Some(new_math(
-            0,
-            MathNST::from(*LLIST_info(LR_ptr as usize) as u16),
-        ));
+        popt = Some(new_math(0, Math(LR_ptr as usize).subtype_i32()));
         LR_problems += 10000i32
     }
     l.tex_int()
