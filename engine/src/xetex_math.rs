@@ -113,7 +113,7 @@ pub(crate) unsafe fn init_math() {
             // 1520:
             pop_nest();
             x = if let Some(aux) = cur_list.eTeX_aux {
-                if MathNST::from(MEM[aux].b32.s0 as u16).dir() == LR::RightToLeft {
+                if Math(aux).subtype_i32().dir() == LR::RightToLeft {
                     -1
                 } else {
                     1 // :1519
@@ -150,7 +150,7 @@ pub(crate) unsafe fn init_math() {
 
             v = jb.shift_amount();
             x = if let Some(aux) = cur_list.eTeX_aux {
-                if MathNST::from(MEM[aux].b32.s0 as u16).dir() == LR::RightToLeft {
+                if Math(aux).subtype_i32().dir() == LR::RightToLeft {
                     -1
                 } else {
                     1 // :1519
@@ -164,9 +164,13 @@ pub(crate) unsafe fn init_math() {
                 p
             } else {
                 v = -v - jb.width();
-                let p = new_math(0, BEGIN_L_CODE);
+                let p = new_math(0, MathType::Eq(BE::Begin, MathMode::Left));
                 *LLIST_link(TEMP_HEAD) = p as i32;
-                just_copy(jb.list_ptr().opt(), p, new_math(0, END_L_CODE) as i32);
+                just_copy(
+                    jb.list_ptr().opt(),
+                    p,
+                    new_math(0, MathType::Eq(BE::End, MathMode::Left)) as i32,
+                );
                 cur_dir = LR::RightToLeft;
                 Some(p)
             };
@@ -177,10 +181,10 @@ pub(crate) unsafe fn init_math() {
                     .s1;
             if *INTPAR(IntPar::texxet) > 0 {
                 // 1497:
-                let tmp_ptr = get_avail(); /*1523:*/
-                MEM[tmp_ptr].b32.s0 = u16::from(MathNST::Before) as i32; /*:1398 */
-                *LLIST_link(tmp_ptr) = LR_ptr;
-                LR_ptr = Some(tmp_ptr).tex_int();
+                let mut tmp_ptr = Math(get_avail()); /*1523:*/
+                tmp_ptr.set_subtype_i32(MathType::Before); /*:1398 */
+                *LLIST_link(tmp_ptr.ptr()) = LR_ptr;
+                LR_ptr = Some(tmp_ptr.ptr()).tex_int();
             }
             while let Some(mut p) = popt {
                 let found;
@@ -223,39 +227,44 @@ pub(crate) unsafe fn init_math() {
                             found = false;
                         }
                         TextNode::Math => {
-                            let nst = MathNST::from(MEM[p].b16.s0);
-                            d = MEM[p + 1].b32.s1;
+                            let m = Math(p);
+                            d = m.width();
                             if *INTPAR(IntPar::texxet) > 0 {
                                 /*1525: */
-                                let (be, mode) = nst.equ();
+                                let (be, mode) = m.subtype().equ();
                                 if be == BE::End {
-                                    if MathNST::from(MEM[LR_ptr as usize].b32.s0 as u16)
-                                        == MathNST::Eq(BE::End, mode)
+                                    if Math(LR_ptr as usize).subtype_i32()
+                                        == MathType::Eq(BE::End, mode)
                                     {
                                         let tmp_ptr = LR_ptr as usize;
                                         LR_ptr = *LLIST_link(tmp_ptr);
                                         *LLIST_link(tmp_ptr) = avail.tex_int();
                                         avail = Some(tmp_ptr);
-                                    } else if MEM[p].b16.s0 as i32 > 4 {
-                                        w = MAX_HALFWORD;
-                                        break;
+                                    } else {
+                                        match m.subtype() {
+                                            MathType::Eq(_, MathMode::Left)
+                                            | MathType::Eq(_, MathMode::Right) => {
+                                                w = MAX_HALFWORD;
+                                                break;
+                                            }
+                                            _ => {}
+                                        }
                                     }
                                 } else {
-                                    let tmp_ptr = get_avail();
-                                    MEM[tmp_ptr].b32.s0 =
-                                        u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                                    *LLIST_link(tmp_ptr) = LR_ptr;
-                                    LR_ptr = Some(tmp_ptr).tex_int();
-                                    if nst.dir() != cur_dir {
+                                    let mut tmp_ptr = Math(get_avail());
+                                    tmp_ptr.set_subtype_i32(MathType::Eq(BE::End, mode));
+                                    *LLIST_link(tmp_ptr.ptr()) = LR_ptr;
+                                    LR_ptr = Some(tmp_ptr.ptr()).tex_int();
+                                    if m.dir() != cur_dir {
                                         just_reverse(p);
                                         p = TEMP_HEAD;
                                     }
                                 }
                                 found = false;
                             } else {
-                                match nst {
-                                    MathNST::Eq(_, MathMode::Left)
-                                    | MathNST::Eq(_, MathMode::Right) => {
+                                match m.subtype() {
+                                    MathType::Eq(_, MathMode::Left)
+                                    | MathType::Eq(_, MathMode::Right) => {
                                         w = MAX_HALFWORD;
                                         break;
                                     }
@@ -636,7 +645,7 @@ pub(crate) unsafe fn sub_sup() {
         (Some(p), MathCell::Empty) => p,
         _ => {
             /*1212: */
-            MEM[cur_list.tail].b32.s1 = new_noad() as i32;
+            *LLIST_link(cur_list.tail) = new_noad() as i32;
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
             let p = cur_list.tail + 2 + cur_cmd as usize - 7;
             if t != MathCell::Empty {
@@ -759,7 +768,7 @@ pub(crate) unsafe fn math_left_right() {
             cur_list.tail = p;
             cur_list.eTeX_aux = Some(p);
         } else {
-            MEM[cur_list.tail].b32.s1 = new_noad() as i32;
+            *LLIST_link(cur_list.tail) = new_noad() as i32;
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
             MEM[cur_list.tail].b16.s1 = MathNode::Inner as u16;
             MEM[cur_list.tail + 1].b32.s1 = MathCell::SubMList as _;
@@ -837,7 +846,7 @@ unsafe fn app_display(j: Option<usize>, mut b: Box, mut d: scaled_t) {
             r = b.list_ptr() as usize;
             t = *LLIST_link(r) as usize;
         }
-        let u = new_math(0, END_M_CODE);
+        let u = new_math(0, MathType::Eq(BE::End, MathMode::Middle));
         let j = if NODE_type(t) == TextNode::Glue.into() {
             let t = Glue(t);
             let (j, mut tmp_ptr) = new_skip_param(GluePar::right_skip);
@@ -858,7 +867,7 @@ unsafe fn app_display(j: Option<usize>, mut b: Box, mut d: scaled_t) {
             *LLIST_link(q as usize) = Some(t).tex_int();
             j
         };
-        let u = new_math(0, BEGIN_M_CODE);
+        let u = new_math(0, MathType::Eq(BE::Begin, MathMode::Middle));
         if NODE_type(r) == TextNode::Glue.into() {
             let r = Glue(r);
             let (j, mut tmp_ptr) = new_skip_param(GluePar::left_skip);
@@ -1078,19 +1087,19 @@ pub(crate) unsafe fn after_math() {
     };
     if m.0 == true {
         // 1231:
-        MEM[cur_list.tail].b32.s1 =
-            new_math(*DIMENPAR(DimenPar::math_surround), MathNST::Before) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        let m = new_math(*DIMENPAR(DimenPar::math_surround), MathType::Before);
+        *LLIST_link(cur_list.tail) = Some(m).tex_int();
+        cur_list.tail = m;
         cur_mlist = p;
         cur_style = (MathStyle::Text, 0);
         mlist_penalties = cur_list.mode.0 == false;
         mlist_to_hlist();
-        MEM[cur_list.tail].b32.s1 = *LLIST_link(TEMP_HEAD);
+        *LLIST_link(cur_list.tail) = *LLIST_link(TEMP_HEAD);
         while let Some(next) = LLIST_link(cur_list.tail).opt() {
             cur_list.tail = next;
         }
-        MEM[cur_list.tail].b32.s1 =
-            new_math(*DIMENPAR(DimenPar::math_surround), MathNST::After) as i32;
+        *LLIST_link(cur_list.tail) =
+            new_math(*DIMENPAR(DimenPar::math_surround), MathType::After) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         cur_list.aux.b32.s0 = 1000;
         unsave();
@@ -1175,7 +1184,7 @@ pub(crate) unsafe fn after_math() {
         }
         let mut g1;
         let mut g2;
-        MEM[cur_list.tail].b32.s1 = new_penalty(*INTPAR(IntPar::pre_display_penalty)) as i32;
+        *LLIST_link(cur_list.tail) = new_penalty(*INTPAR(IntPar::pre_display_penalty)) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         if d + s <= *DIMENPAR(DimenPar::pre_display_size) || l {
             g1 = GluePar::above_display_skip;
@@ -1211,7 +1220,7 @@ pub(crate) unsafe fn after_math() {
         app_display(j, b, d);
         if let Some(a) = a {
             if e == 0 && !l {
-                MEM[cur_list.tail].b32.s1 = new_penalty(INF_PENALTY) as i32;
+                *LLIST_link(cur_list.tail) = new_penalty(INF_PENALTY) as i32;
                 cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                 let w = a.width();
                 app_display(j, a, z - w);
@@ -1219,17 +1228,17 @@ pub(crate) unsafe fn after_math() {
             }
         }
         if t != ADJUST_HEAD {
-            MEM[cur_list.tail].b32.s1 = *LLIST_link(ADJUST_HEAD as usize);
+            *LLIST_link(cur_list.tail) = *LLIST_link(ADJUST_HEAD as usize);
             cur_list.tail = t;
         }
         if pre_t != PRE_ADJUST_HEAD {
-            MEM[cur_list.tail].b32.s1 = *LLIST_link(PRE_ADJUST_HEAD as usize);
+            *LLIST_link(cur_list.tail) = *LLIST_link(PRE_ADJUST_HEAD as usize);
             cur_list.tail = pre_t;
         }
-        MEM[cur_list.tail].b32.s1 = new_penalty(*INTPAR(IntPar::post_display_penalty)) as i32;
+        *LLIST_link(cur_list.tail) = new_penalty(*INTPAR(IntPar::post_display_penalty)) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         if let Some(g2) = g2 {
-            MEM[cur_list.tail].b32.s1 = new_param_glue(g2) as i32;
+            *LLIST_link(cur_list.tail) = new_param_glue(g2) as i32;
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         }
         flush_node_list(j);

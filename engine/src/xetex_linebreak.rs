@@ -504,21 +504,22 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     continue;
                 }
                 TextNode::Math => {
-                    match MathNST::from(MEM[cp].b16.s0) {
-                        MathNST::Before | MathNST::Eq(BE::Begin, MathMode::Middle) => {
+                    let cp = Math(cp);
+                    match cp.subtype() {
+                        MathType::Before | MathType::Eq(BE::Begin, MathMode::Middle) => {
                             auto_breaking = false
                         }
-                        MathNST::After | MathNST::Eq(BE::End, MathMode::Middle) => {
+                        MathType::After | MathType::Eq(BE::End, MathMode::Middle) => {
                             auto_breaking = true
                         }
                         _ => {}
                     }
-                    if !is_char_node(llist_link(cp)) && auto_breaking {
-                        if NODE_type(*LLIST_link(cp) as usize) == TextNode::Glue.into() {
+                    if !is_char_node(llist_link(cp.ptr())) && auto_breaking {
+                        if NODE_type(*LLIST_link(cp.ptr()) as usize) == TextNode::Glue.into() {
                             try_break(0, BreakType::Unhyphenated);
                         }
                     }
-                    active_width[1] += *BOX_width(cp);
+                    active_width[1] += cp.width();
                 }
                 TextNode::Penalty => {
                     let p = Penalty(cp);
@@ -698,8 +699,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     {
                         flag = false;
                     } else if NODE_type(s) == TextNode::Math.into()
-                        && (match MathNST::from(MEM[s].b16.s0) {
-                            MathNST::Eq(_, MathMode::Left) | MathNST::Eq(_, MathMode::Right) => {
+                        && (match Math(s).subtype() {
+                            MathType::Eq(_, MathMode::Left) | MathType::Eq(_, MathMode::Right) => {
                                 true
                             }
                             _ => false,
@@ -1012,9 +1013,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 break;
                             }
                             TextNode::Math => {
-                                match MathNST::from(MEM[s].b16.s0) {
-                                    MathNST::Eq(_, MathMode::Left)
-                                    | MathNST::Eq(_, MathMode::Right) => break,
+                                let s = Math(s);
+                                match s.subtype() {
+                                    MathType::Eq(_, MathMode::Left)
+                                    | MathType::Eq(_, MathMode::Right) => break,
                                     _ => return c,
                                 };
                             }
@@ -1065,7 +1067,12 @@ unsafe fn post_line_break(mut d: bool) {
                 let mut tmp_ptr = lr;
                 let mut r = q;
                 loop {
-                    let s = new_math(0, MathNST::from((MEM[tmp_ptr].b32.s0 - 1) as u16)) as usize;
+                    let beg = match Math(tmp_ptr).subtype() {
+                        MathType::After => MathType::Before,
+                        MathType::Eq(BE::End, mode) => MathType::Eq(BE::Begin, mode),
+                        _ => unreachable!(),
+                    };
+                    let s = new_math(0, beg) as usize;
                     *LLIST_link(s) = r;
                     r = s as i32;
                     if let Some(next) = llist_link(tmp_ptr) {
@@ -1078,11 +1085,12 @@ unsafe fn post_line_break(mut d: bool) {
             }
             while q != cp.cur_break() {
                 if q < hi_mem_min && NODE_type(q as usize) == TextNode::Math.into() {
+                    let q = Math(q as usize);
                     /*1495:*/
-                    let (be, mode) = MathNST::from(MEM[q as usize].b16.s0).equ();
+                    let (be, mode) = q.subtype().equ();
                     if be == BE::End {
                         if let Some(lr) = LR_ptr {
-                            if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
+                            if Math(lr).subtype_i32() == MathType::Eq(BE::End, mode) {
                                 let tmp_ptr = lr;
                                 LR_ptr = llist_link(tmp_ptr);
                                 *LLIST_link(tmp_ptr) = avail.tex_int();
@@ -1090,10 +1098,10 @@ unsafe fn post_line_break(mut d: bool) {
                             }
                         }
                     } else {
-                        let tmp_ptr = get_avail();
-                        MEM[tmp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                        *LLIST_link(tmp_ptr) = LR_ptr.tex_int();
-                        LR_ptr = Some(tmp_ptr);
+                        let mut tmp_ptr = Math(get_avail());
+                        tmp_ptr.set_subtype_i32(MathType::Eq(BE::End, mode));
+                        *LLIST_link(tmp_ptr.ptr()) = LR_ptr.tex_int();
+                        LR_ptr = Some(tmp_ptr.ptr());
                     }
                 }
                 q = *LLIST_link(q as usize);
@@ -1164,14 +1172,15 @@ unsafe fn post_line_break(mut d: bool) {
                     Kern(q).set_width(0);
                 }
                 TextNode::Math => {
-                    *BOX_width(q) = 0;
+                    let mut q = Math(q);
+                    q.set_width(0);
                     if *INTPAR(IntPar::texxet) > 0 {
                         /*1495:*/
-                        let (be, _) = MathNST::from(*INTPAR(IntPar::texxet) as u16).equ();
-                        let (_, mode) = MathNST::from(MEM[q].b16.s0 as u16).equ();
+                        let (be, _) = MathType::from(*INTPAR(IntPar::texxet) as u16).equ();
+                        let (_, mode) = q.subtype().equ();
                         if be == BE::End {
                             if let Some(lr) = LR_ptr {
-                                if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
+                                if Math(lr).subtype_i32() == MathType::Eq(BE::End, mode) {
                                     let tmp_ptr = lr;
                                     LR_ptr = llist_link(tmp_ptr);
                                     *LLIST_link(tmp_ptr) = avail.tex_int();
@@ -1179,10 +1188,10 @@ unsafe fn post_line_break(mut d: bool) {
                                 }
                             }
                         } else {
-                            let tmp_ptr = get_avail();
-                            MEM[tmp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                            *LLIST_link(tmp_ptr) = LR_ptr.tex_int();
-                            LR_ptr = Some(tmp_ptr);
+                            let mut tmp_ptr = Math(get_avail());
+                            tmp_ptr.set_subtype_i32(MathType::Eq(BE::End, mode));
+                            *LLIST_link(tmp_ptr.ptr()) = LR_ptr.tex_int();
+                            LR_ptr = Some(tmp_ptr.ptr());
                         }
                     }
                 }
@@ -1241,7 +1250,7 @@ unsafe fn post_line_break(mut d: bool) {
                 let mut ropt = Some(lr);
 
                 while let Some(r) = ropt {
-                    let tmp_ptr = new_math(0, MathNST::from(MEM[r].b32.s0 as u16));
+                    let tmp_ptr = new_math(0, Math(r).subtype_i32());
                     *LLIST_link(s) = Some(tmp_ptr).tex_int();
                     s = tmp_ptr;
                     ropt = llist_link(r);
@@ -1296,7 +1305,7 @@ unsafe fn post_line_break(mut d: bool) {
          * by any of its special nodes that were taken out */
 
         if Some(PRE_ADJUST_HEAD) != pre_adjust_tail {
-            MEM[cur_list.tail].b32.s1 = *LLIST_link(PRE_ADJUST_HEAD); /*:917*/
+            *LLIST_link(cur_list.tail) = *LLIST_link(PRE_ADJUST_HEAD); /*:917*/
             cur_list.tail = pre_adjust_tail.unwrap();
         }
 
@@ -1304,7 +1313,7 @@ unsafe fn post_line_break(mut d: bool) {
         append_to_vlist(jb);
 
         if Some(ADJUST_HEAD) != adjust_tail {
-            MEM[cur_list.tail].b32.s1 = *LLIST_link(ADJUST_HEAD);
+            *LLIST_link(cur_list.tail) = *LLIST_link(ADJUST_HEAD);
             cur_list.tail = adjust_tail.unwrap();
         }
 
@@ -1378,11 +1387,12 @@ unsafe fn post_line_break(mut d: bool) {
                     }
                     r = q as usize;
                     if NODE_type(q as usize) == TextNode::Math.into() && *INTPAR(IntPar::texxet) > 0 {
+                        let q = Math(q as usize);
                         /*1495:*/
-                        let (be, mode) = MathNST::from(MEM[q as usize].b16.s0).equ();
+                        let (be, mode) = q.subtype().equ();
                         if be == BE::End {
                             if let Some(lr) = LR_ptr {
-                                if MathNST::from(MEM[lr].b32.s0 as u16) == MathNST::Eq(BE::End, mode) {
+                                if Math(lr).subtype_i32() == MathType::Eq(BE::End, mode) {
                                     let tmp_ptr = lr;
                                     LR_ptr = llist_link(tmp_ptr);
                                     *LLIST_link(tmp_ptr) = avail.tex_int();
@@ -1390,10 +1400,10 @@ unsafe fn post_line_break(mut d: bool) {
                                 }
                             }
                         } else {
-                            let tmp_ptr = get_avail();
-                            MEM[tmp_ptr].b32.s0 = u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                            *LLIST_link(tmp_ptr) = LR_ptr.tex_int();
-                            LR_ptr = Some(tmp_ptr);
+                            let mut tmp_ptr = Math(get_avail());
+                            tmp_ptr.set_subtype_i32(MathType::Eq(BE::End, mode));
+                            *LLIST_link(tmp_ptr.ptr()) = LR_ptr.tex_int();
+                            LR_ptr = Some(tmp_ptr.ptr());
                         }
                     }
                 }

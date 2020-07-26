@@ -5664,10 +5664,26 @@ pub(crate) unsafe fn tt_run_engine(
             XETEX_DEFAULT_ENCODING_EXTENSION_CODE as usize,
         );
 
-        primitive(b"beginL", Cmd::VAlign, u16::from(BEGIN_L_CODE));
-        primitive(b"endL", Cmd::VAlign, u16::from(END_L_CODE));
-        primitive(b"beginR", Cmd::VAlign, u16::from(BEGIN_R_CODE));
-        primitive(b"endR", Cmd::VAlign, u16::from(END_R_CODE));
+        primitive(
+            b"beginL",
+            Cmd::VAlign,
+            u16::from(MathType::Eq(BE::Begin, MathMode::Left)),
+        );
+        primitive(
+            b"endL",
+            Cmd::VAlign,
+            u16::from(MathType::Eq(BE::End, MathMode::Left)),
+        );
+        primitive(
+            b"beginR",
+            Cmd::VAlign,
+            u16::from(MathType::Eq(BE::Begin, MathMode::Right)),
+        );
+        primitive(
+            b"endR",
+            Cmd::VAlign,
+            u16::from(MathType::Eq(BE::End, MathMode::Right)),
+        );
 
         primitive(b"scantokens", Cmd::Input, 2);
         primitive(b"readline", Cmd::ReadToCS, 1);
