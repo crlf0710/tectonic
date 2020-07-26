@@ -335,9 +335,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             match text_NODE_type(cp).unwrap() {
                 TextNode::HList | TextNode::VList => active_width[1] += Box::from(cp).width(),
                 TextNode::Rule => active_width[1] += Rule::from(cp).width(),
-                TextNode::WhatsIt => match whatsit_NODE_subtype(cp) {
-                    WhatsItNST::Language => {
-                        let l = Language(cp);
+                TextNode::WhatsIt => match WhatsIt::from(cp) {
+                    WhatsIt::Language(l) => {
                         cur_lang = l.lang() as u8;
                         l_hyf = l.lhm() as i32;
                         r_hyf = l.rhm() as i32;
@@ -349,14 +348,14 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
                         }
                     }
-                    WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                        active_width[1] += NativeWord::from(cp).width();
+                    WhatsIt::NativeWord(cp) | WhatsIt::NativeWordAt(cp) => {
+                        active_width[1] += cp.width();
                     }
-                    WhatsItNST::Glyph => {
-                        active_width[1] += Glyph::from(cp).width();
+                    WhatsIt::Glyph(cp) => {
+                        active_width[1] += cp.width();
                     }
-                    WhatsItNST::Pic | WhatsItNST::Pdf => {
-                        active_width[1] += Picture::from(cp).width();
+                    WhatsIt::Pic(cp) | WhatsIt::Pdf(cp) => {
+                        active_width[1] += cp.width();
                     }
                     _ => {}
                 },
@@ -425,15 +424,15 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     }
                                     TextNode::Rule => disc_width += Rule::from(s).width(),
                                     TextNode::Kern => disc_width += Kern(s).width(),
-                                    TextNode::WhatsIt => match whatsit_NODE_subtype(s) {
-                                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                                            disc_width += NativeWord::from(s).width();
+                                    TextNode::WhatsIt => match WhatsIt::from(s) {
+                                        WhatsIt::NativeWord(s) | WhatsIt::NativeWordAt(s) => {
+                                            disc_width += s.width();
                                         }
-                                        WhatsItNST::Glyph => {
-                                            disc_width += Glyph::from(s).width();
+                                        WhatsIt::Glyph(s) => {
+                                            disc_width += s.width();
                                         }
-                                        WhatsItNST::Pic | WhatsItNST::Pdf => {
-                                            disc_width += Picture::from(s).width();
+                                        WhatsIt::Pic(s) | WhatsIt::Pdf(s) => {
+                                            disc_width += s.width();
                                         }
                                         _ => confusion(b"disc3a"),
                                     },
@@ -480,15 +479,15 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 TextNode::Kern => {
                                     active_width[1] += Kern(s).width();
                                 }
-                                TextNode::WhatsIt => match whatsit_NODE_subtype(s) {
-                                    WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                                        active_width[1] += NativeWord::from(s).width();
+                                TextNode::WhatsIt => match WhatsIt::from(s) {
+                                    WhatsIt::NativeWord(s) | WhatsIt::NativeWordAt(s) => {
+                                        active_width[1] += s.width();
                                     }
-                                    WhatsItNST::Glyph => {
-                                        active_width[1] += Glyph::from(s).width();
+                                    WhatsIt::Glyph(s) => {
+                                        active_width[1] += s.width();
                                     }
-                                    WhatsItNST::Pic | WhatsItNST::Pdf => {
-                                        active_width[1] += Picture::from(s).width();
+                                    WhatsIt::Pic(s) | WhatsIt::Pdf(s) => {
+                                        active_width[1] += s.width();
                                     }
                                     _ => confusion(b"disc4a"),
                                 },
@@ -712,9 +711,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         if !(NODE_type(s) == TextNode::WhatsIt.into()) {
                             return c;
                         }
-                        match whatsit_NODE_subtype(s) {
-                            WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                                let s = NativeWord::from(s);
+                        match WhatsIt::from(s) {
+                            WhatsIt::NativeWord(s) | WhatsIt::NativeWordAt(s) => {
                                 let mut l = 0;
                                 while l < s.text().len() as i32 {
                                     c = get_native_usv(s.ptr(), l as usize);
@@ -730,8 +728,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     }
                                 }
                             }
-                            WhatsItNST::Language => {
-                                let l = Language(s);
+                            WhatsIt::Language(l) => {
                                 cur_lang = l.lang() as u8;
                                 l_hyf = l.lhm() as i32;
                                 r_hyf = l.rhm() as i32;
@@ -1531,24 +1528,20 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                 TextNode::Kern => {
                                                     break_width[1] -= Kern(v).width();
                                                 }
-                                                TextNode::WhatsIt => {
-                                                    match whatsit_NODE_subtype(v) {
-                                                        WhatsItNST::NativeWord
-                                                        | WhatsItNST::NativeWordAt => {
-                                                            break_width[1] -=
-                                                                NativeWord::from(v).width();
-                                                        }
-                                                        WhatsItNST::Glyph => {
-                                                            break_width[1] -=
-                                                                Glyph::from(v).width();
-                                                        }
-                                                        WhatsItNST::Pic | WhatsItNST::Pdf => {
-                                                            break_width[1] -=
-                                                                Picture::from(v).width();
-                                                        }
-                                                        _ => confusion(b"disc1a"),
+                                                TextNode::WhatsIt => match WhatsIt::from(v) {
+                                                    WhatsIt::NativeWord(v)
+                                                    | WhatsIt::NativeWordAt(v) => {
+                                                        break_width[1] -= v.width();
                                                     }
-                                                }
+                                                    WhatsIt::Glyph(v) => {
+                                                        break_width[1] -= v.width()
+                                                    }
+
+                                                    WhatsIt::Pic(v) | WhatsIt::Pdf(v) => {
+                                                        break_width[1] -= v.width();
+                                                    }
+                                                    _ => confusion(b"disc1a"),
+                                                },
                                                 _ => confusion(b"disc1"),
                                             }
                                         }
@@ -1583,24 +1576,19 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                 TextNode::Kern => {
                                                     break_width[1] += Kern(s).width();
                                                 }
-                                                TextNode::WhatsIt => {
-                                                    match whatsit_NODE_subtype(s) {
-                                                        WhatsItNST::NativeWord
-                                                        | WhatsItNST::NativeWordAt => {
-                                                            break_width[1] +=
-                                                                NativeWord::from(s).width();
-                                                        }
-                                                        WhatsItNST::Glyph => {
-                                                            break_width[1] +=
-                                                                Glyph::from(s).width();
-                                                        }
-                                                        WhatsItNST::Pic | WhatsItNST::Pdf => {
-                                                            break_width[1] +=
-                                                                Picture::from(s).width();
-                                                        }
-                                                        _ => confusion(b"disc2a"),
+                                                TextNode::WhatsIt => match WhatsIt::from(s) {
+                                                    WhatsIt::NativeWord(s)
+                                                    | WhatsIt::NativeWordAt(s) => {
+                                                        break_width[1] += s.width();
                                                     }
-                                                }
+                                                    WhatsIt::Glyph(s) => {
+                                                        break_width[1] += s.width();
+                                                    }
+                                                    WhatsIt::Pic(s) | WhatsIt::Pdf(s) => {
+                                                        break_width[1] += s.width();
+                                                    }
+                                                    _ => confusion(b"disc2a"),
+                                                },
                                                 _ => confusion(b"disc2"),
                                             }
                                         }

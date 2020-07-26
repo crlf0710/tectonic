@@ -304,17 +304,17 @@ pub(crate) unsafe fn init_math() {
                                 found = false;
                             }
                         }
-                        TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
-                            WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                                d = NativeWord::from(p).width();
+                        TextNode::WhatsIt => match WhatsIt::from(p) {
+                            WhatsIt::NativeWord(p) | WhatsIt::NativeWordAt(p) => {
+                                d = p.width();
                                 found = true;
                             }
-                            WhatsItNST::Glyph => {
-                                d = Glyph::from(p).width();
+                            WhatsIt::Glyph(p) => {
+                                d = p.width();
                                 found = true;
                             }
-                            WhatsItNST::Pic | WhatsItNST::Pdf => {
-                                d = Picture::from(p).width();
+                            WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                                d = p.width();
                                 found = true;
                             }
                             _ => {

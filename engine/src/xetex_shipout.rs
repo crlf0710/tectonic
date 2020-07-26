@@ -476,9 +476,8 @@ unsafe fn hlist_out(this_box: &mut Box) {
                         let mut q = r;
                         loop {
                             if NODE_type(q) == TextNode::WhatsIt.into() {
-                                match whatsit_NODE_subtype(q) {
-                                    WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                                        let q = NativeWord::from(q);
+                                match WhatsIt::from(q) {
+                                    WhatsIt::NativeWord(q) | WhatsIt::NativeWordAt(q) => {
                                         for j in q.text() {
                                             str_pool[pool_ptr as usize] = *j;
                                             pool_ptr += 1;
@@ -789,9 +788,8 @@ unsafe fn hlist_out(this_box: &mut Box) {
                             dvi_f = f
                         }
                     }
-                    match whatsit_NODE_subtype(p) {
-                        WhatsItNST::Glyph => {
-                            let g = Glyph::from(p);
+                    match WhatsIt::from(p) {
+                        WhatsIt::Glyph(g) => {
                             out_font(g.font() as usize);
                             dvi_out(SET_GLYPHS);
                             dvi_four(g.width());
@@ -803,8 +801,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                 g.width();
                             dvi_h = cur_h;
                         }
-                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                            let nw = NativeWord::from(p);
+                        WhatsIt::NativeWord(nw) | WhatsIt::NativeWordAt(nw) => {
                             out_font(nw.font() as usize);
                             if whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt {
                                 if nw.text().len() > 0 ||
@@ -840,8 +837,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                 nw.width();
                             dvi_h = cur_h;
                         }
-                        WhatsItNST::Pic | WhatsItNST::Pdf => {
-                            let p = Picture::from(p);
+                        WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                             let save_h = dvi_h;
                             let save_v = dvi_v;
                             cur_v = base_line;
@@ -854,7 +850,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                             cur_h = edge;
                             cur_v = base_line
                         }
-                        WhatsItNST::PdfSavePos => {
+                        WhatsIt::PdfSavePos(_) => {
                             pdf_last_x_pos = cur_h + cur_h_offset;
                             pdf_last_y_pos =
                                 cur_page_height - cur_v - cur_v_offset
@@ -1291,9 +1287,8 @@ unsafe fn vlist_out(this_box: &Box) {
             }
             TextNode::WhatsIt => {
                 /*1403: "Output the whatsit node p in a vlist" */
-                match whatsit_NODE_subtype(p) {
-                    WhatsItNST::Glyph => {
-                        let g = Glyph::from(p);
+                match WhatsIt::from(p) {
+                    WhatsIt::Glyph(g) => {
                         cur_v = cur_v + g.height();
                         cur_h = left_edge;
                         if cur_h != dvi_h {
@@ -1333,8 +1328,7 @@ unsafe fn vlist_out(this_box: &Box) {
                         cur_v += g.depth();
                         cur_h = left_edge;
                     }
-                    WhatsItNST::Pic | WhatsItNST::Pdf => {
-                        let p = Picture::from(p);
+                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                         let save_h = dvi_h;
                         let save_v = dvi_v;
                         cur_v = cur_v + p.height();
@@ -1344,7 +1338,7 @@ unsafe fn vlist_out(this_box: &Box) {
                         cur_v = save_v + p.depth();
                         cur_h = left_edge;
                     }
-                    WhatsItNST::PdfSavePos => {
+                    WhatsIt::PdfSavePos(_) => {
                         pdf_last_x_pos = cur_h + cur_h_offset;
                         pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
                     }
@@ -1580,17 +1574,14 @@ unsafe fn reverse(
                         let p = Kern(p);
                         rule_wd = p.width();
                     }
-                    TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
-                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                            let p = NativeWord::from(p);
+                    TextNode::WhatsIt => match WhatsIt::from(p) {
+                        WhatsIt::NativeWord(p) | WhatsIt::NativeWordAt(p) => {
                             rule_wd = p.width();
                         }
-                        WhatsItNST::Glyph => {
-                            let p = Glyph::from(p);
+                        WhatsIt::Glyph(p) => {
                             rule_wd = p.width();
                         }
-                        WhatsItNST::Pic | WhatsItNST::Pdf => {
-                            let p = Picture::from(p);
+                        WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                             rule_wd = p.width();
                         }
                         _ => add_rule = false,
@@ -1762,9 +1753,8 @@ pub(crate) unsafe fn new_edge(s: LR, w: scaled_t) -> usize {
 
 pub(crate) unsafe fn out_what(p: usize) {
     let mut j: i16;
-    match whatsit_NODE_subtype(p) {
-        WhatsItNST::Open => {
-            let p = OpenFile(p);
+    match WhatsIt::from(p) {
+        WhatsIt::Open(p) => {
             if doing_leaders {
                 return;
             }
@@ -1815,16 +1805,14 @@ pub(crate) unsafe fn out_what(p: usize) {
                 selector = old_setting
             }
         }
-        WhatsItNST::Write => {
-            let p = WriteFile(p);
+        WhatsIt::Write(p) => {
             if doing_leaders {
                 return;
             }
             write_out(&p);
             return;
         }
-        WhatsItNST::Close => {
-            let p = CloseFile(p);
+        WhatsIt::Close(p) => {
             if doing_leaders {
                 return;
             }
@@ -1837,8 +1825,8 @@ pub(crate) unsafe fn out_what(p: usize) {
             write_open[j as usize] = false;
             return;
         }
-        WhatsItNST::Special => special_out(p),
-        WhatsItNST::Language => {}
+        WhatsIt::Special(p) => special_out(&p),
+        WhatsIt::Language(_) => {}
         _ => confusion(b"ext4"),
     };
 }
@@ -2058,7 +2046,7 @@ unsafe fn prune_movements(l: usize) {
     }
 }
 
-unsafe fn special_out(p: usize) {
+unsafe fn special_out(p: &Special) {
     if cur_h != dvi_h {
         movement(cur_h - dvi_h, RIGHT1);
         dvi_h = cur_h
@@ -2071,7 +2059,7 @@ unsafe fn special_out(p: usize) {
     let old_setting = selector;
     selector = Selector::NEW_STRING;
     show_token_list(
-        MEM[MEM[p + 1].b32.s1 as usize].b32.s1.opt(),
+        MEM[p.tokens() as usize].b32.s1.opt(),
         None,
         pool_size - pool_ptr,
     );
