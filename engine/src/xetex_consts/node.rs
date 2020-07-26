@@ -76,6 +76,41 @@ pub(crate) use whatsit::*;
 pub(crate) mod whatsit {
     use super::{free_node, BaseBox, Deref, DerefMut, NodeSize, MEM};
 
+    #[derive(Clone, Debug)]
+    pub(crate) enum WhatsIt {
+        Open(OpenFile),
+        Write(WriteFile),
+        Close(CloseFile),
+        Special(Special),
+        Language(Language),
+        PdfSavePos(PdfSavePos),
+        NativeWord(NativeWord),
+        NativeWordAt(NativeWord),
+        Glyph(Glyph),
+        Pic(Picture),
+        Pdf(Picture),
+    }
+
+    impl WhatsIt {
+        pub(crate) unsafe fn from(p: usize) -> Self {
+            let n = MEM[p].b16.s0;
+            match n {
+                0 => Self::Open(OpenFile(p)),
+                1 => Self::Write(WriteFile(p)),
+                2 => Self::Close(CloseFile(p)),
+                3 => Self::Special(Special(p)),
+                4 => Self::Language(Language(p)),
+                6 => Self::PdfSavePos(PdfSavePos(p)),
+                40 => Self::NativeWord(NativeWord::from(p)),
+                41 => Self::NativeWordAt(NativeWord::from(p)),
+                42 => Self::Glyph(Glyph::from(p)),
+                43 => Self::Pic(Picture::from(p)),
+                44 => Self::Pdf(Picture::from(p)),
+                _ => panic!(format!("Incorrect WhatsIt Type = {}", n)),
+            }
+        }
+    }
+
     #[repr(u16)]
     #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
     pub(crate) enum WhatsItNST {
@@ -98,6 +133,7 @@ pub(crate) mod whatsit {
         }
     }
 
+    #[derive(Clone, Debug)]
     pub(crate) struct OpenFile(pub usize);
     impl OpenFile {
         pub(crate) const fn ptr(&self) -> usize {
@@ -136,6 +172,7 @@ pub(crate) mod whatsit {
         }
     }
 
+    #[derive(Clone, Debug)]
     pub(crate) struct WriteFile(pub usize);
     impl WriteFile {
         pub(crate) const fn ptr(&self) -> usize {
@@ -161,6 +198,7 @@ pub(crate) mod whatsit {
         }
     }
 
+    #[derive(Clone, Debug)]
     pub(crate) struct CloseFile(pub usize);
     impl CloseFile {
         pub(crate) const fn ptr(&self) -> usize {
@@ -178,6 +216,7 @@ pub(crate) mod whatsit {
         }
     }
 
+    #[derive(Clone, Debug)]
     pub(crate) struct Language(pub usize);
     impl Language {
         pub(crate) const fn ptr(&self) -> usize {
@@ -212,6 +251,7 @@ pub(crate) mod whatsit {
         }
     }
 
+    #[derive(Clone, Debug)]
     pub(crate) struct Special(pub usize);
     impl Special {
         pub(crate) const fn ptr(&self) -> usize {
@@ -229,6 +269,7 @@ pub(crate) mod whatsit {
         }
     }
 
+    #[derive(Clone, Debug)]
     pub(crate) struct NativeWord(BaseBox);
     impl Deref for NativeWord {
         type Target = BaseBox;
@@ -313,6 +354,7 @@ pub(crate) mod whatsit {
         }
     }
 
+    #[derive(Clone, Debug)]
     pub(crate) struct Glyph(BaseBox);
     impl Deref for Glyph {
         type Target = BaseBox;
@@ -349,8 +391,12 @@ pub(crate) mod whatsit {
         pub(crate) unsafe fn italic_correction(&self) -> i32 {
             crate::xetex_ext::real_get_native_glyph_italic_correction(self)
         }
+        pub(crate) unsafe fn free(self) {
+            free_node(self.ptr(), super::GLYPH_NODE_SIZE as i32);
+        }
     }
 
+    #[derive(Clone, Debug)]
     pub(crate) struct Picture(BaseBox);
     impl Deref for Picture {
         type Target = BaseBox;
@@ -423,6 +469,7 @@ pub(crate) mod whatsit {
         }
     }
 
+    #[derive(Clone, Debug)]
     pub(crate) struct PdfSavePos(pub usize);
     impl NodeSize for PdfSavePos {
         const SIZE: i32 = super::SMALL_NODE_SIZE;
@@ -714,7 +761,7 @@ impl Choice {
     }
 }
 
-#[derive(Clone, Copy)] // TODO: remove this
+#[derive(Clone, Copy, Debug)] // TODO: remove this
 pub(crate) struct BaseBox(pub usize);
 impl BaseBox {
     pub(crate) const fn ptr(&self) -> usize {

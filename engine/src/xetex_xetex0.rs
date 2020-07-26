@@ -556,9 +556,8 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                 | TextNode::Mark
                 | TextNode::Adjust
                 | TextNode::Unset => print_cstr(b"[]"),
-                TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
-                    WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                        let nw = NativeWord::from(p);
+                TextNode::WhatsIt => match WhatsIt::from(p) {
+                    WhatsIt::NativeWord(nw) | WhatsIt::NativeWordAt(nw) => {
                         if nw.font() as usize != font_in_short_display {
                             print_esc(
                                 (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
@@ -878,25 +877,22 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         show_node_list(p_ins.ins_ptr().opt());
                         pool_ptr -= 1
                     }
-                    TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
-                        WhatsItNST::Open => {
-                            let p = OpenFile(p);
+                    TextNode::WhatsIt => match WhatsIt::from(p) {
+                        WhatsIt::Open(p) => {
                             print_write_whatsit(b"openout", p.ptr());
                             print_char('=' as i32);
                             print_file_name(p.name(), p.area(), p.ext());
                         }
-                        WhatsItNST::Write => {
-                            let p = WriteFile(p);
+                        WhatsIt::Write(p) => {
                             print_write_whatsit(b"write", p.ptr());
                             print_mark(p.tokens());
                         }
-                        WhatsItNST::Close => print_write_whatsit(b"closeout", p),
-                        WhatsItNST::Special => {
+                        WhatsIt::Close(p) => print_write_whatsit(b"closeout", p.ptr()),
+                        WhatsIt::Special(s) => {
                             print_esc_cstr(b"special");
-                            print_mark(MEM[p + 1].b32.s1);
+                            print_mark(s.tokens());
                         }
-                        WhatsItNST::Language => {
-                            let l = Language(p);
+                        WhatsIt::Language(l) => {
                             print_esc_cstr(b"setlanguage");
                             print_int(l.lang());
                             print_cstr(b" (hyphenmin ");
@@ -905,8 +901,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_int(l.rhm() as i32);
                             print_char(')' as i32);
                         }
-                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                            let nw = NativeWord::from(p);
+                        WhatsIt::NativeWord(nw) | WhatsIt::NativeWordAt(nw) => {
                             print_esc(
                                 (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
                                     .s1,
@@ -914,32 +909,26 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_char(' ' as i32);
                             print_native_word(&nw);
                         }
-                        WhatsItNST::Glyph => {
-                            let g = Glyph::from(p);
+                        WhatsIt::Glyph(g) => {
                             print_esc(
                                 (*hash.offset((FONT_ID_BASE as i32 + g.font() as i32) as isize)).s1,
                             );
                             print_cstr(b" glyph#");
                             print_int(g.glyph() as i32);
                         }
-                        WhatsItNST::Pic | WhatsItNST::Pdf => {
-                            if whatsit_NODE_subtype(p) == WhatsItNST::Pic {
+                        WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                            if whatsit_NODE_subtype(p.ptr()) == WhatsItNST::Pic {
                                 print_esc_cstr(b"XeTeXpicfile");
                             } else {
                                 print_esc_cstr(b"XeTeXpdffile");
                             }
                             print_cstr(b"( ");
-                            for i in 0..MEM[p + 4].b16.s1 {
-                                print_raw_char(
-                                    *(&mut MEM[p + 9] as *mut memory_word as *mut u8)
-                                        .offset(i as isize)
-                                        as UTF16_code,
-                                    true,
-                                );
+                            for i in p.path() {
+                                print_raw_char(*i as UTF16_code, true);
                             }
                             print('\"' as i32);
                         }
-                        WhatsItNST::PdfSavePos => print_esc_cstr(b"pdfsavepos"),
+                        WhatsIt::PdfSavePos(_) => print_esc_cstr(b"pdfsavepos"),
                         //_ => print_cstr(b"whatsit?"),
                     },
                     TextNode::Glue => {
@@ -1281,54 +1270,30 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         i.free();
                     }
                     TextNode::WhatsIt => {
-                        match whatsit_NODE_subtype(p) {
-                            WhatsItNST::Open => {
-                                let o = OpenFile(p);
-                                o.free();
-                            }
-                            WhatsItNST::Write => {
-                                let f = WriteFile(p);
+                        match WhatsIt::from(p) {
+                            WhatsIt::Open(o) => o.free(),
+                            WhatsIt::Write(f) => {
                                 delete_token_ref(f.tokens() as usize);
                                 f.free();
                             }
-                            WhatsItNST::Special => {
-                                let s = Special(p);
+                            WhatsIt::Special(s) => {
                                 delete_token_ref(s.tokens() as usize);
                                 s.free();
                             }
-                            WhatsItNST::Close => {
-                                let c = CloseFile(p);
-                                c.free();
-                            }
-                            WhatsItNST::Language => {
-                                let l = Language(p);
-                                l.free();
-                            }
-                            WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                                let mut nw = NativeWord::from(p);
+                            WhatsIt::Close(c) => c.free(),
+                            WhatsIt::Language(l) => l.free(),
+                            WhatsIt::NativeWord(mut nw) | WhatsIt::NativeWordAt(mut nw) => {
                                 if let Some(ptr) = nw.glyph_info_ptr().as_mut() {
                                     nw.set_glyph_info_ptr(mfree(ptr));
                                     nw.set_glyph_count(0);
                                 }
                                 nw.free();
                             }
-                            WhatsItNST::Glyph => free_node(p, GLYPH_NODE_SIZE),
-                            WhatsItNST::Pic | WhatsItNST::Pdf => {
-                                free_node(
-                                    p,
-                                    (PIC_NODE_SIZE as u64).wrapping_add(
-                                        (MEM[p + 4].b16.s1 as u64)
-                                            .wrapping_add(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            )
-                                            .wrapping_sub(1i32 as u64)
-                                            .wrapping_div(
-                                                ::std::mem::size_of::<memory_word>() as u64
-                                            ),
-                                    ) as i32,
-                                );
+                            WhatsIt::Glyph(g) => g.free(),
+                            WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                                p.free();
                             }
-                            WhatsItNST::PdfSavePos => PdfSavePos(p).free(),
+                            WhatsIt::PdfSavePos(p) => p.free(),
                             //_ => confusion(b"ext3"),
                         }
                     }
@@ -1479,22 +1444,26 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                     r_ins.set_ins_ptr(copy_node_list(p_ins.ins_ptr().opt()));
                     words = (INS_NODE_SIZE - 1) as u8
                 }
-                TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
-                    WhatsItNST::Open => {
+                TextNode::WhatsIt => match WhatsIt::from(p) {
+                    WhatsIt::Open(_) => {
                         r = get_node(OPEN_NODE_SIZE);
                         words = OPEN_NODE_SIZE as u8
                     }
-                    WhatsItNST::Write | WhatsItNST::Special => {
+                    WhatsIt::Write(p) => {
                         r = get_node(WRITE_NODE_SIZE);
-                        MEM[MEM[p + 1].b32.s1 as usize].b32.s0 += 1;
+                        MEM[p.tokens() as usize].b32.s0 += 1;
                         words = WRITE_NODE_SIZE as u8
                     }
-                    WhatsItNST::Close | WhatsItNST::Language => {
+                    WhatsIt::Special(p) => {
+                        r = get_node(WRITE_NODE_SIZE);
+                        MEM[p.tokens() as usize].b32.s0 += 1;
+                        words = WRITE_NODE_SIZE as u8
+                    }
+                    WhatsIt::Close(_) | WhatsIt::Language(_) => {
                         r = get_node(SMALL_NODE_SIZE);
                         words = SMALL_NODE_SIZE as u8
                     }
-                    WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                        let p = NativeWord::from(p);
+                    WhatsIt::NativeWord(p) | WhatsIt::NativeWordAt(p) => {
                         words = p.size() as u8;
                         let mut r_nw = NativeWord::from(get_node(words as i32));
                         r = r_nw.ptr();
@@ -1505,20 +1474,15 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                         r_nw.set_glyph_count(0);
                         copy_native_glyph_info(&p, &mut r_nw);
                     }
-                    WhatsItNST::Glyph => {
+                    WhatsIt::Glyph(_) => {
                         r = get_node(GLYPH_NODE_SIZE);
                         words = GLYPH_NODE_SIZE as u8
                     }
-                    WhatsItNST::Pic | WhatsItNST::Pdf => {
-                        words = (PIC_NODE_SIZE as u64).wrapping_add(
-                            (MEM[p + 4].b16.s1 as u64)
-                                .wrapping_add(::std::mem::size_of::<memory_word>() as u64)
-                                .wrapping_sub(1)
-                                .wrapping_div(::std::mem::size_of::<memory_word>() as u64),
-                        ) as u8;
+                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                        words = p.total_size() as u8;
                         r = get_node(words as i32);
                     }
-                    WhatsItNST::PdfSavePos => r = get_node(SMALL_NODE_SIZE),
+                    WhatsIt::PdfSavePos(_) => r = get_node(SMALL_NODE_SIZE),
                     //_ => confusion(b"ext2"),
                 },
                 TextNode::Glue => {
@@ -11136,9 +11100,8 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                         p = q;
                     }
                 }
-                TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
-                    WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                        let mut p_nw = NativeWord::from(p);
+                TextNode::WhatsIt => match WhatsIt::from(p) {
+                    WhatsIt::NativeWord(mut p_nw) | WhatsIt::NativeWordAt(mut p_nw) => {
                         let mut k = if q != r.ptr() + 5 && NODE_type(q) == TextNode::Disc.into() {
                             let q = Discretionary(q);
                             q.replace_count() as i32
@@ -11224,14 +11187,12 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                         d = d.max(p_nw.depth());
                         x += p_nw.width();
                     }
-                    WhatsItNST::Glyph => {
-                        let g = Glyph::from(p);
+                    WhatsIt::Glyph(g) => {
                         h = h.max(g.height());
                         d = d.max(g.depth());
                         x += g.width();
                     }
-                    WhatsItNST::Pic | WhatsItNST::Pdf => {
-                        let p = Picture::from(p);
+                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                         h = h.max(p.height());
                         d = d.max(p.depth());
                         x += p.width();
@@ -11526,9 +11487,8 @@ pub(crate) unsafe fn vpackage(
                     d = u.depth();
                     w = w.max(u.width());
                 }
-                TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
-                    WhatsItNST::Pic | WhatsItNST::Pdf => {
-                        let p = Picture::from(p);
+                TextNode::WhatsIt => match WhatsIt::from(p) {
+                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                         x += d + p.height();
                         d = p.depth();
                         w = w.max(p.width());
@@ -12791,9 +12751,8 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     current_block = 10249009913728301645;
                 }
                 TextNode::WhatsIt => {
-                    match whatsit_NODE_subtype(p as usize) {
-                        WhatsItNST::Pic | WhatsItNST::Pdf => {
-                            let p = Picture::from(p);
+                    match WhatsIt::from(p as usize) {
+                        WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                             active_width[1] += prev_dp + p.height();
                             prev_dp = p.depth();
                         }
@@ -13975,17 +13934,15 @@ pub(crate) unsafe fn append_italic_correction() {
         } else if NODE_type(cur_list.tail) == TextNode::Ligature.into() {
             Ligature(cur_list.tail).as_char()
         } else if NODE_type(cur_list.tail) == TextNode::WhatsIt.into() {
-            match whatsit_NODE_subtype(cur_list.tail) {
-                WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                    let mut k = Kern(new_kern(
-                        NativeWord::from(cur_list.tail).italic_correction(),
-                    ));
+            match WhatsIt::from(cur_list.tail) {
+                WhatsIt::NativeWord(nw) | WhatsIt::NativeWordAt(nw) => {
+                    let mut k = Kern(new_kern(nw.italic_correction()));
                     *LLIST_link(cur_list.tail) = Some(k.ptr()).tex_int();
                     cur_list.tail = k.ptr();
                     k.set_subtype(KernType::Explicit);
                 }
-                WhatsItNST::Glyph => {
-                    let mut k = Kern(new_kern(Glyph::from(cur_list.tail).italic_correction()));
+                WhatsIt::Glyph(g) => {
+                    let mut k = Kern(new_kern(g.italic_correction()));
                     *LLIST_link(cur_list.tail) = Some(k.ptr()).tex_int();
                     cur_list.tail = k.ptr();
                     k.set_subtype(KernType::Explicit);
@@ -14365,29 +14322,26 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
                         .set_leader_ptr(None.tex_int());
                 }
                 TextNode::WhatsIt => {
-                    match whatsit_NODE_subtype(p) {
-                        WhatsItNST::Open => {
+                    match WhatsIt::from(p) {
+                        WhatsIt::Open(_p) => {
                             r = get_node(OPEN_NODE_SIZE);
                             words = OPEN_NODE_SIZE;
                         }
-                        WhatsItNST::Write => {
-                            let p = WriteFile(p);
+                        WhatsIt::Write(p) => {
                             r = get_node(WRITE_NODE_SIZE);
                             *TOKEN_LIST_ref_count(p.tokens() as usize) += 1;
                             words = WRITE_NODE_SIZE;
                         }
-                        WhatsItNST::Special => {
-                            let p = Special(p);
+                        WhatsIt::Special(p) => {
                             r = get_node(WRITE_NODE_SIZE);
                             *TOKEN_LIST_ref_count(p.tokens() as usize) += 1;
                             words = WRITE_NODE_SIZE;
                         }
-                        WhatsItNST::Close | WhatsItNST::Language => {
+                        WhatsIt::Close(_) | WhatsIt::Language(_) => {
                             r = get_node(SMALL_NODE_SIZE);
                             words = SMALL_NODE_SIZE;
                         }
-                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                            let p = NativeWord::from(p);
+                        WhatsIt::NativeWord(p) | WhatsIt::NativeWordAt(p) => {
                             words = p.size() as i32;
                             let mut r_nw = NativeWord::from(get_node(words as i32));
                             r = r_nw.ptr();
@@ -14400,20 +14354,15 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
                             r_nw.set_glyph_count(0);
                             copy_native_glyph_info(&p, &mut r_nw);
                         }
-                        WhatsItNST::Glyph => {
+                        WhatsIt::Glyph(_) => {
                             r = get_node(GLYPH_NODE_SIZE);
                             words = GLYPH_NODE_SIZE;
                         }
-                        WhatsItNST::Pic | WhatsItNST::Pdf => {
-                            words = (9i32 as u64).wrapping_add(
-                                (MEM[p + 4].b16.s1 as u64)
-                                    .wrapping_add(::std::mem::size_of::<memory_word>() as u64)
-                                    .wrapping_sub(1i32 as u64)
-                                    .wrapping_div(::std::mem::size_of::<memory_word>() as u64),
-                            ) as i32;
+                        WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                            words = p.total_size() as i32;
                             r = get_node(words as i32);
                         }
-                        WhatsItNST::PdfSavePos => r = get_node(SMALL_NODE_SIZE),
+                        WhatsIt::PdfSavePos(_) => r = get_node(SMALL_NODE_SIZE),
                         //_ => confusion(b"ext2"),
                     }
                 }

@@ -27,8 +27,8 @@ use crate::xetex_xetex0::{
     scan_left_brace, vert_break, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_non_discardable_node, llist_link, text_NODE_type, whatsit_NODE_subtype, LLIST_link,
-    NODE_type, TOKEN_LIST_ref_count, TeXInt, TeXOpt,
+    is_non_discardable_node, llist_link, text_NODE_type, LLIST_link, NODE_type,
+    TOKEN_LIST_ref_count, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -595,9 +595,8 @@ pub(crate) unsafe fn build_page() {
             }
             TextNode::WhatsIt => {
                 /*1401: "Prepare to move whatsit p to the current page, then goto contribute" */
-                match whatsit_NODE_subtype(slf.p) {
-                    WhatsItNST::Pic | WhatsItNST::Pdf => {
-                        let p = Picture::from(slf.p);
+                match WhatsIt::from(slf.p) {
+                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                         page_so_far[1] += page_so_far[7] + p.height();
                         page_so_far[7] = p.depth();
                     }
