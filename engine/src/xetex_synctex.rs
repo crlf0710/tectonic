@@ -13,16 +13,14 @@ use std::io::Write;
 
 use crate::core_memory::{mfree, xmalloc, xrealloc, xstrdup};
 use crate::xetex_consts::{
-    IntPar, Kern, TextNode, BOX_NODE_SIZE, INTPAR, MEDIUM_NODE_SIZE, RULE_NODE_SIZE,
+    Box, IntPar, Kern, TextNode, BOX_NODE_SIZE, INTPAR, MEDIUM_NODE_SIZE, RULE_NODE_SIZE,
 };
 use crate::xetex_ini::{
     cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, MEM, TOTAL_PAGES,
 };
 use crate::xetex_io::name_of_input_file;
 use crate::xetex_texmfmp::gettexstring;
-use crate::xetex_xetexd::{
-    text_NODE_type, BOX_depth, BOX_height, BOX_width, SYNCTEX_line, SYNCTEX_tag,
-};
+use crate::xetex_xetexd::{text_NODE_type, SYNCTEX_line, SYNCTEX_tag};
 use bridge::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
 use libc::{free, strcat, strcpy, strlen};
 use std::ptr;
@@ -396,17 +394,17 @@ pub(crate) unsafe fn synctex_teehs() {
  *  the beginning of the vlist_out procedure in *TeX.web.  It will be balanced
  *  by a synctex_tsilv, sent at the end of the vlist_out procedure.  p is the
  *  address of the vlist. We assume that p is really a vlist node! */
-pub(crate) unsafe fn synctex_vlist(this_box: usize) {
+pub(crate) unsafe fn synctex_vlist(this_box: &Box) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     } /*  0 to reset  */
-    synctex_ctxt.node = this_box; /*  reset  */
+    synctex_ctxt.node = this_box.ptr(); /*  reset  */
     synctex_ctxt.recorder = None;
-    synctex_ctxt.tag = *SYNCTEX_tag(this_box, BOX_NODE_SIZE);
-    synctex_ctxt.line = *SYNCTEX_line(this_box, BOX_NODE_SIZE);
+    synctex_ctxt.tag = *SYNCTEX_tag(this_box.ptr(), BOX_NODE_SIZE);
+    synctex_ctxt.line = *SYNCTEX_line(this_box.ptr(), BOX_NODE_SIZE);
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_record_node_vlist(this_box);
@@ -439,16 +437,16 @@ pub(crate) unsafe fn synctex_tsilv(this_box: usize) {
  *  There is no need to balance a void vlist.  */
 /*  This message is sent when a void vlist will be shipped out.
  *  There is no need to balance a void vlist.  */
-pub(crate) unsafe fn synctex_void_vlist(p: usize, mut _this_box: usize) {
+pub(crate) unsafe fn synctex_void_vlist(p: &Box, mut _this_box: &Box) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     } /*  reset  */
-    synctex_ctxt.node = p; /*  reset  */
-    synctex_ctxt.tag = *SYNCTEX_tag(p, BOX_NODE_SIZE);
-    synctex_ctxt.line = *SYNCTEX_line(p, BOX_NODE_SIZE);
+    synctex_ctxt.node = p.ptr(); /*  reset  */
+    synctex_ctxt.tag = *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE);
+    synctex_ctxt.line = *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE);
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -462,16 +460,16 @@ pub(crate) unsafe fn synctex_void_vlist(p: usize, mut _this_box: usize) {
  *  the beginning of the hlist_out procedure in *TeX.web.  It will be balanced
  *  by a synctex_tsilh, sent at the end of the hlist_out procedure.  p is the
  *  address of the hlist We assume that p is really an hlist node! */
-pub(crate) unsafe fn synctex_hlist(this_box: usize) {
+pub(crate) unsafe fn synctex_hlist(this_box: &Box) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
     } /*  0 to reset  */
-    synctex_ctxt.node = this_box; /*  reset  */
-    synctex_ctxt.tag = *SYNCTEX_tag(this_box, BOX_NODE_SIZE);
-    synctex_ctxt.line = *SYNCTEX_line(this_box, BOX_NODE_SIZE);
+    synctex_ctxt.node = this_box.ptr(); /*  reset  */
+    synctex_ctxt.tag = *SYNCTEX_tag(this_box.ptr(), BOX_NODE_SIZE);
+    synctex_ctxt.line = *SYNCTEX_line(this_box.ptr(), BOX_NODE_SIZE);
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -503,7 +501,7 @@ pub(crate) unsafe fn synctex_tsilh(this_box: usize) {
  *  There is no need to balance a void hlist.  */
 /*  This message is sent when a void hlist will be shipped out.
  *  There is no need to balance a void hlist.  */
-pub(crate) unsafe fn synctex_void_hlist(p: usize, _this_box: usize) {
+pub(crate) unsafe fn synctex_void_hlist(p: &Box, _this_box: &Box) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
@@ -516,9 +514,9 @@ pub(crate) unsafe fn synctex_void_hlist(p: usize, _this_box: usize) {
         synctex_ctxt.recorder.expect("non-null function pointer")(synctex_ctxt.node);
         /*  0 to reset  */
     } /*  reset  */
-    synctex_ctxt.node = p;
-    synctex_ctxt.tag = *SYNCTEX_tag(p, BOX_NODE_SIZE);
-    synctex_ctxt.line = *SYNCTEX_line(p, BOX_NODE_SIZE);
+    synctex_ctxt.node = p.ptr();
+    synctex_ctxt.tag = *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE);
+    synctex_ctxt.line = *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE);
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
@@ -870,16 +868,16 @@ unsafe fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
     -1i32
 }
 #[inline]
-unsafe fn synctex_record_node_void_vlist(p: usize) {
+unsafe fn synctex_record_node_void_vlist(p: &Box) {
     let s = format!(
         "v{},{}:{},{}:{},{},{}\n",
-        *SYNCTEX_tag(p, BOX_NODE_SIZE),
-        *SYNCTEX_line(p, BOX_NODE_SIZE),
+        *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE),
+        *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE),
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        *BOX_width(p) / synctex_ctxt.unit,
-        *BOX_height(p) / synctex_ctxt.unit,
-        *BOX_depth(p) / synctex_ctxt.unit,
+        p.width() / synctex_ctxt.unit,
+        p.height() / synctex_ctxt.unit,
+        p.depth() / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -890,17 +888,17 @@ unsafe fn synctex_record_node_void_vlist(p: usize) {
     };
 }
 #[inline]
-unsafe fn synctex_record_node_vlist(p: usize) {
+unsafe fn synctex_record_node_vlist(p: &Box) {
     synctex_ctxt.flags.insert(Flags::NOT_VOID);
     let s = format!(
         "[{},{}:{},{}:{},{},{}\n",
-        *SYNCTEX_tag(p, BOX_NODE_SIZE),
-        *SYNCTEX_line(p, BOX_NODE_SIZE),
+        *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE),
+        *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE),
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        *BOX_width(p) / synctex_ctxt.unit,
-        *BOX_height(p) / synctex_ctxt.unit,
-        *BOX_depth(p) / synctex_ctxt.unit,
+        p.width() / synctex_ctxt.unit,
+        p.height() / synctex_ctxt.unit,
+        p.depth() / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -920,16 +918,16 @@ unsafe fn synctex_record_node_tsilv(_p: usize) {
     };
 }
 #[inline]
-unsafe fn synctex_record_node_void_hlist(p: usize) {
+unsafe fn synctex_record_node_void_hlist(p: &Box) {
     let s = format!(
         "h{},{}:{},{}:{},{},{}\n",
-        *SYNCTEX_tag(p, BOX_NODE_SIZE),
-        *SYNCTEX_line(p, BOX_NODE_SIZE),
+        *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE),
+        *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE),
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        *BOX_width(p) / synctex_ctxt.unit,
-        *BOX_height(p) / synctex_ctxt.unit,
-        *BOX_depth(p) / synctex_ctxt.unit,
+        p.width() / synctex_ctxt.unit,
+        p.height() / synctex_ctxt.unit,
+        p.depth() / synctex_ctxt.unit,
     );
     synctex_ctxt.lastv = cur_v + 4736287i32;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -940,19 +938,19 @@ unsafe fn synctex_record_node_void_hlist(p: usize) {
     };
 }
 #[inline]
-unsafe fn synctex_record_node_hlist(p: usize) {
+unsafe fn synctex_record_node_hlist(p: &Box) {
     synctex_ctxt.flags.insert(Flags::NOT_VOID);
     let s = format!(
         "({},{}:{},{}:{},{},{}\n",
-        *SYNCTEX_tag(p, BOX_NODE_SIZE),
-        *SYNCTEX_line(p, BOX_NODE_SIZE),
+        *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE),
+        *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE),
         synctex_ctxt.curh / synctex_ctxt.unit,
         synctex_ctxt.curv / synctex_ctxt.unit,
-        *BOX_width(p) / synctex_ctxt.unit,
-        *BOX_height(p) / synctex_ctxt.unit,
-        *BOX_depth(p) / synctex_ctxt.unit,
+        p.width() / synctex_ctxt.unit,
+        p.height() / synctex_ctxt.unit,
+        p.depth() / synctex_ctxt.unit,
     );
-    synctex_ctxt.lastv = cur_v + 4736287i32;
+    synctex_ctxt.lastv = cur_v + 4736287;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
         synctex_ctxt.count += 1

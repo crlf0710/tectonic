@@ -613,7 +613,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
     /* ... resuming 639 ... */
 
     let mut left_edge = cur_h;
-    synctex_hlist(this_box.ptr());
+    synctex_hlist(this_box);
 
     while let Some(mut p) = popt {
                  /*642: "Output node `p` for `hlist_out` and move to the next node,
@@ -692,8 +692,8 @@ unsafe fn hlist_out(this_box: &mut Box) {
                     let mut p = Box::from(p);
                     if p.list_ptr().opt().is_none() {
                         if n == TextNode::VList {
-                            synctex_void_vlist(p.ptr(), this_box.ptr());
-                        } else { synctex_void_hlist(p.ptr(), this_box.ptr()); }
+                            synctex_void_vlist(&p, this_box);
+                        } else { synctex_void_hlist(&p, this_box); }
                         cur_h += p.width();
                     } else {
                         let save_h = dvi_h;
@@ -1182,7 +1182,7 @@ unsafe fn vlist_out(this_box: &Box) {
 
     let save_loc = dvi_offset + dvi_ptr;
     let left_edge = cur_h;
-    synctex_vlist(this_box.ptr());
+    synctex_vlist(this_box);
 
     if upwards {
         cur_v += this_box.depth();
@@ -1211,9 +1211,9 @@ unsafe fn vlist_out(this_box: &Box) {
                         cur_v += p.height();
                     }
                     if n == TextNode::VList {
-                        synctex_void_vlist(p.ptr(), this_box.ptr());
+                        synctex_void_vlist(&p, this_box);
                     } else {
-                        synctex_void_hlist(p.ptr(), this_box.ptr());
+                        synctex_void_hlist(&p, this_box);
                     }
                     if upwards {
                         cur_v -= p.height();

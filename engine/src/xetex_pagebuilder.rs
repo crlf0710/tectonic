@@ -27,8 +27,8 @@ use crate::xetex_xetex0::{
     scan_left_brace, vert_break, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_non_discardable_node, llist_link, text_NODE_type, whatsit_NODE_subtype, BOX_depth,
-    BOX_height, LLIST_link, NODE_type, TOKEN_LIST_ref_count, TeXInt, TeXOpt,
+    is_non_discardable_node, llist_link, text_NODE_type, whatsit_NODE_subtype, LLIST_link,
+    NODE_type, TOKEN_LIST_ref_count, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -527,19 +527,24 @@ pub(crate) unsafe fn build_page() {
          * successor." */
 
         match p_node {
-            TextNode::HList | TextNode::VList | TextNode::Rule => {
-                if page_contents == PageContents::Empty || page_contents == PageContents::InsertsOnly {
+            TextNode::HList | TextNode::VList => {
+                let p = Box::from(slf.p);
+                if page_contents == PageContents::Empty
+                    || page_contents == PageContents::InsertsOnly
+                {
                     /*1036: "Initialize the current page, insert the \topskip glue
                      * ahead of p, and goto continue." */
                     if page_contents == PageContents::Empty {
                         freeze_page_specs(PageContents::BoxThere);
-                    } else { page_contents = PageContents::BoxThere }
+                    } else {
+                        page_contents = PageContents::BoxThere
+                    }
 
                     let (q, mut tmp_ptr) = new_skip_param(GluePar::top_skip);
-                    slf.q = q as i32; /* "now tmp_ptr = glue_ptr(q) */
+                    slf.q = q as i32;
 
-                    if tmp_ptr.size() > *BOX_height(slf.p) {
-                        tmp_ptr.set_size(tmp_ptr.size() - *BOX_height(slf.p));
+                    if tmp_ptr.size() > p.height() {
+                        tmp_ptr.set_size(tmp_ptr.size() - p.height());
                     } else {
                         tmp_ptr.set_size(0);
                     }
@@ -549,16 +554,49 @@ pub(crate) unsafe fn build_page() {
                     return (slf, false); // TODO: check
                 } else {
                     /*1037: "Prepare to move a box or rule node to the current
-                 * page, then goto contribute." */
-                    page_so_far[1] += page_so_far[7] + *BOX_height(slf.p);
-                    page_so_far[7] = *BOX_depth(slf.p);
+                     * page, then goto contribute." */
+                    page_so_far[1] += page_so_far[7] + p.height();
+                    page_so_far[7] = p.depth();
+                    return contribute(slf);
+                }
+            }
+            TextNode::Rule => {
+                let p = Rule::from(slf.p);
+                if page_contents == PageContents::Empty
+                    || page_contents == PageContents::InsertsOnly
+                {
+                    /*1036: "Initialize the current page, insert the \topskip glue
+                     * ahead of p, and goto continue." */
+                    if page_contents == PageContents::Empty {
+                        freeze_page_specs(PageContents::BoxThere);
+                    } else {
+                        page_contents = PageContents::BoxThere
+                    }
+
+                    let (q, mut tmp_ptr) = new_skip_param(GluePar::top_skip);
+                    slf.q = q as i32;
+
+                    if tmp_ptr.size() > p.height() {
+                        tmp_ptr.set_size(tmp_ptr.size() - p.height());
+                    } else {
+                        tmp_ptr.set_size(0);
+                    }
+
+                    *LLIST_link(slf.q as usize) = Some(slf.p).tex_int();
+                    *LLIST_link(CONTRIB_HEAD) = slf.q;
+                    return (slf, false); // TODO: check
+                } else {
+                    /*1037: "Prepare to move a box or rule node to the current
+                     * page, then goto contribute." */
+                    page_so_far[1] += page_so_far[7] + p.height();
+                    page_so_far[7] = p.depth();
                     return contribute(slf);
                 }
             }
             TextNode::WhatsIt => {
                 /*1401: "Prepare to move whatsit p to the current page, then goto contribute" */
                 match whatsit_NODE_subtype(slf.p) {
-                     WhatsItNST::Pic | WhatsItNST::Pdf => {
+                    WhatsItNST::Pic | WhatsItNST::Pdf => {
                         let p = Picture::from(slf.p);
                         page_so_far[1] += page_so_far[7] + p.height();
                         page_so_far[7] = p.depth();
@@ -568,30 +606,42 @@ pub(crate) unsafe fn build_page() {
                 return contribute(slf);
             }
             TextNode::Glue => {
-                if page_contents == PageContents::Empty || page_contents == PageContents::InsertsOnly {
+                if page_contents == PageContents::Empty
+                    || page_contents == PageContents::InsertsOnly
+                {
                     return done1(slf);
                 } else if is_non_discardable_node(page_tail) {
                     slf.pi = 0;
-                } else { return update_heights(slf); }
+                } else {
+                    return update_heights(slf);
+                }
             }
             TextNode::Kern => {
-                if page_contents == PageContents::Empty || page_contents == PageContents::InsertsOnly {
+                if page_contents == PageContents::Empty
+                    || page_contents == PageContents::InsertsOnly
+                {
                     return done1(slf);
                 } else if LLIST_link(slf.p).opt().is_none() {
-                    return (slf, true)
+                    return (slf, true);
                 } else if NODE_type(*LLIST_link(slf.p) as usize) == TextNode::Glue.into() {
                     slf.pi = 0;
-                } else { return update_heights(slf); }
+                } else {
+                    return update_heights(slf);
+                }
             }
             TextNode::Penalty => {
                 let p = Penalty(slf.p);
-                if page_contents == PageContents::Empty || page_contents == PageContents::InsertsOnly {
+                if page_contents == PageContents::Empty
+                    || page_contents == PageContents::InsertsOnly
+                {
                     return done1(slf);
                 } else {
                     slf.pi = p.penalty();
                 }
             }
-            TextNode::Mark => { return contribute(slf); }
+            TextNode::Mark => {
+                return contribute(slf);
+            }
             TextNode::Ins => {
                 let p_ins = Insertion(slf.p);
                 /*1043: "Append an insertion to the current page and goto contribute" */
@@ -618,8 +668,7 @@ pub(crate) unsafe fn build_page() {
                     slf.r = slf.q as usize;
                     r_pins = PageInsertion(slf.r);
 
-                    r_pins.set_box_reg(n)
-                    .set_subtype(PageInsType::Inserting);
+                    r_pins.set_box_reg(n).set_subtype(PageInsType::Inserting);
                     ensure_vbox(n as _);
 
                     r_pins.set_height(if let Some(br) = BOX_REG(n as _).opt() {
@@ -652,22 +701,21 @@ pub(crate) unsafe fn build_page() {
                         print_cstr(b"Infinite glue shrinkage inserted from ");
                         print_esc_cstr(b"skip");
                         print_int(n as i32);
-                        help!(b"The correction glue for page breaking with insertions",
-                        b"must have finite shrinkability. But you may proceed,",
-                        b"since the offensive shrinkability has been made finite."
+                        help!(
+                            b"The correction glue for page breaking with insertions",
+                            b"must have finite shrinkability. But you may proceed,",
+                            b"since the offensive shrinkability has been made finite."
                         );
                         error();
                     }
                 }
 
                 if r_pins.subtype() == PageInsType::SplitUp {
-                    insert_penalties +=
-                        p_ins.float_cost()
+                    insert_penalties += p_ins.float_cost()
                 } else {
                     r_pins.set_last_ins_ptr(Some(slf.p).tex_int());
                     let delta: scaled_t =
-                        page_so_far[0] - page_so_far[1] - page_so_far[7] +
-                            page_so_far[6];
+                        page_so_far[0] - page_so_far[1] - page_so_far[7] + page_so_far[6];
 
                     let h: scaled_t = if *COUNT_REG(n as _) == 1000 {
                         p_ins.height()
@@ -675,8 +723,9 @@ pub(crate) unsafe fn build_page() {
                         x_over_n(p_ins.height(), 1000) * *COUNT_REG(n as _)
                     };
 
-                    if (h <= 0 || h <= delta) &&
-                        p_ins.height() + r_pins.height() <= *SCALED_REG(n as _) {
+                    if (h <= 0 || h <= delta)
+                        && p_ins.height() + r_pins.height() <= *SCALED_REG(n as _)
+                    {
                         page_so_far[0] -= h;
                         r_pins.set_height(r_pins.height() + p_ins.height());
                     } else {
@@ -696,9 +745,7 @@ pub(crate) unsafe fn build_page() {
                         let mut w: scaled_t = if *COUNT_REG(n as _) <= 0 {
                             MAX_HALFWORD
                         } else {
-                            let mut w =
-                                page_so_far[0] - page_so_far[1] -
-                                    page_so_far[7];
+                            let mut w = page_so_far[0] - page_so_far[1] - page_so_far[7];
                             if *COUNT_REG(n as _) != 1000 {
                                 w = x_over_n(w, *COUNT_REG(n as _)) * 1000;
                             }
@@ -707,9 +754,7 @@ pub(crate) unsafe fn build_page() {
 
                         w = w.min(*SCALED_REG(n as _) - r_pins.height());
 
-                        slf.q =
-                            vert_break(p_ins.ins_ptr(), w,
-                                       p_ins.depth());
+                        slf.q = vert_break(p_ins.ins_ptr(), w, p_ins.depth());
                         r_pins.set_height(r_pins.height() + best_height_plus_depth);
 
                         if *COUNT_REG(n as _) != 1000 {
@@ -718,15 +763,14 @@ pub(crate) unsafe fn build_page() {
                         }
                         page_so_far[0] -= best_height_plus_depth;
                         r_pins
-                        .set_subtype(PageInsType::SplitUp)
-                        .set_broken_ptr(slf.q)
-                        .set_broken_ins(Some(slf.p).tex_int());
+                            .set_subtype(PageInsType::SplitUp)
+                            .set_broken_ptr(slf.q)
+                            .set_broken_ins(Some(slf.p).tex_int());
 
                         if let Some(q) = slf.q.opt() {
                             if NODE_type(q) == TextNode::Penalty.into() {
                                 let q = Penalty(q);
-                                insert_penalties +=
-                                    q.penalty();
+                                insert_penalties += q.penalty();
                             }
                         } else {
                             insert_penalties += EJECT_PENALTY;

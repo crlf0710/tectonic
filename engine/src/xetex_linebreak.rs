@@ -33,8 +33,8 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     clear_NODE_subtype, is_char_node, is_non_discardable_node, llist_link, set_NODE_type,
-    set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, BOX_width, LLIST_info,
-    LLIST_link, NODE_type, TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
+    set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, LLIST_info, LLIST_link,
+    NODE_type, TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -1625,7 +1625,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                         break_width[6] -= v.shrink();
                                     }
                                     TextNode::Penalty => {}
-                                    TextNode::Math => break_width[1] -= *BOX_width(s),
+                                    TextNode::Math => break_width[1] -= Math(s).width(),
                                     TextNode::Kern => {
                                         let k = Kern(s);
                                         if k.subtype() != KernType::Explicit {
