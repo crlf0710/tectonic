@@ -21,7 +21,6 @@ use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_ext::release_font_engine;
 use crate::xetex_ext::{AAT_FONT_FLAG, OTGR_FONT_FLAG};
 use crate::xetex_layout_interface::{destroy_font_manager, set_cp_code};
-use crate::xetex_math::initialize_math_variables;
 use crate::xetex_output::{
     print, print_char, print_cstr, print_esc, print_esc_cstr, print_file_line, print_file_name,
     print_int, print_ln, print_nl, print_nl_cstr, print_scaled,
@@ -5253,7 +5252,6 @@ pub(crate) unsafe fn tt_run_engine(
     }
 
     /*55:*/
-    initialize_math_variables();
     initialize_pagebuilder_variables();
     initialize_shipout_variables();
 

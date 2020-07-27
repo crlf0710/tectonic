@@ -16,8 +16,8 @@ use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ext::{map_char_to_glyph, AAT_FONT_FLAG, OTGR_FONT_FLAG};
 use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
-    cur_list, cur_val, cur_val1, empty, file_line_error_style_p, insert_src_special_every_math,
-    just_box, pre_adjust_tail, tex_remainder, total_shrink, xtx_ligature_present, LR_problems,
+    cur_list, cur_val, cur_val1, file_line_error_style_p, insert_src_special_every_math, just_box,
+    memory_word, pre_adjust_tail, tex_remainder, total_shrink, xtx_ligature_present, LR_problems,
     LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_EC, FONT_INFO,
     FONT_LAYOUT_ENGINE, FONT_PARAMS, HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM,
     NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
@@ -42,9 +42,9 @@ use crate::xetex_xetex0::{
     scan_math_fam_int, scan_usv_num, unsave, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_char_node, llist_link, math_char, math_class, math_fam, set_NODE_type, set_class,
-    set_family, set_whatsit_NODE_subtype, text_NODE_type, whatsit_NODE_subtype, LLIST_link,
-    NODE_type, TeXInt, TeXOpt,
+    is_char_node, llist_link, math_NODE_type, math_char, math_class, math_fam, set_NODE_type,
+    set_class, set_family, set_math_NODE_type, set_whatsit_NODE_subtype, text_NODE_type,
+    whatsit_NODE_subtype, LLIST_link, NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -82,7 +82,8 @@ authorization from the copyright holders.
 pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type str_number = i32;
-static mut null_delimiter: b16x4 = b16x4 {
+use crate::xetex_consts::Delimeter;
+pub(crate) const NULL_DELIMITER: Delimeter = Delimeter {
     s0: 0,
     s1: 0,
     s2: 0,
@@ -93,12 +94,7 @@ static mut cur_style: (MathStyle, u8) = (MathStyle::Display, 0);
 static mut cur_size: usize = 0;
 static mut cur_mu: scaled_t = 0;
 static mut mlist_penalties: bool = false;
-pub(crate) unsafe fn initialize_math_variables() {
-    null_delimiter.s3 = 0_u16;
-    null_delimiter.s2 = 0_u16;
-    null_delimiter.s1 = 0_u16;
-    null_delimiter.s0 = 0_u16;
-}
+
 pub(crate) unsafe fn init_math() {
     let mut x: i32 = 0;
     let mut v: scaled_t = 0;
@@ -443,7 +439,7 @@ pub(crate) unsafe fn math_limit_switch() {
     help!(b"I\'m ignoring this misplaced \\limits or \\nolimits command.");
     error();
 }
-unsafe fn scan_delimiter(p: usize, mut r: bool) {
+unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
     if r {
         if cur_chr == 1 {
             cur_val1 = 0x40000000;
@@ -499,29 +495,28 @@ unsafe fn scan_delimiter(p: usize, mut r: bool) {
         cur_val = 0i32
     }
     if cur_val >= 0x40000000i32 {
-        MEM[p].b16.s3 =
-            (cur_val % 0x200000 / 0x10000 * 0x100 + cur_val / 0x200000i32 % 0x100i32) as u16;
-        MEM[p].b16.s2 = (cur_val % 0x10000) as u16;
-        MEM[p].b16.s1 = 0_u16;
-        MEM[p].b16.s0 = 0_u16
+        d.s3 = (cur_val % 0x200000 / 0x10000 * 0x100 + cur_val / 0x200000i32 % 0x100i32) as u16;
+        d.s2 = (cur_val % 0x10000) as u16;
+        d.s1 = 0_u16;
+        d.s0 = 0_u16
     } else {
-        MEM[p].b16.s3 = (cur_val / 0x100000 % 16) as u16;
-        MEM[p].b16.s2 = (cur_val / 0x1000 % 0x100) as u16;
-        MEM[p].b16.s1 = (cur_val / 0x100 % 16) as u16;
-        MEM[p].b16.s0 = (cur_val % 0x100) as u16
+        d.s3 = (cur_val / 0x100000 % 16) as u16;
+        d.s2 = (cur_val / 0x1000 % 0x100) as u16;
+        d.s1 = (cur_val / 0x100 % 16) as u16;
+        d.s0 = (cur_val % 0x100) as u16
     };
 }
 pub(crate) unsafe fn math_radical() {
-    let rn = get_node(RADICAL_NOAD_SIZE);
-    *LLIST_link(cur_list.tail) = Some(rn).tex_int();
-    cur_list.tail = rn;
-    MEM[cur_list.tail].b16.s1 = MathNode::Radical as u16;
-    MEM[cur_list.tail].b16.s0 = NORMAL as u16;
-    MEM[cur_list.tail + 1].b32 = empty;
-    MEM[cur_list.tail + 3].b32 = empty;
-    MEM[cur_list.tail + 2].b32 = empty;
-    scan_delimiter(cur_list.tail + 4, true);
-    scan_math(cur_list.tail + 1);
+    let rn = Radical::from(get_node(RADICAL_NOAD_SIZE));
+    *LLIST_link(cur_list.tail) = Some(rn.ptr()).tex_int();
+    cur_list.tail = rn.ptr();
+    set_math_NODE_type(rn.ptr(), MathNode::Radical);
+    MEM[rn.ptr()].b16.s0 = NORMAL as u16;
+    rn.first_mut().empty();
+    rn.third_mut().empty();
+    rn.second_mut().empty();
+    scan_delimiter(rn.delimeter_mut(), true);
+    scan_math(rn.first_mut(), rn.ptr() + 1);
 }
 pub(crate) unsafe fn math_ac() {
     if cur_cmd == Cmd::Accent {
@@ -540,27 +535,27 @@ pub(crate) unsafe fn math_ac() {
         );
         error();
     }
-    let an = get_node(ACCENT_NOAD_SIZE);
-    *LLIST_link(cur_list.tail) = Some(an).tex_int();
-    cur_list.tail = an;
-    MEM[cur_list.tail].b16.s1 = MathNode::Accent as u16;
-    MEM[cur_list.tail].b16.s0 = AccentType::Normal as _;
-    MEM[cur_list.tail + 1].b32 = empty;
-    MEM[cur_list.tail + 3].b32 = empty;
-    MEM[cur_list.tail + 2].b32 = empty;
-    MEM[cur_list.tail + 4].b32.s1 = MathCell::MathChar as _;
-    if cur_chr == 1i32 {
-        MEM[cur_list.tail].b16.s0 = if scan_keyword(b"fixed") {
-            AccentType::Fixed as _
+    let mut acc = Accent::from(get_node(ACCENT_NOAD_SIZE));
+    *LLIST_link(cur_list.tail) = Some(acc.ptr()).tex_int();
+    cur_list.tail = acc.ptr();
+    set_math_NODE_type(acc.ptr(), MathNode::Accent);
+    MEM[acc.ptr()].b16.s0 = AccentType::Normal as _;
+    acc.first_mut().empty();
+    acc.third_mut().empty();
+    acc.second_mut().empty();
+    acc.fourth_mut().typ = MathCell::MathChar as _;
+    if cur_chr == 1 {
+        acc.set_accent_type(if scan_keyword(b"fixed") {
+            AccentType::Fixed
         } else if scan_keyword(b"bottom") {
             if scan_keyword(b"fixed") {
-                AccentType::BottomFixed as _
+                AccentType::BottomFixed
             } else {
-                AccentType::Bottom as _
+                AccentType::Bottom
             }
         } else {
-            AccentType::Normal as _
-        };
+            AccentType::Normal
+        });
         scan_math_class_int();
         let mut c = set_class(cur_val);
         scan_math_fam_int();
@@ -571,17 +566,16 @@ pub(crate) unsafe fn math_ac() {
         scan_fifteen_bit_int();
         cur_val = set_class(cur_val / 4096) + set_family(cur_val % 4096 / 256) + (cur_val % 256);
     }
-    MEM[cur_list.tail + 4].b16.s0 = (cur_val as i64 % 65536) as u16;
-    if math_class(cur_val) == 7
+    acc.fourth_mut().val.chr.character = (cur_val as i64 % 65536) as u16;
+    let font = if math_class(cur_val) == 7
         && (*INTPAR(IntPar::cur_fam) >= 0 && *INTPAR(IntPar::cur_fam) < NUMBER_MATH_FAMILIES as i32)
     {
-        MEM[cur_list.tail + 4].b16.s1 = *INTPAR(IntPar::cur_fam) as u16
+        *INTPAR(IntPar::cur_fam) as u16
     } else {
-        MEM[cur_list.tail + 4].b16.s1 = math_fam(cur_val) as u16
-    }
-    MEM[cur_list.tail + 4].b16.s1 =
-        (MEM[cur_list.tail + 4].b16.s1 as i64 + math_char(cur_val) as i64 / 65536 * 256) as u16;
-    scan_math((cur_list.tail + 1) as usize);
+        math_fam(cur_val) as u16
+    };
+    acc.fourth_mut().val.chr.font = (font as i64 + math_char(cur_val) as i64 / 65536 * 256) as u16;
+    scan_math(acc.first_mut(), acc.ptr() + 1);
 }
 pub(crate) unsafe fn append_choices() {
     let c = new_choice();
@@ -640,13 +634,22 @@ pub(crate) unsafe fn build_choices() {
 pub(crate) unsafe fn sub_sup() {
     let mut t = MathCell::Empty;
     let mut p = None;
+    let cell = match cur_cmd {
+        Cmd::SupMark => 2,
+        Cmd::SubMark => 3,
+        _ => unreachable!(),
+    };
     if cur_list.tail != cur_list.head {
         if MEM[cur_list.tail].b16.s1 >= MathNode::Ord as u16
             && MEM[cur_list.tail].b16.s1 < MathNode::Left as u16
         {
-            let g = cur_list.tail + 2 + cur_cmd as usize - 7;
-            t = MathCell::n(MEM[g as usize].b32.s1).unwrap();
-            p = Some(g);
+            let m = BaseMath(cur_list.tail);
+            t = if cell == 2 {
+                m.second().typ
+            } else {
+                m.third().typ
+            };
+            p = Some(cur_list.tail);
         }
     }
     let p = match (p, t) {
@@ -655,7 +658,6 @@ pub(crate) unsafe fn sub_sup() {
             /*1212: */
             *LLIST_link(cur_list.tail) = new_noad() as i32;
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-            let p = cur_list.tail + 2 + cur_cmd as usize - 7;
             if t != MathCell::Empty {
                 if cur_cmd == Cmd::SupMark {
                     if file_line_error_style_p != 0 {
@@ -676,10 +678,16 @@ pub(crate) unsafe fn sub_sup() {
                 }
                 error();
             }
-            p
+            cur_list.tail
         }
     };
-    scan_math(p);
+    let p = p + cell;
+    let m = BaseMath(cur_list.tail);
+    if cell == 2 {
+        scan_math(m.second_mut(), p);
+    } else {
+        scan_math(m.third_mut(), p);
+    }
 }
 pub(crate) unsafe fn math_fraction() {
     let mut c: i16 = 0;
@@ -687,8 +695,14 @@ pub(crate) unsafe fn math_fraction() {
     if cur_list.aux.b32.s1.opt().is_some() {
         /*1218:*/
         if c as i32 >= DELIMITED_CODE {
-            scan_delimiter(GARBAGE, false);
-            scan_delimiter(GARBAGE, false);
+            scan_delimiter(
+                &mut *(&mut MEM[GARBAGE] as *mut memory_word as *mut Delimeter),
+                false,
+            );
+            scan_delimiter(
+                &mut *(&mut MEM[GARBAGE] as *mut memory_word as *mut Delimeter),
+                false,
+            );
         }
         if c as i32 % DELIMITED_CODE == ABOVE_CODE {
             scan_dimen(false, false, false);
@@ -706,28 +720,31 @@ pub(crate) unsafe fn math_fraction() {
         );
         error();
     } else {
-        let a = get_node(FRACTION_NOAD_SIZE);
-        cur_list.aux.b32.s1 = Some(a).tex_int();
-        MEM[a].b16.s1 = MathNode::Fraction as u16;
-        MEM[a].b16.s0 = NORMAL as u16;
-        MEM[a + 2].b32.s1 = MathCell::SubMList as _;
-        MEM[a + 2].b32.s0 = MEM[cur_list.head].b32.s1;
-        MEM[a + 3].b32 = empty;
-        MEM[a + 4].b16 = null_delimiter;
-        MEM[a + 5].b16 = null_delimiter;
+        let mut a = Fraction(get_node(FRACTION_NOAD_SIZE));
+        cur_list.aux.b32.s1 = Some(a.ptr()).tex_int();
+        set_math_NODE_type(a.ptr(), MathNode::Fraction);
+        MEM[a.ptr()].b16.s0 = NORMAL as u16;
+        a.second_mut().set_submlist(MEM[cur_list.head].b32.s1);
+        a.third_mut().empty();
+        *a.left_delimeter_mut() = NULL_DELIMITER;
+        *a.right_delimeter_mut() = NULL_DELIMITER;
         MEM[cur_list.head].b32.s1 = None.tex_int();
         cur_list.tail = cur_list.head;
         if c as i32 >= DELIMITED_CODE {
-            scan_delimiter(a + 4, false);
-            scan_delimiter(a + 5, false);
+            scan_delimiter(a.left_delimeter_mut(), false);
+            scan_delimiter(a.right_delimeter_mut(), false);
         }
         match c as i32 % DELIMITED_CODE {
             ABOVE_CODE => {
                 scan_dimen(false, false, false);
-                MEM[a + 1].b32.s1 = cur_val
+                a.set_thickness(cur_val);
             }
-            OVER_CODE => MEM[a + 1].b32.s1 = DEFAULT_CODE,
-            ATOP_CODE => MEM[a + 1].b32.s1 = 0,
+            OVER_CODE => {
+                a.set_thickness(DEFAULT_CODE);
+            }
+            ATOP_CODE => {
+                a.set_thickness(0);
+            }
             _ => {}
         }
     };
@@ -738,7 +755,10 @@ pub(crate) unsafe fn math_left_right() {
     if t != MathNode::Left as i16 && cur_group != GroupCode::MathLeft {
         /*1227: */
         if cur_group == GroupCode::MathShift {
-            scan_delimiter(GARBAGE, false); /*:1530 */
+            scan_delimiter(
+                &mut *(&mut MEM[GARBAGE] as *mut memory_word as *mut Delimeter),
+                false,
+            ); /*:1530 */
             if file_line_error_style_p != 0 {
                 print_file_line(); /*:1530 */
             } else {
@@ -759,8 +779,8 @@ pub(crate) unsafe fn math_left_right() {
     } else {
         let p = new_noad() as usize;
         MEM[p].b16.s1 = t as u16;
-        scan_delimiter(p + 1, false);
-        if t as i32 == 1i32 {
+        scan_delimiter(LeftRight(p).delimeter_mut(), false);
+        if t == 1 {
             MEM[p].b16.s1 = MathNode::Right as u16;
             MEM[p].b16.s0 = 1;
         }
@@ -1595,17 +1615,17 @@ pub(crate) unsafe fn flush_math() {
     cur_list.tail = cur_list.head;
     cur_list.aux.b32.s1 = None.tex_int();
 }
-unsafe fn clean_box(p: usize, s: (MathStyle, u8)) -> Box {
-    match MEM[p].b32.s1 {
-        1 => {
+unsafe fn clean_box(p: &MCell, s: (MathStyle, u8)) -> Box {
+    match p.typ {
+        MathCell::MathChar => {
             cur_mlist = new_noad() as i32;
-            MEM[(cur_mlist + 1) as usize] = MEM[p];
+            BaseMath(cur_mlist as usize).first_mut().set(p);
         }
-        2 => {
-            return found(MEM[p].b32.s0);
+        MathCell::SubBox => {
+            return found(p.val.ptr);
         }
-        3 => {
-            cur_mlist = MEM[p].b32.s0;
+        MathCell::SubMList => {
+            cur_mlist = p.val.ptr;
         }
         _ => {
             return found(new_null_box() as i32);
@@ -1649,10 +1669,10 @@ unsafe fn clean_box(p: usize, s: (MathStyle, u8)) -> Box {
     }
     found(q)
 }
-unsafe fn fetch(a: usize) {
-    cur_c = MEM[a].b16.s0 as i32;
-    cur_f = MATH_FONT(MEM[a].b16.s1 as usize % 256 + cur_size);
-    cur_c = (cur_c as i64 + (MEM[a].b16.s1 as i32 / 256) as i64 * 65536) as i32;
+pub(crate) unsafe fn fetch(a: &mut MCell) {
+    cur_c = a.val.chr.character as i32;
+    cur_f = MATH_FONT(a.val.chr.font as usize % 256 + cur_size);
+    cur_c = (cur_c as i64 + (a.val.chr.font as i32 / 256) as i64 * 65536) as i32;
     if cur_f == FONT_BASE {
         // 749:
         if file_line_error_style_p != 0 {
@@ -1663,7 +1683,7 @@ unsafe fn fetch(a: usize) {
         print_cstr(b"");
         print_size(cur_size as i32);
         print_char(' ' as i32);
-        print_int(MEM[a].b16.s1 as i32 % 256);
+        print_int(a.val.chr.font as i32 % 256);
         print_cstr(b" is undefined (character ");
         print(cur_c);
         print_char(')' as i32);
@@ -1676,7 +1696,7 @@ unsafe fn fetch(a: usize) {
         );
         error();
         cur_i = NULL_CHARACTER;
-        MEM[a].b32.s1 = 0
+        a.typ = MathCell::Empty;
     } else if FONT_AREA[cur_f as usize] as u32 == AAT_FONT_FLAG
         || FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
     {
@@ -1689,24 +1709,19 @@ unsafe fn fetch(a: usize) {
         }
         if !(cur_i.s3 as i32 > 0) {
             char_warning(cur_f, cur_c);
-            MEM[a].b32.s1 = MathCell::Empty as _;
+            a.typ = MathCell::Empty;
         }
     };
 }
-unsafe fn make_over(q: usize) {
-    MEM[q + 1].b32.s0 = Some(
-        overbar(
-            clean_box(q + 1, (cur_style.0, 1)),
-            3 * default_rule_thickness(),
-            default_rule_thickness(),
-        )
-        .ptr(),
-    )
-    .tex_int();
-    MEM[(q + 1) as usize].b32.s1 = MathCell::SubBox as _;
+unsafe fn make_over(q: &mut Over) {
+    q.first_mut().set_subbox(overbar(
+        clean_box(q.first(), (cur_style.0, 1)),
+        3 * default_rule_thickness(),
+        default_rule_thickness(),
+    ));
 }
-unsafe fn make_under(q: usize) {
-    let x = clean_box(q + 1, cur_style);
+unsafe fn make_under(q: &mut Under) {
+    let x = clean_box(q.first(), cur_style);
     let p = new_kern(3 * default_rule_thickness());
     *LLIST_link(x.ptr()) = Some(p).tex_int();
     *LLIST_link(p) = Some(fraction_rule(default_rule_thickness())).tex_int();
@@ -1715,8 +1730,7 @@ unsafe fn make_under(q: usize) {
     y.set_height(x.height());
     let h = y.height();
     y.set_depth(delta - h);
-    MEM[q + 1].b32.s0 = Some(y.ptr()).tex_int();
-    MEM[q + 1].b32.s1 = MathCell::SubBox as _;
+    q.first_mut().set_subbox(y);
 }
 unsafe fn make_vcenter(q: usize) {
     let mut v = Box::from(MEM[q + 1].b32.s0 as usize);
@@ -1728,8 +1742,8 @@ unsafe fn make_vcenter(q: usize) {
     let d = v.height();
     v.set_depth(delta - d);
 }
-unsafe fn make_radical(q: usize) {
-    let f = MATH_FONT(MEM[q + 4].b16.s3 as usize % 256 + cur_size);
+unsafe fn make_radical(q: &mut Radical) {
+    let f = MATH_FONT(q.delimeter().s3 as usize % 256 + cur_size);
     let rule_thickness = if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
     {
@@ -1737,7 +1751,7 @@ unsafe fn make_radical(q: usize) {
     } else {
         default_rule_thickness()
     };
-    let x = clean_box(q + 1, (cur_style.0, 1));
+    let x = clean_box(q.first(), (cur_style.0, 1));
     let mut clr = if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
         && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
     {
@@ -1753,7 +1767,7 @@ unsafe fn make_radical(q: usize) {
         clr + clr.abs() / 4
     };
     let mut y = Box::from(var_delimiter(
-        q + 4,
+        q.delimeter(),
         cur_size,
         x.height() + x.depth() + clr + rule_thickness,
     ));
@@ -1771,25 +1785,27 @@ unsafe fn make_radical(q: usize) {
     }
     y.set_shift_amount(-((x.height() + clr) as i32));
     *LLIST_link(y.ptr()) = Some(overbar(x, clr, y.height()).ptr()).tex_int();
-    MEM[q + 1].b32.s0 = Some(hpack(Some(y.ptr()), 0, PackMode::Additional).ptr()).tex_int();
-    MEM[q + 1].b32.s1 = MathCell::SubBox as _;
+    q.first_mut()
+        .set_subbox(hpack(Some(y.ptr()), 0, PackMode::Additional));
 }
-unsafe fn compute_ot_math_accent_pos(p: usize) -> scaled_t {
-    if MEM[p + 1].b32.s1 == MathCell::MathChar as _ {
-        fetch(p + 1);
-        let q = new_native_character(cur_f, cur_c);
-        let g = q.native_glyph(0) as scaled_t;
-        get_ot_math_accent_pos(cur_f, g)
-    } else if MEM[p + 1].b32.s1 == MathCell::SubMList as _ {
-        match MEM[p + 1].b32.s0.opt() {
-            Some(r) if MEM[r].b16.s1 == MathNode::Accent as u16 => compute_ot_math_accent_pos(r),
-            _ => TEX_INFINITY,
+unsafe fn compute_ot_math_accent_pos(p: &mut Accent) -> scaled_t {
+    match p.first().typ {
+        MathCell::MathChar => {
+            p.first_mut().fetch();
+            let q = new_native_character(cur_f, cur_c);
+            let g = q.native_glyph(0) as scaled_t;
+            get_ot_math_accent_pos(cur_f, g)
         }
-    } else {
-        TEX_INFINITY
+        MathCell::SubMList => match p.first().val.ptr.opt() {
+            Some(r) if math_NODE_type(r).unwrap() == MathNode::Accent => {
+                compute_ot_math_accent_pos(&mut Accent::from(r))
+            }
+            _ => TEX_INFINITY,
+        },
+        _ => TEX_INFINITY,
     }
 }
-unsafe fn make_math_accent(q: usize) {
+unsafe fn make_math_accent(q: &mut Accent) {
     let mut a: i32 = 0;
     let mut c: i32 = 0;
     let mut f: internal_font_number = 0;
@@ -1798,21 +1814,18 @@ unsafe fn make_math_accent(q: usize) {
     let mut w: scaled_t = 0;
     let mut w2: scaled_t = 0;
     let mut ot_assembly_ptr: *mut libc::c_void = 0 as *mut libc::c_void;
-    fetch(q + 4);
+    q.fourth_mut().fetch();
     ot_assembly_ptr = 0 as *mut libc::c_void;
     let x = if FONT_AREA[cur_f as usize] as u32 == AAT_FONT_FLAG
         || FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
     {
         c = cur_c;
         f = cur_f;
-        s = if !(MEM[q].b16.s0 == AccentType::Bottom as _
-            || MEM[q as usize].b16.s0 == AccentType::BottomFixed as _)
-        {
-            compute_ot_math_accent_pos(q)
-        } else {
-            0
+        s = match q.accent_type() {
+            AccentType::Bottom | AccentType::BottomFixed => 0,
+            _ => compute_ot_math_accent_pos(q),
         };
-        let x = clean_box(q + 1, (cur_style.0, 1));
+        let x = clean_box(q.first(), (cur_style.0, 1));
         w = x.width();
         h = x.height();
         Some(x)
@@ -1821,8 +1834,8 @@ unsafe fn make_math_accent(q: usize) {
         c = cur_c;
         f = cur_f;
         s = 0;
-        if MEM[q + 1].b32.s1 == MathCell::MathChar as _ {
-            fetch(q + 1);
+        if q.first().typ == MathCell::MathChar {
+            q.first_mut().fetch();
             if cur_i.s1 as i32 % 4 == LIG_TAG {
                 a = LIG_KERN_BASE[cur_f as usize] + cur_i.s0 as i32;
                 cur_i = FONT_INFO[a as usize].b16;
@@ -1856,7 +1869,7 @@ unsafe fn make_math_accent(q: usize) {
                 }
             }
         }
-        let x = clean_box(q + 1, (cur_style.0, 1));
+        let x = clean_box(q.first(), (cur_style.0, 1));
         w = x.width();
         h = x.height();
         while !(i.s1 as i32 % 4 != LIST_TAG) {
@@ -1879,35 +1892,25 @@ unsafe fn make_math_accent(q: usize) {
         let mut delta = if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
             && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
         {
-            if MEM[q].b16.s0 == AccentType::Bottom as _
-                || MEM[q].b16.s0 == AccentType::BottomFixed as _
-            {
-                0
-            } else if h < get_ot_math_constant(f, ACCENTBASEHEIGHT) {
-                h
-            } else {
-                get_ot_math_constant(f, ACCENTBASEHEIGHT)
+            match q.accent_type() {
+                AccentType::Bottom | AccentType::BottomFixed => 0,
+                _ => h.min(get_ot_math_constant(f, ACCENTBASEHEIGHT)),
             }
-        } else if h < FONT_INFO[(X_HEIGHT_CODE + PARAM_BASE[f]) as usize].b32.s1 {
-            h
         } else {
-            FONT_INFO[(X_HEIGHT_CODE + PARAM_BASE[f]) as usize].b32.s1
+            h.min(FONT_INFO[(X_HEIGHT_CODE + PARAM_BASE[f]) as usize].b32.s1)
         };
-        if MEM[q + 2].b32.s1 != MathCell::Empty as _
-            || MEM[(q + 3) as usize].b32.s1 != MathCell::Empty as _
-        {
-            if MEM[q + 1].b32.s1 == MathCell::MathChar as _ {
+        if q.second().typ != MathCell::Empty || q.third().typ != MathCell::Empty {
+            if q.first().typ == MathCell::MathChar {
                 // 769:
                 flush_node_list(Some(x.ptr()));
                 let xn = new_noad();
-                MEM[xn + 1] = MEM[q + 1];
-                MEM[xn + 2] = MEM[q + 2];
-                MEM[xn + 3] = MEM[q + 3];
-                MEM[q + 2].b32 = empty;
-                MEM[q + 3].b32 = empty;
-                MEM[q + 1].b32.s1 = MathCell::SubMList as _;
-                MEM[q + 1].b32.s0 = Some(xn).tex_int();
-                x = clean_box(q + 1, cur_style);
+                MEM[xn + 1] = MEM[q.ptr() + 1];
+                MEM[xn + 2] = MEM[q.ptr() + 2];
+                MEM[xn + 3] = MEM[q.ptr() + 3];
+                q.second_mut().empty();
+                q.third_mut().empty();
+                q.first_mut().set_submlist(Some(xn).tex_int());
+                x = clean_box(q.first(), cur_style);
                 delta += x.height() - h;
                 h = x.height();
             }
@@ -1923,42 +1926,43 @@ unsafe fn make_math_accent(q: usize) {
             p.set_metrics(true);
             nw.free();
             y.set_list_ptr(Some(p.ptr()).tex_int());
-            let (p, whd) = if MEM[q].b16.s0 as i32 & 1 != 0 {
-                p.set_metrics(true);
-                (p.ptr(), (p.width(), p.height(), p.depth()))
-            } else {
-                c = p.glyph() as i32;
-                a = 0;
-                loop {
-                    let g = get_ot_math_variant(f, c, a, &mut w2, 1);
-                    if w2 > 0 && w2 <= w {
-                        p.set_glyph(g as u16);
-                        p.set_metrics(true);
-                        a += 1
-                    }
-                    if w2 < 0 || w2 >= w {
-                        break;
-                    }
-                }
-                if w2 < 0 {
-                    ot_assembly_ptr = get_ot_assembly_ptr(f, c, 1);
-                    if !ot_assembly_ptr.is_null() {
-                        free_node(p.ptr(), GLYPH_NODE_SIZE);
-                        let b = build_opentype_assembly(f, ot_assembly_ptr, w, true);
-                        y.set_list_ptr(Some(b.ptr()).tex_int());
-                        (b.ptr(), (b.width(), b.height(), b.depth()))
-                    } else {
-                        (p.ptr(), (p.width(), p.height(), p.depth()))
-                    }
-                } else {
+            let (p, whd) = match q.accent_type() {
+                AccentType::Fixed | AccentType::BottomFixed => {
                     p.set_metrics(true);
                     (p.ptr(), (p.width(), p.height(), p.depth()))
                 }
+                _ => {
+                    c = p.glyph() as i32;
+                    a = 0;
+                    loop {
+                        let g = get_ot_math_variant(f, c, a, &mut w2, 1);
+                        if w2 > 0 && w2 <= w {
+                            p.set_glyph(g as u16);
+                            p.set_metrics(true);
+                            a += 1
+                        }
+                        if w2 < 0 || w2 >= w {
+                            break;
+                        }
+                    }
+                    if w2 < 0 {
+                        ot_assembly_ptr = get_ot_assembly_ptr(f, c, 1);
+                        if !ot_assembly_ptr.is_null() {
+                            free_node(p.ptr(), GLYPH_NODE_SIZE);
+                            let b = build_opentype_assembly(f, ot_assembly_ptr, w, true);
+                            y.set_list_ptr(Some(b.ptr()).tex_int());
+                            (b.ptr(), (b.width(), b.height(), b.depth()))
+                        } else {
+                            (p.ptr(), (p.width(), p.height(), p.depth()))
+                        }
+                    } else {
+                        p.set_metrics(true);
+                        (p.ptr(), (p.width(), p.height(), p.depth()))
+                    }
+                }
             };
             y.set_width(whd.0).set_height(whd.1).set_depth(whd.2);
-            if MEM[q].b16.s0 == AccentType::Bottom as _
-                || MEM[q].b16.s0 == AccentType::BottomFixed as _
-            {
+            if q.accent_type() == AccentType::Bottom || q.accent_type() == AccentType::BottomFixed {
                 if y.height() < 0 {
                     y.set_height(0);
                 }
@@ -1978,8 +1982,8 @@ unsafe fn make_math_accent(q: usize) {
             } else {
                 sa = half(y.width())
             }
-            if MEM[q].b16.s0 == AccentType::Bottom as _
-                || MEM[q].b16.s0 == AccentType::BottomFixed as _
+            if q.accent_type() == AccentType::Bottom
+                || q.accent_type() == AccentType::BottomFixed
                 || s == TEX_INFINITY
             {
                 s = half(w)
@@ -1989,36 +1993,37 @@ unsafe fn make_math_accent(q: usize) {
             y.set_shift_amount(s + half(w - y.width()));
         }
         y.set_width(0);
-        if MEM[q].b16.s0 == AccentType::Bottom as _ || MEM[q].b16.s0 == AccentType::BottomFixed as _
-        {
-            *LLIST_link(x.ptr()) = Some(y.ptr()).tex_int();
-            y = vpackage(Some(x.ptr()), 0, PackMode::Additional, MAX_HALFWORD);
-            y.set_shift_amount(-((h - y.height()) as i32));
-        } else {
-            let p = new_kern(-(delta as i32));
-            *LLIST_link(p) = Some(x.ptr()).tex_int();
-            *LLIST_link(y.ptr()) = p as i32;
-            y = vpackage(Some(y.ptr()), 0, PackMode::Additional, MAX_HALFWORD);
-            if y.height() < h {
-                // 765:
-                let p = new_kern(h - y.height()); /*773:*/
-                *LLIST_link(p) = y.list_ptr();
-                y.set_list_ptr(Some(p).tex_int());
-                y.set_height(h);
+        match q.accent_type() {
+            AccentType::Bottom | AccentType::BottomFixed => {
+                *LLIST_link(x.ptr()) = Some(y.ptr()).tex_int();
+                y = vpackage(Some(x.ptr()), 0, PackMode::Additional, MAX_HALFWORD);
+                y.set_shift_amount(-((h - y.height()) as i32));
+            }
+            _ => {
+                let p = new_kern(-(delta as i32));
+                *LLIST_link(p) = Some(x.ptr()).tex_int();
+                *LLIST_link(y.ptr()) = p as i32;
+                y = vpackage(Some(y.ptr()), 0, PackMode::Additional, MAX_HALFWORD);
+                if y.height() < h {
+                    // 765:
+                    let p = new_kern(h - y.height()); /*773:*/
+                    *LLIST_link(p) = y.list_ptr();
+                    y.set_list_ptr(Some(p).tex_int());
+                    y.set_height(h);
+                }
             }
         }
         y.set_width(x.width());
-        MEM[q + 1].b32.s0 = Some(y.ptr()).tex_int();
-        MEM[q + 1].b32.s1 = MathCell::SubBox as _;
+        q.first_mut().set_subbox(y);
     }
     free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
 }
-unsafe fn make_fraction(q: usize) {
-    if MEM[q + 1].b32.s1 == DEFAULT_CODE {
-        MEM[q + 1].b32.s1 = default_rule_thickness()
+unsafe fn make_fraction(q: &mut Fraction) {
+    if q.thickness() == DEFAULT_CODE {
+        q.set_thickness(default_rule_thickness());
     }
     let mut x = clean_box(
-        q + 2,
+        q.second(),
         (
             match cur_style.0 {
                 MathStyle::Display => MathStyle::Text,
@@ -2029,7 +2034,7 @@ unsafe fn make_fraction(q: usize) {
         ),
     );
     let mut z = clean_box(
-        q + 3,
+        q.third(),
         (
             match cur_style.0 {
                 MathStyle::Display => MathStyle::Text,
@@ -2051,14 +2056,14 @@ unsafe fn make_fraction(q: usize) {
         shift_down = denom1(cur_size)
     } else {
         shift_down = denom2(cur_size);
-        shift_up = if MEM[q + 1].b32.s1 != 0 {
+        shift_up = if q.thickness() != 0 {
             num2(cur_size)
         } else {
             num3(cur_size)
         };
     }
     let delta;
-    if MEM[q + 1].b32.s1 == 0 {
+    if q.thickness() == 0 {
         /*772:*/
         let clr = if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
             && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
@@ -2086,7 +2091,7 @@ unsafe fn make_fraction(q: usize) {
             && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
                 != 0
         {
-            delta = half(MEM[q + 1].b32.s1);
+            delta = half(q.thickness());
             let clr = if cur_style.0 == MathStyle::Display {
                 get_ot_math_constant(cur_f, FRACTIONNUMDISPLAYSTYLEGAPMIN)
             } else {
@@ -2101,11 +2106,11 @@ unsafe fn make_fraction(q: usize) {
             delta2 = clr - (axis_height(cur_size) - delta - (z.height() - shift_down))
         } else {
             let clr = if cur_style.0 == MathStyle::Display {
-                3 * MEM[q + 1].b32.s1
+                3 * q.thickness()
             } else {
-                MEM[q + 1].b32.s1
+                q.thickness()
             };
-            delta = half(MEM[q + 1].b32.s1);
+            delta = half(q.thickness());
             delta1 = clr - (shift_up - x.depth() - (axis_height(cur_size) + delta));
             delta2 = clr - (axis_height(cur_size) - delta - (z.height() - shift_down))
         }
@@ -2122,11 +2127,11 @@ unsafe fn make_fraction(q: usize) {
         .set_depth(z.depth() + shift_down)
         .set_width(x.width());
     let mut p;
-    if MEM[q + 1].b32.s1 == 0 {
+    if q.thickness() == 0 {
         p = new_kern(shift_up - x.depth() - (z.height() - shift_down));
         *LLIST_link(p) = Some(z.ptr()).tex_int();
     } else {
-        let y = fraction_rule(MEM[q + 1].b32.s1);
+        let y = fraction_rule(q.thickness());
         p = new_kern(axis_height(cur_size) - delta - (z.height() - shift_down));
         *LLIST_link(y) = Some(p).tex_int();
         *LLIST_link(p) = Some(z.ptr()).tex_int();
@@ -2141,22 +2146,22 @@ unsafe fn make_fraction(q: usize) {
     } else {
         delim2(cur_size)
     };
-    let x = var_delimiter(q + 4, cur_size, delta);
+    let x = var_delimiter(q.left_delimeter(), cur_size, delta);
     *LLIST_link(x) = Some(v.ptr()).tex_int();
-    let z = var_delimiter(q + 5, cur_size, delta);
+    let z = var_delimiter(q.right_delimeter(), cur_size, delta);
     *LLIST_link(v.ptr()) = Some(z).tex_int();
-    MEM[q + 1].b32.s1 = Some(hpack(Some(x), 0, PackMode::Additional).ptr()).tex_int();
+    MEM[q.ptr() + 1].b32.s1 = Some(hpack(Some(x), 0, PackMode::Additional).ptr()).tex_int();
     // :775
 }
-unsafe fn make_op(q: usize) -> scaled_t {
-    if MEM[q].b16.s0 == Limit::Normal as u16 && cur_style.0 == MathStyle::Display {
-        MEM[q].b16.s0 = Limit::Limits as u16;
+unsafe fn make_op(q: &mut Operator) -> scaled_t {
+    if q.limits() == Limit::Normal && cur_style.0 == MathStyle::Display {
+        q.set_limits(Limit::Limits);
     }
     let mut delta = 0;
     let mut ot_assembly_ptr = ptr::null_mut();
-    if MEM[q + 1].b32.s1 == MathCell::MathChar as _ {
+    if q.first().typ == MathCell::MathChar {
         let mut c = 0;
-        fetch(q + 1);
+        q.first_mut().fetch();
         if !(FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
             && usingOpenType(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine))
         {
@@ -2166,14 +2171,14 @@ unsafe fn make_op(q: usize) -> scaled_t {
                 if i.s3 as i32 > 0 {
                     cur_c = c as i32;
                     cur_i = i;
-                    MEM[q + 1].b16.s0 = c
+                    q.first_mut().val.chr.character = c
                 }
             }
             delta = FONT_INFO[(ITALIC_BASE[cur_f as usize] + cur_i.s1 as i32 / 4i32) as usize]
                 .b32
                 .s1
         }
-        let mut x = clean_box(q + 1, cur_style);
+        let mut x = clean_box(q.first(), cur_style);
         if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
             && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
                 != 0
@@ -2234,19 +2239,18 @@ unsafe fn make_op(q: usize) -> scaled_t {
                 }
             }
         }
-        if MEM[q + 3].b32.s1 != 0 && MEM[q as usize].b16.s0 != Limit::Limits as u16 {
+        if q.third().typ != MathCell::Empty && q.limits() != Limit::Limits {
             let w = x.width();
             x.set_width(w - delta);
         }
         x.set_shift_amount(half(x.height() - x.depth()) - axis_height(cur_size));
-        MEM[q + 1].b32.s1 = MathCell::SubBox as _;
-        MEM[q + 1].b32.s0 = Some(x.ptr()).tex_int();
+        q.first_mut().set_subbox(x);
     }
     let save_f = cur_f;
-    if MEM[q].b16.s0 == Limit::Limits as u16 {
+    if q.limits() == Limit::Limits {
         // 777:
         let x = clean_box(
-            q + 2,
+            q.second(),
             (
                 match cur_style.0 {
                     MathStyle::Display | MathStyle::Text => MathStyle::Script,
@@ -2255,9 +2259,9 @@ unsafe fn make_op(q: usize) -> scaled_t {
                 cur_style.1,
             ),
         );
-        let y = clean_box(q + 1, cur_style);
+        let y = clean_box(q.first(), cur_style);
         let z = clean_box(
-            q + 3,
+            q.third(),
             (
                 match cur_style.0 {
                     MathStyle::Display | MathStyle::Text => MathStyle::Script,
@@ -2277,8 +2281,8 @@ unsafe fn make_op(q: usize) -> scaled_t {
         v.set_height(y.height());
         v.set_depth(y.depth());
         cur_f = save_f;
-        if MEM[q + 2].b32.s1 == MathCell::Empty as _ {
-            free_node(x.ptr(), BOX_NODE_SIZE);
+        if q.second().typ == MathCell::Empty {
+            x.free();
             v.set_list_ptr(y.ptr() as i32);
         } else {
             let mut shift_up = big_op_spacing3() - x.depth();
@@ -2294,8 +2298,8 @@ unsafe fn make_op(q: usize) -> scaled_t {
             let h = v.height();
             v.set_height(h + big_op_spacing5() + x.height() + x.depth() + shift_up);
         }
-        if MEM[q + 3].b32.s1 == MathCell::Empty as _ {
-            free_node(z.ptr(), BOX_NODE_SIZE);
+        if q.third().typ == MathCell::Empty {
+            z.free();
         } else {
             let mut shift_down = big_op_spacing4() - z.height();
             if shift_down < big_op_spacing2() {
@@ -2309,40 +2313,51 @@ unsafe fn make_op(q: usize) -> scaled_t {
             let d = v.depth();
             v.set_depth(d + big_op_spacing5() + z.height() + z.depth() + shift_down);
         }
-        MEM[q + 1].b32.s1 = Some(v.ptr()).tex_int()
+        MEM[q.ptr() + 1].b32.s1 = Some(v.ptr()).tex_int() // TODO: strange
     }
     free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
     delta
 }
-unsafe fn make_ord(q: usize) {
-    while MEM[q + 3].b32.s1 == MathCell::Empty as _ {
-        if !(MEM[q + 2].b32.s1 == MathCell::Empty as _) {
+unsafe fn make_ord(q: &mut Ord) {
+    while q.third().typ == MathCell::Empty {
+        if !(q.second().typ == MathCell::Empty) {
             break;
         }
-        if !(MEM[q + 1].b32.s1 == MathCell::MathChar as _) {
+        if !(q.first().typ == MathCell::MathChar) {
             break;
         }
-        let p = llist_link(q);
+        let p = llist_link(q.ptr());
         if p.is_none() {
             break;
         }
         let mut p = p.unwrap();
-        if !(MEM[p].b16.s1 >= MathNode::Ord as u16 && MEM[p].b16.s1 <= MathNode::Punct as u16) {
+        match NODE_type(p) {
+            ND::Math(m) => match m {
+                MathNode::Ord
+                | MathNode::Op
+                | MathNode::Bin
+                | MathNode::Rel
+                | MathNode::Open
+                | MathNode::Close
+                | MathNode::Punct => {}
+                _ => break,
+            },
+            _ => break,
+        }
+        let p = BaseMath(p);
+        if !(p.first().typ == MathCell::MathChar) {
             break;
         }
-        if !(MEM[p + 1].b32.s1 == MathCell::MathChar as _) {
+        if !(p.first().val.chr.font % 256 == q.first().val.chr.font % 256) {
             break;
         }
-        if !(MEM[p + 1].b16.s1 as i32 % 256 == MEM[q + 1].b16.s1 as i32 % 256) {
-            break;
-        }
-        MEM[q + 1].b32.s1 = MathCell::MathTextChar as _;
-        fetch(q + 1);
+        q.first_mut().typ = MathCell::MathTextChar;
+        q.first_mut().fetch();
         if !(cur_i.s1 as i32 % 4 == LIG_TAG) {
             break;
         }
         let mut a = LIG_KERN_BASE[cur_f as usize] + cur_i.s0 as i32;
-        cur_c = MEM[p + 1].b16.s0 as i32;
+        cur_c = p.first().val.chr.character as i32;
         cur_i = FONT_INFO[a as usize].b16;
         if cur_i.s3 as i32 > 128 {
             a = ((LIG_KERN_BASE[cur_f as usize] + 256 * cur_i.s1 as i32 + cur_i.s0 as i32) as i64
@@ -2354,44 +2369,45 @@ unsafe fn make_ord(q: usize) {
             if cur_i.s2 as i32 == cur_c {
                 if cur_i.s3 as i32 <= 128 {
                     if cur_i.s1 as i32 >= 128 {
-                        p = new_kern(
+                        let p = new_kern(
                             FONT_INFO[(KERN_BASE[cur_f as usize]
                                 + 256 * cur_i.s1 as i32
                                 + cur_i.s0 as i32) as usize]
                                 .b32
                                 .s1,
                         );
-                        *LLIST_link(p) = *LLIST_link(q);
-                        *LLIST_link(q) = Some(p).tex_int();
+                        *LLIST_link(p) = *LLIST_link(q.ptr());
+                        *LLIST_link(q.ptr()) = Some(p).tex_int();
                         return;
                     } else {
                         match cur_i.s1 as i32 {
-                            1 | 5 => MEM[q + 1].b16.s0 = cur_i.s0,
-                            2 | 6 => MEM[p + 1].b16.s0 = cur_i.s0,
+                            1 | 5 => q.first_mut().val.chr.character = cur_i.s0,
+                            2 | 6 => p.first_mut().val.chr.character = cur_i.s0,
                             3 | 7 | 11 => {
-                                let r = new_noad();
-                                MEM[r + 1].b16.s0 = cur_i.s0;
-                                MEM[r + 1].b16.s1 = (MEM[q + 1].b16.s1 as i32 % 256) as u16;
-                                *LLIST_link(q) = Some(r).tex_int();
-                                *LLIST_link(r) = Some(p).tex_int();
-                                if (cur_i.s1 as i32) < 11 {
-                                    MEM[r + 1].b32.s1 = MathCell::MathChar as _;
+                                let mut r = BaseMath(new_noad());
+                                r.first_mut().val.chr.character = cur_i.s0;
+                                r.first_mut().val.chr.font =
+                                    (q.first().val.chr.font as i32 % 256) as u16;
+                                *LLIST_link(q.ptr()) = Some(r.ptr()).tex_int();
+                                *LLIST_link(r.ptr()) = Some(p.ptr()).tex_int();
+                                r.first_mut().typ = if (cur_i.s1 as i32) < 11 {
+                                    MathCell::MathChar
                                 } else {
-                                    MEM[r + 1].b32.s1 = MathCell::MathTextChar as _;
-                                }
+                                    MathCell::MathTextChar
+                                };
                             }
                             _ => {
-                                *LLIST_link(q) = *LLIST_link(p);
-                                MEM[q + 1].b16.s0 = cur_i.s0;
-                                MEM[q + 3] = MEM[p + 3];
-                                MEM[q + 2] = MEM[p + 2];
-                                free_node(p, NOAD_SIZE);
+                                *LLIST_link(q.ptr()) = *LLIST_link(p.ptr());
+                                q.first_mut().val.chr.character = cur_i.s0;
+                                q.third_mut().set(p.third());
+                                q.second_mut().set(p.second());
+                                free_node(p.ptr(), NOAD_SIZE);
                             }
                         }
                         if cur_i.s1 as i32 > 3 {
                             return;
                         }
-                        MEM[q + 1].b32.s1 = MathCell::MathChar as _;
+                        q.first_mut().typ = MathCell::MathChar;
                         break;
                     }
                 }
@@ -2404,23 +2420,23 @@ unsafe fn make_ord(q: usize) {
         }
     }
 }
-unsafe fn attach_hkern_to_new_hlist(q: usize, mut delta: scaled_t) -> usize {
-    let mut z = Some(new_kern(delta)).tex_int();
-    if let Some(mut y) = MEM[q + 1].b32.s1.opt() {
+unsafe fn attach_hkern_to_new_hlist(q: &mut BaseMath, mut delta: scaled_t) -> usize {
+    let mut z = new_kern(delta);
+    if let Some(mut y) = MEM[q.ptr() + 1].b32.s1.opt() {
         while let Some(next) = llist_link(y) {
             y = next;
         }
-        *LLIST_link(y) = z;
+        *LLIST_link(y) = Some(z).tex_int();
     } else {
-        MEM[q + 1].b32.s1 = z;
+        MEM[q.ptr() + 1].b32.s1 = Some(z).tex_int();
     }
-    MEM[q + 1].b32.s1 as usize
+    MEM[q.ptr() + 1].b32.s1 as usize
 }
-unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
+unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
     let mut shift_up: scaled_t = 0;
     let mut shift_down: scaled_t = 0;
     let mut clr: scaled_t = 0;
-    let mut p = MEM[q + 1].b32.s1;
+    let mut p = MEM[q.ptr() + 1].b32.s1;
     let mut script_g = 0_u16;
     let mut script_f = 0;
     let mut sup_kern = 0i32;
@@ -2441,14 +2457,14 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
         };
         shift_up = z.height() - sup_drop(t);
         shift_down = z.depth() + sub_drop(t);
-        free_node(z.ptr(), BOX_NODE_SIZE);
+        z.free();
     }
     let mut x;
-    if MEM[q + 2].b32.s1 == MathCell::Empty as _ {
+    if q.second().typ == MathCell::Empty {
         // 784:
         let save_f = cur_f;
         x = clean_box(
-            q + 3,
+            q.third(),
             (
                 match cur_style.0 {
                     MathStyle::Display | MathStyle::Text => MathStyle::Script,
@@ -2478,9 +2494,9 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                 != 0
         {
             /*787: */
-            if MEM[q + 3].b32.s1 == MathCell::MathChar as _ {
+            if q.third().typ == MathCell::MathChar {
                 let save_f = cur_f;
-                fetch(q + 3);
+                q.third_mut().fetch();
                 if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
                     && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine)
                         as i32
@@ -2518,7 +2534,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
     } else {
         let save_f = cur_f;
         x = clean_box(
-            q + 2,
+            q.second(),
             (
                 match cur_style.0 {
                     MathStyle::Display | MathStyle::Text => MathStyle::Script,
@@ -2556,9 +2572,9 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                 != 0
         {
             // 788:
-            if MEM[q + 2].b32.s1 == MathCell::MathChar as _ {
+            if q.second().typ == MathCell::MathChar {
                 let save_f = cur_f;
-                fetch(q + 2);
+                q.second_mut().fetch();
                 if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
                     && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine)
                         as i32
@@ -2589,17 +2605,17 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                     )
                 }
             }
-            if sup_kern != 0i32 && MEM[q + 3].b32.s1 == MathCell::Empty as _ {
+            if sup_kern != 0 && q.third().typ == MathCell::Empty {
                 p = attach_hkern_to_new_hlist(q, sup_kern) as i32;
             }
         }
-        if MEM[q + 3].b32.s1 == MathCell::Empty as _ {
+        if q.third().typ == MathCell::Empty {
             x.set_shift_amount(-(shift_up as i32));
         } else {
             // 786:
             let save_f = cur_f;
             let mut y = clean_box(
-                q + 3,
+                q.third(),
                 (
                     match cur_style.0 {
                         MathStyle::Display | MathStyle::Text => MathStyle::Script,
@@ -2647,9 +2663,9 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                     as i32
                     != 0
             {
-                if MEM[q + 3].b32.s1 == MathCell::MathChar as _ {
+                if q.third().typ == MathCell::MathChar {
                     let save_f = cur_f;
-                    fetch(q + 3);
+                    q.third_mut().fetch();
                     if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
                         && isOpenTypeMathFont(
                             FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine,
@@ -2684,9 +2700,9 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                 if sub_kern != MathCell::MathChar as _ {
                     p = attach_hkern_to_new_hlist(q, sub_kern) as i32;
                 }
-                if MEM[q + 2].b32.s1 == 1 {
+                if q.second().typ == MathCell::MathChar {
                     let save_f = cur_f;
-                    fetch(q + 2);
+                    q.second_mut().fetch();
                     if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
                         && isOpenTypeMathFont(
                             FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine,
@@ -2718,7 +2734,7 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
                         )
                     }
                 }
-                if sup_kern != 0 && MEM[(q + 3) as usize].b32.s1 == MathCell::Empty as _ {
+                if sup_kern != 0 && q.third().typ == MathCell::Empty {
                     p = attach_hkern_to_new_hlist(q, sup_kern) as i32;
                 }
             }
@@ -2730,21 +2746,21 @@ unsafe fn make_scripts(q: usize, mut delta: scaled_t) {
             x.set_shift_amount(shift_down);
         }
     }
-    if let Some(mut p) = MEM[q + 1].b32.s1.opt() {
+    if let Some(mut p) = MEM[q.ptr() + 1].b32.s1.opt() {
         while let Some(next) = llist_link(p) {
             p = next;
         }
         *LLIST_link(p) = Some(x.ptr()).tex_int();
     } else {
-        MEM[q + 1].b32.s1 = Some(x.ptr()).tex_int();
+        MEM[q.ptr() + 1].b32.s1 = Some(x.ptr()).tex_int();
     }
 }
 unsafe fn make_left_right(
-    mut q: usize,
+    mut q: &mut LeftRight,
     mut style: (MathStyle, u8),
     mut max_d: scaled_t,
     mut max_h: scaled_t,
-) -> i16 {
+) -> MathNode {
     cur_style = style;
     cur_size = cur_style.0.size();
     cur_mu = x_over_n(math_quad(cur_size), 18);
@@ -2758,16 +2774,20 @@ unsafe fn make_left_right(
     if delta < delta2 {
         delta = delta2
     }
-    MEM[q + 1].b32.s1 = var_delimiter(q + 1, cur_size, delta) as i32;
-    (MEM[q].b16.s1 as i32 - (MathNode::Left as i32 - 20)) as i16
+    MEM[q.ptr() + 1].b32.s1 = var_delimiter(q.delimeter(), cur_size, delta) as i32;
+    match math_NODE_type(q.ptr()).unwrap() {
+        MathNode::Left => MathNode::Open,
+        MathNode::Right => MathNode::Close,
+        _ => unreachable!(),
+    }
 }
 unsafe fn mlist_to_hlist() {
     let mlist = cur_mlist;
     let penalties = mlist_penalties;
     let style = cur_style;
     let mut qopt = mlist.opt();
-    let mut r = None.tex_int();
-    let mut r_type = MathNode::Op as i16;
+    let mut r = None;
+    let mut r_type = MathNode::Op;
     let mut max_h = 0;
     let mut max_d = 0;
     cur_size = cur_style.0.size();
@@ -2779,79 +2799,77 @@ unsafe fn mlist_to_hlist() {
                 let mut delta = 0; /*:755 */
                 let mut flag = true;
                 match n {
-                    MathNode::Bin => match ND::from(r_type as u16) {
-                        ND::Math(rt) => match rt {
-                            MathNode::Bin
-                            | MathNode::Op
-                            | MathNode::Rel
-                            | MathNode::Open
-                            | MathNode::Punct
-                            | MathNode::Left => {
-                                MEM[q].b16.s1 = MathNode::Ord as u16;
-                                continue;
-                            }
-                            _ => {}
-                        },
-                        _ => {
-                            unreachable!();
+                    MathNode::Bin => match r_type {
+                        MathNode::Bin
+                        | MathNode::Op
+                        | MathNode::Rel
+                        | MathNode::Open
+                        | MathNode::Punct
+                        | MathNode::Left => {
+                            set_math_NODE_type(q, MathNode::Ord);
+                            continue;
                         }
+                        _ => {}
                     },
-                    MathNode::Rel | MathNode::Close | MathNode::Punct | MathNode::Right => {
-                        if r_type as u16 == MathNode::Bin as u16 {
-                            MEM[r as usize].b16.s1 = MathNode::Ord as u16;
+                    MathNode::Rel | MathNode::Close | MathNode::Punct => {
+                        if let (Some(r), MathNode::Bin) = (r, r_type) {
+                            set_math_NODE_type(r, MathNode::Ord);
                         }
-                        if MEM[q].b16.s1 == MathNode::Right as u16 {
-                            flag = false;
+                    }
+                    MathNode::Right => {
+                        if let (Some(r), MathNode::Bin) = (r, r_type) {
+                            set_math_NODE_type(r, MathNode::Ord);
                         }
+                        flag = false;
                     }
                     MathNode::Left => {
                         flag = false;
                     }
                     MathNode::Fraction => {
-                        make_fraction(q);
+                        make_fraction(&mut Fraction(q));
                         flag = false;
                         /*check_dimensions */
                         let z = hpack(MEM[q + 1].b32.s1.opt(), 0, PackMode::Additional);
                         max_h = max_h.max(z.height());
                         max_d = max_d.max(z.depth());
-                        free_node(z.ptr(), BOX_NODE_SIZE);
+                        z.free();
                     }
                     MathNode::Op => {
-                        delta = make_op(q);
+                        delta = make_op(&mut Operator::from(q));
                         if MEM[q].b16.s0 == Limit::Limits as u16 {
                             flag = false;
                             /*check_dimensions */
                             let z = hpack(MEM[q + 1].b32.s1.opt(), 0, PackMode::Additional);
                             max_h = max_h.max(z.height());
                             max_d = max_d.max(z.depth());
-                            free_node(z.ptr(), BOX_NODE_SIZE);
-                        } else {
+                            z.free();
                         }
                     }
                     MathNode::Ord => {
-                        make_ord(q as usize);
+                        make_ord(&mut Ord::from(q));
                     }
                     MathNode::Open | MathNode::Inner => {}
                     MathNode::Radical => {
-                        make_radical(q);
+                        make_radical(&mut Radical::from(q));
                     }
                     MathNode::Over => {
-                        make_over(q);
+                        make_over(&mut Over::from(q));
                     }
                     MathNode::Under => {
-                        make_under(q);
+                        make_under(&mut Under::from(q));
                     }
                     MathNode::Accent => {
-                        make_math_accent(q);
+                        make_math_accent(&mut Accent::from(q));
                     }
                     MathNode::VCenter => {
                         make_vcenter(q);
                     }
                 }
                 if flag {
-                    let p = match MEM[q + 1].b32.s1 {
-                        1 | 4 => {
-                            fetch(q + 1);
+                    let mut q = BaseMath(q);
+                    let p = match q.first().typ {
+                        MathCell::MathChar | MathCell::MathTextChar => {
+                            q.first_mut().fetch();
                             if FONT_AREA[cur_f as usize] as u32 == AAT_FONT_FLAG
                                 || FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
                             {
@@ -2864,7 +2882,7 @@ unsafe fn mlist_to_hlist() {
                                 p.set_metrics(true);
                                 z.free();
                                 delta = get_ot_math_ital_corr(cur_f, p.glyph() as i32);
-                                if MEM[q + 1].b32.s1 == MathCell::MathTextChar as _
+                                if q.first().typ == MathCell::MathTextChar
                                     && !(FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
                                         && isOpenTypeMathFont(
                                             FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine,
@@ -2874,37 +2892,36 @@ unsafe fn mlist_to_hlist() {
                                 {
                                     delta = 0;
                                 }
-                                if MEM[q + 3].b32.s1 == MathCell::Empty as _ && delta != 0 {
+                                if q.third().typ == MathCell::Empty && delta != 0 {
                                     *LLIST_link(p.ptr()) = Some(new_kern(delta)).tex_int();
                                     delta = 0;
                                 }
                                 Some(p.ptr())
                             } else if cur_i.s3 as i32 > 0 {
-                                delta = FONT_INFO[(ITALIC_BASE[cur_f as usize]
-                                    + cur_i.s1 as i32 / 4i32)
-                                    as usize]
+                                delta = FONT_INFO
+                                    [(ITALIC_BASE[cur_f as usize] + cur_i.s1 as i32 / 4) as usize]
                                     .b32
                                     .s1;
                                 let p = new_character(cur_f, cur_c as UTF16_code);
-                                if MEM[q + 1].b32.s1 == MathCell::MathTextChar as _
+                                if q.first().typ == MathCell::MathTextChar
                                     && FONT_INFO[(2 + PARAM_BASE[cur_f as usize]) as usize].b32.s1
                                         != 0
                                 {
                                     delta = 0;
                                 }
-                                if MEM[q + 3].b32.s1 == MathCell::Empty as _ && delta != 0 {
+                                if q.third().typ == MathCell::Empty && delta != 0 {
                                     *LLIST_link(p.unwrap()) = Some(new_kern(delta)).tex_int();
-                                    delta = 0i32
+                                    delta = 0;
                                 }
                                 p
                             } else {
                                 None
                             }
                         }
-                        0 => None,
-                        2 => MEM[q + 1].b32.s0.opt(),
-                        3 => {
-                            cur_mlist = MEM[q + 1].b32.s0;
+                        MathCell::Empty => None,
+                        MathCell::SubBox => q.first().val.ptr.opt(),
+                        MathCell::SubMList => {
+                            cur_mlist = q.first().val.ptr;
                             let save_style = cur_style;
                             mlist_penalties = false;
                             mlist_to_hlist();
@@ -2913,25 +2930,22 @@ unsafe fn mlist_to_hlist() {
                             cur_mu = x_over_n(math_quad(cur_size), 18);
                             Some(hpack(llist_link(TEMP_HEAD), 0, PackMode::Additional).ptr())
                         }
-                        _ => confusion(b"mlist2"),
                     };
-                    MEM[q + 1].b32.s1 = p.tex_int();
-                    if !(MEM[q + 3].b32.s1 == MathCell::Empty as _
-                        && MEM[q + 2].b32.s1 == MathCell::Empty as _)
-                    {
-                        make_scripts(q, delta);
+                    MEM[q.ptr() + 1].b32.s1 = p.tex_int();
+                    if !(q.third().typ == MathCell::Empty && q.second().typ == MathCell::Empty) {
+                        make_scripts(&mut q, delta);
                     }
                     /*check_dimensions */
-                    let z = hpack(MEM[q + 1].b32.s1.opt(), 0, PackMode::Additional);
+                    let z = hpack(MEM[q.ptr() + 1].b32.s1.opt(), 0, PackMode::Additional);
                     max_h = max_h.max(z.height());
                     max_d = max_d.max(z.depth());
-                    free_node(z.ptr(), BOX_NODE_SIZE);
+                    z.free();
                 }
                 /*done_with_noad */
-                r = q as i32;
-                r_type = MEM[r as usize].b16.s1 as i16;
-                if r_type == MathNode::Right as i16 {
-                    r_type = MathNode::Left as i16;
+                r = Some(q);
+                r_type = math_NODE_type(q).unwrap();
+                if r_type == MathNode::Right {
+                    r_type = MathNode::Left;
                     cur_style = style;
                     cur_size = cur_style.0.size();
                     cur_mu = x_over_n(math_quad(cur_size), 18)
@@ -3025,18 +3039,18 @@ unsafe fn mlist_to_hlist() {
         qopt = llist_link(q);
     } /*ord_noad *//*:755 */
 
-    if r_type == MathNode::Bin as i16 {
-        MEM[r as usize].b16.s1 = 16;
+    if let (Some(r), MathNode::Bin) = (r, r_type) {
+        set_math_NODE_type(r, MathNode::Ord);
     }
     let mut p = TEMP_HEAD;
     *LLIST_link(p) = None.tex_int();
     let mut qopt = mlist.opt();
-    let mut r_type = 0 as i16;
+    let mut r_type = None;
     cur_style = style;
     cur_size = cur_style.0.size();
     cur_mu = x_over_n(math_quad(cur_size), 18);
     while let Some(q) = qopt {
-        let mut t = MathNode::Ord as i16;
+        let mut t = MathNode::Ord;
         let mut s = NOAD_SIZE as i16;
         let mut pen = INF_PENALTY;
         match NODE_type(q) {
@@ -3046,14 +3060,14 @@ unsafe fn mlist_to_hlist() {
                 | MathNode::Close
                 | MathNode::Punct
                 | MathNode::Inner => {
-                    t = MEM[q].b16.s1 as i16;
+                    t = math_NODE_type(q).unwrap();
                 }
                 MathNode::Bin => {
-                    t = MathNode::Bin as i16;
+                    t = MathNode::Bin;
                     pen = *INTPAR(IntPar::bin_op_penalty);
                 }
                 MathNode::Rel => {
-                    t = MathNode::Rel as i16;
+                    t = MathNode::Rel;
                     pen = *INTPAR(IntPar::rel_penalty);
                 }
                 MathNode::Ord | MathNode::VCenter | MathNode::Over | MathNode::Under => {}
@@ -3064,11 +3078,11 @@ unsafe fn mlist_to_hlist() {
                     s = ACCENT_NOAD_SIZE as i16;
                 }
                 MathNode::Fraction => {
-                    t = MathNode::Inner as i16;
+                    t = MathNode::Inner;
                     s = FRACTION_NOAD_SIZE as i16;
                 }
                 MathNode::Left | MathNode::Right => {
-                    t = make_left_right(q, style, max_d, max_h);
+                    t = make_left_right(&mut LeftRight(q), style, max_d, max_h);
                 }
             },
             ND::Text(n) => match n {
@@ -3102,7 +3116,7 @@ unsafe fn mlist_to_hlist() {
             },
             _ => confusion(b"mlist3"),
         }
-        if r_type > 0 {
+        if let Some(r_type) = r_type {
             const OFFSET_TABLE: [&[u8]; 8] = [
                 b"02340001",
                 b"22*40001",
@@ -3176,9 +3190,9 @@ unsafe fn mlist_to_hlist() {
         if penalties {
             if let Some(m) = llist_link(q) {
                 if pen < INF_PENALTY {
-                    r_type = MEM[m].b16.s1 as i16;
-                    if ND::from(r_type as u16) != TextNode::Penalty.into() {
-                        if r_type != MathNode::Rel as i16 {
+                    match NODE_type(m) {
+                        ND::Text(TextNode::Penalty) | ND::Math(MathNode::Rel) => {}
+                        _ => {
                             let z = new_penalty(pen);
                             *LLIST_link(p) = Some(z).tex_int();
                             p = z
@@ -3188,15 +3202,15 @@ unsafe fn mlist_to_hlist() {
             }
         }
         if MEM[q].b16.s1 == MathNode::Right as u16 {
-            t = MathNode::Open as i16;
+            t = MathNode::Open;
         }
-        r_type = t;
+        r_type = Some(t);
         /*delete_q */
         qopt = llist_link(q);
         free_node(q, s as i32);
     }
 }
-unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
+unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
     let mut c: u16 = 0;
     let mut y: u16 = 0;
     let mut n: i32 = 0;
@@ -3211,8 +3225,8 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
     let mut f = FONT_BASE;
     let mut w = 0;
     let mut large_attempt = false;
-    let mut z = MEM[d].b16.s3 as i32 % 256;
-    let mut x = (MEM[d].b16.s2 as i64 + (MEM[d].b16.s3 as i32 / 256) as i64 * 65536) as u16;
+    let mut z = d.s3 as i32 % 256;
+    let mut x = (d.s2 as i64 + (d.s3 as i32 / 256) as i64 * 65536) as u16;
     let mut ot_assembly_ptr = ptr::null_mut();
     's_62: loop {
         if z != 0 || x != 0 {
@@ -3298,8 +3312,8 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
             break;
         }
         large_attempt = true;
-        z = MEM[d].b16.s1 as i32 % 256;
-        x = (MEM[d].b16.s0 as i64 + (MEM[d].b16.s1 as i32 / 256) as i64 * 65536) as u16
+        z = d.s1 as i32 % 256;
+        x = (d.s0 as i64 + (d.s1 as i32 / 256) as i64 * 65536) as u16
     }
     let mut b = if f != FONT_BASE {
         if !(FONT_AREA[f] as u32 == OTGR_FONT_FLAG
@@ -3323,23 +3337,23 @@ unsafe fn var_delimiter(d: usize, mut s: usize, mut v: scaled_t) -> usize {
                 );
                 c = r.s1;
                 if c != 0 {
-                    w = w + height_plus_depth(f, c)
+                    w += height_plus_depth(f, c)
                 }
                 c = r.s2;
                 if c != 0 {
-                    w = w + height_plus_depth(f, c)
+                    w += height_plus_depth(f, c)
                 }
                 c = r.s3;
                 if c != 0 {
-                    w = w + height_plus_depth(f, c)
+                    w += height_plus_depth(f, c)
                 }
                 n = 0;
                 if u > 0 {
                     while w < v {
-                        w = w + u;
+                        w += u;
                         n += 1;
                         if r.s2 != 0 {
-                            w = w + u
+                            w += u;
                         }
                     }
                 }
