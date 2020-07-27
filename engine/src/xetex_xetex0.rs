@@ -1849,7 +1849,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
     match cmd {
         Cmd::LeftBrace => {
             print_cstr(b"begin-group character ");
-            if (chr_code as i64) < 65536 {
+            if chr_code < 65536 {
                 print(chr_code);
             } else {
                 print_char(chr_code);
@@ -1857,7 +1857,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         }
         Cmd::RightBrace => {
             print_cstr(b"end-group character ");
-            if (chr_code as i64) < 65536 {
+            if chr_code < 65536 {
                 print(chr_code);
             } else {
                 print_char(chr_code);
@@ -1865,7 +1865,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         }
         Cmd::MathShift => {
             print_cstr(b"math shift character ");
-            if (chr_code as i64) < 65536 {
+            if chr_code < 65536 {
                 print(chr_code);
             } else {
                 print_char(chr_code);
@@ -1873,7 +1873,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         }
         Cmd::MacParam => {
             print_cstr(b"macro parameter character ");
-            if (chr_code as i64) < 65536 {
+            if chr_code < 65536 {
                 print(chr_code);
             } else {
                 print_char(chr_code);
@@ -1881,7 +1881,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         }
         Cmd::SupMark => {
             print_cstr(b"superscript character ");
-            if (chr_code as i64) < 65536 {
+            if chr_code < 65536 {
                 print(chr_code);
             } else {
                 print_char(chr_code);
@@ -1889,7 +1889,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         }
         Cmd::SubMark => {
             print_cstr(b"subscript character ");
-            if (chr_code as i64) < 65536 {
+            if chr_code < 65536 {
                 print(chr_code);
             } else {
                 print_char(chr_code);
@@ -1898,7 +1898,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         Cmd::EndV => print_cstr(b"end of alignment template"),
         Cmd::Spacer => {
             print_cstr(b"blank space ");
-            if (chr_code as i64) < 65536 {
+            if chr_code < 65536 {
                 print(chr_code);
             } else {
                 print_char(chr_code);
@@ -1906,7 +1906,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         }
         Cmd::Letter => {
             print_cstr(b"the letter ");
-            if (chr_code as i64) < 65536 {
+            if chr_code < 65536 {
                 print(chr_code);
             } else {
                 print_char(chr_code);
@@ -1914,7 +1914,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         }
         Cmd::OtherChar => {
             print_cstr(b"the character ");
-            if (chr_code as i64) < 65536 {
+            if chr_code < 65536 {
                 print(chr_code);
             } else {
                 print_char(chr_code);
@@ -5084,13 +5084,7 @@ pub(crate) unsafe fn expand() {
                         cur_mark[t as usize]
                     } else {
                         find_sa_element(ValLevel::Mark, cur_val, false);
-                        cur_ptr.and_then(|p| {
-                            if t & 1 != 0 {
-                                MEM[p + t / 2 + 1].b32.s1.opt()
-                            } else {
-                                MEM[p + t / 2 + 1].b32.s0.opt()
-                            }
-                        })
+                        cur_ptr.and_then(|p| MarkClass(p).indexes()[t].opt())
                     };
                     if let Some(p) = cur_ptr {
                         begin_token_list(p, Btl::MarkText);
@@ -5607,7 +5601,7 @@ pub(crate) unsafe fn scan_xetex_math_char_int() {
         cur_val = 0;
     };
 }
-pub(crate) unsafe fn scan_math(p: usize) {
+pub(crate) unsafe fn scan_math(m: &mut MCell, p: usize) {
     let mut c: i32 = 0;
     'c_118470: loop {
         loop
@@ -5692,16 +5686,16 @@ pub(crate) unsafe fn scan_math(p: usize) {
             }
         }
     }
-    MEM[p].b32.s1 = MathCell::MathChar as _;
-    MEM[p].b16.s0 = (c as i64 % 65536) as u16;
-    if (math_class(c) == 7)
+    m.typ = MathCell::MathChar;
+    m.val.chr.character = (c as i64 % 65536) as u16;
+    let font = if (math_class(c) == 7)
         && (*INTPAR(IntPar::cur_fam) >= 0 && *INTPAR(IntPar::cur_fam) < NUMBER_MATH_FAMILIES as i32)
     {
-        MEM[p].b16.s1 = *INTPAR(IntPar::cur_fam) as u16
+        *INTPAR(IntPar::cur_fam) as u16
     } else {
-        MEM[p].b16.s1 = math_fam(c) as u16;
-    }
-    MEM[p].b16.s1 = (MEM[p].b16.s1 as i64 + ((math_char(c) as i64) / 65536) * 256) as u16;
+        math_fam(c) as u16
+    };
+    m.val.chr.font = (font as i64 + ((math_char(c) as i64) / 65536) * 256) as u16;
 }
 pub(crate) unsafe fn set_math_char(mut c: i32) {
     let mut ch: UnicodeScalar = 0;
@@ -15984,7 +15978,8 @@ pub(crate) unsafe fn main_control() {
                         *LLIST_link(cur_list.tail) = Some(n).tex_int();
                         cur_list.tail = n;
                         back_input();
-                        scan_math(cur_list.tail + 1);
+                        let m = BaseMath(cur_list.tail);
+                        scan_math(m.first_mut(), cur_list.tail + 1);
                     }
                     (MMode, Cmd::Letter) | (MMode, Cmd::OtherChar) | (MMode, Cmd::CharGiven) => {
                         // 218 | 219 | 275
@@ -16056,8 +16051,9 @@ pub(crate) unsafe fn main_control() {
                         let n = new_noad();
                         *LLIST_link(cur_list.tail) = Some(n).tex_int();
                         cur_list.tail = n;
-                        MEM[cur_list.tail].b16.s1 = cur_chr as u16;
-                        scan_math(cur_list.tail + 1);
+                        set_math_NODE_type(n, MathNode::n(cur_chr as u16).unwrap());
+                        let m = BaseMath(cur_list.tail);
+                        scan_math(m.first_mut(), cur_list.tail + 1);
                     }
                     (MMode, Cmd::LimitSwitch) => {
                         // 258

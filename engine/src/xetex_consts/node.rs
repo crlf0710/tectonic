@@ -1,5 +1,5 @@
 use crate::xetex_xetex0::free_node;
-use std::ops::{Deref, DerefMut};
+use derive_more::{Deref, DerefMut};
 
 use crate::xetex_consts::{BreakType, GlueOrder, GlueSign};
 use crate::xetex_ini::MEM;
@@ -74,7 +74,8 @@ impl From<u16> for TextNode {
 
 pub(crate) use whatsit::*;
 pub(crate) mod whatsit {
-    use super::{free_node, BaseBox, Deref, DerefMut, NodeSize, MEM};
+    use super::{free_node, BaseBox, NodeSize, MEM};
+    use derive_more::{Deref, DerefMut};
 
     #[derive(Clone, Debug)]
     pub(crate) enum WhatsIt {
@@ -269,19 +270,8 @@ pub(crate) mod whatsit {
         }
     }
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Deref, DerefMut)]
     pub(crate) struct NativeWord(BaseBox);
-    impl Deref for NativeWord {
-        type Target = BaseBox;
-        fn deref(&self) -> &Self::Target {
-            &self.0
-        }
-    }
-    impl DerefMut for NativeWord {
-        fn deref_mut(&mut self) -> &mut Self::Target {
-            &mut self.0
-        }
-    }
     impl NativeWord {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseBox(p))
@@ -354,19 +344,8 @@ pub(crate) mod whatsit {
         }
     }
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Deref, DerefMut)]
     pub(crate) struct Glyph(BaseBox);
-    impl Deref for Glyph {
-        type Target = BaseBox;
-        fn deref(&self) -> &Self::Target {
-            &self.0
-        }
-    }
-    impl DerefMut for Glyph {
-        fn deref_mut(&mut self) -> &mut Self::Target {
-            &mut self.0
-        }
-    }
     impl Glyph {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseBox(p))
@@ -396,19 +375,8 @@ pub(crate) mod whatsit {
         }
     }
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Deref, DerefMut)]
     pub(crate) struct Picture(BaseBox);
-    impl Deref for Picture {
-        type Target = BaseBox;
-        fn deref(&self) -> &Self::Target {
-            &self.0
-        }
-    }
-    impl DerefMut for Picture {
-        fn deref_mut(&mut self) -> &mut Self::Target {
-            &mut self.0
-        }
-    }
     impl Picture {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseBox(p))
@@ -793,19 +761,8 @@ impl BaseBox {
     }
 }
 
-#[derive(Clone, Copy)] // TODO: remove this
+#[derive(Clone, Copy, Deref, DerefMut)] // TODO: remove this
 pub(crate) struct Box(BaseBox);
-impl Deref for Box {
-    type Target = BaseBox;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl DerefMut for Box {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 impl NodeSize for Box {
     const SIZE: i32 = BOX_NODE_SIZE;
 }
@@ -868,18 +825,8 @@ impl Box {
     }
 }
 
+#[derive(Deref, DerefMut)]
 pub(crate) struct Unset(BaseBox);
-impl Deref for Unset {
-    type Target = BaseBox;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl DerefMut for Unset {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 impl NodeSize for Unset {
     const SIZE: i32 = BOX_NODE_SIZE;
 }
@@ -936,18 +883,8 @@ impl Unset {
     }
 }
 
+#[derive(Deref, DerefMut)]
 pub(crate) struct Rule(BaseBox);
-impl Deref for Rule {
-    type Target = BaseBox;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl DerefMut for Rule {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 impl NodeSize for Rule {
     const SIZE: i32 = RULE_NODE_SIZE;
 }
@@ -1674,31 +1611,324 @@ impl From<u16> for MathType {
     }
 }
 
-/* Cmd::MathComp and others */
-#[repr(u16)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
-pub(crate) enum MathNode {
-    Ord = 16,
-    Op = 17,
-    Bin = 18,
-    Rel = 19,
-    Open = 20,
-    Close = 21,
-    Punct = 22,
-    Inner = 23,
-    Radical = 24,
-    Fraction = 25,
-    Under = 26,
-    Over = 27,
-    Accent = 28,
-    VCenter = 29,
-    Left = 30,
-    Right = 31,
-}
+pub(crate) use math::*;
+pub(crate) mod math {
+    use super::MEM;
+    use crate::xetex_consts::Limit;
+    use crate::xetex_ini::memory_word;
+    use crate::xetex_xetexd::TeXInt;
+    use derive_more::{Deref, DerefMut};
 
-impl From<u16> for MathNode {
-    fn from(n: u16) -> Self {
-        Self::n(n).expect(&format!("Incorrect MathNode = {}", n))
+    /* Cmd::MathComp and others */
+    #[repr(u16)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
+    pub(crate) enum MathNode {
+        Ord = 16,
+        Op = 17,
+        Bin = 18,
+        Rel = 19,
+        Open = 20,
+        Close = 21,
+        Punct = 22,
+        Inner = 23,
+        Radical = 24,
+        Fraction = 25,
+        Under = 26,
+        Over = 27,
+        Accent = 28,
+        VCenter = 29,
+        Left = 30,
+        Right = 31,
+    }
+
+    impl From<u16> for MathNode {
+        fn from(n: u16) -> Self {
+            Self::n(n).expect(&format!("Incorrect MathNode = {}", n))
+        }
+    }
+
+    pub(crate) struct BaseMath(pub usize);
+    impl BaseMath {
+        pub(crate) const fn ptr(&self) -> usize {
+            self.0
+        }
+        pub(crate) unsafe fn first(&self) -> &MCell {
+            &(*(&MEM[self.ptr() + 1] as *const memory_word as *const MCell))
+        }
+        pub(crate) unsafe fn first_mut(&self) -> &mut MCell {
+            &mut (*(&mut MEM[self.ptr() + 1] as *mut memory_word as *mut MCell))
+        }
+        pub(crate) unsafe fn second(&self) -> &MCell {
+            &(*(&MEM[self.ptr() + 2] as *const memory_word as *const MCell))
+        }
+        pub(crate) unsafe fn second_mut(&self) -> &mut MCell {
+            &mut (*(&mut MEM[self.ptr() + 2] as *mut memory_word as *mut MCell))
+        }
+        pub(crate) unsafe fn third(&self) -> &MCell {
+            &(*(&MEM[self.ptr() + 3] as *const memory_word as *const MCell))
+        }
+        pub(crate) unsafe fn third_mut(&self) -> &mut MCell {
+            &mut (*(&mut MEM[self.ptr() + 3] as *mut memory_word as *mut MCell))
+        }
+    }
+
+    #[derive(Deref, DerefMut)]
+    pub(crate) struct Ord(BaseMath);
+    impl Ord {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseMath(p))
+        }
+    }
+
+    #[derive(Deref, DerefMut)]
+    pub(crate) struct Operator(BaseMath);
+    impl Operator {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseMath(p))
+        }
+        pub(crate) unsafe fn limits(&self) -> Limit {
+            Limit::n(MEM[self.ptr()].b16.s0).unwrap()
+        }
+        pub(crate) unsafe fn set_limits(&mut self, v: Limit) -> &mut Self {
+            MEM[self.ptr()].b16.s0 = v as u16;
+            self
+        }
+    }
+
+    #[derive(Deref, DerefMut)]
+    pub(crate) struct Bin(BaseMath);
+    impl Bin {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseMath(p))
+        }
+    }
+
+    #[derive(Deref, DerefMut)]
+    pub(crate) struct Rel(BaseMath);
+    impl Rel {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseMath(p))
+        }
+    }
+
+    #[derive(Deref, DerefMut)]
+    pub(crate) struct Open(BaseMath);
+    impl Open {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseMath(p))
+        }
+    }
+
+    #[derive(Deref, DerefMut)]
+    pub(crate) struct Close(BaseMath);
+    impl Close {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseMath(p))
+        }
+    }
+
+    #[derive(Deref, DerefMut)]
+    pub(crate) struct Punct(BaseMath);
+    impl Punct {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseMath(p))
+        }
+    }
+
+    #[derive(Deref, DerefMut)]
+    pub(crate) struct Inner(BaseMath);
+    impl Inner {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseMath(p))
+        }
+    }
+
+    #[derive(Deref, DerefMut)]
+    pub(crate) struct Radical(BaseMath);
+    impl Radical {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseMath(p))
+        }
+        pub(crate) unsafe fn delimeter(&self) -> &Delimeter {
+            &(*(&MEM[self.ptr() + 4] as *const memory_word as *const Delimeter))
+        }
+        pub(crate) unsafe fn delimeter_mut(&self) -> &mut Delimeter {
+            &mut (*(&mut MEM[self.ptr() + 4] as *mut memory_word as *mut Delimeter))
+        }
+    }
+
+    #[derive(Deref, DerefMut)]
+    pub(crate) struct Over(BaseMath);
+    impl Over {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseMath(p))
+        }
+    }
+
+    #[derive(Deref, DerefMut)]
+    pub(crate) struct Under(BaseMath);
+    impl Under {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseMath(p))
+        }
+    }
+
+    #[derive(Deref, DerefMut)]
+    pub(crate) struct VCenter(BaseMath);
+    impl VCenter {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseMath(p))
+        }
+    }
+
+    #[derive(Deref, DerefMut)]
+    pub(crate) struct Accent(BaseMath);
+    impl Accent {
+        pub(crate) const fn from(p: usize) -> Self {
+            Self(BaseMath(p))
+        }
+        pub(crate) unsafe fn accent_type(&self) -> AccentType {
+            AccentType::n(MEM[self.ptr()].b16.s0).unwrap()
+        }
+        pub(crate) unsafe fn set_accent_type(&mut self, v: AccentType) -> &mut Self {
+            MEM[self.ptr()].b16.s0 = v as u16;
+            self
+        }
+        pub(crate) unsafe fn fourth(&self) -> &MCell {
+            &(*(&MEM[self.ptr() + 4] as *const memory_word as *const MCell))
+        }
+        pub(crate) unsafe fn fourth_mut(&self) -> &mut MCell {
+            &mut (*(&mut MEM[self.ptr() + 4] as *mut memory_word as *mut MCell))
+        }
+    }
+
+    pub(crate) struct Fraction(pub usize);
+    impl Fraction {
+        pub(crate) const fn ptr(&self) -> usize {
+            self.0
+        }
+        pub(crate) unsafe fn thickness(&self) -> i32 {
+            MEM[self.ptr() + 1].b32.s1
+        }
+        pub(crate) unsafe fn set_thickness(&mut self, v: i32) -> &mut Self {
+            MEM[self.ptr() + 1].b32.s1 = v;
+            self
+        }
+        pub(crate) unsafe fn second(&self) -> &MCell {
+            &(*(&MEM[self.ptr() + 2] as *const memory_word as *const MCell))
+        }
+        pub(crate) unsafe fn second_mut(&self) -> &mut MCell {
+            &mut (*(&mut MEM[self.ptr() + 2] as *mut memory_word as *mut MCell))
+        }
+        pub(crate) unsafe fn third(&self) -> &MCell {
+            &(*(&MEM[self.ptr() + 3] as *const memory_word as *const MCell))
+        }
+        pub(crate) unsafe fn third_mut(&self) -> &mut MCell {
+            &mut (*(&mut MEM[self.ptr() + 3] as *mut memory_word as *mut MCell))
+        }
+        pub(crate) unsafe fn left_delimeter(&self) -> &Delimeter {
+            &(*(&MEM[self.ptr() + 4] as *const memory_word as *const Delimeter))
+        }
+        pub(crate) unsafe fn left_delimeter_mut(&self) -> &mut Delimeter {
+            &mut (*(&mut MEM[self.ptr() + 4] as *mut memory_word as *mut Delimeter))
+        }
+        pub(crate) unsafe fn right_delimeter(&self) -> &Delimeter {
+            &(*(&MEM[self.ptr() + 5] as *const memory_word as *const Delimeter))
+        }
+        pub(crate) unsafe fn right_delimeter_mut(&self) -> &mut Delimeter {
+            &mut (*(&mut MEM[self.ptr() + 5] as *mut memory_word as *mut Delimeter))
+        }
+    }
+    pub(crate) struct LeftRight(pub usize);
+    impl LeftRight {
+        pub(crate) const fn ptr(&self) -> usize {
+            self.0
+        }
+        pub(crate) unsafe fn delimeter(&self) -> &Delimeter {
+            &(*(&MEM[self.ptr() + 1] as *const memory_word as *const Delimeter))
+        }
+        pub(crate) unsafe fn delimeter_mut(&self) -> &mut Delimeter {
+            &mut (*(&mut MEM[self.ptr() + 1] as *mut memory_word as *mut Delimeter))
+        }
+    }
+
+    #[repr(u16)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+    pub(crate) enum AccentType {
+        Normal = 0,
+        Fixed = 1,
+        Bottom = 2,
+        BottomFixed = 3,
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub(crate) struct Chr {
+        pub(crate) character: u16,
+        pub(crate) font: u16,
+    }
+
+    // --- TODO: replace this with Enum
+    #[repr(i32)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+    pub(crate) enum MathCell {
+        Empty = 0,
+        MathChar = 1,
+        SubBox = 2,
+        SubMList = 3,
+        MathTextChar = 4,
+    }
+
+    #[derive(Clone, Copy)]
+    pub(crate) union CellVal {
+        pub(crate) ptr: i32,
+        pub(crate) chr: Chr,
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub(crate) struct MCell {
+        pub(crate) val: CellVal,
+        pub(crate) typ: MathCell,
+    }
+    impl MCell {
+        pub(crate) fn set(&mut self, other: &MCell) {
+            *self = *other;
+        }
+        pub(crate) fn empty(&mut self) {
+            self.val.ptr = None.tex_int();
+            self.typ = MathCell::Empty;
+        }
+        pub(crate) fn set_math_char(&mut self, c: Chr) {
+            self.val.chr = c;
+            self.typ = MathCell::MathChar;
+        }
+        pub(crate) fn set_subbox(&mut self, b: super::Box) {
+            self.val.ptr = Some(b.ptr()).tex_int();
+            self.typ = MathCell::SubBox;
+        }
+        pub(crate) fn set_submlist(&mut self, b: i32) {
+            self.val.ptr = b;
+            self.typ = MathCell::SubMList;
+        }
+        pub(crate) fn set_math_text_char(&mut self, c: Chr) {
+            self.val.chr = c;
+            self.typ = MathCell::MathTextChar;
+        }
+        pub(crate) unsafe fn fetch(&mut self) {
+            crate::xetex_math::fetch(self);
+        }
+    }
+    // ---------------
+
+    // TODO: rename fields
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub(crate) struct Delimeter {
+        pub s0: u16,
+        pub s1: u16,
+        pub s2: u16,
+        pub s3: u16,
     }
 }
 

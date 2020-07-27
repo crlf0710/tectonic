@@ -715,25 +715,6 @@ impl From<i32> for PackMode {
     }
 }
 
-#[repr(u16)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
-pub(crate) enum AccentType {
-    Normal = 0,
-    Fixed = 1,
-    Bottom = 2,
-    BottomFixed = 3,
-}
-
-#[repr(i32)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
-pub(crate) enum MathCell {
-    Empty = 0,
-    MathChar = 1,
-    SubBox = 2,
-    SubMList = 3,
-    MathTextChar = 4,
-}
-
 pub(crate) const DISPLAYOPERATORMINHEIGHT: placeholdertype = 3;
 pub(crate) const ACCENTBASEHEIGHT: placeholdertype = 6;
 pub(crate) const SUBSCRIPTTOPMAX: placeholdertype = 9;
