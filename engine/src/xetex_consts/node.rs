@@ -1237,8 +1237,14 @@ impl NodeSize for Discretionary {
     const SIZE: i32 = SMALL_NODE_SIZE;
 }
 impl Discretionary {
+    pub(crate) const NODE: u16 = 7;
     pub(crate) const fn ptr(&self) -> usize {
         self.0
+    }
+    pub(crate) unsafe fn new_node() -> Self {
+        let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+        MEM[p].b16.s1 = Self::NODE;
+        Self(p)
     }
     pub(crate) unsafe fn is_empty(&self) -> bool {
         self.pre_break().opt().is_none()
@@ -1636,6 +1642,9 @@ impl NodeSize for Math {
 impl Math {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
+    }
+    pub(crate) unsafe fn is_empty(&self) -> bool {
+        self.width() == 0
     }
     pub(crate) unsafe fn subtype(&self) -> MathType {
         MathType::from(MEM[self.ptr()].b16.s0)

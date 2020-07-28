@@ -1752,7 +1752,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                     artificial_demerits = false;
                     shortfall = line_width - cur_active_width[1];
                     if *INTPAR(IntPar::xetex_protrude_chars) > 1 {
-                        shortfall = shortfall + total_pw(r.ptr(), cur_p)
+                        shortfall = shortfall + total_pw(&r, cur_p)
                     }
                 }
 
@@ -2314,6 +2314,7 @@ unsafe fn hyphenate() {
             }
             _ => {}
         }
+        // common_ending
         flush_node_list(r.opt());
         loop {
             l = j;
@@ -2333,9 +2334,8 @@ unsafe fn hyphenate() {
                 loop
                 /*949: */
                 {
-                    let mut r = Discretionary(get_node(SMALL_NODE_SIZE));
+                    let mut r = Discretionary::new_node();
                     *LLIST_link(r.ptr()) = *LLIST_link(HOLD_HEAD);
-                    set_NODE_type(r.ptr(), TextNode::Disc);
                     let mut major_tail = r.ptr();
                     r_count = 0;
                     while let Some(next) = LLIST_link(major_tail as usize).opt() {
@@ -2750,55 +2750,48 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
     }
     j
 }
-unsafe fn total_pw(q: usize, p: Option<usize>) -> scaled_t {
-    let mut lopt = if let Some(r) = MEM[(q + 1) as usize].b32.s1.opt() {
-        MEM[r + 1].b32.s1.opt()
+unsafe fn total_pw(q: &Active, p: Option<usize>) -> scaled_t {
+    let mut lopt = if let Some(r) = q.break_node().opt() {
+        Passive(r).cur_break().opt()
     } else {
         first_p.opt()
     };
     let mut r = prev_rightmost(global_prev_p.opt(), p);
-    match p {
-        Some(p)
-            if NODE_type(p) == TextNode::Disc.into()
-                && Discretionary(p).pre_break().opt().is_some() =>
-        {
-            let p = Discretionary(p);
-            if let Some(mut m) = p.pre_break().opt() {
+    
+    match p.map(Node::from) {
+        Some(Node::Text(TxtNode::Disc(d))) if d.pre_break().opt().is_some() => {
+            if let Some(mut m) = d.pre_break().opt() {
                 while let Some(next) = llist_link(m) {
                     m = next;
                 }
                 r = Some(m);
             }
         }
-        _ => r = find_protchar_right(lopt, r),
+        _ => r = find_protchar_right(lopt, r),   
     }
-    let l = match lopt {
-        Some(mut l) if NODE_type(l) == TextNode::Disc.into() => {
-            if let Some(l1) = Discretionary(l).post_break().opt() {
-                l = l1;
-                return char_pw(Some(l), Side::Left) + char_pw(r, Side::Right);
-            } else {
-                let mut n = Discretionary(l).replace_count();
-                l = llist_link(l).unwrap();
-                while n > 0 {
-                    if let Some(next) = llist_link(l) {
-                        l = next;
-                    }
-                    n -= 1;
+    let mut l = lopt.unwrap();
+    if let Node::Text(TxtNode::Disc(d)) = Node::from(l) {
+        if let Some(l1) = d.post_break().opt() {
+            l = l1;
+            return char_pw(Some(l), Side::Left) + char_pw(r, Side::Right);
+        } else {
+            let mut n = d.replace_count();
+            l = llist_link(l).unwrap();
+            while n > 0 {
+                if let Some(next) = llist_link(l) {
+                    l = next;
                 }
+                n -= 1;
             }
-            l
         }
-        Some(l) => l,
-        None => panic!(),
     };
     let l = find_protchar_left(l, true);
     char_pw(Some(l), Side::Left) + char_pw(r, Side::Right)
 }
 unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     let mut run: bool = false;
-    match llist_link(l) {
-        Some(next) if NODE_type(l) == TextNode::HList.into() && List::from(l).is_empty() => {
+    match (llist_link(l), Node::from(l)) {
+        (Some(next), Node::Text(TxtNode::HList(n))) if n.is_empty() => {
             l = next
         }
         _ => {
@@ -2816,25 +2809,32 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     run = true;
     loop {
         let t = l;
-        while run && NODE_type(l) == TextNode::HList.into() {
-            if let Some(next) = List::from(l).list_ptr().opt() {
-                hlist_stack.push(l);
-                l = next;
-            } else {
-                break;
+        if run {
+            while let Node::Text(TxtNode::HList(n)) = Node::from(l) {
+                if let Some(next) = n.list_ptr().opt() {
+                    hlist_stack.push(n.ptr());
+                    l = next;
+                } else {
+                    break;
+                }
             }
         }
         while run
-            && (!is_char_node(Some(l))
-                && (NODE_type(l) == TextNode::Ins.into()
-                    || NODE_type(l) == TextNode::Mark.into()
-                    || NODE_type(l) == TextNode::Adjust.into()
-                    || NODE_type(l) == TextNode::Penalty.into()
-                    || NODE_type(l) == TextNode::Disc.into() && Discretionary(l).is_empty()
-                    || NODE_type(l) == TextNode::Math.into() && MEM[l + 1].b32.s1 == 0
-                    || NODE_type(l) == TextNode::Kern.into() && Kern(l).is_empty()
-                    || NODE_type(l) == TextNode::Glue.into() && Glue(l).is_empty()
-                    || NODE_type(l) == TextNode::HList.into() && List::from(l).is_empty()))
+            && match CharOrText::from(l) {
+                CharOrText::Char(_) => false,
+                CharOrText::Text(n) => match n {
+                    TxtNode::Ins(_)
+                    | TxtNode::Mark(_)
+                    | TxtNode::Adjust(_)
+                    | TxtNode::Penalty(_) => true,
+                    TxtNode::Disc(n) if n.is_empty() => true,
+                    TxtNode::Math(n) if n.is_empty() => true,
+                    TxtNode::Kern(n) if n.is_empty() => true,
+                    TxtNode::Glue(n) if n.is_empty() => true,
+                    TxtNode::HList(n) if n.is_empty() => true,
+                    _ => false,
+                },
+            }
         {
             while LLIST_link(l as usize).opt().is_none() {
                 if let Some(last) = hlist_stack.pop() {
@@ -2865,29 +2865,36 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
     run = true;
     loop {
         let t = r;
-        while run && NODE_type(r) == TextNode::HList.into() {
-            if let Some(hnext) = List::from(r).list_ptr().opt() {
-                hlist_stack.push((l, r));
-                l = Some(hnext);
-                r = hnext;
-                while let Some(next) = llist_link(r) {
-                    r = next;
+        if run {
+            while let Node::Text(TxtNode::HList(n)) = Node::from(r) {
+                if let Some(hnext) = n.list_ptr().opt() {
+                    hlist_stack.push((l, n.ptr()));
+                    l = Some(hnext);
+                    r = hnext;
+                    while let Some(next) = llist_link(r) {
+                        r = next;
+                    }
+                } else {
+                    break;
                 }
-            } else {
-                break;
             }
         }
         while run
-            && (!is_char_node(Some(r))
-                && (NODE_type(r) == TextNode::Ins.into()
-                    || NODE_type(r) == TextNode::Mark.into()
-                    || NODE_type(r) == TextNode::Adjust.into()
-                    || NODE_type(r) == TextNode::Penalty.into()
-                    || NODE_type(r) == TextNode::Disc.into() && Discretionary(r).is_empty()
-                    || NODE_type(r) == TextNode::Math.into() && MEM[r + 1].b32.s1 == 0
-                    || NODE_type(r) == TextNode::Kern.into() && Kern(r).is_empty()
-                    || NODE_type(r) == TextNode::Glue.into() && Glue(r).is_empty()
-                    || NODE_type(r) == TextNode::HList.into() && List::from(r).is_empty()))
+            && match CharOrText::from(r) {
+                CharOrText::Char(_) => false,
+                CharOrText::Text(n) => match n {
+                    TxtNode::Ins(_)
+                    | TxtNode::Mark(_)
+                    | TxtNode::Adjust(_)
+                    | TxtNode::Penalty(_) => true,
+                    TxtNode::Disc(n) if n.is_empty() => true,
+                    TxtNode::Math(n) if n.is_empty() => true,
+                    TxtNode::Kern(n) if n.is_empty() => true,
+                    TxtNode::Glue(n) if n.is_empty() => true,
+                    TxtNode::HList(n) if n.is_empty() => true,
+                    _ => false,
+                },
+            }
         {
             while Some(r) == l {
                 if let Some(last) = hlist_stack.pop() {

@@ -435,8 +435,7 @@ pub(crate) unsafe fn new_lig_item(mut c: u16) -> usize {
     p
 }
 pub(crate) unsafe fn new_disc() -> usize {
-    let mut p = Discretionary(get_node(SMALL_NODE_SIZE));
-    set_NODE_type(p.ptr(), TextNode::Disc);
+    let mut p = Discretionary::new_node();
     p.set_replace_count(0)
         .set_pre_break(None.tex_int())
         .set_post_break(None.tex_int());
@@ -8599,24 +8598,26 @@ pub(crate) unsafe fn conv_toks() {
         ConvertCode::LeftMarginKern => {
             let mut popt = List::from(p.unwrap()).list_ptr().opt();
             while let Some(p) = popt {
-                if !(p < hi_mem_min as usize
-                    && (text_NODE_type(p) == TextNode::Ins.into()
-                        || text_NODE_type(p) == TextNode::Mark.into()
-                        || text_NODE_type(p) == TextNode::Adjust.into()
-                        || text_NODE_type(p) == TextNode::Penalty.into()
-                        || text_NODE_type(p) == TextNode::Disc.into()
-                            && Discretionary(p).is_empty()
-                        || text_NODE_type(p) == TextNode::Math.into() && MEM[p + 1].b32.s1 == 0
-                        || text_NODE_type(p) == TextNode::Kern.into() && Kern(p).is_empty()
-                        || text_NODE_type(p) == TextNode::Glue.into() && Glue(p).is_empty()
-                        || text_NODE_type(p) == TextNode::HList.into() && List::from(p).is_empty())
-                    || p < hi_mem_min as usize
-                        && text_NODE_type(p) == TextNode::Glue.into()
-                        && Glue(p).param() == (GluePar::left_skip as u16) + 1)
-                {
+                if match CharOrText::from(p) {
+                    CharOrText::Char(_) => false,
+                    CharOrText::Text(n) => match n {
+                        TxtNode::Ins(_)
+                        | TxtNode::Mark(_)
+                        | TxtNode::Adjust(_)
+                        | TxtNode::Penalty(_) => true,
+                        TxtNode::Disc(n) if n.is_empty() => true,
+                        TxtNode::Math(n) if n.is_empty() => true,
+                        TxtNode::Kern(n) if n.is_empty() => true,
+                        TxtNode::Glue(n) if n.is_empty() => true,
+                        TxtNode::HList(n) if n.is_empty() => true,
+                        TxtNode::Glue(n) if n.param() == (GluePar::right_skip as u16) + 1 => true,
+                        _ => false,
+                    },
+                } {
+                    popt = llist_link(p);
+                } else {
                     break;
                 }
-                popt = llist_link(p);
             }
             if let Some(p) = popt.filter(|&p| {
                 p < hi_mem_min as usize
@@ -8633,24 +8634,26 @@ pub(crate) unsafe fn conv_toks() {
             let q = List::from(p.unwrap()).list_ptr().opt();
             let mut popt = prev_rightmost(q, None);
             while let Some(p) = popt {
-                if !(p < hi_mem_min as usize
-                    && (text_NODE_type(p) == TextNode::Ins.into()
-                        || text_NODE_type(p) == TextNode::Mark.into()
-                        || text_NODE_type(p) == TextNode::Adjust.into()
-                        || text_NODE_type(p) == TextNode::Penalty.into()
-                        || text_NODE_type(p) == TextNode::Disc.into()
-                            && Discretionary(p).is_empty()
-                        || text_NODE_type(p) == TextNode::Math.into() && MEM[p + 1].b32.s1 == 0
-                        || text_NODE_type(p) == TextNode::Kern.into() && Kern(p).is_empty()
-                        || text_NODE_type(p) == TextNode::Glue.into() && Glue(p).is_empty()
-                        || text_NODE_type(p) == TextNode::HList.into() && List::from(p).is_empty())
-                    || p < hi_mem_min as usize
-                        && text_NODE_type(p) == TextNode::Glue.into()
-                        && Glue(p).param() == (GluePar::right_skip as u16) + 1)
-                {
+                if match CharOrText::from(p) {
+                    CharOrText::Char(_) => false,
+                    CharOrText::Text(n) => match n {
+                        TxtNode::Ins(_)
+                        | TxtNode::Mark(_)
+                        | TxtNode::Adjust(_)
+                        | TxtNode::Penalty(_) => true,
+                        TxtNode::Disc(n) if n.is_empty() => true,
+                        TxtNode::Math(n) if n.is_empty() => true,
+                        TxtNode::Kern(n) if n.is_empty() => true,
+                        TxtNode::Glue(n) if n.is_empty() => true,
+                        TxtNode::HList(n) if n.is_empty() => true,
+                        TxtNode::Glue(n) if n.param() == (GluePar::right_skip as u16) + 1 => true,
+                        _ => false,
+                    },
+                } {
+                    popt = prev_rightmost(q, Some(p));
+                } else {
                     break;
                 }
-                popt = prev_rightmost(q, Some(p));
             }
             if let Some(p) = popt.filter(|&p| {
                 p < hi_mem_min as usize
@@ -15144,7 +15147,8 @@ pub(crate) unsafe fn do_extension() {
     let mut j: i32 = 0;
     let mut p: usize = 0;
     match cur_chr as u16 {
-        0 => { // OpenFile
+        0 => {
+            // OpenFile
             new_open_whatsit();
             scan_optional_equals();
             scan_file_name();
@@ -15152,14 +15156,16 @@ pub(crate) unsafe fn do_extension() {
             MEM[cur_list.tail + 2].b32.s0 = cur_area;
             MEM[cur_list.tail + 2].b32.s1 = cur_ext
         }
-        1 => { // WriteFile
+        1 => {
+            // WriteFile
             let k = cur_cs;
             new_write_whatsit();
             cur_cs = k;
             p = scan_toks(false, false);
             MEM[cur_list.tail + 1].b32.s1 = def_ref as i32
         }
-        2 => { // CloseFile
+        2 => {
+            // CloseFile
             new_close_whatsit();
             MEM[cur_list.tail + 1].b32.s1 = None.tex_int()
         }
