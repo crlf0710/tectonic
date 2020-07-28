@@ -333,7 +333,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 }
             }
             match text_NODE_type(cp).unwrap() {
-                TextNode::HList | TextNode::VList => active_width[1] += Box::from(cp).width(),
+                TextNode::HList | TextNode::VList => active_width[1] += List::from(cp).width(),
                 TextNode::Rule => active_width[1] += Rule::from(cp).width(),
                 TextNode::WhatsIt => match WhatsIt::from(cp) {
                     WhatsIt::Language(l) => {
@@ -420,7 +420,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
                                     }
                                     TextNode::HList | TextNode::VList => {
-                                        disc_width += Box::from(s).width()
+                                        disc_width += List::from(s).width()
                                     }
                                     TextNode::Rule => disc_width += Rule::from(s).width(),
                                     TextNode::Kern => disc_width += Kern(s).width(),
@@ -471,7 +471,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         *FONT_CHARACTER_WIDTH(f, eff_char_3 as usize);
                                 }
                                 TextNode::HList | TextNode::VList => {
-                                    active_width[1] += Box::from(s).width();
+                                    active_width[1] += List::from(s).width();
                                 }
                                 TextNode::Rule => {
                                     active_width[1] += Rule::from(s).width();
@@ -784,67 +784,80 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     return c;
                 }
 
-                if ha < hi_mem_min as usize
-                    && NODE_type(ha) == TextNode::WhatsIt.into()
-                    && (whatsit_NODE_subtype(ha) == WhatsItNST::NativeWord
-                        || whatsit_NODE_subtype(ha) == WhatsItNST::NativeWordAt)
-                {
-                    let mut ha_nw = NativeWord::from(ha);
-                    /*926: check that nodes after native_word permit hyphenation; if not, goto done1 */
-                    s = llist_link(ha).unwrap();
+                match CharOrText::from(ha) {
+                    CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(mut ha_nw)))
+                    | CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWordAt(mut ha_nw))) => {
+                        /*926: check that nodes after native_word permit hyphenation; if not, goto done1 */
+                        s = llist_link(ha).unwrap();
 
-                    loop {
-                        if !is_char_node(Some(s)) {
-                            match text_NODE_type(s).unwrap() {
-                                TextNode::Ligature => {}
-                                TextNode::Kern => {
-                                    let k = Kern(s);
-                                    if k.subtype() != KernType::Normal {
+                        loop {
+                            match CharOrText::from(s) {
+                                CharOrText::Char(_) => {}
+                                CharOrText::Text(n) => match n {
+                                    TxtNode::Ligature(_) => {}
+                                    TxtNode::Kern(k) => {
+                                        if k.subtype() != KernType::Normal {
+                                            break;
+                                        }
+                                    }
+                                    TxtNode::WhatsIt(_)
+                                    | TxtNode::Glue(_)
+                                    | TxtNode::Penalty(_)
+                                    | TxtNode::Ins(_)
+                                    | TxtNode::Adjust(_)
+                                    | TxtNode::Mark(_) => {
                                         break;
                                     }
-                                }
-                                TextNode::WhatsIt
-                                | TextNode::Glue
-                                | TextNode::Penalty
-                                | TextNode::Ins
-                                | TextNode::Adjust
-                                | TextNode::Mark => {
-                                    break;
-                                }
-                                _ => {
-                                    return c;
-                                }
+                                    _ => {
+                                        return c;
+                                    }
+                                },
                             }
+                            s = llist_link(s).unwrap();
                         }
-                        s = llist_link(s).unwrap();
-                    }
 
-                    // done6:
-                    /*927: prepare a native_word_node for hyphenation.
-                     * "Note that if there are chars with lccode = 0,
-                     * we split them out into separate native_word
-                     * nodes." */
-                    hn = 0 as i16;
+                        // done6:
+                        /*927: prepare a native_word_node for hyphenation.
+                         * "Note that if there are chars with lccode = 0,
+                         * we split them out into separate native_word
+                         * nodes." */
+                        hn = 0 as i16;
 
-                    'restart: loop {
-                        // 'ha' can change in the loop, so for safety:
-                        let for_end_1 = ha_nw.text().len() as i32;
+                        'restart: loop {
+                            // 'ha' can change in the loop, so for safety:
+                            let for_end_1 = ha_nw.text().len() as i32;
 
-                        let mut l = 0;
-                        loop {
-                            if !(l < for_end_1) {
-                                break 'restart;
-                            }
-                            c = get_native_usv(ha, l as usize);
-                            hc[0] = if hyph_index == 0 || c > 255 {
-                                *LC_CODE(c as usize)
-                            } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
-                                0
-                            } else {
-                                *trie_tro.offset((hyph_index + c) as isize)
-                            };
-                            if hc[0] == 0 {
-                                if hn > 0 {
+                            let mut l = 0;
+                            loop {
+                                if !(l < for_end_1) {
+                                    break 'restart;
+                                }
+                                c = get_native_usv(ha, l as usize);
+                                hc[0] = if hyph_index == 0 || c > 255 {
+                                    *LC_CODE(c as usize)
+                                } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
+                                    0
+                                } else {
+                                    *trie_tro.offset((hyph_index + c) as isize)
+                                };
+                                if hc[0] == 0 {
+                                    if hn > 0 {
+                                        let ha_text = ha_nw.text();
+                                        let mut q =
+                                            new_native_word_node(hf, ha_text.len() as i32 - l);
+                                        set_whatsit_NODE_subtype(q.ptr(), whatsit_NODE_subtype(ha));
+                                        q.text_mut().copy_from_slice(&ha_text[l as usize..]);
+
+                                        q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                                        *LLIST_link(q.ptr()) = *LLIST_link(ha);
+                                        *LLIST_link(ha) = Some(q.ptr()).tex_int();
+                                        ha_nw.set_length(l as u16);
+                                        ha_nw.set_metrics(
+                                            *INTPAR(IntPar::xetex_use_glyph_metrics) > 0,
+                                        );
+                                        break 'restart;
+                                    }
+                                } else if hn == 0 && l > 0 {
                                     let ha_text = ha_nw.text();
                                     let mut q = new_native_word_node(hf, ha_text.len() as i32 - l);
                                     set_whatsit_NODE_subtype(q.ptr(), whatsit_NODE_subtype(ha));
@@ -855,132 +868,124 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     *LLIST_link(ha) = Some(q.ptr()).tex_int();
                                     ha_nw.set_length(l as u16);
                                     ha_nw.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
-                                    break 'restart;
-                                }
-                            } else if hn == 0 && l > 0 {
-                                let ha_text = ha_nw.text();
-                                let mut q = new_native_word_node(hf, ha_text.len() as i32 - l);
-                                set_whatsit_NODE_subtype(q.ptr(), whatsit_NODE_subtype(ha));
-                                q.text_mut().copy_from_slice(&ha_text[l as usize..]);
-
-                                q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
-                                *LLIST_link(q.ptr()) = *LLIST_link(ha);
-                                *LLIST_link(ha) = Some(q.ptr()).tex_int();
-                                ha_nw.set_length(l as u16);
-                                ha_nw.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
-                                ha = *LLIST_link(ha) as usize;
-                                ha_nw = NativeWord::from(ha);
-                                break;
-                            } else {
-                                if hn as usize == max_hyphenatable_length() {
-                                    break 'restart;
-                                }
-                                hn += 1;
-                                if (c as i64) < 65536 {
-                                    hu[hn as usize] = c;
-                                    hc[hn as usize] = hc[0]
+                                    ha = *LLIST_link(ha) as usize;
+                                    ha_nw = NativeWord::from(ha);
+                                    break;
                                 } else {
-                                    hu[hn as usize] = ((c as i64 - 65536) / 1024 + 0xd800) as i32;
-                                    hc[hn as usize] =
-                                        ((hc[0] as i64 - 65536) / 1024 + 0xd800) as i32;
+                                    if hn as usize == max_hyphenatable_length() {
+                                        break 'restart;
+                                    }
                                     hn += 1;
-                                    hu[hn as usize] = c % 1024 + 0xdc00;
-                                    hc[hn as usize] = hc[0] % 1024 + 0xdc00;
-                                    l += 1;
+                                    if (c as i64) < 65536 {
+                                        hu[hn as usize] = c;
+                                        hc[hn as usize] = hc[0]
+                                    } else {
+                                        hu[hn as usize] =
+                                            ((c as i64 - 65536) / 1024 + 0xd800) as i32;
+                                        hc[hn as usize] =
+                                            ((hc[0] as i64 - 65536) / 1024 + 0xd800) as i32;
+                                        hn += 1;
+                                        hu[hn as usize] = c % 1024 + 0xdc00;
+                                        hc[hn as usize] = hc[0] % 1024 + 0xdc00;
+                                        l += 1;
+                                    }
+                                    hyf_bchar = TOO_BIG_CHAR;
                                 }
-                                hyf_bchar = TOO_BIG_CHAR;
+                                l += 1;
                             }
-                            l += 1;
                         }
                     }
-                } else {
-                    /*931: skip to node hb, putting letters into hu and hc */
-                    hn = 0;
+                    _ => {
+                        /*931: skip to node hb, putting letters into hu and hc */
+                        hn = 0;
 
-                    's_1342: loop {
-                        if is_char_node(Some(s)) {
-                            let s = Char(s);
-                            if s.font() as usize != hf {
-                                break;
-                            }
-                            hyf_bchar = s.character() as i32;
-                            c = hyf_bchar;
-                            if hyph_index == 0 || c > 255 {
-                                hc[0] = *LC_CODE(c as usize);
-                            } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
-                                hc[0] = 0
-                            } else {
-                                hc[0] = *trie_tro.offset((hyph_index + c) as isize)
-                            }
-                            if hc[0] == 0 {
-                                break;
-                            }
-                            if hc[0] > max_hyph_char {
-                                break;
-                            }
-                            if hn as usize == max_hyphenatable_length() {
-                                break;
-                            }
-                            hb = s.ptr();
-                            hn += 1;
-                            hu[hn as usize] = c;
-                            hc[hn as usize] = hc[0];
-                            hyf_bchar = TOO_BIG_CHAR;
-                        } else if NODE_type(s) == TextNode::Ligature.into() {
-                            let l = Ligature(s);
-                            /*932: move the characters of a ligature node to hu and hc; but goto done3
-                             * if they are not all letters. */
-                            if l.font() as usize != hf {
-                                break;
-                            }
-                            let mut j = hn;
-                            let mut qopt = l.lig_ptr().opt();
-                            if let Some(q) = qopt {
-                                let q = Char(q);
-                                hyf_bchar = q.character() as i32;
-                            }
-                            while let Some(q) = qopt {
-                                let q = Char(q);
-                                c = q.character() as UnicodeScalar;
-                                hc[0] = if hyph_index == 0 || c > 255 {
-                                    *LC_CODE(c as usize)
+                        's_1342: loop {
+                            if is_char_node(Some(s)) {
+                                let s = Char(s);
+                                if s.font() as usize != hf {
+                                    break;
+                                }
+                                hyf_bchar = s.character() as i32;
+                                c = hyf_bchar;
+                                if hyph_index == 0 || c > 255 {
+                                    hc[0] = *LC_CODE(c as usize);
                                 } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
-                                    0
+                                    hc[0] = 0
                                 } else {
-                                    *trie_tro.offset((hyph_index + c) as isize)
-                                };
+                                    hc[0] = *trie_tro.offset((hyph_index + c) as isize)
+                                }
                                 if hc[0] == 0 {
-                                    break 's_1342;
+                                    break;
                                 }
                                 if hc[0] > max_hyph_char {
-                                    break 's_1342;
+                                    break;
                                 }
-                                if j as usize == max_hyphenatable_length() {
-                                    break 's_1342;
+                                if hn as usize == max_hyphenatable_length() {
+                                    break;
                                 }
-                                j += 1;
-                                hu[j as usize] = c;
-                                hc[j as usize] = hc[0];
-                                qopt = llist_link(q.ptr());
-                            }
-                            hb = l.ptr();
-                            hn = j;
-                            if l.right_hit() {
-                                hyf_bchar = FONT_BCHAR[hf as usize]
-                            } else {
+                                hb = s.ptr();
+                                hn += 1;
+                                hu[hn as usize] = c;
+                                hc[hn as usize] = hc[0];
                                 hyf_bchar = TOO_BIG_CHAR;
+                            } else if NODE_type(s) == TextNode::Ligature.into() {
+                                let l = Ligature(s);
+                                /*932: move the characters of a ligature node to hu and hc; but goto done3
+                                 * if they are not all letters. */
+                                if l.font() as usize != hf {
+                                    break;
+                                }
+                                let mut j = hn;
+                                let mut qopt = l.lig_ptr().opt();
+                                if let Some(q) = qopt {
+                                    let q = Char(q);
+                                    hyf_bchar = q.character() as i32;
+                                }
+                                while let Some(q) = qopt {
+                                    let q = Char(q);
+                                    c = q.character() as UnicodeScalar;
+                                    hc[0] = if hyph_index == 0 || c > 255 {
+                                        *LC_CODE(c as usize)
+                                    } else if *trie_trc.offset((hyph_index + c) as isize) as i32
+                                        != c
+                                    {
+                                        0
+                                    } else {
+                                        *trie_tro.offset((hyph_index + c) as isize)
+                                    };
+                                    if hc[0] == 0 {
+                                        break 's_1342;
+                                    }
+                                    if hc[0] > max_hyph_char {
+                                        break 's_1342;
+                                    }
+                                    if j as usize == max_hyphenatable_length() {
+                                        break 's_1342;
+                                    }
+                                    j += 1;
+                                    hu[j as usize] = c;
+                                    hc[j as usize] = hc[0];
+                                    qopt = llist_link(q.ptr());
+                                }
+                                hb = l.ptr();
+                                hn = j;
+                                if l.right_hit() {
+                                    hyf_bchar = FONT_BCHAR[hf as usize]
+                                } else {
+                                    hyf_bchar = TOO_BIG_CHAR;
+                                }
+                            /*:932*/
+                            } else {
+                                if !(NODE_type(s) == TextNode::Kern.into()
+                                    && Kern(s).subtype() == KernType::Normal)
+                                {
+                                    break;
+                                }
+                                hb = s;
+                                hyf_bchar = FONT_BCHAR[hf as usize]
                             }
-                        /*:932*/
-                        } else {
-                            if !(NODE_type(s) == TextNode::Kern.into()
-                                && Kern(s).subtype() == KernType::Normal)
-                            {
-                                break;
-                            }
-                            hb = s;
-                            hyf_bchar = FONT_BCHAR[hf as usize]
+                            s = llist_link(s).unwrap();
                         }
-                        s = llist_link(s).unwrap();
                     }
                 }
 
@@ -1520,7 +1525,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                     );
                                                 }
                                                 TextNode::HList | TextNode::VList => {
-                                                    break_width[1] -= Box::from(v).width();
+                                                    break_width[1] -= List::from(v).width();
                                                 }
                                                 TextNode::Rule => {
                                                     break_width[1] -= Rule::from(v).width();
@@ -1568,7 +1573,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                     );
                                                 }
                                                 TextNode::HList | TextNode::VList => {
-                                                    break_width[1] += Box::from(s).width();
+                                                    break_width[1] += List::from(s).width();
                                                 }
                                                 TextNode::Rule => {
                                                     break_width[1] += Rule::from(s).width();
@@ -2205,208 +2210,171 @@ unsafe fn hyphenate() {
             }
         }
     }
-    if !is_char_node(Some(ha))
-        && NODE_type(ha) == TextNode::WhatsIt.into()
-        && (whatsit_NODE_subtype(ha) == WhatsItNST::NativeWord
-            || whatsit_NODE_subtype(ha) == WhatsItNST::NativeWordAt)
-    {
-        let ha_nw = NativeWord::from(ha);
-        let mut s = cur_p.unwrap();
-        while llist_link(s) != Some(ha) {
-            s = *LLIST_link(s) as usize;
-        }
-        hyphen_passed = 0;
-        for j in l_hyf..=(hn as i32 - r_hyf) {
-            if hyf[j as usize] as i32 & 1i32 != 0 {
-                let mut q = new_native_word_node(hf, j as i32 - hyphen_passed as i32);
-                set_whatsit_NODE_subtype(q.ptr(), whatsit_NODE_subtype(ha));
-
-                let ha_text = ha_nw.text();
-                q.text_mut()
-                    .copy_from_slice(&ha_text[hyphen_passed as usize..j as usize]);
-
-                q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
-                *LLIST_link(s) = Some(q.ptr()).tex_int();
-                s = q.ptr();
-                let mut q = Discretionary(new_disc());
-                q.set_pre_break(new_native_character(hf, hyf_char).ptr() as i32);
-                *LLIST_link(s) = Some(q.ptr()).tex_int();
-                s = q.ptr();
-                hyphen_passed = j as i16;
+    match CharOrText::from(ha) {
+        CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(ha_nw)))
+        | CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWordAt(ha_nw))) => {
+            let mut s = cur_p.unwrap();
+            while llist_link(s) != Some(ha) {
+                s = *LLIST_link(s) as usize;
             }
-        }
-        let ha_text = ha_nw.text();
-        hn = ha_text.len() as i16;
-        let mut q = new_native_word_node(hf, hn as i32 - hyphen_passed as i32);
-        set_whatsit_NODE_subtype(q.ptr(), whatsit_NODE_subtype(ha));
-        q.text_mut()
-            .copy_from_slice(&ha_text[(hyphen_passed as usize)..]);
+            hyphen_passed = 0;
+            for j in l_hyf..=(hn as i32 - r_hyf) {
+                if hyf[j as usize] as i32 & 1i32 != 0 {
+                    let mut q = new_native_word_node(hf, j as i32 - hyphen_passed as i32);
+                    set_whatsit_NODE_subtype(q.ptr(), whatsit_NODE_subtype(ha));
 
-        q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
-        *LLIST_link(s) = Some(q.ptr()).tex_int();
-        s = q.ptr();
-        let q = *LLIST_link(ha);
-        *LLIST_link(s) = q;
-        *LLIST_link(ha) = None.tex_int();
-        flush_node_list(Some(ha));
-    } else {
-        let mut s = 0; // TODO: check
-        let q = *LLIST_link(hb);
-        *LLIST_link(hb) = None.tex_int();
-        let r = *LLIST_link(ha);
-        *LLIST_link(ha) = None.tex_int();
-        bchar = hyf_bchar;
-        if is_char_node(Some(ha)) {
-            if MEM[ha].b16.s1 as usize != hf {
-                current_block = 6826215413708131726;
-            } else {
-                init_list = Some(ha).tex_int();
-                init_lig = false;
-                hu[0] = MEM[ha].b16.s0 as i32;
-                current_block = 6662862405959679103;
-            }
-        } else if NODE_type(ha) == TextNode::Ligature.into() {
-            let l = Ligature(ha);
-            if l.font() as usize != hf {
-                current_block = 6826215413708131726;
-            } else {
-                init_list = l.lig_ptr();
-                init_lig = true;
-                init_lft = l.left_hit();
-                hu[0] = l.char() as i32;
-                if init_list.opt().is_none() {
-                    if init_lft {
-                        hu[0] = max_hyph_char;
-                        init_lig = false
-                    }
+                    let ha_text = ha_nw.text();
+                    q.text_mut()
+                        .copy_from_slice(&ha_text[hyphen_passed as usize..j as usize]);
+
+                    q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                    *LLIST_link(s) = Some(q.ptr()).tex_int();
+                    s = q.ptr();
+                    let mut q = Discretionary(new_disc());
+                    q.set_pre_break(new_native_character(hf, hyf_char).ptr() as i32);
+                    *LLIST_link(s) = Some(q.ptr()).tex_int();
+                    s = q.ptr();
+                    hyphen_passed = j as i16;
                 }
-                l.free();
-                current_block = 6662862405959679103;
             }
-        } else {
-            if !is_char_node(r.opt()) {
-                if NODE_type(r as usize) == TextNode::Ligature.into() {
-                    if MEM[r as usize].b16.s0 > 1 {
-                        current_block = 6826215413708131726;
+            let ha_text = ha_nw.text();
+            hn = ha_text.len() as i16;
+            let mut q = new_native_word_node(hf, hn as i32 - hyphen_passed as i32);
+            set_whatsit_NODE_subtype(q.ptr(), whatsit_NODE_subtype(ha));
+            q.text_mut()
+                .copy_from_slice(&ha_text[(hyphen_passed as usize)..]);
+
+            q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+            *LLIST_link(s) = Some(q.ptr()).tex_int();
+            s = q.ptr();
+            let q = *LLIST_link(ha);
+            *LLIST_link(s) = q;
+            *LLIST_link(ha) = None.tex_int();
+            flush_node_list(Some(ha));
+        }
+        _ => {
+            let mut s = 0; // TODO: check
+            let q = *LLIST_link(hb);
+            *LLIST_link(hb) = None.tex_int();
+            let r = *LLIST_link(ha);
+            *LLIST_link(ha) = None.tex_int();
+            bchar = hyf_bchar;
+            if is_char_node(Some(ha)) {
+                if MEM[ha].b16.s1 as usize != hf {
+                    current_block = 6826215413708131726;
+                } else {
+                    init_list = Some(ha).tex_int();
+                    init_lig = false;
+                    hu[0] = MEM[ha].b16.s0 as i32;
+                    current_block = 6662862405959679103;
+                }
+            } else if NODE_type(ha) == TextNode::Ligature.into() {
+                let l = Ligature(ha);
+                if l.font() as usize != hf {
+                    current_block = 6826215413708131726;
+                } else {
+                    init_list = l.lig_ptr();
+                    init_lig = true;
+                    init_lft = l.left_hit();
+                    hu[0] = l.char() as i32;
+                    if init_list.opt().is_none() {
+                        if init_lft {
+                            hu[0] = max_hyph_char;
+                            init_lig = false
+                        }
+                    }
+                    l.free();
+                    current_block = 6662862405959679103;
+                }
+            } else {
+                if !is_char_node(r.opt()) {
+                    if NODE_type(r as usize) == TextNode::Ligature.into() {
+                        if MEM[r as usize].b16.s0 > 1 {
+                            current_block = 6826215413708131726;
+                        } else {
+                            current_block = 2415422468722899689;
+                        }
                     } else {
                         current_block = 2415422468722899689;
                     }
                 } else {
                     current_block = 2415422468722899689;
                 }
-            } else {
-                current_block = 2415422468722899689;
+                match current_block {
+                    6826215413708131726 => {}
+                    _ => {
+                        j = 1_i16;
+                        s = ha as i32;
+                        init_list = None.tex_int();
+                        current_block = 5209103994167801282;
+                    }
+                }
             }
             match current_block {
-                6826215413708131726 => {}
-                _ => {
-                    j = 1_i16;
+                6662862405959679103 => {
+                    s = cur_p.tex_int();
+                    while LLIST_link(s as usize).opt() != Some(ha) {
+                        s = *LLIST_link(s as usize);
+                    }
+                    j = 0_i16
+                }
+                6826215413708131726 => {
                     s = ha as i32;
-                    init_list = None.tex_int();
-                    current_block = 5209103994167801282;
+                    j = 0_i16;
+                    hu[0] = max_hyph_char;
+                    init_lig = false;
+                    init_list = None.tex_int()
                 }
+                _ => {}
             }
-        }
-        match current_block {
-            6662862405959679103 => {
-                s = cur_p.tex_int();
-                while LLIST_link(s as usize).opt() != Some(ha) {
-                    s = *LLIST_link(s as usize);
-                }
-                j = 0_i16
-            }
-            6826215413708131726 => {
-                s = ha as i32;
-                j = 0_i16;
-                hu[0] = max_hyph_char;
-                init_lig = false;
-                init_list = None.tex_int()
-            }
-            _ => {}
-        }
-        flush_node_list(r.opt());
-        loop {
-            l = j;
-            j = (reconstitute(j, hn, bchar, hyf_char) as i32 + 1) as i16;
-            if hyphen_passed == 0 {
-                *LLIST_link(s as usize) = *LLIST_link(HOLD_HEAD);
-                while let Some(next) = LLIST_link(s as usize).opt() {
-                    s = next as i32
-                }
-                if hyf[(j as i32 - 1i32) as usize] as i32 & 1i32 != 0 {
-                    l = j;
-                    hyphen_passed = (j as i32 - 1i32) as i16;
-                    *LLIST_link(HOLD_HEAD) = None.tex_int()
-                }
-            }
-            if hyphen_passed as i32 > 0 {
-                loop
-                /*949: */
-                {
-                    let mut r = Discretionary(get_node(SMALL_NODE_SIZE));
-                    *LLIST_link(r.ptr()) = *LLIST_link(HOLD_HEAD);
-                    set_NODE_type(r.ptr(), TextNode::Disc);
-                    let mut major_tail = r.ptr();
-                    r_count = 0;
-                    while let Some(next) = LLIST_link(major_tail as usize).opt() {
-                        major_tail = next;
-                        r_count += 1;
+            flush_node_list(r.opt());
+            loop {
+                l = j;
+                j = (reconstitute(j, hn, bchar, hyf_char) as i32 + 1) as i16;
+                if hyphen_passed == 0 {
+                    *LLIST_link(s as usize) = *LLIST_link(HOLD_HEAD);
+                    while let Some(next) = LLIST_link(s as usize).opt() {
+                        s = next as i32
                     }
-                    let mut i = hyphen_passed;
-                    hyf[i as usize] = 0;
-                    let mut minor_tail: Option<usize> = None;
-                    r.set_pre_break(None.tex_int());
-                    let hyf_node = new_character(hf, hyf_char as UTF16_code);
-                    if let Some(hyf_node) = hyf_node {
-                        i += 1;
-                        c = hu[i as usize];
-                        hu[i as usize] = hyf_char;
-                        *LLIST_link(hyf_node) = avail.tex_int();
-                        avail = Some(hyf_node);
+                    if hyf[(j as i32 - 1i32) as usize] as i32 & 1i32 != 0 {
+                        l = j;
+                        hyphen_passed = (j as i32 - 1i32) as i16;
+                        *LLIST_link(HOLD_HEAD) = None.tex_int()
                     }
-                    while l as i32 <= i as i32 {
-                        l = (reconstitute(l, i, FONT_BCHAR[hf as usize], TOO_BIG_CHAR) as i32 + 1)
-                            as i16;
-                        if let Some(hh) = llist_link(HOLD_HEAD) {
-                            if let Some(mt) = minor_tail {
-                                *LLIST_link(mt) = Some(hh).tex_int();
-                            } else {
-                                r.set_pre_break(Some(hh).tex_int());
-                            }
-                            let mut mt = hh;
-                            minor_tail = Some(mt);
-                            while let Some(next) = llist_link(mt) {
-                                mt = next;
-                                minor_tail = Some(next);
-                            }
+                }
+                if hyphen_passed as i32 > 0 {
+                    loop
+                    /*949: */
+                    {
+                        let mut r = Discretionary(get_node(SMALL_NODE_SIZE));
+                        *LLIST_link(r.ptr()) = *LLIST_link(HOLD_HEAD);
+                        set_NODE_type(r.ptr(), TextNode::Disc);
+                        let mut major_tail = r.ptr();
+                        r_count = 0;
+                        while let Some(next) = LLIST_link(major_tail as usize).opt() {
+                            major_tail = next;
+                            r_count += 1;
                         }
-                    }
-                    if hyf_node.is_some() {
-                        hu[i as usize] = c;
-                        l = i;
-                        i -= 1
-                    }
-                    let mut minor_tail: Option<usize> = None;
-                    r.set_post_break(None.tex_int());
-                    c_loc = 0_i16;
-                    if BCHAR_LABEL[hf as usize] != NON_ADDRESS {
-                        l -= 1;
-                        c = hu[l as usize];
-                        c_loc = l;
-                        hu[l as usize] = max_hyph_char
-                    }
-                    while (l as i32) < j as i32 {
-                        loop {
-                            l = (reconstitute(l, hn, bchar, TOO_BIG_CHAR) as i32 + 1) as i16;
-                            if c_loc > 0 {
-                                hu[c_loc as usize] = c;
-                                c_loc = 0_i16
-                            }
+                        let mut i = hyphen_passed;
+                        hyf[i as usize] = 0;
+                        let mut minor_tail: Option<usize> = None;
+                        r.set_pre_break(None.tex_int());
+                        let hyf_node = new_character(hf, hyf_char as UTF16_code);
+                        if let Some(hyf_node) = hyf_node {
+                            i += 1;
+                            c = hu[i as usize];
+                            hu[i as usize] = hyf_char;
+                            *LLIST_link(hyf_node) = avail.tex_int();
+                            avail = Some(hyf_node);
+                        }
+                        while l as i32 <= i as i32 {
+                            l = (reconstitute(l, i, FONT_BCHAR[hf as usize], TOO_BIG_CHAR) as i32
+                                + 1) as i16;
                             if let Some(hh) = llist_link(HOLD_HEAD) {
                                 if let Some(mt) = minor_tail {
                                     *LLIST_link(mt) = Some(hh).tex_int();
                                 } else {
-                                    r.set_post_break(Some(hh).tex_int());
+                                    r.set_pre_break(Some(hh).tex_int());
                                 }
                                 let mut mt = hh;
                                 minor_tail = Some(mt);
@@ -2415,43 +2383,79 @@ unsafe fn hyphenate() {
                                     minor_tail = Some(next);
                                 }
                             }
-                            if l as i32 >= j as i32 {
-                                break;
+                        }
+                        if hyf_node.is_some() {
+                            hu[i as usize] = c;
+                            l = i;
+                            i -= 1
+                        }
+                        let mut minor_tail: Option<usize> = None;
+                        r.set_post_break(None.tex_int());
+                        c_loc = 0_i16;
+                        if BCHAR_LABEL[hf as usize] != NON_ADDRESS {
+                            l -= 1;
+                            c = hu[l as usize];
+                            c_loc = l;
+                            hu[l as usize] = max_hyph_char
+                        }
+                        while (l as i32) < j as i32 {
+                            loop {
+                                l = (reconstitute(l, hn, bchar, TOO_BIG_CHAR) as i32 + 1) as i16;
+                                if c_loc > 0 {
+                                    hu[c_loc as usize] = c;
+                                    c_loc = 0_i16
+                                }
+                                if let Some(hh) = llist_link(HOLD_HEAD) {
+                                    if let Some(mt) = minor_tail {
+                                        *LLIST_link(mt) = Some(hh).tex_int();
+                                    } else {
+                                        r.set_post_break(Some(hh).tex_int());
+                                    }
+                                    let mut mt = hh;
+                                    minor_tail = Some(mt);
+                                    while let Some(next) = llist_link(mt) {
+                                        mt = next;
+                                        minor_tail = Some(next);
+                                    }
+                                }
+                                if l as i32 >= j as i32 {
+                                    break;
+                                }
+                            }
+                            while l as i32 > j as i32 {
+                                /*952: */
+                                j = (reconstitute(j, hn, bchar, TOO_BIG_CHAR) as i32 + 1) as i16; /*:944*/
+                                *LLIST_link(major_tail) = *LLIST_link(HOLD_HEAD);
+                                while let Some(next) = llist_link(major_tail) {
+                                    major_tail = next;
+                                    r_count += 1;
+                                }
                             }
                         }
-                        while l as i32 > j as i32 {
-                            /*952: */
-                            j = (reconstitute(j, hn, bchar, TOO_BIG_CHAR) as i32 + 1) as i16; /*:944*/
-                            *LLIST_link(major_tail) = *LLIST_link(HOLD_HEAD);
-                            while let Some(next) = llist_link(major_tail) {
-                                major_tail = next;
-                                r_count += 1;
-                            }
+                        if r_count > 127 {
+                            *LLIST_link(s as usize) = *LLIST_link(r.ptr());
+                            *LLIST_link(r.ptr()) = None.tex_int();
+                            flush_node_list(Some(r.ptr()));
+                        } else {
+                            *LLIST_link(s as usize) = Some(r.ptr()).tex_int();
+                            r.set_replace_count(r_count as u16);
                         }
-                    }
-                    if r_count > 127 {
-                        *LLIST_link(s as usize) = *LLIST_link(r.ptr());
-                        *LLIST_link(r.ptr()) = None.tex_int();
-                        flush_node_list(Some(r.ptr()));
-                    } else {
-                        *LLIST_link(s as usize) = Some(r.ptr()).tex_int();
-                        r.set_replace_count(r_count as u16);
-                    }
-                    s = major_tail as i32;
-                    hyphen_passed = (j - 1) as i16;
-                    *LLIST_link(HOLD_HEAD) = None.tex_int();
-                    if !(hyf[(j as i32 - 1) as usize] as i32 & 1 != 0) {
-                        break;
+                        s = major_tail as i32;
+                        hyphen_passed = (j - 1) as i16;
+                        *LLIST_link(HOLD_HEAD) = None.tex_int();
+                        if !(hyf[(j as i32 - 1) as usize] as i32 & 1 != 0) {
+                            break;
+                        }
                     }
                 }
+                if j as i32 > hn as i32 {
+                    break;
+                }
             }
-            if j as i32 > hn as i32 {
-                break;
-            }
+            *LLIST_link(s as usize) = q;
+            flush_list(init_list.opt());
         }
-        *LLIST_link(s as usize) = q;
-        flush_list(init_list.opt());
-    };
+    }
 }
 unsafe fn finite_shrink(p: usize) -> usize {
     if no_shrink_error_yet {
@@ -2808,7 +2812,9 @@ unsafe fn total_pw(q: usize, p: Option<usize>) -> scaled_t {
 unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     let mut run: bool = false;
     match llist_link(l) {
-        Some(next) if NODE_type(l) == TextNode::HList.into() && Box::from(l).is_empty() => l = next,
+        Some(next) if NODE_type(l) == TextNode::HList.into() && List::from(l).is_empty() => {
+            l = next
+        }
         _ => {
             if d {
                 while let Some(next) = llist_link(l) {
@@ -2825,7 +2831,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     loop {
         let t = l;
         while run && NODE_type(l) == TextNode::HList.into() {
-            if let Some(next) = Box::from(l).list_ptr().opt() {
+            if let Some(next) = List::from(l).list_ptr().opt() {
                 hlist_stack.push(l);
                 l = next;
             } else {
@@ -2842,7 +2848,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
                     || NODE_type(l) == TextNode::Math.into() && MEM[l + 1].b32.s1 == 0
                     || NODE_type(l) == TextNode::Kern.into() && Kern(l).is_empty()
                     || NODE_type(l) == TextNode::Glue.into() && Glue(l).is_empty()
-                    || NODE_type(l) == TextNode::HList.into() && Box::from(l).is_empty()))
+                    || NODE_type(l) == TextNode::HList.into() && List::from(l).is_empty()))
         {
             while LLIST_link(l as usize).opt().is_none() {
                 if let Some(last) = hlist_stack.pop() {
@@ -2874,7 +2880,7 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
     loop {
         let t = r;
         while run && NODE_type(r) == TextNode::HList.into() {
-            if let Some(hnext) = Box::from(r).list_ptr().opt() {
+            if let Some(hnext) = List::from(r).list_ptr().opt() {
                 hlist_stack.push((l, r));
                 l = Some(hnext);
                 r = hnext;
@@ -2895,7 +2901,7 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
                     || NODE_type(r) == TextNode::Math.into() && MEM[r + 1].b32.s1 == 0
                     || NODE_type(r) == TextNode::Kern.into() && Kern(r).is_empty()
                     || NODE_type(r) == TextNode::Glue.into() && Glue(r).is_empty()
-                    || NODE_type(r) == TextNode::HList.into() && Box::from(r).is_empty()))
+                    || NODE_type(r) == TextNode::HList.into() && List::from(r).is_empty()))
         {
             while Some(r) == l {
                 if let Some(last) = hlist_stack.pop() {

@@ -42,6 +42,50 @@ impl ND {
     }
 }
 
+#[derive(Clone, Debug)]
+pub(crate) enum Node {
+    Char(Char),
+    Text(TxtNode),
+    Math(MathNode), // TODO
+    Unknown(u16),   // TODO: check
+}
+
+impl From<usize> for Node {
+    fn from(p: usize) -> Self {
+        unsafe {
+            if p >= crate::xetex_ini::hi_mem_min as usize {
+                Self::Char(Char(p))
+            } else {
+                let n = MEM[p].b16.s1;
+                match n {
+                    0..=15 | 40 => Self::Text(TxtNode::from(p)),
+                    16..=31 => Self::Math(MathNode::from(n)),
+                    _ => Self::Unknown(n),
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) enum CharOrText {
+    Char(Char),
+    Text(TxtNode),
+}
+
+impl From<usize> for CharOrText {
+    fn from(p: usize) -> Self {
+        unsafe {
+            if p >= crate::xetex_ini::hi_mem_min as usize {
+                Self::Char(Char(p))
+            } else {
+                Self::Text(TxtNode::from(p))
+            }
+        }
+    }
+}
+
+/// deprecated
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
 pub(crate) enum TextNode {
@@ -65,6 +109,53 @@ pub(crate) enum TextNode {
 }
 
 pub(crate) const EDGE_NODE: TextNode = TextNode::Style;
+
+#[derive(Clone, Debug)]
+pub(crate) enum TxtNode {
+    HList(List),
+    VList(List),
+    Rule(Rule),
+    Ins(Insertion),
+    Mark(Mark),
+    Adjust(Adjust),
+    Ligature(Ligature),
+    Disc(Discretionary),
+    WhatsIt(WhatsIt),
+    Math(Math),
+    Glue(Glue),
+    Kern(Kern),
+    Penalty(Penalty),
+    Unset(Unset),
+    Style(Edge),
+    Choice(Choice),
+    MarginKern(MarginKern),
+}
+
+impl TxtNode {
+    pub(crate) unsafe fn from(p: usize) -> Self {
+        let n = MEM[p].b16.s1;
+        match n {
+            0 => Self::HList(List::from(p)),
+            1 => Self::VList(List::from(p)),
+            2 => Self::Rule(Rule::from(p)),
+            3 => Self::Ins(Insertion(p)),
+            4 => Self::Mark(Mark(p)),
+            5 => Self::Adjust(Adjust(p)),
+            6 => Self::Ligature(Ligature(p)),
+            7 => Self::Disc(Discretionary(p)),
+            8 => Self::WhatsIt(WhatsIt::from(p)),
+            9 => Self::Math(Math(p)),
+            10 => Self::Glue(Glue(p)),
+            11 => Self::Kern(Kern(p)),
+            12 => Self::Penalty(Penalty(p)),
+            13 => Self::Unset(Unset::from(p)),
+            14 => Self::Style(Edge(p)),
+            15 => Self::Choice(Choice(p)),
+            40 => Self::MarginKern(MarginKern(p)),
+            _ => panic!(format!("Incorrect Text mode Node Type = {}", n)),
+        }
+    }
+}
 
 impl From<u16> for TextNode {
     fn from(n: u16) -> Self {
@@ -112,6 +203,7 @@ pub(crate) mod whatsit {
         }
     }
 
+    /// deprecated
     #[repr(u16)]
     #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
     pub(crate) enum WhatsItNST {
@@ -126,12 +218,6 @@ pub(crate) mod whatsit {
         Glyph = 42,
         Pic = 43,
         Pdf = 44,
-    }
-
-    impl From<u16> for WhatsItNST {
-        fn from(n: u16) -> Self {
-            Self::n(n).expect(&format!("Incorrect WhatsItNST = {}", n))
-        }
     }
 
     #[derive(Clone, Debug)]
@@ -452,6 +538,7 @@ pub(crate) mod whatsit {
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct Kern(pub usize);
 impl NodeSize for Kern {
     const SIZE: i32 = MEDIUM_NODE_SIZE;
@@ -483,6 +570,7 @@ impl Kern {
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct MarginKern(pub usize);
 impl NodeSize for MarginKern {
     const SIZE: i32 = MEDIUM_NODE_SIZE;
@@ -503,6 +591,7 @@ impl MarginKern {
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct Insertion(pub usize);
 impl NodeSize for Insertion {
     const SIZE: i32 = INS_NODE_SIZE;
@@ -561,6 +650,7 @@ impl Insertion {
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct Glue(pub usize);
 impl NodeSize for Glue {
     const SIZE: i32 = MEDIUM_NODE_SIZE;
@@ -598,6 +688,7 @@ impl Glue {
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct PageInsertion(pub usize);
 impl NodeSize for PageInsertion {
     const SIZE: i32 = PAGE_INS_NODE_SIZE;
@@ -665,6 +756,7 @@ impl PageInsertion {
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct Penalty(pub usize);
 impl NodeSize for Penalty {
     const SIZE: i32 = MEDIUM_NODE_SIZE;
@@ -692,6 +784,7 @@ pub(crate) enum PageInsType {
     SplitUp = 1,
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct Choice(pub usize);
 impl NodeSize for Choice {
     const SIZE: i32 = STYLE_NODE_SIZE;
@@ -761,12 +854,12 @@ impl BaseBox {
     }
 }
 
-#[derive(Clone, Copy, Deref, DerefMut)] // TODO: remove this
-pub(crate) struct Box(BaseBox);
-impl NodeSize for Box {
+#[derive(Clone, Copy, Debug, Deref, DerefMut)] // TODO: remove this
+pub(crate) struct List(BaseBox);
+impl NodeSize for List {
     const SIZE: i32 = BOX_NODE_SIZE;
 }
-impl Box {
+impl List {
     pub(crate) const fn from(p: usize) -> Self {
         Self(BaseBox(p))
     }
@@ -825,7 +918,7 @@ impl Box {
     }
 }
 
-#[derive(Deref, DerefMut)]
+#[derive(Clone, Debug, Deref, DerefMut)]
 pub(crate) struct Unset(BaseBox);
 impl NodeSize for Unset {
     const SIZE: i32 = BOX_NODE_SIZE;
@@ -883,7 +976,7 @@ impl Unset {
     }
 }
 
-#[derive(Deref, DerefMut)]
+#[derive(Clone, Debug, Deref, DerefMut)]
 pub(crate) struct Rule(BaseBox);
 impl NodeSize for Rule {
     const SIZE: i32 = RULE_NODE_SIZE;
@@ -1076,6 +1169,7 @@ impl Passive {
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct Adjust(pub usize);
 impl NodeSize for Adjust {
     const SIZE: i32 = SMALL_NODE_SIZE;
@@ -1104,6 +1198,7 @@ impl Adjust {
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct Discretionary(pub usize);
 impl NodeSize for Discretionary {
     const SIZE: i32 = SMALL_NODE_SIZE;
@@ -1145,6 +1240,8 @@ impl Discretionary {
         free_node(self.ptr(), Self::SIZE);
     }
 }
+
+#[derive(Clone, Debug)]
 pub(crate) struct Mark(pub usize);
 impl Mark {
     pub(crate) const fn ptr(&self) -> usize {
@@ -1221,6 +1318,7 @@ impl Index {
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct Ligature(pub usize);
 impl NodeSize for Ligature {
     const SIZE: i32 = SMALL_NODE_SIZE;
@@ -1375,6 +1473,8 @@ impl EtexMark {
         self
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Char(pub usize);
 impl Char {
     pub(crate) const fn ptr(&self) -> usize {
@@ -1396,6 +1496,7 @@ impl Char {
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct Edge(pub usize);
 impl NodeSize for Edge {
     const SIZE: i32 = EDGE_NODE_SIZE;
@@ -1494,6 +1595,7 @@ pub(crate) enum KernType {
     Math = 99,
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct Math(pub usize);
 impl NodeSize for Math {
     const SIZE: i32 = MEDIUM_NODE_SIZE;
@@ -1903,7 +2005,7 @@ pub(crate) mod math {
             self.val.chr = c;
             self.typ = MathCell::MathChar;
         }
-        pub(crate) fn set_subbox(&mut self, b: super::Box) {
+        pub(crate) fn set_subbox(&mut self, b: super::List) {
             self.val.ptr = Some(b.ptr()).tex_int();
             self.typ = MathCell::SubBox;
         }

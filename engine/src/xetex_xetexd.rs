@@ -62,7 +62,8 @@ pub(crate) unsafe fn set_math_NODE_type(p: usize, n: MathNode) {
 
 /// the other half of LLIST_info(p)
 pub(crate) unsafe fn whatsit_NODE_subtype(p: usize) -> WhatsItNST {
-    WhatsItNST::from(MEM[p].b16.s0)
+    let n = MEM[p].b16.s0;
+    WhatsItNST::n(n).expect(&format!("Incorrect WhatsItNST = {}", n))
 }
 pub(crate) unsafe fn set_whatsit_NODE_subtype(p: usize, n: WhatsItNST) {
     MEM[p].b16.s0 = n as u16;

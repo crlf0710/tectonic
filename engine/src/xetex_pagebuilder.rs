@@ -252,7 +252,7 @@ unsafe fn fire_up(c: usize) {
 
                         r.set_best_ins_ptr(None.tex_int());
                         n = r.box_reg() as _; // NODE_subtype(r)
-                        let b = Box::from(*BOX_REG(n as usize) as usize);
+                        let b = List::from(*BOX_REG(n as usize) as usize);
                         let tmp_ptr = b.list_ptr().opt();
                         b.free();
                         *BOX_REG(n as _) =
@@ -449,7 +449,7 @@ unsafe fn fire_up(c: usize) {
 
     flush_node_list(disc_ptr[LAST_BOX_CODE as usize].opt());
     disc_ptr[LAST_BOX_CODE as usize] = None.tex_int();
-    ship_out(Box::from(*BOX_REG(255) as usize));
+    ship_out(List::from(*BOX_REG(255) as usize));
     *BOX_REG(255) = None.tex_int();
 }
 
@@ -528,7 +528,7 @@ pub(crate) unsafe fn build_page() {
 
         match p_node {
             TextNode::HList | TextNode::VList => {
-                let p = Box::from(slf.p);
+                let p = List::from(slf.p);
                 if page_contents == PageContents::Empty
                     || page_contents == PageContents::InsertsOnly
                 {
@@ -671,7 +671,7 @@ pub(crate) unsafe fn build_page() {
                     ensure_vbox(n as _);
 
                     r_pins.set_height(if let Some(br) = BOX_REG(n as _).opt() {
-                        let br = Box::from(br);
+                        let br = List::from(br);
                         br.height() + br.depth()
                     } else {
                         0

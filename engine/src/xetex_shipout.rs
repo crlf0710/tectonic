@@ -91,7 +91,7 @@ unsafe fn dvi_out(c: u8) {
 }
 
 /*660: output the box `p` */
-pub(crate) unsafe fn ship_out(mut p: Box) {
+pub(crate) unsafe fn ship_out(mut p: List) {
     const output_comment: &[u8] = b"tectonic";
 
     synctex_sheet(*INTPAR(IntPar::mag));
@@ -317,7 +317,7 @@ pub(crate) unsafe fn ship_out(mut p: Box) {
 }
 
 /*639: Output an hlist */
-unsafe fn hlist_out(this_box: &mut Box) {
+unsafe fn hlist_out(this_box: &mut List) {
     let g_order = this_box.glue_order();
     let g_sign = this_box.glue_sign();
 
@@ -688,7 +688,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
             let n = text_NODE_type(p).unwrap();
             match n {
                 TextNode::HList | TextNode::VList => {
-                    let mut p = Box::from(p);
+                    let mut p = List::from(p);
                     if p.list_ptr().opt().is_none() {
                         if n == TextNode::VList {
                             synctex_void_vlist(&p, this_box);
@@ -947,7 +947,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
                                 dvi_h += rule_wd;
                             }
                         } else {
-                            let mut lb = Box::from(leader_box as usize);
+                            let mut lb = List::from(leader_box as usize);
                             let leader_wd = lb.width();
                             if leader_wd > 0 && rule_wd > 0 {
                                 rule_wd += 10;
@@ -1159,7 +1159,7 @@ unsafe fn hlist_out(this_box: &mut Box) {
 /*651: "When vlist_out is called, its duty is to output the box represented by
  * the vlist_node pointed to by tmp_ptr. The reference point of that box has
  * coordinates (cur_h, cur_v)." */
-unsafe fn vlist_out(this_box: &Box) {
+unsafe fn vlist_out(this_box: &List) {
     let mut cur_g = 0;
     let mut cur_glue = 0_f64;
     let g_order = this_box.glue_order();
@@ -1198,7 +1198,7 @@ unsafe fn vlist_out(this_box: &Box) {
         let n = text_NODE_type(p).unwrap();
         match n {
             TextNode::HList | TextNode::VList => {
-                let mut p = Box::from(p);
+                let mut p = List::from(p);
                 /*654: "Output a box in a vlist" */
                 if p.list_ptr().opt().is_none() {
                     if upwards {
@@ -1415,7 +1415,7 @@ unsafe fn vlist_out(this_box: &Box) {
                         popt = llist_link(p.ptr());
                         continue;
                     } else {
-                        let mut lb = Box::from(leader_box);
+                        let mut lb = List::from(leader_box);
                         let leader_ht = lb.height() + lb.depth();
                         if leader_ht > 0i32 && rule_ht > 0i32 {
                             rule_ht += 10i32;
@@ -1521,7 +1521,7 @@ unsafe fn vlist_out(this_box: &Box) {
  * nodes from the original list and add them to the head of the new one."
  */
 unsafe fn reverse(
-    this_box: &Box,
+    this_box: &List,
     tmp_ptr: usize,
     mut t: Option<usize>,
     mut cur_g: *mut scaled_t,
@@ -1563,7 +1563,7 @@ unsafe fn reverse(
                 let q = *LLIST_link(p);
                 match text_NODE_type(p).unwrap() {
                     TextNode::HList | TextNode::VList => {
-                        let p = Box::from(p);
+                        let p = List::from(p);
                         rule_wd = p.width();
                     }
                     TextNode::Rule => {
