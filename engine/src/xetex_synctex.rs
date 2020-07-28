@@ -13,14 +13,14 @@ use std::io::Write;
 
 use crate::core_memory::{mfree, xmalloc, xrealloc, xstrdup};
 use crate::xetex_consts::{
-    IntPar, Kern, List, TextNode, BOX_NODE_SIZE, INTPAR, MEDIUM_NODE_SIZE, RULE_NODE_SIZE,
+    IntPar, Kern, List, TxtNode, BOX_NODE_SIZE, INTPAR, MEDIUM_NODE_SIZE, RULE_NODE_SIZE,
 };
 use crate::xetex_ini::{
     cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, MEM, TOTAL_PAGES,
 };
 use crate::xetex_io::name_of_input_file;
 use crate::xetex_texmfmp::gettexstring;
-use crate::xetex_xetexd::{text_NODE_type, SYNCTEX_line, SYNCTEX_tag};
+use crate::xetex_xetexd::{SYNCTEX_line, SYNCTEX_tag};
 use bridge::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
 use libc::{free, strcat, strcpy, strlen};
 use std::ptr;
@@ -558,30 +558,30 @@ pub(crate) unsafe fn synctex_math(p: usize, mut _this_box: usize) {
 /*  this message is sent whenever an horizontal glue node or rule node ships out
 See: move_past:...    */
 pub(crate) unsafe fn synctex_horizontal_rule_or_glue(p: usize, mut _this_box: usize) {
-    match text_NODE_type(p).unwrap() {
-        TextNode::Rule => {
+    match TxtNode::from(p) {
+        TxtNode::Rule(r) => {
             if synctex_ctxt.flags.contains(Flags::OFF)
                 || *INTPAR(IntPar::synctex) == 0
-                || 0i32 >= *SYNCTEX_tag(p, RULE_NODE_SIZE)
-                || 0i32 >= *SYNCTEX_line(p, RULE_NODE_SIZE)
+                || 0i32 >= *SYNCTEX_tag(r.ptr(), RULE_NODE_SIZE)
+                || 0i32 >= *SYNCTEX_line(r.ptr(), RULE_NODE_SIZE)
             {
                 return;
             }
         }
-        TextNode::Glue => {
+        TxtNode::Glue(g) => {
             if synctex_ctxt.flags.contains(Flags::OFF)
                 || *INTPAR(IntPar::synctex) == 0
-                || 0i32 >= *SYNCTEX_tag(p, MEDIUM_NODE_SIZE)
-                || 0i32 >= *SYNCTEX_line(p, MEDIUM_NODE_SIZE)
+                || 0i32 >= *SYNCTEX_tag(g.ptr(), MEDIUM_NODE_SIZE)
+                || 0i32 >= *SYNCTEX_line(g.ptr(), MEDIUM_NODE_SIZE)
             {
                 return;
             }
         }
-        TextNode::Kern => {
+        TxtNode::Kern(k) => {
             if synctex_ctxt.flags.contains(Flags::OFF)
                 || *INTPAR(IntPar::synctex) == 0
-                || 0i32 >= *SYNCTEX_tag(p, MEDIUM_NODE_SIZE)
-                || 0i32 >= *SYNCTEX_line(p, MEDIUM_NODE_SIZE)
+                || 0i32 >= *SYNCTEX_tag(k.ptr(), MEDIUM_NODE_SIZE)
+                || 0i32 >= *SYNCTEX_line(k.ptr(), MEDIUM_NODE_SIZE)
             {
                 return;
             }
@@ -597,21 +597,21 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(p: usize, mut _this_box: us
     synctex_ctxt.curh = cur_h + 4736287i32;
     synctex_ctxt.curv = cur_v + 4736287i32;
     synctex_ctxt.recorder = None;
-    match text_NODE_type(p).unwrap() {
-        TextNode::Rule => {
-            synctex_ctxt.tag = *SYNCTEX_tag(p, RULE_NODE_SIZE);
-            synctex_ctxt.line = *SYNCTEX_line(p, RULE_NODE_SIZE);
-            synctex_record_node_rule(p);
+    match TxtNode::from(p) {
+        TxtNode::Rule(r) => {
+            synctex_ctxt.tag = *SYNCTEX_tag(r.ptr(), RULE_NODE_SIZE);
+            synctex_ctxt.line = *SYNCTEX_line(r.ptr(), RULE_NODE_SIZE);
+            synctex_record_node_rule(r.ptr());
         }
-        TextNode::Glue => {
-            synctex_ctxt.tag = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
-            synctex_ctxt.line = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
-            synctex_record_node_glue(p);
+        TxtNode::Glue(g) => {
+            synctex_ctxt.tag = *SYNCTEX_tag(g.ptr(), MEDIUM_NODE_SIZE);
+            synctex_ctxt.line = *SYNCTEX_line(g.ptr(), MEDIUM_NODE_SIZE);
+            synctex_record_node_glue(g.ptr());
         }
-        TextNode::Kern => {
-            synctex_ctxt.tag = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
-            synctex_ctxt.line = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
-            synctex_record_node_kern(p);
+        TxtNode::Kern(k) => {
+            synctex_ctxt.tag = *SYNCTEX_tag(k.ptr(), MEDIUM_NODE_SIZE);
+            synctex_ctxt.line = *SYNCTEX_line(k.ptr(), MEDIUM_NODE_SIZE);
+            synctex_record_node_kern(k.ptr());
         }
         _ => {
             ttstub_issue_error(
