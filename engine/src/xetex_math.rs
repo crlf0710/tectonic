@@ -44,7 +44,7 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     is_char_node, llist_link, math_NODE_type, math_char, math_class, math_fam, set_NODE_type,
     set_class, set_family, set_math_NODE_type, set_whatsit_NODE_subtype, text_NODE_type,
-    whatsit_NODE_subtype, LLIST_link, NODE_type, TeXInt, TeXOpt,
+    LLIST_link, NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -301,7 +301,7 @@ pub(crate) unsafe fn init_math() {
                             }
                         }
                         TextNode::WhatsIt => match WhatsIt::from(p) {
-                            WhatsIt::NativeWord(p) | WhatsIt::NativeWordAt(p) => {
+                            WhatsIt::NativeWord(p) => {
                                 d = p.width();
                                 found = true;
                             }
@@ -2503,21 +2503,15 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
                 }
                 cur_f = save_f
             }
-            if let Some(p) = p.opt() {
-                if !is_char_node(Some(p))
-                    && NODE_type(p) == TextNode::WhatsIt.into()
-                    && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
-                {
-                    let p = Glyph::from(p);
-                    sub_kern = get_ot_math_kern(
-                        p.font() as usize,
-                        p.glyph() as i32,
-                        script_f,
-                        script_g as i32,
-                        SUB_CMD,
-                        shift_down,
-                    )
-                }
+            if let Some(Node::Text(TxtNode::WhatsIt(WhatsIt::Glyph(p)))) = p.opt().map(Node::from) {
+                sub_kern = get_ot_math_kern(
+                    p.font() as usize,
+                    p.glyph() as i32,
+                    script_f,
+                    script_g as i32,
+                    SUB_CMD,
+                    shift_down,
+                )
             }
             if sub_kern != 0 {
                 p = attach_hkern_to_new_hlist(q, sub_kern) as i32;
@@ -2581,21 +2575,15 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
                 }
                 cur_f = save_f
             }
-            if let Some(p) = p.opt() {
-                if !is_char_node(Some(p))
-                    && NODE_type(p) == TextNode::WhatsIt.into()
-                    && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
-                {
-                    let p = Glyph::from(p);
-                    sup_kern = get_ot_math_kern(
-                        p.font() as usize,
-                        p.glyph() as i32,
-                        script_f,
-                        script_g as i32,
-                        SUP_CMD,
-                        shift_up,
-                    )
-                }
+            if let Some(Node::Text(TxtNode::WhatsIt(WhatsIt::Glyph(p)))) = p.opt().map(Node::from) {
+                sup_kern = get_ot_math_kern(
+                    p.font() as usize,
+                    p.glyph() as i32,
+                    script_f,
+                    script_g as i32,
+                    SUP_CMD,
+                    shift_up,
+                )
             }
             if sup_kern != 0 && q.third().typ == MathCell::Empty {
                 p = attach_hkern_to_new_hlist(q, sup_kern) as i32;
@@ -2673,21 +2661,17 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
                     }
                     cur_f = save_f
                 }
-                if let Some(p) = p.opt() {
-                    if !is_char_node(Some(p))
-                        && NODE_type(p) == TextNode::WhatsIt.into()
-                        && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
-                    {
-                        let p = Glyph::from(p);
-                        sub_kern = get_ot_math_kern(
-                            p.font() as usize,
-                            p.glyph() as i32,
-                            script_f,
-                            script_g as i32,
-                            SUB_CMD,
-                            shift_down,
-                        )
-                    }
+                if let Some(Node::Text(TxtNode::WhatsIt(WhatsIt::Glyph(p)))) =
+                    p.opt().map(Node::from)
+                {
+                    sub_kern = get_ot_math_kern(
+                        p.font() as usize,
+                        p.glyph() as i32,
+                        script_f,
+                        script_g as i32,
+                        SUB_CMD,
+                        shift_down,
+                    )
                 }
                 if sub_kern != MathCell::MathChar as _ {
                     p = attach_hkern_to_new_hlist(q, sub_kern) as i32;
@@ -2710,21 +2694,17 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
                     }
                     cur_f = save_f
                 }
-                if let Some(p) = p.opt() {
-                    if !is_char_node(Some(p))
-                        && NODE_type(p) == TextNode::WhatsIt.into()
-                        && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
-                    {
-                        let p = Glyph::from(p);
-                        sup_kern = get_ot_math_kern(
-                            p.font() as usize,
-                            p.glyph() as i32,
-                            script_f,
-                            script_g as i32,
-                            SUP_CMD,
-                            shift_up,
-                        )
-                    }
+                if let Some(Node::Text(TxtNode::WhatsIt(WhatsIt::Glyph(p)))) =
+                    p.opt().map(Node::from)
+                {
+                    sup_kern = get_ot_math_kern(
+                        p.font() as usize,
+                        p.glyph() as i32,
+                        script_f,
+                        script_g as i32,
+                        SUP_CMD,
+                        shift_up,
+                    )
                 }
                 if sup_kern != 0 && q.third().typ == MathCell::Empty {
                     p = attach_hkern_to_new_hlist(q, sup_kern) as i32;

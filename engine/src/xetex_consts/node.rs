@@ -177,7 +177,6 @@ pub(crate) mod whatsit {
         Language(Language),
         PdfSavePos(PdfSavePos),
         NativeWord(NativeWord),
-        NativeWordAt(NativeWord),
         Glyph(Glyph),
         Pic(Picture),
         Pdf(Picture),
@@ -193,8 +192,7 @@ pub(crate) mod whatsit {
                 3 => Self::Special(Special(p)),
                 4 => Self::Language(Language(p)),
                 6 => Self::PdfSavePos(PdfSavePos(p)),
-                40 => Self::NativeWord(NativeWord::from(p)),
-                41 => Self::NativeWordAt(NativeWord::from(p)),
+                40 | 41 => Self::NativeWord(NativeWord::from(p)),
                 42 => Self::Glyph(Glyph::from(p)),
                 43 => Self::Pic(Picture::from(p)),
                 44 => Self::Pdf(Picture::from(p)),
@@ -361,6 +359,16 @@ pub(crate) mod whatsit {
     impl NativeWord {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseBox(p))
+        }
+        pub(crate) unsafe fn after_text(&self) -> bool {
+            match MEM[self.ptr()].b16.s0 {
+                41 => true,
+                40 => false,
+                _ => panic!("It's not a Native Word"),
+            }
+        }
+        pub(crate) unsafe fn set_after_text_from(&mut self, other: &NativeWord) {
+            MEM[self.ptr()].b16.s0 = MEM[other.ptr()].b16.s0;
         }
         pub(crate) unsafe fn size(&self) -> u16 {
             MEM[self.ptr() + 4].b16.s3
