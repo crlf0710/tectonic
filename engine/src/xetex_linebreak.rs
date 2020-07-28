@@ -1497,16 +1497,15 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                         t -= 1;
                                         v = *LLIST_link(v) as usize;
                                         /*870: "subtract the width of node v from break_width" */
-                                        if is_char_node(Some(v)) {
-                                            let v = Char(v);
-                                            let f = v.font() as usize;
-                                            let eff_char = effective_char(true, f, v.character());
-                                            break_width[1] -=
-                                                *FONT_CHARACTER_WIDTH(f, eff_char as usize);
-                                        } else {
-                                            match text_NODE_type(v).confuse(b"disc1") {
-                                                TextNode::Ligature => {
-                                                    let l = Ligature(v);
+                                        match CharOrText::from(v) {
+                                            CharOrText::Char(c) => {
+                                                let f = c.font() as usize;
+                                                let eff_char = effective_char(true, f, c.character());
+                                                break_width[1] -=
+                                                    *FONT_CHARACTER_WIDTH(f, eff_char as usize);
+                                            }
+                                            CharOrText::Text(v) => match v {
+                                                TxtNode::Ligature(l) => {
                                                     let f = l.font() as usize;
                                                     xtx_ligature_present = true;
                                                     let eff_char_0 =
@@ -1516,16 +1515,16 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                         eff_char_0 as usize,
                                                     );
                                                 }
-                                                TextNode::HList | TextNode::VList => {
-                                                    break_width[1] -= List::from(v).width();
+                                                TxtNode::HList(b) | TxtNode::VList(b) => {
+                                                    break_width[1] -= b.width();
                                                 }
-                                                TextNode::Rule => {
-                                                    break_width[1] -= Rule::from(v).width();
+                                                TxtNode::Rule(r) => {
+                                                    break_width[1] -= r.width();
                                                 }
-                                                TextNode::Kern => {
-                                                    break_width[1] -= Kern(v).width();
+                                                TxtNode::Kern(k) => {
+                                                    break_width[1] -= k.width();
                                                 }
-                                                TextNode::WhatsIt => match WhatsIt::from(v) {
+                                                TxtNode::WhatsIt(v) => match v {
                                                     WhatsIt::NativeWord(v) => {
                                                         break_width[1] -= v.width();
                                                     }
@@ -1544,16 +1543,15 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                     }
                                     /*871: "add the width of node s to break_width" */
                                     while let Some(s) = sopt {
-                                        if is_char_node(Some(s)) {
-                                            let s = Char(s);
-                                            let f = s.font() as usize;
-                                            let eff_char_1 = effective_char(true, f, s.character());
-                                            break_width[1] +=
-                                                *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
-                                        } else {
-                                            match text_NODE_type(s).confuse(b"disc2") {
-                                                TextNode::Ligature => {
-                                                    let l = Ligature(s);
+                                        match CharOrText::from(s) {
+                                            CharOrText::Char(c) => {
+                                                let f = c.font() as usize;
+                                                let eff_char_1 = effective_char(true, f, c.character());
+                                                break_width[1] +=
+                                                    *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
+                                            }
+                                            CharOrText::Text(s) => match s {
+                                                TxtNode::Ligature(l) => {
                                                     let f = l.font() as usize;
                                                     xtx_ligature_present = true;
                                                     let eff_char_2 =
@@ -1563,16 +1561,16 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                         eff_char_2 as usize,
                                                     );
                                                 }
-                                                TextNode::HList | TextNode::VList => {
-                                                    break_width[1] += List::from(s).width();
+                                                TxtNode::HList(b) | TxtNode::VList(b) => {
+                                                    break_width[1] += b.width();
                                                 }
-                                                TextNode::Rule => {
-                                                    break_width[1] += Rule::from(s).width();
+                                                TxtNode::Rule(r) => {
+                                                    break_width[1] += r.width();
                                                 }
-                                                TextNode::Kern => {
-                                                    break_width[1] += Kern(s).width();
+                                                TxtNode::Kern(k) => {
+                                                    break_width[1] += k.width();
                                                 }
-                                                TextNode::WhatsIt => match WhatsIt::from(s) {
+                                                TxtNode::WhatsIt(s) => match s {
                                                     WhatsIt::NativeWord(s) => {
                                                         break_width[1] += s.width();
                                                     }
@@ -1596,27 +1594,25 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                 }
                             }
                             while let Some(s) = sopt {
-                                if is_char_node(Some(s)) {
-                                    break;
-                                }
-                                match text_NODE_type(s).unwrap() {
-                                    TextNode::Glue => {
-                                        let mut s = Glue(s);
-                                        let v = GlueSpec(s.glue_ptr() as usize);
-                                        break_width[1] -= v.size();
-                                        break_width[2 + v.stretch_order() as usize] -= v.stretch();
-                                        break_width[6] -= v.shrink();
-                                    }
-                                    TextNode::Penalty => {}
-                                    TextNode::Math => break_width[1] -= Math(s).width(),
-                                    TextNode::Kern => {
-                                        let k = Kern(s);
-                                        if k.subtype() != KernType::Explicit {
-                                            break;
+                                match CharOrText::from(s) {
+                                    CharOrText::Char(_) => break,
+                                    CharOrText::Text(s) => match s {
+                                        TxtNode::Glue(g) => {
+                                            let v = GlueSpec(g.glue_ptr() as usize);
+                                            break_width[1] -= v.size();
+                                            break_width[2 + v.stretch_order() as usize] -= v.stretch();
+                                            break_width[6] -= v.shrink();
                                         }
-                                        break_width[1] -= k.width()
+                                        TxtNode::Penalty(_) => {}
+                                        TxtNode::Math(m) => break_width[1] -= m.width(),
+                                        TxtNode::Kern(k) => {
+                                            if k.subtype() != KernType::Explicit {
+                                                break;
+                                            }
+                                            break_width[1] -= k.width()
+                                        }
+                                        _ => break,
                                     }
-                                    _ => break,
                                 }
                                 sopt = llist_link(s);
                             }
@@ -2178,27 +2174,17 @@ unsafe fn hyphenate() {
     }
     let mut j = l_hyf as i16;
     let mut for_end_4 = hn as i32 - r_hyf;
-    if j as i32 <= for_end_4 {
-        current_block = 5207889489643863322;
-    } else {
-        current_block = 8102658916883067714;
-    }
+    if j as i32 > for_end_4 {
+        return;
+    };
     loop {
-        match current_block {
-            8102658916883067714 => return,
-            _ => {
-                if hyf[j as usize] as i32 & 1i32 != 0 {
-                    break;
-                }
-                let fresh23 = j;
-                j = j + 1;
-                if (fresh23 as i32) < for_end_4 {
-                    current_block = 5207889489643863322;
-                } else {
-                    current_block = 8102658916883067714;
-                }
-            }
+        if hyf[j as usize] as i32 & 1i32 != 0 {
+            break;
         }
+        if (j as i32) >= for_end_4 {
+            return;
+        }
+        j += 1;
     }
     if let CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(ha_nw))) = &CharOrText::from(ha) {
         let mut s = cur_p.unwrap();
@@ -2243,70 +2229,61 @@ unsafe fn hyphenate() {
         let mut s = 0; // TODO: check
         let q = *LLIST_link(hb);
         *LLIST_link(hb) = None.tex_int();
-        let r = *LLIST_link(ha);
+        let r = LLIST_link(ha).opt().unwrap();
         *LLIST_link(ha) = None.tex_int();
         bchar = hyf_bchar;
-        if is_char_node(Some(ha)) {
-            if MEM[ha].b16.s1 as usize != hf {
-                current_block = 6826215413708131726;
-            } else {
-                init_list = Some(ha).tex_int();
-                init_lig = false;
-                hu[0] = MEM[ha].b16.s0 as i32;
-                current_block = 6662862405959679103;
-            }
-        } else if NODE_type(ha) == TextNode::Ligature.into() {
-            let l = Ligature(ha);
-            if l.font() as usize != hf {
-                current_block = 6826215413708131726;
-            } else {
-                init_list = l.lig_ptr();
-                init_lig = true;
-                init_lft = l.left_hit();
-                hu[0] = l.char() as i32;
-                if init_list.opt().is_none() {
-                    if init_lft {
-                        hu[0] = max_hyph_char;
-                        init_lig = false
-                    }
-                }
-                l.free();
-                current_block = 6662862405959679103;
-            }
-        } else {
-            if !is_char_node(r.opt()) {
-                if NODE_type(r as usize) == TextNode::Ligature.into() {
-                    if MEM[r as usize].b16.s0 > 1 {
-                        current_block = 6826215413708131726;
-                    } else {
-                        current_block = 2415422468722899689;
-                    }
+        let current_block: u64 = match CharOrText::from(ha) {
+            CharOrText::Char(c) => {
+                if c.font() as usize != hf {
+                    6826215413708131726
                 } else {
-                    current_block = 2415422468722899689;
-                }
-            } else {
-                current_block = 2415422468722899689;
-            }
-            match current_block {
-                6826215413708131726 => {}
-                _ => {
-                    j = 1_i16;
-                    s = ha as i32;
-                    init_list = None.tex_int();
-                    current_block = 5209103994167801282;
+                    init_list = Some(c.ptr()).tex_int();
+                    init_lig = false;
+                    hu[0] = c.character() as i32;
+                    6662862405959679103
                 }
             }
-        }
+            CharOrText::Text(TxtNode::Ligature(l)) => {
+                if l.font() as usize != hf {
+                    6826215413708131726
+                } else {
+                    init_list = l.lig_ptr();
+                    init_lig = true;
+                    init_lft = l.left_hit();
+                    hu[0] = l.char() as i32;
+                    if init_list.opt().is_none() {
+                        if init_lft {
+                            hu[0] = max_hyph_char;
+                            init_lig = false
+                        }
+                    }
+                    l.free();
+                    6662862405959679103
+                }
+            }
+            _ => {
+                match CharOrText::from(r) {
+                    CharOrText::Text(TxtNode::Ligature(r)) if r.left_hit() => 6826215413708131726,
+                    _ => {
+                        j = 1_i16;
+                        s = ha;
+                        init_list = None.tex_int();
+                        5209103994167801282
+                    }
+                }
+            }
+        };
         match current_block {
             6662862405959679103 => {
-                s = cur_p.tex_int();
+                s = cur_p.unwrap();
                 while LLIST_link(s as usize).opt() != Some(ha) {
-                    s = *LLIST_link(s as usize);
+                    s = *LLIST_link(s as usize) as usize;
                 }
                 j = 0_i16
             }
             6826215413708131726 => {
-                s = ha as i32;
+                // found2:
+                s = ha;
                 j = 0_i16;
                 hu[0] = max_hyph_char;
                 init_lig = false;
@@ -2315,14 +2292,14 @@ unsafe fn hyphenate() {
             _ => {}
         }
         // common_ending
-        flush_node_list(r.opt());
+        flush_node_list(Some(r));
         loop {
             l = j;
             j = (reconstitute(j, hn, bchar, hyf_char) as i32 + 1) as i16;
             if hyphen_passed == 0 {
-                *LLIST_link(s as usize) = *LLIST_link(HOLD_HEAD);
-                while let Some(next) = LLIST_link(s as usize).opt() {
-                    s = next as i32
+                *LLIST_link(s) = *LLIST_link(HOLD_HEAD);
+                while let Some(next) = LLIST_link(s).opt() {
+                    s = next;
                 }
                 if hyf[(j as i32 - 1i32) as usize] as i32 & 1i32 != 0 {
                     l = j;
@@ -2420,14 +2397,14 @@ unsafe fn hyphenate() {
                         }
                     }
                     if r_count > 127 {
-                        *LLIST_link(s as usize) = *LLIST_link(r.ptr());
+                        *LLIST_link(s) = *LLIST_link(r.ptr());
                         *LLIST_link(r.ptr()) = None.tex_int();
                         flush_node_list(Some(r.ptr()));
                     } else {
-                        *LLIST_link(s as usize) = Some(r.ptr()).tex_int();
+                        *LLIST_link(s) = Some(r.ptr()).tex_int();
                         r.set_replace_count(r_count as u16);
                     }
-                    s = major_tail as i32;
+                    s = major_tail;
                     hyphen_passed = (j - 1) as i16;
                     *LLIST_link(HOLD_HEAD) = None.tex_int();
                     if !(hyf[(j as i32 - 1) as usize] as i32 & 1 != 0) {
@@ -2439,7 +2416,7 @@ unsafe fn hyphenate() {
                 break;
             }
         }
-        *LLIST_link(s as usize) = q;
+        *LLIST_link(s) = q;
         flush_list(init_list.opt());
     }
 }
@@ -2790,8 +2767,8 @@ unsafe fn total_pw(q: &Active, p: Option<usize>) -> scaled_t {
 }
 unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     let mut run: bool = false;
-    match (llist_link(l), Node::from(l)) {
-        (Some(next), Node::Text(TxtNode::HList(n))) if n.is_empty() => {
+    match (llist_link(l), CharOrText::from(l)) {
+        (Some(next), CharOrText::Text(TxtNode::HList(n))) if n.is_empty() => {
             l = next
         }
         _ => {
@@ -2810,7 +2787,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     loop {
         let t = l;
         if run {
-            while let Node::Text(TxtNode::HList(n)) = Node::from(l) {
+            while let CharOrText::Text(TxtNode::HList(n)) = CharOrText::from(l) {
                 if let Some(next) = n.list_ptr().opt() {
                     hlist_stack.push(n.ptr());
                     l = next;
