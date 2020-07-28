@@ -1,4 +1,4 @@
-use crate::xetex_consts::{MathNode, TextNode, WhatsItNST, ND, SYNCTEX_FIELD_SIZE};
+use crate::xetex_consts::{MathNode, TextNode, ND, SYNCTEX_FIELD_SIZE};
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
 
@@ -58,15 +58,6 @@ pub(crate) unsafe fn math_NODE_type(p: usize) -> Option<MathNode> {
 }
 pub(crate) unsafe fn set_math_NODE_type(p: usize, n: MathNode) {
     MEM[p].b16.s1 = n as u16;
-}
-
-/// the other half of LLIST_info(p)
-pub(crate) unsafe fn whatsit_NODE_subtype(p: usize) -> WhatsItNST {
-    let n = MEM[p].b16.s0;
-    WhatsItNST::n(n).expect(&format!("Incorrect WhatsItNST = {}", n))
-}
-pub(crate) unsafe fn set_whatsit_NODE_subtype(p: usize, n: WhatsItNST) {
-    MEM[p].b16.s0 = n as u16;
 }
 
 pub(crate) unsafe fn clear_NODE_subtype(p: usize) {

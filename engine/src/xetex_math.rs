@@ -43,8 +43,8 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_char_node, llist_link, math_NODE_type, math_char, math_class, math_fam, set_NODE_type,
-    set_class, set_family, set_math_NODE_type, set_whatsit_NODE_subtype, text_NODE_type,
-    LLIST_link, NODE_type, TeXInt, TeXOpt,
+    set_class, set_family, set_math_NODE_type, text_NODE_type, LLIST_link, NODE_type, TeXInt,
+    TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -1917,9 +1917,7 @@ unsafe fn make_math_accent(q: &mut Accent) {
         }
         let mut y = char_box(f, c);
         if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
-            let mut p = Glyph::from(get_node(GLYPH_NODE_SIZE));
-            set_NODE_type(p.ptr(), TextNode::WhatsIt);
-            set_whatsit_NODE_subtype(p.ptr(), WhatsItNST::Glyph);
+            let mut p = Glyph::new_node();
             p.set_font(f as u16);
             let nw = NativeWord::from(y.list_ptr() as usize);
             p.set_glyph(nw.native_glyph(0));
@@ -2846,9 +2844,7 @@ unsafe fn mlist_to_hlist() {
                                 || FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
                             {
                                 let z = new_native_character(cur_f, cur_c);
-                                let mut p = Glyph::from(get_node(GLYPH_NODE_SIZE));
-                                set_NODE_type(p.ptr(), TextNode::WhatsIt);
-                                set_whatsit_NODE_subtype(p.ptr(), WhatsItNST::Glyph);
+                                let mut p = Glyph::new_node();
                                 p.set_font(cur_f as u16);
                                 p.set_glyph(z.native_glyph(0));
                                 p.set_metrics(true);
@@ -3361,10 +3357,8 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
         } else {
             let mut b = List::from(new_null_box());
             set_NODE_type(b.ptr(), TextNode::VList);
-            let mut g = Glyph::from(get_node(GLYPH_NODE_SIZE));
+            let mut g = Glyph::new_node();
             b.set_list_ptr(g.ptr() as i32);
-            set_NODE_type(g.ptr(), TextNode::WhatsIt);
-            set_whatsit_NODE_subtype(g.ptr(), WhatsItNST::Glyph);
             g.set_font(f as u16).set_glyph(c);
             g.set_metrics(true);
             b.set_width(g.width())
@@ -3434,9 +3428,7 @@ unsafe fn height_plus_depth(mut f: internal_font_number, mut c: u16) -> scaled_t
             .s1
 }
 unsafe fn stack_glyph_into_box(b: &mut List, mut f: internal_font_number, mut g: i32) {
-    let mut p = Glyph::from(get_node(GLYPH_NODE_SIZE));
-    set_NODE_type(p.ptr(), TextNode::WhatsIt);
-    set_whatsit_NODE_subtype(p.ptr(), WhatsItNST::Glyph);
+    let mut p = Glyph::new_node();
     p.set_font(f as u16).set_glyph(g as u16);
     p.set_metrics(true);
     if NODE_type(b.ptr()) == TextNode::HList.into() {

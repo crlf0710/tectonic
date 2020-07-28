@@ -844,7 +844,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 if hn > 0 {
                                     let ha_text = ha_nw.text();
                                     let mut q = new_native_word_node(hf, ha_text.len() as i32 - l);
-                                    q.set_after_text_from(&ha_nw);
+                                    q.set_actual_text_from(&ha_nw);
                                     q.text_mut().copy_from_slice(&ha_text[l as usize..]);
 
                                     q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
@@ -857,7 +857,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             } else if hn == 0 && l > 0 {
                                 let ha_text = ha_nw.text();
                                 let mut q = new_native_word_node(hf, ha_text.len() as i32 - l);
-                                q.set_after_text_from(&ha_nw);
+                                q.set_actual_text_from(&ha_nw);
                                 q.text_mut().copy_from_slice(&ha_text[l as usize..]);
 
                                 q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
@@ -2209,7 +2209,7 @@ unsafe fn hyphenate() {
         for j in l_hyf..=(hn as i32 - r_hyf) {
             if hyf[j as usize] as i32 & 1i32 != 0 {
                 let mut q = new_native_word_node(hf, j as i32 - hyphen_passed as i32);
-                q.set_after_text_from(ha_nw);
+                q.set_actual_text_from(ha_nw);
 
                 let ha_text = ha_nw.text();
                 q.text_mut()
@@ -2228,7 +2228,7 @@ unsafe fn hyphenate() {
         let ha_text = ha_nw.text();
         hn = ha_text.len() as i16;
         let mut q = new_native_word_node(hf, hn as i32 - hyphen_passed as i32);
-        q.set_after_text_from(ha_nw);
+        q.set_actual_text_from(ha_nw);
         q.text_mut()
             .copy_from_slice(&ha_text[(hyphen_passed as usize)..]);
 
