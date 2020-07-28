@@ -38,8 +38,8 @@ use crate::xetex_xetex0::{
     str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, llist_link, print_c_string, set_NODE_type, text_NODE_type, whatsit_NODE_subtype,
-    LLIST_link, NODE_type, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    is_char_node, llist_link, print_c_string, set_NODE_type, text_NODE_type, LLIST_link, NODE_type,
+    SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -330,234 +330,251 @@ unsafe fn hlist_out(this_box: &mut List) {
 
         while let Some(mut p) = popt {
             if llist_link(p).is_some() {
-                if !is_char_node(Some(p))
-                    && NODE_type(p) != TextNode::WhatsIt.into()
-                    && (whatsit_NODE_subtype(p) == WhatsItNST::NativeWord
-                        || whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt)
-                    && FONT_LETTER_SPACE[NativeWord::from(p).font() as usize] == 0
-                {
-                    /* "got a word in an AAT font, might be the start of a run" */
-                    let r = p;
-                    let r_nw = NativeWord::from(r);
-                    let mut k = r_nw.text().len() as i32;
-                    let mut qopt = llist_link(p);
-                    loop {
-                        /*641: "Advance `q` past ignorable nodes." This test is
-                         * mostly `node_is_invisible_to_interword_space`. 641 is
-                         * reused a few times here. */
-                        while let Some(q) = qopt.filter(|&q| {
-                            !is_char_node(Some(q))
-                                && (NODE_type(q) == TextNode::Penalty.into()
-                                    || NODE_type(q) == TextNode::Ins.into()
-                                    || NODE_type(q) == TextNode::Mark.into()
-                                    || NODE_type(q) == TextNode::Adjust.into()
-                                    || (NODE_type(q) == TextNode::WhatsIt.into()
-                                        && [
-                                            WhatsItNST::Open,
-                                            WhatsItNST::Write,
-                                            WhatsItNST::Close,
-                                            WhatsItNST::Special,
-                                            WhatsItNST::Language,
-                                        ]
-                                        .contains(&whatsit_NODE_subtype(q))))
-                        }) {
-                            qopt = llist_link(q);
-                        }
-                        if let Some(q) = qopt.filter(|&q| !is_char_node(Some(q))) {
-                            if NODE_type(q) == TextNode::Glue.into() && Glue(q).param() == 0 {
-                                if Glue(q).glue_ptr() == FONT_GLUE[r_nw.font() as usize] {
-                                    /* "Found a normal space; if the next node is
-                                     * another word in the same font, we'll
-                                     * merge." */
+                match CharOrText::from(p) {
+                    CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(r_nw)))
+                        if FONT_LETTER_SPACE[r_nw.font() as usize] == 0 =>
+                    {
+                        /* "got a word in an AAT font, might be the start of a run" */
+                        let mut k = r_nw.text().len() as i32;
+                        let mut qopt = llist_link(p);
+                        loop {
+                            /*641: "Advance `q` past ignorable nodes." This test is
+                             * mostly `node_is_invisible_to_interword_space`. 641 is
+                             * reused a few times here. */
+                            while let Some(q) = qopt {
+                                if match CharOrText::from(p) {
+                                    CharOrText::Text(n) => match n {
+                                        TxtNode::Penalty(_)
+                                        | TxtNode::Ins(_)
+                                        | TxtNode::Mark(_)
+                                        | TxtNode::Adjust(_) => true,
+                                        TxtNode::WhatsIt(n) => match n {
+                                            WhatsIt::Open(_)
+                                            | WhatsIt::Write(_)
+                                            | WhatsIt::Close(_)
+                                            | WhatsIt::Special(_)
+                                            | WhatsIt::Language(_) => true,
+                                            _ => false,
+                                        },
+                                        _ => false,
+                                    },
+                                    _ => false,
+                                } {
                                     qopt = llist_link(q);
+                                } else {
+                                    break;
+                                }
+                            }
+                            if let Some(q) = qopt.filter(|&q| !is_char_node(Some(q))) {
+                                if NODE_type(q) == TextNode::Glue.into() && Glue(q).param() == 0 {
+                                    if Glue(q).glue_ptr() == FONT_GLUE[r_nw.font() as usize] {
+                                        /* "Found a normal space; if the next node is
+                                         * another word in the same font, we'll
+                                         * merge." */
+                                        qopt = llist_link(q);
+                                        while let Some(q) = qopt {
+                                            if match CharOrText::from(p) {
+                                                CharOrText::Text(n) => match n {
+                                                    TxtNode::Penalty(_)
+                                                    | TxtNode::Ins(_)
+                                                    | TxtNode::Mark(_)
+                                                    | TxtNode::Adjust(_) => true,
+                                                    TxtNode::WhatsIt(n) => match n {
+                                                        WhatsIt::Open(_)
+                                                        | WhatsIt::Write(_)
+                                                        | WhatsIt::Close(_)
+                                                        | WhatsIt::Special(_)
+                                                        | WhatsIt::Language(_) => true,
+                                                        _ => false,
+                                                    },
+                                                    _ => false,
+                                                },
+                                                _ => false,
+                                            } {
+                                                qopt = llist_link(q);
+                                            } else {
+                                                break;
+                                            }
+                                        }
 
-                                    while let Some(q) = qopt.filter(|&q| {
-                                        !is_char_node(Some(q))
-                                            && (NODE_type(q) == TextNode::Penalty.into()
-                                                || NODE_type(q) == TextNode::Ins.into()
-                                                || NODE_type(q) == TextNode::Mark.into()
-                                                || NODE_type(q) == TextNode::Adjust.into()
-                                                || (NODE_type(q) == TextNode::WhatsIt.into()
-                                                    && [
-                                                        WhatsItNST::Open,
-                                                        WhatsItNST::Write,
-                                                        WhatsItNST::Close,
-                                                        WhatsItNST::Special,
-                                                        WhatsItNST::Language,
-                                                    ]
-                                                    .contains(&whatsit_NODE_subtype(q))))
-                                    }) {
+                                        match qopt.map(CharOrText::from) {
+                                            Some(CharOrText::Text(TxtNode::WhatsIt(
+                                                WhatsIt::NativeWord(q),
+                                            ))) if q.font() == r_nw.font() => {
+                                                p = q.ptr();
+                                                k += 1 + q.text().len() as i32;
+                                                qopt = llist_link(q.ptr());
+                                                continue;
+                                            }
+                                            _ => {}
+                                        }
+                                    } else {
                                         qopt = llist_link(q);
                                     }
-
                                     if let Some(q) = qopt.filter(|&q| {
                                         !is_char_node(Some(q))
-                                            && NODE_type(q) == TextNode::WhatsIt.into()
-                                            && (whatsit_NODE_subtype(q) == WhatsItNST::NativeWord
-                                                || whatsit_NODE_subtype(q)
-                                                    == WhatsItNST::NativeWordAt)
-                                            && NativeWord::from(q).font() == r_nw.font()
+                                            && NODE_type(q) == TextNode::Kern.into()
+                                            && Kern(q).subtype() == KernType::SpaceAdjustment
                                     }) {
-                                        p = q;
-                                        k += 1 + NativeWord::from(q).text().len() as i32;
                                         qopt = llist_link(q);
-                                        continue;
+                                        while let Some(q) = qopt {
+                                            if match CharOrText::from(p) {
+                                                CharOrText::Text(n) => match n {
+                                                    TxtNode::Penalty(_)
+                                                    | TxtNode::Ins(_)
+                                                    | TxtNode::Mark(_)
+                                                    | TxtNode::Adjust(_) => true,
+                                                    TxtNode::WhatsIt(n) => match n {
+                                                        WhatsIt::Open(_)
+                                                        | WhatsIt::Write(_)
+                                                        | WhatsIt::Close(_)
+                                                        | WhatsIt::Special(_)
+                                                        | WhatsIt::Language(_) => true,
+                                                        _ => false,
+                                                    },
+                                                    _ => false,
+                                                },
+                                                _ => false,
+                                            } {
+                                                qopt = llist_link(q);
+                                            } else {
+                                                break;
+                                            }
+                                        }
+                                        match qopt.map(CharOrText::from) {
+                                            Some(CharOrText::Text(TxtNode::WhatsIt(
+                                                WhatsIt::NativeWord(q),
+                                            ))) if q.font() == r_nw.font() => {
+                                                p = q.ptr();
+                                                k += (1 + q.text().len()) as i32;
+                                                qopt = llist_link(q.ptr());
+                                            }
+                                            _ => break,
+                                        }
+                                    } else {
+                                        break;
                                     }
                                 } else {
-                                    qopt = llist_link(q);
-                                }
-                                if let Some(q) = qopt.filter(|&q| {
-                                    !is_char_node(Some(q))
-                                        && NODE_type(q) == TextNode::Kern.into()
-                                        && Kern(q).subtype() == KernType::SpaceAdjustment
-                                }) {
-                                    qopt = llist_link(q);
-                                    while let Some(q) = qopt.filter(|&q| {
-                                        !is_char_node(Some(q))
-                                            && (NODE_type(q) == TextNode::Penalty.into()
-                                                || NODE_type(q) == TextNode::Ins.into()
-                                                || NODE_type(q) == TextNode::Mark.into()
-                                                || NODE_type(q) == TextNode::Adjust.into()
-                                                || NODE_type(q) == TextNode::WhatsIt.into()
-                                                    && [
-                                                        WhatsItNST::Open,
-                                                        WhatsItNST::Write,
-                                                        WhatsItNST::Close,
-                                                        WhatsItNST::Special,
-                                                        WhatsItNST::Language,
-                                                    ]
-                                                    .contains(&whatsit_NODE_subtype(q)))
-                                    }) {
-                                        qopt = llist_link(q);
-                                    }
                                     match qopt.map(CharOrText::from) {
                                         Some(CharOrText::Text(TxtNode::WhatsIt(
                                             WhatsIt::NativeWord(q),
                                         ))) if q.font() == r_nw.font() => {
                                             p = q.ptr();
-                                            k += (1 + q.text().len()) as i32;
                                             qopt = llist_link(q.ptr());
                                         }
                                         _ => break,
                                     }
-                                } else {
-                                    break;
                                 }
                             } else {
-                                match qopt.map(CharOrText::from) {
-                                    Some(CharOrText::Text(TxtNode::WhatsIt(
-                                        WhatsIt::NativeWord(q),
-                                    ))) if q.font() == r_nw.font() => {
-                                        p = q.ptr();
-                                        qopt = llist_link(q.ptr());
-                                    }
-                                    _ => break,
-                                }
-                            }
-                        } else {
-                            break;
-                        }
-                    }
-                    /* "Now r points to the first native_word_node of the run,
-                     * and p to the last." */
-                    if p != r {
-                        if pool_ptr + k > pool_size {
-                            overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
-                        }
-                        k = 0;
-                        let mut q = r;
-                        loop {
-                            if NODE_type(q) == TextNode::WhatsIt.into() {
-                                match WhatsIt::from(q) {
-                                    WhatsIt::NativeWord(q) => {
-                                        for j in q.text() {
-                                            str_pool[pool_ptr as usize] = *j;
-                                            pool_ptr += 1;
-                                        }
-                                        k += q.width();
-                                    }
-                                    _ => {}
-                                }
-                            } else if NODE_type(q) == TextNode::Glue.into() {
-                                let q = Glue(q);
-                                str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
-                                pool_ptr += 1;
-                                let mut g = GlueSpec(q.glue_ptr() as usize);
-                                k += g.size();
-                                if g_sign != GlueSign::Normal {
-                                    if g_sign == GlueSign::Stretching {
-                                        if g.stretch_order() == g_order {
-                                            k += tex_round(this_box.glue_set() * g.stretch() as f64)
-                                        }
-                                    } else if g.shrink_order() == g_order {
-                                        k -= tex_round(this_box.glue_set() * g.shrink() as f64)
-                                    }
-                                }
-                            } else if NODE_type(q) == TextNode::Kern.into() {
-                                let q = Kern(q);
-                                k += q.width();
-                            }
-                            if q == p {
                                 break;
                             }
-                            q = *LLIST_link(q) as usize;
                         }
-                        let mut nw =
-                            new_native_word_node(r_nw.font() as internal_font_number, cur_length());
-                        nw.set_after_text_from(&r_nw);
+                        /* "Now r points to the first native_word_node of the run,
+                         * and p to the last." */
+                        if p != r_nw.ptr() {
+                            if pool_ptr + k > pool_size {
+                                overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+                            }
+                            k = 0;
+                            let mut q = r_nw.ptr();
+                            loop {
+                                if NODE_type(q) == TextNode::WhatsIt.into() {
+                                    match WhatsIt::from(q) {
+                                        WhatsIt::NativeWord(q) => {
+                                            for j in q.text() {
+                                                str_pool[pool_ptr as usize] = *j;
+                                                pool_ptr += 1;
+                                            }
+                                            k += q.width();
+                                        }
+                                        _ => {}
+                                    }
+                                } else if NODE_type(q) == TextNode::Glue.into() {
+                                    let q = Glue(q);
+                                    str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
+                                    pool_ptr += 1;
+                                    let mut g = GlueSpec(q.glue_ptr() as usize);
+                                    k += g.size();
+                                    if g_sign != GlueSign::Normal {
+                                        if g_sign == GlueSign::Stretching {
+                                            if g.stretch_order() == g_order {
+                                                k += tex_round(
+                                                    this_box.glue_set() * g.stretch() as f64,
+                                                )
+                                            }
+                                        } else if g.shrink_order() == g_order {
+                                            k -= tex_round(this_box.glue_set() * g.shrink() as f64)
+                                        }
+                                    }
+                                } else if NODE_type(q) == TextNode::Kern.into() {
+                                    let q = Kern(q);
+                                    k += q.width();
+                                }
+                                if q == p {
+                                    break;
+                                }
+                                q = *LLIST_link(q) as usize;
+                            }
+                            let mut nw = new_native_word_node(
+                                r_nw.font() as internal_font_number,
+                                cur_length(),
+                            );
+                            nw.set_actual_text_from(&r_nw);
 
-                        let start = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-                        nw.text_mut().copy_from_slice(
-                            &str_pool[start as usize..(start + cur_length()) as usize],
-                        );
+                            let start = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+                            nw.text_mut().copy_from_slice(
+                                &str_pool[start as usize..(start + cur_length()) as usize],
+                            );
 
-                        /* "Link q into the list in place of r...p" */
-                        nw.set_width(k);
-                        nw.set_justified_native_glyphs();
-                        let mut q = nw.ptr();
-                        *LLIST_link(prev_p) = Some(q).tex_int();
-                        *LLIST_link(q) = *LLIST_link(p);
-                        *LLIST_link(p) = None.tex_int();
-                        prev_p = r;
-                        let mut popt2 = llist_link(r);
+                            /* "Link q into the list in place of r...p" */
+                            nw.set_width(k);
+                            nw.set_justified_native_glyphs();
+                            let mut q = nw.ptr();
+                            *LLIST_link(prev_p) = Some(q).tex_int();
+                            *LLIST_link(q) = *LLIST_link(p);
+                            *LLIST_link(p) = None.tex_int();
+                            prev_p = r_nw.ptr();
+                            let mut popt2 = llist_link(r_nw.ptr());
 
-                        /* "Extract any 'invisible' nodes from the old list
-                         * and insert them after the new node, so we don't
-                         * lose them altogether. Note that the first node
-                         * cannot be one of these, as we always start merging
-                         * at a native_word node." */
+                            /* "Extract any 'invisible' nodes from the old list
+                             * and insert them after the new node, so we don't
+                             * lose them altogether. Note that the first node
+                             * cannot be one of these, as we always start merging
+                             * at a native_word node." */
 
-                        while let Some(p) = popt2 {
-                            if match CharOrText::from(p) {
-                                CharOrText::Text(n) => match n {
-                                    TxtNode::Penalty(_)
-                                    | TxtNode::Ins(_)
-                                    | TxtNode::Mark(_)
-                                    | TxtNode::Adjust(_) => true,
-                                    TxtNode::WhatsIt(n) => match n {
-                                        WhatsIt::Open(_)
-                                        | WhatsIt::Write(_)
-                                        | WhatsIt::Close(_)
-                                        | WhatsIt::Special(_)
-                                        | WhatsIt::Language(_) => true,
+                            while let Some(p) = popt2 {
+                                if match CharOrText::from(p) {
+                                    CharOrText::Text(n) => match n {
+                                        TxtNode::Penalty(_)
+                                        | TxtNode::Ins(_)
+                                        | TxtNode::Mark(_)
+                                        | TxtNode::Adjust(_) => true,
+                                        TxtNode::WhatsIt(n) => match n {
+                                            WhatsIt::Open(_)
+                                            | WhatsIt::Write(_)
+                                            | WhatsIt::Close(_)
+                                            | WhatsIt::Special(_)
+                                            | WhatsIt::Language(_) => true,
+                                            _ => false,
+                                        },
                                         _ => false,
                                     },
                                     _ => false,
-                                },
-                                _ => false,
-                            } {
-                                *LLIST_link(prev_p) = *LLIST_link(p);
-                                *LLIST_link(p) = *LLIST_link(q);
-                                *LLIST_link(q) = Some(p).tex_int();
-                                q = p;
+                                } {
+                                    *LLIST_link(prev_p) = *LLIST_link(p);
+                                    *LLIST_link(p) = *LLIST_link(q);
+                                    *LLIST_link(q) = Some(p).tex_int();
+                                    q = p;
+                                }
+                                prev_p = p;
+                                popt2 = llist_link(p);
                             }
-                            prev_p = p;
-                            popt2 = llist_link(p);
+                            flush_node_list(Some(r_nw.ptr()));
+                            pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+                            p = q
                         }
-                        flush_node_list(Some(r));
-                        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-                        p = q
                     }
+                    _ => {}
                 }
                 prev_p = p;
             }
@@ -805,7 +822,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         }
                         WhatsIt::NativeWord(nw) => {
                             out_font(nw.font() as usize);
-                            if nw.after_text() {
+                            if nw.actual_text() {
                                 if nw.text().len() > 0 ||
                                        !nw.glyph_info_ptr().is_null()
                                    {

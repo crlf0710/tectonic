@@ -917,10 +917,10 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_int(g.glyph() as i32);
                         }
                         WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                            if whatsit_NODE_subtype(p.ptr()) == WhatsItNST::Pic {
-                                print_esc_cstr(b"XeTeXpicfile");
-                            } else {
+                            if p.is_pdf() {
                                 print_esc_cstr(b"XeTeXpdffile");
+                            } else {
+                                print_esc_cstr(b"XeTeXpicfile");
                             }
                             print_cstr(b"( ");
                             for i in p.path() {
@@ -2640,10 +2640,10 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         }
         Cmd::EndTemplate => print_esc_cstr(b"outer endtemplate"),
         Cmd::Extension => match chr_code as u16 {
-            0 => print_esc_cstr(b"openout"),               // WhatsItNST::Open
-            1 => print_esc_cstr(b"write"),                 // WhatsItNST::Write
-            2 => print_esc_cstr(b"closeout"),              // WhatsItNST::Close
-            3 => print_esc_cstr(b"special"),               // WhatsItNST::Special
+            0 => print_esc_cstr(b"openout"),               // WhatsIt::Open
+            1 => print_esc_cstr(b"write"),                 // WhatsIt::Write
+            2 => print_esc_cstr(b"closeout"),              // WhatsIt::Close
+            3 => print_esc_cstr(b"special"),               // WhatsIt::Special
             4 => print_esc_cstr(b"immediate"),             // IMMEDIATE_CODE
             5 => print_esc_cstr(b"setlanguage"),           // SET_LANGUAGE_CODE
             41 => print_esc_cstr(b"XeTeXpicfile"),         // PIC_FILE_CODE
@@ -2652,7 +2652,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             46 => print_esc_cstr(b"XeTeXlinebreaklocale"), // XETEX_LINEBREAK_LOCALE_EXTENSION_CODE
             44 => print_esc_cstr(b"XeTeXinputencoding"),   // XETEX_INPUT_ENCODING_EXTENSION_CODE
             45 => print_esc_cstr(b"XeTeXdefaultencoding"), // XETEX_DEFAULT_ENCODING_EXTENSION_CODE
-            6 => print_esc_cstr(b"pdfsavepos"),            // WhatsItNST::PdfSavePos
+            6 => print_esc_cstr(b"pdfsavepos"),            // WhatsIt::PdfSavePos
             _ => print_cstr(b"[unknown extension!]"),
         },
         _ => print_cstr(b"[unknown command code!]"),
@@ -9911,14 +9911,7 @@ pub(crate) unsafe fn new_native_word_node(f: usize, n: i32) -> NativeWord {
     ) as i32;
     let mut q = NativeWord::from(get_node(l) as usize);
     set_NODE_type(q.ptr(), TextNode::WhatsIt);
-    set_whatsit_NODE_subtype(
-        q.ptr(),
-        if *INTPAR(IntPar::xetex_generate_actual_text) > 0 {
-            WhatsItNST::NativeWordAt
-        } else {
-            WhatsItNST::NativeWord
-        },
-    );
+    q.set_actual_text(*INTPAR(IntPar::xetex_generate_actual_text) > 0);
     q.set_size(l as u16)
         .set_font(f as u16)
         .set_length(n as u16)
@@ -9989,7 +9982,7 @@ pub(crate) unsafe fn new_native_character(
         }
         p = NativeWord::from(get_node(NATIVE_NODE_SIZE + 1));
         set_NODE_type(p.ptr(), TextNode::WhatsIt);
-        set_whatsit_NODE_subtype(p.ptr(), WhatsItNST::NativeWord);
+        p.set_actual_text(false);
         p.set_size((NATIVE_NODE_SIZE + 1) as u16);
         p.set_glyph_count(0);
         p.set_glyph_info_ptr(ptr::null_mut());
@@ -11130,7 +11123,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                             p = llist_link(q).unwrap();
                             p_nw = NativeWord::from(p);
                             let mut pp = new_native_word_node(p_nw.font() as usize, total_chars);
-                            pp.set_after_text_from(&p_nw);
+                            pp.set_actual_text_from(&p_nw);
                             *LLIST_link(q) = Some(pp.ptr()).tex_int();
                             *LLIST_link(pp.ptr()) = *LLIST_link(ppp);
                             *LLIST_link(ppp) = None.tex_int();
@@ -15140,7 +15133,7 @@ pub(crate) unsafe fn do_extension() {
     let mut j: i32 = 0;
     let mut p: usize = 0;
     match cur_chr as u16 {
-        0 => {
+        0 => { // OpenFile
             new_write_whatsit(OPEN_NODE_SIZE as i16);
             scan_optional_equals();
             scan_file_name();
@@ -15148,14 +15141,14 @@ pub(crate) unsafe fn do_extension() {
             MEM[cur_list.tail + 2].b32.s0 = cur_area;
             MEM[cur_list.tail + 2].b32.s1 = cur_ext
         }
-        1 => {
+        1 => { // WriteFile
             let k = cur_cs;
             new_write_whatsit(WRITE_NODE_SIZE as i16);
             cur_cs = k;
             p = scan_toks(false, false);
             MEM[cur_list.tail + 1].b32.s1 = def_ref as i32
         }
-        2 => {
+        2 => { // CloseFile
             new_write_whatsit(WRITE_NODE_SIZE as i16);
             MEM[cur_list.tail + 1].b32.s1 = None.tex_int()
         }
@@ -15220,8 +15213,9 @@ pub(crate) unsafe fn do_extension() {
             } else if FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == AAT_FONT_FLAG
                 || FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == OTGR_FONT_FLAG
             {
-                new_whatsit(WhatsItNST::Glyph, GLYPH_NODE_SIZE as i16);
-                let mut g = Glyph::from(cur_list.tail);
+                let mut g = Glyph::new_node();
+                *LLIST_link(cur_list.tail) = Some(g.ptr()).tex_int();
+                cur_list.tail = g.ptr();
                 scan_int();
                 if cur_val < 0 || cur_val > 65535 {
                     if file_line_error_style_p != 0 {

@@ -23,7 +23,6 @@ use crate::xetex_output::{
 use crate::xetex_xetex0::{
     new_whatsit, pack_file_name, scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword,
 };
-use crate::xetex_xetexd::set_whatsit_NODE_subtype;
 
 use bridge::InputHandleWrapper;
 use bridge::TTInputFormat;
@@ -384,7 +383,7 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
         );
         let mut tail_pic = Picture::from(cur_list.tail);
         if is_pdf {
-            set_whatsit_NODE_subtype(cur_list.tail, WhatsItNST::Pdf);
+            tail_pic.set_pdf();
         }
         tail_pic
             .set_path_len(len as u16)

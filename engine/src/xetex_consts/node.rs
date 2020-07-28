@@ -360,14 +360,17 @@ pub(crate) mod whatsit {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseBox(p))
         }
-        pub(crate) unsafe fn after_text(&self) -> bool {
+        pub(crate) unsafe fn actual_text(&self) -> bool {
             match MEM[self.ptr()].b16.s0 {
                 41 => true,
                 40 => false,
                 _ => panic!("It's not a Native Word"),
             }
         }
-        pub(crate) unsafe fn set_after_text_from(&mut self, other: &NativeWord) {
+        pub(crate) unsafe fn set_actual_text(&mut self, at: bool) {
+            MEM[self.ptr()].b16.s0 = if at { 41 } else { 40 };
+        }
+        pub(crate) unsafe fn set_actual_text_from(&mut self, other: &NativeWord) {
             MEM[self.ptr()].b16.s0 = MEM[other.ptr()].b16.s0;
         }
         pub(crate) unsafe fn size(&self) -> u16 {
@@ -440,10 +443,22 @@ pub(crate) mod whatsit {
 
     #[derive(Clone, Debug, Deref, DerefMut)]
     pub(crate) struct Glyph(BaseBox);
+    impl NodeSize for Glyph {
+        const SIZE: i32 = super::GLYPH_NODE_SIZE;
+    }
     impl Glyph {
+        pub(crate) const NODE: u16 = 8;
+        pub(crate) const WHATS_IT: u16 = 42;
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseBox(p))
         }
+        pub(crate) unsafe fn new_node() -> Self {
+            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            MEM[p].b16.s1 = Self::NODE;
+            MEM[p].b16.s0 = Self::WHATS_IT;
+            Self::from(p)
+        }
+
         pub(crate) unsafe fn font(&self) -> u16 {
             MEM[self.ptr() + 4].b16.s2
         }
@@ -465,7 +480,7 @@ pub(crate) mod whatsit {
             crate::xetex_ext::real_get_native_glyph_italic_correction(self)
         }
         pub(crate) unsafe fn free(self) {
-            free_node(self.ptr(), super::GLYPH_NODE_SIZE as i32);
+            free_node(self.ptr(), Self::SIZE as i32);
         }
     }
 
@@ -474,6 +489,16 @@ pub(crate) mod whatsit {
     impl Picture {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseBox(p))
+        }
+        pub(crate) unsafe fn is_pdf(&self) -> bool {
+            match MEM[self.ptr()].b16.s0 {
+                44 => true,
+                43 => false,
+                _ => panic!("It's not a Picture"),
+            }
+        }
+        pub(crate) unsafe fn set_pdf(&mut self) {
+            MEM[self.ptr()].b16.s0 = 44;
         }
         pub(crate) unsafe fn page(&self) -> u16 {
             MEM[self.ptr() + 4].b16.s0
