@@ -15111,17 +15111,28 @@ pub(crate) unsafe fn show_whatever() {
     }
     common_ending()
 }
-pub(crate) unsafe fn new_write_whatsit(mut w: i16) {
-    new_whatsit(WhatsItNST::n(cur_chr as u16).unwrap(), w);
-    if w != WRITE_NODE_SIZE as i16 {
-        scan_four_bit_int();
-    } else {
-        scan_int();
-        if cur_val < 0 {
-            cur_val = 17;
-        } else if cur_val > 15 && cur_val != 18 {
-            cur_val = 16;
-        }
+pub(crate) unsafe fn new_open_whatsit() {
+    new_whatsit(WhatsItNST::Open, OPEN_NODE_SIZE as i16);
+    scan_four_bit_int();
+    MEM[cur_list.tail + 1].b32.s0 = cur_val;
+}
+pub(crate) unsafe fn new_write_whatsit() {
+    new_whatsit(WhatsItNST::Write, WRITE_NODE_SIZE as i16);
+    scan_int();
+    if cur_val < 0 {
+        cur_val = 17;
+    } else if cur_val > 15 && cur_val != 18 {
+        cur_val = 16;
+    }
+    MEM[cur_list.tail + 1].b32.s0 = cur_val;
+}
+pub(crate) unsafe fn new_close_whatsit() {
+    new_whatsit(WhatsItNST::Close, WRITE_NODE_SIZE as i16);
+    scan_int();
+    if cur_val < 0 {
+        cur_val = 17;
+    } else if cur_val > 15 && cur_val != 18 {
+        cur_val = 16;
     }
     MEM[cur_list.tail + 1].b32.s0 = cur_val;
 }
@@ -15134,7 +15145,7 @@ pub(crate) unsafe fn do_extension() {
     let mut p: usize = 0;
     match cur_chr as u16 {
         0 => { // OpenFile
-            new_write_whatsit(OPEN_NODE_SIZE as i16);
+            new_open_whatsit();
             scan_optional_equals();
             scan_file_name();
             MEM[cur_list.tail + 1].b32.s1 = cur_name;
@@ -15143,13 +15154,13 @@ pub(crate) unsafe fn do_extension() {
         }
         1 => { // WriteFile
             let k = cur_cs;
-            new_write_whatsit(WRITE_NODE_SIZE as i16);
+            new_write_whatsit();
             cur_cs = k;
             p = scan_toks(false, false);
             MEM[cur_list.tail + 1].b32.s1 = def_ref as i32
         }
         2 => { // CloseFile
-            new_write_whatsit(WRITE_NODE_SIZE as i16);
+            new_close_whatsit();
             MEM[cur_list.tail + 1].b32.s1 = None.tex_int()
         }
         3 => {
