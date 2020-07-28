@@ -557,7 +557,7 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                 | TextNode::Adjust
                 | TextNode::Unset => print_cstr(b"[]"),
                 TextNode::WhatsIt => match WhatsIt::from(p) {
-                    WhatsIt::NativeWord(nw) | WhatsIt::NativeWordAt(nw) => {
+                    WhatsIt::NativeWord(nw) => {
                         if nw.font() as usize != font_in_short_display {
                             print_esc(
                                 (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
@@ -901,7 +901,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_int(l.rhm() as i32);
                             print_char(')' as i32);
                         }
-                        WhatsIt::NativeWord(nw) | WhatsIt::NativeWordAt(nw) => {
+                        WhatsIt::NativeWord(nw) => {
                             print_esc(
                                 (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
                                     .s1,
@@ -1282,7 +1282,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                             }
                             WhatsIt::Close(c) => c.free(),
                             WhatsIt::Language(l) => l.free(),
-                            WhatsIt::NativeWord(mut nw) | WhatsIt::NativeWordAt(mut nw) => {
+                            WhatsIt::NativeWord(mut nw) => {
                                 if let Some(ptr) = nw.glyph_info_ptr().as_mut() {
                                     nw.set_glyph_info_ptr(mfree(ptr));
                                     nw.set_glyph_count(0);
@@ -1463,7 +1463,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                         r = get_node(SMALL_NODE_SIZE);
                         words = SMALL_NODE_SIZE as u8
                     }
-                    WhatsIt::NativeWord(p) | WhatsIt::NativeWordAt(p) => {
+                    WhatsIt::NativeWord(p) => {
                         words = p.size() as u8;
                         let mut r_nw = NativeWord::from(get_node(words as i32));
                         r = r_nw.ptr();
@@ -10937,44 +10937,30 @@ pub(crate) unsafe fn char_pw(p: Option<usize>, side: Side) -> scaled_t {
     if p.is_none() {
         return 0;
     }
-    let mut p = p.unwrap();
-    if !is_char_node(Some(p))
-        && text_NODE_type(p) == TextNode::WhatsIt.into()
-        && (whatsit_NODE_subtype(p) == WhatsItNST::NativeWord
-            || whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt)
-    {
-        let nw = NativeWord::from(p);
-        if !(nw.glyph_info_ptr()).is_null() {
-            let f = nw.font() as internal_font_number;
+    let p = match CharOrText::from(p.unwrap()) {
+        CharOrText::Char(p) => p,
+        CharOrText::Text(TxtNode::Ligature(p)) => p.as_char(),
+        CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(nw))) => {
+            return if !(nw.glyph_info_ptr()).is_null() {
+                let f = nw.font() as internal_font_number;
+                round_xn_over_d(
+                    FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1,
+                    nw.native_word_cp(side),
+                    1000,
+                )
+            } else {
+                0
+            };
+        }
+        CharOrText::Text(TxtNode::WhatsIt(WhatsIt::Glyph(g))) => {
+            let f = g.font() as internal_font_number;
             return round_xn_over_d(
                 FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1,
-                nw.native_word_cp(side),
+                get_cp_code(f, g.glyph() as u32, side),
                 1000,
             );
-        } else {
-            return 0;
         }
-    }
-    if !is_char_node(Some(p))
-        && text_NODE_type(p) == TextNode::WhatsIt.into()
-        && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
-    {
-        let p = Glyph::from(p);
-        let f = p.font() as internal_font_number;
-        return round_xn_over_d(
-            FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1,
-            get_cp_code(f, p.glyph() as u32, side),
-            1000,
-        );
-    }
-    let p = if !is_char_node(Some(p)) {
-        if text_NODE_type(p) == TextNode::Ligature.into() {
-            Ligature(p).as_char() // as CharNode
-        } else {
-            return 0;
-        }
-    } else {
-        Char(p)
+        _ => return 0,
     };
     let f = p.font() as internal_font_number;
     let c = get_cp_code(f, p.character() as u32, side);
@@ -10988,7 +10974,7 @@ pub(crate) unsafe fn char_pw(p: Option<usize>, side: Side) -> scaled_t {
     round_xn_over_d(
         FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1,
         c,
-        1000i32,
+        1000,
     )
 }
 pub(crate) unsafe fn new_margin_kern(w: scaled_t, _p: i32, side: Side) -> usize {
@@ -11095,7 +11081,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                     }
                 }
                 TextNode::WhatsIt => match WhatsIt::from(p) {
-                    WhatsIt::NativeWord(mut p_nw) | WhatsIt::NativeWordAt(mut p_nw) => {
+                    WhatsIt::NativeWord(mut p_nw) => {
                         let mut k = if q != r.ptr() + 5 && NODE_type(q) == TextNode::Disc.into() {
                             let q = Discretionary(q);
                             q.replace_count() as i32
@@ -11113,28 +11099,21 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                         let mut pp_opt = llist_link(p);
                         while let Some(pp) = pp_opt.filter(|&pp| k <= 0 && !is_char_node(Some(pp)))
                         {
-                            if NODE_type(pp) == TextNode::WhatsIt.into()
-                                && (whatsit_NODE_subtype(pp) == WhatsItNST::NativeWord
-                                    || whatsit_NODE_subtype(pp) == WhatsItNST::NativeWordAt)
-                                && NativeWord::from(pp).font() == p_nw.font()
-                            {
-                                pp_opt = llist_link(pp);
-                            } else {
-                                if !(NODE_type(pp) == TextNode::Disc.into()) {
-                                    break;
+                            match TxtNode::from(pp) {
+                                TxtNode::WhatsIt(WhatsIt::NativeWord(pp))
+                                    if pp.font() == p_nw.font() =>
+                                {
+                                    pp_opt = llist_link(pp.ptr());
                                 }
-                                if let Some(ppp) = llist_link(pp).filter(|&ppp| {
-                                    !is_char_node(Some(ppp))
-                                        && NODE_type(ppp) == TextNode::WhatsIt.into()
-                                        && (whatsit_NODE_subtype(ppp) == WhatsItNST::NativeWord
-                                            || whatsit_NODE_subtype(ppp)
-                                                == WhatsItNST::NativeWordAt)
-                                        && NativeWord::from(ppp).font() == p_nw.font()
-                                }) {
-                                    pp_opt = llist_link(ppp);
-                                } else {
-                                    break;
-                                }
+                                TxtNode::Disc(_) => match llist_link(pp).map(CharOrText::from) {
+                                    Some(CharOrText::Text(TxtNode::WhatsIt(
+                                        WhatsIt::NativeWord(ppp),
+                                    ))) if ppp.font() == p_nw.font() => {
+                                        pp_opt = llist_link(ppp.ptr());
+                                    }
+                                    _ => break,
+                                },
+                                _ => break,
                             }
                         }
                         if pp_opt != llist_link(p) {
@@ -11151,7 +11130,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                             p = llist_link(q).unwrap();
                             p_nw = NativeWord::from(p);
                             let mut pp = new_native_word_node(p_nw.font() as usize, total_chars);
-                            set_whatsit_NODE_subtype(pp.ptr(), whatsit_NODE_subtype(p));
+                            pp.set_after_text_from(&p_nw);
                             *LLIST_link(q) = Some(pp.ptr()).tex_int();
                             *LLIST_link(pp.ptr()) = *LLIST_link(ppp);
                             *LLIST_link(ppp) = None.tex_int();
@@ -13929,7 +13908,7 @@ pub(crate) unsafe fn append_italic_correction() {
             Ligature(cur_list.tail).as_char()
         } else if NODE_type(cur_list.tail) == TextNode::WhatsIt.into() {
             match WhatsIt::from(cur_list.tail) {
-                WhatsIt::NativeWord(nw) | WhatsIt::NativeWordAt(nw) => {
+                WhatsIt::NativeWord(nw) => {
                     let mut k = Kern(new_kern(nw.italic_correction()));
                     *LLIST_link(cur_list.tail) = Some(k.ptr()).tex_int();
                     cur_list.tail = k.ptr();
@@ -13985,35 +13964,34 @@ pub(crate) unsafe fn build_discretionary() {
     let mut popt = llist_link(q);
     let mut n = 0;
     while let Some(p) = popt {
-        if !is_char_node(Some(p)) {
-            let nodetype = text_NODE_type(p).unwrap();
-            if ![TextNode::HList, TextNode::VList, TextNode::Rule].contains(&nodetype) {
-                if nodetype != TextNode::Kern {
-                    if nodetype != TextNode::Ligature {
-                        if nodetype != TextNode::WhatsIt
-                            || whatsit_NODE_subtype(p) != WhatsItNST::NativeWord
-                                && whatsit_NODE_subtype(p) != WhatsItNST::NativeWordAt
-                                && whatsit_NODE_subtype(p) != WhatsItNST::Glyph
-                        {
-                            if file_line_error_style_p != 0 {
-                                print_file_line();
-                            } else {
-                                print_nl_cstr(b"! ");
-                            }
-                            print_cstr(b"Improper discretionary list");
-                            help!(b"Discretionary lists must contain only boxes and kerns.");
-                            error();
-                            begin_diagnostic();
-                            print_nl_cstr(b"The following discretionary sublist has been deleted:");
-                            show_box(Some(p));
-                            end_diagnostic(true);
-                            flush_node_list(Some(p));
-                            *LLIST_link(q as usize) = None.tex_int();
-                            break;
-                        }
+        match CharOrText::from(p) {
+            CharOrText::Char(_) => {}
+            CharOrText::Text(n) => match n {
+                TxtNode::HList(_)
+                | TxtNode::VList(_)
+                | TxtNode::Rule(_)
+                | TxtNode::Kern(_)
+                | TxtNode::Ligature(_)
+                | TxtNode::WhatsIt(WhatsIt::NativeWord(_))
+                | TxtNode::WhatsIt(WhatsIt::Glyph(_)) => {}
+                _ => {
+                    if file_line_error_style_p != 0 {
+                        print_file_line();
+                    } else {
+                        print_nl_cstr(b"! ");
                     }
+                    print_cstr(b"Improper discretionary list");
+                    help!(b"Discretionary lists must contain only boxes and kerns.");
+                    error();
+                    begin_diagnostic();
+                    print_nl_cstr(b"The following discretionary sublist has been deleted:");
+                    show_box(Some(p));
+                    end_diagnostic(true);
+                    flush_node_list(Some(p));
+                    *LLIST_link(q as usize) = None.tex_int();
+                    break;
                 }
-            }
+            },
         }
         q = p;
         popt = llist_link(q);
@@ -14335,7 +14313,7 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
                             r = get_node(SMALL_NODE_SIZE);
                             words = SMALL_NODE_SIZE;
                         }
-                        WhatsIt::NativeWord(p) | WhatsIt::NativeWordAt(p) => {
+                        WhatsIt::NativeWord(p) => {
                             words = p.size() as i32;
                             let mut r_nw = NativeWord::from(get_node(words as i32));
                             r = r_nw.ptr();
@@ -16470,11 +16448,8 @@ pub(crate) unsafe fn main_control() {
                 let mut main_ppp = cur_list.head;
                 if main_ppp != main_pp {
                     while llist_link(main_ppp) != Some(main_pp) {
-                        if !is_char_node(Some(main_ppp))
-                            && NODE_type(main_ppp) == TextNode::Disc.into()
-                        {
-                            let tmp_ptr = main_ppp;
-                            for _ in 0..Discretionary(tmp_ptr).replace_count() {
+                        if let CharOrText::Text(TxtNode::Disc(d)) = CharOrText::from(main_ppp) {
+                            for _ in 0..d.replace_count() {
                                 main_ppp = llist_link(main_ppp).unwrap();
                             }
                         }
@@ -16488,86 +16463,93 @@ pub(crate) unsafe fn main_control() {
                     if main_h == 0 {
                         main_h = main_k
                     }
-                    if !is_char_node(Some(main_pp))
-                        && NODE_type(main_pp) == TextNode::WhatsIt.into()
-                        && (whatsit_NODE_subtype(main_pp) == WhatsItNST::NativeWord
-                            || whatsit_NODE_subtype(main_pp) == WhatsItNST::NativeWordAt)
-                        && NativeWord::from(main_pp).font() as usize == main_f
-                        && main_ppp != main_pp
-                        && !is_char_node(Some(main_ppp))
-                        && NODE_type(main_ppp) != TextNode::Disc.into()
-                    {
-                        let native_pp = NativeWord::from(main_pp);
-                        main_k = main_h + native_pp.length() as i32;
-                        while native_text_size <= native_len + main_k {
-                            native_text_size = native_text_size + 128;
-                            native_text = xrealloc(
-                                native_text as *mut libc::c_void,
-                                (native_text_size as u64).wrapping_mul(::std::mem::size_of::<
-                                    UTF16_code,
-                                >(
-                                )
-                                    as u64) as _,
-                            ) as *mut UTF16_code
-                        }
-                        save_native_len = native_len;
-                        for c in native_pp.text() {
-                            *native_text.offset(native_len as isize) = *c;
-                            native_len += 1;
-                        }
-                        for main_p in 0..main_h {
-                            *native_text.offset(native_len as isize) =
-                                *native_text.offset((tmp_ptr as isize) + (main_p as isize));
-                            native_len += 1;
-                        }
-                        do_locale_linebreaks(save_native_len, main_k);
-                        native_len = save_native_len;
-                        main_k = native_len - main_h - (tmp_ptr as i32);
-                        tmp_ptr = main_h as usize;
-                        main_h = 0;
-                        while main_h < main_k
-                            && *native_text.offset((tmp_ptr as isize) + (main_h as isize)) as i32
-                                != HYPHEN_CHAR[main_f as usize]
-                            && (!(*INTPAR(IntPar::xetex_dash_break) > 0)
-                                || *native_text.offset((tmp_ptr as isize) + (main_h as isize))
-                                    as i32
-                                    != 8212
-                                    && *native_text.offset((tmp_ptr as isize) + (main_h as isize))
-                                        as i32
-                                        != 8211)
+                    match CharOrText::from(main_pp) {
+                        CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(nw)))
+                            if nw.font() as usize == main_f
+                                && main_ppp != main_pp
+                                && match CharOrText::from(main_ppp) {
+                                    CharOrText::Char(_) => false,
+                                    CharOrText::Text(TxtNode::Disc(_)) => false,
+                                    _ => true,
+                                } =>
                         {
-                            main_h += 1
-                        }
-                        if main_h < main_k {
-                            main_h += 1
-                        }
-                        *LLIST_link(main_ppp) = *LLIST_link(main_pp);
-                        *LLIST_link(main_pp) = None.tex_int();
-                        flush_node_list(Some(main_pp));
-                        main_pp = cur_list.tail;
-                        while llist_link(main_ppp) != Some(main_pp) {
-                            main_ppp = llist_link(main_ppp).unwrap();
-                        }
-                    } else {
-                        do_locale_linebreaks(tmp_ptr as i32, main_h);
-                        tmp_ptr = tmp_ptr + main_h as usize;
-                        main_k = main_k - main_h;
-                        main_h = 0;
-                        while main_h < main_k
-                            && *native_text.offset((tmp_ptr as isize) + (main_h as isize)) as i32
-                                != HYPHEN_CHAR[main_f as usize]
-                            && (!(*INTPAR(IntPar::xetex_dash_break) > 0)
-                                || *native_text.offset((tmp_ptr as isize) + (main_h as isize))
+                            let native_pp = NativeWord::from(main_pp);
+                            main_k = main_h + native_pp.length() as i32;
+                            while native_text_size <= native_len + main_k {
+                                native_text_size = native_text_size + 128;
+                                native_text = xrealloc(
+                                    native_text as *mut libc::c_void,
+                                    (native_text_size as u64).wrapping_mul(::std::mem::size_of::<
+                                        UTF16_code,
+                                    >(
+                                    )
+                                        as u64) as _,
+                                ) as *mut UTF16_code
+                            }
+                            save_native_len = native_len;
+                            for c in native_pp.text() {
+                                *native_text.offset(native_len as isize) = *c;
+                                native_len += 1;
+                            }
+                            for main_p in 0..main_h {
+                                *native_text.offset(native_len as isize) =
+                                    *native_text.offset((tmp_ptr as isize) + (main_p as isize));
+                                native_len += 1;
+                            }
+                            do_locale_linebreaks(save_native_len, main_k);
+                            native_len = save_native_len;
+                            main_k = native_len - main_h - (tmp_ptr as i32);
+                            tmp_ptr = main_h as usize;
+                            main_h = 0;
+                            while main_h < main_k
+                                && *native_text.offset((tmp_ptr as isize) + (main_h as isize))
                                     as i32
-                                    != 8212
-                                    && *native_text.offset((tmp_ptr as isize) + (main_h as isize))
+                                    != HYPHEN_CHAR[main_f as usize]
+                                && (!(*INTPAR(IntPar::xetex_dash_break) > 0)
+                                    || *native_text.offset((tmp_ptr as isize) + (main_h as isize))
                                         as i32
-                                        != 8211)
-                        {
-                            main_h += 1
+                                        != 8212
+                                        && *native_text
+                                            .offset((tmp_ptr as isize) + (main_h as isize))
+                                            as i32
+                                            != 8211)
+                            {
+                                main_h += 1
+                            }
+                            if main_h < main_k {
+                                main_h += 1
+                            }
+                            *LLIST_link(main_ppp) = *LLIST_link(main_pp);
+                            *LLIST_link(main_pp) = None.tex_int();
+                            flush_node_list(Some(main_pp));
+                            main_pp = cur_list.tail;
+                            while llist_link(main_ppp) != Some(main_pp) {
+                                main_ppp = llist_link(main_ppp).unwrap();
+                            }
                         }
-                        if main_h < main_k {
-                            main_h += 1
+                        _ => {
+                            do_locale_linebreaks(tmp_ptr as i32, main_h);
+                            tmp_ptr = tmp_ptr + main_h as usize;
+                            main_k = main_k - main_h;
+                            main_h = 0;
+                            while main_h < main_k
+                                && *native_text.offset((tmp_ptr as isize) + (main_h as isize))
+                                    as i32
+                                    != HYPHEN_CHAR[main_f as usize]
+                                && (!(*INTPAR(IntPar::xetex_dash_break) > 0)
+                                    || *native_text.offset((tmp_ptr as isize) + (main_h as isize))
+                                        as i32
+                                        != 8212
+                                        && *native_text
+                                            .offset((tmp_ptr as isize) + (main_h as isize))
+                                            as i32
+                                            != 8211)
+                            {
+                                main_h += 1
+                            }
+                            if main_h < main_k {
+                                main_h += 1
+                            }
                         }
                     }
                     if main_k > 0 || is_hyph {
@@ -16596,7 +16578,6 @@ pub(crate) unsafe fn main_control() {
                 }
                 match CharOrText::from(main_pp) {
                     CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(nw)))
-                    | CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWordAt(nw)))
                         if nw.font() as usize == main_f
                             && main_ppp != main_pp
                             && match CharOrText::from(main_ppp) {
@@ -16644,12 +16625,10 @@ pub(crate) unsafe fn main_control() {
                 let mut main_p = cur_list.head;
                 let mut main_pp = None;
                 while main_p != cur_list.tail {
-                    match CharOrText::from(main_p) {
-                        CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(_)))
-                        | CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWordAt(_))) => {
-                            main_pp = Some(main_p);
-                        }
-                        _ => {}
+                    if let CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(_))) =
+                        CharOrText::from(main_p)
+                    {
+                        main_pp = Some(main_p);
                     }
                     main_p = llist_link(main_p).unwrap();
                 }
@@ -16659,7 +16638,10 @@ pub(crate) unsafe fn main_control() {
                         let mut main_p = llist_link(main_pp).unwrap();
                         while match CharOrText::from(main_p) {
                             CharOrText::Text(n) => match n {
-                                TxtNode::Penalty(_) | TxtNode::Ins(_) | TxtNode::Adjust(_) => true,
+                                TxtNode::Penalty(_)
+                                | TxtNode::Ins(_)
+                                | TxtNode::Mark(_)
+                                | TxtNode::Adjust(_) => true,
                                 TxtNode::WhatsIt(n) => match n {
                                     WhatsIt::Open(_)
                                     | WhatsIt::Write(_)
@@ -16679,9 +16661,10 @@ pub(crate) unsafe fn main_control() {
                             let mut main_ppp = llist_link(main_p).unwrap();
                             while match CharOrText::from(main_ppp) {
                                 CharOrText::Text(n) => match n {
-                                    TxtNode::Penalty(_) | TxtNode::Ins(_) | TxtNode::Adjust(_) => {
-                                        true
-                                    }
+                                    TxtNode::Penalty(_)
+                                    | TxtNode::Ins(_)
+                                    | TxtNode::Mark(_)
+                                    | TxtNode::Adjust(_) => true,
                                     TxtNode::WhatsIt(n) => match n {
                                         WhatsIt::Open(_)
                                         | WhatsIt::Write(_)

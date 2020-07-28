@@ -38,9 +38,8 @@ use crate::xetex_xetex0::{
     str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, llist_link, print_c_string, set_NODE_type, set_whatsit_NODE_subtype,
-    text_NODE_type, whatsit_NODE_subtype, LLIST_link, NODE_type, SYNCTEX_tag, TeXInt, TeXOpt,
-    FONT_CHARACTER_WIDTH,
+    is_char_node, llist_link, print_c_string, set_NODE_type, text_NODE_type, whatsit_NODE_subtype,
+    LLIST_link, NODE_type, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -431,35 +430,28 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     }) {
                                         qopt = llist_link(q);
                                     }
-                                    if let Some(q) = qopt.filter(|&q| {
-                                        !is_char_node(Some(q))
-                                            && NODE_type(q) == TextNode::WhatsIt.into()
-                                            && (whatsit_NODE_subtype(q) == WhatsItNST::NativeWord
-                                                || whatsit_NODE_subtype(q)
-                                                    == WhatsItNST::NativeWordAt)
-                                            && NativeWord::from(q).font() == r_nw.font()
-                                    }) {
-                                        p = q;
-                                        k += (1 + NativeWord::from(q).text().len()) as i32;
-                                        qopt = llist_link(q);
-                                    } else {
-                                        break;
+                                    match qopt.map(CharOrText::from) {
+                                        Some(CharOrText::Text(TxtNode::WhatsIt(
+                                            WhatsIt::NativeWord(q),
+                                        ))) if q.font() == r_nw.font() => {
+                                            p = q.ptr();
+                                            k += (1 + q.text().len()) as i32;
+                                            qopt = llist_link(q.ptr());
+                                        }
+                                        _ => break,
                                     }
                                 } else {
                                     break;
                                 }
                             } else {
-                                if let Some(q) = qopt.filter(|&q| {
-                                    !is_char_node(Some(q))
-                                        && NODE_type(q) == TextNode::WhatsIt.into()
-                                        && (whatsit_NODE_subtype(q) == WhatsItNST::NativeWord
-                                            || whatsit_NODE_subtype(q) == WhatsItNST::NativeWordAt)
-                                        && NativeWord::from(q).font() == r_nw.font()
-                                }) {
-                                    p = q;
-                                    qopt = llist_link(q);
-                                } else {
-                                    break;
+                                match qopt.map(CharOrText::from) {
+                                    Some(CharOrText::Text(TxtNode::WhatsIt(
+                                        WhatsIt::NativeWord(q),
+                                    ))) if q.font() == r_nw.font() => {
+                                        p = q.ptr();
+                                        qopt = llist_link(q.ptr());
+                                    }
+                                    _ => break,
                                 }
                             }
                         } else {
@@ -477,7 +469,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         loop {
                             if NODE_type(q) == TextNode::WhatsIt.into() {
                                 match WhatsIt::from(q) {
-                                    WhatsIt::NativeWord(q) | WhatsIt::NativeWordAt(q) => {
+                                    WhatsIt::NativeWord(q) => {
                                         for j in q.text() {
                                             str_pool[pool_ptr as usize] = *j;
                                             pool_ptr += 1;
@@ -512,7 +504,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         }
                         let mut nw =
                             new_native_word_node(r_nw.font() as internal_font_number, cur_length());
-                        set_whatsit_NODE_subtype(nw.ptr(), whatsit_NODE_subtype(r));
+                        nw.set_after_text_from(&r_nw);
 
                         let start = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
                         nw.text_mut().copy_from_slice(
@@ -536,14 +528,24 @@ unsafe fn hlist_out(this_box: &mut List) {
                          * at a native_word node." */
 
                         while let Some(p) = popt2 {
-                            if !is_char_node(Some(p))
-                                && (NODE_type(p) == TextNode::Penalty.into()
-                                    || NODE_type(p) == TextNode::Ins.into()
-                                    || NODE_type(p) == TextNode::Mark.into()
-                                    || NODE_type(p) == TextNode::Adjust.into()
-                                    || NODE_type(p) == TextNode::WhatsIt.into()
-                                        && whatsit_NODE_subtype(p) as u16 <= 4)
-                            {
+                            if match CharOrText::from(p) {
+                                CharOrText::Text(n) => match n {
+                                    TxtNode::Penalty(_)
+                                    | TxtNode::Ins(_)
+                                    | TxtNode::Mark(_)
+                                    | TxtNode::Adjust(_) => true,
+                                    TxtNode::WhatsIt(n) => match n {
+                                        WhatsIt::Open(_)
+                                        | WhatsIt::Write(_)
+                                        | WhatsIt::Close(_)
+                                        | WhatsIt::Special(_)
+                                        | WhatsIt::Language(_) => true,
+                                        _ => false,
+                                    },
+                                    _ => false,
+                                },
+                                _ => false,
+                            } {
                                 *LLIST_link(prev_p) = *LLIST_link(p);
                                 *LLIST_link(p) = *LLIST_link(q);
                                 *LLIST_link(q) = Some(p).tex_int();
@@ -801,9 +803,9 @@ unsafe fn hlist_out(this_box: &mut List) {
                                 g.width();
                             dvi_h = cur_h;
                         }
-                        WhatsIt::NativeWord(nw) | WhatsIt::NativeWordAt(nw) => {
+                        WhatsIt::NativeWord(nw) => {
                             out_font(nw.font() as usize);
-                            if whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt {
+                            if nw.after_text() {
                                 if nw.text().len() > 0 ||
                                        !nw.glyph_info_ptr().is_null()
                                    {
@@ -1575,7 +1577,7 @@ unsafe fn reverse(
                         rule_wd = p.width();
                     }
                     TextNode::WhatsIt => match WhatsIt::from(p) {
-                        WhatsIt::NativeWord(p) | WhatsIt::NativeWordAt(p) => {
+                        WhatsIt::NativeWord(p) => {
                             rule_wd = p.width();
                         }
                         WhatsIt::Glyph(p) => {
