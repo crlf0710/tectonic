@@ -13,7 +13,7 @@ use std::io::Write;
 
 use crate::core_memory::{mfree, xmalloc, xrealloc, xstrdup};
 use crate::xetex_consts::{
-    Box, IntPar, Kern, TextNode, BOX_NODE_SIZE, INTPAR, MEDIUM_NODE_SIZE, RULE_NODE_SIZE,
+    IntPar, Kern, List, TextNode, BOX_NODE_SIZE, INTPAR, MEDIUM_NODE_SIZE, RULE_NODE_SIZE,
 };
 use crate::xetex_ini::{
     cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, MEM, TOTAL_PAGES,
@@ -394,7 +394,7 @@ pub(crate) unsafe fn synctex_teehs() {
  *  the beginning of the vlist_out procedure in *TeX.web.  It will be balanced
  *  by a synctex_tsilv, sent at the end of the vlist_out procedure.  p is the
  *  address of the vlist. We assume that p is really a vlist node! */
-pub(crate) unsafe fn synctex_vlist(this_box: &Box) {
+pub(crate) unsafe fn synctex_vlist(this_box: &List) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
@@ -437,7 +437,7 @@ pub(crate) unsafe fn synctex_tsilv(this_box: usize) {
  *  There is no need to balance a void vlist.  */
 /*  This message is sent when a void vlist will be shipped out.
  *  There is no need to balance a void vlist.  */
-pub(crate) unsafe fn synctex_void_vlist(p: &Box, mut _this_box: &Box) {
+pub(crate) unsafe fn synctex_void_vlist(p: &List, mut _this_box: &List) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
@@ -460,7 +460,7 @@ pub(crate) unsafe fn synctex_void_vlist(p: &Box, mut _this_box: &Box) {
  *  the beginning of the hlist_out procedure in *TeX.web.  It will be balanced
  *  by a synctex_tsilh, sent at the end of the hlist_out procedure.  p is the
  *  address of the hlist We assume that p is really an hlist node! */
-pub(crate) unsafe fn synctex_hlist(this_box: &Box) {
+pub(crate) unsafe fn synctex_hlist(this_box: &List) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
@@ -501,7 +501,7 @@ pub(crate) unsafe fn synctex_tsilh(this_box: usize) {
  *  There is no need to balance a void hlist.  */
 /*  This message is sent when a void hlist will be shipped out.
  *  There is no need to balance a void hlist.  */
-pub(crate) unsafe fn synctex_void_hlist(p: &Box, _this_box: &Box) {
+pub(crate) unsafe fn synctex_void_hlist(p: &List, _this_box: &List) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
@@ -868,7 +868,7 @@ unsafe fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
     -1i32
 }
 #[inline]
-unsafe fn synctex_record_node_void_vlist(p: &Box) {
+unsafe fn synctex_record_node_void_vlist(p: &List) {
     let s = format!(
         "v{},{}:{},{}:{},{},{}\n",
         *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE),
@@ -888,7 +888,7 @@ unsafe fn synctex_record_node_void_vlist(p: &Box) {
     };
 }
 #[inline]
-unsafe fn synctex_record_node_vlist(p: &Box) {
+unsafe fn synctex_record_node_vlist(p: &List) {
     synctex_ctxt.flags.insert(Flags::NOT_VOID);
     let s = format!(
         "[{},{}:{},{}:{},{},{}\n",
@@ -918,7 +918,7 @@ unsafe fn synctex_record_node_tsilv(_p: usize) {
     };
 }
 #[inline]
-unsafe fn synctex_record_node_void_hlist(p: &Box) {
+unsafe fn synctex_record_node_void_hlist(p: &List) {
     let s = format!(
         "h{},{}:{},{}:{},{},{}\n",
         *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE),
@@ -938,7 +938,7 @@ unsafe fn synctex_record_node_void_hlist(p: &Box) {
     };
 }
 #[inline]
-unsafe fn synctex_record_node_hlist(p: &Box) {
+unsafe fn synctex_record_node_hlist(p: &List) {
     synctex_ctxt.flags.insert(Flags::NOT_VOID);
     let s = format!(
         "({},{}:{},{}:{},{},{}\n",

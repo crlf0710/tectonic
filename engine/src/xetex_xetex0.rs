@@ -397,7 +397,7 @@ pub(crate) unsafe fn free_node(p: usize, mut s: i32) {
     MEM[(q + 1) as usize].b32.s1 = p as i32;
 }
 pub(crate) unsafe fn new_null_box() -> usize {
-    let mut p = Box::from(get_node(BOX_NODE_SIZE));
+    let mut p = List::from(get_node(BOX_NODE_SIZE));
     set_NODE_type(p.ptr(), TextNode::HList);
     p.set_lr_mode(LRMode::Normal)
         .set_width(0)
@@ -779,7 +779,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
             match NODE_type(p) {
                 ND::Text(n) => match n {
                     TextNode::HList | TextNode::VList => {
-                        let p = Box::from(p);
+                        let p = List::from(p);
                         match n {
                             TextNode::HList => print_esc('h' as i32),
                             TextNode::VList => print_esc('v' as i32),
@@ -1250,7 +1250,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
             match ND::from(MEM[p].b16.s1) {
                 ND::Text(n) => match n {
                     TextNode::HList | TextNode::VList => {
-                        let b = Box::from(p);
+                        let b = List::from(p);
                         flush_node_list(b.list_ptr().opt());
                         b.free();
                     }
@@ -1406,9 +1406,9 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
         } else {
             match text_NODE_type(p).confuse(b"copying") {
                 TextNode::HList | TextNode::VList => {
-                    let p = Box::from(p);
+                    let p = List::from(p);
                     r = get_node(BOX_NODE_SIZE);
-                    let mut r_box = Box::from(r);
+                    let mut r_box = List::from(r);
                     *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE);
                     *SYNCTEX_line(r, BOX_NODE_SIZE) = *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE);
                     r_box
@@ -8597,7 +8597,7 @@ pub(crate) unsafe fn conv_toks() {
             _ => {}
         },
         ConvertCode::LeftMarginKern => {
-            let mut popt = Box::from(p.unwrap()).list_ptr().opt();
+            let mut popt = List::from(p.unwrap()).list_ptr().opt();
             while let Some(p) = popt {
                 if !(p < hi_mem_min as usize
                     && (text_NODE_type(p) == TextNode::Ins.into()
@@ -8609,7 +8609,7 @@ pub(crate) unsafe fn conv_toks() {
                         || text_NODE_type(p) == TextNode::Math.into() && MEM[p + 1].b32.s1 == 0
                         || text_NODE_type(p) == TextNode::Kern.into() && Kern(p).is_empty()
                         || text_NODE_type(p) == TextNode::Glue.into() && Glue(p).is_empty()
-                        || text_NODE_type(p) == TextNode::HList.into() && Box::from(p).is_empty())
+                        || text_NODE_type(p) == TextNode::HList.into() && List::from(p).is_empty())
                     || p < hi_mem_min as usize
                         && text_NODE_type(p) == TextNode::Glue.into()
                         && Glue(p).param() == (GluePar::left_skip as u16) + 1)
@@ -8630,7 +8630,7 @@ pub(crate) unsafe fn conv_toks() {
             print_cstr(b"pt");
         }
         ConvertCode::RightMarginKern => {
-            let q = Box::from(p.unwrap()).list_ptr().opt();
+            let q = List::from(p.unwrap()).list_ptr().opt();
             let mut popt = prev_rightmost(q, None);
             while let Some(p) = popt {
                 if !(p < hi_mem_min as usize
@@ -8643,7 +8643,7 @@ pub(crate) unsafe fn conv_toks() {
                         || text_NODE_type(p) == TextNode::Math.into() && MEM[p + 1].b32.s1 == 0
                         || text_NODE_type(p) == TextNode::Kern.into() && Kern(p).is_empty()
                         || text_NODE_type(p) == TextNode::Glue.into() && Glue(p).is_empty()
-                        || text_NODE_type(p) == TextNode::HList.into() && Box::from(p).is_empty())
+                        || text_NODE_type(p) == TextNode::HList.into() && List::from(p).is_empty())
                     || p < hi_mem_min as usize
                         && text_NODE_type(p) == TextNode::Glue.into()
                         && Glue(p).param() == (GluePar::right_skip as u16) + 1)
@@ -10998,9 +10998,9 @@ pub(crate) unsafe fn new_margin_kern(w: scaled_t, _p: i32, side: Side) -> usize 
     MEM[k + 1].b32.s1 = w;
     k
 }
-pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode) -> Box {
+pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode) -> List {
     last_badness = 0;
-    let mut r = Box::from(get_node(BOX_NODE_SIZE));
+    let mut r = List::from(get_node(BOX_NODE_SIZE));
     set_NODE_type(r.ptr(), TextNode::HList);
     r.set_lr_mode(LRMode::Normal);
     r.set_shift_amount(0);
@@ -11042,7 +11042,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
             let n = text_NODE_type(p).unwrap();
             match n {
                 TextNode::HList | TextNode::VList => {
-                    let b = Box::from(p);
+                    let b = List::from(p);
                     x += b.width();
                     let s = b.shift_amount();
                     h = h.max(b.height() - s);
@@ -11202,7 +11202,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                     let o = g.shrink_order() as usize;
                     total_shrink[o] += g.shrink();
                     if p.param() >= A_LEADERS {
-                        let g = Box::from(p.leader_ptr() as usize);
+                        let g = List::from(p.leader_ptr() as usize);
                         h = h.max(g.height());
                         d = d.max(g.depth());
                     }
@@ -11360,7 +11360,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
         return exit(r, q);
     }
 
-    unsafe fn common_ending(r: Box, q: usize) -> Box {
+    unsafe fn common_ending(r: List, q: usize) -> List {
         if output_active {
             print_cstr(b") has occurred while \\output is active");
         } else {
@@ -11387,7 +11387,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
         return exit(r, q);
     }
 
-    unsafe fn exit(r: Box, mut q: usize) -> Box {
+    unsafe fn exit(r: List, mut q: usize) -> List {
         if *INTPAR(IntPar::texxet) > 0 {
             /*1499: */
             if Math(LR_ptr as usize).subtype_i32() != MathType::Before {
@@ -11435,9 +11435,9 @@ pub(crate) unsafe fn vpackage(
     mut h: scaled_t,
     mut m: PackMode,
     mut l: scaled_t,
-) -> Box {
+) -> List {
     last_badness = 0;
-    let mut r = Box::from(get_node(BOX_NODE_SIZE) as usize);
+    let mut r = List::from(get_node(BOX_NODE_SIZE) as usize);
     set_NODE_type(r.ptr(), TextNode::VList);
     r.set_lr_mode(if *INTPAR(IntPar::xetex_upwards) > 0 {
         LRMode::Reversed
@@ -11464,7 +11464,7 @@ pub(crate) unsafe fn vpackage(
         } else {
             match text_NODE_type(p).unwrap() {
                 TextNode::HList | TextNode::VList => {
-                    let b = Box::from(p);
+                    let b = List::from(p);
                     x += d + b.height();
                     d = b.depth();
                     w = w.max(b.width() + b.shift_amount());
@@ -11501,7 +11501,7 @@ pub(crate) unsafe fn vpackage(
                     total_shrink[o] += g.shrink();
                     if p.param() >= A_LEADERS {
                         let g = p.leader_ptr() as usize;
-                        w = w.max(Box::from(g).width());
+                        w = w.max(List::from(g).width());
                     }
                 }
                 TextNode::Kern => {
@@ -11607,7 +11607,7 @@ pub(crate) unsafe fn vpackage(
     }
     return r;
 
-    unsafe fn common_ending(r: Box) -> Box {
+    unsafe fn common_ending(r: List) -> List {
         if output_active {
             print_cstr(b") has occurred while \\output is active");
         } else {
@@ -11627,7 +11627,7 @@ pub(crate) unsafe fn vpackage(
         return r;
     }
 }
-pub(crate) unsafe fn append_to_vlist(b: Box) {
+pub(crate) unsafe fn append_to_vlist(b: List) {
     let mut upwards: bool = false;
     upwards = *INTPAR(IntPar::xetex_upwards) > 0;
     if cur_list.aux.b32.s1 > IGNORE_DEPTH {
@@ -12238,7 +12238,7 @@ pub(crate) unsafe fn fin_align() {
         if !is_char_node(Some(q)) {
             if NODE_type(q) == TextNode::Unset.into() {
                 /*836: */
-                let mut q = Box::from(q);
+                let mut q = List::from(q);
                 if cur_list.mode == (true, ListMode::VMode) {
                     set_NODE_type(q.ptr(), TextNode::HList);
                     q.set_width(p.width());
@@ -12281,7 +12281,7 @@ pub(crate) unsafe fn fin_align() {
                             }
                         }
                         s = *LLIST_link(s) as usize;
-                        let mut nb = Box::from(new_null_box());
+                        let mut nb = List::from(new_null_box());
                         *LLIST_link(u) = Some(nb.ptr()).tex_int();
                         u = nb.ptr();
                         t += BaseBox(s).width();
@@ -12292,7 +12292,7 @@ pub(crate) unsafe fn fin_align() {
                             nb.set_height(BaseBox(s).width());
                         }
                     }
-                    let mut r_box = Box::from(r);
+                    let mut r_box = List::from(r);
                     let r_unset = Unset::from(r);
                     if cur_list.mode == (true, ListMode::VMode) {
                         /*839: */
@@ -12733,7 +12733,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
             /*1008: */
             match text_NODE_type(p).unwrap() {
                 TextNode::HList | TextNode::VList => {
-                    let b = Box::from(p);
+                    let b = List::from(p);
                     active_width[1] += prev_dp + b.height();
                     prev_dp = b.depth();
                     current_block = 10249009913728301645;
@@ -12915,7 +12915,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
         error();
         return None;
     }
-    let mut v = Box::from(v);
+    let mut v = List::from(v);
     let q = vert_break(v.list_ptr(), h, *DIMENPAR(DimenPar::split_max_depth));
     let mut p = v.list_ptr();
     if p == q {
@@ -13262,7 +13262,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
     if box_context < BOX_FLAG {
         /*1111:*/
         if let Some(mut cb) = cur_box {
-            Box::from(cb).set_shift_amount(box_context);
+            List::from(cb).set_shift_amount(box_context);
             if cur_list.mode.1 == ListMode::VMode {
                 if let Some(a) = pre_adjust_tail {
                     if PRE_ADJUST_HEAD != a {
@@ -13271,7 +13271,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
                     }
                     pre_adjust_tail = None;
                 }
-                append_to_vlist(Box::from(cb));
+                append_to_vlist(List::from(cb));
                 if let Some(a) = adjust_tail {
                     if ADJUST_HEAD != a {
                         *LLIST_link(cur_list.tail) = *LLIST_link(ADJUST_HEAD);
@@ -13352,7 +13352,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
                 flush_node_list(Some(cb));
             }
         } else {
-            ship_out(Box::from(cb));
+            ship_out(List::from(cb));
         }
     };
 }
@@ -14289,7 +14289,7 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
                     MEM[r + 6] = MEM[p + 6];
                     MEM[r + 5] = MEM[p + 5];
                     words = 5;
-                    Box::from(r).set_list_ptr(None.tex_int());
+                    List::from(r).set_list_ptr(None.tex_int());
                 }
                 TextNode::Rule => {
                     r = get_node(RULE_NODE_SIZE);
@@ -16584,11 +16584,8 @@ pub(crate) unsafe fn main_control() {
                 let mut main_ppp = cur_list.head;
                 if main_ppp != main_pp {
                     while llist_link(main_ppp) != Some(main_pp) {
-                        if !is_char_node(Some(main_ppp))
-                            && NODE_type(main_ppp) == TextNode::Disc.into()
-                        {
-                            let tmp_ptr = main_ppp;
-                            for _ in 0..Discretionary(tmp_ptr).replace_count() {
+                        if let CharOrText::Text(TxtNode::Disc(d)) = CharOrText::from(main_ppp) {
+                            for _ in 0..d.replace_count() {
                                 main_ppp = *LLIST_link(main_ppp) as usize;
                             }
                         }
@@ -16597,58 +16594,62 @@ pub(crate) unsafe fn main_control() {
                         }
                     }
                 }
-                if !is_char_node(Some(main_pp))
-                    && NODE_type(main_pp) == TextNode::WhatsIt.into()
-                    && (whatsit_NODE_subtype(main_pp) == WhatsItNST::NativeWord
-                        || whatsit_NODE_subtype(main_pp) == WhatsItNST::NativeWordAt)
-                    && NativeWord::from(main_pp).font() as usize == main_f
-                    && main_ppp != main_pp
-                    && !is_char_node(Some(main_ppp))
-                    && NODE_type(main_ppp) != TextNode::Disc.into()
-                {
-                    let nw = NativeWord::from(main_pp);
-                    let text = nw.text();
-                    let mut nwn = new_native_word_node(main_f, main_k + text.len() as i32);
-                    *LLIST_link(main_pp) = Some(nwn.ptr()).tex_int();
-                    cur_list.tail = nwn.ptr();
+                match CharOrText::from(main_pp) {
+                    CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(nw)))
+                    | CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWordAt(nw)))
+                        if nw.font() as usize == main_f
+                            && main_ppp != main_pp
+                            && match CharOrText::from(main_ppp) {
+                                CharOrText::Char(_) => false,
+                                CharOrText::Text(TxtNode::Disc(_)) => false,
+                                _ => true,
+                            } =>
+                    {
+                        let nw = NativeWord::from(main_pp);
+                        let text = nw.text();
+                        let mut nwn = new_native_word_node(main_f, main_k + text.len() as i32);
+                        *LLIST_link(main_pp) = Some(nwn.ptr()).tex_int();
+                        cur_list.tail = nwn.ptr();
 
-                    let tail_text = nwn.text_mut();
-                    tail_text[..text.len()].copy_from_slice(text);
+                        let tail_text = nwn.text_mut();
+                        tail_text[..text.len()].copy_from_slice(text);
 
-                    let slice = std::slice::from_raw_parts(native_text, main_k as usize);
-                    tail_text[text.len()..].copy_from_slice(slice);
+                        let slice = std::slice::from_raw_parts(native_text, main_k as usize);
+                        tail_text[text.len()..].copy_from_slice(slice);
 
-                    nwn.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
-                    let mut main_p = cur_list.head;
-                    if main_p != main_pp {
-                        while llist_link(main_p) != Some(main_pp) {
-                            main_p = *LLIST_link(main_p) as usize;
+                        nwn.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                        let mut main_p = cur_list.head;
+                        if main_p != main_pp {
+                            while llist_link(main_p) != Some(main_pp) {
+                                main_p = *LLIST_link(main_p) as usize;
+                            }
                         }
+                        *LLIST_link(main_p) = *LLIST_link(main_pp);
+                        *LLIST_link(main_pp) = None.tex_int();
+                        flush_node_list(Some(main_pp));
                     }
-                    *LLIST_link(main_p) = *LLIST_link(main_pp);
-                    *LLIST_link(main_pp) = None.tex_int();
-                    flush_node_list(Some(main_pp));
-                } else {
-                    let mut nwn = new_native_word_node(main_f, main_k);
-                    *LLIST_link(main_pp) = Some(nwn.ptr()).tex_int();
-                    cur_list.tail = nwn.ptr();
+                    _ => {
+                        let mut nwn = new_native_word_node(main_f, main_k);
+                        *LLIST_link(main_pp) = Some(nwn.ptr()).tex_int();
+                        cur_list.tail = nwn.ptr();
 
-                    let slice = std::slice::from_raw_parts(native_text, main_k as usize);
-                    nwn.text_mut().copy_from_slice(slice);
+                        let slice = std::slice::from_raw_parts(native_text, main_k as usize);
+                        nwn.text_mut().copy_from_slice(slice);
 
-                    nwn.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                        nwn.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                    }
                 }
             }
             if *INTPAR(IntPar::xetex_interword_space_shaping) > 0 {
                 let mut main_p = cur_list.head;
                 let mut main_pp = None;
                 while main_p != cur_list.tail {
-                    if !is_char_node(Some(main_p))
-                        && NODE_type(main_p) == TextNode::WhatsIt.into()
-                        && (whatsit_NODE_subtype(main_p) == WhatsItNST::NativeWord
-                            || whatsit_NODE_subtype(main_p) == WhatsItNST::NativeWordAt)
-                    {
-                        main_pp = Some(main_p);
+                    match CharOrText::from(main_p) {
+                        CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(_)))
+                        | CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWordAt(_))) => {
+                            main_pp = Some(main_p);
+                        }
+                        _ => {}
                     }
                     main_p = llist_link(main_p).unwrap();
                 }
@@ -16656,27 +16657,43 @@ pub(crate) unsafe fn main_control() {
                     let native_pp = NativeWord::from(main_pp);
                     if native_pp.font() as usize == main_f {
                         let mut main_p = llist_link(main_pp).unwrap();
-                        while !is_char_node(Some(main_p))
-                            && (NODE_type(main_p) == TextNode::Penalty.into()
-                                || NODE_type(main_p) == TextNode::Ins.into()
-                                || NODE_type(main_p) == TextNode::Mark.into()
-                                || NODE_type(main_p) == TextNode::Adjust.into()
-                                || NODE_type(main_p) == TextNode::WhatsIt.into()
-                                    && MEM[main_p].b16.s0 <= 4)
-                        {
+                        while match CharOrText::from(main_p) {
+                            CharOrText::Text(n) => match n {
+                                TxtNode::Penalty(_) | TxtNode::Ins(_) | TxtNode::Adjust(_) => true,
+                                TxtNode::WhatsIt(n) => match n {
+                                    WhatsIt::Open(_)
+                                    | WhatsIt::Write(_)
+                                    | WhatsIt::Close(_)
+                                    | WhatsIt::Special(_)
+                                    | WhatsIt::Language(_) => true,
+                                    _ => false,
+                                },
+                                _ => false,
+                            },
+                            _ => false,
+                        } {
                             main_p = llist_link(main_p).unwrap();
                         }
                         if !is_char_node(Some(main_p)) && NODE_type(main_p) == TextNode::Glue.into()
                         {
                             let mut main_ppp = llist_link(main_p).unwrap();
-                            while !is_char_node(Some(main_ppp))
-                                && (NODE_type(main_ppp) == TextNode::Penalty.into()
-                                    || NODE_type(main_ppp) == TextNode::Ins.into()
-                                    || NODE_type(main_ppp) == TextNode::Mark.into()
-                                    || NODE_type(main_ppp) == TextNode::Adjust.into()
-                                    || NODE_type(main_ppp) == TextNode::WhatsIt.into()
-                                        && MEM[main_ppp].b16.s0 <= 4)
-                            {
+                            while match CharOrText::from(main_ppp) {
+                                CharOrText::Text(n) => match n {
+                                    TxtNode::Penalty(_) | TxtNode::Ins(_) | TxtNode::Adjust(_) => {
+                                        true
+                                    }
+                                    TxtNode::WhatsIt(n) => match n {
+                                        WhatsIt::Open(_)
+                                        | WhatsIt::Write(_)
+                                        | WhatsIt::Close(_)
+                                        | WhatsIt::Special(_)
+                                        | WhatsIt::Language(_) => true,
+                                        _ => false,
+                                    },
+                                    _ => false,
+                                },
+                                _ => false,
+                            } {
                                 main_ppp = llist_link(main_ppp).unwrap();
                             }
                             if main_ppp == cur_list.tail {

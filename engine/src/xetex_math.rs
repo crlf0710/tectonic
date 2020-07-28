@@ -134,8 +134,8 @@ pub(crate) unsafe fn init_math() {
 
             *LLIST_link(p) = j.tex_int();
 
-            let jb = Box::from(just_box);
-            let mut j_ = Box::from(new_null_box());
+            let jb = List::from(just_box);
+            let mut j_ = List::from(new_null_box());
             j = Some(j_.ptr());
             j_.set_width(jb.width());
             j_.set_shift_amount(jb.shift_amount());
@@ -199,7 +199,7 @@ pub(crate) unsafe fn init_math() {
                 } else {
                     match text_NODE_type(p).unwrap() {
                         TextNode::HList | TextNode::VList => {
-                            d = Box::from(p).width();
+                            d = List::from(p).width();
                             found = true;
                         }
                         TextNode::Rule => {
@@ -284,7 +284,7 @@ pub(crate) unsafe fn init_math() {
                             let p = Glue(p);
                             let q = GlueSpec(p.glue_ptr() as usize);
                             d = q.size();
-                            let jb = Box::from(just_box);
+                            let jb = List::from(just_box);
                             if jb.glue_sign() == GlueSign::Stretching {
                                 if jb.glue_order() == q.stretch_order() && q.stretch() != 0 {
                                     v = MAX_HALFWORD
@@ -804,7 +804,7 @@ pub(crate) unsafe fn math_left_right() {
         }
     };
 }
-unsafe fn app_display(j: Option<usize>, mut b: Box, mut d: scaled_t) {
+unsafe fn app_display(j: Option<usize>, mut b: List, mut d: scaled_t) {
     let mut z: scaled_t = 0;
     let mut s: scaled_t = 0;
     let mut e: scaled_t = 0;
@@ -824,7 +824,7 @@ unsafe fn app_display(j: Option<usize>, mut b: Box, mut d: scaled_t) {
             d = z - e - p.width();
         }
         if let Some(j) = j {
-            b = Box::from(copy_node_list(Some(j)) as usize);
+            b = List::from(copy_node_list(Some(j)) as usize);
             b.set_height(p.height()).set_depth(p.depth());
             s = s - b.shift_amount();
             d = d + s;
@@ -1541,7 +1541,7 @@ unsafe fn fraction_rule(mut t: scaled_t) -> usize {
     MEM[p + 2].b32.s1 = 0;
     p
 }
-unsafe fn overbar(b: Box, k: scaled_t, mut t: scaled_t) -> Box {
+unsafe fn overbar(b: List, k: scaled_t, mut t: scaled_t) -> List {
     let p = new_kern(k);
     *LLIST_link(p) = Some(b.ptr()).tex_int();
     let q = fraction_rule(t);
@@ -1615,7 +1615,7 @@ pub(crate) unsafe fn flush_math() {
     cur_list.tail = cur_list.head;
     cur_list.aux.b32.s1 = None.tex_int();
 }
-unsafe fn clean_box(p: &MCell, s: (MathStyle, u8)) -> Box {
+unsafe fn clean_box(p: &MCell, s: (MathStyle, u8)) -> List {
     match p.typ {
         MathCell::MathChar => {
             cur_mlist = new_noad() as i32;
@@ -1641,14 +1641,14 @@ unsafe fn clean_box(p: &MCell, s: (MathStyle, u8)) -> Box {
     cur_size = cur_style.0.size();
     cur_mu = x_over_n(math_quad(cur_size), 18);
 
-    unsafe fn found(q: i32) -> Box {
+    unsafe fn found(q: i32) -> List {
         let x = if is_char_node(q.opt()) || q.opt().is_none() {
             hpack(q.opt(), 0, PackMode::Additional)
         } else if LLIST_link(q as usize).opt().is_none()
             && [TextNode::HList.into(), TextNode::VList.into()].contains(&NODE_type(q as usize))
-            && Box::from(q as usize).shift_amount() == 0
+            && List::from(q as usize).shift_amount() == 0
         {
-            Box::from(q as usize)
+            List::from(q as usize)
         } else {
             hpack(q.opt(), 0, PackMode::Additional)
         };
@@ -1733,7 +1733,7 @@ unsafe fn make_under(q: &mut Under) {
     q.first_mut().set_subbox(y);
 }
 unsafe fn make_vcenter(q: usize) {
-    let mut v = Box::from(MEM[q + 1].b32.s0 as usize);
+    let mut v = List::from(MEM[q + 1].b32.s0 as usize);
     if NODE_type(v.ptr()) != TextNode::VList.into() {
         confusion(b"vcenter");
     }
@@ -1766,7 +1766,7 @@ unsafe fn make_radical(q: &mut Radical) {
         let clr = rule_thickness;
         clr + clr.abs() / 4
     };
-    let mut y = Box::from(var_delimiter(
+    let mut y = List::from(var_delimiter(
         q.delimeter(),
         cur_size,
         x.height() + x.depth() + clr + rule_thickness,
@@ -1970,11 +1970,7 @@ unsafe fn make_math_accent(q: &mut Accent) {
                 y.set_depth(0);
             }
             let mut sa;
-            if !is_char_node(Some(p))
-                && NODE_type(p) == TextNode::WhatsIt.into()
-                && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
-            {
-                let p = Glyph::from(p);
+            if let CharOrText::Text(TxtNode::WhatsIt(WhatsIt::Glyph(p))) = CharOrText::from(p) {
                 sa = get_ot_math_accent_pos(f, p.glyph() as i32);
                 if sa == TEX_INFINITY {
                     sa = half(y.width())
@@ -2121,7 +2117,7 @@ unsafe fn make_fraction(q: &mut Fraction) {
             shift_down += delta2;
         }
     }
-    let mut v = Box::from(new_null_box());
+    let mut v = List::from(new_null_box());
     set_NODE_type(v.ptr(), TextNode::VList);
     v.set_height(shift_up + x.height())
         .set_depth(z.depth() + shift_down)
@@ -2184,11 +2180,9 @@ unsafe fn make_op(q: &mut Operator) -> scaled_t {
                 != 0
         {
             if let Some(mut p) = x.list_ptr().opt() {
-                if !is_char_node(Some(p))
-                    && NODE_type(p) == TextNode::WhatsIt.into()
-                    && whatsit_NODE_subtype(p) == WhatsItNST::Glyph
+                if let CharOrText::Text(TxtNode::WhatsIt(WhatsIt::Glyph(mut p))) =
+                    CharOrText::from(p)
                 {
-                    let mut p = Glyph::from(p);
                     let mut ital_corr = true;
                     let mut width = p.width();
                     let mut depth = p.depth();
@@ -2270,7 +2264,7 @@ unsafe fn make_op(q: &mut Operator) -> scaled_t {
                 1,
             ),
         );
-        let mut v = Box::from(new_null_box());
+        let mut v = List::from(new_null_box());
         set_NODE_type(v.ptr(), TextNode::VList);
         v.set_width((y.width()).max(x.width()).max(z.width()));
         let mut x = rebox(x, v.width());
@@ -2441,23 +2435,21 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
     let mut script_f = 0;
     let mut sup_kern = 0i32;
     let mut sub_kern = 0i32;
-    if is_char_node(p.opt())
-        || p.opt().is_some()
-            && !is_char_node(p.opt())
-            && NODE_type(p as usize) == TextNode::WhatsIt.into()
-            && whatsit_NODE_subtype(p as usize) == WhatsItNST::Glyph
-    {
-        shift_up = 0;
-        shift_down = 0;
-    } else {
-        let z = hpack(p.opt(), 0, PackMode::Additional);
-        let t = match cur_style.0 {
-            MathStyle::Display | MathStyle::Text => SCRIPT_SIZE,
-            MathStyle::Script | MathStyle::ScriptScript => SCRIPT_SCRIPT_SIZE,
-        };
-        shift_up = z.height() - sup_drop(t);
-        shift_down = z.depth() + sub_drop(t);
-        z.free();
+    match p.opt().map(Node::from) {
+        Some(Node::Char(_)) | Some(Node::Text(TxtNode::WhatsIt(WhatsIt::Glyph(_)))) => {
+            shift_up = 0;
+            shift_down = 0;
+        }
+        _ => {
+            let z = hpack(p.opt(), 0, PackMode::Additional);
+            let t = match cur_style.0 {
+                MathStyle::Display | MathStyle::Text => SCRIPT_SIZE,
+                MathStyle::Script | MathStyle::ScriptScript => SCRIPT_SCRIPT_SIZE,
+            };
+            shift_up = z.height() - sup_drop(t);
+            shift_down = z.depth() + sub_drop(t);
+            z.free();
+        }
     }
     let mut x;
     if q.second().typ == MathCell::Empty {
@@ -3322,7 +3314,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
             /*736: */
             if q.s1 as i32 % 4 == EXT_TAG {
                 /*739: */
-                let mut b = Box::from(new_null_box());
+                let mut b = List::from(new_null_box());
                 set_NODE_type(b.ptr(), TextNode::VList);
                 let r = FONT_INFO[(EXTEN_BASE[f] + q.s0 as i32) as usize].b16;
                 c = r.s0;
@@ -3387,7 +3379,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
         } else if !ot_assembly_ptr.is_null() {
             build_opentype_assembly(f, ot_assembly_ptr, v, false)
         } else {
-            let mut b = Box::from(new_null_box());
+            let mut b = List::from(new_null_box());
             set_NODE_type(b.ptr(), TextNode::VList);
             let mut g = Glyph::from(get_node(GLYPH_NODE_SIZE));
             b.set_list_ptr(g.ptr() as i32);
@@ -3401,7 +3393,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
             b
         }
     } else {
-        let mut b = Box::from(new_null_box());
+        let mut b = List::from(new_null_box());
         b.set_width(*DIMENPAR(DimenPar::null_delimiter_space));
         b
     };
@@ -3409,10 +3401,10 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
     free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
     b.ptr()
 }
-unsafe fn char_box(mut f: usize, mut c: i32) -> Box {
+unsafe fn char_box(mut f: usize, mut c: i32) -> List {
     let mut b;
     let p = if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
-        b = Box::from(new_null_box());
+        b = List::from(new_null_box());
         let p = new_native_character(f, c);
         b.set_list_ptr(Some(p.ptr()).tex_int());
         b.set_height(p.height())
@@ -3421,7 +3413,7 @@ unsafe fn char_box(mut f: usize, mut c: i32) -> Box {
         p.ptr()
     } else {
         let q = FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c as u16)) as usize].b16;
-        b = Box::from(new_null_box());
+        b = List::from(new_null_box());
         b.set_width(
             FONT_INFO[(WIDTH_BASE[f] + q.s3 as i32) as usize].b32.s1
                 + FONT_INFO[(ITALIC_BASE[f] + q.s1 as i32 / 4) as usize]
@@ -3446,7 +3438,7 @@ unsafe fn char_box(mut f: usize, mut c: i32) -> Box {
     b.set_list_ptr(Some(p).tex_int());
     b
 }
-unsafe fn stack_into_box(b: &mut Box, f: usize, c: u16) {
+unsafe fn stack_into_box(b: &mut List, f: usize, c: u16) {
     let p = char_box(f, c as i32);
     *LLIST_link(p.ptr()) = b.list_ptr();
     b.set_list_ptr(Some(p.ptr()).tex_int());
@@ -3461,7 +3453,7 @@ unsafe fn height_plus_depth(mut f: internal_font_number, mut c: u16) -> scaled_t
             .b32
             .s1
 }
-unsafe fn stack_glyph_into_box(b: &mut Box, mut f: internal_font_number, mut g: i32) {
+unsafe fn stack_glyph_into_box(b: &mut List, mut f: internal_font_number, mut g: i32) {
     let mut p = Glyph::from(get_node(GLYPH_NODE_SIZE));
     set_NODE_type(p.ptr(), TextNode::WhatsIt);
     set_whatsit_NODE_subtype(p.ptr(), WhatsItNST::Glyph);
@@ -3488,7 +3480,7 @@ unsafe fn stack_glyph_into_box(b: &mut Box, mut f: internal_font_number, mut g: 
         b.set_width(w.max(p.width()));
     };
 }
-unsafe fn stack_glue_into_box(b: &mut Box, mut min: scaled_t, mut max: scaled_t) {
+unsafe fn stack_glue_into_box(b: &mut List, mut min: scaled_t, mut max: scaled_t) {
     let q = new_spec(0);
     GlueSpec(q).set_size(min).set_stretch(max - min);
     let p = new_glue(q);
@@ -3513,8 +3505,8 @@ unsafe fn build_opentype_assembly(
     mut a: *mut libc::c_void,
     mut s: scaled_t,
     mut horiz: bool,
-) -> Box {
-    let mut b = Box::from(new_null_box());
+) -> List {
+    let mut b = List::from(new_null_box());
     set_NODE_type(
         b.ptr(),
         if horiz {
@@ -3625,7 +3617,7 @@ unsafe fn build_opentype_assembly(
     }
     b
 }
-unsafe fn rebox(mut b: Box, mut w: scaled_t) -> Box {
+unsafe fn rebox(mut b: List, mut w: scaled_t) -> List {
     if b.width() != w && b.list_ptr().opt().is_some() {
         if NODE_type(b.ptr()) == TextNode::VList.into() {
             b = hpack(Some(b.ptr()), 0, PackMode::Additional);
