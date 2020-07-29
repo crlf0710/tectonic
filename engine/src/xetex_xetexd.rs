@@ -131,6 +131,12 @@ pub(crate) unsafe fn print_c_string(mut str: *const i8) {
     }
 }
 
+pub(crate) unsafe fn print_c_str(string: &str) {
+    for s in string.bytes() {
+        xetex_output::print_char(s as i32);
+    }
+}
+
 /*
 static inline pool_pointer
 cur_length(void) {

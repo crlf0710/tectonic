@@ -471,6 +471,7 @@ pub(crate) unsafe fn print_native_word(p: &NativeWord) {
     let mut c: i32 = 0;
     let text = p.text();
     let mut i = 0;
+    // decode_utf16
     while i < text.len() {
         c = text[i] as i32;
         if c >= 0xd800 && c < 0xdc00 {

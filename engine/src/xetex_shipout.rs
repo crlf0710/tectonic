@@ -1,5 +1,5 @@
-use bridge::{abort, DisplayExt};
-use std::ffi::CStr;
+use bridge::abort;
+use std::ffi::{CStr, CString};
 use std::io::Write;
 
 use crate::help;
@@ -198,12 +198,9 @@ pub(crate) unsafe fn ship_out(mut p: List) {
                 open_log_file();
             }
             pack_job_name(CStr::from_ptr(output_file_extension).to_bytes());
-            dvi_file = ttstub_output_open(name_of_file, 0);
+            dvi_file = ttstub_output_open(CString::new(name_of_file.as_str()).unwrap().as_ptr(), 0);
             if dvi_file.is_none() {
-                abort!(
-                    "cannot open output file \"{}\"",
-                    CStr::from_ptr(name_of_file).display()
-                );
+                abort!("cannot open output file \"{}\"", name_of_file);
             }
             output_file_name = make_name_string()
         }
@@ -1797,12 +1794,10 @@ pub(crate) unsafe fn out_what(p: usize) {
 
             pack_file_name(cur_name, cur_area, cur_ext);
 
-            write_file[j as usize] = ttstub_output_open(name_of_file, 0);
+            write_file[j as usize] =
+                ttstub_output_open(CString::new(name_of_file.as_str()).unwrap().as_ptr(), 0);
             if write_file[j as usize].is_none() {
-                abort!(
-                    "cannot open output file \"{}\"",
-                    CStr::from_ptr(name_of_file).display()
-                );
+                abort!("cannot open output file \"{}\"", name_of_file);
             }
 
             write_open[j as usize] = true;

@@ -8,7 +8,8 @@
     unused_mut
 )]
 
-use crate::core_memory::xstrdup;
+use std::ffi::CString;
+
 use crate::help;
 use crate::xetex_consts::Picture;
 use crate::xetex_errors::error;
@@ -34,7 +35,6 @@ use dpx::{check_for_jpeg, jpeg_get_bbox};
 use dpx::{check_for_png, png_get_bbox};
 use dpx::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
 use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
-use libc::{free, strlen};
 pub type scaled_t = i32;
 pub type Fixed = scaled_t;
 pub type str_number = i32;
@@ -67,11 +67,18 @@ type Rect = euclid::Rect<f32, ()>;
 */
 
 pub(crate) unsafe fn count_pdf_file_pages() -> i32 {
-    let handle = ttstub_input_open(name_of_file, TTInputFormat::PICT, 0i32);
+    let handle = ttstub_input_open(
+        CString::new(name_of_file.as_str()).unwrap().as_ptr(),
+        TTInputFormat::PICT,
+        0i32,
+    );
     if handle.is_none() {
         return 0;
     }
-    let pf = pdf_open(name_of_file, handle.unwrap());
+    let pf = pdf_open(
+        CString::new(name_of_file.as_str()).unwrap().as_ptr(),
+        handle.unwrap(),
+    );
     if pf.is_null() {
         /* TODO: issue warning */
         //ttstub_input_close(handle);
@@ -82,7 +89,7 @@ pub(crate) unsafe fn count_pdf_file_pages() -> i32 {
     pages
 }
 unsafe fn pdf_get_rect(
-    mut filename: *mut i8,
+    filename: *const i8,
     handle: InputHandleWrapper,
     mut page_num: i32,
     mut pdf_box: i32,
@@ -90,7 +97,7 @@ unsafe fn pdf_get_rect(
     let mut pages: i32 = 0;
     let mut dpx_options: i32 = 0;
     let mut pf: *mut pdf_file = 0 as *mut pdf_file;
-    pf = pdf_open(filename, handle);
+    pf = pdf_open(filename as *mut i8, handle);
     if pf.is_null() {
         /* TODO: issue warning */
         return Err(());
@@ -174,15 +181,25 @@ unsafe fn get_image_size_in_inches(handle: &mut InputHandleWrapper) -> Result<(f
   return full path in *path
   return bounds (tex points) in *bounds
 */
-unsafe fn find_pic_file(mut pdfBoxType: i32, mut page: i32) -> Result<(Rect, *mut i8), i32> {
-    let handle = ttstub_input_open(name_of_file, TTInputFormat::PICT, 0i32);
+unsafe fn find_pic_file(mut pdfBoxType: i32, mut page: i32) -> Result<(Rect, String), i32> {
+    let handle = ttstub_input_open(
+        CString::new(name_of_file.as_str()).unwrap().as_ptr(),
+        TTInputFormat::PICT,
+        0i32,
+    );
     if handle.is_none() {
         return Err(1);
     }
     let mut handle = handle.unwrap();
     let bounds = if pdfBoxType != 0i32 {
         /* if cmd was \XeTeXpdffile, use xpdflib to read it */
-        pdf_get_rect(name_of_file, handle, page, pdfBoxType).map_err(|_| -1)?
+        pdf_get_rect(
+            CString::new(name_of_file.as_str()).unwrap().as_ptr(),
+            handle,
+            page,
+            pdfBoxType,
+        )
+        .map_err(|_| -1)?
     } else {
         match get_image_size_in_inches(&mut handle) {
             Ok((wd, ht)) => {
@@ -195,7 +212,7 @@ unsafe fn find_pic_file(mut pdfBoxType: i32, mut page: i32) -> Result<(Rect, *mu
             Err(e) => return Err(e),
         }
     };
-    Ok((bounds, xstrdup(name_of_file)))
+    Ok((bounds, name_of_file.clone()))
 }
 
 fn to_points(r: &Rect) -> [Point; 4] {
@@ -241,7 +258,7 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
     }
     .unwrap_or_else(|e| {
         result = e;
-        (Rect::zero(), std::ptr::null_mut())
+        (Rect::zero(), String::new())
     });
     let mut corners = bounds;
     let mut x_size_req = 0_f64;
@@ -372,7 +389,7 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
     );
     t = t.post_transform(&t2);
     if result == 0 {
-        let len = strlen(pic_path);
+        let len = pic_path.as_bytes().len();
         let mut tail_pic = if is_pdf {
             Picture::new_pdf_node(len)
         } else {
@@ -396,10 +413,7 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
             D2Fix(t.m32),
         ]);
 
-        let slice = std::slice::from_raw_parts(pic_path as *const u8, len as usize);
-        tail_pic.path_mut().copy_from_slice(&slice);
-
-        free(pic_path as *mut libc::c_void);
+        tail_pic.path_mut().copy_from_slice(pic_path.as_bytes());
     } else {
         if file_line_error_style_p != 0 {
             print_file_line();

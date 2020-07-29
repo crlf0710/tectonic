@@ -9,13 +9,13 @@
 )]
 
 use bridge::DisplayExt;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 
+use crate::strstartswith;
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_consts::{Glyph, NativeWord, Side, UnicodeMode};
-use crate::xetex_xetexd::print_c_string;
-use crate::{streq_ptr, strstartswith};
+use crate::xetex_xetexd::{print_c_str, print_c_string};
 use bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read};
 use libc::free;
 use std::ptr;
@@ -29,25 +29,23 @@ use crate::cf_prelude::{
     CFNumberRef, CFNumberType, CFRelease, CFTypeRef, CGAffineTransform, CGColorGetComponents,
     CGColorRef, CGFloat, CTFontGetMatrix, CTFontGetSize, CTFontRef,
 };
-use crate::core_memory::{mfree, xcalloc, xmalloc, xrealloc, xstrdup};
+use crate::core_memory::{xcalloc, xmalloc, xrealloc};
 use crate::xetex_ini::{
     loaded_font_design_size, loaded_font_flags, loaded_font_letter_space, loaded_font_mapping,
-    mapped_text, name_length, name_of_file, native_font_type_flag, xdv_buffer, DEPTH_BASE,
-    FONT_AREA, FONT_FLAGS, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, HEIGHT_BASE,
-    PARAM_BASE,
+    mapped_text, name_of_file, native_font_type_flag, xdv_buffer, DEPTH_BASE, FONT_AREA,
+    FONT_FLAGS, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, HEIGHT_BASE, PARAM_BASE,
 };
 use crate::xetex_output::{print_char, print_int, print_nl, print_raw_char};
 use crate::xetex_scaledmath::xn_over_d;
-use crate::xetex_texmfmp::{gettexstring, maketexstring};
+use crate::xetex_texmfmp::{gettexstring, maketexstring, to_rust_string};
 use crate::xetex_xetex0::{
     begin_diagnostic, end_diagnostic, font_feature_warning, font_mapping_warning,
     get_tracing_fonts_state,
 };
 
-use crate::stub_stdio::strcasecmp;
 use crate::xetex_layout_interface::*;
 use harfbuzz_sys::{hb_feature_t, hb_tag_from_string, hb_tag_t};
-use libc::{memcpy, strcat, strcpy, strdup, strlen, strncpy, strstr};
+use libc::{memcpy, strcat, strdup, strlen, strncpy};
 
 pub(crate) const AAT_FONT_FLAG: u32 = 0xFFFF;
 pub(crate) const OTGR_FONT_FLAG: u32 = 0xFFFE;
@@ -173,8 +171,8 @@ pub(crate) unsafe fn linebreak_start(
     mut textLength: i32,
 ) {
     let mut status: icu::UErrorCode = icu::U_ZERO_ERROR;
-    let mut locale: *mut i8 = gettexstring(localeStrNum);
-    if FONT_AREA[f] as u32 == 0xfffeu32 && streq_ptr(locale, b"G\x00" as *const u8 as *const i8) {
+    let mut locale = gettexstring(localeStrNum);
+    if FONT_AREA[f] as u32 == 0xfffeu32 && locale == "G" {
         let mut engine: XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine;
         if initGraphiteBreaking(engine, text, textLength) {
             /* user asked for Graphite line breaking and the font supports it */
@@ -186,7 +184,13 @@ pub(crate) unsafe fn linebreak_start(
         brkIter = 0 as *mut icu::UBreakIterator
     }
     if brkIter.is_null() {
-        brkIter = icu::ubrk_open(icu::UBRK_LINE, locale, ptr::null(), 0i32, &mut status);
+        brkIter = icu::ubrk_open(
+            icu::UBRK_LINE,
+            CString::new(locale.as_str()).unwrap().as_ptr(),
+            ptr::null(),
+            0i32,
+            &mut status,
+        );
         if status as i32 > icu::U_ZERO_ERROR as i32 {
             begin_diagnostic();
             print_nl('E' as i32);
@@ -195,7 +199,7 @@ pub(crate) unsafe fn linebreak_start(
             print_c_string(
                 b" creating linebreak iterator for locale `\x00" as *const u8 as *const i8,
             );
-            print_c_string(locale);
+            print_c_str(&locale);
             print_c_string(b"\'; trying default locale `en_us\'.\x00" as *const u8 as *const i8);
             end_diagnostic(true);
             if !brkIter.is_null() {
@@ -210,7 +214,6 @@ pub(crate) unsafe fn linebreak_start(
                 &mut status,
             )
         }
-        free(locale as *mut libc::c_void);
         brkLocaleStrNum = localeStrNum
     }
     if brkIter.is_null() {
@@ -238,40 +241,37 @@ pub(crate) unsafe fn get_encoding_mode_and_info(mut info: *mut i32) -> UnicodeMo
     let mut err: icu::UErrorCode = icu::U_ZERO_ERROR;
     let mut cnv: *mut icu::UConverter = 0 as *mut icu::UConverter;
     *info = 0i32;
-    if strcasecmp(name_of_file, b"auto\x00" as *const u8 as *const i8) == 0i32 {
-        return UnicodeMode::Auto;
-    }
-    if strcasecmp(name_of_file, b"utf8\x00" as *const u8 as *const i8) == 0i32 {
-        return UnicodeMode::Utf8;
-    }
-    if strcasecmp(name_of_file, b"utf16\x00" as *const u8 as *const i8) == 0i32 {
-        /* depends on host platform */
-        return UnicodeMode::Utf16le;
-    }
-    if strcasecmp(name_of_file, b"utf16be\x00" as *const u8 as *const i8) == 0i32 {
-        return UnicodeMode::Utf16be;
-    }
-    if strcasecmp(name_of_file, b"utf16le\x00" as *const u8 as *const i8) == 0i32 {
-        return UnicodeMode::Utf16le;
-    }
-    if strcasecmp(name_of_file, b"bytes\x00" as *const u8 as *const i8) == 0i32 {
-        return UnicodeMode::Raw;
+    match name_of_file.to_lowercase().as_str() {
+        "auto" => return UnicodeMode::Auto,
+        "utf8" => return UnicodeMode::Utf8,
+        "utf16" => {
+            /* depends on host platform */
+            return UnicodeMode::Utf16le;
+        }
+        "utf16be" => return UnicodeMode::Utf16be,
+        "utf16le" => return UnicodeMode::Utf16le,
+        "bytes" => return UnicodeMode::Raw,
+        _ => {}
     }
     /* try for an ICU converter */
-    cnv = icu::ucnv_open(name_of_file, &mut err); /* ensure message starts on a new line */
-    if cnv.is_null() {
+    cnv = icu::ucnv_open(
+        CString::new(name_of_file.as_str()).unwrap().as_ptr(),
+        &mut err,
+    ); /* ensure message starts on a new line */
+    let result = if cnv.is_null() {
         begin_diagnostic();
         print_nl('U' as i32);
         print_c_string(b"nknown encoding `\x00" as *const u8 as *const i8);
-        print_c_string(name_of_file);
+        print_c_str(&name_of_file);
         print_c_string(b"\'; reading as raw bytes\x00" as *const u8 as *const i8);
         end_diagnostic(true);
         UnicodeMode::Raw
     } else {
         icu::ucnv_close(cnv);
-        *info = maketexstring(CStr::from_ptr(name_of_file).to_bytes());
+        *info = maketexstring(name_of_file.as_bytes());
         UnicodeMode::ICUMapping
-    }
+    };
+    result
 }
 
 pub(crate) unsafe fn print_utf8_str(mut string: &[u8]) {
@@ -357,30 +357,34 @@ unsafe fn load_mapping_file(
     free(buffer as *mut libc::c_void);
     cnv as *mut libc::c_void
 }
-static mut saved_mapping_name: *mut i8 = ptr::null_mut();
+static mut saved_mapping_name: String = String::new();
 pub(crate) unsafe fn check_for_tfm_font_mapping() {
-    let mut cp: *mut i8 = strstr(name_of_file, b":mapping=\x00" as *const u8 as *const i8);
-    saved_mapping_name = mfree(saved_mapping_name as *mut libc::c_void) as *mut i8;
-    if !cp.is_null() {
-        *cp = 0_i8;
-        cp = cp.offset(9);
-        while *cp != 0 && *cp as i32 <= ' ' as i32 {
-            cp = cp.offset(1)
+    let cp = name_of_file.find(":mapping=");
+
+    saved_mapping_name = String::new();
+
+    if let Some(cp) = cp {
+        let (a, b) = name_of_file.split_at(cp);
+        let mut cp = &b.as_bytes()[9..];
+        while !cp.is_empty() && cp[0] <= ' ' as u8 {
+            cp = &cp[1..];
         }
-        if *cp != 0 {
-            saved_mapping_name = xstrdup(cp)
+        if !cp.is_empty() {
+            saved_mapping_name = String::from_utf8_lossy(cp).to_string();
         }
-    };
+        name_of_file = String::from(a);
+    }
 }
 pub(crate) unsafe fn load_tfm_font_mapping() -> *mut libc::c_void {
     let mut rval: *mut libc::c_void = 0 as *mut libc::c_void;
-    if !saved_mapping_name.is_null() {
+    if !saved_mapping_name.is_empty() {
+        let name = CString::new(saved_mapping_name.as_str()).unwrap();
         rval = load_mapping_file(
-            saved_mapping_name,
-            saved_mapping_name.offset(strlen(saved_mapping_name) as isize),
+            name.as_ptr(),
+            name.as_ptr().offset(name.as_bytes().len() as isize),
             1_i8,
         );
-        saved_mapping_name = mfree(saved_mapping_name as *mut libc::c_void) as *mut i8
+        saved_mapping_name = String::new();
     }
     rval
 }
@@ -1005,7 +1009,7 @@ unsafe fn splitFontName(
     };
 }
 pub(crate) unsafe fn find_native_font(
-    mut uname: *mut i8,
+    mut uname: *const i8,
     mut scaled_size: i32,
 ) -> *mut libc::c_void
 /* scaled_size here is in TeX points, or is a negative integer for 'scaled_t' */ {
@@ -1014,7 +1018,7 @@ pub(crate) unsafe fn find_native_font(
     let mut var: *mut i8 = 0 as *mut i8;
     let mut feat: *mut i8 = 0 as *mut i8;
     let mut end: *mut i8 = 0 as *mut i8;
-    let mut name: *mut i8 = uname;
+    let mut name: *mut i8 = uname as *mut i8;
     let mut varString: *mut i8 = 0 as *mut i8;
     let mut featString: *mut i8 = 0 as *mut i8;
     let mut fontRef: PlatformFontRef = 0 as PlatformFontRef;
@@ -1093,18 +1097,7 @@ pub(crate) unsafe fn find_native_font(
         if !fontRef.is_null() {
             /* update name_of_file to the full name of the font, for error messages during font loading */
             let mut fullName: *const i8 = getFullName(fontRef);
-            name_length = strlen(fullName) as i32;
-            if !featString.is_null() {
-                name_length =
-                    (name_length as usize).wrapping_add(strlen(featString).wrapping_add(1)) as _
-            }
-            if !varString.is_null() {
-                name_length =
-                    (name_length as usize).wrapping_add(strlen(varString).wrapping_add(1)) as _
-            }
-            free(name_of_file as *mut libc::c_void);
-            name_of_file = xmalloc((name_length + 1i32) as size_t) as *mut i8;
-            strcpy(name_of_file, fullName);
+            name_of_file = to_rust_string(fullName);
             if scaled_size < 0i32 {
                 font = createFont(fontRef, scaled_size);
                 if !font.is_null() {
@@ -1168,14 +1161,13 @@ pub(crate) unsafe fn find_native_font(
             }
             /* append the style and feature strings, so that \show\fontID will give a full result */
             if !varString.is_null() && *varString != 0 {
-                strcat(name_of_file, b"/\x00" as *const u8 as *const i8);
-                strcat(name_of_file, varString);
+                name_of_file.push('/');
+                name_of_file.push_str(&to_rust_string(varString));
             }
             if !featString.is_null() && *featString != 0 {
-                strcat(name_of_file, b":\x00" as *const u8 as *const i8);
-                strcat(name_of_file, featString);
+                name_of_file.push(':');
+                name_of_file.push_str(&to_rust_string(featString));
             }
-            name_length = strlen(name_of_file) as i32
         }
     }
     free(varString as *mut libc::c_void);
@@ -1336,7 +1328,12 @@ pub(crate) unsafe fn gr_font_get_named(mut what: i32, mut pEngine: *mut libc::c_
     let mut rval: i64 = -1i32 as i64;
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
     match what {
-        10 => rval = findGraphiteFeatureNamed(engine, name_of_file, name_length) as _,
+        10 => {
+            let name = CString::new(name_of_file.as_str()).unwrap();
+            rval =
+                findGraphiteFeatureNamed(engine, name.as_ptr(), name_of_file.as_bytes().len() as _)
+                    as _;
+        }
         _ => {}
     }
     rval as i32
@@ -1350,8 +1347,13 @@ pub(crate) unsafe fn gr_font_get_named_1(
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
     match what {
         14 => {
-            rval = findGraphiteFeatureSettingNamed(engine, param as u32, name_of_file, name_length)
-                as _
+            let name = CString::new(name_of_file.as_str()).unwrap();
+            rval = findGraphiteFeatureSettingNamed(
+                engine,
+                param as u32,
+                name.as_ptr(),
+                name_of_file.as_bytes().len() as _,
+            ) as _;
         }
         _ => {}
     }
@@ -2200,11 +2202,14 @@ pub(crate) unsafe fn map_glyph_to_index(mut font: usize) -> i32
         0xffffu32 => {
             return aat::MapGlyphToIndex_AAT(
                 FONT_LAYOUT_ENGINE[font] as CFDictionaryRef,
-                name_of_file,
+                CString::new(name_of_file.as_str()).unwrap().as_ptr(),
             );
         }
         0xfffeu32 => {
-            return mapGlyphToIndex(FONT_LAYOUT_ENGINE[font] as XeTeXLayoutEngine, name_of_file);
+            return mapGlyphToIndex(
+                FONT_LAYOUT_ENGINE[font] as XeTeXLayoutEngine,
+                CString::new(name_of_file.as_str()).unwrap().as_ptr(),
+            );
         }
         _ => panic!("bad native font flag in `map_glyph_to_index`"),
     }

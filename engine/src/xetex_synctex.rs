@@ -8,10 +8,9 @@
     unused_mut
 )]
 
-use std::ffi::CStr;
+use std::ffi::CString;
 use std::io::Write;
 
-use crate::core_memory::{mfree, xmalloc, xrealloc, xstrdup};
 use crate::xetex_consts::{
     IntPar, Kern, List, TxtNode, BOX_NODE_SIZE, INTPAR, MEDIUM_NODE_SIZE, RULE_NODE_SIZE,
 };
@@ -24,8 +23,6 @@ use crate::xetex_xetexd::{SYNCTEX_line, SYNCTEX_tag};
 use bridge::{
     ttstub_issue_error, ttstub_issue_warning_slice, ttstub_output_close, ttstub_output_open,
 };
-use libc::{free, strcat, strcpy, strlen};
-use std::ptr;
 
 use bridge::OutputHandleWrapper;
 pub(crate) type scaled_t = i32;
@@ -45,7 +42,7 @@ bitflags::bitflags! {
 #[repr(C)]
 pub(crate) struct Context {
     pub(crate) file: Option<OutputHandleWrapper>,
-    pub(crate) root_name: *mut i8,
+    pub(crate) root_name: String,
     pub(crate) count: i32,
     pub(crate) node: usize,
     pub(crate) recorder: synctex_recorder_t,
@@ -87,7 +84,7 @@ type synctex_recorder_t = Option<unsafe fn(_: usize) -> ()>;
 
 const default_synctex_ctxt: Context = Context {
     file: None,
-    root_name: ptr::null_mut(),
+    root_name: String::new(),
     count: 0i32,
     node: 0,
     recorder: None,
@@ -105,14 +102,11 @@ const default_synctex_ctxt: Context = Context {
 };
 static mut synctex_ctxt: Context = default_synctex_ctxt;
 
-unsafe fn get_current_name() -> *mut i8 {
+unsafe fn get_current_name() -> String {
     /* This used to always make the pathname absolute but I'm getting rid of
      * that since it ends up adding dependencies on a bunch of functions I
      * don't want to have to deal with. */
-    if name_of_input_file.is_null() {
-        return xstrdup(b"\x00" as *const u8 as *const i8);
-    }
-    xstrdup(name_of_input_file)
+    name_of_input_file.clone()
 }
 /* synctex.h
 
@@ -176,12 +170,12 @@ unsafe fn synctexabort() {
     if let Some(_file) = synctex_ctxt.file.as_mut() {
         ttstub_output_close(synctex_ctxt.file.take().unwrap());
     }
-    synctex_ctxt.root_name = mfree(synctex_ctxt.root_name as *mut libc::c_void) as *mut i8;
+    synctex_ctxt.root_name = String::new();
     synctex_ctxt.flags.insert(Flags::OFF);
     /* disable synctex */
 }
-static mut synctex_suffix: *const i8 = b".synctex\x00" as *const u8 as *const i8;
-static mut synctex_suffix_gz: *const i8 = b".gz\x00" as *const u8 as *const i8;
+const synctex_suffix: &str = ".synctex";
+const synctex_suffix_gz: &str = ".gz";
 /*  synctex_dot_open ensures that the foo.synctex file is open.
  *  In case of problem, it definitely disables synchronization.
  *  Now all the output synchronization info is gathered in only one file.
@@ -191,36 +185,25 @@ static mut synctex_suffix_gz: *const i8 = b".gz\x00" as *const u8 as *const i8;
  *  information for page i alone.
  */
 unsafe fn synctex_dot_open() -> bool {
-    let mut tmp: *mut i8 = ptr::null_mut();
-    let mut the_name: *mut i8 = ptr::null_mut();
     if synctex_ctxt.flags.contains(Flags::OFF) || *INTPAR(IntPar::synctex) == 0 {
         return false;
     }
     if synctex_ctxt.file.is_some() {
         return true;
     }
-    tmp = gettexstring(job_name);
-    let len = strlen(tmp);
-    if !(len <= 0) {
-        the_name = xmalloc(
-            len.wrapping_add(strlen(synctex_suffix))
-                .wrapping_add(strlen(synctex_suffix_gz))
-                .wrapping_add(1) as _,
-        ) as *mut i8;
-        strcpy(the_name, tmp);
-        strcat(the_name, synctex_suffix);
-        strcat(the_name, synctex_suffix_gz);
-        tmp = mfree(tmp as *mut libc::c_void) as *mut i8;
-        synctex_ctxt.file = ttstub_output_open(the_name, 1i32);
+    let mut tmp = gettexstring(job_name);
+    if !tmp.is_empty() {
+        tmp += synctex_suffix;
+        tmp += synctex_suffix_gz;
+        let the_name = CString::new(tmp.as_str()).unwrap();
+        synctex_ctxt.file = ttstub_output_open(the_name.as_ptr(), 1i32);
         if synctex_ctxt.file.is_some() {
             if !(synctex_record_preamble() != 0) {
                 synctex_ctxt.magnification = 1000i32;
                 synctex_ctxt.unit = 1i32;
-                the_name = mfree(the_name as *mut libc::c_void) as *mut i8;
-                if !synctex_ctxt.root_name.is_null() {
-                    synctex_record_input(1i32, synctex_ctxt.root_name);
-                    synctex_ctxt.root_name =
-                        mfree(synctex_ctxt.root_name as *mut libc::c_void) as *mut i8
+                if !synctex_ctxt.root_name.is_empty() {
+                    synctex_record_input(1i32, &synctex_ctxt.root_name);
+                    synctex_ctxt.root_name = String::new();
                 }
                 synctex_ctxt.count = 0i32;
                 return true;
@@ -228,8 +211,6 @@ unsafe fn synctex_dot_open() -> bool {
         }
     }
     /*printf("\nSyncTeX warning: no synchronization, problem with %s\n", the_name);*/
-    free(tmp as *mut libc::c_void);
-    free(the_name as *mut libc::c_void);
     synctexabort();
     false
 }
@@ -294,23 +275,15 @@ pub(crate) unsafe fn synctex_start_input() {
          *  to store the file name, because we will need it later.
          *  This is necessary because \jobname can be different */
         synctex_ctxt.root_name = get_current_name();
-        if strlen(synctex_ctxt.root_name) == 0 {
-            synctex_ctxt.root_name = xrealloc(
-                synctex_ctxt.root_name as *mut libc::c_void,
-                strlen(b"texput\x00" as *const u8 as *const i8).wrapping_add(1) as _,
-            ) as *mut i8;
-            strcpy(
-                synctex_ctxt.root_name,
-                b"texput\x00" as *const u8 as *const i8,
-            );
+        if synctex_ctxt.root_name.is_empty() {
+            synctex_ctxt.root_name = String::from("texput");
         }
         return;
     }
     if synctex_ctxt.file.is_some() || synctex_dot_open() {
-        let mut tmp: *mut i8 = get_current_name();
+        let tmp = get_current_name();
         /* Always record the input, even if INTPAR(synctex) is 0 */
-        synctex_record_input(cur_input.synctex_tag, tmp);
-        free(tmp as *mut libc::c_void);
+        synctex_record_input(cur_input.synctex_tag, &tmp);
     };
 }
 /*  Send this message to clean memory, and close the file.  */
@@ -717,8 +690,8 @@ unsafe fn synctex_record_preamble() -> i32 {
     -1i32
 }
 #[inline]
-unsafe fn synctex_record_input(mut tag: i32, mut name: *mut i8) -> i32 {
-    let s = format!("Input:{}:{}\n", tag, CStr::from_ptr(name).to_string_lossy(),);
+unsafe fn synctex_record_input(mut tag: i32, name: &str) -> i32 {
+    let s = format!("Input:{}:{}\n", tag, name);
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
         return 0i32;

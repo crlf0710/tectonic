@@ -8,8 +8,7 @@
     unused_mut
 )]
 
-use bridge::DisplayExt;
-use std::ffi::CStr;
+use std::ffi::CString;
 use std::io::Write;
 use std::ptr;
 
@@ -52,25 +51,25 @@ use crate::xetex_ini::{
     loaded_font_design_size, loaded_font_flags, loaded_font_letter_space, loaded_font_mapping,
     log_file, log_opened, long_help_seen, long_state, mag_set, main_f, main_h, main_i, main_j,
     main_k, main_s, mapped_text, max_buf_stack, max_print_line, max_reg_help_line, max_reg_num,
-    max_strings, mem_end, name_in_progress, name_length, name_length16, name_of_file,
-    name_of_file16, native_font_type_flag, native_len, native_text, native_text_size,
-    no_new_control_sequence, old_setting, open_parens, output_active, pack_begin_line,
-    page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos,
-    pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files,
-    pstack, quoted_filename, radix, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain,
-    sa_level, sa_root, save_native_len, scanner_status, selector, set_box_allowed, shown_mode,
-    skip_line, space_class, stop_at_space, str_pool, str_ptr, str_start, tally, term_offset,
-    tex_remainder, texmf_log_name, total_shrink, total_stretch, trick_buf, trick_count,
-    use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
-    xtx_ligature_present, LR_problems, LR_ptr, BASE_PTR, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE,
-    DEPTH_BASE, EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_CHECK,
-    FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE,
-    FONT_LETTER_SPACE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR,
-    FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HEIGHT_BASE, HYPHEN_CHAR, IF_STACK,
-    INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, LINE_STACK,
-    MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST,
-    NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE,
-    SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK, STACK_SIZE, WIDTH_BASE,
+    max_strings, mem_end, name_in_progress, name_of_file, name_of_file16, native_font_type_flag,
+    native_len, native_text, native_text_size, no_new_control_sequence, old_setting, open_parens,
+    output_active, pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token,
+    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim,
+    prim_eqtb, prim_used, pseudo_files, pstack, quoted_filename, radix, read_file, read_open,
+    rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_root, save_native_len, scanner_status,
+    selector, set_box_allowed, shown_mode, skip_line, space_class, stop_at_space, str_pool,
+    str_ptr, str_start, tally, term_offset, tex_remainder, texmf_log_name, total_shrink,
+    total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens, warning_index,
+    write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, BASE_PTR, BCHAR_LABEL,
+    BUFFER, BUF_SIZE, CHAR_BASE, DEPTH_BASE, EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE, FONT_AREA,
+    FONT_BC, FONT_BCHAR, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS, FONT_GLUE,
+    FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE,
+    FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK,
+    HEIGHT_BASE, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, ITALIC_BASE,
+    KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK,
+    MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR,
+    PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK,
+    STACK_SIZE, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding, u_close};
@@ -97,8 +96,7 @@ use crate::xetex_stringpool::{
 };
 use crate::xetex_synctex::{synctex_start_input, synctex_terminate};
 use crate::xetex_texmfmp::{
-    from_rust_string, getmd5sum, gettexstring_rust, is_new_source, make_src_special, maketexstring,
-    remember_source_info,
+    getmd5sum, gettexstring, is_new_source, make_src_special, maketexstring, remember_source_info,
 };
 use crate::xetex_xetexd::*;
 use bridge::{
@@ -108,7 +106,7 @@ use bridge::{
 
 use bridge::{TTHistory, TTInputFormat};
 
-use libc::{free, memcpy, strlen};
+use libc::{memcpy, strlen};
 
 use bridge::InputHandleWrapper;
 pub(crate) type scaled_t = i32;
@@ -9526,28 +9524,23 @@ pub(crate) unsafe fn end_name() {
     };
 }
 pub(crate) unsafe fn pack_file_name(mut n: str_number, mut a: str_number, mut e: str_number) {
-    let string = gettexstring_rust(a) + &gettexstring_rust(n) + &gettexstring_rust(e);
-
-    free(name_of_file as *mut libc::c_void);
-    name_length = string.as_bytes().len() as i32;
-    name_of_file = from_rust_string(&string);
+    name_of_file = gettexstring(a) + &gettexstring(n) + &gettexstring(e);
 }
 pub(crate) unsafe fn make_name_string() -> str_number {
-    let mut k: i32 = 0;
     let mut save_area_delimiter: pool_pointer = 0;
     let mut save_ext_delimiter: pool_pointer = 0;
     let mut save_name_in_progress: bool = false;
     let mut save_stop_at_space: bool = false;
-    if pool_ptr + name_length > pool_size || str_ptr == max_strings as i32 || cur_length() > 0 {
+    if pool_ptr as usize + name_of_file.as_bytes().len() > pool_size as usize
+        || str_ptr == max_strings as i32
+        || cur_length() > 0
+    {
         return '?' as i32;
     }
     make_utf16_name();
-    k = 0;
-    while k < name_length16 {
-        let fresh38 = pool_ptr;
-        pool_ptr = pool_ptr + 1;
-        str_pool[fresh38 as usize] = *name_of_file16.offset(k as isize);
-        k += 1
+    for &k in &name_of_file16 {
+        str_pool[pool_ptr as usize] = k;
+        pool_ptr += 1;
     }
     let mut Result: str_number = make_string();
     save_area_delimiter = area_delimiter;
@@ -9557,9 +9550,10 @@ pub(crate) unsafe fn make_name_string() -> str_number {
     name_in_progress = true;
     begin_name();
     stop_at_space = false;
-    k = 0;
-    while k < name_length16 && more_name(*name_of_file16.offset(k as isize)) {
-        k += 1
+    for &k in &name_of_file16 {
+        if !more_name(k) {
+            break;
+        }
     }
     stop_at_space = save_stop_at_space;
     end_name();
@@ -9605,12 +9599,9 @@ pub(crate) unsafe fn open_log_file() {
         job_name = maketexstring(b"texput")
     }
     pack_job_name(b".log");
-    log_file = ttstub_output_open(name_of_file, 0);
+    log_file = ttstub_output_open(CString::new(name_of_file.as_str()).unwrap().as_ptr(), 0);
     if log_file.is_none() {
-        abort!(
-            "cannot open log file output \"{}\"",
-            CStr::from_ptr(name_of_file).display()
-        );
+        abort!("cannot open log file output \"{}\"", name_of_file);
     }
     texmf_log_name = make_name_string();
     selector = Selector::LOG_ONLY;
@@ -9769,10 +9760,7 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
         *INTPAR(IntPar::xetex_default_input_encoding),
     ) == 0
     {
-        abort!(
-            "failed to open input file \"{}\"",
-            CStr::from_ptr(name_of_file).display()
-        );
+        abort!("failed to open input file \"{}\"", name_of_file);
     }
     /* Now re-encode `name_of_file` into the UTF-16 variable `name_of_file16`,
      * and use that to recompute `cur_{name,area,ext}`. */
@@ -9780,9 +9768,10 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     name_in_progress = true;
     begin_name();
     stop_at_space = false;
-    let mut k: i32 = 0i32;
-    while k < name_length16 && more_name(*name_of_file16.offset(k as isize)) {
-        k += 1
+    for &k in &name_of_file16 {
+        if !more_name(k) {
+            break;
+        }
     }
     stop_at_space = true;
     end_name();
@@ -9794,8 +9783,7 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     cur_input.name = make_name_string();
     SOURCE_FILENAME_STACK[IN_OPEN] = cur_input.name;
     /* *This* variant is a TeX string made out of `name_of_input_file`. */
-    FULL_SOURCE_FILENAME_STACK[IN_OPEN] =
-        maketexstring(CStr::from_ptr(name_of_input_file).to_bytes());
+    FULL_SOURCE_FILENAME_STACK[IN_OPEN] = maketexstring(name_of_input_file.as_bytes());
     if cur_input.name == str_ptr - 1 {
         temp_str = search_string(cur_input.name);
         if temp_str > 0 {
@@ -9858,7 +9846,7 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
         end_diagnostic(false);
         *INTPAR(IntPar::tracing_online) = old_setting_0
     }
-    let fn_0 = gettexstring_rust(FONT_NAME[f]);
+    let fn_0 = gettexstring(FONT_NAME[f]);
     let prev_selector = selector;
     let mut s: i32 = 0;
     selector = Selector::NEW_STRING;
@@ -9869,7 +9857,7 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
     }
     selector = prev_selector;
     s = make_string();
-    let chr = gettexstring_rust(s);
+    let chr = gettexstring(s);
     str_ptr -= 1;
     pool_ptr = str_start[(str_ptr - 0x10000) as usize];
     ttstub_issue_warning_slice(
@@ -9999,10 +9987,8 @@ pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u
     print_cstr(b"feature `");
     print_utf8_str(feature_name);
     print_cstr(b"\' in font `");
-    let mut i: i32 = 0i32;
-    while *name_of_file.offset(i as isize) != 0 {
-        print_raw_char(*name_of_file.offset(i as isize) as UTF16_code, true);
-        i += 1
+    for b in name_of_file.bytes() {
+        print_raw_char(b as UTF16_code, true);
     }
     print_cstr(b"\'.");
     end_diagnostic(false);
@@ -10016,10 +10002,8 @@ pub(crate) unsafe fn font_mapping_warning(mut mapping_name: &[u8], mut warningTy
     }
     print_utf8_str(mapping_name);
     print_cstr(b"\' for font `");
-    let mut i = 0i32;
-    while *name_of_file.offset(i as isize) != 0 {
-        print_raw_char(*name_of_file.offset(i as isize) as UTF16_code, true);
-        i += 1;
+    for b in name_of_file.bytes() {
+        print_raw_char(b as UTF16_code, true);
     }
     match warningType {
         1 => print_cstr(b"\' not found."),
@@ -10034,10 +10018,8 @@ pub(crate) unsafe fn font_mapping_warning(mut mapping_name: &[u8], mut warningTy
 pub(crate) unsafe fn graphite_warning() {
     begin_diagnostic();
     print_nl_cstr(b"Font `");
-    let mut i = 0i32;
-    while *name_of_file.offset(i as isize) != 0 {
-        print_raw_char(*name_of_file.offset(i as isize) as UTF16_code, true);
-        i += 1
+    for b in name_of_file.bytes() {
+        print_raw_char(b as UTF16_code, true);
     }
     print_cstr(b"\' does not support Graphite. Trying OpenType layout instead.");
     end_diagnostic(false);
@@ -10055,7 +10037,8 @@ pub(crate) unsafe fn load_native_font(
     let mut font_slant: scaled_t = 0;
     let mut x_ht: scaled_t = 0;
     let mut cap_ht: scaled_t = 0;
-    let mut font_engine = find_native_font(name_of_file, s);
+    let mut font_engine =
+        find_native_font(CString::new(name_of_file.as_str()).unwrap().as_ptr(), s);
     if font_engine.is_null() {
         return FONT_BASE;
     }
@@ -10066,11 +10049,11 @@ pub(crate) unsafe fn load_native_font(
     } else {
         actual_size = loaded_font_design_size
     }
-    if pool_ptr + name_length > pool_size {
+    if (pool_ptr as usize) + name_of_file.as_bytes().len() > (pool_size as usize) {
         overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
     }
-    for k in 0..name_length {
-        str_pool[pool_ptr as usize] = *name_of_file.offset(k as isize) as packed_UTF16_code;
+    for b in name_of_file.bytes() {
+        str_pool[pool_ptr as usize] = b as packed_UTF16_code;
         pool_ptr = pool_ptr + 1;
     }
 
@@ -10337,7 +10320,7 @@ pub(crate) unsafe fn read_font_info(
     if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
         begin_diagnostic();
         print_nl_cstr(b"Requested font \"");
-        print_c_string(name_of_file);
+        print_c_str(&name_of_file);
         print('\"' as i32);
         if s < 0 {
             print_cstr(b" scaled ");
@@ -10847,7 +10830,7 @@ pub(crate) unsafe fn read_font_info(
             } else if file_opened {
                 begin_diagnostic();
                 print_nl_cstr(b" -> ");
-                print_c_string(name_of_file);
+                print_c_str(&name_of_file);
                 end_diagnostic(false);
             }
         }

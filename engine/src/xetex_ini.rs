@@ -8,12 +8,11 @@
     unused_mut
 )]
 
-use bridge::DisplayExt;
-use std::ffi::CStr;
+use std::ffi::CString;
 use std::io::{Read, Write};
 use std::ptr;
 
-use super::xetex_texmfmp::get_date_and_time;
+use super::xetex_texmfmp::{get_date_and_time, to_rust_string};
 use crate::core_memory::{mfree, xmalloc, xmalloc_array};
 use crate::help;
 use crate::xetex_consts::*;
@@ -51,7 +50,7 @@ use bridge::{
     ttstub_output_open_stdout,
 };
 use dpx::{pdf_files_close, pdf_files_init};
-use libc::{free, strcpy, strlen};
+use libc::free;
 
 pub(crate) type uintptr_t = u64;
 pub(crate) type size_t = usize;
@@ -432,18 +431,13 @@ pub(crate) use super::xetex_io::UFILE;
    Licensed under the MIT License.
 */
 /* All the following variables are declared in xetex-xetexd.h */
-#[no_mangle]
 pub(crate) static mut EQTB: Vec<EqtbWord> = Vec::new();
 #[no_mangle]
 pub(crate) static mut bad: i32 = 0;
-#[no_mangle]
-pub(crate) static mut name_of_file: *mut i8 = ptr::null_mut();
-#[no_mangle]
-pub(crate) static mut name_of_file16: *mut UTF16_code = ptr::null_mut();
-#[no_mangle]
-pub(crate) static mut name_length: i32 = 0;
-#[no_mangle]
-pub(crate) static mut name_length16: i32 = 0;
+
+pub(crate) static mut name_of_file: String = String::new();
+
+pub(crate) static mut name_of_file16: Vec<u16> = Vec::new();
 #[no_mangle]
 pub(crate) static mut BUFFER: Vec<UnicodeScalar> = Vec::new();
 #[no_mangle]
@@ -767,9 +761,7 @@ pub(crate) static mut ext_delimiter: pool_pointer = 0;
 #[no_mangle]
 pub(crate) static mut file_name_quote_char: UTF16_code = 0;
 #[no_mangle]
-pub(crate) static mut format_default_length: i32 = 0;
-#[no_mangle]
-pub(crate) static mut TEX_format_default: *mut i8 = ptr::null_mut();
+pub(crate) static mut TEX_format_default: String = String::new();
 #[no_mangle]
 pub(crate) static mut name_in_progress: bool = false;
 #[no_mangle]
@@ -2688,12 +2680,9 @@ unsafe fn store_fmt_file() {
     format_ident = make_string();
     pack_job_name(b".fmt");
 
-    let fmt_out = ttstub_output_open(name_of_file, 0);
+    let fmt_out = ttstub_output_open(CString::new(name_of_file.as_str()).unwrap().as_ptr(), 0);
     if fmt_out.is_none() {
-        abort!(
-            "cannot open format output file \"{}\"",
-            CStr::from_ptr(name_of_file).display()
-        );
+        abort!("cannot open format output file \"{}\"", name_of_file);
     }
 
     let mut fmt_out_owner = fmt_out.unwrap();
@@ -3043,11 +3032,7 @@ unsafe fn store_fmt_file() {
     ttstub_output_close(fmt_out_owner);
 }
 unsafe fn pack_buffered_name(mut _n: i16, mut _a: i32, mut _b: i32) {
-    free(name_of_file as *mut libc::c_void);
-    name_of_file = xmalloc_array(format_default_length as usize + 1);
-
-    strcpy(name_of_file, TEX_format_default);
-    name_length = strlen(name_of_file) as i32;
+    name_of_file = TEX_format_default.clone();
 }
 unsafe fn load_fmt_file() -> bool {
     let mut j: i32 = 0;
@@ -3060,14 +3045,15 @@ unsafe fn load_fmt_file() -> bool {
     /* This is where a first line starting with "&" used to
      * trigger code that would change the format file. */
 
-    pack_buffered_name((format_default_length - 4) as i16, 1, 0);
+    pack_buffered_name((TEX_format_default.as_bytes().len() - 4) as i16, 1, 0);
 
-    let fmt_in_owner = ttstub_input_open(name_of_file, TTInputFormat::FORMAT, 0);
+    let fmt_in_owner = ttstub_input_open(
+        CString::new(name_of_file.as_str()).unwrap().as_ptr(),
+        TTInputFormat::FORMAT,
+        0,
+    );
     if fmt_in_owner.is_none() {
-        abort!(
-            "cannot open the format file \"{}\"",
-            CStr::from_ptr(name_of_file).display()
-        );
+        abort!("cannot open the format file \"{}\"", name_of_file);
     }
     let mut fmt_in_owner = fmt_in_owner.unwrap();
     let fmt_in = &mut fmt_in_owner;
@@ -3098,7 +3084,7 @@ unsafe fn load_fmt_file() -> bool {
     if x != FORMAT_SERIAL {
         abort!(
             "format file \"{}\" is of the wrong version: expected {}, found {}",
-            CStr::from_ptr(name_of_file).display(),
+            name_of_file,
             FORMAT_SERIAL,
             x
         );
@@ -5116,10 +5102,7 @@ pub(crate) unsafe fn tt_run_engine(
      * main() driver routines. */
     /* Get our stdout handle */
     rust_stdout = ttstub_output_open_stdout();
-    let len = strlen(dump_name);
-    TEX_format_default = xmalloc(len.wrapping_add(1) as _) as *mut i8;
-    strcpy(TEX_format_default, dump_name);
-    format_default_length = len as i32;
+    TEX_format_default = to_rust_string(dump_name);
     /* Not sure why these get custom initializations. */
     if file_line_error_style_p < 0 {
         file_line_error_style_p = 0
@@ -5229,7 +5212,7 @@ pub(crate) unsafe fn tt_run_engine(
     if 514 < 0 || 514 > HASH_BASE {
         bad = 42
     }
-    if format_default_length > std::i32::MAX {
+    if TEX_format_default.as_bytes().len() > std::i32::MAX as usize {
         bad = 31
     }
     if 2 * MAX_HALFWORD < MEM_TOP as i32 {
@@ -5861,7 +5844,7 @@ pub(crate) unsafe fn tt_run_engine(
     final_cleanup();
     close_files_and_terminate();
     pdf_files_close();
-    free(TEX_format_default as *mut libc::c_void);
+    TEX_format_default = String::new();
     font_used = Vec::new();
     deinitialize_shipout_variables();
 
@@ -6016,7 +5999,7 @@ impl Dump for OutputHandleWrapper {
             "could not write {} {}-byte item(s) to {}",
             nitems,
             item_size,
-            unsafe { CStr::from_ptr(name_of_file).to_string_lossy() },
+            unsafe { &name_of_file },
         ));
     }
 }
@@ -6047,7 +6030,7 @@ impl UnDump for InputHandleWrapper {
                     "could not undump {} {}-byte item(s) from {}",
                     nitems,
                     item_size,
-                    CStr::from_ptr(name_of_file).display()
+                    name_of_file
                 );
             }
         }

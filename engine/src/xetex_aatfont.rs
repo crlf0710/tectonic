@@ -10,6 +10,7 @@
 )]
 
 use super::xetex_layout_interface::GlyphBBox;
+use std::ffi::CString;
 
 use crate::cf_prelude::*;
 
@@ -26,8 +27,8 @@ use crate::xetex_consts::{ExtCmd, NativeWord};
 use crate::xetex_ext::{print_chars, readCommonFeatures, read_double, D2Fix, Fix2D};
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
-    loaded_font_flags, loaded_font_letter_space, name_length, name_of_file, native_font_type_flag,
-    FONT_AREA, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
+    loaded_font_flags, loaded_font_letter_space, name_of_file, native_font_type_flag, FONT_AREA,
+    FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
 };
 use crate::xetex_xetex0::font_feature_warning;
 use libc::{free, strlen};
@@ -1275,11 +1276,12 @@ pub(crate) unsafe fn aat_font_get_named(what: ExtCmd, attributes: CFDictionaryRe
         let mut font: CTFontRef = font_from_attributes(attributes);
         let mut features: CFArrayRef = CTFontCopyFeatures(font);
         if !features.is_null() {
+            let name = CString::new(name_of_file.as_str()).unwrap();
             let mut feature: CFDictionaryRef = findDictionaryInArray(
                 features,
                 kCTFontFeatureTypeNameKey as *const libc::c_void,
-                name_of_file,
-                name_length,
+                name.as_ptr(),
+                name.as_bytes().len() as i32,
             );
             if !feature.is_null() {
                 let mut identifier: CFNumberRef = CFDictionaryGetValue(
@@ -1313,9 +1315,10 @@ pub(crate) unsafe fn aat_font_get_named_1(
                 kCTFontFeatureTypeIdentifierKey as *const libc::c_void,
                 param,
             );
+            let name = CString::new(name_of_file.as_str()).unwrap();
             if !feature.is_null() {
                 let mut selector: CFNumberRef =
-                    findSelectorByName(feature, name_of_file, name_length);
+                    findSelectorByName(feature, name.as_ptr(), name.as_bytes().len() as i32);
                 if !selector.is_null() {
                     CFNumberGetValue(
                         selector,
