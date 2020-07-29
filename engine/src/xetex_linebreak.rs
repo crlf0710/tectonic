@@ -10,13 +10,13 @@
 
 use crate::help;
 use crate::xetex_consts::*;
-use crate::xetex_errors::{confusion, error, Confuse};
+use crate::xetex_errors::{confusion, error};
 use crate::xetex_ini::{
     active_width, adjust_tail, arith_error, avail, cur_l, cur_lang, cur_list, cur_q, cur_r,
-    file_line_error_style_p, first_p, font_in_short_display, global_prev_p, hc, hf, hi_mem_min, hu,
-    hyf, hyf_distance, hyf_next, hyf_num, hyph_index, hyph_start, hyphen_passed, init_lft,
-    init_lig, init_list, init_trie, just_box, last_leftmost_char, last_rightmost_char, lft_hit,
-    lig_stack, ligature_present, max_hyph_char, op_start, pack_begin_line, pre_adjust_tail, rt_hit,
+    file_line_error_style_p, first_p, font_in_short_display, global_prev_p, hc, hf, hu, hyf,
+    hyf_distance, hyf_next, hyf_num, hyph_index, hyph_start, hyphen_passed, init_lft, init_lig,
+    init_list, init_trie, just_box, last_leftmost_char, last_rightmost_char, lft_hit, lig_stack,
+    ligature_present, max_hyph_char, op_start, pack_begin_line, pre_adjust_tail, rt_hit,
     semantic_pagination_enabled, str_pool, str_start, trie_not_ready, trie_trc, trie_trl, trie_tro,
     xtx_ligature_present, BCHAR_LABEL, CHAR_BASE, EQTB, FONT_BCHAR, FONT_INFO, HYPHEN_CHAR,
     HYPH_LINK, HYPH_LIST, HYPH_WORD, KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
@@ -32,9 +32,8 @@ use crate::xetex_xetex0::{
     prev_rightmost,
 };
 use crate::xetex_xetexd::{
-    clear_NODE_subtype, is_char_node, is_non_discardable_node, llist_link, set_NODE_type,
-    text_NODE_type, LLIST_info, LLIST_link, NODE_type, TeXInt, TeXOpt, FONT_CHARACTER_INFO,
-    FONT_CHARACTER_WIDTH,
+    clear_NODE_subtype, is_char_node, llist_link, set_NODE_type, LLIST_info, LLIST_link, NODE_type,
+    TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -332,10 +331,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     }
                 }
             }
-            match text_NODE_type(cp).unwrap() {
-                TextNode::HList | TextNode::VList => active_width[1] += List::from(cp).width(),
-                TextNode::Rule => active_width[1] += Rule::from(cp).width(),
-                TextNode::WhatsIt => match WhatsIt::from(cp) {
+            match &mut TxtNode::from(cp) {
+                TxtNode::HList(b) | TxtNode::VList(b) => active_width[1] += b.width(),
+                TxtNode::Rule(r) => active_width[1] += r.width(),
+                TxtNode::WhatsIt(cp) => match cp {
                     WhatsIt::Language(l) => {
                         cur_lang = l.lang() as u8;
                         l_hyf = l.lhm() as i32;
@@ -348,96 +347,100 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
                         }
                     }
-                    WhatsIt::NativeWord(cp) => {
-                        active_width[1] += cp.width();
+                    WhatsIt::NativeWord(nw) => {
+                        active_width[1] += nw.width();
                     }
-                    WhatsIt::Glyph(cp) => {
-                        active_width[1] += cp.width();
+                    WhatsIt::Glyph(g) => {
+                        active_width[1] += g.width();
                     }
-                    WhatsIt::Pic(cp) | WhatsIt::Pdf(cp) => {
-                        active_width[1] += cp.width();
+                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                        active_width[1] += p.width();
                     }
                     _ => {}
                 },
-                TextNode::Glue => {
-                    let mut cp = Glue(cp);
+                TxtNode::Glue(g) => {
                     if auto_breaking {
-                        if is_char_node(prev_p.opt()) {
-                            try_break(0, BreakType::Unhyphenated);
-                        } else if is_non_discardable_node(prev_p as usize) {
-                            try_break(0, BreakType::Unhyphenated);
-                        } else if NODE_type(prev_p as usize) == TextNode::Kern.into()
-                            && Kern(prev_p as usize).subtype() != KernType::Explicit
-                        {
-                            try_break(0, BreakType::Unhyphenated);
+                        match CharOrText::from(prev_p as usize) {
+                            CharOrText::Char(_) => try_break(0, BreakType::Unhyphenated),
+                            CharOrText::Text(t) => match t {
+                                TxtNode::HList(_)
+                                | TxtNode::VList(_)
+                                | TxtNode::Rule(_)
+                                | TxtNode::Ins(_)
+                                | TxtNode::Mark(_)
+                                | TxtNode::Adjust(_)
+                                | TxtNode::Ligature(_)
+                                | TxtNode::Disc(_)
+                                | TxtNode::WhatsIt(_) => try_break(0, BreakType::Unhyphenated),
+                                TxtNode::Kern(k) if k.subtype() != KernType::Explicit => {
+                                    try_break(0, BreakType::Unhyphenated)
+                                }
+                                _ => {}
+                            },
                         }
                     }
 
-                    c = process_glue(&mut cp, c, second_pass, auto_breaking);
+                    c = process_glue(g, c, second_pass, auto_breaking);
                 }
-                TextNode::Kern => {
-                    let k = Kern(cp);
+                TxtNode::Kern(k) => {
                     /* ... resuming 895 ... */
                     if k.subtype() == KernType::Explicit {
-                        if (!is_char_node(llist_link(cp)) as i32) < hi_mem_min && auto_breaking {
-                            if NODE_type(*LLIST_link(cp) as usize) == TextNode::Glue.into() {
-                                try_break(0, BreakType::Unhyphenated);
-                            }
+                        if let (true, CharOrText::Text(TxtNode::Glue(_))) =
+                            (auto_breaking, CharOrText::from(*LLIST_link(cp) as usize))
+                        {
+                            try_break(0, BreakType::Unhyphenated);
                         }
                         active_width[1] += k.width();
                     } else {
                         active_width[1] += k.width();
                     }
                 }
-                TextNode::Ligature => {
-                    let l = Ligature(cp);
+                TxtNode::Ligature(l) => {
                     let f = l.font() as usize;
                     xtx_ligature_present = true;
                     active_width[1] +=
                         *FONT_CHARACTER_WIDTH(f, effective_char(true, f, l.char()) as usize);
                 }
-                TextNode::Disc => {
-                    let cp = Discretionary(cp);
+                TxtNode::Disc(d) => {
                     /*898: try to break after a discretionary fragment, then goto done5 */
                     disc_width = 0;
 
-                    if let Some(mut s) = cp.pre_break().opt() {
+                    if let Some(mut s) = d.pre_break().opt() {
                         loop {
                             /*899:*/
-                            if is_char_node(Some(s)) {
+                            match CharOrText::from(s) {
                                 /*:898 big DISC_NODE case */
-                                let s = Char(s);
-                                let f = s.font() as usize;
-                                let eff_char_0 = effective_char(true, f, s.character());
-                                disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_0 as usize);
-                            } else {
-                                match text_NODE_type(s).unwrap() {
-                                    TextNode::Ligature => {
-                                        let l = Ligature(s);
+                                CharOrText::Char(c) => {
+                                    let f = c.font() as usize;
+                                    let eff_char_0 = effective_char(true, f, c.character());
+                                    disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_0 as usize);
+                                }
+                                CharOrText::Text(s) => match s {
+                                    TxtNode::Ligature(l) => {
                                         let f = l.font() as usize;
                                         xtx_ligature_present = true;
                                         let eff_char_1 = effective_char(true, f, l.char());
                                         disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
                                     }
-                                    TextNode::HList | TextNode::VList => {
-                                        disc_width += List::from(s).width()
+                                    TxtNode::HList(b) | TxtNode::VList(b) => {
+                                        disc_width += b.width()
                                     }
-                                    TextNode::Rule => disc_width += Rule::from(s).width(),
-                                    TextNode::Kern => disc_width += Kern(s).width(),
-                                    TextNode::WhatsIt => match WhatsIt::from(s) {
-                                        WhatsIt::NativeWord(s) => {
-                                            disc_width += s.width();
+                                    TxtNode::Rule(r) => disc_width += r.width(),
+                                    TxtNode::Kern(k) => disc_width += k.width(),
+                                    TxtNode::WhatsIt(s) => match s {
+                                        WhatsIt::NativeWord(nw) => {
+                                            disc_width += nw.width();
                                         }
-                                        WhatsIt::Glyph(s) => {
-                                            disc_width += s.width();
+                                        WhatsIt::Glyph(g) => {
+                                            disc_width += g.width();
                                         }
-                                        WhatsIt::Pic(s) | WhatsIt::Pdf(s) => {
-                                            disc_width += s.width();
+                                        WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                                            disc_width += p.width();
                                         }
                                         _ => confusion(b"disc3a"),
                                     },
                                     _ => confusion(b"disc3"),
-                                }
+                                },
                             }
                             if let Some(next) = llist_link(s) {
                                 s = next;
@@ -451,60 +454,58 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     } else {
                         try_break(*INTPAR(IntPar::ex_hyphen_penalty), BreakType::Hyphenated);
                     }
-                    let mut r = cp.replace_count() as i32;
-                    let mut sopt = llist_link(cp.ptr());
+                    let mut r = d.replace_count() as i32;
+                    let mut sopt = llist_link(d.ptr());
                     while r > 0 {
                         let s = sopt.unwrap();
-                        if is_char_node(Some(s)) {
-                            let s = Char(s);
-                            let f = s.font() as usize;
-                            let eff_char_2 = effective_char(true, f, s.character());
-                            active_width[1] += *FONT_CHARACTER_WIDTH(f, eff_char_2 as usize);
-                        } else {
-                            match text_NODE_type(s).confuse(b"disc4") {
-                                TextNode::Ligature => {
-                                    let l = Ligature(s);
+                        match CharOrText::from(s) {
+                            CharOrText::Char(c) => {
+                                let f = c.font() as usize;
+                                let eff_char_2 = effective_char(true, f, c.character());
+                                active_width[1] += *FONT_CHARACTER_WIDTH(f, eff_char_2 as usize);
+                            }
+                            CharOrText::Text(s) => match s {
+                                TxtNode::Ligature(l) => {
                                     let f = l.font() as usize;
                                     xtx_ligature_present = true;
                                     let eff_char_3 = effective_char(true, f, l.char());
                                     active_width[1] +=
                                         *FONT_CHARACTER_WIDTH(f, eff_char_3 as usize);
                                 }
-                                TextNode::HList | TextNode::VList => {
-                                    active_width[1] += List::from(s).width();
+                                TxtNode::HList(b) | TxtNode::VList(b) => {
+                                    active_width[1] += b.width();
                                 }
-                                TextNode::Rule => {
-                                    active_width[1] += Rule::from(s).width();
+                                TxtNode::Rule(r) => {
+                                    active_width[1] += r.width();
                                 }
-                                TextNode::Kern => {
-                                    active_width[1] += Kern(s).width();
+                                TxtNode::Kern(k) => {
+                                    active_width[1] += k.width();
                                 }
-                                TextNode::WhatsIt => match WhatsIt::from(s) {
-                                    WhatsIt::NativeWord(s) => {
-                                        active_width[1] += s.width();
+                                TxtNode::WhatsIt(s) => match s {
+                                    WhatsIt::NativeWord(nw) => {
+                                        active_width[1] += nw.width();
                                     }
-                                    WhatsIt::Glyph(s) => {
-                                        active_width[1] += s.width();
+                                    WhatsIt::Glyph(g) => {
+                                        active_width[1] += g.width();
                                     }
-                                    WhatsIt::Pic(s) | WhatsIt::Pdf(s) => {
-                                        active_width[1] += s.width();
+                                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                                        active_width[1] += p.width();
                                     }
                                     _ => confusion(b"disc4a"),
                                 },
                                 _ => confusion(b"disc4"),
-                            }
+                            },
                         }
                         r -= 1;
                         sopt = llist_link(s);
                     }
-                    global_prev_p = Some(cp.ptr()).tex_int();
+                    global_prev_p = Some(d.ptr()).tex_int();
                     prev_p = global_prev_p;
                     cur_p = sopt;
                     continue;
                 }
-                TextNode::Math => {
-                    let cp = Math(cp);
-                    match cp.subtype() {
+                TxtNode::Math(m) => {
+                    match m.subtype() {
                         MathType::Before | MathType::Eq(BE::Begin, MathMode::Middle) => {
                             auto_breaking = false
                         }
@@ -513,18 +514,18 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         }
                         _ => {}
                     }
-                    if !is_char_node(llist_link(cp.ptr())) && auto_breaking {
-                        if NODE_type(*LLIST_link(cp.ptr()) as usize) == TextNode::Glue.into() {
-                            try_break(0, BreakType::Unhyphenated);
-                        }
+                    if let (true, CharOrText::Text(TxtNode::Glue(_))) = (
+                        auto_breaking,
+                        CharOrText::from(*LLIST_link(m.ptr()) as usize),
+                    ) {
+                        try_break(0, BreakType::Unhyphenated);
                     }
-                    active_width[1] += cp.width();
+                    active_width[1] += m.width();
                 }
-                TextNode::Penalty => {
-                    let p = Penalty(cp);
+                TxtNode::Penalty(p) => {
                     try_break(p.penalty(), BreakType::Unhyphenated);
                 }
-                TextNode::Mark | TextNode::Ins | TextNode::Adjust => {}
+                TxtNode::Mark(_) | TxtNode::Ins(_) | TxtNode::Adjust(_) => {}
                 _ => confusion(b"paragraph"),
             }
             global_prev_p = cp as i32;
@@ -680,72 +681,70 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 /*930: skip to node ha, or goto done1 if no hyphenation should be attempted */
                 {
                     let mut flag = true;
-                    if is_char_node(Some(s)) {
-                        let s = Char(s);
-                        c = s.character() as UnicodeScalar; /*:930*/
-                        hf = s.font() as usize;
-                    } else if NODE_type(s) == TextNode::Ligature.into() {
-                        let l = Ligature(s);
-                        if let Some(q) = l.lig_ptr().opt() {
-                            let q = Char(q);
-                            c = q.character() as UnicodeScalar;
-                            hf = q.font() as usize;
-                        } else {
+                    match CharOrText::from(s) {
+                        CharOrText::Char(s) => {
+                            c = s.character() as UnicodeScalar; /*:930*/
+                            hf = s.font() as usize;
+                        }
+                        CharOrText::Text(TxtNode::Ligature(l)) => {
+                            if let Some(q) = l.lig_ptr().opt() {
+                                let q = Char(q);
+                                c = q.character() as UnicodeScalar;
+                                hf = q.font() as usize;
+                            } else {
+                                flag = false;
+                            }
+                        }
+                        CharOrText::Text(TxtNode::Kern(k)) if k.subtype() == KernType::Normal => {
                             flag = false;
                         }
-                    } else if NODE_type(s) == TextNode::Kern.into()
-                        && Kern(s).subtype() == KernType::Normal
-                    {
-                        flag = false;
-                    } else if NODE_type(s) == TextNode::Math.into()
-                        && (match Math(s).subtype() {
-                            MathType::Eq(_, MathMode::Left) | MathType::Eq(_, MathMode::Right) => {
-                                true
-                            }
-                            _ => false,
-                        })
-                    // NODE_subtype(s as usize)
-                    {
-                        flag = false;
-                    } else {
-                        if !(NODE_type(s) == TextNode::WhatsIt.into()) {
-                            return c;
+                        CharOrText::Text(TxtNode::Math(m))
+                            if (match m.subtype() {
+                                MathType::Eq(_, MathMode::Left)
+                                | MathType::Eq(_, MathMode::Right) => true,
+                                _ => false,
+                            }) =>
+                        {
+                            flag = false
                         }
-                        match WhatsIt::from(s) {
-                            WhatsIt::NativeWord(s) => {
-                                let mut l = 0;
-                                while l < s.text().len() as i32 {
-                                    c = get_native_usv(s.ptr(), l as usize);
-                                    if *LC_CODE(c as usize) != 0 {
-                                        hf = s.font() as usize;
-                                        prev_s = s.ptr();
-                                        break 's_786;
-                                    } else {
-                                        if c as i64 >= 65536 {
+                        CharOrText::Text(TxtNode::WhatsIt(s)) => {
+                            match s {
+                                WhatsIt::NativeWord(s) => {
+                                    let mut l = 0;
+                                    while l < s.text().len() as i32 {
+                                        c = get_native_usv(s.ptr(), l as usize);
+                                        if *LC_CODE(c as usize) != 0 {
+                                            hf = s.font() as usize;
+                                            prev_s = s.ptr();
+                                            break 's_786;
+                                        } else {
+                                            if c as i64 >= 65536 {
+                                                l += 1
+                                            }
                                             l += 1
                                         }
-                                        l += 1
                                     }
                                 }
-                            }
-                            WhatsIt::Language(l) => {
-                                cur_lang = l.lang() as u8;
-                                l_hyf = l.lhm() as i32;
-                                r_hyf = l.rhm() as i32;
+                                WhatsIt::Language(l) => {
+                                    cur_lang = l.lang() as u8;
+                                    l_hyf = l.lhm() as i32;
+                                    r_hyf = l.rhm() as i32;
 
-                                hyph_index = if *trie_trc
-                                    .offset((hyph_start + cur_lang as i32) as isize)
-                                    as i32
-                                    != cur_lang as i32
-                                {
-                                    0
-                                } else {
-                                    *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
-                                };
+                                    hyph_index = if *trie_trc
+                                        .offset((hyph_start + cur_lang as i32) as isize)
+                                        as i32
+                                        != cur_lang as i32
+                                    {
+                                        0
+                                    } else {
+                                        *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
+                                    };
+                                }
+                                _ => {}
                             }
-                            _ => {}
+                            flag = false;
                         }
-                        flag = false;
+                        _ => return c,
                     }
                     if flag {
                         hc[0] = if hyph_index == 0 || c > 255 {
@@ -895,87 +894,89 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     hn = 0;
 
                     's_1342: loop {
-                        if is_char_node(Some(s)) {
-                            let s = Char(s);
-                            if s.font() as usize != hf {
-                                break;
-                            }
-                            hyf_bchar = s.character() as i32;
-                            c = hyf_bchar;
-                            if hyph_index == 0 || c > 255 {
-                                hc[0] = *LC_CODE(c as usize);
-                            } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
-                                hc[0] = 0
-                            } else {
-                                hc[0] = *trie_tro.offset((hyph_index + c) as isize)
-                            }
-                            if hc[0] == 0 {
-                                break;
-                            }
-                            if hc[0] > max_hyph_char {
-                                break;
-                            }
-                            if hn as usize == max_hyphenatable_length() {
-                                break;
-                            }
-                            hb = s.ptr();
-                            hn += 1;
-                            hu[hn as usize] = c;
-                            hc[hn as usize] = hc[0];
-                            hyf_bchar = TOO_BIG_CHAR;
-                        } else if NODE_type(s) == TextNode::Ligature.into() {
-                            let l = Ligature(s);
-                            /*932: move the characters of a ligature node to hu and hc; but goto done3
-                             * if they are not all letters. */
-                            if l.font() as usize != hf {
-                                break;
-                            }
-                            let mut j = hn;
-                            let mut qopt = l.lig_ptr().opt();
-                            if let Some(q) = qopt {
-                                let q = Char(q);
-                                hyf_bchar = q.character() as i32;
-                            }
-                            while let Some(q) = qopt {
-                                let q = Char(q);
-                                c = q.character() as UnicodeScalar;
-                                hc[0] = if hyph_index == 0 || c > 255 {
-                                    *LC_CODE(c as usize)
+                        match CharOrText::from(s) {
+                            CharOrText::Char(s) => {
+                                if s.font() as usize != hf {
+                                    break;
+                                }
+                                hyf_bchar = s.character() as i32;
+                                c = hyf_bchar;
+                                if hyph_index == 0 || c > 255 {
+                                    hc[0] = *LC_CODE(c as usize);
                                 } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
-                                    0
+                                    hc[0] = 0
                                 } else {
-                                    *trie_tro.offset((hyph_index + c) as isize)
-                                };
+                                    hc[0] = *trie_tro.offset((hyph_index + c) as isize)
+                                }
                                 if hc[0] == 0 {
-                                    break 's_1342;
+                                    break;
                                 }
                                 if hc[0] > max_hyph_char {
-                                    break 's_1342;
+                                    break;
                                 }
-                                if j as usize == max_hyphenatable_length() {
-                                    break 's_1342;
+                                if hn as usize == max_hyphenatable_length() {
+                                    break;
                                 }
-                                j += 1;
-                                hu[j as usize] = c;
-                                hc[j as usize] = hc[0];
-                                qopt = llist_link(q.ptr());
-                            }
-                            hb = l.ptr();
-                            hn = j;
-                            if l.right_hit() {
-                                hyf_bchar = FONT_BCHAR[hf as usize]
-                            } else {
+                                hb = s.ptr();
+                                hn += 1;
+                                hu[hn as usize] = c;
+                                hc[hn as usize] = hc[0];
                                 hyf_bchar = TOO_BIG_CHAR;
                             }
-                        /*:932*/
-                        } else {
-                            if !(NODE_type(s) == TextNode::Kern.into()
-                                && Kern(s).subtype() == KernType::Normal)
-                            {
-                                break;
+                            CharOrText::Text(TxtNode::Ligature(l)) => {
+                                /*932: move the characters of a ligature node to hu and hc; but goto done3
+                                 * if they are not all letters. */
+                                if l.font() as usize != hf {
+                                    break;
+                                }
+                                let mut j = hn;
+                                let mut qopt = l.lig_ptr().opt();
+                                if let Some(q) = qopt {
+                                    let q = Char(q);
+                                    hyf_bchar = q.character() as i32;
+                                }
+                                while let Some(q) = qopt {
+                                    let q = Char(q);
+                                    c = q.character() as UnicodeScalar;
+                                    hc[0] = if hyph_index == 0 || c > 255 {
+                                        *LC_CODE(c as usize)
+                                    } else if *trie_trc.offset((hyph_index + c) as isize) as i32
+                                        != c
+                                    {
+                                        0
+                                    } else {
+                                        *trie_tro.offset((hyph_index + c) as isize)
+                                    };
+                                    if hc[0] == 0 {
+                                        break 's_1342;
+                                    }
+                                    if hc[0] > max_hyph_char {
+                                        break 's_1342;
+                                    }
+                                    if j as usize == max_hyphenatable_length() {
+                                        break 's_1342;
+                                    }
+                                    j += 1;
+                                    hu[j as usize] = c;
+                                    hc[j as usize] = hc[0];
+                                    qopt = llist_link(q.ptr());
+                                }
+                                hb = l.ptr();
+                                hn = j;
+                                if l.right_hit() {
+                                    hyf_bchar = FONT_BCHAR[hf as usize]
+                                } else {
+                                    hyf_bchar = TOO_BIG_CHAR;
+                                }
                             }
-                            hb = s;
-                            hyf_bchar = FONT_BCHAR[hf as usize]
+                            CharOrText::Text(TxtNode::Kern(s))
+                                if s.subtype() == KernType::Normal =>
+                            {
+                                /*:932*/
+                                hb = s.ptr();
+                                hyf_bchar = FONT_BCHAR[hf as usize]
+                            }
+                            _ => break,
                         }
                         s = llist_link(s).unwrap();
                     }
@@ -989,26 +990,25 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 }
 
                 loop {
-                    if !is_char_node(Some(s)) {
-                        match text_NODE_type(s).unwrap() {
-                            TextNode::Ligature => {}
-                            TextNode::Kern => {
-                                let k = Kern(s);
+                    match CharOrText::from(s) {
+                        CharOrText::Char(_) => {}
+                        CharOrText::Text(s) => match s {
+                            TxtNode::Ligature(_) => {}
+                            TxtNode::Kern(k) => {
                                 if k.subtype() != KernType::Normal {
                                     break;
                                 }
                             }
-                            TextNode::WhatsIt
-                            | TextNode::Glue
-                            | TextNode::Penalty
-                            | TextNode::Ins
-                            | TextNode::Adjust
-                            | TextNode::Mark => {
+                            TxtNode::WhatsIt(_)
+                            | TxtNode::Glue(_)
+                            | TxtNode::Penalty(_)
+                            | TxtNode::Ins(_)
+                            | TxtNode::Adjust(_)
+                            | TxtNode::Mark(_) => {
                                 break;
                             }
-                            TextNode::Math => {
-                                let s = Math(s);
-                                match s.subtype() {
+                            TxtNode::Math(m) => {
+                                match m.subtype() {
                                     MathType::Eq(_, MathMode::Left)
                                     | MathType::Eq(_, MathMode::Right) => break,
                                     _ => return c,
@@ -1017,7 +1017,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             _ => {
                                 return c;
                             }
-                        }
+                        },
                     }
                     s = llist_link(s).unwrap();
                 }
@@ -1078,8 +1078,7 @@ unsafe fn post_line_break(mut d: bool) {
                 *LLIST_link(TEMP_HEAD) = r;
             }
             while q != cp.cur_break() {
-                if q < hi_mem_min && NODE_type(q as usize) == TextNode::Math.into() {
-                    let q = Math(q as usize);
+                if let CharOrText::Text(TxtNode::Math(q)) = CharOrText::from(q as usize) {
                     /*1495:*/
                     let (be, mode) = q.subtype().equ();
                     if be == BE::End {
@@ -1109,17 +1108,15 @@ unsafe fn post_line_break(mut d: bool) {
         let mut glue_break = false;
 
         let mut q = if let Some(mut q) = cp.cur_break().opt() {
-            match text_NODE_type(q).unwrap() {
-                TextNode::Glue => {
-                    let mut q = Glue(q);
-                    delete_glue_ref(q.glue_ptr() as usize);
-                    q.set_glue_ptr(*GLUEPAR(GluePar::right_skip));
-                    q.set_param(GluePar::right_skip as u16 + 1);
+            match &mut TxtNode::from(q) {
+                TxtNode::Glue(g) => {
+                    delete_glue_ref(g.glue_ptr() as usize);
+                    g.set_glue_ptr(*GLUEPAR(GluePar::right_skip));
+                    g.set_param(GluePar::right_skip as u16 + 1);
                     GlueSpec(*GLUEPAR(GluePar::right_skip) as usize).rc_inc();
                     glue_break = true;
                 }
-                TextNode::Disc => {
-                    let mut d = Discretionary(q);
+                TxtNode::Disc(d) => {
                     /*911:*/
                     let mut t = d.replace_count();
                     let mut r;
@@ -1162,16 +1159,15 @@ unsafe fn post_line_break(mut d: bool) {
                     *LLIST_link(q) = r;
                     disc_break = true;
                 }
-                TextNode::Kern => {
-                    Kern(q).set_width(0);
+                TxtNode::Kern(k) => {
+                    k.set_width(0);
                 }
-                TextNode::Math => {
-                    let mut q = Math(q);
-                    q.set_width(0);
+                TxtNode::Math(m) => {
+                    m.set_width(0);
                     if *INTPAR(IntPar::texxet) > 0 {
                         /*1495:*/
                         let (be, _) = MathType::from(*INTPAR(IntPar::texxet) as u16).equ();
-                        let (_, mode) = q.subtype().equ();
+                        let (_, mode) = m.subtype().equ();
                         if be == BE::End {
                             if let Some(lr) = LR_ptr {
                                 if Math(lr).subtype_i32() == MathType::Eq(BE::End, mode) {
@@ -1204,14 +1200,17 @@ unsafe fn post_line_break(mut d: bool) {
          * q has been changed to the last node of the pre-break list" */
         if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
             let ptmp;
-            let p = if disc_break && (is_char_node(Some(q)) || NODE_type(q) != TextNode::Disc.into()) {
-                /*:915*/
-                ptmp = Some(q);
-                Some(q)
-            } else {
-                let p = prev_rightmost(llist_link(TEMP_HEAD), Some(q));
-                ptmp = p;
-                find_protchar_right(llist_link(TEMP_HEAD), p)
+            let p = match (disc_break, CharOrText::from(q)) {
+                (false, _) | (true, CharOrText::Text(TxtNode::Disc(_))) => {
+                    let p = prev_rightmost(llist_link(TEMP_HEAD), Some(q));
+                    ptmp = p;
+                    find_protchar_right(llist_link(TEMP_HEAD), p)
+                }
+                _ => {
+                    /*:915*/
+                    ptmp = Some(q);
+                    Some(q)
+                }
             };
             let w = char_pw(p, Side::Right);
             if w != 0 {
@@ -1366,45 +1365,45 @@ unsafe fn post_line_break(mut d: bool) {
                 let mut r = TEMP_HEAD;
                 let mut q;
                 loop {
-                    q = *LLIST_link(r as usize);
-                    if q == Passive(cp).cur_break() {
+                    q = *LLIST_link(r as usize) as usize;
+                    if Some(q) == Passive(cp).cur_break().opt() {
                         break;
                     }
-                    if is_char_node(q.opt()) {
-                        break;
-                    }
-                    if is_non_discardable_node(q as usize) {
-                        break;
-                    }
-                    if NODE_type(q as usize) == TextNode::Kern.into() && Kern(q as usize).subtype() != KernType::Explicit && Kern(q as usize).subtype() != KernType::SpaceAdjustment {
-                        break;
-                    }
-                    r = q as usize;
-                    if NODE_type(q as usize) == TextNode::Math.into() && *INTPAR(IntPar::texxet) > 0 {
-                        let q = Math(q as usize);
-                        /*1495:*/
-                        let (be, mode) = q.subtype().equ();
-                        if be == BE::End {
-                            if let Some(lr) = LR_ptr {
-                                if Math(lr).subtype_i32() == MathType::Eq(BE::End, mode) {
-                                    let tmp_ptr = lr;
-                                    LR_ptr = llist_link(tmp_ptr);
-                                    *LLIST_link(tmp_ptr) = avail.tex_int();
-                                    avail = Some(tmp_ptr);
+                    match CharOrText::from(q) {
+                        CharOrText::Char(_) => break,
+                        CharOrText::Text(t) => match t {
+                            TxtNode::HList(_) | TxtNode::VList(_) | TxtNode::Rule(_) |
+                            TxtNode::Ins(_) | TxtNode::Mark(_) | TxtNode::Adjust(_) |
+                            TxtNode::Ligature(_) | TxtNode::Disc(_)  | TxtNode::WhatsIt(_) => break,
+                            TxtNode::Kern(k) if k.subtype() != KernType::Explicit && k.subtype() != KernType::SpaceAdjustment => break,
+                            TxtNode::Math(q) if *INTPAR(IntPar::texxet) > 0 => {
+                                r = q.ptr();
+                                /*1495:*/
+                                let (be, mode) = q.subtype().equ();
+                                if be == BE::End {
+                                    if let Some(lr) = LR_ptr {
+                                        if Math(lr).subtype_i32() == MathType::Eq(BE::End, mode) {
+                                            let tmp_ptr = lr;
+                                            LR_ptr = llist_link(tmp_ptr);
+                                            *LLIST_link(tmp_ptr) = avail.tex_int();
+                                            avail = Some(tmp_ptr);
+                                        }
+                                    }
+                                } else {
+                                    let mut tmp_ptr = Math(get_avail());
+                                    tmp_ptr.set_subtype_i32(MathType::Eq(BE::End, mode));
+                                    *LLIST_link(tmp_ptr.ptr()) = LR_ptr.tex_int();
+                                    LR_ptr = Some(tmp_ptr.ptr());
                                 }
                             }
-                        } else {
-                            let mut tmp_ptr = Math(get_avail());
-                            tmp_ptr.set_subtype_i32(MathType::Eq(BE::End, mode));
-                            *LLIST_link(tmp_ptr.ptr()) = LR_ptr.tex_int();
-                            LR_ptr = Some(tmp_ptr.ptr());
+                            _ => { r = q; }
                         }
                     }
                 }
                 if r != TEMP_HEAD {
                     *LLIST_link(r as usize) = None.tex_int();
                     flush_node_list(llist_link(TEMP_HEAD));
-                    *LLIST_link(TEMP_HEAD) = q;
+                    *LLIST_link(TEMP_HEAD) = Some(q).tex_int();
                 }
             }
         }
@@ -1500,7 +1499,8 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                         match CharOrText::from(v) {
                                             CharOrText::Char(c) => {
                                                 let f = c.font() as usize;
-                                                let eff_char = effective_char(true, f, c.character());
+                                                let eff_char =
+                                                    effective_char(true, f, c.character());
                                                 break_width[1] -=
                                                     *FONT_CHARACTER_WIDTH(f, eff_char as usize);
                                             }
@@ -1538,7 +1538,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                     _ => confusion(b"disc1a"),
                                                 },
                                                 _ => confusion(b"disc1"),
-                                            }
+                                            },
                                         }
                                     }
                                     /*871: "add the width of node s to break_width" */
@@ -1546,7 +1546,8 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                         match CharOrText::from(s) {
                                             CharOrText::Char(c) => {
                                                 let f = c.font() as usize;
-                                                let eff_char_1 = effective_char(true, f, c.character());
+                                                let eff_char_1 =
+                                                    effective_char(true, f, c.character());
                                                 break_width[1] +=
                                                     *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
                                             }
@@ -1583,7 +1584,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                     _ => confusion(b"disc2a"),
                                                 },
                                                 _ => confusion(b"disc2"),
-                                            }
+                                            },
                                         }
                                         sopt = llist_link(s);
                                     }
@@ -1600,7 +1601,8 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                         TxtNode::Glue(g) => {
                                             let v = GlueSpec(g.glue_ptr() as usize);
                                             break_width[1] -= v.size();
-                                            break_width[2 + v.stretch_order() as usize] -= v.stretch();
+                                            break_width[2 + v.stretch_order() as usize] -=
+                                                v.stretch();
                                             break_width[6] -= v.shrink();
                                         }
                                         TxtNode::Penalty(_) => {}
@@ -1612,7 +1614,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                             break_width[1] -= k.width()
                                         }
                                         _ => break,
-                                    }
+                                    },
                                 }
                                 sopt = llist_link(s);
                             }
@@ -2261,17 +2263,15 @@ unsafe fn hyphenate() {
                     6662862405959679103
                 }
             }
-            _ => {
-                match CharOrText::from(r) {
-                    CharOrText::Text(TxtNode::Ligature(r)) if r.left_hit() => 6826215413708131726,
-                    _ => {
-                        j = 1_i16;
-                        s = ha;
-                        init_list = None.tex_int();
-                        5209103994167801282
-                    }
+            _ => match CharOrText::from(r) {
+                CharOrText::Text(TxtNode::Ligature(r)) if r.left_hit() => 6826215413708131726,
+                _ => {
+                    j = 1_i16;
+                    s = ha;
+                    init_list = None.tex_int();
+                    5209103994167801282
                 }
-            }
+            },
         };
         match current_block {
             6662862405959679103 => {
@@ -2734,7 +2734,7 @@ unsafe fn total_pw(q: &Active, p: Option<usize>) -> scaled_t {
         first_p.opt()
     };
     let mut r = prev_rightmost(global_prev_p.opt(), p);
-    
+
     match p.map(Node::from) {
         Some(Node::Text(TxtNode::Disc(d))) if d.pre_break().opt().is_some() => {
             if let Some(mut m) = d.pre_break().opt() {
@@ -2744,7 +2744,7 @@ unsafe fn total_pw(q: &Active, p: Option<usize>) -> scaled_t {
                 r = Some(m);
             }
         }
-        _ => r = find_protchar_right(lopt, r),   
+        _ => r = find_protchar_right(lopt, r),
     }
     let mut l = lopt.unwrap();
     if let Node::Text(TxtNode::Disc(d)) = Node::from(l) {
@@ -2768,14 +2768,24 @@ unsafe fn total_pw(q: &Active, p: Option<usize>) -> scaled_t {
 unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     let mut run: bool = false;
     match (llist_link(l), CharOrText::from(l)) {
-        (Some(next), CharOrText::Text(TxtNode::HList(n))) if n.is_empty() => {
-            l = next
-        }
+        (Some(next), CharOrText::Text(TxtNode::HList(n))) if n.is_empty() => l = next,
         _ => {
             if d {
                 while let Some(next) = llist_link(l) {
-                    if is_char_node(Some(l)) || is_non_discardable_node(l) {
-                        break;
+                    match CharOrText::from(l) {
+                        CharOrText::Char(_) => break,
+                        CharOrText::Text(t) => match t {
+                            TxtNode::HList(_)
+                            | TxtNode::VList(_)
+                            | TxtNode::Rule(_)
+                            | TxtNode::Ins(_)
+                            | TxtNode::Mark(_)
+                            | TxtNode::Adjust(_)
+                            | TxtNode::Ligature(_)
+                            | TxtNode::Disc(_)
+                            | TxtNode::WhatsIt(_) => break,
+                            _ => {}
+                        },
                     }
                     l = next;
                 }

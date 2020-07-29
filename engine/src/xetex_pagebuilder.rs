@@ -27,8 +27,7 @@ use crate::xetex_xetex0::{
     scan_left_brace, vert_break, vpackage,
 };
 use crate::xetex_xetexd::{
-    is_non_discardable_node, llist_link, text_NODE_type, LLIST_link, NODE_type,
-    TOKEN_LIST_ref_count, TeXInt, TeXOpt,
+    llist_link, text_NODE_type, LLIST_link, NODE_type, TOKEN_LIST_ref_count, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -609,10 +608,19 @@ pub(crate) unsafe fn build_page() {
                     || page_contents == PageContents::InsertsOnly
                 {
                     return done1(slf);
-                } else if is_non_discardable_node(page_tail) {
-                    slf.pi = 0;
                 } else {
-                    return update_heights(slf);
+                    match TxtNode::from(page_tail) {
+                        TxtNode::HList(_)
+                        | TxtNode::VList(_)
+                        | TxtNode::Rule(_)
+                        | TxtNode::Ins(_)
+                        | TxtNode::Mark(_)
+                        | TxtNode::Adjust(_)
+                        | TxtNode::Ligature(_)
+                        | TxtNode::Disc(_)
+                        | TxtNode::WhatsIt(_) => slf.pi = 0,
+                        _ => return update_heights(slf),
+                    }
                 }
             }
             TextNode::Kern => {

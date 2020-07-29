@@ -115,11 +115,6 @@ pub(crate) unsafe fn TOKEN_LIST_ref_count<'a>(p: usize) -> &'a mut i32 {
 }
 
 #[inline]
-pub(crate) unsafe fn is_non_discardable_node(p: usize) -> bool {
-    (MEM[p].b16.s1 as i32) < 9
-}
-
-#[inline]
 pub(crate) unsafe fn is_char_node(p: Option<usize>) -> bool {
     match p {
         Some(p) => p >= xetex_ini::hi_mem_min as usize,

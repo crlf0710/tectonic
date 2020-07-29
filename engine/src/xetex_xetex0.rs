@@ -12729,14 +12729,21 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     }
                     current_block = 10249009913728301645;
                 }
-                TextNode::Glue => {
-                    if is_non_discardable_node(prev_p as usize) {
+                TextNode::Glue => match TxtNode::from(prev_p as usize) {
+                    TxtNode::HList(_)
+                    | TxtNode::VList(_)
+                    | TxtNode::Rule(_)
+                    | TxtNode::Ins(_)
+                    | TxtNode::Mark(_)
+                    | TxtNode::Adjust(_)
+                    | TxtNode::Ligature(_)
+                    | TxtNode::Disc(_)
+                    | TxtNode::WhatsIt(_) => {
                         pi = 0;
                         current_block = 9007357115414505193;
-                    } else {
-                        current_block = 11492179201936201469;
                     }
-                }
+                    _ => current_block = 11492179201936201469,
+                },
                 TextNode::Kern => {
                     let t = if let Some(next) = llist_link(p) {
                         NODE_type(next)
