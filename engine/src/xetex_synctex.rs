@@ -21,7 +21,9 @@ use crate::xetex_ini::{
 use crate::xetex_io::name_of_input_file;
 use crate::xetex_texmfmp::gettexstring;
 use crate::xetex_xetexd::{SYNCTEX_line, SYNCTEX_tag};
-use bridge::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
+use bridge::{
+    ttstub_issue_error, ttstub_issue_warning_slice, ttstub_output_close, ttstub_output_open,
+};
 use libc::{free, strcat, strcpy, strlen};
 use std::ptr;
 
@@ -342,9 +344,8 @@ pub(crate) unsafe fn synctex_sheet(mut mag: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
         if *INTPAR(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
             synctex_ctxt.flags.insert(Flags::WARN);
-            ttstub_issue_warning(
-                b"SyncTeX was disabled -- changing the value of \\synctex has no effect\x00"
-                    as *const u8 as *const i8,
+            ttstub_issue_warning_slice(
+                b"SyncTeX was disabled -- changing the value of \\synctex has no effect",
             );
         }
         return;
@@ -779,9 +780,8 @@ pub(crate) unsafe fn synctex_pdfxform(mut p: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
         if *INTPAR(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
             synctex_ctxt.flags.insert(Flags::WARN);
-            ttstub_issue_warning(
-                b"SyncTeX was disabled - changing the value of \\synctex has no effect\x00"
-                    as *const u8 as *const i8,
+            ttstub_issue_warning_slice(
+                b"SyncTeX was disabled - changing the value of \\synctex has no effect",
             );
         }
         return;

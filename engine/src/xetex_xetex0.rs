@@ -97,17 +97,18 @@ use crate::xetex_stringpool::{
 };
 use crate::xetex_synctex::{synctex_start_input, synctex_terminate};
 use crate::xetex_texmfmp::{
-    getmd5sum, gettexstring, is_new_source, make_src_special, maketexstring, remember_source_info,
+    from_rust_string, getmd5sum, gettexstring_rust, is_new_source, make_src_special, maketexstring,
+    remember_source_info,
 };
 use crate::xetex_xetexd::*;
 use bridge::{
-    ttstub_input_close, ttstub_input_getc, ttstub_issue_warning, ttstub_output_close,
+    ttstub_input_close, ttstub_input_getc, ttstub_issue_warning_slice, ttstub_output_close,
     ttstub_output_open, ttstub_output_putc,
 };
 
 use bridge::{TTHistory, TTInputFormat};
 
-use libc::{free, memcpy, strcat, strcpy, strlen};
+use libc::{free, memcpy, strlen};
 
 use bridge::InputHandleWrapper;
 pub(crate) type scaled_t = i32;
@@ -9525,25 +9526,11 @@ pub(crate) unsafe fn end_name() {
     };
 }
 pub(crate) unsafe fn pack_file_name(mut n: str_number, mut a: str_number, mut e: str_number) {
-    // Note that we populate the buffer in an order different than how the
-    // arguments are passed to this function!
-    let mut work_buffer: *mut i8 =
-        xmalloc_array((length(a) + length(n) + length(e)) as usize * 3 + 1);
-    *work_buffer.offset(0) = '\u{0}' as i32 as i8;
-    let mut a_utf8: *mut i8 = gettexstring(a);
-    strcat(work_buffer, a_utf8);
-    free(a_utf8 as *mut libc::c_void);
-    let mut n_utf8: *mut i8 = gettexstring(n);
-    strcat(work_buffer, n_utf8);
-    free(n_utf8 as *mut libc::c_void);
-    let mut e_utf8: *mut i8 = gettexstring(e);
-    strcat(work_buffer, e_utf8);
-    free(e_utf8 as *mut libc::c_void);
-    name_length = strlen(work_buffer) as i32;
+    let string = gettexstring_rust(a) + &gettexstring_rust(n) + &gettexstring_rust(e);
+
     free(name_of_file as *mut libc::c_void);
-    name_of_file = xmalloc_array(name_length as usize + 1);
-    strcpy(name_of_file, work_buffer);
-    free(work_buffer as *mut libc::c_void);
+    name_length = string.as_bytes().len() as i32;
+    name_of_file = from_rust_string(&string);
 }
 pub(crate) unsafe fn make_name_string() -> str_number {
     let mut k: i32 = 0;
@@ -9871,8 +9858,7 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
         end_diagnostic(false);
         *INTPAR(IntPar::tracing_online) = old_setting_0
     }
-    let mut fn_0: *mut i8 = gettexstring(FONT_NAME[f]);
-    let mut chr: *mut i8 = 0 as *mut i8;
+    let fn_0 = gettexstring_rust(FONT_NAME[f]);
     let prev_selector = selector;
     let mut s: i32 = 0;
     selector = Selector::NEW_STRING;
@@ -9883,24 +9869,22 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
     }
     selector = prev_selector;
     s = make_string();
-    chr = gettexstring(s);
+    let chr = gettexstring_rust(s);
     str_ptr -= 1;
     pool_ptr = str_start[(str_ptr - 0x10000) as usize];
-    ttstub_issue_warning(
-        b"could not represent character \"%s\" in font \"%s\"\x00" as *const u8 as *const i8,
-        chr,
-        fn_0,
+    ttstub_issue_warning_slice(
+        format!(
+            "could not represent character \"{}\" in font \"{}\"",
+            chr, fn_0
+        )
+        .as_bytes(),
     );
-    free(fn_0 as *mut libc::c_void);
-    free(chr as *mut libc::c_void);
     if !gave_char_warning_help {
-        ttstub_issue_warning(
-            b"  you may need to load the `fontspec` package and use (e.g.) \\setmainfont to\x00"
-                as *const u8 as *const i8,
+        ttstub_issue_warning_slice(
+            b"  you may need to load the `fontspec` package and use (e.g.) \\setmainfont to",
         );
-        ttstub_issue_warning(
-            b"  choose a different font that covers the unrepresentable character(s)\x00"
-                as *const u8 as *const i8,
+        ttstub_issue_warning_slice(
+            b"  choose a different font that covers the unrepresentable character(s)",
         );
         gave_char_warning_help = true
     };

@@ -250,8 +250,7 @@ pub(crate) unsafe fn tt_xetex_open_input(mut filefmt: TTInputFormat) -> Option<I
 /* tables/values used in UTF-8 interpretation -
 code is based on ConvertUTF.[ch] sample code
 published by the Unicode consortium */
-#[no_mangle]
-pub(crate) static mut offsetsFromUTF8: [u32; 6] = [
+pub(crate) const offsetsFromUTF8: [u32; 6] = [
     0u64 as u32,
     0x3080u64 as u32,
     0xe2080u64 as u32,
@@ -259,8 +258,7 @@ pub(crate) static mut offsetsFromUTF8: [u32; 6] = [
     0xfa082080u64 as u32,
     0x82082080u64 as u32,
 ];
-#[no_mangle]
-pub(crate) static mut bytesFromUTF8: [u8; 256] = [
+pub(crate) const bytesFromUTF8: [u8; 256] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -270,8 +268,6 @@ pub(crate) static mut bytesFromUTF8: [u8; 256] = [
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5,
 ];
-#[no_mangle]
-pub(crate) static mut firstByteMark: [u8; 7] = [0, 0, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc];
 pub(crate) unsafe fn set_input_file_encoding(
     mut f: *mut UFILE,
     mode: UnicodeMode,

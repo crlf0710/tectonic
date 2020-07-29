@@ -11,7 +11,7 @@
 use crate::core_memory::xmalloc;
 use crate::stub_stdio::sprintf;
 use crate::xetex_ini::{pool_ptr, pool_size, str_pool, str_start};
-use crate::xetex_io::{bytesFromUTF8, firstByteMark, offsetsFromUTF8};
+use crate::xetex_io::{bytesFromUTF8, offsetsFromUTF8};
 use crate::xetex_stringpool::make_string;
 use bridge::{ttstub_get_data_md5, ttstub_get_file_md5};
 use libc::{free, strlen};
@@ -102,65 +102,28 @@ pub(crate) unsafe fn maketexstring(s: &[u8]) -> i32 {
     }
     make_string()
 }
-pub(crate) unsafe fn gettexstring(mut s: str_number) -> *mut i8 {
-    let mut len: pool_pointer = 0;
-    let mut i: pool_pointer = 0;
-    let mut j: pool_pointer = 0;
-    let mut name: *mut i8 = ptr::null_mut();
-    if s as i64 >= 65536 {
-        len =
-            str_start[((s + 1i32) as i64 - 65536) as usize] - str_start[(s as i64 - 65536) as usize]
+pub(crate) unsafe fn gettexstring_rust(s: str_number) -> String {
+    if s >= 65536 {
+        String::from_utf16(
+            &str_pool[(str_start[s as usize - 65536] as usize)
+                ..(str_start[s as usize + 1 - 65536] as usize)],
+        )
+        .unwrap()
     } else {
-        len = 0i32
+        String::new()
     }
-    name = xmalloc((len * 3i32 + 1i32) as size_t) as *mut i8;
-    i = 0i32;
-    j = 0i32;
-    while i < len {
-        let mut c: u32 = str_pool[(i + str_start[(s as i64 - 65536) as usize]) as usize] as u32;
-        if c >= 0xd800_u32 && c <= 0xdbff_u32 {
-            i += 1;
-            let mut lo: u32 =
-                str_pool[(i + str_start[(s as i64 - 65536) as usize]) as usize] as u32;
-            if lo >= 0xdc00_u32 && lo <= 0xdfff_u32 {
-                c = c
-                    .wrapping_sub(0xd800_u32)
-                    .wrapping_mul(0x400_u32)
-                    .wrapping_add(lo)
-                    .wrapping_sub(0xdc00_u32)
-                    .wrapping_add(0x10000_u32)
-            } else {
-                c = 0xfffd_u32
-            }
-        }
-        let bytesToWrite = if c < 0x80_u32 {
-            1_usize
-        } else if c < 0x800_u32 {
-            2
-        } else if c < 0x10000_u32 {
-            3
-        } else if c < 0x110000_u32 {
-            4
-        } else {
-            c = 0xfffd_u32;
-            3
-        };
-        j += bytesToWrite as i32;
-        for k in (1..=bytesToWrite).rev() {
-            /* note: everything falls through. */
-            j -= 1;
-            if k == 1 {
-                *name.offset(j as isize) = (c | firstByteMark[bytesToWrite] as u32) as i8;
-            } else {
-                *name.offset(j as isize) = ((c | 0x80) & 0xbf) as i8;
-                c >>= 6;
-            }
-        }
-        j += bytesToWrite as i32;
-        i += 1
+}
+pub(crate) unsafe fn from_rust_string(string: &String) -> *mut i8 {
+    let bytes = string.as_bytes();
+    let mut name = xmalloc((bytes.len() + 1) as size_t) as *mut i8;
+    for (j, &b) in bytes.iter().enumerate() {
+        *name.offset(j as isize) = b as i8;
     }
-    *name.offset(j as isize) = 0_i8;
+    *name.offset(bytes.len() as isize) = 0_i8;
     name
+}
+pub(crate) unsafe fn gettexstring(s: str_number) -> *mut i8 {
+    from_rust_string(&gettexstring_rust(s))
 }
 unsafe fn compare_paths(mut p1: *const i8, mut p2: *const i8) -> i32 {
     let mut ret: i32 = 0;
