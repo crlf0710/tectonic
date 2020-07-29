@@ -100,9 +100,9 @@ pub(crate) unsafe fn ship_out(mut p: List) {
     }
 
     if *INTPAR(IntPar::tracing_output) > 0 {
-        print_nl_cstr(b"");
+        print_nl_cstr("");
         print_ln();
-        print_cstr(b"Completed box being shipped out");
+        print_cstr("Completed box being shipped out");
     }
 
     if term_offset > max_print_line - 9 {
@@ -145,18 +145,18 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Huge page cannot be shipped out");
+        print_cstr("Huge page cannot be shipped out");
         help!(
-            b"The page just created is more than 18 feet tall or",
-            b"more than 18 feet wide, so I suspect something went wrong."
+            "The page just created is more than 18 feet tall or",
+            "more than 18 feet wide, so I suspect something went wrong."
         );
         error();
 
         if *INTPAR(IntPar::tracing_output) <= 0 {
             begin_diagnostic();
-            print_nl_cstr(b"The following box has been deleted:");
+            print_nl_cstr("The following box has been deleted:");
             show_box(Some(p.ptr()));
             end_diagnostic(true);
         }
@@ -245,19 +245,19 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
         let old_setting = selector;
         selector = Selector::NEW_STRING;
-        print_cstr(b"pdf:pagesize ");
+        print_cstr("pdf:pagesize ");
         if *DIMENPAR(DimenPar::pdf_page_width) <= 0 || *DIMENPAR(DimenPar::pdf_page_height) <= 0 {
-            print_cstr(b"default");
+            print_cstr("default");
         } else {
-            print_cstr(b"width");
+            print_cstr("width");
             print(' ' as i32);
             print_scaled(*DIMENPAR(DimenPar::pdf_page_width));
-            print_cstr(b"pt");
+            print_cstr("pt");
             print(' ' as i32);
-            print_cstr(b"height");
+            print_cstr("height");
             print(' ' as i32);
             print_scaled(*DIMENPAR(DimenPar::pdf_page_height));
-            print_cstr(b"pt");
+            print_cstr("pt");
         }
         selector = old_setting;
 
@@ -288,18 +288,18 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
     if LR_problems > 0 {
         print_ln();
-        print_nl_cstr(b"\\endL or \\endR problem (");
+        print_nl_cstr("\\endL or \\endR problem (");
         print_int(LR_problems / 10000);
-        print_cstr(b" missing, ");
+        print_cstr(" missing, ");
         print_int(LR_problems % 10000);
-        print_cstr(b" extra");
+        print_cstr(" extra");
         LR_problems = 0;
         print_char(')' as i32);
         print_ln();
     }
 
     if LR_ptr.opt().is_some() || cur_dir != LR::LeftToRight {
-        confusion(b"LR3");
+        confusion("LR3");
     }
 
     if *INTPAR(IntPar::tracing_output) <= 0 {
@@ -470,7 +470,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                          * and p to the last." */
                         if p != r_nw.ptr() {
                             if pool_ptr + k > pool_size {
-                                overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+                                overflow("pool size", (pool_size - init_pool_ptr) as usize);
                             }
                             k = 0;
                             let mut q = r_nw.ptr();
@@ -1208,7 +1208,7 @@ unsafe fn vlist_out(this_box: &List) {
         /*652: "Output node p and move to the next node, maintaining the
          * condition cur_h = left_edge" */
         if is_char_node(Some(p)) {
-            confusion(b"vlistout");
+            confusion("vlistout");
         }
         /*653: "Output the non-char_node p" */
         let n = text_NODE_type(p).unwrap();
@@ -1728,7 +1728,7 @@ unsafe fn reverse(
                             }
                         }
                     }
-                    EDGE_NODE => confusion(b"LR2"),
+                    EDGE_NODE => confusion("LR2"),
                     _ => add_rule = false,
                 }
 
@@ -1809,12 +1809,12 @@ pub(crate) unsafe fn out_what(p: usize) {
                 } else {
                     selector = Selector::TERM_AND_LOG
                 }
-                print_nl_cstr(b"\\openout");
+                print_nl_cstr("\\openout");
                 print_int(j as i32);
-                print_cstr(b" = `");
+                print_cstr(" = `");
                 print_file_name(cur_name, cur_area, cur_ext);
-                print_cstr(b"\'.");
-                print_nl_cstr(b"");
+                print_cstr("\'.");
+                print_nl_cstr("");
                 print_ln();
                 selector = old_setting
             }
@@ -1841,7 +1841,7 @@ pub(crate) unsafe fn out_what(p: usize) {
         }
         WhatsIt::Special(p) => special_out(&p),
         WhatsIt::Language(_) => {}
-        _ => confusion(b"ext4"),
+        _ => confusion("ext4"),
     };
 }
 
@@ -2080,7 +2080,7 @@ unsafe fn special_out(p: &Special) {
     selector = old_setting;
 
     if pool_ptr + 1 > pool_size {
-        overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+        overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
 
     if cur_length() < 256 {
@@ -2123,12 +2123,12 @@ unsafe fn write_out(p: &WriteFile) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Unbalanced write command");
+        print_cstr("Unbalanced write command");
         help!(
-            b"On this page there\'s a \\write with fewer real {\'s than }\'s.",
-            b"I can\'t handle that very well; good luck."
+            "On this page there\'s a \\write with fewer real {\'s than }\'s.",
+            "I can\'t handle that very well; good luck."
         );
         error();
 
@@ -2153,7 +2153,7 @@ unsafe fn write_out(p: &WriteFile) {
         if j == 17 && (selector == Selector::TERM_AND_LOG) {
             selector = Selector::LOG_ONLY
         }
-        print_nl_cstr(b"");
+        print_nl_cstr("");
     }
 
     token_show(Some(def_ref));
@@ -2170,16 +2170,16 @@ unsafe fn write_out(p: &WriteFile) {
             selector = Selector::TERM_ONLY
         }
 
-        print_nl_cstr(b"runsystem(");
+        print_nl_cstr("runsystem(");
         let mut d = 0;
         while d <= cur_length() - 1 {
             print(str_pool[(str_start[(str_ptr - TOO_BIG_CHAR) as usize] + d) as usize] as i32);
             d += 1
         }
-        print_cstr(b")...");
-        print_cstr(b"disabled");
+        print_cstr(")...");
+        print_cstr("disabled");
         print_char('.' as i32);
-        print_nl_cstr(b"");
+        print_nl_cstr("");
         print_ln();
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
     }
@@ -2199,8 +2199,8 @@ unsafe fn pic_out(p: &Picture) {
 
     let old_setting = selector;
     selector = Selector::NEW_STRING;
-    print_cstr(b"pdf:image ");
-    print_cstr(b"matrix ");
+    print_cstr("pdf:image ");
+    print_cstr("matrix ");
     let matrix = p.transform_matrix();
     print_scaled(matrix[0]);
     print(' ' as i32);
@@ -2214,16 +2214,16 @@ unsafe fn pic_out(p: &Picture) {
     print(' ' as i32);
     print_scaled(matrix[5]);
     print(' ' as i32);
-    print_cstr(b"page ");
+    print_cstr("page ");
     print_int(p.page() as i32);
     print(' ' as i32);
 
     match p.pagebox() {
-        1 => print_cstr(b"pagebox cropbox "),
-        2 => print_cstr(b"pagebox mediabox "),
-        3 => print_cstr(b"pagebox bleedbox "),
-        5 => print_cstr(b"pagebox artbox "),
-        4 => print_cstr(b"pagebox trimbox "),
+        1 => print_cstr("pagebox cropbox "),
+        2 => print_cstr("pagebox mediabox "),
+        3 => print_cstr("pagebox bleedbox "),
+        5 => print_cstr("pagebox artbox "),
+        4 => print_cstr("pagebox trimbox "),
         _ => {}
     }
 
@@ -2262,7 +2262,7 @@ pub(crate) unsafe fn finalize_dvi_file() {
     }
 
     if TOTAL_PAGES == 0 {
-        print_nl_cstr(b"No pages of output.");
+        print_nl_cstr("No pages of output.");
         return;
     }
 
@@ -2314,7 +2314,7 @@ pub(crate) unsafe fn finalize_dvi_file() {
 
     if dvi_ptr as i32 > TEX_INFINITY - dvi_offset as i32 {
         cur_s = -2;
-        fatal_error(b"dvi length exceeds 0x7FFFFFFF");
+        fatal_error("dvi length exceeds 0x7FFFFFFF");
     }
 
     if dvi_ptr > 0 {
@@ -2324,27 +2324,27 @@ pub(crate) unsafe fn finalize_dvi_file() {
     let mut k = ttstub_output_close(dvi_file.take().unwrap()) as u8;
 
     if k == 0 {
-        print_nl_cstr(b"Output written on ");
+        print_nl_cstr("Output written on ");
         print(output_file_name);
-        print_cstr(b" (");
+        print_cstr(" (");
         print_int(TOTAL_PAGES as i32);
         if TOTAL_PAGES != 1 {
-            print_cstr(b" pages");
+            print_cstr(" pages");
         } else {
-            print_cstr(b" page");
+            print_cstr(" page");
         }
-        print_cstr(b", ");
+        print_cstr(", ");
         print_int((dvi_offset + dvi_ptr) as i32);
-        print_cstr(b" bytes).");
+        print_cstr(" bytes).");
     } else {
-        print_nl_cstr(b"Error ");
+        print_nl_cstr("Error ");
         print_int(k as i32);
-        print_cstr(b" (");
+        print_cstr(" (");
         print_c_string(strerror(k as i32));
-        print_cstr(b") generating output;");
-        print_nl_cstr(b"file ");
+        print_cstr(") generating output;");
+        print_nl_cstr("file ");
         print(output_file_name);
-        print_cstr(b" may not be valid.");
+        print_cstr(" may not be valid.");
         /* XeTeX adds history = OUTPUT_FAILURE = 4 here; I'm not implementing that. */
     };
 }
@@ -2360,7 +2360,7 @@ unsafe fn write_to_dvi(a: usize, b: usize) {
 unsafe fn dvi_swap() {
     if dvi_ptr as i32 > TEX_INFINITY - dvi_offset as i32 {
         cur_s = -2;
-        fatal_error(b"dvi length exceeds 0x7FFFFFFF");
+        fatal_error("dvi length exceeds 0x7FFFFFFF");
     }
     if dvi_limit == DVI_BUF_SIZE {
         write_to_dvi(0, HALF_BUF - 1);

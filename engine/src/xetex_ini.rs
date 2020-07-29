@@ -553,7 +553,7 @@ pub(crate) static mut history: TTHistory = TTHistory::SPOTLESS;
 #[no_mangle]
 pub(crate) static mut error_count: i8 = 0;
 #[no_mangle]
-pub(crate) static mut help_line: [&'static [u8]; 6] = [&[]; 6];
+pub(crate) static mut help_line: [&'static str; 6] = [""; 6];
 #[no_mangle]
 pub(crate) static mut help_ptr: u8 = 0;
 #[no_mangle]
@@ -890,8 +890,6 @@ pub(crate) static mut pre_adjust_tail: Option<usize> = Some(0);
 #[no_mangle]
 pub(crate) static mut pack_begin_line: i32 = 0;
 #[no_mangle]
-pub(crate) static mut empty: b32x2 = b32x2 { s0: 0, s1: 0 };
-#[no_mangle]
 pub(crate) static mut cur_f: internal_font_number = 0;
 #[no_mangle]
 pub(crate) static mut cur_c: i32 = 0;
@@ -1093,7 +1091,7 @@ pub(crate) static mut IF_STACK: Vec<Option<usize>> = Vec::new();
 #[no_mangle]
 pub(crate) static mut max_reg_num: i32 = 0;
 #[no_mangle]
-pub(crate) static mut max_reg_help_line: &[u8] = &[];
+pub(crate) static mut max_reg_help_line: &str = "";
 #[no_mangle]
 pub(crate) static mut sa_root: [Option<usize>; 8] = [Some(0); 8];
 #[no_mangle]
@@ -1203,7 +1201,7 @@ where
     if len > 1 {
         let mut s: str_number = maketexstring(ident);
         if first + len > BUF_SIZE as i32 + 1 {
-            overflow(b"buffer size", BUF_SIZE);
+            overflow("buffer size", BUF_SIZE);
         }
         for i in 0..len {
             BUFFER[(first + i) as usize] = b_ident[i as usize] as UnicodeScalar;
@@ -1236,11 +1234,11 @@ pub(crate) unsafe fn new_trie_op(mut d: i16, mut n: i16, mut v: trie_opcode) -> 
         let l = _trie_op_hash_array[(h as i64 - -35111) as usize];
         if l == 0 {
             if trie_op_ptr as i64 == 35111 {
-                overflow(b"pattern memory ops", 35111);
+                overflow("pattern memory ops", 35111);
             }
             u = trie_used[cur_lang as usize];
             if u == MAX_TRIE_OP {
-                overflow(b"pattern memory ops per language", 65535 - 0);
+                overflow("pattern memory ops per language", 65535 - 0);
             }
             trie_op_ptr += 1;
             u += 1;
@@ -1321,7 +1319,7 @@ pub(crate) unsafe fn first_fit(mut p: trie_pointer) {
         h = z - c as i32;
         if trie_max < h + max_hyph_char {
             if trie_size <= h + max_hyph_char {
-                overflow(b"pattern memory", trie_size as usize);
+                overflow("pattern memory", trie_size as usize);
             }
             loop {
                 trie_max += 1;
@@ -1447,10 +1445,10 @@ unsafe fn new_patterns() {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
                                 } else {
-                                    print_nl_cstr(b"! ");
+                                    print_nl_cstr("! ");
                                 }
-                                print_cstr(b"Nonletter");
-                                help!(b"(See Appendix H.)");
+                                print_cstr("Nonletter");
+                                help!("(See Appendix H.)");
                                 error();
                             }
                         }
@@ -1507,7 +1505,7 @@ unsafe fn new_patterns() {
                             if p == 0 || c < *trie_c.offset(p as isize) {
                                 /*999:*/
                                 if trie_ptr == trie_size {
-                                    overflow(b"pattern memory", trie_size as usize);
+                                    overflow("pattern memory", trie_size as usize);
                                 }
                                 trie_ptr += 1;
                                 *trie_r.offset(trie_ptr as isize) = p;
@@ -1527,10 +1525,10 @@ unsafe fn new_patterns() {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
-                                print_nl_cstr(b"! ");
+                                print_nl_cstr("! ");
                             }
-                            print_cstr(b"Duplicate pattern");
-                            help!(b"(See Appendix H.)");
+                            print_cstr("Duplicate pattern");
+                            help!("(See Appendix H.)");
                             error();
                         }
                         *trie_o.offset(q as isize) = v
@@ -1546,11 +1544,11 @@ unsafe fn new_patterns() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! ");
+                        print_nl_cstr("! ");
                     }
-                    print_cstr(b"Bad ");
-                    print_esc_cstr(b"patterns");
-                    help!(b"(See Appendix H.)");
+                    print_cstr("Bad ");
+                    print_esc_cstr("patterns");
+                    help!("(See Appendix H.)");
                     error();
                 }
             }
@@ -1572,7 +1570,7 @@ unsafe fn new_patterns() {
                 /*:1644*/
                 /*999:*/
                 if trie_ptr == trie_size {
-                    overflow(b"pattern memory", trie_size as usize);
+                    overflow("pattern memory", trie_size as usize);
                 }
                 trie_ptr += 1;
                 *trie_r.offset(trie_ptr as isize) = p;
@@ -1595,7 +1593,7 @@ unsafe fn new_patterns() {
                     if p == 0i32 {
                         /*999:*/
                         if trie_ptr == trie_size {
-                            overflow(b"pattern memory", trie_size as usize);
+                            overflow("pattern memory", trie_size as usize);
                             /*:987 */
                         }
                         trie_ptr += 1;
@@ -1629,11 +1627,11 @@ unsafe fn new_patterns() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Too late for ");
-        print_esc_cstr(b"patterns");
-        help!(b"All patterns must be given before typesetting begins.");
+        print_cstr("Too late for ");
+        print_esc_cstr("patterns");
+        help!("All patterns must be given before typesetting begins.");
         error();
         *LLIST_link(GARBAGE) = scan_toks(false, false) as i32;
         flush_list(Some(def_ref));
@@ -1784,12 +1782,12 @@ unsafe fn new_hyph_exceptions() {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! ");
+                            print_nl_cstr("! ");
                         }
-                        print_cstr(b"Not a letter");
+                        print_cstr("Not a letter");
                         help!(
-                            b"Letters in \\hyphenation words must have \\lccode>0.",
-                            b"Proceed; I\'ll ignore the character I just read."
+                            "Letters in \\hyphenation words must have \\lccode>0.",
+                            "Proceed; I\'ll ignore the character I just read."
                         );
                         error();
                     } else if (n as usize) < max_hyphenatable_length() {
@@ -1817,7 +1815,7 @@ unsafe fn new_hyph_exceptions() {
                     n += 1;
                     hc[n as usize] = cur_lang as i32;
                     if pool_ptr + n as i32 > pool_size {
-                        overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+                        overflow("pool size", (pool_size - init_pool_ptr) as usize);
                     }
                     let mut h = 0;
 
@@ -1836,7 +1834,7 @@ unsafe fn new_hyph_exceptions() {
                     }
 
                     if HYPH_COUNT == HYPH_SIZE || HYPH_NEXT == 0 {
-                        overflow(b"exception dictionary", HYPH_SIZE);
+                        overflow("exception dictionary", HYPH_SIZE);
                     }
 
                     HYPH_COUNT += 1;
@@ -1897,14 +1895,14 @@ unsafe fn new_hyph_exceptions() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Improper ");
-                print_esc_cstr(b"hyphenation");
-                print_cstr(b" will be flushed");
+                print_cstr("Improper ");
+                print_esc_cstr("hyphenation");
+                print_cstr(" will be flushed");
                 help!(
-                    b"Hyphenation exceptions must contain only letters",
-                    b"and hyphens. But continue; I\'ll forgive and forget."
+                    "Hyphenation exceptions must contain only letters",
+                    "and hyphens. But continue; I\'ll forgive and forget."
                 );
                 error();
             }
@@ -1934,12 +1932,12 @@ pub(crate) unsafe fn prefixed_command() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"You can\'t use a prefix with `");
+            print_cstr("You can\'t use a prefix with `");
             print_cmd_chr(cur_cmd, cur_chr);
             print_char('\'' as i32);
-            help!(b"I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.");
+            help!("I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.");
             back_error();
             return;
         }
@@ -1957,16 +1955,16 @@ pub(crate) unsafe fn prefixed_command() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"You can\'t use `");
-        print_esc_cstr(b"long");
-        print_cstr(b"\' or `");
-        print_esc_cstr(b"outer");
-        help!(b"I\'ll pretend you didn\'t say \\long or \\outer or \\protected here.");
-        print_cstr(b"\' or `");
-        print_esc_cstr(b"protected");
-        print_cstr(b"\' with `");
+        print_cstr("You can\'t use `");
+        print_esc_cstr("long");
+        print_cstr("\' or `");
+        print_esc_cstr("outer");
+        help!("I\'ll pretend you didn\'t say \\long or \\outer or \\protected here.");
+        print_cstr("\' or `");
+        print_esc_cstr("protected");
+        print_cstr("\' with `");
         print_cmd_chr(cur_cmd, cur_chr);
         print_char('\'' as i32);
         error();
@@ -2057,9 +2055,9 @@ pub(crate) unsafe fn prefixed_command() {
                 scan_char_num();
                 if *INTPAR(IntPar::tracing_char_sub_def) > 0 {
                     begin_diagnostic();
-                    print_nl_cstr(b"New character substitution: ");
+                    print_nl_cstr("New character substitution: ");
                     print(p - CHAR_SUB_CODE_BASE as i32);
-                    print_cstr(b" = ");
+                    print_cstr(" = ");
                     print(n);
                     print_char(' ' as i32);
                     print(cur_val);
@@ -2189,10 +2187,10 @@ pub(crate) unsafe fn prefixed_command() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Missing `to\' inserted");
-                help!(b"You should have said `\\read<number> to \\cs\'.", b"I\'m going to look for the \\cs now.");
+                print_cstr("Missing `to\' inserted");
+                help!("You should have said `\\read<number> to \\cs\'.", "I\'m going to look for the \\cs now.");
                 error();
             }
             get_r_token();
@@ -2438,17 +2436,17 @@ pub(crate) unsafe fn prefixed_command() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Invalid code (");
+                print_cstr("Invalid code (");
                 print_int(cur_val);
                 if p < MATH_CODE_BASE as i32 {
-                    print_cstr(b"), should be in the range 0..");
+                    print_cstr("), should be in the range 0..");
                 } else {
-                    print_cstr(b"), should be at most ");
+                    print_cstr("), should be at most ");
                 }
                 print_int(n);
-                help!(b"I\'m going to use 0 instead of that illegal code value.");
+                help!("I\'m going to use 0 instead of that illegal code value.");
                 error();
                 cur_val = 0
             }
@@ -2507,11 +2505,11 @@ pub(crate) unsafe fn prefixed_command() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Improper ");
-                print_esc_cstr(b"setbox");
-                help!(b"Sorry, \\setbox is not allowed after \\halign in a display,", b"or between \\accent and an accented character.");
+                print_cstr("Improper ");
+                print_esc_cstr("setbox");
+                help!("Sorry, \\setbox is not allowed after \\halign in a display,", "or between \\accent and an accented character.");
                 error();
             }
         }
@@ -2570,9 +2568,9 @@ pub(crate) unsafe fn prefixed_command() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Patterns can be loaded only by INITEX");
+                print_cstr("Patterns can be loaded only by INITEX");
                 help!();
                 error();
                 loop  {
@@ -2618,7 +2616,7 @@ pub(crate) unsafe fn prefixed_command() {
         }
         Cmd::DefFont => { new_font(a); }
         Cmd::SetInteraction => { new_interaction(); }
-        _ => { confusion(b"prefix"); }
+        _ => { confusion("prefix"); }
     }
 
     /*1304:*/
@@ -2639,10 +2637,10 @@ unsafe fn store_fmt_file() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"You can\'t dump inside a group");
-        help!(b"`{...\\dump}\' is a no-no.");
+        print_cstr("You can\'t dump inside a group");
+        help!("`{...\\dump}\' is a no-no.");
 
         if interaction == InteractionMode::ErrorStop {
             interaction = InteractionMode::Scroll;
@@ -2658,7 +2656,7 @@ unsafe fn store_fmt_file() {
     }
 
     selector = Selector::NEW_STRING;
-    print_cstr(b" (preloaded format=");
+    print_cstr(" (preloaded format=");
     print(job_name);
     print_char(' ' as i32);
     print_int(*INTPAR(IntPar::year));
@@ -2675,7 +2673,7 @@ unsafe fn store_fmt_file() {
     };
 
     if pool_ptr + 1 > pool_size {
-        overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+        overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
 
     format_ident = make_string();
@@ -2688,13 +2686,13 @@ unsafe fn store_fmt_file() {
 
     let mut fmt_out_owner = fmt_out.unwrap();
     let fmt_out = &mut fmt_out_owner;
-    print_nl_cstr(b"Beginning to dump on file ");
+    print_nl_cstr("Beginning to dump on file ");
     print(make_name_string());
 
     str_ptr -= 1;
     pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
 
-    print_nl_cstr(b"");
+    print_nl_cstr("");
     print(format_ident);
 
     /* Header */
@@ -2721,7 +2719,7 @@ unsafe fn store_fmt_file() {
 
     print_ln();
     print_int(str_ptr);
-    print_cstr(b" strings of total length ");
+    print_cstr(" strings of total length ");
     print_int(pool_ptr);
 
     /* "memory locations" */
@@ -2770,7 +2768,7 @@ unsafe fn store_fmt_file() {
 
     print_ln();
     print_int(x);
-    print_cstr(b" memory locations dumped; current usage is ");
+    print_cstr(" memory locations dumped; current usage is ");
     print_int(var_used);
     print_char('&' as i32);
     print_int(dyn_used);
@@ -2885,7 +2883,7 @@ unsafe fn store_fmt_file() {
 
     print_ln();
     print_int(cs_count);
-    print_cstr(b" multiletter control sequences");
+    print_cstr(" multiletter control sequences");
 
     /* fonts */
 
@@ -2917,7 +2915,7 @@ unsafe fn store_fmt_file() {
     fmt_out.dump(&FONT_FALSE_BCHAR[..FONT_PTR + 1]);
 
     for k in FONT_BASE..=FONT_PTR {
-        print_nl_cstr(b"\\font");
+        print_nl_cstr("\\font");
         print_esc((*hash.offset(FONT_ID_BASE as isize + k as isize)).s1);
         print_char('=' as i32);
 
@@ -2930,14 +2928,14 @@ unsafe fn store_fmt_file() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Can\'t \\dump a format with native fonts or font-mappings");
+            print_cstr("Can\'t \\dump a format with native fonts or font-mappings");
 
             help!(
-                b"You really, really don\'t want to do this.",
-                b"It won\'t work, and only confuses me.",
-                b"(Load them at runtime, not as part of the format file.)"
+                "You really, really don\'t want to do this.",
+                "It won\'t work, and only confuses me.",
+                "(Load them at runtime, not as part of the format file.)"
             );
             error();
         } else {
@@ -2945,20 +2943,20 @@ unsafe fn store_fmt_file() {
         }
 
         if FONT_SIZE[k] != FONT_DSIZE[k] {
-            print_cstr(b" at ");
+            print_cstr(" at ");
             print_scaled(FONT_SIZE[k]);
-            print_cstr(b"pt");
+            print_cstr("pt");
         }
     }
 
     print_ln();
     print_int(fmem_ptr - 7);
-    print_cstr(b" words of font info for ");
+    print_cstr(" words of font info for ");
     print_int(FONT_PTR as i32 - 0);
     if FONT_PTR != FONT_BASE + 1 {
-        print_cstr(b" preloaded fonts");
+        print_cstr(" preloaded fonts");
     } else {
-        print_cstr(b" preloaded font");
+        print_cstr(" preloaded font");
     }
 
     /* hyphenation info */
@@ -2980,9 +2978,9 @@ unsafe fn store_fmt_file() {
     print_ln();
     print_int(HYPH_COUNT as i32);
     if HYPH_COUNT != 1 {
-        print_cstr(b" hyphenation exceptions");
+        print_cstr(" hyphenation exceptions");
     } else {
-        print_cstr(b" hyphenation exception");
+        print_cstr(" hyphenation exception");
     }
     if trie_not_ready {
         init_trie();
@@ -3002,23 +3000,23 @@ unsafe fn store_fmt_file() {
     fmt_out.dump(&hyf_num[1..trie_op_ptr as usize + 1]);
     fmt_out.dump(&hyf_next[1..trie_op_ptr as usize + 1]);
 
-    print_nl_cstr(b"Hyphenation trie of length ");
+    print_nl_cstr("Hyphenation trie of length ");
     print_int(trie_max);
-    print_cstr(b" has ");
+    print_cstr(" has ");
     print_int(trie_op_ptr);
     if trie_op_ptr != 1i32 {
-        print_cstr(b" ops");
+        print_cstr(" ops");
     } else {
-        print_cstr(b" op");
+        print_cstr(" op");
     }
-    print_cstr(b" out of ");
+    print_cstr(" out of ");
     print_int(TRIE_OP_SIZE as i32);
 
     for k in (0..=BIGGEST_LANG).rev() {
         if trie_used[k as usize] as i32 > 0i32 {
-            print_nl_cstr(b"  ");
+            print_nl_cstr("  ");
             print_int(trie_used[k as usize] as i32);
-            print_cstr(b" for language ");
+            print_cstr(" for language ");
             print_int(k);
             fmt_out.dump_one(k as i32);
             fmt_out.dump_one(trie_used[k as usize] as i32);
@@ -3131,7 +3129,7 @@ unsafe fn load_fmt_file() -> bool {
     }
 
     max_reg_num = 32767;
-    max_reg_help_line = b"A register number must be between 0 and 32767.";
+    max_reg_help_line = "A register number must be between 0 and 32767.";
 
     /* "memory locations" */
 
@@ -3718,27 +3716,27 @@ unsafe fn final_cleanup() {
         }
     }
     while open_parens > 0 {
-        print_cstr(b" )");
+        print_cstr(" )");
         open_parens -= 1;
     }
     if cur_level > LEVEL_ONE {
         print_nl('(' as i32);
-        print_esc_cstr(b"end occurred ");
-        print_cstr(b"inside a group at level ");
+        print_esc_cstr("end occurred ");
+        print_cstr("inside a group at level ");
         print_int(cur_level as i32 - 1);
         print_char(')' as i32);
         show_save_groups();
     }
     while let Some(cp) = cond_ptr {
         print_nl('(' as i32);
-        print_esc_cstr(b"end occurred ");
-        print_cstr(b"when ");
+        print_esc_cstr("end occurred ");
+        print_cstr("when ");
         print_cmd_chr(Cmd::IfTest, cur_if as i32);
         if if_line != 0 {
-            print_cstr(b" on line ");
+            print_cstr(" on line ");
             print_int(if_line);
         }
-        print_cstr(b" was incomplete)");
+        print_cstr(" was incomplete)");
         if_line = MEM[cp + 1].b32.s1;
         cur_if = MEM[cp].b16.s0 as i16;
         let tmp_ptr = cp;
@@ -3749,7 +3747,7 @@ unsafe fn final_cleanup() {
         if history == TTHistory::WARNING_ISSUED || interaction != InteractionMode::ErrorStop {
             if selector == Selector::TERM_AND_LOG {
                 selector = Selector::TERM_ONLY;
-                print_nl_cstr(b"(see the transcript file for additional information)");
+                print_nl_cstr("(see the transcript file for additional information)");
                 selector = Selector::TERM_AND_LOG
             }
         }
@@ -3775,7 +3773,7 @@ unsafe fn final_cleanup() {
             store_fmt_file();
             return;
         }
-        print_nl_cstr(b"(\\dump is performed only by INITEX)");
+        print_nl_cstr("(\\dump is performed only by INITEX)");
         return;
     };
 }
@@ -3890,8 +3888,6 @@ unsafe fn initialize_more_variables() {
     last_badness = 0;
     pre_adjust_tail = None;
     pack_begin_line = 0;
-    empty.s1 = MathCell::Empty as _;
-    empty.s0 = None.tex_int();
     align_ptr = None;
     cur_align = None;
     cur_span = None;
@@ -4130,7 +4126,7 @@ unsafe fn initialize_more_initex_variables() {
     EQTB[END_WRITE as usize].val = None.tex_int();
 
     max_reg_num = 32767;
-    max_reg_help_line = b"A register number must be between 0 and 32767.";
+    max_reg_help_line = "A register number must be between 0 and 32767.";
 
     for i in (ValLevel::Int as usize)..=(ValLevel::InterChar as usize) {
         sa_root[i] = None;
@@ -5712,7 +5708,7 @@ pub(crate) unsafe fn tt_run_engine(
             DISPLAY_WIDOW_PENALTIES_LOC as i32,
         );
         max_reg_num = 32767;
-        max_reg_help_line = b"A register number must be between 0 and 32767.";
+        max_reg_help_line = "A register number must be between 0 and 32767.";
     }
     no_new_control_sequence = true;
 

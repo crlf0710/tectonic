@@ -293,15 +293,15 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Improper image ");
-                print_cstr(b"size (");
+                print_cstr("Improper image ");
+                print_cstr("size (");
                 print_scaled(cur_val);
-                print_cstr(b"pt) will be ignored");
+                print_cstr("pt) will be ignored");
                 help!(
-                    b"I can\'t scale images to zero or negative sizes,",
-                    b"so I\'m ignoring this."
+                    "I can\'t scale images to zero or negative sizes,",
+                    "so I\'m ignoring this."
                 );
                 error();
             } else {
@@ -313,15 +313,15 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Improper image ");
-                print_cstr(b"size (");
+                print_cstr("Improper image ");
+                print_cstr("size (");
                 print_scaled(cur_val);
-                print_cstr(b"pt) will be ignored");
+                print_cstr("pt) will be ignored");
                 help!(
-                    b"I can\'t scale images to zero or negative sizes,",
-                    b"so I\'m ignoring this."
+                    "I can\'t scale images to zero or negative sizes,",
+                    "so I\'m ignoring this."
                 );
                 error();
             } else {
@@ -418,20 +418,20 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Unable to load picture or PDF file \'");
+        print_cstr("Unable to load picture or PDF file \'");
         print_file_name(cur_name, cur_area, cur_ext);
         print('\'' as i32);
         if result == -43i32 {
             help!(
-                b"The requested image couldn\'t be read because",
-                b"the file was not found."
+                "The requested image couldn\'t be read because",
+                "the file was not found."
             );
         } else {
             help!(
-                b"The requested image couldn\'t be read because",
-                b"it was not a recognized image format."
+                "The requested image couldn\'t be read because",
+                "it was not a recognized image format."
             );
         }
         error();

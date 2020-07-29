@@ -188,11 +188,11 @@ pub(crate) unsafe fn print_char(s: i32) {
 pub(crate) unsafe fn print(mut s: i32) {
     let mut nl: i32 = 0;
     if s >= str_ptr {
-        return print_cstr(b"???");
+        return print_cstr("???");
     } else {
         if s < 0xffffi32 {
             if s < 0i32 {
-                return print_cstr(b"???");
+                return print_cstr("???");
             } else {
                 if u8::from(selector) > u8::from(Selector::PSEUDO) {
                     print_char(s);
@@ -242,8 +242,8 @@ pub(crate) unsafe fn print(mut s: i32) {
         i += 1
     }
 }
-pub(crate) unsafe fn print_cstr(slice: &[u8]) {
-    for &s in slice {
+pub(crate) unsafe fn print_cstr(slice: &str) {
+    for &s in slice.as_bytes() {
         print_char(s as i32);
     }
 }
@@ -255,7 +255,7 @@ pub(crate) unsafe fn print_nl(mut s: str_number) {
     }
     print(s);
 }
-pub(crate) unsafe fn print_nl_cstr(slice: &[u8]) {
+pub(crate) unsafe fn print_nl_cstr(slice: &str) {
     if term_offset > 0i32 && u8::from(selector) & 1 != 0
         || file_offset > 0i32 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
     {
@@ -270,7 +270,7 @@ pub(crate) unsafe fn print_esc(mut s: str_number) {
     }
     print(s);
 }
-pub(crate) unsafe fn print_esc_cstr(s: &[u8]) {
+pub(crate) unsafe fn print_esc_cstr(s: &str) {
     let mut c = *INTPAR(IntPar::escape_char);
     if c >= 0i32 && c <= BIGGEST_USV as i32 {
         print_char(c);
@@ -321,8 +321,8 @@ pub(crate) unsafe fn print_cs(mut p: i32) {
     if p < HASH_BASE as i32 {
         if p >= SINGLE_BASE as i32 {
             if p == NULL_CS as i32 {
-                print_esc_cstr(b"csname");
-                print_esc_cstr(b"endcsname");
+                print_esc_cstr("csname");
+                print_esc_cstr("endcsname");
                 print_char(' ' as i32);
             } else {
                 print_esc(p - SINGLE_BASE as i32);
@@ -331,15 +331,15 @@ pub(crate) unsafe fn print_cs(mut p: i32) {
                 }
             }
         } else if p < ACTIVE_BASE as i32 {
-            print_esc_cstr(b"IMPOSSIBLE.");
+            print_esc_cstr("IMPOSSIBLE.");
         } else {
             print_char(p - 1i32);
         }
     } else if p >= UNDEFINED_CONTROL_SEQUENCE as i32 && p <= EQTB_SIZE as i32 || p > EQTB_TOP as i32
     {
-        print_esc_cstr(b"IMPOSSIBLE.");
+        print_esc_cstr("IMPOSSIBLE.");
     } else if (*hash.offset(p as isize)).s1 >= str_ptr {
-        print_esc_cstr(b"NONEXISTENT.");
+        print_esc_cstr("NONEXISTENT.");
     } else {
         print_esc((*hash.offset(p as isize)).s1);
         print_char(' ' as i32);
@@ -352,8 +352,8 @@ pub(crate) unsafe fn sprint_cs(mut p: i32) {
         } else if p < NULL_CS as i32 {
             print_esc(p - SINGLE_BASE as i32);
         } else {
-            print_esc_cstr(b"csname");
-            print_esc_cstr(b"endcsname");
+            print_esc_cstr("csname");
+            print_esc_cstr("endcsname");
         }
     } else {
         print_esc((*hash.offset(p as isize)).s1);
@@ -450,14 +450,14 @@ pub(crate) unsafe fn print_file_name(mut n: i32, mut a: i32, mut e: i32) {
 }
 pub(crate) unsafe fn print_size(mut s: i32) {
     if s == TEXT_SIZE as i32 {
-        print_esc_cstr(b"textfont");
+        print_esc_cstr("textfont");
     } else if s == SCRIPT_SIZE as i32 {
-        print_esc_cstr(b"scriptfont");
+        print_esc_cstr("scriptfont");
     } else {
-        print_esc_cstr(b"scriptscriptfont");
+        print_esc_cstr("scriptscriptfont");
     };
 }
-pub(crate) unsafe fn print_write_whatsit(s: &[u8], p: usize) {
+pub(crate) unsafe fn print_write_whatsit(s: &str, p: usize) {
     print_esc_cstr(s);
     if MEM[p + 1].b32.s0 < 16 {
         print_int(MEM[p + 1].b32.s0);
@@ -512,9 +512,9 @@ pub(crate) unsafe fn print_file_line() {
         level -= 1
     }
     if level == 0 {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     } else {
-        print_nl_cstr(b"");
+        print_nl_cstr("");
         print(FULL_SOURCE_FILENAME_STACK[level]);
         print(':' as i32);
         if level == IN_OPEN {
@@ -522,7 +522,7 @@ pub(crate) unsafe fn print_file_line() {
         } else {
             print_int(LINE_STACK[level + 1]);
         }
-        print_cstr(b": ");
+        print_cstr(": ");
     };
 }
 /*:251 */

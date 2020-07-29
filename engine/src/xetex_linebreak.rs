@@ -442,9 +442,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                                             disc_width += p.width();
                                         }
-                                        _ => confusion(b"disc3a"),
+                                        _ => confusion("disc3a"),
                                     },
-                                    _ => confusion(b"disc3"),
+                                    _ => confusion("disc3"),
                                 },
                             }
                             if let Some(next) = llist_link(s) {
@@ -496,9 +496,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                                         active_width[1] += p.width();
                                     }
-                                    _ => confusion(b"disc4a"),
+                                    _ => confusion("disc4a"),
                                 },
-                                _ => confusion(b"disc4"),
+                                _ => confusion("disc4"),
                             },
                         }
                         r -= 1;
@@ -531,7 +531,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     try_break(p.penalty(), BreakType::Unhyphenated);
                 }
                 TxtNode::Mark(_) | TxtNode::Ins(_) | TxtNode::Adjust(_) => {}
-                _ => confusion(b"paragraph"),
+                _ => confusion("paragraph"),
             }
             global_prev_p = cp as i32;
             prev_p = global_prev_p;
@@ -1417,7 +1417,7 @@ unsafe fn post_line_break(mut d: bool) {
         }
     }
     if cur_line != best_line || llist_link(TEMP_HEAD).is_some() {
-        confusion(b"line breaking");
+        confusion("line breaking");
     }
     cur_list.prev_graf = best_line - 1;
     cur_list.eTeX_aux = LR_ptr;
@@ -1540,9 +1540,9 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                     WhatsIt::Pic(v) | WhatsIt::Pdf(v) => {
                                                         break_width[1] -= v.width();
                                                     }
-                                                    _ => confusion(b"disc1a"),
+                                                    _ => confusion("disc1a"),
                                                 },
-                                                _ => confusion(b"disc1"),
+                                                _ => confusion("disc1"),
                                             },
                                         }
                                     }
@@ -1586,9 +1586,9 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                     WhatsIt::Pic(s) | WhatsIt::Pdf(s) => {
                                                         break_width[1] += s.width();
                                                     }
-                                                    _ => confusion(b"disc2a"),
+                                                    _ => confusion("disc2a"),
                                                 },
-                                                _ => confusion(b"disc2"),
+                                                _ => confusion("disc2"),
                                             },
                                         }
                                         sopt = llist_link(s);
@@ -2431,15 +2431,15 @@ unsafe fn finite_shrink(p: usize) -> usize {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Infinite glue shrinkage found in a paragraph");
+        print_cstr("Infinite glue shrinkage found in a paragraph");
         help!(
-            b"The paragraph just ended includes some glue that has",
-            b"infinite shrinkability, e.g., `\\hskip 0pt minus 1fil\'.",
-            b"Such glue doesn\'t belong there---it allows a paragraph",
-            b"of any length to fit on one line. But it\'s safe to proceed,",
-            b"since the offensive shrinkability has been made finite."
+            "The paragraph just ended includes some glue that has",
+            "infinite shrinkability, e.g., `\\hskip 0pt minus 1fil\'.",
+            "Such glue doesn\'t belong there---it allows a paragraph",
+            "of any length to fit on one line. But it\'s safe to proceed,",
+            "since the offensive shrinkability has been made finite."
         );
         error();
     }

@@ -8,7 +8,6 @@
     unused_mut
 )]
 
-use bridge::DisplayExt;
 use std::io::Write;
 
 use crate::help;
@@ -29,12 +28,12 @@ use crate::xetex_ini::Selector;
 
 pub(crate) trait Confuse {
     type Output;
-    fn confuse(self, message: &[u8]) -> Self::Output;
+    fn confuse(self, message: &str) -> Self::Output;
 }
 
 impl<T> Confuse for Option<T> {
     type Output = T;
-    fn confuse(self, message: &[u8]) -> Self::Output {
+    fn confuse(self, message: &str) -> Self::Output {
         match self {
             Some(v) => v,
             None => unsafe { confusion(message) },
@@ -64,7 +63,7 @@ unsafe fn pre_error_message() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     };
 }
 /*82: */
@@ -95,7 +94,7 @@ pub(crate) unsafe fn error() {
      * error. */
     error_count += 1;
     if error_count as i32 == 100i32 {
-        print_nl_cstr(b"(That makes 100 errors; please try again.)");
+        print_nl_cstr("(That makes 100 errors; please try again.)");
         history = TTHistory::FATAL_ERROR;
         post_error_message(0);
         panic!("halted after 100 potentially-recoverable errors");
@@ -118,55 +117,55 @@ pub(crate) unsafe fn error() {
     }
     print_ln();
 }
-pub(crate) unsafe fn fatal_error(s: &[u8]) -> ! {
+pub(crate) unsafe fn fatal_error(s: &str) -> ! {
     pre_error_message();
-    print_cstr(b"Emergency stop");
+    print_cstr("Emergency stop");
     print_nl_cstr(s);
     close_files_and_terminate();
     rust_stdout.as_mut().unwrap().flush().unwrap();
-    abort!("{}", s.display());
+    abort!("{}", s);
 }
-pub(crate) unsafe fn overflow(s: &[u8], n: usize) -> ! {
+pub(crate) unsafe fn overflow(s: &str, n: usize) -> ! {
     pre_error_message();
-    print_cstr(b"TeX capacity exceeded, sorry [");
+    print_cstr("TeX capacity exceeded, sorry [");
     print_cstr(s);
     print_char('=' as i32);
     print_int(n as i32);
     print_char(']' as i32);
     help!(
-        b"If you really absolutely need more capacity,",
-        b"you can ask a wizard to enlarge me."
+        "If you really absolutely need more capacity,",
+        "you can ask a wizard to enlarge me."
     );
     post_error_message(1i32);
     panic!("halted on overflow()");
 }
-pub(crate) unsafe fn confusion(s: &[u8]) -> ! {
+pub(crate) unsafe fn confusion(s: &str) -> ! {
     pre_error_message();
     if (history as u32) < (TTHistory::ERROR_ISSUED as u32) {
-        print_cstr(b"This can\'t happen (");
+        print_cstr("This can\'t happen (");
         print_cstr(s);
         print_char(')' as i32);
-        help!(b"I\'m broken. Please show this to someone who can fix can fix");
+        help!("I\'m broken. Please show this to someone who can fix can fix");
     } else {
-        print_cstr(b"I can\'t go on meeting you like this");
+        print_cstr("I can\'t go on meeting you like this");
         help!(
-            b"One of your faux pas seems to have wounded me deeply...",
-            b"in fact, I\'m barely conscious. Please fix it and try again."
+            "One of your faux pas seems to have wounded me deeply...",
+            "in fact, I\'m barely conscious. Please fix it and try again."
         );
     }
     post_error_message(1i32);
     panic!("halted on confusion()");
 }
 /* xetex-errors */
-pub(crate) unsafe fn pdf_error(t: &[u8], mut p: &[u8]) -> ! {
+pub(crate) unsafe fn pdf_error(t: &str, mut p: &str) -> ! {
     pre_error_message();
-    print_cstr(b"Error");
+    print_cstr("Error");
     if !t.is_empty() {
-        print_cstr(b" (");
+        print_cstr(" (");
         print_cstr(t);
         print(')' as i32);
     }
-    print_cstr(b": ");
+    print_cstr(": ");
     print_cstr(p);
     post_error_message(1i32);
     panic!("halted on pdf_error()");

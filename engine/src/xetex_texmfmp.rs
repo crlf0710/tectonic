@@ -10,7 +10,7 @@
 
 use crate::xetex_ini::{pool_ptr, pool_size, str_pool, str_start};
 use crate::xetex_stringpool::make_string;
-use bridge::{ttstub_get_data_md5, ttstub_get_file_md5};
+use bridge::ttstub_get_file_md5;
 use std::ffi::CString;
 
 use std::env;
@@ -114,42 +114,30 @@ pub(crate) unsafe fn make_src_special(srcfilename: str_number, lineno: i32) -> p
  * hexadecimal encoded;
  * sizeof(out) should be at least lin*2+1.
  */
-unsafe fn convertStringToHexString(mut in_0: *const i8, mut out: *mut i8, mut lin: i32) {
-    static mut hexchars: [i8; 17] = [
-        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 65, 66, 67, 68, 69, 70, 0,
-    ];
-    let mut i: i32 = 0;
-    let mut j: i32 = 0;
-    j = 0i32;
-    i = 0i32;
-    while i < lin {
-        let mut c: u8 = *in_0.offset(i as isize) as u8;
-        let fresh13 = j;
-        j = j + 1;
-        *out.offset(fresh13 as isize) = hexchars[(c as i32 >> 4i32 & 0xfi32) as usize];
-        let fresh14 = j;
-        j = j + 1;
-        *out.offset(fresh14 as isize) = hexchars[(c as i32 & 0xfi32) as usize];
-        i += 1
+unsafe fn convertStringToHexString(mut in_0: &[u8; 16], out: &mut [u8; 33]) {
+    const HEXCHARS: &[u8] = b"0123456789ABCDEF";
+    let mut j = 0;
+    for i in 0..16 {
+        let mut c = in_0[i];
+        out[j] = HEXCHARS[(c >> 4 & 0xf) as usize];
+        j += 1;
+        out[j] = HEXCHARS[(c & 0xf) as usize];
+        j += 1;
     }
-    *out.offset(j as isize) = '\u{0}' as i32 as i8;
+    out[j] = 0;
 }
 /* Functions originating in texmfmp.c */
-pub(crate) unsafe fn getmd5sum(mut s: str_number, mut file: bool) {
-    let mut digest: [i8; 16] = [0; 16];
-    let mut outbuf: [i8; 33] = [0; 33];
-    let mut ret: i32 = 0;
-    let mut i: i32 = 0;
+pub(crate) unsafe fn getmd5sum(s: str_number, file: bool) {
+    let mut ret;
     let mut xname = CString::new(gettexstring(s).as_str()).unwrap();
-    if file {
-        ret = ttstub_get_file_md5(xname.as_ptr(), digest.as_mut_ptr())
+    let digest = if file {
+        let mut digest: [i8; 16] = [0; 16];
+        ret = ttstub_get_file_md5(xname.as_ptr(), digest.as_mut_ptr());
+        std::mem::transmute(digest)
     } else {
-        ret = ttstub_get_data_md5(
-            xname.as_ptr(),
-            xname.as_bytes().len() as _,
-            digest.as_mut_ptr(),
-        )
-    }
+        ret = 0;
+        md5::compute(xname.as_bytes())
+    };
     if ret != 0 {
         return;
     }
@@ -157,12 +145,10 @@ pub(crate) unsafe fn getmd5sum(mut s: str_number, mut file: bool) {
         /* error by str_toks that calls str_room(1) */
         return;
     }
-    convertStringToHexString(digest.as_mut_ptr(), outbuf.as_mut_ptr(), 16i32);
-    i = 0i32;
-    while i < 2i32 * 16i32 {
-        let fresh15 = pool_ptr;
-        pool_ptr = pool_ptr + 1;
-        str_pool[fresh15 as usize] = outbuf[i as usize] as u16;
-        i += 1
+    let mut outbuf: [u8; 33] = [0; 33];
+    convertStringToHexString(&digest, &mut outbuf);
+    for i in 0..(2 * 16) {
+        str_pool[pool_ptr as usize] = outbuf[i as usize] as u16;
+        pool_ptr += 1;
     }
 }

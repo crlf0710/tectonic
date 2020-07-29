@@ -39,37 +39,36 @@ use crate::xetex_ini::{
     cur_cs, cur_dir, cur_ext, cur_group, cur_head, cur_if, cur_input, cur_l, cur_lang, cur_level,
     cur_list, cur_loop, cur_mark, cur_name, cur_order, cur_pre_head, cur_pre_tail, cur_ptr, cur_q,
     cur_r, cur_span, cur_tail, cur_tok, cur_val, cur_val1, cur_val_level, dead_cycles, def_ref,
-    deletions_allowed, depth_threshold, dig, disc_ptr, empty, error_count, error_line,
-    expand_depth, expand_depth_count, ext_delimiter, false_bchar, file_line_error_style_p,
-    file_name_quote_char, file_offset, first, first_count, fmem_ptr, font_in_short_display,
-    font_used, force_eof, gave_char_warning_help, half_error_line, hash, hash_extra, hash_high,
-    hash_used, hi_mem_min, history, if_limit, if_line, init_pool_ptr, init_str_ptr, ins_disc,
-    insert_penalties, insert_src_special_auto, insert_src_special_every_par,
-    insert_src_special_every_vbox, interaction, is_hyph, is_in_csname, job_name, last,
-    last_badness, last_glue, last_kern, last_leftmost_char, last_node_type, last_penalty,
-    last_rightmost_char, lft_hit, lig_stack, ligature_present, line, lo_mem_max,
-    loaded_font_design_size, loaded_font_flags, loaded_font_letter_space, loaded_font_mapping,
-    log_file, log_opened, long_help_seen, long_state, mag_set, main_f, main_h, main_i, main_j,
-    main_k, main_s, mapped_text, max_buf_stack, max_print_line, max_reg_help_line, max_reg_num,
-    max_strings, mem_end, name_in_progress, name_of_file, name_of_file16, native_font_type_flag,
-    native_len, native_text, native_text_size, no_new_control_sequence, old_setting, open_parens,
-    output_active, pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token,
-    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim,
-    prim_eqtb, prim_used, pseudo_files, pstack, quoted_filename, radix, read_file, read_open,
-    rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_root, save_native_len, scanner_status,
-    selector, set_box_allowed, shown_mode, skip_line, space_class, stop_at_space, str_pool,
-    str_ptr, str_start, tally, term_offset, tex_remainder, texmf_log_name, total_shrink,
-    total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens, warning_index,
-    write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, BASE_PTR, BCHAR_LABEL,
-    BUFFER, BUF_SIZE, CHAR_BASE, DEPTH_BASE, EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE, FONT_AREA,
-    FONT_BC, FONT_BCHAR, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS, FONT_GLUE,
-    FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE,
-    FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK,
-    HEIGHT_BASE, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, ITALIC_BASE,
-    KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK,
-    MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR,
-    PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK,
-    STACK_SIZE, WIDTH_BASE,
+    deletions_allowed, depth_threshold, dig, disc_ptr, error_count, error_line, expand_depth,
+    expand_depth_count, ext_delimiter, false_bchar, file_line_error_style_p, file_name_quote_char,
+    file_offset, first, first_count, fmem_ptr, font_in_short_display, font_used, force_eof,
+    gave_char_warning_help, half_error_line, hash, hash_extra, hash_high, hash_used, hi_mem_min,
+    history, if_limit, if_line, init_pool_ptr, init_str_ptr, ins_disc, insert_penalties,
+    insert_src_special_auto, insert_src_special_every_par, insert_src_special_every_vbox,
+    interaction, is_hyph, is_in_csname, job_name, last, last_badness, last_glue, last_kern,
+    last_leftmost_char, last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack,
+    ligature_present, line, lo_mem_max, loaded_font_design_size, loaded_font_flags,
+    loaded_font_letter_space, loaded_font_mapping, log_file, log_opened, long_help_seen,
+    long_state, mag_set, main_f, main_h, main_i, main_j, main_k, main_s, mapped_text,
+    max_buf_stack, max_print_line, max_reg_help_line, max_reg_num, max_strings, mem_end,
+    name_in_progress, name_of_file, name_of_file16, native_font_type_flag, native_len, native_text,
+    native_text_size, no_new_control_sequence, old_setting, open_parens, output_active,
+    pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos,
+    pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used,
+    pseudo_files, pstack, quoted_filename, radix, read_file, read_open, rover, rt_hit, rust_stdout,
+    sa_chain, sa_level, sa_root, save_native_len, scanner_status, selector, set_box_allowed,
+    shown_mode, skip_line, space_class, stop_at_space, str_pool, str_ptr, str_start, tally,
+    term_offset, tex_remainder, texmf_log_name, total_shrink, total_stretch, trick_buf,
+    trick_count, use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
+    xtx_ligature_present, LR_problems, LR_ptr, BASE_PTR, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE,
+    DEPTH_BASE, EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_CHECK,
+    FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE,
+    FONT_LETTER_SPACE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR,
+    FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HEIGHT_BASE, HYPHEN_CHAR, IF_STACK,
+    INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, LINE_STACK,
+    MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST,
+    NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE,
+    SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK, STACK_SIZE, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding, u_close};
@@ -135,7 +134,7 @@ fn IS_LC_HEX(c: i32) -> bool {
 }
 
 unsafe fn int_error(mut n: i32) {
-    print_cstr(b" (");
+    print_cstr(" (");
     print_int(n);
     print_char(')' as i32);
     error();
@@ -186,7 +185,7 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
             }
         }
         if p < hi_mem_min as usize || p > mem_end as usize {
-            print_esc_cstr(b"CLOBBERED.");
+            print_esc_cstr("CLOBBERED.");
             return;
         }
         if MEM[p as usize].b32.s0 >= CS_TOKEN_FLAG {
@@ -195,7 +194,7 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
             let m = Cmd::from((MEM[p as usize].b32.s0 / MAX_CHAR_VAL) as u16);
             let c = MEM[p as usize].b32.s0 % MAX_CHAR_VAL;
             if MEM[p as usize].b32.s0 < 0 {
-                print_esc_cstr(b"BAD.");
+                print_esc_cstr("BAD.");
             } else {
                 /*306:*/
                 match m {
@@ -232,36 +231,36 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
                     }
                     END_MATCH => {
                         if c == 0 {
-                            print_cstr(b"->");
+                            print_cstr("->");
                         }
                     }
-                    _ => print_esc_cstr(b"BAD."),
+                    _ => print_esc_cstr("BAD."),
                 }
             }
         }
         popt = LLIST_link(p as usize).opt();
     }
     if popt.is_some() {
-        print_esc_cstr(b"ETC.");
+        print_esc_cstr("ETC.");
     };
 }
 pub(crate) unsafe fn runaway() {
     if scanner_status != ScannerStatus::Normal && scanner_status != ScannerStatus::Skipping {
         let p = match scanner_status {
             ScannerStatus::Defining => {
-                print_nl_cstr(b"Runaway definition");
+                print_nl_cstr("Runaway definition");
                 def_ref
             }
             ScannerStatus::Matching => {
-                print_nl_cstr(b"Runaway argument");
+                print_nl_cstr("Runaway argument");
                 TEMP_HEAD
             }
             ScannerStatus::Aligning => {
-                print_nl_cstr(b"Runaway preamble");
+                print_nl_cstr("Runaway preamble");
                 HOLD_HEAD
             }
             ScannerStatus::Absorbing => {
-                print_nl_cstr(b"Runaway text");
+                print_nl_cstr("Runaway text");
                 def_ref
             }
             _ => unreachable!(),
@@ -282,7 +281,7 @@ pub(crate) unsafe fn get_avail() -> usize {
         hi_mem_min -= 1;
         if is_char_node(lo_mem_max.opt()) {
             runaway();
-            overflow(b"main memory size", MEM_TOP + 1);
+            overflow("main memory size", MEM_TOP + 1);
         }
         hi_mem_min as usize
     };
@@ -375,7 +374,7 @@ pub(crate) unsafe fn get_node(mut s: i32) -> usize {
         }
         break 'restart;
     }
-    overflow(b"main memory size", MEM_TOP + 1);
+    overflow("main memory size", MEM_TOP + 1);
 
     unsafe fn found(r: usize, s: usize) -> usize {
         *LLIST_link(r) = None.tex_int();
@@ -553,7 +552,7 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                 | TextNode::Ins
                 | TextNode::Mark
                 | TextNode::Adjust
-                | TextNode::Unset => print_cstr(b"[]"),
+                | TextNode::Unset => print_cstr("[]"),
                 TextNode::WhatsIt => match WhatsIt::from(p) {
                     WhatsIt::NativeWord(nw) => {
                         if nw.font() as usize != font_in_short_display {
@@ -566,7 +565,7 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                         }
                         print_native_word(&nw);
                     }
-                    _ => print_cstr(b"[]"),
+                    _ => print_cstr("[]"),
                 },
                 TextNode::Rule => print_char('|' as i32),
                 TextNode::Glue => {
@@ -577,7 +576,7 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                 }
                 TextNode::Math => match Math(p).subtype() {
                     MathType::Eq(_, MathMode::Left) | MathType::Eq(_, MathMode::Right) => {
-                        print_cstr(b"[]")
+                        print_cstr("[]")
                     }
                     _ => print_char('$' as i32),
                 },
@@ -602,7 +601,7 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
 }
 pub(crate) unsafe fn print_font_and_char(p: usize) {
     if p > mem_end as usize {
-        print_esc_cstr(b"CLOBBERED.");
+        print_esc_cstr("CLOBBERED.");
     } else {
         if MEM[p].b16.s1 as i32 > FONT_MAX as i32 {
             print_char('*' as i32);
@@ -617,7 +616,7 @@ pub(crate) unsafe fn print_font_and_char(p: usize) {
 pub(crate) unsafe fn print_mark(mut p: i32) {
     print_char('{' as i32);
     if p < hi_mem_min || p > mem_end {
-        print_esc_cstr(b"CLOBBERED.");
+        print_esc_cstr("CLOBBERED.");
     } else {
         show_token_list(LLIST_link(p as usize).opt(), None, max_print_line - 10);
         // TODO
@@ -631,18 +630,18 @@ pub(crate) unsafe fn print_rule_dimen(mut d: scaled_t) {
         print_scaled(d);
     };
 }
-pub(crate) unsafe fn print_glue(mut d: scaled_t, order: GlueOrder, s: &[u8]) {
+pub(crate) unsafe fn print_glue(mut d: scaled_t, order: GlueOrder, s: &str) {
     print_scaled(d);
     match order {
         // TODO: optimize
-        GlueOrder::Incorrect => print_cstr(b"foul"),
-        GlueOrder::Fil => print_cstr(b"fil"),
-        GlueOrder::Fill => print_cstr(b"fill"),
-        GlueOrder::Filll => print_cstr(b"filll"),
+        GlueOrder::Incorrect => print_cstr("foul"),
+        GlueOrder::Fil => print_cstr("fil"),
+        GlueOrder::Fill => print_cstr("fill"),
+        GlueOrder::Filll => print_cstr("filll"),
         GlueOrder::Normal => print_cstr(s),
     }
 }
-pub(crate) unsafe fn print_spec(p: i32, unit: &[u8]) {
+pub(crate) unsafe fn print_spec(p: i32, unit: &str) {
     if p < 0 || p >= lo_mem_max {
         print_char('*' as i32);
     } else {
@@ -652,18 +651,18 @@ pub(crate) unsafe fn print_spec(p: i32, unit: &[u8]) {
             print_cstr(unit);
         }
         if p.stretch() != 0 {
-            print_cstr(b" plus ");
+            print_cstr(" plus ");
             print_glue(p.stretch(), p.stretch_order(), unit);
         }
         if p.shrink() != 0 {
-            print_cstr(b" minus ");
+            print_cstr(" minus ");
             print_glue(p.shrink(), p.shrink_order(), unit);
         }
     };
 }
 pub(crate) unsafe fn print_fam_and_char(p: usize) {
     let mut c: i32 = 0;
-    print_esc_cstr(b"fam");
+    print_esc_cstr("fam");
     print_int(MEM[p].b16.s1 as i32 % 256 % 256);
     print_char(' ' as i32);
     c = (MEM[p].b16.s0 as i64 + (MEM[p].b16.s1 as i32 / 256) as i64 * 65536) as i32;
@@ -688,7 +687,7 @@ pub(crate) unsafe fn print_delimiter(p: usize) {
 pub(crate) unsafe fn print_subsidiary_data(p: usize, mut c: UTF16_code) {
     if cur_length() >= depth_threshold {
         if MEM[p as usize].b32.s1 != 0 {
-            print_cstr(b" []");
+            print_cstr(" []");
         }
     } else {
         str_pool[pool_ptr as usize] = c;
@@ -705,7 +704,7 @@ pub(crate) unsafe fn print_subsidiary_data(p: usize, mut c: UTF16_code) {
                 if MEM[p].b32.s0.opt().is_none() {
                     print_ln();
                     print_current_string();
-                    print_cstr(b"{}");
+                    print_cstr("{}");
                 } else {
                     show_info(tmp_ptr);
                 }
@@ -717,35 +716,35 @@ pub(crate) unsafe fn print_subsidiary_data(p: usize, mut c: UTF16_code) {
 }
 pub(crate) unsafe fn print_style(c: i32) {
     match MathStyle::from_cur(c as i16) {
-        Some(MathStyle::Display) => print_esc_cstr(b"displaystyle"),
-        Some(MathStyle::Text) => print_esc_cstr(b"textstyle"),
-        Some(MathStyle::Script) => print_esc_cstr(b"scriptstyle"),
-        Some(MathStyle::ScriptScript) => print_esc_cstr(b"scriptscriptstyle"),
-        None => print_cstr(b"Unknown style!"),
+        Some(MathStyle::Display) => print_esc_cstr("displaystyle"),
+        Some(MathStyle::Text) => print_esc_cstr("textstyle"),
+        Some(MathStyle::Script) => print_esc_cstr("scriptstyle"),
+        Some(MathStyle::ScriptScript) => print_esc_cstr("scriptscriptstyle"),
+        None => print_cstr("Unknown style!"),
     };
 }
 pub(crate) unsafe fn print_skip_param(n: GluePar) {
     use GluePar::*;
     match n {
-        line_skip => print_esc_cstr(b"lineskip"),
-        baseline_skip => print_esc_cstr(b"baselineskip"),
-        par_skip => print_esc_cstr(b"parskip"),
-        above_display_skip => print_esc_cstr(b"abovedisplayskip"),
-        below_display_skip => print_esc_cstr(b"belowdisplayskip"),
-        above_display_short_skip => print_esc_cstr(b"abovedisplayshortskip"),
-        below_display_short_skip => print_esc_cstr(b"belowdisplayshortskip"),
-        left_skip => print_esc_cstr(b"leftskip"),
-        right_skip => print_esc_cstr(b"rightskip"),
-        top_skip => print_esc_cstr(b"topskip"),
-        split_top_skip => print_esc_cstr(b"splittopskip"),
-        tab_skip => print_esc_cstr(b"tabskip"),
-        space_skip => print_esc_cstr(b"spaceskip"),
-        xspace_skip => print_esc_cstr(b"xspaceskip"),
-        par_fill_skip => print_esc_cstr(b"parfillskip"),
-        xetex_linebreak_skip => print_esc_cstr(b"XeTeXlinebreakskip"),
-        thin_mu_skip => print_esc_cstr(b"thinmuskip"),
-        med_mu_skip => print_esc_cstr(b"medmuskip"),
-        thick_mu_skip => print_esc_cstr(b"thickmuskip"),
+        line_skip => print_esc_cstr("lineskip"),
+        baseline_skip => print_esc_cstr("baselineskip"),
+        par_skip => print_esc_cstr("parskip"),
+        above_display_skip => print_esc_cstr("abovedisplayskip"),
+        below_display_skip => print_esc_cstr("belowdisplayskip"),
+        above_display_short_skip => print_esc_cstr("abovedisplayshortskip"),
+        below_display_short_skip => print_esc_cstr("belowdisplayshortskip"),
+        left_skip => print_esc_cstr("leftskip"),
+        right_skip => print_esc_cstr("rightskip"),
+        top_skip => print_esc_cstr("topskip"),
+        split_top_skip => print_esc_cstr("splittopskip"),
+        tab_skip => print_esc_cstr("tabskip"),
+        space_skip => print_esc_cstr("spaceskip"),
+        xspace_skip => print_esc_cstr("xspaceskip"),
+        par_fill_skip => print_esc_cstr("parfillskip"),
+        xetex_linebreak_skip => print_esc_cstr("XeTeXlinebreakskip"),
+        thin_mu_skip => print_esc_cstr("thinmuskip"),
+        med_mu_skip => print_esc_cstr("medmuskip"),
+        thick_mu_skip => print_esc_cstr("thickmuskip"),
     };
 }
 pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
@@ -753,7 +752,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
     let mut g: f64 = 0.;
     if cur_length() > depth_threshold {
         if popt.is_some() {
-            print_cstr(b" []");
+            print_cstr(" []");
         }
         return;
     }
@@ -762,12 +761,12 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
         print_ln();
         print_current_string();
         if p > mem_end as usize {
-            print_cstr(b"Bad link, display aborted.");
+            print_cstr("Bad link, display aborted.");
             return;
         }
         n += 1;
         if n > breadth_max {
-            print_cstr(b"etc.");
+            print_cstr("etc.");
             return;
         }
         if is_char_node(Some(p)) {
@@ -783,38 +782,38 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             TextNode::VList => print_esc('v' as i32),
                             _ => unreachable!(),
                         }
-                        print_cstr(b"box(");
+                        print_cstr("box(");
                         print_scaled(p.height());
                         print_char('+' as i32);
                         print_scaled(p.depth());
-                        print_cstr(b")x");
+                        print_cstr(")x");
                         print_scaled(p.width());
                         g = p.glue_set();
                         if g != 0. && p.glue_sign() != GlueSign::Normal {
-                            print_cstr(b", glue set ");
+                            print_cstr(", glue set ");
                             if p.glue_sign() == GlueSign::Shrinking {
-                                print_cstr(b"- ");
+                                print_cstr("- ");
                             }
                             if g.abs() > 20000. {
                                 if g > 0. {
                                     print_char('>' as i32);
                                 } else {
-                                    print_cstr(b"< -");
+                                    print_cstr("< -");
                                 }
-                                print_glue((20000_i64 * 65536) as scaled_t, p.glue_order(), b"");
+                                print_glue((20000_i64 * 65536) as scaled_t, p.glue_order(), "");
                             } else {
-                                print_glue(tex_round(65536_f64 * g), p.glue_order(), b"");
+                                print_glue(tex_round(65536_f64 * g), p.glue_order(), "");
                             }
                         }
                         if p.shift_amount() != 0 {
-                            print_cstr(b", shifted ");
+                            print_cstr(", shifted ");
                             print_scaled(p.shift_amount());
                         }
                         /*1491:*/
                         if text_NODE_type(p.ptr()) == TextNode::HList.into()
                             && p.lr_mode() == LRMode::DList
                         {
-                            print_cstr(b", display");
+                            print_cstr(", display");
                         }
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
@@ -823,26 +822,26 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     }
                     TextNode::Unset => {
                         let p = Unset::from(p);
-                        print_esc_cstr(b"unset");
-                        print_cstr(b"box(");
+                        print_esc_cstr("unset");
+                        print_cstr("box(");
                         print_scaled(p.height());
                         print_char('+' as i32);
                         print_scaled(p.depth());
-                        print_cstr(b")x");
+                        print_cstr(")x");
                         print_scaled(p.width());
                         /*193:*/
                         if p.columns() != 0 {
-                            print_cstr(b" (");
+                            print_cstr(" (");
                             print_int(p.columns() as i32 + 1);
-                            print_cstr(b" columns)");
+                            print_cstr(" columns)");
                         }
                         if p.stretch() != 0 {
-                            print_cstr(b", stretch ");
-                            print_glue(p.stretch(), p.stretch_order(), b"");
+                            print_cstr(", stretch ");
+                            print_glue(p.stretch(), p.stretch_order(), "");
                         }
                         if p.shrink() != 0 {
-                            print_cstr(b", shrink ");
-                            print_glue(p.shrink(), p.shrink_order(), b"");
+                            print_cstr(", shrink ");
+                            print_glue(p.shrink(), p.shrink_order(), "");
                         }
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
@@ -851,24 +850,24 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     }
                     TextNode::Rule => {
                         let p = Rule::from(p);
-                        print_esc_cstr(b"rule(");
+                        print_esc_cstr("rule(");
                         print_rule_dimen(p.height());
                         print_char('+' as i32);
                         print_rule_dimen(p.depth());
-                        print_cstr(b")x");
+                        print_cstr(")x");
                         print_rule_dimen(p.width());
                     }
                     TextNode::Ins => {
                         let p_ins = Insertion(p);
-                        print_esc_cstr(b"insert");
+                        print_esc_cstr("insert");
                         print_int(p_ins.box_reg() as i32);
-                        print_cstr(b", natural size ");
+                        print_cstr(", natural size ");
                         print_scaled(p_ins.height());
-                        print_cstr(b"; split(");
-                        print_spec(p_ins.split_top_ptr(), b"");
+                        print_cstr("; split(");
+                        print_spec(p_ins.split_top_ptr(), "");
                         print_char(',' as i32);
                         print_scaled(p_ins.depth());
-                        print_cstr(b"); float cost ");
+                        print_cstr("); float cost ");
                         print_int(p_ins.float_cost());
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
@@ -877,23 +876,23 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     }
                     TextNode::WhatsIt => match WhatsIt::from(p) {
                         WhatsIt::Open(p) => {
-                            print_write_whatsit(b"openout", p.ptr());
+                            print_write_whatsit("openout", p.ptr());
                             print_char('=' as i32);
                             print_file_name(p.name(), p.area(), p.ext());
                         }
                         WhatsIt::Write(p) => {
-                            print_write_whatsit(b"write", p.ptr());
+                            print_write_whatsit("write", p.ptr());
                             print_mark(p.tokens());
                         }
-                        WhatsIt::Close(p) => print_write_whatsit(b"closeout", p.ptr()),
+                        WhatsIt::Close(p) => print_write_whatsit("closeout", p.ptr()),
                         WhatsIt::Special(s) => {
-                            print_esc_cstr(b"special");
+                            print_esc_cstr("special");
                             print_mark(s.tokens());
                         }
                         WhatsIt::Language(l) => {
-                            print_esc_cstr(b"setlanguage");
+                            print_esc_cstr("setlanguage");
                             print_int(l.lang());
-                            print_cstr(b" (hyphenmin ");
+                            print_cstr(" (hyphenmin ");
                             print_int(l.lhm() as i32);
                             print_char(',' as i32);
                             print_int(l.rhm() as i32);
@@ -911,62 +910,62 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_esc(
                                 (*hash.offset((FONT_ID_BASE as i32 + g.font() as i32) as isize)).s1,
                             );
-                            print_cstr(b" glyph#");
+                            print_cstr(" glyph#");
                             print_int(g.glyph() as i32);
                         }
                         WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                             if p.is_pdf() {
-                                print_esc_cstr(b"XeTeXpdffile");
+                                print_esc_cstr("XeTeXpdffile");
                             } else {
-                                print_esc_cstr(b"XeTeXpicfile");
+                                print_esc_cstr("XeTeXpicfile");
                             }
-                            print_cstr(b"( ");
+                            print_cstr("( ");
                             for i in p.path() {
                                 print_raw_char(*i as UTF16_code, true);
                             }
                             print('\"' as i32);
                         }
-                        WhatsIt::PdfSavePos(_) => print_esc_cstr(b"pdfsavepos"),
-                        //_ => print_cstr(b"whatsit?"),
+                        WhatsIt::PdfSavePos(_) => print_esc_cstr("pdfsavepos"),
+                        //_ => print_cstr("whatsit?"),
                     },
                     TextNode::Glue => {
                         let g = Glue(p);
                         if g.param() >= A_LEADERS {
                             /*198: */
-                            print_esc_cstr(b""); /*:244 */
+                            print_esc_cstr(""); /*:244 */
                             if g.param() == C_LEADERS {
                                 print_char('c' as i32); /*214:*/
                             } else if g.param() == X_LEADERS {
                                 print_char('x' as i32);
                             }
-                            print_cstr(b"leaders ");
-                            print_spec(g.glue_ptr(), b"");
+                            print_cstr("leaders ");
+                            print_spec(g.glue_ptr(), "");
                             str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                             pool_ptr += 1;
                             show_node_list(g.leader_ptr().opt());
                             pool_ptr -= 1
                         } else {
-                            print_esc_cstr(b"glue");
+                            print_esc_cstr("glue");
                             if g.param() != NORMAL {
                                 print_char('(' as i32);
                                 if g.param() < COND_MATH_GLUE {
                                     match GluePar::n(g.param() - 1) {
                                         Some(dimen) => print_skip_param(dimen),
-                                        None => print_cstr(b"[unknown glue parameter!]"),
+                                        None => print_cstr("[unknown glue parameter!]"),
                                     }
                                 } else if g.param() == COND_MATH_GLUE {
-                                    print_esc_cstr(b"nonscript");
+                                    print_esc_cstr("nonscript");
                                 } else {
-                                    print_esc_cstr(b"mskip");
+                                    print_esc_cstr("mskip");
                                 }
                                 print_char(')' as i32);
                             }
                             if g.param() != COND_MATH_GLUE {
                                 print_char(' ' as i32);
                                 if g.param() < COND_MATH_GLUE {
-                                    print_spec(g.glue_ptr(), b"");
+                                    print_spec(g.glue_ptr(), "");
                                 } else {
-                                    print_spec(g.glue_ptr(), b"mu");
+                                    print_spec(g.glue_ptr(), "mu");
                                 }
                             }
                         }
@@ -974,29 +973,29 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     TextNode::Kern => {
                         let k = Kern(p);
                         if k.subtype() != KernType::Math {
-                            print_esc_cstr(b"kern");
+                            print_esc_cstr("kern");
                             if k.subtype() != KernType::Normal {
                                 print_char(' ' as i32);
                             }
                             print_scaled(k.width());
                             if k.subtype() == KernType::AccKern {
-                                print_cstr(b" (for accent)");
+                                print_cstr(" (for accent)");
                             } else if k.subtype() == KernType::SpaceAdjustment {
-                                print_cstr(b" (space adjustment)");
+                                print_cstr(" (space adjustment)");
                             }
                         } else {
-                            print_esc_cstr(b"mkern");
+                            print_esc_cstr("mkern");
                             print_scaled(k.width());
-                            print_cstr(b"mu");
+                            print_cstr("mu");
                         }
                     }
                     TextNode::MarginKern => {
-                        print_esc_cstr(b"kern");
+                        print_esc_cstr("kern");
                         print_scaled(MEM[p + 1].b32.s1);
                         if MEM[p].b16.s0 == 0 {
-                            print_cstr(b" (left margin)");
+                            print_cstr(" (left margin)");
                         } else {
-                            print_cstr(b" (right margin)");
+                            print_cstr(" (right margin)");
                         }
                     }
                     TextNode::Math => {
@@ -1004,8 +1003,8 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         match p.subtype() {
                             MathType::Eq(be, mode) => {
                                 match be {
-                                    BE::Begin => print_esc_cstr(b"begin"),
-                                    BE::End => print_esc_cstr(b"end"),
+                                    BE::Begin => print_esc_cstr("begin"),
+                                    BE::End => print_esc_cstr("end"),
                                 }
                                 match mode {
                                     MathMode::Right => print_char('R' as i32),
@@ -1014,14 +1013,14 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                                 }
                             }
                             _ => {
-                                print_esc_cstr(b"math");
+                                print_esc_cstr("math");
                                 match p.subtype() {
-                                    MathType::Before => print_cstr(b"on"),
-                                    MathType::After => print_cstr(b"off"),
+                                    MathType::Before => print_cstr("on"),
+                                    MathType::After => print_cstr("off"),
                                     _ => unreachable!(),
                                 }
                                 if p.width() != 0 {
-                                    print_cstr(b", surrounded ");
+                                    print_cstr(", surrounded ");
                                     print_scaled(p.width());
                                 }
                             }
@@ -1030,7 +1029,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     TextNode::Ligature => {
                         let l = Ligature(p);
                         print_font_and_char(l.ptr() + 1);
-                        print_cstr(b" (ligature ");
+                        print_cstr(" (ligature ");
                         if l.left_hit() {
                             print_char('|' as i32);
                         }
@@ -1043,14 +1042,14 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     }
                     TextNode::Penalty => {
                         let p = Penalty(p);
-                        print_esc_cstr(b"penalty ");
+                        print_esc_cstr("penalty ");
                         print_int(p.penalty());
                     }
                     TextNode::Disc => {
                         let d = Discretionary(p);
-                        print_esc_cstr(b"discretionary");
+                        print_esc_cstr("discretionary");
                         if d.replace_count() > 0 {
-                            print_cstr(b" replacing ");
+                            print_cstr(" replacing ");
                             print_int(d.replace_count() as i32);
                         }
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
@@ -1064,7 +1063,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     }
                     TextNode::Mark => {
                         let m = Mark(p);
-                        print_esc_cstr(b"mark");
+                        print_esc_cstr("mark");
                         if m.class() != 0 {
                             print_char('s' as i32);
                             print_int(m.class());
@@ -1073,9 +1072,9 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     }
                     TextNode::Adjust => {
                         let a = Adjust(p);
-                        print_esc_cstr(b"vadjust");
+                        print_esc_cstr("vadjust");
                         if a.subtype() != AdjustType::Post {
-                            print_cstr(b" pre ");
+                            print_cstr(" pre ");
                         }
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
@@ -1085,7 +1084,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     TextNode::Style => print_style(MEM[p].b16.s0 as i32),
                     TextNode::Choice => {
                         let c = Choice(p);
-                        print_esc_cstr(b"mathchoice");
+                        print_esc_cstr("mathchoice");
                         str_pool[pool_ptr as usize] = 'D' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
                         show_node_list(c.display());
@@ -1121,34 +1120,34 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     | MathNode::Left
                     | MathNode::Right => {
                         match n {
-                            MathNode::Ord => print_esc_cstr(b"mathord"),
-                            MathNode::Op => print_esc_cstr(b"mathop"),
-                            MathNode::Bin => print_esc_cstr(b"mathbin"),
-                            MathNode::Rel => print_esc_cstr(b"mathrel"),
-                            MathNode::Open => print_esc_cstr(b"mathopen"),
-                            MathNode::Close => print_esc_cstr(b"mathclose"),
-                            MathNode::Punct => print_esc_cstr(b"mathpunct"),
-                            MathNode::Inner => print_esc_cstr(b"mathinner"),
-                            MathNode::Over => print_esc_cstr(b"overline"),
-                            MathNode::Under => print_esc_cstr(b"underline"),
-                            MathNode::VCenter => print_esc_cstr(b"vcenter"),
+                            MathNode::Ord => print_esc_cstr("mathord"),
+                            MathNode::Op => print_esc_cstr("mathop"),
+                            MathNode::Bin => print_esc_cstr("mathbin"),
+                            MathNode::Rel => print_esc_cstr("mathrel"),
+                            MathNode::Open => print_esc_cstr("mathopen"),
+                            MathNode::Close => print_esc_cstr("mathclose"),
+                            MathNode::Punct => print_esc_cstr("mathpunct"),
+                            MathNode::Inner => print_esc_cstr("mathinner"),
+                            MathNode::Over => print_esc_cstr("overline"),
+                            MathNode::Under => print_esc_cstr("underline"),
+                            MathNode::VCenter => print_esc_cstr("vcenter"),
                             MathNode::Radical => {
-                                print_esc_cstr(b"radical");
+                                print_esc_cstr("radical");
                                 print_delimiter(p + 4);
                             }
                             MathNode::Accent => {
-                                print_esc_cstr(b"accent");
+                                print_esc_cstr("accent");
                                 print_fam_and_char(p + 4);
                             }
                             MathNode::Left => {
-                                print_esc_cstr(b"left");
+                                print_esc_cstr("left");
                                 print_delimiter(p + 1);
                             }
                             MathNode::Right => {
                                 if MEM[p].b16.s0 == NORMAL {
-                                    print_esc_cstr(b"right");
+                                    print_esc_cstr("right");
                                 } else {
-                                    print_esc_cstr(b"middle");
+                                    print_esc_cstr("middle");
                                 }
                                 print_delimiter(p + 1);
                             }
@@ -1156,8 +1155,8 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         }
                         if n != MathNode::Left && n != MathNode::Right {
                             match Limit::from(MEM[p].b16.s0) {
-                                Limit::Limits => print_esc_cstr(b"limits"),
-                                Limit::NoLimits => print_esc_cstr(b"nolimits"),
+                                Limit::Limits => print_esc_cstr("limits"),
+                                Limit::NoLimits => print_esc_cstr("nolimits"),
                                 Limit::Normal => {}
                             }
                             print_subsidiary_data(p + 1, '.' as i32 as UTF16_code);
@@ -1166,9 +1165,9 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_subsidiary_data(p + 3, '_' as i32 as UTF16_code);
                     }
                     MathNode::Fraction => {
-                        print_esc_cstr(b"fraction, thickness ");
+                        print_esc_cstr("fraction, thickness ");
                         if MEM[p + 1].b32.s1 == DEFAULT_CODE {
-                            print_cstr(b"= default");
+                            print_cstr("= default");
                         } else {
                             print_scaled(MEM[p + 1].b32.s1);
                         }
@@ -1181,7 +1180,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                                 + (MEM[p + 4].b16.s1 as i32 / 256) as i64 * 65536
                                 != 0
                         {
-                            print_cstr(b", left-delimiter ");
+                            print_cstr(", left-delimiter ");
                             print_delimiter(p + 4);
                         }
                         if MEM[p + 5].b16.s3 as i32 % 256 != 0
@@ -1193,14 +1192,14 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                                 + (MEM[p + 5].b16.s1 as i32 / 256) as i64 * 65536
                                 != 0
                         {
-                            print_cstr(b", right-delimiter ");
+                            print_cstr(", right-delimiter ");
                             print_delimiter(p + 5);
                         }
                         print_subsidiary_data(p + 2, '\\' as i32 as UTF16_code);
                         print_subsidiary_data(p + 3, '/' as i32 as UTF16_code);
                     }
                 },
-                ND::Unknown(_) => print_cstr(b"Unknown node type!"),
+                ND::Unknown(_) => print_cstr("Unknown node type!"),
             }
         }
         popt = llist_link(p);
@@ -1292,7 +1291,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                                 p.free();
                             }
                             WhatsIt::PdfSavePos(p) => p.free(),
-                            //_ => confusion(b"ext3"),
+                            //_ => confusion("ext3"),
                         }
                     }
                     TextNode::Glue => {
@@ -1387,7 +1386,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                         free_node(p, FRACTION_NOAD_SIZE);
                     }
                 },
-                ND::Unknown(_) => confusion(b"flushing"),
+                ND::Unknown(_) => confusion("flushing"),
             }
         }
         popt = q.opt()
@@ -1402,7 +1401,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
         if is_char_node(Some(p)) {
             r = get_avail();
         } else {
-            match text_NODE_type(p).confuse(b"copying") {
+            match text_NODE_type(p).confuse("copying") {
                 TextNode::HList | TextNode::VList => {
                     let p = List::from(p);
                     r = get_node(BOX_NODE_SIZE);
@@ -1481,7 +1480,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                         r = get_node(words as i32);
                     }
                     WhatsIt::PdfSavePos(_) => r = get_node(SMALL_NODE_SIZE),
-                    //_ => confusion(b"ext2"),
+                    //_ => confusion("ext2"),
                 },
                 TextNode::Glue => {
                     let p = Glue(p);
@@ -1527,7 +1526,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                     r = get_node(SMALL_NODE_SIZE);
                     Adjust(r).set_adj_ptr(copy_node_list(p.adj_ptr().opt()));
                 }
-                _ => confusion(b"copying"),
+                _ => confusion("copying"),
             }
         }
         MEM[r..r + (words as usize)].copy_from_slice(&MEM[p..p + (words as usize)]);
@@ -1543,31 +1542,31 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
 }
 pub(crate) unsafe fn print_mode(mut m: (bool, ListMode)) {
     match m {
-        (_, ListMode::NoMode) => print_cstr(b"no mode"),
-        (false, ListMode::VMode) => print_cstr(b"vertical mode"),
-        (false, ListMode::HMode) => print_cstr(b"horizontal mode"),
-        (false, ListMode::MMode) => print_cstr(b"display math mode"),
-        (true, ListMode::VMode) => print_cstr(b"internal vertical mode"),
-        (true, ListMode::HMode) => print_cstr(b"restricted horizontal mode"),
-        (true, ListMode::MMode) => print_cstr(b"math mode"),
+        (_, ListMode::NoMode) => print_cstr("no mode"),
+        (false, ListMode::VMode) => print_cstr("vertical mode"),
+        (false, ListMode::HMode) => print_cstr("horizontal mode"),
+        (false, ListMode::MMode) => print_cstr("display math mode"),
+        (true, ListMode::VMode) => print_cstr("internal vertical mode"),
+        (true, ListMode::HMode) => print_cstr("restricted horizontal mode"),
+        (true, ListMode::MMode) => print_cstr("math mode"),
     }
 }
 pub(crate) unsafe fn print_in_mode(m: (bool, ListMode)) {
     match m {
-        (_, ListMode::NoMode) => print_cstr(b"\' in no mode"),
-        (false, ListMode::VMode) => print_cstr(b"\' in vertical mode"),
-        (false, ListMode::HMode) => print_cstr(b"\' in horizontal mode"),
-        (false, ListMode::MMode) => print_cstr(b"\' in display math mode"),
-        (true, ListMode::VMode) => print_cstr(b"\' in internal vertical mode"),
-        (true, ListMode::HMode) => print_cstr(b"\' in restricted horizontal mode"),
-        (true, ListMode::MMode) => print_cstr(b"\' in math mode"),
+        (_, ListMode::NoMode) => print_cstr("\' in no mode"),
+        (false, ListMode::VMode) => print_cstr("\' in vertical mode"),
+        (false, ListMode::HMode) => print_cstr("\' in horizontal mode"),
+        (false, ListMode::MMode) => print_cstr("\' in display math mode"),
+        (true, ListMode::VMode) => print_cstr("\' in internal vertical mode"),
+        (true, ListMode::HMode) => print_cstr("\' in restricted horizontal mode"),
+        (true, ListMode::MMode) => print_cstr("\' in math mode"),
     }
 }
 pub(crate) unsafe fn push_nest() {
     if NEST_PTR > MAX_NEST_STACK {
         MAX_NEST_STACK = NEST_PTR;
         if NEST_PTR == NEST_SIZE {
-            overflow(b"semantic nest size", NEST_SIZE);
+            overflow("semantic nest size", NEST_SIZE);
         }
     }
     NEST[NEST_PTR] = cur_list;
@@ -1586,7 +1585,7 @@ pub(crate) unsafe fn pop_nest() {
 }
 pub(crate) unsafe fn show_activities() {
     NEST[NEST_PTR] = cur_list;
-    print_nl_cstr(b"");
+    print_nl_cstr("");
     print_ln();
     let mut p = NEST_PTR as usize;
     let for_end = 0;
@@ -1594,15 +1593,15 @@ pub(crate) unsafe fn show_activities() {
         loop {
             let mut m = NEST[p].mode;
             let a = NEST[p].aux;
-            print_nl_cstr(b"### ");
+            print_nl_cstr("### ");
             print_mode(m);
-            print_cstr(b" entered at line ");
+            print_cstr(" entered at line ");
             print_int(NEST[p].mode_line.abs());
             if m == (false, ListMode::HMode) {
                 if NEST[p].prev_graf != 0x830000 {
-                    print_cstr(b" (language");
+                    print_cstr(" (language");
                     print_int((NEST[p].prev_graf as i64 % 65536) as i32);
-                    print_cstr(b":hyphenmin");
+                    print_cstr(":hyphenmin");
                     print_int(NEST[p].prev_graf / 0x400000);
                     print_char(',' as i32);
                     print_int((NEST[p].prev_graf as i64 / 65536 % 64) as i32);
@@ -1610,29 +1609,29 @@ pub(crate) unsafe fn show_activities() {
                 }
             }
             if NEST[p].mode_line < 0 {
-                print_cstr(b" (\\output routine)");
+                print_cstr(" (\\output routine)");
             }
             if p == 0 {
                 if PAGE_HEAD != page_tail {
-                    print_nl_cstr(b"### current page:");
+                    print_nl_cstr("### current page:");
                     if output_active {
-                        print_cstr(b" (held over for next output)");
+                        print_cstr(" (held over for next output)");
                     }
                     show_box(llist_link(PAGE_HEAD));
                     if page_contents == PageContents::InsertsOnly
                         || page_contents == PageContents::BoxThere
                     {
-                        print_nl_cstr(b"total height ");
+                        print_nl_cstr("total height ");
                         print_totals();
-                        print_nl_cstr(b" goal height ");
+                        print_nl_cstr(" goal height ");
                         print_scaled(page_so_far[0]);
                         let mut r = PageInsertion(*LLIST_link(PAGE_INS_HEAD) as usize);
                         while r.ptr() != PAGE_INS_HEAD {
                             print_ln();
-                            print_esc_cstr(b"insert");
+                            print_esc_cstr("insert");
                             let mut t = r.box_reg() as i32;
                             print_int(t);
-                            print_cstr(b" adds ");
+                            print_cstr(" adds ");
                             if *COUNT_REG(t as usize) == 1000 {
                                 t = r.height();
                             } else {
@@ -1653,50 +1652,50 @@ pub(crate) unsafe fn show_activities() {
                                         break;
                                     }
                                 }
-                                print_cstr(b", #");
+                                print_cstr(", #");
                                 print_int(t);
-                                print_cstr(b" might split");
+                                print_cstr(" might split");
                             }
                             r = PageInsertion(*LLIST_link(r.ptr()) as usize);
                         }
                     }
                 }
                 if llist_link(CONTRIB_HEAD).is_some() {
-                    print_nl_cstr(b"### recent contributions:");
+                    print_nl_cstr("### recent contributions:");
                 }
             }
             show_box(MEM[NEST[p].head as usize].b32.s1.opt());
             match m.1 {
                 ListMode::VMode => {
-                    print_nl_cstr(b"prevdepth ");
+                    print_nl_cstr("prevdepth ");
                     if a.b32.s1 <= IGNORE_DEPTH {
-                        print_cstr(b"ignored");
+                        print_cstr("ignored");
                     } else {
                         print_scaled(a.b32.s1);
                     }
                     if NEST[p].prev_graf != 0 {
-                        print_cstr(b", prevgraf ");
+                        print_cstr(", prevgraf ");
                         print_int(NEST[p].prev_graf);
                         if NEST[p].prev_graf != 1 {
-                            print_cstr(b" lines");
+                            print_cstr(" lines");
                         } else {
-                            print_cstr(b" line");
+                            print_cstr(" line");
                         }
                     }
                 }
                 ListMode::HMode => {
-                    print_nl_cstr(b"spacefactor ");
+                    print_nl_cstr("spacefactor ");
                     print_int(a.b32.s0);
                     if m.0 == false {
                         if a.b32.s1 > 0 {
-                            print_cstr(b", current language ");
+                            print_cstr(", current language ");
                             print_int(a.b32.s1);
                         }
                     }
                 }
                 ListMode::MMode => {
                     if let Some(o) = a.b32.s1.opt() {
-                        print_cstr(b"this will be denominator of:");
+                        print_cstr("this will be denominator of:");
                         show_box(Some(o));
                     }
                 }
@@ -1712,89 +1711,89 @@ pub(crate) unsafe fn show_activities() {
 pub(crate) unsafe fn print_param(n: IntPar) {
     use IntPar::*;
     match n {
-        pretolerance => print_esc_cstr(b"pretolerance"),
-        tolerance => print_esc_cstr(b"tolerance"),
-        line_penalty => print_esc_cstr(b"linepenalty"),
-        hyphen_penalty => print_esc_cstr(b"hyphenpenalty"),
-        ex_hyphen_penalty => print_esc_cstr(b"exhyphenpenalty"),
-        club_penalty => print_esc_cstr(b"clubpenalty"),
-        widow_penalty => print_esc_cstr(b"widowpenalty"),
-        display_widow_penalty => print_esc_cstr(b"displaywidowpenalty"),
-        broken_penalty => print_esc_cstr(b"brokenpenalty"),
-        bin_op_penalty => print_esc_cstr(b"binoppenalty"),
-        rel_penalty => print_esc_cstr(b"relpenalty"),
-        pre_display_penalty => print_esc_cstr(b"predisplaypenalty"),
-        post_display_penalty => print_esc_cstr(b"postdisplaypenalty"),
-        inter_line_penalty => print_esc_cstr(b"interlinepenalty"),
-        double_hyphen_demerits => print_esc_cstr(b"doublehyphendemerits"),
-        final_hyphen_demerits => print_esc_cstr(b"finalhyphendemerits"),
-        adj_demerits => print_esc_cstr(b"adjdemerits"),
-        mag => print_esc_cstr(b"mag"),
-        delimiter_factor => print_esc_cstr(b"delimiterfactor"),
-        looseness => print_esc_cstr(b"looseness"),
-        time => print_esc_cstr(b"time"),
-        day => print_esc_cstr(b"day"),
-        month => print_esc_cstr(b"month"),
-        year => print_esc_cstr(b"year"),
-        show_box_breadth => print_esc_cstr(b"showboxbreadth"),
-        show_box_depth => print_esc_cstr(b"showboxdepth"),
-        hbadness => print_esc_cstr(b"hbadness"),
-        vbadness => print_esc_cstr(b"vbadness"),
-        pausing => print_esc_cstr(b"pausing"),
-        tracing_online => print_esc_cstr(b"tracingonline"),
-        tracing_macros => print_esc_cstr(b"tracingmacros"),
-        tracing_stats => print_esc_cstr(b"tracingstats"),
-        tracing_paragraphs => print_esc_cstr(b"tracingparagraphs"),
-        tracing_pages => print_esc_cstr(b"tracingpages"),
-        tracing_output => print_esc_cstr(b"tracingoutput"),
-        tracing_lost_chars => print_esc_cstr(b"tracinglostchars"),
-        tracing_commands => print_esc_cstr(b"tracingcommands"),
-        tracing_restores => print_esc_cstr(b"tracingrestores"),
-        uc_hyph => print_esc_cstr(b"uchyph"),
-        output_penalty => print_esc_cstr(b"outputpenalty"),
-        max_dead_cycles => print_esc_cstr(b"maxdeadcycles"),
-        hang_after => print_esc_cstr(b"hangafter"),
-        floating_penalty => print_esc_cstr(b"floatingpenalty"),
-        global_defs => print_esc_cstr(b"globaldefs"),
-        cur_fam => print_esc_cstr(b"fam"),
-        escape_char => print_esc_cstr(b"escapechar"),
-        default_hyphen_char => print_esc_cstr(b"defaulthyphenchar"),
-        default_skew_char => print_esc_cstr(b"defaultskewchar"),
-        end_line_char => print_esc_cstr(b"endlinechar"),
-        new_line_char => print_esc_cstr(b"newlinechar"),
-        language => print_esc_cstr(b"language"),
-        left_hyphen_min => print_esc_cstr(b"lefthyphenmin"),
-        right_hyphen_min => print_esc_cstr(b"righthyphenmin"),
-        holding_inserts => print_esc_cstr(b"holdinginserts"),
-        error_context_lines => print_esc_cstr(b"errorcontextlines"),
-        char_sub_def_min => print_esc_cstr(b"charsubdefmin"),
-        char_sub_def_max => print_esc_cstr(b"charsubdefmax"),
-        tracing_char_sub_def => print_esc_cstr(b"tracingcharsubdef"),
-        xetex_linebreak_penalty => print_esc_cstr(b"XeTeXlinebreakpenalty"),
-        xetex_protrude_chars => print_esc_cstr(b"XeTeXprotrudechars"),
-        synctex => print_esc_cstr(b"synctex"),
-        tracing_assigns => print_esc_cstr(b"tracingassigns"),
-        tracing_groups => print_esc_cstr(b"tracinggroups"),
-        tracing_ifs => print_esc_cstr(b"tracingifs"),
-        tracing_scan_tokens => print_esc_cstr(b"tracingscantokens"),
-        tracing_nesting => print_esc_cstr(b"tracingnesting"),
-        pre_display_correction => print_esc_cstr(b"predisplaydirection"),
-        last_line_fit => print_esc_cstr(b"lastlinefit"),
-        saving_vdiscards => print_esc_cstr(b"savingvdiscards"),
-        saving_hyphs => print_esc_cstr(b"savinghyphcodes"),
-        suppress_fontnotfound_error => print_esc_cstr(b"suppressfontnotfounderror"),
-        texxet => print_esc_cstr(b"TeXXeTstate"),
-        xetex_upwards => print_esc_cstr(b"XeTeXupwardsmode"),
-        xetex_use_glyph_metrics => print_esc_cstr(b"XeTeXuseglyphmetrics"),
-        xetex_inter_char_tokens => print_esc_cstr(b"XeTeXinterchartokenstate"),
-        xetex_dash_break => print_esc_cstr(b"XeTeXdashbreakstate"),
-        xetex_input_normalization => print_esc_cstr(b"XeTeXinputnormalization"),
-        xetex_tracing_fonts => print_esc_cstr(b"XeTeXtracingfonts"),
-        xetex_interword_space_shaping => print_esc_cstr(b"XeTeXinterwordspaceshaping"),
-        xetex_generate_actual_text => print_esc_cstr(b"XeTeXgenerateactualtext"),
-        xetex_hyphenatable_length => print_esc_cstr(b"XeTeXhyphenatablelength"),
-        pdfoutput => print_esc_cstr(b"pdfoutput"),
-        _ => print_cstr(b"[unknown i32 parameter!]"), // NOTE: several parameters not covered
+        pretolerance => print_esc_cstr("pretolerance"),
+        tolerance => print_esc_cstr("tolerance"),
+        line_penalty => print_esc_cstr("linepenalty"),
+        hyphen_penalty => print_esc_cstr("hyphenpenalty"),
+        ex_hyphen_penalty => print_esc_cstr("exhyphenpenalty"),
+        club_penalty => print_esc_cstr("clubpenalty"),
+        widow_penalty => print_esc_cstr("widowpenalty"),
+        display_widow_penalty => print_esc_cstr("displaywidowpenalty"),
+        broken_penalty => print_esc_cstr("brokenpenalty"),
+        bin_op_penalty => print_esc_cstr("binoppenalty"),
+        rel_penalty => print_esc_cstr("relpenalty"),
+        pre_display_penalty => print_esc_cstr("predisplaypenalty"),
+        post_display_penalty => print_esc_cstr("postdisplaypenalty"),
+        inter_line_penalty => print_esc_cstr("interlinepenalty"),
+        double_hyphen_demerits => print_esc_cstr("doublehyphendemerits"),
+        final_hyphen_demerits => print_esc_cstr("finalhyphendemerits"),
+        adj_demerits => print_esc_cstr("adjdemerits"),
+        mag => print_esc_cstr("mag"),
+        delimiter_factor => print_esc_cstr("delimiterfactor"),
+        looseness => print_esc_cstr("looseness"),
+        time => print_esc_cstr("time"),
+        day => print_esc_cstr("day"),
+        month => print_esc_cstr("month"),
+        year => print_esc_cstr("year"),
+        show_box_breadth => print_esc_cstr("showboxbreadth"),
+        show_box_depth => print_esc_cstr("showboxdepth"),
+        hbadness => print_esc_cstr("hbadness"),
+        vbadness => print_esc_cstr("vbadness"),
+        pausing => print_esc_cstr("pausing"),
+        tracing_online => print_esc_cstr("tracingonline"),
+        tracing_macros => print_esc_cstr("tracingmacros"),
+        tracing_stats => print_esc_cstr("tracingstats"),
+        tracing_paragraphs => print_esc_cstr("tracingparagraphs"),
+        tracing_pages => print_esc_cstr("tracingpages"),
+        tracing_output => print_esc_cstr("tracingoutput"),
+        tracing_lost_chars => print_esc_cstr("tracinglostchars"),
+        tracing_commands => print_esc_cstr("tracingcommands"),
+        tracing_restores => print_esc_cstr("tracingrestores"),
+        uc_hyph => print_esc_cstr("uchyph"),
+        output_penalty => print_esc_cstr("outputpenalty"),
+        max_dead_cycles => print_esc_cstr("maxdeadcycles"),
+        hang_after => print_esc_cstr("hangafter"),
+        floating_penalty => print_esc_cstr("floatingpenalty"),
+        global_defs => print_esc_cstr("globaldefs"),
+        cur_fam => print_esc_cstr("fam"),
+        escape_char => print_esc_cstr("escapechar"),
+        default_hyphen_char => print_esc_cstr("defaulthyphenchar"),
+        default_skew_char => print_esc_cstr("defaultskewchar"),
+        end_line_char => print_esc_cstr("endlinechar"),
+        new_line_char => print_esc_cstr("newlinechar"),
+        language => print_esc_cstr("language"),
+        left_hyphen_min => print_esc_cstr("lefthyphenmin"),
+        right_hyphen_min => print_esc_cstr("righthyphenmin"),
+        holding_inserts => print_esc_cstr("holdinginserts"),
+        error_context_lines => print_esc_cstr("errorcontextlines"),
+        char_sub_def_min => print_esc_cstr("charsubdefmin"),
+        char_sub_def_max => print_esc_cstr("charsubdefmax"),
+        tracing_char_sub_def => print_esc_cstr("tracingcharsubdef"),
+        xetex_linebreak_penalty => print_esc_cstr("XeTeXlinebreakpenalty"),
+        xetex_protrude_chars => print_esc_cstr("XeTeXprotrudechars"),
+        synctex => print_esc_cstr("synctex"),
+        tracing_assigns => print_esc_cstr("tracingassigns"),
+        tracing_groups => print_esc_cstr("tracinggroups"),
+        tracing_ifs => print_esc_cstr("tracingifs"),
+        tracing_scan_tokens => print_esc_cstr("tracingscantokens"),
+        tracing_nesting => print_esc_cstr("tracingnesting"),
+        pre_display_correction => print_esc_cstr("predisplaydirection"),
+        last_line_fit => print_esc_cstr("lastlinefit"),
+        saving_vdiscards => print_esc_cstr("savingvdiscards"),
+        saving_hyphs => print_esc_cstr("savinghyphcodes"),
+        suppress_fontnotfound_error => print_esc_cstr("suppressfontnotfounderror"),
+        texxet => print_esc_cstr("TeXXeTstate"),
+        xetex_upwards => print_esc_cstr("XeTeXupwardsmode"),
+        xetex_use_glyph_metrics => print_esc_cstr("XeTeXuseglyphmetrics"),
+        xetex_inter_char_tokens => print_esc_cstr("XeTeXinterchartokenstate"),
+        xetex_dash_break => print_esc_cstr("XeTeXdashbreakstate"),
+        xetex_input_normalization => print_esc_cstr("XeTeXinputnormalization"),
+        xetex_tracing_fonts => print_esc_cstr("XeTeXtracingfonts"),
+        xetex_interword_space_shaping => print_esc_cstr("XeTeXinterwordspaceshaping"),
+        xetex_generate_actual_text => print_esc_cstr("XeTeXgenerateactualtext"),
+        xetex_hyphenatable_length => print_esc_cstr("XeTeXhyphenatablelength"),
+        pdfoutput => print_esc_cstr("pdfoutput"),
+        _ => print_cstr("[unknown i32 parameter!]"), // NOTE: several parameters not covered
     };
 }
 pub(crate) unsafe fn begin_diagnostic() {
@@ -1807,7 +1806,7 @@ pub(crate) unsafe fn begin_diagnostic() {
     };
 }
 pub(crate) unsafe fn end_diagnostic(mut blank_line: bool) {
-    print_nl_cstr(b"");
+    print_nl_cstr("");
     if blank_line {
         print_ln();
     }
@@ -1816,29 +1815,29 @@ pub(crate) unsafe fn end_diagnostic(mut blank_line: bool) {
 pub(crate) unsafe fn print_length_param(mut n: DimenPar) {
     use DimenPar::*;
     match n {
-        par_indent => print_esc_cstr(b"parindent"),
-        math_surround => print_esc_cstr(b"mathsurround"),
-        line_skip_limit => print_esc_cstr(b"lineskiplimit"),
-        hsize => print_esc_cstr(b"hsize"),
-        vsize => print_esc_cstr(b"vsize"),
-        max_depth => print_esc_cstr(b"maxdepth"),
-        split_max_depth => print_esc_cstr(b"splitmaxdepth"),
-        box_max_depth => print_esc_cstr(b"boxmaxdepth"),
-        hfuzz => print_esc_cstr(b"hfuzz"),
-        vfuzz => print_esc_cstr(b"vfuzz"),
-        delimiter_shortfall => print_esc_cstr(b"delimitershortfall"),
-        null_delimiter_space => print_esc_cstr(b"nulldelimiterspace"),
-        script_space => print_esc_cstr(b"scriptspace"),
-        pre_display_size => print_esc_cstr(b"predisplaysize"),
-        display_width => print_esc_cstr(b"displaywidth"),
-        display_indent => print_esc_cstr(b"displayindent"),
-        overfull_rule => print_esc_cstr(b"overfullrule"),
-        hang_indent => print_esc_cstr(b"hangindent"),
-        h_offset => print_esc_cstr(b"hoffset"),
-        v_offset => print_esc_cstr(b"voffset"),
-        emergency_stretch => print_esc_cstr(b"emergencystretch"),
-        pdf_page_width => print_esc_cstr(b"pdfpagewidth"),
-        pdf_page_height => print_esc_cstr(b"pdfpageheight"),
+        par_indent => print_esc_cstr("parindent"),
+        math_surround => print_esc_cstr("mathsurround"),
+        line_skip_limit => print_esc_cstr("lineskiplimit"),
+        hsize => print_esc_cstr("hsize"),
+        vsize => print_esc_cstr("vsize"),
+        max_depth => print_esc_cstr("maxdepth"),
+        split_max_depth => print_esc_cstr("splitmaxdepth"),
+        box_max_depth => print_esc_cstr("boxmaxdepth"),
+        hfuzz => print_esc_cstr("hfuzz"),
+        vfuzz => print_esc_cstr("vfuzz"),
+        delimiter_shortfall => print_esc_cstr("delimitershortfall"),
+        null_delimiter_space => print_esc_cstr("nulldelimiterspace"),
+        script_space => print_esc_cstr("scriptspace"),
+        pre_display_size => print_esc_cstr("predisplaysize"),
+        display_width => print_esc_cstr("displaywidth"),
+        display_indent => print_esc_cstr("displayindent"),
+        overfull_rule => print_esc_cstr("overfullrule"),
+        hang_indent => print_esc_cstr("hangindent"),
+        h_offset => print_esc_cstr("hoffset"),
+        v_offset => print_esc_cstr("voffset"),
+        emergency_stretch => print_esc_cstr("emergencystretch"),
+        pdf_page_width => print_esc_cstr("pdfpagewidth"),
+        pdf_page_height => print_esc_cstr("pdfpageheight"),
     }
 }
 pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
@@ -1846,7 +1845,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
     let mut quote_char: UTF16_code = 0;
     match cmd {
         Cmd::LeftBrace => {
-            print_cstr(b"begin-group character ");
+            print_cstr("begin-group character ");
             if chr_code < 65536 {
                 print(chr_code);
             } else {
@@ -1854,7 +1853,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             }
         }
         Cmd::RightBrace => {
-            print_cstr(b"end-group character ");
+            print_cstr("end-group character ");
             if chr_code < 65536 {
                 print(chr_code);
             } else {
@@ -1862,7 +1861,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             }
         }
         Cmd::MathShift => {
-            print_cstr(b"math shift character ");
+            print_cstr("math shift character ");
             if chr_code < 65536 {
                 print(chr_code);
             } else {
@@ -1870,7 +1869,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             }
         }
         Cmd::MacParam => {
-            print_cstr(b"macro parameter character ");
+            print_cstr("macro parameter character ");
             if chr_code < 65536 {
                 print(chr_code);
             } else {
@@ -1878,7 +1877,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             }
         }
         Cmd::SupMark => {
-            print_cstr(b"superscript character ");
+            print_cstr("superscript character ");
             if chr_code < 65536 {
                 print(chr_code);
             } else {
@@ -1886,16 +1885,16 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             }
         }
         Cmd::SubMark => {
-            print_cstr(b"subscript character ");
+            print_cstr("subscript character ");
             if chr_code < 65536 {
                 print(chr_code);
             } else {
                 print_char(chr_code);
             }
         }
-        Cmd::EndV => print_cstr(b"end of alignment template"),
+        Cmd::EndV => print_cstr("end of alignment template"),
         Cmd::Spacer => {
-            print_cstr(b"blank space ");
+            print_cstr("blank space ");
             if chr_code < 65536 {
                 print(chr_code);
             } else {
@@ -1903,7 +1902,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             }
         }
         Cmd::Letter => {
-            print_cstr(b"the letter ");
+            print_cstr("the letter ");
             if chr_code < 65536 {
                 print(chr_code);
             } else {
@@ -1911,7 +1910,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             }
         }
         Cmd::OtherChar => {
-            print_cstr(b"the character ");
+            print_cstr("the character ");
             if chr_code < 65536 {
                 print(chr_code);
             } else {
@@ -1922,34 +1921,34 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             if chr_code < SKIP_BASE as i32 {
                 match GluePar::n((chr_code - GLUE_BASE as i32) as u16) {
                     Some(dimen) => print_skip_param(dimen),
-                    None => print_cstr(b"[unknown glue parameter!]"),
+                    None => print_cstr("[unknown glue parameter!]"),
                 }
             } else if chr_code < MU_SKIP_BASE as i32 {
-                print_esc_cstr(b"skip");
+                print_esc_cstr("skip");
                 print_int(chr_code - SKIP_BASE as i32);
             } else {
-                print_esc_cstr(b"muskip");
+                print_esc_cstr("muskip");
                 print_int(chr_code - MU_SKIP_BASE as i32);
             }
         }
         Cmd::AssignToks => {
             if chr_code >= TOKS_BASE as i32 {
-                print_esc_cstr(b"toks");
+                print_esc_cstr("toks");
                 print_int(chr_code - TOKS_BASE as i32);
             } else {
                 match Local::n(chr_code - LOCAL_BASE as i32) {
-                    Some(Local::output_routine) => print_esc_cstr(b"output"),
-                    Some(Local::every_par) => print_esc_cstr(b"everypar"),
-                    Some(Local::every_math) => print_esc_cstr(b"everymath"),
-                    Some(Local::every_display) => print_esc_cstr(b"everydisplay"),
-                    Some(Local::every_hbox) => print_esc_cstr(b"everyhbox"),
-                    Some(Local::every_vbox) => print_esc_cstr(b"everyvbox"),
-                    Some(Local::every_job) => print_esc_cstr(b"everyjob"),
-                    Some(Local::every_cr) => print_esc_cstr(b"everycr"),
-                    Some(Local::every_eof) => print_esc_cstr(b"everyeof"),
-                    Some(Local::xetex_inter_char) => print_esc_cstr(b"XeTeXinterchartoks"),
-                    Some(Local::TectonicCodaTokens) => print_esc_cstr(b"TectonicCodaTokens"),
-                    _ => print_esc_cstr(b"errhelp"),
+                    Some(Local::output_routine) => print_esc_cstr("output"),
+                    Some(Local::every_par) => print_esc_cstr("everypar"),
+                    Some(Local::every_math) => print_esc_cstr("everymath"),
+                    Some(Local::every_display) => print_esc_cstr("everydisplay"),
+                    Some(Local::every_hbox) => print_esc_cstr("everyhbox"),
+                    Some(Local::every_vbox) => print_esc_cstr("everyvbox"),
+                    Some(Local::every_job) => print_esc_cstr("everyjob"),
+                    Some(Local::every_cr) => print_esc_cstr("everycr"),
+                    Some(Local::every_eof) => print_esc_cstr("everyeof"),
+                    Some(Local::xetex_inter_char) => print_esc_cstr("XeTeXinterchartoks"),
+                    Some(Local::TectonicCodaTokens) => print_esc_cstr("TectonicCodaTokens"),
+                    _ => print_esc_cstr("errhelp"),
                 }
             }
         }
@@ -1957,10 +1956,10 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             if chr_code < COUNT_BASE as i32 {
                 match IntPar::n(chr_code - INT_BASE as i32) {
                     Some(dimen) => print_param(dimen),
-                    None => print_cstr(b"[unknown i32 parameter!]"),
+                    None => print_cstr("[unknown i32 parameter!]"),
                 }
             } else {
-                print_esc_cstr(b"count");
+                print_esc_cstr("count");
                 print_int(chr_code - COUNT_BASE as i32);
             }
         }
@@ -1968,161 +1967,159 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             if chr_code < SCALED_BASE as i32 {
                 match DimenPar::n(chr_code - DIMEN_BASE as i32) {
                     Some(dimen) => print_length_param(dimen),
-                    None => print_cstr(b"[unknown dimen parameter!]"),
+                    None => print_cstr("[unknown dimen parameter!]"),
                 }
             } else {
-                print_esc_cstr(b"dimen");
+                print_esc_cstr("dimen");
                 print_int(chr_code - SCALED_BASE as i32);
             }
         }
-        Cmd::Accent => print_esc_cstr(b"accent"),
-        Cmd::Advance => print_esc_cstr(b"advance"),
-        Cmd::AfterAssignment => print_esc_cstr(b"afterassignment"),
-        Cmd::AfterGroup => print_esc_cstr(b"aftergroup"),
-        Cmd::AssignFontDimen => print_esc_cstr(b"fontdimen"),
-        Cmd::BeginGroup => print_esc_cstr(b"begingroup"),
-        Cmd::BreakPenalty => print_esc_cstr(b"penalty"),
-        Cmd::CharNum => print_esc_cstr(b"char"),
-        Cmd::CSName => print_esc_cstr(b"csname"),
-        Cmd::DefFont => print_esc_cstr(b"font"),
+        Cmd::Accent => print_esc_cstr("accent"),
+        Cmd::Advance => print_esc_cstr("advance"),
+        Cmd::AfterAssignment => print_esc_cstr("afterassignment"),
+        Cmd::AfterGroup => print_esc_cstr("aftergroup"),
+        Cmd::AssignFontDimen => print_esc_cstr("fontdimen"),
+        Cmd::BeginGroup => print_esc_cstr("begingroup"),
+        Cmd::BreakPenalty => print_esc_cstr("penalty"),
+        Cmd::CharNum => print_esc_cstr("char"),
+        Cmd::CSName => print_esc_cstr("csname"),
+        Cmd::DefFont => print_esc_cstr("font"),
         Cmd::DelimNum => {
             if chr_code == 1 {
-                print_esc_cstr(b"Udelimiter");
+                print_esc_cstr("Udelimiter");
             } else {
-                print_esc_cstr(b"delimiter");
+                print_esc_cstr("delimiter");
             }
         }
-        Cmd::Divide => print_esc_cstr(b"divide"),
-        Cmd::EndCSName => print_esc_cstr(b"endcsname"),
-        Cmd::EndGroup => print_esc_cstr(b"endgroup"),
+        Cmd::Divide => print_esc_cstr("divide"),
+        Cmd::EndCSName => print_esc_cstr("endcsname"),
+        Cmd::EndGroup => print_esc_cstr("endgroup"),
         Cmd::ExSpace => print_esc(' ' as i32),
         Cmd::ExpandAfter => {
             if chr_code == 0 {
-                print_esc_cstr(b"expandafter");
+                print_esc_cstr("expandafter");
             } else {
-                print_esc_cstr(b"unless");
+                print_esc_cstr("unless");
             }
         }
-        Cmd::HAlign => print_esc_cstr(b"halign"),
-        Cmd::HRule => print_esc_cstr(b"hrule"),
+        Cmd::HAlign => print_esc_cstr("halign"),
+        Cmd::HRule => print_esc_cstr("hrule"),
         Cmd::IgnoreSpaces => {
             if chr_code == 0 {
-                print_esc_cstr(b"ignorespaces");
+                print_esc_cstr("ignorespaces");
             } else {
-                print_esc_cstr(b"primitive");
+                print_esc_cstr("primitive");
             }
         }
-        Cmd::Insert => print_esc_cstr(b"insert"),
+        Cmd::Insert => print_esc_cstr("insert"),
         Cmd::ItalCorr => print_esc('/' as i32),
         Cmd::Mark => {
-            print_esc_cstr(b"mark");
+            print_esc_cstr("mark");
             if chr_code > 0 {
                 print_char('s' as i32);
             }
         }
         Cmd::MathAccent => {
             if chr_code == 1 {
-                print_esc_cstr(b"Umathaccent");
+                print_esc_cstr("Umathaccent");
             } else {
-                print_esc_cstr(b"mathaccent");
+                print_esc_cstr("mathaccent");
             }
         }
         Cmd::MathCharNum => {
             if chr_code == 2 {
-                print_esc_cstr(b"Umathchar");
+                print_esc_cstr("Umathchar");
             } else if chr_code == 1 {
-                print_esc_cstr(b"Umathcharnum");
+                print_esc_cstr("Umathcharnum");
             } else {
-                print_esc_cstr(b"mathchar");
+                print_esc_cstr("mathchar");
             }
         }
-        Cmd::MathChoice => print_esc_cstr(b"mathchoice"),
-        Cmd::Multiply => print_esc_cstr(b"multiply"),
-        Cmd::NoAlign => print_esc_cstr(b"noalign"),
-        Cmd::NoBoundary => print_esc_cstr(b"noboundary"),
+        Cmd::MathChoice => print_esc_cstr("mathchoice"),
+        Cmd::Multiply => print_esc_cstr("multiply"),
+        Cmd::NoAlign => print_esc_cstr("noalign"),
+        Cmd::NoBoundary => print_esc_cstr("noboundary"),
         Cmd::NoExpand => {
             if chr_code == 0 {
-                print_esc_cstr(b"noexpand");
+                print_esc_cstr("noexpand");
             } else {
-                print_esc_cstr(b"primitive");
+                print_esc_cstr("primitive");
             }
         }
-        Cmd::NonScript => print_esc_cstr(b"nonscript"),
-        Cmd::Omit => print_esc_cstr(b"omit"),
+        Cmd::NonScript => print_esc_cstr("nonscript"),
+        Cmd::Omit => print_esc_cstr("omit"),
         Cmd::Radical => {
             if chr_code == 1 {
-                print_esc_cstr(b"Uradical");
+                print_esc_cstr("Uradical");
             } else {
-                print_esc_cstr(b"radical");
+                print_esc_cstr("radical");
             }
         }
         Cmd::ReadToCS => {
             if chr_code == 0 {
-                print_esc_cstr(b"read");
+                print_esc_cstr("read");
             } else {
-                print_esc_cstr(b"readline");
+                print_esc_cstr("readline");
             }
         }
-        Cmd::Relax => print_esc_cstr(b"relax"),
-        Cmd::SetBox => print_esc_cstr(b"setbox"),
-        Cmd::SetPrevGraf => print_esc_cstr(b"prevgraf"),
+        Cmd::Relax => print_esc_cstr("relax"),
+        Cmd::SetBox => print_esc_cstr("setbox"),
+        Cmd::SetPrevGraf => print_esc_cstr("prevgraf"),
         Cmd::SetShape => match chr_code as usize {
-            c if c == LOCAL_BASE as usize + Local::par_shape as usize => {
-                print_esc_cstr(b"parshape")
-            }
-            INTER_LINE_PENALTIES_LOC => print_esc_cstr(b"interlinepenalties"),
-            CLUB_PENALTIES_LOC => print_esc_cstr(b"clubpenalties"),
-            WIDOW_PENALTIES_LOC => print_esc_cstr(b"widowpenalties"),
-            DISPLAY_WIDOW_PENALTIES_LOC => print_esc_cstr(b"displaywidowpenalties"),
+            c if c == LOCAL_BASE as usize + Local::par_shape as usize => print_esc_cstr("parshape"),
+            INTER_LINE_PENALTIES_LOC => print_esc_cstr("interlinepenalties"),
+            CLUB_PENALTIES_LOC => print_esc_cstr("clubpenalties"),
+            WIDOW_PENALTIES_LOC => print_esc_cstr("widowpenalties"),
+            DISPLAY_WIDOW_PENALTIES_LOC => print_esc_cstr("displaywidowpenalties"),
             _ => {}
         },
         Cmd::The => {
             if chr_code == 0 {
-                print_esc_cstr(b"the");
+                print_esc_cstr("the");
             } else if chr_code == 1 {
-                print_esc_cstr(b"unexpanded");
+                print_esc_cstr("unexpanded");
             } else {
-                print_esc_cstr(b"detokenize");
+                print_esc_cstr("detokenize");
             }
         }
         Cmd::ToksRegister => {
-            print_esc_cstr(b"toks");
+            print_esc_cstr("toks");
             if chr_code != 0 {
                 print_sa_num(chr_code.opt().unwrap());
             }
         }
-        Cmd::VAdjust => print_esc_cstr(b"vadjust"),
+        Cmd::VAdjust => print_esc_cstr("vadjust"),
         Cmd::VAlign => {
             if chr_code == 0 {
-                print_esc_cstr(b"valign");
+                print_esc_cstr("valign");
             } else {
                 match MathType::from(chr_code as u16) {
-                    MathType::Eq(BE::Begin, MathMode::Left) => print_esc_cstr(b"beginL"),
-                    MathType::Eq(BE::End, MathMode::Left) => print_esc_cstr(b"endL"),
-                    MathType::Eq(BE::Begin, MathMode::Right) => print_esc_cstr(b"beginR"),
-                    _ => print_esc_cstr(b"endR"),
+                    MathType::Eq(BE::Begin, MathMode::Left) => print_esc_cstr("beginL"),
+                    MathType::Eq(BE::End, MathMode::Left) => print_esc_cstr("endL"),
+                    MathType::Eq(BE::Begin, MathMode::Right) => print_esc_cstr("beginR"),
+                    _ => print_esc_cstr("endR"),
                 }
             }
         }
-        Cmd::VCenter => print_esc_cstr(b"vcenter"),
-        Cmd::VRule => print_esc_cstr(b"vrule"),
-        PAR_END => print_esc_cstr(b"par"),
+        Cmd::VCenter => print_esc_cstr("vcenter"),
+        Cmd::VRule => print_esc_cstr("vrule"),
+        PAR_END => print_esc_cstr("par"),
         Cmd::Input => {
             if chr_code == 0 {
-                print_esc_cstr(b"input");
+                print_esc_cstr("input");
             } else if chr_code == 2i32 {
-                print_esc_cstr(b"scantokens");
+                print_esc_cstr("scantokens");
             } else {
-                print_esc_cstr(b"endinput");
+                print_esc_cstr("endinput");
             }
         }
         Cmd::TopBotMark => {
             match (chr_code % MARKS_CODE) as usize {
-                FIRST_MARK_CODE => print_esc_cstr(b"firstmark"),
-                BOT_MARK_CODE => print_esc_cstr(b"botmark"),
-                SPLIT_FIRST_MARK_CODE => print_esc_cstr(b"splitfirstmark"),
-                SPLIT_BOT_MARK_CODE => print_esc_cstr(b"splitbotmark"),
-                _ => print_esc_cstr(b"topmark"),
+                FIRST_MARK_CODE => print_esc_cstr("firstmark"),
+                BOT_MARK_CODE => print_esc_cstr("botmark"),
+                SPLIT_FIRST_MARK_CODE => print_esc_cstr("splitfirstmark"),
+                SPLIT_BOT_MARK_CODE => print_esc_cstr("splitbotmark"),
+                _ => print_esc_cstr("topmark"),
             }
             if chr_code >= MARKS_CODE {
                 print_char('s' as i32);
@@ -2138,13 +2135,13 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 chr_code = None.tex_int();
             }
             if cmd == ValLevel::Int as u16 {
-                print_esc_cstr(b"count");
+                print_esc_cstr("count");
             } else if cmd == ValLevel::Dimen as u16 {
-                print_esc_cstr(b"dimen");
+                print_esc_cstr("dimen");
             } else if cmd == ValLevel::Glue as u16 {
-                print_esc_cstr(b"skip");
+                print_esc_cstr("skip");
             } else {
-                print_esc_cstr(b"muskip");
+                print_esc_cstr("muskip");
             }
             if let Some(q) = chr_code.opt() {
                 print_sa_num(q);
@@ -2152,154 +2149,154 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         }
         Cmd::SetAux => {
             if chr_code == ListMode::VMode as i32 {
-                print_esc_cstr(b"prevdepth");
+                print_esc_cstr("prevdepth");
             } else {
-                print_esc_cstr(b"spacefactor");
+                print_esc_cstr("spacefactor");
             }
         }
         Cmd::SetPageInt => {
             if chr_code == 0 {
-                print_esc_cstr(b"deadcycles");
+                print_esc_cstr("deadcycles");
             } else if chr_code == 2 {
-                print_esc_cstr(b"interactionmode");
+                print_esc_cstr("interactionmode");
             } else {
-                print_esc_cstr(b"insertpenalties");
+                print_esc_cstr("insertpenalties");
             }
         }
         Cmd::SetBoxDimen => match SetBoxDimen::n(chr_code as u8).unwrap() {
-            SetBoxDimen::WidthOffset => print_esc_cstr(b"wd"),
-            SetBoxDimen::HeightOffset => print_esc_cstr(b"ht"),
-            SetBoxDimen::DepthOffset => print_esc_cstr(b"dp"),
+            SetBoxDimen::WidthOffset => print_esc_cstr("wd"),
+            SetBoxDimen::HeightOffset => print_esc_cstr("ht"),
+            SetBoxDimen::DepthOffset => print_esc_cstr("dp"),
         },
         Cmd::LastItem => {
             use LastItemCode::*;
             match LastItemCode::n(chr_code as u8).unwrap() {
-                LastPenalty => print_esc_cstr(b"lastpenalty"),
-                LastKern => print_esc_cstr(b"lastkern"),
-                LastSkip => print_esc_cstr(b"lastskip"),
-                InputLineNo => print_esc_cstr(b"inputlineno"),
-                PdfShellEscape => print_esc_cstr(b"shellescape"),
-                LastNodeType => print_esc_cstr(b"lastnodetype"),
-                EtexVersion => print_esc_cstr(b"eTeXversion"),
-                XetexVersion => print_esc_cstr(b"XeTeXversion"),
-                XetexCountGlyphs => print_esc_cstr(b"XeTeXcountglyphs"),
-                XetexCountVariations => print_esc_cstr(b"XeTeXcountvariations"),
-                XetexVariation => print_esc_cstr(b"XeTeXvariation"),
-                XetexFindVariationByName => print_esc_cstr(b"XeTeXfindvariationbyname"),
-                XetexVariationMin => print_esc_cstr(b"XeTeXvariationmin"),
-                XetexVariationMax => print_esc_cstr(b"XeTeXvariationmax"),
-                XetexVariationDefault => print_esc_cstr(b"XeTeXvariationdefault"),
-                XetexCountFeatures => print_esc_cstr(b"XeTeXcountfeatures"),
-                XetexFeatureCode => print_esc_cstr(b"XeTeXfeaturecode"),
-                XetexFindFeatureByName => print_esc_cstr(b"XeTeXfindfeaturebyname"),
-                XetexIsExclusiveFeature => print_esc_cstr(b"XeTeXisexclusivefeature"),
-                XetexCountSelectors => print_esc_cstr(b"XeTeXcountselectors"),
-                XetexSelectorCode => print_esc_cstr(b"XeTeXselectorcode"),
-                XetexFindSelectorByName => print_esc_cstr(b"XeTeXfindselectorbyname"),
-                XetexIsDefaultSelector => print_esc_cstr(b"XeTeXisdefaultselector"),
-                XetexOTCountScripts => print_esc_cstr(b"XeTeXOTcountscripts"),
-                XetexOTCountLanguages => print_esc_cstr(b"XeTeXOTcountlanguages"),
-                XetexOTCountFeatures => print_esc_cstr(b"XeTeXOTcountfeatures"),
-                XetexOTScript => print_esc_cstr(b"XeTeXOTscripttag"),
-                XetexOTLanguage => print_esc_cstr(b"XeTeXOTlanguagetag"),
-                XetexOTFeature => print_esc_cstr(b"XeTeXOTfeaturetag"),
-                XetexMapCharToGlyph => print_esc_cstr(b"XeTeXcharglyph"),
-                XetexGlyphIndex => print_esc_cstr(b"XeTeXglyphindex"),
-                XetexGlyphBounds => print_esc_cstr(b"XeTeXglyphbounds"),
-                XetexFontType => print_esc_cstr(b"XeTeXfonttype"),
-                XetexFirstChar => print_esc_cstr(b"XeTeXfirstfontchar"),
-                XetexLastChar => print_esc_cstr(b"XeTeXlastfontchar"),
-                PdfLastXPos => print_esc_cstr(b"pdflastxpos"),
-                PdfLastYPos => print_esc_cstr(b"pdflastypos"),
-                XetexPdfPageCount => print_esc_cstr(b"XeTeXpdfpagecount"),
-                CurrentGroupLevel => print_esc_cstr(b"currentgrouplevel"),
-                CurrentGroupType => print_esc_cstr(b"currentgrouptype"),
-                CurrentIfLevel => print_esc_cstr(b"currentiflevel"),
-                CurrentIfType => print_esc_cstr(b"currentiftype"),
-                CurrentIfBranch => print_esc_cstr(b"currentifbranch"),
-                FontCharWd => print_esc_cstr(b"fontcharwd"),
-                FontCharHt => print_esc_cstr(b"fontcharht"),
-                FontCharDp => print_esc_cstr(b"fontchardp"),
-                FontCharIc => print_esc_cstr(b"fontcharic"),
-                ParShapeLength => print_esc_cstr(b"parshapelength"),
-                ParShapeIndent => print_esc_cstr(b"parshapeindent"),
-                ParShapeDimen => print_esc_cstr(b"parshapedimen"),
-                EtexExprInt => print_esc_cstr(b"numexpr"),
-                EtexExprDimen => print_esc_cstr(b"dimexpr"),
-                EtexExprGlue => print_esc_cstr(b"glueexpr"),
-                EtexExprMu => print_esc_cstr(b"muexpr"),
-                GlueStretchOrder => print_esc_cstr(b"gluestretchorder"),
-                GlueShrinkOrder => print_esc_cstr(b"glueshrinkorder"),
-                GlueStretch => print_esc_cstr(b"gluestretch"),
-                GlueShrink => print_esc_cstr(b"glueshrink"),
-                MuToGlue => print_esc_cstr(b"mutoglue"),
-                GlueToMu => print_esc_cstr(b"gluetomu"),
-                Badness => print_esc_cstr(b"badness"),
+                LastPenalty => print_esc_cstr("lastpenalty"),
+                LastKern => print_esc_cstr("lastkern"),
+                LastSkip => print_esc_cstr("lastskip"),
+                InputLineNo => print_esc_cstr("inputlineno"),
+                PdfShellEscape => print_esc_cstr("shellescape"),
+                LastNodeType => print_esc_cstr("lastnodetype"),
+                EtexVersion => print_esc_cstr("eTeXversion"),
+                XetexVersion => print_esc_cstr("XeTeXversion"),
+                XetexCountGlyphs => print_esc_cstr("XeTeXcountglyphs"),
+                XetexCountVariations => print_esc_cstr("XeTeXcountvariations"),
+                XetexVariation => print_esc_cstr("XeTeXvariation"),
+                XetexFindVariationByName => print_esc_cstr("XeTeXfindvariationbyname"),
+                XetexVariationMin => print_esc_cstr("XeTeXvariationmin"),
+                XetexVariationMax => print_esc_cstr("XeTeXvariationmax"),
+                XetexVariationDefault => print_esc_cstr("XeTeXvariationdefault"),
+                XetexCountFeatures => print_esc_cstr("XeTeXcountfeatures"),
+                XetexFeatureCode => print_esc_cstr("XeTeXfeaturecode"),
+                XetexFindFeatureByName => print_esc_cstr("XeTeXfindfeaturebyname"),
+                XetexIsExclusiveFeature => print_esc_cstr("XeTeXisexclusivefeature"),
+                XetexCountSelectors => print_esc_cstr("XeTeXcountselectors"),
+                XetexSelectorCode => print_esc_cstr("XeTeXselectorcode"),
+                XetexFindSelectorByName => print_esc_cstr("XeTeXfindselectorbyname"),
+                XetexIsDefaultSelector => print_esc_cstr("XeTeXisdefaultselector"),
+                XetexOTCountScripts => print_esc_cstr("XeTeXOTcountscripts"),
+                XetexOTCountLanguages => print_esc_cstr("XeTeXOTcountlanguages"),
+                XetexOTCountFeatures => print_esc_cstr("XeTeXOTcountfeatures"),
+                XetexOTScript => print_esc_cstr("XeTeXOTscripttag"),
+                XetexOTLanguage => print_esc_cstr("XeTeXOTlanguagetag"),
+                XetexOTFeature => print_esc_cstr("XeTeXOTfeaturetag"),
+                XetexMapCharToGlyph => print_esc_cstr("XeTeXcharglyph"),
+                XetexGlyphIndex => print_esc_cstr("XeTeXglyphindex"),
+                XetexGlyphBounds => print_esc_cstr("XeTeXglyphbounds"),
+                XetexFontType => print_esc_cstr("XeTeXfonttype"),
+                XetexFirstChar => print_esc_cstr("XeTeXfirstfontchar"),
+                XetexLastChar => print_esc_cstr("XeTeXlastfontchar"),
+                PdfLastXPos => print_esc_cstr("pdflastxpos"),
+                PdfLastYPos => print_esc_cstr("pdflastypos"),
+                XetexPdfPageCount => print_esc_cstr("XeTeXpdfpagecount"),
+                CurrentGroupLevel => print_esc_cstr("currentgrouplevel"),
+                CurrentGroupType => print_esc_cstr("currentgrouptype"),
+                CurrentIfLevel => print_esc_cstr("currentiflevel"),
+                CurrentIfType => print_esc_cstr("currentiftype"),
+                CurrentIfBranch => print_esc_cstr("currentifbranch"),
+                FontCharWd => print_esc_cstr("fontcharwd"),
+                FontCharHt => print_esc_cstr("fontcharht"),
+                FontCharDp => print_esc_cstr("fontchardp"),
+                FontCharIc => print_esc_cstr("fontcharic"),
+                ParShapeLength => print_esc_cstr("parshapelength"),
+                ParShapeIndent => print_esc_cstr("parshapeindent"),
+                ParShapeDimen => print_esc_cstr("parshapedimen"),
+                EtexExprInt => print_esc_cstr("numexpr"),
+                EtexExprDimen => print_esc_cstr("dimexpr"),
+                EtexExprGlue => print_esc_cstr("glueexpr"),
+                EtexExprMu => print_esc_cstr("muexpr"),
+                GlueStretchOrder => print_esc_cstr("gluestretchorder"),
+                GlueShrinkOrder => print_esc_cstr("glueshrinkorder"),
+                GlueStretch => print_esc_cstr("gluestretch"),
+                GlueShrink => print_esc_cstr("glueshrink"),
+                MuToGlue => print_esc_cstr("mutoglue"),
+                GlueToMu => print_esc_cstr("gluetomu"),
+                Badness => print_esc_cstr("badness"),
             }
         }
         Cmd::Convert => {
             use ConvertCode::*;
             match ConvertCode::n(chr_code as u8).unwrap() {
-                Number => print_esc_cstr(b"number"),
-                RomanNumeral => print_esc_cstr(b"romannumeral"),
-                String => print_esc_cstr(b"string"),
-                Meaning => print_esc_cstr(b"meaning"),
-                FontName => print_esc_cstr(b"fontname"),
-                PdfStrcmp => print_esc_cstr(b"strcmp"),
-                PdfMdfiveSum => print_esc_cstr(b"mdfivesum"),
-                LeftMarginKern => print_esc_cstr(b"leftmarginkern"),
-                RightMarginKern => print_esc_cstr(b"rightmarginkern"),
-                EtexRevision => print_esc_cstr(b"eTeXrevision"),
-                XetexRevision => print_esc_cstr(b"XeTeXrevision"),
-                XetexVariationName => print_esc_cstr(b"XeTeXvariationname"),
-                XetexFeatureName => print_esc_cstr(b"XeTeXfeaturename"),
-                XetexSelectorName => print_esc_cstr(b"XeTeXselectorname"),
-                XetexGlyphName => print_esc_cstr(b"XeTeXglyphname"),
-                XetexUchar => print_esc_cstr(b"Uchar"),
-                XetexUcharcat => print_esc_cstr(b"Ucharcat"),
-                JobName => print_esc_cstr(b"jobname"),
+                Number => print_esc_cstr("number"),
+                RomanNumeral => print_esc_cstr("romannumeral"),
+                String => print_esc_cstr("string"),
+                Meaning => print_esc_cstr("meaning"),
+                FontName => print_esc_cstr("fontname"),
+                PdfStrcmp => print_esc_cstr("strcmp"),
+                PdfMdfiveSum => print_esc_cstr("mdfivesum"),
+                LeftMarginKern => print_esc_cstr("leftmarginkern"),
+                RightMarginKern => print_esc_cstr("rightmarginkern"),
+                EtexRevision => print_esc_cstr("eTeXrevision"),
+                XetexRevision => print_esc_cstr("XeTeXrevision"),
+                XetexVariationName => print_esc_cstr("XeTeXvariationname"),
+                XetexFeatureName => print_esc_cstr("XeTeXfeaturename"),
+                XetexSelectorName => print_esc_cstr("XeTeXselectorname"),
+                XetexGlyphName => print_esc_cstr("XeTeXglyphname"),
+                XetexUchar => print_esc_cstr("Uchar"),
+                XetexUcharcat => print_esc_cstr("Ucharcat"),
+                JobName => print_esc_cstr("jobname"),
             }
         }
         Cmd::IfTest => {
             if chr_code >= UNLESS_CODE {
-                print_esc_cstr(b"unless");
+                print_esc_cstr("unless");
             }
             match IfTestCode::n((chr_code % UNLESS_CODE) as u8).unwrap() {
-                IfTestCode::IfCat => print_esc_cstr(b"ifcat"),
-                IfTestCode::IfInt => print_esc_cstr(b"ifnum"),
-                IfTestCode::IfDim => print_esc_cstr(b"ifdim"),
-                IfTestCode::IfOdd => print_esc_cstr(b"ifodd"),
-                IfTestCode::IfVMode => print_esc_cstr(b"ifvmode"),
-                IfTestCode::IfHMode => print_esc_cstr(b"ifhmode"),
-                IfTestCode::IfMMode => print_esc_cstr(b"ifmmode"),
-                IfTestCode::IfInner => print_esc_cstr(b"ifinner"),
-                IfTestCode::IfVoid => print_esc_cstr(b"ifvoid"),
-                IfTestCode::IfHBox => print_esc_cstr(b"ifhbox"),
-                IfTestCode::IfVBox => print_esc_cstr(b"ifvbox"),
-                IfTestCode::Ifx => print_esc_cstr(b"ifx"),
-                IfTestCode::IfEof => print_esc_cstr(b"ifeof"),
-                IfTestCode::IfTrue => print_esc_cstr(b"iftrue"),
-                IfTestCode::IfFalse => print_esc_cstr(b"iffalse"),
-                IfTestCode::IfCase => print_esc_cstr(b"ifcase"),
-                IfTestCode::IfPrimitive => print_esc_cstr(b"ifprimitive"),
-                IfTestCode::IfDef => print_esc_cstr(b"ifdefined"),
-                IfTestCode::IfCS => print_esc_cstr(b"ifcsname"),
-                IfTestCode::IfFontChar => print_esc_cstr(b"iffontchar"),
-                IfTestCode::IfInCSName => print_esc_cstr(b"ifincsname"),
-                IfTestCode::IfChar => print_esc_cstr(b"if"),
+                IfTestCode::IfCat => print_esc_cstr("ifcat"),
+                IfTestCode::IfInt => print_esc_cstr("ifnum"),
+                IfTestCode::IfDim => print_esc_cstr("ifdim"),
+                IfTestCode::IfOdd => print_esc_cstr("ifodd"),
+                IfTestCode::IfVMode => print_esc_cstr("ifvmode"),
+                IfTestCode::IfHMode => print_esc_cstr("ifhmode"),
+                IfTestCode::IfMMode => print_esc_cstr("ifmmode"),
+                IfTestCode::IfInner => print_esc_cstr("ifinner"),
+                IfTestCode::IfVoid => print_esc_cstr("ifvoid"),
+                IfTestCode::IfHBox => print_esc_cstr("ifhbox"),
+                IfTestCode::IfVBox => print_esc_cstr("ifvbox"),
+                IfTestCode::Ifx => print_esc_cstr("ifx"),
+                IfTestCode::IfEof => print_esc_cstr("ifeof"),
+                IfTestCode::IfTrue => print_esc_cstr("iftrue"),
+                IfTestCode::IfFalse => print_esc_cstr("iffalse"),
+                IfTestCode::IfCase => print_esc_cstr("ifcase"),
+                IfTestCode::IfPrimitive => print_esc_cstr("ifprimitive"),
+                IfTestCode::IfDef => print_esc_cstr("ifdefined"),
+                IfTestCode::IfCS => print_esc_cstr("ifcsname"),
+                IfTestCode::IfFontChar => print_esc_cstr("iffontchar"),
+                IfTestCode::IfInCSName => print_esc_cstr("ifincsname"),
+                IfTestCode::IfChar => print_esc_cstr("if"),
             }
         }
         Cmd::FiOrElse => match FiOrElseCode::n(chr_code as u8).unwrap() {
-            FiOrElseCode::Fi => print_esc_cstr(b"fi"),
-            FiOrElseCode::Or => print_esc_cstr(b"or"),
-            FiOrElseCode::Else => print_esc_cstr(b"else"),
+            FiOrElseCode::Fi => print_esc_cstr("fi"),
+            FiOrElseCode::Or => print_esc_cstr("or"),
+            FiOrElseCode::Else => print_esc_cstr("else"),
             _ => unreachable!(),
         },
         Cmd::TabMark => {
             if chr_code == SPAN_CODE {
-                print_esc_cstr(b"span");
+                print_esc_cstr("span");
             } else {
-                print_cstr(b"alignment tab character ");
+                print_cstr("alignment tab character ");
                 if (chr_code as i64) < 65536 {
                     print(chr_code);
                 } else {
@@ -2309,252 +2306,252 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         }
         Cmd::CarRet => {
             if chr_code == CR_CODE {
-                print_esc_cstr(b"cr");
+                print_esc_cstr("cr");
             } else {
-                print_esc_cstr(b"crcr");
+                print_esc_cstr("crcr");
             }
         }
         Cmd::SetPageDimen => {
             match chr_code {
-                0 => print_esc_cstr(b"pagegoal"),         // genuine literal in WEB
-                1 => print_esc_cstr(b"pagetotal"),        // genuine literal in WEB
-                2 => print_esc_cstr(b"pagestretch"),      // genuine literal in WEB
-                3 => print_esc_cstr(b"pagefilstretch"),   // genuine literal in WEB
-                4 => print_esc_cstr(b"pagefillstretch"),  // genuine literal in WEB
-                5 => print_esc_cstr(b"pagefilllstretch"), // genuine literal in WEB
-                6 => print_esc_cstr(b"pageshrink"),       // genuine literal in WEB
-                _ => print_esc_cstr(b"pagedepth"),
+                0 => print_esc_cstr("pagegoal"),         // genuine literal in WEB
+                1 => print_esc_cstr("pagetotal"),        // genuine literal in WEB
+                2 => print_esc_cstr("pagestretch"),      // genuine literal in WEB
+                3 => print_esc_cstr("pagefilstretch"),   // genuine literal in WEB
+                4 => print_esc_cstr("pagefillstretch"),  // genuine literal in WEB
+                5 => print_esc_cstr("pagefilllstretch"), // genuine literal in WEB
+                6 => print_esc_cstr("pageshrink"),       // genuine literal in WEB
+                _ => print_esc_cstr("pagedepth"),
             }
         }
         STOP => {
             if chr_code == 1 {
-                print_esc_cstr(b"dump");
+                print_esc_cstr("dump");
             } else {
-                print_esc_cstr(b"end");
+                print_esc_cstr("end");
             }
         }
         Cmd::HSkip => match SkipCode::n(chr_code as u8).unwrap() {
-            SkipCode::Skip => print_esc_cstr(b"hskip"),
-            SkipCode::Fil => print_esc_cstr(b"hfil"),
-            SkipCode::Fill => print_esc_cstr(b"hfill"),
-            SkipCode::Ss => print_esc_cstr(b"hss"),
-            SkipCode::FilNeg => print_esc_cstr(b"hfilneg"),
+            SkipCode::Skip => print_esc_cstr("hskip"),
+            SkipCode::Fil => print_esc_cstr("hfil"),
+            SkipCode::Fill => print_esc_cstr("hfill"),
+            SkipCode::Ss => print_esc_cstr("hss"),
+            SkipCode::FilNeg => print_esc_cstr("hfilneg"),
             _ => unreachable!(),
         },
         Cmd::VSkip => match SkipCode::n(chr_code as u8).unwrap() {
-            SkipCode::Skip => print_esc_cstr(b"vskip"),
-            SkipCode::Fil => print_esc_cstr(b"vfil"),
-            SkipCode::Fill => print_esc_cstr(b"vfill"),
-            SkipCode::Ss => print_esc_cstr(b"vss"),
-            SkipCode::FilNeg => print_esc_cstr(b"vfilneg"),
+            SkipCode::Skip => print_esc_cstr("vskip"),
+            SkipCode::Fil => print_esc_cstr("vfil"),
+            SkipCode::Fill => print_esc_cstr("vfill"),
+            SkipCode::Ss => print_esc_cstr("vss"),
+            SkipCode::FilNeg => print_esc_cstr("vfilneg"),
             _ => unreachable!(),
         },
-        Cmd::MSkip => print_esc_cstr(b"mskip"),
-        Cmd::Kern => print_esc_cstr(b"kern"),
-        Cmd::MKern => print_esc_cstr(b"mkern"),
+        Cmd::MSkip => print_esc_cstr("mskip"),
+        Cmd::Kern => print_esc_cstr("kern"),
+        Cmd::MKern => print_esc_cstr("mkern"),
         Cmd::HMove => {
             if chr_code == 1i32 {
-                print_esc_cstr(b"moveleft");
+                print_esc_cstr("moveleft");
             } else {
-                print_esc_cstr(b"moveright");
+                print_esc_cstr("moveright");
             }
         }
         Cmd::VMove => {
             if chr_code == 1 {
-                print_esc_cstr(b"raise");
+                print_esc_cstr("raise");
             } else {
-                print_esc_cstr(b"lower");
+                print_esc_cstr("lower");
             }
         }
         Cmd::MakeBox => match BoxCode::n(chr_code as u8).unwrap() {
-            BoxCode::Box => print_esc_cstr(b"box"),
-            BoxCode::Copy => print_esc_cstr(b"copy"),
-            BoxCode::LastBox => print_esc_cstr(b"lastbox"),
-            BoxCode::VSplit => print_esc_cstr(b"vsplit"),
-            BoxCode::VTop => print_esc_cstr(b"vtop"),
-            BoxCode::VBox => print_esc_cstr(b"vbox"),
-            BoxCode::HBox => print_esc_cstr(b"hbox"),
+            BoxCode::Box => print_esc_cstr("box"),
+            BoxCode::Copy => print_esc_cstr("copy"),
+            BoxCode::LastBox => print_esc_cstr("lastbox"),
+            BoxCode::VSplit => print_esc_cstr("vsplit"),
+            BoxCode::VTop => print_esc_cstr("vtop"),
+            BoxCode::VBox => print_esc_cstr("vbox"),
+            BoxCode::HBox => print_esc_cstr("hbox"),
         },
         Cmd::LeaderShip => match chr_code as u16 {
-            A_LEADERS => print_esc_cstr(b"leaders"),
-            C_LEADERS => print_esc_cstr(b"cleaders"),
-            X_LEADERS => print_esc_cstr(b"xleaders"),
-            _ => print_esc_cstr(b"shipout"),
+            A_LEADERS => print_esc_cstr("leaders"),
+            C_LEADERS => print_esc_cstr("cleaders"),
+            X_LEADERS => print_esc_cstr("xleaders"),
+            _ => print_esc_cstr("shipout"),
         },
         Cmd::StartPar => {
             if chr_code == 0 {
-                print_esc_cstr(b"noindent");
+                print_esc_cstr("noindent");
             } else {
-                print_esc_cstr(b"indent");
+                print_esc_cstr("indent");
             }
         }
         Cmd::RemoveItem => match ND::from(chr_code as u16) {
-            ND::Text(TextNode::Glue) => print_esc_cstr(b"unskip"),
-            ND::Text(TextNode::Kern) => print_esc_cstr(b"unkern"),
-            _ => print_esc_cstr(b"unpenalty"),
+            ND::Text(TextNode::Glue) => print_esc_cstr("unskip"),
+            ND::Text(TextNode::Kern) => print_esc_cstr("unkern"),
+            _ => print_esc_cstr("unpenalty"),
         },
         Cmd::UnHBox => match BoxCode::n(chr_code as u8).unwrap() {
-            BoxCode::Copy => print_esc_cstr(b"unhcopy"),
-            _ => print_esc_cstr(b"unhbox"),
+            BoxCode::Copy => print_esc_cstr("unhcopy"),
+            _ => print_esc_cstr("unhbox"),
         },
         Cmd::UnVBox => match BoxCode::n(chr_code as u8).unwrap() {
-            BoxCode::Copy => print_esc_cstr(b"unvcopy"),
-            BoxCode::LastBox => print_esc_cstr(b"pagediscards"),
-            BoxCode::VSplit => print_esc_cstr(b"splitdiscards"),
-            _ => print_esc_cstr(b"unvbox"),
+            BoxCode::Copy => print_esc_cstr("unvcopy"),
+            BoxCode::LastBox => print_esc_cstr("pagediscards"),
+            BoxCode::VSplit => print_esc_cstr("splitdiscards"),
+            _ => print_esc_cstr("unvbox"),
         },
         Cmd::Discretionary => {
             if chr_code == 1 {
                 print_esc('-' as i32);
             } else {
-                print_esc_cstr(b"discretionary");
+                print_esc_cstr("discretionary");
             }
         }
         Cmd::EqNo => {
             if chr_code == 1 {
-                print_esc_cstr(b"leqno");
+                print_esc_cstr("leqno");
             } else {
-                print_esc_cstr(b"eqno");
+                print_esc_cstr("eqno");
             }
         }
         Cmd::MathComp => match MathNode::n(chr_code as u16).unwrap() {
-            MathNode::Ord => print_esc_cstr(b"mathord"),
-            MathNode::Op => print_esc_cstr(b"mathop"),
-            MathNode::Bin => print_esc_cstr(b"mathbin"),
-            MathNode::Rel => print_esc_cstr(b"mathrel"),
-            MathNode::Open => print_esc_cstr(b"mathopen"),
-            MathNode::Close => print_esc_cstr(b"mathclose"),
-            MathNode::Punct => print_esc_cstr(b"mathpunct"),
-            MathNode::Inner => print_esc_cstr(b"mathinner"),
-            MathNode::Under => print_esc_cstr(b"underline"),
-            _ => print_esc_cstr(b"overline"),
+            MathNode::Ord => print_esc_cstr("mathord"),
+            MathNode::Op => print_esc_cstr("mathop"),
+            MathNode::Bin => print_esc_cstr("mathbin"),
+            MathNode::Rel => print_esc_cstr("mathrel"),
+            MathNode::Open => print_esc_cstr("mathopen"),
+            MathNode::Close => print_esc_cstr("mathclose"),
+            MathNode::Punct => print_esc_cstr("mathpunct"),
+            MathNode::Inner => print_esc_cstr("mathinner"),
+            MathNode::Under => print_esc_cstr("underline"),
+            _ => print_esc_cstr("overline"),
         },
         Cmd::LimitSwitch => match Limit::from(chr_code as u16) {
-            Limit::Limits => print_esc_cstr(b"limits"),
-            Limit::NoLimits => print_esc_cstr(b"nolimits"),
-            Limit::Normal => print_esc_cstr(b"displaylimits"),
+            Limit::Limits => print_esc_cstr("limits"),
+            Limit::NoLimits => print_esc_cstr("nolimits"),
+            Limit::Normal => print_esc_cstr("displaylimits"),
         },
         Cmd::MathStyle => print_style(chr_code),
         Cmd::Above => match chr_code {
-            OVER_CODE => print_esc_cstr(b"over"),
-            ATOP_CODE => print_esc_cstr(b"atop"),
+            OVER_CODE => print_esc_cstr("over"),
+            ATOP_CODE => print_esc_cstr("atop"),
             // DELIMITED_CODE + ABOVE_CODE
-            3 => print_esc_cstr(b"abovewithdelims"),
+            3 => print_esc_cstr("abovewithdelims"),
             // DELIMITED_CODE + OVER_CODE
-            4 => print_esc_cstr(b"overwithdelims"),
+            4 => print_esc_cstr("overwithdelims"),
             // DELIMITED_CODE + ATOP_CODE
-            5 => print_esc_cstr(b"atopwithdelims"),
-            _ => print_esc_cstr(b"above"),
+            5 => print_esc_cstr("atopwithdelims"),
+            _ => print_esc_cstr("above"),
         },
         Cmd::LeftRight => {
             if chr_code as u16 == MathNode::Left as u16 {
-                print_esc_cstr(b"left");
+                print_esc_cstr("left");
             } else if chr_code as u16 == MIDDLE_NOAD {
-                print_esc_cstr(b"middle");
+                print_esc_cstr("middle");
             } else {
-                print_esc_cstr(b"right");
+                print_esc_cstr("right");
             }
         }
         Cmd::Prefix => {
             if chr_code == 1 {
-                print_esc_cstr(b"long");
+                print_esc_cstr("long");
             } else if chr_code == 2 {
-                print_esc_cstr(b"outer");
+                print_esc_cstr("outer");
             } else if chr_code == 8 {
-                print_esc_cstr(b"protected");
+                print_esc_cstr("protected");
             } else {
-                print_esc_cstr(b"global");
+                print_esc_cstr("global");
             }
         }
         Cmd::Def => {
             if chr_code == 0 {
-                print_esc_cstr(b"def");
+                print_esc_cstr("def");
             } else if chr_code == 1 {
-                print_esc_cstr(b"gdef");
+                print_esc_cstr("gdef");
             } else if chr_code == 2 {
-                print_esc_cstr(b"edef");
+                print_esc_cstr("edef");
             } else {
-                print_esc_cstr(b"xdef");
+                print_esc_cstr("xdef");
             }
         }
         Cmd::Let => {
             if chr_code as u16 != NORMAL {
-                print_esc_cstr(b"futurelet");
+                print_esc_cstr("futurelet");
             } else {
-                print_esc_cstr(b"let");
+                print_esc_cstr("let");
             }
         }
         Cmd::ShorthandDef => match ShorthandDefCode::n(chr_code as u8).unwrap() {
-            ShorthandDefCode::Char => print_esc_cstr(b"chardef"),
-            ShorthandDefCode::MathChar => print_esc_cstr(b"mathchardef"),
-            ShorthandDefCode::XetexMathChar => print_esc_cstr(b"Umathchardef"),
-            ShorthandDefCode::XetexMathCharNum => print_esc_cstr(b"Umathcharnumdef"),
-            ShorthandDefCode::Count => print_esc_cstr(b"countdef"),
-            ShorthandDefCode::Dimen => print_esc_cstr(b"dimendef"),
-            ShorthandDefCode::Skip => print_esc_cstr(b"skipdef"),
-            ShorthandDefCode::MuSkip => print_esc_cstr(b"muskipdef"),
-            ShorthandDefCode::CharSub => print_esc_cstr(b"charsubdef"),
-            ShorthandDefCode::Toks => print_esc_cstr(b"toksdef"),
+            ShorthandDefCode::Char => print_esc_cstr("chardef"),
+            ShorthandDefCode::MathChar => print_esc_cstr("mathchardef"),
+            ShorthandDefCode::XetexMathChar => print_esc_cstr("Umathchardef"),
+            ShorthandDefCode::XetexMathCharNum => print_esc_cstr("Umathcharnumdef"),
+            ShorthandDefCode::Count => print_esc_cstr("countdef"),
+            ShorthandDefCode::Dimen => print_esc_cstr("dimendef"),
+            ShorthandDefCode::Skip => print_esc_cstr("skipdef"),
+            ShorthandDefCode::MuSkip => print_esc_cstr("muskipdef"),
+            ShorthandDefCode::CharSub => print_esc_cstr("charsubdef"),
+            ShorthandDefCode::Toks => print_esc_cstr("toksdef"),
         },
         Cmd::CharGiven => {
-            print_esc_cstr(b"char");
+            print_esc_cstr("char");
             print_hex(chr_code);
         }
         Cmd::MathGiven => {
-            print_esc_cstr(b"mathchar");
+            print_esc_cstr("mathchar");
             print_hex(chr_code);
         }
         Cmd::XetexMathGiven => {
-            print_esc_cstr(b"Umathchar");
+            print_esc_cstr("Umathchar");
             print_hex(math_class(chr_code) as i32);
             print_hex(math_fam(chr_code) as i32);
             print_hex(math_char(chr_code) as i32);
         }
         Cmd::DefCode => {
             if chr_code == CAT_CODE_BASE as i32 {
-                print_esc_cstr(b"catcode");
+                print_esc_cstr("catcode");
             } else if chr_code == MATH_CODE_BASE as i32 {
-                print_esc_cstr(b"mathcode");
+                print_esc_cstr("mathcode");
             } else if chr_code == LC_CODE_BASE as i32 {
-                print_esc_cstr(b"lccode");
+                print_esc_cstr("lccode");
             } else if chr_code == UC_CODE_BASE as i32 {
-                print_esc_cstr(b"uccode");
+                print_esc_cstr("uccode");
             } else if chr_code == SF_CODE_BASE as i32 {
-                print_esc_cstr(b"sfcode");
+                print_esc_cstr("sfcode");
             } else {
-                print_esc_cstr(b"delcode");
+                print_esc_cstr("delcode");
             }
         }
         Cmd::XetexDefCode => {
             if chr_code == SF_CODE_BASE as i32 {
-                print_esc_cstr(b"XeTeXcharclass");
+                print_esc_cstr("XeTeXcharclass");
             } else if chr_code == MATH_CODE_BASE as i32 {
-                print_esc_cstr(b"Umathcodenum");
+                print_esc_cstr("Umathcodenum");
             } else if chr_code == MATH_CODE_BASE as i32 + 1 {
-                print_esc_cstr(b"Umathcode");
+                print_esc_cstr("Umathcode");
             } else if chr_code == DEL_CODE_BASE as i32 {
-                print_esc_cstr(b"Udelcodenum");
+                print_esc_cstr("Udelcodenum");
             } else {
-                print_esc_cstr(b"Udelcode");
+                print_esc_cstr("Udelcode");
             }
         }
         Cmd::DefFamily => print_size(chr_code - (MATH_FONT_BASE as i32)),
         Cmd::HyphData => {
             if chr_code == 1 {
-                print_esc_cstr(b"patterns");
+                print_esc_cstr("patterns");
             } else {
-                print_esc_cstr(b"hyphenation");
+                print_esc_cstr("hyphenation");
             }
         }
         Cmd::AssignFontInt => match chr_code {
-            0 => print_esc_cstr(b"hyphenchar"),
-            1 => print_esc_cstr(b"skewchar"),
-            LP_CODE_BASE => print_esc_cstr(b"lpcode"),
-            RP_CODE_BASE => print_esc_cstr(b"rpcode"),
+            0 => print_esc_cstr("hyphenchar"),
+            1 => print_esc_cstr("skewchar"),
+            LP_CODE_BASE => print_esc_cstr("lpcode"),
+            RP_CODE_BASE => print_esc_cstr("rpcode"),
             _ => {}
         },
         Cmd::SetFont => {
-            print_cstr(b"select font ");
+            print_cstr("select font ");
             font_name_str = FONT_NAME[chr_code as usize];
             if FONT_AREA[chr_code as usize] as u32 == AAT_FONT_FLAG
                 || FONT_AREA[chr_code as usize] as u32 == OTGR_FONT_FLAG
@@ -2575,137 +2572,137 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print(font_name_str);
             }
             if FONT_SIZE[chr_code as usize] != FONT_DSIZE[chr_code as usize] {
-                print_cstr(b" at ");
+                print_cstr(" at ");
                 print_scaled(FONT_SIZE[chr_code as usize]);
-                print_cstr(b"pt");
+                print_cstr("pt");
             }
         }
         Cmd::SetInteraction => match InteractionMode::n(chr_code as u8).unwrap() {
-            InteractionMode::Batch => print_esc_cstr(b"batchmode"),
-            InteractionMode::NonStop => print_esc_cstr(b"nonstopmode"),
-            InteractionMode::Scroll => print_esc_cstr(b"scrollmode"),
-            InteractionMode::ErrorStop => print_esc_cstr(b"errorstopmode"),
+            InteractionMode::Batch => print_esc_cstr("batchmode"),
+            InteractionMode::NonStop => print_esc_cstr("nonstopmode"),
+            InteractionMode::Scroll => print_esc_cstr("scrollmode"),
+            InteractionMode::ErrorStop => print_esc_cstr("errorstopmode"),
         },
         Cmd::InStream => {
             if chr_code == 0 {
-                print_esc_cstr(b"closein");
+                print_esc_cstr("closein");
             } else {
-                print_esc_cstr(b"openin");
+                print_esc_cstr("openin");
             }
         }
         Cmd::Message => {
             if chr_code == 0 {
-                print_esc_cstr(b"message");
+                print_esc_cstr("message");
             } else {
-                print_esc_cstr(b"errmessage");
+                print_esc_cstr("errmessage");
             }
         }
         Cmd::CaseShift => {
             if chr_code == LC_CODE_BASE as i32 {
-                print_esc_cstr(b"lowercase");
+                print_esc_cstr("lowercase");
             } else {
-                print_esc_cstr(b"uppercase");
+                print_esc_cstr("uppercase");
             }
         }
         Cmd::XRay => match chr_code {
-            SHOW_BOX_CODE => print_esc_cstr(b"showbox"),
-            SHOW_THE_CODE => print_esc_cstr(b"showthe"),
-            SHOW_LISTS => print_esc_cstr(b"showlists"),
-            SHOW_GROUPS => print_esc_cstr(b"showgroups"),
-            SHOW_TOKENS => print_esc_cstr(b"showtokens"),
-            SHOW_IFS => print_esc_cstr(b"showifs"),
-            _ => print_esc_cstr(b"show"),
+            SHOW_BOX_CODE => print_esc_cstr("showbox"),
+            SHOW_THE_CODE => print_esc_cstr("showthe"),
+            SHOW_LISTS => print_esc_cstr("showlists"),
+            SHOW_GROUPS => print_esc_cstr("showgroups"),
+            SHOW_TOKENS => print_esc_cstr("showtokens"),
+            SHOW_IFS => print_esc_cstr("showifs"),
+            _ => print_esc_cstr("show"),
         },
-        Cmd::UndefinedCS => print_cstr(b"undefined"),
+        Cmd::UndefinedCS => print_cstr("undefined"),
         Cmd::Call | Cmd::LongCall | Cmd::OuterCall | Cmd::LongOuterCall => {
             let mut n = cmd as u8 - Cmd::Call as u8;
             if MEM[*LLIST_link(chr_code as usize) as usize].b32.s0 == PROTECTED_TOKEN {
                 n = n + 4
             }
             if n / 4 & 1 != 0 {
-                print_esc_cstr(b"protected");
+                print_esc_cstr("protected");
             }
             if n & 1 != 0 {
-                print_esc_cstr(b"long");
+                print_esc_cstr("long");
             }
             if n / 2 & 1 != 0 {
-                print_esc_cstr(b"outer");
+                print_esc_cstr("outer");
             }
             if n > 0 {
                 print_char(' ' as i32);
             }
-            print_cstr(b"macro");
+            print_cstr("macro");
         }
-        Cmd::EndTemplate => print_esc_cstr(b"outer endtemplate"),
+        Cmd::EndTemplate => print_esc_cstr("outer endtemplate"),
         Cmd::Extension => match chr_code as u16 {
-            0 => print_esc_cstr(b"openout"),               // WhatsIt::Open
-            1 => print_esc_cstr(b"write"),                 // WhatsIt::Write
-            2 => print_esc_cstr(b"closeout"),              // WhatsIt::Close
-            3 => print_esc_cstr(b"special"),               // WhatsIt::Special
-            4 => print_esc_cstr(b"immediate"),             // IMMEDIATE_CODE
-            5 => print_esc_cstr(b"setlanguage"),           // SET_LANGUAGE_CODE
-            41 => print_esc_cstr(b"XeTeXpicfile"),         // PIC_FILE_CODE
-            42 => print_esc_cstr(b"XeTeXpdffile"),         // PDF_FILE_CODE
-            43 => print_esc_cstr(b"XeTeXglyph"),           // GLYPH_CODE
-            46 => print_esc_cstr(b"XeTeXlinebreaklocale"), // XETEX_LINEBREAK_LOCALE_EXTENSION_CODE
-            44 => print_esc_cstr(b"XeTeXinputencoding"),   // XETEX_INPUT_ENCODING_EXTENSION_CODE
-            45 => print_esc_cstr(b"XeTeXdefaultencoding"), // XETEX_DEFAULT_ENCODING_EXTENSION_CODE
-            6 => print_esc_cstr(b"pdfsavepos"),            // WhatsIt::PdfSavePos
-            _ => print_cstr(b"[unknown extension!]"),
+            0 => print_esc_cstr("openout"),               // WhatsIt::Open
+            1 => print_esc_cstr("write"),                 // WhatsIt::Write
+            2 => print_esc_cstr("closeout"),              // WhatsIt::Close
+            3 => print_esc_cstr("special"),               // WhatsIt::Special
+            4 => print_esc_cstr("immediate"),             // IMMEDIATE_CODE
+            5 => print_esc_cstr("setlanguage"),           // SET_LANGUAGE_CODE
+            41 => print_esc_cstr("XeTeXpicfile"),         // PIC_FILE_CODE
+            42 => print_esc_cstr("XeTeXpdffile"),         // PDF_FILE_CODE
+            43 => print_esc_cstr("XeTeXglyph"),           // GLYPH_CODE
+            46 => print_esc_cstr("XeTeXlinebreaklocale"), // XETEX_LINEBREAK_LOCALE_EXTENSION_CODE
+            44 => print_esc_cstr("XeTeXinputencoding"),   // XETEX_INPUT_ENCODING_EXTENSION_CODE
+            45 => print_esc_cstr("XeTeXdefaultencoding"), // XETEX_DEFAULT_ENCODING_EXTENSION_CODE
+            6 => print_esc_cstr("pdfsavepos"),            // WhatsIt::PdfSavePos
+            _ => print_cstr("[unknown extension!]"),
         },
-        _ => print_cstr(b"[unknown command code!]"),
+        _ => print_cstr("[unknown command code!]"),
     };
 }
 pub(crate) unsafe fn not_aat_font_error(cmd: Cmd, mut c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     }
-    print_cstr(b"Cannot use ");
+    print_cstr("Cannot use ");
     print_cmd_chr(cmd, c);
-    print_cstr(b" with ");
+    print_cstr(" with ");
     print(FONT_NAME[f]);
-    print_cstr(b"; not an AAT font");
+    print_cstr("; not an AAT font");
     error();
 }
 pub(crate) unsafe fn not_aat_gr_font_error(cmd: Cmd, mut c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     }
-    print_cstr(b"Cannot use ");
+    print_cstr("Cannot use ");
     print_cmd_chr(cmd, c);
-    print_cstr(b" with ");
+    print_cstr(" with ");
     print(FONT_NAME[f]);
-    print_cstr(b"; not an AAT or Graphite font");
+    print_cstr("; not an AAT or Graphite font");
     error();
 }
 pub(crate) unsafe fn not_ot_font_error(cmd: Cmd, mut c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     }
-    print_cstr(b"Cannot use ");
+    print_cstr("Cannot use ");
     print_cmd_chr(cmd, c);
-    print_cstr(b" with ");
+    print_cstr(" with ");
     print(FONT_NAME[f]);
-    print_cstr(b"; not an OpenType Layout font");
+    print_cstr("; not an OpenType Layout font");
     error();
 }
 pub(crate) unsafe fn not_native_font_error(cmd: Cmd, c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     }
-    print_cstr(b"Cannot use ");
+    print_cstr("Cannot use ");
     print_cmd_chr(cmd, c);
-    print_cstr(b" with ");
+    print_cstr(" with ");
     print(FONT_NAME[f]);
-    print_cstr(b"; not a native platform font");
+    print_cstr("; not a native platform font");
     error();
 }
 /*:1434*/
@@ -2745,7 +2742,7 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
                     } else {
                         loop {
                             if hash_used == HASH_BASE as i32 {
-                                overflow(b"hash size", HASH_SIZE + hash_extra as usize);
+                                overflow("hash size", HASH_SIZE + hash_extra as usize);
                             }
                             hash_used -= 1;
                             if !((*hash.offset(hash_used as isize)).s1 != 0) {
@@ -2757,7 +2754,7 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
                     }
                 }
                 if pool_ptr + ll > pool_size {
-                    overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+                    overflow("pool size", (pool_size - init_pool_ptr) as usize);
                 }
                 let d = cur_length();
                 while pool_ptr > str_start[(str_ptr - TOO_BIG_CHAR) as usize] {
@@ -2831,7 +2828,7 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> usize {
                 if prim[p].s1 > 0 {
                     loop {
                         if prim_used == PRIM_BASE {
-                            overflow(b"primitive size", PRIM_SIZE as usize);
+                            overflow("primitive size", PRIM_SIZE as usize);
                         }
                         prim_used -= 1;
                         if prim[prim_used].s1 == 0 {
@@ -2853,52 +2850,52 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> usize {
 pub(crate) unsafe fn print_group(mut e: bool) {
     match cur_group {
         GroupCode::BottomLevel => {
-            print_cstr(b"bottom level");
+            print_cstr("bottom level");
             return;
         }
         GroupCode::Simple | GroupCode::SemiSimple => {
             if cur_group == GroupCode::SemiSimple {
-                print_cstr(b"semi ");
+                print_cstr("semi ");
             }
-            print_cstr(b"simple");
+            print_cstr("simple");
         }
         GroupCode::HBox | GroupCode::AdjustedHBox => {
             if cur_group == GroupCode::AdjustedHBox {
-                print_cstr(b"adjusted ");
+                print_cstr("adjusted ");
             }
-            print_cstr(b"hbox");
+            print_cstr("hbox");
         }
-        GroupCode::VBox => print_cstr(b"vbox"),
-        GroupCode::VTop => print_cstr(b"vtop"),
+        GroupCode::VBox => print_cstr("vbox"),
+        GroupCode::VTop => print_cstr("vtop"),
         GroupCode::Align | GroupCode::NoAlign => {
             if cur_group == GroupCode::NoAlign {
-                print_cstr(b"no ");
+                print_cstr("no ");
             }
-            print_cstr(b"align");
+            print_cstr("align");
         }
-        GroupCode::Output => print_cstr(b"output"),
-        GroupCode::Disc => print_cstr(b"disc"),
-        GroupCode::Insert => print_cstr(b"insert"),
-        GroupCode::VCenter => print_cstr(b"vcenter"),
+        GroupCode::Output => print_cstr("output"),
+        GroupCode::Disc => print_cstr("disc"),
+        GroupCode::Insert => print_cstr("insert"),
+        GroupCode::VCenter => print_cstr("vcenter"),
         GroupCode::Math | GroupCode::MathChoice | GroupCode::MathShift | GroupCode::MathLeft => {
-            print_cstr(b"math");
+            print_cstr("math");
             if cur_group == GroupCode::MathChoice {
-                print_cstr(b" choice");
+                print_cstr(" choice");
             } else if cur_group == GroupCode::MathShift {
-                print_cstr(b" shift");
+                print_cstr(" shift");
             } else if cur_group == GroupCode::MathLeft {
-                print_cstr(b" left");
+                print_cstr(" left");
             }
         }
     }
-    print_cstr(b" group (level ");
+    print_cstr(" group (level ");
     print_int(cur_level as i32);
     print_char(')' as i32);
     if SAVE_STACK[SAVE_PTR - 1].val != 0 {
         if e {
-            print_cstr(b" entered at line ");
+            print_cstr(" entered at line ");
         } else {
-            print_cstr(b" at line ");
+            print_cstr(" at line ");
         }
         print_int(SAVE_STACK[SAVE_PTR - 1].val);
     };
@@ -2914,7 +2911,7 @@ pub(crate) unsafe fn pseudo_input() -> bool {
             /*35: */
             cur_input.loc = first;
             cur_input.limit = last - 1;
-            overflow(b"buffer size", BUF_SIZE);
+            overflow("buffer size", BUF_SIZE);
         }
         last = first;
         for r in (p + 1)..(p + sz) {
@@ -2969,9 +2966,9 @@ pub(crate) unsafe fn group_warning() {
         i -= 1;
     }
     if w {
-        print_nl_cstr(b"Warning: end of ");
+        print_nl_cstr("Warning: end of ");
         print_group(true);
-        print_cstr(b" of a different file");
+        print_cstr(" of a different file");
         print_ln();
         if *INTPAR(IntPar::tracing_nesting) > 1 {
             show_context();
@@ -3002,13 +2999,13 @@ pub(crate) unsafe fn if_warning() {
         i -= 1;
     }
     if w {
-        print_nl_cstr(b"Warning: end of ");
+        print_nl_cstr("Warning: end of ");
         print_cmd_chr(Cmd::IfTest, cur_if as i32);
         if if_line != 0 {
-            print_cstr(b" entered on line ");
+            print_cstr(" entered on line ");
             print_int(if_line);
         }
-        print_cstr(b" of a different file");
+        print_cstr(" of a different file");
         print_ln();
         if *INTPAR(IntPar::tracing_nesting) > 1 {
             show_context();
@@ -3027,9 +3024,9 @@ pub(crate) unsafe fn file_warning() {
     SAVE_PTR = cur_boundary as usize;
     while GRP_STACK[IN_OPEN] != SAVE_PTR as i32 {
         cur_level -= 1;
-        print_nl_cstr(b"Warning: end of file when ");
+        print_nl_cstr("Warning: end of file when ");
         print_group(true);
-        print_cstr(b" is incomplete");
+        print_cstr(" is incomplete");
         cur_group = GroupCode::from(SAVE_STACK[SAVE_PTR].lvl);
         SAVE_PTR = SAVE_STACK[SAVE_PTR].val as usize
     }
@@ -3041,16 +3038,16 @@ pub(crate) unsafe fn file_warning() {
     let c = cur_if as u16;
     i = if_line;
     while IF_STACK[IN_OPEN] != cond_ptr {
-        print_nl_cstr(b"Warning: end of file when ");
+        print_nl_cstr("Warning: end of file when ");
         print_cmd_chr(Cmd::IfTest, cur_if as i32);
         if if_limit == FiOrElseCode::Fi {
-            print_esc_cstr(b"else");
+            print_esc_cstr("else");
         }
         if if_line != 0 {
-            print_cstr(b" entered on line ");
+            print_cstr(" entered on line ");
             print_int(if_line);
         }
-        print_cstr(b" is incomplete");
+        print_cstr(" is incomplete");
         let cp = cond_ptr.unwrap();
         if_line = MEM[cp + 1].b32.s1;
         cur_if = MEM[cp].b16.s0 as i16;
@@ -3121,7 +3118,7 @@ pub(crate) unsafe fn sa_save(p: usize) {
         if SAVE_PTR > MAX_SAVE_STACK {
             MAX_SAVE_STACK = SAVE_PTR;
             if MAX_SAVE_STACK > SAVE_SIZE - 7 {
-                overflow(b"save size", SAVE_SIZE);
+                overflow("save size", SAVE_SIZE);
             }
         }
         SAVE_STACK[SAVE_PTR].cmd = SaveCmd::RestoreSA as u16;
@@ -3239,7 +3236,7 @@ pub(crate) unsafe fn new_save_level(c: GroupCode) {
     if SAVE_PTR > MAX_SAVE_STACK {
         MAX_SAVE_STACK = SAVE_PTR;
         if MAX_SAVE_STACK > SAVE_SIZE - 7 {
-            overflow(b"save size", SAVE_SIZE);
+            overflow("save size", SAVE_SIZE);
         }
     }
     SAVE_STACK[SAVE_PTR + 0].val = line;
@@ -3248,7 +3245,7 @@ pub(crate) unsafe fn new_save_level(c: GroupCode) {
     SAVE_STACK[SAVE_PTR].lvl = cur_group as u16;
     SAVE_STACK[SAVE_PTR].val = cur_boundary;
     if cur_level == u16::max_value() {
-        overflow(b"grouping levels", u16::max_value() as usize);
+        overflow("grouping levels", u16::max_value() as usize);
     }
     cur_boundary = SAVE_PTR as i32;
     cur_group = c;
@@ -3279,7 +3276,7 @@ pub(crate) unsafe fn eq_save(p: usize, l: u16) {
     if SAVE_PTR > MAX_SAVE_STACK {
         MAX_SAVE_STACK = SAVE_PTR;
         if MAX_SAVE_STACK > SAVE_SIZE - 7 {
-            overflow(b"save size", SAVE_SIZE);
+            overflow("save size", SAVE_SIZE);
         }
     }
     if l == LEVEL_ZERO {
@@ -3332,7 +3329,7 @@ pub(crate) unsafe fn save_for_after(mut t: i32) {
         if SAVE_PTR > MAX_SAVE_STACK {
             MAX_SAVE_STACK = SAVE_PTR;
             if MAX_SAVE_STACK > SAVE_SIZE - 7 {
-                overflow(b"save size", SAVE_SIZE);
+                overflow("save size", SAVE_SIZE);
             }
         }
         SAVE_STACK[SAVE_PTR].cmd = SaveCmd::InsertToken as u16;
@@ -3408,7 +3405,7 @@ pub(crate) unsafe fn unsave() {
         cur_boundary = SAVE_STACK[SAVE_PTR].val;
         SAVE_PTR -= 1;
     } else {
-        confusion(b"curlevel");
+        confusion("curlevel");
     };
 }
 pub(crate) unsafe fn prepare_mag() {
@@ -3416,16 +3413,16 @@ pub(crate) unsafe fn prepare_mag() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Incompatible magnification (");
+        print_cstr("Incompatible magnification (");
         print_int(*INTPAR(IntPar::mag));
-        print_cstr(b");");
-        print_nl_cstr(b" the previous value will be retained");
+        print_cstr(");");
+        print_nl_cstr(" the previous value will be retained");
 
         help!(
-            b"I can handle only one magnification ratio per job. So I\'ve",
-            b"reverted to the magnification you used earlier on this run."
+            "I can handle only one magnification ratio per job. So I\'ve",
+            "reverted to the magnification you used earlier on this run."
         );
         int_error(mag_set);
         geq_word_define(INT_BASE as usize + IntPar::mag as usize, mag_set);
@@ -3434,11 +3431,11 @@ pub(crate) unsafe fn prepare_mag() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Illegal magnification has been changed to 1000");
+        print_cstr("Illegal magnification has been changed to 1000");
 
-        help!(b"The magnification ratio must be between 1 and 32768.");
+        help!("The magnification ratio must be between 1 and 32768.");
         int_error(*INTPAR(IntPar::mag));
         geq_word_define(INT_BASE as usize + IntPar::mag as usize, 1000);
     }
@@ -3466,14 +3463,14 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
     print_nl('{' as i32);
     if cur_list.mode != shown_mode {
         print_mode(cur_list.mode);
-        print_cstr(b": ");
+        print_cstr(": ");
         shown_mode = cur_list.mode
     }
     print_cmd_chr(cur_cmd, cur_chr);
     if *INTPAR(IntPar::tracing_ifs) > 0 {
         if cur_cmd >= Cmd::IfTest {
             if cur_cmd <= Cmd::FiOrElse {
-                print_cstr(b": ");
+                print_cstr(": ");
                 let mut n;
                 let l;
                 if cur_cmd == Cmd::FiOrElse {
@@ -3490,11 +3487,11 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
                     n += 1;
                     popt = llist_link(p)
                 }
-                print_cstr(b"(level ");
+                print_cstr("(level ");
                 print_int(n);
                 print_char(')' as i32);
                 if l != 0 {
-                    print_cstr(b" entered on line ");
+                    print_cstr(" entered on line ");
                     print_int(l);
                 }
             }
@@ -3529,12 +3526,12 @@ pub(crate) unsafe fn show_context() {
                     if cur_input.name <= 17 {
                         if cur_input.name == 0 {
                             if BASE_PTR == 0 {
-                                print_nl_cstr(b"<*>");
+                                print_nl_cstr("<*>");
                             } else {
-                                print_nl_cstr(b"<insert> ");
+                                print_nl_cstr("<insert> ");
                             }
                         } else {
-                            print_nl_cstr(b"<read ");
+                            print_nl_cstr("<read ");
                             if cur_input.name == 17 {
                                 print_char('*' as i32);
                             } else {
@@ -3543,7 +3540,7 @@ pub(crate) unsafe fn show_context() {
                             print_char('>' as i32);
                         }
                     } else {
-                        print_nl_cstr(b"l.");
+                        print_nl_cstr("l.");
                         if cur_input.index as usize == IN_OPEN {
                             print_int(line);
                         } else {
@@ -3574,33 +3571,33 @@ pub(crate) unsafe fn show_context() {
                     }
                 } else {
                     match cur_input.index {
-                        Btl::Parameter => print_nl_cstr(b"<argument> "),
-                        Btl::UTemplate | Btl::VTemplate => print_nl_cstr(b"<template> "),
+                        Btl::Parameter => print_nl_cstr("<argument> "),
+                        Btl::UTemplate | Btl::VTemplate => print_nl_cstr("<template> "),
                         Btl::BackedUp | Btl::BackedUpChar => {
                             if cur_input.loc.opt().is_none() {
-                                print_nl_cstr(b"<recently read> ");
+                                print_nl_cstr("<recently read> ");
                             } else {
-                                print_nl_cstr(b"<to be read again> ");
+                                print_nl_cstr("<to be read again> ");
                             }
                         }
-                        Btl::Inserted => print_nl_cstr(b"<inserted text> "),
+                        Btl::Inserted => print_nl_cstr("<inserted text> "),
                         Btl::Macro => {
                             print_ln();
                             print_cs(cur_input.name);
                         }
-                        Btl::OutputText => print_nl_cstr(b"<output> "),
-                        Btl::EveryParText => print_nl_cstr(b"<everypar> "),
-                        Btl::EveryMathText => print_nl_cstr(b"<everymath> "),
-                        Btl::EveryDisplayText => print_nl_cstr(b"<everydisplay> "),
-                        Btl::EveryHBoxText => print_nl_cstr(b"<everyhbox> "),
-                        Btl::EveryVBoxText => print_nl_cstr(b"<everyvbox> "),
-                        Btl::EveryJobText => print_nl_cstr(b"<everyjob> "),
-                        Btl::EveryCRText => print_nl_cstr(b"<everycr> "),
-                        Btl::MarkText => print_nl_cstr(b"<mark> "),
-                        Btl::EveryEOFText => print_nl_cstr(b"<everyeof> "),
-                        Btl::InterCharText => print_nl_cstr(b"<XeTeXinterchartoks> "),
-                        Btl::WriteText => print_nl_cstr(b"<write> "),
-                        Btl::TectonicCodaText => print_nl_cstr(b"<TectonicCodaTokens> "),
+                        Btl::OutputText => print_nl_cstr("<output> "),
+                        Btl::EveryParText => print_nl_cstr("<everypar> "),
+                        Btl::EveryMathText => print_nl_cstr("<everymath> "),
+                        Btl::EveryDisplayText => print_nl_cstr("<everydisplay> "),
+                        Btl::EveryHBoxText => print_nl_cstr("<everyhbox> "),
+                        Btl::EveryVBoxText => print_nl_cstr("<everyvbox> "),
+                        Btl::EveryJobText => print_nl_cstr("<everyjob> "),
+                        Btl::EveryCRText => print_nl_cstr("<everycr> "),
+                        Btl::MarkText => print_nl_cstr("<mark> "),
+                        Btl::EveryEOFText => print_nl_cstr("<everyeof> "),
+                        Btl::InterCharText => print_nl_cstr("<XeTeXinterchartoks> "),
+                        Btl::WriteText => print_nl_cstr("<write> "),
+                        Btl::TectonicCodaText => print_nl_cstr("<TectonicCodaTokens> "),
                         //_ => print_nl('?' as i32),
                     }
                     l = tally;
@@ -3645,7 +3642,7 @@ pub(crate) unsafe fn show_context() {
                     p = 0;
                     n = l + first_count
                 } else {
-                    print_cstr(b"...");
+                    print_cstr("...");
                     p = l + first_count - half_error_line + 3;
                     n = half_error_line
                 }
@@ -3665,12 +3662,12 @@ pub(crate) unsafe fn show_context() {
                     print_raw_char(trick_buf[(q % error_line) as usize], true);
                 }
                 if m + n > error_line {
-                    print_cstr(b"...");
+                    print_cstr("...");
                 }
                 nn += 1
             }
         } else if nn == *INTPAR(IntPar::error_context_lines) {
-            print_nl_cstr(b"...");
+            print_nl_cstr("...");
             nn += 1
         }
         if bottom_line {
@@ -3684,7 +3681,7 @@ pub(crate) unsafe fn begin_token_list(p: usize, t: Btl) {
     if INPUT_PTR > MAX_IN_STACK {
         MAX_IN_STACK = INPUT_PTR;
         if INPUT_PTR == STACK_SIZE {
-            overflow(b"input stack size", STACK_SIZE);
+            overflow("input stack size", STACK_SIZE);
         }
     }
     INPUT_STACK[INPUT_PTR] = cur_input;
@@ -3709,10 +3706,10 @@ pub(crate) unsafe fn begin_token_list(p: usize, t: Btl) {
             cur_input.loc = *LLIST_link(p);
             if *INTPAR(IntPar::tracing_macros) > 1i32 {
                 begin_diagnostic();
-                print_nl_cstr(b"");
+                print_nl_cstr("");
                 match t {
-                    Btl::MarkText => print_esc_cstr(b"mark"),
-                    Btl::WriteText => print_esc_cstr(b"write"),
+                    Btl::MarkText => print_esc_cstr("mark"),
+                    Btl::WriteText => print_esc_cstr("write"),
                     _ => {
                         print_cmd_chr(
                             Cmd::AssignToks,
@@ -3721,7 +3718,7 @@ pub(crate) unsafe fn begin_token_list(p: usize, t: Btl) {
                         );
                     }
                 }
-                print_cstr(b"->");
+                print_cstr("->");
                 token_show(Some(p));
                 end_diagnostic(false);
             }
@@ -3747,7 +3744,7 @@ pub(crate) unsafe fn end_token_list() {
         if align_state > 500000 {
             align_state = 0
         } else {
-            fatal_error(b"(interwoven alignment preambles are not allowed)");
+            fatal_error("(interwoven alignment preambles are not allowed)");
         }
     }
     INPUT_PTR -= 1;
@@ -3772,7 +3769,7 @@ pub(crate) unsafe fn back_input() {
     if INPUT_PTR > MAX_IN_STACK {
         MAX_IN_STACK = INPUT_PTR;
         if INPUT_PTR == STACK_SIZE {
-            overflow(b"input stack size", STACK_SIZE);
+            overflow("input stack size", STACK_SIZE);
         }
     }
     INPUT_STACK[INPUT_PTR] = cur_input;
@@ -3793,16 +3790,16 @@ pub(crate) unsafe fn ins_error() {
 }
 pub(crate) unsafe fn begin_file_reading() {
     if IN_OPEN == MAX_IN_OPEN {
-        overflow(b"text input levels", MAX_IN_OPEN);
+        overflow("text input levels", MAX_IN_OPEN);
     }
     if first as usize == BUF_SIZE {
-        overflow(b"buffer size", BUF_SIZE);
+        overflow("buffer size", BUF_SIZE);
     }
     IN_OPEN += 1;
     if INPUT_PTR > MAX_IN_STACK {
         MAX_IN_STACK = INPUT_PTR;
         if INPUT_PTR == STACK_SIZE {
-            overflow(b"input stack size", STACK_SIZE);
+            overflow("input stack size", STACK_SIZE);
         }
     }
     INPUT_STACK[INPUT_PTR] = cur_input;
@@ -3851,31 +3848,31 @@ pub(crate) unsafe fn check_outer_validity() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"File ended");
+                print_cstr("File ended");
             } else {
                 cur_cs = 0;
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Forbidden control sequence found");
+                print_cstr("Forbidden control sequence found");
             }
             let mut p = get_avail();
             match scanner_status {
                 ScannerStatus::Defining => {
-                    print_cstr(b" while scanning definition");
+                    print_cstr(" while scanning definition");
                     MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32
                 }
                 ScannerStatus::Matching => {
-                    print_cstr(b" while scanning use");
+                    print_cstr(" while scanning use");
                     MEM[p].b32.s0 = par_token;
                     long_state = Cmd::OuterCall as u8
                 }
                 ScannerStatus::Aligning => {
-                    print_cstr(b" while scanning preamble");
+                    print_cstr(" while scanning preamble");
                     MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
                     let q = p;
                     p = get_avail();
@@ -3884,41 +3881,41 @@ pub(crate) unsafe fn check_outer_validity() {
                     align_state = -1_000_000;
                 }
                 ScannerStatus::Absorbing => {
-                    print_cstr(b" while scanning text");
+                    print_cstr(" while scanning text");
                     MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32
                 }
                 _ => unreachable!(),
             }
             begin_token_list(p, Btl::Inserted);
-            print_cstr(b" of ");
+            print_cstr(" of ");
             sprint_cs(warning_index);
             help!(
-                b"I suspect you have forgotten a `}\', causing me",
-                b"to read past where you wanted me to stop.",
-                b"I\'ll try to recover; but if the error is serious,",
-                b"you\'d better type `E\' or `X\' now and fix your file."
+                "I suspect you have forgotten a `}\', causing me",
+                "to read past where you wanted me to stop.",
+                "I\'ll try to recover; but if the error is serious,",
+                "you\'d better type `E\' or `X\' now and fix your file."
             );
             error();
         } else {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Incomplete ");
+            print_cstr("Incomplete ");
             print_cmd_chr(Cmd::IfTest, cur_if as i32);
-            print_cstr(b"; all text was ignored after line ");
+            print_cstr("; all text was ignored after line ");
             print_int(skip_line);
             let help2 = if cur_cs != 0 {
                 cur_cs = 0;
-                &b"A forbidden control sequence occurred in skipped text."[..]
+                &"A forbidden control sequence occurred in skipped text."[..]
             } else {
-                &b"The file ended while I was skipping conditional text."[..]
+                &"The file ended while I was skipping conditional text."[..]
             };
             help!(
                 help2,
-                b"This kind of error happens when you say `\\if...\' and forget",
-                b"the matching `\\fi\'. I\'ve inserted a `\\fi\'; this might work."
+                "This kind of error happens when you say `\\if...\' and forget",
+                "the matching `\\fi\'. I\'ve inserted a `\\fi\'; this might work."
             );
             cur_tok = CS_TOKEN_FLAG + FROZEN_FI as i32;
             ins_error();
@@ -4049,12 +4046,12 @@ pub(crate) unsafe fn get_next() {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
                                 } else {
-                                    print_nl_cstr(b"! ");
+                                    print_nl_cstr("! ");
                                 }
-                                print_cstr(b"Text line contains an invalid character");
+                                print_cstr("Text line contains an invalid character");
                                 help!(
-                                    b"A funny symbol that I can\'t read has just been input.",
-                                    b"Continue, and I\'ll forget that it ever happened."
+                                    "A funny symbol that I can\'t read has just been input.",
+                                    "Continue, and I\'ll forget that it ever happened."
                                 );
                                 deletions_allowed = false;
                                 error();
@@ -4468,7 +4465,7 @@ pub(crate) unsafe fn get_next() {
                                     if u8::from(selector) < u8::from(Selector::LOG_ONLY) {
                                         open_log_file();
                                     }
-                                    fatal_error(b"*** (job aborted, no legal \\end found)");
+                                    fatal_error("*** (job aborted, no legal \\end found)");
                                 }
                             }
                         }
@@ -4539,7 +4536,7 @@ pub(crate) unsafe fn get_next() {
         if cur_cmd <= Cmd::CarRet && cur_cmd >= Cmd::TabMark && align_state == 0 {
             /*818:*/
             if scanner_status == ScannerStatus::Aligning {
-                fatal_error(b"(interwoven alignment preambles are not allowed)");
+                fatal_error("(interwoven alignment preambles are not allowed)");
             }
             if let Some(ca) = cur_align {
                 cur_cmd = Cmd::from(MEM[ca + 5].b32.s0 as u16);
@@ -4551,7 +4548,7 @@ pub(crate) unsafe fn get_next() {
                 }
                 align_state = 1000000;
             } else {
-                fatal_error(b"(interwoven alignment preambles are not allowed)");
+                fatal_error("(interwoven alignment preambles are not allowed)");
             }
         } else {
             return;
@@ -4672,16 +4669,16 @@ pub(crate) unsafe fn macro_call() {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! ");
+                            print_nl_cstr("! ");
                         }
-                        print_cstr(b"Use of ");
+                        print_cstr("Use of ");
                         sprint_cs(warning_index);
-                        print_cstr(b" doesn\'t match its definition");
+                        print_cstr(" doesn\'t match its definition");
                         help!(
-                            b"If you say, e.g., `\\def\\a1{...}\', then you must always",
-                            b"put `1\' after `\\a\', since control sequence names are",
-                            b"made up of letters only. The macro here has not been",
-                            b"followed by the required stuff, so I\'m ignoring it."
+                            "If you say, e.g., `\\def\\a1{...}\', then you must always",
+                            "put `1\' after `\\a\', since control sequence names are",
+                            "made up of letters only. The macro here has not been",
+                            "followed by the required stuff, so I\'m ignoring it."
                         );
                         error();
                         return exit(save_scanner_status, save_warning_index);
@@ -4696,15 +4693,15 @@ pub(crate) unsafe fn macro_call() {
                             if file_line_error_style_p != 0 {
                                 print_file_line(); /*413:*/
                             } else {
-                                print_nl_cstr(b"! ");
+                                print_nl_cstr("! ");
                             }
-                            print_cstr(b"Paragraph ended before ");
+                            print_cstr("Paragraph ended before ");
                             sprint_cs(warning_index);
-                            print_cstr(b" was complete");
+                            print_cstr(" was complete");
                             help!(
-                                b"I suspect you\'ve forgotten a `}\', causing me to apply this",
-                                b"control sequence to too much text. How can we recover?",
-                                b"My plan is to forget the whole thing and hope for the best."
+                                "I suspect you\'ve forgotten a `}\', causing me to apply this",
+                                "control sequence to too much text. How can we recover?",
+                                "My plan is to forget the whole thing and hope for the best."
                             );
                             back_error();
                         }
@@ -4748,14 +4745,14 @@ pub(crate) unsafe fn macro_call() {
                                         if file_line_error_style_p != 0 {
                                             print_file_line();
                                         } else {
-                                            print_nl_cstr(b"! ");
+                                            print_nl_cstr("! ");
                                         }
-                                        print_cstr(b"Paragraph ended before ");
+                                        print_cstr("Paragraph ended before ");
                                         sprint_cs(warning_index);
-                                        print_cstr(b" was complete");
-                                        help!(b"I suspect you\'ve forgotten a `}\', causing me to apply this",
-                                        b"control sequence to too much text. How can we recover?",
-                                        b"My plan is to forget the whole thing and hope for the best.");
+                                        print_cstr(" was complete");
+                                        help!("I suspect you\'ve forgotten a `}\', causing me to apply this",
+                                        "control sequence to too much text. How can we recover?",
+                                        "My plan is to forget the whole thing and hope for the best.");
                                         back_error();
                                     }
 
@@ -4796,18 +4793,18 @@ pub(crate) unsafe fn macro_call() {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! ");
+                            print_nl_cstr("! ");
                         }
-                        print_cstr(b"Argument of ");
+                        print_cstr("Argument of ");
                         sprint_cs(warning_index);
-                        print_cstr(b" has an extra }");
+                        print_cstr(" has an extra }");
                         help!(
-                            b"I\'ve run across a `}\' that doesn\'t seem to match anything.",
-                            b"For example, `\\def\\a#1{...}\' and `\\a}\' would produce",
-                            b"this error. If you simply proceed now, the `\\par\' that",
-                            b"I\'ve just inserted will cause me to report a runaway",
-                            b"argument that might be the root of the problem. But if",
-                            b"your `}\' was spurious, just type `2\' and it will go away."
+                            "I\'ve run across a `}\' that doesn\'t seem to match anything.",
+                            "For example, `\\def\\a#1{...}\' and `\\a}\' would produce",
+                            "this error. If you simply proceed now, the `\\par\' that",
+                            "I\'ve just inserted will cause me to report a runaway",
+                            "argument that might be the root of the problem. But if",
+                            "your `}\' was spurious, just type `2\' and it will go away."
                         );
                         align_state += 1;
                         long_state = Cmd::Call as u8;
@@ -4863,7 +4860,7 @@ pub(crate) unsafe fn macro_call() {
                     begin_diagnostic();
                     print_nl(match_chr as str_number);
                     print_int(n as i32);
-                    print_cstr(b"<-");
+                    print_cstr("<-");
                     show_token_list(pstack[(n as i32 - 1) as usize].opt(), None, 1000);
                     end_diagnostic(false);
                 }
@@ -4889,7 +4886,7 @@ pub(crate) unsafe fn macro_call() {
         if PARAM_PTR + n as usize > MAX_PARAM_STACK {
             MAX_PARAM_STACK = PARAM_PTR + n as usize;
             if MAX_PARAM_STACK > PARAM_SIZE {
-                overflow(b"parameter stack size", PARAM_SIZE);
+                overflow("parameter stack size", PARAM_SIZE);
             }
         }
 
@@ -5057,7 +5054,7 @@ pub(crate) unsafe fn expand() {
     let mut j: i32 = 0;
     expand_depth_count += 1;
     if expand_depth_count >= expand_depth {
-        overflow(b"expansion depth", expand_depth as usize);
+        overflow("expansion depth", expand_depth as usize);
     }
     let cv_backup = cur_val;
     let cvl_backup = cur_val_level;
@@ -5111,14 +5108,14 @@ pub(crate) unsafe fn expand() {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
-                                print_nl_cstr(b"! ");
+                                print_nl_cstr("! ");
                             }
-                            print_cstr(b"You can\'t use `");
-                            print_esc_cstr(b"unless");
-                            print_cstr(b"\' before `");
+                            print_cstr("You can\'t use `");
+                            print_esc_cstr("unless");
+                            print_cstr("\' before `");
                             print_cmd_chr(cur_cmd, cur_chr);
                             print_char('\'' as i32);
-                            help!(b"Continue, and I\'ll forget that it ever happened.");
+                            help!("Continue, and I\'ll forget that it ever happened.");
                             back_error();
                             break;
                         }
@@ -5193,14 +5190,14 @@ pub(crate) unsafe fn expand() {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! ");
+                            print_nl_cstr("! ");
                         }
-                        print_cstr(b"Missing ");
-                        print_esc_cstr(b"endcsname");
-                        print_cstr(b" inserted");
+                        print_cstr("Missing ");
+                        print_esc_cstr("endcsname");
+                        print_cstr(" inserted");
                         help!(
-                            b"The control sequence marked <to be read again> should",
-                            b"not appear between \\csname and \\endcsname."
+                            "The control sequence marked <to be read again> should",
+                            "not appear between \\csname and \\endcsname."
                         );
                         back_error();
                     }
@@ -5211,7 +5208,7 @@ pub(crate) unsafe fn expand() {
                         if j >= max_buf_stack {
                             max_buf_stack = j + 1;
                             if max_buf_stack as usize == BUF_SIZE {
-                                overflow(b"buffer size", BUF_SIZE);
+                                overflow("buffer size", BUF_SIZE);
                             }
                         }
                         BUFFER[j as usize] = MEM[p].b32.s0 % MAX_CHAR_VAL;
@@ -5261,11 +5258,11 @@ pub(crate) unsafe fn expand() {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
-                                print_nl_cstr(b"! ");
+                                print_nl_cstr("! ");
                             }
-                            print_cstr(b"Extra ");
+                            print_cstr("Extra ");
                             print_cmd_chr(Cmd::FiOrElse, cur_chr);
-                            help!(b"I\'m ignoring this; it doesn\'t match any \\if.");
+                            help!("I\'m ignoring this; it doesn\'t match any \\if.");
                             error();
                         }
                     } else {
@@ -5304,15 +5301,15 @@ pub(crate) unsafe fn expand() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! ");
+                        print_nl_cstr("! ");
                     }
-                    print_cstr(b"Undefined control sequence");
+                    print_cstr("Undefined control sequence");
                     help!(
-                        b"The control sequence at the end of the top line",
-                        b"of your error message was never \\def\'ed. If you have",
-                        b"misspelled it (e.g., `\\hobx\'), type `I\' and the correct",
-                        b"spelling (e.g., `I\\hbox\'). Otherwise just continue,",
-                        b"and I\'ll forget about whatever was undefined."
+                        "The control sequence at the end of the top line",
+                        "of your error message was never \\def\'ed. If you have",
+                        "misspelled it (e.g., `\\hobx\'), type `I\' and the correct",
+                        "spelling (e.g., `I\\hbox\'). Otherwise just continue,",
+                        "and I\'ll forget about whatever was undefined."
                     );
                     error();
                     break;
@@ -5381,14 +5378,14 @@ pub(crate) unsafe fn scan_left_brace() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Missing { inserted");
+        print_cstr("Missing { inserted");
         help!(
-            b"A left brace was mandatory here, so I\'ve put one in.",
-            b"You might want to delete and/or insert some corrections",
-            b"so that I will find a matching right brace soon.",
-            b"(If you\'re confused by all this, try typing `I}\' now.)"
+            "A left brace was mandatory here, so I\'ve put one in.",
+            "You might want to delete and/or insert some corrections",
+            "so that I will find a matching right brace soon.",
+            "(If you\'re confused by all this, try typing `I}\' now.)"
         );
         back_error();
         cur_tok = LEFT_BRACE_TOKEN + '{' as i32;
@@ -5461,10 +5458,10 @@ pub(crate) unsafe fn mu_error() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     }
-    print_cstr(b"Incompatible glue units");
-    help!(b"I\'m going to assume that 1mu=1pt when they\'re mixed.");
+    print_cstr("Incompatible glue units");
+    help!("I\'m going to assume that 1mu=1pt when they\'re mixed.");
     error();
 }
 pub(crate) unsafe fn scan_glyph_number(mut f: internal_font_number) {
@@ -5486,12 +5483,12 @@ pub(crate) unsafe fn scan_char_class() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad character class");
+        print_cstr("Bad character class");
         help!(
-            b"A character class must be between 0 and 4096.",
-            b"I changed this one to zero."
+            "A character class must be between 0 and 4096.",
+            "I changed this one to zero."
         );
         int_error(cur_val);
         cur_val = 0;
@@ -5503,12 +5500,12 @@ pub(crate) unsafe fn scan_char_class_not_ignored() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad character class");
+        print_cstr("Bad character class");
         help!(
-            b"A class for inter-character transitions must be between 0 and 4095.",
-            b"I changed this one to zero."
+            "A class for inter-character transitions must be between 0 and 4095.",
+            "I changed this one to zero."
         );
         int_error(cur_val);
         cur_val = 0;
@@ -5520,12 +5517,12 @@ pub(crate) unsafe fn scan_eight_bit_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad register code");
+        print_cstr("Bad register code");
         help!(
-            b"A register code or char class must be between 0 and 255.",
-            b"I changed this one to zero."
+            "A register code or char class must be between 0 and 255.",
+            "I changed this one to zero."
         );
         int_error(cur_val);
         cur_val = 0;
@@ -5537,12 +5534,12 @@ pub(crate) unsafe fn scan_usv_num() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad character code");
+        print_cstr("Bad character code");
         help!(
-            b"A Unicode scalar value must be between 0 and \"10FFFF.",
-            b"I changed this one to zero."
+            "A Unicode scalar value must be between 0 and \"10FFFF.",
+            "I changed this one to zero."
         );
         int_error(cur_val);
         cur_val = 0;
@@ -5554,12 +5551,12 @@ pub(crate) unsafe fn scan_char_num() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad character code");
+        print_cstr("Bad character code");
         help!(
-            b"A character number must be between 0 and 65535.",
-            b"I changed this one to zero."
+            "A character number must be between 0 and 65535.",
+            "I changed this one to zero."
         );
         int_error(cur_val);
         cur_val = 0;
@@ -5572,13 +5569,13 @@ pub(crate) unsafe fn scan_xetex_math_char_int() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Bad active XeTeX math code");
+            print_cstr("Bad active XeTeX math code");
 
             help!(
-                b"Since I ignore class and family for active math chars,",
-                b"I changed this one to \"1FFFFF."
+                "Since I ignore class and family for active math chars,",
+                "I changed this one to \"1FFFFF."
             );
             int_error(cur_val);
             cur_val = ACTIVE_MATH_CHAR;
@@ -5587,13 +5584,13 @@ pub(crate) unsafe fn scan_xetex_math_char_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad XeTeX math character code");
+        print_cstr("Bad XeTeX math character code");
 
         help!(
-            b"Since I expected a character number between 0 and \"10FFFF,",
-            b"I changed this one to zero."
+            "Since I expected a character number between 0 and \"10FFFF,",
+            "I changed this one to zero."
         );
         int_error(cur_val);
         cur_val = 0;
@@ -5731,12 +5728,12 @@ pub(crate) unsafe fn scan_math_class_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad math class");
+        print_cstr("Bad math class");
         help!(
-            b"Since I expected to read a number between 0 and 7,",
-            b"I changed this one to zero."
+            "Since I expected to read a number between 0 and 7,",
+            "I changed this one to zero."
         );
         int_error(cur_val);
         cur_val = 0
@@ -5748,12 +5745,12 @@ pub(crate) unsafe fn scan_math_fam_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad math family");
+        print_cstr("Bad math family");
         help!(
-            b"Since I expected to read a number between 0 and 255,",
-            b"I changed this one to zero."
+            "Since I expected to read a number between 0 and 255,",
+            "I changed this one to zero."
         );
         int_error(cur_val);
         cur_val = 0;
@@ -5765,12 +5762,12 @@ pub(crate) unsafe fn scan_four_bit_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad number");
+        print_cstr("Bad number");
         help!(
-            b"Since I expected to read a number between 0 and 15,",
-            b"I changed this one to zero."
+            "Since I expected to read a number between 0 and 15,",
+            "I changed this one to zero."
         );
         int_error(cur_val);
         cur_val = 0;
@@ -5782,12 +5779,12 @@ pub(crate) unsafe fn scan_fifteen_bit_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad mathchar");
+        print_cstr("Bad mathchar");
         help!(
-            b"A mathchar number must be between 0 and 32767.",
-            b"I changed this one to zero."
+            "A mathchar number must be between 0 and 32767.",
+            "I changed this one to zero."
         );
         int_error(cur_val);
         cur_val = 0;
@@ -5799,12 +5796,12 @@ pub(crate) unsafe fn scan_delimiter_int() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad delimiter code");
+        print_cstr("Bad delimiter code");
         help!(
-            b"A numeric delimiter code must be between 0 and 2^{27}-1.",
-            b"I changed this one to zero."
+            "A numeric delimiter code must be between 0 and 2^{27}-1.",
+            "I changed this one to zero."
         );
         int_error(cur_val);
         cur_val = 0;
@@ -5816,10 +5813,10 @@ pub(crate) unsafe fn scan_register_num() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad register code");
-        help!(max_reg_help_line, b"I changed this one to zero.");
+        print_cstr("Bad register code");
+        help!(max_reg_help_line, "I changed this one to zero.");
         int_error(cur_val);
         cur_val = 0;
     };
@@ -5830,12 +5827,12 @@ pub(crate) unsafe fn scan_four_bit_int_or_18() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad number");
+        print_cstr("Bad number");
         help!(
-            b"Since I expected to read a number between 0 and 15,",
-            b"I changed this one to zero."
+            "Since I expected to read a number between 0 and 15,",
+            "I changed this one to zero."
         );
         int_error(cur_val);
         cur_val = 0;
@@ -5887,12 +5884,12 @@ pub(crate) unsafe fn scan_font_ident() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Missing font identifier");
+        print_cstr("Missing font identifier");
         help!(
-            b"I was looking for a control sequence whose",
-            b"current meaning has been defined by \\font."
+            "I was looking for a control sequence whose",
+            "current meaning has been defined by \\font."
         );
         back_error();
         f = FONT_BASE;
@@ -5922,7 +5919,7 @@ pub(crate) unsafe fn find_font_dimen(writing: bool) {
                 /*599: */
                 {
                     if fmem_ptr == FONT_MEM_SIZE as i32 {
-                        overflow(b"font memory", FONT_MEM_SIZE);
+                        overflow("font memory", FONT_MEM_SIZE);
                     }
                     FONT_INFO[fmem_ptr as usize].b32.s1 = 0;
                     fmem_ptr += 1;
@@ -5941,16 +5938,16 @@ pub(crate) unsafe fn find_font_dimen(writing: bool) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Font ");
+        print_cstr("Font ");
         print_esc((*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1);
-        print_cstr(b" has only ");
+        print_cstr(" has only ");
         print_int(FONT_PARAMS[f]);
-        print_cstr(b" fontdimen parameters");
+        print_cstr(" fontdimen parameters");
         help!(
-            b"To increase the number of font parameters, you must",
-            b"use \\fontdimen immediately after the \\font is loaded."
+            "To increase the number of font parameters, you must",
+            "use \\fontdimen immediately after the \\font is loaded."
         );
         error();
     };
@@ -5981,12 +5978,12 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! ");
+                        print_nl_cstr("! ");
                     }
-                    print_cstr(b"Extended mathchar used as mathchar");
+                    print_cstr("Extended mathchar used as mathchar");
                     help!(
-                        b"A mathchar number must be between 0 and \"7FFF.",
-                        b"I changed this one to zero."
+                        "A mathchar number must be between 0 and \"7FFF.",
+                        "I changed this one to zero."
                     );
                     int_error(cur_val1);
                     cur_val1 = 0;
@@ -6002,12 +5999,12 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! ");
+                        print_nl_cstr("! ");
                     }
-                    print_cstr(b"Extended delcode used as delcode");
+                    print_cstr("Extended delcode used as delcode");
                     help!(
-                        b"I can only go up to 2147483647=\'17777777777=\"7FFFFFFF,",
-                        b"I changed this one to zero."
+                        "I can only go up to 2147483647=\'17777777777=\"7FFFFFFF,",
+                        "I changed this one to zero."
                     );
                     error();
                     cur_val = 0;
@@ -6040,12 +6037,12 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Can\'t use \\Umathcode as a number (try \\Umathcodenum)");
+                print_cstr("Can\'t use \\Umathcode as a number (try \\Umathcodenum)");
                 help!(
-                    b"\\Umathcode is for setting a mathcode from separate values;",
-                    b"use \\Umathcodenum to access them as single values."
+                    "\\Umathcode is for setting a mathcode from separate values;",
+                    "use \\Umathcodenum to access them as single values."
                 );
                 error();
                 cur_val = 0;
@@ -6057,12 +6054,12 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Can\'t use \\Udelcode as a number (try \\Udelcodenum)");
+                print_cstr("Can\'t use \\Udelcode as a number (try \\Udelcodenum)");
                 help!(
-                    b"\\Udelcode is for setting a delcode from separate values;",
-                    b"use \\Udelcodenum to access them as single values."
+                    "\\Udelcode is for setting a delcode from separate values;",
+                    "use \\Udelcodenum to access them as single values."
                 );
                 error();
                 cur_val = 0;
@@ -6075,13 +6072,13 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Missing number, treated as zero");
+                print_cstr("Missing number, treated as zero");
                 help!(
-                    b"A number should have been here; I inserted `0\'.",
-                    b"(If you can\'t figure out why I needed to see a number,",
-                    b"look up `weird error\' in the index to The TeXbook.)"
+                    "A number should have been here; I inserted `0\'.",
+                    "(If you can\'t figure out why I needed to see a number,",
+                    "look up `weird error\' in the index to The TeXbook.)"
                 );
                 back_error();
                 cur_val = 0;
@@ -6150,15 +6147,15 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Improper ");
+                print_cstr("Improper ");
                 print_cmd_chr(Cmd::SetAux, m);
                 help!(
-                    b"You can refer to \\spacefactor only in horizontal mode;",
-                    b"you can refer to \\prevdepth only in vertical mode; and",
-                    b"neither of these is meaningful inside \\write. So",
-                    b"I\'m forgetting what you said and using zero instead."
+                    "You can refer to \\spacefactor only in horizontal mode;",
+                    "you can refer to \\prevdepth only in vertical mode; and",
+                    "neither of these is meaningful inside \\write. So",
+                    "I\'m forgetting what you said and using zero instead."
                 );
                 error();
                 if level != ValLevel::Tok {
@@ -6397,12 +6394,12 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     if file_line_error_style_p != 0 {
                                         print_file_line();
                                     } else {
-                                        print_nl_cstr(b"! ");
+                                        print_nl_cstr("! ");
                                     }
                                     print_cstr(
-                                        b"\\\\XeTeXglyphbounds requires an edge index from 1 to 4;",
+                                        "\\\\XeTeXglyphbounds requires an edge index from 1 to 4;",
                                     );
-                                    print_nl_cstr(b"I don\'t know anything about edge ");
+                                    print_nl_cstr("I don\'t know anything about edge ");
                                     print_int(n);
                                     error();
                                     cur_val = 0;
@@ -7054,13 +7051,13 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"You can\'t use `");
+            print_cstr("You can\'t use `");
             print_cmd_chr(cur_cmd, cur_chr);
-            print_cstr(b"\' after ");
-            print_esc_cstr(b"the");
-            help!(b"I\'m forgetting what you said and using zero instead.");
+            print_cstr("\' after ");
+            print_esc_cstr("the");
+            help!("I\'m forgetting what you said and using zero instead.");
             error();
             cur_val = 0;
             if level != ValLevel::Tok {
@@ -7137,12 +7134,12 @@ pub(crate) unsafe fn scan_int() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Improper alphabetic constant");
+            print_cstr("Improper alphabetic constant");
             help!(
-                b"A one-character control sequence belongs after a ` mark.",
-                b"So I\'m essentially inserting \\0 here."
+                "A one-character control sequence belongs after a ` mark.",
+                "So I\'m essentially inserting \\0 here."
             );
             cur_val = '0' as i32;
             back_error();
@@ -7193,12 +7190,12 @@ pub(crate) unsafe fn scan_int() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! ");
+                        print_nl_cstr("! ");
                     }
-                    print_cstr(b"Number too big");
+                    print_cstr("Number too big");
                     help!(
-                        b"I can only go up to 2147483647=\'17777777777=\"7FFFFFFF,",
-                        b"so I\'m using that number instead of yours."
+                        "I can only go up to 2147483647=\'17777777777=\"7FFFFFFF,",
+                        "so I\'m using that number instead of yours."
                     );
                     error();
                     cur_val = TEX_INFINITY;
@@ -7214,13 +7211,13 @@ pub(crate) unsafe fn scan_int() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Missing number, treated as zero");
+            print_cstr("Missing number, treated as zero");
             help!(
-                b"A number should have been here; I inserted `0\'.",
-                b"(If you can\'t figure out why I needed to see a number,",
-                b"look up `weird error\' in the index to The TeXbook.)"
+                "A number should have been here; I inserted `0\'.",
+                "(If you can\'t figure out why I needed to see a number,",
+                "look up `weird error\' in the index to The TeXbook.)"
             );
             back_error();
         } else if cur_cmd != Cmd::Spacer {
@@ -7352,11 +7349,11 @@ pub(crate) unsafe fn xetex_scan_dimen(
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! ");
+                            print_nl_cstr("! ");
                         }
-                        print_cstr(b"Illegal unit of measure (");
-                        print_cstr(b"replaced by filll)");
-                        help!(b"I dddon\'t go any higher than filll.");
+                        print_cstr("Illegal unit of measure (");
+                        print_cstr("replaced by filll)");
+                        help!("I dddon\'t go any higher than filll.");
                         error();
                     } else {
                         cur_order = GlueOrder::from((cur_order as u16) + 1);
@@ -7430,15 +7427,15 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Illegal unit of measure (");
-                print_cstr(b"mu inserted)");
+                print_cstr("Illegal unit of measure (");
+                print_cstr("mu inserted)");
                 help!(
-                    b"The unit of measurement in math glue must be mu.",
-                    b"To recover gracefully from this error, it\'s best to",
-                    b"delete the erroneous units; e.g., type `2\' to delete",
-                    b"two letters. (See Chapter 27 of The TeXbook.)"
+                    "The unit of measurement in math glue must be mu.",
+                    "To recover gracefully from this error, it\'s best to",
+                    "delete the erroneous units; e.g., type `2\' to delete",
+                    "two letters. (See Chapter 27 of The TeXbook.)"
                 );
                 error();
                 return attach_fraction(f, negative);
@@ -7491,17 +7488,17 @@ pub(crate) unsafe fn xetex_scan_dimen(
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Illegal unit of measure (");
-            print_cstr(b"pt inserted)");
+            print_cstr("Illegal unit of measure (");
+            print_cstr("pt inserted)");
             help!(
-                b"Dimensions can be in units of em, ex, in, pt, pc,",
-                b"cm, mm, dd, cc, bp, or sp; but yours is a new one!",
-                b"I\'ll assume that you meant to say pt, for printer\'s points.",
-                b"To recover gracefully from this error, it\'s best to",
-                b"delete the erroneous units; e.g., type `2\' to delete",
-                b"two letters. (See Chapter 27 of The TeXbook.)"
+                "Dimensions can be in units of em, ex, in, pt, pc,",
+                "cm, mm, dd, cc, bp, or sp; but yours is a new one!",
+                "I\'ll assume that you meant to say pt, for printer\'s points.",
+                "To recover gracefully from this error, it\'s best to",
+                "delete the erroneous units; e.g., type `2\' to delete",
+                "two letters. (See Chapter 27 of The TeXbook.)"
             );
             error();
             return attach_fraction(f, negative);
@@ -7548,12 +7545,12 @@ pub(crate) unsafe fn xetex_scan_dimen(
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Dimension too large");
+            print_cstr("Dimension too large");
             help!(
-                b"I can\'t work with sizes bigger than about 19 feet.",
-                b"Continue and I\'ll use the largest value I can."
+                "I can\'t work with sizes bigger than about 19 feet.",
+                "Continue and I\'ll use the largest value I can."
             );
             error();
             cur_val = MAX_HALFWORD;
@@ -7849,10 +7846,10 @@ pub(crate) unsafe fn scan_expr() {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! ");
+                            print_nl_cstr("! ");
                         }
-                        print_cstr(b"Missing ) inserted for expression");
-                        help!(b"I was expecting to see `+\', `-\', `*\', `/\', or `)\'. Didn\'t.");
+                        print_cstr("Missing ) inserted for expression");
+                        help!("I was expecting to see `+\', `-\', `*\', `/\', or `)\'. Didn\'t.");
                         back_error();
                     }
                 }
@@ -8017,12 +8014,12 @@ pub(crate) unsafe fn scan_expr() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Arithmetic overflow");
+        print_cstr("Arithmetic overflow");
         help!(
-            b"I can\'t evaluate this expression,",
-            b"since the result is out of range."
+            "I can\'t evaluate this expression,",
+            "since the result is out of range."
         );
         error();
         if l >= ValLevel::Glue {
@@ -8120,7 +8117,7 @@ pub(crate) unsafe fn pseudo_start() {
     selector = old_setting_0;
     flush_list(llist_link(TEMP_HEAD));
     if pool_ptr + 1 > pool_size {
-        overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+        overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
     let mut s = make_string();
     str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
@@ -8188,7 +8185,7 @@ pub(crate) unsafe fn pseudo_start() {
             print_char(' ' as i32);
         }
         cur_input.name = 19;
-        print_cstr(b"( ");
+        print_cstr("( ");
         open_parens += 1;
         rust_stdout.as_mut().unwrap().flush().unwrap();
     } else {
@@ -8198,7 +8195,7 @@ pub(crate) unsafe fn pseudo_start() {
 }
 pub(crate) unsafe fn str_toks_cat(mut b: pool_pointer, mut cat: i16) -> usize {
     if pool_ptr + 1 > pool_size {
-        overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+        overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
     let mut p = TEMP_HEAD;
     *LLIST_link(p) = None.tex_int();
@@ -8300,14 +8297,14 @@ pub(crate) unsafe fn the_toks() -> usize {
                 ValLevel::Int => print_int(cur_val),
                 ValLevel::Dimen => {
                     print_scaled(cur_val);
-                    print_cstr(b"pt");
+                    print_cstr("pt");
                 }
                 ValLevel::Glue => {
-                    print_spec(cur_val, b"pt");
+                    print_spec(cur_val, "pt");
                     delete_glue_ref(cur_val as usize);
                 }
                 ValLevel::Mu => {
-                    print_spec(cur_val, b"mu");
+                    print_spec(cur_val, "mu");
                     delete_glue_ref(cur_val as usize);
                 }
                 _ => {}
@@ -8358,12 +8355,12 @@ pub(crate) unsafe fn conv_toks() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Invalid code (");
+                print_cstr("Invalid code (");
                 print_int(cur_val);
-                print_cstr(b"), should be in the ranges 1..4, 6..8, 10..12");
-                help!(b"I\'m going to use 12 instead of that illegal code value.");
+                print_cstr("), should be in the ranges 1..4, 6..8, 10..12");
+                help!("I\'m going to use 12 instead of that illegal code value.");
                 error();
                 cat = 12;
             } else {
@@ -8401,8 +8398,8 @@ pub(crate) unsafe fn conv_toks() {
             scan_pdf_ext_toks();
             if selector == Selector::NEW_STRING {
                 pdf_error(
-                    b"tokens",
-                    b"tokens_to_string() called while selector = new_string",
+                    "tokens",
+                    "tokens_to_string() called while selector = new_string",
                 );
             }
             let old_setting_0 = selector;
@@ -8492,7 +8489,7 @@ pub(crate) unsafe fn conv_toks() {
             if p.filter(|&p| text_NODE_type(p) == TextNode::HList.into())
                 .is_none()
             {
-                pdf_error(b"marginkern", b"a non-empty hbox expected");
+                pdf_error("marginkern", "a non-empty hbox expected");
             }
         }
         ConvertCode::JobName => {
@@ -8536,15 +8533,15 @@ pub(crate) unsafe fn conv_toks() {
                 _ => print(font_name_str),
             }
             if FONT_SIZE[cur_val as usize] != FONT_DSIZE[cur_val as usize] {
-                print_cstr(b" at ");
+                print_cstr(" at ");
                 print_scaled(FONT_SIZE[cur_val as usize]);
-                print_cstr(b"pt");
+                print_cstr("pt");
             }
         }
         ConvertCode::XetexUchar | ConvertCode::XetexUcharcat => print_char(cur_val),
-        ConvertCode::EtexRevision => print_cstr(b".6"),
+        ConvertCode::EtexRevision => print_cstr(".6"),
         ConvertCode::PdfStrcmp => print_int(cur_val),
-        ConvertCode::XetexRevision => print_cstr(b".99998"),
+        ConvertCode::XetexRevision => print_cstr(".99998"),
         ConvertCode::XetexVariationName => {
             match FONT_AREA[fnt as usize] as u32 {
                 #[cfg(target_os = "macos")]
@@ -8627,7 +8624,7 @@ pub(crate) unsafe fn conv_toks() {
             } else {
                 print('0' as i32);
             }
-            print_cstr(b"pt");
+            print_cstr("pt");
         }
         ConvertCode::RightMarginKern => {
             let q = List::from(p.unwrap()).list_ptr().opt();
@@ -8663,7 +8660,7 @@ pub(crate) unsafe fn conv_toks() {
             } else {
                 print('0' as i32);
             }
-            print_cstr(b"pt");
+            print_cstr("pt");
         }
         ConvertCode::JobName => print_file_name(job_name, 0, 0),
         _ => {}
@@ -8715,10 +8712,10 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! ");
+                        print_nl_cstr("! ");
                     }
-                    print_cstr(b"You already have nine parameters");
-                    help!(b"I\'m going to ignore the # sign you just used.");
+                    print_cstr("You already have nine parameters");
+                    help!("I\'m going to ignore the # sign you just used.");
                     error();
                 } else {
                     t += 1;
@@ -8726,12 +8723,12 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! ");
+                            print_nl_cstr("! ");
                         }
-                        print_cstr(b"Parameters must be numbered consecutively");
+                        print_cstr("Parameters must be numbered consecutively");
                         help!(
-                            b"I\'ve inserted the digit you should have used after the #.",
-                            b"Type `1\' to delete what you did use."
+                            "I\'ve inserted the digit you should have used after the #.",
+                            "Type `1\' to delete what you did use."
                         );
                         back_error();
                     }
@@ -8755,13 +8752,13 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Missing { inserted");
+                print_cstr("Missing { inserted");
                 align_state += 1;
                 help!(
-                    b"Where was the left brace? You said something like `\\def\\a}\',",
-                    b"which I\'m going to interpret as `\\def\\a{}\'."
+                    "Where was the left brace? You said something like `\\def\\a}\',",
+                    "which I\'m going to interpret as `\\def\\a{}\'."
                 );
                 error();
                 return found(p, hash_brace);
@@ -8825,14 +8822,14 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! ");
+                            print_nl_cstr("! ");
                         }
-                        print_cstr(b"Illegal parameter number in definition of ");
+                        print_cstr("Illegal parameter number in definition of ");
                         sprint_cs(warning_index);
                         help!(
-                            b"You meant to type ## instead of #, right?",
-                            b"Or maybe a } was forgotten somewhere earlier, and things",
-                            b"are all screwed up? I\'m going to assume that you meant ##."
+                            "You meant to type ## instead of #, right?",
+                            "Or maybe a } was forgotten somewhere earlier, and things",
+                            "are all screwed up? I\'m going to assume that you meant ##."
                         );
                         back_error();
                         cur_tok = s
@@ -8905,11 +8902,11 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"File ended within ");
-                print_esc_cstr(b"read");
-                help!(b"This \\read has unbalanced braces.");
+                print_cstr("File ended within ");
+                print_esc_cstr("read");
+                help!("This \\read has unbalanced braces.");
                 align_state = 1000000;
                 error();
             }
@@ -8998,7 +8995,7 @@ pub(crate) unsafe fn change_if_limit(l: FiOrElseCode, p: Option<usize>) {
     } else {
         let mut qopt = cond_ptr;
         loop {
-            let q = qopt.confuse(b"if");
+            let q = qopt.confuse("if");
             if llist_link(q) == p {
                 MEM[q].b16.s1 = l as u16;
                 return;
@@ -9090,11 +9087,11 @@ pub(crate) unsafe fn conditional() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Missing = inserted for ");
+                print_cstr("Missing = inserted for ");
                 print_cmd_chr(Cmd::IfTest, this_if as i32);
-                help!(b"I was expecting to see `<\', `=\', or `>\'. Didn\'t.");
+                help!("I was expecting to see `<\', `=\', or `>\'. Didn\'t.");
                 back_error();
                 r = b'=';
             }
@@ -9247,14 +9244,14 @@ pub(crate) unsafe fn conditional() {
                 if file_line_error_style_p != 0 {
                     print_file_line(); /*:1556*/
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Missing ");
-                print_esc_cstr(b"endcsname");
-                print_cstr(b" inserted");
+                print_cstr("Missing ");
+                print_esc_cstr("endcsname");
+                print_cstr(" inserted");
                 help!(
-                    b"The control sequence marked <to be read again> should",
-                    b"not appear between \\csname and \\endcsname."
+                    "The control sequence marked <to be read again> should",
+                    "not appear between \\csname and \\endcsname."
                 );
                 back_error();
             }
@@ -9266,7 +9263,7 @@ pub(crate) unsafe fn conditional() {
                 if m >= max_buf_stack {
                     max_buf_stack = m + 1i32;
                     if max_buf_stack as usize == BUF_SIZE {
-                        overflow(b"buffer size", BUF_SIZE);
+                        overflow("buffer size", BUF_SIZE);
                     }
                 }
                 BUFFER[m as usize] = MEM[p as usize].b32.s0 % MAX_CHAR_VAL;
@@ -9310,7 +9307,7 @@ pub(crate) unsafe fn conditional() {
 
             if *INTPAR(IntPar::tracing_commands) > 1 {
                 begin_diagnostic();
-                print_cstr(b"{case ");
+                print_cstr("{case ");
                 print_int(n);
                 print_char('}' as i32);
                 end_diagnostic(false);
@@ -9370,9 +9367,9 @@ pub(crate) unsafe fn conditional() {
         /*521:*/
         begin_diagnostic();
         if b {
-            print_cstr(b"{true}");
+            print_cstr("{true}");
         } else {
-            print_cstr(b"{false}");
+            print_cstr("{false}");
         }
         end_diagnostic(false);
     }
@@ -9393,11 +9390,11 @@ pub(crate) unsafe fn conditional() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Extra ");
-            print_esc_cstr(b"or");
-            help!(b"I\'m ignoring this; it doesn\'t match any \\if.");
+            print_cstr("Extra ");
+            print_esc_cstr("or");
+            help!("I\'m ignoring this; it doesn\'t match any \\if.");
             error();
         } else if cur_chr == FiOrElseCode::Fi as i32 {
             /*515:*/
@@ -9453,7 +9450,7 @@ pub(crate) unsafe fn more_name(mut c: UTF16_code) -> bool {
         return true;
     }
     if pool_ptr + 1 > pool_size {
-        overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+        overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
     let fresh37 = pool_ptr;
     pool_ptr = pool_ptr + 1;
@@ -9471,7 +9468,7 @@ pub(crate) unsafe fn end_name() {
     let mut temp_str: str_number = 0;
     let mut j: pool_pointer = 0;
     if str_ptr + 3 > max_strings as i32 {
-        overflow(b"number of strings", max_strings - init_str_ptr as usize);
+        overflow("number of strings", max_strings - init_str_ptr as usize);
     }
     /* area_delimiter is the length from the start of the filename to the
      * directory seperator "/", which we use to construct the stringpool
@@ -9609,7 +9606,7 @@ pub(crate) unsafe fn open_log_file() {
     INPUT_STACK[INPUT_PTR] = cur_input;
     /* Here we catch the log file up with anything that has already been
      * printed. The eqtb reference is end_line_char. */
-    print_nl_cstr(b"**");
+    print_nl_cstr("**");
     l = INPUT_STACK[0].limit;
     if BUFFER[l as usize] == *INTPAR(IntPar::end_line_char) {
         l -= 1
@@ -9834,13 +9831,13 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
             *INTPAR(IntPar::tracing_online) = 1
         }
         begin_diagnostic();
-        print_nl_cstr(b"Missing character: There is no ");
+        print_nl_cstr("Missing character: There is no ");
         if (c as i64) < 65536 {
             print(c);
         } else {
             print_char(c);
         }
-        print_cstr(b" in font ");
+        print_cstr(" in font ");
         print(FONT_NAME[f]);
         print_char('!' as i32);
         end_diagnostic(false);
@@ -9902,7 +9899,7 @@ pub(crate) unsafe fn new_native_character(
     if !(FONT_MAPPING[f]).is_null() {
         if c as i64 > 65535 {
             if pool_ptr + 2 > pool_size {
-                overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+                overflow("pool size", (pool_size - init_pool_ptr) as usize);
             }
             str_pool[pool_ptr as usize] =
                 ((c as i64 - 65536) / 1024 as i64 + 0xd800) as packed_UTF16_code;
@@ -9912,7 +9909,7 @@ pub(crate) unsafe fn new_native_character(
             pool_ptr += 1
         } else {
             if pool_ptr + 1 > pool_size {
-                overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+                overflow("pool size", (pool_size - init_pool_ptr) as usize);
             }
             str_pool[pool_ptr as usize] = c as packed_UTF16_code;
             pool_ptr += 1
@@ -9978,50 +9975,50 @@ pub(crate) unsafe fn new_native_character(
 }
 pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u8]) {
     begin_diagnostic();
-    print_nl_cstr(b"Unknown ");
+    print_nl_cstr("Unknown ");
     if !setting_name.is_empty() {
-        print_cstr(b"selector `");
+        print_cstr("selector `");
         print_utf8_str(setting_name);
-        print_cstr(b"\' for ");
+        print_cstr("\' for ");
     }
-    print_cstr(b"feature `");
+    print_cstr("feature `");
     print_utf8_str(feature_name);
-    print_cstr(b"\' in font `");
+    print_cstr("\' in font `");
     for b in name_of_file.bytes() {
         print_raw_char(b as UTF16_code, true);
     }
-    print_cstr(b"\'.");
+    print_cstr("\'.");
     end_diagnostic(false);
 }
 pub(crate) unsafe fn font_mapping_warning(mut mapping_name: &[u8], mut warningType: i32) {
     begin_diagnostic();
     if warningType == 0i32 {
-        print_nl_cstr(b"Loaded mapping `");
+        print_nl_cstr("Loaded mapping `");
     } else {
-        print_nl_cstr(b"Font mapping `");
+        print_nl_cstr("Font mapping `");
     }
     print_utf8_str(mapping_name);
-    print_cstr(b"\' for font `");
+    print_cstr("\' for font `");
     for b in name_of_file.bytes() {
         print_raw_char(b as UTF16_code, true);
     }
     match warningType {
-        1 => print_cstr(b"\' not found."),
+        1 => print_cstr("\' not found."),
         2 => {
-            print_cstr(b"\' not usable;");
-            print_nl_cstr(b"bad mapping file or incorrect mapping type.");
+            print_cstr("\' not usable;");
+            print_nl_cstr("bad mapping file or incorrect mapping type.");
         }
-        _ => print_cstr(b"\'."),
+        _ => print_cstr("\'."),
     }
     end_diagnostic(false);
 }
 pub(crate) unsafe fn graphite_warning() {
     begin_diagnostic();
-    print_nl_cstr(b"Font `");
+    print_nl_cstr("Font `");
     for b in name_of_file.bytes() {
         print_raw_char(b as UTF16_code, true);
     }
-    print_cstr(b"\' does not support Graphite. Trying OpenType layout instead.");
+    print_cstr("\' does not support Graphite. Trying OpenType layout instead.");
     end_diagnostic(false);
 }
 pub(crate) unsafe fn load_native_font(
@@ -10050,7 +10047,7 @@ pub(crate) unsafe fn load_native_font(
         actual_size = loaded_font_design_size
     }
     if (pool_ptr as usize) + name_of_file.as_bytes().len() > (pool_size as usize) {
-        overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+        overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
     for b in name_of_file.bytes() {
         str_pool[pool_ptr as usize] = b as packed_UTF16_code;
@@ -10082,9 +10079,9 @@ pub(crate) unsafe fn load_native_font(
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Font ");
+        print_cstr("Font ");
         sprint_cs(u);
         print_char('=' as i32);
         if file_name_quote_char != 0 {
@@ -10095,19 +10092,19 @@ pub(crate) unsafe fn load_native_font(
             print_char(file_name_quote_char as i32);
         }
         if s >= 0 {
-            print_cstr(b" at ");
+            print_cstr(" at ");
             print_scaled(s);
-            print_cstr(b"pt");
+            print_cstr("pt");
         } else if s != -1000 {
-            print_cstr(b" scaled ");
+            print_cstr(" scaled ");
             print_int(-s);
         }
-        print_cstr(b" not loaded: Not enough room left");
+        print_cstr(" not loaded: Not enough room left");
         help!(
-            b"I\'m afraid I won\'t be able to make use of this font,",
-            b"because my memory for character-size data is too small.",
-            b"If you\'re really stuck, ask a wizard to enlarge me.",
-            b"Or maybe try `I\\font<same font id>=<name of loaded font>\'."
+            "I\'m afraid I won\'t be able to make use of this font,",
+            "because my memory for character-size data is too small.",
+            "If you\'re really stuck, ask a wizard to enlarge me.",
+            "Or maybe try `I\\font<same font id>=<name of loaded font>\'."
         );
         error();
         return FONT_BASE;
@@ -10255,14 +10252,14 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
 }
 pub(crate) unsafe fn bad_utf8_warning() {
     begin_diagnostic();
-    print_nl_cstr(b"Invalid UTF-8 byte or sequence");
+    print_nl_cstr("Invalid UTF-8 byte or sequence");
     if cur_input.name == 0 {
-        print_cstr(b" in terminal input");
+        print_cstr(" in terminal input");
     } else {
-        print_cstr(b" at line ");
+        print_cstr(" at line ");
         print_int(line);
     }
-    print_cstr(b" replaced by U+FFFD.");
+    print_cstr(" replaced by U+FFFD.");
     end_diagnostic(false);
 }
 pub(crate) unsafe fn get_input_normalization_state() -> i32 {
@@ -10319,16 +10316,16 @@ pub(crate) unsafe fn read_font_info(
 
     if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
         begin_diagnostic();
-        print_nl_cstr(b"Requested font \"");
+        print_nl_cstr("Requested font \"");
         print_c_str(&name_of_file);
         print('\"' as i32);
         if s < 0 {
-            print_cstr(b" scaled ");
+            print_cstr(" scaled ");
             print_int(-s);
         } else {
-            print_cstr(b" at ");
+            print_cstr(" at ");
             print_scaled(s);
-            print_cstr(b"pt");
+            print_cstr("pt");
         }
         end_diagnostic(false);
     }
@@ -10775,9 +10772,9 @@ pub(crate) unsafe fn read_font_info(
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Font ");
+            print_cstr("Font ");
             sprint_cs(u);
             print_char('=' as i32);
             if file_name_quote_char != 0 {
@@ -10788,26 +10785,26 @@ pub(crate) unsafe fn read_font_info(
                 print_char(file_name_quote_char as i32);
             }
             if s >= 0 {
-                print_cstr(b" at ");
+                print_cstr(" at ");
                 print_scaled(s);
-                print_cstr(b"pt");
+                print_cstr("pt");
             } else if s != -1000 {
-                print_cstr(b" scaled ");
+                print_cstr(" scaled ");
                 print_int(-s);
             }
             if tfm_file.is_some() {
-                print_cstr(b" not loadable: Bad metric (TFM) file");
+                print_cstr(" not loadable: Bad metric (TFM) file");
             } else if name_too_long {
-                print_cstr(b" not loadable: Metric (TFM) file name too long");
+                print_cstr(" not loadable: Metric (TFM) file name too long");
             } else {
-                print_cstr(b" not loadable: Metric (TFM) file or installed font not found");
+                print_cstr(" not loadable: Metric (TFM) file or installed font not found");
             }
             help!(
-                b"I wasn\'t able to read the size data for this font,",
-                b"so I will ignore the font specification.",
-                b"[Wizards can fix TFM files using TFtoPL/PLtoTF.]",
-                b"You might try inserting a different font spec;",
-                b"e.g., type `I\\font<same font id>=<substitute font name>\'."
+                "I wasn\'t able to read the size data for this font,",
+                "so I will ignore the font specification.",
+                "[Wizards can fix TFM files using TFtoPL/PLtoTF.]",
+                "You might try inserting a different font spec;",
+                "e.g., type `I\\font<same font id>=<substitute font name>\'."
             );
             error();
         }
@@ -10825,11 +10822,11 @@ pub(crate) unsafe fn read_font_info(
         if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
             if g == FONT_BASE {
                 begin_diagnostic();
-                print_nl_cstr(b" -> font not found, using \"nullfont\"");
+                print_nl_cstr(" -> font not found, using \"nullfont\"");
                 end_diagnostic(false);
             } else if file_opened {
                 begin_diagnostic();
-                print_nl_cstr(b" -> ");
+                print_nl_cstr(" -> ");
                 print_c_str(&name_of_file);
                 end_diagnostic(false);
             }
@@ -11238,11 +11235,11 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 if last_badness > *INTPAR(IntPar::hbadness) {
                     print_ln();
                     if last_badness > 100 {
-                        print_nl_cstr(b"Underfull");
+                        print_nl_cstr("Underfull");
                     } else {
-                        print_nl_cstr(b"Loose");
+                        print_nl_cstr("Loose");
                     }
-                    print_cstr(b" \\hbox (badness ");
+                    print_cstr(" \\hbox (badness ");
                     print_int(last_badness);
                     return common_ending(r, q);
                 }
@@ -11281,9 +11278,9 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                         *DIMENPAR(DimenPar::overfull_rule)
                 }
                 print_ln();
-                print_nl_cstr(b"Overfull \\hbox (");
+                print_nl_cstr("Overfull \\hbox (");
                 print_scaled(-x - total_shrink[NORMAL as usize]);
-                print_cstr(b"pt too wide");
+                print_cstr("pt too wide");
                 return common_ending(r, q);
             }
         } else if o == GlueOrder::Normal {
@@ -11292,7 +11289,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 last_badness = badness(-x, total_shrink[NORMAL as usize]);
                 if last_badness > *INTPAR(IntPar::hbadness) {
                     print_ln();
-                    print_nl_cstr(b"Tight \\hbox (badness ");
+                    print_nl_cstr("Tight \\hbox (badness ");
                     print_int(last_badness);
                     return common_ending(r, q);
                 }
@@ -11304,18 +11301,18 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
 
     unsafe fn common_ending(r: List, q: usize) -> List {
         if output_active {
-            print_cstr(b") has occurred while \\output is active");
+            print_cstr(") has occurred while \\output is active");
         } else {
             if pack_begin_line != 0 {
                 if pack_begin_line > 0 {
-                    print_cstr(b") in paragraph at lines ");
+                    print_cstr(") in paragraph at lines ");
                 } else {
-                    print_cstr(b") in alignment at lines ");
+                    print_cstr(") in alignment at lines ");
                 }
                 print_int(pack_begin_line.abs());
-                print_cstr(b"--");
+                print_cstr("--");
             } else {
-                print_cstr(b") detected at line ");
+                print_cstr(") detected at line ");
             }
             print_int(line);
         }
@@ -11352,11 +11349,11 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
             }
             if LR_problems > 0 {
                 print_ln();
-                print_nl_cstr(b"\\endL or \\endR problem (");
+                print_nl_cstr("\\endL or \\endR problem (");
                 print_int(LR_problems / 10000);
-                print_cstr(b" missing, ");
+                print_cstr(" missing, ");
                 print_int(LR_problems % 10000);
-                print_cstr(b" extra");
+                print_cstr(" extra");
                 LR_problems = 0;
                 return common_ending(r, q);
             } else {
@@ -11365,7 +11362,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 *LLIST_link(tmp_ptr) = avail.tex_int();
                 avail = Some(tmp_ptr);
                 if LR_ptr.opt().is_some() {
-                    confusion(b"LR1");
+                    confusion("LR1");
                 }
             }
         }
@@ -11402,7 +11399,7 @@ pub(crate) unsafe fn vpackage(
     while let Some(p) = popt {
         /*694: */
         if is_char_node(Some(p)) {
-            confusion(b"vpack"); /*701: */
+            confusion("vpack"); /*701: */
         } else {
             match text_NODE_type(p).unwrap() {
                 TextNode::HList | TextNode::VList => {
@@ -11496,11 +11493,11 @@ pub(crate) unsafe fn vpackage(
                 if last_badness > *INTPAR(IntPar::vbadness) {
                     print_ln();
                     if last_badness > 100 {
-                        print_nl_cstr(b"Underfull");
+                        print_nl_cstr("Underfull");
                     } else {
-                        print_nl_cstr(b"Loose");
+                        print_nl_cstr("Loose");
                     }
-                    print_cstr(b" \\vbox (badness ");
+                    print_cstr(" \\vbox (badness ");
                     print_int(last_badness);
                     return common_ending(r);
                 }
@@ -11529,9 +11526,9 @@ pub(crate) unsafe fn vpackage(
                 || *INTPAR(IntPar::vbadness) < 100
             {
                 print_ln();
-                print_nl_cstr(b"Overfull \\vbox (");
+                print_nl_cstr("Overfull \\vbox (");
                 print_scaled(-x - total_shrink[NORMAL as usize]);
-                print_cstr(b"pt too high");
+                print_cstr("pt too high");
                 return common_ending(r);
             }
         } else if o == GlueOrder::Normal {
@@ -11540,7 +11537,7 @@ pub(crate) unsafe fn vpackage(
                 last_badness = badness(-x, total_shrink[NORMAL as usize]);
                 if last_badness > *INTPAR(IntPar::vbadness) {
                     print_ln();
-                    print_nl_cstr(b"Tight \\vbox (badness ");
+                    print_nl_cstr("Tight \\vbox (badness ");
                     print_int(last_badness);
                     return common_ending(r);
                 }
@@ -11551,14 +11548,14 @@ pub(crate) unsafe fn vpackage(
 
     unsafe fn common_ending(r: List) -> List {
         if output_active {
-            print_cstr(b") has occurred while \\output is active");
+            print_cstr(") has occurred while \\output is active");
         } else {
             if pack_begin_line != 0 {
-                print_cstr(b") in alignment at lines ");
+                print_cstr(") in alignment at lines ");
                 print_int(pack_begin_line.abs());
-                print_cstr(b"--");
+                print_cstr("--");
             } else {
-                print_cstr(b") detected at line ");
+                print_cstr(") detected at line ");
             }
             print_int(line);
             print_ln();
@@ -11600,10 +11597,11 @@ pub(crate) unsafe fn new_noad() -> usize {
     let p = get_node(NOAD_SIZE);
     MEM[p].b16.s1 = MathNode::Ord as u16;
     MEM[p].b16.s0 = NORMAL;
-    MEM[p + 1].b32 = empty;
-    MEM[p + 3].b32 = empty;
-    MEM[p + 2].b32 = empty;
-    p
+    let mut p = BaseMath(p);
+    p.first_mut().empty();
+    p.third_mut().empty();
+    p.second_mut().empty();
+    p.ptr()
 }
 pub(crate) unsafe fn new_style(mut s: i16) -> usize {
     let p = get_node(STYLE_NODE_SIZE);
@@ -11671,7 +11669,7 @@ pub(crate) unsafe fn get_preamble_token() {
             }
         }
         if cur_cmd == Cmd::EndV {
-            fatal_error(b"(interwoven alignment preambles are not allowed)");
+            fatal_error("(interwoven alignment preambles are not allowed)");
         }
         if !(cur_cmd == Cmd::AssignGlue && cur_chr == GLUE_BASE as i32 + GluePar::tab_skip as i32) {
             break;
@@ -11705,15 +11703,15 @@ pub(crate) unsafe fn init_align() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Improper ");
-        print_esc_cstr(b"halign");
-        print_cstr(b" inside $$\'s");
+        print_cstr("Improper ");
+        print_esc_cstr("halign");
+        print_cstr(" inside $$\'s");
         help!(
-            b"Displays can use special alignments (like \\eqalignno)",
-            b"only if nothing but the alignment itself is between $$\'s.",
-            b"So I\'ve deleted the formulas that preceded this alignment."
+            "Displays can use special alignments (like \\eqalignno)",
+            "only if nothing but the alignment itself is between $$\'s.",
+            "So I\'ve deleted the formulas that preceded this alignment."
         );
         error();
         flush_math();
@@ -11756,13 +11754,13 @@ pub(crate) unsafe fn init_align() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! ");
+                        print_nl_cstr("! ");
                     }
-                    print_cstr(b"Missing # inserted in alignment preamble");
+                    print_cstr("Missing # inserted in alignment preamble");
                     help!(
-                        b"There should be exactly one # between &\'s, when an",
-                        b"\\halign or \\valign is being set up. In this case you had",
-                        b"none, so I\'ve put one in; maybe that will work."
+                        "There should be exactly one # between &\'s, when an",
+                        "\\halign or \\valign is being set up. In this case you had",
+                        "none, so I\'ve put one in; maybe that will work."
                     );
                     back_error();
                     break;
@@ -11790,13 +11788,13 @@ pub(crate) unsafe fn init_align() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Only one # is allowed per tab");
+                print_cstr("Only one # is allowed per tab");
                 help!(
-                    b"There should be exactly one # between &\'s, when an",
-                    b"\\halign or \\valign is being set up. In this case you had",
-                    b"more than one, so I\'m ignoring all but the first."
+                    "There should be exactly one # between &\'s, when an",
+                    "\\halign or \\valign is being set up. In this case you had",
+                    "more than one, so I\'m ignoring all but the first."
                 );
                 error();
             } else {
@@ -11859,10 +11857,10 @@ pub(crate) unsafe fn init_col() {
     };
 }
 pub(crate) unsafe fn fin_col() -> bool {
-    let ca = cur_align.confuse(b"endv");
-    let q = llist_link(ca).confuse(b"endv");
+    let ca = cur_align.confuse("endv");
+    let q = llist_link(ca).confuse("endv");
     if (align_state as i64) < 500000 {
-        fatal_error(b"(interwoven alignment preambles are not allowed)");
+        fatal_error("(interwoven alignment preambles are not allowed)");
     }
     let mut p = llist_link(q);
     if p.is_none() && MEM[ca + 5].b32.s0 < CR_CODE {
@@ -11904,14 +11902,14 @@ pub(crate) unsafe fn fin_col() -> bool {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Extra alignment tab has been changed to ");
-            print_esc_cstr(b"cr");
+            print_cstr("Extra alignment tab has been changed to ");
+            print_esc_cstr("cr");
             help!(
-                b"You have given more \\span or & marks than there were",
-                b"in the preamble to the \\halign or \\valign now in progress.",
-                b"So I\'ll assume that you meant to type \\cr instead."
+                "You have given more \\span or & marks than there were",
+                "in the preamble to the \\halign or \\valign now in progress.",
+                "So I\'ll assume that you meant to type \\cr instead."
             );
             MEM[ca + 5].b32.s0 = CR_CODE;
             error();
@@ -11947,7 +11945,7 @@ pub(crate) unsafe fn fin_col() -> bool {
                 }
             }
             if n > u16::MAX as i32 {
-                confusion(b"too many spans");
+                confusion("too many spans");
             }
             let mut q = cur_span.unwrap();
             while MEM[MEM[q].b32.s0 as usize].b32.s1 < n {
@@ -12056,11 +12054,11 @@ pub(crate) unsafe fn fin_align() {
         b32: b32x2 { s0: 0, s1: 0 },
     };
     if cur_group != GroupCode::Align {
-        confusion(b"align1");
+        confusion("align1");
     }
     unsave();
     if cur_group != GroupCode::Align {
-        confusion(b"align0");
+        confusion("align0");
     }
     unsave();
     let o = if NEST[(NEST_PTR - 1) as usize].mode == (false, ListMode::MMode) {
@@ -12355,12 +12353,12 @@ pub(crate) unsafe fn fin_align() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Missing $$ inserted");
+            print_cstr("Missing $$ inserted");
             help!(
-                b"Displays can use special alignments (like \\eqalignno)",
-                b"only if nothing but the alignment itself is between $$\'s."
+                "Displays can use special alignments (like \\eqalignno)",
+                "only if nothing but the alignment itself is between $$\'s."
             );
             back_error();
         } else {
@@ -12369,12 +12367,12 @@ pub(crate) unsafe fn fin_align() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Display math should end with $$");
+                print_cstr("Display math should end with $$");
                 help!(
-                    b"The `$\' that I just saw supposedly matches a previous `$$\'.",
-                    b"So I shall assume that you typed `$$\' both times."
+                    "The `$\' that I just saw supposedly matches a previous `$$\'.",
+                    "So I shall assume that you typed `$$\' both times."
                 );
                 back_error();
             }
@@ -12447,18 +12445,18 @@ pub(crate) unsafe fn eTeX_enabled(mut b: bool, j: Cmd, mut k: i32) -> bool {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Improper ");
+        print_cstr("Improper ");
         print_cmd_chr(j, k);
-        help!(b"Sorry, this optional e-TeX feature has been disabled.");
+        help!("Sorry, this optional e-TeX feature has been disabled.");
         error();
     }
     b
 }
 pub(crate) unsafe fn show_save_groups() {
     unsafe fn do_loop(mut p: usize, mut a: i8) -> (bool, usize, i8) {
-        print_nl_cstr(b"### ");
+        print_nl_cstr("### ");
         print_group(true);
         if cur_group == GroupCode::BottomLevel {
             return (true, p, a);
@@ -12474,8 +12472,8 @@ pub(crate) unsafe fn show_save_groups() {
                 break m;
             }
         };
-        print_cstr(b" (");
-        let mut s: &[u8] = &[];
+        print_cstr(" (");
+        let mut s: &str = "";
         match cur_group {
             GroupCode::BottomLevel => unreachable!(),
             GroupCode::Simple => {
@@ -12483,28 +12481,28 @@ pub(crate) unsafe fn show_save_groups() {
                 return found2(p, a);
             }
             GroupCode::HBox | GroupCode::AdjustedHBox => {
-                s = b"hbox";
+                s = "hbox";
             }
             GroupCode::VBox => {
-                s = b"vbox";
+                s = "vbox";
             }
             GroupCode::VTop => {
-                s = b"vtop";
+                s = "vtop";
             }
             GroupCode::Align => {
                 if a == 0 {
                     if m == (true, ListMode::VMode) {
-                        s = b"halign"
+                        s = "halign"
                     } else {
-                        s = b"valign"
+                        s = "valign"
                     }
                     a = 1;
                     return found1(s, p, a);
                 } else {
                     if a == 1 {
-                        print_cstr(b"align entry");
+                        print_cstr("align entry");
                     } else {
-                        print_esc_cstr(b"cr");
+                        print_esc_cstr("cr");
                     }
                     if p as i32 >= a as i32 {
                         p = (p as i32 - a as i32) as usize
@@ -12516,24 +12514,24 @@ pub(crate) unsafe fn show_save_groups() {
             GroupCode::NoAlign => {
                 p += 1;
                 a = -1;
-                print_esc_cstr(b"noalign");
+                print_esc_cstr("noalign");
                 return found2(p, a);
             }
             GroupCode::Output => {
-                print_esc_cstr(b"output");
+                print_esc_cstr("output");
                 return found(p, a);
             }
             GroupCode::Math => return found2(p, a),
             GroupCode::Disc | GroupCode::MathChoice => {
                 if cur_group == GroupCode::Disc {
-                    print_esc_cstr(b"discretionary");
+                    print_esc_cstr("discretionary");
                 } else {
-                    print_esc_cstr(b"mathchoice");
+                    print_esc_cstr("mathchoice");
                 }
                 let mut i = 1;
                 while i <= 3 {
                     if i <= SAVE_STACK[SAVE_PTR - 2].val {
-                        print_cstr(b"{}");
+                        print_cstr("{}");
                     }
                     i += 1;
                 }
@@ -12541,20 +12539,20 @@ pub(crate) unsafe fn show_save_groups() {
             }
             GroupCode::Insert => {
                 if SAVE_STACK[SAVE_PTR - 2].val == 255 {
-                    print_esc_cstr(b"vadjust");
+                    print_esc_cstr("vadjust");
                 } else {
-                    print_esc_cstr(b"insert");
+                    print_esc_cstr("insert");
                     print_int(SAVE_STACK[SAVE_PTR - 2].val);
                 }
                 return found2(p, a);
             }
             GroupCode::VCenter => {
-                s = b"vcenter";
+                s = "vcenter";
                 return found1(s, p, a);
             }
             GroupCode::SemiSimple => {
                 p += 1;
-                print_esc_cstr(b"begingroup");
+                print_esc_cstr("begingroup");
                 return found(p, a);
             }
             GroupCode::MathShift => {
@@ -12569,9 +12567,9 @@ pub(crate) unsafe fn show_save_groups() {
             }
             GroupCode::MathLeft => {
                 if MEM[NEST[p + 1].eTeX_aux.unwrap()].b16.s1 == MathNode::Left as u16 {
-                    print_esc_cstr(b"left");
+                    print_esc_cstr("left");
                 } else {
-                    print_esc_cstr(b"middle");
+                    print_esc_cstr("middle");
                 }
                 return found(p, a);
             }
@@ -12592,13 +12590,13 @@ pub(crate) unsafe fn show_save_groups() {
                     print_cmd_chr(j, 1);
                 }
                 print_scaled(i.abs());
-                print_cstr(b"pt");
+                print_cstr("pt");
             } else if i < SHIP_OUT_FLAG {
                 if i >= GLOBAL_BOX_FLAG {
-                    print_esc_cstr(b"global");
+                    print_esc_cstr("global");
                     i = i - (GLOBAL_BOX_FLAG - BOX_FLAG)
                 }
-                print_esc_cstr(b"setbox");
+                print_esc_cstr("setbox");
                 print_int(i - BOX_FLAG);
                 print_char('=' as i32);
             } else {
@@ -12608,17 +12606,17 @@ pub(crate) unsafe fn show_save_groups() {
         found1(s, p, a)
     }
 
-    unsafe fn found1(s: &[u8], p: usize, a: i8) -> (bool, usize, i8) {
+    unsafe fn found1(s: &str, p: usize, a: i8) -> (bool, usize, i8) {
         print_esc_cstr(s);
         if SAVE_STACK[SAVE_PTR - 2].val != 0 {
             print_char(' ' as i32);
             if SAVE_STACK[SAVE_PTR - 3].val == PackMode::Exactly as i32 {
-                print_cstr(b"to");
+                print_cstr("to");
             } else {
-                print_cstr(b"spread");
+                print_cstr("spread");
             }
             print_scaled(SAVE_STACK[SAVE_PTR - 2].val);
-            print_cstr(b"pt");
+            print_cstr("pt");
         }
         found2(p, a)
     }
@@ -12650,7 +12648,7 @@ pub(crate) unsafe fn show_save_groups() {
     SAVE_PTR = cur_boundary as usize;
     cur_level = cur_level.wrapping_sub(1);
     let mut a = 1_i8;
-    print_nl_cstr(b"");
+    print_nl_cstr("");
     print_ln();
     loop {
         let (is_done, new_p, new_a) = do_loop(p, a);
@@ -12730,7 +12728,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     current_block = 9007357115414505193;
                 }
                 TextNode::Mark | TextNode::Ins => current_block = 10249009913728301645,
-                _ => confusion(b"vertbreak"),
+                _ => confusion("vertbreak"),
             }
         } else {
             pi = EJECT_PENALTY;
@@ -12792,14 +12790,14 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! ");
+                            print_nl_cstr("! ");
                         }
-                        print_cstr(b"Infinite glue shrinkage found in box being split");
+                        print_cstr("Infinite glue shrinkage found in box being split");
                         help!(
-                            b"The box you are \\vsplitting contains some infinitely",
-                            b"shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
-                            b"Such glue doesn\'t belong there; but you can safely proceed,",
-                            b"since the offensive shrinkability has been made finite."
+                            "The box you are \\vsplitting contains some infinitely",
+                            "shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
+                            "Such glue doesn\'t belong there; but you can safely proceed,",
+                            "since the offensive shrinkability has been made finite."
                         );
                         error();
                         let mut r = GlueSpec(new_spec(q.ptr()));
@@ -12851,15 +12849,15 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"");
-        print_esc_cstr(b"vsplit");
-        print_cstr(b" needs a ");
-        print_esc_cstr(b"vbox");
+        print_cstr("");
+        print_esc_cstr("vsplit");
+        print_cstr(" needs a ");
+        print_esc_cstr("vbox");
         help!(
-            b"The box you are trying to split is an \\hbox.",
-            b"I can\'t split such a box, so I\'ll leave it alone."
+            "The box you are trying to split is an \\hbox.",
+            "I can\'t split such a box, so I\'ll leave it alone."
         );
         error();
         return None;
@@ -12936,34 +12934,34 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
 pub(crate) unsafe fn print_totals() {
     print_scaled(page_so_far[1]);
     if page_so_far[2] != 0 {
-        print_cstr(b" plus ");
+        print_cstr(" plus ");
         print_scaled(page_so_far[2]);
-        print_cstr(b"");
+        print_cstr("");
     }
     if page_so_far[3] != 0 {
-        print_cstr(b" plus ");
+        print_cstr(" plus ");
         print_scaled(page_so_far[3]);
-        print_cstr(b"fil");
+        print_cstr("fil");
     }
     if page_so_far[4] != 0 {
-        print_cstr(b" plus ");
+        print_cstr(" plus ");
         print_scaled(page_so_far[4]);
-        print_cstr(b"fill");
+        print_cstr("fill");
     }
     if page_so_far[5] != 0 {
-        print_cstr(b" plus ");
+        print_cstr(" plus ");
         print_scaled(page_so_far[5]);
-        print_cstr(b"filll");
+        print_cstr("filll");
     }
     if page_so_far[6] != 0 {
-        print_cstr(b" minus ");
+        print_cstr(" minus ");
         print_scaled(page_so_far[6]);
     };
 }
 pub(crate) unsafe fn box_error(mut n: u8) {
     error();
     begin_diagnostic();
-    print_nl_cstr(b"The following box has been deleted:");
+    print_nl_cstr("The following box has been deleted:");
     show_box(BOX_REG(n as usize).opt());
     end_diagnostic(true);
     flush_node_list(BOX_REG(n as usize).opt());
@@ -13016,12 +13014,12 @@ pub(crate) unsafe fn insert_dollar_sign() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     }
-    print_cstr(b"Missing $ inserted");
+    print_cstr("Missing $ inserted");
     help!(
-        b"I\'ve inserted a begin-math/end-math symbol since I think",
-        b"you left one out. Proceed, with fingers crossed."
+        "I\'ve inserted a begin-math/end-math symbol since I think",
+        "you left one out. Proceed, with fingers crossed."
     );
     ins_error();
 }
@@ -13029,19 +13027,19 @@ pub(crate) unsafe fn you_cant() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     }
-    print_cstr(b"You can\'t use `");
+    print_cstr("You can\'t use `");
     print_cmd_chr(cur_cmd, cur_chr);
     print_in_mode(cur_list.mode);
 }
 pub(crate) unsafe fn report_illegal_case() {
     you_cant();
     help!(
-        b"Sorry, but I\'m not programmed to handle this case;",
-        b"I\'ll just pretend that you didn\'t ask for it.",
-        b"If you\'re in the wrong mode, you might be able to",
-        b"return to the right one by typing `I}\' or `I$\' or `I\\par\'."
+        "Sorry, but I\'m not programmed to handle this case;",
+        "I\'ll just pretend that you didn\'t ask for it.",
+        "If you\'re in the wrong mode, you might be able to",
+        "return to the right one by typing `I}\' or `I$\' or `I\\par\'."
     );
     error();
 }
@@ -13107,11 +13105,11 @@ pub(crate) unsafe fn off_save() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Extra ");
+        print_cstr("Extra ");
         print_cmd_chr(cur_cmd, cur_chr);
-        help!(b"Things are pretty mixed up, but I think the worst is over.");
+        help!("Things are pretty mixed up, but I think the worst is over.");
         error();
     } else {
         back_input();
@@ -13120,13 +13118,13 @@ pub(crate) unsafe fn off_save() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Missing ");
+        print_cstr("Missing ");
         match cur_group {
             GroupCode::SemiSimple => {
                 MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_END_GROUP as i32;
-                print_esc_cstr(b"endgroup");
+                print_esc_cstr("endgroup");
             }
             GroupCode::MathShift => {
                 MEM[p].b32.s0 = MATH_SHIFT_TOKEN + '$' as i32;
@@ -13137,21 +13135,21 @@ pub(crate) unsafe fn off_save() {
                 *LLIST_link(p) = Some(get_avail()).tex_int();
                 p = *LLIST_link(p) as usize;
                 MEM[p].b32.s0 = OTHER_TOKEN + '.' as i32;
-                print_esc_cstr(b"right.");
+                print_esc_cstr("right.");
             }
             _ => {
                 MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
                 print_char('}' as i32);
             }
         }
-        print_cstr(b" inserted");
+        print_cstr(" inserted");
         begin_token_list(*LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
         help!(
-            b"I\'ve inserted something that you may have forgotten.",
-            b"(See the <inserted text> above.)",
-            b"With luck, this will get me unwedged. But if you",
-            b"really didn\'t forget anything, try typing `2\' now; then",
-            b"my insertion and my current dilemma will both disappear."
+            "I\'ve inserted something that you may have forgotten.",
+            "(See the <inserted text> above.)",
+            "With luck, this will get me unwedged. But if you",
+            "really didn\'t forget anything, try typing `2\' now; then",
+            "my insertion and my current dilemma will both disappear."
         );
         error();
     };
@@ -13160,21 +13158,21 @@ pub(crate) unsafe fn extra_right_brace() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     }
-    print_cstr(b"Extra }, or forgotten ");
+    print_cstr("Extra }, or forgotten ");
     match cur_group {
-        GroupCode::SemiSimple => print_esc_cstr(b"endgroup"),
+        GroupCode::SemiSimple => print_esc_cstr("endgroup"),
         GroupCode::MathShift => print_char('$' as i32),
-        GroupCode::MathLeft => print_esc_cstr(b"right"),
+        GroupCode::MathLeft => print_esc_cstr("right"),
         _ => {}
     }
     help!(
-        b"I\'ve deleted a group-closing symbol because it seems to be",
-        b"spurious, as in `$x}$\'. But perhaps the } is legitimate and",
-        b"you forgot something else, as in `\\hbox{$x}\'. In such cases",
-        b"the way to recover is to insert both the forgotten and the",
-        b"deleted material, e.g., by typing `I$}\'."
+        "I\'ve deleted a group-closing symbol because it seems to be",
+        "spurious, as in `$x}$\'. But perhaps the } is legitimate and",
+        "you forgot something else, as in `\\hbox{$x}\'. In such cases",
+        "the way to recover is to insert both the forgotten and the",
+        "deleted material, e.g., by typing `I$}\'."
     );
     error();
     align_state += 1;
@@ -13289,13 +13287,13 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Leaders not followed by proper glue");
+                print_cstr("Leaders not followed by proper glue");
                 help!(
-                    b"You should say `\\leaders <box or rule><hskip or vskip>\'.",
-                    b"I found the <box or rule>, but there\'s no suitable",
-                    b"<hskip or vskip>, so I\'m ignoring these leaders."
+                    "You should say `\\leaders <box or rule><hskip or vskip>\'.",
+                    "I found the <box or rule>, but there\'s no suitable",
+                    "<hskip or vskip>, so I\'m ignoring these leaders."
                 );
                 back_error();
                 flush_node_list(Some(cb));
@@ -13340,13 +13338,13 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
             cur_box = None;
             if cur_list.mode.1 == ListMode::MMode {
                 you_cant();
-                help!(b"Sorry; this \\lastbox will be void.");
+                help!("Sorry; this \\lastbox will be void.");
                 error();
             } else if cur_list.mode == (false, ListMode::VMode) && cur_list.head == cur_list.tail {
                 you_cant();
                 help!(
-                    b"Sorry...I usually can\'t take things from the current page.",
-                    b"This \\lastbox will therefore be void."
+                    "Sorry...I usually can\'t take things from the current page.",
+                    "This \\lastbox will therefore be void."
                 );
                 error();
             } else {
@@ -13411,7 +13409,7 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
                                 *LLIST_link(tx as usize) = None.tex_int();
                                 if q.opt().is_none() {
                                     if fm {
-                                        confusion(b"tail1");
+                                        confusion("tail1");
                                     } else {
                                         cur_list.tail = p as usize;
                                     }
@@ -13435,12 +13433,12 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Missing `to\' inserted");
+                print_cstr("Missing `to\' inserted");
                 help!(
-                    b"I\'m working on `\\vsplit<box number> to <dimen>\';",
-                    b"will look for the <dimen> next."
+                    "I\'m working on `\\vsplit<box number> to <dimen>\';",
+                    "will look for the <dimen> next."
                 );
                 error();
             }
@@ -13500,13 +13498,13 @@ pub(crate) unsafe fn scan_box(mut box_context: i32) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"A <box> was supposed to be here");
+        print_cstr("A <box> was supposed to be here");
         help!(
-            b"I was expecting to see \\hbox or \\vbox or \\copy or \\box or",
-            b"something like that. So you might find something missing in",
-            b"your output. But keep trying; you can fix this later."
+            "I was expecting to see \\hbox or \\vbox or \\copy or \\box or",
+            "something like that. So you might find something missing in",
+            "your output. But keep trying; you can fix this later."
         );
         back_error();
     };
@@ -13629,14 +13627,14 @@ pub(crate) unsafe fn head_for_vmode() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"You can\'t use `");
-            print_esc_cstr(b"hrule");
-            print_cstr(b"\' here except with leaders");
+            print_cstr("You can\'t use `");
+            print_esc_cstr("hrule");
+            print_cstr("\' here except with leaders");
             help!(
-                b"To put a horizontal rule in an hbox or an alignment,",
-                b"you should use \\leaders or \\hrulefill (see The TeXbook)."
+                "To put a horizontal rule in an hbox or an alignment,",
+                "you should use \\leaders or \\hrulefill (see The TeXbook)."
             );
             error();
         }
@@ -13671,12 +13669,12 @@ pub(crate) unsafe fn begin_insert_or_adjust() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"You can\'t ");
-            print_esc_cstr(b"insert");
+            print_cstr("You can\'t ");
+            print_esc_cstr("insert");
             print_int(255);
-            help!(b"I\'m changing to \\insert0; box 255 is special.");
+            help!("I\'m changing to \\insert0; box 255 is special.");
             error();
             cur_val = 0;
         }
@@ -13726,14 +13724,14 @@ pub(crate) unsafe fn delete_last() {
         if cur_chr != TextNode::Glue as i32 || last_glue != MAX_HALFWORD {
             you_cant();
             let help0 = if cur_chr == TextNode::Kern as i32 {
-                &b"Try `I\\kern-\\lastkern\' instead."[..]
+                &"Try `I\\kern-\\lastkern\' instead."[..]
             } else if cur_chr != TextNode::Glue as i32 {
-                &b"Perhaps you can make the output routine do it."[..]
+                &"Perhaps you can make the output routine do it."[..]
             } else {
-                &b"Try `I\\vskip-\\lastskip\' instead."[..]
+                &"Try `I\\vskip-\\lastskip\' instead."[..]
             };
             help!(
-                b"Sorry...I usually can\'t take things from the current page.",
+                "Sorry...I usually can\'t take things from the current page.",
                 help0
             );
             error();
@@ -13791,7 +13789,7 @@ pub(crate) unsafe fn delete_last() {
                 *LLIST_link(tx) = None.tex_int();
                 if q.opt().is_none() {
                     if fm {
-                        confusion(b"tail1");
+                        confusion("tail1");
                     } else {
                         cur_list.tail = p as usize;
                     }
@@ -13824,13 +13822,13 @@ pub(crate) unsafe fn unpackage() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! ");
+                        print_nl_cstr("! ");
                     }
-                    print_cstr(b"Incompatible list can\'t be unboxed");
+                    print_cstr("Incompatible list can\'t be unboxed");
                     help!(
-                        b"Sorry, Pandora. (You sneaky devil.)",
-                        b"I refuse to unbox an \\hbox in vertical mode or vice versa.",
-                        b"And I can\'t open any boxes in math mode."
+                        "Sorry, Pandora. (You sneaky devil.)",
+                        "I refuse to unbox an \\hbox in vertical mode or vice versa.",
+                        "And I can\'t open any boxes in math mode."
                     );
                     error();
                     return;
@@ -13948,13 +13946,13 @@ pub(crate) unsafe fn build_discretionary() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! ");
+                        print_nl_cstr("! ");
                     }
-                    print_cstr(b"Improper discretionary list");
-                    help!(b"Discretionary lists must contain only boxes and kerns.");
+                    print_cstr("Improper discretionary list");
+                    help!("Discretionary lists must contain only boxes and kerns.");
                     error();
                     begin_diagnostic();
-                    print_nl_cstr(b"The following discretionary sublist has been deleted:");
+                    print_nl_cstr("The following discretionary sublist has been deleted:");
                     show_box(Some(p));
                     end_diagnostic(true);
                     flush_node_list(Some(p));
@@ -13977,13 +13975,13 @@ pub(crate) unsafe fn build_discretionary() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Illegal math ");
-                print_esc_cstr(b"discretionary");
+                print_cstr("Illegal math ");
+                print_esc_cstr("discretionary");
                 help!(
-                    b"Sorry: The third part of a discretionary break must be",
-                    b"empty, in math formulas. I had to delete your third part."
+                    "Sorry: The third part of a discretionary break must be",
+                    "empty, in math formulas. I had to delete your third part."
                 );
                 flush_node_list(p.opt());
                 n = 0;
@@ -13997,12 +13995,12 @@ pub(crate) unsafe fn build_discretionary() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Discretionary list is too long");
+                print_cstr("Discretionary list is too long");
                 help!(
-                    b"Wow---I never thought anybody would tweak me here.",
-                    b"You can\'t seriously need such a huge discretionary list?"
+                    "Wow---I never thought anybody would tweak me here.",
+                    "You can\'t seriously need such a huge discretionary list?"
                 );
                 error();
             }
@@ -14098,26 +14096,26 @@ pub(crate) unsafe fn align_error() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Misplaced ");
+        print_cstr("Misplaced ");
         print_cmd_chr(cur_cmd, cur_chr);
         if cur_tok == TAB_TOKEN + 38 {
             help!(
-                b"I can\'t figure out why you would want to use a tab mark",
-                b"here. If you just want an ampersand, the remedy is",
-                b"simple: Just type `I\\&\' now. But if some right brace",
-                b"up above has ended a previous alignment prematurely,",
-                b"you\'re probably due for more error messages, and you",
-                b"might try typing `S\' now just to see what is salvageable."
+                "I can\'t figure out why you would want to use a tab mark",
+                "here. If you just want an ampersand, the remedy is",
+                "simple: Just type `I\\&\' now. But if some right brace",
+                "up above has ended a previous alignment prematurely,",
+                "you\'re probably due for more error messages, and you",
+                "might try typing `S\' now just to see what is salvageable."
             );
         } else {
             help!(
-                b"I can\'t figure out why you would want to use a tab mark",
-                b"or \\cr or \\span just now. If something like a right brace",
-                b"up above has ended a previous alignment prematurely,",
-                b"you\'re probably due for more error messages, and you",
-                b"might try typing `S\' now just to see what is salvageable."
+                "I can\'t figure out why you would want to use a tab mark",
+                "or \\cr or \\span just now. If something like a right brace",
+                "up above has ended a previous alignment prematurely,",
+                "you\'re probably due for more error messages, and you",
+                "might try typing `S\' now just to see what is salvageable."
             );
         }
         error();
@@ -14127,25 +14125,25 @@ pub(crate) unsafe fn align_error() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Missing { inserted");
+            print_cstr("Missing { inserted");
             align_state += 1;
             cur_tok = LEFT_BRACE_TOKEN + 123;
         } else {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Missing } inserted");
+            print_cstr("Missing } inserted");
             align_state -= 1;
             cur_tok = RIGHT_BRACE_TOKEN + 125;
         }
         help!(
-            b"I\'ve put in what seems to be necessary to fix",
-            b"the current column of the current alignment.",
-            b"Try to go on, since this might almost work."
+            "I\'ve put in what seems to be necessary to fix",
+            "the current column of the current alignment.",
+            "Try to go on, since this might almost work."
         );
         ins_error();
     };
@@ -14154,13 +14152,13 @@ pub(crate) unsafe fn no_align_error() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     }
-    print_cstr(b"Misplaced ");
-    print_esc_cstr(b"noalign");
+    print_cstr("Misplaced ");
+    print_esc_cstr("noalign");
     help!(
-        b"I expect to see \\noalign only after the \\cr of",
-        b"an alignment. Proceed, and I\'ll ignore this case."
+        "I expect to see \\noalign only after the \\cr of",
+        "an alignment. Proceed, and I\'ll ignore this case."
     );
     error();
 }
@@ -14168,13 +14166,13 @@ pub(crate) unsafe fn omit_error() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     }
-    print_cstr(b"Misplaced ");
-    print_esc_cstr(b"omit");
+    print_cstr("Misplaced ");
+    print_esc_cstr("omit");
     help!(
-        b"I expect to see \\omit only after tab marks or the \\cr of",
-        b"an alignment. Proceed, and I\'ll ignore this case."
+        "I expect to see \\omit only after tab marks or the \\cr of",
+        "an alignment. Proceed, and I\'ll ignore this case."
     );
     error();
 }
@@ -14191,7 +14189,7 @@ pub(crate) unsafe fn do_endv() {
         || INPUT_STACK[BASE_PTR].loc.opt().is_some()
         || INPUT_STACK[BASE_PTR].state != InputState::TokenList
     {
-        fatal_error(b"(interwoven alignment preambles are not allowed)");
+        fatal_error("(interwoven alignment preambles are not allowed)");
     }
     if cur_group == GroupCode::Align {
         end_graf();
@@ -14206,11 +14204,11 @@ pub(crate) unsafe fn cs_error() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     }
-    print_cstr(b"Extra ");
-    print_esc_cstr(b"endcsname");
-    help!(b"I\'m ignoring this, since I wasn\'t doing a \\csname.");
+    print_cstr("Extra ");
+    print_esc_cstr("endcsname");
+    help!("I\'m ignoring this, since I wasn\'t doing a \\csname.");
     error();
 }
 pub(crate) unsafe fn push_math(c: GroupCode) {
@@ -14305,7 +14303,7 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
                             r = get_node(words as i32);
                         }
                         WhatsIt::PdfSavePos(_) => r = get_node(SMALL_NODE_SIZE),
-                        //_ => confusion(b"ext2"),
+                        //_ => confusion("ext2"),
                     }
                 }
                 _ => {
@@ -14427,15 +14425,15 @@ pub(crate) unsafe fn get_r_token() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Missing control sequence inserted");
+        print_cstr("Missing control sequence inserted");
         help!(
-            b"Please don\'t say `\\def cs{...}\', say `\\def\\cs{...}\'.",
-            b"I\'ve inserted an inaccessible control sequence so that your",
-            b"definition will be completed without mixing me up too badly.",
-            b"You can recover graciously from this error, if you\'re",
-            b"careful; see exercise 27.2 in The TeXbook."
+            "Please don\'t say `\\def cs{...}\', say `\\def\\cs{...}\'.",
+            "I\'ve inserted an inaccessible control sequence so that your",
+            "definition will be completed without mixing me up too badly.",
+            "You can recover graciously from this error, if you\'re",
+            "careful; see exercise 27.2 in The TeXbook."
         );
         if cur_cs == 0 {
             back_input();
@@ -14480,13 +14478,13 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! ");
+                        print_nl_cstr("! ");
                     }
-                    print_cstr(b"You can\'t use `");
+                    print_cstr("You can\'t use `");
                     print_cmd_chr(cur_cmd, cur_chr);
-                    print_cstr(b"\' after ");
+                    print_cstr("\' after ");
                     print_cmd_chr(q, 0);
-                    help!(b"I\'m forgetting what you said and not changing anything.");
+                    help!("I\'m forgetting what you said and not changing anything.");
                     error();
                     return;
                 }
@@ -14615,12 +14613,12 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Arithmetic overflow");
+        print_cstr("Arithmetic overflow");
         help!(
-            b"I can\'t carry out that multiplication or division,",
-            b"since the result is out of range."
+            "I can\'t carry out that multiplication or division,",
+            "since the result is out of range."
         );
         if p >= ValLevel::Glue {
             delete_glue_ref(cur_val as usize);
@@ -14670,10 +14668,10 @@ pub(crate) unsafe fn alter_aux() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Bad space factor");
-                help!(b"I allow only values in the range 1..32767 here.");
+                print_cstr("Bad space factor");
+                help!("I allow only values in the range 1..32767 here.");
                 int_error(cur_val);
             } else {
                 cur_list.aux.b32.s0 = cur_val;
@@ -14693,11 +14691,11 @@ pub(crate) unsafe fn alter_prev_graf() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Bad ");
-        print_esc_cstr(b"prevgraf");
-        help!(b"I allow only nonnegative values here.");
+        print_cstr("Bad ");
+        print_esc_cstr("prevgraf");
+        help!("I allow only nonnegative values here.");
         int_error(cur_val);
     } else {
         NEST[p as usize].prev_graf = cur_val;
@@ -14722,12 +14720,12 @@ pub(crate) unsafe fn alter_integer() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Bad interaction mode");
+            print_cstr("Bad interaction mode");
             help!(
-                b"Modes are 0=batch, 1=nonstop, 2=scroll, and",
-                b"3=errorstop. Proceed, and I\'ll ignore this case."
+                "Modes are 0=batch, 1=nonstop, 2=scroll, and",
+                "3=errorstop. Proceed, and I\'ll ignore this case."
             );
             int_error(cur_val);
         } else {
@@ -14771,11 +14769,11 @@ pub(crate) unsafe fn new_font(mut a: i16) {
     } else {
         let old_setting_0 = selector;
         selector = Selector::NEW_STRING;
-        print_cstr(b"FONT");
+        print_cstr("FONT");
         print((u - 1) as i32);
         selector = old_setting_0;
         if pool_ptr + 1 > pool_size {
-            overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+            overflow("pool size", (pool_size - init_pool_ptr) as usize);
         }
         make_string()
     };
@@ -14795,14 +14793,14 @@ pub(crate) unsafe fn new_font(mut a: i16) {
             if file_line_error_style_p != 0 {
                 print_file_line(); /*1318: */
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Improper `at\' size (");
+            print_cstr("Improper `at\' size (");
             print_scaled(s);
-            print_cstr(b"pt), replaced by 10pt");
+            print_cstr("pt), replaced by 10pt");
             help!(
-                b"I can only handle fonts at positive sizes that are",
-                b"less than 2048pt, so I\'ve changed what you said to 10pt."
+                "I can only handle fonts at positive sizes that are",
+                "less than 2048pt, so I\'ve changed what you said to 10pt."
             );
             error();
             s = (10_i64 * 65536) as scaled_t
@@ -14814,10 +14812,10 @@ pub(crate) unsafe fn new_font(mut a: i16) {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Illegal magnification has been changed to 1000");
-            help!(b"The magnification ratio must be between 1 and 32768.");
+            print_cstr("Illegal magnification has been changed to 1000");
+            help!("The magnification ratio must be between 1 and 32768.");
             int_error(cur_val);
             s = -1000;
         }
@@ -14898,7 +14896,7 @@ pub(crate) unsafe fn issue_message() {
     selector = old_setting_0;
     flush_list(Some(def_ref));
     if pool_ptr + 1 > pool_size {
-        overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+        overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
     s = make_string();
     if c == 0 {
@@ -14914,23 +14912,23 @@ pub(crate) unsafe fn issue_message() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"");
+        print_cstr("");
         print(s);
         if LOCAL(Local::err_help).opt().is_some() {
             use_err_help = true;
         } else if long_help_seen {
-            help!(b"(That was another \\errmessage.)");
+            help!("(That was another \\errmessage.)");
         } else {
             if interaction != InteractionMode::ErrorStop {
                 long_help_seen = true;
             }
             help!(
-                b"This error message was generated by an \\errmessage",
-                b"command, so I can\'t give any explicit help.",
-                b"Pretend that you\'re Hercule Poirot: Examine all clues,",
-                b"and deduce the truth by order and method."
+                "This error message was generated by an \\errmessage",
+                "command, so I can\'t give any explicit help.",
+                "Pretend that you\'re Hercule Poirot: Examine all clues,",
+                "and deduce the truth by order and method."
             );
         }
         error();
@@ -14972,18 +14970,18 @@ pub(crate) unsafe fn show_whatever() {
                 cur_ptr.and_then(|c| MEM[c + 1].b32.s1.opt())
             };
             begin_diagnostic();
-            print_nl_cstr(b"> \\box");
+            print_nl_cstr("> \\box");
             print_int(cur_val);
             print_char('=' as i32);
             if p.is_none() {
-                print_cstr(b"void");
+                print_cstr("void");
             } else {
                 show_box(p);
             }
         }
         0 => {
             get_token();
-            print_nl_cstr(b"> ");
+            print_nl_cstr("> ");
             if cur_cs != 0 {
                 sprint_cs(cur_cs);
                 print_char('=' as i32);
@@ -14997,7 +14995,7 @@ pub(crate) unsafe fn show_whatever() {
         }
         6 => {
             begin_diagnostic();
-            print_nl_cstr(b"");
+            print_nl_cstr("");
             print_ln();
             if let Some(cp) = cond_ptr {
                 let mut p = cp;
@@ -15015,15 +15013,15 @@ pub(crate) unsafe fn show_whatever() {
                 let mut l = if_line;
                 let mut m = if_limit;
                 loop {
-                    print_nl_cstr(b"### level ");
+                    print_nl_cstr("### level ");
                     print_int(n);
-                    print_cstr(b": ");
+                    print_cstr(": ");
                     print_cmd_chr(Cmd::IfTest, t as i32);
                     if m == FiOrElseCode::Fi {
-                        print_esc_cstr(b"else");
+                        print_esc_cstr("else");
                     }
                     if l != 0i32 {
-                        print_cstr(b" entered on line ");
+                        print_cstr(" entered on line ");
                         print_int(l);
                     }
                     n -= 1;
@@ -15037,13 +15035,13 @@ pub(crate) unsafe fn show_whatever() {
                     }
                 }
             } else {
-                print_nl_cstr(b"### ");
-                print_cstr(b"no active conditionals");
+                print_nl_cstr("### ");
+                print_cstr("no active conditionals");
             }
         }
         _ => {
             let _p = the_toks() as i32;
-            print_nl_cstr(b"> ");
+            print_nl_cstr("> ");
             token_show(Some(TEMP_HEAD));
             flush_list(llist_link(TEMP_HEAD));
             return common_ending();
@@ -15054,13 +15052,13 @@ pub(crate) unsafe fn show_whatever() {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
-        print_nl_cstr(b"! ");
+        print_nl_cstr("! ");
     }
-    print_cstr(b"OK");
+    print_cstr("OK");
     if selector == Selector::TERM_AND_LOG {
         if *INTPAR(IntPar::tracing_online) <= 0i32 {
             selector = Selector::TERM_ONLY;
-            print_cstr(b" (see the transcript file)");
+            print_cstr(" (see the transcript file)");
             selector = Selector::TERM_AND_LOG
         }
     }
@@ -15071,17 +15069,17 @@ pub(crate) unsafe fn show_whatever() {
             error_count -= 1;
         } else if *INTPAR(IntPar::tracing_online) > 0 {
             help!(
-                b"This isn\'t an error message; I\'m just \\showing something.",
-                b"Type `I\\show...\' to show more (e.g., \\show\\cs,",
-                b"\\showthe\\count10, \\showbox255, \\showlists)."
+                "This isn\'t an error message; I\'m just \\showing something.",
+                "Type `I\\show...\' to show more (e.g., \\show\\cs,",
+                "\\showthe\\count10, \\showbox255, \\showlists)."
             );
         } else {
             help!(
-                b"This isn\'t an error message; I\'m just \\showing something.",
-                b"Type `I\\show...\' to show more (e.g., \\show\\cs,",
-                b"\\showthe\\count10, \\showbox255, \\showlists).",
-                b"And type `I\\tracingonline=1\\show...\' to show boxes and",
-                b"lists on your terminal as well as in the transcript file."
+                "This isn\'t an error message; I\'m just \\showing something.",
+                "Type `I\\show...\' to show more (e.g., \\show\\cs,",
+                "\\showthe\\count10, \\showbox255, \\showlists).",
+                "And type `I\\tracingonline=1\\show...\' to show boxes and",
+                "lists on your terminal as well as in the transcript file."
             );
         }
         error();
@@ -15210,12 +15208,12 @@ pub(crate) unsafe fn do_extension() {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
-                        print_nl_cstr(b"! ");
+                        print_nl_cstr("! ");
                     }
-                    print_cstr(b"Bad glyph number");
+                    print_cstr("Bad glyph number");
                     help!(
-                        b"A glyph number must be between 0 and 65535.",
-                        b"I changed this one to zero."
+                        "A glyph number must be between 0 and 65535.",
+                        "I changed this one to zero."
                     );
                     int_error(cur_val);
                     cur_val = 0;
@@ -15238,12 +15236,12 @@ pub(crate) unsafe fn do_extension() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Encoding mode `auto\' is not valid for \\XeTeXinputencoding");
+                print_cstr("Encoding mode `auto\' is not valid for \\XeTeXinputencoding");
                 help!(
-                    b"You can\'t use `auto\' encoding here, only for \\XeTeXdefaultencoding.",
-                    b"I\'ll ignore this and leave the current encoding unchanged."
+                    "You can\'t use `auto\' encoding here, only for \\XeTeXdefaultencoding.",
+                    "I\'ll ignore this and leave the current encoding unchanged."
                 );
                 error();
             } else {
@@ -15269,7 +15267,7 @@ pub(crate) unsafe fn do_extension() {
             *LLIST_link(cur_list.tail) = Some(p.ptr()).tex_int();
             cur_list.tail = p.ptr();
         }
-        _ => confusion(b"ext1"),
+        _ => confusion("ext1"),
     };
 }
 pub(crate) unsafe fn fix_language() {
@@ -15329,12 +15327,12 @@ pub(crate) unsafe fn handle_right_brace() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Too many }\'s");
+            print_cstr("Too many }\'s");
             help!(
-                b"You\'ve closed more groups than you opened.",
-                b"Such booboos are generally harmless, so keep going."
+                "You\'ve closed more groups than you opened.",
+                "Such booboos are generally harmless, so keep going."
             );
             error();
         }
@@ -15399,12 +15397,12 @@ pub(crate) unsafe fn handle_right_brace() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Unbalanced output routine");
+                print_cstr("Unbalanced output routine");
                 help!(
-                    b"Your sneaky output routine has problematic {\'s and/or }\'s.",
-                    b"I can\'t handle that very well; good luck."
+                    "Your sneaky output routine has problematic {\'s and/or }\'s.",
+                    "I can\'t handle that very well; good luck."
                 );
                 error();
                 loop {
@@ -15425,15 +15423,15 @@ pub(crate) unsafe fn handle_right_brace() {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Output routine didn\'t use all of ");
-                print_esc_cstr(b"box");
+                print_cstr("Output routine didn\'t use all of ");
+                print_esc_cstr("box");
                 print_int(255);
                 help!(
-                    b"Your \\output commands should empty \\box255,",
-                    b"e.g., by saying `\\shipout\\box255\'.",
-                    b"Proceed; I\'ll discard its present contents."
+                    "Your \\output commands should empty \\box255,",
+                    "e.g., by saying `\\shipout\\box255\'.",
+                    "Proceed; I\'ll discard its present contents."
                 );
                 box_error(255);
             }
@@ -15462,12 +15460,12 @@ pub(crate) unsafe fn handle_right_brace() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr(b"! ");
+                print_nl_cstr("! ");
             }
-            print_cstr(b"Missing ");
-            print_esc_cstr(b"cr");
-            print_cstr(b" inserted");
-            help!(b"I\'m guessing that you meant to end an alignment here.");
+            print_cstr("Missing ");
+            print_esc_cstr("cr");
+            print_cstr(" inserted");
+            help!("I\'m guessing that you meant to end an alignment here.");
             ins_error();
         }
         GroupCode::NoAlign => {
@@ -15525,7 +15523,7 @@ pub(crate) unsafe fn handle_right_brace() {
                     }
                 }
             }
-        } //_ => confusion(b"rightbrace"),
+        } //_ => confusion("rightbrace"),
     };
 }
 pub(crate) unsafe fn main_control() {
@@ -17320,7 +17318,7 @@ pub(crate) unsafe fn close_files_and_terminate() {
         log_file = None;
         selector = u8::from(selector).wrapping_sub(2).into();
         if selector == Selector::TERM_ONLY {
-            print_nl_cstr(b"Transcript written on ");
+            print_nl_cstr("Transcript written on ");
             print(texmf_log_name);
             print_char('.' as i32);
         }
@@ -17336,8 +17334,8 @@ pub(crate) unsafe fn flush_str(mut s: str_number) {
 pub(crate) unsafe fn tokens_to_string(mut p: i32) -> str_number {
     if selector == Selector::NEW_STRING {
         pdf_error(
-            b"tokens",
-            b"tokens_to_string() called while selector = new_string",
+            "tokens",
+            "tokens_to_string() called while selector = new_string",
         );
     }
     old_setting = selector;
@@ -17437,7 +17435,7 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
                     flush_node_list(Some(q));
                 }
             }
-            _ => confusion(b"pruning"),
+            _ => confusion("pruning"),
         }
     }
     *LLIST_link(TEMP_HEAD)

@@ -75,13 +75,13 @@ unsafe fn ensure_vbox(mut n: u8) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Insertions can only be added to a vbox");
+        print_cstr("Insertions can only be added to a vbox");
         help!(
-            b"Tut tut: You\'re trying to \\insert into a",
-            b"\\box register that now contains an \\hbox.",
-            b"Proceed, and I\'ll discard its present contents."
+            "Tut tut: You\'re trying to \\insert into a",
+            "\\box register that now contains an \\hbox.",
+            "Proceed, and I\'ll discard its present contents."
         );
         box_error(n);
     }
@@ -150,14 +150,14 @@ unsafe fn fire_up(c: usize) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"");
-        print_esc_cstr(b"box");
-        print_cstr(b"255 is not void");
+        print_cstr("");
+        print_esc_cstr("box");
+        print_cstr("255 is not void");
         help!(
-            b"You shouldn\'t use \\box255 except in \\output routines.",
-            b"Proceed, and I\'ll discard its present contents."
+            "You shouldn\'t use \\box255 except in \\output routines.",
+            "Proceed, and I\'ll discard its present contents."
         );
         box_error(255);
     }
@@ -401,15 +401,15 @@ unsafe fn fire_up(c: usize) {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Output loop---");
+                print_cstr("Output loop---");
                 print_int(dead_cycles);
-                print_cstr(b" consecutive dead cycles");
+                print_cstr(" consecutive dead cycles");
                 help!(
-                    b"I\'ve concluded that your \\output is awry; it never does a",
-                    b"\\shipout, so I\'m shipping \\box255 out myself. Next time",
-                    b"increase \\maxdeadcycles if you want me to be more patient!"
+                    "I\'ve concluded that your \\output is awry; it never does a",
+                    "\\shipout, so I\'m shipping \\box255 out myself. Next time",
+                    "increase \\maxdeadcycles if you want me to be more patient!"
                 );
                 error();
             } else {
@@ -478,7 +478,7 @@ pub(crate) unsafe fn build_page() {
 
     unsafe fn do_smth(mut slf: Args) -> (Args, bool) {
         slf.p = llist_link(CONTRIB_HEAD).unwrap();
-        let p_node = text_NODE_type(slf.p).confuse(b"page");
+        let p_node = text_NODE_type(slf.p).confuse("page");
 
         /*1031: "Update the values of last_glue, last_penalty, and last_kern" */
         if last_glue != MAX_HALFWORD {
@@ -703,15 +703,15 @@ pub(crate) unsafe fn build_page() {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! ");
+                            print_nl_cstr("! ");
                         }
-                        print_cstr(b"Infinite glue shrinkage inserted from ");
-                        print_esc_cstr(b"skip");
+                        print_cstr("Infinite glue shrinkage inserted from ");
+                        print_esc_cstr("skip");
                         print_int(n as i32);
                         help!(
-                            b"The correction glue for page breaking with insertions",
-                            b"must have finite shrinkability. But you may proceed,",
-                            b"since the offensive shrinkability has been made finite."
+                            "The correction glue for page breaking with insertions",
+                            "must have finite shrinkability. But you may proceed,",
+                            "since the offensive shrinkability has been made finite."
                         );
                         error();
                     }
@@ -786,7 +786,7 @@ pub(crate) unsafe fn build_page() {
                 }
                 return contribute(slf);
             }
-            _ => confusion(b"page"),
+            _ => confusion("page"),
         }
 
         /*1040: "Check if node p is the new champion breakpoint; then if it is
@@ -882,14 +882,14 @@ pub(crate) unsafe fn build_page() {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr(b"! ");
+                            print_nl_cstr("! ");
                         }
-                        print_cstr(b"Infinite glue shrinkage found on current page");
+                        print_cstr("Infinite glue shrinkage found on current page");
                         help!(
-                            b"The page about to be output contains some infinitely",
-                            b"shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
-                            b"Such glue doesn\'t belong there; but you can safely proceed,",
-                            b"since the offensive shrinkability has been made finite."
+                            "The page about to be output contains some infinitely",
+                            "shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
+                            "Such glue doesn\'t belong there; but you can safely proceed,",
+                            "since the offensive shrinkability has been made finite."
                         );
                         error();
                         slf.r = new_spec(slf.q as usize);
