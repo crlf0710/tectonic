@@ -9,7 +9,6 @@
 )]
 
 use crate::xetex_ini::{pool_ptr, pool_size, str_pool, str_start};
-use crate::xetex_io::{bytesFromUTF8, offsetsFromUTF8};
 use crate::xetex_stringpool::make_string;
 use bridge::{ttstub_get_data_md5, ttstub_get_file_md5};
 use std::ffi::CString;
@@ -53,50 +52,21 @@ pub(crate) fn get_date_and_time() -> (i32, i32, i32, i32) {
 }
 unsafe fn checkpool_pointer(mut pool_ptr_0: pool_pointer, mut len: size_t) {
     assert!(
-        !((pool_ptr_0 as u64).wrapping_add(len as u64) >= pool_size as u64),
+        (pool_ptr_0 as u64) + (len as u64) < pool_size as u64,
         "string pool overflow [{} bytes]",
         pool_size,
     );
 }
-pub(crate) unsafe fn maketexstring(s: &[u8]) -> i32 {
-    let mut rval: UInt32 = 0;
-    let mut cp = s;
+pub(crate) unsafe fn maketexstring(s: &str) -> i32 {
     if s.is_empty() {
         return (65536 + 1i32 as i64) as i32;
     }
-    let len = s.len();
+    let len = s.as_bytes().len();
     checkpool_pointer(pool_ptr, len as _);
-    while !cp.is_empty() {
-        rval = cp[0] as UInt32;
-        cp = &cp[1..];
-        let mut extraBytes: UInt16 = bytesFromUTF8[rval as usize] as UInt16;
-
-        assert!(extraBytes < 6);
-        for _ in (1..=extraBytes).rev() {
-            /* note: code falls through cases! */
-            rval <<= 6i32; /* max UTF16->UTF8 expansion (code units, not bytes) */
-            if !cp.is_empty() {
-                rval += cp[0] as u32;
-                cp = &cp[1..];
-            }
-        }
-        rval = (rval as u32).wrapping_sub(offsetsFromUTF8[extraBytes as usize]) as UInt32 as UInt32;
-        if rval > 0xffff_u32 {
-            rval = (rval as u32).wrapping_sub(0x10000_u32) as UInt32 as UInt32;
-            let fresh6 = pool_ptr;
-            pool_ptr = pool_ptr + 1;
-            str_pool[fresh6 as usize] =
-                (0xd800_u32).wrapping_add(rval.wrapping_div(0x400_u32)) as packed_UTF16_code;
-            let fresh7 = pool_ptr;
-            pool_ptr = pool_ptr + 1;
-            str_pool[fresh7 as usize] =
-                (0xdc00_u32).wrapping_add(rval.wrapping_rem(0x400_u32)) as packed_UTF16_code
-        } else {
-            let fresh8 = pool_ptr;
-            pool_ptr = pool_ptr + 1;
-            str_pool[fresh8 as usize] = rval as packed_UTF16_code
-        }
-    }
+    let v: Vec<u16> = s.encode_utf16().collect();
+    let len = v.len();
+    str_pool[pool_ptr as usize..(pool_ptr as usize + len)].copy_from_slice(v.as_slice());
+    pool_ptr += len as i32;
     make_string()
 }
 pub(crate) unsafe fn gettexstring(s: str_number) -> String {

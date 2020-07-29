@@ -769,7 +769,7 @@ pub(crate) static mut job_name: str_number = 0;
 #[no_mangle]
 pub(crate) static mut log_opened: bool = false;
 #[no_mangle]
-pub(crate) static mut output_file_extension: *const i8 = ptr::null();
+pub(crate) static mut output_file_extension: String = String::new();
 #[no_mangle]
 pub(crate) static mut texmf_log_name: str_number = 0;
 #[no_mangle]
@@ -1191,21 +1191,22 @@ unsafe fn sort_avail() {
 }
 /*:271*/
 /*276: */
-unsafe fn primitive<I>(ident: &[u8], c: Cmd, o: I)
+unsafe fn primitive<I>(ident: &str, c: Cmd, o: I)
 where
     I: std::convert::TryInto<i32>,
     <I as std::convert::TryInto<i32>>::Error: std::fmt::Debug,
 {
     let o = o.try_into().unwrap();
     let mut prim_val = 0;
-    let mut len = ident.len() as i32;
+    let b_ident = ident.as_bytes();
+    let len = b_ident.len() as i32;
     if len > 1 {
         let mut s: str_number = maketexstring(ident);
         if first + len > BUF_SIZE as i32 + 1 {
             overflow(b"buffer size", BUF_SIZE);
         }
         for i in 0..len {
-            BUFFER[(first + i) as usize] = ident[i as usize] as UnicodeScalar;
+            BUFFER[(first + i) as usize] = b_ident[i as usize] as UnicodeScalar;
         }
         cur_val = id_lookup(first, len);
         str_ptr -= 1;
@@ -1213,8 +1214,8 @@ where
         (*hash.offset(cur_val as isize)).s1 = s;
         prim_val = prim_lookup(s)
     } else {
-        cur_val = ident[0] as i32 + SINGLE_BASE as i32;
-        prim_val = prim_lookup(ident[0] as str_number)
+        cur_val = b_ident[0] as i32 + SINGLE_BASE as i32;
+        prim_val = prim_lookup(b_ident[0] as str_number)
     }
     EQTB[cur_val as usize].lvl = LEVEL_ONE;
     EQTB[cur_val as usize].cmd = c as u16;
@@ -2678,7 +2679,7 @@ unsafe fn store_fmt_file() {
     }
 
     format_ident = make_string();
-    pack_job_name(b".fmt");
+    pack_job_name(".fmt");
 
     let fmt_out = ttstub_output_open(CString::new(name_of_file.as_str()).unwrap().as_ptr(), 0);
     if fmt_out.is_none() {
@@ -4102,11 +4103,11 @@ unsafe fn initialize_more_initex_variables() {
     hash_high = 0;
     cs_count = 0;
     EQTB[FROZEN_DONT_EXPAND as usize].cmd = Cmd::DontExpand as _;
-    (*hash.offset(FROZEN_DONT_EXPAND as isize)).s1 = maketexstring(b"notexpanded:");
+    (*hash.offset(FROZEN_DONT_EXPAND as isize)).s1 = maketexstring("notexpanded:");
     EQTB[FROZEN_PRIMITIVE as usize].cmd = Cmd::IgnoreSpaces as u16;
     EQTB[FROZEN_PRIMITIVE as usize].val = 1;
     EQTB[FROZEN_PRIMITIVE as usize].lvl = LEVEL_ONE;
-    (*hash.offset(FROZEN_PRIMITIVE as isize)).s1 = maketexstring(b"primitive");
+    (*hash.offset(FROZEN_PRIMITIVE as isize)).s1 = maketexstring("primitive");
 
     for k in (-TRIE_OP_SIZE)..=TRIE_OP_SIZE {
         _trie_op_hash_array[(k as i64 - -35111) as usize] = 0;
@@ -4119,11 +4120,11 @@ unsafe fn initialize_more_initex_variables() {
     max_op_used = MIN_TRIE_OP;
     trie_op_ptr = 0;
     trie_not_ready = true;
-    (*hash.offset(FROZEN_PROTECTION as isize)).s1 = maketexstring(b"inaccessible");
+    (*hash.offset(FROZEN_PROTECTION as isize)).s1 = maketexstring("inaccessible");
 
-    format_ident = maketexstring(b" (INITEX)");
+    format_ident = maketexstring(" (INITEX)");
 
-    (*hash.offset(END_WRITE as isize)).s1 = maketexstring(b"endwrite");
+    (*hash.offset(END_WRITE as isize)).s1 = maketexstring("endwrite");
     EQTB[END_WRITE as usize].lvl = LEVEL_ONE;
     EQTB[END_WRITE as usize].cmd = Cmd::OuterCall as u16;
     EQTB[END_WRITE as usize].val = None.tex_int();
@@ -4143,931 +4144,919 @@ unsafe fn initialize_primitives() {
     no_new_control_sequence = false;
     first = 0i32;
     primitive(
-        b"lineskip",
+        "lineskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::line_skip as usize,
     );
     primitive(
-        b"baselineskip",
+        "baselineskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::baseline_skip as usize,
     );
     primitive(
-        b"parskip",
+        "parskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::par_skip as usize,
     );
     primitive(
-        b"abovedisplayskip",
+        "abovedisplayskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::above_display_skip as usize,
     );
     primitive(
-        b"belowdisplayskip",
+        "belowdisplayskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::below_display_skip as usize,
     );
     primitive(
-        b"abovedisplayshortskip",
+        "abovedisplayshortskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::above_display_short_skip as usize,
     );
     primitive(
-        b"belowdisplayshortskip",
+        "belowdisplayshortskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::below_display_short_skip as usize,
     );
     primitive(
-        b"leftskip",
+        "leftskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::left_skip as usize,
     );
     primitive(
-        b"rightskip",
+        "rightskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::right_skip as usize,
     );
     primitive(
-        b"topskip",
+        "topskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::top_skip as usize,
     );
     primitive(
-        b"splittopskip",
+        "splittopskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::split_top_skip as usize,
     );
     primitive(
-        b"tabskip",
+        "tabskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::tab_skip as usize,
     );
     primitive(
-        b"spaceskip",
+        "spaceskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::space_skip as usize,
     );
     primitive(
-        b"xspaceskip",
+        "xspaceskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::xspace_skip as usize,
     );
     primitive(
-        b"parfillskip",
+        "parfillskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::par_fill_skip as usize,
     );
     primitive(
-        b"XeTeXlinebreakskip",
+        "XeTeXlinebreakskip",
         Cmd::AssignGlue,
         GLUE_BASE + GluePar::xetex_linebreak_skip as usize,
     );
 
     primitive(
-        b"thinmuskip",
+        "thinmuskip",
         Cmd::AssignMuGlue,
         GLUE_BASE + GluePar::thin_mu_skip as usize,
     );
     primitive(
-        b"medmuskip",
+        "medmuskip",
         Cmd::AssignMuGlue,
         GLUE_BASE + GluePar::med_mu_skip as usize,
     );
     primitive(
-        b"thickmuskip",
+        "thickmuskip",
         Cmd::AssignMuGlue,
         GLUE_BASE + GluePar::thick_mu_skip as usize,
     );
 
     primitive(
-        b"output",
+        "output",
         Cmd::AssignToks,
         LOCAL_BASE + Local::output_routine as usize,
     );
     primitive(
-        b"everypar",
+        "everypar",
         Cmd::AssignToks,
         LOCAL_BASE + Local::every_par as usize,
     );
     primitive(
-        b"everymath",
+        "everymath",
         Cmd::AssignToks,
         LOCAL_BASE + Local::every_math as usize,
     );
     primitive(
-        b"everydisplay",
+        "everydisplay",
         Cmd::AssignToks,
         LOCAL_BASE + Local::every_display as usize,
     );
     primitive(
-        b"everyhbox",
+        "everyhbox",
         Cmd::AssignToks,
         LOCAL_BASE + Local::every_hbox as usize,
     );
     primitive(
-        b"everyvbox",
+        "everyvbox",
         Cmd::AssignToks,
         LOCAL_BASE + Local::every_vbox as usize,
     );
     primitive(
-        b"everyjob",
+        "everyjob",
         Cmd::AssignToks,
         LOCAL_BASE + Local::every_job as usize,
     );
     primitive(
-        b"everycr",
+        "everycr",
         Cmd::AssignToks,
         LOCAL_BASE + Local::every_cr as usize,
     );
     primitive(
-        b"errhelp",
+        "errhelp",
         Cmd::AssignToks,
         LOCAL_BASE + Local::err_help as usize,
     );
     primitive(
-        b"everyeof",
+        "everyeof",
         Cmd::AssignToks,
         LOCAL_BASE + Local::every_eof as usize,
     );
     primitive(
-        b"XeTeXinterchartoks",
+        "XeTeXinterchartoks",
         Cmd::AssignToks,
         LOCAL_BASE + Local::xetex_inter_char as usize,
     );
     primitive(
-        b"TectonicCodaTokens",
+        "TectonicCodaTokens",
         Cmd::AssignToks,
         LOCAL_BASE + Local::TectonicCodaTokens as usize,
     );
 
     primitive(
-        b"pretolerance",
+        "pretolerance",
         Cmd::AssignInt,
         INT_BASE + IntPar::pretolerance as usize,
     );
     primitive(
-        b"tolerance",
+        "tolerance",
         Cmd::AssignInt,
         INT_BASE + IntPar::tolerance as usize,
     );
     primitive(
-        b"linepenalty",
+        "linepenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::line_penalty as usize,
     );
     primitive(
-        b"hyphenpenalty",
+        "hyphenpenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::hyphen_penalty as usize,
     );
     primitive(
-        b"exhyphenpenalty",
+        "exhyphenpenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::ex_hyphen_penalty as usize,
     );
     primitive(
-        b"clubpenalty",
+        "clubpenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::club_penalty as usize,
     );
     primitive(
-        b"widowpenalty",
+        "widowpenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::widow_penalty as usize,
     );
     primitive(
-        b"displaywidowpenalty",
+        "displaywidowpenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::display_widow_penalty as usize,
     );
     primitive(
-        b"brokenpenalty",
+        "brokenpenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::broken_penalty as usize,
     );
     primitive(
-        b"binoppenalty",
+        "binoppenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::bin_op_penalty as usize,
     );
     primitive(
-        b"relpenalty",
+        "relpenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::rel_penalty as usize,
     );
     primitive(
-        b"predisplaypenalty",
+        "predisplaypenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::pre_display_penalty as usize,
     );
     primitive(
-        b"postdisplaypenalty",
+        "postdisplaypenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::post_display_penalty as usize,
     );
     primitive(
-        b"interlinepenalty",
+        "interlinepenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::inter_line_penalty as usize,
     );
     primitive(
-        b"doublehyphendemerits",
+        "doublehyphendemerits",
         Cmd::AssignInt,
         INT_BASE + IntPar::double_hyphen_demerits as usize,
     );
     primitive(
-        b"finalhyphendemerits",
+        "finalhyphendemerits",
         Cmd::AssignInt,
         INT_BASE + IntPar::final_hyphen_demerits as usize,
     );
     primitive(
-        b"adjdemerits",
+        "adjdemerits",
         Cmd::AssignInt,
         INT_BASE + IntPar::adj_demerits as usize,
     );
-    primitive(b"mag", Cmd::AssignInt, INT_BASE + IntPar::mag as usize);
+    primitive("mag", Cmd::AssignInt, INT_BASE + IntPar::mag as usize);
     primitive(
-        b"delimiterfactor",
+        "delimiterfactor",
         Cmd::AssignInt,
         INT_BASE + IntPar::delimiter_factor as usize,
     );
     primitive(
-        b"looseness",
+        "looseness",
         Cmd::AssignInt,
         INT_BASE + IntPar::looseness as usize,
     );
-    primitive(b"time", Cmd::AssignInt, INT_BASE + IntPar::time as usize);
-    primitive(b"day", Cmd::AssignInt, INT_BASE + IntPar::day as usize);
-    primitive(b"month", Cmd::AssignInt, INT_BASE + IntPar::month as usize);
-    primitive(b"year", Cmd::AssignInt, INT_BASE + IntPar::year as usize);
+    primitive("time", Cmd::AssignInt, INT_BASE + IntPar::time as usize);
+    primitive("day", Cmd::AssignInt, INT_BASE + IntPar::day as usize);
+    primitive("month", Cmd::AssignInt, INT_BASE + IntPar::month as usize);
+    primitive("year", Cmd::AssignInt, INT_BASE + IntPar::year as usize);
     primitive(
-        b"showboxbreadth",
+        "showboxbreadth",
         Cmd::AssignInt,
         INT_BASE + IntPar::show_box_breadth as usize,
     );
     primitive(
-        b"showboxdepth",
+        "showboxdepth",
         Cmd::AssignInt,
         INT_BASE + IntPar::show_box_depth as usize,
     );
     primitive(
-        b"hbadness",
+        "hbadness",
         Cmd::AssignInt,
         INT_BASE + IntPar::hbadness as usize,
     );
     primitive(
-        b"vbadness",
+        "vbadness",
         Cmd::AssignInt,
         INT_BASE + IntPar::vbadness as usize,
     );
     primitive(
-        b"pausing",
+        "pausing",
         Cmd::AssignInt,
         INT_BASE + IntPar::pausing as usize,
     );
     primitive(
-        b"tracingonline",
+        "tracingonline",
         Cmd::AssignInt,
         INT_BASE + IntPar::tracing_online as usize,
     );
     primitive(
-        b"tracingmacros",
+        "tracingmacros",
         Cmd::AssignInt,
         INT_BASE + IntPar::tracing_macros as usize,
     );
     primitive(
-        b"tracingstats",
+        "tracingstats",
         Cmd::AssignInt,
         INT_BASE + IntPar::tracing_stats as usize,
     );
     primitive(
-        b"tracingparagraphs",
+        "tracingparagraphs",
         Cmd::AssignInt,
         INT_BASE + IntPar::tracing_paragraphs as usize,
     );
     primitive(
-        b"tracingpages",
+        "tracingpages",
         Cmd::AssignInt,
         INT_BASE + IntPar::tracing_pages as usize,
     );
     primitive(
-        b"tracingoutput",
+        "tracingoutput",
         Cmd::AssignInt,
         INT_BASE + IntPar::tracing_output as usize,
     );
     primitive(
-        b"tracinglostchars",
+        "tracinglostchars",
         Cmd::AssignInt,
         INT_BASE + IntPar::tracing_lost_chars as usize,
     );
     primitive(
-        b"tracingcommands",
+        "tracingcommands",
         Cmd::AssignInt,
         INT_BASE + IntPar::tracing_commands as usize,
     );
     primitive(
-        b"tracingrestores",
+        "tracingrestores",
         Cmd::AssignInt,
         INT_BASE + IntPar::tracing_restores as usize,
     );
     primitive(
-        b"uchyph",
+        "uchyph",
         Cmd::AssignInt,
         INT_BASE + IntPar::uc_hyph as usize,
     );
     primitive(
-        b"outputpenalty",
+        "outputpenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::output_penalty as usize,
     );
     primitive(
-        b"maxdeadcycles",
+        "maxdeadcycles",
         Cmd::AssignInt,
         INT_BASE + IntPar::max_dead_cycles as usize,
     );
     primitive(
-        b"hangafter",
+        "hangafter",
         Cmd::AssignInt,
         INT_BASE + IntPar::hang_after as usize,
     );
     primitive(
-        b"floatingpenalty",
+        "floatingpenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::floating_penalty as usize,
     );
     primitive(
-        b"globaldefs",
+        "globaldefs",
         Cmd::AssignInt,
         INT_BASE + IntPar::global_defs as usize,
     );
-    primitive(b"fam", Cmd::AssignInt, INT_BASE + IntPar::cur_fam as usize);
+    primitive("fam", Cmd::AssignInt, INT_BASE + IntPar::cur_fam as usize);
     primitive(
-        b"escapechar",
+        "escapechar",
         Cmd::AssignInt,
         INT_BASE + IntPar::escape_char as usize,
     );
     primitive(
-        b"defaulthyphenchar",
+        "defaulthyphenchar",
         Cmd::AssignInt,
         INT_BASE + IntPar::default_hyphen_char as usize,
     );
     primitive(
-        b"defaultskewchar",
+        "defaultskewchar",
         Cmd::AssignInt,
         INT_BASE + IntPar::default_skew_char as usize,
     );
     primitive(
-        b"endlinechar",
+        "endlinechar",
         Cmd::AssignInt,
         INT_BASE + IntPar::end_line_char as usize,
     );
     primitive(
-        b"newlinechar",
+        "newlinechar",
         Cmd::AssignInt,
         INT_BASE + IntPar::new_line_char as usize,
     );
     primitive(
-        b"language",
+        "language",
         Cmd::AssignInt,
         INT_BASE + IntPar::language as usize,
     );
     primitive(
-        b"lefthyphenmin",
+        "lefthyphenmin",
         Cmd::AssignInt,
         INT_BASE + IntPar::left_hyphen_min as usize,
     );
     primitive(
-        b"righthyphenmin",
+        "righthyphenmin",
         Cmd::AssignInt,
         INT_BASE + IntPar::right_hyphen_min as usize,
     );
     primitive(
-        b"holdinginserts",
+        "holdinginserts",
         Cmd::AssignInt,
         INT_BASE + IntPar::holding_inserts as usize,
     );
     primitive(
-        b"errorcontextlines",
+        "errorcontextlines",
         Cmd::AssignInt,
         INT_BASE + IntPar::error_context_lines as usize,
     );
 
     primitive(
-        b"XeTeXlinebreakpenalty",
+        "XeTeXlinebreakpenalty",
         Cmd::AssignInt,
         INT_BASE + IntPar::xetex_linebreak_penalty as usize,
     );
     primitive(
-        b"XeTeXprotrudechars",
+        "XeTeXprotrudechars",
         Cmd::AssignInt,
         INT_BASE + IntPar::xetex_protrude_chars as usize,
     );
 
     primitive(
-        b"parindent",
+        "parindent",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::par_indent as usize,
     );
     primitive(
-        b"mathsurround",
+        "mathsurround",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::math_surround as usize,
     );
     primitive(
-        b"lineskiplimit",
+        "lineskiplimit",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::line_skip_limit as usize,
     );
     primitive(
-        b"hsize",
+        "hsize",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::hsize as usize,
     );
     primitive(
-        b"vsize",
+        "vsize",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::vsize as usize,
     );
     primitive(
-        b"maxdepth",
+        "maxdepth",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::max_depth as usize,
     );
     primitive(
-        b"splitmaxdepth",
+        "splitmaxdepth",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::split_max_depth as usize,
     );
     primitive(
-        b"boxmaxdepth",
+        "boxmaxdepth",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::box_max_depth as usize,
     );
     primitive(
-        b"hfuzz",
+        "hfuzz",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::hfuzz as usize,
     );
     primitive(
-        b"vfuzz",
+        "vfuzz",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::vfuzz as usize,
     );
     primitive(
-        b"delimitershortfall",
+        "delimitershortfall",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::delimiter_shortfall as usize,
     );
     primitive(
-        b"nulldelimiterspace",
+        "nulldelimiterspace",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::null_delimiter_space as usize,
     );
     primitive(
-        b"scriptspace",
+        "scriptspace",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::script_space as usize,
     );
     primitive(
-        b"predisplaysize",
+        "predisplaysize",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::pre_display_size as usize,
     );
     primitive(
-        b"displaywidth",
+        "displaywidth",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::display_width as usize,
     );
     primitive(
-        b"displayindent",
+        "displayindent",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::display_indent as usize,
     );
     primitive(
-        b"overfullrule",
+        "overfullrule",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::overfull_rule as usize,
     );
     primitive(
-        b"hangindent",
+        "hangindent",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::hang_indent as usize,
     );
     primitive(
-        b"hoffset",
+        "hoffset",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::h_offset as usize,
     );
     primitive(
-        b"voffset",
+        "voffset",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::v_offset as usize,
     );
     primitive(
-        b"emergencystretch",
+        "emergencystretch",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::emergency_stretch as usize,
     );
     primitive(
-        b"pdfpagewidth",
+        "pdfpagewidth",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::pdf_page_width as usize,
     );
     primitive(
-        b"pdfpageheight",
+        "pdfpageheight",
         Cmd::AssignDimen,
         DIMEN_BASE + DimenPar::pdf_page_height as usize,
     );
 
-    primitive(b" ", Cmd::ExSpace, 0);
-    primitive(b"/", Cmd::ItalCorr, 0);
-    primitive(b"accent", Cmd::Accent, 0);
-    primitive(b"advance", Cmd::Advance, 0);
-    primitive(b"afterassignment", Cmd::AfterAssignment, 0);
-    primitive(b"aftergroup", Cmd::AfterGroup, 0);
-    primitive(b"begingroup", Cmd::BeginGroup, 0);
-    primitive(b"char", Cmd::CharNum, 0);
-    primitive(b"csname", Cmd::CSName, 0);
-    primitive(b"delimiter", Cmd::DelimNum, 0);
-    primitive(b"XeTeXdelimiter", Cmd::DelimNum, 1);
-    primitive(b"Udelimiter", Cmd::DelimNum, 1);
-    primitive(b"divide", Cmd::Divide, 0);
-    primitive(b"endcsname", Cmd::EndCSName, 0);
-    primitive(b"endgroup", Cmd::EndGroup, 0);
-    (*hash.offset(FROZEN_END_GROUP as isize)).s1 = maketexstring(b"endgroup");
+    primitive(" ", Cmd::ExSpace, 0);
+    primitive("/", Cmd::ItalCorr, 0);
+    primitive("accent", Cmd::Accent, 0);
+    primitive("advance", Cmd::Advance, 0);
+    primitive("afterassignment", Cmd::AfterAssignment, 0);
+    primitive("aftergroup", Cmd::AfterGroup, 0);
+    primitive("begingroup", Cmd::BeginGroup, 0);
+    primitive("char", Cmd::CharNum, 0);
+    primitive("csname", Cmd::CSName, 0);
+    primitive("delimiter", Cmd::DelimNum, 0);
+    primitive("XeTeXdelimiter", Cmd::DelimNum, 1);
+    primitive("Udelimiter", Cmd::DelimNum, 1);
+    primitive("divide", Cmd::Divide, 0);
+    primitive("endcsname", Cmd::EndCSName, 0);
+    primitive("endgroup", Cmd::EndGroup, 0);
+    (*hash.offset(FROZEN_END_GROUP as isize)).s1 = maketexstring("endgroup");
     EQTB[FROZEN_END_GROUP] = EQTB[cur_val as usize];
-    primitive(b"expandafter", Cmd::ExpandAfter, 0);
-    primitive(b"font", Cmd::DefFont, 0);
-    primitive(b"fontdimen", Cmd::AssignFontDimen, 0);
-    primitive(b"halign", Cmd::HAlign, 0);
-    primitive(b"hrule", Cmd::HRule, 0);
-    primitive(b"ignorespaces", Cmd::IgnoreSpaces, 0);
-    primitive(b"insert", Cmd::Insert, 0);
-    primitive(b"mark", Cmd::Mark, 0);
-    primitive(b"mathaccent", Cmd::MathAccent, 0);
-    primitive(b"XeTeXmathaccent", Cmd::MathAccent, 1);
-    primitive(b"Umathaccent", Cmd::MathAccent, 1);
-    primitive(b"mathchar", Cmd::MathCharNum, 0);
-    primitive(b"XeTeXmathcharnum", Cmd::MathCharNum, 1);
-    primitive(b"Umathcharnum", Cmd::MathCharNum, 1);
-    primitive(b"XeTeXmathchar", Cmd::MathCharNum, 2);
-    primitive(b"Umathchar", Cmd::MathCharNum, 2);
-    primitive(b"mathchoice", Cmd::MathChoice, 0);
-    primitive(b"multiply", Cmd::Multiply, 0);
-    primitive(b"noalign", Cmd::NoAlign, 0);
-    primitive(b"noboundary", Cmd::NoBoundary, 0);
-    primitive(b"noexpand", Cmd::NoExpand, 0);
-    primitive(b"primitive", Cmd::NoExpand, 1);
-    primitive(b"nonscript", Cmd::NonScript, 0);
-    primitive(b"omit", Cmd::Omit, 0);
+    primitive("expandafter", Cmd::ExpandAfter, 0);
+    primitive("font", Cmd::DefFont, 0);
+    primitive("fontdimen", Cmd::AssignFontDimen, 0);
+    primitive("halign", Cmd::HAlign, 0);
+    primitive("hrule", Cmd::HRule, 0);
+    primitive("ignorespaces", Cmd::IgnoreSpaces, 0);
+    primitive("insert", Cmd::Insert, 0);
+    primitive("mark", Cmd::Mark, 0);
+    primitive("mathaccent", Cmd::MathAccent, 0);
+    primitive("XeTeXmathaccent", Cmd::MathAccent, 1);
+    primitive("Umathaccent", Cmd::MathAccent, 1);
+    primitive("mathchar", Cmd::MathCharNum, 0);
+    primitive("XeTeXmathcharnum", Cmd::MathCharNum, 1);
+    primitive("Umathcharnum", Cmd::MathCharNum, 1);
+    primitive("XeTeXmathchar", Cmd::MathCharNum, 2);
+    primitive("Umathchar", Cmd::MathCharNum, 2);
+    primitive("mathchoice", Cmd::MathChoice, 0);
+    primitive("multiply", Cmd::Multiply, 0);
+    primitive("noalign", Cmd::NoAlign, 0);
+    primitive("noboundary", Cmd::NoBoundary, 0);
+    primitive("noexpand", Cmd::NoExpand, 0);
+    primitive("primitive", Cmd::NoExpand, 1);
+    primitive("nonscript", Cmd::NonScript, 0);
+    primitive("omit", Cmd::Omit, 0);
     primitive(
-        b"parshape",
+        "parshape",
         Cmd::SetShape,
         LOCAL_BASE as i32 + Local::par_shape as i32,
     );
-    primitive(b"penalty", Cmd::BreakPenalty, 0);
-    primitive(b"prevgraf", Cmd::SetPrevGraf, 0);
-    primitive(b"radical", Cmd::Radical, 0);
-    primitive(b"XeTeXradical", Cmd::Radical, 1);
-    primitive(b"Uradical", Cmd::Radical, 1);
-    primitive(b"read", Cmd::ReadToCS, 0);
-    primitive(b"relax", Cmd::Relax, TOO_BIG_USV as i32);
-    (*hash.offset(FROZEN_RELAX as isize)).s1 = maketexstring(b"relax");
+    primitive("penalty", Cmd::BreakPenalty, 0);
+    primitive("prevgraf", Cmd::SetPrevGraf, 0);
+    primitive("radical", Cmd::Radical, 0);
+    primitive("XeTeXradical", Cmd::Radical, 1);
+    primitive("Uradical", Cmd::Radical, 1);
+    primitive("read", Cmd::ReadToCS, 0);
+    primitive("relax", Cmd::Relax, TOO_BIG_USV as i32);
+    (*hash.offset(FROZEN_RELAX as isize)).s1 = maketexstring("relax");
     EQTB[FROZEN_RELAX] = EQTB[cur_val as usize];
-    primitive(b"setbox", Cmd::SetBox, 0);
-    primitive(b"the", Cmd::The, 0);
-    primitive(b"toks", Cmd::ToksRegister, 0);
-    primitive(b"vadjust", Cmd::VAdjust, 0);
-    primitive(b"valign", Cmd::VAlign, 0);
-    primitive(b"vcenter", Cmd::VCenter, 0);
-    primitive(b"vrule", Cmd::VRule, 0);
-    primitive(b"par", PAR_END, TOO_BIG_USV as i32);
+    primitive("setbox", Cmd::SetBox, 0);
+    primitive("the", Cmd::The, 0);
+    primitive("toks", Cmd::ToksRegister, 0);
+    primitive("vadjust", Cmd::VAdjust, 0);
+    primitive("valign", Cmd::VAlign, 0);
+    primitive("vcenter", Cmd::VCenter, 0);
+    primitive("vrule", Cmd::VRule, 0);
+    primitive("par", PAR_END, TOO_BIG_USV as i32);
     par_loc = cur_val;
     par_token = CS_TOKEN_FLAG + par_loc;
 
-    primitive(b"input", Cmd::Input, 0);
-    primitive(b"endinput", Cmd::Input, 1);
+    primitive("input", Cmd::Input, 0);
+    primitive("endinput", Cmd::Input, 1);
 
-    primitive(b"topmark", Cmd::TopBotMark, TopBotMarkCode::Top);
-    primitive(b"firstmark", Cmd::TopBotMark, TopBotMarkCode::First);
-    primitive(b"botmark", Cmd::TopBotMark, TopBotMarkCode::Bot);
+    primitive("topmark", Cmd::TopBotMark, TopBotMarkCode::Top);
+    primitive("firstmark", Cmd::TopBotMark, TopBotMarkCode::First);
+    primitive("botmark", Cmd::TopBotMark, TopBotMarkCode::Bot);
     primitive(
-        b"splitfirstmark",
+        "splitfirstmark",
         Cmd::TopBotMark,
         TopBotMarkCode::SplitFirst,
     );
-    primitive(b"splitbotmark", Cmd::TopBotMark, TopBotMarkCode::SplitBot);
+    primitive("splitbotmark", Cmd::TopBotMark, TopBotMarkCode::SplitBot);
 
-    primitive(b"count", Cmd::Register, 0);
-    primitive(b"dimen", Cmd::Register, 1);
-    primitive(b"skip", Cmd::Register, 2);
-    primitive(b"muskip", Cmd::Register, 3);
+    primitive("count", Cmd::Register, 0);
+    primitive("dimen", Cmd::Register, 1);
+    primitive("skip", Cmd::Register, 2);
+    primitive("muskip", Cmd::Register, 3);
 
-    primitive(b"spacefactor", Cmd::SetAux, ListMode::HMode as i32);
-    primitive(b"prevdepth", Cmd::SetAux, ListMode::VMode as i32);
+    primitive("spacefactor", Cmd::SetAux, ListMode::HMode as i32);
+    primitive("prevdepth", Cmd::SetAux, ListMode::VMode as i32);
 
-    primitive(b"deadcycles", Cmd::SetPageInt, 0);
-    primitive(b"insertpenalties", Cmd::SetPageInt, 1);
+    primitive("deadcycles", Cmd::SetPageInt, 0);
+    primitive("insertpenalties", Cmd::SetPageInt, 1);
 
-    primitive(b"wd", Cmd::SetBoxDimen, SetBoxDimen::WidthOffset);
-    primitive(b"ht", Cmd::SetBoxDimen, SetBoxDimen::HeightOffset);
-    primitive(b"dp", Cmd::SetBoxDimen, SetBoxDimen::DepthOffset);
+    primitive("wd", Cmd::SetBoxDimen, SetBoxDimen::WidthOffset);
+    primitive("ht", Cmd::SetBoxDimen, SetBoxDimen::HeightOffset);
+    primitive("dp", Cmd::SetBoxDimen, SetBoxDimen::DepthOffset);
 
-    primitive(b"lastpenalty", Cmd::LastItem, LastItemCode::LastPenalty);
-    primitive(b"lastkern", Cmd::LastItem, LastItemCode::LastKern);
-    primitive(b"lastskip", Cmd::LastItem, LastItemCode::LastSkip);
-    primitive(b"inputlineno", Cmd::LastItem, LastItemCode::InputLineNo);
-    primitive(b"badness", Cmd::LastItem, LastItemCode::Badness);
+    primitive("lastpenalty", Cmd::LastItem, LastItemCode::LastPenalty);
+    primitive("lastkern", Cmd::LastItem, LastItemCode::LastKern);
+    primitive("lastskip", Cmd::LastItem, LastItemCode::LastSkip);
+    primitive("inputlineno", Cmd::LastItem, LastItemCode::InputLineNo);
+    primitive("badness", Cmd::LastItem, LastItemCode::Badness);
 
-    primitive(b"number", Cmd::Convert, ConvertCode::Number);
-    primitive(b"romannumeral", Cmd::Convert, ConvertCode::RomanNumeral);
-    primitive(b"string", Cmd::Convert, ConvertCode::String);
-    primitive(b"meaning", Cmd::Convert, ConvertCode::Meaning);
-    primitive(b"fontname", Cmd::Convert, ConvertCode::FontName);
-    primitive(b"jobname", Cmd::Convert, ConvertCode::JobName);
-    primitive(b"leftmarginkern", Cmd::Convert, ConvertCode::LeftMarginKern);
+    primitive("number", Cmd::Convert, ConvertCode::Number);
+    primitive("romannumeral", Cmd::Convert, ConvertCode::RomanNumeral);
+    primitive("string", Cmd::Convert, ConvertCode::String);
+    primitive("meaning", Cmd::Convert, ConvertCode::Meaning);
+    primitive("fontname", Cmd::Convert, ConvertCode::FontName);
+    primitive("jobname", Cmd::Convert, ConvertCode::JobName);
+    primitive("leftmarginkern", Cmd::Convert, ConvertCode::LeftMarginKern);
     primitive(
-        b"rightmarginkern",
+        "rightmarginkern",
         Cmd::Convert,
         ConvertCode::RightMarginKern,
     );
-    primitive(b"Uchar", Cmd::Convert, ConvertCode::XetexUchar);
-    primitive(b"Ucharcat", Cmd::Convert, ConvertCode::XetexUcharcat);
+    primitive("Uchar", Cmd::Convert, ConvertCode::XetexUchar);
+    primitive("Ucharcat", Cmd::Convert, ConvertCode::XetexUcharcat);
 
-    primitive(b"if", Cmd::IfTest, IfTestCode::IfChar);
-    primitive(b"ifcat", Cmd::IfTest, IfTestCode::IfCat);
-    primitive(b"ifnum", Cmd::IfTest, IfTestCode::IfInt);
-    primitive(b"ifdim", Cmd::IfTest, IfTestCode::IfDim);
-    primitive(b"ifodd", Cmd::IfTest, IfTestCode::IfOdd);
-    primitive(b"ifvmode", Cmd::IfTest, IfTestCode::IfVMode);
-    primitive(b"ifhmode", Cmd::IfTest, IfTestCode::IfHMode);
-    primitive(b"ifmmode", Cmd::IfTest, IfTestCode::IfMMode);
-    primitive(b"ifinner", Cmd::IfTest, IfTestCode::IfInner);
-    primitive(b"ifvoid", Cmd::IfTest, IfTestCode::IfVoid);
-    primitive(b"ifhbox", Cmd::IfTest, IfTestCode::IfHBox);
-    primitive(b"ifvbox", Cmd::IfTest, IfTestCode::IfVBox);
-    primitive(b"ifx", Cmd::IfTest, IfTestCode::Ifx);
-    primitive(b"ifeof", Cmd::IfTest, IfTestCode::IfEof);
-    primitive(b"iftrue", Cmd::IfTest, IfTestCode::IfTrue);
-    primitive(b"iffalse", Cmd::IfTest, IfTestCode::IfFalse);
-    primitive(b"ifcase", Cmd::IfTest, IfTestCode::IfCase);
-    primitive(b"ifprimitive", Cmd::IfTest, IfTestCode::IfPrimitive);
+    primitive("if", Cmd::IfTest, IfTestCode::IfChar);
+    primitive("ifcat", Cmd::IfTest, IfTestCode::IfCat);
+    primitive("ifnum", Cmd::IfTest, IfTestCode::IfInt);
+    primitive("ifdim", Cmd::IfTest, IfTestCode::IfDim);
+    primitive("ifodd", Cmd::IfTest, IfTestCode::IfOdd);
+    primitive("ifvmode", Cmd::IfTest, IfTestCode::IfVMode);
+    primitive("ifhmode", Cmd::IfTest, IfTestCode::IfHMode);
+    primitive("ifmmode", Cmd::IfTest, IfTestCode::IfMMode);
+    primitive("ifinner", Cmd::IfTest, IfTestCode::IfInner);
+    primitive("ifvoid", Cmd::IfTest, IfTestCode::IfVoid);
+    primitive("ifhbox", Cmd::IfTest, IfTestCode::IfHBox);
+    primitive("ifvbox", Cmd::IfTest, IfTestCode::IfVBox);
+    primitive("ifx", Cmd::IfTest, IfTestCode::Ifx);
+    primitive("ifeof", Cmd::IfTest, IfTestCode::IfEof);
+    primitive("iftrue", Cmd::IfTest, IfTestCode::IfTrue);
+    primitive("iffalse", Cmd::IfTest, IfTestCode::IfFalse);
+    primitive("ifcase", Cmd::IfTest, IfTestCode::IfCase);
+    primitive("ifprimitive", Cmd::IfTest, IfTestCode::IfPrimitive);
 
-    primitive(b"fi", Cmd::FiOrElse, FiOrElseCode::Fi);
-    (*hash.offset(FROZEN_FI as isize)).s1 = maketexstring(b"fi");
+    primitive("fi", Cmd::FiOrElse, FiOrElseCode::Fi);
+    (*hash.offset(FROZEN_FI as isize)).s1 = maketexstring("fi");
     EQTB[FROZEN_FI] = EQTB[cur_val as usize];
-    primitive(b"or", Cmd::FiOrElse, FiOrElseCode::Or);
-    primitive(b"else", Cmd::FiOrElse, FiOrElseCode::Else);
+    primitive("or", Cmd::FiOrElse, FiOrElseCode::Or);
+    primitive("else", Cmd::FiOrElse, FiOrElseCode::Else);
 
-    primitive(b"nullfont", Cmd::SetFont, FONT_BASE);
-    (*hash.offset(FROZEN_NULL_FONT as isize)).s1 = maketexstring(b"nullfont");
+    primitive("nullfont", Cmd::SetFont, FONT_BASE);
+    (*hash.offset(FROZEN_NULL_FONT as isize)).s1 = maketexstring("nullfont");
     EQTB[FROZEN_NULL_FONT] = EQTB[cur_val as usize];
 
-    primitive(b"span", Cmd::TabMark, SPAN_CODE);
-    primitive(b"cr", Cmd::CarRet, CR_CODE);
-    (*hash.offset(FROZEN_CR as isize)).s1 = maketexstring(b"cr");
+    primitive("span", Cmd::TabMark, SPAN_CODE);
+    primitive("cr", Cmd::CarRet, CR_CODE);
+    (*hash.offset(FROZEN_CR as isize)).s1 = maketexstring("cr");
     EQTB[FROZEN_CR] = EQTB[cur_val as usize];
-    primitive(b"crcr", Cmd::CarRet, CR_CR_CODE);
+    primitive("crcr", Cmd::CarRet, CR_CR_CODE);
 
-    (*hash.offset(FROZEN_END_TEMPLATE as isize)).s1 = maketexstring(b"endtemplate");
-    (*hash.offset(FROZEN_ENDV as isize)).s1 = maketexstring(b"endtemplate");
+    (*hash.offset(FROZEN_END_TEMPLATE as isize)).s1 = maketexstring("endtemplate");
+    (*hash.offset(FROZEN_ENDV as isize)).s1 = maketexstring("endtemplate");
     EQTB[FROZEN_ENDV].cmd = Cmd::EndV as u16;
     EQTB[FROZEN_ENDV].val = NULL_LIST as i32;
     EQTB[FROZEN_ENDV].lvl = LEVEL_ONE;
     EQTB[FROZEN_END_TEMPLATE] = EQTB[FROZEN_ENDV];
     EQTB[FROZEN_END_TEMPLATE].cmd = Cmd::EndTemplate as u16;
 
-    primitive(b"pagegoal", Cmd::SetPageDimen, 0);
-    primitive(b"pagetotal", Cmd::SetPageDimen, 1);
-    primitive(b"pagestretch", Cmd::SetPageDimen, 2);
-    primitive(b"pagefilstretch", Cmd::SetPageDimen, 3);
-    primitive(b"pagefillstretch", Cmd::SetPageDimen, 4);
-    primitive(b"pagefilllstretch", Cmd::SetPageDimen, 5);
-    primitive(b"pageshrink", Cmd::SetPageDimen, 6);
-    primitive(b"pagedepth", Cmd::SetPageDimen, 7);
+    primitive("pagegoal", Cmd::SetPageDimen, 0);
+    primitive("pagetotal", Cmd::SetPageDimen, 1);
+    primitive("pagestretch", Cmd::SetPageDimen, 2);
+    primitive("pagefilstretch", Cmd::SetPageDimen, 3);
+    primitive("pagefillstretch", Cmd::SetPageDimen, 4);
+    primitive("pagefilllstretch", Cmd::SetPageDimen, 5);
+    primitive("pageshrink", Cmd::SetPageDimen, 6);
+    primitive("pagedepth", Cmd::SetPageDimen, 7);
 
-    primitive(b"end", STOP, 0);
-    primitive(b"dump", STOP, 1);
+    primitive("end", STOP, 0);
+    primitive("dump", STOP, 1);
 
-    primitive(b"hskip", Cmd::HSkip, SkipCode::Skip);
-    primitive(b"hfil", Cmd::HSkip, SkipCode::Fil);
-    primitive(b"hfill", Cmd::HSkip, SkipCode::Fill);
-    primitive(b"hss", Cmd::HSkip, SkipCode::Ss);
-    primitive(b"hfilneg", Cmd::HSkip, SkipCode::FilNeg);
-    primitive(b"vskip", Cmd::VSkip, SkipCode::Skip);
-    primitive(b"vfil", Cmd::VSkip, SkipCode::Fil);
-    primitive(b"vfill", Cmd::VSkip, SkipCode::Fill);
-    primitive(b"vss", Cmd::VSkip, SkipCode::Ss);
-    primitive(b"vfilneg", Cmd::VSkip, SkipCode::FilNeg);
-    primitive(b"mskip", Cmd::MSkip, SkipCode::MSkip);
+    primitive("hskip", Cmd::HSkip, SkipCode::Skip);
+    primitive("hfil", Cmd::HSkip, SkipCode::Fil);
+    primitive("hfill", Cmd::HSkip, SkipCode::Fill);
+    primitive("hss", Cmd::HSkip, SkipCode::Ss);
+    primitive("hfilneg", Cmd::HSkip, SkipCode::FilNeg);
+    primitive("vskip", Cmd::VSkip, SkipCode::Skip);
+    primitive("vfil", Cmd::VSkip, SkipCode::Fil);
+    primitive("vfill", Cmd::VSkip, SkipCode::Fill);
+    primitive("vss", Cmd::VSkip, SkipCode::Ss);
+    primitive("vfilneg", Cmd::VSkip, SkipCode::FilNeg);
+    primitive("mskip", Cmd::MSkip, SkipCode::MSkip);
 
-    primitive(b"kern", Cmd::Kern, KernType::Explicit as i32);
-    primitive(b"mkern", Cmd::MKern, KernType::Math as i32);
-    primitive(b"moveleft", Cmd::HMove, 1);
-    primitive(b"moveright", Cmd::HMove, 0);
-    primitive(b"raise", Cmd::VMove, 1);
-    primitive(b"lower", Cmd::VMove, 0);
+    primitive("kern", Cmd::Kern, KernType::Explicit as i32);
+    primitive("mkern", Cmd::MKern, KernType::Math as i32);
+    primitive("moveleft", Cmd::HMove, 1);
+    primitive("moveright", Cmd::HMove, 0);
+    primitive("raise", Cmd::VMove, 1);
+    primitive("lower", Cmd::VMove, 0);
 
-    primitive(b"box", Cmd::MakeBox, BoxCode::Box);
-    primitive(b"copy", Cmd::MakeBox, BoxCode::Copy);
-    primitive(b"lastbox", Cmd::MakeBox, BoxCode::LastBox);
-    primitive(b"vsplit", Cmd::MakeBox, BoxCode::VSplit);
-    primitive(b"vtop", Cmd::MakeBox, BoxCode::VTop);
-    primitive(b"vbox", Cmd::MakeBox, BoxCode::VBox);
-    primitive(b"hbox", Cmd::MakeBox, BoxCode::HBox);
+    primitive("box", Cmd::MakeBox, BoxCode::Box);
+    primitive("copy", Cmd::MakeBox, BoxCode::Copy);
+    primitive("lastbox", Cmd::MakeBox, BoxCode::LastBox);
+    primitive("vsplit", Cmd::MakeBox, BoxCode::VSplit);
+    primitive("vtop", Cmd::MakeBox, BoxCode::VTop);
+    primitive("vbox", Cmd::MakeBox, BoxCode::VBox);
+    primitive("hbox", Cmd::MakeBox, BoxCode::HBox);
 
-    primitive(b"shipout", Cmd::LeaderShip, A_LEADERS as i32 - 1);
-    primitive(b"leaders", Cmd::LeaderShip, A_LEADERS as i32);
-    primitive(b"cleaders", Cmd::LeaderShip, C_LEADERS as i32);
-    primitive(b"xleaders", Cmd::LeaderShip, X_LEADERS as i32);
+    primitive("shipout", Cmd::LeaderShip, A_LEADERS as i32 - 1);
+    primitive("leaders", Cmd::LeaderShip, A_LEADERS as i32);
+    primitive("cleaders", Cmd::LeaderShip, C_LEADERS as i32);
+    primitive("xleaders", Cmd::LeaderShip, X_LEADERS as i32);
 
-    primitive(b"indent", Cmd::StartPar, 1);
-    primitive(b"noindent", Cmd::StartPar, 0);
-    primitive(b"unpenalty", Cmd::RemoveItem, TextNode::Penalty as i32);
-    primitive(b"unkern", Cmd::RemoveItem, TextNode::Kern as i32);
-    primitive(b"unskip", Cmd::RemoveItem, TextNode::Glue as i32);
-    primitive(b"unhbox", Cmd::UnHBox, BoxCode::Box);
-    primitive(b"unhcopy", Cmd::UnHBox, BoxCode::Copy);
-    primitive(b"unvbox", Cmd::UnVBox, BoxCode::Box);
-    primitive(b"unvcopy", Cmd::UnVBox, BoxCode::Copy);
+    primitive("indent", Cmd::StartPar, 1);
+    primitive("noindent", Cmd::StartPar, 0);
+    primitive("unpenalty", Cmd::RemoveItem, TextNode::Penalty as i32);
+    primitive("unkern", Cmd::RemoveItem, TextNode::Kern as i32);
+    primitive("unskip", Cmd::RemoveItem, TextNode::Glue as i32);
+    primitive("unhbox", Cmd::UnHBox, BoxCode::Box);
+    primitive("unhcopy", Cmd::UnHBox, BoxCode::Copy);
+    primitive("unvbox", Cmd::UnVBox, BoxCode::Box);
+    primitive("unvcopy", Cmd::UnVBox, BoxCode::Copy);
 
-    primitive(b"-", Cmd::Discretionary, 1);
-    primitive(b"discretionary", Cmd::Discretionary, 0);
+    primitive("-", Cmd::Discretionary, 1);
+    primitive("discretionary", Cmd::Discretionary, 0);
 
-    primitive(b"eqno", Cmd::EqNo, 0);
-    primitive(b"leqno", Cmd::EqNo, 1);
+    primitive("eqno", Cmd::EqNo, 0);
+    primitive("leqno", Cmd::EqNo, 1);
 
-    primitive(b"mathord", Cmd::MathComp, MathNode::Ord as i32);
-    primitive(b"mathop", Cmd::MathComp, MathNode::Op as i32);
-    primitive(b"mathbin", Cmd::MathComp, MathNode::Bin as i32);
-    primitive(b"mathrel", Cmd::MathComp, MathNode::Rel as i32);
-    primitive(b"mathopen", Cmd::MathComp, MathNode::Open as i32);
-    primitive(b"mathclose", Cmd::MathComp, MathNode::Close as i32);
-    primitive(b"mathpunct", Cmd::MathComp, MathNode::Punct as i32);
-    primitive(b"mathinner", Cmd::MathComp, MathNode::Inner as i32);
-    primitive(b"underline", Cmd::MathComp, MathNode::Under as i32);
-    primitive(b"overline", Cmd::MathComp, MathNode::Over as i32);
+    primitive("mathord", Cmd::MathComp, MathNode::Ord as i32);
+    primitive("mathop", Cmd::MathComp, MathNode::Op as i32);
+    primitive("mathbin", Cmd::MathComp, MathNode::Bin as i32);
+    primitive("mathrel", Cmd::MathComp, MathNode::Rel as i32);
+    primitive("mathopen", Cmd::MathComp, MathNode::Open as i32);
+    primitive("mathclose", Cmd::MathComp, MathNode::Close as i32);
+    primitive("mathpunct", Cmd::MathComp, MathNode::Punct as i32);
+    primitive("mathinner", Cmd::MathComp, MathNode::Inner as i32);
+    primitive("underline", Cmd::MathComp, MathNode::Under as i32);
+    primitive("overline", Cmd::MathComp, MathNode::Over as i32);
 
-    primitive(b"displaylimits", Cmd::LimitSwitch, Limit::Normal as i32);
-    primitive(b"limits", Cmd::LimitSwitch, Limit::Limits as i32);
-    primitive(b"nolimits", Cmd::LimitSwitch, Limit::NoLimits as i32);
+    primitive("displaylimits", Cmd::LimitSwitch, Limit::Normal as i32);
+    primitive("limits", Cmd::LimitSwitch, Limit::Limits as i32);
+    primitive("nolimits", Cmd::LimitSwitch, Limit::NoLimits as i32);
 
     primitive(
-        b"displaystyle",
+        "displaystyle",
         Cmd::MathStyle,
         (MathStyle::Display as i32) * 2,
     );
-    primitive(b"textstyle", Cmd::MathStyle, (MathStyle::Text as i32) * 2);
+    primitive("textstyle", Cmd::MathStyle, (MathStyle::Text as i32) * 2);
     primitive(
-        b"scriptstyle",
+        "scriptstyle",
         Cmd::MathStyle,
         (MathStyle::Script as i32) * 2,
     );
     primitive(
-        b"scriptscriptstyle",
+        "scriptscriptstyle",
         Cmd::MathStyle,
         (MathStyle::ScriptScript as i32) * 2,
     );
 
-    primitive(b"above", Cmd::Above, ABOVE_CODE);
-    primitive(b"over", Cmd::Above, OVER_CODE);
-    primitive(b"atop", Cmd::Above, ATOP_CODE);
-    primitive(b"abovewithdelims", Cmd::Above, DELIMITED_CODE + 0);
-    primitive(b"overwithdelims", Cmd::Above, DELIMITED_CODE + 1);
-    primitive(b"atopwithdelims", Cmd::Above, DELIMITED_CODE + 2);
+    primitive("above", Cmd::Above, ABOVE_CODE);
+    primitive("over", Cmd::Above, OVER_CODE);
+    primitive("atop", Cmd::Above, ATOP_CODE);
+    primitive("abovewithdelims", Cmd::Above, DELIMITED_CODE + 0);
+    primitive("overwithdelims", Cmd::Above, DELIMITED_CODE + 1);
+    primitive("atopwithdelims", Cmd::Above, DELIMITED_CODE + 2);
 
-    primitive(b"left", Cmd::LeftRight, MathNode::Left as i32);
-    primitive(b"right", Cmd::LeftRight, MathNode::Right as i32);
-    (*hash.offset(FROZEN_RIGHT as isize)).s1 = maketexstring(b"right");
+    primitive("left", Cmd::LeftRight, MathNode::Left as i32);
+    primitive("right", Cmd::LeftRight, MathNode::Right as i32);
+    (*hash.offset(FROZEN_RIGHT as isize)).s1 = maketexstring("right");
     EQTB[FROZEN_RIGHT] = EQTB[cur_val as usize];
 
-    primitive(b"long", Cmd::Prefix, 1);
-    primitive(b"outer", Cmd::Prefix, 2);
-    primitive(b"global", Cmd::Prefix, 4);
-    primitive(b"def", Cmd::Def, 0);
-    primitive(b"gdef", Cmd::Def, 1);
-    primitive(b"edef", Cmd::Def, 2);
-    primitive(b"xdef", Cmd::Def, 3);
-    primitive(b"let", Cmd::Let, NORMAL as i32);
-    primitive(b"futurelet", Cmd::Let, NORMAL as i32 + 1);
+    primitive("long", Cmd::Prefix, 1);
+    primitive("outer", Cmd::Prefix, 2);
+    primitive("global", Cmd::Prefix, 4);
+    primitive("def", Cmd::Def, 0);
+    primitive("gdef", Cmd::Def, 1);
+    primitive("edef", Cmd::Def, 2);
+    primitive("xdef", Cmd::Def, 3);
+    primitive("let", Cmd::Let, NORMAL as i32);
+    primitive("futurelet", Cmd::Let, NORMAL as i32 + 1);
 
-    primitive(b"chardef", Cmd::ShorthandDef, ShorthandDefCode::Char);
+    primitive("chardef", Cmd::ShorthandDef, ShorthandDefCode::Char);
+    primitive("mathchardef", Cmd::ShorthandDef, ShorthandDefCode::MathChar);
     primitive(
-        b"mathchardef",
-        Cmd::ShorthandDef,
-        ShorthandDefCode::MathChar,
-    );
-    primitive(
-        b"XeTeXmathcharnumdef",
+        "XeTeXmathcharnumdef",
         Cmd::ShorthandDef,
         ShorthandDefCode::XetexMathCharNum,
     );
     primitive(
-        b"Umathcharnumdef",
+        "Umathcharnumdef",
         Cmd::ShorthandDef,
         ShorthandDefCode::XetexMathCharNum,
     );
     primitive(
-        b"XeTeXmathchardef",
+        "XeTeXmathchardef",
         Cmd::ShorthandDef,
         ShorthandDefCode::XetexMathChar,
     );
     primitive(
-        b"Umathchardef",
+        "Umathchardef",
         Cmd::ShorthandDef,
         ShorthandDefCode::XetexMathChar,
     );
-    primitive(b"countdef", Cmd::ShorthandDef, ShorthandDefCode::Count);
-    primitive(b"dimendef", Cmd::ShorthandDef, ShorthandDefCode::Dimen);
-    primitive(b"skipdef", Cmd::ShorthandDef, ShorthandDefCode::Skip);
-    primitive(b"muskipdef", Cmd::ShorthandDef, ShorthandDefCode::MuSkip);
-    primitive(b"toksdef", Cmd::ShorthandDef, ShorthandDefCode::Toks);
+    primitive("countdef", Cmd::ShorthandDef, ShorthandDefCode::Count);
+    primitive("dimendef", Cmd::ShorthandDef, ShorthandDefCode::Dimen);
+    primitive("skipdef", Cmd::ShorthandDef, ShorthandDefCode::Skip);
+    primitive("muskipdef", Cmd::ShorthandDef, ShorthandDefCode::MuSkip);
+    primitive("toksdef", Cmd::ShorthandDef, ShorthandDefCode::Toks);
 
-    primitive(b"catcode", Cmd::DefCode, CAT_CODE_BASE as i32);
-    primitive(b"mathcode", Cmd::DefCode, MATH_CODE_BASE as i32);
+    primitive("catcode", Cmd::DefCode, CAT_CODE_BASE as i32);
+    primitive("mathcode", Cmd::DefCode, MATH_CODE_BASE as i32);
+    primitive("XeTeXmathcodenum", Cmd::XetexDefCode, MATH_CODE_BASE as i32);
+    primitive("Umathcodenum", Cmd::XetexDefCode, MATH_CODE_BASE as i32);
     primitive(
-        b"XeTeXmathcodenum",
-        Cmd::XetexDefCode,
-        MATH_CODE_BASE as i32,
-    );
-    primitive(b"Umathcodenum", Cmd::XetexDefCode, MATH_CODE_BASE as i32);
-    primitive(
-        b"XeTeXmathcode",
+        "XeTeXmathcode",
         Cmd::XetexDefCode,
         MATH_CODE_BASE as i32 + 1,
     );
-    primitive(b"Umathcode", Cmd::XetexDefCode, MATH_CODE_BASE as i32 + 1);
-    primitive(b"lccode", Cmd::DefCode, LC_CODE_BASE as i32);
-    primitive(b"uccode", Cmd::DefCode, UC_CODE_BASE as i32);
-    primitive(b"sfcode", Cmd::DefCode, SF_CODE_BASE as i32);
-    primitive(b"XeTeXcharclass", Cmd::XetexDefCode, SF_CODE_BASE as i32);
-    primitive(b"delcode", Cmd::DefCode, DEL_CODE_BASE);
-    primitive(b"XeTeXdelcodenum", Cmd::XetexDefCode, DEL_CODE_BASE);
-    primitive(b"Udelcodenum", Cmd::XetexDefCode, DEL_CODE_BASE);
-    primitive(b"XeTeXdelcode", Cmd::XetexDefCode, DEL_CODE_BASE + 1);
-    primitive(b"Udelcode", Cmd::XetexDefCode, DEL_CODE_BASE + 1);
+    primitive("Umathcode", Cmd::XetexDefCode, MATH_CODE_BASE as i32 + 1);
+    primitive("lccode", Cmd::DefCode, LC_CODE_BASE as i32);
+    primitive("uccode", Cmd::DefCode, UC_CODE_BASE as i32);
+    primitive("sfcode", Cmd::DefCode, SF_CODE_BASE as i32);
+    primitive("XeTeXcharclass", Cmd::XetexDefCode, SF_CODE_BASE as i32);
+    primitive("delcode", Cmd::DefCode, DEL_CODE_BASE);
+    primitive("XeTeXdelcodenum", Cmd::XetexDefCode, DEL_CODE_BASE);
+    primitive("Udelcodenum", Cmd::XetexDefCode, DEL_CODE_BASE);
+    primitive("XeTeXdelcode", Cmd::XetexDefCode, DEL_CODE_BASE + 1);
+    primitive("Udelcode", Cmd::XetexDefCode, DEL_CODE_BASE + 1);
 
     primitive(
-        b"textfont",
+        "textfont",
         Cmd::DefFamily,
         MATH_FONT_BASE as i32 + TEXT_SIZE as i32,
     );
     primitive(
-        b"scriptfont",
+        "scriptfont",
         Cmd::DefFamily,
         MATH_FONT_BASE as i32 + SCRIPT_SIZE as i32,
     );
     primitive(
-        b"scriptscriptfont",
+        "scriptscriptfont",
         Cmd::DefFamily,
         MATH_FONT_BASE as i32 + SCRIPT_SCRIPT_SIZE as i32,
     );
 
-    primitive(b"hyphenation", Cmd::HyphData, 0);
-    primitive(b"patterns", Cmd::HyphData, 1);
+    primitive("hyphenation", Cmd::HyphData, 0);
+    primitive("patterns", Cmd::HyphData, 1);
 
-    primitive(b"hyphenchar", Cmd::AssignFontInt, 0);
-    primitive(b"skewchar", Cmd::AssignFontInt, 1);
-    primitive(b"lpcode", Cmd::AssignFontInt, 2);
-    primitive(b"rpcode", Cmd::AssignFontInt, 3);
+    primitive("hyphenchar", Cmd::AssignFontInt, 0);
+    primitive("skewchar", Cmd::AssignFontInt, 1);
+    primitive("lpcode", Cmd::AssignFontInt, 2);
+    primitive("rpcode", Cmd::AssignFontInt, 3);
 
-    primitive(b"batchmode", Cmd::SetInteraction, InteractionMode::Batch);
+    primitive("batchmode", Cmd::SetInteraction, InteractionMode::Batch);
+    primitive("nonstopmode", Cmd::SetInteraction, InteractionMode::NonStop);
+    primitive("scrollmode", Cmd::SetInteraction, InteractionMode::Scroll);
     primitive(
-        b"nonstopmode",
-        Cmd::SetInteraction,
-        InteractionMode::NonStop,
-    );
-    primitive(b"scrollmode", Cmd::SetInteraction, InteractionMode::Scroll);
-    primitive(
-        b"errorstopmode",
+        "errorstopmode",
         Cmd::SetInteraction,
         InteractionMode::ErrorStop,
     );
 
-    primitive(b"openin", Cmd::InStream, 1);
-    primitive(b"closein", Cmd::InStream, 0);
-    primitive(b"message", Cmd::Message, 0);
-    primitive(b"errmessage", Cmd::Message, 1);
-    primitive(b"lowercase", Cmd::CaseShift, LC_CODE_BASE as i32);
-    primitive(b"uppercase", Cmd::CaseShift, UC_CODE_BASE as i32);
+    primitive("openin", Cmd::InStream, 1);
+    primitive("closein", Cmd::InStream, 0);
+    primitive("message", Cmd::Message, 0);
+    primitive("errmessage", Cmd::Message, 1);
+    primitive("lowercase", Cmd::CaseShift, LC_CODE_BASE as i32);
+    primitive("uppercase", Cmd::CaseShift, UC_CODE_BASE as i32);
 
-    primitive(b"show", Cmd::XRay, SHOW_CODE);
-    primitive(b"showbox", Cmd::XRay, SHOW_BOX_CODE);
-    primitive(b"showthe", Cmd::XRay, SHOW_THE_CODE);
-    primitive(b"showlists", Cmd::XRay, SHOW_LISTS);
+    primitive("show", Cmd::XRay, SHOW_CODE);
+    primitive("showbox", Cmd::XRay, SHOW_BOX_CODE);
+    primitive("showthe", Cmd::XRay, SHOW_THE_CODE);
+    primitive("showlists", Cmd::XRay, SHOW_LISTS);
 
-    primitive(b"openout", Cmd::Extension, WhatsItNST::Open as i32);
-    primitive(b"write", Cmd::Extension, WhatsItNST::Write as i32);
+    primitive("openout", Cmd::Extension, WhatsItNST::Open as i32);
+    primitive("write", Cmd::Extension, WhatsItNST::Write as i32);
     write_loc = cur_val;
-    primitive(b"closeout", Cmd::Extension, WhatsItNST::Close as i32);
-    primitive(b"special", Cmd::Extension, WhatsItNST::Special as i32);
-    (*hash.offset(FROZEN_SPECIAL as isize)).s1 = maketexstring(b"special");
+    primitive("closeout", Cmd::Extension, WhatsItNST::Close as i32);
+    primitive("special", Cmd::Extension, WhatsItNST::Special as i32);
+    (*hash.offset(FROZEN_SPECIAL as isize)).s1 = maketexstring("special");
     EQTB[FROZEN_SPECIAL] = EQTB[cur_val as usize];
-    primitive(b"immediate", Cmd::Extension, IMMEDIATE_CODE as i32);
-    primitive(b"setlanguage", Cmd::Extension, SET_LANGUAGE_CODE as i32);
+    primitive("immediate", Cmd::Extension, IMMEDIATE_CODE as i32);
+    primitive("setlanguage", Cmd::Extension, SET_LANGUAGE_CODE as i32);
 
     primitive(
-        b"synctex",
+        "synctex",
         Cmd::AssignInt,
         INT_BASE + IntPar::synctex as usize,
     );
@@ -5247,9 +5236,9 @@ pub(crate) unsafe fn tt_run_engine(
     log_opened = false;
 
     if semantic_pagination_enabled {
-        output_file_extension = b".spx\x00" as *const u8 as *const i8
+        output_file_extension = ".spx".to_string();
     } else {
-        output_file_extension = b".xdv\x00" as *const u8 as *const i8
+        output_file_extension = ".xdv".to_string();
     }
 
     INPUT_PTR = 0;
@@ -5289,436 +5278,436 @@ pub(crate) unsafe fn tt_run_engine(
     if in_initex_mode {
         no_new_control_sequence = false;
 
-        primitive(b"XeTeXpicfile", Cmd::Extension, PIC_FILE_CODE as i32);
-        primitive(b"XeTeXpdffile", Cmd::Extension, PDF_FILE_CODE as i32);
-        primitive(b"XeTeXglyph", Cmd::Extension, GLYPH_CODE as i32);
+        primitive("XeTeXpicfile", Cmd::Extension, PIC_FILE_CODE as i32);
+        primitive("XeTeXpdffile", Cmd::Extension, PDF_FILE_CODE as i32);
+        primitive("XeTeXglyph", Cmd::Extension, GLYPH_CODE as i32);
         primitive(
-            b"XeTeXlinebreaklocale",
+            "XeTeXlinebreaklocale",
             Cmd::Extension,
             XETEX_LINEBREAK_LOCALE_EXTENSION_CODE as i32,
         );
         primitive(
-            b"pdfsavepos",
+            "pdfsavepos",
             Cmd::Extension,
             PDFTEX_FIRST_EXTENSION_CODE as i32 + 0,
         );
 
-        primitive(b"lastnodetype", Cmd::LastItem, LastItemCode::LastNodeType);
-        primitive(b"eTeXversion", Cmd::LastItem, LastItemCode::EtexVersion);
+        primitive("lastnodetype", Cmd::LastItem, LastItemCode::LastNodeType);
+        primitive("eTeXversion", Cmd::LastItem, LastItemCode::EtexVersion);
 
-        primitive(b"eTeXrevision", Cmd::Convert, ConvertCode::EtexRevision);
+        primitive("eTeXrevision", Cmd::Convert, ConvertCode::EtexRevision);
 
-        primitive(b"XeTeXversion", Cmd::LastItem, LastItemCode::XetexVersion);
+        primitive("XeTeXversion", Cmd::LastItem, LastItemCode::XetexVersion);
 
-        primitive(b"XeTeXrevision", Cmd::Convert, ConvertCode::XetexRevision);
+        primitive("XeTeXrevision", Cmd::Convert, ConvertCode::XetexRevision);
 
         primitive(
-            b"XeTeXcountglyphs",
+            "XeTeXcountglyphs",
             Cmd::LastItem,
             LastItemCode::XetexCountGlyphs,
         );
         primitive(
-            b"XeTeXcountvariations",
+            "XeTeXcountvariations",
             Cmd::LastItem,
             LastItemCode::XetexCountVariations,
         );
         primitive(
-            b"XeTeXvariation",
+            "XeTeXvariation",
             Cmd::LastItem,
             LastItemCode::XetexVariation,
         );
         primitive(
-            b"XeTeXfindvariationbyname",
+            "XeTeXfindvariationbyname",
             Cmd::LastItem,
             LastItemCode::XetexFindVariationByName,
         );
         primitive(
-            b"XeTeXvariationmin",
+            "XeTeXvariationmin",
             Cmd::LastItem,
             LastItemCode::XetexVariationMin,
         );
         primitive(
-            b"XeTeXvariationmax",
+            "XeTeXvariationmax",
             Cmd::LastItem,
             LastItemCode::XetexVariationMax,
         );
         primitive(
-            b"XeTeXvariationdefault",
+            "XeTeXvariationdefault",
             Cmd::LastItem,
             LastItemCode::XetexVariationDefault,
         );
         primitive(
-            b"XeTeXcountfeatures",
+            "XeTeXcountfeatures",
             Cmd::LastItem,
             LastItemCode::XetexCountFeatures,
         );
         primitive(
-            b"XeTeXfeaturecode",
+            "XeTeXfeaturecode",
             Cmd::LastItem,
             LastItemCode::XetexFeatureCode,
         );
         primitive(
-            b"XeTeXfindfeaturebyname",
+            "XeTeXfindfeaturebyname",
             Cmd::LastItem,
             LastItemCode::XetexFindFeatureByName,
         );
         primitive(
-            b"XeTeXisexclusivefeature",
+            "XeTeXisexclusivefeature",
             Cmd::LastItem,
             LastItemCode::XetexIsExclusiveFeature,
         );
         primitive(
-            b"XeTeXcountselectors",
+            "XeTeXcountselectors",
             Cmd::LastItem,
             LastItemCode::XetexCountSelectors,
         );
         primitive(
-            b"XeTeXselectorcode",
+            "XeTeXselectorcode",
             Cmd::LastItem,
             LastItemCode::XetexSelectorCode,
         );
         primitive(
-            b"XeTeXfindselectorbyname",
+            "XeTeXfindselectorbyname",
             Cmd::LastItem,
             LastItemCode::XetexFindSelectorByName,
         );
         primitive(
-            b"XeTeXisdefaultselector",
+            "XeTeXisdefaultselector",
             Cmd::LastItem,
             LastItemCode::XetexIsDefaultSelector,
         );
 
         primitive(
-            b"XeTeXvariationname",
+            "XeTeXvariationname",
             Cmd::Convert,
             ConvertCode::XetexVariationName,
         );
         primitive(
-            b"XeTeXfeaturename",
+            "XeTeXfeaturename",
             Cmd::Convert,
             ConvertCode::XetexFeatureName,
         );
         primitive(
-            b"XeTeXselectorname",
+            "XeTeXselectorname",
             Cmd::Convert,
             ConvertCode::XetexSelectorName,
         );
 
         primitive(
-            b"XeTeXOTcountscripts",
+            "XeTeXOTcountscripts",
             Cmd::LastItem,
             LastItemCode::XetexOTCountScripts,
         );
         primitive(
-            b"XeTeXOTcountlanguages",
+            "XeTeXOTcountlanguages",
             Cmd::LastItem,
             LastItemCode::XetexOTCountLanguages,
         );
         primitive(
-            b"XeTeXOTcountfeatures",
+            "XeTeXOTcountfeatures",
             Cmd::LastItem,
             LastItemCode::XetexOTCountFeatures,
         );
         primitive(
-            b"XeTeXOTscripttag",
+            "XeTeXOTscripttag",
             Cmd::LastItem,
             LastItemCode::XetexOTScript,
         );
         primitive(
-            b"XeTeXOTlanguagetag",
+            "XeTeXOTlanguagetag",
             Cmd::LastItem,
             LastItemCode::XetexOTLanguage,
         );
         primitive(
-            b"XeTeXOTfeaturetag",
+            "XeTeXOTfeaturetag",
             Cmd::LastItem,
             LastItemCode::XetexOTFeature,
         );
         primitive(
-            b"XeTeXcharglyph",
+            "XeTeXcharglyph",
             Cmd::LastItem,
             LastItemCode::XetexMapCharToGlyph,
         );
         primitive(
-            b"XeTeXglyphindex",
+            "XeTeXglyphindex",
             Cmd::LastItem,
             LastItemCode::XetexGlyphIndex,
         );
         primitive(
-            b"XeTeXglyphbounds",
+            "XeTeXglyphbounds",
             Cmd::LastItem,
             LastItemCode::XetexGlyphBounds,
         );
 
-        primitive(b"XeTeXglyphname", Cmd::Convert, ConvertCode::XetexGlyphName);
+        primitive("XeTeXglyphname", Cmd::Convert, ConvertCode::XetexGlyphName);
 
-        primitive(b"XeTeXfonttype", Cmd::LastItem, LastItemCode::XetexFontType);
+        primitive("XeTeXfonttype", Cmd::LastItem, LastItemCode::XetexFontType);
         primitive(
-            b"XeTeXfirstfontchar",
+            "XeTeXfirstfontchar",
             Cmd::LastItem,
             LastItemCode::XetexFirstChar,
         );
         primitive(
-            b"XeTeXlastfontchar",
+            "XeTeXlastfontchar",
             Cmd::LastItem,
             LastItemCode::XetexLastChar,
         );
-        primitive(b"pdflastxpos", Cmd::LastItem, LastItemCode::PdfLastXPos);
-        primitive(b"pdflastypos", Cmd::LastItem, LastItemCode::PdfLastYPos);
+        primitive("pdflastxpos", Cmd::LastItem, LastItemCode::PdfLastXPos);
+        primitive("pdflastypos", Cmd::LastItem, LastItemCode::PdfLastYPos);
 
-        primitive(b"strcmp", Cmd::Convert, ConvertCode::PdfStrcmp);
-        primitive(b"mdfivesum", Cmd::Convert, ConvertCode::PdfMdfiveSum);
-        primitive(b"pdfmdfivesum", Cmd::Convert, ConvertCode::PdfMdfiveSum);
+        primitive("strcmp", Cmd::Convert, ConvertCode::PdfStrcmp);
+        primitive("mdfivesum", Cmd::Convert, ConvertCode::PdfMdfiveSum);
+        primitive("pdfmdfivesum", Cmd::Convert, ConvertCode::PdfMdfiveSum);
 
-        primitive(b"shellescape", Cmd::LastItem, LastItemCode::PdfShellEscape);
+        primitive("shellescape", Cmd::LastItem, LastItemCode::PdfShellEscape);
         primitive(
-            b"XeTeXpdfpagecount",
+            "XeTeXpdfpagecount",
             Cmd::LastItem,
             LastItemCode::XetexPdfPageCount,
         );
 
         primitive(
-            b"tracingassigns",
+            "tracingassigns",
             Cmd::AssignInt,
             INT_BASE + IntPar::tracing_assigns as usize,
         );
         primitive(
-            b"tracinggroups",
+            "tracinggroups",
             Cmd::AssignInt,
             INT_BASE + IntPar::tracing_groups as usize,
         );
         primitive(
-            b"tracingifs",
+            "tracingifs",
             Cmd::AssignInt,
             INT_BASE + IntPar::tracing_ifs as usize,
         );
         primitive(
-            b"tracingscantokens",
+            "tracingscantokens",
             Cmd::AssignInt,
             INT_BASE + IntPar::tracing_scan_tokens as usize,
         );
         primitive(
-            b"tracingnesting",
+            "tracingnesting",
             Cmd::AssignInt,
             INT_BASE + IntPar::tracing_nesting as usize,
         );
         primitive(
-            b"predisplaydirection",
+            "predisplaydirection",
             Cmd::AssignInt,
             INT_BASE + IntPar::pre_display_correction as usize,
         );
         primitive(
-            b"lastlinefit",
+            "lastlinefit",
             Cmd::AssignInt,
             INT_BASE + IntPar::last_line_fit as usize,
         );
         primitive(
-            b"savingvdiscards",
+            "savingvdiscards",
             Cmd::AssignInt,
             INT_BASE + IntPar::saving_vdiscards as usize,
         );
         primitive(
-            b"savinghyphcodes",
+            "savinghyphcodes",
             Cmd::AssignInt,
             INT_BASE + IntPar::saving_hyphs as usize,
         );
 
         primitive(
-            b"currentgrouplevel",
+            "currentgrouplevel",
             Cmd::LastItem,
             LastItemCode::CurrentGroupLevel,
         );
         primitive(
-            b"currentgrouptype",
+            "currentgrouptype",
             Cmd::LastItem,
             LastItemCode::CurrentGroupType,
         );
         primitive(
-            b"currentiflevel",
+            "currentiflevel",
             Cmd::LastItem,
             LastItemCode::CurrentIfLevel,
         );
-        primitive(b"currentiftype", Cmd::LastItem, LastItemCode::CurrentIfType);
+        primitive("currentiftype", Cmd::LastItem, LastItemCode::CurrentIfType);
         primitive(
-            b"currentifbranch",
+            "currentifbranch",
             Cmd::LastItem,
             LastItemCode::CurrentIfBranch,
         );
-        primitive(b"fontcharwd", Cmd::LastItem, LastItemCode::FontCharWd);
-        primitive(b"fontcharht", Cmd::LastItem, LastItemCode::FontCharHt);
-        primitive(b"fontchardp", Cmd::LastItem, LastItemCode::FontCharDp);
-        primitive(b"fontcharic", Cmd::LastItem, LastItemCode::FontCharIc);
+        primitive("fontcharwd", Cmd::LastItem, LastItemCode::FontCharWd);
+        primitive("fontcharht", Cmd::LastItem, LastItemCode::FontCharHt);
+        primitive("fontchardp", Cmd::LastItem, LastItemCode::FontCharDp);
+        primitive("fontcharic", Cmd::LastItem, LastItemCode::FontCharIc);
         primitive(
-            b"parshapelength",
+            "parshapelength",
             Cmd::LastItem,
             LastItemCode::ParShapeLength,
         );
         primitive(
-            b"parshapeindent",
+            "parshapeindent",
             Cmd::LastItem,
             LastItemCode::ParShapeIndent,
         );
-        primitive(b"parshapedimen", Cmd::LastItem, LastItemCode::ParShapeDimen);
+        primitive("parshapedimen", Cmd::LastItem, LastItemCode::ParShapeDimen);
 
-        primitive(b"showgroups", Cmd::XRay, SHOW_GROUPS);
-        primitive(b"showtokens", Cmd::XRay, SHOW_TOKENS);
+        primitive("showgroups", Cmd::XRay, SHOW_GROUPS);
+        primitive("showtokens", Cmd::XRay, SHOW_TOKENS);
 
-        primitive(b"unexpanded", Cmd::The, 1);
-        primitive(b"detokenize", Cmd::The, SHOW_TOKENS);
+        primitive("unexpanded", Cmd::The, 1);
+        primitive("detokenize", Cmd::The, SHOW_TOKENS);
 
-        primitive(b"showifs", Cmd::XRay, SHOW_IFS);
+        primitive("showifs", Cmd::XRay, SHOW_IFS);
 
-        primitive(b"interactionmode", Cmd::SetPageInt, 2);
+        primitive("interactionmode", Cmd::SetPageInt, 2);
 
-        primitive(b"middle", Cmd::LeftRight, 1);
+        primitive("middle", Cmd::LeftRight, 1);
 
         primitive(
-            b"suppressfontnotfounderror",
+            "suppressfontnotfounderror",
             Cmd::AssignInt,
             INT_BASE + IntPar::suppress_fontnotfound_error as usize,
         );
 
         primitive(
-            b"TeXXeTstate",
+            "TeXXeTstate",
             Cmd::AssignInt,
             INT_BASE + IntPar::texxet as usize,
         );
         primitive(
-            b"XeTeXupwardsmode",
+            "XeTeXupwardsmode",
             Cmd::AssignInt,
             INT_BASE + IntPar::xetex_upwards as usize,
         );
         primitive(
-            b"XeTeXuseglyphmetrics",
+            "XeTeXuseglyphmetrics",
             Cmd::AssignInt,
             INT_BASE + IntPar::xetex_use_glyph_metrics as usize,
         );
         primitive(
-            b"XeTeXinterchartokenstate",
+            "XeTeXinterchartokenstate",
             Cmd::AssignInt,
             INT_BASE + IntPar::xetex_inter_char_tokens as usize,
         );
         primitive(
-            b"XeTeXdashbreakstate",
+            "XeTeXdashbreakstate",
             Cmd::AssignInt,
             INT_BASE + IntPar::xetex_dash_break as usize,
         );
         primitive(
-            b"XeTeXinputnormalization",
+            "XeTeXinputnormalization",
             Cmd::AssignInt,
             INT_BASE + IntPar::xetex_input_normalization as usize,
         );
         primitive(
-            b"XeTeXtracingfonts",
+            "XeTeXtracingfonts",
             Cmd::AssignInt,
             INT_BASE + IntPar::xetex_tracing_fonts as usize,
         );
         primitive(
-            b"XeTeXinterwordspaceshaping",
+            "XeTeXinterwordspaceshaping",
             Cmd::AssignInt,
             INT_BASE + IntPar::xetex_interword_space_shaping as usize,
         );
         primitive(
-            b"XeTeXgenerateactualtext",
+            "XeTeXgenerateactualtext",
             Cmd::AssignInt,
             INT_BASE + IntPar::xetex_generate_actual_text as usize,
         );
         primitive(
-            b"XeTeXhyphenatablelength",
+            "XeTeXhyphenatablelength",
             Cmd::AssignInt,
             INT_BASE + IntPar::xetex_hyphenatable_length as usize,
         );
         primitive(
-            b"pdfoutput",
+            "pdfoutput",
             Cmd::AssignInt,
             INT_BASE + IntPar::pdfoutput as usize,
         );
 
         primitive(
-            b"XeTeXinputencoding",
+            "XeTeXinputencoding",
             Cmd::Extension,
             XETEX_INPUT_ENCODING_EXTENSION_CODE as usize,
         );
         primitive(
-            b"XeTeXdefaultencoding",
+            "XeTeXdefaultencoding",
             Cmd::Extension,
             XETEX_DEFAULT_ENCODING_EXTENSION_CODE as usize,
         );
 
         primitive(
-            b"beginL",
+            "beginL",
             Cmd::VAlign,
             u16::from(MathType::Eq(BE::Begin, MathMode::Left)),
         );
         primitive(
-            b"endL",
+            "endL",
             Cmd::VAlign,
             u16::from(MathType::Eq(BE::End, MathMode::Left)),
         );
         primitive(
-            b"beginR",
+            "beginR",
             Cmd::VAlign,
             u16::from(MathType::Eq(BE::Begin, MathMode::Right)),
         );
         primitive(
-            b"endR",
+            "endR",
             Cmd::VAlign,
             u16::from(MathType::Eq(BE::End, MathMode::Right)),
         );
 
-        primitive(b"scantokens", Cmd::Input, 2);
-        primitive(b"readline", Cmd::ReadToCS, 1);
-        primitive(b"unless", Cmd::ExpandAfter, 1);
+        primitive("scantokens", Cmd::Input, 2);
+        primitive("readline", Cmd::ReadToCS, 1);
+        primitive("unless", Cmd::ExpandAfter, 1);
 
-        primitive(b"ifdefined", Cmd::IfTest, IfTestCode::IfDef);
-        primitive(b"ifcsname", Cmd::IfTest, IfTestCode::IfCS);
-        primitive(b"iffontchar", Cmd::IfTest, IfTestCode::IfFontChar);
-        primitive(b"ifincsname", Cmd::IfTest, IfTestCode::IfInCSName);
+        primitive("ifdefined", Cmd::IfTest, IfTestCode::IfDef);
+        primitive("ifcsname", Cmd::IfTest, IfTestCode::IfCS);
+        primitive("iffontchar", Cmd::IfTest, IfTestCode::IfFontChar);
+        primitive("ifincsname", Cmd::IfTest, IfTestCode::IfInCSName);
 
-        primitive(b"protected", Cmd::Prefix, 8);
+        primitive("protected", Cmd::Prefix, 8);
 
-        primitive(b"numexpr", Cmd::LastItem, LastItemCode::EtexExprInt);
-        primitive(b"dimexpr", Cmd::LastItem, LastItemCode::EtexExprDimen);
-        primitive(b"glueexpr", Cmd::LastItem, LastItemCode::EtexExprGlue);
-        primitive(b"muexpr", Cmd::LastItem, LastItemCode::EtexExprMu);
+        primitive("numexpr", Cmd::LastItem, LastItemCode::EtexExprInt);
+        primitive("dimexpr", Cmd::LastItem, LastItemCode::EtexExprDimen);
+        primitive("glueexpr", Cmd::LastItem, LastItemCode::EtexExprGlue);
+        primitive("muexpr", Cmd::LastItem, LastItemCode::EtexExprMu);
         primitive(
-            b"gluestretchorder",
+            "gluestretchorder",
             Cmd::LastItem,
             LastItemCode::GlueStretchOrder,
         );
         primitive(
-            b"glueshrinkorder",
+            "glueshrinkorder",
             Cmd::LastItem,
             LastItemCode::GlueShrinkOrder,
         );
-        primitive(b"gluestretch", Cmd::LastItem, LastItemCode::GlueStretch);
-        primitive(b"glueshrink", Cmd::LastItem, LastItemCode::GlueShrink);
-        primitive(b"mutoglue", Cmd::LastItem, LastItemCode::MuToGlue);
-        primitive(b"gluetomu", Cmd::LastItem, LastItemCode::GlueToMu);
+        primitive("gluestretch", Cmd::LastItem, LastItemCode::GlueStretch);
+        primitive("glueshrink", Cmd::LastItem, LastItemCode::GlueShrink);
+        primitive("mutoglue", Cmd::LastItem, LastItemCode::MuToGlue);
+        primitive("gluetomu", Cmd::LastItem, LastItemCode::GlueToMu);
 
-        primitive(b"marks", Cmd::Mark, 5);
-        primitive(b"topmarks", Cmd::TopBotMark, TOP_MARK_CODE + 5);
-        primitive(b"firstmarks", Cmd::TopBotMark, FIRST_MARK_CODE + 5);
-        primitive(b"botmarks", Cmd::TopBotMark, BOT_MARK_CODE + 5);
+        primitive("marks", Cmd::Mark, 5);
+        primitive("topmarks", Cmd::TopBotMark, TOP_MARK_CODE + 5);
+        primitive("firstmarks", Cmd::TopBotMark, FIRST_MARK_CODE + 5);
+        primitive("botmarks", Cmd::TopBotMark, BOT_MARK_CODE + 5);
         primitive(
-            b"splitfirstmarks",
+            "splitfirstmarks",
             Cmd::TopBotMark,
             SPLIT_FIRST_MARK_CODE + 5,
         );
-        primitive(b"splitbotmarks", Cmd::TopBotMark, SPLIT_BOT_MARK_CODE + 5);
+        primitive("splitbotmarks", Cmd::TopBotMark, SPLIT_BOT_MARK_CODE + 5);
 
-        primitive(b"pagediscards", Cmd::UnVBox, BoxCode::LastBox);
-        primitive(b"splitdiscards", Cmd::UnVBox, BoxCode::VSplit);
+        primitive("pagediscards", Cmd::UnVBox, BoxCode::LastBox);
+        primitive("splitdiscards", Cmd::UnVBox, BoxCode::VSplit);
 
         primitive(
-            b"interlinepenalties",
+            "interlinepenalties",
             Cmd::SetShape,
             INTER_LINE_PENALTIES_LOC as i32,
         );
-        primitive(b"clubpenalties", Cmd::SetShape, CLUB_PENALTIES_LOC as i32);
-        primitive(b"widowpenalties", Cmd::SetShape, WIDOW_PENALTIES_LOC as i32);
+        primitive("clubpenalties", Cmd::SetShape, CLUB_PENALTIES_LOC as i32);
+        primitive("widowpenalties", Cmd::SetShape, WIDOW_PENALTIES_LOC as i32);
         primitive(
-            b"displaywidowpenalties",
+            "displaywidowpenalties",
             Cmd::SetShape,
             DISPLAY_WIDOW_PENALTIES_LOC as i32,
         );
@@ -5797,7 +5786,7 @@ pub(crate) unsafe fn tt_run_engine(
         PARAM_BASE = vec![0; FONT_MAX + 1];
         FONT_PTR = 0;
         fmem_ptr = 7;
-        FONT_NAME[0] = maketexstring(b"nullfont");
+        FONT_NAME[0] = maketexstring("nullfont");
         FONT_AREA[0] = EMPTY_STRING;
         HYPHEN_CHAR[0] = '-' as i32;
         SKEW_CHAR[0] = -1;

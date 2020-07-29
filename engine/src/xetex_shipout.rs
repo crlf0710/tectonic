@@ -1,5 +1,5 @@
 use bridge::abort;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::io::Write;
 
 use crate::help;
@@ -197,7 +197,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
             if job_name == 0 {
                 open_log_file();
             }
-            pack_job_name(CStr::from_ptr(output_file_extension).to_bytes());
+            pack_job_name(&output_file_extension);
             dvi_file = ttstub_output_open(CString::new(name_of_file.as_str()).unwrap().as_ptr(), 0);
             if dvi_file.is_none() {
                 abort!("cannot open output file \"{}\"", name_of_file);
@@ -1789,7 +1789,7 @@ pub(crate) unsafe fn out_what(p: usize) {
             cur_area = p.area();
             cur_ext = p.ext();
             if length(cur_ext) == 0 {
-                cur_ext = maketexstring(b".tex")
+                cur_ext = maketexstring(".tex")
             }
 
             pack_file_name(cur_name, cur_area, cur_ext);

@@ -268,7 +268,7 @@ pub(crate) unsafe fn get_encoding_mode_and_info(mut info: *mut i32) -> UnicodeMo
         UnicodeMode::Raw
     } else {
         icu::ucnv_close(cnv);
-        *info = maketexstring(name_of_file.as_bytes());
+        *info = maketexstring(&name_of_file);
         UnicodeMode::ICUMapping
     };
     result
