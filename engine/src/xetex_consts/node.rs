@@ -220,9 +220,20 @@ pub(crate) mod whatsit {
 
     #[derive(Clone, Debug)]
     pub(crate) struct OpenFile(pub usize);
+    impl NodeSize for OpenFile {
+        const SIZE: i32 = super::OPEN_NODE_SIZE;
+    }
     impl OpenFile {
+        pub(crate) const NODE: u16 = 8;
+        pub(crate) const WHATS_IT: u16 = 0;
         pub(crate) const fn ptr(&self) -> usize {
             self.0
+        }
+        pub(crate) unsafe fn new_node() -> Self {
+            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            MEM[p].b16.s1 = Self::NODE;
+            MEM[p].b16.s0 = Self::WHATS_IT;
+            Self(p)
         }
         pub(crate) unsafe fn id(&self) -> i32 {
             MEM[self.ptr() + 1].b32.s0
@@ -253,15 +264,26 @@ pub(crate) mod whatsit {
             self
         }
         pub(crate) unsafe fn free(self) {
-            free_node(self.ptr(), super::OPEN_NODE_SIZE);
+            free_node(self.ptr(), Self::SIZE);
         }
     }
 
     #[derive(Clone, Debug)]
     pub(crate) struct WriteFile(pub usize);
+    impl NodeSize for WriteFile {
+        const SIZE: i32 = super::WRITE_NODE_SIZE;
+    }
     impl WriteFile {
+        pub(crate) const NODE: u16 = 8;
+        pub(crate) const WHATS_IT: u16 = 1;
         pub(crate) const fn ptr(&self) -> usize {
             self.0
+        }
+        pub(crate) unsafe fn new_node() -> Self {
+            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            MEM[p].b16.s1 = Self::NODE;
+            MEM[p].b16.s0 = Self::WHATS_IT;
+            Self(p)
         }
         pub(crate) unsafe fn id(&self) -> i32 {
             MEM[self.ptr() + 1].b32.s0
@@ -279,15 +301,26 @@ pub(crate) mod whatsit {
             self
         }
         pub(crate) unsafe fn free(self) {
-            free_node(self.ptr(), super::WRITE_NODE_SIZE);
+            free_node(self.ptr(), Self::SIZE);
         }
     }
 
     #[derive(Clone, Debug)]
     pub(crate) struct CloseFile(pub usize);
+    impl NodeSize for CloseFile {
+        const SIZE: i32 = super::WRITE_NODE_SIZE;
+    }
     impl CloseFile {
+        pub(crate) const NODE: u16 = 8;
+        pub(crate) const WHATS_IT: u16 = 2;
         pub(crate) const fn ptr(&self) -> usize {
             self.0
+        }
+        pub(crate) unsafe fn new_node() -> Self {
+            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            MEM[p].b16.s1 = Self::NODE;
+            MEM[p].b16.s0 = Self::WHATS_IT;
+            Self(p)
         }
         pub(crate) unsafe fn id(&self) -> i32 {
             MEM[self.ptr() + 1].b32.s0
@@ -297,15 +330,26 @@ pub(crate) mod whatsit {
             self
         }
         pub(crate) unsafe fn free(self) {
-            free_node(self.ptr(), super::SMALL_NODE_SIZE);
+            free_node(self.ptr(), Self::SIZE);
         }
     }
 
     #[derive(Clone, Debug)]
     pub(crate) struct Language(pub usize);
+    impl NodeSize for Language {
+        const SIZE: i32 = super::SMALL_NODE_SIZE;
+    }
     impl Language {
+        pub(crate) const NODE: u16 = 8;
+        pub(crate) const WHATS_IT: u16 = 4;
         pub(crate) const fn ptr(&self) -> usize {
             self.0
+        }
+        pub(crate) unsafe fn new_node() -> Self {
+            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            MEM[p].b16.s1 = Self::NODE;
+            MEM[p].b16.s0 = Self::WHATS_IT;
+            Self(p)
         }
         /// language number, 0..255
         pub(crate) unsafe fn lang(&self) -> i32 {
@@ -332,15 +376,26 @@ pub(crate) mod whatsit {
             self
         }
         pub(crate) unsafe fn free(self) {
-            free_node(self.ptr(), super::SMALL_NODE_SIZE);
+            free_node(self.ptr(), Self::SIZE);
         }
     }
 
     #[derive(Clone, Debug)]
     pub(crate) struct Special(pub usize);
+    impl NodeSize for Special {
+        const SIZE: i32 = super::WRITE_NODE_SIZE;
+    }
     impl Special {
+        pub(crate) const NODE: u16 = 8;
+        pub(crate) const WHATS_IT: u16 = 3;
         pub(crate) const fn ptr(&self) -> usize {
             self.0
+        }
+        pub(crate) unsafe fn new_node() -> Self {
+            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            MEM[p].b16.s1 = Self::NODE;
+            MEM[p].b16.s0 = Self::WHATS_IT;
+            Self(p)
         }
         pub(crate) unsafe fn tokens(&self) -> i32 {
             MEM[self.ptr() + 1].b32.s1
@@ -350,7 +405,7 @@ pub(crate) mod whatsit {
             self
         }
         pub(crate) unsafe fn free(self) {
-            free_node(self.ptr(), super::WRITE_NODE_SIZE);
+            free_node(self.ptr(), Self::SIZE);
         }
     }
 
@@ -487,8 +542,27 @@ pub(crate) mod whatsit {
     #[derive(Clone, Debug, Deref, DerefMut)]
     pub(crate) struct Picture(BaseBox);
     impl Picture {
+        pub(crate) const NODE: u16 = 8;
+        pub(crate) const WHATS_IT_PIC: u16 = 43;
+        pub(crate) const WHATS_IT_PDF: u16 = 44;
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseBox(p))
+        }
+        pub(crate) unsafe fn new_pic_node(len: usize) -> Self {
+            let mut p = crate::xetex_xetex0::get_node(Self::total_size(len) as i32);
+            MEM[p].b16.s1 = Self::NODE;
+            MEM[p].b16.s0 = Self::WHATS_IT_PIC;
+            let mut n = Self::from(p);
+            n.set_path_len(len);
+            n
+        }
+        pub(crate) unsafe fn new_pdf_node(len: usize) -> Self {
+            let mut p = crate::xetex_xetex0::get_node(Self::total_size(len) as i32);
+            MEM[p].b16.s1 = Self::NODE;
+            MEM[p].b16.s0 = Self::WHATS_IT_PDF;
+            let mut n = Self::from(p);
+            n.set_path_len(len);
+            n
         }
         pub(crate) unsafe fn is_pdf(&self) -> bool {
             match MEM[self.ptr()].b16.s0 {
@@ -508,11 +582,11 @@ pub(crate) mod whatsit {
             self
         }
         /// number of bytes in the path item
-        pub(crate) unsafe fn path_len(&self) -> u16 {
-            MEM[self.ptr() + 4].b16.s1
+        pub(crate) unsafe fn path_len(&self) -> usize {
+            MEM[self.ptr() + 4].b16.s1 as usize
         }
-        pub(crate) unsafe fn set_path_len(&mut self, v: u16) -> &mut Self {
-            MEM[self.ptr() + 4].b16.s1 = v;
+        unsafe fn set_path_len(&mut self, v: usize) -> &mut Self {
+            MEM[self.ptr() + 4].b16.s1 = v as u16;
             self
         }
         pub(crate) unsafe fn transform_matrix(&self) -> [i32; 6] {
@@ -536,23 +610,23 @@ pub(crate) mod whatsit {
             self
         }
         pub(crate) unsafe fn path(&self) -> &[u8] {
-            let len = self.path_len() as usize;
+            let len = self.path_len();
             let pp = &MEM[self.ptr() + super::PIC_NODE_SIZE as usize]
                 as *const crate::xetex_ini::memory_word as *const u8;
             std::slice::from_raw_parts(pp, len)
         }
         pub(crate) unsafe fn path_mut(&mut self) -> &mut [u8] {
-            let len = self.path_len() as usize;
+            let len = self.path_len();
             let pp = &mut MEM[self.ptr() + super::PIC_NODE_SIZE as usize]
                 as *mut crate::xetex_ini::memory_word as *mut u8;
             std::slice::from_raw_parts_mut(pp, len)
         }
-        pub(crate) unsafe fn total_size(&self) -> usize {
+        pub(crate) unsafe fn total_size(len: usize) -> usize {
             let mw_size = std::mem::size_of::<crate::xetex_ini::memory_word>();
-            (super::PIC_NODE_SIZE as usize) + ((self.path_len() as usize) + mw_size - 1) / mw_size
+            (super::PIC_NODE_SIZE as usize) + (len + mw_size - 1) / mw_size
         }
         pub(crate) unsafe fn free(self) {
-            free_node(self.ptr(), self.total_size() as i32);
+            free_node(self.ptr(), Self::total_size(self.path_len()) as i32);
         }
     }
 
@@ -562,8 +636,16 @@ pub(crate) mod whatsit {
         const SIZE: i32 = super::SMALL_NODE_SIZE;
     }
     impl PdfSavePos {
+        pub(crate) const NODE: u16 = 8;
+        pub(crate) const WHATS_IT: u16 = 6;
         pub(crate) const fn ptr(&self) -> usize {
             self.0
+        }
+        pub(crate) unsafe fn new_node() -> Self {
+            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            MEM[p].b16.s1 = Self::NODE;
+            MEM[p].b16.s0 = Self::WHATS_IT;
+            Self(p)
         }
         pub(crate) unsafe fn free(self) {
             free_node(self.ptr(), Self::SIZE);
@@ -630,8 +712,14 @@ impl NodeSize for Insertion {
     const SIZE: i32 = INS_NODE_SIZE;
 }
 impl Insertion {
+    pub(crate) const NODE: u16 = 3;
     pub(crate) const fn ptr(&self) -> usize {
         self.0
+    }
+    pub(crate) unsafe fn new_node() -> Self {
+        let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+        MEM[p].b16.s1 = Self::NODE;
+        Self(p)
     }
     pub(crate) unsafe fn box_reg(&self) -> u16 {
         MEM[self.ptr()].b16.s0
@@ -1208,8 +1296,14 @@ impl NodeSize for Adjust {
     const SIZE: i32 = SMALL_NODE_SIZE;
 }
 impl Adjust {
+    pub(crate) const NODE: u16 = 5;
     pub(crate) const fn ptr(&self) -> usize {
         self.0
+    }
+    pub(crate) unsafe fn new_node() -> Self {
+        let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+        MEM[p].b16.s1 = Self::NODE;
+        Self(p)
     }
     pub(crate) unsafe fn subtype(&self) -> AdjustType {
         let n = MEM[self.ptr()].b16.s0;

@@ -32,8 +32,8 @@ use crate::xetex_xetex0::{
     prev_rightmost,
 };
 use crate::xetex_xetexd::{
-    clear_NODE_subtype, is_char_node, llist_link, set_NODE_type, LLIST_info, LLIST_link, NODE_type,
-    TeXInt, TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
+    clear_NODE_subtype, is_char_node, llist_link, set_NODE_type, LLIST_info, LLIST_link, TeXInt,
+    TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
 
 pub(crate) type scaled_t = i32;
@@ -127,18 +127,23 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     /* Remove trailing space or glue if present; add infinite penalty then par_fill_skip */
 
-    if is_char_node(Some(cur_list.tail)) {
-        /* is_char_node */
-        *LLIST_link(cur_list.tail) = new_penalty(INF_PENALTY) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-    } else if NODE_type(cur_list.tail) != TextNode::Glue.into() {
-        *LLIST_link(cur_list.tail) = new_penalty(INF_PENALTY) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
-    } else {
-        set_NODE_type(cur_list.tail, TextNode::Penalty);
-        delete_glue_ref(Glue(cur_list.tail).glue_ptr() as usize);
-        flush_node_list(Glue(cur_list.tail).leader_ptr().opt());
-        Penalty(cur_list.tail).set_penalty(INF_PENALTY);
+    match CharOrText::from(cur_list.tail) {
+        CharOrText::Char(_) => {
+            let p = new_penalty(INF_PENALTY);
+            *LLIST_link(cur_list.tail) = Some(p).tex_int();
+            cur_list.tail = p;
+        }
+        CharOrText::Text(TxtNode::Glue(g)) => {
+            set_NODE_type(g.ptr(), TextNode::Penalty);
+            delete_glue_ref(g.glue_ptr() as usize);
+            flush_node_list(g.leader_ptr().opt());
+            Penalty(g.ptr()).set_penalty(INF_PENALTY);
+        }
+        _ => {
+            let p = new_penalty(INF_PENALTY);
+            *LLIST_link(cur_list.tail) = Some(p).tex_int();
+            cur_list.tail = p;
+        }
     }
 
     *LLIST_link(cur_list.tail) = new_param_glue(GluePar::par_fill_skip as _) as i32;

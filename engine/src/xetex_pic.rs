@@ -10,10 +10,9 @@
 
 use crate::core_memory::xstrdup;
 use crate::help;
-use crate::xetex_consts::{Picture, WhatsItNST};
+use crate::xetex_consts::Picture;
 use crate::xetex_errors::error;
 use crate::xetex_ext::{D2Fix, Fix2D};
-use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
     cur_area, cur_ext, cur_list, cur_name, cur_val, file_line_error_style_p, name_of_file,
 };
@@ -21,8 +20,9 @@ use crate::xetex_output::{
     print, print_cstr, print_file_line, print_file_name, print_nl_cstr, print_scaled,
 };
 use crate::xetex_xetex0::{
-    new_whatsit, pack_file_name, scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword,
+    pack_file_name, scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword,
 };
+use crate::xetex_xetexd::{LLIST_link, TeXInt};
 
 use bridge::InputHandleWrapper;
 use bridge::TTInputFormat;
@@ -373,20 +373,14 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
     t = t.post_transform(&t2);
     if result == 0 {
         let len = strlen(pic_path);
-        new_whatsit(
-            WhatsItNST::Pic,
-            (crate::xetex_consts::PIC_NODE_SIZE as usize).wrapping_add(
-                len.wrapping_add(::std::mem::size_of::<memory_word>())
-                    .wrapping_sub(1)
-                    .wrapping_div(::std::mem::size_of::<memory_word>()),
-            ) as i16,
-        );
-        let mut tail_pic = Picture::from(cur_list.tail);
-        if is_pdf {
-            tail_pic.set_pdf();
-        }
+        let mut tail_pic = if is_pdf {
+            Picture::new_pdf_node(len)
+        } else {
+            Picture::new_pic_node(len)
+        };
+        *LLIST_link(cur_list.tail) = Some(tail_pic.ptr()).tex_int();
+        cur_list.tail = tail_pic.ptr();
         tail_pic
-            .set_path_len(len as u16)
             .set_page(page as u16)
             .set_pagebox(pdf_box_type as u16);
         tail_pic

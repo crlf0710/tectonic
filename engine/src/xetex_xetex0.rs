@@ -1478,7 +1478,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                         words = GLYPH_NODE_SIZE as u8
                     }
                     WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                        words = p.total_size() as u8;
+                        words = Picture::total_size(p.path_len()) as u8;
                         r = get_node(words as i32);
                     }
                     WhatsIt::PdfSavePos(_) => r = get_node(SMALL_NODE_SIZE),
@@ -14334,7 +14334,7 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
                             words = GLYPH_NODE_SIZE;
                         }
                         WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                            words = p.total_size() as i32;
+                            words = Picture::total_size(p.path_len()) as i32;
                             r = get_node(words as i32);
                         }
                         WhatsIt::PdfSavePos(_) => r = get_node(SMALL_NODE_SIZE),
@@ -15121,31 +15121,6 @@ pub(crate) unsafe fn show_whatever() {
     }
     common_ending()
 }
-pub(crate) unsafe fn new_open_whatsit() {
-    new_whatsit(WhatsItNST::Open, OPEN_NODE_SIZE as i16);
-    scan_four_bit_int();
-    MEM[cur_list.tail + 1].b32.s0 = cur_val;
-}
-pub(crate) unsafe fn new_write_whatsit() {
-    new_whatsit(WhatsItNST::Write, WRITE_NODE_SIZE as i16);
-    scan_int();
-    if cur_val < 0 {
-        cur_val = 17;
-    } else if cur_val > 15 && cur_val != 18 {
-        cur_val = 16;
-    }
-    MEM[cur_list.tail + 1].b32.s0 = cur_val;
-}
-pub(crate) unsafe fn new_close_whatsit() {
-    new_whatsit(WhatsItNST::Close, WRITE_NODE_SIZE as i16);
-    scan_int();
-    if cur_val < 0 {
-        cur_val = 17;
-    } else if cur_val > 15 && cur_val != 18 {
-        cur_val = 16;
-    }
-    MEM[cur_list.tail + 1].b32.s0 = cur_val;
-}
 pub(crate) unsafe fn scan_and_pack_name() {
     scan_file_name();
     pack_file_name(cur_name, cur_area, cur_ext);
@@ -15156,31 +15131,53 @@ pub(crate) unsafe fn do_extension() {
     match cur_chr as u16 {
         0 => {
             // OpenFile
-            new_open_whatsit();
+            let mut o = OpenFile::new_node();
+            *LLIST_link(cur_list.tail) = Some(o.ptr()).tex_int();
+            cur_list.tail = o.ptr();
+            scan_four_bit_int();
+            o.set_id(cur_val);
             scan_optional_equals();
             scan_file_name();
-            MEM[cur_list.tail + 1].b32.s1 = cur_name;
-            MEM[cur_list.tail + 2].b32.s0 = cur_area;
-            MEM[cur_list.tail + 2].b32.s1 = cur_ext
+            o.set_name(cur_name).set_area(cur_area).set_ext(cur_ext);
         }
         1 => {
             // WriteFile
             let k = cur_cs;
-            new_write_whatsit();
+            let mut w = WriteFile::new_node();
+            *LLIST_link(cur_list.tail) = Some(w.ptr()).tex_int();
+            cur_list.tail = w.ptr();
+            scan_int();
+            if cur_val < 0 {
+                cur_val = 17;
+            } else if cur_val > 15 && cur_val != 18 {
+                cur_val = 16;
+            }
+            w.set_id(cur_val);
             cur_cs = k;
             p = scan_toks(false, false);
-            MEM[cur_list.tail + 1].b32.s1 = def_ref as i32
+            w.set_tokens(def_ref as i32);
         }
         2 => {
             // CloseFile
-            new_close_whatsit();
+            let mut c = CloseFile::new_node();
+            *LLIST_link(cur_list.tail) = Some(c.ptr()).tex_int();
+            cur_list.tail = c.ptr();
+            scan_int();
+            if cur_val < 0 {
+                cur_val = 17;
+            } else if cur_val > 15 && cur_val != 18 {
+                cur_val = 16;
+            }
+            c.set_id(cur_val);
             MEM[cur_list.tail + 1].b32.s1 = None.tex_int()
         }
         3 => {
-            new_whatsit(WhatsItNST::Special, WRITE_NODE_SIZE as i16);
+            let mut s = Special::new_node();
+            *LLIST_link(cur_list.tail) = Some(s.ptr()).tex_int();
+            cur_list.tail = s.ptr();
             MEM[cur_list.tail + 1].b32.s0 = None.tex_int();
             p = scan_toks(false, true);
-            MEM[cur_list.tail + 1].b32.s1 = def_ref as i32;
+            s.set_tokens(def_ref as i32);
         }
         IMMEDIATE_CODE => {
             get_x_token();
@@ -15199,8 +15196,9 @@ pub(crate) unsafe fn do_extension() {
             if cur_list.mode.1 != ListMode::HMode {
                 report_illegal_case();
             } else {
-                new_whatsit(WhatsItNST::Language, SMALL_NODE_SIZE as i16);
-                let mut l = Language(cur_list.tail);
+                let mut l = Language::new_node();
+                *LLIST_link(cur_list.tail) = Some(l.ptr()).tex_int();
+                cur_list.tail = l.ptr();
                 scan_int();
                 cur_list.aux.b32.s1 = if cur_val <= 0 {
                     0
@@ -15299,7 +15297,11 @@ pub(crate) unsafe fn do_extension() {
                 *INTPAR(IntPar::xetex_linebreak_locale) = cur_name;
             }
         }
-        6 => new_whatsit(WhatsItNST::PdfSavePos, SMALL_NODE_SIZE as i16),
+        6 => {
+            let p = PdfSavePos::new_node();
+            *LLIST_link(cur_list.tail) = Some(p.ptr()).tex_int();
+            cur_list.tail = p.ptr();
+        }
         _ => confusion(b"ext1"),
     };
 }
@@ -15312,8 +15314,9 @@ pub(crate) unsafe fn fix_language() {
         *INTPAR(IntPar::language) as UTF16_code
     };
     if l as i32 != cur_list.aux.b32.s1 {
-        new_whatsit(WhatsItNST::Language, SMALL_NODE_SIZE as i16);
-        let mut lang = Language(cur_list.tail);
+        let mut lang = Language::new_node();
+        *LLIST_link(cur_list.tail) = Some(lang.ptr()).tex_int();
+        cur_list.tail = lang.ptr();
         lang.set_lang(l as i32);
         cur_list.aux.b32.s1 = l as i32;
         lang.set_lhm(norm_min(*INTPAR(IntPar::left_hyphen_min)) as u16)
@@ -15340,7 +15343,9 @@ pub(crate) unsafe fn insert_src_special() {
 }
 pub(crate) unsafe fn append_src_special() {
     if SOURCE_FILENAME_STACK[IN_OPEN] > 0 && is_new_source(SOURCE_FILENAME_STACK[IN_OPEN], line) {
-        new_whatsit(WhatsItNST::Special, WRITE_NODE_SIZE as i16);
+        let s = Special::new_node();
+        *LLIST_link(cur_list.tail) = Some(s.ptr()).tex_int();
+        cur_list.tail = s.ptr();
         MEM[cur_list.tail + 1].b32.s0 = 0;
         def_ref = get_avail();
         MEM[def_ref].b32.s0 = None.tex_int();
@@ -15397,22 +15402,19 @@ pub(crate) unsafe fn handle_right_brace() {
             );
             pop_nest();
             if SAVE_STACK[SAVE_PTR + 0].val < 255 {
-                let n = get_node(INS_NODE_SIZE);
-                *LLIST_link(cur_list.tail) = Some(n).tex_int();
-                cur_list.tail = n;
-                set_NODE_type(cur_list.tail, TextNode::Ins);
-                Insertion(cur_list.tail)
-                    .set_box_reg(SAVE_STACK[SAVE_PTR + 0].val as u16)
+                let mut i = Insertion::new_node();
+                *LLIST_link(cur_list.tail) = Some(i.ptr()).tex_int();
+                cur_list.tail = i.ptr();
+                i.set_box_reg(SAVE_STACK[SAVE_PTR + 0].val as u16)
                     .set_height(p.height() + p.depth())
                     .set_ins_ptr(p.list_ptr())
                     .set_split_top_ptr(Some(q).tex_int())
                     .set_depth(d)
                     .set_float_cost(f);
             } else {
-                let n = get_node(SMALL_NODE_SIZE);
-                *LLIST_link(cur_list.tail) = Some(n).tex_int();
-                cur_list.tail = n;
-                set_NODE_type(cur_list.tail, TextNode::Adjust);
+                let a = Adjust::new_node();
+                *LLIST_link(cur_list.tail) = Some(a.ptr()).tex_int();
+                cur_list.tail = a.ptr();
                 MEM[cur_list.tail].b16.s0 = SAVE_STACK[SAVE_PTR + 1].val as u16;
                 MEM[cur_list.tail + 1].b32.s1 = p.list_ptr();
                 delete_glue_ref(q);
@@ -16674,8 +16676,7 @@ pub(crate) unsafe fn main_control() {
                         } {
                             main_p = llist_link(main_p).unwrap();
                         }
-                        if !is_char_node(Some(main_p)) && NODE_type(main_p) == TextNode::Glue.into()
-                        {
+                        if let CharOrText::Text(TxtNode::Glue(_)) = CharOrText::from(main_p) {
                             let mut main_ppp = llist_link(main_p).unwrap();
                             while match CharOrText::from(main_ppp) {
                                 CharOrText::Text(n) => match n {
@@ -17426,24 +17427,34 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
     let mut prev_p = TEMP_HEAD;
     *LLIST_link(TEMP_HEAD) = popt.tex_int();
     while let Some(p) = popt {
-        match TextNode::n(MEM[p].b16.s1).confuse(b"pruning") {
-            TextNode::HList | TextNode::VList | TextNode::Rule => {
-                let p = BaseBox(p);
+        match TxtNode::from(p) {
+            TxtNode::HList(b) | TxtNode::VList(b) => {
                 let (q, mut tmp_ptr) = new_skip_param(GluePar::split_top_skip);
                 *LLIST_link(prev_p) = Some(q).tex_int();
-                *LLIST_link(q) = Some(p.ptr()).tex_int();
-                if tmp_ptr.size() > p.height() {
-                    tmp_ptr.set_size(tmp_ptr.size() - p.height());
+                *LLIST_link(q) = Some(b.ptr()).tex_int();
+                if tmp_ptr.size() > b.height() {
+                    tmp_ptr.set_size(tmp_ptr.size() - b.height());
                 } else {
                     tmp_ptr.set_size(0);
                 }
                 popt = None;
             }
-            TextNode::WhatsIt | TextNode::Mark | TextNode::Ins => {
+            TxtNode::Rule(r) => {
+                let (q, mut tmp_ptr) = new_skip_param(GluePar::split_top_skip);
+                *LLIST_link(prev_p) = Some(q).tex_int();
+                *LLIST_link(q) = Some(r.ptr()).tex_int();
+                if tmp_ptr.size() > r.height() {
+                    tmp_ptr.set_size(tmp_ptr.size() - r.height());
+                } else {
+                    tmp_ptr.set_size(0);
+                }
+                popt = None;
+            }
+            TxtNode::WhatsIt(_) | TxtNode::Mark(_) | TxtNode::Ins(_) => {
                 prev_p = p;
                 popt = llist_link(prev_p);
             }
-            TextNode::Glue | TextNode::Kern | TextNode::Penalty => {
+            TxtNode::Glue(_) | TxtNode::Kern(_) | TxtNode::Penalty(_) => {
                 let q = p;
                 popt = llist_link(q);
                 *LLIST_link(q) = None.tex_int();
@@ -17552,12 +17563,4 @@ pub(crate) unsafe fn do_assignments() {
         prefixed_command();
         set_box_allowed = true
     }
-}
-/* the former xetexcoerce.h: */
-pub(crate) unsafe fn new_whatsit(s: WhatsItNST, mut w: i16) {
-    let p = get_node(w as i32);
-    set_NODE_type(p, TextNode::WhatsIt);
-    MEM[p].b16.s0 = s as u16;
-    *LLIST_link(cur_list.tail) = Some(p).tex_int();
-    cur_list.tail = p;
 }
