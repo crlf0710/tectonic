@@ -16,7 +16,6 @@ use crate::core_memory::{xmalloc, xmalloc_array, xrealloc};
 
 mod core_memory {
     use bridge::size_t;
-    #[no_mangle]
     pub(crate) unsafe fn xmalloc(mut size: size_t) -> *mut libc::c_void {
         let size = size as libc::size_t; //FIXME
 
@@ -26,7 +25,6 @@ mod core_memory {
         }
         new_mem
     }
-    #[no_mangle]
     pub(crate) unsafe fn xrealloc(
         mut old_ptr: *mut libc::c_void,
         mut size: size_t,
