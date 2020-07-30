@@ -985,7 +985,8 @@ impl List {
         Self(BaseBox(p))
     }
     pub(crate) unsafe fn is_empty(&self) -> bool {
-        self.width() == 0
+        self.list_dir() == ListDir::Horizontal
+            && self.width() == 0
             && self.height() == 0
             && self.depth() == 0
             && self.list_ptr().opt().is_none()
@@ -996,6 +997,13 @@ impl List {
     }
     pub(crate) unsafe fn set_lr_mode(&mut self, mode: LRMode) -> &mut Self {
         MEM[self.ptr()].b16.s0 = mode as u16;
+        self
+    }
+    pub(crate) unsafe fn list_dir(&self) -> ListDir {
+        ListDir::from(MEM[self.ptr()].b16.s1)
+    }
+    pub(crate) unsafe fn set_list_dir(&mut self, dir: ListDir) -> &mut Self {
+        MEM[self.ptr()].b16.s1 = dir as u16;
         self
     }
     pub(crate) unsafe fn shift_amount(&self) -> i32 {
@@ -1036,6 +1044,32 @@ impl List {
     }
     pub(crate) unsafe fn free(self) {
         free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
+pub(crate) enum ListDir {
+    Horizontal = 0,
+    Vertical = 1,
+}
+impl From<u16> for ListDir {
+    fn from(n: u16) -> Self {
+        Self::n(n).expect(&format!("Incorrect List box type = {}", n))
+    }
+}
+
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
+pub(crate) enum LRMode {
+    Normal = 0, // TODO: check name
+    Reversed = 1,
+    DList = 2,
+}
+
+impl From<u16> for LRMode {
+    fn from(n: u16) -> Self {
+        Self::n(n).expect(&format!("Incorrect LRMode = {}", n))
     }
 }
 
@@ -1680,20 +1714,6 @@ impl core::ops::Not for LR {
             Self::LeftToRight => Self::RightToLeft,
             Self::RightToLeft => Self::LeftToRight,
         }
-    }
-}
-
-#[repr(u16)]
-#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
-pub(crate) enum LRMode {
-    Normal = 0, // TODO: check name
-    Reversed = 1,
-    DList = 2,
-}
-
-impl From<u16> for LRMode {
-    fn from(n: u16) -> Self {
-        Self::n(n).expect(&format!("Incorrect LRMode = {}", n))
     }
 }
 

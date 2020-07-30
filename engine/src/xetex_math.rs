@@ -1733,14 +1733,14 @@ unsafe fn make_under(q: &mut Under) {
     q.first_mut().set_subbox(y);
 }
 unsafe fn make_vcenter(q: usize) {
-    let mut v = List::from(MEM[q + 1].b32.s0 as usize);
-    if NODE_type(v.ptr()) != TextNode::VList.into() {
+    if let Node::Text(TxtNode::VList(v)) = &mut Node::from(MEM[q + 1].b32.s0 as usize) {
+        let delta = v.height() + v.depth();
+        v.set_height(axis_height(cur_size) + half(delta));
+        let d = v.height();
+        v.set_depth(delta - d);
+    } else {
         confusion("vcenter");
     }
-    let delta = v.height() + v.depth();
-    v.set_height(axis_height(cur_size) + half(delta));
-    let d = v.height();
-    v.set_depth(delta - d);
 }
 unsafe fn make_radical(q: &mut Radical) {
     let f = MATH_FONT(q.delimeter().s3 as usize % 256 + cur_size);
@@ -2116,7 +2116,7 @@ unsafe fn make_fraction(q: &mut Fraction) {
         }
     }
     let mut v = List::from(new_null_box());
-    set_NODE_type(v.ptr(), TextNode::VList);
+    v.set_list_dir(ListDir::Vertical);
     v.set_height(shift_up + x.height())
         .set_depth(z.depth() + shift_down)
         .set_width(x.width());
@@ -2263,7 +2263,7 @@ unsafe fn make_op(q: &mut Operator) -> scaled_t {
             ),
         );
         let mut v = List::from(new_null_box());
-        set_NODE_type(v.ptr(), TextNode::VList);
+        v.set_list_dir(ListDir::Vertical);
         v.set_width((y.width()).max(x.width()).max(z.width()));
         let mut x = rebox(x, v.width());
         let y = rebox(y, v.width());
@@ -2764,8 +2764,8 @@ unsafe fn mlist_to_hlist() {
     cur_mu = x_over_n(math_quad(cur_size), 18);
     while let Some(q) = qopt {
         // 753:
-        match ND::from(MEM[q].b16.s1) {
-            ND::Math(n) => {
+        match &mut Node::from(q) {
+            Node::Math(n) => {
                 let mut delta = 0; /*:755 */
                 let mut flag = true;
                 match n {
@@ -2919,16 +2919,15 @@ unsafe fn mlist_to_hlist() {
                     cur_mu = x_over_n(math_quad(cur_size), 18)
                 }
             }
-            ND::Text(n) => match n {
-                TextNode::Style => {
+            Node::Text(n) => match n {
+                TxtNode::Style(_) => {
                     let m = MEM[q].b16.s0;
                     cur_style = (MathStyle::n((m / 2) as i16).unwrap(), (m % 2) as u8);
                     cur_size = cur_style.0.size();
                     cur_mu = x_over_n(math_quad(cur_size), 18);
                 }
-                TextNode::Choice => {
+                TxtNode::Choice(q_choice) => {
                     let mut p = None;
-                    let mut q_choice = Choice(q);
                     match cur_style.0 {
                         MathStyle::Display => {
                             p = q_choice.display();
@@ -2964,19 +2963,17 @@ unsafe fn mlist_to_hlist() {
                         *LLIST_link(p) = z;
                     }
                 }
-                TextNode::Ins
-                | TextNode::Mark
-                | TextNode::Adjust
-                | TextNode::WhatsIt
-                | TextNode::Penalty
-                | TextNode::Disc => {}
-                TextNode::Rule => {
-                    let q = Rule::from(q);
-                    max_h = max_h.max(q.height());
-                    max_d = max_d.max(q.depth());
+                TxtNode::Ins(_)
+                | TxtNode::Mark(_)
+                | TxtNode::Adjust(_)
+                | TxtNode::WhatsIt(_)
+                | TxtNode::Penalty(_)
+                | TxtNode::Disc(_) => {}
+                TxtNode::Rule(r) => {
+                    max_h = max_h.max(r.height());
+                    max_d = max_d.max(r.depth());
                 }
-                TextNode::Glue => {
-                    let mut q = Glue(q);
+                TxtNode::Glue(q) => {
                     if q.param() == MU_GLUE {
                         let x = q.glue_ptr() as usize;
                         let y = math_glue(&GlueSpec(x), cur_mu);
@@ -2985,17 +2982,19 @@ unsafe fn mlist_to_hlist() {
                         q.set_param(NORMAL as u16);
                     } else if cur_size != TEXT_SIZE && q.param() == COND_MATH_GLUE {
                         if let Some(p) = llist_link(q.ptr()) {
-                            if NODE_type(p) == TextNode::Glue.into()
-                                || NODE_type(p) == TextNode::Kern.into()
-                            {
-                                *LLIST_link(q.ptr()) = *LLIST_link(p);
-                                *LLIST_link(p) = None.tex_int();
-                                flush_node_list(Some(p));
+                            match TxtNode::from(p) {
+                                TxtNode::Glue(_) | TxtNode::Kern(_) => {
+                                    *LLIST_link(q.ptr()) = *LLIST_link(p);
+                                    *LLIST_link(p) = None.tex_int();
+                                    flush_node_list(Some(p));
+                                }
+                                _ => {}
+                                
                             }
                         }
                     }
                 }
-                TextNode::Kern => {
+                TxtNode::Kern(_) => {
                     math_kern(q as usize, cur_mu);
                 }
                 _ => confusion("mlist1"),
@@ -3021,8 +3020,8 @@ unsafe fn mlist_to_hlist() {
         let mut t = MathNode::Ord;
         let mut s = NOAD_SIZE as i16;
         let mut pen = INF_PENALTY;
-        match NODE_type(q) {
-            ND::Math(n) => match n {
+        match Node::from(q) {
+            Node::Math(n) => match n {
                 MathNode::Op
                 | MathNode::Open
                 | MathNode::Close
@@ -3053,8 +3052,8 @@ unsafe fn mlist_to_hlist() {
                     t = make_left_right(&mut LeftRight(q), style, max_d, max_h);
                 }
             },
-            ND::Text(n) => match n {
-                TextNode::Style => {
+            Node::Text(n) => match n {
+                TxtNode::Style(_) => {
                     let m = MEM[q].b16.s0;
                     cur_style = (MathStyle::n((m / 2) as i16).unwrap(), (m % 2) as u8);
                     s = STYLE_NODE_SIZE as i16;
@@ -3065,15 +3064,15 @@ unsafe fn mlist_to_hlist() {
                     free_node(q, s as i32);
                     continue;
                 }
-                TextNode::WhatsIt
-                | TextNode::Penalty
-                | TextNode::Rule
-                | TextNode::Disc
-                | TextNode::Adjust
-                | TextNode::Ins
-                | TextNode::Mark
-                | TextNode::Glue
-                | TextNode::Kern => {
+                TxtNode::WhatsIt(_)
+                | TxtNode::Penalty(_)
+                | TxtNode::Rule(_)
+                | TxtNode::Disc(_)
+                | TxtNode::Adjust(_)
+                | TxtNode::Ins(_)
+                | TxtNode::Mark(_)
+                | TxtNode::Glue(_)
+                | TxtNode::Kern(_) => {
                     *LLIST_link(p) = Some(q).tex_int();
                     p = q;
                     qopt = llist_link(q);
@@ -3158,8 +3157,8 @@ unsafe fn mlist_to_hlist() {
         if penalties {
             if let Some(m) = llist_link(q) {
                 if pen < INF_PENALTY {
-                    match NODE_type(m) {
-                        ND::Text(TextNode::Penalty) | ND::Math(MathNode::Rel) => {}
+                    match Node::from(m) {
+                        Node::Text(TxtNode::Penalty(_)) | Node::Math(MathNode::Rel) => {}
                         _ => {
                             let z = new_penalty(pen);
                             *LLIST_link(p) = Some(z).tex_int();
@@ -3291,7 +3290,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
             if q.s1 as i32 % 4 == EXT_TAG {
                 /*739: */
                 let mut b = List::from(new_null_box());
-                set_NODE_type(b.ptr(), TextNode::VList);
+                b.set_list_dir(ListDir::Vertical);
                 let r = FONT_INFO[(EXTEN_BASE[f] + q.s0 as i32) as usize].b16;
                 c = r.s0;
                 u = height_plus_depth(f, c);
@@ -3356,7 +3355,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
             build_opentype_assembly(f, ot_assembly_ptr, v, false)
         } else {
             let mut b = List::from(new_null_box());
-            set_NODE_type(b.ptr(), TextNode::VList);
+            b.set_list_dir(ListDir::Vertical);
             let mut g = Glyph::new_node();
             b.set_list_ptr(g.ptr() as i32);
             g.set_font(f as u16).set_glyph(c);
@@ -3431,7 +3430,7 @@ unsafe fn stack_glyph_into_box(b: &mut List, mut f: internal_font_number, mut g:
     let mut p = Glyph::new_node();
     p.set_font(f as u16).set_glyph(g as u16);
     p.set_metrics(true);
-    if NODE_type(b.ptr()) == TextNode::HList.into() {
+    if b.list_dir() == ListDir::Horizontal {
         if let Some(mut q) = b.list_ptr().opt() {
             while let Some(next) = llist_link(q) {
                 q = next;
@@ -3456,7 +3455,7 @@ unsafe fn stack_glue_into_box(b: &mut List, mut min: scaled_t, mut max: scaled_t
     let q = new_spec(0);
     GlueSpec(q).set_size(min).set_stretch(max - min);
     let p = new_glue(q);
-    if NODE_type(b.ptr()) == TextNode::HList.into() {
+    if b.list_dir() == ListDir::Horizontal {
         if let Some(mut q) = b.list_ptr().opt() {
             while let Some(next) = llist_link(q) {
                 q = next;
@@ -3479,12 +3478,11 @@ unsafe fn build_opentype_assembly(
     mut horiz: bool,
 ) -> List {
     let mut b = List::from(new_null_box());
-    set_NODE_type(
-        b.ptr(),
+    b.set_list_dir(
         if horiz {
-            TextNode::HList
+            ListDir::Horizontal
         } else {
-            TextNode::VList
+            ListDir::Vertical
         },
     );
     let mut n = -1;
@@ -3561,7 +3559,7 @@ unsafe fn build_opentype_assembly(
             } else {
                 p.height() + p.depth()
             };
-        } else if NODE_type(p as usize) == TextNode::Glue.into() {
+        } else if NODE_type(p) == TextNode::Glue.into() {
             let g = Glue(p);
             let spec = GlueSpec(g.glue_ptr() as usize);
             nat += spec.size();
@@ -3591,7 +3589,7 @@ unsafe fn build_opentype_assembly(
 }
 unsafe fn rebox(mut b: List, mut w: scaled_t) -> List {
     if b.width() != w && b.list_ptr().opt().is_some() {
-        if NODE_type(b.ptr()) == TextNode::VList.into() {
+        if b.list_dir() == ListDir::Vertical {
             b = hpack(Some(b.ptr()), 0, PackMode::Additional);
         }
         let mut p = b.list_ptr() as usize;
