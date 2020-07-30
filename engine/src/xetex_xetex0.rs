@@ -13764,20 +13764,21 @@ pub(crate) unsafe fn delete_last() {
                     r = p;
                     p = q;
                     fm = false;
-                    if !is_char_node(q.opt()) {
-                        if NODE_type(q as usize) == TextNode::Disc.into() {
-                            for _ in 0..Discretionary(q as usize).replace_count() {
+                    match CharOrText::from(q as usize) {
+                        CharOrText::Text(TxtNode::Disc(d)) => {
+                            for _ in 0..d.replace_count() {
                                 p = *LLIST_link(p as usize);
                             }
                             if p == tx as i32 {
                                 return;
                             }
-                        } else if NODE_type(q as usize) == TextNode::Math.into()
-                            && Math(q as usize).subtype()
-                                == MathType::Eq(BE::Begin, MathMode::Middle)
-                        {
-                            fm = true;
                         }
+                        CharOrText::Text(TxtNode::Math(m))
+                            if m.subtype() == MathType::Eq(BE::Begin, MathMode::Middle) =>
+                        {
+                            fm = true
+                        }
+                        _ => {}
                     }
                     q = *LLIST_link(p as usize);
                     if q == tx as i32 {
@@ -13815,9 +13816,11 @@ pub(crate) unsafe fn unpackage() {
                 cur_ptr.and_then(|c| MEM[c + 1].b32.s1.opt())
             };
             if let Some(p) = p {
+                let p = List::from(p);
+                let dir = p.list_dir();
                 if cur_list.mode.1 == ListMode::MMode
-                    || cur_list.mode.1 == ListMode::VMode && NODE_type(p) != TextNode::VList.into()
-                    || cur_list.mode.1 == ListMode::HMode && NODE_type(p) != TextNode::HList.into()
+                    || cur_list.mode.1 == ListMode::VMode && dir != ListDir::Vertical
+                    || cur_list.mode.1 == ListMode::HMode && dir != ListDir::Horizontal
                 {
                     if file_line_error_style_p != 0 {
                         print_file_line();
@@ -13834,9 +13837,9 @@ pub(crate) unsafe fn unpackage() {
                     return;
                 }
                 if c == BoxCode::Copy {
-                    *LLIST_link(cur_list.tail) = copy_node_list(MEM[p + 5].b32.s1.opt())
+                    *LLIST_link(cur_list.tail) = copy_node_list(p.list_ptr().opt())
                 } else {
-                    *LLIST_link(cur_list.tail) = MEM[p + 5].b32.s1;
+                    *LLIST_link(cur_list.tail) = p.list_ptr();
                     if cur_val < 256 {
                         *BOX_REG(cur_val as usize) = None.tex_int()
                     } else {
@@ -13847,7 +13850,7 @@ pub(crate) unsafe fn unpackage() {
                             delete_sa_ref(c);
                         }
                     }
-                    free_node(p, BOX_NODE_SIZE);
+                    p.free();
                 }
             } else {
                 return;
@@ -13860,9 +13863,9 @@ pub(crate) unsafe fn unpackage() {
         }
     }
     while let Some(r) = LLIST_link(cur_list.tail).opt() {
-        if !is_char_node(Some(r)) && NODE_type(r) == TextNode::MarginKern.into() {
-            *LLIST_link(cur_list.tail) = *LLIST_link(r);
-            free_node(r, MARGIN_KERN_NODE_SIZE);
+        if let CharOrText::Text(TxtNode::MarginKern(r)) = CharOrText::from(r) {
+            *LLIST_link(cur_list.tail) = *LLIST_link(r.ptr());
+            r.free();
         }
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
     }
@@ -13870,29 +13873,28 @@ pub(crate) unsafe fn unpackage() {
 pub(crate) unsafe fn append_italic_correction() {
     let mut f: internal_font_number = 0;
     if cur_list.tail != cur_list.head {
-        let p = if is_char_node(Some(cur_list.tail)) {
-            Char(cur_list.tail)
-        } else if NODE_type(cur_list.tail) == TextNode::Ligature.into() {
-            Ligature(cur_list.tail).as_char()
-        } else if NODE_type(cur_list.tail) == TextNode::WhatsIt.into() {
-            match WhatsIt::from(cur_list.tail) {
-                WhatsIt::NativeWord(nw) => {
-                    let mut k = Kern(new_kern(nw.italic_correction()));
-                    *LLIST_link(cur_list.tail) = Some(k.ptr()).tex_int();
-                    cur_list.tail = k.ptr();
-                    k.set_subtype(KernType::Explicit);
+        let p = match CharOrText::from(cur_list.tail) {
+            CharOrText::Char(c) => c,
+            CharOrText::Text(TxtNode::Ligature(l)) => l.as_char(),
+            CharOrText::Text(TxtNode::WhatsIt(p)) => {
+                match p {
+                    WhatsIt::NativeWord(nw) => {
+                        let mut k = Kern(new_kern(nw.italic_correction()));
+                        *LLIST_link(cur_list.tail) = Some(k.ptr()).tex_int();
+                        cur_list.tail = k.ptr();
+                        k.set_subtype(KernType::Explicit);
+                    }
+                    WhatsIt::Glyph(g) => {
+                        let mut k = Kern(new_kern(g.italic_correction()));
+                        *LLIST_link(cur_list.tail) = Some(k.ptr()).tex_int();
+                        cur_list.tail = k.ptr();
+                        k.set_subtype(KernType::Explicit);
+                    }
+                    _ => {}
                 }
-                WhatsIt::Glyph(g) => {
-                    let mut k = Kern(new_kern(g.italic_correction()));
-                    *LLIST_link(cur_list.tail) = Some(k.ptr()).tex_int();
-                    cur_list.tail = k.ptr();
-                    k.set_subtype(KernType::Explicit);
-                }
-                _ => {}
+                return;
             }
-            return;
-        } else {
-            return;
+            _ => return,
         };
         f = p.font() as internal_font_number;
         let mut k = Kern(new_kern(*FONT_CHARINFO_ITALCORR(
@@ -14224,34 +14226,34 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
 
         let mut copy = true;
         let mut found = true;
-        if is_char_node(Some(p)) {
-            r = get_avail();
-        } else {
-            match TextNode::n(MEM[p].b16.s1).unwrap() {
-                TextNode::HList | TextNode::VList => {
+        match CharOrText::from(p) {
+            CharOrText::Char(_) => {
+                r = get_avail();
+            }
+            CharOrText::Text(p) => match p {
+                TxtNode::HList(p) | TxtNode::VList(p) => {
                     r = get_node(BOX_NODE_SIZE);
-                    *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p, BOX_NODE_SIZE);
-                    *SYNCTEX_line(r, BOX_NODE_SIZE) = *SYNCTEX_line(p, BOX_NODE_SIZE);
-                    MEM[r + 6] = MEM[p + 6];
-                    MEM[r + 5] = MEM[p + 5];
+                    *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE);
+                    *SYNCTEX_line(r, BOX_NODE_SIZE) = *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE);
+                    MEM[r + 6] = MEM[p.ptr() + 6];
+                    MEM[r + 5] = MEM[p.ptr() + 5];
                     words = 5;
                     List::from(r).set_list_ptr(None.tex_int());
                 }
-                TextNode::Rule => {
+                TxtNode::Rule(_) => {
                     r = get_node(RULE_NODE_SIZE);
                     words = RULE_NODE_SIZE;
                 }
-                TextNode::Ligature => {
+                TxtNode::Ligature(l) => {
                     r = get_avail();
-                    MEM[r as usize] = MEM[(p + 1) as usize];
+                    MEM[r as usize] = MEM[(l.ptr() + 1) as usize];
                     copy = false;
                 }
-                TextNode::Kern | TextNode::Math => {
+                TxtNode::Kern(_) | TxtNode::Math(_) => {
                     words = MEDIUM_NODE_SIZE;
                     r = get_node(words as i32);
                 }
-                TextNode::Glue => {
-                    let p = Glue(p);
+                TxtNode::Glue(p) => {
                     r = get_node(MEDIUM_NODE_SIZE);
                     let mut r_glue = Glue(r);
                     GlueSpec(p.glue_ptr() as usize).rc_inc();
@@ -14261,56 +14263,54 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
                         .set_glue_ptr(p.glue_ptr())
                         .set_leader_ptr(None.tex_int());
                 }
-                TextNode::WhatsIt => {
-                    match WhatsIt::from(p) {
-                        WhatsIt::Open(_p) => {
-                            r = get_node(OPEN_NODE_SIZE);
-                            words = OPEN_NODE_SIZE;
-                        }
-                        WhatsIt::Write(p) => {
-                            r = get_node(WRITE_NODE_SIZE);
-                            *TOKEN_LIST_ref_count(p.tokens() as usize) += 1;
-                            words = WRITE_NODE_SIZE;
-                        }
-                        WhatsIt::Special(p) => {
-                            r = get_node(WRITE_NODE_SIZE);
-                            *TOKEN_LIST_ref_count(p.tokens() as usize) += 1;
-                            words = WRITE_NODE_SIZE;
-                        }
-                        WhatsIt::Close(_) | WhatsIt::Language(_) => {
-                            r = get_node(SMALL_NODE_SIZE);
-                            words = SMALL_NODE_SIZE;
-                        }
-                        WhatsIt::NativeWord(p) => {
-                            words = p.size() as i32;
-                            let mut r_nw = NativeWord::from(get_node(words as i32));
-                            r = r_nw.ptr();
-
-                            MEM[r..r + (words as usize)]
-                                .copy_from_slice(&MEM[p.ptr()..p.ptr() + (words as usize)]);
-                            words = 0;
-
-                            r_nw.set_glyph_info_ptr(core::ptr::null_mut());
-                            r_nw.set_glyph_count(0);
-                            copy_native_glyph_info(&p, &mut r_nw);
-                        }
-                        WhatsIt::Glyph(_) => {
-                            r = get_node(GLYPH_NODE_SIZE);
-                            words = GLYPH_NODE_SIZE;
-                        }
-                        WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                            words = Picture::total_size(p.path_len()) as i32;
-                            r = get_node(words as i32);
-                        }
-                        WhatsIt::PdfSavePos(_) => r = get_node(SMALL_NODE_SIZE),
-                        //_ => confusion("ext2"),
+                TxtNode::WhatsIt(p) => match p {
+                    WhatsIt::Open(_p) => {
+                        r = get_node(OPEN_NODE_SIZE);
+                        words = OPEN_NODE_SIZE;
                     }
-                }
+                    WhatsIt::Write(p) => {
+                        r = get_node(WRITE_NODE_SIZE);
+                        *TOKEN_LIST_ref_count(p.tokens() as usize) += 1;
+                        words = WRITE_NODE_SIZE;
+                    }
+                    WhatsIt::Special(p) => {
+                        r = get_node(WRITE_NODE_SIZE);
+                        *TOKEN_LIST_ref_count(p.tokens() as usize) += 1;
+                        words = WRITE_NODE_SIZE;
+                    }
+                    WhatsIt::Close(_) | WhatsIt::Language(_) => {
+                        r = get_node(SMALL_NODE_SIZE);
+                        words = SMALL_NODE_SIZE;
+                    }
+                    WhatsIt::NativeWord(p) => {
+                        words = p.size() as i32;
+                        let mut r_nw = NativeWord::from(get_node(words as i32));
+                        r = r_nw.ptr();
+
+                        MEM[r..r + (words as usize)]
+                            .copy_from_slice(&MEM[p.ptr()..p.ptr() + (words as usize)]);
+                        words = 0;
+
+                        r_nw.set_glyph_info_ptr(core::ptr::null_mut());
+                        r_nw.set_glyph_count(0);
+                        copy_native_glyph_info(&p, &mut r_nw);
+                    }
+                    WhatsIt::Glyph(_) => {
+                        r = get_node(GLYPH_NODE_SIZE);
+                        words = GLYPH_NODE_SIZE;
+                    }
+                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                        words = Picture::total_size(p.path_len()) as i32;
+                        r = get_node(words as i32);
+                    }
+                    WhatsIt::PdfSavePos(_) => r = get_node(SMALL_NODE_SIZE),
+                    //_ => confusion("ext2"),
+                },
                 _ => {
                     copy = false;
                     found = false;
                 }
-            }
+            },
         }
         if copy {
             MEM[r..r + (words as usize)].copy_from_slice(&MEM[p..p + (words as usize)]);
@@ -14342,8 +14342,8 @@ pub(crate) unsafe fn just_reverse(p: usize) {
     let mut l = t.ptr();
     cur_dir = !cur_dir;
     while let Some(p) = q {
-        if is_char_node(Some(p)) {
-            loop {
+        match CharOrText::from(p) {
+            CharOrText::Char(_) => loop {
                 let p = q.unwrap();
                 q = llist_link(p);
                 *LLIST_link(p) = Some(l).tex_int();
@@ -14351,59 +14351,59 @@ pub(crate) unsafe fn just_reverse(p: usize) {
                 if !is_char_node(q) {
                     break;
                 }
-            }
-        } else {
-            q = llist_link(p);
-            if NODE_type(p) == TextNode::Math.into() {
-                let mut p = Math(p);
-                /*1527: */
-                let (be, mode) = p.subtype().equ();
-                if be == BE::End {
-                    if Math(LR_ptr as usize).subtype_i32() != MathType::Eq(BE::End, mode) {
-                        set_NODE_type(p.ptr(), TextNode::Kern);
-                        LR_problems += 1;
+            },
+            CharOrText::Text(nd) => {
+                q = llist_link(p);
+                if let TxtNode::Math(mut p) = nd {
+                    /*1527: */
+                    let (be, mode) = p.subtype().equ();
+                    if be == BE::End {
+                        if Math(LR_ptr as usize).subtype_i32() != MathType::Eq(BE::End, mode) {
+                            set_NODE_type(p.ptr(), TextNode::Kern);
+                            LR_problems += 1;
+                        } else {
+                            let tmp_ptr = LR_ptr as usize;
+                            LR_ptr = *LLIST_link(tmp_ptr);
+                            *LLIST_link(tmp_ptr) = avail.tex_int();
+                            avail = Some(tmp_ptr);
+                            if n > MIN_HALFWORD {
+                                n -= 1;
+                                p.set_subtype(match p.subtype() {
+                                    MathType::After => MathType::Before,
+                                    MathType::Eq(BE::End, mode) => MathType::Eq(BE::Begin, mode),
+                                    _ => unreachable!(),
+                                });
+                            } else if m > MIN_HALFWORD {
+                                m -= 1;
+                                set_NODE_type(p.ptr(), TextNode::Kern);
+                            } else {
+                                t.set_width(p.width());
+                                *LLIST_link(t.ptr()) = q.tex_int();
+                                p.free();
+                                break;
+                            }
+                        }
                     } else {
-                        let tmp_ptr = LR_ptr as usize;
-                        LR_ptr = *LLIST_link(tmp_ptr);
-                        *LLIST_link(tmp_ptr) = avail.tex_int();
-                        avail = Some(tmp_ptr);
-                        if n > MIN_HALFWORD {
-                            n -= 1;
+                        let mut tmp_ptr = Math(get_avail());
+                        tmp_ptr.set_subtype_i32(MathType::Eq(BE::End, mode));
+                        *LLIST_link(tmp_ptr.ptr()) = LR_ptr;
+                        LR_ptr = Some(tmp_ptr.ptr()).tex_int();
+                        if n > MIN_HALFWORD || p.dir() != cur_dir {
+                            n += 1;
                             p.set_subtype(match p.subtype() {
-                                MathType::After => MathType::Before,
-                                MathType::Eq(BE::End, mode) => MathType::Eq(BE::Begin, mode),
+                                MathType::Before => MathType::After,
+                                MathType::Eq(BE::Begin, mode) => MathType::Eq(BE::End, mode),
                                 _ => unreachable!(),
                             });
-                        } else if m > MIN_HALFWORD {
-                            m -= 1;
-                            set_NODE_type(p.ptr(), TextNode::Kern);
                         } else {
-                            t.set_width(p.width());
-                            *LLIST_link(t.ptr()) = q.tex_int();
-                            p.free();
-                            break;
+                            set_NODE_type(p.ptr(), TextNode::Kern);
+                            m += 1
                         }
                     }
-                } else {
-                    let mut tmp_ptr = Math(get_avail());
-                    tmp_ptr.set_subtype_i32(MathType::Eq(BE::End, mode));
-                    *LLIST_link(tmp_ptr.ptr()) = LR_ptr;
-                    LR_ptr = Some(tmp_ptr.ptr()).tex_int();
-                    if n > MIN_HALFWORD || p.dir() != cur_dir {
-                        n += 1;
-                        p.set_subtype(match p.subtype() {
-                            MathType::Before => MathType::After,
-                            MathType::Eq(BE::Begin, mode) => MathType::Eq(BE::End, mode),
-                            _ => unreachable!(),
-                        });
-                    } else {
-                        set_NODE_type(p.ptr(), TextNode::Kern);
-                        m += 1
-                    }
                 }
+                *LLIST_link(p) = Some(l).tex_int();
+                l = p
             }
-            *LLIST_link(p) = Some(l).tex_int();
-            l = p
         }
     }
     *LLIST_link(TEMP_HEAD) = Some(l).tex_int();

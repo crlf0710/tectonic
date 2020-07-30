@@ -688,7 +688,7 @@ impl Kern {
 #[derive(Clone, Debug)]
 pub(crate) struct MarginKern(pub usize);
 impl NodeSize for MarginKern {
-    const SIZE: i32 = MEDIUM_NODE_SIZE;
+    const SIZE: i32 = MARGIN_KERN_NODE_SIZE;
 }
 impl MarginKern {
     pub(crate) const fn ptr(&self) -> usize {

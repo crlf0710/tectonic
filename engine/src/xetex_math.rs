@@ -43,8 +43,7 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_char_node, llist_link, math_NODE_type, math_char, math_class, math_fam, set_NODE_type,
-    set_class, set_family, set_math_NODE_type, text_NODE_type, LLIST_link, NODE_type, TeXInt,
-    TeXOpt,
+    set_class, set_family, set_math_NODE_type, LLIST_link, NODE_type, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -185,29 +184,28 @@ pub(crate) unsafe fn init_math() {
             while let Some(mut p) = popt {
                 let found;
                 let d;
-                if is_char_node(Some(p)) {
-                    let p = Char(p);
-                    let f = p.font() as internal_font_number;
-                    d = FONT_INFO[(WIDTH_BASE[f]
-                        + FONT_INFO
-                            [(CHAR_BASE[f] + effective_char(true, f, p.character())) as usize]
-                            .b16
-                            .s3 as i32) as usize]
-                        .b32
-                        .s1;
-                    found = true;
-                } else {
-                    match text_NODE_type(p).unwrap() {
-                        TextNode::HList | TextNode::VList => {
-                            d = List::from(p).width();
+                match CharOrText::from(p) {
+                    CharOrText::Char(c) => {
+                        let f = c.font() as internal_font_number;
+                        d = FONT_INFO[(WIDTH_BASE[f]
+                            + FONT_INFO
+                                [(CHAR_BASE[f] + effective_char(true, f, c.character())) as usize]
+                                .b16
+                                .s3 as i32) as usize]
+                            .b32
+                            .s1;
+                        found = true;
+                    }
+                    CharOrText::Text(n) => match n {
+                        TxtNode::HList(b) | TxtNode::VList(b) => {
+                            d = b.width();
                             found = true;
                         }
-                        TextNode::Rule => {
-                            d = Rule::from(p).width();
+                        TxtNode::Rule(r) => {
+                            d = r.width();
                             found = true;
                         }
-                        TextNode::Ligature => {
-                            let l = Ligature(p);
+                        TxtNode::Ligature(l) => {
                             let mut c = Char(GARBAGE);
                             c.set_character(l.char());
                             c.set_font(l.font());
@@ -216,18 +214,15 @@ pub(crate) unsafe fn init_math() {
                             xtx_ligature_present = true;
                             continue;
                         }
-                        TextNode::Kern => {
-                            let k = Kern(p);
+                        TxtNode::Kern(k) => {
                             d = k.width();
                             found = false;
                         }
-                        TextNode::MarginKern => {
-                            let k = MarginKern(p);
+                        TxtNode::MarginKern(k) => {
                             d = k.width();
                             found = false;
                         }
-                        TextNode::Math => {
-                            let m = Math(p);
+                        TxtNode::Math(m) => {
                             d = m.width();
                             if *INTPAR(IntPar::texxet) > 0 {
                                 /*1525: */
@@ -274,14 +269,12 @@ pub(crate) unsafe fn init_math() {
                                 }
                             }
                         }
-                        TextNode::Style => {
-                            let p = Edge(p);
-                            d = p.width();
-                            cur_dir = p.lr();
+                        TxtNode::Style(e) => {
+                            d = e.width();
+                            cur_dir = e.lr();
                             found = false;
                         }
-                        TextNode::Glue => {
-                            let p = Glue(p);
+                        TxtNode::Glue(p) => {
                             let q = GlueSpec(p.glue_ptr() as usize);
                             d = q.size();
                             let jb = List::from(just_box);
@@ -300,13 +293,13 @@ pub(crate) unsafe fn init_math() {
                                 found = false;
                             }
                         }
-                        TextNode::WhatsIt => match WhatsIt::from(p) {
-                            WhatsIt::NativeWord(p) => {
-                                d = p.width();
+                        TxtNode::WhatsIt(p) => match p {
+                            WhatsIt::NativeWord(nw) => {
+                                d = nw.width();
                                 found = true;
                             }
-                            WhatsIt::Glyph(p) => {
-                                d = p.width();
+                            WhatsIt::Glyph(g) => {
+                                d = g.width();
                                 found = true;
                             }
                             WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
@@ -322,7 +315,7 @@ pub(crate) unsafe fn init_math() {
                             d = 0;
                             found = false;
                         }
-                    }
+                    },
                 }
                 if found {
                     if v < MAX_HALFWORD {
@@ -875,8 +868,7 @@ unsafe fn app_display(j: Option<usize>, mut b: List, mut d: scaled_t) {
             t = *LLIST_link(r) as usize;
         }
         let u = new_math(0, MathType::Eq(BE::End, MathMode::Middle));
-        let j = if NODE_type(t) == TextNode::Glue.into() {
-            let t = Glue(t);
+        let j = if let TxtNode::Glue(t) = TxtNode::from(r) {
             let (j, mut tmp_ptr) = new_skip_param(GluePar::right_skip);
             *LLIST_link(q as usize) = Some(j).tex_int();
             *LLIST_link(j) = Some(u).tex_int();
@@ -896,8 +888,7 @@ unsafe fn app_display(j: Option<usize>, mut b: List, mut d: scaled_t) {
             j
         };
         let u = new_math(0, MathType::Eq(BE::Begin, MathMode::Middle));
-        if NODE_type(r) == TextNode::Glue.into() {
-            let r = Glue(r);
+        if let TxtNode::Glue(r) = TxtNode::from(r) {
             let (j, mut tmp_ptr) = new_skip_param(GluePar::left_skip);
             *LLIST_link(u) = Some(j).tex_int();
             *LLIST_link(j) = Some(p).tex_int();
@@ -1202,12 +1193,8 @@ pub(crate) unsafe fn after_math() {
         d = half(z - w);
         if e > 0 && d < 2 * e {
             d = half(z - w - e);
-            if let Some(p) = p {
-                if !is_char_node(Some(p)) {
-                    if NODE_type(p) == TextNode::Glue.into() {
-                        d = 0
-                    }
-                }
+            if let Some(CharOrText::Text(TxtNode::Glue(_))) = p.map(CharOrText::from) {
+                d = 0;
             }
         }
         let mut g1;
@@ -2989,7 +2976,6 @@ unsafe fn mlist_to_hlist() {
                                     flush_node_list(Some(p));
                                 }
                                 _ => {}
-                                
                             }
                         }
                     }
@@ -3478,13 +3464,11 @@ unsafe fn build_opentype_assembly(
     mut horiz: bool,
 ) -> List {
     let mut b = List::from(new_null_box());
-    b.set_list_dir(
-        if horiz {
-            ListDir::Horizontal
-        } else {
-            ListDir::Vertical
-        },
-    );
+    b.set_list_dir(if horiz {
+        ListDir::Horizontal
+    } else {
+        ListDir::Vertical
+    });
     let mut n = -1;
     let mut no_extenders = true;
     let mut min_o = ot_min_connector_overlap(f);
