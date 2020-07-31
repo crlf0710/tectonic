@@ -101,27 +101,18 @@ pub(crate) unsafe fn append_str(mut s: str_number) {
     }
 }
 pub(crate) unsafe fn str_eq_buf(mut s: str_number, mut k: i32) -> bool {
-    let mut j: pool_pointer = 0;
-    j = str_start[(s as i64 - 65536) as usize];
-    while j < str_start[((s + 1i32) as i64 - 65536) as usize] {
-        if BUFFER[k as usize] as i64 >= 65536 {
-            if str_pool[j as usize] as i64
-                != 55296 + (BUFFER[k as usize] as i64 - 65536) / 1024 as i64
-            {
+    let mut j = str_start[s as usize - 65536] as usize;
+    while j < str_start[s as usize + 1 - 65536] as usize {
+        let mut b = [0; 2];
+        for c16 in std::char::from_u32(BUFFER[k as usize] as u32)
+            .unwrap()
+            .encode_utf16(&mut b)
+        {
+            if str_pool[j as usize] != *c16 {
                 return false;
-            } else {
-                if str_pool[(j + 1i32) as usize] as i64
-                    != 56320 + (BUFFER[k as usize] as i64 - 65536) % 1024 as i64
-                {
-                    return false;
-                } else {
-                    j += 1
-                }
             }
-        } else if str_pool[j as usize] as i32 != BUFFER[k as usize] {
-            return false;
+            j += 1
         }
-        j += 1;
         k += 1
     }
     true

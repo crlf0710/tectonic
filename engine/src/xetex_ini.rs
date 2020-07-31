@@ -21,8 +21,8 @@ use crate::xetex_ext::release_font_engine;
 use crate::xetex_ext::{AAT_FONT_FLAG, OTGR_FONT_FLAG};
 use crate::xetex_layout_interface::{destroy_font_manager, set_cp_code};
 use crate::xetex_output::{
-    print, print_char, print_chr, print_cstr, print_esc, print_esc_cstr, print_file_line,
-    print_file_name, print_int, print_ln, print_nl, print_nl_cstr, print_scaled,
+    print, print_chr, print_cstr, print_esc, print_esc_cstr, print_file_line, print_file_name,
+    print_int, print_ln, print_nl, print_nl_cstr, print_scaled,
 };
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
@@ -1791,12 +1791,13 @@ unsafe fn new_hyph_exceptions() {
                         error();
                     } else if (n as usize) < max_hyphenatable_length() {
                         n += 1;
-                        if (hc[0] as i64) < 65536 {
+                        if (hc[0] as i64) < 0x1_0000 {
                             hc[n as usize] = hc[0]
                         } else {
-                            hc[n as usize] = ((hc[0] as i64 - 65536) / 1024 as i64 + 55296) as i32;
+                            hc[n as usize] =
+                                ((hc[0] as i64 - 0x1_0000) / 1024 as i64 + 0xd800) as i32;
                             n += 1;
-                            hc[n as usize] = ((hc[0] % 1024) as i64 + 56320) as i32
+                            hc[n as usize] = ((hc[0] % 1024) as i64 + 0xdc00) as i32
                         }
                     }
                 }

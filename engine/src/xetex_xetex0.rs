@@ -2761,17 +2761,12 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
                     str_pool[(pool_ptr + l) as usize] = str_pool[pool_ptr as usize]
                 }
                 for k in j..=j + l - 1 {
-                    if (BUFFER[k as usize] as i64) < 65536 {
-                        str_pool[pool_ptr as usize] = BUFFER[k as usize] as packed_UTF16_code;
-                        pool_ptr += 1
-                    } else {
-                        str_pool[pool_ptr as usize] = (0xd800_i64
-                            + (BUFFER[k as usize] as i64 - 65536) / 1024)
-                            as packed_UTF16_code;
-                        pool_ptr += 1;
-                        str_pool[pool_ptr as usize] = (0xdc00_i64
-                            + (BUFFER[k as usize] as i64 - 65536) % 1024)
-                            as packed_UTF16_code;
+                    let mut b = [0; 2];
+                    for c in std::char::from_u32(BUFFER[k as usize] as u32)
+                        .unwrap()
+                        .encode_utf16(&mut b)
+                    {
+                        str_pool[pool_ptr as usize] = *c;
                         pool_ptr += 1
                     }
                 }
@@ -3943,7 +3938,8 @@ pub(crate) unsafe fn get_next() {
                     {
                         let lower = (BUFFER[cur_input.loc as usize] - 0xdc00) as UTF16_code;
                         cur_input.loc += 1;
-                        cur_chr = (65536 + ((cur_chr - 0xd800) * 1024) as i64 + lower as i64) as i32
+                        cur_chr =
+                            (0x1_0000 + ((cur_chr - 0xd800) * 1024) as i64 + lower as i64) as i32
                     }
                     'c_65186: loop {
                         cur_cmd = Cmd::from(*CAT_CODE(cur_chr as usize) as u16);
