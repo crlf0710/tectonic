@@ -181,7 +181,7 @@ pub(crate) unsafe fn print_char(s: i32) {
     } else {
         print_raw_char((240 + s / 0x40000) as UTF16_code, false);
         print_raw_char((128 + s % 0x40000 / 4096) as UTF16_code, false);
-        print_raw_char((128 + s % 4096 / 64) as UTF16_code, false);
+        print_raw_char((128 + s % 0x1000 / 64) as UTF16_code, false);
         print_raw_char((128 + s % 64) as UTF16_code, true);
     };
 }
@@ -190,8 +190,8 @@ pub(crate) unsafe fn print(mut s: i32) {
     if s >= str_ptr {
         return print_cstr("???");
     } else {
-        if s < 0xffffi32 {
-            if s < 0i32 {
+        if s < 0xffff {
+            if s < 0 {
                 return print_cstr("???");
             } else {
                 if u8::from(selector) > u8::from(Selector::PSEUDO) {
@@ -206,40 +206,27 @@ pub(crate) unsafe fn print(mut s: i32) {
                     }
                 }
                 nl = *INTPAR(IntPar::new_line_char);
-                *INTPAR(IntPar::new_line_char) = -1i32;
+                *INTPAR(IntPar::new_line_char) = -1;
                 print_char(s);
                 *INTPAR(IntPar::new_line_char) = nl;
                 return;
             }
         }
     }
-    let mut pool_idx: i32 = s - 0x10000i32;
+    let mut pool_idx: i32 = s - 0x10000;
 
     // TODO: fix this bug workaround
-    let mut i = if pool_idx as usize > crate::xetex_ini::max_strings {
+    let start = (if pool_idx as usize > crate::xetex_ini::max_strings {
         0
     } else {
         str_start[pool_idx as usize]
-    };
-
-    while i < str_start[(pool_idx + 1) as usize] {
-        if str_pool[i as usize] as i32 >= 0xd800i32
-            && (str_pool[i as usize] as i32) < 0xdc00i32
-            && i + 1 < str_start[(pool_idx + 1) as usize]
-            && str_pool[(i + 1i32) as usize] as i32 >= 0xdc00i32
-            && (str_pool[(i + 1i32) as usize] as i32) < 0xe000i32
-        {
-            print_char(
-                0x10000i32
-                    + (str_pool[i as usize] as i32 - 0xd800i32) * 1024i32
-                    + str_pool[(i + 1i32) as usize] as i32
-                    - 0xdc00i32,
-            );
-            i += 1
-        } else {
-            print_char(str_pool[i as usize] as i32);
-        }
-        i += 1
+    }) as usize;
+    for c in std::char::decode_utf16(
+        str_pool[start..(str_start[(pool_idx + 1) as usize] as usize)]
+            .iter()
+            .cloned(),
+    ) {
+        print_char(c.unwrap() as i32)
     }
 }
 pub(crate) unsafe fn print_cstr(slice: &str) {
@@ -248,16 +235,16 @@ pub(crate) unsafe fn print_cstr(slice: &str) {
     }
 }
 pub(crate) unsafe fn print_nl(mut s: str_number) {
-    if term_offset > 0i32 && u8::from(selector) & 1 != 0
-        || file_offset > 0i32 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
+    if term_offset > 0 && u8::from(selector) & 1 != 0
+        || file_offset > 0 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
     {
         print_ln();
     }
     print(s);
 }
 pub(crate) unsafe fn print_nl_cstr(slice: &str) {
-    if term_offset > 0i32 && u8::from(selector) & 1 != 0
-        || file_offset > 0i32 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
+    if term_offset > 0 && u8::from(selector) & 1 != 0
+        || file_offset > 0 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
     {
         print_ln();
     }
@@ -265,53 +252,53 @@ pub(crate) unsafe fn print_nl_cstr(slice: &str) {
 }
 pub(crate) unsafe fn print_esc(mut s: str_number) {
     let mut c = *INTPAR(IntPar::escape_char);
-    if c >= 0i32 && c <= BIGGEST_USV as i32 {
+    if c >= 0 && c <= BIGGEST_USV as i32 {
         print_char(c);
     }
     print(s);
 }
 pub(crate) unsafe fn print_esc_cstr(s: &str) {
     let mut c = *INTPAR(IntPar::escape_char);
-    if c >= 0i32 && c <= BIGGEST_USV as i32 {
+    if c >= 0 && c <= BIGGEST_USV as i32 {
         print_char(c);
     }
     print_cstr(s);
 }
 unsafe fn print_the_digs(mut k: u8) {
-    while k as i32 > 0i32 {
+    while k as i32 > 0 {
         k = k.wrapping_sub(1);
-        if (dig[k as usize] as i32) < 10i32 {
+        if (dig[k as usize] as i32) < 10 {
             print_char('0' as i32 + dig[k as usize] as i32);
         } else {
-            print_char(55i32 + dig[k as usize] as i32);
+            print_char(55 + dig[k as usize] as i32);
         }
     }
 }
 pub(crate) unsafe fn print_int(mut n: i32) {
-    let mut k: u8 = 0_u8;
+    let mut k = 0_u8;
     let mut m: i32 = 0;
-    if n < 0i32 {
+    if n < 0 {
         print_char('-' as i32);
         if n as i64 > -100000000 {
             n = -n
         } else {
-            m = -1i32 - n;
-            n = m / 10i32;
-            m = m % 10i32 + 1i32;
+            m = -1 - n;
+            n = m / 10;
+            m = m % 10 + 1;
             k = 1_u8;
-            if m < 10i32 {
+            if m < 10 {
                 dig[0] = m as u8
             } else {
-                dig[0] = 0_u8;
-                n += 1
+                dig[0] = 0;
+                n += 1;
             }
         }
     }
     loop {
-        dig[k as usize] = (n % 10i32) as u8;
-        n = n / 10i32;
-        k = k.wrapping_add(1);
-        if n == 0i32 {
+        dig[k as usize] = (n % 10) as u8;
+        n = n / 10;
+        k += 1;
+        if n == 0 {
             break;
         }
     }
@@ -333,7 +320,7 @@ pub(crate) unsafe fn print_cs(mut p: i32) {
         } else if p < ACTIVE_BASE as i32 {
             print_esc_cstr("IMPOSSIBLE.");
         } else {
-            print_char(p - 1i32);
+            print_char(p - 1);
         }
     } else if p >= UNDEFINED_CONTROL_SEQUENCE as i32 && p <= EQTB_SIZE as i32 || p > EQTB_TOP as i32
     {
@@ -348,7 +335,7 @@ pub(crate) unsafe fn print_cs(mut p: i32) {
 pub(crate) unsafe fn sprint_cs(mut p: i32) {
     if p < HASH_BASE as i32 {
         if p < SINGLE_BASE as i32 {
-            print_char(p - 1i32);
+            print_char(p - 1);
         } else if p < NULL_CS as i32 {
             print_esc(p - SINGLE_BASE as i32);
         } else {
@@ -359,92 +346,92 @@ pub(crate) unsafe fn sprint_cs(mut p: i32) {
         print_esc((*hash.offset(p as isize)).s1);
     };
 }
-pub(crate) unsafe fn print_file_name(mut n: i32, mut a: i32, mut e: i32) {
+pub(crate) unsafe fn print_file_name(n: i32, a: i32, e: i32) {
     let mut must_quote: bool = false;
-    let mut quote_char: i32 = 0i32;
-    let mut j: pool_pointer = 0;
-    if a != 0i32 {
-        j = str_start[(a - 0x10000i32) as usize];
-        while (!must_quote || quote_char == 0i32) && j < str_start[(a + 1i32 - 0x10000i32) as usize]
+    let mut quote_char: i32 = 0;
+    let mut j = 0;
+    if a != 0 {
+        j = str_start[(a - 0x10000) as usize] as usize;
+        while (!must_quote || quote_char == 0) && j < str_start[(a + 1 - 0x10000) as usize] as usize
         {
-            if str_pool[j as usize] as i32 == ' ' as i32 {
+            if str_pool[j] as i32 == ' ' as i32 {
                 must_quote = true
-            } else if str_pool[j as usize] as i32 == '\"' as i32
-                || str_pool[j as usize] as i32 == '\'' as i32
-            {
+            } else if str_pool[j] as i32 == '\"' as i32 || str_pool[j] as i32 == '\'' as i32 {
                 must_quote = true;
-                quote_char = 73i32 - str_pool[j as usize] as i32
+                quote_char = 73 - str_pool[j] as i32
             }
             j += 1
         }
     }
-    if n != 0i32 {
-        j = str_start[(n - 0x10000i32) as usize];
-        while (!must_quote || quote_char == 0i32) && j < str_start[(n + 1i32 - 0x10000i32) as usize]
+    if n != 0 {
+        j = str_start[(n - 0x10000) as usize] as usize;
+        while (!must_quote || quote_char == 0) && j < str_start[(n + 1 - 0x10000) as usize] as usize
         {
-            if str_pool[j as usize] as i32 == ' ' as i32 {
+            if str_pool[j] as i32 == ' ' as i32 {
                 must_quote = true
-            } else if str_pool[j as usize] as i32 == '\"' as i32
-                || str_pool[j as usize] as i32 == '\'' as i32
-            {
+            } else if str_pool[j] as i32 == '\"' as i32 || str_pool[j] as i32 == '\'' as i32 {
                 must_quote = true;
-                quote_char = 73i32 - str_pool[j as usize] as i32
+                quote_char = 73 - str_pool[j] as i32
             }
             j += 1
         }
     }
-    if e != 0i32 {
-        j = str_start[(e - 0x10000i32) as usize];
-        while (!must_quote || quote_char == 0i32) && j < str_start[(e + 1i32 - 0x10000i32) as usize]
+    if e != 0 {
+        j = str_start[(e - 0x10000) as usize] as usize;
+        while (!must_quote || quote_char == 0) && j < str_start[(e + 1 - 0x10000) as usize] as usize
         {
-            if str_pool[j as usize] as i32 == ' ' as i32 {
+            if str_pool[j] as i32 == ' ' as i32 {
                 must_quote = true
-            } else if str_pool[j as usize] as i32 == '\"' as i32
-                || str_pool[j as usize] as i32 == '\'' as i32
-            {
+            } else if str_pool[j] as i32 == '\"' as i32 || str_pool[j] as i32 == '\'' as i32 {
                 must_quote = true;
-                quote_char = 73i32 - str_pool[j as usize] as i32
+                quote_char = 73 - str_pool[j] as i32
             }
             j += 1
         }
     }
     if must_quote {
-        if quote_char == 0i32 {
+        if quote_char == 0 {
             quote_char = '\"' as i32
         }
         print_char(quote_char);
     }
-    if a != 0i32 {
-        for j in str_start[(a - 0x10000i32) as usize]..str_start[(a + 1i32 - 0x10000i32) as usize] {
-            if str_pool[j as usize] as i32 == quote_char {
+    if a != 0 {
+        for j in (str_start[(a - 0x10000) as usize] as usize)
+            ..(str_start[(a + 1 - 0x10000) as usize] as usize)
+        {
+            if str_pool[j] as i32 == quote_char {
                 print(quote_char);
-                quote_char = 73i32 - quote_char;
-                print(quote_char);
-            }
-            print(str_pool[j as usize] as i32);
-        }
-    }
-    if n != 0i32 {
-        for j in str_start[(n - 0x10000i32) as usize]..str_start[(n + 1i32 - 0x10000i32) as usize] {
-            if str_pool[j as usize] as i32 == quote_char {
-                print(quote_char);
-                quote_char = 73i32 - quote_char;
+                quote_char = 73 - quote_char;
                 print(quote_char);
             }
-            print(str_pool[j as usize] as i32);
+            print(str_pool[j] as i32);
         }
     }
-    if e != 0i32 {
-        for j in str_start[(e - 0x10000i32) as usize]..str_start[(e + 1i32 - 0x10000i32) as usize] {
-            if str_pool[j as usize] as i32 == quote_char {
+    if n != 0 {
+        for j in (str_start[(n - 0x10000) as usize] as usize)
+            ..(str_start[(n + 1 - 0x10000) as usize] as usize)
+        {
+            if str_pool[j] as i32 == quote_char {
                 print(quote_char);
-                quote_char = 73i32 - quote_char;
+                quote_char = 73 - quote_char;
                 print(quote_char);
             }
-            print(str_pool[j as usize] as i32);
+            print(str_pool[j] as i32);
         }
     }
-    if quote_char != 0i32 {
+    if e != 0 {
+        for j in (str_start[(e - 0x10000) as usize] as usize)
+            ..(str_start[(e + 1 - 0x10000) as usize] as usize)
+        {
+            if str_pool[j] as i32 == quote_char {
+                print(quote_char);
+                quote_char = 73 - quote_char;
+                print(quote_char);
+            }
+            print(str_pool[j] as i32);
+        }
+    }
+    if quote_char != 0 {
         print_char(quote_char);
     };
 }
@@ -468,29 +455,12 @@ pub(crate) unsafe fn print_write_whatsit(s: &str, p: usize) {
     };
 }
 pub(crate) unsafe fn print_native_word(p: &NativeWord) {
-    let mut c: i32 = 0;
-    let text = p.text();
-    let mut i = 0;
-    // decode_utf16
-    while i < text.len() {
-        c = text[i] as i32;
-        if c >= 0xd800 && c < 0xdc00 {
-            if i < text.len() - 1 {
-                let cc = text[i + 1] as i32;
-                if cc >= 0xdc00 && cc < 0xe000 {
-                    c = 0x10000 + (c - 0xd800) * 1024 + (cc - 0xdc00);
-                    print_char(c);
-                    i += 1
-                } else {
-                    print('.' as i32);
-                }
-            } else {
-                print('.' as i32);
-            }
+    for c in std::char::decode_utf16(p.text().iter().cloned()) {
+        if let Ok(c) = c {
+            print_char(c as i32);
         } else {
-            print_char(c);
+            print('.' as i32);
         }
-        i += 1;
     }
 }
 pub(crate) unsafe fn print_sa_num(mut q: usize) {
@@ -529,18 +499,18 @@ pub(crate) unsafe fn print_file_line() {
 /*:251 */
 /*:1660*/
 pub(crate) unsafe fn print_two(mut n: i32) {
-    n = n.abs() % 100i32;
-    print_char('0' as i32 + n / 10i32);
-    print_char('0' as i32 + n % 10i32);
+    n = n.abs() % 100;
+    print_char('0' as i32 + n / 10);
+    print_char('0' as i32 + n % 10);
 }
 pub(crate) unsafe fn print_hex(mut n: i32) {
     let mut k: u8 = 0_u8;
     print_char('\"' as i32);
     loop {
-        dig[k as usize] = (n % 16i32) as u8;
-        n = n / 16i32;
+        dig[k as usize] = (n % 16) as u8;
+        n = n / 16;
         k = k.wrapping_add(1);
-        if !(n != 0i32) {
+        if n == 0 {
             break;
         }
     }
@@ -549,30 +519,29 @@ pub(crate) unsafe fn print_hex(mut n: i32) {
 pub(crate) unsafe fn print_roman_int(mut n: i32) {
     let mut u: i32 = 0;
     let mut v: i32 = 0;
-    let mut roman_data: *const i8 = b"m2d5c2l5x2v5i\x00" as *const u8 as *const i8;
+    const roman_data: &[u8] = b"m2d5c2l5x2v5i";
     let mut j: u8 = 0_u8;
-    let mut k: u8 = 0_u8;
     v = 1000i32;
     loop {
         while n >= v {
-            print_char(*roman_data.offset(j as isize) as i32);
+            print_char(roman_data[j as usize] as i32);
             n = n - v
         }
-        if n <= 0i32 {
+        if n <= 0 {
             return;
         }
-        k = (j as i32 + 2i32) as u8;
-        u = v / (*roman_data.offset((k as i32 - 1i32) as isize) as i32 - '0' as i32);
-        if *roman_data.offset((k as i32 - 1i32) as isize) as i32 == '2' as i32 {
-            k = (k as i32 + 2i32) as u8;
-            u = u / (*roman_data.offset((k as i32 - 1i32) as isize) as i32 - '0' as i32)
+        let mut k = j + 2;
+        u = v / (roman_data[k as usize - 1] as i32 - '0' as i32);
+        if roman_data[k as usize - 1] as i32 == '2' as i32 {
+            k += 2;
+            u = u / (roman_data[k as usize - 1] as i32 - '0' as i32)
         }
         if n + u >= v {
-            print_char(*roman_data.offset(k as isize) as i32);
+            print_char(roman_data[k as usize] as i32);
             n = n + u
         } else {
-            j = (j as i32 + 2i32) as u8;
-            v = v / (*roman_data.offset((j as i32 - 1i32) as isize) as i32 - '0' as i32)
+            j += 2;
+            v = v / (roman_data[j as usize - 1] as i32 - '0' as i32)
         }
     }
 }
@@ -585,21 +554,21 @@ pub(crate) unsafe fn print_current_string() {
 }
 pub(crate) unsafe fn print_scaled(mut s: scaled_t) {
     let mut delta: scaled_t = 0;
-    if s < 0i32 {
+    if s < 0 {
         print_char('-' as i32);
         s = s.wrapping_neg(); // TODO: check
     }
-    print_int(s / 0x10000i32);
+    print_int(s / 0x10000);
     print_char('.' as i32);
-    s = 10i32 * (s % 0x10000i32) + 5i32;
-    delta = 10i32;
+    s = 10 * (s % 0x10000) + 5;
+    delta = 10;
     loop {
-        if delta > 0x10000i32 {
-            s = s + 0x8000i32 - 50000i32
+        if delta > 0x10000 {
+            s = s + 0x8000 - 50000
         }
-        print_char('0' as i32 + s / 0x10000i32);
-        s = 10i32 * (s % 0x10000i32);
-        delta = delta * 10i32;
+        print_char('0' as i32 + s / 0x10000);
+        s = 10 * (s % 0x10000);
+        delta *= 10;
         if !(s > delta) {
             break;
         }

@@ -281,16 +281,12 @@ pub(crate) unsafe fn print_utf8_str(mut string: &[u8]) {
     /* bypass utf-8 encoding done in print_char() */
 }
 
+#[cfg(target_os = "macos")]
 pub(crate) unsafe fn print_chars(mut string: *const u16, mut len: i32) {
-    loop {
-        let fresh3 = len;
-        len = len - 1;
-        if !(fresh3 > 0i32) {
-            break;
-        }
-        let fresh4 = string;
+    while len > 0 {
+        print_char(*string as i32);
         string = string.offset(1);
-        print_char(*fresh4 as i32);
+        len = len - 1;
     }
 }
 

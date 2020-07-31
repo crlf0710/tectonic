@@ -213,8 +213,8 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
                     }
                     OUT_PARAM => {
                         print_char(match_chr);
-                        if c <= 9i32 {
-                            print_char(c + 48i32);
+                        if c <= 0x9 {
+                            print_char(c + '0' as i32);
                         } else {
                             print_char('!' as i32);
                             return;
@@ -223,7 +223,7 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
                     MATCH => {
                         match_chr = c;
                         print_char(c);
-                        n = n.wrapping_add(1);
+                        n += 1;
                         print_char(n as i32);
                         if n as i32 > '9' as i32 {
                             return;
@@ -409,13 +409,13 @@ pub(crate) unsafe fn new_null_box() -> usize {
     p.ptr()
 }
 pub(crate) unsafe fn new_rule() -> usize {
-    let p = get_node(RULE_NODE_SIZE);
-    set_NODE_type(p, TextNode::Rule);
-    MEM[p].b16.s0 = 0;
-    MEM[p + 1].b32.s1 = NULL_FLAG;
-    MEM[p + 2].b32.s1 = NULL_FLAG;
-    MEM[p + 3].b32.s1 = NULL_FLAG;
-    p
+    let mut p = Rule::from(get_node(RULE_NODE_SIZE));
+    set_NODE_type(p.ptr(), TextNode::Rule);
+    MEM[p.ptr()].b16.s0 = 0;
+    p.set_width(NULL_FLAG)
+        .set_depth(NULL_FLAG)
+        .set_height(NULL_FLAG);
+    p.ptr()
 }
 pub(crate) unsafe fn new_ligature(mut f: internal_font_number, mut c: u16, mut q: i32) -> usize {
     let mut p = Ligature(get_node(SMALL_NODE_SIZE));

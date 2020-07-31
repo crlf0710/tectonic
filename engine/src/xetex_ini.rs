@@ -4048,11 +4048,11 @@ unsafe fn initialize_more_initex_variables() {
         *SF_CODE(k as usize) = 1000;
     }
 
-    *CAT_CODE(13) = Cmd::CarRet as _;
-    *CAT_CODE(32) = Cmd::Spacer as _;
-    *CAT_CODE(92) = ESCAPE as _;
-    *CAT_CODE(37) = Cmd::Comment as _;
-    *CAT_CODE(127) = INVALID_CHAR as _;
+    *CAT_CODE('\r' as usize) = Cmd::CarRet as _;
+    *CAT_CODE(' ' as usize) = Cmd::Spacer as _;
+    *CAT_CODE('\\' as usize) = ESCAPE as _;
+    *CAT_CODE('%' as usize) = Cmd::Comment as _;
+    *CAT_CODE(0x7f) = INVALID_CHAR as _;
 
     EQTB[CAT_CODE_BASE].val = IGNORE as _;
     for k in ('0' as i32)..=('9' as i32) {
@@ -4082,7 +4082,7 @@ unsafe fn initialize_more_initex_variables() {
     *INTPAR(IntPar::hang_after) = 1;
     *INTPAR(IntPar::max_dead_cycles) = 25;
     *INTPAR(IntPar::escape_char) = '\\' as i32;
-    *INTPAR(IntPar::end_line_char) = CARRIAGE_RETURN;
+    *INTPAR(IntPar::end_line_char) = '\r' as i32;
 
     for k in 0..=(NUMBER_USVS - 1) {
         *DEL_CODE(k) = -1;
