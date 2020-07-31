@@ -706,8 +706,6 @@ pub(crate) static mut MAX_PARAM_STACK: usize = 0;
 #[no_mangle]
 pub(crate) static mut align_state: i32 = 0;
 #[no_mangle]
-pub(crate) static mut BASE_PTR: usize = 0;
-#[no_mangle]
 pub(crate) static mut par_loc: i32 = 0;
 #[no_mangle]
 pub(crate) static mut par_token: i32 = 0;
@@ -3725,7 +3723,7 @@ unsafe fn final_cleanup() {
         print_cstr("inside a group at level ");
         print_int(cur_level as i32 - 1);
         print_chr(')');
-        show_save_groups();
+        show_save_groups(cur_group, cur_level);
     }
     while let Some(cp) = cond_ptr {
         print_nl('(' as i32);

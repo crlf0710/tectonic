@@ -12,7 +12,7 @@ use std::ffi::CString;
 use std::io::Write;
 use std::ptr;
 
-use super::xetex_ini::{EqtbWord, Selector};
+use super::xetex_ini::{input_state_t, EqtbWord, Selector};
 use super::xetex_io::{
     bytesFromUTF8, name_of_input_file, offsetsFromUTF8, tt_xetex_open_input, u_open_in,
 };
@@ -59,7 +59,7 @@ use crate::xetex_ini::{
     shown_mode, skip_line, space_class, stop_at_space, str_pool, str_ptr, str_start, tally,
     term_offset, tex_remainder, texmf_log_name, total_shrink, total_stretch, trick_buf,
     trick_count, use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
-    xtx_ligature_present, LR_problems, LR_ptr, BASE_PTR, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE,
+    xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE,
     DEPTH_BASE, EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_CHECK,
     FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE,
     FONT_LETTER_SPACE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR,
@@ -2841,20 +2841,20 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> usize {
 }
 /*:276*/
 /*280: *//*296: */
-pub(crate) unsafe fn print_group(mut e: bool) {
-    match cur_group {
+pub(crate) unsafe fn print_group(group: GroupCode, level: u16, saveptr: usize, e: bool) {
+    match group {
         GroupCode::BottomLevel => {
             print_cstr("bottom level");
             return;
         }
         GroupCode::Simple | GroupCode::SemiSimple => {
-            if cur_group == GroupCode::SemiSimple {
+            if group == GroupCode::SemiSimple {
                 print_cstr("semi ");
             }
             print_cstr("simple");
         }
         GroupCode::HBox | GroupCode::AdjustedHBox => {
-            if cur_group == GroupCode::AdjustedHBox {
+            if group == GroupCode::AdjustedHBox {
                 print_cstr("adjusted ");
             }
             print_cstr("hbox");
@@ -2862,7 +2862,7 @@ pub(crate) unsafe fn print_group(mut e: bool) {
         GroupCode::VBox => print_cstr("vbox"),
         GroupCode::VTop => print_cstr("vtop"),
         GroupCode::Align | GroupCode::NoAlign => {
-            if cur_group == GroupCode::NoAlign {
+            if group == GroupCode::NoAlign {
                 print_cstr("no ");
             }
             print_cstr("align");
@@ -2873,25 +2873,25 @@ pub(crate) unsafe fn print_group(mut e: bool) {
         GroupCode::VCenter => print_cstr("vcenter"),
         GroupCode::Math | GroupCode::MathChoice | GroupCode::MathShift | GroupCode::MathLeft => {
             print_cstr("math");
-            if cur_group == GroupCode::MathChoice {
+            if group == GroupCode::MathChoice {
                 print_cstr(" choice");
-            } else if cur_group == GroupCode::MathShift {
+            } else if group == GroupCode::MathShift {
                 print_cstr(" shift");
-            } else if cur_group == GroupCode::MathLeft {
+            } else if group == GroupCode::MathLeft {
                 print_cstr(" left");
             }
         }
     }
     print_cstr(" group (level ");
-    print_int(cur_level as i32);
+    print_int(level as i32);
     print_chr(')');
-    if SAVE_STACK[SAVE_PTR - 1].val != 0 {
+    if SAVE_STACK[saveptr - 1].val != 0 {
         if e {
             print_cstr(" entered at line ");
         } else {
             print_cstr(" at line ");
         }
-        print_int(SAVE_STACK[SAVE_PTR - 1].val);
+        print_int(SAVE_STACK[saveptr - 1].val);
     };
 }
 /*:1448*/
@@ -2939,20 +2939,18 @@ pub(crate) unsafe fn pseudo_close() {
         free_node(p, MEM[p].b32.s0);
     }
 }
-pub(crate) unsafe fn group_warning() {
-    let mut w: bool = false;
-    BASE_PTR = INPUT_PTR;
-    INPUT_STACK[BASE_PTR] = cur_input;
+pub(crate) unsafe fn group_warning(input_stack: &[input_state_t]) {
+    let mut base_ptr = input_stack.len() - 1;
     let mut i = IN_OPEN;
-    w = false;
+    let mut w = false;
     while GRP_STACK[i] == cur_boundary && i > 0 {
         if *INTPAR(IntPar::tracing_nesting) > 0 {
-            while INPUT_STACK[BASE_PTR].state == InputState::TokenList
-                || INPUT_STACK[BASE_PTR].index as usize > i
+            while input_stack[base_ptr].state == InputState::TokenList
+                || input_stack[base_ptr].index as usize > i
             {
-                BASE_PTR -= 1;
+                base_ptr -= 1;
             }
-            if INPUT_STACK[BASE_PTR].name > 17 {
+            if input_stack[base_ptr].name > 17 {
                 w = true
             }
         }
@@ -2961,31 +2959,31 @@ pub(crate) unsafe fn group_warning() {
     }
     if w {
         print_nl_cstr("Warning: end of ");
-        print_group(true);
+        print_group(cur_group, cur_level, SAVE_PTR, true);
         print_cstr(" of a different file");
         print_ln();
         if *INTPAR(IntPar::tracing_nesting) > 1 {
-            show_context();
+            INPUT_STACK[INPUT_PTR] = cur_input;
+            show_context(&INPUT_STACK[..INPUT_PTR + 1]);
         }
         if history == TTHistory::SPOTLESS {
             history = TTHistory::WARNING_ISSUED
         }
     };
 }
-pub(crate) unsafe fn if_warning() {
+pub(crate) unsafe fn if_warning(input_stack: &[input_state_t]) {
     let mut w: bool = false;
-    BASE_PTR = INPUT_PTR;
-    INPUT_STACK[BASE_PTR] = cur_input;
+    let mut base_ptr = input_stack.len() - 1;
     let mut i = IN_OPEN;
     w = false;
     while IF_STACK[i] == cond_ptr {
         if *INTPAR(IntPar::tracing_nesting) > 0 {
-            while INPUT_STACK[BASE_PTR].state == InputState::TokenList
-                || INPUT_STACK[BASE_PTR].index as usize > i
+            while input_stack[base_ptr].state == InputState::TokenList
+                || input_stack[base_ptr].index as usize > i
             {
-                BASE_PTR -= 1
+                base_ptr -= 1
             }
-            if INPUT_STACK[BASE_PTR].name > 17 {
+            if input_stack[base_ptr].name > 17 {
                 w = true
             }
         }
@@ -3002,7 +3000,8 @@ pub(crate) unsafe fn if_warning() {
         print_cstr(" of a different file");
         print_ln();
         if *INTPAR(IntPar::tracing_nesting) > 1 {
-            show_context();
+            INPUT_STACK[INPUT_PTR] = cur_input;
+            show_context(&INPUT_STACK[..INPUT_PTR + 1]);
         }
         if history == TTHistory::SPOTLESS {
             history = TTHistory::WARNING_ISSUED
@@ -3010,51 +3009,43 @@ pub(crate) unsafe fn if_warning() {
     };
 }
 pub(crate) unsafe fn file_warning() {
-    let mut l: u16 = 0;
-    let mut i: i32 = 0;
-    let p = SAVE_PTR as i32;
-    l = cur_level;
-    let c = cur_group;
-    SAVE_PTR = cur_boundary as usize;
-    while GRP_STACK[IN_OPEN] != SAVE_PTR as i32 {
-        cur_level -= 1;
+    let mut level = cur_level;
+    let mut group = cur_group;
+    let mut saveptr = cur_boundary as usize;
+    while GRP_STACK[IN_OPEN] != saveptr as i32 {
+        level -= 1;
         print_nl_cstr("Warning: end of file when ");
-        print_group(true);
+        print_group(group, level, saveptr, true);
         print_cstr(" is incomplete");
-        cur_group = GroupCode::from(SAVE_STACK[SAVE_PTR].lvl);
-        SAVE_PTR = SAVE_STACK[SAVE_PTR].val as usize
+        group = GroupCode::from(SAVE_STACK[saveptr].lvl);
+        saveptr = SAVE_STACK[saveptr].val as usize
     }
-    SAVE_PTR = p as usize;
-    cur_level = l;
-    cur_group = c;
-    let p = cond_ptr;
-    l = if_limit as u16;
-    let c = cur_if as u16;
-    i = if_line;
-    while IF_STACK[IN_OPEN] != cond_ptr {
+
+    let mut condptr = cond_ptr;
+    let mut iflimit = if_limit;
+    let mut curif = cur_if;
+    let mut ifline = if_line;
+    while IF_STACK[IN_OPEN] != condptr {
         print_nl_cstr("Warning: end of file when ");
-        print_cmd_chr(Cmd::IfTest, cur_if as i32);
-        if if_limit == FiOrElseCode::Fi {
+        print_cmd_chr(Cmd::IfTest, curif as i32);
+        if iflimit == FiOrElseCode::Fi {
             print_esc_cstr("else");
         }
-        if if_line != 0 {
+        if ifline != 0 {
             print_cstr(" entered on line ");
-            print_int(if_line);
+            print_int(ifline);
         }
         print_cstr(" is incomplete");
-        let cp = cond_ptr.unwrap();
-        if_line = MEM[cp + 1].b32.s1;
-        cur_if = MEM[cp].b16.s0 as i16;
-        if_limit = FiOrElseCode::n(MEM[cp].b16.s1 as u8).unwrap();
-        cond_ptr = llist_link(cp);
+        let cp = condptr.unwrap();
+        ifline = MEM[cp + 1].b32.s1;
+        curif = MEM[cp].b16.s0 as i16;
+        iflimit = FiOrElseCode::n(MEM[cp].b16.s1 as u8).unwrap();
+        condptr = llist_link(cp);
     }
-    cond_ptr = p;
-    if_limit = FiOrElseCode::n(l as u8).unwrap();
-    cur_if = c as i16;
-    if_line = i;
     print_ln();
     if *INTPAR(IntPar::tracing_nesting) > 1 {
-        show_context();
+        INPUT_STACK[INPUT_PTR] = cur_input;
+        show_context(&INPUT_STACK[..INPUT_PTR + 1]);
     }
     if history == TTHistory::SPOTLESS {
         history = TTHistory::WARNING_ISSUED
@@ -3233,7 +3224,7 @@ pub(crate) unsafe fn new_save_level(c: GroupCode) {
             overflow("save size", SAVE_SIZE);
         }
     }
-    SAVE_STACK[SAVE_PTR + 0].val = line;
+    SAVE_STACK[SAVE_PTR].val = line;
     SAVE_PTR += 1;
     SAVE_STACK[SAVE_PTR].cmd = SaveCmd::LevelBoundary as u16;
     SAVE_STACK[SAVE_PTR].lvl = cur_group as u16;
@@ -3393,7 +3384,8 @@ pub(crate) unsafe fn unsave() {
             }
         }
         if GRP_STACK[IN_OPEN] == cur_boundary {
-            group_warning();
+            INPUT_STACK[INPUT_PTR] = cur_input;
+            group_warning(&INPUT_STACK[..INPUT_PTR + 1]);
         }
         cur_group = GroupCode::from(SAVE_STACK[SAVE_PTR].lvl);
         cur_boundary = SAVE_STACK[SAVE_PTR].val;
@@ -3494,51 +3486,51 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
     print_chr('}');
     end_diagnostic(false);
 }
-pub(crate) unsafe fn show_context() {
-    BASE_PTR = INPUT_PTR;
-    INPUT_STACK[BASE_PTR] = cur_input;
+pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
+    let last_ptr = input_stack.len() - 1;
+    let mut base_ptr = last_ptr;
     let mut nn = -1;
     let mut bottom_line = false;
     loop {
-        cur_input = INPUT_STACK[BASE_PTR];
-        if cur_input.state != InputState::TokenList {
-            if cur_input.name > 19 || BASE_PTR == 0 {
+        let input = input_stack[base_ptr];
+        if input.state != InputState::TokenList {
+            if input.name > 19 || base_ptr == 0 {
                 bottom_line = true
             }
         }
-        if BASE_PTR == INPUT_PTR || bottom_line || nn < *INTPAR(IntPar::error_context_lines) {
+        if base_ptr == last_ptr || bottom_line || nn < *INTPAR(IntPar::error_context_lines) {
             /*324: */
-            if BASE_PTR == INPUT_PTR
-                || cur_input.state != InputState::TokenList
-                || cur_input.index != Btl::BackedUp
-                || cur_input.loc.opt().is_some()
+            if base_ptr == last_ptr
+                || input.state != InputState::TokenList
+                || input.index != Btl::BackedUp
+                || input.loc.opt().is_some()
             {
                 tally = 0i32;
                 let old_setting_0 = selector;
                 let l;
-                if cur_input.state != InputState::TokenList {
-                    if cur_input.name <= 17 {
-                        if cur_input.name == 0 {
-                            if BASE_PTR == 0 {
+                if input.state != InputState::TokenList {
+                    if input.name <= 17 {
+                        if input.name == 0 {
+                            if base_ptr == 0 {
                                 print_nl_cstr("<*>");
                             } else {
                                 print_nl_cstr("<insert> ");
                             }
                         } else {
                             print_nl_cstr("<read ");
-                            if cur_input.name == 17 {
+                            if input.name == 17 {
                                 print_chr('*');
                             } else {
-                                print_int(cur_input.name - 1);
+                                print_int(input.name - 1);
                             }
                             print_chr('>');
                         }
                     } else {
                         print_nl_cstr("l.");
-                        if cur_input.index as usize == IN_OPEN {
+                        if input.index as usize == IN_OPEN {
                             print_int(line);
                         } else {
-                            print_int(LINE_STACK[(cur_input.index as i32 + 1) as usize]);
+                            print_int(LINE_STACK[(input.index as i32 + 1) as usize]);
                         }
                     }
                     print_chr(' ');
@@ -3546,14 +3538,14 @@ pub(crate) unsafe fn show_context() {
                     tally = 0;
                     selector = Selector::PSEUDO;
                     trick_count = 1000000;
-                    let j = if BUFFER[cur_input.limit as usize] == *INTPAR(IntPar::end_line_char) {
-                        cur_input.limit
+                    let j = if BUFFER[input.limit as usize] == *INTPAR(IntPar::end_line_char) {
+                        input.limit
                     } else {
-                        cur_input.limit + 1
+                        input.limit + 1
                     };
                     if j > 0 {
-                        for i in cur_input.start..j {
-                            if i == cur_input.loc {
+                        for i in input.start..j {
+                            if i == input.loc {
                                 first_count = tally;
                                 trick_count = tally + 1 + error_line - half_error_line;
                                 if trick_count < error_line {
@@ -3564,11 +3556,11 @@ pub(crate) unsafe fn show_context() {
                         }
                     }
                 } else {
-                    match cur_input.index {
+                    match input.index {
                         Btl::Parameter => print_nl_cstr("<argument> "),
                         Btl::UTemplate | Btl::VTemplate => print_nl_cstr("<template> "),
                         Btl::BackedUp | Btl::BackedUpChar => {
-                            if cur_input.loc.opt().is_none() {
+                            if input.loc.opt().is_none() {
                                 print_nl_cstr("<recently read> ");
                             } else {
                                 print_nl_cstr("<to be read again> ");
@@ -3577,7 +3569,7 @@ pub(crate) unsafe fn show_context() {
                         Btl::Inserted => print_nl_cstr("<inserted text> "),
                         Btl::Macro => {
                             print_ln();
-                            print_cs(cur_input.name);
+                            print_cs(input.name);
                         }
                         Btl::OutputText => print_nl_cstr("<output> "),
                         Btl::EveryParText => print_nl_cstr("<everypar> "),
@@ -3606,13 +3598,13 @@ pub(crate) unsafe fn show_context() {
                         Btl::BackedUpChar,
                         Btl::Inserted,
                     ]
-                    .contains(&cur_input.index)
+                    .contains(&input.index)
                     {
-                        show_token_list(cur_input.start.opt(), cur_input.loc.opt(), 100000);
+                        show_token_list(input.start.opt(), input.loc.opt(), 100000);
                     } else {
                         show_token_list(
-                            MEM[cur_input.start as usize].b32.s1.opt(),
-                            cur_input.loc.opt(),
+                            MEM[input.start as usize].b32.s1.opt(),
+                            input.loc.opt(),
                             100_000,
                         );
                     }
@@ -3667,9 +3659,8 @@ pub(crate) unsafe fn show_context() {
         if bottom_line {
             break;
         }
-        BASE_PTR -= 1
+        base_ptr -= 1
     }
-    cur_input = INPUT_STACK[INPUT_PTR];
 }
 pub(crate) unsafe fn begin_token_list(p: usize, t: Btl) {
     if INPUT_PTR > MAX_IN_STACK {
@@ -3678,7 +3669,7 @@ pub(crate) unsafe fn begin_token_list(p: usize, t: Btl) {
             overflow("input stack size", STACK_SIZE);
         }
     }
-    INPUT_STACK[INPUT_PTR] = cur_input;
+    INPUT_STACK[INPUT_PTR] = cur_input; // push
     INPUT_PTR += 1;
     cur_input.state = InputState::TokenList;
     cur_input.start = p as i32;
@@ -3742,7 +3733,7 @@ pub(crate) unsafe fn end_token_list() {
         }
     }
     INPUT_PTR -= 1;
-    cur_input = INPUT_STACK[INPUT_PTR];
+    cur_input = INPUT_STACK[INPUT_PTR]; // pop
 }
 pub(crate) unsafe fn back_input() {
     while cur_input.state == InputState::TokenList
@@ -3766,7 +3757,7 @@ pub(crate) unsafe fn back_input() {
             overflow("input stack size", STACK_SIZE);
         }
     }
-    INPUT_STACK[INPUT_PTR] = cur_input;
+    INPUT_STACK[INPUT_PTR] = cur_input; // push
     INPUT_PTR += 1;
     cur_input.state = InputState::TokenList;
     cur_input.start = p as i32;
@@ -3796,7 +3787,7 @@ pub(crate) unsafe fn begin_file_reading() {
             overflow("input stack size", STACK_SIZE);
         }
     }
-    INPUT_STACK[INPUT_PTR] = cur_input;
+    INPUT_STACK[INPUT_PTR] = cur_input; // push
     INPUT_PTR += 1;
     cur_input.index = Btl::from(IN_OPEN as u16);
     SOURCE_FILENAME_STACK[cur_input.index as usize] = 0;
@@ -3819,7 +3810,7 @@ pub(crate) unsafe fn end_file_reading() {
         u_close(INPUT_FILE[cur_input.index as usize]);
     }
     INPUT_PTR -= 1;
-    cur_input = INPUT_STACK[INPUT_PTR];
+    cur_input = INPUT_STACK[INPUT_PTR]; // pop
     IN_OPEN -= 1;
 }
 pub(crate) unsafe fn check_outer_validity() {
@@ -5265,7 +5256,8 @@ pub(crate) unsafe fn expand() {
                             pass_text();
                         }
                         if IF_STACK[IN_OPEN] == cond_ptr {
-                            if_warning();
+                            INPUT_STACK[INPUT_PTR] = cur_input;
+                            if_warning(&INPUT_STACK[..INPUT_PTR + 1]);
                         }
                         let p = cond_ptr.unwrap();
                         if_line = MEM[p + 1].b32.s1;
@@ -9324,7 +9316,8 @@ pub(crate) unsafe fn conditional() {
                 } else if cur_chr == FiOrElseCode::Fi as i32 {
                     /*515:*/
                     if IF_STACK[IN_OPEN] == cond_ptr {
-                        if_warning();
+                        INPUT_STACK[INPUT_PTR] = cur_input;
+                        if_warning(&INPUT_STACK[..INPUT_PTR + 1]);
                     }
                     let p = cond_ptr.unwrap();
                     if_line = MEM[p + 1].b32.s1;
@@ -9394,7 +9387,8 @@ pub(crate) unsafe fn conditional() {
         } else if cur_chr == FiOrElseCode::Fi as i32 {
             /*515:*/
             if IF_STACK[IN_OPEN] == cond_ptr {
-                if_warning();
+                INPUT_STACK[INPUT_PTR] = cur_input;
+                if_warning(&INPUT_STACK[..INPUT_PTR + 1]);
             }
             let p = cond_ptr.unwrap();
             if_line = MEM[p + 1].b32.s1;
@@ -9409,7 +9403,8 @@ pub(crate) unsafe fn conditional() {
         if cur_chr == FiOrElseCode::Fi as i32 {
             /*515:*/
             if IF_STACK[IN_OPEN] == cond_ptr {
-                if_warning();
+                INPUT_STACK[INPUT_PTR] = cur_input;
+                if_warning(&INPUT_STACK[..INPUT_PTR + 1]);
             }
             let p = cond_ptr.unwrap();
             if_line = MEM[p + 1].b32.s1;
@@ -9573,8 +9568,6 @@ pub(crate) unsafe fn pack_job_name(s: &str) {
     pack_file_name(cur_name, cur_area, cur_ext);
 }
 pub(crate) unsafe fn open_log_file() {
-    let mut k: i32 = 0;
-    let mut l: i32 = 0;
     let old_setting_0 = selector;
     if job_name == 0 {
         job_name = maketexstring("texput")
@@ -9591,11 +9584,11 @@ pub(crate) unsafe fn open_log_file() {
     /* Here we catch the log file up with anything that has already been
      * printed. The eqtb reference is end_line_char. */
     print_nl_cstr("**");
-    l = INPUT_STACK[0].limit;
+    let mut l = INPUT_STACK[0].limit;
     if BUFFER[l as usize] == *INTPAR(IntPar::end_line_char) {
         l -= 1
     }
-    k = 1;
+    let mut k = 1;
     while k <= l {
         print(BUFFER[k as usize]);
         k += 1;
@@ -12436,11 +12429,15 @@ pub(crate) unsafe fn eTeX_enabled(mut b: bool, j: Cmd, mut k: i32) -> bool {
     }
     b
 }
-pub(crate) unsafe fn show_save_groups() {
+pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
+    pub(crate) static mut cur_level1: u16 = 0;
+    pub(crate) static mut cur_group1: GroupCode = GroupCode::BottomLevel;
+    pub(crate) static mut SAVE_PTR1: usize = 0;
+
     unsafe fn do_loop(mut p: usize, mut a: i8) -> (bool, usize, i8) {
         print_nl_cstr("### ");
-        print_group(true);
-        if cur_group == GroupCode::BottomLevel {
+        print_group(cur_group1, cur_level1, SAVE_PTR1, true);
+        if cur_group1 == GroupCode::BottomLevel {
             return (true, p, a);
         }
         let m = loop {
@@ -12456,7 +12453,7 @@ pub(crate) unsafe fn show_save_groups() {
         };
         print_cstr(" (");
         let mut s: &str = "";
-        match cur_group {
+        match cur_group1 {
             GroupCode::BottomLevel => unreachable!(),
             GroupCode::Simple => {
                 p += 1;
@@ -12505,14 +12502,14 @@ pub(crate) unsafe fn show_save_groups() {
             }
             GroupCode::Math => return found2(p, a),
             GroupCode::Disc | GroupCode::MathChoice => {
-                if cur_group == GroupCode::Disc {
+                if cur_group1 == GroupCode::Disc {
                     print_esc_cstr("discretionary");
                 } else {
                     print_esc_cstr("mathchoice");
                 }
                 let mut i = 1;
                 while i <= 3 {
-                    if i <= SAVE_STACK[SAVE_PTR - 2].val {
+                    if i <= SAVE_STACK[SAVE_PTR1 - 2].val {
                         print_cstr("{}");
                     }
                     i += 1;
@@ -12520,11 +12517,11 @@ pub(crate) unsafe fn show_save_groups() {
                 return found2(p, a);
             }
             GroupCode::Insert => {
-                if SAVE_STACK[SAVE_PTR - 2].val == 255 {
+                if SAVE_STACK[SAVE_PTR1 - 2].val == 255 {
                     print_esc_cstr("vadjust");
                 } else {
                     print_esc_cstr("insert");
-                    print_int(SAVE_STACK[SAVE_PTR - 2].val);
+                    print_int(SAVE_STACK[SAVE_PTR1 - 2].val);
                 }
                 return found2(p, a);
             }
@@ -12541,7 +12538,7 @@ pub(crate) unsafe fn show_save_groups() {
                 if m == (false, ListMode::MMode) {
                     print_chr('$');
                 } else if NEST[p].mode == (false, ListMode::MMode) {
-                    print_cmd_chr(Cmd::EqNo, SAVE_STACK[SAVE_PTR - 2].val);
+                    print_cmd_chr(Cmd::EqNo, SAVE_STACK[SAVE_PTR1 - 2].val);
                     return found(p, a);
                 }
                 print_chr('$');
@@ -12557,7 +12554,7 @@ pub(crate) unsafe fn show_save_groups() {
             }
         }
 
-        let mut i = SAVE_STACK[SAVE_PTR - 4].val;
+        let mut i = SAVE_STACK[SAVE_PTR1 - 4].val;
 
         if i != 0 {
             if i < BOX_FLAG {
@@ -12590,14 +12587,14 @@ pub(crate) unsafe fn show_save_groups() {
 
     unsafe fn found1(s: &str, p: usize, a: i8) -> (bool, usize, i8) {
         print_esc_cstr(s);
-        if SAVE_STACK[SAVE_PTR - 2].val != 0 {
+        if SAVE_STACK[SAVE_PTR1 - 2].val != 0 {
             print_chr(' ');
-            if SAVE_STACK[SAVE_PTR - 3].val == PackMode::Exactly as i32 {
+            if SAVE_STACK[SAVE_PTR1 - 3].val == PackMode::Exactly as i32 {
                 print_cstr("to");
             } else {
                 print_cstr("spread");
             }
-            print_scaled(SAVE_STACK[SAVE_PTR - 2].val);
+            print_scaled(SAVE_STACK[SAVE_PTR1 - 2].val);
             print_cstr("pt");
         }
         found2(p, a)
@@ -12610,35 +12607,27 @@ pub(crate) unsafe fn show_save_groups() {
 
     unsafe fn found(p: usize, a: i8) -> (bool, usize, i8) {
         print_chr(')');
-        cur_level = cur_level.wrapping_sub(1);
-        cur_group = GroupCode::from(SAVE_STACK[SAVE_PTR].lvl);
-        SAVE_PTR = SAVE_STACK[SAVE_PTR].val as usize;
+        cur_level1 = cur_level1.wrapping_sub(1);
+        cur_group1 = GroupCode::from(SAVE_STACK[SAVE_PTR1].lvl);
+        SAVE_PTR1 = SAVE_STACK[SAVE_PTR1].val as usize;
         (false, p, a)
-    }
-
-    unsafe fn done(v: i32, l: u16, c: GroupCode) {
-        SAVE_PTR = v as usize;
-        cur_level = l;
-        cur_group = c;
     }
 
     let mut p = NEST_PTR;
     NEST[p] = cur_list;
-    let v = SAVE_PTR as i32;
-    let l = cur_level;
-    let c = cur_group;
-    SAVE_PTR = cur_boundary as usize;
-    cur_level = cur_level.wrapping_sub(1);
+    SAVE_PTR1 = cur_boundary as usize;
+    cur_group1 = group;
+    cur_level1 = level - 1;
     let mut a = 1_i8;
     print_nl_cstr("");
     print_ln();
     loop {
         let (is_done, new_p, new_a) = do_loop(p, a);
+        if is_done {
+            return;
+        }
         p = new_p;
         a = new_a;
-        if is_done {
-            return done(v, l, c);
-        }
     }
 }
 pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) -> i32 {
@@ -14161,17 +14150,17 @@ pub(crate) unsafe fn omit_error() {
     error();
 }
 pub(crate) unsafe fn do_endv() {
-    BASE_PTR = INPUT_PTR;
-    INPUT_STACK[BASE_PTR] = cur_input;
-    while INPUT_STACK[BASE_PTR].index != Btl::VTemplate
-        && INPUT_STACK[BASE_PTR].loc.opt().is_none()
-        && INPUT_STACK[BASE_PTR].state == InputState::TokenList
+    let mut base_ptr = INPUT_PTR;
+    INPUT_STACK[base_ptr] = cur_input;
+    while INPUT_STACK[base_ptr].index != Btl::VTemplate
+        && INPUT_STACK[base_ptr].loc.opt().is_none()
+        && INPUT_STACK[base_ptr].state == InputState::TokenList
     {
-        BASE_PTR -= 1
+        base_ptr -= 1
     }
-    if INPUT_STACK[BASE_PTR].index != Btl::VTemplate
-        || INPUT_STACK[BASE_PTR].loc.opt().is_some()
-        || INPUT_STACK[BASE_PTR].state != InputState::TokenList
+    if INPUT_STACK[base_ptr].index != Btl::VTemplate
+        || INPUT_STACK[base_ptr].loc.opt().is_some()
+        || INPUT_STACK[base_ptr].state != InputState::TokenList
     {
         fatal_error("(interwoven alignment preambles are not allowed)");
     }
@@ -14973,7 +14962,7 @@ pub(crate) unsafe fn show_whatever() {
         }
         4 => {
             begin_diagnostic();
-            show_save_groups();
+            show_save_groups(cur_group, cur_level);
         }
         6 => {
             begin_diagnostic();

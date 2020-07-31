@@ -24,7 +24,7 @@ use crate::xetex_xetex0::{close_files_and_terminate, give_err_help, open_log_fil
 
 use crate::bridge::TTHistory;
 
-use crate::xetex_ini::Selector;
+use crate::xetex_ini::{cur_input, Selector, INPUT_PTR, INPUT_STACK};
 
 pub(crate) trait Confuse {
     type Output;
@@ -83,7 +83,8 @@ pub(crate) unsafe fn error() {
         history = TTHistory::ERROR_ISSUED
     }
     print_chr('.');
-    show_context();
+    INPUT_STACK[INPUT_PTR] = cur_input;
+    show_context(&INPUT_STACK[..INPUT_PTR + 1]);
     if halt_on_error_p != 0 {
         history = TTHistory::FATAL_ERROR;
         post_error_message(0);

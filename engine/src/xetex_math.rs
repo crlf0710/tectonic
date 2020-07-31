@@ -405,7 +405,7 @@ pub(crate) unsafe fn init_math() {
     };
 }
 pub(crate) unsafe fn start_eq_no() {
-    SAVE_STACK[SAVE_PTR + 0].val = cur_chr;
+    SAVE_STACK[SAVE_PTR].val = cur_chr; // push
     SAVE_PTR += 1;
     push_math(GroupCode::MathShift);
     eq_word_define(INT_BASE as usize + (IntPar::cur_fam as usize), -1);
@@ -574,8 +574,8 @@ pub(crate) unsafe fn append_choices() {
     let c = new_choice();
     *LLIST_link(cur_list.tail) = Some(c).tex_int();
     cur_list.tail = c;
+    SAVE_STACK[SAVE_PTR].val = 0; // push
     SAVE_PTR += 1;
-    SAVE_STACK[SAVE_PTR - 1].val = 0;
     push_math(GroupCode::MathChoice);
     scan_left_brace();
 }
@@ -1024,7 +1024,7 @@ pub(crate) unsafe fn after_math() {
         a.set_lr_mode(LRMode::DList);
         unsave();
         SAVE_PTR -= 1;
-        if SAVE_STACK[SAVE_PTR + 0].val == 1 {
+        if SAVE_STACK[SAVE_PTR].val == 1 {
             l = true
         }
         danger = false;
