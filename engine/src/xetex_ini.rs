@@ -21,8 +21,8 @@ use crate::xetex_ext::release_font_engine;
 use crate::xetex_ext::{AAT_FONT_FLAG, OTGR_FONT_FLAG};
 use crate::xetex_layout_interface::{destroy_font_manager, set_cp_code};
 use crate::xetex_output::{
-    print, print_char, print_cstr, print_esc, print_esc_cstr, print_file_line, print_file_name,
-    print_int, print_ln, print_nl, print_nl_cstr, print_scaled,
+    print, print_char, print_chr, print_cstr, print_esc, print_esc_cstr, print_file_line,
+    print_file_name, print_int, print_ln, print_nl, print_nl_cstr, print_scaled,
 };
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
@@ -437,7 +437,6 @@ pub(crate) static mut bad: i32 = 0;
 
 pub(crate) static mut name_of_file: String = String::new();
 
-pub(crate) static mut name_of_file16: Vec<u16> = Vec::new();
 #[no_mangle]
 pub(crate) static mut BUFFER: Vec<UnicodeScalar> = Vec::new();
 #[no_mangle]
@@ -759,7 +758,7 @@ pub(crate) static mut area_delimiter: pool_pointer = 0;
 #[no_mangle]
 pub(crate) static mut ext_delimiter: pool_pointer = 0;
 #[no_mangle]
-pub(crate) static mut file_name_quote_char: UTF16_code = 0;
+pub(crate) static mut file_name_quote_char: Option<UTF16_code> = None;
 #[no_mangle]
 pub(crate) static mut TEX_format_default: String = String::new();
 #[no_mangle]
@@ -1936,7 +1935,7 @@ pub(crate) unsafe fn prefixed_command() {
             }
             print_cstr("You can\'t use a prefix with `");
             print_cmd_chr(cur_cmd, cur_chr);
-            print_char('\'' as i32);
+            print_chr('\'');
             help!("I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.");
             back_error();
             return;
@@ -1966,7 +1965,7 @@ pub(crate) unsafe fn prefixed_command() {
         print_esc_cstr("protected");
         print_cstr("\' with `");
         print_cmd_chr(cur_cmd, cur_chr);
-        print_char('\'' as i32);
+        print_chr('\'');
         error();
     }
     if *INTPAR(IntPar::global_defs) != 0 {
@@ -2059,7 +2058,7 @@ pub(crate) unsafe fn prefixed_command() {
                     print(p - CHAR_SUB_CODE_BASE as i32);
                     print_cstr(" = ");
                     print(n);
-                    print_char(' ' as i32);
+                    print_chr(' ');
                     print(cur_val);
                     end_diagnostic(false);
                 }
@@ -2658,13 +2657,13 @@ unsafe fn store_fmt_file() {
     selector = Selector::NEW_STRING;
     print_cstr(" (preloaded format=");
     print(job_name);
-    print_char(' ' as i32);
+    print_chr(' ');
     print_int(*INTPAR(IntPar::year));
-    print_char('.' as i32);
+    print_chr('.');
     print_int(*INTPAR(IntPar::month));
-    print_char('.' as i32);
+    print_chr('.');
     print_int(*INTPAR(IntPar::day));
-    print_char(')' as i32);
+    print_chr(')');
 
     selector = if interaction == InteractionMode::Batch {
         Selector::LOG_ONLY
@@ -2770,7 +2769,7 @@ unsafe fn store_fmt_file() {
     print_int(x);
     print_cstr(" memory locations dumped; current usage is ");
     print_int(var_used);
-    print_char('&' as i32);
+    print_chr('&');
     print_int(dyn_used);
 
     /* equivalents table / primitive */
@@ -2917,7 +2916,7 @@ unsafe fn store_fmt_file() {
     for k in FONT_BASE..=FONT_PTR {
         print_nl_cstr("\\font");
         print_esc((*hash.offset(FONT_ID_BASE as isize + k as isize)).s1);
-        print_char('=' as i32);
+        print_chr('=');
 
         if FONT_AREA[k] as u32 == AAT_FONT_FLAG
             || FONT_AREA[k] as u32 == OTGR_FONT_FLAG
@@ -3724,7 +3723,7 @@ unsafe fn final_cleanup() {
         print_esc_cstr("end occurred ");
         print_cstr("inside a group at level ");
         print_int(cur_level as i32 - 1);
-        print_char(')' as i32);
+        print_chr(')');
         show_save_groups();
     }
     while let Some(cp) = cond_ptr {

@@ -18,7 +18,7 @@ use crate::stub_teckit as teckit;
 use crate::xetex_consts::UnicodeMode;
 use crate::xetex_ini::{
     cur_area, cur_chr, cur_ext, cur_name, cur_val, first, last, max_buf_stack, name_in_progress,
-    name_of_file, name_of_file16, read_file, read_open, stop_at_space, BUFFER, BUF_SIZE,
+    name_of_file, read_file, read_open, stop_at_space, BUFFER, BUF_SIZE,
 };
 use crate::xetex_output::{print_int, print_nl};
 use crate::xetex_texmfmp::gettexstring;
@@ -708,13 +708,6 @@ pub(crate) unsafe fn get_uni_c(mut f: *mut UFILE) -> i32 {
     }
     rval
 }
-/* tectonic/xetex-io.h: XeTeX-specific low-level I/O routines
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
-pub(crate) unsafe fn make_utf16_name() {
-    name_of_file16 = name_of_file.encode_utf16().collect();
-}
 pub(crate) unsafe fn open_or_close_in() {
     use xetex_consts::*;
     let mut c: u8 = 0;
@@ -738,12 +731,10 @@ pub(crate) unsafe fn open_or_close_in() {
             *INTPAR(IntPar::xetex_default_input_encoding),
         ) != 0
         {
-            make_utf16_name();
             name_in_progress = true;
             begin_name();
-            stop_at_space = false;
-            for &k in &name_of_file16 {
-                if !more_name(k) {
+            for k in name_of_file.encode_utf16() {
+                if !more_name(k, false) {
                     break;
                 }
             }

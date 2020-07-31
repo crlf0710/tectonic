@@ -124,6 +124,9 @@ pub(crate) unsafe fn print_raw_char(mut s: UTF16_code, mut incr_offset: bool) {
     }
     tally += 1;
 }
+pub(crate) unsafe fn print_chr(s: char) {
+    print_char(s as i32)
+}
 pub(crate) unsafe fn print_char(s: i32) {
     let mut l: i16 = 0;
     if (u8::from(selector) > u8::from(Selector::PSEUDO)) && !doing_special {
@@ -278,7 +281,7 @@ pub(crate) unsafe fn print_int(mut n: i32) {
     let mut k = 0_u8;
     let mut m: i32 = 0;
     if n < 0 {
-        print_char('-' as i32);
+        print_chr('-');
         if n as i64 > -100000000 {
             n = -n
         } else {
@@ -310,11 +313,11 @@ pub(crate) unsafe fn print_cs(mut p: i32) {
             if p == NULL_CS as i32 {
                 print_esc_cstr("csname");
                 print_esc_cstr("endcsname");
-                print_char(' ' as i32);
+                print_chr(' ');
             } else {
                 print_esc(p - SINGLE_BASE as i32);
                 if *CAT_CODE(p as usize - SINGLE_BASE) == Cmd::Letter as _ {
-                    print_char(' ' as i32);
+                    print_chr(' ');
                 }
             }
         } else if p < ACTIVE_BASE as i32 {
@@ -329,7 +332,7 @@ pub(crate) unsafe fn print_cs(mut p: i32) {
         print_esc_cstr("NONEXISTENT.");
     } else {
         print_esc((*hash.offset(p as isize)).s1);
-        print_char(' ' as i32);
+        print_chr(' ');
     };
 }
 pub(crate) unsafe fn sprint_cs(mut p: i32) {
@@ -449,9 +452,9 @@ pub(crate) unsafe fn print_write_whatsit(s: &str, p: usize) {
     if MEM[p + 1].b32.s0 < 16 {
         print_int(MEM[p + 1].b32.s0);
     } else if MEM[p + 1].b32.s0 == 16 {
-        print_char('*' as i32);
+        print_chr('*');
     } else {
-        print_char('-' as i32);
+        print_chr('-');
     };
 }
 pub(crate) unsafe fn print_native_word(p: &NativeWord) {
@@ -505,7 +508,7 @@ pub(crate) unsafe fn print_two(mut n: i32) {
 }
 pub(crate) unsafe fn print_hex(mut n: i32) {
     let mut k: u8 = 0_u8;
-    print_char('\"' as i32);
+    print_chr('\"');
     loop {
         dig[k as usize] = (n % 16) as u8;
         n = n / 16;
@@ -555,11 +558,11 @@ pub(crate) unsafe fn print_current_string() {
 pub(crate) unsafe fn print_scaled(mut s: scaled_t) {
     let mut delta: scaled_t = 0;
     if s < 0 {
-        print_char('-' as i32);
+        print_chr('-');
         s = s.wrapping_neg(); // TODO: check
     }
     print_int(s / 0x10000);
-    print_char('.' as i32);
+    print_chr('.');
     s = 10 * (s % 0x10000) + 5;
     delta = 10;
     loop {

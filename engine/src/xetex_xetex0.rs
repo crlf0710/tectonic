@@ -14,8 +14,7 @@ use std::ptr;
 
 use super::xetex_ini::{EqtbWord, Selector};
 use super::xetex_io::{
-    bytesFromUTF8, make_utf16_name, name_of_input_file, offsetsFromUTF8, tt_xetex_open_input,
-    u_open_in,
+    bytesFromUTF8, name_of_input_file, offsetsFromUTF8, tt_xetex_open_input, u_open_in,
 };
 use crate::core_memory::{mfree, xmalloc_array, xrealloc};
 use crate::help;
@@ -51,7 +50,7 @@ use crate::xetex_ini::{
     loaded_font_letter_space, loaded_font_mapping, log_file, log_opened, long_help_seen,
     long_state, mag_set, main_f, main_h, main_i, main_j, main_k, main_s, mapped_text,
     max_buf_stack, max_print_line, max_reg_help_line, max_reg_num, max_strings, mem_end,
-    name_in_progress, name_of_file, name_of_file16, native_font_type_flag, native_len, native_text,
+    name_in_progress, name_of_file, native_font_type_flag, native_len, native_text,
     native_text_size, no_new_control_sequence, old_setting, open_parens, output_active,
     pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos,
     pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used,
@@ -80,10 +79,10 @@ use crate::xetex_math::{
     start_eq_no, sub_sup,
 };
 use crate::xetex_output::{
-    print, print_char, print_cs, print_cstr, print_current_string, print_esc, print_esc_cstr,
-    print_file_line, print_file_name, print_hex, print_int, print_ln, print_native_word, print_nl,
-    print_nl_cstr, print_raw_char, print_roman_int, print_sa_num, print_scaled, print_size,
-    print_write_whatsit, sprint_cs,
+    print, print_char, print_chr, print_cs, print_cstr, print_current_string, print_esc,
+    print_esc_cstr, print_file_line, print_file_name, print_hex, print_int, print_ln,
+    print_native_word, print_nl, print_nl_cstr, print_raw_char, print_roman_int, print_sa_num,
+    print_scaled, print_size, print_write_whatsit, sprint_cs,
 };
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
@@ -136,7 +135,7 @@ fn IS_LC_HEX(c: i32) -> bool {
 unsafe fn int_error(mut n: i32) {
     print_cstr(" (");
     print_int(n);
-    print_char(')' as i32);
+    print_chr(')');
     error();
 }
 pub(crate) unsafe fn badness(mut t: scaled_t, mut s: scaled_t) -> i32 {
@@ -216,7 +215,7 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
                         if c <= 0x9 {
                             print_char(c + '0' as i32);
                         } else {
-                            print_char('!' as i32);
+                            print_chr('!');
                             return;
                         }
                     }
@@ -265,7 +264,7 @@ pub(crate) unsafe fn runaway() {
             }
             _ => unreachable!(),
         };
-        print_char('?' as i32);
+        print_chr('?');
         print_ln();
         show_token_list(llist_link(p), None, error_line - 10);
     };
@@ -532,14 +531,14 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
             if p.ptr() <= mem_end as usize {
                 if p.font() as usize != font_in_short_display {
                     if p.font() as i32 > FONT_MAX as i32 {
-                        print_char('*' as i32);
+                        print_chr('*');
                     } else {
                         /*279:*/
                         print_esc(
                             (*hash.offset((FONT_ID_BASE as i32 + p.font() as i32) as isize)).s1,
                         );
                     }
-                    print_char(' ' as i32);
+                    print_chr(' ');
                     font_in_short_display = p.font() as usize
                 }
                 print(p.character() as i32);
@@ -560,25 +559,25 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                                 (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
                                     .s1,
                             );
-                            print_char(' ' as i32);
+                            print_chr(' ');
                             font_in_short_display = nw.font() as usize
                         }
                         print_native_word(&nw);
                     }
                     _ => print_cstr("[]"),
                 },
-                TextNode::Rule => print_char('|' as i32),
+                TextNode::Rule => print_chr('|'),
                 TextNode::Glue => {
                     if MEM[p + 1].b32.s0 != 0 {
                         // TODO: strange (special case?)
-                        print_char(' ' as i32);
+                        print_chr(' ');
                     }
                 }
                 TextNode::Math => match Math(p).subtype() {
                     MathType::Eq(_, MathMode::Left) | MathType::Eq(_, MathMode::Right) => {
                         print_cstr("[]")
                     }
-                    _ => print_char('$' as i32),
+                    _ => print_chr('$'),
                 },
                 TextNode::Ligature => short_display(Ligature(p).lig_ptr().opt()),
                 TextNode::Disc => {
@@ -604,28 +603,28 @@ pub(crate) unsafe fn print_font_and_char(p: usize) {
         print_esc_cstr("CLOBBERED.");
     } else {
         if MEM[p].b16.s1 as i32 > FONT_MAX as i32 {
-            print_char('*' as i32);
+            print_chr('*');
         } else {
             /*279: */
             print_esc((*hash.offset((FONT_ID_BASE as i32 + MEM[p].b16.s1 as i32) as isize)).s1);
         }
-        print_char(' ' as i32);
+        print_chr(' ');
         print(MEM[p].b16.s0 as i32);
     };
 }
 pub(crate) unsafe fn print_mark(mut p: i32) {
-    print_char('{' as i32);
+    print_chr('{');
     if p < hi_mem_min || p > mem_end {
         print_esc_cstr("CLOBBERED.");
     } else {
         show_token_list(LLIST_link(p as usize).opt(), None, max_print_line - 10);
         // TODO
     }
-    print_char('}' as i32);
+    print_chr('}');
 }
 pub(crate) unsafe fn print_rule_dimen(mut d: scaled_t) {
     if d == NULL_FLAG {
-        print_char('*' as i32);
+        print_chr('*');
     } else {
         print_scaled(d);
     };
@@ -643,7 +642,7 @@ pub(crate) unsafe fn print_glue(mut d: scaled_t, order: GlueOrder, s: &str) {
 }
 pub(crate) unsafe fn print_spec(p: i32, unit: &str) {
     if p < 0 || p >= lo_mem_max {
-        print_char('*' as i32);
+        print_chr('*');
     } else {
         let p = GlueSpec(p as usize);
         print_scaled(p.size());
@@ -664,7 +663,7 @@ pub(crate) unsafe fn print_fam_and_char(p: usize) {
     let mut c: i32 = 0;
     print_esc_cstr("fam");
     print_int(MEM[p].b16.s1 as i32 % 256 % 256);
-    print_char(' ' as i32);
+    print_chr(' ');
     c = (MEM[p].b16.s0 as i64 + (MEM[p].b16.s1 as i32 / 256) as i64 * 65536) as i32;
     if (c as i64) < 65536 {
         print(c);
@@ -784,7 +783,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         }
                         print_cstr("box(");
                         print_scaled(p.height());
-                        print_char('+' as i32);
+                        print_chr('+');
                         print_scaled(p.depth());
                         print_cstr(")x");
                         print_scaled(p.width());
@@ -796,7 +795,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             }
                             if g.abs() > 20000. {
                                 if g > 0. {
-                                    print_char('>' as i32);
+                                    print_chr('>');
                                 } else {
                                     print_cstr("< -");
                                 }
@@ -825,7 +824,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_esc_cstr("unset");
                         print_cstr("box(");
                         print_scaled(p.height());
-                        print_char('+' as i32);
+                        print_chr('+');
                         print_scaled(p.depth());
                         print_cstr(")x");
                         print_scaled(p.width());
@@ -852,7 +851,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         let p = Rule::from(p);
                         print_esc_cstr("rule(");
                         print_rule_dimen(p.height());
-                        print_char('+' as i32);
+                        print_chr('+');
                         print_rule_dimen(p.depth());
                         print_cstr(")x");
                         print_rule_dimen(p.width());
@@ -865,7 +864,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_scaled(p_ins.height());
                         print_cstr("; split(");
                         print_spec(p_ins.split_top_ptr(), "");
-                        print_char(',' as i32);
+                        print_chr(',');
                         print_scaled(p_ins.depth());
                         print_cstr("); float cost ");
                         print_int(p_ins.float_cost());
@@ -877,7 +876,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     TextNode::WhatsIt => match WhatsIt::from(p) {
                         WhatsIt::Open(p) => {
                             print_write_whatsit("openout", p.ptr());
-                            print_char('=' as i32);
+                            print_chr('=');
                             print_file_name(p.name(), p.area(), p.ext());
                         }
                         WhatsIt::Write(p) => {
@@ -894,16 +893,16 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_int(l.lang());
                             print_cstr(" (hyphenmin ");
                             print_int(l.lhm() as i32);
-                            print_char(',' as i32);
+                            print_chr(',');
                             print_int(l.rhm() as i32);
-                            print_char(')' as i32);
+                            print_chr(')');
                         }
                         WhatsIt::NativeWord(nw) => {
                             print_esc(
                                 (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
                                     .s1,
                             );
-                            print_char(' ' as i32);
+                            print_chr(' ');
                             print_native_word(&nw);
                         }
                         WhatsIt::Glyph(g) => {
@@ -934,9 +933,9 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             /*198: */
                             print_esc_cstr(""); /*:244 */
                             if g.param() == C_LEADERS {
-                                print_char('c' as i32); /*214:*/
+                                print_chr('c'); /*214:*/
                             } else if g.param() == X_LEADERS {
-                                print_char('x' as i32);
+                                print_chr('x');
                             }
                             print_cstr("leaders ");
                             print_spec(g.glue_ptr(), "");
@@ -947,7 +946,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         } else {
                             print_esc_cstr("glue");
                             if g.param() != NORMAL {
-                                print_char('(' as i32);
+                                print_chr('(');
                                 if g.param() < COND_MATH_GLUE {
                                     match GluePar::n(g.param() - 1) {
                                         Some(dimen) => print_skip_param(dimen),
@@ -958,10 +957,10 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                                 } else {
                                     print_esc_cstr("mskip");
                                 }
-                                print_char(')' as i32);
+                                print_chr(')');
                             }
                             if g.param() != COND_MATH_GLUE {
-                                print_char(' ' as i32);
+                                print_chr(' ');
                                 if g.param() < COND_MATH_GLUE {
                                     print_spec(g.glue_ptr(), "");
                                 } else {
@@ -975,7 +974,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         if k.subtype() != KernType::Math {
                             print_esc_cstr("kern");
                             if k.subtype() != KernType::Normal {
-                                print_char(' ' as i32);
+                                print_chr(' ');
                             }
                             print_scaled(k.width());
                             if k.subtype() == KernType::AccKern {
@@ -1007,9 +1006,9 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                                     BE::End => print_esc_cstr("end"),
                                 }
                                 match mode {
-                                    MathMode::Right => print_char('R' as i32),
-                                    MathMode::Left => print_char('L' as i32),
-                                    MathMode::Middle => print_char('M' as i32),
+                                    MathMode::Right => print_chr('R'),
+                                    MathMode::Left => print_chr('L'),
+                                    MathMode::Middle => print_chr('M'),
                                 }
                             }
                             _ => {
@@ -1031,14 +1030,14 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_font_and_char(l.ptr() + 1);
                         print_cstr(" (ligature ");
                         if l.left_hit() {
-                            print_char('|' as i32);
+                            print_chr('|');
                         }
                         font_in_short_display = l.font() as usize;
                         short_display(l.lig_ptr().opt());
                         if l.right_hit() {
-                            print_char('|' as i32);
+                            print_chr('|');
                         }
-                        print_char(')' as i32);
+                        print_chr(')');
                     }
                     TextNode::Penalty => {
                         let p = Penalty(p);
@@ -1065,7 +1064,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         let m = Mark(p);
                         print_esc_cstr("mark");
                         if m.class() != 0 {
-                            print_char('s' as i32);
+                            print_chr('s');
                             print_int(m.class());
                         }
                         print_mark(m.mark_ptr());
@@ -1603,9 +1602,9 @@ pub(crate) unsafe fn show_activities() {
                     print_int((NEST[p].prev_graf as i64 % 65536) as i32);
                     print_cstr(":hyphenmin");
                     print_int(NEST[p].prev_graf / 0x400000);
-                    print_char(',' as i32);
+                    print_chr(',');
                     print_int((NEST[p].prev_graf as i64 / 65536 % 64) as i32);
-                    print_char(')' as i32);
+                    print_chr(')');
                 }
             }
             if NEST[p].mode_line < 0 {
@@ -2016,7 +2015,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         Cmd::Mark => {
             print_esc_cstr("mark");
             if chr_code > 0 {
-                print_char('s' as i32);
+                print_chr('s');
             }
         }
         Cmd::MathAccent => {
@@ -2122,7 +2121,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 _ => print_esc_cstr("topmark"),
             }
             if chr_code >= MARKS_CODE {
-                print_char('s' as i32);
+                print_chr('s');
             }
         }
         Cmd::Register => {
@@ -2629,7 +2628,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr("outer");
             }
             if n > 0 {
-                print_char(' ' as i32);
+                print_chr(' ');
             }
             print_cstr("macro");
         }
@@ -2890,7 +2889,7 @@ pub(crate) unsafe fn print_group(mut e: bool) {
     }
     print_cstr(" group (level ");
     print_int(cur_level as i32);
-    print_char(')' as i32);
+    print_chr(')');
     if SAVE_STACK[SAVE_PTR - 1].val != 0 {
         if e {
             print_cstr(" entered at line ");
@@ -3449,11 +3448,11 @@ pub(crate) unsafe fn token_show(p: Option<usize>) {
 pub(crate) unsafe fn print_meaning() {
     print_cmd_chr(cur_cmd, cur_chr);
     if cur_cmd >= Cmd::Call {
-        print_char(':' as i32);
+        print_chr(':');
         print_ln();
         token_show(cur_chr.opt());
     } else if cur_cmd == Cmd::TopBotMark && cur_chr < 5 {
-        print_char(':' as i32);
+        print_chr(':');
         print_ln();
         token_show(cur_mark[cur_chr as usize]);
     };
@@ -3475,7 +3474,7 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
                 let l;
                 if cur_cmd == Cmd::FiOrElse {
                     print_cmd_chr(Cmd::IfTest, cur_if as i32);
-                    print_char(' ' as i32);
+                    print_chr(' ');
                     n = 0;
                     l = if_line
                 } else {
@@ -3489,7 +3488,7 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
                 }
                 print_cstr("(level ");
                 print_int(n);
-                print_char(')' as i32);
+                print_chr(')');
                 if l != 0 {
                     print_cstr(" entered on line ");
                     print_int(l);
@@ -3497,7 +3496,7 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
             }
         }
     }
-    print_char('}' as i32);
+    print_chr('}');
     end_diagnostic(false);
 }
 pub(crate) unsafe fn show_context() {
@@ -3533,11 +3532,11 @@ pub(crate) unsafe fn show_context() {
                         } else {
                             print_nl_cstr("<read ");
                             if cur_input.name == 17 {
-                                print_char('*' as i32);
+                                print_chr('*');
                             } else {
                                 print_int(cur_input.name - 1);
                             }
-                            print_char('>' as i32);
+                            print_chr('>');
                         }
                     } else {
                         print_nl_cstr("l.");
@@ -3547,7 +3546,7 @@ pub(crate) unsafe fn show_context() {
                             print_int(LINE_STACK[(cur_input.index as i32 + 1) as usize]);
                         }
                     }
-                    print_char(' ' as i32);
+                    print_chr(' ');
                     l = tally;
                     tally = 0;
                     selector = Selector::PSEUDO;
@@ -4179,7 +4178,7 @@ pub(crate) unsafe fn get_next() {
                                 }
                             }
                             if cur_input.name >= 19 {
-                                print_char(')' as i32);
+                                print_chr(')');
                                 open_parens -= 1;
                                 rust_stdout.as_mut().unwrap().flush().unwrap();
                             }
@@ -5114,7 +5113,7 @@ pub(crate) unsafe fn expand() {
                             print_esc_cstr("unless");
                             print_cstr("\' before `");
                             print_cmd_chr(cur_cmd, cur_chr);
-                            print_char('\'' as i32);
+                            print_chr('\'');
                             help!("Continue, and I\'ll forget that it ever happened.");
                             back_error();
                             break;
@@ -8182,7 +8181,7 @@ pub(crate) unsafe fn pseudo_start() {
         if term_offset > max_print_line - 3 {
             print_ln();
         } else if term_offset > 0 || file_offset > 0 {
-            print_char(' ' as i32);
+            print_chr(' ');
         }
         cur_input.name = 19;
         print_cstr("( ");
@@ -9309,7 +9308,7 @@ pub(crate) unsafe fn conditional() {
                 begin_diagnostic();
                 print_cstr("{case ");
                 print_int(n);
-                print_char('}' as i32);
+                print_chr('}');
                 end_diagnostic(false);
             }
 
@@ -9431,35 +9430,31 @@ pub(crate) unsafe fn begin_name() {
     area_delimiter = 0;
     ext_delimiter = 0;
     quoted_filename = false;
-    file_name_quote_char = 0 as UTF16_code;
+    file_name_quote_char = None;
 }
-pub(crate) unsafe fn more_name(mut c: UTF16_code) -> bool {
-    if stop_at_space && file_name_quote_char == 0 && c as i32 == ' ' as i32 {
+pub(crate) unsafe fn more_name(c: UTF16_code, stop_at_space_: bool) -> bool {
+    if stop_at_space_ && file_name_quote_char.is_none() && c as i32 == ' ' as i32 {
         return false;
     }
-    if stop_at_space && file_name_quote_char != 0 && c as i32 == file_name_quote_char as i32 {
-        file_name_quote_char = 0 as UTF16_code;
+    if stop_at_space_ && file_name_quote_char == Some(c) {
+        file_name_quote_char = None;
         return true;
     }
-    if stop_at_space
-        && file_name_quote_char == 0
-        && (c as i32 == '\"' as i32 || c as i32 == '\'' as i32)
-    {
-        file_name_quote_char = c;
+    if stop_at_space_ && file_name_quote_char.is_none() && (c == '\"' as u16 || c == '\'' as u16) {
+        file_name_quote_char = Some(c);
         quoted_filename = true;
         return true;
     }
     if pool_ptr + 1 > pool_size {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
-    let fresh37 = pool_ptr;
-    pool_ptr = pool_ptr + 1;
-    str_pool[fresh37 as usize] = c;
-    if c as i32 == '/' as i32 {
+    str_pool[pool_ptr as usize] = c;
+    pool_ptr += 1;
+    if c == '/' as u16 {
         // IS_DIR_SEP
         area_delimiter = cur_length();
         ext_delimiter = 0;
-    } else if c as i32 == '.' as i32 {
+    } else if c == '.' as u16 {
         ext_delimiter = cur_length()
     }
     true
@@ -9524,35 +9519,28 @@ pub(crate) unsafe fn pack_file_name(mut n: str_number, mut a: str_number, mut e:
     name_of_file = gettexstring(a) + &gettexstring(n) + &gettexstring(e);
 }
 pub(crate) unsafe fn make_name_string() -> str_number {
-    let mut save_area_delimiter: pool_pointer = 0;
-    let mut save_ext_delimiter: pool_pointer = 0;
-    let mut save_name_in_progress: bool = false;
-    let mut save_stop_at_space: bool = false;
     if pool_ptr as usize + name_of_file.as_bytes().len() > pool_size as usize
         || str_ptr == max_strings as i32
         || cur_length() > 0
     {
         return '?' as i32;
     }
-    make_utf16_name();
+    let name_of_file16: Vec<u16> = name_of_file.encode_utf16().collect();
     for &k in &name_of_file16 {
         str_pool[pool_ptr as usize] = k;
         pool_ptr += 1;
     }
-    let mut Result: str_number = make_string();
-    save_area_delimiter = area_delimiter;
-    save_ext_delimiter = ext_delimiter;
-    save_name_in_progress = name_in_progress;
-    save_stop_at_space = stop_at_space;
+    let Result: str_number = make_string();
+    let save_area_delimiter = area_delimiter;
+    let save_ext_delimiter = ext_delimiter;
+    let save_name_in_progress = name_in_progress;
     name_in_progress = true;
     begin_name();
-    stop_at_space = false;
     for &k in &name_of_file16 {
-        if !more_name(k) {
+        if !more_name(k, false) {
             break;
         }
     }
-    stop_at_space = save_stop_at_space;
     end_name();
     name_in_progress = save_name_in_progress;
     area_delimiter = save_area_delimiter;
@@ -9573,7 +9561,7 @@ pub(crate) unsafe fn scan_file_name() {
             back_input();
             break;
         } else {
-            if !more_name(cur_chr as UTF16_code) {
+            if !more_name(cur_chr as UTF16_code, stop_at_space) {
                 break;
             }
             get_x_token();
@@ -9761,12 +9749,10 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     }
     /* Now re-encode `name_of_file` into the UTF-16 variable `name_of_file16`,
      * and use that to recompute `cur_{name,area,ext}`. */
-    make_utf16_name();
     name_in_progress = true;
     begin_name();
-    stop_at_space = false;
-    for &k in &name_of_file16 {
-        if !more_name(k) {
+    for k in name_of_file.encode_utf16() {
+        if !more_name(k, false) {
             break;
         }
     }
@@ -9797,9 +9783,9 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     if term_offset + length(FULL_SOURCE_FILENAME_STACK[IN_OPEN]) > max_print_line - 2 {
         print_ln();
     } else if term_offset > 0 || file_offset > 0 {
-        print_char(' ' as i32);
+        print_chr(' ');
     }
-    print_char('(' as i32);
+    print_chr('(');
     open_parens += 1;
     print(FULL_SOURCE_FILENAME_STACK[IN_OPEN]);
     rust_stdout.as_mut().unwrap().flush().unwrap();
@@ -9839,7 +9825,7 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
         }
         print_cstr(" in font ");
         print(FONT_NAME[f]);
-        print_char('!' as i32);
+        print_chr('!');
         end_diagnostic(false);
         *INTPAR(IntPar::tracing_online) = old_setting_0
     }
@@ -10083,13 +10069,13 @@ pub(crate) unsafe fn load_native_font(
         }
         print_cstr("Font ");
         sprint_cs(u);
-        print_char('=' as i32);
-        if file_name_quote_char != 0 {
-            print_char(file_name_quote_char as i32);
+        print_chr('=');
+        if let Some(qc) = file_name_quote_char {
+            print_char(qc as i32);
         }
         print_file_name(nom, aire, cur_ext);
-        if file_name_quote_char != 0 {
-            print_char(file_name_quote_char as i32);
+        if let Some(qc) = file_name_quote_char {
+            print_char(qc as i32);
         }
         if s >= 0 {
             print_cstr(" at ");
@@ -10776,13 +10762,13 @@ pub(crate) unsafe fn read_font_info(
             }
             print_cstr("Font ");
             sprint_cs(u);
-            print_char('=' as i32);
-            if file_name_quote_char != 0 {
-                print_char(file_name_quote_char as i32);
+            print_chr('=');
+            if let Some(qc) = file_name_quote_char {
+                print_char(qc as i32);
             }
             print_file_name(nom, aire, cur_ext);
-            if file_name_quote_char != 0 {
-                print_char(file_name_quote_char as i32);
+            if let Some(qc) = file_name_quote_char {
+                print_char(qc as i32);
             }
             if s >= 0 {
                 print_cstr(" at ");
@@ -12557,12 +12543,12 @@ pub(crate) unsafe fn show_save_groups() {
             }
             GroupCode::MathShift => {
                 if m == (false, ListMode::MMode) {
-                    print_char('$' as i32);
+                    print_chr('$');
                 } else if NEST[p].mode == (false, ListMode::MMode) {
                     print_cmd_chr(Cmd::EqNo, SAVE_STACK[SAVE_PTR - 2].val);
                     return found(p, a);
                 }
-                print_char('$' as i32);
+                print_chr('$');
                 return found(p, a);
             }
             GroupCode::MathLeft => {
@@ -12598,7 +12584,7 @@ pub(crate) unsafe fn show_save_groups() {
                 }
                 print_esc_cstr("setbox");
                 print_int(i - BOX_FLAG);
-                print_char('=' as i32);
+                print_chr('=');
             } else {
                 print_cmd_chr(Cmd::LeaderShip, i - (LEADER_FLAG - (A_LEADERS as i32)));
             }
@@ -12609,7 +12595,7 @@ pub(crate) unsafe fn show_save_groups() {
     unsafe fn found1(s: &str, p: usize, a: i8) -> (bool, usize, i8) {
         print_esc_cstr(s);
         if SAVE_STACK[SAVE_PTR - 2].val != 0 {
-            print_char(' ' as i32);
+            print_chr(' ');
             if SAVE_STACK[SAVE_PTR - 3].val == PackMode::Exactly as i32 {
                 print_cstr("to");
             } else {
@@ -12622,12 +12608,12 @@ pub(crate) unsafe fn show_save_groups() {
     }
 
     unsafe fn found2(p: usize, a: i8) -> (bool, usize, i8) {
-        print_char('{' as i32);
+        print_chr('{');
         found(p, a)
     }
 
     unsafe fn found(p: usize, a: i8) -> (bool, usize, i8) {
-        print_char(')' as i32);
+        print_chr(')');
         cur_level = cur_level.wrapping_sub(1);
         cur_group = GroupCode::from(SAVE_STACK[SAVE_PTR].lvl);
         SAVE_PTR = SAVE_STACK[SAVE_PTR].val as usize;
@@ -13128,7 +13114,7 @@ pub(crate) unsafe fn off_save() {
             }
             GroupCode::MathShift => {
                 MEM[p].b32.s0 = MATH_SHIFT_TOKEN + '$' as i32;
-                print_char('$' as i32);
+                print_chr('$');
             }
             GroupCode::MathLeft => {
                 MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_RIGHT as i32;
@@ -13139,7 +13125,7 @@ pub(crate) unsafe fn off_save() {
             }
             _ => {
                 MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
-                print_char('}' as i32);
+                print_chr('}');
             }
         }
         print_cstr(" inserted");
@@ -13163,7 +13149,7 @@ pub(crate) unsafe fn extra_right_brace() {
     print_cstr("Extra }, or forgotten ");
     match cur_group {
         GroupCode::SemiSimple => print_esc_cstr("endgroup"),
-        GroupCode::MathShift => print_char('$' as i32),
+        GroupCode::MathShift => print_chr('$'),
         GroupCode::MathLeft => print_esc_cstr("right"),
         _ => {}
     }
@@ -14904,7 +14890,7 @@ pub(crate) unsafe fn issue_message() {
         if term_offset + length(s) > max_print_line - 2 {
             print_ln();
         } else if term_offset > 0 || file_offset > 0 {
-            print_char(' ' as i32);
+            print_chr(' ');
         }
         print(s);
         rust_stdout.as_mut().unwrap().flush().unwrap();
@@ -14972,7 +14958,7 @@ pub(crate) unsafe fn show_whatever() {
             begin_diagnostic();
             print_nl_cstr("> \\box");
             print_int(cur_val);
-            print_char('=' as i32);
+            print_chr('=');
             if p.is_none() {
                 print_cstr("void");
             } else {
@@ -14984,7 +14970,7 @@ pub(crate) unsafe fn show_whatever() {
             print_nl_cstr("> ");
             if cur_cs != 0 {
                 sprint_cs(cur_cs);
-                print_char('=' as i32);
+                print_chr('=');
             }
             print_meaning();
             return common_ending();
@@ -17320,7 +17306,7 @@ pub(crate) unsafe fn close_files_and_terminate() {
         if selector == Selector::TERM_ONLY {
             print_nl_cstr("Transcript written on ");
             print(texmf_log_name);
-            print_char('.' as i32);
+            print_chr('.');
         }
     }
     print_ln();

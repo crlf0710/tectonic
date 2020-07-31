@@ -26,7 +26,7 @@ use crate::xetex_ini::{b16x4, b16x4_le_t};
 use crate::xetex_layout_interface::*;
 use crate::xetex_linebreak::line_break;
 use crate::xetex_output::{
-    print, print_char, print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr,
+    print, print_chr, print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr,
     print_size,
 };
 use crate::xetex_pagebuilder::build_page;
@@ -1669,11 +1669,11 @@ pub(crate) unsafe fn fetch(a: &mut MCell) {
         }
         print_cstr("");
         print_size(cur_size as i32);
-        print_char(' ' as i32);
+        print_chr(' ');
         print_int(a.val.chr.font as i32 % 256);
         print_cstr(" is undefined (character ");
         print(cur_c);
-        print_char(')' as i32);
+        print_chr(')');
 
         help!(
             "Somewhere in the math formula just ended, you used the",

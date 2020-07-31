@@ -19,7 +19,7 @@ use crate::xetex_ini::{
     FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
 };
 use crate::xetex_output::{
-    print, print_char, print_cstr, print_file_line, print_file_name, print_int, print_ln,
+    print, print_chr, print_cstr, print_file_line, print_file_name, print_int, print_ln,
     print_nl_cstr, print_raw_char, print_scaled,
 };
 use crate::xetex_scaledmath::tex_round;
@@ -108,10 +108,10 @@ pub(crate) unsafe fn ship_out(mut p: List) {
     if term_offset > max_print_line - 9 {
         print_ln();
     } else if term_offset > 0 || file_offset > 0 {
-        print_char(' ' as i32);
+        print_chr(' ');
     }
 
-    print_char('[' as i32);
+    print_chr('[');
     let mut j = 9;
     while j > 0 && *COUNT_REG(j as _) == 0 {
         j -= 1;
@@ -120,14 +120,14 @@ pub(crate) unsafe fn ship_out(mut p: List) {
     for k in 0..=j {
         print_int(*COUNT_REG(k as _));
         if k < j {
-            print_char('.' as i32);
+            print_chr('.');
         }
     }
 
     rust_stdout.as_mut().unwrap().flush().unwrap();
 
     if *INTPAR(IntPar::tracing_output) > 0 {
-        print_char(']' as i32);
+        print_chr(']');
         begin_diagnostic();
         show_box(Some(p.ptr()));
         end_diagnostic(true);
@@ -294,7 +294,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         print_int(LR_problems % 10000);
         print_cstr(" extra");
         LR_problems = 0;
-        print_char(')' as i32);
+        print_chr(')');
         print_ln();
     }
 
@@ -303,7 +303,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
     }
 
     if *INTPAR(IntPar::tracing_output) <= 0 {
-        print_char(']' as i32);
+        print_chr(']');
     }
 
     dead_cycles = 0;
@@ -2178,7 +2178,7 @@ unsafe fn write_out(p: &WriteFile) {
         }
         print_cstr(")...");
         print_cstr("disabled");
-        print_char('.' as i32);
+        print_chr('.');
         print_nl_cstr("");
         print_ln();
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]

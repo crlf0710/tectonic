@@ -18,7 +18,7 @@ use crate::xetex_ini::{
     interaction, job_name, log_opened, rust_stdout, selector, use_err_help,
 };
 use crate::xetex_output::{
-    print, print_char, print_cstr, print_file_line, print_int, print_ln, print_nl_cstr,
+    print, print_chr, print_cstr, print_file_line, print_int, print_ln, print_nl_cstr,
 };
 use crate::xetex_xetex0::{close_files_and_terminate, give_err_help, open_log_file, show_context};
 
@@ -82,7 +82,7 @@ pub(crate) unsafe fn error() {
     if (history as u32) < (TTHistory::ERROR_ISSUED as u32) {
         history = TTHistory::ERROR_ISSUED
     }
-    print_char('.' as i32);
+    print_chr('.');
     show_context();
     if halt_on_error_p != 0 {
         history = TTHistory::FATAL_ERROR;
@@ -129,9 +129,9 @@ pub(crate) unsafe fn overflow(s: &str, n: usize) -> ! {
     pre_error_message();
     print_cstr("TeX capacity exceeded, sorry [");
     print_cstr(s);
-    print_char('=' as i32);
+    print_chr('=');
     print_int(n as i32);
-    print_char(']' as i32);
+    print_chr(']');
     help!(
         "If you really absolutely need more capacity,",
         "you can ask a wizard to enlarge me."
@@ -144,7 +144,7 @@ pub(crate) unsafe fn confusion(s: &str) -> ! {
     if (history as u32) < (TTHistory::ERROR_ISSUED as u32) {
         print_cstr("This can\'t happen (");
         print_cstr(s);
-        print_char(')' as i32);
+        print_chr(')');
         help!("I\'m broken. Please show this to someone who can fix can fix");
     } else {
         print_cstr("I can\'t go on meeting you like this");
