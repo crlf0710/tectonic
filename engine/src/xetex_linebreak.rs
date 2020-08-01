@@ -2064,7 +2064,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                         cur_active_width[6] += r.dshrink();
                         prev_r_delta.set_dwidth(prev_r_delta.dwidth() + r.dwidth());
                         prev_r_delta.set_dstretch0(prev_r_delta.dstretch0() + r.dstretch0());
-                        prev_r_delta.set_dstretch2(prev_r_delta.dstretch2() + r.dstretch1()); // TODO: looks like typo
+                        prev_r_delta.set_dstretch1(prev_r_delta.dstretch1() + r.dstretch1());
                         prev_r_delta.set_dstretch2(prev_r_delta.dstretch2() + r.dstretch2());
                         prev_r_delta.set_dstretch3(prev_r_delta.dstretch3() + r.dstretch3());
                         prev_r_delta.set_dshrink(prev_r_delta.dshrink() + r.dshrink());
