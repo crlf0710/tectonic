@@ -14158,9 +14158,8 @@ pub(crate) unsafe fn omit_error() {
     );
     error();
 }
-pub(crate) unsafe fn do_endv() {
-    let mut base_ptr = INPUT_PTR;
-    INPUT_STACK[base_ptr] = cur_input;
+pub(crate) unsafe fn do_endv(input_stack: &[input_state_t]) {
+    let mut base_ptr = input_stack.len() - 1;
     while INPUT_STACK[base_ptr].index != Btl::VTemplate
         && INPUT_STACK[base_ptr].loc.opt().is_none()
         && INPUT_STACK[base_ptr].state == InputState::TokenList
@@ -15573,6 +15572,7 @@ pub(crate) unsafe fn main_control() {
                     }
                 }
                 match (cur_list.mode.1, cur_cmd) {
+                    (NoMode, _) => {}
                     (HMode, Cmd::Spacer) => {
                         // 114
                         if cur_list.aux.b32.s0 == 1000 {
@@ -15585,9 +15585,7 @@ pub(crate) unsafe fn main_control() {
                         // 168 | 271
                         append_normal_space();
                     }
-                    (VMode, Cmd::IgnoreSpaces)
-                    | (HMode, Cmd::IgnoreSpaces)
-                    | (MMode, Cmd::IgnoreSpaces) => {
+                    (_, Cmd::IgnoreSpaces) => {
                         // 40 | 143 | 246
                         if cur_chr == 0 {
                             loop {
@@ -15623,16 +15621,12 @@ pub(crate) unsafe fn main_control() {
                     (VMode, Cmd::VMove)
                     | (HMode, Cmd::HMove)
                     | (MMode, Cmd::HMove)
-                    | (VMode, Cmd::LastItem)
-                    | (HMode, Cmd::LastItem)
-                    | (MMode, Cmd::LastItem)
+                    | (_, Cmd::LastItem)
                     | (VMode, Cmd::VAdjust)
                     | (VMode, Cmd::ItalCorr)
                     | (VMode, Cmd::EqNo)
                     | (HMode, Cmd::EqNo)
-                    | (VMode, Cmd::MacParam)
-                    | (HMode, Cmd::MacParam)
-                    | (MMode, Cmd::MacParam) => {
+                    | (_, Cmd::MacParam) => {
                         // 23 | 125 | 228 | 72 | 175 | 278 | 39 | 45 | 49 | 152 | 7 | 110 | 213
                         report_illegal_case();
                     }
@@ -15703,10 +15697,7 @@ pub(crate) unsafe fn main_control() {
                         // 28 | 130 | 233 | 235
                         append_glue();
                     }
-                    (VMode, Cmd::Kern)
-                    | (HMode, Cmd::Kern)
-                    | (MMode, Cmd::Kern)
-                    | (MMode, Cmd::MKern) => {
+                    (_, Cmd::Kern) | (MMode, Cmd::MKern) => {
                         // 30 | 133 | 236 | 237
                         append_kern();
                     }
@@ -15714,13 +15705,11 @@ pub(crate) unsafe fn main_control() {
                         // 2 | 105
                         new_save_level(GroupCode::Simple);
                     }
-                    (VMode, Cmd::BeginGroup)
-                    | (HMode, Cmd::BeginGroup)
-                    | (MMode, Cmd::BeginGroup) => {
+                    (_, Cmd::BeginGroup) => {
                         // 62 | 165 | 268
                         new_save_level(GroupCode::SemiSimple);
                     }
-                    (VMode, Cmd::EndGroup) | (HMode, Cmd::EndGroup) | (MMode, Cmd::EndGroup) => {
+                    (_, Cmd::EndGroup) => {
                         // 63 | 166 | 269
                         if cur_group == GroupCode::SemiSimple {
                             unsave();
@@ -15728,9 +15717,7 @@ pub(crate) unsafe fn main_control() {
                             off_save();
                         }
                     }
-                    (VMode, Cmd::RightBrace)
-                    | (HMode, Cmd::RightBrace)
-                    | (MMode, Cmd::RightBrace) => {
+                    (_, Cmd::RightBrace) => {
                         // 3 | 106 | 209
                         handle_right_brace();
                     }
@@ -15744,13 +15731,11 @@ pub(crate) unsafe fn main_control() {
                             scan_box(-cur_val);
                         }
                     }
-                    (VMode, Cmd::LeaderShip)
-                    | (HMode, Cmd::LeaderShip)
-                    | (MMode, Cmd::LeaderShip) => {
+                    (_, Cmd::LeaderShip) => {
                         // 32 | 135 | 238
                         scan_box(LEADER_FLAG - (A_LEADERS as i32) + cur_chr);
                     }
-                    (VMode, Cmd::MakeBox) | (HMode, Cmd::MakeBox) | (MMode, Cmd::MakeBox) => {
+                    (_, Cmd::MakeBox) => {
                         // 21 | 124 | 227
                         begin_box(0);
                     }
@@ -15804,27 +15789,19 @@ pub(crate) unsafe fn main_control() {
                         // 118 | 131 | 140 | 128 | 136
                         head_for_vmode();
                     }
-                    (VMode, Cmd::Insert)
-                    | (HMode, Cmd::Insert)
-                    | (MMode, Cmd::Insert)
-                    | (HMode, Cmd::VAdjust)
-                    | (MMode, Cmd::VAdjust) => {
+                    (_, Cmd::Insert) | (HMode, Cmd::VAdjust) | (MMode, Cmd::VAdjust) => {
                         // 38 | 141 | 244 | 142 | 245
                         begin_insert_or_adjust();
                     }
-                    (VMode, Cmd::Mark) | (HMode, Cmd::Mark) | (MMode, Cmd::Mark) => {
+                    (_, Cmd::Mark) => {
                         // 19 | 122 | 225
                         make_mark();
                     }
-                    (VMode, Cmd::BreakPenalty)
-                    | (HMode, Cmd::BreakPenalty)
-                    | (MMode, Cmd::BreakPenalty) => {
+                    (_, Cmd::BreakPenalty) => {
                         // 43 | 146 | 249
                         append_penalty();
                     }
-                    (VMode, Cmd::RemoveItem)
-                    | (HMode, Cmd::RemoveItem)
-                    | (MMode, Cmd::RemoveItem) => {
+                    (_, Cmd::RemoveItem) => {
                         // 26 | 129 | 232
                         delete_last();
                     }
@@ -15850,20 +15827,15 @@ pub(crate) unsafe fn main_control() {
                         // 149
                         make_accent();
                     }
-                    (VMode, Cmd::CarRet)
-                    | (HMode, Cmd::CarRet)
-                    | (MMode, Cmd::CarRet)
-                    | (VMode, Cmd::TabMark)
-                    | (HMode, Cmd::TabMark)
-                    | (MMode, Cmd::TabMark) => {
+                    (_, Cmd::CarRet) | (_, Cmd::TabMark) => {
                         // 6 | 109 | 212 | 5 | 108 | 211
                         align_error();
                     }
-                    (VMode, Cmd::NoAlign) | (HMode, Cmd::NoAlign) | (MMode, Cmd::NoAlign) => {
+                    (_, Cmd::NoAlign) => {
                         // 35 | 138 | 241
                         no_align_error();
                     }
-                    (VMode, Cmd::Omit) | (HMode, Cmd::Omit) | (MMode, Cmd::Omit) => {
+                    (_, Cmd::Omit) => {
                         // 64 | 167 | 270
                         omit_error();
                     }
@@ -15895,9 +15867,10 @@ pub(crate) unsafe fn main_control() {
                     }
                     (VMode, Cmd::EndV) | (HMode, Cmd::EndV) => {
                         // 10 | 113
-                        do_endv();
+                        INPUT_STACK[INPUT_PTR] = cur_input;
+                        do_endv(&INPUT_STACK[..INPUT_PTR + 1]);
                     }
-                    (VMode, Cmd::EndCSName) | (HMode, Cmd::EndCSName) | (MMode, Cmd::EndCSName) => {
+                    (_, Cmd::EndCSName) => {
                         // 68 | 171 | 274
                         cs_error();
                     }
@@ -16061,99 +16034,37 @@ pub(crate) unsafe fn main_control() {
                             off_save();
                         }
                     }
-                    (VMode, Cmd::ToksRegister)
-                    | (HMode, Cmd::ToksRegister)
-                    | (MMode, Cmd::ToksRegister)
-                    | (VMode, Cmd::AssignToks)
-                    | (HMode, Cmd::AssignToks)
-                    | (MMode, Cmd::AssignToks)
-                    | (VMode, Cmd::AssignInt)
-                    | (HMode, Cmd::AssignInt)
-                    | (MMode, Cmd::AssignInt)
-                    | (VMode, Cmd::AssignDimen)
-                    | (HMode, Cmd::AssignDimen)
-                    | (MMode, Cmd::AssignDimen)
-                    | (VMode, Cmd::AssignGlue)
-                    | (HMode, Cmd::AssignGlue)
-                    | (MMode, Cmd::AssignGlue)
-                    | (VMode, Cmd::AssignMuGlue)
-                    | (HMode, Cmd::AssignMuGlue)
-                    | (MMode, Cmd::AssignMuGlue)
-                    | (VMode, Cmd::AssignFontDimen)
-                    | (HMode, Cmd::AssignFontDimen)
-                    | (MMode, Cmd::AssignFontDimen)
-                    | (VMode, Cmd::AssignFontInt)
-                    | (HMode, Cmd::AssignFontInt)
-                    | (MMode, Cmd::AssignFontInt)
-                    | (VMode, Cmd::SetAux)
-                    | (HMode, Cmd::SetAux)
-                    | (MMode, Cmd::SetAux)
-                    | (VMode, Cmd::SetPrevGraf)
-                    | (HMode, Cmd::SetPrevGraf)
-                    | (MMode, Cmd::SetPrevGraf)
-                    | (VMode, Cmd::SetPageDimen)
-                    | (HMode, Cmd::SetPageDimen)
-                    | (MMode, Cmd::SetPageDimen)
-                    | (VMode, Cmd::SetPageInt)
-                    | (HMode, Cmd::SetPageInt)
-                    | (MMode, Cmd::SetPageInt)
-                    | (VMode, Cmd::SetBoxDimen)
-                    | (HMode, Cmd::SetBoxDimen)
-                    | (MMode, Cmd::SetBoxDimen)
-                    | (VMode, Cmd::SetShape)
-                    | (HMode, Cmd::SetShape)
-                    | (MMode, Cmd::SetShape)
-                    | (VMode, Cmd::DefCode)
-                    | (HMode, Cmd::DefCode)
-                    | (MMode, Cmd::DefCode)
-                    | (VMode, Cmd::XetexDefCode)
-                    | (HMode, Cmd::XetexDefCode)
-                    | (MMode, Cmd::XetexDefCode)
-                    | (VMode, Cmd::DefFamily)
-                    | (HMode, Cmd::DefFamily)
-                    | (MMode, Cmd::DefFamily)
-                    | (VMode, Cmd::SetFont)
-                    | (HMode, Cmd::SetFont)
-                    | (MMode, Cmd::SetFont)
-                    | (VMode, Cmd::DefFont)
-                    | (HMode, Cmd::DefFont)
-                    | (MMode, Cmd::DefFont)
-                    | (VMode, Cmd::Register)
-                    | (HMode, Cmd::Register)
-                    | (MMode, Cmd::Register)
-                    | (VMode, Cmd::Advance)
-                    | (HMode, Cmd::Advance)
-                    | (MMode, Cmd::Advance)
-                    | (VMode, Cmd::Multiply)
-                    | (HMode, Cmd::Multiply)
-                    | (MMode, Cmd::Multiply)
-                    | (VMode, Cmd::Divide)
-                    | (HMode, Cmd::Divide)
-                    | (MMode, Cmd::Divide)
-                    | (VMode, Cmd::Prefix)
-                    | (HMode, Cmd::Prefix)
-                    | (MMode, Cmd::Prefix)
-                    | (VMode, Cmd::Let)
-                    | (HMode, Cmd::Let)
-                    | (MMode, Cmd::Let)
-                    | (VMode, Cmd::ShorthandDef)
-                    | (HMode, Cmd::ShorthandDef)
-                    | (MMode, Cmd::ShorthandDef)
-                    | (VMode, Cmd::ReadToCS)
-                    | (HMode, Cmd::ReadToCS)
-                    | (MMode, Cmd::ReadToCS)
-                    | (VMode, Cmd::Def)
-                    | (HMode, Cmd::Def)
-                    | (MMode, Cmd::Def)
-                    | (VMode, Cmd::SetBox)
-                    | (HMode, Cmd::SetBox)
-                    | (MMode, Cmd::SetBox)
-                    | (VMode, Cmd::HyphData)
-                    | (HMode, Cmd::HyphData)
-                    | (MMode, Cmd::HyphData)
-                    | (VMode, Cmd::SetInteraction)
-                    | (HMode, Cmd::SetInteraction)
-                    | (MMode, Cmd::SetInteraction) => {
+                    (_, Cmd::ToksRegister)
+                    | (_, Cmd::AssignToks)
+                    | (_, Cmd::AssignInt)
+                    | (_, Cmd::AssignDimen)
+                    | (_, Cmd::AssignGlue)
+                    | (_, Cmd::AssignMuGlue)
+                    | (_, Cmd::AssignFontDimen)
+                    | (_, Cmd::AssignFontInt)
+                    | (_, Cmd::SetAux)
+                    | (_, Cmd::SetPrevGraf)
+                    | (_, Cmd::SetPageDimen)
+                    | (_, Cmd::SetPageInt)
+                    | (_, Cmd::SetBoxDimen)
+                    | (_, Cmd::SetShape)
+                    | (_, Cmd::DefCode)
+                    | (_, Cmd::XetexDefCode)
+                    | (_, Cmd::DefFamily)
+                    | (_, Cmd::SetFont)
+                    | (_, Cmd::DefFont)
+                    | (_, Cmd::Register)
+                    | (_, Cmd::Advance)
+                    | (_, Cmd::Multiply)
+                    | (_, Cmd::Divide)
+                    | (_, Cmd::Prefix)
+                    | (_, Cmd::Let)
+                    | (_, Cmd::ShorthandDef)
+                    | (_, Cmd::ReadToCS)
+                    | (_, Cmd::Def)
+                    | (_, Cmd::SetBox)
+                    | (_, Cmd::HyphData)
+                    | (_, Cmd::SetInteraction) => {
                         // 73 | 176 | 279 | 74 | 177 | 280 | 75 | 178 | 281 | 76 | 179 | 282 | 77
                         //| 180 | 283 | 78 | 181 | 284 | 79 | 182 | 285 | 80 | 183 | 286 | 81
                         //| 184 | 287 | 82 | 185 | 288 | 83 | 186 | 289 | 84 | 187 | 290 | 85
@@ -16164,43 +16075,37 @@ pub(crate) unsafe fn main_control() {
                         //| 204 | 307 | 102 | 205 | 308 | 103 | 206 | 309
                         prefixed_command();
                     }
-                    (VMode, Cmd::AfterAssignment)
-                    | (HMode, Cmd::AfterAssignment)
-                    | (MMode, Cmd::AfterAssignment) => {
+                    (_, Cmd::AfterAssignment) => {
                         // 41 | 144 | 247
                         get_token();
                         after_token = cur_tok;
                     }
-                    (VMode, Cmd::AfterGroup)
-                    | (HMode, Cmd::AfterGroup)
-                    | (MMode, Cmd::AfterGroup) => {
+                    (_, Cmd::AfterGroup) => {
                         // 42 | 145 | 248
                         get_token();
                         save_for_after(cur_tok);
                     }
-                    (VMode, Cmd::InStream) | (HMode, Cmd::InStream) | (MMode, Cmd::InStream) => {
+                    (_, Cmd::InStream) => {
                         // 61 | 164 | 267
                         open_or_close_in();
                     }
-                    (VMode, Cmd::Message) | (HMode, Cmd::Message) | (MMode, Cmd::Message) => {
+                    (_, Cmd::Message) => {
                         // 59 | 162 | 265
                         issue_message();
                     }
-                    (VMode, Cmd::CaseShift) | (HMode, Cmd::CaseShift) | (MMode, Cmd::CaseShift) => {
+                    (_, Cmd::CaseShift) => {
                         // 58 | 161 | 264
                         shift_case();
                     }
-                    (VMode, Cmd::XRay) | (HMode, Cmd::XRay) | (MMode, Cmd::XRay) => {
+                    (_, Cmd::XRay) => {
                         // 20 | 123 | 226
                         show_whatever();
                     }
-                    (VMode, Cmd::Extension) | (HMode, Cmd::Extension) | (MMode, Cmd::Extension) => {
+                    (_, Cmd::Extension) => {
                         // 60 | 163 | 266
                         do_extension();
                     }
-                    (VMode, Cmd::Relax)
-                    | (HMode, Cmd::Relax)
-                    | (MMode, Cmd::Relax)
+                    (_, Cmd::Relax)
                     | (VMode, Cmd::Spacer)
                     | (MMode, Cmd::Spacer)
                     | (MMode, Cmd::NoBoundary)
