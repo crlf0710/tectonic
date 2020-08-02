@@ -10253,35 +10253,9 @@ pub(crate) unsafe fn read_font_info(
     mut aire: str_number,
     mut s: scaled_t,
 ) -> internal_font_number {
-    let mut k: font_index = 0;
-    let mut name_too_long: bool = false;
-    let mut lf: i32 = 0;
-    let mut lh: i32 = 0;
-    let mut bc: i32 = 0;
-    let mut ec: i32 = 0;
-    let mut nw: i32 = 0;
-    let mut nh: i32 = 0;
-    let mut nd: i32 = 0;
-    let mut ni: i32 = 0;
-    let mut nl: i32 = 0;
-    let mut nk: i32 = 0;
-    let mut ne: i32 = 0;
-    let mut np: i32 = 0;
-    let mut f: internal_font_number = 0;
-    let mut a: i32 = 0;
-    let mut b: i32 = 0;
-    let mut c: i32 = 0;
-    let mut d: i32 = 0;
-    let mut qw: b16x4 = b16x4 {
-        s0: 0,
-        s1: 0,
-        s2: 0,
-        s3: 0,
-    };
     let mut sw: scaled_t = 0;
     let mut bch_label: i32 = 0;
     let mut bchar_0: i16 = 0;
-    let mut z: scaled_t = 0;
     let mut alpha: i32 = 0;
     let mut beta: u8 = 0;
 
@@ -10312,7 +10286,7 @@ pub(crate) unsafe fn read_font_info(
         }
     }
 
-    name_too_long = length(nom) > 255 || length(aire) > 255;
+    let name_too_long = length(nom) > 255 || length(aire) > 255;
     if name_too_long {
         return bad_tfm(None, g, u, nom, aire, s, name_too_long);
     }
@@ -10348,6 +10322,10 @@ pub(crate) unsafe fn read_font_info(
         };
     );
 
+    let mut lf;
+    let mut lh;
+    let mut bc;
+    let mut ec;
     READFIFTEEN!(lf);
     READFIFTEEN!(lh);
     READFIFTEEN!(bc);
@@ -10361,6 +10339,14 @@ pub(crate) unsafe fn read_font_info(
         ec = 0
     }
 
+    let mut nw;
+    let mut nh;
+    let mut nd;
+    let mut ni;
+    let mut nl;
+    let mut nk;
+    let mut ne;
+    let mut np;
     READFIFTEEN!(nw);
     READFIFTEEN!(nh);
     READFIFTEEN!(nd);
@@ -10385,7 +10371,7 @@ pub(crate) unsafe fn read_font_info(
         "not enough memory to load another font"
     );
 
-    f = FONT_PTR + 1;
+    let f = FONT_PTR + 1;
     CHAR_BASE[f] = fmem_ptr - bc;
     WIDTH_BASE[f] = CHAR_BASE[f] + ec + 1;
     HEIGHT_BASE[f] = WIDTH_BASE[f] + nw;
@@ -10398,19 +10384,22 @@ pub(crate) unsafe fn read_font_info(
     if lh < 2 {
         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
-    a = ttstub_input_getc(tfm_file);
-    qw.s3 = a as u16;
-    b = ttstub_input_getc(tfm_file);
-    qw.s2 = b as u16;
-    c = ttstub_input_getc(tfm_file);
-    qw.s1 = c as u16;
-    d = ttstub_input_getc(tfm_file);
-    qw.s0 = d as u16;
+    let a = ttstub_input_getc(tfm_file);
+    let b = ttstub_input_getc(tfm_file);
+    let c = ttstub_input_getc(tfm_file);
+    let d = ttstub_input_getc(tfm_file);
+    let qw = b16x4 {
+        s0: d as u16,
+        s1: c as u16,
+        s2: b as u16,
+        s3: a as u16,
+    };
     if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
     }
     FONT_CHECK[f as usize] = qw;
 
+    let mut z;
     READFIFTEEN!(z);
     z = z * 256 + ttstub_input_getc(tfm_file);
     z = z * 16 + ttstub_input_getc(tfm_file) / 16;
@@ -10434,19 +10423,17 @@ pub(crate) unsafe fn read_font_info(
     }
     FONT_SIZE[f] = z;
 
-    k = fmem_ptr;
-    loop {
-        if !(k <= WIDTH_BASE[f] - 1) {
-            break;
-        }
-        a = ttstub_input_getc(tfm_file);
-        qw.s3 = a as u16;
-        b = ttstub_input_getc(tfm_file);
-        qw.s2 = b as u16;
-        c = ttstub_input_getc(tfm_file);
-        qw.s1 = c as u16;
-        d = ttstub_input_getc(tfm_file);
-        qw.s0 = d as u16;
+    for k in fmem_ptr..=(WIDTH_BASE[f] - 1) {
+        let a = ttstub_input_getc(tfm_file);
+        let b = ttstub_input_getc(tfm_file);
+        let c = ttstub_input_getc(tfm_file);
+        let mut d = ttstub_input_getc(tfm_file);
+        let qw = b16x4 {
+            s0: d as u16,
+            s1: c as u16,
+            s2: b as u16,
+            s3: a as u16,
+        };
         if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
             return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
@@ -10475,7 +10462,7 @@ pub(crate) unsafe fn read_font_info(
                     if !(d < k + bc - fmem_ptr) {
                         break;
                     }
-                    qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
+                    let qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
                     if qw.s1 as i32 % 4 != LIST_TAG {
                         break;
                     }
@@ -10487,7 +10474,6 @@ pub(crate) unsafe fn read_font_info(
             }
             _ => {}
         }
-        k += 1;
     }
 
     alpha = 16;
@@ -10499,10 +10485,10 @@ pub(crate) unsafe fn read_font_info(
     alpha = alpha * z;
 
     for k in WIDTH_BASE[f]..=LIG_KERN_BASE[f] - 1 {
-        a = ttstub_input_getc(tfm_file);
-        b = ttstub_input_getc(tfm_file);
-        c = ttstub_input_getc(tfm_file);
-        d = ttstub_input_getc(tfm_file);
+        let a = ttstub_input_getc(tfm_file);
+        let b = ttstub_input_getc(tfm_file);
+        let c = ttstub_input_getc(tfm_file);
+        let d = ttstub_input_getc(tfm_file);
         if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
             return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
@@ -10533,15 +10519,20 @@ pub(crate) unsafe fn read_font_info(
     bch_label = 32767;
     bchar_0 = 256;
     if nl > 0 {
+        let mut a = 0;
+        let mut c = 0;
+        let mut d = 0;
         for k in LIG_KERN_BASE[f]..=KERN_BASE[f] + 256 * 128 - 1 {
             a = ttstub_input_getc(tfm_file);
-            qw.s3 = a as u16;
-            b = ttstub_input_getc(tfm_file);
-            qw.s2 = b as u16;
+            let b = ttstub_input_getc(tfm_file);
             c = ttstub_input_getc(tfm_file);
-            qw.s1 = c as u16;
             d = ttstub_input_getc(tfm_file);
-            qw.s0 = d as u16;
+            let qw = b16x4 {
+                s0: d as u16,
+                s1: c as u16,
+                s2: b as u16,
+                s3: a as u16,
+            };
             if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
@@ -10560,7 +10551,7 @@ pub(crate) unsafe fn read_font_info(
                         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
 
-                    qw = FONT_INFO[(CHAR_BASE[f] + b) as usize].b16;
+                    let qw = FONT_INFO[(CHAR_BASE[f] + b) as usize].b16;
                     if !(qw.s3 > 0) {
                         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
@@ -10570,7 +10561,7 @@ pub(crate) unsafe fn read_font_info(
                     if d < bc || d > ec {
                         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
-                    qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
+                    let qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
                     if !(qw.s3 > 0) {
                         return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
                     }
@@ -10588,10 +10579,10 @@ pub(crate) unsafe fn read_font_info(
     }
 
     for k in KERN_BASE[f] + 256 * 128..=EXTEN_BASE[f] - 1 {
-        a = ttstub_input_getc(tfm_file);
-        b = ttstub_input_getc(tfm_file);
-        c = ttstub_input_getc(tfm_file);
-        d = ttstub_input_getc(tfm_file);
+        let a = ttstub_input_getc(tfm_file);
+        let b = ttstub_input_getc(tfm_file);
+        let c = ttstub_input_getc(tfm_file);
+        let d = ttstub_input_getc(tfm_file);
         if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
             return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
@@ -10606,14 +10597,16 @@ pub(crate) unsafe fn read_font_info(
     }
 
     for k in EXTEN_BASE[f]..=PARAM_BASE[f] - 1 {
-        a = ttstub_input_getc(tfm_file);
-        qw.s3 = a as u16;
-        b = ttstub_input_getc(tfm_file);
-        qw.s2 = b as u16;
-        c = ttstub_input_getc(tfm_file);
-        qw.s1 = c as u16;
-        d = ttstub_input_getc(tfm_file);
-        qw.s0 = d as u16;
+        let a = ttstub_input_getc(tfm_file);
+        let b = ttstub_input_getc(tfm_file);
+        let c = ttstub_input_getc(tfm_file);
+        let d = ttstub_input_getc(tfm_file);
+        let qw = b16x4 {
+            s0: d as u16,
+            s1: c as u16,
+            s2: b as u16,
+            s3: a as u16,
+        };
         if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
             return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
@@ -10623,7 +10616,7 @@ pub(crate) unsafe fn read_font_info(
             if a < bc || a > ec {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
-            qw = FONT_INFO[(CHAR_BASE[f] + a) as usize].b16;
+            let qw = FONT_INFO[(CHAR_BASE[f] + a) as usize].b16;
             if !(qw.s3 as i32 > 0i32) {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
@@ -10633,7 +10626,7 @@ pub(crate) unsafe fn read_font_info(
             if b < bc || b > ec {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
-            qw = FONT_INFO[(CHAR_BASE[f] + b) as usize].b16;
+            let qw = FONT_INFO[(CHAR_BASE[f] + b) as usize].b16;
             if !(qw.s3 > 0) {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
@@ -10643,7 +10636,7 @@ pub(crate) unsafe fn read_font_info(
             if c < bc || c > ec {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
-            qw = FONT_INFO[(CHAR_BASE[f] + c) as usize].b16;
+            let qw = FONT_INFO[(CHAR_BASE[f] + c) as usize].b16;
             if !(qw.s3 > 0) {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
@@ -10652,7 +10645,7 @@ pub(crate) unsafe fn read_font_info(
         if d < bc || d > ec {
             return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
-        qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
+        let qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
         if !(qw.s3 > 0) {
             return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
         }
@@ -10672,10 +10665,10 @@ pub(crate) unsafe fn read_font_info(
             sw = sw * 256 + ttstub_input_getc(tfm_file);
             FONT_INFO[PARAM_BASE[f] as usize].b32.s1 = sw * 16 + ttstub_input_getc(tfm_file) / 16
         } else {
-            a = ttstub_input_getc(tfm_file);
-            b = ttstub_input_getc(tfm_file);
-            c = ttstub_input_getc(tfm_file);
-            d = ttstub_input_getc(tfm_file);
+            let a = ttstub_input_getc(tfm_file);
+            let b = ttstub_input_getc(tfm_file);
+            let c = ttstub_input_getc(tfm_file);
+            let d = ttstub_input_getc(tfm_file);
             if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
                 return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
             }
@@ -10712,7 +10705,7 @@ pub(crate) unsafe fn read_font_info(
 
     if bchar_0 as i32 <= ec {
         if bchar_0 as i32 >= bc {
-            qw = FONT_INFO[(CHAR_BASE[f] + bchar_0 as i32) as usize].b16;
+            let qw = FONT_INFO[(CHAR_BASE[f] + bchar_0 as i32) as usize].b16;
             if qw.s3 as i32 > 0 {
                 FONT_FALSE_BCHAR[f] = TOO_BIG_CHAR;
             }
