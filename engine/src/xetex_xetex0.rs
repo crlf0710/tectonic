@@ -12637,7 +12637,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
     let mut best_place: i32 = None.tex_int();
     let mut prev_p = p;
     let mut least_cost = MAX_HALFWORD;
-    active_width[1..].copy_from_slice(&[0; 6]);
+    active_width = DeltaSize::new();
     let mut prev_dp = 0;
     loop {
         if let Some(p) = p.opt() {
@@ -12645,20 +12645,20 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
             match text_NODE_type(p).unwrap() {
                 TextNode::HList | TextNode::VList => {
                     let b = List::from(p);
-                    active_width[1] += prev_dp + b.height();
+                    active_width.width += prev_dp + b.height();
                     prev_dp = b.depth();
                     current_block = 10249009913728301645;
                 }
                 TextNode::Rule => {
                     let r = Rule::from(p);
-                    active_width[1] += prev_dp + r.height();
+                    active_width.width += prev_dp + r.height();
                     prev_dp = r.depth();
                     current_block = 10249009913728301645;
                 }
                 TextNode::WhatsIt => {
                     match WhatsIt::from(p as usize) {
                         WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                            active_width[1] += prev_dp + p.height();
+                            active_width.width += prev_dp + p.height();
                             prev_dp = p.depth();
                         }
                         _ => {}
@@ -12708,16 +12708,19 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
         match current_block {
             9007357115414505193 => {
                 if pi < INF_PENALTY {
-                    b = if active_width[1] < h {
-                        if active_width[3] != 0 || active_width[4] != 0 || active_width[5] != 0 {
+                    b = if active_width.width < h {
+                        if active_width.stretch1 != 0
+                            || active_width.stretch2 != 0
+                            || active_width.stretch3 != 0
+                        {
                             0
                         } else {
-                            badness(h - active_width[1], active_width[2])
+                            badness(h - active_width.width, active_width.stretch0)
                         }
-                    } else if active_width[1] - h > active_width[6] {
+                    } else if active_width.width - h > active_width.shrink {
                         MAX_HALFWORD
                     } else {
-                        badness(active_width[1] - h, active_width[6])
+                        badness(active_width.width - h, active_width.shrink)
                     };
                     if b < MAX_HALFWORD {
                         if pi <= EJECT_PENALTY {
@@ -12731,7 +12734,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     if b <= least_cost {
                         best_place = p;
                         least_cost = b;
-                        best_height_plus_depth = active_width[1] + prev_dp
+                        best_height_plus_depth = active_width.width + prev_dp
                     }
                     if b == MAX_HALFWORD || pi <= EJECT_PENALTY {
                         return best_place;
@@ -12755,8 +12758,14 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                 } else {
                     let mut p = Glue(p as usize);
                     let mut q = GlueSpec(p.glue_ptr() as usize); /*:1011 */
-                    active_width[2 + q.stretch_order() as usize] += q.stretch(); /*:1014*/
-                    active_width[6] += q.shrink();
+                    match q.stretch_order() {
+                        GlueOrder::Normal => active_width.stretch0 += q.stretch(),
+                        GlueOrder::Fil => active_width.stretch1 += q.stretch(),
+                        GlueOrder::Fill => active_width.stretch2 += q.stretch(),
+                        GlueOrder::Filll => active_width.stretch3 += q.stretch(),
+                        _ => unreachable!(),
+                    } /*:1014*/
+                    active_width.shrink += q.shrink();
                     if q.shrink_order() != GlueOrder::Normal && q.shrink() != 0 {
                         if file_line_error_style_p != 0 {
                             print_file_line();
@@ -12780,13 +12789,13 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                         q.size()
                     }
                 };
-                active_width[1] += prev_dp + width;
+                active_width.width += prev_dp + width;
                 prev_dp = 0;
             }
             _ => {}
         }
         if prev_dp > d {
-            active_width[1] += prev_dp - d;
+            active_width.width += prev_dp - d;
             prev_dp = d
         }
         prev_p = p;

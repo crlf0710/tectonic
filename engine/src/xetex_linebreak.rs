@@ -56,9 +56,10 @@ const TIGHT_FIT: u8 = 3;
 const LAST_ACTIVE: usize = ACTIVE_LIST;
 
 static mut passive: i32 = 0;
-static mut cur_active_width: [scaled_t; 7] = [0; 7];
-static mut background: [scaled_t; 7] = [0; 7];
-static mut break_width: [scaled_t; 7] = [0; 7];
+use crate::xetex_consts::DeltaSize;
+static mut cur_active_width: DeltaSize = DeltaSize::new();
+static mut background: DeltaSize = DeltaSize::new();
+static mut break_width: DeltaSize = DeltaSize::new();
 static mut best_place: [i32; 4] = [0; 4];
 static mut best_pl_line: [i32; 4] = [0; 4];
 static mut disc_width: scaled_t = 0;
@@ -173,14 +174,26 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     let q = GlueSpec(*GLUEPAR(GluePar::left_skip) as usize);
     let r = GlueSpec(*GLUEPAR(GluePar::right_skip) as usize);
-    background[1] = q.size() + r.size();
-    background[2] = 0;
-    background[3] = 0;
-    background[4] = 0;
-    background[5] = 0;
-    background[2 + q.stretch_order() as usize] = q.stretch();
-    background[2 + r.stretch_order() as usize] += r.stretch();
-    background[6] = q.shrink() + r.shrink();
+    background.width = q.size() + r.size();
+    background.stretch0 = 0;
+    background.stretch1 = 0;
+    background.stretch2 = 0;
+    background.stretch3 = 0;
+    match q.stretch_order() {
+        GlueOrder::Normal => background.stretch0 = q.stretch(),
+        GlueOrder::Fil => background.stretch1 = q.stretch(),
+        GlueOrder::Fill => background.stretch2 = q.stretch(),
+        GlueOrder::Filll => background.stretch3 = q.stretch(),
+        _ => unreachable!(),
+    }
+    match r.stretch_order() {
+        GlueOrder::Normal => background.stretch0 += r.stretch(),
+        GlueOrder::Fil => background.stretch1 += r.stretch(),
+        GlueOrder::Fill => background.stretch2 += r.stretch(),
+        GlueOrder::Filll => background.stretch3 += r.stretch(),
+        _ => unreachable!(),
+    }
+    background.shrink = q.shrink() + r.shrink();
 
     /* 1631: "check for special treatment of last line of paragraph" (\lastlinefit > 0) */
 
@@ -190,7 +203,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         let llf = Glue(last_line_fill as usize);
         let q = GlueSpec(llf.glue_ptr() as usize);
         if q.stretch() > 0 && q.stretch_order() > GlueOrder::Normal {
-            if background[3] == 0 && background[4] == 0 && background[5] == 0 {
+            if background.stretch1 == 0 && background.stretch2 == 0 && background.stretch3 == 0 {
                 do_last_line_fit = true;
                 active_node_size = ACTIVE_NODE_SIZE_EXTENDED as _;
                 fill_width[0] = 0;
@@ -297,7 +310,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             q.set_shortfall(0) /*:893*/
                 .set_glue(0);
         }
-        active_width[1..].copy_from_slice(&background[1..]);
+        active_width = background;
         passive = None.tex_int();
         font_in_short_display = 0; /*:893*/
         cur_p = LLIST_link(TEMP_HEAD as usize).opt();
@@ -323,10 +336,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     let chr = Char(cp);
                     let f = chr.font() as usize;
                     let eff_char = effective_char(true, f, chr.character());
-                    active_width[1] += FONT_INFO[(WIDTH_BASE[f as usize]
+                    active_width.width += FONT_INFO[(WIDTH_BASE[f as usize]
                         + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize]
                             .b16
-                            .s3 as i32) as usize]
+                            .s3 as i32)
+                        as usize]
                         .b32
                         .s1;
                     cur_p = llist_link(cp);
@@ -337,8 +351,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 }
             }
             match &mut TxtNode::from(cp) {
-                TxtNode::HList(b) | TxtNode::VList(b) => active_width[1] += b.width(),
-                TxtNode::Rule(r) => active_width[1] += r.width(),
+                TxtNode::HList(b) | TxtNode::VList(b) => active_width.width += b.width(),
+                TxtNode::Rule(r) => active_width.width += r.width(),
                 TxtNode::WhatsIt(cp) => match cp {
                     WhatsIt::Language(l) => {
                         cur_lang = l.lang() as u8;
@@ -353,13 +367,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         }
                     }
                     WhatsIt::NativeWord(nw) => {
-                        active_width[1] += nw.width();
+                        active_width.width += nw.width();
                     }
                     WhatsIt::Glyph(g) => {
-                        active_width[1] += g.width();
+                        active_width.width += g.width();
                     }
                     WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                        active_width[1] += p.width();
+                        active_width.width += p.width();
                     }
                     _ => {}
                 },
@@ -395,15 +409,15 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         {
                             try_break(0, BreakType::Unhyphenated);
                         }
-                        active_width[1] += k.width();
+                        active_width.width += k.width();
                     } else {
-                        active_width[1] += k.width();
+                        active_width.width += k.width();
                     }
                 }
                 TxtNode::Ligature(l) => {
                     let f = l.font() as usize;
                     xtx_ligature_present = true;
-                    active_width[1] +=
+                    active_width.width +=
                         *FONT_CHARACTER_WIDTH(f, effective_char(true, f, l.char()) as usize);
                 }
                 TxtNode::Disc(d) => {
@@ -453,9 +467,9 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 break;
                             }
                         }
-                        active_width[1] += disc_width;
+                        active_width.width += disc_width;
                         try_break(*INTPAR(IntPar::hyphen_penalty), BreakType::Hyphenated);
-                        active_width[1] -= disc_width;
+                        active_width.width -= disc_width;
                     } else {
                         try_break(*INTPAR(IntPar::ex_hyphen_penalty), BreakType::Hyphenated);
                     }
@@ -467,34 +481,34 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             CharOrText::Char(c) => {
                                 let f = c.font() as usize;
                                 let eff_char_2 = effective_char(true, f, c.character());
-                                active_width[1] += *FONT_CHARACTER_WIDTH(f, eff_char_2 as usize);
+                                active_width.width += *FONT_CHARACTER_WIDTH(f, eff_char_2 as usize);
                             }
                             CharOrText::Text(s) => match s {
                                 TxtNode::Ligature(l) => {
                                     let f = l.font() as usize;
                                     xtx_ligature_present = true;
                                     let eff_char_3 = effective_char(true, f, l.char());
-                                    active_width[1] +=
+                                    active_width.width +=
                                         *FONT_CHARACTER_WIDTH(f, eff_char_3 as usize);
                                 }
                                 TxtNode::HList(b) | TxtNode::VList(b) => {
-                                    active_width[1] += b.width();
+                                    active_width.width += b.width();
                                 }
                                 TxtNode::Rule(r) => {
-                                    active_width[1] += r.width();
+                                    active_width.width += r.width();
                                 }
                                 TxtNode::Kern(k) => {
-                                    active_width[1] += k.width();
+                                    active_width.width += k.width();
                                 }
                                 TxtNode::WhatsIt(s) => match s {
                                     WhatsIt::NativeWord(nw) => {
-                                        active_width[1] += nw.width();
+                                        active_width.width += nw.width();
                                     }
                                     WhatsIt::Glyph(g) => {
-                                        active_width[1] += g.width();
+                                        active_width.width += g.width();
                                     }
                                     WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                                        active_width[1] += p.width();
+                                        active_width.width += p.width();
                                     }
                                     _ => confusion("disc4a"),
                                 },
@@ -525,7 +539,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     ) {
                         try_break(0, BreakType::Unhyphenated);
                     }
-                    active_width[1] += m.width();
+                    active_width.width += m.width();
                 }
                 TxtNode::Penalty(p) => {
                     try_break(p.penalty(), BreakType::Unhyphenated);
@@ -619,7 +633,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             second_pass = true;
             final_pass = *DIMENPAR(DimenPar::emergency_stretch) <= 0;
         } else {
-            background[2] = background[2] + *DIMENPAR(DimenPar::emergency_stretch);
+            background.stretch0 += *DIMENPAR(DimenPar::emergency_stretch);
             final_pass = true;
         }
     }
@@ -672,10 +686,16 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             cp.set_glue_ptr(g as i32);
             q = GlueSpec(g as usize);
         }
-        active_width[1] += q.size();
-        active_width[2 + (q.stretch_order() as usize)] += q.stretch();
+        active_width.width += q.size();
+        match q.stretch_order() {
+            GlueOrder::Normal => active_width.stretch0 += q.stretch(),
+            GlueOrder::Fil => active_width.stretch1 += q.stretch(),
+            GlueOrder::Fill => active_width.stretch2 += q.stretch(),
+            GlueOrder::Filll => active_width.stretch3 += q.stretch(),
+            _ => unreachable!(),
+        }
         /*:895*/
-        active_width[6] += q.shrink(); /*:897*/
+        active_width.shrink += q.shrink(); /*:897*/
 
         if second_pass && auto_breaking {
             /*924: "Try to hyphenate the following word." */
@@ -906,13 +926,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 }
                                 hyf_bchar = s.character() as i32;
                                 c = hyf_bchar;
-                                if hyph_index == 0 || c > 255 {
-                                    hc[0] = *LC_CODE(c as usize);
+                                hc[0] = if hyph_index == 0 || c > 255 {
+                                    *LC_CODE(c as usize)
                                 } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
-                                    hc[0] = 0
+                                    0
                                 } else {
-                                    hc[0] = *trie_tro.offset((hyph_index + c) as isize)
-                                }
+                                    *trie_tro.offset((hyph_index + c) as isize)
+                                };
                                 if hc[0] == 0 {
                                     break;
                                 }
@@ -1456,19 +1476,14 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
     let mut no_break_yet = true;
     let mut prev_r = ACTIVE_LIST;
     let mut old_l = 0;
-    cur_active_width[1..].copy_from_slice(&active_width[1..]);
+    cur_active_width = active_width;
     loop {
         let r = llist_link(prev_r).unwrap();
         /*861: "If node r is of type delta_node, update cur_active_width, set
          * prev_r and prev_prev_r, then goto continue" */
         match ActiveNode::from(r) {
             ActiveNode::Delta(r) => {
-                cur_active_width[1] += r.dwidth();
-                cur_active_width[2] += r.dstretch0();
-                cur_active_width[3] += r.dstretch1();
-                cur_active_width[4] += r.dstretch2();
-                cur_active_width[5] += r.dstretch3();
-                cur_active_width[6] += r.dshrink();
+                cur_active_width += r.to_size();
                 prev_prev_r = Some(prev_r);
                 prev_r = r.ptr();
             }
@@ -1488,7 +1503,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                         if no_break_yet {
                             /*866: "Compute the values of break_width". */
                             no_break_yet = false;
-                            break_width[1..].copy_from_slice(&background[1..]);
+                            break_width = background;
                             let mut sopt = cur_p;
                             if break_type == BreakType::Hyphenated {
                                 /*869: "Compute the discretionary break_width values" */
@@ -1506,7 +1521,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                 let f = c.font() as usize;
                                                 let eff_char =
                                                     effective_char(true, f, c.character());
-                                                break_width[1] -=
+                                                break_width.width -=
                                                     *FONT_CHARACTER_WIDTH(f, eff_char as usize);
                                             }
                                             CharOrText::Text(v) => match v {
@@ -1515,30 +1530,30 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                     xtx_ligature_present = true;
                                                     let eff_char_0 =
                                                         effective_char(true, f, l.char());
-                                                    break_width[1] -= *FONT_CHARACTER_WIDTH(
+                                                    break_width.width -= *FONT_CHARACTER_WIDTH(
                                                         f,
                                                         eff_char_0 as usize,
                                                     );
                                                 }
                                                 TxtNode::HList(b) | TxtNode::VList(b) => {
-                                                    break_width[1] -= b.width();
+                                                    break_width.width -= b.width();
                                                 }
                                                 TxtNode::Rule(r) => {
-                                                    break_width[1] -= r.width();
+                                                    break_width.width -= r.width();
                                                 }
                                                 TxtNode::Kern(k) => {
-                                                    break_width[1] -= k.width();
+                                                    break_width.width -= k.width();
                                                 }
                                                 TxtNode::WhatsIt(v) => match v {
                                                     WhatsIt::NativeWord(v) => {
-                                                        break_width[1] -= v.width();
+                                                        break_width.width -= v.width();
                                                     }
                                                     WhatsIt::Glyph(v) => {
-                                                        break_width[1] -= v.width()
+                                                        break_width.width -= v.width()
                                                     }
 
                                                     WhatsIt::Pic(v) | WhatsIt::Pdf(v) => {
-                                                        break_width[1] -= v.width();
+                                                        break_width.width -= v.width();
                                                     }
                                                     _ => confusion("disc1a"),
                                                 },
@@ -1553,7 +1568,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                 let f = c.font() as usize;
                                                 let eff_char_1 =
                                                     effective_char(true, f, c.character());
-                                                break_width[1] +=
+                                                break_width.width +=
                                                     *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
                                             }
                                             CharOrText::Text(s) => match s {
@@ -1562,29 +1577,29 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                     xtx_ligature_present = true;
                                                     let eff_char_2 =
                                                         effective_char(true, f, l.char());
-                                                    break_width[1] += *FONT_CHARACTER_WIDTH(
+                                                    break_width.width += *FONT_CHARACTER_WIDTH(
                                                         f,
                                                         eff_char_2 as usize,
                                                     );
                                                 }
                                                 TxtNode::HList(b) | TxtNode::VList(b) => {
-                                                    break_width[1] += b.width();
+                                                    break_width.width += b.width();
                                                 }
                                                 TxtNode::Rule(r) => {
-                                                    break_width[1] += r.width();
+                                                    break_width.width += r.width();
                                                 }
                                                 TxtNode::Kern(k) => {
-                                                    break_width[1] += k.width();
+                                                    break_width.width += k.width();
                                                 }
                                                 TxtNode::WhatsIt(s) => match s {
                                                     WhatsIt::NativeWord(s) => {
-                                                        break_width[1] += s.width();
+                                                        break_width.width += s.width();
                                                     }
                                                     WhatsIt::Glyph(s) => {
-                                                        break_width[1] += s.width();
+                                                        break_width.width += s.width();
                                                     }
                                                     WhatsIt::Pic(s) | WhatsIt::Pdf(s) => {
-                                                        break_width[1] += s.width();
+                                                        break_width.width += s.width();
                                                     }
                                                     _ => confusion("disc2a"),
                                                 },
@@ -1593,7 +1608,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                         }
                                         sopt = llist_link(s);
                                     }
-                                    break_width[1] += disc_width;
+                                    break_width.width += disc_width;
                                     if cp.post_break().opt().is_none() {
                                         sopt = llist_link(v);
                                     }
@@ -1605,18 +1620,31 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                     CharOrText::Text(s) => match s {
                                         TxtNode::Glue(g) => {
                                             let v = GlueSpec(g.glue_ptr() as usize);
-                                            break_width[1] -= v.size();
-                                            break_width[2 + v.stretch_order() as usize] -=
-                                                v.stretch();
-                                            break_width[6] -= v.shrink();
+                                            break_width.width -= v.size();
+                                            match v.stretch_order() {
+                                                GlueOrder::Normal => {
+                                                    break_width.stretch0 -= v.stretch()
+                                                }
+                                                GlueOrder::Fil => {
+                                                    break_width.stretch1 -= v.stretch()
+                                                }
+                                                GlueOrder::Fill => {
+                                                    break_width.stretch2 -= v.stretch()
+                                                }
+                                                GlueOrder::Filll => {
+                                                    break_width.stretch3 -= v.stretch()
+                                                }
+                                                _ => unreachable!(),
+                                            }
+                                            break_width.shrink -= v.shrink();
                                         }
                                         TxtNode::Penalty(_) => {}
-                                        TxtNode::Math(m) => break_width[1] -= m.width(),
+                                        TxtNode::Math(m) => break_width.width -= m.width(),
                                         TxtNode::Kern(k) => {
                                             if k.subtype() != KernType::Explicit {
                                                 break;
                                             }
-                                            break_width[1] -= k.width()
+                                            break_width.width -= k.width()
                                         }
                                         _ => break,
                                     },
@@ -1627,38 +1655,16 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                         /*872: "Insert a delta node to prepare for breaks at cur_p" */
                         if let ActiveNode::Delta(mut prev_r) = ActiveNode::from(prev_r) {
                             /* this is unused */
-                            prev_r
-                                .set_dwidth(prev_r.dwidth() - cur_active_width[1] + break_width[1]);
-                            prev_r.set_dstretch0(
-                                prev_r.dstretch0() - cur_active_width[2] + break_width[2],
-                            );
-                            prev_r.set_dstretch1(
-                                prev_r.dstretch1() - cur_active_width[3] + break_width[3],
-                            );
-                            prev_r.set_dstretch2(
-                                prev_r.dstretch2() - cur_active_width[4] + break_width[4],
-                            );
-                            prev_r.set_dstretch3(
-                                prev_r.dstretch3() - cur_active_width[5] + break_width[5],
-                            );
-                            prev_r.set_dshrink(
-                                prev_r.dshrink() - cur_active_width[6] + break_width[6],
-                            );
+                            prev_r.set_from_size(prev_r.to_size() - cur_active_width + break_width);
                         } else {
                             if prev_r == ACTIVE_LIST {
-                                active_width[1..].copy_from_slice(&break_width[1..]);
+                                active_width = break_width;
                             } else {
                                 let q = get_node(DELTA_NODE_SIZE);
                                 *LLIST_link(q) = Some(r.ptr()).tex_int();
                                 MEM[q].b16.s1 = 2; // DELTA_NODE
                                 clear_NODE_subtype(q);
-                                Delta(q)
-                                    .set_dwidth(break_width[1] - cur_active_width[1])
-                                    .set_dstretch0(break_width[2] - cur_active_width[2])
-                                    .set_dstretch1(break_width[3] - cur_active_width[3])
-                                    .set_dstretch2(break_width[4] - cur_active_width[4])
-                                    .set_dstretch3(break_width[5] - cur_active_width[5])
-                                    .set_dshrink(break_width[6] - cur_active_width[6]);
+                                Delta(q).set_from_size(break_width - cur_active_width);
                                 *LLIST_link(prev_r) = Some(q).tex_int();
                                 prev_prev_r = Some(prev_r);
                                 prev_r = q;
@@ -1708,13 +1714,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                             *LLIST_link(q) = Some(r.ptr()).tex_int();
                             MEM[q].b16.s1 = 2; // DELTA_NODE
                             clear_NODE_subtype(q); /* subtype is not used */
-                            Delta(q)
-                                .set_dwidth(cur_active_width[1] - break_width[1])
-                                .set_dstretch0(cur_active_width[2] - break_width[2])
-                                .set_dstretch1(cur_active_width[3] - break_width[3])
-                                .set_dstretch2(cur_active_width[4] - break_width[4])
-                                .set_dstretch3(cur_active_width[5] - break_width[5])
-                                .set_dshrink(cur_active_width[6] - break_width[6]);
+                            Delta(q).set_from_size(cur_active_width - break_width);
                             *LLIST_link(prev_r) = Some(q).tex_int();
                             prev_prev_r = Some(prev_r);
                             prev_r = q;
@@ -1748,12 +1748,12 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                  * at the very end of the paragraph. How amazing, it's a perfect fit!
                  */
                 if semantic_pagination_enabled {
-                    line_width = cur_active_width[1];
+                    line_width = cur_active_width.width;
                     artificial_demerits = true;
                     shortfall = 0;
                 } else {
                     artificial_demerits = false;
-                    shortfall = line_width - cur_active_width[1];
+                    shortfall = line_width - cur_active_width.width;
                     if *INTPAR(IntPar::xetex_protrude_chars) > 1 {
                         shortfall = shortfall + total_pw(&r, cur_p)
                     }
@@ -1763,25 +1763,25 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                 if shortfall > 0 {
                     /*881: "Set the value of b to the badness for stretching the line,
                      * and compute the corresponding fit_class" */
-                    if cur_active_width[3] != 0
-                        || cur_active_width[4] != 0
-                        || cur_active_width[5] != 0
+                    if cur_active_width.stretch1 != 0
+                        || cur_active_width.stretch2 != 0
+                        || cur_active_width.stretch3 != 0
                     {
                         if do_last_line_fit {
                             if cur_p.is_none() {
                                 /*1634: "Perform computations for the last line and goto found" */
                                 if r.shortfall() == 0 || r.glue() <= 0 {
                                     current_block = 5565703735569783978;
-                                } else if cur_active_width[3] != fill_width[0]
-                                    || cur_active_width[4] != fill_width[1]
-                                    || cur_active_width[5] != fill_width[2]
+                                } else if cur_active_width.stretch1 != fill_width[0]
+                                    || cur_active_width.stretch2 != fill_width[1]
+                                    || cur_active_width.stretch3 != fill_width[2]
                                 {
                                     current_block = 5565703735569783978;
                                 } else {
                                     g = if r.shortfall() > 0 {
-                                        cur_active_width[2]
+                                        cur_active_width.stretch0
                                     } else {
-                                        cur_active_width[6]
+                                        cur_active_width.shrink
                                     };
                                     if g <= 0 {
                                         current_block = 5565703735569783978;
@@ -1812,7 +1812,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                             }
                                             if g > 7230584 {
                                                 /* XXX: magic number in original WEB code */
-                                                if (cur_active_width[2] as i64) < 1663497 {
+                                                if (cur_active_width.stretch0 as i64) < 1663497 {
                                                     /* XXX: magic number in original WEB code */
                                                     b = INF_BAD;
                                                     fit_class = VERY_LOOSE_FIT;
@@ -1826,7 +1826,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                             match current_block {
                                                 11849408527845460430 => {}
                                                 _ => {
-                                                    b = badness(g, cur_active_width[2]);
+                                                    b = badness(g, cur_active_width.stretch0);
                                                     fit_class = if b > 12 {
                                                         if b > 99 {
                                                             VERY_LOOSE_FIT
@@ -1843,10 +1843,10 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                             /*1636: "Set the value of b to the badness of the
                                              * last line for shrinking, compute the
                                              * corresponding fit_class, and goto found" */
-                                            if -g > cur_active_width[6] {
-                                                g = -cur_active_width[6]
+                                            if -g > cur_active_width.shrink {
+                                                g = -cur_active_width.shrink
                                             }
-                                            b = badness(-g, cur_active_width[6]);
+                                            b = badness(-g, cur_active_width.shrink);
                                             fit_class = if b > 12 {
                                                 /* XXX hardcoded in WEB */
                                                 TIGHT_FIT
@@ -1884,7 +1884,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                         let mut current_block_230: u64;
                         if shortfall as i64 > 7230584 {
                             /* XXX: magic number in original WEB code */
-                            if (cur_active_width[2] as i64) < 1663497 {
+                            if (cur_active_width.stretch0 as i64) < 1663497 {
                                 /* XXX: magic number in original WEB code */
                                 b = INF_BAD;
                                 fit_class = VERY_LOOSE_FIT;
@@ -1897,7 +1897,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                         }
                         match current_block_230 {
                             15455430299222214173 => {
-                                b = badness(shortfall, cur_active_width[2]);
+                                b = badness(shortfall, cur_active_width.stretch0);
                                 fit_class = if b > 12 {
                                     if b > 99 {
                                         VERY_LOOSE_FIT
@@ -1915,10 +1915,10 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                 } else {
                     /*882: "Set the value of b to the badness for shrinking the line,
                      * and compute the corresponding fit_class" */
-                    if -shortfall > cur_active_width[6] {
+                    if -shortfall > cur_active_width.shrink {
                         b = INF_BAD + 1
                     } else {
-                        b = badness(-shortfall, cur_active_width[6])
+                        b = badness(-shortfall, cur_active_width.shrink)
                     }
                     fit_class = if b > 12 { TIGHT_FIT } else { DECENT_FIT };
                     current_block = 8633396468472091231;
@@ -1931,9 +1931,9 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                 shortfall = 0
                             }
                             g = if shortfall > 0 {
-                                cur_active_width[2]
+                                cur_active_width.stretch0
                             } else if shortfall < 0 {
-                                cur_active_width[6]
+                                cur_active_width.shrink
                             } else {
                                 0
                             };
@@ -2033,41 +2033,21 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                     /*890: "Update the active widths, since the first active node has been deleted" */
                     let r = llist_link(ACTIVE_LIST).unwrap(); /*:966 */
                     if let ActiveNode::Delta(r) = ActiveNode::from(r) {
-                        active_width[1] += r.dwidth();
-                        active_width[2] += r.dstretch0();
-                        active_width[3] += r.dstretch1();
-                        active_width[4] += r.dstretch2();
-                        active_width[5] += r.dstretch3();
-                        active_width[6] += r.dshrink();
-                        cur_active_width[1..].copy_from_slice(&active_width[1..]);
+                        active_width += r.to_size();
+                        cur_active_width = active_width;
                         *LLIST_link(ACTIVE_LIST) = *LLIST_link(r.ptr());
                         r.free();
                     }
                 } else if let ActiveNode::Delta(mut prev_r_delta) = ActiveNode::from(prev_r) {
                     let r = llist_link(prev_r).unwrap();
                     if r == LAST_ACTIVE {
-                        cur_active_width[1] -= prev_r_delta.dwidth();
-                        cur_active_width[2] -= prev_r_delta.dstretch0();
-                        cur_active_width[3] -= prev_r_delta.dstretch1();
-                        cur_active_width[4] -= prev_r_delta.dstretch2();
-                        cur_active_width[5] -= prev_r_delta.dstretch3();
-                        cur_active_width[6] -= prev_r_delta.dshrink();
+                        cur_active_width -= prev_r_delta.to_size();
                         *LLIST_link(prev_prev_r.unwrap()) = Some(LAST_ACTIVE).tex_int();
                         prev_r_delta.free();
                         prev_r = prev_prev_r.unwrap();
                     } else if let ActiveNode::Delta(r) = ActiveNode::from(r) {
-                        cur_active_width[1] += r.dwidth();
-                        cur_active_width[2] += r.dstretch0();
-                        cur_active_width[3] += r.dstretch1();
-                        cur_active_width[4] += r.dstretch2();
-                        cur_active_width[5] += r.dstretch3();
-                        cur_active_width[6] += r.dshrink();
-                        prev_r_delta.set_dwidth(prev_r_delta.dwidth() + r.dwidth());
-                        prev_r_delta.set_dstretch0(prev_r_delta.dstretch0() + r.dstretch0());
-                        prev_r_delta.set_dstretch1(prev_r_delta.dstretch1() + r.dstretch1());
-                        prev_r_delta.set_dstretch2(prev_r_delta.dstretch2() + r.dstretch2());
-                        prev_r_delta.set_dstretch3(prev_r_delta.dstretch3() + r.dstretch3());
-                        prev_r_delta.set_dshrink(prev_r_delta.dshrink() + r.dshrink());
+                        cur_active_width += r.to_size();
+                        prev_r_delta.set_from_size(prev_r_delta.to_size() + r.to_size());
                         *LLIST_link(prev_r) = *LLIST_link(r.ptr());
                         r.free();
                     }

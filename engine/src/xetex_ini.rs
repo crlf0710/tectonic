@@ -915,8 +915,9 @@ pub(crate) static mut cur_pre_head: Option<usize> = None;
 pub(crate) static mut cur_pre_tail: Option<usize> = None;
 #[no_mangle]
 pub(crate) static mut just_box: usize = 0;
-#[no_mangle]
-pub(crate) static mut active_width: [scaled_t; 7] = [0; 7];
+
+use crate::xetex_consts::DeltaSize;
+pub(crate) static mut active_width: DeltaSize = DeltaSize::new();
 #[no_mangle]
 pub(crate) static mut hc: [i32; 4099] = [0; 4099];
 #[no_mangle]

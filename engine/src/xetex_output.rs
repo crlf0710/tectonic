@@ -21,8 +21,6 @@ use super::xetex_ini::{
 };
 use bridge::ttstub_output_putc;
 
-pub(crate) type scaled_t = i32;
-
 /* tectonic/xetex-xetexd.h -- many, many XeTeX symbol definitions
    Copyright 2016-2018 The Tectonic Project
    Licensed under the MIT License.
@@ -32,9 +30,7 @@ pub(crate) type scaled_t = i32;
 /*11:*/
 /*18: */
 pub(crate) type UTF16_code = u16;
-pub(crate) type pool_pointer = i32;
 pub(crate) type str_number = i32;
-pub(crate) type packed_UTF16_code = u16;
 /* xetex-output */
 /* tectonic/output.c -- functions related to outputting messages
  * Copyright 2016 the Tectonic Project
@@ -549,14 +545,14 @@ pub(crate) unsafe fn print_roman_int(mut n: i32) {
     }
 }
 pub(crate) unsafe fn print_current_string() {
-    let mut j: pool_pointer = str_start[(str_ptr - 0x10000) as usize];
+    let mut j = str_start[(str_ptr - 0x10000) as usize];
     while j < pool_ptr {
         print_char(str_pool[j as usize] as i32);
         j += 1
     }
 }
-pub(crate) unsafe fn print_scaled(mut s: scaled_t) {
-    let mut delta: scaled_t = 0;
+pub(crate) unsafe fn print_scaled(mut s: i32) {
+    let mut delta = 0;
     if s < 0 {
         print_chr('-');
         s = s.wrapping_neg(); // TODO: check
