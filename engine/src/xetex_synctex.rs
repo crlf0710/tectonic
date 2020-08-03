@@ -11,9 +11,8 @@
 use std::ffi::CString;
 use std::io::Write;
 
-use crate::xetex_consts::{
-    IntPar, Kern, List, TxtNode, BOX_NODE_SIZE, INTPAR, MEDIUM_NODE_SIZE, RULE_NODE_SIZE,
-};
+use crate::node::{Kern, List, TxtNode, BOX_NODE_SIZE, MEDIUM_NODE_SIZE, RULE_NODE_SIZE};
+use crate::xetex_consts::{IntPar, INTPAR};
 use crate::xetex_ini::{
     cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, MEM, TOTAL_PAGES,
 };

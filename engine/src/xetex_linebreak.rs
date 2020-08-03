@@ -9,19 +9,23 @@
 )]
 
 use crate::help;
+use crate::node::*;
+use crate::trie::{
+    hyf_distance, hyf_next, hyf_num, hyph_start, init_trie, max_hyph_char, op_start,
+    trie_not_ready, trie_pointer, trie_trc, trie_trl, trie_tro, MIN_TRIE_OP,
+};
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error};
 use crate::xetex_ini::{
     active_width, adjust_tail, arith_error, avail, cur_l, cur_lang, cur_list, cur_q, cur_r,
     file_line_error_style_p, first_p, font_in_short_display, global_prev_p, hc, hf, hu, hyf,
-    hyf_distance, hyf_next, hyf_num, hyph_index, hyph_start, hyphen_passed, init_lft, init_lig,
-    init_list, init_trie, just_box, last_leftmost_char, last_rightmost_char, lft_hit, lig_stack,
-    ligature_present, max_hyph_char, op_start, pack_begin_line, pre_adjust_tail, rt_hit,
-    semantic_pagination_enabled, str_pool, str_start, trie_not_ready, trie_trc, trie_trl, trie_tro,
-    xtx_ligature_present, BCHAR_LABEL, CHAR_BASE, EQTB, FONT_BCHAR, FONT_INFO, HYPHEN_CHAR,
-    HYPH_LINK, HYPH_LIST, HYPH_WORD, KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
+    hyph_index, hyphen_passed, init_lft, init_lig, init_list, just_box, last_leftmost_char,
+    last_rightmost_char, lft_hit, lig_stack, ligature_present, pack_begin_line, pre_adjust_tail,
+    rt_hit, semantic_pagination_enabled, str_pool, str_start, xtx_ligature_present, BCHAR_LABEL,
+    CHAR_BASE, EQTB, FONT_BCHAR, FONT_INFO, HYPHEN_CHAR, HYPH_LINK, HYPH_LIST, HYPH_WORD,
+    KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
 };
-use crate::xetex_ini::{b16x4, memory_word, MIN_TRIE_OP};
+use crate::xetex_ini::{b16x4, memory_word};
 use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
 use crate::xetex_stringpool::length;
 use crate::xetex_xetex0::{
@@ -44,8 +48,6 @@ pub(crate) type str_number = i32;
 pub(crate) type packed_UTF16_code = u16;
 pub(crate) type font_index = i32;
 pub(crate) type nine_bits = i32;
-pub(crate) type trie_pointer = i32;
-pub(crate) type trie_opcode = u16;
 pub(crate) type hyph_pointer = u16;
 
 const AWFUL_BAD: i32 = 0x3FFFFFFF;
@@ -56,7 +58,7 @@ const TIGHT_FIT: u8 = 3;
 const LAST_ACTIVE: usize = ACTIVE_LIST;
 
 static mut passive: i32 = 0;
-use crate::xetex_consts::DeltaSize;
+use crate::node::DeltaSize;
 static mut cur_active_width: DeltaSize = DeltaSize::new();
 static mut background: DeltaSize = DeltaSize::new();
 static mut break_width: DeltaSize = DeltaSize::new();

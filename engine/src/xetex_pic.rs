@@ -11,7 +11,7 @@
 use std::ffi::CString;
 
 use crate::help;
-use crate::xetex_consts::Picture;
+use crate::node::Picture;
 use crate::xetex_errors::error;
 use crate::xetex_ext::{D2Fix, Fix2D};
 use crate::xetex_ini::{

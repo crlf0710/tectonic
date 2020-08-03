@@ -162,6 +162,8 @@ mod core_memory {
     }
 }
 
+mod cmd;
+mod node;
 mod xetex_aatfont;
 mod xetex_consts;
 mod xetex_engine_interface;
@@ -185,6 +187,10 @@ mod xetex_xetexd;
 mod stub_icu;
 mod stub_stdio;
 mod stub_teckit;
+
+mod fmt_file;
+mod tfm;
+mod trie;
 
 #[inline]
 pub(crate) unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {

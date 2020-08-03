@@ -11,10 +11,11 @@
 use bridge::DisplayExt;
 use std::ffi::{CStr, CString};
 
+use crate::node::{Glyph, NativeWord};
 use crate::strstartswith;
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
-use crate::xetex_consts::{Glyph, NativeWord, Side, UnicodeMode};
+use crate::xetex_consts::{Side, UnicodeMode};
 use crate::xetex_xetexd::{print_c_str, print_c_string};
 use bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read};
 use libc::free;

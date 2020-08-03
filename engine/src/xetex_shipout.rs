@@ -3,6 +3,7 @@ use std::ffi::CString;
 use std::io::Write;
 
 use crate::help;
+use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow};
 use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, AAT_FONT_FLAG, OTGR_FONT_FLAG};

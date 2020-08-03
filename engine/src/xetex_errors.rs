@@ -11,8 +11,8 @@
 use std::io::Write;
 
 use crate::help;
-use crate::xetex_consts::InteractionMode;
 
+use crate::cmd::InteractionMode;
 use crate::xetex_ini::{
     error_count, file_line_error_style_p, halt_on_error_p, help_line, help_ptr, history,
     interaction, job_name, log_opened, rust_stdout, selector, use_err_help,

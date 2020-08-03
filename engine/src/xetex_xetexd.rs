@@ -1,4 +1,4 @@
-use crate::xetex_consts::{MathNode, TextNode, ND, SYNCTEX_FIELD_SIZE};
+use crate::node::{MathNode, TextNode, ND, SYNCTEX_FIELD_SIZE};
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
 

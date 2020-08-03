@@ -8,10 +8,13 @@
     unused_mut
 )]
 
+
 use super::xetex_consts::{
-    Cmd, IntPar, NativeWord, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE,
-    HASH_BASE, INTPAR, NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
+    IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE, INTPAR,
+    NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
 };
+use crate::cmd::Cmd;
+use crate::node::NativeWord;
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{

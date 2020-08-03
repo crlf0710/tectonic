@@ -10,7 +10,9 @@
 
 use core::ptr;
 
+use crate::cmd::*;
 use crate::help;
+use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ext::{map_char_to_glyph, AAT_FONT_FLAG, OTGR_FONT_FLAG};
@@ -81,7 +83,7 @@ authorization from the copyright holders.
 pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type str_number = i32;
-use crate::xetex_consts::Delimeter;
+use crate::node::Delimeter;
 pub(crate) const NULL_DELIMITER: Delimeter = Delimeter {
     s0: 0,
     s1: 0,
