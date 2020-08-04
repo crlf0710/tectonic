@@ -531,7 +531,7 @@ pub(crate) unsafe fn read_font_info(
         }
     }
 
-    for k in np + 1..=7 {
+    for k in np + 1..8 {
         FONT_INFO[(PARAM_BASE[f] + k - 1) as usize].b32.s1 = 0;
     }
 
@@ -626,8 +626,6 @@ pub(crate) unsafe fn read_font_info(
         }
         return done(tfm_file, g);
     }
-    // unreachable
-    // return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
 
     unsafe fn done(tfm_file: Option<InputHandleWrapper>, g: usize) -> usize {
         let file_opened = tfm_file.is_some();
@@ -649,8 +647,6 @@ pub(crate) unsafe fn read_font_info(
         }
         g
     }
-    // unreachable
-    // return done(tfm_file_owner, g);
 }
 
 pub(crate) unsafe fn load_native_font(
@@ -659,25 +655,18 @@ pub(crate) unsafe fn load_native_font(
     mut aire: str_number,
     mut s: i32,
 ) -> usize {
-    let mut num_font_dimens: i32 = 0;
-    let mut actual_size: i32 = 0;
-    let mut ascent: i32 = 0;
-    let mut descent: i32 = 0;
-    let mut font_slant: i32 = 0;
-    let mut x_ht: i32 = 0;
-    let mut cap_ht: i32 = 0;
     let mut font_engine =
         find_native_font(CString::new(name_of_file.as_str()).unwrap().as_ptr(), s);
     if font_engine.is_null() {
         return FONT_BASE;
     }
-    if s >= 0 {
-        actual_size = s
+    let actual_size = if s >= 0 {
+        s
     } else if s != -1000 {
-        actual_size = xn_over_d(loaded_font_design_size, -s, 1000)
+        xn_over_d(loaded_font_design_size, -s, 1000)
     } else {
-        actual_size = loaded_font_design_size
-    }
+        loaded_font_design_size
+    };
     if (pool_ptr as usize) + name_of_file.as_bytes().len() > (pool_size as usize) {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
@@ -700,7 +689,7 @@ pub(crate) unsafe fn load_native_font(
         }
     }
 
-    num_font_dimens = if native_font_type_flag as u32 == OTGR_FONT_FLAG
+    let num_font_dimens = if native_font_type_flag as u32 == OTGR_FONT_FLAG
         && isOpenTypeMathFont(font_engine as XeTeXLayoutEngine)
     {
         65 // = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55)
@@ -753,33 +742,25 @@ pub(crate) unsafe fn load_native_font(
     FONT_GLUE[FONT_PTR] = None.tex_int();
     FONT_DSIZE[FONT_PTR] = loaded_font_design_size;
     FONT_SIZE[FONT_PTR] = actual_size;
+    
+    let (ascent, descent, font_slant, x_ht, cap_ht) =
     match native_font_type_flag as u32 {
         #[cfg(target_os = "macos")]
         AAT_FONT_FLAG => {
             aat::aat_get_font_metrics(
                 font_engine as _,
-                &mut ascent,
-                &mut descent,
-                &mut x_ht,
-                &mut cap_ht,
-                &mut font_slant,
-            );
+            )
         }
         #[cfg(not(target_os = "macos"))]
         AAT_FONT_FLAG => {
-            // do nothing
+            unreachable!()
         }
         _ => {
             ot_get_font_metrics(
-                font_engine,
-                &mut ascent,
-                &mut descent,
-                &mut x_ht,
-                &mut cap_ht,
-                &mut font_slant,
-            );
+                font_engine
+            )
         }
-    }
+    };
     HEIGHT_BASE[FONT_PTR] = ascent;
     DEPTH_BASE[FONT_PTR] = -descent;
     FONT_PARAMS[FONT_PTR] = num_font_dimens;

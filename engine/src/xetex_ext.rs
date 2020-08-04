@@ -1182,47 +1182,43 @@ pub(crate) unsafe fn release_font_engine(mut engine: *mut libc::c_void, mut type
 }
 pub(crate) unsafe fn ot_get_font_metrics(
     mut pEngine: *mut libc::c_void,
-    mut ascent: *mut scaled_t,
-    mut descent: *mut scaled_t,
-    mut xheight: *mut scaled_t,
-    mut capheight: *mut scaled_t,
-    mut slant: *mut scaled_t,
-) {
+) -> (i32, i32, i32, i32, i32) {
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
     let mut a: f32 = 0.;
     let mut d: f32 = 0.;
     getAscentAndDescent(engine, &mut a, &mut d);
-    *ascent = D2Fix(a as f64);
-    *descent = D2Fix(d as f64);
-    *slant = D2Fix(
+    let ascent = D2Fix(a as f64);
+    let descent = D2Fix(d as f64);
+    let slant = D2Fix(
         Fix2D(getSlant(getFont(engine))) * getExtendFactor(engine) as f64
             + getSlantFactor(engine) as f64,
     );
     /* get cap and x height from OS/2 table */
     getCapAndXHeight(engine, &mut a, &mut d);
-    *capheight = D2Fix(a as f64);
-    *xheight = D2Fix(d as f64);
+    let mut capheight = D2Fix(a as f64);
+    let mut xheight = D2Fix(d as f64);
     /* fallback in case the font does not have OS/2 table */
-    if *xheight == 0i32 {
+    if xheight == 0i32 {
         let mut glyphID: i32 = mapCharToGlyph(engine, 'x' as i32 as u32) as i32;
         if glyphID != 0i32 {
             getGlyphHeightDepth(engine, glyphID as u32, &mut a, &mut d);
-            *xheight = D2Fix(a as f64)
+            xheight = D2Fix(a as f64)
         } else {
-            *xheight = *ascent / 2i32
+            xheight = ascent / 2i32
             /* arbitrary figure if there's no 'x' in the font */
         }
     }
-    if *capheight == 0i32 {
+    if capheight == 0i32 {
         let mut glyphID_0: i32 = mapCharToGlyph(engine, 'X' as i32 as u32) as i32;
         if glyphID_0 != 0i32 {
             getGlyphHeightDepth(engine, glyphID_0 as u32, &mut a, &mut d);
-            *capheight = D2Fix(a as f64)
+            capheight = D2Fix(a as f64)
         } else {
-            *capheight = *ascent
+            capheight = ascent
             /* arbitrary figure if there's no 'X' in the font */
         }
     };
+    (ascent, descent, xheight, capheight, slant)
 }
 pub(crate) unsafe fn ot_font_get(mut what: i32, mut pEngine: *mut libc::c_void) -> i32 {
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
