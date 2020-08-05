@@ -9,6 +9,7 @@
     unused_mut
 )]
 
+use derive_more::{Deref, DerefMut};
 use std::io::SeekFrom;
 use std::io::{prelude::*, Result};
 use std::ptr::NonNull;
@@ -89,6 +90,22 @@ impl Seek for InputHandleWrapper {
 impl InputHandleWrapper {
     pub(crate) fn new(ptr: rust_input_handle_t) -> Option<Self> {
         NonNull::new(ptr).map(|nnp| Self(nnp))
+    }
+}
+
+#[repr(transparent)]
+#[derive(Deref, DerefMut)]
+pub struct DroppableInputHandleWrapper(InputHandleWrapper);
+
+impl Drop for DroppableInputHandleWrapper {
+    fn drop(&mut self) {
+        self.0.clone().close();
+    }
+}
+
+impl DroppableInputHandleWrapper {
+    pub fn from(i: InputHandleWrapper) -> Self {
+        Self(i)
     }
 }
 
