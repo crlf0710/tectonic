@@ -40,8 +40,7 @@ use crate::xetex_output::{print_char, print_int, print_nl, print_raw_char};
 use crate::xetex_scaledmath::xn_over_d;
 use crate::xetex_texmfmp::{gettexstring, maketexstring, to_rust_string};
 use crate::xetex_xetex0::{
-    begin_diagnostic, end_diagnostic, font_feature_warning, font_mapping_warning,
-    get_tracing_fonts_state,
+    diagnostic, font_feature_warning, font_mapping_warning, get_tracing_fonts_state,
 };
 
 use crate::xetex_layout_interface::*;
@@ -193,16 +192,18 @@ pub(crate) unsafe fn linebreak_start(
             &mut status,
         );
         if status as i32 > icu::U_ZERO_ERROR as i32 {
-            begin_diagnostic();
-            print_nl('E' as i32);
-            print_c_string(b"rror \x00" as *const u8 as *const i8);
-            print_int(status as i32);
-            print_c_string(
-                b" creating linebreak iterator for locale `\x00" as *const u8 as *const i8,
-            );
-            print_c_str(&locale);
-            print_c_string(b"\'; trying default locale `en_us\'.\x00" as *const u8 as *const i8);
-            end_diagnostic(true);
+            diagnostic(true, || {
+                print_nl('E' as i32);
+                print_c_string(b"rror \x00" as *const u8 as *const i8);
+                print_int(status as i32);
+                print_c_string(
+                    b" creating linebreak iterator for locale `\x00" as *const u8 as *const i8,
+                );
+                print_c_str(&locale);
+                print_c_string(
+                    b"\'; trying default locale `en_us\'.\x00" as *const u8 as *const i8,
+                );
+            });
             if !brkIter.is_null() {
                 icu::ubrk_close(brkIter);
             }
@@ -260,12 +261,12 @@ pub(crate) unsafe fn get_encoding_mode_and_info(mut info: *mut i32) -> UnicodeMo
         &mut err,
     ); /* ensure message starts on a new line */
     let result = if cnv.is_null() {
-        begin_diagnostic();
-        print_nl('U' as i32);
-        print_c_string(b"nknown encoding `\x00" as *const u8 as *const i8);
-        print_c_str(&name_of_file);
-        print_c_string(b"\'; reading as raw bytes\x00" as *const u8 as *const i8);
-        end_diagnostic(true);
+        diagnostic(true, || {
+            print_nl('U' as i32);
+            print_c_string(b"nknown encoding `\x00" as *const u8 as *const i8);
+            print_c_str(&name_of_file);
+            print_c_string(b"\'; reading as raw bytes\x00" as *const u8 as *const i8);
+        });
         UnicodeMode::Raw
     } else {
         icu::ucnv_close(cnv);
@@ -1082,11 +1083,11 @@ pub(crate) unsafe fn find_native_font(
                 deleteFont(font);
             }
             if !rval.is_null() && get_tracing_fonts_state() > 0i32 {
-                begin_diagnostic();
-                print_nl(' ' as i32);
-                print_c_string(b"-> \x00" as *const u8 as *const i8);
-                print_c_string(nameString.offset(1));
-                end_diagnostic(false);
+                diagnostic(false, || {
+                    print_nl(' ' as i32);
+                    print_c_string(b"-> \x00" as *const u8 as *const i8);
+                    print_c_string(nameString.offset(1));
+                });
             }
         }
     } else {

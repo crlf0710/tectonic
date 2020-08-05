@@ -32,8 +32,8 @@ use crate::xetex_synctex::{
 };
 use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{
-    begin_diagnostic, begin_token_list, cur_length, effective_char, end_diagnostic, end_token_list,
-    flush_list, flush_node_list, free_node, get_avail, get_node, get_token, internal_font_number,
+    begin_token_list, cur_length, diagnostic, effective_char, end_token_list, flush_list,
+    flush_node_list, free_node, get_avail, get_node, get_token, internal_font_number,
     make_name_string, new_kern, new_math, new_native_word_node, open_log_file, pack_file_name,
     pack_job_name, packed_UTF16_code, prepare_mag, scaled_t, scan_toks, show_box, show_token_list,
     str_number, token_show, UTF16_code,
@@ -129,9 +129,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
     if *INTPAR(IntPar::tracing_output) > 0 {
         print_chr(']');
-        begin_diagnostic();
-        show_box(Some(p.ptr()));
-        end_diagnostic(true);
+        diagnostic(true, || show_box(Some(p.ptr())));
     }
 
     /*662: "Ship box `p` out." */
@@ -156,10 +154,10 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         error();
 
         if *INTPAR(IntPar::tracing_output) <= 0 {
-            begin_diagnostic();
-            print_nl_cstr("The following box has been deleted:");
-            show_box(Some(p.ptr()));
-            end_diagnostic(true);
+            diagnostic(true, || {
+                print_nl_cstr("The following box has been deleted:");
+                show_box(Some(p.ptr()));
+            });
         }
     } else {
         if p.height() + p.depth() + *DIMENPAR(DimenPar::v_offset) > max_v {

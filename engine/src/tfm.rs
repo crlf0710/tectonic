@@ -85,9 +85,9 @@ use crate::xetex_stringpool::length;
 use crate::xetex_stringpool::make_string;
 use crate::xetex_stringpool::str_eq_str;
 use crate::xetex_stringpool::EMPTY_STRING;
+use crate::xetex_xetex0::diagnostic;
 use crate::xetex_xetex0::new_native_character;
 use crate::xetex_xetex0::pack_file_name;
-use crate::xetex_xetex0::{begin_diagnostic, end_diagnostic};
 
 use crate::xetex_layout_interface::get_ot_math_constant;
 use crate::xetex_layout_interface::isOpenTypeMathFont;
@@ -111,19 +111,19 @@ pub(crate) unsafe fn read_font_info(
     pack_file_name(nom, aire, cur_ext);
 
     if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
-        begin_diagnostic();
-        print_nl_cstr("Requested font \"");
-        print_c_str(&name_of_file);
-        print('\"' as i32);
-        if s < 0 {
-            print_cstr(" scaled ");
-            print_int(-s);
-        } else {
-            print_cstr(" at ");
-            print_scaled(s);
-            print_cstr("pt");
-        }
-        end_diagnostic(false);
+        diagnostic(false, || {
+            print_nl_cstr("Requested font \"");
+            print_c_str(&name_of_file);
+            print('\"' as i32);
+            if s < 0 {
+                print_cstr(" scaled ");
+                print_int(-s);
+            } else {
+                print_cstr(" at ");
+                print_scaled(s);
+                print_cstr("pt");
+            }
+        });
     }
 
     if quoted_filename {
@@ -624,9 +624,9 @@ pub(crate) unsafe fn read_font_info(
             error();
         }
         if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
-            begin_diagnostic();
-            print_nl_cstr(" -> font not found, using \"nullfont\"");
-            end_diagnostic(false);
+            diagnostic(false, || {
+                print_nl_cstr(" -> font not found, using \"nullfont\"")
+            });
         }
         FONT_BASE
     }
@@ -634,10 +634,10 @@ pub(crate) unsafe fn read_font_info(
     unsafe fn done(file_opened: bool, g: usize) -> usize {
         if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
             if file_opened {
-                begin_diagnostic();
-                print_nl_cstr(" -> ");
-                print_c_str(&name_of_file);
-                end_diagnostic(false);
+                diagnostic(false, || {
+                    print_nl_cstr(" -> ");
+                    print_c_str(&name_of_file);
+                });
             }
         }
         g

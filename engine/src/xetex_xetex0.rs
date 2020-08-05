@@ -48,22 +48,22 @@ use crate::xetex_ini::{
     ligature_present, line, lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set,
     main_f, main_h, main_i, main_j, main_k, main_s, mapped_text, max_buf_stack, max_print_line,
     max_reg_help_line, max_reg_num, max_strings, mem_end, name_in_progress, name_of_file,
-    native_len, native_text, native_text_size, no_new_control_sequence, old_setting, open_parens,
-    output_active, pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token,
-    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim,
-    prim_eqtb, prim_used, pseudo_files, pstack, quoted_filename, radix, read_file, read_open,
-    rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_root, save_native_len, scanner_status,
-    selector, set_box_allowed, shown_mode, skip_line, space_class, stop_at_space, str_pool,
-    str_ptr, str_start, tally, term_offset, tex_remainder, texmf_log_name, total_shrink,
-    total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens, warning_index,
-    write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER,
-    BUF_SIZE, CHAR_BASE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE,
-    FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX,
-    FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK,
-    GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, KERN_BASE,
-    LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK,
-    MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK,
-    SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK, STACK_SIZE,
+    native_len, native_text, native_text_size, no_new_control_sequence, open_parens, output_active,
+    pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos,
+    pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used,
+    pseudo_files, pstack, quoted_filename, radix, read_file, read_open, rover, rt_hit, rust_stdout,
+    sa_chain, sa_level, sa_root, save_native_len, scanner_status, selector, set_box_allowed,
+    shown_mode, skip_line, space_class, stop_at_space, str_pool, str_ptr, str_start, tally,
+    term_offset, tex_remainder, texmf_log_name, total_shrink, total_stretch, trick_buf,
+    trick_count, use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
+    xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE, EOF_SEEN,
+    EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR,
+    FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME,
+    FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK,
+    INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN,
+    MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE,
+    PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR,
+    SOURCE_FILENAME_STACK, STACK_SIZE,
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding, u_close};
@@ -1789,22 +1789,26 @@ pub(crate) unsafe fn print_param(n: IntPar) {
         _ => print_cstr("[unknown i32 parameter!]"), // NOTE: several parameters not covered
     };
 }
-pub(crate) unsafe fn begin_diagnostic() {
-    old_setting = selector;
+
+pub(crate) unsafe fn diagnostic<F>(blank_line: bool, f: F)
+where
+    F: Fn(),
+{
+    let oldsetting = selector;
     if *INTPAR(IntPar::tracing_online) <= 0 && selector == Selector::TERM_AND_LOG {
         selector = (u8::from(selector) - 1).into();
         if history == TTHistory::SPOTLESS {
             history = TTHistory::WARNING_ISSUED
         }
     };
-}
-pub(crate) unsafe fn end_diagnostic(mut blank_line: bool) {
+    f();
     print_nl_cstr("");
     if blank_line {
         print_ln();
     }
-    selector = old_setting;
+    selector = oldsetting;
 }
+
 pub(crate) unsafe fn print_length_param(mut n: DimenPar) {
     use DimenPar::*;
     match n {
@@ -3439,46 +3443,46 @@ pub(crate) unsafe fn print_meaning() {
     };
 }
 pub(crate) unsafe fn show_cur_cmd_chr() {
-    begin_diagnostic();
-    print_nl('{' as i32);
-    if cur_list.mode != shown_mode {
-        print_mode(cur_list.mode);
-        print_cstr(": ");
-        shown_mode = cur_list.mode
-    }
-    print_cmd_chr(cur_cmd, cur_chr);
-    if *INTPAR(IntPar::tracing_ifs) > 0 {
-        if cur_cmd >= Cmd::IfTest {
-            if cur_cmd <= Cmd::FiOrElse {
-                print_cstr(": ");
-                let mut n;
-                let l;
-                if cur_cmd == Cmd::FiOrElse {
-                    print_cmd_chr(Cmd::IfTest, cur_if as i32);
-                    print_chr(' ');
-                    n = 0;
-                    l = if_line
-                } else {
-                    n = 1;
-                    l = line
-                }
-                let mut popt = cond_ptr;
-                while let Some(p) = popt {
-                    n += 1;
-                    popt = llist_link(p)
-                }
-                print_cstr("(level ");
-                print_int(n);
-                print_chr(')');
-                if l != 0 {
-                    print_cstr(" entered on line ");
-                    print_int(l);
+    diagnostic(false, || {
+        print_nl('{' as i32);
+        if cur_list.mode != shown_mode {
+            print_mode(cur_list.mode);
+            print_cstr(": ");
+            shown_mode = cur_list.mode
+        }
+        print_cmd_chr(cur_cmd, cur_chr);
+        if *INTPAR(IntPar::tracing_ifs) > 0 {
+            if cur_cmd >= Cmd::IfTest {
+                if cur_cmd <= Cmd::FiOrElse {
+                    print_cstr(": ");
+                    let mut n;
+                    let l;
+                    if cur_cmd == Cmd::FiOrElse {
+                        print_cmd_chr(Cmd::IfTest, cur_if as i32);
+                        print_chr(' ');
+                        n = 0;
+                        l = if_line
+                    } else {
+                        n = 1;
+                        l = line
+                    }
+                    let mut popt = cond_ptr;
+                    while let Some(p) = popt {
+                        n += 1;
+                        popt = llist_link(p)
+                    }
+                    print_cstr("(level ");
+                    print_int(n);
+                    print_chr(')');
+                    if l != 0 {
+                        print_cstr(" entered on line ");
+                        print_int(l);
+                    }
                 }
             }
         }
-    }
-    print_chr('}');
-    end_diagnostic(false);
+        print_chr('}');
+    });
 }
 pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
     let last_ptr = input_stack.len() - 1;
@@ -3500,7 +3504,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                 || input.loc.opt().is_some()
             {
                 tally = 0i32;
-                let old_setting_0 = selector;
+                let old_setting = selector;
                 let l;
                 if input.state != InputState::TokenList {
                     if input.name <= 17 {
@@ -3603,7 +3607,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                         );
                     }
                 }
-                selector = old_setting_0;
+                selector = old_setting;
                 if trick_count == 1_000_000 {
                     first_count = tally;
                     trick_count = tally + 1 + error_line - half_error_line;
@@ -3684,22 +3688,22 @@ pub(crate) unsafe fn begin_token_list(p: usize, t: Btl) {
         } else {
             cur_input.loc = *LLIST_link(p);
             if *INTPAR(IntPar::tracing_macros) > 1i32 {
-                begin_diagnostic();
-                print_nl_cstr("");
-                match t {
-                    Btl::MarkText => print_esc_cstr("mark"),
-                    Btl::WriteText => print_esc_cstr("write"),
-                    _ => {
-                        print_cmd_chr(
-                            Cmd::AssignToks,
-                            (t as i32) + LOCAL_BASE as i32 + (Local::output_routine as i32)
-                                - (Btl::OutputText) as i32,
-                        );
+                diagnostic(false, || {
+                    print_nl_cstr("");
+                    match t {
+                        Btl::MarkText => print_esc_cstr("mark"),
+                        Btl::WriteText => print_esc_cstr("write"),
+                        _ => {
+                            print_cmd_chr(
+                                Cmd::AssignToks,
+                                (t as i32) + LOCAL_BASE as i32 + (Local::output_routine as i32)
+                                    - (Btl::OutputText) as i32,
+                            );
+                        }
                     }
-                }
-                print_cstr("->");
-                token_show(Some(p));
-                end_diagnostic(false);
+                    print_cstr("->");
+                    token_show(Some(p));
+                });
             }
         }
     } else {
@@ -4557,11 +4561,11 @@ pub(crate) unsafe fn macro_call() {
     let mut n = 0_i16;
     if *INTPAR(IntPar::tracing_macros) > 0 {
         /*419:*/
-        begin_diagnostic();
-        print_ln();
-        print_cs(warning_index);
-        token_show(Some(ref_count));
-        end_diagnostic(false);
+        diagnostic(false, || {
+            print_ln();
+            print_cs(warning_index);
+            token_show(Some(ref_count));
+        });
     }
     if MEM[r].b32.s0 == PROTECTED_TOKEN {
         r = llist_link(r).unwrap();
@@ -4837,12 +4841,12 @@ pub(crate) unsafe fn macro_call() {
                 }
                 n += 1;
                 if *INTPAR(IntPar::tracing_macros) > 0 {
-                    begin_diagnostic();
-                    print_nl(match_chr as str_number);
-                    print_int(n as i32);
-                    print_cstr("<-");
-                    show_token_list(pstack[(n as i32 - 1) as usize].opt(), None, 1000);
-                    end_diagnostic(false);
+                    diagnostic(false, || {
+                        print_nl(match_chr as str_number);
+                        print_int(n as i32);
+                        print_cstr("<-");
+                        show_token_list(pstack[(n as i32 - 1) as usize].opt(), None, 1000);
+                    });
                 }
             }
             if !(MEM[r].b32.s0 != END_MATCH_TOKEN) {
@@ -8092,10 +8096,10 @@ pub(crate) unsafe fn pseudo_start() {
         s3: 0,
     };
     scan_general_text();
-    let old_setting_0 = selector;
+    let old_setting = selector;
     selector = Selector::NEW_STRING;
     token_show(Some(TEMP_HEAD));
-    selector = old_setting_0;
+    selector = old_setting;
     flush_list(llist_link(TEMP_HEAD));
     if pool_ptr + 1 > pool_size {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
@@ -8229,14 +8233,14 @@ pub(crate) unsafe fn the_toks() -> usize {
             assert!(cur_val.opt().is_some());
             return cur_val as usize; // TODO: check TEX_NULL
         } else {
-            let old_setting_0 = selector;
+            let old_setting = selector;
             selector = Selector::NEW_STRING;
             let b = pool_ptr;
             let p = get_avail();
             *LLIST_link(p) = *LLIST_link(TEMP_HEAD);
             token_show(Some(p));
             flush_list(Some(p));
-            selector = old_setting_0;
+            selector = old_setting;
             return str_toks(b);
         }
     }
@@ -8271,7 +8275,7 @@ pub(crate) unsafe fn the_toks() -> usize {
             p
         }
         _ => {
-            let old_setting_0 = selector;
+            let old_setting = selector;
             selector = Selector::NEW_STRING;
             let b = pool_ptr;
             match cur_val_level {
@@ -8290,7 +8294,7 @@ pub(crate) unsafe fn the_toks() -> usize {
                 }
                 _ => {}
             }
-            selector = old_setting_0;
+            selector = old_setting;
             str_toks(b)
         }
     }
@@ -8383,10 +8387,10 @@ pub(crate) unsafe fn conv_toks() {
                     "tokens_to_string() called while selector = new_string",
                 );
             }
-            let old_setting_0 = selector;
+            let old_setting = selector;
             selector = Selector::NEW_STRING;
             show_token_list(llist_link(def_ref), None, pool_size - pool_ptr);
-            selector = old_setting_0;
+            selector = old_setting;
             s = make_string();
             delete_token_ref(def_ref);
             def_ref = save_def_ref;
@@ -8480,7 +8484,7 @@ pub(crate) unsafe fn conv_toks() {
         }
         ConvertCode::EtexRevision | ConvertCode::XetexRevision => {}
     }
-    let old_setting_0 = selector;
+    let old_setting = selector;
     selector = Selector::NEW_STRING;
     b = pool_ptr;
     match c {
@@ -8646,7 +8650,7 @@ pub(crate) unsafe fn conv_toks() {
         ConvertCode::JobName => print_file_name(job_name, 0, 0),
         _ => {}
     }
-    selector = old_setting_0;
+    selector = old_setting;
     *LLIST_link(GARBAGE) = str_toks_cat(b, cat) as i32;
     begin_token_list(*LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
 }
@@ -9287,11 +9291,11 @@ pub(crate) unsafe fn conditional() {
             let mut n = cur_val;
 
             if *INTPAR(IntPar::tracing_commands) > 1 {
-                begin_diagnostic();
-                print_cstr("{case ");
-                print_int(n);
-                print_chr('}');
-                end_diagnostic(false);
+                diagnostic(false, || {
+                    print_cstr("{case ");
+                    print_int(n);
+                    print_chr('}');
+                });
             }
 
             loop {
@@ -9347,13 +9351,7 @@ pub(crate) unsafe fn conditional() {
 
     if *INTPAR(IntPar::tracing_commands) > 1 {
         /*521:*/
-        begin_diagnostic();
-        if b {
-            print_cstr("{true}");
-        } else {
-            print_cstr("{false}");
-        }
-        end_diagnostic(false);
+        diagnostic(false, || print_cstr(if b { "{true}" } else { "{false}" }));
     }
 
     if b {
@@ -9562,7 +9560,7 @@ pub(crate) unsafe fn pack_job_name(s: &str) {
     pack_file_name(cur_name, cur_area, cur_ext);
 }
 pub(crate) unsafe fn open_log_file() {
-    let old_setting_0 = selector;
+    let old_setting = selector;
     if job_name == 0 {
         job_name = maketexstring("texput")
     }
@@ -9588,7 +9586,7 @@ pub(crate) unsafe fn open_log_file() {
         k += 1;
     }
     print_ln();
-    selector = (u8::from(old_setting_0) + 2).into();
+    selector = (u8::from(old_setting) + 2).into();
 }
 pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     let mut format = TTInputFormat::TEX;
@@ -9793,24 +9791,23 @@ pub(crate) unsafe fn effective_char_info(mut f: internal_font_number, mut c: u16
     FONT_CHARACTER_INFO(f, c as usize)
 }
 pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
-    let mut old_setting_0: i32 = 0;
     if *INTPAR(IntPar::tracing_lost_chars) > 0 {
-        old_setting_0 = *INTPAR(IntPar::tracing_online);
+        let old_setting = *INTPAR(IntPar::tracing_online);
         if *INTPAR(IntPar::tracing_lost_chars) > 1 {
             *INTPAR(IntPar::tracing_online) = 1
         }
-        begin_diagnostic();
-        print_nl_cstr("Missing character: There is no ");
-        if (c as i64) < 65536 {
-            print(c);
-        } else {
-            print_char(c);
-        }
-        print_cstr(" in font ");
-        print(FONT_NAME[f]);
-        print_chr('!');
-        end_diagnostic(false);
-        *INTPAR(IntPar::tracing_online) = old_setting_0
+        diagnostic(false, || {
+            print_nl_cstr("Missing character: There is no ");
+            if (c as i64) < 65536 {
+                print(c);
+            } else {
+                print_char(c);
+            }
+            print_cstr(" in font ");
+            print(FONT_NAME[f]);
+            print_chr('!');
+        });
+        *INTPAR(IntPar::tracing_online) = old_setting
     }
     let fn_0 = gettexstring(FONT_NAME[f]);
     let prev_selector = selector;
@@ -9943,52 +9940,52 @@ pub(crate) unsafe fn new_native_character(
     p
 }
 pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u8]) {
-    begin_diagnostic();
-    print_nl_cstr("Unknown ");
-    if !setting_name.is_empty() {
-        print_cstr("selector `");
-        print_utf8_str(setting_name);
-        print_cstr("\' for ");
-    }
-    print_cstr("feature `");
-    print_utf8_str(feature_name);
-    print_cstr("\' in font `");
-    for b in name_of_file.bytes() {
-        print_raw_char(b as UTF16_code, true);
-    }
-    print_cstr("\'.");
-    end_diagnostic(false);
+    diagnostic(false, || {
+        print_nl_cstr("Unknown ");
+        if !setting_name.is_empty() {
+            print_cstr("selector `");
+            print_utf8_str(setting_name);
+            print_cstr("\' for ");
+        }
+        print_cstr("feature `");
+        print_utf8_str(feature_name);
+        print_cstr("\' in font `");
+        for b in name_of_file.bytes() {
+            print_raw_char(b as UTF16_code, true);
+        }
+        print_cstr("\'.");
+    });
 }
 pub(crate) unsafe fn font_mapping_warning(mut mapping_name: &[u8], mut warningType: i32) {
-    begin_diagnostic();
-    if warningType == 0i32 {
-        print_nl_cstr("Loaded mapping `");
-    } else {
-        print_nl_cstr("Font mapping `");
-    }
-    print_utf8_str(mapping_name);
-    print_cstr("\' for font `");
-    for b in name_of_file.bytes() {
-        print_raw_char(b as UTF16_code, true);
-    }
-    match warningType {
-        1 => print_cstr("\' not found."),
-        2 => {
-            print_cstr("\' not usable;");
-            print_nl_cstr("bad mapping file or incorrect mapping type.");
+    diagnostic(false, || {
+        if warningType == 0i32 {
+            print_nl_cstr("Loaded mapping `");
+        } else {
+            print_nl_cstr("Font mapping `");
         }
-        _ => print_cstr("\'."),
-    }
-    end_diagnostic(false);
+        print_utf8_str(mapping_name);
+        print_cstr("\' for font `");
+        for b in name_of_file.bytes() {
+            print_raw_char(b as UTF16_code, true);
+        }
+        match warningType {
+            1 => print_cstr("\' not found."),
+            2 => {
+                print_cstr("\' not usable;");
+                print_nl_cstr("bad mapping file or incorrect mapping type.");
+            }
+            _ => print_cstr("\'."),
+        }
+    });
 }
 pub(crate) unsafe fn graphite_warning() {
-    begin_diagnostic();
-    print_nl_cstr("Font `");
-    for b in name_of_file.bytes() {
-        print_raw_char(b as UTF16_code, true);
-    }
-    print_cstr("\' does not support Graphite. Trying OpenType layout instead.");
-    end_diagnostic(false);
+    diagnostic(false, || {
+        print_nl_cstr("Font `");
+        for b in name_of_file.bytes() {
+            print_raw_char(b as UTF16_code, true);
+        }
+        print_cstr("\' does not support Graphite. Trying OpenType layout instead.");
+    });
 }
 pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
     let mut offs: i32 = 0;
@@ -10048,16 +10045,16 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
     };
 }
 pub(crate) unsafe fn bad_utf8_warning() {
-    begin_diagnostic();
-    print_nl_cstr("Invalid UTF-8 byte or sequence");
-    if cur_input.name == 0 {
-        print_cstr(" in terminal input");
-    } else {
-        print_cstr(" at line ");
-        print_int(line);
-    }
-    print_cstr(" replaced by U+FFFD.");
-    end_diagnostic(false);
+    diagnostic(false, || {
+        print_nl_cstr("Invalid UTF-8 byte or sequence");
+        if cur_input.name == 0 {
+            print_cstr(" in terminal input");
+        } else {
+            print_cstr(" at line ");
+            print_int(line);
+        }
+        print_cstr(" replaced by U+FFFD.");
+    });
 }
 pub(crate) unsafe fn get_input_normalization_state() -> i32 {
     if EQTB.is_empty() {
@@ -10554,9 +10551,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
         font_in_short_display = 0;
         short_display(r.list_ptr().opt());
         print_ln();
-        begin_diagnostic();
-        show_box(Some(r.ptr()));
-        end_diagnostic(true);
+        diagnostic(true, || show_box(Some(r.ptr())));
         return exit(r, q);
     }
 
@@ -10794,9 +10789,7 @@ pub(crate) unsafe fn vpackage(
             print_int(line);
             print_ln();
         }
-        begin_diagnostic();
-        show_box(Some(r.ptr()));
-        end_diagnostic(true);
+        diagnostic(true, || show_box(Some(r.ptr())));
         return r;
     }
 }
@@ -12199,10 +12192,10 @@ pub(crate) unsafe fn print_totals() {
 }
 pub(crate) unsafe fn box_error(mut n: u8) {
     error();
-    begin_diagnostic();
-    print_nl_cstr("The following box has been deleted:");
-    show_box(BOX_REG(n as usize).opt());
-    end_diagnostic(true);
+    diagnostic(true, || {
+        print_nl_cstr("The following box has been deleted:");
+        show_box(BOX_REG(n as usize).opt());
+    });
     flush_node_list(BOX_REG(n as usize).opt());
     *BOX_REG(n as usize) = None.tex_int();
 }
@@ -13192,10 +13185,10 @@ pub(crate) unsafe fn build_discretionary() {
                     print_cstr("Improper discretionary list");
                     help!("Discretionary lists must contain only boxes and kerns.");
                     error();
-                    begin_diagnostic();
-                    print_nl_cstr("The following discretionary sublist has been deleted:");
-                    show_box(Some(p));
-                    end_diagnostic(true);
+                    diagnostic(true, || {
+                        print_nl_cstr("The following discretionary sublist has been deleted:");
+                        show_box(Some(p));
+                    });
                     flush_node_list(Some(p));
                     *LLIST_link(q as usize) = None.tex_int();
                     break;
@@ -14005,11 +13998,11 @@ pub(crate) unsafe fn new_font(mut a: i16) {
             (u - SINGLE_BASE) as i32
         }
     } else {
-        let old_setting_0 = selector;
+        let old_setting = selector;
         selector = Selector::NEW_STRING;
         print_cstr("FONT");
         print((u - 1) as i32);
-        selector = old_setting_0;
+        selector = old_setting;
         if pool_ptr + 1 > pool_size {
             overflow("pool size", (pool_size - init_pool_ptr) as usize);
         }
@@ -14196,8 +14189,7 @@ pub(crate) unsafe fn shift_case() {
 pub(crate) unsafe fn show_whatever() {
     match cur_chr {
         3 => {
-            begin_diagnostic();
-            show_activities();
+            diagnostic(true, || show_activities());
         }
         1 => {
             scan_register_num();
@@ -14207,15 +14199,16 @@ pub(crate) unsafe fn show_whatever() {
                 find_sa_element(ValLevel::Ident, cur_val, false);
                 cur_ptr.and_then(|c| MEM[c + 1].b32.s1.opt())
             };
-            begin_diagnostic();
-            print_nl_cstr("> \\box");
-            print_int(cur_val);
-            print_chr('=');
-            if p.is_none() {
-                print_cstr("void");
-            } else {
-                show_box(p);
-            }
+            diagnostic(true, || {
+                print_nl_cstr("> \\box");
+                print_int(cur_val);
+                print_chr('=');
+                if p.is_none() {
+                    print_cstr("void");
+                } else {
+                    show_box(p);
+                }
+            });
         }
         0 => {
             get_token();
@@ -14228,54 +14221,54 @@ pub(crate) unsafe fn show_whatever() {
             return common_ending();
         }
         4 => {
-            begin_diagnostic();
-            show_save_groups(cur_group, cur_level);
+            diagnostic(true, || show_save_groups(cur_group, cur_level));
         }
         6 => {
-            begin_diagnostic();
-            print_nl_cstr("");
-            print_ln();
-            if let Some(cp) = cond_ptr {
-                let mut p = cp;
-                let mut n = 0;
-                loop {
-                    n += 1;
-                    if let Some(next) = llist_link(p) {
-                        p = next;
-                    } else {
-                        break;
+            diagnostic(true, || {
+                print_nl_cstr("");
+                print_ln();
+                if let Some(cp) = cond_ptr {
+                    let mut p = cp;
+                    let mut n = 0;
+                    loop {
+                        n += 1;
+                        if let Some(next) = llist_link(p) {
+                            p = next;
+                        } else {
+                            break;
+                        }
                     }
+                    let mut p = cp;
+                    let mut t = cur_if;
+                    let mut l = if_line;
+                    let mut m = if_limit;
+                    loop {
+                        print_nl_cstr("### level ");
+                        print_int(n);
+                        print_cstr(": ");
+                        print_cmd_chr(Cmd::IfTest, t as i32);
+                        if m == FiOrElseCode::Fi {
+                            print_esc_cstr("else");
+                        }
+                        if l != 0i32 {
+                            print_cstr(" entered on line ");
+                            print_int(l);
+                        }
+                        n -= 1;
+                        t = MEM[p].b16.s0 as i16;
+                        l = MEM[p + 1].b32.s1;
+                        m = FiOrElseCode::n(MEM[p].b16.s1 as u8).unwrap();
+                        if let Some(next) = llist_link(p) {
+                            p = next;
+                        } else {
+                            break;
+                        }
+                    }
+                } else {
+                    print_nl_cstr("### ");
+                    print_cstr("no active conditionals");
                 }
-                let mut p = cp;
-                let mut t = cur_if;
-                let mut l = if_line;
-                let mut m = if_limit;
-                loop {
-                    print_nl_cstr("### level ");
-                    print_int(n);
-                    print_cstr(": ");
-                    print_cmd_chr(Cmd::IfTest, t as i32);
-                    if m == FiOrElseCode::Fi {
-                        print_esc_cstr("else");
-                    }
-                    if l != 0i32 {
-                        print_cstr(" entered on line ");
-                        print_int(l);
-                    }
-                    n -= 1;
-                    t = MEM[p].b16.s0 as i16;
-                    l = MEM[p + 1].b32.s1;
-                    m = FiOrElseCode::n(MEM[p].b16.s1 as u8).unwrap();
-                    if let Some(next) = llist_link(p) {
-                        p = next;
-                    } else {
-                        break;
-                    }
-                }
-            } else {
-                print_nl_cstr("### ");
-                print_cstr("no active conditionals");
-            }
+            });
         }
         _ => {
             let _p = the_toks() as i32;
@@ -14286,7 +14279,6 @@ pub(crate) unsafe fn show_whatever() {
         }
     }
 
-    end_diagnostic(true);
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -16482,7 +16474,7 @@ pub(crate) unsafe fn tokens_to_string(mut p: i32) -> str_number {
             "tokens_to_string() called while selector = new_string",
         );
     }
-    old_setting = selector;
+    let old_setting = selector;
     selector = Selector::NEW_STRING;
     show_token_list(LLIST_link(p as usize).opt(), None, pool_size - pool_ptr);
     selector = old_setting;

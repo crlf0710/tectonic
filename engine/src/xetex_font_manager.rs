@@ -26,7 +26,7 @@ use crate::xetex_ini::loaded_font_design_size;
 use crate::xetex_layout_interface::collection_types::*;
 use crate::xetex_layout_interface::{createFont, deleteFont};
 use crate::xetex_output::{print_char, print_nl};
-use crate::xetex_xetex0::{begin_diagnostic, end_diagnostic, get_tracing_fonts_state};
+use crate::xetex_xetex0::{diagnostic, get_tracing_fonts_state};
 
 #[cfg(not(target_os = "macos"))]
 use self::imp::XeTeXFontMgr_FC_create;
@@ -783,24 +783,24 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
             ((*font).opSizeInfo.designSize << 16i64).wrapping_div(10i32 as libc::c_uint) as Fixed
     }
     if get_tracing_fonts_state() > 0i32 {
-        begin_diagnostic();
-        print_nl(' ' as i32);
-        let mut ch_ptr: *const libc::c_char = b"-> \x00" as *const u8 as *const libc::c_char;
-        while *ch_ptr != 0 {
-            let fresh0 = ch_ptr;
-            ch_ptr = ch_ptr.offset(1);
-            print_char(*fresh0 as libc::c_int);
-        }
-        let mut font_desc: *mut libc::c_char =
-            XeTeXFontMgr_getPlatformFontDesc(self_0, (*font).fontRef);
-        let mut ch_ptr_0: *const libc::c_char = font_desc;
-        while *ch_ptr_0 != 0 {
-            let fresh1 = ch_ptr_0;
-            ch_ptr_0 = ch_ptr_0.offset(1);
-            print_char(*fresh1 as libc::c_int);
-        }
-        free(font_desc as *mut libc::c_void);
-        end_diagnostic(false);
+        diagnostic(false, || {
+            print_nl(' ' as i32);
+            let mut ch_ptr: *const libc::c_char = b"-> \x00" as *const u8 as *const libc::c_char;
+            while *ch_ptr != 0 {
+                let fresh0 = ch_ptr;
+                ch_ptr = ch_ptr.offset(1);
+                print_char(*fresh0 as libc::c_int);
+            }
+            let mut font_desc: *mut libc::c_char =
+                XeTeXFontMgr_getPlatformFontDesc(self_0, (*font).fontRef);
+            let mut ch_ptr_0: *const libc::c_char = font_desc;
+            while *ch_ptr_0 != 0 {
+                let fresh1 = ch_ptr_0;
+                ch_ptr_0 = ch_ptr_0.offset(1);
+                print_char(*fresh1 as libc::c_int);
+            }
+            free(font_desc as *mut libc::c_void);
+        });
     }
     return (*font).fontRef;
 }

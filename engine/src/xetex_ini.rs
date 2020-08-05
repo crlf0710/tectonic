@@ -34,16 +34,16 @@ use crate::xetex_synctex::synctex_init_command;
 use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{
     alter_aux, alter_box_dimen, alter_integer, alter_page_so_far, alter_prev_graf, back_error,
-    back_input, begin_diagnostic, close_files_and_terminate, delete_glue_ref, delete_token_ref,
-    do_marks, do_register_command, end_diagnostic, end_file_reading, end_token_list, eq_define,
-    eq_word_define, find_font_dimen, find_sa_element, flush_list, flush_node_list, free_node,
-    geq_define, geq_word_define, get_avail, get_node, get_r_token, get_token, get_x_token, gsa_def,
-    id_lookup, main_control, max_hyphenatable_length, new_font, new_interaction, open_log_file,
-    prim_lookup, print_cmd_chr, read_toks, sa_def, scan_box, scan_char_class,
-    scan_char_class_not_ignored, scan_char_num, scan_dimen, scan_fifteen_bit_int, scan_font_ident,
-    scan_glue, scan_glyph_number, scan_int, scan_keyword, scan_left_brace, scan_math_class_int,
-    scan_math_fam_int, scan_optional_equals, scan_register_num, scan_toks, scan_usv_num,
-    scan_xetex_math_char_int, show_cur_cmd_chr, show_save_groups, start_input, trap_zero_glue,
+    back_input, close_files_and_terminate, delete_glue_ref, delete_token_ref, diagnostic, do_marks,
+    do_register_command, end_file_reading, end_token_list, eq_define, eq_word_define,
+    find_font_dimen, find_sa_element, flush_list, flush_node_list, free_node, geq_define,
+    geq_word_define, get_avail, get_node, get_r_token, get_token, get_x_token, gsa_def, id_lookup,
+    main_control, max_hyphenatable_length, new_font, new_interaction, open_log_file, prim_lookup,
+    print_cmd_chr, read_toks, sa_def, scan_box, scan_char_class, scan_char_class_not_ignored,
+    scan_char_num, scan_dimen, scan_fifteen_bit_int, scan_font_ident, scan_glue, scan_glyph_number,
+    scan_int, scan_keyword, scan_left_brace, scan_math_class_int, scan_math_fam_int,
+    scan_optional_equals, scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int,
+    show_cur_cmd_chr, show_save_groups, start_input, trap_zero_glue,
 };
 use crate::xetex_xetexd::{llist_link, set_class, set_family, LLIST_link, TeXInt, TeXOpt};
 use bridge::ttstub_output_open_stdout;
@@ -590,8 +590,6 @@ pub(crate) static mut cur_list: list_state_record = list_state_record {
 };
 #[no_mangle]
 pub(crate) static mut shown_mode: (bool, ListMode) = (false, ListMode::NoMode);
-#[no_mangle]
-pub(crate) static mut old_setting: Selector = Selector::FILE_0;
 #[no_mangle]
 pub(crate) static mut hash: *mut b32x2 = ptr::null_mut();
 #[no_mangle]
@@ -1671,14 +1669,14 @@ pub(crate) unsafe fn prefixed_command() {
                 let mut n = cur_val;
                 scan_char_num();
                 if *INTPAR(IntPar::tracing_char_sub_def) > 0 {
-                    begin_diagnostic();
-                    print_nl_cstr("New character substitution: ");
-                    print(p - CHAR_SUB_CODE_BASE as i32);
-                    print_cstr(" = ");
-                    print(n);
-                    print_chr(' ');
-                    print(cur_val);
-                    end_diagnostic(false);
+                    diagnostic(false, || {
+                        print_nl_cstr("New character substitution: ");
+                        print(p - CHAR_SUB_CODE_BASE as i32);
+                        print_cstr(" = ");
+                        print(n);
+                        print_chr(' ');
+                        print(cur_val);
+                    });
                 }
                 n = n * 256 + cur_val;
                 if a >= 4 {
