@@ -67,7 +67,6 @@ use crate::xetex_ext::{AAT_FONT_FLAG, OTGR_FONT_FLAG};
 
 use super::xetex_io::tt_xetex_open_input;
 use crate::xetex_consts::IntPar;
-use crate::xetex_consts::FONT_BASE;
 use crate::xetex_consts::INTPAR;
 use crate::xetex_consts::LIST_TAG;
 use crate::xetex_consts::NON_ADDRESS;
@@ -113,8 +112,6 @@ pub(crate) unsafe fn read_font_info(
     aire: str_number,
     s: i32,
 ) -> Result<(bool, usize), TfmError> {
-    let mut g = FONT_BASE;
-
     pack_file_name(nom, aire, cur_ext);
 
     if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
@@ -573,10 +570,9 @@ pub(crate) unsafe fn read_font_info(
     PARAM_BASE[f] -= 1;
     fmem_ptr = fmem_ptr + lf;
     FONT_PTR = f;
-    g = f;
     FONT_MAPPING[f] = load_tfm_font_mapping();
 
-    return Ok((true, g));
+    return Ok((true, f));
 }
 
 /// Called on error

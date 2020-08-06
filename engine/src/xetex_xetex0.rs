@@ -9498,8 +9498,8 @@ pub(crate) unsafe fn end_name() {
         cur_ext = slow_make_string()
     };
 }
-pub(crate) unsafe fn pack_file_name(mut n: str_number, mut a: str_number, mut e: str_number) {
-    name_of_file = gettexstring(a) + &gettexstring(n) + &gettexstring(e);
+pub(crate) unsafe fn pack_file_name(name: str_number, path: str_number, ext: str_number) {
+    name_of_file = gettexstring(path) + &gettexstring(name) + &gettexstring(ext);
 }
 pub(crate) unsafe fn make_name_string() -> str_number {
     if pool_ptr as usize + name_of_file.as_bytes().len() > pool_size as usize

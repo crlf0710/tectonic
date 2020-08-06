@@ -290,13 +290,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
             cur_lang = init_cur_lang;
             l_hyf = init_l_hyf;
             r_hyf = init_r_hyf;
-            hyph_index = if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32
-                != cur_lang as i32
-            {
-                0
-            } else {
-                *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
-            };
+            hyph_index =
+                if trie_trc[(hyph_start + cur_lang as i32) as usize] as i32 != cur_lang as i32 {
+                    0
+                } else {
+                    trie_trl[(hyph_start + cur_lang as i32) as usize]
+                };
         }
         let mut q = Active(get_node(active_node_size as i32));
         q.set_break_type(BreakType::Unhyphenated)
@@ -360,12 +359,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         cur_lang = l.lang() as u8;
                         l_hyf = l.lhm() as i32;
                         r_hyf = l.rhm() as i32;
-                        if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32
+                        if trie_trc[(hyph_start + cur_lang as i32) as usize] as i32
                             != cur_lang as i32
                         {
                             hyph_index = 0
                         } else {
-                            hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
+                            hyph_index = trie_trl[(hyph_start + cur_lang as i32) as usize]
                         }
                     }
                     WhatsIt::NativeWord(nw) => {
@@ -757,15 +756,14 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     l_hyf = l.lhm() as i32;
                                     r_hyf = l.rhm() as i32;
 
-                                    hyph_index = if *trie_trc
-                                        .offset((hyph_start + cur_lang as i32) as isize)
-                                        as i32
-                                        != cur_lang as i32
-                                    {
-                                        0
-                                    } else {
-                                        *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
-                                    };
+                                    hyph_index =
+                                        if trie_trc[(hyph_start + cur_lang as i32) as usize] as i32
+                                            != cur_lang as i32
+                                        {
+                                            0
+                                        } else {
+                                            trie_trl[(hyph_start + cur_lang as i32) as usize]
+                                        };
                                 }
                                 _ => {}
                             }
@@ -776,10 +774,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     if flag {
                         hc[0] = if hyph_index == 0 || c > 255 {
                             *LC_CODE(c as usize)
-                        } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
+                        } else if trie_trc[(hyph_index + c) as usize] as i32 != c {
                             0
                         } else {
-                            *trie_tro.offset((hyph_index + c) as isize)
+                            trie_tro[(hyph_index + c) as usize]
                         };
                         if hc[0] != 0 {
                             if hc[0] == c || *INTPAR(IntPar::uc_hyph) > 0 {
@@ -861,10 +859,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             c = get_native_usv(ha, l as usize);
                             hc[0] = if hyph_index == 0 || c > 255 {
                                 *LC_CODE(c as usize)
-                            } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
+                            } else if trie_trc[(hyph_index + c) as usize] as i32 != c {
                                 0
                             } else {
-                                *trie_tro.offset((hyph_index + c) as isize)
+                                trie_tro[(hyph_index + c) as usize]
                             };
                             if hc[0] == 0 {
                                 if hn > 0 {
@@ -930,10 +928,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 c = hyf_bchar;
                                 hc[0] = if hyph_index == 0 || c > 255 {
                                     *LC_CODE(c as usize)
-                                } else if *trie_trc.offset((hyph_index + c) as isize) as i32 != c {
+                                } else if trie_trc[(hyph_index + c) as usize] as i32 != c {
                                     0
                                 } else {
-                                    *trie_tro.offset((hyph_index + c) as isize)
+                                    trie_tro[(hyph_index + c) as usize]
                                 };
                                 if hc[0] == 0 {
                                     break;
@@ -967,12 +965,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     c = q.character() as UnicodeScalar;
                                     hc[0] = if hyph_index == 0 || c > 255 {
                                         *LC_CODE(c as usize)
-                                    } else if *trie_trc.offset((hyph_index + c) as isize) as i32
-                                        != c
-                                    {
+                                    } else if trie_trc[(hyph_index + c) as usize] as i32 != c {
                                         0
                                     } else {
-                                        *trie_tro.offset((hyph_index + c) as isize)
+                                        trie_tro[(hyph_index + c) as usize]
                                     };
                                     if hc[0] == 0 {
                                         break 's_1342;
@@ -2123,19 +2119,19 @@ unsafe fn hyphenate() {
     match current_block {
         10027897684796195291 => {
             hn -= 1;
-            if *trie_trc.offset((cur_lang as i32 + 1i32) as isize) as i32 != cur_lang as i32 {
+            if trie_trc[(cur_lang as i32 + 1) as usize] as i32 != cur_lang as i32 {
                 return;
             }
             hc[0] = 0;
-            hc[(hn as i32 + 1i32) as usize] = 0i32;
-            hc[(hn as i32 + 2i32) as usize] = max_hyph_char;
+            hc[(hn as i32 + 1) as usize] = 0;
+            hc[(hn as i32 + 2) as usize] = max_hyph_char;
             for j in 0..=(hn as i32 - r_hyf + 1) {
-                z = *trie_trl.offset((cur_lang as i32 + 1) as isize) + hc[j as usize];
+                z = trie_trl[(cur_lang as i32 + 1) as usize] + hc[j as usize];
                 l = j as i16;
-                while hc[l as usize] == *trie_trc.offset(z as isize) as i32 {
-                    if *trie_tro.offset(z as isize) != MIN_TRIE_OP as i32 {
+                while hc[l as usize] == trie_trc[z as usize] as i32 {
+                    if trie_tro[z as usize] != MIN_TRIE_OP as i32 {
                         /*959: */
-                        v = *trie_tro.offset(z as isize); /*:958 */
+                        v = trie_tro[z as usize]; /*:958 */
                         loop {
                             v = v + op_start[cur_lang as usize];
                             let i = (l as i32 - hyf_distance[v as usize] as i32) as i16;
@@ -2149,7 +2145,7 @@ unsafe fn hyphenate() {
                         }
                     }
                     l += 1;
-                    z = *trie_trl.offset(z as isize) + hc[l as usize]
+                    z = trie_trl[z as usize] + hc[l as usize];
                 }
             }
         }

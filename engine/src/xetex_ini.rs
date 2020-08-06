@@ -12,7 +12,7 @@ use std::ptr;
 
 use super::xetex_texmfmp::{get_date_and_time, to_rust_string};
 use crate::cmd::*;
-use crate::core_memory::{mfree, xmalloc, xmalloc_array};
+use crate::core_memory::{xmalloc, xmalloc_array};
 use crate::fmt_file::{load_fmt_file, store_fmt_file};
 use crate::help;
 use crate::node::*;
@@ -1112,14 +1112,6 @@ where
 }
 
 unsafe fn new_patterns() {
-    let mut k: i16 = 0;
-    let mut l: i16 = 0;
-    let mut digit_sensed: bool = false;
-    let mut v: trie_opcode = 0;
-    let mut p: trie_pointer = 0;
-    let mut q: trie_pointer = 0;
-    let mut first_child: bool = false;
-    let mut c: UTF16_code = 0;
     if trie_not_ready {
         if *INTPAR(IntPar::language) <= 0 {
             cur_lang = 0
@@ -1129,9 +1121,9 @@ unsafe fn new_patterns() {
             cur_lang = *INTPAR(IntPar::language) as _;
         }
         scan_left_brace();
-        k = 0;
+        let mut k = 0;
         hyf[0] = 0;
-        digit_sensed = false;
+        let mut digit_sensed = false;
         loop {
             get_x_token();
             match cur_cmd {
@@ -1159,11 +1151,11 @@ unsafe fn new_patterns() {
                             k += 1;
                             hc[k as usize] = cur_chr;
                             hyf[k as usize] = 0;
-                            digit_sensed = false
+                            digit_sensed = false;
                         }
                     } else if (k as usize) < max_hyphenatable_length() {
                         hyf[k as usize] = (cur_chr - 48) as u8;
-                        digit_sensed = true
+                        digit_sensed = true;
                     }
                 }
                 Cmd::Spacer | Cmd::RightBrace => {
@@ -1175,8 +1167,8 @@ unsafe fn new_patterns() {
                         if hc[k as usize] == 0 {
                             hyf[k as usize] = 0;
                         }
-                        l = k;
-                        v = MIN_TRIE_OP;
+                        let mut l = k;
+                        let mut v = MIN_TRIE_OP;
                         loop {
                             if hyf[l as usize] != 0 {
                                 v = new_trie_op(
@@ -1190,38 +1182,38 @@ unsafe fn new_patterns() {
                             }
                             l -= 1
                         }
-                        q = 0;
+                        let mut q = 0;
                         hc[0] = cur_lang as i32;
                         while l <= k {
-                            c = hc[l as usize] as UTF16_code;
+                            let c = hc[l as usize] as UTF16_code;
                             l += 1;
-                            p = *trie_l.offset(q as isize);
-                            first_child = true;
-                            while p > 0 && c > *trie_c.offset(p as isize) {
+                            let mut p = trie_l[q as usize];
+                            let mut first_child = true;
+                            while p > 0 && c > trie_c[p as usize] {
                                 q = p;
-                                p = *trie_r.offset(q as isize);
+                                p = trie_r[q as usize];
                                 first_child = false
                             }
-                            if p == 0 || c < *trie_c.offset(p as isize) {
+                            if p == 0 || c < trie_c[p as usize] {
                                 /*999:*/
                                 if trie_ptr == trie_size {
                                     overflow("pattern memory", trie_size as usize);
                                 }
                                 trie_ptr += 1;
-                                *trie_r.offset(trie_ptr as isize) = p;
+                                trie_r[trie_ptr as usize] = p;
                                 p = trie_ptr;
-                                *trie_l.offset(p as isize) = 0;
+                                trie_l[p as usize] = 0;
                                 if first_child {
-                                    *trie_l.offset(q as isize) = p
+                                    trie_l[q as usize] = p;
                                 } else {
-                                    *trie_r.offset(q as isize) = p
+                                    trie_r[q as usize] = p;
                                 }
-                                *trie_c.offset(p as isize) = c;
-                                *trie_o.offset(p as isize) = MIN_TRIE_OP;
+                                trie_c[p as usize] = c;
+                                trie_o[p as usize] = MIN_TRIE_OP;
                             }
-                            q = p
+                            q = p;
                         }
-                        if *trie_o.offset(q as isize) != MIN_TRIE_OP {
+                        if trie_o[q as usize] != MIN_TRIE_OP {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
@@ -1231,7 +1223,7 @@ unsafe fn new_patterns() {
                             help!("(See Appendix H.)");
                             error();
                         }
-                        *trie_o.offset(q as isize) = v
+                        trie_o[q as usize] = v;
                     }
                     if cur_cmd == Cmd::RightBrace {
                         break;
@@ -1256,71 +1248,72 @@ unsafe fn new_patterns() {
         /*:996*/
         if *INTPAR(IntPar::saving_hyphs) > 0 {
             /*1643:*/
-            c = cur_lang as UTF16_code;
-            first_child = false;
-            p = 0;
+            let c = cur_lang as UTF16_code;
+            let first_child = false;
+            let mut p = 0;
+            let mut q;
             loop {
                 q = p;
-                p = *trie_r.offset(q as isize);
-                if p == 0 || c as i32 <= *trie_c.offset(p as isize) as i32 {
+                p = trie_r[q as usize];
+                if p == 0 || c as i32 <= trie_c[p as usize] as i32 {
                     break;
                 }
             }
-            if p == 0 || (c as i32) < *trie_c.offset(p as isize) as i32 {
+            if p == 0 || (c as i32) < trie_c[p as usize] as i32 {
                 /*:1644*/
                 /*999:*/
                 if trie_ptr == trie_size {
                     overflow("pattern memory", trie_size as usize);
                 }
                 trie_ptr += 1;
-                *trie_r.offset(trie_ptr as isize) = p;
+                trie_r[trie_ptr as usize] = p;
                 p = trie_ptr;
-                *trie_l.offset(p as isize) = 0;
+                trie_l[p as usize] = 0;
                 if first_child {
-                    *trie_l.offset(q as isize) = p
+                    trie_l[q as usize] = p;
                 } else {
-                    *trie_r.offset(q as isize) = p
+                    trie_r[q as usize] = p;
                 }
-                *trie_c.offset(p as isize) = c;
-                *trie_o.offset(p as isize) = MIN_TRIE_OP;
+                trie_c[p as usize] = c;
+                trie_o[p as usize] = MIN_TRIE_OP;
             }
-            q = p;
-            p = *trie_l.offset(q as isize);
-            first_child = true;
-            c = 0i32 as UTF16_code;
+            let mut q = p;
+            let mut p = trie_l[q as usize];
+            let mut first_child = true;
+            let mut c = 0 as UTF16_code;
             while c as i32 <= 255 {
                 if *LC_CODE(c as _) > 0 || c == 255 && first_child {
-                    if p == 0i32 {
+                    if p == 0 {
                         /*999:*/
                         if trie_ptr == trie_size {
                             overflow("pattern memory", trie_size as usize);
                             /*:987 */
                         }
                         trie_ptr += 1;
-                        *trie_r.offset(trie_ptr as isize) = p;
+                        trie_r[trie_ptr as usize] = p;
                         p = trie_ptr;
-                        *trie_l.offset(p as isize) = 0;
+                        trie_l[p as usize] = 0;
                         if first_child {
-                            *trie_l.offset(q as isize) = p
+                            trie_l[q as usize] = p;
                         } else {
-                            *trie_r.offset(q as isize) = p
+                            trie_r[q as usize] = p;
                         }
-                        *trie_c.offset(p as isize) = c;
-                        *trie_o.offset(p as isize) = MIN_TRIE_OP
+                        trie_c[p as usize] = c;
+                        trie_o[p as usize] = MIN_TRIE_OP;
                     } else {
-                        *trie_c.offset(p as isize) = c
+                        trie_c[p as usize] = c;
                     }
-                    *trie_o.offset(p as isize) = *LC_CODE(c as _) as _;
+                    trie_o[p as usize] = *LC_CODE(c as _) as _;
                     q = p;
-                    p = *trie_r.offset(q as isize);
+                    p = trie_r[q as usize];
                     first_child = false
                 }
                 c = c.wrapping_add(1)
             }
             if first_child {
-                *trie_l.offset(q as isize) = 0i32
+                trie_l[q as usize] = 0;
             } else {
-                *trie_r.offset(q as isize) = 0i32
+                trie_r[q as usize] = 0;
             }
         }
     } else {
@@ -1355,13 +1348,13 @@ unsafe fn new_hyph_exceptions() {
         cur_lang = *INTPAR(IntPar::language) as _;
     }
 
-    if trie_not_ready {
-        hyph_index = 0;
-    } else if *trie_trc.offset((hyph_start + cur_lang as i32) as isize) as i32 != cur_lang as i32 {
-        hyph_index = 0;
+    hyph_index = if trie_not_ready {
+        0
+    } else if trie_trc[(hyph_start + cur_lang as i32) as usize] as i32 != cur_lang as i32 {
+        0
     } else {
-        hyph_index = *trie_trl.offset((hyph_start + cur_lang as i32) as isize)
-    }
+        trie_trl[(hyph_start + cur_lang as i32) as usize]
+    };
 
     /*970: not_found:*/
     n = 0_i16;
@@ -1385,13 +1378,13 @@ unsafe fn new_hyph_exceptions() {
                         p = Some(q);
                     }
                 } else {
-                    if hyph_index == 0 || cur_chr > 255 {
-                        hc[0] = *LC_CODE(cur_chr as usize) as _;
-                    } else if *trie_trc.offset((hyph_index + cur_chr) as isize) as i32 != cur_chr {
-                        hc[0] = 0;
+                    hc[0] = if hyph_index == 0 || cur_chr > 255 {
+                        *LC_CODE(cur_chr as usize) as _
+                    } else if trie_trc[(hyph_index + cur_chr) as usize] as i32 != cur_chr {
+                        0
                     } else {
-                        hc[0] = *trie_tro.offset((hyph_index + cur_chr) as isize)
-                    }
+                        trie_tro[(hyph_index + cur_chr) as usize]
+                    };
                     if hc[0] == 0 {
                         if file_line_error_style_p != 0 {
                             print_file_line();
@@ -4282,19 +4275,19 @@ pub(crate) unsafe fn tt_run_engine(
         *INTPAR(IntPar::year) = year;
     }
     if trie_not_ready {
-        trie_trl = xmalloc_array(trie_size as usize);
-        trie_tro = xmalloc_array(trie_size as usize);
-        trie_trc = xmalloc_array(trie_size as usize);
-        trie_c = xmalloc_array(trie_size as usize);
-        trie_o = xmalloc_array(trie_size as usize);
-        trie_l = xmalloc_array(trie_size as usize);
-        trie_r = xmalloc_array(trie_size as usize);
-        trie_hash = xmalloc_array(trie_size as usize);
-        trie_taken = xmalloc_array(trie_size as usize);
-        *trie_l.offset(0) = 0;
-        *trie_c.offset(0) = 0;
+        trie_trl = vec![0; trie_size as usize + 1];
+        trie_tro = vec![0; trie_size as usize + 1];
+        trie_trc = vec![0; trie_size as usize + 1];
+        trie_c = vec![0; trie_size as usize + 1];
+        trie_o = vec![0; trie_size as usize + 1];
+        trie_l = vec![0; trie_size as usize + 1];
+        trie_r = vec![0; trie_size as usize + 1];
+        trie_hash = vec![0; trie_size as usize + 1];
+        trie_taken = vec![false; trie_size as usize + 1];
+        trie_l[0] = 0;
+        trie_c[0] = 0;
         trie_ptr = 0;
-        *trie_r.offset(0) = 0;
+        trie_r[0] = 0;
         hyph_start = 0;
         FONT_MAPPING = vec![0 as *mut libc::c_void; FONT_MAX + 1];
         FONT_LAYOUT_ENGINE = vec![0 as *mut libc::c_void; FONT_MAX + 1];
@@ -4440,8 +4433,8 @@ pub(crate) unsafe fn tt_run_engine(
     EXTEN_BASE = Vec::new();
     PARAM_BASE = Vec::new();
 
-    trie_trl = mfree(trie_trl as *mut libc::c_void) as *mut trie_pointer;
-    trie_tro = mfree(trie_tro as *mut libc::c_void) as *mut trie_pointer;
-    trie_trc = mfree(trie_trc as *mut libc::c_void) as *mut u16;
+    trie_trl = Vec::new();
+    trie_tro = Vec::new();
+    trie_trc = Vec::new();
     history
 }

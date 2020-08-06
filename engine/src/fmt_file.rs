@@ -480,12 +480,9 @@ pub(crate) unsafe fn store_fmt_file() {
 
     fmt_out.dump_one(trie_max);
     fmt_out.dump_one(hyph_start);
-    let dump_slice = std::slice::from_raw_parts(trie_trl, (trie_max + 1) as usize);
-    fmt_out.dump(dump_slice);
-    let dump_slice = std::slice::from_raw_parts(trie_tro, (trie_max + 1) as usize);
-    fmt_out.dump(dump_slice);
-    let dump_slice = std::slice::from_raw_parts(trie_trc, (trie_max + 1) as usize);
-    fmt_out.dump(dump_slice);
+    fmt_out.dump(&trie_trl[..(trie_max + 1) as usize]);
+    fmt_out.dump(&trie_tro[..(trie_max + 1) as usize]);
+    fmt_out.dump(&trie_trc[..(trie_max + 1) as usize]);
     fmt_out.dump_one(max_hyph_char);
     fmt_out.dump_one(trie_op_ptr as i32);
     fmt_out.dump(&hyf_distance[1..trie_op_ptr as usize + 1]);
@@ -1115,21 +1112,18 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         hyph_start = x;
     }
 
-    if trie_trl.is_null() {
-        trie_trl = xmalloc_array(j as usize + 1);
+    if trie_trl.is_empty() {
+        trie_trl = vec![0; j as usize + 2];
     }
-    let undump_slice = std::slice::from_raw_parts_mut(trie_trl, (j + 1) as usize);
-    fmt_in.undump(undump_slice);
-    if trie_tro.is_null() {
-        trie_tro = xmalloc_array(j as usize + 1);
+    fmt_in.undump(&mut trie_trl[..(j + 1) as usize]);
+    if trie_tro.is_empty() {
+        trie_tro = vec![0; j as usize + 2];
     }
-    let undump_slice = std::slice::from_raw_parts_mut(trie_tro, (j + 1) as usize);
-    fmt_in.undump(undump_slice);
-    if trie_trc.is_null() {
-        trie_trc = xmalloc_array(j as usize + 1);
+    fmt_in.undump(&mut trie_tro[..(j + 1) as usize]);
+    if trie_trc.is_empty() {
+        trie_trc = vec![0; j as usize + 2];
     }
-    let undump_slice = std::slice::from_raw_parts_mut(trie_trc, (j + 1) as usize);
-    fmt_in.undump(undump_slice);
+    fmt_in.undump(&mut trie_trc[..(j + 1) as usize]);
     fmt_in.undump_one(&mut max_hyph_char);
     fmt_in.undump_one(&mut x);
     if x < 0 {
