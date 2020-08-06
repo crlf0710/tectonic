@@ -7045,11 +7045,11 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
             help!("I\'m forgetting what you said and using zero instead.");
             error();
             cur_val = 0;
-            if level != ValLevel::Tok {
-                cur_val_level = ValLevel::Dimen;
+            cur_val_level = if level != ValLevel::Tok {
+                ValLevel::Dimen
             } else {
-                cur_val_level = ValLevel::Int;
-            }
+                ValLevel::Int
+            };
         }
     }
     while cur_val_level > level {
@@ -14101,7 +14101,12 @@ pub(crate) unsafe fn new_font(mut a: i16) {
         (*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1 = t;
     }
 
-    let f = crate::tfm::read_font_info(u as i32, cur_name, cur_area, s);
+    let f = crate::tfm::read_font_info(u as i32, cur_name, cur_area, s)
+        .map(crate::tfm::good_tfm)
+        .unwrap_or_else(|e| {
+            crate::tfm::bad_tfm(e, u as i32, cur_name, cur_area, s);
+            FONT_BASE
+        });
     common_ending(a, u, f, t)
 }
 pub(crate) unsafe fn new_interaction() {
