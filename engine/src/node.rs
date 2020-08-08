@@ -482,7 +482,7 @@ pub(crate) mod whatsit {
         pub(crate) unsafe fn italic_correction(&self) -> i32 {
             crate::xetex_ext::real_get_native_italic_correction(self)
         }
-        pub(crate) unsafe fn make_xdv_glyph_array_data(&self) -> i32 {
+        pub(crate) unsafe fn make_xdv_glyph_array_data(&self) -> Vec<u8> {
             crate::xetex_ext::makeXDVGlyphArrayData(self)
         }
         pub(crate) unsafe fn native_glyph(&self, index: u32) -> u16 {

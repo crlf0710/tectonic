@@ -33,8 +33,8 @@ use crate::cf_prelude::{
 use crate::core_memory::{xcalloc, xmalloc, xrealloc};
 use crate::xetex_ini::{
     loaded_font_design_size, loaded_font_flags, loaded_font_letter_space, loaded_font_mapping,
-    mapped_text, name_of_file, native_font_type_flag, xdv_buffer, DEPTH_BASE, FONT_AREA,
-    FONT_FLAGS, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, HEIGHT_BASE, PARAM_BASE,
+    mapped_text, name_of_file, native_font_type_flag, DEPTH_BASE, FONT_AREA, FONT_FLAGS, FONT_INFO,
+    FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, HEIGHT_BASE, PARAM_BASE,
 };
 use crate::xetex_output::{print_char, print_int, print_nl, print_raw_char};
 use crate::xetex_scaledmath::xn_over_d;
@@ -104,19 +104,6 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
-
-#[inline]
-unsafe fn SWAP16(p: u16) -> u16 {
-    ((p as i32 >> 8i32) + ((p as i32) << 8i32)) as u16
-}
-
-#[inline]
-unsafe fn SWAP32(p: u32) -> u32 {
-    (p >> 24i32)
-        .wrapping_add(p >> 8i32 & 0xff00_u32)
-        .wrapping_add(p << 8i32 & 0xff0000_u32)
-        .wrapping_add(p << 24i32)
-}
 
 /* xetex-shipout */
 /* ***************************************************************************\
@@ -1371,96 +1358,32 @@ unsafe fn cgColorToRGBA32(mut color: CGColorRef) -> u32 {
         as u32 as u32;
     return rval;
 }
-static mut xdvBufSize: i32 = 0i32;
-pub(crate) unsafe fn makeXDVGlyphArrayData(p: &NativeWord) -> i32 {
-    let mut cp: *mut u8 = 0 as *mut u8;
-    let mut glyphIDs: *mut u16 = 0 as *mut u16;
-    let mut glyph_info: *mut libc::c_void = 0 as *mut libc::c_void;
-    let mut locations: *mut FixedPoint = 0 as *mut FixedPoint;
-    let mut width: Fixed = 0;
+pub(crate) unsafe fn makeXDVGlyphArrayData(p: &NativeWord) -> Vec<u8> {
     let mut glyphCount: u16 = p.glyph_count();
-    let mut i: i32 = glyphCount as i32 * 10i32 + 8i32;
-    if i > xdvBufSize {
-        free(xdv_buffer as *mut libc::c_void);
-        xdvBufSize = (i / 1024i32 + 1i32) * 1024i32;
-        xdv_buffer = xmalloc(xdvBufSize as size_t) as *mut i8
+    let i = glyphCount as usize * 10 + 8;
+
+    let mut buf = Vec::with_capacity((i / 1024 + 1) * 1024);
+    let glyph_info = p.glyph_info_ptr();
+    let locations = glyph_info as *mut FixedPoint;
+    let glyphIDs = locations.offset(glyphCount as i32 as isize) as *mut u16;
+    buf.extend_from_slice(&p.width().to_be_bytes()[..]);
+    buf.extend_from_slice(&glyphCount.to_be_bytes()[..]);
+    for i in 0..glyphCount {
+        buf.extend_from_slice(&(*locations.offset(i as isize)).x.to_be_bytes()[..]);
+        buf.extend_from_slice(&(*locations.offset(i as isize)).y.to_be_bytes()[..]);
     }
-    glyph_info = p.glyph_info_ptr();
-    locations = glyph_info as *mut FixedPoint;
-    glyphIDs = locations.offset(glyphCount as i32 as isize) as *mut u16;
-    cp = xdv_buffer as *mut u8;
-    width = p.width();
-    let fresh13 = cp;
-    cp = cp.offset(1);
-    *fresh13 = (width >> 24i32 & 0xffi32) as u8;
-    let fresh14 = cp;
-    cp = cp.offset(1);
-    *fresh14 = (width >> 16i32 & 0xffi32) as u8;
-    let fresh15 = cp;
-    cp = cp.offset(1);
-    *fresh15 = (width >> 8i32 & 0xffi32) as u8;
-    let fresh16 = cp;
-    cp = cp.offset(1);
-    *fresh16 = (width & 0xffi32) as u8;
-    let fresh17 = cp;
-    cp = cp.offset(1);
-    *fresh17 = (glyphCount as i32 >> 8i32 & 0xffi32) as u8;
-    let fresh18 = cp;
-    cp = cp.offset(1);
-    *fresh18 = (glyphCount as i32 & 0xffi32) as u8;
-    i = 0i32;
-    while i < glyphCount as i32 {
-        let mut x: Fixed = (*locations.offset(i as isize)).x;
-        let mut y: Fixed = (*locations.offset(i as isize)).y;
-        let fresh19 = cp;
-        cp = cp.offset(1);
-        *fresh19 = (x >> 24i32 & 0xffi32) as u8;
-        let fresh20 = cp;
-        cp = cp.offset(1);
-        *fresh20 = (x >> 16i32 & 0xffi32) as u8;
-        let fresh21 = cp;
-        cp = cp.offset(1);
-        *fresh21 = (x >> 8i32 & 0xffi32) as u8;
-        let fresh22 = cp;
-        cp = cp.offset(1);
-        *fresh22 = (x & 0xffi32) as u8;
-        let fresh23 = cp;
-        cp = cp.offset(1);
-        *fresh23 = (y >> 24i32 & 0xffi32) as u8;
-        let fresh24 = cp;
-        cp = cp.offset(1);
-        *fresh24 = (y >> 16i32 & 0xffi32) as u8;
-        let fresh25 = cp;
-        cp = cp.offset(1);
-        *fresh25 = (y >> 8i32 & 0xffi32) as u8;
-        let fresh26 = cp;
-        cp = cp.offset(1);
-        *fresh26 = (y & 0xffi32) as u8;
-        i += 1
+    for i in 0..glyphCount {
+        buf.extend_from_slice(&(*glyphIDs.offset(i as isize)).to_be_bytes()[..]);
     }
-    i = 0i32;
-    while i < glyphCount as i32 {
-        let mut g: u16 = *glyphIDs.offset(i as isize);
-        let fresh27 = cp;
-        cp = cp.offset(1);
-        *fresh27 = (g as i32 >> 8i32 & 0xffi32) as u8;
-        let fresh28 = cp;
-        cp = cp.offset(1);
-        *fresh28 = (g as i32 & 0xffi32) as u8;
-        i += 1
-    }
-    (cp as *mut i8).offset_from(xdv_buffer) as i64 as i32
+    buf
 }
-pub(crate) unsafe fn make_font_def(f: usize) -> i32 {
+pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
     // XXX: seems like a good idea to make a struct FontDef
     let mut flags: u16 = 0_u16;
     let mut rgba: u32 = 0;
     let mut size: Fixed = 0;
     let mut filename: *mut i8 = 0 as *mut i8;
     let mut index: u32 = 0;
-    let mut filenameLen: u8 = 0;
-    let mut fontDefLength: i32 = 0;
-    let mut cp: *mut i8 = 0 as *mut i8;
     /* PlatformFontRef fontRef = 0; */
     let mut extend: f32 = 1.0f64 as f32;
     let mut slant: f32 = 0.0f64 as f32;
@@ -1536,7 +1459,7 @@ pub(crate) unsafe fn make_font_def(f: usize) -> i32 {
         }
         _ => panic!("bad native font flag in `make_font_def`"),
     }
-    filenameLen = strlen(filename) as u8;
+    let filenameLen = strlen(filename) as u8;
     /* parameters after internal font ID:
     //  size[4]
     //  flags[2]
@@ -1544,64 +1467,46 @@ pub(crate) unsafe fn make_font_def(f: usize) -> i32 {
     //  if flags & COLORED:
     //      c[4]
      */
-    fontDefLength = 4i32 + 2i32 + 1i32 + filenameLen as i32 + 4i32; /* face index */
+    let mut fontDefLength = 4 + 2 + 1 + filenameLen as i32 + 4; /* face index */
     if FONT_FLAGS[f] as i32 & 0x1i32 != 0i32 {
-        fontDefLength += 4i32; /* 32-bit RGBA value */
-        flags = (flags as i32 | 0x200i32) as u16
+        fontDefLength += 4; /* 32-bit RGBA value */
+        flags |= 0x200;
     }
-    if extend as f64 != 1.0f64 {
-        fontDefLength += 4i32;
-        flags = (flags as i32 | 0x1000i32) as u16
+    if extend as f64 != 1. {
+        fontDefLength += 4;
+        flags |= 0x1000;
     }
-    if slant as f64 != 0.0f64 {
-        fontDefLength += 4i32;
-        flags = (flags as i32 | 0x2000i32) as u16
+    if slant as f64 != 0. {
+        fontDefLength += 4;
+        flags |= 0x2000;
     }
-    if embolden as f64 != 0.0f64 {
-        fontDefLength += 4i32;
-        flags = (flags as i32 | 0x4000i32) as u16
+    if embolden as f64 != 0. {
+        fontDefLength += 4;
+        flags |= 0x4000;
     }
-    if fontDefLength > xdvBufSize {
-        free(xdv_buffer as *mut libc::c_void);
-        xdvBufSize = (fontDefLength / 1024i32 + 1i32) * 1024i32;
-        xdv_buffer = xmalloc(xdvBufSize as size_t) as *mut i8
-    }
-    cp = xdv_buffer;
-    *(cp as *mut Fixed) = SWAP32(size as u32) as Fixed;
-    cp = cp.offset(4);
-    *(cp as *mut u16) = SWAP16(flags);
-    cp = cp.offset(2);
-    *(cp as *mut u8) = filenameLen;
-    cp = cp.offset(1);
-    memcpy(
-        cp as *mut libc::c_void,
-        filename as *const libc::c_void,
-        filenameLen as _,
-    );
-    cp = cp.offset(filenameLen as i32 as isize);
-    *(cp as *mut u32) = SWAP32(index);
-    cp = cp.offset(4);
+    let mut buf = Vec::with_capacity((fontDefLength as usize / 1024 + 1) * 1024);
+    buf.extend_from_slice(&(size as u32).to_be_bytes()[..]);
+    buf.extend_from_slice(&flags.to_be_bytes()[..]);
+    buf.push(filenameLen);
+
+    let filename_slice = std::slice::from_raw_parts(filename as *const u8, filenameLen as _);
+    buf.extend_from_slice(filename_slice);
+
+    buf.extend_from_slice(&index.to_be_bytes()[..]);
     if FONT_FLAGS[f] as i32 & 0x1i32 != 0i32 {
-        *(cp as *mut u32) = SWAP32(rgba);
-        cp = cp.offset(4)
+        buf.extend_from_slice(&rgba.to_be_bytes()[..]);
     }
     if flags as i32 & 0x1000i32 != 0 {
-        let mut f_0: Fixed = D2Fix(extend as f64);
-        *(cp as *mut u32) = SWAP32(f_0 as u32);
-        cp = cp.offset(4)
+        buf.extend_from_slice(&D2Fix(extend as f64).to_be_bytes()[..]);
     }
     if flags as i32 & 0x2000i32 != 0 {
-        let mut f_1: Fixed = D2Fix(slant as f64);
-        *(cp as *mut u32) = SWAP32(f_1 as u32);
-        cp = cp.offset(4)
+        buf.extend_from_slice(&D2Fix(slant as f64).to_be_bytes()[..]);
     }
     if flags as i32 & 0x4000i32 != 0 {
-        let mut f_2: Fixed = D2Fix(embolden as f64);
-        *(cp as *mut u32) = SWAP32(f_2 as u32);
-        cp = cp.offset(4)
+        buf.extend_from_slice(&D2Fix(embolden as f64).to_be_bytes()[..]);
     }
     free(filename as *mut libc::c_void);
-    fontDefLength
+    buf
 }
 pub(crate) unsafe fn apply_mapping(
     mut pCnv: *mut libc::c_void,
