@@ -361,11 +361,11 @@ unsafe extern "C" fn buffer_overflow() {
 unsafe extern "C" fn conversion_error(mut errcode: i32) {
     diagnostic(true, || {
         print_nl('U' as i32);
-        print_c_string(
-            b"nicode conversion failed (ICU error code = \x00" as *const u8 as *const i8,
+        print_c_str(
+            &"nicode conversion failed (ICU error code = "[..],
         );
         print_int(errcode);
-        print_c_string(b") discarding any remaining text\x00" as *const u8 as *const i8);
+        print_c_str(&") discarding any remaining text"[..]);
     });
 }
 unsafe extern "C" fn apply_normalization(mut buf: *mut u32, mut len: i32, mut norm: i32) {
@@ -534,9 +534,8 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
                 }
                 tmpLen = 0i32;
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-                    let fresh3 = tmpLen;
-                    tmpLen = tmpLen + 1;
-                    *utf32Buf.offset(fresh3 as isize) = i as u32
+                    *utf32Buf.offset(tmpLen as isize) = i as u32;
+                    tmpLen += 1;
                 }
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
                     while tmpLen < BUF_SIZE as i32
@@ -547,9 +546,8 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
                         && i != '\n' as i32
                         && i != '\r' as i32
                     {
-                        let fresh4 = tmpLen;
-                        tmpLen = tmpLen + 1;
-                        *utf32Buf.offset(fresh4 as isize) = i as u32
+                        *utf32Buf.offset(tmpLen as isize) = i as u32;
+                        tmpLen += 1;
                     }
                 }
                 if i == -1i32 && errno::errno() != errno::EINTR && tmpLen == 0i32 {
@@ -564,9 +562,8 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
             _ => {
                 // none
                 if last < BUF_SIZE as i32 && i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-                    let fresh5 = last;
-                    last = last + 1;
-                    BUFFER[fresh5 as usize] = i
+                    BUFFER[last as usize] = i;
+                    last += 1;
                 }
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
                     while last < BUF_SIZE as i32
@@ -577,9 +574,8 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
                         && i != '\n' as i32
                         && i != '\r' as i32
                     {
-                        let fresh6 = last;
+                        BUFFER[last as usize] = i;
                         last = last + 1;
-                        BUFFER[fresh6 as usize] = i
                     }
                 }
                 if i == -1i32 && errno::errno() != errno::EINTR && last == first {

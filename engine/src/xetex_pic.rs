@@ -44,28 +44,6 @@ type Transform = euclid::Transform2D<f64, (), ()>;
 type Point = euclid::Point2D<f32, ()>;
 type Rect = euclid::Rect<f32, ()>;
 
-/* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
-
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
-    the dvipdfmx project team.
-
-    Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
-*/
-
 pub(crate) unsafe fn count_pdf_file_pages() -> i32 {
     let handle = ttstub_input_open(
         CString::new(name_of_file.as_str()).unwrap().as_ptr(),
@@ -106,22 +84,22 @@ unsafe fn pdf_get_rect(
     if page_num > pages {
         page_num = pages
     }
-    if page_num < 0i32 {
-        page_num = pages + 1i32 + page_num
+    if page_num < 0 {
+        page_num = pages + 1 + page_num
     }
-    if page_num < 1i32 {
-        page_num = 1i32
+    if page_num < 1 {
+        page_num = 1
     }
     /* OMG, magic numbers specifying page bound types do not agree between
      * xdvipdfmx code (dpx-pdfdoc.c:pdf_doc_get_page) and XeTeX/Apple's
      * pdfbox_* definitions (xetex-ext.h). */
-    match pdf_box {
-        2 => dpx_options = 2i32,
-        3 => dpx_options = 5i32,
-        4 => dpx_options = 4i32,
-        5 => dpx_options = 3i32,
-        1 | _ => dpx_options = 1i32,
-    }
+    dpx_options = match pdf_box {
+        2 => 2,
+        3 => 5,
+        4 => 4,
+        5 => 3,
+        1 | _ => 1,
+    };
     if let Some((page, mut bbox, matrix)) =
         pdf_doc_get_page(pf, page_num, dpx_options, 0 as *mut *mut pdf_obj)
     {
@@ -238,21 +216,22 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
             scan_int();
             page = cur_val
         }
-        pdf_box_type = 6i32;
-        if scan_keyword(b"crop") {
-            pdf_box_type = 1i32
+        pdf_box_type = if scan_keyword(b"crop") {
+            1
         } else if scan_keyword(b"media") {
-            pdf_box_type = 2i32
+            2
         } else if scan_keyword(b"bleed") {
-            pdf_box_type = 3i32
+            3
         } else if scan_keyword(b"trim") {
-            pdf_box_type = 4i32
+            4
         } else if scan_keyword(b"art") {
-            pdf_box_type = 5i32
-        }
+            5
+        } else {
+            6
+        };
     }
-    let (bounds, pic_path) = if pdf_box_type == 6i32 {
-        find_pic_file(1i32, page)
+    let (bounds, pic_path) = if pdf_box_type == 6 {
+        find_pic_file(1, page)
     } else {
         find_pic_file(pdf_box_type, page)
     }

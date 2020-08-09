@@ -1064,48 +1064,36 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
         (*thisFont).m_styleName = CppStdString_create()
     }
     for familyName in (*(*names).m_familyNames).iter() {
-        let mut family: *mut XeTeXFontMgrFamily;
+        let family: &mut XeTeXFontMgrFamily;
         if let Some(family_mut) = (*(*self_0).m_nameToFamily).get_mut(familyName) {
             family = family_mut.as_mut();
-            if ((*thisFont).weight as libc::c_int) < (*family).minWeight as libc::c_int {
-                (*family).minWeight = (*thisFont).weight
-            }
-            if (*thisFont).weight as libc::c_int > (*family).maxWeight as libc::c_int {
-                (*family).maxWeight = (*thisFont).weight
-            }
-            if ((*thisFont).width as libc::c_int) < (*family).minWidth as libc::c_int {
-                (*family).minWidth = (*thisFont).width
-            }
-            if (*thisFont).width as libc::c_int > (*family).maxWidth as libc::c_int {
-                (*family).maxWidth = (*thisFont).width
-            }
-            if ((*thisFont).slant as libc::c_int) < (*family).minSlant as libc::c_int {
-                (*family).minSlant = (*thisFont).slant
-            }
-            if (*thisFont).slant as libc::c_int > (*family).maxSlant as libc::c_int {
-                (*family).maxSlant = (*thisFont).slant
-            }
+            family.minWeight = family.minWeight.min((*thisFont).weight);
+            family.maxWeight = family.maxWeight.max((*thisFont).weight);
+            family.minWidth = family.minWidth.min((*thisFont).width);
+            family.maxWidth = family.maxWidth.max((*thisFont).width);
+            family.minSlant = family.minSlant.min((*thisFont).slant);
+            family.maxSlant = family.maxSlant.max((*thisFont).slant);
         } else {
-            family = XeTeXFontMgrFamily_create();
+            family = &mut *XeTeXFontMgrFamily_create();
             CppStdMap_put(
                 (*self_0).m_nameToFamily,
                 familyName.clone(),
                 NonNull::new(family).expect("expect non-null pointer"),
             );
-            (*family).minWeight = (*thisFont).weight;
-            (*family).maxWeight = (*thisFont).weight;
-            (*family).minWidth = (*thisFont).width;
-            (*family).maxWidth = (*thisFont).width;
-            (*family).minSlant = (*thisFont).slant;
-            (*family).maxSlant = (*thisFont).slant;
+            family.minWeight = (*thisFont).weight;
+            family.maxWeight = (*thisFont).weight;
+            family.minWidth = (*thisFont).width;
+            family.maxWidth = (*thisFont).width;
+            family.minSlant = (*thisFont).slant;
+            family.maxSlant = (*thisFont).slant;
         }
         if (*thisFont).parent.is_null() {
             (*thisFont).parent = family;
         }
         // ensure all style names in the family point to thisFont
         for styleName in (*(*names).m_styleNames).iter() {
-            if !(*(*family).styles).contains_key(styleName) {
-                CppStdMap_put((*family).styles, styleName.clone(), thisFont_nonnull);
+            if !(*family.styles).contains_key(styleName) {
+                CppStdMap_put(family.styles, styleName.clone(), thisFont_nonnull);
             }
             /*
                 else if (iFont->second != thisFont)
