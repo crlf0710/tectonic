@@ -568,15 +568,14 @@ unsafe fn spc_html__img_empty(spe: &mut spc_env, attr: &pdf_obj) -> i32 {
         let a: i32 = (100.0f64 * alpha).round() as i32;
         if a != 0i32 {
             let res_name = format!("_Tps_a{:03}_", a);
-            let res_name_c = CString::new(res_name.as_str()).unwrap();
             if check_resourcestatus("ExtGState", &res_name) == 0 {
                 let dict = create_xgstate((0.01f64 * a as f64 / 0.01f64).round() * 0.01f64, 0i32)
                     .into_obj();
-                pdf_doc_add_page_resource("ExtGState", res_name_c.as_ptr(), pdf_ref_obj(dict));
+                pdf_doc_add_page_resource("ExtGState", res_name.as_bytes(), pdf_ref_obj(dict));
                 pdf_release_obj(dict);
             }
             pdf_doc_add_page_content(b" /");
-            pdf_doc_add_page_content(res_name_c.to_bytes());
+            pdf_doc_add_page_content(res_name.as_bytes());
             pdf_doc_add_page_content(b" gs");
         }
         /* ENABLE_HTML_SVG_OPACITY */
@@ -584,12 +583,12 @@ unsafe fn spc_html__img_empty(spe: &mut spc_env, attr: &pdf_obj) -> i32 {
         M = M1.post_transform(&M);
         pdf_dev_concat(&mut M);
         pdf_dev_rectclip(&r);
-        let res_name = pdf_ximage_get_resname(id);
+        let res_name = CStr::from_ptr(pdf_ximage_get_resname(id));
         pdf_doc_add_page_content(b" /");
-        pdf_doc_add_page_content(CStr::from_ptr(res_name).to_bytes());
+        pdf_doc_add_page_content(res_name.to_bytes());
         pdf_doc_add_page_content(b" Do");
         pdf_dev_grestore();
-        pdf_doc_add_page_resource("XObject", res_name, pdf_ximage_get_reference(id));
+        pdf_doc_add_page_resource("XObject", res_name.to_bytes(), pdf_ximage_get_reference(id));
         /* ENABLE_HTML_SVG_XXX */
     }
     error

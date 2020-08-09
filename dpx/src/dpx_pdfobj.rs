@@ -965,55 +965,39 @@ pub(crate) unsafe fn pdf_string_length(object: &pdf_obj) -> u32 {
  * characters in an output string.
  */
 
-pub(crate) unsafe fn pdfobj_escape_str(buffer: &mut [u8], s: *const u8, len: size_t) -> size_t {
-    let bufsize = buffer.len();
-    let mut result = 0;
+pub(crate) unsafe fn pdfobj_escape_str(buffer: &mut Vec<u8>, s: *const u8, len: size_t) {
     for i in 0..len {
         let ch = *s.offset(i as isize);
-        if result > bufsize - 4 {
-            panic!("pdfobj_escape_str: Buffer overflow");
-        }
         /*
          * We always write three octal digits. Optimization only gives few Kb
          * smaller size for most documents when zlib compressed.
          */
         if ch < 32 || ch > 126 {
-            buffer[result] = b'\\';
-            result += 1;
-            write!(&mut buffer[result..], "{:03o}", ch).unwrap();
-            result += 3;
+            buffer.push(b'\\');
+            write!(buffer, "{:03o}", ch).unwrap();
         } else {
             match ch {
                 40 => {
-                    buffer[result] = b'\\';
-                    result += 1;
-                    buffer[result] = b'(';
-                    result += 1;
+                    buffer.push(b'\\');
+                    buffer.push(b'(');
                 }
                 41 => {
-                    buffer[result] = b'\\';
-                    result += 1;
-                    buffer[result] = b')';
-                    result += 1;
+                    buffer.push(b'\\');
+                    buffer.push(b')');
                 }
                 92 => {
-                    buffer[result] = b'\\';
-                    result += 1;
-                    buffer[result] = b'\\';
-                    result += 1;
+                    buffer.push(b'\\');
+                    buffer.push(b'\\');
                 }
                 _ => {
-                    buffer[result] = ch;
-                    result += 1;
+                    buffer.push(ch);
                 }
             }
         }
     }
-    result as size_t
 }
 unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
     let mut s: *mut u8 = ptr::null_mut();
-    let mut wbuf = [0_u8; 4096];
     let mut nescc: i32 = 0i32;
     let mut len: size_t = 0i32 as size_t;
     if enc_mode {
@@ -1062,10 +1046,11 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
          * is also used for strings of text with no kerning.  These must be
          * handled as quickly as possible since there are so many of them.
          */
+        let mut wbuf = Vec::new();
         for i in 0..len {
-            let count = pdfobj_escape_str(&mut wbuf[..], &mut *s.offset(i as isize), 1i32 as size_t)
-                as usize;
-            pdf_out(handle, &wbuf[..count]);
+            pdfobj_escape_str(&mut wbuf, &mut *s.offset(i as isize), 1i32 as size_t);
+            pdf_out(handle, wbuf.as_slice());
+            wbuf.clear();
         }
         pdf_out_char(handle, b')');
     }

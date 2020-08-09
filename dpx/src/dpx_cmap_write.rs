@@ -420,14 +420,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
     stream.add_str("endcodespacerange\n");
     /* CMap body */
     if !(*cmap).mapTbl.is_null() {
-        let count = write_map(
-            (*cmap).mapTbl,
-            0,
-            codestr,
-            0,
-            &mut wbuf,
-            &mut stream,
-        ) as size_t; /* Top node */
+        let count = write_map((*cmap).mapTbl, 0, codestr, 0, &mut wbuf, &mut stream) as size_t; /* Top node */
         if count > 0 {
             /* Flush */
             if count > 100 {

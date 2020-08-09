@@ -361,9 +361,7 @@ unsafe extern "C" fn buffer_overflow() {
 unsafe extern "C" fn conversion_error(mut errcode: i32) {
     diagnostic(true, || {
         print_nl('U' as i32);
-        print_c_str(
-            &"nicode conversion failed (ICU error code = "[..],
-        );
+        print_c_str(&"nicode conversion failed (ICU error code = "[..]);
         print_int(errcode);
         print_c_str(&") discarding any remaining text"[..]);
     });
