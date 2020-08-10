@@ -889,8 +889,9 @@ unsafe fn write_boolean(data: bool, handle: &mut OutputHandleWrapper) {
 }
 
 unsafe fn write_number(number: *mut pdf_number, handle: &mut OutputHandleWrapper) {
-    let count = pdf_sprint_number(&mut format_buffer[..], (*number).value) as usize;
-    pdf_out(handle, &format_buffer[..count]);
+    let mut buf = Vec::new();
+    pdf_sprint_number(&mut buf, (*number).value);
+    pdf_out(handle, &buf);
 }
 
 pub(crate) unsafe fn pdf_set_number(object: &mut pdf_obj, value: f64) {

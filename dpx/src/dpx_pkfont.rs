@@ -27,6 +27,7 @@
 )]
 
 use euclid::point2;
+use std::io::Write;
 
 use crate::warn;
 use std::ffi::{CStr, CString};
@@ -497,16 +498,10 @@ unsafe fn create_pk_CharProc_stream(
      * width in the font's Widths array. The format string of sprint() must be
      * consistent with write_number() in pdfobj.c.
      */
-    let mut len = pdf_sprint_number(&mut work_buffer[..], chrwid);
-    len += sprintf(
-        work_buffer.as_mut_ptr().offset(len as isize) as *mut i8,
-        b" 0 %d %d %d %d d1\n\x00" as *const u8 as *const i8,
-        llx,
-        lly,
-        urx,
-        ury,
-    ) as usize;
-    stream.add_slice(&work_buffer[..len]);
+    let mut buf = Vec::new();
+    pdf_sprint_number(&mut buf, chrwid);
+    write!(buf, " 0 {} {} {} {} d1\n", llx, lly, urx, ury,);
+    stream.add_slice(&buf);
     /*
      * Acrobat dislike transformation [0 0 0 0 dx dy].
      * PDF Reference, 4th ed., p.147, says,

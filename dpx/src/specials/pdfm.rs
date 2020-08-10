@@ -1093,27 +1093,20 @@ unsafe fn spc_handler_pdfm_object(spe: &mut spc_env, args: &mut spc_arg) -> i32 
     }
 }
 unsafe fn spc_handler_pdfm_content(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
-    let mut len = 0;
     args.cur.skip_white();
     if !args.cur.is_empty() {
         let mut M = TMatrix::create_translation(spe.x_user, spe.y_user);
-        WORK_BUFFER[len] = b' ';
-        len += 1;
-        WORK_BUFFER[len] = b'q';
-        len += 1;
-        WORK_BUFFER[len] = b' ';
-        len += 1;
-        len += pdf_sprint_matrix(&mut WORK_BUFFER[len..], &mut M) as usize;
-        WORK_BUFFER[len] = b' ';
-        len += 1;
-        WORK_BUFFER[len] = b'c';
-        len += 1;
-        WORK_BUFFER[len] = b'm';
-        len += 1;
-        WORK_BUFFER[len] = b' ';
-        len += 1;
+        let mut buf = Vec::new();
+        buf.push(b' ');
+        buf.push(b'q');
+        buf.push(b' ');
+        pdf_sprint_matrix(&mut buf, &mut M);
+        buf.push(b' ');
+        buf.push(b'c');
+        buf.push(b'm');
+        buf.push(b' ');
         /* op: Q */
-        pdf_doc_add_page_content(&WORK_BUFFER[..len]); /* op: q cm */
+        pdf_doc_add_page_content(&buf); /* op: q cm */
         pdf_doc_add_page_content(args.cur); /* op: ANY */
         pdf_doc_add_page_content(b" Q");
         /* op: ANY */
