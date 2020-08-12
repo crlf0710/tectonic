@@ -40,8 +40,6 @@ use super::dpx_pdfdoc::pdf_doc_add_page_content;
 // TODO move to context structure
 static mut gs_stack: Vec<pdf_gstate> = Vec::new();
 
-use crate::shims::sprintf;
-
 use super::dpx_pdfdev::{Equal, Point, Rect, TMatrix};
 
 /* Graphics State */
@@ -343,8 +341,6 @@ impl PeType {
         }
     }
 }
-
-static mut fmt_buf: [u8; 1024] = [0; 1024];
 
 unsafe fn pdf_path__closepath(pa: &mut pdf_path, cp: &mut Point) -> i32
 /* no arg */ {
@@ -821,14 +817,9 @@ pub(crate) unsafe fn pdf_dev_setmiterlimit(mlimit: f64) -> i32 {
 pub(crate) unsafe fn pdf_dev_setlinecap(capstyle: i32) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
-    let buf = &mut fmt_buf;
     if gs.linecap != capstyle {
-        let len = sprintf(
-            buf.as_mut_ptr() as *mut i8,
-            b" %d J\x00" as *const u8 as *const i8,
-            capstyle,
-        ) as usize;
-        pdf_doc_add_page_content(&buf[..len]);
+        let buf = format!(" {} J", capstyle);
+        pdf_doc_add_page_content(buf.as_bytes());
         gs.linecap = capstyle
     }
     0i32
@@ -837,14 +828,9 @@ pub(crate) unsafe fn pdf_dev_setlinecap(capstyle: i32) -> i32 {
 pub(crate) unsafe fn pdf_dev_setlinejoin(joinstyle: i32) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
-    let buf = &mut fmt_buf;
     if gs.linejoin != joinstyle {
-        let len = sprintf(
-            buf.as_mut_ptr() as *mut i8,
-            b" %d j\x00" as *const u8 as *const i8,
-            joinstyle,
-        ) as usize;
-        pdf_doc_add_page_content(&buf[..len]);
+        let buf = format!(" {} j", joinstyle);
+        pdf_doc_add_page_content(buf.as_bytes());
         gs.linejoin = joinstyle
     }
     0i32

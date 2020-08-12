@@ -38,7 +38,7 @@ use std::ptr;
 
 use super::dpx_dpxutil::{ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table};
 use super::dpx_mem::{new, renew};
-use super::dpx_mfileio::{tt_mfgets, work_buffer, work_buffer_u8 as WORK_BUFFER};
+use super::dpx_mfileio::{tt_mfgets, work_buffer};
 use super::dpx_pdfdev::pdf_sprint_number;
 use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encrypt_data};
 use super::dpx_pdfparse::skip_white;
@@ -2852,7 +2852,7 @@ unsafe fn find_xref(handle: &mut InputHandleWrapper, file_size: i32) -> i32 {
             ttstub_input_read(handle.as_ptr(), work_buffer.as_mut_ptr(), n as size_t);
             handle.seek(SeekFrom::Start(currentpos as u64)).unwrap();
             tries -= 1;
-            if !(tries > 0i32
+            if !(tries > 0
                 && strstartswith(
                     work_buffer.as_mut_ptr(),
                     b"startxref\x00" as *const u8 as *const i8,
@@ -2892,19 +2892,15 @@ unsafe fn parse_trailer(pf: *mut pdf_file) -> Option<*mut pdf_obj> {
      * be made a bit more robust sometime.
      */
     let cur_pos = (*pf).handle.seek(SeekFrom::Current(0)).unwrap() as i32;
-    let nmax = if (*pf).file_size - cur_pos < 1024 {
-        (*pf).file_size - cur_pos
-    } else {
-        1024
-    } as usize;
-    let nread = (*pf).handle.read(&mut WORK_BUFFER[..nmax]).ok();
-    if nread.is_none() || nread == Some(0) || !WORK_BUFFER.starts_with(b"trailer") {
+    let nmax = ((*pf).file_size - cur_pos).min(1024) as usize;
+    let mut buf = vec![0u8; nmax];
+    let r = (*pf).handle.read_exact(&mut buf);
+    if r.is_err() || !buf.starts_with(b"trailer") {
         warn!("No trailer.  Are you sure this is a PDF file?");
-        warn!("buffer:\n->{}<-\n", WORK_BUFFER.display(),);
+        warn!("buffer:\n->{}<-\n", buf.as_slice().display());
         None
     } else {
-        let nread = nread.unwrap();
-        let mut p = &WORK_BUFFER[b"trailer".len()..nread];
+        let mut p = &buf[b"trailer".len()..];
         p.skip_white();
         p.parse_pdf_dict(pf)
     }
