@@ -30,7 +30,7 @@ use crate::bridge::DisplayExt;
 use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use crate::dpx_pdfparse::{parse_number, parse_pdf_object, parse_unsigned, ParsePdfObj, SkipWhite};
+use crate::dpx_pdfparse::{parse_number, parse_unsigned, ParseNumber, ParsePdfObj, SkipWhite};
 use crate::strstartswith;
 use crate::{info, warn};
 use std::ffi::CStr;
@@ -2935,66 +2935,47 @@ unsafe fn pdf_read_object(
     offset: i32,
     limit: i32,
 ) -> *mut pdf_obj {
-    let length = limit - offset;
-    if length <= 0i32 {
+    let length = (limit - offset) as usize;
+    if length <= 0 {
         return ptr::null_mut();
     }
-    let buffer = new(
-        ((length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
-    ) as *mut i8;
+    let mut buffer = vec![0u8; length + 1];
     (*pf).handle.seek(SeekFrom::Start(offset as u64)).unwrap();
-    ttstub_input_read((*pf).handle.as_ptr(), buffer, length as size_t);
-    let mut p = buffer as *const i8;
-    let endptr = p.offset(length as isize);
+    (*pf).handle.read_exact(&mut buffer[..length]);
+    let p = buffer.as_slice();
     /* Check for obj_num and obj_gen */
-    let mut q: *const i8 = p; /* <== p */
-    skip_white(&mut q, endptr);
-    let sp = parse_unsigned(&mut q, endptr);
-    if sp.is_null() {
-        free(buffer as *mut libc::c_void);
+    let mut q = p; /* <== p */
+    q.skip_white();
+    let sp = q.parse_unsigned();
+    if sp.is_none() {
         return ptr::null_mut();
     }
-    let n = strtoul(sp, 0 as *mut *mut i8, 10i32) as u32;
-    free(sp as *mut libc::c_void);
-    skip_white(&mut q, endptr);
-    let sp = parse_unsigned(&mut q, endptr);
-    if sp.is_null() {
-        free(buffer as *mut libc::c_void);
+    let n = sp.unwrap().to_str().unwrap().parse::<u32>().unwrap();
+    q.skip_white();
+    let sp = q.parse_unsigned();
+    if sp.is_none() {
         return ptr::null_mut();
     }
-    let g = strtoul(sp, 0 as *mut *mut i8, 10i32) as u32;
-    free(sp as *mut libc::c_void);
+    let g = sp.unwrap().to_str().unwrap().parse::<u32>().unwrap();
     if obj_num != 0 && (n != obj_num || g != obj_gen as u32) {
-        free(buffer as *mut libc::c_void);
         return ptr::null_mut();
     }
-    p = q;
-    skip_white(&mut p, endptr);
-    if memcmp(
-        p as *const libc::c_void,
-        b"obj\x00" as *const u8 as *const i8 as *const libc::c_void,
-        strlen(b"obj\x00" as *const u8 as *const i8),
-    ) != 0
-    {
+    let mut p = q;
+    p.skip_white();
+    if !p.starts_with(b"obj") {
         warn!("Didn\'t find \"obj\".");
-        free(buffer as *mut libc::c_void);
         return ptr::null_mut();
     }
-    p = p.offset(strlen(b"obj\x00" as *const u8 as *const i8) as isize);
-    let mut result = parse_pdf_object(&mut p, endptr, pf);
-    skip_white(&mut p, endptr);
-    if memcmp(
-        p as *const libc::c_void,
-        b"endobj\x00" as *const u8 as *const i8 as *const libc::c_void,
-        strlen(b"endobj\x00" as *const u8 as *const i8),
-    ) != 0
-    {
+    p = &p[b"obj".len()..];
+    let result = p.parse_pdf_object(pf).unwrap_or(ptr::null_mut());
+    p.skip_white();
+    if !p.starts_with(b"endobj") {
         warn!("Didn\'t find \"endobj\".");
         pdf_release_obj(result);
-        result = ptr::null_mut()
+        ptr::null_mut()
+    } else {
+        result
     }
-    free(buffer as *mut libc::c_void);
-    result
 }
 unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
     let current_block: u64;

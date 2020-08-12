@@ -204,6 +204,33 @@ pub(crate) unsafe fn parse_unsigned(start: *mut *const i8, end: *const i8) -> *m
     *start = p;
     number
 }
+
+pub(crate) trait ParseNumber {
+    fn parse_number(&mut self) -> Option<CString>;
+    fn parse_unsigned(&mut self) -> Option<CString>;
+}
+
+impl ParseNumber for &[u8] {
+    fn parse_number(&mut self) -> Option<CString> {
+        unimplemented!()
+    }
+
+    fn parse_unsigned(&mut self) -> Option<CString> {
+        self.skip_white();
+        let mut i = 0;
+        for p in *self {
+            if !p.is_ascii_digit() {
+                break;
+            }
+            i += 1;
+        }
+        let number = parsed_string_slice(&self[..i]);
+        *self = &self[i..];
+        number
+    }
+    
+}
+
 unsafe fn parse_gen_ident(start: *mut *const i8, end: *const i8, valid_chars: &[u8]) -> *mut i8 {
     /* No skip_white(start, end)? */
     let mut p = *start;
