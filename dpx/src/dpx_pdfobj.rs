@@ -30,8 +30,7 @@ use crate::bridge::DisplayExt;
 use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use crate::dpx_pdfparse::{parse_number, parse_unsigned, ParseNumber, ParsePdfObj, SkipWhite};
-use crate::strstartswith;
+use crate::dpx_pdfparse::{ParseNumber, ParsePdfObj, SkipWhite};
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
@@ -43,10 +42,10 @@ use super::dpx_pdfdev::pdf_sprint_number;
 use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encrypt_data};
 use super::dpx_pdfparse::skip_white;
 use crate::bridge::{
-    ttstub_input_get_size, ttstub_input_getc, ttstub_input_read, ttstub_input_ungetc,
-    ttstub_output_close, ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
+    ttstub_input_get_size, ttstub_input_getc, ttstub_input_ungetc, ttstub_output_close,
+    ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
 };
-use libc::{atof, atoi, free, memcmp, memset, strlen, strtoul};
+use libc::{free, memset, strlen, strtoul};
 
 use libz_sys as libz;
 
@@ -2784,34 +2783,37 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
  * null-terminated string. Returns -1 for when EOF is already reached, and -2
  * if buffer has no enough space.
  */
-unsafe fn tt_mfreadln(buf: *mut i8, size: i32, handle: &mut InputHandleWrapper) -> i32 {
+#[derive(Copy, Clone, Debug)]
+enum MfReadErr {
+    Eof,
+    NotEnoughSpace,
+}
+unsafe fn tt_mfreadln(size: usize, handle: &mut InputHandleWrapper) -> Result<Vec<u8>, MfReadErr> {
     let mut c;
-    let mut len: i32 = 0i32;
+    let mut buf = Vec::with_capacity(size + 1);
     loop {
         c = ttstub_input_getc(handle);
-        if !(c != -1i32 && c != '\n' as i32 && c != '\r' as i32) {
+        if !(c != -1 && c != '\n' as i32 && c != '\r' as i32) {
             break;
         }
-        if len >= size {
-            return -2i32;
+        if buf.len() >= size {
+            return Err(MfReadErr::NotEnoughSpace);
         }
-        let fresh19 = len;
-        len = len + 1;
-        *buf.offset(fresh19 as isize) = c as i8
+        buf.push(c as u8);
     }
-    if c == -1i32 && len == 0i32 {
-        return -1i32;
+    if c == -1 && buf.is_empty() {
+        return Err(MfReadErr::Eof);
     }
     if c == '\r' as i32
         && {
             c = ttstub_input_getc(handle);
-            c >= 0i32
+            c >= 0
         }
         && c != '\n' as i32
     {
         ttstub_input_ungetc(handle, c);
     }
-    len
+    Ok(buf)
 }
 unsafe fn backup_line(handle: &mut InputHandleWrapper) -> i32 {
     let mut ch: i32 = -1i32;
@@ -2848,17 +2850,12 @@ unsafe fn find_xref(handle: &mut InputHandleWrapper, file_size: i32) -> i32 {
             break;
         } else {
             let currentpos = handle.seek(SeekFrom::Current(0)).unwrap() as i32;
-            let n = core::cmp::min(b"startxref".len() as i32, file_size - currentpos);
-            ttstub_input_read(handle.as_ptr(), work_buffer.as_mut_ptr(), n as size_t);
+            let n = core::cmp::min(b"startxref".len() as i32, file_size - currentpos) as usize;
+            let mut buf = vec![0; n];
+            handle.read_exact(buf.as_mut_slice());
             handle.seek(SeekFrom::Start(currentpos as u64)).unwrap();
             tries -= 1;
-            if !(tries > 0
-                && strstartswith(
-                    work_buffer.as_mut_ptr(),
-                    b"startxref\x00" as *const u8 as *const i8,
-                )
-                .is_null())
-            {
+            if !(tries > 0 && !buf.starts_with(b"startxref")) {
                 break;
             }
         }
@@ -2869,18 +2866,23 @@ unsafe fn find_xref(handle: &mut InputHandleWrapper, file_size: i32) -> i32 {
     /* Skip rest of this line */
     tt_mfgets(work_buffer.as_mut_ptr(), 1024i32, handle);
     /* Next line of input file should contain actual xref location */
-    let len = tt_mfreadln(work_buffer.as_mut_ptr(), 1024i32, handle);
-    if len <= 0i32 {
-        warn!("Reading xref location data failed... Not a PDF file?");
-        return 0i32;
+    match tt_mfreadln(1024, handle) {
+        Err(_) => {
+            warn!("Reading xref location data failed... Not a PDF file?");
+            0
+        }
+        Ok(buf) if buf.len() == 0 => {
+            warn!("Reading xref location data failed... Not a PDF file?");
+            0
+        }
+        Ok(buf) => {
+            let mut p = buf.as_slice();
+            p.skip_white();
+            let number = p.parse_number().unwrap();
+            let xref_pos = number.to_str().unwrap().parse::<f64>().unwrap() as i32;
+            xref_pos
+        }
     }
-    let mut start = work_buffer.as_mut_ptr() as *const i8;
-    let end = start.offset(len as isize);
-    skip_white(&mut start, end);
-    let number = parse_number(&mut start, end);
-    let xref_pos = atof(number) as i32;
-    free(number as *mut libc::c_void);
-    xref_pos
 }
 /*
  * This routine must be called with the file pointer located
@@ -3208,62 +3210,55 @@ unsafe fn extend_xref(mut pf: *mut pdf_file, new_size: i32) {
 }
 /* Returns < 0 for error, 1 for success, and 0 when xref stream found. */
 unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
-    /* See, PDF ref. v.1.7, p.91 for "255+1" here. */
-    let mut buf: [i8; 256] = [0; 256];
     /*
      * This routine reads one xref segment. It may be called multiple times
      * on the same file.  xref tables sometimes come in pieces.
      */
     (*pf).handle.seek(SeekFrom::Start(xref_pos as u64)).unwrap();
-    let len = tt_mfreadln(buf.as_mut_ptr(), 255i32, &mut (*pf).handle);
+    let buf = tt_mfreadln(255, &mut (*pf).handle);
     /* We should have already checked that "startxref" section exists. So, EOF
      * here (len = -1) is impossible. We don't treat too long line case
      * seriously.
      */
-    if len < 0i32 {
+    if buf.is_err() {
         warn!("Something went wrong while reading xref table...giving up.");
-        return -1i32;
+        return -1;
     }
-    let mut p = buf.as_mut_ptr() as *const i8;
-    let mut endptr = buf.as_mut_ptr().offset(len as isize);
+    let buf = buf.unwrap();
+    let mut p = buf.as_slice();
     /* No skip_white() here. There should not be any white-spaces here. */
-    if memcmp(
-        p as *const libc::c_void,
-        b"xref\x00" as *const u8 as *const i8 as *const libc::c_void,
-        strlen(b"xref\x00" as *const u8 as *const i8),
-    ) != 0
-    {
+    if !p.starts_with(b"xref") {
         /* Might be an xref stream and not an xref table */
         return 0i32;
     }
-    p = p.offset(strlen(b"xref\x00" as *const u8 as *const i8) as isize);
-    skip_white(&mut p, endptr);
-    if p != endptr {
+    p = &p[b"xref".len()..];
+    p.skip_white();
+    if !p.is_empty() {
         warn!("Garbage after \"xref\" keyword found.");
-        return -1i32;
+        return -1;
     }
     loop
     /* Next line in file has first item and size of table */
     {
         let mut current_pos = (*pf).handle.seek(SeekFrom::Current(0)).unwrap();
-        let len = tt_mfreadln(buf.as_mut_ptr(), 255i32, &mut (*pf).handle);
-        if !(len == 0i32) {
-            if len < 0i32 {
-                warn!("Reading a line failed in xref table.");
-                return -1i32;
-            }
-            p = buf.as_mut_ptr();
-            endptr = buf.as_mut_ptr().offset(len as isize);
-            skip_white(&mut p, endptr);
-            if !(p == endptr) {
-                if !strstartswith(p, b"trailer\x00" as *const u8 as *const i8).is_null() {
+        let buf = tt_mfreadln(255, &mut (*pf).handle);
+        if buf.is_err() {
+            warn!("Reading a line failed in xref table.");
+            return -1i32;
+        }
+        let buf = buf.unwrap();
+        if !buf.is_empty() {
+            let mut p = buf.as_slice();
+            p.skip_white();
+            if !p.is_empty() {
+                if p.starts_with(b"trailer") {
                     /* Backup... This is ugly, but it seems like the safest thing to
                      * do. It is possible the trailer dictionary starts on the same
                      * logical line as the word trailer. In that case, the mfgets call
                      * might have started to read the trailer dictionary and
                      * parse_trailer would fail.
                      */
-                    current_pos += p.offset_from(buf.as_mut_ptr()) as u64; /* Jump to the beginning of "trailer" keyword. */
+                    current_pos += (buf.len() as u64) - (p.len() as u64); /* Jump to the beginning of "trailer" keyword. */
                     (*pf).handle.seek(SeekFrom::Start(current_pos)).unwrap();
                     break;
                 } else {
@@ -3277,25 +3272,25 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                      * more white-space characters.
                      */
                     /* Object number of the first object whithin this xref subsection. */
-                    let q = parse_unsigned(&mut p, endptr);
-                    if q.is_null() {
+                    let q = p.parse_unsigned();
+                    if q.is_none() {
                         warn!("An unsigned integer expected but could not find. (xref)");
                         return -1i32;
                     }
-                    let first = atoi(q) as u32;
-                    free(q as *mut libc::c_void);
-                    skip_white(&mut p, endptr);
+                    let q = q.unwrap();
+                    let first = q.to_str().unwrap().parse::<i32>().unwrap() as u32;
+                    p.skip_white();
                     /* Nnumber of objects in this xref subsection. */
-                    let q = parse_unsigned(&mut p, endptr);
-                    if q.is_null() {
+                    let q = p.parse_unsigned();
+                    if q.is_none() {
                         warn!("An unsigned integer expected but could not find. (xref)");
                         return -1i32;
                     }
-                    let size = atoi(q) as u32;
-                    free(q as *mut libc::c_void);
-                    skip_white(&mut p, endptr);
+                    let q = q.unwrap();
+                    let size = q.to_str().unwrap().parse::<i32>().unwrap() as u32;
+                    p.skip_white();
                     /* Check for unrecognized tokens */
-                    if p != endptr {
+                    if !p.is_empty() {
                         warn!("Unexpected token found in xref table.");
                         return -1i32;
                     }
@@ -3314,16 +3309,16 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                          * More than one "white-spaces" allowed, can be ended with a comment,
                          * and so on.
                          */
-                        let len = tt_mfreadln(buf.as_mut_ptr(), 255i32, &mut (*pf).handle);
-                        if !(len == 0i32) {
-                            if len < 0i32 {
-                                warn!("Something went wrong while reading xref subsection...");
-                                return -1i32;
-                            }
-                            p = buf.as_mut_ptr();
-                            endptr = buf.as_mut_ptr().offset(len as isize);
-                            skip_white(&mut p, endptr);
-                            if p == endptr {
+                        let buf = tt_mfreadln(255, &mut (*pf).handle);
+                        if buf.is_err() {
+                            warn!("Something went wrong while reading xref subsection...");
+                            return -1i32;
+                        }
+                        let buf = buf.unwrap();
+                        if !buf.is_empty() {
+                            let mut p = buf.as_slice();
+                            p.skip_white();
+                            if p.is_empty() {
                                 continue;
                             }
                             /*
@@ -3333,68 +3328,64 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                              * if it hasn't been set yet.
                              */
                             /* Offset value -- 10 digits (0 padded) */
-                            let q_0 = parse_unsigned(&mut p, endptr);
-                            if q_0.is_null() {
-                                warn!("An unsigned integer expected but could not find. (xref)");
-                                return -1i32;
-                            } else {
-                                if strlen(q_0) != 10 {
+                            let q_0 = if let Some(q_0) = p.parse_unsigned() {
+                                if q_0.to_bytes().len() != 10 {
                                     /* exactly 10 digits */
                                     warn!("Offset must be a 10 digits number. (xref)");
-                                    free(q_0 as *mut libc::c_void);
                                     return -1i32;
                                 }
-                            }
-                            /* FIXME: Possible overflow here. Consider using strtoll(). */
-                            let offset = atoi(q_0) as u32;
-                            free(q_0 as *mut libc::c_void);
-                            skip_white(&mut p, endptr);
-                            /* Generation number -- 5 digits (0 padded) */
-                            let q_0 = parse_unsigned(&mut p, endptr);
-                            if q_0.is_null() {
+                                q_0
+                            } else {
                                 warn!("An unsigned integer expected but could not find. (xref)");
                                 return -1i32;
-                            } else {
-                                if strlen(q_0) != 5 {
+                            };
+                            /* FIXME: Possible overflow here. Consider using strtoll(). */
+                            let offset = q_0.to_str().unwrap().parse::<i32>().unwrap() as u32;
+                            p.skip_white();
+                            /* Generation number -- 5 digits (0 padded) */
+                            let q_0 = if let Some(q_0) = p.parse_unsigned() {
+                                if q_0.to_bytes().len() != 5 {
                                     /* exactly 5 digits */
                                     warn!("Expecting a 5 digits number. (xref)");
-                                    free(q_0 as *mut libc::c_void);
                                     return -1i32;
                                 }
-                            }
-                            let obj_gen = atoi(q_0) as u32;
-                            free(q_0 as *mut libc::c_void);
-                            skip_white(&mut p, endptr);
-                            if p == endptr {
+                                q_0
+                            } else {
+                                warn!("An unsigned integer expected but could not find. (xref)");
+                                return -1i32;
+                            };
+                            let obj_gen = q_0.to_str().unwrap().parse::<i32>().unwrap() as u32;
+                            p.skip_white();
+                            if p.is_empty() {
                                 warn!(
                                     "Unexpected EOL reached while reading a xref subsection entry."
                                 );
                                 return -1i32;
                             }
                             /* Flag -- a char */
-                            let flag = *p;
-                            p = p.offset(1);
-                            skip_white(&mut p, endptr);
-                            if p < endptr {
+                            let flag = p[0];
+                            p = &p[1..];
+                            p.skip_white();
+                            if !p.is_empty() {
                                 warn!("Garbage in xref subsection entry found...");
-                                return -1i32;
+                                return -1;
                             } else {
-                                if flag as i32 != 'n' as i32 && flag as i32 != 'f' as i32
-                                    || flag as i32 == 'n' as i32
+                                if flag != b'n' && flag != b'f'
+                                    || flag == b'n'
                                         && (offset >= (*pf).file_size as u32
-                                            || offset > 0_u32 && offset < 4_u32)
+                                            || offset > 0 && offset < 4)
                                 {
                                     warn!(
                                         "Invalid xref table entry [{}]. PDF file is corrupt...",
                                         i,
                                     );
-                                    return -1i32;
+                                    return -1;
                                 }
                             }
                             /* Everything seems to be OK. */
                             if (*(*pf).xref_table.offset(i as isize)).id.0 == 0 {
                                 (*(*pf).xref_table.offset(i as isize)).typ =
-                                    (flag as i32 == 'n' as i32) as i32 as u8; /* TODO: change! why? */
+                                    (flag == b'n') as i32 as u8; /* TODO: change! why? */
                                 (*(*pf).xref_table.offset(i as isize)).id = (offset, obj_gen as u16)
                             }
                             i += 1

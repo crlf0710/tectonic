@@ -212,7 +212,23 @@ pub(crate) trait ParseNumber {
 
 impl ParseNumber for &[u8] {
     fn parse_number(&mut self) -> Option<CString> {
-        unimplemented!()
+        self.skip_white();
+        let mut i = 0;
+        if !self.is_empty() && (self[0] == b'+' || self[0] == b'-') {
+            i += 1;
+        }
+        while !self[i..].is_empty() && self[0].is_ascii_digit() {
+            i += 1;
+        }
+        if !self[i..].is_empty() && self[0] == b'.' {
+            i += 1;
+            while !self[i..].is_empty() && self[0].is_ascii_digit() {
+                i += 1;
+            }
+        }
+        let number = parsed_string_slice(&self[..i]);
+        *self = &self[i..];
+        number
     }
 
     fn parse_unsigned(&mut self) -> Option<CString> {
@@ -228,7 +244,6 @@ impl ParseNumber for &[u8] {
         *self = &self[i..];
         number
     }
-    
 }
 
 unsafe fn parse_gen_ident(start: *mut *const i8, end: *const i8, valid_chars: &[u8]) -> *mut i8 {
