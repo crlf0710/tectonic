@@ -1517,7 +1517,7 @@ unsafe fn spc_handler_pdfm_mapfile(spe: &mut spc_env, args: &mut spc_arg) -> i32
         _ => 0,
     };
     if let Some(mapfile) = args.cur.parse_val_ident() {
-        error = pdf_load_fontmap_file(mapfile.as_c_str(), mode)
+        error = pdf_load_fontmap_file(&mapfile.to_string_lossy(), mode)
     } else {
         spc_warn!(spe, "No fontmap file specified.");
         return -1i32;

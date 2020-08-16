@@ -1382,7 +1382,7 @@ pub(crate) unsafe fn pdf_dev_locate_font(font_name: &CStr, ptsize: spt_t) -> i32
     /* Don't ref obj until font is actually used. */
     } else {
         font.short_name.push(b'F');
-        itoa::write(&mut font.short_name, num_phys_fonts + 1);
+        itoa::write(&mut font.short_name, num_phys_fonts + 1).unwrap();
         num_phys_fonts += 1;
     }
     strcpy(font.tex_name, font_name.as_ptr());

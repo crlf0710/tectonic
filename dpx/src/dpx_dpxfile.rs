@@ -29,10 +29,9 @@
 use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom};
 
-use super::dpx_mem::new;
 use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
 use crate::bridge::{ttstub_input_close, ttstub_input_open};
-use libc::{free, remove, strcat, strcpy, strlen, strrchr};
+use libc::{free, remove};
 
 pub(crate) type __ssize_t = i64;
 
@@ -116,13 +115,10 @@ unsafe fn check_stream_is_dfont(handle: &mut InputHandleWrapper) -> bool {
     false
 }
 /* ensuresuffix() returns a copy of basename if sfx is "". */
-unsafe fn ensuresuffix(basename: *const i8, sfx: *const i8) -> *mut i8 {
-    let p = new((strlen(basename).wrapping_add(strlen(sfx)).wrapping_add(1))
-        .wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    strcpy(p, basename);
-    let q = strrchr(p, '.' as i32);
-    if q.is_null() && *sfx.offset(0) as i32 != 0 {
-        strcat(p, sfx);
+unsafe fn ensuresuffix(basename: &str, sfx: &str) -> String {
+    let mut p = String::from(basename);
+    if !p.contains('.') && !sfx.is_empty() {
+        p += sfx;
     }
     p
 }
@@ -134,13 +130,8 @@ pub(crate) unsafe fn dpx_tt_open(
     suffix: &str,
     format: TTInputFormat,
 ) -> Option<InputHandleWrapper> {
-    let filename_ = CString::new(filename).unwrap();
-    let filename = filename_.as_ptr();
-    let suffix_ = CString::new(suffix).unwrap();
-    let suffix = suffix_.as_ptr();
-    let q = ensuresuffix(filename, suffix);
-    let handle = ttstub_input_open(q, format, 0i32);
-    free(q as *mut libc::c_void);
+    let q = CString::new(ensuresuffix(filename, suffix)).unwrap();
+    let handle = ttstub_input_open(q.as_ptr(), format, 0i32);
     handle
 }
 /* Search order:
@@ -183,11 +174,8 @@ pub(crate) unsafe fn dpx_open_truetype_file(filename: &str) -> Option<InputHandl
 }
 
 pub(crate) unsafe fn dpx_open_opentype_file(filename: &str) -> Option<InputHandleWrapper> {
-    let filename_ = CString::new(filename).unwrap();
-    let filename = filename_.as_ptr();
-    let q = ensuresuffix(filename, b".otf\x00" as *const u8 as *const i8);
-    let handle = ttstub_input_open(q, TTInputFormat::OPENTYPE, 0i32);
-    free(q as *mut libc::c_void);
+    let q = CString::new(ensuresuffix(filename, ".otf")).unwrap();
+    let handle = ttstub_input_open(q.as_ptr(), TTInputFormat::OPENTYPE, 0i32);
     match handle {
         Some(mut handle) => {
             if !check_stream_is_opentype(&mut handle) {
