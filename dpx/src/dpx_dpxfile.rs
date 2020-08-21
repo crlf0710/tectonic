@@ -51,10 +51,10 @@ static mut _SBUF: [u8; 128] = [0; 128];
  *  `OTTO': PostScript CFF font with OpenType wrapper
  *  `ttcf': TrueType Collection
  */
-unsafe fn check_stream_is_truetype(handle: &mut InputHandleWrapper) -> bool {
-    handle.seek(SeekFrom::Start(0)).unwrap();
-    let n = handle.read(&mut _SBUF[..4]).unwrap();
-    handle.seek(SeekFrom::Start(0)).unwrap();
+unsafe fn check_stream_is_truetype(handle: &InputHandleWrapper) -> bool {
+    (&*handle).seek(SeekFrom::Start(0)).unwrap();
+    let n = (&*handle).read(&mut _SBUF[..4]).unwrap();
+    (&*handle).seek(SeekFrom::Start(0)).unwrap();
     if n != 4 {
         return false;
     }
@@ -65,20 +65,20 @@ unsafe fn check_stream_is_truetype(handle: &mut InputHandleWrapper) -> bool {
     &_SBUF[..4] == b"ttcf"
 }
 /* "OpenType" is only for ".otf" here */
-unsafe fn check_stream_is_opentype(handle: &mut InputHandleWrapper) -> bool {
-    handle.seek(SeekFrom::Start(0)).unwrap();
-    let n = handle.read(&mut _SBUF[..4]).unwrap();
-    handle.seek(SeekFrom::Start(0)).unwrap();
+unsafe fn check_stream_is_opentype(handle: &InputHandleWrapper) -> bool {
+    (&*handle).seek(SeekFrom::Start(0)).unwrap();
+    let n = (&*handle).read(&mut _SBUF[..4]).unwrap();
+    (&*handle).seek(SeekFrom::Start(0)).unwrap();
     if n != 4 {
         return false;
     }
     &_SBUF[..4] == b"OTTO"
 }
-unsafe fn check_stream_is_type1(handle: &mut InputHandleWrapper) -> bool {
+unsafe fn check_stream_is_type1(handle: &InputHandleWrapper) -> bool {
     let p = &_SBUF;
-    handle.seek(SeekFrom::Start(0)).unwrap();
-    let n = handle.read(&mut _SBUF[..21]).unwrap();
-    handle.seek(SeekFrom::Start(0)).unwrap();
+    (&*handle).seek(SeekFrom::Start(0)).unwrap();
+    let n = (&*handle).read(&mut _SBUF[..21]).unwrap();
+    (&*handle).seek(SeekFrom::Start(0)).unwrap();
     if n != 21 {
         return false;
     }
@@ -97,13 +97,13 @@ unsafe fn check_stream_is_type1(handle: &mut InputHandleWrapper) -> bool {
     }
     false
 }
-unsafe fn check_stream_is_dfont(handle: &mut InputHandleWrapper) -> bool {
-    handle.seek(SeekFrom::Start(0)).unwrap();
+unsafe fn check_stream_is_dfont(handle: &InputHandleWrapper) -> bool {
+    (&*handle).seek(SeekFrom::Start(0)).unwrap();
     tt_get_unsigned_quad(handle);
     let pos = tt_get_unsigned_quad(handle) as u64;
-    handle.seek(SeekFrom::Start(pos + 0x18)).unwrap();
+    (&*handle).seek(SeekFrom::Start(pos + 0x18)).unwrap();
     let n = tt_get_unsigned_pair(handle) as u64;
-    handle.seek(SeekFrom::Start(pos + n)).unwrap();
+    (&*handle).seek(SeekFrom::Start(pos + n)).unwrap();
     let n = tt_get_unsigned_pair(handle) as i32;
     for _ in 0..=n {
         if tt_get_unsigned_quad(handle) as u64 == 0x73666e74 {

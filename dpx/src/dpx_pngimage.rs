@@ -26,6 +26,7 @@
     non_upper_case_globals,
 )]
 use libpng_sys::ffi::*;
+use std::io::Read;
 
 use std::convert::TryInto;
 use std::ptr;
@@ -56,16 +57,10 @@ pub(crate) type png_uint_16 = libc::c_ushort;
 pub(crate) type png_bytep = *mut png_byte;
 pub(crate) type png_uint_32 = libc::c_uint;
 
-pub unsafe fn check_for_png(handle: &mut InputHandleWrapper) -> i32 {
+pub unsafe fn check_for_png(handle: &InputHandleWrapper) -> i32 {
     let mut sigbytes: [u8; 8] = [0; 8];
-    handle.seek(SeekFrom::Start(0)).unwrap();
-    if ttstub_input_read(
-        handle.as_ptr(),
-        sigbytes.as_mut_ptr() as *mut i8,
-        ::std::mem::size_of::<[u8; 8]>(),
-    ) as u64
-        != ::std::mem::size_of::<[u8; 8]>() as u64
-        || png_sig_cmp(
+    (&*handle).seek(SeekFrom::Start(0)).unwrap();
+    if (&*handle).read_exact(&mut sigbytes[..]).is_err() || png_sig_cmp(
             sigbytes.as_mut_ptr(),
             0,
             ::std::mem::size_of::<[libc::c_uchar; 8]>(),
@@ -93,14 +88,14 @@ unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: u
 
 pub(crate) unsafe fn png_include_image(
     ximage: *mut pdf_ximage,
-    handle: &mut InputHandleWrapper,
+    handle: &InputHandleWrapper,
 ) -> i32 {
     /* Libpng stuff */
     let mut info = ximage_info::init();
     let mut intent = ptr::null_mut();
     let mut mask = intent;
     let mut colorspace = mask;
-    handle.seek(SeekFrom::Start(0)).unwrap();
+    (&*handle).seek(SeekFrom::Start(0)).unwrap();
 
     let png = if let Some(png) = png_create_read_struct(
         b"1.6.37\x00" as *const u8 as *const i8,
@@ -1101,8 +1096,8 @@ unsafe fn read_image_data(
     free(rows_p as *mut libc::c_void);
 }
 
-pub unsafe fn png_get_bbox(handle: &mut InputHandleWrapper) -> Result<(u32, u32, f64, f64), ()> {
-    handle.seek(SeekFrom::Start(0)).unwrap();
+pub unsafe fn png_get_bbox(handle: &InputHandleWrapper) -> Result<(u32, u32, f64, f64), ()> {
+    (&*handle).seek(SeekFrom::Start(0)).unwrap();
     let png = png_create_read_struct(
         b"1.6.37\x00" as *const u8 as *const i8,
         ptr::null_mut(),

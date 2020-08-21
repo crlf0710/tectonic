@@ -107,7 +107,7 @@ static mut line_buf: [i8; 4096] = [0; 4096];
  * SFD file format uses a '\' before newline sequence
  * for line-continuation.
  */
-unsafe fn readline(buf: *mut i8, buf_len: i32, handle: &mut InputHandleWrapper) -> *mut i8 {
+unsafe fn readline(buf: *mut i8, buf_len: i32, handle: &InputHandleWrapper) -> *mut i8 {
     let mut q: *mut i8 = ptr::null_mut();
     let mut p: *mut i8 = buf;
     let mut n: i32 = 0i32;
@@ -249,7 +249,7 @@ unsafe fn read_sfd_record(mut rec: *mut sfd_rec_, lbuf: *const i8) -> i32 {
     error
 }
 /* Scan for subfont IDs */
-unsafe fn scan_sfd_file(mut sfd: *mut sfd_file_, handle: &mut InputHandleWrapper) -> i32 {
+unsafe fn scan_sfd_file(mut sfd: *mut sfd_file_, handle: &InputHandleWrapper) -> i32 {
     let mut lpos: i32 = 0i32;
     assert!(!sfd.is_null());
     if verbose > 3i32 {
@@ -258,7 +258,7 @@ unsafe fn scan_sfd_file(mut sfd: *mut sfd_file_, handle: &mut InputHandleWrapper
             CStr::from_ptr((*sfd).ident).display()
         );
     }
-    handle.seek(SeekFrom::Start(0)).unwrap();
+    (&*handle).seek(SeekFrom::Start(0)).unwrap();
     (*sfd).num_subfonts = 0i32;
     (*sfd).max_subfonts = (*sfd).num_subfonts;
     loop {

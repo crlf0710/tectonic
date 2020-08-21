@@ -23,7 +23,6 @@
 #![allow(non_snake_case)]
 
 use super::dpx_mem::{new, renew};
-use super::dpx_numbers::sget_unsigned_pair;
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
 use crate::bridge::DisplayExt;
 use crate::dpx_pdfobj::{
@@ -261,7 +260,7 @@ pub(crate) struct iccHeader {
     pub(crate) devClass: iccSig,
     pub(crate) colorSpace: iccSig,
     pub(crate) PCS: iccSig,
-    pub(crate) creationDate: [i8; 12],
+    pub(crate) creationDate: [u8; 12],
     pub(crate) acsp: iccSig,
     pub(crate) platform: iccSig,
     pub(crate) flags: [i8; 4],
@@ -406,11 +405,7 @@ unsafe fn iccp_init_iccHeader(icch: &mut iccHeader) {
     icch.devClass = 0i32 as iccSig;
     icch.colorSpace = 0i32 as iccSig;
     icch.PCS = 0i32 as iccSig;
-    memset(
-        icch.creationDate.as_mut_ptr() as *mut libc::c_void,
-        0i32,
-        12,
-    );
+    icch.creationDate = [0; 12];
     icch.acsp = str2iccSig(b"ascp");
     icch.platform = 0i32 as iccSig;
     memset(icch.flags.as_mut_ptr() as *mut libc::c_void, 0i32, 4);
@@ -560,11 +555,7 @@ unsafe fn iccp_unpack_header(icch: &mut iccHeader, profile: &[u8], check_size: i
     p = &p[4..];
     icch.PCS = str2iccSig(&p[..4]);
     p = &p[4..];
-    memcpy(
-        icch.creationDate.as_mut_ptr() as *mut libc::c_void,
-        p.as_ptr() as *const libc::c_void,
-        12,
-    );
+    icch.creationDate.copy_from_slice(&p[..12]);
     p = &p[12..];
     icch.acsp = str2iccSig(&p[..4]);
     if icch.acsp != str2iccSig(b"acsp") {
@@ -733,14 +724,12 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
         if i == 0 {
             info!(
                 "{:04}",
-                sget_unsigned_pair(icch.creationDate.as_mut_ptr() as *mut u8) as i32,
+                u16::from_be_byte_slice(&icch.creationDate[..2]),
             );
         } else {
             info!(
                 ":{:02}",
-                sget_unsigned_pair(
-                    &mut *icch.creationDate.as_mut_ptr().offset(i as isize) as *mut i8 as *mut u8
-                ) as i32,
+                u16::from_be_byte_slice(&icch.creationDate[i..i+2]),
             );
         }
     }

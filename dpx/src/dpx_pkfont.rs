@@ -396,7 +396,7 @@ unsafe fn pk_decode_bitmap(
     }
     0i32
 }
-unsafe fn do_preamble(fp: &mut InputHandleWrapper) {
+unsafe fn do_preamble(fp: &InputHandleWrapper) {
     /* Check for id byte */
     if get_unsigned_byte(fp) == 89 {
         /* Skip comment */
@@ -411,7 +411,7 @@ unsafe fn do_preamble(fp: &mut InputHandleWrapper) {
 unsafe fn read_pk_char_header(
     mut h: *mut pk_header_,
     opcode: u8,
-    fp: &mut InputHandleWrapper,
+    fp: &InputHandleWrapper,
 ) -> i32 {
     assert!(!h.is_null());
     if opcode as i32 & 4i32 == 0i32 {
@@ -430,8 +430,8 @@ unsafe fn read_pk_char_header(
         /* long */
         (*h).pkt_len = get_positive_quad(
             fp,
-            b"PK\x00" as *const u8 as *const i8,
-            b"pkt_len\x00" as *const u8 as *const i8,
+            "PK",
+            "pkt_len",
         ); /* 16.16 fixed point number in pixels */
         (*h).chrcode = get_signed_quad(fp);
         (*h).wd = get_signed_quad(fp);
@@ -439,13 +439,13 @@ unsafe fn read_pk_char_header(
         (*h).dy = get_signed_quad(fp);
         (*h).bm_wd = get_positive_quad(
             fp,
-            b"PK\x00" as *const u8 as *const i8,
-            b"bm_wd\x00" as *const u8 as *const i8,
+            "PK",
+            "bm_wd",
         );
         (*h).bm_ht = get_positive_quad(
             fp,
-            b"PK\x00" as *const u8 as *const i8,
-            b"bm_ht\x00" as *const u8 as *const i8,
+            "PK",
+            "bm_ht",
         );
         (*h).bm_hoff = get_signed_quad(fp);
         (*h).bm_voff = get_signed_quad(fp);

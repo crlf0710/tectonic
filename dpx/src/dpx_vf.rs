@@ -91,7 +91,7 @@ static mut vf_fonts: Vec<vf> = Vec::new();
 pub(crate) unsafe fn vf_reset_global_state() {
     vf_fonts = Vec::new();
 }
-unsafe fn read_header(vf_handle: &mut InputHandleWrapper, thisfont: i32) {
+unsafe fn read_header(vf_handle: &InputHandleWrapper, thisfont: i32) {
     if tt_get_unsigned_byte(vf_handle) != PRE || tt_get_unsigned_byte(vf_handle) != VF_ID {
         eprintln!("VF file may be corrupt");
         return;
@@ -109,7 +109,7 @@ unsafe fn resize_one_vf_font(a_vf: &mut vf, mut size: usize) {
     };
 }
 unsafe fn read_a_char_def(
-    vf_handle: &mut InputHandleWrapper,
+    vf_handle: &InputHandleWrapper,
     thisfont: i32,
     pkt_len: u32,
     ch: u32,
@@ -121,13 +121,13 @@ unsafe fn read_a_char_def(
     }
     if pkt_len > 0 {
         let mut pkt = vec![0; pkt_len as usize];
-        if vf_handle.read_exact(&mut pkt).is_err() {
+        if (&*vf_handle).read_exact(&mut pkt).is_err() {
             panic!("VF file ended prematurely.");
         }
         vf_fonts[thisfont as usize].ch_pkt[ch as usize] = pkt;
     }
 }
-unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, font_id: i32, thisfont: i32) {
+unsafe fn read_a_font_def(vf_handle: &InputHandleWrapper, font_id: i32, thisfont: i32) {
     let checksum = tt_get_unsigned_quad(vf_handle);
     let size = tt_get_positive_quad(vf_handle, "VF", "font_size");
     let design_size = tt_get_positive_quad(vf_handle, "VF", "font_design_size");
@@ -135,12 +135,12 @@ unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, font_id: i32, this
     let name_length = tt_get_unsigned_byte(vf_handle) as usize;
 
     let mut directory = vec![0; dir_length];
-    if vf_handle.read_exact(&mut directory).is_err() {
+    if (&*vf_handle).read_exact(&mut directory).is_err() {
         panic!("directory read failed")
     }
     let directory = String::from_utf8(directory).unwrap();
     let mut name = vec![0; name_length];
-    if vf_handle.read_exact(&mut name).is_err() {
+    if (&*vf_handle).read_exact(&mut name).is_err() {
         panic!("directory read failed")
     }
     let name = String::from_utf8(name).unwrap();
@@ -163,7 +163,7 @@ unsafe fn read_a_font_def(vf_handle: &mut InputHandleWrapper, font_id: i32, this
         sqxfw(vf_fonts[thisfont as usize].ptsize, dev_font.size as fixword),
     ) as i32;
 }
-unsafe fn process_vf_file(vf_handle: &mut InputHandleWrapper, thisfont: i32) {
+unsafe fn process_vf_file(vf_handle: &InputHandleWrapper, thisfont: i32) {
     loop {
         let code = tt_get_unsigned_byte(vf_handle);
         match code {
