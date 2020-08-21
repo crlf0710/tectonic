@@ -722,14 +722,11 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
     info!("pdf_color>> Creation Date:\t");
     for i in (0..12).step_by(2) {
         if i == 0 {
-            info!(
-                "{:04}",
-                u16::from_be_byte_slice(&icch.creationDate[..2]),
-            );
+            info!("{:04}", u16::from_be_byte_slice(&icch.creationDate[..2]),);
         } else {
             info!(
                 ":{:02}",
-                u16::from_be_byte_slice(&icch.creationDate[i..i+2]),
+                u16::from_be_byte_slice(&icch.creationDate[i..i + 2]),
             );
         }
     }

@@ -60,7 +60,8 @@ pub(crate) type png_uint_32 = libc::c_uint;
 pub unsafe fn check_for_png(handle: &InputHandleWrapper) -> i32 {
     let mut sigbytes: [u8; 8] = [0; 8];
     (&*handle).seek(SeekFrom::Start(0)).unwrap();
-    if (&*handle).read_exact(&mut sigbytes[..]).is_err() || png_sig_cmp(
+    if (&*handle).read_exact(&mut sigbytes[..]).is_err()
+        || png_sig_cmp(
             sigbytes.as_mut_ptr(),
             0,
             ::std::mem::size_of::<[libc::c_uchar; 8]>(),

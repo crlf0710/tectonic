@@ -108,12 +108,7 @@ unsafe fn resize_one_vf_font(a_vf: &mut vf, mut size: usize) {
         a_vf.ch_pkt.resize_with(size, Default::default);
     };
 }
-unsafe fn read_a_char_def(
-    vf_handle: &InputHandleWrapper,
-    thisfont: i32,
-    pkt_len: u32,
-    ch: u32,
-) {
+unsafe fn read_a_char_def(vf_handle: &InputHandleWrapper, thisfont: i32, pkt_len: u32, ch: u32) {
     /* Resize and initialize character arrays if necessary */
     if (ch as usize) >= vf_fonts[thisfont as usize].ch_pkt.len() {
         resize_one_vf_font(&mut vf_fonts[thisfont as usize], (ch + 1) as usize);

@@ -52,8 +52,8 @@ use crate::shims::sprintf;
 use libc::{free, memset};
 
 use crate::dpx_numbers::{
-    get_positive_quad, get_signed_byte, get_signed_pair, get_signed_quad, get_unsigned_byte,
-    get_unsigned_num, get_unsigned_pair, get_unsigned_triple, skip_bytes,
+    get_positive_quad, get_signed_byte, get_signed_pair, get_signed_quad, get_unsigned_num,
+    get_unsigned_pair, get_unsigned_triple, skip_bytes, GetFromFile,
 };
 
 use crate::bridge::InputHandleWrapper;
@@ -396,11 +396,14 @@ unsafe fn pk_decode_bitmap(
     }
     0i32
 }
-unsafe fn do_preamble(fp: &InputHandleWrapper) {
+unsafe fn do_preamble<R>(fp: &mut R)
+where
+    R: Read,
+{
     /* Check for id byte */
-    if get_unsigned_byte(fp) == 89 {
+    if u8::get(fp) == 89 {
         /* Skip comment */
-        skip_bytes(get_unsigned_byte(fp) as u32, fp);
+        skip_bytes(u8::get(fp) as u32, fp);
         /* Skip other header info.  It's normally used for verifying this
         is the file wethink it is */
         skip_bytes(16_u32, fp);
@@ -408,51 +411,38 @@ unsafe fn do_preamble(fp: &InputHandleWrapper) {
         panic!("embed_pk_font: PK ID byte is incorrect.  Are you sure this is a PK file?");
     };
 }
-unsafe fn read_pk_char_header(
-    mut h: *mut pk_header_,
-    opcode: u8,
-    fp: &InputHandleWrapper,
-) -> i32 {
+unsafe fn read_pk_char_header<R>(mut h: *mut pk_header_, opcode: u8, fp: &mut R) -> i32
+where
+    R: Read,
+{
     assert!(!h.is_null());
     if opcode as i32 & 4i32 == 0i32 {
         /* short */
-        (*h).pkt_len = ((opcode as i32 & 3i32) << 8i32 | get_unsigned_byte(fp) as i32) as u32; /* TFM width */
-        (*h).chrcode = get_unsigned_byte(fp) as i32; /* horizontal escapement */
+        (*h).pkt_len = ((opcode as i32 & 3i32) << 8i32 | u8::get(fp) as i32) as u32; /* TFM width */
+        (*h).chrcode = u8::get(fp) as i32; /* horizontal escapement */
         (*h).wd = get_unsigned_triple(fp) as i32; /* extended short */
-        (*h).dx = (get_unsigned_byte(fp) as i32) << 16i32;
+        (*h).dx = (u8::get(fp) as i32) << 16i32;
         (*h).dy = 0i32;
-        (*h).bm_wd = get_unsigned_byte(fp) as u32;
-        (*h).bm_ht = get_unsigned_byte(fp) as u32;
+        (*h).bm_wd = u8::get(fp) as u32;
+        (*h).bm_ht = u8::get(fp) as u32;
         (*h).bm_hoff = get_signed_byte(fp) as i32;
         (*h).bm_voff = get_signed_byte(fp) as i32;
         (*h).pkt_len = ((*h).pkt_len as u32).wrapping_sub(8_u32) as u32 as u32
     } else if opcode as i32 & 7i32 == 7i32 {
         /* long */
-        (*h).pkt_len = get_positive_quad(
-            fp,
-            "PK",
-            "pkt_len",
-        ); /* 16.16 fixed point number in pixels */
+        (*h).pkt_len = get_positive_quad(fp, "PK", "pkt_len"); /* 16.16 fixed point number in pixels */
         (*h).chrcode = get_signed_quad(fp);
         (*h).wd = get_signed_quad(fp);
         (*h).dx = get_signed_quad(fp);
         (*h).dy = get_signed_quad(fp);
-        (*h).bm_wd = get_positive_quad(
-            fp,
-            "PK",
-            "bm_wd",
-        );
-        (*h).bm_ht = get_positive_quad(
-            fp,
-            "PK",
-            "bm_ht",
-        );
+        (*h).bm_wd = get_positive_quad(fp, "PK", "bm_wd");
+        (*h).bm_ht = get_positive_quad(fp, "PK", "bm_ht");
         (*h).bm_hoff = get_signed_quad(fp);
         (*h).bm_voff = get_signed_quad(fp);
         (*h).pkt_len = ((*h).pkt_len as u32).wrapping_sub(28_u32) as u32
     } else {
         (*h).pkt_len = ((opcode as i32 & 3i32) << 16i32 | get_unsigned_pair(fp) as i32) as u32;
-        (*h).chrcode = get_unsigned_byte(fp) as i32;
+        (*h).chrcode = u8::get(fp) as i32;
         (*h).wd = get_unsigned_triple(fp) as i32;
         (*h).dx = (get_unsigned_pair(fp) as i32) << 16i32;
         (*h).dy = 0i32;
@@ -592,7 +582,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
         point2(core::f64::NEG_INFINITY, core::f64::NEG_INFINITY),
     );
     loop {
-        let opcode = get_unsigned_byte(&mut fp);
+        let opcode = u8::get(&mut fp);
         if !(opcode >= 0 && opcode != 245) {
             break;
         }

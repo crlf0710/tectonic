@@ -28,7 +28,7 @@
 
 use crate::warn;
 
-use super::dpx_numbers::{get_unsigned_byte, get_unsigned_pair, get_unsigned_quad};
+use super::dpx_numbers::{get_unsigned_pair, get_unsigned_quad, GetFromFile};
 use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::bridge::{ttstub_input_get_size, InputHandleWrapper};
 use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj};
@@ -104,8 +104,8 @@ unsafe fn read_res__data(info: &mut ximage_info, fp: &mut InputHandleWrapper, mu
     let VR_D = get_unsigned_pair(fp) as u32;
     let HR_N = get_unsigned_pair(fp) as u32;
     let HR_D = get_unsigned_pair(fp) as u32;
-    let VR_E = get_unsigned_byte(fp);
-    let HR_E = get_unsigned_byte(fp);
+    let VR_E = u8::get(fp);
+    let HR_E = u8::get(fp);
     info.xdensity = 72. / (HR_N as f64 / HR_D as f64 * (10f64).powf(HR_E as f64) * 0.0254);
     info.ydensity = 72. / (VR_N as f64 / VR_D as f64 * (10f64).powf(VR_E as f64) * 0.0254);
 }
@@ -211,13 +211,13 @@ unsafe fn scan_jp2h(
                     info.width = get_unsigned_quad(fp) as i32;
                     info.num_components = get_unsigned_pair(fp) as i32;
                     /* c = */
-                    get_unsigned_byte(fp); /* BPC - 1 */
+                    u8::get(fp); /* BPC - 1 */
                     /* c = */
-                    get_unsigned_byte(fp); /* C: Compression type */
+                    u8::get(fp); /* C: Compression type */
                     /* c = */
-                    get_unsigned_byte(fp); /* UnkC */
+                    u8::get(fp); /* UnkC */
                     /* c = */
-                    get_unsigned_byte(fp); /* IPR */
+                    u8::get(fp); /* IPR */
                     have_ihdr = 1i32
                 }
                 1919251232 => error = scan_res_(info, fp, lbox.wrapping_sub(len)),
