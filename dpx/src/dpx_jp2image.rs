@@ -28,7 +28,7 @@
 
 use crate::warn;
 
-use super::dpx_numbers::{get_unsigned_pair, get_unsigned_quad, GetFromFile};
+use super::dpx_numbers::GetFromFile;
 use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::bridge::{ttstub_input_get_size, InputHandleWrapper};
 use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj};
@@ -40,15 +40,15 @@ pub(crate) type __off64_t = i64;
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 /* Label */
 unsafe fn read_box_hdr(fp: &mut InputHandleWrapper, lbox: *mut u32, tbox: *mut u32) -> u32 {
-    let mut bytesread: u32 = 0_u32;
-    *lbox = get_unsigned_quad(fp);
-    *tbox = get_unsigned_quad(fp);
+    let mut bytesread = 0_u32;
+    *lbox = u32::get(fp);
+    *tbox = u32::get(fp);
     bytesread = bytesread.wrapping_add(8_u32);
     if *lbox == 1_u32 {
-        if get_unsigned_quad(fp) != 0_u32 {
+        if u32::get(fp) != 0 {
             panic!("JPEG2000: LBox value in JP2 file >32 bits.\nI can\'t handle this!");
         }
-        *lbox = get_unsigned_quad(fp);
+        *lbox = u32::get(fp);
         bytesread = bytesread.wrapping_add(8_u32)
     } else if *lbox > 1_u32 && *lbox < 8_u32 {
         warn!("JPEG2000: Unknown LBox value {} in JP2 file!", *lbox);
@@ -56,24 +56,24 @@ unsafe fn read_box_hdr(fp: &mut InputHandleWrapper, lbox: *mut u32, tbox: *mut u
     bytesread
 }
 unsafe fn check_jp___box(fp: &mut InputHandleWrapper) -> i32 {
-    if get_unsigned_quad(fp) != 0xc_u32 {
-        return 0i32;
+    if u32::get(fp) != 0xc {
+        return 0;
     }
-    if get_unsigned_quad(fp) != 0x6a502020_u32 {
-        return 0i32;
+    if u32::get(fp) != 0x6a502020 {
+        return 0;
     }
     /* Next 4 bytes shall be 0D 0A 87 0A */
-    if get_unsigned_quad(fp) != 0xd0a870a_u32 {
-        return 0i32;
+    if u32::get(fp) != 0xd0a870a {
+        return 0;
     }
-    1i32
+    1
 }
 unsafe fn check_ftyp_data(fp: &mut InputHandleWrapper, mut size: u32) -> i32 {
     let mut supported: i32 = 0i32;
-    let BR = get_unsigned_quad(fp);
+    let BR = u32::get(fp);
     size = size.wrapping_sub(4_u32);
     /* MinV = */
-    get_unsigned_quad(fp);
+    u32::get(fp);
     size = size.wrapping_sub(4_u32);
     match BR {
         0x6a703220 => {
@@ -84,7 +84,7 @@ unsafe fn check_ftyp_data(fp: &mut InputHandleWrapper, mut size: u32) -> i32 {
         0x6a707820 => {
             /* "jpx " ... baseline subset supported */
             while size > 0_u32 {
-                let CLi = get_unsigned_quad(fp);
+                let CLi = u32::get(fp);
                 if CLi == 0x6a707862_u32 {
                     supported = 1i32
                 }
@@ -100,10 +100,10 @@ unsafe fn check_ftyp_data(fp: &mut InputHandleWrapper, mut size: u32) -> i32 {
     supported
 }
 unsafe fn read_res__data(info: &mut ximage_info, fp: &mut InputHandleWrapper, mut _size: u32) {
-    let VR_N = get_unsigned_pair(fp) as u32;
-    let VR_D = get_unsigned_pair(fp) as u32;
-    let HR_N = get_unsigned_pair(fp) as u32;
-    let HR_D = get_unsigned_pair(fp) as u32;
+    let VR_N = u16::get(fp) as u32;
+    let VR_D = u16::get(fp) as u32;
+    let HR_N = u16::get(fp) as u32;
+    let HR_D = u16::get(fp) as u32;
     let VR_E = u8::get(fp);
     let HR_E = u8::get(fp);
     info.xdensity = 72. / (HR_N as f64 / HR_D as f64 * (10f64).powf(HR_E as f64) * 0.0254);
@@ -160,15 +160,15 @@ unsafe fn scan_cdef(
     let mut opacity_channels: i32 = 0i32; /* Cn */
     let mut have_type0: i32 = 0i32; /* must be 0 for SMask */
     *smask = 0i32;
-    let N = get_unsigned_pair(fp) as u32;
+    let N = u16::get(fp) as u32;
     if size < N.wrapping_mul(6_u32).wrapping_add(2_u32) {
         warn!("JPEG2000: Inconsistent N value in Channel Definition box.");
         return -1i32;
     }
     for _ in 0..N {
-        let Cn = get_unsigned_pair(fp) as u32;
-        let Typ = get_unsigned_pair(fp) as u32;
-        let Asoc = get_unsigned_pair(fp) as u32;
+        let Cn = u16::get(fp) as u32;
+        let Typ = u16::get(fp) as u32;
+        let Asoc = u16::get(fp) as u32;
         if Cn > N {
             warn!("JPEG2000: Invalid Cn value in Channel Definition box.");
         }
@@ -207,9 +207,9 @@ unsafe fn scan_jp2h(
         } else {
             match tbox {
                 1768449138 => {
-                    info.height = get_unsigned_quad(fp) as i32;
-                    info.width = get_unsigned_quad(fp) as i32;
-                    info.num_components = get_unsigned_pair(fp) as i32;
+                    info.height = u32::get(fp) as i32;
+                    info.width = u32::get(fp) as i32;
+                    info.num_components = u16::get(fp) as i32;
                     /* c = */
                     u8::get(fp); /* BPC - 1 */
                     /* c = */

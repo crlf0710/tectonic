@@ -52,8 +52,7 @@ use crate::shims::sprintf;
 use libc::{free, memset};
 
 use crate::dpx_numbers::{
-    get_positive_quad, get_signed_byte, get_signed_pair, get_signed_quad, get_unsigned_num,
-    get_unsigned_pair, get_unsigned_triple, skip_bytes, GetFromFile,
+    get_positive_quad, get_unsigned_num, get_unsigned_triple, skip_bytes, GetFromFile,
 };
 
 use crate::bridge::InputHandleWrapper;
@@ -425,31 +424,31 @@ where
         (*h).dy = 0i32;
         (*h).bm_wd = u8::get(fp) as u32;
         (*h).bm_ht = u8::get(fp) as u32;
-        (*h).bm_hoff = get_signed_byte(fp) as i32;
-        (*h).bm_voff = get_signed_byte(fp) as i32;
+        (*h).bm_hoff = i8::get(fp) as i32;
+        (*h).bm_voff = i8::get(fp) as i32;
         (*h).pkt_len = ((*h).pkt_len as u32).wrapping_sub(8_u32) as u32 as u32
     } else if opcode as i32 & 7i32 == 7i32 {
         /* long */
         (*h).pkt_len = get_positive_quad(fp, "PK", "pkt_len"); /* 16.16 fixed point number in pixels */
-        (*h).chrcode = get_signed_quad(fp);
-        (*h).wd = get_signed_quad(fp);
-        (*h).dx = get_signed_quad(fp);
-        (*h).dy = get_signed_quad(fp);
+        (*h).chrcode = i32::get(fp);
+        (*h).wd = i32::get(fp);
+        (*h).dx = i32::get(fp);
+        (*h).dy = i32::get(fp);
         (*h).bm_wd = get_positive_quad(fp, "PK", "bm_wd");
         (*h).bm_ht = get_positive_quad(fp, "PK", "bm_ht");
-        (*h).bm_hoff = get_signed_quad(fp);
-        (*h).bm_voff = get_signed_quad(fp);
+        (*h).bm_hoff = i32::get(fp);
+        (*h).bm_voff = i32::get(fp);
         (*h).pkt_len = ((*h).pkt_len as u32).wrapping_sub(28_u32) as u32
     } else {
-        (*h).pkt_len = ((opcode as i32 & 3i32) << 16i32 | get_unsigned_pair(fp) as i32) as u32;
+        (*h).pkt_len = ((opcode as i32 & 3i32) << 16i32 | u16::get(fp) as i32) as u32;
         (*h).chrcode = u8::get(fp) as i32;
         (*h).wd = get_unsigned_triple(fp) as i32;
-        (*h).dx = (get_unsigned_pair(fp) as i32) << 16i32;
+        (*h).dx = (u16::get(fp) as i32) << 16i32;
         (*h).dy = 0i32;
-        (*h).bm_wd = get_unsigned_pair(fp) as u32;
-        (*h).bm_ht = get_unsigned_pair(fp) as u32;
-        (*h).bm_hoff = get_signed_pair(fp) as i32;
-        (*h).bm_voff = get_signed_pair(fp) as i32;
+        (*h).bm_wd = u16::get(fp) as u32;
+        (*h).bm_ht = u16::get(fp) as u32;
+        (*h).bm_hoff = i16::get(fp) as i32;
+        (*h).bm_voff = i16::get(fp) as i32;
         (*h).pkt_len = ((*h).pkt_len as u32).wrapping_sub(13_u32) as u32
     }
     (*h).dyn_f = opcode as i32 / 16i32;

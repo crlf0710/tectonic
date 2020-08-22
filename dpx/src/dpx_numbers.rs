@@ -34,6 +34,15 @@ pub(crate) trait GetFromFile {
         R: Read;
 }
 
+pub(crate) fn skip_bytes<R>(n: u32, file: &mut R)
+where
+    R: Read,
+{
+    for _ in 0..n {
+        u8::get(file);
+    }
+}
+
 impl GetFromFile for u8 {
     fn get<R>(file: &mut R) -> Self
     where
@@ -45,47 +54,57 @@ impl GetFromFile for u8 {
     }
 }
 
-pub(crate) fn skip_bytes<R>(mut n: u32, file: &mut R)
-where
-    R: Read,
-{
-    loop {
-        let fresh0 = n;
-        n = n.wrapping_sub(1);
-        if !(fresh0 > 0_u32) {
-            break;
-        }
-        u8::get(file);
+impl GetFromFile for i8 {
+    fn get<R>(file: &mut R) -> Self
+    where
+        R: Read,
+    {
+        u8::get(file) as i8
     }
 }
 
-pub(crate) fn get_signed_byte<R>(file: &mut R) -> i8
-where
-    R: Read,
-{
-    let mut byte = u8::get(file) as i32;
-    if byte >= 0x80i32 {
-        byte -= 0x100i32
+impl GetFromFile for u16 {
+    fn get<R>(file: &mut R) -> Self
+    where
+        R: Read,
+    {
+        let mut buf = [0u8; 2];
+        file.read(&mut buf).expect("File ended prematurely");
+        u16::from_be_bytes(buf)
     }
-    byte as i8
 }
 
-pub(crate) fn get_unsigned_pair<R>(file: &mut R) -> u16
-where
-    R: Read,
-{
-    let mut pair: u16 = u8::get(file) as u16;
-    pair = ((pair as i32) << 8i32 | u8::get(file) as i32) as u16;
-    pair
+impl GetFromFile for i16 {
+    fn get<R>(file: &mut R) -> Self
+    where
+        R: Read,
+    {
+        let mut buf = [0u8; 2];
+        file.read(&mut buf).expect("File ended prematurely");
+        i16::from_be_bytes(buf)
+    }
 }
 
-pub(crate) fn get_signed_pair<R>(file: &mut R) -> i16
-where
-    R: Read,
-{
-    let mut pair: i16 = get_signed_byte(file) as i16;
-    pair = ((pair as i32) << 8i32 | u8::get(file) as i32) as i16;
-    pair
+impl GetFromFile for i32 {
+    fn get<R>(file: &mut R) -> Self
+    where
+        R: Read,
+    {
+        let mut buf = [0u8; 4];
+        file.read(&mut buf).expect("File ended prematurely");
+        i32::from_be_bytes(buf)
+    }
+}
+
+impl GetFromFile for u32 {
+    fn get<R>(file: &mut R) -> Self
+    where
+        R: Read,
+    {
+        let mut buf = [0u8; 4];
+        file.read(&mut buf).expect("File ended prematurely");
+        u32::from_be_bytes(buf)
+    }
 }
 
 pub(crate) fn get_unsigned_triple<R>(file: &mut R) -> u32
@@ -94,7 +113,7 @@ where
 {
     let mut triple: u32 = 0_u32;
     for _ in 0..3 {
-        triple = triple << 8i32 | u8::get(file) as u32;
+        triple = triple << 8 | u8::get(file) as u32;
     }
     triple
 }
@@ -103,33 +122,11 @@ pub(crate) fn get_signed_triple<R>(file: &mut R) -> i32
 where
     R: Read,
 {
-    let mut triple: i32 = get_signed_byte(file) as i32;
+    let mut triple: i32 = i8::get(file) as i32;
     for _ in 0..2 {
-        triple = triple << 8i32 | u8::get(file) as i32;
+        triple = triple << 8 | u8::get(file) as i32;
     }
     triple
-}
-
-pub(crate) fn get_signed_quad<R>(file: &mut R) -> i32
-where
-    R: Read,
-{
-    let mut quad: i32 = get_signed_byte(file) as i32;
-    for _ in 0..3 {
-        quad = quad << 8i32 | u8::get(file) as i32;
-    }
-    quad
-}
-
-pub(crate) fn get_unsigned_quad<R>(file: &mut R) -> u32
-where
-    R: Read,
-{
-    let mut quad = 0u32;
-    for _ in 0..4 {
-        quad = quad << 8i32 | u8::get(file) as u32;
-    }
-    quad
 }
 
 pub(crate) fn get_unsigned_num<R>(file: &mut R, num: u8) -> u32
@@ -139,8 +136,8 @@ where
     let mut val = u8::get(file) as u32;
     match num {
         3 => {
-            if val > 0x7f_u32 {
-                val = val.wrapping_sub(0x100_u32);
+            if val > 0x7f {
+                val = val.wrapping_sub(0x100);
             }
             val = (val << 8) | u8::get(file) as u32;
             val = (val << 8) | u8::get(file) as u32;
@@ -163,47 +160,45 @@ pub(crate) fn get_positive_quad<R>(file: &mut R, type_0: &str, name: &str) -> u3
 where
     R: Read,
 {
-    let val: i32 = get_signed_quad(file);
-    if val < 0i32 {
-        panic!("Bad {}: negative {}: {}", type_0, name, val,);
-    }
+    let val = i32::get(file);
+    assert!(val >= 0, "Bad {}: negative {}: {}", type_0, name, val);
     val as u32
 }
 
 pub(crate) fn sqxfw(mut sq: i32, mut fw: fixword) -> i32 {
-    let mut sign: i32 = 1i32;
+    let mut sign = 1i32;
     /* Make positive. */
-    if sq < 0i32 {
+    if sq < 0 {
         sign = -sign; /* 1<<3 is for rounding */
         sq = -sq
     }
-    if fw < 0i32 {
+    if fw < 0 {
         sign = -sign;
         fw = -fw
     }
-    let a = sq as u32 >> 16i32;
-    let b = sq as u32 & 0xffffu32;
-    let c = fw as u32 >> 16i32;
-    let d = fw as u32 & 0xffffu32;
+    let a = sq as u32 >> 16;
+    let b = sq as u32 & 0xffff;
+    let c = fw as u32 >> 16;
+    let d = fw as u32 & 0xffff;
     let ad = a.wrapping_mul(d);
     let bd = b.wrapping_mul(d);
     let bc = b.wrapping_mul(c);
     let ac = a.wrapping_mul(c);
-    let e = bd >> 16i32;
-    let f = ad >> 16i32;
-    let g = ad & 0xffffu32;
-    let h = bc >> 16i32;
-    let i = bc & 0xffffu32;
-    let j = ac >> 16i32;
-    let k = ac & 0xffffu32;
+    let e = bd >> 16;
+    let f = ad >> 16;
+    let g = ad & 0xffff;
+    let h = bc >> 16;
+    let i = bc & 0xffff;
+    let j = ac >> 16;
+    let k = ac & 0xffff;
     let mut result = (e
         .wrapping_add(g)
         .wrapping_add(i)
-        .wrapping_add((1i32 << 3i32) as u32)
+        .wrapping_add((1 << 3) as u32)
         >> 4i32) as i32;
-    result = (result as u32).wrapping_add(f.wrapping_add(h).wrapping_add(k) << 12i32) as i32 as i32;
-    result = (result as u32).wrapping_add(j << 28i32) as i32 as i32;
-    if sign > 0i32 {
+    result = (result as u32).wrapping_add(f.wrapping_add(h).wrapping_add(k) << 12) as i32 as i32;
+    result = (result as u32).wrapping_add(j << 28) as i32 as i32;
+    if sign > 0 {
         result
     } else {
         -result
@@ -211,22 +206,15 @@ pub(crate) fn sqxfw(mut sq: i32, mut fw: fixword) -> i32 {
 }
 /* Tectonic-ified versions */
 
-pub(crate) fn tt_skip_bytes(mut n: u32, handle: &InputHandleWrapper) {
-    loop {
-        let fresh3 = n;
-        n = n.wrapping_sub(1);
-        if !(fresh3 > 0_u32) {
-            break;
-        }
+pub(crate) fn tt_skip_bytes(n: u32, handle: &InputHandleWrapper) {
+    for _ in 0..n {
         tt_get_unsigned_byte(handle);
     }
 }
 
 pub(crate) fn tt_get_unsigned_byte(handle: &InputHandleWrapper) -> u8 {
     let ch = ttstub_input_getc(handle);
-    if ch < 0 {
-        panic!("File ended prematurely\n");
-    }
+    assert!(ch >= 0, "File ended prematurely\n");
     ch as u8
 }
 
@@ -301,8 +289,6 @@ pub(crate) fn tt_get_unsigned_num(handle: &InputHandleWrapper, num: u8) -> u32 {
 
 pub(crate) fn tt_get_positive_quad(handle: &InputHandleWrapper, type_0: &str, name: &str) -> u32 {
     let val: i32 = tt_get_signed_quad(handle);
-    if val < 0i32 {
-        panic!("Bad {}: negative {}: {}", type_0, name, val,);
-    }
+    assert!(val >= 0, "Bad {}: negative {}: {}", type_0, name, val);
     val as u32
 }
