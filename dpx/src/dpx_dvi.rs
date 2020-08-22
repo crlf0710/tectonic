@@ -52,8 +52,8 @@ use super::dpx_dvipdfmx::{is_xdv, landscape_mode, paper_height, paper_width};
 use super::dpx_fontmap::{pdf_insert_native_fontmap_record, pdf_lookup_fontmap_record};
 use super::dpx_mem::new;
 use super::dpx_numbers::{
-    sqxfw, tt_get_positive_quad, tt_get_signed_quad, tt_get_unsigned_byte, tt_get_unsigned_num,
-    tt_get_unsigned_pair, tt_get_unsigned_quad, tt_skip_bytes,
+    sqxfw, tt_get_positive_quad, tt_get_signed_quad, GetFromFile, tt_get_unsigned_num,
+    tt_get_unsigned_quad, tt_skip_bytes,
 };
 use super::dpx_pdfcolor::{pdf_color_pop, pdf_color_push, PdfColor};
 use super::dpx_pdfdev::{
@@ -413,12 +413,12 @@ unsafe fn find_post() -> i32 {
     /* Finally check the ID byte in the preamble */
     /* An Ascii pTeX DVI file has id_byte DVI_ID in the preamble but DVIV_ID in the postamble. */
     handle.seek(SeekFrom::Start(0)).unwrap();
-    let ch = tt_get_unsigned_byte(handle);
+    let ch = u8::get(handle);
     if ch != PRE {
         info!("Found {} where PRE was expected\n", ch);
         panic!(invalid_signature);
     }
-    let ch = tt_get_unsigned_byte(handle);
+    let ch = u8::get(handle);
     if !(ch == DVI_ID || ch == XDV_ID || ch == XDV_ID_OLD) {
         info!("DVI ID = {}\n", ch);
         panic!(invalid_signature);
@@ -432,7 +432,7 @@ unsafe fn get_page_info(post_location: i32) {
     handle
         .seek(SeekFrom::Start(post_location as u64 + 27))
         .unwrap();
-    num_pages = tt_get_unsigned_pair(handle) as u32;
+    num_pages = u16::get(handle) as u32;
     if num_pages == 0_u32 {
         panic!("Page count is 0!");
     }
@@ -488,7 +488,7 @@ unsafe fn get_dvi_info(post_location: i32) {
     DVI_INFO.mag = tt_get_unsigned_quad(handle);
     DVI_INFO.media_height = tt_get_unsigned_quad(handle);
     DVI_INFO.media_width = tt_get_unsigned_quad(handle);
-    DVI_INFO.stackdepth = tt_get_unsigned_pair(handle) as u32;
+    DVI_INFO.stackdepth = u16::get(handle) as u32;
     if DVI_INFO.stackdepth > 256u32 {
         warn!("DVI need stack depth of {},", DVI_INFO.stackdepth);
         warn!("but DVI_STACK_DEPTH_MAX is {}.", 256u32);
@@ -512,8 +512,8 @@ unsafe fn read_font_record(tex_id: u32) {
     tt_get_unsigned_quad(handle);
     let point_size = tt_get_positive_quad(handle, "DVI", "point_size");
     let design_size = tt_get_positive_quad(handle, "DVI", "design_size");
-    let dir_length = tt_get_unsigned_byte(handle) as i32;
-    let name_length = tt_get_unsigned_byte(handle) as i32;
+    let dir_length = u8::get(handle) as i32;
+    let name_length = u8::get(handle) as i32;
     let directory = new(
         ((dir_length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
     ) as *mut i8;
@@ -549,8 +549,8 @@ unsafe fn read_font_record(tex_id: u32) {
 unsafe fn read_native_font_record(tex_id: u32) {
     let handle = dvi_handle.as_mut().unwrap();
     let point_size = tt_get_positive_quad(handle, "DVI", "point_size");
-    let flags = tt_get_unsigned_pair(handle) as u32;
-    let len = tt_get_unsigned_byte(handle) as i32;
+    let flags = u16::get(handle) as u32;
+    let len = u8::get(handle) as i32;
     let font_name =
         new(((len + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
             as *mut i8;
@@ -599,7 +599,7 @@ unsafe fn get_dvi_fonts(post_location: i32) {
         .seek(SeekFrom::Start(post_location as u64 + 29))
         .unwrap();
     loop {
-        let code = tt_get_unsigned_byte(handle);
+        let code = u8::get(handle);
         if code == POST_POST {
             break;
         }
@@ -637,7 +637,7 @@ unsafe fn get_dvi_fonts(post_location: i32) {
 unsafe fn get_comment() {
     let handle = dvi_handle.as_mut().unwrap();
     handle.seek(SeekFrom::Start(14)).unwrap();
-    let length = tt_get_unsigned_byte(handle) as usize;
+    let length = u8::get(handle) as usize;
     handle
         .read_exact(&mut DVI_INFO.comment[..length])
         .expect(invalid_signature);
@@ -1429,8 +1429,8 @@ pub(crate) unsafe fn dvi_z0() {
 unsafe fn skip_fntdef() {
     let handle = dvi_handle.as_mut().unwrap();
     tt_skip_bytes(12_u32, handle);
-    let area_len = tt_get_unsigned_byte(handle) as i32;
-    let name_len = tt_get_unsigned_byte(handle) as i32;
+    let area_len = u8::get(handle) as i32;
+    let name_len = u8::get(handle) as i32;
     tt_skip_bytes((area_len + name_len) as u32, handle);
 }
 /* when pre-scanning the page, we process fntdef
@@ -1560,8 +1560,8 @@ unsafe fn dvi_end_reflect() {
 unsafe fn skip_native_font_def() {
     let handle = dvi_handle.as_mut().unwrap();
     tt_skip_bytes(4, handle);
-    let flags = tt_get_unsigned_pair(handle) as u32;
-    let name_length = tt_get_unsigned_byte(handle) as i32;
+    let flags = u16::get(handle) as u32;
+    let name_length = u8::get(handle) as i32;
     tt_skip_bytes((name_length + 4) as u32, handle);
     if flags & 0x200_u32 != 0 {
         tt_skip_bytes(4, handle);
@@ -1725,7 +1725,7 @@ unsafe fn check_postamble() {
     let handle = dvi_handle.as_mut().unwrap();
     tt_skip_bytes(28, handle);
     loop {
-        let code = tt_get_unsigned_byte(handle) as u8;
+        let code = u8::get(handle) as u8;
         if code == POST_POST {
             break;
         }
@@ -1744,7 +1744,7 @@ unsafe fn check_postamble() {
         }
     }
     tt_skip_bytes(4, handle);
-    post_id_byte = tt_get_unsigned_byte(handle) as i32;
+    post_id_byte = u8::get(handle) as i32;
     let post_id_byte_0 = post_id_byte as u8;
     if !(post_id_byte_0 == DVI_ID
         || post_id_byte_0 == DVIV_ID
@@ -1815,7 +1815,7 @@ pub(crate) unsafe fn dvi_do_page(page_paper_height: f64, hmargin: f64, vmargin: 
                 do_eop();
                 if linear != 0 {
                     let handle = dvi_handle.as_mut().unwrap();
-                    let opcode = tt_get_unsigned_byte(handle);
+                    let opcode = u8::get(handle);
                     if opcode == POST {
                         check_postamble();
                     } else {

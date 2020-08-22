@@ -226,12 +226,6 @@ pub(crate) fn tt_get_signed_byte(handle: &InputHandleWrapper) -> i8 {
     byte as i8
 }
 
-pub(crate) fn tt_get_unsigned_pair(handle: &InputHandleWrapper) -> u16 {
-    let mut pair: u16 = tt_get_unsigned_byte(handle) as u16;
-    pair = ((pair as i32) << 8 | tt_get_unsigned_byte(handle) as i32) as u16;
-    pair
-}
-
 pub(crate) fn tt_get_signed_pair(handle: &InputHandleWrapper) -> i16 {
     let mut pair: i16 = tt_get_signed_byte(handle) as i16;
     pair = ((pair as i32) << 8 | tt_get_unsigned_byte(handle) as i32) as i16;

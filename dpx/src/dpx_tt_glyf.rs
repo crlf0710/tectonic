@@ -29,7 +29,7 @@
 use crate::warn;
 
 use super::dpx_mem::{new, renew};
-use super::dpx_numbers::{tt_get_signed_pair, tt_get_unsigned_pair, tt_get_unsigned_quad};
+use super::dpx_numbers::{tt_get_signed_pair, GetFromFile, tt_get_unsigned_quad};
 use super::dpx_sfnt::{sfnt_find_table_pos, sfnt_locate_table, sfnt_set_table};
 use super::dpx_tt_table::{
     tt_pack_head_table, tt_pack_hhea_table, tt_pack_maxp_table, tt_read_head_table,
@@ -255,7 +255,7 @@ pub(crate) unsafe fn tt_build_tables(sfont: *mut sfnt, mut g: *mut tt_glyphs) ->
     if (*head).indexToLocFormat as i32 == 0i32 {
         for i in 0..=(*maxp).numGlyphs as i32 {
             *location.offset(i as isize) =
-                (2_u32).wrapping_mul(tt_get_unsigned_pair(&mut (*sfont).handle) as u32);
+                (2_u32).wrapping_mul(u16::get(&mut (*sfont).handle) as u32);
         }
     } else if (*head).indexToLocFormat as i32 == 1i32 {
         for i in 0..=(*maxp).numGlyphs as i32 {
@@ -677,7 +677,7 @@ pub(crate) unsafe fn tt_get_metrics(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> 
     if (*head).indexToLocFormat as i32 == 0i32 {
         for i in 0..=(*maxp).numGlyphs as u32 {
             *location.offset(i as isize) =
-                (2_u32).wrapping_mul(tt_get_unsigned_pair(&mut (*sfont).handle) as u32);
+                (2_u32).wrapping_mul(u16::get(&mut (*sfont).handle) as u32);
         }
     } else if (*head).indexToLocFormat as i32 == 1i32 {
         for i in 0..=(*maxp).numGlyphs as u32 {

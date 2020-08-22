@@ -29,7 +29,7 @@
 use tectonic_bridge::ttstub_input_close;
 
 use super::dpx_mem::{new, renew};
-use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
+use super::dpx_numbers::{GetFromFile, tt_get_unsigned_quad};
 use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{pdf_stream, STREAM_COMPRESS};
 use crate::dpx_truetype::SfntTableInfo;
@@ -104,14 +104,14 @@ pub(crate) unsafe fn dfont_open(mut handle: InputHandleWrapper, index: i32) -> *
     handle
         .seek(SeekFrom::Start((map_pos + 0x18) as u64))
         .unwrap();
-    let tags_pos = map_pos.wrapping_add(tt_get_unsigned_pair(&mut handle) as u32);
+    let tags_pos = map_pos.wrapping_add(u16::get(&mut handle) as u32);
     handle.seek(SeekFrom::Start(tags_pos as u64)).unwrap();
-    let tags_num = tt_get_unsigned_pair(&mut handle);
+    let tags_num = u16::get(&mut handle);
     let mut i = 0;
     while i as i32 <= tags_num as i32 {
         let tag = tt_get_unsigned_quad(&mut handle);
-        types_num = tt_get_unsigned_pair(&mut handle);
-        types_pos = tags_pos.wrapping_add(tt_get_unsigned_pair(&mut handle) as u32);
+        types_num = u16::get(&mut handle);
+        types_pos = tags_pos.wrapping_add(u16::get(&mut handle) as u32);
         if tag as u64 == 0x73666e74 {
             break;
         }
@@ -127,8 +127,8 @@ pub(crate) unsafe fn dfont_open(mut handle: InputHandleWrapper, index: i32) -> *
         panic!("Invalid index {} for dfont.", index);
     }
     for i in 0..=types_num as i32 {
-        tt_get_unsigned_pair(&mut handle);
-        tt_get_unsigned_pair(&mut handle);
+        u16::get(&mut handle);
+        u16::get(&mut handle);
         res_pos = tt_get_unsigned_quad(&mut handle);
         tt_get_unsigned_quad(&mut handle);
         if i as i32 == index {
@@ -299,10 +299,10 @@ pub(crate) unsafe fn sfnt_read_table_directory(mut sfont: *mut sfnt, offset: u32
     (*sfont).directory = td;
     handle.seek(SeekFrom::Start(offset as u64)).unwrap();
     (*td).version = tt_get_unsigned_quad(handle);
-    (*td).num_tables = tt_get_unsigned_pair(handle);
-    (*td).search_range = tt_get_unsigned_pair(handle);
-    (*td).entry_selector = tt_get_unsigned_pair(handle);
-    (*td).range_shift = tt_get_unsigned_pair(handle);
+    (*td).num_tables = u16::get(handle);
+    (*td).search_range = u16::get(handle);
+    (*td).entry_selector = u16::get(handle);
+    (*td).range_shift = u16::get(handle);
     (*td).flags = new(
         ((*td).num_tables as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
     ) as *mut i8;

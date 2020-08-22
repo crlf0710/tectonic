@@ -31,7 +31,7 @@ use crate::warn;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_mfileio::work_buffer;
-use super::dpx_numbers::{tt_get_unsigned_byte, tt_get_unsigned_pair};
+use super::dpx_numbers::GetFromFile;
 use super::dpx_pdfcolor::{
     iccp_check_colorspace, iccp_get_rendering_intent, iccp_load_profile,
     pdf_get_colorspace_reference,
@@ -450,10 +450,10 @@ unsafe fn add_APPn_marker(
 unsafe fn read_APP14_Adobe(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper) -> u16 {
     let app_data = new((1_u64).wrapping_mul(::std::mem::size_of::<JPEG_APPn_Adobe>() as u64) as u32)
         as *mut JPEG_APPn_Adobe;
-    (*app_data).version = tt_get_unsigned_pair(handle);
-    (*app_data).flag0 = tt_get_unsigned_pair(handle);
-    (*app_data).flag1 = tt_get_unsigned_pair(handle);
-    (*app_data).transform = tt_get_unsigned_byte(handle);
+    (*app_data).version = u16::get(handle);
+    (*app_data).flag0 = u16::get(handle);
+    (*app_data).flag1 = u16::get(handle);
+    (*app_data).transform = u8::get(handle);
     add_APPn_marker(
         j_info,
         JM_APP14,
@@ -668,12 +668,12 @@ unsafe fn read_APP1_Exif(
 unsafe fn read_APP0_JFIF(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper) -> size_t {
     let app_data = new((1_u64).wrapping_mul(::std::mem::size_of::<JPEG_APPn_JFIF>() as u64) as u32)
         as *mut JPEG_APPn_JFIF;
-    (*app_data).version = tt_get_unsigned_pair(handle);
-    (*app_data).units = tt_get_unsigned_byte(handle);
-    (*app_data).Xdensity = tt_get_unsigned_pair(handle);
-    (*app_data).Ydensity = tt_get_unsigned_pair(handle);
-    (*app_data).Xthumbnail = tt_get_unsigned_byte(handle);
-    (*app_data).Ythumbnail = tt_get_unsigned_byte(handle);
+    (*app_data).version = u16::get(handle);
+    (*app_data).units = u8::get(handle);
+    (*app_data).Xdensity = u16::get(handle);
+    (*app_data).Ydensity = u16::get(handle);
+    (*app_data).Xthumbnail = u8::get(handle);
+    (*app_data).Ythumbnail = u8::get(handle);
     let thumb_data_len =
         (3i32 * (*app_data).Xthumbnail as i32 * (*app_data).Ythumbnail as i32) as size_t;
     if thumb_data_len > 0 {
@@ -713,7 +713,7 @@ unsafe fn read_APP0_JFIF(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper
     (9i32 as u64).wrapping_add(thumb_data_len as _) as _
 }
 unsafe fn read_APP0_JFXX(handle: &mut InputHandleWrapper, length: size_t) -> size_t {
-    tt_get_unsigned_byte(handle);
+    u8::get(handle);
     /* Extension Code:
      *
      * 0x10: Thumbnail coded using JPEG
@@ -755,8 +755,8 @@ unsafe fn read_APP2_ICC(
 ) -> size_t {
     let app_data = new((1_u64).wrapping_mul(::std::mem::size_of::<JPEG_APPn_ICC>() as u64) as u32)
         as *mut JPEG_APPn_ICC;
-    (*app_data).seq_id = tt_get_unsigned_byte(handle);
-    (*app_data).num_chunks = tt_get_unsigned_byte(handle);
+    (*app_data).seq_id = u8::get(handle);
+    (*app_data).num_chunks = u8::get(handle);
     (*app_data).length = length.wrapping_sub(2);
     (*app_data).chunk = new(
         ((*app_data).length as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32
@@ -794,7 +794,7 @@ unsafe fn JPEG_copy_stream(
             *work_buffer.as_mut_ptr().offset(1) = marker as i8;
             stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, 2i32);
         } else {
-            let mut length = tt_get_unsigned_pair(handle) as i32 - 2i32;
+            let mut length = u16::get(handle) as i32 - 2i32;
             match marker as u32 {
                 192 | 193 | 194 | 195 | 197 | 198 | 199 | 201 | 202 | 203 | 205 | 206 | 207 => {
                     *work_buffer.as_mut_ptr().offset(0) = 0xffi32 as i8;
@@ -885,13 +885,13 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
         if marker as u32 != JM_SOI as i32 as u32
             && ((marker as u32) < JM_RST0 as i32 as u32 || marker as u32 > JM_RST7 as i32 as u32)
         {
-            let mut length: i32 = tt_get_unsigned_pair(handle) as i32 - 2i32;
+            let mut length: i32 = u16::get(handle) as i32 - 2i32;
             match marker as u32 {
                 192 | 193 | 194 | 195 | 197 | 198 | 199 | 201 | 202 | 203 | 205 | 206 | 207 => {
-                    (*j_info).bits_per_component = tt_get_unsigned_byte(handle);
-                    (*j_info).height = tt_get_unsigned_pair(handle);
-                    (*j_info).width = tt_get_unsigned_pair(handle);
-                    (*j_info).num_components = tt_get_unsigned_byte(handle);
+                    (*j_info).bits_per_component = u8::get(handle);
+                    (*j_info).height = u16::get(handle);
+                    (*j_info).width = u16::get(handle);
+                    (*j_info).num_components = u8::get(handle);
                     found_SOFn = 1i32
                 }
                 224 => {

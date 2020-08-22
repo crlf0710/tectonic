@@ -51,7 +51,7 @@ use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::{dpx_open_dfont_file, dpx_open_opentype_file, dpx_open_truetype_file};
 use super::dpx_mem::new;
 use super::dpx_numbers::{
-    tt_get_signed_pair, tt_get_unsigned_byte, tt_get_unsigned_pair, tt_get_unsigned_quad,
+    tt_get_signed_pair, GetFromFile, tt_get_unsigned_quad,
 };
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_aux::ttc_read_offset;
@@ -180,7 +180,7 @@ unsafe fn read_cmap0(sfont: *mut sfnt, len: u32) -> *mut cmap0 {
     }
     let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap0>() as u64) as u32) as *mut cmap0;
     for i in 0..256 {
-        (*map).glyphIndexArray[i as usize] = tt_get_unsigned_byte(&mut (*sfont).handle);
+        (*map).glyphIndexArray[i as usize] = u8::get(&mut (*sfont).handle);
     }
     map
 }
@@ -201,7 +201,7 @@ unsafe fn read_cmap2(sfont: *mut sfnt, len: u32) -> *mut cmap2 {
     let handle = &mut (*sfont).handle;
     let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap2>() as u64) as u32) as *mut cmap2;
     for i in 0..256 {
-        (*map).subHeaderKeys[i as usize] = tt_get_unsigned_pair(handle);
+        (*map).subHeaderKeys[i as usize] = u16::get(handle);
     }
     let mut n = 0_u16;
     for i in 0..256 {
@@ -215,10 +215,10 @@ unsafe fn read_cmap2(sfont: *mut sfnt, len: u32) -> *mut cmap2 {
         new((n as u32 as u64).wrapping_mul(::std::mem::size_of::<SubHeader>() as u64) as u32)
             as *mut SubHeader;
     for i in 0..n as i32 {
-        (*(*map).subHeaders.offset(i as isize)).firstCode = tt_get_unsigned_pair(handle);
-        (*(*map).subHeaders.offset(i as isize)).entryCount = tt_get_unsigned_pair(handle);
+        (*(*map).subHeaders.offset(i as isize)).firstCode = u16::get(handle);
+        (*(*map).subHeaders.offset(i as isize)).entryCount = u16::get(handle);
         (*(*map).subHeaders.offset(i as isize)).idDelta = tt_get_signed_pair(handle);
-        (*(*map).subHeaders.offset(i as isize)).idRangeOffset = tt_get_unsigned_pair(handle);
+        (*(*map).subHeaders.offset(i as isize)).idRangeOffset = u16::get(handle);
         /* It makes things easier to let the offset starts from
          * the beginning of glyphIndexArray.
          */
@@ -237,7 +237,7 @@ unsafe fn read_cmap2(sfont: *mut sfnt, len: u32) -> *mut cmap2 {
     (*map).glyphIndexArray =
         new((n as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16;
     for i in 0..n as i32 {
-        *(*map).glyphIndexArray.offset(i as isize) = tt_get_unsigned_pair(handle);
+        *(*map).glyphIndexArray.offset(i as isize) = u16::get(handle);
     }
     map
 }
@@ -275,36 +275,36 @@ unsafe fn read_cmap4(sfont: *mut sfnt, len: u32) -> *mut cmap4 {
     }
     let handle = &mut (*sfont).handle;
     let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap4>() as u64) as u32) as *mut cmap4;
-    let segCount = tt_get_unsigned_pair(handle);
+    let segCount = u16::get(handle);
     (*map).segCountX2 = segCount;
-    (*map).searchRange = tt_get_unsigned_pair(handle);
-    (*map).entrySelector = tt_get_unsigned_pair(handle);
-    (*map).rangeShift = tt_get_unsigned_pair(handle);
+    (*map).searchRange = u16::get(handle);
+    (*map).entrySelector = u16::get(handle);
+    (*map).rangeShift = u16::get(handle);
     let segCount = (segCount as i32 / 2i32) as u16;
     (*map).endCount =
         new((segCount as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
             as *mut u16;
     for i in 0..segCount as i32 {
-        *(*map).endCount.offset(i as isize) = tt_get_unsigned_pair(handle);
+        *(*map).endCount.offset(i as isize) = u16::get(handle);
     }
-    (*map).reservedPad = tt_get_unsigned_pair(handle);
+    (*map).reservedPad = u16::get(handle);
     (*map).startCount =
         new((segCount as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
             as *mut u16;
     for i in 0..segCount as i32 {
-        *(*map).startCount.offset(i as isize) = tt_get_unsigned_pair(handle);
+        *(*map).startCount.offset(i as isize) = u16::get(handle);
     }
     (*map).idDelta =
         new((segCount as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
             as *mut u16;
     for i in 0..segCount as i32 {
-        *(*map).idDelta.offset(i as isize) = tt_get_unsigned_pair(handle);
+        *(*map).idDelta.offset(i as isize) = u16::get(handle);
     }
     (*map).idRangeOffset =
         new((segCount as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
             as *mut u16;
     for i in 0..segCount as i32 {
-        *(*map).idRangeOffset.offset(i as isize) = tt_get_unsigned_pair(handle);
+        *(*map).idRangeOffset.offset(i as isize) = u16::get(handle);
     }
     let n = len
         .wrapping_sub(16_u32)
@@ -317,7 +317,7 @@ unsafe fn read_cmap4(sfont: *mut sfnt, len: u32) -> *mut cmap4 {
             .wrapping_mul(::std::mem::size_of::<u16>() as u64)
             as u32) as *mut u16;
         for i in 0..n as i32 {
-            *(*map).glyphIndexArray.offset(i as isize) = tt_get_unsigned_pair(handle);
+            *(*map).glyphIndexArray.offset(i as isize) = u16::get(handle);
         }
     }
     map
@@ -376,13 +376,13 @@ unsafe fn read_cmap6(sfont: *mut sfnt, len: u32) -> *mut cmap6 {
     }
     let handle = &mut (*sfont).handle;
     let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap6>() as u64) as u32) as *mut cmap6;
-    (*map).firstCode = tt_get_unsigned_pair(handle);
-    (*map).entryCount = tt_get_unsigned_pair(handle);
+    (*map).firstCode = u16::get(handle);
+    (*map).entryCount = u16::get(handle);
     (*map).glyphIndexArray = new(
         ((*map).entryCount as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32
     ) as *mut u16;
     for i in 0..(*map).entryCount as i32 {
-        *(*map).glyphIndexArray.offset(i as isize) = tt_get_unsigned_pair(handle);
+        *(*map).glyphIndexArray.offset(i as isize) = u16::get(handle);
     }
     map
 }
@@ -451,12 +451,12 @@ pub(crate) unsafe fn tt_cmap_read(sfont: *mut sfnt, platform: u16, encoding: u16
     assert!(!sfont.is_null());
     let mut offset = sfnt_locate_table(sfont, sfnt_table_info::CMAP);
     let handle = &mut (*sfont).handle;
-    tt_get_unsigned_pair(handle);
-    let n_subtabs = tt_get_unsigned_pair(handle);
+    u16::get(handle);
+    let n_subtabs = u16::get(handle);
     let mut i = 0_u16;
     while (i as i32) < n_subtabs as i32 {
-        let p_id = tt_get_unsigned_pair(handle);
-        let e_id = tt_get_unsigned_pair(handle);
+        let p_id = u16::get(handle);
+        let e_id = u16::get(handle);
         if p_id as i32 != platform as i32 || e_id as i32 != encoding as i32 {
             tt_get_unsigned_quad(handle);
             i += 1;
@@ -474,15 +474,15 @@ pub(crate) unsafe fn tt_cmap_read(sfont: *mut sfnt, platform: u16, encoding: u16
     (*cmap).platform = platform;
     (*cmap).encoding = encoding;
     handle.seek(SeekFrom::Start(offset as u64)).unwrap();
-    (*cmap).format = tt_get_unsigned_pair(handle);
+    (*cmap).format = u16::get(handle);
     /* Length and version (language) is ULONG for
      * format 8, 10, 12 !
      */
     if (*cmap).format as i32 <= 6i32 {
-        length = tt_get_unsigned_pair(handle) as u32;
-        (*cmap).language = tt_get_unsigned_pair(handle) as u32
+        length = u16::get(handle) as u32;
+        (*cmap).language = u16::get(handle) as u32
     /* language (Mac) */
-    } else if tt_get_unsigned_pair(handle) as i32 != 0i32 {
+    } else if u16::get(handle) as i32 != 0i32 {
         /* reverved - 0 */
         warn!("Unrecognized cmap subtable format.");
         tt_cmap_release(cmap);

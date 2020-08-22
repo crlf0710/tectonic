@@ -30,8 +30,8 @@ use crate::bridge::DisplayExt;
 use std::ffi::{CStr, CString};
 use std::ptr;
 
-use super::dpx_numbers::{
-    tt_get_signed_byte, tt_get_signed_pair, tt_get_unsigned_pair, tt_get_unsigned_quad,
+use super::dpx_numbers::{GetFromFile,
+    tt_get_signed_byte, tt_get_signed_pair, tt_get_unsigned_quad,
 };
 use super::dpx_sfnt::sfnt_find_table_pos;
 use crate::mfree;
@@ -221,20 +221,20 @@ unsafe fn clt_read_record(mut rec: *mut clt_record, sfont: *mut sfnt) -> i32 {
         (*rec).tag[i] = tt_get_signed_byte(handle) as i8;
     }
     (*rec).tag[4] = '\u{0}' as i32 as i8;
-    (*rec).offset = tt_get_unsigned_pair(handle);
+    (*rec).offset = u16::get(handle);
     6i32
 }
 unsafe fn clt_read_range(mut rec: *mut clt_range, sfont: *mut sfnt) -> i32 {
     assert!(!rec.is_null() && !sfont.is_null());
     let handle = &mut (*sfont).handle;
-    (*rec).Start = tt_get_unsigned_pair(handle);
-    (*rec).End = tt_get_unsigned_pair(handle);
-    (*rec).StartCoverageIndex = tt_get_unsigned_pair(handle);
+    (*rec).Start = u16::get(handle);
+    (*rec).End = u16::get(handle);
+    (*rec).StartCoverageIndex = u16::get(handle);
     6i32
 }
 unsafe fn clt_read_record_list(mut list: *mut clt_record_list, sfont: *mut sfnt) -> i32 {
     assert!(!list.is_null() && !sfont.is_null());
-    (*list).count = tt_get_unsigned_pair(&mut (*sfont).handle);
+    (*list).count = u16::get(&mut (*sfont).handle);
     let mut len = 2;
     if (*list).count as i32 == 0i32 {
         (*list).record = ptr::null_mut()
@@ -256,7 +256,7 @@ unsafe fn clt_release_record_list(mut list: *mut clt_record_list) {
 }
 unsafe fn clt_read_number_list(mut list: *mut clt_number_list, sfont: *mut sfnt) -> i32 {
     assert!(!list.is_null() && !sfont.is_null());
-    (*list).count = tt_get_unsigned_pair(&mut (*sfont).handle);
+    (*list).count = u16::get(&mut (*sfont).handle);
     if (*list).count as i32 == 0i32 {
         (*list).value = ptr::null_mut()
     } else {
@@ -264,7 +264,7 @@ unsafe fn clt_read_number_list(mut list: *mut clt_number_list, sfont: *mut sfnt)
             ((*list).count as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32
         ) as *mut u16;
         for i in 0..(*list).count as i32 {
-            *(*list).value.offset(i as isize) = tt_get_unsigned_pair(&mut (*sfont).handle);
+            *(*list).value.offset(i as isize) = u16::get(&mut (*sfont).handle);
         }
     }
     2i32 + 2i32 * (*list).count as i32
@@ -277,7 +277,7 @@ unsafe fn clt_release_number_list(mut list: *mut clt_number_list) {
 }
 unsafe fn clt_read_script_table(mut tab: *mut clt_script_table, sfont: *mut sfnt) -> i32 {
     assert!(!tab.is_null() && !sfont.is_null());
-    (*tab).DefaultLangSys = tt_get_unsigned_pair(&mut (*sfont).handle);
+    (*tab).DefaultLangSys = u16::get(&mut (*sfont).handle);
     let mut len = 2;
     len += clt_read_record_list(&mut (*tab).LangSysRecord, sfont);
     len
@@ -289,8 +289,8 @@ unsafe fn clt_release_script_table(tab: *mut clt_script_table) {
 }
 unsafe fn clt_read_langsys_table(mut tab: *mut clt_langsys_table, sfont: *mut sfnt) -> i32 {
     assert!(!tab.is_null() && !sfont.is_null());
-    (*tab).LookupOrder = tt_get_unsigned_pair(&mut (*sfont).handle);
-    (*tab).ReqFeatureIndex = tt_get_unsigned_pair(&mut (*sfont).handle);
+    (*tab).LookupOrder = u16::get(&mut (*sfont).handle);
+    (*tab).ReqFeatureIndex = u16::get(&mut (*sfont).handle);
     let mut len = 4;
     len += clt_read_number_list(&mut (*tab).FeatureIndex, sfont);
     len
@@ -302,7 +302,7 @@ unsafe fn clt_release_langsys_table(tab: *mut clt_langsys_table) {
 }
 unsafe fn clt_read_feature_table(mut tab: *mut clt_feature_table, sfont: *mut sfnt) -> i32 {
     assert!(!tab.is_null() && !sfont.is_null());
-    (*tab).FeatureParams = tt_get_unsigned_pair(&mut (*sfont).handle);
+    (*tab).FeatureParams = u16::get(&mut (*sfont).handle);
     let mut len = 2;
     len += clt_read_number_list(&mut (*tab).LookupListIndex, sfont);
     len
@@ -314,8 +314,8 @@ unsafe fn clt_release_feature_table(tab: *mut clt_feature_table) {
 }
 unsafe fn clt_read_lookup_table(mut tab: *mut clt_lookup_table, sfont: *mut sfnt) -> i32 {
     assert!(!tab.is_null() && !sfont.is_null());
-    (*tab).LookupType = tt_get_unsigned_pair(&mut (*sfont).handle);
-    (*tab).LookupFlag = tt_get_unsigned_pair(&mut (*sfont).handle);
+    (*tab).LookupType = u16::get(&mut (*sfont).handle);
+    (*tab).LookupFlag = u16::get(&mut (*sfont).handle);
     let mut len = 4;
     len += clt_read_number_list(&mut (*tab).SubTableList, sfont);
     len
@@ -327,8 +327,8 @@ unsafe fn clt_release_lookup_table(tab: *mut clt_lookup_table) {
 }
 unsafe fn clt_read_coverage(mut cov: *mut clt_coverage, sfont: *mut sfnt) -> i32 {
     assert!(!cov.is_null() && !sfont.is_null());
-    (*cov).format = tt_get_unsigned_pair(&mut (*sfont).handle);
-    (*cov).count = tt_get_unsigned_pair(&mut (*sfont).handle);
+    (*cov).format = u16::get(&mut (*sfont).handle);
+    (*cov).count = u16::get(&mut (*sfont).handle);
     let mut len = 4;
     match (*cov).format as i32 {
         1 => {
@@ -339,7 +339,7 @@ unsafe fn clt_read_coverage(mut cov: *mut clt_coverage, sfont: *mut sfnt) -> i32
                     .wrapping_mul(::std::mem::size_of::<u16>() as u64)
                     as u32) as *mut u16;
                 for i in 0..(*cov).count as i32 {
-                    *(*cov).list.offset(i as isize) = tt_get_unsigned_pair(&mut (*sfont).handle);
+                    *(*cov).list.offset(i as isize) = u16::get(&mut (*sfont).handle);
                 }
             }
             (*cov).range = ptr::null_mut();
@@ -412,14 +412,14 @@ unsafe fn otl_gsub_read_single(mut subtab: *mut otl_gsub_subtab, sfont: *mut sfn
     let handle = &mut (*sfont).handle;
     let offset = handle.seek(SeekFrom::Current(0)).unwrap();
     (*subtab).LookupType = 1_u16;
-    (*subtab).SubstFormat = tt_get_unsigned_pair(handle);
+    (*subtab).SubstFormat = u16::get(handle);
     let mut len = 2;
     if (*subtab).SubstFormat as i32 == 1i32 {
         let data =
             new((1_u64).wrapping_mul(::std::mem::size_of::<otl_gsub_single1>() as u64) as u32)
                 as *mut otl_gsub_single1;
         (*subtab).table.single1 = data;
-        let cov_offset = tt_get_unsigned_pair(handle);
+        let cov_offset = u16::get(handle);
         (*data).DeltaGlyphID = tt_get_signed_pair(handle);
         len += 4;
         handle
@@ -431,8 +431,8 @@ unsafe fn otl_gsub_read_single(mut subtab: *mut otl_gsub_subtab, sfont: *mut sfn
             new((1_u64).wrapping_mul(::std::mem::size_of::<otl_gsub_single2>() as u64) as u32)
                 as *mut otl_gsub_single2;
         (*subtab).table.single2 = data_0;
-        let cov_offset = tt_get_unsigned_pair(handle);
-        (*data_0).GlyphCount = tt_get_unsigned_pair(handle);
+        let cov_offset = u16::get(handle);
+        (*data_0).GlyphCount = u16::get(handle);
         len += 4;
         if (*data_0).GlyphCount as i32 == 0i32 {
             (*data_0).Substitute = ptr::null_mut()
@@ -441,7 +441,7 @@ unsafe fn otl_gsub_read_single(mut subtab: *mut otl_gsub_subtab, sfont: *mut sfn
                 .wrapping_mul(::std::mem::size_of::<GlyphID>() as u64)
                 as u32) as *mut GlyphID;
             for count in 0..(*data_0).GlyphCount as i32 {
-                *(*data_0).Substitute.offset(count as isize) = tt_get_unsigned_pair(handle);
+                *(*data_0).Substitute.offset(count as isize) = u16::get(handle);
             }
             len += 2 * (*data_0).GlyphCount as i32
         }
@@ -462,7 +462,7 @@ unsafe fn otl_gsub_read_alternate(mut subtab: *mut otl_gsub_subtab, sfont: *mut 
     assert!(!subtab.is_null() && !sfont.is_null());
     let offset = (*sfont).handle.seek(SeekFrom::Current(0)).unwrap();
     (*subtab).LookupType = 3_u16;
-    (*subtab).SubstFormat = tt_get_unsigned_pair(&mut (*sfont).handle);
+    (*subtab).SubstFormat = u16::get(&mut (*sfont).handle);
     if (*subtab).SubstFormat as i32 != 1i32 {
         warn!(
             "Unknown GSUB SubstFormat for Alternate: {}",
@@ -474,7 +474,7 @@ unsafe fn otl_gsub_read_alternate(mut subtab: *mut otl_gsub_subtab, sfont: *mut 
     let data = new((1_u64).wrapping_mul(::std::mem::size_of::<otl_gsub_alternate1>() as u64) as u32)
         as *mut otl_gsub_alternate1;
     (*subtab).table.alternate1 = data;
-    let cov_offset = tt_get_unsigned_pair(&mut (*sfont).handle);
+    let cov_offset = u16::get(&mut (*sfont).handle);
     len += 2;
     len += clt_read_number_list(&mut altset_offsets, sfont);
     (*data).AlternateSetCount = altset_offsets.count;
@@ -493,7 +493,7 @@ unsafe fn otl_gsub_read_alternate(mut subtab: *mut otl_gsub_subtab, sfont: *mut 
         let altset = &mut *(*data).AlternateSet.offset(i as isize) as *mut otl_gsub_altset;
         let altset_offset = offset + (*altset_offsets.value.offset(i as isize) as u64);
         handle.seek(SeekFrom::Start(altset_offset as u64)).unwrap();
-        (*altset).GlyphCount = tt_get_unsigned_pair(handle);
+        (*altset).GlyphCount = u16::get(handle);
         len += 2i32;
         if (*altset).GlyphCount as i32 == 0i32 {
             (*altset).Alternate = ptr::null_mut();
@@ -503,7 +503,7 @@ unsafe fn otl_gsub_read_alternate(mut subtab: *mut otl_gsub_subtab, sfont: *mut 
                 .wrapping_mul(::std::mem::size_of::<GlyphID>() as u64)
                 as u32) as *mut GlyphID;
             for j in 0..(*altset).GlyphCount as i32 {
-                *(*altset).Alternate.offset(j as isize) = tt_get_unsigned_pair(handle);
+                *(*altset).Alternate.offset(j as isize) = u16::get(handle);
                 len += 2;
             }
         }
@@ -524,7 +524,7 @@ unsafe fn otl_gsub_read_ligature(mut subtab: *mut otl_gsub_subtab, sfont: *mut s
     assert!(!subtab.is_null() && !sfont.is_null());
     let offset = (*sfont).handle.seek(SeekFrom::Current(0)).unwrap() as u32;
     (*subtab).LookupType = 4_u16;
-    (*subtab).SubstFormat = tt_get_unsigned_pair(&mut (*sfont).handle);
+    (*subtab).SubstFormat = u16::get(&mut (*sfont).handle);
     if (*subtab).SubstFormat as i32 != 1i32 {
         warn!(
             "Unknown GSUB SubstFormat for Ligature: {}",
@@ -536,7 +536,7 @@ unsafe fn otl_gsub_read_ligature(mut subtab: *mut otl_gsub_subtab, sfont: *mut s
     let data = new((1_u64).wrapping_mul(::std::mem::size_of::<otl_gsub_ligature1>() as u64) as u32)
         as *mut otl_gsub_ligature1;
     (*subtab).table.ligature1 = data;
-    let cov_offset = tt_get_unsigned_pair(&mut (*sfont).handle);
+    let cov_offset = u16::get(&mut (*sfont).handle);
     len += 2;
     len += clt_read_number_list(&mut ligset_offsets, sfont);
     (*data).LigSetCount = ligset_offsets.count;
@@ -577,8 +577,8 @@ unsafe fn otl_gsub_read_ligature(mut subtab: *mut otl_gsub_subtab, sfont: *mut s
                         ligset_offset as u64 + *ligset_tab.value.offset(j as isize) as u64,
                     ))
                     .unwrap();
-                (*(*ligset).Ligature.offset(j as isize)).LigGlyph = tt_get_unsigned_pair(handle);
-                (*(*ligset).Ligature.offset(j as isize)).CompCount = tt_get_unsigned_pair(handle);
+                (*(*ligset).Ligature.offset(j as isize)).LigGlyph = u16::get(handle);
+                (*(*ligset).Ligature.offset(j as isize)).CompCount = u16::get(handle);
                 if (*(*ligset).Ligature.offset(j as isize)).CompCount as i32 == 0i32 {
                     let ref mut fresh0 = (*(*ligset).Ligature.offset(j as isize)).Component;
                     *fresh0 = ptr::null_mut();
@@ -595,7 +595,7 @@ unsafe fn otl_gsub_read_ligature(mut subtab: *mut otl_gsub_subtab, sfont: *mut s
                     {
                         *(*(*ligset).Ligature.offset(j as isize))
                             .Component
-                            .offset(count as isize) = tt_get_unsigned_pair(handle);
+                            .offset(count as isize) = u16::get(handle);
                         count += 1;
                     }
                     len += 4 + count as i32 * 2;
@@ -682,9 +682,9 @@ unsafe fn otl_gsub_read_header(mut head: *mut otl_gsub_header, sfont: *mut sfnt)
     assert!(!head.is_null() && !sfont.is_null());
     let handle = &mut (*sfont).handle;
     (*head).version = tt_get_unsigned_quad(handle);
-    (*head).ScriptList = tt_get_unsigned_pair(handle);
-    (*head).FeatureList = tt_get_unsigned_pair(handle);
-    (*head).LookupList = tt_get_unsigned_pair(handle);
+    (*head).ScriptList = u16::get(handle);
+    (*head).FeatureList = u16::get(handle);
+    (*head).LookupList = u16::get(handle);
     10i32
 }
 unsafe fn otl_gsub_read_feat(mut gsub: *mut otl_gsub_tab, sfont: *mut sfnt) -> i32 {
@@ -1022,10 +1022,10 @@ unsafe fn otl_gsub_read_feat(mut gsub: *mut otl_gsub_tab, sfont: *mut sfnt) -> i
                                 }
                             }
                             7 => {
-                                let SubstFormat = tt_get_unsigned_pair(&mut (*sfont).handle);
+                                let SubstFormat = u16::get(&mut (*sfont).handle);
                                 if !(SubstFormat as i32 != 1i32) {
                                     let ExtensionLookupType =
-                                        tt_get_unsigned_pair(&mut (*sfont).handle);
+                                        u16::get(&mut (*sfont).handle);
                                     let ExtensionOffset =
                                         tt_get_unsigned_quad(&mut (*sfont).handle) as u64;
                                     (*sfont)

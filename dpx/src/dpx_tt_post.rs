@@ -27,7 +27,7 @@
 )]
 
 use super::dpx_numbers::{
-    tt_get_signed_pair, tt_get_unsigned_byte, tt_get_unsigned_pair, tt_get_unsigned_quad,
+    tt_get_signed_pair, GetFromFile, tt_get_unsigned_quad,
 };
 use super::dpx_sfnt::sfnt_locate_table;
 use crate::streq_ptr;
@@ -73,12 +73,12 @@ pub(crate) struct tt_post_table {
 /* offset from begenning of the post table */
 unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: *mut sfnt) -> i32 {
     let handle = &mut (*sfont).handle;
-    (*post).numberOfGlyphs = tt_get_unsigned_pair(handle);
+    (*post).numberOfGlyphs = u16::get(handle);
     let indices = new(((*post).numberOfGlyphs as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16;
     let mut maxidx = 257_u16;
     for i in 0..(*post).numberOfGlyphs as i32 {
-        let mut idx = tt_get_unsigned_pair(handle);
+        let mut idx = u16::get(handle);
         if idx as i32 >= 258i32 {
             if idx as i32 > maxidx as i32 {
                 maxidx = idx
@@ -111,7 +111,7 @@ unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: *mut sfnt) -> 
             as u32) as *mut *mut i8;
         for i in 0..(*post).count as i32 {
             /* read Pascal strings */
-            let len = tt_get_unsigned_byte(handle) as i32;
+            let len = u8::get(handle) as i32;
             if len > 0i32 {
                 let ref mut fresh0 = *(*post).names.offset(i as isize);
                 *fresh0 = new(((len + 1i32) as u32 as u64)

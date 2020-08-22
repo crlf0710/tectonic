@@ -27,7 +27,7 @@
 )]
 
 use super::dpx_numbers::{
-    tt_get_positive_quad, tt_get_signed_quad, tt_get_unsigned_byte, tt_get_unsigned_pair,
+    tt_get_positive_quad, tt_get_signed_quad, GetFromFile,
     tt_get_unsigned_quad,
 };
 use crate::bridge::DisplayExt;
@@ -316,25 +316,25 @@ unsafe fn tfm_check_size(tfm: *mut tfm_font, tfm_file_size: off_t) {
     };
 }
 unsafe fn tfm_get_sizes(
-    tfm_handle: &InputHandleWrapper,
+    mut tfm_handle: &InputHandleWrapper,
     tfm_file_size: off_t,
     mut tfm: *mut tfm_font,
 ) {
-    (*tfm).wlenfile = tt_get_unsigned_pair(tfm_handle) as u32;
-    (*tfm).wlenheader = tt_get_unsigned_pair(tfm_handle) as u32;
-    (*tfm).bc = tt_get_unsigned_pair(tfm_handle) as u32;
-    (*tfm).ec = tt_get_unsigned_pair(tfm_handle) as u32;
+    (*tfm).wlenfile = u16::get(&mut tfm_handle) as u32;
+    (*tfm).wlenheader = u16::get(&mut tfm_handle) as u32;
+    (*tfm).bc = u16::get(&mut tfm_handle) as u32;
+    (*tfm).ec = u16::get(&mut tfm_handle) as u32;
     if (*tfm).ec < (*tfm).bc {
         panic!("TFM file error: ec({}) < bc({}) ???", (*tfm).ec, (*tfm).bc);
     }
-    (*tfm).nwidths = tt_get_unsigned_pair(tfm_handle) as u32;
-    (*tfm).nheights = tt_get_unsigned_pair(tfm_handle) as u32;
-    (*tfm).ndepths = tt_get_unsigned_pair(tfm_handle) as u32;
-    (*tfm).nitcor = tt_get_unsigned_pair(tfm_handle) as u32;
-    (*tfm).nlig = tt_get_unsigned_pair(tfm_handle) as u32;
-    (*tfm).nkern = tt_get_unsigned_pair(tfm_handle) as u32;
-    (*tfm).nextens = tt_get_unsigned_pair(tfm_handle) as u32;
-    (*tfm).nfonparm = tt_get_unsigned_pair(tfm_handle) as u32;
+    (*tfm).nwidths = u16::get(&mut tfm_handle) as u32;
+    (*tfm).nheights = u16::get(&mut tfm_handle) as u32;
+    (*tfm).ndepths = u16::get(&mut tfm_handle) as u32;
+    (*tfm).nitcor = u16::get(&mut tfm_handle) as u32;
+    (*tfm).nlig = u16::get(&mut tfm_handle) as u32;
+    (*tfm).nkern = u16::get(&mut tfm_handle) as u32;
+    (*tfm).nextens = u16::get(&mut tfm_handle) as u32;
+    (*tfm).nfonparm = u16::get(&mut tfm_handle) as u32;
     tfm_check_size(tfm, tfm_file_size);
 }
 unsafe fn tfm_unpack_arrays(mut fm: *mut font_metric, tfm: *mut tfm_font) {
@@ -453,7 +453,7 @@ unsafe fn ofm_get_sizes(
         panic!("can\'t handle OFM files with level > 1");
     };
 }
-unsafe fn ofm_do_char_info_zero(ofm_handle: &InputHandleWrapper, mut tfm: *mut tfm_font) {
+unsafe fn ofm_do_char_info_zero(mut ofm_handle: &InputHandleWrapper, mut tfm: *mut tfm_font) {
     let num_chars = (*tfm).ec.wrapping_sub((*tfm).bc).wrapping_add(1_u32);
     if num_chars != 0_u32 {
         (*tfm).width_index = new((num_chars as u64)
@@ -466,15 +466,15 @@ unsafe fn ofm_do_char_info_zero(ofm_handle: &InputHandleWrapper, mut tfm: *mut t
             new((num_chars as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
                 as *mut u8;
         for i in 0..num_chars {
-            *(*tfm).width_index.offset(i as isize) = tt_get_unsigned_pair(ofm_handle);
-            *(*tfm).height_index.offset(i as isize) = tt_get_unsigned_byte(ofm_handle);
-            *(*tfm).depth_index.offset(i as isize) = tt_get_unsigned_byte(ofm_handle);
+            *(*tfm).width_index.offset(i as isize) = u16::get(&mut ofm_handle);
+            *(*tfm).height_index.offset(i as isize) = u8::get(&mut ofm_handle);
+            *(*tfm).depth_index.offset(i as isize) = u8::get(&mut ofm_handle);
             /* Ignore remaining quad */
             tt_skip_bytes(4_u32, ofm_handle);
         }
     };
 }
-unsafe fn ofm_do_char_info_one(ofm_handle: &InputHandleWrapper, mut tfm: *mut tfm_font) {
+unsafe fn ofm_do_char_info_one(mut ofm_handle: &InputHandleWrapper, mut tfm: *mut tfm_font) {
     let num_char_infos = (*tfm)
         .ncw
         .wrapping_div((3_u32).wrapping_add((*tfm).npc.wrapping_div(2_u32)));
@@ -492,19 +492,19 @@ unsafe fn ofm_do_char_info_one(ofm_handle: &InputHandleWrapper, mut tfm: *mut tf
         let mut char_infos_read = 0;
         let mut i = 0;
         while i < num_chars && char_infos_read < num_char_infos {
-            *(*tfm).width_index.offset(i as isize) = tt_get_unsigned_pair(ofm_handle);
-            *(*tfm).height_index.offset(i as isize) = tt_get_unsigned_byte(ofm_handle);
-            *(*tfm).depth_index.offset(i as isize) = tt_get_unsigned_byte(ofm_handle);
+            *(*tfm).width_index.offset(i as isize) = u16::get(&mut ofm_handle);
+            *(*tfm).height_index.offset(i as isize) = u8::get(&mut ofm_handle);
+            *(*tfm).depth_index.offset(i as isize) = u8::get(&mut ofm_handle);
             /* Ignore next quad */
             tt_skip_bytes(4_u32, ofm_handle);
-            let repeats = tt_get_unsigned_pair(ofm_handle) as u32;
+            let repeats = u16::get(&mut ofm_handle) as u32;
             /* Skip params */
             for _ in 0..(*tfm).npc {
-                tt_get_unsigned_pair(ofm_handle);
+                u16::get(&mut ofm_handle);
             }
             /* Remove word padding if necessary */
             if (*tfm).npc.wrapping_div(2_u32).wrapping_mul(2_u32) == (*tfm).npc {
-                tt_get_unsigned_pair(ofm_handle);
+                u16::get(&mut ofm_handle);
             }
             char_infos_read = char_infos_read.wrapping_add(1);
             if i + repeats > num_chars {

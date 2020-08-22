@@ -27,7 +27,7 @@
 )]
 
 use super::dpx_mem::new;
-use super::dpx_numbers::tt_get_unsigned_byte;
+use super::dpx_numbers::GetFromFile;
 use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{
@@ -388,8 +388,8 @@ unsafe fn read_raster_rle8(
         let mut h = 0;
         let mut eol = 0i32;
         while h < width && eol == 0 {
-            let b0 = tt_get_unsigned_byte(handle);
-            let b1 = tt_get_unsigned_byte(handle);
+            let b0 = u8::get(handle);
+            let b1 = u8::get(handle);
             count += 2;
             let p = data_ptr.offset((v * rowbytes) as isize).offset(h as isize);
             if b0 as i32 == 0i32 {
@@ -403,8 +403,8 @@ unsafe fn read_raster_rle8(
                         eoi = 1i32
                     }
                     2 => {
-                        h += tt_get_unsigned_byte(handle) as i32;
-                        v += tt_get_unsigned_byte(handle) as i32;
+                        h += u8::get(handle) as i32;
+                        v += u8::get(handle) as i32;
                         count += 2
                     }
                     _ => {
@@ -420,7 +420,7 @@ unsafe fn read_raster_rle8(
                         }
                         count += u32::from(b1);
                         if b1 as i32 % 2i32 != 0 {
-                            tt_get_unsigned_byte(handle);
+                            u8::get(handle);
                             count += 1
                         }
                     }
@@ -436,8 +436,8 @@ unsafe fn read_raster_rle8(
         }
         /* next row ... */
         if eol == 0 && eoi == 0 {
-            let b0 = tt_get_unsigned_byte(handle);
-            let b1 = tt_get_unsigned_byte(handle);
+            let b0 = u8::get(handle);
+            let b1 = u8::get(handle);
             if b0 as i32 != 0i32 {
                 warn!("RLE decode failed...");
                 return Err(());
@@ -473,8 +473,8 @@ unsafe fn read_raster_rle4(
         let mut h = 0i32;
         let mut eol = 0i32;
         while h < width && eol == 0 {
-            let mut b0 = tt_get_unsigned_byte(handle);
-            let mut b1 = tt_get_unsigned_byte(handle);
+            let mut b0 = u8::get(handle);
+            let mut b1 = u8::get(handle);
             count += 2;
             let mut p = data_ptr
                 .offset((v * rowbytes) as isize)
@@ -491,8 +491,8 @@ unsafe fn read_raster_rle4(
                         eoi = 1i32
                     }
                     2 => {
-                        h += tt_get_unsigned_byte(handle) as i32;
-                        v += tt_get_unsigned_byte(handle) as i32;
+                        h += u8::get(handle) as i32;
+                        v += u8::get(handle) as i32;
                         count += 2
                     }
                     _ => {
@@ -504,7 +504,7 @@ unsafe fn read_raster_rle4(
                         if h % 2i32 != 0 {
                             /* starting at hi-nib */
                             for _ in 0..nbytes {
-                                let b = tt_get_unsigned_byte(handle);
+                                let b = u8::get(handle);
                                 let fresh0 = p;
                                 p = p.offset(1);
                                 *fresh0 = (*fresh0 as i32 | b as i32 >> 4i32 & 0xfi32) as u8;
@@ -518,7 +518,7 @@ unsafe fn read_raster_rle4(
                         h += b1 as i32;
                         count += nbytes;
                         if nbytes % 2 != 0 {
-                            tt_get_unsigned_byte(handle);
+                            u8::get(handle);
                             count += 1
                         }
                     }
@@ -547,8 +547,8 @@ unsafe fn read_raster_rle4(
         }
         /* next row ... */
         if eol == 0 && eoi == 0 {
-            let b0 = tt_get_unsigned_byte(handle);
-            let b1 = tt_get_unsigned_byte(handle);
+            let b0 = u8::get(handle);
+            let b1 = u8::get(handle);
             if b0 as i32 != 0i32 {
                 warn!("No EOL/EOI marker. RLE decode failed...");
                 return Err(());

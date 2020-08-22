@@ -27,7 +27,7 @@
 )]
 
 use super::dpx_numbers::{
-    tt_get_positive_quad, tt_get_unsigned_byte, tt_get_unsigned_num, tt_get_unsigned_quad,
+    tt_get_positive_quad, GetFromFile, tt_get_unsigned_num, tt_get_unsigned_quad,
 };
 use crate::bridge::DisplayExt;
 use crate::warn;
@@ -91,13 +91,13 @@ static mut vf_fonts: Vec<vf> = Vec::new();
 pub(crate) unsafe fn vf_reset_global_state() {
     vf_fonts = Vec::new();
 }
-unsafe fn read_header(vf_handle: &InputHandleWrapper, thisfont: i32) {
-    if tt_get_unsigned_byte(vf_handle) != PRE || tt_get_unsigned_byte(vf_handle) != VF_ID {
+unsafe fn read_header(mut vf_handle: &InputHandleWrapper, thisfont: i32) {
+    if u8::get(&mut vf_handle) != PRE || u8::get(&mut vf_handle) != VF_ID {
         eprintln!("VF file may be corrupt");
         return;
     }
     /* skip comment */
-    tt_skip_bytes(tt_get_unsigned_byte(vf_handle) as u32, vf_handle);
+    tt_skip_bytes(u8::get(&mut vf_handle) as u32, vf_handle);
     /* Skip checksum */
     tt_skip_bytes(4_u32, vf_handle);
     vf_fonts[thisfont as usize].design_size = tt_get_positive_quad(vf_handle, "VF", "design_size");
@@ -122,12 +122,12 @@ unsafe fn read_a_char_def(vf_handle: &InputHandleWrapper, thisfont: i32, pkt_len
         vf_fonts[thisfont as usize].ch_pkt[ch as usize] = pkt;
     }
 }
-unsafe fn read_a_font_def(vf_handle: &InputHandleWrapper, font_id: i32, thisfont: i32) {
+unsafe fn read_a_font_def(mut vf_handle: &InputHandleWrapper, font_id: i32, thisfont: i32) {
     let checksum = tt_get_unsigned_quad(vf_handle);
     let size = tt_get_positive_quad(vf_handle, "VF", "font_size");
     let design_size = tt_get_positive_quad(vf_handle, "VF", "font_design_size");
-    let dir_length = tt_get_unsigned_byte(vf_handle) as usize;
-    let name_length = tt_get_unsigned_byte(vf_handle) as usize;
+    let dir_length = u8::get(&mut vf_handle) as usize;
+    let name_length = u8::get(&mut vf_handle) as usize;
 
     let mut directory = vec![0; dir_length];
     if (&*vf_handle).read_exact(&mut directory).is_err() {
@@ -158,9 +158,9 @@ unsafe fn read_a_font_def(vf_handle: &InputHandleWrapper, font_id: i32, thisfont
         sqxfw(vf_fonts[thisfont as usize].ptsize, dev_font.size as fixword),
     ) as i32;
 }
-unsafe fn process_vf_file(vf_handle: &InputHandleWrapper, thisfont: i32) {
+unsafe fn process_vf_file(mut vf_handle: &InputHandleWrapper, thisfont: i32) {
     loop {
-        let code = tt_get_unsigned_byte(vf_handle);
+        let code = u8::get(&mut vf_handle);
         match code {
             FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
                 let font_id = tt_get_unsigned_num(vf_handle, code - FNT_DEF1);
@@ -185,7 +185,7 @@ unsafe fn process_vf_file(vf_handle: &InputHandleWrapper, thisfont: i32) {
             }
             _ if code < XXX4 => {
                 /* For a short packet, code is the pkt_len */
-                let ch = tt_get_unsigned_byte(vf_handle) as u32;
+                let ch = u8::get(&mut vf_handle) as u32;
                 /* Skip over TFM width since we already know it */
                 tt_skip_bytes(3, vf_handle);
                 read_a_char_def(vf_handle, thisfont, code as u32, ch);

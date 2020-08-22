@@ -31,7 +31,7 @@ use crate::warn;
 
 use super::dpx_cff_dict::{cff_dict_get, cff_dict_known, cff_dict_unpack, cff_release_dict};
 use super::dpx_mem::{new, renew};
-use super::dpx_numbers::{tt_get_unsigned_byte, tt_get_unsigned_pair};
+use super::dpx_numbers::GetFromFile;
 use crate::bridge::ttstub_input_read;
 use libc::{free, memcmp, memcpy, memmove, memset, strlen};
 
@@ -704,7 +704,7 @@ unsafe fn get_unsigned(handle: &mut InputHandleWrapper, mut n: i32) -> u32 {
         }
         v = v
             .wrapping_mul(0x100u32)
-            .wrapping_add(tt_get_unsigned_byte(handle) as u32)
+            .wrapping_add(u8::get(handle) as u32)
     }
     v
 }
@@ -741,10 +741,10 @@ pub(crate) unsafe fn cff_open<'a>(
     (*cff)._string = ptr::null_mut();
     let handle = &mut (*cff).handle.as_mut().unwrap();
     handle.seek(SeekFrom::Start((*cff).offset as u64)).unwrap();
-    (*cff).header.major = tt_get_unsigned_byte(handle);
-    (*cff).header.minor = tt_get_unsigned_byte(handle);
-    (*cff).header.hdr_size = tt_get_unsigned_byte(handle);
-    (*cff).header.offsize = tt_get_unsigned_byte(handle);
+    (*cff).header.major = u8::get(handle);
+    (*cff).header.minor = u8::get(handle);
+    (*cff).header.hdr_size = u8::get(handle);
+    (*cff).header.offsize = u8::get(handle);
     if ((*cff).header.offsize as i32) < 1i32 || (*cff).header.offsize as i32 > 4i32 {
         panic!("invalid offsize data");
     }
@@ -825,7 +825,7 @@ pub(crate) unsafe fn cff_open<'a>(
     handle
         .seek(SeekFrom::Start((*cff).offset as u64 + offset as u64))
         .unwrap();
-    (*cff).num_glyphs = tt_get_unsigned_pair(handle);
+    (*cff).num_glyphs = u16::get(handle);
     /* Check for font type */
     if cff_dict_known((*cff).topdict, b"ROS\x00" as *const u8 as *const i8) {
         (*cff).flag |= 1i32 << 0i32
@@ -994,10 +994,10 @@ pub(crate) unsafe fn cff_get_index_header(cff: &mut cff_font) -> *mut cff_index 
     let idx = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_index>() as u64) as u32)
         as *mut cff_index;
     let handle = cff.handle.as_mut().unwrap();
-    let count = tt_get_unsigned_pair(handle);
+    let count = u16::get(handle);
     (*idx).count = count;
     if count as i32 > 0i32 {
-        (*idx).offsize = tt_get_unsigned_byte(handle);
+        (*idx).offsize = u8::get(handle);
         if ((*idx).offsize as i32) < 1i32 || (*idx).offsize as i32 > 4i32 {
             panic!("invalid offsize data");
         }
@@ -1031,10 +1031,10 @@ pub(crate) unsafe fn cff_get_index(cff: &mut cff_font) -> *mut cff_index {
     let idx = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_index>() as u64) as u32)
         as *mut cff_index;
     let handle = cff.handle.as_mut().unwrap();
-    let count = tt_get_unsigned_pair(handle);
+    let count = u16::get(handle);
     (*idx).count = count;
     if count as i32 > 0i32 {
-        (*idx).offsize = tt_get_unsigned_byte(handle);
+        (*idx).offsize = u8::get(handle);
         if ((*idx).offsize as i32) < 1i32 || (*idx).offsize as i32 > 4i32 {
             panic!("invalid offsize data");
         }
@@ -1410,28 +1410,28 @@ pub(crate) unsafe fn cff_read_encoding(cff: &mut cff_font) -> i32 {
     let encoding = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_encoding>() as u64) as u32)
         as *mut cff_encoding;
     cff.encoding = encoding;
-    (*encoding).format = tt_get_unsigned_byte(handle);
+    (*encoding).format = u8::get(handle);
     let mut length = 1;
     match (*encoding).format as i32 & !0x80i32 {
         0 => {
-            (*encoding).num_entries = tt_get_unsigned_byte(handle);
+            (*encoding).num_entries = u8::get(handle);
             (*encoding).data.codes = new(((*encoding).num_entries as u32 as u64)
                 .wrapping_mul(::std::mem::size_of::<u8>() as u64)
                 as u32) as *mut u8;
             for i in 0..(*encoding).num_entries {
-                *(*encoding).data.codes.offset(i as isize) = tt_get_unsigned_byte(handle);
+                *(*encoding).data.codes.offset(i as isize) = u8::get(handle);
             }
             length += (*encoding).num_entries as i32 + 1i32
         }
         1 => {
-            (*encoding).num_entries = tt_get_unsigned_byte(handle);
+            (*encoding).num_entries = u8::get(handle);
             let ranges = new(((*encoding).num_entries as u32 as u64)
                 .wrapping_mul(::std::mem::size_of::<cff_range1>() as u64)
                 as u32) as *mut cff_range1;
             (*encoding).data.range1 = ranges;
             for i in 0..(*encoding).num_entries {
-                (*ranges.offset(i as isize)).first = tt_get_unsigned_byte(handle) as s_SID;
-                (*ranges.offset(i as isize)).n_left = tt_get_unsigned_byte(handle);
+                (*ranges.offset(i as isize)).first = u8::get(handle) as s_SID;
+                (*ranges.offset(i as isize)).n_left = u8::get(handle);
             }
             length += (*encoding).num_entries as i32 * 2i32 + 1i32
         }
@@ -1442,14 +1442,14 @@ pub(crate) unsafe fn cff_read_encoding(cff: &mut cff_font) -> i32 {
     }
     /* Supplementary data */
     if (*encoding).format as i32 & 0x80i32 != 0 {
-        (*encoding).num_supps = tt_get_unsigned_byte(handle);
+        (*encoding).num_supps = u8::get(handle);
         let map = new(((*encoding).num_supps as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<cff_map>() as u64) as u32)
             as *mut cff_map;
         (*encoding).supp = map;
         for i in 0..(*encoding).num_supps {
-            (*map.offset(i as isize)).code = tt_get_unsigned_byte(handle);
-            (*map.offset(i as isize)).glyph = tt_get_unsigned_pair(handle);
+            (*map.offset(i as isize)).code = u8::get(handle);
+            (*map.offset(i as isize)).glyph = u16::get(handle);
             /* SID */
         }
         length += (*encoding).num_supps as i32 * 3i32 + 1i32
@@ -1621,7 +1621,7 @@ pub(crate) unsafe fn cff_read_charsets(cff: &mut cff_font) -> i32 {
     let charset = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_charsets>() as u64) as u32)
         as *mut cff_charsets;
     cff.charsets = charset;
-    (*charset).format = tt_get_unsigned_byte(handle);
+    (*charset).format = u8::get(handle);
     (*charset).num_entries = 0i32 as u16;
     let mut count = (cff.num_glyphs as i32 - 1i32) as u16;
     let mut length = 1;
@@ -1634,7 +1634,7 @@ pub(crate) unsafe fn cff_read_charsets(cff: &mut cff_font) -> i32 {
                 as u32) as *mut s_SID; /* no-overrap */
             length += (*charset).num_entries as i32 * 2i32; /* non-overrapping */
             for i in 0..(*charset).num_entries {
-                *(*charset).data.glyphs.offset(i as isize) = tt_get_unsigned_pair(handle);
+                *(*charset).data.glyphs.offset(i as isize) = u16::get(handle);
             }
             count = 0i32 as u16
         }
@@ -1648,9 +1648,9 @@ pub(crate) unsafe fn cff_read_charsets(cff: &mut cff_font) -> i32 {
                         as u32,
                 ) as *mut cff_range1;
                 (*ranges.offset((*charset).num_entries as isize)).first =
-                    tt_get_unsigned_pair(handle);
+                    u16::get(handle);
                 (*ranges.offset((*charset).num_entries as isize)).n_left =
-                    tt_get_unsigned_byte(handle);
+                    u8::get(handle);
                 count = (count as i32
                     - ((*ranges.offset((*charset).num_entries as isize)).n_left as i32 + 1i32))
                     as u16;
@@ -1669,9 +1669,9 @@ pub(crate) unsafe fn cff_read_charsets(cff: &mut cff_font) -> i32 {
                         as u32,
                 ) as *mut cff_range2;
                 (*ranges_0.offset((*charset).num_entries as isize)).first =
-                    tt_get_unsigned_pair(handle);
+                    u16::get(handle);
                 (*ranges_0.offset((*charset).num_entries as isize)).n_left =
-                    tt_get_unsigned_pair(handle);
+                    u16::get(handle);
                 count = (count as i32
                     - ((*ranges_0.offset((*charset).num_entries as isize)).n_left as i32 + 1i32))
                     as u16;
@@ -1988,7 +1988,7 @@ pub(crate) unsafe fn cff_read_fdselect(cff: &mut cff_font) -> i32 {
     let fdsel = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_fdselect>() as u64) as u32)
         as *mut cff_fdselect;
     cff.fdselect = fdsel;
-    (*fdsel).format = tt_get_unsigned_byte(handle);
+    (*fdsel).format = u8::get(handle);
     let mut length = 1;
     match (*fdsel).format as i32 {
         0 => {
@@ -1997,24 +1997,24 @@ pub(crate) unsafe fn cff_read_fdselect(cff: &mut cff_font) -> i32 {
                 .wrapping_mul(::std::mem::size_of::<u8>() as u64)
                 as u32) as *mut u8;
             for i in 0..(*fdsel).num_entries as i32 {
-                *(*fdsel).data.fds.offset(i as isize) = tt_get_unsigned_byte(handle);
+                *(*fdsel).data.fds.offset(i as isize) = u8::get(handle);
             }
             length += (*fdsel).num_entries as i32
         }
         3 => {
-            (*fdsel).num_entries = tt_get_unsigned_pair(handle);
+            (*fdsel).num_entries = u16::get(handle);
             let ranges = new(((*fdsel).num_entries as u32 as u64)
                 .wrapping_mul(::std::mem::size_of::<cff_range3>() as u64)
                 as u32) as *mut cff_range3;
             (*fdsel).data.ranges = ranges;
             for i in 0..(*fdsel).num_entries as i32 {
-                (*ranges.offset(i as isize)).first = tt_get_unsigned_pair(handle);
-                (*ranges.offset(i as isize)).fd = tt_get_unsigned_byte(handle);
+                (*ranges.offset(i as isize)).first = u16::get(handle);
+                (*ranges.offset(i as isize)).fd = u8::get(handle);
             }
             if (*ranges.offset(0)).first as i32 != 0i32 {
                 panic!("Range not starting with 0.");
             }
-            if cff.num_glyphs as i32 != tt_get_unsigned_pair(handle) as i32 {
+            if cff.num_glyphs as i32 != u16::get(handle) as i32 {
                 panic!("Sentinel value mismatched with number of glyphs.");
             }
             length += (*fdsel).num_entries as i32 * 3 + 4
