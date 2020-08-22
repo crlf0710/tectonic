@@ -38,7 +38,7 @@ use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_mem::{new, renew};
-use super::dpx_numbers::tt_skip_bytes;
+use super::dpx_numbers::skip_bytes;
 use crate::bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open};
 use libc::{free, strcat, strcmp, strcpy, strlen, strrchr};
 
@@ -470,7 +470,7 @@ unsafe fn ofm_do_char_info_zero(mut ofm_handle: &InputHandleWrapper, mut tfm: *m
             *(*tfm).height_index.offset(i as isize) = u8::get(&mut ofm_handle);
             *(*tfm).depth_index.offset(i as isize) = u8::get(&mut ofm_handle);
             /* Ignore remaining quad */
-            tt_skip_bytes(4_u32, ofm_handle);
+            skip_bytes(4_u32, &mut ofm_handle);
         }
     };
 }
@@ -496,7 +496,7 @@ unsafe fn ofm_do_char_info_one(mut ofm_handle: &InputHandleWrapper, mut tfm: *mu
             *(*tfm).height_index.offset(i as isize) = u8::get(&mut ofm_handle);
             *(*tfm).depth_index.offset(i as isize) = u8::get(&mut ofm_handle);
             /* Ignore next quad */
-            tt_skip_bytes(4_u32, ofm_handle);
+            skip_bytes(4_u32, &mut ofm_handle);
             let repeats = u16::get(&mut ofm_handle) as u32;
             /* Skip params */
             for _ in 0..(*tfm).npc {

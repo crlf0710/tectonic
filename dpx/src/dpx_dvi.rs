@@ -53,7 +53,7 @@ use super::dpx_fontmap::{pdf_insert_native_fontmap_record, pdf_lookup_fontmap_re
 use super::dpx_mem::new;
 use super::dpx_numbers::{
     sqxfw, tt_get_positive_quad, tt_get_signed_quad, GetFromFile, tt_get_unsigned_num,
-    tt_get_unsigned_quad, tt_skip_bytes,
+    tt_get_unsigned_quad, skip_bytes,
 };
 use super::dpx_pdfcolor::{pdf_color_pop, pdf_color_push, PdfColor};
 use super::dpx_pdfdev::{
@@ -1428,10 +1428,10 @@ pub(crate) unsafe fn dvi_z0() {
 }
 unsafe fn skip_fntdef() {
     let handle = dvi_handle.as_mut().unwrap();
-    tt_skip_bytes(12_u32, handle);
+    skip_bytes(12_u32, handle);
     let area_len = u8::get(handle) as i32;
     let name_len = u8::get(handle) as i32;
-    tt_skip_bytes((area_len + name_len) as u32, handle);
+    skip_bytes((area_len + name_len) as u32, handle);
 }
 /* when pre-scanning the page, we process fntdef
 and remove the fntdef opcode from the buffer */
@@ -1559,21 +1559,21 @@ unsafe fn dvi_end_reflect() {
 }
 unsafe fn skip_native_font_def() {
     let handle = dvi_handle.as_mut().unwrap();
-    tt_skip_bytes(4, handle);
+    skip_bytes(4, handle);
     let flags = u16::get(handle) as u32;
     let name_length = u8::get(handle) as i32;
-    tt_skip_bytes((name_length + 4) as u32, handle);
+    skip_bytes((name_length + 4) as u32, handle);
     if flags & 0x200_u32 != 0 {
-        tt_skip_bytes(4, handle);
+        skip_bytes(4, handle);
     }
     if flags & 0x1000_u32 != 0 {
-        tt_skip_bytes(4, handle);
+        skip_bytes(4, handle);
     }
     if flags & 0x2000_u32 != 0 {
-        tt_skip_bytes(4, handle);
+        skip_bytes(4, handle);
     }
     if flags & 0x4000_u32 != 0 {
-        tt_skip_bytes(4, handle);
+        skip_bytes(4, handle);
     };
 }
 unsafe fn do_native_font_def(tex_id: i32) {
@@ -1723,7 +1723,7 @@ unsafe fn do_glyphs(do_actual_text: i32) {
 }
 unsafe fn check_postamble() {
     let handle = dvi_handle.as_mut().unwrap();
-    tt_skip_bytes(28, handle);
+    skip_bytes(28, handle);
     loop {
         let code = u8::get(handle) as u8;
         if code == POST_POST {
@@ -1731,11 +1731,11 @@ unsafe fn check_postamble() {
         }
         match code {
             FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
-                tt_skip_bytes((code + 1 - FNT_DEF1) as u32, handle);
+                skip_bytes((code + 1 - FNT_DEF1) as u32, handle);
                 skip_fntdef();
             }
             XDV_NATIVE_FONT_DEF => {
-                tt_skip_bytes(4, handle);
+                skip_bytes(4, handle);
                 skip_native_font_def();
             }
             _ => {
@@ -1743,7 +1743,7 @@ unsafe fn check_postamble() {
             }
         }
     }
-    tt_skip_bytes(4, handle);
+    skip_bytes(4, handle);
     post_id_byte = u8::get(handle) as i32;
     let post_id_byte_0 = post_id_byte as u8;
     if !(post_id_byte_0 == DVI_ID

@@ -40,7 +40,7 @@ use super::dpx_dvi::{
     dvi_x0, dvi_y, dvi_y0, dvi_z, dvi_z0,
 };
 use super::dpx_dvicodes::*;
-use super::dpx_numbers::{sqxfw, tt_skip_bytes};
+use super::dpx_numbers::{sqxfw, skip_bytes};
 use super::dpx_tfm::tfm_open;
 use crate::bridge::{ttstub_input_close, ttstub_input_open};
 
@@ -97,9 +97,9 @@ unsafe fn read_header(mut vf_handle: &InputHandleWrapper, thisfont: i32) {
         return;
     }
     /* skip comment */
-    tt_skip_bytes(u8::get(&mut vf_handle) as u32, vf_handle);
+    skip_bytes(u8::get(&mut vf_handle) as u32, &mut vf_handle);
     /* Skip checksum */
-    tt_skip_bytes(4_u32, vf_handle);
+    skip_bytes(4_u32, &mut vf_handle);
     vf_fonts[thisfont as usize].design_size = tt_get_positive_quad(vf_handle, "VF", "design_size");
 }
 unsafe fn resize_one_vf_font(a_vf: &mut vf, mut size: usize) {
@@ -170,7 +170,7 @@ unsafe fn process_vf_file(mut vf_handle: &InputHandleWrapper, thisfont: i32) {
                 let pkt_len: u32 = tt_get_positive_quad(vf_handle, "VF", "pkt_len");
                 let ch: u32 = tt_get_unsigned_quad(vf_handle);
                 /* Skip over TFM width since we already know it */
-                tt_skip_bytes(4, vf_handle);
+                skip_bytes(4, &mut vf_handle);
                 if ch < 0x1000000 {
                     read_a_char_def(vf_handle, thisfont, pkt_len, ch);
                 } else {
@@ -187,7 +187,7 @@ unsafe fn process_vf_file(mut vf_handle: &InputHandleWrapper, thisfont: i32) {
                 /* For a short packet, code is the pkt_len */
                 let ch = u8::get(&mut vf_handle) as u32;
                 /* Skip over TFM width since we already know it */
-                tt_skip_bytes(3, vf_handle);
+                skip_bytes(3, &mut vf_handle);
                 read_a_char_def(vf_handle, thisfont, code as u32, ch);
             }
             _ => {

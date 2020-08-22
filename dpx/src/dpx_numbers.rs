@@ -23,7 +23,6 @@
     non_camel_case_types,
 )]
 
-use crate::bridge::ttstub_input_getc;
 use crate::bridge::InputHandleWrapper;
 use std::io::Read;
 pub(crate) type fixword = i32;
@@ -111,11 +110,9 @@ pub(crate) fn get_unsigned_triple<R>(file: &mut R) -> u32
 where
     R: Read,
 {
-    let mut triple: u32 = 0_u32;
-    for _ in 0..3 {
-        triple = triple << 8 | u8::get(file) as u32;
-    }
-    triple
+    let mut buf = [0u8; 4];
+    file.read(&mut buf[1..]).expect("File ended prematurely");
+    u32::from_be_bytes(buf)
 }
 
 pub(crate) fn get_signed_triple<R>(file: &mut R) -> i32
@@ -206,65 +203,53 @@ pub(crate) fn sqxfw(mut sq: i32, mut fw: fixword) -> i32 {
 }
 /* Tectonic-ified versions */
 
-pub(crate) fn tt_skip_bytes(n: u32, handle: &InputHandleWrapper) {
-    for _ in 0..n {
-        tt_get_unsigned_byte(handle);
-    }
-}
-
-pub(crate) fn tt_get_unsigned_byte(handle: &InputHandleWrapper) -> u8 {
-    let ch = ttstub_input_getc(handle);
-    assert!(ch >= 0, "File ended prematurely\n");
-    ch as u8
-}
-
-pub(crate) fn tt_get_signed_byte(handle: &InputHandleWrapper) -> i8 {
-    let mut byte = tt_get_unsigned_byte(handle) as i32;
+pub(crate) fn tt_get_signed_byte(mut handle: &InputHandleWrapper) -> i8 {
+    let mut byte = u8::get(&mut handle) as i32;
     if byte >= 0x80 {
         byte -= 0x100
     }
     byte as i8
 }
 
-pub(crate) fn tt_get_signed_pair(handle: &InputHandleWrapper) -> i16 {
+pub(crate) fn tt_get_signed_pair(mut handle: &InputHandleWrapper) -> i16 {
     let mut pair: i16 = tt_get_signed_byte(handle) as i16;
-    pair = ((pair as i32) << 8 | tt_get_unsigned_byte(handle) as i32) as i16;
+    pair = ((pair as i32) << 8 | u8::get(&mut handle) as i32) as i16;
     pair
 }
 
-pub(crate) fn tt_get_unsigned_quad(handle: &InputHandleWrapper) -> u32 {
+pub(crate) fn tt_get_unsigned_quad(mut handle: &InputHandleWrapper) -> u32 {
     let mut quad = 0_u32;
     for _ in 0..4 {
-        quad = quad << 8 | tt_get_unsigned_byte(handle) as u32;
+        quad = quad << 8 | u8::get(&mut handle) as u32;
     }
     quad
 }
 
-pub(crate) fn tt_get_signed_quad(handle: &InputHandleWrapper) -> i32 {
+pub(crate) fn tt_get_signed_quad(mut handle: &InputHandleWrapper) -> i32 {
     let mut quad: i32 = tt_get_signed_byte(handle) as i32;
     for _ in 0..3 {
-        quad = quad << 8i32 | tt_get_unsigned_byte(handle) as i32;
+        quad = quad << 8i32 | u8::get(&mut handle) as i32;
     }
     quad
 }
 
-pub(crate) fn tt_get_unsigned_num(handle: &InputHandleWrapper, num: u8) -> u32 {
-    let mut val: u32 = tt_get_unsigned_byte(handle) as u32;
+pub(crate) fn tt_get_unsigned_num(mut handle: &InputHandleWrapper, num: u8) -> u32 {
+    let mut val: u32 = u8::get(&mut handle) as u32;
     match num {
         3 => {
             if val > 0x7f_u32 {
                 val = val.wrapping_sub(0x100_u32);
             }
-            val = (val << 8) | tt_get_unsigned_byte(handle) as u32;
-            val = (val << 8) | tt_get_unsigned_byte(handle) as u32;
-            val = (val << 8) | tt_get_unsigned_byte(handle) as u32;
+            val = (val << 8) | u8::get(&mut handle) as u32;
+            val = (val << 8) | u8::get(&mut handle) as u32;
+            val = (val << 8) | u8::get(&mut handle) as u32;
         }
         2 => {
-            val = (val << 8) | tt_get_unsigned_byte(handle) as u32;
-            val = (val << 8) | tt_get_unsigned_byte(handle) as u32;
+            val = (val << 8) | u8::get(&mut handle) as u32;
+            val = (val << 8) | u8::get(&mut handle) as u32;
         }
         1 => {
-            val = (val << 8) | tt_get_unsigned_byte(handle) as u32;
+            val = (val << 8) | u8::get(&mut handle) as u32;
         }
         _ => {}
     }

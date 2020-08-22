@@ -86,7 +86,12 @@ impl InputHandleWrapper {
 impl Read for InputHandleWrapper {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         unsafe {
-            Ok(ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len()) as usize)
+            let res = ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len());
+            if res < 0 {
+                Err(std::io::ErrorKind::UnexpectedEof.into())
+            } else {
+                Ok(res as usize)
+            }
         }
     }
 }
@@ -94,7 +99,12 @@ impl Read for InputHandleWrapper {
 impl Read for &InputHandleWrapper {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         unsafe {
-            Ok(ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len()) as usize)
+            let res = ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len());
+            if res < 0 {
+                Err(std::io::ErrorKind::UnexpectedEof.into())
+            } else {
+                Ok(res as usize)
+            }
         }
     }
 }
