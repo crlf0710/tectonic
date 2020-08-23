@@ -42,8 +42,8 @@ use super::dpx_pdfdev::pdf_sprint_number;
 use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encrypt_data};
 use super::dpx_pdfparse::skip_white;
 use crate::bridge::{
-    ttstub_input_get_size, ttstub_input_getc, ttstub_output_close,
-    ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
+    ttstub_input_get_size, ttstub_input_getc, ttstub_output_close, ttstub_output_open,
+    ttstub_output_open_stdout, ttstub_output_putc,
 };
 use libc::{free, memset, strlen, strtoul};
 
@@ -2788,7 +2788,10 @@ enum MfReadErr {
     Eof,
     NotEnoughSpace,
 }
-unsafe fn tt_mfreadln(size: usize, mut handle: &mut InputHandleWrapper) -> Result<Vec<u8>, MfReadErr> {
+unsafe fn tt_mfreadln(
+    size: usize,
+    mut handle: &mut InputHandleWrapper,
+) -> Result<Vec<u8>, MfReadErr> {
     let mut c;
     let mut buf = Vec::with_capacity(size + 1);
     loop {
