@@ -26,9 +26,7 @@
     non_upper_case_globals,
 )]
 
-use super::dpx_numbers::{
-    tt_get_signed_pair, GetFromFile, tt_get_unsigned_quad,
-};
+use super::dpx_numbers::GetFromFile;
 use super::dpx_sfnt::sfnt_locate_table;
 use crate::streq_ptr;
 use crate::warn;
@@ -160,15 +158,15 @@ pub(crate) unsafe fn tt_read_post_table(sfont: *mut sfnt) -> *mut tt_post_table 
     let mut post = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_post_table>() as u64) as u32)
         as *mut tt_post_table; /* Fixed */
     let handle = &mut (*sfont).handle;
-    (*post).Version = tt_get_unsigned_quad(handle); /* FWord */
-    (*post).italicAngle = tt_get_unsigned_quad(handle); /* FWord */
-    (*post).underlinePosition = tt_get_signed_pair(handle); /* wrong */
-    (*post).underlineThickness = tt_get_signed_pair(handle);
-    (*post).isFixedPitch = tt_get_unsigned_quad(handle);
-    (*post).minMemType42 = tt_get_unsigned_quad(handle);
-    (*post).maxMemType42 = tt_get_unsigned_quad(handle);
-    (*post).minMemType1 = tt_get_unsigned_quad(handle);
-    (*post).maxMemType1 = tt_get_unsigned_quad(handle);
+    (*post).Version = u32::get(handle); /* FWord */
+    (*post).italicAngle = u32::get(handle); /* FWord */
+    (*post).underlinePosition = i16::get(handle); /* wrong */
+    (*post).underlineThickness = i16::get(handle);
+    (*post).isFixedPitch = u32::get(handle);
+    (*post).minMemType42 = u32::get(handle);
+    (*post).maxMemType42 = u32::get(handle);
+    (*post).minMemType1 = u32::get(handle);
+    (*post).maxMemType1 = u32::get(handle);
     (*post).numberOfGlyphs = 0_u16;
     (*post).glyphNamePtr = 0 as *mut *const i8;
     (*post).count = 0_u16;

@@ -23,7 +23,6 @@
     non_camel_case_types,
 )]
 
-use crate::bridge::InputHandleWrapper;
 use std::io::Read;
 pub(crate) type fixword = i32;
 
@@ -106,30 +105,13 @@ impl GetFromFile for u32 {
     }
 }
 
-pub(crate) fn get_unsigned_triple<R>(file: &mut R) -> u32
-where
-    R: Read,
-{
+pub(crate) fn get_unsigned_triple<R: Read>(file: &mut R) -> u32 {
     let mut buf = [0u8; 4];
     file.read(&mut buf[1..]).expect("File ended prematurely");
     u32::from_be_bytes(buf)
 }
 
-pub(crate) fn get_signed_triple<R>(file: &mut R) -> i32
-where
-    R: Read,
-{
-    let mut triple: i32 = i8::get(file) as i32;
-    for _ in 0..2 {
-        triple = triple << 8 | u8::get(file) as i32;
-    }
-    triple
-}
-
-pub(crate) fn get_unsigned_num<R>(file: &mut R, num: u8) -> u32
-where
-    R: Read,
-{
+pub(crate) fn get_unsigned_num<R: Read>(file: &mut R, num: u8) -> u32 {
     let mut val = u8::get(file) as u32;
     match num {
         3 => {
@@ -151,12 +133,9 @@ where
     }
     val
 }
-/* Compute a signed quad that must be positive */
 
-pub(crate) fn get_positive_quad<R>(file: &mut R, type_0: &str, name: &str) -> u32
-where
-    R: Read,
-{
+/// Compute a signed quad that must be positive
+pub(crate) fn get_positive_quad<R: Read>(file: &mut R, type_0: &str, name: &str) -> u32 {
     let val = i32::get(file);
     assert!(val >= 0, "Bad {}: negative {}: {}", type_0, name, val);
     val as u32
@@ -201,60 +180,6 @@ pub(crate) fn sqxfw(mut sq: i32, mut fw: fixword) -> i32 {
         -result
     }
 }
-/* Tectonic-ified versions */
-
-pub(crate) fn tt_get_signed_byte(mut handle: &InputHandleWrapper) -> i8 {
-    let mut byte = u8::get(&mut handle) as i32;
-    if byte >= 0x80 {
-        byte -= 0x100
-    }
-    byte as i8
-}
-
-pub(crate) fn tt_get_signed_pair(mut handle: &InputHandleWrapper) -> i16 {
-    let mut pair: i16 = tt_get_signed_byte(handle) as i16;
-    pair = ((pair as i32) << 8 | u8::get(&mut handle) as i32) as i16;
-    pair
-}
-
-pub(crate) fn tt_get_unsigned_quad(mut handle: &InputHandleWrapper) -> u32 {
-    let mut quad = 0_u32;
-    for _ in 0..4 {
-        quad = quad << 8 | u8::get(&mut handle) as u32;
-    }
-    quad
-}
-
-pub(crate) fn tt_get_signed_quad(mut handle: &InputHandleWrapper) -> i32 {
-    let mut quad: i32 = tt_get_signed_byte(handle) as i32;
-    for _ in 0..3 {
-        quad = quad << 8i32 | u8::get(&mut handle) as i32;
-    }
-    quad
-}
-
-pub(crate) fn tt_get_unsigned_num(mut handle: &InputHandleWrapper, num: u8) -> u32 {
-    let mut val: u32 = u8::get(&mut handle) as u32;
-    match num {
-        3 => {
-            if val > 0x7f_u32 {
-                val = val.wrapping_sub(0x100_u32);
-            }
-            val = (val << 8) | u8::get(&mut handle) as u32;
-            val = (val << 8) | u8::get(&mut handle) as u32;
-            val = (val << 8) | u8::get(&mut handle) as u32;
-        }
-        2 => {
-            val = (val << 8) | u8::get(&mut handle) as u32;
-            val = (val << 8) | u8::get(&mut handle) as u32;
-        }
-        1 => {
-            val = (val << 8) | u8::get(&mut handle) as u32;
-        }
-        _ => {}
-    }
-    val
-}
 /* When reading numbers from binary files 1, 2, or 3 bytes are
    interpreted as either signed or unsigned.
 
@@ -264,10 +189,3 @@ pub(crate) fn tt_get_unsigned_num(mut handle: &InputHandleWrapper, num: u8) -> u
    Four byte numbers from JPEG2000, OpenType, or TrueType files are
    mostly unsigned (u32) and occasionally signed (i32).
 */
-/* Tectonic enabled */
-
-pub(crate) fn tt_get_positive_quad(handle: &InputHandleWrapper, type_0: &str, name: &str) -> u32 {
-    let val: i32 = tt_get_signed_quad(handle);
-    assert!(val >= 0, "Bad {}: negative {}: {}", type_0, name, val);
-    val as u32
-}

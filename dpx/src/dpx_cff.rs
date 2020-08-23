@@ -1647,10 +1647,8 @@ pub(crate) unsafe fn cff_read_charsets(cff: &mut cff_font) -> i32 {
                         .wrapping_mul(::std::mem::size_of::<cff_range1>() as u64)
                         as u32,
                 ) as *mut cff_range1;
-                (*ranges.offset((*charset).num_entries as isize)).first =
-                    u16::get(handle);
-                (*ranges.offset((*charset).num_entries as isize)).n_left =
-                    u8::get(handle);
+                (*ranges.offset((*charset).num_entries as isize)).first = u16::get(handle);
+                (*ranges.offset((*charset).num_entries as isize)).n_left = u8::get(handle);
                 count = (count as i32
                     - ((*ranges.offset((*charset).num_entries as isize)).n_left as i32 + 1i32))
                     as u16;
@@ -1668,10 +1666,8 @@ pub(crate) unsafe fn cff_read_charsets(cff: &mut cff_font) -> i32 {
                         .wrapping_mul(::std::mem::size_of::<cff_range2>() as u64)
                         as u32,
                 ) as *mut cff_range2;
-                (*ranges_0.offset((*charset).num_entries as isize)).first =
-                    u16::get(handle);
-                (*ranges_0.offset((*charset).num_entries as isize)).n_left =
-                    u16::get(handle);
+                (*ranges_0.offset((*charset).num_entries as isize)).first = u16::get(handle);
+                (*ranges_0.offset((*charset).num_entries as isize)).n_left = u16::get(handle);
                 count = (count as i32
                     - ((*ranges_0.offset((*charset).num_entries as isize)).n_left as i32 + 1i32))
                     as u16;

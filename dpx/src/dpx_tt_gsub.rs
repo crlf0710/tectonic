@@ -30,9 +30,7 @@ use crate::bridge::DisplayExt;
 use std::ffi::{CStr, CString};
 use std::ptr;
 
-use super::dpx_numbers::{GetFromFile,
-    tt_get_signed_byte, tt_get_signed_pair, tt_get_unsigned_quad,
-};
+use super::dpx_numbers::GetFromFile;
 use super::dpx_sfnt::sfnt_find_table_pos;
 use crate::mfree;
 use crate::{info, warn};
@@ -218,7 +216,7 @@ unsafe fn clt_read_record(mut rec: *mut clt_record, sfont: *mut sfnt) -> i32 {
     assert!(!rec.is_null() && !sfont.is_null());
     let handle = &mut (*sfont).handle;
     for i in 0..4 {
-        (*rec).tag[i] = tt_get_signed_byte(handle) as i8;
+        (*rec).tag[i] = i8::get(handle) as i8;
     }
     (*rec).tag[4] = '\u{0}' as i32 as i8;
     (*rec).offset = u16::get(handle);
@@ -420,7 +418,7 @@ unsafe fn otl_gsub_read_single(mut subtab: *mut otl_gsub_subtab, sfont: *mut sfn
                 as *mut otl_gsub_single1;
         (*subtab).table.single1 = data;
         let cov_offset = u16::get(handle);
-        (*data).DeltaGlyphID = tt_get_signed_pair(handle);
+        (*data).DeltaGlyphID = i16::get(handle);
         len += 4;
         handle
             .seek(SeekFrom::Start(offset as u64 + cov_offset as u64))
@@ -681,7 +679,7 @@ unsafe fn otl_gsub_release_alternate(mut subtab: *mut otl_gsub_subtab) {
 unsafe fn otl_gsub_read_header(mut head: *mut otl_gsub_header, sfont: *mut sfnt) -> i32 {
     assert!(!head.is_null() && !sfont.is_null());
     let handle = &mut (*sfont).handle;
-    (*head).version = tt_get_unsigned_quad(handle);
+    (*head).version = u32::get(handle);
     (*head).ScriptList = u16::get(handle);
     (*head).FeatureList = u16::get(handle);
     (*head).LookupList = u16::get(handle);
@@ -1024,10 +1022,8 @@ unsafe fn otl_gsub_read_feat(mut gsub: *mut otl_gsub_tab, sfont: *mut sfnt) -> i
                             7 => {
                                 let SubstFormat = u16::get(&mut (*sfont).handle);
                                 if !(SubstFormat as i32 != 1i32) {
-                                    let ExtensionLookupType =
-                                        u16::get(&mut (*sfont).handle);
-                                    let ExtensionOffset =
-                                        tt_get_unsigned_quad(&mut (*sfont).handle) as u64;
+                                    let ExtensionLookupType = u16::get(&mut (*sfont).handle);
+                                    let ExtensionOffset = u32::get(&mut (*sfont).handle) as u64;
                                     (*sfont)
                                         .handle
                                         .seek(SeekFrom::Start(offset as u64 + ExtensionOffset))

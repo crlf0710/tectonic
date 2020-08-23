@@ -29,7 +29,7 @@
 use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom};
 
-use super::dpx_numbers::{GetFromFile, tt_get_unsigned_quad};
+use super::dpx_numbers::GetFromFile;
 use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use libc::{free, remove};
 
@@ -99,18 +99,18 @@ unsafe fn check_stream_is_type1(handle: &InputHandleWrapper) -> bool {
 }
 unsafe fn check_stream_is_dfont(mut handle: &InputHandleWrapper) -> bool {
     (&*handle).seek(SeekFrom::Start(0)).unwrap();
-    tt_get_unsigned_quad(handle);
-    let pos = tt_get_unsigned_quad(handle) as u64;
+    u32::get(&mut handle);
+    let pos = u32::get(&mut handle) as u64;
     (&*handle).seek(SeekFrom::Start(pos + 0x18)).unwrap();
     let n = u16::get(&mut handle) as u64;
     (&*handle).seek(SeekFrom::Start(pos + n)).unwrap();
     let n = u16::get(&mut handle) as i32;
     for _ in 0..=n {
-        if tt_get_unsigned_quad(handle) as u64 == 0x73666e74 {
+        if u32::get(&mut handle) as u64 == 0x73666e74 {
             /* "sfnt" */
             return true;
         }
-        tt_get_unsigned_quad(handle);
+        u32::get(&mut handle);
     }
     false
 }

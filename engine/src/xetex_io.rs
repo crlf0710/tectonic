@@ -10,7 +10,6 @@
 
 use crate::bridge::{
     ttstub_input_close, ttstub_input_getc, ttstub_input_open, ttstub_input_open_primary,
-    ttstub_input_ungetc,
 };
 use crate::core_memory::{xcalloc, xmalloc};
 use crate::stub_icu as icu;
@@ -636,7 +635,7 @@ pub(crate) unsafe fn get_uni_c(mut f: *mut UFILE) -> i32 {
                             c = ttstub_input_getc(handle);
                             if c < 0x80 || c >= 0xC0 {
                                 if c != -1 {
-                                    ttstub_input_ungetc(handle, c);
+                                    handle.seek(SeekFrom::Current(-1)).unwrap();
                                 }
                                 bad_utf8_warning();
                                 return 0xFFFD; /* return without adjusting by offsetsFromUTF8 */

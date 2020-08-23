@@ -26,7 +26,8 @@
          non_upper_case_globals,
 )]
 
-use crate::bridge::{ttstub_input_getc, ttstub_input_ungetc};
+use std::io::{Seek, SeekFrom};
+use crate::bridge::{ttstub_input_getc};
 
 use std::ptr;
 
@@ -38,7 +39,7 @@ pub(crate) static mut work_buffer_u8: [u8; 1024] = [0; 1024];
 /* Tectonic-enabled versions */
 /* Modified versions of the above functions based on the Tectonic I/O system. */
 
-pub(crate) unsafe fn tt_mfgets(buffer: *mut i8, length: i32, file: &InputHandleWrapper) -> *mut i8 {
+pub(crate) unsafe fn tt_mfgets(buffer: *mut i8, length: i32, mut file: &InputHandleWrapper) -> *mut i8 {
     let mut ch: i32 = 0i32;
     let mut i: i32 = 0i32;
     while i < length - 1i32
@@ -64,7 +65,7 @@ pub(crate) unsafe fn tt_mfgets(buffer: *mut i8, length: i32, file: &InputHandleW
         }
         && ch != '\n' as i32
     {
-        ttstub_input_ungetc(file, ch);
+        (&mut file).seek(SeekFrom::Current(-1)).unwrap();
     }
     buffer
 }

@@ -50,9 +50,7 @@ use super::dpx_cmap::{
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::{dpx_open_dfont_file, dpx_open_opentype_file, dpx_open_truetype_file};
 use super::dpx_mem::new;
-use super::dpx_numbers::{
-    tt_get_signed_pair, GetFromFile, tt_get_unsigned_quad,
-};
+use super::dpx_numbers::GetFromFile;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_aux::ttc_read_offset;
 use super::dpx_tt_gsub::{
@@ -217,7 +215,7 @@ unsafe fn read_cmap2(sfont: *mut sfnt, len: u32) -> *mut cmap2 {
     for i in 0..n as i32 {
         (*(*map).subHeaders.offset(i as isize)).firstCode = u16::get(handle);
         (*(*map).subHeaders.offset(i as isize)).entryCount = u16::get(handle);
-        (*(*map).subHeaders.offset(i as isize)).idDelta = tt_get_signed_pair(handle);
+        (*(*map).subHeaders.offset(i as isize)).idDelta = i16::get(handle);
         (*(*map).subHeaders.offset(i as isize)).idRangeOffset = u16::get(handle);
         /* It makes things easier to let the offset starts from
          * the beginning of glyphIndexArray.
@@ -407,14 +405,14 @@ unsafe fn read_cmap12(sfont: *mut sfnt, len: u32) -> *mut cmap12 {
     let handle = &mut (*sfont).handle;
     let map =
         new((1_u64).wrapping_mul(::std::mem::size_of::<cmap12>() as u64) as u32) as *mut cmap12;
-    (*map).nGroups = tt_get_unsigned_quad(handle);
+    (*map).nGroups = u32::get(handle);
     (*map).groups =
         new(((*map).nGroups as u64).wrapping_mul(::std::mem::size_of::<charGroup>() as u64) as u32)
             as *mut charGroup;
     for i in 0..(*map).nGroups {
-        (*(*map).groups.offset(i as isize)).startCharCode = tt_get_unsigned_quad(handle);
-        (*(*map).groups.offset(i as isize)).endCharCode = tt_get_unsigned_quad(handle);
-        (*(*map).groups.offset(i as isize)).startGlyphID = tt_get_unsigned_quad(handle);
+        (*(*map).groups.offset(i as isize)).startCharCode = u32::get(handle);
+        (*(*map).groups.offset(i as isize)).endCharCode = u32::get(handle);
+        (*(*map).groups.offset(i as isize)).startGlyphID = u32::get(handle);
     }
     map
 }
@@ -458,10 +456,10 @@ pub(crate) unsafe fn tt_cmap_read(sfont: *mut sfnt, platform: u16, encoding: u16
         let p_id = u16::get(handle);
         let e_id = u16::get(handle);
         if p_id as i32 != platform as i32 || e_id as i32 != encoding as i32 {
-            tt_get_unsigned_quad(handle);
+            u32::get(handle);
             i += 1;
         } else {
-            offset = (offset as u32).wrapping_add(tt_get_unsigned_quad(handle)) as u32 as u32;
+            offset = (offset as u32).wrapping_add(u32::get(handle)) as u32 as u32;
             break;
         }
     }
@@ -488,8 +486,8 @@ pub(crate) unsafe fn tt_cmap_read(sfont: *mut sfnt, platform: u16, encoding: u16
         tt_cmap_release(cmap);
         return ptr::null_mut();
     } else {
-        length = tt_get_unsigned_quad(handle);
-        (*cmap).language = tt_get_unsigned_quad(handle)
+        length = u32::get(handle);
+        (*cmap).language = u32::get(handle)
     }
     match (*cmap).format as i32 {
         0 => (*cmap).map = read_cmap0(sfont, length) as *mut libc::c_void,

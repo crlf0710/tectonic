@@ -453,18 +453,6 @@ pub fn ttstub_input_getc(handle: &InputHandleWrapper) -> i32 {
     }
 }
 
-pub fn ttstub_input_ungetc(handle: &InputHandleWrapper, mut ch: i32) -> i32 {
-    unsafe {
-        (*tectonic_global_bridge)
-            .input_ungetc
-            .expect("non-null function pointer")(
-            (*tectonic_global_bridge).context,
-            handle.0.as_ptr(),
-            ch,
-        )
-    }
-}
-
 pub unsafe fn ttstub_input_close(mut handle: InputHandleWrapper) {
     if (*tectonic_global_bridge)
         .input_close

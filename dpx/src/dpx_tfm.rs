@@ -26,10 +26,7 @@
     non_upper_case_globals
 )]
 
-use super::dpx_numbers::{
-    tt_get_positive_quad, tt_get_signed_quad, GetFromFile,
-    tt_get_unsigned_quad,
-};
+use super::dpx_numbers::{get_positive_quad, GetFromFile};
 use crate::bridge::DisplayExt;
 use crate::mfree;
 use crate::streq_ptr;
@@ -42,7 +39,7 @@ use super::dpx_numbers::skip_bytes;
 use crate::bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open};
 use libc::{free, strcat, strcmp, strcpy, strlen, strrchr};
 
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 
 pub(crate) type __off_t = i64;
 pub(crate) type __ssize_t = i64;
@@ -50,7 +47,6 @@ pub(crate) type off_t = __off_t;
 
 use crate::bridge::TTInputFormat;
 
-use bridge::InputHandleWrapper;
 pub(crate) type fixword = i32;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -258,15 +254,15 @@ unsafe fn fms_need(n: u32) {
 pub(crate) unsafe fn tfm_set_verbose(level: i32) {
     verbose = level;
 }
-unsafe fn fread_fwords(words: *mut fixword, nmemb: u32, handle: &InputHandleWrapper) -> i32 {
+unsafe fn fread_fwords<R: Read>(words: *mut fixword, nmemb: u32, handle: &mut R) -> i32 {
     for i in 0..nmemb {
-        *words.offset(i as isize) = tt_get_signed_quad(handle);
+        *words.offset(i as isize) = i32::get(handle);
     }
     nmemb.wrapping_mul(4_u32) as i32
 }
-unsafe fn fread_uquads(quads: *mut u32, nmemb: u32, handle: &InputHandleWrapper) -> i32 {
+unsafe fn fread_uquads<R: Read>(quads: *mut u32, nmemb: u32, handle: &mut R) -> i32 {
     for i in 0..nmemb {
-        *quads.offset(i as isize) = tt_get_unsigned_quad(handle);
+        *quads.offset(i as isize) = u32::get(handle);
     }
     nmemb.wrapping_mul(4_u32) as i32
 }
@@ -315,26 +311,22 @@ unsafe fn tfm_check_size(tfm: *mut tfm_font, tfm_file_size: off_t) {
         }
     };
 }
-unsafe fn tfm_get_sizes(
-    mut tfm_handle: &InputHandleWrapper,
-    tfm_file_size: off_t,
-    mut tfm: *mut tfm_font,
-) {
-    (*tfm).wlenfile = u16::get(&mut tfm_handle) as u32;
-    (*tfm).wlenheader = u16::get(&mut tfm_handle) as u32;
-    (*tfm).bc = u16::get(&mut tfm_handle) as u32;
-    (*tfm).ec = u16::get(&mut tfm_handle) as u32;
+unsafe fn tfm_get_sizes<R: Read>(tfm_handle: &mut R, tfm_file_size: off_t, mut tfm: *mut tfm_font) {
+    (*tfm).wlenfile = u16::get(tfm_handle) as u32;
+    (*tfm).wlenheader = u16::get(tfm_handle) as u32;
+    (*tfm).bc = u16::get(tfm_handle) as u32;
+    (*tfm).ec = u16::get(tfm_handle) as u32;
     if (*tfm).ec < (*tfm).bc {
         panic!("TFM file error: ec({}) < bc({}) ???", (*tfm).ec, (*tfm).bc);
     }
-    (*tfm).nwidths = u16::get(&mut tfm_handle) as u32;
-    (*tfm).nheights = u16::get(&mut tfm_handle) as u32;
-    (*tfm).ndepths = u16::get(&mut tfm_handle) as u32;
-    (*tfm).nitcor = u16::get(&mut tfm_handle) as u32;
-    (*tfm).nlig = u16::get(&mut tfm_handle) as u32;
-    (*tfm).nkern = u16::get(&mut tfm_handle) as u32;
-    (*tfm).nextens = u16::get(&mut tfm_handle) as u32;
-    (*tfm).nfonparm = u16::get(&mut tfm_handle) as u32;
+    (*tfm).nwidths = u16::get(tfm_handle) as u32;
+    (*tfm).nheights = u16::get(tfm_handle) as u32;
+    (*tfm).ndepths = u16::get(tfm_handle) as u32;
+    (*tfm).nitcor = u16::get(tfm_handle) as u32;
+    (*tfm).nlig = u16::get(tfm_handle) as u32;
+    (*tfm).nkern = u16::get(tfm_handle) as u32;
+    (*tfm).nextens = u16::get(tfm_handle) as u32;
+    (*tfm).nfonparm = u16::get(tfm_handle) as u32;
     tfm_check_size(tfm, tfm_file_size);
 }
 unsafe fn tfm_unpack_arrays(mut fm: *mut font_metric, tfm: *mut tfm_font) {
@@ -415,45 +407,45 @@ unsafe fn ofm_check_size_one(tfm: *mut tfm_font, ofm_file_size: off_t) {
         panic!("OFM file problem.  Table sizes don\'t agree.");
     };
 }
-unsafe fn ofm_get_sizes(
-    ofm_handle: &InputHandleWrapper,
+unsafe fn ofm_get_sizes<R: Read + Seek>(
+    ofm_handle: &mut R,
     ofm_file_size: off_t,
     mut tfm: *mut tfm_font,
 ) {
-    (*tfm).level = tt_get_signed_quad(ofm_handle);
-    (*tfm).wlenfile = tt_get_positive_quad(ofm_handle, "OFM", "wlenfile");
-    (*tfm).wlenheader = tt_get_positive_quad(ofm_handle, "OFM", "wlenheader");
-    (*tfm).bc = tt_get_positive_quad(ofm_handle, "OFM", "bc");
-    (*tfm).ec = tt_get_positive_quad(ofm_handle, "OFM", "ec");
+    (*tfm).level = i32::get(ofm_handle);
+    (*tfm).wlenfile = get_positive_quad(ofm_handle, "OFM", "wlenfile");
+    (*tfm).wlenheader = get_positive_quad(ofm_handle, "OFM", "wlenheader");
+    (*tfm).bc = get_positive_quad(ofm_handle, "OFM", "bc");
+    (*tfm).ec = get_positive_quad(ofm_handle, "OFM", "ec");
     if (*tfm).ec < (*tfm).bc {
         panic!("OFM file error: ec({}) < bc({}) ???", (*tfm).ec, (*tfm).bc);
     }
-    (*tfm).nwidths = tt_get_positive_quad(ofm_handle, "OFM", "nwidths");
-    (*tfm).nheights = tt_get_positive_quad(ofm_handle, "OFM", "nheights");
-    (*tfm).ndepths = tt_get_positive_quad(ofm_handle, "OFM", "ndepths");
-    (*tfm).nitcor = tt_get_positive_quad(ofm_handle, "OFM", "nitcor");
-    (*tfm).nlig = tt_get_positive_quad(ofm_handle, "OFM", "nlig");
-    (*tfm).nkern = tt_get_positive_quad(ofm_handle, "OFM", "nkern");
-    (*tfm).nextens = tt_get_positive_quad(ofm_handle, "OFM", "nextens");
-    (*tfm).nfonparm = tt_get_positive_quad(ofm_handle, "OFM", "nfonparm");
-    (*tfm).fontdir = tt_get_positive_quad(ofm_handle, "OFM", "fontdir");
+    (*tfm).nwidths = get_positive_quad(ofm_handle, "OFM", "nwidths");
+    (*tfm).nheights = get_positive_quad(ofm_handle, "OFM", "nheights");
+    (*tfm).ndepths = get_positive_quad(ofm_handle, "OFM", "ndepths");
+    (*tfm).nitcor = get_positive_quad(ofm_handle, "OFM", "nitcor");
+    (*tfm).nlig = get_positive_quad(ofm_handle, "OFM", "nlig");
+    (*tfm).nkern = get_positive_quad(ofm_handle, "OFM", "nkern");
+    (*tfm).nextens = get_positive_quad(ofm_handle, "OFM", "nextens");
+    (*tfm).nfonparm = get_positive_quad(ofm_handle, "OFM", "nfonparm");
+    (*tfm).fontdir = get_positive_quad(ofm_handle, "OFM", "fontdir");
     if (*tfm).fontdir != 0 {
         warn!("I may be interpreting a font direction incorrectly.");
     }
     if (*tfm).level == 0i32 {
         ofm_check_size_one(tfm, ofm_file_size);
     } else if (*tfm).level == 1i32 {
-        (*tfm).nco = tt_get_positive_quad(ofm_handle, "OFM", "nco");
-        (*tfm).ncw = tt_get_positive_quad(ofm_handle, "OFM", "nco");
-        (*tfm).npc = tt_get_positive_quad(ofm_handle, "OFM", "npc");
-        (&*ofm_handle)
+        (*tfm).nco = get_positive_quad(ofm_handle, "OFM", "nco");
+        (*tfm).ncw = get_positive_quad(ofm_handle, "OFM", "nco");
+        (*tfm).npc = get_positive_quad(ofm_handle, "OFM", "npc");
+        ofm_handle
             .seek(SeekFrom::Start(4 * ((*tfm).nco - (*tfm).wlenheader) as u64))
             .unwrap();
     } else {
         panic!("can\'t handle OFM files with level > 1");
     };
 }
-unsafe fn ofm_do_char_info_zero(mut ofm_handle: &InputHandleWrapper, mut tfm: *mut tfm_font) {
+unsafe fn ofm_do_char_info_zero<R: Read>(ofm_handle: &mut R, mut tfm: *mut tfm_font) {
     let num_chars = (*tfm).ec.wrapping_sub((*tfm).bc).wrapping_add(1_u32);
     if num_chars != 0_u32 {
         (*tfm).width_index = new((num_chars as u64)
@@ -466,15 +458,15 @@ unsafe fn ofm_do_char_info_zero(mut ofm_handle: &InputHandleWrapper, mut tfm: *m
             new((num_chars as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
                 as *mut u8;
         for i in 0..num_chars {
-            *(*tfm).width_index.offset(i as isize) = u16::get(&mut ofm_handle);
-            *(*tfm).height_index.offset(i as isize) = u8::get(&mut ofm_handle);
-            *(*tfm).depth_index.offset(i as isize) = u8::get(&mut ofm_handle);
+            *(*tfm).width_index.offset(i as isize) = u16::get(ofm_handle);
+            *(*tfm).height_index.offset(i as isize) = u8::get(ofm_handle);
+            *(*tfm).depth_index.offset(i as isize) = u8::get(ofm_handle);
             /* Ignore remaining quad */
-            skip_bytes(4_u32, &mut ofm_handle);
+            skip_bytes(4_u32, ofm_handle);
         }
     };
 }
-unsafe fn ofm_do_char_info_one(mut ofm_handle: &InputHandleWrapper, mut tfm: *mut tfm_font) {
+unsafe fn ofm_do_char_info_one<R: Read>(ofm_handle: &mut R, mut tfm: *mut tfm_font) {
     let num_char_infos = (*tfm)
         .ncw
         .wrapping_div((3_u32).wrapping_add((*tfm).npc.wrapping_div(2_u32)));
@@ -492,19 +484,19 @@ unsafe fn ofm_do_char_info_one(mut ofm_handle: &InputHandleWrapper, mut tfm: *mu
         let mut char_infos_read = 0;
         let mut i = 0;
         while i < num_chars && char_infos_read < num_char_infos {
-            *(*tfm).width_index.offset(i as isize) = u16::get(&mut ofm_handle);
-            *(*tfm).height_index.offset(i as isize) = u8::get(&mut ofm_handle);
-            *(*tfm).depth_index.offset(i as isize) = u8::get(&mut ofm_handle);
+            *(*tfm).width_index.offset(i as isize) = u16::get(ofm_handle);
+            *(*tfm).height_index.offset(i as isize) = u8::get(ofm_handle);
+            *(*tfm).depth_index.offset(i as isize) = u8::get(ofm_handle);
             /* Ignore next quad */
-            skip_bytes(4_u32, &mut ofm_handle);
-            let repeats = u16::get(&mut ofm_handle) as u32;
+            skip_bytes(4_u32, ofm_handle);
+            let repeats = u16::get(ofm_handle) as u32;
             /* Skip params */
             for _ in 0..(*tfm).npc {
-                u16::get(&mut ofm_handle);
+                u16::get(ofm_handle);
             }
             /* Remove word padding if necessary */
             if (*tfm).npc.wrapping_div(2_u32).wrapping_mul(2_u32) == (*tfm).npc {
-                u16::get(&mut ofm_handle);
+                u16::get(ofm_handle);
             }
             char_infos_read = char_infos_read.wrapping_add(1);
             if i + repeats > num_chars {
@@ -552,9 +544,9 @@ unsafe fn ofm_unpack_arrays(mut fm: *mut font_metric, tfm: *mut tfm_font, num_ch
             .offset(*(*tfm).depth_index.offset(i as isize) as isize);
     }
 }
-unsafe fn read_ofm(
+unsafe fn read_ofm<R: Read + Seek>(
     mut fm: *mut font_metric,
-    ofm_handle: &InputHandleWrapper,
+    ofm_handle: &mut R,
     ofm_file_size: off_t,
 ) {
     let mut tfm: tfm_font = tfm_font {
@@ -629,11 +621,7 @@ unsafe fn read_ofm(
     (*fm).source = 2i32;
     tfm_font_clear(&mut tfm);
 }
-unsafe fn read_tfm(
-    mut fm: *mut font_metric,
-    tfm_handle: &InputHandleWrapper,
-    tfm_file_size: off_t,
-) {
+unsafe fn read_tfm<R: Read>(mut fm: *mut font_metric, tfm_handle: &mut R, tfm_file_size: off_t) {
     let mut tfm: tfm_font = tfm_font {
         level: 0,
         wlenfile: 0,

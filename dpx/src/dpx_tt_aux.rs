@@ -27,7 +27,7 @@
 )]
 
 use super::dpx_dvipdfmx::always_embed;
-use super::dpx_numbers::tt_get_unsigned_quad;
+use super::dpx_numbers::GetFromFile;
 use super::dpx_tt_post::{tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::{tt_read_head_table, tt_read_os2__table};
 use crate::dpx_pdfobj::{pdf_dict, pdf_string, PushObj};
@@ -53,15 +53,15 @@ pub(crate) unsafe fn ttc_read_offset(sfont: *mut sfnt, ttc_idx: i32) -> u32 {
     let handle = &mut (*sfont).handle;
     handle.seek(SeekFrom::Start(4)).unwrap();
     /* version = */
-    tt_get_unsigned_quad(handle);
-    let num_dirs = tt_get_unsigned_quad(handle);
+    u32::get(handle);
+    let num_dirs = u32::get(handle);
     if ttc_idx < 0i32 || ttc_idx as u32 > num_dirs.wrapping_sub(1_u32) {
         panic!("Invalid TTC index number");
     }
     handle
         .seek(SeekFrom::Start((12 + ttc_idx * 4) as u64))
         .unwrap();
-    tt_get_unsigned_quad(handle)
+    u32::get(handle)
 }
 /* flag declared in dvipdfmx.c */
 /* TTC (TrueType Collection) */

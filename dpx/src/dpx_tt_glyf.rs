@@ -29,7 +29,7 @@
 use crate::warn;
 
 use super::dpx_mem::{new, renew};
-use super::dpx_numbers::{tt_get_signed_pair, GetFromFile, tt_get_unsigned_quad};
+use super::dpx_numbers::GetFromFile;
 use super::dpx_sfnt::{sfnt_find_table_pos, sfnt_locate_table, sfnt_set_table};
 use super::dpx_tt_table::{
     tt_pack_head_table, tt_pack_hhea_table, tt_pack_maxp_table, tt_read_head_table,
@@ -259,7 +259,7 @@ pub(crate) unsafe fn tt_build_tables(sfont: *mut sfnt, mut g: *mut tt_glyphs) ->
         }
     } else if (*head).indexToLocFormat as i32 == 1i32 {
         for i in 0..=(*maxp).numGlyphs as i32 {
-            *location.offset(i as isize) = tt_get_unsigned_quad(&mut (*sfont).handle);
+            *location.offset(i as isize) = u32::get(&mut (*sfont).handle);
         }
     } else {
         panic!("Unknown IndexToLocFormat.");
@@ -326,15 +326,15 @@ pub(crate) unsafe fn tt_build_tables(sfont: *mut sfnt, mut g: *mut tt_glyphs) ->
             handle
                 .seek(SeekFrom::Start(offset as u64 + loc as u64))
                 .unwrap();
-            let number_of_contours = tt_get_signed_pair(handle);
+            let number_of_contours = i16::get(handle);
             p = p.offset(
                 put_big_endian(p as *mut libc::c_void, number_of_contours as i32, 2i32) as isize,
             );
             /* BoundingBox: FWord x 4 */
-            (*(*g).gd.offset(i as isize)).llx = tt_get_signed_pair(handle);
-            (*(*g).gd.offset(i as isize)).lly = tt_get_signed_pair(handle);
-            (*(*g).gd.offset(i as isize)).urx = tt_get_signed_pair(handle);
-            (*(*g).gd.offset(i as isize)).ury = tt_get_signed_pair(handle);
+            (*(*g).gd.offset(i as isize)).llx = i16::get(handle);
+            (*(*g).gd.offset(i as isize)).lly = i16::get(handle);
+            (*(*g).gd.offset(i as isize)).urx = i16::get(handle);
+            (*(*g).gd.offset(i as isize)).ury = i16::get(handle);
             /* _FIXME_ */
             if vmtx.is_null() {
                 /* vertOriginY == sTypeAscender */
@@ -681,7 +681,7 @@ pub(crate) unsafe fn tt_get_metrics(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> 
         }
     } else if (*head).indexToLocFormat as i32 == 1i32 {
         for i in 0..=(*maxp).numGlyphs as u32 {
-            *location.offset(i as isize) = tt_get_unsigned_quad(&mut (*sfont).handle);
+            *location.offset(i as isize) = u32::get(&mut (*sfont).handle);
         }
     } else {
         panic!("Unknown IndexToLocFormat.");
@@ -732,12 +732,12 @@ pub(crate) unsafe fn tt_get_metrics(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> 
             handle
                 .seek(SeekFrom::Start(offset as u64 + loc as u64))
                 .unwrap();
-            tt_get_signed_pair(handle);
+            i16::get(handle);
             /* BoundingBox: FWord x 4 */
-            (*(*g).gd.offset(i as isize)).llx = tt_get_signed_pair(handle);
-            (*(*g).gd.offset(i as isize)).lly = tt_get_signed_pair(handle);
-            (*(*g).gd.offset(i as isize)).urx = tt_get_signed_pair(handle);
-            (*(*g).gd.offset(i as isize)).ury = tt_get_signed_pair(handle);
+            (*(*g).gd.offset(i as isize)).llx = i16::get(handle);
+            (*(*g).gd.offset(i as isize)).lly = i16::get(handle);
+            (*(*g).gd.offset(i as isize)).urx = i16::get(handle);
+            (*(*g).gd.offset(i as isize)).ury = i16::get(handle);
             /* _FIXME_ */
             if vmtx.is_null() {
                 /* vertOriginY == sTypeAscender */

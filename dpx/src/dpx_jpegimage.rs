@@ -41,11 +41,11 @@ use crate::bridge::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_read}
 use crate::dpx_pdfobj::{
     pdf_get_version, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
 };
-use libc::{free, memcmp, memset};
+use libc::{free, memset};
 
 use crate::bridge::size_t;
 use bridge::InputHandleWrapper;
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
@@ -154,22 +154,17 @@ pub(crate) struct JPEG_APPn_JFIF {
    Licensed under the MIT License.
 */
 
-pub unsafe fn check_for_jpeg(handle: &mut InputHandleWrapper) -> i32 {
+pub unsafe fn check_for_jpeg<R: Read + Seek>(handle: &mut R) -> i32 {
     let mut jpeg_sig: [u8; 2] = [0; 2];
     handle.seek(SeekFrom::Start(0)).unwrap();
-    if ttstub_input_read(
-        handle.as_ptr(),
-        jpeg_sig.as_mut_ptr() as *mut i8,
-        2i32 as size_t,
-    ) != 2
-    {
-        return 0i32;
+    if handle.read_exact(jpeg_sig.as_mut()).is_err() {
+        return 0;
     } else {
-        if jpeg_sig[0] as i32 != 0xffi32 || jpeg_sig[1] as i32 != JM_SOI as i32 {
-            return 0i32;
+        if jpeg_sig[0] != 0xff || jpeg_sig[1] as u32 != JM_SOI {
+            return 0;
         }
     }
-    1i32
+    1
 }
 
 pub(crate) unsafe fn jpeg_include_image(
@@ -411,15 +406,15 @@ unsafe fn JPEG_get_XMP(j_info: *mut JPEG_info) -> pdf_stream {
 }
 unsafe fn JPEG_get_marker(handle: &mut InputHandleWrapper) -> JPEG_marker {
     let mut c = ttstub_input_getc(handle);
-    if c != 255i32 {
+    if c != 0xff {
         return 4294967295 as JPEG_marker;
     }
     loop {
         c = ttstub_input_getc(handle);
-        if c < 0i32 {
+        if c < 0 {
             return 4294967295 as JPEG_marker;
         } else {
-            if c > 0i32 && c < 255i32 {
+            if c > 0 && c < 255 {
                 return c as JPEG_marker;
             }
         }
@@ -779,102 +774,83 @@ unsafe fn JPEG_copy_stream(
     stream: &mut pdf_stream,
     handle: &mut InputHandleWrapper,
 ) -> i32 {
-    let mut marker: JPEG_marker = 0 as JPEG_marker;
+    let mut marker = 0 as JPEG_marker;
     handle.seek(SeekFrom::Start(0)).unwrap();
-    let mut count = 0i32;
-    let mut found_SOFn = 0i32;
-    while found_SOFn == 0 && count < 1024i32 && {
+    let mut count = 0;
+    let mut found_SOFn = 0;
+    while found_SOFn == 0 && count < 1024 && {
         marker = JPEG_get_marker(handle);
         marker as u32 != 4294967295 as JPEG_marker as u32
     } {
-        if marker as u32 == JM_SOI as i32 as u32
-            || marker as u32 >= JM_RST0 as i32 as u32 && marker as u32 <= JM_RST7 as i32 as u32
-        {
-            *work_buffer.as_mut_ptr().offset(0) = 0xffi32 as i8;
-            *work_buffer.as_mut_ptr().offset(1) = marker as i8;
-            stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, 2i32);
-        } else {
-            let mut length = u16::get(handle) as i32 - 2i32;
-            match marker as u32 {
-                192 | 193 | 194 | 195 | 197 | 198 | 199 | 201 | 202 | 203 | 205 | 206 | 207 => {
-                    *work_buffer.as_mut_ptr().offset(0) = 0xffi32 as i8;
-                    *work_buffer.as_mut_ptr().offset(1) = marker as i8;
-                    *work_buffer.as_mut_ptr().offset(2) = (length + 2i32 >> 8i32 & 0xffi32) as i8;
-                    *work_buffer.as_mut_ptr().offset(3) = (length + 2i32 & 0xffi32) as i8;
-                    stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, 4i32);
-                    while length > 0i32 {
-                        let nb_read: i32 = ttstub_input_read(
+        match marker as u32 {
+            JM_SOI | JM_RST0..=JM_RST7 => stream.add_slice([0xff, marker as u8].as_ref()),
+            192 | 193 | 194 | 195 | 197 | 198 | 199 | 201 | 202 | 203 | 205 | 206 | 207 => {
+                let mut length = u16::get(handle) as i32 - 2;
+                stream.add_slice([0xff, marker as u8, (length + 2 >> 8 & 0xff) as u8, (length + 2 & 0xff) as u8].as_ref());
+                while length > 0 {
+                    let nb_read: i32 = ttstub_input_read(
+                        handle.as_ptr(),
+                        work_buffer.as_mut_ptr(),
+                        length.min(1024) as size_t,
+                    ) as i32;
+                    if nb_read > 0 {
+                        stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, nb_read);
+                    }
+                    length -= nb_read
+                }
+                found_SOFn = 1;
+            }
+            _ => {
+                let mut length = u16::get(handle) as i32 - 2;
+                if (*j_info).skipbits[(count / 8) as usize] as i32
+                    & 1 << 7 - count % 8
+                    != 0
+                {
+                    handle.seek(SeekFrom::Current(length as i64)).unwrap();
+                } else {
+                    stream.add_slice([0xff, marker as u8, (length + 2 >> 8 & 0xff) as u8, (length + 2 & 0xff) as u8].as_ref());
+                    while length > 0 {
+                        let nb_read_0: i32 = ttstub_input_read(
                             handle.as_ptr(),
                             work_buffer.as_mut_ptr(),
-                            (if length < 1024i32 { length } else { 1024i32 }) as size_t,
+                            length.min(1024) as size_t,
                         ) as i32;
-                        if nb_read > 0i32 {
-                            stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, nb_read);
+                        if nb_read_0 > 0 {
+                            stream.add(
+                                work_buffer.as_mut_ptr() as *const libc::c_void,
+                                nb_read_0,
+                            );
                         }
-                        length -= nb_read
-                    }
-                    found_SOFn = 1i32
-                }
-                _ => {
-                    if (*j_info).skipbits[(count / 8i32) as usize] as i32
-                        & 1i32 << 7i32 - count % 8i32
-                        != 0
-                    {
-                        handle.seek(SeekFrom::Current(length as i64)).unwrap();
-                    } else {
-                        *work_buffer.as_mut_ptr().offset(0) = 0xffi32 as i8;
-                        *work_buffer.as_mut_ptr().offset(1) = marker as i8;
-                        *work_buffer.as_mut_ptr().offset(2) =
-                            (length + 2i32 >> 8i32 & 0xffi32) as i8;
-                        *work_buffer.as_mut_ptr().offset(3) = (length + 2i32 & 0xffi32) as i8;
-                        stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, 4i32);
-                        while length > 0i32 {
-                            let nb_read_0: i32 = ttstub_input_read(
-                                handle.as_ptr(),
-                                work_buffer.as_mut_ptr(),
-                                (if length < 1024i32 { length } else { 1024i32 }) as size_t,
-                            ) as i32;
-                            if nb_read_0 > 0i32 {
-                                stream.add(
-                                    work_buffer.as_mut_ptr() as *const libc::c_void,
-                                    nb_read_0,
-                                );
-                            }
-                            length -= nb_read_0
-                        }
+                        length -= nb_read_0;
                     }
                 }
             }
         }
-        count += 1
+        count += 1;
     }
-    let total_size: size_t = ttstub_input_get_size(handle);
-    let mut pos = handle.seek(SeekFrom::Current(0)).unwrap();
+    let total_size = ttstub_input_get_size(handle) as usize;
+    let mut pos = handle.seek(SeekFrom::Current(0)).unwrap() as usize;
     loop {
         let length = ttstub_input_read(
             handle.as_ptr(),
             work_buffer.as_mut_ptr(),
-            if (1024i32 as u64) < (total_size as u64).wrapping_sub(pos) as _ {
-                1024
-            } else {
-                (total_size as u64).wrapping_sub(pos) as _
-            },
-        ) as i32;
-        if !(length > 0i32) {
+            (total_size - pos).min(1024),
+        ) as usize;
+        if length == 0 {
             break;
         }
-        stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, length);
-        pos = (pos as u64).wrapping_add(length as u64)
+        stream.add(work_buffer.as_mut_ptr() as *const libc::c_void, length as i32);
+        pos += length;
     }
     if found_SOFn != 0 {
-        0i32
+        0
     } else {
-        -1i32
+        -1
     }
 }
 unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWrapper) -> i32 {
     let mut marker: JPEG_marker = 0 as JPEG_marker;
-    let mut app_sig: [i8; 128] = [0; 128];
+    let mut app_sig: [u8; 128] = [0; 128];
     handle.seek(SeekFrom::Start(0)).unwrap();
     let mut count = 0i32;
     let mut found_SOFn = 0i32;
@@ -895,29 +871,17 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                     found_SOFn = 1i32
                 }
                 224 => {
-                    if length > 5i32 {
-                        if ttstub_input_read(handle.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
-                            != 5
-                        {
-                            return -1i32;
+                    if length > 5 {
+                        if handle.read_exact(&mut app_sig[..5]).is_err() {
+                            return -1;
                         }
-                        length -= 5i32;
-                        if memcmp(
-                            app_sig.as_mut_ptr() as *const libc::c_void,
-                            b"JFIF\x00\x00" as *const u8 as *const i8 as *const libc::c_void,
-                            5,
-                        ) == 0
-                        {
-                            (*j_info).flags |= 1i32 << 0i32;
+                        length -= 5;
+                        if app_sig.starts_with(b"JFIF\x00") {
+                            (*j_info).flags |= 1 << 0;
                             length = (length as u64)
                                 .wrapping_sub(read_APP0_JFIF(j_info, handle) as _)
                                 as i32 as i32
-                        } else if memcmp(
-                            app_sig.as_mut_ptr() as *const libc::c_void,
-                            b"JFXX\x00" as *const u8 as *const i8 as *const libc::c_void,
-                            5,
-                        ) == 0
-                        {
+                        } else if app_sig.starts_with(b"JFXX\x00") {
                             length =
                                 (length as u64)
                                     .wrapping_sub(read_APP0_JFXX(handle, length as size_t) as _)
@@ -927,19 +891,12 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                     handle.seek(SeekFrom::Current(length as i64)).unwrap();
                 }
                 225 => {
-                    if length > 5i32 {
-                        if ttstub_input_read(handle.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
-                            != 5
-                        {
+                    if length > 5 {
+                        if handle.read_exact(&mut app_sig[..5]).is_err() {
                             return -1i32;
                         }
                         length -= 5i32;
-                        if memcmp(
-                            app_sig.as_mut_ptr() as *const libc::c_void,
-                            b"Exif\x00\x00" as *const u8 as *const i8 as *const libc::c_void,
-                            5,
-                        ) == 0
-                        {
+                        if app_sig.starts_with(b"Exif\x00") {
                             (*j_info).flags |= 1i32 << 3i32;
                             length = (length as u64).wrapping_sub(read_APP1_Exif(
                                 j_info,
@@ -947,29 +904,14 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                                 length as size_t,
                             )
                                 as _) as i32 as i32
-                        } else if memcmp(
-                            app_sig.as_mut_ptr() as *const libc::c_void,
-                            b"http:\x00" as *const u8 as *const i8 as *const libc::c_void,
-                            5,
-                        ) == 0
-                            && length > 24i32
+                        } else if app_sig.starts_with(b"http:")
+                            && length > 24
                         {
-                            if ttstub_input_read(
-                                handle.as_ptr(),
-                                app_sig.as_mut_ptr(),
-                                24i32 as size_t,
-                            ) != 24isize
-                            {
-                                return -1i32;
+                            if handle.read_exact(&mut app_sig[..24]).is_err() {
+                                return -1;
                             }
-                            length -= 24i32;
-                            if memcmp(
-                                app_sig.as_mut_ptr() as *const libc::c_void,
-                                b"//ns.adobe.com/xap/1.0/\x00\x00" as *const u8 as *const i8
-                                    as *const libc::c_void,
-                                24,
-                            ) == 0
-                            {
+                            length -= 24;
+                            if app_sig.starts_with(b"//ns.adobe.com/xap/1.0/\x00") {
                                 (*j_info).flags |= 1i32 << 4i32;
                                 length = (length as u64).wrapping_sub(read_APP1_XMP(
                                     j_info,
@@ -989,19 +931,12 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                     handle.seek(SeekFrom::Current(length as i64)).unwrap();
                 }
                 226 => {
-                    if length >= 14i32 {
-                        if ttstub_input_read(handle.as_ptr(), app_sig.as_mut_ptr(), 12i32 as size_t)
-                            != 12
-                        {
+                    if length >= 14 {
+                        if handle.read_exact(&mut app_sig[..12]).is_err() {
                             return -1i32;
                         }
-                        length -= 12i32;
-                        if memcmp(
-                            app_sig.as_mut_ptr() as *const libc::c_void,
-                            b"ICC_PROFILE\x00\x00" as *const u8 as *const i8 as *const libc::c_void,
-                            12,
-                        ) == 0
-                        {
+                        length -= 12;
+                        if app_sig.starts_with(b"ICC_PROFILE\x00") {
                             (*j_info).flags |= 1i32 << 2i32;
                             length = (length as u64).wrapping_sub(read_APP2_ICC(
                                 j_info,
@@ -1020,19 +955,12 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                     handle.seek(SeekFrom::Current(length as i64)).unwrap();
                 }
                 238 => {
-                    if length > 5i32 {
-                        if ttstub_input_read(handle.as_ptr(), app_sig.as_mut_ptr(), 5i32 as size_t)
-                            != 5
-                        {
-                            return -1i32;
+                    if length > 5 {
+                        if handle.read_exact(&mut app_sig[..5]).is_err() {
+                            return -1;
                         }
-                        length -= 5i32;
-                        if memcmp(
-                            app_sig.as_mut_ptr() as *const libc::c_void,
-                            b"Adobe\x00" as *const u8 as *const i8 as *const libc::c_void,
-                            5,
-                        ) == 0
-                        {
+                        length -= 5;
+                        if app_sig.starts_with(b"Adobe") {
                             (*j_info).flags |= 1i32 << 1i32;
                             length -= read_APP14_Adobe(j_info, handle) as i32
                         } else if count < 1024i32 {

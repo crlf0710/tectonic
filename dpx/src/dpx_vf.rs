@@ -26,9 +26,7 @@
     non_upper_case_globals
 )]
 
-use super::dpx_numbers::{
-    tt_get_positive_quad, GetFromFile, tt_get_unsigned_num, tt_get_unsigned_quad,
-};
+use super::dpx_numbers::{get_positive_quad, get_unsigned_num, GetFromFile};
 use crate::bridge::DisplayExt;
 use crate::warn;
 use std::ffi::CString;
@@ -40,7 +38,7 @@ use super::dpx_dvi::{
     dvi_x0, dvi_y, dvi_y0, dvi_z, dvi_z0,
 };
 use super::dpx_dvicodes::*;
-use super::dpx_numbers::{sqxfw, skip_bytes};
+use super::dpx_numbers::{skip_bytes, sqxfw};
 use super::dpx_tfm::tfm_open;
 use crate::bridge::{ttstub_input_close, ttstub_input_open};
 
@@ -100,7 +98,8 @@ unsafe fn read_header(mut vf_handle: &InputHandleWrapper, thisfont: i32) {
     skip_bytes(u8::get(&mut vf_handle) as u32, &mut vf_handle);
     /* Skip checksum */
     skip_bytes(4_u32, &mut vf_handle);
-    vf_fonts[thisfont as usize].design_size = tt_get_positive_quad(vf_handle, "VF", "design_size");
+    vf_fonts[thisfont as usize].design_size =
+        get_positive_quad(&mut vf_handle, "VF", "design_size");
 }
 unsafe fn resize_one_vf_font(a_vf: &mut vf, mut size: usize) {
     if size > a_vf.ch_pkt.len() {
@@ -123,9 +122,9 @@ unsafe fn read_a_char_def(vf_handle: &InputHandleWrapper, thisfont: i32, pkt_len
     }
 }
 unsafe fn read_a_font_def(mut vf_handle: &InputHandleWrapper, font_id: i32, thisfont: i32) {
-    let checksum = tt_get_unsigned_quad(vf_handle);
-    let size = tt_get_positive_quad(vf_handle, "VF", "font_size");
-    let design_size = tt_get_positive_quad(vf_handle, "VF", "font_design_size");
+    let checksum = u32::get(&mut vf_handle);
+    let size = get_positive_quad(&mut vf_handle, "VF", "font_size");
+    let design_size = get_positive_quad(&mut vf_handle, "VF", "font_design_size");
     let dir_length = u8::get(&mut vf_handle) as usize;
     let name_length = u8::get(&mut vf_handle) as usize;
 
@@ -163,12 +162,12 @@ unsafe fn process_vf_file(mut vf_handle: &InputHandleWrapper, thisfont: i32) {
         let code = u8::get(&mut vf_handle);
         match code {
             FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
-                let font_id = tt_get_unsigned_num(vf_handle, code - FNT_DEF1);
+                let font_id = get_unsigned_num(&mut vf_handle, code - FNT_DEF1);
                 read_a_font_def(vf_handle, font_id as i32, thisfont);
             }
             XXX4 => {
-                let pkt_len: u32 = tt_get_positive_quad(vf_handle, "VF", "pkt_len");
-                let ch: u32 = tt_get_unsigned_quad(vf_handle);
+                let pkt_len: u32 = get_positive_quad(&mut vf_handle, "VF", "pkt_len");
+                let ch: u32 = u32::get(&mut vf_handle);
                 /* Skip over TFM width since we already know it */
                 skip_bytes(4, &mut vf_handle);
                 if ch < 0x1000000 {

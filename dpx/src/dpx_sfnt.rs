@@ -29,7 +29,7 @@
 use tectonic_bridge::ttstub_input_close;
 
 use super::dpx_mem::{new, renew};
-use super::dpx_numbers::{GetFromFile, tt_get_unsigned_quad};
+use super::dpx_numbers::GetFromFile;
 use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{pdf_stream, STREAM_COMPRESS};
 use crate::dpx_truetype::SfntTableInfo;
@@ -75,7 +75,7 @@ pub(crate) unsafe fn sfnt_open(mut handle: InputHandleWrapper) -> *mut sfnt {
     handle.seek(SeekFrom::Start(0)).unwrap(); /* mbz */
     let sfont =
         new((1_u32 as u64).wrapping_mul(::std::mem::size_of::<sfnt>() as u64) as u32) as *mut sfnt; /* typefaces position */
-    let type_0 = tt_get_unsigned_quad(&mut handle); /* resource id */
+    let type_0 = u32::get(&mut handle); /* resource id */
     if type_0 as u64 == 0x10000 || type_0 as u64 == 0x74727565 {
         (*sfont).type_0 = 1i32 << 0i32
     } else if type_0 as u64 == 0x10000 {
@@ -99,8 +99,8 @@ pub(crate) unsafe fn dfont_open(mut handle: InputHandleWrapper, index: i32) -> *
     handle.seek(SeekFrom::Start(0)).unwrap();
     let sfont =
         new((1_u32 as u64).wrapping_mul(::std::mem::size_of::<sfnt>() as u64) as u32) as *mut sfnt;
-    let rdata_pos = tt_get_unsigned_quad(&mut handle);
-    let map_pos = tt_get_unsigned_quad(&mut handle);
+    let rdata_pos = u32::get(&mut handle);
+    let map_pos = u32::get(&mut handle);
     handle
         .seek(SeekFrom::Start((map_pos + 0x18) as u64))
         .unwrap();
@@ -109,7 +109,7 @@ pub(crate) unsafe fn dfont_open(mut handle: InputHandleWrapper, index: i32) -> *
     let tags_num = u16::get(&mut handle);
     let mut i = 0;
     while i as i32 <= tags_num as i32 {
-        let tag = tt_get_unsigned_quad(&mut handle);
+        let tag = u32::get(&mut handle);
         types_num = u16::get(&mut handle);
         types_pos = tags_pos.wrapping_add(u16::get(&mut handle) as u32);
         if tag as u64 == 0x73666e74 {
@@ -129,8 +129,8 @@ pub(crate) unsafe fn dfont_open(mut handle: InputHandleWrapper, index: i32) -> *
     for i in 0..=types_num as i32 {
         u16::get(&mut handle);
         u16::get(&mut handle);
-        res_pos = tt_get_unsigned_quad(&mut handle);
-        tt_get_unsigned_quad(&mut handle);
+        res_pos = u32::get(&mut handle);
+        u32::get(&mut handle);
         if i as i32 == index {
             break;
         }
@@ -298,7 +298,7 @@ pub(crate) unsafe fn sfnt_read_table_directory(mut sfont: *mut sfnt, offset: u32
     let handle = &mut (*sfont).handle;
     (*sfont).directory = td;
     handle.seek(SeekFrom::Start(offset as u64)).unwrap();
-    (*td).version = tt_get_unsigned_quad(handle);
+    (*td).version = u32::get(handle);
     (*td).num_tables = u16::get(handle);
     (*td).search_range = u16::get(handle);
     (*td).entry_selector = u16::get(handle);
@@ -310,12 +310,11 @@ pub(crate) unsafe fn sfnt_read_table_directory(mut sfont: *mut sfnt, offset: u32
         .wrapping_mul(::std::mem::size_of::<sfnt_table>() as u64) as u32)
         as *mut sfnt_table;
     for i in 0..(*td).num_tables as u32 {
-        let u_tag = tt_get_unsigned_quad(handle);
+        let u_tag = u32::get(handle);
         convert_tag(&mut (*(*td).tables.offset(i as isize)).tag, u_tag);
-        (*(*td).tables.offset(i as isize)).check_sum = tt_get_unsigned_quad(handle);
-        (*(*td).tables.offset(i as isize)).offset =
-            tt_get_unsigned_quad(handle).wrapping_add((*sfont).offset);
-        (*(*td).tables.offset(i as isize)).length = tt_get_unsigned_quad(handle);
+        (*(*td).tables.offset(i as isize)).check_sum = u32::get(handle);
+        (*(*td).tables.offset(i as isize)).offset = u32::get(handle).wrapping_add((*sfont).offset);
+        (*(*td).tables.offset(i as isize)).length = u32::get(handle);
         let ref mut fresh1 = (*(*td).tables.offset(i as isize)).data;
         *fresh1 = ptr::null_mut();
         //fprintf(stderr, "[%4s:%x]", td->tables[i].tag, td->tables[i].offset);

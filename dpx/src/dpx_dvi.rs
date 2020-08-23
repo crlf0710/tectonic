@@ -51,10 +51,7 @@ use super::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use super::dpx_dvipdfmx::{is_xdv, landscape_mode, paper_height, paper_width};
 use super::dpx_fontmap::{pdf_insert_native_fontmap_record, pdf_lookup_fontmap_record};
 use super::dpx_mem::new;
-use super::dpx_numbers::{
-    sqxfw, tt_get_positive_quad, tt_get_signed_quad, GetFromFile, tt_get_unsigned_num,
-    tt_get_unsigned_quad, skip_bytes,
-};
+use super::dpx_numbers::{get_positive_quad, get_unsigned_num, skip_bytes, sqxfw, GetFromFile};
 use super::dpx_pdfcolor::{pdf_color_pop, pdf_color_push, PdfColor};
 use super::dpx_pdfdev::{
     graphics_mode, pdf_dev_begin_actualtext, pdf_dev_end_actualtext, pdf_dev_locate_font,
@@ -78,7 +75,7 @@ use super::dpx_tt_table::{
 use super::dpx_vf::{vf_close_all_fonts, vf_locate_font, vf_set_char, vf_set_verbose};
 use crate::bridge::{
     ttstub_input_close, ttstub_input_get_size, ttstub_input_getc, ttstub_input_open,
-    ttstub_input_read, ttstub_input_ungetc,
+    ttstub_input_read,
 };
 use crate::dpx_dvicodes::*;
 use crate::dpx_pdfobj::{pdf_release_obj, pdf_string_value};
@@ -403,7 +400,7 @@ unsafe fn find_post() -> i32 {
         info!("Found {} where post_post opcode should be\n", ch);
         panic!(invalid_signature);
     }
-    current = tt_get_signed_quad(handle);
+    current = i32::get(handle);
     handle.seek(SeekFrom::Start(current as u64)).unwrap();
     let ch = ttstub_input_getc(handle) as u8;
     if ch != POST {
@@ -444,7 +441,7 @@ unsafe fn get_page_info(post_location: i32) {
     handle
         .seek(SeekFrom::Start(post_location as u64 + 1))
         .unwrap();
-    *page_loc.offset(num_pages.wrapping_sub(1_u32) as isize) = tt_get_unsigned_quad(handle);
+    *page_loc.offset(num_pages.wrapping_sub(1_u32) as isize) = u32::get(handle);
     if (*page_loc.offset(num_pages.wrapping_sub(1_u32) as isize)).wrapping_add(41_u32)
         > dvi_file_size
     {
@@ -457,7 +454,7 @@ unsafe fn get_page_info(post_location: i32) {
                 *page_loc.offset((i + 1) as isize) as u64 + 41,
             ))
             .unwrap();
-        *page_loc.offset(i as isize) = tt_get_unsigned_quad(handle);
+        *page_loc.offset(i as isize) = u32::get(handle);
         if (*page_loc.offset(num_pages.wrapping_sub(1_u32) as isize)).wrapping_add(41_u32)
             > dvi_file_size
         {
@@ -483,11 +480,11 @@ unsafe fn get_dvi_info(post_location: i32) {
     handle
         .seek(SeekFrom::Start(post_location as u64 + 5))
         .unwrap(); /* direction */
-    DVI_INFO.unit_num = tt_get_unsigned_quad(handle);
-    DVI_INFO.unit_den = tt_get_unsigned_quad(handle);
-    DVI_INFO.mag = tt_get_unsigned_quad(handle);
-    DVI_INFO.media_height = tt_get_unsigned_quad(handle);
-    DVI_INFO.media_width = tt_get_unsigned_quad(handle);
+    DVI_INFO.unit_num = u32::get(handle);
+    DVI_INFO.unit_den = u32::get(handle);
+    DVI_INFO.mag = u32::get(handle);
+    DVI_INFO.media_height = u32::get(handle);
+    DVI_INFO.media_width = u32::get(handle);
     DVI_INFO.stackdepth = u16::get(handle) as u32;
     if DVI_INFO.stackdepth > 256u32 {
         warn!("DVI need stack depth of {},", DVI_INFO.stackdepth);
@@ -509,9 +506,9 @@ pub(crate) unsafe fn dvi_comment() -> *const i8 {
 }
 unsafe fn read_font_record(tex_id: u32) {
     let handle = dvi_handle.as_mut().unwrap();
-    tt_get_unsigned_quad(handle);
-    let point_size = tt_get_positive_quad(handle, "DVI", "point_size");
-    let design_size = tt_get_positive_quad(handle, "DVI", "design_size");
+    u32::get(handle);
+    let point_size = get_positive_quad(handle, "DVI", "point_size");
+    let design_size = get_positive_quad(handle, "DVI", "design_size");
     let dir_length = u8::get(handle) as i32;
     let name_length = u8::get(handle) as i32;
     let directory = new(
@@ -548,7 +545,7 @@ unsafe fn read_font_record(tex_id: u32) {
 }
 unsafe fn read_native_font_record(tex_id: u32) {
     let handle = dvi_handle.as_mut().unwrap();
-    let point_size = tt_get_positive_quad(handle, "DVI", "point_size");
+    let point_size = get_positive_quad(handle, "DVI", "point_size");
     let flags = u16::get(handle) as u32;
     let len = u8::get(handle) as i32;
     let font_name =
@@ -559,7 +556,7 @@ unsafe fn read_native_font_record(tex_id: u32) {
     }
     *font_name.offset(len as isize) = '\u{0}' as i32 as i8;
 
-    let index = tt_get_positive_quad(handle, "DVI", "index");
+    let index = get_positive_quad(handle, "DVI", "index");
     let mut font = font_def {
         font_id: -1,
         tex_id: tex_id,
@@ -579,16 +576,16 @@ unsafe fn read_native_font_record(tex_id: u32) {
         font.layout_dir = 1i32
     }
     if flags & 0x200_u32 != 0 {
-        font.rgba_color = tt_get_unsigned_quad(handle)
+        font.rgba_color = u32::get(handle)
     }
     if flags & 0x1000_u32 != 0 {
-        font.extend = tt_get_signed_quad(handle)
+        font.extend = i32::get(handle)
     }
     if flags & 0x2000_u32 != 0 {
-        font.slant = tt_get_signed_quad(handle)
+        font.slant = i32::get(handle)
     }
     if flags & 0x4000_u32 != 0 {
-        font.embolden = tt_get_signed_quad(handle)
+        font.embolden = i32::get(handle)
     }
     def_fonts.push(font);
     free(font_name as *mut _);
@@ -605,11 +602,11 @@ unsafe fn get_dvi_fonts(post_location: i32) {
         }
         match code {
             FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
-                read_font_record(tt_get_unsigned_num(handle, code - FNT_DEF1));
+                read_font_record(get_unsigned_num(handle, code - FNT_DEF1));
             }
             XDV_NATIVE_FONT_DEF => {
                 need_XeTeX(code as i32);
-                read_native_font_record(tt_get_signed_quad(handle) as u32);
+                read_native_font_record(i32::get(handle) as u32);
             }
             _ => {
                 info!("Unexpected op code: {:3}\n", code,);
@@ -1819,7 +1816,7 @@ pub(crate) unsafe fn dvi_do_page(page_paper_height: f64, hmargin: f64, vmargin: 
                     if opcode == POST {
                         check_postamble();
                     } else {
-                        ttstub_input_ungetc(handle, opcode as i32);
+                        handle.seek(SeekFrom::Current(-1)).unwrap();
                     }
                 }
                 return;
@@ -2431,7 +2428,7 @@ pub(crate) unsafe fn dvi_scan_specials(
                     get_and_buffer_bytes(handle, 8_u32);
                 }
                 FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
-                    do_fntdef(tt_get_unsigned_num(handle, opcode - FNT_DEF1));
+                    do_fntdef(get_unsigned_num(handle, opcode - FNT_DEF1));
                 }
                 XDV_GLYPHS => {
                     need_XeTeX(opcode as i32);
@@ -2449,7 +2446,7 @@ pub(crate) unsafe fn dvi_scan_specials(
                 }
                 XDV_NATIVE_FONT_DEF => {
                     need_XeTeX(opcode as i32);
-                    do_native_font_def(tt_get_signed_quad(handle));
+                    do_native_font_def(i32::get(handle));
                 }
                 BEGIN_REFLECT | END_REFLECT => {
                     need_XeTeX(opcode as i32);

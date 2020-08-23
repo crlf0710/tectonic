@@ -395,10 +395,7 @@ unsafe fn pk_decode_bitmap(
     }
     0i32
 }
-unsafe fn do_preamble<R>(fp: &mut R)
-where
-    R: Read,
-{
+unsafe fn do_preamble<R: Read>(fp: &mut R) {
     /* Check for id byte */
     if u8::get(fp) == 89 {
         /* Skip comment */
@@ -410,10 +407,7 @@ where
         panic!("embed_pk_font: PK ID byte is incorrect.  Are you sure this is a PK file?");
     };
 }
-unsafe fn read_pk_char_header<R>(mut h: *mut pk_header_, opcode: u8, fp: &mut R) -> i32
-where
-    R: Read,
-{
+unsafe fn read_pk_char_header<R: Read>(mut h: *mut pk_header_, opcode: u8, fp: &mut R) -> i32 {
     assert!(!h.is_null());
     if opcode as i32 & 4i32 == 0i32 {
         /* short */

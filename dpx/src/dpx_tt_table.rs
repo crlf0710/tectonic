@@ -21,10 +21,7 @@
 */
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
-use super::dpx_numbers::{
-    tt_get_signed_byte, tt_get_signed_pair, GetFromFile,
-    tt_get_unsigned_quad,
-};
+use super::dpx_numbers::GetFromFile;
 use crate::warn;
 
 use super::dpx_mem::new;
@@ -252,10 +249,10 @@ pub(crate) unsafe fn tt_read_head_table(sfont: *mut sfnt) -> *mut tt_head_table 
         as u32) as *mut tt_head_table;
     sfnt_locate_table(sfont, sfnt_table_info::HEAD);
     let handle = &mut (*sfont).handle;
-    (*table).version = tt_get_unsigned_quad(handle);
-    (*table).fontRevision = tt_get_unsigned_quad(handle);
-    (*table).checkSumAdjustment = tt_get_unsigned_quad(handle);
-    (*table).magicNumber = tt_get_unsigned_quad(handle);
+    (*table).version = u32::get(handle);
+    (*table).fontRevision = u32::get(handle);
+    (*table).checkSumAdjustment = u32::get(handle);
+    (*table).magicNumber = u32::get(handle);
     (*table).flags = u16::get(handle);
     (*table).unitsPerEm = u16::get(handle);
     for i in 0..8 {
@@ -264,15 +261,15 @@ pub(crate) unsafe fn tt_read_head_table(sfont: *mut sfnt) -> *mut tt_head_table 
     for i in 0..8 {
         (*table).modified[i] = u8::get(handle);
     }
-    (*table).xMin = tt_get_signed_pair(handle);
-    (*table).yMin = tt_get_signed_pair(handle);
-    (*table).xMax = tt_get_signed_pair(handle);
-    (*table).yMax = tt_get_signed_pair(handle);
-    (*table).macStyle = tt_get_signed_pair(handle) as u16;
-    (*table).lowestRecPPEM = tt_get_signed_pair(handle) as u16;
-    (*table).fontDirectionHint = tt_get_signed_pair(handle);
-    (*table).indexToLocFormat = tt_get_signed_pair(handle);
-    (*table).glyphDataFormat = tt_get_signed_pair(handle);
+    (*table).xMin = i16::get(handle);
+    (*table).yMin = i16::get(handle);
+    (*table).xMax = i16::get(handle);
+    (*table).yMax = i16::get(handle);
+    (*table).macStyle = i16::get(handle) as u16;
+    (*table).lowestRecPPEM = i16::get(handle) as u16;
+    (*table).fontDirectionHint = i16::get(handle);
+    (*table).indexToLocFormat = i16::get(handle);
+    (*table).glyphDataFormat = i16::get(handle);
     table
 }
 
@@ -341,7 +338,7 @@ pub(crate) unsafe fn tt_read_maxp_table(sfont: *mut sfnt) -> *mut tt_maxp_table 
         as u32) as *mut tt_maxp_table;
     sfnt_locate_table(sfont, sfnt_table_info::MAXP);
     let handle = &mut (*sfont).handle;
-    (*table).version = tt_get_unsigned_quad(handle);
+    (*table).version = u32::get(handle);
     (*table).numGlyphs = u16::get(handle);
     (*table).maxPoints = u16::get(handle);
     (*table).maxContours = u16::get(handle);
@@ -415,21 +412,21 @@ pub(crate) unsafe fn tt_read_hhea_table(sfont: *mut sfnt) -> *mut tt_hhea_table 
         as u32) as *mut tt_hhea_table;
     sfnt_locate_table(sfont, sfnt_table_info::HHEA);
     let handle = &mut (*sfont).handle;
-    (*table).version = tt_get_unsigned_quad(handle);
-    (*table).ascent = tt_get_signed_pair(handle);
-    (*table).descent = tt_get_signed_pair(handle);
-    (*table).lineGap = tt_get_signed_pair(handle);
+    (*table).version = u32::get(handle);
+    (*table).ascent = i16::get(handle);
+    (*table).descent = i16::get(handle);
+    (*table).lineGap = i16::get(handle);
     (*table).advanceWidthMax = u16::get(handle);
-    (*table).minLeftSideBearing = tt_get_signed_pair(handle);
-    (*table).minRightSideBearing = tt_get_signed_pair(handle);
-    (*table).xMaxExtent = tt_get_signed_pair(handle);
-    (*table).caretSlopeRise = tt_get_signed_pair(handle);
-    (*table).caretSlopeRun = tt_get_signed_pair(handle);
-    (*table).caretOffset = tt_get_signed_pair(handle);
+    (*table).minLeftSideBearing = i16::get(handle);
+    (*table).minRightSideBearing = i16::get(handle);
+    (*table).xMaxExtent = i16::get(handle);
+    (*table).caretSlopeRise = i16::get(handle);
+    (*table).caretSlopeRun = i16::get(handle);
+    (*table).caretOffset = i16::get(handle);
     for i in 0..4 {
-        (*table).reserved[i] = tt_get_signed_pair(handle);
+        (*table).reserved[i] = i16::get(handle);
     }
-    (*table).metricDataFormat = tt_get_signed_pair(handle);
+    (*table).metricDataFormat = i16::get(handle);
     if (*table).metricDataFormat as i32 != 0i32 {
         panic!("unknown metricDataFormat");
     }
@@ -448,21 +445,21 @@ pub(crate) unsafe fn tt_read_vhea_table(sfont: *mut sfnt) -> *mut tt_vhea_table 
         as u32) as *mut tt_vhea_table;
     sfnt_locate_table(sfont, b"vhea");
     let handle = &mut (*sfont).handle;
-    (*table).version = tt_get_unsigned_quad(handle);
-    (*table).vertTypoAscender = tt_get_signed_pair(handle);
-    (*table).vertTypoDescender = tt_get_signed_pair(handle);
-    (*table).vertTypoLineGap = tt_get_signed_pair(handle);
-    (*table).advanceHeightMax = tt_get_signed_pair(handle);
-    (*table).minTopSideBearing = tt_get_signed_pair(handle);
-    (*table).minBottomSideBearing = tt_get_signed_pair(handle);
-    (*table).yMaxExtent = tt_get_signed_pair(handle);
-    (*table).caretSlopeRise = tt_get_signed_pair(handle);
-    (*table).caretSlopeRun = tt_get_signed_pair(handle);
-    (*table).caretOffset = tt_get_signed_pair(handle);
+    (*table).version = u32::get(handle);
+    (*table).vertTypoAscender = i16::get(handle);
+    (*table).vertTypoDescender = i16::get(handle);
+    (*table).vertTypoLineGap = i16::get(handle);
+    (*table).advanceHeightMax = i16::get(handle);
+    (*table).minTopSideBearing = i16::get(handle);
+    (*table).minBottomSideBearing = i16::get(handle);
+    (*table).yMaxExtent = i16::get(handle);
+    (*table).caretSlopeRise = i16::get(handle);
+    (*table).caretSlopeRun = i16::get(handle);
+    (*table).caretOffset = i16::get(handle);
     for i in 0..4 {
-        (*table).reserved[i] = tt_get_signed_pair(handle);
+        (*table).reserved[i] = i16::get(handle);
     }
-    (*table).metricDataFormat = tt_get_signed_pair(handle);
+    (*table).metricDataFormat = i16::get(handle);
     (*table).numOfLongVerMetrics = u16::get(handle);
     let len = sfnt_find_table_len(sfont, b"vmtx");
     (*table).numOfExSideBearings = len
@@ -478,12 +475,10 @@ pub(crate) unsafe fn tt_read_VORG_table(sfont: *mut sfnt) -> *mut tt_VORG_table 
         let vorg = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_VORG_table>() as u64) as u32)
             as *mut tt_VORG_table;
         sfnt_locate_table(sfont, b"VORG");
-        if u16::get(handle) as i32 != 1i32
-            || u16::get(handle) as i32 != 0i32
-        {
+        if u16::get(handle) as i32 != 1i32 || u16::get(handle) as i32 != 0i32 {
             panic!("Unsupported VORG version.");
         }
-        (*vorg).defaultVertOriginY = tt_get_signed_pair(handle);
+        (*vorg).defaultVertOriginY = i16::get(handle);
         (*vorg).numVertOriginYMetrics = u16::get(handle);
         (*vorg).vertOriginYMetrics = new(((*vorg).numVertOriginYMetrics as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<tt_vertOriginYMetrics>() as u64)
@@ -493,10 +488,8 @@ pub(crate) unsafe fn tt_read_VORG_table(sfont: *mut sfnt) -> *mut tt_VORG_table 
          * glyphIndex order.
          */
         for i in 0..(*vorg).numVertOriginYMetrics {
-            (*(*vorg).vertOriginYMetrics.offset(i as isize)).glyphIndex =
-                u16::get(handle);
-            (*(*vorg).vertOriginYMetrics.offset(i as isize)).vertOriginY =
-                tt_get_signed_pair(handle);
+            (*(*vorg).vertOriginYMetrics.offset(i as isize)).glyphIndex = u16::get(handle);
+            (*(*vorg).vertOriginYMetrics.offset(i as isize)).vertOriginY = i16::get(handle);
         }
         vorg
     } else {
@@ -526,7 +519,7 @@ pub(crate) unsafe fn tt_read_longMetrics(
             last_adv = u16::get(handle)
         }
         if (gid as i32) < numLongMetrics as i32 + numExSideBearings as i32 {
-            last_esb = tt_get_signed_pair(handle)
+            last_esb = i16::get(handle)
         }
         (*m.offset(gid as isize)).advance = last_adv;
         (*m.offset(gid as isize)).sideBearing = last_esb;
@@ -543,30 +536,30 @@ pub(crate) unsafe fn tt_read_os2__table(sfont: *mut sfnt) -> *mut tt_os2__table 
     if sfnt_find_table_pos(sfont, sfnt_table_info::OS_2) > 0_u32 {
         sfnt_locate_table(sfont, sfnt_table_info::OS_2);
         (*table).version = u16::get(handle);
-        (*table).xAvgCharWidth = tt_get_signed_pair(handle);
+        (*table).xAvgCharWidth = i16::get(handle);
         (*table).usWeightClass = u16::get(handle);
         (*table).usWidthClass = u16::get(handle);
-        (*table).fsType = tt_get_signed_pair(handle);
-        (*table).ySubscriptXSize = tt_get_signed_pair(handle);
-        (*table).ySubscriptYSize = tt_get_signed_pair(handle);
-        (*table).ySubscriptXOffset = tt_get_signed_pair(handle);
-        (*table).ySubscriptYOffset = tt_get_signed_pair(handle);
-        (*table).ySuperscriptXSize = tt_get_signed_pair(handle);
-        (*table).ySuperscriptYSize = tt_get_signed_pair(handle);
-        (*table).ySuperscriptXOffset = tt_get_signed_pair(handle);
-        (*table).ySuperscriptYOffset = tt_get_signed_pair(handle);
-        (*table).yStrikeoutSize = tt_get_signed_pair(handle);
-        (*table).yStrikeoutPosition = tt_get_signed_pair(handle);
-        (*table).sFamilyClass = tt_get_signed_pair(handle);
+        (*table).fsType = i16::get(handle);
+        (*table).ySubscriptXSize = i16::get(handle);
+        (*table).ySubscriptYSize = i16::get(handle);
+        (*table).ySubscriptXOffset = i16::get(handle);
+        (*table).ySubscriptYOffset = i16::get(handle);
+        (*table).ySuperscriptXSize = i16::get(handle);
+        (*table).ySuperscriptYSize = i16::get(handle);
+        (*table).ySuperscriptXOffset = i16::get(handle);
+        (*table).ySuperscriptYOffset = i16::get(handle);
+        (*table).yStrikeoutSize = i16::get(handle);
+        (*table).yStrikeoutPosition = i16::get(handle);
+        (*table).sFamilyClass = i16::get(handle);
         for i in 0..10 {
             (*table).panose[i] = u8::get(handle);
         }
-        (*table).ulUnicodeRange1 = tt_get_unsigned_quad(handle);
-        (*table).ulUnicodeRange2 = tt_get_unsigned_quad(handle);
-        (*table).ulUnicodeRange3 = tt_get_unsigned_quad(handle);
-        (*table).ulUnicodeRange4 = tt_get_unsigned_quad(handle);
+        (*table).ulUnicodeRange1 = u32::get(handle);
+        (*table).ulUnicodeRange2 = u32::get(handle);
+        (*table).ulUnicodeRange3 = u32::get(handle);
+        (*table).ulUnicodeRange4 = u32::get(handle);
         for i in 0..4 {
-            (*table).achVendID[i] = tt_get_signed_byte(handle);
+            (*table).achVendID[i] = i8::get(handle);
         }
         (*table).fsSelection = u16::get(handle);
         (*table).usFirstCharIndex = u16::get(handle);
@@ -574,20 +567,20 @@ pub(crate) unsafe fn tt_read_os2__table(sfont: *mut sfnt) -> *mut tt_os2__table 
         if sfnt_find_table_len(sfont, sfnt_table_info::OS_2) >= 78_u32 {
             /* these fields are not present in the original Apple spec (68-byte table),
             but Microsoft's version of "format 0" does include them... grr! */
-            (*table).sTypoAscender = tt_get_signed_pair(handle);
-            (*table).sTypoDescender = tt_get_signed_pair(handle);
-            (*table).sTypoLineGap = tt_get_signed_pair(handle);
+            (*table).sTypoAscender = i16::get(handle);
+            (*table).sTypoDescender = i16::get(handle);
+            (*table).sTypoLineGap = i16::get(handle);
             (*table).usWinAscent = u16::get(handle);
             (*table).usWinDescent = u16::get(handle);
             if (*table).version as i32 > 0i32 {
                 /* format 1 adds the following 2 fields */
-                (*table).ulCodePageRange1 = tt_get_unsigned_quad(handle);
-                (*table).ulCodePageRange2 = tt_get_unsigned_quad(handle);
+                (*table).ulCodePageRange1 = u32::get(handle);
+                (*table).ulCodePageRange2 = u32::get(handle);
                 if (*table).version as i32 > 1i32 {
                     /* and formats 2 and 3 (current) include 5 more.... these share the
                     same fields, only the precise definition of some was changed */
-                    (*table).sxHeight = tt_get_signed_pair(handle);
-                    (*table).sCapHeight = tt_get_signed_pair(handle);
+                    (*table).sxHeight = i16::get(handle);
+                    (*table).sCapHeight = i16::get(handle);
                     (*table).usDefaultChar = u16::get(handle);
                     (*table).usBreakChar = u16::get(handle);
                     (*table).usMaxContext = u16::get(handle)
