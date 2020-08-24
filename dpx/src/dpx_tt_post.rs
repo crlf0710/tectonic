@@ -30,15 +30,14 @@ use super::dpx_numbers::GetFromFile;
 use super::dpx_sfnt::sfnt_locate_table;
 use crate::streq_ptr;
 use crate::warn;
+use std::io::Read;
 
 use super::dpx_mem::{new, xstrdup};
-use crate::bridge::ttstub_input_read;
 use libc::free;
 
 use std::ptr;
 
 pub(crate) type __ssize_t = i64;
-use crate::bridge::size_t;
 pub(crate) type Fixed = u32;
 pub(crate) type FWord = i16;
 
@@ -69,8 +68,8 @@ pub(crate) struct tt_post_table {
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 /* offset from begenning of the post table */
-unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: *mut sfnt) -> i32 {
-    let handle = &mut (*sfont).handle;
+unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: &sfnt) -> i32 {
+    let handle = &mut &sfont.handle;
     (*post).numberOfGlyphs = u16::get(handle);
     let indices = new(((*post).numberOfGlyphs as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16;
@@ -115,11 +114,11 @@ unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: *mut sfnt) -> 
                 *fresh0 = new(((len + 1i32) as u32 as u64)
                     .wrapping_mul(::std::mem::size_of::<i8>() as u64)
                     as u32) as *mut i8;
-                ttstub_input_read(
-                    handle.as_ptr(),
-                    *(*post).names.offset(i as isize),
-                    len as size_t,
+                let slice = std::slice::from_raw_parts_mut(
+                    (*(*post).names.offset(i as isize)) as *mut u8,
+                    len as usize,
                 );
+                handle.read(slice).unwrap();
                 *(*(*post).names.offset(i as isize)).offset(len as isize) = 0_i8
             } else {
                 let ref mut fresh1 = *(*post).names.offset(i as isize);
@@ -152,12 +151,12 @@ unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: *mut sfnt) -> 
     0i32
 }
 
-pub(crate) unsafe fn tt_read_post_table(sfont: *mut sfnt) -> *mut tt_post_table {
+pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
     /* offset = */
     sfnt_locate_table(sfont, b"post"); /* Fixed */
     let mut post = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_post_table>() as u64) as u32)
         as *mut tt_post_table; /* Fixed */
-    let handle = &mut (*sfont).handle;
+    let handle = &mut &sfont.handle;
     (*post).Version = u32::get(handle); /* FWord */
     (*post).italicAngle = u32::get(handle); /* FWord */
     (*post).underlinePosition = i16::get(handle); /* wrong */

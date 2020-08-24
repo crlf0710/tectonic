@@ -35,8 +35,7 @@ use crate::FromBEByteSlice;
 use std::ffi::{CStr, CString};
 
 use super::dpx_sfnt::{
-    dfont_open, sfnt_close, sfnt_find_table_pos, sfnt_locate_table, sfnt_open,
-    sfnt_read_table_directory,
+    dfont_open, sfnt_find_table_pos, sfnt_locate_table, sfnt_open, sfnt_read_table_directory,
 };
 use crate::bridge::size_t;
 use crate::mfree;
@@ -1029,40 +1028,40 @@ unsafe fn dvi_locate_native_font(
         font.unitsPerEm = 1000_u32;
         font.numGlyphs = (*cffont).num_glyphs as u32;
     } else {
-        let sfont = if is_dfont != 0 {
-            dfont_open(handle, index as i32)
+        let mut sfont = if is_dfont != 0 {
+            dfont_open(handle, index as i32).unwrap()
         } else {
             sfnt_open(handle)
         };
-        if (*sfont).type_0 == 1i32 << 4i32 {
-            offset = ttc_read_offset(sfont, index as i32)
-        } else if (*sfont).type_0 == 1i32 << 8i32 {
-            offset = (*sfont).offset
+        if sfont.type_0 == 1 << 4 {
+            offset = ttc_read_offset(&mut sfont, index as i32)
+        } else if sfont.type_0 == 1i32 << 8i32 {
+            offset = sfont.offset
         }
-        sfnt_read_table_directory(sfont, offset);
-        let head = tt_read_head_table(sfont);
-        let maxp = tt_read_maxp_table(sfont);
-        let hhea = tt_read_hhea_table(sfont);
+        sfnt_read_table_directory(&mut sfont, offset);
+        let head = tt_read_head_table(&mut sfont);
+        let maxp = tt_read_maxp_table(&mut sfont);
+        let hhea = tt_read_hhea_table(&mut sfont);
         font.ascent = (*hhea).ascent as i32;
         font.descent = (*hhea).descent as i32;
         font.unitsPerEm = (*head).unitsPerEm as u32;
         font.numGlyphs = (*maxp).numGlyphs as u32;
-        if layout_dir == 1i32 && sfnt_find_table_pos(sfont, b"vmtx") > 0_u32 {
-            let vhea: *mut tt_vhea_table = tt_read_vhea_table(sfont);
-            sfnt_locate_table(sfont, b"vmtx");
+        if layout_dir == 1i32 && sfnt_find_table_pos(&sfont, b"vmtx") > 0_u32 {
+            let vhea: *mut tt_vhea_table = tt_read_vhea_table(&mut sfont);
+            sfnt_locate_table(&mut sfont, b"vmtx");
             let ref mut fresh19 = font.hvmt;
             *fresh19 = tt_read_longMetrics(
-                sfont,
+                &mut sfont,
                 (*maxp).numGlyphs,
                 (*vhea).numOfLongVerMetrics,
                 (*vhea).numOfExSideBearings,
             );
             free(vhea as *mut libc::c_void);
         } else {
-            sfnt_locate_table(sfont, sfnt_table_info::HMTX);
+            sfnt_locate_table(&mut sfont, sfnt_table_info::HMTX);
             let ref mut fresh20 = font.hvmt;
             *fresh20 = tt_read_longMetrics(
-                sfont,
+                &mut sfont,
                 (*maxp).numGlyphs,
                 (*hhea).numOfLongHorMetrics,
                 (*hhea).numOfExSideBearings,
@@ -1071,7 +1070,6 @@ unsafe fn dvi_locate_native_font(
         free(hhea as *mut libc::c_void);
         free(maxp as *mut libc::c_void);
         free(head as *mut libc::c_void);
-        sfnt_close(sfont);
     }
     font.layout_dir = layout_dir;
     font.extend = (*mrec).opt.extend as f32;

@@ -43,14 +43,11 @@ pub(crate) unsafe fn tt_aux_set_verbose(level: i32) {
     verbose = level; /* skip version tag */
 }
 
-pub(crate) unsafe fn ttc_read_offset(sfont: *mut sfnt, ttc_idx: i32) -> u32 {
-    if sfont.is_null() {
-        panic!("file not opened");
-    }
-    if (*sfont).type_0 != 1i32 << 4i32 {
+pub(crate) unsafe fn ttc_read_offset(sfont: &sfnt, ttc_idx: i32) -> u32 {
+    if sfont.type_0 != 1i32 << 4i32 {
         panic!("ttc_read_offset(): invalid font type");
     }
-    let handle = &mut (*sfont).handle;
+    let handle = &mut &sfont.handle;
     handle.seek(SeekFrom::Start(4)).unwrap();
     /* version = */
     u32::get(handle);
@@ -69,16 +66,13 @@ pub(crate) unsafe fn ttc_read_offset(sfont: *mut sfnt, ttc_idx: i32) -> u32 {
 /* Force bold at small text sizes */
 
 pub(crate) unsafe fn tt_get_fontdesc(
-    sfont: *mut sfnt,
+    sfont: &sfnt,
     embed: *mut i32,
     mut stemv: i32,
     type_0: i32,
     fontname: &str,
 ) -> Option<pdf_dict> {
     let mut flag: i32 = 1i32 << 2i32;
-    if sfont.is_null() {
-        panic!("font file not opened");
-    }
     /* TrueType tables */
     let os2 = tt_read_os2__table(sfont);
     let head = tt_read_head_table(sfont);

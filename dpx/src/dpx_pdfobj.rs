@@ -3649,11 +3649,11 @@ unsafe fn read_xref(pf: *mut pdf_file) -> *mut pdf_obj {
     }
 }
 static mut pdf_files: *mut ht_table = ptr::null_mut();
-unsafe fn pdf_file_new(handle: InputHandleWrapper) -> *mut pdf_file {
+unsafe fn pdf_file_new(mut handle: InputHandleWrapper) -> *mut pdf_file {
     let pf =
         new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_file>() as u64) as u32) as *mut pdf_file;
-    let file_size = ttstub_input_get_size(&mut &handle) as i32;
-    (&handle).seek(SeekFrom::End(0)).unwrap();
+    let file_size = ttstub_input_get_size(&mut handle) as i32;
+    handle.seek(SeekFrom::End(0)).unwrap();
     (*pf).handle = handle;
     (*pf).trailer = ptr::null_mut();
     (*pf).xref_table = ptr::null_mut();
@@ -3705,7 +3705,7 @@ pub(crate) unsafe fn pdf_file_get_catalog(pf: *mut pdf_file) -> *mut pdf_obj {
     (*pf).catalog
 }
 
-pub unsafe fn pdf_open(ident: *const i8, handle: InputHandleWrapper) -> *mut pdf_file {
+pub unsafe fn pdf_open(ident: *const i8, mut handle: InputHandleWrapper) -> *mut pdf_file {
     let mut pf: *mut pdf_file = ptr::null_mut();
     assert!(!pdf_files.is_null());
     if !ident.is_null() {
@@ -3718,7 +3718,7 @@ pub unsafe fn pdf_open(ident: *const i8, handle: InputHandleWrapper) -> *mut pdf
     if !pf.is_null() {
         (*pf).handle = handle
     } else {
-        let version = parse_pdf_version(&mut &handle).unwrap_or(0);
+        let version = parse_pdf_version(&mut handle).unwrap_or(0);
         if version < 1 || version > pdf_version {
             warn!("pdf_open: Not a PDF 1.[1-{}] file.", pdf_version);
             /*

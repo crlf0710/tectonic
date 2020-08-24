@@ -27,7 +27,7 @@
 )]
 
 use super::dpx_sfnt::{
-    dfont_open, sfnt_close, sfnt_create_FontFile_stream, sfnt_open, sfnt_read_table_directory,
+    dfont_open, sfnt_create_FontFile_stream, sfnt_open, sfnt_read_table_directory,
     sfnt_require_table, sfnt_set_table,
 };
 use crate::bridge::DisplayExt;
@@ -134,12 +134,11 @@ pub(crate) mod sfnt_table_info {
 /* Order of lookup should be
  *  post, unicode+otl
  */
-#[derive(Copy, Clone)]
 #[repr(C)]
-pub(crate) struct glyph_mapper {
+pub(crate) struct glyph_mapper<'a> {
     pub(crate) codetogid: *mut tt_cmap,
     pub(crate) gsub: *mut otl_gsub,
-    pub(crate) sfont: *mut sfnt,
+    pub(crate) sfont: &'a mut sfnt,
     pub(crate) nametogid: *mut tt_post_table,
 }
 /* tectonic/core-strutils.h: miscellaneous C string utilities
@@ -158,28 +157,29 @@ pub(crate) unsafe fn pdf_font_open_truetype(font: &mut pdf_font) -> i32 {
     let ident = font.ident.clone(); /* Must be embedded. */
     let index = pdf_font_get_index(font);
     assert!(!ident.is_empty());
-    let sfont = if let Some(handle) = dpx_open_truetype_file(&ident) {
+    let mut sfont = if let Some(handle) = dpx_open_truetype_file(&ident) {
         sfnt_open(handle)
     } else if let Some(handle) = dpx_open_dfont_file(&ident) {
-        dfont_open(handle, index)
+        if let Some(sfont) = dfont_open(handle, index) {
+            sfont
+        } else {
+            warn!("Could not open TrueType font: {}", ident,);
+            return -1i32;
+        }
     } else {
         return -1i32;
     };
-    if sfont.is_null() {
-        warn!("Could not open TrueType font: {}", ident,);
-        return -1i32;
-    }
-    let error = if (*sfont).type_0 == 1i32 << 4i32 {
-        let offset = ttc_read_offset(sfont, index);
+    let error = if sfont.type_0 == 1i32 << 4i32 {
+        let offset = ttc_read_offset(&sfont, index);
         if offset == 0_u32 {
             panic!("Invalid TTC index in {}.", ident);
         }
-        sfnt_read_table_directory(sfont, offset)
+        sfnt_read_table_directory(&mut sfont, offset)
     } else {
-        sfnt_read_table_directory(sfont, (*sfont).offset)
+        let offset = sfont.offset;
+        sfnt_read_table_directory(&mut sfont, offset)
     };
     if error != 0 {
-        sfnt_close(sfont);
         return -1i32;
         /* Silently */
     }
@@ -189,12 +189,12 @@ pub(crate) unsafe fn pdf_font_open_truetype(font: &mut pdf_font) -> i32 {
     let encoding_id = pdf_font_get_encoding(font);
     pdf_font_get_resource(font);
 
-    let fontname = tt_get_ps_fontname(sfont).unwrap_or_else(|| ident.clone());
+    let fontname = tt_get_ps_fontname(&mut sfont).unwrap_or_else(|| ident.clone());
     if fontname.is_empty() {
         panic!("Can\'t find valid fontname for \"{}\".", ident);
     }
     font.fontname = fontname.clone();
-    let tmp = tt_get_fontdesc(sfont, &mut embedding, -1i32, 1i32, &fontname)
+    let tmp = tt_get_fontdesc(&mut sfont, &mut embedding, -1i32, 1i32, &fontname)
         .expect("Could not optain necessary font info.");
 
     {
@@ -204,7 +204,6 @@ pub(crate) unsafe fn pdf_font_open_truetype(font: &mut pdf_font) -> i32 {
     }
     if embedding == 0 {
         if encoding_id >= 0i32 && pdf_encoding_is_predefined(encoding_id) == 0 {
-            sfnt_close(sfont);
             panic!("Custom encoding not allowed for non-embedded TrueType font.");
         } else {
             /* There are basically no guarantee for font substitution
@@ -222,7 +221,6 @@ pub(crate) unsafe fn pdf_font_open_truetype(font: &mut pdf_font) -> i32 {
             /* ENABLE_NOEMBED */
         }
     }
-    sfnt_close(sfont);
     let fontdict = pdf_font_get_resource(font);
     fontdict.as_dict_mut().set("Type", "Font");
     fontdict.as_dict_mut().set("Subtype", "TrueType");
@@ -298,7 +296,7 @@ static mut verbose: i32 = 0i32;
  * It does not work with encodings that uses full 256 range since
  * GID = 0 is reserved for .notdef, so GID = 256 is not accessible.
  */
-unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: *mut sfnt) -> i32 {
+unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: &mut sfnt) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
     let ttcm = tt_cmap_read(sfont, 1_u16, 0_u16);
     if ttcm.is_null() {
@@ -820,19 +818,26 @@ unsafe fn resolve_glyph(glyphname: *const i8, gid: *mut u16, gm: *mut glyph_mapp
  * glyph mapping. We use Unicode plus OTL GSUB for finding
  * glyphs in this case.
  */
-unsafe fn setup_glyph_mapper(mut gm: *mut glyph_mapper, sfont: *mut sfnt) -> i32 {
-    (*gm).sfont = sfont;
-    (*gm).nametogid = tt_read_post_table(sfont);
-    (*gm).codetogid = tt_cmap_read(sfont, 3_u16, 10_u16);
-    if (*gm).codetogid.is_null() {
-        (*gm).codetogid = tt_cmap_read(sfont, 3_u16, 1_u16)
+
+impl<'a> glyph_mapper<'a> {
+    unsafe fn setup(sfont: &mut sfnt) -> Result<glyph_mapper, ()> {
+        let nametogid = tt_read_post_table(sfont);
+        let mut codetogid = tt_cmap_read(sfont, 3_u16, 10_u16);
+        if codetogid.is_null() {
+            codetogid = tt_cmap_read(sfont, 3_u16, 1_u16)
+        }
+        if nametogid.is_null() && codetogid.is_null() {
+            return Err(());
+        }
+        Ok(glyph_mapper {
+            sfont,
+            nametogid,
+            codetogid,
+            gsub: otl_gsub_new(),
+        })
     }
-    if (*gm).nametogid.is_null() && (*gm).codetogid.is_null() {
-        return -1i32;
-    }
-    (*gm).gsub = otl_gsub_new();
-    0i32
 }
+
 unsafe fn clean_glyph_mapper(mut gm: *mut glyph_mapper) {
     if !(*gm).gsub.is_null() {
         otl_gsub_release((*gm).gsub);
@@ -846,24 +851,120 @@ unsafe fn clean_glyph_mapper(mut gm: *mut glyph_mapper) {
     (*gm).gsub = ptr::null_mut();
     (*gm).codetogid = ptr::null_mut();
     (*gm).nametogid = ptr::null_mut();
-    (*gm).sfont = ptr::null_mut();
+    //(*gm).sfont = ptr::null_mut();
 }
 unsafe fn do_custom_encoding(
     font: &mut pdf_font,
     encoding: *mut *mut i8,
     usedchars: *const i8,
-    sfont: *mut sfnt,
+    sfont: &mut sfnt,
 ) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
-    let mut gm: glyph_mapper = glyph_mapper {
-        codetogid: ptr::null_mut(),
-        gsub: ptr::null_mut(),
-        sfont: ptr::null_mut(),
-        nametogid: ptr::null_mut(),
-    };
-    assert!(!encoding.is_null() && !usedchars.is_null() && !sfont.is_null());
-    let error = setup_glyph_mapper(&mut gm, sfont);
-    if error != 0 {
+    assert!(!encoding.is_null() && !usedchars.is_null());
+    if let Ok(gm) = glyph_mapper::setup(sfont) {
+        let cmap_table =
+            new((274_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
+        memset(cmap_table as *mut libc::c_void, 0i32, 274);
+        put_big_endian(cmap_table as *mut libc::c_void, 0i32, 2i32);
+        /* Version  */
+        put_big_endian(cmap_table.offset(2) as *mut libc::c_void, 1i32, 2i32);
+        /* Number of subtables */
+        put_big_endian(cmap_table.offset(4) as *mut libc::c_void, 1u32 as i32, 2i32);
+        /* Platform ID */
+        put_big_endian(cmap_table.offset(6) as *mut libc::c_void, 0u32 as i32, 2i32);
+        /* Encoding ID */
+        put_big_endian(cmap_table.offset(8) as *mut libc::c_void, 12i32, 4i32);
+        /* Offset   */
+        put_big_endian(cmap_table.offset(12) as *mut libc::c_void, 0i32, 2i32);
+        /* Format   */
+        put_big_endian(cmap_table.offset(14) as *mut libc::c_void, 262i32, 2i32);
+        /* Length   */
+        put_big_endian(cmap_table.offset(16) as *mut libc::c_void, 0i32, 2i32);
+        /* Language */
+        let glyphs = tt_build_init(); /* +1 for .notdef */
+        let mut count = 1;
+        for code in 0..256 {
+            if !(*usedchars.offset(code as isize) == 0) {
+                let mut gid: u16 = 0;
+                let mut idx;
+                if (*encoding.offset(code as isize)).is_null()
+                    || streq_ptr(
+                        *encoding.offset(code as isize),
+                        b".notdef\x00" as *const u8 as *const i8,
+                    ) as i32
+                        != 0
+                {
+                    warn!("Character code=\"0x{:02X}\" mapped to \".notdef\" glyph used in font font-file=\"{}\"", code,
+                                (&*font).ident);
+                    warn!(">> Maybe incorrect encoding specified?");
+                    idx = 0_u16
+                } else {
+                    let error = if !strchr(*encoding.offset(code as isize), '_' as i32).is_null() {
+                        findcomposite(*encoding.offset(code as isize), &mut gid, &mut gm)
+                    } else {
+                        resolve_glyph(*encoding.offset(code as isize), &mut gid, &mut gm)
+                    };
+                    /*
+                     * Older versions of gs had problem with glyphs (other than .notdef)
+                     * mapped to gid = 0.
+                     */
+                    if error != 0 {
+                        warn!(
+                            "Glyph \"{}\" not available in font \"{}\".",
+                            CStr::from_ptr(*encoding.offset(code as isize)).display(),
+                            (&*font).ident,
+                        ); /* count returned. */
+                    } else if verbose > 1i32 {
+                        info!(
+                            "truetype>> Glyph glyph-name=\"{}\" found at glyph-id=\"{}\".\n",
+                            CStr::from_ptr(*encoding.offset(code as isize)).display(),
+                            gid,
+                        );
+                    }
+                    idx = tt_find_glyph(glyphs, gid);
+                    if idx as i32 == 0i32 {
+                        idx = tt_add_glyph(glyphs, gid, count as u16);
+                        count += 1
+                    }
+                }
+                *cmap_table.offset((18i32 + code) as isize) = (idx as i32 & 0xffi32) as i8
+            }
+            /* bug here */
+        } /* _FIXME_: wrong message */
+        clean_glyph_mapper(&mut gm);
+        if tt_build_tables(sfont, glyphs) < 0i32 {
+            warn!("Packing TrueType font into SFNT file faild...");
+            tt_build_finish(glyphs);
+            free(cmap_table as *mut libc::c_void);
+            return -1i32;
+        }
+        for code in 0..256 {
+            if *usedchars.offset(code as isize) != 0 {
+                let idx = tt_get_index(glyphs, *cmap_table.offset((18i32 + code) as isize) as u16);
+                widths[code as usize] = (1000.0f64
+                    * (*(*glyphs).gd.offset(idx as isize)).advw as i32 as f64
+                    / (*glyphs).emsize as i32 as f64
+                    / 1i32 as f64
+                    + 0.5f64)
+                    .floor()
+                    * 1i32 as f64
+            } else {
+                widths[code as usize] = 0.0f64
+            }
+        }
+        do_widths(font, widths.as_mut_ptr());
+        if verbose > 1i32 {
+            info!("[{} glyphs]", (*glyphs).num_glyphs as i32);
+        }
+        tt_build_finish(glyphs);
+        sfnt_set_table(
+            sfont,
+            sfnt_table_info::CMAP,
+            cmap_table as *mut libc::c_void,
+            274_u32,
+        );
+        0i32
+    } else {
         warn!(
             "No post table nor Unicode cmap found in font: {}",
             (&*font).ident,
@@ -871,108 +972,6 @@ unsafe fn do_custom_encoding(
         warn!(">> I can\'t find glyphs without this!");
         return -1i32;
     }
-    let cmap_table =
-        new((274_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    memset(cmap_table as *mut libc::c_void, 0i32, 274);
-    put_big_endian(cmap_table as *mut libc::c_void, 0i32, 2i32);
-    /* Version  */
-    put_big_endian(cmap_table.offset(2) as *mut libc::c_void, 1i32, 2i32);
-    /* Number of subtables */
-    put_big_endian(cmap_table.offset(4) as *mut libc::c_void, 1u32 as i32, 2i32);
-    /* Platform ID */
-    put_big_endian(cmap_table.offset(6) as *mut libc::c_void, 0u32 as i32, 2i32);
-    /* Encoding ID */
-    put_big_endian(cmap_table.offset(8) as *mut libc::c_void, 12i32, 4i32);
-    /* Offset   */
-    put_big_endian(cmap_table.offset(12) as *mut libc::c_void, 0i32, 2i32);
-    /* Format   */
-    put_big_endian(cmap_table.offset(14) as *mut libc::c_void, 262i32, 2i32);
-    /* Length   */
-    put_big_endian(cmap_table.offset(16) as *mut libc::c_void, 0i32, 2i32);
-    /* Language */
-    let glyphs = tt_build_init(); /* +1 for .notdef */
-    let mut count = 1;
-    for code in 0..256 {
-        if !(*usedchars.offset(code as isize) == 0) {
-            let mut gid: u16 = 0;
-            let mut idx;
-            if (*encoding.offset(code as isize)).is_null()
-                || streq_ptr(
-                    *encoding.offset(code as isize),
-                    b".notdef\x00" as *const u8 as *const i8,
-                ) as i32
-                    != 0
-            {
-                warn!("Character code=\"0x{:02X}\" mapped to \".notdef\" glyph used in font font-file=\"{}\"", code,
-                            (&*font).ident);
-                warn!(">> Maybe incorrect encoding specified?");
-                idx = 0_u16
-            } else {
-                let error = if !strchr(*encoding.offset(code as isize), '_' as i32).is_null() {
-                    findcomposite(*encoding.offset(code as isize), &mut gid, &mut gm)
-                } else {
-                    resolve_glyph(*encoding.offset(code as isize), &mut gid, &mut gm)
-                };
-                /*
-                 * Older versions of gs had problem with glyphs (other than .notdef)
-                 * mapped to gid = 0.
-                 */
-                if error != 0 {
-                    warn!(
-                        "Glyph \"{}\" not available in font \"{}\".",
-                        CStr::from_ptr(*encoding.offset(code as isize)).display(),
-                        (&*font).ident,
-                    ); /* count returned. */
-                } else if verbose > 1i32 {
-                    info!(
-                        "truetype>> Glyph glyph-name=\"{}\" found at glyph-id=\"{}\".\n",
-                        CStr::from_ptr(*encoding.offset(code as isize)).display(),
-                        gid,
-                    );
-                }
-                idx = tt_find_glyph(glyphs, gid);
-                if idx as i32 == 0i32 {
-                    idx = tt_add_glyph(glyphs, gid, count as u16);
-                    count += 1
-                }
-            }
-            *cmap_table.offset((18i32 + code) as isize) = (idx as i32 & 0xffi32) as i8
-        }
-        /* bug here */
-    } /* _FIXME_: wrong message */
-    clean_glyph_mapper(&mut gm);
-    if tt_build_tables(sfont, glyphs) < 0i32 {
-        warn!("Packing TrueType font into SFNT file faild...");
-        tt_build_finish(glyphs);
-        free(cmap_table as *mut libc::c_void);
-        return -1i32;
-    }
-    for code in 0..256 {
-        if *usedchars.offset(code as isize) != 0 {
-            let idx = tt_get_index(glyphs, *cmap_table.offset((18i32 + code) as isize) as u16);
-            widths[code as usize] = (1000.0f64
-                * (*(*glyphs).gd.offset(idx as isize)).advw as i32 as f64
-                / (*glyphs).emsize as i32 as f64
-                / 1i32 as f64
-                + 0.5f64)
-                .floor()
-                * 1i32 as f64
-        } else {
-            widths[code as usize] = 0.0f64
-        }
-    }
-    do_widths(font, widths.as_mut_ptr());
-    if verbose > 1i32 {
-        info!("[{} glyphs]", (*glyphs).num_glyphs as i32);
-    }
-    tt_build_finish(glyphs);
-    sfnt_set_table(
-        sfont,
-        sfnt_table_info::CMAP,
-        cmap_table as *mut libc::c_void,
-        274_u32,
-    );
-    0i32
 }
 
 pub(crate) unsafe fn pdf_font_load_truetype(font: &mut pdf_font) -> i32 {
@@ -984,35 +983,30 @@ pub(crate) unsafe fn pdf_font_load_truetype(font: &mut pdf_font) -> i32 {
         return 0i32;
     }
     verbose = pdf_font_get_verbose();
-    let sfont = if let Some(handle) = dpx_open_truetype_file(&font.ident) {
+    let mut sfont = if let Some(handle) = dpx_open_truetype_file(&font.ident) {
         sfnt_open(handle)
     } else if let Some(handle) = dpx_open_dfont_file(&font.ident) {
-        dfont_open(handle, index)
+        dfont_open(handle, index).expect(&format!(
+            "Unable to open TrueType/dfont file: {}",
+            font.ident
+        ))
     } else {
         panic!("Unable to open TrueType/dfont font file: {}", font.ident);
     };
-    if sfont.is_null() {
-        panic!("Unable to open TrueType/dfont file: {}", font.ident);
-    } else {
-        if (*sfont).type_0 != 1i32 << 0i32
-            && (*sfont).type_0 != 1i32 << 4i32
-            && (*sfont).type_0 != 1i32 << 8i32
-        {
-            sfnt_close(sfont);
-            panic!("Font \"{}\" not a TrueType/dfont font?", font.ident);
-        }
+    if sfont.type_0 != 1 << 0 && sfont.type_0 != 1 << 4 && sfont.type_0 != 1 << 8 {
+        panic!("Font \"{}\" not a TrueType/dfont font?", font.ident);
     }
-    let error = if (*sfont).type_0 == 1i32 << 4i32 {
-        let offset = ttc_read_offset(sfont, index);
+    let error = if sfont.type_0 == 1i32 << 4i32 {
+        let offset = ttc_read_offset(&mut sfont, index);
         if offset == 0_u32 {
             panic!("Invalid TTC index in {}.", font.ident);
         }
-        sfnt_read_table_directory(sfont, offset)
+        sfnt_read_table_directory(&mut sfont, offset)
     } else {
-        sfnt_read_table_directory(sfont, (*sfont).offset)
+        let offset = sfont.offset;
+        sfnt_read_table_directory(&mut sfont, offset)
     };
     if error != 0 {
-        sfnt_close(sfont);
         panic!(
             "Reading SFND table dir failed for font-file=\"{}\"... Not a TrueType font?",
             font.ident
@@ -1023,13 +1017,12 @@ pub(crate) unsafe fn pdf_font_load_truetype(font: &mut pdf_font) -> i32 {
      */
     let usedchars: *mut i8 = pdf_font_get_usedchars(font);
     let error = if encoding_id < 0i32 {
-        do_builtin_encoding(font, usedchars, sfont)
+        do_builtin_encoding(font, usedchars, &mut sfont)
     } else {
         let enc_vec = pdf_encoding_get_encoding(encoding_id);
-        do_custom_encoding(font, enc_vec, usedchars, sfont)
+        do_custom_encoding(font, enc_vec, usedchars, &mut sfont)
     };
     if error != 0 {
-        sfnt_close(sfont);
         panic!(
             "Error occured while creating font subfont for \"{}\"",
             font.ident
@@ -1041,8 +1034,7 @@ pub(crate) unsafe fn pdf_font_load_truetype(font: &mut pdf_font) -> i32 {
      */
 
     for table in &required_table {
-        if sfnt_require_table(sfont.as_mut().unwrap(), table).is_err() {
-            sfnt_close(sfont);
+        if sfnt_require_table(&mut sfont, table).is_err() {
             panic!(
                 "Required TrueType table \"{}\" does not exist in font: {}",
                 table.name_str(),
@@ -1053,8 +1045,7 @@ pub(crate) unsafe fn pdf_font_load_truetype(font: &mut pdf_font) -> i32 {
     /*
      * FontFile2
      */
-    let fontfile = sfnt_create_FontFile_stream(sfont); /* XXX */
-    sfnt_close(sfont);
+    let fontfile = sfnt_create_FontFile_stream(&mut sfont); /* XXX */
     if verbose > 1i32 {
         info!("[{} bytes]", fontfile.len());
     }

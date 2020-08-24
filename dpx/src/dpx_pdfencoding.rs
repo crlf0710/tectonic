@@ -236,7 +236,6 @@ unsafe fn load_encoding_file(filename: &str) -> i32 {
     handle
         .read(&mut wbuf_0[..])
         .expect(&format!("error reading {}", filename));
-    ttstub_input_close(handle);
     let mut p = &wbuf_0[..fsize];
     p.skip_white();
     /*

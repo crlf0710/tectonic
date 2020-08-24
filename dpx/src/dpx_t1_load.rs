@@ -44,7 +44,7 @@ use libc::{free, memcpy, memmove, memset, strcmp, strcpy, strlen};
 use std::io::{Read, Seek, SeekFrom};
 
 pub(crate) type __ssize_t = i64;
-use bridge::InputHandleWrapper;
+use bridge::DroppableInputHandleWrapper;
 
 /* CFF Data Types */
 /* SID SID number */
@@ -1874,7 +1874,7 @@ unsafe fn init_cff_font(cff: &mut cff_font) {
 pub(crate) unsafe fn t1_load_font<'a>(
     enc_vec: *mut *mut i8,
     mode: i32,
-    mut handle: InputHandleWrapper,
+    mut handle: DroppableInputHandleWrapper,
 ) -> *mut cff_font<'a> {
     let mut length: i32 = 0;
     handle.seek(SeekFrom::Start(0)).unwrap();
@@ -1913,6 +1913,5 @@ pub(crate) unsafe fn t1_load_font<'a>(
     /* Remaining section ignored. */
     free(buffer as *mut libc::c_void);
     cff_update_string(&mut *cff);
-    bridge::ttstub_input_close(handle);
     cff
 }

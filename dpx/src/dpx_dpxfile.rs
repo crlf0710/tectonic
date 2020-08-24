@@ -26,18 +26,17 @@
     non_upper_case_globals
 )]
 
-use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom};
 
 use super::dpx_numbers::GetFromFile;
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
+use crate::bridge::ttstub_input_open_str;
 use libc::{free, remove};
 
 pub(crate) type __ssize_t = i64;
 
 use crate::bridge::TTInputFormat;
 
-use bridge::InputHandleWrapper;
+use bridge::DroppableInputHandleWrapper;
 /* quasi-hack to get the primary input */
 
 pub(crate) static mut keep_cache: i32 = 0i32;
@@ -129,9 +128,9 @@ pub(crate) unsafe fn dpx_tt_open(
     filename: &str,
     suffix: &str,
     format: TTInputFormat,
-) -> Option<InputHandleWrapper> {
-    let q = CString::new(ensuresuffix(filename, suffix)).unwrap();
-    let handle = ttstub_input_open(q.as_ptr(), format, 0i32);
+) -> Option<DroppableInputHandleWrapper> {
+    let q = ensuresuffix(filename, suffix);
+    let handle = ttstub_input_open_str(&q, format, 0i32);
     handle
 }
 /* Search order:
@@ -141,13 +140,10 @@ pub(crate) unsafe fn dpx_tt_open(
  *   dvipdfm  (text file)
  */
 
-pub(crate) unsafe fn dpx_open_type1_file(filename: &str) -> Option<InputHandleWrapper> {
-    let filename_ = CString::new(filename).unwrap();
-    let filename = filename_.as_ptr();
-    match ttstub_input_open(filename, TTInputFormat::TYPE1, 0) {
+pub(crate) unsafe fn dpx_open_type1_file(filename: &str) -> Option<DroppableInputHandleWrapper> {
+    match ttstub_input_open_str(filename, TTInputFormat::TYPE1, 0) {
         Some(mut handle) => {
             if !check_stream_is_type1(&mut handle) {
-                ttstub_input_close(handle);
                 None
             } else {
                 Some(handle)
@@ -157,13 +153,10 @@ pub(crate) unsafe fn dpx_open_type1_file(filename: &str) -> Option<InputHandleWr
     }
 }
 
-pub(crate) unsafe fn dpx_open_truetype_file(filename: &str) -> Option<InputHandleWrapper> {
-    let filename_ = CString::new(filename).unwrap();
-    let filename = filename_.as_ptr();
-    match ttstub_input_open(filename, TTInputFormat::TRUETYPE, 0) {
+pub(crate) unsafe fn dpx_open_truetype_file(filename: &str) -> Option<DroppableInputHandleWrapper> {
+    match ttstub_input_open_str(filename, TTInputFormat::TRUETYPE, 0) {
         Some(mut handle) => {
             if !check_stream_is_truetype(&mut handle) {
-                ttstub_input_close(handle);
                 None
             } else {
                 Some(handle)
@@ -173,13 +166,12 @@ pub(crate) unsafe fn dpx_open_truetype_file(filename: &str) -> Option<InputHandl
     }
 }
 
-pub(crate) unsafe fn dpx_open_opentype_file(filename: &str) -> Option<InputHandleWrapper> {
-    let q = CString::new(ensuresuffix(filename, ".otf")).unwrap();
-    let handle = ttstub_input_open(q.as_ptr(), TTInputFormat::OPENTYPE, 0i32);
+pub(crate) unsafe fn dpx_open_opentype_file(filename: &str) -> Option<DroppableInputHandleWrapper> {
+    let q = ensuresuffix(filename, ".otf");
+    let handle = ttstub_input_open_str(&q, TTInputFormat::OPENTYPE, 0i32);
     match handle {
         Some(mut handle) => {
             if !check_stream_is_opentype(&mut handle) {
-                ttstub_input_close(handle);
                 None
             } else {
                 Some(handle)
@@ -189,24 +181,23 @@ pub(crate) unsafe fn dpx_open_opentype_file(filename: &str) -> Option<InputHandl
     }
 }
 
-pub(crate) unsafe fn dpx_open_dfont_file(filename: &str) -> Option<InputHandleWrapper> {
-    let q;
-    if filename.len() > 6 && !filename.ends_with(".dfont") {
+pub(crate) unsafe fn dpx_open_dfont_file(filename: &str) -> Option<DroppableInputHandleWrapper> {
+    let handle = if filename.len() > 6 && !filename.ends_with(".dfont") {
         // FIXME: we might want to invert this
         /* I've double-checked that we're accurately representing the original
          * code -- the above strncmp() is *not* missing a logical negation.
          */
-        q = filename.to_owned() + "/rsrc";
+        ttstub_input_open_str(
+            &(filename.to_string() + "/rsrc"),
+            TTInputFormat::TRUETYPE,
+            0,
+        )
     } else {
-        q = filename.to_owned();
-    }
-    let q_ = CString::new(q).unwrap();
-    let q = q_.as_ptr();
-    let handle = ttstub_input_open(q, TTInputFormat::TRUETYPE, 0i32);
+        ttstub_input_open_str(filename, TTInputFormat::TRUETYPE, 0)
+    };
     match handle {
         Some(mut handle) => {
             if !check_stream_is_dfont(&mut handle) {
-                ttstub_input_close(handle);
                 None
             } else {
                 Some(handle)

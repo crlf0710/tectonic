@@ -288,7 +288,7 @@ pub(crate) struct cff_font<'a> {
     pub(crate) num_glyphs: u16,
     pub(crate) num_fds: u8,
     pub(crate) _string: *mut cff_index,
-    pub(crate) handle: Option<&'a mut InputHandleWrapper>,
+    pub(crate) handle: Option<&'a InputHandleWrapper>,
     pub(crate) filter: i32,
     pub(crate) index: i32,
     pub(crate) flag: i32,
@@ -713,7 +713,7 @@ unsafe fn get_unsigned<R: Read>(handle: &mut R, mut n: i32) -> u32 {
  */
 
 pub(crate) unsafe fn cff_open<'a>(
-    handle: &'a mut InputHandleWrapper,
+    handle: &'a InputHandleWrapper,
     mut offset: i32,
     n: i32,
 ) -> *mut cff_font<'a> where {
@@ -953,19 +953,19 @@ pub(crate) unsafe fn cff_get_name(cff: &cff_font) -> *mut i8 {
     fontname
 }
 
-pub(crate) unsafe fn cff_set_name(mut cff: *mut cff_font, name: &str) -> i32 {
+pub(crate) unsafe fn cff_set_name(cff: &mut cff_font, name: &str) -> i32 {
     // TODO: refactor
     let name_ = CString::new(name).unwrap();
     let name = name_.as_ptr();
     if strlen(name) > 127 {
         panic!("FontName string length too large...");
     }
-    if !(*cff).name.is_null() {
-        cff_release_index((*cff).name);
+    if !cff.name.is_null() {
+        cff_release_index(cff.name);
     }
     let idx = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_index>() as u64) as u32)
         as *mut cff_index;
-    (*cff).name = idx;
+    cff.name = idx;
     (*idx).count = 1i32 as u16;
     (*idx).offsize = 1i32 as c_offsize;
     (*idx).offset =
@@ -990,10 +990,10 @@ pub(crate) unsafe fn cff_put_header(cff: &cff_font, dest: &mut [u8]) -> usize {
 }
 /* Only read header part but not body */
 
-pub(crate) unsafe fn cff_get_index_header(cff: &mut cff_font) -> *mut cff_index {
+pub(crate) unsafe fn cff_get_index_header(cff: &cff_font) -> *mut cff_index {
     let idx = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_index>() as u64) as u32)
         as *mut cff_index;
-    let handle = cff.handle.as_mut().unwrap();
+    let handle = &mut cff.handle.unwrap();
     let count = u16::get(handle);
     (*idx).count = count;
     if count as i32 > 0i32 {
@@ -1027,10 +1027,10 @@ pub(crate) unsafe fn cff_get_index_header(cff: &mut cff_font) -> *mut cff_index 
     idx
 }
 
-pub(crate) unsafe fn cff_get_index(cff: &mut cff_font) -> *mut cff_index {
+pub(crate) unsafe fn cff_get_index(cff: &cff_font) -> *mut cff_index {
     let idx = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_index>() as u64) as u32)
         as *mut cff_index;
-    let handle = cff.handle.as_mut().unwrap();
+    let handle = &mut cff.handle.unwrap();
     let count = u16::get(handle);
     (*idx).count = count;
     if count as i32 > 0i32 {
@@ -1315,7 +1315,7 @@ pub(crate) unsafe fn cff_update_string(cff: &mut cff_font) {
 }
 /* String */
 
-pub(crate) unsafe fn cff_add_string(mut cff: &mut cff_font, str: *const i8, unique: i32) -> s_SID
+pub(crate) unsafe fn cff_add_string(cff: &mut cff_font, str: *const i8, unique: i32) -> s_SID
 /* Setting unique == 1 eliminates redundant or predefined strings. */ {
     let len: size_t = strlen(str) as _;
     if cff._string.is_null() {
@@ -1403,7 +1403,7 @@ pub(crate) unsafe fn cff_read_encoding(cff: &mut cff_font) -> i32 {
             return 0i32;
         }
     }
-    let handle = cff.handle.as_mut().unwrap();
+    let handle = &mut cff.handle.unwrap();
     handle
         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
         .unwrap();
@@ -1614,7 +1614,7 @@ pub(crate) unsafe fn cff_read_charsets(cff: &mut cff_font) -> i32 {
             }
         }
     }
-    let handle = cff.handle.as_mut().unwrap();
+    let handle = &mut cff.handle.unwrap();
     handle
         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
         .unwrap();
@@ -1977,7 +1977,7 @@ pub(crate) unsafe fn cff_read_fdselect(cff: &mut cff_font) -> i32 {
         return 0i32;
     }
     let offset = cff_dict_get(cff.topdict, b"FDSelect\x00" as *const u8 as *const i8, 0i32) as i32;
-    let handle = cff.handle.as_mut().unwrap();
+    let handle = &mut cff.handle.unwrap();
     handle
         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
         .unwrap();
@@ -2117,7 +2117,6 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
     }
     if cff.gsubr.is_null() {
         cff.handle
-            .as_mut()
             .unwrap()
             .seek(SeekFrom::Start(cff.offset as u64 + cff.gsubr_offset as u64))
             .unwrap();
@@ -2149,7 +2148,6 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
                         0i32,
                     )) as i32;
                 cff.handle
-                    .as_mut()
                     .unwrap()
                     .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
                     .unwrap();
@@ -2176,7 +2174,6 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
                 0i32,
             )) as i32;
         cff.handle
-            .as_mut()
             .unwrap()
             .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
             .unwrap();
@@ -2197,7 +2194,6 @@ pub(crate) unsafe fn cff_read_fdarray(cff: &mut cff_font) -> i32 {
     /* must exist */
     let offset = cff_dict_get(cff.topdict, b"FDArray\x00" as *const u8 as *const i8, 0i32) as i32;
     cff.handle
-        .as_mut()
         .unwrap()
         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
         .unwrap();
@@ -2295,7 +2291,7 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
                     b"Private\x00" as *const u8 as *const i8,
                     1i32,
                 ) as i32;
-                let handle = cff.handle.as_mut().unwrap();
+                let handle = &mut cff.handle.unwrap();
                 handle
                     .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
                     .unwrap();
@@ -2325,7 +2321,7 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
             size = cff_dict_get(cff.topdict, b"Private\x00" as *const u8 as *const i8, 0i32) as i32;
             size > 0i32
         } {
-            let handle = cff.handle.as_mut().unwrap();
+            let handle = &mut cff.handle.unwrap();
             let offset =
                 cff_dict_get(cff.topdict, b"Private\x00" as *const u8 as *const i8, 1i32) as i32;
             handle

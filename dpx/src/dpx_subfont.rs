@@ -28,20 +28,16 @@
 
 use std::io::{Read, Seek, SeekFrom};
 
-use crate::bridge::DisplayExt;
-use crate::streq_ptr;
 use crate::{info, warn};
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::ptr;
 
-use super::dpx_mem::{new, renew};
 use super::dpx_mfileio::tt_mfgets;
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
-use libc::{free, memcpy, strchr, strcpy, strlen, strtol};
+
+use bridge::{ttstub_input_open_str, TTInputFormat};
+use libc::{strchr, strlen, strtol};
 
 pub(crate) type __ssize_t = i64;
-
-use crate::bridge::TTInputFormat;
 
 /* Don't forget fontmap reading now requires information
  * from SFD files. You must initialize at least sfd_file_
@@ -55,14 +51,24 @@ use crate::bridge::TTInputFormat;
  *  We store code mapping tables in different place than
  *  struct sfd_file_.
  */
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct sfd_file_ {
-    pub(crate) ident: *mut i8,
-    pub(crate) sub_id: *mut *mut i8,
-    pub(crate) rec_id: *mut i32,
-    pub(crate) max_subfonts: i32,
-    pub(crate) num_subfonts: i32,
+    pub(crate) ident: String,
+    pub(crate) sub_id: Vec<String>,
+    pub(crate) rec_id: Vec<i32>,
+}
+impl sfd_file_ {
+    unsafe fn new() -> Self {
+        Self {
+            ident: String::new(),
+            sub_id: Vec::new(),
+            rec_id: Vec::new(),
+        }
+    }
+    unsafe fn init(&mut self) {
+        *self = Self::new()
+    }
 }
 /* Mapping table */
 #[derive(Copy, Clone)]
@@ -71,35 +77,21 @@ pub(crate) struct sfd_rec_ {
     pub(crate) vector: [u16; 256],
     /* 0 for undefined */
 }
+impl sfd_rec_ {
+    pub(crate) const fn new() -> Self {
+        Self { vector: [0; 256] }
+    }
+}
+
 static mut verbose: i32 = 0i32;
 
 pub(crate) unsafe fn subfont_set_verbose(level: i32) {
     verbose = level;
 }
-unsafe fn init_sfd_file_(mut sfd: *mut sfd_file_) {
-    (*sfd).ident = ptr::null_mut();
-    (*sfd).sub_id = 0 as *mut *mut i8;
-    (*sfd).rec_id = ptr::null_mut();
-    (*sfd).num_subfonts = 0i32;
-    (*sfd).max_subfonts = (*sfd).num_subfonts;
-}
-unsafe fn clean_sfd_file_(sfd: *mut sfd_file_) {
-    free((*sfd).ident as *mut libc::c_void);
-    if !(*sfd).sub_id.is_null() {
-        for i in 0..(*sfd).num_subfonts {
-            free(*(*sfd).sub_id.offset(i as isize) as *mut libc::c_void);
-        }
-        free((*sfd).sub_id as *mut libc::c_void);
-    }
-    free((*sfd).rec_id as *mut libc::c_void);
-    init_sfd_file_(sfd);
-}
-static mut sfd_files: *mut sfd_file_ = std::ptr::null_mut();
+static mut sfd_files: Vec<sfd_file_> = Vec::new();
 static mut num_sfd_files: i32 = 0i32;
 static mut max_sfd_files: i32 = 0i32;
-static mut sfd_record: *mut sfd_rec_ = std::ptr::null_mut();
-static mut num_sfd_records: i32 = 0i32;
-static mut max_sfd_records: i32 = 0i32;
+static mut sfd_record: Vec<sfd_rec_> = Vec::new();
 static mut line_buf: [i8; 4096] = [0; 4096];
 /* Each lines describes character code mapping for each
  * subfonts. '#' is start of comment.
@@ -153,7 +145,7 @@ unsafe fn readline<R: Read + Seek>(buf: *mut i8, buf_len: i32, handle: &mut R) -
  *  0xA1A1_0xA1A5 ==> Expanded to 0xA1A1 0xA1A2 ... 0xA1A5
  */
 /* subfont_id is already consumed here. */
-unsafe fn read_sfd_record(mut rec: *mut sfd_rec_, lbuf: *const i8) -> i32 {
+unsafe fn read_sfd_record(rec: &mut sfd_rec_, lbuf: *const i8) -> i32 {
     let mut p: *const i8 = lbuf;
     let mut r: *mut i8 = ptr::null_mut();
     let mut v2: i32 = 0i32;
@@ -227,7 +219,7 @@ unsafe fn read_sfd_record(mut rec: *mut sfd_rec_, lbuf: *const i8) -> i32 {
                 return -1i32;
             }
             for c in v1..=v2 {
-                if (*rec).vector[curpos as usize] as i32 != 0i32 {
+                if rec.vector[curpos as usize] != 0 {
                     warn!(
                         "Subfont mapping for slot=\"0x{:02x}\" already defined...",
                         curpos,
@@ -237,7 +229,7 @@ unsafe fn read_sfd_record(mut rec: *mut sfd_rec_, lbuf: *const i8) -> i32 {
                 assert!(curpos >= 0i32 && curpos <= 255i32);
                 let fresh0 = curpos;
                 curpos = curpos + 1;
-                (*rec).vector[fresh0 as usize] = c as u16;
+                rec.vector[fresh0 as usize] = c as u16;
             }
         }
         p = q;
@@ -248,18 +240,12 @@ unsafe fn read_sfd_record(mut rec: *mut sfd_rec_, lbuf: *const i8) -> i32 {
     error
 }
 /* Scan for subfont IDs */
-unsafe fn scan_sfd_file<R: Read + Seek>(mut sfd: *mut sfd_file_, handle: &mut R) -> i32 {
+unsafe fn scan_sfd_file<R: Read + Seek>(sfd: &mut sfd_file_, handle: &mut R) -> i32 {
     let mut lpos: i32 = 0i32;
-    assert!(!sfd.is_null());
     if verbose > 3i32 {
-        info!(
-            "\nsubfont>> Scanning SFD file \"{}\"...\n",
-            CStr::from_ptr((*sfd).ident).display()
-        );
+        info!("\nsubfont>> Scanning SFD file \"{}\"...\n", sfd.ident);
     }
     handle.seek(SeekFrom::Start(0)).unwrap();
-    (*sfd).num_subfonts = 0i32;
-    (*sfd).max_subfonts = (*sfd).num_subfonts;
     loop {
         let mut p = readline(line_buf.as_mut_ptr(), 4096i32, handle);
         if p.is_null() {
@@ -279,41 +265,20 @@ unsafe fn scan_sfd_file<R: Read + Seek>(mut sfd: *mut sfd_file_, handle: &mut R)
             p = p.offset(1);
             n += 1
         }
-        let id =
-            new(((n + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-                as *mut i8;
-        memcpy(id as *mut libc::c_void, q as *const libc::c_void, n as _);
-        *id.offset(n as isize) = '\u{0}' as i32 as i8;
-        if (*sfd).num_subfonts >= (*sfd).max_subfonts {
-            (*sfd).max_subfonts += 16i32;
-            (*sfd).sub_id = renew(
-                (*sfd).sub_id as *mut libc::c_void,
-                ((*sfd).max_subfonts as u32 as u64)
-                    .wrapping_mul(::std::mem::size_of::<*mut i8>() as u64) as u32,
-            ) as *mut *mut i8
-        }
+        let slice = std::slice::from_raw_parts(q as *const u8, n as usize);
+        let id = String::from_utf8_lossy(slice).to_string();
         if verbose > 3i32 {
-            info!(
-                "subfont>>   id=\"{}\" at line=\"{}\"\n",
-                CStr::from_ptr(id).display(),
-                lpos,
-            );
+            info!("subfont>>   id=\"{}\" at line=\"{}\"\n", id, lpos,);
         }
-        let ref mut fresh1 = *(*sfd).sub_id.offset((*sfd).num_subfonts as isize);
-        *fresh1 = id;
-        (*sfd).num_subfonts += 1
+        sfd.sub_id.push(id);
     }
-    (*sfd).rec_id = new(((*sfd).num_subfonts as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<i32>() as u64) as u32) as *mut i32;
-    for n in 0..(*sfd).num_subfonts {
-        *(*sfd).rec_id.offset(n as isize) = -1i32;
-        /* Not loaded yet. We do lazy loading of map definitions. */
-    }
+    sfd.rec_id = vec![-1; sfd.sub_id.len() as usize];
+    /* Not loaded yet. We do lazy loading of map definitions. */
     if verbose > 3i32 {
         info!(
             "subfont>> {} entries found in SFD file \"{}\".\n",
-            (*sfd).num_subfonts,
-            CStr::from_ptr((*sfd).ident).display(),
+            sfd.sub_id.len(),
+            sfd.ident,
         );
     }
     0i32
@@ -322,67 +287,42 @@ unsafe fn scan_sfd_file<R: Read + Seek>(mut sfd: *mut sfd_file_, handle: &mut R)
  * here but only read subfont IDs used in SFD file.
  */
 unsafe fn find_sfd_file(sfd_name: &str) -> i32 {
-    let sfd_name_ = CString::new(sfd_name).unwrap();
-    let sfd_name = sfd_name_.as_ptr();
     let mut id: i32 = -1i32;
     /* Check if we already opened SFD file */
-    for i in 0..num_sfd_files {
-        if streq_ptr((*sfd_files.offset(i as isize)).ident, sfd_name) {
-            id = i;
+    for (i, sfd) in sfd_files.iter().enumerate() {
+        if sfd.ident == sfd_name {
+            id = i as i32;
             break;
         }
     }
     if id < 0i32 {
-        if num_sfd_files >= max_sfd_files {
-            max_sfd_files += 8i32;
-            sfd_files = renew(
-                sfd_files as *mut libc::c_void,
-                (max_sfd_files as u32 as u64)
-                    .wrapping_mul(::std::mem::size_of::<sfd_file_>() as u64) as u32,
-            ) as *mut sfd_file_
-        }
-        let sfd = &mut *sfd_files.offset(num_sfd_files as isize) as *mut sfd_file_;
-        init_sfd_file_(sfd);
-        (*sfd).ident =
-            new((strlen(sfd_name).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-                as *mut i8;
-        strcpy((*sfd).ident, sfd_name);
-        let handle = ttstub_input_open((*sfd).ident, TTInputFormat::SFD, 0i32);
-        if handle.is_none() {
-            clean_sfd_file_(sfd);
-            return -1i32;
-        }
-        let mut handle = handle.unwrap();
-        let error = scan_sfd_file(sfd, &mut handle);
-        ttstub_input_close(handle);
-        if error == 0 {
-            let fresh2 = num_sfd_files;
-            num_sfd_files = num_sfd_files + 1;
-            id = fresh2
+        let mut sfd = sfd_file_::new();
+        sfd.ident = sfd_name.to_string();
+        if let Some(mut handle) = ttstub_input_open_str(&sfd.ident, TTInputFormat::SFD, 0) {
+            let error = scan_sfd_file(&mut sfd, &mut handle);
+            if error == 0 {
+                id = sfd_files.len() as i32;
+                sfd_files.push(sfd);
+            } else {
+                warn!("Error occured while reading SFD file \"{}\"", sfd_name,);
+                id = -1i32
+            }
         } else {
-            warn!(
-                "Error occured while reading SFD file \"{}\"",
-                CStr::from_ptr(sfd_name).display(),
-            );
-            clean_sfd_file_(sfd);
-            id = -1i32
+            return -1i32;
         }
     }
     id
 }
 
-pub(crate) unsafe fn sfd_get_subfont_ids(sfd_name: &str, num_ids: *mut i32) -> *mut *mut i8 {
+pub(crate) unsafe fn sfd_get_subfont_ids(sfd_name: &str) -> &[String] {
     if sfd_name.is_empty() {
-        return 0 as *mut *mut i8;
+        return &[];
     }
     let sfd_id = find_sfd_file(sfd_name);
-    if sfd_id < 0i32 {
-        return 0 as *mut *mut i8;
+    if sfd_id < 0 {
+        return &[];
     }
-    if !num_ids.is_null() {
-        *num_ids = (*sfd_files.offset(sfd_id as isize)).num_subfonts
-    }
-    (*sfd_files.offset(sfd_id as isize)).sub_id
+    &sfd_files[sfd_id as usize].sub_id
 }
 /* Make sure that sfd_name does not have the extension '.sfd'.
  * Mapping tables are actually read here.
@@ -397,38 +337,31 @@ pub(crate) unsafe fn sfd_load_record(sfd_name: &str, subfont_id: &str) -> i32 {
     if sfd_id < 0i32 {
         return -1i32;
     }
-    let sfd = &mut *sfd_files.offset(sfd_id as isize) as *mut sfd_file_;
+    let sfd = &mut sfd_files[sfd_id as usize];
     /* Check if we already loaded mapping table. */
     let mut i = 0;
-    while i < (*sfd).num_subfonts
-        && CStr::from_ptr(*(*sfd).sub_id.offset(i as isize))
-            .to_str()
-            .unwrap()
-            != subfont_id
-    {
+    while i < sfd.sub_id.len() && sfd.sub_id[i] != subfont_id {
         i += 1
     }
-    if i == (*sfd).num_subfonts {
+    if i == sfd.sub_id.len() {
         warn!(
             "Subfont id=\"{}\" not exist in SFD file \"{}\"...",
-            subfont_id,
-            CStr::from_ptr((*sfd).ident).display(),
+            subfont_id, sfd.ident,
         );
         return -1i32;
     } else {
-        if *(*sfd).rec_id.offset(i as isize) >= 0i32 {
-            return *(*sfd).rec_id.offset(i as isize);
+        if sfd.rec_id[i] >= 0 {
+            return sfd.rec_id[i];
         }
     }
     if verbose > 3i32 {
         info!(
             "\nsubfont>> Loading SFD mapping table for <{},{}>...",
-            CStr::from_ptr((*sfd).ident).display(),
-            subfont_id,
+            sfd.ident, subfont_id,
         );
     }
     /* reopen */
-    let handle = ttstub_input_open((*sfd).ident, TTInputFormat::SFD, 0i32);
+    let handle = ttstub_input_open_str(&sfd.ident, TTInputFormat::SFD, 0);
     if handle.is_none() {
         return -1i32;
         /* panic!("Could not open SFD file \"{}\"", sfd_name); */
@@ -455,58 +388,37 @@ pub(crate) unsafe fn sfd_load_record(sfd_name: &str, subfont_id: &str) -> i32 {
         *p = '\u{0}' as i32 as i8;
         p = p.offset(1);
         if CStr::from_ptr(q).to_str().unwrap() == subfont_id {
-            if num_sfd_records >= max_sfd_records {
-                max_sfd_records += 16i32;
-                sfd_record = renew(
-                    sfd_record as *mut libc::c_void,
-                    (max_sfd_records as u32 as u64)
-                        .wrapping_mul(::std::mem::size_of::<sfd_rec_>() as u64)
-                        as u32,
-                ) as *mut sfd_rec_
-            }
-            if !(*sfd_record.offset(num_sfd_records as isize))
-                .vector
-                .as_mut_ptr()
-                .is_null()
-            {
-                for __i in 0..256 {
-                    (*sfd_record.offset(num_sfd_records as isize)).vector[__i as usize] = 0_u16;
-                }
-            }
-            let error = read_sfd_record(&mut *sfd_record.offset(num_sfd_records as isize), p);
+            let mut rec = sfd_rec_::new();
+            let error = read_sfd_record(&mut rec, p);
             if error != 0 {
                 warn!(
                     "Error occured while reading SFD file: file=\"{}\" subfont_id=\"{}\"",
-                    CStr::from_ptr((*sfd).ident).display(),
-                    subfont_id,
+                    sfd.ident, subfont_id,
                 );
             } else {
-                let fresh3 = num_sfd_records;
-                num_sfd_records = num_sfd_records + 1;
-                rec_id = fresh3
+                rec_id = sfd_record.len() as i32;
+                sfd_record.push(rec);
             }
         }
     }
-    if rec_id < 0i32 {
+    if rec_id < 0 {
         warn!(
             "Failed to load subfont mapping table for SFD=\"{}\" subfont_id=\"{}\"",
-            CStr::from_ptr((*sfd).ident).display(),
-            subfont_id,
+            sfd.ident, subfont_id,
         );
     }
-    *(*sfd).rec_id.offset(i as isize) = rec_id;
-    ttstub_input_close(handle);
+    sfd.rec_id[i as usize] = rec_id;
     if verbose > 3i32 {
-        if rec_id >= 0i32 {
+        if rec_id >= 0 {
             info!(" at id=\"{}\"", rec_id);
             info!("\nsubfont>> Content of mapping table:");
             for __i_0 in 0..256 {
-                if __i_0 % 16i32 == 0i32 {
+                if __i_0 % 16 == 0 {
                     info!("\nsubfont>>  ");
                 }
                 info!(
                     " {:04x}",
-                    (*sfd_record.offset(rec_id as isize)).vector[__i_0 as usize] as i32,
+                    sfd_record[rec_id as usize].vector[__i_0 as usize],
                 );
             }
         }
@@ -517,26 +429,13 @@ pub(crate) unsafe fn sfd_load_record(sfd_name: &str, subfont_id: &str) -> i32 {
 /* Lookup mapping table */
 
 pub(crate) unsafe fn lookup_sfd_record(rec_id: i32, c: u8) -> u16 {
-    if sfd_record.is_null() || rec_id < 0i32 || rec_id >= num_sfd_records {
+    if sfd_record.is_empty() || rec_id < 0 || rec_id >= sfd_record.len() as i32 {
         panic!("Invalid subfont_id: {}", rec_id);
     }
-    (*sfd_record.offset(rec_id as isize)).vector[c as usize]
+    sfd_record[rec_id as usize].vector[c as usize]
 }
 
 pub(crate) unsafe fn release_sfd_record() {
-    if !sfd_record.is_null() {
-        free(sfd_record as *mut libc::c_void);
-    }
-    if !sfd_files.is_null() {
-        for i in 0..num_sfd_files {
-            clean_sfd_file_(&mut *sfd_files.offset(i as isize));
-        }
-        free(sfd_files as *mut libc::c_void);
-    }
-    sfd_record = ptr::null_mut();
-    sfd_files = ptr::null_mut();
-    max_sfd_records = 0i32;
-    num_sfd_records = max_sfd_records;
-    max_sfd_files = 0i32;
-    num_sfd_files = max_sfd_files;
+    sfd_record = Vec::new();
+    sfd_files = Vec::new();
 }

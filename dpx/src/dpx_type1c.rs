@@ -26,7 +26,7 @@
     non_upper_case_globals
 )]
 
-use super::dpx_sfnt::{sfnt_close, sfnt_find_table_pos, sfnt_open, sfnt_read_table_directory};
+use super::dpx_sfnt::{sfnt_find_table_pos, sfnt_open, sfnt_read_table_directory};
 use crate::bridge::DisplayExt;
 use crate::streq_ptr;
 use crate::{info, warn};
@@ -139,24 +139,20 @@ pub(crate) unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
         return -1i32;
     }
     let handle = handle.unwrap();
-    let sfont = sfnt_open(handle);
-    if sfont.is_null()
-        || (*sfont).type_0 != 1i32 << 2i32
-        || sfnt_read_table_directory(sfont, 0_u32) < 0i32
-    {
+    let mut sfont = sfnt_open(handle);
+    if sfont.type_0 != 1 << 2 || sfnt_read_table_directory(&mut sfont, 0) < 0 {
         panic!("Not a CFF/OpenType font (9)?");
     }
-    let offset = sfnt_find_table_pos(sfont, b"CFF ");
+    let offset = sfnt_find_table_pos(&sfont, b"CFF ");
     if offset < 1_u32 {
         panic!("No \"CFF \" table found; not a CFF/OpenType font (10)?");
     }
-    let cffont = cff_open(&mut (*sfont).handle, offset as i32, 0i32); // TODO: use link
+    let cffont = cff_open(&sfont.handle, offset as i32, 0);
     if cffont.is_null() {
         panic!("Could not read CFF font data");
     }
     if (*cffont).flag & 1i32 << 0i32 != 0 {
         cff_close(cffont);
-        sfnt_close(sfont);
         return -1i32;
     }
     let fontname = cff_get_name(&*cffont);
@@ -187,14 +183,13 @@ pub(crate) unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
      * Create font descriptor from OpenType tables.
      * We can also use CFF TOP DICT/Private DICT for this.
      */
-    if let Some(tmp) = tt_get_fontdesc(sfont, &mut embedding, -1i32, 1i32, &fontname) {
+    if let Some(tmp) = tt_get_fontdesc(&mut sfont, &mut embedding, -1i32, 1i32, &fontname) {
         /* copy */
         (*descriptor).as_dict_mut().merge(&tmp);
         if embedding == 0 {
             /* tt_get_fontdesc may have changed this */
             pdf_font_set_flags(font, 1i32 << 0i32);
         }
-        sfnt_close(sfont);
         0i32
     } else {
         panic!("Could not obtain neccesary font info from OpenType table.");
@@ -308,20 +303,17 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         panic!("Could not open OpenType font: {}", font.ident);
     }
     let handle = handle.unwrap();
-    let sfont = sfnt_open(handle);
-    if sfont.is_null() {
-        panic!("Could not open OpenType font: {}", font.ident);
-    }
-    if sfnt_read_table_directory(sfont, 0_u32) < 0i32 {
+    let mut sfont = sfnt_open(handle);
+    if sfnt_read_table_directory(&mut sfont, 0_u32) < 0i32 {
         panic!("Could not read OpenType table directory: {}", font.ident);
     }
-    if (*sfont).type_0 != 1i32 << 2i32 || {
-        offset = sfnt_find_table_pos(sfont, b"CFF ") as i32;
+    if sfont.type_0 != 1i32 << 2i32 || {
+        offset = sfnt_find_table_pos(&sfont, b"CFF ") as i32;
         offset == 0i32
     } {
         panic!("Not a CFF/OpenType font (11)?");
     }
-    let cffont = cff_open(&mut (*sfont).handle, offset, 0i32); // TODO: use link
+    let cffont = cff_open(&sfont.handle, offset, 0i32);
     if cffont.is_null() {
         panic!("Could not open CFF font.");
     }
@@ -855,7 +847,6 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     add_SimpleMetrics(font, cffont, widths.as_mut_ptr(), num_glyphs);
     /* Close font */
     cff_close(cffont);
-    sfnt_close(sfont);
     if verbose > 1i32 {
         info!("[{}/{} glyphs][{} bytes]", num_glyphs, cs_count, offset);
     }

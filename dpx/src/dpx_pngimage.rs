@@ -89,14 +89,14 @@ unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: u
 
 pub(crate) unsafe fn png_include_image(
     ximage: &mut pdf_ximage,
-    handle: &InputHandleWrapper,
+    handle: &mut InputHandleWrapper,
 ) -> i32 {
     /* Libpng stuff */
     let mut info = ximage_info::init();
     let mut intent = ptr::null_mut();
     let mut mask = intent;
     let mut colorspace = mask;
-    (&*handle).seek(SeekFrom::Start(0)).unwrap();
+    handle.seek(SeekFrom::Start(0)).unwrap();
 
     let png = if let Some(png) = png_create_read_struct(
         b"1.6.37\x00" as *const u8 as *const i8,

@@ -192,17 +192,12 @@ pub(crate) unsafe fn tt_build_finish(g: *mut tt_glyphs) {
     };
 }
 
-pub(crate) unsafe fn tt_build_tables(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
+pub(crate) unsafe fn tt_build_tables(sfont: &mut sfnt, mut g: *mut tt_glyphs) -> i32 {
     /* some information available from other TrueType table */
     let vmtx;
     /* temp */
     assert!(!g.is_null());
-    if sfont.is_null() {
-        panic!("File not opened.");
-    }
-    if (*sfont).type_0 != 1i32 << 0i32
-        && (*sfont).type_0 != 1i32 << 4i32
-        && (*sfont).type_0 != 1i32 << 8i32
+    if sfont.type_0 != 1i32 << 0i32 && sfont.type_0 != 1i32 << 4i32 && sfont.type_0 != 1i32 << 8i32
     {
         panic!("Invalid font type");
     }
@@ -254,12 +249,11 @@ pub(crate) unsafe fn tt_build_tables(sfont: *mut sfnt, mut g: *mut tt_glyphs) ->
         .wrapping_mul(::std::mem::size_of::<u32>() as u64) as u32) as *mut u32; /* Estimate most frequently appeared width */
     if (*head).indexToLocFormat as i32 == 0i32 {
         for i in 0..=(*maxp).numGlyphs as i32 {
-            *location.offset(i as isize) =
-                (2_u32).wrapping_mul(u16::get(&mut (*sfont).handle) as u32);
+            *location.offset(i as isize) = (2_u32).wrapping_mul(u16::get(&mut sfont.handle) as u32);
         }
     } else if (*head).indexToLocFormat as i32 == 1i32 {
         for i in 0..=(*maxp).numGlyphs as i32 {
-            *location.offset(i as isize) = u32::get(&mut (*sfont).handle);
+            *location.offset(i as isize) = u32::get(&mut sfont.handle);
         }
     } else {
         panic!("Unknown IndexToLocFormat.");
@@ -322,7 +316,7 @@ pub(crate) unsafe fn tt_build_tables(sfont: *mut sfnt, mut g: *mut tt_glyphs) ->
             let ref mut fresh5 = (*(*g).gd.offset(i as isize)).data;
             *fresh5 = p;
             let endptr = p.offset(len as isize);
-            let handle = &mut (*sfont).handle;
+            let handle = &mut sfont.handle;
             handle
                 .seek(SeekFrom::Start(offset as u64 + loc as u64))
                 .unwrap();
@@ -365,7 +359,7 @@ pub(crate) unsafe fn tt_build_tables(sfont: *mut sfnt, mut g: *mut tt_glyphs) ->
             ) as isize);
             /* Read evrything else. */
             ttstub_input_read(
-                (*sfont).handle.as_ptr(),
+                sfont.handle.as_ptr(),
                 p as *mut i8,
                 len.wrapping_sub(10_u32) as size_t,
             );
@@ -620,16 +614,11 @@ pub(crate) unsafe fn tt_build_tables(sfont: *mut sfnt, mut g: *mut tt_glyphs) ->
 /* default value */
 /* default value */
 
-pub(crate) unsafe fn tt_get_metrics(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> i32 {
+pub(crate) unsafe fn tt_get_metrics(sfont: &sfnt, mut g: *mut tt_glyphs) -> i32 {
     let vmtx;
     /* temp */
     assert!(!g.is_null());
-    if sfont.is_null() {
-        panic!("File not opened.");
-    }
-    if (*sfont).type_0 != 1i32 << 0i32
-        && (*sfont).type_0 != 1i32 << 4i32
-        && (*sfont).type_0 != 1i32 << 8i32
+    if sfont.type_0 != 1i32 << 0i32 && sfont.type_0 != 1i32 << 4i32 && sfont.type_0 != 1i32 << 8i32
     {
         panic!("Invalid font type");
     }
@@ -677,11 +666,11 @@ pub(crate) unsafe fn tt_get_metrics(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> 
     if (*head).indexToLocFormat as i32 == 0i32 {
         for i in 0..=(*maxp).numGlyphs as u32 {
             *location.offset(i as isize) =
-                (2_u32).wrapping_mul(u16::get(&mut (*sfont).handle) as u32);
+                (2_u32).wrapping_mul(u16::get(&mut &sfont.handle) as u32);
         }
     } else if (*head).indexToLocFormat as i32 == 1i32 {
         for i in 0..=(*maxp).numGlyphs as u32 {
-            *location.offset(i as isize) = u32::get(&mut (*sfont).handle);
+            *location.offset(i as isize) = u32::get(&mut &sfont.handle);
         }
     } else {
         panic!("Unknown IndexToLocFormat.");
@@ -728,7 +717,7 @@ pub(crate) unsafe fn tt_get_metrics(sfont: *mut sfnt, mut g: *mut tt_glyphs) -> 
             if len < 10_u32 {
                 panic!("Invalid TrueType glyph data (gid {}).", gid);
             }
-            let handle = &mut (*sfont).handle;
+            let handle = &mut &sfont.handle;
             handle
                 .seek(SeekFrom::Start(offset as u64 + loc as u64))
                 .unwrap();

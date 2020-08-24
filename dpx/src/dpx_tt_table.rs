@@ -243,12 +243,12 @@ pub(crate) unsafe fn tt_pack_head_table(table: *mut tt_head_table) -> *mut i8 {
     data
 }
 
-pub(crate) unsafe fn tt_read_head_table(sfont: *mut sfnt) -> *mut tt_head_table {
+pub(crate) unsafe fn tt_read_head_table(sfont: &sfnt) -> *mut tt_head_table {
     let mut table: *mut tt_head_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_head_table>() as u64)
         as u32) as *mut tt_head_table;
     sfnt_locate_table(sfont, sfnt_table_info::HEAD);
-    let handle = &mut (*sfont).handle;
+    let handle = &mut &sfont.handle;
     (*table).version = u32::get(handle);
     (*table).fontRevision = u32::get(handle);
     (*table).checkSumAdjustment = u32::get(handle);
@@ -332,12 +332,12 @@ pub(crate) unsafe fn tt_pack_maxp_table(table: *mut tt_maxp_table) -> *mut i8 {
     data
 }
 
-pub(crate) unsafe fn tt_read_maxp_table(sfont: *mut sfnt) -> *mut tt_maxp_table {
+pub(crate) unsafe fn tt_read_maxp_table(sfont: &sfnt) -> *mut tt_maxp_table {
     let mut table: *mut tt_maxp_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_maxp_table>() as u64)
         as u32) as *mut tt_maxp_table;
     sfnt_locate_table(sfont, sfnt_table_info::MAXP);
-    let handle = &mut (*sfont).handle;
+    let handle = &mut &sfont.handle;
     (*table).version = u32::get(handle);
     (*table).numGlyphs = u16::get(handle);
     (*table).maxPoints = u16::get(handle);
@@ -406,12 +406,12 @@ pub(crate) unsafe fn tt_pack_hhea_table(table: *mut tt_hhea_table) -> *mut i8 {
     data
 }
 
-pub(crate) unsafe fn tt_read_hhea_table(sfont: *mut sfnt) -> *mut tt_hhea_table {
+pub(crate) unsafe fn tt_read_hhea_table(sfont: &sfnt) -> *mut tt_hhea_table {
     let mut table: *mut tt_hhea_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_hhea_table>() as u64)
         as u32) as *mut tt_hhea_table;
     sfnt_locate_table(sfont, sfnt_table_info::HHEA);
-    let handle = &mut (*sfont).handle;
+    let handle = &mut &sfont.handle;
     (*table).version = u32::get(handle);
     (*table).ascent = i16::get(handle);
     (*table).descent = i16::get(handle);
@@ -439,12 +439,12 @@ pub(crate) unsafe fn tt_read_hhea_table(sfont: *mut sfnt) -> *mut tt_hhea_table 
 }
 /* vhea */
 
-pub(crate) unsafe fn tt_read_vhea_table(sfont: *mut sfnt) -> *mut tt_vhea_table {
+pub(crate) unsafe fn tt_read_vhea_table(sfont: &sfnt) -> *mut tt_vhea_table {
     let mut table: *mut tt_vhea_table = new((1_u64)
         .wrapping_mul(::std::mem::size_of::<tt_vhea_table>() as u64)
         as u32) as *mut tt_vhea_table;
     sfnt_locate_table(sfont, b"vhea");
-    let handle = &mut (*sfont).handle;
+    let handle = &mut &sfont.handle;
     (*table).version = u32::get(handle);
     (*table).vertTypoAscender = i16::get(handle);
     (*table).vertTypoDescender = i16::get(handle);
@@ -468,9 +468,9 @@ pub(crate) unsafe fn tt_read_vhea_table(sfont: *mut sfnt) -> *mut tt_vhea_table 
     table
 }
 
-pub(crate) unsafe fn tt_read_VORG_table(sfont: *mut sfnt) -> *mut tt_VORG_table {
+pub(crate) unsafe fn tt_read_VORG_table(sfont: &sfnt) -> *mut tt_VORG_table {
     let offset = sfnt_find_table_pos(sfont, b"VORG");
-    let handle = &mut (*sfont).handle;
+    let handle = &mut &sfont.handle;
     if offset > 0_u32 {
         let vorg = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_VORG_table>() as u64) as u32)
             as *mut tt_VORG_table;
@@ -503,7 +503,7 @@ pub(crate) unsafe fn tt_read_VORG_table(sfont: *mut sfnt) -> *mut tt_VORG_table 
  */
 
 pub(crate) unsafe fn tt_read_longMetrics(
-    sfont: *mut sfnt,
+    sfont: &sfnt,
     numGlyphs: u16,
     numLongMetrics: u16,
     numExSideBearings: u16,
@@ -513,7 +513,7 @@ pub(crate) unsafe fn tt_read_longMetrics(
     let m = new((numGlyphs as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<tt_longMetrics>() as u64) as u32)
         as *mut tt_longMetrics;
-    let handle = &mut (*sfont).handle;
+    let handle = &mut &sfont.handle;
     for gid in 0..numGlyphs {
         if (gid as i32) < numLongMetrics as i32 {
             last_adv = u16::get(handle)
@@ -529,10 +529,10 @@ pub(crate) unsafe fn tt_read_longMetrics(
 /* OS/2 table */
 /* this table may not exist */
 
-pub(crate) unsafe fn tt_read_os2__table(sfont: *mut sfnt) -> *mut tt_os2__table {
+pub(crate) unsafe fn tt_read_os2__table(sfont: &sfnt) -> *mut tt_os2__table {
     let table = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_os2__table>() as u64) as u32)
         as *mut tt_os2__table;
-    let handle = &mut (*sfont).handle;
+    let handle = &mut &sfont.handle;
     if sfnt_find_table_pos(sfont, sfnt_table_info::OS_2) > 0_u32 {
         sfnt_locate_table(sfont, sfnt_table_info::OS_2);
         (*table).version = u16::get(handle);
@@ -606,7 +606,7 @@ pub(crate) unsafe fn tt_read_os2__table(sfont: *mut sfnt) -> *mut tt_os2__table 
     table
 }
 unsafe fn tt_get_name(
-    sfont: *mut sfnt,
+    sfont: &sfnt,
     dest: *mut i8,
     destlen: u16,
     plat_id: u16,
@@ -616,7 +616,7 @@ unsafe fn tt_get_name(
 ) -> u16 {
     let mut length: u16 = 0_u16;
     let name_offset = sfnt_locate_table(sfont, sfnt_table_info::NAME);
-    let handle = &mut (*sfont).handle;
+    let handle = &mut &sfont.handle;
     if u16::get(handle) != 0 {
         panic!("Expecting zero");
     }
@@ -685,7 +685,7 @@ unsafe fn tt_get_name(
 /* OS/2 table */
 /* name table */
 
-pub(crate) unsafe fn tt_get_ps_fontname(sfont: *mut sfnt) -> Option<String> {
+pub(crate) unsafe fn tt_get_ps_fontname(sfont: &sfnt) -> Option<String> {
     let mut dest = [0; 128];
     /* First try Mac-Roman PS name and then Win-Unicode PS name */
     let mut namelen = tt_get_name(sfont, dest.as_mut_ptr(), 127, 1_u16, 0_u16, 0_u16, 6_u16);
