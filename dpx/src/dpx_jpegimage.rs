@@ -208,8 +208,8 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
     let stream_dict = stream.get_dict_mut();
     stream_dict.set("Filter", "DCTDecode");
     /* XMP Metadata */
-    if pdf_get_version() >= 4_u32 {
-        if j_info.flags & 1i32 << 4i32 != 0 {
+    if pdf_get_version() >= 4 {
+        if j_info.flags & 1 << 4 != 0 {
             let XMP_stream = JPEG_get_XMP(&mut j_info).into_obj();
             stream_dict.set("Metadata", pdf_ref_obj(XMP_stream));
             pdf_release_obj(XMP_stream);
@@ -217,13 +217,13 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
     }
     /* Check embedded ICC Profile */
     let mut colorspace = ptr::null_mut();
-    if j_info.flags & 1i32 << 2i32 != 0 {
+    if j_info.flags & 1 << 2 != 0 {
         if let Some(icc_stream) = JPEG_get_iccp(&mut j_info) {
-            if iccp_check_colorspace(colortype, &icc_stream.content) < 0i32 {
+            if iccp_check_colorspace(colortype, &icc_stream.content) < 0 {
                 colorspace = ptr::null_mut()
             } else {
                 let cspc_id = iccp_load_profile(std::ptr::null(), &icc_stream.content);
-                if cspc_id < 0i32 {
+                if cspc_id < 0 {
                     colorspace = ptr::null_mut()
                 } else {
                     colorspace = pdf_get_colorspace_reference(cspc_id);
@@ -247,7 +247,7 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
         }
     }
     stream_dict.set("ColorSpace", colorspace);
-    if j_info.flags & 1i32 << 1i32 != 0 && j_info.num_components as i32 == 4i32 {
+    if j_info.flags & 1 << 1 != 0 && j_info.num_components as i32 == 4 {
         warn!("Adobe CMYK JPEG: Inverted color assumed.");
         let mut decode = vec![];
         for _ in 0..j_info.num_components as u32 {
@@ -277,8 +277,8 @@ unsafe fn jpeg_get_density(mut j_info: *mut JPEG_info) -> (f64, f64) {
      * JPEG_scan_file(). In this case we assume
      * that j_info->xdpi = j_info->ydpi = 72.0.
      */
-    if (*j_info).xdpi < 0.1f64 && (*j_info).ydpi < 0.1f64 {
-        (*j_info).ydpi = 72.0f64;
+    if (*j_info).xdpi < 0.1 && (*j_info).ydpi < 0.1 {
+        (*j_info).ydpi = 72.;
         (*j_info).xdpi = (*j_info).ydpi
     }
     (72. / (*j_info).xdpi, 72. / (*j_info).ydpi)

@@ -47,7 +47,7 @@ pub(crate) unsafe fn tt_mfgets<R: Read + Seek>(
     while i < length - 1i32
         && {
             ch = ttstub_input_getc(file);
-            ch >= 0i32
+            ch >= 0
         }
         && ch != '\n' as i32
         && ch != '\r' as i32
@@ -63,7 +63,7 @@ pub(crate) unsafe fn tt_mfgets<R: Read + Seek>(
     if ch == '\r' as i32
         && {
             ch = ttstub_input_getc(file);
-            ch >= 0i32
+            ch >= 0
         }
         && ch != '\n' as i32
     {

@@ -128,6 +128,22 @@ impl Seek for DroppableInputHandleWrapper {
     }
 }
 
+impl Read for &DroppableInputHandleWrapper {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        use std::ops::Deref;
+        let mut rf = (*self).deref();
+        (&mut rf).read(buf)
+    }
+}
+
+impl Seek for &DroppableInputHandleWrapper {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        use std::ops::Deref;
+        let mut rf = (*self).deref();
+        (&mut rf).seek(pos)
+    }
+}
+
 impl Seek for InputHandleWrapper {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         use libc::{SEEK_CUR, SEEK_END, SEEK_SET};
