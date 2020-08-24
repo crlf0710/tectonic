@@ -90,7 +90,7 @@ pub fn bmp_get_bbox<R: Read + Seek>(handle: &mut R) -> Result<(u32, u32, f64, f6
 }
 
 pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
-    ximage: *mut pdf_ximage,
+    ximage: &mut pdf_ximage,
     handle: &mut R,
 ) -> Result<(), ()> {
     let num_palette;

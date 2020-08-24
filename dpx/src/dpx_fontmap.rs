@@ -26,6 +26,8 @@
     non_upper_case_globals
 )]
 
+use std::io::{Read, Seek};
+
 use crate::bridge::DisplayExt;
 use std::ffi::{CStr, CString};
 use std::ptr;
@@ -47,7 +49,6 @@ use libc::{atof, atoi, free, memcpy, strchr, strcpy, strlen, strtol, strtoul};
 
 use crate::bridge::TTInputFormat;
 
-use bridge::InputHandleWrapper;
 #[derive(Clone)]
 pub(crate) struct fontmap_opt {
     pub(crate) slant: f64,
@@ -186,7 +187,7 @@ unsafe fn fill_in_defaults(mrec: &mut fontmap_rec, tex_name: &str) {
         }
     };
 }
-unsafe fn tt_readline(buf: *mut i8, buf_len: i32, handle: &mut InputHandleWrapper) -> *mut i8 {
+unsafe fn tt_readline<R: Read + Seek>(buf: *mut i8, buf_len: i32, handle: &mut R) -> *mut i8 {
     assert!(!buf.is_null() && buf_len > 0i32);
     let p = tt_mfgets(buf, buf_len, handle);
     if p.is_null() {

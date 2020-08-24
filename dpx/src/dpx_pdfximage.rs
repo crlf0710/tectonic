@@ -48,7 +48,7 @@ use crate::dpx_pdfobj::{check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_r
 use crate::shims::sprintf;
 use libc::{free, memset, strcpy, strlen};
 
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 
 pub(crate) type __ssize_t = i64;
 
@@ -219,7 +219,7 @@ pub(crate) unsafe fn pdf_close_images() {
     }
     _opts.cmdtmpl = mfree(_opts.cmdtmpl as *mut libc::c_void) as *mut i8;
 }
-unsafe fn source_image_type(handle: &mut InputHandleWrapper) -> i32 {
+unsafe fn source_image_type<R: Read + Seek>(handle: &mut R) -> i32 {
     handle.seek(SeekFrom::Start(0)).unwrap();
     /* Original check order: jpeg, jp2, png, bmp, pdf, ps */
     let format = if check_for_jpeg(handle) != 0 {
@@ -256,25 +256,25 @@ unsafe fn load_image(
                 as u32,
         ) as *mut pdf_ximage
     }
-    let I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
+    let I = &mut *(*ic).ximages.offset(id as isize);
     pdf_init_ximage_struct(I);
     if !ident.is_null() {
-        (*I).ident =
+        I.ident =
             new((strlen(ident).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
                 as *mut i8;
-        strcpy((*I).ident, ident);
+        strcpy(I.ident, ident);
     }
     if !fullname.is_null() {
-        (*I).filename =
+        I.filename =
             new((strlen(fullname).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
                 as *mut i8;
-        strcpy((*I).filename, fullname);
+        strcpy(I.filename, fullname);
     }
-    (*I).attr.page_no = options.page_no;
-    (*I).attr.bbox_type = options.bbox_type;
+    I.attr.page_no = options.page_no;
+    I.attr.bbox_type = options.bbox_type;
     /* else if (check_for_jp2(fp))
      *    format = IMAGE_TYPE_JP2; */
-    (*I).attr.dict = options.dict; /* unsafe? */
+    I.attr.dict = options.dict; /* unsafe? */
     match format {
         1 => {
             if _opts.verbose != 0 {
@@ -285,7 +285,7 @@ unsafe fn load_image(
                 return -1;
             }
 
-            (*I).subtype = 1;
+            I.subtype = 1;
             ttstub_input_close(handle);
             // FIXME: `ttstub_input_close` is not used in this place in
             // https://github.com/tectonic-typesetting/tectonic/blob/e4b884ceeeeda2808289d034480f27008a678746/tectonic/dpx-pdfximage.c#L254
@@ -320,7 +320,7 @@ unsafe fn load_image(
                 pdf_clean_ximage_struct(I);
                 return -1;
             }
-            (*I).subtype = 1;
+            I.subtype = 1;
             ttstub_input_close(handle);
         }
         0 => {
@@ -334,10 +334,10 @@ unsafe fn load_image(
                 return -1;
             }
             if _opts.verbose != 0 {
-                info!(",Page:{}", (*I).attr.page_no);
+                info!(",Page:{}", I.attr.page_no);
             }
             ttstub_input_close(handle);
-            (*I).subtype = 0;
+            I.subtype = 0;
         }
         5 => {
             if _opts.verbose != 0 {
@@ -360,23 +360,23 @@ unsafe fn load_image(
         }
     }
 
-    match (*I).subtype {
+    match I.subtype {
         1 => {
             sprintf(
-                (*I).res_name.as_mut_ptr(),
+                I.res_name.as_mut_ptr(),
                 b"Im%d\x00" as *const u8 as *const i8,
                 id,
             );
         }
         0 => {
             sprintf(
-                (*I).res_name.as_mut_ptr(),
+                I.res_name.as_mut_ptr(),
                 b"Fm%d\x00" as *const u8 as *const i8,
                 id,
             );
         }
         _ => {
-            panic!("Unknown XObject subtype: {}", (*I).subtype);
+            panic!("Unknown XObject subtype: {}", I.subtype);
         }
     }
     (*ic).count += 1;
@@ -501,7 +501,7 @@ impl ximage_info {
 }
 
 pub(crate) unsafe fn pdf_ximage_set_image(
-    mut I: *mut pdf_ximage,
+    I: &mut pdf_ximage,
     image_info: &ximage_info,
     resource: *mut pdf_obj,
 ) {
@@ -509,12 +509,12 @@ pub(crate) unsafe fn pdf_ximage_set_image(
     if !(!resource.is_null() && (*resource).is_stream()) {
         panic!("Image XObject must be of stream type.");
     }
-    (*I).subtype = 1i32;
-    (*I).attr.width = info.width;
-    (*I).attr.height = info.height;
-    (*I).attr.xdensity = info.xdensity;
-    (*I).attr.ydensity = info.ydensity;
-    (*I).reference = pdf_ref_obj(resource);
+    I.subtype = 1i32;
+    I.attr.width = info.width;
+    I.attr.height = info.height;
+    I.attr.xdensity = info.xdensity;
+    I.attr.ydensity = info.ydensity;
+    I.reference = pdf_ref_obj(resource);
     let dict = (*resource).as_stream_mut().get_dict_mut();
     dict.set("Type", "XObject");
     dict.set("Subtype", "Image");
@@ -524,11 +524,11 @@ pub(crate) unsafe fn pdf_ximage_set_image(
         /* Ignored for JPXDecode filter. FIXME */
         dict.set("BitsPerComponent", (*info).bits_per_component as f64); /* Caller don't know we are using reference. */
     }
-    if !(*I).attr.dict.is_null() {
-        dict.merge((*(*I).attr.dict).as_dict());
+    if !I.attr.dict.is_null() {
+        dict.merge((*I.attr.dict).as_dict());
     }
     pdf_release_obj(resource);
-    (*I).resource = ptr::null_mut();
+    I.resource = ptr::null_mut();
 }
 
 pub(crate) unsafe fn pdf_ximage_set_form(
@@ -597,19 +597,19 @@ pub(crate) unsafe fn pdf_ximage_defineresource(
                 as u32,
         ) as *mut pdf_ximage
     }
-    let I = &mut *(*ic).ximages.offset(id as isize) as *mut pdf_ximage;
+    let I = &mut *(*ic).ximages.offset(id as isize);
     pdf_init_ximage_struct(I);
     if !ident.is_null() {
-        (*I).ident =
+        I.ident =
             new((strlen(ident).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
                 as *mut i8;
-        strcpy((*I).ident, ident);
+        strcpy(I.ident, ident);
     }
     match info {
         XInfo::Image(mut info) => {
             pdf_ximage_set_image(I, &mut info, resource);
             sprintf(
-                (*I).res_name.as_mut_ptr(),
+                I.res_name.as_mut_ptr(),
                 b"Im%d\x00" as *const u8 as *const i8,
                 id,
             );
@@ -617,7 +617,7 @@ pub(crate) unsafe fn pdf_ximage_defineresource(
         XInfo::Form(mut info) => {
             pdf_ximage_set_form(I, &mut info, resource);
             sprintf(
-                (*I).res_name.as_mut_ptr(),
+                I.res_name.as_mut_ptr(),
                 b"Fm%d\x00" as *const u8 as *const i8,
                 id,
             );
@@ -866,7 +866,7 @@ pub(crate) unsafe fn set_distiller_template(s: *mut i8) {
 pub(crate) unsafe fn get_distiller_template() -> *mut i8 {
     _opts.cmdtmpl
 }
-unsafe fn check_for_ps(handle: &mut InputHandleWrapper) -> i32 {
+unsafe fn check_for_ps<R: Read + Seek>(handle: &mut R) -> i32 {
     handle.seek(SeekFrom::Start(0)).unwrap();
     tt_mfgets(work_buffer.as_mut_ptr(), 1024i32, handle);
     if !strstartswith(

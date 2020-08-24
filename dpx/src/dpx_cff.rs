@@ -37,7 +37,7 @@ use libc::{free, memcmp, memcpy, memmove, memset, strlen};
 
 use crate::bridge::size_t;
 use std::ffi::CString;
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
 use bridge::InputHandleWrapper;
@@ -694,7 +694,7 @@ static mut cff_stdstr: [&[u8]; 391] = [
     b"Roman\x00",
     b"Semibold\x00",
 ];
-unsafe fn get_unsigned(handle: &mut InputHandleWrapper, mut n: i32) -> u32 {
+unsafe fn get_unsigned<R: Read>(handle: &mut R, mut n: i32) -> u32 {
     let mut v: u32 = 0_u32;
     loop {
         let fresh0 = n;

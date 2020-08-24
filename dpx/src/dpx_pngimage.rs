@@ -88,7 +88,7 @@ unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: u
 }
 
 pub(crate) unsafe fn png_include_image(
-    ximage: *mut pdf_ximage,
+    ximage: &mut pdf_ximage,
     handle: &InputHandleWrapper,
 ) -> i32 {
     /* Libpng stuff */

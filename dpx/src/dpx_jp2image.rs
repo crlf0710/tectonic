@@ -323,7 +323,7 @@ pub(crate) unsafe fn check_for_jp2<R: Read + Seek>(fp: &mut R) -> i32 {
     1i32
 }
 
-pub(crate) unsafe fn jp2_include_image<R: Read + Seek>(ximage: *mut pdf_ximage, fp: &mut R) -> i32 {
+pub(crate) unsafe fn jp2_include_image<R: Read + Seek>(ximage: &mut pdf_ximage, fp: &mut R) -> i32 {
     let mut smask: i32 = 0i32;
     let pdf_version = pdf_get_version();
     if pdf_version < 5_u32 {

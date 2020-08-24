@@ -163,7 +163,7 @@ pub unsafe fn check_for_jpeg<R: Read + Seek>(handle: &mut R) -> i32 {
 }
 
 pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
-    ximage: *mut pdf_ximage,
+    ximage: &mut pdf_ximage,
     handle: &mut R,
 ) -> i32 {
     let mut j_info: JPEG_info = JPEG_info {

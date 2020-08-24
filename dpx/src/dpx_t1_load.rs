@@ -38,13 +38,12 @@ use super::dpx_cff::{cff_close, cff_new_index, cff_set_name};
 use super::dpx_cff_dict::{cff_dict_add, cff_dict_set, cff_new_dict};
 use super::dpx_mem::{new, renew, xstrdup};
 use super::dpx_pst::{pst_get_token, PstType};
-use crate::bridge::{ttstub_input_getc, ttstub_input_read};
+use crate::bridge::ttstub_input_getc;
 use libc::{free, memcpy, memmove, memset, strcmp, strcpy, strlen};
 
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 
 pub(crate) type __ssize_t = i64;
-use crate::bridge::size_t;
 use bridge::InputHandleWrapper;
 
 /* CFF Data Types */
@@ -1693,7 +1692,7 @@ unsafe fn parse_part1(
     Ok(())
 }
 
-pub(crate) unsafe fn is_pfb(handle: &mut InputHandleWrapper) -> bool {
+pub(crate) unsafe fn is_pfb<R: Read + Seek>(handle: &mut R) -> bool {
     let mut sig: [u8; 14] = [0; 14];
     handle.seek(SeekFrom::Start(0)).unwrap();
     let mut ch = ttstub_input_getc(handle);
@@ -1729,8 +1728,8 @@ pub(crate) unsafe fn is_pfb(handle: &mut InputHandleWrapper) -> bool {
     warn!("Not a PFB font file?");
     false
 }
-unsafe fn get_pfb_segment(
-    handle: &mut InputHandleWrapper,
+unsafe fn get_pfb_segment<R: Read + Seek>(
+    handle: &mut R,
     expected_type: i32,
     length: *mut i32,
 ) -> *mut u8 {
@@ -1764,17 +1763,17 @@ unsafe fn get_pfb_segment(
                     as u32,
             ) as *mut u8;
             while slen > 0i32 {
-                let rlen = ttstub_input_read(
-                    handle.as_ptr(),
-                    (buffer as *mut i8).offset(bytesread as isize),
-                    slen as size_t,
-                ) as i32;
-                if rlen < 0i32 {
+                let slice = std::slice::from_raw_parts_mut(
+                    buffer.offset(bytesread as isize),
+                    slen as usize,
+                );
+                if let Ok(rlen) = handle.read(slice) {
+                    slen -= rlen as i32;
+                    bytesread += rlen as i32;
+                } else {
                     free(buffer as *mut libc::c_void);
                     return ptr::null_mut();
                 }
-                slen -= rlen;
-                bytesread += rlen
             }
         }
     }
@@ -1799,7 +1798,7 @@ pub(crate) unsafe fn t1_get_standard_glyph(code: i32) -> *const i8 {
     StandardEncoding[code as usize]
 }
 
-pub(crate) unsafe fn t1_get_fontname(handle: &mut InputHandleWrapper, fontname: *mut i8) -> i32 {
+pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: *mut i8) -> i32 {
     let mut length: i32 = 0;
     let mut fn_found: i32 = 0i32;
     handle.seek(SeekFrom::Start(0)).unwrap();
