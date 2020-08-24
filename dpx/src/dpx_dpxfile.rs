@@ -51,10 +51,10 @@ static mut _SBUF: [u8; 128] = [0; 128];
  *  `OTTO': PostScript CFF font with OpenType wrapper
  *  `ttcf': TrueType Collection
  */
-unsafe fn check_stream_is_truetype(handle: &InputHandleWrapper) -> bool {
-    (&*handle).seek(SeekFrom::Start(0)).unwrap();
-    let n = (&*handle).read(&mut _SBUF[..4]).unwrap();
-    (&*handle).seek(SeekFrom::Start(0)).unwrap();
+unsafe fn check_stream_is_truetype<R: Read + Seek>(handle: &mut R) -> bool {
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    let n = handle.read(&mut _SBUF[..4]).unwrap();
+    handle.seek(SeekFrom::Start(0)).unwrap();
     if n != 4 {
         return false;
     }
@@ -65,20 +65,20 @@ unsafe fn check_stream_is_truetype(handle: &InputHandleWrapper) -> bool {
     &_SBUF[..4] == b"ttcf"
 }
 /* "OpenType" is only for ".otf" here */
-unsafe fn check_stream_is_opentype(handle: &InputHandleWrapper) -> bool {
-    (&*handle).seek(SeekFrom::Start(0)).unwrap();
-    let n = (&*handle).read(&mut _SBUF[..4]).unwrap();
-    (&*handle).seek(SeekFrom::Start(0)).unwrap();
+unsafe fn check_stream_is_opentype<R: Read + Seek>(handle: &mut R) -> bool {
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    let n = handle.read(&mut _SBUF[..4]).unwrap();
+    handle.seek(SeekFrom::Start(0)).unwrap();
     if n != 4 {
         return false;
     }
     &_SBUF[..4] == b"OTTO"
 }
-unsafe fn check_stream_is_type1(handle: &InputHandleWrapper) -> bool {
+unsafe fn check_stream_is_type1<R: Read + Seek>(handle: &mut R) -> bool {
     let p = &_SBUF;
-    (&*handle).seek(SeekFrom::Start(0)).unwrap();
-    let n = (&*handle).read(&mut _SBUF[..21]).unwrap();
-    (&*handle).seek(SeekFrom::Start(0)).unwrap();
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    let n = handle.read(&mut _SBUF[..21]).unwrap();
+    handle.seek(SeekFrom::Start(0)).unwrap();
     if n != 21 {
         return false;
     }
@@ -97,20 +97,20 @@ unsafe fn check_stream_is_type1(handle: &InputHandleWrapper) -> bool {
     }
     false
 }
-unsafe fn check_stream_is_dfont(mut handle: &InputHandleWrapper) -> bool {
-    (&*handle).seek(SeekFrom::Start(0)).unwrap();
-    u32::get(&mut handle);
-    let pos = u32::get(&mut handle) as u64;
-    (&*handle).seek(SeekFrom::Start(pos + 0x18)).unwrap();
-    let n = u16::get(&mut handle) as u64;
-    (&*handle).seek(SeekFrom::Start(pos + n)).unwrap();
-    let n = u16::get(&mut handle) as i32;
+unsafe fn check_stream_is_dfont<R: Read + Seek>(handle: &mut R) -> bool {
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    u32::get(handle);
+    let pos = u32::get(handle) as u64;
+    handle.seek(SeekFrom::Start(pos + 0x18)).unwrap();
+    let n = u16::get(handle) as u64;
+    handle.seek(SeekFrom::Start(pos + n)).unwrap();
+    let n = u16::get(handle) as i32;
     for _ in 0..=n {
-        if u32::get(&mut handle) as u64 == 0x73666e74 {
+        if u32::get(handle) as u64 == 0x73666e74 {
             /* "sfnt" */
             return true;
         }
-        u32::get(&mut handle);
+        u32::get(handle);
     }
     false
 }

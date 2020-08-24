@@ -240,7 +240,7 @@ static mut verbose: i32 = 0i32;
 static mut DVI_PAGE_BUFFER: Vec<u8> = Vec::new();
 static mut DVI_PAGE_BUF_INDEX: usize = 0;
 /* functions to read numbers from the dvi file and store them in DVI_PAGE_BUFFER */
-unsafe fn get_and_buffer_unsigned_byte(handle: &mut InputHandleWrapper) -> i32 {
+unsafe fn get_and_buffer_unsigned_byte<R: Read>(handle: &mut R) -> i32 {
     let ch = ttstub_input_getc(handle);
     if ch < 0i32 {
         panic!("File ended prematurely\n");
@@ -253,12 +253,12 @@ unsafe fn get_and_buffer_unsigned_byte(handle: &mut InputHandleWrapper) -> i32 {
     DVI_PAGE_BUF_INDEX += 1;
     ch
 }
-unsafe fn get_and_buffer_unsigned_pair(handle: &mut InputHandleWrapper) -> u32 {
+unsafe fn get_and_buffer_unsigned_pair<R: Read>(handle: &mut R) -> u32 {
     let mut pair: u32 = get_and_buffer_unsigned_byte(handle) as u32;
     pair = pair << 8i32 | get_and_buffer_unsigned_byte(handle) as u32;
     pair
 }
-unsafe fn get_and_buffer_bytes(handle: &mut InputHandleWrapper, count: u32) {
+unsafe fn get_and_buffer_bytes<R: Read>(handle: &mut R, count: u32) {
     DVI_PAGE_BUFFER.resize_with(DVI_PAGE_BUF_INDEX + count as usize, Default::default);
     handle
         .read_exact(&mut DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..])

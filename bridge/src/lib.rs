@@ -1,4 +1,5 @@
 #![feature(c_variadic)]
+#![feature(seek_convenience)]
 #![allow(
     dead_code,
     mutable_transmutes,
@@ -71,9 +72,13 @@ impl Write for &OutputHandleWrapper {
 
 #[derive(Clone, PartialEq)]
 #[repr(transparent)]
-pub struct InputHandleWrapper(pub(crate) NonNull<libc::c_void>);
+pub struct InputHandleWrapper(NonNull<libc::c_void>);
 
 impl InputHandleWrapper {
+    pub fn new(ptr: rust_input_handle_t) -> Option<Self> {
+        NonNull::new(ptr).map(|nnp| Self(nnp))
+    }
+
     pub fn as_ptr(&self) -> rust_input_handle_t {
         self.0.as_ptr()
     }
@@ -109,6 +114,20 @@ impl Read for &InputHandleWrapper {
     }
 }
 
+impl Read for DroppableInputHandleWrapper {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        use std::ops::DerefMut;
+        self.deref_mut().read(buf)
+    }
+}
+
+impl Seek for DroppableInputHandleWrapper {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        use std::ops::DerefMut;
+        self.deref_mut().seek(pos)
+    }
+}
+
 impl Seek for InputHandleWrapper {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         use libc::{SEEK_CUR, SEEK_END, SEEK_SET};
@@ -130,12 +149,6 @@ impl Seek for &InputHandleWrapper {
             SeekFrom::End(o) => (o as ssize_t, SEEK_END),
         };
         unsafe { Ok(ttstub_input_seek(self.0.as_ptr(), offset, whence) as u64) }
-    }
-}
-
-impl InputHandleWrapper {
-    pub(crate) fn new(ptr: rust_input_handle_t) -> Option<Self> {
-        NonNull::new(ptr).map(|nnp| Self(nnp))
     }
 }
 
@@ -401,12 +414,8 @@ pub unsafe fn ttstub_input_open_primary() -> Option<InputHandleWrapper> {
     ))
 }
 
-pub unsafe fn ttstub_input_get_size(handle: &mut InputHandleWrapper) -> size_t {
-    (*tectonic_global_bridge)
-        .input_get_size
-        .expect("non-null function pointer")(
-        (*tectonic_global_bridge).context, handle.0.as_ptr()
-    )
+pub fn ttstub_input_get_size<R: Seek>(handle: &mut R) -> size_t {
+    handle.stream_len().unwrap() as usize
 }
 
 pub(crate) unsafe fn ttstub_input_seek(
@@ -442,14 +451,12 @@ pub unsafe fn ttstub_input_read(
     )
 }
 
-pub fn ttstub_input_getc(handle: &InputHandleWrapper) -> i32 {
-    unsafe {
-        (*tectonic_global_bridge)
-            .input_getc
-            .expect("non-null function pointer")(
-            (*tectonic_global_bridge).context,
-            handle.0.as_ptr(),
-        )
+pub fn ttstub_input_getc<R: Read>(handle: &mut R) -> i32 {
+    let mut byte = [0u8; 1];
+
+    match handle.read(&mut byte[..1]) {
+        Ok(1) => byte[0] as i32,
+        _ => -1,
     }
 }
 

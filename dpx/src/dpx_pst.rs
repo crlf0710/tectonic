@@ -60,12 +60,7 @@ unsafe fn pst_parse_any(inbuf: *mut *mut u8, inbufend: *mut u8) -> pst_obj {
                 || *cur as i32 == '{' as i32
                 || *cur as i32 == '}' as i32
                 || *cur as i32 == '%' as i32)
-            || (*cur as i32 == ' ' as i32
-                || *cur as i32 == '\t' as i32
-                || *cur as i32 == '\u{c}' as i32
-                || *cur as i32 == '\r' as i32
-                || *cur as i32 == '\n' as i32
-                || *cur as i32 == '\u{0}' as i32))
+            || ((*cur).is_ascii_whitespace() || *cur as i32 == '\u{0}' as i32))
     {
         cur = cur.offset(1)
     }

@@ -27,11 +27,9 @@
 )]
 
 use crate::bridge::ttstub_input_getc;
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 
 use std::ptr;
-
-use bridge::InputHandleWrapper;
 
 /* Note: this is really just a random array used in other files. */
 pub(crate) static mut work_buffer: [i8; 1024] = [0; 1024];
@@ -39,10 +37,10 @@ pub(crate) static mut work_buffer_u8: [u8; 1024] = [0; 1024];
 /* Tectonic-enabled versions */
 /* Modified versions of the above functions based on the Tectonic I/O system. */
 
-pub(crate) unsafe fn tt_mfgets(
+pub(crate) unsafe fn tt_mfgets<R: Read + Seek>(
     buffer: *mut i8,
     length: i32,
-    mut file: &InputHandleWrapper,
+    file: &mut R,
 ) -> *mut i8 {
     let mut ch: i32 = 0i32;
     let mut i: i32 = 0i32;
@@ -69,7 +67,7 @@ pub(crate) unsafe fn tt_mfgets(
         }
         && ch != '\n' as i32
     {
-        (&mut file).seek(SeekFrom::Current(-1)).unwrap();
+        file.seek(SeekFrom::Current(-1)).unwrap();
     }
     buffer
 }

@@ -41,7 +41,6 @@ use crate::dpx_pdfobj::{
 use libc::memset;
 
 use crate::bridge::size_t;
-use bridge::InputHandleWrapper;
 use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
@@ -163,9 +162,9 @@ pub unsafe fn check_for_jpeg<R: Read + Seek>(handle: &mut R) -> i32 {
     1
 }
 
-pub(crate) unsafe fn jpeg_include_image(
+pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
     ximage: *mut pdf_ximage,
-    handle: &mut InputHandleWrapper,
+    handle: &mut R,
 ) -> i32 {
     let mut j_info: JPEG_info = JPEG_info {
         height: 0,
@@ -320,9 +319,7 @@ unsafe fn JPEG_get_iccp(j_info: *mut JPEG_info) -> Option<pdf_stream> {
                 /* ICC chunks are sorted? */
                 warn!(
                     "Invalid JPEG ICC chunk: {} (p:{}, n:{})",
-                    icc.seq_id as i32,
-                    prev_id,
-                    icc.num_chunks as i32,
+                    icc.seq_id as i32, prev_id, icc.num_chunks as i32,
                 );
                 return None;
             }
@@ -358,7 +355,7 @@ unsafe fn JPEG_get_XMP(j_info: *mut JPEG_info) -> pdf_stream {
     }
     XMP_stream
 }
-unsafe fn JPEG_get_marker(handle: &mut InputHandleWrapper) -> Option<JPEG_marker> {
+unsafe fn JPEG_get_marker<R: Read>(handle: &mut R) -> Option<JPEG_marker> {
     let mut c = ttstub_input_getc(handle);
     if c != 0xff {
         return None;
@@ -374,26 +371,21 @@ unsafe fn JPEG_get_marker(handle: &mut InputHandleWrapper) -> Option<JPEG_marker
         }
     }
 }
-unsafe fn add_APPn_marker(
-    j_info: *mut JPEG_info,
-    marker: JPEG_marker,
-    app_data: AppData,
-) {
+unsafe fn add_APPn_marker(j_info: *mut JPEG_info, marker: JPEG_marker, app_data: AppData) {
     (*j_info).appn.push(JPEG_ext { marker, app_data });
 }
-unsafe fn read_APP14_Adobe(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper) -> u16 {
+unsafe fn read_APP14_Adobe<R: Read>(j_info: *mut JPEG_info, handle: &mut R) -> u16 {
     let version = u16::get(handle);
     let flag0 = u16::get(handle);
     let flag1 = u16::get(handle);
     let transform = u8::get(handle);
-    let app_data = Box::new(JPEG_APPn_Adobe{
-        version, flag0, flag1, transform
+    let app_data = Box::new(JPEG_APPn_Adobe {
+        version,
+        flag0,
+        flag1,
+        transform,
     });
-    add_APPn_marker(
-        j_info,
-        JM_APP14,
-        AppData::ADOBE(app_data),
-    );
+    add_APPn_marker(j_info, JM_APP14, AppData::ADOBE(app_data));
     7_u16
 }
 unsafe fn read_exif_bytes(pp: *mut *mut u8, n: i32, endian: i32) -> i32 {
@@ -598,39 +590,30 @@ unsafe fn read_APP1_Exif<R: Read>(
 
     length
 }
-unsafe fn read_APP0_JFIF(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper) -> size_t {
-        
-        
+unsafe fn read_APP0_JFIF<R: Read>(j_info: *mut JPEG_info, handle: &mut R) -> size_t {
     let version = u16::get(handle);
     let units = u8::get(handle);
     let Xdensity = u16::get(handle);
     let Ydensity = u16::get(handle);
     let Xthumbnail = u8::get(handle);
     let Ythumbnail = u8::get(handle);
-    let thumb_data_len =
-        (3i32 * Xthumbnail as i32 * Ythumbnail as i32) as size_t;
+    let thumb_data_len = (3i32 * Xthumbnail as i32 * Ythumbnail as i32) as size_t;
     let mut thumbnail = vec![0; thumb_data_len as usize];
     if thumb_data_len > 0 {
         handle.read_exact(&mut thumbnail);
     }
-    
-    let app_data = Box::new(
-        JPEG_APPn_JFIF {
-            version,
-            units,
-            Xdensity,
-            Ydensity,
-            Xthumbnail,
-            Ythumbnail,
-            thumbnail
-        }
-    );
-    
-    add_APPn_marker(
-        j_info,
-        JM_APP0,
-        AppData::JFIF(app_data),
-    );
+
+    let app_data = Box::new(JPEG_APPn_JFIF {
+        version,
+        units,
+        Xdensity,
+        Ydensity,
+        Xthumbnail,
+        Ythumbnail,
+        thumbnail,
+    });
+
+    add_APPn_marker(j_info, JM_APP0, AppData::JFIF(app_data));
     match units as i32 {
         1 => {
             (*j_info).xdpi = Xdensity as f64;
@@ -649,7 +632,7 @@ unsafe fn read_APP0_JFIF(j_info: *mut JPEG_info, handle: &mut InputHandleWrapper
     }
     (9i32 as u64).wrapping_add(thumb_data_len as _) as _
 }
-unsafe fn read_APP0_JFXX(handle: &mut InputHandleWrapper, length: size_t) -> size_t {
+unsafe fn read_APP0_JFXX<R: Read + Seek>(handle: &mut R, length: size_t) -> size_t {
     u8::get(handle);
     /* Extension Code:
      *
@@ -661,42 +644,30 @@ unsafe fn read_APP0_JFXX(handle: &mut InputHandleWrapper, length: size_t) -> siz
     /* Ignore */
     return length; /* Starting at 1 */
 }
-unsafe fn read_APP1_XMP(
-    j_info: *mut JPEG_info,
-    handle: &mut InputHandleWrapper,
-    length: size_t,
-) -> size_t {
+unsafe fn read_APP1_XMP<R: Read>(j_info: *mut JPEG_info, handle: &mut R, length: size_t) -> size_t {
     let mut packet = vec![0; length];
     handle.read_exact(&mut packet).unwrap();
     let app_data = Box::new(JPEG_APPn_XMP { packet });
-    add_APPn_marker(
-        j_info,
-        JM_APP1,
-        AppData::XMP(app_data),
-    );
+    add_APPn_marker(j_info, JM_APP1, AppData::XMP(app_data));
     length
 }
-unsafe fn read_APP2_ICC(
-    j_info: *mut JPEG_info,
-    handle: &mut InputHandleWrapper,
-    length: size_t,
-) -> size_t {
+unsafe fn read_APP2_ICC<R: Read>(j_info: *mut JPEG_info, handle: &mut R, length: size_t) -> size_t {
     let seq_id = u8::get(handle);
     let num_chunks = u8::get(handle);
     let mut chunk = vec![0; length as usize - 2];
     handle.read_exact(&mut chunk).unwrap();
-    let app_data = Box::new(JPEG_APPn_ICC { seq_id, num_chunks, chunk } );
-    add_APPn_marker(
-        j_info,
-        JM_APP2,
-        AppData::ICC(app_data),
-    );
+    let app_data = Box::new(JPEG_APPn_ICC {
+        seq_id,
+        num_chunks,
+        chunk,
+    });
+    add_APPn_marker(j_info, JM_APP2, AppData::ICC(app_data));
     length
 }
-unsafe fn JPEG_copy_stream(
+unsafe fn JPEG_copy_stream<R: Read + Seek>(
     j_info: *mut JPEG_info,
     stream: &mut pdf_stream,
-    handle: &mut InputHandleWrapper,
+    handle: &mut R,
 ) -> i32 {
     handle.seek(SeekFrom::Start(0)).unwrap();
     let mut count = 0;
@@ -779,7 +750,7 @@ unsafe fn JPEG_copy_stream(
         -1
     }
 }
-unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWrapper) -> i32 {
+unsafe fn JPEG_scan_file<R: Read + Seek>(mut j_info: *mut JPEG_info, handle: &mut R) -> i32 {
     let mut app_sig: [u8; 128] = [0; 128];
     handle.seek(SeekFrom::Start(0)).unwrap();
     let mut count = 0i32;
@@ -897,8 +868,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                         } else if count < 1024 {
                             (*j_info).skipbits[(count / 8) as usize] =
                                 ((*j_info).skipbits[(count / 8) as usize] as i32
-                                    | 1 << 7 - count % 8)
-                                    as i8
+                                    | 1 << 7 - count % 8) as i8
                         }
                     }
                     handle.seek(SeekFrom::Current(length as i64)).unwrap();
@@ -911,8 +881,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
                         if count < 1024 {
                             (*j_info).skipbits[(count / 8) as usize] =
                                 ((*j_info).skipbits[(count / 8) as usize] as i32
-                                    | 1 << 7 - count % 8)
-                                    as i8
+                                    | 1 << 7 - count % 8) as i8
                         }
                     }
                 }
@@ -935,7 +904,7 @@ unsafe fn JPEG_scan_file(mut j_info: *mut JPEG_info, handle: &mut InputHandleWra
     }
 }
 
-pub unsafe fn jpeg_get_bbox(handle: &mut InputHandleWrapper) -> Result<(u32, u32, f64, f64), ()> {
+pub unsafe fn jpeg_get_bbox<R: Read + Seek>(handle: &mut R) -> Result<(u32, u32, f64, f64), ()> {
     let mut j_info: JPEG_info = JPEG_info {
         height: 0,
         width: 0,

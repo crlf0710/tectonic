@@ -30,7 +30,7 @@ use crate::warn;
 
 use super::dpx_numbers::GetFromFile;
 use super::dpx_pdfximage::pdf_ximage_set_image;
-use crate::bridge::{ttstub_input_get_size, InputHandleWrapper};
+use crate::bridge::ttstub_input_get_size;
 use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj};
 use std::io::{Read, Seek, SeekFrom};
 
@@ -39,7 +39,7 @@ pub(crate) type __off64_t = i64;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 /* Label */
-unsafe fn read_box_hdr(fp: &mut InputHandleWrapper, lbox: *mut u32, tbox: *mut u32) -> u32 {
+unsafe fn read_box_hdr<R: Read>(fp: &mut R, lbox: *mut u32, tbox: *mut u32) -> u32 {
     let mut bytesread = 0_u32;
     *lbox = u32::get(fp);
     *tbox = u32::get(fp);
@@ -55,7 +55,7 @@ unsafe fn read_box_hdr(fp: &mut InputHandleWrapper, lbox: *mut u32, tbox: *mut u
     }
     bytesread
 }
-unsafe fn check_jp___box(fp: &mut InputHandleWrapper) -> i32 {
+unsafe fn check_jp___box<R: Read>(fp: &mut R) -> i32 {
     if u32::get(fp) != 0xc {
         return 0;
     }
@@ -68,7 +68,7 @@ unsafe fn check_jp___box(fp: &mut InputHandleWrapper) -> i32 {
     }
     1
 }
-unsafe fn check_ftyp_data(fp: &mut InputHandleWrapper, mut size: u32) -> i32 {
+unsafe fn check_ftyp_data<R: Read + Seek>(fp: &mut R, mut size: u32) -> i32 {
     let mut supported: i32 = 0i32;
     let BR = u32::get(fp);
     size = size.wrapping_sub(4_u32);
@@ -99,7 +99,7 @@ unsafe fn check_ftyp_data(fp: &mut InputHandleWrapper, mut size: u32) -> i32 {
     }
     supported
 }
-unsafe fn read_res__data(info: &mut ximage_info, fp: &mut InputHandleWrapper, mut _size: u32) {
+unsafe fn read_res__data<R: Read>(info: &mut ximage_info, fp: &mut R, mut _size: u32) {
     let VR_N = u16::get(fp) as u32;
     let VR_D = u16::get(fp) as u32;
     let HR_N = u16::get(fp) as u32;
@@ -109,7 +109,7 @@ unsafe fn read_res__data(info: &mut ximage_info, fp: &mut InputHandleWrapper, mu
     info.xdensity = 72. / (HR_N as f64 / HR_D as f64 * (10f64).powf(HR_E as f64) * 0.0254);
     info.ydensity = 72. / (VR_N as f64 / VR_D as f64 * (10f64).powf(VR_E as f64) * 0.0254);
 }
-unsafe fn scan_res_(info: &mut ximage_info, fp: &mut InputHandleWrapper, mut size: u32) -> i32 {
+unsafe fn scan_res_<R: Read + Seek>(info: &mut ximage_info, fp: &mut R, mut size: u32) -> i32 {
     let mut lbox: u32 = 0;
     let mut tbox: u32 = 0;
     let mut have_resd: i32 = 0i32;
@@ -151,10 +151,10 @@ unsafe fn scan_res_(info: &mut ximage_info, fp: &mut InputHandleWrapper, mut siz
  * contains opacity channel. However, OpenJPEG (and maybe most of JPEG 2000 coders?)
  * does not write Channel Definition box so transparency will be ignored.
  */
-unsafe fn scan_cdef(
+unsafe fn scan_cdef<R: Read>(
     _info: &mut ximage_info,
     smask: *mut i32,
-    fp: &mut InputHandleWrapper,
+    fp: &mut R,
     size: u32,
 ) -> i32 {
     let mut opacity_channels: i32 = 0i32; /* Cn */
@@ -188,10 +188,10 @@ unsafe fn scan_cdef(
     }
     0i32
 }
-unsafe fn scan_jp2h(
+unsafe fn scan_jp2h<R: Read + Seek>(
     info: &mut ximage_info,
     smask: *mut i32,
-    fp: &mut InputHandleWrapper,
+    fp: &mut R,
     mut size: u32,
 ) -> i32 {
     let mut error: i32 = 0i32;
@@ -245,7 +245,7 @@ unsafe fn scan_jp2h(
         -1i32
     };
 }
-unsafe fn scan_file(info: &mut ximage_info, smask: *mut i32, fp: &mut InputHandleWrapper) -> i32 {
+unsafe fn scan_file<R: Read + Seek>(info: &mut ximage_info, smask: *mut i32, fp: &mut R) -> i32 {
     let mut error: i32 = 0i32;
     let mut have_jp2h: i32 = 0i32;
     let mut lbox: u32 = 0;
@@ -304,7 +304,7 @@ unsafe fn scan_file(info: &mut ximage_info, smask: *mut i32, fp: &mut InputHandl
     error
 }
 
-pub(crate) unsafe fn check_for_jp2(fp: &mut InputHandleWrapper) -> i32 {
+pub(crate) unsafe fn check_for_jp2<R: Read + Seek>(fp: &mut R) -> i32 {
     let mut lbox: u32 = 0;
     let mut tbox: u32 = 0;
     fp.seek(SeekFrom::Start(0)).unwrap();
@@ -323,10 +323,7 @@ pub(crate) unsafe fn check_for_jp2(fp: &mut InputHandleWrapper) -> i32 {
     1i32
 }
 
-pub(crate) unsafe fn jp2_include_image(
-    ximage: *mut pdf_ximage,
-    fp: &mut InputHandleWrapper,
-) -> i32 {
+pub(crate) unsafe fn jp2_include_image<R: Read + Seek>(ximage: *mut pdf_ximage, fp: &mut R) -> i32 {
     let mut smask: i32 = 0i32;
     let pdf_version = pdf_get_version();
     if pdf_version < 5_u32 {
@@ -362,8 +359,8 @@ pub(crate) unsafe fn jp2_include_image(
     0i32
 }
 
-pub(crate) unsafe fn jp2_get_bbox(
-    fp: &mut InputHandleWrapper,
+pub(crate) unsafe fn jp2_get_bbox<R: Read + Seek>(
+    fp: &mut R,
     width: *mut i32,
     height: *mut i32,
     xdensity: *mut f64,
