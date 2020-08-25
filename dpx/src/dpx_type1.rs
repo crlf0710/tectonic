@@ -34,7 +34,7 @@ use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_cff::{
-    cff_add_string, cff_close, cff_get_seac_sid, cff_glyph_lookup, cff_index_size, cff_new_index,
+    cff_add_string, cff_get_seac_sid, cff_glyph_lookup, cff_index_size, cff_new_index,
     cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header, cff_release_charsets,
     cff_release_index, cff_set_name, cff_update_string, CffIndex, Pack,
 };
@@ -670,10 +670,6 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
         }
     }
     let cffont = t1_load_font(enc_vec, 0, handle);
-    if cffont.is_null() {
-        panic!("Could not load Type 1 font: {}", ident,);
-    }
-    let cffont = &mut *cffont;
     let fullname = format!("{}+{}", uniqueTag, font.fontname);
     /* Encoding related things. */
     if encoding_id >= 0 {
@@ -689,9 +685,9 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
             }
         }
     }
-    cff_set_name(cffont, &fullname);
+    cff_set_name(&mut cffont, &fullname);
     /* defaultWidthX, CapHeight, etc. */
-    get_font_attr(font, cffont);
+    get_font_attr(font, &cffont);
     let defaultwidth = if cff_dict_known(
         *cffont.private.offset(0),
         b"defaultWidthX\x00" as *const u8 as *const i8,
@@ -736,7 +732,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     (*charset).num_entries = 0i32 as u16;
     (*charset).data.glyphs =
         new((1024_u64).wrapping_mul(::std::mem::size_of::<s_SID>() as u64) as u32) as *mut s_SID;
-    let gid = cff_glyph_lookup(cffont, b".notdef\x00" as *const u8 as *const i8) as i32;
+    let gid = cff_glyph_lookup(&cffont, b".notdef\x00" as *const u8 as *const i8) as i32;
     if gid < 0i32 {
         panic!("Type 1 font with no \".notdef\" glyph???");
     }
@@ -756,7 +752,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                 );
                 *usedchars.offset(code as isize) = 0_i8
             } else {
-                let gid = cff_glyph_lookup(cffont, glyph) as i32;
+                let gid = cff_glyph_lookup(&cffont, glyph) as i32;
                 if gid < 1i32 || gid >= (*cffont.cstrings).count as i32 {
                     warn!(
                         "Glyph \"{}\" missing in font \"{}\".",
@@ -775,7 +771,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                         }
                         duplicate += 1
                     }
-                    let sid = cff_add_string(cffont, glyph, 1i32);
+                    let sid = cff_add_string(&mut cffont, glyph, 1i32);
                     if duplicate < code {
                         /* found duplicates */
                         (*(*cffont.encoding)
@@ -893,9 +889,9 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
              *  3. num_glyphs == charsets->num_entries + 1.
              */
             let achar_name = t1_get_standard_glyph(gm.seac.achar as i32);
-            let achar_gid = cff_glyph_lookup(cffont, achar_name) as i32;
+            let achar_gid = cff_glyph_lookup(&cffont, achar_name) as i32;
             let bchar_name = t1_get_standard_glyph(gm.seac.bchar as i32);
-            let bchar_gid = cff_glyph_lookup(cffont, bchar_name) as i32;
+            let bchar_gid = cff_glyph_lookup(&cffont, bchar_name) as i32;
             if achar_gid < 0i32 {
                 warn!(
                     "Accent char \"{}\" not found. Invalid use of \"seac\" operator.",
@@ -927,7 +923,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                         .data
                         .glyphs
                         .offset((*charset).num_entries as isize) =
-                        cff_get_seac_sid(cffont, achar_name) as s_SID;
+                        cff_get_seac_sid(&cffont, achar_name) as s_SID;
                     (*charset).num_entries = ((*charset).num_entries as i32 + 1i32) as u16
                 }
                 let mut i = 0;
@@ -938,7 +934,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                     i += 1
                 }
                 if i == num_glyphs as i32 {
-                    if verbose > 2i32 {
+                    if verbose > 2 {
                         info!("/{}", CStr::from_ptr(bchar_name).display());
                     }
                     let fresh3 = num_glyphs;
@@ -948,7 +944,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                         .data
                         .glyphs
                         .offset((*charset).num_entries as isize) =
-                        cff_get_seac_sid(cffont, bchar_name) as s_SID;
+                        cff_get_seac_sid(&cffont, bchar_name) as s_SID;
                     (*charset).num_entries = ((*charset).num_entries as i32 + 1i32) as u16
                 }
             }
@@ -969,15 +965,14 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
         info!("]");
     }
     /* Now we can update the String Index */
-    cff_dict_update(cffont.topdict, cffont);
-    cff_dict_update(*cffont.private.offset(0), cffont);
-    cff_update_string(cffont);
-    add_metrics(font, cffont, enc_vec, widths, num_glyphs as i32);
-    offset = write_fontfile(font, cffont, &pdfcharset);
+    cff_dict_update(cffont.topdict, &mut cffont);
+    cff_dict_update(*cffont.private.offset(0), &mut cffont);
+    cff_update_string(&mut cffont);
+    add_metrics(font, &cffont, enc_vec, widths, num_glyphs as i32);
+    offset = write_fontfile(font, &cffont, &pdfcharset);
     if verbose > 1i32 {
         info!("[{} glyphs][{} bytes]", num_glyphs, offset);
     }
-    cff_close(cffont);
     /* Cleanup */
     if encoding_id < 0i32 && !enc_vec.is_null() {
         for code in 0..256 {

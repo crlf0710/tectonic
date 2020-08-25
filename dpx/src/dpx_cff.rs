@@ -32,7 +32,6 @@ use crate::warn;
 use super::dpx_cff_dict::{cff_dict_get, cff_dict_known, cff_dict_unpack, cff_release_dict};
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::GetFromFile;
-use crate::bridge::ttstub_input_read;
 use libc::{free, memcmp, memcpy, memmove, memset, strlen};
 
 use crate::bridge::size_t;
@@ -716,47 +715,52 @@ pub(crate) unsafe fn cff_open<'a>(
     handle: &'a InputHandleWrapper,
     mut offset: i32,
     n: i32,
-) -> *mut cff_font<'a> where {
-    let cff =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<cff_font>() as u64) as u32) as *mut cff_font;
-    (*cff).fontname = ptr::null_mut();
-    (*cff).index = n;
-    (*cff).handle = Some(handle);
-    (*cff).offset = offset as l_offset;
-    (*cff).filter = 0i32;
-    (*cff).flag = 0i32;
-    (*cff).name = ptr::null_mut();
-    (*cff).topdict = ptr::null_mut();
-    (*cff).gsubr = ptr::null_mut();
-    (*cff).encoding = ptr::null_mut();
-    (*cff).charsets = ptr::null_mut();
-    (*cff).fdselect = ptr::null_mut();
-    (*cff).cstrings = ptr::null_mut();
-    (*cff).fdarray = 0 as *mut *mut cff_dict;
-    (*cff).private = 0 as *mut *mut cff_dict;
-    (*cff).subrs = 0 as *mut *mut cff_index;
-    (*cff).num_glyphs = 0i32 as u16;
-    (*cff).num_fds = 0i32 as u8;
-    (*cff).string = ptr::null_mut();
-    (*cff)._string = ptr::null_mut();
-    let handle = &mut (*cff).handle.as_mut().unwrap();
-    handle.seek(SeekFrom::Start((*cff).offset as u64)).unwrap();
-    (*cff).header.major = u8::get(handle);
-    (*cff).header.minor = u8::get(handle);
-    (*cff).header.hdr_size = u8::get(handle);
-    (*cff).header.offsize = u8::get(handle);
-    if ((*cff).header.offsize as i32) < 1i32 || (*cff).header.offsize as i32 > 4i32 {
+) -> Option<Box<cff_font<'a>>> {
+    let handle = &mut handle;
+    handle.seek(SeekFrom::Start(offset as u64)).unwrap();
+    let major = u8::get(handle);
+    let minor = u8::get(handle);
+    let hdr_size = u8::get(handle);
+    let offsize = u8::get(handle);
+    let cff = Box::new(cff_font {
+        fontname: ptr::null_mut(),
+        index: n,
+        handle: Some(handle),
+        offset: offset as l_offset,
+        filter: 0,
+        flag: 0,
+        name: ptr::null_mut(),
+        topdict: ptr::null_mut(),
+        gsubr: ptr::null_mut(),
+        encoding: ptr::null_mut(),
+        charsets: ptr::null_mut(),
+        fdselect: ptr::null_mut(),
+        cstrings: ptr::null_mut(),
+        fdarray: 0 as *mut *mut cff_dict,
+        private: 0 as *mut *mut cff_dict,
+        subrs: 0 as *mut *mut cff_index,
+        num_glyphs: 0i32 as u16,
+        num_fds: 0i32 as u8,
+        string: ptr::null_mut(),
+        _string: ptr::null_mut(),
+        header: cff_header {
+            major,
+            minor,
+            hdr_size,
+            offsize,
+        },
+        gsubr_offset: 0,
+        is_notdef_notzero: 0,
+    });
+    if (cff.header.offsize as i32) < 1 || cff.header.offsize as i32 > 4 {
         panic!("invalid offsize data");
     }
-    if (*cff).header.major as i32 > 1i32 || (*cff).header.minor as i32 > 0i32 {
+    if cff.header.major as i32 > 1 || cff.header.minor as i32 > 0 {
         warn!(
             "{}: CFF version {}.{} not supported.",
-            "CFF",
-            (*cff).header.major as i32,
-            (*cff).header.minor as i32,
+            "CFF", cff.header.major as i32, cff.header.minor as i32,
         );
-        cff_close(cff);
-        return ptr::null_mut();
+        return None;
     }
     handle
         .seek(SeekFrom::Start(
@@ -767,17 +771,16 @@ pub(crate) unsafe fn cff_open<'a>(
     let idx = cff_get_index(&mut *cff);
     if n > (*idx).count as i32 - 1i32 {
         warn!("{}: Invalid CFF fontset index number.", "CFF");
-        cff_close(cff);
-        return ptr::null_mut();
+        return None;
     }
-    (*cff).name = idx;
-    (*cff).fontname = cff_get_name(&*cff);
+    cff.name = idx;
+    cff.fontname = cff_get_name(&cff);
     /* Top DICT INDEX */
-    let idx = cff_get_index(&mut *cff);
+    let idx = cff_get_index(&mut cff);
     if n > (*idx).count as i32 - 1i32 {
         panic!("CFF Top DICT not exist...");
     }
-    (*cff).topdict = cff_dict_unpack(
+    cff.topdict = cff_dict_unpack(
         (*idx)
             .data
             .offset(*(*idx).offset.offset(n as isize) as isize)
@@ -787,151 +790,135 @@ pub(crate) unsafe fn cff_open<'a>(
             .offset(*(*idx).offset.offset((n + 1i32) as isize) as isize)
             .offset(-1),
     );
-    if (*cff).topdict.is_null() {
+    if cff.topdict.is_null() {
         panic!("Parsing CFF Top DICT data failed...");
     }
     cff_release_index(idx);
-    if cff_dict_known(
-        (*cff).topdict,
-        b"CharstringType\x00" as *const u8 as *const i8,
-    ) && cff_dict_get(
-        (*cff).topdict,
-        b"CharstringType\x00" as *const u8 as *const i8,
-        0i32,
-    ) != 2i32 as f64
+    if cff_dict_known(cff.topdict, b"CharstringType\x00" as *const u8 as *const i8)
+        && cff_dict_get(
+            cff.topdict,
+            b"CharstringType\x00" as *const u8 as *const i8,
+            0i32,
+        ) != 2i32 as f64
     {
         warn!("Only Type 2 Charstrings supported...");
-        cff_close(cff);
-        return ptr::null_mut();
+        return None;
     }
-    if cff_dict_known(
-        (*cff).topdict,
-        b"SyntheticBase\x00" as *const u8 as *const i8,
-    ) {
+    if cff_dict_known(cff.topdict, b"SyntheticBase\x00" as *const u8 as *const i8) {
         warn!("CFF Synthetic font not supported.");
-        cff_close(cff);
-        return ptr::null_mut();
+        return None;
     }
     /* String INDEX */
-    (*cff).string = cff_get_index(&mut *cff);
+    cff.string = cff_get_index(&mut cff);
     /* offset to GSubr */
-    (*cff).gsubr_offset = (handle.seek(SeekFrom::Current(0)).unwrap() - offset as u64) as l_offset;
+    cff.gsubr_offset = (handle.seek(SeekFrom::Current(0)).unwrap() - offset as u64) as l_offset;
     /* Number of glyphs */
     offset = cff_dict_get(
-        (*cff).topdict,
+        cff.topdict,
         b"CharStrings\x00" as *const u8 as *const i8,
         0i32,
     ) as i32;
     handle
-        .seek(SeekFrom::Start((*cff).offset as u64 + offset as u64))
+        .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
         .unwrap();
-    (*cff).num_glyphs = u16::get(handle);
+    cff.num_glyphs = u16::get(handle);
     /* Check for font type */
-    if cff_dict_known((*cff).topdict, b"ROS\x00" as *const u8 as *const i8) {
-        (*cff).flag |= 1i32 << 0i32
+    if cff_dict_known(cff.topdict, b"ROS\x00" as *const u8 as *const i8) {
+        cff.flag |= 1i32 << 0i32
     } else {
-        (*cff).flag |= 1i32 << 1i32
+        cff.flag |= 1i32 << 1i32
     }
     /* Check for encoding */
-    if cff_dict_known((*cff).topdict, b"Encoding\x00" as *const u8 as *const i8) {
-        offset = cff_dict_get(
-            (*cff).topdict,
-            b"Encoding\x00" as *const u8 as *const i8,
-            0i32,
-        ) as i32;
+    if cff_dict_known(cff.topdict, b"Encoding\x00" as *const u8 as *const i8) {
+        offset = cff_dict_get(cff.topdict, b"Encoding\x00" as *const u8 as *const i8, 0i32) as i32;
         if offset == 0i32 {
             /* predefined */
-            (*cff).flag |= 1i32 << 3i32
+            cff.flag |= 1i32 << 3i32
         } else if offset == 1i32 {
-            (*cff).flag |= 1i32 << 4i32
+            cff.flag |= 1i32 << 4i32
         }
     } else {
-        (*cff).flag |= 1i32 << 3i32
+        cff.flag |= 1i32 << 3i32
     }
     /* Check for charset */
-    if cff_dict_known((*cff).topdict, b"charset\x00" as *const u8 as *const i8) {
-        offset = cff_dict_get(
-            (*cff).topdict,
-            b"charset\x00" as *const u8 as *const i8,
-            0i32,
-        ) as i32;
+    if cff_dict_known(cff.topdict, b"charset\x00" as *const u8 as *const i8) {
+        offset = cff_dict_get(cff.topdict, b"charset\x00" as *const u8 as *const i8, 0i32) as i32;
         if offset == 0i32 {
             /* predefined */
-            (*cff).flag |= 1i32 << 5i32
+            cff.flag |= 1i32 << 5i32
         } else if offset == 1i32 {
-            (*cff).flag |= 1i32 << 6i32
+            cff.flag |= 1i32 << 6i32
         } else if offset == 2i32 {
-            (*cff).flag |= 1i32 << 7i32
+            cff.flag |= 1i32 << 7i32
         }
     } else {
-        (*cff).flag |= 1i32 << 5i32
+        cff.flag |= 1i32 << 5i32
     } /* seek back to GSubr */
     handle
-        .seek(SeekFrom::Start(
-            (*cff).offset as u64 + (*cff).gsubr_offset as u64,
-        ))
+        .seek(SeekFrom::Start(cff.offset as u64 + cff.gsubr_offset as u64))
         .unwrap(); /* no trailing '\0' */
-    return cff; /* Additional data in between header and
-                 * Name INDEX ignored.
-                 */
+    Some(cff) /* Additional data in between header and
+               * Name INDEX ignored.
+               */
 }
 
-pub(crate) unsafe fn cff_close(cff: *mut cff_font) {
-    if !cff.is_null() {
-        free((*cff).fontname as *mut libc::c_void);
-        if !(*cff).name.is_null() {
-            cff_release_index((*cff).name);
-        }
-        if !(*cff).topdict.is_null() {
-            cff_release_dict((*cff).topdict);
-        }
-        if !(*cff).string.is_null() {
-            cff_release_index((*cff).string);
-        }
-        if !(*cff).gsubr.is_null() {
-            cff_release_index((*cff).gsubr);
-        }
-        if !(*cff).encoding.is_null() {
-            cff_release_encoding((*cff).encoding);
-        }
-        if !(*cff).charsets.is_null() {
-            cff_release_charsets((*cff).charsets);
-        }
-        if !(*cff).fdselect.is_null() {
-            cff_release_fdselect((*cff).fdselect);
-        }
-        if !(*cff).cstrings.is_null() {
-            cff_release_index((*cff).cstrings);
-        }
-        if !(*cff).fdarray.is_null() {
-            for i in 0..(*cff).num_fds {
-                if !(*(*cff).fdarray.offset(i as isize)).is_null() {
-                    cff_release_dict(*(*cff).fdarray.offset(i as isize));
-                }
+impl<'a> Drop for cff_font<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            free(self.fontname as *mut libc::c_void);
+            if !self.name.is_null() {
+                cff_release_index(self.name);
             }
-            free((*cff).fdarray as *mut libc::c_void);
-        }
-        if !(*cff).private.is_null() {
-            for i in 0..(*cff).num_fds {
-                if !(*(*cff).private.offset(i as isize)).is_null() {
-                    cff_release_dict(*(*cff).private.offset(i as isize));
-                }
+            if !self.topdict.is_null() {
+                cff_release_dict(self.topdict);
             }
-            free((*cff).private as *mut libc::c_void);
-        }
-        if !(*cff).subrs.is_null() {
-            for i in 0..(*cff).num_fds {
-                if !(*(*cff).subrs.offset(i as isize)).is_null() {
-                    cff_release_index(*(*cff).subrs.offset(i as isize));
-                }
+            if !self.string.is_null() {
+                cff_release_index(self.string);
             }
-            free((*cff).subrs as *mut libc::c_void);
+            if !self.gsubr.is_null() {
+                cff_release_index(self.gsubr);
+            }
+            if !self.encoding.is_null() {
+                cff_release_encoding(self.encoding);
+            }
+            if !self.charsets.is_null() {
+                cff_release_charsets(self.charsets);
+            }
+            if !self.fdselect.is_null() {
+                cff_release_fdselect(self.fdselect);
+            }
+            if !self.cstrings.is_null() {
+                cff_release_index(self.cstrings);
+            }
+            if !self.fdarray.is_null() {
+                for i in 0..self.num_fds {
+                    if !(*self.fdarray.offset(i as isize)).is_null() {
+                        cff_release_dict(*self.fdarray.offset(i as isize));
+                    }
+                }
+                free(self.fdarray as *mut libc::c_void);
+            }
+            if !self.private.is_null() {
+                for i in 0..self.num_fds {
+                    if !(*self.private.offset(i as isize)).is_null() {
+                        cff_release_dict(*self.private.offset(i as isize));
+                    }
+                }
+                free(self.private as *mut libc::c_void);
+            }
+            if !self.subrs.is_null() {
+                for i in 0..self.num_fds {
+                    if !(*self.subrs.offset(i as isize)).is_null() {
+                        cff_release_index(*self.subrs.offset(i as isize));
+                    }
+                }
+                free(self.subrs as *mut libc::c_void);
+            }
+            if !self._string.is_null() {
+                cff_release_index(self._string);
+            }
         }
-        if !(*cff)._string.is_null() {
-            cff_release_index((*cff)._string);
-        }
-        free(cff as *mut libc::c_void);
-    };
+    }
 }
 
 pub(crate) unsafe fn cff_get_name(cff: &cff_font) -> *mut i8 {
@@ -1053,12 +1040,12 @@ pub(crate) unsafe fn cff_get_index(cff: &cff_font) -> *mut cff_index {
             new((length as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
                 as *mut u8;
         let mut offset = 0;
-        while length > 0i32 {
-            let nb_read = ttstub_input_read(
-                handle.as_ptr(),
-                ((*idx).data as *mut i8).offset(offset as isize),
-                length as size_t,
-            ) as i32;
+        while length > 0 {
+            let slice = std::slice::from_raw_parts_mut(
+                ((*idx).data).offset(offset as isize),
+                length as usize,
+            );
+            let nb_read = handle.read(slice).unwrap() as i32;
             offset += nb_read;
             length -= nb_read
         }
@@ -1190,7 +1177,7 @@ pub(crate) unsafe fn cff_release_index(idx: *mut cff_index) {
 }
 /* Strings */
 
-pub(crate) unsafe fn cff_get_string(cff: *const cff_font, mut id: s_SID) -> *mut i8 {
+pub(crate) unsafe fn cff_get_string(cff: &cff_font, mut id: s_SID) -> *mut i8 {
     let mut result: *mut i8 = ptr::null_mut();
     if (id as i32) < 391i32 {
         let len = strlen(cff_stdstr[id as usize].as_ptr() as *const i8) as i32;
@@ -1203,8 +1190,8 @@ pub(crate) unsafe fn cff_get_string(cff: *const cff_font, mut id: s_SID) -> *mut
             len as _,
         );
         *result.offset(len as isize) = '\u{0}' as i32 as i8
-    } else if !cff.is_null() && !(*cff).string.is_null() {
-        let strings: *mut cff_index = (*cff).string;
+    } else if !cff.string.is_null() {
+        let strings: *mut cff_index = cff.string;
         id = (id as i32 - 391i32) as s_SID;
         if (id as i32) < (*strings).count as i32 {
             let len = (*(*strings).offset.offset((id as i32 + 1i32) as isize))
@@ -1226,13 +1213,13 @@ pub(crate) unsafe fn cff_get_string(cff: *const cff_font, mut id: s_SID) -> *mut
     result
 }
 
-pub(crate) unsafe fn cff_get_sid(cff: *mut cff_font, str: *const i8) -> i32 {
-    if cff.is_null() || str.is_null() {
+pub(crate) unsafe fn cff_get_sid(cff: &cff_font, str: *const i8) -> i32 {
+    if str.is_null() {
         return -1i32;
     }
     /* I search String INDEX first. */
-    if !cff.is_null() && !(*cff).string.is_null() {
-        let idx: *mut cff_index = (*cff).string;
+    if !cff.string.is_null() {
+        let idx: *mut cff_index = cff.string;
         for i in 0..(*idx).count {
             if strlen(str)
                 == (*(*idx).offset.offset((i + 1) as isize))
@@ -1258,8 +1245,8 @@ pub(crate) unsafe fn cff_get_sid(cff: *mut cff_font, str: *const i8) -> i32 {
     -1i32
 }
 
-pub(crate) unsafe fn cff_get_seac_sid(cff: *mut cff_font, str: *const i8) -> i32 {
-    if cff.is_null() || str.is_null() {
+pub(crate) unsafe fn cff_get_seac_sid(_cff: &cff_font, str: *const i8) -> i32 {
+    if str.is_null() {
         return -1i32;
     }
     for i in 0..391 {
@@ -2298,11 +2285,8 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
                 let data = new(
                     (size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
                 ) as *mut u8;
-                if ttstub_input_read(handle.as_ptr(), data as *mut i8, size as size_t)
-                    != size as isize
-                {
-                    panic!("reading file failed");
-                }
+                let slice = std::slice::from_raw_parts_mut(data, size as usize);
+                handle.read_exact(slice).expect("reading file failed");
                 let ref mut fresh53 = *cff.private.offset(i as isize);
                 *fresh53 = cff_dict_unpack(data, data.offset(size as isize));
                 free(data as *mut libc::c_void);
@@ -2330,10 +2314,9 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
             let data =
                 new((size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
                     as *mut u8;
-            if ttstub_input_read(handle.as_ptr(), data as *mut i8, size as size_t) != size as isize
-            {
-                panic!("reading file failed");
-            }
+
+            let slice = std::slice::from_raw_parts_mut(data, size as usize);
+            handle.read_exact(slice).expect("reading file failed");
             let ref mut fresh55 = *cff.private.offset(0);
             *fresh55 = cff_dict_unpack(data, data.offset(size as isize));
             free(data as *mut libc::c_void);

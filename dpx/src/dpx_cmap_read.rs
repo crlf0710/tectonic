@@ -27,7 +27,7 @@
 )]
 
 use std::ffi::CStr;
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use tectonic_bridge::ttstub_input_close;
 
 use crate::strstartswith;
@@ -41,7 +41,7 @@ use super::dpx_cmap::{
 };
 use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstType};
-use crate::bridge::{ttstub_input_get_size, ttstub_input_read};
+use crate::bridge::ttstub_input_get_size;
 use libc::{free, memcmp, memcpy, memmove, strcmp, strlen, strstr};
 
 pub(crate) type __ssize_t = i64;
@@ -118,15 +118,11 @@ unsafe fn ifreader_read(mut reader: *mut ifreader, size: size_t) -> size_t {
         );
         (*reader).cursor = (*reader).buf;
         (*reader).endptr = (*reader).buf.offset(bytesrem as isize);
-        if ttstub_input_read(
-            (*reader).handle.as_ptr(),
-            (*reader).endptr as *mut i8,
-            bytesread,
-        ) as u64
-            != bytesread as _
-        {
-            panic!("Reading file failed.");
-        }
+        let slice = std::slice::from_raw_parts_mut((*reader).endptr, bytesread as usize);
+        (*reader)
+            .handle
+            .read_exact(slice)
+            .expect("Reading file failed.");
         (*reader).endptr = (*reader).endptr.offset(bytesread as isize);
         (*reader).unread =
             ((*reader).unread as u64).wrapping_sub(bytesread as _) as size_t as size_t;
@@ -591,20 +587,25 @@ unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
 
 pub(crate) unsafe fn CMap_parse_check_sig(handle: Option<&mut InputHandleWrapper>) -> i32 {
     let mut result: i32 = -1i32;
-    let mut sig: [i8; 65] = [0; 65];
+    let mut sig: [u8; 65] = [0; 65];
     if handle.is_none() {
         return -1i32;
     }
     let handle = handle.unwrap();
     handle.seek(SeekFrom::Start(0)).unwrap();
-    if ttstub_input_read(handle.as_ptr(), sig.as_mut_ptr(), 64i32 as size_t) != 64isize {
+    if handle.read_exact(&mut sig[..64]).is_err() {
         result = -1i32
     } else {
-        sig[64] = 0_i8;
-        if strstartswith(sig.as_mut_ptr(), b"%!PS\x00" as *const u8 as *const i8).is_null() {
+        sig[64] = 0;
+        if strstartswith(
+            sig.as_ptr() as *const i8,
+            b"%!PS\x00" as *const u8 as *const i8,
+        )
+        .is_null()
+        {
             result = -1i32
         } else if !strstr(
-            sig.as_mut_ptr().offset(4),
+            sig.as_ptr().offset(4) as *const i8,
             b"Resource-CMap\x00" as *const u8 as *const i8,
         )
         .is_null()

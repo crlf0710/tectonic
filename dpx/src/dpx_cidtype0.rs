@@ -40,10 +40,10 @@ use super::dpx_agl::{
     agl_sput_UTF16BE,
 };
 use super::dpx_cff::{
-    cff_add_string, cff_charsets_lookup_inverse, cff_close, cff_get_index_header, cff_get_name,
-    cff_get_sid, cff_get_string, cff_glyph_lookup, cff_index_size, cff_new_index, cff_open,
-    cff_pack_charsets, cff_pack_fdselect, cff_pack_index, cff_put_header, cff_read_charsets,
-    cff_read_fdselect, cff_read_subrs, cff_release_index, cff_set_name, cff_update_string,
+    cff_add_string, cff_charsets_lookup_inverse, cff_get_index_header, cff_get_name, cff_get_sid,
+    cff_get_string, cff_glyph_lookup, cff_index_size, cff_new_index, cff_open, cff_pack_charsets,
+    cff_pack_fdselect, cff_pack_index, cff_put_header, cff_read_charsets, cff_read_fdselect,
+    cff_read_subrs, cff_release_index, cff_set_name, cff_update_string,
 };
 use super::dpx_cff::{
     cff_charsets_lookup, cff_fdselect_lookup, cff_read_fdarray, cff_read_private,
@@ -76,7 +76,6 @@ use super::dpx_tt_table::{
     tt_read_maxp_table, tt_read_os2__table, tt_read_vhea_table,
 };
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode};
-use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj,
     PushObj, STREAM_COMPRESS,
@@ -84,7 +83,7 @@ use crate::dpx_pdfobj::{
 use crate::dpx_truetype::sfnt_table_info;
 use libc::{free, memset};
 
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 
 pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
@@ -107,8 +106,8 @@ use super::dpx_cff::cff_font;
 
 #[repr(C)]
 pub(crate) struct CIDType0Info<'a> {
-    pub(crate) sfont: *mut sfnt,
-    pub(crate) cffont: *mut cff_font<'a>,
+    pub(crate) sfont: Box<sfnt>,
+    pub(crate) cffont: Box<cff_font<'a>>,
 }
 use super::dpx_tt_table::{tt_head_table, tt_maxp_table};
 /* Acoid conflict with CHAR ... from <winnt.h>.  */
@@ -581,68 +580,46 @@ unsafe fn CIDType0Error_Show(error: CidOpenError, name: &str) {
         }
     };
 }
-unsafe fn CIDFontInfo_init(info: *mut CIDType0Info) {
-    memset(
-        info as *mut libc::c_void,
-        0i32,
-        ::std::mem::size_of::<CIDType0Info>(),
-    );
-}
-unsafe fn CIDFontInfo_close(info: *mut CIDType0Info) {
-    if !(*info).cffont.is_null() {
-        cff_close((*info).cffont);
-    }
-    if !(*info).sfont.is_null() {
-        let _ = Box::from_raw((*info).sfont);
-    }
-    /*if let Some(handle) = (*info).handle {
-        ttstub_input_close(handle);
-    }*/
-    CIDFontInfo_init(info);
-}
 unsafe fn CIDFont_type0_try_open(
     name: &str,
     index: i32,
     required_cid: i32,
-    mut info: *mut CIDType0Info,
-) -> Result<(), CidOpenError> {
+) -> Result<CIDType0Info, CidOpenError> {
     let mut offset: u32 = 0_u32;
-    CIDFontInfo_init(info);
     let handle = dpx_open_opentype_file(name).or_else(|| dpx_open_truetype_file(name));
     if handle.is_none() {
         return Err(CidOpenError::CANNOT_OPEN_FILE);
     }
-    (*info).sfont = Box::into_raw(Box::new(sfnt_open(handle.unwrap())));
-    if (*info).sfont.is_null() {
+    let sfont = Box::new(sfnt_open(handle.unwrap()));
+    /*if sfont.is_null() {
         return Err(CidOpenError::NOT_SFNT_FONT);
+    }*/
+    if sfont.type_0 == 1i32 << 4i32 {
+        offset = ttc_read_offset(&sfont, index)
     }
-    if (*(*info).sfont).type_0 == 1i32 << 4i32 {
-        offset = ttc_read_offset(&*(*info).sfont, index)
-    }
-    if (*(*info).sfont).type_0 != 1i32 << 4i32 && (*(*info).sfont).type_0 != 1i32 << 2i32
-        || sfnt_read_table_directory(&mut *(*info).sfont, offset) < 0i32
+    if sfont.type_0 != 1i32 << 4i32 && sfont.type_0 != 1i32 << 2i32
+        || sfnt_read_table_directory(&mut sfont, offset) < 0i32
         || {
-            offset = sfnt_find_table_pos(&*(*info).sfont, b"CFF ");
+            offset = sfnt_find_table_pos(&sfont, b"CFF ");
             offset == 0_u32
         }
     {
-        CIDFontInfo_close(info);
         return Err(CidOpenError::NO_CFF_TABLE);
     }
-    (*info).cffont = cff_open(&(*(*info).sfont).handle, offset as i32, 0i32);
-    if (*info).cffont.is_null() {
+    let cffont = cff_open(&sfont.handle, offset as i32, 0);
+    if cffont.is_none() {
         return Err(CidOpenError::CANNOT_OPEN_CFF_FONT);
     }
-    let is_cid = (*(*info).cffont).flag & 1i32 << 0i32;
+    let mut cffont = cffont.unwrap();
+    let is_cid = cffont.flag & 1i32 << 0i32;
     if required_cid != is_cid {
-        CIDFontInfo_close(info);
         return Err(if required_cid != 0 {
             CidOpenError::NOT_CIDFONT
         } else {
             CidOpenError::IS_CIDFONT
         });
     }
-    Ok(())
+    Ok(CIDType0Info { sfont, cffont })
 }
 unsafe fn CIDFont_type0_add_CIDSet(font: *mut CIDFont, used_chars: *mut i8, last_cid: u16) {
     /*
@@ -665,10 +642,6 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
     let mut num_glyphs: u16 = 0i32 as u16;
     let mut last_cid: u16 = 0i32 as u16;
     let mut CIDToGIDMap: *mut u8 = ptr::null_mut();
-    let mut info: CIDType0Info = CIDType0Info {
-        sfont: ptr::null_mut(),
-        cffont: ptr::null_mut(),
-    };
     assert!(!font.is_null());
     if (*font).indirect.is_null() {
         return;
@@ -686,12 +659,13 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
         }
     }
     let used_chars = CIDFont_type0_get_used_chars(font);
-    if let Err(error) =
-        CIDFont_type0_try_open(&(*font).ident, CIDFont_get_opt_index(font), 1i32, &mut info)
-    {
-        CIDType0Error_Show(error, &(*font).ident);
-        return;
-    }
+    let info = match CIDFont_type0_try_open(&(*font).ident, CIDFont_get_opt_index(font), 1) {
+        Ok(info) => info,
+        Err(error) => {
+            CIDType0Error_Show(error, &(*font).ident);
+            return;
+        }
+    };
     let mut cffont = &mut *info.cffont;
     cff_read_charsets(cffont);
     /*
@@ -740,7 +714,7 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
             }
         }
         add_CIDMetrics(
-            &*info.sfont,
+            &info.sfont,
             (*font).fontdict,
             CIDToGIDMap,
             last_cid,
@@ -753,7 +727,6 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
     }
     if CIDFont_get_embedding(font) == 0 {
         free(CIDToGIDMap as *mut libc::c_void);
-        CIDFontInfo_close(&mut info);
         return;
     }
     /*
@@ -840,7 +813,8 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
                     offset as u64 + *(*idx).offset.offset(gid_org as isize) as u64 - 1,
                 ))
                 .unwrap();
-            ttstub_input_read(handle.as_ptr(), data as *mut i8, size as size_t);
+            let slice = std::slice::from_raw_parts_mut(data, size as usize);
+            handle.read(slice).unwrap();
             let fd = cff_fdselect_lookup(cffont, gid_org) as i32;
             charstring_len += cs_copy_charstring(
                 (*charstrings).data.offset(charstring_len as isize),
@@ -912,7 +886,6 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
         }
     }
     let destlen = write_fontfile(font, cffont);
-    CIDFontInfo_close(&mut info);
     if verbose > 1i32 {
         info!("[{}/{} glyphs][{} bytes]", num_glyphs, cs_count, destlen,);
     }
@@ -926,7 +899,6 @@ pub(crate) unsafe fn CIDFont_type0_open(
     mut opt: *mut cid_opt,
     expected_flag: i32,
 ) -> i32 {
-    let cffont;
     let mut offset: u32 = 0_u32;
     let mut is_cid_font: i32 = 0i32;
     let expect_cid_font: i32 = (expected_flag == 0i32) as i32;
@@ -943,7 +915,7 @@ pub(crate) unsafe fn CIDFont_type0_open(
     } else {
         dpx_open_opentype_file(name)
     };
-    let sfont = if expect_type1_font == 0 {
+    let (sfont, cffont) = if expect_type1_font == 0 {
         let mut sfont = if let Some(handle) = handle.or_else(|| dpx_open_truetype_file(name)) {
             sfnt_open(handle)
         } else {
@@ -961,32 +933,24 @@ pub(crate) unsafe fn CIDFont_type0_open(
         {
             return -1i32;
         }
-        cffont = cff_open(&sfont.handle, offset as i32, 0i32);
-        if cffont.is_null() {
-            panic!("Cannot read CFF font data");
-        }
-        let cffont = &mut *cffont;
-        is_cid_font = cffont.flag & 1i32 << 0i32;
+        let cffont = cff_open(&sfont.handle, offset as i32, 0).expect("Cannot read CFF font data");
+        is_cid_font = cffont.flag & 1 << 0;
         if expect_cid_font != is_cid_font {
-            cff_close(cffont);
             return -1i32;
         }
         if is_cid_font != 0 {
-            cff_read_charsets(cffont);
+            cff_read_charsets(&mut cffont);
             (*opt).cff_charsets = cffont.charsets as *mut libc::c_void;
             cffont.charsets = ptr::null_mut()
         }
-        Some(sfont)
+        (Some(sfont), cffont)
     } else {
         if handle.is_none() {
             return -1i32;
         }
         let handle = handle.unwrap();
-        cffont = t1_load_font(0 as *mut *mut i8, 1i32, handle);
-        if cffont.is_null() {
-            return -1i32;
-        }
-        None
+        let cffont = t1_load_font(0 as *mut *mut i8, 1i32, handle);
+        (None, cffont)
     };
     let csi = Box::into_raw(Box::new(CIDSysInfo {
         ordering: "".into(),
@@ -995,34 +959,23 @@ pub(crate) unsafe fn CIDFont_type0_open(
     }));
     if is_cid_font != 0 {
         (*csi).registry = CStr::from_ptr(cff_get_string(
-            cffont,
-            cff_dict_get(
-                (*cffont).topdict,
-                b"ROS\x00" as *const u8 as *const i8,
-                0i32,
-            ) as s_SID,
+            &cffont,
+            cff_dict_get(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 0i32) as s_SID,
         ))
         .to_str()
         .unwrap()
         .to_owned()
         .into();
         (*csi).ordering = CStr::from_ptr(cff_get_string(
-            cffont,
-            cff_dict_get(
-                (*cffont).topdict,
-                b"ROS\x00" as *const u8 as *const i8,
-                1i32,
-            ) as s_SID,
+            &cffont,
+            cff_dict_get(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 1i32) as s_SID,
         ))
         .to_str()
         .unwrap()
         .to_owned()
         .into();
-        (*csi).supplement = cff_dict_get(
-            (*cffont).topdict,
-            b"ROS\x00" as *const u8 as *const i8,
-            2i32,
-        ) as i32
+        (*csi).supplement =
+            cff_dict_get(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 2i32) as i32
     } else {
         (*csi).registry = "Adobe".into();
         (*csi).ordering = "Identity".into();
@@ -1057,7 +1010,6 @@ pub(crate) unsafe fn CIDFont_type0_open(
 
     let mut fontname = CStr::from_ptr(shortname).to_str().unwrap().to_owned();
     free(shortname as *mut libc::c_void);
-    cff_close(cffont);
     if is_cid_font != 0 {
         if (*opt).embed != 0 && (*opt).style != 0i32 {
             warn!("Embedding disabled due to style option for {}.", name);
@@ -1121,14 +1073,10 @@ pub(crate) unsafe fn CIDFont_type0_open(
         /* not sure */
     }
     if expect_type1_font == 0 {}
-    0i32
+    0
 }
 
 pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
-    let mut info: CIDType0Info = CIDType0Info {
-        sfont: ptr::null_mut(),
-        cffont: ptr::null_mut(),
-    };
     assert!(!font.is_null());
     if (*font).indirect.is_null() {
         return;
@@ -1137,13 +1085,14 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
         .as_dict_mut()
         .set("FontDescriptor", pdf_ref_obj((*font).descriptor));
     let used_chars = CIDFont_type0_get_used_chars(font);
-    if let Err(error) =
-        CIDFont_type0_try_open(&(*font).ident, CIDFont_get_opt_index(font), 0i32, &mut info)
-    {
-        CIDType0Error_Show(error, &(*font).ident);
-        return;
-    }
-    let cffont = &mut *info.cffont;
+    let info = match CIDFont_type0_try_open(&(*font).ident, CIDFont_get_opt_index(font), 0) {
+        Ok(info) => info,
+        Err(error) => {
+            CIDType0Error_Show(error, &(*font).ident);
+            return;
+        }
+    };
+    let cffont = &mut info.cffont;
     cff_read_private(cffont);
     cff_read_subrs(cffont);
     if !(*cffont.private.offset(0)).is_null()
@@ -1347,13 +1296,14 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
                 ) as *mut u8
             }
             *(*charstrings).offset.offset(gid as isize) = (charstring_len + 1i32) as l_offset;
-            let handle = cffont.handle.as_mut().unwrap();
+            let handle = cffont.handle.unwrap();
             handle
                 .seek(SeekFrom::Start(
                     offset as u64 + *(*idx).offset.offset(cid as isize) as u64 - 1,
                 ))
                 .unwrap();
-            ttstub_input_read(handle.as_ptr(), data as *mut i8, size as size_t);
+            let slice = std::slice::from_raw_parts_mut(data, size as usize);
+            handle.read(slice).unwrap();
             charstring_len += cs_copy_charstring(
                 (*charstrings).data.offset(charstring_len as isize),
                 max_len - charstring_len,
@@ -1405,13 +1355,13 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
         cffont.topdict,
         b"ROS\x00" as *const u8 as *const i8,
         0i32,
-        cff_get_sid(cffont, b"Adobe\x00" as *const u8 as *const i8) as f64,
+        cff_get_sid(&cffont, b"Adobe\x00" as *const u8 as *const i8) as f64,
     );
     cff_dict_set(
         cffont.topdict,
         b"ROS\x00" as *const u8 as *const i8,
         1i32,
-        cff_get_sid(cffont, b"Identity\x00" as *const u8 as *const i8) as f64,
+        cff_get_sid(&cffont, b"Identity\x00" as *const u8 as *const i8) as f64,
     );
     cff_dict_set(
         cffont.topdict,
@@ -1438,19 +1388,18 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
         }
     }
     add_CIDMetrics(
-        &*info.sfont,
+        &info.sfont,
         (*font).fontdict,
         CIDToGIDMap,
         last_cid,
-        if CIDFont_get_parent_id(font, 1i32) < 0i32 {
-            0i32
+        if CIDFont_get_parent_id(font, 1) < 0 {
+            0
         } else {
-            1i32
+            1
         },
     );
     free(CIDToGIDMap as *mut libc::c_void);
-    CIDFontInfo_close(&mut info);
-    if verbose > 1i32 {
+    if verbose > 1 {
         info!("[{} glyphs][{} bytes]", num_glyphs, destlen);
     }
     CIDFont_type0_add_CIDSet(font, used_chars, last_cid);
@@ -1519,11 +1468,7 @@ pub(crate) unsafe fn t1_load_UnicodeCMap(font_name: &str, otl_tags: &str, wmode:
     }
     let handle = handle.unwrap();
     let cffont = t1_load_font(0 as *mut *mut i8, 1i32, handle);
-    if cffont.is_null() {
-        return -1i32;
-    }
     let cmap_id = load_base_CMap(&font_name, wmode, &*cffont);
-    cff_close(cffont);
     if cmap_id < 0i32 {
         panic!(
             "Failed to create Unicode charmap for font \"{}\".",
@@ -1834,7 +1779,7 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &cff_font) {
 }
 unsafe fn add_metrics(
     font: *mut CIDFont,
-    cffont: *mut cff_font,
+    cffont: &cff_font,
     CIDToGIDMap: *mut u8,
     widths: *mut f64,
     default_width: f64,
@@ -1846,16 +1791,12 @@ unsafe fn add_metrics(
      * charstrings, to prevent Acrobat 4 from greeking text as
      * much as possible.
      */
-    if !cff_dict_known((*cffont).topdict, b"FontBBox\x00" as *const u8 as *const i8) {
+    if !cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) {
         panic!("No FontBBox?");
     }
     let mut tmp = vec![];
     for i in 0..4 {
-        let val = cff_dict_get(
-            (*cffont).topdict,
-            b"FontBBox\x00" as *const u8 as *const i8,
-            i,
-        );
+        let val = cff_dict_get(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8, i);
         tmp.push_obj((val / 1. + 0.5).floor() * 1.);
     }
     (*(*font).descriptor).as_dict_mut().set("FontBBox", tmp);
@@ -1916,10 +1857,6 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
     }
     let handle = handle.unwrap();
     let cffont = t1_load_font(0 as *mut *mut i8, 0i32, handle);
-    if cffont.is_null() {
-        panic!("Could not read Type 1 font...");
-    }
-    let cffont = &mut *cffont;
     if (*font).fontname.is_empty() {
         panic!("Fontname undefined...");
     }
@@ -1947,7 +1884,7 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
         panic!("Unexpected error: Font not actually used???");
     }
     let tounicode = create_ToUnicode_stream(
-        cffont,
+        &cffont,
         &(*font).fontname,
         &CStr::from_ptr(used_chars).to_string_lossy(),
     )
@@ -1960,9 +1897,9 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
         Type0Font_set_ToUnicode(vparent, pdf_ref_obj(tounicode));
     }
     pdf_release_obj(tounicode);
-    cff_set_name(cffont, &(*font).fontname);
+    cff_set_name(&mut cffont, &(*font).fontname);
     /* defaultWidthX, CapHeight, etc. */
-    get_font_attr(font, cffont);
+    get_font_attr(font, &cffont);
     let defaultwidth = if cff_dict_known(
         *cffont.private.offset(0),
         b"defaultWidthX\x00" as *const u8 as *const i8,
@@ -2068,7 +2005,7 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
         *cffont.fdarray.offset(0),
         b"FontName\x00" as *const u8 as *const i8,
         0i32,
-        cff_add_string(cffont, cff_font_name.as_ptr(), 1i32) as f64,
+        cff_add_string(&mut cffont, cff_font_name.as_ptr(), 1) as f64,
     );
     cff_dict_add(
         *cffont.fdarray.offset(0),
@@ -2202,34 +2139,34 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
             max_count = w_stat[i as usize]
         }
     }
-    if dw >= 0i32 {
-        add_metrics(font, cffont, CIDToGIDMap, widths, dw as f64, last_cid);
+    if dw >= 0 {
+        add_metrics(font, &cffont, CIDToGIDMap, widths, dw as f64, last_cid);
     } else {
-        add_metrics(font, cffont, CIDToGIDMap, widths, defaultwidth, last_cid);
+        add_metrics(font, &cffont, CIDToGIDMap, widths, defaultwidth, last_cid);
     }
     free(widths as *mut libc::c_void);
     cff_release_index(*cffont.subrs.offset(0));
     let ref mut fresh8 = *cffont.subrs.offset(0);
     *fresh8 = ptr::null_mut();
     free(CIDToGIDMap as *mut libc::c_void);
-    cff_add_string(cffont, b"Adobe\x00" as *const u8 as *const i8, 1i32);
-    cff_add_string(cffont, b"Identity\x00" as *const u8 as *const i8, 1i32);
-    cff_dict_update(cffont.topdict, cffont);
-    cff_dict_update(*cffont.private.offset(0), cffont);
-    cff_update_string(cffont);
+    cff_add_string(&mut cffont, b"Adobe\x00" as *const u8 as *const i8, 1i32);
+    cff_add_string(&mut cffont, b"Identity\x00" as *const u8 as *const i8, 1i32);
+    cff_dict_update(cffont.topdict, &mut cffont);
+    cff_dict_update(*cffont.private.offset(0), &mut cffont);
+    cff_update_string(&mut cffont);
     /* CFF code need to be rewrote... */
     cff_dict_add(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 3i32);
     cff_dict_set(
         cffont.topdict,
         b"ROS\x00" as *const u8 as *const i8,
         0i32,
-        cff_get_sid(cffont, b"Adobe\x00" as *const u8 as *const i8) as f64,
+        cff_get_sid(&cffont, b"Adobe\x00" as *const u8 as *const i8) as f64,
     );
     cff_dict_set(
         cffont.topdict,
         b"ROS\x00" as *const u8 as *const i8,
         1i32,
-        cff_get_sid(cffont, b"Identity\x00" as *const u8 as *const i8) as f64,
+        cff_get_sid(&cffont, b"Identity\x00" as *const u8 as *const i8) as f64,
     );
     cff_dict_set(
         cffont.topdict,
@@ -2238,7 +2175,6 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
         0.0f64,
     );
     cffont.num_glyphs = num_glyphs as u16;
-    write_fontfile(font, cffont);
-    cff_close(cffont);
+    write_fontfile(font, &mut cffont);
     CIDFont_type0_add_CIDSet(font, used_chars, last_cid);
 }

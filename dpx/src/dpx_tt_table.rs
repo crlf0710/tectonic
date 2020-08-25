@@ -26,15 +26,13 @@ use crate::warn;
 
 use super::dpx_mem::new;
 use super::dpx_sfnt::{sfnt_find_table_len, sfnt_find_table_pos, sfnt_locate_table};
-use crate::bridge::ttstub_input_read;
 use crate::dpx_truetype::sfnt_table_info;
 
 use std::ffi::CStr;
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
 pub(crate) type __ssize_t = i64;
-use crate::bridge::size_t;
 pub(crate) type Fixed = u32;
 pub(crate) type FWord = i16;
 pub(crate) type uFWord = u16;
@@ -648,11 +646,9 @@ unsafe fn tt_get_name(
                     name_offset as u64 + string_offset as u64 + offset as u64,
                 ))
                 .unwrap();
-            ttstub_input_read(
-                handle.as_ptr(),
-                dest as *mut u8 as *mut i8,
-                length as size_t,
-            );
+
+            let slice = std::slice::from_raw_parts_mut(dest as *mut u8, length as usize);
+            handle.read(slice).unwrap();
             *dest.offset(length as isize) = '\u{0}' as i32 as i8;
             break;
         } else {

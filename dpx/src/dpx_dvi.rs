@@ -41,7 +41,6 @@ use crate::bridge::size_t;
 use crate::mfree;
 use crate::warn;
 
-use super::dpx_cff::cff_close;
 use super::dpx_cff_dict::{cff_dict_get, cff_dict_known};
 use super::dpx_dpxfile::{
     dpx_open_dfont_file, dpx_open_opentype_file, dpx_open_truetype_file, dpx_open_type1_file,
@@ -74,7 +73,6 @@ use super::dpx_tt_table::{
 use super::dpx_vf::{vf_close_all_fonts, vf_locate_font, vf_set_char, vf_set_verbose};
 use crate::bridge::{
     ttstub_input_close, ttstub_input_get_size, ttstub_input_getc, ttstub_input_open,
-    ttstub_input_read,
 };
 use crate::dpx_dvicodes::*;
 use crate::dpx_pdfobj::{pdf_release_obj, pdf_string_value};
@@ -513,17 +511,15 @@ unsafe fn read_font_record(tex_id: u32) {
     let directory = new(
         ((dir_length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
     ) as *mut i8;
-    if ttstub_input_read(handle.as_ptr(), directory, dir_length as size_t) != dir_length as isize {
-        panic!(invalid_signature);
-    }
+
+    let slice = std::slice::from_raw_parts_mut(directory as *mut u8, dir_length as usize);
+    handle.read_exact(slice).expect(invalid_signature);
     *directory.offset(dir_length as isize) = '\u{0}' as i32 as i8;
     free(directory as *mut libc::c_void);
     let font_name = new(((name_length + 1i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    if ttstub_input_read(handle.as_ptr(), font_name, name_length as size_t) != name_length as isize
-    {
-        panic!(invalid_signature);
-    }
+    let slice = std::slice::from_raw_parts_mut(font_name as *mut u8, name_length as usize);
+    handle.read_exact(slice).expect(invalid_signature);
     *font_name.offset(name_length as isize) = '\u{0}' as i32 as i8;
     def_fonts.push(font_def {
         font_id: -1,
@@ -550,9 +546,9 @@ unsafe fn read_native_font_record(tex_id: u32) {
     let font_name =
         new(((len + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
             as *mut i8;
-    if ttstub_input_read(handle.as_ptr(), font_name, len as size_t) != len as isize {
-        panic!(invalid_signature);
-    }
+
+    let slice = std::slice::from_raw_parts_mut(font_name as *mut u8, len as usize);
+    handle.read_exact(slice).expect(invalid_signature);
     *font_name.offset(len as isize) = '\u{0}' as i32 as i8;
 
     let index = get_positive_quad(handle, "DVI", "index");
@@ -1005,11 +1001,7 @@ unsafe fn dvi_locate_native_font(
             (256usize).wrapping_mul(::std::mem::size_of::<*mut i8>()),
         );
         let cffont = t1_load_font(enc_vec.as_mut_ptr(), 0i32, handle);
-        if cffont.is_null() {
-            panic!("Failed to read Type 1 font \"{}\".", filename);
-        }
-        let ref mut fresh18 = font.cffont;
-        *fresh18 = cffont;
+        font.cffont = Box::into_raw(cffont);
         if cff_dict_known((*cffont).topdict, b"FontBBox\x00" as *const u8 as *const i8) {
             font.ascent = cff_dict_get(
                 (*cffont).topdict,
@@ -1976,7 +1968,7 @@ pub(crate) unsafe fn dvi_close() {
     for font in &mut loaded_fonts {
         font.hvmt = mfree(font.hvmt as *mut libc::c_void) as _;
         if !(font.cffont.is_null()) {
-            cff_close(font.cffont);
+            let _ = Box::from_raw(font.cffont);
         }
         font.cffont = ptr::null_mut();
     }

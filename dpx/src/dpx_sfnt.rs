@@ -28,17 +28,15 @@
 
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::GetFromFile;
-use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{pdf_stream, STREAM_COMPRESS};
 use crate::dpx_truetype::SfntTableInfo;
 use crate::mfree;
 use libc::{free, memcpy};
 
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
 pub(crate) type __ssize_t = i64;
-use crate::bridge::size_t;
 use bridge::DroppableInputHandleWrapper;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -430,17 +428,13 @@ pub(crate) unsafe fn sfnt_create_FontFile_stream(sfont: &sfnt) -> pdf_stream {
                     ))
                     .unwrap();
                 while length > 0 {
-                    let nb_read = ttstub_input_read(
-                        sfont.handle.as_ptr(),
-                        wbuf.as_mut_ptr() as *mut i8,
-                        length.min(1024) as size_t,
-                    ) as i32;
-                    if nb_read < 0 {
-                        panic!("Reading file failed...");
-                    } else {
-                        if nb_read > 0 {
-                            stream.add_slice(&wbuf[..nb_read as usize]);
-                        }
+                    let slice = std::slice::from_raw_parts_mut(
+                        wbuf.as_mut_ptr(),
+                        length.min(1024) as usize,
+                    );
+                    let nb_read = sfont.handle.read(slice).expect("Reading file failed...") as i32;
+                    if nb_read > 0 {
+                        stream.add_slice(&wbuf[..nb_read as usize]);
                     }
                     length -= nb_read
                 }

@@ -34,7 +34,7 @@ use std::ffi::CString;
 use std::ptr;
 
 use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string};
-use super::dpx_cff::{cff_close, cff_new_index, cff_set_name};
+use super::dpx_cff::{cff_new_index, cff_set_name};
 use super::dpx_cff_dict::{cff_dict_add, cff_dict_set, cff_new_dict};
 use super::dpx_mem::{new, renew, xstrdup};
 use super::dpx_pst::{pst_get_token, PstType};
@@ -1671,7 +1671,7 @@ unsafe fn parse_part1(
              */
             let strval = parse_svalue(start, end)?;
             cff_dict_add(font.topdict, key_ptr, 1i32);
-            let mut sid = cff_get_sid(font, strval.as_ptr()) as s_SID;
+            let mut sid = cff_get_sid(&font, strval.as_ptr()) as s_SID;
             if sid as i32 == 65535i32 {
                 sid = cff_add_string(font, strval.as_ptr(), 0i32)
             }
@@ -1837,45 +1837,54 @@ pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: *
     free(buffer as *mut libc::c_void);
     0i32
 }
-unsafe fn init_cff_font(cff: &mut cff_font) {
-    cff.handle = None;
-    cff.filter = 0;
-    cff.fontname = ptr::null_mut();
-    cff.index = 0;
-    cff.flag = 1 << 1;
-    cff.header.major = 1 as u8;
-    cff.header.minor = 0 as u8;
-    cff.header.hdr_size = 4 as u8;
-    cff.header.offsize = 4 as c_offsize;
-    cff.name = cff_new_index(1);
-    cff.topdict = cff_new_dict();
-    cff.string = ptr::null_mut();
-    cff.gsubr = cff_new_index(0);
-    cff.encoding = ptr::null_mut();
-    cff.charsets = ptr::null_mut();
-    cff.fdselect = ptr::null_mut();
-    cff.cstrings = ptr::null_mut();
-    cff.fdarray = 0 as *mut *mut cff_dict;
-    cff.private = new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
-        as *mut *mut cff_dict;
-    let ref mut fresh23 = *cff.private.offset(0);
-    *fresh23 = cff_new_dict();
-    cff.subrs = new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_index>() as u64) as u32)
-        as *mut *mut cff_index;
-    let ref mut fresh24 = *cff.subrs.offset(0);
-    *fresh24 = ptr::null_mut();
-    cff.offset = 0 as l_offset;
-    cff.gsubr_offset = 0 as l_offset;
-    cff.num_glyphs = 0;
-    cff.num_fds = 1;
-    cff._string = cff_new_index(0);
+
+impl<'a> cff_font<'a> {
+    unsafe fn new() -> Self {
+        let cff = cff_font {
+            handle: None,
+            filter: 0,
+            fontname: ptr::null_mut(),
+            index: 0,
+            flag: 1 << 1,
+            header: crate::dpx_cff::cff_header {
+                major: 1 as u8,
+                minor: 0 as u8,
+                hdr_size: 4 as u8,
+                offsize: 4 as c_offsize,
+            },
+            name: cff_new_index(1),
+            topdict: cff_new_dict(),
+            string: ptr::null_mut(),
+            gsubr: cff_new_index(0),
+            encoding: ptr::null_mut(),
+            charsets: ptr::null_mut(),
+            fdselect: ptr::null_mut(),
+            cstrings: ptr::null_mut(),
+            fdarray: 0 as *mut *mut cff_dict,
+            private: new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
+                as *mut *mut cff_dict,
+            subrs: new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_index>() as u64) as u32)
+                as *mut *mut cff_index,
+            offset: 0 as l_offset,
+            gsubr_offset: 0 as l_offset,
+            num_glyphs: 0,
+            num_fds: 1,
+            _string: cff_new_index(0),
+            is_notdef_notzero: 0,
+        };
+        let ref mut fresh23 = *cff.private.offset(0);
+        *fresh23 = cff_new_dict();
+        let ref mut fresh24 = *cff.subrs.offset(0);
+        *fresh24 = ptr::null_mut();
+        cff
+    }
 }
 
 pub(crate) unsafe fn t1_load_font<'a>(
     enc_vec: *mut *mut i8,
     mode: i32,
     mut handle: DroppableInputHandleWrapper,
-) -> *mut cff_font<'a> {
+) -> Box<cff_font<'a>> {
     let mut length: i32 = 0;
     handle.seek(SeekFrom::Start(0)).unwrap();
     /* ASCII section */
@@ -1883,21 +1892,17 @@ pub(crate) unsafe fn t1_load_font<'a>(
     if buffer.is_null() || length == 0i32 {
         panic!("Reading PFB (ASCII part) file failed.");
     }
-    let cff =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<cff_font>() as u64) as u32) as *mut cff_font;
-    init_cff_font(&mut *cff);
+    let cff = Box::new(cff_font::new());
     let mut start = buffer;
     let end = buffer.offset(length as isize);
-    if parse_part1(&mut *cff, enc_vec, &mut start, end).is_err() {
-        cff_close(cff);
+    if parse_part1(&mut cff, enc_vec, &mut start, end).is_err() {
         free(buffer as *mut libc::c_void);
         panic!("Reading PFB (ASCII part) file failed.");
     }
     free(buffer as *mut libc::c_void);
     /* Binary section */
     let buffer = get_pfb_segment(&mut handle, 2i32, &mut length);
-    if buffer.is_null() || length == 0i32 {
-        cff_close(cff);
+    if buffer.is_null() || length == 0 {
         free(buffer as *mut libc::c_void);
         panic!("Reading PFB (BINARY part) file failed.");
     } else {
@@ -1905,13 +1910,12 @@ pub(crate) unsafe fn t1_load_font<'a>(
     }
     let mut start = buffer.offset(4);
     let end = buffer.offset(length as isize);
-    if parse_part2(&mut *cff, &mut start, end, mode).is_err() {
-        cff_close(cff);
+    if parse_part2(&mut cff, &mut start, end, mode).is_err() {
         free(buffer as *mut libc::c_void);
         panic!("Reading PFB (BINARY part) file failed.");
     }
     /* Remaining section ignored. */
     free(buffer as *mut libc::c_void);
-    cff_update_string(&mut *cff);
+    cff_update_string(&mut cff);
     cff
 }

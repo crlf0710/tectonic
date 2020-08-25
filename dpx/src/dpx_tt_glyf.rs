@@ -36,16 +36,14 @@ use super::dpx_tt_table::{
     tt_read_hhea_table, tt_read_longMetrics, tt_read_maxp_table, tt_read_os2__table,
     tt_read_vhea_table,
 };
-use crate::bridge::ttstub_input_read;
 use crate::dpx_truetype::sfnt_table_info;
 use libc::{free, memcpy, memset};
 
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 use std::slice;
 
 pub(crate) type __ssize_t = i64;
-use crate::bridge::size_t;
 
 use super::dpx_sfnt::{put_big_endian, sfnt};
 
@@ -358,11 +356,9 @@ pub(crate) unsafe fn tt_build_tables(sfont: &mut sfnt, mut g: *mut tt_glyphs) ->
                 2i32,
             ) as isize);
             /* Read evrything else. */
-            ttstub_input_read(
-                sfont.handle.as_ptr(),
-                p as *mut i8,
-                len.wrapping_sub(10_u32) as size_t,
-            );
+
+            let slice = std::slice::from_raw_parts_mut(p, (len - 10) as usize);
+            sfont.handle.read_exact(slice).unwrap();
             /*
              * Fix GIDs of composite glyphs.
              */

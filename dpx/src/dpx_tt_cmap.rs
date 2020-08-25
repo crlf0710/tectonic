@@ -36,8 +36,7 @@ use std::ptr;
 
 use super::dpx_agl::agl_get_unicodes;
 use super::dpx_cff::{
-    cff_charsets_lookup_inverse, cff_close, cff_get_glyphname, cff_get_string, cff_open,
-    cff_read_charsets,
+    cff_charsets_lookup_inverse, cff_get_glyphname, cff_get_string, cff_open, cff_read_charsets,
 };
 use super::dpx_cff_dict::{cff_dict_get, cff_dict_known};
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
@@ -715,29 +714,24 @@ unsafe fn handle_CIDFont(
     if (num_glyphs as i32) < 1i32 {
         panic!("No glyph contained in this font...");
     }
-    let cffont = cff_open(&sfont.handle, offset, 0i32); /* CID... */
-    if cffont.is_null() {
-        panic!("Could not open CFF font...");
-    }
-    let cffont = &mut *cffont;
+    let cffont = cff_open(&sfont.handle, offset, 0i32).expect("Could not open CFF font..."); /* CID... */
     if cffont.flag & 1i32 << 0i32 == 0 {
-        cff_close(cffont);
         (*csi).registry = "".into();
         (*csi).ordering = "".into();
         *GIDToCIDMap = ptr::null_mut();
-        return 0i32;
+        return 0;
     }
     if !cff_dict_known(cffont.topdict, b"ROS\x00" as *const u8 as *const i8) {
         panic!("No CIDSystemInfo???");
     } else {
         let reg = cff_dict_get(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 0i32) as u16;
         let ord = cff_dict_get(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 1i32) as u16;
-        (*csi).registry = CStr::from_ptr(cff_get_string(cffont, reg))
+        (*csi).registry = CStr::from_ptr(cff_get_string(&cffont, reg))
             .to_str()
             .unwrap()
             .to_owned()
             .into();
-        (*csi).ordering = CStr::from_ptr(cff_get_string(cffont, ord))
+        (*csi).ordering = CStr::from_ptr(cff_get_string(&cffont, ord))
             .to_str()
             .unwrap()
             .to_owned()
@@ -745,7 +739,7 @@ unsafe fn handle_CIDFont(
         (*csi).supplement =
             cff_dict_get(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 2i32) as i32
     }
-    cff_read_charsets(cffont);
+    cff_read_charsets(&mut cffont);
     let charset = cffont.charsets;
     if charset.is_null() {
         panic!("No CFF charset data???");
@@ -820,7 +814,6 @@ unsafe fn handle_CIDFont(
             );
         }
     }
-    cff_close(cffont);
     *GIDToCIDMap = map;
     1i32
 }
@@ -964,20 +957,18 @@ unsafe fn handle_subst_glyphs(
     }
     count
 }
-unsafe fn prepare_CIDFont_from_sfnt<'a>(sfont: &'a mut sfnt) -> Option<&'a mut cff_font> {
-    let mut offset: u32 = 0_u32;
-    if sfont.type_0 != 1i32 << 2i32 || sfnt_read_table_directory(sfont, 0_u32) < 0i32 || {
+unsafe fn prepare_CIDFont_from_sfnt<'a>(sfont: &'a mut sfnt) -> Option<Box<cff_font<'a>>> {
+    let mut offset: u32 = 0;
+    if sfont.type_0 != 1 << 2 || sfnt_read_table_directory(sfont, 0) < 0 || {
         offset = sfnt_find_table_pos(sfont, b"CFF ");
-        offset == 0_u32
+        offset == 0
     } {
         return None;
     }
-    let cffont = cff_open(&sfont.handle, offset as i32, 0i32);
-    if cffont.is_null() {
-        return None;
-    }
-    cff_read_charsets(&mut *cffont);
-    Some(&mut *cffont)
+    cff_open(&sfont.handle, offset as i32, 0).map(|cffont| {
+        cff_read_charsets(&mut cffont);
+        cffont
+    })
 }
 unsafe fn add_to_cmap_if_used(
     cmap: *mut CMap,
@@ -1209,9 +1200,6 @@ unsafe fn create_ToUnicode_cmap(
         CMap_create_stream(&mut cmap)
     };
     CMap_release(&mut cmap);
-    if let Some(cffont) = cffont {
-        cff_close(cffont);
-    }
     stream
 }
 static mut cmap_plat_encs: [cmap_plat_enc_rec; 5] = [
