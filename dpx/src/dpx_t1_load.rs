@@ -1892,7 +1892,7 @@ pub(crate) unsafe fn t1_load_font<'a>(
     if buffer.is_null() || length == 0i32 {
         panic!("Reading PFB (ASCII part) file failed.");
     }
-    let cff = Box::new(cff_font::new());
+    let mut cff = Box::new(cff_font::new());
     let mut start = buffer;
     let end = buffer.offset(length as isize);
     if parse_part1(&mut cff, enc_vec, &mut start, end).is_err() {

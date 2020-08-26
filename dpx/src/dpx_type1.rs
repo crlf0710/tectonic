@@ -669,7 +669,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
             *fresh0 = ptr::null_mut();
         }
     }
-    let cffont = t1_load_font(enc_vec, 0, handle);
+    let mut cffont = t1_load_font(enc_vec, 0, handle);
     let fullname = format!("{}+{}", uniqueTag, font.fontname);
     /* Encoding related things. */
     if encoding_id >= 0 {

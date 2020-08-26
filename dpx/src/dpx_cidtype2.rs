@@ -1095,7 +1095,7 @@ pub(crate) unsafe fn CIDFont_type2_open(
         .as_dict_mut()
         .set("Subtype", "CIDFontType2");
     if let Some(descriptor) =
-        tt_get_fontdesc(&mut sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name)
+        tt_get_fontdesc(&sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name)
     {
         (*font).descriptor = descriptor.into_obj();
     } else {

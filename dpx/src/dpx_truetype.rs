@@ -194,7 +194,7 @@ pub(crate) unsafe fn pdf_font_open_truetype(font: &mut pdf_font) -> i32 {
         panic!("Can\'t find valid fontname for \"{}\".", ident);
     }
     font.fontname = fontname.clone();
-    let tmp = tt_get_fontdesc(&mut sfont, &mut embedding, -1i32, 1i32, &fontname)
+    let tmp = tt_get_fontdesc(&sfont, &mut embedding, -1i32, 1i32, &fontname)
         .expect("Could not optain necessary font info.");
 
     {

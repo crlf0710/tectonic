@@ -175,7 +175,7 @@ pub(crate) unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
      * Create font descriptor from OpenType tables.
      * We can also use CFF TOP DICT/Private DICT for this.
      */
-    if let Some(tmp) = tt_get_fontdesc(&mut sfont, &mut embedding, -1i32, 1i32, &fontname) {
+    if let Some(tmp) = tt_get_fontdesc(&sfont, &mut embedding, -1i32, 1i32, &fontname) {
         /* copy */
         (*descriptor).as_dict_mut().merge(&tmp);
         if embedding == 0 {
@@ -465,7 +465,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         panic!("Charstring too long: gid={}, {} bytes", 0, size);
     }
     *(*charstrings).offset.offset(0) = (charstring_len + 1i32) as l_offset;
-    let handle = cffont.handle.unwrap();
+    let handle = &mut cffont.handle.unwrap();
     handle
         .seek(SeekFrom::Start(
             offset as u64 + *(*cs_idx).offset.offset(0) as u64 - 1,

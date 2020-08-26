@@ -965,7 +965,7 @@ unsafe fn prepare_CIDFont_from_sfnt<'a>(sfont: &'a mut sfnt) -> Option<Box<cff_f
     } {
         return None;
     }
-    cff_open(&sfont.handle, offset as i32, 0).map(|cffont| {
+    cff_open(&sfont.handle, offset as i32, 0).map(|mut cffont| {
         cff_read_charsets(&mut cffont);
         cffont
     })
@@ -1081,7 +1081,7 @@ unsafe fn create_ToUnicode_cmap(
     code_to_cid_cmap: *mut CMap,
 ) -> Option<pdf_stream> {
     let mut count: u16 = 0_u16;
-    let cffont = prepare_CIDFont_from_sfnt(&mut sfont);
+    let cffont = prepare_CIDFont_from_sfnt(sfont);
     let is_cidfont = if let Some(cffont) = &cffont {
         cffont.flag & 1i32 << 0i32 != 0
     } else {

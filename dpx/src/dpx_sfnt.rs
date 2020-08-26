@@ -432,7 +432,7 @@ pub(crate) unsafe fn sfnt_create_FontFile_stream(sfont: &sfnt) -> pdf_stream {
                         wbuf.as_mut_ptr(),
                         length.min(1024) as usize,
                     );
-                    let nb_read = sfont.handle.read(slice).expect("Reading file failed...") as i32;
+                    let nb_read = (&sfont.handle).read(slice).expect("Reading file failed...") as i32;
                     if nb_read > 0 {
                         stream.add_slice(&wbuf[..nb_read as usize]);
                     }

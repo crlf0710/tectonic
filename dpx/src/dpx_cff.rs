@@ -716,13 +716,7 @@ pub(crate) unsafe fn cff_open<'a>(
     mut offset: i32,
     n: i32,
 ) -> Option<Box<cff_font<'a>>> {
-    let handle = &mut handle;
-    handle.seek(SeekFrom::Start(offset as u64)).unwrap();
-    let major = u8::get(handle);
-    let minor = u8::get(handle);
-    let hdr_size = u8::get(handle);
-    let offsize = u8::get(handle);
-    let cff = Box::new(cff_font {
+    let mut cff = Box::new(cff_font {
         fontname: ptr::null_mut(),
         index: n,
         handle: Some(handle),
@@ -744,14 +738,20 @@ pub(crate) unsafe fn cff_open<'a>(
         string: ptr::null_mut(),
         _string: ptr::null_mut(),
         header: cff_header {
-            major,
-            minor,
-            hdr_size,
-            offsize,
+            major: 0,
+            minor: 0,
+            hdr_size: 0,
+            offsize: 0,
         },
         gsubr_offset: 0,
         is_notdef_notzero: 0,
     });
+    let handle = &mut cff.handle.unwrap();
+    handle.seek(SeekFrom::Start(offset as u64)).unwrap();
+    cff.header.major = u8::get(handle);
+    cff.header.minor = u8::get(handle);
+    cff.header.hdr_size = u8::get(handle);
+    cff.header.offsize = u8::get(handle);
     if (cff.header.offsize as i32) < 1 || cff.header.offsize as i32 > 4 {
         panic!("invalid offsize data");
     }

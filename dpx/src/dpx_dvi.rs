@@ -1001,15 +1001,14 @@ unsafe fn dvi_locate_native_font(
             (256usize).wrapping_mul(::std::mem::size_of::<*mut i8>()),
         );
         let cffont = t1_load_font(enc_vec.as_mut_ptr(), 0i32, handle);
-        font.cffont = Box::into_raw(cffont);
-        if cff_dict_known((*cffont).topdict, b"FontBBox\x00" as *const u8 as *const i8) {
+        if cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) {
             font.ascent = cff_dict_get(
-                (*cffont).topdict,
+                cffont.topdict,
                 b"FontBBox\x00" as *const u8 as *const i8,
                 3i32,
             ) as i32;
             font.descent = cff_dict_get(
-                (*cffont).topdict,
+                cffont.topdict,
                 b"FontBBox\x00" as *const u8 as *const i8,
                 1i32,
             ) as i32
@@ -1018,7 +1017,8 @@ unsafe fn dvi_locate_native_font(
             font.descent = -190i32
         }
         font.unitsPerEm = 1000_u32;
-        font.numGlyphs = (*cffont).num_glyphs as u32;
+        font.numGlyphs = cffont.num_glyphs as u32;
+        font.cffont = Box::into_raw(cffont);
     } else {
         let mut sfont = if is_dfont != 0 {
             dfont_open(handle, index as i32).unwrap()
