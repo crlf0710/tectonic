@@ -1211,28 +1211,28 @@ unsafe fn clear_chain(mut gsub_list: *mut otl_gsub) {
 }
 
 pub(crate) unsafe fn otl_gsub_add_feat(
-    mut gsub_list: *mut otl_gsub,
+    gsub_list: &mut otl_gsub,
     script: &[u8],
     language: &[u8],
     feature: &[u8],
     sfont: &sfnt,
 ) -> i32 {
-    if (*gsub_list).num_gsubs > 32i32 {
+    if gsub_list.num_gsubs > 32i32 {
         panic!("Too many GSUB features...");
     }
     let mut i = 0;
-    while i < (*gsub_list).num_gsubs {
-        let gsub = &mut *(*gsub_list).gsubs.as_mut_ptr().offset(i as isize) as *mut otl_gsub_tab;
+    while i < gsub_list.num_gsubs {
+        let gsub = &mut *gsub_list.gsubs.as_mut_ptr().offset(i as isize) as *mut otl_gsub_tab;
         if script == CStr::from_ptr((*gsub).script).to_bytes()
             && language == CStr::from_ptr((*gsub).language).to_bytes()
             && feature == CStr::from_ptr((*gsub).feature).to_bytes()
         {
-            (*gsub_list).select = i;
+            gsub_list.select = i;
             return 0i32;
         }
         i += 1
     }
-    let gsub = &mut *(*gsub_list).gsubs.as_mut_ptr().offset(i as isize) as *mut otl_gsub_tab;
+    let gsub = &mut *gsub_list.gsubs.as_mut_ptr().offset(i as isize) as *mut otl_gsub_tab;
     (*gsub).script = CString::new(script).unwrap().into_raw();
     (*gsub).language = CString::new(language).unwrap().into_raw();
     (*gsub).feature = CString::new(feature).unwrap().into_raw();
@@ -1247,8 +1247,8 @@ pub(crate) unsafe fn otl_gsub_add_feat(
     }
     let retval = otl_gsub_read_feat(gsub, sfont);
     if retval >= 0i32 {
-        (*gsub_list).select = i;
-        (*gsub_list).num_gsubs += 1
+        gsub_list.select = i;
+        gsub_list.num_gsubs += 1
     } else {
         if verbose > 0i32 {
             info!("otl_gsub>> Failed\n");
@@ -1475,7 +1475,7 @@ pub(crate) unsafe fn otl_gsub_add_feat_list(
         if let Ok((script, language, feature)) = scan_otl_tag(p) {
             let idx = gsub_find(gsub_list, &script, &language, &feature);
             if idx < 0i32 {
-                otl_gsub_add_feat(gsub_list, &script, &language, &feature, sfont);
+                otl_gsub_add_feat(&mut *gsub_list, &script, &language, &feature, sfont);
             }
         }
     }

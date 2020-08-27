@@ -820,8 +820,8 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
             gsub_list = ptr::null_mut()
         } else {
             gsub_list = otl_gsub_new();
-            if otl_gsub_add_feat(gsub_list, b"*", b"*", b"vrt2", &sfont) < 0i32 {
-                if otl_gsub_add_feat(gsub_list, b"*", b"*", b"vert", &sfont) < 0i32 {
+            if otl_gsub_add_feat(&mut *gsub_list, b"*", b"*", b"vrt2", &sfont) < 0i32 {
+                if otl_gsub_add_feat(&mut *gsub_list, b"*", b"*", b"vert", &sfont) < 0i32 {
                     warn!("GSUB feature vrt2/vert not found.");
                     otl_gsub_release(gsub_list);
                     gsub_list = ptr::null_mut()
@@ -1094,9 +1094,7 @@ pub(crate) unsafe fn CIDFont_type2_open(
     (*(*font).fontdict)
         .as_dict_mut()
         .set("Subtype", "CIDFontType2");
-    if let Some(descriptor) =
-        tt_get_fontdesc(&sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name)
-    {
+    if let Some(descriptor) = tt_get_fontdesc(&sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name) {
         (*font).descriptor = descriptor.into_obj();
     } else {
         panic!("Could not obtain necessary font info.");

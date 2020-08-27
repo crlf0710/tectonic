@@ -714,7 +714,7 @@ unsafe fn handle_CIDFont(
     if (num_glyphs as i32) < 1i32 {
         panic!("No glyph contained in this font...");
     }
-    let cffont = cff_open(&sfont.handle, offset, 0i32).expect("Could not open CFF font..."); /* CID... */
+    let mut cffont = cff_open(&sfont.handle, offset, 0i32).expect("Could not open CFF font..."); /* CID... */
     if cffont.flag & 1i32 << 0i32 == 0 {
         (*csi).registry = "".into();
         (*csi).ordering = "".into();
@@ -957,19 +957,6 @@ unsafe fn handle_subst_glyphs(
     }
     count
 }
-unsafe fn prepare_CIDFont_from_sfnt<'a>(sfont: &'a mut sfnt) -> Option<Box<cff_font<'a>>> {
-    let mut offset: u32 = 0;
-    if sfont.type_0 != 1 << 2 || sfnt_read_table_directory(sfont, 0) < 0 || {
-        offset = sfnt_find_table_pos(sfont, b"CFF ");
-        offset == 0
-    } {
-        return None;
-    }
-    cff_open(&sfont.handle, offset as i32, 0).map(|mut cffont| {
-        cff_read_charsets(&mut cffont);
-        cffont
-    })
-}
 unsafe fn add_to_cmap_if_used(
     cmap: *mut CMap,
     cffont: Option<&cff_font>,
@@ -1081,7 +1068,23 @@ unsafe fn create_ToUnicode_cmap(
     code_to_cid_cmap: *mut CMap,
 ) -> Option<pdf_stream> {
     let mut count: u16 = 0_u16;
-    let cffont = prepare_CIDFont_from_sfnt(sfont);
+    // prepare_CIDFont_from_sfnt(sfont);
+    let mut offset: u32 = 0;
+    let mut flag = true;
+    if sfont.type_0 != 1 << 2 || sfnt_read_table_directory(sfont, 0) < 0 || {
+        offset = sfnt_find_table_pos(sfont, b"CFF ");
+        offset == 0
+    } {
+        flag = false;
+    }
+    let cffont = if flag {
+        cff_open(&sfont.handle, offset as i32, 0).map(|mut cffont| {
+            cff_read_charsets(&mut cffont);
+            cffont
+        })
+    } else {
+        None
+    };
     let is_cidfont = if let Some(cffont) = &cffont {
         cffont.flag & 1i32 << 0i32 != 0
     } else {
@@ -1524,8 +1527,8 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
     }
     if wmode == 1i32 {
         gsub_vert = otl_gsub_new();
-        if otl_gsub_add_feat(gsub_vert, b"*", b"*", b"vrt2", &sfont) < 0 {
-            if otl_gsub_add_feat(gsub_vert, b"*", b"*", b"vert", &sfont) < 0 {
+        if otl_gsub_add_feat(&mut *gsub_vert, b"*", b"*", b"vrt2", &sfont) < 0 {
+            if otl_gsub_add_feat(&mut *gsub_vert, b"*", b"*", b"vert", &sfont) < 0 {
                 warn!("GSUB feature vrt2/vert not found.");
                 otl_gsub_release(gsub_vert);
                 gsub_vert = ptr::null_mut()
