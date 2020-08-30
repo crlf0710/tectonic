@@ -47,7 +47,7 @@ pub(crate) unsafe fn ttc_read_offset(sfont: &sfnt, ttc_idx: i32) -> u32 {
     if sfont.type_0 != 1i32 << 4i32 {
         panic!("ttc_read_offset(): invalid font type");
     }
-    let handle = &mut &sfont.handle;
+    let handle = &mut &*sfont.handle;
     handle.seek(SeekFrom::Start(4)).unwrap();
     /* version = */
     u32::get(handle);

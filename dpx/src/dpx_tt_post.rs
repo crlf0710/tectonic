@@ -69,7 +69,7 @@ pub(crate) struct tt_post_table {
  * as directory separators. */
 /* offset from begenning of the post table */
 unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: &sfnt) -> i32 {
-    let handle = &mut &sfont.handle;
+    let handle = &mut &*sfont.handle;
     (*post).numberOfGlyphs = u16::get(handle);
     let indices = new(((*post).numberOfGlyphs as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16;
@@ -156,7 +156,7 @@ pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
     sfnt_locate_table(sfont, b"post"); /* Fixed */
     let mut post = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_post_table>() as u64) as u32)
         as *mut tt_post_table; /* Fixed */
-    let handle = &mut &sfont.handle;
+    let handle = &mut &*sfont.handle;
     (*post).Version = u32::get(handle); /* FWord */
     (*post).italicAngle = u32::get(handle); /* FWord */
     (*post).underlinePosition = i16::get(handle); /* wrong */

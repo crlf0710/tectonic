@@ -32,6 +32,7 @@ use crate::dpx_pdfobj::{pdf_stream, STREAM_COMPRESS};
 use crate::dpx_truetype::SfntTableInfo;
 use crate::mfree;
 use libc::{free, memcpy};
+use std::rc::Rc;
 
 use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
@@ -63,7 +64,7 @@ pub(crate) struct sfnt_table_directory {
 pub(crate) struct sfnt {
     pub(crate) type_0: i32,
     pub(crate) directory: *mut sfnt_table_directory,
-    pub(crate) handle: DroppableInputHandleWrapper,
+    pub(crate) handle: Rc<DroppableInputHandleWrapper>,
     pub(crate) offset: u32,
 }
 
@@ -85,7 +86,7 @@ pub(crate) unsafe fn sfnt_open(mut handle: DroppableInputHandleWrapper) -> sfnt 
     handle.seek(SeekFrom::Start(0)).unwrap();
     sfnt {
         type_0: typ,
-        handle,
+        handle: Rc::new(handle),
         directory: ptr::null_mut(),
         offset: 0,
     }
@@ -145,7 +146,7 @@ pub(crate) unsafe fn dfont_open(
     }
     handle.seek(SeekFrom::Start(0)).unwrap();
     Some(sfnt {
-        handle,
+        handle: Rc::new(handle),
         type_0: 1 << 8,
         directory: ptr::null_mut(),
         offset: ((res_pos as u64 & 0xffffff) + (rdata_pos as u64) + 4) as u32,
@@ -273,7 +274,9 @@ pub(crate) unsafe fn sfnt_locate_table(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
     if offset == 0_u32 {
         panic!("sfnt: table not found...");
     }
-    (&sfont.handle)
+    sfont
+        .handle
+        .as_ref()
         .seek(SeekFrom::Start(offset as u64))
         .unwrap();
     offset
@@ -286,7 +289,7 @@ pub(crate) unsafe fn sfnt_read_table_directory(sfont: &mut sfnt, offset: u32) ->
     let td = new(
         (1_u32 as u64).wrapping_mul(::std::mem::size_of::<sfnt_table_directory>() as u64) as u32,
     ) as *mut sfnt_table_directory;
-    let handle = &mut &sfont.handle;
+    let handle = &mut &*sfont.handle;
     sfont.directory = td;
     handle.seek(SeekFrom::Start(offset as u64)).unwrap();
     (*td).version = u32::get(handle);
@@ -422,7 +425,9 @@ pub(crate) unsafe fn sfnt_create_FontFile_stream(sfont: &sfnt) -> pdf_stream {
                     panic!("Font file not opened or already closed...");
                 }*/
                 length = (*td.tables.offset(i as isize)).length as i32;
-                (&sfont.handle)
+                sfont
+                    .handle
+                    .as_ref()
                     .seek(SeekFrom::Start(
                         (*td.tables.offset(i as isize)).offset as u64,
                     ))
@@ -432,8 +437,11 @@ pub(crate) unsafe fn sfnt_create_FontFile_stream(sfont: &sfnt) -> pdf_stream {
                         wbuf.as_mut_ptr(),
                         length.min(1024) as usize,
                     );
-                    let nb_read =
-                        (&sfont.handle).read(slice).expect("Reading file failed...") as i32;
+                    let nb_read = sfont
+                        .handle
+                        .as_ref()
+                        .read(slice)
+                        .expect("Reading file failed...") as i32;
                     if nb_read > 0 {
                         stream.add_slice(&wbuf[..nb_read as usize]);
                     }

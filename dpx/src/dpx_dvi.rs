@@ -126,7 +126,7 @@ pub(crate) struct font_def {
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub(crate) struct loaded_font<'a> {
+pub(crate) struct loaded_font {
     pub(crate) type_0: i32,
     pub(crate) font_id: i32,
     pub(crate) subfont_id: i32,
@@ -138,7 +138,7 @@ pub(crate) struct loaded_font<'a> {
     pub(crate) ascent: i32,
     pub(crate) descent: i32,
     pub(crate) unitsPerEm: u32,
-    pub(crate) cffont: *mut cff_font<'a>,
+    pub(crate) cffont: *mut cff_font,
     pub(crate) numGlyphs: u32,
     pub(crate) layout_dir: i32,
     pub(crate) extend: f32,

@@ -144,7 +144,8 @@ pub(crate) unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
     if offset < 1_u32 {
         panic!("No \"CFF \" table found; not a CFF/OpenType font (10)?");
     }
-    let cffont = cff_open(&sfont.handle, offset as i32, 0).expect("Could not read CFF font data");
+    let cffont =
+        cff_open(sfont.handle.clone(), offset as i32, 0).expect("Could not read CFF font data");
     if cffont.flag & 1 << 0 != 0 {
         return -1;
     }
@@ -305,7 +306,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     } {
         panic!("Not a CFF/OpenType font (11)?");
     }
-    let mut cffont = cff_open(&sfont.handle, offset, 0).expect("Could not open CFF font.");
+    let mut cffont = cff_open(sfont.handle.clone(), offset, 0).expect("Could not open CFF font.");
     if cffont.flag & 1i32 << 0i32 != 0 {
         panic!("This is CIDFont...");
     }
@@ -390,12 +391,20 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     ) as u64;
     cffont
         .handle
+        .as_ref()
         .unwrap()
+        .as_ref()
         .seek(SeekFrom::Start(cffont.offset as u64 + offset))
         .unwrap();
     let cs_idx = cff_get_index_header(&cffont);
     /* Offset is now absolute offset ... fixme */
-    let offset = cffont.handle.unwrap().seek(SeekFrom::Current(0)).unwrap() as i32;
+    let offset = cffont
+        .handle
+        .as_ref()
+        .unwrap()
+        .as_ref()
+        .seek(SeekFrom::Current(0))
+        .unwrap() as i32;
     let cs_count = (*cs_idx).count;
     if (cs_count as i32) < 2i32 {
         panic!("No valid charstring data found.");
@@ -465,7 +474,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         panic!("Charstring too long: gid={}, {} bytes", 0, size);
     }
     *(*charstrings).offset.offset(0) = (charstring_len + 1i32) as l_offset;
-    let handle = &mut cffont.handle.unwrap();
+    let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
     handle
         .seek(SeekFrom::Start(
             offset as u64 + *(*cs_idx).offset.offset(0) as u64 - 1,
@@ -571,7 +580,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                     }
                     *(*charstrings).offset.offset(num_glyphs as isize) =
                         (charstring_len + 1i32) as l_offset;
-                    let handle = cffont.handle.as_mut().unwrap();
+                    let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
                     handle
                         .seek(SeekFrom::Start(
                             offset as u64 + *(*cs_idx).offset.offset(gid_0 as isize) as u64 - 1,

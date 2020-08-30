@@ -575,11 +575,11 @@ unsafe fn CIDType0Error_Show(error: CidOpenError, name: &str) {
         }
     };
 }
-unsafe fn CIDFont_type0_try_open<'a, 'b>(
-    name: &'a str,
+unsafe fn CIDFont_type0_try_open(
+    name: &str,
     index: i32,
     required_cid: i32,
-) -> Result<(Box<sfnt>, Box<cff_font<'a>>), CidOpenError> {
+) -> Result<(Box<sfnt>, Box<cff_font>), CidOpenError> {
     let mut offset: u32 = 0_u32;
     let handle = dpx_open_opentype_file(name).or_else(|| dpx_open_truetype_file(name));
     if handle.is_none() {
@@ -601,7 +601,7 @@ unsafe fn CIDFont_type0_try_open<'a, 'b>(
     {
         return Err(CidOpenError::NO_CFF_TABLE);
     }
-    if let Some(cffont) = cff_open(&sfont.handle, offset as i32, 0) {
+    if let Some(cffont) = cff_open(sfont.handle.clone(), offset as i32, 0) {
         let is_cid = cffont.flag & 1 << 0;
         if required_cid != is_cid {
             return Err(if required_cid != 0 {
@@ -737,16 +737,18 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
     ) as u64;
     cffont
         .handle
-        .as_mut()
+        .as_ref()
         .unwrap()
+        .as_ref()
         .seek(SeekFrom::Start((*cffont).offset as u64 + offset))
         .unwrap();
     let idx = cff_get_index_header(&cffont);
     /* offset is now absolute offset ... bad */
     let offset = cffont
         .handle
-        .as_mut()
+        .as_ref()
         .unwrap()
+        .as_ref()
         .seek(SeekFrom::Current(0))
         .unwrap();
     let cs_count = (*idx).count;
@@ -801,7 +803,7 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
                 ) as *mut u8
             }
             *(*charstrings).offset.offset(gid as isize) = (charstring_len + 1i32) as l_offset;
-            let handle = cffont.handle.as_mut().unwrap();
+            let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
             handle
                 .seek(SeekFrom::Start(
                     offset as u64 + *(*idx).offset.offset(gid_org as isize) as u64 - 1,
@@ -928,7 +930,7 @@ pub(crate) unsafe fn CIDFont_type0_open(
             return -1i32;
         }
         let mut cffont =
-            cff_open(&sfont.handle, offset as i32, 0).expect("Cannot read CFF font data");
+            cff_open(sfont.handle.clone(), offset as i32, 0).expect("Cannot read CFF font data");
         is_cid_font = cffont.flag & 1 << 0;
         if expect_cid_font != is_cid_font {
             return -1i32;
@@ -1252,16 +1254,18 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
     ) as i32;
     cffont
         .handle
-        .as_mut()
+        .as_ref()
         .unwrap()
+        .as_ref()
         .seek(SeekFrom::Start(cffont.offset as u64 + offset as u64))
         .unwrap();
     let idx = cff_get_index_header(&cffont);
     /* offset is now absolute offset ... bad */
     let offset = cffont
         .handle
-        .as_mut()
+        .as_ref()
         .unwrap()
+        .as_ref()
         .seek(SeekFrom::Current(0))
         .unwrap();
     if ((*idx).count as i32) < 2i32 {
@@ -1291,7 +1295,7 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
                 ) as *mut u8
             }
             *(*charstrings).offset.offset(gid as isize) = (charstring_len + 1i32) as l_offset;
-            let handle = &mut cffont.handle.unwrap();
+            let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
             handle
                 .seek(SeekFrom::Start(
                     offset as u64 + *(*idx).offset.offset(cid as isize) as u64 - 1,

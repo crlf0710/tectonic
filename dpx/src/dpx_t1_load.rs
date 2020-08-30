@@ -1838,7 +1838,7 @@ pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: *
     0i32
 }
 
-impl<'a> cff_font<'a> {
+impl cff_font {
     unsafe fn new() -> Self {
         let cff = cff_font {
             handle: None,
@@ -1880,11 +1880,11 @@ impl<'a> cff_font<'a> {
     }
 }
 
-pub(crate) unsafe fn t1_load_font<'a>(
+pub(crate) unsafe fn t1_load_font(
     enc_vec: *mut *mut i8,
     mode: i32,
     mut handle: DroppableInputHandleWrapper,
-) -> Box<cff_font<'a>> {
+) -> Box<cff_font> {
     let mut length: i32 = 0;
     handle.seek(SeekFrom::Start(0)).unwrap();
     /* ASCII section */

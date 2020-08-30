@@ -247,11 +247,12 @@ pub(crate) unsafe fn tt_build_tables(sfont: &mut sfnt, mut g: *mut tt_glyphs) ->
         .wrapping_mul(::std::mem::size_of::<u32>() as u64) as u32) as *mut u32; /* Estimate most frequently appeared width */
     if (*head).indexToLocFormat as i32 == 0i32 {
         for i in 0..=(*maxp).numGlyphs as i32 {
-            *location.offset(i as isize) = (2_u32).wrapping_mul(u16::get(&mut sfont.handle) as u32);
+            *location.offset(i as isize) =
+                (2_u32).wrapping_mul(u16::get(&mut &*sfont.handle) as u32);
         }
     } else if (*head).indexToLocFormat as i32 == 1i32 {
         for i in 0..=(*maxp).numGlyphs as i32 {
-            *location.offset(i as isize) = u32::get(&mut sfont.handle);
+            *location.offset(i as isize) = u32::get(&mut &*sfont.handle);
         }
     } else {
         panic!("Unknown IndexToLocFormat.");
@@ -314,7 +315,7 @@ pub(crate) unsafe fn tt_build_tables(sfont: &mut sfnt, mut g: *mut tt_glyphs) ->
             let ref mut fresh5 = (*(*g).gd.offset(i as isize)).data;
             *fresh5 = p;
             let endptr = p.offset(len as isize);
-            let handle = &mut sfont.handle;
+            let handle = &mut &*sfont.handle;
             handle
                 .seek(SeekFrom::Start(offset as u64 + loc as u64))
                 .unwrap();
@@ -358,7 +359,7 @@ pub(crate) unsafe fn tt_build_tables(sfont: &mut sfnt, mut g: *mut tt_glyphs) ->
             /* Read evrything else. */
 
             let slice = std::slice::from_raw_parts_mut(p, (len - 10) as usize);
-            sfont.handle.read_exact(slice).unwrap();
+            sfont.handle.as_ref().read_exact(slice).unwrap();
             /*
              * Fix GIDs of composite glyphs.
              */
@@ -662,11 +663,11 @@ pub(crate) unsafe fn tt_get_metrics(sfont: &sfnt, mut g: *mut tt_glyphs) -> i32 
     if (*head).indexToLocFormat as i32 == 0i32 {
         for i in 0..=(*maxp).numGlyphs as u32 {
             *location.offset(i as isize) =
-                (2_u32).wrapping_mul(u16::get(&mut &sfont.handle) as u32);
+                (2_u32).wrapping_mul(u16::get(&mut &*sfont.handle) as u32);
         }
     } else if (*head).indexToLocFormat as i32 == 1i32 {
         for i in 0..=(*maxp).numGlyphs as u32 {
-            *location.offset(i as isize) = u32::get(&mut &sfont.handle);
+            *location.offset(i as isize) = u32::get(&mut &*sfont.handle);
         }
     } else {
         panic!("Unknown IndexToLocFormat.");
@@ -713,7 +714,7 @@ pub(crate) unsafe fn tt_get_metrics(sfont: &sfnt, mut g: *mut tt_glyphs) -> i32 
             if len < 10_u32 {
                 panic!("Invalid TrueType glyph data (gid {}).", gid);
             }
-            let handle = &mut &sfont.handle;
+            let handle = &mut &*sfont.handle;
             handle
                 .seek(SeekFrom::Start(offset as u64 + loc as u64))
                 .unwrap();

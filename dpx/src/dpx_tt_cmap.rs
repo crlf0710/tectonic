@@ -176,7 +176,7 @@ unsafe fn read_cmap0(sfont: &sfnt, len: u32) -> *mut cmap0 {
     }
     let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap0>() as u64) as u32) as *mut cmap0;
     for i in 0..256 {
-        (*map).glyphIndexArray[i as usize] = u8::get(&mut &sfont.handle);
+        (*map).glyphIndexArray[i as usize] = u8::get(&mut &*sfont.handle);
     }
     map
 }
@@ -194,7 +194,7 @@ unsafe fn read_cmap2(sfont: &sfnt, len: u32) -> *mut cmap2 {
     if len < 512_u32 {
         panic!("invalid cmap subtable");
     }
-    let handle = &mut &sfont.handle;
+    let handle = &mut &*sfont.handle;
     let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap2>() as u64) as u32) as *mut cmap2;
     for i in 0..256 {
         (*map).subHeaderKeys[i as usize] = u16::get(handle);
@@ -269,7 +269,7 @@ unsafe fn read_cmap4(sfont: &sfnt, len: u32) -> *mut cmap4 {
     if len < 8_u32 {
         panic!("invalid cmap subtable");
     }
-    let handle = &mut &sfont.handle;
+    let handle = &mut &*sfont.handle;
     let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap4>() as u64) as u32) as *mut cmap4;
     let segCount = u16::get(handle);
     (*map).segCountX2 = segCount;
@@ -370,7 +370,7 @@ unsafe fn read_cmap6(sfont: &sfnt, len: u32) -> *mut cmap6 {
     if len < 4_u32 {
         panic!("invalid cmap subtable");
     }
-    let handle = &mut &sfont.handle;
+    let handle = &mut &*sfont.handle;
     let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap6>() as u64) as u32) as *mut cmap6;
     (*map).firstCode = u16::get(handle);
     (*map).entryCount = u16::get(handle);
@@ -400,7 +400,7 @@ unsafe fn read_cmap12(sfont: &sfnt, len: u32) -> *mut cmap12 {
     if len < 4_u32 {
         panic!("invalid cmap subtable");
     }
-    let handle = &mut &sfont.handle;
+    let handle = &mut &*sfont.handle;
     let map =
         new((1_u64).wrapping_mul(::std::mem::size_of::<cmap12>() as u64) as u32) as *mut cmap12;
     (*map).nGroups = u32::get(handle);
@@ -445,7 +445,7 @@ unsafe fn lookup_cmap12(map: *mut cmap12, cccc: u32) -> u16 {
 pub(crate) unsafe fn tt_cmap_read(sfont: &sfnt, platform: u16, encoding: u16) -> *mut tt_cmap {
     let length;
     let mut offset = sfnt_locate_table(sfont, sfnt_table_info::CMAP);
-    let handle = &mut &sfont.handle;
+    let handle = &mut &*sfont.handle;
     u16::get(handle);
     let n_subtabs = u16::get(handle);
     let mut i = 0_u16;
@@ -714,7 +714,8 @@ unsafe fn handle_CIDFont(
     if (num_glyphs as i32) < 1i32 {
         panic!("No glyph contained in this font...");
     }
-    let mut cffont = cff_open(&sfont.handle, offset, 0i32).expect("Could not open CFF font..."); /* CID... */
+    let mut cffont =
+        cff_open(sfont.handle.clone(), offset, 0i32).expect("Could not open CFF font..."); /* CID... */
     if cffont.flag & 1i32 << 0i32 == 0 {
         (*csi).registry = "".into();
         (*csi).ordering = "".into();
@@ -1078,7 +1079,7 @@ unsafe fn create_ToUnicode_cmap(
         flag = false;
     }
     let cffont = if flag {
-        cff_open(&sfont.handle, offset as i32, 0).map(|mut cffont| {
+        cff_open(sfont.handle.clone(), offset as i32, 0).map(|mut cffont| {
             cff_read_charsets(&mut cffont);
             cffont
         })

@@ -28,6 +28,7 @@
 
 use crate::streq_ptr;
 use crate::warn;
+use std::rc::Rc;
 
 use super::dpx_cff_dict::{cff_dict_get, cff_dict_known, cff_dict_unpack, cff_release_dict};
 use super::dpx_mem::{new, renew};
@@ -39,7 +40,7 @@ use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
-use bridge::InputHandleWrapper;
+use bridge::DroppableInputHandleWrapper;
 /* CFF Data Types */
 /* SID SID number */
 /* offset(0) */
@@ -268,7 +269,7 @@ pub(crate) union C2RustUnnamed_1 {
     pub(crate) ranges: *mut cff_range3,
 }
 #[repr(C)]
-pub(crate) struct cff_font<'a> {
+pub(crate) struct cff_font {
     pub(crate) fontname: *mut i8,
     pub(crate) header: cff_header,
     pub(crate) name: *mut cff_index,
@@ -287,7 +288,7 @@ pub(crate) struct cff_font<'a> {
     pub(crate) num_glyphs: u16,
     pub(crate) num_fds: u8,
     pub(crate) _string: *mut cff_index,
-    pub(crate) handle: Option<&'a InputHandleWrapper>,
+    pub(crate) handle: Option<Rc<DroppableInputHandleWrapper>>,
     pub(crate) filter: i32,
     pub(crate) index: i32,
     pub(crate) flag: i32,
@@ -711,11 +712,11 @@ unsafe fn get_unsigned<R: Read>(handle: &mut R, mut n: i32) -> u32 {
  * Read Header, Name INDEX, Top DICT INDEX, and String INDEX.
  */
 
-pub(crate) unsafe fn cff_open<'a>(
-    handle: &'a InputHandleWrapper,
+pub(crate) unsafe fn cff_open(
+    handle: Rc<DroppableInputHandleWrapper>,
     mut offset: i32,
     n: i32,
-) -> Option<Box<cff_font<'a>>> {
+) -> Option<Box<cff_font>> {
     let mut cff = Box::new(cff_font {
         fontname: ptr::null_mut(),
         index: n,
@@ -746,7 +747,7 @@ pub(crate) unsafe fn cff_open<'a>(
         gsubr_offset: 0,
         is_notdef_notzero: 0,
     });
-    let handle = &mut cff.handle.unwrap();
+    let handle = &mut cff.handle.as_ref().unwrap().as_ref();
     handle.seek(SeekFrom::Start(offset as u64)).unwrap();
     cff.header.major = u8::get(handle);
     cff.header.minor = u8::get(handle);
@@ -811,6 +812,7 @@ pub(crate) unsafe fn cff_open<'a>(
     /* String INDEX */
     cff.string = cff_get_index(&mut cff);
     /* offset to GSubr */
+    let handle = &mut cff.handle.as_ref().unwrap().as_ref();
     cff.gsubr_offset = (handle.seek(SeekFrom::Current(0)).unwrap() - offset as u64) as l_offset;
     /* Number of glyphs */
     offset = cff_dict_get(
@@ -862,7 +864,7 @@ pub(crate) unsafe fn cff_open<'a>(
                */
 }
 
-impl<'a> Drop for cff_font<'a> {
+impl Drop for cff_font {
     fn drop(&mut self) {
         unsafe {
             free(self.fontname as *mut libc::c_void);
@@ -980,7 +982,7 @@ pub(crate) unsafe fn cff_put_header(cff: &cff_font, dest: &mut [u8]) -> usize {
 pub(crate) unsafe fn cff_get_index_header(cff: &cff_font) -> *mut cff_index {
     let idx = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_index>() as u64) as u32)
         as *mut cff_index;
-    let handle = &mut cff.handle.unwrap();
+    let handle = &mut cff.handle.as_ref().unwrap().as_ref();
     let count = u16::get(handle);
     (*idx).count = count;
     if count as i32 > 0i32 {
@@ -1017,7 +1019,7 @@ pub(crate) unsafe fn cff_get_index_header(cff: &cff_font) -> *mut cff_index {
 pub(crate) unsafe fn cff_get_index(cff: &cff_font) -> *mut cff_index {
     let idx = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_index>() as u64) as u32)
         as *mut cff_index;
-    let handle = &mut cff.handle.unwrap();
+    let handle = &mut cff.handle.as_ref().unwrap().as_ref();
     let count = u16::get(handle);
     (*idx).count = count;
     if count as i32 > 0i32 {
@@ -1390,7 +1392,7 @@ pub(crate) unsafe fn cff_read_encoding(cff: &mut cff_font) -> i32 {
             return 0i32;
         }
     }
-    let handle = &mut cff.handle.unwrap();
+    let handle = &mut cff.handle.as_ref().unwrap().as_ref();
     handle
         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
         .unwrap();
@@ -1601,7 +1603,7 @@ pub(crate) unsafe fn cff_read_charsets(cff: &mut cff_font) -> i32 {
             }
         }
     }
-    let handle = &mut cff.handle.unwrap();
+    let handle = &mut cff.handle.as_ref().unwrap().as_ref();
     handle
         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
         .unwrap();
@@ -1964,7 +1966,7 @@ pub(crate) unsafe fn cff_read_fdselect(cff: &mut cff_font) -> i32 {
         return 0i32;
     }
     let offset = cff_dict_get(cff.topdict, b"FDSelect\x00" as *const u8 as *const i8, 0i32) as i32;
-    let handle = &mut cff.handle.unwrap();
+    let handle = &mut cff.handle.as_ref().unwrap().as_ref();
     handle
         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
         .unwrap();
@@ -2104,7 +2106,9 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
     }
     if cff.gsubr.is_null() {
         cff.handle
+            .as_ref()
             .unwrap()
+            .as_ref()
             .seek(SeekFrom::Start(cff.offset as u64 + cff.gsubr_offset as u64))
             .unwrap();
         cff.gsubr = cff_get_index(cff)
@@ -2135,7 +2139,9 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
                         0i32,
                     )) as i32;
                 cff.handle
+                    .as_ref()
                     .unwrap()
+                    .as_ref()
                     .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
                     .unwrap();
                 let ref mut fresh48 = *cff.subrs.offset(i as isize);
@@ -2161,7 +2167,9 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
                 0i32,
             )) as i32;
         cff.handle
+            .as_ref()
             .unwrap()
+            .as_ref()
             .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
             .unwrap();
         let ref mut fresh50 = *cff.subrs.offset(0);
@@ -2181,7 +2189,9 @@ pub(crate) unsafe fn cff_read_fdarray(cff: &mut cff_font) -> i32 {
     /* must exist */
     let offset = cff_dict_get(cff.topdict, b"FDArray\x00" as *const u8 as *const i8, 0i32) as i32;
     cff.handle
+        .as_ref()
         .unwrap()
+        .as_ref()
         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
         .unwrap();
     let idx = cff_get_index(cff);
@@ -2278,7 +2288,7 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
                     b"Private\x00" as *const u8 as *const i8,
                     1i32,
                 ) as i32;
-                let handle = &mut cff.handle.unwrap();
+                let handle = &mut cff.handle.as_ref().unwrap().as_ref();
                 handle
                     .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
                     .unwrap();
@@ -2305,7 +2315,7 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
             size = cff_dict_get(cff.topdict, b"Private\x00" as *const u8 as *const i8, 0i32) as i32;
             size > 0i32
         } {
-            let handle = &mut cff.handle.unwrap();
+            let handle = &mut cff.handle.as_ref().unwrap().as_ref();
             let offset =
                 cff_dict_get(cff.topdict, b"Private\x00" as *const u8 as *const i8, 1i32) as i32;
             handle
