@@ -68,8 +68,7 @@ pub(crate) struct tt_post_table {
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 /* offset from begenning of the post table */
-unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: &sfnt) -> i32 {
-    let handle = &mut &*sfont.handle;
+unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut R) -> i32 {
     (*post).numberOfGlyphs = u16::get(handle);
     let indices = new(((*post).numberOfGlyphs as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16;
@@ -176,7 +175,7 @@ pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
     } else if (*post).Version as u64 == 0x28000 {
         warn!("TrueType \'post\' version 2.5 found (deprecated)");
     } else if (*post).Version as u64 == 0x20000 {
-        if read_v2_post_names(post, sfont) < 0i32 {
+        if read_v2_post_names(post, handle) < 0i32 {
             warn!("Invalid version 2.0 \'post\' table");
             tt_release_post_table(post);
             post = ptr::null_mut()

@@ -500,8 +500,8 @@ pub(crate) unsafe fn tt_read_VORG_table(sfont: &sfnt) -> *mut tt_VORG_table {
  *  Reading/writing hmtx and vmtx depend on other tables, maxp and hhea/vhea.
  */
 
-pub(crate) unsafe fn tt_read_longMetrics(
-    sfont: &sfnt,
+pub(crate) unsafe fn tt_read_longMetrics<R: Read>(
+    handle: &mut R,
     numGlyphs: u16,
     numLongMetrics: u16,
     numExSideBearings: u16,
@@ -511,7 +511,6 @@ pub(crate) unsafe fn tt_read_longMetrics(
     let m = new((numGlyphs as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<tt_longMetrics>() as u64) as u32)
         as *mut tt_longMetrics;
-    let handle = &mut &*sfont.handle;
     for gid in 0..numGlyphs {
         if (gid as i32) < numLongMetrics as i32 {
             last_adv = u16::get(handle)

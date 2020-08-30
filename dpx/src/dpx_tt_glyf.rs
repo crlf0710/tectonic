@@ -219,7 +219,7 @@ pub(crate) unsafe fn tt_build_tables(sfont: &mut sfnt, mut g: *mut tt_glyphs) ->
     (*g).emsize = (*head).unitsPerEm;
     sfnt_locate_table(sfont, sfnt_table_info::HMTX);
     let hmtx = tt_read_longMetrics(
-        sfont,
+        &mut &*sfont.handle,
         (*maxp).numGlyphs,
         (*hhea).numOfLongHorMetrics,
         (*hhea).numOfExSideBearings,
@@ -233,7 +233,7 @@ pub(crate) unsafe fn tt_build_tables(sfont: &mut sfnt, mut g: *mut tt_glyphs) ->
         let vhea = tt_read_vhea_table(sfont);
         sfnt_locate_table(sfont, b"vmtx");
         vmtx = tt_read_longMetrics(
-            sfont,
+            &mut &*sfont.handle,
             (*maxp).numGlyphs,
             (*vhea).numOfLongVerMetrics,
             (*vhea).numOfExSideBearings,
@@ -245,14 +245,14 @@ pub(crate) unsafe fn tt_build_tables(sfont: &mut sfnt, mut g: *mut tt_glyphs) ->
     sfnt_locate_table(sfont, sfnt_table_info::LOCA);
     let location = new((((*maxp).numGlyphs as i32 + 1i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<u32>() as u64) as u32) as *mut u32; /* Estimate most frequently appeared width */
+    let handle = &mut &*sfont.handle;
     if (*head).indexToLocFormat as i32 == 0i32 {
         for i in 0..=(*maxp).numGlyphs as i32 {
-            *location.offset(i as isize) =
-                (2_u32).wrapping_mul(u16::get(&mut &*sfont.handle) as u32);
+            *location.offset(i as isize) = (2_u32).wrapping_mul(u16::get(handle) as u32);
         }
     } else if (*head).indexToLocFormat as i32 == 1i32 {
         for i in 0..=(*maxp).numGlyphs as i32 {
-            *location.offset(i as isize) = u32::get(&mut &*sfont.handle);
+            *location.offset(i as isize) = u32::get(handle);
         }
     } else {
         panic!("Unknown IndexToLocFormat.");
@@ -359,7 +359,7 @@ pub(crate) unsafe fn tt_build_tables(sfont: &mut sfnt, mut g: *mut tt_glyphs) ->
             /* Read evrything else. */
 
             let slice = std::slice::from_raw_parts_mut(p, (len - 10) as usize);
-            sfont.handle.as_ref().read_exact(slice).unwrap();
+            handle.read_exact(slice).unwrap();
             /*
              * Fix GIDs of composite glyphs.
              */
@@ -636,7 +636,7 @@ pub(crate) unsafe fn tt_get_metrics(sfont: &sfnt, mut g: *mut tt_glyphs) -> i32 
     (*g).emsize = (*head).unitsPerEm;
     sfnt_locate_table(sfont, sfnt_table_info::HMTX);
     let hmtx = tt_read_longMetrics(
-        sfont,
+        &mut &*sfont.handle,
         (*maxp).numGlyphs,
         (*hhea).numOfLongHorMetrics,
         (*hhea).numOfExSideBearings,
@@ -648,7 +648,7 @@ pub(crate) unsafe fn tt_get_metrics(sfont: &sfnt, mut g: *mut tt_glyphs) -> i32 
         let vhea = tt_read_vhea_table(sfont);
         sfnt_locate_table(sfont, b"vmtx");
         vmtx = tt_read_longMetrics(
-            sfont,
+            &mut &*sfont.handle,
             (*maxp).numGlyphs,
             (*vhea).numOfLongVerMetrics,
             (*vhea).numOfExSideBearings,
@@ -660,14 +660,14 @@ pub(crate) unsafe fn tt_get_metrics(sfont: &sfnt, mut g: *mut tt_glyphs) -> i32 
     sfnt_locate_table(sfont, sfnt_table_info::LOCA);
     let location = new((((*maxp).numGlyphs as i32 + 1i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<u32>() as u64) as u32) as *mut u32;
+    let handle = &mut &*sfont.handle;
     if (*head).indexToLocFormat as i32 == 0i32 {
         for i in 0..=(*maxp).numGlyphs as u32 {
-            *location.offset(i as isize) =
-                (2_u32).wrapping_mul(u16::get(&mut &*sfont.handle) as u32);
+            *location.offset(i as isize) = (2_u32).wrapping_mul(u16::get(handle) as u32);
         }
     } else if (*head).indexToLocFormat as i32 == 1i32 {
         for i in 0..=(*maxp).numGlyphs as u32 {
-            *location.offset(i as isize) = u32::get(&mut &*sfont.handle);
+            *location.offset(i as isize) = u32::get(handle);
         }
     } else {
         panic!("Unknown IndexToLocFormat.");

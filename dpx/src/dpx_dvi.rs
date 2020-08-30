@@ -1043,7 +1043,7 @@ unsafe fn dvi_locate_native_font(
             sfnt_locate_table(&mut sfont, b"vmtx");
             let ref mut fresh19 = font.hvmt;
             *fresh19 = tt_read_longMetrics(
-                &mut sfont,
+                &mut &*sfont.handle,
                 (*maxp).numGlyphs,
                 (*vhea).numOfLongVerMetrics,
                 (*vhea).numOfExSideBearings,
@@ -1053,7 +1053,7 @@ unsafe fn dvi_locate_native_font(
             sfnt_locate_table(&mut sfont, sfnt_table_info::HMTX);
             let ref mut fresh20 = font.hvmt;
             *fresh20 = tt_read_longMetrics(
-                &mut sfont,
+                &mut &*sfont.handle,
                 (*maxp).numGlyphs,
                 (*hhea).numOfLongHorMetrics,
                 (*hhea).numOfExSideBearings,

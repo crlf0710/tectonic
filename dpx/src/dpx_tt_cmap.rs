@@ -26,6 +26,8 @@
     non_upper_case_globals
 )]
 
+use std::io::Read;
+
 use super::dpx_sfnt::{
     dfont_open, sfnt_find_table_pos, sfnt_locate_table, sfnt_open, sfnt_read_table_directory,
 };
@@ -170,13 +172,13 @@ pub(crate) unsafe fn otf_cmap_set_verbose(level: i32) {
     otl_gsub_set_verbose(level);
     verbose = level;
 }
-unsafe fn read_cmap0(sfont: &sfnt, len: u32) -> *mut cmap0 {
+unsafe fn read_cmap0<R: Read>(handle: &mut R, len: u32) -> *mut cmap0 {
     if len < 256_u32 {
         panic!("invalid cmap subtable");
     }
     let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap0>() as u64) as u32) as *mut cmap0;
     for i in 0..256 {
-        (*map).glyphIndexArray[i as usize] = u8::get(&mut &*sfont.handle);
+        (*map).glyphIndexArray[i as usize] = u8::get(handle);
     }
     map
 }
@@ -190,11 +192,10 @@ unsafe fn lookup_cmap0(map: *mut cmap0, cc: u16) -> u16 {
         (*map).glyphIndexArray[cc as usize] as i32
     }) as u16;
 }
-unsafe fn read_cmap2(sfont: &sfnt, len: u32) -> *mut cmap2 {
+unsafe fn read_cmap2<R: Read>(handle: &mut R, len: u32) -> *mut cmap2 {
     if len < 512_u32 {
         panic!("invalid cmap subtable");
     }
-    let handle = &mut &*sfont.handle;
     let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap2>() as u64) as u32) as *mut cmap2;
     for i in 0..256 {
         (*map).subHeaderKeys[i as usize] = u16::get(handle);
@@ -265,11 +266,10 @@ unsafe fn lookup_cmap2(map: *mut cmap2, cc: u16) -> u16 {
     }
     idx
 }
-unsafe fn read_cmap4(sfont: &sfnt, len: u32) -> *mut cmap4 {
+unsafe fn read_cmap4<R: Read>(handle: &mut R, len: u32) -> *mut cmap4 {
     if len < 8_u32 {
         panic!("invalid cmap subtable");
     }
-    let handle = &mut &*sfont.handle;
     let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap4>() as u64) as u32) as *mut cmap4;
     let segCount = u16::get(handle);
     (*map).segCountX2 = segCount;
@@ -366,11 +366,10 @@ unsafe fn lookup_cmap4(map: *mut cmap4, cc: u16) -> u16 {
     }
     gid
 }
-unsafe fn read_cmap6(sfont: &sfnt, len: u32) -> *mut cmap6 {
+unsafe fn read_cmap6<R: Read>(handle: &mut R, len: u32) -> *mut cmap6 {
     if len < 4_u32 {
         panic!("invalid cmap subtable");
     }
-    let handle = &mut &*sfont.handle;
     let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap6>() as u64) as u32) as *mut cmap6;
     (*map).firstCode = u16::get(handle);
     (*map).entryCount = u16::get(handle);
@@ -396,11 +395,10 @@ unsafe fn lookup_cmap6(map: *mut cmap6, cc: u16) -> u16 {
     0_u16
 }
 /* ULONG length */
-unsafe fn read_cmap12(sfont: &sfnt, len: u32) -> *mut cmap12 {
+unsafe fn read_cmap12<R: Read>(handle: &mut R, len: u32) -> *mut cmap12 {
     if len < 4_u32 {
         panic!("invalid cmap subtable");
     }
-    let handle = &mut &*sfont.handle;
     let map =
         new((1_u64).wrapping_mul(::std::mem::size_of::<cmap12>() as u64) as u32) as *mut cmap12;
     (*map).nGroups = u32::get(handle);
@@ -487,13 +485,13 @@ pub(crate) unsafe fn tt_cmap_read(sfont: &sfnt, platform: u16, encoding: u16) ->
         (*cmap).language = u32::get(handle)
     }
     match (*cmap).format as i32 {
-        0 => (*cmap).map = read_cmap0(sfont, length) as *mut libc::c_void,
-        2 => (*cmap).map = read_cmap2(sfont, length) as *mut libc::c_void,
-        4 => (*cmap).map = read_cmap4(sfont, length) as *mut libc::c_void,
-        6 => (*cmap).map = read_cmap6(sfont, length) as *mut libc::c_void,
+        0 => (*cmap).map = read_cmap0(handle, length) as *mut libc::c_void,
+        2 => (*cmap).map = read_cmap2(handle, length) as *mut libc::c_void,
+        4 => (*cmap).map = read_cmap4(handle, length) as *mut libc::c_void,
+        6 => (*cmap).map = read_cmap6(handle, length) as *mut libc::c_void,
         12 => {
             /* warn!("UCS-4 TrueType cmap table..."); */
-            (*cmap).map = read_cmap12(sfont, length) as *mut libc::c_void
+            (*cmap).map = read_cmap12(handle, length) as *mut libc::c_void
         }
         _ => {
             warn!("Unrecognized OpenType/TrueType cmap format.");

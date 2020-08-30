@@ -260,7 +260,7 @@ unsafe fn add_CIDVMetrics(
     if !vhea.is_null() && sfnt_find_table_pos(sfont, b"vmtx") > 0_u32 {
         sfnt_locate_table(sfont, b"vmtx");
         vmtx = tt_read_longMetrics(
-            sfont,
+            &mut &*sfont.handle,
             (*maxp).numGlyphs,
             (*vhea).numOfLongVerMetrics,
             (*vhea).numOfExSideBearings,
@@ -381,7 +381,7 @@ unsafe fn add_CIDMetrics(
     let hhea = tt_read_hhea_table(sfont);
     sfnt_locate_table(sfont, sfnt_table_info::HMTX);
     let hmtx = tt_read_longMetrics(
-        sfont,
+        &mut &*sfont.handle,
         (*maxp).numGlyphs,
         (*hhea).numOfLongHorMetrics,
         (*hhea).numOfExSideBearings,
