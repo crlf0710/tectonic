@@ -86,7 +86,7 @@ unsafe fn spc_handler_ps_header(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     args.cur = &[];
     0i32
 }
-unsafe fn parse_filename(pp: &mut &[u8]) -> Option<CString> {
+unsafe fn parse_filename<'a>(pp: &mut &'a [u8]) -> Option<&'a str> {
     let mut p = *pp;
     let qchar;
     if p.is_empty() {
@@ -115,7 +115,7 @@ unsafe fn parse_filename(pp: &mut &[u8]) -> Option<CString> {
     if q.is_empty() || n == 0 {
         return None;
     }
-    let r = Some(CString::new(&q[..n]).unwrap());
+    let r = Some(std::str::from_utf8(&q[..n]).unwrap());
     *pp = p;
     r
 }
@@ -138,9 +138,10 @@ unsafe fn spc_handler_ps_file(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
         if spc_util_read_dimtrns(spe, &mut ti, args, 1i32) < 0i32 {
             return -1;
         }
-        let form_id = pdf_ximage_findresource(filename.as_ptr(), options);
+        let cfilename = CString::new(filename).unwrap();
+        let form_id = pdf_ximage_findresource(cfilename.as_ptr(), options);
         if form_id < 0i32 {
-            spc_warn!(spe, "Failed to read image file: {}", filename.display(),);
+            spc_warn!(spe, "Failed to read image file: {}", filename);
             return -1i32;
         }
         pdf_dev_put_image(form_id, &mut ti, spe.x_user, spe.y_user);
@@ -162,9 +163,10 @@ unsafe fn spc_handler_ps_plotfile(spe: &mut spc_env, args: &mut spc_arg) -> i32 
     spc_warn!(spe, "\"ps: plotfile\" found (not properly implemented)");
     args.cur.skip_white();
     if let Some(filename) = parse_filename(&mut args.cur) {
-        let form_id = pdf_ximage_findresource(filename.as_ptr(), options);
+        let cfilename = CString::new(filename).unwrap();
+        let form_id = pdf_ximage_findresource(cfilename.as_ptr(), options);
         if form_id < 0i32 {
-            spc_warn!(spe, "Could not open PS file: {}", filename.display(),);
+            spc_warn!(spe, "Could not open PS file: {}", filename);
             error = -1i32
         } else {
             transform_info_clear(&mut p);

@@ -3068,13 +3068,13 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
  * null object, as required by the PDF spec. This is important to parse
  * several cross-reference sections.
  */
-unsafe fn pdf_get_object(pf: *mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
+unsafe fn pdf_get_object(pf: &mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
     let (obj_num, obj_gen) = obj_id;
     if !(obj_num > 0_u32
-        && obj_num < (*pf).num_obj as u32
-        && ((*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 1i32
-            && (*(*pf).xref_table.offset(obj_num as isize)).id.1 as i32 == obj_gen as i32
-            || (*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 2i32 && obj_gen == 0))
+        && obj_num < pf.num_obj as u32
+        && ((*pf.xref_table.offset(obj_num as isize)).typ as i32 == 1i32
+            && (*pf.xref_table.offset(obj_num as isize)).id.1 as i32 == obj_gen as i32
+            || (*pf.xref_table.offset(obj_num as isize)).typ as i32 == 2i32 && obj_gen == 0))
     {
         warn!(
             "Trying to read nonexistent or deleted object: {} {}",
@@ -3082,24 +3082,24 @@ unsafe fn pdf_get_object(pf: *mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
         );
         return pdf_new_null();
     }
-    let result = (*(*pf).xref_table.offset(obj_num as isize)).direct;
+    let result = (*pf.xref_table.offset(obj_num as isize)).direct;
     if !result.is_null() {
         return pdf_link_obj(result);
     }
     let mut result = None;
-    if (*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 1i32 {
+    if (*pf.xref_table.offset(obj_num as isize)).typ as i32 == 1i32 {
         /* type == 1 */
-        let offset = (*(*pf).xref_table.offset(obj_num as isize)).id.0;
+        let offset = (*pf.xref_table.offset(obj_num as isize)).id.0;
         let limit = next_object_offset(pf, obj_num);
         result = Some(pdf_read_object(obj_num, obj_gen, pf, offset as i32, limit))
     } else {
         /* type == 2 */
-        let (objstm_num, index) = (*(*pf).xref_table.offset(obj_num as isize)).id;
+        let (objstm_num, index) = (*pf.xref_table.offset(obj_num as isize)).id;
         let mut objstm: *mut pdf_obj = ptr::null_mut();
-        if !(objstm_num >= (*pf).num_obj as u32)
-            && (*(*pf).xref_table.offset(objstm_num as isize)).typ as i32 == 1i32
+        if !(objstm_num >= pf.num_obj as u32)
+            && (*pf.xref_table.offset(objstm_num as isize)).typ as i32 == 1i32
             && {
-                objstm = (*(*pf).xref_table.offset(objstm_num as isize)).direct;
+                objstm = (*pf.xref_table.offset(objstm_num as isize)).direct;
                 !objstm.is_null() || {
                     objstm = read_objstm(pf, objstm_num);
                     !objstm.is_null()
@@ -3133,7 +3133,7 @@ unsafe fn pdf_get_object(pf: *mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
 
     if let Some(result) = result {
         /* Make sure the caller doesn't free this object */
-        let ref mut fresh27 = (*(*pf).xref_table.offset(obj_num as isize)).direct;
+        let ref mut fresh27 = (*pf.xref_table.offset(obj_num as isize)).direct;
         *fresh27 = pdf_link_obj(result);
         result
     } else {
@@ -3169,8 +3169,7 @@ pub(crate) unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
         count -= 1;
         count != 0
     } {
-        let pf: *mut pdf_file = (*obj).as_indirect().pf;
-        if !pf.is_null() {
+        if let Some(pf) = (*obj).as_indirect().pf.as_mut() {
             let obj_id = (*obj).as_indirect().id;
             pdf_release_obj(obj);
             obj = pdf_get_object(pf, obj_id)
@@ -3869,7 +3868,7 @@ unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
         }
         return pdf_link_obj(ref_0);
     } else {
-        let obj = pdf_get_object(pf, (obj_num, obj_gen));
+        let obj = pdf_get_object(&mut *pf, (obj_num, obj_gen));
         if obj.is_null() {
             warn!("Could not read object: {} {}", obj_num, obj_gen as i32,);
             return ptr::null_mut();
