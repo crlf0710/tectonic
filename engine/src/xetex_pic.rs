@@ -33,7 +33,7 @@ use dpx::Corner;
 use dpx::{bmp_get_bbox, check_for_bmp};
 use dpx::{check_for_jpeg, jpeg_get_bbox};
 use dpx::{check_for_png, png_get_bbox};
-use dpx::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
+use dpx::{pdf_close, pdf_obj, pdf_open, pdf_release_obj};
 use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
 pub type scaled_t = i32;
 pub type Fixed = scaled_t;
@@ -62,7 +62,7 @@ pub(crate) unsafe fn count_pdf_file_pages() -> i32 {
         //ttstub_input_close(handle);
         return 0;
     }
-    let pages = pdf_doc_get_page_count(pf);
+    let pages = pdf_doc_get_page_count(&*pf);
     pdf_close(pf);
     pages
 }
@@ -72,15 +72,13 @@ unsafe fn pdf_get_rect(
     mut page_num: i32,
     mut pdf_box: i32,
 ) -> Result<Rect, ()> {
-    let mut pages: i32 = 0;
     let mut dpx_options: i32 = 0;
-    let mut pf: *mut pdf_file = 0 as *mut pdf_file;
-    pf = pdf_open(filename as *mut i8, handle);
+    let pf = pdf_open(filename as *mut i8, handle);
     if pf.is_null() {
         /* TODO: issue warning */
         return Err(());
     }
-    pages = pdf_doc_get_page_count(pf);
+    let pages = pdf_doc_get_page_count(&*pf);
     if page_num > pages {
         page_num = pages
     }
@@ -101,7 +99,7 @@ unsafe fn pdf_get_rect(
         1 | _ => 1,
     };
     if let Some((page, mut bbox, matrix)) =
-        pdf_doc_get_page(pf, page_num, dpx_options, 0 as *mut *mut pdf_obj)
+        pdf_doc_get_page(&*pf, page_num, dpx_options, 0 as *mut *mut pdf_obj)
     {
         pdf_close(pf);
         pdf_release_obj(page);

@@ -801,7 +801,7 @@ unsafe fn pdf_doc_close_page_tree(mut p: *mut pdf_doc) {
     (*p).pages.max_entries = 0_u32;
 }
 
-pub unsafe fn pdf_doc_get_page_count(pf: *mut pdf_file) -> i32 {
+pub unsafe fn pdf_doc_get_page_count(pf: &pdf_file) -> i32 {
     let catalog = pdf_file_get_catalog(pf);
     let page_tree = pdf_deref_obj((*catalog).as_dict_mut().get_mut("Pages"));
     if !(!page_tree.is_null() && (*page_tree).is_dict()) {
@@ -872,7 +872,7 @@ pub unsafe fn pdf_doc_get_page_count(pf: *mut pdf_file) -> i32 {
  */
 
 pub unsafe fn pdf_doc_get_page(
-    pf: *mut pdf_file,
+    pf: &pdf_file,
     page_no: i32,
     options: i32,
     resources_p: *mut *mut pdf_obj,

@@ -3650,16 +3650,16 @@ unsafe fn read_xref(pf: *mut pdf_file) -> *mut pdf_obj {
 static mut pdf_files: *mut ht_table = ptr::null_mut();
 unsafe fn pdf_file_new(mut handle: InputHandleWrapper) -> *mut pdf_file {
     let pf =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_file>() as u64) as u32) as *mut pdf_file;
+        &mut *(new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_file>() as u64) as u32) as *mut pdf_file);
     let file_size = ttstub_input_get_size(&mut handle) as i32;
     handle.seek(SeekFrom::End(0)).unwrap();
-    (*pf).handle = handle;
-    (*pf).trailer = ptr::null_mut();
-    (*pf).xref_table = ptr::null_mut();
-    (*pf).catalog = ptr::null_mut();
-    (*pf).num_obj = 0i32;
-    (*pf).version = 0_u32;
-    (*pf).file_size = file_size;
+    pf.handle = handle;
+    pf.trailer = ptr::null_mut();
+    pf.xref_table = ptr::null_mut();
+    pf.catalog = ptr::null_mut();
+    pf.num_obj = 0i32;
+    pf.version = 0_u32;
+    pf.file_size = file_size;
     pf
 }
 unsafe fn pdf_file_free(pf: *mut pdf_file) {
@@ -3689,31 +3689,29 @@ pub unsafe fn pdf_files_init() {
     );
 }
 
-pub(crate) unsafe fn pdf_file_get_version(pf: *mut pdf_file) -> u32 {
-    assert!(!pf.is_null());
-    (*pf).version
+pub(crate) unsafe fn pdf_file_get_version(pf: &pdf_file) -> u32 {
+    pf.version
 }
 
-pub(crate) unsafe fn pdf_file_get_trailer(pf: *mut pdf_file) -> *mut pdf_obj {
-    assert!(!pf.is_null());
-    pdf_link_obj((*pf).trailer)
+pub(crate) unsafe fn pdf_file_get_trailer(pf: &pdf_file) -> *mut pdf_obj {
+    pdf_link_obj(pf.trailer)
 }
 
-pub(crate) unsafe fn pdf_file_get_catalog(pf: *mut pdf_file) -> *mut pdf_obj {
-    assert!(!pf.is_null());
-    (*pf).catalog
+pub(crate) unsafe fn pdf_file_get_catalog(pf: &pdf_file) -> *mut pdf_obj {
+    pf.catalog
 }
 
 pub unsafe fn pdf_open(ident: *const i8, mut handle: InputHandleWrapper) -> *mut pdf_file {
-    let mut pf: *mut pdf_file = ptr::null_mut();
     assert!(!pdf_files.is_null());
-    if !ident.is_null() {
-        pf = ht_lookup_table(
+    let mut pf = if !ident.is_null() {
+        ht_lookup_table(
             pdf_files,
             ident as *const libc::c_void,
             strlen(ident) as i32,
         ) as *mut pdf_file
-    }
+    } else {
+        ptr::null_mut()
+    };
     if !pf.is_null() {
         (*pf).handle = handle
     } else {
@@ -3849,19 +3847,18 @@ static mut loop_marker: pdf_obj = pdf_obj {
     data: PdfObjVariant::OBJ_INVALID,
 };
 unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
-    let pf: *mut pdf_file = (*object).as_indirect().pf;
+    let pf = &mut *(*object).as_indirect().pf;
     let (obj_num, obj_gen) = (*object).as_indirect().id;
-    assert!(!pf.is_null());
     if !(obj_num > 0_u32
-        && obj_num < (*pf).num_obj as u32
-        && ((*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 1i32
-            && (*(*pf).xref_table.offset(obj_num as isize)).id.1 as i32 == obj_gen as i32
-            || (*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 2i32 && obj_gen == 0))
+        && obj_num < pf.num_obj as u32
+        && ((*pf.xref_table.offset(obj_num as isize)).typ as i32 == 1i32
+            && (*pf.xref_table.offset(obj_num as isize)).id.1 as i32 == obj_gen as i32
+            || (*pf.xref_table.offset(obj_num as isize)).typ as i32 == 2i32 && obj_gen == 0))
     {
         warn!("Can\'t resolve object: {} {}", obj_num, obj_gen as i32,);
         return pdf_new_null();
     }
-    let mut ref_0 = (*(*pf).xref_table.offset(obj_num as isize)).indirect;
+    let mut ref_0 = (*pf.xref_table.offset(obj_num as isize)).indirect;
     if !ref_0.is_null() {
         if ref_0 == &mut loop_marker as *mut pdf_obj {
             panic!("Loop in object hierarchy detected. Broken PDF file?");
@@ -3874,12 +3871,10 @@ unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
             return ptr::null_mut();
         }
         /* We mark the reference to be able to detect loops */
-        let ref mut fresh36 = (*(*pf).xref_table.offset(obj_num as isize)).indirect;
-        *fresh36 = &mut loop_marker;
+        (*pf.xref_table.offset(obj_num as isize)).indirect = &mut loop_marker;
         let tmp = pdf_import_object(obj);
         ref_0 = pdf_ref_obj(tmp);
-        let ref mut fresh37 = (*(*pf).xref_table.offset(obj_num as isize)).indirect;
-        *fresh37 = ref_0;
+        (*pf.xref_table.offset(obj_num as isize)).indirect = ref_0;
         pdf_release_obj(tmp);
         pdf_release_obj(obj);
         return pdf_link_obj(ref_0);
