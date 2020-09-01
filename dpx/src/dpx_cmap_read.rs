@@ -221,13 +221,13 @@ unsafe fn handle_codearray(
         if !(fresh1 > 0i32) {
             break;
         }
-        let mut tok = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+        let tok = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
         if tok.typ() == PstType::String {
             CMap_add_bfchar(
                 cmap,
                 codeLo,
                 dim as size_t,
-                tok.data_mut_ptr() as *mut u8,
+                tok.data_ptr() as *const u8,
                 tok.length() as size_t,
             );
         } else if tok.typ() == PstType::Mark || !(tok.typ() == PstType::Name) {
@@ -298,14 +298,14 @@ unsafe fn do_bfrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> R
             &mut srcdim,
             127i32,
         )?;
-        let mut tok = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+        let tok = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
         if tok.typ() == PstType::String {
             CMap_add_bfrange(
                 cmap,
                 codeLo.as_mut_ptr(),
                 codeHi.as_mut_ptr(),
                 srcdim as size_t,
-                tok.data_mut_ptr() as *mut u8,
+                tok.data_ptr() as *const u8,
                 tok.length() as size_t,
             );
         } else if tok.typ() == PstType::Mark {
@@ -399,15 +399,15 @@ unsafe fn do_bfchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Re
         if ifreader_read(input, (127i32 * 2i32) as size_t) == 0 {
             return Err(());
         }
-        let mut tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
-        let mut tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+        let tok1 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
+        let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
         /* We only support single CID font as descendant font, charName should not come here. */
         if tok1.typ() == PstType::String && tok2.typ() == PstType::String {
             CMap_add_bfchar(
                 cmap,
-                tok1.data_mut_ptr() as *mut u8,
+                tok1.data_ptr() as *const u8,
                 tok1.length() as size_t,
-                tok2.data_mut_ptr() as *mut u8,
+                tok2.data_ptr() as *const u8,
                 tok2.length() as size_t,
             );
         } else if tok2.typ() == PstType::Name {

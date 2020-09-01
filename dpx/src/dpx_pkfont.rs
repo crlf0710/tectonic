@@ -483,7 +483,7 @@ unsafe fn create_pk_CharProc_stream(
      */
     let mut buf = Vec::new();
     pdf_sprint_number(&mut buf, chrwid);
-    write!(buf, " 0 {} {} {} {} d1\n", llx, lly, urx, ury,);
+    write!(buf, " 0 {} {} {} {} d1\n", llx, lly, urx, ury,).unwrap();
     stream.add_slice(&buf);
     /*
      * Acrobat dislike transformation [0 0 0 0 dx dy].

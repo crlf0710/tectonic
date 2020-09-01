@@ -25,7 +25,7 @@
     non_snake_case,
     non_upper_case_globals,
 )]
-use super::dpx_dpxutil::skip_white_spaces;
+use super::dpx_dpxutil::{is_delim, is_space, skip_white_spaces};
 use super::dpx_mem::new;
 use super::dpx_pst_obj::pst_obj;
 use super::dpx_pst_obj::{
@@ -33,6 +33,10 @@ use super::dpx_pst_obj::{
     pst_parse_string,
 };
 use libc::memcpy;
+
+pub(crate) fn pst_token_end(s: u8) -> bool {
+    is_delim(&s) || is_space(&s)
+}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) enum PstType {
@@ -48,20 +52,7 @@ pub(crate) enum PstType {
 
 unsafe fn pst_parse_any(inbuf: *mut *mut u8, inbufend: *mut u8) -> pst_obj {
     let mut cur: *mut u8 = *inbuf;
-    while cur < inbufend
-        && !(cur == inbufend
-            || (*cur as i32 == '(' as i32
-                || *cur as i32 == ')' as i32
-                || *cur as i32 == '/' as i32
-                || *cur as i32 == '<' as i32
-                || *cur as i32 == '>' as i32
-                || *cur as i32 == '[' as i32
-                || *cur as i32 == ']' as i32
-                || *cur as i32 == '{' as i32
-                || *cur as i32 == '}' as i32
-                || *cur as i32 == '%' as i32)
-            || ((*cur).is_ascii_whitespace() || *cur as i32 == '\u{0}' as i32))
-    {
+    while cur < inbufend && !(cur == inbufend || pst_token_end(*cur)) {
         cur = cur.offset(1)
     }
     let len = cur.offset_from(*inbuf) as i64 as u32;
