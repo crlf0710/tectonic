@@ -3649,8 +3649,8 @@ unsafe fn read_xref(pf: *mut pdf_file) -> *mut pdf_obj {
 }
 static mut pdf_files: *mut ht_table = ptr::null_mut();
 unsafe fn pdf_file_new(mut handle: InputHandleWrapper) -> *mut pdf_file {
-    let pf =
-        &mut *(new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_file>() as u64) as u32) as *mut pdf_file);
+    let pf = &mut *(new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_file>() as u64) as u32)
+        as *mut pdf_file);
     let file_size = ttstub_input_get_size(&mut handle) as i32;
     handle.seek(SeekFrom::End(0)).unwrap();
     pf.handle = handle;

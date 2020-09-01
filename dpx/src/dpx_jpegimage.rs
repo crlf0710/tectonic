@@ -600,7 +600,7 @@ unsafe fn read_APP0_JFIF<R: Read>(j_info: *mut JPEG_info, handle: &mut R) -> siz
     let thumb_data_len = (3i32 * Xthumbnail as i32 * Ythumbnail as i32) as size_t;
     let mut thumbnail = vec![0; thumb_data_len as usize];
     if thumb_data_len > 0 {
-        handle.read_exact(&mut thumbnail);
+        handle.read_exact(&mut thumbnail).unwrap();
     }
 
     let app_data = Box::new(JPEG_APPn_JFIF {

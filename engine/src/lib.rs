@@ -1,5 +1,4 @@
 #![feature(extern_types)]
-#![feature(ptr_offset_from)]
 #![allow(
     dead_code,
     mutable_transmutes,

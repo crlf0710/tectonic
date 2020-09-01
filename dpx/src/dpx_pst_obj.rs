@@ -49,7 +49,7 @@ pub(crate) struct pst_obj {
 }
 #[derive(Clone)]
 pub(crate) struct pst_string {
-    pub(crate) value: Vec<u8>,
+    pub(crate) value: String,
 }
 #[derive(Clone)]
 pub(crate) struct pst_name {
@@ -151,10 +151,10 @@ impl pst_obj {
     pub(crate) unsafe fn getIV(&self) -> i32 {
         match self.type_0 {
             PstType::Boolean => self.as_boolean().value as i32,
-            PstType::Integer => pst_integer_IV(self.as_integer()),
-            PstType::Real => pst_real_IV(self.as_real()),
+            PstType::Integer => self.as_integer().value,
+            PstType::Real => self.as_real().value as i32,
             PstType::Name => panic!("Operation not defined for this type of object."),
-            PstType::String => pst_string_IV(self.as_string()),
+            PstType::String => pst_string_RV(self.as_string()) as i32,
             PstType::Null | PstType::Mark => {
                 panic!("Operation not defined for this type of object.");
             }
@@ -166,8 +166,8 @@ impl pst_obj {
     pub(crate) unsafe fn getRV(&self) -> f64 {
         match self.type_0 {
             PstType::Boolean => self.as_boolean().value as f64,
-            PstType::Integer => pst_integer_RV(self.as_integer()),
-            PstType::Real => pst_real_RV(self.as_real()),
+            PstType::Integer => self.as_integer().value as f64,
+            PstType::Real => self.as_real().value,
             PstType::Name => panic!("Operation not defined for this type of object."),
             PstType::String => pst_string_RV(self.as_string()),
             PstType::Null | PstType::Mark => {
@@ -180,7 +180,7 @@ impl pst_obj {
     }
     /* Length can be obtained by pst_length_of(). */
 
-    pub(crate) unsafe fn getSV(&self) -> Option<CString> {
+    pub(crate) unsafe fn getSV(&self) -> Option<String> {
         let sv;
         match self.type_0 {
             PstType::Boolean => sv = pst_boolean_SV(self.as_boolean()),
@@ -192,12 +192,10 @@ impl pst_obj {
                 panic!("Operation not defined for this type of object.");
             }
             PstType::Unknown => {
-                let len = strlen(self.data as *const i8) as usize;
+                let cs = CStr::from_ptr(self.data as *const i8);
+                let len = cs.to_bytes().len() as usize;
                 if len > 0 {
-                    sv = Some(
-                        CString::new(std::slice::from_raw_parts(self.data as *const u8, len))
-                            .unwrap(),
-                    );
+                    sv = Some(String::from_utf8_lossy(cs.to_bytes()).into());
                 } else {
                     sv = None
                 }
@@ -226,8 +224,12 @@ impl pst_obj {
 unsafe fn pst_boolean_new(value: i8) -> *mut pst_boolean {
     Box::into_raw(Box::new(pst_boolean { value }))
 }
-unsafe fn pst_boolean_SV(obj: &pst_boolean) -> Option<CString> {
-    Some(CString::new(if (*obj).value != 0 { "true" } else { "false" }).unwrap())
+unsafe fn pst_boolean_SV(obj: &pst_boolean) -> Option<String> {
+    Some(String::from(if (*obj).value != 0 {
+        "true"
+    } else {
+        "false"
+    }))
 }
 
 pub(crate) unsafe fn pst_parse_boolean(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option<pst_obj> {
@@ -277,33 +279,21 @@ pub(crate) unsafe fn pst_parse_null(inbuf: *mut *mut u8, inbufend: *mut u8) -> O
 unsafe fn pst_integer_new(value: i32) -> *mut pst_integer {
     Box::into_raw(Box::new(pst_integer { value }))
 }
-unsafe fn pst_integer_IV(obj: &pst_integer) -> i32 {
-    (*obj).value
-}
-unsafe fn pst_integer_RV(obj: &pst_integer) -> f64 {
-    (*obj).value as f64
-}
-unsafe fn pst_integer_SV(obj: &pst_integer) -> Option<CString> {
-    Some(CString::new(format!("{}", obj.value).as_bytes()).unwrap())
+unsafe fn pst_integer_SV(obj: &pst_integer) -> Option<String> {
+    Some(format!("{}", obj.value))
 }
 /* REAL */
 unsafe fn pst_real_new(value: f64) -> *mut pst_real {
     Box::into_raw(Box::new(pst_real { value }))
 }
-unsafe fn pst_real_IV(obj: &pst_real) -> i32 {
-    obj.value as i32
-}
-unsafe fn pst_real_RV(obj: &pst_real) -> f64 {
-    obj.value
-}
-unsafe fn pst_real_SV(obj: &pst_real) -> Option<CString> {
+unsafe fn pst_real_SV(obj: &pst_real) -> Option<String> {
     let mut fmt_buf: [u8; 15] = [0; 15];
     let len = sprintf(
         fmt_buf.as_mut_ptr() as *mut i8,
         b"%.5g\x00" as *const u8 as *const i8,
         obj.value,
     ) as usize;
-    Some(CString::new(&fmt_buf[..len]).unwrap())
+    Some(String::from_utf8_lossy(&fmt_buf[..len]).into())
 }
 /* NOTE: the input buffer must be null-terminated, i.e., *inbufend == 0 */
 /* leading white-space is ignored */
@@ -431,17 +421,15 @@ pub(crate) unsafe fn pst_parse_name(inbuf: *mut *mut u8, inbufend: *mut u8) -> O
         pst_name_new(&wbuf) as *mut libc::c_void,
     ))
 }
-unsafe fn pst_name_SV(obj: &pst_name) -> Option<CString> {
-    Some(obj.value.clone())
+unsafe fn pst_name_SV(obj: &pst_name) -> Option<String> {
+    Some(obj.value.clone().into_string().unwrap())
 }
 /* STRING */
 /*
  * TODO: ascii85 string <~ .... ~>
  */
-unsafe fn pst_string_new(slice: &[u8]) -> *mut pst_string {
-    Box::into_raw(Box::new(pst_string {
-        value: slice.into(),
-    }))
+unsafe fn pst_string_new(value: String) -> *mut pst_string {
+    Box::into_raw(Box::new(pst_string { value }))
 }
 
 pub(crate) unsafe fn pst_parse_string(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option<pst_obj> {
@@ -559,25 +547,25 @@ unsafe fn pst_string_parse_literal(inbuf: *mut *mut u8, inbufend: *mut u8) -> *m
         let fresh2 = cur;
         cur = cur.offset(1);
         c = *fresh2;
-        match c as i32 {
-            92 => {
+        match c {
+            b'\\' => {
                 let mut valid: u8 = 0;
                 let unescaped = esctouc(&mut cur, inbufend, &mut valid);
                 if valid != 0 {
                     wbuf.push(unescaped);
                 }
             }
-            40 => {
+            b'(' => {
                 balance += 1;
                 wbuf.push(b'(');
             }
-            41 => {
+            b')' => {
                 balance -= 1;
                 if balance > 0 {
                     wbuf.push(b')');
                 }
             }
-            13 => {
+            b'\r' => {
                 /*
                  * An end-of-line marker (\n, \r or \r\n), not preceeded by a backslash,
                  * must be converted to single \n.
@@ -592,26 +580,23 @@ unsafe fn pst_string_parse_literal(inbuf: *mut *mut u8, inbufend: *mut u8) -> *m
             }
         }
     }
-    if c as i32 != ')' as i32 {
+    if c != b')' {
         return ptr::null_mut();
     }
     *inbuf = cur;
-    pst_string_new(&wbuf)
+    pst_string_new(String::from_utf8(wbuf).unwrap())
 }
 unsafe fn pst_string_parse_hex(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut pst_string {
     let mut wbuf: Vec<u8> = Vec::new();
     let mut cur: *mut u8 = *inbuf;
-    if cur.offset(2) > inbufend
-        || *cur as i32 != '<' as i32
-        || *cur as i32 == '<' as i32 && *cur.offset(1) as i32 == '<' as i32
-    {
+    if cur.offset(2) > inbufend || *cur != b'<' || *cur == b'<' && *cur.offset(1) == b'<' {
         return ptr::null_mut();
     }
     cur = cur.offset(1);
     /* PDF Reference does not specify how to treat invalid char */
     while cur < inbufend && wbuf.len() < 4096 {
         skip_white_spaces(&mut cur, inbufend);
-        if *cur as i32 == '>' as i32 {
+        if *cur == b'>' {
             break;
         }
         let fresh8 = cur;
@@ -625,7 +610,7 @@ unsafe fn pst_string_parse_hex(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut p
             hi = 0;
         }
         skip_white_spaces(&mut cur, inbufend);
-        if *cur as i32 == '>' as i32 {
+        if *cur == b'>' {
             break;
         }
         /* 0 is appended if final hex digit is missing */
@@ -645,16 +630,12 @@ unsafe fn pst_string_parse_hex(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut p
         }
         wbuf.push((hi << 4 | lo) as u8);
     }
-    let fresh11 = cur;
-    cur = cur.offset(1);
-    if *fresh11 as i32 != '>' as i32 {
+    if *cur != b'>' {
         return ptr::null_mut();
     }
+    cur = cur.offset(1);
     *inbuf = cur;
-    pst_string_new(&wbuf)
-}
-unsafe fn pst_string_IV(obj: &pst_string) -> i32 {
-    pst_string_RV(obj) as i32
+    pst_string_new(String::from_utf8(wbuf).unwrap())
 }
 unsafe fn pst_string_RV(obj: &pst_string) -> f64 {
     let mut p = obj.value.as_ptr() as *mut u8;
@@ -667,6 +648,6 @@ unsafe fn pst_string_RV(obj: &pst_string) -> f64 {
     let rv = nobj.getRV();
     rv
 }
-unsafe fn pst_string_SV(obj: &pst_string) -> Option<CString> {
-    Some(CString::new(obj.value.as_slice()).unwrap())
+unsafe fn pst_string_SV(obj: &pst_string) -> Option<String> {
+    Some(obj.value.clone())
 }

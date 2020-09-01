@@ -35,7 +35,7 @@ use std::ptr;
 
 use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string};
 use super::dpx_cff::{cff_new_index, cff_set_name};
-use super::dpx_cff_dict::{cff_dict_add, cff_dict_set, cff_new_dict};
+use super::dpx_cff_dict::{cff_dict_add_str, cff_dict_set_str, cff_new_dict};
 use super::dpx_mem::{new, renew, xstrdup};
 use super::dpx_pst::{pst_get_token, PstType};
 use crate::bridge::ttstub_input_getc;
@@ -110,7 +110,7 @@ unsafe fn t1_decrypt(
     }
 }
 /* T1CRYPT */
-unsafe fn get_next_key(start: *mut *mut u8, end: *mut u8) -> Option<CString> {
+unsafe fn get_next_key(start: *mut *mut u8, end: *mut u8) -> Option<String> {
     let mut key = None;
     while *start < end {
         if let Some(tok) = pst_get_token(start, end) {
@@ -143,7 +143,7 @@ unsafe fn seek_operator(start: *mut *mut u8, end: *mut u8, op: *const i8) -> i32
     }
     0i32
 }
-unsafe fn parse_svalue(start: *mut *mut u8, end: *mut u8) -> Result<CString, ()> {
+unsafe fn parse_svalue(start: *mut *mut u8, end: *mut u8) -> Result<String, ()> {
     let tok = pst_get_token(start, end).ok_or(())?;
     if tok.typ() == PstType::Name || tok.typ() == PstType::String {
         tok.getSV().ok_or(())
@@ -1008,7 +1008,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
                             let ref mut fresh13 = *enc_vec.offset(code as isize);
                             let cpy;
                             if let Some(cstr) = tok.getSV() {
-                                let len = cstr.to_bytes().len();
+                                let len = cstr.len();
                                 cpy = new((len as u32 + 1) * (std::mem::size_of::<u8>()) as u32)
                                     as *mut u8;
                                 memcpy(
@@ -1280,7 +1280,7 @@ unsafe fn parse_charstrings(
     let tok = pst_get_token(start, end).unwrap(); /* .notdef must be at gid = 0 in CFF */
     if !(tok.typ() == PstType::Integer) || tok.getIV() < 0i32 || tok.getIV() > 64999i32 {
         let s = tok.getSV().unwrap();
-        warn!("Ignores non dict \"/CharStrings {} ...\"", s.display());
+        warn!("Ignores non dict \"/CharStrings {} ...\"", s);
         return Ok(());
     }
     let count = tok.getIV();
@@ -1320,8 +1320,7 @@ unsafe fn parse_charstrings(
          */
         let tok = pst_get_token(start, end).ok_or(())?;
         let glyph_name = tok.getSV();
-        if i == 0i32 && glyph_name.is_some() && glyph_name.clone().unwrap().to_bytes() != b".notdef"
-        {
+        if i == 0i32 && glyph_name.is_some() && glyph_name.as_deref() != Some(".notdef") {
             font.is_notdef_notzero = 1i32
         }
         if tok.typ() == PstType::Name {
@@ -1330,7 +1329,7 @@ unsafe fn parse_charstrings(
             }
             let glyph_name = glyph_name.unwrap();
             let gid;
-            if glyph_name.to_bytes() == b".notdef" {
+            if glyph_name == ".notdef" {
                 have_notdef = 1;
                 gid = 0;
             } else if have_notdef != 0 {
@@ -1342,6 +1341,7 @@ unsafe fn parse_charstrings(
                 gid = i + 1;
             }
             if gid > 0 {
+                let glyph_name = CString::new(glyph_name.as_bytes()).unwrap();
                 *(*charset).data.glyphs.offset((gid - 1i32) as isize) =
                     cff_add_string(font, glyph_name.as_ptr(), 0i32)
             }
@@ -1471,7 +1471,7 @@ unsafe fn parse_charstrings(
             i += 1
         } else if tok.typ() == PstType::Unknown
             && glyph_name.is_some()
-            && glyph_name.unwrap().to_bytes() == b"end"
+            && glyph_name.as_deref() == Some("end")
         {
             break;
         } else {
@@ -1493,78 +1493,74 @@ unsafe fn parse_part2(
     let mut argv: [f64; 127] = [0.; 127];
     let mut lenIV: i32 = 4i32;
     while *start < end {
-        let key = get_next_key(start, end);
-        if key.is_none() {
-            break;
-        }
-        let key = key.unwrap();
-        let key_ptr = key.as_ptr();
-        let key = key.to_bytes();
-        if key == b"Subrs" {
-            /* levIV must appear before Subrs */
-            parse_subrs(font, start, end, lenIV, mode)?;
-        } else if key == b"CharStrings" {
-            parse_charstrings(font, start, end, lenIV, mode)?;
-        } else if key == b"lenIV" {
-            parse_nvalue(start, end, argv.as_mut_ptr(), 1).and_then(|a| check_size(a, 1))?;
-            lenIV = argv[0] as i32
-        } else if key == b"BlueValues"
-            || key == b"OtherBlues"
-            || key == b"FamilyBlues"
-            || key == b"FamilyOtherBlues"
-            || key == b"StemSnapH"
-            || key == b"StemSnapV"
-        {
-            /*
-             * Operand values are delta in CFF font dictionary encoding.
-             */
-            let mut argn = parse_nvalue(start, end, argv.as_mut_ptr(), 127).map_err(|_| {
-                warn!("{} values expected but only {} read.", 0, -1);
-                ()
-            })?;
-            cff_dict_add(*font.private.offset(0), key_ptr, argn as i32);
-            loop {
-                if argn == 0 {
-                    break;
+        match get_next_key(start, end) {
+            None => break,
+            Some(key) => match key.as_str() {
+                "Subrs" => {
+                    /* levIV must appear before Subrs */
+                    parse_subrs(font, start, end, lenIV, mode)?;
                 }
-                argn -= 1;
-                cff_dict_set(
-                    *font.private.offset(0),
-                    key_ptr,
-                    argn as i32,
-                    if argn == 0 {
-                        argv[argn]
-                    } else {
-                        argv[argn] - argv[argn - 1]
-                    },
-                );
-            }
-        } else if key == b"StdHW"
-            || key == b"StdVW"
-            || key == b"BlueScale"
-            || key == b"BlueShift"
-            || key == b"BlueFuzz"
-            || key == b"LanguageGroup"
-            || key == b"ExpansionFactor"
-        {
-            /*
-             * Value of StdHW and StdVW is described as an array in the
-             * Type 1 Font Specification but is a number in CFF format.
-             */
-            parse_nvalue(start, end, argv.as_mut_ptr(), 1).and_then(|a| check_size(a, 1))?;
-            cff_dict_add(*font.private.offset(0), key_ptr, 1i32);
-            cff_dict_set(*font.private.offset(0), key_ptr, 0i32, argv[0]);
-        } else if key == b"ForceBold" {
-            parse_bvalue(start, end, &mut *argv.as_mut_ptr().offset(0))
-                .and_then(|a| check_size(a, 1))?;
-            if argv[0] != 0i32 as f64 {
-                cff_dict_add(*font.private.offset(0), key_ptr, 1i32);
-                cff_dict_set(*font.private.offset(0), key_ptr, 0i32, 1i32 as f64);
-            }
+                "CharStrings" => {
+                    parse_charstrings(font, start, end, lenIV, mode)?;
+                }
+                "lenIV" => {
+                    parse_nvalue(start, end, argv.as_mut_ptr(), 1)
+                        .and_then(|a| check_size(a, 1))?;
+                    lenIV = argv[0] as i32
+                }
+                "BlueValues" | "OtherBlues" | "FamilyBlues" | "FamilyOtherBlues" | "StemSnapH"
+                | "StemSnapV" => {
+                    /*
+                     * Operand values are delta in CFF font dictionary encoding.
+                     */
+                    let mut argn =
+                        parse_nvalue(start, end, argv.as_mut_ptr(), 127).map_err(|_| {
+                            warn!("{} values expected but only {} read.", 0, -1);
+                            ()
+                        })?;
+                    cff_dict_add_str(*font.private.offset(0), &key, argn as i32);
+                    loop {
+                        if argn == 0 {
+                            break;
+                        }
+                        argn -= 1;
+                        cff_dict_set_str(
+                            *font.private.offset(0),
+                            &key,
+                            argn as i32,
+                            if argn == 0 {
+                                argv[argn]
+                            } else {
+                                argv[argn] - argv[argn - 1]
+                            },
+                        );
+                    }
+                }
+                "StdHW" | "StdVW" | "BlueScale" | "BlueShift" | "BlueFuzz" | "LanguageGroup"
+                | "ExpansionFactor" => {
+                    /*
+                     * Value of StdHW and StdVW is described as an array in the
+                     * Type 1 Font Specification but is a number in CFF format.
+                     */
+                    parse_nvalue(start, end, argv.as_mut_ptr(), 1)
+                        .and_then(|a| check_size(a, 1))?;
+                    cff_dict_add_str(*font.private.offset(0), &key, 1i32);
+                    cff_dict_set_str(*font.private.offset(0), &key, 0i32, argv[0]);
+                }
+                "ForceBold" => {
+                    parse_bvalue(start, end, &mut *argv.as_mut_ptr().offset(0))
+                        .and_then(|a| check_size(a, 1))?;
+                    if argv[0] != 0i32 as f64 {
+                        cff_dict_add_str(*font.private.offset(0), &key, 1i32);
+                        cff_dict_set_str(*font.private.offset(0), &key, 0i32, 1i32 as f64);
+                    }
+                }
+                /*
+                 * MinFeature, RndStemUp, UniqueID, Password ignored.
+                 */
+                _ => {}
+            },
         }
-        /*
-         * MinFeature, RndStemUp, UniqueID, Password ignored.
-         */
     }
     Ok(())
 }
@@ -1594,99 +1590,103 @@ unsafe fn parse_part1(
         return Err(());
     }
     while *start < end {
-        let key = get_next_key(start, end);
-        if key.is_none() {
-            break;
-        }
-        let key = key.unwrap();
-        let key_ptr = key.as_ptr();
-        let key = key.to_bytes();
-        if key == b"Encoding" {
-            if parse_encoding(enc_vec, start, end) < 0i32 {
-                return Err(());
-            }
-        } else if key == b"FontName" {
-            let mut strval = parse_svalue(start, end)?;
-            let len = strval.to_bytes().len();
-            if len > 127 {
-                warn!("FontName too long: {} ({} bytes)", strval.display(), len,);
-                strval = CString::new(&strval.to_bytes()[..127]).unwrap();
-            }
-            cff_set_name(font, &strval.to_string_lossy());
-        } else if key == b"FontType" {
-            parse_nvalue(start, end, argv.as_mut_ptr(), 1).and_then(|a| check_size(a, 1))?;
-            if argv[0] != 1.0f64 {
-                warn!("FontType {} not supported.", argv[0] as i32);
-                return Err(());
-            }
-        } else if key == b"ItalicAngle" || key == b"StrokeWidth" || key == b"PaintType" {
-            parse_nvalue(start, end, argv.as_mut_ptr(), 1).and_then(|a| check_size(a, 1))?;
-            if argv[0] != 0.0f64 {
-                cff_dict_add(font.topdict, key_ptr, 1i32);
-                cff_dict_set(font.topdict, key_ptr, 0i32, argv[0]);
-            }
-        } else if key == b"UnderLinePosition" || key == b"UnderLineThickness" {
-            parse_nvalue(start, end, argv.as_mut_ptr(), 1).and_then(|a| check_size(a, 1))?;
-            cff_dict_add(font.topdict, key_ptr, 1i32);
-            cff_dict_set(font.topdict, key_ptr, 0i32, argv[0]);
-        } else if key == b"FontBBox" {
-            let mut argn =
-                parse_nvalue(start, end, argv.as_mut_ptr(), 4).and_then(|a| check_size(a, 4))?;
-            cff_dict_add(font.topdict, key_ptr, 4i32);
-            loop {
-                if argn == 0 {
-                    break;
-                }
-                argn -= 1;
-                cff_dict_set(font.topdict, key_ptr, argn as i32, argv[argn]);
-            }
-        } else if key == b"FontMatrix" {
-            let mut argn =
-                parse_nvalue(start, end, argv.as_mut_ptr(), 6).and_then(|a| check_size(a, 6))?;
-            if argv[0] != 0.001f64
-                || argv[1] != 0.0f64
-                || argv[2] != 0.0f64
-                || argv[3] != 0.001f64
-                || argv[4] != 0.0f64
-                || argv[5] != 0.0f64
-            {
-                cff_dict_add(font.topdict, key_ptr, 6i32);
-                loop {
-                    if argn == 0 {
-                        break;
+        match get_next_key(start, end) {
+            None => break,
+            Some(key) => match key.as_str() {
+                "Encoding" => {
+                    if parse_encoding(enc_vec, start, end) < 0i32 {
+                        return Err(());
                     }
-                    argn -= 1;
-                    cff_dict_set(font.topdict, key_ptr, argn as i32, argv[argn]);
                 }
-            }
-        } else if key == b"version"
-            || key == b"Notice"
-            || key == b"FullName"
-            || key == b"FamilyName"
-            || key == b"Weight"
-            || key == b"Copyright"
-        {
-            /*
-             * FontInfo
-             */
-            let strval = parse_svalue(start, end)?;
-            cff_dict_add(font.topdict, key_ptr, 1i32);
-            let mut sid = cff_get_sid(&font, strval.as_ptr()) as s_SID;
-            if sid as i32 == 65535i32 {
-                sid = cff_add_string(font, strval.as_ptr(), 0i32)
-            }
-            /*
-             * We don't care about duplicate strings here since
-             * later a subset font of this font will be generated.
-             */
-            cff_dict_set(font.topdict, key_ptr, 0i32, sid as f64); /* No Global Subr */
-        } else if key == b"IsFixedPitch" {
-            parse_bvalue(start, end, &mut *argv.as_mut_ptr().offset(0))
-                .and_then(|a| check_size(a, 1))?;
-            if argv[0] != 0.0f64 {
-                cff_dict_add(*font.private.offset(0), key_ptr, 1i32);
-                cff_dict_set(*font.private.offset(0), key_ptr, 0i32, 1i32 as f64);
-            }
+                "FontName" => {
+                    let mut strval = parse_svalue(start, end)?;
+                    let len = strval.len();
+                    if len > 127 {
+                        warn!("FontName too long: {} ({} bytes)", strval, len);
+                        strval.truncate(127);
+                    }
+                    cff_set_name(font, &strval);
+                }
+                "FontType" => {
+                    parse_nvalue(start, end, argv.as_mut_ptr(), 1)
+                        .and_then(|a| check_size(a, 1))?;
+                    if argv[0] != 1.0f64 {
+                        warn!("FontType {} not supported.", argv[0] as i32);
+                        return Err(());
+                    }
+                }
+                "ItalicAngle" | "StrokeWidth" | "PaintType" => {
+                    parse_nvalue(start, end, argv.as_mut_ptr(), 1)
+                        .and_then(|a| check_size(a, 1))?;
+                    if argv[0] != 0.0f64 {
+                        cff_dict_add_str(font.topdict, &key, 1i32);
+                        cff_dict_set_str(font.topdict, &key, 0i32, argv[0]);
+                    }
+                }
+                "UnderLinePosition" | "UnderLineThickness" => {
+                    parse_nvalue(start, end, argv.as_mut_ptr(), 1)
+                        .and_then(|a| check_size(a, 1))?;
+                    cff_dict_add_str(font.topdict, &key, 1i32);
+                    cff_dict_set_str(font.topdict, &key, 0i32, argv[0]);
+                }
+                "FontBBox" => {
+                    let mut argn = parse_nvalue(start, end, argv.as_mut_ptr(), 4)
+                        .and_then(|a| check_size(a, 4))?;
+                    cff_dict_add_str(font.topdict, &key, 4i32);
+                    loop {
+                        if argn == 0 {
+                            break;
+                        }
+                        argn -= 1;
+                        cff_dict_set_str(font.topdict, &key, argn as i32, argv[argn]);
+                    }
+                }
+                "FontMatrix" => {
+                    let mut argn = parse_nvalue(start, end, argv.as_mut_ptr(), 6)
+                        .and_then(|a| check_size(a, 6))?;
+                    if argv[0] != 0.001f64
+                        || argv[1] != 0.0f64
+                        || argv[2] != 0.0f64
+                        || argv[3] != 0.001f64
+                        || argv[4] != 0.0f64
+                        || argv[5] != 0.0f64
+                    {
+                        cff_dict_add_str(font.topdict, &key, 6i32);
+                        loop {
+                            if argn == 0 {
+                                break;
+                            }
+                            argn -= 1;
+                            cff_dict_set_str(font.topdict, &key, argn as i32, argv[argn]);
+                        }
+                    }
+                }
+                "version" | "Notice" | "FullName" | "FamilyName" | "Weight" | "Copyright" => {
+                    /*
+                     * FontInfo
+                     */
+                    let strval = CString::new(parse_svalue(start, end)?.as_bytes()).unwrap();
+                    cff_dict_add_str(font.topdict, &key, 1i32);
+                    let mut sid = cff_get_sid(&font, strval.as_ptr()) as s_SID;
+                    if sid as i32 == 65535i32 {
+                        sid = cff_add_string(font, strval.as_ptr(), 0i32)
+                    }
+                    /*
+                     * We don't care about duplicate strings here since
+                     * later a subset font of this font will be generated.
+                     */
+                    cff_dict_set_str(font.topdict, &key, 0i32, sid as f64); /* No Global Subr */
+                }
+                "IsFixedPitch" => {
+                    parse_bvalue(start, end, &mut *argv.as_mut_ptr().offset(0))
+                        .and_then(|a| check_size(a, 1))?;
+                    if argv[0] != 0.0f64 {
+                        cff_dict_add_str(*font.private.offset(0), &key, 1i32);
+                        cff_dict_set_str(*font.private.offset(0), &key, 0i32, 1i32 as f64);
+                    }
+                }
+                _ => {}
+            },
         }
     }
     Ok(())
@@ -1798,7 +1798,7 @@ pub(crate) unsafe fn t1_get_standard_glyph(code: i32) -> *const i8 {
     StandardEncoding[code as usize]
 }
 
-pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: *mut i8) -> i32 {
+pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: &mut String) -> i32 {
     let mut length: i32 = 0;
     let mut fn_found: i32 = 0i32;
     handle.seek(SeekFrom::Start(0)).unwrap();
@@ -1813,25 +1813,22 @@ pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: *
         return -1i32;
     }
     while fn_found == 0 && start < end {
-        let key = get_next_key(&mut start, end);
-        if key.is_none() {
-            break;
-        }
-        let key = key.unwrap();
-        if key.to_bytes() == b"FontName" {
-            if let Ok(mut strval) = parse_svalue(&mut start, end) {
-                let len = strval.to_bytes().len();
-                if len > 127 {
-                    warn!(
-                        "FontName \"{}\" too long. ({} bytes)",
-                        strval.display(),
-                        len,
-                    );
-                    strval = CString::new(&strval.to_bytes()[..127]).unwrap();
+        match get_next_key(&mut start, end) {
+            None => break,
+            Some(key) => match key.as_str() {
+                "FontName" => {
+                    if let Ok(mut strval) = parse_svalue(&mut start, end) {
+                        let len = strval.len();
+                        if len > 127 {
+                            warn!("FontName \"{}\" too long. ({} bytes)", strval, len,);
+                            strval.truncate(127);
+                        }
+                        *fontname = strval;
+                        fn_found = 1i32
+                    }
                 }
-                strcpy(fontname, strval.as_ptr());
-                fn_found = 1i32
-            }
+                _ => {}
+            },
         }
     }
     free(buffer as *mut libc::c_void);

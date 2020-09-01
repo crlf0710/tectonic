@@ -1,4 +1,3 @@
-#![feature(ptr_offset_from)]
 #![allow(unused_unsafe)]
 #![deny(unused_assignments)]
 #![deny(clippy::reverse_range_loop)]

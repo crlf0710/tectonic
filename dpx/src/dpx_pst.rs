@@ -64,23 +64,23 @@ unsafe fn pst_parse_any(inbuf: *mut *mut u8, inbufend: *mut u8) -> pst_obj {
         *inbuf as *const libc::c_void,
         len as _,
     );
-    *data.offset(len as isize) = '\u{0}' as i32 as u8;
+    *data.offset(len as isize) = 0;
     *inbuf = cur;
     pst_obj::new(PstType::Unknown, data as *mut libc::c_void)
 }
 unsafe fn skip_line(inbuf: *mut *mut u8, inbufend: *mut u8) {
-    while *inbuf < inbufend && **inbuf as i32 != '\n' as i32 && **inbuf as i32 != '\r' as i32 {
+    while *inbuf < inbufend && **inbuf != b'\n' && **inbuf != b'\r' {
         *inbuf = (*inbuf).offset(1)
     }
-    if *inbuf < inbufend && **inbuf as i32 == '\r' as i32 {
+    if *inbuf < inbufend && **inbuf == b'\r' {
         *inbuf = (*inbuf).offset(1)
     }
-    if *inbuf < inbufend && **inbuf as i32 == '\n' as i32 {
+    if *inbuf < inbufend && **inbuf == b'\n' {
         *inbuf = (*inbuf).offset(1)
     };
 }
 unsafe fn skip_comments(inbuf: *mut *mut u8, inbufend: *mut u8) {
-    while *inbuf < inbufend && **inbuf as i32 == '%' as i32 {
+    while *inbuf < inbufend && **inbuf == b'%' {
         skip_line(inbuf, inbufend);
         skip_white_spaces(inbuf, inbufend);
     }
@@ -108,26 +108,26 @@ pub(crate) unsafe fn pst_get_token(inbuf: *mut *mut u8, inbufend: *mut u8) -> Op
                 return None;
             }
             c = *(*inbuf).offset(1);
-            if c as i32 == '<' as i32 {
+            if c == b'<' {
                 obj = Some(pst_new_mark());
                 *inbuf = (*inbuf).offset(2)
-            } else if (c as u8).is_ascii_hexdigit() {
+            } else if c.is_ascii_hexdigit() {
                 obj = pst_parse_string(inbuf, inbufend)
-            } else if c as i32 == '~' as i32 {
+            } else if c == b'~' {
                 /* ASCII85 */
                 obj = pst_parse_string(inbuf, inbufend)
             }
         }
         b'(' => obj = pst_parse_string(inbuf, inbufend),
         b'>' => {
-            if (*inbuf).offset(1) >= inbufend || *(*inbuf).offset(1) as i32 != '>' as i32 {
+            if (*inbuf).offset(1) >= inbufend || *(*inbuf).offset(1) != b'>' {
                 panic!("Unexpected end of ASCII hex string marker.");
             } else {
                 let mark =
                     new((3_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-                *mark.offset(0) = '>' as i32 as i8;
-                *mark.offset(1) = '>' as i32 as i8;
-                *mark.offset(2) = '\u{0}' as i32 as i8;
+                *mark.offset(0) = b'>' as i8;
+                *mark.offset(1) = b'>' as i8;
+                *mark.offset(2) = 0;
                 obj = Some(pst_obj::new(PstType::Unknown, mark as *mut libc::c_void));
                 *inbuf = (*inbuf).offset(2)
             }
@@ -136,7 +136,7 @@ pub(crate) unsafe fn pst_get_token(inbuf: *mut *mut u8, inbufend: *mut u8) -> Op
             let mark_0 =
                 new((2_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
             *mark_0.offset(0) = c as i8;
-            *mark_0.offset(1) = '\u{0}' as i32 as i8;
+            *mark_0.offset(1) = 0;
             obj = Some(pst_obj::new(PstType::Unknown, mark_0 as *mut libc::c_void));
             *inbuf = (*inbuf).offset(1)
         }

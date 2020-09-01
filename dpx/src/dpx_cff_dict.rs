@@ -27,7 +27,7 @@
 )]
 
 use crate::bridge::DisplayExt;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_cff::{cff_add_string, cff_get_string};
@@ -723,6 +723,11 @@ pub(crate) unsafe fn cff_dict_pack(dict: *mut cff_dict, dest: &mut [u8]) -> usiz
     len
 }
 
+pub(crate) unsafe fn cff_dict_add_str(dict: *mut cff_dict, key: &str, count: i32) {
+    let key = CString::new(key).unwrap();
+    cff_dict_add(dict, key.as_ptr(), count);
+}
+
 pub(crate) unsafe fn cff_dict_add(mut dict: *mut cff_dict, key: *const i8, count: i32) {
     let mut id = 0;
     while id < 22 + 39 {
@@ -822,6 +827,11 @@ pub(crate) unsafe fn cff_dict_get(dict: *mut cff_dict, key: *const i8, idx: i32)
         );
     }
     value
+}
+
+pub(crate) unsafe fn cff_dict_set_str(dict: *mut cff_dict, key: &str, idx: i32, value: f64) {
+    let key = CString::new(key).unwrap();
+    cff_dict_set(dict, key.as_ptr(), idx, value);
 }
 
 pub(crate) unsafe fn cff_dict_set(dict: *mut cff_dict, key: *const i8, idx: i32, value: f64) {

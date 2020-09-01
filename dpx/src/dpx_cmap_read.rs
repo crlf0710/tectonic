@@ -42,7 +42,7 @@ use super::dpx_cmap::{
 use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstType};
 use crate::bridge::ttstub_input_get_size;
-use libc::{free, memcmp, memcpy, memmove, strcmp, strlen, strstr};
+use libc::{free, memcmp, memcpy, memmove, strlen, strstr};
 
 pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
@@ -136,18 +136,16 @@ unsafe fn ifreader_read(mut reader: *mut ifreader, size: size_t) -> size_t {
     *(*reader).endptr = 0_u8;
     bytesread.wrapping_add(bytesrem)
 }
-unsafe fn check_next_token(input: *mut ifreader, key: *const i8) -> Result<(), ()> {
-    if ifreader_read(input, strlen(key) as _) == 0 {
+unsafe fn check_next_token(input: *mut ifreader, key: &str) -> Result<(), ()> {
+    if ifreader_read(input, key.len() as _) == 0 {
         return Err(());
     }
     let token = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
-    let str = token.getSV().ok_or(())?;
-    let cmp = if strcmp(str.as_ptr(), key) != 0 {
+    if token.getSV().ok_or(())? != key {
         Err(())
     } else {
         Ok(())
-    };
-    cmp
+    }
 }
 unsafe fn get_coderange(
     input: *mut ifreader,
@@ -199,7 +197,7 @@ unsafe fn do_codespacerange(
             dim as size_t,
         );
     }
-    check_next_token(input, b"endcodespacerange\x00" as *const u8 as *const i8)
+    check_next_token(input, "endcodespacerange")
 }
 /*
  * bfrange
@@ -238,7 +236,7 @@ unsafe fn handle_codearray(
         let ref mut fresh2 = *codeLo.offset((dim - 1i32) as isize);
         *fresh2 = (*fresh2 as i32 + 1i32) as u8
     }
-    check_next_token(input, b"]\x00" as *const u8 as *const i8)
+    check_next_token(input, "]")
 }
 unsafe fn do_notdefrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Result<(), ()> {
     let mut codeLo: [u8; 127] = [0; 127];
@@ -276,7 +274,7 @@ unsafe fn do_notdefrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) 
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
         }
     }
-    check_next_token(input, b"endnotdefrange\x00" as *const u8 as *const i8)
+    check_next_token(input, "endnotdefrange")
 }
 unsafe fn do_bfrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Result<(), ()> {
     let mut codeLo: [u8; 127] = [0; 127];
@@ -321,7 +319,7 @@ unsafe fn do_bfrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> R
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
         }
     }
-    check_next_token(input, b"endbfrange\x00" as *const u8 as *const i8)
+    check_next_token(input, "endbfrange")
 }
 unsafe fn do_cidrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Result<(), ()> {
     let mut codeLo: [u8; 127] = [0; 127];
@@ -359,7 +357,7 @@ unsafe fn do_cidrange(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> 
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
         }
     }
-    check_next_token(input, b"endcidrange\x00" as *const u8 as *const i8)
+    check_next_token(input, "endcidrange")
 }
 unsafe fn do_notdefchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Result<(), ()> {
     loop {
@@ -387,7 +385,7 @@ unsafe fn do_notdefchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
         }
     }
-    check_next_token(input, b"endnotdefchar\x00" as *const u8 as *const i8)
+    check_next_token(input, "endnotdefchar")
 }
 unsafe fn do_bfchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Result<(), ()> {
     loop {
@@ -416,7 +414,7 @@ unsafe fn do_bfchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Re
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
         }
     }
-    check_next_token(input, b"endbfchar\x00" as *const u8 as *const i8)
+    check_next_token(input, "endbfchar")
 }
 unsafe fn do_cidchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> Result<(), ()> {
     loop {
@@ -444,7 +442,7 @@ unsafe fn do_cidchar(cmap: *mut CMap, input: *mut ifreader, mut count: i32) -> R
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
         }
     }
-    check_next_token(input, b"endcidchar\x00" as *const u8 as *const i8)
+    check_next_token(input, "endcidchar")
 }
 unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
     let mut csi: CIDSysInfo = CIDSysInfo {
@@ -520,13 +518,11 @@ unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
                 let tok2 = tok2.take().unwrap();
                 if !(tok2.typ() == PstType::String) {
                     error = -1i32
-                } else if simpledict == 0
-                    && check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err()
-                {
+                } else if simpledict == 0 && check_next_token(input, "def").is_err() {
                     error = -1i32
                 }
                 if error == 0 {
-                    csi.registry = tok2.getSV().unwrap().to_str().unwrap().to_owned().into();
+                    csi.registry = tok2.getSV().unwrap().into();
                 }
             } else if tok1.typ() == PstType::Name
                 && memcmp(
@@ -542,13 +538,11 @@ unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
                 let tok2 = tok2.take().unwrap();
                 if !(tok2.typ() == PstType::String) {
                     error = -1i32
-                } else if simpledict == 0
-                    && check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err()
-                {
+                } else if simpledict == 0 && check_next_token(input, "def").is_err() {
                     error = -1i32
                 }
                 if error == 0 {
-                    csi.ordering = tok2.getSV().unwrap().to_str().unwrap().to_owned().into();
+                    csi.ordering = tok2.getSV().unwrap().into();
                 }
             } else if tok1.typ() == PstType::Name
                 && memcmp(
@@ -564,9 +558,7 @@ unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
                 let tok2 = tok2.take().unwrap();
                 if !(tok2.typ() == PstType::Integer) {
                     error = -1i32
-                } else if simpledict == 0
-                    && check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err()
-                {
+                } else if simpledict == 0 && check_next_token(input, "def").is_err() {
                     error = -1i32
                 }
                 if error == 0 {
@@ -575,7 +567,7 @@ unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: *mut ifreader) -> i32 {
             }
         }
     }
-    if error == 0 && check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err() {
+    if error == 0 && check_next_token(input, "def").is_err() {
         error = -1i32
     }
     if error == 0 && !csi.registry.is_empty() && !csi.ordering.is_empty() && csi.supplement >= 0i32
@@ -642,7 +634,7 @@ pub(crate) unsafe fn CMap_parse(
         {
             let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
             if !(tok2.typ() == PstType::Name || tok2.typ() == PstType::String)
-                || check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err()
+                || check_next_token(input, "def").is_err()
             {
                 status = -1i32
             } else {
@@ -659,9 +651,7 @@ pub(crate) unsafe fn CMap_parse(
             ) == 0
         {
             let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
-            if !(tok2.typ() == PstType::Integer)
-                || check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err()
-            {
+            if !(tok2.typ() == PstType::Integer) || check_next_token(input, "def").is_err() {
                 status = -1i32
             } else {
                 CMap_set_type(cmap, tok2.getIV());
@@ -674,9 +664,7 @@ pub(crate) unsafe fn CMap_parse(
             ) == 0
         {
             let tok2 = pst_get_token(&mut (*input).cursor, (*input).endptr).ok_or(())?;
-            if !(tok2.typ() == PstType::Integer)
-                || check_next_token(input, b"def\x00" as *const u8 as *const i8).is_err()
-            {
+            if !(tok2.typ() == PstType::Integer) || check_next_token(input, "def").is_err() {
                 status = -1i32
             } else {
                 CMap_set_wmode(cmap, tok2.getIV());
