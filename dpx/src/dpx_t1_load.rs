@@ -28,7 +28,6 @@
 
 use crate::bridge::DisplayExt;
 use crate::mfree;
-use crate::strstartswith;
 use crate::warn;
 use std::ffi::CString;
 use std::ptr;
@@ -129,7 +128,7 @@ unsafe fn seek_operator(start: *mut *mut u8, end: *mut u8, op: &[u8]) -> i32 {
     while *start < end {
         if let Some(tok1) = pst_get_token(start, end) {
             if tok1.typ() == PstType::Unknown
-                && tok1.starts_with(op)
+                && tok1.as_unknown().starts_with(op)
             {
                 tok = Some(tok1);
                 break;

@@ -26,7 +26,6 @@
     non_upper_case_globals
 )]
 
-use std::ffi::CStr;
 use std::io::{Read, Seek, SeekFrom};
 
 use crate::strstartswith;
@@ -41,7 +40,7 @@ use super::dpx_cmap::{
 use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstType};
 use crate::bridge::ttstub_input_get_size;
-use libc::{free, memcmp, memmove, strlen, strstr};
+use libc::{free, memmove, strstr};
 
 pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
@@ -565,7 +564,7 @@ pub(crate) unsafe fn CMap_parse(
             } else {
                 CMap_set_name(
                     cmap,
-                    tok2.getSV(),
+                    &tok2.getSV().unwrap(),
                 );
             }
         } else if tok1.typ() == PstType::Name
@@ -604,7 +603,7 @@ pub(crate) unsafe fn CMap_parse(
                     && tok2.as_unknown().starts_with(b"usecmap")
                 {
                     let id = CMap_cache_find(
-                        tok1.getSV(),
+                        &tok1.getSV().unwrap(),
                     );
                     if id < 0i32 {
                         status = -1i32

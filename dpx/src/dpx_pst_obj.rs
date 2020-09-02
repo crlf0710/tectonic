@@ -26,7 +26,7 @@
     non_upper_case_globals,
 )]
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 use super::dpx_dpxutil::skip_white_spaces;
 use crate::bridge::stub_errno as errno;
@@ -133,9 +133,9 @@ impl pst_obj {
         assert_eq!(self.type_0, PstType::String);
         &*(self.data as *const pst_string)
     }
-    pub(crate) unsafe fn as_unknown(&self) -> &[T] {
+    pub(crate) unsafe fn as_unknown(&self) -> &[u8] {
         assert_eq!(self.type_0, PstType::Unknown);
-        &*(self.data as *const [T])
+        &*(self.data as *const [u8])
     }
     pub(crate) unsafe fn length(&self) -> i32 {
         match self.type_0 {
@@ -201,19 +201,19 @@ impl pst_obj {
     }
 
     pub(crate) unsafe fn data(&self) -> &[u8] {
-        (match self.type_0 {
+        match self.type_0 {
             PstType::Boolean => std::slice::from_raw_parts(&self.as_boolean().0 as *const i8 as *const u8, 1),
             PstType::Integer => std::slice::from_raw_parts(&self.as_integer().0 as *const i32 as *const u8, 4),
             PstType::Real => std::slice::from_raw_parts(&self.as_real().0 as *const f64 as *const u8, 8),
             PstType::Name => self.as_name().0.as_bytes(),
-            PstType::String => self.as_string().0.as_bytes() as *const i8,
+            PstType::String => self.as_string().0.as_bytes(),
             PstType::Null | PstType::Mark => {
                 panic!("Operation not defined for this type of object.");
             }
             PstType::Unknown => {
                 self.as_unknown()
             }
-        }) as *const libc::c_void
+        }
     }
 }
 

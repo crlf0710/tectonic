@@ -26,13 +26,11 @@
     non_upper_case_globals,
 )]
 use super::dpx_dpxutil::{is_delim, is_space, skip_white_spaces};
-use super::dpx_mem::new;
 use super::dpx_pst_obj::pst_obj;
 use super::dpx_pst_obj::{
     pst_new_mark, pst_parse_boolean, pst_parse_name, pst_parse_null, pst_parse_number,
     pst_parse_string,
 };
-use libc::memcpy;
 
 pub(crate) fn pst_token_end(s: u8) -> bool {
     is_delim(&s) || is_space(&s)
@@ -58,7 +56,6 @@ unsafe fn pst_parse_any(inbuf: *mut *mut u8, inbufend: *mut u8) -> pst_obj {
     let len = cur.offset_from(*inbuf) as i64 as u32;
     let slice = std::slice::from_raw_parts(*inbuf, len as _);
     let data = Vec::from(slice);
-    *data.offset(len as isize) = 0;
     *inbuf = cur;
     pst_obj::new(PstType::Unknown, Box::into_raw(data.into_boxed_slice()) as *mut libc::c_void)
 }
@@ -117,7 +114,7 @@ pub(crate) unsafe fn pst_get_token(inbuf: *mut *mut u8, inbufend: *mut u8) -> Op
             if (*inbuf).offset(1) >= inbufend || *(*inbuf).offset(1) != b'>' {
                 panic!("Unexpected end of ASCII hex string marker.");
             } else {
-                let mark = Vec::from(b">>");
+                let mark = Vec::from(&b">>"[..]);
                 obj = Some(pst_obj::new(PstType::Unknown, Box::into_raw(mark.into_boxed_slice()) as *mut libc::c_void));
                 *inbuf = (*inbuf).offset(2)
             }
