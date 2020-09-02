@@ -48,28 +48,23 @@ pub(crate) struct pst_obj {
     pub(crate) data: *mut libc::c_void,
 }
 #[derive(Clone)]
-pub(crate) struct pst_string {
-    pub(crate) value: String,
-}
+pub(crate) struct pst_string(pub(crate) String);
+
 #[derive(Clone)]
-pub(crate) struct pst_name {
-    pub(crate) value: CString,
-}
+pub(crate) struct pst_name(pub(crate) CString);
+
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub(crate) struct pst_real {
-    pub(crate) value: f64,
-}
+pub(crate) struct pst_real(pub(crate) f64);
+
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub(crate) struct pst_integer {
-    pub(crate) value: i32,
-}
+pub(crate) struct pst_integer(pub(crate) i32);
+
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub(crate) struct pst_boolean {
-    pub(crate) value: i8,
-}
+pub(crate) struct pst_boolean(pub(crate) i8);
+
 const pst_const_null: *const i8 = b"null\x00" as *const u8 as *const i8;
 const pst_const_mark: *const i8 = b"mark\x00" as *const u8 as *const i8;
 
@@ -137,25 +132,21 @@ impl pst_obj {
     }
     pub(crate) unsafe fn length(&self) -> i32 {
         match self.type_0 {
-            PstType::Boolean => panic!("Operation not defined for this type of object."),
-            PstType::Integer => panic!("Operation not defined for this type of object."),
-            PstType::Real => panic!("Operation not defined for this type of object."),
-            PstType::Name => self.as_name().value.to_bytes().len() as i32,
-            PstType::String => self.as_string().value.len() as _,
-            PstType::Null | PstType::Mark => {
-                panic!("Operation not defined for this type of object.");
+            PstType::Boolean | PstType::Integer | PstType::Real | PstType::Null | PstType::Mark => {
+                panic!("Operation not defined for this type of object.")
             }
+            PstType::Name => self.as_name().0.to_bytes().len() as i32,
+            PstType::String => self.as_string().0.len() as _,
             PstType::Unknown => CStr::from_ptr(self.data as *const i8).to_bytes().len() as i32,
         }
     }
     pub(crate) unsafe fn getIV(&self) -> i32 {
         match self.type_0 {
-            PstType::Boolean => self.as_boolean().value as i32,
-            PstType::Integer => self.as_integer().value,
-            PstType::Real => self.as_real().value as i32,
-            PstType::Name => panic!("Operation not defined for this type of object."),
+            PstType::Boolean => self.as_boolean().0 as i32,
+            PstType::Integer => self.as_integer().0,
+            PstType::Real => self.as_real().0 as i32,
             PstType::String => pst_string_RV(self.as_string()) as i32,
-            PstType::Null | PstType::Mark => {
+            PstType::Name | PstType::Null | PstType::Mark => {
                 panic!("Operation not defined for this type of object.");
             }
             PstType::Unknown => {
@@ -165,12 +156,11 @@ impl pst_obj {
     }
     pub(crate) unsafe fn getRV(&self) -> f64 {
         match self.type_0 {
-            PstType::Boolean => self.as_boolean().value as f64,
-            PstType::Integer => self.as_integer().value as f64,
-            PstType::Real => self.as_real().value,
-            PstType::Name => panic!("Operation not defined for this type of object."),
+            PstType::Boolean => self.as_boolean().0 as f64,
+            PstType::Integer => self.as_integer().0 as f64,
+            PstType::Real => self.as_real().0,
             PstType::String => pst_string_RV(self.as_string()),
-            PstType::Null | PstType::Mark => {
+            PstType::Name | PstType::Null | PstType::Mark => {
                 panic!("Operation not defined for this type of object.");
             }
             PstType::Unknown => {
@@ -206,11 +196,11 @@ impl pst_obj {
 
     pub(crate) unsafe fn data_ptr(&self) -> *const libc::c_void {
         (match self.type_0 {
-            PstType::Boolean => &self.as_boolean().value as *const i8 as *const i8,
-            PstType::Integer => &self.as_integer().value as *const i32 as *const i8,
-            PstType::Real => &self.as_real().value as *const f64 as *const i8,
-            PstType::Name => self.as_name().value.as_ptr(),
-            PstType::String => self.as_string().value.as_ptr() as *const i8,
+            PstType::Boolean => &self.as_boolean().0 as *const i8 as *const i8,
+            PstType::Integer => &self.as_integer().0 as *const i32 as *const i8,
+            PstType::Real => &self.as_real().0 as *const f64 as *const i8,
+            PstType::Name => self.as_name().0.as_ptr(),
+            PstType::String => self.as_string().0.as_ptr() as *const i8,
             PstType::Null | PstType::Mark => {
                 panic!("Operation not defined for this type of object.");
             }
@@ -222,14 +212,10 @@ impl pst_obj {
 /* BOOLEAN */
 /* BOOLEAN */
 unsafe fn pst_boolean_new(value: i8) -> *mut pst_boolean {
-    Box::into_raw(Box::new(pst_boolean { value }))
+    Box::into_raw(Box::new(pst_boolean(value)))
 }
 unsafe fn pst_boolean_SV(obj: &pst_boolean) -> Option<String> {
-    Some(String::from(if (*obj).value != 0 {
-        "true"
-    } else {
-        "false"
-    }))
+    Some(String::from(if (*obj).0 != 0 { "true" } else { "false" }))
 }
 
 pub(crate) unsafe fn pst_parse_boolean(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option<pst_obj> {
@@ -277,21 +263,21 @@ pub(crate) unsafe fn pst_parse_null(inbuf: *mut *mut u8, inbufend: *mut u8) -> O
 /* NUMBERS */
 /* INTEGER */
 unsafe fn pst_integer_new(value: i32) -> *mut pst_integer {
-    Box::into_raw(Box::new(pst_integer { value }))
+    Box::into_raw(Box::new(pst_integer(value)))
 }
 unsafe fn pst_integer_SV(obj: &pst_integer) -> Option<String> {
-    Some(format!("{}", obj.value))
+    Some(format!("{}", obj.0))
 }
 /* REAL */
 unsafe fn pst_real_new(value: f64) -> *mut pst_real {
-    Box::into_raw(Box::new(pst_real { value }))
+    Box::into_raw(Box::new(pst_real(value)))
 }
 unsafe fn pst_real_SV(obj: &pst_real) -> Option<String> {
     let mut fmt_buf: [u8; 15] = [0; 15];
     let len = sprintf(
         fmt_buf.as_mut_ptr() as *mut i8,
         b"%.5g\x00" as *const u8 as *const i8,
-        obj.value,
+        obj.0,
     ) as usize;
     Some(String::from_utf8_lossy(&fmt_buf[..len]).into())
 }
@@ -364,9 +350,7 @@ pub(crate) unsafe fn pst_parse_number(inbuf: *mut *mut u8, inbufend: *mut u8) ->
  * \0 is not allowed for name object.
  */
 unsafe fn pst_name_new(name: &[u8]) -> *mut pst_name {
-    Box::into_raw(Box::new(pst_name {
-        value: CString::new(name).unwrap(),
-    }))
+    Box::into_raw(Box::new(pst_name(CString::new(name).unwrap())))
 }
 unsafe fn getxpair(s: *mut *mut u8) -> i32 {
     let hi = xtoi(**s);
@@ -422,14 +406,14 @@ pub(crate) unsafe fn pst_parse_name(inbuf: *mut *mut u8, inbufend: *mut u8) -> O
     ))
 }
 unsafe fn pst_name_SV(obj: &pst_name) -> Option<String> {
-    Some(obj.value.clone().into_string().unwrap())
+    Some(obj.0.clone().into_string().unwrap())
 }
 /* STRING */
 /*
  * TODO: ascii85 string <~ .... ~>
  */
 unsafe fn pst_string_new(value: String) -> *mut pst_string {
-    Box::into_raw(Box::new(pst_string { value }))
+    Box::into_raw(Box::new(pst_string(value)))
 }
 
 pub(crate) unsafe fn pst_parse_string(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option<pst_obj> {
@@ -460,18 +444,11 @@ pub(crate) unsafe fn pst_parse_string(inbuf: *mut *mut u8, inbufend: *mut u8) ->
 unsafe fn ostrtouc(inbuf: *mut *mut u8, inbufend: *mut u8, valid: *mut u8) -> u8 {
     let mut cur: *mut u8 = *inbuf;
     let mut val: u32 = 0_u32;
-    while cur < inbufend
-        && cur < (*inbuf).offset(3)
-        && (*cur as i32 >= '0' as i32 && *cur as i32 <= '7' as i32)
-    {
-        val = val << 3i32 | (*cur as i32 - '0' as i32) as u32;
+    while cur < inbufend && cur < (*inbuf).offset(3) && (*cur >= b'0' && *cur <= b'7') {
+        val = val << 3 | (*cur - b'0') as u32;
         cur = cur.offset(1)
     }
-    if val > 255_u32 || cur == *inbuf {
-        *valid = 0_u8
-    } else {
-        *valid = 1_u8
-    }
+    *valid = if val > 255 || cur == *inbuf { 0 } else { 1 };
     *inbuf = cur;
     val as u8
 }
@@ -487,23 +464,23 @@ unsafe fn esctouc(inbuf: *mut *mut u8, inbufend: *mut u8, valid: *mut u8) -> u8 
         }
         b'n' => {
             /* Other escaped char */
-            unescaped = '\n' as i32 as u8;
+            unescaped = b'\n';
             *inbuf = (*inbuf).offset(1)
         }
         b'r' => {
-            unescaped = '\r' as i32 as u8;
+            unescaped = b'\r';
             *inbuf = (*inbuf).offset(1)
         }
         b't' => {
-            unescaped = '\t' as i32 as u8;
+            unescaped = b'\t';
             *inbuf = (*inbuf).offset(1)
         }
         b'b' => {
-            unescaped = '\u{8}' as i32 as u8;
+            unescaped = '\u{8}' as u8;
             *inbuf = (*inbuf).offset(1)
         }
         b'f' => {
-            unescaped = '\u{c}' as i32 as u8;
+            unescaped = '\u{c}' as u8;
             *inbuf = (*inbuf).offset(1)
         }
         b'\r' => {
@@ -638,8 +615,8 @@ unsafe fn pst_string_parse_hex(inbuf: *mut *mut u8, inbufend: *mut u8) -> *mut p
     pst_string_new(String::from_utf8(wbuf).unwrap())
 }
 unsafe fn pst_string_RV(obj: &pst_string) -> f64 {
-    let mut p = obj.value.as_ptr() as *mut u8;
-    let end = p.offset(obj.value.len() as isize);
+    let mut p = obj.0.as_ptr() as *mut u8;
+    let end = p.offset(obj.0.len() as isize);
     let nobj = pst_parse_number(&mut p, end);
     if nobj.is_none() || p != end {
         panic!("Cound not convert string to real value.");
@@ -649,5 +626,5 @@ unsafe fn pst_string_RV(obj: &pst_string) -> f64 {
     rv
 }
 unsafe fn pst_string_SV(obj: &pst_string) -> Option<String> {
-    Some(obj.value.clone())
+    Some(obj.0.clone())
 }

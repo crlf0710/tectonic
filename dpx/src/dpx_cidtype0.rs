@@ -1405,8 +1405,8 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
 }
 
 unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 {
-    let mut range_min: [u8; 4] = [0; 4];
-    let mut range_max: [u8; 4] = [0x7f, 0xff, 0xff, 0xff];
+    const range_min: [u8; 4] = [0; 4];
+    const range_max: [u8; 4] = [0x7f, 0xff, 0xff, 0xff];
     let cmap_name = if wmode != 0 {
         format!("{}-UCS4-V", font_name)
     } else {
@@ -1420,7 +1420,7 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
     CMap_set_name(&mut cmap, &cmap_name);
     CMap_set_type(&mut cmap, 1i32);
     CMap_set_wmode(&mut cmap, wmode);
-    CMap_add_codespacerange(&mut cmap, range_min.as_mut_ptr(), range_max.as_mut_ptr(), 4);
+    CMap_add_codespacerange(&mut cmap, range_min.as_ptr(), range_max.as_ptr(), 4);
     CMap_set_CIDSysInfo(&mut cmap, &mut CSI_IDENTITY);
     for gid in 1..cffont.num_glyphs as u16 {
         let sid = cff_charsets_lookup_inverse(cffont, gid);
@@ -1499,7 +1499,7 @@ unsafe fn create_ToUnicode_stream(
     CMap_set_wmode(&mut cmap, 0i32);
     CMap_set_type(&mut cmap, 2i32);
     CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
-    CMap_add_codespacerange(&mut cmap, range_min.as_mut_ptr(), range_max.as_mut_ptr(), 2);
+    CMap_add_codespacerange(&mut cmap, range_min.as_ptr(), range_max.as_ptr(), 2);
     let mut total_fail_count = 0i32;
     let mut glyph_count = total_fail_count;
     //p = wbuf.as_mut_ptr();

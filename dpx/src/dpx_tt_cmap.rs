@@ -1096,8 +1096,8 @@ unsafe fn create_ToUnicode_cmap(
     CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
     CMap_add_codespacerange(
         &mut cmap,
-        srange_min.as_mut_ptr(),
-        srange_max.as_mut_ptr(),
+        srange_min.as_ptr(),
+        srange_max.as_ptr(),
         2i32 as size_t,
     );
     /* cmap_add here stores information about all unencoded glyphs which can be
@@ -1344,8 +1344,8 @@ unsafe fn load_base_CMap(
         CMap_set_wmode(&mut cmap, wmode);
         CMap_add_codespacerange(
             &mut cmap,
-            lrange_min.as_mut_ptr(),
-            lrange_max.as_mut_ptr(),
+            lrange_min.as_ptr(),
+            lrange_max.as_ptr(),
             4i32 as size_t,
         );
         if !csi.is_null() {
@@ -1472,8 +1472,8 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
             CMap_set_wmode(&mut cmap, 0i32);
             CMap_add_codespacerange(
                 &mut cmap,
-                srange_min.as_mut_ptr(),
-                srange_max.as_mut_ptr(),
+                srange_min.as_ptr(),
+                srange_max.as_ptr(),
                 2i32 as size_t,
             );
             CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);

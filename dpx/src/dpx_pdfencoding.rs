@@ -28,7 +28,6 @@
 
 use crate::bridge::DisplayExt;
 use crate::info;
-use std::ffi::CString;
 use std::io::Read;
 use std::ptr;
 
@@ -42,7 +41,7 @@ use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_mem::new;
-use crate::bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open};
+use crate::bridge::{ttstub_input_get_size, ttstub_input_open_str};
 use crate::dpx_pdfobj::{
     pdf_copy_name, pdf_dict, pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj,
     pdf_stream, IntoObj, PushObj,
@@ -539,7 +538,7 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
     CMap_set_type(&mut cmap, 2i32);
     CMap_set_wmode(&mut cmap, 0i32);
     CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
-    CMap_add_codespacerange(&mut cmap, range_min.as_mut_ptr(), range_max.as_mut_ptr(), 1);
+    CMap_add_codespacerange(&mut cmap, range_min.as_ptr(), range_max.as_ptr(), 1);
     let mut all_predef = 1;
     for code in 0..=0xff {
         if !(!is_used.is_null() && *is_used.offset(code as isize) == 0) {
@@ -609,30 +608,27 @@ pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: &str) -> Option<pdf_stream
     if ident.is_empty() {
         return None;
     }
-    let ident_ = CString::new(ident).unwrap();
-    let mut handle = ttstub_input_open(ident_.as_ptr(), TTInputFormat::CMAP, 0i32);
-    if handle.is_none() {
-        return None;
-    }
-    if CMap_parse_check_sig(handle.as_mut()) < 0i32 {
-        ttstub_input_close(handle.unwrap());
-        return None;
-    }
-    let handle = handle.unwrap();
-    let mut cmap = CMap_new();
-    if CMap_parse(&mut cmap, handle).is_err() {
-        warn!("Reading CMap file \"{}\" failed.", ident)
+    if let Some(handle) = ttstub_input_open_str(ident, TTInputFormat::CMAP, 0i32) {
+        if CMap_parse_check_sig(&mut &handle) < 0i32 {
+            return None;
+        }
+        let mut cmap = CMap_new();
+        if CMap_parse(&mut cmap, handle).is_err() {
+            warn!("Reading CMap file \"{}\" failed.", ident)
+        } else {
+            if verbose != 0 {
+                info!("(CMap:{})", ident);
+            }
+            stream = CMap_create_stream(&mut cmap);
+            if stream.is_none() {
+                warn!("Failed to creat ToUnicode CMap stream for \"{}\".", ident)
+            }
+        }
+        CMap_release(&mut cmap);
+        stream
     } else {
-        if verbose != 0 {
-            info!("(CMap:{})", ident);
-        }
-        stream = CMap_create_stream(&mut cmap);
-        if stream.is_none() {
-            warn!("Failed to creat ToUnicode CMap stream for \"{}\".", ident)
-        }
+        None
     }
-    CMap_release(&mut cmap);
-    stream
 }
 static mut MacRomanEncoding: [*const i8; 256] = [
     b".notdef\x00" as *const u8 as *const i8,

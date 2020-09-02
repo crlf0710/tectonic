@@ -3813,7 +3813,6 @@ fn parse_pdf_version<R: Read + Seek>(handle: &mut R) -> Result<u32, ()> {
     buffer["%PDF-1.".len()..].parse::<u32>().map_err(|_| ())
 }
 
-#[no_mangle]
 pub(crate) unsafe fn check_for_pdf<R: Read + Seek>(handle: &mut R) -> bool {
     match parse_pdf_version(handle) {
         Ok(version) => {

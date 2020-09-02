@@ -33,7 +33,7 @@ use std::ptr;
 use super::dpx_cid::CSI_IDENTITY;
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_mem::{new, renew};
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
+use crate::bridge::ttstub_input_open_str;
 use libc::{free, memcmp, memcpy, memset, strcpy};
 
 use crate::bridge::size_t;
@@ -218,8 +218,8 @@ pub(crate) unsafe fn CMap_is_valid(cmap: *mut CMap) -> bool {
         if (*csi1).registry != (*csi2).registry || (*csi1).ordering != (*csi2).ordering {
             warn!(
                 "CIDSystemInfo mismatched {} <--> {}",
-                CStr::from_ptr(CMap_get_name(cmap)).display(),
-                CStr::from_ptr(CMap_get_name((*cmap).useCMap)).display(),
+                CMap_get_name(&*cmap),
+                CMap_get_name(&*(*cmap).useCMap),
             );
             return false;
         }
@@ -355,10 +355,7 @@ pub(crate) unsafe fn CMap_decode_char(
             } else {
                 /* no mapping available in this CMap */
                 warn!("No character mapping available.");
-                info!(
-                    " CMap name: {}\n",
-                    CStr::from_ptr(CMap_get_name(cmap)).display()
-                );
+                info!(" CMap name: {}\n", CMap_get_name(&*cmap));
                 info!(" input str: ");
                 info!("<");
                 while save < p {
@@ -439,9 +436,8 @@ pub(crate) unsafe fn CMap_reverse_decode(cmap: *mut CMap, cid: CID) -> i32 {
     ch
 }
 
-pub(crate) unsafe fn CMap_get_name(cmap: *mut CMap) -> *mut i8 {
-    assert!(!cmap.is_null());
-    (*cmap).name
+pub(crate) unsafe fn CMap_get_name(cmap: &CMap) -> &str {
+    CStr::from_ptr((*cmap).name).to_str().unwrap_or("")
 }
 
 pub(crate) unsafe fn CMap_get_type(cmap: *mut CMap) -> i32 {
@@ -525,8 +521,8 @@ pub(crate) unsafe fn CMap_set_usecmap(mut cmap: *mut CMap, ucmap: *mut CMap) {
         {
             panic!(
                 "CMap: CMap {} required by {} have different CSI.",
-                CStr::from_ptr(CMap_get_name(cmap)).display(),
-                CStr::from_ptr(CMap_get_name(ucmap)).display(),
+                CMap_get_name(&*cmap),
+                CMap_get_name(&*ucmap),
             );
         }
     }
@@ -1003,12 +999,7 @@ pub(crate) unsafe fn CMap_cache_init() {
     CMap_set_type(cmap, 0i32);
     CMap_set_wmode(cmap, 0i32);
     CMap_set_CIDSysInfo(cmap, &mut CSI_IDENTITY);
-    CMap_add_codespacerange(
-        cmap,
-        range_min.as_mut_ptr(),
-        range_max.as_mut_ptr(),
-        2i32 as size_t,
-    );
+    CMap_add_codespacerange(cmap, range_min.as_ptr(), range_max.as_ptr(), 2i32 as size_t);
 
     __cache.push(Box::new(CMap_new()));
     let cmap = &mut *__cache[1];
@@ -1016,12 +1007,7 @@ pub(crate) unsafe fn CMap_cache_init() {
     CMap_set_type(cmap, 0i32);
     CMap_set_wmode(cmap, 1i32);
     CMap_set_CIDSysInfo(cmap, &mut CSI_IDENTITY);
-    CMap_add_codespacerange(
-        cmap,
-        range_min.as_mut_ptr(),
-        range_max.as_mut_ptr(),
-        2i32 as size_t,
-    );
+    CMap_add_codespacerange(cmap, range_min.as_ptr(), range_max.as_ptr(), 2i32 as size_t);
 }
 
 pub(crate) unsafe fn CMap_cache_get(id: i32) -> *mut CMap {
@@ -1031,38 +1017,35 @@ pub(crate) unsafe fn CMap_cache_get(id: i32) -> *mut CMap {
     &mut *__cache[id as usize]
 }
 
-pub(crate) unsafe fn CMap_cache_find(cmap_name_str: &str) -> i32 {
-    let cmap_name = CString::new(cmap_name_str).unwrap();
+pub(crate) unsafe fn CMap_cache_find(cmap_name: &str) -> i32 {
     for (id, cmap) in __cache.iter_mut().enumerate() {
         /* CMapName may be undefined when processing usecmap. */
         let name = CMap_get_name(&mut **cmap);
-        if !name.is_null() && streq_ptr(cmap_name.as_ptr(), name) as i32 != 0 {
+        if !name.is_empty() && cmap_name == name {
             return id as i32;
         }
     }
-    let mut handle = ttstub_input_open(cmap_name.as_ptr(), TTInputFormat::CMAP, 0i32);
-    if handle.is_none() {
-        return -1i32;
-    }
-    if CMap_parse_check_sig(handle.as_mut()) < 0i32 {
-        ttstub_input_close(handle.unwrap());
-        return -1i32;
-    }
-    let handle = handle.unwrap();
-    if __verbose != 0 {
-        info!("(CMap:{}", cmap_name_str);
-    }
+    if let Some(handle) = ttstub_input_open_str(cmap_name, TTInputFormat::CMAP, 0i32) {
+        if CMap_parse_check_sig(&mut &handle) < 0 {
+            return -1i32;
+        }
+        if __verbose != 0 {
+            info!("(CMap:{}", cmap_name);
+        }
 
-    let id = (*__cache).len();
+        let id = (*__cache).len();
 
-    __cache.push(Box::new(CMap_new()));
-    if CMap_parse(&mut *__cache[id], handle).is_err() {
-        panic!("{}: Parsing CMap file failed.", "CMap",);
+        __cache.push(Box::new(CMap_new()));
+        if CMap_parse(&mut *__cache[id], handle).is_err() {
+            panic!("{}: Parsing CMap file failed.", "CMap",);
+        }
+        if __verbose != 0 {
+            info!(")");
+        }
+        id as i32
+    } else {
+        -1
     }
-    if __verbose != 0 {
-        info!(")");
-    }
-    id as i32
 }
 
 pub(crate) unsafe fn CMap_cache_add(mut cmap: Box<CMap>) -> i32 {
@@ -1070,14 +1053,10 @@ pub(crate) unsafe fn CMap_cache_add(mut cmap: Box<CMap>) -> i32 {
         panic!("{}: Invalid CMap.", "CMap",);
     }
     for other in &mut __cache {
-        let cmap_name0 = CMap_get_name(&mut *cmap);
-        let cmap_name1 = CMap_get_name(&mut **other);
-        if streq_ptr(cmap_name0, cmap_name1) {
-            panic!(
-                "{}: CMap \"{}\" already defined.",
-                "CMap",
-                CStr::from_ptr(cmap_name0).display(),
-            );
+        let cmap_name0 = CMap_get_name(&*cmap);
+        let cmap_name1 = CMap_get_name(&**other);
+        if cmap_name0 == cmap_name1 {
+            panic!("{}: CMap \"{}\" already defined.", "CMap", cmap_name0,);
         }
     }
 

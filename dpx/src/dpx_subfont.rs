@@ -66,9 +66,6 @@ impl sfd_file_ {
             rec_id: Vec::new(),
         }
     }
-    unsafe fn init(&mut self) {
-        *self = Self::new()
-    }
 }
 /* Mapping table */
 #[derive(Copy, Clone)]
