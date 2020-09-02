@@ -38,7 +38,7 @@ use super::dpx_cmap::{
     CMap_set_usecmap, CMap_set_wmode,
 };
 use super::dpx_mem::{new, renew};
-use super::dpx_pst::{pst_get_token, PstType};
+use super::dpx_pst::{pst_get_token, PstObj};
 use crate::bridge::ttstub_input_get_size;
 use libc::{free, memmove, strstr};
 
@@ -136,8 +136,10 @@ unsafe fn check_next_token(input: &mut ifreader, key: &str) -> Result<(), ()> {
     if ifreader_read(input, key.len() as _) == 0 {
         return Err(());
     }
-    let token = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
-    if token.getSV().ok_or(())? != key {
+    let token = pst_get_token(&mut input.cursor, input.endptr)
+        .ok_or(())?
+        .into_string();
+    if token != key {
         Err(())
     } else {
         Ok(())
@@ -149,17 +151,18 @@ unsafe fn get_coderange(
 ) -> Result<(Vec<u8>, Vec<u8>, usize), ()> {
     let tok1 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
     let tok2 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
-    if !(tok1.typ() == PstType::String) || !(tok2.typ() == PstType::String) {
+    if let (PstObj::String(tok1), PstObj::String(tok2)) = (tok1, tok2) {
+        let dim1 = tok1.len();
+        let dim2 = tok2.len();
+        if dim1 != dim2 || dim1 > maxlen {
+            return Err(());
+        }
+        let codeLo = tok1.into_bytes();
+        let codeHi = tok2.into_bytes();
+        Ok((codeLo, codeHi, dim1))
+    } else {
         return Err(());
     }
-    let dim1 = tok1.as_string().0.len();
-    let dim2 = tok2.as_string().0.len();
-    if dim1 != dim2 || dim1 > maxlen {
-        return Err(());
-    }
-    let codeLo = tok1.as_string().0.clone().into_bytes();
-    let codeHi = tok2.as_string().0.clone().into_bytes();
-    Ok((codeLo, codeHi, dim1))
 }
 unsafe fn do_codespacerange(
     cmap: *mut CMap,
@@ -197,20 +200,23 @@ unsafe fn handle_codearray(
         if !(fresh1 > 0i32) {
             break;
         }
-        let tok = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
-        if tok.typ() == PstType::String {
-            let data = tok.data();
-            CMap_add_bfchar(
-                cmap,
-                codeLo.as_ptr(),
-                dim as size_t,
-                data.as_ptr(),
-                data.len() as size_t,
-            );
-        } else if tok.typ() == PstType::Mark || !(tok.typ() == PstType::Name) {
-            panic!("{}: Invalid CMap mapping record.", "CMap_parse:",);
-        } else {
-            panic!("{}: Mapping to charName not supported.", "CMap_parse:",);
+        match pst_get_token(&mut input.cursor, input.endptr).ok_or(())? {
+            PstObj::String(data) => {
+                let data = data.as_bytes();
+                CMap_add_bfchar(
+                    cmap,
+                    codeLo.as_ptr(),
+                    dim as size_t,
+                    data.as_ptr(),
+                    data.len() as size_t,
+                );
+            }
+            PstObj::Name(_) => {
+                panic!("{}: Mapping to charName not supported.", "CMap_parse:",);
+            }
+            _ => {
+                panic!("{}: Invalid CMap mapping record.", "CMap_parse:",);
+            }
         }
         codeLo[(dim - 1) as usize] += 1;
     }
@@ -227,10 +233,8 @@ unsafe fn do_notdefrange(cmap: *mut CMap, input: &mut ifreader, mut count: i32) 
             return Err(());
         }
         let (codeLo, codeHi, dim) = get_coderange(input, 127)?;
-        let tok = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
-        if tok.typ() == PstType::Integer {
-            let dstCID = tok.getIV();
-            if dstCID >= 0i32 && dstCID <= 65535i32 {
+        if let PstObj::Integer(dstCID) = pst_get_token(&mut input.cursor, input.endptr).ok_or(())? {
+            if dstCID >= 0 && dstCID <= 65535 {
                 CMap_add_notdefrange(
                     cmap,
                     codeLo.as_ptr(),
@@ -256,28 +260,29 @@ unsafe fn do_bfrange(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -> R
             return Err(());
         }
         let (mut codeLo, codeHi, srcdim) = get_coderange(input, 127)?;
-        let tok = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
-        if tok.typ() == PstType::String {
-            let data = tok.data();
-            CMap_add_bfrange(
-                cmap,
-                codeLo.as_ptr(),
-                codeHi.as_ptr(),
-                srcdim as size_t,
-                data.as_ptr(),
-                data.len() as size_t,
-            );
-        } else if tok.typ() == PstType::Mark {
-            let last_lo = codeLo[(srcdim - 1) as usize];
-            handle_codearray(
-                cmap,
-                input,
-                &mut codeLo,
-                srcdim as _,
-                codeHi[(srcdim - 1) as usize] as i32 - last_lo as i32 + 1,
-            )?;
-        } else {
-            warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
+        match pst_get_token(&mut input.cursor, input.endptr).ok_or(())? {
+            PstObj::String(data) => {
+                let data = data.as_bytes();
+                CMap_add_bfrange(
+                    cmap,
+                    codeLo.as_ptr(),
+                    codeHi.as_ptr(),
+                    srcdim as size_t,
+                    data.as_ptr(),
+                    data.len() as size_t,
+                );
+            }
+            PstObj::Mark => {
+                let last_lo = codeLo[(srcdim - 1) as usize];
+                handle_codearray(
+                    cmap,
+                    input,
+                    &mut codeLo,
+                    srcdim as _,
+                    codeHi[(srcdim - 1) as usize] as i32 - last_lo as i32 + 1,
+                )?;
+            }
+            _ => warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:"),
         }
     }
     check_next_token(input, "endbfrange")
@@ -293,9 +298,7 @@ unsafe fn do_cidrange(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -> 
             return Err(());
         }
         let (codeLo, codeHi, dim) = get_coderange(input, 127)?;
-        let tok = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
-        if tok.typ() == PstType::Integer {
-            let dstCID = tok.getIV();
+        if let PstObj::Integer(dstCID) = pst_get_token(&mut input.cursor, input.endptr).ok_or(())? {
             if dstCID >= 0i32 && dstCID <= 65535i32 {
                 CMap_add_cidrange(
                     cmap,
@@ -323,16 +326,10 @@ unsafe fn do_notdefchar(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -
         }
         let tok1 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
         let tok2 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
-        if tok1.typ() == PstType::String && tok2.typ() == PstType::Integer {
-            let dstCID = tok2.getIV();
-            if dstCID >= 0i32 && dstCID <= 65535i32 {
-                let data = tok1.data();
-                CMap_add_notdefchar(
-                    cmap,
-                    data.as_ptr(),
-                    data.len() as size_t,
-                    dstCID as CID,
-                );
+        if let (PstObj::String(data), PstObj::Integer(dstCID)) = (tok1, tok2) {
+            if dstCID >= 0 && dstCID <= 65535 {
+                let data = data.as_bytes();
+                CMap_add_notdefchar(cmap, data.as_ptr(), data.len() as size_t, dstCID as CID);
             }
         } else {
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
@@ -353,20 +350,20 @@ unsafe fn do_bfchar(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -> Re
         let tok1 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
         let tok2 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
         /* We only support single CID font as descendant font, charName should not come here. */
-        if tok1.typ() == PstType::String && tok2.typ() == PstType::String {
-            let data1 = tok1.data();
-            let data2 = tok2.data();
-            CMap_add_bfchar(
-                cmap,
-                data1.as_ptr(),
-                data1.len() as size_t,
-                data2.as_ptr(),
-                data2.len() as size_t,
-            );
-        } else if tok2.typ() == PstType::Name {
-            panic!("{}: Mapping to charName not supported.", "CMap_parse:",);
-        } else {
-            warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
+        match (tok1, tok2) {
+            (PstObj::String(tok1), PstObj::String(tok2)) => {
+                let data1 = tok1.as_bytes();
+                let data2 = tok2.as_bytes();
+                CMap_add_bfchar(
+                    cmap,
+                    data1.as_ptr(),
+                    data1.len() as size_t,
+                    data2.as_ptr(),
+                    data2.len() as size_t,
+                );
+            }
+            (_, PstObj::Name(_)) => panic!("{}: Mapping to charName not supported.", "CMap_parse:"),
+            _ => warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:"),
         }
     }
     check_next_token(input, "endbfchar")
@@ -383,16 +380,10 @@ unsafe fn do_cidchar(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -> R
         }
         let tok1 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
         let tok2 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
-        if tok1.typ() == PstType::String && tok2.typ() == PstType::Integer {
-            let dstCID = tok2.getIV();
-            if dstCID >= 0i32 && dstCID <= 65535i32 {
-                let data = tok1.data();
-                CMap_add_cidchar(
-                    cmap,
-                    data.as_ptr(),
-                    data.len() as size_t,
-                    dstCID as CID,
-                );
+        if let (PstObj::String(data), PstObj::Integer(dstCID)) = (tok1, tok2) {
+            if dstCID >= 0 && dstCID <= 65535 {
+                let data = data.as_bytes();
+                CMap_add_cidchar(cmap, data.as_ptr(), data.len() as size_t, dstCID as CID);
             }
         } else {
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
@@ -415,88 +406,84 @@ unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: &mut ifreader) -> i32 {
      * or /CIDSystemInfo << ... >> def
      */
     {
-        let tok1 = pst_get_token(&mut input.cursor, input.endptr);
-        if tok1.is_none() {
-            break;
-        }
-        let tok1 = tok1.unwrap();
-        if tok1.typ() == PstType::Mark {
-            simpledict = 1i32;
-            break;
-        } else if tok1.typ() == PstType::Unknown
-            && tok1.as_name().0.as_bytes().starts_with(b"begin")
-        {
-            simpledict = 0i32;
-            break;
+        match pst_get_token(&mut input.cursor, input.endptr) {
+            None => break,
+            Some(PstObj::Mark) => {
+                simpledict = 1;
+                break;
+            }
+            Some(PstObj::Unknown(tok1)) if tok1.starts_with(b"begin") => {
+                simpledict = 0;
+                break;
+            }
+            _ => {}
         }
     }
     while error == 0 {
-        let tok1 = pst_get_token(&mut input.cursor, input.endptr);
-        if tok1.is_none() {
-            break;
-        }
-        let tok1 = tok1.unwrap();
-        if tok1.typ() == PstType::Unknown
-            && tok1.as_name().0.as_bytes().starts_with(b">>")
-            && simpledict != 0
-        {
-            break;
-        } else if tok1.typ() == PstType::Unknown
-            && tok1.as_name().0.as_bytes().starts_with(b"end")
-            && simpledict == 0
-        {
-            break;
-        } else {
-            let mut tok2 = None;
-            if tok1.typ() == PstType::Name
-                && tok1.as_name().0.as_bytes().starts_with(b"Registry")
-                && {
-                    tok2 = pst_get_token(&mut input.cursor, input.endptr);
-                    tok2.is_some()
+        match pst_get_token(&mut input.cursor, input.endptr) {
+            None => break,
+            Some(tok1) => match tok1 {
+                PstObj::Unknown(data) if (data.starts_with(b">>") && simpledict != 0) => break,
+
+                PstObj::Unknown(data) if (data.starts_with(b"end") && simpledict == 0) => break,
+                _ => {
+                    let mut tok2 = None;
+                    match tok1 {
+                        PstObj::Name(data1)
+                            if (data1.as_bytes().starts_with(b"Registry") && {
+                                tok2 = pst_get_token(&mut input.cursor, input.endptr);
+                                tok2.is_some()
+                            }) =>
+                        {
+                            let tok2 = tok2.take().unwrap();
+                            if let PstObj::String(data) = tok2 {
+                                if !(simpledict == 0 && check_next_token(input, "def").is_err()) {
+                                    csi.registry = data.into()
+                                } else {
+                                    error = -1;
+                                }
+                            } else {
+                                error = -1;
+                            }
+                        }
+                        PstObj::Name(data1)
+                            if (data1.as_bytes().starts_with(b"Ordering") && {
+                                tok2 = pst_get_token(&mut input.cursor, input.endptr);
+                                tok2.is_some()
+                            }) =>
+                        {
+                            let tok2 = tok2.take().unwrap();
+                            if let PstObj::String(data) = tok2 {
+                                if !(simpledict == 0 && check_next_token(input, "def").is_err()) {
+                                    csi.ordering = data.into();
+                                } else {
+                                    error = -1;
+                                }
+                            } else {
+                                error = -1;
+                            }
+                        }
+                        PstObj::Name(data1)
+                            if (data1.as_bytes().starts_with(b"Supplement") && {
+                                tok2 = pst_get_token(&mut input.cursor, input.endptr);
+                                tok2.is_some()
+                            }) =>
+                        {
+                            let tok2 = tok2.take().unwrap();
+                            if let PstObj::Integer(data) = tok2 {
+                                if !(simpledict == 0 && check_next_token(input, "def").is_err()) {
+                                    csi.supplement = data;
+                                } else {
+                                    error = -1;
+                                }
+                            } else {
+                                error = -1;
+                            }
+                        }
+                        _ => {}
+                    }
                 }
-            {
-                let tok2 = tok2.take().unwrap();
-                if !(tok2.typ() == PstType::String) {
-                    error = -1i32
-                } else if simpledict == 0 && check_next_token(input, "def").is_err() {
-                    error = -1i32
-                }
-                if error == 0 {
-                    csi.registry = tok2.getSV().unwrap().into();
-                }
-            } else if tok1.typ() == PstType::Name
-                && tok1.as_name().0.as_bytes().starts_with(b"Ordering")
-                && {
-                    tok2 = pst_get_token(&mut input.cursor, input.endptr);
-                    tok2.is_some()
-                }
-            {
-                let tok2 = tok2.take().unwrap();
-                if !(tok2.typ() == PstType::String) {
-                    error = -1i32
-                } else if simpledict == 0 && check_next_token(input, "def").is_err() {
-                    error = -1i32
-                }
-                if error == 0 {
-                    csi.ordering = tok2.getSV().unwrap().into();
-                }
-            } else if tok1.typ() == PstType::Name
-                && tok1.as_name().0.as_bytes().starts_with(b"Supplement")
-                && {
-                    tok2 = pst_get_token(&mut input.cursor, input.endptr);
-                    tok2.is_some()
-                }
-            {
-                let tok2 = tok2.take().unwrap();
-                if !(tok2.typ() == PstType::Integer) {
-                    error = -1i32
-                } else if simpledict == 0 && check_next_token(input, "def").is_err() {
-                    error = -1i32
-                }
-                if error == 0 {
-                    csi.supplement = tok2.getIV()
-                }
-            }
+            },
         }
     }
     if error == 0 && check_next_token(input, "def").is_err() {
@@ -548,104 +535,83 @@ pub(crate) unsafe fn CMap_parse(
     let mut input = ifreader::new(handle, size, (4096i32 - 1i32) as size_t);
     while status >= 0i32 {
         ifreader_read(&mut input, (4096i32 / 2i32) as size_t);
-        let tok1 = pst_get_token(&mut input.cursor, input.endptr);
-        if tok1.is_none() {
-            break;
-        }
-        let tok1 = tok1.unwrap();
-        if tok1.typ() == PstType::Name
-            && tok1.as_name().0.as_bytes().starts_with(b"CMapName")
-        {
-            let tok2 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
-            if !(tok2.typ() == PstType::Name || tok2.typ() == PstType::String)
-                || check_next_token(&mut input, "def").is_err()
-            {
-                status = -1i32
-            } else {
-                CMap_set_name(
-                    cmap,
-                    &tok2.getSV().unwrap(),
-                );
-            }
-        } else if tok1.typ() == PstType::Name
-            && tok1.as_name().0.as_bytes().starts_with(b"CMapType")
-        {
-            let tok2 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
-            if !(tok2.typ() == PstType::Integer) || check_next_token(&mut input, "def").is_err() {
-                status = -1i32
-            } else {
-                CMap_set_type(cmap, tok2.getIV());
-            }
-        } else if tok1.typ() == PstType::Name
-            && tok1.as_name().0.as_bytes().starts_with(b"WMode")
-        {
-            let tok2 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
-            if !(tok2.typ() == PstType::Integer) || check_next_token(&mut input, "def").is_err() {
-                status = -1i32
-            } else {
-                CMap_set_wmode(cmap, tok2.getIV());
-            }
-        } else if tok1.typ() == PstType::Name
-            && tok1.as_name().0.as_bytes().starts_with(b"CIDSystemInfo")
-        {
-            status = do_cidsysteminfo(cmap, &mut input)
-        } else if !(tok1.typ() == PstType::Name
-            && tok1.as_name().0.as_bytes().starts_with(b"Version")
-            || tok1.typ() == PstType::Name
-                && tok1.as_name().0.as_bytes().starts_with(b"UIDOffset")
-            || tok1.typ() == PstType::Name
-                && tok1.as_name().0.as_bytes().starts_with(b"XUID"))
-        {
-            if tok1.typ() == PstType::Name {
-                /* Possibly usecmap comes next */
-                let tok2 = pst_get_token(&mut input.cursor, input.endptr).unwrap();
-                if tok2.typ() == PstType::Unknown
-                    && tok2.as_unknown().starts_with(b"usecmap")
-                {
-                    let id = CMap_cache_find(
-                        &tok1.getSV().unwrap(),
-                    );
-                    if id < 0i32 {
-                        status = -1i32
-                    } else {
-                        let ucmap = CMap_cache_get(id);
-                        CMap_set_usecmap(cmap, ucmap);
+        match pst_get_token(&mut input.cursor, input.endptr) {
+            None => break,
+            Some(tok1) => match tok1 {
+                PstObj::Name(data1) if data1.as_bytes().starts_with(b"CMapName") => {
+                    match pst_get_token(&mut input.cursor, input.endptr).ok_or(())? {
+                        PstObj::Name(data) if check_next_token(&mut input, "def").is_ok() => {
+                            CMap_set_name(cmap, data.to_str().unwrap());
+                        }
+                        PstObj::String(data) if check_next_token(&mut input, "def").is_ok() => {
+                            CMap_set_name(cmap, &data);
+                        }
+                        _ => status = -1,
                     }
                 }
-            } else if tok1.typ() == PstType::Unknown
-                && tok1.as_unknown().starts_with(b"begincodespacerange")
-            {
-                do_codespacerange(cmap, &mut input, tmpint)?;
-            } else if tok1.typ() == PstType::Unknown
-                && tok1.as_unknown().starts_with(b"beginnotdefrange")
-            {
-                do_notdefrange(cmap, &mut input, tmpint)?;
-            } else if tok1.typ() == PstType::Unknown
-                && tok1.as_unknown().starts_with(b"beginnotdefchar")
-            {
-                do_notdefchar(cmap, &mut input, tmpint)?;
-            } else if tok1.typ() == PstType::Unknown
-                && tok1.as_unknown().starts_with(b"beginbfrange")
-            {
-                do_bfrange(cmap, &mut input, tmpint)?;
-            } else if tok1.typ() == PstType::Unknown
-                && tok1.as_unknown().starts_with(b"beginbfchar")
-            {
-                do_bfchar(cmap, &mut input, tmpint)?;
-            } else if tok1.typ() == PstType::Unknown
-                && tok1.as_unknown().starts_with(b"begincidrange")
-            {
-                do_cidrange(cmap, &mut input, tmpint)?;
-            } else if tok1.typ() == PstType::Unknown
-                && tok1.as_unknown().starts_with(b"begincidchar")
-            {
-                do_cidchar(cmap, &mut input, tmpint)?;
-            } else if tok1.typ() == PstType::Integer {
-                tmpint = tok1.getIV()
-            }
+                PstObj::Name(data1) if data1.as_bytes().starts_with(b"CMapType") => {
+                    match pst_get_token(&mut input.cursor, input.endptr).ok_or(())? {
+                        PstObj::Integer(data) if check_next_token(&mut input, "def").is_ok() => {
+                            CMap_set_type(cmap, data);
+                        }
+                        _ => status = -1,
+                    }
+                }
+                PstObj::Name(data1) if data1.as_bytes().starts_with(b"WMode") => {
+                    match pst_get_token(&mut input.cursor, input.endptr).ok_or(())? {
+                        PstObj::Integer(data) if check_next_token(&mut input, "def").is_ok() => {
+                            CMap_set_wmode(cmap, data);
+                        }
+                        _ => status = -1,
+                    }
+                }
+                PstObj::Name(data1) if data1.as_bytes().starts_with(b"CIDSystemInfo") => {
+                    status = do_cidsysteminfo(cmap, &mut input);
+                }
+                PstObj::Name(data1)
+                    if (data1.as_bytes().starts_with(b"Version")
+                        || data1.as_bytes().starts_with(b"UIDOffset")
+                        || data1.as_bytes().starts_with(b"XUID")) => {}
+                PstObj::Name(data1) => {
+                    /* Possibly usecmap comes next */
+                    match pst_get_token(&mut input.cursor, input.endptr).unwrap() {
+                        PstObj::Unknown(data2) if data2.starts_with(b"usecmap") => {
+                            let id = CMap_cache_find(data1.to_str().unwrap());
+                            if id < 0 {
+                                status = -1;
+                            } else {
+                                let ucmap = CMap_cache_get(id);
+                                CMap_set_usecmap(cmap, ucmap);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                PstObj::Unknown(data1) => {
+                    if data1.starts_with(b"begincodespacerange") {
+                        do_codespacerange(cmap, &mut input, tmpint)?;
+                    } else if data1.starts_with(b"beginnotdefrange") {
+                        do_notdefrange(cmap, &mut input, tmpint)?;
+                    } else if data1.starts_with(b"beginnotdefchar") {
+                        do_notdefchar(cmap, &mut input, tmpint)?;
+                    } else if data1.starts_with(b"beginbfrange") {
+                        do_bfrange(cmap, &mut input, tmpint)?;
+                    } else if data1.starts_with(b"beginbfchar") {
+                        do_bfchar(cmap, &mut input, tmpint)?;
+                    } else if data1.starts_with(b"begincidrange") {
+                        do_cidrange(cmap, &mut input, tmpint)?;
+                    } else if data1.starts_with(b"begincidchar") {
+                        do_cidchar(cmap, &mut input, tmpint)?;
+                    }
+                }
+                PstObj::Integer(data) => {
+                    tmpint = data;
+                }
+                _ => {}
+            },
         }
     }
-    if status < 0i32 {
+    if status < 0 {
         Err(())
     } else {
         Ok(CMap_is_valid(cmap) as i32)

@@ -36,7 +36,7 @@ use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string};
 use super::dpx_cff::{cff_new_index, cff_set_name};
 use super::dpx_cff_dict::{cff_dict_add_str, cff_dict_set_str, cff_new_dict};
 use super::dpx_mem::{new, renew, xstrdup};
-use super::dpx_pst::{pst_get_token, PstType};
+use super::dpx_pst::{pst_get_token, PstObj};
 use crate::bridge::ttstub_input_getc;
 use libc::{free, memcpy, memmove, memset, strcmp, strcpy, strlen};
 
@@ -112,48 +112,39 @@ unsafe fn t1_decrypt(
 unsafe fn get_next_key(start: *mut *mut u8, end: *mut u8) -> Option<String> {
     let mut key = None;
     while *start < end {
-        if let Some(tok) = pst_get_token(start, end) {
-            if tok.typ() == PstType::Name {
-                key = tok.getSV();
+        match pst_get_token(start, end) {
+            None => break,
+            Some(PstObj::Name(data)) => {
+                key = Some(data.into_string().unwrap());
                 break;
             }
-        } else {
-            break;
+            _ => {}
         }
     }
     key
 }
 unsafe fn seek_operator(start: *mut *mut u8, end: *mut u8, op: &[u8]) -> i32 {
-    let mut tok = None;
     while *start < end {
-        if let Some(tok1) = pst_get_token(start, end) {
-            if tok1.typ() == PstType::Unknown
-                && tok1.as_unknown().starts_with(op)
-            {
-                tok = Some(tok1);
-                break;
+        match pst_get_token(start, end) {
+            None => break,
+            Some(PstObj::Unknown(data)) if data.starts_with(op) => {
+                return 0;
             }
-        } else {
-            break;
+            _ => {}
         }
     }
-    if tok.is_none() {
-        return -1i32;
-    }
-    0i32
+    -1
 }
 unsafe fn parse_svalue(start: *mut *mut u8, end: *mut u8) -> Result<String, ()> {
-    let tok = pst_get_token(start, end).ok_or(())?;
-    if tok.typ() == PstType::Name || tok.typ() == PstType::String {
-        tok.getSV().ok_or(())
-    } else {
-        Err(())
+    match pst_get_token(start, end).ok_or(())? {
+        PstObj::Name(data) => Ok(data.into_string().unwrap()),
+        PstObj::String(data) => Ok(data),
+        _ => Err(()),
     }
 }
 unsafe fn parse_bvalue(start: *mut *mut u8, end: *mut u8, value: *mut f64) -> Result<usize, ()> {
-    let tok = pst_get_token(start, end).ok_or(())?;
-    if tok.typ() == PstType::Boolean {
-        *value = tok.getIV() as f64;
+    if let PstObj::Boolean(data) = pst_get_token(start, end).ok_or(())? {
+        *value = data as i32 as f64;
         Ok(1)
     } else {
         Err(())
@@ -167,37 +158,49 @@ unsafe fn parse_nvalue(
     max: i32,
 ) -> Result<usize, ()> {
     let mut argn = 0;
-    let tok = pst_get_token(start, end).ok_or(())?;
     /*
      * All array elements must be numeric token. (ATM compatible)
      */
-    if (tok.typ() == PstType::Integer || tok.typ() == PstType::Real) && max > 0i32 {
-        *value.offset(0) = tok.getRV();
-        argn = 1;
-    } else if tok.typ() == PstType::Mark {
-        /* It does not distinguish '[' and '{'... */
-        let mut tok = None;
-        while *start < end && argn < max as usize {
-            let tok1 = pst_get_token(start, end);
-            if tok1.is_none() {
-                break;
-            }
-            let tok1 = tok1.unwrap();
-            if !(tok1.typ() == PstType::Integer || tok1.typ() == PstType::Real) {
-                tok = Some(tok1);
-                break;
-            }
-            let fresh5 = argn;
-            argn += 1;
-            *value.offset(fresh5 as isize) = tok1.getRV();
+    match pst_get_token(start, end).ok_or(())? {
+        PstObj::Integer(data) if max > 0 => {
+            *value.offset(0) = data as f64;
+            argn = 1;
         }
-        tok.filter(|tok| {
-            (tok.typ() == PstType::Unknown
-                && tok.as_unknown().starts_with(b"]"))
-                || (tok.typ() == PstType::Unknown
-                    && tok.as_unknown().starts_with(b"}"))
-        })
-        .ok_or(()); // TODO: check
+        PstObj::Real(data) if max > 0 => {
+            *value.offset(0) = data;
+            argn = 1;
+        }
+        PstObj::Mark => {
+            /* It does not distinguish '[' and '{'... */
+            let mut tok = None;
+            while *start < end && argn < max as usize {
+                if let Some(tok1) = pst_get_token(start, end) {
+                    match tok1 {
+                        PstObj::Integer(data) => {
+                            *value.offset(argn as isize) = data as f64;
+                            argn += 1;
+                        }
+                        PstObj::Real(data) => {
+                            *value.offset(argn as isize) = data;
+                            argn += 1;
+                        }
+                        _ => {
+                            tok = Some(tok1);
+                            break;
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            tok.filter(|tok| {
+                matches!(tok, PstObj::Unknown(data) if data.starts_with(b"]")
+                    || data.starts_with(b"}"))
+            })
+            .ok_or(()); // TODO: check
+        }
+        _ => {}
     }
     Ok(argn)
 }
@@ -725,101 +728,63 @@ unsafe fn try_put_or_putinterval(
     start: *mut *mut u8,
     end: *mut u8,
 ) -> Result<(), ()> {
-    let mut num1: i32 = 0;
-    let mut num2: i32 = 0;
-    let mut num3: i32 = 0;
-    let tok = pst_get_token(start, end).ok_or(())?;
-    if !(tok.typ() == PstType::Integer)
-        || {
-            num1 = tok.getIV();
-            num1 > 255i32
-        }
-        || num1 < 0i32
-    {
-        return Err(());
-    }
-    let tok = pst_get_token(start, end).ok_or(())?;
-    if tok.typ() == PstType::Unknown
-        && tok.as_unknown().starts_with(b"exch")
-    {
-        /* dup num exch num get put */
-        pst_get_token(start, end)
-            .filter(|tok| {
-                !(!(tok.typ() == PstType::Integer)
-                    || {
-                        num2 = tok.getIV();
-                        num2 > 255i32
-                    }
-                    || num2 < 0i32)
-            })
-            .ok_or(())?;
-        pst_get_token(start, end)
-            .filter(|tok| {
-                tok.typ() == PstType::Unknown
-                    && tok.as_unknown().starts_with(b"get")
-            })
-            .ok_or(())?;
-        pst_get_token(start, end)
-            .filter(|tok| {
-                tok.typ() == PstType::Unknown
-                    && tok.as_unknown().starts_with(b"put")
-            })
-            .ok_or(())?;
-        free(*enc_vec.offset(num1 as isize) as *mut libc::c_void);
-        let ref mut fresh6 = *enc_vec.offset(num1 as isize);
-        *fresh6 = xstrdup(*enc_vec.offset(num2 as isize))
-    } else if tok.typ() == PstType::Integer
-        && {
-            num2 = tok.getIV();
-            num2 + num1 <= 255i32
-        }
-        && num2 >= 0i32
-    {
-        pst_get_token(start, end)
-            .filter(|tok| {
-                tok.typ() == PstType::Unknown
-                    && tok.as_unknown().starts_with(b"getinterval")
-            })
-            .ok_or(())?;
-        pst_get_token(start, end)
-            .filter(|tok| {
-                !(!(tok.typ() == PstType::Integer)
-                    || {
-                        num3 = tok.getIV();
-                        num3 + num2 > 255i32
-                    }
-                    || num3 < 0i32)
-            })
-            .ok_or(())?;
-        pst_get_token(start, end)
-            .filter(|tok| {
-                tok.typ() == PstType::Unknown
-                    && tok.as_unknown().starts_with(b"exch")
-            })
-            .ok_or(())?;
-        pst_get_token(start, end)
-            .filter(|tok| {
-                tok.typ() == PstType::Unknown
-                    && tok.as_unknown().starts_with(b"putinterval")
-            })
-            .ok_or(())?;
-        for i in 0..num2 {
-            if !(*enc_vec.offset((num1 + i) as isize)).is_null() {
-                /* num1 + i < 256 here */
-                let ref mut fresh7 = *enc_vec.offset((num3 + i) as isize);
-                *fresh7 =
-                    mfree(*enc_vec.offset((num3 + i) as isize) as *mut libc::c_void) as *mut i8;
-                let ref mut fresh8 = *enc_vec.offset((num3 + i) as isize);
-                *fresh8 = xstrdup(*enc_vec.offset((num1 + i) as isize))
+    let num1 = match pst_get_token(start, end) {
+        Some(PstObj::Integer(num1)) if (num1 >= 0 && num1 < 256) => num1,
+        _ => return Err(()),
+    };
+    match pst_get_token(start, end) {
+        Some(PstObj::Unknown(data)) if data.starts_with(b"exch") => {
+            /* dup num exch num get put */
+            let num2 = match pst_get_token(start, end) {
+                Some(PstObj::Integer(num2)) if (num2 >= 0 && num2 < 256) => num2,
+                _ => return Err(()),
+            };
+            match pst_get_token(start, end) {
+                Some(PstObj::Unknown(data)) if data.starts_with(b"get") => {}
+                _ => return Err(()),
             }
+            match pst_get_token(start, end) {
+                Some(PstObj::Unknown(data)) if data.starts_with(b"put") => {}
+                _ => return Err(()),
+            }
+            free(*enc_vec.offset(num1 as isize) as *mut libc::c_void);
+            let ref mut fresh6 = *enc_vec.offset(num1 as isize);
+            *fresh6 = xstrdup(*enc_vec.offset(num2 as isize));
+            Ok(())
         }
-    } else {
-        return Err(());
+        Some(PstObj::Integer(num2)) if (num2 >= 0 && num2 + num1 < 256) => {
+            match pst_get_token(start, end) {
+                Some(PstObj::Unknown(data)) if data.starts_with(b"getinterval") => {}
+                _ => return Err(()),
+            }
+            let num3 = match pst_get_token(start, end) {
+                Some(PstObj::Integer(num3)) if (num3 >= 0 && num3 + num2 < 256) => num3,
+                _ => return Err(()),
+            };
+            match pst_get_token(start, end) {
+                Some(PstObj::Unknown(data)) if data.starts_with(b"exch") => {}
+                _ => return Err(()),
+            }
+            match pst_get_token(start, end) {
+                Some(PstObj::Unknown(data)) if data.starts_with(b"putinterval") => {}
+                _ => return Err(()),
+            }
+            for i in 0..num2 {
+                if !(*enc_vec.offset((num1 + i) as isize)).is_null() {
+                    /* num1 + i < 256 here */
+                    let ref mut fresh7 = *enc_vec.offset((num3 + i) as isize);
+                    *fresh7 =
+                        mfree(*enc_vec.offset((num3 + i) as isize) as *mut libc::c_void) as *mut i8;
+                    let ref mut fresh8 = *enc_vec.offset((num3 + i) as isize);
+                    *fresh8 = xstrdup(*enc_vec.offset((num1 + i) as isize))
+                }
+            }
+            Ok(())
+        }
+        _ => Err(()),
     }
-    Ok(())
 }
 unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u8) -> i32 {
-    let mut code: i32 = 0;
     /*
      *  StandardEncoding def
      * or
@@ -830,146 +795,135 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
      *  ...
      *  [readonly] def
      */
-    let tok = pst_get_token(start, end).unwrap();
-    if tok.typ() == PstType::Unknown
-        && tok.as_unknown().starts_with(b"StandardEncoding")
-    {
-        if !enc_vec.is_null() {
-            code = 0i32;
-            while code < 256i32 {
-                if !StandardEncoding[code as usize].is_null()
-                    && strcmp(
-                        StandardEncoding[code as usize],
-                        b".notdef\x00" as *const u8 as *const i8,
-                    ) != 0i32
-                {
-                    let ref mut fresh9 = *enc_vec.offset(code as isize);
-                    *fresh9 = new((strlen(StandardEncoding[code as usize]).wrapping_add(1))
-                        .wrapping_mul(::std::mem::size_of::<i8>())
-                        as _) as *mut i8;
-                    strcpy(
-                        *enc_vec.offset(code as isize),
-                        StandardEncoding[code as usize],
-                    );
-                } else {
-                    let ref mut fresh10 = *enc_vec.offset(code as isize);
-                    *fresh10 = ptr::null_mut()
-                }
-                code += 1
-            }
-        }
-    } else if tok.typ() == PstType::Unknown
-        && tok.as_unknown().starts_with(b"ISOLatin1Encoding")
-    {
-        if !enc_vec.is_null() {
-            code = 0i32;
-            while code < 256i32 {
-                if !ISOLatin1Encoding[code as usize].is_null()
-                    && strcmp(
-                        ISOLatin1Encoding[code as usize],
-                        b".notdef\x00" as *const u8 as *const i8,
-                    ) != 0i32
-                {
-                    let ref mut fresh11 = *enc_vec.offset(code as isize);
-                    *fresh11 = new((strlen(ISOLatin1Encoding[code as usize]).wrapping_add(1))
-                        .wrapping_mul(::std::mem::size_of::<i8>())
-                        as _) as *mut i8;
-                    strcpy(
-                        *enc_vec.offset(code as isize),
-                        ISOLatin1Encoding[code as usize],
-                    );
-                } else {
-                    let ref mut fresh12 = *enc_vec.offset(code as isize);
-                    *fresh12 = ptr::null_mut()
-                }
-                code += 1
-            }
-        }
-    } else if tok.typ() == PstType::Unknown
-        && tok.as_unknown().starts_with(b"ExpertEncoding")
-    {
-        if !enc_vec.is_null() {
-            warn!("ExpertEncoding not supported.");
-            return -1i32;
-        }
-    /*
-     * Not supported yet.
-     */
-    } else {
-        seek_operator(start, end, b"array");
-        /*
-         * Pick all seaquences that matches "dup n /Name put" until
-         * occurrence of "def" or "readonly".
-         */
-        while *start < end {
-            let tok = pst_get_token(start, end);
-            if tok.is_none() {
-                break;
-            }
-            let mut tok = tok.unwrap();
-            if tok.typ() == PstType::Unknown
-                && tok.as_unknown().starts_with(b"def")
-                || tok.typ() == PstType::Unknown
-                    && tok.as_unknown().starts_with(b"readonly")
-            {
-                break;
-            } else if !(tok.typ() == PstType::Unknown
-                && tok.as_unknown().starts_with(b"dup"))
-            {
-            } else {
-                /* cmctt10.pfb for examples contains the following PS code
-                 *     dup num num getinterval num exch putinterval
-                 *     dup num exch num get put
-                 */
-                tok = pst_get_token(start, end).unwrap();
-                if tok.typ() == PstType::Unknown
-                    && tok.as_unknown().starts_with(b"dup")
-                {
-                    /* possibly putinterval type */
-                    if enc_vec.is_null() {
-                        warn!("This kind of type1 fonts are not supported as native fonts.\n                   They are supported if used with tfm fonts.\n");
+    match pst_get_token(start, end).unwrap() {
+        PstObj::Unknown(data) if data.starts_with(b"StandardEncoding") => {
+            if !enc_vec.is_null() {
+                let mut code = 0i32;
+                while code < 256i32 {
+                    if !StandardEncoding[code as usize].is_null()
+                        && strcmp(
+                            StandardEncoding[code as usize],
+                            b".notdef\x00" as *const u8 as *const i8,
+                        ) != 0i32
+                    {
+                        let ref mut fresh9 = *enc_vec.offset(code as isize);
+                        *fresh9 = new((strlen(StandardEncoding[code as usize]).wrapping_add(1))
+                            .wrapping_mul(::std::mem::size_of::<i8>())
+                            as _) as *mut i8;
+                        strcpy(
+                            *enc_vec.offset(code as isize),
+                            StandardEncoding[code as usize],
+                        );
                     } else {
-                        try_put_or_putinterval(enc_vec, start, end).ok();
+                        let ref mut fresh10 = *enc_vec.offset(code as isize);
+                        *fresh10 = ptr::null_mut()
                     }
-                } else if !(tok.typ() == PstType::Integer)
-                    || {
-                        code = tok.getIV();
-                        code > 255i32
-                    }
-                    || code < 0i32
-                {
-                } else {
-                    tok = pst_get_token(start, end).unwrap();
-                    if !(tok.typ() == PstType::Name) {
+                    code += 1
+                }
+            }
+        }
+        PstObj::Unknown(data) if data.starts_with(b"ISOLatin1Encoding") => {
+            if !enc_vec.is_null() {
+                let mut code = 0i32;
+                while code < 256i32 {
+                    if !ISOLatin1Encoding[code as usize].is_null()
+                        && strcmp(
+                            ISOLatin1Encoding[code as usize],
+                            b".notdef\x00" as *const u8 as *const i8,
+                        ) != 0i32
+                    {
+                        let ref mut fresh11 = *enc_vec.offset(code as isize);
+                        *fresh11 = new((strlen(ISOLatin1Encoding[code as usize]).wrapping_add(1))
+                            .wrapping_mul(::std::mem::size_of::<i8>())
+                            as _) as *mut i8;
+                        strcpy(
+                            *enc_vec.offset(code as isize),
+                            ISOLatin1Encoding[code as usize],
+                        );
                     } else {
-                        if !enc_vec.is_null() {
-                            free(*enc_vec.offset(code as isize) as *mut libc::c_void);
-                            let ref mut fresh13 = *enc_vec.offset(code as isize);
-                            let cpy;
-                            if let Some(cstr) = tok.getSV() {
-                                let len = cstr.len();
-                                cpy = new((len as u32 + 1) * (std::mem::size_of::<u8>()) as u32)
-                                    as *mut u8;
-                                memcpy(
-                                    cpy as *mut libc::c_void,
-                                    cstr.as_ptr() as *const libc::c_void,
-                                    len,
-                                );
-                                *cpy.offset(len as isize) = 0;
-                            } else {
-                                cpy = ptr::null_mut();
-                            }
-                            *fresh13 = cpy as *mut i8
-                        }
-                        tok = pst_get_token(start, end).unwrap();
-                        if !(tok.typ() == PstType::Unknown
-                            && tok.as_unknown().starts_with(b"put"))
+                        let ref mut fresh12 = *enc_vec.offset(code as isize);
+                        *fresh12 = ptr::null_mut()
+                    }
+                    code += 1
+                }
+            }
+        }
+        PstObj::Unknown(data) if data.starts_with(b"ExpertEncoding") => {
+            if !enc_vec.is_null() {
+                warn!("ExpertEncoding not supported.");
+                return -1i32;
+            }
+        }
+        // Not supported yet.
+        _ => {
+            seek_operator(start, end, b"array");
+            /*
+             * Pick all seaquences that matches "dup n /Name put" until
+             * occurrence of "def" or "readonly".
+             */
+            while *start < end {
+                match pst_get_token(start, end) {
+                    None => break,
+                    Some(tok) => match tok {
+                        PstObj::Unknown(data)
+                            if (data.starts_with(b"def") || data.starts_with(b"readonly")) =>
                         {
-                            let ref mut fresh14 = *enc_vec.offset(code as isize);
-                            *fresh14 = mfree(*enc_vec.offset(code as isize) as *mut libc::c_void)
-                                as *mut i8;
+                            break;
                         }
-                    }
+                        PstObj::Unknown(data) if data.starts_with(b"dup") => {
+                            /* cmctt10.pfb for examples contains the following PS code
+                             *     dup num num getinterval num exch putinterval
+                             *     dup num exch num get put
+                             */
+                            match pst_get_token(start, end).unwrap() {
+                                PstObj::Unknown(data) if data.starts_with(b"dup") => {
+                                    /* possibly putinterval type */
+                                    if enc_vec.is_null() {
+                                        warn!("This kind of type1 fonts are not supported as native fonts.\n                   They are supported if used with tfm fonts.\n");
+                                    } else {
+                                        try_put_or_putinterval(enc_vec, start, end).ok();
+                                    }
+                                }
+                                PstObj::Integer(code) if (code >= 0 && code < 256) => {
+                                    if let PstObj::Name(name) = pst_get_token(start, end).unwrap() {
+                                        if !enc_vec.is_null() {
+                                            free(
+                                                *enc_vec.offset(code as isize) as *mut libc::c_void
+                                            );
+                                            let cpy;
+                                            if !name.to_bytes().is_empty() {
+                                                let len = name.to_bytes().len();
+                                                cpy = new((len as u32 + 1)
+                                                    * (std::mem::size_of::<u8>()) as u32)
+                                                    as *mut u8;
+                                                memcpy(
+                                                    cpy as *mut libc::c_void,
+                                                    name.as_ptr() as *const libc::c_void,
+                                                    len,
+                                                );
+                                                *cpy.offset(len as isize) = 0;
+                                            } else {
+                                                cpy = ptr::null_mut();
+                                            }
+                                            *enc_vec.offset(code as isize) = cpy as *mut i8;
+                                        }
+                                        match pst_get_token(start, end).unwrap() {
+                                            PstObj::Unknown(data) if data.starts_with(b"put") => {}
+                                            _ => {
+                                                let ref mut fresh14 =
+                                                    *enc_vec.offset(code as isize);
+                                                *fresh14 = mfree(*enc_vec.offset(code as isize)
+                                                    as *mut libc::c_void)
+                                                    as *mut i8;
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        _ => {}
+                    },
                 }
             }
         }
@@ -986,30 +940,23 @@ unsafe fn parse_subrs(
     let mut max_size;
     let offsets;
     let lengths;
-    let mut data;
-    let tok = pst_get_token(start, end);
-    let mut count = 0;
-    tok.filter(|tok| {
-        !(!(tok.typ() == PstType::Integer) || {
-            count = tok.getIV();
-            count < 0i32
-        })
-    })
-    .ok_or_else(|| {
-        warn!("Parsing Subrs failed.");
-        ()
-    })?;
+    let count = match pst_get_token(start, end) {
+        Some(PstObj::Integer(count)) if count >= 0 => count,
+        _ => {
+            warn!("Parsing Subrs failed.");
+            return Err(());
+        }
+    };
     if count == 0i32 {
         let ref mut fresh15 = *font.subrs.offset(0);
         *fresh15 = ptr::null_mut();
         return Ok(());
     }
-    pst_get_token(start, end)
-        .filter(|tok|
-            tok.typ() == PstType::Unknown
-                && tok.as_unknown().starts_with(b"array")
-        )
-        .ok_or(())?;
+    match pst_get_token(start, end) {
+        Some(PstObj::Unknown(data)) if data.starts_with(b"array") => {}
+        _ => return Err(()),
+    }
+    let mut data;
     if mode != 1i32 {
         max_size = 65536i32;
         data = new((max_size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
@@ -1040,100 +987,85 @@ unsafe fn parse_subrs(
     /* dup subr# n-bytes RD n-binary-bytes NP */
     let mut i = 0;
     while i < count {
-        let tok = pst_get_token(start, end);
-        if tok.is_none() {
-            free(data as *mut libc::c_void);
-            free(offsets as *mut libc::c_void);
-            free(lengths as *mut libc::c_void);
-            return Err(());
-        }
-        let tok = tok.unwrap();
-        if tok.typ() == PstType::Unknown
-            && tok.as_unknown().starts_with(b"ND")
-            || tok.typ() == PstType::Unknown
-                && tok.as_unknown().starts_with(b"|-")
-            || tok.typ() == PstType::Unknown
-                && tok.as_unknown().starts_with(b"def")
-        {
-            break;
-        } else if !(tok.typ() == PstType::Unknown
-            && tok.as_unknown().starts_with(b"dup"))
-        {
-        } else {
-            /* Found "dup" */
-            let mut idx = 0;
-            pst_get_token(start, end)
-                .filter(|tok| {
-                    (tok.typ() == PstType::Integer) && {
-                        idx = tok.getIV();
-                        idx >= 0 && idx < count
-                    }
-                })
-                .ok_or_else(|| {
-                    free(data as *mut libc::c_void);
-                    free(offsets as *mut libc::c_void);
-                    free(lengths as *mut libc::c_void);
-                    ()
-                })?;
-            let mut len = 0;
-            pst_get_token(start, end)
-                .filter(|tok| {
-                    (tok.typ() == PstType::Integer) && {
-                        len = tok.getIV();
-                        len >= 0 && len <= 65536
-                    }
-                })
-                .ok_or(())?;
-            pst_get_token(start, end)
-                .filter(|tok| {
-                    !(!(tok.typ() == PstType::Unknown
-                        && tok.as_unknown().starts_with(b"RD"))
-                        && !(tok.typ() == PstType::Unknown
-                            && tok.as_unknown().starts_with(b"-|"))
-                        && seek_operator(start, end, b"readstring")
-                            < 0i32)
-                })
-                .ok_or_else(|| {
-                    free(data as *mut libc::c_void);
-                    free(offsets as *mut libc::c_void);
-                    free(lengths as *mut libc::c_void);
-                    ()
-                })?;
-            *start = (*start).offset(1);
-            if (*start).offset(len as isize) >= end {
+        match pst_get_token(start, end) {
+            None => {
                 free(data as *mut libc::c_void);
                 free(offsets as *mut libc::c_void);
                 free(lengths as *mut libc::c_void);
                 return Err(());
             }
-            if mode != 1i32 {
-                if offset + len >= max_size {
-                    max_size += 65536i32;
-                    data = renew(
-                        data as *mut libc::c_void,
-                        (max_size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                            as u32,
-                    ) as *mut u8
-                }
-                if lenIV >= 0i32 {
-                    t1_decrypt(4330_u16, data.offset(offset as isize), *start, lenIV, len);
-                    *offsets.offset(idx as isize) = offset;
-                    let ref mut fresh16 = *lengths.offset(idx as isize);
-                    *fresh16 = len - lenIV;
-                    offset += *fresh16
-                } else if len > 0i32 {
-                    *offsets.offset(idx as isize) = offset;
-                    *lengths.offset(idx as isize) = len;
-                    memcpy(
-                        &mut *data.offset(offset as isize) as *mut u8 as *mut libc::c_void,
-                        *start as *const libc::c_void,
-                        len as _,
-                    );
-                    offset += len
-                }
+            Some(PstObj::Unknown(tok))
+                if (tok.starts_with(b"ND")
+                    || tok.starts_with(b"|-")
+                    || tok.starts_with(b"def")) =>
+            {
+                break
             }
-            *start = (*start).offset(len as isize);
-            i += 1
+            Some(PstObj::Unknown(tok)) if tok.starts_with(b"dup") => {
+                /* Found "dup" */
+                let idx = match pst_get_token(start, end) {
+                    Some(PstObj::Integer(idx)) if (idx >= 0 && idx < count) => idx,
+                    _ => {
+                        free(data as *mut libc::c_void);
+                        free(offsets as *mut libc::c_void);
+                        free(lengths as *mut libc::c_void);
+                        return Err(());
+                    }
+                };
+                let len = match pst_get_token(start, end) {
+                    Some(PstObj::Integer(len)) if (len >= 0 && len <= 65536) => len,
+                    _ => return Err(()),
+                };
+                pst_get_token(start, end)
+                    .filter(|tok| {
+                        matches!(tok, PstObj::Unknown(tok) if (tok.starts_with(b"RD")) || tok.starts_with(b"-|"))
+                            || seek_operator(start, end, b"readstring")
+                                >= 0
+                    })
+                    .ok_or_else(|| {
+                        free(data as *mut libc::c_void);
+                        free(offsets as *mut libc::c_void);
+                        free(lengths as *mut libc::c_void);
+                        ()
+                    })?;
+                *start = (*start).offset(1);
+                if (*start).offset(len as isize) >= end {
+                    free(data as *mut libc::c_void);
+                    free(offsets as *mut libc::c_void);
+                    free(lengths as *mut libc::c_void);
+                    return Err(());
+                }
+                if mode != 1i32 {
+                    if offset + len >= max_size {
+                        max_size += 65536i32;
+                        data = renew(
+                            data as *mut libc::c_void,
+                            (max_size as u32 as u64)
+                                .wrapping_mul(::std::mem::size_of::<u8>() as u64)
+                                as u32,
+                        ) as *mut u8
+                    }
+                    if lenIV >= 0i32 {
+                        t1_decrypt(4330_u16, data.offset(offset as isize), *start, lenIV, len);
+                        *offsets.offset(idx as isize) = offset;
+                        let ref mut fresh16 = *lengths.offset(idx as isize);
+                        *fresh16 = len - lenIV;
+                        offset += *fresh16
+                    } else if len > 0i32 {
+                        *offsets.offset(idx as isize) = offset;
+                        *lengths.offset(idx as isize) = len;
+                        memcpy(
+                            &mut *data.offset(offset as isize) as *mut u8 as *mut libc::c_void,
+                            *start as *const libc::c_void,
+                            len as _,
+                        );
+                        offset += len
+                    }
+                }
+                *start = (*start).offset(len as isize);
+                i += 1
+            }
+            _ => {}
         }
     }
     if mode != 1i32 {
@@ -1185,194 +1117,196 @@ unsafe fn parse_charstrings(
      *  - stack - ... /CharStrings dict
      */
     let tok = pst_get_token(start, end).unwrap(); /* .notdef must be at gid = 0 in CFF */
-    if !(tok.typ() == PstType::Integer) || tok.getIV() < 0i32 || tok.getIV() > 64999i32 {
-        let s = tok.getSV().unwrap();
-        warn!("Ignores non dict \"/CharStrings {} ...\"", s);
-        return Ok(());
-    }
-    let count = tok.getIV();
-    if mode != 1i32 {
-        charstrings = cff_new_index(count as u16);
-        max_size = 65536i32;
-        (*charstrings).data = new((max_size as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-            as u32) as *mut u8
-    } else {
-        charstrings = ptr::null_mut();
-        max_size = 0i32
-    }
-    font.cstrings = charstrings;
-    font.charsets = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_charsets>() as u64) as u32)
-        as *mut cff_charsets;
-    let charset = font.charsets;
-    (*charset).format = 0i32 as u8;
-    (*charset).num_entries = (count - 1i32) as u16;
-    (*charset).data.glyphs = new(((count - 1i32) as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<s_SID>() as u64)
-        as u32) as *mut s_SID;
-    memset(
-        (*charset).data.glyphs as *mut libc::c_void,
-        0i32,
-        (::std::mem::size_of::<s_SID>()).wrapping_mul(count as usize - 1),
-    );
-    let mut offset = 0i32;
-    let mut have_notdef = 0i32;
-    font.is_notdef_notzero = 0i32;
-    seek_operator(start, end, b"begin");
-    let mut i = 0;
-    while i < count {
-        /* BUG-20061126 (by ChoF):
-         * Some fonts (e.g., belleek/blsy.pfb) does not have the correct number
-         * of glyphs. Modify the codes even to work with these broken fonts.
-         */
-        let tok = pst_get_token(start, end).ok_or(())?;
-        let glyph_name = tok.getSV();
-        if i == 0i32 && glyph_name.is_some() && glyph_name.as_deref() != Some(".notdef") {
-            font.is_notdef_notzero = 1i32
-        }
-        if tok.typ() == PstType::Name {
-            if glyph_name.is_none() {
-                return Err(());
-            }
-            let glyph_name = glyph_name.unwrap();
-            let gid;
-            if glyph_name == ".notdef" {
-                have_notdef = 1;
-                gid = 0;
-            } else if have_notdef != 0 {
-                gid = i;
-            } else if i == count - 1i32 {
-                warn!("No .notdef glyph???");
-                return Err(());
+    match tok {
+        PstObj::Integer(count) if (count >= 0 && count < 65000) => {
+            if mode != 1i32 {
+                charstrings = cff_new_index(count as u16);
+                max_size = 65536i32;
+                (*charstrings).data = new((max_size as u32 as u64)
+                    .wrapping_mul(::std::mem::size_of::<u8>() as u64)
+                    as u32) as *mut u8
             } else {
-                gid = i + 1;
+                charstrings = ptr::null_mut();
+                max_size = 0i32
             }
-            if gid > 0 {
-                let glyph_name = CString::new(glyph_name.as_bytes()).unwrap();
-                *(*charset).data.glyphs.offset((gid - 1i32) as isize) =
-                    cff_add_string(font, glyph_name.as_ptr(), 0i32)
-            }
-            /*
-             * We don't care about duplicate strings here since
-             * later a subset font of this font will be generated.
-             */
-            let mut len = 0;
-            pst_get_token(start, end)
-                .filter(|tok| {
-                    (tok.typ() == PstType::Integer) && {
-                        len = tok.getIV();
-                        len >= 0 && len <= 65536
+            font.cstrings = charstrings;
+            font.charsets =
+                new((1_u64).wrapping_mul(::std::mem::size_of::<cff_charsets>() as u64) as u32)
+                    as *mut cff_charsets;
+            let charset = font.charsets;
+            (*charset).format = 0i32 as u8;
+            (*charset).num_entries = (count - 1i32) as u16;
+            (*charset).data.glyphs = new(((count - 1i32) as u32 as u64)
+                .wrapping_mul(::std::mem::size_of::<s_SID>() as u64)
+                as u32) as *mut s_SID;
+            memset(
+                (*charset).data.glyphs as *mut libc::c_void,
+                0i32,
+                (::std::mem::size_of::<s_SID>()).wrapping_mul(count as usize - 1),
+            );
+            let mut offset = 0i32;
+            let mut have_notdef = 0i32;
+            font.is_notdef_notzero = 0i32;
+            seek_operator(start, end, b"begin");
+            let mut i = 0;
+            while i < count {
+                /* BUG-20061126 (by ChoF):
+                 * Some fonts (e.g., belleek/blsy.pfb) does not have the correct number
+                 * of glyphs. Modify the codes even to work with these broken fonts.
+                 */
+                let tok = pst_get_token(start, end).ok_or(())?;
+                let glyph_name = tok.clone().into_string();
+                if i == 0 && !glyph_name.is_empty() && glyph_name != ".notdef" {
+                    font.is_notdef_notzero = 1i32
+                }
+                match tok {
+                    PstObj::Name(_) => {
+                        if glyph_name.is_empty() {
+                            return Err(());
+                        }
+                        let gid;
+                        if glyph_name == ".notdef" {
+                            have_notdef = 1;
+                            gid = 0;
+                        } else if have_notdef != 0 {
+                            gid = i;
+                        } else if i == count - 1i32 {
+                            warn!("No .notdef glyph???");
+                            return Err(());
+                        } else {
+                            gid = i + 1;
+                        }
+                        if gid > 0 {
+                            let glyph_name = CString::new(glyph_name.as_bytes()).unwrap();
+                            *(*charset).data.glyphs.offset((gid - 1i32) as isize) =
+                                cff_add_string(font, glyph_name.as_ptr(), 0i32)
+                        }
+                        /*
+                         * We don't care about duplicate strings here since
+                         * later a subset font of this font will be generated.
+                         */
+                        let len = match pst_get_token(start, end) {
+                            Some(PstObj::Integer(len)) if (len >= 0 && len <= 65536) => len,
+                            _ => return Err(()),
+                        };
+                        pst_get_token(start, end)
+                            .filter(|tok| {
+                                matches!(tok, PstObj::Unknown(data) if
+                                    (data.starts_with(b"RD") || data.starts_with(b"-|")))
+                                    || seek_operator(start, end, b"readstring") >= 0
+                            })
+                            .ok_or(())?;
+                        if (*start).offset(len as isize).offset(1) >= end {
+                            return Err(());
+                        }
+                        if mode != 1i32 {
+                            if offset + len >= max_size {
+                                max_size += if len > 65536i32 { len } else { 65536i32 };
+                                (*charstrings).data = renew(
+                                    (*charstrings).data as *mut libc::c_void,
+                                    (max_size as u32 as u64)
+                                        .wrapping_mul(::std::mem::size_of::<u8>() as u64)
+                                        as u32,
+                                ) as *mut u8
+                            }
+                            if gid == 0i32 {
+                                if lenIV >= 0i32 {
+                                    memmove(
+                                        (*charstrings)
+                                            .data
+                                            .offset(len as isize)
+                                            .offset(-(lenIV as isize))
+                                            as *mut libc::c_void,
+                                        (*charstrings).data as *const libc::c_void,
+                                        offset as _,
+                                    );
+                                    for j in 1..=i {
+                                        let ref mut fresh18 =
+                                            *(*charstrings).offset.offset(j as isize);
+                                        *fresh18 = (*fresh18 as u32)
+                                            .wrapping_add((len - lenIV) as u32)
+                                            as l_offset
+                                            as l_offset;
+                                    }
+                                } else {
+                                    memmove(
+                                        (*charstrings).data.offset(len as isize)
+                                            as *mut libc::c_void,
+                                        (*charstrings).data as *const libc::c_void,
+                                        offset as _,
+                                    );
+                                    for j in 1..=i {
+                                        let ref mut fresh19 =
+                                            *(*charstrings).offset.offset(j as isize);
+                                        *fresh19 = (*fresh19 as u32).wrapping_add(len as u32)
+                                            as l_offset
+                                            as l_offset;
+                                    }
+                                }
+                            }
+                        }
+                        *start = (*start).offset(1);
+                        if mode != 1i32 {
+                            if lenIV >= 0i32 {
+                                let offs: i32 = if gid != 0 { offset } else { 0i32 };
+                                *(*charstrings).offset.offset(gid as isize) =
+                                    (offs + 1i32) as l_offset;
+                                t1_decrypt(
+                                    4330_u16,
+                                    (*charstrings).data.offset(offs as isize),
+                                    *start,
+                                    lenIV,
+                                    len,
+                                );
+                                offset += len - lenIV
+                            } else {
+                                if gid == 0i32 {
+                                    *(*charstrings).offset.offset(gid as isize) = 1i32 as l_offset;
+                                    memcpy(
+                                        &mut *(*charstrings).data.offset(0) as *mut u8
+                                            as *mut libc::c_void,
+                                        *start as *const libc::c_void,
+                                        len as _,
+                                    );
+                                } else {
+                                    *(*charstrings).offset.offset(gid as isize) =
+                                        (offset + 1i32) as l_offset;
+                                    memcpy(
+                                        &mut *(*charstrings).data.offset(offset as isize) as *mut u8
+                                            as *mut libc::c_void,
+                                        *start as *const libc::c_void,
+                                        len as _,
+                                    );
+                                }
+                                offset += len
+                            }
+                        }
+                        *start = (*start).offset(len as isize);
+                        match pst_get_token(start, end) {
+                            Some(PstObj::Unknown(data))
+                                if (data.starts_with(b"ND") || data.starts_with(b"|-")) => {}
+                            _ => return Err(()),
+                        }
+                        i += 1
                     }
-                })
-                .ok_or(())?;
-            pst_get_token(start, end)
-                .filter(|tok| {
-                    !(!(tok.typ() == PstType::Unknown
-                        && tok.as_unknown().starts_with(b"RD"))
-                        && !(tok.typ() == PstType::Unknown
-                            && tok.as_unknown().starts_with(b"-|"))
-                        && seek_operator(start, end, b"readstring")
-                            < 0i32)
-                })
-                .ok_or(())?;
-            if (*start).offset(len as isize).offset(1) >= end {
-                return Err(());
+                    PstObj::Unknown(_) if (!glyph_name.is_empty() && glyph_name == "end") => {
+                        break;
+                    }
+                    _ => {
+                        return Err(());
+                    }
+                }
             }
             if mode != 1i32 {
-                if offset + len >= max_size {
-                    max_size += if len > 65536i32 { len } else { 65536i32 };
-                    (*charstrings).data = renew(
-                        (*charstrings).data as *mut libc::c_void,
-                        (max_size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                            as u32,
-                    ) as *mut u8
-                }
-                if gid == 0i32 {
-                    if lenIV >= 0i32 {
-                        memmove(
-                            (*charstrings)
-                                .data
-                                .offset(len as isize)
-                                .offset(-(lenIV as isize))
-                                as *mut libc::c_void,
-                            (*charstrings).data as *const libc::c_void,
-                            offset as _,
-                        );
-                        for j in 1..=i {
-                            let ref mut fresh18 = *(*charstrings).offset.offset(j as isize);
-                            *fresh18 = (*fresh18 as u32).wrapping_add((len - lenIV) as u32)
-                                as l_offset as l_offset;
-                        }
-                    } else {
-                        memmove(
-                            (*charstrings).data.offset(len as isize) as *mut libc::c_void,
-                            (*charstrings).data as *const libc::c_void,
-                            offset as _,
-                        );
-                        for j in 1..=i {
-                            let ref mut fresh19 = *(*charstrings).offset.offset(j as isize);
-                            *fresh19 =
-                                (*fresh19 as u32).wrapping_add(len as u32) as l_offset as l_offset;
-                        }
-                    }
-                }
+                *(*charstrings).offset.offset(count as isize) = (offset + 1i32) as l_offset
             }
-            *start = (*start).offset(1);
-            if mode != 1i32 {
-                if lenIV >= 0i32 {
-                    let offs: i32 = if gid != 0 { offset } else { 0i32 };
-                    *(*charstrings).offset.offset(gid as isize) = (offs + 1i32) as l_offset;
-                    t1_decrypt(
-                        4330_u16,
-                        (*charstrings).data.offset(offs as isize),
-                        *start,
-                        lenIV,
-                        len,
-                    );
-                    offset += len - lenIV
-                } else {
-                    if gid == 0i32 {
-                        *(*charstrings).offset.offset(gid as isize) = 1i32 as l_offset;
-                        memcpy(
-                            &mut *(*charstrings).data.offset(0) as *mut u8 as *mut libc::c_void,
-                            *start as *const libc::c_void,
-                            len as _,
-                        );
-                    } else {
-                        *(*charstrings).offset.offset(gid as isize) = (offset + 1i32) as l_offset;
-                        memcpy(
-                            &mut *(*charstrings).data.offset(offset as isize) as *mut u8
-                                as *mut libc::c_void,
-                            *start as *const libc::c_void,
-                            len as _,
-                        );
-                    }
-                    offset += len
-                }
-            }
-            *start = (*start).offset(len as isize);
-            pst_get_token(start, end)
-                .filter(|tok| {
-                    tok.typ() == PstType::Unknown
-                        && tok.as_unknown().starts_with(b"ND")
-                        || tok.typ() == PstType::Unknown
-                            && tok.as_unknown().starts_with(b"|-")
-                })
-                .ok_or(())?;
-            i += 1
-        } else if tok.typ() == PstType::Unknown
-            && glyph_name.is_some()
-            && glyph_name.as_deref() == Some("end")
-        {
-            break;
-        } else {
-            return Err(());
+            font.num_glyphs = count as u16;
+        }
+        _ => {
+            let s = tok.into_string();
+            warn!("Ignores non dict \"/CharStrings {} ...\"", s);
         }
     }
-    if mode != 1i32 {
-        *(*charstrings).offset.offset(count as isize) = (offset + 1i32) as l_offset
-    }
-    font.num_glyphs = count as u16;
     Ok(())
 }
 unsafe fn parse_part2(

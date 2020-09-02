@@ -194,7 +194,6 @@ pub(crate) mod dpx_pdfximage;
 pub(crate) mod dpx_pkfont;
 pub(crate) mod dpx_pngimage;
 pub(crate) mod dpx_pst;
-pub(crate) mod dpx_pst_obj;
 pub(crate) mod dpx_sfnt;
 pub(crate) mod dpx_subfont;
 pub(crate) mod dpx_t1_char;
