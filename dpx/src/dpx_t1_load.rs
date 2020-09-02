@@ -124,12 +124,12 @@ unsafe fn get_next_key(start: *mut *mut u8, end: *mut u8) -> Option<String> {
     }
     key
 }
-unsafe fn seek_operator(start: *mut *mut u8, end: *mut u8, op: *const i8) -> i32 {
+unsafe fn seek_operator(start: *mut *mut u8, end: *mut u8, op: &[u8]) -> i32 {
     let mut tok = None;
     while *start < end {
         if let Some(tok1) = pst_get_token(start, end) {
             if tok1.typ() == PstType::Unknown
-                && !strstartswith(tok1.data_ptr() as *const i8, op).is_null()
+                && tok1.starts_with(op)
             {
                 tok = Some(tok1);
                 break;
@@ -194,17 +194,9 @@ unsafe fn parse_nvalue(
         }
         tok.filter(|tok| {
             (tok.typ() == PstType::Unknown
-                && !strstartswith(
-                    tok.data_ptr() as *const i8,
-                    b"]\x00" as *const u8 as *const i8,
-                )
-                .is_null())
+                && tok.as_unknown().starts_with(b"]"))
                 || (tok.typ() == PstType::Unknown
-                    && !strstartswith(
-                        tok.data_ptr() as *const i8,
-                        b"}\x00" as *const u8 as *const i8,
-                    )
-                    .is_null())
+                    && tok.as_unknown().starts_with(b"}"))
         })
         .ok_or(()); // TODO: check
     }
@@ -749,11 +741,7 @@ unsafe fn try_put_or_putinterval(
     }
     let tok = pst_get_token(start, end).ok_or(())?;
     if tok.typ() == PstType::Unknown
-        && !strstartswith(
-            tok.data_ptr() as *const i8,
-            b"exch\x00" as *const u8 as *const i8,
-        )
-        .is_null()
+        && tok.as_unknown().starts_with(b"exch")
     {
         /* dup num exch num get put */
         pst_get_token(start, end)
@@ -769,21 +757,13 @@ unsafe fn try_put_or_putinterval(
         pst_get_token(start, end)
             .filter(|tok| {
                 tok.typ() == PstType::Unknown
-                    && !strstartswith(
-                        tok.data_ptr() as *const i8,
-                        b"get\x00" as *const u8 as *const i8,
-                    )
-                    .is_null()
+                    && tok.as_unknown().starts_with(b"get")
             })
             .ok_or(())?;
         pst_get_token(start, end)
             .filter(|tok| {
                 tok.typ() == PstType::Unknown
-                    && !strstartswith(
-                        tok.data_ptr() as *const i8,
-                        b"put\x00" as *const u8 as *const i8,
-                    )
-                    .is_null()
+                    && tok.as_unknown().starts_with(b"put")
             })
             .ok_or(())?;
         free(*enc_vec.offset(num1 as isize) as *mut libc::c_void);
@@ -799,11 +779,7 @@ unsafe fn try_put_or_putinterval(
         pst_get_token(start, end)
             .filter(|tok| {
                 tok.typ() == PstType::Unknown
-                    && !strstartswith(
-                        tok.data_ptr() as *const i8,
-                        b"getinterval\x00" as *const u8 as *const i8,
-                    )
-                    .is_null()
+                    && tok.as_unknown().starts_with(b"getinterval")
             })
             .ok_or(())?;
         pst_get_token(start, end)
@@ -819,21 +795,13 @@ unsafe fn try_put_or_putinterval(
         pst_get_token(start, end)
             .filter(|tok| {
                 tok.typ() == PstType::Unknown
-                    && !strstartswith(
-                        tok.data_ptr() as *const i8,
-                        b"exch\x00" as *const u8 as *const i8,
-                    )
-                    .is_null()
+                    && tok.as_unknown().starts_with(b"exch")
             })
             .ok_or(())?;
         pst_get_token(start, end)
             .filter(|tok| {
                 tok.typ() == PstType::Unknown
-                    && !strstartswith(
-                        tok.data_ptr() as *const i8,
-                        b"putinterval\x00" as *const u8 as *const i8,
-                    )
-                    .is_null()
+                    && tok.as_unknown().starts_with(b"putinterval")
             })
             .ok_or(())?;
         for i in 0..num2 {
@@ -865,11 +833,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
      */
     let tok = pst_get_token(start, end).unwrap();
     if tok.typ() == PstType::Unknown
-        && !strstartswith(
-            tok.data_ptr() as *const i8,
-            b"StandardEncoding\x00" as *const u8 as *const i8,
-        )
-        .is_null()
+        && tok.as_unknown().starts_with(b"StandardEncoding")
     {
         if !enc_vec.is_null() {
             code = 0i32;
@@ -896,11 +860,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
             }
         }
     } else if tok.typ() == PstType::Unknown
-        && !strstartswith(
-            tok.data_ptr() as *const i8,
-            b"ISOLatin1Encoding\x00" as *const u8 as *const i8,
-        )
-        .is_null()
+        && tok.as_unknown().starts_with(b"ISOLatin1Encoding")
     {
         if !enc_vec.is_null() {
             code = 0i32;
@@ -927,11 +887,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
             }
         }
     } else if tok.typ() == PstType::Unknown
-        && !strstartswith(
-            tok.data_ptr() as *const i8,
-            b"ExpertEncoding\x00" as *const u8 as *const i8,
-        )
-        .is_null()
+        && tok.as_unknown().starts_with(b"ExpertEncoding")
     {
         if !enc_vec.is_null() {
             warn!("ExpertEncoding not supported.");
@@ -941,7 +897,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
      * Not supported yet.
      */
     } else {
-        seek_operator(start, end, b"array\x00" as *const u8 as *const i8);
+        seek_operator(start, end, b"array");
         /*
          * Pick all seaquences that matches "dup n /Name put" until
          * occurrence of "def" or "readonly".
@@ -953,25 +909,13 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
             }
             let mut tok = tok.unwrap();
             if tok.typ() == PstType::Unknown
-                && !strstartswith(
-                    tok.data_ptr() as *const i8,
-                    b"def\x00" as *const u8 as *const i8,
-                )
-                .is_null()
+                && tok.as_unknown().starts_with(b"def")
                 || tok.typ() == PstType::Unknown
-                    && !strstartswith(
-                        tok.data_ptr() as *const i8,
-                        b"readonly\x00" as *const u8 as *const i8,
-                    )
-                    .is_null()
+                    && tok.as_unknown().starts_with(b"readonly")
             {
                 break;
             } else if !(tok.typ() == PstType::Unknown
-                && !strstartswith(
-                    tok.data_ptr() as *const i8,
-                    b"dup\x00" as *const u8 as *const i8,
-                )
-                .is_null())
+                && tok.as_unknown().starts_with(b"dup"))
             {
             } else {
                 /* cmctt10.pfb for examples contains the following PS code
@@ -980,11 +924,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
                  */
                 tok = pst_get_token(start, end).unwrap();
                 if tok.typ() == PstType::Unknown
-                    && !strstartswith(
-                        tok.data_ptr() as *const i8,
-                        b"dup\x00" as *const u8 as *const i8,
-                    )
-                    .is_null()
+                    && tok.as_unknown().starts_with(b"dup")
                 {
                     /* possibly putinterval type */
                     if enc_vec.is_null() {
@@ -1024,11 +964,7 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
                         }
                         tok = pst_get_token(start, end).unwrap();
                         if !(tok.typ() == PstType::Unknown
-                            && !strstartswith(
-                                tok.data_ptr() as *const i8,
-                                b"put\x00" as *const u8 as *const i8,
-                            )
-                            .is_null())
+                            && tok.as_unknown().starts_with(b"put"))
                         {
                             let ref mut fresh14 = *enc_vec.offset(code as isize);
                             *fresh14 = mfree(*enc_vec.offset(code as isize) as *mut libc::c_void)
@@ -1070,14 +1006,10 @@ unsafe fn parse_subrs(
         return Ok(());
     }
     pst_get_token(start, end)
-        .filter(|tok| {
+        .filter(|tok|
             tok.typ() == PstType::Unknown
-                && !strstartswith(
-                    tok.data_ptr() as *const i8,
-                    b"array\x00" as *const u8 as *const i8,
-                )
-                .is_null()
-        })
+                && tok.as_unknown().starts_with(b"array")
+        )
         .ok_or(())?;
     if mode != 1i32 {
         max_size = 65536i32;
@@ -1118,31 +1050,15 @@ unsafe fn parse_subrs(
         }
         let tok = tok.unwrap();
         if tok.typ() == PstType::Unknown
-            && !strstartswith(
-                tok.data_ptr() as *const i8,
-                b"ND\x00" as *const u8 as *const i8,
-            )
-            .is_null()
+            && tok.as_unknown().starts_with(b"ND")
             || tok.typ() == PstType::Unknown
-                && !strstartswith(
-                    tok.data_ptr() as *const i8,
-                    b"|-\x00" as *const u8 as *const i8,
-                )
-                .is_null()
+                && tok.as_unknown().starts_with(b"|-")
             || tok.typ() == PstType::Unknown
-                && !strstartswith(
-                    tok.data_ptr() as *const i8,
-                    b"def\x00" as *const u8 as *const i8,
-                )
-                .is_null()
+                && tok.as_unknown().starts_with(b"def")
         {
             break;
         } else if !(tok.typ() == PstType::Unknown
-            && !strstartswith(
-                tok.data_ptr() as *const i8,
-                b"dup\x00" as *const u8 as *const i8,
-            )
-            .is_null())
+            && tok.as_unknown().starts_with(b"dup"))
         {
         } else {
             /* Found "dup" */
@@ -1172,18 +1088,10 @@ unsafe fn parse_subrs(
             pst_get_token(start, end)
                 .filter(|tok| {
                     !(!(tok.typ() == PstType::Unknown
-                        && !strstartswith(
-                            tok.data_ptr() as *const i8,
-                            b"RD\x00" as *const u8 as *const i8,
-                        )
-                        .is_null())
+                        && tok.as_unknown().starts_with(b"RD"))
                         && !(tok.typ() == PstType::Unknown
-                            && !strstartswith(
-                                tok.data_ptr() as *const i8,
-                                b"-|\x00" as *const u8 as *const i8,
-                            )
-                            .is_null())
-                        && seek_operator(start, end, b"readstring\x00" as *const u8 as *const i8)
+                            && tok.as_unknown().starts_with(b"-|"))
+                        && seek_operator(start, end, b"readstring")
                             < 0i32)
                 })
                 .ok_or_else(|| {
@@ -1311,7 +1219,7 @@ unsafe fn parse_charstrings(
     let mut offset = 0i32;
     let mut have_notdef = 0i32;
     font.is_notdef_notzero = 0i32;
-    seek_operator(start, end, b"begin\x00" as *const u8 as *const i8);
+    seek_operator(start, end, b"begin");
     let mut i = 0;
     while i < count {
         /* BUG-20061126 (by ChoF):
@@ -1361,18 +1269,10 @@ unsafe fn parse_charstrings(
             pst_get_token(start, end)
                 .filter(|tok| {
                     !(!(tok.typ() == PstType::Unknown
-                        && !strstartswith(
-                            tok.data_ptr() as *const i8,
-                            b"RD\x00" as *const u8 as *const i8,
-                        )
-                        .is_null())
+                        && tok.as_unknown().starts_with(b"RD"))
                         && !(tok.typ() == PstType::Unknown
-                            && !strstartswith(
-                                tok.data_ptr() as *const i8,
-                                b"-|\x00" as *const u8 as *const i8,
-                            )
-                            .is_null())
-                        && seek_operator(start, end, b"readstring\x00" as *const u8 as *const i8)
+                            && tok.as_unknown().starts_with(b"-|"))
+                        && seek_operator(start, end, b"readstring")
                             < 0i32)
                 })
                 .ok_or(())?;
@@ -1454,18 +1354,10 @@ unsafe fn parse_charstrings(
             *start = (*start).offset(len as isize);
             pst_get_token(start, end)
                 .filter(|tok| {
-                    (tok.typ() == PstType::Unknown
-                        && !strstartswith(
-                            tok.data_ptr() as *const i8,
-                            b"ND\x00" as *const u8 as *const i8,
-                        )
-                        .is_null())
-                        || (tok.typ() == PstType::Unknown
-                            && !strstartswith(
-                                tok.data_ptr() as *const i8,
-                                b"|-\x00" as *const u8 as *const i8,
-                            )
-                            .is_null())
+                    tok.typ() == PstType::Unknown
+                        && tok.as_unknown().starts_with(b"ND")
+                        || tok.typ() == PstType::Unknown
+                            && tok.as_unknown().starts_with(b"|-")
                 })
                 .ok_or(())?;
             i += 1
@@ -1586,7 +1478,7 @@ unsafe fn parse_part1(
      * font dictionary so that parser will not be confused with
      * it. See LMRoman10-Regular (lmr10.pfb) for example.
      */
-    if seek_operator(start, end, b"begin\x00" as *const u8 as *const i8) < 0i32 {
+    if seek_operator(start, end, b"begin") < 0i32 {
         return Err(());
     }
     while *start < end {
@@ -1808,7 +1700,7 @@ pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: &
     }
     let mut start = buffer;
     let end = buffer.offset(length as isize);
-    if seek_operator(&mut start, end, b"begin\x00" as *const u8 as *const i8) < 0i32 {
+    if seek_operator(&mut start, end, b"begin") < 0i32 {
         free(buffer as *mut libc::c_void);
         return -1i32;
     }

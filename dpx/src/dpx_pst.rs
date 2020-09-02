@@ -56,17 +56,11 @@ unsafe fn pst_parse_any(inbuf: *mut *mut u8, inbufend: *mut u8) -> pst_obj {
         cur = cur.offset(1)
     }
     let len = cur.offset_from(*inbuf) as i64 as u32;
-    let data = new(
-        (len.wrapping_add(1_u32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
-    ) as *mut u8;
-    memcpy(
-        data as *mut libc::c_void,
-        *inbuf as *const libc::c_void,
-        len as _,
-    );
+    let slice = std::slice::from_raw_parts(*inbuf, len as _);
+    let data = Vec::from(slice);
     *data.offset(len as isize) = 0;
     *inbuf = cur;
-    pst_obj::new(PstType::Unknown, data as *mut libc::c_void)
+    pst_obj::new(PstType::Unknown, Box::into_raw(data.into_boxed_slice()) as *mut libc::c_void)
 }
 unsafe fn skip_line(inbuf: *mut *mut u8, inbufend: *mut u8) {
     while *inbuf < inbufend && **inbuf != b'\n' && **inbuf != b'\r' {
@@ -123,21 +117,14 @@ pub(crate) unsafe fn pst_get_token(inbuf: *mut *mut u8, inbufend: *mut u8) -> Op
             if (*inbuf).offset(1) >= inbufend || *(*inbuf).offset(1) != b'>' {
                 panic!("Unexpected end of ASCII hex string marker.");
             } else {
-                let mark =
-                    new((3_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-                *mark.offset(0) = b'>' as i8;
-                *mark.offset(1) = b'>' as i8;
-                *mark.offset(2) = 0;
-                obj = Some(pst_obj::new(PstType::Unknown, mark as *mut libc::c_void));
+                let mark = Vec::from(b">>");
+                obj = Some(pst_obj::new(PstType::Unknown, Box::into_raw(mark.into_boxed_slice()) as *mut libc::c_void));
                 *inbuf = (*inbuf).offset(2)
             }
         }
         b']' | b'}' => {
-            let mark_0 =
-                new((2_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-            *mark_0.offset(0) = c as i8;
-            *mark_0.offset(1) = 0;
-            obj = Some(pst_obj::new(PstType::Unknown, mark_0 as *mut libc::c_void));
+            let mark = vec![c];
+            obj = Some(pst_obj::new(PstType::Unknown, Box::into_raw(mark.into_boxed_slice()) as *mut libc::c_void));
             *inbuf = (*inbuf).offset(1)
         }
         _ => {

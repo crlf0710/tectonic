@@ -94,8 +94,11 @@ impl Drop for pst_obj {
             PstType::String => unsafe {
                 let _ = Box::from_raw(self.data as *mut pst_string);
             },
-            PstType::Null | PstType::Mark | PstType::Unknown => unsafe {
+            PstType::Null | PstType::Mark => unsafe {
                 free(self.data);
+            },
+            PstType::Unknown => unsafe {
+                let _ = Box::from_raw(self.data as *mut [u8]);
             },
         }
     }
@@ -130,6 +133,10 @@ impl pst_obj {
         assert_eq!(self.type_0, PstType::String);
         &*(self.data as *const pst_string)
     }
+    pub(crate) unsafe fn as_unknown(&self) -> &[T] {
+        assert_eq!(self.type_0, PstType::Unknown);
+        &*(self.data as *const [T])
+    }
     pub(crate) unsafe fn length(&self) -> i32 {
         match self.type_0 {
             PstType::Boolean | PstType::Integer | PstType::Real | PstType::Null | PstType::Mark => {
@@ -137,7 +144,7 @@ impl pst_obj {
             }
             PstType::Name => self.as_name().0.to_bytes().len() as i32,
             PstType::String => self.as_string().0.len() as _,
-            PstType::Unknown => CStr::from_ptr(self.data as *const i8).to_bytes().len() as i32,
+            PstType::Unknown => self.as_unknown().len() as i32,
         }
     }
     pub(crate) unsafe fn getIV(&self) -> i32 {
@@ -182,10 +189,9 @@ impl pst_obj {
                 panic!("Operation not defined for this type of object.");
             }
             PstType::Unknown => {
-                let cs = CStr::from_ptr(self.data as *const i8);
-                let len = cs.to_bytes().len() as usize;
-                if len > 0 {
-                    sv = Some(String::from_utf8_lossy(cs.to_bytes()).into());
+                let data = self.as_unknown();
+                if !data.is_empty() {
+                    sv = Some(String::from_utf8_lossy(data).into());
                 } else {
                     sv = None
                 }
@@ -194,17 +200,19 @@ impl pst_obj {
         sv
     }
 
-    pub(crate) unsafe fn data_ptr(&self) -> *const libc::c_void {
+    pub(crate) unsafe fn data(&self) -> &[u8] {
         (match self.type_0 {
-            PstType::Boolean => &self.as_boolean().0 as *const i8 as *const i8,
-            PstType::Integer => &self.as_integer().0 as *const i32 as *const i8,
-            PstType::Real => &self.as_real().0 as *const f64 as *const i8,
-            PstType::Name => self.as_name().0.as_ptr(),
-            PstType::String => self.as_string().0.as_ptr() as *const i8,
+            PstType::Boolean => std::slice::from_raw_parts(&self.as_boolean().0 as *const i8 as *const u8, 1),
+            PstType::Integer => std::slice::from_raw_parts(&self.as_integer().0 as *const i32 as *const u8, 4),
+            PstType::Real => std::slice::from_raw_parts(&self.as_real().0 as *const f64 as *const u8, 8),
+            PstType::Name => self.as_name().0.as_bytes(),
+            PstType::String => self.as_string().0.as_bytes() as *const i8,
             PstType::Null | PstType::Mark => {
                 panic!("Operation not defined for this type of object.");
             }
-            PstType::Unknown => self.data as *const i8,
+            PstType::Unknown => {
+                self.as_unknown()
+            }
         }) as *const libc::c_void
     }
 }
