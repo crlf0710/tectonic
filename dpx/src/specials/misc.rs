@@ -20,8 +20,8 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
 
+use crate::bridge::ttstub_input_open_str;
 use crate::bridge::TTInputFormat;
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_mfileio::tt_mfgets;
 use crate::dpx_mpost::mps_scan_bbox;
 use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear};
@@ -88,45 +88,42 @@ unsafe fn spc_handler_postscriptbox(spe: &mut spc_env, ap: &mut spc_arg) -> i32 
 
     spc_warn!(spe, "{}", command);
 
-    let filename;
-    if let Ok((width, height, _filename)) = parse_postscriptbox_special(command) {
+    let filename = if let Ok((width, height, filename)) = parse_postscriptbox_special(command) {
         ti.width = width;
         ti.height = height;
-        filename = _filename;
+        filename
     } else {
         spc_warn!(spe, "Syntax error in postscriptbox special?");
         return -1i32;
-    }
+    };
 
     ap.cur = &[];
     ti.width *= 72.0f64 / 72.27f64;
     ti.height *= 72.0f64 / 72.27f64;
-    let handle = ttstub_input_open(filename.as_ptr() as *const i8, TTInputFormat::PICT, 0i32);
-    if handle.is_none() {
-        spc_warn!(spe, "Could not open image file: {}", filename,);
-        return -1i32;
-    }
-    let mut handle = handle.unwrap();
-    ti.flags |= 1i32 << 1i32 | 1i32 << 2i32;
-    loop {
-        let mut p: *const i8 = tt_mfgets(buf.as_ptr() as *mut i8, 512, &mut handle);
-        if p.is_null() {
+    if let Some(mut handle) = ttstub_input_open_str(&filename, TTInputFormat::PICT, 0i32) {
+        ti.flags |= 1i32 << 1i32 | 1i32 << 2i32;
+        loop {
+            let mut p: *const i8 = tt_mfgets(buf.as_ptr() as *mut i8, 512, &mut handle);
+            if p.is_null() {
+                break;
+            }
+            if !(mps_scan_bbox(&mut p, p.offset(strlen(p) as isize), &mut ti.bbox) >= 0i32) {
+                continue;
+            }
+            ti.flags |= 1i32 << 0i32;
             break;
         }
-        if !(mps_scan_bbox(&mut p, p.offset(strlen(p) as isize), &mut ti.bbox) >= 0i32) {
-            continue;
+        let form_id = pdf_ximage_findresource(filename.as_ptr() as *const i8, options);
+        if form_id < 0i32 {
+            spc_warn!(spe, "Failed to load image file: {}", filename,);
+            return -1i32;
         }
-        ti.flags |= 1i32 << 0i32;
-        break;
-    }
-    ttstub_input_close(handle);
-    let form_id = pdf_ximage_findresource(filename.as_ptr() as *const i8, options);
-    if form_id < 0i32 {
-        spc_warn!(spe, "Failed to load image file: {}", filename,);
+        pdf_dev_put_image(form_id, &mut ti, spe.x_user, spe.y_user);
+        0
+    } else {
+        spc_warn!(spe, "Could not open image file: {}", filename);
         return -1i32;
     }
-    pdf_dev_put_image(form_id, &mut ti, spe.x_user, spe.y_user);
-    0i32
 }
 unsafe fn spc_handler_null(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     args.cur = &[];

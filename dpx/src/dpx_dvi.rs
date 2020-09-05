@@ -1927,7 +1927,7 @@ pub(crate) unsafe fn dvi_init(dvi_filename: *const i8, mag: f64) -> f64 {
     if dvi_filename.is_null() {
         panic!("filename must be specified");
     }
-    dvi_handle = ttstub_input_open(dvi_filename, TTInputFormat::BINARY, 0i32);
+    dvi_handle = ttstub_input_open(dvi_filename, TTInputFormat::BINARY, 0);
     if dvi_handle.is_none() {
         panic!("cannot open \"{}\"", CStr::from_ptr(dvi_filename).display());
     }

@@ -27,17 +27,16 @@
 )]
 
 use super::dpx_numbers::{get_positive_quad, GetFromFile};
-use crate::bridge::DisplayExt;
 use crate::mfree;
 use crate::streq_ptr;
 use crate::{info, warn};
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::ptr;
 
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::skip_bytes;
-use crate::bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open};
-use libc::{free, strcat, strcmp, strcpy, strlen, strrchr};
+use crate::bridge::{ttstub_input_get_size, ttstub_input_open_str};
+use libc::{free, strcpy};
 
 use std::io::{Read, Seek, SeekFrom};
 
@@ -694,12 +693,10 @@ unsafe fn read_tfm<R: Read>(mut fm: *mut font_metric, tfm_handle: &mut R, tfm_fi
 
 pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
     let tfm_name_ = CString::new(tfm_name).unwrap();
-    let tfm_name = tfm_name_.as_ptr();
     let mut tfm_handle = None;
     let mut format: i32 = 1i32;
-    let ofm_name;
     for i in 0..numfms {
-        if streq_ptr(tfm_name, (*fms.offset(i as isize)).tex_name) {
+        if streq_ptr(tfm_name_.as_ptr(), (*fms.offset(i as isize)).tex_name) {
             return i as i32;
         }
     }
@@ -721,52 +718,39 @@ pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
      * I'll not explain this in detail... This change is mostly specific to
      * Japanese support."
      */
-    let suffix = strrchr(tfm_name, '.' as i32);
-    if suffix.is_null()
-        || strcmp(suffix, b".tfm\x00" as *const u8 as *const i8) != 0i32
-            && strcmp(suffix, b".ofm\x00" as *const u8 as *const i8) != 0i32
-    {
-        ofm_name = new((strlen(tfm_name)
-            .wrapping_add(strlen(b".ofm\x00" as *const u8 as *const i8))
-            .wrapping_add(1))
-        .wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-        strcpy(ofm_name, tfm_name);
-        strcat(ofm_name, b".ofm\x00" as *const u8 as *const i8);
-    } else {
-        ofm_name = ptr::null_mut()
-    }
-    if !ofm_name.is_null() && {
-        tfm_handle = ttstub_input_open(ofm_name, TTInputFormat::OFM, 0i32);
+    let suffix = tfm_name.split(".").last();
+    let ofm_name = match suffix {
+        Some("tfm") | Some("ofm") => None,
+        _ => Some(tfm_name.to_string() + ".ofm"),
+    };
+    if ofm_name.is_some() && {
+        tfm_handle = ttstub_input_open_str(&ofm_name.unwrap(), TTInputFormat::OFM, 0i32);
         tfm_handle.is_some()
     } {
-        format = 2i32
+        format = 2;
     } else {
-        tfm_handle = ttstub_input_open(tfm_name, TTInputFormat::TFM, 0i32);
+        tfm_handle = ttstub_input_open_str(tfm_name, TTInputFormat::TFM, 0i32);
         if tfm_handle.is_some() {
-            format = 1i32
+            format = 1;
         } else {
-            tfm_handle = ttstub_input_open(tfm_name, TTInputFormat::OFM, 0i32);
+            tfm_handle = ttstub_input_open_str(tfm_name, TTInputFormat::OFM, 0i32);
             if tfm_handle.is_some() {
-                format = 2i32
+                format = 2;
             }
         }
     }
-    free(ofm_name as *mut libc::c_void);
     if tfm_handle.is_none() {
         if must_exist != 0 {
-            panic!(
-                "Unable to find TFM file \"{}\".",
-                CStr::from_ptr(tfm_name).display()
-            );
+            panic!("Unable to find TFM file \"{}\".", tfm_name);
         }
         return -1i32;
     }
     let mut tfm_handle = tfm_handle.unwrap();
     if verbose != 0 {
         if format == 1i32 {
-            info!("(TFM:{}", CStr::from_ptr(tfm_name).display());
-        } else if format == 2i32 {
-            info!("(OFM:{}", CStr::from_ptr(tfm_name).display());
+            info!("(TFM:{}", tfm_name);
+        } else if format == 2 {
+            info!("(OFM:{}", tfm_name);
         }
     }
     let tfm_file_size = ttstub_input_get_size(&mut tfm_handle) as off_t;
@@ -778,7 +762,7 @@ pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
     }
     fms_need(numfms.wrapping_add(1_u32));
     fm_init(fms.offset(numfms as isize));
-    if format == 2i32 {
+    if format == 2 {
         read_ofm(
             &mut *fms.offset(numfms as isize),
             &mut tfm_handle,
@@ -791,11 +775,9 @@ pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
             tfm_file_size,
         );
     }
-    ttstub_input_close(tfm_handle);
     let ref mut fresh0 = (*fms.offset(numfms as isize)).tex_name;
-    *fresh0 = new((strlen(tfm_name).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-        as *mut i8;
-    strcpy((*fms.offset(numfms as isize)).tex_name, tfm_name);
+    *fresh0 = new((tfm_name.len() + 1).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
+    strcpy((*fms.offset(numfms as isize)).tex_name, tfm_name_.as_ptr());
     if verbose != 0 {
         info!(")");
     }
@@ -930,16 +912,13 @@ pub(crate) unsafe fn tfm_exists(tfm_name: &[u8]) -> bool {
     if tfm_name.is_empty() {
         return false;
     }
-    let tfm_name = CString::new(tfm_name).unwrap();
-    let handle = ttstub_input_open(tfm_name.as_ptr(), TTInputFormat::OFM, 0);
-    if let Some(handle) = handle {
-        ttstub_input_close(handle);
-        return true;
-    }
-    let handle = ttstub_input_open(tfm_name.as_ptr(), TTInputFormat::TFM, 0);
-    if let Some(handle) = handle {
-        ttstub_input_close(handle);
-        return true;
+    if let Ok(tfm_name) = std::str::from_utf8(tfm_name) {
+        if ttstub_input_open_str(tfm_name, TTInputFormat::OFM, 0).is_some() {
+            return true;
+        }
+        if ttstub_input_open_str(tfm_name, TTInputFormat::TFM, 0).is_some() {
+            return true;
+        }
     }
     false
 }
