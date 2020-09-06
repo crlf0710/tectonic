@@ -830,12 +830,12 @@ impl<'a> Drop for glyph_mapper<'a> {
 
 unsafe fn do_custom_encoding(
     font: &mut pdf_font,
-    encoding: *mut *mut i8,
+    encoding: &mut [*mut i8],
     usedchars: *const i8,
     sfont: &mut sfnt,
 ) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
-    assert!(!encoding.is_null() && !usedchars.is_null());
+    assert!(!encoding[0].is_null() && !usedchars.is_null());
     /* Things are complicated. We still need to use PostScript
      * glyph names. But OpenType fonts may not have PS name to
      * glyph mapping. We use Unicode plus OTL GSUB for finding
@@ -889,9 +889,9 @@ unsafe fn do_custom_encoding(
                 if !(*usedchars.offset(code as isize) == 0) {
                     let mut gid: u16 = 0;
                     let mut idx;
-                    if (*encoding.offset(code as isize)).is_null()
+                    if (encoding[code as usize]).is_null()
                         || streq_ptr(
-                            *encoding.offset(code as isize),
+                            encoding[code as usize],
                             b".notdef\x00" as *const u8 as *const i8,
                         ) as i32
                             != 0
@@ -902,10 +902,10 @@ unsafe fn do_custom_encoding(
                         idx = 0_u16
                     } else {
                         let error =
-                            if !strchr(*encoding.offset(code as isize), '_' as i32).is_null() {
-                                findcomposite(*encoding.offset(code as isize), &mut gid, &mut gm)
+                            if !strchr(encoding[code as usize], '_' as i32).is_null() {
+                                findcomposite(encoding[code as usize], &mut gid, &mut gm)
                             } else {
-                                resolve_glyph(*encoding.offset(code as isize), &mut gid, &mut gm)
+                                resolve_glyph(encoding[code as usize], &mut gid, &mut gm)
                             };
                         /*
                          * Older versions of gs had problem with glyphs (other than .notdef)
@@ -914,13 +914,13 @@ unsafe fn do_custom_encoding(
                         if error != 0 {
                             warn!(
                                 "Glyph \"{}\" not available in font \"{}\".",
-                                CStr::from_ptr(*encoding.offset(code as isize)).display(),
+                                CStr::from_ptr(encoding[code as usize]).display(),
                                 (&*font).ident,
                             ); /* count returned. */
                         } else if verbose > 1i32 {
                             info!(
                                 "truetype>> Glyph glyph-name=\"{}\" found at glyph-id=\"{}\".\n",
-                                CStr::from_ptr(*encoding.offset(code as isize)).display(),
+                                CStr::from_ptr(encoding[code as usize]).display(),
                                 gid,
                             );
                         }

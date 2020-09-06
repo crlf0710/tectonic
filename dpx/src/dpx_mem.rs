@@ -29,8 +29,6 @@
 use libc::{free, malloc, realloc};
 use std::ptr;
 
-use crate::bridge::size_t;
-
 pub(crate) unsafe fn new(size: u32) -> *mut libc::c_void {
     let result: *mut libc::c_void = malloc(size as _);
     if result.is_null() {

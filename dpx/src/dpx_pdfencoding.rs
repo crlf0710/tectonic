@@ -153,13 +153,13 @@ unsafe fn pdf_clean_encoding_struct(encoding: *mut pdf_encoding) {
             mfree((*encoding).glyphs[code as usize] as *mut libc::c_void) as *mut i8;
     }
 }
-unsafe fn is_similar_charset(enc_vec: *mut *mut i8, enc_vec2: *mut *const i8) -> bool {
+unsafe fn is_similar_charset(enc_vec: &[*mut i8], enc_vec2: &[*const i8]) -> bool {
     let mut same: i32 = 0i32;
     for code in 0..256 {
-        if !(!(*enc_vec.offset(code as isize)).is_null()
+        if !(!(enc_vec[code as usize]).is_null()
             && strcmp(
-                *enc_vec.offset(code as isize),
-                *enc_vec2.offset(code as isize),
+                enc_vec[code as usize],
+                enc_vec2[code as usize],
             ) != 0)
             && {
                 same += 1;
@@ -362,8 +362,8 @@ unsafe fn pdf_encoding_new_encoding(
     if baseenc_name.is_none()
         && flags & 1i32 << 0i32 == 0
         && is_similar_charset(
-            (*encoding).glyphs.as_mut_ptr(),
-            WinAnsiEncoding.as_mut_ptr(),
+            &(*encoding).glyphs[..],
+            &WinAnsiEncoding[..],
         ) as i32
             != 0
     {
@@ -416,7 +416,7 @@ pub(crate) unsafe fn pdf_encoding_complete() {
             assert!(encoding.tounicode.is_null());
             encoding.tounicode = pdf_create_ToUnicode_CMap(
                 &encoding.enc_name,
-                encoding.glyphs.as_mut_ptr(),
+                encoding.glyphs.as_mut(),
                 encoding.is_used.as_mut_ptr(),
             )
             .map(IntoObj::into_obj)
@@ -447,12 +447,12 @@ pub(crate) unsafe fn pdf_encoding_findresource(enc_name: &str) -> i32 {
  * Pointer will change if other encoding is loaded...
  */
 
-pub(crate) unsafe fn pdf_encoding_get_encoding(enc_id: i32) -> *mut *mut i8 {
+pub(crate) unsafe fn pdf_encoding_get_encoding<'a>(enc_id: i32) -> &'a mut [*mut i8] {
     if enc_id < 0i32 || enc_id >= enc_cache.len() as i32 {
         panic!("Invalid encoding id: {}", enc_id);
     }
     let encoding = &mut enc_cache[enc_id as usize];
-    encoding.glyphs.as_mut_ptr()
+    &mut encoding.glyphs[..]
 }
 
 pub(crate) unsafe fn pdf_get_encoding_obj(enc_id: i32) -> *mut pdf_obj {
@@ -528,10 +528,10 @@ pub(crate) unsafe fn pdf_encoding_get_tounicode(encoding_id: i32) -> *mut pdf_ob
 
 pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
     enc_name: &str,
-    enc_vec: *mut *mut i8,
+    enc_vec: &mut [*mut i8],
     is_used: *const i8,
 ) -> Option<pdf_stream> {
-    assert!(!enc_name.is_empty() && !enc_vec.is_null());
+    assert!(!enc_name.is_empty());
 
     let mut cmap = CMap_new();
     CMap_set_name(&mut cmap, &format!("{}-UTF16", enc_name));
@@ -542,22 +542,18 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
     let mut all_predef = 1;
     for code in 0..=0xff {
         if !(!is_used.is_null() && *is_used.offset(code as isize) == 0) {
-            if !(*enc_vec.offset(code as isize)).is_null() {
+            if !(enc_vec[code as usize]).is_null() {
                 let mut fail_count: i32 = 0i32;
-                let agln: *mut agl_name = agl_lookup_list(*enc_vec.offset(code as isize));
+                let agln: *mut agl_name = agl_lookup_list(enc_vec[code as usize]);
                 /* Adobe glyph naming conventions are not used by viewers,
                  * hence even ligatures (e.g, "f_i") must be explicitly defined
                  */
                 if pdf_get_version() < 5_u32 || agln.is_null() || (*agln).is_predef == 0 {
-                    wbuf[0] = (code & 0xffi32) as u8;
+                    wbuf[0] = (code & 0xff) as u8;
                     let mut p = wbuf.as_mut_ptr().offset(1);
                     let endptr = wbuf.as_mut_ptr().offset(1024);
-                    let len = agl_sput_UTF16BE(
-                        *enc_vec.offset(code as isize),
-                        &mut p,
-                        endptr,
-                        &mut fail_count,
-                    );
+                    let len =
+                        agl_sput_UTF16BE(enc_vec[code as usize], &mut p, endptr, &mut fail_count);
                     if len >= 1i32 && fail_count == 0 {
                         CMap_add_bfchar(
                             &mut cmap,
@@ -608,8 +604,8 @@ pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: &str) -> Option<pdf_stream
     if ident.is_empty() {
         return None;
     }
-    if let Some(handle) = ttstub_input_open_str(ident, TTInputFormat::CMAP, 0i32) {
-        if CMap_parse_check_sig(&mut &handle) < 0i32 {
+    if let Some(handle) = ttstub_input_open_str(ident, TTInputFormat::CMAP, 0) {
+        if CMap_parse_check_sig(&mut &handle) < 0 {
             return None;
         }
         let mut cmap = CMap_new();

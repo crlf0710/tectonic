@@ -705,7 +705,7 @@ static mut ISOLatin1Encoding: [*const i8; 256] = [
  * or "dup num exch num get put"
  */
 unsafe fn try_put_or_putinterval(
-    enc_vec: *mut *mut i8,
+    enc_vec: &mut [*mut i8],
     start: *mut *mut u8,
     end: *mut u8,
 ) -> Result<(), ()> {
@@ -728,8 +728,8 @@ unsafe fn try_put_or_putinterval(
                 Some(PstObj::Unknown(data)) if data.starts_with(b"put") => {}
                 _ => return Err(()),
             }
-            free(*enc_vec.offset(num1 as isize) as *mut libc::c_void);
-            *enc_vec.offset(num1 as isize) = xstrdup(*enc_vec.offset(num2 as isize));
+            free(enc_vec[num1 as usize] as *mut libc::c_void);
+            enc_vec[num1 as usize] = xstrdup(enc_vec[num2 as usize]);
             Ok(())
         }
         Some(PstObj::Integer(num2)) if (num2 >= 0 && num2 + num1 < 256) => {
@@ -750,12 +750,11 @@ unsafe fn try_put_or_putinterval(
                 _ => return Err(()),
             }
             for i in 0..num2 {
-                if !(*enc_vec.offset((num1 + i) as isize)).is_null() {
+                if !(enc_vec[(num1 + i) as usize]).is_null() {
                     /* num1 + i < 256 here */
-                    *enc_vec.offset((num3 + i) as isize) =
-                        mfree(*enc_vec.offset((num3 + i) as isize) as *mut libc::c_void) as *mut i8;
-                    *enc_vec.offset((num3 + i) as isize) =
-                        xstrdup(*enc_vec.offset((num1 + i) as isize));
+                    enc_vec[(num3 + i) as usize] =
+                        mfree(enc_vec[(num3 + i) as usize] as *mut libc::c_void) as *mut i8;
+                    enc_vec[(num3 + i) as usize] = xstrdup(enc_vec[(num1 + i) as usize])
                 }
             }
             Ok(())
@@ -763,7 +762,7 @@ unsafe fn try_put_or_putinterval(
         _ => Err(()),
     }
 }
-unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u8) -> i32 {
+unsafe fn parse_encoding(enc_vec: &mut [*mut i8], start: *mut *mut u8, end: *mut u8) -> i32 {
     /*
      *  StandardEncoding def
      * or
@@ -776,57 +775,45 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
      */
     match pst_get_token(start, end).unwrap() {
         PstObj::Unknown(data) if data.starts_with(b"StandardEncoding") => {
-            if !enc_vec.is_null() {
-                let mut code = 0i32;
-                while code < 256i32 {
-                    if !StandardEncoding[code as usize].is_null()
+            if !enc_vec.is_empty() {
+                for code in 0..256 {
+                    if !StandardEncoding[code].is_null()
                         && strcmp(
-                            StandardEncoding[code as usize],
+                            StandardEncoding[code],
                             b".notdef\x00" as *const u8 as *const i8,
                         ) != 0i32
                     {
-                        *enc_vec.offset(code as isize) =
-                            new((strlen(StandardEncoding[code as usize]).wrapping_add(1))
-                                .wrapping_mul(::std::mem::size_of::<i8>())
-                                as _) as *mut i8;
-                        strcpy(
-                            *enc_vec.offset(code as isize),
-                            StandardEncoding[code as usize],
-                        );
+                        enc_vec[code] = new((strlen(StandardEncoding[code]).wrapping_add(1))
+                            .wrapping_mul(::std::mem::size_of::<i8>())
+                            as _) as *mut i8;
+                        strcpy(enc_vec[code], StandardEncoding[code]);
                     } else {
-                        *enc_vec.offset(code as isize) = ptr::null_mut();
+                        enc_vec[code] = ptr::null_mut();
                     }
-                    code += 1
                 }
             }
         }
         PstObj::Unknown(data) if data.starts_with(b"ISOLatin1Encoding") => {
-            if !enc_vec.is_null() {
-                let mut code = 0i32;
-                while code < 256i32 {
-                    if !ISOLatin1Encoding[code as usize].is_null()
+            if !enc_vec.is_empty() {
+                for code in 0..256 {
+                    if !ISOLatin1Encoding[code].is_null()
                         && strcmp(
-                            ISOLatin1Encoding[code as usize],
+                            ISOLatin1Encoding[code],
                             b".notdef\x00" as *const u8 as *const i8,
                         ) != 0i32
                     {
-                        *enc_vec.offset(code as isize) =
-                            new((strlen(ISOLatin1Encoding[code as usize]).wrapping_add(1))
-                                .wrapping_mul(::std::mem::size_of::<i8>())
-                                as _) as *mut i8;
-                        strcpy(
-                            *enc_vec.offset(code as isize),
-                            ISOLatin1Encoding[code as usize],
-                        );
+                        enc_vec[code] = new((strlen(ISOLatin1Encoding[code]).wrapping_add(1))
+                            .wrapping_mul(::std::mem::size_of::<i8>())
+                            as _) as *mut i8;
+                        strcpy(enc_vec[code], ISOLatin1Encoding[code]);
                     } else {
-                        *enc_vec.offset(code as isize) = ptr::null_mut()
+                        enc_vec[code] = ptr::null_mut();
                     }
-                    code += 1
                 }
             }
         }
         PstObj::Unknown(data) if data.starts_with(b"ExpertEncoding") => {
-            if !enc_vec.is_null() {
+            if !enc_vec.is_empty() {
                 warn!("ExpertEncoding not supported.");
                 return -1i32;
             }
@@ -855,18 +842,17 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
                             match pst_get_token(start, end).unwrap() {
                                 PstObj::Unknown(data) if data.starts_with(b"dup") => {
                                     /* possibly putinterval type */
-                                    if enc_vec.is_null() {
-                                        warn!("This kind of type1 fonts are not supported as native fonts.\n                   They are supported if used with tfm fonts.\n");
-                                    } else {
+                                    if !enc_vec.is_empty() {
                                         try_put_or_putinterval(enc_vec, start, end).ok();
+                                    } else {
+                                        warn!("This kind of type1 fonts are not supported as native fonts.\n                   They are supported if used with tfm fonts.\n");
                                     }
                                 }
                                 PstObj::Integer(code) if (code >= 0 && code < 256) => {
+                                    let code = code as usize;
                                     if let PstObj::Name(name) = pst_get_token(start, end).unwrap() {
-                                        if !enc_vec.is_null() {
-                                            free(
-                                                *enc_vec.offset(code as isize) as *mut libc::c_void
-                                            );
+                                        if !enc_vec.is_empty() {
+                                            free(enc_vec[code] as *mut libc::c_void);
                                             let cpy;
                                             if !name.to_bytes().is_empty() {
                                                 let len = name.to_bytes().len();
@@ -882,15 +868,16 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
                                             } else {
                                                 cpy = ptr::null_mut();
                                             }
-                                            *enc_vec.offset(code as isize) = cpy as *mut i8;
+                                            enc_vec[code] = cpy as *mut i8;
                                         }
                                         match pst_get_token(start, end).unwrap() {
                                             PstObj::Unknown(data) if data.starts_with(b"put") => {}
                                             _ => {
-                                                *enc_vec.offset(code as isize) =
-                                                    mfree(*enc_vec.offset(code as isize)
-                                                        as *mut libc::c_void)
-                                                        as *mut i8;
+                                                if !enc_vec.is_empty() {
+                                                    enc_vec[code] =
+                                                        mfree(enc_vec[code] as *mut libc::c_void)
+                                                            as *mut i8;
+                                                }
                                             }
                                         }
                                     }
@@ -1369,7 +1356,7 @@ fn check_size(a: usize, b: usize) -> Result<usize, ()> {
 
 unsafe fn parse_part1(
     font: &mut cff_font,
-    enc_vec: *mut *mut i8,
+    enc_vec: &mut [*mut i8],
     start: *mut *mut u8,
     end: *mut u8,
 ) -> Result<(), ()> {
@@ -1387,7 +1374,7 @@ unsafe fn parse_part1(
             None => break,
             Some(key) => match key.as_str() {
                 "Encoding" => {
-                    if parse_encoding(enc_vec, start, end) < 0i32 {
+                    if parse_encoding(enc_vec, start, end) < 0 {
                         return Err(());
                     }
                 }
@@ -1669,7 +1656,7 @@ impl cff_font {
 }
 
 pub(crate) unsafe fn t1_load_font(
-    enc_vec: *mut *mut i8,
+    enc_vec: &mut [*mut i8],
     mode: i32,
     mut handle: DroppableInputHandleWrapper,
 ) -> Box<cff_font> {

@@ -998,7 +998,7 @@ unsafe fn dvi_locate_native_font(
             0i32,
             (256usize).wrapping_mul(::std::mem::size_of::<*mut i8>()),
         );
-        let cffont = t1_load_font(enc_vec.as_mut_ptr(), 0i32, handle);
+        let cffont = t1_load_font(&mut enc_vec[..], 0, handle);
         if cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) {
             font.ascent = cff_dict_get(
                 cffont.topdict,
