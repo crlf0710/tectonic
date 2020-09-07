@@ -27,6 +27,7 @@
 )]
 
 use super::dpx_numbers::{get_positive_quad, GetFromFile};
+use crate::FromBEByteSlice;
 use crate::{info, warn};
 
 use super::dpx_numbers::skip_bytes;
@@ -45,13 +46,14 @@ pub(crate) type fixword = i32;
 pub(crate) struct font_metric {
     pub(crate) tex_name: String,
     pub(crate) designsize: fixword,
-    pub(crate) codingscheme: Vec<i8>,
+    pub(crate) codingscheme: Vec<u8>,
     pub(crate) fontdir: i32,
     pub(crate) firstchar: i32,
     pub(crate) lastchar: i32,
     pub(crate) widths: Vec<fixword>,
     pub(crate) heights: Vec<fixword>,
     pub(crate) depths: Vec<fixword>,
+    #[allow(unused)]
     pub(crate) charmap: CharMap,
     pub(crate) source: i32,
 }
@@ -105,7 +107,7 @@ pub(crate) struct tfm_font {
     pub(crate) nco: u32,
     pub(crate) ncw: u32,
     pub(crate) npc: u32,
-    pub(crate) header: Vec<fixword>,
+    pub(crate) header: Vec<u8>,
     pub(crate) char_info: Vec<u32>,
     pub(crate) width_index: Vec<u16>,
     pub(crate) height_index: Vec<u8>,
@@ -258,36 +260,22 @@ unsafe fn tfm_unpack_arrays(fm: &mut font_metric, tfm: &tfm_font) {
         fm.depths[i as usize] = tfm.depth[depth_index as usize];
     }
 }
-unsafe fn sput_bigendian(s: *mut i8, mut v: i32, n: i32) -> i32 {
-    let mut i = n - 1i32;
-    while i >= 0i32 {
-        *s.offset(i as isize) = (v & 0xffi32) as i8;
-        v >>= 8i32;
-        i -= 1
-    }
-    n
-}
 unsafe fn tfm_unpack_header(fm: &mut font_metric, tfm: &tfm_font) {
-    if tfm.wlenheader < 12_u32 {
+    if tfm.wlenheader < 12 {
         fm.codingscheme = Vec::new();
     } else {
-        let len = tfm.header[2] >> 24;
+        let len = tfm.header[8] as usize;
         if len < 0 || len > 39 {
             panic!("Invalid TFM header.");
         }
         if len > 0 {
-            fm.codingscheme = vec![0; 40];
-            let mut p = fm.codingscheme.as_mut_ptr();
-            p = p.offset(sput_bigendian(p, tfm.header[2], 3) as isize);
-            for i in 1..=(len / 4) {
-                p = p.offset(sput_bigendian(p, tfm.header[(2 + i) as usize], 4) as isize);
-            }
-            fm.codingscheme[len as usize] = '\u{0}' as i32 as i8
+            fm.codingscheme = Vec::from(&tfm.header[9..9 + len]);
+            fm.codingscheme.push(0);
         } else {
             fm.codingscheme = Vec::new();
         }
     }
-    fm.designsize = tfm.header[1];
+    fm.designsize = i32::from_be_byte_slice(&tfm.header[4..8]);
 }
 unsafe fn ofm_check_size_one(tfm: &tfm_font, ofm_file_size: off_t) {
     let mut ofm_size: u32 = 14_u32;
@@ -415,9 +403,9 @@ unsafe fn read_ofm<R: Read + Seek>(ofm_handle: &mut R, ofm_file_size: off_t) -> 
     if tfm.level < 0i32 || tfm.level > 1i32 {
         panic!("OFM level {} not supported.", tfm.level);
     }
-    if tfm.wlenheader > 0_u32 {
-        tfm.header = vec![0; tfm.wlenheader as usize];
-        fread_fwords(tfm.header.as_mut_slice(), ofm_handle);
+    if tfm.wlenheader > 0 {
+        tfm.header = vec![0; (tfm.wlenheader as usize) * 4];
+        ofm_handle.read_exact(tfm.header.as_mut_slice()).unwrap();
     }
     if tfm.level == 0i32 {
         ofm_do_char_info_zero(ofm_handle, &mut tfm);
@@ -453,9 +441,9 @@ unsafe fn read_tfm<R: Read>(tfm_handle: &mut R, tfm_file_size: off_t) -> font_me
     let mut fm = font_metric::default();
     fm.firstchar = tfm.bc as i32;
     fm.lastchar = tfm.ec as i32;
-    if tfm.wlenheader > 0_u32 {
-        tfm.header = vec![0; tfm.wlenheader as usize];
-        fread_fwords(tfm.header.as_mut_slice(), tfm_handle);
+    if tfm.wlenheader > 0 {
+        tfm.header = vec![0; (tfm.wlenheader * 4) as usize];
+        tfm_handle.read_exact(tfm.header.as_mut_slice()).unwrap();
     }
     if tfm.ec.wrapping_sub(tfm.bc).wrapping_add(1_u32) > 0_u32 {
         tfm.char_info = vec![0; (tfm.ec - tfm.bc + 1) as usize];
