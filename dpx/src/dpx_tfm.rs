@@ -27,14 +27,10 @@
 )]
 
 use super::dpx_numbers::{get_positive_quad, GetFromFile};
-use crate::mfree;
 use crate::{info, warn};
-use std::ptr;
 
-use super::dpx_mem::new;
 use super::dpx_numbers::skip_bytes;
 use crate::bridge::{ttstub_input_get_size, ttstub_input_open_str};
-use libc::free;
 
 use std::io::{Read, Seek, SeekFrom};
 
@@ -45,39 +41,31 @@ pub(crate) type off_t = __off_t;
 use crate::bridge::TTInputFormat;
 
 pub(crate) type fixword = i32;
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct font_metric {
     pub(crate) tex_name: String,
     pub(crate) designsize: fixword,
-    pub(crate) codingscheme: *mut i8,
+    pub(crate) codingscheme: Vec<i8>,
     pub(crate) fontdir: i32,
     pub(crate) firstchar: i32,
     pub(crate) lastchar: i32,
     pub(crate) widths: Vec<fixword>,
     pub(crate) heights: Vec<fixword>,
     pub(crate) depths: Vec<fixword>,
-    pub(crate) charmap: C2RustUnnamed,
+    pub(crate) charmap: CharMap,
     pub(crate) source: i32,
 }
 
-impl font_metric {
-    pub(crate) const fn new() -> Self {
-        Self {
-            tex_name: String::new(),
-            firstchar: 0i32,
-            lastchar: 0i32,
-            fontdir: 0i32,
-            codingscheme: ptr::null_mut(),
-            designsize: 0i32,
-            widths: Vec::new(),
-            heights: Vec::new(),
-            depths: Vec::new(),
-            charmap: C2RustUnnamed {
-                type_0: 0i32,
-                data: ptr::null_mut(),
-            },
-            source: 0i32,
-        }
+#[derive(Clone)]
+pub(crate) enum CharMap {
+    None,
+    Char(char_map),
+    Range(range_map),
+}
+
+impl Default for CharMap {
+    fn default() -> Self {
+        Self::None
     }
 }
 
@@ -130,19 +118,16 @@ pub(crate) struct tfm_font {
 /*
  * All characters in the same range have same metrics.
  */
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct range_map {
-    pub(crate) num_coverages: u16,
-    pub(crate) coverages: *mut coverage,
-    pub(crate) indices: *mut u16,
+    pub(crate) coverages: Vec<coverage>,
+    pub(crate) indices: Vec<u16>,
 }
 /* Special case of num_coverages = 1 */
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct char_map {
     pub(crate) coverage: coverage,
-    pub(crate) indices: *mut u16,
+    pub(crate) indices: Vec<u16>,
 }
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -153,57 +138,26 @@ pub(crate) struct char_map {
  * as directory separators. */
 static mut verbose: i32 = 0i32;
 
-unsafe fn release_char_map(mut map: *mut char_map) {
-    (*map).indices = mfree((*map).indices as *mut libc::c_void) as *mut u16;
-    free(map as *mut libc::c_void);
-}
-unsafe fn release_range_map(mut map: *mut range_map) {
-    free((*map).coverages as *mut libc::c_void);
-    free((*map).indices as *mut libc::c_void);
-    (*map).coverages = ptr::null_mut();
-    (*map).indices = ptr::null_mut();
-    free(map as *mut libc::c_void);
-}
-unsafe fn lookup_char(map: *const char_map, charcode: i32) -> i32 {
-    if charcode >= (*map).coverage.first_char
-        && charcode <= (*map).coverage.first_char + (*map).coverage.num_chars
+unsafe fn lookup_char(map: &char_map, charcode: i32) -> i32 {
+    if charcode >= map.coverage.first_char
+        && charcode <= map.coverage.first_char + map.coverage.num_chars
     {
-        return *(*map)
-            .indices
-            .offset((charcode - (*map).coverage.first_char) as isize) as i32;
+        return map.indices[(charcode - map.coverage.first_char) as usize] as i32;
     } else {
         return -1i32;
     };
 }
-unsafe fn lookup_range(map: *const range_map, charcode: i32) -> i32 {
-    let mut idx = (*map).num_coverages as i32 - 1i32;
-    while idx >= 0i32 && charcode >= (*(*map).coverages.offset(idx as isize)).first_char {
+unsafe fn lookup_range(map: &range_map, charcode: i32) -> i32 {
+    let mut idx = map.coverages.len() as i32 - 1;
+    while idx >= 0 && charcode >= map.coverages[idx as usize].first_char {
         if charcode
-            <= (*(*map).coverages.offset(idx as isize)).first_char
-                + (*(*map).coverages.offset(idx as isize)).num_chars
+            <= map.coverages[idx as usize].first_char + map.coverages[idx as usize].num_chars
         {
-            return *(*map).indices.offset(idx as isize) as i32;
+            return map.indices[idx as usize] as i32;
         }
         idx -= 1
     }
     -1i32
-}
-
-impl Drop for font_metric {
-    fn drop(&mut self) {
-        unsafe {
-            free(self.codingscheme as *mut libc::c_void);
-            match self.charmap.type_0 {
-                1 => {
-                    release_char_map(self.charmap.data as *mut char_map);
-                }
-                2 => {
-                    release_range_map(self.charmap.data as *mut range_map);
-                }
-                _ => {}
-            }
-        }
-    }
 }
 
 static mut fms: Vec<font_metric> = Vec::new();
@@ -315,24 +269,22 @@ unsafe fn sput_bigendian(s: *mut i8, mut v: i32, n: i32) -> i32 {
 }
 unsafe fn tfm_unpack_header(fm: &mut font_metric, tfm: &tfm_font) {
     if tfm.wlenheader < 12_u32 {
-        fm.codingscheme = ptr::null_mut()
+        fm.codingscheme = Vec::new();
     } else {
         let len = tfm.header[2] >> 24;
         if len < 0 || len > 39 {
             panic!("Invalid TFM header.");
         }
         if len > 0 {
-            fm.codingscheme =
-                new((40_u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-                    as *mut i8;
-            let mut p = fm.codingscheme;
+            fm.codingscheme = vec![0; 40];
+            let mut p = fm.codingscheme.as_mut_ptr();
             p = p.offset(sput_bigendian(p, tfm.header[2], 3) as isize);
             for i in 1..=(len / 4) {
                 p = p.offset(sput_bigendian(p, tfm.header[(2 + i) as usize], 4) as isize);
             }
-            *fm.codingscheme.offset(len as isize) = '\u{0}' as i32 as i8
+            fm.codingscheme[len as usize] = '\u{0}' as i32 as i8
         } else {
-            fm.codingscheme = ptr::null_mut()
+            fm.codingscheme = Vec::new();
         }
     }
     fm.designsize = tfm.header[1];
@@ -486,7 +438,7 @@ unsafe fn read_ofm<R: Read + Seek>(ofm_handle: &mut R, ofm_file_size: off_t) -> 
     }
     let num_chars = tfm.ec.wrapping_sub(tfm.bc).wrapping_add(1_u32);
 
-    let mut fm = font_metric::new();
+    let mut fm = font_metric::default();
     ofm_unpack_arrays(&mut fm, &mut tfm, num_chars);
     tfm_unpack_header(&mut fm, &mut tfm);
     fm.firstchar = tfm.bc as i32;
@@ -498,7 +450,7 @@ unsafe fn read_tfm<R: Read>(tfm_handle: &mut R, tfm_file_size: off_t) -> font_me
     let mut tfm: tfm_font = tfm_font::default();
     tfm_get_sizes(tfm_handle, tfm_file_size, &mut tfm);
 
-    let mut fm = font_metric::new();
+    let mut fm = font_metric::default();
     fm.firstchar = tfm.bc as i32;
     fm.lastchar = tfm.ec as i32;
     if tfm.wlenheader > 0_u32 {
@@ -619,20 +571,20 @@ pub(crate) unsafe fn tfm_get_fw_width(font_id: i32, ch: i32) -> fixword {
     }
     let fm = &mut fms[font_id as usize];
     if ch >= fm.firstchar && ch <= fm.lastchar {
-        match fm.charmap.type_0 {
-            1 => {
-                idx = lookup_char(fm.charmap.data as *const char_map, ch);
+        match &fm.charmap {
+            CharMap::Char(data) => {
+                idx = lookup_char(data, ch);
                 if idx < 0i32 {
                     panic!("Invalid char: {}\n", ch);
                 }
             }
-            2 => {
-                idx = lookup_range(fm.charmap.data as *const range_map, ch);
+            CharMap::Range(data) => {
+                idx = lookup_range(data, ch);
                 if idx < 0i32 {
                     panic!("Invalid char: {}\n", ch);
                 }
             }
-            _ => idx = ch,
+            CharMap::None => idx = ch,
         }
     } else {
         panic!("Invalid char: {}\n", ch);
@@ -647,20 +599,20 @@ pub(crate) unsafe fn tfm_get_fw_height(font_id: i32, ch: i32) -> fixword {
     }
     let fm = &mut fms[font_id as usize];
     if ch >= fm.firstchar && ch <= fm.lastchar {
-        match fm.charmap.type_0 {
-            1 => {
-                idx = lookup_char(fm.charmap.data as *const char_map, ch);
+        match &fm.charmap {
+            CharMap::Char(data) => {
+                idx = lookup_char(data, ch);
                 if idx < 0i32 {
                     panic!("Invalid char: {}\n", ch);
                 }
             }
-            2 => {
-                idx = lookup_range(fm.charmap.data as *const range_map, ch);
+            CharMap::Range(data) => {
+                idx = lookup_range(data, ch);
                 if idx < 0i32 {
                     panic!("Invalid char: {}\n", ch);
                 }
             }
-            _ => idx = ch,
+            CharMap::None => idx = ch,
         }
     } else {
         panic!("Invalid char: {}\n", ch);
@@ -675,20 +627,20 @@ pub(crate) unsafe fn tfm_get_fw_depth(font_id: i32, ch: i32) -> fixword {
     }
     let fm = &mut fms[font_id as usize];
     if ch >= fm.firstchar && ch <= fm.lastchar {
-        match fm.charmap.type_0 {
-            1 => {
-                idx = lookup_char(fm.charmap.data as *const char_map, ch);
+        match &fm.charmap {
+            CharMap::Char(data) => {
+                idx = lookup_char(data, ch);
                 if idx < 0i32 {
                     panic!("Invalid char: {}\n", ch);
                 }
             }
-            2 => {
-                idx = lookup_range(fm.charmap.data as *const range_map, ch);
+            CharMap::Range(data) => {
+                idx = lookup_range(data, ch);
                 if idx < 0i32 {
                     panic!("Invalid char: {}\n", ch);
                 }
             }
-            _ => idx = ch,
+            CharMap::None => idx = ch,
         }
     } else {
         panic!("Invalid char: {}\n", ch);
