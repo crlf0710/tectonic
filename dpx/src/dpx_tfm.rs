@@ -47,8 +47,7 @@ pub(crate) type off_t = __off_t;
 use crate::bridge::TTInputFormat;
 
 pub(crate) type fixword = i32;
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct font_metric {
     pub(crate) tex_name: *mut i8,
     pub(crate) designsize: fixword,
@@ -236,24 +235,28 @@ unsafe fn lookup_range(map: *const range_map, charcode: i32) -> i32 {
     }
     -1i32
 }
-unsafe fn fm_clear(fm: *mut font_metric) {
-    if !fm.is_null() {
-        free((*fm).tex_name as *mut libc::c_void);
-        free((*fm).widths as *mut libc::c_void);
-        free((*fm).heights as *mut libc::c_void);
-        free((*fm).depths as *mut libc::c_void);
-        free((*fm).codingscheme as *mut libc::c_void);
-        match (*fm).charmap.type_0 {
-            1 => {
-                release_char_map((*fm).charmap.data as *mut char_map);
+
+impl Drop for font_metric {
+    fn drop(&mut self) {
+        unsafe {
+            free(self.tex_name as *mut libc::c_void);
+            free(self.widths as *mut libc::c_void);
+            free(self.heights as *mut libc::c_void);
+            free(self.depths as *mut libc::c_void);
+            free(self.codingscheme as *mut libc::c_void);
+            match self.charmap.type_0 {
+                1 => {
+                    release_char_map(self.charmap.data as *mut char_map);
+                }
+                2 => {
+                    release_range_map(self.charmap.data as *mut range_map);
+                }
+                _ => {}
             }
-            2 => {
-                release_range_map((*fm).charmap.data as *mut range_map);
-            }
-            _ => {}
         }
-    };
+    }
 }
+
 static mut fms: Vec<font_metric> = Vec::new();
 
 pub(crate) unsafe fn tfm_reset_global_state() {
@@ -451,8 +454,8 @@ unsafe fn ofm_get_sizes<R: Read + Seek>(
     };
 }
 unsafe fn ofm_do_char_info_zero<R: Read>(ofm_handle: &mut R, tfm: &mut tfm_font) {
-    let num_chars = tfm.ec.wrapping_sub(tfm.bc).wrapping_add(1_u32);
-    if num_chars != 0_u32 {
+    let num_chars = tfm.ec - tfm.bc + 1;
+    if num_chars != 0 {
         tfm.width_index =
             new((num_chars as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
                 as *mut u16;
@@ -475,8 +478,8 @@ unsafe fn ofm_do_char_info_one<R: Read>(ofm_handle: &mut R, tfm: &mut tfm_font) 
     let num_char_infos = tfm
         .ncw
         .wrapping_div((3_u32).wrapping_add(tfm.npc.wrapping_div(2_u32)));
-    let num_chars = tfm.ec.wrapping_sub(tfm.bc).wrapping_add(1_u32);
-    if num_chars != 0_u32 {
+    let num_chars = tfm.ec - tfm.bc + 1;
+    if num_chars != 0 {
         tfm.width_index =
             new((num_chars as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
                 as *mut u16;
@@ -503,7 +506,7 @@ unsafe fn ofm_do_char_info_one<R: Read>(ofm_handle: &mut R, tfm: &mut tfm_font) 
             if tfm.npc.wrapping_div(2_u32).wrapping_mul(2_u32) == tfm.npc {
                 u16::get(ofm_handle);
             }
-            char_infos_read = char_infos_read.wrapping_add(1);
+            char_infos_read += 1;
             if i + repeats > num_chars {
                 panic!("OFM \"repeats\" causes number of characters to be exceeded.");
             }
@@ -723,9 +726,6 @@ pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
 }
 
 pub(crate) unsafe fn tfm_close_all() {
-    for i in 0..fms.len() {
-        fm_clear(&mut fms[i]);
-    }
     fms = Vec::new();
 }
 
