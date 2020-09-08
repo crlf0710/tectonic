@@ -325,10 +325,9 @@ pub(crate) unsafe fn CMap_decode_char(
     assert!(!(*cmap).mapTbl.is_null());
     let mut t = (*cmap).mapTbl;
     while count < *inbytesleft {
-        let fresh0 = p;
+        c = *p;
         p = p.offset(1);
-        c = *fresh0;
-        count = count.wrapping_add(1);
+        count += 1;
         if (*t.offset(c as isize)).flag & 1i32 << 4i32 == 0 {
             break;
         }
@@ -664,8 +663,7 @@ pub(crate) unsafe fn CMap_add_notdefrange(
             }
         } else {
             (*cur.offset(c as isize)).flag = 0i32 | 1i32 << 3i32;
-            let ref mut fresh1 = (*cur.offset(c as isize)).code;
-            *fresh1 = get_mem(cmap, 2i32);
+            (*cur.offset(c as isize)).code = get_mem(cmap, 2i32);
             (*cur.offset(c as isize)).len = 2i32 as size_t;
             *(*cur.offset(c as isize)).code.offset(0) = (dst as i32 >> 8i32) as u8;
             *(*cur.offset(c as isize)).code.offset(1) = (dst as i32 & 0xffi32) as u8
@@ -720,8 +718,7 @@ pub(crate) unsafe fn CMap_add_bfrange(
             || (*cur.offset(c as isize)).len < dstdim
         {
             (*cur.offset(c as isize)).flag = 0i32 | 1i32 << 2i32;
-            let ref mut fresh2 = (*cur.offset(c as isize)).code;
-            *fresh2 = get_mem(cmap, dstdim as i32)
+            (*cur.offset(c as isize)).code = get_mem(cmap, dstdim as i32)
         }
         /*
          * We assume restriction to code ranges also applied here.
@@ -804,8 +801,7 @@ pub(crate) unsafe fn CMap_add_cidrange(
         } else {
             (*cur.offset(c as isize)).flag = 0i32 | 1i32 << 0i32;
             (*cur.offset(c as isize)).len = 2i32 as size_t;
-            let ref mut fresh3 = (*cur.offset(c as isize)).code;
-            *fresh3 = get_mem(cmap, 2i32);
+            (*cur.offset(c as isize)).code = get_mem(cmap, 2i32);
             *(*cur.offset(c as isize)).code.offset(0) = (base as i32 >> 8i32) as u8;
             *(*cur.offset(c as isize)).code.offset(1) = (base as i32 & 0xffi32) as u8;
             *(*cmap).reverseMap.offset(base as isize) = (v << 8i32).wrapping_add(c as _) as i32
@@ -831,10 +827,8 @@ unsafe fn mapDef_new() -> *mut mapDef {
         new((256_u64).wrapping_mul(::std::mem::size_of::<mapDef>() as u64) as u32) as *mut mapDef;
     for c in 0..256 {
         (*t.offset(c as isize)).flag = 0i32 | 0i32;
-        let ref mut fresh4 = (*t.offset(c as isize)).code;
-        *fresh4 = ptr::null_mut();
-        let ref mut fresh5 = (*t.offset(c as isize)).next;
-        *fresh5 = ptr::null_mut();
+        (*t.offset(c as isize)).code = ptr::null_mut();
+        (*t.offset(c as isize)).next = ptr::null_mut();
     }
     t
 }
@@ -870,8 +864,7 @@ unsafe fn locate_tbl(cur: *mut *mut mapDef, code: *const u8, dim: i32) -> i32 {
         }
         if (*(*cur).offset(c as isize)).next.is_null() {
             /* create new node */
-            let ref mut fresh6 = (*(*cur).offset(c as isize)).next;
-            *fresh6 = mapDef_new()
+            (*(*cur).offset(c as isize)).next = mapDef_new();
         }
         (*(*cur).offset(c as isize)).flag |= 1i32 << 4i32;
         *cur = (*(*cur).offset(c as isize)).next;

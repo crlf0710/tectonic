@@ -420,12 +420,10 @@ unsafe fn maybe_reencode_utf8(instring: *mut pdf_string) -> i32 {
     } /* no need to reencode UTF16BE with BOM */
     cp = inbuf; /* out of valid Unicode range, give up (redundant) */
     let mut op = wbuf.as_mut_ptr();
-    let fresh0 = op;
+    *op = 0xfe_u8;
     op = op.offset(1);
-    *fresh0 = 0xfe_u8;
-    let fresh1 = op;
+    *op = 0xff_u8;
     op = op.offset(1);
-    *fresh1 = 0xff_u8;
     while cp < inbuf.offset(inlen as isize) as *const u8 {
         let usv = UC_UTF8_decode_char(&mut cp, inbuf.offset(inlen as isize));
         if !UC_is_valid(usv) {
@@ -740,21 +738,13 @@ unsafe fn spc_handler_pdfm_outline(spe: &mut spc_env, args: &mut spc_arg) -> i32
     let item_dict = item_dict.unwrap();
     let mut current_depth = pdf_doc_bookmarks_depth();
     if current_depth > level {
-        loop {
-            let fresh2 = current_depth;
-            current_depth = current_depth - 1;
-            if !(fresh2 > level) {
-                break;
-            }
+        while current_depth > level {
+            current_depth -= 1;
             pdf_doc_bookmarks_up();
         }
     } else if current_depth < level {
-        loop {
-            let fresh3 = current_depth;
-            current_depth = current_depth + 1;
-            if !(fresh3 < level) {
-                break;
-            }
+        while current_depth < level {
+            current_depth += 1;
             pdf_doc_bookmarks_down();
         }
     }

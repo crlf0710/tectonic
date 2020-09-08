@@ -219,9 +219,8 @@ unsafe fn read_cmap2<R: Read>(handle: &mut R, len: u32) -> *mut cmap2 {
         /* It makes things easier to let the offset starts from
          * the beginning of glyphIndexArray.
          */
-        if (*(*map).subHeaders.offset(i as isize)).idRangeOffset as i32 != 0i32 {
-            let ref mut fresh0 = (*(*map).subHeaders.offset(i as isize)).idRangeOffset;
-            *fresh0 = (*fresh0 as i32 - (2i32 + (n as i32 - i as i32 - 1i32) * 8i32)) as u16
+        if (*(*map).subHeaders.offset(i as isize)).idRangeOffset != 0 {
+            (*(*map).subHeaders.offset(i as isize)).idRangeOffset -= (2 + (n as i32 - i as i32 - 1) * 8) as u16
         }
     }
     /* Caculate the length of glyphIndexArray, this is ugly,
@@ -335,11 +334,8 @@ unsafe fn lookup_cmap4(map: *mut cmap4, cc: u16) -> u16 {
      * Last segment maps 0xffff to gid 0 (?)
      */
     let segCount = ((*map).segCountX2 as i32 / 2i32) as u16;
-    let mut i = segCount;
-    loop {
-        let fresh1 = i;
-        i -= 1;
-        if !(fresh1 as i32 > 0i32 && cc as i32 <= *(*map).endCount.offset(i as isize) as i32) {
+    for i in (0..segCount).rev() {
+        if !(cc as i32 <= *(*map).endCount.offset(i as isize) as i32) {
             break;
         }
         if !(cc as i32 >= *(*map).startCount.offset(i as isize) as i32) {
@@ -420,19 +416,15 @@ unsafe fn release_cmap12(map: *mut cmap12) {
 }
 unsafe fn lookup_cmap12(map: *mut cmap12, cccc: u32) -> u16 {
     let mut gid: u16 = 0_u16;
-    let mut i = (*map).nGroups as i32;
-    loop {
-        let fresh2 = i;
-        i = i - 1;
-        if !(fresh2 >= 0i32 && cccc <= (*(*map).groups.offset(i as isize)).endCharCode) {
+    for i in (0..(*map).nGroups as usize).rev() {
+        if !(cccc <= (*(*map).groups.offset(i as isize)).endCharCode) {
             break;
         }
         if !(cccc >= (*(*map).groups.offset(i as isize)).startCharCode) {
             continue;
         }
-        gid = (cccc
-            .wrapping_sub((*(*map).groups.offset(i as isize)).startCharCode)
-            .wrapping_add((*(*map).groups.offset(i as isize)).startGlyphID)
+        gid = ((cccc - (*(*map).groups.offset(i as isize)).startCharCode + 
+            (*(*map).groups.offset(i as isize)).startGlyphID)
             & 0xffff_u32) as u16;
         break;
     }
@@ -763,11 +755,8 @@ unsafe fn handle_CIDFont(
             let mut gid = 1_u16;
             for i in 0..(*charset).num_entries as i32 {
                 let mut cid = (*ranges.offset(i as isize)).first;
-                let mut count = ((*ranges.offset(i as isize)).n_left as i32 + 1i32) as u16;
-                loop {
-                    let fresh3 = count;
-                    count -= 1;
-                    if !(fresh3 as i32 > 0i32 && gid as i32 <= num_glyphs as i32) {
+                for _ in 0..((*ranges.offset(i as isize)).n_left as i32 + 1i32) as u16 {
+                    if !(gid as i32 <= num_glyphs as i32) {
                         break;
                     }
                     *map.offset((2i32 * gid as i32) as isize) =
@@ -788,11 +777,8 @@ unsafe fn handle_CIDFont(
                 let mut gid = 1_u16;
                 for i in 0..(*charset).num_entries as i32 {
                     let mut cid_0 = (*ranges_0.offset(i as isize)).first;
-                    let mut count_0 = ((*ranges_0.offset(i as isize)).n_left as i32 + 1i32) as u16;
-                    loop {
-                        let fresh4 = count_0;
-                        count_0 -= 1;
-                        if !(fresh4 as i32 > 0i32 && gid as i32 <= num_glyphs as i32) {
+                    for _ in 0..((*ranges_0.offset(i as isize)).n_left as i32 + 1i32) as u16 {
+                        if !(gid as i32 <= num_glyphs as i32) {
                             break;
                         }
                         *map.offset((2i32 * gid as i32) as isize) =

@@ -109,8 +109,7 @@ unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut
             /* read Pascal strings */
             let len = u8::get(handle) as i32;
             if len > 0i32 {
-                let ref mut fresh0 = *(*post).names.offset(i as isize);
-                *fresh0 = new(((len + 1i32) as u32 as u64)
+                *(*post).names.offset(i as isize) = new(((len + 1i32) as u32 as u64)
                     .wrapping_mul(::std::mem::size_of::<i8>() as u64)
                     as u32) as *mut i8;
                 let slice = std::slice::from_raw_parts_mut(
@@ -120,8 +119,7 @@ unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut
                 handle.read(slice).unwrap();
                 *(*(*post).names.offset(i as isize)).offset(len as isize) = 0_i8
             } else {
-                let ref mut fresh1 = *(*post).names.offset(i as isize);
-                *fresh1 = ptr::null_mut()
+                *(*post).names.offset(i as isize) = ptr::null_mut();
             }
         }
     }
@@ -131,11 +129,9 @@ unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut
     for i in 0..(*post).numberOfGlyphs as i32 {
         let idx = *indices.offset(i as isize);
         if (idx as i32) < 258i32 {
-            let ref mut fresh2 = *(*post).glyphNamePtr.offset(i as isize);
-            *fresh2 = macglyphorder[idx as usize].as_ptr() as *const i8
+            *(*post).glyphNamePtr.offset(i as isize) = macglyphorder[idx as usize].as_ptr() as *const i8
         } else if idx as i32 - 258i32 < (*post).count as i32 {
-            let ref mut fresh3 = *(*post).glyphNamePtr.offset(i as isize);
-            *fresh3 = *(*post).names.offset((idx as i32 - 258i32) as isize)
+            *(*post).glyphNamePtr.offset(i as isize) = *(*post).names.offset((idx as i32 - 258i32) as isize)
         } else {
             warn!(
                 "Invalid glyph name index number: {} (>= {})",

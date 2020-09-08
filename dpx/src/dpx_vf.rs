@@ -242,9 +242,9 @@ pub(crate) unsafe fn vf_locate_font(tex_name: &str, ptsize: spt_t) -> i32 {
 }
 unsafe fn unsigned_byte(slice: &mut &[u8]) -> i32 {
     if !slice.is_empty() {
-        let fresh10 = slice[0];
+        let byte = slice[0];
         *slice = &slice[1..];
-        return fresh10 as i32;
+        return byte as i32;
     } else {
         panic!("Premature end of DVI byte stream in VF font\n");
     }

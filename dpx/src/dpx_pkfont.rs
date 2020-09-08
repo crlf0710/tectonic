@@ -141,19 +141,18 @@ pub(crate) unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {
  */
 unsafe fn fill_black_run(dp: *mut u8, mut left: u32, run_count: u32) -> u32 {
     static mut mask: [u8; 8] = [
-        127u32 as u8,
-        191u32 as u8,
-        223u32 as u8,
-        239u32 as u8,
-        247u32 as u8,
-        251u32 as u8,
-        253u32 as u8,
-        254u32 as u8,
+        127,
+        191,
+        223,
+        239,
+        247,
+        251,
+        253,
+        254,
     ];
-    let right: u32 = left.wrapping_add(run_count).wrapping_sub(1_u32);
+    let right: u32 = left + run_count - 1;
     while left <= right {
-        let ref mut fresh0 = *dp.offset(left.wrapping_div(8_u32) as isize);
-        *fresh0 = (*fresh0 as i32 & mask[left.wrapping_rem(8_u32) as usize] as i32) as u8;
+        *dp.offset((left / 8) as isize) &= mask[(left % 8) as usize];
         left = left.wrapping_add(1)
     }
     run_count
@@ -165,29 +164,29 @@ unsafe fn fill_white_run(run_count: u32) -> u32 {
 unsafe fn pk_packed_num(np: *mut u32, dyn_f: i32, dp: *mut u8, pl: u32) -> u32 {
     let mut nmbr: u32 = 0_u32;
     let mut i: u32 = *np;
-    if i.wrapping_div(2_u32) == pl {
+    if i / 2 == pl {
         warn!("EOD reached while unpacking pk_packed_num.");
         return 0_u32;
     }
-    let mut nyb = if i.wrapping_rem(2_u32) != 0 {
-        *dp.offset(i.wrapping_div(2_u32) as isize) as i32 & 0xfi32
+    let mut nyb = if i % 2 != 0 {
+        *dp.offset((i / 2) as isize) as i32 & 0xf
     } else {
-        *dp.offset(i.wrapping_div(2_u32) as isize) as i32 >> 4i32 & 0xfi32
+        *dp.offset((i / 2) as isize) as i32 >> 4 & 0xf
     };
     i = i.wrapping_add(1);
-    if nyb == 0i32 {
-        let mut j = 0i32;
+    if nyb == 0 {
+        let mut j = 0;
         loop {
-            if i.wrapping_div(2_u32) == pl {
+            if i / 2 == pl {
                 warn!("EOD reached while unpacking pk_packed_num.");
                 break;
             } else {
-                nyb = if i.wrapping_rem(2_u32) != 0 {
-                    *dp.offset(i.wrapping_div(2_u32) as isize) as i32 & 0xfi32
+                nyb = if i % 2 != 0 {
+                    *dp.offset((i / 2) as isize) as i32 & 0xf
                 } else {
-                    *dp.offset(i.wrapping_div(2_u32) as isize) as i32 >> 4i32 & 0xfi32
+                    *dp.offset((i / 2) as isize) as i32 >> 4 & 0xf
                 };
-                i = i.wrapping_add(1);
+                i += 1;
                 j += 1;
                 if !(nyb == 0i32) {
                     break;
@@ -195,42 +194,37 @@ unsafe fn pk_packed_num(np: *mut u32, dyn_f: i32, dp: *mut u8, pl: u32) -> u32 {
             }
         }
         nmbr = nyb as u32;
-        loop {
-            let fresh1 = j;
-            j = j - 1;
-            if !(fresh1 > 0i32) {
-                break;
-            }
-            if i.wrapping_div(2_u32) == pl {
+        for _ in 0..j {
+            if i / 2 == pl {
                 warn!("EOD reached while unpacking pk_packed_num.");
                 break;
             } else {
-                nyb = if i.wrapping_rem(2_u32) != 0 {
-                    *dp.offset(i.wrapping_div(2_u32) as isize) as i32 & 0xfi32
+                nyb = if i % 2 != 0 {
+                    *dp.offset((i / 2) as isize) as i32 & 0xf
                 } else {
-                    *dp.offset(i.wrapping_div(2_u32) as isize) as i32 >> 4i32 & 0xfi32
+                    *dp.offset((i / 2) as isize) as i32 >> 4 & 0xf
                 };
-                i = i.wrapping_add(1);
-                nmbr = nmbr.wrapping_mul(16_u32).wrapping_add(nyb as u32)
+                i += 1;
+                nmbr = nmbr * 16 + (nyb as u32)
             }
         }
-        nmbr = (nmbr as u32).wrapping_add(((13i32 - dyn_f) * 16i32 + dyn_f - 15i32) as u32) as u32
+        nmbr += ((13 - dyn_f) * 16 + dyn_f - 15) as u32;
     } else if nyb <= dyn_f {
         nmbr = nyb as u32
-    } else if nyb < 14i32 {
-        if i.wrapping_div(2_u32) == pl {
+    } else if nyb < 14 {
+        if i / 2 == pl {
             warn!("EOD reached while unpacking pk_packed_num.");
-            return 0_u32;
+            return 0;
         }
-        nmbr = ((nyb - dyn_f - 1i32) * 16i32
-            + (if i.wrapping_rem(2_u32) != 0 {
-                *dp.offset(i.wrapping_div(2_u32) as isize) as i32 & 0xfi32
+        nmbr = ((nyb - dyn_f - 1) * 16
+            + (if i % 2 != 0 {
+                *dp.offset((i / 2) as isize) as i32 & 0xf
             } else {
-                *dp.offset(i.wrapping_div(2_u32) as isize) as i32 >> 4i32 & 0xfi32
+                *dp.offset((i / 2) as isize) as i32 >> 4 & 0xf
             })
             + dyn_f
-            + 1i32) as u32;
-        i = i.wrapping_add(1)
+            + 1) as u32;
+        i += 1;
     }
     *np = i;
     nmbr
@@ -383,8 +377,7 @@ unsafe fn pk_decode_bitmap(
         let c = (*dp.offset(i.wrapping_div(8_u32) as isize) as i32
             & mask[i.wrapping_rem(8_u32) as usize] as i32) as u8;
         if c as i32 == 0i32 {
-            let ref mut fresh2 = *rowptr.offset(j.wrapping_div(8_u32) as isize);
-            *fresh2 = (*fresh2 as i32 | mask[i.wrapping_rem(8_u32) as usize] as i32) as u8
+            *rowptr.offset(j.wrapping_div(8_u32) as isize) |= mask[i.wrapping_rem(8_u32) as usize];
         }
         j += 1;
         if j == wd {

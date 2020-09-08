@@ -51,7 +51,6 @@ use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 pub(crate) type png_byte = u8;
 pub(crate) type png_infopp = *mut *mut png_info;
 pub(crate) type png_const_charp = *const i8;
-pub(crate) type png_uint_16 = libc::c_ushort;
 pub(crate) type png_bytep = *mut png_byte;
 pub(crate) type png_uint_32 = libc::c_uint;
 
@@ -416,14 +415,9 @@ unsafe fn check_transparency(png: &mut png_struct, info: &mut png_info) -> libc:
                 /* Have valid tRNS chunk. */
                 /* Use color-key mask if possible. */
                 trans_type = 1i32;
-                loop {
-                    let fresh0 = num_trans;
-                    num_trans = num_trans - 1;
-                    if !(fresh0 > 0i32) {
-                        break;
-                    }
-                    if !(*trans.offset(num_trans as isize) as i32 != 0i32
-                        && *trans.offset(num_trans as isize) as i32 != 0xffi32)
+                for i in (0..num_trans).rev() {
+                    if !(*trans.offset(i as isize) as i32 != 0i32
+                        && *trans.offset(i as isize) as i32 != 0xff)
                     {
                         continue;
                     }
@@ -438,18 +432,18 @@ unsafe fn check_transparency(png: &mut png_struct, info: &mut png_info) -> libc:
             }
             _ => {
                 /* Else tRNS silently ignored. */
-                trans_type = 0i32
+                trans_type = 0
             }
         }
     } else {
-        trans_type = 0i32
+        trans_type = 0
     }
     /*
      * Now we check PDF version.
      * We can convert alpha cahnnels to explicit mask via user supplied alpha-
      * threshold value. But I will not do that.
      */
-    if pdf_version < 3_u32 && trans_type != 0i32 || pdf_version < 4_u32 && trans_type == 2i32 {
+    if pdf_version < 3 && trans_type != 0 || pdf_version < 4 && trans_type == 2 {
         /*
          *   No transparency supported but PNG uses transparency, or Soft-Mask
          * required but no support for it is available in this version of PDF.
@@ -462,18 +456,13 @@ unsafe fn check_transparency(png: &mut png_struct, info: &mut png_info) -> libc:
          * as background color, which is most probable color in our cases.
          * We ignore bKGD chunk.
          */
-        let mut bg: png_color_16 = png_color_16 {
+        let mut bg = png_color_16 {
             index: 0,
-            red: 0,
-            green: 0,
-            blue: 0,
-            gray: 0,
+            red: 255,
+            green: 255,
+            blue: 255,
+            gray: 255,
         };
-        bg.red = 255i32 as png_uint_16;
-        bg.green = 255i32 as png_uint_16;
-        bg.blue = 255i32 as png_uint_16;
-        bg.gray = 255i32 as png_uint_16;
-        bg.index = 0i32 as png_byte;
         png_set_background(png, &mut bg as *mut png_color_16, 1i32, 0i32, 1.0f64);
         warn!(
             "{}: Transparency will be ignored. (no support in PDF ver. < 1.3)",
@@ -491,7 +480,7 @@ unsafe fn check_transparency(png: &mut png_struct, info: &mut png_info) -> libc:
                 "PNG",
             );
         }
-        trans_type = 0i32
+        trans_type = 0
     }
     trans_type
 }
@@ -1090,8 +1079,7 @@ unsafe fn read_image_data(
     let rows_p = new((height as u64).wrapping_mul(::std::mem::size_of::<png_bytep>() as u64) as u32)
         as *mut png_bytep;
     for i in 0..height {
-        let ref mut fresh1 = *rows_p.offset(i as isize);
-        *fresh1 = dest_ptr.offset(rowbytes.wrapping_mul(i) as isize);
+        *rows_p.offset(i as isize) = dest_ptr.offset(rowbytes.wrapping_mul(i) as isize);
     }
     png_read_image(png, rows_p);
     free(rows_p as *mut libc::c_void);

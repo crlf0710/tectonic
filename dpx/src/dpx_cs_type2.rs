@@ -381,8 +381,8 @@ unsafe fn do_operator2(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, e
             *dest = (*dest).offset(1);
             *fresh19 = 12i32 as u8;
             let fresh20 = *dest;
+            *fresh20 = op;
             *dest = (*dest).offset(1);
-            *fresh20 = op
         }
         3 => {
             /* all operator above are stack-clearing */
@@ -576,44 +576,32 @@ unsafe fn do_operator2(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, e
                 return;
             }
             stack_top -= 1;
-            let mut J = arg_stack[stack_top as usize] as i32;
+            let J = arg_stack[stack_top as usize] as i32;
             stack_top -= 1;
             let N = arg_stack[stack_top as usize] as i32;
             if stack_top < N {
                 status = -2i32;
                 return;
             }
-            if J > 0i32 {
-                J = J % N;
-                loop {
-                    let fresh21 = J;
-                    J = J - 1;
-                    if !(fresh21 > 0i32) {
-                        break;
-                    }
-                    let save_0: f64 = arg_stack[(stack_top - 1i32) as usize];
-                    let mut i: i32 = stack_top - 1i32;
+            if J > 0 {
+                for _ in 0..(J % N) {
+                    let save_0: f64 = arg_stack[(stack_top - 1) as usize];
+                    let mut i: i32 = stack_top - 1;
                     while i > stack_top - N {
-                        arg_stack[i as usize] = arg_stack[(i - 1i32) as usize];
-                        i -= 1
+                        arg_stack[i as usize] = arg_stack[(i - 1) as usize];
+                        i -= 1;
                     }
                     arg_stack[i as usize] = save_0
                 }
             } else {
-                let mut J = -J % N;
-                loop {
-                    let fresh22 = J;
-                    J = J - 1;
-                    if !(fresh22 > 0i32) {
-                        break;
-                    }
+                for _ in 0..(-J % N) {
                     let save_1: f64 = arg_stack[(stack_top - N) as usize];
                     let mut i_0: i32 = stack_top - N;
-                    while i_0 < stack_top - 1i32 {
-                        arg_stack[i_0 as usize] = arg_stack[(i_0 + 1i32) as usize];
-                        i_0 += 1
+                    while i_0 < stack_top - 1 {
+                        arg_stack[i_0 as usize] = arg_stack[(i_0 + 1) as usize];
+                        i_0 += 1;
                     }
-                    arg_stack[i_0 as usize] = save_1
+                    arg_stack[i_0 as usize] = save_1;
                 }
             }
         }
@@ -626,9 +614,8 @@ unsafe fn do_operator2(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, e
                 status = -2i32;
                 return;
             }
-            let fresh23 = stack_top;
+            arg_stack[stack_top as usize] = 1.;
             stack_top = stack_top + 1;
-            arg_stack[fresh23 as usize] = 1.0f64
         }
         _ => {
             /* no-op ? */
@@ -689,9 +676,8 @@ unsafe fn get_integer(data: *mut *mut u8, endptr: *mut u8) {
         status = -2i32;
         return;
     }
-    let fresh24 = stack_top;
-    stack_top = stack_top + 1;
-    arg_stack[fresh24 as usize] = result as f64;
+    arg_stack[stack_top as usize] = result as f64;
+    stack_top += 1;
 }
 /*
  * Signed 16.16-bits fixed number for Type 2 charstring encoding
@@ -714,9 +700,8 @@ unsafe fn get_fixed(data: *mut *mut u8, endptr: *mut u8) {
         status = -2i32;
         return;
     }
-    let fresh25 = stack_top;
-    stack_top = stack_top + 1;
-    arg_stack[fresh25 as usize] = rvalue;
+    arg_stack[stack_top as usize] = rvalue;
+    stack_top += 1;
     *data = (*data).offset(4);
 }
 /*

@@ -544,9 +544,9 @@ pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
     if verbose != 0 {
         info!(")");
     }
-    let fresh1 = fms.len();
+    let last = fms.len();
     fms.push(fm);
-    fresh1 as i32
+    last as i32
 }
 
 pub(crate) unsafe fn tfm_close_all() {

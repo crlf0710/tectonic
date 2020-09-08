@@ -415,18 +415,17 @@ unsafe fn agl_load_listfile(filename: &str, is_predef: i32) -> Result<u32, ()> {
                 && (*p.offset(0) as i32 >= '0' as i32 && *p.offset(0) as i32 <= '9' as i32
                     || *p.offset(0) as i32 >= 'A' as i32 && *p.offset(0) as i32 <= 'F' as i32)
             {
-                if n_unicodes >= 16i32 {
+                if n_unicodes >= 16 {
                     warn!("Too many Unicode values");
                     break;
                 } else {
-                    let fresh0 = n_unicodes;
+                    unicodes[n_unicodes as usize] = strtol(p, &mut nextptr, 16) as i32;
                     n_unicodes += 1;
-                    unicodes[fresh0 as usize] = strtol(p, &mut nextptr, 16i32) as i32;
                     p = nextptr;
                     skip_white(&mut p, endptr);
                 }
             }
-            if n_unicodes == 0i32 {
+            if n_unicodes == 0 {
                 warn!(
                     "AGL entry ignored (no mapping): {}",
                     CStr::from_ptr(wbuf.as_ptr()).display(),
@@ -810,9 +809,8 @@ pub(crate) unsafe fn agl_get_unicodes(
                     return -1i32;
                 }
                 for i in 0..(*agln1).n_components {
-                    let fresh4 = count;
-                    count = count + 1;
-                    *unicodes.offset(fresh4 as isize) = (*agln1).unicodes[i as usize];
+                    *unicodes.offset(count as isize) = (*agln1).unicodes[i as usize];
+                    count += 1;
                 }
             } else {
                 if verbose > 1i32 {

@@ -236,17 +236,12 @@ unsafe fn do_encrypt_stream(
     mut ctx: *mut ARC4_CONTEXT,
     mut outbuf: *mut u8,
     mut inbuf: *const u8,
-    mut len: u32,
+    len: u32,
 ) {
     let mut i: i32 = (*ctx).idx_i; /* and seems to be faster than mod */
     let mut j: i32 = (*ctx).idx_j;
     let sbox: *mut u8 = (*ctx).sbox.as_mut_ptr();
-    loop {
-        let fresh40 = len;
-        len = len.wrapping_sub(1);
-        if !(fresh40 != 0) {
-            break;
-        }
+    for _ in 0..len {
         i += 1;
         i = i & 255i32;
         j += *sbox.offset(i as isize) as i32;
@@ -254,15 +249,13 @@ unsafe fn do_encrypt_stream(
         let t = *sbox.offset(i as isize) as i32;
         *sbox.offset(i as isize) = *sbox.offset(j as isize);
         *sbox.offset(j as isize) = t as u8;
-        let fresh41 = inbuf;
-        inbuf = inbuf.offset(1);
-        let fresh42 = outbuf;
-        outbuf = outbuf.offset(1);
-        *fresh42 = (*fresh41 as i32
+        *outbuf = (*inbuf as i32
             ^ *sbox.offset(
                 (*sbox.offset(i as isize) as i32 + *sbox.offset(j as isize) as i32 & 255i32)
                     as isize,
-            ) as i32) as u8
+            ) as i32) as u8;
+        inbuf = inbuf.offset(1);
+        outbuf = outbuf.offset(1);
     }
     (*ctx).idx_i = i;
     (*ctx).idx_j = j;
