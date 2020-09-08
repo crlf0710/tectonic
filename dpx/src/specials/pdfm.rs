@@ -218,14 +218,14 @@ pub(crate) unsafe fn spc_pdfm_at_end_document() -> i32 {
 /* Dvipdfm specials */
 unsafe fn spc_handler_pdfm_bop(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     if !args.cur.is_empty() {
-        pdf_doc_set_bop_content(args.cur.as_ptr() as *const i8, args.cur.len() as u32);
+        pdf_doc_set_bop_content(&args.cur);
     }
     args.cur = &[];
     0i32
 }
 unsafe fn spc_handler_pdfm_eop(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     if !args.cur.is_empty() {
-        pdf_doc_set_eop_content(args.cur.as_ptr() as *const i8, args.cur.len() as u32);
+        pdf_doc_set_eop_content(&args.cur);
     }
     args.cur = &[];
     0i32

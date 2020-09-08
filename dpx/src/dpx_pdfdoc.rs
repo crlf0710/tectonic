@@ -411,34 +411,30 @@ unsafe fn doc_get_page_entry(p: *mut pdf_doc, page_no: u32) -> *mut pdf_page {
         .offset(page_no.wrapping_sub(1_u32) as isize) as *mut pdf_page
 }
 
-pub(crate) unsafe fn pdf_doc_set_bop_content(content: *const i8, length: u32) {
+pub(crate) unsafe fn pdf_doc_set_bop_content(content: &[u8]) {
     let mut p: *mut pdf_doc = &mut pdoc;
     assert!(!p.is_null());
     if !(*p).pages.bop.is_null() {
         pdf_release_obj((*p).pages.bop);
         (*p).pages.bop = ptr::null_mut()
     }
-    if length > 0_u32 {
+    if !content.is_empty() {
         (*p).pages.bop = pdf_stream::new(STREAM_COMPRESS).into_obj();
-        (*(*p).pages.bop)
-            .as_stream_mut()
-            .add(content as *const libc::c_void, length as i32);
+        (*(*p).pages.bop).as_stream_mut().add_slice(content);
     } else {
         (*p).pages.bop = ptr::null_mut()
     };
 }
 
-pub(crate) unsafe fn pdf_doc_set_eop_content(content: *const i8, length: u32) {
+pub(crate) unsafe fn pdf_doc_set_eop_content(content: &[u8]) {
     let mut p: *mut pdf_doc = &mut pdoc;
     if !(*p).pages.eop.is_null() {
         pdf_release_obj((*p).pages.eop);
         (*p).pages.eop = ptr::null_mut()
     }
-    if length > 0_u32 {
+    if !content.is_empty() {
         (*p).pages.eop = pdf_stream::new(STREAM_COMPRESS).into_obj();
-        (*(*p).pages.eop)
-            .as_stream_mut()
-            .add(content as *const libc::c_void, length as i32);
+        (*(*p).pages.eop).as_stream_mut().add_slice(content);
     } else {
         (*p).pages.eop = ptr::null_mut()
     };
