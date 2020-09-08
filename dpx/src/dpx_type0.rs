@@ -302,7 +302,7 @@ pub(crate) unsafe fn Type0Font_cache_find(
      * Type 0 font. Otherwise, there already exists parent Type 0 font and
      * then we find him and return his ID. We must check against their WMode.
      */
-    let wmode = CMap_get_wmode(cmap);
+    let wmode = CMap_get_wmode(&*cmap);
     /* Does CID-keyed font already have parent ? */
     let parent_id = CIDFont_get_parent_id(CIDFont_cache_get(cid_id), wmode); /* If so, we don't need new one. */
     if parent_id >= 0i32 {

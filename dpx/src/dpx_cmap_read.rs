@@ -525,12 +525,11 @@ pub(crate) unsafe fn CMap_parse_check_sig<R: Read + Seek>(handle: &mut R) -> i32
 }
 
 pub(crate) unsafe fn CMap_parse(
-    cmap: *mut CMap,
+    cmap: &mut CMap,
     mut handle: DroppableInputHandleWrapper,
 ) -> Result<i32, ()> {
     let mut status: i32 = 0i32;
     let mut tmpint: i32 = -1i32;
-    assert!(!cmap.is_null());
     let size = ttstub_input_get_size(&mut handle);
     let mut input = ifreader::new(handle, size, (4096i32 - 1i32) as size_t);
     while status >= 0i32 {

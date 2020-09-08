@@ -25,19 +25,16 @@
     non_snake_case,
     non_upper_case_globals
 )]
-use crate::streq_ptr;
 use crate::{info, warn};
-use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_cid::CSI_IDENTITY;
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_mem::{new, renew};
 use crate::bridge::ttstub_input_open_str;
-use libc::{free, memcmp, memcpy, memset, strcpy};
+use libc::{free, memcmp, memcpy, memset};
 
 use crate::bridge::size_t;
-use crate::bridge::DisplayExt;
 use crate::bridge::TTInputFormat;
 
 use super::dpx_cid::CIDSysInfo;
@@ -68,10 +65,9 @@ pub(crate) struct mapData {
 /* CID, Code... MEM_ALLOC_SIZE bytes  */
 /* Previous mapData data segment      */
 /* Position of next free data segment */
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct CMap {
-    pub(crate) name: *mut i8,
+    pub(crate) name: String,
     pub(crate) type_0: i32,
     pub(crate) wmode: i32,
     pub(crate) CSI: *mut CIDSysInfo,
@@ -156,7 +152,7 @@ pub(crate) unsafe fn CMap_new() -> CMap {
 
     CMap {
         profile,
-        name: ptr::null_mut(),
+        name: String::new(),
         type_0: 1i32,
         wmode: 0i32,
         useCMap: ptr::null_mut(),
@@ -177,7 +173,7 @@ pub(crate) unsafe fn CMap_release(cmap: *mut CMap) {
     if cmap.is_null() {
         return;
     }
-    free((*cmap).name as *mut libc::c_void);
+    (*cmap).name = String::new();
     if !(*cmap).CSI.is_null() {
         free((*cmap).CSI as *mut libc::c_void);
     }
@@ -197,14 +193,13 @@ pub(crate) unsafe fn CMap_release(cmap: *mut CMap) {
 
 pub(crate) unsafe fn CMap_is_Identity(cmap: *mut CMap) -> bool {
     assert!(!cmap.is_null());
-    return streq_ptr((*cmap).name, b"Identity-H\x00" as *const u8 as *const i8)
-        || streq_ptr((*cmap).name, b"Identity-V\x00" as *const u8 as *const i8);
+    return (*cmap).name == "Identity-H" || (*cmap).name == "Identity-V";
 }
 
 pub(crate) unsafe fn CMap_is_valid(cmap: *mut CMap) -> bool {
     /* Quick check */
     if cmap.is_null()
-        || (*cmap).name.is_null()
+        || (*cmap).name.is_empty()
         || (*cmap).type_0 < 0i32
         || (*cmap).type_0 > 3i32
         || (*cmap).codespace.num < 1_u32
@@ -437,17 +432,15 @@ pub(crate) unsafe fn CMap_reverse_decode(cmap: *mut CMap, cid: CID) -> i32 {
 }
 
 pub(crate) unsafe fn CMap_get_name(cmap: &CMap) -> &str {
-    CStr::from_ptr((*cmap).name).to_str().unwrap_or("")
+    cmap.name.as_str()
 }
 
-pub(crate) unsafe fn CMap_get_type(cmap: *mut CMap) -> i32 {
-    assert!(!cmap.is_null());
-    (*cmap).type_0
+pub(crate) unsafe fn CMap_get_type(cmap: &CMap) -> i32 {
+    cmap.type_0
 }
 
-pub(crate) unsafe fn CMap_get_wmode(cmap: *mut CMap) -> i32 {
-    assert!(!cmap.is_null());
-    (*cmap).wmode
+pub(crate) unsafe fn CMap_get_wmode(cmap: &CMap) -> i32 {
+    cmap.wmode
 }
 
 pub(crate) unsafe fn CMap_get_CIDSysInfo(cmap: *mut CMap) -> *mut CIDSysInfo {
@@ -455,12 +448,8 @@ pub(crate) unsafe fn CMap_get_CIDSysInfo(cmap: *mut CMap) -> *mut CIDSysInfo {
     (*cmap).CSI
 }
 
-pub(crate) unsafe fn CMap_set_name(mut cmap: *mut CMap, name: &str) {
-    assert!(!cmap.is_null());
-    free((*cmap).name as *mut libc::c_void);
-    (*cmap).name = new(name.len() as u32 + 1) as *mut i8;
-    let name_cstr = CString::new(name).unwrap();
-    strcpy((*cmap).name, name_cstr.as_ptr());
+pub(crate) unsafe fn CMap_set_name(cmap: &mut CMap, name: &str) {
+    cmap.name = name.to_string();
 }
 
 pub(crate) unsafe fn CMap_set_type(mut cmap: *mut CMap, type_0: i32) {
@@ -507,12 +496,12 @@ pub(crate) unsafe fn CMap_set_usecmap(mut cmap: *mut CMap, ucmap: *mut CMap) {
      *  CMapName of cmap can be undefined when usecmap is executed in CMap parsing.
      *  And it is also possible CSI is not defined at that time.
      */
-    if streq_ptr((*cmap).name, (*ucmap).name) {
+    if (*cmap).name == (*ucmap).name {
         panic!(
             "{}: CMap refering itself not allowed: CMap {} --> {}",
             "CMap",
-            CStr::from_ptr((*cmap).name).display(),
-            CStr::from_ptr((*ucmap).name).display(),
+            (*cmap).name,
+            (*ucmap).name,
         );
     }
     if !(*cmap).CSI.is_null() {
@@ -1056,7 +1045,7 @@ pub(crate) unsafe fn CMap_cache_add(mut cmap: Box<CMap>) -> i32 {
         let cmap_name0 = CMap_get_name(&*cmap);
         let cmap_name1 = CMap_get_name(&**other);
         if cmap_name0 == cmap_name1 {
-            panic!("{}: CMap \"{}\" already defined.", "CMap", cmap_name0,);
+            panic!("{}: CMap \"{}\" already defined.", "CMap", cmap_name0);
         }
     }
 

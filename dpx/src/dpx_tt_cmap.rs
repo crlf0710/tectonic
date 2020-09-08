@@ -1274,7 +1274,7 @@ pub(crate) unsafe fn otf_create_ToUnicode_stream(
         panic!("Could not read OpenType/TrueType table directory.");
     }
     let mut code_to_cid_cmap = CMap_cache_get(cmap_id);
-    let cmap_type = CMap_get_type(code_to_cid_cmap);
+    let cmap_type = CMap_get_type(&*code_to_cid_cmap);
     if cmap_type != 1i32 {
         code_to_cid_cmap = ptr::null_mut()
     }
