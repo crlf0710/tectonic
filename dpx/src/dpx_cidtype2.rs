@@ -706,16 +706,15 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     let mut v_used_chars = ptr::null_mut();
     let mut h_used_chars = v_used_chars;
     let mut used_chars = h_used_chars;
-    let mut parent;
     let parent_id = CIDFont_get_parent_id(font, 0i32);
     if parent_id >= 0i32 {
-        parent = Type0Font_cache_get(parent_id);
-        h_used_chars = Type0Font_get_usedchars(parent)
+        let parent = Type0Font_cache_get(parent_id);
+        h_used_chars = Type0Font_get_usedchars(&*parent)
     }
     let parent_id = CIDFont_get_parent_id(font, 1i32);
     if parent_id >= 0i32 {
-        parent = Type0Font_cache_get(parent_id);
-        v_used_chars = Type0Font_get_usedchars(parent)
+        let parent = Type0Font_cache_get(parent_id);
+        v_used_chars = Type0Font_get_usedchars(&*parent)
     }
     if h_used_chars.is_null() && v_used_chars.is_null() {
         panic!("Unexpected error.");

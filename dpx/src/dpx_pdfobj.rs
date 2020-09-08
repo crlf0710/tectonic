@@ -2231,7 +2231,7 @@ unsafe fn filter_decoded(
                     let mut chunks = data.chunks_exact(len_usize);
                     while let Some(p) = chunks.next() {
                         for i in 0..len_usize {
-                            let mut pixel_value: i32 = if i >= bytes_per_pixel {
+                            let pixel_value: i32 = if i >= bytes_per_pixel {
                                 buf[(i - bytes_per_pixel) as usize] as i32
                             } else {
                                 0i32
@@ -2284,7 +2284,7 @@ unsafe fn filter_decoded(
             }
         }
     } else {
-        let mut rowlen = len_usize + 1;
+        let rowlen = len_usize + 1;
         let mut prev = vec![0u8; rowlen];
         let mut current = vec![0u8; rowlen];
         match parms.predictor {
@@ -2298,7 +2298,7 @@ unsafe fn filter_decoded(
             15   // PNG Optimun: each scanline encodes the filter type in its first byte.
                  // The prediction algorithm can change from line to line
             => {
-                let mut typ = (parms.predictor - 10) as u8;
+                let typ = (parms.predictor - 10) as u8;
                 let mut chunks = data.chunks_exact(rowlen);
                 let bytes_per_pixel = bytes_per_pixel as usize;
                 while let Some(p) = chunks.next() {

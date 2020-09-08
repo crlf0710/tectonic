@@ -26,7 +26,6 @@
     non_upper_case_globals
 )]
 
-use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_cid::{
@@ -41,16 +40,16 @@ use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_dict, pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_dict, pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_stream, IntoObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
-use libc::{free, memset, strcpy, strlen};
+use libc::{free, memset};
 
 #[derive(Clone)]
 pub(crate) struct Type0Font {
     pub(crate) fontname: String,
-    pub(crate) encoding: *mut i8,
+    pub(crate) encoding: &'static str,
     pub(crate) used_chars: *mut i8,
     pub(crate) descendant: *mut CIDFont,
     pub(crate) flags: i32,
@@ -74,51 +73,51 @@ unsafe fn new_used_chars2() -> *mut i8 {
     used_chars
 }
 
-fn Type0Font_init_font_struct() -> Type0Font {
-    Type0Font {
-        fontname: String::new(),
-        fontdict: ptr::null_mut(),
-        indirect: ptr::null_mut(),
-        descriptor: ptr::null_mut(),
-        encoding: ptr::null_mut(),
-        used_chars: ptr::null_mut(),
-        descendant: ptr::null_mut(),
-        wmode: -1i32,
-        cmap_id: -1i32,
-        flags: 0i32,
+impl Type0Font {
+    pub(crate) const fn new() -> Self {
+        Self {
+            fontname: String::new(),
+            fontdict: ptr::null_mut(),
+            indirect: ptr::null_mut(),
+            descriptor: ptr::null_mut(),
+            encoding: "",
+            used_chars: ptr::null_mut(),
+            descendant: ptr::null_mut(),
+            wmode: -1,
+            cmap_id: -1,
+            flags: 0,
+        }
     }
 }
-unsafe fn Type0Font_clean(mut font: *mut Type0Font) {
-    if !font.is_null() {
-        if !(*font).fontdict.is_null() {
-            panic!("{}: Object not flushed.", "Type0",);
-        }
-        if !(*font).indirect.is_null() {
-            panic!("{}: Object not flushed.", "Type0",);
-        }
-        if !(*font).descriptor.is_null() {
-            panic!("{}: FontDescriptor unexpected for Type0 font.", "Type0",);
-        }
-        if (*font).flags & 1i32 << 0i32 == 0 && !(*font).used_chars.is_null() {
-            free((*font).used_chars as *mut libc::c_void);
-        }
-        free((*font).encoding as *mut libc::c_void);
-        (*font).fontdict = ptr::null_mut();
-        (*font).indirect = ptr::null_mut();
-        (*font).descriptor = ptr::null_mut();
-        (*font).used_chars = ptr::null_mut();
-        (*font).encoding = ptr::null_mut();
-        (*font).fontname.clear();
-    };
+
+unsafe fn Type0Font_clean(font: &mut Type0Font) {
+    if !font.fontdict.is_null() {
+        panic!("{}: Object not flushed.", "Type0",);
+    }
+    if !font.indirect.is_null() {
+        panic!("{}: Object not flushed.", "Type0",);
+    }
+    if !font.descriptor.is_null() {
+        panic!("{}: FontDescriptor unexpected for Type0 font.", "Type0",);
+    }
+    if font.flags & 1i32 << 0i32 == 0 && !font.used_chars.is_null() {
+        free(font.used_chars as *mut libc::c_void);
+    }
+    font.fontdict = ptr::null_mut();
+    font.indirect = ptr::null_mut();
+    font.descriptor = ptr::null_mut();
+    font.used_chars = ptr::null_mut();
+    font.fontname.clear();
 }
 /* PLEASE FIX THIS */
-unsafe fn Type0Font_create_ToUnicode_stream(font: *mut Type0Font) -> *mut pdf_obj {
-    let cidfont: *mut CIDFont = (*font).descendant;
+unsafe fn Type0Font_create_ToUnicode_stream(font: &Type0Font) -> *mut pdf_obj {
+    let cidfont: *mut CIDFont = font.descendant;
+    let used_chars = std::slice::from_raw_parts(Type0Font_get_usedchars(font) as *const u8, 8192);
     otf_create_ToUnicode_stream(
         &*(&*cidfont).ident,
         CIDFont_get_opt_index(cidfont),
-        Type0Font_get_usedchars(font),
-        (*font).cmap_id,
+        used_chars,
+        font.cmap_id,
     )
 }
 /* Try to load ToUnicode CMap from file system first, if not found fallback to
@@ -134,7 +133,7 @@ unsafe fn Type0Font_try_load_ToUnicode_stream(
         tounicode = pdf_read_ToUnicode_file(&cmap_name)
     }
     if tounicode.is_null() {
-        tounicode = Type0Font_create_ToUnicode_stream(font)
+        tounicode = Type0Font_create_ToUnicode_stream(&*font)
     }
     tounicode
 }
@@ -181,12 +180,12 @@ unsafe fn add_ToUnicode(font: *mut Type0Font) {
         match CIDFont_get_subtype(cidfont) {
             2 => {
                 /* PLEASE FIX THIS */
-                tounicode = Type0Font_create_ToUnicode_stream(font)
+                tounicode = Type0Font_create_ToUnicode_stream(&*font)
             }
             _ => {
                 if CIDFont_get_flag(cidfont, 1i32 << 9i32) != 0 {
                     /* FIXME */
-                    tounicode = Type0Font_create_ToUnicode_stream(font)
+                    tounicode = Type0Font_create_ToUnicode_stream(&*font)
                 } else if CIDFont_get_flag(cidfont, 1i32 << 8i32) != 0 {
                     /* FIXME */
                     /* Font loader will create ToUnicode and set. */
@@ -209,56 +208,50 @@ unsafe fn add_ToUnicode(font: *mut Type0Font) {
     };
 }
 
-pub(crate) unsafe fn Type0Font_set_ToUnicode(font: *mut Type0Font, cmap_ref: *mut pdf_obj) {
-    assert!(!font.is_null());
-    (*(*font).fontdict).as_dict_mut().set("ToUnicode", cmap_ref);
+pub(crate) unsafe fn Type0Font_set_ToUnicode(font: &mut Type0Font, cmap_ref: *mut pdf_obj) {
+    (*font.fontdict).as_dict_mut().set("ToUnicode", cmap_ref);
 }
-unsafe fn Type0Font_dofont(font: *mut Type0Font) {
-    if font.is_null() || (*font).indirect.is_null() {
+unsafe fn Type0Font_dofont(font: &mut Type0Font) {
+    if font.indirect.is_null() {
         return;
     }
-    if !(*(*font).fontdict).as_dict().has("ToUnicode") {
+    if !(*font.fontdict).as_dict().has("ToUnicode") {
         /* FIXME */
         add_ToUnicode(font);
     };
 }
-unsafe fn Type0Font_flush(mut font: *mut Type0Font) {
-    if !font.is_null() {
-        pdf_release_obj((*font).fontdict);
-        (*font).fontdict = ptr::null_mut();
-        pdf_release_obj((*font).indirect);
-        (*font).indirect = ptr::null_mut();
-        if !(*font).descriptor.is_null() {
-            panic!("{}: FontDescriptor unexpected for Type0 font.", "Type0",);
-        }
-        (*font).descriptor = ptr::null_mut()
-    };
+unsafe fn Type0Font_flush(font: &mut Type0Font) {
+    pdf_release_obj(font.fontdict);
+    font.fontdict = ptr::null_mut();
+    pdf_release_obj(font.indirect);
+    font.indirect = ptr::null_mut();
+    if !font.descriptor.is_null() {
+        panic!("{}: FontDescriptor unexpected for Type0 font.", "Type0",);
+    }
+    font.descriptor = ptr::null_mut();
 }
 
-pub(crate) unsafe fn Type0Font_get_wmode(font: *mut Type0Font) -> i32 {
-    assert!(!font.is_null());
-    (*font).wmode
+pub(crate) unsafe fn Type0Font_get_wmode(font: &Type0Font) -> i32 {
+    font.wmode
 }
 
-pub(crate) unsafe fn Type0Font_get_usedchars(font: *mut Type0Font) -> *mut i8 {
-    assert!(!font.is_null());
-    (*font).used_chars
+pub(crate) unsafe fn Type0Font_get_usedchars(font: &Type0Font) -> *mut i8 {
+    font.used_chars
 }
 
-pub(crate) unsafe fn Type0Font_get_resource(mut font: *mut Type0Font) -> *mut pdf_obj {
-    assert!(!font.is_null());
+pub(crate) unsafe fn Type0Font_get_resource(font: &mut Type0Font) -> *mut pdf_obj {
     /*
      * This looks somewhat strange.
      */
-    if (*font).indirect.is_null() {
+    if font.indirect.is_null() {
         let mut array = vec![];
-        array.push(CIDFont_get_resource((*font).descendant));
-        (*(*font).fontdict)
+        array.push(CIDFont_get_resource(font.descendant));
+        (*font.fontdict)
             .as_dict_mut()
             .set("DescendantFonts", array.into_obj());
-        (*font).indirect = pdf_ref_obj((*font).fontdict)
+        font.indirect = pdf_ref_obj(font.fontdict)
     }
-    pdf_link_obj((*font).indirect)
+    pdf_link_obj(font.indirect)
 }
 
 // Note: The elements are boxed to be able
@@ -321,8 +314,7 @@ pub(crate) unsafe fn Type0Font_cache_find(
      */
 
     let font_id = __cache.len() as i32;
-    __cache.push(Box::new(Type0Font_init_font_struct()));
-    let font = &mut *__cache[font_id as usize] as *mut Type0Font;
+    let mut font = Type0Font::new();
     /*
      * All CJK double-byte characters are mapped so that resulting
      * character codes coincide with CIDs of given character collection.
@@ -330,32 +322,18 @@ pub(crate) unsafe fn Type0Font_cache_find(
      * Identity-V for vertical fonts.
      */
     if wmode != 0 {
-        (*font).encoding = new(
-            (strlen(b"Identity-V\x00" as *const u8 as *const i8).wrapping_add(1))
-                .wrapping_mul(::std::mem::size_of::<i8>()) as _,
-        ) as *mut i8;
-        strcpy(
-            (*font).encoding,
-            b"Identity-V\x00" as *const u8 as *const i8,
-        );
+        font.encoding = "Identity-V";
     } else {
-        (*font).encoding = new(
-            (strlen(b"Identity-H\x00" as *const u8 as *const i8).wrapping_add(1))
-                .wrapping_mul(::std::mem::size_of::<i8>()) as _,
-        ) as *mut i8;
-        strcpy(
-            (*font).encoding,
-            b"Identity-H\x00" as *const u8 as *const i8,
-        );
+        font.encoding = "Identity-H";
     }
-    (*font).wmode = wmode;
-    (*font).cmap_id = cmap_id;
+    font.wmode = wmode;
+    font.cmap_id = cmap_id;
     /*
      * Now we start font dictionary.
      */
-    (*font).fontdict = pdf_dict::new().into_obj();
-    (*(*font).fontdict).as_dict_mut().set("Type", "Font");
-    (*(*font).fontdict).as_dict_mut().set("Subtype", "Type0");
+    font.fontdict = pdf_dict::new().into_obj();
+    (*font.fontdict).as_dict_mut().set("Type", "Font");
+    (*font.fontdict).as_dict_mut().set("Subtype", "Type0");
     /*
      * Type0 font does not have FontDescriptor because it is not a simple font.
      * Instead, DescendantFonts appears here.
@@ -365,7 +343,7 @@ pub(crate) unsafe fn Type0Font_cache_find(
      * fonts.
      */
     let cidfont = CIDFont_cache_get(cid_id);
-    (*font).descendant = cidfont;
+    font.descendant = cidfont;
     CIDFont_attach_parent(cidfont, font_id, wmode);
     /*
      * PostScript Font name:
@@ -392,28 +370,24 @@ pub(crate) unsafe fn Type0Font_cache_find(
      * In most PDF file, encoding name is not appended to fontname for Type0
      * fonts having CIDFontType 2 font as their descendant.
      */
-    (*font).used_chars = ptr::null_mut();
-    (*font).flags = 0i32;
+    font.used_chars = ptr::null_mut();
+    font.flags = 0i32;
     match CIDFont_get_subtype(cidfont) {
         1 => {
-            (*font).fontname = format!(
-                "{}-{}",
-                fontname,
-                CStr::from_ptr((*font).encoding).to_string_lossy(),
-            );
-            (*(*font).fontdict)
+            font.fontname = format!("{}-{}", fontname, font.encoding,);
+            (*font.fontdict)
                 .as_dict_mut()
-                .set("BaseFont", pdf_name::new((*font).fontname.as_bytes()));
+                .set("BaseFont", pdf_name::new(font.fontname.as_bytes()));
             /*
              * Need used_chars to write W, W2.
              */
             let parent_id = CIDFont_get_parent_id(cidfont, if wmode != 0 { 0i32 } else { 1i32 });
             if parent_id < 0i32 {
-                (*font).used_chars = new_used_chars2()
+                font.used_chars = new_used_chars2()
             } else {
                 /* Don't allocate new one. */
-                (*font).used_chars = Type0Font_get_usedchars(Type0Font_cache_get(parent_id));
-                (*font).flags |= 1i32 << 0i32
+                font.used_chars = Type0Font_get_usedchars(&*Type0Font_cache_get(parent_id));
+                font.flags |= 1i32 << 0i32
             }
         }
         2 => {
@@ -422,18 +396,20 @@ pub(crate) unsafe fn Type0Font_cache_find(
              *
              *  Use different used_chars for H and V.
              */
-            (*(*font).fontdict)
+            (*font.fontdict)
                 .as_dict_mut()
                 .set("BaseFont", pdf_name::new(fontname.as_bytes()));
-            (*font).used_chars = new_used_chars2()
+            font.used_chars = new_used_chars2()
         }
         _ => {
             panic!("Unrecognized CIDFont Type");
         }
     }
-    (*(*font).fontdict)
-        .as_dict_mut()
-        .set("Encoding", pdf_copy_name((*font).encoding));
+    (*font.fontdict).as_dict_mut().set(
+        "Encoding",
+        pdf_name::new(font.encoding.as_bytes()).into_obj(),
+    );
+    __cache.push(Box::new(font));
     font_id
 }
 /* ******************************* CACHE ********************************/

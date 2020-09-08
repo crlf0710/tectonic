@@ -547,7 +547,7 @@ unsafe fn CIDFont_type0_get_used_chars(font: *mut CIDFont) -> *mut i8 {
     } {
         panic!("No parent Type 0 font !");
     }
-    let used_chars = Type0Font_get_usedchars(Type0Font_cache_get(parent_id));
+    let used_chars = Type0Font_get_usedchars(&*Type0Font_cache_get(parent_id));
     if used_chars.is_null() {
         panic!("Unexpected error: Font not actually used???");
     }
@@ -1806,7 +1806,7 @@ unsafe fn add_metrics(
     } {
         panic!("No parent Type 0 font !");
     }
-    let used_chars = Type0Font_get_usedchars(Type0Font_cache_get(parent_id));
+    let used_chars = Type0Font_get_usedchars(&*Type0Font_cache_get(parent_id));
     if used_chars.is_null() {
         panic!("Unexpected error: Font not actually used???");
     }
@@ -1871,13 +1871,13 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
         hparent = ptr::null_mut()
     } else {
         hparent = Type0Font_cache_get(hparent_id);
-        used_chars = Type0Font_get_usedchars(hparent)
+        used_chars = Type0Font_get_usedchars(&*hparent)
     }
     if vparent_id < 0i32 {
         vparent = ptr::null_mut()
     } else {
         vparent = Type0Font_cache_get(vparent_id);
-        used_chars = Type0Font_get_usedchars(vparent)
+        used_chars = Type0Font_get_usedchars(&*vparent)
     }
     if used_chars.is_null() {
         panic!("Unexpected error: Font not actually used???");
@@ -1890,10 +1890,10 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
     .map(IntoObj::into_obj)
     .unwrap_or(ptr::null_mut());
     if !hparent.is_null() {
-        Type0Font_set_ToUnicode(hparent, pdf_ref_obj(tounicode));
+        Type0Font_set_ToUnicode(&mut *hparent, pdf_ref_obj(tounicode));
     }
     if !vparent.is_null() {
-        Type0Font_set_ToUnicode(vparent, pdf_ref_obj(tounicode));
+        Type0Font_set_ToUnicode(&mut *vparent, pdf_ref_obj(tounicode));
     }
     pdf_release_obj(tounicode);
     cff_set_name(&mut cffont, &(*font).fontname);

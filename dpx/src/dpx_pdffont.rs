@@ -271,7 +271,7 @@ pub(crate) unsafe fn pdf_get_font_reference(font_id: i32) -> *mut pdf_obj {
     let font: &mut pdf_font = &mut font_cache[font_id as usize];
     if font.subtype == 4i32 {
         let t0font = Type0Font_cache_get(font.font_id);
-        return Type0Font_get_resource(t0font);
+        return Type0Font_get_resource(&mut *t0font);
     } else {
         if font.reference.is_null() {
             font.reference = pdf_ref_obj(pdf_font_get_resource(&mut *font))
@@ -287,7 +287,7 @@ pub(crate) unsafe fn pdf_get_font_usedchars(font_id: i32) -> *mut i8 {
     let font = &mut font_cache[font_id as usize];
     if font.subtype == 4i32 {
         let t0font = Type0Font_cache_get(font.font_id);
-        return Type0Font_get_usedchars(t0font);
+        return Type0Font_get_usedchars(&*t0font);
     } else {
         if font.usedchars.is_null() {
             font.usedchars =
@@ -309,7 +309,7 @@ pub(crate) unsafe fn pdf_get_font_wmode(font_id: i32) -> i32 {
     let font = &mut font_cache[font_id as usize];
     if font.subtype == 4i32 {
         let t0font = Type0Font_cache_get(font.font_id);
-        return Type0Font_get_wmode(t0font);
+        return Type0Font_get_wmode(&*t0font);
     } else {
         return 0i32;
     };

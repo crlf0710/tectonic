@@ -58,6 +58,7 @@ pub(crate) struct font_metric {
     pub(crate) source: i32,
 }
 
+#[allow(unused)]
 #[derive(Clone)]
 pub(crate) enum CharMap {
     None,

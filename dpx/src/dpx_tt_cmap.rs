@@ -63,7 +63,7 @@ use super::dpx_unicode::UC_UTF16BE_encode_char;
 use crate::dpx_pdfobj::{pdf_obj, pdf_stream, IntoObj};
 use crate::dpx_truetype::sfnt_table_info;
 use crate::mfree;
-use libc::{free, memcpy, memset};
+use libc::{free, memset};
 
 use std::ffi::CString;
 use std::io::{Seek, SeekFrom};
@@ -848,7 +848,7 @@ unsafe fn sfnt_get_glyphname(
 unsafe fn handle_subst_glyphs(
     cmap: *mut CMap,
     cmap_add: *mut CMap,
-    used_glyphs: *const i8,
+    used_glyphs: &[u8],
     sfont: &sfnt,
     cffont: Option<&cff_font>,
 ) -> u16 {
@@ -858,11 +858,11 @@ unsafe fn handle_subst_glyphs(
     }
     let mut count = 0_u16;
     for i in 0..8192 {
-        if !(*used_glyphs.offset(i as isize) as i32 == 0i32) {
+        if !(used_glyphs[i as usize] == 0) {
             for j in 0..8 {
                 let gid: u16 = ((8i32 * i as i32) as u32).wrapping_add(j) as u16;
-                if !(*used_glyphs.offset((gid as i32 / 8i32) as isize) as i32
-                    & 1i32 << 7i32 - gid as i32 % 8i32
+                if !(used_glyphs[(gid as i32 / 8i32) as usize] as i8 as i32
+                    & 1 << 7 - gid as i32 % 8
                     == 0)
                 {
                     if cmap_add.is_null() {
@@ -959,7 +959,7 @@ unsafe fn handle_subst_glyphs(
 unsafe fn add_to_cmap_if_used(
     cmap: *mut CMap,
     cffont: Option<&cff_font>,
-    used_chars: *mut i8,
+    used_chars: &mut [u8],
     gid: u16,
     ch: u32,
 ) -> u16 {
@@ -974,8 +974,7 @@ unsafe fn add_to_cmap_if_used(
      * mapping of ligatures encoded in PUA in fonts like Linux Libertine
      * and old Adobe fonts.
      */
-    if *used_chars.offset((cid as i32 / 8i32) as isize) as i32 & 1i32 << 7i32 - cid as i32 % 8i32
-        != 0
+    if used_chars[(cid as i32 / 8) as usize] as i8 as i32 & 1 << 7 - cid as i32 % 8 != 0
         && !is_PUA_or_presentation(ch)
     {
         let mut p: *mut u8 = wbuf.as_mut_ptr().offset(2);
@@ -993,15 +992,14 @@ unsafe fn add_to_cmap_if_used(
          * There are problem when two Unicode code is mapped to
          * single glyph...
          */
-        let ref mut fresh5 = *used_chars.offset((cid as i32 / 8i32) as isize);
-        *fresh5 = (*fresh5 as i32 & !(1i32 << 7i32 - cid as i32 % 8i32)) as i8
+        used_chars[(cid as i32 / 8) as usize] &= !(1i32 << 7 - cid as i32 % 8) as i8 as u8;
     }
     count
 }
 unsafe fn create_ToUnicode_cmap4(
     cmap: *mut CMap,
     map: *mut cmap4,
-    used_chars: *mut i8,
+    used_chars: &mut [u8],
     cffont: Option<&cff_font>,
 ) -> u16 {
     let mut count: u16 = 0_u16;
@@ -1040,7 +1038,7 @@ unsafe fn create_ToUnicode_cmap4(
 unsafe fn create_ToUnicode_cmap12(
     cmap: *mut CMap,
     map: *mut cmap12,
-    used_chars: *mut i8,
+    used_chars: &mut [u8],
     cffont: Option<&cff_font>,
 ) -> u16 {
     let mut count: u32 = 0_u32;
@@ -1062,7 +1060,7 @@ unsafe fn create_ToUnicode_cmap(
     ttcmap: *mut tt_cmap,
     cmap_name: &str,
     cmap_add: *mut CMap,
-    used_chars: *const i8,
+    used_chars: &[u8],
     sfont: &mut sfnt,
     code_to_cid_cmap: *mut CMap,
 ) -> Option<pdf_stream> {
@@ -1105,11 +1103,11 @@ unsafe fn create_ToUnicode_cmap(
      */
     if !code_to_cid_cmap.is_null() && cffont.is_some() && is_cidfont && cmap_add.is_null() {
         for i in 0..8192 {
-            if !(*used_chars.offset(i as isize) as i32 == 0i32) {
+            if used_chars[i as usize] != 0 {
                 for j in 0..8 {
                     let cid: u16 = (8i32 * i as i32 + j) as u16;
-                    if !(*used_chars.offset((cid as i32 / 8i32) as isize) as i32
-                        & 1i32 << 7i32 - cid as i32 % 8i32
+                    if !(used_chars[(cid as i32 / 8) as usize] as i8 as i32
+                        & 1i32 << 7 - cid as i32 % 8
                         == 0)
                     {
                         let ch = CMap_reverse_decode(code_to_cid_cmap, cid);
@@ -1134,12 +1132,8 @@ unsafe fn create_ToUnicode_cmap(
             }
         }
     } else {
-        let mut used_chars_copy: [i8; 8192] = [0; 8192];
-        memcpy(
-            used_chars_copy.as_mut_ptr() as *mut libc::c_void,
-            used_chars as *const libc::c_void,
-            8192,
-        );
+        let mut used_chars_copy: [u8; 8192] = [0; 8192];
+        used_chars_copy.copy_from_slice(&used_chars[0..8192]);
         /* For create_ToUnicode_cmap{4,12}(), cffont is for GID -> CID lookup,
          * so it is only needed for CID fonts. */
         match (*ttcmap).format as i32 {
@@ -1147,7 +1141,7 @@ unsafe fn create_ToUnicode_cmap(
                 count = create_ToUnicode_cmap4(
                     &mut cmap,
                     (*ttcmap).map as *mut cmap4,
-                    used_chars_copy.as_mut_ptr(),
+                    &mut used_chars_copy[..],
                     if is_cidfont {
                         if let Some(cffont) = &cffont {
                             Some(cffont)
@@ -1163,7 +1157,7 @@ unsafe fn create_ToUnicode_cmap(
                 count = create_ToUnicode_cmap12(
                     &mut cmap,
                     (*ttcmap).map as *mut cmap12,
-                    used_chars_copy.as_mut_ptr(),
+                    &mut used_chars_copy[..],
                     if is_cidfont {
                         if let Some(cffont) = &cffont {
                             Some(cffont)
@@ -1183,7 +1177,7 @@ unsafe fn create_ToUnicode_cmap(
             + handle_subst_glyphs(
                 &mut cmap,
                 cmap_add,
-                used_chars_copy.as_mut_ptr(),
+                &used_chars_copy[..],
                 sfont,
                 if is_cidfont {
                     None
@@ -1230,7 +1224,7 @@ static mut cmap_plat_encs: [cmap_plat_enc_rec; 5] = [
 pub(crate) unsafe fn otf_create_ToUnicode_stream(
     font_name: &str,
     ttc_index: i32,
-    used_chars: *const i8,
+    used_chars: &[u8],
     cmap_id: i32,
 ) -> *mut pdf_obj {
     let mut cmap_obj = None;

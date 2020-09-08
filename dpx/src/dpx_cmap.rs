@@ -197,8 +197,8 @@ pub(crate) unsafe fn CMap_release(cmap: *mut CMap) {
 
 pub(crate) unsafe fn CMap_is_Identity(cmap: *mut CMap) -> bool {
     assert!(!cmap.is_null());
-    return streq_ptr((*cmap).name, b"Identity-H\x00" as *const u8 as *const i8) as i32 != 0
-        || streq_ptr((*cmap).name, b"Identity-V\x00" as *const u8 as *const i8) as i32 != 0;
+    return streq_ptr((*cmap).name, b"Identity-H\x00" as *const u8 as *const i8)
+        || streq_ptr((*cmap).name, b"Identity-V\x00" as *const u8 as *const i8);
 }
 
 pub(crate) unsafe fn CMap_is_valid(cmap: *mut CMap) -> bool {
