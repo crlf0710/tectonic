@@ -367,29 +367,18 @@ unsafe fn doc_resize_page_entries(mut p: *mut pdf_doc, size: u32) {
         ) as *mut pdf_page; /* background */
         /* page body  */
         for i in (*p).pages.max_entries..size {
-            let ref mut fresh0 = (*(*p).pages.entries.offset(i as isize)).page_obj; /* global eop */
-            *fresh0 = ptr::null_mut();
-            let ref mut fresh1 = (*(*p).pages.entries.offset(i as isize)).page_ref;
-            *fresh1 = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).page_obj = ptr::null_mut(); /* global eop */
+            (*(*p).pages.entries.offset(i as isize)).page_ref = ptr::null_mut();
             (*(*p).pages.entries.offset(i as isize)).flags = 0i32;
-            let ref mut fresh2 = (*(*p).pages.entries.offset(i as isize)).resources;
-            *fresh2 = ptr::null_mut();
-            let ref mut fresh3 = (*(*p).pages.entries.offset(i as isize)).background;
-            *fresh3 = ptr::null_mut();
-            let ref mut fresh4 = (*(*p).pages.entries.offset(i as isize)).contents;
-            *fresh4 = ptr::null_mut();
-            let ref mut fresh5 = (*(*p).pages.entries.offset(i as isize)).content_refs[0];
-            *fresh5 = ptr::null_mut();
-            let ref mut fresh6 = (*(*p).pages.entries.offset(i as isize)).content_refs[1];
-            *fresh6 = ptr::null_mut();
-            let ref mut fresh7 = (*(*p).pages.entries.offset(i as isize)).content_refs[2];
-            *fresh7 = ptr::null_mut();
-            let ref mut fresh8 = (*(*p).pages.entries.offset(i as isize)).content_refs[3];
-            *fresh8 = ptr::null_mut();
-            let ref mut fresh9 = (*(*p).pages.entries.offset(i as isize)).annots;
-            *fresh9 = ptr::null_mut();
-            let ref mut fresh10 = (*(*p).pages.entries.offset(i as isize)).beads;
-            *fresh10 = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).resources = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).background = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).contents = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).content_refs[0] = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).content_refs[1] = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).content_refs[2] = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).content_refs[3] = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).annots = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).beads = ptr::null_mut();
         }
         (*p).pages.max_entries = size
     };
@@ -1495,10 +1484,8 @@ unsafe fn pdf_doc_init_names(mut p: *mut pdf_doc, check_gotos: i32) {
     for i in 0..(::std::mem::size_of::<[*const i8; 10]>() as u64)
         .wrapping_div(::std::mem::size_of::<*const i8>() as u64)
     {
-        let ref mut fresh13 = (*(*p).names.offset(i as isize)).category;
-        *fresh13 = name_dict_categories[i as usize];
-        let ref mut fresh14 = (*(*p).names.offset(i as isize)).data;
-        *fresh14 = if strcmp(
+        (*(*p).names.offset(i as isize)).category = name_dict_categories[i as usize];
+        (*(*p).names.offset(i as isize)).data = if strcmp(
             name_dict_categories[i as usize],
             b"Dests\x00" as *const u8 as *const i8,
         ) != 0
@@ -1512,18 +1499,16 @@ unsafe fn pdf_doc_init_names(mut p: *mut pdf_doc, check_gotos: i32) {
          * broken links even if no destination is defined in the DVI file.
          */
     }
-    let ref mut fresh15 = (*(*p).names.offset(
+    (*(*p).names.offset(
         (::std::mem::size_of::<[*const i8; 10]>() as u64)
             .wrapping_div(::std::mem::size_of::<*const i8>() as u64) as isize,
     ))
-    .category;
-    *fresh15 = ptr::null();
-    let ref mut fresh16 = (*(*p).names.offset(
+    .category = ptr::null();
+    (*(*p).names.offset(
         (::std::mem::size_of::<[*const i8; 10]>() as u64)
             .wrapping_div(::std::mem::size_of::<*const i8>() as u64) as isize,
     ))
-    .data;
-    *fresh16 = ptr::null_mut();
+    .data = ptr::null_mut();
     (*p).check_gotos = check_gotos;
     ht_init_table(
         &mut (*p).gotos,
@@ -1555,8 +1540,7 @@ pub(crate) unsafe fn pdf_doc_add_names(
         return -1i32;
     }
     if (*(*p).names.offset(i as isize)).data.is_null() {
-        let ref mut fresh17 = (*(*p).names.offset(i as isize)).data;
-        *fresh17 = pdf_new_name_tree()
+        (*(*p).names.offset(i as isize)).data = pdf_new_name_tree()
     }
     let keyptr = key.as_ptr() as *const libc::c_void;
     let keylen = key.len() as i32;
@@ -1906,8 +1890,7 @@ pub(crate) unsafe fn pdf_doc_add_bead(
                     as u32,
             ) as *mut pdf_bead;
             for i in (*article).num_beads..(*article).max_beads {
-                let ref mut fresh18 = (*(*article).beads.offset(i as isize)).id;
-                *fresh18 = ptr::null_mut();
+                (*(*article).beads.offset(i as isize)).id = ptr::null_mut();
                 (*(*article).beads.offset(i as isize)).page_no = -1i32;
             }
         }

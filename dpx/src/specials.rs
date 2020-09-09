@@ -469,13 +469,8 @@ unsafe fn print_error(name: *const i8, spe: &mut spc_env, ap: &mut spc_arg) {
     }
     ebuf[i] = 0;
     if !ap.cur.is_empty() {
-        loop {
-            let fresh1 = i;
-            i = i - 1;
-            if !(fresh1 > 60) {
-                break;
-            }
-            ebuf[i] = b'.';
+        for j in 60..i {
+            ebuf[j] = b'.';
         }
     }
     warn!(
@@ -483,7 +478,7 @@ unsafe fn print_error(name: *const i8, spe: &mut spc_env, ap: &mut spc_arg) {
         CStr::from_ptr(ebuf.as_ptr() as *const i8).display()
     );
     if !ap.cur.is_empty() {
-        i = 0;
+        let mut i = 0;
         for &b in ap.cur {
             if i >= 63 {
                 break;
@@ -504,13 +499,8 @@ unsafe fn print_error(name: *const i8, spe: &mut spc_env, ap: &mut spc_arg) {
         }
         ebuf[i] = 0;
         if !ap.cur.is_empty() {
-            loop {
-                let fresh3 = i;
-                i = i - 1;
-                if !(fresh3 > 60) {
-                    break;
-                }
-                ebuf[i] = b'.' as u8
+            for j in 60..i {
+                ebuf[j] = b'.' as u8
             }
         }
         warn!(

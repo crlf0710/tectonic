@@ -1041,8 +1041,7 @@ unsafe fn dvi_locate_native_font(
         if layout_dir == 1i32 && sfnt_find_table_pos(&sfont, b"vmtx") > 0_u32 {
             let vhea: *mut tt_vhea_table = tt_read_vhea_table(&mut sfont);
             sfnt_locate_table(&mut sfont, b"vmtx");
-            let ref mut fresh19 = font.hvmt;
-            *fresh19 = tt_read_longMetrics(
+            font.hvmt = tt_read_longMetrics(
                 &mut &*sfont.handle,
                 (*maxp).numGlyphs,
                 (*vhea).numOfLongVerMetrics,
@@ -1051,8 +1050,7 @@ unsafe fn dvi_locate_native_font(
             free(vhea as *mut libc::c_void);
         } else {
             sfnt_locate_table(&mut sfont, sfnt_table_info::HMTX);
-            let ref mut fresh20 = font.hvmt;
-            *fresh20 = tt_read_longMetrics(
+            font.hvmt = tt_read_longMetrics(
                 &mut &*sfont.handle,
                 (*maxp).numGlyphs,
                 (*hhea).numOfLongHorMetrics,
@@ -1359,16 +1357,15 @@ unsafe fn do_putrule() {
 }
 
 pub(crate) unsafe fn dvi_push() {
-    if dvi_stack_depth as u32 >= 256u32 {
+    if dvi_stack_depth as u32 >= 256 {
         panic!("DVI stack exceeded limit.");
     }
-    let fresh21 = dvi_stack_depth;
-    dvi_stack_depth = dvi_stack_depth + 1;
-    dvi_stack[fresh21 as usize] = dvi_state;
+    dvi_stack[dvi_stack_depth as usize] = dvi_state;
+    dvi_stack_depth += 1;
 }
 
 pub(crate) unsafe fn dpx_dvi_pop() {
-    if dvi_stack_depth <= 0i32 {
+    if dvi_stack_depth <= 0 {
         panic!("Tried to pop an empty stack.");
     }
     dvi_stack_depth -= 1;
@@ -1498,13 +1495,12 @@ unsafe fn do_dir() {
     /* 0: horizontal, 1,3: vertical */
 }
 unsafe fn lr_width_push() {
-    if lr_width_stack_depth >= 256u32 {
+    if lr_width_stack_depth >= 256 {
         panic!("Segment width stack exceeded limit.");
         /* must precede dvi_right */
     }
-    let fresh22 = lr_width_stack_depth;
-    lr_width_stack_depth = lr_width_stack_depth.wrapping_add(1);
-    lr_width_stack[fresh22 as usize] = lr_width;
+    lr_width_stack[lr_width_stack_depth as usize] = lr_width;
+    lr_width_stack_depth += 1;
 }
 unsafe fn lr_width_pop() {
     if lr_width_stack_depth <= 0_u32 {
@@ -1990,15 +1986,14 @@ static mut num_saved_fonts: u32 = 0_u32;
 
 pub(crate) unsafe fn dvi_vf_init(dev_font_id: i32) {
     dvi_push();
-    dvi_state.w = 0i32;
-    dvi_state.x = 0i32;
-    dvi_state.y = 0i32;
-    dvi_state.z = 0i32;
+    dvi_state.w = 0;
+    dvi_state.x = 0;
+    dvi_state.y = 0;
+    dvi_state.z = 0;
     /* do not reset dvi_state.d. */
-    if num_saved_fonts < 16u32 {
-        let fresh26 = num_saved_fonts;
-        num_saved_fonts = num_saved_fonts.wrapping_add(1);
-        saved_dvi_font[fresh26 as usize] = current_font
+    if num_saved_fonts < 16 {
+        saved_dvi_font[num_saved_fonts as usize] = current_font;
+        num_saved_fonts += 1;
     } else {
         panic!("Virtual fonts nested too deeply!");
     }

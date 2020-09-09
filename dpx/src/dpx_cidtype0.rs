@@ -679,9 +679,9 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
             } else {
                 65535 + 1
             };
-        CIDToGIDMap = new(((2 * cid_count) as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-            as *mut u8;
+        CIDToGIDMap = new(
+            ((2 * cid_count) as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32
+        ) as *mut u8;
         memset(CIDToGIDMap as *mut libc::c_void, 0, (2 * cid_count) as _);
         *used_chars.offset((0 / 8) as isize) |= (1i32 << 7 - 0 % 8) as i8;
         /* .notdef */
@@ -696,10 +696,8 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
                     );
                     *used_chars.offset((cid / 8) as isize) &= !(1 << 7 - cid % 8) as i8
                 } else {
-                    *CIDToGIDMap.offset((2 * cid) as isize) =
-                        (gid as i32 >> 8 & 0xff) as u8;
-                    *CIDToGIDMap.offset((2 * cid + 1) as isize) =
-                        (gid as i32 & 0xff) as u8;
+                    *CIDToGIDMap.offset((2 * cid) as isize) = (gid as i32 >> 8 & 0xff) as u8;
+                    *CIDToGIDMap.offset((2 * cid + 1) as isize) = (gid as i32 & 0xff) as u8;
                     last_cid = cid as u16;
                     num_glyphs = num_glyphs.wrapping_add(1)
                 }

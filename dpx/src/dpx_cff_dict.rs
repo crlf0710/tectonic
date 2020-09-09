@@ -342,108 +342,96 @@ static mut dict_operator: [C2RustUnnamed_2; 61] = [
 /* Parse DICT data */
 unsafe fn get_integer(data: *mut *mut u8, endptr: *mut u8, status: *mut i32) -> f64 {
     let mut result: i32 = 0i32;
-    let fresh0 = *data;
+    let b0 = **data;
     *data = (*data).offset(1);
-    let b0 = *fresh0;
     if b0 as i32 == 28i32 && *data < endptr.offset(-2) {
         /* shortint */
-        let fresh1 = *data;
+        let b1 = **data;
         *data = (*data).offset(1);
-        let b1 = *fresh1;
-        let fresh2 = *data;
+        let b2 = **data;
         *data = (*data).offset(1);
-        let b2 = *fresh2;
-        result = b1 as i32 * 256i32 + b2 as i32;
+        result = b1 as i32 * 256 + b2 as i32;
         if result as i64 > 0x7fff {
             result = (result as i64 - 0x10000) as i32
         }
-    } else if b0 as i32 == 29i32 && *data < endptr.offset(-4) {
+    } else if b0 as i32 == 29 && *data < endptr.offset(-4) {
         /* longint */
-        let fresh3 = *data;
+        result = **data as i32;
         *data = (*data).offset(1);
-        result = *fresh3 as i32;
-        if result > 0x7fi32 {
-            result -= 0x100i32
+        if result > 0x7f {
+            result -= 0x100
         }
         for _ in 0..3 {
-            result = result * 256i32 + **data as i32;
+            result = result * 256 + **data as i32;
             *data = (*data).offset(1);
         }
-    } else if b0 as i32 >= 32i32 && b0 as i32 <= 246i32 {
+    } else if b0 as i32 >= 32 && b0 as i32 <= 246 {
         /* int (1) */
-        result = b0 as i32 - 139i32
-    } else if b0 as i32 >= 247i32 && b0 as i32 <= 250i32 {
+        result = b0 as i32 - 139
+    } else if b0 as i32 >= 247 && b0 as i32 <= 250 {
         /* int (2) */
-        let fresh4 = *data;
+        let b1 = **data;
         *data = (*data).offset(1);
-        let b1 = *fresh4;
-        result = (b0 as i32 - 247i32) * 256i32 + b1 as i32 + 108i32
-    } else if b0 as i32 >= 251i32 && b0 as i32 <= 254i32 {
-        let fresh5 = *data;
+        result = (b0 as i32 - 247) * 256 + b1 as i32 + 108
+    } else if b0 as i32 >= 251 && b0 as i32 <= 254 {
+        let b1 = **data;
         *data = (*data).offset(1);
-        let b1 = *fresh5;
-        result = -(b0 as i32 - 251i32) * 256i32 - b1 as i32 - 108i32
+        result = -(b0 as i32 - 251) * 256 - b1 as i32 - 108
     } else {
-        *status = -1i32
+        *status = -1;
     }
     result as f64
 }
 /* Simply uses strtod */
 unsafe fn get_real(data: *mut *mut u8, endptr: *mut u8, status: *mut i32) -> f64 {
-    let mut result: f64 = 0.0f64; /* skip first byte (30) */
-    let mut nibble: i32 = 0i32;
-    let mut len: i32 = 0i32;
-    let mut fail: i32 = 0i32;
-    if **data as i32 != 30i32 || *data >= endptr.offset(-1) {
-        *status = -1i32;
-        return 0.0f64;
+    let mut result: f64 = 0.; /* skip first byte (30) */
+    let mut nibble: i32 = 0;
+    let mut len: i32 = 0;
+    let mut fail: i32 = 0;
+    if **data as i32 != 30 || *data >= endptr.offset(-1) {
+        *status = -1;
+        return 0.;
     }
     *data = (*data).offset(1);
     let mut pos = 0;
-    while fail == 0 && len < 1024i32 - 2i32 && *data < endptr {
+    while fail == 0 && len < 1024 - 2 && *data < endptr {
         /* get nibble */
-        if pos % 2i32 != 0 {
-            nibble = **data as i32 & 0xfi32;
+        if pos % 2 != 0 {
+            nibble = **data as i32 & 0xf;
             *data = (*data).offset(1)
         } else {
-            nibble = **data as i32 >> 4i32 & 0xfi32
+            nibble = **data as i32 >> 4 & 0xf;
         }
-        if nibble >= 0i32 && nibble <= 0x9i32 {
-            let fresh6 = len;
-            len = len + 1;
-            *work_buffer.as_mut_ptr().offset(fresh6 as isize) = (nibble + '0' as i32) as i8
-        } else if nibble == 0xai32 {
+        if nibble >= 0 && nibble <= 0x9 {
+            *work_buffer.as_mut_ptr().offset(len as isize) = (nibble + '0' as i32) as i8;
+            len += 1;
+        } else if nibble == 0xa {
             /* . */
-            let fresh7 = len;
-            len = len + 1;
-            *work_buffer.as_mut_ptr().offset(fresh7 as isize) = '.' as i32 as i8
-        } else if nibble == 0xbi32 || nibble == 0xci32 {
+            *work_buffer.as_mut_ptr().offset(len as isize) = '.' as i32 as i8;
+            len += 1;
+        } else if nibble == 0xb || nibble == 0xc {
             /* E, E- */
-            let fresh8 = len;
-            len = len + 1;
-            *work_buffer.as_mut_ptr().offset(fresh8 as isize) = 'e' as i32 as i8;
-            if nibble == 0xci32 {
-                let fresh9 = len;
-                len = len + 1;
-                *work_buffer.as_mut_ptr().offset(fresh9 as isize) = '-' as i32 as i8
+            *work_buffer.as_mut_ptr().offset(len as isize) = 'e' as i32 as i8;
+            len += 1;
+            if nibble == 0xc {
+                *work_buffer.as_mut_ptr().offset(len as isize) = '-' as i32 as i8;
+                len += 1;
             }
-        } else if nibble == 0xei32 {
+        } else if nibble == 0xe {
             /* `-' */
-            let fresh10 = len; /* invalid */
-            len = len + 1;
-            *work_buffer.as_mut_ptr().offset(fresh10 as isize) = '-' as i32 as i8
-        } else if !(nibble == 0xdi32) {
+            /* invalid */
+            *work_buffer.as_mut_ptr().offset(len as isize) = '-' as i32 as i8;
+            len += 1;
+        } else if !(nibble == 0xd) {
             if nibble == 0xfi32 {
                 /* end */
-                let fresh11 = len;
-                //len = len + 1;
-                *work_buffer.as_mut_ptr().offset(fresh11 as isize) = '\u{0}' as i32 as i8;
-                if pos % 2i32 == 0i32 && **data as i32 != 0xffi32 {
-                    fail = 1i32
+                *work_buffer.as_mut_ptr().offset(len as isize) = '\u{0}' as i32 as i8;
+                if pos % 2 == 0 && **data as i32 != 0xff {
+                    fail = 1
                 }
                 break;
             } else {
-                fail = 1i32
+                fail = 1;
             }
         }
         /* skip */
@@ -493,8 +481,7 @@ unsafe fn add_dict(mut dict: *mut cff_dict, data: *mut *mut u8, endptr: *mut u8,
         ) as *mut cff_dict_entry
     }
     (*(*dict).entries.offset((*dict).count as isize)).id = id;
-    let ref mut fresh12 = (*(*dict).entries.offset((*dict).count as isize)).key;
-    *fresh12 = dict_operator[id as usize].opname;
+    (*(*dict).entries.offset((*dict).count as isize)).key = dict_operator[id as usize].opname;
     if argtype == 1i32 << 0i32 | 1i32 << 1i32
         || argtype == 1i32 << 2i32
         || argtype == 1i32 << 3i32
@@ -507,8 +494,7 @@ unsafe fn add_dict(mut dict: *mut cff_dict, data: *mut *mut u8, endptr: *mut u8,
         }
         stack_top -= 1;
         (*(*dict).entries.offset((*dict).count as isize)).count = 1i32;
-        let ref mut fresh13 = (*(*dict).entries.offset((*dict).count as isize)).values;
-        *fresh13 =
+        (*(*dict).entries.offset((*dict).count as isize)).values =
             new((1_u64).wrapping_mul(::std::mem::size_of::<f64>() as u64) as u32) as *mut f64;
         *(*(*dict).entries.offset((*dict).count as isize))
             .values
@@ -516,10 +502,9 @@ unsafe fn add_dict(mut dict: *mut cff_dict, data: *mut *mut u8, endptr: *mut u8,
         (*dict).count += 1i32
     } else if stack_top > 0i32 {
         (*(*dict).entries.offset((*dict).count as isize)).count = stack_top;
-        let ref mut fresh14 = (*(*dict).entries.offset((*dict).count as isize)).values;
-        *fresh14 =
-            new((stack_top as u32 as u64).wrapping_mul(::std::mem::size_of::<f64>() as u64) as u32)
-                as *mut f64;
+        (*(*dict).entries.offset((*dict).count as isize)).values = new((stack_top as u32 as u64)
+            .wrapping_mul(::std::mem::size_of::<f64>() as u64)
+            as u32) as *mut f64;
         while stack_top > 0i32 {
             stack_top -= 1;
             *(*(*dict).entries.offset((*dict).count as isize))
@@ -759,22 +744,19 @@ pub(crate) unsafe fn cff_dict_add(mut dict: *mut cff_dict, key: *const i8, count
         ) as *mut cff_dict_entry
     }
     (*(*dict).entries.offset((*dict).count as isize)).id = id;
-    let ref mut fresh20 = (*(*dict).entries.offset((*dict).count as isize)).key;
-    *fresh20 = dict_operator[id as usize].opname;
+    (*(*dict).entries.offset((*dict).count as isize)).key = dict_operator[id as usize].opname;
     (*(*dict).entries.offset((*dict).count as isize)).count = count;
     if count > 0i32 {
-        let ref mut fresh21 = (*(*dict).entries.offset((*dict).count as isize)).values;
-        *fresh21 =
-            new((count as u32 as u64).wrapping_mul(::std::mem::size_of::<f64>() as u64) as u32)
-                as *mut f64;
+        (*(*dict).entries.offset((*dict).count as isize)).values = new((count as u32 as u64)
+            .wrapping_mul(::std::mem::size_of::<f64>() as u64)
+            as u32) as *mut f64;
         memset(
             (*(*dict).entries.offset((*dict).count as isize)).values as *mut libc::c_void,
             0i32,
             (::std::mem::size_of::<f64>()).wrapping_mul(count as _),
         );
     } else {
-        let ref mut fresh22 = (*(*dict).entries.offset((*dict).count as isize)).values;
-        *fresh22 = ptr::null_mut()
+        (*(*dict).entries.offset((*dict).count as isize)).values = ptr::null_mut()
     }
     (*dict).count += 1i32;
 }
@@ -783,8 +765,7 @@ pub(crate) unsafe fn cff_dict_remove(dict: *mut cff_dict, key: *const i8) {
     for i in 0..(*dict).count {
         if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) {
             (*(*dict).entries.offset(i as isize)).count = 0i32;
-            let ref mut fresh23 = (*(*dict).entries.offset(i as isize)).values;
-            *fresh23 =
+            (*(*dict).entries.offset(i as isize)).values =
                 mfree((*(*dict).entries.offset(i as isize)).values as *mut libc::c_void) as *mut f64
         }
     }

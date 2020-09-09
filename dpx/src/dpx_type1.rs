@@ -661,8 +661,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
         enc_vec = new((256_u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64) as u32)
             as *mut *mut i8;
         for code in 0..=0xff {
-            let ref mut fresh0 = *enc_vec.offset(code as isize);
-            *fresh0 = ptr::null_mut();
+            *enc_vec.offset(code as isize) = ptr::null_mut();
         }
     }
     let mut cffont = t1_load_font(enc_vec, 0, handle);
@@ -798,15 +797,14 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                             (*(*cffont.encoding)
                                 .data
                                 .range1
-                                .offset(((*cffont.encoding).num_entries as i32 - 1i32) as isize))
-                            .n_left = 0i32 as u8
+                                .offset(((*cffont.encoding).num_entries as i32 - 1) as isize))
+                            .n_left = 0;
                         } else {
-                            let ref mut fresh1 = (*(*cffont.encoding)
+                            (*(*cffont.encoding)
                                 .data
                                 .range1
-                                .offset(((*cffont.encoding).num_entries as i32 - 1i32) as isize))
-                            .n_left;
-                            *fresh1 = (*fresh1 as i32 + 1i32) as u8
+                                .offset(((*cffont.encoding).num_entries as i32 - 1) as isize))
+                            .n_left += 1;
                         }
                         prev = code;
                         num_glyphs = num_glyphs.wrapping_add(1);
@@ -912,9 +910,8 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                     if verbose > 2i32 {
                         info!("/{}", CStr::from_ptr(achar_name).display());
                     }
-                    let fresh2 = num_glyphs;
-                    num_glyphs = num_glyphs.wrapping_add(1);
-                    *GIDMap.offset(fresh2 as isize) = achar_gid as u16;
+                    *GIDMap.offset(num_glyphs as isize) = achar_gid as u16;
+                    num_glyphs += 1;
                     *(*charset)
                         .data
                         .glyphs
@@ -927,15 +924,14 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                     if *GIDMap.offset(i as isize) as i32 == bchar_gid {
                         break;
                     }
-                    i += 1
+                    i += 1;
                 }
                 if i == num_glyphs as i32 {
                     if verbose > 2 {
                         info!("/{}", CStr::from_ptr(bchar_name).display());
                     }
-                    let fresh3 = num_glyphs;
-                    num_glyphs = num_glyphs.wrapping_add(1);
-                    *GIDMap.offset(fresh3 as isize) = bchar_gid as u16;
+                    *GIDMap.offset(num_glyphs as isize) = bchar_gid as u16;
+                    num_glyphs += 1;
                     *(*charset)
                         .data
                         .glyphs
@@ -946,12 +942,11 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
             }
         }
         *widths.offset(gid_0 as isize) = gm.wx;
-        gid_0 = gid_0.wrapping_add(1);
+        gid_0 += 1;
     }
     (*cstring).count = num_glyphs;
     cff_release_index(*cffont.subrs.offset(0));
-    let ref mut fresh4 = *cffont.subrs.offset(0);
-    *fresh4 = ptr::null_mut();
+    *cffont.subrs.offset(0) = ptr::null_mut();
     cffont.subrs = mfree(cffont.subrs as *mut libc::c_void) as *mut *mut cff_index;
     cff_release_index(cffont.cstrings);
     cffont.cstrings = cstring;
@@ -972,8 +967,8 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     /* Cleanup */
     if encoding_id < 0i32 && !enc_vec.is_null() {
         for code in 0..256 {
-            let ref mut fresh5 = *enc_vec.offset(code as isize);
-            *fresh5 = mfree(*enc_vec.offset(code as isize) as *mut libc::c_void) as *mut i8;
+            *enc_vec.offset(code as isize) =
+                mfree(*enc_vec.offset(code as isize) as *mut libc::c_void) as *mut i8;
         }
         free(enc_vec as *mut libc::c_void);
     }

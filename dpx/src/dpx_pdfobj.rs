@@ -630,15 +630,9 @@ unsafe fn dump_xref_stream() {
     for i in 0..next_label {
         buf[0] = output_xref[i].typ;
         pos = output_xref[i].id.0;
-        let mut j = poslen;
-        loop {
-            let fresh2 = j;
-            j = j.wrapping_sub(1);
-            if !(fresh2 != 0) {
-                break;
-            }
-            buf[(1_u32).wrapping_add(j) as usize] = pos as u8;
-            pos >>= 8i32
+        for j in (0..poslen).rev() {
+            buf[(1 + j) as usize] = pos as u8;
+            pos >>= 8;
         }
         let f3 = output_xref[i].id.1;
         buf[poslen.wrapping_add(1_u32) as usize] = (f3 as i32 >> 8i32) as u8;
@@ -2174,10 +2168,9 @@ unsafe fn filter_row_TIFF2(
         for ci in 0..parms.colors {
             if inbits < parms.bits_per_component {
                 /* need more byte */
-                let fresh16 = j;
-                j = j + 1;
-                inbuf = inbuf << 8i32 | *p.offset(fresh16 as isize) as libc::c_int;
-                inbits += 8i32
+                inbuf = inbuf << 8i32 | *p.offset(j as isize) as libc::c_int;
+                j += 1;
+                inbits += 8;
             }
             /* predict current color component */
             *col.offset(ci as isize) = (*col.offset(ci as isize) as libc::c_int
@@ -2581,14 +2574,8 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
         &mut (*stream).content,
         Vec::with_capacity(22 * pos as usize),
     );
-    let mut i: i32 = 2i32 * pos;
     let mut val: *mut i32 = data.offset(2);
-    loop {
-        let fresh16 = i;
-        i = i - 1;
-        if !(fresh16 != 0) {
-            break;
-        }
+    for _ in 0..(2 * pos) {
         let slice = format!("{} ", *val);
         val = val.offset(1);
         (*objstm).as_stream_mut().add_slice(slice.as_bytes());
@@ -2634,9 +2621,8 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
                     let data: *mut i32 = new(((2i32 * 200i32 + 2i32) as u32 as u64)
                         .wrapping_mul(::std::mem::size_of::<i32>() as u64)
                         as u32) as *mut i32;
-                    let ref mut fresh18 = *data.offset(1);
-                    *fresh18 = 0i32;
-                    *data.offset(0) = *fresh18;
+                    *data.offset(1) = 0;
+                    *data.offset(0) = 0;
                     current_objstm = pdf_stream::new(STREAM_COMPRESS).into_obj();
                     set_objstm_data(&mut *current_objstm, data);
                     pdf_label_obj(current_objstm);
@@ -2903,12 +2889,10 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
                                 .wrapping_mul(::std::mem::size_of::<i32>() as u64)
                                 as u32) as *mut i32;
                             set_objstm_data(&mut *objstm, header);
-                            let fresh20 = header;
+                            *header = n;
                             header = header.offset(1);
-                            *fresh20 = n;
-                            let fresh21 = header;
+                            *header = first;
                             header = header.offset(1);
-                            *fresh21 = first;
                             /* avoid parsing beyond offset table */
                             data = new(((first + 1i32) as u32 as u64)
                                 .wrapping_mul(::std::mem::size_of::<i8>() as u64)
@@ -2929,9 +2913,8 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
                                     current_block = 3275366147856559585;
                                     break;
                                 }
-                                let fresh23 = header;
+                                *header = strtoul(p, &mut q, 10i32) as i32;
                                 header = header.offset(1);
-                                *fresh23 = strtoul(p, &mut q, 10i32) as i32;
                                 if q == p as *mut i8 {
                                     current_block = 13429587009686472387;
                                     break;
@@ -3006,12 +2989,10 @@ unsafe fn pdf_get_object(pf: &mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
             }
         {
             let mut data = get_objstm_data(&*objstm);
-            let fresh25 = data;
+            let n = *data;
             data = data.offset(1);
-            let n = *fresh25;
-            let fresh26 = data;
+            let first = *data;
             data = data.offset(1);
-            let first = *fresh26;
             if !(index as i32 >= n)
                 && *data.offset((2i32 * index as i32) as isize) as u32 == obj_num
             {
@@ -3032,8 +3013,7 @@ unsafe fn pdf_get_object(pf: &mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
 
     if let Some(result) = result {
         /* Make sure the caller doesn't free this object */
-        let ref mut fresh27 = (*pf.xref_table.offset(obj_num as isize)).direct;
-        *fresh27 = pdf_link_obj(result);
+        (*pf.xref_table.offset(obj_num as isize)).direct = pdf_link_obj(result);
         result
     } else {
         warn!("Could not read object from object stream.");
@@ -3097,10 +3077,8 @@ unsafe fn extend_xref(mut pf: *mut pdf_file, new_size: i32) {
         (new_size as u32 as u64).wrapping_mul(::std::mem::size_of::<xref_entry>() as u64) as u32,
     ) as *mut xref_entry;
     for i in ((*pf).num_obj as u32)..new_size as u32 {
-        let ref mut fresh29 = (*(*pf).xref_table.offset(i as isize)).direct;
-        *fresh29 = ptr::null_mut();
-        let ref mut fresh30 = (*(*pf).xref_table.offset(i as isize)).indirect;
-        *fresh30 = ptr::null_mut();
+        (*(*pf).xref_table.offset(i as isize)).direct = ptr::null_mut();
+        (*(*pf).xref_table.offset(i as isize)).indirect = ptr::null_mut();
         (*(*pf).xref_table.offset(i as isize)).typ = 0_u8;
         (*(*pf).xref_table.offset(i as isize)).id = (0, 0);
     }
@@ -3295,21 +3273,15 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
     }
     1i32
 }
-unsafe fn parse_xrefstm_field(p: *mut *const i8, mut length: i32, def: u32) -> u32 {
+unsafe fn parse_xrefstm_field(p: *mut *const i8, length: i32, def: u32) -> u32 {
     let mut val: u32 = 0_u32;
     if length == 0 {
         return def;
     }
-    loop {
-        let fresh31 = length;
-        length = length - 1;
-        if !(fresh31 != 0) {
-            break;
-        }
-        val <<= 8i32;
-        let fresh32 = *p;
+    for _ in 0..length {
+        val <<= 8;
+        val |= **p as u8 as u32;
         *p = (*p).offset(1);
-        val |= *fresh32 as u8 as u32
     }
     val
 }
@@ -3320,7 +3292,7 @@ unsafe fn parse_xrefstm_subsec(
     W: *mut i32,
     wsum: i32,
     first: i32,
-    mut size: i32,
+    size: i32,
 ) -> i32 {
     *length -= wsum * size;
     if *length < 0i32 {
@@ -3330,12 +3302,7 @@ unsafe fn parse_xrefstm_subsec(
         extend_xref(pf, first + size);
     }
     let mut e: *mut xref_entry = (*pf).xref_table.offset(first as isize);
-    loop {
-        let fresh33 = size;
-        size = size - 1;
-        if !(fresh33 != 0) {
-            break;
-        }
+    for _ in 0..size {
         let typ = parse_xrefstm_field(p, *W.offset(0), 1_u32) as u8;
         if typ as i32 > 2i32 {
             warn!("Unknown cross-reference stream entry type.");

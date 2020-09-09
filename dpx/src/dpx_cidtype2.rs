@@ -879,7 +879,8 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                     /* !NO_GHOSTSCRIPT_BUG */
                     if !used_chars.is_null() {
                         /* merge vertical used_chars to horizontal */
-                        *used_chars.offset((cid as i32 / 8) as isize) |= (1i32 << 7 - cid as i32 % 8) as i8;
+                        *used_chars.offset((cid as i32 / 8) as isize) |=
+                            (1i32 << 7 - cid as i32 % 8) as i8;
                     }
                     num_glyphs = num_glyphs.wrapping_add(1)
                 }

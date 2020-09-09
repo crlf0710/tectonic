@@ -146,7 +146,8 @@ pub(crate) unsafe fn tt_add_glyph(mut g: *mut tt_glyphs, gid: u16, new_gid: u16)
         (*(*g).gd.offset((*g).num_glyphs as isize)).ogid = gid;
         (*(*g).gd.offset((*g).num_glyphs as isize)).length = 0_u32;
         (*(*g).gd.offset((*g).num_glyphs as isize)).data = ptr::null_mut();
-        *(*g).used_slot.offset((new_gid as i32 / 8) as isize) |= (1i32 << 7 - new_gid as i32 % 8) as u8;
+        *(*g).used_slot.offset((new_gid as i32 / 8) as isize) |=
+            (1i32 << 7 - new_gid as i32 % 8) as u8;
         (*g).num_glyphs = ((*g).num_glyphs as i32 + 1i32) as u16
     }
     if new_gid as i32 > (*g).last_gid as i32 {

@@ -1030,7 +1030,8 @@ pub(crate) unsafe fn pdf_dev_set_string(
                 let cid: u16 = ((*str_ptr.offset(i as isize) as i32) << 8
                     | *str_ptr.offset((i + 1) as isize) as i32)
                     as u16;
-                *(*real_font).used_chars.offset((cid as i32 / 8) as isize) |= (1i32 << 7 - cid as i32 % 8) as i8;
+                *(*real_font).used_chars.offset((cid as i32 / 8) as isize) |=
+                    (1i32 << 7 - cid as i32 % 8) as i8;
             }
         }
     } else if !(*real_font).used_chars.is_null() {

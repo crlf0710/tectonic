@@ -322,7 +322,7 @@ pub(crate) unsafe fn pdf_color_clear_stack() {
     loop {
         let fresh4 = COLOR_STACK.current;
         COLOR_STACK.current = COLOR_STACK.current - 1;
-        if !(fresh4 != 0) {
+        if fresh4 == 0 {
             break;
         }
     }

@@ -140,16 +140,7 @@ pub(crate) unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {
  * Optimizing those codes doesn't improve things.
  */
 unsafe fn fill_black_run(dp: *mut u8, mut left: u32, run_count: u32) -> u32 {
-    static mut mask: [u8; 8] = [
-        127,
-        191,
-        223,
-        239,
-        247,
-        251,
-        253,
-        254,
-    ];
+    static mut mask: [u8; 8] = [127, 191, 223, 239, 247, 251, 253, 254];
     let right: u32 = left + run_count - 1;
     while left <= right {
         *dp.offset((left / 8) as isize) &= mask[(left % 8) as usize];

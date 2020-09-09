@@ -577,15 +577,16 @@ unsafe fn otl_gsub_read_ligature<R: Read + Seek>(
                 (*(*ligset).Ligature.offset(j as isize)).LigGlyph = u16::get(handle);
                 (*(*ligset).Ligature.offset(j as isize)).CompCount = u16::get(handle);
                 if (*(*ligset).Ligature.offset(j as isize)).CompCount as i32 == 0i32 {
-                    let ref mut fresh0 = (*(*ligset).Ligature.offset(j as isize)).Component;
-                    *fresh0 = ptr::null_mut();
+                    (*(*ligset).Ligature.offset(j as isize)).Component = ptr::null_mut();
                     break;
                 } else {
-                    let ref mut fresh1 = (*(*ligset).Ligature.offset(j as isize)).Component;
-                    *fresh1 = new((((*(*ligset).Ligature.offset(j as isize)).CompCount as i32
-                        - 1i32) as u32 as u64)
-                        .wrapping_mul(::std::mem::size_of::<GlyphID>() as u64)
-                        as u32) as *mut GlyphID;
+                    (*(*ligset).Ligature.offset(j as isize)).Component =
+                        new(
+                            (((*(*ligset).Ligature.offset(j as isize)).CompCount as i32 - 1i32)
+                                as u32 as u64)
+                                .wrapping_mul(::std::mem::size_of::<GlyphID>() as u64)
+                                as u32,
+                        ) as *mut GlyphID;
                     let mut count = 0;
                     while (count as i32)
                         < (*(*ligset).Ligature.offset(j as isize)).CompCount as i32 - 1i32
@@ -641,10 +642,10 @@ unsafe fn otl_gsub_release_ligature(mut subtab: *mut otl_gsub_subtab) {
             for i in 0..(*data).LigSetCount as i32 {
                 let ligset = &mut *(*data).LigatureSet.offset(i as isize) as *mut otl_gsub_ligset;
                 for j in 0..(*ligset).LigatureCount as i32 {
-                    let ref mut fresh2 = (*(*ligset).Ligature.offset(j as isize)).Component;
-                    *fresh2 = mfree(
+                    (*(*ligset).Ligature.offset(j as isize)).Component = mfree(
                         (*(*ligset).Ligature.offset(j as isize)).Component as *mut libc::c_void,
-                    ) as *mut GlyphID;
+                    )
+                        as *mut GlyphID;
                 }
                 (*ligset).Ligature =
                     mfree((*ligset).Ligature as *mut libc::c_void) as *mut otl_gsub_ligtab;

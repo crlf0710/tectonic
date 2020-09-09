@@ -220,7 +220,8 @@ unsafe fn read_cmap2<R: Read>(handle: &mut R, len: u32) -> *mut cmap2 {
          * the beginning of glyphIndexArray.
          */
         if (*(*map).subHeaders.offset(i as isize)).idRangeOffset != 0 {
-            (*(*map).subHeaders.offset(i as isize)).idRangeOffset -= (2 + (n as i32 - i as i32 - 1) * 8) as u16
+            (*(*map).subHeaders.offset(i as isize)).idRangeOffset -=
+                (2 + (n as i32 - i as i32 - 1) * 8) as u16
         }
     }
     /* Caculate the length of glyphIndexArray, this is ugly,
@@ -423,8 +424,8 @@ unsafe fn lookup_cmap12(map: *mut cmap12, cccc: u32) -> u16 {
         if !(cccc >= (*(*map).groups.offset(i as isize)).startCharCode) {
             continue;
         }
-        gid = ((cccc - (*(*map).groups.offset(i as isize)).startCharCode + 
-            (*(*map).groups.offset(i as isize)).startGlyphID)
+        gid = ((cccc - (*(*map).groups.offset(i as isize)).startCharCode
+            + (*(*map).groups.offset(i as isize)).startGlyphID)
             & 0xffff_u32) as u16;
         break;
     }

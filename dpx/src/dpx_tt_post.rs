@@ -129,9 +129,11 @@ unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut
     for i in 0..(*post).numberOfGlyphs as i32 {
         let idx = *indices.offset(i as isize);
         if (idx as i32) < 258i32 {
-            *(*post).glyphNamePtr.offset(i as isize) = macglyphorder[idx as usize].as_ptr() as *const i8
+            *(*post).glyphNamePtr.offset(i as isize) =
+                macglyphorder[idx as usize].as_ptr() as *const i8
         } else if idx as i32 - 258i32 < (*post).count as i32 {
-            *(*post).glyphNamePtr.offset(i as isize) = *(*post).names.offset((idx as i32 - 258i32) as isize)
+            *(*post).glyphNamePtr.offset(i as isize) =
+                *(*post).names.offset((idx as i32 - 258i32) as isize)
         } else {
             warn!(
                 "Invalid glyph name index number: {} (>= {})",

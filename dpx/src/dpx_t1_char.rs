@@ -224,13 +224,8 @@ unsafe fn add_stem(mut cd: *mut t1_chardesc, mut pos: f64, del: f64, dir: i32) -
     }
     (*cd).stems[i].id
 }
-unsafe fn copy_args(mut args1: *mut f64, mut args2: *mut f64, mut count: i32) {
-    loop {
-        let fresh0 = count;
-        count = count - 1;
-        if !(fresh0 > 0i32) {
-            break;
-        }
+unsafe fn copy_args(mut args1: *mut f64, mut args2: *mut f64, count: i32) {
+    for _ in 0..count {
         *args1 = *args2;
         args1 = args1.offset(1);
         args2 = args2.offset(1)
@@ -243,7 +238,7 @@ unsafe fn copy_args(mut args1: *mut f64, mut args2: *mut f64, mut count: i32) {
  * Path construction:
  */
 /* Get operands from cs_arg_stack[] */
-unsafe fn add_charpath(mut cd: *mut t1_chardesc, type_0: i32, argv: *mut f64, mut argn: i32) {
+unsafe fn add_charpath(mut cd: *mut t1_chardesc, type_0: i32, argv: *mut f64, argn: i32) {
     assert!(!cd.is_null());
     assert!(argn <= 48i32);
     let mut p =
@@ -251,13 +246,8 @@ unsafe fn add_charpath(mut cd: *mut t1_chardesc, type_0: i32, argv: *mut f64, mu
     (*p).type_0 = type_0;
     (*p).num_args = argn;
     (*p).next = ptr::null_mut();
-    loop {
-        let fresh1 = argn;
-        argn = argn - 1;
-        if !(fresh1 > 0i32) {
-            break;
-        }
-        (*p).args[argn as usize] = *argv.offset(argn as isize)
+    for i in (0..argn).rev() {
+        (*p).args[i as usize] = *argv.offset(i as isize)
     }
     if (*cd).charpath.is_null() {
         (*cd).charpath = p
@@ -322,41 +312,40 @@ unsafe fn do_operator1(mut cd: *mut t1_chardesc, data: *mut *mut u8) {
              *  Type 1 font format closepath command was given.
              */
             /* noop */
-            cs_stack_top = 0i32
+            cs_stack_top = 0;
         }
         13 => {
-            if cs_stack_top < 2i32 {
-                status = -2i32;
+            if cs_stack_top < 2 {
+                status = -2;
                 return;
             }
             cs_stack_top -= 1;
             (*cd).sbw.wx = cs_arg_stack[cs_stack_top as usize];
-            (*cd).sbw.wy = 0i32 as f64;
+            (*cd).sbw.wy = 0.;
             cs_stack_top -= 1;
             (*cd).sbw.sbx = cs_arg_stack[cs_stack_top as usize];
-            (*cd).sbw.sby = 0i32 as f64;
-            cs_stack_top = 0i32
+            (*cd).sbw.sby = 0.;
+            cs_stack_top = 0;
         }
         1 | 3 => {
-            if cs_stack_top < 2i32 {
-                status = -2i32;
+            if cs_stack_top < 2 {
+                status = -2;
                 return;
             }
             let stem_id = add_stem(
                 cd,
-                cs_arg_stack[(cs_stack_top - 2i32) as usize],
-                cs_arg_stack[(cs_stack_top - 1i32) as usize],
-                if op as i32 == 1i32 { 0i32 } else { 1i32 },
+                cs_arg_stack[(cs_stack_top - 2) as usize],
+                cs_arg_stack[(cs_stack_top - 1) as usize],
+                if op as i32 == 1 { 0 } else { 1 },
             );
-            if stem_id < 0i32 {
+            if stem_id < 0 {
                 warn!("Too many hints...");
-                status = -1i32;
+                status = -1;
                 return;
             }
             /* Put stem_id onto the stack... */
-            let fresh2 = cs_stack_top;
-            cs_stack_top = cs_stack_top + 1;
-            cs_arg_stack[fresh2 as usize] = stem_id as f64;
+            cs_arg_stack[cs_stack_top as usize] = stem_id as f64;
+            cs_stack_top += 1;
             add_charpath(
                 cd,
                 -1i32,
@@ -394,30 +383,29 @@ unsafe fn do_operator1(mut cd: *mut t1_chardesc, data: *mut *mut u8) {
                 status = -2i32;
                 return;
             }
-            let mut argn: i32 = 1i32;
-            if phase < 2i32 {
+            let mut argn: i32 = 1;
+            if phase < 2 {
                 /*
                  * The reference point for the first moveto operator is diferrent
                  * between Type 1 charstring and Type 2 charstring. We compensate it.
                  */
-                if op as i32 == 22i32 {
-                    cs_arg_stack[(cs_stack_top - 1i32) as usize] += (*cd).sbw.sbx;
-                    if (*cd).sbw.sby != 0.0f64 {
-                        let fresh3 = cs_stack_top;
-                        cs_stack_top = cs_stack_top + 1;
-                        cs_arg_stack[fresh3 as usize] = (*cd).sbw.sby;
-                        argn = 2i32;
-                        op = 21i32 as u8
+                if op as i32 == 22 {
+                    cs_arg_stack[(cs_stack_top - 1) as usize] += (*cd).sbw.sbx;
+                    if (*cd).sbw.sby != 0. {
+                        cs_arg_stack[cs_stack_top as usize] = (*cd).sbw.sby;
+                        cs_stack_top += 1;
+                        argn = 2;
+                        op = 21;
                     }
                 } else {
-                    cs_arg_stack[(cs_stack_top - 1i32) as usize] += (*cd).sbw.sby;
-                    if (*cd).sbw.sbx != 0.0f64 {
+                    cs_arg_stack[(cs_stack_top - 1) as usize] += (*cd).sbw.sby;
+                    if (*cd).sbw.sbx != 0. {
                         cs_arg_stack[cs_stack_top as usize] =
-                            cs_arg_stack[(cs_stack_top - 1i32) as usize];
-                        cs_arg_stack[(cs_stack_top - 1i32) as usize] = (*cd).sbw.sbx;
+                            cs_arg_stack[(cs_stack_top - 1) as usize];
+                        cs_arg_stack[(cs_stack_top - 1) as usize] = (*cd).sbw.sbx;
                         cs_stack_top += 1;
-                        argn = 2i32;
-                        op = 21i32 as u8
+                        argn = 2;
+                        op = 21;
                     }
                 }
             }
@@ -715,32 +703,26 @@ unsafe fn do_othersubr13(mut cd: *mut t1_chardesc) {
     (*cd).flags |= 1i32 << 1i32;
 }
 unsafe fn do_callothersubr(cd: *mut t1_chardesc) {
-    if cs_stack_top < 2i32 {
-        status = -2i32;
+    if cs_stack_top < 2 {
+        status = -2;
         return;
     }
     cs_stack_top -= 1;
     let subrno = cs_arg_stack[cs_stack_top as usize] as i32;
     cs_stack_top -= 1;
-    let mut argn = cs_arg_stack[cs_stack_top as usize] as i32;
+    let argn = cs_arg_stack[cs_stack_top as usize] as i32;
     if cs_stack_top < argn {
-        status = -2i32;
+        status = -2;
         return;
     }
-    if ps_stack_top + argn > 96i32 * 2i32 + 2i32 {
-        status = -1i32;
+    if ps_stack_top + argn > 96 * 2 + 2 {
+        status = -1;
         return;
     }
-    loop {
-        let fresh4 = argn;
-        argn = argn - 1;
-        if !(fresh4 > 0i32) {
-            break;
-        }
+    for _ in 0..argn {
         cs_stack_top -= 1;
-        let fresh5 = ps_stack_top;
-        ps_stack_top = ps_stack_top + 1;
-        ps_arg_stack[fresh5 as usize] = cs_arg_stack[cs_stack_top as usize]
+        ps_arg_stack[ps_stack_top as usize] = cs_arg_stack[cs_stack_top as usize];
+        ps_stack_top += 1;
     }
     match subrno {
         0 => {
@@ -817,9 +799,8 @@ unsafe fn do_operator2(mut cd: *mut t1_chardesc, data: *mut *mut u8, endptr: *mu
                     return;
                 }
                 /* Put stem_id onto the stack... */
-                let fresh6 = cs_stack_top;
-                cs_stack_top = cs_stack_top + 1;
-                cs_arg_stack[fresh6 as usize] = stem_id as f64;
+                cs_arg_stack[cs_stack_top as usize] = stem_id as f64;
+                cs_stack_top += 1;
                 add_charpath(
                     cd,
                     -1i32,
@@ -831,11 +812,11 @@ unsafe fn do_operator2(mut cd: *mut t1_chardesc, data: *mut *mut u8, endptr: *mu
                 cs_stack_top -= 1;
                 i -= 1
             }
-            cs_stack_top = 0i32
+            cs_stack_top = 0;
         }
         33 => {
-            if cs_stack_top < 2i32 {
-                status = -2i32;
+            if cs_stack_top < 2 {
+                status = -2;
                 return;
             }
             /* noop */
@@ -851,35 +832,33 @@ unsafe fn do_operator2(mut cd: *mut t1_chardesc, data: *mut *mut u8, endptr: *mu
                 status = -1i32;
                 return;
             }
-            if cs_stack_top + 1i32 > 48i32 {
-                status = -2i32;
+            if cs_stack_top + 1 > 48 {
+                status = -2;
                 return;
             }
             ps_stack_top -= 1;
-            let fresh7 = cs_stack_top;
-            cs_stack_top = cs_stack_top + 1;
-            cs_arg_stack[fresh7 as usize] = ps_arg_stack[ps_stack_top as usize]
+            cs_arg_stack[cs_stack_top as usize] = ps_arg_stack[ps_stack_top as usize];
+            cs_stack_top += 1;
         }
         0 => {}
         12 => {
             /* TODO: check overflow */
-            if cs_stack_top < 2i32 {
-                status = -2i32;
+            if cs_stack_top < 2 {
+                status = -2;
                 return;
             }
-            cs_arg_stack[(cs_stack_top - 2i32) as usize] /=
-                cs_arg_stack[(cs_stack_top - 1i32) as usize];
+            cs_arg_stack[(cs_stack_top - 2) as usize] /= cs_arg_stack[(cs_stack_top - 1) as usize];
             cs_stack_top -= 1
         }
         16 => {
             do_callothersubr(cd);
         }
         6 => {
-            if cs_stack_top < 5i32 {
-                status = -2i32;
+            if cs_stack_top < 5 {
+                status = -2;
                 return;
             }
-            (*cd).flags |= 1i32 << 2i32;
+            (*cd).flags |= 1 << 2;
             cs_stack_top -= 1;
             (*cd).seac.achar = cs_arg_stack[cs_stack_top as usize] as u8;
             cs_stack_top -= 1;
@@ -892,12 +871,12 @@ unsafe fn do_operator2(mut cd: *mut t1_chardesc, data: *mut *mut u8, endptr: *mu
             (*cd).seac.ady += (*cd).sbw.sby;
             cs_stack_top -= 1;
             (*cd).seac.adx += (*cd).sbw.sbx - cs_arg_stack[cs_stack_top as usize];
-            cs_stack_top = 0i32
+            cs_stack_top = 0;
         }
         _ => {
             /* no-op ? */
             warn!("Unknown charstring operator: 0x0c{:02x}", op as i32,);
-            status = -1i32
+            status = -1;
         }
     };
 }
@@ -928,71 +907,58 @@ unsafe fn put_numbers(argv: *mut f64, argn: i32, dest: *mut *mut u8, limit: *mut
                     status = -3i32;
                     return;
                 }
-                let fresh8 = *dest;
+                **dest = 255;
                 *dest = (*dest).offset(1);
-                *fresh8 = 255i32 as u8;
                 /* Everything else are integers. */
                 ivalue = value.floor() as i32; /* mantissa */
-                let fresh9 = *dest; /* fraction */
+                **dest = (ivalue >> 8 & 0xff) as u8;
                 *dest = (*dest).offset(1); /* Shouldn't come here */
-                *fresh9 = (ivalue >> 8i32 & 0xffi32) as u8;
-                let fresh10 = *dest;
+                **dest = (ivalue & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh10 = (ivalue & 0xffi32) as u8;
-                ivalue = ((value - ivalue as f64) * 0x10000i64 as f64) as i32;
-                let fresh11 = *dest;
+                ivalue = ((value - ivalue as f64) * 0x10000 as f64) as i32;
+                **dest = (ivalue >> 8 & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh11 = (ivalue >> 8i32 & 0xffi32) as u8;
-                let fresh12 = *dest;
+                **dest = (ivalue & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh12 = (ivalue & 0xffi32) as u8
-            } else if ivalue >= -107i32 && ivalue <= 107i32 {
+            } else if ivalue >= -107 && ivalue <= 107 {
                 if limit < (*dest).offset(1) {
-                    status = -3i32;
+                    status = -3;
                     return;
                 }
-                let fresh13 = *dest;
+                **dest = (ivalue + 139) as u8;
                 *dest = (*dest).offset(1);
-                *fresh13 = (ivalue + 139i32) as u8
-            } else if ivalue >= 108i32 && ivalue <= 1131i32 {
+            } else if ivalue >= 108 && ivalue <= 1131 {
                 if limit < (*dest).offset(2) {
-                    status = -3i32;
+                    status = -3;
                     return;
                 }
                 ivalue = 0xf700u32.wrapping_add(ivalue as u32).wrapping_sub(108_u32) as i32;
-                let fresh14 = *dest;
+                **dest = (ivalue >> 8 & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh14 = (ivalue >> 8i32 & 0xffi32) as u8;
-                let fresh15 = *dest;
+                **dest = (ivalue & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh15 = (ivalue & 0xffi32) as u8
-            } else if ivalue >= -1131i32 && ivalue <= -108i32 {
+            } else if ivalue >= -1131 && ivalue <= -108 {
                 if limit < (*dest).offset(2) {
-                    status = -3i32;
+                    status = -3;
                     return;
                 }
-                ivalue = 0xfb00u32.wrapping_sub(ivalue as u32).wrapping_sub(108_u32) as i32;
-                let fresh16 = *dest;
+                ivalue = 0xfb00u32.wrapping_sub(ivalue as u32).wrapping_sub(108) as i32;
+                **dest = (ivalue >> 8 & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh16 = (ivalue >> 8i32 & 0xffi32) as u8;
-                let fresh17 = *dest;
+                **dest = (ivalue & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh17 = (ivalue & 0xffi32) as u8
-            } else if ivalue >= -32768i32 && ivalue <= 32767i32 {
+            } else if ivalue >= -32768 && ivalue <= 32767 {
                 /* shortint */
                 if limit < (*dest).offset(3) {
-                    status = -3i32;
+                    status = -3;
                     return;
                 }
-                let fresh18 = *dest;
+                **dest = 28;
                 *dest = (*dest).offset(1);
-                *fresh18 = 28i32 as u8;
-                let fresh19 = *dest;
+                **dest = (ivalue >> 8 & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh19 = (ivalue >> 8i32 & 0xffi32) as u8;
-                let fresh20 = *dest;
+                **dest = (ivalue & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh20 = (ivalue & 0xffi32) as u8
             } else {
                 panic!("Unexpected error.");
             }
@@ -1038,22 +1004,21 @@ unsafe fn get_integer(data: *mut *mut u8, endptr: *mut u8) {
         result = -(b0 as i32 - 251i32) * 256i32 - b1 as i32 - 108i32;
         *data = (*data).offset(1)
     } else {
-        status = -1i32;
+        status = -1;
         return;
     }
-    if cs_stack_top + 1i32 > 48i32 {
-        status = -2i32;
+    if cs_stack_top + 1 > 48 {
+        status = -2;
         return;
     }
-    let fresh21 = cs_stack_top;
-    cs_stack_top = cs_stack_top + 1;
-    cs_arg_stack[fresh21 as usize] = result as f64;
+    cs_arg_stack[cs_stack_top as usize] = result as f64;
+    cs_stack_top += 1;
 }
 /* Type 1 */
 unsafe fn get_longint(data: *mut *mut u8, endptr: *mut u8) {
     *data = (*data).offset(1);
     if endptr < (*data).offset(4) {
-        status = -1i32;
+        status = -1;
         return;
     }
     let mut result = **data as i32;
@@ -1062,16 +1027,15 @@ unsafe fn get_longint(data: *mut *mut u8, endptr: *mut u8) {
     }
     *data = (*data).offset(1);
     for _ in 1..4 {
-        result = result * 256i32 + **data as i32;
+        result = result * 256 + **data as i32;
         *data = (*data).offset(1);
     }
-    if cs_stack_top + 1i32 > 48i32 {
-        status = -2i32;
+    if cs_stack_top + 1 > 48 {
+        status = -2;
         return;
     }
-    let fresh22 = cs_stack_top;
-    cs_stack_top = cs_stack_top + 1;
-    cs_arg_stack[fresh22 as usize] = result as f64;
+    cs_arg_stack[cs_stack_top as usize] = result as f64;
+    cs_stack_top += 1;
 }
 /*
  * TODO:
@@ -1636,101 +1600,84 @@ unsafe fn t1char_encode_charpath(
     /*
      * Hint Declaration
      */
-    let mut num_hstems: i32 = 0i32;
-    let mut num_vstems: i32 = 0i32;
-    let mut reset: i32 = 1i32;
+    let mut num_hstems: i32 = 0;
+    let mut num_vstems: i32 = 0;
+    let mut reset: i32 = 1;
     let mut stem: [f64; 2] = [0.; 2];
     let mut i = 0;
-    while i < (*cd).num_stems && (*cd).stems[i as usize].dir == 0i32 {
+    while i < (*cd).num_stems && (*cd).stems[i as usize].dir == 0 {
         num_hstems += 1;
         stem[0] = if reset != 0 {
             (*cd).stems[i as usize].pos
         } else {
             (*cd).stems[i as usize].pos
-                - ((*cd).stems[(i - 1i32) as usize].pos + (*cd).stems[(i - 1i32) as usize].del)
+                - ((*cd).stems[(i - 1) as usize].pos + (*cd).stems[(i - 1) as usize].del)
         };
         stem[1] = (*cd).stems[i as usize].del;
-        put_numbers(stem.as_mut_ptr(), 2i32, &mut dst, endptr);
-        if status != 0i32 {
+        put_numbers(stem.as_mut_ptr(), 2, &mut dst, endptr);
+        if status != 0 {
             panic!("Charstring encoder error: {}", status);
         }
-        reset = 0i32;
-        if 2i32 * num_hstems > 48i32 - 3i32 {
+        reset = 0;
+        if 2 * num_hstems > 48 - 3 {
             if dst.offset(1) >= endptr {
                 panic!("Buffer overflow.");
             }
-            let fresh23 = dst;
+            *dst = if (*cd).flags & 1 << 0 != 0 { 18 } else { 1 };
             dst = dst.offset(1);
-            *fresh23 = (if (*cd).flags & 1i32 << 0i32 != 0 {
-                18i32
-            } else {
-                1i32
-            }) as u8;
-            reset = 1i32
+            reset = 1;
         }
         i += 1
     }
-    if reset == 0i32 {
+    if reset == 0 {
         if dst.offset(1) >= endptr {
             panic!("Buffer overflow.");
         }
-        let fresh24 = dst;
+        *dst = if (*cd).flags & 1 << 0 != 0 { 18 } else { 1 };
         dst = dst.offset(1);
-        *fresh24 = (if (*cd).flags & 1i32 << 0i32 != 0 {
-            18i32
-        } else {
-            1i32
-        }) as u8
     }
-    reset = 1i32;
-    if (*cd).num_stems - num_hstems > 0i32 {
+    reset = 1;
+    if (*cd).num_stems - num_hstems > 0 {
         for i in num_hstems..(*cd).num_stems {
             num_vstems += 1;
             stem[0] = if reset != 0 {
                 (*cd).stems[i as usize].pos
             } else {
                 (*cd).stems[i as usize].pos
-                    - ((*cd).stems[(i - 1i32) as usize].pos + (*cd).stems[(i - 1i32) as usize].del)
+                    - ((*cd).stems[(i - 1) as usize].pos + (*cd).stems[(i - 1) as usize].del)
             };
             stem[1] = (*cd).stems[i as usize].del;
-            put_numbers(stem.as_mut_ptr(), 2i32, &mut dst, endptr);
+            put_numbers(stem.as_mut_ptr(), 2, &mut dst, endptr);
             if status != 0i32 {
                 panic!("Charstring encoder error: {}", status);
             }
             reset = 0i32;
-            if 2i32 * num_vstems > 48i32 - 3i32 {
+            if 2 * num_vstems > 48 - 3 {
                 if dst.offset(1) >= endptr {
                     panic!("Buffer overflow.");
                 }
-                let fresh25 = dst;
+                *dst = if (*cd).flags & 1 << 0i32 != 0 { 23 } else { 3 };
                 dst = dst.offset(1);
-                *fresh25 = (if (*cd).flags & 1i32 << 0i32 != 0 {
-                    23i32
-                } else {
-                    3i32
-                }) as u8;
-                reset = 1i32
+                reset = 1
             }
         }
-        if reset == 0i32 {
+        if reset == 0 {
             if dst.offset(1) >= endptr {
                 panic!("Buffer overflow.");
             }
-            if (*cd).flags & 1i32 << 0i32 != 0 || (*cd).flags & 1i32 << 1i32 != 0 {
+            if (*cd).flags & 1 << 0 != 0 || (*cd).flags & 1 << 1 != 0 {
                 /*
                  * The vstem hint operator can be ommited if hstem and vstem hints
                  * are both declared at the beginning of a charstring, and is
                  * followed directly by the hintmask or cntrmask operators.
                  */
-                if (*curr).type_0 != -1i32 && (*curr).type_0 != 20i32 {
-                    let fresh26 = dst;
+                if (*curr).type_0 != -1 && (*curr).type_0 != 20 {
+                    *dst = 23;
                     dst = dst.offset(1);
-                    *fresh26 = 23i32 as u8
                 }
             } else {
-                let fresh27 = dst;
+                *dst = 3;
                 dst = dst.offset(1);
-                *fresh27 = 3i32 as u8
             }
         }
     }
@@ -1758,9 +1705,8 @@ unsafe fn t1char_encode_charpath(
                     if dst.offset((((*cd).num_stems + 7i32) / 8i32 + 1i32) as isize) >= endptr {
                         panic!("Buffer overflow.");
                     }
-                    let fresh28 = dst;
+                    *dst = 19;
                     dst = dst.offset(1);
-                    *fresh28 = 19i32 as u8;
                     memcpy(
                         dst as *mut libc::c_void,
                         hintmask.as_mut_ptr() as *const libc::c_void,
@@ -1786,9 +1732,8 @@ unsafe fn t1char_encode_charpath(
                 if dst.offset((((*cd).num_stems + 7i32) / 8i32 + 1i32) as isize) >= endptr {
                     panic!("Buffer overflow.");
                 }
-                let fresh29 = dst;
+                *dst = 20;
                 dst = dst.offset(1);
-                *fresh29 = 20i32 as u8;
                 memcpy(
                     dst as *mut libc::c_void,
                     cntrmask.as_mut_ptr() as *const libc::c_void,
@@ -1810,9 +1755,8 @@ unsafe fn t1char_encode_charpath(
                 if dst.offset(1) >= endptr {
                     panic!("Buffer overflow.");
                 }
-                let fresh30 = dst;
+                *dst = (*curr).type_0 as u8;
                 dst = dst.offset(1);
-                *fresh30 = (*curr).type_0 as u8;
                 curr = (*curr).next
             }
             35 | 34 | 36 => {
@@ -1828,12 +1772,10 @@ unsafe fn t1char_encode_charpath(
                 if dst.offset(2) >= endptr {
                     panic!("Buffer overflow.");
                 }
-                let fresh31 = dst;
+                *dst = 12;
                 dst = dst.offset(1);
-                *fresh31 = 12i32 as u8;
-                let fresh32 = dst;
+                *dst = (*curr).type_0 as u8;
                 dst = dst.offset(1);
-                *fresh32 = (*curr).type_0 as u8;
                 curr = (*curr).next
             }
             _ => {
@@ -1862,9 +1804,8 @@ unsafe fn t1char_encode_charpath(
     if dst.offset(1) >= endptr {
         panic!("Buffer overflow.");
     }
-    let fresh33 = dst;
+    *dst = 14;
     dst = dst.offset(1);
-    *fresh33 = 14i32 as u8;
     dst.offset_from(save) as i64 as i32
 }
 

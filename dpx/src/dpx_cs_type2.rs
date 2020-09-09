@@ -119,71 +119,59 @@ unsafe fn clear_stack(dest: *mut *mut u8, limit: *mut u8) {
                     status = -3i32;
                     return;
                 }
-                let fresh0 = *dest;
+                **dest = 255;
                 *dest = (*dest).offset(1);
-                *fresh0 = 255i32 as u8;
                 /* Everything else are integers. */
                 ivalue = value.floor() as i32; /* mantissa */
-                let fresh1 = *dest; /* fraction */
+                /* fraction */
+                **dest = (ivalue >> 8 & 0xff) as u8;
                 *dest = (*dest).offset(1); /* Shouldn't come here */
-                *fresh1 = (ivalue >> 8i32 & 0xffi32) as u8;
-                let fresh2 = *dest;
+                **dest = (ivalue & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh2 = (ivalue & 0xffi32) as u8;
                 ivalue = ((value - ivalue as f64) * 0x10000i64 as f64) as i32;
-                let fresh3 = *dest;
+                **dest = (ivalue >> 8 & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh3 = (ivalue >> 8i32 & 0xffi32) as u8;
-                let fresh4 = *dest;
+                **dest = (ivalue & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh4 = (ivalue & 0xffi32) as u8
-            } else if ivalue >= -107i32 && ivalue <= 107i32 {
+            } else if ivalue >= -107 && ivalue <= 107 {
                 if limit < (*dest).offset(1) {
-                    status = -3i32;
+                    status = -3;
                     return;
                 }
-                let fresh5 = *dest;
+                **dest = (ivalue + 139) as u8;
                 *dest = (*dest).offset(1);
-                *fresh5 = (ivalue + 139i32) as u8
-            } else if ivalue >= 108i32 && ivalue <= 1131i32 {
+            } else if ivalue >= 108 && ivalue <= 1131 {
                 if limit < (*dest).offset(2) {
-                    status = -3i32;
+                    status = -3;
                     return;
                 }
                 ivalue = 0xf700u32.wrapping_add(ivalue as u32).wrapping_sub(108_u32) as i32;
-                let fresh6 = *dest;
+                **dest = (ivalue >> 8 & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh6 = (ivalue >> 8i32 & 0xffi32) as u8;
-                let fresh7 = *dest;
+                **dest = (ivalue & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh7 = (ivalue & 0xffi32) as u8
-            } else if ivalue >= -1131i32 && ivalue <= -108i32 {
+            } else if ivalue >= -1131 && ivalue <= -108 {
                 if limit < (*dest).offset(2) {
-                    status = -3i32;
+                    status = -3;
                     return;
                 }
                 ivalue = 0xfb00u32.wrapping_sub(ivalue as u32).wrapping_sub(108_u32) as i32;
-                let fresh8 = *dest;
+                **dest = (ivalue >> 8 & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh8 = (ivalue >> 8i32 & 0xffi32) as u8;
-                let fresh9 = *dest;
+                **dest = (ivalue & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh9 = (ivalue & 0xffi32) as u8
-            } else if ivalue >= -32768i32 && ivalue <= 32767i32 {
+            } else if ivalue >= -32768 && ivalue <= 32767 {
                 /* shortint */
                 if limit < (*dest).offset(3) {
-                    status = -3i32; /* clear stack */
+                    status = -3; /* clear stack */
                     return;
                 }
-                let fresh10 = *dest;
+                **dest = 28;
                 *dest = (*dest).offset(1);
-                *fresh10 = 28i32 as u8;
-                let fresh11 = *dest;
+                **dest = (ivalue >> 8 & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh11 = (ivalue >> 8i32 & 0xffi32) as u8;
-                let fresh12 = *dest;
+                **dest = (ivalue & 0xff) as u8;
                 *dest = (*dest).offset(1);
-                *fresh12 = (ivalue & 0xffi32) as u8
             } else {
                 panic!("{}: Unexpected error.", "Type2 Charstring Parser",);
             }
@@ -206,20 +194,19 @@ unsafe fn do_operator1(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, e
     match op as i32 {
         18 | 23 | 1 | 3 => {
             /* charstring may have hintmask if above operator have seen */
-            if phase == 0i32 && stack_top % 2i32 != 0 {
-                have_width = 1i32;
+            if phase == 0 && stack_top % 2 != 0 {
+                have_width = 1;
                 width = arg_stack[0]
             }
-            num_stems += stack_top / 2i32;
+            num_stems += stack_top / 2;
             clear_stack(dest, limit);
             if limit < (*dest).offset(1) {
-                status = -3i32;
+                status = -3;
                 return;
             }
-            let fresh13 = *dest;
+            **dest = op;
             *dest = (*dest).offset(1);
-            *fresh13 = op;
-            phase = 1i32
+            phase = 1;
         }
         19 | 20 => {
             if phase < 2i32 {
@@ -231,20 +218,19 @@ unsafe fn do_operator1(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, e
             }
             clear_stack(dest, limit);
             if limit < (*dest).offset(1) {
-                status = -3i32;
+                status = -3;
                 return;
             }
-            let fresh14 = *dest;
+            **dest = op;
             *dest = (*dest).offset(1);
-            *fresh14 = op;
-            if num_stems > 0i32 {
-                let masklen: i32 = (num_stems + 7i32) / 8i32;
+            if num_stems > 0 {
+                let masklen: i32 = (num_stems + 7) / 8;
                 if limit < (*dest).offset(masklen as isize) {
-                    status = -3i32;
+                    status = -3;
                     return;
                 }
                 if endptr < (*data).offset(masklen as isize) {
-                    status = -1i32;
+                    status = -1;
                     return;
                 }
                 memmove(
@@ -255,46 +241,44 @@ unsafe fn do_operator1(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, e
                 *data = (*data).offset(masklen as isize);
                 *dest = (*dest).offset(masklen as isize)
             }
-            phase = 2i32
+            phase = 2;
         }
         21 => {
-            if phase == 0i32 && stack_top % 2i32 != 0 {
-                have_width = 1i32;
+            if phase == 0 && stack_top % 2 != 0 {
+                have_width = 1;
                 width = arg_stack[0]
             }
             clear_stack(dest, limit);
             if limit < (*dest).offset(1) {
-                status = -3i32;
+                status = -3;
                 return;
             }
-            let fresh15 = *dest;
+            **dest = op;
             *dest = (*dest).offset(1);
-            *fresh15 = op;
-            phase = 2i32
+            phase = 2;
         }
         22 | 4 => {
-            if phase == 0i32 && stack_top % 2i32 == 0i32 {
-                have_width = 1i32;
-                width = arg_stack[0]
+            if phase == 0 && stack_top % 2 == 0 {
+                have_width = 1;
+                width = arg_stack[0];
             }
             clear_stack(dest, limit);
             if limit < (*dest).offset(1) {
-                status = -3i32;
+                status = -3;
                 return;
             }
-            let fresh16 = *dest;
+            **dest = op;
             *dest = (*dest).offset(1);
-            *fresh16 = op;
-            phase = 2i32
+            phase = 2;
         }
         14 => {
-            if stack_top == 1i32 {
-                have_width = 1i32;
+            if stack_top == 1 {
+                have_width = 1;
                 width = arg_stack[0];
                 clear_stack(dest, limit);
-            } else if stack_top == 4i32 || stack_top == 5i32 {
+            } else if stack_top == 4 || stack_top == 5 {
                 warn!("\"seac\" character deprecated in Type 2 charstring.");
-                status = -1i32;
+                status = -1;
                 return;
             } else {
                 if stack_top > 0i32 {
@@ -302,13 +286,12 @@ unsafe fn do_operator1(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, e
                 }
             }
             if limit < (*dest).offset(1) {
-                status = -3i32;
+                status = -3;
                 return;
             }
-            let fresh17 = *dest;
+            **dest = op;
             *dest = (*dest).offset(1);
-            *fresh17 = op;
-            status = 3i32
+            status = 3;
         }
         5 | 6 | 7 | 8 | 24 | 25 | 26 | 27 | 30 | 31 => {
             /* above oprators are candidate for first stack-clearing operator */
@@ -319,12 +302,11 @@ unsafe fn do_operator1(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, e
             }
             clear_stack(dest, limit);
             if limit < (*dest).offset(1) {
-                status = -3i32;
+                status = -3;
                 return;
             }
-            let fresh18 = *dest;
+            **dest = op;
             *dest = (*dest).offset(1);
-            *fresh18 = op
         }
         11 | 29 | 10 => {
             /* all operotors above are stack-clearing operator */
@@ -377,11 +359,9 @@ unsafe fn do_operator2(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, e
                 status = -3i32;
                 return;
             }
-            let fresh19 = *dest;
+            **dest = 12;
             *dest = (*dest).offset(1);
-            *fresh19 = 12i32 as u8;
-            let fresh20 = *dest;
-            *fresh20 = op;
+            **dest = op;
             *dest = (*dest).offset(1);
         }
         3 => {
