@@ -64,7 +64,7 @@ use crate::dpx_pdfdoc::{
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj, pdf_remove_dict, pdf_stream,
-    pdf_string, pdf_string_value, IntoObj, PdfObjVariant, STREAM_COMPRESS,
+    pdf_string, IntoObj, PdfObjVariant, STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
@@ -889,7 +889,7 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
             ptr::null_mut()
         };
     }
-    let xobj_id = pdf_ximage_findresource(pdf_string_value(&*fspec) as *const i8, options);
+    let xobj_id = pdf_ximage_findresource(CString::new((*fspec).as_string().to_bytes()).unwrap().as_ptr(), options);
     if xobj_id < 0i32 {
         spc_warn!(spe, "Could not find image resource...");
         pdf_release_obj(fspec);

@@ -27,7 +27,6 @@
 )]
 
 use crate::bridge::DisplayExt;
-use std::ffi::CStr;
 use std::ptr;
 
 use crate::dpx_pdfparse::ParsePdfObj;
@@ -44,7 +43,7 @@ use super::dpx_cidtype2::{
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_remove_dict, pdf_string_value,
+    pdf_remove_dict,
 };
 use libc::free;
 use std::borrow::Cow;
@@ -602,14 +601,10 @@ unsafe fn CIDFont_base_open(
         .filter(|&tmp| (*tmp).is_dict())
         .unwrap();
     let registry =
-        CStr::from_ptr(pdf_string_value(tmp.as_dict().get("Registry").unwrap()) as *const _)
-            .to_str()
-            .unwrap()
+        String::from_utf8_lossy(tmp.as_dict().get("Registry").unwrap().as_string().to_bytes())
             .to_owned();
     let ordering =
-        CStr::from_ptr(pdf_string_value(tmp.as_dict().get("Ordering").unwrap()) as *const _)
-            .to_str()
-            .unwrap()
+        String::from_utf8_lossy(tmp.as_dict().get("Ordering").unwrap().as_string().to_bytes())
             .to_owned();
     let supplement = tmp.as_dict().get("Supplement").unwrap().as_f64() as i32;
     if !cmap_csi.is_null() {

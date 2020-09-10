@@ -45,10 +45,10 @@ use crate::dpx_pdfdoc::{
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_new_null, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
-    pdf_string_value, IntoObj, PushObj,
+    IntoObj, PushObj,
 };
 use crate::spc_warn;
-use libc::{atof, free, strcat, strcpy, strlen};
+use libc::{atof, free, strcpy};
 
 use super::{SpcArg, SpcEnv};
 
@@ -255,31 +255,25 @@ unsafe fn spc_handler_html__eophook(spe: *mut SpcEnv, dp: *mut libc::c_void) -> 
     0i32
 }
 
-unsafe fn fqurl(baseurl: *const i8, name: *const i8) -> *mut i8 {
-    let mut len = strlen(name) as i32;
-    if !baseurl.is_null() {
-        len = (len as usize).wrapping_add(strlen(baseurl).wrapping_add(1)) as _
-    }
-    let q =
-        new(((len + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-            as *mut i8;
-    *q = '\u{0}' as i32 as i8;
-    if !baseurl.is_null() && *baseurl.offset(0) as i32 != 0 {
-        strcpy(q, baseurl);
-        let p = q.offset(strlen(q) as isize).offset(-1);
-        if *p as i32 == '/' as i32 {
-            *p = '\u{0}' as i32 as i8
-        }
-        if *name.offset(0) as i32 != 0 && *name.offset(0) as i32 != '/' as i32 {
-            strcat(q, b"/\x00" as *const u8 as *const i8);
+unsafe fn fqurl(baseurl: &[u8], name: &[u8]) -> Vec<u8> {
+    let mut q = Vec::new();
+    if !baseurl.is_empty() && baseurl[0] != 0 {
+        let len = baseurl.len();
+        q.extend(if baseurl[len-1] ==  b'/' {
+            &baseurl[..len-1]
+        } else {
+            baseurl
+        });
+        if name[0] != 0 && name[0] != b'/' {
+            q.push(b'/');
         }
     }
-    strcat(q, name);
+    q.extend(name);
     q
 }
 
-unsafe fn html_open_link(spe: &mut SpcEnv, name: *const i8, mut sd: *mut spc_html_) -> i32 {
-    assert!(!name.is_null());
+unsafe fn html_open_link(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) -> i32 {
+    assert!(!name.is_empty());
     assert!((*sd).link_dict.is_null());
     (*sd).link_dict = pdf_dict::new().into_obj();
     (*(*sd).link_dict).as_dict_mut().set("Type", "Annot");
@@ -289,15 +283,12 @@ unsafe fn html_open_link(spe: &mut SpcEnv, name: *const i8, mut sd: *mut spc_htm
     color.push_obj(0f64);
     color.push_obj(1f64);
     (*(*sd).link_dict).as_dict_mut().set("C", color);
-    let url = fqurl((*sd).baseurl, name);
-    if *url.offset(0) as i32 == '#' as i32 {
+    let url = fqurl(CStr::from_ptr((*sd).baseurl).to_bytes(), name);
+    if url[0] == b'#' {
         /* url++; causes memory leak in free(url) */
         (*(*sd).link_dict).as_dict_mut().set(
             "Dest",
-            pdf_string::new_from_ptr(
-                url.offset(1) as *const libc::c_void,
-                strlen(url.offset(1)) as _,
-            ),
+            pdf_string::new(&url[1..]),
         ); /* Otherwise must be bug */
     } else {
         let mut action = pdf_dict::new();
@@ -305,7 +296,7 @@ unsafe fn html_open_link(spe: &mut SpcEnv, name: *const i8, mut sd: *mut spc_htm
         action.set("S", "URI");
         action.set(
             "URI",
-            pdf_string::new_from_ptr(url as *const libc::c_void, strlen(url) as _),
+            pdf_string::new(url),
         );
         let action = action.into_obj();
         (*(*sd).link_dict)
@@ -313,13 +304,12 @@ unsafe fn html_open_link(spe: &mut SpcEnv, name: *const i8, mut sd: *mut spc_htm
             .set("A", pdf_link_obj(action));
         pdf_release_obj(action);
     }
-    free(url as *mut libc::c_void);
     spc_begin_annot(spe, (*sd).link_dict);
     (*sd).pending_type = 0i32;
     0i32
 }
 
-unsafe fn html_open_dest(spe: &mut SpcEnv, name: *const i8, mut sd: *mut spc_html_) -> i32 {
+unsafe fn html_open_dest(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) -> i32 {
     let mut cp = Point::new(spe.x_user, spe.y_user);
     pdf_dev_transform(&mut cp, None);
     let page_ref = pdf_doc_get_reference("@THISPAGE");
@@ -332,14 +322,14 @@ unsafe fn html_open_dest(spe: &mut SpcEnv, name: *const i8, mut sd: *mut spc_htm
     array.push(pdf_new_null());
     let error = pdf_doc_add_names(
         b"Dests\x00" as *const u8 as *const i8,
-        CStr::from_ptr(name).to_bytes(),
+        name,
         array.into_obj(),
     );
     if error != 0 {
         spc_warn!(
             spe,
             "Failed to add named destination: {}",
-            CStr::from_ptr(name).display(),
+            name.display(),
         );
     }
     (*sd).pending_type = 1i32;
@@ -361,10 +351,10 @@ unsafe fn spc_html__anchor_open(spe: &mut SpcEnv, attr: &pdf_obj, sd: *mut spc_h
             );
             -1i32
         }
-        (Some(href), None) => html_open_link(spe, pdf_string_value(href) as *const i8, sd),
+        (Some(href), None) => html_open_link(spe, href.as_string().to_bytes(), sd),
         (None, Some(name)) => {
             /* name */
-            html_open_dest(spe, pdf_string_value(name) as *const i8, sd)
+            html_open_dest(spe, name.as_string().to_bytes(), sd)
         }
         _ => {
             spc_warn!(spe, "You should have \"href\" or \"name\" in anchor tag!");
@@ -403,19 +393,19 @@ unsafe fn spc_html__base_empty(spe: &mut SpcEnv, attr: &pdf_obj, mut sd: *mut sp
         return -1i32;
     }
     let href = href.unwrap();
-    let vp = pdf_string_value(&*href) as *mut i8;
+    let vp = (*href).as_string().to_bytes();
     if !(*sd).baseurl.is_null() {
         spc_warn!(
             spe,
             "\"baseurl\" changed: \"{}\" --> \"{}\"",
             CStr::from_ptr((*sd).baseurl).display(),
-            CStr::from_ptr(vp).display(),
+            vp.display(),
         );
         free((*sd).baseurl as *mut libc::c_void);
     }
     (*sd).baseurl =
-        new((strlen(vp).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    strcpy((*sd).baseurl, vp);
+        new((vp.len().wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
+    strcpy((*sd).baseurl, CString::new(vp).unwrap().as_ptr());
     0i32
 }
 /* This isn't completed.
@@ -507,42 +497,42 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {
     }
     if let Some(obj) = attr.as_dict().get("height") {
         ti.height = atopt(obj.as_string().to_bytes_without_nul());
-        ti.flags |= 1i32 << 2i32
+        ti.flags |= 1 << 2;
     }
     if let Some(obj) = attr.as_dict().get("svg:opacity") {
-        alpha = atof(pdf_string_value(obj) as *const i8);
-        if alpha < 0.0f64 || alpha > 1.0f64 {
+        alpha = atof(CString::new(obj.as_string().to_bytes()).unwrap().as_ptr());
+        if alpha < 0. || alpha > 1. {
             spc_warn!(
                 spe,
                 "Invalid opacity value: {}",
                 (*obj).as_string().to_bytes_without_nul().display(),
             );
-            alpha = 1.0f64
+            alpha = 1.;
         }
     }
     /* ENABLE_HTML_SVG_OPCAITY */
     if let Some(obj) = attr.as_dict().get("svg:transform") {
-        let mut p: *const i8 = pdf_string_value(&*obj) as *const i8;
-        while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
-            p = p.offset(1)
+        let mut p = (&*obj).as_string().to_bytes();
+        while !p.is_empty() && p[0].is_ascii_whitespace() {
+            p = &p[1..];
         }
-        while *p as i32 != 0 && error == 0 {
+        while !p.is_empty() && error == 0 {
             let mut N = TMatrix::identity();
-            if let Ok(nextptr) = cvt_a_to_tmatrix(&mut N, CStr::from_ptr(p).to_bytes()) {
-                p = nextptr.as_ptr() as *const i8;
+            if let Ok(nextptr) = cvt_a_to_tmatrix(&mut N, p) {
+                p = nextptr;
             } else {
                 error = -1;
             }
             if error == 0 {
                 N.m32 = -N.m32;
                 M = N.post_transform(&M);
-                while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
-                    p = p.offset(1)
+                while !p.is_empty() && p[0].is_ascii_whitespace() {
+                    p = &p[1..];
                 }
-                if *p as i32 == ',' as i32 {
-                    p = p.offset(1);
-                    while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
-                        p = p.offset(1)
+                if p[0] == b',' {
+                    p = &p[1..];
+                    while !p.is_empty() && p[0].is_ascii_whitespace() {
+                        p = &p[1..];
                     }
                 }
             }
@@ -553,7 +543,7 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {
         spc_warn!(spe, "Error in html \"img\" tag attribute."); /* Not Tps prefix but... */
         return error;
     } /* op: */
-    let id = pdf_ximage_findresource(pdf_string_value(src) as *const i8, options); /* op: */
+    let id = pdf_ximage_findresource(CString::new(src.as_string().to_bytes()).unwrap().as_ptr(), options); /* op: */
     if id < 0i32 {
         spc_warn!(
             spe,
