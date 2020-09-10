@@ -1896,7 +1896,7 @@ pub(crate) unsafe fn spc_pdfm_setup_handler(
     ap.cur.skip_white();
     if let Some(q) = ap.cur.parse_c_ident() {
         for handler in PDFM_HANDLERS.iter() {
-            if q.to_bytes() == handler.key.as_bytes() {
+            if q == handler.key {
                 ap.command = Some(handler.key);
                 *sph = SpcHandler {
                     key: "pdf:",

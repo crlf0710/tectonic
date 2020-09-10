@@ -716,11 +716,11 @@ pub(crate) fn spc_tpic_check_special(mut buf: &[u8]) -> bool {
     }
     let mut istpic = false;
     if let Some(q) = buf.parse_c_ident() {
-        if hasnsp && q.to_bytes() == b"__setopt__" {
+        if hasnsp && q == "__setopt__" {
             istpic = true;
         } else {
             for handler in TPIC_HANDLERS.iter() {
-                if q.to_bytes() == handler.key.as_bytes() {
+                if q == handler.key {
                     istpic = true;
                     break;
                 }
@@ -743,7 +743,7 @@ pub(crate) unsafe fn spc_tpic_setup_handler(
         hasnsp = 1;
     }
     if let Some(q) = ap.cur.parse_c_ident() {
-        if hasnsp != 0 && q.to_bytes() == b"__setopt__" {
+        if hasnsp != 0 && q == "__setopt__" {
             ap.command = Some("__setopt__");
             *sph = SpcHandler {
                 key: "tpic:",
@@ -753,7 +753,7 @@ pub(crate) unsafe fn spc_tpic_setup_handler(
             error = 0i32;
         } else {
             for handler in TPIC_HANDLERS.iter() {
-                if q.to_bytes() == handler.key.as_bytes() {
+                if q == handler.key {
                     ap.command = Some(handler.key);
                     *sph = SpcHandler {
                         key: "tpic:",

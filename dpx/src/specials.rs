@@ -205,7 +205,7 @@ pub(crate) unsafe fn spc_lookup_reference(key: &CString) -> Option<*mut pdf_obj>
         }
     };
     if value.is_null() {
-        panic!("Object reference {} not exist.", key.display(),);
+        panic!("Object reference {} not exist.", key.display());
     }
     if value.is_null() {
         None
@@ -283,7 +283,7 @@ unsafe fn spc_handler_unknown(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     -1i32
 }
 unsafe fn init_special<'a, 'b>(
-    mut special: &mut SpcHandler,
+    special: &mut SpcHandler,
     mut spe: &mut SpcEnv,
     mut args: &'a mut SpcArg<'b>,
     buf: &'b [u8],

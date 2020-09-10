@@ -423,7 +423,7 @@ pub(crate) unsafe fn spc_xtx_setup_handler(
     ap.cur.skip_white();
     if let Some(q) = ap.cur.parse_c_ident() {
         for handler in XTX_HANDLERS.iter() {
-            if q.to_bytes() == handler.key.as_bytes() {
+            if q == handler.key {
                 ap.command = Some(handler.key);
                 *sph = SpcHandler {
                     key: "x:",

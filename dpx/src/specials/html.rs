@@ -436,19 +436,19 @@ unsafe fn atopt(a: &[u8]) -> f64 {
     }
     let v = atof(q.unwrap().as_ptr());
     if let Some(q) = p.parse_c_ident() {
-        match q.to_bytes() {
-            b"pt" => u *= 72.0f64 / 72.27f64,
-            b"in" => u *= 72.0f64,
-            b"cm" => u *= 72.0f64 / 2.54f64,
-            b"mm" => u *= 72.0f64 / 25.4f64,
-            b"bp" => u *= 1.0f64,
-            b"pc" => u *= 12.0f64 * 72.0f64 / 72.27f64,
-            b"dd" => u *= 1238.0f64 / 1157.0f64 * 72.0f64 / 72.27f64,
-            b"cc" => u *= 12.0f64 * 1238.0f64 / 1157.0f64 * 72.0f64 / 72.27f64,
-            b"sp" => u *= 72.0f64 / (72.27f64 * 65536i32 as f64),
-            b"px" => u *= 1.0f64,
+        match q.as_ref() {
+            "pt" => u *= 72.0f64 / 72.27f64,
+            "in" => u *= 72.0f64,
+            "cm" => u *= 72.0f64 / 2.54f64,
+            "mm" => u *= 72.0f64 / 25.4f64,
+            "bp" => u *= 1.0f64,
+            "pc" => u *= 12.0f64 * 72.0f64 / 72.27f64,
+            "dd" => u *= 1238.0f64 / 1157.0f64 * 72.0f64 / 72.27f64,
+            "cc" => u *= 12.0f64 * 1238.0f64 / 1157.0f64 * 72.0f64 / 72.27f64,
+            "sp" => u *= 72.0f64 / (72.27f64 * 65536i32 as f64),
+            "px" => u *= 1.0f64,
             _ => {
-                warn!("Unknown unit of measure: {}", q.display());
+                warn!("Unknown unit of measure: {}", q);
             }
         }
     }
@@ -688,26 +688,26 @@ unsafe fn cvt_a_to_tmatrix<'a>(M: &mut TMatrix, buf: &'a [u8]) -> Result<&'a [u8
         return Err(());
     }
     p = &p[1..];
-    match q.unwrap().to_bytes() {
-        b"matrix" => {
+    match q.unwrap().as_ref() {
+        "matrix" => {
             if n != 6 {
                 return Err(());
             }
             *M = TMatrix::from_row_major_array(v);
         }
-        b"translate" => {
+        "translate" => {
             if n != 1 && n != 2 {
                 return Err(());
             }
             *M = TMatrix::create_translation(v[0], if n == 2 { v[1] } else { 0. });
         }
-        b"scale" => {
+        "scale" => {
             if n != 1 && n != 2 {
                 return Err(());
             }
             *M = TMatrix::create_scale(v[0], if n == 2 { v[1] } else { v[0] });
         }
-        b"rotate" => {
+        "rotate" => {
             if n != 1 && n != 3 {
                 return Err(());
             }
@@ -719,7 +719,7 @@ unsafe fn cvt_a_to_tmatrix<'a>(M: &mut TMatrix, buf: &'a [u8]) -> Result<&'a [u8
             M.m31 = if n == 3 { v[1] } else { 0. };
             M.m32 = if n == 3 { v[2] } else { 0. };
         }
-        b"skewX" => {
+        "skewX" => {
             if n != 1 {
                 return Err(());
             }
@@ -728,7 +728,7 @@ unsafe fn cvt_a_to_tmatrix<'a>(M: &mut TMatrix, buf: &'a [u8]) -> Result<&'a [u8
             M.m21 = 0.;
             M.m22 = 1.;
         }
-        b"skewY" => {
+        "skewY" => {
             if n != 1 {
                 return Err(());
             }

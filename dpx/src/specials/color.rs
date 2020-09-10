@@ -82,7 +82,7 @@ unsafe fn spc_handler_background(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
 pub(crate) fn spc_color_check_special(mut buf: &[u8]) -> bool {
     buf.skip_blank();
     if let Some(q) = buf.parse_c_ident() {
-        q.to_bytes() == b"color" || q.to_bytes() == b"background"
+        q == "color" || q == "background"
     } else {
         false
     }
@@ -99,23 +99,23 @@ pub(crate) unsafe fn spc_color_setup_handler(
         return -1i32;
     }
     ap.cur.skip_blank();
-    match q.unwrap().to_bytes() {
-        b"background" => {
+    match q.unwrap().as_ref() {
+        "background" => {
             ap.command = Some("background");
             sph.exec = Some(spc_handler_background);
         }
-        b"color" => {
+        "color" => {
             /* color */
             /* cmyk, rgb, ... */
             let mut p = &ap.cur[..];
             if let Some(q) = p.parse_c_ident() {
-                match q.to_bytes() {
-                    b"push" => {
+                match q.as_ref() {
+                    "push" => {
                         ap.command = Some("push");
                         sph.exec = Some(spc_handler_color_push);
                         ap.cur = p
                     }
-                    b"pop" => {
+                    "pop" => {
                         ap.command = Some("pop");
                         sph.exec = Some(spc_handler_color_pop);
                         ap.cur = p
