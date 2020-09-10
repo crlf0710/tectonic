@@ -23,7 +23,7 @@
 )]
 
 use super::util::spc_util_read_colorspec;
-use super::{spc_arg, spc_env, SpcHandler};
+use super::{SpcArg, SpcEnv, SpcHandler};
 use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_pdfcolor::{pdf_color_clear_stack, pdf_color_pop, pdf_color_push, pdf_color_set};
 use crate::dpx_pdfdoc::pdf_doc_set_bgcolor;
@@ -43,7 +43,7 @@ use crate::SkipBlank;
  * other operations that can change current color
  * implicitely.
  */
-unsafe fn spc_handler_color_push(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_color_push(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     if let Ok(mut colorspec) = spc_util_read_colorspec(spe, args, true) {
         let color_clone = colorspec.clone();
         pdf_color_push(&mut colorspec, &color_clone);
@@ -53,14 +53,14 @@ unsafe fn spc_handler_color_push(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     }
 }
 
-unsafe fn spc_handler_color_pop(mut _spe: &mut spc_env, _args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_color_pop(mut _spe: &mut SpcEnv, _args: &mut SpcArg) -> i32 {
     pdf_color_pop();
     0i32
 }
 /* Invoked by the special command "color rgb .625 0 0".
  * DVIPS clears the color stack, and then saves and sets the given color.
  */
-unsafe fn spc_handler_color_default(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_color_default(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     if let Ok(colorspec) = spc_util_read_colorspec(spe, args, true) {
         pdf_color_clear_stack();
         pdf_color_set(&colorspec, &colorspec);
@@ -70,7 +70,7 @@ unsafe fn spc_handler_color_default(spe: &mut spc_env, args: &mut spc_arg) -> i3
     }
 }
 /* This is from color special? */
-unsafe fn spc_handler_background(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_background(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     if let Ok(colorspec) = spc_util_read_colorspec(spe, args, true) {
         pdf_doc_set_bgcolor(Some(&colorspec));
         0
@@ -90,8 +90,8 @@ pub(crate) fn spc_color_check_special(mut buf: &[u8]) -> bool {
 
 pub(crate) unsafe fn spc_color_setup_handler(
     sph: &mut SpcHandler,
-    spe: &mut spc_env,
-    ap: &mut spc_arg,
+    spe: &mut SpcEnv,
+    ap: &mut SpcArg,
 ) -> i32 {
     ap.cur.skip_blank();
     let q = ap.cur.parse_c_ident();
@@ -101,7 +101,7 @@ pub(crate) unsafe fn spc_color_setup_handler(
     ap.cur.skip_blank();
     match q.unwrap().to_bytes() {
         b"background" => {
-            ap.command = Some(b"background");
+            ap.command = Some("background");
             sph.exec = Some(spc_handler_background);
         }
         b"color" => {
@@ -111,17 +111,17 @@ pub(crate) unsafe fn spc_color_setup_handler(
             if let Some(q) = p.parse_c_ident() {
                 match q.to_bytes() {
                     b"push" => {
-                        ap.command = Some(b"push");
+                        ap.command = Some("push");
                         sph.exec = Some(spc_handler_color_push);
                         ap.cur = p
                     }
                     b"pop" => {
-                        ap.command = Some(b"pop");
+                        ap.command = Some("pop");
                         sph.exec = Some(spc_handler_color_pop);
                         ap.cur = p
                     }
                     _ => {
-                        ap.command = Some(b"");
+                        ap.command = Some("");
                         sph.exec = Some(spc_handler_color_default)
                     }
                 }

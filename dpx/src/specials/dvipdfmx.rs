@@ -22,7 +22,7 @@
 #![allow(
 )]
 
-use super::{spc_arg, spc_env, SpcHandler};
+use super::{SpcArg, SpcEnv, SpcHandler};
 use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
@@ -35,12 +35,12 @@ use crate::spc_warn;
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 
-unsafe fn spc_handler_null(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_null(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur = &[];
     0i32
 }
 const DVIPDFMX_HANDLERS: [SpcHandler; 1] = [SpcHandler {
-    key: b"config",
+    key: "config",
     exec: Some(spc_handler_null),
 }];
 
@@ -51,8 +51,8 @@ pub(crate) fn spc_dvipdfmx_check_special(mut buf: &[u8]) -> bool {
 
 pub(crate) unsafe fn spc_dvipdfmx_setup_handler(
     sph: &mut SpcHandler,
-    spe: &mut spc_env,
-    ap: &mut spc_arg,
+    spe: &mut SpcEnv,
+    ap: &mut SpcArg,
 ) -> i32 {
     let mut error: i32 = -1i32;
     ap.cur.skip_white();
@@ -64,10 +64,12 @@ pub(crate) unsafe fn spc_dvipdfmx_setup_handler(
     ap.cur.skip_white();
     if let Some(q) = ap.cur.parse_c_ident() {
         for handler in DVIPDFMX_HANDLERS.iter() {
-            if q.to_bytes() == handler.key {
+            if q.to_bytes() == handler.key.as_bytes() {
                 ap.command = Some(handler.key);
-                sph.key = b"dvipdfmx:";
-                sph.exec = handler.exec;
+                *sph = SpcHandler {
+                    key: "dvipdfmx:",
+                    exec: handler.exec,
+                };
                 ap.cur.skip_white();
                 error = 0i32;
                 break;

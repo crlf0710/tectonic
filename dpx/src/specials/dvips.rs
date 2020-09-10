@@ -29,7 +29,7 @@ use std::ptr;
 
 use crate::warn;
 
-use super::{spc_arg, spc_env};
+use super::{SpcArg, SpcEnv};
 use crate::bridge::TTInputFormat;
 
 use crate::bridge::ttstub_input_open_str;
@@ -56,7 +56,7 @@ static mut PENDING_Y: f64 = 0.0f64;
 static mut POSITION_SET: i32 = 0i32;
 static mut PS_HEADERS: Vec<String> = Vec::new();
 
-unsafe fn spc_handler_ps_header(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_ps_header(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     if args.cur.len() <= 1 || args.cur[0] != b'=' {
         spc_warn!(spe, "No filename specified for PSfile special.");
@@ -106,7 +106,7 @@ unsafe fn parse_filename<'a>(pp: &mut &'a [u8]) -> Option<&'a str> {
     r
 }
 /* =filename ... */
-unsafe fn spc_handler_ps_file(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_ps_file(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let mut ti = transform_info::new();
     let options: load_options = load_options {
         page_no: 1i32,
@@ -138,7 +138,7 @@ unsafe fn spc_handler_ps_file(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     }
 }
 /* This isn't correct implementation but dvipdfm supports... */
-unsafe fn spc_handler_ps_plotfile(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_ps_plotfile(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let mut error: i32 = 0i32; /* xscale = 1.0, yscale = -1.0 */
     let mut p = transform_info::new();
     let options: load_options = load_options {
@@ -165,7 +165,7 @@ unsafe fn spc_handler_ps_plotfile(spe: &mut spc_env, args: &mut spc_arg) -> i32 
         return -1i32;
     }
 }
-unsafe fn spc_handler_ps_literal(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_ps_literal(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let mut error: i32 = 0i32;
     let x_user;
     let y_user;
@@ -232,17 +232,17 @@ unsafe fn spc_handler_ps_literal(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     }
     error
 }
-unsafe fn spc_handler_ps_trickscmd(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_ps_trickscmd(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     warn!("PSTricks commands are disallowed in Tectonic");
     args.cur = &[];
     -1i32
 }
-unsafe fn spc_handler_ps_tricksobj(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_ps_tricksobj(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     warn!("PSTricks commands are disallowed in Tectonic");
     args.cur = &[];
     -1i32
 }
-unsafe fn spc_handler_ps_default(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_ps_default(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     pdf_dev_gsave();
     let st_depth = mps_stack_depth();
     let gs_depth = pdf_dev_current_depth();
@@ -274,43 +274,43 @@ unsafe fn spc_handler_ps_default(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
 }
 const DVIPS_HANDLERS: [SpcHandler; 10] = [
     SpcHandler {
-        key: b"header",
+        key: "header",
         exec: Some(spc_handler_ps_header),
     },
     SpcHandler {
-        key: b"PSfile",
+        key: "PSfile",
         exec: Some(spc_handler_ps_file),
     },
     SpcHandler {
-        key: b"psfile",
+        key: "psfile",
         exec: Some(spc_handler_ps_file),
     },
     SpcHandler {
-        key: b"ps: plotfile ",
+        key: "ps: plotfile ",
         exec: Some(spc_handler_ps_plotfile),
     },
     SpcHandler {
-        key: b"PS: plotfile ",
+        key: "PS: plotfile ",
         exec: Some(spc_handler_ps_plotfile),
     },
     SpcHandler {
-        key: b"PS:",
+        key: "PS:",
         exec: Some(spc_handler_ps_literal),
     },
     SpcHandler {
-        key: b"ps:",
+        key: "ps:",
         exec: Some(spc_handler_ps_literal),
     },
     SpcHandler {
-        key: b"PST:",
+        key: "PST:",
         exec: Some(spc_handler_ps_trickscmd),
     },
     SpcHandler {
-        key: b"pst:",
+        key: "pst:",
         exec: Some(spc_handler_ps_tricksobj),
     },
     SpcHandler {
-        key: b"\" ",
+        key: "\" ",
         exec: Some(spc_handler_ps_default),
     },
 ];
@@ -340,7 +340,7 @@ pub(crate) fn spc_dvips_check_special(mut buf: &[u8]) -> bool {
         return false;
     }
     for handler in DVIPS_HANDLERS.iter() {
-        if buf.starts_with(handler.key) {
+        if buf.starts_with(handler.key.as_bytes()) {
             return true;
         }
     }
@@ -349,8 +349,8 @@ pub(crate) fn spc_dvips_check_special(mut buf: &[u8]) -> bool {
 
 pub(crate) unsafe fn spc_dvips_setup_handler(
     handle: &mut SpcHandler,
-    spe: &mut spc_env,
-    args: &mut spc_arg,
+    spe: &mut SpcEnv,
+    args: &mut SpcArg,
 ) -> i32 {
     args.cur.skip_white();
     let key = args.cur;
@@ -372,12 +372,14 @@ pub(crate) unsafe fn spc_dvips_setup_handler(
         return -1i32;
     }
     for handler in DVIPS_HANDLERS.iter() {
-        if keylen == handler.key.len() && &key[..keylen] == handler.key {
+        if &key[..keylen] == handler.key.as_bytes() {
             args.cur.skip_white();
             args.command = Some(handler.key);
-            (*handle).key = b"ps:";
-            (*handle).exec = handler.exec;
-            return 0i32;
+            *handle = SpcHandler {
+                key: "ps:",
+                exec: handler.exec,
+            };
+            return 0;
         }
     }
     -1i32

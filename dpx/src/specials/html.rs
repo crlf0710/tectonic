@@ -50,7 +50,7 @@ use crate::dpx_pdfobj::{
 use crate::spc_warn;
 use libc::{atof, free, strcat, strcpy, strlen};
 
-use super::{spc_arg, spc_env};
+use super::{SpcArg, SpcEnv};
 
 use super::SpcHandler;
 
@@ -220,7 +220,7 @@ unsafe fn spc_handler_html__init(dp: *mut libc::c_void) -> i32 {
     0i32
 }
 
-unsafe fn spc_handler_html__clean(spe: *mut spc_env, dp: *mut libc::c_void) -> i32 {
+unsafe fn spc_handler_html__clean(spe: *mut SpcEnv, dp: *mut libc::c_void) -> i32 {
     let mut sd: *mut spc_html_ = dp as *mut spc_html_;
     free((*sd).baseurl as *mut libc::c_void);
     if (*sd).pending_type >= 0i32 || !(*sd).link_dict.is_null() {
@@ -234,7 +234,7 @@ unsafe fn spc_handler_html__clean(spe: *mut spc_env, dp: *mut libc::c_void) -> i
     0i32
 }
 
-unsafe fn spc_handler_html__bophook(spe: *mut spc_env, dp: *mut libc::c_void) -> i32 {
+unsafe fn spc_handler_html__bophook(spe: *mut SpcEnv, dp: *mut libc::c_void) -> i32 {
     let sd: *mut spc_html_ = dp as *mut spc_html_;
     if (*sd).pending_type >= 0i32 {
         let spe = &*spe;
@@ -246,7 +246,7 @@ unsafe fn spc_handler_html__bophook(spe: *mut spc_env, dp: *mut libc::c_void) ->
     0i32
 }
 
-unsafe fn spc_handler_html__eophook(spe: *mut spc_env, dp: *mut libc::c_void) -> i32 {
+unsafe fn spc_handler_html__eophook(spe: *mut SpcEnv, dp: *mut libc::c_void) -> i32 {
     let sd: *mut spc_html_ = dp as *mut spc_html_;
     if (*sd).pending_type >= 0i32 {
         let spe = &*spe;
@@ -278,7 +278,7 @@ unsafe fn fqurl(baseurl: *const i8, name: *const i8) -> *mut i8 {
     q
 }
 
-unsafe fn html_open_link(spe: &mut spc_env, name: *const i8, mut sd: *mut spc_html_) -> i32 {
+unsafe fn html_open_link(spe: &mut SpcEnv, name: *const i8, mut sd: *mut spc_html_) -> i32 {
     assert!(!name.is_null());
     assert!((*sd).link_dict.is_null());
     (*sd).link_dict = pdf_dict::new().into_obj();
@@ -319,7 +319,7 @@ unsafe fn html_open_link(spe: &mut spc_env, name: *const i8, mut sd: *mut spc_ht
     0i32
 }
 
-unsafe fn html_open_dest(spe: &mut spc_env, name: *const i8, mut sd: *mut spc_html_) -> i32 {
+unsafe fn html_open_dest(spe: &mut SpcEnv, name: *const i8, mut sd: *mut spc_html_) -> i32 {
     let mut cp = Point::new(spe.x_user, spe.y_user);
     pdf_dev_transform(&mut cp, None);
     let page_ref = pdf_doc_get_reference("@THISPAGE");
@@ -346,7 +346,7 @@ unsafe fn html_open_dest(spe: &mut spc_env, name: *const i8, mut sd: *mut spc_ht
     error
 }
 
-unsafe fn spc_html__anchor_open(spe: &mut spc_env, attr: &pdf_obj, sd: *mut spc_html_) -> i32 {
+unsafe fn spc_html__anchor_open(spe: &mut SpcEnv, attr: &pdf_obj, sd: *mut spc_html_) -> i32 {
     if (*sd).pending_type >= 0i32 || !(*sd).link_dict.is_null() {
         spc_warn!(spe, "Nested html anchors found!");
         return -1i32;
@@ -373,7 +373,7 @@ unsafe fn spc_html__anchor_open(spe: &mut spc_env, attr: &pdf_obj, sd: *mut spc_
     }
 }
 
-unsafe fn spc_html__anchor_close(spe: &mut spc_env, mut sd: *mut spc_html_) -> i32 {
+unsafe fn spc_html__anchor_close(spe: &mut SpcEnv, mut sd: *mut spc_html_) -> i32 {
     let mut error: i32 = 0i32;
     match (*sd).pending_type {
         0 => {
@@ -396,7 +396,7 @@ unsafe fn spc_html__anchor_close(spe: &mut spc_env, mut sd: *mut spc_html_) -> i
     error
 }
 
-unsafe fn spc_html__base_empty(spe: &mut spc_env, attr: &pdf_obj, mut sd: *mut spc_html_) -> i32 {
+unsafe fn spc_html__base_empty(spe: &mut SpcEnv, attr: &pdf_obj, mut sd: *mut spc_html_) -> i32 {
     let href = attr.as_dict().get("href");
     if href.is_none() {
         spc_warn!(spe, "\"href\" not found for \"base\" tag!");
@@ -478,7 +478,7 @@ unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
     0i32
 }
 /* ENABLE_HTML_SVG_OPACITY */
-unsafe fn spc_html__img_empty(spe: &mut spc_env, attr: &pdf_obj) -> i32 {
+unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {
     let mut ti = transform_info::new();
     let options: load_options = load_options {
         page_no: 1i32,
@@ -594,7 +594,7 @@ unsafe fn spc_html__img_empty(spe: &mut spc_env, attr: &pdf_obj) -> i32 {
     error
 }
 /* ENABLE_HTML_IMG_SUPPORT */
-unsafe fn spc_handler_html_default(spe: &mut spc_env, ap: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_html_default(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     let sd: *mut spc_html_ = &mut _HTML_STATE; /* treat "open" same as "empty" */
     /* treat "open" same as "empty" */
     let mut type_0: i32 = 1i32;
@@ -777,8 +777,8 @@ pub(crate) fn spc_html_check_special(buf: &[u8]) -> bool {
 
 pub(crate) unsafe fn spc_html_setup_handler(
     sph: &mut SpcHandler,
-    _spe: &mut spc_env,
-    ap: &mut spc_arg,
+    _spe: &mut SpcEnv,
+    ap: &mut SpcArg,
 ) -> i32 {
     while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
         ap.cur = &ap.cur[1..];
@@ -786,9 +786,11 @@ pub(crate) unsafe fn spc_html_setup_handler(
     if !ap.cur.starts_with(b"html:") {
         return -1i32;
     }
-    ap.command = Some(b"");
-    sph.key = b"html:";
-    sph.exec = Some(spc_handler_html_default);
+    ap.command = Some("");
+    *sph = SpcHandler {
+        key: "html:",
+        exec: Some(spc_handler_html_default),
+    };
     ap.cur = &ap.cur[b"html:".len()..];
     while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
         ap.cur = &ap.cur[1..];

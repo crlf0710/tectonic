@@ -26,7 +26,7 @@
 
 use euclid::point2;
 
-use super::{spc_arg, spc_env};
+use super::{SpcArg, SpcEnv};
 use crate::bridge::DisplayExt;
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_pdfcolor::PdfColor;
@@ -45,7 +45,7 @@ use std::ffi::CString;
 pub(crate) unsafe fn spc_util_read_numbers(
     values: *mut f64,
     num_values: i32,
-    args: &mut spc_arg,
+    args: &mut SpcArg,
 ) -> i32 {
     args.cur.skip_blank();
     let mut count = 0;
@@ -112,7 +112,7 @@ unsafe fn rgb_color_from_hsv(h: f64, s: f64, v: f64) -> PdfColor {
     }
     PdfColor::from_rgb(r, g, b).unwrap()
 }
-unsafe fn spc_read_color_color(spe: &mut spc_env, ap: &mut spc_arg) -> Result<PdfColor, ()> {
+unsafe fn spc_read_color_color(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfColor, ()> {
     let mut cv: [f64; 4] = [0.; 4];
     let result: Result<PdfColor, ()>;
     if let Some(q) = ap.cur.parse_c_ident() {
@@ -217,7 +217,7 @@ unsafe fn spc_read_color_color(spe: &mut spc_env, ap: &mut spc_arg) -> Result<Pd
  * allowed for color specification. "pdf" here
  * means pdf: special syntax.
  */
-unsafe fn spc_read_color_pdf(spe: &mut spc_env, ap: &mut spc_arg) -> Result<PdfColor, ()> {
+unsafe fn spc_read_color_pdf(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfColor, ()> {
     let mut cv: [f64; 4] = [0.; 4]; /* at most four */
     let mut isarry: bool = false;
     ap.cur.skip_blank();
@@ -267,8 +267,8 @@ unsafe fn spc_read_color_pdf(spe: &mut spc_env, ap: &mut spc_arg) -> Result<PdfC
 /* This is for reading *single* color specification. */
 
 pub(crate) unsafe fn spc_util_read_colorspec(
-    spe: &mut spc_env,
-    ap: &mut spc_arg,
+    spe: &mut SpcEnv,
+    ap: &mut SpcArg,
     syntax: bool,
 ) -> Result<PdfColor, ()> {
     ap.cur.skip_blank();
@@ -282,8 +282,8 @@ pub(crate) unsafe fn spc_util_read_colorspec(
 }
 
 pub(crate) unsafe fn spc_util_read_pdfcolor(
-    spe: &mut spc_env,
-    ap: &mut spc_arg,
+    spe: &mut SpcEnv,
+    ap: &mut SpcArg,
     defaultcolor: Option<&PdfColor>,
 ) -> Result<PdfColor, ()> {
     ap.cur.skip_blank();
@@ -300,10 +300,10 @@ pub(crate) unsafe fn spc_util_read_pdfcolor(
 }
 
 pub(crate) trait ReadLengthSpc {
-    fn read_length(&mut self, spe: &spc_env) -> Result<f64, ()>;
+    fn read_length(&mut self, spe: &SpcEnv) -> Result<f64, ()>;
 }
 impl ReadLengthSpc for &[u8] {
-    fn read_length(&mut self, spe: &spc_env) -> Result<f64, ()> {
+    fn read_length(&mut self, spe: &SpcEnv) -> Result<f64, ()> {
         let mut p = *self; /* inverse magnify */
         let mut u: f64 = 1.0f64;
         let mut error: i32 = 0i32;
@@ -381,11 +381,7 @@ fn make_transmatrix(
         yoffset,
     );
 }
-unsafe fn spc_read_dimtrns_dvips(
-    spe: &mut spc_env,
-    t: &mut transform_info,
-    ap: &mut spc_arg,
-) -> i32 {
+unsafe fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, t: &mut transform_info, ap: &mut SpcArg) -> i32 {
     const _DTKEYS: [&[u8]; 14] = [
         b"hoffset", b"voffset", b"hsize", b"vsize", b"hscale", b"vscale", b"angle", b"clip",
         b"llx", b"lly", b"urx", b"ury", b"rwi", b"rhi",
@@ -513,11 +509,7 @@ unsafe fn spc_read_dimtrns_dvips(
  * something acceptable to put into here.
  * PLEASE DONT ADD HERE!
  */
-unsafe fn spc_read_dimtrns_pdfm(
-    spe: &mut spc_env,
-    p: &mut transform_info,
-    ap: &mut spc_arg,
-) -> i32 {
+unsafe fn spc_read_dimtrns_pdfm(spe: &mut SpcEnv, p: &mut transform_info, ap: &mut SpcArg) -> i32 {
     let mut error: i32 = 0i32;
     let mut has_matrix = 0i32;
     let mut has_rotate = has_matrix;
@@ -667,9 +659,9 @@ unsafe fn spc_read_dimtrns_pdfm(
 }
 
 pub(crate) unsafe fn spc_util_read_dimtrns(
-    spe: *mut spc_env,
+    spe: *mut SpcEnv,
     ti: &mut transform_info,
-    args: *mut spc_arg,
+    args: *mut SpcArg,
     syntax: i32,
 ) -> i32 {
     if spe.is_null() || args.is_null() {
@@ -688,11 +680,11 @@ pub(crate) unsafe fn spc_util_read_dimtrns(
  */
 
 pub(crate) unsafe fn spc_util_read_blahblah(
-    spe: &mut spc_env,
+    spe: &mut SpcEnv,
     p: &mut transform_info,
     page_no: *mut i32,
     bbox_type: *mut i32,
-    ap: &mut spc_arg,
+    ap: &mut SpcArg,
 ) -> i32 {
     let mut error: i32 = 0i32;
     let mut has_matrix = 0i32; /* default: do clipping */
