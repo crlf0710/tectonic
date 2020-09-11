@@ -289,7 +289,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
 
 pub unsafe fn dvipdfmx_main(
     pdf_filename: *const i8,
-    dvi_filename: *const i8,
+    dvi_filename: &str,
     pagespec: *const i8,
     opt_flags: i32,
     translate: bool,
@@ -301,7 +301,7 @@ pub unsafe fn dvipdfmx_main(
     let mut enable_object_stream: bool = true; /* This must come before parsing options... */
     let mut page_ranges = Vec::new();
     assert!(!pdf_filename.is_null());
-    assert!(!dvi_filename.is_null());
+    assert!(!dvi_filename.is_empty());
     translate_origin = translate as i32;
     dvi_reset_global_state();
     tfm_reset_global_state();
@@ -354,13 +354,10 @@ pub unsafe fn dvipdfmx_main(
     pdf_font_set_dpi(font_dpi);
     dpx_delete_old_cache(image_cache_life);
     pdf_enc_compute_id_string(
-        if dvi_filename.is_null() {
+        if dvi_filename.is_empty() {
             None
         } else {
-            Some(from_raw_parts(
-                dvi_filename as *const u8,
-                strlen(dvi_filename),
-            ))
+            Some(dvi_filename.as_bytes())
         },
         if pdf_filename.is_null() {
             None

@@ -72,7 +72,7 @@ pub(crate) const OP_UNKNOWN: C2RustUnnamed_0 = 16;
 /* ximage here is the result. DONT USE IT FOR PASSING OPTIONS! */
 
 pub(crate) unsafe fn pdf_include_page(
-    ximage: *mut pdf_ximage,
+    ximage: &mut pdf_ximage,
     handle: DroppableInputHandleWrapper,
     ident: &str,
     mut options: load_options,

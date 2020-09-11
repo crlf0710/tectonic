@@ -42,7 +42,6 @@ impl XdvipdfmxEngine {
     ) -> Result<i32> {
         let _guard = super::ENGINE_LOCK.lock().unwrap(); // until we're thread-safe ...
 
-        let cdvi = CString::new(dvi)?;
         let cpdf = CString::new(pdf)?;
 
         let /*mut*/ state = ExecutionState::new(io, events, status);
@@ -51,7 +50,7 @@ impl XdvipdfmxEngine {
         unsafe {
             match super::dvipdfmx_simple_main(
                 &*bridge,
-                cdvi.as_ptr(),
+                dvi,
                 cpdf.as_ptr(),
                 self.enable_compression,
                 self.deterministic_tags,

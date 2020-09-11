@@ -30,8 +30,7 @@ use euclid::point2;
 use std::io::Write;
 
 use crate::warn;
-use std::ffi::{CStr, CString};
-use std::ptr;
+use std::ffi::CStr;
 
 use super::dpx_mem::new;
 use super::dpx_mfileio::work_buffer_u8 as work_buffer;
@@ -55,8 +54,8 @@ use crate::dpx_numbers::{
     get_positive_quad, get_unsigned_num, get_unsigned_triple, skip_bytes, GetFromFile,
 };
 
-use crate::bridge::InputHandleWrapper;
-use crate::bridge::{ttstub_input_open, TTInputFormat};
+use crate::bridge::DroppableInputHandleWrapper;
+use crate::bridge::{ttstub_input_open_str, TTInputFormat};
 use std::io::Read;
 
 #[derive(Copy, Clone)]
@@ -98,13 +97,13 @@ unsafe fn truedpi(ident: &str, point_size: f64, bdpi: u32) -> u32 {
     }
     dpi
 }
-unsafe fn dpx_open_pk_font_at(_ident: *const i8, _dpi: u32) -> Option<InputHandleWrapper> {
+unsafe fn dpx_open_pk_font_at(_ident: &str, _dpi: u32) -> Option<DroppableInputHandleWrapper> {
     /*kpse_glyph_file_type kpse_file_info;*/
-    let fqpn = ptr::null_mut::<i8>(); /*kpse_find_glyph(ident, dpi, kpse_pk_format, &kpse_file_info);*/
-    if fqpn.is_null() {
+    let fqpn = ""; /*kpse_find_glyph(ident, dpi, kpse_pk_format, &kpse_file_info);*/
+    if fqpn.is_empty() {
         return None;
     }
-    ttstub_input_open(fqpn, TTInputFormat::PK, 0)
+    ttstub_input_open_str(fqpn, TTInputFormat::PK, 0)
 }
 
 pub(crate) unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {
@@ -114,11 +113,8 @@ pub(crate) unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {
     if ident.is_empty() || point_size <= 0.0f64 {
         return -1i32;
     }
-    let ident_ = CString::new(ident).unwrap();
     let dpi = truedpi(ident, point_size, base_dpi);
-    if let Some(fp) = dpx_open_pk_font_at(ident_.as_ptr(), dpi) {
-        fp.close();
-    } else {
+    if dpx_open_pk_font_at(ident, dpi).is_none() {
         return -1i32;
     }
     /* Type 3 fonts doesn't have FontName.
@@ -541,9 +537,8 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
     /* ENABLE_GLYPHENC */
     let ident = &*font.ident;
     assert!(!ident.is_empty() && !usedchars.is_null() && point_size > 0.0f64);
-    let ident_ = CString::new(ident).unwrap();
     let dpi = truedpi(ident, point_size, base_dpi);
-    let mut fp = dpx_open_pk_font_at(ident_.as_ptr(), dpi).expect(&format!(
+    let mut fp = dpx_open_pk_font_at(ident, dpi).expect(&format!(
         "Could not find/open PK font file: {} (at {}dpi)",
         ident, dpi
     ));
@@ -666,7 +661,6 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
             }
         }
     }
-    fp.close();
     /* Check if we really got all glyphs needed. */
     for code in 0..256 {
         if *usedchars.offset(code as isize) as i32 != 0 && charavail[code as usize] == 0 {

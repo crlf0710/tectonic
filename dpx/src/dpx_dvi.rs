@@ -71,9 +71,7 @@ use super::dpx_tt_table::{
     tt_read_vhea_table,
 };
 use super::dpx_vf::{vf_close_all_fonts, vf_locate_font, vf_set_char, vf_set_verbose};
-use crate::bridge::{
-    ttstub_input_close, ttstub_input_get_size, ttstub_input_getc, ttstub_input_open,
-};
+use crate::bridge::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_open_str};
 use crate::dpx_dvicodes::*;
 use crate::dpx_pdfobj::pdf_release_obj;
 use crate::dpx_truetype::sfnt_table_info;
@@ -85,7 +83,7 @@ use libc::{atof, free, memset, strncpy, strtol};
 
 use crate::bridge::TTInputFormat;
 
-use bridge::InputHandleWrapper;
+use bridge::DroppableInputHandleWrapper;
 pub(crate) type fixword = i32;
 /* quasi-hack to get the primary input */
 
@@ -191,7 +189,7 @@ use super::dpx_tt_table::tt_vhea_table;
  * as directory separators. */
 /* UTF-32 over U+FFFF -> UTF-16 surrogate pair */
 /* Interal Variables */
-static mut dvi_handle: Option<InputHandleWrapper> = None;
+static mut dvi_handle: Option<DroppableInputHandleWrapper> = None;
 static mut linear: i8 = 0_i8;
 /* set to 1 for strict linear processing of the input */
 static mut page_loc: *mut u32 = std::ptr::null_mut();
@@ -1919,13 +1917,13 @@ pub(crate) unsafe fn dvi_do_page(page_paper_height: f64, hmargin: f64, vmargin: 
     }
 }
 
-pub(crate) unsafe fn dvi_init(dvi_filename: *const i8, mag: f64) -> f64 {
-    if dvi_filename.is_null() {
+pub(crate) unsafe fn dvi_init(dvi_filename: &str, mag: f64) -> f64 {
+    if dvi_filename.is_empty() {
         panic!("filename must be specified");
     }
-    dvi_handle = ttstub_input_open(dvi_filename, TTInputFormat::BINARY, 0);
+    dvi_handle = ttstub_input_open_str(dvi_filename, TTInputFormat::BINARY, 0);
     if dvi_handle.is_none() {
-        panic!("cannot open \"{}\"", CStr::from_ptr(dvi_filename).display());
+        panic!("cannot open \"{}\"", dvi_filename);
     }
     /* DVI files are most easily read backwards by searching for post_post and
      * then post opcode.
@@ -1944,14 +1942,14 @@ pub(crate) unsafe fn dvi_init(dvi_filename: *const i8, mag: f64) -> f64 {
 pub(crate) unsafe fn dvi_close() {
     if linear != 0 {
         /* probably reading a pipe from xetex; consume any remaining data */
-        while ttstub_input_getc(dvi_handle.as_mut().unwrap()) != -1i32 {}
+        while ttstub_input_getc(dvi_handle.as_mut().unwrap()) != -1 {}
     }
     /* We add comment in dvi_close instead of dvi_init so user
      * has a change to overwrite it.  The docinfo dictionary is
      * treated as a write-once record.
      */
     /* Do some house cleaning */
-    ttstub_input_close(dvi_handle.take().unwrap());
+    let _ = dvi_handle.take();
 
     for font in &mut def_fonts {
         font.font_name.clear();
