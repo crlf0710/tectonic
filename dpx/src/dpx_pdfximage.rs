@@ -57,6 +57,25 @@ use crate::bridge::TTInputFormat;
 use bridge::DroppableInputHandleWrapper;
 
 use super::dpx_pdfdev::{transform_info, Point, Rect, TMatrix};
+
+#[derive(Copy, Clone)]
+pub(crate) enum PdfXObjectType {
+    None,
+    Form,
+    Image,
+}
+
+#[derive(Copy, Clone)]
+pub(crate) enum ImageType {
+    Unknown,
+    Pdf,
+    Jpeg,
+    Png,
+    Eps,
+    Bmp,
+    Jp2,
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct ximage_info {
@@ -99,7 +118,7 @@ pub(crate) struct load_options {
 pub(crate) struct pdf_ximage {
     pub(crate) ident: *mut i8,
     pub(crate) res_name: [i8; 16],
-    pub(crate) subtype: i32,
+    pub(crate) subtype: PdfXObjectType,
     pub(crate) attr: attr_,
     pub(crate) filename: *mut i8,
     pub(crate) reference: *mut pdf_obj,
@@ -157,7 +176,7 @@ static mut _ic: ic_ = ic_ {
 unsafe fn pdf_init_ximage_struct(I: &mut pdf_ximage) {
     I.ident = ptr::null_mut();
     I.filename = ptr::null_mut();
-    I.subtype = -1;
+    I.subtype = PdfXObjectType::None;
     memset(I.res_name.as_mut_ptr() as *mut libc::c_void, 0, 16);
     I.reference = ptr::null_mut();
     I.resource = ptr::null_mut();
@@ -182,17 +201,17 @@ unsafe fn pdf_clean_ximage_struct(I: &mut pdf_ximage) {
 }
 
 pub(crate) unsafe fn pdf_init_images() {
-    let mut ic: *mut ic_ = &mut _ic;
-    (*ic).count = 0i32;
-    (*ic).capacity = 0i32;
-    (*ic).ximages = ptr::null_mut();
+    let ic = &mut _ic;
+    ic.count = 0;
+    ic.capacity = 0;
+    ic.ximages = ptr::null_mut();
 }
 
 pub(crate) unsafe fn pdf_close_images() {
-    let mut ic: *mut ic_ = &mut _ic;
-    if !(*ic).ximages.is_null() {
-        for i in 0..(*ic).count {
-            let mut I = &mut *(*ic).ximages.offset(i as isize);
+    let ic = &mut _ic;
+    if !ic.ximages.is_null() {
+        for i in 0..ic.count {
+            let mut I = &mut *ic.ximages.offset(i as isize);
             if I.attr.tempfile != 0 {
                 /*
                  * It is important to remove temporary files at the end because
@@ -213,28 +232,28 @@ pub(crate) unsafe fn pdf_close_images() {
             }
             pdf_clean_ximage_struct(I);
         }
-        (*ic).ximages = mfree((*ic).ximages as *mut libc::c_void) as *mut pdf_ximage;
-        (*ic).capacity = 0i32;
-        (*ic).count = (*ic).capacity
+        ic.ximages = mfree(ic.ximages as *mut libc::c_void) as *mut pdf_ximage;
+        ic.capacity = 0i32;
+        ic.count = ic.capacity
     }
     _opts.cmdtmpl = mfree(_opts.cmdtmpl as *mut libc::c_void) as *mut i8;
 }
-unsafe fn source_image_type<R: Read + Seek>(handle: &mut R) -> i32 {
+unsafe fn source_image_type<R: Read + Seek>(handle: &mut R) -> ImageType {
     handle.seek(SeekFrom::Start(0)).unwrap();
     /* Original check order: jpeg, jp2, png, bmp, pdf, ps */
     let format = if check_for_jpeg(handle) != 0 {
-        1
+        ImageType::Jpeg
     } else if check_for_png(handle) != 0 {
-        2
+        ImageType::Png
     } else if check_for_bmp(handle) {
-        6
+        ImageType::Bmp
     } else if check_for_pdf(handle) {
-        0
+        ImageType::Pdf
     } else if check_for_ps(handle) != 0 {
-        5
+        ImageType::Eps
     } else {
         warn!("Tectonic was unable to detect an image\'s format");
-        -1
+        ImageType::Unknown
     };
     handle.seek(SeekFrom::Start(0)).unwrap();
     format
@@ -242,21 +261,21 @@ unsafe fn source_image_type<R: Read + Seek>(handle: &mut R) -> i32 {
 unsafe fn load_image(
     ident: *const i8,
     fullname: &str,
-    format: i32,
+    format: ImageType,
     mut handle: DroppableInputHandleWrapper,
     options: load_options,
 ) -> i32 {
-    let mut ic: *mut ic_ = &mut _ic;
-    let id = (*ic).count;
-    if (*ic).count >= (*ic).capacity {
-        (*ic).capacity += 16i32;
-        (*ic).ximages = renew(
-            (*ic).ximages as *mut libc::c_void,
-            ((*ic).capacity as u32 as u64).wrapping_mul(::std::mem::size_of::<pdf_ximage>() as u64)
+    let mut ic = &mut _ic;
+    let id = ic.count;
+    if ic.count >= ic.capacity {
+        ic.capacity += 16i32;
+        ic.ximages = renew(
+            ic.ximages as *mut libc::c_void,
+            (ic.capacity as u32 as u64).wrapping_mul(::std::mem::size_of::<pdf_ximage>() as u64)
                 as u32,
         ) as *mut pdf_ximage
     }
-    let I = &mut *(*ic).ximages.offset(id as isize);
+    let I = &mut *ic.ximages.offset(id as isize);
     pdf_init_ximage_struct(I);
     if !ident.is_null() {
         I.ident =
@@ -276,7 +295,7 @@ unsafe fn load_image(
      *    format = IMAGE_TYPE_JP2; */
     I.attr.dict = options.dict; /* unsafe? */
     match format {
-        1 => {
+        ImageType::Jpeg => {
             if _opts.verbose != 0 {
                 info!("[JPEG]");
             }
@@ -285,11 +304,9 @@ unsafe fn load_image(
                 return -1;
             }
 
-            I.subtype = 1;
-            // FIXME: `ttstub_input_close` is not used in this place in
-            // https://github.com/tectonic-typesetting/tectonic/blob/e4b884ceeeeda2808289d034480f27008a678746/tectonic/dpx-pdfximage.c#L254
+            I.subtype = PdfXObjectType::Image;
         }
-        7 => {
+        ImageType::Jp2 => {
             if _opts.verbose != 0 {
                 info!("[JP2]");
             }
@@ -297,10 +314,10 @@ unsafe fn load_image(
             warn!("Tectonic: JP2 not yet supported");
             pdf_clean_ximage_struct(I);
             return -1;
-            /*I->subtype = PDF_XOBJECT_TYPE_IMAGE;
+            /*I.subtype = PdfXObjectType::Image;
             break;*/
         }
-        2 => {
+        ImageType::Png => {
             if _opts.verbose != 0 {
                 info!("[PNG]");
             }
@@ -308,8 +325,9 @@ unsafe fn load_image(
                 pdf_clean_ximage_struct(I);
                 return -1;
             }
+            I.subtype = PdfXObjectType::Image;
         }
-        6 => {
+        ImageType::Bmp => {
             if _opts.verbose != 0 {
                 info!("[BMP]");
             }
@@ -317,9 +335,9 @@ unsafe fn load_image(
                 pdf_clean_ximage_struct(I);
                 return -1;
             }
-            I.subtype = 1;
+            I.subtype = PdfXObjectType::Image;
         }
-        0 => {
+        ImageType::Pdf => {
             if _opts.verbose != 0 {
                 info!("[PDF]");
             }
@@ -332,9 +350,9 @@ unsafe fn load_image(
             if _opts.verbose != 0 {
                 info!(",Page:{}", I.attr.page_no);
             }
-            I.subtype = 0;
+            I.subtype = PdfXObjectType::Form;
         }
-        5 => {
+        ImageType::Eps => {
             if _opts.verbose != 0 {
                 info!("[EPS]");
             }
@@ -343,7 +361,7 @@ unsafe fn load_image(
             pdf_clean_ximage_struct(I);
             return -1;
         }
-        _ => {
+        ImageType::Unknown => {
             if _opts.verbose != 0 {
                 info!("[UNKNOWN]");
             }
@@ -354,14 +372,14 @@ unsafe fn load_image(
     }
 
     match I.subtype {
-        1 => {
+        PdfXObjectType::Image => {
             sprintf(
                 I.res_name.as_mut_ptr(),
                 b"Im%d\x00" as *const u8 as *const i8,
                 id,
             );
         }
-        0 => {
+        PdfXObjectType::Form => {
             sprintf(
                 I.res_name.as_mut_ptr(),
                 b"Fm%d\x00" as *const u8 as *const i8,
@@ -369,20 +387,20 @@ unsafe fn load_image(
             );
         }
         _ => {
-            panic!("Unknown XObject subtype: {}", I.subtype);
+            panic!("Unknown XObject subtype: {}", -1);
         }
     }
-    (*ic).count += 1;
+    ic.count += 1;
     id
 }
 
 pub(crate) unsafe fn pdf_ximage_findresource(ident: *const i8, options: load_options) -> i32 {
-    let ic: *mut ic_ = &mut _ic;
+    let ic = &_ic;
     /* "I don't understand why there is comparision against I->attr.dict here...
      * I->attr.dict and options.dict are simply pointers to PDF dictionaries."
      */
-    for id in 0..(*ic).count {
-        let I = &mut *(*ic).ximages.offset(id as isize);
+    for id in 0..ic.count {
+        let I = &*ic.ximages.offset(id as isize);
         if !I.ident.is_null() && streq_ptr(ident, I.ident) {
             if I.attr.page_no == options.page_no
                 && I.attr.dict == options.dict
@@ -503,7 +521,7 @@ pub(crate) unsafe fn pdf_ximage_set_image(
     if !(!resource.is_null() && (*resource).is_stream()) {
         panic!("Image XObject must be of stream type.");
     }
-    I.subtype = 1i32;
+    I.subtype = PdfXObjectType::Image;
     I.attr.width = info.width;
     I.attr.height = info.height;
     I.attr.xdensity = info.xdensity;
@@ -531,7 +549,7 @@ pub(crate) unsafe fn pdf_ximage_set_form(
     resource: *mut pdf_obj,
 ) {
     let info = form_info;
-    I.subtype = 0;
+    I.subtype = PdfXObjectType::Form;
     /* Image's attribute "bbox" here is affected by /Rotate entry of included
      * PDF page.
      */
@@ -557,11 +575,11 @@ pub(crate) unsafe fn pdf_ximage_get_page(I: &pdf_ximage) -> i32 {
 }
 
 pub(crate) unsafe fn pdf_ximage_get_reference(id: i32) -> *mut pdf_obj {
-    let ic: *mut ic_ = &mut _ic;
-    if id < 0i32 || id >= (*ic).count {
+    let ic = &mut _ic;
+    if id < 0i32 || id >= ic.count {
         panic!("Invalid XObject ID: {}", id);
     }
-    let I = &mut *(*ic).ximages.offset(id as isize);
+    let I = &mut *ic.ximages.offset(id as isize);
     if I.reference.is_null() {
         I.reference = pdf_ref_obj(I.resource)
     }
@@ -581,17 +599,17 @@ pub(crate) unsafe fn pdf_ximage_defineresource(
     info: XInfo,
     resource: *mut pdf_obj,
 ) -> i32 {
-    let mut ic: *mut ic_ = &mut _ic;
-    let id = (*ic).count;
-    if (*ic).count >= (*ic).capacity {
-        (*ic).capacity += 16i32;
-        (*ic).ximages = renew(
-            (*ic).ximages as *mut libc::c_void,
-            ((*ic).capacity as u32 as u64).wrapping_mul(::std::mem::size_of::<pdf_ximage>() as u64)
+    let ic = &mut _ic;
+    let id = ic.count;
+    if ic.count >= ic.capacity {
+        ic.capacity += 16i32;
+        ic.ximages = renew(
+            ic.ximages as *mut libc::c_void,
+            (ic.capacity as u32 as u64).wrapping_mul(::std::mem::size_of::<pdf_ximage>() as u64)
                 as u32,
         ) as *mut pdf_ximage
     }
-    let I = &mut *(*ic).ximages.offset(id as isize);
+    let I = &mut *ic.ximages.offset(id as isize);
     pdf_init_ximage_struct(I);
     if !ident.is_null() {
         I.ident =
@@ -617,25 +635,25 @@ pub(crate) unsafe fn pdf_ximage_defineresource(
             );
         }
     }
-    (*ic).count += 1;
+    ic.count += 1;
     id
 }
 
-pub(crate) unsafe fn pdf_ximage_get_resname(id: i32) -> *mut i8 {
-    let ic: *mut ic_ = &mut _ic;
-    if id < 0 || id >= (*ic).count {
+pub(crate) unsafe fn pdf_ximage_get_resname(id: i32) -> *const i8 {
+    let ic = &_ic;
+    if id < 0 || id >= ic.count {
         panic!("Invalid XObject ID: {}", id);
     }
-    let I = &mut *(*ic).ximages.offset(id as isize);
-    I.res_name.as_mut_ptr()
+    let I = &*ic.ximages.offset(id as isize);
+    I.res_name.as_ptr()
 }
 
-pub(crate) unsafe fn pdf_ximage_get_subtype(id: i32) -> i32 {
-    let ic: *mut ic_ = &mut _ic;
-    if id < 0 || id >= (*ic).count {
+pub(crate) unsafe fn pdf_ximage_get_subtype(id: i32) -> PdfXObjectType {
+    let ic = &_ic;
+    if id < 0 || id >= ic.count {
         panic!("Invalid XObject ID: {}", id);
     }
-    let I = &mut *(*ic).ximages.offset(id as isize);
+    let I = &*ic.ximages.offset(id as isize);
     I.subtype
 }
 /* from spc_pdfm.c */
@@ -651,11 +669,11 @@ pub(crate) unsafe fn pdf_ximage_set_attr(
     urx: f64,
     ury: f64,
 ) {
-    let ic: *mut ic_ = &mut _ic;
-    if id < 0 || id >= (*ic).count {
+    let ic = &mut _ic;
+    if id < 0 || id >= ic.count {
         panic!("Invalid XObject ID: {}", id);
     }
-    let I = &mut *(*ic).ximages.offset(id as isize);
+    let I = &mut *ic.ximages.offset(id as isize);
     I.attr.width = width;
     I.attr.height = height;
     I.attr.xdensity = xdensity;
@@ -778,14 +796,14 @@ pub(crate) unsafe fn pdf_ximage_scale_image(
     p: &mut transform_info,
 ) -> TMatrix
 /* argument from specials */ {
-    let ic: *mut ic_ = &mut _ic;
-    if id < 0i32 || id >= (*ic).count {
+    let ic = &_ic;
+    if id < 0i32 || id >= ic.count {
         panic!("Invalid XObject ID: {}", id);
     }
-    let I = &mut *(*ic).ximages.offset(id as isize);
+    let I = &*ic.ximages.offset(id as isize);
     let mut M = TMatrix::identity();
     match I.subtype {
-        1 => {
+        PdfXObjectType::Image => {
             /* Reference: PDF Reference 1.5 v6, p.302
              *
              * An image can be placed on the output page in any desired position,
@@ -821,7 +839,7 @@ pub(crate) unsafe fn pdf_ximage_scale_image(
                 *r = Rect::new(point2(0., 0.), point2(1., 1.));
             }
         }
-        0 => {
+        PdfXObjectType::Form => {
             /* User-defined transformation and clipping are controlled by
              * the cm operator and W operator, explicitly */
             scale_to_fit_F(&mut M, p, I); /* I->attr.bbox from the image bounding box */
