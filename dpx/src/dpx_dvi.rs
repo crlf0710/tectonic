@@ -75,7 +75,7 @@ use crate::bridge::{
     ttstub_input_close, ttstub_input_get_size, ttstub_input_getc, ttstub_input_open,
 };
 use crate::dpx_dvicodes::*;
-use crate::dpx_pdfobj::{pdf_release_obj, pdf_string_value};
+use crate::dpx_pdfobj::pdf_release_obj;
 use crate::dpx_truetype::sfnt_table_info;
 use crate::specials::{
     spc_exec_at_begin_page, spc_exec_at_end_page, spc_exec_special, spc_set_verbose,
@@ -2242,8 +2242,9 @@ unsafe fn scan_special(
                     match kp.as_str() {
                         "ownerpw" => {
                             if let Some(obj) = buf.parse_pdf_string() {
-                                if !pdf_string_value(&*obj).is_null() {
-                                    strncpy(owner_pw, pdf_string_value(&*obj) as *const i8, 127);
+                                let bytes = (*obj).as_string().to_bytes();
+                                if !bytes.is_empty() {
+                                    strncpy(owner_pw, CString::new(bytes).unwrap().as_ptr(), 127);
                                 }
                                 pdf_release_obj(obj);
                             } else {
@@ -2252,8 +2253,9 @@ unsafe fn scan_special(
                         }
                         "userpw" => {
                             if let Some(obj) = buf.parse_pdf_string() {
-                                if !pdf_string_value(&*obj).is_null() {
-                                    strncpy(user_pw, pdf_string_value(&*obj) as *const i8, 127);
+                                let bytes = (*obj).as_string().to_bytes();
+                                if !bytes.is_empty() {
+                                    strncpy(user_pw, CString::new(bytes).unwrap().as_ptr(), 127);
                                 }
                                 pdf_release_obj(obj);
                             } else {

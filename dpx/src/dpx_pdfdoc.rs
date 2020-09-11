@@ -68,7 +68,7 @@ use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_obj, pdf_out_flush,
     pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
-    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, pdf_string_length, pdf_string_value,
+    pdf_set_info, pdf_set_root, pdf_stream, pdf_string,
     IntoObj, PdfObjType, PushObj, STREAM_COMPRESS,
 };
 use libc::{free, memcpy, strcmp, strcpy, strlen, strncmp, strncpy};
@@ -481,7 +481,7 @@ unsafe fn pdf_doc_close_docinfo(mut p: *mut pdf_doc) {
                 warn!("\"{}\" in DocInfo dictionary not string type.", key,);
                 pdf_remove_dict(&mut *docinfo, key);
                 warn!("\"{}\" removed from DocInfo.", key,);
-            } else if pdf_string_length(&*value) == 0_u32 {
+            } else if (*value).as_string().len() == 0 {
                 /* The hyperref package often uses emtpy strings. */
                 pdf_remove_dict(&mut *docinfo, key);
             }
@@ -1598,11 +1598,8 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
         }
     }
 
-    let (dest, destlen) = if !D.is_null() && (*D).is_string() {
-        (
-            pdf_string_value(&*D) as *mut i8,
-            pdf_string_length(&*D) as i32,
-        )
+    let dest = if !D.is_null() && (*D).is_string() {
+        (*D).as_string().to_bytes()
     } else if !D.is_null() && (*D).is_array() {
         return cleanup(subtype, A, S, D);
     } else if !D.is_null() && (&*D).typ() == PdfObjType::UNDEFINED {
@@ -1612,7 +1609,7 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
     };
 
     let mut D_new =
-        ht_lookup_table(&mut pdoc.gotos, dest as *const libc::c_void, destlen) as *mut pdf_obj;
+        ht_lookup_table(&mut pdoc.gotos, dest.as_ptr() as *const libc::c_void, dest.len() as i32) as *mut pdf_obj;
     if D_new.is_null() {
         /* We use hexadecimal notation for our numeric destinations.
          * Other bases (e.g., 10+26 or 10+2*26) would be more efficient.
@@ -1622,8 +1619,8 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
         D_new = pdf_string::new(buf).into_obj();
         ht_append_table(
             &mut pdoc.gotos,
-            dest as *const libc::c_void,
-            destlen,
+            dest.as_ptr() as *const libc::c_void,
+            dest.len() as i32,
             D_new as *mut libc::c_void,
         );
     }
@@ -1687,7 +1684,6 @@ unsafe fn pdf_doc_close_names(mut p: *mut pdf_doc) {
     while !(*(*p).names.offset(i as isize)).category.is_null() {
         if !(*(*p).names.offset(i as isize)).data.is_null() {
             let data: *mut ht_table = (*(*p).names.offset(i as isize)).data;
-            let mut count: i32 = 0;
             let name_tree;
             if pdoc.check_gotos == 0
                 || strcmp(
@@ -1695,9 +1691,11 @@ unsafe fn pdf_doc_close_names(mut p: *mut pdf_doc) {
                     b"Dests\x00" as *const u8 as *const i8,
                 ) != 0
             {
-                name_tree = pdf_names_create_tree(data, &mut count, ptr::null_mut());
+                let (_name_tree, _) = pdf_names_create_tree(data, ptr::null_mut());
+                name_tree = _name_tree;
             } else {
-                name_tree = pdf_names_create_tree(data, &mut count, &mut pdoc.gotos);
+                let (_name_tree, count) = pdf_names_create_tree(data, &mut pdoc.gotos);
+                name_tree = _name_tree;
                 if verbose != 0 && count < (*data).count {
                     info!(
                         "\nRemoved {} unused PDF destinations\n",
