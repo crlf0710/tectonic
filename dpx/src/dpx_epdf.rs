@@ -33,13 +33,13 @@ use crate::warn;
 use super::dpx_pdfdoc::pdf_doc_get_page;
 use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
-    pdf_close, pdf_concat_stream, pdf_deref_obj, pdf_file_get_catalog, pdf_file_get_version,
-    pdf_get_version, pdf_import_object, pdf_obj, pdf_open, pdf_release_obj, pdf_stream, IntoObj,
-    PushObj, STREAM_COMPRESS,
+    pdf_concat_stream, pdf_deref_obj, pdf_file_get_catalog, pdf_file_get_version, pdf_get_version,
+    pdf_import_object, pdf_obj, pdf_open, pdf_release_obj, pdf_stream, IntoObj, PushObj,
+    STREAM_COMPRESS,
 };
 pub(crate) type __off_t = i64;
 pub(crate) type __off64_t = i64;
-use bridge::InputHandleWrapper;
+use bridge::DroppableInputHandleWrapper;
 
 use crate::dpx_pdfximage::{load_options, pdf_ximage, xform_info};
 pub(crate) const OP_CURVETO2: C2RustUnnamed_0 = 15;
@@ -73,18 +73,19 @@ pub(crate) const OP_UNKNOWN: C2RustUnnamed_0 = 16;
 
 pub(crate) unsafe fn pdf_include_page(
     ximage: *mut pdf_ximage,
-    handle: InputHandleWrapper,
-    ident: *const i8,
+    handle: DroppableInputHandleWrapper,
+    ident: &str,
     mut options: load_options,
 ) -> i32 {
     let mut contents: *mut pdf_obj = ptr::null_mut();
     let mut resources: *mut pdf_obj = ptr::null_mut();
     let mut markinfo: *mut pdf_obj = ptr::null_mut();
     let pf = pdf_open(ident, handle);
-    if pf.is_null() {
+    if pf.is_none() {
         return -1;
     }
-    if pdf_file_get_version(&*pf) > pdf_get_version() {
+    let pf = pf.unwrap();
+    if pdf_file_get_version(pf) > pdf_get_version() {
         warn!(
             "Trying to include PDF file which has newer version number than output PDF: 1.{}.",
             pdf_get_version()
@@ -98,7 +99,6 @@ pub(crate) unsafe fn pdf_include_page(
         pdf_release_obj(resources);
         pdf_release_obj(markinfo);
         pdf_release_obj(contents);
-        pdf_close(pf);
     };
     let error = || {
         warn!("Cannot parse document. Broken PDF file?");
@@ -106,13 +106,13 @@ pub(crate) unsafe fn pdf_include_page(
     };
 
     if let Some((page, bbox, matrix)) =
-        pdf_doc_get_page(&*pf, options.page_no, options.bbox_type, &mut resources)
+        pdf_doc_get_page(pf, options.page_no, options.bbox_type, &mut resources)
     {
         let mut info = xform_info::default();
         pdf_ximage_init_form_info(&mut info);
         info.bbox = bbox;
         info.matrix = matrix;
-        let catalog = pdf_file_get_catalog(&*pf);
+        let catalog = pdf_file_get_catalog(pf);
         markinfo = pdf_deref_obj((*catalog).as_dict_mut().get_mut("MarkInfo"));
         if !markinfo.is_null() {
             let tmp: *mut pdf_obj = pdf_deref_obj((*markinfo).as_dict_mut().get_mut("Marked"));
@@ -197,8 +197,6 @@ pub(crate) unsafe fn pdf_include_page(
         contents_dict.set("Matrix", matrix);
         contents_dict.set("Resources", pdf_import_object(resources));
         pdf_release_obj(resources);
-
-        pdf_close(pf);
 
         pdf_ximage_set_form(ximage, &mut info, contents);
 
