@@ -71,7 +71,7 @@ use crate::dpx_pdfobj::{
     pdf_set_info, pdf_set_root, pdf_stream, pdf_string,
     IntoObj, PdfObjType, PushObj, STREAM_COMPRESS,
 };
-use libc::{free, memcpy, strcmp, strcpy, strlen, strncmp, strncpy};
+use libc::{free, strcmp, strcpy, strlen, strncmp, strncpy};
 
 use crate::bridge::size_t;
 
@@ -1658,20 +1658,11 @@ unsafe fn warn_undef_dests(dests: *mut ht_table, gotos: *mut ht_table) {
         let mut keylen: i32 = 0;
         let key: *mut i8 = ht_iter_getkey(&mut iter, &mut keylen);
         if ht_lookup_table(dests, key as *const libc::c_void, keylen).is_null() {
-            let dest: *mut i8 = new(((keylen + 1i32) as u32 as u64)
-                .wrapping_mul(::std::mem::size_of::<i8>() as u64)
-                as u32) as *mut i8;
-            memcpy(
-                dest as *mut libc::c_void,
-                key as *const libc::c_void,
-                keylen as _,
-            );
-            *dest.offset(keylen as isize) = 0_i8;
+            let dest = std::slice::from_raw_parts(key as *const u8, keylen as usize);
             warn!(
                 "PDF destination \"{}\" not defined.",
-                CStr::from_ptr(dest).display()
+                dest.display()
             );
-            free(dest as *mut libc::c_void);
         }
         if !(ht_iter_next(&mut iter) >= 0i32) {
             break;

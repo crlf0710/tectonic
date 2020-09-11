@@ -40,8 +40,8 @@ use super::dpx_dpxutil::{
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_undefined, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_string, pdf_string_length, pdf_string_value, pdf_transfer_label, IntoObj, PdfObjType,
-    PushObj,
+    pdf_string, pdf_string_value, pdf_transfer_label, IntoObj, PdfObjType,
+    PushObj, PdfObjVariant,
 };
 use libc::free;
 
@@ -333,9 +333,8 @@ unsafe fn flat_table(
         hash: ptr::null_mut(),
     };
     assert!(!ht_tab.is_null());
-    let mut objects = vec![named_object::default(); (*ht_tab).count as usize];
-    let mut count = 0;
-    if ht_set_iter(ht_tab, &mut iter) >= 0i32 {
+    let mut objects = Vec::with_capacity((*ht_tab).count as usize);
+    if ht_set_iter(ht_tab, &mut iter) >= 0 {
         loop {
             let mut keylen: i32 = 0;
             let mut key = ht_iter_getkey(&mut iter, &mut keylen);
@@ -350,29 +349,28 @@ unsafe fn flat_table(
                     continue;
                 }
                 key = pdf_string_value(&*new_obj) as *mut i8;
-                keylen = pdf_string_length(&*new_obj) as i32;
+                keylen = (*new_obj).as_string().len() as i32;
             }
 
             let value = ht_iter_getval(&mut iter) as *mut obj_data;
             assert!(!(*value).object.is_null());
-            if (&*(*value).object).typ() == PdfObjType::UNDEFINED {
+            objects.push(if let PdfObjVariant::UNDEFINED = (*(*value).object).data {
                 warn!(
                     "Object @{}\" not defined. Replaced by null.",
                     printable_key(key, keylen),
                 );
-                objects[count] = named_object {
+                named_object {
                     key,
                     keylen,
                     value: pdf_new_null(),
-                };
-            } else if !(*value).object.is_null() {
-                objects[count] = named_object {
+                }
+            } else {
+                named_object {
                     key,
                     keylen,
                     value: pdf_link_obj((*value).object),
-                };
-            }
-            count += 1;
+                }
+            });
 
             if !(ht_iter_next(&mut iter) >= 0) {
                 break;
@@ -380,7 +378,6 @@ unsafe fn flat_table(
         }
         ht_clear_iter(&mut iter);
     }
-    objects.resize_with(count, Default::default);
     objects
 }
 /* Hash */

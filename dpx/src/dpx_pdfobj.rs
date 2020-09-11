@@ -950,10 +950,6 @@ pub(crate) unsafe fn pdf_string_value(object: &pdf_obj) -> *mut libc::c_void {
     }
 }
 
-pub(crate) unsafe fn pdf_string_length(object: &pdf_obj) -> u32 {
-    let data = object.as_string();
-    data.len() as u32
-}
 /*
  * This routine escapes non printable characters and control
  * characters in an output string.
