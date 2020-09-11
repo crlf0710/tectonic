@@ -113,9 +113,9 @@ unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
             ti.flags |= 1i32 << 0i32;
             break;
         }
-        let form_id = pdf_ximage_findresource(filename.as_ptr() as *const i8, options);
+        let form_id = pdf_ximage_findresource(&filename, options);
         if form_id < 0i32 {
-            spc_warn!(spe, "Failed to load image file: {}", filename,);
+            spc_warn!(spe, "Failed to load image file: {}", filename);
             return -1i32;
         }
         pdf_dev_put_image(form_id, &mut ti, spe.x_user, spe.y_user);

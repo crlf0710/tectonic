@@ -547,7 +547,7 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {
         return error;
     } /* op: */
     let id = pdf_ximage_findresource(
-        CString::new(src.as_string().to_bytes()).unwrap().as_ptr(),
+        &std::str::from_utf8(src.as_string().to_bytes()).unwrap(),
         options,
     ); /* op: */
     if id < 0i32 {

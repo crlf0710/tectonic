@@ -714,7 +714,7 @@ unsafe fn do_texfig_operator(opcode: Opcode, x_user: f64, y_user: f64) -> i32 {
                 fig_p.flags |= 1i32 << 0i32;
                 let resname = format!("__tf{}__", count);
                 xobj_id = pdf_doc_begin_grabbing(
-                    resname.as_bytes().as_ptr() as *const i8,
+                    &resname,
                     fig_p.bbox.min.x,
                     fig_p.bbox.max.y,
                     &mut fig_p.bbox,
