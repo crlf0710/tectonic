@@ -21,9 +21,11 @@
 */
 #![allow(non_camel_case_types, non_snake_case)]
 
+use std::ffi::CString;
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
 use euclid::point2;
 
-use std::ffi::CString;
 use std::io::Read;
 use std::ptr;
 
@@ -38,15 +40,12 @@ use super::{
 };
 use crate::bridge::DroppableInputHandleWrapper as InFile;
 use crate::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_decode};
-use crate::dpx_dpxutil::{
-    ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table, ParseCIdent,
-};
+use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_dvipdfmx::is_xdv;
 use crate::dpx_fontmap::{
     is_pdfm_mapline, pdf_append_fontmap_record, pdf_init_fontmap_record, pdf_insert_fontmap_record,
     pdf_load_fontmap_file, pdf_read_fontmap_line, pdf_remove_fontmap_record,
 };
-use crate::dpx_mem::new;
 use crate::dpx_mfileio::work_buffer_u8 as WORK_BUFFER;
 use crate::dpx_pdfcolor::{pdf_color_get_current, pdf_color_pop, pdf_color_push, pdf_color_set};
 use crate::dpx_pdfdev::pdf_sprint_matrix;
@@ -72,7 +71,7 @@ use crate::dpx_unicode::{
     UC_UTF16BE_encode_char, UC_UTF16BE_is_valid_string, UC_UTF8_decode_char,
     UC_UTF8_is_valid_string, UC_is_valid,
 };
-use libc::{free, strlen, strstr};
+use libc::{free, strstr};
 
 pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
@@ -80,16 +79,30 @@ use crate::bridge::size_t;
 use super::{SpcArg, SpcEnv};
 
 use super::SpcHandler;
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct spc_pdf_ {
     pub(crate) annot_dict: *mut pdf_obj,
     pub(crate) lowest_level: i32,
-    pub(crate) resourcemap: *mut ht_table,
+    pub(crate) resourcemap: HashMap<String, resource_map>,
     pub(crate) cd: tounicode,
     /* quasi-hack to get the primary input */
     /* For to-UTF16-BE conversion :( */
 }
+impl spc_pdf_ {
+    pub(crate) fn new() -> Self {
+        Self {
+            annot_dict: ptr::null_mut(),
+            lowest_level: 255,
+            resourcemap: HashMap::new(),
+            cd: tounicode {
+                cmap_id: -1,
+                unescape_backslash: 0,
+                taintkeys: ptr::null_mut(),
+            }
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct tounicode {
@@ -98,8 +111,6 @@ pub(crate) struct tounicode {
     pub(crate) taintkeys: *mut pdf_obj,
     /* An array of PDF names. */
 }
-
-use crate::dpx_dpxutil::ht_table;
 
 use crate::dpx_pdfximage::load_options;
 
@@ -119,46 +130,30 @@ use crate::dpx_cmap::CMap;
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-static mut _PDF_STAT: spc_pdf_ = spc_pdf_ {
-    annot_dict: ptr::null_mut(),
-    lowest_level: 255i32,
-    resourcemap: ptr::null_mut(),
-    cd: tounicode {
-        cmap_id: -1i32,
-        unescape_backslash: 0i32,
-        taintkeys: ptr::null_mut(),
-    },
-};
+
+pub(crate) static mut _PDF_STAT: Lazy<spc_pdf_> = Lazy::new(|| spc_pdf_::new());
+
 /* PLEASE REMOVE THIS */
 unsafe fn hval_free(vp: *mut libc::c_void) {
     free(vp); /* unused */
 }
-unsafe fn addresource(sd: &mut spc_pdf_, ident: *const i8, res_id: i32) -> i32 {
-    if ident.is_null() || res_id < 0i32 {
+unsafe fn addresource(sd: &mut spc_pdf_, ident: &str, res_id: i32) -> i32 {
+    if ident.is_empty() || res_id < 0i32 {
         return -1i32;
     }
-    let r = new((1_u64).wrapping_mul(::std::mem::size_of::<resource_map>() as u64) as u32)
-        as *mut resource_map;
-    (*r).type_0 = 0i32;
-    (*r).res_id = res_id;
-    ht_append_table(
-        sd.resourcemap,
-        ident as *const libc::c_void,
-        strlen(ident) as i32,
-        r as *mut libc::c_void,
-    );
-    spc_push_object(ident, pdf_ximage_get_reference(res_id));
+    let r = resource_map {
+        type_0: 0,
+        res_id,
+    };
+    sd.resourcemap.insert(ident.to_string(), r);
+    let ident = CString::new(ident.as_bytes()).unwrap();
+    spc_push_object(ident.as_ptr(), pdf_ximage_get_reference(res_id));
     0i32
 }
-unsafe fn findresource(sd: &mut spc_pdf_, ident: Option<&CString>) -> i32 {
+unsafe fn findresource(sd: &mut spc_pdf_, ident: Option<&str>) -> i32 {
     if let Some(ident) = ident {
-        let r = ht_lookup_table(
-            sd.resourcemap,
-            ident.as_ptr() as *const libc::c_void,
-            ident.to_bytes().len() as i32,
-        ) as *mut resource_map;
-        if !r.is_null() {
-            (*r).res_id
+        if let Some(r) = sd.resourcemap.get(ident) {
+            r.res_id
         } else {
             -1
         }
@@ -175,13 +170,8 @@ unsafe fn spc_handler_pdfm__init(sd: &mut spc_pdf_) -> i32 {
         "T", "TM",
     ];
     sd.annot_dict = ptr::null_mut();
-    sd.lowest_level = 255i32;
-    sd.resourcemap =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<ht_table>() as u64) as u32) as *mut ht_table;
-    ht_init_table(
-        sd.resourcemap,
-        Some(hval_free as unsafe fn(_: *mut libc::c_void) -> ()),
-    );
+    sd.lowest_level = 255;
+    sd.resourcemap.clear();
     let array: Vec<*mut pdf_obj> = DEFAULT_TAINTKEYS
         .iter()
         .map(|&key| key.into_obj())
@@ -194,13 +184,9 @@ unsafe fn spc_handler_pdfm__clean(sd: &mut spc_pdf_) -> i32 {
         warn!("Unbalanced bann and eann found.");
         pdf_release_obj(sd.annot_dict);
     }
-    sd.lowest_level = 255i32;
+    sd.lowest_level = 255;
     sd.annot_dict = ptr::null_mut();
-    if !sd.resourcemap.is_null() {
-        ht_clear_table(sd.resourcemap);
-        free(sd.resourcemap as *mut libc::c_void);
-    }
-    sd.resourcemap = ptr::null_mut();
+    sd.resourcemap.clear();
     pdf_release_obj(sd.cd.taintkeys);
     sd.cd.taintkeys = ptr::null_mut();
     0i32
@@ -840,7 +826,7 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     if args.cur[0] == b'@' {
         ident = args.cur.parse_opt_ident();
-        let xobj_id = findresource(sd, ident.as_ref());
+        let xobj_id = findresource(sd, ident.as_ref().map(|x| x.to_str().unwrap()));
         if xobj_id >= 0 {
             if let Some(i) = ident {
                 spc_warn!(
@@ -902,7 +888,7 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         pdf_dev_put_image(xobj_id, &mut ti, spe.x_user, spe.y_user);
     }
     if let Some(i) = ident {
-        addresource(sd, i.as_ptr(), xobj_id);
+        addresource(sd, i.to_str().unwrap(), xobj_id);
     }
     pdf_release_obj(fspec);
     0i32
@@ -1403,14 +1389,15 @@ unsafe fn spc_handler_pdfm_uxobj(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
          * external images. We can't use ident to find image resource
          * here.
          */
-        let mut xobj_id = findresource(sd, Some(&ident));
+        let ident = ident.to_str().unwrap();
+        let mut xobj_id = findresource(sd, Some(ident));
         if xobj_id < 0i32 {
-            xobj_id = pdf_ximage_findresource(ident.to_str().unwrap(), options);
+            xobj_id = pdf_ximage_findresource(ident, options);
             if xobj_id < 0i32 {
                 spc_warn!(
                     spe,
                     "Specified (image) object doesn\'t exist: {}",
-                    ident.display(),
+                    ident,
                 );
                 return -1;
             }
