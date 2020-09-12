@@ -501,6 +501,17 @@ pub(crate) unsafe fn agl_lookup_list(glyphname: *const i8) -> *mut agl_name {
         strlen(glyphname) as i32,
     ) as *mut agl_name
 }
+
+pub(crate) unsafe fn agl_lookup_list_str(glyphname: &str) -> *mut agl_name {
+    if glyphname.is_empty() {
+        return ptr::null_mut();
+    }
+    ht_lookup_table(
+        &mut aglmap,
+        glyphname.as_ptr() as *const libc::c_void,
+        glyphname.len() as i32,
+    ) as *mut agl_name
+}
 pub(crate) fn agl_name_is_unicode(glyphname: &[u8]) -> bool {
     if glyphname.is_empty() {
         return false;

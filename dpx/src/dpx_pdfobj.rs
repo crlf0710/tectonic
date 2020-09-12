@@ -1042,11 +1042,6 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
 }
 
 /* Name does *not* include the /. */
-pub(crate) unsafe fn pdf_copy_name(name: *const i8) -> *mut pdf_obj {
-    let length = strlen(name);
-    let slice = std::slice::from_raw_parts(name as *const u8, length as _);
-    pdf_name::new(slice).into_obj()
-}
 
 unsafe fn write_name(name: &pdf_name, handle: &mut OutputHandleWrapper) {
     let cstr = name.name.as_c_str();

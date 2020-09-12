@@ -79,7 +79,7 @@ use crate::specials::{
     spc_exec_at_begin_page, spc_exec_at_end_page, spc_exec_special, spc_set_verbose,
 };
 
-use libc::{atof, free, memset, strncpy, strtol};
+use libc::{atof, free, strncpy, strtol};
 
 use crate::bridge::TTInputFormat;
 
@@ -988,16 +988,11 @@ unsafe fn dvi_locate_native_font(
         source: 0,
     };
     if is_type1 != 0 {
-        let mut enc_vec: [*mut i8; 256] = [ptr::null_mut(); 256];
+        let mut enc_vec = vec![String::new(); 256];
         /*if (!is_pfb(fp))
          *  panic!("Failed to read Type 1 font \"{}\".", filename);
          */
         warn!("skipping PFB sanity check -- needs Tectonic I/O update");
-        memset(
-            enc_vec.as_mut_ptr() as *mut libc::c_void,
-            0i32,
-            (256usize).wrapping_mul(::std::mem::size_of::<*mut i8>()),
-        );
         let cffont = t1_load_font(&mut enc_vec[..], 0, handle);
         if cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) {
             font.ascent = cff_dict_get(

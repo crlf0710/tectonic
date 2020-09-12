@@ -36,7 +36,7 @@ use super::dpx_numbers::GetFromFile;
 use libc::{free, memcmp, memcpy, memmove, memset, strlen};
 
 use crate::bridge::size_t;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
@@ -1172,9 +1172,37 @@ pub(crate) unsafe fn cff_release_index(idx: *mut cff_index) {
 }
 /* Strings */
 
+pub(crate) unsafe fn cff_get_string_string(cff: &cff_font, mut id: s_SID) -> String {
+    let mut result = String::new();
+    if (id as i32) < 391 {
+        let slice = std::slice::from_raw_parts(
+            cff_stdstr[id as usize].as_ptr(),
+            strlen(cff_stdstr[id as usize].as_ptr() as *const i8) as usize,
+        );
+        result = String::from_utf8_lossy(slice).to_string();
+    } else if !cff.string.is_null() {
+        let strings: *mut cff_index = cff.string;
+        id = (id as i32 - 391) as s_SID;
+        if (id as i32) < (*strings).count as i32 {
+            let len = (*(*strings).offset.offset((id as i32 + 1i32) as isize))
+                .wrapping_sub(*(*strings).offset.offset(id as isize))
+                as usize;
+            let slice = std::slice::from_raw_parts(
+                (*strings)
+                    .data
+                    .offset(*(*strings).offset.offset(id as isize) as isize)
+                    .offset(-1),
+                len,
+            );
+            result = String::from_utf8_lossy(slice).to_string();
+        }
+    }
+    result
+}
+
 pub(crate) unsafe fn cff_get_string(cff: &cff_font, mut id: s_SID) -> *mut i8 {
     let mut result: *mut i8 = ptr::null_mut();
-    if (id as i32) < 391i32 {
+    if (id as i32) < 391 {
         let len = strlen(cff_stdstr[id as usize].as_ptr() as *const i8) as i32;
         result = new(
             ((len + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
@@ -1187,7 +1215,7 @@ pub(crate) unsafe fn cff_get_string(cff: &cff_font, mut id: s_SID) -> *mut i8 {
         *result.offset(len as isize) = '\u{0}' as i32 as i8
     } else if !cff.string.is_null() {
         let strings: *mut cff_index = cff.string;
-        id = (id as i32 - 391i32) as s_SID;
+        id = (id as i32 - 391) as s_SID;
         if (id as i32) < (*strings).count as i32 {
             let len = (*(*strings).offset.offset((id as i32 + 1i32) as isize))
                 .wrapping_sub(*(*strings).offset.offset(id as isize)) as i32;
@@ -1206,6 +1234,10 @@ pub(crate) unsafe fn cff_get_string(cff: &cff_font, mut id: s_SID) -> *mut i8 {
         }
     }
     result
+}
+pub(crate) unsafe fn cff_get_sid_str(cff: &cff_font, s: &str) -> i32 {
+    let s = CString::new(s.as_bytes()).unwrap();
+    cff_get_sid(cff, s.as_ptr())
 }
 
 pub(crate) unsafe fn cff_get_sid(cff: &cff_font, str: *const i8) -> i32 {
@@ -1240,12 +1272,12 @@ pub(crate) unsafe fn cff_get_sid(cff: &cff_font, str: *const i8) -> i32 {
     -1i32
 }
 
-pub(crate) unsafe fn cff_get_seac_sid(_cff: &cff_font, str: *const i8) -> i32 {
-    if str.is_null() {
+pub(crate) unsafe fn cff_get_seac_sid(_cff: &cff_font, s: &str) -> i32 {
+    if s.is_empty() {
         return -1i32;
     }
     for i in 0..391 {
-        if streq_ptr(str, cff_stdstr[i].as_ptr() as *const i8) {
+        if s.as_bytes() == CStr::from_ptr(cff_stdstr[i].as_ptr() as *const i8).to_bytes() {
             return i as i32;
         }
     }
@@ -1296,6 +1328,11 @@ pub(crate) unsafe fn cff_update_string(cff: &mut cff_font) {
     cff._string = ptr::null_mut();
 }
 /* String */
+
+pub(crate) unsafe fn cff_add_string_str(cff: &mut cff_font, s: &str, unique: i32) -> s_SID {
+    let s = CString::new(s.as_bytes()).unwrap();
+    cff_add_string(cff, s.as_ptr(), unique)
+}
 
 pub(crate) unsafe fn cff_add_string(cff: &mut cff_font, str: *const i8, unique: i32) -> s_SID
 /* Setting unique == 1 eliminates redundant or predefined strings. */ {
@@ -1726,6 +1763,11 @@ pub(crate) unsafe fn cff_pack_charsets(cff: &cff_font, dest: &mut [u8]) -> usize
 pub(crate) unsafe fn cff_get_glyphname(cff: &cff_font, gid: u16) -> *mut i8 {
     let sid = cff_charsets_lookup_inverse(cff, gid);
     cff_get_string(cff, sid)
+}
+
+pub(crate) unsafe fn cff_glyph_lookup_str(cff: &cff_font, s: &str) -> u16 {
+    let s = CString::new(s.as_bytes()).unwrap();
+    cff_glyph_lookup(cff, s.as_ptr())
 }
 
 pub(crate) unsafe fn cff_glyph_lookup(cff: &cff_font, glyph: *const i8) -> u16 {
