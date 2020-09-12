@@ -39,7 +39,7 @@ use super::dpx_dvi::{
 use super::dpx_dvicodes::*;
 use super::dpx_numbers::{skip_bytes, sqxfw};
 use super::dpx_tfm::tfm_open;
-use crate::bridge::ttstub_input_open_str;
+use crate::bridge::DroppableInputHandleWrapper as InFile;
 
 const VF_ID: u8 = 202;
 
@@ -215,8 +215,8 @@ pub(crate) unsafe fn vf_locate_font(tex_name: &str, ptsize: spt_t) -> i32 {
     if i != vf_fonts.len() {
         return i as i32;
     }
-    if let Some(vf_handle) = ttstub_input_open_str(tex_name, TTInputFormat::VF, 0i32)
-        .or_else(|| ttstub_input_open_str(tex_name, TTInputFormat::OVF, 0i32))
+    if let Some(vf_handle) = InFile::open(tex_name, TTInputFormat::VF, 0i32)
+        .or_else(|| InFile::open(tex_name, TTInputFormat::OVF, 0i32))
     {
         if verbose as i32 == 1i32 {
             eprint!("(VF:{}", tex_name);

@@ -42,7 +42,6 @@ use super::dpx_mem::new;
 use super::dpx_mfileio::{tt_mfgets, work_buffer};
 use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
-use crate::bridge::ttstub_input_open_str;
 use crate::dpx_epdf::pdf_include_page;
 use crate::dpx_pdfobj::{check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj};
 use crate::shims::sprintf;
@@ -54,7 +53,7 @@ pub(crate) type __ssize_t = i64;
 
 use crate::bridge::TTInputFormat;
 
-use bridge::DroppableInputHandleWrapper;
+use bridge::DroppableInputHandleWrapper as InFile;
 
 use super::dpx_pdfdev::{transform_info, Point, Rect, TMatrix};
 
@@ -268,7 +267,7 @@ unsafe fn load_image(
     ident: &str,
     fullname: &str,
     format: ImageType,
-    mut handle: DroppableInputHandleWrapper,
+    mut handle: InFile,
     options: load_options,
 ) -> i32 {
     let id = ximages.len();
@@ -404,7 +403,7 @@ pub(crate) unsafe fn pdf_ximage_findresource(ident: &str, options: load_options)
      *   strcpy(fullname, f);
      * } else { kpse_find_file() }
      */
-    let handle = ttstub_input_open_str(ident, TTInputFormat::PICT, 0i32);
+    let handle = InFile::open(ident, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         warn!("Error locating image file \"{}\"", ident,);
         return -1i32;

@@ -20,7 +20,7 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
 
-use crate::bridge::ttstub_input_open_str;
+use crate::bridge::DroppableInputHandleWrapper as InFile;
 use crate::bridge::TTInputFormat;
 use crate::dpx_mfileio::tt_mfgets;
 use crate::dpx_mpost::mps_scan_bbox;
@@ -100,7 +100,7 @@ unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     ap.cur = &[];
     ti.width *= 72.0f64 / 72.27f64;
     ti.height *= 72.0f64 / 72.27f64;
-    if let Some(mut handle) = ttstub_input_open_str(&filename, TTInputFormat::PICT, 0i32) {
+    if let Some(mut handle) = InFile::open(&filename, TTInputFormat::PICT, 0i32) {
         ti.flags |= 1i32 << 1i32 | 1i32 << 2i32;
         loop {
             let mut p: *const i8 = tt_mfgets(buf.as_ptr() as *mut i8, 512, &mut handle);

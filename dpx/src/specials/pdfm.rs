@@ -36,7 +36,7 @@ use super::{
     spc_begin_annot, spc_clear_objects, spc_end_annot, spc_flush_object, spc_lookup_object,
     spc_push_object, spc_resume_annot, spc_suspend_annot,
 };
-use crate::bridge::ttstub_input_open_str;
+use crate::bridge::DroppableInputHandleWrapper as InFile;
 use crate::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_decode};
 use crate::dpx_dpxutil::{
     ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table, ParseCIdent,
@@ -1198,7 +1198,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
             }
             let fullname: Option<String> = None; // TODO: check dead code
             if let Some(fullname) = &fullname {
-                if let Some(mut handle) = ttstub_input_open_str(fullname, TTInputFormat::PICT, 0) {
+                if let Some(mut handle) = InFile::open(fullname, TTInputFormat::PICT, 0) {
                     let mut fstream = pdf_stream::new(STREAM_COMPRESS);
                     loop {
                         let nb_read = handle.read(&mut WORK_BUFFER[..]).unwrap();

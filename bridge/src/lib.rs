@@ -182,6 +182,10 @@ impl DroppableInputHandleWrapper {
     pub fn from(i: InputHandleWrapper) -> Self {
         Self(i)
     }
+    pub fn open(path: &str, format: TTInputFormat, is_gz: i32) -> Option<Self> {
+        let path = CString::new(path).unwrap();
+        (unsafe { ttstub_input_open(path.as_ptr(), format, is_gz) }).map(Self::from)
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -410,16 +414,6 @@ pub unsafe fn ttstub_input_open(
         format,
         is_gz,
     ))
-}
-
-pub fn ttstub_input_open_str(
-    path: &str,
-    format: TTInputFormat,
-    is_gz: i32,
-) -> Option<DroppableInputHandleWrapper> {
-    let path = CString::new(path).unwrap();
-    (unsafe { ttstub_input_open(path.as_ptr(), format, is_gz) })
-        .map(DroppableInputHandleWrapper::from)
 }
 
 pub unsafe fn ttstub_input_open_primary() -> Option<InputHandleWrapper> {

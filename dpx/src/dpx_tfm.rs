@@ -31,7 +31,7 @@ use crate::FromBEByteSlice;
 use crate::{info, warn};
 
 use super::dpx_numbers::skip_bytes;
-use crate::bridge::{ttstub_input_get_size, ttstub_input_open_str};
+use crate::bridge::{ttstub_input_get_size, DroppableInputHandleWrapper as InFile};
 
 use std::io::{Read, Seek, SeekFrom};
 
@@ -499,16 +499,16 @@ pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
         _ => Some(tfm_name.to_string() + ".ofm"),
     };
     if ofm_name.is_some() && {
-        tfm_handle = ttstub_input_open_str(&ofm_name.unwrap(), TTInputFormat::OFM, 0i32);
+        tfm_handle = InFile::open(&ofm_name.unwrap(), TTInputFormat::OFM, 0i32);
         tfm_handle.is_some()
     } {
         format = 2;
     } else {
-        tfm_handle = ttstub_input_open_str(tfm_name, TTInputFormat::TFM, 0i32);
+        tfm_handle = InFile::open(tfm_name, TTInputFormat::TFM, 0i32);
         if tfm_handle.is_some() {
             format = 1;
         } else {
-            tfm_handle = ttstub_input_open_str(tfm_name, TTInputFormat::OFM, 0i32);
+            tfm_handle = InFile::open(tfm_name, TTInputFormat::OFM, 0i32);
             if tfm_handle.is_some() {
                 format = 2;
             }
@@ -670,10 +670,10 @@ pub(crate) unsafe fn tfm_exists(tfm_name: &[u8]) -> bool {
         return false;
     }
     if let Ok(tfm_name) = std::str::from_utf8(tfm_name) {
-        if ttstub_input_open_str(tfm_name, TTInputFormat::OFM, 0).is_some() {
+        if InFile::open(tfm_name, TTInputFormat::OFM, 0).is_some() {
             return true;
         }
-        if ttstub_input_open_str(tfm_name, TTInputFormat::TFM, 0).is_some() {
+        if InFile::open(tfm_name, TTInputFormat::TFM, 0).is_some() {
             return true;
         }
     }

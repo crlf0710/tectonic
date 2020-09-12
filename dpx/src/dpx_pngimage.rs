@@ -44,7 +44,7 @@ use libc::free;
 use std::io::{Seek, SeekFrom};
 
 use crate::bridge::size_t;
-use bridge::{DroppableInputHandleWrapper, InputHandleWrapper};
+use bridge::{DroppableInputHandleWrapper as InFile, InputHandleWrapper};
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 
@@ -86,10 +86,7 @@ unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: u
     };
 }
 
-pub(crate) unsafe fn png_include_image(
-    ximage: &mut pdf_ximage,
-    handle: &mut DroppableInputHandleWrapper,
-) -> i32 {
+pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InFile) -> i32 {
     /* Libpng stuff */
     let mut info = ximage_info::init();
     let mut intent = ptr::null_mut();

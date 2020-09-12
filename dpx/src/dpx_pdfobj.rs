@@ -51,7 +51,7 @@ use libz_sys as libz;
 
 pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
-use bridge::{DroppableInputHandleWrapper, OutputHandleWrapper};
+use bridge::{DroppableInputHandleWrapper as InFile, OutputHandleWrapper};
 
 pub(crate) const STREAM_COMPRESS: i32 = 1 << 0;
 pub(crate) const STREAM_USE_PREDICTOR: i32 = 1 << 1;
@@ -233,7 +233,7 @@ impl pdf_obj {
 
 #[repr(C)]
 pub struct pdf_file {
-    pub(crate) handle: DroppableInputHandleWrapper,
+    pub(crate) handle: InFile,
     pub(crate) trailer: *mut pdf_obj,
     pub(crate) xref_table: *mut xref_entry,
     pub(crate) catalog: *mut pdf_obj,
@@ -3504,7 +3504,7 @@ static mut pdf_files: Lazy<HashMap<Vec<u8>, Box<pdf_file>, BuildHasherDefault<HT
     Lazy::new(|| HashMap::default());
 
 impl pdf_file {
-    fn new(mut handle: DroppableInputHandleWrapper) -> Box<Self> {
+    fn new(mut handle: InFile) -> Box<Self> {
         let file_size = ttstub_input_get_size(&mut handle) as i32;
         handle.seek(SeekFrom::End(0)).unwrap();
         Box::new(Self {
@@ -3549,10 +3549,7 @@ pub(crate) unsafe fn pdf_file_get_catalog(pf: &pdf_file) -> *mut pdf_obj {
     pf.catalog
 }
 
-pub unsafe fn pdf_open(
-    ident: &str,
-    mut handle: DroppableInputHandleWrapper,
-) -> Option<&mut Box<pdf_file>> {
+pub unsafe fn pdf_open(ident: &str, mut handle: InFile) -> Option<&mut Box<pdf_file>> {
     let pf = if !ident.is_empty() {
         pdf_files.get_mut(ident.as_bytes())
     } else {

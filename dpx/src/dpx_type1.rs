@@ -50,7 +50,7 @@ use super::dpx_pdffont::{
 use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
 use super::dpx_tfm::{tfm_get_width, tfm_open};
-use crate::bridge::ttstub_input_open_str;
+use crate::bridge::DroppableInputHandleWrapper as InFile;
 use crate::dpx_pdfobj::{
     pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
@@ -133,7 +133,7 @@ pub(crate) unsafe fn pdf_font_open_type1(font: &mut pdf_font) -> i32 {
         /* NOTE: skipping qcheck_filetype() call in dpx_find_type1_file but we
          * call is_pfb() in just a second anyway.
          */
-        if let Some(mut handle) = ttstub_input_open_str(ident, TTInputFormat::TYPE1, 0) {
+        if let Some(mut handle) = InFile::open(ident, TTInputFormat::TYPE1, 0) {
             let mut fontname = String::new();
             if !is_pfb(&mut handle) || t1_get_fontname(&mut handle, &mut fontname) < 0 {
                 panic!("Failed to read Type 1 font \"{}\".", ident);
@@ -647,7 +647,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     if usedchars.is_null() || ident.is_empty() || font.fontname.is_empty() {
         panic!("Type1: Unexpected error.");
     }
-    let handle = ttstub_input_open_str(ident, TTInputFormat::TYPE1, 0i32);
+    let handle = InFile::open(ident, TTInputFormat::TYPE1, 0i32);
     if handle.is_none() {
         panic!("Type1: Could not open Type1 font: {}", ident);
     }

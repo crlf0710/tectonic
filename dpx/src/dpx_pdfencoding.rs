@@ -41,7 +41,7 @@ use super::dpx_cmap::{
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
-use crate::bridge::{ttstub_input_get_size, ttstub_input_open_str};
+use crate::bridge::{ttstub_input_get_size, DroppableInputHandleWrapper as InFile};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj, pdf_stream,
     IntoObj, PushObj,
@@ -842,7 +842,7 @@ pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: &str) -> Option<pdf_stream
     if ident.is_empty() {
         return None;
     }
-    if let Some(handle) = ttstub_input_open_str(ident, TTInputFormat::CMAP, 0) {
+    if let Some(handle) = InFile::open(ident, TTInputFormat::CMAP, 0) {
         if CMap_parse_check_sig(&mut &handle) < 0 {
             return None;
         }

@@ -50,8 +50,8 @@ use crate::dpx_numbers::{
     get_positive_quad, get_unsigned_num, get_unsigned_triple, skip_bytes, GetFromFile,
 };
 
-use crate::bridge::DroppableInputHandleWrapper;
-use crate::bridge::{ttstub_input_open_str, TTInputFormat};
+use crate::bridge::DroppableInputHandleWrapper as InFile;
+use crate::bridge::TTInputFormat;
 use std::io::Read;
 
 #[derive(Copy, Clone)]
@@ -93,13 +93,13 @@ unsafe fn truedpi(ident: &str, point_size: f64, bdpi: u32) -> u32 {
     }
     dpi
 }
-unsafe fn dpx_open_pk_font_at(_ident: &str, _dpi: u32) -> Option<DroppableInputHandleWrapper> {
+unsafe fn dpx_open_pk_font_at(_ident: &str, _dpi: u32) -> Option<InFile> {
     /*kpse_glyph_file_type kpse_file_info;*/
     let fqpn = ""; /*kpse_find_glyph(ident, dpi, kpse_pk_format, &kpse_file_info);*/
     if fqpn.is_empty() {
         return None;
     }
-    ttstub_input_open_str(fqpn, TTInputFormat::PK, 0)
+    InFile::open(fqpn, TTInputFormat::PK, 0)
 }
 
 pub(crate) unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {

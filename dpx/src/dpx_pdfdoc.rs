@@ -64,7 +64,7 @@ use super::dpx_pdfximage::{
     pdf_ximage_get_reference, pdf_ximage_init_form_info, pdf_ximage_set_verbose, XInfo,
 };
 use super::dpx_pngimage::check_for_png;
-use crate::bridge::ttstub_input_open_str;
+use crate::bridge::DroppableInputHandleWrapper as InFile;
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_obj, pdf_out_flush,
     pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
@@ -233,7 +233,7 @@ unsafe fn read_thumbnail(thumb_filename: &str) -> *mut pdf_obj {
         bbox_type: 0i32,
         dict: ptr::null_mut(),
     };
-    let handle = ttstub_input_open_str(thumb_filename, TTInputFormat::PICT, 0i32);
+    let handle = InFile::open(thumb_filename, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         warn!("Could not open thumbnail file \"{}\"", thumb_filename);
         return ptr::null_mut();

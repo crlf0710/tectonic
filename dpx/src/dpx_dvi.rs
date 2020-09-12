@@ -71,7 +71,7 @@ use super::dpx_tt_table::{
     tt_read_vhea_table,
 };
 use super::dpx_vf::{vf_close_all_fonts, vf_locate_font, vf_set_char, vf_set_verbose};
-use crate::bridge::{ttstub_input_get_size, ttstub_input_getc, ttstub_input_open_str};
+use crate::bridge::{ttstub_input_get_size, ttstub_input_getc};
 use crate::dpx_dvicodes::*;
 use crate::dpx_pdfobj::pdf_release_obj;
 use crate::dpx_truetype::sfnt_table_info;
@@ -83,7 +83,7 @@ use libc::{atof, free, strncpy, strtol};
 
 use crate::bridge::TTInputFormat;
 
-use bridge::DroppableInputHandleWrapper;
+use bridge::DroppableInputHandleWrapper as InFile;
 pub(crate) type fixword = i32;
 /* quasi-hack to get the primary input */
 
@@ -189,7 +189,7 @@ use super::dpx_tt_table::tt_vhea_table;
  * as directory separators. */
 /* UTF-32 over U+FFFF -> UTF-16 surrogate pair */
 /* Interal Variables */
-static mut dvi_handle: Option<DroppableInputHandleWrapper> = None;
+static mut dvi_handle: Option<InFile> = None;
 static mut linear: i8 = 0_i8;
 /* set to 1 for strict linear processing of the input */
 static mut page_loc: *mut u32 = std::ptr::null_mut();
@@ -1916,7 +1916,7 @@ pub(crate) unsafe fn dvi_init(dvi_filename: &str, mag: f64) -> f64 {
     if dvi_filename.is_empty() {
         panic!("filename must be specified");
     }
-    dvi_handle = ttstub_input_open_str(dvi_filename, TTInputFormat::BINARY, 0);
+    dvi_handle = InFile::open(dvi_filename, TTInputFormat::BINARY, 0);
     if dvi_handle.is_none() {
         panic!("cannot open \"{}\"", dvi_filename);
     }

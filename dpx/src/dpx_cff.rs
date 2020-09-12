@@ -40,7 +40,7 @@ use std::ffi::{CStr, CString};
 use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
-use bridge::DroppableInputHandleWrapper;
+use bridge::DroppableInputHandleWrapper as InFile;
 /* CFF Data Types */
 /* SID SID number */
 /* offset(0) */
@@ -288,7 +288,7 @@ pub(crate) struct cff_font {
     pub(crate) num_glyphs: u16,
     pub(crate) num_fds: u8,
     pub(crate) _string: *mut cff_index,
-    pub(crate) handle: Option<Rc<DroppableInputHandleWrapper>>,
+    pub(crate) handle: Option<Rc<InFile>>,
     pub(crate) filter: i32,
     pub(crate) index: i32,
     pub(crate) flag: i32,
@@ -706,7 +706,7 @@ unsafe fn get_unsigned<R: Read>(handle: &mut R, n: i32) -> u32 {
  */
 
 pub(crate) unsafe fn cff_open(
-    handle: Rc<DroppableInputHandleWrapper>,
+    handle: Rc<InFile>,
     mut offset: i32,
     n: i32,
 ) -> Option<Box<cff_font>> {

@@ -31,7 +31,7 @@ use crate::warn;
 use super::{SpcArg, SpcEnv};
 use crate::bridge::TTInputFormat;
 
-use crate::bridge::ttstub_input_open_str;
+use crate::bridge::DroppableInputHandleWrapper as InFile;
 use crate::dpx_pdfdraw::pdf_dev_concat;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 
@@ -63,7 +63,7 @@ unsafe fn spc_handler_ps_header(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     }
     args.cur = &args.cur[1..];
     let pro = String::from_utf8_lossy(args.cur).to_string();
-    if ttstub_input_open_str(&pro, TTInputFormat::TEX_PS_HEADER, 0).is_none() {
+    if InFile::open(&pro, TTInputFormat::TEX_PS_HEADER, 0).is_none() {
         spc_warn!(spe, "PS header {} not found.", pro,);
         return -1i32;
     }

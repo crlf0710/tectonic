@@ -34,7 +34,7 @@ use std::ptr;
 
 use super::dpx_mfileio::tt_mfgets;
 
-use bridge::{ttstub_input_open_str, TTInputFormat};
+use bridge::{DroppableInputHandleWrapper as InFile, TTInputFormat};
 use libc::{strchr, strlen, strtol};
 
 pub(crate) type __ssize_t = i64;
@@ -294,7 +294,7 @@ unsafe fn find_sfd_file(sfd_name: &str) -> i32 {
     if id < 0i32 {
         let mut sfd = sfd_file_::new();
         sfd.ident = sfd_name.to_string();
-        if let Some(mut handle) = ttstub_input_open_str(&sfd.ident, TTInputFormat::SFD, 0) {
+        if let Some(mut handle) = InFile::open(&sfd.ident, TTInputFormat::SFD, 0) {
             let error = scan_sfd_file(&mut sfd, &mut handle);
             if error == 0 {
                 id = sfd_files.len() as i32;
@@ -357,7 +357,7 @@ pub(crate) unsafe fn sfd_load_record(sfd_name: &str, subfont_id: &str) -> i32 {
         );
     }
     /* reopen */
-    let handle = ttstub_input_open_str(&sfd.ident, TTInputFormat::SFD, 0);
+    let handle = InFile::open(&sfd.ident, TTInputFormat::SFD, 0);
     if handle.is_none() {
         return -1i32;
         /* panic!("Could not open SFD file \"{}\"", sfd_name); */

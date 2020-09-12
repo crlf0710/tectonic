@@ -38,7 +38,7 @@ use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
 pub(crate) type __ssize_t = i64;
-use bridge::DroppableInputHandleWrapper;
+use bridge::DroppableInputHandleWrapper as InFile;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct sfnt_table {
@@ -64,11 +64,11 @@ pub(crate) struct sfnt_table_directory {
 pub(crate) struct sfnt {
     pub(crate) type_0: i32,
     pub(crate) directory: *mut sfnt_table_directory,
-    pub(crate) handle: Rc<DroppableInputHandleWrapper>,
+    pub(crate) handle: Rc<InFile>,
     pub(crate) offset: u32,
 }
 
-pub(crate) unsafe fn sfnt_open(mut handle: DroppableInputHandleWrapper) -> sfnt {
+pub(crate) unsafe fn sfnt_open(mut handle: InFile) -> sfnt {
     handle.seek(SeekFrom::Start(0)).unwrap(); /* mbz */
     /* typefaces position */
     let typ = u32::get(&mut handle); /* resource id */
@@ -102,10 +102,7 @@ impl Drop for sfnt {
     }
 }
 
-pub(crate) unsafe fn dfont_open(
-    mut handle: DroppableInputHandleWrapper,
-    index: i32,
-) -> Option<sfnt> {
+pub(crate) unsafe fn dfont_open(mut handle: InFile, index: i32) -> Option<sfnt> {
     let mut types_pos: u32 = 0;
     let mut res_pos: u32 = 0;
     let mut types_num: u16 = 0;

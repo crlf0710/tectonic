@@ -29,14 +29,13 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use super::dpx_numbers::GetFromFile;
-use crate::bridge::ttstub_input_open_str;
 use libc::{free, remove};
 
 pub(crate) type __ssize_t = i64;
 
 use crate::bridge::TTInputFormat;
 
-use bridge::DroppableInputHandleWrapper;
+use bridge::DroppableInputHandleWrapper as InFile;
 /* quasi-hack to get the primary input */
 
 pub(crate) static mut keep_cache: i32 = 0i32;
@@ -128,9 +127,9 @@ pub(crate) unsafe fn dpx_tt_open(
     filename: &str,
     suffix: &str,
     format: TTInputFormat,
-) -> Option<DroppableInputHandleWrapper> {
+) -> Option<InFile> {
     let q = ensuresuffix(filename, suffix);
-    let handle = ttstub_input_open_str(&q, format, 0i32);
+    let handle = InFile::open(&q, format, 0i32);
     handle
 }
 /* Search order:
@@ -140,8 +139,8 @@ pub(crate) unsafe fn dpx_tt_open(
  *   dvipdfm  (text file)
  */
 
-pub(crate) unsafe fn dpx_open_type1_file(filename: &str) -> Option<DroppableInputHandleWrapper> {
-    match ttstub_input_open_str(filename, TTInputFormat::TYPE1, 0) {
+pub(crate) unsafe fn dpx_open_type1_file(filename: &str) -> Option<InFile> {
+    match InFile::open(filename, TTInputFormat::TYPE1, 0) {
         Some(mut handle) => {
             if !check_stream_is_type1(&mut handle) {
                 None
@@ -153,8 +152,8 @@ pub(crate) unsafe fn dpx_open_type1_file(filename: &str) -> Option<DroppableInpu
     }
 }
 
-pub(crate) unsafe fn dpx_open_truetype_file(filename: &str) -> Option<DroppableInputHandleWrapper> {
-    match ttstub_input_open_str(filename, TTInputFormat::TRUETYPE, 0) {
+pub(crate) unsafe fn dpx_open_truetype_file(filename: &str) -> Option<InFile> {
+    match InFile::open(filename, TTInputFormat::TRUETYPE, 0) {
         Some(mut handle) => {
             if !check_stream_is_truetype(&mut handle) {
                 None
@@ -166,9 +165,9 @@ pub(crate) unsafe fn dpx_open_truetype_file(filename: &str) -> Option<DroppableI
     }
 }
 
-pub(crate) unsafe fn dpx_open_opentype_file(filename: &str) -> Option<DroppableInputHandleWrapper> {
+pub(crate) unsafe fn dpx_open_opentype_file(filename: &str) -> Option<InFile> {
     let q = ensuresuffix(filename, ".otf");
-    let handle = ttstub_input_open_str(&q, TTInputFormat::OPENTYPE, 0i32);
+    let handle = InFile::open(&q, TTInputFormat::OPENTYPE, 0i32);
     match handle {
         Some(mut handle) => {
             if !check_stream_is_opentype(&mut handle) {
@@ -181,19 +180,19 @@ pub(crate) unsafe fn dpx_open_opentype_file(filename: &str) -> Option<DroppableI
     }
 }
 
-pub(crate) unsafe fn dpx_open_dfont_file(filename: &str) -> Option<DroppableInputHandleWrapper> {
+pub(crate) unsafe fn dpx_open_dfont_file(filename: &str) -> Option<InFile> {
     let handle = if filename.len() > 6 && !filename.ends_with(".dfont") {
         // FIXME: we might want to invert this
         /* I've double-checked that we're accurately representing the original
          * code -- the above strncmp() is *not* missing a logical negation.
          */
-        ttstub_input_open_str(
+        InFile::open(
             &(filename.to_string() + "/rsrc"),
             TTInputFormat::TRUETYPE,
             0,
         )
     } else {
-        ttstub_input_open_str(filename, TTInputFormat::TRUETYPE, 0)
+        InFile::open(filename, TTInputFormat::TRUETYPE, 0)
     };
     match handle {
         Some(mut handle) => {
