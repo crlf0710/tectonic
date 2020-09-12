@@ -28,11 +28,9 @@
 
 use euclid::point2;
 
-use crate::bridge::DisplayExt;
 use crate::mfree;
 use crate::strstartswith;
 use crate::{info, warn};
-use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_bmpimage::{bmp_include_image, check_for_bmp};
@@ -119,7 +117,7 @@ pub(crate) struct pdf_ximage {
     pub(crate) res_name: [i8; 16],
     pub(crate) subtype: PdfXObjectType,
     pub(crate) attr: attr_,
-    pub(crate) filename: *mut i8,
+    pub(crate) filename: String,
     pub(crate) reference: *mut pdf_obj,
     pub(crate) resource: *mut pdf_obj,
 }
@@ -165,7 +163,7 @@ impl pdf_ximage {
     pub(crate) fn new() -> Self {
         Self {
             ident: String::new(),
-            filename: ptr::null_mut(),
+            filename: String::new(),
             subtype: PdfXObjectType::None,
             res_name: [0; 16],
             reference: ptr::null_mut(),
@@ -187,7 +185,7 @@ impl pdf_ximage {
 }
 unsafe fn pdf_init_ximage_struct(I: &mut pdf_ximage) {
     I.ident = String::new();
-    I.filename = ptr::null_mut();
+    I.filename = String::new();
     I.subtype = PdfXObjectType::None;
     I.res_name = [0; 16];
     I.reference = ptr::null_mut();
@@ -206,11 +204,9 @@ unsafe fn pdf_init_ximage_struct(I: &mut pdf_ximage) {
 impl Drop for pdf_ximage {
     fn drop(&mut self) {
         unsafe {
-            free(self.filename as *mut libc::c_void);
             pdf_release_obj(self.reference);
             pdf_release_obj(self.resource);
             pdf_release_obj(self.attr.dict);
-            pdf_init_ximage_struct(self);
         }
     }
 }
@@ -231,13 +227,11 @@ pub(crate) unsafe fn pdf_close_images() {
              * pages are imported from that file.
              */
             if _opts.verbose > 1i32 && keep_cache != 1i32 {
-                info!(
-                    "pdf_image>> deleting temporary file \"{}\"\n",
-                    CStr::from_ptr(I.filename).display()
-                ); /* temporary filename freed here */
+                info!("pdf_image>> deleting temporary file \"{}\"\n", I.filename);
+                /* temporary filename freed here */
             }
-            dpx_delete_temp_file(I.filename, 0i32);
-            I.filename = ptr::null_mut()
+            dpx_delete_temp_file(&I.filename, 0i32);
+            I.filename = String::new();
         }
     }
     ximages = Vec::new();
@@ -276,10 +270,7 @@ unsafe fn load_image(
         I.ident = ident.to_string();
     }
     if !fullname.is_empty() {
-        I.filename =
-            new((fullname.len() + 1).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-        let fullname = std::ffi::CString::new(fullname).unwrap();
-        strcpy(I.filename, fullname.as_ptr());
+        I.filename = fullname.to_string();
     }
     I.attr.page_no = options.page_no;
     I.attr.bbox_type = options.bbox_type;

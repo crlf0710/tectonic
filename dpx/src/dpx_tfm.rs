@@ -665,17 +665,15 @@ pub(crate) unsafe fn tfm_get_design_size(font_id: i32) -> f64 {
 }
 /* From TFM header */
 
-pub(crate) unsafe fn tfm_exists(tfm_name: &[u8]) -> bool {
+pub(crate) unsafe fn tfm_exists(tfm_name: &str) -> bool {
     if tfm_name.is_empty() {
         return false;
     }
-    if let Ok(tfm_name) = std::str::from_utf8(tfm_name) {
-        if InFile::open(tfm_name, TTInputFormat::OFM, 0).is_some() {
-            return true;
-        }
-        if InFile::open(tfm_name, TTInputFormat::TFM, 0).is_some() {
-            return true;
-        }
+    if InFile::open(tfm_name, TTInputFormat::OFM, 0).is_some() {
+        return true;
+    }
+    if InFile::open(tfm_name, TTInputFormat::TFM, 0).is_some() {
+        return true;
     }
     false
 }

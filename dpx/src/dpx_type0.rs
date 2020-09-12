@@ -273,7 +273,7 @@ pub(crate) unsafe fn Type0Font_cache_get(id: i32) -> *mut Type0Font {
 pub(crate) unsafe fn Type0Font_cache_find(
     map_name: &str,
     cmap_id: i32,
-    fmap_opt: *mut fontmap_opt,
+    fmap_opt: &mut fontmap_opt,
 ) -> i32 {
     let pdf_ver = pdf_get_version() as i32;
     if map_name.is_empty() || cmap_id < 0i32 || pdf_ver < 2i32 {

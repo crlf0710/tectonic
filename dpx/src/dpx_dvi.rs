@@ -47,7 +47,7 @@ use super::dpx_dpxfile::{
 };
 use super::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use super::dpx_dvipdfmx::{is_xdv, landscape_mode, paper_height, paper_width};
-use super::dpx_fontmap::{pdf_insert_native_fontmap_record, pdf_lookup_fontmap_record};
+use super::dpx_fontmap::{fontmap, pdf_insert_native_fontmap_record};
 use super::dpx_mem::new;
 use super::dpx_numbers::{get_positive_quad, get_unsigned_num, skip_bytes, sqxfw, GetFromFile};
 use super::dpx_pdfcolor::{pdf_color_pop, pdf_color_push, PdfColor};
@@ -147,7 +147,6 @@ pub(crate) struct loaded_font {
 use super::dpx_cff::cff_font;
 
 use super::dpx_cff::cff_index;
-use super::dpx_fontmap::fontmap_rec;
 use super::dpx_tt_table::tt_longMetrics;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -347,12 +346,12 @@ unsafe fn check_id_bytes() {
 }
 unsafe fn need_XeTeX(c: i32) {
     if is_xdv == 0 {
-        panic!("DVI opcode {} only valid for XeTeX", c,);
+        panic!("DVI opcode {} only valid for XeTeX", c);
     };
 }
 unsafe fn need_pTeX(c: i32) {
     if is_ptex == 0 {
-        panic!("DVI opcode {} only valid for Ascii pTeX", c,);
+        panic!("DVI opcode {} only valid for Ascii pTeX", c);
     }
     has_ptex = 1i32;
 }
@@ -748,18 +747,17 @@ pub(crate) unsafe fn dvi_unit_size() -> f64 {
 pub(crate) unsafe fn dvi_locate_font(tfm_name: &str, ptsize: spt_t) -> u32 {
     let mut subfont_id: i32 = -1i32;
     if verbose != 0 {
-        info!("<{}@{:.2}pt", tfm_name, ptsize as f64 * dvi2pts,);
+        info!("<{}@{:.2}pt", tfm_name, ptsize as f64 * dvi2pts);
     }
     /* This routine needs to be recursive/reentrant. Load current high water
      * mark into an automatic variable.
      */
-    let mrec = pdf_lookup_fontmap_record(tfm_name.as_bytes());
+    let mrec = fontmap.get(tfm_name);
     /* Load subfont mapping table */
-    if !mrec.is_null()
-        && !(*mrec).charmap.sfd_name.is_empty()
-        && !(*mrec).charmap.subfont_id.is_empty()
-    {
-        subfont_id = sfd_load_record(&(*mrec).charmap.sfd_name, &(*mrec).charmap.subfont_id)
+    if let Some(mrec) = mrec {
+        if !mrec.charmap.sfd_name.is_empty() && !mrec.charmap.subfont_id.is_empty() {
+            subfont_id = sfd_load_record(&mrec.charmap.sfd_name, &mrec.charmap.subfont_id)
+        }
     }
 
     let mut new_font = loaded_font {
@@ -801,7 +799,42 @@ pub(crate) unsafe fn dvi_locate_font(tfm_name: &str, ptsize: spt_t) -> u32 {
      *    for Omega is found, it is a fatal error because there is no PK font
      *    for Omega.
      */
-    if mrec.is_null() {
+    if let Some(mrec) = mrec {
+        if subfont_id >= 0i32 && !mrec.map_name.is_empty() {
+            /* Sorry, I don't understand this well... Please fix.
+             * The purpose of this seems to be:
+             *
+             *   Map 8-bit char codes in subfont to 16-bit code with SFD mapping
+             *   and map subfonts to single OVF font.
+             *
+             * But it apparently only does TFM -> OVF mapping but no character
+             * code mapping. Please see dvi_set(), you can't have both font->type
+             * VIRTUAL and font->subfont_id >= 0. Am I missing something?
+             */
+            /* enc_name=NULL should be used only for 'built-in' encoding.
+             * Please fix this!
+             */
+            if let Some(mrec1) = fontmap.get(&mrec.map_name) {
+                if mrec1.enc_name.is_empty() {
+                    let font_id = vf_locate_font(&mrec1.font_name, ptsize);
+                    if font_id < 0i32 {
+                        warn!(
+                            "Could not locate Omega Virtual Font \"{}\" for \"{}\".",
+                            mrec1.font_name, tfm_name,
+                        );
+                    } else {
+                        new_font.type_0 = 2i32;
+                        new_font.font_id = font_id;
+                        if verbose != 0 {
+                            info!("(OVF)>");
+                        }
+                        loaded_fonts.push(new_font);
+                        return loaded_fonts.len() as u32 - 1;
+                    }
+                }
+            }
+        }
+    } else {
         let font_id = vf_locate_font(tfm_name, ptsize);
         if font_id >= 0i32 {
             new_font.type_0 = 2i32;
@@ -811,39 +844,6 @@ pub(crate) unsafe fn dvi_locate_font(tfm_name: &str, ptsize: spt_t) -> u32 {
             }
             loaded_fonts.push(new_font);
             return loaded_fonts.len() as u32 - 1;
-        }
-    } else if subfont_id >= 0i32 && !(*mrec).map_name.is_empty() {
-        let mrec1: *mut fontmap_rec = pdf_lookup_fontmap_record((*mrec).map_name.as_bytes());
-        /* Sorry, I don't understand this well... Please fix.
-         * The purpose of this seems to be:
-         *
-         *   Map 8-bit char codes in subfont to 16-bit code with SFD mapping
-         *   and map subfonts to single OVF font.
-         *
-         * But it apparently only does TFM -> OVF mapping but no character
-         * code mapping. Please see dvi_set(), you can't have both font->type
-         * VIRTUAL and font->subfont_id >= 0. Am I missing something?
-         */
-        /* enc_name=NULL should be used only for 'built-in' encoding.
-         * Please fix this!
-         */
-        if !mrec1.is_null() && (*mrec1).enc_name.is_empty() {
-            let font_id = vf_locate_font(&(*mrec1).font_name, ptsize);
-            if font_id < 0i32 {
-                warn!(
-                    "Could not locate Omega Virtual Font \"{}\" for \"{}\".",
-                    (*mrec1).font_name,
-                    tfm_name,
-                );
-            } else {
-                new_font.type_0 = 2i32;
-                new_font.font_id = font_id;
-                if verbose != 0 {
-                    info!("(OVF)>");
-                }
-                loaded_fonts.push(new_font);
-                return loaded_fonts.len() as u32 - 1;
-            }
         }
     }
     /* 1 */
@@ -855,10 +855,9 @@ pub(crate) unsafe fn dvi_locate_font(tfm_name: &str, ptsize: spt_t) -> u32 {
      * of multiple instances of a same font, to avoid frequent font selection
      * and break of string_mode.
      */
-    let name = if !mrec.is_null() && !(*mrec).map_name.is_empty() {
-        &(*mrec).map_name
-    } else {
-        tfm_name
+    let name = match mrec {
+        Some(mrec) if !mrec.map_name.is_empty() => &mrec.map_name,
+        _ => tfm_name,
     };
     /* We need ptsize for PK font creation. */
     let font_id = pdf_dev_locate_font(&CString::new(name).unwrap(), ptsize);
@@ -867,43 +866,47 @@ pub(crate) unsafe fn dvi_locate_font(tfm_name: &str, ptsize: spt_t) -> u32 {
             "Could not locate a virtual/physical font for TFM \"{}\".",
             tfm_name
         );
-        if !mrec.is_null() && !(*mrec).map_name.is_empty() {
-            /* has map_name */
-            let mrec1_0: *mut fontmap_rec = pdf_lookup_fontmap_record((*mrec).map_name.as_bytes()); // CHECK this is enough
-            warn!(">> This font is mapped to an intermediate 16-bit font \"{}\" with SFD charmap=<{},{}>,",
-                (*mrec).map_name, (*mrec).charmap.sfd_name,
-                (*mrec).charmap.subfont_id
-            );
-            if mrec1_0.is_null() {
-                warn!(
-                    ">> but I couldn\'t find font mapping for \"{}\".",
-                    (*mrec).map_name
+        match mrec {
+            Some(mrec) if !mrec.map_name.is_empty() => {
+                /* has map_name */
+                let mrec1_0 = fontmap.get(&mrec.map_name); // CHECK this is enough
+                warn!(">> This font is mapped to an intermediate 16-bit font \"{}\" with SFD charmap=<{},{}>,",
+                    mrec.map_name, mrec.charmap.sfd_name,
+                    mrec.charmap.subfont_id
                 );
-            } else {
+                if let Some(mrec1_0) = mrec1_0 {
+                    warn!(
+                        ">> and then mapped to a physical font \"{}\" by fontmap.",
+                        mrec1_0.font_name
+                    );
+                    warn!(
+                        ">> Please check if kpathsea library can find this font: {}",
+                        mrec1_0.font_name,
+                    );
+                } else {
+                    warn!(
+                        ">> but I couldn\'t find font mapping for \"{}\".",
+                        mrec.map_name
+                    );
+                }
+            }
+            Some(mrec) => {
                 warn!(
-                    ">> and then mapped to a physical font \"{}\" by fontmap.",
-                    (*mrec1_0).font_name
+                    ">> This font is mapped to a physical font \"{}\".",
+                    mrec.font_name
                 );
                 warn!(
                     ">> Please check if kpathsea library can find this font: {}",
-                    (*mrec1_0).font_name,
+                    mrec.font_name
                 );
             }
-        } else if !mrec.is_null() && (*mrec).map_name.is_empty() {
-            warn!(
-                ">> This font is mapped to a physical font \"{}\".",
-                (*mrec).font_name
-            );
-            warn!(
-                ">> Please check if kpathsea library can find this font: {}",
-                (*mrec).font_name
-            );
-        } else {
-            warn!(">> There are no valid font mapping entry for this font.");
-            warn!(
-                ">> Font file name \"{}\" was assumed but failed to locate that font.",
-                tfm_name
-            );
+            None => {
+                warn!(">> There are no valid font mapping entry for this font.");
+                warn!(
+                    ">> Font file name \"{}\" was assumed but failed to locate that font.",
+                    tfm_name
+                );
+            }
         }
         panic!("Cannot proceed without .vf or \"physical\" font for PDF output...");
     }
@@ -958,14 +961,15 @@ unsafe fn dvi_locate_native_font(
         slant,
         embolden,
     );
-    let mut mrec = pdf_lookup_fontmap_record(fontmap_key.as_bytes());
-    if mrec.is_null() {
-        mrec =
-            pdf_insert_native_fontmap_record(filename, index, layout_dir, extend, slant, embolden);
-        if mrec.is_null() {
-            panic!("Failed to insert font record for font: {}", filename);
-        }
-    }
+    let mrec = if let Some(mrec) = fontmap.get(&fontmap_key) {
+        mrec
+    } else {
+        pdf_insert_native_fontmap_record(filename, index, layout_dir, extend, slant, embolden)
+            .expect(&format!(
+                "Failed to insert font record for font: {}",
+                filename
+            ))
+    };
     let mut font = loaded_font {
         font_id: pdf_dev_locate_font(&CString::new(fontmap_key).unwrap(), ptsize),
         size: ptsize,

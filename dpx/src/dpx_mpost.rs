@@ -37,7 +37,7 @@ use crate::strstartswith;
 use crate::warn;
 
 use super::dpx_dvipdfmx::translate_origin;
-use super::dpx_fontmap::pdf_lookup_fontmap_record;
+use super::dpx_fontmap::fontmap;
 use super::dpx_pdfcolor::PdfColor;
 use super::dpx_pdfdev::{
     dev_unit_dviunit, graphics_mode, pdf_dev_get_dirmode, pdf_dev_get_font_wmode,
@@ -188,18 +188,16 @@ unsafe fn mp_setfont(font_name: &CStr, pt_size: f64) -> i32 {
             return 0;
         }
     }
-    let mrec = pdf_lookup_fontmap_record(font_name.to_bytes());
-    if !mrec.is_null()
-        && !(*mrec).charmap.sfd_name.is_empty()
-        && !(*mrec).charmap.subfont_id.is_empty()
-    {
-        subfont_id = sfd_load_record(&(*mrec).charmap.sfd_name, &(*mrec).charmap.subfont_id)
+    let mrec = fontmap.get(font_name.to_str().unwrap());
+    if let Some(mrec) = mrec {
+        if !mrec.charmap.sfd_name.is_empty() && !mrec.charmap.subfont_id.is_empty() {
+            subfont_id = sfd_load_record(&mrec.charmap.sfd_name, &mrec.charmap.subfont_id)
+        }
     }
     /* See comments in dvi_locate_font() in dvi.c. */
-    let name = if !mrec.is_null() && !(*mrec).map_name.is_empty() {
-        &(*mrec).map_name
-    } else {
-        font_name.to_str().unwrap()
+    let name = match mrec {
+        Some(mrec) if !mrec.map_name.is_empty() => &mrec.map_name,
+        _ => font_name.to_str().unwrap(),
     };
     let name_ = CString::new(name).unwrap();
     let font_id = pdf_dev_locate_font(&name_, (pt_size * dev_unit_dviunit()) as spt_t);
@@ -243,11 +241,14 @@ unsafe fn clear_fonts() {
     font_stack = vec![];
 }
 unsafe fn is_fontname(token: &[u8]) -> bool {
-    let mrec = pdf_lookup_fontmap_record(token);
-    if !mrec.is_null() {
-        return true;
+    if let Ok(token) = std::str::from_utf8(token) {
+        if fontmap.contains_key(token) {
+            return true;
+        }
+        tfm_exists(token)
+    } else {
+        false
     }
-    tfm_exists(token)
 }
 
 pub(crate) unsafe fn mps_scan_bbox(pp: *mut *const i8, endptr: *const i8, bbox: &mut Rect) -> i32 {

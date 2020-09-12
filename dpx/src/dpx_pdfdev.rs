@@ -36,7 +36,7 @@ use std::ptr;
 use super::dpx_cff::cff_charsets_lookup_cid;
 use super::dpx_cmap::{CMap_cache_get, CMap_decode};
 use super::dpx_dvi::dvi_is_tracking_boxes;
-use super::dpx_fontmap::pdf_lookup_fontmap_record;
+use super::dpx_fontmap::fontmap;
 use super::dpx_mem::{new, renew};
 use super::dpx_pdfcolor::{pdf_color_clear_stack, pdf_color_get_current};
 use super::dpx_pdfdoc::pdf_doc_expand_box;
@@ -1225,41 +1225,38 @@ pub(crate) unsafe fn pdf_dev_eop() {
         pdf_dev_grestore();
     };
 }
-unsafe fn print_fontmap(font_name: *const i8, mrec: *mut fontmap_rec) {
-    if mrec.is_null() {
-        return;
-    }
+unsafe fn print_fontmap(font_name: *const i8, mrec: &fontmap_rec) {
     info!("\n");
     info!(
         "fontmap: {} -> {}",
         CStr::from_ptr(font_name).display(),
-        (*mrec).font_name,
+        mrec.font_name,
     );
-    if !(*mrec).enc_name.is_empty() {
-        info!("({})", (*mrec).enc_name);
+    if !mrec.enc_name.is_empty() {
+        info!("({})", mrec.enc_name);
     }
-    if (*mrec).opt.extend != 1.0f64 {
-        info!("[extend:{}]", (*mrec).opt.extend);
+    if mrec.opt.extend != 1.0f64 {
+        info!("[extend:{}]", mrec.opt.extend);
     }
-    if (*mrec).opt.slant != 0.0f64 {
-        info!("[slant:{}]", (*mrec).opt.slant);
+    if mrec.opt.slant != 0.0f64 {
+        info!("[slant:{}]", mrec.opt.slant);
     }
-    if (*mrec).opt.bold != 0.0f64 {
-        info!("[bold:{}]", (*mrec).opt.bold);
+    if mrec.opt.bold != 0.0f64 {
+        info!("[bold:{}]", mrec.opt.bold);
     }
-    if (*mrec).opt.flags & 1i32 << 1i32 != 0 {
+    if mrec.opt.flags & 1i32 << 1i32 != 0 {
         info!("[noemb]");
     }
-    if (*mrec).opt.mapc >= 0i32 {
-        info!("[map:<{:02x}>]", (*mrec).opt.mapc);
+    if mrec.opt.mapc >= 0i32 {
+        info!("[map:<{:02x}>]", mrec.opt.mapc);
     }
-    if !(*mrec).opt.charcoll.is_empty() {
-        info!("[csi:{}]", (*mrec).opt.charcoll);
+    if !mrec.opt.charcoll.is_empty() {
+        info!("[csi:{}]", mrec.opt.charcoll);
     }
-    if (*mrec).opt.index != 0 {
-        info!("[index:{}]", (*mrec).opt.index);
+    if mrec.opt.index != 0 {
+        info!("[index:{}]", mrec.opt.index);
     }
-    match (*mrec).opt.style {
+    match mrec.opt.style {
         1 => {
             info!("[style:bold]");
         }
@@ -1300,15 +1297,18 @@ pub(crate) unsafe fn pdf_dev_locate_font(font_name: &CStr, ptsize: spt_t) -> i32
     }
 
     /* New font */
-    let mrec = pdf_lookup_fontmap_record(font_name.to_bytes());
+    let mrec = fontmap.get_mut(font_name.to_str().unwrap());
     if verbose > 1i32 {
-        print_fontmap(font_name.as_ptr(), mrec);
+        if let Some(ref mrec) = mrec {
+            print_fontmap(font_name.as_ptr(), mrec);
+        }
     }
     let font_id = pdf_font_findresource(
         font_name.to_str().unwrap(),
         ptsize as f64 * dev_unit.dvi2pts,
         mrec,
     );
+    let mrec = fontmap.get(font_name.to_str().unwrap());
     if font_id < 0 {
         return -1;
     }
@@ -1329,46 +1329,46 @@ pub(crate) unsafe fn pdf_dev_locate_font(font_name: &CStr, ptsize: spt_t) -> i32
             _ => 1,
         },
         wmode: pdf_get_font_wmode(font_id),
-        extend: if !mrec.is_null() {
-            (*mrec).opt.extend
+        extend: if let Some(mrec) = mrec {
+            mrec.opt.extend
         } else {
             1.
         },
-        slant: if !mrec.is_null() {
-            (*mrec).opt.slant
+        slant: if let Some(mrec) = mrec {
+            mrec.opt.slant
         } else {
             0.
         },
-        bold: if !mrec.is_null() {
-            (*mrec).opt.bold
+        bold: if let Some(mrec) = mrec {
+            mrec.opt.bold
         } else {
             0.
         },
-        mapc: if !mrec.is_null() && (*mrec).opt.mapc >= 0 {
-            (*mrec).opt.mapc >> 8i32 & 0xffi32
-        } else {
-            -1
+        mapc: match mrec {
+            Some(mrec) if mrec.opt.mapc >= 0 => mrec.opt.mapc >> 8 & 0xff,
+            _ => -1,
         },
-        ucs_group: if !mrec.is_null() && (*mrec).enc_name == "unicode" && (*mrec).opt.mapc >= 0 {
-            (*mrec).opt.mapc >> 24i32 & 0xffi32
-        } else {
-            0
+        ucs_group: match mrec {
+            Some(mrec) if mrec.enc_name == "unicode" && mrec.opt.mapc >= 0 => {
+                mrec.opt.mapc >> 24 & 0xff
+            }
+            _ => 0,
         },
-        ucs_plane: if !mrec.is_null() && (*mrec).enc_name == "unicode" && (*mrec).opt.mapc >= 0 {
-            (*mrec).opt.mapc >> 16i32 & 0xffi32
-        } else {
-            0
+        ucs_plane: match mrec {
+            Some(mrec) if mrec.enc_name == "unicode" && mrec.opt.mapc >= 0 => {
+                mrec.opt.mapc >> 16 & 0xff
+            }
+            _ => 0,
         },
-        is_unicode: if !mrec.is_null() && (*mrec).enc_name == "unicode" {
-            1
-        } else {
-            0
+        is_unicode: match mrec {
+            Some(mrec) if mrec.enc_name == "unicode" => 1,
+            _ => 0,
         },
         cff_charsets: 0 as *mut cff_charsets,
     };
 
-    if !mrec.is_null() {
-        font.cff_charsets = (*mrec).opt.cff_charsets as *mut cff_charsets
+    if let Some(mrec) = mrec {
+        font.cff_charsets = mrec.opt.cff_charsets as *mut cff_charsets
     }
     /* We found device font here. */
     if i < dev_fonts.len() {

@@ -223,7 +223,7 @@ unsafe fn spc_handler_xtx_fontmapline(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 
             } else if opchr as i32 == '+' as i32 {
                 pdf_append_fontmap_record(&mrec.map_name, &mrec);
             } else {
-                pdf_insert_fontmap_record(&mrec.map_name, &mrec);
+                pdf_insert_fontmap_record(&mrec.map_name, &mrec).ok();
             }
         }
     }

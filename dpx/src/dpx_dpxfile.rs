@@ -29,7 +29,6 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use super::dpx_numbers::GetFromFile;
-use libc::{free, remove};
 
 pub(crate) type __ssize_t = i64;
 
@@ -214,14 +213,14 @@ pub(crate) unsafe fn dpx_delete_old_cache(life: i32) {
     };
 }
 
-pub(crate) unsafe fn dpx_delete_temp_file(tmp: *mut i8, force: i32) {
-    if tmp.is_null() {
+pub(crate) unsafe fn dpx_delete_temp_file(tmp: &str, force: i32) {
+    use std::fs;
+    if tmp.is_empty() {
         return;
     }
-    if force != 0 || keep_cache != 1i32 {
-        remove(tmp);
+    if force != 0 || keep_cache != 1 {
+        fs::remove_file(tmp).unwrap();
     }
-    free(tmp as *mut libc::c_void);
 }
 /* dpx_file_apply_filter() is used for converting unsupported graphics
  * format to one of the formats that dvipdfmx can natively handle.
