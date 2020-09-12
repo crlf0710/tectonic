@@ -215,13 +215,6 @@ impl pdf_obj {
             panic!("invalid pdfobj::as_string");
         }
     }
-    pub(crate) unsafe fn as_string_mut(&mut self) -> &mut pdf_string {
-        if let PdfObjVariant::STRING(v) = self.data {
-            &mut *v
-        } else {
-            panic!("invalid pdfobj::as_string_mut");
-        }
-    }
     pub(crate) unsafe fn as_name(&self) -> &CStr {
         if let PdfObjVariant::NAME(v) = self.data {
             (*v).name.as_c_str()

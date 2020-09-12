@@ -244,7 +244,7 @@ unsafe fn read_thumbnail(thumb_filename: &str) -> *mut pdf_obj {
         return ptr::null_mut();
     }
     let xobj_id = pdf_ximage_findresource(thumb_filename, options);
-    if xobj_id < 0i32 {
+    if xobj_id < 0 {
         warn!("Could not read thumbnail file \"{}\".", thumb_filename);
         ptr::null_mut()
     } else {

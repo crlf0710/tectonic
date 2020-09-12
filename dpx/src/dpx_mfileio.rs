@@ -42,9 +42,9 @@ pub(crate) unsafe fn tt_mfgets<R: Read + Seek>(
     length: i32,
     file: &mut R,
 ) -> *mut i8 {
-    let mut ch: i32 = 0i32;
-    let mut i: i32 = 0i32;
-    while i < length - 1i32
+    let mut ch: i32 = 0;
+    let mut i: i32 = 0;
+    while i < length - 1
         && {
             ch = ttstub_input_getc(file);
             ch >= 0
@@ -53,10 +53,10 @@ pub(crate) unsafe fn tt_mfgets<R: Read + Seek>(
         && ch != '\r' as i32
     {
         *buffer.offset(i as isize) = ch as i8;
-        i = i + 1;
+        i += 1;
     }
     *buffer.offset(i as isize) = '\u{0}' as i32 as i8;
-    if ch < 0i32 && i == 0i32 {
+    if ch < 0 && i == 0 {
         return ptr::null_mut();
     }
     if ch == '\r' as i32

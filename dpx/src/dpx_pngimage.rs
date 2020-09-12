@@ -404,19 +404,19 @@ unsafe fn check_transparency(png: &mut png_struct, info: &mut png_info) -> libc:
     /*
      * First we set trans_type to appropriate value for PNG image.
      */
-    if color_type as i32 == 2i32 | 4i32 || color_type as i32 == 4i32 {
-        trans_type = 2i32
-    } else if png_get_valid(png, info, 0x10u32) != 0
+    if color_type == 2 | 4 || color_type == 4 {
+        trans_type = 2
+    } else if png_get_valid(png, info, 0x10) != 0
         && png_get_tRNS(png, info, &mut trans, &mut num_trans, &mut trans_values) != 0
     {
-        match color_type as i32 {
+        match color_type {
             3 => {
                 /* no transparency */
                 /* Have valid tRNS chunk. */
                 /* Use color-key mask if possible. */
-                trans_type = 1i32;
+                trans_type = 1;
                 for i in (0..num_trans).rev() {
-                    if !(*trans.offset(i as isize) as i32 != 0i32
+                    if !(*trans.offset(i as isize) as i32 != 0
                         && *trans.offset(i as isize) as i32 != 0xff)
                     {
                         continue;

@@ -139,7 +139,7 @@ pub(crate) struct char_map {
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-static mut verbose: i32 = 0i32;
+static mut verbose: i32 = 0;
 
 unsafe fn lookup_char(map: &char_map, charcode: i32) -> i32 {
     if charcode >= map.coverage.first_char
@@ -190,7 +190,7 @@ unsafe fn fread_uquads<R: Read>(quads: &mut [u32], handle: &mut R) -> i32 {
  * TFM and JFM
  */
 unsafe fn tfm_check_size(tfm: &tfm_font, tfm_file_size: off_t) {
-    let mut expected_size: u32 = 6_u32;
+    let mut expected_size = 6_u32;
     /* Removed the warning message caused by EC TFM metric files.
      *
      if (tfm->wlenfile != tfm_file_size / 4) {
@@ -219,10 +219,10 @@ unsafe fn tfm_check_size(tfm: &tfm_font, tfm_file_size: off_t) {
     if expected_size != tfm.wlenfile {
         warn!(
             "TFM file size is expected to be {} bytes but it says it is {}bytes!",
-            expected_size as i64 * 4i32 as i64,
-            tfm.wlenfile as i64 * 4i32 as i64,
+            expected_size as i64 * 4,
+            tfm.wlenfile as i64 * 4,
         );
-        if tfm_file_size > expected_size as i64 * 4i32 as i64 {
+        if tfm_file_size > expected_size as i64 * 4 {
             warn!("Proceeding nervously...");
         } else {
             panic!("Can\'t proceed...");
@@ -279,7 +279,7 @@ unsafe fn tfm_unpack_header(fm: &mut font_metric, tfm: &tfm_font) {
     fm.designsize = i32::from_be_byte_slice(&tfm.header[4..8]);
 }
 unsafe fn ofm_check_size_one(tfm: &tfm_font, ofm_file_size: off_t) {
-    let mut ofm_size: u32 = 14_u32;
+    let mut ofm_size = 14_u32;
     ofm_size += (2 * (tfm.ec - tfm.bc + 1)) as u32;
     ofm_size += tfm.wlenheader as u32;
     ofm_size += tfm.nwidths as u32;
@@ -290,7 +290,7 @@ unsafe fn ofm_check_size_one(tfm: &tfm_font, ofm_file_size: off_t) {
     ofm_size += tfm.nkern as u32;
     ofm_size += (2 * tfm.nextens) as u32;
     ofm_size += tfm.nfonparm as u32;
-    if tfm.wlenfile as i64 != ofm_file_size / 4i32 as i64 || tfm.wlenfile != ofm_size {
+    if tfm.wlenfile as i64 != ofm_file_size / 4 || tfm.wlenfile != ofm_size {
         panic!("OFM file problem.  Table sizes don\'t agree.");
     };
 }
@@ -370,7 +370,7 @@ unsafe fn ofm_do_char_info_one<R: Read>(ofm_handle: &mut R, tfm: &mut tfm_font) 
                 u16::get(ofm_handle);
             }
             /* Remove word padding if necessary */
-            if tfm.npc.wrapping_div(2_u32).wrapping_mul(2_u32) == tfm.npc {
+            if tfm.npc / 2 * 2 == tfm.npc {
                 u16::get(ofm_handle);
             }
             char_infos_read += 1;
@@ -401,38 +401,38 @@ unsafe fn ofm_unpack_arrays(fm: &mut font_metric, tfm: &tfm_font, num_chars: u32
 unsafe fn read_ofm<R: Read + Seek>(ofm_handle: &mut R, ofm_file_size: off_t) -> font_metric {
     let mut tfm: tfm_font = tfm_font::default();
     ofm_get_sizes(ofm_handle, ofm_file_size, &mut tfm);
-    if tfm.level < 0i32 || tfm.level > 1i32 {
+    if tfm.level < 0 || tfm.level > 1 {
         panic!("OFM level {} not supported.", tfm.level);
     }
     if tfm.wlenheader > 0 {
         tfm.header = vec![0; (tfm.wlenheader as usize) * 4];
         ofm_handle.read_exact(tfm.header.as_mut_slice()).unwrap();
     }
-    if tfm.level == 0i32 {
+    if tfm.level == 0 {
         ofm_do_char_info_zero(ofm_handle, &mut tfm);
-    } else if tfm.level == 1i32 {
+    } else if tfm.level == 1 {
         ofm_do_char_info_one(ofm_handle, &mut tfm);
     }
-    if tfm.nwidths > 0_u32 {
+    if tfm.nwidths > 0 {
         tfm.width = vec![0; tfm.nwidths as usize];
         fread_fwords(tfm.width.as_mut_slice(), ofm_handle);
     }
-    if tfm.nheights > 0_u32 {
+    if tfm.nheights > 0 {
         tfm.height = vec![0; tfm.nheights as usize];
         fread_fwords(tfm.height.as_mut_slice(), ofm_handle);
     }
-    if tfm.ndepths > 0_u32 {
+    if tfm.ndepths > 0 {
         tfm.depth = vec![0; tfm.ndepths as usize];
         fread_fwords(tfm.depth.as_mut_slice(), ofm_handle);
     }
-    let num_chars = tfm.ec.wrapping_sub(tfm.bc).wrapping_add(1_u32);
+    let num_chars = tfm.ec - tfm.bc + 1;
 
     let mut fm = font_metric::default();
     ofm_unpack_arrays(&mut fm, &mut tfm, num_chars);
     tfm_unpack_header(&mut fm, &mut tfm);
     fm.firstchar = tfm.bc as i32;
     fm.lastchar = tfm.ec as i32;
-    fm.source = 2i32;
+    fm.source = 2;
     fm
 }
 unsafe fn read_tfm<R: Read>(tfm_handle: &mut R, tfm_file_size: off_t) -> font_metric {
@@ -450,15 +450,15 @@ unsafe fn read_tfm<R: Read>(tfm_handle: &mut R, tfm_file_size: off_t) -> font_me
         tfm.char_info = vec![0; (tfm.ec - tfm.bc + 1) as usize];
         fread_uquads(tfm.char_info.as_mut_slice(), tfm_handle);
     }
-    if tfm.nwidths > 0_u32 {
+    if tfm.nwidths > 0 {
         tfm.width = vec![0; tfm.nwidths as usize];
         fread_fwords(tfm.width.as_mut_slice(), tfm_handle);
     }
-    if tfm.nheights > 0_u32 {
+    if tfm.nheights > 0 {
         tfm.height = vec![0; tfm.nheights as usize];
         fread_fwords(tfm.height.as_mut_slice(), tfm_handle);
     }
-    if tfm.ndepths > 0_u32 {
+    if tfm.ndepths > 0 {
         tfm.depth = vec![0; tfm.ndepths as usize];
         fread_fwords(tfm.depth.as_mut_slice(), tfm_handle);
     }
@@ -469,7 +469,7 @@ unsafe fn read_tfm<R: Read>(tfm_handle: &mut R, tfm_file_size: off_t) -> font_me
 
 pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
     let mut tfm_handle = None;
-    let mut format: i32 = 1i32;
+    let mut format: i32 = 1;
     for i in 0..fms.len() {
         if tfm_name == fms[i].tex_name {
             return i as i32;
@@ -529,10 +529,10 @@ pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
         }
     }
     let tfm_file_size = ttstub_input_get_size(&mut tfm_handle) as off_t;
-    if tfm_file_size as u64 > 0x1ffffffffu64 {
+    if tfm_file_size as u64 > 0x1ffffffff {
         panic!("TFM/OFM file size exceeds 33-bit");
     }
-    if tfm_file_size < 24i32 as i64 {
+    if tfm_file_size < 24 {
         panic!("TFM/OFM file too small to be a valid file.");
     }
     let mut fm = if format == 2 {
@@ -555,7 +555,7 @@ pub(crate) unsafe fn tfm_close_all() {
 
 pub(crate) unsafe fn tfm_get_fw_width(font_id: i32, ch: i32) -> fixword {
     let idx;
-    if font_id < 0i32 || font_id as usize >= fms.len() {
+    if font_id < 0 || font_id as usize >= fms.len() {
         panic!("TFM: Invalid TFM ID: {}", font_id);
     }
     let fm = &mut fms[font_id as usize];
@@ -563,13 +563,13 @@ pub(crate) unsafe fn tfm_get_fw_width(font_id: i32, ch: i32) -> fixword {
         match &fm.charmap {
             CharMap::Char(data) => {
                 idx = lookup_char(data, ch);
-                if idx < 0i32 {
+                if idx < 0 {
                     panic!("Invalid char: {}\n", ch);
                 }
             }
             CharMap::Range(data) => {
                 idx = lookup_range(data, ch);
-                if idx < 0i32 {
+                if idx < 0 {
                     panic!("Invalid char: {}\n", ch);
                 }
             }
@@ -583,7 +583,7 @@ pub(crate) unsafe fn tfm_get_fw_width(font_id: i32, ch: i32) -> fixword {
 
 pub(crate) unsafe fn tfm_get_fw_height(font_id: i32, ch: i32) -> fixword {
     let idx;
-    if font_id < 0i32 || font_id as usize >= fms.len() {
+    if font_id < 0 || font_id as usize >= fms.len() {
         panic!("TFM: Invalid TFM ID: {}", font_id);
     }
     let fm = &mut fms[font_id as usize];
@@ -591,13 +591,13 @@ pub(crate) unsafe fn tfm_get_fw_height(font_id: i32, ch: i32) -> fixword {
         match &fm.charmap {
             CharMap::Char(data) => {
                 idx = lookup_char(data, ch);
-                if idx < 0i32 {
+                if idx < 0 {
                     panic!("Invalid char: {}\n", ch);
                 }
             }
             CharMap::Range(data) => {
                 idx = lookup_range(data, ch);
-                if idx < 0i32 {
+                if idx < 0 {
                     panic!("Invalid char: {}\n", ch);
                 }
             }
@@ -611,7 +611,7 @@ pub(crate) unsafe fn tfm_get_fw_height(font_id: i32, ch: i32) -> fixword {
 
 pub(crate) unsafe fn tfm_get_fw_depth(font_id: i32, ch: i32) -> fixword {
     let idx;
-    if font_id < 0i32 || font_id as usize >= fms.len() {
+    if font_id < 0 || font_id as usize >= fms.len() {
         panic!("TFM: Invalid TFM ID: {}", font_id);
     }
     let fm = &mut fms[font_id as usize];
@@ -619,13 +619,13 @@ pub(crate) unsafe fn tfm_get_fw_depth(font_id: i32, ch: i32) -> fixword {
         match &fm.charmap {
             CharMap::Char(data) => {
                 idx = lookup_char(data, ch);
-                if idx < 0i32 {
+                if idx < 0 {
                     panic!("Invalid char: {}\n", ch);
                 }
             }
             CharMap::Range(data) => {
                 idx = lookup_range(data, ch);
-                if idx < 0i32 {
+                if idx < 0 {
                     panic!("Invalid char: {}\n", ch);
                 }
             }

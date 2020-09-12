@@ -73,6 +73,7 @@ pub(crate) enum ImageType {
     Png,
     Eps,
     Bmp,
+    #[allow(unused)]
     Jp2,
 }
 
@@ -145,10 +146,7 @@ pub(crate) struct opt_ {
     pub(crate) verbose: i32,
     pub(crate) cmdtmpl: *mut i8,
 }
-#[derive(Clone)]
-pub(crate) struct ic_ {
-    pub(crate) ximages: Vec<pdf_ximage>,
-}
+static mut ximages: Vec<pdf_ximage> = Vec::new();
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
@@ -164,9 +162,6 @@ static mut _opts: opt_ = opt_ {
 pub(crate) unsafe fn pdf_ximage_set_verbose(level: i32) {
     _opts.verbose = level;
 }
-static mut _ic: ic_ = ic_ {
-    ximages: Vec::new(),
-};
 impl pdf_ximage {
     pub(crate) fn new() -> Self {
         Self {
@@ -222,35 +217,31 @@ impl Drop for pdf_ximage {
 }
 
 pub(crate) unsafe fn pdf_init_images() {
-    let ic = &mut _ic;
-    ic.ximages = Vec::new();
+    ximages = Vec::new();
 }
 
 pub(crate) unsafe fn pdf_close_images() {
-    let ic = &mut _ic;
-    if !ic.ximages.is_empty() {
-        for I in &mut ic.ximages {
-            if I.attr.tempfile != 0 {
-                /*
-                 * It is important to remove temporary files at the end because
-                 * we cache file names. Since we use mkstemp to create them, we
-                 * might get the same file name again if we delete the first file.
-                 * (This happens on NetBSD, reported by Jukka Salmi.)
-                 * We also use this to convert a PS file only once if multiple
-                 * pages are imported from that file.
-                 */
-                if _opts.verbose > 1i32 && keep_cache != 1i32 {
-                    info!(
-                        "pdf_image>> deleting temporary file \"{}\"\n",
-                        CStr::from_ptr(I.filename).display()
-                    ); /* temporary filename freed here */
-                }
-                dpx_delete_temp_file(I.filename, 0i32);
-                I.filename = ptr::null_mut()
+    for I in &mut ximages {
+        if I.attr.tempfile != 0 {
+            /*
+             * It is important to remove temporary files at the end because
+             * we cache file names. Since we use mkstemp to create them, we
+             * might get the same file name again if we delete the first file.
+             * (This happens on NetBSD, reported by Jukka Salmi.)
+             * We also use this to convert a PS file only once if multiple
+             * pages are imported from that file.
+             */
+            if _opts.verbose > 1i32 && keep_cache != 1i32 {
+                info!(
+                    "pdf_image>> deleting temporary file \"{}\"\n",
+                    CStr::from_ptr(I.filename).display()
+                ); /* temporary filename freed here */
             }
+            dpx_delete_temp_file(I.filename, 0i32);
+            I.filename = ptr::null_mut()
         }
-        ic.ximages = Vec::new();
     }
+    ximages = Vec::new();
     _opts.cmdtmpl = mfree(_opts.cmdtmpl as *mut libc::c_void) as *mut i8;
 }
 unsafe fn source_image_type<R: Read + Seek>(handle: &mut R) -> ImageType {
@@ -280,8 +271,7 @@ unsafe fn load_image(
     mut handle: DroppableInputHandleWrapper,
     options: load_options,
 ) -> i32 {
-    let ic = &mut _ic;
-    let id = ic.ximages.len();
+    let id = ximages.len();
     let mut I = pdf_ximage::new();
     if !ident.is_empty() {
         I.ident = ident.to_string();
@@ -386,16 +376,15 @@ unsafe fn load_image(
             panic!("Unknown XObject subtype: {}", -1);
         }
     }
-    ic.ximages.push(I);
+    ximages.push(I);
     id as i32
 }
 
 pub(crate) unsafe fn pdf_ximage_findresource(ident: &str, options: load_options) -> i32 {
-    let ic = &_ic;
     /* "I don't understand why there is comparision against I->attr.dict here...
      * I->attr.dict and options.dict are simply pointers to PDF dictionaries."
      */
-    for (id, I) in ic.ximages.iter().enumerate() {
+    for (id, I) in ximages.iter().enumerate() {
         if !I.ident.is_empty() && ident == I.ident {
             if I.attr.page_no == options.page_no
                 && I.attr.dict == options.dict
@@ -563,11 +552,10 @@ pub(crate) unsafe fn pdf_ximage_get_page(I: &pdf_ximage) -> i32 {
 }
 
 pub(crate) unsafe fn pdf_ximage_get_reference(id: i32) -> *mut pdf_obj {
-    let ic = &mut _ic;
-    if id < 0 || id >= ic.ximages.len() as i32 {
+    if id < 0 || id >= ximages.len() as i32 {
         panic!("Invalid XObject ID: {}", id);
     }
-    let I = &mut ic.ximages[id as usize];
+    let I = &mut ximages[id as usize];
     if I.reference.is_null() {
         I.reference = pdf_ref_obj(I.resource)
     }
@@ -577,6 +565,7 @@ pub(crate) unsafe fn pdf_ximage_get_reference(id: i32) -> *mut pdf_obj {
 #[derive(Clone)]
 pub(crate) enum XInfo {
     Form(Box<xform_info>),
+    #[allow(unused)]
     Image(Box<ximage_info>),
 }
 
@@ -587,8 +576,7 @@ pub(crate) unsafe fn pdf_ximage_defineresource(
     info: XInfo,
     resource: *mut pdf_obj,
 ) -> i32 {
-    let ic = &mut _ic;
-    let id = ic.ximages.len();
+    let id = ximages.len();
     let mut I = pdf_ximage::new();
     if !ident.is_empty() {
         I.ident = ident.to_string();
@@ -611,25 +599,23 @@ pub(crate) unsafe fn pdf_ximage_defineresource(
             );
         }
     }
-    ic.ximages.push(I);
+    ximages.push(I);
     id as i32
 }
 
 pub(crate) unsafe fn pdf_ximage_get_resname(id: i32) -> *const i8 {
-    let ic = &_ic;
-    if id < 0 || id >= ic.ximages.len() as i32 {
+    if id < 0 || id >= ximages.len() as i32 {
         panic!("Invalid XObject ID: {}", id);
     }
-    let I = &ic.ximages[id as usize];
+    let I = &ximages[id as usize];
     I.res_name.as_ptr()
 }
 
 pub(crate) unsafe fn pdf_ximage_get_subtype(id: i32) -> PdfXObjectType {
-    let ic = &_ic;
-    if id < 0 || id >= ic.ximages.len() as i32 {
+    if id < 0 || id >= ximages.len() as i32 {
         panic!("Invalid XObject ID: {}", id);
     }
-    let I = &ic.ximages[id as usize];
+    let I = &ximages[id as usize];
     I.subtype
 }
 /* from spc_pdfm.c */
@@ -645,11 +631,10 @@ pub(crate) unsafe fn pdf_ximage_set_attr(
     urx: f64,
     ury: f64,
 ) {
-    let ic = &mut _ic;
-    if id < 0 || id >= ic.ximages.len() as i32 {
+    if id < 0 || id >= ximages.len() as i32 {
         panic!("Invalid XObject ID: {}", id);
     }
-    let I = &mut ic.ximages[id as usize];
+    let I = &mut ximages[id as usize];
     I.attr.width = width;
     I.attr.height = height;
     I.attr.xdensity = xdensity;
@@ -772,11 +757,10 @@ pub(crate) unsafe fn pdf_ximage_scale_image(
     p: &mut transform_info,
 ) -> TMatrix
 /* argument from specials */ {
-    let ic = &_ic;
-    if id < 0 || id >= ic.ximages.len() as i32 {
+    if id < 0 || id >= ximages.len() as i32 {
         panic!("Invalid XObject ID: {}", id);
     }
-    let I = &ic.ximages[id as usize];
+    let I = &ximages[id as usize];
     let mut M = TMatrix::identity();
     match I.subtype {
         PdfXObjectType::Image => {
