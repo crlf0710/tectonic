@@ -30,12 +30,9 @@ use crate::dpx_truetype::sfnt_table_info;
 
 use std::ffi::CStr;
 use std::io::{Read, Seek, SeekFrom};
-use std::ptr;
 
 pub(crate) type __ssize_t = i64;
 pub(crate) type Fixed = u32;
-pub(crate) type FWord = i16;
-pub(crate) type uFWord = u16;
 
 use super::dpx_sfnt::{put_big_endian, sfnt};
 
@@ -50,10 +47,10 @@ pub(crate) struct tt_head_table {
     pub(crate) unitsPerEm: u16,
     pub(crate) created: [u8; 8],
     pub(crate) modified: [u8; 8],
-    pub(crate) xMin: FWord,
-    pub(crate) yMin: FWord,
-    pub(crate) xMax: FWord,
-    pub(crate) yMax: FWord,
+    pub(crate) xMin: i16,
+    pub(crate) yMin: i16,
+    pub(crate) xMax: i16,
+    pub(crate) yMax: i16,
     pub(crate) macStyle: u16,
     pub(crate) lowestRecPPEM: u16,
     pub(crate) fontDirectionHint: i16,
@@ -64,16 +61,16 @@ pub(crate) struct tt_head_table {
 #[repr(C)]
 pub(crate) struct tt_hhea_table {
     pub(crate) version: Fixed,
-    pub(crate) ascent: FWord,
-    pub(crate) descent: FWord,
-    pub(crate) lineGap: FWord,
-    pub(crate) advanceWidthMax: uFWord,
-    pub(crate) minLeftSideBearing: FWord,
-    pub(crate) minRightSideBearing: FWord,
-    pub(crate) xMaxExtent: FWord,
+    pub(crate) ascent: i16,
+    pub(crate) descent: i16,
+    pub(crate) lineGap: i16,
+    pub(crate) advanceWidthMax: u16,
+    pub(crate) minLeftSideBearing: i16,
+    pub(crate) minRightSideBearing: i16,
+    pub(crate) xMaxExtent: i16,
     pub(crate) caretSlopeRise: i16,
     pub(crate) caretSlopeRun: i16,
-    pub(crate) caretOffset: FWord,
+    pub(crate) caretOffset: i16,
     pub(crate) reserved: [i16; 4],
     pub(crate) metricDataFormat: i16,
     pub(crate) numOfLongHorMetrics: u16,
@@ -164,12 +161,10 @@ pub(crate) struct tt_vertOriginYMetrics {
     pub(crate) glyphIndex: u16,
     pub(crate) vertOriginY: i16,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct tt_VORG_table {
     pub(crate) defaultVertOriginY: i16,
-    pub(crate) numVertOriginYMetrics: u16,
-    pub(crate) vertOriginYMetrics: *mut tt_vertOriginYMetrics,
+    pub(crate) vertOriginYMetrics: Vec<tt_vertOriginYMetrics>,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -185,311 +180,341 @@ pub(crate) struct tt_longMetrics {
   head->glyphDataFormat --> glyf
 */
 
-pub(crate) unsafe fn tt_pack_head_table(table: *mut tt_head_table) -> *mut i8 {
-    if table.is_null() {
-        panic!("passed NULL pointer\n");
-    }
+pub(crate) unsafe fn tt_pack_head_table(table: &tt_head_table) -> *mut i8 {
     let data = new((54u64 as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
         as *mut i8;
     let mut p = data;
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).version as i32, 4i32) as isize);
-    p = p.offset(
-        put_big_endian(p as *mut libc::c_void, (*table).fontRevision as i32, 4i32) as isize,
-    );
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.version as i32, 4i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.fontRevision as i32, 4i32) as isize);
     p = p.offset(put_big_endian(
         p as *mut libc::c_void,
-        (*table).checkSumAdjustment as i32,
+        table.checkSumAdjustment as i32,
         4i32,
     ) as isize);
-    p = p
-        .offset(put_big_endian(p as *mut libc::c_void, (*table).magicNumber as i32, 4i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).flags as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).unitsPerEm as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.magicNumber as i32, 4i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.flags as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.unitsPerEm as i32, 2i32) as isize);
     for i in 0..8 {
-        *p = (*table).created[i] as i8;
+        *p = table.created[i] as i8;
         p = p.offset(1);
     }
     for i in 0..8 {
-        *p = (*table).modified[i] as i8;
+        *p = table.modified[i] as i8;
         p = p.offset(1);
     }
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).xMin as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).yMin as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).xMax as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).yMax as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).macStyle as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.xMin as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.yMin as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.xMax as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.yMax as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.macStyle as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.lowestRecPPEM as i32, 2i32) as isize);
     p = p.offset(
-        put_big_endian(p as *mut libc::c_void, (*table).lowestRecPPEM as i32, 2i32) as isize,
+        put_big_endian(p as *mut libc::c_void, table.fontDirectionHint as i32, 2i32) as isize,
     );
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        (*table).fontDirectionHint as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        (*table).indexToLocFormat as i32,
-        2i32,
-    ) as isize);
-    p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        (*table).glyphDataFormat as i32,
-        2i32,
-    ) as isize);
+    p = p.offset(
+        put_big_endian(p as *mut libc::c_void, table.indexToLocFormat as i32, 2i32) as isize,
+    );
+    p.offset(put_big_endian(p as *mut libc::c_void, table.glyphDataFormat as i32, 2i32) as isize);
     data
 }
 
-pub(crate) unsafe fn tt_read_head_table(sfont: &sfnt) -> *mut tt_head_table {
-    let mut table: *mut tt_head_table = new((1_u64)
-        .wrapping_mul(::std::mem::size_of::<tt_head_table>() as u64)
-        as u32) as *mut tt_head_table;
+pub(crate) unsafe fn tt_read_head_table(sfont: &sfnt) -> Box<tt_head_table> {
     sfnt_locate_table(sfont, sfnt_table_info::HEAD);
     let handle = &mut &*sfont.handle;
-    (*table).version = u32::get(handle);
-    (*table).fontRevision = u32::get(handle);
-    (*table).checkSumAdjustment = u32::get(handle);
-    (*table).magicNumber = u32::get(handle);
-    (*table).flags = u16::get(handle);
-    (*table).unitsPerEm = u16::get(handle);
-    for i in 0..8 {
-        (*table).created[i] = u8::get(handle);
+    let version = u32::get(handle);
+    let fontRevision = u32::get(handle);
+    let checkSumAdjustment = u32::get(handle);
+    let magicNumber = u32::get(handle);
+    let flags = u16::get(handle);
+    let unitsPerEm = u16::get(handle);
+    let mut created = [0u8; 8];
+    for b in &mut created {
+        *b = u8::get(handle);
     }
-    for i in 0..8 {
-        (*table).modified[i] = u8::get(handle);
+    let mut modified = [0u8; 8];
+    for b in &mut modified {
+        *b = u8::get(handle);
     }
-    (*table).xMin = i16::get(handle);
-    (*table).yMin = i16::get(handle);
-    (*table).xMax = i16::get(handle);
-    (*table).yMax = i16::get(handle);
-    (*table).macStyle = i16::get(handle) as u16;
-    (*table).lowestRecPPEM = i16::get(handle) as u16;
-    (*table).fontDirectionHint = i16::get(handle);
-    (*table).indexToLocFormat = i16::get(handle);
-    (*table).glyphDataFormat = i16::get(handle);
-    table
+    let xMin = i16::get(handle);
+    let yMin = i16::get(handle);
+    let xMax = i16::get(handle);
+    let yMax = i16::get(handle);
+    let macStyle = i16::get(handle) as u16;
+    let lowestRecPPEM = i16::get(handle) as u16;
+    let fontDirectionHint = i16::get(handle);
+    let indexToLocFormat = i16::get(handle);
+    let glyphDataFormat = i16::get(handle);
+
+    Box::new(tt_head_table {
+        version,
+        fontRevision,
+        checkSumAdjustment,
+        magicNumber,
+        flags,
+        unitsPerEm,
+        created,
+        modified,
+        xMin,
+        yMin,
+        xMax,
+        yMax,
+        macStyle,
+        lowestRecPPEM,
+        fontDirectionHint,
+        indexToLocFormat,
+        glyphDataFormat,
+    })
 }
 
-pub(crate) unsafe fn tt_pack_maxp_table(table: *mut tt_maxp_table) -> *mut i8 {
+pub(crate) unsafe fn tt_pack_maxp_table(table: &tt_maxp_table) -> *mut i8 {
     let data = new((32u64 as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
         as *mut i8;
     let mut p = data;
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).version as i32, 4i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).numGlyphs as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).maxPoints as i32, 2i32) as isize);
-    p = p
-        .offset(put_big_endian(p as *mut libc::c_void, (*table).maxContours as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.version as i32, 4i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.numGlyphs as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.maxPoints as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.maxContours as i32, 2i32) as isize);
     p = p.offset(put_big_endian(
         p as *mut libc::c_void,
-        (*table).maxComponentPoints as i32,
+        table.maxComponentPoints as i32,
         2i32,
     ) as isize);
     p = p.offset(put_big_endian(
         p as *mut libc::c_void,
-        (*table).maxComponentContours as i32,
+        table.maxComponentContours as i32,
         2i32,
     ) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).maxZones as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        (*table).maxTwilightPoints as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).maxStorage as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        (*table).maxFunctionDefs as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        (*table).maxInstructionDefs as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        (*table).maxStackElements as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        (*table).maxSizeOfInstructions as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        (*table).maxComponentElements as i32,
-        2i32,
-    ) as isize);
-    put_big_endian(
-        p as *mut libc::c_void,
-        (*table).maxComponentDepth as i32,
-        2i32,
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.maxZones as i32, 2i32) as isize);
+    p = p.offset(
+        put_big_endian(p as *mut libc::c_void, table.maxTwilightPoints as i32, 2i32) as isize,
     );
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.maxStorage as i32, 2i32) as isize);
+    p = p.offset(
+        put_big_endian(p as *mut libc::c_void, table.maxFunctionDefs as i32, 2i32) as isize,
+    );
+    p = p.offset(put_big_endian(
+        p as *mut libc::c_void,
+        table.maxInstructionDefs as i32,
+        2i32,
+    ) as isize);
+    p = p.offset(
+        put_big_endian(p as *mut libc::c_void, table.maxStackElements as i32, 2i32) as isize,
+    );
+    p = p.offset(put_big_endian(
+        p as *mut libc::c_void,
+        table.maxSizeOfInstructions as i32,
+        2i32,
+    ) as isize);
+    p = p.offset(put_big_endian(
+        p as *mut libc::c_void,
+        table.maxComponentElements as i32,
+        2i32,
+    ) as isize);
+    put_big_endian(p as *mut libc::c_void, table.maxComponentDepth as i32, 2i32);
     data
 }
 
-pub(crate) unsafe fn tt_read_maxp_table(sfont: &sfnt) -> *mut tt_maxp_table {
-    let mut table: *mut tt_maxp_table = new((1_u64)
-        .wrapping_mul(::std::mem::size_of::<tt_maxp_table>() as u64)
-        as u32) as *mut tt_maxp_table;
+pub(crate) unsafe fn tt_read_maxp_table(sfont: &sfnt) -> Box<tt_maxp_table> {
     sfnt_locate_table(sfont, sfnt_table_info::MAXP);
     let handle = &mut &*sfont.handle;
-    (*table).version = u32::get(handle);
-    (*table).numGlyphs = u16::get(handle);
-    (*table).maxPoints = u16::get(handle);
-    (*table).maxContours = u16::get(handle);
-    (*table).maxComponentPoints = u16::get(handle);
-    (*table).maxComponentContours = u16::get(handle);
-    (*table).maxZones = u16::get(handle);
-    (*table).maxTwilightPoints = u16::get(handle);
-    (*table).maxStorage = u16::get(handle);
-    (*table).maxFunctionDefs = u16::get(handle);
-    (*table).maxInstructionDefs = u16::get(handle);
-    (*table).maxStackElements = u16::get(handle);
-    (*table).maxSizeOfInstructions = u16::get(handle);
-    (*table).maxComponentElements = u16::get(handle);
-    (*table).maxComponentDepth = u16::get(handle);
-    table
+    let version = u32::get(handle);
+    let numGlyphs = u16::get(handle);
+    let maxPoints = u16::get(handle);
+    let maxContours = u16::get(handle);
+    let maxComponentPoints = u16::get(handle);
+    let maxComponentContours = u16::get(handle);
+    let maxZones = u16::get(handle);
+    let maxTwilightPoints = u16::get(handle);
+    let maxStorage = u16::get(handle);
+    let maxFunctionDefs = u16::get(handle);
+    let maxInstructionDefs = u16::get(handle);
+    let maxStackElements = u16::get(handle);
+    let maxSizeOfInstructions = u16::get(handle);
+    let maxComponentElements = u16::get(handle);
+    let maxComponentDepth = u16::get(handle);
+
+    Box::new(tt_maxp_table {
+        version,
+        numGlyphs,
+        maxPoints,
+        maxContours,
+        maxComponentPoints,
+        maxComponentContours,
+        maxZones,
+        maxTwilightPoints,
+        maxStorage,
+        maxFunctionDefs,
+        maxInstructionDefs,
+        maxStackElements,
+        maxSizeOfInstructions,
+        maxComponentElements,
+        maxComponentDepth,
+    })
 }
 
-pub(crate) unsafe fn tt_pack_hhea_table(table: *mut tt_hhea_table) -> *mut i8 {
+pub(crate) unsafe fn tt_pack_hhea_table(table: &tt_hhea_table) -> *mut i8 {
     let data = new((36u64 as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
         as *mut i8;
     let mut p = data;
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).version as i32, 4i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).ascent as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).descent as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).lineGap as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        (*table).advanceWidthMax as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        (*table).minLeftSideBearing as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        (*table).minRightSideBearing as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).xMaxExtent as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.version as i32, 4i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.ascent as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.descent as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.lineGap as i32, 2i32) as isize);
     p = p.offset(
-        put_big_endian(p as *mut libc::c_void, (*table).caretSlopeRise as i32, 2i32) as isize,
+        put_big_endian(p as *mut libc::c_void, table.advanceWidthMax as i32, 2i32) as isize,
     );
-    p = p.offset(
-        put_big_endian(p as *mut libc::c_void, (*table).caretSlopeRun as i32, 2i32) as isize,
-    );
+    p = p.offset(put_big_endian(
+        p as *mut libc::c_void,
+        table.minLeftSideBearing as i32,
+        2i32,
+    ) as isize);
+    p = p.offset(put_big_endian(
+        p as *mut libc::c_void,
+        table.minRightSideBearing as i32,
+        2i32,
+    ) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.xMaxExtent as i32, 2i32) as isize);
     p = p
-        .offset(put_big_endian(p as *mut libc::c_void, (*table).caretOffset as i32, 2i32) as isize);
+        .offset(put_big_endian(p as *mut libc::c_void, table.caretSlopeRise as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.caretSlopeRun as i32, 2i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, table.caretOffset as i32, 2i32) as isize);
     for i in 0..4 {
         p = p.offset(
-            put_big_endian(p as *mut libc::c_void, (*table).reserved[i] as i32, 2i32) as isize,
+            put_big_endian(p as *mut libc::c_void, table.reserved[i] as i32, 2i32) as isize,
         );
     }
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        (*table).metricDataFormat as i32,
-        2i32,
-    ) as isize);
+    p = p.offset(
+        put_big_endian(p as *mut libc::c_void, table.metricDataFormat as i32, 2i32) as isize,
+    );
     p.offset(put_big_endian(
         p as *mut libc::c_void,
-        (*table).numOfLongHorMetrics as i32,
+        table.numOfLongHorMetrics as i32,
         2i32,
     ) as isize);
     data
 }
 
-pub(crate) unsafe fn tt_read_hhea_table(sfont: &sfnt) -> *mut tt_hhea_table {
-    let mut table: *mut tt_hhea_table = new((1_u64)
-        .wrapping_mul(::std::mem::size_of::<tt_hhea_table>() as u64)
-        as u32) as *mut tt_hhea_table;
+pub(crate) unsafe fn tt_read_hhea_table(sfont: &sfnt) -> Box<tt_hhea_table> {
     sfnt_locate_table(sfont, sfnt_table_info::HHEA);
     let handle = &mut &*sfont.handle;
-    (*table).version = u32::get(handle);
-    (*table).ascent = i16::get(handle);
-    (*table).descent = i16::get(handle);
-    (*table).lineGap = i16::get(handle);
-    (*table).advanceWidthMax = u16::get(handle);
-    (*table).minLeftSideBearing = i16::get(handle);
-    (*table).minRightSideBearing = i16::get(handle);
-    (*table).xMaxExtent = i16::get(handle);
-    (*table).caretSlopeRise = i16::get(handle);
-    (*table).caretSlopeRun = i16::get(handle);
-    (*table).caretOffset = i16::get(handle);
-    for i in 0..4 {
-        (*table).reserved[i] = i16::get(handle);
+    let version = u32::get(handle);
+    let ascent = i16::get(handle);
+    let descent = i16::get(handle);
+    let lineGap = i16::get(handle);
+    let advanceWidthMax = u16::get(handle);
+    let minLeftSideBearing = i16::get(handle);
+    let minRightSideBearing = i16::get(handle);
+    let xMaxExtent = i16::get(handle);
+    let caretSlopeRise = i16::get(handle);
+    let caretSlopeRun = i16::get(handle);
+    let caretOffset = i16::get(handle);
+    let mut reserved = [0_i16; 4];
+    for i in &mut reserved {
+        *i = i16::get(handle);
     }
-    (*table).metricDataFormat = i16::get(handle);
-    if (*table).metricDataFormat as i32 != 0i32 {
+    let metricDataFormat = i16::get(handle);
+    if metricDataFormat != 0 {
         panic!("unknown metricDataFormat");
     }
-    (*table).numOfLongHorMetrics = u16::get(handle);
+    let numOfLongHorMetrics = u16::get(handle);
     let len = sfnt_find_table_len(sfont, sfnt_table_info::HMTX);
-    (*table).numOfExSideBearings = len
-        .wrapping_sub(((*table).numOfLongHorMetrics as i32 * 4i32) as u32)
+    let numOfExSideBearings = len
+        .wrapping_sub((numOfLongHorMetrics as i32 * 4) as u32)
         .wrapping_div(2_u32) as u16;
-    table
+
+    Box::new(tt_hhea_table {
+        version,
+        ascent,
+        descent,
+        lineGap,
+        advanceWidthMax,
+        minLeftSideBearing,
+        minRightSideBearing,
+        xMaxExtent,
+        caretSlopeRise,
+        caretSlopeRun,
+        caretOffset,
+        reserved,
+        metricDataFormat,
+        numOfLongHorMetrics,
+        numOfExSideBearings,
+    })
 }
 /* vhea */
 
-pub(crate) unsafe fn tt_read_vhea_table(sfont: &sfnt) -> *mut tt_vhea_table {
-    let mut table: *mut tt_vhea_table = new((1_u64)
-        .wrapping_mul(::std::mem::size_of::<tt_vhea_table>() as u64)
-        as u32) as *mut tt_vhea_table;
+pub(crate) unsafe fn tt_read_vhea_table(sfont: &sfnt) -> Box<tt_vhea_table> {
     sfnt_locate_table(sfont, b"vhea");
     let handle = &mut &*sfont.handle;
-    (*table).version = u32::get(handle);
-    (*table).vertTypoAscender = i16::get(handle);
-    (*table).vertTypoDescender = i16::get(handle);
-    (*table).vertTypoLineGap = i16::get(handle);
-    (*table).advanceHeightMax = i16::get(handle);
-    (*table).minTopSideBearing = i16::get(handle);
-    (*table).minBottomSideBearing = i16::get(handle);
-    (*table).yMaxExtent = i16::get(handle);
-    (*table).caretSlopeRise = i16::get(handle);
-    (*table).caretSlopeRun = i16::get(handle);
-    (*table).caretOffset = i16::get(handle);
-    for i in 0..4 {
-        (*table).reserved[i] = i16::get(handle);
+    let version = u32::get(handle);
+    let vertTypoAscender = i16::get(handle);
+    let vertTypoDescender = i16::get(handle);
+    let vertTypoLineGap = i16::get(handle);
+    let advanceHeightMax = i16::get(handle);
+    let minTopSideBearing = i16::get(handle);
+    let minBottomSideBearing = i16::get(handle);
+    let yMaxExtent = i16::get(handle);
+    let caretSlopeRise = i16::get(handle);
+    let caretSlopeRun = i16::get(handle);
+    let caretOffset = i16::get(handle);
+    let mut reserved = [0_i16; 4];
+    for i in &mut reserved {
+        *i = i16::get(handle);
     }
-    (*table).metricDataFormat = i16::get(handle);
-    (*table).numOfLongVerMetrics = u16::get(handle);
+    let metricDataFormat = i16::get(handle);
+    let numOfLongVerMetrics = u16::get(handle);
     let len = sfnt_find_table_len(sfont, b"vmtx");
-    (*table).numOfExSideBearings = len
-        .wrapping_sub(((*table).numOfLongVerMetrics as i32 * 4i32) as u32)
+    let numOfExSideBearings = len
+        .wrapping_sub((numOfLongVerMetrics as i32 * 4i32) as u32)
         .wrapping_div(2_u32) as u16;
-    table
+
+    Box::new(tt_vhea_table {
+        version,
+        vertTypoAscender,
+        vertTypoDescender,
+        vertTypoLineGap,
+        advanceHeightMax,
+        minTopSideBearing,
+        minBottomSideBearing,
+        yMaxExtent,
+        caretSlopeRise,
+        caretSlopeRun,
+        caretOffset,
+        reserved,
+        metricDataFormat,
+        numOfLongVerMetrics,
+        numOfExSideBearings,
+    })
 }
 
-pub(crate) unsafe fn tt_read_VORG_table(sfont: &sfnt) -> *mut tt_VORG_table {
+pub(crate) unsafe fn tt_read_VORG_table(sfont: &sfnt) -> Option<Box<tt_VORG_table>> {
     let offset = sfnt_find_table_pos(sfont, b"VORG");
     let handle = &mut &*sfont.handle;
-    if offset > 0_u32 {
-        let vorg = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_VORG_table>() as u64) as u32)
-            as *mut tt_VORG_table;
+    if offset > 0 {
         sfnt_locate_table(sfont, b"VORG");
         if u16::get(handle) as i32 != 1i32 || u16::get(handle) as i32 != 0i32 {
             panic!("Unsupported VORG version.");
         }
-        (*vorg).defaultVertOriginY = i16::get(handle);
-        (*vorg).numVertOriginYMetrics = u16::get(handle);
-        (*vorg).vertOriginYMetrics = new(((*vorg).numVertOriginYMetrics as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<tt_vertOriginYMetrics>() as u64)
-            as u32) as *mut tt_vertOriginYMetrics;
+        let defaultVertOriginY = i16::get(handle);
+        let numVertOriginYMetrics = u16::get(handle) as usize;
+        let mut vertOriginYMetrics = Vec::with_capacity(numVertOriginYMetrics);
         /*
          * The vertOriginYMetrics array must be sorted in increasing
          * glyphIndex order.
          */
-        for i in 0..(*vorg).numVertOriginYMetrics {
-            (*(*vorg).vertOriginYMetrics.offset(i as isize)).glyphIndex = u16::get(handle);
-            (*(*vorg).vertOriginYMetrics.offset(i as isize)).vertOriginY = i16::get(handle);
+        for _ in 0..numVertOriginYMetrics {
+            let glyphIndex = u16::get(handle);
+            let vertOriginY = i16::get(handle);
+            vertOriginYMetrics.push(tt_vertOriginYMetrics {
+                glyphIndex,
+                vertOriginY,
+            });
         }
-        vorg
+        Some(Box::new(tt_VORG_table {
+            defaultVertOriginY,
+            vertOriginYMetrics,
+        }))
     } else {
-        ptr::null_mut()
+        None
     }
 }
 /*
@@ -524,81 +549,154 @@ pub(crate) unsafe fn tt_read_longMetrics<R: Read>(
 /* OS/2 table */
 /* this table may not exist */
 
-pub(crate) unsafe fn tt_read_os2__table(sfont: &sfnt) -> *mut tt_os2__table {
-    let table = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_os2__table>() as u64) as u32)
-        as *mut tt_os2__table;
+pub(crate) unsafe fn tt_read_os2__table(sfont: &sfnt) -> Box<tt_os2__table> {
     let handle = &mut &*sfont.handle;
-    if sfnt_find_table_pos(sfont, sfnt_table_info::OS_2) > 0_u32 {
+    let version;
+    let xAvgCharWidth;
+    let usWeightClass;
+    let fsType;
+    let fsSelection;
+    let sFamilyClass;
+    let mut panose = [0_u8; 10];
+
+    let mut achVendID = [0_i8; 4];
+    let mut usWidthClass = 0;
+    let mut ySubscriptXSize = 0;
+    let mut ySubscriptYSize = 0;
+    let mut ySubscriptXOffset = 0;
+    let mut ySubscriptYOffset = 0;
+    let mut ySuperscriptXSize = 0;
+    let mut ySuperscriptYSize = 0;
+    let mut ySuperscriptXOffset = 0;
+    let mut ySuperscriptYOffset = 0;
+    let mut yStrikeoutSize = 0;
+    let mut yStrikeoutPosition = 0;
+    let mut ulUnicodeRange1 = 0;
+    let mut ulUnicodeRange2 = 0;
+    let mut ulUnicodeRange3 = 0;
+    let mut ulUnicodeRange4 = 0;
+    let mut usFirstCharIndex = 0;
+    let mut usLastCharIndex = 0;
+    let mut sTypoAscender = 0;
+    let mut sTypoDescender = 0;
+    let mut sTypoLineGap = 0;
+    let mut usWinAscent = 0;
+    let mut usWinDescent = 0;
+    let mut ulCodePageRange1 = 0;
+    let mut ulCodePageRange2 = 0;
+    let mut sxHeight = 0;
+    let mut sCapHeight = 0;
+    let mut usDefaultChar = 0;
+    let mut usBreakChar = 0;
+    let mut usMaxContext = 0;
+
+    if sfnt_find_table_pos(sfont, sfnt_table_info::OS_2) > 0 {
         sfnt_locate_table(sfont, sfnt_table_info::OS_2);
-        (*table).version = u16::get(handle);
-        (*table).xAvgCharWidth = i16::get(handle);
-        (*table).usWeightClass = u16::get(handle);
-        (*table).usWidthClass = u16::get(handle);
-        (*table).fsType = i16::get(handle);
-        (*table).ySubscriptXSize = i16::get(handle);
-        (*table).ySubscriptYSize = i16::get(handle);
-        (*table).ySubscriptXOffset = i16::get(handle);
-        (*table).ySubscriptYOffset = i16::get(handle);
-        (*table).ySuperscriptXSize = i16::get(handle);
-        (*table).ySuperscriptYSize = i16::get(handle);
-        (*table).ySuperscriptXOffset = i16::get(handle);
-        (*table).ySuperscriptYOffset = i16::get(handle);
-        (*table).yStrikeoutSize = i16::get(handle);
-        (*table).yStrikeoutPosition = i16::get(handle);
-        (*table).sFamilyClass = i16::get(handle);
-        for i in 0..10 {
-            (*table).panose[i] = u8::get(handle);
+        version = u16::get(handle);
+        xAvgCharWidth = i16::get(handle);
+        usWeightClass = u16::get(handle);
+        usWidthClass = u16::get(handle);
+        fsType = i16::get(handle);
+        ySubscriptXSize = i16::get(handle);
+        ySubscriptYSize = i16::get(handle);
+        ySubscriptXOffset = i16::get(handle);
+        ySubscriptYOffset = i16::get(handle);
+        ySuperscriptXSize = i16::get(handle);
+        ySuperscriptYSize = i16::get(handle);
+        ySuperscriptXOffset = i16::get(handle);
+        ySuperscriptYOffset = i16::get(handle);
+        yStrikeoutSize = i16::get(handle);
+        yStrikeoutPosition = i16::get(handle);
+        sFamilyClass = i16::get(handle);
+        for i in &mut panose {
+            *i = u8::get(handle);
         }
-        (*table).ulUnicodeRange1 = u32::get(handle);
-        (*table).ulUnicodeRange2 = u32::get(handle);
-        (*table).ulUnicodeRange3 = u32::get(handle);
-        (*table).ulUnicodeRange4 = u32::get(handle);
-        for i in 0..4 {
-            (*table).achVendID[i] = i8::get(handle);
+        ulUnicodeRange1 = u32::get(handle);
+        ulUnicodeRange2 = u32::get(handle);
+        ulUnicodeRange3 = u32::get(handle);
+        ulUnicodeRange4 = u32::get(handle);
+        for i in &mut achVendID {
+            *i = i8::get(handle);
         }
-        (*table).fsSelection = u16::get(handle);
-        (*table).usFirstCharIndex = u16::get(handle);
-        (*table).usLastCharIndex = u16::get(handle);
-        if sfnt_find_table_len(sfont, sfnt_table_info::OS_2) >= 78_u32 {
+        fsSelection = u16::get(handle);
+        usFirstCharIndex = u16::get(handle);
+        usLastCharIndex = u16::get(handle);
+        if sfnt_find_table_len(sfont, sfnt_table_info::OS_2) >= 78 {
             /* these fields are not present in the original Apple spec (68-byte table),
             but Microsoft's version of "format 0" does include them... grr! */
-            (*table).sTypoAscender = i16::get(handle);
-            (*table).sTypoDescender = i16::get(handle);
-            (*table).sTypoLineGap = i16::get(handle);
-            (*table).usWinAscent = u16::get(handle);
-            (*table).usWinDescent = u16::get(handle);
-            if (*table).version as i32 > 0i32 {
+            sTypoAscender = i16::get(handle);
+            sTypoDescender = i16::get(handle);
+            sTypoLineGap = i16::get(handle);
+            usWinAscent = u16::get(handle);
+            usWinDescent = u16::get(handle);
+            if version > 0 {
                 /* format 1 adds the following 2 fields */
-                (*table).ulCodePageRange1 = u32::get(handle);
-                (*table).ulCodePageRange2 = u32::get(handle);
-                if (*table).version as i32 > 1i32 {
+                ulCodePageRange1 = u32::get(handle);
+                ulCodePageRange2 = u32::get(handle);
+                if version > 1 {
                     /* and formats 2 and 3 (current) include 5 more.... these share the
                     same fields, only the precise definition of some was changed */
-                    (*table).sxHeight = i16::get(handle);
-                    (*table).sCapHeight = i16::get(handle);
-                    (*table).usDefaultChar = u16::get(handle);
-                    (*table).usBreakChar = u16::get(handle);
-                    (*table).usMaxContext = u16::get(handle)
+                    sxHeight = i16::get(handle);
+                    sCapHeight = i16::get(handle);
+                    usDefaultChar = u16::get(handle);
+                    usBreakChar = u16::get(handle);
+                    usMaxContext = u16::get(handle);
                 }
             }
         }
     } else {
         /* used in add_CIDVMetrics() of cidtype0.c */
-        (*table).sTypoAscender = 880_i16;
-        (*table).sTypoDescender = -120_i16;
+        sTypoAscender = 880;
+        sTypoDescender = -120;
         /* used in tt_get_fontdesc() of tt_aux.c */
-        (*table).usWeightClass = 400_u16; /* Normal(Regular) */
-        (*table).xAvgCharWidth = 0_i16; /* ignore */
-        (*table).version = 0_u16; /* TrueType rev 1.5 */
-        (*table).fsType = 0_i16; /* Installable Embedding */
-        (*table).fsSelection = 0_u16; /* All undefined */
-        (*table).sFamilyClass = 0_i16; /* No Classification */
-        for i in 0..10 {
-            (*table).panose[i] = 0_u8;
-            /* All Any */
-        }
+        usWeightClass = 400; /* Normal(Regular) */
+        xAvgCharWidth = 0; /* ignore */
+        version = 0; /* TrueType rev 1.5 */
+        fsType = 0; /* Installable Embedding */
+        fsSelection = 0; /* All undefined */
+        sFamilyClass = 0; /* No Classification */
+        panose = [0; 10]; /* All Any */
     }
-    table
+
+    Box::new(tt_os2__table {
+        version,
+        xAvgCharWidth,
+        usWeightClass,
+        usWidthClass,
+        fsType,
+        ySubscriptXSize,
+        ySubscriptYSize,
+        ySubscriptXOffset,
+        ySubscriptYOffset,
+        ySuperscriptXSize,
+        ySuperscriptYSize,
+        ySuperscriptXOffset,
+        ySuperscriptYOffset,
+        yStrikeoutSize,
+        yStrikeoutPosition,
+        sFamilyClass,
+        panose,
+        ulUnicodeRange1,
+        ulUnicodeRange2,
+        ulUnicodeRange3,
+        ulUnicodeRange4,
+        achVendID,
+        fsSelection,
+        usFirstCharIndex,
+        usLastCharIndex,
+        sTypoAscender,
+        sTypoDescender,
+        sTypoLineGap,
+        usWinAscent,
+        usWinDescent,
+        ulCodePageRange1,
+        ulCodePageRange2,
+        sxHeight,
+        sCapHeight,
+        usDefaultChar,
+        usBreakChar,
+        usMaxContext,
+    })
 }
 unsafe fn tt_get_name(
     sfont: &sfnt,

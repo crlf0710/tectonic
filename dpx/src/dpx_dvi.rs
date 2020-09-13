@@ -170,15 +170,10 @@ pub(crate) struct dvi_lr {
 
 use super::dpx_t1_char::t1_ginfo;
 
-/* 16.16-bit signed fixed-point number */
-pub(crate) type FWord = i16;
 /* Acoid conflict with CHAR ... from <winnt.h>.  */
 /* Data Types as described in Apple's TTRefMan */
 pub(crate) type Fixed = u32;
 
-pub(crate) type uFWord = u16;
-
-use super::dpx_tt_table::tt_vhea_table;
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
@@ -1031,32 +1026,28 @@ unsafe fn dvi_locate_native_font(
         let head = tt_read_head_table(&mut sfont);
         let maxp = tt_read_maxp_table(&mut sfont);
         let hhea = tt_read_hhea_table(&mut sfont);
-        font.ascent = (*hhea).ascent as i32;
-        font.descent = (*hhea).descent as i32;
-        font.unitsPerEm = (*head).unitsPerEm as u32;
-        font.numGlyphs = (*maxp).numGlyphs as u32;
+        font.ascent = hhea.ascent as i32;
+        font.descent = hhea.descent as i32;
+        font.unitsPerEm = head.unitsPerEm as u32;
+        font.numGlyphs = maxp.numGlyphs as u32;
         if layout_dir == 1i32 && sfnt_find_table_pos(&sfont, b"vmtx") > 0_u32 {
-            let vhea: *mut tt_vhea_table = tt_read_vhea_table(&mut sfont);
+            let vhea = tt_read_vhea_table(&mut sfont);
             sfnt_locate_table(&mut sfont, b"vmtx");
             font.hvmt = tt_read_longMetrics(
                 &mut &*sfont.handle,
-                (*maxp).numGlyphs,
-                (*vhea).numOfLongVerMetrics,
-                (*vhea).numOfExSideBearings,
+                maxp.numGlyphs,
+                vhea.numOfLongVerMetrics,
+                vhea.numOfExSideBearings,
             );
-            free(vhea as *mut libc::c_void);
         } else {
             sfnt_locate_table(&mut sfont, sfnt_table_info::HMTX);
             font.hvmt = tt_read_longMetrics(
                 &mut &*sfont.handle,
-                (*maxp).numGlyphs,
-                (*hhea).numOfLongHorMetrics,
-                (*hhea).numOfExSideBearings,
+                maxp.numGlyphs,
+                hhea.numOfLongHorMetrics,
+                hhea.numOfExSideBearings,
             )
         }
-        free(hhea as *mut libc::c_void);
-        free(maxp as *mut libc::c_void);
-        free(head as *mut libc::c_void);
     }
     font.layout_dir = layout_dir;
     font.extend = (*mrec).opt.extend as f32;

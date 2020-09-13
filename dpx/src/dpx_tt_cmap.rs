@@ -700,8 +700,7 @@ unsafe fn handle_CIDFont(
         return 0i32;
     }
     let maxp = tt_read_maxp_table(sfont);
-    let num_glyphs = (*maxp).numGlyphs;
-    free(maxp as *mut libc::c_void);
+    let num_glyphs = maxp.numGlyphs;
     if (num_glyphs as i32) < 1i32 {
         panic!("No glyph contained in this font...");
     }
