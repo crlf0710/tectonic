@@ -44,9 +44,7 @@ use super::dpx_pdffont::pdf_font_make_uniqueTag;
 use super::dpx_tt_aux::tt_get_fontdesc;
 use super::dpx_tt_aux::ttc_read_offset;
 use super::dpx_tt_cmap::{tt_cmap_lookup, tt_cmap_read, tt_cmap_release};
-use super::dpx_tt_glyf::{
-    tt_add_glyph, tt_build_finish, tt_build_init, tt_build_tables, tt_get_index, tt_get_metrics,
-};
+use super::dpx_tt_glyf::{tt_add_glyph, tt_build_tables, tt_get_index, tt_get_metrics};
 use super::dpx_tt_gsub::{
     otl_gsub_add_feat, otl_gsub_apply, otl_gsub_new, otl_gsub_release, otl_gsub_select,
 };
@@ -335,7 +333,7 @@ unsafe fn find_tocode_cmap(reg: &str, ord: &str, select: i32) -> *mut CMap {
  */
 unsafe fn add_TTCIDHMetrics(
     fontdict: *mut pdf_obj,
-    g: *mut tt_glyphs,
+    g: &tt_glyphs,
     used_chars: *mut i8,
     cidtogidmap: *mut u8,
     last_cid: u16,
@@ -345,14 +343,11 @@ unsafe fn add_TTCIDHMetrics(
     let mut an_array = None;
     let mut empty: i32 = 1i32;
     let mut w_array = vec![];
-    let dw = if (*g).dw as i32 != 0i32 && (*g).dw as i32 <= (*g).emsize as i32 {
-        (1000.0f64 * (*g).dw as i32 as f64 / (*g).emsize as i32 as f64 / 1i32 as f64 + 0.5f64)
-            .floor()
+    let dw = if g.dw as i32 != 0i32 && g.dw as i32 <= g.emsize as i32 {
+        (1000.0f64 * g.dw as i32 as f64 / g.emsize as i32 as f64 / 1i32 as f64 + 0.5f64).floor()
             * 1i32 as f64
     } else {
-        (1000.0f64 * (*(*g).gd.offset(0)).advw as i32 as f64
-            / (*g).emsize as i32 as f64
-            / 1i32 as f64
+        (1000.0f64 * (*g.gd.offset(0)).advw as i32 as f64 / g.emsize as i32 as f64 / 1i32 as f64
             + 0.5f64)
             .floor()
             * 1i32 as f64
@@ -367,8 +362,8 @@ unsafe fn add_TTCIDHMetrics(
             }) as u16;
             let idx = tt_get_index(g, gid);
             if !(cid != 0i32 && idx as i32 == 0i32) {
-                let width = (1000.0f64 * (*(*g).gd.offset(idx as isize)).advw as i32 as f64
-                    / (*g).emsize as i32 as f64
+                let width = (1000.0f64 * (*g.gd.offset(idx as isize)).advw as i32 as f64
+                    / g.emsize as i32 as f64
                     / 1i32 as f64
                     + 0.5f64)
                     .floor()
@@ -411,21 +406,19 @@ unsafe fn add_TTCIDHMetrics(
 }
 unsafe fn add_TTCIDVMetrics(
     fontdict: *mut pdf_obj,
-    g: *mut tt_glyphs,
+    g: &tt_glyphs,
     used_chars: *mut i8,
     last_cid: u16,
 ) {
     let mut empty: i32 = 1i32;
-    let defaultVertOriginY = (1000.0f64
-        * ((*g).default_advh as i32 - (*g).default_tsb as i32) as f64
-        / (*g).emsize as i32 as f64
+    let defaultVertOriginY = (1000.0f64 * (g.default_advh as i32 - g.default_tsb as i32) as f64
+        / g.emsize as i32 as f64
         / 1i32 as f64
         + 0.5f64)
         .floor()
         * 1i32 as f64;
     let defaultAdvanceHeight =
-        (1000.0f64 * (*g).default_advh as i32 as f64 / (*g).emsize as i32 as f64 / 1i32 as f64
-            + 0.5f64)
+        (1000.0f64 * g.default_advh as i32 as f64 / g.emsize as i32 as f64 / 1i32 as f64 + 0.5f64)
             .floor()
             * 1i32 as f64;
     let mut w2_array = vec![];
@@ -433,24 +426,23 @@ unsafe fn add_TTCIDVMetrics(
         if !(*used_chars.offset((cid / 8i32) as isize) as i32 & 1i32 << 7i32 - cid % 8i32 == 0) {
             let idx = tt_get_index(g, cid as u16);
             if !(cid != 0i32 && idx as i32 == 0i32) {
-                let advanceHeight = (1000.0f64
-                    * (*(*g).gd.offset(idx as isize)).advh as i32 as f64
-                    / (*g).emsize as i32 as f64
+                let advanceHeight = (1000.0f64 * (*g.gd.offset(idx as isize)).advh as i32 as f64
+                    / g.emsize as i32 as f64
                     / 1i32 as f64
                     + 0.5f64)
                     .floor()
                     * 1i32 as f64;
                 let vertOriginX = (1000.0f64
-                    * (0.5f64 * (*(*g).gd.offset(idx as isize)).advw as i32 as f64)
-                    / (*g).emsize as i32 as f64
+                    * (0.5f64 * (*g.gd.offset(idx as isize)).advw as i32 as f64)
+                    / g.emsize as i32 as f64
                     / 1i32 as f64
                     + 0.5f64)
                     .floor()
                     * 1i32 as f64;
                 let vertOriginY = (1000.0f64
-                    * ((*(*g).gd.offset(idx as isize)).tsb as i32
-                        + (*(*g).gd.offset(idx as isize)).ury as i32) as f64
-                    / (*g).emsize as i32 as f64
+                    * ((*g.gd.offset(idx as isize)).tsb as i32
+                        + (*g.gd.offset(idx as isize)).ury as i32) as f64
+                    / g.emsize as i32 as f64
                     / 1i32 as f64
                     + 0.5f64)
                     .floor()
@@ -700,7 +692,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
          */
         cmap = find_tocode_cmap(&(*font.csi).registry, &(*font.csi).ordering, i)
     } /* .notdef */
-    let glyphs = tt_build_init();
+    let mut glyphs = tt_glyphs::init();
     let mut last_cid = 0i32 as CID;
     let mut num_glyphs = 1_u16;
     let mut v_used_chars = ptr::null_mut();
@@ -801,7 +793,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                     warn!("Glyph missing in font. (CID={}, code=0x{:04x})", cid, code,);
                 }
                 /* TODO: duplicated glyph */
-                tt_add_glyph(glyphs, gid, cid);
+                tt_add_glyph(&mut glyphs, gid, cid);
                 /* !NO_GHOSTSCRIPT_BUG */
                 num_glyphs = num_glyphs.wrapping_add(1)
             }
@@ -875,7 +867,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                     } else if !gsub_list.is_null() {
                         otl_gsub_apply(gsub_list, &mut gid_0);
                     }
-                    tt_add_glyph(glyphs, gid_0, cid);
+                    tt_add_glyph(&mut glyphs, gid_0, cid);
                     /* !NO_GHOSTSCRIPT_BUG */
                     if !used_chars.is_null() {
                         /* merge vertical used_chars to horizontal */
@@ -899,13 +891,13 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     }
     tt_cmap_release(ttcmap);
     if CIDFont_get_embedding(font) != 0 {
-        if tt_build_tables(&mut sfont, glyphs) < 0i32 {
+        if tt_build_tables(&mut sfont, &mut glyphs) < 0 {
             panic!("Could not created FontFile stream.");
         }
         if verbose > 1i32 {
-            info!("[{} glyphs (Max CID: {})]", (*glyphs).num_glyphs, last_cid);
+            info!("[{} glyphs (Max CID: {})]", glyphs.num_glyphs, last_cid);
         }
-    } else if tt_get_metrics(&mut sfont, glyphs) < 0i32 {
+    } else if tt_get_metrics(&mut sfont, &mut glyphs) < 0 {
         panic!("Reading glyph metrics failed...");
     }
     /*
@@ -914,12 +906,11 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     if opt_flags & 1i32 << 1i32 != 0 {
         (*font.fontdict).as_dict_mut().set("DW", 1000_f64);
     } else {
-        add_TTCIDHMetrics(font.fontdict, glyphs, used_chars, cidtogidmap, last_cid);
+        add_TTCIDHMetrics(font.fontdict, &glyphs, used_chars, cidtogidmap, last_cid);
         if !v_used_chars.is_null() {
-            add_TTCIDVMetrics(font.fontdict, glyphs, used_chars, last_cid);
+            add_TTCIDVMetrics(font.fontdict, &glyphs, used_chars, last_cid);
         }
     }
-    tt_build_finish(glyphs);
     /* Finish here if not embedded. */
     if CIDFont_get_embedding(font) == 0 {
         free(cidtogidmap as *mut libc::c_void);

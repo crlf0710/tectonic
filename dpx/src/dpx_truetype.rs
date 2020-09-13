@@ -50,9 +50,7 @@ use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use super::dpx_tt_aux::ttc_read_offset;
 use super::dpx_tt_cmap::{tt_cmap_lookup, tt_cmap_read, tt_cmap_release};
-use super::dpx_tt_glyf::{
-    tt_add_glyph, tt_build_finish, tt_build_init, tt_build_tables, tt_find_glyph, tt_get_index,
-};
+use super::dpx_tt_glyf::{tt_add_glyph, tt_build_tables, tt_find_glyph, tt_get_index, tt_glyphs};
 use super::dpx_tt_gsub::{
     otl_gsub, otl_gsub_add_feat, otl_gsub_apply, otl_gsub_apply_alt, otl_gsub_apply_lig,
     otl_gsub_new, otl_gsub_release, otl_gsub_select,
@@ -321,7 +319,7 @@ unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: 
     /* Length   */
     put_big_endian(cmap_table.offset(16) as *mut libc::c_void, 0i32, 2i32);
     /* Language */
-    let glyphs = tt_build_init(); /* .notdef */
+    let mut glyphs = tt_glyphs::init(); /* .notdef */
     if verbose > 2i32 {
         info!("[glyphs:/.notdef");
     }
@@ -341,9 +339,9 @@ unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: 
                 );
                 idx = 0_u16
             } else {
-                idx = tt_find_glyph(glyphs, gid);
+                idx = tt_find_glyph(&glyphs, gid);
                 if idx as i32 == 0i32 {
-                    idx = tt_add_glyph(glyphs, gid, count as u16)
+                    idx = tt_add_glyph(&mut glyphs, gid, count as u16)
                 }
                 /* count returned. */
             } /* bug here */
@@ -355,31 +353,29 @@ unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: 
     if verbose > 2i32 {
         info!("]");
     }
-    if tt_build_tables(sfont, glyphs) < 0i32 {
+    if tt_build_tables(sfont, &mut glyphs) < 0 {
         warn!("Packing TrueType font into SFNT failed!");
-        tt_build_finish(glyphs);
         free(cmap_table as *mut libc::c_void);
         return -1i32;
     }
     for code in 0..256 {
         if *usedchars.offset(code as isize) != 0 {
-            let idx = tt_get_index(glyphs, *cmap_table.offset((18i32 + code) as isize) as u16);
+            let idx = tt_get_index(&glyphs, *cmap_table.offset((18i32 + code) as isize) as u16);
             widths[code as usize] = (1000.0f64
-                * (*(*glyphs).gd.offset(idx as isize)).advw as i32 as f64
-                / (*glyphs).emsize as i32 as f64
+                * (*glyphs.gd.offset(idx as isize)).advw as i32 as f64
+                / glyphs.emsize as i32 as f64
                 / 1i32 as f64
                 + 0.5f64)
                 .floor()
                 * 1i32 as f64
         } else {
-            widths[code as usize] = 0.0f64
+            widths[code as usize] = 0.;
         }
     }
     do_widths(font, widths.as_mut_ptr());
     if verbose > 1i32 {
-        info!("[{} glyphs]", (*glyphs).num_glyphs as i32);
+        info!("[{} glyphs]", glyphs.num_glyphs as i32);
     }
-    tt_build_finish(glyphs);
     sfnt_set_table(
         sfont,
         sfnt_table_info::CMAP,
@@ -827,7 +823,7 @@ unsafe fn do_custom_encoding(
         warn!(">> I can\'t find glyphs without this!");
         return -1i32;
     } else {
-        let glyphs;
+        let mut glyphs;
         let cmap_table;
         {
             let mut gm = glyph_mapper {
@@ -855,7 +851,7 @@ unsafe fn do_custom_encoding(
             /* Length   */
             put_big_endian(cmap_table.offset(16) as *mut libc::c_void, 0i32, 2i32);
             /* Language */
-            glyphs = tt_build_init(); /* +1 for .notdef */
+            glyphs = tt_glyphs::init(); /* +1 for .notdef */
             let mut count = 1;
             for code in 0..256 {
                 if !(*usedchars.offset(code as isize) == 0) {
@@ -889,9 +885,9 @@ unsafe fn do_custom_encoding(
                                 encoding[code as usize], gid,
                             );
                         }
-                        idx = tt_find_glyph(glyphs, gid);
+                        idx = tt_find_glyph(&glyphs, gid);
                         if idx as i32 == 0i32 {
-                            idx = tt_add_glyph(glyphs, gid, count as u16);
+                            idx = tt_add_glyph(&mut glyphs, gid, count as u16);
                             count += 1
                         }
                     }
@@ -900,18 +896,17 @@ unsafe fn do_custom_encoding(
                 /* bug here */
             } /* _FIXME_: wrong message */
         }
-        if tt_build_tables(sfont, glyphs) < 0i32 {
+        if tt_build_tables(sfont, &mut glyphs) < 0i32 {
             warn!("Packing TrueType font into SFNT file faild...");
-            tt_build_finish(glyphs);
             free(cmap_table as *mut libc::c_void);
             return -1i32;
         }
         for code in 0..256 {
             if *usedchars.offset(code as isize) != 0 {
-                let idx = tt_get_index(glyphs, *cmap_table.offset((18i32 + code) as isize) as u16);
+                let idx = tt_get_index(&glyphs, *cmap_table.offset((18i32 + code) as isize) as u16);
                 widths[code as usize] = (1000.0f64
-                    * (*(*glyphs).gd.offset(idx as isize)).advw as i32 as f64
-                    / (*glyphs).emsize as i32 as f64
+                    * (*glyphs.gd.offset(idx as isize)).advw as i32 as f64
+                    / glyphs.emsize as i32 as f64
                     / 1i32 as f64
                     + 0.5f64)
                     .floor()
@@ -922,9 +917,8 @@ unsafe fn do_custom_encoding(
         }
         do_widths(font, widths.as_mut_ptr());
         if verbose > 1i32 {
-            info!("[{} glyphs]", (*glyphs).num_glyphs as i32);
+            info!("[{} glyphs]", glyphs.num_glyphs as i32);
         }
-        tt_build_finish(glyphs);
         sfnt_set_table(
             sfont,
             sfnt_table_info::CMAP,
