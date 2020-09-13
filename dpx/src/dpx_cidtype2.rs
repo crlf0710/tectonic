@@ -347,8 +347,7 @@ unsafe fn add_TTCIDHMetrics(
         (1000.0f64 * g.dw as i32 as f64 / g.emsize as i32 as f64 / 1i32 as f64 + 0.5f64).floor()
             * 1i32 as f64
     } else {
-        (1000.0f64 * (*g.gd.offset(0)).advw as i32 as f64 / g.emsize as i32 as f64 / 1i32 as f64
-            + 0.5f64)
+        (1000.0f64 * g.gd[0].advw as i32 as f64 / g.emsize as i32 as f64 / 1i32 as f64 + 0.5f64)
             .floor()
             * 1i32 as f64
     };
@@ -361,8 +360,8 @@ unsafe fn add_TTCIDHMetrics(
                 cid
             }) as u16;
             let idx = tt_get_index(g, gid);
-            if !(cid != 0i32 && idx as i32 == 0i32) {
-                let width = (1000.0f64 * (*g.gd.offset(idx as isize)).advw as i32 as f64
+            if !(cid != 0i32 && idx == 0) {
+                let width = (1000.0f64 * g.gd[idx as usize].advw as i32 as f64
                     / g.emsize as i32 as f64
                     / 1i32 as f64
                     + 0.5f64)
@@ -425,23 +424,21 @@ unsafe fn add_TTCIDVMetrics(
     for cid in 0..=last_cid as i32 {
         if !(*used_chars.offset((cid / 8i32) as isize) as i32 & 1i32 << 7i32 - cid % 8i32 == 0) {
             let idx = tt_get_index(g, cid as u16);
-            if !(cid != 0i32 && idx as i32 == 0i32) {
-                let advanceHeight = (1000.0f64 * (*g.gd.offset(idx as isize)).advh as i32 as f64
+            if !(cid != 0 && idx == 0) {
+                let advanceHeight = (1000.0f64 * g.gd[idx as usize].advh as i32 as f64
                     / g.emsize as i32 as f64
                     / 1i32 as f64
                     + 0.5f64)
                     .floor()
                     * 1i32 as f64;
-                let vertOriginX = (1000.0f64
-                    * (0.5f64 * (*g.gd.offset(idx as isize)).advw as i32 as f64)
+                let vertOriginX = (1000.0f64 * (0.5f64 * g.gd[idx as usize].advw as i32 as f64)
                     / g.emsize as i32 as f64
                     / 1i32 as f64
                     + 0.5f64)
                     .floor()
                     * 1i32 as f64;
                 let vertOriginY = (1000.0f64
-                    * ((*g.gd.offset(idx as isize)).tsb as i32
-                        + (*g.gd.offset(idx as isize)).ury as i32) as f64
+                    * (g.gd[idx as usize].tsb as i32 + g.gd[idx as usize].ury as i32) as f64
                     / g.emsize as i32 as f64
                     / 1i32 as f64
                     + 0.5f64)
@@ -895,7 +892,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
             panic!("Could not created FontFile stream.");
         }
         if verbose > 1i32 {
-            info!("[{} glyphs (Max CID: {})]", glyphs.num_glyphs, last_cid);
+            info!("[{} glyphs (Max CID: {})]", glyphs.gd.len(), last_cid);
         }
     } else if tt_get_metrics(&mut sfont, &mut glyphs) < 0 {
         panic!("Reading glyph metrics failed...");

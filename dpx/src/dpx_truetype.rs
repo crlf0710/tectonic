@@ -361,8 +361,7 @@ unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: 
     for code in 0..256 {
         if *usedchars.offset(code as isize) != 0 {
             let idx = tt_get_index(&glyphs, *cmap_table.offset((18i32 + code) as isize) as u16);
-            widths[code as usize] = (1000.0f64
-                * (*glyphs.gd.offset(idx as isize)).advw as i32 as f64
+            widths[code as usize] = (1000.0f64 * glyphs.gd[idx as usize].advw as i32 as f64
                 / glyphs.emsize as i32 as f64
                 / 1i32 as f64
                 + 0.5f64)
@@ -374,7 +373,7 @@ unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: 
     }
     do_widths(font, widths.as_mut_ptr());
     if verbose > 1i32 {
-        info!("[{} glyphs]", glyphs.num_glyphs as i32);
+        info!("[{} glyphs]", glyphs.gd.len());
     }
     sfnt_set_table(
         sfont,
@@ -904,8 +903,7 @@ unsafe fn do_custom_encoding(
         for code in 0..256 {
             if *usedchars.offset(code as isize) != 0 {
                 let idx = tt_get_index(&glyphs, *cmap_table.offset((18i32 + code) as isize) as u16);
-                widths[code as usize] = (1000.0f64
-                    * (*glyphs.gd.offset(idx as isize)).advw as i32 as f64
+                widths[code as usize] = (1000.0f64 * glyphs.gd[idx as usize].advw as i32 as f64
                     / glyphs.emsize as i32 as f64
                     / 1i32 as f64
                     + 0.5f64)
@@ -917,7 +915,7 @@ unsafe fn do_custom_encoding(
         }
         do_widths(font, widths.as_mut_ptr());
         if verbose > 1i32 {
-            info!("[{} glyphs]", glyphs.num_glyphs as i32);
+            info!("[{} glyphs]", glyphs.gd.len());
         }
         sfnt_set_table(
             sfont,
