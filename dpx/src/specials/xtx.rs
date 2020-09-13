@@ -202,7 +202,7 @@ unsafe fn spc_handler_xtx_fontmapline(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 
     match opchr as i32 {
         45 => {
             if let Some(map_name) = ap.cur.parse_ident() {
-                pdf_remove_fontmap_record(&map_name.to_string_lossy());
+                pdf_remove_fontmap_record(&map_name);
             } else {
                 spc_warn!(spe, "Invalid fontmap line: Missing TFM name.");
                 error = -1i32
@@ -249,7 +249,7 @@ unsafe fn spc_handler_xtx_fontmapfile(spe: &mut SpcEnv, args: &mut SpcArg) -> i3
         _ => 0,
     };
     if let Some(mapfile) = args.cur.parse_val_ident() {
-        pdf_load_fontmap_file(&mapfile.to_string_lossy(), mode)
+        pdf_load_fontmap_file(&mapfile, mode)
     } else {
         spc_warn!(spe, "No fontmap file specified.");
         -1
