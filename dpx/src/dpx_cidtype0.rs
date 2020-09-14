@@ -157,18 +157,17 @@ unsafe fn add_CIDHMetrics(
     last_cid: u16,
     maxp: &tt_maxp_table,
     head: &tt_head_table,
-    hmtx: *mut tt_longMetrics,
+    hmtx: &[tt_longMetrics],
 ) {
     let mut an_array = None;
     let mut start: i32 = 0i32;
     let mut prev: i32 = 0i32;
     let mut empty: i32 = 1i32;
-    let defaultAdvanceWidth = (1000.0f64 * (*hmtx.offset(0)).advance as i32 as f64
-        / head.unitsPerEm as i32 as f64
-        / 1i32 as f64
-        + 0.5f64)
-        .floor()
-        * 1i32 as f64;
+    let defaultAdvanceWidth =
+        (1000.0f64 * hmtx[0].advance as i32 as f64 / head.unitsPerEm as i32 as f64 / 1i32 as f64
+            + 0.5f64)
+            .floor()
+            * 1i32 as f64;
     /*
      * We alway use format:
      *  c [w_1 w_2 ... w_n]
@@ -182,7 +181,7 @@ unsafe fn add_CIDHMetrics(
             cid
         }) as u16;
         if !(gid as i32 >= maxp.numGlyphs as i32 || cid != 0i32 && gid as i32 == 0i32) {
-            let advanceWidth = (1000.0f64 * (*hmtx.offset(gid as isize)).advance as i32 as f64
+            let advanceWidth = (1000.0f64 * hmtx[gid as usize].advance as i32 as f64
                 / head.unitsPerEm as i32 as f64
                 / 1i32 as f64
                 + 0.5f64)
@@ -233,9 +232,9 @@ unsafe fn add_CIDVMetrics(
     last_cid: u16,
     maxp: &tt_maxp_table,
     head: &tt_head_table,
-    hmtx: *mut tt_longMetrics,
+    hmtx: &[tt_longMetrics],
 ) {
-    let mut vmtx: *mut tt_longMetrics = ptr::null_mut();
+    let mut vmtx = None;
     let defaultAdvanceHeight;
     let mut empty: i32 = 1i32;
     /*
@@ -260,12 +259,12 @@ unsafe fn add_CIDVMetrics(
     match vhea {
         Some(vhea) if sfnt_find_table_pos(sfont, b"vmtx") > 0 => {
             sfnt_locate_table(sfont, b"vmtx");
-            vmtx = tt_read_longMetrics(
+            vmtx = Some(tt_read_longMetrics(
                 &mut &*sfont.handle,
                 maxp.numGlyphs,
                 vhea.numOfLongVerMetrics,
                 vhea.numOfExSideBearings,
-            )
+            ))
         }
         _ => {}
     }
@@ -298,8 +297,8 @@ unsafe fn add_CIDVMetrics(
             cid
         }) as u16;
         if !(gid as i32 >= maxp.numGlyphs as i32 || cid != 0i32 && gid as i32 == 0i32) {
-            let advanceHeight = if !vmtx.is_null() {
-                (1000.0f64 * (*vmtx.offset(gid as isize)).advance as i32 as f64
+            let advanceHeight = if let Some(vmtx) = vmtx.as_ref() {
+                (1000.0f64 * vmtx[gid as usize].advance as i32 as f64
                     / head.unitsPerEm as i32 as f64
                     / 1i32 as f64
                     + 0.5f64)
@@ -308,8 +307,7 @@ unsafe fn add_CIDVMetrics(
             } else {
                 defaultAdvanceHeight
             };
-            let vertOriginX = (1000.0f64
-                * ((*hmtx.offset(gid as isize)).advance as i32 as f64 * 0.5f64)
+            let vertOriginX = (1000.0f64 * (hmtx[gid as usize].advance as i32 as f64 * 0.5f64)
                 / head.unitsPerEm as i32 as f64
                 / 1i32 as f64
                 + 0.5f64)
@@ -356,7 +354,6 @@ unsafe fn add_CIDVMetrics(
         (*fontdict).as_dict_mut().set("W2", pdf_ref_obj(w2_array));
     }
     pdf_release_obj(w2_array);
-    free(vmtx as *mut libc::c_void);
 }
 unsafe fn add_CIDMetrics(
     sfont: &sfnt,
@@ -382,11 +379,25 @@ unsafe fn add_CIDMetrics(
         hhea.numOfLongHorMetrics,
         hhea.numOfExSideBearings,
     );
-    add_CIDHMetrics(fontdict, CIDToGIDMap, last_cid, &maxp, &head, hmtx);
+    add_CIDHMetrics(
+        fontdict,
+        CIDToGIDMap,
+        last_cid,
+        &maxp,
+        &head,
+        hmtx.as_slice(),
+    );
     if need_vmetrics != 0 {
-        add_CIDVMetrics(sfont, fontdict, CIDToGIDMap, last_cid, &maxp, &head, hmtx);
+        add_CIDVMetrics(
+            sfont,
+            fontdict,
+            CIDToGIDMap,
+            last_cid,
+            &maxp,
+            &head,
+            hmtx.as_slice(),
+        );
     }
-    free(hmtx as *mut libc::c_void);
 }
 /*
  * Create an instance of embeddable font.

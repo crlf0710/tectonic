@@ -24,7 +24,6 @@
 use super::dpx_numbers::GetFromFile;
 use crate::warn;
 
-use super::dpx_mem::new;
 use super::dpx_sfnt::{sfnt_find_table_len, sfnt_find_table_pos, sfnt_locate_table};
 use crate::dpx_truetype::sfnt_table_info;
 
@@ -34,7 +33,7 @@ use std::io::{Read, Seek, SeekFrom};
 pub(crate) type __ssize_t = i64;
 pub(crate) type Fixed = u32;
 
-use super::dpx_sfnt::{put_big_endian, sfnt};
+use super::dpx_sfnt::{sfnt, PutBE};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -180,41 +179,30 @@ pub(crate) struct tt_longMetrics {
   head->glyphDataFormat --> glyf
 */
 
-pub(crate) unsafe fn tt_pack_head_table(table: &tt_head_table) -> *mut i8 {
-    let data = new((54u64 as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-        as *mut i8;
-    let mut p = data;
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.version as i32, 4i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.fontRevision as i32, 4i32) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        table.checkSumAdjustment as i32,
-        4i32,
-    ) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.magicNumber as i32, 4i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.flags as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.unitsPerEm as i32, 2i32) as isize);
-    for i in 0..8 {
-        *p = table.created[i] as i8;
-        p = p.offset(1);
+pub(crate) unsafe fn tt_pack_head_table(table: &tt_head_table) -> Vec<u8> {
+    let mut data = Vec::with_capacity(54);
+    data.put_be(table.version);
+    data.put_be(table.fontRevision);
+    data.put_be(table.checkSumAdjustment);
+    data.put_be(table.magicNumber);
+    data.put_be(table.flags);
+    data.put_be(table.unitsPerEm);
+    for b in &table.created {
+        data.push(*b);
     }
-    for i in 0..8 {
-        *p = table.modified[i] as i8;
-        p = p.offset(1);
+    for b in &table.modified {
+        data.push(*b);
     }
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.xMin as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.yMin as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.xMax as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.yMax as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.macStyle as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.lowestRecPPEM as i32, 2i32) as isize);
-    p = p.offset(
-        put_big_endian(p as *mut libc::c_void, table.fontDirectionHint as i32, 2i32) as isize,
-    );
-    p = p.offset(
-        put_big_endian(p as *mut libc::c_void, table.indexToLocFormat as i32, 2i32) as isize,
-    );
-    p.offset(put_big_endian(p as *mut libc::c_void, table.glyphDataFormat as i32, 2i32) as isize);
+    data.put_be(table.xMin);
+    data.put_be(table.yMin);
+    data.put_be(table.xMax);
+    data.put_be(table.yMax);
+    data.put_be(table.macStyle);
+    data.put_be(table.lowestRecPPEM);
+    data.put_be(table.fontDirectionHint);
+    data.put_be(table.indexToLocFormat);
+    data.put_be(table.glyphDataFormat);
+
     data
 }
 
@@ -266,51 +254,23 @@ pub(crate) unsafe fn tt_read_head_table(sfont: &sfnt) -> Box<tt_head_table> {
     })
 }
 
-pub(crate) unsafe fn tt_pack_maxp_table(table: &tt_maxp_table) -> *mut i8 {
-    let data = new((32u64 as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-        as *mut i8;
-    let mut p = data;
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.version as i32, 4i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.numGlyphs as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.maxPoints as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.maxContours as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        table.maxComponentPoints as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        table.maxComponentContours as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.maxZones as i32, 2i32) as isize);
-    p = p.offset(
-        put_big_endian(p as *mut libc::c_void, table.maxTwilightPoints as i32, 2i32) as isize,
-    );
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.maxStorage as i32, 2i32) as isize);
-    p = p.offset(
-        put_big_endian(p as *mut libc::c_void, table.maxFunctionDefs as i32, 2i32) as isize,
-    );
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        table.maxInstructionDefs as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(
-        put_big_endian(p as *mut libc::c_void, table.maxStackElements as i32, 2i32) as isize,
-    );
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        table.maxSizeOfInstructions as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        table.maxComponentElements as i32,
-        2i32,
-    ) as isize);
-    put_big_endian(p as *mut libc::c_void, table.maxComponentDepth as i32, 2i32);
+pub(crate) unsafe fn tt_pack_maxp_table(table: &tt_maxp_table) -> Vec<u8> {
+    let mut data = Vec::with_capacity(32);
+    data.put_be(table.version);
+    data.put_be(table.numGlyphs);
+    data.put_be(table.maxPoints);
+    data.put_be(table.maxContours);
+    data.put_be(table.maxComponentPoints);
+    data.put_be(table.maxComponentContours);
+    data.put_be(table.maxZones);
+    data.put_be(table.maxTwilightPoints);
+    data.put_be(table.maxStorage);
+    data.put_be(table.maxFunctionDefs);
+    data.put_be(table.maxInstructionDefs);
+    data.put_be(table.maxStackElements);
+    data.put_be(table.maxSizeOfInstructions);
+    data.put_be(table.maxComponentElements);
+    data.put_be(table.maxComponentDepth);
     data
 }
 
@@ -352,45 +312,25 @@ pub(crate) unsafe fn tt_read_maxp_table(sfont: &sfnt) -> Box<tt_maxp_table> {
     })
 }
 
-pub(crate) unsafe fn tt_pack_hhea_table(table: &tt_hhea_table) -> *mut i8 {
-    let data = new((36u64 as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-        as *mut i8;
-    let mut p = data;
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.version as i32, 4i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.ascent as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.descent as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.lineGap as i32, 2i32) as isize);
-    p = p.offset(
-        put_big_endian(p as *mut libc::c_void, table.advanceWidthMax as i32, 2i32) as isize,
-    );
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        table.minLeftSideBearing as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        table.minRightSideBearing as i32,
-        2i32,
-    ) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.xMaxExtent as i32, 2i32) as isize);
-    p = p
-        .offset(put_big_endian(p as *mut libc::c_void, table.caretSlopeRise as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.caretSlopeRun as i32, 2i32) as isize);
-    p = p.offset(put_big_endian(p as *mut libc::c_void, table.caretOffset as i32, 2i32) as isize);
-    for i in 0..4 {
-        p = p.offset(
-            put_big_endian(p as *mut libc::c_void, table.reserved[i] as i32, 2i32) as isize,
-        );
+pub(crate) unsafe fn tt_pack_hhea_table(table: &tt_hhea_table) -> Vec<u8> {
+    let mut data = Vec::with_capacity(36);
+    data.put_be(table.version);
+    data.put_be(table.ascent);
+    data.put_be(table.descent);
+    data.put_be(table.lineGap);
+    data.put_be(table.advanceWidthMax);
+    data.put_be(table.minLeftSideBearing);
+    data.put_be(table.minRightSideBearing);
+    data.put_be(table.xMaxExtent);
+    data.put_be(table.caretSlopeRise);
+    data.put_be(table.caretSlopeRun);
+    data.put_be(table.caretOffset);
+    for i in &table.reserved {
+        data.put_be(*i);
     }
-    p = p.offset(
-        put_big_endian(p as *mut libc::c_void, table.metricDataFormat as i32, 2i32) as isize,
-    );
-    p.offset(put_big_endian(
-        p as *mut libc::c_void,
-        table.numOfLongHorMetrics as i32,
-        2i32,
-    ) as isize);
+    data.put_be(table.metricDataFormat);
+    data.put_be(table.numOfLongHorMetrics);
+
     data
 }
 
@@ -528,12 +468,10 @@ pub(crate) unsafe fn tt_read_longMetrics<R: Read>(
     numGlyphs: u16,
     numLongMetrics: u16,
     numExSideBearings: u16,
-) -> *mut tt_longMetrics {
+) -> Vec<tt_longMetrics> {
     let mut last_adv: u16 = 0_u16;
     let mut last_esb: i16 = 0_i16;
-    let m = new((numGlyphs as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<tt_longMetrics>() as u64) as u32)
-        as *mut tt_longMetrics;
+    let mut m = Vec::with_capacity(numGlyphs as usize);
     for gid in 0..numGlyphs {
         if (gid as i32) < numLongMetrics as i32 {
             last_adv = u16::get(handle)
@@ -541,8 +479,10 @@ pub(crate) unsafe fn tt_read_longMetrics<R: Read>(
         if (gid as i32) < numLongMetrics as i32 + numExSideBearings as i32 {
             last_esb = i16::get(handle)
         }
-        (*m.offset(gid as isize)).advance = last_adv;
-        (*m.offset(gid as isize)).sideBearing = last_esb;
+        m.push(tt_longMetrics {
+            advance: last_adv,
+            sideBearing: last_esb,
+        });
     }
     m
 }

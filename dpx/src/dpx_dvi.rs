@@ -122,8 +122,7 @@ pub(crate) struct font_def {
     pub(crate) slant: i32,
     pub(crate) embolden: i32,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct loaded_font {
     pub(crate) type_0: i32,
     pub(crate) font_id: i32,
@@ -132,7 +131,7 @@ pub(crate) struct loaded_font {
     pub(crate) size: spt_t,
     pub(crate) source: i32,
     pub(crate) rgba_color: u32,
-    pub(crate) hvmt: *mut tt_longMetrics,
+    pub(crate) hvmt: Vec<tt_longMetrics>,
     pub(crate) ascent: i32,
     pub(crate) descent: i32,
     pub(crate) unitsPerEm: u32,
@@ -767,7 +766,7 @@ pub(crate) unsafe fn dvi_locate_font(tfm_name: &str, ptsize: spt_t) -> u32 {
         type_0: 0,
         font_id: 0,
         rgba_color: 0,
-        hvmt: ptr::null_mut(),
+        hvmt: Vec::new(),
         ascent: 0,
         descent: 0,
         unitsPerEm: 0,
@@ -972,7 +971,7 @@ unsafe fn dvi_locate_native_font(
 
         // zero-initialize other fields
         rgba_color: 0,
-        hvmt: ptr::null_mut(),
+        hvmt: Vec::new(),
         ascent: 0,
         descent: 0,
         unitsPerEm: 0,
@@ -1649,7 +1648,7 @@ unsafe fn do_glyphs(do_actual_text: i32) {
                 ascent = gm.bbox.ury;
                 descent = gm.bbox.lly
             } else {
-                advance = (*(*font).hvmt.offset(glyph_id as isize)).advance as u32
+                advance = (*font).hvmt[glyph_id as usize].advance as u32
             }
             glyph_width =
                 ((*font).size as f64 * advance as f64 / (*font).unitsPerEm as f64) as spt_t;
@@ -1950,7 +1949,7 @@ pub(crate) unsafe fn dvi_close() {
     num_pages = 0_u32;
 
     for font in &mut loaded_fonts {
-        font.hvmt = mfree(font.hvmt as *mut libc::c_void) as _;
+        font.hvmt = Vec::new();
         if !(font.cffont.is_null()) {
             let _ = Box::from_raw(font.cffont);
         }

@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use super::dpx_numbers::GetFromFile;

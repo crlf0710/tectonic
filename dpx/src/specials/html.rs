@@ -19,10 +19,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
-#![allow(
-non_camel_case_types,
-non_snake_case,
-)]
+#![allow(non_camel_case_types, non_snake_case)]
 
 use crate::bridge::DisplayExt;
 use std::ffi::{CStr, CString};

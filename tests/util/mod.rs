@@ -10,7 +10,6 @@
 // using this testing setup...
 #![allow(dead_code)]
 
-
 use ::flate2::read::GzDecoder;
 use std::collections::{HashMap, HashSet};
 use std::env;

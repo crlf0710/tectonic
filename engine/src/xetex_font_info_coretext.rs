@@ -1,11 +1,13 @@
 #![cfg(target_os = "macos")]
-#![allow(dead_code,
-         mutable_transmutes,
-         non_camel_case_types,
-         non_snake_case,
-         non_upper_case_globals,
-         unused_assignments,
-         unused_mut)]
+#![allow(
+    dead_code,
+    mutable_transmutes,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_assignments,
+    unused_mut
+)]
 
 use crate::xetex_aatfont::getFileNameFromCTFont;
 use crate::xetex_font_info::{XeTeXFontInst_base_ctor, XeTeXFontInst_initialize};
