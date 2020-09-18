@@ -41,7 +41,6 @@ use libc::{free, memcpy, memmove, memset};
 
 use std::io::{Read, Seek, SeekFrom};
 
-pub(crate) type __ssize_t = i64;
 use bridge::DroppableInputHandleWrapper as InFile;
 
 /* CFF Data Types */

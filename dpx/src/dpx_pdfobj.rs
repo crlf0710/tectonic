@@ -49,7 +49,6 @@ use libc::{free, memset, strlen, strtoul};
 
 use libz_sys as libz;
 
-pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
 use bridge::{DroppableInputHandleWrapper as InFile, OutputHandleWrapper};
 

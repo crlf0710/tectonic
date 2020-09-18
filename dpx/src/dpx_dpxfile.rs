@@ -30,8 +30,6 @@ use std::io::{Read, Seek, SeekFrom};
 
 use super::dpx_numbers::GetFromFile;
 
-pub(crate) type __ssize_t = i64;
-
 use crate::bridge::TTInputFormat;
 
 use bridge::DroppableInputHandleWrapper as InFile;

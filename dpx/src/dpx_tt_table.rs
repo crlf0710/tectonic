@@ -27,10 +27,8 @@ use crate::warn;
 use super::dpx_sfnt::{sfnt_find_table_len, sfnt_find_table_pos, sfnt_locate_table};
 use crate::dpx_truetype::sfnt_table_info;
 
-use std::ffi::CStr;
 use std::io::{Read, Seek, SeekFrom};
 
-pub(crate) type __ssize_t = i64;
 pub(crate) type Fixed = u32;
 
 use super::dpx_sfnt::{sfnt, PutBE};
@@ -179,7 +177,7 @@ pub(crate) struct tt_longMetrics {
   head->glyphDataFormat --> glyf
 */
 
-pub(crate) unsafe fn tt_pack_head_table(table: &tt_head_table) -> Vec<u8> {
+pub(crate) fn tt_pack_head_table(table: &tt_head_table) -> Vec<u8> {
     let mut data = Vec::with_capacity(54);
     data.put_be(table.version);
     data.put_be(table.fontRevision);
@@ -206,7 +204,7 @@ pub(crate) unsafe fn tt_pack_head_table(table: &tt_head_table) -> Vec<u8> {
     data
 }
 
-pub(crate) unsafe fn tt_read_head_table(sfont: &sfnt) -> Box<tt_head_table> {
+pub(crate) fn tt_read_head_table(sfont: &sfnt) -> Box<tt_head_table> {
     sfnt_locate_table(sfont, sfnt_table_info::HEAD);
     let handle = &mut &*sfont.handle;
     let version = u32::get(handle);
@@ -254,7 +252,7 @@ pub(crate) unsafe fn tt_read_head_table(sfont: &sfnt) -> Box<tt_head_table> {
     })
 }
 
-pub(crate) unsafe fn tt_pack_maxp_table(table: &tt_maxp_table) -> Vec<u8> {
+pub(crate) fn tt_pack_maxp_table(table: &tt_maxp_table) -> Vec<u8> {
     let mut data = Vec::with_capacity(32);
     data.put_be(table.version);
     data.put_be(table.numGlyphs);
@@ -274,7 +272,7 @@ pub(crate) unsafe fn tt_pack_maxp_table(table: &tt_maxp_table) -> Vec<u8> {
     data
 }
 
-pub(crate) unsafe fn tt_read_maxp_table(sfont: &sfnt) -> Box<tt_maxp_table> {
+pub(crate) fn tt_read_maxp_table(sfont: &sfnt) -> Box<tt_maxp_table> {
     sfnt_locate_table(sfont, sfnt_table_info::MAXP);
     let handle = &mut &*sfont.handle;
     let version = u32::get(handle);
@@ -312,7 +310,7 @@ pub(crate) unsafe fn tt_read_maxp_table(sfont: &sfnt) -> Box<tt_maxp_table> {
     })
 }
 
-pub(crate) unsafe fn tt_pack_hhea_table(table: &tt_hhea_table) -> Vec<u8> {
+pub(crate) fn tt_pack_hhea_table(table: &tt_hhea_table) -> Vec<u8> {
     let mut data = Vec::with_capacity(36);
     data.put_be(table.version);
     data.put_be(table.ascent);
@@ -334,7 +332,7 @@ pub(crate) unsafe fn tt_pack_hhea_table(table: &tt_hhea_table) -> Vec<u8> {
     data
 }
 
-pub(crate) unsafe fn tt_read_hhea_table(sfont: &sfnt) -> Box<tt_hhea_table> {
+pub(crate) fn tt_read_hhea_table(sfont: &sfnt) -> Box<tt_hhea_table> {
     sfnt_locate_table(sfont, sfnt_table_info::HHEA);
     let handle = &mut &*sfont.handle;
     let version = u32::get(handle);
@@ -382,7 +380,7 @@ pub(crate) unsafe fn tt_read_hhea_table(sfont: &sfnt) -> Box<tt_hhea_table> {
 }
 /* vhea */
 
-pub(crate) unsafe fn tt_read_vhea_table(sfont: &sfnt) -> Box<tt_vhea_table> {
+pub(crate) fn tt_read_vhea_table(sfont: &sfnt) -> Box<tt_vhea_table> {
     sfnt_locate_table(sfont, b"vhea");
     let handle = &mut &*sfont.handle;
     let version = u32::get(handle);
@@ -426,7 +424,7 @@ pub(crate) unsafe fn tt_read_vhea_table(sfont: &sfnt) -> Box<tt_vhea_table> {
     })
 }
 
-pub(crate) unsafe fn tt_read_VORG_table(sfont: &sfnt) -> Option<Box<tt_VORG_table>> {
+pub(crate) fn tt_read_VORG_table(sfont: &sfnt) -> Option<Box<tt_VORG_table>> {
     let offset = sfnt_find_table_pos(sfont, b"VORG");
     let handle = &mut &*sfont.handle;
     if offset > 0 {
@@ -463,7 +461,7 @@ pub(crate) unsafe fn tt_read_VORG_table(sfont: &sfnt) -> Option<Box<tt_VORG_tabl
  *  Reading/writing hmtx and vmtx depend on other tables, maxp and hhea/vhea.
  */
 
-pub(crate) unsafe fn tt_read_longMetrics<R: Read>(
+pub(crate) fn tt_read_longMetrics<R: Read>(
     handle: &mut R,
     numGlyphs: u16,
     numLongMetrics: u16,
@@ -489,7 +487,7 @@ pub(crate) unsafe fn tt_read_longMetrics<R: Read>(
 /* OS/2 table */
 /* this table may not exist */
 
-pub(crate) unsafe fn tt_read_os2__table(sfont: &sfnt) -> Box<tt_os2__table> {
+pub(crate) fn tt_read_os2__table(sfont: &sfnt) -> Box<tt_os2__table> {
     let handle = &mut &*sfont.handle;
     let version;
     let xAvgCharWidth;
@@ -638,16 +636,15 @@ pub(crate) unsafe fn tt_read_os2__table(sfont: &sfnt) -> Box<tt_os2__table> {
         usMaxContext,
     })
 }
-unsafe fn tt_get_name(
+fn tt_get_name(
     sfont: &sfnt,
-    dest: *mut i8,
-    destlen: u16,
+    dest: &mut [u8],
     plat_id: u16,
     enco_id: u16,
     lang_id: u16,
     name_id: u16,
-) -> u16 {
-    let mut length: u16 = 0_u16;
+) -> usize {
+    let mut length = 0;
     let name_offset = sfnt_locate_table(sfont, sfnt_table_info::NAME);
     let handle = &mut &*sfont.handle;
     if u16::get(handle) != 0 {
@@ -661,7 +658,7 @@ unsafe fn tt_get_name(
         let e_id = u16::get(handle);
         let l_id = u16::get(handle);
         let n_id = u16::get(handle);
-        length = u16::get(handle);
+        length = u16::get(handle) as usize;
         let offset = u16::get(handle);
         /* language ID value 0xffffu for `accept any language ID' */
         if p_id as i32 == plat_id as i32
@@ -669,12 +666,13 @@ unsafe fn tt_get_name(
             && (lang_id as u32 == 0xffffu32 || l_id as i32 == lang_id as i32)
             && n_id as i32 == name_id as i32
         {
-            if length as i32 > destlen as i32 - 1i32 {
+            if length > dest.len() - 1 {
                 warn!(
                     "Name string too long ({}), truncating to {}",
-                    length, destlen,
+                    length,
+                    dest.len(),
                 );
-                length = (destlen as i32 - 1i32) as u16
+                length = dest.len() - 1;
             }
             handle
                 .seek(SeekFrom::Start(
@@ -682,16 +680,14 @@ unsafe fn tt_get_name(
                 ))
                 .unwrap();
 
-            let slice = std::slice::from_raw_parts_mut(dest as *mut u8, length as usize);
-            handle.read(slice).unwrap();
-            *dest.offset(length as isize) = '\u{0}' as i32 as i8;
+            handle.read(&mut dest[..length]).unwrap();
             break;
         } else {
             i += 1
         }
     }
     if i == num_names as i32 {
-        length = 0_u16
+        length = 0;
     }
     length
 }
@@ -716,62 +712,38 @@ unsafe fn tt_get_name(
 /* OS/2 table */
 /* name table */
 
-pub(crate) unsafe fn tt_get_ps_fontname(sfont: &sfnt) -> Option<String> {
+pub(crate) fn tt_get_ps_fontname(sfont: &sfnt) -> Option<String> {
     let mut dest = [0; 128];
     /* First try Mac-Roman PS name and then Win-Unicode PS name */
-    let mut namelen = tt_get_name(sfont, dest.as_mut_ptr(), 127, 1_u16, 0_u16, 0_u16, 6_u16);
-    if namelen as i32 != 0i32
+    let mut namelen = tt_get_name(sfont, &mut dest[..127], 1_u16, 0_u16, 0_u16, 6_u16);
+    if namelen != 0
         || {
-            namelen = tt_get_name(
-                sfont,
-                dest.as_mut_ptr(),
-                127,
-                3_u16,
-                1_u16,
-                0x409_u16,
-                6_u16,
-            );
-            namelen as i32 != 0i32
+            namelen = tt_get_name(sfont, &mut dest[..127], 3_u16, 1_u16, 0x409_u16, 6_u16);
+            namelen != 0
         }
         || {
-            namelen = tt_get_name(
-                sfont,
-                dest.as_mut_ptr(),
-                127,
-                3_u16,
-                5_u16,
-                0x412_u16,
-                6_u16,
-            );
-            namelen as i32 != 0i32
+            namelen = tt_get_name(sfont, &mut dest[..127], 3_u16, 5_u16, 0x412_u16, 6_u16);
+            namelen != 0
         }
     {
-        return Some(CStr::from_ptr(dest.as_ptr()).to_str().unwrap().to_owned());
+        return Some(std::str::from_utf8(&dest[..namelen]).unwrap().to_string());
     }
     warn!("No valid PostScript name available");
     /*
       Workaround for some bad TTfonts:
       Language ID value 0xffffu for `accept any language ID'
     */
-    namelen = tt_get_name(
-        sfont,
-        dest.as_mut_ptr(),
-        127,
-        1_u16,
-        0_u16,
-        0xffff_u16,
-        6_u16,
-    );
-    if namelen as i32 == 0i32 {
+    namelen = tt_get_name(sfont, &mut dest[..127], 1_u16, 0_u16, 0xffff_u16, 6_u16);
+    if namelen == 0 {
         /*
           Finally falling back to Mac Roman name field.
           Warning: Some bad Japanese TTfonts using SJIS encoded string in the
           Mac Roman name field.
         */
-        namelen = tt_get_name(sfont, dest.as_mut_ptr(), 127, 1_u16, 0_u16, 0_u16, 1_u16)
+        namelen = tt_get_name(sfont, &mut dest[..127], 1_u16, 0_u16, 0_u16, 1_u16)
     }
     if namelen != 0 {
-        Some(CStr::from_ptr(dest.as_ptr()).to_str().unwrap().to_owned())
+        Some(std::str::from_utf8(&dest[..namelen]).unwrap().to_string())
     } else {
         None
     }

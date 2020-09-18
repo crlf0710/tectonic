@@ -37,7 +37,6 @@ use libc::free;
 
 use std::io::{Read, Seek, SeekFrom};
 
-pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};

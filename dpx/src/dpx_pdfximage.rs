@@ -47,8 +47,6 @@ use libc::{free, strcpy, strlen};
 
 use std::io::{Read, Seek, SeekFrom};
 
-pub(crate) type __ssize_t = i64;
-
 use crate::bridge::TTInputFormat;
 
 use bridge::DroppableInputHandleWrapper as InFile;

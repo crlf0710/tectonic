@@ -42,7 +42,6 @@ use libc::{free, memset};
 
 use std::io::{Seek, SeekFrom};
 
-pub(crate) type __ssize_t = i64;
 pub(crate) type Fixed = u32;
 
 use super::dpx_sfnt::sfnt;

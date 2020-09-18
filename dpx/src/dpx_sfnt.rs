@@ -55,7 +55,6 @@ impl PutBE<i16> for Vec<u8> {
     }
 }
 
-pub(crate) type __ssize_t = i64;
 use bridge::DroppableInputHandleWrapper as InFile;
 #[derive(Clone)]
 pub(crate) struct sfnt_table {
@@ -83,7 +82,7 @@ pub(crate) struct sfnt {
     pub(crate) offset: u32,
 }
 
-pub(crate) unsafe fn sfnt_open(mut handle: InFile) -> sfnt {
+pub(crate) fn sfnt_open(mut handle: InFile) -> sfnt {
     handle.seek(SeekFrom::Start(0)).unwrap(); /* mbz */
     /* typefaces position */
     let typ = u32::get(&mut handle); /* resource id */
@@ -107,7 +106,7 @@ pub(crate) unsafe fn sfnt_open(mut handle: InFile) -> sfnt {
     }
 }
 
-pub(crate) unsafe fn dfont_open(mut handle: InFile, index: i32) -> Option<sfnt> {
+pub(crate) fn dfont_open(mut handle: InFile, index: i32) -> Option<sfnt> {
     let mut types_pos: u32 = 0;
     let mut res_pos: u32 = 0;
     let mut types_num: u16 = 0;
@@ -158,7 +157,7 @@ pub(crate) unsafe fn dfont_open(mut handle: InFile, index: i32) -> Option<sfnt> 
 /*
  * Computes the max power of 2 <= n
  */
-unsafe fn max2floor(mut n: u32) -> u32 {
+fn max2floor(mut n: u32) -> u32 {
     let mut val: i32 = 1i32;
     while n > 1_u32 {
         n = n.wrapping_div(2_u32);
@@ -169,7 +168,7 @@ unsafe fn max2floor(mut n: u32) -> u32 {
 /*
  * Computes the log2 of the max power of 2 <= n
  */
-unsafe fn log2floor(mut n: u32) -> u32 {
+fn log2floor(mut n: u32) -> u32 {
     let mut val: u32 = 0_u32;
     while n > 1_u32 {
         n = n.wrapping_div(2_u32);
@@ -177,28 +176,24 @@ unsafe fn log2floor(mut n: u32) -> u32 {
     }
     val
 }
-unsafe fn sfnt_calc_checksum(data: &[u8]) -> u32 {
+fn sfnt_calc_checksum(data: &[u8]) -> u32 {
     let mut chksum: u32 = 0_u32;
     let mut count: i32 = 0i32;
-    let mut p = data.as_ptr() as *mut u8;
-    let endptr = p.offset(data.len() as isize);
-    while p < endptr {
-        chksum = (chksum as u32)
-            .wrapping_add(((*p.offset(0) as i32) << 8i32 * (3i32 - count)) as u32)
-            as u32 as u32;
+    for b in data {
+        chksum = (chksum as u32).wrapping_add(((*b as i32) << 8i32 * (3i32 - count)) as u32) as u32
+            as u32;
         count = count + 1i32 & 3i32;
-        p = p.offset(1)
     }
     chksum
 }
 
-unsafe fn find_table_index(td: Option<&sfnt_table_directory>, tag: &[u8; 4]) -> i32 {
+fn find_table_index(td: Option<&sfnt_table_directory>, tag: &[u8; 4]) -> i32 {
     td.and_then(|td| (0..td.tables.len()).find(|&idx| tag == &td.tables[idx].tag))
         .map(|idx| idx as i32)
         .unwrap_or(-1)
 }
 
-pub(crate) unsafe fn sfnt_set_table(sfont: &mut sfnt, tag: &[u8; 4], data: Vec<u8>) {
+pub(crate) fn sfnt_set_table(sfont: &mut sfnt, tag: &[u8; 4], data: Vec<u8>) {
     let td = sfont.directory.as_mut().unwrap();
     let table = sfnt_table {
         tag: *tag,
@@ -215,7 +210,7 @@ pub(crate) unsafe fn sfnt_set_table(sfont: &mut sfnt, tag: &[u8; 4], data: Vec<u
     }
 }
 
-pub(crate) unsafe fn sfnt_find_table_len(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
+pub(crate) fn sfnt_find_table_len(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
     let idx = find_table_index(sfont.directory.as_deref(), tag);
     if idx < 0 {
         0
@@ -224,7 +219,7 @@ pub(crate) unsafe fn sfnt_find_table_len(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
     }
 }
 
-pub(crate) unsafe fn sfnt_find_table_pos(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
+pub(crate) fn sfnt_find_table_pos(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
     let idx = find_table_index(sfont.directory.as_deref(), tag);
     if idx < 0i32 {
         0
@@ -233,7 +228,7 @@ pub(crate) unsafe fn sfnt_find_table_pos(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
     }
 }
 
-pub(crate) unsafe fn sfnt_locate_table(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
+pub(crate) fn sfnt_locate_table(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
     let offset = sfnt_find_table_pos(sfont, tag);
     if offset == 0_u32 {
         panic!("sfnt: table not found...");
@@ -246,7 +241,7 @@ pub(crate) unsafe fn sfnt_locate_table(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
     offset
 }
 
-pub(crate) unsafe fn sfnt_read_table_directory(sfont: &mut sfnt, offset: u32) -> i32 {
+pub(crate) fn sfnt_read_table_directory(sfont: &mut sfnt, offset: u32) -> i32 {
     let handle = &mut &*sfont.handle;
     handle.seek(SeekFrom::Start(offset as u64)).unwrap();
     let version = u32::get(handle);
@@ -286,7 +281,7 @@ pub(crate) unsafe fn sfnt_read_table_directory(sfont: &mut sfnt, offset: u32) ->
     0
 }
 
-pub(crate) unsafe fn sfnt_require_table(sfont: &mut sfnt, table: &SfntTableInfo) -> Result<(), ()> {
+pub(crate) fn sfnt_require_table(sfont: &mut sfnt, table: &SfntTableInfo) -> Result<(), ()> {
     let idx = find_table_index(sfont.directory.as_deref(), table.name());
     if idx < 0 {
         if table.must_exist() {

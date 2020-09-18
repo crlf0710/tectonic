@@ -39,8 +39,6 @@ use super::dpx_pdfparse::{parse_ident, skip_white};
 use super::dpx_unicode::{UC_UTF16BE_encode_char, UC_is_valid};
 use libc::{free, memcpy, strchr, strlen, strtol};
 
-pub(crate) type __ssize_t = i64;
-
 use crate::bridge::TTInputFormat;
 
 #[derive(Copy, Clone)]

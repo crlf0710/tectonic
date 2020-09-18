@@ -42,7 +42,6 @@ use super::dpx_pst::{pst_get_token, PstObj};
 use crate::bridge::ttstub_input_get_size;
 use libc::{free, memmove, strstr};
 
-pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
 use bridge::DroppableInputHandleWrapper as InFile;
 

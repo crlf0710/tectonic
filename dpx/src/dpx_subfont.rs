@@ -37,8 +37,6 @@ use super::dpx_mfileio::tt_mfgets;
 use bridge::{DroppableInputHandleWrapper as InFile, TTInputFormat};
 use libc::{strchr, strlen, strtol};
 
-pub(crate) type __ssize_t = i64;
-
 /* Don't forget fontmap reading now requires information
  * from SFD files. You must initialize at least sfd_file_
  * cache before starting loading of fontmaps.

@@ -37,7 +37,6 @@ use libc::free;
 
 use std::ptr;
 
-pub(crate) type __ssize_t = i64;
 pub(crate) type Fixed = u32;
 pub(crate) type FWord = i16;
 

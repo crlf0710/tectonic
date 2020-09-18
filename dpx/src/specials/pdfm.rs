@@ -72,7 +72,6 @@ use crate::dpx_unicode::{
 };
 use libc::free;
 
-pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
 
 use super::{SpcArg, SpcEnv};

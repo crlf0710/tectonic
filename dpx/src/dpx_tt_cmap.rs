@@ -68,7 +68,6 @@ use libc::{free, memset};
 use std::ffi::CString;
 use std::io::{Seek, SeekFrom};
 
-pub(crate) type __ssize_t = i64;
 use super::dpx_sfnt::sfnt;
 use crate::bridge::size_t;
 

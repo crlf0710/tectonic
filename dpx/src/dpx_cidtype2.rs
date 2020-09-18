@@ -973,7 +973,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
 }
 
 pub(crate) unsafe fn CIDFont_type2_open(
-    mut font: &mut CIDFont,
+    font: &mut CIDFont,
     name: &str,
     cmap_csi: *mut CIDSysInfo,
     mut opt: *mut cid_opt,
@@ -1032,8 +1032,8 @@ pub(crate) unsafe fn CIDFont_type2_open(
     /*
      * CIDSystemInfo is determined from CMap or from map record option.
      */
-    (*font).subtype = 2i32;
-    (*font).csi = Box::into_raw(Box::new(CIDSysInfo {
+    font.subtype = 2i32;
+    font.csi = Box::into_raw(Box::new(CIDSysInfo {
         ordering: "".into(),
         registry: "".into(),
         supplement: 0,
@@ -1064,25 +1064,25 @@ pub(crate) unsafe fn CIDFont_type2_open(
                 (*(*opt).csi).supplement = (*cmap_csi).supplement
             }
         }
-        (*(*font).csi).registry = (*(*opt).csi).registry.clone();
-        (*(*font).csi).ordering = (*(*opt).csi).ordering.clone();
-        (*(*font).csi).supplement = (*(*opt).csi).supplement
+        (*font.csi).registry = (*(*opt).csi).registry.clone();
+        (*font.csi).ordering = (*(*opt).csi).ordering.clone();
+        (*font.csi).supplement = (*(*opt).csi).supplement
     } else if !cmap_csi.is_null() {
-        (*(*font).csi).registry = (*cmap_csi).registry.clone();
-        (*(*font).csi).ordering = (*cmap_csi).ordering.clone();
-        (*(*font).csi).supplement = (*cmap_csi).supplement
+        (*font.csi).registry = (*cmap_csi).registry.clone();
+        (*font.csi).ordering = (*cmap_csi).ordering.clone();
+        (*font.csi).supplement = (*cmap_csi).supplement
     } else {
-        (*(*font).csi).registry = "Adobe".into();
-        (*(*font).csi).ordering = "Identity".into();
-        (*(*font).csi).supplement = 0i32
+        (*font.csi).registry = "Adobe".into();
+        (*font.csi).ordering = "Identity".into();
+        (*font.csi).supplement = 0i32
     }
-    (*font).fontdict = pdf_dict::new().into_obj();
-    (*(*font).fontdict).as_dict_mut().set("Type", "Font");
-    (*(*font).fontdict)
+    font.fontdict = pdf_dict::new().into_obj();
+    (*font.fontdict).as_dict_mut().set("Type", "Font");
+    (*font.fontdict)
         .as_dict_mut()
         .set("Subtype", "CIDFontType2");
     if let Some(descriptor) = tt_get_fontdesc(&sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name) {
-        (*font).descriptor = descriptor.into_obj();
+        font.descriptor = descriptor.into_obj();
     } else {
         panic!("Could not obtain necessary font info.");
     }
@@ -1090,14 +1090,14 @@ pub(crate) unsafe fn CIDFont_type2_open(
         let tag = pdf_font_make_uniqueTag();
         fontname = format!("{}+{}", tag, fontname);
     }
-    (*(*font).descriptor)
+    (*font.descriptor)
         .as_dict_mut()
         .set("FontName", pdf_name::new(fontname.as_bytes()));
-    (*(*font).fontdict)
+    (*font.fontdict)
         .as_dict_mut()
         .set("BaseFont", pdf_name::new(fontname.as_bytes()));
 
-    (*font).fontname = fontname.clone();
+    font.fontname = fontname.clone();
 
     /*
      * Don't write fontdict here.

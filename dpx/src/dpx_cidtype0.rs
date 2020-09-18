@@ -85,7 +85,6 @@ use libc::{free, memset};
 
 use std::io::{Read, Seek, SeekFrom};
 
-pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
 
 use super::dpx_cid::{cid_opt, CIDFont, CIDSysInfo};
