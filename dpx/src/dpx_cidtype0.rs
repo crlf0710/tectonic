@@ -26,8 +26,7 @@
     non_upper_case_globals
 )]
 
-use crate::bridge::DisplayExt;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_sfnt::{
@@ -900,22 +899,8 @@ pub(crate) unsafe fn CIDFont_type0_open(
         supplement: 0,
     }));
     if is_cid_font != 0 {
-        (*csi).registry = CStr::from_ptr(cff_get_string(
-            &cffont,
-            (*cffont.topdict).get("ROS", 0) as s_SID,
-        ))
-        .to_str()
-        .unwrap()
-        .to_owned()
-        .into();
-        (*csi).ordering = CStr::from_ptr(cff_get_string(
-            &cffont,
-            (*cffont.topdict).get("ROS", 1) as s_SID,
-        ))
-        .to_str()
-        .unwrap()
-        .to_owned()
-        .into();
+        (*csi).registry = cff_get_string(&cffont, (*cffont.topdict).get("ROS", 0) as s_SID).into();
+        (*csi).ordering = cff_get_string(&cffont, (*cffont.topdict).get("ROS", 1) as s_SID).into();
         (*csi).supplement = (*cffont.topdict).get("ROS", 2) as i32
     } else {
         (*csi).registry = "Adobe".into();
@@ -1103,11 +1088,10 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
     *cffont.fdarray.offset(0) = cff_new_dict();
     (**cffont.fdarray.offset(0)).add("FontName", 1);
 
-    let fontname_without_tag = CString::new(&(*font).fontname[7..]).unwrap();
     (**cffont.fdarray.offset(0)).set(
         "FontName",
         0,
-        cff_add_string(&mut cffont, fontname_without_tag.as_ptr(), 1i32) as f64,
+        cff_add_string(&mut cffont, &(*font).fontname[7..], 1) as f64,
     );
     (**cffont.fdarray.offset(0)).add("Private", 2);
     (**cffont.fdarray.offset(0)).set("Private", 0, 0.);
@@ -1211,23 +1195,15 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
         (**cffont.private.offset(0)).remove("Subrs");
         /* no Subrs */
     }
-    cff_add_string(&mut cffont, b"Adobe\x00" as *const u8 as *const i8, 1i32);
-    cff_add_string(&mut cffont, b"Identity\x00" as *const u8 as *const i8, 1i32);
+    cff_add_string(&mut cffont, "Adobe", 1i32);
+    cff_add_string(&mut cffont, "Identity", 1i32);
     (*cffont.topdict).update(&mut cffont);
     (**cffont.private.offset(0)).update(&mut cffont);
     cff_update_string(&mut cffont);
     /* CFF code need to be rewrote... */
     (*cffont.topdict).add("ROS", 3);
-    (*cffont.topdict).set(
-        "ROS",
-        0,
-        cff_get_sid(&cffont, b"Adobe\x00" as *const u8 as *const i8) as f64,
-    );
-    (*cffont.topdict).set(
-        "ROS",
-        1,
-        cff_get_sid(&cffont, b"Identity\x00" as *const u8 as *const i8) as f64,
-    );
+    (*cffont.topdict).set("ROS", 0, cff_get_sid(&cffont, "Adobe") as f64);
+    (*cffont.topdict).set("ROS", 1, cff_get_sid(&cffont, "Identity") as f64);
     (*cffont.topdict).set("ROS", 2, 0.);
     let destlen = write_fontfile(font, &mut cffont);
     /*
@@ -1286,7 +1262,7 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
     for gid in 1..cffont.num_glyphs as u16 {
         let sid = cff_charsets_lookup_inverse(cffont, gid);
         let glyph = cff_get_string(cffont, sid);
-        if let (Some(name), None) = agl_chop_suffix(CStr::from_ptr(glyph).to_bytes()) {
+        if let (Some(name), None) = agl_chop_suffix(glyph.as_bytes()) {
             if agl_name_is_unicode(name.to_bytes()) {
                 let ucv = agl_name_convert_unicode(name.as_ptr());
                 let mut srcCode = ucv.to_be_bytes();
@@ -1294,17 +1270,11 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
             } else {
                 let mut agln = agl_lookup_list(name.as_ptr());
                 if agln.is_null() {
-                    warn!(
-                        "Glyph \"{}\" inaccessible (no Unicode mapping)",
-                        CStr::from_ptr(glyph).display()
-                    );
+                    warn!("Glyph \"{}\" inaccessible (no Unicode mapping)", glyph);
                 }
                 while !agln.is_null() {
                     if (*agln).n_components > 1i32 {
-                        warn!(
-                            "Glyph \"{}\" inaccessible (composite character)",
-                            CStr::from_ptr(glyph).display()
-                        );
+                        warn!("Glyph \"{}\" inaccessible (composite character)", glyph);
                     } else if (*agln).n_components == 1i32 {
                         let ucv = (*agln).unicodes[0];
                         let mut srcCode = ucv.to_be_bytes();
@@ -1313,9 +1283,6 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
                     agln = (*agln).alternate
                 }
             }
-            free(glyph as *mut libc::c_void);
-        } else {
-            free(glyph as *mut libc::c_void);
         }
     }
     CMap_cache_add(Box::new(cmap))
@@ -1374,8 +1341,8 @@ unsafe fn create_ToUnicode_stream(
             let gid = cff_charsets_lookup_inverse(cffont, cid);
             if !(gid as i32 == 0i32) {
                 let glyph = cff_get_string(cffont, gid);
-                if !glyph.is_null() {
-                    let len = agl_sput_UTF16BE(glyph, &mut p, endptr, &mut fail_count);
+                if !glyph.is_empty() {
+                    let len = agl_sput_UTF16BE(&glyph, &mut p, endptr, &mut fail_count);
                     if len < 1i32 || fail_count != 0 {
                         total_fail_count += fail_count
                     } else {
@@ -1387,7 +1354,6 @@ unsafe fn create_ToUnicode_stream(
                             len as size_t,
                         );
                     }
-                    free(glyph as *mut libc::c_void);
                 }
                 glyph_count += 1
             }
@@ -1782,11 +1748,10 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
     *cffont.fdarray.offset(0) = cff_new_dict();
     (**cffont.fdarray.offset(0)).add("FontName", 1);
 
-    let cff_font_name = CString::new(&(*font).fontname[7..]).unwrap();
     (**cffont.fdarray.offset(0)).set(
         "FontName",
         0,
-        cff_add_string(&mut cffont, cff_font_name.as_ptr(), 1) as f64,
+        cff_add_string(&mut cffont, &(*font).fontname[7..], 1) as f64,
     );
     (**cffont.fdarray.offset(0)).add("Private", 2);
     (**cffont.fdarray.offset(0)).set("Private", 0, 0.);
@@ -1879,23 +1844,15 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
     cff_release_index(*cffont.subrs.offset(0));
     *cffont.subrs.offset(0) = ptr::null_mut();
     free(CIDToGIDMap as *mut libc::c_void);
-    cff_add_string(&mut cffont, b"Adobe\x00" as *const u8 as *const i8, 1i32);
-    cff_add_string(&mut cffont, b"Identity\x00" as *const u8 as *const i8, 1i32);
+    cff_add_string(&mut cffont, "Adobe", 1i32);
+    cff_add_string(&mut cffont, "Identity", 1i32);
     (*cffont.topdict).update(&mut cffont);
     (**cffont.private.offset(0)).update(&mut cffont);
     cff_update_string(&mut cffont);
     /* CFF code need to be rewrote... */
     (*cffont.topdict).add("ROS", 3);
-    (*cffont.topdict).set(
-        "ROS",
-        0,
-        cff_get_sid(&cffont, b"Adobe\x00" as *const u8 as *const i8) as f64,
-    );
-    (*cffont.topdict).set(
-        "ROS",
-        1,
-        cff_get_sid(&cffont, b"Identity\x00" as *const u8 as *const i8) as f64,
-    );
+    (*cffont.topdict).set("ROS", 0, cff_get_sid(&cffont, "Adobe") as f64);
+    (*cffont.topdict).set("ROS", 1, cff_get_sid(&cffont, "Identity") as f64);
     (*cffont.topdict).set("ROS", 2, 0.);
     cffont.num_glyphs = num_glyphs as u16;
     write_fontfile(font, &mut cffont);

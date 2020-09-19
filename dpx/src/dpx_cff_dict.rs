@@ -820,28 +820,25 @@ impl cff_dict {
             if (*self.entries.offset(i as isize)).count > 0i32 {
                 let id = (*self.entries.offset(i as isize)).id;
                 if dict_operator[id as usize].argtype == 1i32 << 3i32 {
-                    let str = cff_get_string(
+                    let s = cff_get_string(
                         cff,
                         *(*self.entries.offset(i as isize)).values.offset(0) as s_SID,
                     );
                     *(*self.entries.offset(i as isize)).values.offset(0) =
-                        cff_add_string(cff, str, 1i32) as f64;
-                    free(str as *mut libc::c_void);
+                        cff_add_string(cff, &s, 1i32) as f64;
                 } else if dict_operator[id as usize].argtype == 1i32 << 6i32 {
-                    let str = cff_get_string(
+                    let s = cff_get_string(
                         cff,
                         *(*self.entries.offset(i as isize)).values.offset(0) as s_SID,
                     );
                     *(*self.entries.offset(i as isize)).values.offset(0) =
-                        cff_add_string(cff, str, 1i32) as f64;
-                    free(str as *mut libc::c_void);
-                    let str = cff_get_string(
+                        cff_add_string(cff, &s, 1i32) as f64;
+                    let s = cff_get_string(
                         cff,
                         *(*self.entries.offset(i as isize)).values.offset(1) as s_SID,
                     );
                     *(*self.entries.offset(i as isize)).values.offset(1) =
-                        cff_add_string(cff, str, 1i32) as f64;
-                    free(str as *mut libc::c_void);
+                        cff_add_string(cff, &s, 1i32) as f64;
                 }
             }
         }

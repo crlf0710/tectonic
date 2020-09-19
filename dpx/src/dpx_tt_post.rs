@@ -32,7 +32,7 @@ use crate::warn;
 use std::ffi::CStr;
 use std::io::Read;
 
-use super::dpx_mem::{new, xstrdup};
+use super::dpx_mem::new;
 use libc::free;
 
 use std::ptr;
@@ -199,13 +199,16 @@ pub(crate) unsafe fn tt_lookup_post_table(post: *mut tt_post_table, glyphname: &
     0
 }
 
-pub(crate) unsafe fn tt_get_glyphname(post: *mut tt_post_table, gid: u16) -> *mut i8 {
+pub(crate) unsafe fn tt_get_glyphname(post: *mut tt_post_table, gid: u16) -> String {
     if (gid as i32) < (*post).count as i32
         && !(*(*post).glyphNamePtr.offset(gid as isize)).is_null()
     {
-        return xstrdup(*(*post).glyphNamePtr.offset(gid as isize));
+        return CStr::from_ptr(*(*post).glyphNamePtr.offset(gid as isize))
+            .to_str()
+            .unwrap()
+            .to_string();
     }
-    ptr::null_mut()
+    String::new()
 }
 /* Glyph names (pointer to C string) */
 /* Non-standard glyph names */

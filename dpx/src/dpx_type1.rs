@@ -33,7 +33,7 @@ use std::ffi::CString;
 use std::ptr;
 
 use super::dpx_cff::{
-    cff_add_string_str, cff_get_seac_sid, cff_glyph_lookup, cff_glyph_lookup_str, cff_index_size,
+    cff_add_string, cff_get_seac_sid, cff_glyph_lookup, cff_glyph_lookup_str, cff_index_size,
     cff_new_index, cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header,
     cff_release_charsets, cff_release_index, cff_set_name, cff_update_string, CffIndex, Pack,
 };
@@ -645,7 +645,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                         }
                         duplicate += 1
                     }
-                    let sid = cff_add_string_str(&mut cffont, glyph, 1i32);
+                    let sid = cff_add_string(&mut cffont, glyph, 1i32);
                     if duplicate < code {
                         /* found duplicates */
                         (*(*cffont.encoding)

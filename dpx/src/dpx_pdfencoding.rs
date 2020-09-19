@@ -28,7 +28,6 @@
 
 use crate::bridge::DisplayExt;
 use crate::info;
-use std::ffi::CString;
 use std::io::Read;
 use std::ptr;
 
@@ -533,8 +532,8 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
                     wbuf[0] = (code & 0xff) as u8;
                     let mut p = wbuf.as_mut_ptr().offset(1);
                     let endptr = wbuf.as_mut_ptr().offset(1024);
-                    let cenc = CString::new(enc_vec[code as usize].as_bytes()).unwrap();
-                    let len = agl_sput_UTF16BE(cenc.as_ptr(), &mut p, endptr, &mut fail_count);
+                    let len =
+                        agl_sput_UTF16BE(&enc_vec[code as usize], &mut p, endptr, &mut fail_count);
                     if len >= 1i32 && fail_count == 0 {
                         CMap_add_bfchar(
                             &mut cmap,

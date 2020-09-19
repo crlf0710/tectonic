@@ -31,9 +31,7 @@ use std::io::Read;
 use super::dpx_sfnt::{
     dfont_open, sfnt_find_table_pos, sfnt_locate_table, sfnt_open, sfnt_read_table_directory,
 };
-use crate::bridge::DisplayExt;
 use crate::{info, warn};
-use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_agl::agl_get_unicodes;
@@ -715,16 +713,8 @@ unsafe fn handle_CIDFont(
     } else {
         let reg = (*cffont.topdict).get("ROS", 0) as u16;
         let ord = (*cffont.topdict).get("ROS", 1) as u16;
-        (*csi).registry = CStr::from_ptr(cff_get_string(&cffont, reg))
-            .to_str()
-            .unwrap()
-            .to_owned()
-            .into();
-        (*csi).ordering = CStr::from_ptr(cff_get_string(&cffont, ord))
-            .to_str()
-            .unwrap()
-            .to_owned()
-            .into();
+        (*csi).registry = cff_get_string(&cffont, reg).into();
+        (*csi).ordering = cff_get_string(&cffont, ord).into();
         (*csi).supplement = (*cffont.topdict).get("ROS", 2) as i32
     }
     cff_read_charsets(&mut cffont);
@@ -811,12 +801,12 @@ unsafe fn sfnt_get_glyphname(
     post: *mut tt_post_table,
     cffont: Option<&cff_font>,
     gid: u16,
-) -> *mut i8 {
-    let mut name: *mut i8 = ptr::null_mut();
+) -> String {
+    let mut name = String::new();
     if !post.is_null() {
         name = tt_get_glyphname(post, gid)
     }
-    if name.is_null() {
+    if name.is_empty() {
         if let Some(cffont) = cffont {
             name = cff_get_glyphname(cffont, gid)
         }
@@ -853,16 +843,12 @@ unsafe fn handle_subst_glyphs(
                         let mut unicodes: [i32; 16] = [0; 16];
                         let mut unicode_count: i32 = -1i32;
                         let name = sfnt_get_glyphname(post, cffont, gid);
-                        if !name.is_null() {
-                            unicode_count = agl_get_unicodes(name, unicodes.as_mut_ptr(), 16i32)
+                        if !name.is_empty() {
+                            unicode_count = agl_get_unicodes(&name, unicodes.as_mut_ptr(), 16i32)
                         }
                         if unicode_count == -1i32 {
-                            if !name.is_null() {
-                                info!(
-                                    "No Unicode mapping available: GID={}, name={}\n",
-                                    gid,
-                                    CStr::from_ptr(name).display(),
-                                );
+                            if !name.is_empty() {
+                                info!("No Unicode mapping available: GID={}, name={}\n", gid, name,);
                             } else {
                                 info!("No Unicode mapping available: GID={}\n", gid);
                             }
@@ -888,7 +874,6 @@ unsafe fn handle_subst_glyphs(
                                 len,
                             );
                         }
-                        free(name as *mut libc::c_void);
                     } else {
                         wbuf[0] = (gid as i32 >> 8i32 & 0xffi32) as u8;
                         wbuf[1] = (gid as i32 & 0xffi32) as u8;

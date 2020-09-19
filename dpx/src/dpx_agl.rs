@@ -621,11 +621,12 @@ unsafe fn put_unicode_glyph(name: &[u8], dstpp: *mut *mut u8, limptr: *mut u8) -
 }
 
 pub(crate) unsafe fn agl_sput_UTF16BE(
-    glyphstr: *const i8,
+    glyphstr: &str,
     dstpp: *mut *mut u8,
     limptr: *mut u8,
     fail_count: *mut i32,
 ) -> i32 {
+    let glyphstr = CString::new(glyphstr.as_bytes()).unwrap().as_ptr();
     let mut len: i32 = 0i32;
     let mut count: i32 = 0i32;
     assert!(!glyphstr.is_null() && !dstpp.is_null());
@@ -727,10 +728,11 @@ pub(crate) unsafe fn agl_sput_UTF16BE(
 }
 
 pub(crate) unsafe fn agl_get_unicodes(
-    glyphstr: *const i8,
+    glyphstr: &str,
     unicodes: *mut i32,
     max_unicodes: i32,
 ) -> i32 {
+    let glyphstr = CString::new(glyphstr.as_bytes()).unwrap().as_ptr();
     let mut count: i32 = 0i32;
     let mut p = glyphstr;
     let mut endptr = strchr(p, '.' as i32) as *const i8;

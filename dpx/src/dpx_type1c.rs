@@ -32,9 +32,9 @@ use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_cff::{
-    cff_add_string_str, cff_charsets_lookup, cff_charsets_lookup_inverse, cff_encoding_lookup,
-    cff_get_index_header, cff_get_name, cff_get_sid_str, cff_get_string_string, cff_index_size,
-    cff_new_index, cff_open, cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header,
+    cff_add_string, cff_charsets_lookup, cff_charsets_lookup_inverse, cff_encoding_lookup,
+    cff_get_index_header, cff_get_name, cff_get_sid, cff_get_string, cff_index_size, cff_new_index,
+    cff_open, cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header,
     cff_read_charsets, cff_read_encoding, cff_read_private, cff_read_subrs, cff_release_charsets,
     cff_release_encoding, cff_release_index, cff_set_name, cff_update_string, CffIndex, Pack,
 };
@@ -330,7 +330,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         for code in 0..256 {
             if *usedchars.offset(code as isize) != 0 {
                 let gid = cff_encoding_lookup(&cffont, code as u8);
-                enc_vec.push(cff_get_string_string(
+                enc_vec.push(cff_get_string(
                     &cffont,
                     cff_charsets_lookup_inverse(&cffont, gid),
                 ));
@@ -478,11 +478,11 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
              *  It should be cff_string_get_sid(string, ...).
              *  cff_add_string(cff, ...) -> cff_string_add(string, ...).
              */
-            let sid_orig = cff_get_sid_str(&cffont, &enc_slice[code as usize]) as s_SID;
+            let sid_orig = cff_get_sid(&cffont, &enc_slice[code as usize]) as s_SID;
             let sid = (if (sid_orig as i32) < 391 {
                 sid_orig as i32
             } else {
-                cff_add_string_str(&mut cffont, &enc_slice[code as usize], 0i32) as i32
+                cff_add_string(&mut cffont, &enc_slice[code as usize], 0i32) as i32
             }) as s_SID;
             /*
              * We use "unique = 0" because duplicate strings are impossible

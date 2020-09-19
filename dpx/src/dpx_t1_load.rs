@@ -28,7 +28,6 @@
 
 use crate::bridge::DisplayExt;
 use crate::warn;
-use std::ffi::CString;
 use std::ptr;
 
 use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string};
@@ -1107,9 +1106,8 @@ unsafe fn parse_charstrings(
                             gid = i + 1;
                         }
                         if gid > 0 {
-                            let glyph_name = CString::new(glyph_name.as_bytes()).unwrap();
                             *(*charset).data.glyphs.offset((gid - 1i32) as isize) =
-                                cff_add_string(font, glyph_name.as_ptr(), 0i32)
+                                cff_add_string(font, &glyph_name, 0i32)
                         }
                         /*
                          * We don't care about duplicate strings here since
@@ -1412,11 +1410,11 @@ unsafe fn parse_part1(
                     /*
                      * FontInfo
                      */
-                    let strval = CString::new(parse_svalue(start, end)?.as_bytes()).unwrap();
+                    let strval = parse_svalue(start, end)?;
                     (*font.topdict).add(&key, 1);
-                    let mut sid = cff_get_sid(&font, strval.as_ptr()) as s_SID;
+                    let mut sid = cff_get_sid(&font, &strval) as s_SID;
                     if sid as i32 == 65535 {
-                        sid = cff_add_string(font, strval.as_ptr(), 0)
+                        sid = cff_add_string(font, &strval, 0)
                     }
                     /*
                      * We don't care about duplicate strings here since
