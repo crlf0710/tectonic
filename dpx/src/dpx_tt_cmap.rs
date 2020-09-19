@@ -711,11 +711,11 @@ unsafe fn handle_CIDFont(
         *GIDToCIDMap = ptr::null_mut();
         return 0;
     }
-    if !cff_dict_known(cffont.topdict, b"ROS\x00" as *const u8 as *const i8) {
+    if !cff_dict_known(cffont.topdict, "ROS") {
         panic!("No CIDSystemInfo???");
     } else {
-        let reg = cff_dict_get(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 0i32) as u16;
-        let ord = cff_dict_get(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 1i32) as u16;
+        let reg = cff_dict_get(cffont.topdict, "ROS", 0) as u16;
+        let ord = cff_dict_get(cffont.topdict, "ROS", 1) as u16;
         (*csi).registry = CStr::from_ptr(cff_get_string(&cffont, reg))
             .to_str()
             .unwrap()
@@ -726,8 +726,7 @@ unsafe fn handle_CIDFont(
             .unwrap()
             .to_owned()
             .into();
-        (*csi).supplement =
-            cff_dict_get(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 2i32) as i32
+        (*csi).supplement = cff_dict_get(cffont.topdict, "ROS", 2) as i32
     }
     cff_read_charsets(&mut cffont);
     let charset = cffont.charsets;

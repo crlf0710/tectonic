@@ -33,7 +33,7 @@ use std::ptr;
 
 use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string};
 use super::dpx_cff::{cff_new_index, cff_set_name};
-use super::dpx_cff_dict::{cff_dict_add_str, cff_dict_set_str, cff_new_dict};
+use super::dpx_cff_dict::{cff_dict_add, cff_dict_set, cff_new_dict};
 use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstObj};
 use crate::bridge::ttstub_input_getc;
@@ -1266,13 +1266,13 @@ unsafe fn parse_part2(
                             warn!("{} values expected but only {} read.", 0, -1);
                             ()
                         })?;
-                    cff_dict_add_str(*font.private.offset(0), &key, argn as i32);
+                    cff_dict_add(*font.private.offset(0), &key, argn as i32);
                     loop {
                         if argn == 0 {
                             break;
                         }
                         argn -= 1;
-                        cff_dict_set_str(
+                        cff_dict_set(
                             *font.private.offset(0),
                             &key,
                             argn as i32,
@@ -1292,15 +1292,15 @@ unsafe fn parse_part2(
                      */
                     parse_nvalue(start, end, argv.as_mut_ptr(), 1)
                         .and_then(|a| check_size(a, 1))?;
-                    cff_dict_add_str(*font.private.offset(0), &key, 1i32);
-                    cff_dict_set_str(*font.private.offset(0), &key, 0i32, argv[0]);
+                    cff_dict_add(*font.private.offset(0), &key, 1i32);
+                    cff_dict_set(*font.private.offset(0), &key, 0i32, argv[0]);
                 }
                 "ForceBold" => {
                     parse_bvalue(start, end, &mut *argv.as_mut_ptr().offset(0))
                         .and_then(|a| check_size(a, 1))?;
                     if argv[0] != 0i32 as f64 {
-                        cff_dict_add_str(*font.private.offset(0), &key, 1i32);
-                        cff_dict_set_str(*font.private.offset(0), &key, 0i32, 1i32 as f64);
+                        cff_dict_add(*font.private.offset(0), &key, 1i32);
+                        cff_dict_set(*font.private.offset(0), &key, 0i32, 1i32 as f64);
                     }
                 }
                 /*
@@ -1367,26 +1367,26 @@ unsafe fn parse_part1(
                     parse_nvalue(start, end, argv.as_mut_ptr(), 1)
                         .and_then(|a| check_size(a, 1))?;
                     if argv[0] != 0.0f64 {
-                        cff_dict_add_str(font.topdict, &key, 1i32);
-                        cff_dict_set_str(font.topdict, &key, 0i32, argv[0]);
+                        cff_dict_add(font.topdict, &key, 1i32);
+                        cff_dict_set(font.topdict, &key, 0i32, argv[0]);
                     }
                 }
                 "UnderLinePosition" | "UnderLineThickness" => {
                     parse_nvalue(start, end, argv.as_mut_ptr(), 1)
                         .and_then(|a| check_size(a, 1))?;
-                    cff_dict_add_str(font.topdict, &key, 1i32);
-                    cff_dict_set_str(font.topdict, &key, 0i32, argv[0]);
+                    cff_dict_add(font.topdict, &key, 1i32);
+                    cff_dict_set(font.topdict, &key, 0i32, argv[0]);
                 }
                 "FontBBox" => {
                     let mut argn = parse_nvalue(start, end, argv.as_mut_ptr(), 4)
                         .and_then(|a| check_size(a, 4))?;
-                    cff_dict_add_str(font.topdict, &key, 4i32);
+                    cff_dict_add(font.topdict, &key, 4i32);
                     loop {
                         if argn == 0 {
                             break;
                         }
                         argn -= 1;
-                        cff_dict_set_str(font.topdict, &key, argn as i32, argv[argn]);
+                        cff_dict_set(font.topdict, &key, argn as i32, argv[argn]);
                     }
                 }
                 "FontMatrix" => {
@@ -1399,13 +1399,13 @@ unsafe fn parse_part1(
                         || argv[4] != 0.0f64
                         || argv[5] != 0.0f64
                     {
-                        cff_dict_add_str(font.topdict, &key, 6i32);
+                        cff_dict_add(font.topdict, &key, 6i32);
                         loop {
                             if argn == 0 {
                                 break;
                             }
                             argn -= 1;
-                            cff_dict_set_str(font.topdict, &key, argn as i32, argv[argn]);
+                            cff_dict_set(font.topdict, &key, argn as i32, argv[argn]);
                         }
                     }
                 }
@@ -1414,7 +1414,7 @@ unsafe fn parse_part1(
                      * FontInfo
                      */
                     let strval = CString::new(parse_svalue(start, end)?.as_bytes()).unwrap();
-                    cff_dict_add_str(font.topdict, &key, 1i32);
+                    cff_dict_add(font.topdict, &key, 1i32);
                     let mut sid = cff_get_sid(&font, strval.as_ptr()) as s_SID;
                     if sid as i32 == 65535i32 {
                         sid = cff_add_string(font, strval.as_ptr(), 0i32)
@@ -1423,14 +1423,14 @@ unsafe fn parse_part1(
                      * We don't care about duplicate strings here since
                      * later a subset font of this font will be generated.
                      */
-                    cff_dict_set_str(font.topdict, &key, 0i32, sid as f64); /* No Global Subr */
+                    cff_dict_set(font.topdict, &key, 0i32, sid as f64); /* No Global Subr */
                 }
                 "IsFixedPitch" => {
                     parse_bvalue(start, end, &mut *argv.as_mut_ptr().offset(0))
                         .and_then(|a| check_size(a, 1))?;
                     if argv[0] != 0.0f64 {
-                        cff_dict_add_str(*font.private.offset(0), &key, 1i32);
-                        cff_dict_set_str(*font.private.offset(0), &key, 0i32, 1i32 as f64);
+                        cff_dict_add(*font.private.offset(0), &key, 1i32);
+                        cff_dict_set(*font.private.offset(0), &key, 0i32, 1i32 as f64);
                     }
                 }
                 _ => {}

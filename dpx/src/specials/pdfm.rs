@@ -131,10 +131,6 @@ use crate::dpx_cmap::CMap;
 
 pub(crate) static mut _PDF_STAT: Lazy<spc_pdf_> = Lazy::new(|| spc_pdf_::new());
 
-/* PLEASE REMOVE THIS */
-unsafe fn hval_free(vp: *mut libc::c_void) {
-    free(vp); /* unused */
-}
 unsafe fn addresource(sd: &mut spc_pdf_, ident: &str, res_id: i32) -> i32 {
     if ident.is_empty() || res_id < 0i32 {
         return -1i32;

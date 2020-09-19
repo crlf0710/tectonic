@@ -26,8 +26,6 @@
     non_upper_case_globals
 )]
 
-use crate::bridge::DisplayExt;
-use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_cff::{cff_add_string, cff_get_string};
@@ -36,9 +34,8 @@ use super::dpx_mfileio::work_buffer;
 use crate::bridge::stub_errno as errno;
 use crate::mfree;
 use crate::shims::sprintf;
-use crate::streq_ptr;
 use crate::warn;
-use libc::{free, memset, strcmp, strtod};
+use libc::{free, memset, strtod};
 
 pub(crate) type s_SID = u16;
 /* CFF Data Types */
@@ -57,8 +54,8 @@ use super::dpx_cff::cff_dict_entry;
 use super::dpx_cff::cff_font;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub(crate) struct C2RustUnnamed_2 {
-    pub(crate) opname: *const i8,
+pub(crate) struct Operator {
+    pub(crate) opname: &'static str,
     pub(crate) argtype: i32,
 }
 /* tectonic/core-strutils.h: miscellaneous C string utilities
@@ -93,249 +90,249 @@ pub(crate) unsafe fn cff_release_dict(dict: *mut cff_dict) {
 }
 static mut stack_top: i32 = 0i32;
 static mut arg_stack: [f64; 64] = [0.; 64];
-static mut dict_operator: [C2RustUnnamed_2; 61] = [
-    C2RustUnnamed_2 {
-        opname: b"version\x00" as *const u8 as *const i8,
+static mut dict_operator: [Operator; 61] = [
+    Operator {
+        opname: "version",
         argtype: 1i32 << 3i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"Notice\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "Notice",
         argtype: 1i32 << 3i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"FullName\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "FullName",
         argtype: 1i32 << 3i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"FamilyName\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "FamilyName",
         argtype: 1i32 << 3i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"Weight\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "Weight",
         argtype: 1i32 << 3i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"FontBBox\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "FontBBox",
         argtype: 1i32 << 4i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"BlueValues\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "BlueValues",
         argtype: 1i32 << 5i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"OtherBlues\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "OtherBlues",
         argtype: 1i32 << 5i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"FamilyBlues\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "FamilyBlues",
         argtype: 1i32 << 5i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"FamilyOtherBlues\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "FamilyOtherBlues",
         argtype: 1i32 << 5i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"StdHW\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "StdHW",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"StdVW\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "StdVW",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: ptr::null(),
+    Operator {
+        opname: "",
         argtype: -1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"UniqueID\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "UniqueID",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"XUID\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "XUID",
         argtype: 1i32 << 4i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"charset\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "charset",
         argtype: 1i32 << 7i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"Encoding\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "Encoding",
         argtype: 1i32 << 7i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"CharStrings\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "CharStrings",
         argtype: 1i32 << 7i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"Private\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "Private",
         argtype: 1i32 << 8i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"Subrs\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "Subrs",
         argtype: 1i32 << 7i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"defaultWidthX\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "defaultWidthX",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"nominalWidthX\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "nominalWidthX",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"Copyright\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "Copyright",
         argtype: 1i32 << 3i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"IsFixedPitch\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "IsFixedPitch",
         argtype: 1i32 << 2i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"ItalicAngle\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "ItalicAngle",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"UnderlinePosition\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "UnderlinePosition",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"UnderlineThickness\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "UnderlineThickness",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"PaintType\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "PaintType",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"CharstringType\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "CharstringType",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"FontMatrix\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "FontMatrix",
         argtype: 1i32 << 4i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"StrokeWidth\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "StrokeWidth",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"BlueScale\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "BlueScale",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"BlueShift\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "BlueShift",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"BlueFuzz\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "BlueFuzz",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"StemSnapH\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "StemSnapH",
         argtype: 1i32 << 5i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"StemSnapV\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "StemSnapV",
         argtype: 1i32 << 5i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"ForceBold\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "ForceBold",
         argtype: 1i32 << 2i32,
     },
-    C2RustUnnamed_2 {
-        opname: ptr::null(),
+    Operator {
+        opname: "",
         argtype: -1i32,
     },
-    C2RustUnnamed_2 {
-        opname: ptr::null(),
+    Operator {
+        opname: "",
         argtype: -1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"LanguageGroup\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "LanguageGroup",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"ExpansionFactor\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "ExpansionFactor",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"InitialRandomSeed\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "InitialRandomSeed",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"SyntheticBase\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "SyntheticBase",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"PostScript\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "PostScript",
         argtype: 1i32 << 3i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"BaseFontName\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "BaseFontName",
         argtype: 1i32 << 3i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"BaseFontBlend\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "BaseFontBlend",
         argtype: 1i32 << 5i32,
     },
-    C2RustUnnamed_2 {
-        opname: ptr::null(),
+    Operator {
+        opname: "",
         argtype: -1i32,
     },
-    C2RustUnnamed_2 {
-        opname: ptr::null(),
+    Operator {
+        opname: "",
         argtype: -1i32,
     },
-    C2RustUnnamed_2 {
-        opname: ptr::null(),
+    Operator {
+        opname: "",
         argtype: -1i32,
     },
-    C2RustUnnamed_2 {
-        opname: ptr::null(),
+    Operator {
+        opname: "",
         argtype: -1i32,
     },
-    C2RustUnnamed_2 {
-        opname: ptr::null(),
+    Operator {
+        opname: "",
         argtype: -1i32,
     },
-    C2RustUnnamed_2 {
-        opname: ptr::null(),
+    Operator {
+        opname: "",
         argtype: -1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"ROS\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "ROS",
         argtype: 1i32 << 6i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"CIDFontVersion\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "CIDFontVersion",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"CIDFontRevision\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "CIDFontRevision",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"CIDFontType\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "CIDFontType",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"CIDCount\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "CIDCount",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"UIDBase\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "UIDBase",
         argtype: 1i32 << 0i32 | 1i32 << 1i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"FDArray\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "FDArray",
         argtype: 1i32 << 7i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"FDSelect\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "FDSelect",
         argtype: 1i32 << 7i32,
     },
-    C2RustUnnamed_2 {
-        opname: b"FontName\x00" as *const u8 as *const i8,
+    Operator {
+        opname: "FontName",
         argtype: 1i32 << 3i32,
     },
 ];
@@ -467,7 +464,7 @@ unsafe fn add_dict(mut dict: *mut cff_dict, data: *mut *mut u8, endptr: *mut u8,
         return;
     }
     let argtype = dict_operator[id as usize].argtype;
-    if dict_operator[id as usize].opname.is_null() || argtype < 0i32 {
+    if dict_operator[id as usize].opname.is_empty() || argtype < 0i32 {
         /* YuppySC-Regular.otf from OS X for instance uses op id 37, simply ignore
         this dict instead of treat it as parsing error. */
         return;
@@ -688,37 +685,25 @@ unsafe fn put_dict_entry(de: *mut cff_dict_entry, dest: &mut [u8]) -> usize {
 pub(crate) unsafe fn cff_dict_pack(dict: *mut cff_dict, dest: &mut [u8]) -> usize {
     let mut len = 0_usize;
     for i in 0..(*dict).count as isize {
-        if streq_ptr(
-            (*(*dict).entries.offset(i)).key,
-            b"ROS\x00" as *const u8 as *const i8,
-        ) {
+        if (*(*dict).entries.offset(i)).key == "ROS" {
             len += put_dict_entry(&mut *(*dict).entries.offset(i), dest);
             break;
         }
     }
     for i in 0..(*dict).count as isize {
-        if strcmp(
-            (*(*dict).entries.offset(i)).key,
-            b"ROS\x00" as *const u8 as *const i8,
-        ) != 0
-        {
+        if (*(*dict).entries.offset(i)).key != "ROS" {
             len += put_dict_entry(&mut *(*dict).entries.offset(i), &mut dest[len..])
         }
     }
     len
 }
 
-pub(crate) unsafe fn cff_dict_add_str(dict: *mut cff_dict, key: &str, count: i32) {
-    let key = CString::new(key).unwrap();
-    cff_dict_add(dict, key.as_ptr(), count);
-}
-
-pub(crate) unsafe fn cff_dict_add(mut dict: *mut cff_dict, key: *const i8, count: i32) {
+pub(crate) unsafe fn cff_dict_add(mut dict: *mut cff_dict, key: &str, count: i32) {
     let mut id = 0;
     while id < 22 + 39 {
-        if !key.is_null()
-            && !dict_operator[id as usize].opname.is_null()
-            && streq_ptr(dict_operator[id as usize].opname, key) as i32 != 0
+        if !key.is_empty()
+            && !dict_operator[id as usize].opname.is_empty()
+            && dict_operator[id as usize].opname == key
         {
             break;
         }
@@ -761,9 +746,9 @@ pub(crate) unsafe fn cff_dict_add(mut dict: *mut cff_dict, key: *const i8, count
     (*dict).count += 1i32;
 }
 
-pub(crate) unsafe fn cff_dict_remove(dict: *mut cff_dict, key: *const i8) {
+pub(crate) unsafe fn cff_dict_remove(dict: *mut cff_dict, key: &str) {
     for i in 0..(*dict).count {
-        if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) {
+        if key == (*(*dict).entries.offset(i as isize)).key {
             (*(*dict).entries.offset(i as isize)).count = 0i32;
             (*(*dict).entries.offset(i as isize)).values =
                 mfree((*(*dict).entries.offset(i as isize)).values as *mut libc::c_void) as *mut f64
@@ -771,9 +756,9 @@ pub(crate) unsafe fn cff_dict_remove(dict: *mut cff_dict, key: *const i8) {
     }
 }
 
-pub(crate) unsafe fn cff_dict_known(dict: *mut cff_dict, key: *const i8) -> bool {
+pub(crate) unsafe fn cff_dict_known(dict: *mut cff_dict, key: &str) -> bool {
     for i in 0..(*dict).count {
-        if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) as i32 != 0
+        if key == (*(*dict).entries.offset(i as isize)).key
             && (*(*dict).entries.offset(i as isize)).count > 0i32
         {
             return true;
@@ -782,12 +767,12 @@ pub(crate) unsafe fn cff_dict_known(dict: *mut cff_dict, key: *const i8) -> bool
     false
 }
 
-pub(crate) unsafe fn cff_dict_get(dict: *mut cff_dict, key: *const i8, idx: i32) -> f64 {
+pub(crate) unsafe fn cff_dict_get(dict: *mut cff_dict, key: &str, idx: i32) -> f64 {
     let mut value: f64 = 0.0f64;
-    assert!(!key.is_null() && !dict.is_null());
+    assert!(!key.is_empty() && !dict.is_null());
     let mut i = 0;
     while i < (*dict).count {
-        if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) {
+        if key == (*(*dict).entries.offset(i as isize)).key {
             if (*(*dict).entries.offset(i as isize)).count > idx {
                 value = *(*(*dict).entries.offset(i as isize))
                     .values
@@ -801,25 +786,16 @@ pub(crate) unsafe fn cff_dict_get(dict: *mut cff_dict, key: *const i8, idx: i32)
         }
     }
     if i == (*dict).count {
-        panic!(
-            "{}: DICT entry \"{}\" not found.",
-            "CFF",
-            CStr::from_ptr(key).display(),
-        );
+        panic!("{}: DICT entry \"{}\" not found.", "CFF", key,);
     }
     value
 }
 
-pub(crate) unsafe fn cff_dict_set_str(dict: *mut cff_dict, key: &str, idx: i32, value: f64) {
-    let key = CString::new(key).unwrap();
-    cff_dict_set(dict, key.as_ptr(), idx, value);
-}
-
-pub(crate) unsafe fn cff_dict_set(dict: *mut cff_dict, key: *const i8, idx: i32, value: f64) {
-    assert!(!dict.is_null() && !key.is_null());
+pub(crate) unsafe fn cff_dict_set(dict: *mut cff_dict, key: &str, idx: i32, value: f64) {
+    assert!(!dict.is_null() && !key.is_empty());
     let mut i = 0;
     while i < (*dict).count {
-        if streq_ptr(key, (*(*dict).entries.offset(i as isize)).key) {
+        if key == (*(*dict).entries.offset(i as isize)).key {
             if (*(*dict).entries.offset(i as isize)).count > idx {
                 *(*(*dict).entries.offset(i as isize))
                     .values
@@ -833,11 +809,7 @@ pub(crate) unsafe fn cff_dict_set(dict: *mut cff_dict, key: *const i8, idx: i32,
         }
     }
     if i == (*dict).count {
-        panic!(
-            "{}: DICT entry \"{}\" not found.",
-            "CFF",
-            CStr::from_ptr(key).display(),
-        );
+        panic!("{}: DICT entry \"{}\" not found.", "CFF", key,);
     };
 }
 /* decode/encode DICT */
