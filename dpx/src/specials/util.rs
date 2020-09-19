@@ -386,7 +386,7 @@ unsafe fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, t: &mut transform_info, ap: &
                 k += 1;
             }
             if k == 14 {
-                spc_warn!(spe, "Unrecognized dimension/transformation key: {}", kp,);
+                spc_warn!(spe, "Unrecognized dimension/transformation key: {}", kp);
                 error = -1;
                 break;
             } else {
@@ -419,7 +419,7 @@ unsafe fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, t: &mut transform_info, ap: &
                         ap.cur.parse_float_decimal()
                     };
                     if error == 0 && vp.is_none() {
-                        spc_warn!(spe, "Missing value for dimension/transformation: {}", kp,);
+                        spc_warn!(spe, "Missing value for dimension/transformation: {}", kp);
                         error = -1;
                     }
                     if error != 0 {

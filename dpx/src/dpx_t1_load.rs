@@ -1470,7 +1470,7 @@ pub(crate) unsafe fn is_pfb<R: Read + Seek>(handle: &mut R) -> bool {
         return true;
     }
     if &sig[..4] == b"%!PS" {
-        warn!("Ambiguous PostScript resource type: {}", &sig[..].display(),);
+        warn!("Ambiguous PostScript resource type: {}", &sig[..].display());
         return true;
     }
     warn!("Not a PFB font file?");
@@ -1568,7 +1568,7 @@ pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: &
                     if let Ok(mut strval) = parse_svalue(&mut start, end) {
                         let len = strval.len();
                         if len > 127 {
-                            warn!("FontName \"{}\" too long. ({} bytes)", strval, len,);
+                            warn!("FontName \"{}\" too long. ({} bytes)", strval, len);
                             strval.truncate(127);
                         }
                         *fontname = strval;

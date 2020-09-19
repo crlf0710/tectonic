@@ -881,7 +881,7 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
     }
     let destlen = write_fontfile(font, &mut cffont);
     if verbose > 1i32 {
-        info!("[{}/{} glyphs][{} bytes]", num_glyphs, cs_count, destlen,);
+        info!("[{}/{} glyphs][{} bytes]", num_glyphs, cs_count, destlen);
     }
     CIDFont_type0_add_CIDSet(font, used_chars, last_cid);
 }

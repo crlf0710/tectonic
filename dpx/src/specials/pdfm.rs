@@ -265,7 +265,7 @@ unsafe fn spc_handler_pdfm_put(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     ap.cur.skip_white();
     let obj2 = ap.cur.parse_pdf_object(ptr::null_mut());
     if obj2.is_none() {
-        spc_warn!(spe, "Missing (an) object(s) to put into \"{}\"!", ident,);
+        spc_warn!(spe, "Missing (an) object(s) to put into \"{}\"!", ident);
         return -1i32;
     }
     let obj2 = obj2.unwrap();
@@ -297,7 +297,7 @@ unsafe fn spc_handler_pdfm_put(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
                 );
                 error = -1i32
             } else {
-                spc_warn!(spe, "Invalid type: expecting a DICT or STREAM: {}", ident,);
+                spc_warn!(spe, "Invalid type: expecting a DICT or STREAM: {}", ident);
                 error = -1i32
             }
         }
@@ -1182,12 +1182,12 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                     }
                     fstream
                 } else {
-                    spc_warn!(spe, "Could not open file: {}", instring.display(),);
+                    spc_warn!(spe, "Could not open file: {}", instring.display());
                     pdf_release_obj(tmp);
                     return -1i32;
                 }
             } else {
-                spc_warn!(spe, "File \"{}\" not found.", instring.display(),);
+                spc_warn!(spe, "File \"{}\" not found.", instring.display());
                 pdf_release_obj(tmp);
                 return -1i32;
             }
@@ -1374,7 +1374,7 @@ unsafe fn spc_handler_pdfm_uxobj(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         if xobj_id < 0i32 {
             xobj_id = pdf_ximage_findresource(&ident, options);
             if xobj_id < 0i32 {
-                spc_warn!(spe, "Specified (image) object doesn\'t exist: {}", ident,);
+                spc_warn!(spe, "Specified (image) object doesn\'t exist: {}", ident);
                 return -1;
             }
         }
@@ -1500,7 +1500,7 @@ unsafe fn spc_handler_pdfm_tounicode(spe: &mut SpcEnv, args: &mut SpcArg) -> i32
     if let Some(cmap_name) = args.cur.parse_ident() {
         sd.cd.cmap_id = CMap_cache_find(&cmap_name);
         if sd.cd.cmap_id < 0i32 {
-            spc_warn!(spe, "Failed to load ToUnicode mapping: {}", cmap_name,);
+            spc_warn!(spe, "Failed to load ToUnicode mapping: {}", cmap_name);
             return -1i32;
         }
         /* Shift-JIS like encoding may contain backslash in 2nd byte.

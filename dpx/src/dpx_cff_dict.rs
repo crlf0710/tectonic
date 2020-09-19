@@ -550,7 +550,7 @@ pub(crate) unsafe fn cff_dict_unpack(mut data: *mut u8, endptr: *mut u8) -> *mut
         }
     }
     if status != 0i32 {
-        panic!("{}: Parsing CFF DICT failed. (error={})", "CFF", status,);
+        panic!("{}: Parsing CFF DICT failed. (error={})", "CFF", status);
     } else {
         if stack_top != 0i32 {
             warn!("{}: Garbage in CFF DICT data.", "CFF");
@@ -679,7 +679,7 @@ unsafe fn put_dict_entry(de: *mut cff_dict_entry, dest: &mut [u8]) -> usize {
             dest[len] = (id - 22i32) as u8;
             len += 1;
         } else {
-            panic!("{}: Invalid CFF DICT operator ID.", "CFF",);
+            panic!("{}: Invalid CFF DICT operator ID.", "CFF");
         }
     }
     len
@@ -725,12 +725,12 @@ pub(crate) unsafe fn cff_dict_add(mut dict: *mut cff_dict, key: *const i8, count
         id += 1
     }
     if id == 22 + 39 {
-        panic!("{}: Unknown CFF DICT operator.", "CFF",);
+        panic!("{}: Unknown CFF DICT operator.", "CFF");
     }
     for i in 0..(*dict).count {
         if (*(*dict).entries.offset(i as isize)).id == id {
             if (*(*dict).entries.offset(i as isize)).count != count {
-                panic!("{}: Inconsistent DICT argument number.", "CFF",);
+                panic!("{}: Inconsistent DICT argument number.", "CFF");
             }
             return;
         }
@@ -793,7 +793,7 @@ pub(crate) unsafe fn cff_dict_get(dict: *mut cff_dict, key: *const i8, idx: i32)
                     .values
                     .offset(idx as isize)
             } else {
-                panic!("{}: Invalid index number.", "CFF",);
+                panic!("{}: Invalid index number.", "CFF");
             }
             break;
         } else {
@@ -825,7 +825,7 @@ pub(crate) unsafe fn cff_dict_set(dict: *mut cff_dict, key: *const i8, idx: i32,
                     .values
                     .offset(idx as isize) = value
             } else {
-                panic!("{}: Invalid index number.", "CFF",);
+                panic!("{}: Invalid index number.", "CFF");
             }
             break;
         } else {

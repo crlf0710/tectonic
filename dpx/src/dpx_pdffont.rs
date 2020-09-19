@@ -387,7 +387,7 @@ pub(crate) unsafe fn pdf_close_fonts() {
         let font = &mut font_cache[font_id as usize];
         if __verbose != 0 {
             if font.subtype != 4i32 {
-                info!("({}", font.ident,);
+                info!("({}", font.ident);
                 if __verbose > 2i32 && pdf_font_get_flag(font, 1i32 << 0i32) == 0 {
                     info!("[{}+{}]", pdf_font_get_uniqueTag(font), font.fontname);
                 } else if __verbose > 1i32 {
@@ -612,8 +612,8 @@ pub(crate) unsafe fn pdf_font_findresource(
                     font.encoding_id = cmap_id;
                     if __verbose != 0 {
                         info!("\npdf_font>> Type0 font \"{}\"", mrec.font_name);
-                        info!(" cmap_id=<{},{}>", mrec.enc_name, font.encoding_id,);
-                        info!(" opened at font_id=<{},{}>.\n", tex_name, font_id,);
+                        info!(" cmap_id=<{},{}>", mrec.enc_name, font.encoding_id);
+                        info!(" opened at font_id=<{},{}>.\n", tex_name, font_id);
                     }
                 }
             } else {
@@ -697,7 +697,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                             },
                             font.encoding_id,
                         );
-                        info!(" opened at font_id=<{},{}>.\n", tex_name, font_id,);
+                        info!(" opened at font_id=<{},{}>.\n", tex_name, font_id);
                     }
                 }
             }
@@ -769,8 +769,8 @@ pub(crate) unsafe fn pdf_font_findresource(
                 };
                 if __verbose != 0 {
                     info!("\npdf_font>> Simple font \"{}\"", tex_name);
-                    info!(" enc_id=<{},{}>", "builtin", font.encoding_id,);
-                    info!(" opened at font_id=<{},{}>.\n", tex_name, font_id,);
+                    info!(" enc_id=<{},{}>", "builtin", font.encoding_id);
+                    info!(" opened at font_id=<{},{}>.\n", tex_name, font_id);
                 }
             }
         }

@@ -92,7 +92,7 @@ unsafe fn ifreader_read(reader: &mut ifreader, size: size_t) -> size_t {
     let bytesrem = (reader.endptr as size_t).wrapping_sub(reader.cursor as size_t);
     if size > reader.max {
         if __verbose != 0 {
-            info!("\nExtending buffer ({} bytes)...\n", size,);
+            info!("\nExtending buffer ({} bytes)...\n", size);
         }
         reader.buf = renew(
             reader.buf as *mut libc::c_void,
@@ -197,10 +197,10 @@ unsafe fn handle_codearray(
                 );
             }
             PstObj::Name(_) => {
-                panic!("{}: Mapping to charName not supported.", "CMap_parse:",);
+                panic!("{}: Mapping to charName not supported.", "CMap_parse:");
             }
             _ => {
-                panic!("{}: Invalid CMap mapping record.", "CMap_parse:",);
+                panic!("{}: Invalid CMap mapping record.", "CMap_parse:");
             }
         }
         codeLo[(dim - 1) as usize] += 1;

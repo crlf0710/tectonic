@@ -471,9 +471,9 @@ unsafe fn agl_load_listfile(filename: &str, is_predef: i32) -> Result<u32, ()> {
                     }
                     for i in 0..(*agln).n_components as usize {
                         if (*agln).unicodes[i] > 0xffffi32 {
-                            info!(" U+{:06X}", (*agln).unicodes[i],);
+                            info!(" U+{:06X}", (*agln).unicodes[i]);
                         } else {
-                            info!(" U+{:04X}", (*agln).unicodes[i],);
+                            info!(" U+{:04X}", (*agln).unicodes[i]);
                         }
                     }
                     info!("\n");
@@ -578,9 +578,9 @@ pub(crate) unsafe fn agl_name_convert_unicode(glyphname: *const i8) -> i32 {
     }
     if !UC_is_valid(ucv) {
         if ucv < 0x10000i32 {
-            warn!("Invalid Unicode code value U+{:04X}.", ucv,);
+            warn!("Invalid Unicode code value U+{:04X}.", ucv);
         } else {
-            warn!("Invalid Unicode code value U+{:06X}.", ucv,);
+            warn!("Invalid Unicode code value U+{:06X}.", ucv);
         }
         ucv = -1i32
     }

@@ -188,7 +188,7 @@ pub(crate) unsafe fn pdf_defineresource(
     assert!(!object.is_null());
     let cat_id = get_category(category_.as_ptr());
     if cat_id < 0i32 {
-        panic!("Unknown resource category: {}", category,);
+        panic!("Unknown resource category: {}", category);
     }
     let rc = &mut *resources.as_mut_ptr().offset(cat_id as isize) as *mut res_cache;
     {

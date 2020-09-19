@@ -382,10 +382,10 @@ unsafe fn doc_resize_page_entries(mut p: *mut pdf_doc, size: u32) {
 }
 unsafe fn doc_get_page_entry(p: *mut pdf_doc, page_no: u32) -> *mut pdf_page {
     if page_no as u64 > 65535 {
-        panic!("Page number {} too large!", page_no,);
+        panic!("Page number {} too large!", page_no);
     } else {
         if page_no == 0_u32 {
-            panic!("Invalid Page number {}.", page_no,);
+            panic!("Invalid Page number {}.", page_no);
         }
     }
     if page_no > (*p).pages.max_entries {
@@ -475,9 +475,9 @@ unsafe fn pdf_doc_close_docinfo(mut p: *mut pdf_doc) {
     for key in KEYS.iter() {
         if let Some(value) = (*docinfo).as_dict().get(*key) {
             if !(*value).is_string() {
-                warn!("\"{}\" in DocInfo dictionary not string type.", key,);
+                warn!("\"{}\" in DocInfo dictionary not string type.", key);
                 pdf_remove_dict(&mut *docinfo, key);
-                warn!("\"{}\" removed from DocInfo.", key,);
+                warn!("\"{}\" removed from DocInfo.", key);
             } else if (*value).as_string().len() == 0 {
                 /* The hyperref package often uses emtpy strings. */
                 pdf_remove_dict(&mut *docinfo, key);

@@ -787,7 +787,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                     /* FIX_CJK_UNIOCDE_SYMBOLS */
                 }
                 if gid as i32 == 0i32 {
-                    warn!("Glyph missing in font. (CID={}, code=0x{:04x})", cid, code,);
+                    warn!("Glyph missing in font. (CID={}, code=0x{:04x})", cid, code);
                 }
                 /* TODO: duplicated glyph */
                 tt_add_glyph(&mut glyphs, gid, cid);

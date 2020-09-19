@@ -266,7 +266,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
             info.num_components = 1i32
         }
         _ => {
-            warn!("{}: Unknown PNG colortype {}.", "PNG", color_type as i32,);
+            warn!("{}: Unknown PNG colortype {}.", "PNG", color_type as i32);
         }
     }
     stream_dict.set("ColorSpace", colorspace);
@@ -611,7 +611,7 @@ unsafe fn create_cspace_CalRGB(
     }
     if png_get_valid(png, png_info, 0x1) != 0 && png_get_gAMA(png, png_info, &mut G) != 0 {
         if G < 1e-2 {
-            warn!("{}: Unusual Gamma value: 1.0 / {}", "PNG", G,);
+            warn!("{}: Unusual Gamma value: 1.0 / {}", "PNG", G);
             return None;
         }
         G = 1. / G
@@ -659,7 +659,7 @@ unsafe fn create_cspace_CalGray(
     }
     if png_get_valid(png, info, 0x1u32) != 0 && png_get_gAMA(png, info, &mut G) != 0 {
         if G < 1.0e-2f64 {
-            warn!("{}: Unusual Gamma value: 1.0 / {}", "PNG", G,);
+            warn!("{}: Unusual Gamma value: 1.0 / {}", "PNG", G);
             return None;
         }
         G = 1.0f64 / G

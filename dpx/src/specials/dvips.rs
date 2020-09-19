@@ -61,7 +61,7 @@ unsafe fn spc_handler_ps_header(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur = &args.cur[1..];
     let pro = String::from_utf8_lossy(args.cur).to_string();
     if InFile::open(&pro, TTInputFormat::TEX_PS_HEADER, 0).is_none() {
-        spc_warn!(spe, "PS header {} not found.", pro,);
+        spc_warn!(spe, "PS header {} not found.", pro);
         return -1i32;
     }
     PS_HEADERS.push(pro);

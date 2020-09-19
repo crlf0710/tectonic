@@ -422,7 +422,7 @@ unsafe fn get_page_info(post_location: i32) {
         panic!("Page count is 0!");
     }
     if verbose > 2i32 {
-        info!("Page count:\t {:4}\n", num_pages,);
+        info!("Page count:\t {:4}\n", num_pages);
     }
     page_loc = new((num_pages as u64).wrapping_mul(::std::mem::size_of::<u32>() as u64) as u32)
         as *mut u32;
@@ -595,7 +595,7 @@ unsafe fn get_dvi_fonts(post_location: i32) {
                 read_native_font_record(i32::get(handle) as u32);
             }
             _ => {
-                info!("Unexpected op code: {:3}\n", code,);
+                info!("Unexpected op code: {:3}\n", code);
                 panic!(invalid_signature);
             }
         }
@@ -925,7 +925,7 @@ unsafe fn dvi_locate_native_font(
     let mut is_dfont: i32 = 0i32;
     let mut is_type1: i32 = 0i32;
     if verbose != 0 {
-        info!("<{}@{:.2}pt", filename, ptsize as f64 * dvi2pts,);
+        info!("<{}@{:.2}pt", filename, ptsize as f64 * dvi2pts);
     }
     let mut handle = dpx_open_dfont_file(filename);
     if handle.is_some() {

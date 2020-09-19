@@ -363,7 +363,7 @@ pub(crate) unsafe fn CIDFont_get_CIDSysInfo(font: *mut CIDFont) -> *mut CIDSysIn
 pub(crate) unsafe fn CIDFont_get_parent_id(font: *mut CIDFont, wmode: i32) -> i32 {
     assert!(!font.is_null());
     if wmode < 0i32 || wmode > 1i32 {
-        panic!("{}: Invalid wmode value.", "CIDFont",);
+        panic!("{}: Invalid wmode value.", "CIDFont");
     }
     (*font).parent[wmode as usize]
 }
@@ -382,7 +382,7 @@ pub(crate) unsafe fn CIDFont_get_resource(mut font: *mut CIDFont) -> *mut pdf_ob
 pub(crate) unsafe fn CIDFont_attach_parent(mut font: *mut CIDFont, parent_id: i32, wmode: i32) {
     assert!(!font.is_null());
     if wmode < 0i32 || wmode > 1i32 {
-        panic!("{}: Invalid wmode value.", "CIDFont",);
+        panic!("{}: Invalid wmode value.", "CIDFont");
     }
     if (*font).parent[wmode as usize] >= 0i32 {
         warn!("{}: CIDFont already have a parent Type1 font.", "CIDFont");
@@ -392,7 +392,7 @@ pub(crate) unsafe fn CIDFont_attach_parent(mut font: *mut CIDFont, parent_id: i3
 
 pub(crate) unsafe fn CIDFont_is_ACCFont(font: &mut CIDFont) -> bool {
     if font.csi.is_null() {
-        panic!("{}: CIDSystemInfo undefined.", "CIDFont",);
+        panic!("{}: CIDSystemInfo undefined.", "CIDFont");
     }
     for i in 1..=4 {
         if (*font.csi).registry == CIDFont_stdcc_def[i as usize].registry
@@ -450,7 +450,7 @@ unsafe fn CIDFont_dofont(font: *mut CIDFont) {
             CIDFont_type2_dofont(&mut *font);
         }
         _ => {
-            panic!("{}: Unknown CIDFontType {}.", "CIDFont", (*font).subtype,);
+            panic!("{}: Unknown CIDFontType {}.", "CIDFont", (*font).subtype);
         }
     };
 }
@@ -680,7 +680,7 @@ static mut __cache: Vec<Box<CIDFont>> = Vec::new();
 
 pub(crate) unsafe fn CIDFont_cache_get(font_id: i32) -> *mut CIDFont {
     if font_id < 0i32 || font_id >= __cache.len() as i32 {
-        panic!("{}: Invalid ID {}", "CIDFont", font_id,);
+        panic!("{}: Invalid ID {}", "CIDFont", font_id);
     }
     &mut *__cache[font_id as usize] as *mut _
 }

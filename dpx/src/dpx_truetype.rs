@@ -160,7 +160,7 @@ pub(crate) unsafe fn pdf_font_open_truetype(font: &mut pdf_font) -> i32 {
         if let Some(sfont) = dfont_open(handle, index) {
             sfont
         } else {
-            warn!("Could not open TrueType font: {}", ident,);
+            warn!("Could not open TrueType font: {}", ident);
             return -1i32;
         }
     } else {

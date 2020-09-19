@@ -286,7 +286,7 @@ unsafe fn spc_handler_xtx_renderingmode(spe: &mut SpcEnv, args: &mut SpcArg) -> 
         return -1i32;
     }
     if (value as i32) < 0i32 || value as i32 > 7i32 {
-        spc_warn!(spe, "Invalid text rendering mode {}.\n", value as i32,);
+        spc_warn!(spe, "Invalid text rendering mode {}.\n", value as i32);
         return -1i32;
     }
     let content = format!(" {} Tr", value as i32);

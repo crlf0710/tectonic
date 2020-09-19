@@ -86,7 +86,7 @@ unsafe fn truedpi(ident: &str, point_size: f64, bdpi: u32) -> u32 {
     }
     let design_size = tfm_get_design_size(tfm_id);
     if design_size <= 0.0f64 {
-        warn!("DESGIN_SIZE <= 0.0? (TFM=\"{}\")", ident,);
+        warn!("DESGIN_SIZE <= 0.0? (TFM=\"{}\")", ident);
     } else {
         dpi =
             ((base_dpi as f64 * point_size / design_size / 1.0f64 + 0.5f64).floor() * 1.0f64) as u32

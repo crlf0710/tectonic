@@ -112,7 +112,7 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
             && hdr.bit_count as i32 != 4i32
             && hdr.bit_count as i32 != 8i32
         {
-            warn!("Unsupported palette size: {}", hdr.bit_count as i32,);
+            warn!("Unsupported palette size: {}", hdr.bit_count as i32);
             return Err(());
         }
         num_palette = hdr

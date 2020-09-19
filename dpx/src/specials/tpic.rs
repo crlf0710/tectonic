@@ -624,7 +624,7 @@ unsafe fn tpic_filter_getopts(kp: &pdf_name, vp: &mut pdf_obj, tp: &mut spc_tpic
                 b"opacity" => tp.mode.fill = 1,
                 b"solid" => tp.mode.fill = 0,
                 _ => {
-                    warn!("Invalid value for TPIC option fill-mode: {}", v.display(),);
+                    warn!("Invalid value for TPIC option fill-mode: {}", v.display());
                     error = -1;
                 }
             }

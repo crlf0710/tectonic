@@ -330,7 +330,7 @@ unsafe fn html_open_dest(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) 
         array.into_obj(),
     );
     if error != 0 {
-        spc_warn!(spe, "Failed to add named destination: {}", name.display(),);
+        spc_warn!(spe, "Failed to add named destination: {}", name.display());
     }
     (*sd).pending_type = 1i32;
     error

@@ -430,7 +430,7 @@ impl ParseCString for &[u8] {
                     }
                 }
                 _ => {
-                    warn!("Unknown escape char sequence: \\{}", char::from(p[0]),);
+                    warn!("Unknown escape char sequence: \\{}", char::from(p[0]));
                     l = 0;
                     p = &p[1..];
                 }

@@ -2253,7 +2253,7 @@ unsafe fn filter_decoded(
                 return error;
             }
             _ => {
-                warn!("Unknown Predictor type value :{}", parms.predictor,);
+                warn!("Unknown Predictor type value :{}", parms.predictor);
                 error = -1i32;
                 return error;
             }
@@ -2296,7 +2296,7 @@ unsafe fn filter_decoded(
                         }
                         prev[..rowlen].copy_from_slice(&current[..rowlen]);
                     } else {
-                        warn!("Unknown PNG predictor type: {}", p[0],);
+                        warn!("Unknown PNG predictor type: {}", p[0]);
                         error = -1;
                     }
                     if error == 0 {
@@ -2311,7 +2311,7 @@ unsafe fn filter_decoded(
                 }
             }
             _ => {
-                warn!("Unknown Predictor type value: {}", parms.predictor,);
+                warn!("Unknown Predictor type value: {}", parms.predictor);
                 error = -1i32;
                 return error;
             }
@@ -3678,7 +3678,7 @@ unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
             && (*pf.xref_table.offset(obj_num as isize)).id.1 as i32 == obj_gen as i32
             || (*pf.xref_table.offset(obj_num as isize)).typ as i32 == 2i32 && obj_gen == 0))
     {
-        warn!("Can\'t resolve object: {} {}", obj_num, obj_gen as i32,);
+        warn!("Can\'t resolve object: {} {}", obj_num, obj_gen as i32);
         return pdf_new_null();
     }
     let mut ref_0 = (*pf.xref_table.offset(obj_num as isize)).indirect;
@@ -3690,7 +3690,7 @@ unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
     } else {
         let obj = pdf_get_object(&mut *pf, (obj_num, obj_gen));
         if obj.is_null() {
-            warn!("Could not read object: {} {}", obj_num, obj_gen as i32,);
+            warn!("Could not read object: {} {}", obj_num, obj_gen as i32);
             return ptr::null_mut();
         }
         /* We mark the reference to be able to detect loops */

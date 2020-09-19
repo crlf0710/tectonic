@@ -594,7 +594,7 @@ unsafe fn load_cmap4(
                         | *GIDToCIDMap.offset((2i32 * gid as i32 + 1i32) as isize) as i32)
                         as u16;
                     if cid as i32 == 0i32 {
-                        warn!("GID {} does not have corresponding CID {}.", gid, cid,);
+                        warn!("GID {} does not have corresponding CID {}.", gid, cid);
                     }
                 } else {
                     cid = gid
@@ -654,7 +654,7 @@ unsafe fn load_cmap12(
                     | *GIDToCIDMap.offset((2i32 * gid as i32 + 1i32) as isize) as i32)
                     as u16;
                 if cid as i32 == 0i32 {
-                    warn!("GID {} does not have corresponding CID {}.", gid, cid,);
+                    warn!("GID {} does not have corresponding CID {}.", gid, cid);
                 }
             } else {
                 cid = gid
@@ -1416,7 +1416,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         1 | 4 => offset = 0_u32,
         256 => offset = sfont.offset,
         _ => {
-            panic!("Not a OpenType/TrueType/TTC font?: {}", map_name,);
+            panic!("Not a OpenType/TrueType/TTC font?: {}", map_name);
         }
     }
     if sfnt_read_table_directory(&mut sfont, offset) < 0i32 {
@@ -1523,7 +1523,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         let otl_tags_ = CString::new(otl_tags).unwrap();
         gsub_list = otl_gsub_new();
         if otl_gsub_add_feat_list(gsub_list, otl_tags_.as_ptr(), &sfont) < 0 {
-            warn!("Reading GSUB feature table(s) failed for \"{}\"", otl_tags,);
+            warn!("Reading GSUB feature table(s) failed for \"{}\"", otl_tags);
         } else {
             otl_gsub_set_chain(gsub_list, otl_tags_.as_ptr());
         }

@@ -1012,7 +1012,7 @@ unsafe fn otl_gsub_read_feat(mut gsub: *mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                                                 );
                                             } else {
                                                 if verbose > 0i32 {
-                                                    info!("(ext:single)",);
+                                                    info!("(ext:single)");
                                                 }
                                                 n_st += 1
                                             }
@@ -1029,7 +1029,7 @@ unsafe fn otl_gsub_read_feat(mut gsub: *mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                                                 );
                                             } else {
                                                 if verbose > 0i32 {
-                                                    info!("(alternate)",);
+                                                    info!("(alternate)");
                                                 }
                                                 n_st += 1
                                             }
@@ -1044,7 +1044,7 @@ unsafe fn otl_gsub_read_feat(mut gsub: *mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                                                 warn!("Reading GSUB subtable (ext:ligature) failed...");
                                             } else {
                                                 if verbose > 0i32 {
-                                                    info!("(ext:ligature)",);
+                                                    info!("(ext:ligature)");
                                                 }
                                                 n_st += 1
                                             }
@@ -1261,7 +1261,7 @@ fn scan_otl_tag(otl_tags: &[u8]) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>), ()> {
             if llen < 5 {
                 language = Vec::from(&p[..llen]);
             } else {
-                warn!("Invalid OTL lanuage tag found: {}", p.display(),);
+                warn!("Invalid OTL lanuage tag found: {}", p.display());
                 return Err(());
             }
             p = &p[llen + 1..];

@@ -294,7 +294,7 @@ unsafe fn build_name_tree(first: &mut [named_object], is_root: i32) -> pdf_dict 
                     names.push(pdf_ref_obj(cur.value));
                 }
                 PdfObjType::OBJ_INVALID => {
-                    panic!("Invalid object...: {}", printable_key(cur.key, cur.keylen),);
+                    panic!("Invalid object...: {}", printable_key(cur.key, cur.keylen));
                 }
                 _ => {
                     names.push(pdf_link_obj(cur.value));

@@ -667,7 +667,7 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
         .iter()
         .any(|&x| libc::isprint(x as i32) == 0)
     {
-        info!("pdf_color>> {}:\t(invalid)\n", "Device Class",);
+        info!("pdf_color>> {}:\t(invalid)\n", "Device Class");
     } else {
         let chars = icch.devClass.to_be_bytes();
         info!(
@@ -687,7 +687,7 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
         .iter()
         .any(|&x| libc::isprint(x as i32) == 0)
     {
-        info!("pdf_color>> {}:\t(invalid)\n", "Color Space",);
+        info!("pdf_color>> {}:\t(invalid)\n", "Color Space");
     } else {
         let chars = icch.colorSpace.to_be_bytes();
         info!(
@@ -707,7 +707,7 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
         .iter()
         .any(|&x| libc::isprint(x as i32) == 0)
     {
-        info!("pdf_color>> {}:\t(invalid)\n", "Connection Space",);
+        info!("pdf_color>> {}:\t(invalid)\n", "Connection Space");
     } else {
         let chars = icch.PCS.to_be_bytes();
         info!(
@@ -722,7 +722,7 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
     info!("pdf_color>> Creation Date:\t");
     for i in (0..12).step_by(2) {
         if i == 0 {
-            info!("{:04}", u16::from_be_byte_slice(&icch.creationDate[..2]),);
+            info!("{:04}", u16::from_be_byte_slice(&icch.creationDate[..2]));
         } else {
             info!(
                 ":{:02}",
@@ -739,7 +739,7 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
         .iter()
         .any(|&x| libc::isprint(x as i32) == 0)
     {
-        info!("pdf_color>> {}:\t(invalid)\n", "Primary Platform",);
+        info!("pdf_color>> {}:\t(invalid)\n", "Primary Platform");
     } else {
         let chars = icch.platform.to_be_bytes();
         info!(
@@ -763,7 +763,7 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
         .iter()
         .any(|&x| libc::isprint(x as i32) == 0)
     {
-        info!("pdf_color>> {}:\t(invalid)\n", "Device Mnfct",);
+        info!("pdf_color>> {}:\t(invalid)\n", "Device Mnfct");
     } else {
         let chars = icch.devMnfct.to_be_bytes();
         info!(
@@ -783,7 +783,7 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
         .iter()
         .any(|&x| libc::isprint(x as i32) == 0)
     {
-        info!("pdf_color>> {}:\t(invalid)\n", "Device Model",);
+        info!("pdf_color>> {}:\t(invalid)\n", "Device Model");
     } else {
         let chars = icch.devModel.to_be_bytes();
         info!(
@@ -824,14 +824,14 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
     }
     info!("\n");
     if icch.creator == 0_u32 {
-        info!("pdf_color>> {}:\t(null)\n", "Creator",);
+        info!("pdf_color>> {}:\t(null)\n", "Creator");
     } else if icch
         .creator
         .to_be_bytes()
         .iter()
         .any(|&x| libc::isprint(x as i32) == 0)
     {
-        info!("pdf_color>> {}:\t(invalid)\n", "Creator",);
+        info!("pdf_color>> {}:\t(invalid)\n", "Creator");
     } else {
         let chars = icch.creator.to_be_bytes();
         info!(

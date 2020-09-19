@@ -516,7 +516,7 @@ unsafe fn read_APP1_Exif<R: Read>(
             20752 => {
                 /* PixelUnit */
                 if type_0 != 1i32 || count != 1i32 {
-                    warn!("{}: Invalid data for ResolutionUnit in Exif chunk.", "JPEG",);
+                    warn!("{}: Invalid data for ResolutionUnit in Exif chunk.", "JPEG");
                     return length;
                 } else {
                     value = read_exif_bytes(&mut p, 1, bigendian as i32);
@@ -531,7 +531,7 @@ unsafe fn read_APP1_Exif<R: Read>(
             20753 => {
                 /* PixelPerUnitX */
                 if type_0 != 4 || count != 1 {
-                    warn!("{}: Invalid data for PixelPerUnitX in Exif chunk.", "JPEG",);
+                    warn!("{}: Invalid data for PixelPerUnitX in Exif chunk.", "JPEG");
                     return length;
                 } else {
                     value = read_exif_bytes(&mut p, 4, bigendian as i32);
@@ -541,7 +541,7 @@ unsafe fn read_APP1_Exif<R: Read>(
             20754 => {
                 /* PixelPerUnitY */
                 if type_0 != 4 || count != 1 {
-                    warn!("{}: Invalid data for PixelPerUnitY in Exif chunk.", "JPEG",);
+                    warn!("{}: Invalid data for PixelPerUnitY in Exif chunk.", "JPEG");
                     return length;
                 } else {
                     value = read_exif_bytes(&mut p, 4, bigendian as i32);
