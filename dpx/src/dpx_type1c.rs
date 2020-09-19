@@ -308,7 +308,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     cff_read_private(&mut cffont);
     cff_read_subrs(&mut cffont);
     /* FIXME */
-    cffont._string = cff_new_index(0i32 as u16);
+    cffont._string = Some(CffIndex::new(0));
     /* New Charsets data */
     let mut charset =
         &mut *(new((1_u64).wrapping_mul(::std::mem::size_of::<cff_charsets>() as u64) as u32)
@@ -683,7 +683,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     let mut stream_data_len = 4_usize; /* header size */
     stream_data_len += cff_set_name(&mut cffont, &fullname) as usize;
     stream_data_len += topdict.size();
-    stream_data_len += cff_index_size(cffont.string);
+    stream_data_len += cffont.string.as_deref_mut().unwrap().size();
     stream_data_len += cff_index_size(cffont.gsubr);
     /* We are using format 1 for Encoding and format 0 for charset.
      * TODO: Should implement cff_xxx_size().
@@ -709,7 +709,11 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     let topdict_offset = offset;
     offset += topdict.size();
     /* Strings */
-    offset += cff_pack_index(cffont.string, &mut stream_data[offset..]);
+    offset += cffont
+        .string
+        .as_deref_mut()
+        .unwrap()
+        .pack(&mut stream_data[offset..]);
     /* Global Subrs */
     offset += cff_pack_index(cffont.gsubr, &mut stream_data[offset..]);
     /* Encoding */

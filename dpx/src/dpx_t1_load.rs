@@ -30,7 +30,7 @@ use crate::bridge::DisplayExt;
 use crate::warn;
 use std::ptr;
 
-use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string};
+use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string, CffIndex};
 use super::dpx_cff::{cff_new_index, cff_set_name};
 use super::dpx_cff_dict::cff_new_dict;
 use super::dpx_mem::{new, renew};
@@ -1596,7 +1596,7 @@ impl cff_font {
             },
             name: cff_new_index(1),
             topdict: cff_new_dict(),
-            string: ptr::null_mut(),
+            string: None,
             gsubr: cff_new_index(0),
             encoding: ptr::null_mut(),
             charsets: ptr::null_mut(),
@@ -1611,7 +1611,7 @@ impl cff_font {
             gsubr_offset: 0 as l_offset,
             num_glyphs: 0,
             num_fds: 1,
-            _string: cff_new_index(0),
+            _string: Some(CffIndex::new(0)),
             is_notdef_notzero: 0,
         };
         *cff.private.offset(0) = cff_new_dict();

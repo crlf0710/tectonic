@@ -431,7 +431,11 @@ unsafe fn add_metrics(
     fontdict.set("FirstChar", firstchar as f64);
     fontdict.set("LastChar", lastchar as f64);
 }
-unsafe fn write_fontfile(font: &mut pdf_font, cffont: &cff_font, pdfcharset: &pdf_stream) -> i32 {
+unsafe fn write_fontfile(
+    font: &mut pdf_font,
+    cffont: &mut cff_font,
+    pdfcharset: &pdf_stream,
+) -> i32 {
     let mut wbuf: [u8; 1024] = [0; 1024];
     let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
     let mut topdict = CffIndex::new(1);
@@ -461,7 +465,7 @@ unsafe fn write_fontfile(font: &mut pdf_font, cffont: &cff_font, pdfcharset: &pd
     let mut stream_data_len = 4_usize;
     stream_data_len += cff_index_size(cffont.name);
     stream_data_len += topdict.size();
-    stream_data_len += cff_index_size(cffont.string);
+    stream_data_len += cffont.string.as_deref_mut().unwrap().size();
     stream_data_len += cff_index_size(cffont.gsubr);
     /* We are using format 1 for Encoding and format 0 for charset.
      * TODO: Should implement cff_xxx_size().
@@ -489,7 +493,11 @@ unsafe fn write_fontfile(font: &mut pdf_font, cffont: &cff_font, pdfcharset: &pd
     let topdict_offset = offset;
     offset += topdict.size();
     /* Strings */
-    offset += cff_pack_index(cffont.string, &mut stream_data[offset..]);
+    offset += cffont
+        .string
+        .as_deref_mut()
+        .unwrap()
+        .pack(&mut stream_data[offset..]);
     /* Global Subrs */
     offset += cff_pack_index(cffont.gsubr, &mut stream_data[offset..]);
     /* Encoding */
@@ -839,7 +847,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     (**cffont.private.offset(0)).update(&mut cffont);
     cff_update_string(&mut cffont);
     add_metrics(font, &cffont, enc_slice, widths, num_glyphs as i32);
-    offset = write_fontfile(font, &cffont, &pdfcharset);
+    offset = write_fontfile(font, &mut cffont, &pdfcharset);
     if verbose > 1i32 {
         info!("[{} glyphs][{} bytes]", num_glyphs, offset);
     }
