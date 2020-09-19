@@ -49,10 +49,7 @@ use super::dpx_cff::{
     cff_charsets_lookup, cff_fdselect_lookup, cff_read_fdarray, cff_read_private,
     cff_release_charsets, cff_release_fdselect, CffIndex, Pack,
 };
-use super::dpx_cff_dict::{
-    cff_dict_add, cff_dict_get, cff_dict_known, cff_dict_pack, cff_dict_remove, cff_dict_set,
-    cff_dict_update, cff_new_dict,
-};
+use super::dpx_cff_dict::cff_new_dict;
 use super::dpx_cid::{
     CIDFont_get_embedding, CIDFont_get_opt_index, CIDFont_get_parent_id, CIDFont_is_BaseFont,
 };
@@ -406,23 +403,23 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     let mut topdict = CffIndex::new(1); /* some bad font may have */
     let mut fdarray = CffIndex::new(cffont.num_fds as u16); /* some bad font may have */
     let mut private = CffIndex::new(cffont.num_fds as u16);
-    cff_dict_remove(cffont.topdict, "UniqueID");
-    cff_dict_remove(cffont.topdict, "XUID");
-    cff_dict_remove(cffont.topdict, "Private");
-    cff_dict_remove(cffont.topdict, "Encoding");
-    topdict.offset[1] = (cff_dict_pack(cffont.topdict, &mut work_buffer[..]) + 1) as l_offset;
+    (*cffont.topdict).remove("UniqueID");
+    (*cffont.topdict).remove("XUID");
+    (*cffont.topdict).remove("Private");
+    (*cffont.topdict).remove("Encoding");
+    topdict.offset[1] = ((*cffont.topdict).pack(&mut work_buffer[..]) + 1) as l_offset;
     for i in 0..cffont.num_fds as usize {
         let mut size = 0;
         if !cffont.private.is_null() && !(*cffont.private.offset(i as isize)).is_null() {
-            size = cff_dict_pack(*cffont.private.offset(i as isize), &mut work_buffer[..]);
+            size = (**cffont.private.offset(i as isize)).pack(&mut work_buffer[..]);
             if size < 1 {
                 /* Private had contained only Subr */
-                cff_dict_remove(*cffont.fdarray.offset(i as isize), "Private"); /* header size */
+                (**cffont.fdarray.offset(i as isize)).remove("Private"); /* header size */
             }
         } /* charset format 0 */
         private.offset[i + 1] = private.offset[i] + size as u32; /* fdselect format 3 */
         fdarray.offset[i + 1] = fdarray.offset[i]
-            + (cff_dict_pack(*cffont.fdarray.offset(i as isize), &mut work_buffer[..]) as u32);
+            + ((**cffont.fdarray.offset(i as isize)).pack(&mut work_buffer[..]) as u32);
         /* Private is not INDEX */
     }
     let mut destlen = 4_usize;
@@ -451,13 +448,13 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     /* Global Subrs */
     offset += cff_pack_index(cffont.gsubr, &mut dest[offset..]);
     /* charset */
-    cff_dict_set(cffont.topdict, "charset", 0, offset as f64);
+    (*cffont.topdict).set("charset", 0, offset as f64);
     offset += cff_pack_charsets(cffont, &mut dest[offset..]);
     /* FDSelect */
-    cff_dict_set(cffont.topdict, "FDSelect", 0, offset as f64);
+    (*cffont.topdict).set("FDSelect", 0, offset as f64);
     offset += cff_pack_fdselect(cffont, &mut dest[offset..]);
     /* CharStrings */
-    cff_dict_set(cffont.topdict, "CharStrings", 0, offset as f64); /* Charstrings cosumes huge memory */
+    (*cffont.topdict).set("CharStrings", 0, offset as f64); /* Charstrings cosumes huge memory */
     offset += cff_pack_index(
         cffont.cstrings,
         &mut dest[offset..offset + cff_index_size(cffont.cstrings)],
@@ -465,34 +462,19 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     cff_release_index(cffont.cstrings);
     cffont.cstrings = ptr::null_mut();
     /* FDArray and Private */
-    cff_dict_set(cffont.topdict, "FDArray", 0i32, offset as f64);
+    (*cffont.topdict).set("FDArray", 0i32, offset as f64);
     let fdarray_offset = offset;
     offset += fdarray.size();
     fdarray.data = vec![0; (fdarray.offset[fdarray.count as usize]) as usize - 1];
     for i in 0..cffont.num_fds as usize {
         let size = (private.offset[i + 1] - private.offset[i]) as usize;
         if !(*cffont.private.offset(i as isize)).is_null() && size > 0 {
-            cff_dict_pack(
-                *cffont.private.offset(i as isize),
-                &mut dest[offset..offset + size],
-            );
-            cff_dict_set(
-                *cffont.fdarray.offset(i as isize),
-                "Private",
-                0i32,
-                size as f64,
-            );
-            cff_dict_set(
-                *cffont.fdarray.offset(i as isize),
-                "Private",
-                1,
-                offset as f64,
-            );
+            (**cffont.private.offset(i as isize)).pack(&mut dest[offset..offset + size]);
+            (**cffont.fdarray.offset(i as isize)).set("Private", 0i32, size as f64);
+            (**cffont.fdarray.offset(i as isize)).set("Private", 1, offset as f64);
         }
-        cff_dict_pack(
-            *cffont.fdarray.offset(i as isize),
-            &mut fdarray.data[fdarray.offset[i] as usize - 1..],
-        );
+        (**cffont.fdarray.offset(i as isize))
+            .pack(&mut fdarray.data[fdarray.offset[i] as usize - 1..]);
         offset += size;
     }
     let len = fdarray.size();
@@ -501,7 +483,7 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
 
     topdict.data = vec![0; (topdict.offset[topdict.count as usize]) as usize - 1];
 
-    cff_dict_pack(cffont.topdict, &mut topdict.data[..]);
+    (*cffont.topdict).pack(&mut topdict.data[..]);
     let len = topdict.size();
     topdict.pack(&mut dest[topdict_offset..topdict_offset + len]);
     /*
@@ -649,8 +631,8 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
     if opt_flags & 1 << 1 != 0 {
         (*(*font).fontdict).as_dict_mut().set("DW", 1000_f64);
     } else {
-        let cid_count = if cff_dict_known((*cffont).topdict, "CIDCount") {
-            cff_dict_get((*cffont).topdict, "CIDCount", 0) as i32
+        let cid_count = if (*(*cffont).topdict).contains_key("CIDCount") {
+            (*(*cffont).topdict).get("CIDCount", 0) as i32
         } else {
             65535 + 1
         };
@@ -701,7 +683,7 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
     cff_read_fdarray(&mut cffont);
     cff_read_private(&mut cffont);
     cff_read_subrs(&mut cffont);
-    let offset = cff_dict_get((*cffont).topdict, "CharStrings", 0) as u64;
+    let offset = (*(*cffont).topdict).get("CharStrings", 0) as u64;
     cffont
         .handle
         .as_ref()
@@ -840,7 +822,7 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
             *(*cffont).subrs.offset(fd as isize) = ptr::null_mut()
         }
         if !(*cffont).private.is_null() && !(*(*cffont).private.offset(fd as isize)).is_null() {
-            cff_dict_remove(*(*cffont).private.offset(fd as isize), "Subrs");
+            (**(*cffont).private.offset(fd as isize)).remove("Subrs");
             /* no Subrs */
         }
     }
@@ -920,7 +902,7 @@ pub(crate) unsafe fn CIDFont_type0_open(
     if is_cid_font != 0 {
         (*csi).registry = CStr::from_ptr(cff_get_string(
             &cffont,
-            cff_dict_get(cffont.topdict, "ROS", 0i32) as s_SID,
+            (*cffont.topdict).get("ROS", 0) as s_SID,
         ))
         .to_str()
         .unwrap()
@@ -928,13 +910,13 @@ pub(crate) unsafe fn CIDFont_type0_open(
         .into();
         (*csi).ordering = CStr::from_ptr(cff_get_string(
             &cffont,
-            cff_dict_get(cffont.topdict, "ROS", 1) as s_SID,
+            (*cffont.topdict).get("ROS", 1) as s_SID,
         ))
         .to_str()
         .unwrap()
         .to_owned()
         .into();
-        (*csi).supplement = cff_dict_get(cffont.topdict, "ROS", 2) as i32
+        (*csi).supplement = (*cffont.topdict).get("ROS", 2) as i32
     } else {
         (*csi).registry = "Adobe".into();
         (*csi).ordering = "Identity".into();
@@ -1054,22 +1036,22 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
         };
     cff_read_private(&mut cffont);
     cff_read_subrs(&mut cffont);
-    if !(*cffont.private.offset(0)).is_null() && cff_dict_known(*cffont.private.offset(0), "StdVW")
+    if !(*cffont.private.offset(0)).is_null() && (**cffont.private.offset(0)).contains_key("StdVW")
     {
-        let stemv = cff_dict_get(*cffont.private.offset(0), "StdVW", 0i32);
+        let stemv = (**cffont.private.offset(0)).get("StdVW", 0);
         (*(*font).descriptor).as_dict_mut().set("StemV", stemv);
     }
     let default_width = if !(*cffont.private.offset(0)).is_null()
-        && cff_dict_known(*cffont.private.offset(0), "defaultWidthX")
+        && (**cffont.private.offset(0)).contains_key("defaultWidthX")
     {
-        cff_dict_get(*cffont.private.offset(0), "defaultWidthX", 0)
+        (**cffont.private.offset(0)).get("defaultWidthX", 0)
     } else {
         0.
     };
     let nominal_width = if !(*cffont.private.offset(0)).is_null()
-        && cff_dict_known(*cffont.private.offset(0), "nominalWidthX")
+        && (**cffont.private.offset(0)).contains_key("nominalWidthX")
     {
-        cff_dict_get(*cffont.private.offset(0), "nominalWidthX", 0)
+        (**cffont.private.offset(0)).get("nominalWidthX", 0)
     } else {
         0.
     };
@@ -1114,40 +1096,34 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
     }
     /* cff_release_charsets(cffont->charsets); */
     cffont.charsets = charset; /* FIXME: Skip XXXXXX+ */
-    cff_dict_add(cffont.topdict, "CIDCount", 1i32);
-    cff_dict_set(
-        cffont.topdict,
-        "CIDCount",
-        0,
-        (last_cid as i32 + 1i32) as f64,
-    );
+    (*cffont.topdict).add("CIDCount", 1i32);
+    (*cffont.topdict).set("CIDCount", 0, (last_cid as i32 + 1i32) as f64);
     cffont.fdarray = new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
         as *mut *mut cff_dict;
     *cffont.fdarray.offset(0) = cff_new_dict();
-    cff_dict_add(*cffont.fdarray.offset(0), "FontName", 1);
+    (**cffont.fdarray.offset(0)).add("FontName", 1);
 
     let fontname_without_tag = CString::new(&(*font).fontname[7..]).unwrap();
-    cff_dict_set(
-        *cffont.fdarray.offset(0),
+    (**cffont.fdarray.offset(0)).set(
         "FontName",
         0,
         cff_add_string(&mut cffont, fontname_without_tag.as_ptr(), 1i32) as f64,
     );
-    cff_dict_add(*cffont.fdarray.offset(0), "Private", 2);
-    cff_dict_set(*cffont.fdarray.offset(0), "Private", 0, 0.);
-    cff_dict_set(*cffont.fdarray.offset(0), "Private", 0, 0.);
+    (**cffont.fdarray.offset(0)).add("Private", 2);
+    (**cffont.fdarray.offset(0)).set("Private", 0, 0.);
+    (**cffont.fdarray.offset(0)).set("Private", 0, 0.);
     /* FDArray  - index offset, not known yet */
-    cff_dict_add(cffont.topdict, "FDArray", 1);
-    cff_dict_set(cffont.topdict, "FDArray", 0, 0.);
+    (*cffont.topdict).add("FDArray", 1);
+    (*cffont.topdict).set("FDArray", 0, 0.);
     /* FDSelect - offset, not known yet */
-    cff_dict_add(cffont.topdict, "FDSelect", 1);
-    cff_dict_set(cffont.topdict, "FDSelect", 0, 0.);
-    cff_dict_remove(cffont.topdict, "UniqueID");
-    cff_dict_remove(cffont.topdict, "XUID");
-    cff_dict_remove(cffont.topdict, "Private");
-    cff_dict_remove(cffont.topdict, "Encoding");
+    (*cffont.topdict).add("FDSelect", 1);
+    (*cffont.topdict).set("FDSelect", 0, 0.);
+    (*cffont.topdict).remove("UniqueID");
+    (*cffont.topdict).remove("XUID");
+    (*cffont.topdict).remove("Private");
+    (*cffont.topdict).remove("Encoding");
     /* */
-    let offset = cff_dict_get(cffont.topdict, "CharStrings", 0) as i32;
+    let offset = (*cffont.topdict).get("CharStrings", 0) as i32;
     cffont
         .handle
         .as_ref()
@@ -1232,29 +1208,27 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
         *cffont.subrs.offset(0) = ptr::null_mut()
     }
     if !cffont.private.is_null() && !(*cffont.private.offset(0)).is_null() {
-        cff_dict_remove(*cffont.private.offset(0), "Subrs");
+        (**cffont.private.offset(0)).remove("Subrs");
         /* no Subrs */
     }
     cff_add_string(&mut cffont, b"Adobe\x00" as *const u8 as *const i8, 1i32);
     cff_add_string(&mut cffont, b"Identity\x00" as *const u8 as *const i8, 1i32);
-    cff_dict_update(cffont.topdict, &mut cffont);
-    cff_dict_update(*cffont.private.offset(0), &mut cffont);
+    (*cffont.topdict).update(&mut cffont);
+    (**cffont.private.offset(0)).update(&mut cffont);
     cff_update_string(&mut cffont);
     /* CFF code need to be rewrote... */
-    cff_dict_add(cffont.topdict, "ROS", 3);
-    cff_dict_set(
-        cffont.topdict,
+    (*cffont.topdict).add("ROS", 3);
+    (*cffont.topdict).set(
         "ROS",
         0,
         cff_get_sid(&cffont, b"Adobe\x00" as *const u8 as *const i8) as f64,
     );
-    cff_dict_set(
-        cffont.topdict,
+    (*cffont.topdict).set(
         "ROS",
         1,
         cff_get_sid(&cffont, b"Identity\x00" as *const u8 as *const i8) as f64,
     );
-    cff_dict_set(cffont.topdict, "ROS", 2, 0.);
+    (*cffont.topdict).set("ROS", 2, 0.);
     let destlen = write_fontfile(font, &mut cffont);
     /*
      * DW, W, DW2 and W2:
@@ -1466,18 +1440,18 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &cff_font) {
     let mut capheight;
     let mut ascent;
     let mut descent;
-    if cff_dict_known(cffont.topdict, "FontBBox") {
+    if (*cffont.topdict).contains_key("FontBBox") {
         /* Default values */
-        ascent = cff_dict_get(cffont.topdict, "FontBBox", 3);
+        ascent = (*cffont.topdict).get("FontBBox", 3);
         capheight = ascent;
-        descent = cff_dict_get(cffont.topdict, "FontBBox", 1)
+        descent = (*cffont.topdict).get("FontBBox", 1)
     } else {
         capheight = 680.0f64;
         ascent = 690.0f64;
         descent = -190.0f64
     }
-    let stemv = if cff_dict_known(*cffont.private.offset(0), "StdVW") {
-        cff_dict_get(*cffont.private.offset(0), "StdVW", 0)
+    let stemv = if (**cffont.private.offset(0)).contains_key("StdVW") {
+        (**cffont.private.offset(0)).get("StdVW", 0)
     } else {
         /*
          * We may use the following values for StemV:
@@ -1490,8 +1464,8 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &cff_font) {
          */
         88.
     };
-    if cff_dict_known(cffont.topdict, "ItalicAngle") {
-        italicangle = cff_dict_get(cffont.topdict, "ItalicAngle", 0);
+    if (*cffont.topdict).contains_key("ItalicAngle") {
+        italicangle = (*cffont.topdict).get("ItalicAngle", 0);
         if italicangle != 0.0f64 {
             flags |= 1i32 << 6i32
         }
@@ -1580,20 +1554,20 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &cff_font) {
         }
     }
     if defaultwidth != 0. {
-        cff_dict_add(*cffont.private.offset(0), "defaultWidthX", 1);
-        cff_dict_set(*cffont.private.offset(0), "defaultWidthX", 0, defaultwidth);
+        (**cffont.private.offset(0)).add("defaultWidthX", 1);
+        (**cffont.private.offset(0)).set("defaultWidthX", 0, defaultwidth);
     }
     if nominalwidth != 0. {
-        cff_dict_add(*cffont.private.offset(0), "nominalWidthX", 1);
-        cff_dict_set(*cffont.private.offset(0), "nominalWidthX", 0, nominalwidth);
+        (**cffont.private.offset(0)).add("nominalWidthX", 1);
+        (**cffont.private.offset(0)).set("nominalWidthX", 0, nominalwidth);
     }
-    if cff_dict_known(*cffont.private.offset(0), "ForceBold")
-        && cff_dict_get(*cffont.private.offset(0), "ForceBold", 0) != 0.
+    if (**cffont.private.offset(0)).contains_key("ForceBold")
+        && (**cffont.private.offset(0)).get("ForceBold", 0) != 0.
     {
         flags |= 1i32 << 18i32
     }
-    if cff_dict_known(*cffont.private.offset(0), "IsFixedPitch")
-        && cff_dict_get(*cffont.private.offset(0), "IsFixedPitch", 0) != 0.
+    if (**cffont.private.offset(0)).contains_key("IsFixedPitch")
+        && (**cffont.private.offset(0)).get("IsFixedPitch", 0) != 0.
     {
         flags |= 1i32 << 0i32
     }
@@ -1628,12 +1602,12 @@ unsafe fn add_metrics(
      * charstrings, to prevent Acrobat 4 from greeking text as
      * much as possible.
      */
-    if !cff_dict_known(cffont.topdict, "FontBBox") {
+    if !(*cffont.topdict).contains_key("FontBBox") {
         panic!("No FontBBox?");
     }
     let mut tmp = vec![];
     for i in 0..4 {
-        let val = cff_dict_get(cffont.topdict, "FontBBox", i);
+        let val = (*cffont.topdict).get("FontBBox", i);
         tmp.push_obj((val / 1. + 0.5).floor() * 1.);
     }
     (*(*font).descriptor).as_dict_mut().set("FontBBox", tmp);
@@ -1737,13 +1711,13 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
     cff_set_name(&mut cffont, &(*font).fontname);
     /* defaultWidthX, CapHeight, etc. */
     get_font_attr(font, &cffont);
-    let defaultwidth = if cff_dict_known(*cffont.private.offset(0), "defaultWidthX") {
-        cff_dict_get(*cffont.private.offset(0), "defaultWidthX", 0)
+    let defaultwidth = if (**cffont.private.offset(0)).contains_key("defaultWidthX") {
+        (**cffont.private.offset(0)).get("defaultWidthX", 0)
     } else {
         0.
     };
-    let nominalwidth = if cff_dict_known(*cffont.private.offset(0), "nominalWidthX") {
-        cff_dict_get(*cffont.private.offset(0), "nominalWidthX", 0)
+    let nominalwidth = if (**cffont.private.offset(0)).contains_key("nominalWidthX") {
+        (**cffont.private.offset(0)).get("nominalWidthX", 0)
     } else {
         0.
     };
@@ -1801,38 +1775,32 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
     }
     cff_release_charsets(cffont.charsets);
     cffont.charsets = charset;
-    cff_dict_add(cffont.topdict, "CIDCount", 1i32);
-    cff_dict_set(
-        cffont.topdict,
-        "CIDCount",
-        0i32,
-        (last_cid as i32 + 1i32) as f64,
-    );
+    (*cffont.topdict).add("CIDCount", 1);
+    (*cffont.topdict).set("CIDCount", 0, (last_cid as i32 + 1) as f64);
     cffont.fdarray = new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
         as *mut *mut cff_dict;
     *cffont.fdarray.offset(0) = cff_new_dict();
-    cff_dict_add(*cffont.fdarray.offset(0), "FontName", 1i32);
+    (**cffont.fdarray.offset(0)).add("FontName", 1);
 
     let cff_font_name = CString::new(&(*font).fontname[7..]).unwrap();
-    cff_dict_set(
-        *cffont.fdarray.offset(0),
+    (**cffont.fdarray.offset(0)).set(
         "FontName",
         0,
         cff_add_string(&mut cffont, cff_font_name.as_ptr(), 1) as f64,
     );
-    cff_dict_add(*cffont.fdarray.offset(0), "Private", 2);
-    cff_dict_set(*cffont.fdarray.offset(0), "Private", 0, 0.);
-    cff_dict_set(*cffont.fdarray.offset(0), "Private", 0, 0.);
+    (**cffont.fdarray.offset(0)).add("Private", 2);
+    (**cffont.fdarray.offset(0)).set("Private", 0, 0.);
+    (**cffont.fdarray.offset(0)).set("Private", 0, 0.);
     /* FDArray  - index offset, not known yet */
-    cff_dict_add(cffont.topdict, "FDArray", 1);
-    cff_dict_set(cffont.topdict, "FDArray", 0, 0.);
+    (*cffont.topdict).add("FDArray", 1);
+    (*cffont.topdict).set("FDArray", 0, 0.);
     /* FDSelect - offset, not known yet */
-    cff_dict_add(cffont.topdict, "FDSelect", 1);
-    cff_dict_set(cffont.topdict, "FDSelect", 0, 0.);
-    cff_dict_add(cffont.topdict, "charset", 1);
-    cff_dict_set(cffont.topdict, "charset", 0, 0.);
-    cff_dict_add(cffont.topdict, "CharStrings", 1);
-    cff_dict_set(cffont.topdict, "CharStrings", 0, 0.);
+    (*cffont.topdict).add("FDSelect", 1);
+    (*cffont.topdict).set("FDSelect", 0, 0.);
+    (*cffont.topdict).add("charset", 1);
+    (*cffont.topdict).set("charset", 0, 0.);
+    (*cffont.topdict).add("CharStrings", 1);
+    (*cffont.topdict).set("CharStrings", 0, 0.);
     let mut gm = t1_ginfo::new();
     let mut max: i32 = 0i32;
     let mut w_stat: [i32; 1001] = [0; 1001];
@@ -1913,24 +1881,22 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
     free(CIDToGIDMap as *mut libc::c_void);
     cff_add_string(&mut cffont, b"Adobe\x00" as *const u8 as *const i8, 1i32);
     cff_add_string(&mut cffont, b"Identity\x00" as *const u8 as *const i8, 1i32);
-    cff_dict_update(cffont.topdict, &mut cffont);
-    cff_dict_update(*cffont.private.offset(0), &mut cffont);
+    (*cffont.topdict).update(&mut cffont);
+    (**cffont.private.offset(0)).update(&mut cffont);
     cff_update_string(&mut cffont);
     /* CFF code need to be rewrote... */
-    cff_dict_add(cffont.topdict, "ROS", 3);
-    cff_dict_set(
-        cffont.topdict,
+    (*cffont.topdict).add("ROS", 3);
+    (*cffont.topdict).set(
         "ROS",
         0,
         cff_get_sid(&cffont, b"Adobe\x00" as *const u8 as *const i8) as f64,
     );
-    cff_dict_set(
-        cffont.topdict,
+    (*cffont.topdict).set(
         "ROS",
         1,
         cff_get_sid(&cffont, b"Identity\x00" as *const u8 as *const i8) as f64,
     );
-    cff_dict_set(cffont.topdict, "ROS", 2, 0.0f64);
+    (*cffont.topdict).set("ROS", 2, 0.);
     cffont.num_glyphs = num_glyphs as u16;
     write_fontfile(font, &mut cffont);
     CIDFont_type0_add_CIDSet(font, used_chars, last_cid);

@@ -40,7 +40,6 @@ use super::dpx_agl::agl_get_unicodes;
 use super::dpx_cff::{
     cff_charsets_lookup_inverse, cff_get_glyphname, cff_get_string, cff_open, cff_read_charsets,
 };
-use super::dpx_cff_dict::{cff_dict_get, cff_dict_known};
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{
     CMap_add_bfchar, CMap_add_cidchar, CMap_add_codespacerange, CMap_cache_add, CMap_cache_find,
@@ -711,11 +710,11 @@ unsafe fn handle_CIDFont(
         *GIDToCIDMap = ptr::null_mut();
         return 0;
     }
-    if !cff_dict_known(cffont.topdict, "ROS") {
+    if !(*cffont.topdict).contains_key("ROS") {
         panic!("No CIDSystemInfo???");
     } else {
-        let reg = cff_dict_get(cffont.topdict, "ROS", 0) as u16;
-        let ord = cff_dict_get(cffont.topdict, "ROS", 1) as u16;
+        let reg = (*cffont.topdict).get("ROS", 0) as u16;
+        let ord = (*cffont.topdict).get("ROS", 1) as u16;
         (*csi).registry = CStr::from_ptr(cff_get_string(&cffont, reg))
             .to_str()
             .unwrap()
@@ -726,7 +725,7 @@ unsafe fn handle_CIDFont(
             .unwrap()
             .to_owned()
             .into();
-        (*csi).supplement = cff_dict_get(cffont.topdict, "ROS", 2) as i32
+        (*csi).supplement = (*cffont.topdict).get("ROS", 2) as i32
     }
     cff_read_charsets(&mut cffont);
     let charset = cffont.charsets;

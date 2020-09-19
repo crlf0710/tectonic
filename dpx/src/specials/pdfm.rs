@@ -70,7 +70,6 @@ use crate::dpx_unicode::{
     UC_UTF16BE_encode_char, UC_UTF16BE_is_valid_string, UC_UTF8_decode_char,
     UC_UTF8_is_valid_string, UC_is_valid,
 };
-use libc::free;
 
 use crate::bridge::size_t;
 

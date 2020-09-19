@@ -77,16 +77,14 @@ pub(crate) unsafe fn cff_new_dict() -> *mut cff_dict {
     dict
 }
 
-pub(crate) unsafe fn cff_release_dict(dict: *mut cff_dict) {
-    if !dict.is_null() {
-        if !(*dict).entries.is_null() {
-            for i in 0..(*dict).count {
-                free((*(*dict).entries.offset(i as isize)).values as *mut libc::c_void);
-            }
-            free((*dict).entries as *mut libc::c_void);
+pub(crate) unsafe fn cff_release_dict(dict: &mut cff_dict) {
+    if !dict.entries.is_null() {
+        for i in 0..dict.count {
+            free((*dict.entries.offset(i as isize)).values as *mut libc::c_void);
         }
-        free(dict as *mut libc::c_void);
-    };
+        free(dict.entries as *mut libc::c_void);
+    }
+    free(dict as *mut cff_dict as *mut libc::c_void);
 }
 static mut stack_top: i32 = 0i32;
 static mut arg_stack: [f64; 64] = [0.; 64];
@@ -653,7 +651,7 @@ unsafe fn cff_dict_put_number(value: f64, dest: &mut [u8], type_0: i32) -> usize
         pack_integer(dest, nearint as i32)
     }
 }
-unsafe fn put_dict_entry(de: *mut cff_dict_entry, dest: &mut [u8]) -> usize {
+unsafe fn put_dict_entry(de: &cff_dict_entry, dest: &mut [u8]) -> usize {
     let mut len = 0_usize;
     if (*de).count > 0i32 {
         let id = (*de).id;
@@ -682,165 +680,169 @@ unsafe fn put_dict_entry(de: *mut cff_dict_entry, dest: &mut [u8]) -> usize {
     len
 }
 
-pub(crate) unsafe fn cff_dict_pack(dict: *mut cff_dict, dest: &mut [u8]) -> usize {
-    let mut len = 0_usize;
-    for i in 0..(*dict).count as isize {
-        if (*(*dict).entries.offset(i)).key == "ROS" {
-            len += put_dict_entry(&mut *(*dict).entries.offset(i), dest);
-            break;
-        }
-    }
-    for i in 0..(*dict).count as isize {
-        if (*(*dict).entries.offset(i)).key != "ROS" {
-            len += put_dict_entry(&mut *(*dict).entries.offset(i), &mut dest[len..])
-        }
-    }
-    len
-}
-
-pub(crate) unsafe fn cff_dict_add(mut dict: *mut cff_dict, key: &str, count: i32) {
-    let mut id = 0;
-    while id < 22 + 39 {
-        if !key.is_empty()
-            && !dict_operator[id as usize].opname.is_empty()
-            && dict_operator[id as usize].opname == key
-        {
-            break;
-        }
-        id += 1
-    }
-    if id == 22 + 39 {
-        panic!("{}: Unknown CFF DICT operator.", "CFF");
-    }
-    for i in 0..(*dict).count {
-        if (*(*dict).entries.offset(i as isize)).id == id {
-            if (*(*dict).entries.offset(i as isize)).count != count {
-                panic!("{}: Inconsistent DICT argument number.", "CFF");
+impl cff_dict {
+    pub(crate) unsafe fn pack(&self, dest: &mut [u8]) -> usize {
+        let mut len = 0_usize;
+        for i in 0..self.count as isize {
+            if (*self.entries.offset(i)).key == "ROS" {
+                len += put_dict_entry(&*self.entries.offset(i), dest);
+                break;
             }
-            return;
         }
-    }
-    if (*dict).count + 1i32 >= (*dict).max {
-        (*dict).max += 8i32;
-        (*dict).entries = renew(
-            (*dict).entries as *mut libc::c_void,
-            ((*dict).max as u32 as u64).wrapping_mul(::std::mem::size_of::<cff_dict_entry>() as u64)
-                as u32,
-        ) as *mut cff_dict_entry
-    }
-    (*(*dict).entries.offset((*dict).count as isize)).id = id;
-    (*(*dict).entries.offset((*dict).count as isize)).key = dict_operator[id as usize].opname;
-    (*(*dict).entries.offset((*dict).count as isize)).count = count;
-    if count > 0i32 {
-        (*(*dict).entries.offset((*dict).count as isize)).values = new((count as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<f64>() as u64)
-            as u32) as *mut f64;
-        memset(
-            (*(*dict).entries.offset((*dict).count as isize)).values as *mut libc::c_void,
-            0i32,
-            (::std::mem::size_of::<f64>()).wrapping_mul(count as _),
-        );
-    } else {
-        (*(*dict).entries.offset((*dict).count as isize)).values = ptr::null_mut()
-    }
-    (*dict).count += 1i32;
-}
-
-pub(crate) unsafe fn cff_dict_remove(dict: *mut cff_dict, key: &str) {
-    for i in 0..(*dict).count {
-        if key == (*(*dict).entries.offset(i as isize)).key {
-            (*(*dict).entries.offset(i as isize)).count = 0i32;
-            (*(*dict).entries.offset(i as isize)).values =
-                mfree((*(*dict).entries.offset(i as isize)).values as *mut libc::c_void) as *mut f64
-        }
-    }
-}
-
-pub(crate) unsafe fn cff_dict_known(dict: *mut cff_dict, key: &str) -> bool {
-    for i in 0..(*dict).count {
-        if key == (*(*dict).entries.offset(i as isize)).key
-            && (*(*dict).entries.offset(i as isize)).count > 0i32
-        {
-            return true;
-        }
-    }
-    false
-}
-
-pub(crate) unsafe fn cff_dict_get(dict: *mut cff_dict, key: &str, idx: i32) -> f64 {
-    let mut value: f64 = 0.0f64;
-    assert!(!key.is_empty() && !dict.is_null());
-    let mut i = 0;
-    while i < (*dict).count {
-        if key == (*(*dict).entries.offset(i as isize)).key {
-            if (*(*dict).entries.offset(i as isize)).count > idx {
-                value = *(*(*dict).entries.offset(i as isize))
-                    .values
-                    .offset(idx as isize)
-            } else {
-                panic!("{}: Invalid index number.", "CFF");
+        for i in 0..self.count as isize {
+            if (*self.entries.offset(i)).key != "ROS" {
+                len += put_dict_entry(&*self.entries.offset(i), &mut dest[len..])
             }
-            break;
+        }
+        len
+    }
+
+    pub(crate) unsafe fn add(&mut self, key: &str, count: i32) {
+        let mut id = 0;
+        while id < 22 + 39 {
+            if !key.is_empty()
+                && !dict_operator[id as usize].opname.is_empty()
+                && dict_operator[id as usize].opname == key
+            {
+                break;
+            }
+            id += 1
+        }
+        if id == 22 + 39 {
+            panic!("{}: Unknown CFF DICT operator.", "CFF");
+        }
+        for i in 0..self.count {
+            if (*self.entries.offset(i as isize)).id == id {
+                if (*self.entries.offset(i as isize)).count != count {
+                    panic!("{}: Inconsistent DICT argument number.", "CFF");
+                }
+                return;
+            }
+        }
+        if self.count + 1i32 >= self.max {
+            self.max += 8i32;
+            self.entries = renew(
+                self.entries as *mut libc::c_void,
+                (self.max as u32 as u64)
+                    .wrapping_mul(::std::mem::size_of::<cff_dict_entry>() as u64)
+                    as u32,
+            ) as *mut cff_dict_entry
+        }
+        (*self.entries.offset(self.count as isize)).id = id;
+        (*self.entries.offset(self.count as isize)).key = dict_operator[id as usize].opname;
+        (*self.entries.offset(self.count as isize)).count = count;
+        if count > 0i32 {
+            (*self.entries.offset(self.count as isize)).values =
+                new((count as u32 as u64).wrapping_mul(::std::mem::size_of::<f64>() as u64) as u32)
+                    as *mut f64;
+            memset(
+                (*self.entries.offset(self.count as isize)).values as *mut libc::c_void,
+                0i32,
+                (::std::mem::size_of::<f64>()).wrapping_mul(count as _),
+            );
         } else {
-            i += 1
+            (*self.entries.offset(self.count as isize)).values = ptr::null_mut()
         }
+        self.count += 1i32;
     }
-    if i == (*dict).count {
-        panic!("{}: DICT entry \"{}\" not found.", "CFF", key,);
-    }
-    value
-}
 
-pub(crate) unsafe fn cff_dict_set(dict: *mut cff_dict, key: &str, idx: i32, value: f64) {
-    assert!(!dict.is_null() && !key.is_empty());
-    let mut i = 0;
-    while i < (*dict).count {
-        if key == (*(*dict).entries.offset(i as isize)).key {
-            if (*(*dict).entries.offset(i as isize)).count > idx {
-                *(*(*dict).entries.offset(i as isize))
-                    .values
-                    .offset(idx as isize) = value
-            } else {
-                panic!("{}: Invalid index number.", "CFF");
+    pub(crate) unsafe fn remove(&mut self, key: &str) {
+        for i in 0..self.count {
+            if key == (*self.entries.offset(i as isize)).key {
+                (*self.entries.offset(i as isize)).count = 0i32;
+                (*self.entries.offset(i as isize)).values =
+                    mfree((*self.entries.offset(i as isize)).values as *mut libc::c_void)
+                        as *mut f64
             }
-            break;
-        } else {
-            i += 1
         }
     }
-    if i == (*dict).count {
-        panic!("{}: DICT entry \"{}\" not found.", "CFF", key,);
-    };
-}
-/* decode/encode DICT */
 
-pub(crate) unsafe fn cff_dict_update(dict: *mut cff_dict, cff: &mut cff_font) {
-    for i in 0..(*dict).count {
-        if (*(*dict).entries.offset(i as isize)).count > 0i32 {
-            let id = (*(*dict).entries.offset(i as isize)).id;
-            if dict_operator[id as usize].argtype == 1i32 << 3i32 {
-                let str = cff_get_string(
-                    cff,
-                    *(*(*dict).entries.offset(i as isize)).values.offset(0) as s_SID,
-                );
-                *(*(*dict).entries.offset(i as isize)).values.offset(0) =
-                    cff_add_string(cff, str, 1i32) as f64;
-                free(str as *mut libc::c_void);
-            } else if dict_operator[id as usize].argtype == 1i32 << 6i32 {
-                let str = cff_get_string(
-                    cff,
-                    *(*(*dict).entries.offset(i as isize)).values.offset(0) as s_SID,
-                );
-                *(*(*dict).entries.offset(i as isize)).values.offset(0) =
-                    cff_add_string(cff, str, 1i32) as f64;
-                free(str as *mut libc::c_void);
-                let str = cff_get_string(
-                    cff,
-                    *(*(*dict).entries.offset(i as isize)).values.offset(1) as s_SID,
-                );
-                *(*(*dict).entries.offset(i as isize)).values.offset(1) =
-                    cff_add_string(cff, str, 1i32) as f64;
-                free(str as *mut libc::c_void);
+    pub(crate) unsafe fn contains_key(&self, key: &str) -> bool {
+        for i in 0..self.count {
+            if key == (*self.entries.offset(i as isize)).key
+                && (*self.entries.offset(i as isize)).count > 0i32
+            {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub(crate) unsafe fn get(&self, key: &str, idx: i32) -> f64 {
+        let mut value: f64 = 0.0f64;
+        assert!(!key.is_empty());
+        let mut i = 0;
+        while i < self.count {
+            if key == (*self.entries.offset(i as isize)).key {
+                if (*self.entries.offset(i as isize)).count > idx {
+                    value = *(*self.entries.offset(i as isize))
+                        .values
+                        .offset(idx as isize)
+                } else {
+                    panic!("{}: Invalid index number.", "CFF");
+                }
+                break;
+            } else {
+                i += 1
+            }
+        }
+        if i == self.count {
+            panic!("{}: DICT entry \"{}\" not found.", "CFF", key,);
+        }
+        value
+    }
+
+    pub(crate) unsafe fn set(&mut self, key: &str, idx: i32, value: f64) {
+        assert!(!key.is_empty());
+        let mut i = 0;
+        while i < self.count {
+            if key == (*self.entries.offset(i as isize)).key {
+                if (*self.entries.offset(i as isize)).count > idx {
+                    *(*self.entries.offset(i as isize))
+                        .values
+                        .offset(idx as isize) = value
+                } else {
+                    panic!("{}: Invalid index number.", "CFF");
+                }
+                break;
+            } else {
+                i += 1
+            }
+        }
+        if i == self.count {
+            panic!("{}: DICT entry \"{}\" not found.", "CFF", key,);
+        };
+    }
+
+    /* decode/encode DICT */
+    pub(crate) unsafe fn update(&mut self, cff: &mut cff_font) {
+        for i in 0..self.count {
+            if (*self.entries.offset(i as isize)).count > 0i32 {
+                let id = (*self.entries.offset(i as isize)).id;
+                if dict_operator[id as usize].argtype == 1i32 << 3i32 {
+                    let str = cff_get_string(
+                        cff,
+                        *(*self.entries.offset(i as isize)).values.offset(0) as s_SID,
+                    );
+                    *(*self.entries.offset(i as isize)).values.offset(0) =
+                        cff_add_string(cff, str, 1i32) as f64;
+                    free(str as *mut libc::c_void);
+                } else if dict_operator[id as usize].argtype == 1i32 << 6i32 {
+                    let str = cff_get_string(
+                        cff,
+                        *(*self.entries.offset(i as isize)).values.offset(0) as s_SID,
+                    );
+                    *(*self.entries.offset(i as isize)).values.offset(0) =
+                        cff_add_string(cff, str, 1i32) as f64;
+                    free(str as *mut libc::c_void);
+                    let str = cff_get_string(
+                        cff,
+                        *(*self.entries.offset(i as isize)).values.offset(1) as s_SID,
+                    );
+                    *(*self.entries.offset(i as isize)).values.offset(1) =
+                        cff_add_string(cff, str, 1i32) as f64;
+                    free(str as *mut libc::c_void);
+                }
             }
         }
     }

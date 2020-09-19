@@ -41,7 +41,6 @@ use crate::bridge::size_t;
 use crate::mfree;
 use crate::warn;
 
-use super::dpx_cff_dict::{cff_dict_get, cff_dict_known};
 use super::dpx_dpxfile::{
     dpx_open_dfont_file, dpx_open_opentype_file, dpx_open_truetype_file, dpx_open_type1_file,
 };
@@ -992,9 +991,9 @@ unsafe fn dvi_locate_native_font(
          */
         warn!("skipping PFB sanity check -- needs Tectonic I/O update");
         let cffont = t1_load_font(&mut enc_vec[..], 0, handle);
-        if cff_dict_known(cffont.topdict, "FontBBox") {
-            font.ascent = cff_dict_get(cffont.topdict, "FontBBox", 3) as i32;
-            font.descent = cff_dict_get(cffont.topdict, "FontBBox", 1) as i32
+        if (*cffont.topdict).contains_key("FontBBox") {
+            font.ascent = (*cffont.topdict).get("FontBBox", 3) as i32;
+            font.descent = (*cffont.topdict).get("FontBBox", 1) as i32
         } else {
             font.ascent = 690i32;
             font.descent = -190i32
