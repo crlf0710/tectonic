@@ -26,8 +26,6 @@
     non_upper_case_globals
 )]
 
-use crate::bridge::DisplayExt;
-use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_sfnt::{
@@ -103,7 +101,7 @@ pub(crate) struct C2RustUnnamed_2 {
 pub(crate) struct C2RustUnnamed_3 {
     pub(crate) platform: u16,
     pub(crate) encoding: u16,
-    pub(crate) pdfnames: [*const i8; 5],
+    pub(crate) pdfnames: &'static [&'static str],
 }
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -170,157 +168,84 @@ unsafe fn validate_name(mut fontname: String) -> String {
 }
 static mut known_encodings: [C2RustUnnamed_3; 11] = [
     C2RustUnnamed_3 {
-        platform: 3_u16,
-        encoding: 10_u16,
-        pdfnames: [
-            b"UCSms-UCS4\x00" as *const u8 as *const i8,
-            b"UCSms-UCS2\x00" as *const u8 as *const i8,
-            b"UCS4\x00" as *const u8 as *const i8,
-            b"UCS2\x00" as *const u8 as *const i8,
-            ptr::null(),
-        ],
+        platform: 3,
+        encoding: 10,
+        pdfnames: &["UCSms-UCS4", "UCSms-UCS2", "UCS4", "UCS2"],
     },
     C2RustUnnamed_3 {
-        platform: 3_u16,
-        encoding: 1_u16,
-        pdfnames: [
-            b"UCSms-UCS4\x00" as *const u8 as *const i8,
-            b"UCSms-UCS2\x00" as *const u8 as *const i8,
-            b"UCS4\x00" as *const u8 as *const i8,
-            b"UCS2\x00" as *const u8 as *const i8,
-            ptr::null(),
-        ],
+        platform: 3,
+        encoding: 1,
+        pdfnames: &["UCSms-UCS4", "UCSms-UCS2", "UCS4", "UCS2"],
     },
     C2RustUnnamed_3 {
-        platform: 3_u16,
-        encoding: 2_u16,
-        pdfnames: [
-            b"90ms-RKSJ\x00" as *const u8 as *const i8,
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-        ],
+        platform: 3,
+        encoding: 2,
+        pdfnames: &["90ms-RKSJ"],
     },
     C2RustUnnamed_3 {
-        platform: 3_u16,
-        encoding: 3_u16,
-        pdfnames: [
-            b"GBK-EUC\x00" as *const u8 as *const i8,
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-        ],
+        platform: 3,
+        encoding: 3,
+        pdfnames: &["GBK-EUC"],
     },
     C2RustUnnamed_3 {
-        platform: 3_u16,
-        encoding: 4_u16,
-        pdfnames: [
-            b"ETen-B5\x00" as *const u8 as *const i8,
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-        ],
+        platform: 3,
+        encoding: 4,
+        pdfnames: &["ETen-B5"],
     },
     C2RustUnnamed_3 {
-        platform: 3_u16,
-        encoding: 5_u16,
-        pdfnames: [
-            b"KSCms-UHC\x00" as *const u8 as *const i8,
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-        ],
+        platform: 3,
+        encoding: 5,
+        pdfnames: &["KSCms-UHC"],
     },
     C2RustUnnamed_3 {
-        platform: 1_u16,
-        encoding: 1_u16,
-        pdfnames: [
-            b"90pv-RKSJ\x00" as *const u8 as *const i8,
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-        ],
+        platform: 1,
+        encoding: 1,
+        pdfnames: &["90pv-RKSJ"],
     },
     C2RustUnnamed_3 {
-        platform: 1_u16,
-        encoding: 2_u16,
-        pdfnames: [
-            b"B5pc\x00" as *const u8 as *const i8,
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-        ],
+        platform: 1,
+        encoding: 2,
+        pdfnames: &["B5pc"],
     },
     C2RustUnnamed_3 {
-        platform: 1_u16,
-        encoding: 25_u16,
-        pdfnames: [
-            b"GBpc-EUC\x00" as *const u8 as *const i8,
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-        ],
+        platform: 1,
+        encoding: 25,
+        pdfnames: &["GBpc-EUC"],
     },
     C2RustUnnamed_3 {
-        platform: 1_u16,
-        encoding: 3_u16,
-        pdfnames: [
-            b"KSCpc-EUC\x00" as *const u8 as *const i8,
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-        ],
+        platform: 1,
+        encoding: 3,
+        pdfnames: &["KSCpc-EUC"],
     },
     C2RustUnnamed_3 {
-        platform: 0_u16,
-        encoding: 0_u16,
-        pdfnames: [
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-            ptr::null(),
-        ],
+        platform: 0,
+        encoding: 0,
+        pdfnames: &[],
     },
 ];
 unsafe fn find_tocode_cmap(reg: &str, ord: &str, select: i32) -> *mut CMap {
-    let mut cmap_id: i32 = -1i32;
-    if select < 0i32 || select > 9i32 {
+    let mut cmap_id: i32 = -1;
+    if select < 0 || select > 9 {
         panic!("Character set unknown.");
     }
-    if ord == "UCS" && select <= 1i32 {
+    if ord == "UCS" && select <= 1 {
         return ptr::null_mut();
     }
-    let mut i = 0;
-    while cmap_id < 0i32 && i < 5i32 {
-        let append = known_encodings[select as usize].pdfnames[i as usize];
-        if append.is_null() {
+    for append in known_encodings[select as usize].pdfnames {
+        let cmap_name = format!("{}-{}-{}", reg, ord, append);
+        cmap_id = CMap_cache_find(&cmap_name);
+        if cmap_id >= 0 {
             break;
         }
-        let cmap_name = format!("{}-{}-{}", reg, ord, CStr::from_ptr(append).display());
-        cmap_id = CMap_cache_find(&cmap_name);
-        i += 1
     }
-    if cmap_id < 0i32 {
+    if cmap_id < 0 {
         warn!(
             "Could not find CID-to-Code mapping for \"{}-{}\".",
             reg, ord,
         );
         warn!("I tried to load (one of) the following file(s):");
-        for i in 0..5 {
-            let append = known_encodings[select as usize].pdfnames[i];
-            if append.is_null() {
-                break;
-            }
-            info!(" {}-{}-{}", reg, ord, CStr::from_ptr(append).display());
+        for append in known_encodings[select as usize].pdfnames {
+            info!(" {}-{}-{}", reg, ord, append);
         }
         warn!("Please check if this file exists.");
         panic!("Cannot continue...");
@@ -480,44 +405,44 @@ unsafe fn add_TTCIDVMetrics(
 unsafe fn fix_CJK_symbols(code: u16) -> u16 {
     static mut CJK_Uni_symbols: [C2RustUnnamed_2; 10] = [
         C2RustUnnamed_2 {
-            alt1: 0x2014_u16,
-            alt2: 0x2015_u16,
+            alt1: 0x2014,
+            alt2: 0x2015,
         },
         C2RustUnnamed_2 {
-            alt1: 0x2016_u16,
-            alt2: 0x2225_u16,
+            alt1: 0x2016,
+            alt2: 0x2225,
         },
         C2RustUnnamed_2 {
-            alt1: 0x203e_u16,
-            alt2: 0xffe3_u16,
+            alt1: 0x203e,
+            alt2: 0xffe3,
         },
         C2RustUnnamed_2 {
-            alt1: 0x2026_u16,
-            alt2: 0x22ef_u16,
+            alt1: 0x2026,
+            alt2: 0x22ef,
         },
         C2RustUnnamed_2 {
-            alt1: 0x2212_u16,
-            alt2: 0xff0d_u16,
+            alt1: 0x2212,
+            alt2: 0xff0d,
         },
         C2RustUnnamed_2 {
-            alt1: 0x301c_u16,
-            alt2: 0xff5e_u16,
+            alt1: 0x301c,
+            alt2: 0xff5e,
         },
         C2RustUnnamed_2 {
-            alt1: 0xffe0_u16,
-            alt2: 0xa2_u16,
+            alt1: 0xffe0,
+            alt2: 0xa2,
         },
         C2RustUnnamed_2 {
-            alt1: 0xffe1_u16,
-            alt2: 0xa3_u16,
+            alt1: 0xffe1,
+            alt2: 0xa3,
         },
         C2RustUnnamed_2 {
-            alt1: 0xffe2_u16,
-            alt2: 0xac_u16,
+            alt1: 0xffe2,
+            alt2: 0xac,
         },
         C2RustUnnamed_2 {
-            alt1: 0xffff_u16,
-            alt2: 0xffff_u16,
+            alt1: 0xffff,
+            alt2: 0xffff,
         },
     ];
     let mut alt_code = code;

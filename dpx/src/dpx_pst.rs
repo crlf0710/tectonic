@@ -63,7 +63,10 @@ impl PstObj {
 }
 
 /* BOOLEAN */
-pub(crate) unsafe fn pst_parse_boolean(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option<PstObj> {
+pub(crate) unsafe fn pst_parse_boolean(
+    inbuf: &mut *const u8,
+    inbufend: *const u8,
+) -> Option<PstObj> {
     let slice = std::slice::from_raw_parts(*inbuf, inbufend.offset_from(*inbuf) as usize);
     if slice.len() >= 4
         && slice.starts_with(b"true")
@@ -83,7 +86,7 @@ pub(crate) unsafe fn pst_parse_boolean(inbuf: *mut *mut u8, inbufend: *mut u8) -
 }
 /* NULL */
 
-pub(crate) unsafe fn pst_parse_null(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option<PstObj> {
+pub(crate) unsafe fn pst_parse_null(inbuf: &mut *const u8, inbufend: *const u8) -> Option<PstObj> {
     let slice = std::slice::from_raw_parts(*inbuf, inbufend.offset_from(*inbuf) as usize);
     if slice.len() >= 4
         && slice.starts_with(b"null")
@@ -109,7 +112,10 @@ unsafe fn pst_real_SV(obj: f64) -> String {
 /* NOTE: the input buffer must be null-terminated, i.e., *inbufend == 0 */
 /* leading white-space is ignored */
 
-pub(crate) unsafe fn pst_parse_number(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option<PstObj> {
+pub(crate) unsafe fn pst_parse_number(
+    inbuf: &mut *const u8,
+    inbufend: *const u8,
+) -> Option<PstObj> {
     let mut cur: *mut u8 = ptr::null_mut();
     errno::set_errno(errno::ZERO);
     let mut lval = strtol(
@@ -124,11 +130,11 @@ pub(crate) unsafe fn pst_parse_number(inbuf: *mut *mut u8, inbufend: *mut u8) ->
             *inbuf as *mut i8,
             &mut cur as *mut *mut u8 as *mut libc::c_void as *mut *mut i8,
         );
-        if errno::errno() == errno::ZERO && (cur == inbufend || pst_token_end(*cur)) {
+        if errno::errno() == errno::ZERO && (cur as *const u8 == inbufend || pst_token_end(*cur)) {
             *inbuf = cur;
             return Some(PstObj::Real(dval));
         }
-    } else if cur != *inbuf && (cur == inbufend || pst_token_end(*cur)) {
+    } else if cur as *const u8 != *inbuf && (cur as *const u8 == inbufend || pst_token_end(*cur)) {
         /* integer */
         *inbuf = cur;
         return Some(PstObj::Integer(lval));
@@ -151,7 +157,9 @@ pub(crate) unsafe fn pst_parse_number(inbuf: *mut *mut u8, inbufend: *mut u8) ->
                 &mut cur as *mut *mut u8 as *mut libc::c_void as *mut *mut i8,
                 lval,
             ) as i32;
-            if errno::errno() == errno::ZERO && (cur == inbufend || pst_token_end(*cur)) {
+            if errno::errno() == errno::ZERO
+                && (cur as *const u8 == inbufend || pst_token_end(*cur))
+            {
                 *inbuf = cur;
                 return Some(PstObj::Integer(lval));
             }
@@ -165,7 +173,7 @@ pub(crate) unsafe fn pst_parse_number(inbuf: *mut *mut u8, inbufend: *mut u8) ->
 /*
  * \0 is not allowed for name object.
  */
-unsafe fn getxpair(s: *mut *mut u8) -> i32 {
+unsafe fn getxpair(s: &mut *const u8) -> i32 {
     let hi = xtoi(**s);
     if hi < 0i32 {
         return hi;
@@ -179,10 +187,10 @@ unsafe fn getxpair(s: *mut *mut u8) -> i32 {
     hi << 4i32 | lo
 }
 
-pub(crate) unsafe fn pst_parse_name(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option<PstObj>
+pub(crate) unsafe fn pst_parse_name(inbuf: &mut *const u8, inbufend: *const u8) -> Option<PstObj>
 /* / is required */ {
     let mut wbuf: Vec<u8> = Vec::new();
-    let mut cur: *mut u8 = *inbuf;
+    let mut cur: *const u8 = *inbuf;
     if *cur as i32 != '/' as i32 {
         return None;
     }
@@ -218,7 +226,10 @@ pub(crate) unsafe fn pst_parse_name(inbuf: *mut *mut u8, inbufend: *mut u8) -> O
 /*
  * TODO: ascii85 string <~ .... ~>
  */
-pub(crate) unsafe fn pst_parse_string(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option<PstObj> {
+pub(crate) unsafe fn pst_parse_string(
+    inbuf: &mut *const u8,
+    inbufend: *const u8,
+) -> Option<PstObj> {
     if (*inbuf).offset(2) >= inbufend {
         return None;
     } else {
@@ -237,8 +248,8 @@ pub(crate) unsafe fn pst_parse_string(inbuf: *mut *mut u8, inbufend: *mut u8) ->
     None
 }
 /* Overflowed value is set to invalid char.  */
-unsafe fn ostrtouc(inbuf: *mut *mut u8, inbufend: *mut u8, valid: *mut u8) -> u8 {
-    let mut cur: *mut u8 = *inbuf;
+unsafe fn ostrtouc(inbuf: &mut *const u8, inbufend: *const u8, valid: *mut u8) -> u8 {
+    let mut cur = *inbuf;
     let mut val: u32 = 0_u32;
     while cur < inbufend && cur < (*inbuf).offset(3) && (*cur >= b'0' && *cur <= b'7') {
         val = val << 3 | (*cur - b'0') as u32;
@@ -248,7 +259,7 @@ unsafe fn ostrtouc(inbuf: *mut *mut u8, inbufend: *mut u8, valid: *mut u8) -> u8
     *inbuf = cur;
     val as u8
 }
-unsafe fn esctouc(inbuf: *mut *mut u8, inbufend: *mut u8, valid: *mut u8) -> u8 {
+unsafe fn esctouc(inbuf: &mut *const u8, inbufend: *const u8, valid: *mut u8) -> u8 {
     let unescaped;
     let escaped = **inbuf;
     *valid = 1_u8;
@@ -307,9 +318,9 @@ unsafe fn esctouc(inbuf: *mut *mut u8, inbufend: *mut u8, valid: *mut u8) -> u8 
     unescaped
 }
 /* STRING */
-unsafe fn pst_string_parse_literal(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option<String> {
+unsafe fn pst_string_parse_literal(inbuf: &mut *const u8, inbufend: *const u8) -> Option<String> {
     let mut wbuf: Vec<u8> = Vec::new();
-    let mut cur: *mut u8 = *inbuf;
+    let mut cur = *inbuf;
     let mut c: u8 = 0_u8;
     let mut balance: i32 = 1i32;
     if cur.offset(2) > inbufend || *cur as i32 != '(' as i32 {
@@ -358,9 +369,9 @@ unsafe fn pst_string_parse_literal(inbuf: *mut *mut u8, inbufend: *mut u8) -> Op
     *inbuf = cur;
     Some(String::from_utf8(wbuf).unwrap())
 }
-unsafe fn pst_string_parse_hex(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option<String> {
+unsafe fn pst_string_parse_hex(inbuf: &mut *const u8, inbufend: *const u8) -> Option<String> {
     let mut wbuf: Vec<u8> = Vec::new();
-    let mut cur: *mut u8 = *inbuf;
+    let mut cur = *inbuf;
     if cur.offset(2) > inbufend || *cur != b'<' || *cur == b'<' && *cur.offset(1) == b'<' {
         return None;
     }
@@ -410,7 +421,7 @@ unsafe fn pst_string_parse_hex(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option
     Some(String::from_utf8(wbuf).unwrap())
 }
 unsafe fn pst_string_RV(obj: &String) -> f64 {
-    let mut p = obj.as_ptr() as *mut u8;
+    let mut p = obj.as_ptr() as *const u8;
     let end = p.offset(obj.len() as isize);
     match pst_parse_number(&mut p, end) {
         Some(nobj) if p == end => match nobj {
@@ -426,8 +437,8 @@ pub(crate) fn pst_token_end(s: u8) -> bool {
     is_delim(&s) || is_space(&s)
 }
 
-unsafe fn pst_parse_any(inbuf: *mut *mut u8, inbufend: *mut u8) -> PstObj {
-    let mut cur: *mut u8 = *inbuf;
+unsafe fn pst_parse_any(inbuf: &mut *const u8, inbufend: *const u8) -> PstObj {
+    let mut cur: *const u8 = *inbuf;
     while cur < inbufend && !(cur == inbufend || pst_token_end(*cur)) {
         cur = cur.offset(1)
     }
@@ -437,7 +448,7 @@ unsafe fn pst_parse_any(inbuf: *mut *mut u8, inbufend: *mut u8) -> PstObj {
     *inbuf = cur;
     PstObj::Unknown(data.into_boxed_slice())
 }
-unsafe fn skip_line(inbuf: *mut *mut u8, inbufend: *mut u8) {
+unsafe fn skip_line(inbuf: &mut *const u8, inbufend: *const u8) {
     while *inbuf < inbufend && **inbuf != b'\n' && **inbuf != b'\r' {
         *inbuf = (*inbuf).offset(1)
     }
@@ -448,7 +459,7 @@ unsafe fn skip_line(inbuf: *mut *mut u8, inbufend: *mut u8) {
         *inbuf = (*inbuf).offset(1)
     };
 }
-unsafe fn skip_comments(inbuf: *mut *mut u8, inbufend: *mut u8) {
+unsafe fn skip_comments(inbuf: &mut *const u8, inbufend: *const u8) {
     while *inbuf < inbufend && **inbuf == b'%' {
         skip_line(inbuf, inbufend);
         skip_white_spaces(inbuf, inbufend);
@@ -456,7 +467,7 @@ unsafe fn skip_comments(inbuf: *mut *mut u8, inbufend: *mut u8) {
 }
 /* NOTE: the input buffer must be null-terminated, i.e., *inbufend == 0 */
 
-pub(crate) unsafe fn pst_get_token(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option<PstObj> {
+pub(crate) unsafe fn pst_get_token(inbuf: &mut *const u8, inbufend: *const u8) -> Option<PstObj> {
     let mut obj = None;
     assert!(*inbuf <= inbufend && *inbufend == 0);
     skip_white_spaces(inbuf, inbufend);

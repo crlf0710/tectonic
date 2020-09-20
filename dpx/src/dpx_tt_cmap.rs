@@ -684,7 +684,7 @@ unsafe fn load_cmap12(
  */
 unsafe fn handle_CIDFont(
     sfont: &mut sfnt,
-    GIDToCIDMap: *mut *mut u8,
+    GIDToCIDMap: &mut *mut u8,
     mut csi: *mut CIDSysInfo,
 ) -> i32 {
     assert!(!csi.is_null());
@@ -1168,24 +1168,24 @@ unsafe fn create_ToUnicode_cmap(
 }
 static mut cmap_plat_encs: [cmap_plat_enc_rec; 5] = [
     cmap_plat_enc_rec {
-        platform: 3_i16,
-        encoding: 10_i16,
+        platform: 3,
+        encoding: 10,
     },
     cmap_plat_enc_rec {
-        platform: 0_i16,
-        encoding: 3_i16,
+        platform: 0,
+        encoding: 3,
     },
     cmap_plat_enc_rec {
-        platform: 0_i16,
-        encoding: 0_i16,
+        platform: 0,
+        encoding: 0,
     },
     cmap_plat_enc_rec {
-        platform: 3_i16,
-        encoding: 1_i16,
+        platform: 3,
+        encoding: 1,
     },
     cmap_plat_enc_rec {
-        platform: 0_i16,
-        encoding: 1_i16,
+        platform: 0,
+        encoding: 1,
     },
 ];
 
@@ -1363,14 +1363,14 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
     let mut csi: CIDSysInfo = CIDSysInfo {
         registry: "".into(),
         ordering: "".into(),
-        supplement: 0i32,
+        supplement: 0,
     };
     let mut GIDToCIDMap: *mut u8 = ptr::null_mut();
     if map_name.is_empty() {
-        return -1i32;
+        return -1;
     }
-    if ttc_index > 999i32 || ttc_index < 0i32 {
-        return -1i32;
+    if ttc_index > 999 || ttc_index < 0 {
+        return -1;
         /* Sorry for this... */
     }
     let mut handle = dpx_open_truetype_file(map_name);
@@ -1430,21 +1430,16 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         } else {
             let mut cmap = CMap_new();
             CMap_set_name(&mut cmap, &tounicode_add_name);
-            CMap_set_type(&mut cmap, 2i32);
-            CMap_set_wmode(&mut cmap, 0i32);
-            CMap_add_codespacerange(
-                &mut cmap,
-                srange_min.as_ptr(),
-                srange_max.as_ptr(),
-                2i32 as size_t,
-            );
+            CMap_set_type(&mut cmap, 2);
+            CMap_set_wmode(&mut cmap, 0);
+            CMap_add_codespacerange(&mut cmap, srange_min.as_ptr(), srange_max.as_ptr(), 2);
             CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
             CMap_add_bfchar(
                 &mut cmap,
                 srange_min.as_mut_ptr(),
-                2i32 as size_t,
+                2,
                 srange_max.as_mut_ptr(),
-                2i32 as size_t,
+                2,
             );
             tounicode_add = CMap_cache_get(CMap_cache_add(Box::new(cmap)));
         }

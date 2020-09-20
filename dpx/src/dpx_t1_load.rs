@@ -87,7 +87,7 @@ unsafe fn t1_decrypt(mut key: u16, mut dst: *mut u8, mut src: *const u8, skip: i
     }
 }
 /* T1CRYPT */
-unsafe fn get_next_key(start: *mut *mut u8, end: *mut u8) -> Option<String> {
+unsafe fn get_next_key(start: &mut *const u8, end: *const u8) -> Option<String> {
     let mut key = None;
     while *start < end {
         match pst_get_token(start, end) {
@@ -101,7 +101,7 @@ unsafe fn get_next_key(start: *mut *mut u8, end: *mut u8) -> Option<String> {
     }
     key
 }
-unsafe fn seek_operator(start: *mut *mut u8, end: *mut u8, op: &[u8]) -> i32 {
+unsafe fn seek_operator(start: &mut *const u8, end: *const u8, op: &[u8]) -> i32 {
     while *start < end {
         match pst_get_token(start, end) {
             None => break,
@@ -113,14 +113,18 @@ unsafe fn seek_operator(start: *mut *mut u8, end: *mut u8, op: &[u8]) -> i32 {
     }
     -1
 }
-unsafe fn parse_svalue(start: *mut *mut u8, end: *mut u8) -> Result<String, ()> {
+unsafe fn parse_svalue(start: &mut *const u8, end: *const u8) -> Result<String, ()> {
     match pst_get_token(start, end).ok_or(())? {
         PstObj::Name(data) => Ok(data.into_string().unwrap()),
         PstObj::String(data) => Ok(data),
         _ => Err(()),
     }
 }
-unsafe fn parse_bvalue(start: *mut *mut u8, end: *mut u8, value: *mut f64) -> Result<usize, ()> {
+unsafe fn parse_bvalue(
+    start: &mut *const u8,
+    end: *const u8,
+    value: *mut f64,
+) -> Result<usize, ()> {
     if let PstObj::Boolean(data) = pst_get_token(start, end).ok_or(())? {
         *value = data as i32 as f64;
         Ok(1)
@@ -130,8 +134,8 @@ unsafe fn parse_bvalue(start: *mut *mut u8, end: *mut u8, value: *mut f64) -> Re
 }
 unsafe fn parse_nvalue(
     // TODO: check
-    start: *mut *mut u8,
-    end: *mut u8,
+    start: &mut *const u8,
+    end: *const u8,
     value: *mut f64,
     max: i32,
 ) -> Result<usize, ()> {
@@ -703,8 +707,8 @@ static mut ISOLatin1Encoding: [&str; 256] = [
  */
 unsafe fn try_put_or_putinterval(
     enc_vec: &mut [String],
-    start: *mut *mut u8,
-    end: *mut u8,
+    start: &mut *const u8,
+    end: *const u8,
 ) -> Result<(), ()> {
     let num1 = match pst_get_token(start, end) {
         Some(PstObj::Integer(num1)) if (num1 >= 0 && num1 < 256) => num1,
@@ -756,7 +760,7 @@ unsafe fn try_put_or_putinterval(
         _ => Err(()),
     }
 }
-unsafe fn parse_encoding(enc_vec: &mut [String], start: *mut *mut u8, end: *mut u8) -> i32 {
+unsafe fn parse_encoding(enc_vec: &mut [String], start: &mut *const u8, end: *const u8) -> i32 {
     /*
      *  StandardEncoding def
      * or
@@ -862,8 +866,8 @@ unsafe fn parse_encoding(enc_vec: &mut [String], start: *mut *mut u8, end: *mut 
 }
 unsafe fn parse_subrs(
     font: &cff_font,
-    start: *mut *mut u8,
-    end: *mut u8,
+    start: &mut *const u8,
+    end: *const u8,
     lenIV: i32,
     mode: i32,
 ) -> Result<(), ()> {
@@ -1032,8 +1036,8 @@ unsafe fn parse_subrs(
 }
 unsafe fn parse_charstrings(
     font: &mut cff_font,
-    start: *mut *mut u8,
-    end: *mut u8,
+    start: &mut *const u8,
+    end: *const u8,
     lenIV: i32,
     mode: i32,
 ) -> Result<(), ()> {
@@ -1232,8 +1236,8 @@ unsafe fn parse_charstrings(
 }
 unsafe fn parse_part2(
     font: &mut cff_font,
-    start: *mut *mut u8,
-    end: *mut u8,
+    start: &mut *const u8,
+    end: *const u8,
     mode: i32,
 ) -> Result<(), ()> {
     let mut argv: [f64; 127] = [0.; 127];
@@ -1322,8 +1326,8 @@ fn check_size(a: usize, b: usize) -> Result<usize, ()> {
 unsafe fn parse_part1(
     font: &mut cff_font,
     enc_vec: &mut [String],
-    start: *mut *mut u8,
-    end: *mut u8,
+    start: &mut *const u8,
+    end: *const u8,
 ) -> Result<(), ()> {
     let mut argv: [f64; 127] = [0.; 127];
     /*
@@ -1551,8 +1555,8 @@ pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: &
     if buffer.is_null() || length == 0i32 {
         panic!("Reading PFB (ASCII part) file failed.");
     }
-    let mut start = buffer;
-    let end = buffer.offset(length as isize);
+    let mut start = buffer as *const u8;
+    let end = buffer.offset(length as isize) as *const u8;
     if seek_operator(&mut start, end, b"begin") < 0i32 {
         free(buffer as *mut libc::c_void);
         return -1i32;
@@ -1633,8 +1637,8 @@ pub(crate) unsafe fn t1_load_font(
         panic!("Reading PFB (ASCII part) file failed.");
     }
     let mut cff = Box::new(cff_font::new());
-    let mut start = buffer;
-    let end = buffer.offset(length as isize);
+    let mut start = buffer as *const u8;
+    let end = buffer.offset(length as isize) as *const u8;
     if parse_part1(&mut cff, enc_vec, &mut start, end).is_err() {
         free(buffer as *mut libc::c_void);
         panic!("Reading PFB (ASCII part) file failed.");
@@ -1648,8 +1652,8 @@ pub(crate) unsafe fn t1_load_font(
     } else {
         t1_decrypt(55665_u16, buffer, buffer, 0i32, length);
     }
-    let mut start = buffer.offset(4);
-    let end = buffer.offset(length as isize);
+    let mut start = buffer.offset(4) as *const u8;
+    let end = buffer.offset(length as isize) as *const u8;
     if parse_part2(&mut cff, &mut start, end, mode).is_err() {
         free(buffer as *mut libc::c_void);
         panic!("Reading PFB (BINARY part) file failed.");

@@ -335,7 +335,7 @@ static mut dict_operator: [Operator; 61] = [
     },
 ];
 /* Parse DICT data */
-unsafe fn get_integer(data: *mut *mut u8, endptr: *mut u8, status: *mut i32) -> f64 {
+unsafe fn get_integer(data: &mut *mut u8, endptr: *mut u8, status: *mut i32) -> f64 {
     let mut result: i32 = 0i32;
     let b0 = **data;
     *data = (*data).offset(1);
@@ -378,7 +378,7 @@ unsafe fn get_integer(data: *mut *mut u8, endptr: *mut u8, status: *mut i32) -> 
     result as f64
 }
 /* Simply uses strtod */
-unsafe fn get_real(data: *mut *mut u8, endptr: *mut u8, status: *mut i32) -> f64 {
+unsafe fn get_real(data: &mut *mut u8, endptr: *mut u8, status: *mut i32) -> f64 {
     let mut result: f64 = 0.; /* skip first byte (30) */
     let mut nibble: i32 = 0;
     let mut len: i32 = 0;
@@ -446,7 +446,7 @@ unsafe fn get_real(data: *mut *mut u8, endptr: *mut u8, status: *mut i32) -> f64
     result
 }
 /* operators */
-unsafe fn add_dict(mut dict: *mut cff_dict, data: *mut *mut u8, endptr: *mut u8, status: *mut i32) {
+unsafe fn add_dict(mut dict: *mut cff_dict, data: &mut *mut u8, endptr: *mut u8, status: *mut i32) {
     let mut id = **data as i32;
     if id == 0xci32 {
         *data = (*data).offset(1);

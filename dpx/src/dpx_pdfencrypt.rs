@@ -694,7 +694,7 @@ unsafe fn calculate_key(p: &mut pdf_sec) -> [u8; 16] {
 pub(crate) unsafe fn pdf_encrypt_data(
     plain: *const u8,
     plain_len: size_t,
-    cipher: *mut *mut u8,
+    cipher: &mut *mut u8,
     cipher_len: *mut size_t,
 ) {
     let p = &mut sec_data;

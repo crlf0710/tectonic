@@ -299,7 +299,7 @@ unsafe fn release_charpath(mut cd: *mut t1_chardesc) {
 /*
  * Single byte operators:
  */
-unsafe fn do_operator1(mut cd: *mut t1_chardesc, data: *mut *mut u8) {
+unsafe fn do_operator1(mut cd: *mut t1_chardesc, data: &mut *mut u8) {
     let mut op: u8 = **data;
     *data = (*data).offset(1);
     match op as i32 {
@@ -751,7 +751,7 @@ unsafe fn do_callothersubr(cd: *mut t1_chardesc) {
 /*
  * Double byte operators:
  */
-unsafe fn do_operator2(mut cd: *mut t1_chardesc, data: *mut *mut u8, endptr: *mut u8) {
+unsafe fn do_operator2(mut cd: *mut t1_chardesc, data: &mut *mut u8, endptr: *mut u8) {
     *data = (*data).offset(1);
     if endptr < (*data).offset(1) {
         status = -1i32;
@@ -889,7 +889,7 @@ unsafe fn do_operator2(mut cd: *mut t1_chardesc, data: *mut *mut u8, endptr: *mu
  *   Type 1 format.
  */
 /* Type 2 5-bytes encoding used. */
-unsafe fn put_numbers(argv: *mut f64, argn: i32, dest: *mut *mut u8, limit: *mut u8) {
+unsafe fn put_numbers(argv: *mut f64, argn: i32, dest: &mut *mut u8, limit: *mut u8) {
     for i in 0..argn {
         let value = *argv.offset(i as isize);
         /* Nearest integer value */
@@ -965,7 +965,7 @@ unsafe fn put_numbers(argv: *mut f64, argn: i32, dest: *mut *mut u8, limit: *mut
         }
     }
 }
-unsafe fn get_integer(data: *mut *mut u8, endptr: *mut u8) {
+unsafe fn get_integer(data: &mut *mut u8, endptr: *mut u8) {
     let mut result;
     let b0: u8 = **data;
     let b1;
@@ -1015,7 +1015,7 @@ unsafe fn get_integer(data: *mut *mut u8, endptr: *mut u8) {
     cs_stack_top += 1;
 }
 /* Type 1 */
-unsafe fn get_longint(data: *mut *mut u8, endptr: *mut u8) {
+unsafe fn get_longint(data: &mut *mut u8, endptr: *mut u8) {
     *data = (*data).offset(1);
     if endptr < (*data).offset(4) {
         status = -1;
@@ -1045,7 +1045,7 @@ unsafe fn get_longint(data: *mut *mut u8, endptr: *mut u8) {
 /* Parse charstring and build charpath. */
 unsafe fn t1char_build_charpath(
     cd: *mut t1_chardesc,
-    data: *mut *mut u8,
+    data: &mut *mut u8,
     endptr: *mut u8,
     subrs: *mut cff_index,
 ) {
@@ -1076,7 +1076,8 @@ unsafe fn t1char_build_charpath(
                 let len = (*(*subrs).offset.offset((idx + 1i32) as isize))
                     .wrapping_sub(*(*subrs).offset.offset(idx as isize))
                     as i32;
-                t1char_build_charpath(cd, &mut subr, subr.offset(len as isize), subrs);
+                let endptr = subr.offset(len as isize);
+                t1char_build_charpath(cd, &mut subr, endptr, subrs);
                 *data = (*data).offset(1)
             }
         } else if b0 as i32 == 12i32 {
@@ -1544,7 +1545,8 @@ pub(crate) unsafe fn t1char_get_metrics(
     nest = 0i32;
     ps_stack_top = 0i32;
     cs_stack_top = 0i32;
-    t1char_build_charpath(cd, &mut src, src.offset(srclen as isize), subrs);
+    let endptr = src.offset(srclen as isize);
+    t1char_build_charpath(cd, &mut src, endptr, subrs);
     if cs_stack_top != 0i32 || ps_stack_top != 0i32 {
         warn!("Stack not empty. ({}, {})", cs_stack_top, ps_stack_top);
     }
@@ -1857,7 +1859,8 @@ pub(crate) unsafe fn t1char_convert_charstring(
     nest = 0i32;
     ps_stack_top = 0i32;
     cs_stack_top = 0i32;
-    t1char_build_charpath(cd, &mut src, src.offset(srclen as isize), subrs);
+    let endptr = src.offset(srclen as isize);
+    t1char_build_charpath(cd, &mut src, endptr, subrs);
     if cs_stack_top != 0i32 || ps_stack_top != 0i32 {
         warn!("Stack not empty. ({}, {})", cs_stack_top, ps_stack_top);
     }

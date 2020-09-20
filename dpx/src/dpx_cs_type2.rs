@@ -98,7 +98,7 @@ static mut trn_array: [f64; 32] = [0.; 32];
 /*
  * clear_stack() put all operands sotred in operand stack to dest.
  */
-unsafe fn clear_stack(dest: *mut *mut u8, limit: *mut u8) {
+unsafe fn clear_stack(dest: &mut *mut u8, limit: *mut u8) {
     for i in 0..stack_top {
         let value = arg_stack[i as usize];
         /* Nearest integer value */
@@ -188,7 +188,7 @@ unsafe fn clear_stack(dest: *mut *mut u8, limit: *mut u8) {
  *  1: hint declaration, first stack-clearing operator appeared
  *  2: in path construction
  */
-unsafe fn do_operator1(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, endptr: *mut u8) {
+unsafe fn do_operator1(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, endptr: *mut u8) {
     let op: u8 = **data;
     *data = (*data).offset(1);
     match op as i32 {
@@ -333,7 +333,7 @@ unsafe fn do_operator1(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, e
  * Following operators are not supported:
  *  random: How random ?
  */
-unsafe fn do_operator2(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, endptr: *mut u8) {
+unsafe fn do_operator2(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, endptr: *mut u8) {
     *data = (*data).offset(1);
     if endptr < (*data).offset(1) {
         status = -1i32;
@@ -611,7 +611,7 @@ unsafe fn do_operator2(dest: *mut *mut u8, limit: *mut u8, data: *mut *mut u8, e
  * integer:
  *  exactly the same as the DICT encoding (except 29)
  */
-unsafe fn get_integer(data: *mut *mut u8, endptr: *mut u8) {
+unsafe fn get_integer(data: &mut *mut u8, endptr: *mut u8) {
     let mut result;
     let b0: u8 = **data;
     *data = (*data).offset(1);
@@ -662,7 +662,7 @@ unsafe fn get_integer(data: *mut *mut u8, endptr: *mut u8) {
 /*
  * Signed 16.16-bits fixed number for Type 2 charstring encoding
  */
-unsafe fn get_fixed(data: *mut *mut u8, endptr: *mut u8) {
+unsafe fn get_fixed(data: &mut *mut u8, endptr: *mut u8) {
     *data = (*data).offset(1);
     if endptr < (*data).offset(4) {
         status = -1i32;
@@ -693,7 +693,7 @@ unsafe fn get_fixed(data: *mut *mut u8, endptr: *mut u8) {
  * subr_idx: CFF INDEX data that contains subroutines.
  * id:       biased subroutine number.
  */
-unsafe fn get_subr(subr: *mut *mut u8, len: *mut i32, subr_idx: *mut cff_index, mut id: i32) {
+unsafe fn get_subr(subr: &mut *mut u8, len: *mut i32, subr_idx: *mut cff_index, mut id: i32) {
     if subr_idx.is_null() {
         panic!(
             "{}: Subroutine called but no subroutine found.",
@@ -729,9 +729,9 @@ unsafe fn get_subr(subr: *mut *mut u8, len: *mut i32, subr_idx: *mut cff_index, 
  *  Type 1 format.
  */
 unsafe fn do_charstring(
-    dest: *mut *mut u8,
+    dest: &mut *mut u8,
     limit: *mut u8,
-    data: *mut *mut u8,
+    data: &mut *mut u8,
     endptr: *mut u8,
     gsubr_idx: *mut cff_index,
     subr_idx: *mut cff_index,
@@ -766,14 +766,8 @@ unsafe fn do_charstring(
                 if (*dest).offset(len as isize) > limit {
                     panic!("{}: Possible buffer overflow.", "Type2 Charstring Parser");
                 }
-                do_charstring(
-                    dest,
-                    limit,
-                    &mut subr,
-                    subr.offset(len as isize),
-                    gsubr_idx,
-                    subr_idx,
-                );
+                let endptr = subr.offset(len as isize);
+                do_charstring(dest, limit, &mut subr, endptr, gsubr_idx, subr_idx);
                 *data = (*data).offset(1)
             }
         } else if b0 as i32 == 10i32 {
@@ -790,14 +784,8 @@ unsafe fn do_charstring(
                 if limit < (*dest).offset(len as isize) {
                     panic!("{}: Possible buffer overflow.", "Type2 Charstring Parser");
                 }
-                do_charstring(
-                    dest,
-                    limit,
-                    &mut subr,
-                    subr.offset(len as isize),
-                    gsubr_idx,
-                    subr_idx,
-                );
+                let endptr = subr.offset(len as isize);
+                do_charstring(dest, limit, &mut subr, endptr, gsubr_idx, subr_idx);
                 *data = (*data).offset(1)
             }
         } else if b0 as i32 == 12i32 {
@@ -855,14 +843,9 @@ pub(crate) unsafe fn cs_copy_charstring(
     width = 0.0f64;
     have_width = 0i32;
     /* expand call(g)subrs */
-    do_charstring(
-        &mut dst,
-        dst.offset(dstlen as isize),
-        &mut src,
-        src.offset(srclen as isize),
-        gsubr,
-        subr,
-    ); /* not used */
+    let dstend = dst.offset(dstlen as isize);
+    let srcend = src.offset(srclen as isize);
+    do_charstring(&mut dst, dstend, &mut src, srcend, gsubr, subr); /* not used */
     if !ginfo.is_null() {
         (*ginfo).flags = 0i32;
         if have_width != 0 {

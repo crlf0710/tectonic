@@ -295,7 +295,7 @@ pub(crate) unsafe fn AES_ecb_encrypt(
     key_len: size_t,
     plain: *const u8,
     plain_len: size_t,
-    cipher: *mut *mut u8,
+    cipher: &mut *mut u8,
     cipher_len: *mut size_t,
 ) {
     let mut aes: AES_CONTEXT = AES_CONTEXT {
@@ -344,7 +344,7 @@ pub(crate) unsafe fn AES_cbc_encrypt_tectonic(
     padding: i32,
     plain: *const u8,
     plain_len: size_t,
-    cipher: *mut *mut u8,
+    cipher: &mut *mut u8,
     cipher_len: *mut size_t,
 ) {
     let mut aes: AES_CONTEXT = AES_CONTEXT {
