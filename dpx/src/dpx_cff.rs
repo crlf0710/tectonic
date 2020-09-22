@@ -773,16 +773,16 @@ pub(crate) unsafe fn cff_open(
     if n > (*idx).count as i32 - 1i32 {
         panic!("CFF Top DICT not exist...");
     }
-    cff.topdict = cff_dict_unpack(
-        (*idx)
-            .data
-            .offset(*(*idx).offset.offset(n as isize) as isize)
-            .offset(-1),
-        (*idx)
-            .data
-            .offset(*(*idx).offset.offset((n + 1i32) as isize) as isize)
-            .offset(-1),
-    );
+    let data = (*idx)
+        .data
+        .offset(*(*idx).offset.offset(n as isize) as isize)
+        .offset(-1);
+    let size = (*idx)
+        .data
+        .offset(*(*idx).offset.offset((n + 1i32) as isize) as isize)
+        .offset(-1)
+        .offset_from(data) as usize;
+    cff.topdict = cff_dict_unpack(std::slice::from_raw_parts(data, size));
     if cff.topdict.is_null() {
         panic!("Parsing CFF Top DICT data failed...");
     }
@@ -2121,14 +2121,15 @@ pub(crate) unsafe fn cff_read_fdarray(cff: &mut cff_font) -> i32 {
         .wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
         as *mut *mut cff_dict;
     for i in 0..(*idx).count as i32 {
-        let data: *mut u8 = (*idx)
+        let data = (*idx)
             .data
             .offset(*(*idx).offset.offset(i as isize) as isize)
             .offset(-1);
         let size = (*(*idx).offset.offset((i as i32 + 1i32) as isize))
             .wrapping_sub(*(*idx).offset.offset(i as isize)) as i32;
-        if size > 0i32 {
-            *cff.fdarray.offset(i as isize) = cff_dict_unpack(data, data.offset(size as isize));
+        if size > 0 {
+            let data = std::slice::from_raw_parts(data, size as usize);
+            *cff.fdarray.offset(i as isize) = cff_dict_unpack(data);
         } else {
             *cff.fdarray.offset(i as isize) = ptr::null_mut();
         }
@@ -2200,13 +2201,11 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
                 handle
                     .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
                     .unwrap();
-                let data = new(
-                    (size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
-                ) as *mut u8;
-                let slice = std::slice::from_raw_parts_mut(data, size as usize);
-                handle.read_exact(slice).expect("reading file failed");
-                *cff.private.offset(i as isize) = cff_dict_unpack(data, data.offset(size as isize));
-                free(data as *mut libc::c_void);
+                let mut data = vec![0; size as usize];
+                handle
+                    .read_exact(data.as_mut_slice())
+                    .expect("reading file failed");
+                *cff.private.offset(i as isize) = cff_dict_unpack(data.as_slice());
                 len += size
             } else {
                 *cff.private.offset(i as isize) = ptr::null_mut()
@@ -2226,14 +2225,11 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
             handle
                 .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
                 .unwrap();
-            let data =
-                new((size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-                    as *mut u8;
-
-            let slice = std::slice::from_raw_parts_mut(data, size as usize);
-            handle.read_exact(slice).expect("reading file failed");
-            *cff.private.offset(0) = cff_dict_unpack(data, data.offset(size as isize));
-            free(data as *mut libc::c_void);
+            let mut data = vec![0; size as usize];
+            handle
+                .read_exact(data.as_mut_slice())
+                .expect("reading file failed");
+            *cff.private.offset(0) = cff_dict_unpack(data.as_slice());
             len += size
         } else {
             *cff.private.offset(0) = ptr::null_mut();

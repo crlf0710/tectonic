@@ -130,19 +130,7 @@ pub(crate) unsafe fn spc_suspend_annot(mut _spe: &mut SpcEnv) -> i32 {
     0i32
 }
 static mut NAMED_OBJECTS: *mut ht_table = ptr::null_mut();
-/* reserved keys */
-static mut _RKEYS: [&str; 10] = [
-    "xpos",
-    "ypos",
-    "thispage",
-    "prevpage",
-    "nextpage",
-    "resources",
-    "pages",
-    "names",
-    "catalog",
-    "docinfo",
-];
+
 /* pageN where N is a positive integer.
  * Note that page need not exist at this time.
  */
@@ -209,31 +197,24 @@ pub(crate) unsafe fn spc_lookup_object(key: &str) -> *mut pdf_obj {
     if key.is_empty() {
         return ptr::null_mut();
     }
-    let mut k = 0i32;
-    for rkey in &_RKEYS {
-        if &key == rkey {
-            break;
-        }
-        k += 1
-    }
     let value;
-    match k {
-        0 => {
+    match key {
+        "xpos" => {
             let mut cp = point2(dvi_dev_xpos(), 0.);
             pdf_dev_transform(&mut cp, None);
             value = ((cp.x / 0.01 + 0.5).floor() * 0.01).into_obj()
         }
-        1 => {
+        "ypos" => {
             let mut cp = point2(0., dvi_dev_ypos());
             pdf_dev_transform(&mut cp, None);
             value = ((cp.y / 0.01 + 0.5).floor() * 0.01).into_obj()
         }
-        2 => value = pdf_doc_get_dictionary("@THISPAGE"),
-        6 => value = pdf_doc_get_dictionary("Pages"),
-        7 => value = pdf_doc_get_dictionary("Names"),
-        5 => value = pdf_doc_current_page_resources(),
-        8 => value = pdf_doc_get_dictionary("Catalog"),
-        9 => value = pdf_doc_get_dictionary("Info"),
+        "thispage" => value = pdf_doc_get_dictionary("@THISPAGE"),
+        "pages" => value = pdf_doc_get_dictionary("Pages"),
+        "names" => value = pdf_doc_get_dictionary("Names"),
+        "resources" => value = pdf_doc_current_page_resources(),
+        "catalog" => value = pdf_doc_get_dictionary("Catalog"),
+        "docinfo" => value = pdf_doc_get_dictionary("Info"),
         _ => {
             value = pdf_names_lookup_object(
                 NAMED_OBJECTS,

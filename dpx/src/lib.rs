@@ -136,6 +136,13 @@ impl FromBEByteSlice for i32 {
         i32::from_be_bytes(dst)
     }
 }
+impl FromBEByteSlice for u64 {
+    fn from_be_byte_slice(b: &[u8]) -> Self {
+        let mut dst: [u8; 8] = unsafe { MaybeUninit::uninit().assume_init() };
+        dst.copy_from_slice(b);
+        u64::from_be_bytes(dst)
+    }
+}
 impl FromBEByteSlice for u32 {
     fn from_be_byte_slice(b: &[u8]) -> Self {
         let mut dst: [u8; 4] = unsafe { MaybeUninit::uninit().assume_init() };
