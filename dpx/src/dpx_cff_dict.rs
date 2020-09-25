@@ -30,12 +30,10 @@ use std::ptr;
 
 use super::dpx_cff::{cff_add_string, cff_get_string};
 use super::dpx_mem::{new, renew};
-use super::dpx_mfileio::work_buffer;
-use crate::bridge::stub_errno as errno;
 use crate::mfree;
 use crate::shims::sprintf;
 use crate::warn;
-use libc::{free, memset, strtod};
+use libc::{free, memset};
 
 pub(crate) type s_SID = u16;
 
@@ -369,7 +367,7 @@ static mut dict_operator: [Operator; CFF_LAST_DICT_OP] = [
     },
 ];
 /* Parse DICT data */
-unsafe fn get_integer(data: &mut &[u8]) -> Result<f64, CffError> {
+fn get_integer(data: &mut &[u8]) -> Result<f64, CffError> {
     let b0 = data[0];
     *data = &data[1..];
     Ok(if b0 as i32 == 28i32 && data.len() > 2 {
@@ -414,7 +412,6 @@ unsafe fn get_integer(data: &mut &[u8]) -> Result<f64, CffError> {
 /* Simply uses strtod */
 unsafe fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
     let mut nibble: i32 = 0;
-    let mut len: i32 = 0;
     let mut fail: i32 = 0;
     /* skip first byte (30) */
     if data[0] as i32 != 30 || data.len() <= 1 {
@@ -422,7 +419,8 @@ unsafe fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
     }
     *data = &data[1..];
     let mut pos = 0;
-    while fail == 0 && len < 1024 - 2 && !data.is_empty() {
+    let mut buf = String::new();
+    while fail == 0 && buf.len() < 1024 - 2 && !data.is_empty() {
         /* get nibble */
         if pos % 2 != 0 {
             nibble = data[0] as i32 & 0xf;
@@ -431,29 +429,23 @@ unsafe fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
             nibble = data[0] as i32 >> 4 & 0xf;
         }
         if nibble >= 0 && nibble <= 0x9 {
-            *work_buffer.as_mut_ptr().offset(len as isize) = (nibble + '0' as i32) as i8;
-            len += 1;
+            buf.push(char::from((nibble + '0' as i32) as u8));
         } else if nibble == 0xa {
             /* . */
-            *work_buffer.as_mut_ptr().offset(len as isize) = '.' as i32 as i8;
-            len += 1;
+            buf.push('.');
         } else if nibble == 0xb || nibble == 0xc {
             /* E, E- */
-            *work_buffer.as_mut_ptr().offset(len as isize) = 'e' as i32 as i8;
-            len += 1;
+            buf.push('e');
             if nibble == 0xc {
-                *work_buffer.as_mut_ptr().offset(len as isize) = '-' as i32 as i8;
-                len += 1;
+                buf.push('-');
             }
         } else if nibble == 0xe {
             /* `-' */
             /* invalid */
-            *work_buffer.as_mut_ptr().offset(len as isize) = '-' as i32 as i8;
-            len += 1;
+            buf.push('-');
         } else if !(nibble == 0xd) {
             if nibble == 0xfi32 {
                 /* end */
-                *work_buffer.as_mut_ptr().offset(len as isize) = '\u{0}' as i32 as i8;
                 if pos % 2 == 0 && data[0] as i32 != 0xff {
                     fail = 1
                 }
@@ -470,12 +462,7 @@ unsafe fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
     if fail != 0 || nibble != 0xfi32 {
         return Err(CffError::ParseError);
     } else {
-        let mut s: *mut i8 = ptr::null_mut();
-        let result = strtod(work_buffer.as_mut_ptr(), &mut s);
-        if *s as i32 != 0i32 || errno::errno() == errno::ERANGE {
-            return Err(CffError::ParseError);
-        }
-        Ok(result)
+        buf.parse::<f64>().map_err(|_| CffError::ParseError)
     }
 }
 /* operators */
@@ -588,7 +575,7 @@ pub(crate) unsafe fn cff_dict_unpack(mut data: &[u8]) -> *mut cff_dict {
     dict
 }
 /* Pack DICT data */
-unsafe fn pack_integer(dest: &mut [u8], value: i32) -> usize {
+fn pack_integer(dest: &mut [u8], value: i32) -> usize {
     if value >= -107 && value <= 107 {
         dest[0] = (value + 139 & 0xff) as u8;
         1

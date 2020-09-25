@@ -50,8 +50,3 @@ pub(crate) unsafe fn renew(mem: *mut libc::c_void, size: u32) -> *mut libc::c_vo
         return ptr::null_mut();
     };
 }
-
-extern "C" {
-
-    pub(crate) fn xstrdup(s: *const i8) -> *mut i8;
-}

@@ -769,11 +769,10 @@ pub(crate) unsafe fn pdf_insert_fontmap_record(kp: &str, vp: &fontmap_rec) -> Re
 
 pub(crate) unsafe fn pdf_read_fontmap_line(
     mrec: &mut fontmap_rec,
-    mline: *const i8,
-    mline_len: i32,
+    mline: &[u8],
     format: i32,
 ) -> i32 {
-    let mut p = std::slice::from_raw_parts(mline as *const u8, mline_len as usize);
+    let mut p = mline;
     p.skip_blank();
     if p.is_empty() {
         return -1i32;
@@ -815,32 +814,31 @@ pub(crate) unsafe fn pdf_read_fontmap_line(
  * DVIPDFM fontmap line otherwise.
  */
 
-pub(crate) unsafe fn is_pdfm_mapline(mline: *const i8) -> i32
+pub(crate) unsafe fn is_pdfm_mapline(mline: &[u8]) -> i32
 /* NULL terminated. */ {
     let mut n: u32 = 0_u32; /* DVIPS/pdfTeX format */
-    if !strchr(mline, '\"' as i32).is_null() || !strchr(mline, '<' as i32).is_null() {
-        return -1i32;
+    if mline.contains(&b'\"') || mline.contains(&b'<') {
+        return -1;
     }
     let mut p = mline;
-    let endptr = p.offset(strlen(mline) as isize);
-    skip_blank(&mut p, endptr);
-    while p < endptr {
+    p.skip_blank();
+    while !p.is_empty() {
         /* Break if '-' preceeded by blanks is found. (DVIPDFM format) */
-        if *p as i32 == '-' as i32 {
-            return 1i32;
+        if p[0] == b'-' {
+            return 1;
         }
-        n = n.wrapping_add(1);
-        while p < endptr && !(*p as i32 & !0x7fi32 == 0i32 && crate::isblank(*p as _)) {
-            p = p.offset(1)
+        n += 1;
+        while !p.is_empty() && !(p[0] as i32 & !0x7fi32 == 0i32 && crate::isblank(p[0] as _)) {
+            p = &p[1..];
         }
-        skip_blank(&mut p, endptr);
+        p.skip_blank();
     }
     /* Two entries: TFM_NAME PS_NAME only (DVIPS format)
      * Otherwise (DVIPDFM format) */
-    if n == 2_u32 {
-        0i32
+    if n == 2 {
+        0
     } else {
-        1i32
+        1
     }
 }
 
@@ -864,9 +862,9 @@ pub(crate) unsafe fn pdf_load_fontmap_file(filename: &str, mode: i32) -> i32 {
     } {
         lpos += 1;
         let llen = strlen(work_buffer.as_mut_ptr()) as i32;
-        let endptr = p.offset(llen as isize);
-        skip_blank(&mut p, endptr);
-        if p == endptr {
+        let mut p = std::slice::from_raw_parts(p as *const u8, llen as usize);
+        p.skip_blank();
+        if p.is_empty() {
             continue;
         }
         let m = is_pdfm_mapline(p);
@@ -876,24 +874,18 @@ pub(crate) unsafe fn pdf_load_fontmap_file(filename: &str, mode: i32) -> i32 {
                 "Found a mismatched fontmap line {} from {}.",
                 lpos, filename,
             );
-            warn!(
-                "-- Ignore the current input buffer: {}",
-                CStr::from_ptr(p).display(),
-            );
+            warn!("-- Ignore the current input buffer: {}", p.display(),);
         } else {
             format += m;
             let mut mrec = pdf_init_fontmap_record();
             /* format > 0: DVIPDFM, format <= 0: DVIPS/pdfTeX */
-            error = pdf_read_fontmap_line(&mut mrec, p, llen, format); // CHECK
+            error = pdf_read_fontmap_line(&mut mrec, &p, format); // CHECK
             if error != 0 {
                 warn!(
                     "Invalid map record in fontmap line {} from {}.",
                     lpos, filename,
                 );
-                warn!(
-                    "-- Ignore the current input buffer: {}",
-                    CStr::from_ptr(p).display(),
-                );
+                warn!("-- Ignore the current input buffer: {}", p.display(),);
             } else {
                 match mode {
                     0 => {
