@@ -537,9 +537,9 @@ thread_local!(static FREETYPE_LIBRARY: RefCell<FreeTypeLibrary> = RefCell::new(F
 pub(crate) unsafe fn getFileNameFromCTFont(
     mut ctFontRef: CTFontRef,
     mut index: *mut u32,
-) -> *mut i8 {
+) -> String {
     let mut ix: i32 = -1;
-    let mut ret: *mut libc::c_char = ptr::null_mut();
+    let mut ret = String::new();
     let urlRef = CTFontCopyAttribute(ctFontRef, kCTFontURLAttribute) as CFURLRef;
     if !urlRef.is_null() {
         let url = CFURL::wrap_under_create_rule(urlRef);
@@ -559,7 +559,7 @@ pub(crate) unsafe fn getFileNameFromCTFont(
             }
             if ix > -1 {
                 *index = ix as u32;
-                let osstr = pathbuf.as_os_str();
+                /*let osstr = pathbuf.as_os_str();
                 #[cfg(unix)]
                 {
                     use std::os::unix::ffi::OsStrExt;
@@ -577,7 +577,8 @@ pub(crate) unsafe fn getFileNameFromCTFont(
                     let cstring = CString::from(osstr.to_string_lossy());
                     let bytes = cstring.as_bytes();
                     ret = strdup(bytes.as_ptr());
-                }
+                }*/
+                ret = pathbuf.as_os_str().to_string_lossy().into();
             }
         }
     }
@@ -734,7 +735,7 @@ unsafe fn getLastResort() -> CFStringRef {
 pub(crate) unsafe fn loadAATfont(
     mut descriptor: CTFontDescriptorRef,
     mut scaled_size: int32_t,
-    cp1: &[u8],
+    mut cp1: &[u8],
 ) -> *mut libc::c_void {
     let mut current_block: u64;
     let mut font: CTFontRef = 0 as CTFontRef;
@@ -785,7 +786,7 @@ pub(crate) unsafe fn loadAATfont(
             let mut feature: CFDictionaryRef = 0 as CFDictionaryRef;
             let mut ret: libc::c_int = 0;
             // locate beginning of name=value pair
-            if b":;".contains(&cp1[0]) {
+            if !cp1.is_empty() && b":;".contains(&cp1[0]) {
                 // skip over separator
                 cp1 = &cp1[1..];
             }
@@ -834,7 +835,7 @@ pub(crate) unsafe fn loadAATfont(
                             cp3 = &cp3[1..];
                         }
                         // possibly multiple settings...
-                        if *cp3 as libc::c_int == '!' as i32 {
+                        if !cp3.is_empty() && cp3[0] == b'!' {
                             // check for negation
                             disable = 1i32;
                             cp3 = &cp3[1..];

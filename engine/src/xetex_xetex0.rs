@@ -9956,14 +9956,14 @@ pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u
         print_cstr("\'.");
     });
 }
-pub(crate) unsafe fn font_mapping_warning(mut mapping_name: &[u8], mut warningType: i32) {
+pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, mut warningType: i32) {
     diagnostic(false, || {
         if warningType == 0i32 {
             print_nl_cstr("Loaded mapping `");
         } else {
             print_nl_cstr("Font mapping `");
         }
-        print_utf8_str(mapping_name);
+        print_utf8_str(mapping_name.as_bytes());
         print_cstr("\' for font `");
         for b in name_of_file.bytes() {
             print_raw_char(b as UTF16_code, true);

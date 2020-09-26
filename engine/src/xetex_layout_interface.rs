@@ -579,18 +579,14 @@ pub(crate) unsafe fn createFont(mut fontRef: PlatformFontRef, mut pointSize: Fix
     return font as XeTeXFont;
 }
 pub(crate) unsafe fn createFontFromFile(
-    mut filename: *const libc::c_char,
-    mut index: libc::c_int,
+    filename: &str,
+    index: u32,
     mut pointSize: Fixed,
 ) -> XeTeXFont {
     use crate::xetex_font_info::{XeTeXFontInst_create, XeTeXFontInst_delete};
     let mut status: libc::c_int = 0i32;
-    let mut font: *mut XeTeXFontInst = XeTeXFontInst_create(
-        c_pointer_to_str(filename),
-        index,
-        Fix2D(pointSize) as f32,
-        &mut status,
-    );
+    let mut font: *mut XeTeXFontInst =
+        XeTeXFontInst_create(filename, index as _, Fix2D(pointSize) as f32, &mut status);
     if status != 0i32 {
         XeTeXFontInst_delete(font);
         return 0 as XeTeXFont;
@@ -601,8 +597,8 @@ pub(crate) unsafe fn setFontLayoutDir(mut font: XeTeXFont, mut vertical: libc::c
     XeTeXFontInst_setLayoutDirVertical(font as *mut XeTeXFontInst, vertical != 0i32);
 }
 pub(crate) unsafe fn findFontByName(
-    mut name: *const libc::c_char,
-    mut var: *mut libc::c_char,
+    mut name: &str,
+    var: &mut String,
     mut size: f64,
 ) -> PlatformFontRef {
     return XeTeXFontMgr_findFont(XeTeXFontMgr_GetFontManager(), name, var, size);

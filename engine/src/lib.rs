@@ -192,12 +192,11 @@ mod tfm;
 mod trie;
 
 #[inline]
-pub(crate) unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
-    let length = libc::strlen(prefix);
-    if libc::strncmp(s, prefix, length) == 0i32 {
-        return s.offset(length as isize);
+pub(crate) fn strstartswith<'a>(s: &'a [u8], prefix: &[u8]) -> Option<&'a [u8]> {
+    if s.starts_with(prefix) {
+        return Some(&s[prefix.len()..]);
     }
-    ptr::null()
+    None
 }
 
 #[inline]

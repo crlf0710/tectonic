@@ -17,7 +17,7 @@ use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_consts::{Side, UnicodeMode};
 use crate::xetex_xetexd::print_c_str;
-use bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read};
+use bridge::{ttstub_input_get_size, ttstub_input_read, DroppableInputHandleWrapper as InFile};
 use libc::free;
 use std::ptr;
 
@@ -45,7 +45,7 @@ use crate::xetex_xetex0::{
 
 use crate::xetex_layout_interface::*;
 use harfbuzz_sys::{hb_feature_t, hb_tag_from_string, hb_tag_t};
-use libc::{memcpy, strcat, strdup, strlen, strncpy};
+use libc::strdup;
 
 pub(crate) const AAT_FONT_FLAG: u32 = 0xFFFF;
 pub(crate) const OTGR_FONT_FLAG: u32 = 0xFFFE;
@@ -275,27 +275,16 @@ pub(crate) unsafe fn print_chars(mut string: *const u16, mut len: i32) {
     }
 }
 
-unsafe fn load_mapping_file(
-    mut s: *const i8,
-    mut e: *const i8,
-    mut byteMapping: i8,
-) -> *mut libc::c_void {
+unsafe fn load_mapping_file(mut s: &str, mut byteMapping: i8) -> *mut libc::c_void {
     let mut cnv = 0 as teckit::TECkit_Converter;
-    let mut buffer: *mut i8 = xmalloc((e.offset_from(s) as i64 + 5i32 as i64) as size_t) as *mut i8;
-    strncpy(buffer, s, e.offset_from(s) as usize);
-    *buffer.offset(e.offset_from(s) as i64 as isize) = 0_i8;
-    strcat(buffer, b".tec\x00" as *const u8 as *const i8);
-    if let Some(mut map) = ttstub_input_open(buffer, TTInputFormat::MISCFONTS, 0i32) {
+    let mut buffer = s.to_string() + ".tec";
+    if let Some(mut map) = InFile::open(&buffer, TTInputFormat::MISCFONTS, 0i32) {
         let mut mappingSize: size_t = ttstub_input_get_size(&mut map);
         let mut mapping: *mut u8 = xmalloc(mappingSize) as *mut u8;
         let mut r: ssize_t = ttstub_input_read(map.as_ptr(), mapping as *mut i8, mappingSize);
         if r < 0 || r as size_t != mappingSize {
-            abort!(
-                "could not read mapping file \"{}\"",
-                c_pointer_to_str(buffer)
-            );
+            abort!("could not read mapping file \"{}\"", buffer);
         }
-        ttstub_input_close(map);
         if byteMapping != 0 {
             teckit::TECkit_CreateConverter(
                 mapping,
@@ -317,25 +306,15 @@ unsafe fn load_mapping_file(
         }
         if cnv.is_null() {
             /* tracing */
-            font_mapping_warning(
-                std::slice::from_raw_parts(buffer as *const u8, strlen(buffer) as usize),
-                2i32,
-            );
+            font_mapping_warning(&buffer, 2i32);
         /* not loadable */
         } else if get_tracing_fonts_state() > 1i32 {
-            font_mapping_warning(
-                std::slice::from_raw_parts(buffer as *const u8, strlen(buffer) as usize),
-                0i32,
-            );
+            font_mapping_warning(&buffer, 0i32);
         }
     } else {
-        font_mapping_warning(
-            std::slice::from_raw_parts(buffer as *const u8, strlen(buffer) as usize),
-            1i32,
-        );
+        font_mapping_warning(&buffer, 1i32);
         /* not found */
     }
-    free(buffer as *mut libc::c_void);
     cnv as *mut libc::c_void
 }
 static mut saved_mapping_name: String = String::new();
@@ -359,12 +338,7 @@ pub(crate) unsafe fn check_for_tfm_font_mapping() {
 pub(crate) unsafe fn load_tfm_font_mapping() -> *mut libc::c_void {
     let mut rval: *mut libc::c_void = 0 as *mut libc::c_void;
     if !saved_mapping_name.is_empty() {
-        let name = CString::new(saved_mapping_name.as_str()).unwrap();
-        rval = load_mapping_file(
-            name.as_ptr(),
-            name.as_ptr().offset(name.as_bytes().len() as isize),
-            1_i8,
-        );
+        rval = load_mapping_file(&saved_mapping_name, 1_i8);
         saved_mapping_name = String::new();
     }
     rval
@@ -392,63 +366,57 @@ pub(crate) unsafe fn apply_tfm_font_mapping(mut cnv: *mut libc::c_void, mut c: i
         out[0] as i32
     }
 }
-pub(crate) unsafe fn read_double(mut s: *mut *const i8) -> f64 {
-    let mut neg: i32 = 0i32;
-    let mut val: f64 = 0.0f64;
-    let mut cp: *const i8 = *s;
-    while *cp as i32 == ' ' as i32 || *cp as i32 == '\t' as i32 {
-        cp = cp.offset(1)
+pub(crate) fn read_double(s: &mut &[u8]) -> f64 {
+    let mut neg = false;
+    let mut val = 0_f64;
+    let mut cp = *s;
+    while b" \t".contains(&cp[0]) {
+        cp = &cp[1..];
     }
-    if *cp as i32 == '-' as i32 {
-        neg = 1i32;
-        cp = cp.offset(1)
-    } else if *cp as i32 == '+' as i32 {
-        cp = cp.offset(1)
+    if cp[0] == b'-' {
+        neg = true;
+        cp = &cp[1..];
+    } else if cp[0] == b'+' {
+        cp = &cp[1..];
     }
-    while *cp as i32 >= '0' as i32 && *cp as i32 <= '9' as i32 {
-        val = val * 10.0f64 + *cp as i32 as f64 - '0' as i32 as f64;
-        cp = cp.offset(1)
+    while (b'0'..=b'9').contains(&cp[0]) {
+        val = val * 10.0f64 + cp[0] as f64 - '0' as i32 as f64;
+        cp = &cp[1..];
     }
-    if *cp as i32 == '.' as i32 {
-        let mut dec: f64 = 10.0f64;
-        cp = cp.offset(1);
-        while *cp as i32 >= '0' as i32 && *cp as i32 <= '9' as i32 {
-            val = val + (*cp as i32 - '0' as i32) as f64 / dec;
-            cp = cp.offset(1);
-            dec = dec * 10.0f64
+    if cp[0] == b'.' {
+        let mut dec = 10_f64;
+        cp = &cp[1..];
+        while (b'0'..=b'9').contains(&cp[0]) {
+            val = val + (cp[0] as i32 - '0' as i32) as f64 / dec;
+            cp = &cp[1..];
+            dec = dec * 10.;
         }
     }
     *s = cp;
-    if neg != 0 {
+    if neg {
         -val
     } else {
         val
     }
 }
-unsafe fn read_tag_with_param(mut cp: *const i8, mut param: *mut i32) -> hb_tag_t {
-    let mut cp2: *const i8 = ptr::null();
+unsafe fn read_tag_with_param(mut cp: &[u8], mut param: *mut i32) -> hb_tag_t {
     let mut tag: hb_tag_t = 0;
-    cp2 = cp;
-    while *cp2 != 0
-        && *cp2 as i32 != ':' as i32
-        && *cp2 as i32 != ';' as i32
-        && *cp2 as i32 != ',' as i32
-        && *cp2 as i32 != '=' as i32
-    {
-        cp2 = cp2.offset(1)
+    let mut cp2 = cp;
+    while !cp2.is_empty() && !b":;,=".contains(&cp2[0]) {
+        cp2 = &cp2[1..]
     }
-    tag = hb_tag_from_string(cp, cp2.offset_from(cp) as i64 as i32);
+    tag = hb_tag_from_string(cp.as_ptr() as *const i8, (cp.len() - cp2.len()) as _);
     cp = cp2;
-    if *cp as i32 == '=' as i32 {
-        let mut neg: i32 = 0i32;
-        cp = cp.offset(1);
-        if *cp as i32 == '-' as i32 {
+    if cp[0] == b'=' {
+        let mut neg: i32 = 0;
+        cp = &cp[1..];
+        if cp[0] == b'-' {
             neg += 1;
-            cp = cp.offset(1)
+            cp = &cp[1..];
         }
-        while *cp as i32 >= '0' as i32 && *cp as i32 <= '9' as i32 {
-            *param = *param * 10i32 + *cp as i32 - '0' as i32;
-            cp = cp.offset(1)
+        while (b'0'..=b'9').contains(&cp[0]) {
+            *param = *param * 10 + cp[0] as i32 - '0' as i32;
+            cp = &cp[1..];
         }
         if neg != 0 {
             *param = -*param
@@ -456,55 +424,42 @@ unsafe fn read_tag_with_param(mut cp: *const i8, mut param: *mut i32) -> hb_tag_
     }
     tag
 }
-pub(crate) unsafe fn read_rgb_a(mut cp: *mut *const i8) -> u32 {
+pub(crate) fn read_rgb_a(cp: &mut &[u8]) -> u32 {
     let mut rgbValue: u32 = 0_u32;
     let mut alpha: u32 = 0_u32;
     let mut i: i32 = 0;
     i = 0i32;
     while i < 6i32 {
-        if **cp as i32 >= '0' as i32 && **cp as i32 <= '9' as i32 {
-            rgbValue = (rgbValue << 4i32)
-                .wrapping_add(**cp as u32)
-                .wrapping_sub('0' as i32 as u32)
-        } else if **cp as i32 >= 'A' as i32 && **cp as i32 <= 'F' as i32 {
-            rgbValue = (rgbValue << 4i32)
-                .wrapping_add(**cp as u32)
-                .wrapping_sub('A' as i32 as u32)
-                .wrapping_add(10_u32)
-        } else if **cp as i32 >= 'a' as i32 && **cp as i32 <= 'f' as i32 {
-            rgbValue = (rgbValue << 4i32)
-                .wrapping_add(**cp as u32)
-                .wrapping_sub('a' as i32 as u32)
-                .wrapping_add(10_u32)
-        } else {
-            return 0xff_u32;
-        }
-        *cp = (*cp).offset(1);
+        match cp[0] {
+            b'0'..=b'9' => {
+                rgbValue = (rgbValue << 4) + (cp[0] as u32) - ('0' as u32);
+            }
+            b'A'..=b'F' => {
+                rgbValue = (rgbValue << 4) + (cp[0] as u32) - ('A' as u32) + 10;
+            }
+            b'a'..=b'f' => {
+                rgbValue = (rgbValue << 4) + (cp[0] as u32) - ('a' as u32) + 10;
+            }
+            _ => return 0xff,
+        };
+        *cp = &cp[1..];
         i += 1
     }
     rgbValue <<= 8i32;
     i = 0i32;
-    while i < 2i32 {
-        if **cp as i32 >= '0' as i32 && **cp as i32 <= '9' as i32 {
-            alpha = (alpha << 4i32)
-                .wrapping_add(**cp as u32)
-                .wrapping_sub('0' as i32 as u32)
-        } else if **cp as i32 >= 'A' as i32 && **cp as i32 <= 'F' as i32 {
-            alpha = (alpha << 4i32)
-                .wrapping_add(**cp as u32)
-                .wrapping_sub('A' as i32 as u32)
-                .wrapping_add(10_u32)
-        } else {
-            if !(**cp as i32 >= 'a' as i32 && **cp as i32 <= 'f' as i32) {
-                break;
+    while i < 2 {
+        match cp[0] {
+            b'0'..=b'9' => alpha = (alpha << 4) + (cp[0] as u32) - ('0' as u32),
+            b'A'..=b'F' => {
+                alpha = (alpha << 4) + (cp[0] as u32) - ('A' as u32) + 10;
             }
-            alpha = (alpha << 4i32)
-                .wrapping_add(**cp as u32)
-                .wrapping_sub('a' as i32 as u32)
-                .wrapping_add(10_u32)
-        }
-        *cp = (*cp).offset(1);
-        i += 1
+            b'a'..=b'f' => {
+                alpha = (alpha << 4) + (cp[0] as u32) - ('a' as u32) + 10;
+            }
+            _ => break,
+        };
+        *cp = &cp[1..];
+        i += 1;
     }
     if i == 2i32 {
         rgbValue = (rgbValue as u32).wrapping_add(alpha) as u32
@@ -514,8 +469,8 @@ pub(crate) unsafe fn read_rgb_a(mut cp: *mut *const i8) -> u32 {
     rgbValue
 }
 pub(crate) unsafe fn readCommonFeatures(
-    mut feat: *const i8,
-    mut end: *const i8,
+    feat: &[u8],
+    end: usize,
     mut extend: *mut f32,
     mut slant: *mut f32,
     mut embolden: *mut f32,
@@ -524,110 +479,92 @@ pub(crate) unsafe fn readCommonFeatures(
 ) -> i32
 // returns 1 to go to next_option, -1 for bad_option, 0 to continue
 {
-    let mut sep: *const i8 = ptr::null();
-    sep = strstartswith(feat, b"mapping\x00" as *const u8 as *const i8);
-    if !sep.is_null() {
-        if *sep as i32 != '=' as i32 {
-            return -1i32;
+    if let Some(sep) = strstartswith(feat, b"mapping") {
+        if sep[0] != b'=' {
+            return -1;
         }
-        loaded_font_mapping = load_mapping_file(sep.offset(1), end, 0_i8);
+        loaded_font_mapping =
+            load_mapping_file(std::str::from_utf8(&sep[1..end - 7]).unwrap(), 0_i8);
         return 1i32;
     }
-    sep = strstartswith(feat, b"extend\x00" as *const u8 as *const i8);
-    if !sep.is_null() {
-        if *sep as i32 != '=' as i32 {
-            return -1i32;
+    if let Some(mut sep) = strstartswith(feat, b"extend") {
+        if sep[0] != b'=' {
+            return -1;
         }
-        sep = sep.offset(1);
+        sep = &sep[1..];
         *extend = read_double(&mut sep) as f32;
         return 1i32;
     }
-    sep = strstartswith(feat, b"slant\x00" as *const u8 as *const i8);
-    if !sep.is_null() {
-        if *sep as i32 != '=' as i32 {
-            return -1i32;
+    if let Some(mut sep) = strstartswith(feat, b"slant") {
+        if sep[0] != b'=' {
+            return -1;
         }
-        sep = sep.offset(1);
+        sep = &sep[1..];
         *slant = read_double(&mut sep) as f32;
-        return 1i32;
+        return 1;
     }
-    sep = strstartswith(feat, b"embolden\x00" as *const u8 as *const i8);
-    if !sep.is_null() {
-        if *sep as i32 != '=' as i32 {
-            return -1i32;
+    if let Some(mut sep) = strstartswith(feat, b"embolden") {
+        if sep[0] != b'=' {
+            return -1;
         }
-        sep = sep.offset(1);
+        sep = &sep[1..];
         *embolden = read_double(&mut sep) as f32;
         return 1i32;
     }
-    sep = strstartswith(feat, b"letterspace\x00" as *const u8 as *const i8);
-    if !sep.is_null() {
-        if *sep as i32 != '=' as i32 {
-            return -1i32;
+    if let Some(mut sep) = strstartswith(feat, b"letterspace") {
+        if sep[0] != b'=' {
+            return -1;
         }
-        sep = sep.offset(1);
+        sep = &sep[1..];
         *letterspace = read_double(&mut sep) as f32;
-        return 1i32;
+        return 1;
     }
-    sep = strstartswith(feat, b"color\x00" as *const u8 as *const i8);
-    if !sep.is_null() {
-        let mut s: *const i8 = ptr::null();
-        if *sep as i32 != '=' as i32 {
-            return -1i32;
+    if let Some(mut sep) = strstartswith(feat, b"color") {
+        if sep[0] != b'=' {
+            return -1;
         }
-        sep = sep.offset(1);
-        s = sep;
+        sep = &sep[1..];
+        let s = sep;
         *rgbValue = read_rgb_a(&mut sep);
-        if sep == s.offset(6) || sep == s.offset(8) {
-            loaded_font_flags = (loaded_font_flags as i32 | 0x1i32) as i8
+        if sep.len() == s.len() - 6 || sep.len() == s.len() - 8 {
+            loaded_font_flags = (loaded_font_flags as i32 | 0x1) as i8
         } else {
-            return -1i32;
+            return -1;
         }
-        return 1i32;
+        return 1;
     }
     0i32
 }
-unsafe fn readFeatureNumber(
-    mut s: *const i8,
-    mut e: *const i8,
-    mut f: *mut hb_tag_t,
-    mut v: *mut i32,
-) -> bool
+unsafe fn readFeatureNumber(mut s: &[u8], mut f: *mut hb_tag_t, mut v: *mut i32) -> bool
 /* s...e is a "id=setting" string; */ {
     *f = 0i32 as hb_tag_t;
     *v = 0i32;
-    if (*s as i32) < '0' as i32 || *s as i32 > '9' as i32 {
+    if !(b'0'..=b'9').contains(&s[0]) {
         return false;
     }
-    while *s as i32 >= '0' as i32 && *s as i32 <= '9' as i32 {
-        let fresh5 = s;
-        s = s.offset(1);
-        *f = (*f)
-            .wrapping_mul(10_u32)
-            .wrapping_add(*fresh5 as u32)
-            .wrapping_sub('0' as i32 as u32)
+    while (b'0'..=b'9').contains(&s[0]) {
+        *f = (*f) * 10 + (s[0] as u32) - ('0' as u32);
+        s = &s[1..];
     }
-    while *s as i32 == ' ' as i32 || *s as i32 == '\t' as i32 {
-        s = s.offset(1)
+    while b" \t".contains(&s[0]) {
+        s = &s[1..];
     }
-    let fresh6 = s;
-    s = s.offset(1);
-    if *fresh6 as i32 != '=' as i32 {
+    if s[0] != b'=' {
         /* no setting was specified */
         return false;
     } /* NULL-terminated array */
-    if (*s as i32) < '0' as i32 || *s as i32 > '9' as i32 {
+    s = &s[1..];
+    if !(b'0'..=b'9').contains(&s[0]) {
         return false;
     }
-    while *s as i32 >= '0' as i32 && *s as i32 <= '9' as i32 {
-        let fresh7 = s;
-        s = s.offset(1);
-        *v = *v * 10i32 + *fresh7 as i32 - '0' as i32
+    while (b'0'..=b'9').contains(&s[0]) {
+        *v = *v * 10 + (s[0] as i32) - ('0' as i32);
+        s = &s[1..];
     }
-    while *s as i32 == ' ' as i32 || *s as i32 == '\t' as i32 {
-        s = s.offset(1)
+    while b" \t".contains(&s[0]) {
+        s = &s[1..];
     }
-    if s != e {
+    if !s.is_empty() {
         return false;
     }
     true
@@ -636,7 +573,7 @@ unsafe fn loadOTfont(
     mut fontRef: PlatformFontRef,
     mut font: XeTeXFont,
     mut scaled_size: Fixed,
-    mut cp1: *mut i8,
+    mut cp1: &[u8],
 ) -> *mut libc::c_void {
     let mut current_block: u64;
     let mut engine: XeTeXLayoutEngine = 0 as XeTeXLayoutEngine;
@@ -644,19 +581,16 @@ unsafe fn loadOTfont(
         | (0_u32 & 0xff_u32) << 16i32
         | (0_u32 & 0xff_u32) << 8i32
         | 0_u32 & 0xff_u32;
-    let mut language: *mut i8 = 0 as *mut i8;
     let mut features: *mut hb_feature_t = 0 as *mut hb_feature_t;
     let mut shapers: *mut *mut i8 = 0 as *mut *mut i8;
     let mut nFeatures: i32 = 0i32;
     let mut nShapers: i32 = 0i32;
-    let mut cp2: *mut i8 = 0 as *mut i8;
-    let mut cp3: *const i8 = ptr::null();
     let mut tag: hb_tag_t = 0;
     let mut rgbValue: u32 = 0xff_u32;
-    let mut extend: f32 = 1.0f64 as f32;
-    let mut slant: f32 = 0.0f64 as f32;
-    let mut embolden: f32 = 0.0f64 as f32;
-    let mut letterspace: f32 = 0.0f64 as f32;
+    let mut extend: f32 = 1.;
+    let mut slant: f32 = 0.;
+    let mut embolden: f32 = 0.;
+    let mut letterspace: f32 = 0.;
     let mut i: i32 = 0;
     let mut reqEngine: i8 = getReqEngine();
     if reqEngine as i32 == 'O' as i32 || reqEngine as i32 == 'G' as i32 {
@@ -683,7 +617,7 @@ unsafe fn loadOTfont(
             fontRef,
             font,
             script,
-            c_pointer_to_str(language).to_string(),
+            String::new(),
             features,
             nFeatures,
             tmpShapers.as_mut_ptr(),
@@ -696,105 +630,118 @@ unsafe fn loadOTfont(
             return 0 as *mut libc::c_void;
         }
     }
+    let mut language = String::new();
     /* scan the feature string (if any) */
-    if !cp1.is_null() {
-        while *cp1 != 0 {
-            if *cp1 as i32 == ':' as i32 || *cp1 as i32 == ';' as i32 || *cp1 as i32 == ',' as i32 {
-                cp1 = cp1.offset(1)
+    while !cp1.is_empty() {
+        if b":;,".contains(&cp1[0]) {
+            cp1 = &cp1[1..];
+        }
+        while !cp1.is_empty() && b" \t".contains(&cp1[0]) {
+            /* skip leading whitespace */
+            cp1 = &cp1[1..];
+        }
+        if cp1.is_empty() {
+            break;
+        }
+        let mut cp2 = cp1;
+        while !cp2.is_empty() && !b":;,".contains(&cp2[0]) {
+            cp2 = &cp2[1..];
+        }
+        if let Some(mut cp3) = strstartswith(cp1, b"script") {
+            if cp3[0] != b'=' {
+                current_block = 10622493848381539643;
+            } else {
+                cp3 = &cp3[1..];
+                script =
+                    hb_tag_from_string(cp3.as_ptr() as *const i8, (cp3.len() - cp2.len()) as _);
+                current_block = 13857423536159756434;
             }
-            while *cp1 as i32 == ' ' as i32 || *cp1 as i32 == '\t' as i32 {
-                /* skip leading whitespace */
-                cp1 = cp1.offset(1)
-            }
-            if *cp1 == 0 {
-                break;
-            }
-            cp2 = cp1;
-            while *cp2 != 0
-                && *cp2 as i32 != ':' as i32
-                && *cp2 as i32 != ';' as i32
-                && *cp2 as i32 != ',' as i32
-            {
-                cp2 = cp2.offset(1)
-            }
-            cp3 = strstartswith(cp1, b"script\x00" as *const u8 as *const i8);
-            if !cp3.is_null() {
-                if *cp3 as i32 != '=' as i32 {
+        } else {
+            if let Some(mut cp3) = strstartswith(cp1, b"language") {
+                if cp3[0] != b'=' {
                     current_block = 10622493848381539643;
                 } else {
-                    cp3 = cp3.offset(1);
-                    script = hb_tag_from_string(cp3, cp2.offset_from(cp3) as i64 as i32);
+                    cp3 = &cp3[1..];
+                    language = std::str::from_utf8(&cp3[..cp3.len() - cp2.len()])
+                        .unwrap()
+                        .to_string();
                     current_block = 13857423536159756434;
                 }
             } else {
-                cp3 = strstartswith(cp1, b"language\x00" as *const u8 as *const i8);
-                if !cp3.is_null() {
-                    if *cp3 as i32 != '=' as i32 {
+                if let Some(mut cp3) = strstartswith(cp1, b"shaper") {
+                    if cp3[0] != b'=' {
                         current_block = 10622493848381539643;
                     } else {
-                        cp3 = cp3.offset(1);
-                        language = xmalloc((cp2.offset_from(cp3) as i64 + 1i32 as i64) as size_t)
-                            as *mut i8;
-                        *language.offset(cp2.offset_from(cp3) as i64 as isize) =
+                        cp3 = &cp3[1..];
+                        shapers = xrealloc(
+                            shapers as *mut libc::c_void,
+                            ((nShapers + 1i32) as u64)
+                                .wrapping_mul(::std::mem::size_of::<*mut i8>() as u64)
+                                as _,
+                        ) as *mut *mut i8;
+                        /* some dumb systems have no strndup() */
+                        let len = cp3.len() - cp2.len();
+                        let ccp3 = CString::new(cp3).unwrap();
+                        *shapers.offset(nShapers as isize) = strdup(ccp3.as_ptr());
+                        *(*shapers.offset(nShapers as isize)).offset(len as _) =
                             '\u{0}' as i32 as i8;
-                        memcpy(
-                            language as *mut libc::c_void,
-                            cp3 as *const libc::c_void,
-                            cp2.offset_from(cp3) as usize,
-                        );
+                        nShapers += 1;
                         current_block = 13857423536159756434;
                     }
                 } else {
-                    cp3 = strstartswith(cp1, b"shaper\x00" as *const u8 as *const i8);
-                    if !cp3.is_null() {
-                        if *cp3 as i32 != '=' as i32 {
-                            current_block = 10622493848381539643;
-                        } else {
-                            cp3 = cp3.offset(1);
-                            shapers = xrealloc(
-                                shapers as *mut libc::c_void,
-                                ((nShapers + 1i32) as u64)
-                                    .wrapping_mul(::std::mem::size_of::<*mut i8>() as u64)
-                                    as _,
-                            ) as *mut *mut i8;
-                            /* some dumb systems have no strndup() */
-                            let ref mut fresh10 = *shapers.offset(nShapers as isize);
-                            *fresh10 = strdup(cp3);
-                            *(*shapers.offset(nShapers as isize))
-                                .offset(cp2.offset_from(cp3) as i64 as isize) =
-                                '\u{0}' as i32 as i8;
-                            nShapers += 1;
-                            current_block = 13857423536159756434;
-                        }
+                    i = readCommonFeatures(
+                        cp1,
+                        cp1.len() - cp2.len(),
+                        &mut extend,
+                        &mut slant,
+                        &mut embolden,
+                        &mut letterspace,
+                        &mut rgbValue,
+                    );
+                    if i == 1i32 {
+                        current_block = 13857423536159756434;
+                    } else if i == -1i32 {
+                        current_block = 10622493848381539643;
                     } else {
-                        i = readCommonFeatures(
-                            cp1,
-                            cp2,
-                            &mut extend,
-                            &mut slant,
-                            &mut embolden,
-                            &mut letterspace,
-                            &mut rgbValue,
-                        );
-                        if i == 1i32 {
-                            current_block = 13857423536159756434;
-                        } else if i == -1i32 {
-                            current_block = 10622493848381539643;
+                        if reqEngine as i32 == 'G' as i32 {
+                            let mut value: i32 = 0i32;
+                            if readFeatureNumber(
+                                &cp1[..cp1.len() - cp2.len()],
+                                &mut tag,
+                                &mut value,
+                            ) || findGraphiteFeature(
+                                engine,
+                                &cp1[..cp1.len() - cp2.len()],
+                                &mut tag,
+                                &mut value,
+                            ) as i32
+                                != 0
+                            {
+                                features =
+                                    xrealloc(
+                                        features as *mut libc::c_void,
+                                        ((nFeatures + 1i32) as u64).wrapping_mul(
+                                            ::std::mem::size_of::<hb_feature_t>() as u64,
+                                        ) as _,
+                                    ) as *mut hb_feature_t;
+                                (*features.offset(nFeatures as isize)).tag = tag;
+                                (*features.offset(nFeatures as isize)).value = value as u32;
+                                (*features.offset(nFeatures as isize)).start = 0_u32;
+                                (*features.offset(nFeatures as isize)).end = -1i32 as u32;
+                                nFeatures += 1;
+                                current_block = 13857423536159756434;
+                            } else {
+                                current_block = 15669289850109000831;
+                            }
                         } else {
-                            if reqEngine as i32 == 'G' as i32 {
-                                let mut value: i32 = 0i32;
-                                if readFeatureNumber(cp1, cp2, &mut tag, &mut value)
-                                    || findGraphiteFeature(
-                                        engine,
-                                        std::slice::from_raw_parts(
-                                            cp1 as *mut u8,
-                                            cp2.offset_from(cp1) as usize,
-                                        ),
-                                        &mut tag,
-                                        &mut value,
-                                    ) as i32
-                                        != 0
-                                {
+                            current_block = 15669289850109000831;
+                        }
+                        match current_block {
+                            13857423536159756434 => {}
+                            _ => {
+                                if cp1[0] == b'+' {
+                                    let mut param: i32 = 0i32;
+                                    tag = read_tag_with_param(&cp1[1..], &mut param);
                                     features = xrealloc(
                                         features as *mut libc::c_void,
                                         ((nFeatures + 1i32) as u64).wrapping_mul(
@@ -803,109 +750,70 @@ unsafe fn loadOTfont(
                                     )
                                         as *mut hb_feature_t;
                                     (*features.offset(nFeatures as isize)).tag = tag;
-                                    (*features.offset(nFeatures as isize)).value = value as u32;
                                     (*features.offset(nFeatures as isize)).start = 0_u32;
                                     (*features.offset(nFeatures as isize)).end = -1i32 as u32;
+                                    // for backward compatibility with pre-0.9999 where feature
+                                    // indices started from 0
+                                    if param >= 0i32 {
+                                        param += 1
+                                    }
+                                    (*features.offset(nFeatures as isize)).value = param as u32;
                                     nFeatures += 1;
                                     current_block = 13857423536159756434;
-                                } else {
-                                    current_block = 15669289850109000831;
-                                }
-                            } else {
-                                current_block = 15669289850109000831;
-                            }
-                            match current_block {
-                                13857423536159756434 => {}
-                                _ => {
-                                    if *cp1 as i32 == '+' as i32 {
-                                        let mut param: i32 = 0i32;
-                                        tag = read_tag_with_param(cp1.offset(1), &mut param);
-                                        features = xrealloc(
-                                            features as *mut libc::c_void,
-                                            ((nFeatures + 1i32) as u64).wrapping_mul(
-                                                ::std::mem::size_of::<hb_feature_t>() as u64,
-                                            ) as _,
-                                        )
-                                            as *mut hb_feature_t;
-                                        (*features.offset(nFeatures as isize)).tag = tag;
-                                        (*features.offset(nFeatures as isize)).start = 0_u32;
-                                        (*features.offset(nFeatures as isize)).end = -1i32 as u32;
-                                        // for backward compatibility with pre-0.9999 where feature
-                                        // indices started from 0
-                                        if param >= 0i32 {
-                                            param += 1
-                                        }
-                                        (*features.offset(nFeatures as isize)).value = param as u32;
-                                        nFeatures += 1;
-                                        current_block = 13857423536159756434;
-                                    } else if *cp1 as i32 == '-' as i32 {
-                                        cp1 = cp1.offset(1);
-                                        tag = hb_tag_from_string(
-                                            cp1,
-                                            cp2.offset_from(cp1) as i64 as i32,
-                                        );
-                                        features = xrealloc(
-                                            features as *mut libc::c_void,
-                                            ((nFeatures + 1i32) as u64).wrapping_mul(
-                                                ::std::mem::size_of::<hb_feature_t>() as u64,
-                                            ) as _,
-                                        )
-                                            as *mut hb_feature_t;
-                                        (*features.offset(nFeatures as isize)).tag = tag;
-                                        (*features.offset(nFeatures as isize)).start = 0_u32;
-                                        (*features.offset(nFeatures as isize)).end = -1i32 as u32;
-                                        (*features.offset(nFeatures as isize)).value = 0_u32;
-                                        nFeatures += 1;
-                                        current_block = 13857423536159756434;
-                                    } else if !strstartswith(
-                                        cp1,
-                                        b"vertical\x00" as *const u8 as *const i8,
+                                } else if cp1[0] == b'-' {
+                                    cp1 = &cp1[1..];
+                                    tag = hb_tag_from_string(
+                                        cp1.as_ptr() as *const i8,
+                                        (cp1.len() - cp2.len()) as _,
+                                    );
+                                    features = xrealloc(
+                                        features as *mut libc::c_void,
+                                        ((nFeatures + 1i32) as u64).wrapping_mul(
+                                            ::std::mem::size_of::<hb_feature_t>() as u64,
+                                        ) as _,
                                     )
-                                    .is_null()
-                                    {
-                                        cp3 = cp2;
-                                        if *cp3 as i32 == ';' as i32
-                                            || *cp3 as i32 == ':' as i32
-                                            || *cp3 as i32 == ',' as i32
-                                        {
-                                            cp3 = cp3.offset(-1)
-                                        }
-                                        while *cp3 as i32 == '\u{0}' as i32
-                                            || *cp3 as i32 == ' ' as i32
-                                            || *cp3 as i32 == '\t' as i32
-                                        {
-                                            cp3 = cp3.offset(-1)
-                                        }
-                                        if *cp3 != 0 {
-                                            cp3 = cp3.offset(1)
-                                        }
-                                        if cp3 == cp1.offset(8) as *const i8 {
-                                            loaded_font_flags =
-                                                (loaded_font_flags as i32 | 0x2i32) as i8;
-                                            current_block = 13857423536159756434;
-                                        } else {
-                                            current_block = 10622493848381539643;
-                                        }
+                                        as *mut hb_feature_t;
+                                    (*features.offset(nFeatures as isize)).tag = tag;
+                                    (*features.offset(nFeatures as isize)).start = 0_u32;
+                                    (*features.offset(nFeatures as isize)).end = -1i32 as u32;
+                                    (*features.offset(nFeatures as isize)).value = 0_u32;
+                                    nFeatures += 1;
+                                    current_block = 13857423536159756434;
+                                } else if cp1.starts_with(b"vertical") {
+                                    let mut n = cp1.len() - cp2.len();
+                                    if b";:".contains(&cp1[n]) {
+                                        n -= 1;
+                                    }
+                                    while n != 0 || b" \t".contains(&cp1[n]) {
+                                        n -= 1;
+                                    }
+                                    if n != 0 {
+                                        // TODO: check
+                                        n += 1;
+                                    }
+                                    if n == 8 {
+                                        loaded_font_flags =
+                                            (loaded_font_flags as i32 | 0x2i32) as i8;
+                                        current_block = 13857423536159756434;
                                     } else {
                                         current_block = 10622493848381539643;
                                     }
+                                } else {
+                                    current_block = 10622493848381539643;
                                 }
                             }
                         }
                     }
                 }
             }
-            match current_block {
-                10622493848381539643 => {
-                    font_feature_warning(
-                        std::slice::from_raw_parts(cp1 as *const u8, cp2.offset_from(cp1) as usize),
-                        &[],
-                    );
-                }
-                _ => {}
-            }
-            cp1 = cp2
         }
+        match current_block {
+            10622493848381539643 => {
+                font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
+            }
+            _ => {}
+        }
+        cp1 = cp2;
     }
     /* break if end of string */
     if !shapers.is_null() {
@@ -913,8 +821,7 @@ unsafe fn loadOTfont(
             shapers as *mut libc::c_void,
             ((nShapers + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64) as _,
         ) as *mut *mut i8;
-        let ref mut fresh11 = *shapers.offset(nShapers as isize);
-        *fresh11 = 0 as *mut i8
+        *shapers.offset(nShapers as isize) = 0 as *mut i8;
     }
     if embolden as f64 != 0.0f64 {
         embolden = (embolden as f64 * Fix2D(scaled_size) / 100.0f64) as f32
@@ -929,16 +836,7 @@ unsafe fn loadOTfont(
         setFontLayoutDir(font, 1i32);
     }
     engine = createLayoutEngine(
-        fontRef,
-        font,
-        script,
-        c_pointer_to_str(language).to_string(),
-        features,
-        nFeatures,
-        shapers,
-        rgbValue,
-        extend,
-        slant,
+        fontRef, font, script, language, features, nFeatures, shapers, rgbValue, extend, slant,
         embolden,
     );
     if engine.is_null() {
@@ -951,105 +849,78 @@ unsafe fn loadOTfont(
     engine as *mut libc::c_void
 }
 
-unsafe fn splitFontName(
-    mut name: *mut i8,
-    mut var: *mut *mut i8,
-    mut feat: *mut *mut i8,
-    mut end: *mut *mut i8,
-    mut index: *mut i32,
-) {
-    *var = 0 as *mut i8;
-    *feat = 0 as *mut i8;
-    *index = 0i32;
-    if *name as i32 == '[' as i32 {
-        let mut withinFileName: i32 = 1i32;
-        name = name.offset(1);
-        while *name != 0 {
-            if withinFileName != 0 && *name as i32 == ']' as i32 {
-                withinFileName = 0i32;
-                if (*var).is_null() {
-                    *var = name
+fn splitFontName(name_str: &str) -> (String, String, String, u32) {
+    let slice = name_str.as_bytes();
+    let mut name = 0;
+    let mut var = None;
+    let mut feat = None;
+    let mut index = 0;
+    let end;
+    if slice[name] == b'[' {
+        let mut withinFileName = true;
+        name += 1;
+        while name != slice.len() {
+            if withinFileName && slice[name] == b']' {
+                withinFileName = false;
+                if var.is_none() {
+                    var = Some(name);
                 }
-            } else if *name as i32 == ':' as i32 {
-                if withinFileName != 0 && (*var).is_null() {
-                    *var = name;
-                    name = name.offset(1);
-                    while *name as i32 >= '0' as i32 && *name as i32 <= '9' as i32 {
-                        let fresh12 = name;
-                        name = name.offset(1);
-                        *index = *index * 10i32 + *fresh12 as i32 - '0' as i32
+            } else if slice[name] == b':' {
+                if withinFileName && var.is_none() {
+                    var = Some(name);
+                    name += 1;
+                    while (b'0'..=b'9').contains(&slice[name]) {
+                        index = index * 10 + slice[name] as u32 - '0' as u32;
+                        name += 1;
                     }
-                    name = name.offset(-1)
-                } else if withinFileName == 0 && (*feat).is_null() {
-                    *feat = name
+                    name -= 1;
+                } else if !withinFileName && feat.is_none() {
+                    feat = Some(name);
                 }
             }
-            name = name.offset(1)
+            name += 1;
         }
-        *end = name
+        end = name;
     } else {
-        while *name != 0 {
-            if *name as i32 == '/' as i32 && (*var).is_null() && (*feat).is_null() {
-                *var = name
-            } else if *name as i32 == ':' as i32 && (*feat).is_null() {
-                *feat = name
+        while name != slice.len() {
+            if slice[name] == b'/' && var.is_none() && feat.is_none() {
+                var = Some(name);
+            } else if slice[name] == b':' && feat.is_none() {
+                feat = Some(name);
             }
-            name = name.offset(1)
+            name += 1;
         }
-        *end = name
+        end = name;
     }
-    if (*feat).is_null() {
-        *feat = name
-    }
-    if (*var).is_null() {
-        *var = *feat
+    let feat = feat.unwrap_or(name);
+    let var = var.unwrap_or(feat);
+    let nameString = String::from(&name_str[..var]);
+    let varString = if feat > var {
+        String::from(&name_str[var + 1..feat])
+    } else {
+        String::new()
     };
+    let featString = if end > feat {
+        String::from(&name_str[feat + 1..end])
+    } else {
+        String::new()
+    };
+    (nameString, varString, featString, index)
 }
-pub(crate) unsafe fn find_native_font(
-    mut uname: *const i8,
-    mut scaled_size: i32,
-) -> *mut libc::c_void
+pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: i32) -> *mut libc::c_void
 /* scaled_size here is in TeX points, or is a negative integer for 'scaled_t' */ {
     let mut rval: *mut libc::c_void = 0 as *mut libc::c_void;
-    let mut nameString: *mut i8 = 0 as *mut i8;
-    let mut var: *mut i8 = 0 as *mut i8;
-    let mut feat: *mut i8 = 0 as *mut i8;
-    let mut end: *mut i8 = 0 as *mut i8;
-    let mut name: *mut i8 = uname as *mut i8;
-    let mut varString: *mut i8 = 0 as *mut i8;
-    let mut featString: *mut i8 = 0 as *mut i8;
+    let mut name = uname;
     let mut fontRef: PlatformFontRef = 0 as PlatformFontRef;
     let mut font: XeTeXFont = 0 as XeTeXFont;
-    let mut index: i32 = 0i32;
     loaded_font_mapping = 0 as *mut libc::c_void;
     loaded_font_flags = 0_i8;
     loaded_font_letter_space = 0i32;
-    splitFontName(name, &mut var, &mut feat, &mut end, &mut index);
-    nameString = xmalloc((var.offset_from(name) as i64 + 1i32 as i64) as size_t) as *mut i8;
-    strncpy(nameString, name, var.offset_from(name) as usize);
-    *nameString.offset(var.offset_from(name) as i64 as isize) = 0_i8;
-    if feat > var {
-        varString = xmalloc(feat.offset_from(var) as i64 as size_t) as *mut i8;
-        strncpy(
-            varString,
-            var.offset(1),
-            (feat.offset_from(var) as i64 - 1i32 as i64) as usize,
-        );
-        *varString.offset((feat.offset_from(var) as i64 - 1i32 as i64) as isize) = 0_i8
-    }
-    if end > feat {
-        featString = xmalloc(end.offset_from(feat) as i64 as size_t) as *mut i8;
-        strncpy(
-            featString,
-            feat.offset(1),
-            (end.offset_from(feat) as i64 - 1i32 as i64) as usize,
-        );
-        *featString.offset((end.offset_from(feat) as i64 - 1i32 as i64) as isize) = 0_i8
-    }
+    let (nameString, mut varString, featString, index) = splitFontName(name);
     // check for "[filename]" form, don't search maps in this case
-    if *nameString.offset(0) as i32 == '[' as i32 {
-        if scaled_size < 0i32 {
-            font = createFontFromFile(nameString.offset(1), index, 655360i64 as Fixed);
+    if nameString.as_bytes()[0] == b'[' {
+        if scaled_size < 0 {
+            font = createFontFromFile(&nameString[1..], index, 655360i64 as Fixed);
             if !font.is_null() {
                 let mut dsize: Fixed = D2Fix(getDesignSize(font));
                 if scaled_size == -1000i32 {
@@ -1060,24 +931,26 @@ pub(crate) unsafe fn find_native_font(
                 deleteFont(font);
             }
         }
-        font = createFontFromFile(nameString.offset(1), index, scaled_size);
+        font = createFontFromFile(&nameString[1..], index, scaled_size);
         if !font.is_null() {
             loaded_font_design_size = D2Fix(getDesignSize(font));
             /* This is duplicated in XeTeXFontMgr::findFont! */
             setReqEngine(0_i8);
-            if !varString.is_null() {
-                if !strstartswith(varString, b"/AAT\x00" as *const u8 as *const i8).is_null() {
+            if !varString.is_empty() {
+                if varString.starts_with("/AAT") {
                     setReqEngine('A' as i32 as i8);
-                } else if !strstartswith(varString, b"/OT\x00" as *const u8 as *const i8).is_null()
-                    || !strstartswith(varString, b"/ICU\x00" as *const u8 as *const i8).is_null()
-                {
+                } else if varString.starts_with("/OT") || varString.starts_with("/ICU") {
                     setReqEngine('O' as i32 as i8);
-                } else if !strstartswith(varString, b"/GR\x00" as *const u8 as *const i8).is_null()
-                {
+                } else if varString.starts_with("/GR") {
                     setReqEngine('G' as i32 as i8);
                 }
             }
-            rval = loadOTfont(0 as PlatformFontRef, font, scaled_size, featString);
+            rval = loadOTfont(
+                0 as PlatformFontRef,
+                font,
+                scaled_size,
+                featString.as_bytes(),
+            );
             if rval.is_null() {
                 deleteFont(font);
             }
@@ -1085,12 +958,12 @@ pub(crate) unsafe fn find_native_font(
                 diagnostic(false, || {
                     print_nl(' ' as i32);
                     print_c_str("-> ");
-                    print_c_str(c_pointer_to_str(nameString.offset(1)));
+                    print_c_str(&nameString[1..]);
                 });
             }
         }
     } else {
-        fontRef = findFontByName(nameString, varString, Fix2D(scaled_size));
+        fontRef = findFontByName(&nameString, &mut varString, Fix2D(scaled_size));
         if !fontRef.is_null() {
             /* update name_of_file to the full name of the font, for error messages during font loading */
             let mut fullName: *const i8 = getFullName(fontRef);
@@ -1111,7 +984,7 @@ pub(crate) unsafe fn find_native_font(
             if !font.is_null() {
                 #[cfg(not(target_os = "macos"))]
                 {
-                    rval = loadOTfont(fontRef, font, scaled_size, featString);
+                    rval = loadOTfont(fontRef, font, scaled_size, featString.as_bytes());
                     if rval.is_null() {
                         deleteFont(font);
                     }
@@ -1120,7 +993,7 @@ pub(crate) unsafe fn find_native_font(
                 {
                     /* decide whether to use AAT or OpenType rendering with this font */
                     if getReqEngine() as libc::c_int == 'A' as i32 {
-                        rval = aat::loadAATfont(fontRef, scaled_size, featString);
+                        rval = aat::loadAATfont(fontRef, scaled_size, featString.as_bytes());
                         if rval.is_null() {
                             deleteFont(font);
                         }
@@ -1144,11 +1017,11 @@ pub(crate) unsafe fn find_native_font(
                             )
                             .is_null()
                         {
-                            rval = loadOTfont(fontRef, font, scaled_size, featString)
+                            rval = loadOTfont(fontRef, font, scaled_size, featString.as_bytes())
                         }
                         /* loadOTfont failed or the above check was false */
                         if rval.is_null() {
-                            rval = aat::loadAATfont(fontRef, scaled_size, featString)
+                            rval = aat::loadAATfont(fontRef, scaled_size, featString.as_bytes())
                         }
                         if rval.is_null() {
                             deleteFont(font);
@@ -1157,19 +1030,16 @@ pub(crate) unsafe fn find_native_font(
                 }
             }
             /* append the style and feature strings, so that \show\fontID will give a full result */
-            if !varString.is_null() && *varString != 0 {
+            if !varString.is_empty() {
                 name_of_file.push('/');
-                name_of_file.push_str(&to_rust_string(varString));
+                name_of_file.push_str(&varString);
             }
-            if !featString.is_null() && *featString != 0 {
+            if !featString.is_empty() {
                 name_of_file.push(':');
-                name_of_file.push_str(&to_rust_string(featString));
+                name_of_file.push_str(&featString);
             }
         }
     }
-    free(varString as *mut libc::c_void);
-    free(featString as *mut libc::c_void);
-    free(nameString as *mut libc::c_void);
     rval
 }
 pub(crate) unsafe fn release_font_engine(mut engine: *mut libc::c_void, mut type_flag: i32) {
@@ -1412,7 +1282,7 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
             font = CFDictionaryGetValue(attributes, kCTFontAttributeName as *const libc::c_void)
                 as CTFontRef;
             filename = aat::getFileNameFromCTFont(font, &mut index);
-            assert!(!filename.is_null());
+            assert!(!filename.is_empty());
             if !CFDictionaryGetValue(
                 attributes,
                 kCTVerticalFormsAttributeName as *const libc::c_void,

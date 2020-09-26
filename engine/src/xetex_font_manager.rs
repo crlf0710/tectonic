@@ -37,7 +37,7 @@ use self::imp::XeTeXFontMgr_Mac_create;
 
 use harfbuzz_sys::{hb_face_t, hb_font_get_face, hb_font_t, hb_ot_layout_get_size_params};
 
-use libc::{free, malloc, strchr, strcpy, strlen, strncmp};
+use libc::{free, malloc, strchr, strlen};
 
 extern "C" {
     pub(crate) type XeTeXFont_rec;
@@ -392,8 +392,8 @@ pub(crate) unsafe fn XeTeXFontMgr_delete(mut self_0: *mut XeTeXFontMgr) {
 }
 pub(crate) unsafe fn XeTeXFontMgr_findFont(
     mut self_0: *mut XeTeXFontMgr,
-    mut name: *const libc::c_char,
-    mut variant: *mut libc::c_char,
+    name: &str,
+    variant: &mut String,
     mut ptSize: f64,
 ) -> PlatformFontRef {
     // 1st arg is name as specified by user (C string, UTF-8)
@@ -410,8 +410,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
     // SIDE EFFECT: edits /variant/ string in-place removing /B or /I
     // ptSize is in TeX points, or negative for 'scaled' factor
     // "variant" string will be shortened (in-place) by removal of /B and /I if present
-    let mut nameStr = CString::default();
-    CppStdString_assign_from_const_char_ptr(&mut nameStr, name);
+    let mut nameStr = CString::new(name).unwrap();
     let mut font: *mut XeTeXFontMgrFont = 0 as *mut XeTeXFontMgrFont;
     let mut dsize: libc::c_int = 100i32;
     loaded_font_design_size = 655360i64 as Fixed;
@@ -518,115 +517,87 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
     XeTeXFontMgr_sReqEngine = 0i32 as libc::c_char;
     let mut reqBold = false;
     let mut reqItal = false;
-    if !variant.is_null() {
-        let mut varString: *mut CppStdString = CppStdString_create();
-        let mut cp: *mut libc::c_char = variant;
-        while *cp != 0 {
-            if strncmp(cp, b"AAT\x00" as *const u8 as *const libc::c_char, 3) == 0i32 {
+    if !variant.is_empty() {
+        let mut varString = String::new();
+        let mut cp = variant.as_bytes();
+        while !cp.is_empty() {
+            if cp.starts_with(b"AAT") {
                 XeTeXFontMgr_sReqEngine = 'A' as i32 as libc::c_char;
-                cp = cp.offset(3);
-                if CppStdString_length(varString) > 0
-                    && CppStdString_last(varString) as libc::c_int != '/' as i32
-                {
-                    CppStdString_append_const_char_ptr(
-                        varString,
-                        b"/\x00" as *const u8 as *const libc::c_char,
-                    );
+                cp = &cp[3..];
+                match varString.chars().last() {
+                    None | Some('/') => {}
+                    _ => varString.push('/'),
                 }
-                CppStdString_append_const_char_ptr(
-                    varString,
-                    b"AAT\x00" as *const u8 as *const libc::c_char,
-                );
-            } else if strncmp(cp, b"ICU\x00" as *const u8 as *const libc::c_char, 3) == 0i32 {
+                varString += "AAT";
+            } else if cp.starts_with(b"ICU") {
                 // for backword compatability
                 XeTeXFontMgr_sReqEngine = 'O' as i32 as libc::c_char;
-                cp = cp.offset(3);
-                if CppStdString_length(varString) > 0
-                    && CppStdString_last(varString) as libc::c_int != '/' as i32
-                {
-                    CppStdString_append_const_char_ptr(
-                        varString,
-                        b"/\x00" as *const u8 as *const libc::c_char,
-                    );
+                cp = &cp[3..];
+                match varString.chars().last() {
+                    None | Some('/') => {}
+                    _ => varString.push('/'),
                 }
-                CppStdString_append_const_char_ptr(
-                    varString,
-                    b"OT\x00" as *const u8 as *const libc::c_char,
-                );
-            } else if strncmp(cp, b"OT\x00" as *const u8 as *const libc::c_char, 2) == 0i32 {
+                varString += "OT";
+            } else if cp.starts_with(b"OT") {
                 XeTeXFontMgr_sReqEngine = 'O' as i32 as libc::c_char;
-                cp = cp.offset(2);
-                if CppStdString_length(varString) > 0
-                    && CppStdString_last(varString) as libc::c_int != '/' as i32
-                {
-                    CppStdString_append_const_char_ptr(
-                        varString,
-                        b"/\x00" as *const u8 as *const libc::c_char,
-                    );
+                cp = &cp[2..];
+                match varString.chars().last() {
+                    None | Some('/') => {}
+                    _ => varString.push('/'),
                 }
-                CppStdString_append_const_char_ptr(
-                    varString,
-                    b"OT\x00" as *const u8 as *const libc::c_char,
-                );
-            } else if strncmp(cp, b"GR\x00" as *const u8 as *const libc::c_char, 2) == 0i32 {
+                varString += "OT";
+            } else if cp.starts_with(b"GR") {
                 XeTeXFontMgr_sReqEngine = 'G' as i32 as libc::c_char;
-                cp = cp.offset(2);
-                if CppStdString_length(varString) > 0
-                    && CppStdString_last(varString) as libc::c_int != '/' as i32
-                {
-                    CppStdString_append_const_char_ptr(
-                        varString,
-                        b"/\x00" as *const u8 as *const libc::c_char,
-                    );
+                cp = &cp[2..];
+                match varString.chars().last() {
+                    None | Some('/') => {}
+                    _ => varString.push('/'),
                 }
-                CppStdString_append_const_char_ptr(
-                    varString,
-                    b"GR\x00" as *const u8 as *const libc::c_char,
-                );
-            } else if *cp as libc::c_int == 'S' as i32 {
-                cp = cp.offset(1);
-                if *cp as libc::c_int == '=' as i32 {
-                    cp = cp.offset(1)
+                varString += "GR";
+            } else if cp[0] == b'S' {
+                cp = &cp[1..];
+                if cp[0] == b'=' {
+                    cp = &cp[1..];
                 }
                 ptSize = 0.0f64;
-                while *cp as libc::c_int >= '0' as i32 && *cp as libc::c_int <= '9' as i32 {
-                    ptSize = ptSize * 10i32 as f64 + *cp as libc::c_int as f64 - '0' as i32 as f64;
-                    cp = cp.offset(1)
+                while (b'0'..=b'9').contains(&cp[0]) {
+                    ptSize = ptSize * 10. + cp[0] as f64 - '0' as u32 as f64;
+                    cp = &cp[1..];
                 }
-                if *cp as libc::c_int == '.' as i32 {
-                    let mut dec: f64 = 1.0f64;
-                    cp = cp.offset(1);
-                    while *cp as libc::c_int >= '0' as i32 && *cp as libc::c_int <= '9' as i32 {
-                        dec = dec * 10.0f64;
-                        ptSize = ptSize + (*cp as libc::c_int - '0' as i32) as f64 / dec;
-                        cp = cp.offset(1)
+                if cp[0] == b'.' {
+                    let mut dec = 1_f64;
+                    cp = &cp[1..];
+                    while (b'0'..=b'9').contains(&cp[0]) {
+                        dec *= 10.;
+                        ptSize = ptSize + (cp[0] as i32 - '0' as i32) as f64 / dec;
+                        cp = &cp[1..];
                     }
                 }
             } else {
                 loop
                 /* if the code is "B" or "I", we skip putting it in varString */
                 {
-                    if *cp as libc::c_int == 'B' as i32 {
-                        reqBold = true;
-                        cp = cp.offset(1)
-                    } else {
-                        if !(*cp as libc::c_int == 'I' as i32) {
-                            break;
+                    match cp[0] {
+                        b'B' => {
+                            reqBold = true;
+                            cp = &cp[1..];
                         }
-                        reqItal = true;
-                        cp = cp.offset(1)
+                        b'I' => {
+                            reqItal = true;
+                            cp = &cp[1..];
+                        }
+                        _ => break,
                     }
                 }
             }
-            while *cp as libc::c_int != 0 && *cp as libc::c_int != '/' as i32 {
-                cp = cp.offset(1)
+            while !cp.is_empty() && cp[0] != b'/' {
+                cp = &cp[1..];
             }
-            if *cp as libc::c_int == '/' as i32 {
-                cp = cp.offset(1)
+            if cp[0] == b'/' {
+                cp = &cp[1..];
             }
         }
-        strcpy(variant, CppStdString_cstr(varString));
-        CppStdString_delete(varString);
+        *variant = varString;
         if reqItal {
             let mut bestMatch: *mut XeTeXFontMgrFont = font;
             if ((*font).slant as libc::c_int) < (*parent).maxSlant as libc::c_int {
