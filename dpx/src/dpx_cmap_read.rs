@@ -163,7 +163,7 @@ unsafe fn get_coderange(
         return Err(());
     }
 }
-unsafe fn do_codespacerange(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+unsafe fn do_codespacerange(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
         let (codeLo, codeHi, dim) = get_coderange(input, 127)?;
         CMap_add_codespacerange(cmap, codeLo.as_ptr(), codeHi.as_ptr(), dim as size_t);
@@ -175,7 +175,7 @@ unsafe fn do_codespacerange(cmap: *mut CMap, input: &mut ifreader, count: i32) -
  *  <codeLo> <codeHi> [destCode1 destCode2 ...]
  */
 unsafe fn handle_codearray(
-    cmap: *mut CMap,
+    cmap: &mut CMap,
     input: &mut ifreader,
     codeLo: &mut Vec<u8>,
     dim: i32,
@@ -207,7 +207,7 @@ unsafe fn handle_codearray(
     }
     check_next_token(input, "]")
 }
-unsafe fn do_notdefrange(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+unsafe fn do_notdefrange(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
         if ifreader_read(input, (127i32 * 3i32) as size_t) == 0 {
             return Err(());
@@ -229,7 +229,7 @@ unsafe fn do_notdefrange(cmap: *mut CMap, input: &mut ifreader, count: i32) -> R
     }
     check_next_token(input, "endnotdefrange")
 }
-unsafe fn do_bfrange(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+unsafe fn do_bfrange(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
         if ifreader_read(input, (127i32 * 3i32) as size_t) == 0 {
             return Err(());
@@ -262,7 +262,7 @@ unsafe fn do_bfrange(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Resul
     }
     check_next_token(input, "endbfrange")
 }
-unsafe fn do_cidrange(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+unsafe fn do_cidrange(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
         if ifreader_read(input, (127i32 * 3i32) as size_t) == 0 {
             return Err(());
@@ -284,7 +284,7 @@ unsafe fn do_cidrange(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Resu
     }
     check_next_token(input, "endcidrange")
 }
-unsafe fn do_notdefchar(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+unsafe fn do_notdefchar(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
         if ifreader_read(input, (127i32 * 2i32) as size_t) == 0 {
             return Err(());
@@ -302,7 +302,7 @@ unsafe fn do_notdefchar(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Re
     }
     check_next_token(input, "endnotdefchar")
 }
-unsafe fn do_bfchar(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+unsafe fn do_bfchar(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
         if ifreader_read(input, (127i32 * 2i32) as size_t) == 0 {
             return Err(());
@@ -328,7 +328,7 @@ unsafe fn do_bfchar(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result
     }
     check_next_token(input, "endbfchar")
 }
-unsafe fn do_cidchar(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+unsafe fn do_cidchar(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
         if ifreader_read(input, (127i32 * 2i32) as size_t) == 0 {
             return Err(());

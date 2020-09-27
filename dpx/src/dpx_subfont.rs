@@ -84,8 +84,6 @@ pub(crate) unsafe fn subfont_set_verbose(level: i32) {
     verbose = level;
 }
 static mut sfd_files: Vec<sfd_file_> = Vec::new();
-static mut num_sfd_files: i32 = 0i32;
-static mut max_sfd_files: i32 = 0i32;
 static mut sfd_record: Vec<sfd_rec_> = Vec::new();
 static mut line_buf: [i8; 4096] = [0; 4096];
 /* Each lines describes character code mapping for each

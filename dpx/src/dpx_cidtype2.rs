@@ -469,7 +469,7 @@ unsafe fn cid_to_code(cmap: *mut CMap, cid: CID) -> i32 {
     let mut inbuf = cid.to_be_bytes().as_ptr();
     let mut q = outbuf.as_mut_ptr();
     CMap_decode_char(
-        cmap,
+        &*cmap,
         &mut inbuf,
         &mut inbytesleft,
         &mut q,

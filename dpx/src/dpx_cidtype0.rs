@@ -109,6 +109,7 @@ pub(crate) enum CidOpenError {
     NOT_CIDFONT = -5,
     CANNOT_OPEN_CFF_FONT = -4,
     NO_CFF_TABLE = -3,
+    #[allow(unused)]
     NOT_SFNT_FONT = -2,
     CANNOT_OPEN_FILE = -1,
 }

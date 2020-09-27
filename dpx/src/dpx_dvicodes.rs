@@ -1,6 +1,6 @@
 /* DVI op codes */
-pub(crate) const SET_CHAR_0: u8 = 0;
-pub(crate) const SET_CHAR_1: u8 = 1;
+//pub(crate) const SET_CHAR_0: u8 = 0;
+//pub(crate) const SET_CHAR_1: u8 = 1;
 /* etc. */
 pub(crate) const SET_CHAR_127: u8 = 127;
 pub(crate) const SET1: u8 = 128; /* Typesets its single operand between 128 and 255 */
@@ -50,7 +50,7 @@ pub(crate) const Z2: u8 = 168; /* Like Y2 */
 pub(crate) const Z3: u8 = 169; /* Like Y3 */
 pub(crate) const Z4: u8 = 170; /* Like Y4 */
 pub(crate) const FNT_NUM_0: u8 = 171; /* Switch to font 0 */
-pub(crate) const FNT_NUM_1: u8 = 172; /* Switch to font 1 */
+//pub(crate) const FNT_NUM_1: u8 = 172; /* Switch to font 1 */
 /* etc. */
 pub(crate) const FNT_NUM_63: u8 = 234; /* Switch to font 63 */
 pub(crate) const FNT1: u8 = 235; /* Switch to font described by single byte unsigned operand */

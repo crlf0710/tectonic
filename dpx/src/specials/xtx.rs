@@ -188,7 +188,6 @@ unsafe fn spc_handler_xtx_backgroundcolor(spe: &mut SpcEnv, args: &mut SpcArg) -
 /* FIXME: xdv2pdf's x:fontmapline and x:fontmapfile may have slightly different syntax/semantics */
 unsafe fn spc_handler_xtx_fontmapline(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     let mut error: i32 = 0i32;
-    static mut BUFFER: [u8; 1024] = [0; 1024];
     ap.cur.skip_white();
     if ap.cur.is_empty() {
         spc_warn!(spe, "Empty fontmapline special?");

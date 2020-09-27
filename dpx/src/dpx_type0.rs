@@ -287,7 +287,7 @@ pub(crate) unsafe fn Type0Font_cache_find(
      * Adobe-Japan2) must be splited into multiple CID-keyed fonts.
      */
     let cmap = CMap_cache_get(cmap_id);
-    let csi = if CMap_is_Identity(cmap) as i32 != 0 {
+    let csi = if CMap_is_Identity(&*cmap) as i32 != 0 {
         ptr::null_mut()
     } else {
         CMap_get_CIDSysInfo(cmap)

@@ -550,7 +550,7 @@ unsafe fn load_cmap4(
     GIDToCIDMap: *mut u8,
     gsub_vert: *mut otl_gsub,
     gsub_list: *mut otl_gsub,
-    cmap: *mut CMap,
+    cmap: &mut CMap,
     tounicode_add: *mut CMap,
 ) {
     let mut cid;
@@ -601,7 +601,7 @@ unsafe fn load_cmap4(
                 wbuf[2..4].copy_from_slice(&ch.to_be_bytes());
                 wbuf[4..6].copy_from_slice(&cid.to_be_bytes());
                 CMap_add_cidchar(cmap, wbuf.as_mut_ptr(), 4i32 as size_t, cid);
-                if !tounicode_add.is_null() {
+                if let Some(tounicode_add) = tounicode_add.as_mut() {
                     let mut p: *mut u8 = wbuf.as_mut_ptr().offset(6);
                     let uc_len = UC_UTF16BE_encode_char(
                         ch as i32,
@@ -627,7 +627,7 @@ unsafe fn load_cmap12(
     GIDToCIDMap: *mut u8,
     gsub_vert: *mut otl_gsub,
     gsub_list: *mut otl_gsub,
-    cmap: *mut CMap,
+    cmap: &mut CMap,
     tounicode_add: *mut CMap,
 ) {
     let mut cid;
@@ -659,7 +659,7 @@ unsafe fn load_cmap12(
             wbuf[0..4].copy_from_slice(&ch.to_be_bytes());
             wbuf[4..6].copy_from_slice(&cid.to_be_bytes());
             CMap_add_cidchar(cmap, wbuf.as_mut_ptr(), 4i32 as size_t, cid);
-            if !tounicode_add.is_null() {
+            if let Some(tounicode_add) = tounicode_add.as_mut() {
                 let mut p: *mut u8 = wbuf.as_mut_ptr().offset(6);
                 let uc_len = UC_UTF16BE_encode_char(
                     ch as i32,
@@ -819,7 +819,7 @@ unsafe fn sfnt_get_glyphname(
  *  Mapping information stored in cmap_add.
  */
 unsafe fn handle_subst_glyphs(
-    cmap: *mut CMap,
+    cmap: &mut CMap,
     cmap_add: *mut CMap,
     used_glyphs: &[u8],
     sfont: &sfnt,
@@ -882,7 +882,7 @@ unsafe fn handle_subst_glyphs(
                         let mut outbuf = wbuf.as_mut_ptr().offset(2);
                         let mut outbytesleft = (1024i32 - 2i32) as size_t;
                         CMap_decode(
-                            cmap_add,
+                            &*cmap_add,
                             &mut inbuf,
                             &mut inbytesleft,
                             &mut outbuf,
@@ -925,7 +925,7 @@ unsafe fn handle_subst_glyphs(
     count
 }
 unsafe fn add_to_cmap_if_used(
-    cmap: *mut CMap,
+    cmap: &mut CMap,
     cffont: Option<&cff_font>,
     used_chars: &mut [u8],
     gid: u16,
@@ -965,7 +965,7 @@ unsafe fn add_to_cmap_if_used(
     count
 }
 unsafe fn create_ToUnicode_cmap4(
-    cmap: *mut CMap,
+    cmap: &mut CMap,
     map: *mut cmap4,
     used_chars: &mut [u8],
     cffont: Option<&cff_font>,
@@ -1004,7 +1004,7 @@ unsafe fn create_ToUnicode_cmap4(
     count
 }
 unsafe fn create_ToUnicode_cmap12(
-    cmap: *mut CMap,
+    cmap: &mut CMap,
     map: *mut cmap12,
     used_chars: &mut [u8],
     cffont: Option<&cff_font>,
@@ -1078,7 +1078,7 @@ unsafe fn create_ToUnicode_cmap(
                         & 1i32 << 7 - cid as i32 % 8
                         == 0)
                     {
-                        let ch = CMap_reverse_decode(code_to_cid_cmap, cid);
+                        let ch = CMap_reverse_decode(&*code_to_cid_cmap, cid);
                         if ch >= 0i32 {
                             let mut p: *mut u8 = wbuf.as_mut_ptr().offset(2);
                             wbuf[0] = (cid as i32 >> 8i32 & 0xffi32) as u8;

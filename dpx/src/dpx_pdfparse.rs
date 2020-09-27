@@ -356,26 +356,6 @@ unsafe fn try_pdf_reference(mut p: &[u8], pf: *mut pdf_file) -> Option<(*mut pdf
     Some((pdf_indirect::new(pf, (id, gen)).into_obj(), p))
 }
 
-/* Please remove this */
-
-pub(crate) unsafe fn parse_pdf_object(
-    pp: *mut *const i8,
-    endptr: *const i8,
-    pf: *mut pdf_file,
-) -> *mut pdf_obj {
-    let mut b = std::slice::from_raw_parts(
-        *pp as *const i8 as *const u8,
-        endptr.offset_from(*pp) as usize,
-    );
-    let obj = b.parse_pdf_object(pf);
-    *pp = b.as_ptr() as *const i8;
-    if let Some(o) = obj {
-        o
-    } else {
-        ptr::null_mut()
-    }
-}
-
 pub(crate) trait ParsePdfObj {
     fn parse_pdf_object(&mut self, pf: *mut pdf_file) -> Option<*mut pdf_obj>;
     fn parse_pdf_reference(&mut self) -> Option<*mut pdf_obj>;

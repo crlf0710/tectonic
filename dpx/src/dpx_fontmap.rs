@@ -194,16 +194,6 @@ unsafe fn tt_readline<R: Read + Seek>(buf: *mut i8, buf_len: i32, handle: &mut R
     }
     p
 }
-unsafe fn skip_blank(pp: *mut *const i8, endptr: *const i8) {
-    let mut p: *const i8 = *pp;
-    if p.is_null() || p >= endptr {
-        return;
-    }
-    while p < endptr && (*p as i32 & !0x7fi32 == 0i32 && crate::isblank(*p as _)) {
-        p = p.offset(1)
-    }
-    *pp = p;
-}
 
 trait ParseStringValue {
     fn parse_string_value(&mut self) -> String;
