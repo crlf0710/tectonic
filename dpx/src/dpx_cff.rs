@@ -26,7 +26,6 @@
     non_upper_case_globals
 )]
 
-use crate::streq_ptr;
 use crate::warn;
 use std::rc::Rc;
 
@@ -36,7 +35,7 @@ use super::dpx_numbers::GetFromFile;
 use libc::{free, memcpy, memmove, memset, strlen};
 
 use crate::bridge::{size_t, InFile};
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
@@ -1209,13 +1208,9 @@ pub(crate) unsafe fn cff_get_string(cff: &cff_font, mut id: s_SID) -> String {
     }
     result
 }
-pub(crate) unsafe fn cff_get_sid(cff: &cff_font, s: &str) -> i32 {
-    let s = CString::new(s.as_bytes()).unwrap();
-    cff_get_sid_c(cff, s.as_ptr())
-}
 
-unsafe fn cff_get_sid_c(cff: &cff_font, str: *const i8) -> i32 {
-    if str.is_null() {
+pub(crate) unsafe fn cff_get_sid(cff: &cff_font, s: &str) -> i32 {
+    if s.is_empty() {
         return -1i32;
     }
     /* I search String INDEX first. */
@@ -1223,13 +1218,13 @@ unsafe fn cff_get_sid_c(cff: &cff_font, str: *const i8) -> i32 {
         for i in 0..idx.count {
             let offset = idx.offset[i as usize] as usize;
             let size = (idx.offset[i as usize + 1] as usize) - offset;
-            if CStr::from_ptr(str).to_bytes() == &idx.data[offset - 1..offset - 1 + size] {
+            if s.as_bytes() == &idx.data[offset - 1..offset - 1 + size] {
                 return i as i32 + 391;
             }
         }
     }
     for i in 0..391 {
-        if CStr::from_ptr(str).to_bytes() == cff_stdstr[i].as_bytes() {
+        if s == cff_stdstr[i] {
             return i as i32;
         }
     }
@@ -1247,16 +1242,16 @@ pub(crate) unsafe fn cff_get_seac_sid(_cff: &cff_font, s: &str) -> i32 {
     }
     -1i32
 }
-unsafe fn cff_match_string(cff: &cff_font, str: *const i8, sid: s_SID) -> bool {
+unsafe fn cff_match_string(cff: &cff_font, s: &str, sid: s_SID) -> bool {
     if (sid as i32) < 391 {
-        CStr::from_ptr(str).to_bytes() == cff_stdstr[sid as usize].as_bytes()
+        s == cff_stdstr[sid as usize]
     } else {
         let i = (sid as i32 - 391) as u16;
         match cff.string.as_deref() {
             Some(string) if (i as i32) < (string.count as i32) => {
                 let offset = string.offset[i as usize] as usize;
                 let size = (string.offset[i as usize + 1] as usize) - offset;
-                CStr::from_ptr(str).to_bytes() == &string.data[offset - 1..offset - 1 + size]
+                s.as_bytes() == &string.data[offset - 1..offset - 1 + size]
             }
             _ => panic!("Invalid SID"),
         }
@@ -1678,11 +1673,10 @@ pub(crate) unsafe fn cff_get_glyphname(cff: &cff_font, gid: u16) -> String {
 }
 
 pub(crate) unsafe fn cff_glyph_lookup_str(cff: &cff_font, s: &str) -> u16 {
-    let s = CString::new(s.as_bytes()).unwrap();
-    cff_glyph_lookup(cff, s.as_ptr())
+    cff_glyph_lookup(cff, s)
 }
 
-pub(crate) unsafe fn cff_glyph_lookup(cff: &cff_font, glyph: *const i8) -> u16 {
+pub(crate) unsafe fn cff_glyph_lookup(cff: &cff_font, glyph: &str) -> u16 {
     if cff.flag & (1i32 << 5i32 | 1i32 << 6i32 | 1i32 << 7i32) != 0 {
         panic!("Predefined CFF charsets not supported yet");
     } else {
@@ -1691,7 +1685,7 @@ pub(crate) unsafe fn cff_glyph_lookup(cff: &cff_font, glyph: *const i8) -> u16 {
         }
     }
     /* .notdef always have glyph index 0 */
-    if glyph.is_null() || streq_ptr(glyph, b".notdef\x00" as *const u8 as *const i8) as i32 != 0 {
+    if glyph.is_empty() || glyph == ".notdef" {
         return 0i32 as u16;
     }
     let charset = cff.charsets;

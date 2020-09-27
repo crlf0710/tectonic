@@ -115,7 +115,7 @@ unsafe fn Type0Font_create_ToUnicode_stream(font: &Type0Font) -> *mut pdf_obj {
     let used_chars = std::slice::from_raw_parts(Type0Font_get_usedchars(font) as *const u8, 8192);
     otf_create_ToUnicode_stream(
         &*(&*cidfont).ident,
-        CIDFont_get_opt_index(cidfont),
+        CIDFont_get_opt_index(&*cidfont),
         used_chars,
         font.cmap_id,
     )
@@ -150,11 +150,11 @@ unsafe fn add_ToUnicode(font: *mut Type0Font) {
     if cidfont.is_null() {
         panic!("{}: No descendant CID-keyed font.", "Type0");
     }
-    if CIDFont_is_ACCFont(&mut *cidfont) {
+    if CIDFont_is_ACCFont(&*cidfont) {
         /* No need to embed ToUnicode */
         return;
     } else {
-        if CIDFont_is_UCSFont(cidfont) {
+        if CIDFont_is_UCSFont(&*cidfont) {
             /*
              * Old version of dvipdfmx mistakenly used Adobe-Identity as Unicode.
              */
@@ -170,23 +170,23 @@ unsafe fn add_ToUnicode(font: *mut Type0Font) {
         }
     }
     let tounicode;
-    let csi = CIDFont_get_CIDSysInfo(cidfont);
+    let csi = CIDFont_get_CIDSysInfo(&*cidfont);
     let mut fontname = &*(&*cidfont).fontname;
-    if CIDFont_get_embedding(cidfont) != 0 {
+    if CIDFont_get_embedding(&*cidfont) != 0 {
         fontname = &fontname[7..]
         /* FIXME */
     }
-    if (*csi).registry == "Adobe" && (*csi).ordering == "Identity" {
-        match CIDFont_get_subtype(cidfont) {
+    if csi.registry == "Adobe" && csi.ordering == "Identity" {
+        match CIDFont_get_subtype(&*cidfont) {
             2 => {
                 /* PLEASE FIX THIS */
                 tounicode = Type0Font_create_ToUnicode_stream(&*font)
             }
             _ => {
-                if CIDFont_get_flag(cidfont, 1i32 << 9i32) != 0 {
+                if CIDFont_get_flag(&*cidfont, 1i32 << 9i32) != 0 {
                     /* FIXME */
                     tounicode = Type0Font_create_ToUnicode_stream(&*font)
-                } else if CIDFont_get_flag(cidfont, 1i32 << 8i32) != 0 {
+                } else if CIDFont_get_flag(&*cidfont, 1i32 << 8i32) != 0 {
                     /* FIXME */
                     /* Font loader will create ToUnicode and set. */
                     return;
@@ -196,7 +196,7 @@ unsafe fn add_ToUnicode(font: *mut Type0Font) {
             }
         }
     } else {
-        let cmap_base = format!("{}-{}", (*csi).registry, (*csi).ordering);
+        let cmap_base = format!("{}-{}", csi.registry, csi.ordering);
         tounicode = Type0Font_try_load_ToUnicode_stream(font, &cmap_base);
     }
     if !tounicode.is_null() {
@@ -245,7 +245,7 @@ pub(crate) unsafe fn Type0Font_get_resource(font: &mut Type0Font) -> *mut pdf_ob
      */
     if font.indirect.is_null() {
         let mut array = vec![];
-        array.push(CIDFont_get_resource(font.descendant));
+        array.push(CIDFont_get_resource(&mut *font.descendant));
         (*font.fontdict)
             .as_dict_mut()
             .set("DescendantFonts", array.into_obj());
