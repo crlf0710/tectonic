@@ -49,8 +49,8 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj,
-    PushObj, STREAM_COMPRESS,
+    pdf_dict, pdf_name, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj,
+    STREAM_COMPRESS,
 };
 use libc::free;
 
@@ -257,7 +257,7 @@ unsafe fn find_tocode_cmap(reg: &str, ord: &str, select: i32) -> *mut CMap {
  * Mostly same as add_CID[HV]Metrics in cidtype0.c.
  */
 unsafe fn add_TTCIDHMetrics(
-    fontdict: *mut pdf_obj,
+    fontdict: &mut pdf_dict,
     g: &tt_glyphs,
     used_chars: *mut i8,
     cidtogidmap: *mut u8,
@@ -321,15 +321,15 @@ unsafe fn add_TTCIDHMetrics(
         w_array.push_obj(an_array.take().unwrap());
         empty = 0i32
     }
-    (*fontdict).as_dict_mut().set("DW", dw);
+    fontdict.set("DW", dw);
     let w_array = w_array.into_obj();
     if empty == 0 {
-        (*fontdict).as_dict_mut().set("W", pdf_ref_obj(w_array));
+        fontdict.set("W", pdf_ref_obj(w_array));
     }
     pdf_release_obj(w_array);
 }
 unsafe fn add_TTCIDVMetrics(
-    fontdict: *mut pdf_obj,
+    fontdict: &mut pdf_dict,
     g: &tt_glyphs,
     used_chars: *mut i8,
     last_cid: u16,
@@ -390,11 +390,11 @@ unsafe fn add_TTCIDVMetrics(
         let mut an_array = vec![];
         an_array.push_obj(defaultVertOriginY);
         an_array.push_obj(-defaultAdvanceHeight);
-        (*fontdict).as_dict_mut().set("DW2", an_array);
+        fontdict.set("DW2", an_array);
     }
     let w2_array = w2_array.into_obj();
     if empty == 0 {
-        (*fontdict).as_dict_mut().set("W2", pdf_ref_obj(w2_array));
+        fontdict.set("W2", pdf_ref_obj(w2_array));
     }
     pdf_release_obj(w2_array);
 }
@@ -828,9 +828,20 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     if opt_flags & 1i32 << 1i32 != 0 {
         (*font.fontdict).as_dict_mut().set("DW", 1000_f64);
     } else {
-        add_TTCIDHMetrics(font.fontdict, &glyphs, used_chars, cidtogidmap, last_cid);
+        add_TTCIDHMetrics(
+            (*font.fontdict).as_dict_mut(),
+            &glyphs,
+            used_chars,
+            cidtogidmap,
+            last_cid,
+        );
         if !v_used_chars.is_null() {
-            add_TTCIDVMetrics(font.fontdict, &glyphs, used_chars, last_cid);
+            add_TTCIDVMetrics(
+                (*font.fontdict).as_dict_mut(),
+                &glyphs,
+                used_chars,
+                last_cid,
+            );
         }
     }
     /* Finish here if not embedded. */
@@ -898,11 +909,10 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
 }
 
 pub(crate) unsafe fn CIDFont_type2_open(
-    font: &mut CIDFont,
     name: &str,
     cmap_csi: *mut CIDSysInfo,
     mut opt: *mut cid_opt,
-) -> i32 {
+) -> Option<Box<CIDFont>> {
     let offset;
     assert!(!opt.is_null());
 
@@ -912,10 +922,10 @@ pub(crate) unsafe fn CIDFont_type2_open(
         if let Some(sfont) = dfont_open(handle, (*opt).index) {
             sfont
         } else {
-            return -1i32;
+            return None;
         }
     } else {
-        return -1i32;
+        return None;
     };
     match sfont.type_0 {
         16 => offset = ttc_read_offset(&mut sfont, (*opt).index),
@@ -927,7 +937,7 @@ pub(crate) unsafe fn CIDFont_type2_open(
         }
         256 => offset = sfont.offset,
         _ => {
-            return -1i32;
+            return None;
         }
     }
     if sfnt_read_table_directory(&mut sfont, offset) < 0i32 {
@@ -935,7 +945,7 @@ pub(crate) unsafe fn CIDFont_type2_open(
     }
     /* Ignore TrueType Collection with CFF table. */
     if sfont.type_0 == 1i32 << 4i32 && sfnt_find_table_pos(&sfont, b"CFF ") != 0 {
-        return -1i32;
+        return None;
     }
     /* MAC-ROMAN-EN-POSTSCRIPT or WIN-UNICODE-EN(US)-POSTSCRIPT */
     /* for SJIS, UTF-16, ... string */
@@ -957,8 +967,8 @@ pub(crate) unsafe fn CIDFont_type2_open(
     /*
      * CIDSystemInfo is determined from CMap or from map record option.
      */
-    font.subtype = 2i32;
-    font.csi = Box::into_raw(Box::new(CIDSysInfo {
+    let subtype = 2;
+    let csi = Box::into_raw(Box::new(CIDSysInfo {
         ordering: "".into(),
         registry: "".into(),
         supplement: 0,
@@ -989,44 +999,54 @@ pub(crate) unsafe fn CIDFont_type2_open(
                 (*(*opt).csi).supplement = (*cmap_csi).supplement
             }
         }
-        (*font.csi).registry = (*(*opt).csi).registry.clone();
-        (*font.csi).ordering = (*(*opt).csi).ordering.clone();
-        (*font.csi).supplement = (*(*opt).csi).supplement
+        (*csi).registry = (*(*opt).csi).registry.clone();
+        (*csi).ordering = (*(*opt).csi).ordering.clone();
+        (*csi).supplement = (*(*opt).csi).supplement
     } else if !cmap_csi.is_null() {
-        (*font.csi).registry = (*cmap_csi).registry.clone();
-        (*font.csi).ordering = (*cmap_csi).ordering.clone();
-        (*font.csi).supplement = (*cmap_csi).supplement
+        (*csi).registry = (*cmap_csi).registry.clone();
+        (*csi).ordering = (*cmap_csi).ordering.clone();
+        (*csi).supplement = (*cmap_csi).supplement
     } else {
-        (*font.csi).registry = "Adobe".into();
-        (*font.csi).ordering = "Identity".into();
-        (*font.csi).supplement = 0i32
+        (*csi).registry = "Adobe".into();
+        (*csi).ordering = "Identity".into();
+        (*csi).supplement = 0i32
     }
-    font.fontdict = pdf_dict::new().into_obj();
-    (*font.fontdict).as_dict_mut().set("Type", "Font");
-    (*font.fontdict)
-        .as_dict_mut()
-        .set("Subtype", "CIDFontType2");
-    if let Some(descriptor) = tt_get_fontdesc(&sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name) {
-        font.descriptor = descriptor.into_obj();
+    let fontdict = pdf_dict::new().into_obj();
+    (*fontdict).as_dict_mut().set("Type", "Font");
+    (*fontdict).as_dict_mut().set("Subtype", "CIDFontType2");
+    let descriptor = if let Some(descriptor) =
+        tt_get_fontdesc(&sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name)
+    {
+        descriptor.into_obj()
     } else {
         panic!("Could not obtain necessary font info.");
-    }
+    };
     if (*opt).embed != 0 {
         let tag = pdf_font_make_uniqueTag();
         fontname = format!("{}+{}", tag, fontname);
     }
-    (*font.descriptor)
+    (*descriptor)
         .as_dict_mut()
         .set("FontName", pdf_name::new(fontname.as_bytes()));
-    (*font.fontdict)
+    (*fontdict)
         .as_dict_mut()
         .set("BaseFont", pdf_name::new(fontname.as_bytes()));
-
-    font.fontname = fontname.clone();
 
     /*
      * Don't write fontdict here.
      * /Supplement in /CIDSystemInfo may change.
      */
-    0i32
+    Some(Box::new(CIDFont {
+        ident: name.to_string(),
+        name: name.to_string(),
+        fontname,
+        subtype,
+        flags: 0,
+        parent: [-1, -1],
+        csi,
+        options: opt,
+        indirect: ptr::null_mut(),
+        fontdict,
+        descriptor,
+    }))
 }
