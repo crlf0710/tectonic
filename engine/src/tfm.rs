@@ -1,4 +1,4 @@
-use bridge::{ttstub_input_getc, DroppableInputHandleWrapper, TTInputFormat};
+use bridge::{ttstub_input_getc, TTInputFormat};
 
 use crate::help;
 
@@ -142,8 +142,7 @@ pub(crate) unsafe fn read_font_info(
     pack_file_name(nom, aire, EMPTY_STRING as str_number);
     check_for_tfm_font_mapping();
 
-    let mut tfm_file_owner =
-        tt_xetex_open_input(TTInputFormat::TFM).map(DroppableInputHandleWrapper::from);
+    let mut tfm_file_owner = tt_xetex_open_input(TTInputFormat::TFM);
     if tfm_file_owner.is_none() {
         if !quoted_filename {
             if let Ok(g) = load_native_font(s).map_err(|e| nf_error(e, u, nom, aire, s)) {

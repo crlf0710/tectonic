@@ -10,7 +10,6 @@
     unused_mut
 )]
 
-use derive_more::{Deref, DerefMut};
 use std::ffi::CString;
 use std::io::SeekFrom;
 use std::io::{prelude::*, Result};
@@ -70,11 +69,28 @@ impl Write for &OutputHandleWrapper {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(PartialEq)]
 #[repr(transparent)]
-pub struct InputHandleWrapper(NonNull<libc::c_void>);
+pub struct InFile(NonNull<libc::c_void>);
 
-impl InputHandleWrapper {
+impl Drop for InFile {
+    fn drop(&mut self) {
+        unsafe {
+            if (*tectonic_global_bridge)
+                .input_close
+                .expect("non-null function pointer")(
+                (*tectonic_global_bridge).context,
+                self.0.as_ptr(),
+            ) != 0
+            {
+                // Nonzero return value indicates a serious internal error.
+                panic!("ttstub_input_close");
+            }
+        }
+    }
+}
+
+impl InFile {
     pub fn new(ptr: rust_input_handle_t) -> Option<Self> {
         NonNull::new(ptr).map(|nnp| Self(nnp))
     }
@@ -83,108 +99,78 @@ impl InputHandleWrapper {
         self.0.as_ptr()
     }
 
-    pub fn close(self) {
-        unsafe { ttstub_input_close(self) }
-    }
-}
-
-impl Read for InputHandleWrapper {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        unsafe {
-            let res = ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len());
-            if res < 0 {
-                Err(std::io::ErrorKind::UnexpectedEof.into())
-            } else {
-                Ok(res as usize)
-            }
-        }
-    }
-}
-
-impl Read for &InputHandleWrapper {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        unsafe {
-            let res = ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len());
-            if res < 0 {
-                Err(std::io::ErrorKind::UnexpectedEof.into())
-            } else {
-                Ok(res as usize)
-            }
-        }
-    }
-}
-
-impl Read for DroppableInputHandleWrapper {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        use std::ops::DerefMut;
-        self.deref_mut().read(buf)
-    }
-}
-
-impl Seek for DroppableInputHandleWrapper {
-    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
-        use std::ops::DerefMut;
-        self.deref_mut().seek(pos)
-    }
-}
-
-impl Read for &DroppableInputHandleWrapper {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        use std::ops::Deref;
-        let mut rf = (*self).deref();
-        (&mut rf).read(buf)
-    }
-}
-
-impl Seek for &DroppableInputHandleWrapper {
-    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
-        use std::ops::Deref;
-        let mut rf = (*self).deref();
-        (&mut rf).seek(pos)
-    }
-}
-
-impl Seek for InputHandleWrapper {
-    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
-        use libc::{SEEK_CUR, SEEK_END, SEEK_SET};
-        let (offset, whence) = match pos {
-            SeekFrom::Start(o) => (o as ssize_t, SEEK_SET),
-            SeekFrom::Current(o) => (o as ssize_t, SEEK_CUR),
-            SeekFrom::End(o) => (o as ssize_t, SEEK_END),
-        };
-        unsafe { Ok(ttstub_input_seek(self.0.as_ptr(), offset, whence) as u64) }
-    }
-}
-
-impl Seek for &InputHandleWrapper {
-    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
-        use libc::{SEEK_CUR, SEEK_END, SEEK_SET};
-        let (offset, whence) = match pos {
-            SeekFrom::Start(o) => (o as ssize_t, SEEK_SET),
-            SeekFrom::Current(o) => (o as ssize_t, SEEK_CUR),
-            SeekFrom::End(o) => (o as ssize_t, SEEK_END),
-        };
-        unsafe { Ok(ttstub_input_seek(self.0.as_ptr(), offset, whence) as u64) }
-    }
-}
-
-#[repr(transparent)]
-#[derive(Deref, DerefMut)]
-pub struct DroppableInputHandleWrapper(InputHandleWrapper);
-
-impl Drop for DroppableInputHandleWrapper {
-    fn drop(&mut self) {
-        self.0.clone().close();
-    }
-}
-
-impl DroppableInputHandleWrapper {
-    pub fn from(i: InputHandleWrapper) -> Self {
-        Self(i)
-    }
     pub fn open(path: &str, format: TTInputFormat, is_gz: i32) -> Option<Self> {
         let path = CString::new(path).unwrap();
-        (unsafe { ttstub_input_open(path.as_ptr(), format, is_gz) }).map(Self::from)
+        unsafe {
+            Self::new((*tectonic_global_bridge)
+                .input_open
+                .expect("non-null function pointer")(
+                (*tectonic_global_bridge).context,
+                path.as_ptr(),
+                format,
+                is_gz,
+            ))
+        }
+    }
+
+    pub fn open_primary() -> Option<Self> {
+        unsafe {
+            Self::new((*tectonic_global_bridge)
+                .input_open_primary
+                .expect("non-null function pointer")(
+                (*tectonic_global_bridge).context,
+            ))
+        }
+    }
+}
+
+impl Read for InFile {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        unsafe {
+            let res = ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len());
+            if res < 0 {
+                Err(std::io::ErrorKind::UnexpectedEof.into())
+            } else {
+                Ok(res as usize)
+            }
+        }
+    }
+}
+
+impl Read for &InFile {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        unsafe {
+            let res = ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len());
+            if res < 0 {
+                Err(std::io::ErrorKind::UnexpectedEof.into())
+            } else {
+                Ok(res as usize)
+            }
+        }
+    }
+}
+
+impl Seek for InFile {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        use libc::{SEEK_CUR, SEEK_END, SEEK_SET};
+        let (offset, whence) = match pos {
+            SeekFrom::Start(o) => (o as ssize_t, SEEK_SET),
+            SeekFrom::Current(o) => (o as ssize_t, SEEK_CUR),
+            SeekFrom::End(o) => (o as ssize_t, SEEK_END),
+        };
+        unsafe { Ok(ttstub_input_seek(self.0.as_ptr(), offset, whence) as u64) }
+    }
+}
+
+impl Seek for &InFile {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        use libc::{SEEK_CUR, SEEK_END, SEEK_SET};
+        let (offset, whence) = match pos {
+            SeekFrom::Start(o) => (o as ssize_t, SEEK_SET),
+            SeekFrom::Current(o) => (o as ssize_t, SEEK_CUR),
+            SeekFrom::End(o) => (o as ssize_t, SEEK_END),
+        };
+        unsafe { Ok(ttstub_input_seek(self.0.as_ptr(), offset, whence) as u64) }
     }
 }
 
@@ -401,29 +387,6 @@ pub unsafe fn ttstub_output_close(mut handle: OutputHandleWrapper) -> i32 {
     )
 }
 
-pub unsafe fn ttstub_input_open(
-    mut path: *const i8,
-    mut format: TTInputFormat,
-    mut is_gz: i32,
-) -> Option<InputHandleWrapper> {
-    InputHandleWrapper::new((*tectonic_global_bridge)
-        .input_open
-        .expect("non-null function pointer")(
-        (*tectonic_global_bridge).context,
-        path,
-        format,
-        is_gz,
-    ))
-}
-
-pub unsafe fn ttstub_input_open_primary() -> Option<InputHandleWrapper> {
-    InputHandleWrapper::new((*tectonic_global_bridge)
-        .input_open_primary
-        .expect("non-null function pointer")(
-        (*tectonic_global_bridge).context
-    ))
-}
-
 pub fn ttstub_input_get_size<R: Seek>(handle: &mut R) -> size_t {
     handle.stream_len().unwrap() as usize
 }
@@ -467,18 +430,6 @@ pub fn ttstub_input_getc<R: Read>(handle: &mut R) -> i32 {
     match handle.read(&mut byte[..1]) {
         Ok(1) => byte[0] as i32,
         _ => -1,
-    }
-}
-
-pub unsafe fn ttstub_input_close(mut handle: InputHandleWrapper) {
-    if (*tectonic_global_bridge)
-        .input_close
-        .expect("non-null function pointer")(
-        (*tectonic_global_bridge).context, handle.0.as_ptr()
-    ) != 0
-    {
-        // Nonzero return value indicates a serious internal error.
-        panic!("ttstub_input_close");
     }
 }
 

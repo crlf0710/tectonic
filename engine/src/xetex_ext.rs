@@ -17,7 +17,7 @@ use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_consts::{Side, UnicodeMode};
 use crate::xetex_xetexd::print_c_str;
-use bridge::{ttstub_input_get_size, ttstub_input_read, DroppableInputHandleWrapper as InFile};
+use bridge::{ttstub_input_get_size, ttstub_input_read, InFile, TTInputFormat};
 use libc::free;
 use std::ptr;
 
@@ -52,8 +52,6 @@ pub(crate) const OTGR_FONT_FLAG: u32 = 0xFFFE;
 
 pub(crate) type size_t = usize;
 pub(crate) type ssize_t = isize;
-
-use bridge::TTInputFormat;
 
 pub(crate) type Boolean = libc::c_uchar;
 

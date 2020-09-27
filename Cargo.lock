@@ -1759,7 +1759,6 @@ name = "tectonic_bridge"
 version = "0.0.1-dev"
 dependencies = [
  "cc",
- "derive_more",
  "libc",
 ]
 

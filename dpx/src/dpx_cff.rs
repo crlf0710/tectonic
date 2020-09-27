@@ -35,12 +35,11 @@ use super::dpx_mem::{new, renew};
 use super::dpx_numbers::GetFromFile;
 use libc::{free, memcpy, memmove, memset, strlen};
 
-use crate::bridge::size_t;
+use crate::bridge::{size_t, InFile};
 use std::ffi::{CStr, CString};
 use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
-use bridge::DroppableInputHandleWrapper as InFile;
 /* CFF Data Types */
 /* SID SID number */
 /* offset(0) */

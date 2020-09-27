@@ -47,9 +47,7 @@ use libc::{free, strcpy, strlen};
 
 use std::io::{Read, Seek, SeekFrom};
 
-use crate::bridge::TTInputFormat;
-
-use bridge::DroppableInputHandleWrapper as InFile;
+use crate::bridge::{InFile, TTInputFormat};
 
 use super::dpx_pdfdev::{transform_info, Point, Rect, TMatrix};
 

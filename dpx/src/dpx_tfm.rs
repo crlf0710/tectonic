@@ -31,14 +31,12 @@ use crate::FromBEByteSlice;
 use crate::{info, warn};
 
 use super::dpx_numbers::skip_bytes;
-use crate::bridge::{ttstub_input_get_size, DroppableInputHandleWrapper as InFile};
+use crate::bridge::{ttstub_input_get_size, InFile, TTInputFormat};
 
 use std::io::{Read, Seek, SeekFrom};
 
 pub(crate) type __off_t = i64;
 pub(crate) type off_t = __off_t;
-
-use crate::bridge::TTInputFormat;
 
 pub(crate) type fixword = i32;
 #[derive(Clone, Default)]

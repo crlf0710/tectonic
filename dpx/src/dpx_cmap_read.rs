@@ -39,11 +39,8 @@ use super::dpx_cmap::{
 };
 use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstObj};
-use crate::bridge::ttstub_input_get_size;
+use crate::bridge::{size_t, ttstub_input_get_size, InFile};
 use libc::{free, memmove, strstr};
-
-use crate::bridge::size_t;
-use bridge::DroppableInputHandleWrapper as InFile;
 
 use super::dpx_cid::CIDSysInfo;
 /* Mapping types, MAP_IS_NAME is not supported. */

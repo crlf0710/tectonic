@@ -34,7 +34,7 @@ use std::ptr;
 
 use super::dpx_mfileio::tt_mfgets;
 
-use bridge::{DroppableInputHandleWrapper as InFile, TTInputFormat};
+use bridge::{InFile, TTInputFormat};
 use libc::{strchr, strlen, strtol};
 
 /* Don't forget fontmap reading now requires information

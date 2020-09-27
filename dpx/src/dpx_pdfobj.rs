@@ -49,8 +49,7 @@ use libc::{free, memset, strlen, strtoul};
 
 use libz_sys as libz;
 
-use crate::bridge::size_t;
-use bridge::{DroppableInputHandleWrapper as InFile, OutputHandleWrapper};
+use bridge::{size_t, InFile, OutputHandleWrapper};
 
 pub(crate) const STREAM_COMPRESS: i32 = 1 << 0;
 pub(crate) const STREAM_USE_PREDICTOR: i32 = 1 << 1;
@@ -3520,7 +3519,6 @@ impl pdf_file {
 impl Drop for pdf_file {
     fn drop(&mut self) {
         unsafe {
-            //tectonic_bridge::ttstub_input_close(self.handle.clone()); // TODO: use drop
             for i in 0..self.num_obj {
                 pdf_release_obj((*self.xref_table.offset(i as isize)).direct);
                 pdf_release_obj((*self.xref_table.offset(i as isize)).indirect);

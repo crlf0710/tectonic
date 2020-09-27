@@ -26,11 +26,9 @@ use std::ptr;
 use crate::warn;
 
 use super::{SpcArg, SpcEnv};
-use crate::bridge::TTInputFormat;
-
-use crate::bridge::DroppableInputHandleWrapper as InFile;
 use crate::dpx_pdfdraw::pdf_dev_concat;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
+use bridge::{InFile, TTInputFormat};
 
 use super::util::spc_util_read_dimtrns;
 use crate::dpx_mpost::{mps_eop_cleanup, mps_exec_inline, mps_stack_depth};

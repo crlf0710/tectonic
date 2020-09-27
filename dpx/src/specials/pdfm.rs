@@ -37,7 +37,8 @@ use super::{
     spc_begin_annot, spc_clear_objects, spc_end_annot, spc_flush_object, spc_lookup_object,
     spc_push_object, spc_resume_annot, spc_suspend_annot,
 };
-use crate::bridge::DroppableInputHandleWrapper as InFile;
+
+use crate::bridge::{size_t, InFile};
 use crate::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_decode};
 use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_dvipdfmx::is_xdv;
@@ -70,8 +71,6 @@ use crate::dpx_unicode::{
     UC_UTF16BE_encode_char, UC_UTF16BE_is_valid_string, UC_UTF8_decode_char,
     UC_UTF8_is_valid_string, UC_is_valid,
 };
-
-use crate::bridge::size_t;
 
 use super::{SpcArg, SpcEnv};
 

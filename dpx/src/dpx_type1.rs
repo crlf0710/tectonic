@@ -45,13 +45,11 @@ use super::dpx_pdffont::{
 use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
 use super::dpx_tfm::{tfm_get_width, tfm_open};
-use crate::bridge::DroppableInputHandleWrapper as InFile;
 use crate::dpx_pdfobj::{
     pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
+use bridge::{InFile, TTInputFormat};
 use libc::free;
-
-use crate::bridge::TTInputFormat;
 
 use super::dpx_cff::cff_index;
 /* quasi-hack to get the primary input */

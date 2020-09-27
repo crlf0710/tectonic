@@ -8,9 +8,8 @@
     unused_mut
 )]
 
-use crate::bridge::{
-    ttstub_input_close, ttstub_input_getc, ttstub_input_open, ttstub_input_open_primary,
-};
+use bridge::{stub_errno as errno, ttstub_input_getc, InFile, TTInputFormat};
+
 use crate::core_memory::{xcalloc, xmalloc};
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
@@ -26,16 +25,10 @@ use crate::xetex_xetex0::{
     pack_file_name, scan_file_name, scan_four_bit_int, scan_optional_equals,
 };
 use crate::xetex_xetexd::print_c_str;
-use bridge::stub_errno as errno;
-use libc::free;
 use std::ffi::CString;
 use std::io::{Seek, SeekFrom};
 
 use crate::*;
-
-use bridge::TTInputFormat;
-
-use bridge::InputHandleWrapper;
 pub(crate) type UErrorCode = i32;
 pub(crate) const U_ERROR_LIMIT: UErrorCode = 66818;
 pub(crate) const U_PLUGIN_ERROR_LIMIT: UErrorCode = 66818;
@@ -216,9 +209,8 @@ pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type str_number = i32;
 
-#[repr(C)]
 pub(crate) struct UFILE {
-    pub(crate) handle: Option<InputHandleWrapper>,
+    pub(crate) handle: Option<InFile>,
     pub(crate) savedChar: i64,
     pub(crate) skipNextLF: i16,
     pub(crate) encodingMode: UnicodeMode,
@@ -231,15 +223,11 @@ pub(crate) struct UFILE {
 */
 #[no_mangle]
 pub(crate) static mut name_of_input_file: String = String::new();
-pub(crate) unsafe fn tt_xetex_open_input(mut filefmt: TTInputFormat) -> Option<InputHandleWrapper> {
+pub(crate) unsafe fn tt_xetex_open_input(mut filefmt: TTInputFormat) -> Option<InFile> {
     let handle = if filefmt == TTInputFormat::TECTONIC_PRIMARY {
-        ttstub_input_open_primary()
+        InFile::open_primary()
     } else {
-        ttstub_input_open(
-            CString::new(name_of_file.as_str()).unwrap().as_ptr(),
-            filefmt as TTInputFormat,
-            0,
-        )
+        InFile::open(&name_of_file, filefmt as TTInputFormat, 0)
     };
     if handle.is_none() {
         return None;
@@ -269,17 +257,17 @@ pub(crate) const bytesFromUTF8: [u8; 256] = [
     2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5,
 ];
 pub(crate) unsafe fn set_input_file_encoding(
-    mut f: *mut UFILE,
+    f: &mut UFILE,
     mode: UnicodeMode,
     mut encodingData: i32,
 ) {
-    if (*f).encodingMode as i32 == 5i32 && !(*f).conversionData.is_null() {
-        icu::ucnv_close((*f).conversionData as *mut icu::UConverter);
+    if f.encodingMode as i32 == 5i32 && !f.conversionData.is_null() {
+        icu::ucnv_close(f.conversionData as *mut icu::UConverter);
     }
-    (*f).conversionData = 0 as *mut libc::c_void;
+    f.conversionData = 0 as *mut libc::c_void;
     match mode {
         UnicodeMode::Utf8 | UnicodeMode::Utf16be | UnicodeMode::Utf16le | UnicodeMode::Raw => {
-            (*f).encodingMode = mode
+            f.encodingMode = mode
         }
         UnicodeMode::ICUMapping => {
             let mut name = gettexstring(encodingData);
@@ -295,17 +283,17 @@ pub(crate) unsafe fn set_input_file_encoding(
                     print_c_str(&name);
                     print_c_str("\'; reading as raw bytes");
                 });
-                (*f).encodingMode = UnicodeMode::Raw;
+                f.encodingMode = UnicodeMode::Raw;
             } else {
-                (*f).encodingMode = UnicodeMode::ICUMapping;
-                (*f).conversionData = cnv as *mut libc::c_void
+                f.encodingMode = UnicodeMode::ICUMapping;
+                f.conversionData = cnv as *mut libc::c_void
             }
         }
         _ => {}
     };
 }
 pub(crate) unsafe fn u_open_in(
-    mut f: *mut *mut UFILE,
+    f: &mut Option<UFILE>,
     mut filefmt: TTInputFormat,
     mut _fopen_mode: &[u8],
     mut mode: UnicodeMode,
@@ -317,15 +305,16 @@ pub(crate) unsafe fn u_open_in(
     if handle.is_none() {
         return 0i32;
     }
-    *f = xmalloc(::std::mem::size_of::<UFILE>() as _) as *mut UFILE;
-    (**f).encodingMode = UnicodeMode::Auto;
-    (**f).conversionData = 0 as *mut libc::c_void;
-    (**f).savedChar = -1i32 as i64;
-    (**f).skipNextLF = 0_i16;
-    (**f).handle = handle;
+    let mut ufile = UFILE {
+        encodingMode: UnicodeMode::Auto,
+        conversionData: 0 as *mut libc::c_void,
+        savedChar: -1,
+        skipNextLF: 0,
+        handle,
+    };
     if mode == UnicodeMode::Auto {
         /* sniff encoding form */
-        let handle = (**f).handle.as_mut().unwrap();
+        let handle = ufile.handle.as_mut().unwrap();
         B1 = ttstub_input_getc(handle);
         B2 = ttstub_input_getc(handle);
         if B1 == 0xfei32 && B2 == 0xffi32 {
@@ -349,7 +338,8 @@ pub(crate) unsafe fn u_open_in(
             mode = UnicodeMode::Utf8;
         }
     }
-    set_input_file_encoding(*f, mode, encodingData);
+    set_input_file_encoding(&mut ufile, mode, encodingData);
+    *f = Some(ufile);
     1i32
 }
 unsafe extern "C" fn buffer_overflow() {
@@ -406,18 +396,18 @@ unsafe extern "C" fn apply_normalization(mut buf: *mut u32, mut len: i32, mut no
         .wrapping_add((outUsed as u64).wrapping_div(::std::mem::size_of::<UnicodeScalar>() as u64))
         as i32;
 }
-pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
+pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
     static mut byteBuffer: *mut i8 = ptr::null_mut();
     static mut utf32Buf: *mut u32 = ptr::null_mut();
     let mut i: i32 = 0;
     let mut tmpLen: i32 = 0;
     let mut norm: i32 = get_input_normalization_state();
-    if (*f).handle.is_none() {
+    if f.handle.is_none() {
         /* NULL 'handle' means this: */
         panic!("reads from synthetic \"terminal\" file #0 should never happen");
     }
     last = first;
-    if (*f).encodingMode == UnicodeMode::ICUMapping {
+    if f.encodingMode == UnicodeMode::ICUMapping {
         let mut bytesRead: u32 = 0_u32;
         let mut cnv: *mut icu::UConverter = 0 as *mut icu::UConverter;
         let mut outLen: i32 = 0;
@@ -426,10 +416,10 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
             byteBuffer = xmalloc((BUF_SIZE + 1) as size_t) as *mut i8
         }
         /* Recognize either LF or CR as a line terminator; skip initial LF if prev line ended with CR.  */
-        let handle = (*f).handle.as_mut().unwrap();
+        let handle = f.handle.as_mut().unwrap();
         i = ttstub_input_getc(handle);
-        if (*f).skipNextLF != 0 {
-            (*f).skipNextLF = 0_i16;
+        if f.skipNextLF != 0 {
+            f.skipNextLF = 0_i16;
             if i == '\n' as i32 {
                 i = ttstub_input_getc(handle)
             }
@@ -460,7 +450,7 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
             buffer_overflow();
         }
         /* now apply the mapping to turn external bytes into Unicode characters in buffer */
-        cnv = (*f).conversionData as *mut icu::UConverter;
+        cnv = f.conversionData as *mut icu::UConverter;
         match norm {
             1 | 2 => {
                 // NFC
@@ -512,8 +502,8 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
     } else {
         /* Recognize either LF or CR as a line terminator; skip initial LF if prev line ended with CR.  */
         i = get_uni_c(f);
-        if (*f).skipNextLF != 0 {
-            (*f).skipNextLF = 0_i16;
+        if f.skipNextLF != 0 {
+            f.skipNextLF = 0_i16;
             if i == '\n' as i32 {
                 i = get_uni_c(f)
             }
@@ -585,7 +575,7 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
     }
     /* If line ended with CR, remember to skip following LF. */
     if i == '\r' as i32 {
-        (*f).skipNextLF = 1_i16
+        f.skipNextLF = 1_i16
     }
     BUFFER[last as usize] = ' ' as i32;
     if last >= max_buf_stack {
@@ -601,27 +591,26 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
     }
     true
 }
-pub(crate) unsafe fn u_close(mut f: *mut UFILE) {
-    if f.is_null() || (*f).handle.is_none() {
-        /* NULL handle is stdin/terminal file. Shouldn't happen but meh. */
-        return;
+impl Drop for UFILE {
+    fn drop(&mut self) {
+        if self.encodingMode == UnicodeMode::ICUMapping && !self.conversionData.is_null() {
+            unsafe {
+                icu::ucnv_close(self.conversionData as *mut icu::UConverter);
+            }
+        }
     }
-    ttstub_input_close((*f).handle.take().unwrap());
-    if (*f).encodingMode == UnicodeMode::ICUMapping && !(*f).conversionData.is_null() {
-        icu::ucnv_close((*f).conversionData as *mut icu::UConverter);
-    }
-    free(f as *mut libc::c_void);
 }
-pub(crate) unsafe fn get_uni_c(mut f: *mut UFILE) -> i32 {
+
+pub(crate) unsafe fn get_uni_c(f: &mut UFILE) -> i32 {
     let mut rval: i32 = 0;
     let mut c: i32 = 0;
-    if (*f).savedChar != -1 {
-        rval = (*f).savedChar as i32;
-        (*f).savedChar = -1;
+    if f.savedChar != -1 {
+        rval = f.savedChar as i32;
+        f.savedChar = -1;
         return rval;
     }
-    let handle = (*f).handle.as_mut().unwrap();
-    match (*f).encodingMode {
+    let handle = f.handle.as_mut().unwrap();
+    match f.encodingMode {
         UnicodeMode::Utf8 => {
             rval = ttstub_input_getc(handle);
             c = rval;
@@ -670,7 +659,7 @@ pub(crate) unsafe fn get_uni_c(mut f: *mut UFILE) -> i32 {
                         rval = 0x10000i32 + (rval - 0xd800i32) * 0x400i32 + (lo - 0xdc00i32)
                     } else {
                         rval = 0xfffdi32;
-                        (*f).savedChar = lo as i64
+                        f.savedChar = lo as i64
                     }
                 } else if rval >= 0xdc00i32 && rval <= 0xdfffi32 {
                     rval = 0xfffdi32
@@ -688,7 +677,7 @@ pub(crate) unsafe fn get_uni_c(mut f: *mut UFILE) -> i32 {
                         rval = 0x10000i32 + (rval - 0xd800i32) * 0x400i32 + (lo_0 - 0xdc00i32)
                     } else {
                         rval = 0xfffdi32;
-                        (*f).savedChar = lo_0 as i64
+                        f.savedChar = lo_0 as i64
                     }
                 } else if rval >= 0xdc00i32 && rval <= 0xdfffi32 {
                     rval = 0xfffdi32
@@ -697,7 +686,7 @@ pub(crate) unsafe fn get_uni_c(mut f: *mut UFILE) -> i32 {
         }
         UnicodeMode::Raw => rval = ttstub_input_getc(handle),
         _ => {
-            panic!("internal error; file input mode={:?}", (*f).encodingMode,);
+            panic!("internal error; file input mode={:?}", f.encodingMode,);
         }
     }
     rval
@@ -710,7 +699,7 @@ pub(crate) unsafe fn open_or_close_in() {
     scan_four_bit_int();
     n = cur_val as u8;
     if read_open[n as usize] != OpenMode::Closed {
-        u_close(read_file[n as usize]);
+        let _ = read_file[n as usize].take();
         read_open[n as usize] = OpenMode::Closed;
     }
     if c != 0 {
@@ -718,7 +707,7 @@ pub(crate) unsafe fn open_or_close_in() {
         scan_file_name();
         pack_file_name(cur_name, cur_area, cur_ext);
         if u_open_in(
-            &mut *read_file.as_mut_ptr().offset(n as isize),
+            &mut read_file[n as usize],
             TTInputFormat::TEX,
             b"rb",
             UnicodeMode::from(*INTPAR(IntPar::xetex_default_input_mode)),

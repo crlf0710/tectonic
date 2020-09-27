@@ -22,7 +22,7 @@ use crate::xetex_output::{
 };
 use crate::xetex_xetex0::{close_files_and_terminate, give_err_help, open_log_file, show_context};
 
-use crate::bridge::TTHistory;
+use bridge::TTHistory;
 
 use crate::xetex_ini::{cur_input, Selector, INPUT_PTR, INPUT_STACK};
 

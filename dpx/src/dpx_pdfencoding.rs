@@ -27,6 +27,7 @@
 )]
 
 use crate::bridge::DisplayExt;
+use crate::bridge::{size_t, ttstub_input_get_size, InFile, TTInputFormat};
 use crate::info;
 use std::io::Read;
 use std::ptr;
@@ -40,16 +41,12 @@ use super::dpx_cmap::{
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
-use crate::bridge::{ttstub_input_get_size, DroppableInputHandleWrapper as InFile};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj, pdf_stream,
     IntoObj, PushObj,
 };
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 
-use crate::bridge::size_t;
-
-use crate::bridge::TTInputFormat;
 #[derive(Clone)]
 pub struct pdf_encoding {
     pub ident: String,
