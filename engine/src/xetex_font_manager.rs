@@ -375,8 +375,8 @@ pub(crate) unsafe fn XeTeXFontMgr_delete(mut self_0: *mut XeTeXFontMgr) {
     if self_0.is_null() {
         return;
     }
-    if (*self_0).m_subdtor.is_some() {
-        (*self_0).m_subdtor.expect("non-null function pointer")(self_0);
+    if let Some(f) = (*self_0).m_subdtor {
+        f(self_0);
     }
     CppStdMap_delete((*self_0).m_nameToFont);
     CppStdMap_delete((*self_0).m_nameToFamily);
@@ -848,9 +848,9 @@ pub(crate) unsafe fn XeTeXFontMgr_bestMatchFromFamily(
 }
 pub(crate) unsafe fn XeTeXFontMgr_getOpSize(
     mut _self_0: *mut XeTeXFontMgr,
-    mut font: XeTeXFont,
+    mut font: &XeTeXFontInst,
 ) -> *mut XeTeXFontMgrOpSizeRec {
-    let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font as *mut XeTeXFontInst);
+    let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
     if hbFont.is_null() {
         return 0 as *mut XeTeXFontMgrOpSizeRec;
     }
@@ -873,7 +873,7 @@ pub(crate) unsafe fn XeTeXFontMgr_getOpSize(
 }
 pub(crate) unsafe fn XeTeXFontMgr_getDesignSize(
     mut self_0: *mut XeTeXFontMgr,
-    mut font: XeTeXFont,
+    mut font: &XeTeXFontInst,
 ) -> f64 {
     let mut pSizeRec: *mut XeTeXFontMgrOpSizeRec = XeTeXFontMgr_getOpSize(self_0, font);
     if pSizeRec.is_null() {
@@ -893,7 +893,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
     let mut font: XeTeXFont = createFont((*theFont).fontRef, 655360i32);
     let mut fontInst: *mut XeTeXFontInst = font as *mut XeTeXFontInst;
     if !font.is_null() {
-        let mut pSizeRec: *mut XeTeXFontMgrOpSizeRec = XeTeXFontMgr_getOpSize(self_0, font);
+        let mut pSizeRec: *mut XeTeXFontMgrOpSizeRec = XeTeXFontMgr_getOpSize(self_0, &*fontInst);
         if !pSizeRec.is_null() {
             (*theFont).opSizeInfo.designSize = (*pSizeRec).designSize;
             if (*pSizeRec).subFamilyID == 0i32 as libc::c_uint

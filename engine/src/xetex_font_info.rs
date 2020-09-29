@@ -201,8 +201,8 @@ pub(crate) unsafe fn XeTeXFontInst_delete(mut self_0: *mut XeTeXFontInst) {
     if self_0.is_null() {
         return;
     }
-    if (*self_0).m_subdtor.is_some() {
-        (*self_0).m_subdtor.expect("non-null function pointer")(self_0);
+    if let Some(f) = (*self_0).m_subdtor {
+        f(self_0);
     }
     if !(*self_0).m_ftFace.is_null() {
         FT_Done_Face((*self_0).m_ftFace);

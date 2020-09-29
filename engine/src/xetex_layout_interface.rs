@@ -522,7 +522,6 @@ pub(crate) unsafe fn createFont(mut fontRef: PlatformFontRef, mut pointSize: Fix
     let mut font: *mut XeTeXFontInst;
     #[cfg(not(target_os = "macos"))]
     {
-        use crate::xetex_font_info::XeTeXFontInst_create;
         let mut pathname: *mut u8 = 0 as *mut u8;
         FcPatternGetString(
             fontRef as *const FcPattern,
@@ -537,7 +536,7 @@ pub(crate) unsafe fn createFont(mut fontRef: PlatformFontRef, mut pointSize: Fix
             0i32,
             &mut index,
         );
-        font = XeTeXFontInst_create(
+        font = crate::xetex_font_info::XeTeXFontInst_create(
             c_pointer_to_str(pathname as *const i8),
             index,
             Fix2D(pointSize) as f32,
@@ -548,15 +547,8 @@ pub(crate) unsafe fn createFont(mut fontRef: PlatformFontRef, mut pointSize: Fix
     {
         use crate::xetex_font_info::imp::XeTeXFontInst_Mac;
         use crate::xetex_font_info::imp::XeTeXFontInst_Mac_create;
-        font = &mut (*(XeTeXFontInst_Mac_create
-            as unsafe extern "C" fn(
-                _: CTFontDescriptorRef,
-                _: f32,
-                _: *mut libc::c_int,
-            ) -> *mut XeTeXFontInst_Mac)(
-            fontRef, Fix2D(pointSize) as f32, &mut status
-        ))
-        .super_;
+        font =
+            &mut (*XeTeXFontInst_Mac_create(fontRef, Fix2D(pointSize) as f32, &mut status)).super_;
     }
     if status != 0i32 {
         XeTeXFontInst_delete(font);
@@ -598,7 +590,7 @@ pub(crate) unsafe fn setReqEngine(mut reqEngine: libc::c_char) {
 pub(crate) unsafe fn getFullName(mut fontRef: PlatformFontRef) -> *const libc::c_char {
     return XeTeXFontMgr_getFullName(XeTeXFontMgr_GetFontManager(), fontRef);
 }
-pub(crate) unsafe fn getDesignSize(mut font: XeTeXFont) -> f64 {
+pub(crate) unsafe fn getDesignSize(mut font: &XeTeXFontInst) -> f64 {
     return XeTeXFontMgr_getDesignSize(XeTeXFontMgr_GetFontManager(), font);
 }
 pub(crate) unsafe fn getFontFilename(mut engine: XeTeXLayoutEngine, mut index: *mut u32) -> String {
