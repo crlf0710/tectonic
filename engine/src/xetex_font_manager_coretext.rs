@@ -11,8 +11,7 @@
 
 use crate::xetex_layout_interface::collection_types::*;
 
-use std::ffi::CString;
-use std::ptr::{self, NonNull};
+use std::ptr;
 
 use objc::rc::autoreleasepool;
 use objc::runtime::Object;
@@ -24,8 +23,7 @@ objc_foundation::object_struct!(NSFont);
 type id = *mut Object;
 
 use super::{
-    XeTeXFontMgr, XeTeXFontMgrFamily, XeTeXFontMgrFont, XeTeXFontMgrNameCollection,
-    XeTeXFontMgrOpSizeRec, XeTeXFontMgr_addToMaps, XeTeXFontMgr_appendToList,
+    XeTeXFontMgr, XeTeXFontMgrNameCollection, XeTeXFontMgr_addToMaps, XeTeXFontMgr_appendToList,
     XeTeXFontMgr_base_ctor,
 };
 
