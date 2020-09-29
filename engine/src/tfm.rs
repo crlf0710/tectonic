@@ -20,7 +20,6 @@ use crate::xetex_ini::loaded_font_design_size;
 use crate::xetex_ini::loaded_font_flags;
 use crate::xetex_ini::loaded_font_letter_space;
 use crate::xetex_ini::loaded_font_mapping;
-use crate::xetex_ini::native_font_type_flag;
 use crate::xetex_ini::pool_ptr;
 use crate::xetex_ini::quoted_filename;
 use crate::xetex_ini::str_ptr;
@@ -58,11 +57,9 @@ use crate::xetex_ini::pool_size;
 use crate::xetex_ini::str_pool;
 use crate::xetex_ini::str_start;
 
-use crate::xetex_ext::find_native_font;
 use crate::xetex_ext::ot_get_font_metrics;
-use crate::xetex_ext::release_font_engine;
 use crate::xetex_ext::{check_for_tfm_font_mapping, load_tfm_font_mapping};
-use crate::xetex_ext::{AAT_FONT_FLAG, OTGR_FONT_FLAG};
+use crate::xetex_ext::{find_native_font, NativeFont};
 
 use super::xetex_io::tt_xetex_open_input;
 use crate::xetex_consts::IntPar;
@@ -89,7 +86,6 @@ use crate::xetex_xetex0::pack_file_name;
 
 use crate::xetex_layout_interface::get_ot_math_constant;
 use crate::xetex_layout_interface::isOpenTypeMathFont;
-use crate::xetex_layout_interface::XeTeXLayoutEngine;
 use crate::xetex_scaledmath::xn_over_d;
 
 #[derive(Clone, Copy, Debug)]
@@ -638,10 +634,11 @@ pub(crate) fn good_tfm(ok: (bool, usize)) -> usize {
 }
 
 pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontError> {
-    let mut font_engine = find_native_font(&name_of_file, s);
-    if font_engine.is_null() {
+    let font_engine = find_native_font(&name_of_file, s);
+    if font_engine.is_none() {
         return Err(NativeFontError::NotFound);
     }
+    let font_engine = font_engine.unwrap();
     let actual_size = if s >= 0 {
         s
     } else if s != -1000 {
@@ -660,29 +657,33 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
     let full_name = make_string();
 
     for f in 1..FONT_PTR + 1 {
-        if FONT_AREA[f] == native_font_type_flag
+        if FONT_AREA[f] == font_engine.flag() as i32
             && str_eq_str(FONT_NAME[f], full_name)
             && FONT_SIZE[f] == actual_size
         {
-            release_font_engine(font_engine, native_font_type_flag);
+            match font_engine {
+                #[cfg(target_os = "macos")]
+                NativeFont::Aat(fe) => {
+                    crate::cf_prelude::CFRelease(fe as crate::cf_prelude::CFTypeRef)
+                }
+                _ => {}
+            }
             str_ptr -= 1;
             pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
             return Ok(f);
         }
     }
 
-    let num_font_dimens = if native_font_type_flag as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(font_engine as XeTeXLayoutEngine)
-    {
-        65 // = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55)
-    } else {
-        8
+    let num_font_dimens = match &font_engine {
+        NativeFont::Otgr(fe) if isOpenTypeMathFont(fe) => 65,
+        // = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55)
+        _ => 8,
     };
     if FONT_PTR == FONT_MAX || fmem_ptr + num_font_dimens > FONT_MEM_SIZE as i32 {
         return Err(NativeFontError::NotEnoughMemory);
     }
     FONT_PTR += 1;
-    FONT_AREA[FONT_PTR] = native_font_type_flag;
+    FONT_AREA[FONT_PTR] = font_engine.flag() as i32;
     FONT_NAME[FONT_PTR] = full_name;
     FONT_CHECK[FONT_PTR] = b16x4 {
         s3: 0,
@@ -694,12 +695,10 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
     FONT_DSIZE[FONT_PTR] = loaded_font_design_size;
     FONT_SIZE[FONT_PTR] = actual_size;
 
-    let (ascent, descent, x_ht, cap_ht, font_slant) = match native_font_type_flag as u32 {
+    let (ascent, descent, x_ht, cap_ht, font_slant) = match &font_engine {
         #[cfg(target_os = "macos")]
-        AAT_FONT_FLAG => crate::xetex_aatfont::aat_get_font_metrics(font_engine as _),
-        #[cfg(not(target_os = "macos"))]
-        AAT_FONT_FLAG => unreachable!(),
-        _ => ot_get_font_metrics(font_engine),
+        NativeFont::Aat(fe) => crate::xetex_aatfont::aat_get_font_metrics(*fe),
+        NativeFont::Otgr(fe) => ot_get_font_metrics(fe),
     };
     HEIGHT_BASE[FONT_PTR] = ascent;
     DEPTH_BASE[FONT_PTR] = -descent;
@@ -710,7 +709,11 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
     HYPHEN_CHAR[FONT_PTR] = *INTPAR(IntPar::default_hyphen_char);
     SKEW_CHAR[FONT_PTR] = *INTPAR(IntPar::default_skew_char);
     PARAM_BASE[FONT_PTR] = fmem_ptr - 1;
-    FONT_LAYOUT_ENGINE[FONT_PTR] = font_engine;
+    FONT_LAYOUT_ENGINE[FONT_PTR] = match font_engine {
+        #[cfg(target_os = "macos")]
+        NativeFont::Aat(fe) => fe as *mut libc::c_void,
+        NativeFont::Otgr(fe) => Box::into_raw(fe) as *mut libc::c_void,
+    };
     FONT_MAPPING[FONT_PTR] = 0 as *mut libc::c_void;
     FONT_LETTER_SPACE[FONT_PTR] = loaded_font_letter_space;
     /* "measure the width of the space character and set up font parameters" */

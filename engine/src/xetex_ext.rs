@@ -33,8 +33,8 @@ use crate::cf_prelude::{
 use crate::core_memory::{xcalloc, xmalloc, xrealloc};
 use crate::xetex_ini::{
     loaded_font_design_size, loaded_font_flags, loaded_font_letter_space, loaded_font_mapping,
-    mapped_text, name_of_file, native_font_type_flag, DEPTH_BASE, FONT_AREA, FONT_FLAGS, FONT_INFO,
-    FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, HEIGHT_BASE, PARAM_BASE,
+    mapped_text, name_of_file, DEPTH_BASE, FONT_AREA, FONT_FLAGS, FONT_INFO, FONT_LAYOUT_ENGINE,
+    FONT_LETTER_SPACE, HEIGHT_BASE, PARAM_BASE,
 };
 use crate::xetex_output::{print_char, print_int, print_nl, print_raw_char};
 use crate::xetex_scaledmath::xn_over_d;
@@ -43,10 +43,25 @@ use crate::xetex_xetex0::{
     diagnostic, font_feature_warning, font_mapping_warning, get_tracing_fonts_state,
 };
 
-use crate::xetex_font_info::XeTeXFontInst;
 use crate::xetex_layout_interface::*;
 use harfbuzz_sys::{hb_feature_t, hb_tag_from_string, hb_tag_t};
 use libc::strdup;
+
+pub(crate) enum NativeFont {
+    #[cfg(target_os = "macos")]
+    Aat(crate::cf_prelude::CFMutableDictionaryRef),
+    Otgr(Box<XeTeXLayoutEngine>),
+}
+
+impl NativeFont {
+    pub(crate) fn flag(&self) -> u32 {
+        match self {
+            #[cfg(target_os = "macos")]
+            Self::Aat(_) => 0xFFFF,
+            Self::Otgr(_) => 0xFFFE,
+        }
+    }
+}
 
 pub(crate) const AAT_FONT_FLAG: u32 = 0xFFFF;
 pub(crate) const OTGR_FONT_FLAG: u32 = 0xFFFE;
@@ -159,7 +174,7 @@ pub(crate) unsafe fn linebreak_start(
     let mut status: icu::UErrorCode = icu::U_ZERO_ERROR;
     let mut locale = gettexstring(localeStrNum);
     if FONT_AREA[f] as u32 == 0xfffeu32 && locale == "G" {
-        let mut engine: XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine;
+        let mut engine: *mut XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine;
         if initGraphiteBreaking(engine, text, textLength) {
             /* user asked for Graphite line breaking and the font supports it */
             return;
@@ -568,14 +583,17 @@ unsafe fn readFeatureNumber(mut s: &[u8], mut f: *mut hb_tag_t, mut v: *mut i32)
     }
     true
 }
+
+use crate::xetex_layout_interface::XeTeXFont;
 unsafe fn loadOTfont(
     mut fontRef: PlatformFontRef,
-    mut font: XeTeXFont,
+    mut font: Box<XeTeXFont>,
     mut scaled_size: Fixed,
     mut cp1: &[u8],
-) -> *mut libc::c_void {
+) -> Option<NativeFont> {
+    let mut font = Some(font);
     let mut current_block: u64;
-    let mut engine: XeTeXLayoutEngine = 0 as XeTeXLayoutEngine;
+    let mut engine = None;
     let mut script: hb_tag_t = (0_u32 & 0xff_u32) << 24i32
         | (0_u32 & 0xff_u32) << 16i32
         | (0_u32 & 0xff_u32) << 8i32
@@ -599,12 +617,10 @@ unsafe fn loadOTfont(
         ) as *mut *mut i8;
         if reqEngine as i32 == 'O' as i32 {
             static mut ot_const: [i8; 3] = [111, 116, 0];
-            let ref mut fresh8 = *shapers.offset(nShapers as isize);
-            *fresh8 = ot_const.as_mut_ptr()
+            *shapers.offset(nShapers as isize) = ot_const.as_mut_ptr()
         } else if reqEngine as i32 == 'G' as i32 {
             static mut graphite2_const: [i8; 10] = [103, 114, 97, 112, 104, 105, 116, 101, 50, 0];
-            let ref mut fresh9 = *shapers.offset(nShapers as isize);
-            *fresh9 = graphite2_const.as_mut_ptr()
+            *shapers.offset(nShapers as isize) = graphite2_const.as_mut_ptr()
         }
         nShapers += 1
     }
@@ -612,21 +628,21 @@ unsafe fn loadOTfont(
         let mut tmpShapers: [*mut i8; 1] = [*shapers.offset(0)];
         /* create a default engine so we can query the font for Graphite features;
          * because of font caching, it's cheap to discard this and create the real one later */
-        engine = createLayoutEngine(
+        engine = Some(XeTeXLayoutEngine::create(
             fontRef,
-            font,
+            font.take().unwrap(),
             script,
             String::new(),
-            features,
+            std::ptr::null_mut(),
             nFeatures,
             tmpShapers.as_mut_ptr(),
             rgbValue,
             extend,
             slant,
             embolden,
-        );
-        if engine.is_null() {
-            return 0 as *mut libc::c_void;
+        ));
+        if engine.is_none() {
+            return None;
         }
     }
     let mut language = String::new();
@@ -709,7 +725,7 @@ unsafe fn loadOTfont(
                                 &mut tag,
                                 &mut value,
                             ) || findGraphiteFeature(
-                                engine,
+                                engine.as_ref().unwrap(),
                                 &cp1[..cp1.len() - cp2.len()],
                                 &mut tag,
                                 &mut value,
@@ -831,21 +847,25 @@ unsafe fn loadOTfont(
     if loaded_font_flags as i32 & 0x1i32 == 0i32 {
         rgbValue = 0xff_u32
     }
+    let mut font = if let Some(engine) = engine {
+        engine.release()
+    } else {
+        font.unwrap()
+    };
     if loaded_font_flags as i32 & 0x2i32 != 0i32 {
-        setFontLayoutDir(font, 1i32);
+        setFontLayoutDir(&mut font, 1i32);
     }
-    engine = createLayoutEngine(
+    if let Some(engine) = Some(XeTeXLayoutEngine::create(
         fontRef, font, script, language, features, nFeatures, shapers, rgbValue, extend, slant,
         embolden,
-    );
-    if engine.is_null() {
+    )) {
+        Some(NativeFont::Otgr(engine))
+    } else {
         // only free these if creation failed, otherwise the engine now owns them
         free(features as *mut libc::c_void);
         free(shapers as *mut libc::c_void);
-    } else {
-        native_font_type_flag = 0xfffeu32 as i32
+        None
     }
-    engine as *mut libc::c_void
 }
 
 fn splitFontName(name_str: &str) -> (String, String, String, u32) {
@@ -906,12 +926,11 @@ fn splitFontName(name_str: &str) -> (String, String, String, u32) {
     };
     (nameString, varString, featString, index)
 }
-pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: i32) -> *mut libc::c_void
-/* scaled_size here is in TeX points, or is a negative integer for 'scaled_t' */ {
-    let mut rval: *mut libc::c_void = 0 as *mut libc::c_void;
+pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: i32) -> Option<NativeFont> {
+    /* scaled_size here is in TeX points, or is a negative integer for 'scaled_t' */
+    let mut rval = None;
     let mut name = uname;
     let mut fontRef: PlatformFontRef = 0 as PlatformFontRef;
-    let mut font: XeTeXFont = 0 as XeTeXFont;
     loaded_font_mapping = 0 as *mut libc::c_void;
     loaded_font_flags = 0_i8;
     loaded_font_letter_space = 0i32;
@@ -919,20 +938,17 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: i32) -> *mut
     // check for "[filename]" form, don't search maps in this case
     if nameString.as_bytes()[0] == b'[' {
         if scaled_size < 0 {
-            font = createFontFromFile(&nameString[1..], index, 655360i64 as Fixed);
-            if !font.is_null() {
-                let mut dsize: Fixed = D2Fix(getDesignSize(&*(font as *mut XeTeXFontInst)));
+            if let Some(font) = createFontFromFile(&nameString[1..], index, 655360i64 as Fixed) {
+                let mut dsize: Fixed = D2Fix(getDesignSize(&font));
                 if scaled_size == -1000i32 {
                     scaled_size = dsize
                 } else {
                     scaled_size = xn_over_d(dsize, -scaled_size, 1000i32)
                 }
-                deleteFont(font);
             }
         }
-        font = createFontFromFile(&nameString[1..], index, scaled_size);
-        if !font.is_null() {
-            loaded_font_design_size = D2Fix(getDesignSize(&*(font as *mut XeTeXFontInst)));
+        if let Some(font) = createFontFromFile(&nameString[1..], index, scaled_size) {
+            loaded_font_design_size = D2Fix(getDesignSize(&font));
             /* This is duplicated in XeTeXFontMgr::findFont! */
             setReqEngine(0_i8);
             if !varString.is_empty() {
@@ -950,10 +966,7 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: i32) -> *mut
                 scaled_size,
                 featString.as_bytes(),
             );
-            if rval.is_null() {
-                deleteFont(font);
-            }
-            if !rval.is_null() && get_tracing_fonts_state() > 0i32 {
+            if rval.is_some() && get_tracing_fonts_state() > 0i32 {
                 diagnostic(false, || {
                     print_nl(' ' as i32);
                     print_c_str("-> ");
@@ -968,39 +981,30 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: i32) -> *mut
             let mut fullName: *const i8 = getFullName(fontRef);
             name_of_file = to_rust_string(fullName);
             if scaled_size < 0i32 {
-                font = createFont(fontRef, scaled_size);
-                if !font.is_null() {
-                    let mut dsize_0: Fixed = D2Fix(getDesignSize(&*(font as *mut XeTeXFontInst)));
+                if let Some(font) = createFont(fontRef, scaled_size) {
+                    let mut dsize_0: Fixed = D2Fix(getDesignSize(&font));
                     if scaled_size == -1000i32 {
                         scaled_size = dsize_0
                     } else {
                         scaled_size = xn_over_d(dsize_0, -scaled_size, 1000i32)
                     }
-                    deleteFont(font);
                 }
             }
-            font = createFont(fontRef, scaled_size);
-            if !font.is_null() {
+            if let Some(font) = createFont(fontRef, scaled_size) {
                 #[cfg(not(target_os = "macos"))]
                 {
                     rval = loadOTfont(fontRef, font, scaled_size, featString.as_bytes());
-                    if rval.is_null() {
-                        deleteFont(font);
-                    }
                 }
                 #[cfg(target_os = "macos")]
                 {
                     /* decide whether to use AAT or OpenType rendering with this font */
                     if getReqEngine() as libc::c_int == 'A' as i32 {
                         rval = aat::loadAATfont(fontRef, scaled_size, featString.as_bytes());
-                        if rval.is_null() {
-                            deleteFont(font);
-                        }
                     } else {
                         if getReqEngine() as libc::c_int == 'O' as i32
                             || getReqEngine() as libc::c_int == 'G' as i32
                             || !getFontTablePtr(
-                                font,
+                                &font,
                                 ('G' as i32 as u32 & 0xffi32 as libc::c_uint) << 24i32
                                     | ('S' as i32 as u32 & 0xffi32 as libc::c_uint) << 16i32
                                     | ('U' as i32 as u32 & 0xffi32 as libc::c_uint) << 8i32
@@ -1008,7 +1012,7 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: i32) -> *mut
                             )
                             .is_null()
                             || !getFontTablePtr(
-                                font,
+                                &font,
                                 ('G' as i32 as u32 & 0xffi32 as libc::c_uint) << 24i32
                                     | ('P' as i32 as u32 & 0xffi32 as libc::c_uint) << 16i32
                                     | ('O' as i32 as u32 & 0xffi32 as libc::c_uint) << 8i32
@@ -1019,11 +1023,8 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: i32) -> *mut
                             rval = loadOTfont(fontRef, font, scaled_size, featString.as_bytes())
                         }
                         /* loadOTfont failed or the above check was false */
-                        if rval.is_null() {
+                        if rval.is_none() {
                             rval = aat::loadAATfont(fontRef, scaled_size, featString.as_bytes())
-                        }
-                        if rval.is_null() {
-                            deleteFont(font);
                         }
                     }
                 }
@@ -1045,14 +1046,13 @@ pub(crate) unsafe fn release_font_engine(mut engine: *mut libc::c_void, mut type
     match type_flag as u32 {
         #[cfg(target_os = "macos")]
         0xffffu32 => CFRelease(engine as CFDictionaryRef as CFTypeRef),
-        0xfffeu32 => deleteLayoutEngine(engine as XeTeXLayoutEngine),
+        0xfffeu32 => {
+            let _ = Box::from_raw(engine as *mut XeTeXLayoutEngine);
+        }
         _ => {}
     }
 }
-pub(crate) unsafe fn ot_get_font_metrics(
-    mut pEngine: *mut libc::c_void,
-) -> (i32, i32, i32, i32, i32) {
-    let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
+pub(crate) unsafe fn ot_get_font_metrics(engine: &XeTeXLayoutEngine) -> (i32, i32, i32, i32, i32) {
     let mut a: f32 = 0.;
     let mut d: f32 = 0.;
     getAscentAndDescent(engine, &mut a, &mut d);
@@ -1090,8 +1090,8 @@ pub(crate) unsafe fn ot_get_font_metrics(
     (ascent, descent, xheight, capheight, slant)
 }
 pub(crate) unsafe fn ot_font_get(mut what: i32, mut pEngine: *mut libc::c_void) -> i32 {
-    let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
-    let mut fontInst: XeTeXFont = getFont(engine);
+    let mut engine = &*(pEngine as *mut XeTeXLayoutEngine);
+    let mut fontInst = getFont(engine);
     match what {
         1 => return countGlyphs(fontInst) as i32,
         8 => {
@@ -1108,8 +1108,8 @@ pub(crate) unsafe fn ot_font_get_1(
     mut pEngine: *mut libc::c_void,
     mut param: i32,
 ) -> i32 {
-    let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
-    let mut fontInst: XeTeXFont = getFont(engine);
+    let mut engine = &*(pEngine as *mut XeTeXLayoutEngine);
+    let mut fontInst = getFont(engine);
     match what {
         17 => return countLanguages(fontInst, param as hb_tag_t) as i32,
         19 => return getIndScript(fontInst, param as u32) as i32,
@@ -1129,8 +1129,8 @@ pub(crate) unsafe fn ot_font_get_2(
     mut param1: i32,
     mut param2: i32,
 ) -> i32 {
-    let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
-    let mut fontInst: XeTeXFont = getFont(engine);
+    let mut engine = &*(pEngine as *mut XeTeXLayoutEngine);
+    let mut fontInst = getFont(engine);
     match what {
         20 => return getIndLanguage(fontInst, param1 as hb_tag_t, param2 as u32) as i32,
         18 => return countFeatures(fontInst, param1 as hb_tag_t, param2 as hb_tag_t) as i32,
@@ -1153,8 +1153,8 @@ pub(crate) unsafe fn ot_font_get_3(
     mut param2: i32,
     mut param3: i32,
 ) -> i32 {
-    let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
-    let mut fontInst: XeTeXFont = getFont(engine);
+    let mut engine = &*(pEngine as *mut XeTeXLayoutEngine);
+    let mut fontInst = getFont(engine);
     match what {
         21 => {
             return getIndFeature(
@@ -1175,7 +1175,7 @@ pub(crate) unsafe fn gr_print_font_name(
     mut param2: i32,
 ) {
     let mut name: *mut i8 = 0 as *mut i8;
-    let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
+    let mut engine: *mut XeTeXLayoutEngine = pEngine as *mut XeTeXLayoutEngine;
     match what {
         8 => name = getGraphiteFeatureLabel(engine, param1 as u32),
         9 => name = getGraphiteFeatureSettingLabel(engine, param1 as u32, param2 as u32),
@@ -1188,7 +1188,7 @@ pub(crate) unsafe fn gr_print_font_name(
 }
 pub(crate) unsafe fn gr_font_get_named(mut what: i32, mut pEngine: *mut libc::c_void) -> i32 {
     let mut rval: i64 = -1i32 as i64;
-    let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
+    let mut engine = &*(pEngine as *mut XeTeXLayoutEngine);
     match what {
         10 => {
             rval = findGraphiteFeatureNamed(engine, name_of_file.as_bytes()) as _;
@@ -1203,7 +1203,7 @@ pub(crate) unsafe fn gr_font_get_named_1(
     mut param: i32,
 ) -> i32 {
     let mut rval: i64 = -1i32 as i64;
-    let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
+    let mut engine = &*(pEngine as *mut XeTeXLayoutEngine);
     match what {
         14 => {
             rval =
@@ -1315,8 +1315,7 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
             size = D2Fix(fSize);
         }
         0xfffeu32 => {
-            let mut engine: XeTeXLayoutEngine = 0 as *mut XeTeXLayoutEngine_rec;
-            engine = FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine;
+            let engine = &*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine);
             /* fontRef = */
             getFontRef(engine);
             filename = getFontFilename(engine, &mut index);
@@ -1450,7 +1449,7 @@ pub(crate) unsafe fn get_native_char_height_depth(font: usize, ch: i32) -> (i32,
             aat::GetGlyphHeightDepth_AAT(attributes, gid as u16, &mut ht, &mut dp);
         }
         0xfffeu32 => {
-            let mut engine: XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[font] as XeTeXLayoutEngine;
+            let engine = &*(FONT_LAYOUT_ENGINE[font] as *mut XeTeXLayoutEngine);
             let mut gid: i32 = mapCharToGlyph(engine, ch as u32) as i32;
             getGlyphHeightDepth(engine, gid as u32, &mut ht, &mut dp);
         }
@@ -1496,7 +1495,7 @@ pub(crate) unsafe fn get_native_char_sidebearings(
             aat::GetGlyphSidebearings_AAT(attributes, gid as u16, &mut l, &mut r);
         }
         0xfffeu32 => {
-            let mut engine: XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[font] as XeTeXLayoutEngine;
+            let engine = &*(FONT_LAYOUT_ENGINE[font] as *mut XeTeXLayoutEngine);
             let mut gid: i32 = mapCharToGlyph(engine, ch as u32) as i32;
             getGlyphSidebearings(engine, gid as u32, &mut l, &mut r);
         }
@@ -1520,7 +1519,7 @@ pub(crate) unsafe fn get_glyph_bounds(mut font: usize, mut edge: i32, mut gid: i
             }
         }
         0xfffeu32 => {
-            let mut engine: XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[font] as XeTeXLayoutEngine;
+            let engine = &*(FONT_LAYOUT_ENGINE[font] as *mut XeTeXLayoutEngine);
             if edge & 1i32 != 0 {
                 getGlyphSidebearings(engine, gid as u32, &mut a, &mut b);
             } else {
@@ -1552,7 +1551,7 @@ pub(crate) unsafe fn getnativecharwd(f: usize, mut c: i32) -> scaled_t {
             wd = D2Fix(aat::GetGlyphWidth_AAT(attributes, gid as u16))
         }
         0xfffeu32 => {
-            let mut engine: XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine;
+            let engine = &*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine);
             let mut gid: i32 = mapCharToGlyph(engine, c as u32) as i32;
             wd = D2Fix(getGlyphWidthFromEngine(engine, gid as u32) as f64)
         }
@@ -1633,8 +1632,8 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
     let txt = node.text();
     let mut f = node.font() as usize;
     if FONT_AREA[f] as u32 == 0xfffeu32 {
-        /* using this font in OT Layout mode, so FONT_LAYOUT_ENGINE[f] is actually a XeTeXLayoutEngine */
-        let mut engine: XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine;
+        /* using this font in OT Layout mode, so FONT_LAYOUT_ENGINE[f] is actually a *mut XeTeXLayoutEngine */
+        let mut engine = &mut *(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine);
         let mut locations: *mut FixedPoint = 0 as *mut FixedPoint;
         let mut glyphIDs: *mut u16 = 0 as *mut u16;
         let mut glyphAdvances: *mut Fixed = 0 as *mut Fixed;
@@ -1845,7 +1844,7 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
                     }
                     0xfffeu32 => {
                         getGlyphBounds(
-                            FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine,
+                            FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine,
                             *glyphIDs_0.offset(i_2 as isize) as u32,
                             &mut bbox,
                         );
@@ -1884,7 +1883,7 @@ pub(crate) unsafe fn real_get_native_italic_correction(node: &NativeWord) -> Fix
             }
             0xfffeu32 => {
                 return D2Fix(getGlyphItalCorr(
-                    FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine,
+                    FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine,
                     *glyphIDs.offset(n.wrapping_sub(1_u32) as isize) as u32,
                 ) as f64)
                     + FONT_LETTER_SPACE[f];
@@ -1907,9 +1906,10 @@ pub(crate) unsafe fn real_get_native_glyph_italic_correction(node: &Glyph) -> Fi
             ));
         }
         0xfffeu32 => {
-            return D2Fix(
-                getGlyphItalCorr(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine, gid as u32) as f64,
-            );
+            return D2Fix(getGlyphItalCorr(
+                FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine,
+                gid as u32,
+            ) as f64);
         }
         _ => {
             0i32
@@ -1932,8 +1932,8 @@ pub(crate) unsafe fn measure_native_glyph(node: &mut Glyph, use_glyph_metrics: b
             }
         }
         0xfffeu32 => {
-            let mut engine: XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine;
-            let mut fontInst: XeTeXFont = getFont(engine);
+            let engine = &*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine);
+            let mut fontInst = getFont(engine);
             node.set_width(D2Fix(getGlyphWidth(fontInst, gid as u32) as f64));
             if use_glyph_metrics {
                 getGlyphHeightDepth(engine, gid as u32, &mut ht, &mut dp);
@@ -1959,7 +1959,10 @@ pub(crate) unsafe fn map_char_to_glyph(mut font: usize, mut ch: i32) -> i32 {
             return aat::MapCharToGlyph_AAT(FONT_LAYOUT_ENGINE[font] as CFDictionaryRef, ch as u32);
         }
         0xfffeu32 => {
-            return mapCharToGlyph(FONT_LAYOUT_ENGINE[font] as XeTeXLayoutEngine, ch as u32) as i32;
+            return mapCharToGlyph(
+                &*(FONT_LAYOUT_ENGINE[font] as *mut XeTeXLayoutEngine),
+                ch as u32,
+            ) as i32;
         }
         _ => panic!("bad native font flag in `map_char_to_glyph`"),
     }
@@ -1976,7 +1979,7 @@ pub(crate) unsafe fn map_glyph_to_index(mut font: usize) -> i32
         }
         0xfffeu32 => {
             return mapGlyphToIndex(
-                FONT_LAYOUT_ENGINE[font] as XeTeXLayoutEngine,
+                FONT_LAYOUT_ENGINE[font] as *mut XeTeXLayoutEngine,
                 CString::new(name_of_file.as_str()).unwrap().as_ptr(),
             );
         }
@@ -1990,7 +1993,10 @@ pub(crate) unsafe fn get_font_char_range(mut font: usize, mut first: i32) -> i32
             return aat::GetFontCharRange_AAT(FONT_LAYOUT_ENGINE[font] as CFDictionaryRef, first);
         }
         0xfffeu32 => {
-            return getFontCharRange(FONT_LAYOUT_ENGINE[font] as XeTeXLayoutEngine, first);
+            return getFontCharRange(
+                &mut *(FONT_LAYOUT_ENGINE[font] as *mut XeTeXLayoutEngine),
+                first,
+            );
         }
         _ => panic!("bad native font flag in `get_font_char_range\'`"),
     }
@@ -2012,8 +2018,7 @@ pub(crate) unsafe fn print_glyph_name(mut font: usize, mut gid: i32) {
             s = aat::GetGlyphNameFromCTFont(aat::font_from_integer(font), gid as u16, &mut len)
         }
         0xfffeu32 => {
-            let mut engine: XeTeXLayoutEngine =
-                FONT_LAYOUT_ENGINE[font as usize] as XeTeXLayoutEngine;
+            let mut engine = &*(FONT_LAYOUT_ENGINE[font as usize] as *mut XeTeXLayoutEngine);
             s = getGlyphName(getFont(engine), gid as u16, &mut len);
         }
         _ => panic!("bad native font flag in `print_glyph_name`"),
@@ -2024,9 +2029,8 @@ pub(crate) unsafe fn print_glyph_name(mut font: usize, mut gid: i32) {
         if !(fresh33 > 0i32) {
             break;
         }
-        let fresh34 = s;
+        print_char(*s as i32);
         s = s.offset(1);
-        print_char(*fresh34 as i32);
     }
 }
 pub(crate) unsafe fn real_get_native_word_cp(node: &NativeWord, side: Side) -> i32 {

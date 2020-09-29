@@ -26,8 +26,8 @@ use crate::core_memory::{xcalloc, xmalloc};
 use crate::node::NativeWord;
 use crate::xetex_ext::{print_chars, readCommonFeatures, read_double, D2Fix, Fix2D};
 use crate::xetex_ini::{
-    loaded_font_flags, loaded_font_letter_space, name_of_file, native_font_type_flag, FONT_AREA,
-    FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
+    loaded_font_flags, loaded_font_letter_space, name_of_file, FONT_AREA, FONT_LAYOUT_ENGINE,
+    FONT_LETTER_SPACE,
 };
 use crate::xetex_xetex0::font_feature_warning;
 use libc::{free, strlen};
@@ -725,11 +725,13 @@ unsafe fn getLastResort() -> CFStringRef {
     return kLastResort;
 }
 
+use crate::xetex_ext::NativeFont;
+
 pub(crate) unsafe fn loadAATfont(
     mut descriptor: CTFontDescriptorRef,
     mut scaled_size: i32,
     mut cp1: &[u8],
-) -> *mut libc::c_void {
+) -> Option<NativeFont> {
     let mut current_block: u64;
     let mut font: CTFontRef = 0 as CTFontRef;
     let mut actualFont: CTFontRef = 0 as CTFontRef;
@@ -756,7 +758,7 @@ pub(crate) unsafe fn loadAATfont(
     ctSize = TeXtoPSPoints(Fix2D(scaled_size));
     font = CTFontCreateWithFontDescriptor(descriptor, ctSize, ptr::null());
     if font.is_null() {
-        return ptr::null_mut();
+        return None;
     }
     stringAttributes = CFDictionaryCreateMutable(
         0 as CFAllocatorRef,
@@ -1047,8 +1049,11 @@ pub(crate) unsafe fn loadAATfont(
         actualFont as *const libc::c_void,
     );
     CFRelease(actualFont as CFTypeRef);
-    native_font_type_flag = 0xffffu32 as i32;
-    return stringAttributes as *mut libc::c_void;
+    if stringAttributes.is_null() {
+        None
+    } else {
+        Some(crate::xetex_ext::NativeFont::Aat(stringAttributes))
+    }
 }
 
 /* the metrics params here are really TeX 'scaled' (or MacOS 'Fixed') values, but that typedef isn't available every place this is included */

@@ -1038,8 +1038,6 @@ pub(crate) static mut edit_name_start: pool_pointer = 0;
 #[no_mangle]
 pub(crate) static mut stop_at_space: bool = false;
 #[no_mangle]
-pub(crate) static mut native_font_type_flag: i32 = 0;
-#[no_mangle]
 pub(crate) static mut xtx_ligature_present: bool = false;
 #[no_mangle]
 pub(crate) static mut delta: scaled_t = 0;

@@ -6530,7 +6530,8 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                 AAT_FONT_FLAG => cur_val = -1,
                                 OTGR_FONT_FLAG => {
                                     if usingGraphite(
-                                        FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
+                                        &*(FONT_LAYOUT_ENGINE[n as usize]
+                                            as *mut XeTeXLayoutEngine),
                                     ) as i32
                                         != 0
                                     {
@@ -6578,7 +6579,8 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                 }
                                 OTGR_FONT_FLAG => {
                                     if usingGraphite(
-                                        FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
+                                        &*(FONT_LAYOUT_ENGINE[n as usize]
+                                            as *mut XeTeXLayoutEngine),
                                     ) as i32
                                         != 0
                                     {
@@ -6625,7 +6627,8 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                 }
                                 OTGR_FONT_FLAG => {
                                     if usingGraphite(
-                                        FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
+                                        &*(FONT_LAYOUT_ENGINE[n as usize]
+                                            as *mut XeTeXLayoutEngine),
                                     ) as i32
                                         != 0
                                     {
@@ -6691,7 +6694,8 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                 }
                                 OTGR_FONT_FLAG => {
                                     if usingGraphite(
-                                        FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
+                                        &*(FONT_LAYOUT_ENGINE[n as usize]
+                                            as *mut XeTeXLayoutEngine),
                                     ) as i32
                                         != 0
                                     {
@@ -6735,7 +6739,8 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                 }
                                 OTGR_FONT_FLAG => {
                                     if usingGraphite(
-                                        FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
+                                        &*(FONT_LAYOUT_ENGINE[n as usize]
+                                            as *mut XeTeXLayoutEngine),
                                     ) as i32
                                         != 0
                                     {
@@ -6763,7 +6768,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             n = cur_val;
                             if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
-                                    FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
+                                    &*(FONT_LAYOUT_ENGINE[n as usize] as *mut XeTeXLayoutEngine),
                                 ) as i32
                                     != 0
                             {
@@ -6778,7 +6783,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             n = cur_val;
                             if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
-                                    FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
+                                    &*(FONT_LAYOUT_ENGINE[n as usize] as *mut XeTeXLayoutEngine),
                                 ) as i32
                                     != 0
                             {
@@ -6798,7 +6803,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             n = cur_val;
                             if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
-                                    FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
+                                    &*(FONT_LAYOUT_ENGINE[n as usize] as *mut XeTeXLayoutEngine),
                                 ) as i32
                                     != 0
                             {
@@ -6821,7 +6826,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             n = cur_val;
                             if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
-                                    FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
+                                    &*(FONT_LAYOUT_ENGINE[n as usize] as *mut XeTeXLayoutEngine),
                                 ) as i32
                                     != 0
                             {
@@ -6882,14 +6887,14 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                 cur_val = 1;
                             } else if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
-                                    FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
+                                    &*(FONT_LAYOUT_ENGINE[n as usize] as *mut XeTeXLayoutEngine),
                                 ) as i32
                                     != 0
                             {
                                 cur_val = 2;
                             } else if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingGraphite(
-                                    FONT_LAYOUT_ENGINE[n as usize] as XeTeXLayoutEngine,
+                                    &*(FONT_LAYOUT_ENGINE[n as usize] as *mut XeTeXLayoutEngine),
                                 ) as i32
                                     != 0
                             {
@@ -8427,7 +8432,8 @@ pub(crate) unsafe fn conv_toks() {
             fnt = cur_val as usize;
             if FONT_AREA[fnt as usize] as u32 == AAT_FONT_FLAG
                 || FONT_AREA[fnt as usize] as u32 == OTGR_FONT_FLAG
-                    && usingGraphite(FONT_LAYOUT_ENGINE[fnt as usize] as XeTeXLayoutEngine) as i32
+                    && usingGraphite(&*(FONT_LAYOUT_ENGINE[fnt as usize] as *mut XeTeXLayoutEngine))
+                        as i32
                         != 0
             {
                 scan_int();
@@ -8442,7 +8448,8 @@ pub(crate) unsafe fn conv_toks() {
             fnt = cur_val as usize;
             if FONT_AREA[fnt as usize] as u32 == AAT_FONT_FLAG
                 || FONT_AREA[fnt as usize] as u32 == OTGR_FONT_FLAG
-                    && usingGraphite(FONT_LAYOUT_ENGINE[fnt as usize] as XeTeXLayoutEngine) as i32
+                    && usingGraphite(&*(FONT_LAYOUT_ENGINE[fnt as usize] as *mut XeTeXLayoutEngine))
+                        as i32
                         != 0
             {
                 scan_int();
@@ -8565,7 +8572,8 @@ pub(crate) unsafe fn conv_toks() {
                     // do nothing
                 }
                 OTGR_FONT_FLAG => {
-                    if usingGraphite(FONT_LAYOUT_ENGINE[fnt as usize] as XeTeXLayoutEngine) as i32
+                    if usingGraphite(&*(FONT_LAYOUT_ENGINE[fnt as usize] as *mut XeTeXLayoutEngine))
+                        as i32
                         != 0
                     {
                         gr_print_font_name(c as i32, FONT_LAYOUT_ENGINE[fnt as usize], arg1, arg2);
@@ -9761,7 +9769,7 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     /* Finally we start really doing stuff with the newly-opened file. */
     if job_name == 0 {
         job_name = cur_name; /* this is the "flush_string" macro which discards the most recent string */
-        open_log_file(); /* "really a CFDictionaryRef or XeTeXLayoutEngine" */
+        open_log_file(); /* "really a CFDictionaryRef or *mut XeTeXLayoutEngine" */
     } /* = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55) */
     if term_offset + length(FULL_SOURCE_FILENAME_STACK[IN_OPEN]) > max_print_line - 2 {
         print_ln();

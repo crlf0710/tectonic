@@ -935,18 +935,20 @@ pub(crate) unsafe fn after_math() {
     }
     if FONT_PARAMS[MATH_FONT(2)] < TOTAL_MATHSY_PARAMS
         && !(FONT_AREA[MATH_FONT(2)] as u32 == OTGR_FONT_FLAG
-            && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[MATH_FONT(2)] as XeTeXLayoutEngine) as i32
+            && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[MATH_FONT(2)] as *mut XeTeXLayoutEngine))
+                as i32
                 != 0)
         || FONT_PARAMS[MATH_FONT(2 + SCRIPT_SIZE)] < TOTAL_MATHSY_PARAMS
             && !(FONT_AREA[MATH_FONT(2 + SCRIPT_SIZE)] as u32 == OTGR_FONT_FLAG
                 && isOpenTypeMathFont(
-                    FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SIZE)] as XeTeXLayoutEngine,
+                    &*(FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SIZE)] as *mut XeTeXLayoutEngine),
                 ) as i32
                     != 0)
         || FONT_PARAMS[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)] < TOTAL_MATHSY_PARAMS
             && !(FONT_AREA[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)] as u32 == OTGR_FONT_FLAG
                 && isOpenTypeMathFont(
-                    FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)] as XeTeXLayoutEngine,
+                    &*(FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)]
+                        as *mut XeTeXLayoutEngine),
                 ) as i32
                     != 0)
     {
@@ -967,19 +969,21 @@ pub(crate) unsafe fn after_math() {
         danger = true
     } else if FONT_PARAMS[MATH_FONT(3 + TEXT_SIZE)] < TOTAL_MATHEX_PARAMS
         && !(FONT_AREA[MATH_FONT(3 + TEXT_SIZE)] as u32 == OTGR_FONT_FLAG
-            && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[MATH_FONT(3 + TEXT_SIZE)] as XeTeXLayoutEngine)
-                as i32
+            && isOpenTypeMathFont(
+                &*(FONT_LAYOUT_ENGINE[MATH_FONT(3 + TEXT_SIZE)] as *mut XeTeXLayoutEngine),
+            ) as i32
                 != 0)
         || FONT_PARAMS[MATH_FONT(3 + SCRIPT_SIZE)] < TOTAL_MATHEX_PARAMS
             && !(FONT_AREA[MATH_FONT(3 + SCRIPT_SIZE)] as u32 == OTGR_FONT_FLAG
                 && isOpenTypeMathFont(
-                    FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SIZE)] as XeTeXLayoutEngine,
+                    &*(FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SIZE)] as *mut XeTeXLayoutEngine),
                 ) as i32
                     != 0)
         || FONT_PARAMS[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)] < TOTAL_MATHEX_PARAMS
             && !(FONT_AREA[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)] as u32 == OTGR_FONT_FLAG
                 && isOpenTypeMathFont(
-                    FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)] as XeTeXLayoutEngine,
+                    &*(FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)]
+                        as *mut XeTeXLayoutEngine),
                 ) as i32
                     != 0)
     {
@@ -1035,18 +1039,22 @@ pub(crate) unsafe fn after_math() {
         }
         if FONT_PARAMS[MATH_FONT(2)] < TOTAL_MATHSY_PARAMS
             && !(FONT_AREA[MATH_FONT(2)] as u32 == OTGR_FONT_FLAG
-                && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[MATH_FONT(2)] as XeTeXLayoutEngine) as i32
+                && isOpenTypeMathFont(
+                    &*(FONT_LAYOUT_ENGINE[MATH_FONT(2)] as *mut XeTeXLayoutEngine),
+                ) as i32
                     != 0)
             || FONT_PARAMS[MATH_FONT(2 + SCRIPT_SIZE)] < TOTAL_MATHSY_PARAMS
                 && !(FONT_AREA[MATH_FONT(2 + SCRIPT_SIZE)] as u32 == OTGR_FONT_FLAG
                     && isOpenTypeMathFont(
-                        FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SIZE)] as XeTeXLayoutEngine,
+                        &*(FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SIZE)]
+                            as *mut XeTeXLayoutEngine),
                     ) as i32
                         != 0)
             || FONT_PARAMS[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)] < TOTAL_MATHSY_PARAMS
                 && !(FONT_AREA[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)] as u32 == OTGR_FONT_FLAG
                     && isOpenTypeMathFont(
-                        FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)] as XeTeXLayoutEngine,
+                        &*(FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)]
+                            as *mut XeTeXLayoutEngine),
                     ) as i32
                         != 0)
         {
@@ -1068,19 +1076,21 @@ pub(crate) unsafe fn after_math() {
         } else if FONT_PARAMS[MATH_FONT(3 + TEXT_SIZE)] < TOTAL_MATHEX_PARAMS
             && !(FONT_AREA[MATH_FONT(3 + TEXT_SIZE)] as u32 == OTGR_FONT_FLAG
                 && isOpenTypeMathFont(
-                    FONT_LAYOUT_ENGINE[MATH_FONT(3 + TEXT_SIZE)] as XeTeXLayoutEngine,
+                    &*(FONT_LAYOUT_ENGINE[MATH_FONT(3 + TEXT_SIZE)] as *mut XeTeXLayoutEngine),
                 ) as i32
                     != 0)
             || FONT_PARAMS[MATH_FONT(3 + SCRIPT_SIZE)] < TOTAL_MATHEX_PARAMS
                 && !(FONT_AREA[MATH_FONT(3 + SCRIPT_SIZE)] as u32 == OTGR_FONT_FLAG
                     && isOpenTypeMathFont(
-                        FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SIZE)] as XeTeXLayoutEngine,
+                        &*(FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SIZE)]
+                            as *mut XeTeXLayoutEngine),
                     ) as i32
                         != 0)
             || FONT_PARAMS[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)] < TOTAL_MATHEX_PARAMS
                 && !(FONT_AREA[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)] as u32 == OTGR_FONT_FLAG
                     && isOpenTypeMathFont(
-                        FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)] as XeTeXLayoutEngine,
+                        &*(FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)]
+                            as *mut XeTeXLayoutEngine),
                     ) as i32
                         != 0)
         {
@@ -1297,7 +1307,7 @@ pub(crate) unsafe fn resume_after_display() {
 unsafe fn math_x_height(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 5)
     } else {
@@ -1307,7 +1317,7 @@ unsafe fn math_x_height(size_code: usize) -> scaled_t {
 unsafe fn math_quad(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 6i32)
     } else {
@@ -1317,7 +1327,7 @@ unsafe fn math_quad(size_code: usize) -> scaled_t {
 unsafe fn num1(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 8)
     } else {
@@ -1327,7 +1337,7 @@ unsafe fn num1(size_code: usize) -> scaled_t {
 unsafe fn num2(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 9i32)
     } else {
@@ -1337,7 +1347,7 @@ unsafe fn num2(size_code: usize) -> scaled_t {
 unsafe fn num3(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 10)
     } else {
@@ -1347,7 +1357,7 @@ unsafe fn num3(size_code: usize) -> scaled_t {
 unsafe fn denom1(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 11)
     } else {
@@ -1357,7 +1367,7 @@ unsafe fn denom1(size_code: usize) -> scaled_t {
 unsafe fn denom2(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 12)
     } else {
@@ -1367,7 +1377,7 @@ unsafe fn denom2(size_code: usize) -> scaled_t {
 unsafe fn sup1(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 13)
     } else {
@@ -1377,7 +1387,7 @@ unsafe fn sup1(size_code: usize) -> scaled_t {
 unsafe fn sup2(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 14)
     } else {
@@ -1387,7 +1397,7 @@ unsafe fn sup2(size_code: usize) -> scaled_t {
 unsafe fn sup3(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 15)
     } else {
@@ -1397,7 +1407,7 @@ unsafe fn sup3(size_code: usize) -> scaled_t {
 unsafe fn sub1(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 16)
     } else {
@@ -1407,7 +1417,7 @@ unsafe fn sub1(size_code: usize) -> scaled_t {
 unsafe fn sub2(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 17)
     } else {
@@ -1417,7 +1427,7 @@ unsafe fn sub2(size_code: usize) -> scaled_t {
 unsafe fn sup_drop(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 18)
     } else {
@@ -1427,7 +1437,7 @@ unsafe fn sup_drop(size_code: usize) -> scaled_t {
 unsafe fn sub_drop(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code) as usize;
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 19)
     } else {
@@ -1437,7 +1447,7 @@ unsafe fn sub_drop(size_code: usize) -> scaled_t {
 unsafe fn delim1(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 20)
     } else {
@@ -1447,7 +1457,7 @@ unsafe fn delim1(size_code: usize) -> scaled_t {
 unsafe fn delim2(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 21)
     } else {
@@ -1457,7 +1467,7 @@ unsafe fn delim2(size_code: usize) -> scaled_t {
 unsafe fn axis_height(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathsy_param(f, 22)
     } else {
@@ -1467,7 +1477,7 @@ unsafe fn axis_height(size_code: usize) -> scaled_t {
 unsafe fn default_rule_thickness() -> scaled_t {
     let f = MATH_FONT(3 + cur_size);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathex_param(f, 8)
     } else {
@@ -1477,7 +1487,7 @@ unsafe fn default_rule_thickness() -> scaled_t {
 unsafe fn big_op_spacing1() -> scaled_t {
     let f = MATH_FONT(3 + cur_size);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathex_param(f, 9)
     } else {
@@ -1487,7 +1497,7 @@ unsafe fn big_op_spacing1() -> scaled_t {
 unsafe fn big_op_spacing2() -> scaled_t {
     let f = MATH_FONT(3 + cur_size);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathex_param(f, 10)
     } else {
@@ -1497,7 +1507,7 @@ unsafe fn big_op_spacing2() -> scaled_t {
 unsafe fn big_op_spacing3() -> scaled_t {
     let f = MATH_FONT(3 + cur_size);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathex_param(f, 11)
     } else {
@@ -1507,7 +1517,7 @@ unsafe fn big_op_spacing3() -> scaled_t {
 unsafe fn big_op_spacing4() -> scaled_t {
     let f = MATH_FONT(3 + cur_size);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathex_param(f, 12)
     } else {
@@ -1517,7 +1527,7 @@ unsafe fn big_op_spacing4() -> scaled_t {
 unsafe fn big_op_spacing5() -> scaled_t {
     let f = MATH_FONT(3 + cur_size);
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_native_mathex_param(f, 13)
     } else {
@@ -1734,7 +1744,7 @@ unsafe fn make_vcenter(q: usize) {
 unsafe fn make_radical(q: &mut Radical) {
     let f = MATH_FONT(q.delimeter().s3 as usize % 256 + cur_size);
     let rule_thickness = if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         get_ot_math_constant(f, RADICALRULETHICKNESS)
     } else {
@@ -1742,7 +1752,7 @@ unsafe fn make_radical(q: &mut Radical) {
     };
     let x = clean_box(q.first(), (cur_style.0, 1));
     let mut clr = if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         if cur_style.0 == MathStyle::Display {
             get_ot_math_constant(f, RADICALDISPLAYSTYLEVERTICALGAP)
@@ -1761,7 +1771,7 @@ unsafe fn make_radical(q: &mut Radical) {
         x.height() + x.depth() + clr + rule_thickness,
     ));
     if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+        && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
     {
         let h = y.height();
         let d = y.depth();
@@ -1879,7 +1889,7 @@ unsafe fn make_math_accent(q: &mut Accent) {
     // :767
     if let Some(mut x) = x {
         let mut delta = if FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-            && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine)
+            && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine))
         {
             match q.accent_type() {
                 AccentType::Bottom | AccentType::BottomFixed => 0,
@@ -2049,7 +2059,8 @@ unsafe fn make_fraction(q: &mut Fraction) {
     if q.thickness() == 0 {
         /*772:*/
         let clr = if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-            && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
+            && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine))
+                as i32
                 != 0
         {
             if cur_style.0 == MathStyle::Display {
@@ -2071,7 +2082,8 @@ unsafe fn make_fraction(q: &mut Fraction) {
         let delta1;
         let delta2;
         if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-            && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
+            && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine))
+                as i32
                 != 0
         {
             delta = half(q.thickness());
@@ -2146,7 +2158,7 @@ unsafe fn make_op(q: &mut Operator) -> scaled_t {
         let mut c = 0;
         q.first_mut().fetch();
         if !(FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-            && usingOpenType(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine))
+            && usingOpenType(&*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine)))
         {
             if cur_style.0 == MathStyle::Display && cur_i.s1 as i32 % 4 == LIST_TAG {
                 c = cur_i.s0;
@@ -2163,7 +2175,8 @@ unsafe fn make_op(q: &mut Operator) -> scaled_t {
         }
         let mut x = clean_box(q.first(), cur_style);
         if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-            && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
+            && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine))
+                as i32
                 != 0
         {
             if let Some(mut p) = x.list_ptr().opt() {
@@ -2457,7 +2470,8 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
         x.set_width(w + *DIMENPAR(DimenPar::script_space));
         shift_down = shift_down.max(sub1(cur_size));
         clr = if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-            && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
+            && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine))
+                as i32
                 != 0
         {
             x.height() - get_ot_math_constant(cur_f, SUBSCRIPTTOPMAX)
@@ -2469,7 +2483,8 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
         }
         x.set_shift_amount(shift_down);
         if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-            && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
+            && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine))
+                as i32
                 != 0
         {
             /*787: */
@@ -2477,8 +2492,9 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
                 let save_f = cur_f;
                 q.third_mut().fetch();
                 if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-                    && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine)
-                        as i32
+                    && isOpenTypeMathFont(
+                        &*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine),
+                    ) as i32
                         != 0
                 {
                     let script_c = new_native_character(cur_f, cur_c);
@@ -2530,7 +2546,8 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
             shift_up = clr
         }
         clr = if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-            && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
+            && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine))
+                as i32
                 != 0
         {
             x.depth() + get_ot_math_constant(cur_f, SUPERSCRIPTBOTTOMMIN)
@@ -2541,7 +2558,8 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
             shift_up = clr
         }
         if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-            && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine) as i32
+            && isOpenTypeMathFont(&*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine))
+                as i32
                 != 0
         {
             // 788:
@@ -2549,8 +2567,9 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
                 let save_f = cur_f;
                 q.second_mut().fetch();
                 if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-                    && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine)
-                        as i32
+                    && isOpenTypeMathFont(
+                        &*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine),
+                    ) as i32
                         != 0
                 {
                     let script_c = new_native_character(cur_f, cur_c);
@@ -2598,8 +2617,9 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
                 shift_down = sub2(cur_size)
             }
             if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-                && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine)
-                    as i32
+                && isOpenTypeMathFont(
+                    &*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine),
+                ) as i32
                     != 0
             {
                 clr = get_ot_math_constant(cur_f, SUBSUPERSCRIPTGAPMIN)
@@ -2611,8 +2631,9 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
             if clr > 0 {
                 shift_down = shift_down + clr;
                 if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-                    && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine)
-                        as i32
+                    && isOpenTypeMathFont(
+                        &*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine),
+                    ) as i32
                         != 0
                 {
                     clr = get_ot_math_constant(cur_f, SUPERSCRIPTBOTTOMMAXWITHSUBSCRIPT)
@@ -2626,8 +2647,9 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
                 }
             }
             if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-                && isOpenTypeMathFont(FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine)
-                    as i32
+                && isOpenTypeMathFont(
+                    &*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine),
+                ) as i32
                     != 0
             {
                 if q.third().typ == MathCell::MathChar {
@@ -2635,7 +2657,7 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
                     q.third_mut().fetch();
                     if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
                         && isOpenTypeMathFont(
-                            FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine,
+                            &*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine),
                         ) as i32
                             != 0
                     {
@@ -2668,7 +2690,7 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
                     q.second_mut().fetch();
                     if FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
                         && isOpenTypeMathFont(
-                            FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine,
+                            &*(FONT_LAYOUT_ENGINE[cur_f as usize] as *mut XeTeXLayoutEngine),
                         ) as i32
                             != 0
                     {
@@ -2842,7 +2864,8 @@ unsafe fn mlist_to_hlist() {
                                 if q.first().typ == MathCell::MathTextChar
                                     && !(FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
                                         && isOpenTypeMathFont(
-                                            FONT_LAYOUT_ENGINE[cur_f as usize] as XeTeXLayoutEngine,
+                                            &*(FONT_LAYOUT_ENGINE[cur_f as usize]
+                                                as *mut XeTeXLayoutEngine),
                                         ) as i32
                                             != 0) as i32
                                         != 0
@@ -3192,7 +3215,9 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
                 if g != FONT_BASE {
                     /*734: */
                     if FONT_AREA[g as usize] as u32 == OTGR_FONT_FLAG
-                        && usingOpenType(FONT_LAYOUT_ENGINE[g as usize] as XeTeXLayoutEngine) as i32
+                        && usingOpenType(
+                            &*(FONT_LAYOUT_ENGINE[g as usize] as *mut XeTeXLayoutEngine),
+                        ) as i32
                             != 0
                     {
                         x = map_char_to_glyph(g, x as i32) as u16;
@@ -3272,7 +3297,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
     }
     let mut b = if f != FONT_BASE {
         if !(FONT_AREA[f] as u32 == OTGR_FONT_FLAG
-            && usingOpenType(FONT_LAYOUT_ENGINE[f] as XeTeXLayoutEngine))
+            && usingOpenType(&*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine)))
         {
             /*736: */
             if q.s1 as i32 % 4 == EXT_TAG {

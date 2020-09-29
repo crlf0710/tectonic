@@ -26,7 +26,7 @@ use crate::xetex_ext::Fix2D;
 use crate::xetex_font_info::{XeTeXFontInst_getFontTableFT, XeTeXFontInst_getHbFont};
 use crate::xetex_ini::loaded_font_design_size;
 use crate::xetex_layout_interface::collection_types::*;
-use crate::xetex_layout_interface::{createFont, deleteFont};
+use crate::xetex_layout_interface::createFont;
 use crate::xetex_output::{print_char, print_nl};
 use crate::xetex_xetex0::{diagnostic, get_tracing_fonts_state};
 
@@ -38,10 +38,6 @@ use self::imp::XeTeXFontMgr_Mac_create;
 use harfbuzz_sys::{hb_face_t, hb_font_get_face, hb_font_t, hb_ot_layout_get_size_params};
 
 use libc::{free, malloc, strchr, strlen};
-
-extern "C" {
-    pub(crate) type XeTeXFont_rec;
-}
 
 #[cfg(not(target_os = "macos"))]
 use imp::FcPattern;
@@ -65,7 +61,6 @@ pub(crate) type PlatformFontRef = *mut FcPattern;
 #[cfg(target_os = "macos")]
 pub(crate) type PlatformFontRef = crate::cf_prelude::CTFontDescriptorRef;
 
-pub(crate) type XeTeXFont = *mut XeTeXFont_rec;
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International
@@ -890,10 +885,8 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
 ) {
     use crate::freetype_sys_patch::{TT_Header, FT_SFNT_HEAD, FT_SFNT_OS2, FT_SFNT_POST};
     use freetype::freetype_sys::{TT_Postscript, TT_OS2};
-    let mut font: XeTeXFont = createFont((*theFont).fontRef, 655360i32);
-    let mut fontInst: *mut XeTeXFontInst = font as *mut XeTeXFontInst;
-    if !font.is_null() {
-        let mut pSizeRec: *mut XeTeXFontMgrOpSizeRec = XeTeXFontMgr_getOpSize(self_0, &*fontInst);
+    if let Some(font) = createFont((*theFont).fontRef, 655360i32) {
+        let mut pSizeRec: *mut XeTeXFontMgrOpSizeRec = XeTeXFontMgr_getOpSize(self_0, &font);
         if !pSizeRec.is_null() {
             (*theFont).opSizeInfo.designSize = (*pSizeRec).designSize;
             if (*pSizeRec).subFamilyID == 0i32 as libc::c_uint
@@ -912,7 +905,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
             }
         }
         let mut os2Table: *const TT_OS2 =
-            XeTeXFontInst_getFontTableFT(fontInst, FT_SFNT_OS2) as *mut TT_OS2;
+            XeTeXFontInst_getFontTableFT(&font, FT_SFNT_OS2) as *mut TT_OS2;
         if !os2Table.is_null() {
             (*theFont).weight = (*os2Table).usWeightClass;
             (*theFont).width = (*os2Table).usWidthClass;
@@ -922,7 +915,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
             (*theFont).isItalic = sel as libc::c_int & 1i32 << 0i32 != 0i32
         }
         let mut headTable: *const TT_Header =
-            XeTeXFontInst_getFontTableFT(fontInst, FT_SFNT_HEAD) as *mut TT_Header;
+            XeTeXFontInst_getFontTableFT(&font, FT_SFNT_HEAD) as *mut TT_Header;
         if !headTable.is_null() {
             let mut ms: u16 = (*headTable).Mac_Style;
             if ms as libc::c_int & 1i32 << 0i32 != 0i32 {
@@ -933,13 +926,12 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
             }
         }
         let mut postTable: *const TT_Postscript =
-            XeTeXFontInst_getFontTableFT(fontInst, FT_SFNT_POST) as *const TT_Postscript;
+            XeTeXFontInst_getFontTableFT(&font, FT_SFNT_POST) as *const TT_Postscript;
         if !postTable.is_null() {
             (*theFont).slant = (1000_f64
                 * (Fix2D(-(*postTable).italicAngle as Fixed) * std::f64::consts::PI / 180.).tan())
                 as libc::c_int as i16
         }
-        deleteFont(font);
     };
 }
 // append a name but only if it's not already in the list
