@@ -31,14 +31,7 @@ use super::{
 
 use libc::{free, malloc, strchr, strdup, strlen};
 
-use crate::size_t;
-pub(crate) type int16_t = libc::c_short;
-pub(crate) type uint16_t = libc::c_ushort;
-pub(crate) type UniChar = UInt16;
-pub(crate) type UInt16 = libc::c_ushort;
 pub(crate) type Boolean = libc::c_uchar;
-pub(crate) type UInt8 = libc::c_uchar;
-pub(crate) type UInt32 = libc::c_uint;
 use crate::cf_prelude::*;
 
 use super::PlatformFontRef;
@@ -356,7 +349,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_getPlatformFontDesc(
         let mut url: CFURLRef = 0 as CFURLRef;
         url = CTFontCopyAttribute(ctFont, kCTFontURLAttribute) as CFURLRef;
         if !url.is_null() {
-            let mut posixPath: [UInt8; 1024] = [0; 1024];
+            let mut posixPath: [u8; 1024] = [0; 1024];
             if CFURLGetFileSystemRepresentation(
                 url,
                 1i32 as Boolean,

@@ -55,7 +55,7 @@ mod opentype_math;
 pub(crate) use opentype_math::*;
 
 use crate::xetex_ext::{D2Fix, Fix2D};
-use libc::{free, malloc, strcmp, strdup, strlen};
+use libc::{free, malloc, strdup, strlen};
 
 extern "C" {
     pub(crate) type gr_face;
@@ -79,7 +79,7 @@ extern "C" {
         p: *const FcPattern,
         object: *const libc::c_char,
         n: libc::c_int,
-        s: *mut *mut FcChar8,
+        s: *mut *mut u8,
     ) -> FcResult;
     #[no_mangle]
     fn hb_unicode_funcs_set_decompose_compatibility_func(
@@ -311,8 +311,6 @@ pub(crate) type uint32_t = u32;
 
 pub(crate) type UChar32 = int32_t;
 #[cfg(not(target_os = "macos"))]
-pub(crate) type FcChar8 = libc::c_uchar;
-#[cfg(not(target_os = "macos"))]
 use crate::xetex_font_manager::imp::{FcPattern, FcResult};
 
 pub(crate) type hb_unicode_decompose_compatibility_func_t = Option<
@@ -537,7 +535,7 @@ pub(crate) unsafe fn createFont(mut fontRef: PlatformFontRef, mut pointSize: Fix
     let mut font: *mut XeTeXFontInst;
     #[cfg(not(target_os = "macos"))]
     {
-        let mut pathname: *mut FcChar8 = 0 as *mut FcChar8;
+        let mut pathname: *mut u8 = 0 as *mut u8;
         FcPatternGetString(
             fontRef as *const FcPattern,
             b"file\x00" as *const u8 as *const libc::c_char,
@@ -1634,17 +1632,10 @@ authorization from the copyright holders.
 /* graphite interface functions... */
 pub(crate) unsafe fn usingGraphite(mut engine: XeTeXLayoutEngine) -> bool {
     !(*engine).shaper.is_null()
-        && strcmp(
-            b"graphite2\x00" as *const u8 as *const libc::c_char,
-            (*engine).shaper,
-        ) == 0
+        && std::ffi::CStr::from_ptr((*engine).shaper).to_bytes() == b"graphite2"
 }
 pub(crate) unsafe fn usingOpenType(mut engine: XeTeXLayoutEngine) -> bool {
-    (*engine).shaper.is_null()
-        || strcmp(
-            b"ot\x00" as *const u8 as *const libc::c_char,
-            (*engine).shaper,
-        ) == 0
+    (*engine).shaper.is_null() || std::ffi::CStr::from_ptr((*engine).shaper).to_bytes() == b"ot"
 }
 pub(crate) unsafe fn isOpenTypeMathFont(mut engine: XeTeXLayoutEngine) -> bool {
     return hb_ot_math_has_data(hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font))) != 0;

@@ -40,7 +40,7 @@ extern "C" {
     fn FcFontList(config: *mut FcConfig, p: *mut FcPattern, os: *mut FcObjectSet)
         -> *mut FcFontSet;
     #[no_mangle]
-    fn FcNameParse(name: *const FcChar8) -> *mut FcPattern;
+    fn FcNameParse(name: *const u8) -> *mut FcPattern;
     #[no_mangle]
     fn FcPatternDestroy(p: *mut FcPattern);
     #[no_mangle]
@@ -55,16 +55,9 @@ extern "C" {
         p: *const FcPattern,
         object: *const libc::c_char,
         n: libc::c_int,
-        s: *mut *mut FcChar8,
+        s: *mut *mut u8,
     ) -> FcResult;
 }
-pub(crate) type __int16_t = libc::c_short;
-pub(crate) type __uint16_t = libc::c_ushort;
-pub(crate) type __int32_t = libc::c_int;
-pub(crate) type int16_t = __int16_t;
-pub(crate) type int32_t = __int32_t;
-pub(crate) type uint16_t = __uint16_t;
-pub(crate) type FcChar8 = libc::c_uchar;
 pub(crate) type FcBool = libc::c_int;
 pub(crate) type _FcResult = libc::c_uint;
 pub(crate) const FcResultOutOfMemory: _FcResult = 4;
@@ -260,7 +253,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
         pat,
         b"file\x00" as *const u8 as *const libc::c_char,
         0i32,
-        &mut pathname as *mut *mut libc::c_char as *mut *mut FcChar8,
+        &mut pathname as *mut *mut libc::c_char as *mut *mut u8,
     ) as libc::c_uint
         != FcResultMatch as libc::c_int as libc::c_uint
     {
@@ -368,7 +361,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
                 pat,
                 b"fullname\x00" as *const u8 as *const libc::c_char,
                 fresh0,
-                &mut name as *mut *const libc::c_char as *mut *mut FcChar8,
+                &mut name as *mut *const libc::c_char as *mut *mut u8,
             ) as libc::c_uint
                 == FcResultMatch as libc::c_int as libc::c_uint)
             {
@@ -384,7 +377,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
                 pat,
                 b"family\x00" as *const u8 as *const libc::c_char,
                 fresh1,
-                &mut name as *mut *const libc::c_char as *mut *mut FcChar8,
+                &mut name as *mut *const libc::c_char as *mut *mut u8,
             ) as libc::c_uint
                 == FcResultMatch as libc::c_int as libc::c_uint)
             {
@@ -400,7 +393,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
                 pat,
                 b"style\x00" as *const u8 as *const libc::c_char,
                 fresh2,
-                &mut name as *mut *const libc::c_char as *mut *mut FcChar8,
+                &mut name as *mut *const libc::c_char as *mut *mut u8,
             ) as libc::c_uint
                 == FcResultMatch as libc::c_int as libc::c_uint)
             {
@@ -443,7 +436,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags(
         ) as libc::c_uint
             == FcResultMatch as libc::c_int as libc::c_uint
         {
-            (*theFont).weight = value as uint16_t
+            (*theFont).weight = value as u16
         }
         if FcPatternGetInteger(
             pat,
@@ -453,7 +446,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags(
         ) as libc::c_uint
             == FcResultMatch as libc::c_int as libc::c_uint
         {
-            (*theFont).width = value as uint16_t
+            (*theFont).width = value as u16
         }
         if FcPatternGetInteger(
             pat,
@@ -463,7 +456,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags(
         ) as libc::c_uint
             == FcResultMatch as libc::c_int as libc::c_uint
         {
-            (*theFont).slant = value as int16_t
+            (*theFont).slant = value as i16
         }
     };
 }
@@ -489,7 +482,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_cacheFamilyMembers(
                 pat,
                 b"family\x00" as *const u8 as *const libc::c_char,
                 i,
-                &mut s as *mut *mut libc::c_char as *mut *mut FcChar8,
+                &mut s as *mut *mut libc::c_char as *mut *mut u8,
             ) as libc::c_uint
                 != FcResultMatch as _
             {
@@ -549,7 +542,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
                 pat,
                 b"fullname\x00" as *const u8 as *const libc::c_char,
                 i,
-                &mut s as *mut *mut libc::c_char as *mut *mut FcChar8,
+                &mut s as *mut *mut libc::c_char as *mut *mut u8,
             ) == FcResultMatch
             {
                 if CStr::from_ptr(name) == CStr::from_ptr(s) {
@@ -569,7 +562,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
                 pat,
                 b"family\x00" as *const u8 as *const libc::c_char,
                 i,
-                &mut s as *mut *mut libc::c_char as *mut *mut FcChar8,
+                &mut s as *mut *mut libc::c_char as *mut *mut u8,
             ) == FcResultMatch
             {
                 if CStr::from_ptr(name) == CStr::from_ptr(s)
@@ -590,7 +583,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
                     pat,
                     b"style\x00" as *const u8 as *const libc::c_char,
                     j,
-                    &mut t as *mut *mut libc::c_char as *mut *mut FcChar8,
+                    &mut t as *mut *mut libc::c_char as *mut *mut u8,
                 ) == FcResultMatch
                 {
                     let mut full: *mut CppStdString = CppStdString_create();
@@ -644,7 +637,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTe
         abort!("cannot read font names");
     }
     let mut pat: *mut FcPattern =
-        FcNameParse(b":outline=true\x00" as *const u8 as *const libc::c_char as *const FcChar8);
+        FcNameParse(b":outline=true\x00" as *const u8 as *const libc::c_char as *const u8);
     let mut os: *mut FcObjectSet = FcObjectSetBuild(
         b"family\x00" as *const u8 as *const libc::c_char,
         b"style\x00" as *const u8 as *const libc::c_char,
@@ -685,13 +678,13 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
     mut _self_0: *const XeTeXFontMgr,
     mut font: PlatformFontRef,
 ) -> *mut libc::c_char {
-    let mut s: *mut FcChar8 = 0 as *mut FcChar8;
+    let mut s: *mut u8 = 0 as *mut u8;
     let mut path: *mut libc::c_char = 0 as *mut libc::c_char;
     if FcPatternGetString(
         font as *const FcPattern,
         b"file\x00" as *const u8 as *const libc::c_char,
         0i32,
-        &mut s as *mut *mut FcChar8,
+        &mut s as *mut *mut u8,
     ) as libc::c_uint
         == FcResultMatch as libc::c_int as libc::c_uint
     {

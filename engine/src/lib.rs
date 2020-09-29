@@ -198,14 +198,6 @@ pub(crate) fn strstartswith<'a>(s: &'a [u8], prefix: &[u8]) -> Option<&'a [u8]> 
     None
 }
 
-#[inline]
-pub(crate) unsafe fn streq_ptr(s1: *const i8, s2: *const i8) -> bool {
-    if !s1.is_null() && !s2.is_null() {
-        return libc::strcmp(s1, s2) == 0i32;
-    }
-    false
-}
-
 mod xetex_font_info;
 mod xetex_font_manager;
 mod xetex_layout_interface;
@@ -630,8 +622,7 @@ pub(crate) mod cf_prelude {
         pub(crate) fn CFBooleanGetValue(boolean: CFBooleanRef) -> libc::c_uchar;
     }
 
-    pub(crate) type UniChar = UInt16;
-    pub(crate) type UInt16 = libc::c_ushort;
+    pub(crate) type UniChar = u16;
 
     #[inline(always)]
     pub(crate) fn CFRangeMake(mut loc: CFIndex, mut len: CFIndex) -> CFRange {
