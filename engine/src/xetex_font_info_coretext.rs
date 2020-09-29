@@ -11,8 +11,6 @@
 
 use crate::xetex_aatfont::getFileNameFromCTFont;
 use crate::xetex_font_info::{XeTeXFontInst_base_ctor, XeTeXFontInst_initialize};
-use freetype::freetype_sys;
-use harfbuzz_sys::hb_font_t;
 use libc::malloc;
 use std::ptr;
 

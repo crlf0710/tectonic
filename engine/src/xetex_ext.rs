@@ -1279,7 +1279,7 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
             attributes = FONT_LAYOUT_ENGINE[f] as CFDictionaryRef;
             font = CFDictionaryGetValue(attributes, kCTFontAttributeName as *const libc::c_void)
                 as CTFontRef;
-            filename = aat::getFileNameFromCTFont(font, &mut index);
+            filename = crate::xetex_aatfont::getFileNameFromCTFont(font, &mut index);
             assert!(!filename.is_empty());
             if !CFDictionaryGetValue(
                 attributes,

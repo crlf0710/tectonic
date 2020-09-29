@@ -42,12 +42,6 @@ use libc::{free, malloc, strchr, strlen};
 extern "C" {
     pub(crate) type XeTeXFont_rec;
 }
-pub(crate) type size_t = usize;
-pub(crate) type int16_t = i16;
-pub(crate) type int32_t = i32;
-pub(crate) type uint16_t = u16;
-pub(crate) type uint32_t = u32;
-pub(crate) type ssize_t = isize;
 
 #[cfg(not(target_os = "macos"))]
 use imp::FcPattern;
@@ -117,12 +111,12 @@ pub(crate) struct XeTeXFontMgrOpSizeRec {
 #[repr(C)]
 pub(crate) struct XeTeXFontMgrFamily {
     pub(crate) styles: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFont>>,
-    pub(crate) minWeight: uint16_t,
-    pub(crate) maxWeight: uint16_t,
-    pub(crate) minWidth: uint16_t,
-    pub(crate) maxWidth: uint16_t,
-    pub(crate) minSlant: int16_t,
-    pub(crate) maxSlant: int16_t,
+    pub(crate) minWeight: u16,
+    pub(crate) maxWeight: u16,
+    pub(crate) minWidth: u16,
+    pub(crate) maxWidth: u16,
+    pub(crate) minSlant: i16,
+    pub(crate) maxSlant: i16,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -134,9 +128,9 @@ pub(crate) struct XeTeXFontMgrFont {
     pub(crate) parent: *mut XeTeXFontMgrFamily,
     pub(crate) fontRef: PlatformFontRef,
     pub(crate) opSizeInfo: XeTeXFontMgrOpSizeRec,
-    pub(crate) weight: uint16_t,
-    pub(crate) width: uint16_t,
-    pub(crate) slant: int16_t,
+    pub(crate) weight: u16,
+    pub(crate) width: u16,
+    pub(crate) slant: i16,
     pub(crate) isReg: bool,
     pub(crate) isBold: bool,
     pub(crate) isItalic: bool,
@@ -222,12 +216,12 @@ use crate::xetex_font_info::XeTeXFontInst;
 unsafe extern "C" fn XeTeXFontMgrFamily_create() -> *mut XeTeXFontMgrFamily {
     let mut self_0: *mut XeTeXFontMgrFamily =
         malloc(::std::mem::size_of::<XeTeXFontMgrFamily>()) as *mut XeTeXFontMgrFamily; /* default to 10bp */
-    (*self_0).minWeight = 0i32 as uint16_t;
-    (*self_0).maxWeight = 0i32 as uint16_t;
-    (*self_0).minWidth = 0i32 as uint16_t;
-    (*self_0).maxWidth = 0i32 as uint16_t;
-    (*self_0).minSlant = 0i32 as int16_t;
-    (*self_0).maxSlant = 0i32 as int16_t;
+    (*self_0).minWeight = 0i32 as u16;
+    (*self_0).maxWeight = 0i32 as u16;
+    (*self_0).minWidth = 0i32 as u16;
+    (*self_0).maxWidth = 0i32 as u16;
+    (*self_0).minSlant = 0i32 as i16;
+    (*self_0).maxSlant = 0i32 as i16;
     (*self_0).styles = CppStdMap_create();
     return self_0;
 }
@@ -241,9 +235,9 @@ unsafe extern "C" fn XeTeXFontMgrFont_create(mut ref_0: PlatformFontRef) -> *mut
     (*self_0).m_styleName = 0 as *mut CppStdString;
     (*self_0).parent = 0 as *mut XeTeXFontMgrFamily;
     (*self_0).fontRef = ref_0;
-    (*self_0).weight = 0i32 as uint16_t;
-    (*self_0).width = 0i32 as uint16_t;
-    (*self_0).slant = 0i32 as int16_t;
+    (*self_0).weight = 0i32 as u16;
+    (*self_0).width = 0i32 as u16;
+    (*self_0).slant = 0i32 as i16;
     (*self_0).isReg = false;
     (*self_0).isBold = false;
     (*self_0).isItalic = false;
@@ -434,13 +428,13 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
         }) as libc::c_int;
         if hyph > 0i32 && hyph < nameStr_len - 1i32 {
             let mut family = CString::default();
-            CppStdString_assign_n_chars(&mut family, nameStr_cstr, hyph as size_t);
+            CppStdString_assign_n_chars(&mut family, nameStr_cstr, hyph as usize);
             if let Some(family_ptr) = (*(*self_0).m_nameToFamily).get(&family).cloned() {
                 let mut style = CString::default();
                 CppStdString_assign_n_chars(
                     &mut style,
                     nameStr_cstr.offset(hyph as isize).offset(1),
-                    (nameStr_len - hyph - 1i32) as size_t,
+                    (nameStr_len - hyph - 1i32) as usize,
                 );
                 if let Some(style_FONT_PTR) = (*(*family_ptr.as_ptr()).styles).get(&style).cloned()
                 {
@@ -922,7 +916,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
         if !os2Table.is_null() {
             (*theFont).weight = (*os2Table).usWeightClass;
             (*theFont).width = (*os2Table).usWidthClass;
-            let mut sel: uint16_t = (*os2Table).fsSelection;
+            let mut sel: u16 = (*os2Table).fsSelection;
             (*theFont).isReg = sel as libc::c_int & 1i32 << 6i32 != 0i32;
             (*theFont).isBold = sel as libc::c_int & 1i32 << 5i32 != 0i32;
             (*theFont).isItalic = sel as libc::c_int & 1i32 << 0i32 != 0i32
@@ -930,7 +924,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
         let mut headTable: *const TT_Header =
             XeTeXFontInst_getFontTableFT(fontInst, FT_SFNT_HEAD) as *mut TT_Header;
         if !headTable.is_null() {
-            let mut ms: uint16_t = (*headTable).Mac_Style;
+            let mut ms: u16 = (*headTable).Mac_Style;
             if ms as libc::c_int & 1i32 << 0i32 != 0i32 {
                 (*theFont).isBold = true
             }
@@ -943,7 +937,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
         if !postTable.is_null() {
             (*theFont).slant = (1000_f64
                 * (Fix2D(-(*postTable).italicAngle as Fixed) * std::f64::consts::PI / 180.).tan())
-                as libc::c_int as int16_t
+                as libc::c_int as i16
         }
         deleteFont(font);
     };

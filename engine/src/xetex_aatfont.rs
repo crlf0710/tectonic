@@ -10,7 +10,6 @@
 )]
 
 use super::xetex_layout_interface::GlyphBBox;
-use std::ffi::CString;
 
 use crate::cf_prelude::*;
 
@@ -26,7 +25,6 @@ use crate::cmd::ExtCmd;
 use crate::core_memory::{xcalloc, xmalloc};
 use crate::node::NativeWord;
 use crate::xetex_ext::{print_chars, readCommonFeatures, read_double, D2Fix, Fix2D};
-use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
     loaded_font_flags, loaded_font_letter_space, name_of_file, native_font_type_flag, FONT_AREA,
     FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
@@ -118,7 +116,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     let mut j: CFIndex = 0;
     let mut runCount: CFIndex = 0;
     let mut totalGlyphCount: CFIndex = 0;
-    let mut glyphIDs: *mut UInt16 = ptr::null_mut();
+    let mut glyphIDs: *mut u16 = ptr::null_mut();
     let mut glyphAdvances: *mut Fixed = ptr::null_mut();
     let mut glyph_info: *mut libc::c_void = ptr::null_mut();
     let mut locations: *mut FixedPoint = ptr::null_mut();
@@ -164,7 +162,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     if totalGlyphCount > 0 {
         glyph_info = xmalloc((totalGlyphCount * 10) as _);
         locations = glyph_info as *mut FixedPoint;
-        glyphIDs = locations.offset(totalGlyphCount as isize) as *mut UInt16;
+        glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
         glyphAdvances =
             xmalloc((totalGlyphCount as usize).wrapping_mul(::std::mem::size_of::<Fixed>()) as _)
                 as *mut Fixed;
@@ -216,7 +214,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
                     font_from_attributes(runAttributes) as CFTypeRef,
                 ) == 0
                 {
-                    *glyphIDs.offset(totalGlyphCount as isize) = 0i32 as UInt16
+                    *glyphIDs.offset(totalGlyphCount as isize) = 0i32 as u16
                 } else {
                     *glyphIDs.offset(totalGlyphCount as isize) = *glyphs.offset(j as isize)
                 }
@@ -277,7 +275,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     CFRelease(typesetter as CFTypeRef);
 }
 
-unsafe fn getGlyphBBoxFromCTFont(mut font: CTFontRef, mut gid: UInt16, mut bbox: *mut GlyphBBox) {
+unsafe fn getGlyphBBoxFromCTFont(mut font: CTFontRef, mut gid: u16, mut bbox: *mut GlyphBBox) {
     let mut rect: CGRect = CGRect {
         origin: CGPoint { x: 0., y: 0. },
         size: CGSize {
@@ -292,7 +290,7 @@ unsafe fn getGlyphBBoxFromCTFont(mut font: CTFontRef, mut gid: UInt16, mut bbox:
     rect = CTFontGetBoundingRectsForGlyphs(
         font,
         kCTFontOrientationDefault,
-        &mut gid as *mut UInt16 as *const CGGlyph,
+        &mut gid as *mut u16 as *const CGGlyph,
         ptr::null_mut(),
         1i32 as CFIndex,
     );
@@ -312,25 +310,25 @@ unsafe fn getGlyphBBoxFromCTFont(mut font: CTFontRef, mut gid: UInt16, mut bbox:
 /// returns glyph bounding box in TeX points
 pub(crate) unsafe fn GetGlyphBBox_AAT(
     mut attributes: CFDictionaryRef,
-    mut gid: UInt16,
+    mut gid: u16,
     mut bbox: *mut GlyphBBox,
 ) {
     let mut font: CTFontRef = font_from_attributes(attributes);
     return getGlyphBBoxFromCTFont(font, gid, bbox);
 }
 
-unsafe fn getGlyphWidthFromCTFont(mut font: CTFontRef, mut gid: UInt16) -> f64 {
+unsafe fn getGlyphWidthFromCTFont(mut font: CTFontRef, mut gid: u16) -> f64 {
     return PStoTeXPoints(CTFontGetAdvancesForGlyphs(
         font,
         kCTFontOrientationHorizontal,
-        &mut gid as *mut UInt16 as *const CGGlyph,
+        &mut gid as *mut u16 as *const CGGlyph,
         ptr::null_mut(),
         1i32 as CFIndex,
     ));
 }
 
 /// returns TeX points
-pub(crate) unsafe fn GetGlyphWidth_AAT(mut attributes: CFDictionaryRef, mut gid: UInt16) -> f64 {
+pub(crate) unsafe fn GetGlyphWidth_AAT(mut attributes: CFDictionaryRef, mut gid: u16) -> f64 {
     let mut font: CTFontRef = font_from_attributes(attributes);
     return getGlyphWidthFromCTFont(font, gid);
 }
@@ -338,7 +336,7 @@ pub(crate) unsafe fn GetGlyphWidth_AAT(mut attributes: CFDictionaryRef, mut gid:
 // returns TeX points
 pub(crate) unsafe fn GetGlyphHeightDepth_AAT(
     mut attributes: CFDictionaryRef,
-    mut gid: UInt16,
+    mut gid: u16,
     mut ht: *mut libc::c_float,
     mut dp: *mut libc::c_float,
 ) {
@@ -356,7 +354,7 @@ pub(crate) unsafe fn GetGlyphHeightDepth_AAT(
 /// returns TeX points
 pub(crate) unsafe fn GetGlyphSidebearings_AAT(
     mut attributes: CFDictionaryRef,
-    mut gid: UInt16,
+    mut gid: u16,
     mut lsb: *mut libc::c_float,
     mut rsb: *mut libc::c_float,
 ) {
@@ -365,7 +363,7 @@ pub(crate) unsafe fn GetGlyphSidebearings_AAT(
     let mut advance: f64 = CTFontGetAdvancesForGlyphs(
         font,
         kCTFontOrientationDefault,
-        &mut gid as *mut UInt16 as *const CGGlyph,
+        &mut gid as *mut u16 as *const CGGlyph,
         advances.as_mut_ptr(),
         1i32 as CFIndex,
     );
@@ -390,13 +388,13 @@ unsafe fn CGSizeMake(mut width: CGFloat, mut height: CGFloat) -> CGSize {
     return size;
 }
 
-pub(crate) unsafe fn GetGlyphItalCorr_AAT(mut attributes: CFDictionaryRef, mut gid: UInt16) -> f64 {
+pub(crate) unsafe fn GetGlyphItalCorr_AAT(mut attributes: CFDictionaryRef, mut gid: u16) -> f64 {
     let mut font: CTFontRef = font_from_attributes(attributes);
     let mut advances: [CGSize; 1] = [CGSizeMake(0i32 as CGFloat, 0i32 as CGFloat)];
     let mut advance: f64 = CTFontGetAdvancesForGlyphs(
         font,
         kCTFontOrientationDefault,
-        &mut gid as *mut UInt16 as *const CGGlyph,
+        &mut gid as *mut u16 as *const CGGlyph,
         advances.as_mut_ptr(),
         1i32 as CFIndex,
     );
@@ -473,7 +471,7 @@ pub(crate) unsafe fn MapGlyphToIndex_AAT(
 
 pub(crate) unsafe fn GetGlyphNameFromCTFont(
     mut ctFontRef: CTFontRef,
-    mut gid: UInt16,
+    mut gid: u16,
     mut len: *mut libc::c_int,
 ) -> *mut libc::c_char {
     let mut cgfont: CGFontRef = 0 as CGFontRef;

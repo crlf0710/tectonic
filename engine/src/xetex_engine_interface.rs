@@ -25,8 +25,7 @@ use crate::xetex_ini::{
 */
 /* These functions aren't used within the C/C++ library, but are called
  * by the Rust code to configure the XeTeX engine before launching it. */
-#[no_mangle]
-pub unsafe extern "C" fn tt_xetex_set_int_variable(var_name: &str, value: i32) -> i32 {
+pub unsafe fn tt_xetex_set_int_variable(var_name: &str, value: i32) -> i32 {
     if var_name == "halt_on_error_p" {
         halt_on_error_p = value
     } else if var_name == "in_initex_mode" {
