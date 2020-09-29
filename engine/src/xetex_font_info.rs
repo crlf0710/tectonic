@@ -119,7 +119,7 @@ pub(crate) struct GlyphBBox {
 
 #[derive(Clone)]
 pub(crate) struct XeTeXFontInst {
-    pub(crate) m_unitsPerEM: libc::c_ushort,
+    pub(crate) m_unitsPerEM: u16,
     pub(crate) m_pointSize: f32,
     pub(crate) m_ascent: f32,
     pub(crate) m_descent: f32,
@@ -167,7 +167,7 @@ pub(crate) unsafe fn XeTeXFontInst_base_ctor(
     mut pointSize: f32,
     mut status: *mut libc::c_int,
 ) {
-    (*self_0).m_unitsPerEM = 0i32 as libc::c_ushort;
+    (*self_0).m_unitsPerEM = 0;
     (*self_0).m_pointSize = pointSize;
     (*self_0).m_ascent = 0i32 as f32;
     (*self_0).m_descent = 0i32 as f32;

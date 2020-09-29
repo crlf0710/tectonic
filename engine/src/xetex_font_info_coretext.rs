@@ -17,8 +17,6 @@ use libc::malloc;
 use std::ptr;
 
 pub(crate) type uint32_t = libc::c_uint;
-pub(crate) type UniChar = UInt16;
-pub(crate) type UInt16 = libc::c_ushort;
 pub(crate) type Boolean = libc::c_uchar;
 
 use crate::cf_prelude::*;
