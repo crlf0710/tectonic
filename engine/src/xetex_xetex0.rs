@@ -6532,8 +6532,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     if usingGraphite(
                                         &*(FONT_LAYOUT_ENGINE[n as usize]
                                             as *mut XeTeXLayoutEngine),
-                                    ) as i32
-                                        != 0
+                                    )
                                     {
                                         cur_val = ot_font_get(
                                             (m as i32) - 14,
@@ -6581,8 +6580,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     if usingGraphite(
                                         &*(FONT_LAYOUT_ENGINE[n as usize]
                                             as *mut XeTeXLayoutEngine),
-                                    ) as i32
-                                        != 0
+                                    )
                                     {
                                         scan_int();
                                         k = cur_val;
@@ -6629,8 +6627,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     if usingGraphite(
                                         &*(FONT_LAYOUT_ENGINE[n as usize]
                                             as *mut XeTeXLayoutEngine),
-                                    ) as i32
-                                        != 0
+                                    )
                                     {
                                         scan_int();
                                         k = cur_val;
@@ -6696,8 +6693,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     if usingGraphite(
                                         &*(FONT_LAYOUT_ENGINE[n as usize]
                                             as *mut XeTeXLayoutEngine),
-                                    ) as i32
-                                        != 0
+                                    )
                                     {
                                         scan_and_pack_name();
                                         cur_val = gr_font_get_named(
@@ -6741,8 +6737,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     if usingGraphite(
                                         &*(FONT_LAYOUT_ENGINE[n as usize]
                                             as *mut XeTeXLayoutEngine),
-                                    ) as i32
-                                        != 0
+                                    )
                                     {
                                         scan_int();
                                         k = cur_val;
@@ -6769,8 +6764,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
                                     &*(FONT_LAYOUT_ENGINE[n as usize] as *mut XeTeXLayoutEngine),
-                                ) as i32
-                                    != 0
+                                )
                             {
                                 cur_val =
                                     ot_font_get((m as i32) - 14, FONT_LAYOUT_ENGINE[n as usize])
@@ -6784,8 +6778,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
                                     &*(FONT_LAYOUT_ENGINE[n as usize] as *mut XeTeXLayoutEngine),
-                                ) as i32
-                                    != 0
+                                )
                             {
                                 scan_int();
                                 cur_val = ot_font_get_1(
@@ -6804,8 +6797,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
                                     &*(FONT_LAYOUT_ENGINE[n as usize] as *mut XeTeXLayoutEngine),
-                                ) as i32
-                                    != 0
+                                )
                             {
                                 scan_int();
                                 k = cur_val;
@@ -6827,8 +6819,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
                                     &*(FONT_LAYOUT_ENGINE[n as usize] as *mut XeTeXLayoutEngine),
-                                ) as i32
-                                    != 0
+                                )
                             {
                                 scan_int();
                                 k = cur_val;
@@ -6888,15 +6879,13 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             } else if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingOpenType(
                                     &*(FONT_LAYOUT_ENGINE[n as usize] as *mut XeTeXLayoutEngine),
-                                ) as i32
-                                    != 0
+                                )
                             {
                                 cur_val = 2;
                             } else if FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
                                 && usingGraphite(
                                     &*(FONT_LAYOUT_ENGINE[n as usize] as *mut XeTeXLayoutEngine),
-                                ) as i32
-                                    != 0
+                                )
                             {
                                 cur_val = 3;
                             } else {
@@ -8433,8 +8422,6 @@ pub(crate) unsafe fn conv_toks() {
             if FONT_AREA[fnt as usize] as u32 == AAT_FONT_FLAG
                 || FONT_AREA[fnt as usize] as u32 == OTGR_FONT_FLAG
                     && usingGraphite(&*(FONT_LAYOUT_ENGINE[fnt as usize] as *mut XeTeXLayoutEngine))
-                        as i32
-                        != 0
             {
                 scan_int();
                 arg1 = cur_val;
@@ -8449,8 +8436,6 @@ pub(crate) unsafe fn conv_toks() {
             if FONT_AREA[fnt as usize] as u32 == AAT_FONT_FLAG
                 || FONT_AREA[fnt as usize] as u32 == OTGR_FONT_FLAG
                     && usingGraphite(&*(FONT_LAYOUT_ENGINE[fnt as usize] as *mut XeTeXLayoutEngine))
-                        as i32
-                        != 0
             {
                 scan_int();
                 arg1 = cur_val;
@@ -8573,8 +8558,6 @@ pub(crate) unsafe fn conv_toks() {
                 }
                 OTGR_FONT_FLAG => {
                     if usingGraphite(&*(FONT_LAYOUT_ENGINE[fnt as usize] as *mut XeTeXLayoutEngine))
-                        as i32
-                        != 0
                     {
                         gr_print_font_name(c as i32, FONT_LAYOUT_ENGINE[fnt as usize], arg1, arg2);
                     }

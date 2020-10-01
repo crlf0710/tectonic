@@ -3217,8 +3217,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
                     if FONT_AREA[g as usize] as u32 == OTGR_FONT_FLAG
                         && usingOpenType(
                             &*(FONT_LAYOUT_ENGINE[g as usize] as *mut XeTeXLayoutEngine),
-                        ) as i32
-                            != 0
+                        )
                     {
                         x = map_char_to_glyph(g, x as i32) as u16;
                         f = g;

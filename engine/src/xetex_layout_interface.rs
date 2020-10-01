@@ -1148,18 +1148,15 @@ impl XeTeXLayoutEngine {
 impl Drop for XeTeXLayoutEngine {
     fn drop(&mut self) {
         unsafe {
-            _deleteLayoutEngine(self);
+            hb_buffer_destroy(self.hbBuffer);
+            let _ = Box::from_raw(self.font);
+            free(self.shaper as *mut libc::c_void);
             //free(self.features as *mut libc::c_void);
             //free(self.ShaperList as *mut libc::c_void);
         }
     }
 }
 
-pub(crate) unsafe fn _deleteLayoutEngine(mut engine: *mut XeTeXLayoutEngine) {
-    hb_buffer_destroy((*engine).hbBuffer);
-    let _ = Box::from_raw((*engine).font);
-    free((*engine).shaper as *mut libc::c_void);
-}
 unsafe extern "C" fn _decompose_compat(
     mut _ufuncs: *mut hb_unicode_funcs_t,
     mut _u: hb_codepoint_t,
@@ -1183,7 +1180,7 @@ unsafe extern "C" fn _get_unicode_funcs() -> *mut hb_unicode_funcs_t {
 }
 static mut hbUnicodeFuncs: *mut hb_unicode_funcs_t = ptr::null_mut();
 pub(crate) unsafe fn layoutChars(
-    mut engine: *mut XeTeXLayoutEngine,
+    engine: &mut XeTeXLayoutEngine,
     mut chars: *const u16,
     mut offset: i32,
     mut count: i32,
@@ -1202,67 +1199,67 @@ pub(crate) unsafe fn layoutChars(
         reserved2: 0 as *mut libc::c_void,
     };
     let mut shape_plan: *mut hb_shape_plan_t = 0 as *mut hb_shape_plan_t;
-    let mut hbFont: *mut hb_font_t = (*(*engine).font).get_hb_font();
+    let mut hbFont: *mut hb_font_t = (*engine.font).get_hb_font();
     let mut hbFace: *mut hb_face_t = hb_font_get_face(hbFont);
-    if XeTeXFontInst_getLayoutDirVertical(&*(*engine).font) {
+    if XeTeXFontInst_getLayoutDirVertical(&*engine.font) {
         direction = HB_DIRECTION_TTB
     } else if rightToLeft {
         direction = HB_DIRECTION_RTL
     }
-    script = hb_ot_tag_to_script((*engine).script);
+    script = hb_ot_tag_to_script(engine.script);
     if hbUnicodeFuncs.is_null() {
         hbUnicodeFuncs = _get_unicode_funcs()
     }
-    hb_buffer_reset((*engine).hbBuffer);
-    hb_buffer_set_unicode_funcs((*engine).hbBuffer, hbUnicodeFuncs);
+    hb_buffer_reset(engine.hbBuffer);
+    hb_buffer_set_unicode_funcs(engine.hbBuffer, hbUnicodeFuncs);
     hb_buffer_add_utf16(
-        (*engine).hbBuffer,
+        engine.hbBuffer,
         chars,
         max,
         offset as libc::c_uint,
         count,
     );
-    hb_buffer_set_direction((*engine).hbBuffer, direction);
-    hb_buffer_set_script((*engine).hbBuffer, script);
-    hb_buffer_set_language((*engine).hbBuffer, (*engine).language);
-    hb_buffer_guess_segment_properties((*engine).hbBuffer);
-    hb_buffer_get_segment_properties((*engine).hbBuffer, &mut segment_props);
-    if (*engine).ShaperList.is_null() {
+    hb_buffer_set_direction(engine.hbBuffer, direction);
+    hb_buffer_set_script(engine.hbBuffer, script);
+    hb_buffer_set_language(engine.hbBuffer, engine.language);
+    hb_buffer_guess_segment_properties(engine.hbBuffer);
+    hb_buffer_get_segment_properties(engine.hbBuffer, &mut segment_props);
+    if engine.ShaperList.is_null() {
         // HarfBuzz gives graphite2 shaper a priority, so that for hybrid
         // Graphite/OpenType fonts, Graphite will be used. However, pre-0.9999
         // XeTeX preferred OpenType over Graphite, so we are doing the same
         // here for sake of backward compatibility. Since "ot" shaper never
         // fails, we set the shaper list to just include it.
-        (*engine).ShaperList = xcalloc(
+        engine.ShaperList = xcalloc(
             2i32 as size_t,
             ::std::mem::size_of::<*mut libc::c_char>() as _,
         ) as *mut *mut libc::c_char;
-        let ref mut fresh0 = *(*engine).ShaperList.offset(0);
+        let ref mut fresh0 = *engine.ShaperList.offset(0);
         *fresh0 = b"ot\x00" as *const u8 as *const libc::c_char as *mut libc::c_char;
-        let ref mut fresh1 = *(*engine).ShaperList.offset(1);
+        let ref mut fresh1 = *engine.ShaperList.offset(1);
         *fresh1 = 0 as *mut libc::c_char
     }
     shape_plan = hb_shape_plan_create_cached(
         hbFace,
         &mut segment_props,
-        (*engine).features,
-        (*engine).nFeatures as libc::c_uint,
-        (*engine).ShaperList as *const *const libc::c_char,
+        engine.features,
+        engine.nFeatures as libc::c_uint,
+        engine.ShaperList as *const *const libc::c_char,
     );
     res = hb_shape_plan_execute(
         shape_plan,
         hbFont,
-        (*engine).hbBuffer,
-        (*engine).features,
-        (*engine).nFeatures as libc::c_uint,
+        engine.hbBuffer,
+        engine.features,
+        engine.nFeatures as libc::c_uint,
     ) != 0;
-    if !(*engine).shaper.is_null() {
-        free((*engine).shaper as *mut libc::c_void);
-        (*engine).shaper = 0 as *mut libc::c_char
+    if !engine.shaper.is_null() {
+        free(engine.shaper as *mut libc::c_void);
+        engine.shaper = 0 as *mut libc::c_char
     }
     if res {
-        (*engine).shaper = strdup(hb_shape_plan_get_shaper(shape_plan));
-        hb_buffer_set_content_type((*engine).hbBuffer, HB_BUFFER_CONTENT_TYPE_GLYPHS);
+        engine.shaper = strdup(hb_shape_plan_get_shaper(shape_plan));
+        hb_buffer_set_content_type(engine.hbBuffer, HB_BUFFER_CONTENT_TYPE_GLYPHS);
     } else {
         // all selected shapers failed, retrying with default
         // we don't use _cached here as the cached plain will always fail.
@@ -1270,31 +1267,31 @@ pub(crate) unsafe fn layoutChars(
         shape_plan = hb_shape_plan_create(
             hbFace,
             &mut segment_props,
-            (*engine).features,
-            (*engine).nFeatures as libc::c_uint,
+            engine.features,
+            engine.nFeatures as libc::c_uint,
             0 as *const *const libc::c_char,
         ); /* negative is upwards */
         res = hb_shape_plan_execute(
             shape_plan,
             hbFont,
-            (*engine).hbBuffer,
-            (*engine).features,
-            (*engine).nFeatures as libc::c_uint,
+            engine.hbBuffer,
+            engine.features,
+            engine.nFeatures as libc::c_uint,
         ) != 0;
         if res {
-            (*engine).shaper = strdup(hb_shape_plan_get_shaper(shape_plan));
-            hb_buffer_set_content_type((*engine).hbBuffer, HB_BUFFER_CONTENT_TYPE_GLYPHS);
+            engine.shaper = strdup(hb_shape_plan_get_shaper(shape_plan));
+            hb_buffer_set_content_type(engine.hbBuffer, HB_BUFFER_CONTENT_TYPE_GLYPHS);
         } else {
             abort!("all shapers failed");
         }
     }
     hb_shape_plan_destroy(shape_plan);
-    let mut glyphCount: i32 = hb_buffer_get_length((*engine).hbBuffer) as i32;
+    let mut glyphCount: i32 = hb_buffer_get_length(engine.hbBuffer) as i32;
     return glyphCount;
 }
-pub(crate) unsafe fn getGlyphs(mut engine: *mut XeTeXLayoutEngine, mut glyphs: *mut u32) {
+pub(crate) unsafe fn getGlyphs(engine: &XeTeXLayoutEngine, mut glyphs: *mut u32) {
     let mut glyphCount: i32 = hb_buffer_get_length((*engine).hbBuffer) as i32;
-    let mut hbGlyphs: *mut hb_glyph_info_t =
+    let mut hbGlyphs: *const hb_glyph_info_t =
         hb_buffer_get_glyph_infos((*engine).hbBuffer, 0 as *mut libc::c_uint);
     let mut i: i32 = 0i32;
     while i < glyphCount {
@@ -1319,47 +1316,45 @@ pub(crate) unsafe fn getGlyphAdvances(engine: &XeTeXLayoutEngine, mut advances: 
     }
 }
 pub(crate) unsafe fn getGlyphPositions(
-    mut engine: *mut XeTeXLayoutEngine,
+    engine: &XeTeXLayoutEngine,
     mut positions: *mut FloatPoint,
 ) {
-    let mut glyphCount: i32 = hb_buffer_get_length((*engine).hbBuffer) as i32;
+    let mut glyphCount: i32 = hb_buffer_get_length(engine.hbBuffer) as i32;
     let mut hbPositions: *mut hb_glyph_position_t =
-        hb_buffer_get_glyph_positions((*engine).hbBuffer, 0 as *mut libc::c_uint);
-    let mut x: f32 = 0i32 as f32;
-    let mut y: f32 = 0i32 as f32;
-    if XeTeXFontInst_getLayoutDirVertical(&*(*engine).font) {
-        let mut i: i32 = 0i32;
-        while i < glyphCount {
-            (*positions.offset(i as isize)).x = -(*(*engine).font)
+        hb_buffer_get_glyph_positions(engine.hbBuffer, 0 as *mut libc::c_uint);
+    let mut x = 0_f32;
+    let mut y = 0_f32;
+    if XeTeXFontInst_getLayoutDirVertical(&*engine.font) {
+        for i in 0..glyphCount {
+            (*positions.offset(i as isize)).x = -(*engine.font)
                 .units_to_points(x + (*hbPositions.offset(i as isize)).y_offset as f32);
-            (*positions.offset(i as isize)).y = (*(*engine).font)
+            (*positions.offset(i as isize)).y = (*engine.font)
                 .units_to_points(y - (*hbPositions.offset(i as isize)).x_offset as f32);
             x += (*hbPositions.offset(i as isize)).y_advance as f32;
             y += (*hbPositions.offset(i as isize)).x_advance as f32;
-            i += 1
         }
-        (*positions.offset(glyphCount as isize)).x = -(*(*engine).font).units_to_points(x);
-        (*positions.offset(glyphCount as isize)).y = (*(*engine).font).units_to_points(y)
+        (*positions.offset(glyphCount as isize)).x = -(*engine.font).units_to_points(x);
+        (*positions.offset(glyphCount as isize)).y = (*engine.font).units_to_points(y)
     } else {
         let mut i_0: i32 = 0i32;
         while i_0 < glyphCount {
-            (*positions.offset(i_0 as isize)).x = (*(*engine).font)
+            (*positions.offset(i_0 as isize)).x = (*engine.font)
                 .units_to_points(x + (*hbPositions.offset(i_0 as isize)).x_offset as f32);
-            (*positions.offset(i_0 as isize)).y = -(*(*engine).font)
+            (*positions.offset(i_0 as isize)).y = -(*engine.font)
                 .units_to_points(y + (*hbPositions.offset(i_0 as isize)).y_offset as f32);
             x += (*hbPositions.offset(i_0 as isize)).x_advance as f32;
             y += (*hbPositions.offset(i_0 as isize)).y_advance as f32;
             i_0 += 1
         }
-        (*positions.offset(glyphCount as isize)).x = (*(*engine).font).units_to_points(x);
-        (*positions.offset(glyphCount as isize)).y = -(*(*engine).font).units_to_points(y)
+        (*positions.offset(glyphCount as isize)).x = (*engine.font).units_to_points(x);
+        (*positions.offset(glyphCount as isize)).y = -(*engine.font).units_to_points(y)
     }
-    if (*engine).extend as f64 != 1.0f64 || (*engine).slant as f64 != 0.0f64 {
+    if engine.extend as f64 != 1.0f64 || engine.slant as f64 != 0.0f64 {
         let mut i_1: i32 = 0i32;
         while i_1 <= glyphCount {
             (*positions.offset(i_1 as isize)).x = (*positions.offset(i_1 as isize)).x
-                * (*engine).extend
-                - (*positions.offset(i_1 as isize)).y * (*engine).slant;
+                * engine.extend
+                - (*positions.offset(i_1 as isize)).y * engine.slant;
             i_1 += 1
         }
     };
@@ -1383,8 +1378,8 @@ pub(crate) unsafe fn getCapAndXHeight(
     *capheight = XeTeXFontInst_getCapHeight(&*engine.font);
     *xheight = XeTeXFontInst_getXHeight(&*engine.font);
 }
-pub(crate) unsafe fn getDefaultDirection(mut engine: *mut XeTeXLayoutEngine) -> i32 {
-    let mut script: hb_script_t = hb_buffer_get_script((*engine).hbBuffer);
+pub(crate) unsafe fn getDefaultDirection(engine: &XeTeXLayoutEngine) -> i32 {
+    let mut script: hb_script_t = hb_buffer_get_script(engine.hbBuffer);
     if hb_script_get_horizontal_direction(script) as libc::c_uint
         == HB_DIRECTION_RTL as i32 as libc::c_uint
     {
