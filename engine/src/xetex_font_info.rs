@@ -1,3 +1,43 @@
+/* ***************************************************************************\
+ Part of the XeTeX typesetting system
+ Copyright (c) 1994-2008 by SIL International
+ Copyright (c) 2009, 2011 by Jonathan Kew
+
+ SIL Author(s): Jonathan Kew
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE
+FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of the copyright holders
+shall not be used in advertising or otherwise to promote the sale,
+use or other dealings in this Software without prior written
+authorization from the copyright holders.
+\****************************************************************************/
+/*
+ *   file name:  XeTeXFontInst.h
+ *
+ *   created on: 2005-10-22
+ *   created by: Jonathan Kew
+ *
+ *  originally based on PortableFontInstance.h from ICU
+ */
+
 #![allow(
     dead_code,
     mutable_transmutes,
@@ -117,6 +157,10 @@ pub(crate) struct GlyphBBox {
     pub(crate) yMax: f32,
 }
 
+// create specific subclasses for each supported platform
+// false = horizontal, true = vertical
+// font filename
+// face index
 #[derive(Clone)]
 pub(crate) struct XeTeXFontInst {
     pub(crate) m_unitsPerEM: u16,
@@ -134,14 +178,7 @@ pub(crate) struct XeTeXFontInst {
     pub(crate) m_backingData2: *mut FT_Byte,
     pub(crate) m_hbFont: *mut hb_font_t,
 }
-/*
- *   file name:  XeTeXFontInst.cpp
- *
- *   created on: 2005-10-22
- *   created by: Jonathan Kew
- *
- *     originally based on PortableFontInstance.cpp from ICU
- */
+
 /* Return NAME with any leading path stripped off.  This returns a
 pointer into NAME.  For example, `basename ("/foo/bar.baz")'
 returns "bar.baz".  */
@@ -198,23 +235,18 @@ impl XeTeXFontInst {
     }
 }
 
-pub(crate) unsafe fn _XeTeXFontInst_delete(mut self_0: *mut XeTeXFontInst) {
-    if self_0.is_null() {
-        return;
-    }
-    if !(*self_0).m_ftFace.is_null() {
-        FT_Done_Face((*self_0).m_ftFace);
-        (*self_0).m_ftFace = 0 as FT_Face
-    }
-    hb_font_destroy((*self_0).m_hbFont);
-    free((*self_0).m_backingData as *mut libc::c_void);
-    free((*self_0).m_backingData2 as *mut libc::c_void);
-    free((*self_0).m_filename as *mut libc::c_void);
-}
-
 impl Drop for XeTeXFontInst {
     fn drop(&mut self) {
-        unsafe { _XeTeXFontInst_delete(self) }
+        unsafe {
+            if !self.m_ftFace.is_null() {
+                FT_Done_Face(self.m_ftFace);
+                self.m_ftFace = 0 as FT_Face
+            }
+            hb_font_destroy(self.m_hbFont);
+            free(self.m_backingData as *mut libc::c_void);
+            free(self.m_backingData2 as *mut libc::c_void);
+            free(self.m_filename as *mut libc::c_void);
+        }
     }
 }
 
@@ -618,11 +650,11 @@ impl XeTeXFontInst {
         self.m_unitsPerEM = (*self.m_ftFace).units_per_EM;
         self.m_ascent = XeTeXFontInst_unitsToPoints(self, (*self.m_ftFace).ascender as f32);
         self.m_descent = XeTeXFontInst_unitsToPoints(self, (*self.m_ftFace).descender as f32);
-        postTable = XeTeXFontInst_getFontTableFT(self, FT_SFNT_POST) as *mut TT_Postscript;
+        postTable = self.get_font_table_ft(FT_SFNT_POST) as *mut TT_Postscript;
         if !postTable.is_null() {
             self.m_italicAngle = Fix2D((*postTable).italicAngle as Fixed) as f32
         }
-        os2Table = XeTeXFontInst_getFontTableFT(self, FT_SFNT_OS2) as *mut TT_OS2;
+        os2Table = self.get_font_table_ft(FT_SFNT_OS2) as *mut TT_OS2;
         if !os2Table.is_null() {
             self.m_capHeight = XeTeXFontInst_unitsToPoints(self, (*os2Table).sCapHeight as f32);
             self.m_xHeight = XeTeXFontInst_unitsToPoints(self, (*os2Table).sxHeight as f32)
@@ -661,51 +693,44 @@ impl XeTeXFontInst {
         // We don’t want device tables adjustments
         hb_font_set_ppem(self.m_hbFont, 0i32 as libc::c_uint, 0i32 as libc::c_uint);
     }
-}
-pub(crate) unsafe fn XeTeXFontInst_setLayoutDirVertical(
-    self_0: &mut XeTeXFontInst,
-    mut vertical: bool,
-) {
-    (*self_0).m_vertical = vertical;
-}
-pub(crate) unsafe fn XeTeXFontInst_getFontTable(
-    self_0: &XeTeXFontInst,
-    mut tag: OTTag,
-) -> *mut libc::c_void {
-    let mut tmpLength: FT_ULong = 0i32 as FT_ULong;
-    let mut error: FT_Error = FT_Load_Sfnt_Table(
-        self_0.m_ftFace,
-        tag as FT_ULong,
-        0i32 as FT_Long,
-        0 as *mut FT_Byte,
-        &mut tmpLength,
-    );
-    if error != 0 {
-        return 0 as *mut libc::c_void;
+
+    pub(crate) unsafe fn set_layout_dir_vertical(&mut self, vertical: bool) {
+        self.m_vertical = vertical;
     }
-    let mut table: *mut libc::c_void = xmalloc(
-        tmpLength.wrapping_mul(::std::mem::size_of::<libc::c_char>() as libc::c_ulong) as _,
-    );
-    if !table.is_null() {
-        error = FT_Load_Sfnt_Table(
-            self_0.m_ftFace,
+
+    pub(crate) unsafe fn get_font_table(&self, tag: OTTag) -> *mut libc::c_void {
+        let mut tmpLength: FT_ULong = 0i32 as FT_ULong;
+        let mut error: FT_Error = FT_Load_Sfnt_Table(
+            self.m_ftFace,
             tag as FT_ULong,
             0i32 as FT_Long,
-            table as *mut FT_Byte,
+            0 as *mut FT_Byte,
             &mut tmpLength,
         );
         if error != 0 {
-            free(table);
             return 0 as *mut libc::c_void;
         }
+        let mut table: *mut libc::c_void = xmalloc(
+            tmpLength.wrapping_mul(::std::mem::size_of::<libc::c_char>() as libc::c_ulong) as _,
+        );
+        if !table.is_null() {
+            error = FT_Load_Sfnt_Table(
+                self.m_ftFace,
+                tag as FT_ULong,
+                0i32 as FT_Long,
+                table as *mut FT_Byte,
+                &mut tmpLength,
+            );
+            if error != 0 {
+                free(table);
+                return 0 as *mut libc::c_void;
+            }
+        }
+        return table;
     }
-    return table;
-}
-pub(crate) unsafe fn XeTeXFontInst_getFontTableFT(
-    self_0: &XeTeXFontInst,
-    mut tag: FT_Sfnt_Tag,
-) -> *mut libc::c_void {
-    return FT_Get_Sfnt_Table(self_0.m_ftFace, tag);
+    pub(crate) unsafe fn get_font_table_ft(&self, tag: FT_Sfnt_Tag) -> *mut libc::c_void {
+        FT_Get_Sfnt_Table(self.m_ftFace, tag)
+    }
 }
 pub(crate) unsafe fn XeTeXFontInst_getGlyphBounds(
     self_0: &XeTeXFontInst,
@@ -781,97 +806,6 @@ pub(crate) unsafe fn XeTeXFontInst_getGlyphHeightDepth(
         *dp = -bbox.yMin
     };
 }
-/* ***************************************************************************\
- Part of the XeTeX typesetting system
- Copyright (c) 1994-2008 by SIL International
- Copyright (c) 2009, 2011 by Jonathan Kew
-
- SIL Author(s): Jonathan Kew
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE
-FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Except as contained in this notice, the name of the copyright holders
-shall not be used in advertising or otherwise to promote the sale,
-use or other dealings in this Software without prior written
-authorization from the copyright holders.
-\****************************************************************************/
-/*
- *   file name:  XeTeXFontInst.h
- *
- *   created on: 2005-10-22
- *   created by: Jonathan Kew
- *
- *  originally based on PortableFontInstance.h from ICU
- */
-// create specific subclasses for each supported platform
-// false = horizontal, true = vertical
-// font filename
-// face index
-/*
-class XeTeXFontInst
-{
-protected:
-
-public:
-    XeTeXFontInst(float pointSize, int &status);
-    XeTeXFontInst(const char* filename, int index, float pointSize, int &status);
-
-    virtual ~XeTeXFontInst();
-
-    void initialize(const char* pathname, int index, int &status);
-
-    void *getFontTable(OTTag tableTag) const;
-    void *getFontTable(FT_Sfnt_Tag tableTag) const;
-
-    hb_font_t *getHbFont() const { return m_hbFont; }
-    void setLayoutDirVertical(bool vertical);
-    bool getLayoutDirVertical() const { return m_vertical; }
-
-    GlyphID mapCharToGlyph(UChar32 ch) const;
-    GlyphID mapGlyphToIndex(const char* glyphName) const;
-
-    uint16_t getNumGlyphs() const;
-
-    void getGlyphBounds(GlyphID glyph, GlyphBBox* bbox);
-
-    float getGlyphWidth(GlyphID glyph);
-    void getGlyphHeightDepth(GlyphID glyph, float *ht, float* dp);
-    void getGlyphSidebearings(GlyphID glyph, float* lsb, float* rsb);
-    float getGlyphItalCorr(GlyphID glyph);
-
-    const char* getGlyphName(GlyphID gid, int& nameLen);
-
-    UChar32 getFirstCharCode();
-    UChar32 getLastCharCode();
-
-    float unitsToPoints(float units) const
-    {
-        return (units * m_pointSize) / (float) m_unitsPerEM;
-    }
-
-    float pointsToUnits(float points) const
-    {
-        return (points * (float) m_unitsPerEM) / m_pointSize;
-    }
-};
-*/
 pub(crate) unsafe fn XeTeXFontInst_getGlyphSidebearings(
     self_0: &XeTeXFontInst,
     mut gid: GlyphID,
@@ -912,10 +846,10 @@ pub(crate) unsafe fn XeTeXFontInst_getGlyphItalCorr(
     return rval;
 }
 pub(crate) unsafe fn XeTeXFontInst_mapGlyphToIndex(
-    mut self_0: *const XeTeXFontInst,
+    mut self_0: &XeTeXFontInst,
     mut glyphName: *const libc::c_char,
 ) -> GlyphID {
-    return FT_Get_Name_Index((*self_0).m_ftFace, glyphName as *mut libc::c_char) as GlyphID;
+    return FT_Get_Name_Index(self_0.m_ftFace, glyphName as *mut libc::c_char) as GlyphID;
 }
 pub(crate) unsafe fn XeTeXFontInst_getGlyphName(
     self_0: &XeTeXFontInst,

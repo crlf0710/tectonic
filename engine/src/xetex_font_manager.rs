@@ -23,7 +23,7 @@ use std::ptr::NonNull;
 use crate::core_memory::xmalloc;
 
 use crate::xetex_ext::Fix2D;
-use crate::xetex_font_info::{XeTeXFontInst_getFontTableFT, XeTeXFontInst_getHbFont};
+use crate::xetex_font_info::XeTeXFontInst_getHbFont;
 use crate::xetex_ini::loaded_font_design_size;
 use crate::xetex_layout_interface::collection_types::*;
 use crate::xetex_layout_interface::createFont;
@@ -904,8 +904,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
                 free(pSizeRec as *mut libc::c_void);
             }
         }
-        let mut os2Table: *const TT_OS2 =
-            XeTeXFontInst_getFontTableFT(&font, FT_SFNT_OS2) as *mut TT_OS2;
+        let mut os2Table: *const TT_OS2 = font.get_font_table_ft(FT_SFNT_OS2) as *mut TT_OS2;
         if !os2Table.is_null() {
             (*theFont).weight = (*os2Table).usWeightClass;
             (*theFont).width = (*os2Table).usWidthClass;
@@ -915,7 +914,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
             (*theFont).isItalic = sel as libc::c_int & 1i32 << 0i32 != 0i32
         }
         let mut headTable: *const TT_Header =
-            XeTeXFontInst_getFontTableFT(&font, FT_SFNT_HEAD) as *mut TT_Header;
+            font.get_font_table_ft(FT_SFNT_HEAD) as *mut TT_Header;
         if !headTable.is_null() {
             let mut ms: u16 = (*headTable).Mac_Style;
             if ms as libc::c_int & 1i32 << 0i32 != 0i32 {
@@ -926,7 +925,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
             }
         }
         let mut postTable: *const TT_Postscript =
-            XeTeXFontInst_getFontTableFT(&font, FT_SFNT_POST) as *const TT_Postscript;
+            font.get_font_table_ft(FT_SFNT_POST) as *const TT_Postscript;
         if !postTable.is_null() {
             (*theFont).slant = (1000_f64
                 * (Fix2D(-(*postTable).italicAngle as Fixed) * std::f64::consts::PI / 180.).tan())

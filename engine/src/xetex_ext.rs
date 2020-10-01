@@ -1979,7 +1979,7 @@ pub(crate) unsafe fn map_glyph_to_index(mut font: usize) -> i32
         }
         0xfffeu32 => {
             return mapGlyphToIndex(
-                FONT_LAYOUT_ENGINE[font] as *mut XeTeXLayoutEngine,
+                &*(FONT_LAYOUT_ENGINE[font] as *mut XeTeXLayoutEngine),
                 CString::new(name_of_file.as_str()).unwrap().as_ptr(),
             );
         }

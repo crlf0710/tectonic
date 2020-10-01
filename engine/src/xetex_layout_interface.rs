@@ -186,12 +186,11 @@ use crate::xetex_font_manager::{
 use crate::xetex_font_info::XeTeXFontInst;
 
 use crate::xetex_font_info::{
-    XeTeXFontInst_getFirstCharCode, XeTeXFontInst_getFontTable, XeTeXFontInst_getGlyphBounds,
+    XeTeXFontInst_getFirstCharCode, XeTeXFontInst_getGlyphBounds,
     XeTeXFontInst_getGlyphHeightDepth, XeTeXFontInst_getGlyphItalCorr, XeTeXFontInst_getGlyphName,
     XeTeXFontInst_getGlyphSidebearings, XeTeXFontInst_getGlyphWidth, XeTeXFontInst_getHbFont,
     XeTeXFontInst_getLastCharCode, XeTeXFontInst_getNumGlyphs, XeTeXFontInst_mapCharToGlyph,
-    XeTeXFontInst_mapGlyphToIndex, XeTeXFontInst_pointsToUnits, XeTeXFontInst_setLayoutDirVertical,
-    XeTeXFontInst_unitsToPoints,
+    XeTeXFontInst_mapGlyphToIndex, XeTeXFontInst_pointsToUnits, XeTeXFontInst_unitsToPoints,
 };
 
 pub(crate) mod collection_types {
@@ -575,7 +574,7 @@ pub(crate) unsafe fn createFontFromFile(
     Some(font)
 }
 pub(crate) unsafe fn setFontLayoutDir(font: &mut XeTeXFontInst, mut vertical: i32) {
-    XeTeXFontInst_setLayoutDirVertical(font, vertical != 0i32);
+    font.set_layout_dir_vertical(vertical != 0);
 }
 pub(crate) unsafe fn findFontByName(
     mut name: &str,
@@ -603,7 +602,7 @@ pub(crate) unsafe fn getFontRef(engine: &XeTeXLayoutEngine) -> PlatformFontRef {
     engine.fontRef
 }
 pub(crate) unsafe fn getFontTablePtr(font: &XeTeXFontInst, mut tableTag: u32) -> *mut libc::c_void {
-    XeTeXFontInst_getFontTable(font, tableTag)
+    font.get_font_table(tableTag)
 }
 pub(crate) unsafe fn getSlant(font: &XeTeXFontInst) -> Fixed {
     let mut italAngle: f32 = XeTeXFontInst_getItalicAngle(font);
@@ -1476,10 +1475,10 @@ pub(crate) unsafe fn getGlyphName(
     return XeTeXFontInst_getGlyphName(font, gid, len);
 }
 pub(crate) unsafe fn mapGlyphToIndex(
-    mut engine: *mut XeTeXLayoutEngine,
+    engine: &XeTeXLayoutEngine,
     mut glyphName: *const libc::c_char,
 ) -> i32 {
-    return XeTeXFontInst_mapGlyphToIndex((*engine).font, glyphName) as i32;
+    XeTeXFontInst_mapGlyphToIndex(&*engine.font, glyphName) as i32
 }
 static mut grSegment: *mut gr_segment = 0 as *mut gr_segment;
 static mut grPrevSlot: *const gr_slot = 0 as *const gr_slot;
