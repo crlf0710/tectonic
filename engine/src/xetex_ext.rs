@@ -174,7 +174,7 @@ pub(crate) unsafe fn linebreak_start(
     let mut status: icu::UErrorCode = icu::U_ZERO_ERROR;
     let mut locale = gettexstring(localeStrNum);
     if FONT_AREA[f] as u32 == 0xfffeu32 && locale == "G" {
-        let mut engine: *mut XeTeXLayoutEngine = FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine;
+        let mut engine = &*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine);
         if initGraphiteBreaking(engine, text, textLength) {
             /* user asked for Graphite line breaking and the font supports it */
             return;
@@ -1175,7 +1175,7 @@ pub(crate) unsafe fn gr_print_font_name(
     mut param2: i32,
 ) {
     let mut name: *mut i8 = 0 as *mut i8;
-    let mut engine: *mut XeTeXLayoutEngine = pEngine as *mut XeTeXLayoutEngine;
+    let mut engine = &*(pEngine as *mut XeTeXLayoutEngine);
     match what {
         8 => name = getGraphiteFeatureLabel(engine, param1 as u32),
         9 => name = getGraphiteFeatureSettingLabel(engine, param1 as u32, param2 as u32),
@@ -1844,7 +1844,7 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
                     }
                     0xfffeu32 => {
                         getGlyphBounds(
-                            FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine,
+                            &*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine),
                             *glyphIDs_0.offset(i_2 as isize) as u32,
                             &mut bbox,
                         );
@@ -1883,7 +1883,7 @@ pub(crate) unsafe fn real_get_native_italic_correction(node: &NativeWord) -> Fix
             }
             0xfffeu32 => {
                 return D2Fix(getGlyphItalCorr(
-                    FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine,
+                    &*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine),
                     *glyphIDs.offset(n.wrapping_sub(1_u32) as isize) as u32,
                 ) as f64)
                     + FONT_LETTER_SPACE[f];
@@ -1907,7 +1907,7 @@ pub(crate) unsafe fn real_get_native_glyph_italic_correction(node: &Glyph) -> Fi
         }
         0xfffeu32 => {
             return D2Fix(getGlyphItalCorr(
-                FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine,
+                &*(FONT_LAYOUT_ENGINE[f] as *mut XeTeXLayoutEngine),
                 gid as u32,
             ) as f64);
         }

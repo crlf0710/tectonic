@@ -23,7 +23,6 @@ use std::ptr::NonNull;
 use crate::core_memory::xmalloc;
 
 use crate::xetex_ext::Fix2D;
-use crate::xetex_font_info::XeTeXFontInst_getHbFont;
 use crate::xetex_ini::loaded_font_design_size;
 use crate::xetex_layout_interface::collection_types::*;
 use crate::xetex_layout_interface::createFont;
@@ -845,7 +844,7 @@ pub(crate) unsafe fn XeTeXFontMgr_getOpSize(
     mut _self_0: *mut XeTeXFontMgr,
     mut font: &XeTeXFontInst,
 ) -> *mut XeTeXFontMgrOpSizeRec {
-    let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+    let mut hbFont: *mut hb_font_t = font.get_hb_font();
     if hbFont.is_null() {
         return 0 as *mut XeTeXFontMgrOpSizeRec;
     }

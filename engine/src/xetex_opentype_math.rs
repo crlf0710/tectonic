@@ -14,8 +14,7 @@ use harfbuzz_sys::*;
 use crate::xetex_layout_interface::GlyphAssembly;
 use crate::xetex_layout_interface::{getFont, getGlyphHeightDepth, D2Fix, Fix2D};
 use crate::xetex_layout_interface::{
-    XeTeXFontInst_getHbFont, XeTeXFontInst_pointsToUnits, XeTeXFontInst_unitsToPoints,
-    XeTeXLayoutEngine,
+    XeTeXFontInst_pointsToUnits, XeTeXFontInst_unitsToPoints, XeTeXLayoutEngine,
 };
 
 use libc::free;
@@ -76,7 +75,7 @@ pub(crate) unsafe fn get_ot_math_constant(mut f: usize, mut n: libc::c_int) -> l
     let mut rval: hb_position_t = 0i32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let font = getFont(&*(FONT_LAYOUT_ENGINE[f as usize] as *mut XeTeXLayoutEngine));
-        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+        let mut hbFont: *mut hb_font_t = font.get_hb_font();
         rval = hb_ot_math_get_constant(hbFont, constant);
         /* scale according to font size, except the ones that are percentages */
         match constant as libc::c_uint {
@@ -193,7 +192,7 @@ pub(crate) unsafe fn get_ot_math_variant(
     *adv = -1i32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let font = getFont(&*(FONT_LAYOUT_ENGINE[f as usize] as *mut XeTeXLayoutEngine));
-        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+        let mut hbFont: *mut hb_font_t = font.get_hb_font();
         let mut variant: [hb_ot_math_glyph_variant_t; 1] = [hb_ot_math_glyph_variant_t {
             glyph: 0,
             advance: 0,
@@ -228,7 +227,7 @@ pub(crate) unsafe fn get_ot_assembly_ptr(
     let mut rval: *mut libc::c_void = 0 as *mut libc::c_void;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let font = getFont(&*(FONT_LAYOUT_ENGINE[f as usize] as *mut XeTeXLayoutEngine));
-        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+        let mut hbFont: *mut hb_font_t = font.get_hb_font();
         let mut count: libc::c_uint = hb_ot_math_get_glyph_assembly(
             hbFont,
             g as hb_codepoint_t,
@@ -280,7 +279,7 @@ pub(crate) unsafe fn get_ot_math_ital_corr(mut f: usize, mut g: libc::c_int) -> 
     let mut rval: hb_position_t = 0i32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let font = getFont(&*(FONT_LAYOUT_ENGINE[f as usize] as *mut XeTeXLayoutEngine));
-        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+        let mut hbFont: *mut hb_font_t = font.get_hb_font();
         rval = hb_ot_math_get_glyph_italics_correction(hbFont, g as hb_codepoint_t);
         rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as f32) as f64)
     }
@@ -290,7 +289,7 @@ pub(crate) unsafe fn get_ot_math_accent_pos(mut f: usize, mut g: libc::c_int) ->
     let mut rval: hb_position_t = 0x7fffffffu64 as hb_position_t;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let font = getFont(&*(FONT_LAYOUT_ENGINE[f as usize] as *mut XeTeXLayoutEngine));
-        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+        let mut hbFont: *mut hb_font_t = font.get_hb_font();
         rval = hb_ot_math_get_glyph_top_accent_attachment(hbFont, g as hb_codepoint_t);
         rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as f32) as f64)
     }
@@ -300,7 +299,7 @@ pub(crate) unsafe fn ot_min_connector_overlap(mut f: usize) -> libc::c_int {
     let mut rval: hb_position_t = 0i32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let font = getFont(&*(FONT_LAYOUT_ENGINE[f as usize] as *mut XeTeXLayoutEngine));
-        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+        let mut hbFont: *mut hb_font_t = font.get_hb_font();
         rval = hb_ot_math_get_min_connector_overlap(hbFont, HB_DIRECTION_RTL);
         rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as f32) as f64)
     }
@@ -315,7 +314,7 @@ unsafe fn getMathKernAt(
     let mut rval: hb_position_t = 0i32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let font = getFont(&*(FONT_LAYOUT_ENGINE[f as usize] as *mut XeTeXLayoutEngine));
-        let mut hbFont: *mut hb_font_t = XeTeXFontInst_getHbFont(font);
+        let mut hbFont: *mut hb_font_t = font.get_hb_font();
         rval = hb_ot_math_get_glyph_kerning(hbFont, g as hb_codepoint_t, side, height)
     }
     return rval;
