@@ -12,10 +12,8 @@ use crate::core_memory::xmalloc;
 use harfbuzz_sys::*;
 
 use crate::xetex_layout_interface::GlyphAssembly;
+use crate::xetex_layout_interface::XeTeXLayoutEngine;
 use crate::xetex_layout_interface::{getFont, getGlyphHeightDepth, D2Fix, Fix2D};
-use crate::xetex_layout_interface::{
-    XeTeXFontInst_pointsToUnits, XeTeXFontInst_unitsToPoints, XeTeXLayoutEngine,
-};
 
 use libc::free;
 
@@ -80,7 +78,7 @@ pub(crate) unsafe fn get_ot_math_constant(mut f: usize, mut n: libc::c_int) -> l
         /* scale according to font size, except the ones that are percentages */
         match constant as libc::c_uint {
             0 | 1 | 55 => {}
-            _ => rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as f32) as f64),
+            _ => rval = D2Fix(font.units_to_points(rval as f32) as f64),
         }
     }
     return rval;
@@ -212,9 +210,7 @@ pub(crate) unsafe fn get_ot_math_variant(
         );
         if count > 0i32 as libc::c_uint {
             rval = (*variant.as_mut_ptr()).glyph;
-            *adv = D2Fix(
-                XeTeXFontInst_unitsToPoints(font, (*variant.as_mut_ptr()).advance as f32) as f64,
-            )
+            *adv = D2Fix(font.units_to_points((*variant.as_mut_ptr()).advance as f32) as f64)
         }
     }
     return rval as libc::c_int;
@@ -281,7 +277,7 @@ pub(crate) unsafe fn get_ot_math_ital_corr(mut f: usize, mut g: libc::c_int) -> 
         let font = getFont(&*(FONT_LAYOUT_ENGINE[f as usize] as *mut XeTeXLayoutEngine));
         let mut hbFont: *mut hb_font_t = font.get_hb_font();
         rval = hb_ot_math_get_glyph_italics_correction(hbFont, g as hb_codepoint_t);
-        rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as f32) as f64)
+        rval = D2Fix(font.units_to_points(rval as f32) as f64)
     }
     return rval;
 }
@@ -291,7 +287,7 @@ pub(crate) unsafe fn get_ot_math_accent_pos(mut f: usize, mut g: libc::c_int) ->
         let font = getFont(&*(FONT_LAYOUT_ENGINE[f as usize] as *mut XeTeXLayoutEngine));
         let mut hbFont: *mut hb_font_t = font.get_hb_font();
         rval = hb_ot_math_get_glyph_top_accent_attachment(hbFont, g as hb_codepoint_t);
-        rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as f32) as f64)
+        rval = D2Fix(font.units_to_points(rval as f32) as f64)
     }
     return rval;
 }
@@ -301,7 +297,7 @@ pub(crate) unsafe fn ot_min_connector_overlap(mut f: usize) -> libc::c_int {
         let font = getFont(&*(FONT_LAYOUT_ENGINE[f as usize] as *mut XeTeXLayoutEngine));
         let mut hbFont: *mut hb_font_t = font.get_hb_font();
         rval = hb_ot_math_get_min_connector_overlap(hbFont, HB_DIRECTION_RTL);
-        rval = D2Fix(XeTeXFontInst_unitsToPoints(font, rval as f32) as f64)
+        rval = D2Fix(font.units_to_points(rval as f32) as f64)
     }
     return rval;
 }
@@ -352,11 +348,9 @@ pub(crate) unsafe fn get_ot_math_kern(
         let mut corr_height_bot: f32 = 0.0f64 as f32;
         if cmd == 0i32 {
             // superscript
-            corr_height_top = XeTeXFontInst_pointsToUnits(font, glyph_height(f, g));
-            corr_height_bot = -XeTeXFontInst_pointsToUnits(
-                font,
-                (glyph_depth(sf, sg) as f64 + Fix2D(shift)) as f32,
-            );
+            corr_height_top = font.points_to_units(glyph_height(f, g));
+            corr_height_bot =
+                -font.points_to_units((glyph_depth(sf, sg) as f64 + Fix2D(shift)) as f32);
             kern = getMathKernAt(
                 f,
                 g,
@@ -387,11 +381,9 @@ pub(crate) unsafe fn get_ot_math_kern(
             }
         } else if cmd == 1i32 {
             // subscript
-            corr_height_top = XeTeXFontInst_pointsToUnits(
-                font,
-                (glyph_height(sf, sg) as f64 - Fix2D(shift)) as f32,
-            );
-            corr_height_bot = -XeTeXFontInst_pointsToUnits(font, glyph_depth(f, g));
+            corr_height_top =
+                font.points_to_units((glyph_height(sf, sg) as f64 - Fix2D(shift)) as f32);
+            corr_height_bot = -font.points_to_units(glyph_depth(f, g));
             kern = getMathKernAt(
                 f,
                 g,
@@ -424,7 +416,7 @@ pub(crate) unsafe fn get_ot_math_kern(
             unreachable!()
             // we should not reach here
         }
-        return D2Fix(XeTeXFontInst_unitsToPoints(font, rval as f32) as f64);
+        return D2Fix(font.units_to_points(rval as f32) as f64);
     }
     return 0i32;
 }
@@ -447,10 +439,10 @@ pub(crate) unsafe fn ot_part_start_connector(
     let mut rval: libc::c_int = 0i32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let font = getFont(&*(FONT_LAYOUT_ENGINE[f as usize] as *mut XeTeXLayoutEngine));
-        rval = D2Fix(XeTeXFontInst_unitsToPoints(
-            font,
-            (*(*a).parts.offset(i as isize)).start_connector_length as f32,
-        ) as f64)
+        rval = D2Fix(
+            font.units_to_points((*(*a).parts.offset(i as isize)).start_connector_length as f32)
+                as f64,
+        )
     }
     return rval;
 }
@@ -462,10 +454,10 @@ pub(crate) unsafe fn ot_part_end_connector(
     let mut rval: libc::c_int = 0i32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let font = getFont(&*(FONT_LAYOUT_ENGINE[f as usize] as *mut XeTeXLayoutEngine));
-        rval = D2Fix(XeTeXFontInst_unitsToPoints(
-            font,
-            (*(*a).parts.offset(i as isize)).end_connector_length as f32,
-        ) as f64)
+        rval = D2Fix(
+            font.units_to_points((*(*a).parts.offset(i as isize)).end_connector_length as f32)
+                as f64,
+        )
     }
     return rval;
 }
@@ -508,10 +500,8 @@ pub(crate) unsafe fn ot_part_full_advance(
     let mut rval: libc::c_int = 0i32;
     if FONT_AREA[f as usize] as libc::c_uint == 0xfffeu32 {
         let font = getFont(&*(FONT_LAYOUT_ENGINE[f as usize] as *mut XeTeXLayoutEngine));
-        rval = D2Fix(XeTeXFontInst_unitsToPoints(
-            font,
-            (*(*a).parts.offset(i as isize)).full_advance as f32,
-        ) as f64)
+        rval =
+            D2Fix(font.units_to_points((*(*a).parts.offset(i as isize)).full_advance as f32) as f64)
     }
     return rval;
 }

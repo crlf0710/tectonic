@@ -185,8 +185,6 @@ use crate::xetex_font_manager::{
 
 use crate::xetex_font_info::XeTeXFontInst;
 
-use crate::xetex_font_info::{XeTeXFontInst_pointsToUnits, XeTeXFontInst_unitsToPoints};
-
 pub(crate) mod collection_types {
 
     use std::collections::{BTreeMap, VecDeque};
@@ -1304,22 +1302,18 @@ pub(crate) unsafe fn getGlyphs(mut engine: *mut XeTeXLayoutEngine, mut glyphs: *
         i += 1
     }
 }
-pub(crate) unsafe fn getGlyphAdvances(mut engine: *mut XeTeXLayoutEngine, mut advances: *mut f32) {
-    let mut glyphCount: i32 = hb_buffer_get_length((*engine).hbBuffer) as i32;
+pub(crate) unsafe fn getGlyphAdvances(engine: &XeTeXLayoutEngine, mut advances: *mut f32) {
+    let mut glyphCount: i32 = hb_buffer_get_length(engine.hbBuffer) as i32;
     let mut hbPositions: *mut hb_glyph_position_t =
-        hb_buffer_get_glyph_positions((*engine).hbBuffer, 0 as *mut libc::c_uint);
+        hb_buffer_get_glyph_positions(engine.hbBuffer, 0 as *mut libc::c_uint);
     let mut i: i32 = 0i32;
     while i < glyphCount {
-        if XeTeXFontInst_getLayoutDirVertical(&*(*engine).font) {
-            *advances.offset(i as isize) = XeTeXFontInst_unitsToPoints(
-                &*(*engine).font,
-                (*hbPositions.offset(i as isize)).y_advance as f32,
-            )
+        if XeTeXFontInst_getLayoutDirVertical(&*engine.font) {
+            *advances.offset(i as isize) =
+                (&*engine.font).units_to_points((*hbPositions.offset(i as isize)).y_advance as f32)
         } else {
-            *advances.offset(i as isize) = XeTeXFontInst_unitsToPoints(
-                &*(*engine).font,
-                (*hbPositions.offset(i as isize)).x_advance as f32,
-            )
+            *advances.offset(i as isize) =
+                (&*engine.font).units_to_points((*hbPositions.offset(i as isize)).x_advance as f32)
         }
         i += 1
     }
@@ -1336,41 +1330,29 @@ pub(crate) unsafe fn getGlyphPositions(
     if XeTeXFontInst_getLayoutDirVertical(&*(*engine).font) {
         let mut i: i32 = 0i32;
         while i < glyphCount {
-            (*positions.offset(i as isize)).x = -XeTeXFontInst_unitsToPoints(
-                &*(*engine).font,
-                x + (*hbPositions.offset(i as isize)).y_offset as f32,
-            );
-            (*positions.offset(i as isize)).y = XeTeXFontInst_unitsToPoints(
-                &*(*engine).font,
-                y - (*hbPositions.offset(i as isize)).x_offset as f32,
-            );
+            (*positions.offset(i as isize)).x = -(*(*engine).font)
+                .units_to_points(x + (*hbPositions.offset(i as isize)).y_offset as f32);
+            (*positions.offset(i as isize)).y = (*(*engine).font)
+                .units_to_points(y - (*hbPositions.offset(i as isize)).x_offset as f32);
             x += (*hbPositions.offset(i as isize)).y_advance as f32;
             y += (*hbPositions.offset(i as isize)).x_advance as f32;
             i += 1
         }
-        (*positions.offset(glyphCount as isize)).x =
-            -XeTeXFontInst_unitsToPoints(&*(*engine).font, x);
-        (*positions.offset(glyphCount as isize)).y =
-            XeTeXFontInst_unitsToPoints(&*(*engine).font, y)
+        (*positions.offset(glyphCount as isize)).x = -(*(*engine).font).units_to_points(x);
+        (*positions.offset(glyphCount as isize)).y = (*(*engine).font).units_to_points(y)
     } else {
         let mut i_0: i32 = 0i32;
         while i_0 < glyphCount {
-            (*positions.offset(i_0 as isize)).x = XeTeXFontInst_unitsToPoints(
-                &*(*engine).font,
-                x + (*hbPositions.offset(i_0 as isize)).x_offset as f32,
-            );
-            (*positions.offset(i_0 as isize)).y = -XeTeXFontInst_unitsToPoints(
-                &*(*engine).font,
-                y + (*hbPositions.offset(i_0 as isize)).y_offset as f32,
-            );
+            (*positions.offset(i_0 as isize)).x = (*(*engine).font)
+                .units_to_points(x + (*hbPositions.offset(i_0 as isize)).x_offset as f32);
+            (*positions.offset(i_0 as isize)).y = -(*(*engine).font)
+                .units_to_points(y + (*hbPositions.offset(i_0 as isize)).y_offset as f32);
             x += (*hbPositions.offset(i_0 as isize)).x_advance as f32;
             y += (*hbPositions.offset(i_0 as isize)).y_advance as f32;
             i_0 += 1
         }
-        (*positions.offset(glyphCount as isize)).x =
-            XeTeXFontInst_unitsToPoints(&*(*engine).font, x);
-        (*positions.offset(glyphCount as isize)).y =
-            -XeTeXFontInst_unitsToPoints(&*(*engine).font, y)
+        (*positions.offset(glyphCount as isize)).x = (*(*engine).font).units_to_points(x);
+        (*positions.offset(glyphCount as isize)).y = -(*(*engine).font).units_to_points(y)
     }
     if (*engine).extend as f64 != 1.0f64 || (*engine).slant as f64 != 0.0f64 {
         let mut i_1: i32 = 0i32;

@@ -182,7 +182,7 @@ pub(crate) struct XeTeXFontInst {
 /* Return NAME with any leading path stripped off.  This returns a
 pointer into NAME.  For example, `basename ("/foo/bar.baz")'
 returns "bar.baz".  */
-unsafe fn xbasename(mut name: &str) -> &str {
+fn xbasename(mut name: &str) -> &str {
     let mut base = name;
     let mut p = base;
     while !p.is_empty() {
@@ -515,7 +515,7 @@ unsafe extern "C" fn _get_font_funcs() -> *mut hb_font_funcs_t {
         None,
     );
     hb_font_funcs_set_glyph_name_func(funcs, Some(_get_glyph_name), 0 as *mut libc::c_void, None);
-    return funcs;
+    funcs
 }
 unsafe extern "C" fn _get_table(
     mut _hfc: *mut hb_face_t,
@@ -553,7 +553,7 @@ unsafe extern "C" fn _get_table(
             }
         }
     }
-    return blob;
+    blob
 }
 impl XeTeXFontInst {
     pub(crate) unsafe fn initialize(
@@ -648,16 +648,16 @@ impl XeTeXFontInst {
         self.m_filename = crate::core_memory::strdup(pathname);
         self.m_index = index as uint32_t;
         self.m_unitsPerEM = (*self.m_ftFace).units_per_EM;
-        self.m_ascent = XeTeXFontInst_unitsToPoints(self, (*self.m_ftFace).ascender as f32);
-        self.m_descent = XeTeXFontInst_unitsToPoints(self, (*self.m_ftFace).descender as f32);
+        self.m_ascent = self.units_to_points((*self.m_ftFace).ascender as f32);
+        self.m_descent = self.units_to_points((*self.m_ftFace).descender as f32);
         postTable = self.get_font_table_ft(FT_SFNT_POST) as *mut TT_Postscript;
         if !postTable.is_null() {
             self.m_italicAngle = Fix2D((*postTable).italicAngle as Fixed) as f32
         }
         os2Table = self.get_font_table_ft(FT_SFNT_OS2) as *mut TT_OS2;
         if !os2Table.is_null() {
-            self.m_capHeight = XeTeXFontInst_unitsToPoints(self, (*os2Table).sCapHeight as f32);
-            self.m_xHeight = XeTeXFontInst_unitsToPoints(self, (*os2Table).sxHeight as f32)
+            self.m_capHeight = self.units_to_points((*os2Table).sCapHeight as f32);
+            self.m_xHeight = self.units_to_points((*os2Table).sxHeight as f32)
         }
         // Set up HarfBuzz font
         hbFace = hb_face_create_for_tables(
@@ -757,10 +757,10 @@ impl XeTeXFontInst {
                 FT_GLYPH_BBOX_UNSCALED as libc::c_int as FT_UInt,
                 &mut ft_bbox,
             );
-            (*bbox).xMin = XeTeXFontInst_unitsToPoints(self, ft_bbox.xMin as f32);
-            (*bbox).yMin = XeTeXFontInst_unitsToPoints(self, ft_bbox.yMin as f32);
-            (*bbox).xMax = XeTeXFontInst_unitsToPoints(self, ft_bbox.xMax as f32);
-            (*bbox).yMax = XeTeXFontInst_unitsToPoints(self, ft_bbox.yMax as f32);
+            (*bbox).xMin = self.units_to_points(ft_bbox.xMin as f32);
+            (*bbox).yMin = self.units_to_points(ft_bbox.yMin as f32);
+            (*bbox).xMax = self.units_to_points(ft_bbox.xMax as f32);
+            (*bbox).yMax = self.units_to_points(ft_bbox.yMax as f32);
             FT_Done_Glyph(glyph);
         };
     }
@@ -774,10 +774,7 @@ impl XeTeXFontInst {
     }
 
     pub(crate) unsafe fn get_glyph_width(&self, gid: GlyphID) -> f32 {
-        XeTeXFontInst_unitsToPoints(
-            self,
-            _get_glyph_advance(self.m_ftFace, gid as FT_UInt, false) as f32,
-        )
+        self.units_to_points(_get_glyph_advance(self.m_ftFace, gid as FT_UInt, false) as f32)
     }
 
     pub(crate) unsafe fn get_glyph_height_depth(&self, gid: GlyphID, ht: *mut f32, dp: *mut f32) {
@@ -831,11 +828,11 @@ impl XeTeXFontInst {
         if bbox.xMax > width {
             rval = bbox.xMax - width
         }
-        return rval;
+        rval
     }
 
     pub(crate) unsafe fn map_glyph_to_index(&self, mut glyphName: *const libc::c_char) -> GlyphID {
-        return FT_Get_Name_Index(self.m_ftFace, glyphName as *mut libc::c_char) as GlyphID;
+        FT_Get_Name_Index(self.m_ftFace, glyphName as *mut libc::c_char) as GlyphID
     }
 
     pub(crate) unsafe fn get_glyph_name(
@@ -875,19 +872,15 @@ impl XeTeXFontInst {
         return prev;
     }
 
-    pub(crate) unsafe fn get_hb_font(&self) -> *mut hb_font_t {
+    pub(crate) fn get_hb_font(&self) -> *mut hb_font_t {
         self.m_hbFont
     }
-}
 
-#[no_mangle]
-//#[inline]
-pub(crate) unsafe fn XeTeXFontInst_unitsToPoints(self_0: &XeTeXFontInst, units: f32) -> f32 {
-    (units * self_0.m_pointSize) / (self_0.m_unitsPerEM as f32)
-}
+    pub(crate) fn units_to_points(&self, units: f32) -> f32 {
+        (units * self.m_pointSize) / (self.m_unitsPerEM as f32)
+    }
 
-#[no_mangle]
-//#[inline]
-pub(crate) unsafe fn XeTeXFontInst_pointsToUnits(self_0: &XeTeXFontInst, points: f32) -> f32 {
-    (points * (self_0.m_unitsPerEM as f32)) / self_0.m_pointSize
+    pub(crate) fn points_to_units(&self, points: f32) -> f32 {
+        (points * (self.m_unitsPerEM as f32)) / self.m_pointSize
+    }
 }
