@@ -697,32 +697,14 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
 #[no_mangle]
 pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_ctor(mut self_0: *mut XeTeXFontMgr_FC) {
     XeTeXFontMgr_base_ctor(&mut (*self_0).super_);
-    (*self_0).super_.m_memfnInitialize =
-        Some(XeTeXFontMgr_FC_initialize as unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ());
-    (*self_0).super_.m_memfnTerminate =
-        Some(XeTeXFontMgr_FC_terminate as unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ());
-    (*self_0).super_.m_memfnGetOpSizeRecAndStyleFlags = Some(
-        XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags
-            as unsafe extern "C" fn(_: *mut XeTeXFontMgr, _: *mut XeTeXFontMgrFont) -> (),
-    );
-    (*self_0).super_.m_memfnGetPlatformFontDesc = Some(
-        XeTeXFontMgr_FC_getPlatformFontDesc
-            as unsafe extern "C" fn(
-                _: *const XeTeXFontMgr,
-                _: PlatformFontRef,
-            ) -> *mut libc::c_char,
-    );
-    (*self_0).super_.m_memfnSearchForHostPlatformFonts = Some(
-        XeTeXFontMgr_FC_searchForHostPlatformFonts
-            as unsafe extern "C" fn(_: *mut XeTeXFontMgr, _: *const libc::c_char) -> (),
-    );
-    (*self_0).super_.m_memfnReadNames = Some(
-        XeTeXFontMgr_FC_readNames
-            as unsafe extern "C" fn(
-                _: *mut XeTeXFontMgr,
-                _: *mut FcPattern,
-            ) -> *mut XeTeXFontMgrNameCollection,
-    );
+    (*self_0).super_.m_memfnInitialize = Some(XeTeXFontMgr_FC_initialize);
+    (*self_0).super_.m_memfnTerminate = Some(XeTeXFontMgr_FC_terminate);
+    (*self_0).super_.m_memfnGetOpSizeRecAndStyleFlags =
+        Some(XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags);
+    (*self_0).super_.m_memfnGetPlatformFontDesc = Some(XeTeXFontMgr_FC_getPlatformFontDesc);
+    (*self_0).super_.m_memfnSearchForHostPlatformFonts =
+        Some(XeTeXFontMgr_FC_searchForHostPlatformFonts);
+    (*self_0).super_.m_memfnReadNames = Some(XeTeXFontMgr_FC_readNames);
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_create() -> *mut XeTeXFontMgr_FC {

@@ -26,7 +26,7 @@ use crate::core_memory::{xcalloc, xmalloc};
 use crate::node::NativeWord;
 use crate::xetex_ext::{print_chars, readCommonFeatures, read_double, D2Fix, Fix2D};
 use crate::xetex_ini::{
-    loaded_font_flags, loaded_font_letter_space, name_of_file, FONT_AREA, FONT_LAYOUT_ENGINE,
+    loaded_font_flags, loaded_font_letter_space, name_of_file, FONT_LAYOUT_ENGINE,
     FONT_LETTER_SPACE,
 };
 use crate::xetex_xetex0::font_feature_warning;
@@ -100,14 +100,9 @@ unsafe fn FixedPStoTeXPoints(mut pts: f64) -> Fixed {
     return D2Fix(PStoTeXPoints(pts));
 }
 
-unsafe fn font_from_attributes(mut attributes: CFDictionaryRef) -> CTFontRef {
+pub(crate) unsafe fn font_from_attributes(mut attributes: CFDictionaryRef) -> CTFontRef {
     return CFDictionaryGetValue(attributes, kCTFontAttributeName as *const libc::c_void)
         as CTFontRef;
-}
-
-pub(crate) unsafe fn font_from_integer(mut font: usize) -> CTFontRef {
-    let mut attributes: CFDictionaryRef = FONT_LAYOUT_ENGINE[font] as CFDictionaryRef;
-    return font_from_attributes(attributes);
 }
 
 pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
@@ -123,124 +118,123 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     let mut width: CGFloat = 0.;
     let mut txtLen: CFIndex = 0;
     let mut txtPtr: *const UniChar = ptr::null_mut();
-    let mut attributes: CFDictionaryRef = ptr::null_mut();
     let mut string: CFStringRef = ptr::null_mut();
     let mut attrString: CFAttributedStringRef = ptr::null_mut();
     let mut typesetter: CTTypesetterRef = 0 as CTTypesetterRef;
     let mut line: CTLineRef = ptr::null_mut();
     let mut f: libc::c_uint = node.font() as libc::c_uint;
-    if FONT_AREA[f as usize] as libc::c_uint != 0xffffu32 {
-        panic!("do_aat_layout called for non-AAT font");
-    }
-    let txt = node.text();
-    txtLen = txt.len() as CFIndex;
-    txtPtr = txt.as_ptr() as *const UniChar;
-    attributes = FONT_LAYOUT_ENGINE[node.font() as usize] as CFDictionaryRef;
-    string = CFStringCreateWithCharactersNoCopy(ptr::null(), txtPtr, txtLen, kCFAllocatorNull);
-    attrString = CFAttributedStringCreate(ptr::null(), string, attributes);
-    CFRelease(string as CFTypeRef);
-    typesetter = CTTypesetterCreateWithAttributedString(attrString);
-    CFRelease(attrString as CFTypeRef);
-    line = CTTypesetterCreateLine(typesetter, CFRangeMake(0i32 as CFIndex, txtLen));
-    if justify {
-        let mut lineWidth: CGFloat = TeXtoPSPoints(Fix2D(node.width()));
-        let mut justifiedLine: CTLineRef = CTLineCreateJustifiedLine(
-            line,
-            TeXtoPSPoints(Fix2D(0x40000000i64 as Fract)),
-            lineWidth,
-        );
-        // TODO(jjgod): how to handle the case when justification failed? for
-        // now we just fallback to use the original line.
-        if !justifiedLine.is_null() {
-            CFRelease(line as CFTypeRef);
-            line = justifiedLine
-        }
-    }
-    glyphRuns = CTLineGetGlyphRuns(line);
-    runCount = CFArrayGetCount(glyphRuns);
-    totalGlyphCount = CTLineGetGlyphCount(line);
-    if totalGlyphCount > 0 {
-        glyph_info = xmalloc((totalGlyphCount * 10) as _);
-        locations = glyph_info as *mut FixedPoint;
-        glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
-        glyphAdvances =
-            xmalloc((totalGlyphCount as usize).wrapping_mul(::std::mem::size_of::<Fixed>()) as _)
-                as *mut Fixed;
-        totalGlyphCount = 0i32 as CFIndex;
-        width = 0i32 as CGFloat;
-        i = 0i32 as CFIndex;
-        while i < runCount {
-            let mut run: CTRunRef = CFArrayGetValueAtIndex(glyphRuns, i) as CTRunRef;
-            let mut count: CFIndex = CTRunGetGlyphCount(run);
-            let mut runAttributes: CFDictionaryRef = CTRunGetAttributes(run);
-            let mut vertical: CFBooleanRef = CFDictionaryGetValue(
-                runAttributes,
-                kCTVerticalFormsAttributeName as *const libc::c_void,
-            ) as CFBooleanRef;
-            // TODO(jjgod): Avoid unnecessary allocation with CTRunGetFoosPtr().
-            let mut glyphs: *mut CGGlyph =
-                xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGGlyph>()) as _)
-                    as *mut CGGlyph;
-            let mut positions: *mut CGPoint =
-                xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGPoint>()) as _)
-                    as *mut CGPoint;
-            let mut advances: *mut CGSize =
-                xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGSize>()) as _)
-                    as *mut CGSize;
-            let mut runWidth: CGFloat = CTRunGetTypographicBounds(
-                run,
-                CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex),
-                ptr::null_mut(),
-                ptr::null_mut(),
-                ptr::null_mut(),
+    if let NativeFont::Aat(attributes) = &FONT_LAYOUT_ENGINE[f as usize] {
+        let txt = node.text();
+        txtLen = txt.len() as CFIndex;
+        txtPtr = txt.as_ptr() as *const UniChar;
+        string = CFStringCreateWithCharactersNoCopy(ptr::null(), txtPtr, txtLen, kCFAllocatorNull);
+        attrString = CFAttributedStringCreate(ptr::null(), string, *attributes);
+        CFRelease(string as CFTypeRef);
+        typesetter = CTTypesetterCreateWithAttributedString(attrString);
+        CFRelease(attrString as CFTypeRef);
+        line = CTTypesetterCreateLine(typesetter, CFRangeMake(0i32 as CFIndex, txtLen));
+        if justify {
+            let mut lineWidth: CGFloat = TeXtoPSPoints(Fix2D(node.width()));
+            let mut justifiedLine: CTLineRef = CTLineCreateJustifiedLine(
+                line,
+                TeXtoPSPoints(Fix2D(0x40000000i64 as Fract)),
+                lineWidth,
             );
-            CTRunGetGlyphs(run, CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex), glyphs);
-            CTRunGetPositions(
-                run,
-                CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex),
-                positions,
-            );
-            CTRunGetAdvances(run, CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex), advances);
-            j = 0i32 as CFIndex;
-            while j < count {
-                // XXX Core Text has that font cascading thing that will do
-                // font substitution for missing glyphs, which we do not want
-                // but I can not find a way to disable it yet, so if the font
-                // of the resulting run is not the same font we asked for, use
-                // the glyph at index 0 (usually .notdef) instead or we will be
-                // showing garbage or even invalid glyphs
-                if CFEqual(
-                    font_from_attributes(attributes) as CFTypeRef,
-                    font_from_attributes(runAttributes) as CFTypeRef,
-                ) == 0
-                {
-                    *glyphIDs.offset(totalGlyphCount as isize) = 0i32 as u16
-                } else {
-                    *glyphIDs.offset(totalGlyphCount as isize) = *glyphs.offset(j as isize)
-                }
-                // Swap X and Y when doing vertical layout
-                if vertical == kCFBooleanTrue {
-                    (*locations.offset(totalGlyphCount as isize)).x =
-                        -FixedPStoTeXPoints((*positions.offset(j as isize)).y);
-                    (*locations.offset(totalGlyphCount as isize)).y =
-                        FixedPStoTeXPoints((*positions.offset(j as isize)).x)
-                } else {
-                    (*locations.offset(totalGlyphCount as isize)).x =
-                        FixedPStoTeXPoints((*positions.offset(j as isize)).x);
-                    (*locations.offset(totalGlyphCount as isize)).y =
-                        -FixedPStoTeXPoints((*positions.offset(j as isize)).y)
-                }
-                *glyphAdvances.offset(totalGlyphCount as isize) =
-                    (*advances.offset(j as isize)).width as Fixed;
-                totalGlyphCount += 1;
-                j += 1
+            // TODO(jjgod): how to handle the case when justification failed? for
+            // now we just fallback to use the original line.
+            if !justifiedLine.is_null() {
+                CFRelease(line as CFTypeRef);
+                line = justifiedLine
             }
-            width += FixedPStoTeXPoints(runWidth) as f64;
-            free(glyphs as *mut libc::c_void);
-            free(positions as *mut libc::c_void);
-            free(advances as *mut libc::c_void);
-            i += 1
         }
+        glyphRuns = CTLineGetGlyphRuns(line);
+        runCount = CFArrayGetCount(glyphRuns);
+        totalGlyphCount = CTLineGetGlyphCount(line);
+        if totalGlyphCount > 0 {
+            glyph_info = xmalloc((totalGlyphCount * 10) as _);
+            locations = glyph_info as *mut FixedPoint;
+            glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
+            glyphAdvances = xmalloc(
+                (totalGlyphCount as usize).wrapping_mul(::std::mem::size_of::<Fixed>()) as _,
+            ) as *mut Fixed;
+            totalGlyphCount = 0i32 as CFIndex;
+            width = 0i32 as CGFloat;
+            i = 0i32 as CFIndex;
+            while i < runCount {
+                let mut run: CTRunRef = CFArrayGetValueAtIndex(glyphRuns, i) as CTRunRef;
+                let mut count: CFIndex = CTRunGetGlyphCount(run);
+                let mut runAttributes: CFDictionaryRef = CTRunGetAttributes(run);
+                let mut vertical: CFBooleanRef = CFDictionaryGetValue(
+                    runAttributes,
+                    kCTVerticalFormsAttributeName as *const libc::c_void,
+                ) as CFBooleanRef;
+                // TODO(jjgod): Avoid unnecessary allocation with CTRunGetFoosPtr().
+                let mut glyphs: *mut CGGlyph =
+                    xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGGlyph>()) as _)
+                        as *mut CGGlyph;
+                let mut positions: *mut CGPoint =
+                    xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGPoint>()) as _)
+                        as *mut CGPoint;
+                let mut advances: *mut CGSize =
+                    xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGSize>()) as _)
+                        as *mut CGSize;
+                let mut runWidth: CGFloat = CTRunGetTypographicBounds(
+                    run,
+                    CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                );
+                CTRunGetGlyphs(run, CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex), glyphs);
+                CTRunGetPositions(
+                    run,
+                    CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex),
+                    positions,
+                );
+                CTRunGetAdvances(run, CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex), advances);
+                j = 0i32 as CFIndex;
+                while j < count {
+                    // XXX Core Text has that font cascading thing that will do
+                    // font substitution for missing glyphs, which we do not want
+                    // but I can not find a way to disable it yet, so if the font
+                    // of the resulting run is not the same font we asked for, use
+                    // the glyph at index 0 (usually .notdef) instead or we will be
+                    // showing garbage or even invalid glyphs
+                    if CFEqual(
+                        font_from_attributes(*attributes) as CFTypeRef,
+                        font_from_attributes(runAttributes) as CFTypeRef,
+                    ) == 0
+                    {
+                        *glyphIDs.offset(totalGlyphCount as isize) = 0i32 as u16
+                    } else {
+                        *glyphIDs.offset(totalGlyphCount as isize) = *glyphs.offset(j as isize)
+                    }
+                    // Swap X and Y when doing vertical layout
+                    if vertical == kCFBooleanTrue {
+                        (*locations.offset(totalGlyphCount as isize)).x =
+                            -FixedPStoTeXPoints((*positions.offset(j as isize)).y);
+                        (*locations.offset(totalGlyphCount as isize)).y =
+                            FixedPStoTeXPoints((*positions.offset(j as isize)).x)
+                    } else {
+                        (*locations.offset(totalGlyphCount as isize)).x =
+                            FixedPStoTeXPoints((*positions.offset(j as isize)).x);
+                        (*locations.offset(totalGlyphCount as isize)).y =
+                            -FixedPStoTeXPoints((*positions.offset(j as isize)).y)
+                    }
+                    *glyphAdvances.offset(totalGlyphCount as isize) =
+                        (*advances.offset(j as isize)).width as Fixed;
+                    totalGlyphCount += 1;
+                    j += 1
+                }
+                width += FixedPStoTeXPoints(runWidth) as f64;
+                free(glyphs as *mut libc::c_void);
+                free(positions as *mut libc::c_void);
+                free(advances as *mut libc::c_void);
+                i += 1
+            }
+        }
+    } else {
+        panic!("do_aat_layout called for non-AAT font");
     }
     node.set_glyph_count(totalGlyphCount as u16);
     node.set_glyph_info_ptr(glyph_info);
@@ -731,7 +725,7 @@ pub(crate) unsafe fn loadAATfont(
     mut descriptor: CTFontDescriptorRef,
     mut scaled_size: i32,
     mut cp1: &[u8],
-) -> Option<NativeFont> {
+) -> NativeFont {
     let mut current_block: u64;
     let mut font: CTFontRef = 0 as CTFontRef;
     let mut actualFont: CTFontRef = 0 as CTFontRef;
@@ -758,7 +752,7 @@ pub(crate) unsafe fn loadAATfont(
     ctSize = TeXtoPSPoints(Fix2D(scaled_size));
     font = CTFontCreateWithFontDescriptor(descriptor, ctSize, ptr::null());
     if font.is_null() {
-        return None;
+        return NativeFont::None;
     }
     stringAttributes = CFDictionaryCreateMutable(
         0 as CFAllocatorRef,
@@ -822,7 +816,7 @@ pub(crate) unsafe fn loadAATfont(
                         &mut zeroInteger as *mut libc::c_int as *const libc::c_void,
                     );
                     cp3 = &cp3[1..];
-                    while cp3 < cp2 {
+                    while cp3.len() > cp2.len() {
                         let mut selector: CFNumberRef = 0 as CFNumberRef;
                         let mut disable: libc::c_int = 0i32;
                         // skip leading whitespace
@@ -1050,9 +1044,9 @@ pub(crate) unsafe fn loadAATfont(
     );
     CFRelease(actualFont as CFTypeRef);
     if stringAttributes.is_null() {
-        None
+        NativeFont::None
     } else {
-        Some(crate::xetex_ext::NativeFont::Aat(stringAttributes))
+        NativeFont::Aat(stringAttributes)
     }
 }
 

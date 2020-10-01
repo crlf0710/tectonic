@@ -884,7 +884,9 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     FONT_PTR = x as usize;
 
     FONT_MAPPING = vec![0 as *mut libc::c_void; FONT_MAX + 1];
-    FONT_LAYOUT_ENGINE = vec![0 as *mut libc::c_void; FONT_MAX + 1];
+    for _ in 0..FONT_MAX + 1 {
+        FONT_LAYOUT_ENGINE.push(crate::xetex_ext::NativeFont::None);
+    }
     FONT_FLAGS = vec![0; FONT_MAX + 1];
     FONT_LETTER_SPACE = vec![0; FONT_MAX + 1];
     FONT_CHECK = vec![b16x4_le_t::default(); FONT_MAX + 1];
