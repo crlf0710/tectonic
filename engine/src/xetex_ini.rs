@@ -2203,8 +2203,8 @@ pub(crate) unsafe fn prefixed_command() {
                     HYPHEN_CHAR[f] = cur_val
                 } else { SKEW_CHAR[f] = cur_val }
             } else {
-                if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
-                    scan_glyph_number(f);
+                if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
+                    scan_glyph_number(nf);
                 } else { scan_char_num(); }
                 let p = cur_val;
                 scan_optional_equals();

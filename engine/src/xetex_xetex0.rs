@@ -28,8 +28,9 @@ use crate::xetex_ext::{
     getnativecharht, getnativecharic, getnativecharwd, gr_font_get_named, gr_font_get_named_1,
     gr_print_font_name, linebreak_next, linebreak_start, map_char_to_glyph, map_glyph_to_index,
     ot_font_get, ot_font_get_1, ot_font_get_2, ot_font_get_3, print_glyph_name, print_utf8_str,
-    Font, NativeFont::*,
+    Font, NativeFont, NativeFont::*,
 };
+use crate::xetex_ini::FONT_LETTER_SPACE;
 use crate::xetex_ini::{
     _xeq_level_array, active_width, adjust_tail, after_token, align_ptr, align_state,
     area_delimiter, arith_error, avail, bchar, best_height_plus_depth, breadth_max,
@@ -5449,7 +5450,7 @@ pub(crate) unsafe fn mu_error() {
     help!("I\'m going to assume that 1mu=1pt when they\'re mixed.");
     error();
 }
-pub(crate) unsafe fn scan_glyph_number(mut f: internal_font_number) {
+pub(crate) unsafe fn scan_glyph_number(f: &NativeFont) {
     if scan_keyword(b"/") {
         scan_and_pack_name();
         cur_val = map_glyph_to_index(f);
@@ -6259,8 +6260,8 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                 cur_val_level = ValLevel::Int
             } else {
                 n = cur_val;
-                if let Font::Native(_) = &FONT_LAYOUT_ENGINE[n as usize] {
-                    scan_glyph_number(n as usize);
+                if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[n as usize] {
+                    scan_glyph_number(nf);
                 } else {
                     scan_char_num();
                 }
@@ -6409,7 +6410,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             scan_font_ident();
                             let q = cur_val as usize;
                             scan_usv_num();
-                            if let Font::Native(_) = &FONT_LAYOUT_ENGINE[q] {
+                            if let Font::Native(nq) = &FONT_LAYOUT_ENGINE[q] {
                                 match m {
                                     LastItemCode::FontCharWd => {
                                         cur_val = getnativecharwd(q, cur_val)
@@ -6421,7 +6422,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                         cur_val = getnativechardp(q, cur_val)
                                     }
                                     LastItemCode::FontCharIc => {
-                                        cur_val = getnativecharic(q, cur_val)
+                                        cur_val = getnativecharic(nq, FONT_LETTER_SPACE[q], cur_val)
                                     }
                                     _ => unreachable!(),
                                 }
@@ -6683,12 +6684,12 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             }
                         }
                         LastItemCode::XetexMapCharToGlyph => {
-                            if let Font::Native(_) =
+                            if let Font::Native(nf) =
                                 &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
                                 scan_int();
                                 n = cur_val;
-                                cur_val = map_char_to_glyph(EQTB[CUR_FONT_LOC].val as usize, n)
+                                cur_val = map_char_to_glyph(nf, n)
                             } else {
                                 not_native_font_error(
                                     Cmd::LastItem,
@@ -6699,11 +6700,11 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             }
                         }
                         LastItemCode::XetexGlyphIndex => {
-                            if let Font::Native(_) =
+                            if let Font::Native(nf) =
                                 &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
                                 scan_and_pack_name();
-                                cur_val = map_glyph_to_index(EQTB[CUR_FONT_LOC].val as usize)
+                                cur_val = map_glyph_to_index(nf)
                             } else {
                                 not_native_font_error(
                                     Cmd::LastItem,
@@ -9088,8 +9089,8 @@ pub(crate) unsafe fn conditional() {
             scan_font_ident();
             let n = cur_val as usize;
             scan_usv_num();
-            b = if let Font::Native(_) = &FONT_LAYOUT_ENGINE[n] {
-                map_char_to_glyph(n, cur_val) > 0
+            b = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[n] {
+                map_char_to_glyph(nf, cur_val) > 0
             } else if FONT_BC[n] as i32 <= cur_val && FONT_EC[n] as i32 >= cur_val {
                 FONT_CHARACTER_INFO(n, effective_char(true, n, cur_val as u16) as usize).s3 > 0
             } else {
@@ -9669,10 +9670,11 @@ pub(crate) unsafe fn new_native_word_node(f: usize, n: i32) -> NativeWord {
     q
 }
 pub(crate) unsafe fn new_native_character(
-    mut f: internal_font_number,
+    f: internal_font_number,
     mut c: UnicodeScalar,
 ) -> NativeWord {
     let mut p;
+    let nf = FONT_LAYOUT_ENGINE[f].as_native();
     if !(FONT_MAPPING[f]).is_null() {
         if c as i64 > 65535 {
             if pool_ptr + 2 > pool_size {
@@ -9708,12 +9710,12 @@ pub(crate) unsafe fn new_native_character(
                 c = (*mapped_text.offset(i as isize) as i32 - 0xd800) * 1024
                     + *mapped_text.offset((i + 1) as isize) as i32
                     + 9216;
-                if map_char_to_glyph(f, c) == 0 {
+                if map_char_to_glyph(nf, c) == 0 {
                     char_warning(f, c);
                 }
                 i += 2;
             } else {
-                if map_char_to_glyph(f, *mapped_text.offset(i as isize) as i32) == 0 {
+                if map_char_to_glyph(nf, *mapped_text.offset(i as isize) as i32) == 0 {
                     char_warning(f, *mapped_text.offset(i as isize) as i32);
                 }
                 i += 1;
@@ -9725,7 +9727,7 @@ pub(crate) unsafe fn new_native_character(
         p.text_mut().copy_from_slice(&slice[..len as usize]);
     } else {
         if *INTPAR(IntPar::tracing_lost_chars) > 0 {
-            if map_char_to_glyph(f, c) == 0 {
+            if map_char_to_glyph(nf, c) == 0 {
                 char_warning(f, c);
             }
         }
@@ -13072,10 +13074,12 @@ pub(crate) unsafe fn make_accent() {
         let mut rsb: scaled_t = 0;
         let x = FONT_INFO[(X_HEIGHT_CODE + PARAM_BASE[f]) as usize].b32.s1;
         let s = FONT_INFO[(SLANT_CODE + PARAM_BASE[f]) as usize].b32.s1 as f64 / 65536.;
-        let a = if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
+        let a = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
             let a = NativeWord::from(p).width();
             if a == 0 {
-                get_native_char_sidebearings(f, cur_val, &mut lsb, &mut rsb);
+                let (lsb_, rsb_) = get_native_char_sidebearings(nf, cur_val);
+                lsb = lsb_;
+                rsb = rsb_;
             }
             a
         } else {
@@ -15186,7 +15190,7 @@ pub(crate) unsafe fn main_control() {
             }
         }
         prev_class = CHAR_CLASS_LIMIT - 1;
-        if let Font::Native(_) = &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize] {
+        if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize] {
             if cur_list.mode.0 == false {
                 if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
                     fix_language();
@@ -15367,7 +15371,7 @@ pub(crate) unsafe fn main_control() {
                         main_k = main_k + *native_text.offset(tmp_ptr as isize) as i32 - 0xdc00;
                         tmp_ptr += 1;
                     }
-                    if map_char_to_glyph(main_f, main_k) == 0 {
+                    if map_char_to_glyph(nf, main_k) == 0 {
                         char_warning(main_f, main_k);
                     }
                 }

@@ -1,6 +1,8 @@
-use bridge::{ttstub_input_getc, TTInputFormat};
+use bridge::TTInputFormat;
 
 use crate::help;
+
+use std::io::Read;
 
 use crate::xetex_ini::b16x4;
 use crate::xetex_ini::nine_bits;
@@ -153,15 +155,18 @@ pub(crate) unsafe fn read_font_info(
      * conveniently implement feof() in the Rust layer, and it only ever is
      * used in this one place. */
 
+    let mut buf16 = [0_u8; 2];
+
     macro_rules! READFIFTEEN (
         ($x:expr) => {
-            $x = ttstub_input_getc(tfm_file);
-            if $x > 127 || $x == libc::EOF {
-                return Err(TfmError::BadMetric);
-            }
-            $x *= 256;
-            $x += ttstub_input_getc(tfm_file);
-
+            tfm_file.read_exact(&mut buf16[..]).map_err(|_| TfmError::BadMetric)?;
+            $x = {
+                let b16 = i16::from_be_bytes(buf16);
+                if b16 < 0 {
+                    return Err(TfmError::BadMetric);
+                }
+                b16 as i32
+            };
         };
     );
 
@@ -227,33 +232,27 @@ pub(crate) unsafe fn read_font_info(
     if lh < 2 {
         return Err(TfmError::BadMetric);
     }
-    let a = ttstub_input_getc(tfm_file);
-    let b = ttstub_input_getc(tfm_file);
-    let c = ttstub_input_getc(tfm_file);
-    let d = ttstub_input_getc(tfm_file);
-    let qw = b16x4 {
+    let mut buf = [0_u8; 4];
+    tfm_file
+        .read_exact(&mut buf[..])
+        .map_err(|_| TfmError::BadMetric)?;
+    let [a, b, c, d] = buf;
+    FONT_CHECK[f as usize] = b16x4 {
         s0: d as u16,
         s1: c as u16,
         s2: b as u16,
         s3: a as u16,
     };
-    if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-        return Err(TfmError::BadMetric);
-    }
-    FONT_CHECK[f as usize] = qw;
 
-    let mut z;
-    READFIFTEEN!(z);
-    z = z * 256 + ttstub_input_getc(tfm_file);
-    z = z * 16 + ttstub_input_getc(tfm_file) / 16;
+    tfm_file
+        .read_exact(&mut buf[..])
+        .map_err(|_| TfmError::BadMetric)?;
+    let mut z = i32::from_be_bytes(buf) >> 4;
     if z < 65536 {
         return Err(TfmError::BadMetric);
     }
     while lh > 2 {
-        ttstub_input_getc(tfm_file);
-        ttstub_input_getc(tfm_file);
-        ttstub_input_getc(tfm_file);
-        ttstub_input_getc(tfm_file);
+        tfm_file.read_exact(&mut buf[..]).ok();
         lh -= 1
     }
     FONT_DSIZE[f] = z;
@@ -266,21 +265,21 @@ pub(crate) unsafe fn read_font_info(
     }
     FONT_SIZE[f] = z;
 
-    for k in fmem_ptr..=(WIDTH_BASE[f] - 1) {
-        let a = ttstub_input_getc(tfm_file);
-        let b = ttstub_input_getc(tfm_file);
-        let c = ttstub_input_getc(tfm_file);
-        let mut d = ttstub_input_getc(tfm_file);
-        let qw = b16x4 {
+    for k in fmem_ptr..WIDTH_BASE[f] {
+        tfm_file
+            .read_exact(&mut buf[..])
+            .map_err(|_| TfmError::BadMetric)?;
+        let [a, b, c, d] = buf;
+        FONT_INFO[k as usize].b16 = b16x4 {
             s0: d as u16,
             s1: c as u16,
             s2: b as u16,
             s3: a as u16,
         };
-        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return Err(TfmError::BadMetric);
-        }
-        FONT_INFO[k as usize].b16 = qw;
+        let a = a as i32;
+        let b = b as i32;
+        let c = c as i32;
+        let mut d = d as i32;
 
         if a >= nw || b / 16 >= nh || b % 16 >= nd || c / 4 >= ni {
             return Err(TfmError::BadMetric);
@@ -322,20 +321,17 @@ pub(crate) unsafe fn read_font_info(
     let mut alpha = 16;
     while z >= 0x800000 {
         z = z / 2;
-        alpha = alpha + alpha
+        alpha *= 2;
     }
     let beta = (256 / alpha) as u8;
-    alpha = alpha * z;
+    alpha *= z;
 
-    for k in WIDTH_BASE[f]..=LIG_KERN_BASE[f] - 1 {
-        let a = ttstub_input_getc(tfm_file);
-        let b = ttstub_input_getc(tfm_file);
-        let c = ttstub_input_getc(tfm_file);
-        let d = ttstub_input_getc(tfm_file);
-        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return Err(TfmError::BadMetric);
-        }
-        let sw = ((d * z / 256 + c * z) / 256 + b * z) / beta as i32;
+    for k in WIDTH_BASE[f]..LIG_KERN_BASE[f] {
+        tfm_file
+            .read_exact(&mut buf[..])
+            .map_err(|_| TfmError::BadMetric)?;
+        let [a, b, c, d] = buf;
+        let sw = (((d as i32) * z / 256 + (c as i32) * z) / 256 + (b as i32) * z) / beta as i32;
 
         if a == 0 {
             FONT_INFO[k as usize].b32.s1 = sw
@@ -366,20 +362,20 @@ pub(crate) unsafe fn read_font_info(
         let mut c = 0;
         let mut d = 0;
         for k in LIG_KERN_BASE[f]..KERN_BASE[f] + 256 * 128 {
-            a = ttstub_input_getc(tfm_file);
-            let b = ttstub_input_getc(tfm_file);
-            c = ttstub_input_getc(tfm_file);
-            d = ttstub_input_getc(tfm_file);
-            let qw = b16x4 {
-                s0: d as u16,
-                s1: c as u16,
+            tfm_file
+                .read_exact(&mut buf[..])
+                .map_err(|_| TfmError::BadMetric)?;
+            let [a_, b, c_, d_] = buf;
+            FONT_INFO[k as usize].b16 = b16x4 {
+                s0: d_ as u16,
+                s1: c_ as u16,
                 s2: b as u16,
-                s3: a as u16,
+                s3: a_ as u16,
             };
-            if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-                return Err(TfmError::BadMetric);
-            }
-            FONT_INFO[k as usize].b16 = qw;
+            a = a_ as i32;
+            let b = b as i32;
+            c = c_ as i32;
+            d = d_ as i32;
 
             if a > 128 {
                 if 256 * c + d >= nl {
@@ -394,8 +390,7 @@ pub(crate) unsafe fn read_font_info(
                         return Err(TfmError::BadMetric);
                     }
 
-                    let qw = FONT_INFO[(CHAR_BASE[f] + b) as usize].b16;
-                    if !(qw.s3 > 0) {
+                    if FONT_INFO[(CHAR_BASE[f] + b) as usize].b16.s3 == 0 {
                         return Err(TfmError::BadMetric);
                     }
                 }
@@ -404,8 +399,7 @@ pub(crate) unsafe fn read_font_info(
                     if d < bc || d > ec {
                         return Err(TfmError::BadMetric);
                     }
-                    let qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
-                    if !(qw.s3 > 0) {
+                    if FONT_INFO[(CHAR_BASE[f] + d) as usize].b16.s3 == 0 {
                         return Err(TfmError::BadMetric);
                     }
                 } else if 256 * (c - 128) + d >= nk {
@@ -422,14 +416,12 @@ pub(crate) unsafe fn read_font_info(
     }
 
     for k in KERN_BASE[f] + 256 * 128..EXTEN_BASE[f] {
-        let a = ttstub_input_getc(tfm_file);
-        let b = ttstub_input_getc(tfm_file);
-        let c = ttstub_input_getc(tfm_file);
-        let d = ttstub_input_getc(tfm_file);
-        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return Err(TfmError::BadMetric);
-        }
-        let sw = ((d * z / 256 + c * z) / 256 + b * z) / beta as i32;
+        tfm_file
+            .read_exact(&mut buf[..])
+            .map_err(|_| TfmError::BadMetric)?;
+        let [a, b, c, d] = buf;
+
+        let sw = (((d as i32) * z / 256 + (c as i32) * z) / 256 + (b as i32) * z) / beta as i32;
         if a == 0 {
             FONT_INFO[k as usize].b32.s1 = sw
         } else if a == 255 {
@@ -440,27 +432,26 @@ pub(crate) unsafe fn read_font_info(
     }
 
     for k in EXTEN_BASE[f]..PARAM_BASE[f] {
-        let a = ttstub_input_getc(tfm_file);
-        let b = ttstub_input_getc(tfm_file);
-        let c = ttstub_input_getc(tfm_file);
-        let d = ttstub_input_getc(tfm_file);
-        let qw = b16x4 {
+        tfm_file
+            .read_exact(&mut buf[..])
+            .map_err(|_| TfmError::BadMetric)?;
+        let [a, b, c, d] = buf;
+        FONT_INFO[k as usize].b16 = b16x4 {
             s0: d as u16,
             s1: c as u16,
             s2: b as u16,
             s3: a as u16,
         };
-        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return Err(TfmError::BadMetric);
-        }
-        FONT_INFO[k as usize].b16 = qw;
+        let a = a as i32;
+        let b = b as i32;
+        let c = c as i32;
+        let d = d as i32;
 
         if a != 0 {
             if a < bc || a > ec {
                 return Err(TfmError::BadMetric);
             }
-            let qw = FONT_INFO[(CHAR_BASE[f] + a) as usize].b16;
-            if !(qw.s3 as i32 > 0i32) {
+            if FONT_INFO[(CHAR_BASE[f] + a) as usize].b16.s3 == 0 {
                 return Err(TfmError::BadMetric);
             }
         }
@@ -469,8 +460,7 @@ pub(crate) unsafe fn read_font_info(
             if b < bc || b > ec {
                 return Err(TfmError::BadMetric);
             }
-            let qw = FONT_INFO[(CHAR_BASE[f] + b) as usize].b16;
-            if !(qw.s3 > 0) {
+            if FONT_INFO[(CHAR_BASE[f] + b) as usize].b16.s3 == 0 {
                 return Err(TfmError::BadMetric);
             }
         }
@@ -479,8 +469,7 @@ pub(crate) unsafe fn read_font_info(
             if c < bc || c > ec {
                 return Err(TfmError::BadMetric);
             }
-            let qw = FONT_INFO[(CHAR_BASE[f] + c) as usize].b16;
-            if !(qw.s3 > 0) {
+            if FONT_INFO[(CHAR_BASE[f] + c) as usize].b16.s3 == 0 {
                 return Err(TfmError::BadMetric);
             }
         }
@@ -488,34 +477,24 @@ pub(crate) unsafe fn read_font_info(
         if d < bc || d > ec {
             return Err(TfmError::BadMetric);
         }
-        let qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
-        if !(qw.s3 > 0) {
+        if FONT_INFO[(CHAR_BASE[f] + d) as usize].b16.s3 == 0 {
             return Err(TfmError::BadMetric);
         }
     }
 
     for k in 1..=np {
         if k == 1 {
-            let mut sw = ttstub_input_getc(tfm_file);
-            if sw == libc::EOF {
-                return Err(TfmError::BadMetric);
-            }
-            if sw > 127 {
-                sw = sw - 256
-            }
-
-            sw = sw * 256 + ttstub_input_getc(tfm_file);
-            sw = sw * 256 + ttstub_input_getc(tfm_file);
-            FONT_INFO[PARAM_BASE[f] as usize].b32.s1 = sw * 16 + ttstub_input_getc(tfm_file) / 16
+            tfm_file
+                .read_exact(&mut buf[..])
+                .map_err(|_| TfmError::BadMetric)?;
+            FONT_INFO[PARAM_BASE[f] as usize].b32.s1 = i32::from_be_bytes(buf) >> 4;
         } else {
-            let a = ttstub_input_getc(tfm_file);
-            let b = ttstub_input_getc(tfm_file);
-            let c = ttstub_input_getc(tfm_file);
-            let d = ttstub_input_getc(tfm_file);
-            if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-                return Err(TfmError::BadMetric);
-            }
-            let sw = ((d * z / 256 + c * z) / 256 + b * z) / beta as i32;
+            tfm_file
+                .read_exact(&mut buf[..])
+                .map_err(|_| TfmError::BadMetric)?;
+            let [a, b, c, d] = buf;
+
+            let sw = (((d as i32) * z / 256 + (c as i32) * z) / 256 + (b as i32) * z) / beta as i32;
             if a == 0 {
                 FONT_INFO[(PARAM_BASE[f] + k - 1) as usize].b32.s1 = sw
             } else if a == 255 {
@@ -548,8 +527,7 @@ pub(crate) unsafe fn read_font_info(
 
     if bchar_0 as i32 <= ec {
         if bchar_0 as i32 >= bc {
-            let qw = FONT_INFO[(CHAR_BASE[f] + bchar_0 as i32) as usize].b16;
-            if qw.s3 as i32 > 0 {
+            if FONT_INFO[(CHAR_BASE[f] + bchar_0 as i32) as usize].b16.s3 > 0 {
                 FONT_FALSE_BCHAR[f] = TOO_BIG_CHAR;
             }
         }

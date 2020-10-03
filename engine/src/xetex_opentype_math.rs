@@ -211,12 +211,12 @@ pub(crate) unsafe fn get_native_mathex_param(mut f: usize, mut n: libc::c_int) -
 }
 pub(crate) unsafe fn get_ot_math_variant(
     mut f: usize,
-    mut g: libc::c_int,
-    mut v: libc::c_int,
+    mut g: i32,
+    mut v: i32,
     mut adv: *mut i32,
-    mut horiz: libc::c_int,
-) -> libc::c_int {
-    let mut rval: hb_codepoint_t = g as hb_codepoint_t;
+    mut horiz: i32,
+) -> i32 {
+    let mut rval = g as hb_codepoint_t;
     *adv = -1i32;
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
@@ -225,25 +225,25 @@ pub(crate) unsafe fn get_ot_math_variant(
             glyph: 0,
             advance: 0,
         }; 1];
-        let mut count: libc::c_uint = 1i32 as libc::c_uint;
+        let mut count = 1_u32;
         hb_ot_math_get_glyph_variants(
             hbFont,
             g as hb_codepoint_t,
             (if horiz != 0 {
-                HB_DIRECTION_RTL as libc::c_int
+                HB_DIRECTION_RTL as i32
             } else {
-                HB_DIRECTION_TTB as libc::c_int
+                HB_DIRECTION_TTB as i32
             }) as hb_direction_t,
             v as libc::c_uint,
             &mut count,
             variant.as_mut_ptr(),
         );
-        if count > 0i32 as libc::c_uint {
+        if count > 0 {
             rval = (*variant.as_mut_ptr()).glyph;
             *adv = D2Fix(font.units_to_points((*variant.as_mut_ptr()).advance as f32) as f64)
         }
     }
-    return rval as libc::c_int;
+    rval as i32
 }
 pub(crate) unsafe fn get_ot_assembly_ptr(
     mut f: usize,

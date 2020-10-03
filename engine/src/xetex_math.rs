@@ -15,7 +15,7 @@ use crate::help;
 use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
-use crate::xetex_ext::{map_char_to_glyph, Font, NativeFont::*};
+use crate::xetex_ext::{Font, NativeFont::*};
 use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
     cur_list, cur_val, cur_val1, file_line_error_style_p, insert_src_special_every_math, just_box,
@@ -1254,15 +1254,19 @@ pub(crate) unsafe fn resume_after_display() {
 unsafe fn math_x_height(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 5),
-        _ => FONT_INFO[(5 + PARAM_BASE[f]) as usize].b32.s1,
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
+            get_native_mathsy_param(f, X_HEIGHT_CODE)
+        }
+        _ => FONT_INFO[(X_HEIGHT_CODE + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn math_quad(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 6i32),
-        _ => FONT_INFO[(6 + PARAM_BASE[f]) as usize].b32.s1,
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
+            get_native_mathsy_param(f, QUAD_CODE)
+        }
+        _ => FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn num1(size_code: usize) -> scaled_t {
@@ -3053,7 +3057,11 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
                     /*734: */
                     match &FONT_LAYOUT_ENGINE[f] {
                         Font::Native(Otgr(e)) if e.using_open_type() => {
-                            x = map_char_to_glyph(g, x as i32) as u16;
+                            x = if x >= 0xd800 && x <= 0xdfff {
+                                0
+                            } else {
+                                e.map_char_to_glyph(x as u32) as u16
+                            };
                             f = g;
                             c = x;
                             w = 0;
