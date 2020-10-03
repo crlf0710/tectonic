@@ -123,7 +123,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     let mut typesetter: CTTypesetterRef = 0 as CTTypesetterRef;
     let mut line: CTLineRef = ptr::null_mut();
     let mut f: libc::c_uint = node.font() as libc::c_uint;
-    if let NativeFont::Aat(attributes) = &FONT_LAYOUT_ENGINE[f as usize] {
+    if let Font::Native(Aat(attributes)) = &FONT_LAYOUT_ENGINE[f as usize] {
         let txt = node.text();
         txtLen = txt.len() as CFIndex;
         txtPtr = txt.as_ptr() as *const UniChar;
@@ -719,13 +719,13 @@ unsafe fn getLastResort() -> CFStringRef {
     return kLastResort;
 }
 
-use crate::xetex_ext::NativeFont;
+use crate::xetex_ext::{Font, NativeFont, NativeFont::*};
 
 pub(crate) unsafe fn loadAATfont(
     mut descriptor: CTFontDescriptorRef,
     mut scaled_size: i32,
     mut cp1: &[u8],
-) -> NativeFont {
+) -> Option<NativeFont> {
     let mut current_block: u64;
     let mut font: CTFontRef = 0 as CTFontRef;
     let mut actualFont: CTFontRef = 0 as CTFontRef;
@@ -752,7 +752,7 @@ pub(crate) unsafe fn loadAATfont(
     ctSize = TeXtoPSPoints(Fix2D(scaled_size));
     font = CTFontCreateWithFontDescriptor(descriptor, ctSize, ptr::null());
     if font.is_null() {
-        return NativeFont::None;
+        return None;
     }
     stringAttributes = CFDictionaryCreateMutable(
         0 as CFAllocatorRef,
@@ -1044,9 +1044,9 @@ pub(crate) unsafe fn loadAATfont(
     );
     CFRelease(actualFont as CFTypeRef);
     if stringAttributes.is_null() {
-        NativeFont::None
+        None
     } else {
-        NativeFont::Aat(stringAttributes)
+        Some(Aat(stringAttributes))
     }
 }
 

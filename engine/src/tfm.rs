@@ -59,7 +59,7 @@ use crate::xetex_ini::str_start;
 
 use crate::xetex_ext::ot_get_font_metrics;
 use crate::xetex_ext::{check_for_tfm_font_mapping, load_tfm_font_mapping};
-use crate::xetex_ext::{find_native_font, NativeFont};
+use crate::xetex_ext::{find_native_font, NativeFont::*};
 
 use super::xetex_io::tt_xetex_open_input;
 use crate::xetex_consts::IntPar;
@@ -634,9 +634,10 @@ pub(crate) fn good_tfm(ok: (bool, usize)) -> usize {
 
 pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontError> {
     let font_engine = find_native_font(&name_of_file, s);
-    if let NativeFont::None = &font_engine {
+    if font_engine.is_none() {
         return Err(NativeFontError::NotFound);
     }
+    let font_engine = font_engine.unwrap();
     let actual_size = if s >= 0 {
         s
     } else if s != -1000 {
@@ -666,7 +667,7 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
     }
 
     let num_font_dimens = match &font_engine {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => 65,
+        Otgr(e) if e.is_open_type_math_font() => 65,
         // = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55)
         _ => 8,
     };
@@ -688,9 +689,8 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
 
     let (ascent, descent, x_ht, cap_ht, font_slant) = match &font_engine {
         #[cfg(target_os = "macos")]
-        NativeFont::Aat(fe) => crate::xetex_aatfont::aat_get_font_metrics(*fe),
-        NativeFont::Otgr(fe) => ot_get_font_metrics(fe),
-        _ => unreachable!(),
+        Aat(fe) => crate::xetex_aatfont::aat_get_font_metrics(*fe),
+        Otgr(fe) => ot_get_font_metrics(fe),
     };
     HEIGHT_BASE[FONT_PTR] = ascent;
     DEPTH_BASE[FONT_PTR] = -descent;
@@ -701,7 +701,7 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
     HYPHEN_CHAR[FONT_PTR] = *INTPAR(IntPar::default_hyphen_char);
     SKEW_CHAR[FONT_PTR] = *INTPAR(IntPar::default_skew_char);
     PARAM_BASE[FONT_PTR] = fmem_ptr - 1;
-    FONT_LAYOUT_ENGINE[FONT_PTR] = font_engine;
+    FONT_LAYOUT_ENGINE[FONT_PTR] = crate::xetex_ext::Font::Native(font_engine);
     FONT_MAPPING[FONT_PTR] = 0 as *mut libc::c_void;
     FONT_LETTER_SPACE[FONT_PTR] = loaded_font_letter_space;
     /* "measure the width of the space character and set up font parameters" */

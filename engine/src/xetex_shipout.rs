@@ -1844,7 +1844,7 @@ unsafe fn dvi_native_font_def(f: internal_font_number) {
 }
 
 unsafe fn dvi_font_def(f: internal_font_number) {
-    if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
+    if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
         dvi_native_font_def(f);
     } else {
         if f <= 256 {

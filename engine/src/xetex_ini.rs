@@ -783,9 +783,9 @@ pub(crate) static mut FONT_BCHAR: Vec<nine_bits> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_FALSE_BCHAR: Vec<nine_bits> = Vec::new();
 
-use crate::xetex_ext::NativeFont;
+use crate::xetex_ext::Font;
 
-pub(crate) static mut FONT_LAYOUT_ENGINE: Vec<NativeFont> = Vec::new();
+pub(crate) static mut FONT_LAYOUT_ENGINE: Vec<Font> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_MAPPING: Vec<*mut libc::c_void> = Vec::new();
 #[no_mangle]
@@ -2204,10 +2204,7 @@ pub(crate) unsafe fn prefixed_command() {
                     HYPHEN_CHAR[f] = cur_val
                 } else { SKEW_CHAR[f] = cur_val }
             } else {
-                if FONT_AREA[f] as u32 == AAT_FONT_FLAG
-                       ||
-                       FONT_AREA[f] as u32 ==
-                           OTGR_FONT_FLAG {
+                if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
                     scan_glyph_number(f);
                 } else { scan_char_num(); }
                 let p = cur_val;
@@ -4286,7 +4283,7 @@ pub(crate) unsafe fn tt_run_engine(
         FONT_MAPPING = vec![0 as *mut libc::c_void; FONT_MAX + 1];
         FONT_LAYOUT_ENGINE.clear();
         for _ in 0..FONT_MAX + 1 {
-            FONT_LAYOUT_ENGINE.push(crate::xetex_ext::NativeFont::None);
+            FONT_LAYOUT_ENGINE.push(Font::None);
         }
         FONT_FLAGS = vec![0; FONT_MAX + 1];
         FONT_LETTER_SPACE = vec![0; FONT_MAX + 1];

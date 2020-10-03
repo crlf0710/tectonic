@@ -28,7 +28,7 @@ use crate::xetex_ext::{
     getnativecharht, getnativecharic, getnativecharwd, gr_font_get_named, gr_font_get_named_1,
     gr_print_font_name, linebreak_next, linebreak_start, map_char_to_glyph, map_glyph_to_index,
     ot_font_get, ot_font_get_1, ot_font_get_2, ot_font_get_3, print_glyph_name, print_utf8_str,
-    NativeFont, AAT_FONT_FLAG, OTGR_FONT_FLAG,
+    Font, NativeFont::*,
 };
 use crate::xetex_ini::{
     _xeq_level_array, active_width, adjust_tail, after_token, align_ptr, align_state,
@@ -2550,9 +2550,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         Cmd::SetFont => {
             print_cstr("select font ");
             font_name_str = FONT_NAME[chr_code as usize];
-            if FONT_AREA[chr_code as usize] as u32 == AAT_FONT_FLAG
-                || FONT_AREA[chr_code as usize] as u32 == OTGR_FONT_FLAG
-            {
+            if let Font::Native(_) = &FONT_LAYOUT_ENGINE[chr_code as usize] {
                 quote_char = '\"' as i32 as UTF16_code;
                 for n in 0..=length(font_name_str) {
                     if str_pool[(str_start[(font_name_str as i64 - 65536) as usize] + n) as usize]
@@ -6261,9 +6259,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                 cur_val_level = ValLevel::Int
             } else {
                 n = cur_val;
-                if FONT_AREA[n as usize] as u32 == AAT_FONT_FLAG
-                    || FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
-                {
+                if let Font::Native(_) = &FONT_LAYOUT_ENGINE[n as usize] {
                     scan_glyph_number(n as usize);
                 } else {
                     scan_char_num();
@@ -6371,9 +6367,8 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                     match m {
                         LastItemCode::XetexGlyphBounds => {
                             /*1435:*/
-                            if FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == AAT_FONT_FLAG
-                                || FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32
-                                    == OTGR_FONT_FLAG
+                            if let Font::Native(_) =
+                                &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
                                 scan_int(); /* shellenabledp */
                                 n = cur_val;
@@ -6414,9 +6409,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             scan_font_ident();
                             let q = cur_val as usize;
                             scan_usv_num();
-                            if FONT_AREA[q] as u32 == AAT_FONT_FLAG
-                                || FONT_AREA[q] as u32 == OTGR_FONT_FLAG
-                            {
+                            if let Font::Native(_) = &FONT_LAYOUT_ENGINE[q] {
                                 match m {
                                     LastItemCode::FontCharWd => {
                                         cur_val = getnativecharwd(q, cur_val)
@@ -6502,8 +6495,8 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             n = cur_val;
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
-                                NativeFont::Aat(e) => cur_val = aat::aat_font_get(m.into(), *e),
-                                NativeFont::Otgr(e) => cur_val = ot_font_get((m as i32) - 14, e),
+                                Font::Native(Aat(e)) => cur_val = aat::aat_font_get(m.into(), *e),
+                                Font::Native(Otgr(e)) => cur_val = ot_font_get((m as i32) - 14, e),
                                 _ => cur_val = 0,
                             }
                         }
@@ -6512,8 +6505,8 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             n = cur_val;
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
-                                NativeFont::Aat(e) => cur_val = aat::aat_font_get(m.into(), *e),
-                                NativeFont::Otgr(e) if e.using_graphite() => {
+                                Font::Native(Aat(e)) => cur_val = aat::aat_font_get(m.into(), *e),
+                                Font::Native(Otgr(e)) if e.using_graphite() => {
                                     cur_val = ot_font_get((m as i32) - 14, e);
                                 }
                                 _ => cur_val = 0,
@@ -6535,12 +6528,12 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             n = cur_val;
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
-                                NativeFont::Aat(e) => {
+                                Font::Native(Aat(e)) => {
                                     scan_int();
                                     k = cur_val;
                                     cur_val = aat::aat_font_get_1(m.into(), *e, k)
                                 }
-                                NativeFont::Otgr(e) if e.using_graphite() => {
+                                Font::Native(Otgr(e)) if e.using_graphite() => {
                                     scan_int();
                                     k = cur_val;
                                     cur_val = ot_font_get_1((m as i32) - 14, e, k)
@@ -6556,13 +6549,13 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             n = cur_val;
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
-                                NativeFont::Aat(e) => {
+                                Font::Native(Aat(e)) => {
                                     scan_int();
                                     k = cur_val;
                                     scan_int();
                                     cur_val = aat::aat_font_get_2(m.into(), *e, k, cur_val)
                                 }
-                                NativeFont::Otgr(e) if e.using_graphite() => {
+                                Font::Native(Otgr(e)) if e.using_graphite() => {
                                     scan_int();
                                     k = cur_val;
                                     scan_int();
@@ -6579,7 +6572,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             n = cur_val;
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
-                                NativeFont::Aat(e) => {
+                                Font::Native(Aat(e)) => {
                                     scan_and_pack_name();
                                     cur_val = aat::aat_font_get_named(m.into(), *e);
                                 }
@@ -6594,11 +6587,11 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             n = cur_val;
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
-                                NativeFont::Aat(e) => {
+                                Font::Native(Aat(e)) => {
                                     scan_and_pack_name();
                                     cur_val = aat::aat_font_get_named(m.into(), *e);
                                 }
-                                NativeFont::Otgr(e) if e.using_graphite() => {
+                                Font::Native(Otgr(e)) if e.using_graphite() => {
                                     scan_and_pack_name();
                                     cur_val = gr_font_get_named((m as i32) - 14, e)
                                 }
@@ -6613,13 +6606,13 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             n = cur_val;
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
-                                NativeFont::Aat(e) => {
+                                Font::Native(Aat(e)) => {
                                     scan_int();
                                     k = cur_val;
                                     scan_and_pack_name();
                                     cur_val = aat::aat_font_get_named_1(m.into(), *e, k);
                                 }
-                                NativeFont::Otgr(e) if e.using_graphite() => {
+                                Font::Native(Otgr(e)) if e.using_graphite() => {
                                     scan_int();
                                     k = cur_val;
                                     scan_and_pack_name();
@@ -6635,7 +6628,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             scan_font_ident();
                             n = cur_val;
                             match &FONT_LAYOUT_ENGINE[n as usize] {
-                                NativeFont::Otgr(e) if e.using_open_type() => {
+                                Font::Native(Otgr(e)) if e.using_open_type() => {
                                     cur_val = ot_font_get((m as i32) - 14, e)
                                 }
                                 _ => cur_val = 0,
@@ -6645,7 +6638,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             scan_font_ident();
                             n = cur_val;
                             match &FONT_LAYOUT_ENGINE[n as usize] {
-                                NativeFont::Otgr(e) if e.using_open_type() => {
+                                Font::Native(Otgr(e)) if e.using_open_type() => {
                                     scan_int();
                                     cur_val = ot_font_get_1((m as i32) - 14, e, cur_val)
                                 }
@@ -6659,7 +6652,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             scan_font_ident();
                             n = cur_val;
                             match &FONT_LAYOUT_ENGINE[n as usize] {
-                                NativeFont::Otgr(e) if e.using_open_type() => {
+                                Font::Native(Otgr(e)) if e.using_open_type() => {
                                     scan_int();
                                     k = cur_val;
                                     scan_int();
@@ -6675,7 +6668,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             scan_font_ident();
                             n = cur_val;
                             match &FONT_LAYOUT_ENGINE[n as usize] {
-                                NativeFont::Otgr(e) if e.using_open_type() => {
+                                Font::Native(Otgr(e)) if e.using_open_type() => {
                                     scan_int();
                                     k = cur_val;
                                     scan_int();
@@ -6690,9 +6683,8 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             }
                         }
                         LastItemCode::XetexMapCharToGlyph => {
-                            if FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == AAT_FONT_FLAG
-                                || FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32
-                                    == OTGR_FONT_FLAG
+                            if let Font::Native(_) =
+                                &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
                                 scan_int();
                                 n = cur_val;
@@ -6707,9 +6699,8 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             }
                         }
                         LastItemCode::XetexGlyphIndex => {
-                            if FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == AAT_FONT_FLAG
-                                || FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32
-                                    == OTGR_FONT_FLAG
+                            if let Font::Native(_) =
+                                &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
                                 scan_and_pack_name();
                                 cur_val = map_glyph_to_index(EQTB[CUR_FONT_LOC].val as usize)
@@ -6727,18 +6718,16 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             n = cur_val;
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
-                                NativeFont::Aat(_) => cur_val = 1,
-                                NativeFont::Otgr(e) if e.using_open_type() => cur_val = 2,
-                                NativeFont::Otgr(e) if e.using_graphite() => cur_val = 3,
+                                Font::Native(Aat(_)) => cur_val = 1,
+                                Font::Native(Otgr(e)) if e.using_open_type() => cur_val = 2,
+                                Font::Native(Otgr(e)) if e.using_graphite() => cur_val = 3,
                                 _ => cur_val = 0,
                             }
                         }
                         LastItemCode::XetexFirstChar | LastItemCode::XetexLastChar => {
                             scan_font_ident();
                             n = cur_val;
-                            if FONT_AREA[n as usize] as u32 == AAT_FONT_FLAG
-                                || FONT_AREA[n as usize] as u32 == OTGR_FONT_FLAG
-                            {
+                            if let Font::Native(_) = &FONT_LAYOUT_ENGINE[n as usize] {
                                 cur_val = get_font_char_range(
                                     n as usize,
                                     (m == LastItemCode::XetexFirstChar) as i32,
@@ -8249,12 +8238,14 @@ pub(crate) unsafe fn conv_toks() {
         ConvertCode::XetexVariationName => {
             scan_font_ident();
             fnt = cur_val as usize;
-            if FONT_AREA[fnt as usize] as u32 == AAT_FONT_FLAG {
-                scan_int();
-                arg1 = cur_val;
-                arg2 = 0;
-            } else {
-                not_aat_font_error(Cmd::Convert, c as i32, fnt);
+            match &FONT_LAYOUT_ENGINE[fnt as usize] {
+                #[cfg(target_os = "macos")]
+                Font::Native(Aat(_)) => {
+                    scan_int();
+                    arg1 = cur_val;
+                    arg2 = 0;
+                }
+                _ => not_aat_font_error(Cmd::Convert, c as i32, fnt),
             }
         }
         ConvertCode::XetexFeatureName => {
@@ -8262,12 +8253,12 @@ pub(crate) unsafe fn conv_toks() {
             fnt = cur_val as usize;
             match &FONT_LAYOUT_ENGINE[fnt as usize] {
                 #[cfg(target_os = "macos")]
-                NativeFont::Aat(_) => {
+                Font::Native(Aat(_)) => {
                     scan_int();
                     arg1 = cur_val;
                     arg2 = 0;
                 }
-                NativeFont::Otgr(e) if e.using_graphite() => {
+                Font::Native(Otgr(e)) if e.using_graphite() => {
                     scan_int();
                     arg1 = cur_val;
                     arg2 = 0;
@@ -8280,13 +8271,13 @@ pub(crate) unsafe fn conv_toks() {
             fnt = cur_val as usize;
             match &FONT_LAYOUT_ENGINE[fnt as usize] {
                 #[cfg(target_os = "macos")]
-                NativeFont::Aat(_) => {
+                Font::Native(Aat(_)) => {
                     scan_int();
                     arg1 = cur_val;
                     scan_int();
                     arg2 = cur_val;
                 }
-                NativeFont::Otgr(e) if e.using_graphite() => {
+                Font::Native(Otgr(e)) if e.using_graphite() => {
                     scan_int();
                     arg1 = cur_val;
                     scan_int();
@@ -8298,9 +8289,7 @@ pub(crate) unsafe fn conv_toks() {
         ConvertCode::XetexGlyphName => {
             scan_font_ident();
             fnt = cur_val as usize;
-            if FONT_AREA[fnt as usize] as u32 == AAT_FONT_FLAG
-                || FONT_AREA[fnt as usize] as u32 == OTGR_FONT_FLAG
-            {
+            if let Font::Native(_) = &FONT_LAYOUT_ENGINE[fnt as usize] {
                 scan_int();
                 arg1 = cur_val
             } else {
@@ -8344,8 +8333,8 @@ pub(crate) unsafe fn conv_toks() {
         ConvertCode::Meaning => print_meaning(),
         ConvertCode::FontName => {
             font_name_str = FONT_NAME[cur_val as usize];
-            match FONT_AREA[cur_val as usize] as u32 {
-                AAT_FONT_FLAG | OTGR_FONT_FLAG => {
+            match &FONT_LAYOUT_ENGINE[cur_val as usize] {
+                Font::Native(_) => {
                     quote_char = '\"' as i32 as UTF16_code;
                     for i in 0..=(length(font_name_str) - 1) {
                         if str_pool[(str_start[(font_name_str as i64 - 65536) as usize] + i as i32)
@@ -8374,7 +8363,7 @@ pub(crate) unsafe fn conv_toks() {
         ConvertCode::XetexVariationName => {
             match &FONT_LAYOUT_ENGINE[fnt as usize] {
                 #[cfg(target_os = "macos")]
-                NativeFont::Aat(e) => {
+                Font::Native(Aat(e)) => {
                     aat::aat_print_font_name(c as i32, *e, arg1, arg2);
                 }
                 _ => {
@@ -8385,17 +8374,17 @@ pub(crate) unsafe fn conv_toks() {
         ConvertCode::XetexFeatureName | ConvertCode::XetexSelectorName => {
             match &FONT_LAYOUT_ENGINE[fnt as usize] {
                 #[cfg(target_os = "macos")]
-                NativeFont::Aat(e) => {
+                Font::Native(Aat(e)) => {
                     aat::aat_print_font_name(c as i32, *e, arg1, arg2);
                 }
-                NativeFont::Otgr(e) if e.using_graphite() => {
+                Font::Native(Otgr(e)) if e.using_graphite() => {
                     gr_print_font_name(c as i32, e, arg1, arg2);
                 }
                 _ => {}
             }
         }
-        ConvertCode::XetexGlyphName => match FONT_AREA[fnt as usize] as u32 {
-            AAT_FONT_FLAG | OTGR_FONT_FLAG => print_glyph_name(fnt, arg1),
+        ConvertCode::XetexGlyphName => match &FONT_LAYOUT_ENGINE[fnt as usize] {
+            Font::Native(_) => print_glyph_name(fnt, arg1),
             _ => {}
         },
         ConvertCode::LeftMarginKern => {
@@ -9099,7 +9088,7 @@ pub(crate) unsafe fn conditional() {
             scan_font_ident();
             let n = cur_val as usize;
             scan_usv_num();
-            b = if FONT_AREA[n] as u32 == AAT_FONT_FLAG || FONT_AREA[n] as u32 == OTGR_FONT_FLAG {
+            b = if let Font::Native(_) = &FONT_LAYOUT_ENGINE[n] {
                 map_char_to_glyph(n, cur_val) > 0
             } else if FONT_BC[n] as i32 <= cur_val && FONT_EC[n] as i32 >= cur_val {
                 FONT_CHARACTER_INFO(n, effective_char(true, n, cur_val as u16) as usize).s3 > 0
@@ -9894,7 +9883,7 @@ pub(crate) unsafe fn new_character(
     mut c: UTF16_code,
 ) -> Option<usize> {
     let mut ec: u16 = 0;
-    if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
+    if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
         return Some(new_native_character(f, c as UnicodeScalar).ptr());
     }
     ec = effective_char(false, f, c) as u16;
@@ -13083,7 +13072,7 @@ pub(crate) unsafe fn make_accent() {
         let mut rsb: scaled_t = 0;
         let x = FONT_INFO[(X_HEIGHT_CODE + PARAM_BASE[f]) as usize].b32.s1;
         let s = FONT_INFO[(SLANT_CODE + PARAM_BASE[f]) as usize].b32.s1 as f64 / 65536.;
-        let a = if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
+        let a = if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
             let a = NativeWord::from(p).width();
             if a == 0 {
                 get_native_char_sidebearings(f, cur_val, &mut lsb, &mut rsb);
@@ -13109,7 +13098,7 @@ pub(crate) unsafe fn make_accent() {
             let mut h;
             let mut w;
             let t = FONT_INFO[(SLANT_CODE + PARAM_BASE[f]) as usize].b32.s1 as f64 / 65536.;
-            if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
+            if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
                 w = NativeWord::from(q).width();
                 h = get_native_char_height_depth(f, cur_val).0;
             } else {
@@ -13123,13 +13112,11 @@ pub(crate) unsafe fn make_accent() {
                 p_box.set_shift_amount(x - h);
                 p = p_box.ptr();
             }
-            let delta = if (FONT_AREA[f] as u32 == AAT_FONT_FLAG
-                || FONT_AREA[f] as u32 == OTGR_FONT_FLAG)
-                && a == 0
-            {
-                tex_round((w - lsb + rsb) as f64 / 2. + h as f64 * t - x as f64 * s)
-            } else {
-                tex_round((w - a) as f64 / 2. + h as f64 * t - x as f64 * s)
+            let delta = match &FONT_LAYOUT_ENGINE[f] {
+                Font::Native(_) if a == 0 => {
+                    tex_round((w - lsb + rsb) as f64 / 2. + h as f64 * t - x as f64 * s)
+                }
+                _ => tex_round((w - a) as f64 / 2. + h as f64 * t - x as f64 * s),
             };
             let mut r = Kern(new_kern(delta));
             r.set_subtype(KernType::AccKern);
@@ -13880,8 +13867,7 @@ pub(crate) unsafe fn new_font(mut a: i16) {
     for f in (FONT_BASE + 1)..=FONT_PTR {
         // TODO: check
         if str_eq_str(FONT_NAME[f], cur_name)
-            && (length(cur_area) == 0
-                && (FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG)
+            && ((length(cur_area) == 0 && matches!(&FONT_LAYOUT_ENGINE[f], Font::Native(_)))
                 || str_eq_str(FONT_AREA[f], cur_area))
         {
             if s > 0 {
@@ -13898,7 +13884,7 @@ pub(crate) unsafe fn new_font(mut a: i16) {
         if str_eq_str(FONT_NAME[f], make_string()) {
             str_ptr -= 1;
             pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-            if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
+            if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
                 if s > 0 {
                     if s == FONT_SIZE[f] {
                         return common_ending(a, u, f, t);
@@ -14254,9 +14240,7 @@ pub(crate) unsafe fn do_extension() {
                 new_graf(true);
             } else if cur_list.mode.1 == ListMode::MMode {
                 report_illegal_case();
-            } else if FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == AAT_FONT_FLAG
-                || FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == OTGR_FONT_FLAG
-            {
+            } else if let Font::Native(_) = &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize] {
                 let mut g = Glyph::new_node();
                 *LLIST_link(cur_list.tail) = Some(g.ptr()).tex_int();
                 cur_list.tail = g.ptr();
@@ -15202,9 +15186,7 @@ pub(crate) unsafe fn main_control() {
             }
         }
         prev_class = CHAR_CLASS_LIMIT - 1;
-        if FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == AAT_FONT_FLAG
-            || FONT_AREA[EQTB[CUR_FONT_LOC].val as usize] as u32 == OTGR_FONT_FLAG
-        {
+        if let Font::Native(_) = &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize] {
             if cur_list.mode.0 == false {
                 if *INTPAR(IntPar::language) != cur_list.aux.b32.s1 {
                     fix_language();

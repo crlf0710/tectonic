@@ -408,10 +408,7 @@ pub(crate) unsafe fn store_fmt_file() {
         print_esc((*hash.offset(FONT_ID_BASE as isize + k as isize)).s1);
         print_chr('=');
 
-        if FONT_AREA[k] as u32 == AAT_FONT_FLAG
-            || FONT_AREA[k] as u32 == OTGR_FONT_FLAG
-            || !(FONT_MAPPING[k]).is_null()
-        {
+        if matches!(&FONT_LAYOUT_ENGINE[k], Font::Native(_)) || !(FONT_MAPPING[k]).is_null() {
             print_file_name(FONT_NAME[k], EMPTY_STRING, EMPTY_STRING);
 
             if file_line_error_style_p != 0 {
@@ -885,7 +882,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     FONT_MAPPING = vec![0 as *mut libc::c_void; FONT_MAX + 1];
     for _ in 0..FONT_MAX + 1 {
-        FONT_LAYOUT_ENGINE.push(crate::xetex_ext::NativeFont::None);
+        FONT_LAYOUT_ENGINE.push(crate::xetex_ext::Font::None);
     }
     FONT_FLAGS = vec![0; FONT_MAX + 1];
     FONT_LETTER_SPACE = vec![0; FONT_MAX + 1];

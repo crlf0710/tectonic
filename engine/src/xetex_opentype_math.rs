@@ -42,7 +42,7 @@ authorization from the copyright holders.
 use crate::core_memory::xmalloc;
 use harfbuzz_sys::*;
 
-use crate::xetex_ext::NativeFont;
+use crate::xetex_ext::{Font, NativeFont::*};
 
 use crate::xetex_layout_interface::GlyphAssembly;
 use crate::xetex_layout_interface::{D2Fix, Fix2D};
@@ -101,7 +101,7 @@ authorization from the copyright holders.
 pub(crate) unsafe fn get_ot_math_constant(mut f: usize, mut n: libc::c_int) -> libc::c_int {
     let mut constant: hb_ot_math_constant_t = n as hb_ot_math_constant_t;
     let mut rval: hb_position_t = 0i32;
-    if let NativeFont::Otgr(e) = &FONT_LAYOUT_ENGINE[f] {
+    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         let mut hbFont: *mut hb_font_t = font.get_hb_font();
         rval = hb_ot_math_get_constant(hbFont, constant);
@@ -218,7 +218,7 @@ pub(crate) unsafe fn get_ot_math_variant(
 ) -> libc::c_int {
     let mut rval: hb_codepoint_t = g as hb_codepoint_t;
     *adv = -1i32;
-    if let NativeFont::Otgr(e) = &FONT_LAYOUT_ENGINE[f] {
+    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         let mut hbFont: *mut hb_font_t = font.get_hb_font();
         let mut variant: [hb_ot_math_glyph_variant_t; 1] = [hb_ot_math_glyph_variant_t {
@@ -251,7 +251,7 @@ pub(crate) unsafe fn get_ot_assembly_ptr(
     mut horiz: libc::c_int,
 ) -> *mut libc::c_void {
     let mut rval: *mut libc::c_void = 0 as *mut libc::c_void;
-    if let NativeFont::Otgr(e) = &FONT_LAYOUT_ENGINE[f] {
+    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         let mut hbFont: *mut hb_font_t = font.get_hb_font();
         let mut count: libc::c_uint = hb_ot_math_get_glyph_assembly(
@@ -303,7 +303,7 @@ pub(crate) unsafe fn free_ot_assembly(mut a: *mut GlyphAssembly) {
 }
 pub(crate) unsafe fn get_ot_math_ital_corr(mut f: usize, mut g: libc::c_int) -> libc::c_int {
     let mut rval: hb_position_t = 0i32;
-    if let NativeFont::Otgr(e) = &FONT_LAYOUT_ENGINE[f] {
+    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         let mut hbFont: *mut hb_font_t = font.get_hb_font();
         rval = hb_ot_math_get_glyph_italics_correction(hbFont, g as hb_codepoint_t);
@@ -313,7 +313,7 @@ pub(crate) unsafe fn get_ot_math_ital_corr(mut f: usize, mut g: libc::c_int) -> 
 }
 pub(crate) unsafe fn get_ot_math_accent_pos(mut f: usize, mut g: libc::c_int) -> libc::c_int {
     let mut rval: hb_position_t = 0x7fffffffu64 as hb_position_t;
-    if let NativeFont::Otgr(e) = &FONT_LAYOUT_ENGINE[f] {
+    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         let mut hbFont: *mut hb_font_t = font.get_hb_font();
         rval = hb_ot_math_get_glyph_top_accent_attachment(hbFont, g as hb_codepoint_t);
@@ -323,7 +323,7 @@ pub(crate) unsafe fn get_ot_math_accent_pos(mut f: usize, mut g: libc::c_int) ->
 }
 pub(crate) unsafe fn ot_min_connector_overlap(mut f: usize) -> libc::c_int {
     let mut rval: hb_position_t = 0i32;
-    if let NativeFont::Otgr(e) = &FONT_LAYOUT_ENGINE[f] {
+    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         let mut hbFont: *mut hb_font_t = font.get_hb_font();
         rval = hb_ot_math_get_min_connector_overlap(hbFont, HB_DIRECTION_RTL);
@@ -338,7 +338,7 @@ unsafe fn getMathKernAt(
     mut height: libc::c_int,
 ) -> libc::c_int {
     let mut rval: hb_position_t = 0i32;
-    if let NativeFont::Otgr(e) = &FONT_LAYOUT_ENGINE[f] {
+    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         let mut hbFont: *mut hb_font_t = font.get_hb_font();
         rval = hb_ot_math_get_glyph_kerning(hbFont, g as hb_codepoint_t, side, height)
@@ -346,7 +346,7 @@ unsafe fn getMathKernAt(
     return rval;
 }
 unsafe fn glyph_height(mut f: usize, g: i32) -> f32 {
-    if let NativeFont::Otgr(engine) = &FONT_LAYOUT_ENGINE[f] {
+    if let Font::Native(Otgr(engine)) = &FONT_LAYOUT_ENGINE[f] {
         let (rval, _) = engine.get_glyph_height_depth(g as u32);
         rval
     } else {
@@ -354,7 +354,7 @@ unsafe fn glyph_height(mut f: usize, g: i32) -> f32 {
     }
 }
 unsafe fn glyph_depth(mut f: usize, g: i32) -> f32 {
-    if let NativeFont::Otgr(engine) = &FONT_LAYOUT_ENGINE[f] {
+    if let Font::Native(Otgr(engine)) = &FONT_LAYOUT_ENGINE[f] {
         let (_, rval) = engine.get_glyph_height_depth(g as u32);
         rval
     } else {
@@ -370,7 +370,7 @@ pub(crate) unsafe fn get_ot_math_kern(
     mut shift: libc::c_int,
 ) -> libc::c_int {
     let mut rval: libc::c_int = 0i32;
-    if let NativeFont::Otgr(e) = &FONT_LAYOUT_ENGINE[f] {
+    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         let mut kern: libc::c_int = 0i32;
         let mut skern: libc::c_int = 0i32;
@@ -467,7 +467,7 @@ pub(crate) unsafe fn ot_part_start_connector(
     mut i: libc::c_int,
 ) -> libc::c_int {
     let mut rval: libc::c_int = 0i32;
-    if let NativeFont::Otgr(e) = &FONT_LAYOUT_ENGINE[f] {
+    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         rval = D2Fix(
             font.units_to_points((*(*a).parts.offset(i as isize)).start_connector_length as f32)
@@ -482,7 +482,7 @@ pub(crate) unsafe fn ot_part_end_connector(
     mut i: libc::c_int,
 ) -> libc::c_int {
     let mut rval: libc::c_int = 0i32;
-    if let NativeFont::Otgr(e) = &FONT_LAYOUT_ENGINE[f] {
+    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         rval = D2Fix(
             font.units_to_points((*(*a).parts.offset(i as isize)).end_connector_length as f32)
@@ -497,7 +497,7 @@ pub(crate) unsafe fn ot_part_full_advance(
     mut i: libc::c_int,
 ) -> libc::c_int {
     let mut rval: libc::c_int = 0i32;
-    if let NativeFont::Otgr(e) = &FONT_LAYOUT_ENGINE[f as usize] {
+    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f as usize] {
         let font = e.get_font();
         rval =
             D2Fix(font.units_to_points((*(*a).parts.offset(i as isize)).full_advance as f32) as f64)

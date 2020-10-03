@@ -15,12 +15,12 @@ use crate::help;
 use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
-use crate::xetex_ext::{map_char_to_glyph, NativeFont, AAT_FONT_FLAG, OTGR_FONT_FLAG};
+use crate::xetex_ext::{map_char_to_glyph, Font, NativeFont::*};
 use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
     cur_list, cur_val, cur_val1, file_line_error_style_p, insert_src_special_every_math, just_box,
     memory_word, pre_adjust_tail, tex_remainder, total_shrink, xtx_ligature_present, LR_problems,
-    LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_EC, FONT_INFO,
+    LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO,
     FONT_LAYOUT_ENGINE, FONT_PARAMS, HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM,
     NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
 };
@@ -934,11 +934,11 @@ pub(crate) unsafe fn after_math() {
         j = cur_list.eTeX_aux; // :1530
     }
     if FONT_PARAMS[MATH_FONT(2 + TEXT_SIZE)] < TOTAL_MATHSY_PARAMS
-        && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + TEXT_SIZE)], NativeFont::Otgr(e) if e.is_open_type_math_font())
+        && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + TEXT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
         || FONT_PARAMS[MATH_FONT(2 + SCRIPT_SIZE)] < TOTAL_MATHSY_PARAMS
-            && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SIZE)], NativeFont::Otgr(e) if e.is_open_type_math_font())
+            && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
         || FONT_PARAMS[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)] < TOTAL_MATHSY_PARAMS
-            && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)], NativeFont::Otgr(e) if e.is_open_type_math_font())
+            && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
     {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -956,11 +956,11 @@ pub(crate) unsafe fn after_math() {
         flush_math();
         danger = true
     } else if FONT_PARAMS[MATH_FONT(3 + TEXT_SIZE)] < TOTAL_MATHEX_PARAMS
-        && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + TEXT_SIZE)], NativeFont::Otgr(e) if e.is_open_type_math_font())
+        && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + TEXT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
         || FONT_PARAMS[MATH_FONT(3 + SCRIPT_SIZE)] < TOTAL_MATHEX_PARAMS
-            && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SIZE)], NativeFont::Otgr(e) if e.is_open_type_math_font())
+            && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
         || FONT_PARAMS[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)] < TOTAL_MATHEX_PARAMS
-            && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)], NativeFont::Otgr(e) if e.is_open_type_math_font())
+            && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
     {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -1013,11 +1013,11 @@ pub(crate) unsafe fn after_math() {
             j = cur_list.eTeX_aux
         }
         if FONT_PARAMS[MATH_FONT(2 + TEXT_SIZE)] < TOTAL_MATHSY_PARAMS
-            && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + TEXT_SIZE)], NativeFont::Otgr(e) if e.is_open_type_math_font())
+            && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + TEXT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
             || FONT_PARAMS[MATH_FONT(2 + SCRIPT_SIZE)] < TOTAL_MATHSY_PARAMS
-                && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SIZE)], NativeFont::Otgr(e) if e.is_open_type_math_font())
+                && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
             || FONT_PARAMS[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)] < TOTAL_MATHSY_PARAMS
-                && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)], NativeFont::Otgr(e) if e.is_open_type_math_font())
+                && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
         {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -1035,11 +1035,11 @@ pub(crate) unsafe fn after_math() {
             flush_math();
             danger = true
         } else if FONT_PARAMS[MATH_FONT(3 + TEXT_SIZE)] < TOTAL_MATHEX_PARAMS
-            && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + TEXT_SIZE)], NativeFont::Otgr(e) if e.is_open_type_math_font())
+            && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + TEXT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
             || FONT_PARAMS[MATH_FONT(3 + SCRIPT_SIZE)] < TOTAL_MATHEX_PARAMS
-                && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SIZE)], NativeFont::Otgr(e) if e.is_open_type_math_font())
+                && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
             || FONT_PARAMS[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)] < TOTAL_MATHEX_PARAMS
-                && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)], NativeFont::Otgr(e) if e.is_open_type_math_font())
+                && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
         {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -1254,161 +1254,161 @@ pub(crate) unsafe fn resume_after_display() {
 unsafe fn math_x_height(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 5),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 5),
         _ => FONT_INFO[(5 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn math_quad(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 6i32),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 6i32),
         _ => FONT_INFO[(6 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn num1(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 8),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 8),
         _ => FONT_INFO[(8 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn num2(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 9i32),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 9i32),
         _ => FONT_INFO[(9 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn num3(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 10),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 10),
         _ => FONT_INFO[(10 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn denom1(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 11),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 11),
         _ => FONT_INFO[(11 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn denom2(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 12),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 12),
         _ => FONT_INFO[(12 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn sup1(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 13),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 13),
         _ => FONT_INFO[(13 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn sup2(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 14),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 14),
         _ => FONT_INFO[(14 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn sup3(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 15),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 15),
         _ => FONT_INFO[(15 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn sub1(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 16),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 16),
         _ => FONT_INFO[(16 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn sub2(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 17),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 17),
         _ => FONT_INFO[(17 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn sup_drop(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 18),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 18),
         _ => FONT_INFO[(18 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn sub_drop(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code) as usize;
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 19),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 19),
         _ => FONT_INFO[(19 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn delim1(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 20),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 20),
         _ => FONT_INFO[(20 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn delim2(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 21),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 21),
         _ => FONT_INFO[(21 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn axis_height(size_code: usize) -> scaled_t {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathsy_param(f, 22),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 22),
         _ => FONT_INFO[(22 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn default_rule_thickness() -> scaled_t {
     let f = MATH_FONT(3 + cur_size);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathex_param(f, 8),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathex_param(f, 8),
         _ => FONT_INFO[(8 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn big_op_spacing1() -> scaled_t {
     let f = MATH_FONT(3 + cur_size);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathex_param(f, 9),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathex_param(f, 9),
         _ => FONT_INFO[(9 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn big_op_spacing2() -> scaled_t {
     let f = MATH_FONT(3 + cur_size);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathex_param(f, 10),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathex_param(f, 10),
         _ => FONT_INFO[(10 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn big_op_spacing3() -> scaled_t {
     let f = MATH_FONT(3 + cur_size);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathex_param(f, 11),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathex_param(f, 11),
         _ => FONT_INFO[(11 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn big_op_spacing4() -> scaled_t {
     let f = MATH_FONT(3 + cur_size);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathex_param(f, 12),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathex_param(f, 12),
         _ => FONT_INFO[(12 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
 unsafe fn big_op_spacing5() -> scaled_t {
     let f = MATH_FONT(3 + cur_size);
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => get_native_mathex_param(f, 13),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathex_param(f, 13),
         _ => FONT_INFO[(13 + PARAM_BASE[f]) as usize].b32.s1,
     }
 }
@@ -1574,9 +1574,7 @@ pub(crate) unsafe fn fetch(a: &mut MCell) {
         error();
         cur_i = NULL_CHARACTER;
         a.typ = MathCell::Empty;
-    } else if FONT_AREA[cur_f as usize] as u32 == AAT_FONT_FLAG
-        || FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-    {
+    } else if let Font::Native(_) = &FONT_LAYOUT_ENGINE[cur_f as usize] {
         cur_i = NULL_CHARACTER
     } else {
         if cur_c >= FONT_BC[cur_f as usize] as i32 && cur_c <= FONT_EC[cur_f as usize] as i32 {
@@ -1622,14 +1620,14 @@ unsafe fn make_vcenter(q: usize) {
 unsafe fn make_radical(q: &mut Radical) {
     let f = MATH_FONT(q.delimeter().s3 as usize % 256 + cur_size);
     let rule_thickness = match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
             get_ot_math_constant(f, RADICALRULETHICKNESS)
         }
         _ => default_rule_thickness(),
     };
     let x = clean_box(q.first(), (cur_style.0, 1));
     let mut clr = match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
             if cur_style.0 == MathStyle::Display {
                 get_ot_math_constant(f, RADICALDISPLAYSTYLEVERTICALGAP)
             } else {
@@ -1651,7 +1649,7 @@ unsafe fn make_radical(q: &mut Radical) {
         x.height() + x.depth() + clr + rule_thickness,
     ));
     match &FONT_LAYOUT_ENGINE[f] {
-        NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
             let h = y.height();
             let d = y.depth();
             y.set_depth(h + d - rule_thickness);
@@ -1696,9 +1694,7 @@ unsafe fn make_math_accent(q: &mut Accent) {
     let mut ot_assembly_ptr: *mut libc::c_void = 0 as *mut libc::c_void;
     q.fourth_mut().fetch();
     ot_assembly_ptr = 0 as *mut libc::c_void;
-    let x = if FONT_AREA[cur_f as usize] as u32 == AAT_FONT_FLAG
-        || FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-    {
+    let x = if let Font::Native(_) = &FONT_LAYOUT_ENGINE[cur_f as usize] {
         c = cur_c;
         f = cur_f;
         s = match q.accent_type() {
@@ -1770,7 +1766,7 @@ unsafe fn make_math_accent(q: &mut Accent) {
     // :767
     if let Some(mut x) = x {
         let mut delta = match &FONT_LAYOUT_ENGINE[f] {
-            NativeFont::Otgr(e) if e.is_open_type_math_font() => match q.accent_type() {
+            Font::Native(Otgr(e)) if e.is_open_type_math_font() => match q.accent_type() {
                 AccentType::Bottom | AccentType::BottomFixed => 0,
                 _ => h.min(get_ot_math_constant(f, ACCENTBASEHEIGHT)),
             },
@@ -1793,7 +1789,7 @@ unsafe fn make_math_accent(q: &mut Accent) {
             }
         }
         let mut y = char_box(f, c);
-        if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
+        if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
             let mut p = Glyph::new_node();
             p.set_font(f as u16);
             let nw = NativeWord::from(y.list_ptr() as usize);
@@ -1937,7 +1933,7 @@ unsafe fn make_fraction(q: &mut Fraction) {
     if q.thickness() == 0 {
         /*772:*/
         let clr = match &FONT_LAYOUT_ENGINE[cur_f as usize] {
-            NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+            Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                 if cur_style.0 == MathStyle::Display {
                     get_ot_math_constant(cur_f, STACKDISPLAYSTYLEGAPMIN)
                 } else {
@@ -1961,7 +1957,7 @@ unsafe fn make_fraction(q: &mut Fraction) {
         let delta1;
         let delta2;
         match &FONT_LAYOUT_ENGINE[cur_f as usize] {
-            NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+            Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                 delta = half(q.thickness());
                 let clr = if cur_style.0 == MathStyle::Display {
                     get_ot_math_constant(cur_f, FRACTIONNUMDISPLAYSTYLEGAPMIN)
@@ -2036,7 +2032,7 @@ unsafe fn make_op(q: &mut Operator) -> scaled_t {
         let mut c = 0;
         q.first_mut().fetch();
         match &FONT_LAYOUT_ENGINE[cur_f as usize] {
-            NativeFont::Otgr(e) if e.using_open_type() => {}
+            Font::Native(Otgr(e)) if e.using_open_type() => {}
             _ => {
                 if cur_style.0 == MathStyle::Display && cur_i.s1 as i32 % 4 == LIST_TAG {
                     c = cur_i.s0;
@@ -2054,7 +2050,7 @@ unsafe fn make_op(q: &mut Operator) -> scaled_t {
         }
         let mut x = clean_box(q.first(), cur_style);
         match &FONT_LAYOUT_ENGINE[cur_f as usize] {
-            NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+            Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                 if let Some(mut p) = x.list_ptr().opt() {
                     if let CharOrText::Text(TxtNode::WhatsIt(WhatsIt::Glyph(mut p))) =
                         CharOrText::from(p)
@@ -2349,7 +2345,7 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
         x.set_width(w + *DIMENPAR(DimenPar::script_space));
         shift_down = shift_down.max(sub1(cur_size));
         clr = match &FONT_LAYOUT_ENGINE[cur_f as usize] {
-            NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+            Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                 x.height() - get_ot_math_constant(cur_f, SUBSCRIPTTOPMAX)
             }
             _ => x.height() - (math_x_height(cur_size) * 4).abs() / 5,
@@ -2358,14 +2354,14 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
             shift_down = clr;
         }
         x.set_shift_amount(shift_down);
-        if matches!(&FONT_LAYOUT_ENGINE[cur_f as usize], NativeFont::Otgr(eng) if eng.is_open_type_math_font())
+        if matches!(&FONT_LAYOUT_ENGINE[cur_f as usize], Font::Native(Otgr(eng)) if eng.is_open_type_math_font())
         {
             /*787: */
             if q.third().typ == MathCell::MathChar {
                 let save_f = cur_f;
                 q.third_mut().fetch();
                 match &FONT_LAYOUT_ENGINE[cur_f as usize] {
-                    NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+                    Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                         let script_c = new_native_character(cur_f, cur_c);
                         script_g = script_c.native_glyph(0);
                         script_f = cur_f;
@@ -2417,7 +2413,7 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
             shift_up = clr
         }
         clr = match &FONT_LAYOUT_ENGINE[cur_f as usize] {
-            NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+            Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                 x.depth() + get_ot_math_constant(cur_f, SUPERSCRIPTBOTTOMMIN)
             }
             _ => x.depth() + math_x_height(cur_size).abs() / 4,
@@ -2425,14 +2421,14 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
         if shift_up < clr {
             shift_up = clr
         }
-        if matches!(&FONT_LAYOUT_ENGINE[cur_f as usize], NativeFont::Otgr(e) if e.is_open_type_math_font())
+        if matches!(&FONT_LAYOUT_ENGINE[cur_f as usize], Font::Native(Otgr(e)) if e.is_open_type_math_font())
         {
             // 788:
             if q.second().typ == MathCell::MathChar {
                 let save_f = cur_f;
                 q.second_mut().fetch();
                 match &FONT_LAYOUT_ENGINE[cur_f as usize] {
-                    NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+                    Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                         let script_c = new_native_character(cur_f, cur_c);
                         script_g = script_c.native_glyph(0);
                         script_f = cur_f
@@ -2480,7 +2476,7 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
                 shift_down = sub2(cur_size)
             }
             match &FONT_LAYOUT_ENGINE[cur_f as usize] {
-                NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+                Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                     clr = get_ot_math_constant(cur_f, SUBSUPERSCRIPTGAPMIN)
                         - (shift_up - x.depth() - (y.height() - shift_down))
                 }
@@ -2492,7 +2488,7 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
             if clr > 0 {
                 shift_down = shift_down + clr;
                 match &FONT_LAYOUT_ENGINE[cur_f as usize] {
-                    NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+                    Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                         clr = get_ot_math_constant(cur_f, SUPERSCRIPTBOTTOMMAXWITHSUBSCRIPT)
                             - (shift_up - x.depth())
                     }
@@ -2503,13 +2499,13 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
                     shift_down = shift_down - clr
                 }
             }
-            if matches!(&FONT_LAYOUT_ENGINE[cur_f as usize], NativeFont::Otgr(eng) if eng.is_open_type_math_font())
+            if matches!(&FONT_LAYOUT_ENGINE[cur_f as usize], Font::Native(Otgr(eng)) if eng.is_open_type_math_font())
             {
                 if q.third().typ == MathCell::MathChar {
                     let save_f = cur_f;
                     q.third_mut().fetch();
                     match &FONT_LAYOUT_ENGINE[cur_f as usize] {
-                        NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+                        Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                             let script_c = new_native_character(cur_f, cur_c);
                             script_g = script_c.native_glyph(0);
                             script_f = cur_f
@@ -2540,7 +2536,7 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: scaled_t) {
                     let save_f = cur_f;
                     q.second_mut().fetch();
                     match &FONT_LAYOUT_ENGINE[cur_f as usize] {
-                        NativeFont::Otgr(e) if e.is_open_type_math_font() => {
+                        Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                             let script_c = new_native_character(cur_f, cur_c);
                             script_g = script_c.native_glyph(0);
                             script_f = cur_f
@@ -2700,9 +2696,7 @@ unsafe fn mlist_to_hlist() {
                     let p = match q.first().typ {
                         MathCell::MathChar | MathCell::MathTextChar => {
                             q.first_mut().fetch();
-                            if FONT_AREA[cur_f as usize] as u32 == AAT_FONT_FLAG
-                                || FONT_AREA[cur_f as usize] as u32 == OTGR_FONT_FLAG
-                            {
+                            if let Font::Native(_) = &FONT_LAYOUT_ENGINE[cur_f as usize] {
                                 let z = new_native_character(cur_f, cur_c);
                                 let mut p = Glyph::new_node();
                                 p.set_font(cur_f as u16);
@@ -2711,7 +2705,7 @@ unsafe fn mlist_to_hlist() {
                                 z.free();
                                 delta = get_ot_math_ital_corr(cur_f, p.glyph() as i32);
                                 if q.first().typ == MathCell::MathTextChar
-                                    && !matches!(&FONT_LAYOUT_ENGINE[cur_f as usize], NativeFont::Otgr(e) if e.is_open_type_math_font())
+                                    && !matches!(&FONT_LAYOUT_ENGINE[cur_f as usize], Font::Native(Otgr(e)) if e.is_open_type_math_font())
                                 {
                                     delta = 0;
                                 }
@@ -3058,7 +3052,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
                 if g != FONT_BASE {
                     /*734: */
                     match &FONT_LAYOUT_ENGINE[f] {
-                        NativeFont::Otgr(e) if e.using_open_type() => {
+                        Font::Native(Otgr(e)) if e.using_open_type() => {
                             x = map_char_to_glyph(g, x as i32) as u16;
                             f = g;
                             c = x;
@@ -3138,7 +3132,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
     }
     let mut b = if f != FONT_BASE {
         match &FONT_LAYOUT_ENGINE[f] {
-            NativeFont::Otgr(e) if e.using_open_type() => {
+            Font::Native(Otgr(e)) if e.using_open_type() => {
                 if !ot_assembly_ptr.is_null() {
                     build_opentype_assembly(f, ot_assembly_ptr, v, false)
                 } else {
@@ -3233,7 +3227,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
 }
 unsafe fn char_box(mut f: usize, mut c: i32) -> List {
     let mut b;
-    let p = if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
+    let p = if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
         b = List::from(new_null_box());
         let p = new_native_character(f, c);
         b.set_list_ptr(Some(p.ptr()).tex_int());
