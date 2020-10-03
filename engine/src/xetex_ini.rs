@@ -19,7 +19,6 @@ use crate::node::*;
 use crate::trie::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, overflow};
-use crate::xetex_ext::{AAT_FONT_FLAG, OTGR_FONT_FLAG};
 use crate::xetex_layout_interface::{destroy_font_manager, set_cp_code};
 use crate::xetex_output::{
     print, print_chr, print_cstr, print_esc_cstr, print_file_line, print_int, print_nl,

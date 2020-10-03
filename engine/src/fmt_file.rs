@@ -49,7 +49,6 @@ use crate::xetex_consts::{
 
 use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
-use crate::xetex_ext::OTGR_FONT_FLAG;
 use crate::xetex_output::print_file_name;
 use crate::xetex_output::{
     print, print_chr, print_cstr, print_esc, print_file_line, print_int, print_ln, print_nl_cstr,
@@ -61,7 +60,6 @@ use crate::xetex_xetexd::llist_link;
 use crate::xetex_xetexd::{TeXInt, TeXOpt};
 
 use crate::core_memory::xmalloc_array;
-use crate::xetex_ext::AAT_FONT_FLAG;
 
 use crate::xetex_xetex0::get_node;
 use crate::xetex_xetex0::{
@@ -408,7 +406,9 @@ pub(crate) unsafe fn store_fmt_file() {
         print_esc((*hash.offset(FONT_ID_BASE as isize + k as isize)).s1);
         print_chr('=');
 
-        if matches!(&FONT_LAYOUT_ENGINE[k], Font::Native(_)) || !(FONT_MAPPING[k]).is_null() {
+        if matches!(&FONT_LAYOUT_ENGINE[k], crate::xetex_ext::Font::Native(_))
+            || !(FONT_MAPPING[k]).is_null()
+        {
             print_file_name(FONT_NAME[k], EMPTY_STRING, EMPTY_STRING);
 
             if file_line_error_style_p != 0 {
