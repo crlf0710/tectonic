@@ -763,438 +763,419 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
             print_cstr("etc.");
             return;
         }
-        if is_char_node(Some(p)) {
-            print_font_and_char(p);
-        } else {
-            let p = p as usize;
-            match NODE_type(p) {
-                ND::Text(n) => match n {
-                    TextNode::HList | TextNode::VList => {
-                        let p = List::from(p);
-                        match n {
-                            TextNode::HList => print_esc('h' as i32),
-                            TextNode::VList => print_esc('v' as i32),
-                            _ => unreachable!(),
+        let p = p as usize;
+        match Node::from(p) {
+            Node::Char(_) => print_font_and_char(p as _),
+            Node::Text(n) => match n {
+                TxtNode::HList(p) | TxtNode::VList(p) => {
+                    if p.list_dir() == ListDir::Horizontal {
+                        print_esc('h' as i32);
+                    } else {
+                        print_esc('v' as i32);
+                    }
+                    print_cstr("box(");
+                    print_scaled(p.height());
+                    print_chr('+');
+                    print_scaled(p.depth());
+                    print_cstr(")x");
+                    print_scaled(p.width());
+                    g = p.glue_set();
+                    if g != 0. && p.glue_sign() != GlueSign::Normal {
+                        print_cstr(", glue set ");
+                        if p.glue_sign() == GlueSign::Shrinking {
+                            print_cstr("- ");
                         }
-                        print_cstr("box(");
-                        print_scaled(p.height());
-                        print_chr('+');
-                        print_scaled(p.depth());
-                        print_cstr(")x");
-                        print_scaled(p.width());
-                        g = p.glue_set();
-                        if g != 0. && p.glue_sign() != GlueSign::Normal {
-                            print_cstr(", glue set ");
-                            if p.glue_sign() == GlueSign::Shrinking {
-                                print_cstr("- ");
-                            }
-                            if g.abs() > 20000. {
-                                if g > 0. {
-                                    print_chr('>');
-                                } else {
-                                    print_cstr("< -");
-                                }
-                                print_glue((20000_i64 * 65536) as scaled_t, p.glue_order(), "");
+                        if g.abs() > 20000. {
+                            if g > 0. {
+                                print_chr('>');
                             } else {
-                                print_glue(tex_round(65536_f64 * g), p.glue_order(), "");
+                                print_cstr("< -");
                             }
+                            print_glue((20000_i64 * 65536) as scaled_t, p.glue_order(), "");
+                        } else {
+                            print_glue(tex_round(65536_f64 * g), p.glue_order(), "");
                         }
-                        if p.shift_amount() != 0 {
-                            print_cstr(", shifted ");
-                            print_scaled(p.shift_amount());
-                        }
-                        /*1491:*/
-                        if text_NODE_type(p.ptr()) == TextNode::HList.into()
-                            && p.lr_mode() == LRMode::DList
-                        {
-                            print_cstr(", display");
-                        }
-                        str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
-                        pool_ptr += 1;
-                        show_node_list(p.list_ptr().opt());
-                        pool_ptr -= 1
                     }
-                    TextNode::Unset => {
-                        let p = Unset::from(p);
-                        print_esc_cstr("unset");
-                        print_cstr("box(");
-                        print_scaled(p.height());
-                        print_chr('+');
-                        print_scaled(p.depth());
-                        print_cstr(")x");
-                        print_scaled(p.width());
-                        /*193:*/
-                        if p.columns() != 0 {
-                            print_cstr(" (");
-                            print_int(p.columns() as i32 + 1);
-                            print_cstr(" columns)");
-                        }
-                        if p.stretch() != 0 {
-                            print_cstr(", stretch ");
-                            print_glue(p.stretch(), p.stretch_order(), "");
-                        }
-                        if p.shrink() != 0 {
-                            print_cstr(", shrink ");
-                            print_glue(p.shrink(), p.shrink_order(), "");
-                        }
-                        str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
-                        pool_ptr += 1;
-                        show_node_list(p.list_ptr().opt());
-                        pool_ptr -= 1
+                    if p.shift_amount() != 0 {
+                        print_cstr(", shifted ");
+                        print_scaled(p.shift_amount());
                     }
-                    TextNode::Rule => {
-                        let p = Rule::from(p);
-                        print_esc_cstr("rule(");
-                        print_rule_dimen(p.height());
-                        print_chr('+');
-                        print_rule_dimen(p.depth());
-                        print_cstr(")x");
-                        print_rule_dimen(p.width());
+                    /*1491:*/
+                    if text_NODE_type(p.ptr()) == TextNode::HList.into()
+                        && p.lr_mode() == LRMode::DList
+                    {
+                        print_cstr(", display");
                     }
-                    TextNode::Ins => {
-                        let p_ins = Insertion(p);
-                        print_esc_cstr("insert");
-                        print_int(p_ins.box_reg() as i32);
-                        print_cstr(", natural size ");
-                        print_scaled(p_ins.height());
-                        print_cstr("; split(");
-                        print_spec(p_ins.split_top_ptr(), "");
+                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                    pool_ptr += 1;
+                    show_node_list(p.list_ptr().opt());
+                    pool_ptr -= 1
+                }
+                TxtNode::Unset(p) => {
+                    print_esc_cstr("unset");
+                    print_cstr("box(");
+                    print_scaled(p.height());
+                    print_chr('+');
+                    print_scaled(p.depth());
+                    print_cstr(")x");
+                    print_scaled(p.width());
+                    /*193:*/
+                    if p.columns() != 0 {
+                        print_cstr(" (");
+                        print_int(p.columns() as i32 + 1);
+                        print_cstr(" columns)");
+                    }
+                    if p.stretch() != 0 {
+                        print_cstr(", stretch ");
+                        print_glue(p.stretch(), p.stretch_order(), "");
+                    }
+                    if p.shrink() != 0 {
+                        print_cstr(", shrink ");
+                        print_glue(p.shrink(), p.shrink_order(), "");
+                    }
+                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                    pool_ptr += 1;
+                    show_node_list(p.list_ptr().opt());
+                    pool_ptr -= 1
+                }
+                TxtNode::Rule(p) => {
+                    print_esc_cstr("rule(");
+                    print_rule_dimen(p.height());
+                    print_chr('+');
+                    print_rule_dimen(p.depth());
+                    print_cstr(")x");
+                    print_rule_dimen(p.width());
+                }
+                TxtNode::Ins(p_ins) => {
+                    print_esc_cstr("insert");
+                    print_int(p_ins.box_reg() as i32);
+                    print_cstr(", natural size ");
+                    print_scaled(p_ins.height());
+                    print_cstr("; split(");
+                    print_spec(p_ins.split_top_ptr(), "");
+                    print_chr(',');
+                    print_scaled(p_ins.depth());
+                    print_cstr("); float cost ");
+                    print_int(p_ins.float_cost());
+                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                    pool_ptr += 1;
+                    show_node_list(p_ins.ins_ptr().opt());
+                    pool_ptr -= 1
+                }
+                TxtNode::WhatsIt(p) => match p {
+                    WhatsIt::Open(p) => {
+                        print_write_whatsit("openout", p.ptr());
+                        print_chr('=');
+                        print_file_name(p.name(), p.area(), p.ext());
+                    }
+                    WhatsIt::Write(p) => {
+                        print_write_whatsit("write", p.ptr());
+                        print_mark(p.tokens());
+                    }
+                    WhatsIt::Close(p) => print_write_whatsit("closeout", p.ptr()),
+                    WhatsIt::Special(s) => {
+                        print_esc_cstr("special");
+                        print_mark(s.tokens());
+                    }
+                    WhatsIt::Language(l) => {
+                        print_esc_cstr("setlanguage");
+                        print_int(l.lang());
+                        print_cstr(" (hyphenmin ");
+                        print_int(l.lhm() as i32);
                         print_chr(',');
-                        print_scaled(p_ins.depth());
-                        print_cstr("); float cost ");
-                        print_int(p_ins.float_cost());
-                        str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
-                        pool_ptr += 1;
-                        show_node_list(p_ins.ins_ptr().opt());
-                        pool_ptr -= 1
-                    }
-                    TextNode::WhatsIt => match WhatsIt::from(p) {
-                        WhatsIt::Open(p) => {
-                            print_write_whatsit("openout", p.ptr());
-                            print_chr('=');
-                            print_file_name(p.name(), p.area(), p.ext());
-                        }
-                        WhatsIt::Write(p) => {
-                            print_write_whatsit("write", p.ptr());
-                            print_mark(p.tokens());
-                        }
-                        WhatsIt::Close(p) => print_write_whatsit("closeout", p.ptr()),
-                        WhatsIt::Special(s) => {
-                            print_esc_cstr("special");
-                            print_mark(s.tokens());
-                        }
-                        WhatsIt::Language(l) => {
-                            print_esc_cstr("setlanguage");
-                            print_int(l.lang());
-                            print_cstr(" (hyphenmin ");
-                            print_int(l.lhm() as i32);
-                            print_chr(',');
-                            print_int(l.rhm() as i32);
-                            print_chr(')');
-                        }
-                        WhatsIt::NativeWord(nw) => {
-                            print_esc(
-                                (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
-                                    .s1,
-                            );
-                            print_chr(' ');
-                            print_native_word(&nw);
-                        }
-                        WhatsIt::Glyph(g) => {
-                            print_esc(
-                                (*hash.offset((FONT_ID_BASE as i32 + g.font() as i32) as isize)).s1,
-                            );
-                            print_cstr(" glyph#");
-                            print_int(g.glyph() as i32);
-                        }
-                        WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                            if p.is_pdf() {
-                                print_esc_cstr("XeTeXpdffile");
-                            } else {
-                                print_esc_cstr("XeTeXpicfile");
-                            }
-                            print_cstr("( ");
-                            for i in p.path() {
-                                print_raw_char(*i as UTF16_code, true);
-                            }
-                            print('\"' as i32);
-                        }
-                        WhatsIt::PdfSavePos(_) => print_esc_cstr("pdfsavepos"),
-                        //_ => print_cstr("whatsit?"),
-                    },
-                    TextNode::Glue => {
-                        let g = Glue(p);
-                        if g.param() >= A_LEADERS {
-                            /*198: */
-                            print_esc_cstr(""); /*:244 */
-                            if g.param() == C_LEADERS {
-                                print_chr('c'); /*214:*/
-                            } else if g.param() == X_LEADERS {
-                                print_chr('x');
-                            }
-                            print_cstr("leaders ");
-                            print_spec(g.glue_ptr(), "");
-                            str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
-                            pool_ptr += 1;
-                            show_node_list(g.leader_ptr().opt());
-                            pool_ptr -= 1
-                        } else {
-                            print_esc_cstr("glue");
-                            if g.param() != NORMAL {
-                                print_chr('(');
-                                if g.param() < COND_MATH_GLUE {
-                                    match GluePar::n(g.param() - 1) {
-                                        Some(dimen) => print_skip_param(dimen),
-                                        None => print_cstr("[unknown glue parameter!]"),
-                                    }
-                                } else if g.param() == COND_MATH_GLUE {
-                                    print_esc_cstr("nonscript");
-                                } else {
-                                    print_esc_cstr("mskip");
-                                }
-                                print_chr(')');
-                            }
-                            if g.param() != COND_MATH_GLUE {
-                                print_chr(' ');
-                                if g.param() < COND_MATH_GLUE {
-                                    print_spec(g.glue_ptr(), "");
-                                } else {
-                                    print_spec(g.glue_ptr(), "mu");
-                                }
-                            }
-                        }
-                    }
-                    TextNode::Kern => {
-                        let k = Kern(p);
-                        if k.subtype() != KernType::Math {
-                            print_esc_cstr("kern");
-                            if k.subtype() != KernType::Normal {
-                                print_chr(' ');
-                            }
-                            print_scaled(k.width());
-                            if k.subtype() == KernType::AccKern {
-                                print_cstr(" (for accent)");
-                            } else if k.subtype() == KernType::SpaceAdjustment {
-                                print_cstr(" (space adjustment)");
-                            }
-                        } else {
-                            print_esc_cstr("mkern");
-                            print_scaled(k.width());
-                            print_cstr("mu");
-                        }
-                    }
-                    TextNode::MarginKern => {
-                        print_esc_cstr("kern");
-                        print_scaled(MEM[p + 1].b32.s1);
-                        if MEM[p].b16.s0 == 0 {
-                            print_cstr(" (left margin)");
-                        } else {
-                            print_cstr(" (right margin)");
-                        }
-                    }
-                    TextNode::Math => {
-                        let p = Math(p);
-                        match p.subtype() {
-                            MathType::Eq(be, mode) => {
-                                match be {
-                                    BE::Begin => print_esc_cstr("begin"),
-                                    BE::End => print_esc_cstr("end"),
-                                }
-                                match mode {
-                                    MathMode::Right => print_chr('R'),
-                                    MathMode::Left => print_chr('L'),
-                                    MathMode::Middle => print_chr('M'),
-                                }
-                            }
-                            _ => {
-                                print_esc_cstr("math");
-                                match p.subtype() {
-                                    MathType::Before => print_cstr("on"),
-                                    MathType::After => print_cstr("off"),
-                                    _ => unreachable!(),
-                                }
-                                if p.width() != 0 {
-                                    print_cstr(", surrounded ");
-                                    print_scaled(p.width());
-                                }
-                            }
-                        }
-                    }
-                    TextNode::Ligature => {
-                        let l = Ligature(p);
-                        print_font_and_char(l.ptr() + 1);
-                        print_cstr(" (ligature ");
-                        if l.left_hit() {
-                            print_chr('|');
-                        }
-                        font_in_short_display = l.font() as usize;
-                        short_display(l.lig_ptr().opt());
-                        if l.right_hit() {
-                            print_chr('|');
-                        }
+                        print_int(l.rhm() as i32);
                         print_chr(')');
                     }
-                    TextNode::Penalty => {
-                        let p = Penalty(p);
-                        print_esc_cstr("penalty ");
-                        print_int(p.penalty());
+                    WhatsIt::NativeWord(nw) => {
+                        print_esc(
+                            (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize)).s1,
+                        );
+                        print_chr(' ');
+                        print_native_word(&nw);
                     }
-                    TextNode::Disc => {
-                        let d = Discretionary(p);
-                        print_esc_cstr("discretionary");
-                        if d.replace_count() > 0 {
-                            print_cstr(" replacing ");
-                            print_int(d.replace_count() as i32);
+                    WhatsIt::Glyph(g) => {
+                        print_esc(
+                            (*hash.offset((FONT_ID_BASE as i32 + g.font() as i32) as isize)).s1,
+                        );
+                        print_cstr(" glyph#");
+                        print_int(g.glyph() as i32);
+                    }
+                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                        if p.is_pdf() {
+                            print_esc_cstr("XeTeXpdffile");
+                        } else {
+                            print_esc_cstr("XeTeXpicfile");
                         }
+                        print_cstr("( ");
+                        for i in p.path() {
+                            print_raw_char(*i as UTF16_code, true);
+                        }
+                        print('\"' as i32);
+                    }
+                    WhatsIt::PdfSavePos(_) => print_esc_cstr("pdfsavepos"),
+                    //_ => print_cstr("whatsit?"),
+                },
+                TxtNode::Glue(g) => {
+                    if g.param() >= A_LEADERS {
+                        /*198: */
+                        print_esc_cstr(""); /*:244 */
+                        if g.param() == C_LEADERS {
+                            print_chr('c'); /*214:*/
+                        } else if g.param() == X_LEADERS {
+                            print_chr('x');
+                        }
+                        print_cstr("leaders ");
+                        print_spec(g.glue_ptr(), "");
                         str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
-                        show_node_list(d.pre_break().opt());
-                        pool_ptr -= 1;
-                        str_pool[pool_ptr as usize] = '|' as i32 as packed_UTF16_code;
-                        pool_ptr += 1;
-                        show_node_list(d.post_break().opt());
+                        show_node_list(g.leader_ptr().opt());
                         pool_ptr -= 1
-                    }
-                    TextNode::Mark => {
-                        let m = Mark(p);
-                        print_esc_cstr("mark");
-                        if m.class() != 0 {
-                            print_chr('s');
-                            print_int(m.class());
+                    } else {
+                        print_esc_cstr("glue");
+                        if g.param() != NORMAL {
+                            print_chr('(');
+                            if g.param() < COND_MATH_GLUE {
+                                match GluePar::n(g.param() - 1) {
+                                    Some(dimen) => print_skip_param(dimen),
+                                    None => print_cstr("[unknown glue parameter!]"),
+                                }
+                            } else if g.param() == COND_MATH_GLUE {
+                                print_esc_cstr("nonscript");
+                            } else {
+                                print_esc_cstr("mskip");
+                            }
+                            print_chr(')');
                         }
-                        print_mark(m.mark_ptr());
-                    }
-                    TextNode::Adjust => {
-                        let a = Adjust(p);
-                        print_esc_cstr("vadjust");
-                        if a.subtype() != AdjustType::Post {
-                            print_cstr(" pre ");
+                        if g.param() != COND_MATH_GLUE {
+                            print_chr(' ');
+                            if g.param() < COND_MATH_GLUE {
+                                print_spec(g.glue_ptr(), "");
+                            } else {
+                                print_spec(g.glue_ptr(), "mu");
+                            }
                         }
-                        str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
-                        pool_ptr += 1;
-                        show_node_list(a.adj_ptr().opt());
-                        pool_ptr -= 1
                     }
-                    TextNode::Style => print_style(MEM[p].b16.s0 as i32),
-                    TextNode::Choice => {
-                        let c = Choice(p);
-                        print_esc_cstr("mathchoice");
-                        str_pool[pool_ptr as usize] = 'D' as i32 as packed_UTF16_code;
-                        pool_ptr += 1;
-                        show_node_list(c.display());
-                        pool_ptr -= 1;
-                        str_pool[pool_ptr as usize] = 'T' as i32 as packed_UTF16_code;
-                        pool_ptr += 1;
-                        show_node_list(c.text());
-                        pool_ptr -= 1;
-                        str_pool[pool_ptr as usize] = 'S' as i32 as packed_UTF16_code;
-                        pool_ptr += 1;
-                        show_node_list(c.script());
-                        pool_ptr -= 1;
-                        str_pool[pool_ptr as usize] = 's' as i32 as packed_UTF16_code;
-                        pool_ptr += 1;
-                        show_node_list(c.scriptscript());
-                        pool_ptr -= 1
+                }
+                TxtNode::Kern(k) => {
+                    if k.subtype() != KernType::Math {
+                        print_esc_cstr("kern");
+                        if k.subtype() != KernType::Normal {
+                            print_chr(' ');
+                        }
+                        print_scaled(k.width());
+                        if k.subtype() == KernType::AccKern {
+                            print_cstr(" (for accent)");
+                        } else if k.subtype() == KernType::SpaceAdjustment {
+                            print_cstr(" (space adjustment)");
+                        }
+                    } else {
+                        print_esc_cstr("mkern");
+                        print_scaled(k.width());
+                        print_cstr("mu");
+                    }
+                }
+                TxtNode::MarginKern(_) => {
+                    print_esc_cstr("kern");
+                    print_scaled(MEM[p + 1].b32.s1);
+                    if MEM[p].b16.s0 == 0 {
+                        print_cstr(" (left margin)");
+                    } else {
+                        print_cstr(" (right margin)");
+                    }
+                }
+                TxtNode::Math(p) => match p.subtype() {
+                    MathType::Eq(be, mode) => {
+                        match be {
+                            BE::Begin => print_esc_cstr("begin"),
+                            BE::End => print_esc_cstr("end"),
+                        }
+                        match mode {
+                            MathMode::Right => print_chr('R'),
+                            MathMode::Left => print_chr('L'),
+                            MathMode::Middle => print_chr('M'),
+                        }
+                    }
+                    _ => {
+                        print_esc_cstr("math");
+                        match p.subtype() {
+                            MathType::Before => print_cstr("on"),
+                            MathType::After => print_cstr("off"),
+                            _ => unreachable!(),
+                        }
+                        if p.width() != 0 {
+                            print_cstr(", surrounded ");
+                            print_scaled(p.width());
+                        }
                     }
                 },
-                ND::Math(n) => match n {
-                    MathNode::Ord
-                    | MathNode::Op
-                    | MathNode::Bin
-                    | MathNode::Rel
-                    | MathNode::Open
-                    | MathNode::Close
-                    | MathNode::Punct
-                    | MathNode::Inner
-                    | MathNode::Radical
-                    | MathNode::Over
-                    | MathNode::Under
-                    | MathNode::VCenter
-                    | MathNode::Accent
-                    | MathNode::Left
-                    | MathNode::Right => {
-                        match n {
-                            MathNode::Ord => print_esc_cstr("mathord"),
-                            MathNode::Op => print_esc_cstr("mathop"),
-                            MathNode::Bin => print_esc_cstr("mathbin"),
-                            MathNode::Rel => print_esc_cstr("mathrel"),
-                            MathNode::Open => print_esc_cstr("mathopen"),
-                            MathNode::Close => print_esc_cstr("mathclose"),
-                            MathNode::Punct => print_esc_cstr("mathpunct"),
-                            MathNode::Inner => print_esc_cstr("mathinner"),
-                            MathNode::Over => print_esc_cstr("overline"),
-                            MathNode::Under => print_esc_cstr("underline"),
-                            MathNode::VCenter => print_esc_cstr("vcenter"),
-                            MathNode::Radical => {
-                                print_esc_cstr("radical");
-                                print_delimiter(p + 4);
-                            }
-                            MathNode::Accent => {
-                                print_esc_cstr("accent");
-                                print_fam_and_char(p + 4);
-                            }
-                            MathNode::Left => {
-                                print_esc_cstr("left");
-                                print_delimiter(p + 1);
-                            }
-                            MathNode::Right => {
-                                if MEM[p].b16.s0 == NORMAL {
-                                    print_esc_cstr("right");
-                                } else {
-                                    print_esc_cstr("middle");
-                                }
-                                print_delimiter(p + 1);
-                            }
-                            _ => {}
-                        }
-                        if n != MathNode::Left && n != MathNode::Right {
-                            match Limit::from(MEM[p].b16.s0) {
-                                Limit::Limits => print_esc_cstr("limits"),
-                                Limit::NoLimits => print_esc_cstr("nolimits"),
-                                Limit::Normal => {}
-                            }
-                            print_subsidiary_data(p + 1, '.' as i32 as UTF16_code);
-                        }
-                        print_subsidiary_data(p + 2, '^' as i32 as UTF16_code);
-                        print_subsidiary_data(p + 3, '_' as i32 as UTF16_code);
+                TxtNode::Ligature(l) => {
+                    print_font_and_char(l.ptr() + 1);
+                    print_cstr(" (ligature ");
+                    if l.left_hit() {
+                        print_chr('|');
                     }
-                    MathNode::Fraction => {
-                        print_esc_cstr("fraction, thickness ");
-                        if MEM[p + 1].b32.s1 == DEFAULT_CODE {
-                            print_cstr("= default");
-                        } else {
-                            print_scaled(MEM[p + 1].b32.s1);
-                        }
-                        if MEM[p + 4].b16.s3 as i32 % 256 != 0
-                            || MEM[p + 4].b16.s2 as i64
-                                + (MEM[p + 4].b16.s3 as i32 / 256) as i64 * 65536
-                                != 0
-                            || MEM[p + 4].b16.s1 as i32 % 256 != 0
-                            || MEM[p + 4].b16.s0 as i64
-                                + (MEM[p + 4].b16.s1 as i32 / 256) as i64 * 65536
-                                != 0
-                        {
-                            print_cstr(", left-delimiter ");
+                    font_in_short_display = l.font() as usize;
+                    short_display(l.lig_ptr().opt());
+                    if l.right_hit() {
+                        print_chr('|');
+                    }
+                    print_chr(')');
+                }
+                TxtNode::Penalty(p) => {
+                    print_esc_cstr("penalty ");
+                    print_int(p.penalty());
+                }
+                TxtNode::Disc(d) => {
+                    print_esc_cstr("discretionary");
+                    if d.replace_count() > 0 {
+                        print_cstr(" replacing ");
+                        print_int(d.replace_count() as i32);
+                    }
+                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                    pool_ptr += 1;
+                    show_node_list(d.pre_break().opt());
+                    pool_ptr -= 1;
+                    str_pool[pool_ptr as usize] = '|' as i32 as packed_UTF16_code;
+                    pool_ptr += 1;
+                    show_node_list(d.post_break().opt());
+                    pool_ptr -= 1
+                }
+                TxtNode::Mark(m) => {
+                    print_esc_cstr("mark");
+                    if m.class() != 0 {
+                        print_chr('s');
+                        print_int(m.class());
+                    }
+                    print_mark(m.mark_ptr());
+                }
+                TxtNode::Adjust(a) => {
+                    print_esc_cstr("vadjust");
+                    if a.subtype() != AdjustType::Post {
+                        print_cstr(" pre ");
+                    }
+                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                    pool_ptr += 1;
+                    show_node_list(a.adj_ptr().opt());
+                    pool_ptr -= 1
+                }
+                TxtNode::Style(_) => print_style(MEM[p].b16.s0 as i32),
+                TxtNode::Choice(c) => {
+                    print_esc_cstr("mathchoice");
+                    str_pool[pool_ptr as usize] = 'D' as i32 as packed_UTF16_code;
+                    pool_ptr += 1;
+                    show_node_list(c.display());
+                    pool_ptr -= 1;
+                    str_pool[pool_ptr as usize] = 'T' as i32 as packed_UTF16_code;
+                    pool_ptr += 1;
+                    show_node_list(c.text());
+                    pool_ptr -= 1;
+                    str_pool[pool_ptr as usize] = 'S' as i32 as packed_UTF16_code;
+                    pool_ptr += 1;
+                    show_node_list(c.script());
+                    pool_ptr -= 1;
+                    str_pool[pool_ptr as usize] = 's' as i32 as packed_UTF16_code;
+                    pool_ptr += 1;
+                    show_node_list(c.scriptscript());
+                    pool_ptr -= 1
+                }
+            },
+            Node::Math(n) => match n {
+                MathNode::Ord
+                | MathNode::Op
+                | MathNode::Bin
+                | MathNode::Rel
+                | MathNode::Open
+                | MathNode::Close
+                | MathNode::Punct
+                | MathNode::Inner
+                | MathNode::Radical
+                | MathNode::Over
+                | MathNode::Under
+                | MathNode::VCenter
+                | MathNode::Accent
+                | MathNode::Left
+                | MathNode::Right => {
+                    match n {
+                        MathNode::Ord => print_esc_cstr("mathord"),
+                        MathNode::Op => print_esc_cstr("mathop"),
+                        MathNode::Bin => print_esc_cstr("mathbin"),
+                        MathNode::Rel => print_esc_cstr("mathrel"),
+                        MathNode::Open => print_esc_cstr("mathopen"),
+                        MathNode::Close => print_esc_cstr("mathclose"),
+                        MathNode::Punct => print_esc_cstr("mathpunct"),
+                        MathNode::Inner => print_esc_cstr("mathinner"),
+                        MathNode::Over => print_esc_cstr("overline"),
+                        MathNode::Under => print_esc_cstr("underline"),
+                        MathNode::VCenter => print_esc_cstr("vcenter"),
+                        MathNode::Radical => {
+                            print_esc_cstr("radical");
                             print_delimiter(p + 4);
                         }
-                        if MEM[p + 5].b16.s3 as i32 % 256 != 0
-                            || MEM[p + 5].b16.s2 as i64
-                                + (MEM[p + 5].b16.s3 as i32 / 256) as i64 * 65536
-                                != 0
-                            || MEM[p + 5].b16.s1 as i32 % 256 != 0
-                            || MEM[p + 5].b16.s0 as i64
-                                + (MEM[p + 5].b16.s1 as i32 / 256) as i64 * 65536
-                                != 0
-                        {
-                            print_cstr(", right-delimiter ");
-                            print_delimiter(p + 5);
+                        MathNode::Accent => {
+                            print_esc_cstr("accent");
+                            print_fam_and_char(p + 4);
                         }
-                        print_subsidiary_data(p + 2, '\\' as i32 as UTF16_code);
-                        print_subsidiary_data(p + 3, '/' as i32 as UTF16_code);
+                        MathNode::Left => {
+                            print_esc_cstr("left");
+                            print_delimiter(p + 1);
+                        }
+                        MathNode::Right => {
+                            if MEM[p].b16.s0 == NORMAL {
+                                print_esc_cstr("right");
+                            } else {
+                                print_esc_cstr("middle");
+                            }
+                            print_delimiter(p + 1);
+                        }
+                        _ => {}
                     }
-                },
-                ND::Unknown(_) => print_cstr("Unknown node type!"),
-            }
+                    if n != MathNode::Left && n != MathNode::Right {
+                        match Limit::from(MEM[p].b16.s0) {
+                            Limit::Limits => print_esc_cstr("limits"),
+                            Limit::NoLimits => print_esc_cstr("nolimits"),
+                            Limit::Normal => {}
+                        }
+                        print_subsidiary_data(p + 1, '.' as i32 as UTF16_code);
+                    }
+                    print_subsidiary_data(p + 2, '^' as i32 as UTF16_code);
+                    print_subsidiary_data(p + 3, '_' as i32 as UTF16_code);
+                }
+                MathNode::Fraction => {
+                    print_esc_cstr("fraction, thickness ");
+                    if MEM[p + 1].b32.s1 == DEFAULT_CODE {
+                        print_cstr("= default");
+                    } else {
+                        print_scaled(MEM[p + 1].b32.s1);
+                    }
+                    if MEM[p + 4].b16.s3 as i32 % 256 != 0
+                        || MEM[p + 4].b16.s2 as i64
+                            + (MEM[p + 4].b16.s3 as i32 / 256) as i64 * 65536
+                            != 0
+                        || MEM[p + 4].b16.s1 as i32 % 256 != 0
+                        || MEM[p + 4].b16.s0 as i64
+                            + (MEM[p + 4].b16.s1 as i32 / 256) as i64 * 65536
+                            != 0
+                    {
+                        print_cstr(", left-delimiter ");
+                        print_delimiter(p + 4);
+                    }
+                    if MEM[p + 5].b16.s3 as i32 % 256 != 0
+                        || MEM[p + 5].b16.s2 as i64
+                            + (MEM[p + 5].b16.s3 as i32 / 256) as i64 * 65536
+                            != 0
+                        || MEM[p + 5].b16.s1 as i32 % 256 != 0
+                        || MEM[p + 5].b16.s0 as i64
+                            + (MEM[p + 5].b16.s1 as i32 / 256) as i64 * 65536
+                            != 0
+                    {
+                        print_cstr(", right-delimiter ");
+                        print_delimiter(p + 5);
+                    }
+                    print_subsidiary_data(p + 2, '\\' as i32 as UTF16_code);
+                    print_subsidiary_data(p + 3, '/' as i32 as UTF16_code);
+                }
+            },
+            Node::Unknown(_) => print_cstr("Unknown node type!"),
         }
         popt = llist_link(p);
     }
@@ -1395,9 +1376,8 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
         if is_char_node(Some(p)) {
             r = get_avail();
         } else {
-            match text_NODE_type(p).confuse("copying") {
-                TextNode::HList | TextNode::VList => {
-                    let p = List::from(p);
+            match &TxtNode::from(p) {
+                TxtNode::HList(p) | TxtNode::VList(p) => {
                     r = get_node(BOX_NODE_SIZE);
                     let mut r_box = List::from(r);
                     *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE);
@@ -1409,8 +1389,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                         .set_list_ptr(copy_node_list(p.list_ptr().opt()));
                     words = 5_u8
                 }
-                TextNode::Unset => {
-                    let p = Unset::from(p);
+                TxtNode::Unset(p) => {
                     r = get_node(BOX_NODE_SIZE);
                     let mut r_unset = Unset::from(r);
                     *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE);
@@ -1422,20 +1401,19 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                         .set_list_ptr(copy_node_list(p.list_ptr().opt()));
                     words = 5_u8
                 }
-                TextNode::Rule => {
+                TxtNode::Rule(_) => {
                     r = get_node(RULE_NODE_SIZE);
                     words = (RULE_NODE_SIZE - 1) as u8
                 }
-                TextNode::Ins => {
+                TxtNode::Ins(p_ins) => {
                     r = get_node(INS_NODE_SIZE);
-                    let p_ins = Insertion(p);
                     let mut r_ins = Insertion(r);
                     r_ins.set_split_top_ptr(p_ins.split_top_ptr());
                     GlueSpec(p_ins.split_top_ptr() as usize).rc_inc();
                     r_ins.set_ins_ptr(copy_node_list(p_ins.ins_ptr().opt()));
                     words = (INS_NODE_SIZE - 1) as u8
                 }
-                TextNode::WhatsIt => match WhatsIt::from(p) {
+                TxtNode::WhatsIt(p) => match p {
                     WhatsIt::Open(_) => {
                         r = get_node(OPEN_NODE_SIZE);
                         words = OPEN_NODE_SIZE as u8
@@ -1476,8 +1454,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                     WhatsIt::PdfSavePos(_) => r = get_node(SMALL_NODE_SIZE),
                     //_ => confusion("ext2"),
                 },
-                TextNode::Glue => {
-                    let p = Glue(p);
+                TxtNode::Glue(p) => {
                     r = get_node(MEDIUM_NODE_SIZE);
                     let mut r_glue = Glue(r);
                     GlueSpec(p.glue_ptr() as usize).rc_inc();
@@ -1486,37 +1463,33 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                     r_glue.set_glue_ptr(p.glue_ptr());
                     r_glue.set_leader_ptr(copy_node_list(p.leader_ptr().opt()));
                 }
-                TextNode::Kern | TextNode::Math | TextNode::Penalty => {
+                TxtNode::Kern(_) | TxtNode::Math(_) | TxtNode::Penalty(_) => {
                     r = get_node(MEDIUM_NODE_SIZE);
                     words = MEDIUM_NODE_SIZE as u8
                 }
-                TextNode::MarginKern => {
+                TxtNode::MarginKern(_) => {
                     r = get_node(MARGIN_KERN_NODE_SIZE);
                     words = MARGIN_KERN_NODE_SIZE as u8
                 }
-                TextNode::Ligature => {
-                    let p = Ligature(p);
+                TxtNode::Ligature(p) => {
                     r = get_node(SMALL_NODE_SIZE);
                     let mut r_lig = Ligature(r);
                     r_lig.set_char(p.char());
                     r_lig.set_font(p.font());
                     r_lig.set_lig_ptr(copy_node_list(p.lig_ptr().opt()));
                 }
-                TextNode::Disc => {
-                    let p = Discretionary(p);
+                TxtNode::Disc(p) => {
                     r = get_node(SMALL_NODE_SIZE);
                     let mut r_disc = Discretionary(r);
                     r_disc.set_pre_break(copy_node_list(p.pre_break().opt()));
                     r_disc.set_post_break(copy_node_list(p.post_break().opt()));
                 }
-                TextNode::Mark => {
-                    let p = Mark(p);
+                TxtNode::Mark(p) => {
                     r = get_node(SMALL_NODE_SIZE);
                     MarkClass(p.mark_ptr() as usize).rc_inc();
                     words = SMALL_NODE_SIZE as u8
                 }
-                TextNode::Adjust => {
-                    let p = Adjust(p);
+                TxtNode::Adjust(p) => {
                     r = get_node(SMALL_NODE_SIZE);
                     Adjust(r).set_adj_ptr(copy_node_list(p.adj_ptr().opt()));
                 }
@@ -14196,7 +14169,7 @@ pub(crate) unsafe fn do_extension() {
             if cur_cmd == Cmd::Extension && cur_chr <= WhatsItNST::Close as i32 {
                 p = cur_list.tail;
                 do_extension();
-                out_what(cur_list.tail);
+                out_what(&WhatsIt::from(cur_list.tail));
                 flush_node_list(Some(cur_list.tail));
                 cur_list.tail = p;
                 *LLIST_link(p) = None.tex_int();

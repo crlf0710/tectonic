@@ -701,12 +701,10 @@ unsafe fn hlist_out(this_box: &mut List) {
             dvi_h = cur_h;
         } else {
             /*644: "Output the non-char_node `p` and move to the next node" */
-            let n = text_NODE_type(p).unwrap();
-            match n {
-                TextNode::HList | TextNode::VList => {
-                    let mut p = List::from(p);
+            match TxtNode::from(p) {
+                TxtNode::HList(mut p) | TxtNode::VList(mut p) => {
                     if p.list_ptr().opt().is_none() {
-                        if n == TextNode::VList {
+                        if p.list_dir() == ListDir::Vertical {
                             synctex_void_vlist(&p, this_box);
                         } else { synctex_void_hlist(&p, this_box); }
                         cur_h += p.width();
@@ -722,7 +720,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         if cur_dir == LR::RightToLeft {
                             cur_h = edge;
                         }
-                        if n == TextNode::VList {
+                        if p.list_dir() == ListDir::Vertical {
                             vlist_out(&p);
                         } else { hlist_out(&mut p); }
                         dvi_h = save_h;
@@ -731,8 +729,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         cur_v = base_line
                     }
                 }
-                TextNode::Rule => {
-                    let mut p = Rule::from(p);
+                TxtNode::Rule(p) => {
                     rule_ht =
                         p.height();
                     rule_dp =
@@ -769,7 +766,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         synctex_horizontal_rule_or_glue(p.ptr(), this_box.ptr());
                     }
                 }
-                TextNode::WhatsIt => {
+                TxtNode::WhatsIt(p) => {
                     /*1407: "Output the whatsit node p in an hlist" */
                     unsafe fn out_font(f: usize) {
                         if cur_h != dvi_h {
@@ -804,7 +801,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                             dvi_f = f
                         }
                     }
-                    match WhatsIt::from(p) {
+                    match p {
                         WhatsIt::Glyph(g) => {
                             out_font(g.font() as usize);
                             dvi_out(SET_GLYPHS);
@@ -862,11 +859,10 @@ unsafe fn hlist_out(this_box: &mut List) {
                             pdf_last_y_pos =
                                 cur_page_height - cur_v - cur_v_offset
                         }
-                        _ => { out_what(p); }
+                        _ => { out_what(&p); }
                     }
                 }
-                TextNode::Glue => {
-                    let mut p = Glue(p);
+                TxtNode::Glue(mut p) => {
                     /*647: "Move right or output leaders" */
                     let mut g = GlueSpec(p.glue_ptr() as usize);
                     rule_wd =
@@ -1030,19 +1026,16 @@ unsafe fn hlist_out(this_box: &mut List) {
                     cur_h += rule_wd; /* end GLUE_NODE case */
                     synctex_horizontal_rule_or_glue(p.ptr(), this_box.ptr());
                 }
-                TextNode::MarginKern => {
-                    let p = MarginKern(p);
+                TxtNode::MarginKern(p) => {
                     cur_h +=
                         p.width();
                 }
-                TextNode::Kern => {
-                    let p = Kern(p);
+                TxtNode::Kern(p) => {
                     synctex_kern(p.ptr(), this_box.ptr());
                     cur_h +=
                         p.width();
                 }
-                TextNode::Math => {
-                    let p = Math(p);
+                TxtNode::Math(p) => {
                     synctex_math(p.ptr(), this_box.ptr());
                     /* 1504: "Adjust the LR stack...; if necessary reverse and
                      * hlist segment and goto reswitch." "Breaking a paragraph
@@ -1097,8 +1090,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                     let p = Kern(p.ptr());
                     cur_h += p.width();
                 }
-                TextNode::Ligature => {
-                    let l = Ligature(p);
+                TxtNode::Ligature(l) => {
                     /* 675: "Make node p look like a char_node and goto reswitch" */
                     let mut c = Char(LIG_TRICK);
                     c.set_character(l.char());
@@ -1108,8 +1100,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                     xtx_ligature_present = true;
                     continue;
                 }
-                EDGE_NODE => {
-                    let p = Edge(p);
+                TxtNode::Style(p) => {
                     /*1507: "Cases of hlist_out that arise in mixed direction text only" */
                     cur_h +=
                         p.width();
@@ -1202,10 +1193,8 @@ unsafe fn vlist_out(this_box: &List) {
             confusion("vlistout");
         }
         /*653: "Output the non-char_node p" */
-        let n = text_NODE_type(p).unwrap();
-        match n {
-            TextNode::HList | TextNode::VList => {
-                let mut p = List::from(p);
+        match &mut TxtNode::from(p) {
+            TxtNode::HList(mut p) | TxtNode::VList(mut p) => {
                 /*654: "Output a box in a vlist" */
                 if p.list_ptr().opt().is_none() {
                     if upwards {
@@ -1213,7 +1202,7 @@ unsafe fn vlist_out(this_box: &List) {
                     } else {
                         cur_v += p.height();
                     }
-                    if n == TextNode::VList {
+                    if p.list_dir() == ListDir::Vertical {
                         synctex_void_vlist(&p, this_box);
                     } else {
                         synctex_void_hlist(&p, this_box);
@@ -1240,7 +1229,7 @@ unsafe fn vlist_out(this_box: &List) {
                     } else {
                         cur_h = left_edge + p.shift_amount();
                     }
-                    if n == TextNode::VList {
+                    if p.list_dir() == ListDir::Vertical {
                         vlist_out(&p);
                     } else {
                         hlist_out(&mut p);
@@ -1255,8 +1244,7 @@ unsafe fn vlist_out(this_box: &List) {
                     cur_h = left_edge
                 }
             }
-            TextNode::Rule => {
-                let r = Rule::from(p);
+            TxtNode::Rule(r) => {
                 rule_ht = r.height();
                 rule_dp = r.depth();
                 rule_wd = r.width();
@@ -1292,68 +1280,65 @@ unsafe fn vlist_out(this_box: &List) {
                     cur_h = left_edge
                 }
             }
-            TextNode::WhatsIt => {
+            TxtNode::WhatsIt(p) => match p {
                 /*1403: "Output the whatsit node p in a vlist" */
-                match WhatsIt::from(p) {
-                    WhatsIt::Glyph(g) => {
-                        cur_v = cur_v + g.height();
-                        cur_h = left_edge;
-                        if cur_h != dvi_h {
-                            movement(cur_h - dvi_h, RIGHT1);
-                            dvi_h = cur_h
+                WhatsIt::Glyph(g) => {
+                    cur_v = cur_v + g.height();
+                    cur_h = left_edge;
+                    if cur_h != dvi_h {
+                        movement(cur_h - dvi_h, RIGHT1);
+                        dvi_h = cur_h
+                    }
+                    if cur_v != dvi_v {
+                        movement(cur_v - dvi_v, DOWN1);
+                        dvi_v = cur_v
+                    }
+                    let f = g.font() as usize;
+                    if f != dvi_f {
+                        /*643:*/
+                        if !font_used[f] {
+                            dvi_font_def(f); /* width */
+                            font_used[f] = true
+                        } /* glyph count */
+                        if f <= 64 {
+                            dvi_out((f + 170) as u8); /* x offset as fixed-point */
+                        } else if f <= 256 {
+                            dvi_out(FNT1); /* y offset as fixed-point */
+                            dvi_out((f - 1) as u8);
+                        } else {
+                            dvi_out(FNT1 + 1);
+                            dvi_out(((f - 1) / 256) as u8);
+                            dvi_out(((f - 1) % 256) as u8);
                         }
-                        if cur_v != dvi_v {
-                            movement(cur_v - dvi_v, DOWN1);
-                            dvi_v = cur_v
-                        }
-                        let f = g.font() as usize;
-                        if f != dvi_f {
-                            /*643:*/
-                            if !font_used[f] {
-                                dvi_font_def(f); /* width */
-                                font_used[f] = true
-                            } /* glyph count */
-                            if f <= 64 {
-                                dvi_out((f + 170) as u8); /* x offset as fixed-point */
-                            } else if f <= 256 {
-                                dvi_out(FNT1); /* y offset as fixed-point */
-                                dvi_out((f - 1) as u8);
-                            } else {
-                                dvi_out(FNT1 + 1);
-                                dvi_out(((f - 1) / 256) as u8);
-                                dvi_out(((f - 1) % 256) as u8);
-                            }
-                            dvi_f = f
-                        }
-                        dvi_out(SET_GLYPHS);
-                        dvi_four(0); /* width */
-                        dvi_two(1 as UTF16_code); /* glyph count */
-                        dvi_four(0); /* x offset as fixed-point */
-                        dvi_four(0); /* y offset as fixed-point */
-                        dvi_two(g.glyph());
+                        dvi_f = f
+                    }
+                    dvi_out(SET_GLYPHS);
+                    dvi_four(0); /* width */
+                    dvi_two(1 as UTF16_code); /* glyph count */
+                    dvi_four(0); /* x offset as fixed-point */
+                    dvi_four(0); /* y offset as fixed-point */
+                    dvi_two(g.glyph());
 
-                        cur_v += g.depth();
-                        cur_h = left_edge;
-                    }
-                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                        let save_h = dvi_h;
-                        let save_v = dvi_v;
-                        cur_v = cur_v + p.height();
-                        pic_out(&p);
-                        dvi_h = save_h;
-                        dvi_v = save_v;
-                        cur_v = save_v + p.depth();
-                        cur_h = left_edge;
-                    }
-                    WhatsIt::PdfSavePos(_) => {
-                        pdf_last_x_pos = cur_h + cur_h_offset;
-                        pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
-                    }
-                    _ => out_what(p),
+                    cur_v += g.depth();
+                    cur_h = left_edge;
                 }
-            }
-            TextNode::Glue => {
-                let p = Glue(p);
+                WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                    let save_h = dvi_h;
+                    let save_v = dvi_v;
+                    cur_v = cur_v + p.height();
+                    pic_out(&p);
+                    dvi_h = save_h;
+                    dvi_v = save_v;
+                    cur_v = save_v + p.depth();
+                    cur_h = left_edge;
+                }
+                WhatsIt::PdfSavePos(_) => {
+                    pdf_last_x_pos = cur_h + cur_h_offset;
+                    pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
+                }
+                _ => out_what(p),
+            },
+            TxtNode::Glue(p) => {
                 /*656: "Move down or output leaders" */
                 let g = GlueSpec(p.glue_ptr() as usize);
                 rule_ht = g.size() - cur_g;
@@ -1499,8 +1484,7 @@ unsafe fn vlist_out(this_box: &List) {
                     cur_v += rule_ht
                 }
             }
-            TextNode::Kern => {
-                let k = Kern(p);
+            TxtNode::Kern(k) => {
                 if upwards {
                     cur_v -= k.width();
                 } else {
@@ -1568,20 +1552,17 @@ unsafe fn reverse(
             } else {
                 let mut add_rule = true;
                 let q = *LLIST_link(p);
-                match text_NODE_type(p).unwrap() {
-                    TextNode::HList | TextNode::VList => {
-                        let p = List::from(p);
+                match TxtNode::from(p) {
+                    TxtNode::HList(p) | TxtNode::VList(p) => {
                         rule_wd = p.width();
                     }
-                    TextNode::Rule => {
-                        let p = Rule::from(p);
+                    TxtNode::Rule(p) => {
                         rule_wd = p.width();
                     }
-                    TextNode::Kern => {
-                        let p = Kern(p);
+                    TxtNode::Kern(p) => {
                         rule_wd = p.width();
                     }
-                    TextNode::WhatsIt => match WhatsIt::from(p) {
+                    TxtNode::WhatsIt(p) => match p {
                         WhatsIt::NativeWord(p) => {
                             rule_wd = p.width();
                         }
@@ -1593,8 +1574,7 @@ unsafe fn reverse(
                         }
                         _ => add_rule = false,
                     },
-                    TextNode::Glue => {
-                        let mut p = Glue(p);
+                    TxtNode::Glue(mut p) => {
                         /*1486: "Handle a glue node for mixed direction typesetting" */
                         let mut g = GlueSpec(p.glue_ptr() as usize); /* "will never match" */
                         rule_wd = g.size() - *cur_g; /* = mem[char(tmp_ptr)] */
@@ -1648,8 +1628,7 @@ unsafe fn reverse(
                             }
                         }
                     }
-                    TextNode::Ligature => {
-                        let tmp_ptr = Ligature(p);
+                    TxtNode::Ligature(tmp_ptr) => {
                         flush_node_list(tmp_ptr.lig_ptr().opt());
                         let mut p = Ligature(get_avail());
                         p.set_char(tmp_ptr.char())
@@ -1660,8 +1639,7 @@ unsafe fn reverse(
                         tmp_ptr.free();
                         continue;
                     }
-                    TextNode::Math => {
-                        let mut p = Math(p);
+                    TxtNode::Math(mut p) => {
                         /*1516: "Math nodes in an inner reflected segment are
                          * modified, those at the outer level are changed into
                          * kern nodes." */
@@ -1719,7 +1697,7 @@ unsafe fn reverse(
                             }
                         }
                     }
-                    EDGE_NODE => confusion("LR2"),
+                    TxtNode::Style(_) => confusion("LR2"),
                     _ => add_rule = false,
                 }
 
@@ -1758,9 +1736,9 @@ pub(crate) unsafe fn new_edge(s: LR, w: scaled_t) -> usize {
     p.ptr()
 }
 
-pub(crate) unsafe fn out_what(p: usize) {
+pub(crate) unsafe fn out_what(p: &WhatsIt) {
     let mut j: i16;
-    match WhatsIt::from(p) {
+    match p {
         WhatsIt::Open(p) => {
             if doing_leaders {
                 return;

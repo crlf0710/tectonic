@@ -102,8 +102,7 @@ unsafe fn fire_up(c: usize) {
     let mut save_split_top_skip: i32 = 0;
     /*1048: "Set the value of output_penalty" */
     let bpb = best_page_break.unwrap();
-    if NODE_type(bpb) == TextNode::Penalty.into() {
-        let mut bpb = Penalty(bpb);
+    if let TxtNode::Penalty(bpb) = &mut TxtNode::from(bpb) {
         geq_word_define(
             INT_BASE as usize + (IntPar::output_penalty as usize),
             bpb.penalty(),
@@ -205,113 +204,117 @@ unsafe fn fire_up(c: usize) {
 
     while popt != best_page_break {
         let mut p = popt.unwrap();
-        if NODE_type(p) == TextNode::Ins.into() {
-            let mut p_ins = Insertion(p);
-            if process_inserts {
-                /*1055: "Either insert the material specified by node p into
-                 * the appropriate box, or hold it for the next page; also
-                 * delete node p from the current page." */
-                let mut r = PageInsertion(llist_link(PAGE_INS_HEAD).unwrap());
+        match &mut TxtNode::from(p) {
+            TxtNode::Ins(p_ins) => {
+                if process_inserts {
+                    /*1055: "Either insert the material specified by node p into
+                     * the appropriate box, or hold it for the next page; also
+                     * delete node p from the current page." */
+                    let mut r = PageInsertion(llist_link(PAGE_INS_HEAD).unwrap());
 
-                while r.box_reg() != p_ins.box_reg() {
-                    r = PageInsertion(llist_link(r.ptr()).unwrap());
-                }
-                if r.best_ins_ptr().opt().is_none() {
-                    wait = true
-                } else {
-                    wait = false;
+                    while r.box_reg() != p_ins.box_reg() {
+                        r = PageInsertion(llist_link(r.ptr()).unwrap());
+                    }
+                    if r.best_ins_ptr().opt().is_none() {
+                        wait = true
+                    } else {
+                        wait = false;
 
-                    s = r.last_ins_ptr() as usize;
-                    *LLIST_link(s) = p_ins.ins_ptr();
-                    if r.best_ins_ptr().opt() == Some(p) {
-                        /*1056: "Wrap up the box specified by node r,
-                         * splitting node p if called for; set wait = true if
-                         * node p holds a remainder after splitting" */
-                        if r.subtype() == PageInsType::SplitUp {
-                            if r.broken_ins().opt() == Some(p) && r.broken_ptr().opt().is_some() {
-                                while *LLIST_link(s) != r.broken_ptr() {
-                                    s = *LLIST_link(s) as usize;
-                                }
-                                *LLIST_link(s) = None.tex_int();
-                                *GLUEPAR(GluePar::split_top_skip) = p_ins.split_top_ptr();
-                                p_ins.set_ins_ptr(prune_page_top(r.broken_ptr().opt(), false));
+                        s = r.last_ins_ptr() as usize;
+                        *LLIST_link(s) = p_ins.ins_ptr();
+                        if r.best_ins_ptr().opt() == Some(p) {
+                            /*1056: "Wrap up the box specified by node r,
+                             * splitting node p if called for; set wait = true if
+                             * node p holds a remainder after splitting" */
+                            if r.subtype() == PageInsType::SplitUp {
+                                if r.broken_ins().opt() == Some(p) && r.broken_ptr().opt().is_some()
+                                {
+                                    while *LLIST_link(s) != r.broken_ptr() {
+                                        s = *LLIST_link(s) as usize;
+                                    }
+                                    *LLIST_link(s) = None.tex_int();
+                                    *GLUEPAR(GluePar::split_top_skip) = p_ins.split_top_ptr();
+                                    p_ins.set_ins_ptr(prune_page_top(r.broken_ptr().opt(), false));
 
-                                if p_ins.ins_ptr().opt().is_some() {
-                                    let tmp_ptr = vpackage(
-                                        p_ins.ins_ptr().opt(),
-                                        0,
-                                        PackMode::Additional as _,
-                                        MAX_HALFWORD,
-                                    );
-                                    p_ins.set_height(tmp_ptr.height() + tmp_ptr.depth());
-                                    free_node(tmp_ptr.ptr(), BOX_NODE_SIZE);
-                                    wait = true
+                                    if p_ins.ins_ptr().opt().is_some() {
+                                        let tmp_ptr = vpackage(
+                                            p_ins.ins_ptr().opt(),
+                                            0,
+                                            PackMode::Additional as _,
+                                            MAX_HALFWORD,
+                                        );
+                                        p_ins.set_height(tmp_ptr.height() + tmp_ptr.depth());
+                                        free_node(tmp_ptr.ptr(), BOX_NODE_SIZE);
+                                        wait = true
+                                    }
                                 }
                             }
-                        }
 
-                        r.set_best_ins_ptr(None.tex_int());
-                        n = r.box_reg() as _; // NODE_subtype(r)
-                        let b = List::from(*BOX_REG(n as usize) as usize);
-                        let tmp_ptr = b.list_ptr().opt();
-                        b.free();
-                        *BOX_REG(n as _) =
-                            Some(vpackage(tmp_ptr, 0, PackMode::Additional, MAX_HALFWORD).ptr())
-                                .tex_int();
-                    } else {
-                        while let Some(next) = llist_link(s) {
-                            s = next;
+                            r.set_best_ins_ptr(None.tex_int());
+                            n = r.box_reg() as _; // NODE_subtype(r)
+                            let b = List::from(*BOX_REG(n as usize) as usize);
+                            let tmp_ptr = b.list_ptr().opt();
+                            b.free();
+                            *BOX_REG(n as _) = Some(
+                                vpackage(tmp_ptr, 0, PackMode::Additional, MAX_HALFWORD).ptr(),
+                            )
+                            .tex_int();
+                        } else {
+                            while let Some(next) = llist_link(s) {
+                                s = next;
+                            }
+                            r.set_last_ins_ptr(s as i32);
                         }
-                        r.set_last_ins_ptr(s as i32);
                     }
+
+                    /*1057: "Either append the insertion node p after node q, and
+                     * remove it from the current page, or delete node(p)" */
+
+                    *LLIST_link(prev_p) = *LLIST_link(p);
+                    *LLIST_link(p) = None.tex_int();
+
+                    if wait {
+                        *LLIST_link(q) = Some(p).tex_int();
+                        q = p;
+                        insert_penalties += 1;
+                    } else {
+                        delete_glue_ref(p_ins.split_top_ptr() as usize);
+                        free_node(p, INS_NODE_SIZE);
+                    }
+                    p = prev_p /*:1057 */
                 }
-
-                /*1057: "Either append the insertion node p after node q, and
-                 * remove it from the current page, or delete node(p)" */
-
-                *LLIST_link(prev_p) = *LLIST_link(p);
-                *LLIST_link(p) = None.tex_int();
-
-                if wait {
-                    *LLIST_link(q) = Some(p).tex_int();
-                    q = p;
-                    insert_penalties += 1;
-                } else {
-                    delete_glue_ref(p_ins.split_top_ptr() as usize);
-                    free_node(p, INS_NODE_SIZE);
-                }
-                p = prev_p /*:1057 */
             }
-        } else if NODE_type(p) == TextNode::Mark.into() {
-            let p = Mark(p);
-            if p.class() != 0 {
-                /*1618: "Update the current marks" */
-                find_sa_element(ValLevel::Mark as _, p.class(), true);
+            TxtNode::Mark(p) => {
+                if p.class() != 0 {
+                    /*1618: "Update the current marks" */
+                    find_sa_element(ValLevel::Mark as _, p.class(), true);
 
-                let mut c = EtexMark(cur_ptr.unwrap());
-                if c.sa_first_mark().opt().is_none() {
-                    c.set_sa_first_mark(p.mark_ptr());
+                    let mut c = EtexMark(cur_ptr.unwrap());
+                    if c.sa_first_mark().opt().is_none() {
+                        c.set_sa_first_mark(p.mark_ptr());
+                        MarkClass(p.mark_ptr() as usize).rc_inc();
+                    }
+
+                    if let Some(m) = c.sa_bot_mark().opt() {
+                        delete_token_ref(m);
+                    }
+
+                    c.set_sa_bot_mark(p.mark_ptr());
                     MarkClass(p.mark_ptr() as usize).rc_inc();
+                } else {
+                    /*1051: "Update the values of first_mark and bot_mark" */
+                    if cur_mark[FIRST_MARK_CODE].is_none() {
+                        cur_mark[FIRST_MARK_CODE] = p.mark_ptr().opt();
+                        *TOKEN_LIST_ref_count(cur_mark[FIRST_MARK_CODE].unwrap()) += 1;
+                    }
+                    if let Some(m) = cur_mark[BOT_MARK_CODE] {
+                        delete_token_ref(m);
+                    }
+                    cur_mark[BOT_MARK_CODE] = p.mark_ptr().opt();
+                    *TOKEN_LIST_ref_count(cur_mark[BOT_MARK_CODE].unwrap()) += 1;
                 }
-
-                if let Some(m) = c.sa_bot_mark().opt() {
-                    delete_token_ref(m);
-                }
-
-                c.set_sa_bot_mark(p.mark_ptr());
-                MarkClass(p.mark_ptr() as usize).rc_inc();
-            } else {
-                /*1051: "Update the values of first_mark and bot_mark" */
-                if cur_mark[FIRST_MARK_CODE].is_none() {
-                    cur_mark[FIRST_MARK_CODE] = p.mark_ptr().opt();
-                    *TOKEN_LIST_ref_count(cur_mark[FIRST_MARK_CODE].unwrap()) += 1;
-                }
-                if let Some(m) = cur_mark[BOT_MARK_CODE] {
-                    delete_token_ref(m);
-                }
-                cur_mark[BOT_MARK_CODE] = p.mark_ptr().opt();
-                *TOKEN_LIST_ref_count(cur_mark[BOT_MARK_CODE].unwrap()) += 1;
             }
+            _ => {}
         }
 
         prev_p = p;
