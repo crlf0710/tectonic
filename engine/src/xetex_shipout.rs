@@ -1370,112 +1370,115 @@ unsafe fn vlist_out(this_box: &List) {
                      * or next_p if done" */
                     let leader_box = p.leader_ptr() as usize; /* "compensate for floating-point rounding" */
 
-                    if NODE_type(leader_box) == TextNode::Rule.into() {
-                        rule_wd = Rule::from(leader_box).width();
-                        rule_dp = 0;
-                        // 655: "Output a rule in a vlist, goto next_p
+                    match &mut TxtNode::from(leader_box) {
+                        TxtNode::Rule(r) => {
+                            rule_wd = r.width();
+                            rule_dp = 0;
+                            // 655: "Output a rule in a vlist, goto next_p
 
-                        if rule_wd == NULL_FLAG {
-                            rule_wd = this_box.width();
-                        }
-
-                        rule_ht += rule_dp;
-
-                        if upwards {
-                            cur_v -= rule_ht
-                        } else {
-                            cur_v += rule_ht
-                        }
-
-                        if rule_ht > 0 && rule_wd > 0 {
-                            if cur_dir == LR::RightToLeft {
-                                cur_h -= rule_wd
+                            if rule_wd == NULL_FLAG {
+                                rule_wd = this_box.width();
                             }
-                            if cur_h != dvi_h {
-                                movement(cur_h - dvi_h, RIGHT1);
-                                dvi_h = cur_h
-                            }
-                            if cur_v != dvi_v {
-                                movement(cur_v - dvi_v, DOWN1);
-                                dvi_v = cur_v
-                            }
-                            dvi_out(PUT_RULE);
-                            dvi_four(rule_ht);
-                            dvi_four(rule_wd);
-                            cur_h = left_edge;
-                        }
-                        popt = llist_link(p.ptr());
-                        continue;
-                    } else {
-                        let mut lb = List::from(leader_box);
-                        let leader_ht = lb.height() + lb.depth();
-                        if leader_ht > 0i32 && rule_ht > 0i32 {
-                            rule_ht += 10i32;
-                            let edge = cur_v + rule_ht;
-                            let mut lx = 0;
-                            /*658: "Let cur_v be the position of the first box,
-                             * and set leader_ht + lx to the spacing between
-                             * corresponding parts of boxes" */
-                            if p.param() == A_LEADERS {
-                                let save_v = cur_v;
-                                cur_v = top_edge + leader_ht * ((cur_v - top_edge) / leader_ht);
-                                if cur_v < save_v {
-                                    cur_v = cur_v + leader_ht
-                                }
+
+                            rule_ht += rule_dp;
+
+                            if upwards {
+                                cur_v -= rule_ht
                             } else {
-                                let lq = rule_ht / leader_ht;
-                                let lr = rule_ht % leader_ht;
-                                if p.param() == C_LEADERS {
-                                    cur_v = cur_v + lr / 2;
-                                } else {
-                                    lx = lr / (lq + 1);
-                                    cur_v = cur_v + (lr - (lq - 1) * lx) / 2;
-                                }
+                                cur_v += rule_ht
                             }
 
-                            while cur_v + leader_ht <= edge {
-                                /*659: "Output a leader box at cur_v, then advance
-                                 * cur_v by leader_ht + lx". "When we reach this
-                                 * part of the program, cur_v indicates the top of
-                                 * a leader box, not its baseline." */
+                            if rule_ht > 0 && rule_wd > 0 {
                                 if cur_dir == LR::RightToLeft {
-                                    cur_h = left_edge - lb.shift_amount();
-                                } else {
-                                    cur_h = left_edge + lb.shift_amount();
+                                    cur_h -= rule_wd
                                 }
                                 if cur_h != dvi_h {
                                     movement(cur_h - dvi_h, RIGHT1);
                                     dvi_h = cur_h
                                 }
-
-                                let save_h = dvi_h;
-                                cur_v += lb.height();
-
                                 if cur_v != dvi_v {
                                     movement(cur_v - dvi_v, DOWN1);
                                     dvi_v = cur_v
                                 }
-
-                                let save_v = dvi_v;
-                                let outer_doing_leaders = doing_leaders;
-                                doing_leaders = true;
-
-                                if NODE_type(leader_box) == TextNode::VList.into() {
-                                    vlist_out(&lb);
-                                } else {
-                                    hlist_out(&mut lb);
-                                }
-
-                                doing_leaders = outer_doing_leaders;
-                                dvi_v = save_v;
-                                dvi_h = save_h;
+                                dvi_out(PUT_RULE);
+                                dvi_four(rule_ht);
+                                dvi_four(rule_wd);
                                 cur_h = left_edge;
-                                cur_v = save_v - lb.height() + leader_ht + lx
                             }
-                            cur_v = edge - 10;
                             popt = llist_link(p.ptr());
                             continue;
                         }
+                        TxtNode::HList(lb) | TxtNode::VList(lb) => {
+                            let leader_ht = lb.height() + lb.depth();
+                            if leader_ht > 0i32 && rule_ht > 0i32 {
+                                rule_ht += 10i32;
+                                let edge = cur_v + rule_ht;
+                                let mut lx = 0;
+                                /*658: "Let cur_v be the position of the first box,
+                                 * and set leader_ht + lx to the spacing between
+                                 * corresponding parts of boxes" */
+                                if p.param() == A_LEADERS {
+                                    let save_v = cur_v;
+                                    cur_v = top_edge + leader_ht * ((cur_v - top_edge) / leader_ht);
+                                    if cur_v < save_v {
+                                        cur_v = cur_v + leader_ht
+                                    }
+                                } else {
+                                    let lq = rule_ht / leader_ht;
+                                    let lr = rule_ht % leader_ht;
+                                    if p.param() == C_LEADERS {
+                                        cur_v = cur_v + lr / 2;
+                                    } else {
+                                        lx = lr / (lq + 1);
+                                        cur_v = cur_v + (lr - (lq - 1) * lx) / 2;
+                                    }
+                                }
+
+                                while cur_v + leader_ht <= edge {
+                                    /*659: "Output a leader box at cur_v, then advance
+                                     * cur_v by leader_ht + lx". "When we reach this
+                                     * part of the program, cur_v indicates the top of
+                                     * a leader box, not its baseline." */
+                                    if cur_dir == LR::RightToLeft {
+                                        cur_h = left_edge - lb.shift_amount();
+                                    } else {
+                                        cur_h = left_edge + lb.shift_amount();
+                                    }
+                                    if cur_h != dvi_h {
+                                        movement(cur_h - dvi_h, RIGHT1);
+                                        dvi_h = cur_h
+                                    }
+
+                                    let save_h = dvi_h;
+                                    cur_v += lb.height();
+
+                                    if cur_v != dvi_v {
+                                        movement(cur_v - dvi_v, DOWN1);
+                                        dvi_v = cur_v
+                                    }
+
+                                    let save_v = dvi_v;
+                                    let outer_doing_leaders = doing_leaders;
+                                    doing_leaders = true;
+
+                                    if lb.list_dir() == ListDir::Vertical {
+                                        vlist_out(lb);
+                                    } else {
+                                        hlist_out(lb);
+                                    }
+
+                                    doing_leaders = outer_doing_leaders;
+                                    dvi_v = save_v;
+                                    dvi_h = save_h;
+                                    cur_h = left_edge;
+                                    cur_v = save_v - lb.height() + leader_ht + lx
+                                }
+                                cur_v = edge - 10;
+                                popt = llist_link(p.ptr());
+                                continue;
+                            }
+                        }
+                        _ => unreachable!(),
                     }
                 }
                 if upwards {

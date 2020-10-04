@@ -433,7 +433,7 @@ unsafe fn get_page_info(post_location: i32) {
     {
         panic!(invalid_signature);
     }
-    for i in (0..num_pages-1).rev() {
+    for i in (0..num_pages - 1).rev() {
         handle
             .seek(SeekFrom::Start(
                 *page_loc.offset((i + 1) as isize) as u64 + 41,

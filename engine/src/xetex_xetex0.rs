@@ -540,14 +540,14 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
             }
         } else {
             /*183:*/
-            match text_NODE_type(p).unwrap() {
-                TextNode::HList
-                | TextNode::VList
-                | TextNode::Ins
-                | TextNode::Mark
-                | TextNode::Adjust
-                | TextNode::Unset => print_cstr("[]"),
-                TextNode::WhatsIt => match WhatsIt::from(p) {
+            match TxtNode::from(p) {
+                TxtNode::HList(_)
+                | TxtNode::VList(_)
+                | TxtNode::Ins(_)
+                | TxtNode::Mark(_)
+                | TxtNode::Adjust(_)
+                | TxtNode::Unset(_) => print_cstr("[]"),
+                TxtNode::WhatsIt(p) => match p {
                     WhatsIt::NativeWord(nw) => {
                         if nw.font() as usize != font_in_short_display {
                             print_esc(
@@ -561,22 +561,21 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                     }
                     _ => print_cstr("[]"),
                 },
-                TextNode::Rule => print_chr('|'),
-                TextNode::Glue => {
+                TxtNode::Rule(_) => print_chr('|'),
+                TxtNode::Glue(_) => {
                     if MEM[p + 1].b32.s0 != 0 {
                         // TODO: strange (special case?)
                         print_chr(' ');
                     }
                 }
-                TextNode::Math => match Math(p).subtype() {
+                TxtNode::Math(m) => match m.subtype() {
                     MathType::Eq(_, MathMode::Left) | MathType::Eq(_, MathMode::Right) => {
                         print_cstr("[]")
                     }
                     _ => print_chr('$'),
                 },
-                TextNode::Ligature => short_display(Ligature(p).lig_ptr().opt()),
-                TextNode::Disc => {
-                    let d = Discretionary(p);
+                TxtNode::Ligature(l) => short_display(l.lig_ptr().opt()),
+                TxtNode::Disc(d) => {
                     short_display(d.pre_break().opt());
                     short_display(d.post_break().opt());
                     let mut n = d.replace_count() as i32;
@@ -1215,154 +1214,140 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
     let mut q: i32 = 0;
     while let Some(p) = popt {
         q = *LLIST_link(p);
-        if is_char_node(Some(p)) {
-            *LLIST_link(p) = avail.tex_int();
-            avail = Some(p);
-        } else {
-            match ND::from(MEM[p].b16.s1) {
-                ND::Text(n) => match n {
-                    TextNode::HList | TextNode::VList => {
-                        let b = List::from(p);
-                        flush_node_list(b.list_ptr().opt());
-                        b.free();
+        match Node::from(p) {
+            Node::Char(_) => {
+                *LLIST_link(p) = avail.tex_int();
+                avail = Some(p);
+            }
+            Node::Text(n) => match n {
+                TxtNode::HList(b) | TxtNode::VList(b) => {
+                    flush_node_list(b.list_ptr().opt());
+                    b.free();
+                }
+                TxtNode::Unset(u) => {
+                    flush_node_list(u.list_ptr().opt());
+                    u.free();
+                }
+                TxtNode::Rule(r) => {
+                    r.free();
+                }
+                TxtNode::Ins(i) => {
+                    flush_node_list(i.ins_ptr().opt());
+                    delete_glue_ref(i.split_top_ptr() as usize);
+                    i.free();
+                }
+                TxtNode::WhatsIt(p) => match p {
+                    WhatsIt::Open(o) => o.free(),
+                    WhatsIt::Write(f) => {
+                        delete_token_ref(f.tokens() as usize);
+                        f.free();
                     }
-                    TextNode::Unset => {
-                        let u = Unset::from(p);
-                        flush_node_list(u.list_ptr().opt());
-                        u.free();
+                    WhatsIt::Special(s) => {
+                        delete_token_ref(s.tokens() as usize);
+                        s.free();
                     }
-                    TextNode::Rule => {
-                        let r = Rule::from(p);
-                        r.free();
-                    }
-                    TextNode::Ins => {
-                        let i = Insertion(p);
-                        flush_node_list(i.ins_ptr().opt());
-                        delete_glue_ref(i.split_top_ptr() as usize);
-                        i.free();
-                    }
-                    TextNode::WhatsIt => {
-                        match WhatsIt::from(p) {
-                            WhatsIt::Open(o) => o.free(),
-                            WhatsIt::Write(f) => {
-                                delete_token_ref(f.tokens() as usize);
-                                f.free();
-                            }
-                            WhatsIt::Special(s) => {
-                                delete_token_ref(s.tokens() as usize);
-                                s.free();
-                            }
-                            WhatsIt::Close(c) => c.free(),
-                            WhatsIt::Language(l) => l.free(),
-                            WhatsIt::NativeWord(mut nw) => {
-                                if let Some(ptr) = nw.glyph_info_ptr().as_mut() {
-                                    nw.set_glyph_info_ptr(mfree(ptr));
-                                    nw.set_glyph_count(0);
-                                }
-                                nw.free();
-                            }
-                            WhatsIt::Glyph(g) => g.free(),
-                            WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                                p.free();
-                            }
-                            WhatsIt::PdfSavePos(p) => p.free(),
-                            //_ => confusion("ext3"),
+                    WhatsIt::Close(c) => c.free(),
+                    WhatsIt::Language(l) => l.free(),
+                    WhatsIt::NativeWord(mut nw) => {
+                        if let Some(ptr) = nw.glyph_info_ptr().as_mut() {
+                            nw.set_glyph_info_ptr(mfree(ptr));
+                            nw.set_glyph_count(0);
                         }
+                        nw.free();
                     }
-                    TextNode::Glue => {
-                        let mut p = Glue(p);
-                        let mut g = GlueSpec(p.glue_ptr() as usize);
-                        if let Some(_rc) = g.rc().opt() {
-                            g.rc_dec();
-                        } else {
-                            free_node(g.ptr(), 4);
-                        }
-                        if let Some(nd) = p.leader_ptr().opt() {
-                            flush_node_list(Some(nd));
-                        }
+                    WhatsIt::Glyph(g) => g.free(),
+                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                         p.free();
                     }
-                    TextNode::Kern | TextNode::Math | TextNode::Penalty => {
-                        free_node(p, MEDIUM_NODE_SIZE);
-                    }
-                    TextNode::MarginKern => {
-                        free_node(p, MARGIN_KERN_NODE_SIZE);
-                    }
-                    TextNode::Ligature => {
-                        let l = Ligature(p);
-                        flush_node_list(l.lig_ptr().opt());
-                        l.free();
-                    }
-                    TextNode::Mark => {
-                        let m = Mark(p);
-                        delete_token_ref(m.mark_ptr() as usize);
-                        free_node(p, SMALL_NODE_SIZE);
-                    }
-                    TextNode::Disc => {
-                        let d = Discretionary(p);
-                        flush_node_list(d.pre_break().opt());
-                        flush_node_list(d.post_break().opt());
-                        d.free();
-                    }
-                    TextNode::Adjust => {
-                        let a = Adjust(p);
-                        flush_node_list(a.adj_ptr().opt());
-                        a.free();
-                    }
-                    TextNode::Style => {
-                        free_node(p, STYLE_NODE_SIZE);
-                    }
-                    TextNode::Choice => {
-                        let c = Choice(p);
-                        flush_node_list(c.display());
-                        flush_node_list(c.text());
-                        flush_node_list(c.script());
-                        flush_node_list(c.scriptscript());
-                        c.free();
-                    }
+                    WhatsIt::PdfSavePos(p) => p.free(),
                 },
-                ND::Math(n) => match n {
-                    MathNode::Ord
-                    | MathNode::Op
-                    | MathNode::Bin
-                    | MathNode::Rel
-                    | MathNode::Open
-                    | MathNode::Close
-                    | MathNode::Punct
-                    | MathNode::Inner
-                    | MathNode::Radical
-                    | MathNode::Over
-                    | MathNode::Under
-                    | MathNode::VCenter
-                    | MathNode::Accent => {
-                        if MEM[p + 1].b32.s1 >= MathCell::SubBox as _ {
-                            flush_node_list(MEM[p + 1].b32.s0.opt());
-                        }
-                        if MEM[p + 2].b32.s1 >= MathCell::SubBox as _ {
-                            flush_node_list(MEM[p + 2].b32.s0.opt());
-                        }
-                        if MEM[p + 3].b32.s1 >= MathCell::SubBox as _ {
-                            flush_node_list(MEM[p + 3].b32.s0.opt());
-                        }
-                        if MEM[p].b16.s1 == MathNode::Radical as u16 {
-                            free_node(p, RADICAL_NOAD_SIZE);
-                        } else if MEM[p].b16.s1 == MathNode::Accent as u16 {
-                            free_node(p, ACCENT_NOAD_SIZE);
-                        } else {
-                            free_node(p, NOAD_SIZE);
-                        }
+                TxtNode::Glue(p) => {
+                    let mut g = GlueSpec(p.glue_ptr() as usize);
+                    if let Some(_rc) = g.rc().opt() {
+                        g.rc_dec();
+                    } else {
+                        free_node(g.ptr(), 4);
                     }
-                    MathNode::Left | MathNode::Right => {
+                    if let Some(nd) = p.leader_ptr().opt() {
+                        flush_node_list(Some(nd));
+                    }
+                    p.free();
+                }
+                TxtNode::Kern(_) | TxtNode::Math(_) | TxtNode::Penalty(_) => {
+                    free_node(p, MEDIUM_NODE_SIZE);
+                }
+                TxtNode::MarginKern(_) => {
+                    free_node(p, MARGIN_KERN_NODE_SIZE);
+                }
+                TxtNode::Ligature(l) => {
+                    flush_node_list(l.lig_ptr().opt());
+                    l.free();
+                }
+                TxtNode::Mark(m) => {
+                    delete_token_ref(m.mark_ptr() as usize);
+                    free_node(p, SMALL_NODE_SIZE);
+                }
+                TxtNode::Disc(d) => {
+                    flush_node_list(d.pre_break().opt());
+                    flush_node_list(d.post_break().opt());
+                    d.free();
+                }
+                TxtNode::Adjust(a) => {
+                    flush_node_list(a.adj_ptr().opt());
+                    a.free();
+                }
+                TxtNode::Style(_) => {
+                    free_node(p, STYLE_NODE_SIZE);
+                }
+                TxtNode::Choice(c) => {
+                    flush_node_list(c.display());
+                    flush_node_list(c.text());
+                    flush_node_list(c.script());
+                    flush_node_list(c.scriptscript());
+                    c.free();
+                }
+            },
+            Node::Math(n) => match n {
+                MathNode::Ord
+                | MathNode::Op
+                | MathNode::Bin
+                | MathNode::Rel
+                | MathNode::Open
+                | MathNode::Close
+                | MathNode::Punct
+                | MathNode::Inner
+                | MathNode::Radical
+                | MathNode::Over
+                | MathNode::Under
+                | MathNode::VCenter
+                | MathNode::Accent => {
+                    if MEM[p + 1].b32.s1 >= MathCell::SubBox as _ {
+                        flush_node_list(MEM[p + 1].b32.s0.opt());
+                    }
+                    if MEM[p + 2].b32.s1 >= MathCell::SubBox as _ {
+                        flush_node_list(MEM[p + 2].b32.s0.opt());
+                    }
+                    if MEM[p + 3].b32.s1 >= MathCell::SubBox as _ {
+                        flush_node_list(MEM[p + 3].b32.s0.opt());
+                    }
+                    if MEM[p].b16.s1 == MathNode::Radical as u16 {
+                        free_node(p, RADICAL_NOAD_SIZE);
+                    } else if MEM[p].b16.s1 == MathNode::Accent as u16 {
+                        free_node(p, ACCENT_NOAD_SIZE);
+                    } else {
                         free_node(p, NOAD_SIZE);
                     }
-                    MathNode::Fraction => {
-                        flush_node_list(MEM[p + 2].b32.s0.opt());
-                        flush_node_list(MEM[p + 3].b32.s0.opt());
-                        free_node(p, FRACTION_NOAD_SIZE);
-                    }
-                },
-                ND::Unknown(_) => confusion("flushing"),
-            }
+                }
+                MathNode::Left | MathNode::Right => {
+                    free_node(p, NOAD_SIZE);
+                }
+                MathNode::Fraction => {
+                    flush_node_list(MEM[p + 2].b32.s0.opt());
+                    flush_node_list(MEM[p + 3].b32.s0.opt());
+                    free_node(p, FRACTION_NOAD_SIZE);
+                }
+            },
+            Node::Unknown(_) => confusion("flushing"),
         }
         popt = q.opt()
     }
@@ -9987,43 +9972,37 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
         *LLIST_link(tmp_ptr.ptr()) = LR_ptr;
         LR_ptr = Some(tmp_ptr.ptr()).tex_int();
     }
-    while popt.is_some() {
+    while let Some(mut p) = popt {
         /*674: */
-        while is_char_node(popt) {
-            let p = Char(popt.unwrap());
-            /*677: */
-            let f = p.font() as internal_font_number;
-            let i = FONT_CHARACTER_INFO(f, effective_char(true, f, p.character()) as usize);
-            x += *FONT_CHARINFO_WIDTH(f, i);
-            let s = *FONT_CHARINFO_HEIGHT(f, i);
-            h = h.max(s);
-            let s = *FONT_CHARINFO_DEPTH(f, i);
-            d = d.max(s);
-            popt = LLIST_link(p.ptr()).opt();
-        }
-        if let Some(mut p) = popt {
-            let n = text_NODE_type(p).unwrap();
-            match n {
-                TextNode::HList | TextNode::VList => {
-                    let b = List::from(p);
+        match CharOrText::from(p) {
+            CharOrText::Char(p) => {
+                /*677: */
+                let f = p.font() as internal_font_number;
+                let i = FONT_CHARACTER_INFO(f, effective_char(true, f, p.character()) as usize);
+                x += *FONT_CHARINFO_WIDTH(f, i);
+                let s = *FONT_CHARINFO_HEIGHT(f, i);
+                h = h.max(s);
+                let s = *FONT_CHARINFO_DEPTH(f, i);
+                d = d.max(s);
+            }
+            CharOrText::Text(n) => match n {
+                TxtNode::HList(b) | TxtNode::VList(b) => {
                     x += b.width();
                     let s = b.shift_amount();
                     h = h.max(b.height() - s);
                     d = d.max(b.depth() + s);
                 }
-                TextNode::Rule => {
-                    let r = Rule::from(p);
+                TxtNode::Rule(r) => {
                     x += r.width();
                     h = h.max(r.height());
                     d = d.max(r.depth());
                 }
-                TextNode::Unset => {
-                    let u = Unset::from(p);
+                TxtNode::Unset(u) => {
                     x += u.width();
                     h = h.max(u.height());
                     d = d.max(u.depth());
                 }
-                TextNode::Ins | TextNode::Mark | TextNode::Adjust => {
+                TxtNode::Ins(_) | TxtNode::Mark(_) | TxtNode::Adjust(_) => {
                     if let (Some(at), Some(pat)) = (adjust_tail.as_mut(), pre_adjust_tail.as_mut())
                     {
                         /*680: */
@@ -10057,7 +10036,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                         p = q;
                     }
                 }
-                TextNode::WhatsIt => match WhatsIt::from(p) {
+                TxtNode::WhatsIt(w) => match w {
                     WhatsIt::NativeWord(mut p_nw) => {
                         let mut k = if q != r.ptr() + 5 && NODE_type(q) == TextNode::Disc.into() {
                             let q = Discretionary(q);
@@ -10149,8 +10128,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                     }
                     _ => {}
                 },
-                TextNode::Glue => {
-                    let p = Glue(p);
+                TxtNode::Glue(p) => {
                     let g = GlueSpec(p.glue_ptr() as usize);
                     x += g.size();
                     let o = g.stretch_order() as usize;
@@ -10163,16 +10141,13 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                         d = d.max(g.depth());
                     }
                 }
-                TextNode::Kern => {
-                    let k = Kern(p);
+                TxtNode::Kern(k) => {
                     x += k.width();
                 }
-                TextNode::MarginKern => {
-                    let k = MarginKern(p);
+                TxtNode::MarginKern(k) => {
                     x += k.width();
                 }
-                TextNode::Math => {
-                    let p = Math(p);
+                TxtNode::Math(p) => {
                     x += p.width();
                     if *INTPAR(IntPar::texxet) > 0 {
                         /*1498: */
@@ -10196,8 +10171,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                         }
                     }
                 }
-                TextNode::Ligature => {
-                    let l = Ligature(p);
+                TxtNode::Ligature(l) => {
                     let mut g = Char(GARBAGE);
                     g.set_character(l.char());
                     g.set_font(l.font());
@@ -10207,10 +10181,11 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                     continue;
                 }
                 _ => {}
-            }
-            popt = llist_link(p);
+            },
         }
+        popt = llist_link(p)
     }
+
     if let Some(a) = adjust_tail {
         *LLIST_link(a) = None.tex_int();
     }
@@ -10413,58 +10388,49 @@ pub(crate) unsafe fn vpackage(
     total_shrink[FILLL as usize] = 0;
     while let Some(p) = popt {
         /*694: */
-        if is_char_node(Some(p)) {
-            confusion("vpack"); /*701: */
-        } else {
-            match text_NODE_type(p).unwrap() {
-                TextNode::HList | TextNode::VList => {
-                    let b = List::from(p);
-                    x += d + b.height();
-                    d = b.depth();
-                    w = w.max(b.width() + b.shift_amount());
-                }
-                TextNode::Rule => {
-                    let r = Rule::from(p);
-                    x += d + r.height();
-                    d = r.depth();
-                    w = w.max(r.width());
-                }
-                TextNode::Unset => {
-                    let u = Unset::from(p);
-                    x += d + u.height();
-                    d = u.depth();
-                    w = w.max(u.width());
-                }
-                TextNode::WhatsIt => match WhatsIt::from(p) {
-                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                        x += d + p.height();
-                        d = p.depth();
-                        w = w.max(p.width());
-                    }
-                    _ => {}
-                },
-                TextNode::Glue => {
-                    let p = Glue(p);
-                    x += d;
-                    d = 0;
-                    let g = GlueSpec(p.glue_ptr() as usize);
-                    x += g.size();
-                    let o = g.stretch_order() as usize;
-                    total_stretch[o] += g.stretch();
-                    let o = g.shrink_order() as usize;
-                    total_shrink[o] += g.shrink();
-                    if p.param() >= A_LEADERS {
-                        let g = p.leader_ptr() as usize;
-                        w = w.max(List::from(g).width());
-                    }
-                }
-                TextNode::Kern => {
-                    let k = Kern(p);
-                    x += d + k.width();
-                    d = 0;
+        match &TxtNode::from(p) {
+            TxtNode::HList(b) | TxtNode::VList(b) => {
+                x += d + b.height();
+                d = b.depth();
+                w = w.max(b.width() + b.shift_amount());
+            }
+            TxtNode::Rule(r) => {
+                x += d + r.height();
+                d = r.depth();
+                w = w.max(r.width());
+            }
+            TxtNode::Unset(u) => {
+                x += d + u.height();
+                d = u.depth();
+                w = w.max(u.width());
+            }
+            TxtNode::WhatsIt(p) => match p {
+                WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                    x += d + p.height();
+                    d = p.depth();
+                    w = w.max(p.width());
                 }
                 _ => {}
+            },
+            TxtNode::Glue(p) => {
+                x += d;
+                d = 0;
+                let g = GlueSpec(p.glue_ptr() as usize);
+                x += g.size();
+                let o = g.stretch_order() as usize;
+                total_stretch[o] += g.stretch();
+                let o = g.shrink_order() as usize;
+                total_shrink[o] += g.shrink();
+                if p.param() >= A_LEADERS {
+                    let g = p.leader_ptr() as usize;
+                    w = w.max(List::from(g).width());
+                }
             }
+            TxtNode::Kern(k) => {
+                x += d + k.width();
+                d = 0;
+            }
+            _ => {}
         }
         popt = llist_link(p);
     }
@@ -11669,10 +11635,7 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
     }
 }
 pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) -> i32 {
-    let mut current_block: u64;
-    let mut pi: i32 = 0;
-    let mut b: i32 = 0;
-    let mut best_place: i32 = None.tex_int();
+    let mut best_place = None;
     let mut prev_p = p;
     let mut least_cost = MAX_HALFWORD;
     active_width = DeltaSize::new();
@@ -11680,122 +11643,41 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
     loop {
         if let Some(p) = p.opt() {
             /*1008: */
-            match text_NODE_type(p).unwrap() {
-                TextNode::HList | TextNode::VList => {
-                    let b = List::from(p);
+            match &mut TxtNode::from(p) {
+                TxtNode::HList(b) | TxtNode::VList(b) => {
                     active_width.width += prev_dp + b.height();
                     prev_dp = b.depth();
-                    current_block = 10249009913728301645;
                 }
-                TextNode::Rule => {
-                    let r = Rule::from(p);
+                TxtNode::Rule(r) => {
                     active_width.width += prev_dp + r.height();
                     prev_dp = r.depth();
-                    current_block = 10249009913728301645;
                 }
-                TextNode::WhatsIt => {
-                    match WhatsIt::from(p as usize) {
-                        WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                            active_width.width += prev_dp + p.height();
-                            prev_dp = p.depth();
+                TxtNode::WhatsIt(p) => match p {
+                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                        active_width.width += prev_dp + p.height();
+                        prev_dp = p.depth();
+                    }
+                    _ => {}
+                },
+                TxtNode::Glue(g) => {
+                    match TxtNode::from(prev_p as usize) {
+                        TxtNode::HList(_)
+                        | TxtNode::VList(_)
+                        | TxtNode::Rule(_)
+                        | TxtNode::Ins(_)
+                        | TxtNode::Mark(_)
+                        | TxtNode::Adjust(_)
+                        | TxtNode::Ligature(_)
+                        | TxtNode::Disc(_)
+                        | TxtNode::WhatsIt(_) => {
+                            if with_penalty(p, 0, h, &mut prev_dp, &mut best_place, &mut least_cost)
+                            {
+                                return best_place.tex_int();
+                            }
                         }
                         _ => {}
                     }
-                    current_block = 10249009913728301645;
-                }
-                TextNode::Glue => match TxtNode::from(prev_p as usize) {
-                    TxtNode::HList(_)
-                    | TxtNode::VList(_)
-                    | TxtNode::Rule(_)
-                    | TxtNode::Ins(_)
-                    | TxtNode::Mark(_)
-                    | TxtNode::Adjust(_)
-                    | TxtNode::Ligature(_)
-                    | TxtNode::Disc(_)
-                    | TxtNode::WhatsIt(_) => {
-                        pi = 0;
-                        current_block = 9007357115414505193;
-                    }
-                    _ => current_block = 11492179201936201469,
-                },
-                TextNode::Kern => {
-                    let t = if let Some(next) = llist_link(p) {
-                        NODE_type(next)
-                    } else {
-                        TextNode::Penalty.into()
-                    };
-                    if t == TextNode::Glue.into() {
-                        pi = 0;
-                        current_block = 9007357115414505193;
-                    } else {
-                        current_block = 11492179201936201469;
-                    }
-                }
-                TextNode::Penalty => {
-                    let p = Penalty(p);
-                    pi = p.penalty();
-                    current_block = 9007357115414505193;
-                }
-                TextNode::Mark | TextNode::Ins => current_block = 10249009913728301645,
-                _ => confusion("vertbreak"),
-            }
-        } else {
-            pi = EJECT_PENALTY;
-            current_block = 9007357115414505193;
-        }
-        match current_block {
-            9007357115414505193 => {
-                if pi < INF_PENALTY {
-                    b = if active_width.width < h {
-                        if active_width.stretch1 != 0
-                            || active_width.stretch2 != 0
-                            || active_width.stretch3 != 0
-                        {
-                            0
-                        } else {
-                            badness(h - active_width.width, active_width.stretch0)
-                        }
-                    } else if active_width.width - h > active_width.shrink {
-                        MAX_HALFWORD
-                    } else {
-                        badness(active_width.width - h, active_width.shrink)
-                    };
-                    if b < MAX_HALFWORD {
-                        if pi <= EJECT_PENALTY {
-                            b = pi
-                        } else if b < INF_BAD {
-                            b = b + pi
-                        } else {
-                            b = 100000;
-                        }
-                    }
-                    if b <= least_cost {
-                        best_place = p;
-                        least_cost = b;
-                        best_height_plus_depth = active_width.width + prev_dp
-                    }
-                    if b == MAX_HALFWORD || pi <= EJECT_PENALTY {
-                        return best_place;
-                    }
-                }
-                if NODE_type(p as usize).u16() < TextNode::Glue as u16
-                    || NODE_type(p as usize).u16() > TextNode::Kern as u16
-                {
-                    current_block = 10249009913728301645;
-                } else {
-                    current_block = 11492179201936201469;
-                }
-            }
-            _ => {}
-        }
-        match current_block {
-            11492179201936201469 => {
-                /*update_heights *//*1011: */
-                let width = if NODE_type(p as usize) == TextNode::Kern.into() {
-                    Kern(p as usize).width()
-                } else {
-                    let mut p = Glue(p as usize);
-                    let mut q = GlueSpec(p.glue_ptr() as usize); /*:1011 */
+                    let mut q = GlueSpec(g.glue_ptr() as usize); /*:1011 */
                     match q.stretch_order() {
                         GlueOrder::Normal => active_width.stretch0 += q.stretch(),
                         GlueOrder::Fil => active_width.stretch1 += q.stretch(),
@@ -11804,7 +11686,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                         _ => unreachable!(),
                     } /*:1014*/
                     active_width.shrink += q.shrink();
-                    if q.shrink_order() != GlueOrder::Normal && q.shrink() != 0 {
+                    let width = if q.shrink_order() != GlueOrder::Normal && q.shrink() != 0 {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
@@ -11821,16 +11703,68 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                         let mut r = GlueSpec(new_spec(q.ptr()));
                         r.set_shrink_order(GlueOrder::Normal);
                         delete_glue_ref(q.ptr());
-                        p.set_glue_ptr(Some(r.ptr()).tex_int());
+                        g.set_glue_ptr(Some(r.ptr()).tex_int());
                         r.size()
                     } else {
                         q.size()
+                    };
+                    active_width.width += prev_dp + width;
+                    prev_dp = 0;
+                }
+                TxtNode::Kern(k) => {
+                    let t = if let Some(next) = llist_link(p) {
+                        NODE_type(next)
+                    } else {
+                        TextNode::Penalty.into()
+                    };
+                    if t == TextNode::Glue.into() {
+                        if with_penalty(p, 0, h, &mut prev_dp, &mut best_place, &mut least_cost) {
+                            return best_place.tex_int();
+                        }
                     }
-                };
-                active_width.width += prev_dp + width;
-                prev_dp = 0;
+                    active_width.width += prev_dp + k.width();
+                    prev_dp = 0;
+                }
+                TxtNode::Penalty(pen) => {
+                    if with_penalty(
+                        p,
+                        pen.penalty(),
+                        h,
+                        &mut prev_dp,
+                        &mut best_place,
+                        &mut least_cost,
+                    ) {
+                        return best_place.tex_int();
+                    }
+                }
+                TxtNode::Mark(_) | TxtNode::Ins(_) => {}
+                _ => confusion("vertbreak"),
             }
-            _ => {}
+        } else {
+            // TODO: remove unreachable
+            let mut b = if active_width.width < h {
+                if active_width.stretch1 != 0
+                    || active_width.stretch2 != 0
+                    || active_width.stretch3 != 0
+                {
+                    0
+                } else {
+                    badness(h - active_width.width, active_width.stretch0)
+                }
+            } else if active_width.width - h > active_width.shrink {
+                MAX_HALFWORD
+            } else {
+                badness(active_width.width - h, active_width.shrink)
+            };
+            if b < MAX_HALFWORD {
+                b = EJECT_PENALTY;
+            }
+            if b <= least_cost {
+                best_place = None;
+                least_cost = b;
+                best_height_plus_depth = active_width.width + prev_dp;
+            }
+            return best_place.tex_int();
         }
         if prev_dp > d {
             active_width.width += prev_dp - d;
@@ -11838,6 +11772,50 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
         }
         prev_p = p;
         p = *LLIST_link(p as usize);
+    }
+
+    unsafe fn with_penalty(
+        p: usize,
+        pi: i32,
+        h: i32,
+        prev_dp: &mut i32,
+        best_place: &mut Option<usize>,
+        least_cost: &mut i32,
+    ) -> bool {
+        if pi < INF_PENALTY {
+            let mut b = if active_width.width < h {
+                if active_width.stretch1 != 0
+                    || active_width.stretch2 != 0
+                    || active_width.stretch3 != 0
+                {
+                    0
+                } else {
+                    badness(h - active_width.width, active_width.stretch0)
+                }
+            } else if active_width.width - h > active_width.shrink {
+                MAX_HALFWORD
+            } else {
+                badness(active_width.width - h, active_width.shrink)
+            };
+            if b < MAX_HALFWORD {
+                if pi <= EJECT_PENALTY {
+                    b = pi
+                } else if b < INF_BAD {
+                    b = b + pi
+                } else {
+                    b = 100000;
+                }
+            }
+            if b <= *least_cost {
+                *best_place = Some(p);
+                *least_cost = b;
+                best_height_plus_depth = active_width.width + *prev_dp;
+            }
+            if b == MAX_HALFWORD || pi <= EJECT_PENALTY {
+                return true;
+            }
+        }
+        false
     }
 }
 pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
