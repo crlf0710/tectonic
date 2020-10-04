@@ -27,9 +27,7 @@ use crate::xetex_xetex0::{
     new_save_level, new_skip_param, new_spec, normal_paragraph, prune_page_top, push_nest,
     scan_left_brace, vert_break, vpackage,
 };
-use crate::xetex_xetexd::{
-    llist_link, LLIST_link, NODE_type, TOKEN_LIST_ref_count, TeXInt, TeXOpt,
-};
+use crate::xetex_xetexd::{llist_link, LLIST_link, TOKEN_LIST_ref_count, TeXInt, TeXOpt};
 
 pub(crate) type scaled_t = i32;
 /* tectonic/xetex-pagebuilder.c: the page builder
@@ -70,21 +68,20 @@ unsafe fn freeze_page_specs(s: PageContents) {
 
 unsafe fn ensure_vbox(mut n: u8) {
     if let Some(p) = BOX_REG(n as _).opt() {
-        if NODE_type(p) != TextNode::HList.into() {
-            return;
+        if let TxtNode::HList(_) = TxtNode::from(p) {
+            if file_line_error_style_p != 0 {
+                print_file_line();
+            } else {
+                print_nl_cstr("! ");
+            }
+            print_cstr("Insertions can only be added to a vbox");
+            help!(
+                "Tut tut: You\'re trying to \\insert into a",
+                "\\box register that now contains an \\hbox.",
+                "Proceed, and I\'ll discard its present contents."
+            );
+            box_error(n);
         }
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Insertions can only be added to a vbox");
-        help!(
-            "Tut tut: You\'re trying to \\insert into a",
-            "\\box register that now contains an \\hbox.",
-            "Proceed, and I\'ll discard its present contents."
-        );
-        box_error(n);
     }
 }
 
@@ -540,7 +537,7 @@ pub(crate) unsafe fn build_page() {
     /* ... resuming 1032 ... I believe the "goto" here can only be
      * triggered if p is a penalty node, and we decided not to break. */
 
-    unsafe fn contribute(p: usize) -> bool {
+    unsafe fn contribute(p: usize) {
         /*1038: "Make sure that page_max_depth is not exceeded." */
         if page_so_far[7] > page_max_depth {
             page_so_far[1] += page_so_far[7] - page_max_depth;
@@ -551,10 +548,9 @@ pub(crate) unsafe fn build_page() {
         page_tail = p;
         *LLIST_link(CONTRIB_HEAD) = *LLIST_link(p);
         *LLIST_link(p) = None.tex_int();
-        false
     }
 
-    unsafe fn done1(p: usize) -> bool {
+    unsafe fn done1(p: usize) {
         /*1034: "Recycle node p". This codepath is triggered if we encountered
          * something nonprinting (glue, kern, penalty) and there aren't any
          * yes-printing boxes at the top of the page yet. When that happens,
@@ -577,7 +573,6 @@ pub(crate) unsafe fn build_page() {
             }
             disc_ptr[COPY_CODE as usize] = Some(p).tex_int()
         }
-        false
     }
 
     unsafe fn do_smth() -> bool {
@@ -651,14 +646,14 @@ pub(crate) unsafe fn build_page() {
 
                     *LLIST_link(q) = Some(b.ptr()).tex_int();
                     *LLIST_link(CONTRIB_HEAD) = Some(q).tex_int();
-                    false
                 } else {
                     /*1037: "Prepare to move a box or rule node to the current
                      * page, then goto contribute." */
                     page_so_far[1] += page_so_far[7] + b.height();
                     page_so_far[7] = b.depth();
-                    contribute(b.ptr())
+                    contribute(b.ptr());
                 }
+                false
             }
             TxtNode::Rule(r) => {
                 if page_contents == PageContents::Empty
@@ -682,14 +677,14 @@ pub(crate) unsafe fn build_page() {
 
                     *LLIST_link(q) = Some(r.ptr()).tex_int();
                     *LLIST_link(CONTRIB_HEAD) = Some(q).tex_int();
-                    false
                 } else {
                     /*1037: "Prepare to move a box or rule node to the current
                      * page, then goto contribute." */
                     page_so_far[1] += page_so_far[7] + r.height();
                     page_so_far[7] = r.depth();
-                    contribute(r.ptr())
+                    contribute(r.ptr());
                 }
+                false
             }
             TxtNode::WhatsIt(w) => {
                 /*1401: "Prepare to move whatsit p to the current page, then goto contribute" */
@@ -700,13 +695,14 @@ pub(crate) unsafe fn build_page() {
                     }
                     _ => {}
                 }
-                contribute(p)
+                contribute(p);
+                false
             }
             TxtNode::Glue(mut g) => {
                 if page_contents == PageContents::Empty
                     || page_contents == PageContents::InsertsOnly
                 {
-                    done1(g.ptr())
+                    done1(g.ptr());
                 } else {
                     match TxtNode::from(page_tail) {
                         TxtNode::HList(_)
@@ -754,39 +750,47 @@ pub(crate) unsafe fn build_page() {
                         };
                     page_so_far[1] += page_so_far[7] + width;
                     page_so_far[7] = 0;
-                    contribute(g.ptr())
+                    contribute(g.ptr());
                 }
+                false
             }
             TxtNode::Kern(k) => {
                 if page_contents == PageContents::Empty
                     || page_contents == PageContents::InsertsOnly
                 {
-                    return done1(k.ptr());
+                    done1(k.ptr());
+                    return false;
                 } else if LLIST_link(k.ptr()).opt().is_none() {
                     return true;
-                } else if NODE_type(*LLIST_link(k.ptr()) as usize) == TextNode::Glue.into() {
+                } else if let TxtNode::Glue(_) = TxtNode::from(*LLIST_link(k.ptr()) as usize) {
                     if let Some(res) = with_penalty(k.ptr(), 0) {
                         return res;
                     }
                 }
                 page_so_far[1] += page_so_far[7] + k.width();
                 page_so_far[7] = 0;
-                contribute(k.ptr())
+                contribute(k.ptr());
+                false
             }
             TxtNode::Penalty(p) => {
                 if page_contents == PageContents::Empty
                     || page_contents == PageContents::InsertsOnly
                 {
-                    done1(p.ptr())
+                    done1(p.ptr());
+                    false
                 } else {
                     if let Some(res) = with_penalty(p.ptr(), p.penalty()) {
                         res
                     } else {
-                        contribute(p.ptr())
+                        contribute(p.ptr());
+                        false
                     }
                 }
             }
-            TxtNode::Mark(m) => contribute(m.ptr()),
+            TxtNode::Mark(m) => {
+                contribute(m.ptr());
+                false
+            }
             TxtNode::Ins(p_ins) => {
                 /*1043: "Append an insertion to the current page and goto contribute" */
                 if page_contents == PageContents::Empty {
@@ -920,7 +924,8 @@ pub(crate) unsafe fn build_page() {
                         }
                     }
                 }
-                contribute(p_ins.ptr())
+                contribute(p_ins.ptr());
+                false
             }
             _ => confusion("page"),
         }

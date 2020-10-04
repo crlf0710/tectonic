@@ -132,8 +132,8 @@ pub(crate) enum TxtNode {
 }
 
 impl TxtNode {
-    pub(crate) unsafe fn from(p: usize) -> Self {
-        let n = MEM[p].b16.s1;
+    pub(crate) fn from(p: usize) -> Self {
+        let n = unsafe { MEM[p].b16.s1 };
         match n {
             0 => Self::HList(List::from(p)),
             1 => Self::VList(List::from(p)),
@@ -183,8 +183,8 @@ pub(crate) mod whatsit {
     }
 
     impl WhatsIt {
-        pub(crate) unsafe fn from(p: usize) -> Self {
-            let n = MEM[p].b16.s0;
+        pub(crate) fn from(p: usize) -> Self {
+            let n = unsafe { MEM[p].b16.s0 };
             match n {
                 0 => Self::Open(OpenFile(p)),
                 1 => Self::Write(WriteFile(p)),

@@ -1523,25 +1523,24 @@ unsafe fn clean_box(p: &MCell, s: (MathStyle, u8)) -> List {
     cur_mu = x_over_n(math_quad(cur_size), 18);
 
     unsafe fn found(q: i32) -> List {
-        let x = if is_char_node(q.opt()) || q.opt().is_none() {
-            hpack(q.opt(), 0, PackMode::Additional)
-        } else if LLIST_link(q as usize).opt().is_none()
-            && [TextNode::HList.into(), TextNode::VList.into()].contains(&NODE_type(q as usize))
-            && List::from(q as usize).shift_amount() == 0
-        {
-            List::from(q as usize)
-        } else {
-            hpack(q.opt(), 0, PackMode::Additional)
+        let x = match q.opt() {
+            None => hpack(None, 0, PackMode::Additional),
+            Some(q) => match Node::from(q) {
+                Node::Text(TxtNode::HList(b)) | Node::Text(TxtNode::VList(b))
+                    if b.shift_amount() == 0 && LLIST_link(q as usize).opt().is_none() =>
+                {
+                    b
+                }
+                _ => hpack(Some(q), 0, PackMode::Additional),
+            },
         };
         let q = x.list_ptr();
         if is_char_node(q.opt()) {
             if let Some(r) = LLIST_link(q as usize).opt() {
                 if llist_link(r).is_none() {
-                    if !is_char_node(Some(r)) {
-                        if NODE_type(r) == TextNode::Kern.into() {
-                            free_node(r, MEDIUM_NODE_SIZE);
-                            *LLIST_link(q as usize) = None.tex_int()
-                        }
+                    if let CharOrText::Text(TxtNode::Kern(k)) = CharOrText::from(r) {
+                        k.free();
+                        *LLIST_link(q as usize) = None.tex_int();
                     }
                 }
             }

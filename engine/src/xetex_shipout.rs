@@ -273,7 +273,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         /* Done with the synthesized special. The meat: emit this page box. */
 
         cur_v = p.height() + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
-        if NODE_type(p.ptr()) == TextNode::VList.into() {
+        if p.list_dir() == ListDir::Vertical {
             vlist_out(&p);
         } else {
             hlist_out(&mut p);

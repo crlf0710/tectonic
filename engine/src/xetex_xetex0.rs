@@ -800,9 +800,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_scaled(p.shift_amount());
                     }
                     /*1491:*/
-                    if text_NODE_type(p.ptr()) == TextNode::HList.into()
-                        && p.lr_mode() == LRMode::DList
-                    {
+                    if p.list_dir() == ListDir::Horizontal && p.lr_mode() == LRMode::DList {
                         print_cstr(", display");
                     }
                     str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
@@ -6773,20 +6771,20 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                     cur_val_level = ValLevel::from(m as u8);
                 }
                 if tx < hi_mem_min as usize && cur_list.mode.1 != ListMode::NoMode {
+                    let nd = Node::from(tx);
                     match m {
                         LastItemCode::LastPenalty => {
-                            if text_NODE_type(tx) == TextNode::Penalty.into() {
-                                cur_val = MEM[tx + 1].b32.s1;
+                            if let Node::Text(TxtNode::Penalty(p)) = &nd {
+                                cur_val = p.penalty();
                             }
                         }
                         LastItemCode::LastKern => {
-                            if text_NODE_type(tx) == TextNode::Kern.into() {
-                                cur_val = MEM[tx + 1].b32.s1;
+                            if let Node::Text(TxtNode::Kern(k)) = &nd {
+                                cur_val = k.width();
                             }
                         }
                         LastItemCode::LastSkip => {
-                            if text_NODE_type(tx) == TextNode::Glue.into() {
-                                let g = Glue(tx);
+                            if let Node::Text(TxtNode::Glue(g)) = &nd {
                                 cur_val = g.glue_ptr();
                                 if g.param() == MU_GLUE {
                                     cur_val_level = ValLevel::Mu;
@@ -6794,10 +6792,14 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                             }
                         }
                         LastItemCode::LastNodeType => {
-                            cur_val = if NODE_type(tx).u16() <= TextNode::Unset as u16 {
-                                NODE_type(tx).u16() as i32 + 1
-                            } else {
-                                TextNode::Unset as i32 + 2
+                            cur_val = match &nd {
+                                Node::Text(nd) => match nd {
+                                    TxtNode::Style(_)
+                                    | TxtNode::Choice(_)
+                                    | TxtNode::MarginKern(_) => 15,
+                                    nd => nd.get_type_num() as i32 + 1,
+                                },
+                                _ => 15,
                             };
                         }
                         _ => {}
@@ -8263,10 +8265,9 @@ pub(crate) unsafe fn conv_toks() {
                 find_sa_element(ValLevel::Ident, cur_val, false);
                 cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt())
             };
-            if p.filter(|&p| text_NODE_type(p) == TextNode::HList.into())
-                .is_none()
-            {
-                pdf_error("marginkern", "a non-empty hbox expected");
+            match p.map(TxtNode::from) {
+                Some(TxtNode::HList(_)) => {}
+                _ => pdf_error("marginkern", "a non-empty hbox expected"),
             }
         }
         ConvertCode::JobName => {
@@ -8903,17 +8904,11 @@ pub(crate) unsafe fn conditional() {
                 find_sa_element(ValLevel::Ident, cur_val, false);
                 cur_ptr.and_then(|cp| MEM[cp + 1].b32.s1.opt())
             };
-            b = if this_if == IfTestCode::IfVoid {
-                p.is_none()
-            } else if let Some(p) = p {
-                if this_if == IfTestCode::IfHBox {
-                    text_NODE_type(p) == TextNode::HList.into()
-                } else {
-                    text_NODE_type(p) == TextNode::VList.into()
-                }
-            } else {
-                false
-            };
+            b = matches!((this_if, p.map(TxtNode::from)),
+                (IfTestCode::IfVoid, None)
+                | (IfTestCode::IfHBox, Some(TxtNode::HList(_)))
+                | (IfTestCode::IfVBox, Some(TxtNode::VList(_)))
+            );
         }
 
         IfTestCode::Ifx => {
@@ -10082,8 +10077,10 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                             let mut ppp = usize::MAX; // TODO: check
                             while z != pp_opt {
                                 ppp = z.unwrap();
-                                if NODE_type(ppp) == TextNode::WhatsIt.into() {
-                                    total_chars += NativeWord::from(ppp).text().len() as i32;
+                                if let CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(nw))) =
+                                    CharOrText::from(ppp)
+                                {
+                                    total_chars += nw.text().len() as i32;
                                 }
                                 z = llist_link(ppp);
                             }
@@ -10097,8 +10094,9 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                             total_chars = 0;
                             let mut ppp = p;
                             loop {
-                                if NODE_type(ppp) == TextNode::WhatsIt.into() {
-                                    let nw = NativeWord::from(ppp);
+                                if let CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(nw))) =
+                                    CharOrText::from(ppp)
+                                {
                                     let ppp_text = nw.text();
                                     pp.text_mut()[total_chars as usize
                                         ..(total_chars as usize) + ppp_text.len()]
@@ -11846,7 +11844,8 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
         delete_token_ref(bm);
     }
     let v = v?;
-    if NODE_type(v as usize) != TextNode::VList.into() {
+    let mut v = List::from(v);
+    if v.list_dir() != ListDir::Vertical {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -11863,7 +11862,6 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
         error();
         return None;
     }
-    let mut v = List::from(v);
     let q = vert_break(v.list_ptr(), h, *DIMENPAR(DimenPar::split_max_depth));
     let mut p = v.list_ptr();
     if p == q {
