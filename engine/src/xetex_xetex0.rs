@@ -10038,9 +10038,13 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 }
                 TxtNode::WhatsIt(w) => match w {
                     WhatsIt::NativeWord(mut p_nw) => {
-                        let mut k = if q != r.ptr() + 5 && NODE_type(q) == TextNode::Disc.into() {
-                            let q = Discretionary(q);
-                            q.replace_count() as i32
+                        let mut k = if q != r.ptr() + 5 {
+                            if NODE_type(q) == TextNode::Disc.into() {
+                                let q = Discretionary(q);
+                                q.replace_count() as i32
+                            } else {
+                                0
+                            }
                         } else {
                             0
                         };
@@ -11154,8 +11158,8 @@ pub(crate) unsafe fn fin_align() {
     let mut qopt = MEM[cur_list.head].b32.s1.opt();
     let mut s = cur_list.head;
     while let Some(mut q) = qopt {
-        if !is_char_node(Some(q)) {
-            if NODE_type(q) == TextNode::Unset.into() {
+        match CharOrText::from(q) {
+            CharOrText::Text(TxtNode::Unset(_)) => {
                 /*836: */
                 let mut q = List::from(q);
                 if cur_list.mode == (true, ListMode::VMode) {
@@ -11292,9 +11296,9 @@ pub(crate) unsafe fn fin_align() {
                         break;
                     }
                 }
-            } else if NODE_type(q) == TextNode::Rule.into() {
+            }
+            CharOrText::Text(TxtNode::Rule(mut q_rule)) => {
                 /*835: */
-                let mut q_rule = Rule::from(q);
                 if q_rule.width() == NULL_FLAG {
                     q_rule.set_width(p.width());
                 }
@@ -11314,6 +11318,7 @@ pub(crate) unsafe fn fin_align() {
                     *LLIST_link(s) = Some(q).tex_int();
                 }
             }
+            _ => {}
         }
         s = q;
         qopt = llist_link(q);
@@ -12344,28 +12349,26 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
                 );
                 error();
             } else {
-                let mut current_block_79: u64;
                 let mut tx = cur_list.tail as i32;
-                if tx < hi_mem_min {
-                    if NODE_type(tx as usize) == TextNode::Math.into()
-                        && Math(tx as usize).subtype() == MathType::Eq(BE::End, MathMode::Middle)
+                match CharOrText::from(tx as usize) {
+                    CharOrText::Text(TxtNode::Math(m))
+                        if m.subtype() == MathType::Eq(BE::End, MathMode::Middle) =>
                     {
                         let mut r = cur_list.head as i32;
                         let mut q: i32 = 0;
                         loop {
                             q = r;
                             r = *LLIST_link(q as usize);
-                            if !(r != tx) {
+                            if r == tx {
                                 break;
                             }
                         }
                         tx = q
                     }
+                    _ => {}
                 }
-                if tx < hi_mem_min {
-                    if NODE_type(tx as usize) == TextNode::HList.into()
-                        || NODE_type(tx as usize) == TextNode::VList.into()
-                    {
+                match &mut CharOrText::from(tx as usize) {
+                    CharOrText::Text(TxtNode::HList(b)) | CharOrText::Text(TxtNode::VList(b)) => {
                         /*1116:*/
                         let mut q = cur_list.head as i32;
                         let mut p = None.tex_int();
@@ -12375,31 +12378,24 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
                             r = p;
                             p = q;
                             fm = false;
-                            if q < hi_mem_min {
-                                if NODE_type(q as usize) == TextNode::Disc.into() {
-                                    for _ in 0..Discretionary(q as usize).replace_count() {
+                            match CharOrText::from(q as usize) {
+                                CharOrText::Text(TxtNode::Disc(d)) => {
+                                    for _ in 0..d.replace_count() {
                                         p = *LLIST_link(p as usize);
                                     }
                                     if p == tx {
-                                        current_block_79 = 1209030638129645089;
                                         break;
                                     }
-                                } else if NODE_type(q as usize) == TextNode::Math.into()
-                                    && Math(q as usize).subtype()
-                                        == MathType::Eq(BE::Begin, MathMode::Middle)
+                                }
+                                CharOrText::Text(TxtNode::Math(m))
+                                    if m.subtype() == MathType::Eq(BE::Begin, MathMode::Middle) =>
                                 {
                                     fm = true;
                                 }
+                                _ => {}
                             }
                             q = *LLIST_link(p as usize);
-                            if !(q != tx) {
-                                current_block_79 = 12961834331865314435;
-                                break;
-                            }
-                        }
-                        match current_block_79 {
-                            1209030638129645089 => {}
-                            _ => {
+                            if q == tx {
                                 q = *LLIST_link(tx as usize);
                                 *LLIST_link(p as usize) = q;
                                 *LLIST_link(tx as usize) = None.tex_int();
@@ -12415,10 +12411,12 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
                                     flush_node_list(p.opt());
                                 }
                                 cur_box = Some(tx as usize);
-                                MEM[(tx + 4) as usize].b32.s1 = 0
+                                b.set_shift_amount(0);
+                                break;
                             }
                         }
                     }
+                    _ => {}
                 }
             }
         }
@@ -12533,14 +12531,14 @@ pub(crate) unsafe fn package(mut c: i16) {
             /*1122: */
             let mut h = 0;
             if let Some(p) = cb.list_ptr().opt() {
-                if [
-                    TextNode::HList.into(),
-                    TextNode::VList.into(),
-                    TextNode::Rule.into(),
-                ]
-                .contains(&NODE_type(p))
-                {
-                    h = MEM[p + 3].b32.s1
+                match Node::from(p) {
+                    Node::Text(TxtNode::HList(b)) | Node::Text(TxtNode::VList(b)) => {
+                        h = b.height();
+                    }
+                    Node::Text(TxtNode::Rule(r)) => {
+                        h = r.height();
+                    }
+                    _ => {}
                 }
             }
             let cbd = cb.depth();

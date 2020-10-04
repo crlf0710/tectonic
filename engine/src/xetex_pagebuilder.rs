@@ -11,7 +11,7 @@
 use crate::help;
 use crate::node::*;
 use crate::xetex_consts::*;
-use crate::xetex_errors::{confusion, error, Confuse};
+use crate::xetex_errors::{confusion, error};
 use crate::xetex_ini::{
     best_height_plus_depth, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr,
     file_line_error_style_p, insert_penalties, last_glue, last_kern, last_node_type, last_penalty,
@@ -482,7 +482,6 @@ pub(crate) unsafe fn build_page() {
 
     unsafe fn do_smth(mut slf: Args) -> (Args, bool) {
         slf.p = llist_link(CONTRIB_HEAD).unwrap();
-        let p_node = text_NODE_type(slf.p).confuse("page");
 
         /*1031: "Update the values of last_glue, last_penalty, and last_kern" */
         if last_glue != MAX_HALFWORD {
@@ -491,22 +490,22 @@ pub(crate) unsafe fn build_page() {
 
         last_penalty = 0;
         last_kern = 0;
-        last_node_type = p_node as i32 + 1;
+        last_node_type = slf.p as i32 + 1;
 
-        if p_node == TextNode::Glue {
-            let g = Glue(slf.p);
-            last_glue = g.glue_ptr();
-            GlueSpec(last_glue as usize).rc_inc();
-        } else {
-            last_glue = MAX_HALFWORD;
-
-            if p_node == TextNode::Penalty {
-                let p = Penalty(slf.p);
+        last_glue = MAX_HALFWORD;
+        let p_node = TxtNode::from(slf.p);
+        match &p_node {
+            TxtNode::Glue(g) => {
+                last_glue = g.glue_ptr();
+                GlueSpec(last_glue as usize).rc_inc();
+            }
+            TxtNode::Penalty(p) => {
                 last_penalty = p.penalty();
-            } else if p_node == TextNode::Kern {
-                let k = Kern(slf.p);
+            }
+            TxtNode::Kern(k) => {
                 last_kern = k.width();
             }
+            _ => {}
         }
         /*1032: "Move node p to the current page; if it is time for a page
          * break, put the nodes following the break back onto the contribution
@@ -530,8 +529,7 @@ pub(crate) unsafe fn build_page() {
          * successor." */
 
         match p_node {
-            TextNode::HList | TextNode::VList => {
-                let p = List::from(slf.p);
+            TxtNode::HList(p) | TxtNode::VList(p) => {
                 if page_contents == PageContents::Empty
                     || page_contents == PageContents::InsertsOnly
                 {
@@ -563,8 +561,7 @@ pub(crate) unsafe fn build_page() {
                     return contribute(slf);
                 }
             }
-            TextNode::Rule => {
-                let p = Rule::from(slf.p);
+            TxtNode::Rule(p) => {
                 if page_contents == PageContents::Empty
                     || page_contents == PageContents::InsertsOnly
                 {
@@ -596,9 +593,9 @@ pub(crate) unsafe fn build_page() {
                     return contribute(slf);
                 }
             }
-            TextNode::WhatsIt => {
+            TxtNode::WhatsIt(p) => {
                 /*1401: "Prepare to move whatsit p to the current page, then goto contribute" */
-                match WhatsIt::from(slf.p) {
+                match p {
                     WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                         page_so_far[1] += page_so_far[7] + p.height();
                         page_so_far[7] = p.depth();
@@ -607,7 +604,7 @@ pub(crate) unsafe fn build_page() {
                 }
                 return contribute(slf);
             }
-            TextNode::Glue => {
+            TxtNode::Glue(_) => {
                 if page_contents == PageContents::Empty
                     || page_contents == PageContents::InsertsOnly
                 {
@@ -627,7 +624,7 @@ pub(crate) unsafe fn build_page() {
                     }
                 }
             }
-            TextNode::Kern => {
+            TxtNode::Kern(_) => {
                 if page_contents == PageContents::Empty
                     || page_contents == PageContents::InsertsOnly
                 {
@@ -640,8 +637,7 @@ pub(crate) unsafe fn build_page() {
                     return update_heights(slf);
                 }
             }
-            TextNode::Penalty => {
-                let p = Penalty(slf.p);
+            TxtNode::Penalty(p) => {
                 if page_contents == PageContents::Empty
                     || page_contents == PageContents::InsertsOnly
                 {
@@ -650,11 +646,10 @@ pub(crate) unsafe fn build_page() {
                     slf.pi = p.penalty();
                 }
             }
-            TextNode::Mark => {
+            TxtNode::Mark(_) => {
                 return contribute(slf);
             }
-            TextNode::Ins => {
-                let p_ins = Insertion(slf.p);
+            TxtNode::Ins(p_ins) => {
                 /*1043: "Append an insertion to the current page and goto contribute" */
                 if page_contents == PageContents::Empty {
                     freeze_page_specs(PageContents::InsertsOnly);
