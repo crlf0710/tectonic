@@ -199,7 +199,7 @@ pub(crate) unsafe fn init_math() {
                         found = true;
                     }
                     CharOrText::Text(n) => match n {
-                        TxtNode::HList(b) | TxtNode::VList(b) => {
+                        TxtNode::List(b) => {
                             d = b.width();
                             found = true;
                         }
@@ -1526,7 +1526,7 @@ unsafe fn clean_box(p: &MCell, s: (MathStyle, u8)) -> List {
         let x = match q.opt() {
             None => hpack(None, 0, PackMode::Additional),
             Some(q) => match Node::from(q) {
-                Node::Text(TxtNode::HList(b)) | Node::Text(TxtNode::VList(b))
+                Node::Text(TxtNode::List(b))
                     if b.shift_amount() == 0 && LLIST_link(q as usize).opt().is_none() =>
                 {
                     b
@@ -1611,13 +1611,14 @@ unsafe fn make_under(q: &mut Under) {
     q.first_mut().set_subbox(y);
 }
 unsafe fn make_vcenter(q: usize) {
-    if let Node::Text(TxtNode::VList(v)) = &mut Node::from(MEM[q + 1].b32.s0 as usize) {
-        let delta = v.height() + v.depth();
-        v.set_height(axis_height(cur_size) + half(delta));
-        let d = v.height();
-        v.set_depth(delta - d);
-    } else {
-        confusion("vcenter");
+    match &mut Node::from(MEM[q + 1].b32.s0 as usize) {
+        Node::Text(TxtNode::List(v)) if v.list_dir() == ListDir::Vertical => {
+            let delta = v.height() + v.depth();
+            v.set_height(axis_height(cur_size) + half(delta));
+            let d = v.height();
+            v.set_depth(delta - d);
+        }
+        _ => confusion("vcenter"),
     }
 }
 unsafe fn make_radical(q: &mut Radical) {

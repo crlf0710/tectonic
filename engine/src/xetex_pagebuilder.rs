@@ -68,7 +68,7 @@ unsafe fn freeze_page_specs(s: PageContents) {
 
 unsafe fn ensure_vbox(mut n: u8) {
     if let Some(p) = BOX_REG(n as _).opt() {
-        if let TxtNode::HList(_) = TxtNode::from(p) {
+        if List::from(p).list_dir() == ListDir::Horizontal {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
@@ -624,7 +624,7 @@ pub(crate) unsafe fn build_page() {
          * successor." */
 
         match p_node {
-            TxtNode::HList(b) | TxtNode::VList(b) => {
+            TxtNode::List(b) => {
                 if page_contents == PageContents::Empty
                     || page_contents == PageContents::InsertsOnly
                 {
@@ -705,8 +705,7 @@ pub(crate) unsafe fn build_page() {
                     done1(g.ptr());
                 } else {
                     match TxtNode::from(page_tail) {
-                        TxtNode::HList(_)
-                        | TxtNode::VList(_)
+                        TxtNode::List(_)
                         | TxtNode::Rule(_)
                         | TxtNode::Ins(_)
                         | TxtNode::Mark(_)

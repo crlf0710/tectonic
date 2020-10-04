@@ -352,7 +352,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 }
             }
             match &mut TxtNode::from(cp) {
-                TxtNode::HList(b) | TxtNode::VList(b) => active_width.width += b.width(),
+                TxtNode::List(b) => active_width.width += b.width(),
                 TxtNode::Rule(r) => active_width.width += r.width(),
                 TxtNode::WhatsIt(cp) => match cp {
                     WhatsIt::Language(l) => {
@@ -383,8 +383,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                         match CharOrText::from(prev_p as usize) {
                             CharOrText::Char(_) => try_break(0, BreakType::Unhyphenated),
                             CharOrText::Text(t) => match t {
-                                TxtNode::HList(_)
-                                | TxtNode::VList(_)
+                                TxtNode::List(_)
                                 | TxtNode::Rule(_)
                                 | TxtNode::Ins(_)
                                 | TxtNode::Mark(_)
@@ -442,9 +441,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                         let eff_char_1 = effective_char(true, f, l.char());
                                         disc_width += *FONT_CHARACTER_WIDTH(f, eff_char_1 as usize);
                                     }
-                                    TxtNode::HList(b) | TxtNode::VList(b) => {
-                                        disc_width += b.width()
-                                    }
+                                    TxtNode::List(b) => disc_width += b.width(),
                                     TxtNode::Rule(r) => disc_width += r.width(),
                                     TxtNode::Kern(k) => disc_width += k.width(),
                                     TxtNode::WhatsIt(s) => match s {
@@ -492,7 +489,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     active_width.width +=
                                         *FONT_CHARACTER_WIDTH(f, eff_char_3 as usize);
                                 }
-                                TxtNode::HList(b) | TxtNode::VList(b) => {
+                                TxtNode::List(b) => {
                                     active_width.width += b.width();
                                 }
                                 TxtNode::Rule(r) => {
@@ -1395,7 +1392,7 @@ unsafe fn post_line_break(mut d: bool) {
                     match CharOrText::from(q) {
                         CharOrText::Char(_) => break,
                         CharOrText::Text(t) => match t {
-                            TxtNode::HList(_) | TxtNode::VList(_) | TxtNode::Rule(_) |
+                            TxtNode::List(_) | TxtNode::Rule(_) |
                             TxtNode::Ins(_) | TxtNode::Mark(_) | TxtNode::Adjust(_) |
                             TxtNode::Ligature(_) | TxtNode::Disc(_)  | TxtNode::WhatsIt(_) => break,
                             TxtNode::Kern(k) if k.subtype() != KernType::Explicit && k.subtype() != KernType::SpaceAdjustment => break,
@@ -1533,7 +1530,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                         eff_char_0 as usize,
                                                     );
                                                 }
-                                                TxtNode::HList(b) | TxtNode::VList(b) => {
+                                                TxtNode::List(b) => {
                                                     break_width.width -= b.width();
                                                 }
                                                 TxtNode::Rule(r) => {
@@ -1580,7 +1577,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                         eff_char_2 as usize,
                                                     );
                                                 }
-                                                TxtNode::HList(b) | TxtNode::VList(b) => {
+                                                TxtNode::List(b) => {
                                                     break_width.width += b.width();
                                                 }
                                                 TxtNode::Rule(r) => {
@@ -2751,15 +2748,14 @@ unsafe fn total_pw(q: &Active, p: Option<usize>) -> scaled_t {
 unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     let mut run: bool = false;
     match (llist_link(l), CharOrText::from(l)) {
-        (Some(next), CharOrText::Text(TxtNode::HList(n))) if n.is_empty() => l = next,
+        (Some(next), CharOrText::Text(TxtNode::List(n))) if n.is_empty() => l = next,
         _ => {
             if d {
                 while let Some(next) = llist_link(l) {
                     match CharOrText::from(l) {
                         CharOrText::Char(_) => break,
                         CharOrText::Text(t) => match t {
-                            TxtNode::HList(_)
-                            | TxtNode::VList(_)
+                            TxtNode::List(_)
                             | TxtNode::Rule(_)
                             | TxtNode::Ins(_)
                             | TxtNode::Mark(_)
@@ -2780,7 +2776,10 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     loop {
         let t = l;
         if run {
-            while let CharOrText::Text(TxtNode::HList(n)) = CharOrText::from(l) {
+            while let CharOrText::Text(TxtNode::List(n)) = CharOrText::from(l) {
+                if n.list_dir() != ListDir::Horizontal {
+                    break;
+                }
                 if let Some(next) = n.list_ptr().opt() {
                     hlist_stack.push(n.ptr());
                     l = next;
@@ -2801,7 +2800,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
                     TxtNode::Math(n) if n.is_empty() => true,
                     TxtNode::Kern(n) if n.is_empty() => true,
                     TxtNode::Glue(n) if n.is_empty() => true,
-                    TxtNode::HList(n) if n.is_empty() => true,
+                    TxtNode::List(n) if n.is_empty() => true,
                     _ => false,
                 },
             }
@@ -2836,7 +2835,10 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
     loop {
         let t = r;
         if run {
-            while let Node::Text(TxtNode::HList(n)) = Node::from(r) {
+            while let Node::Text(TxtNode::List(n)) = Node::from(r) {
+                if n.list_dir() != ListDir::Horizontal {
+                    break;
+                }
                 if let Some(hnext) = n.list_ptr().opt() {
                     hlist_stack.push((l, n.ptr()));
                     l = Some(hnext);
@@ -2861,7 +2863,7 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
                     TxtNode::Math(n) if n.is_empty() => true,
                     TxtNode::Kern(n) if n.is_empty() => true,
                     TxtNode::Glue(n) if n.is_empty() => true,
-                    TxtNode::HList(n) if n.is_empty() => true,
+                    TxtNode::List(n) if n.is_empty() => true,
                     _ => false,
                 },
             }

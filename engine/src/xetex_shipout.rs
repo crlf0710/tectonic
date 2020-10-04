@@ -706,7 +706,7 @@ unsafe fn hlist_out(this_box: &mut List) {
         } else {
             /*644: "Output the non-char_node `p` and move to the next node" */
             match TxtNode::from(p) {
-                TxtNode::HList(mut p) | TxtNode::VList(mut p) => {
+                TxtNode::List(mut p) => {
                     if p.list_ptr().opt().is_none() {
                         if p.list_dir() == ListDir::Vertical {
                             synctex_void_vlist(&p, this_box);
@@ -954,7 +954,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     dvi_h += rule_wd;
                                 }
                             }
-                            Node::Text(TxtNode::HList(lb)) | Node::Text(TxtNode::VList(lb)) => {
+                            Node::Text(TxtNode::List(lb)) => {
                                 let leader_wd = lb.width();
                                 if leader_wd > 0 && rule_wd > 0 {
                                     rule_wd += 10;
@@ -1200,7 +1200,7 @@ unsafe fn vlist_out(this_box: &List) {
         }
         /*653: "Output the non-char_node p" */
         match &mut TxtNode::from(p) {
-            TxtNode::HList(mut p) | TxtNode::VList(mut p) => {
+            TxtNode::List(mut p) => {
                 /*654: "Output a box in a vlist" */
                 if p.list_ptr().opt().is_none() {
                     if upwards {
@@ -1414,7 +1414,7 @@ unsafe fn vlist_out(this_box: &List) {
                             popt = llist_link(p.ptr());
                             continue;
                         }
-                        TxtNode::HList(lb) | TxtNode::VList(lb) => {
+                        TxtNode::List(lb) => {
                             let leader_ht = lb.height() + lb.depth();
                             if leader_ht > 0i32 && rule_ht > 0i32 {
                                 rule_ht += 10i32;
@@ -1562,7 +1562,7 @@ unsafe fn reverse(
                 let mut add_rule = true;
                 let q = *LLIST_link(p);
                 match TxtNode::from(p) {
-                    TxtNode::HList(p) | TxtNode::VList(p) => {
+                    TxtNode::List(p) => {
                         rule_wd = p.width();
                     }
                     TxtNode::Rule(p) => {

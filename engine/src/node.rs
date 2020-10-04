@@ -112,8 +112,7 @@ pub(crate) const EDGE_NODE: TextNode = TextNode::Style;
 
 #[derive(Clone, Debug)]
 pub(crate) enum TxtNode {
-    HList(List),
-    VList(List),
+    List(List),
     Rule(Rule),
     Ins(Insertion),
     Mark(Mark),
@@ -135,8 +134,7 @@ impl TxtNode {
     pub(crate) fn from(p: usize) -> Self {
         let n = unsafe { MEM[p].b16.s1 };
         match n {
-            0 => Self::HList(List::from(p)),
-            1 => Self::VList(List::from(p)),
+            0 | 1 => Self::List(List::from(p)),
             2 => Self::Rule(Rule::from(p)),
             3 => Self::Ins(Insertion(p)),
             4 => Self::Mark(Mark(p)),

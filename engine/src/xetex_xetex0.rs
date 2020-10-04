@@ -541,8 +541,7 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
         } else {
             /*183:*/
             match TxtNode::from(p) {
-                TxtNode::HList(_)
-                | TxtNode::VList(_)
+                TxtNode::List(_)
                 | TxtNode::Ins(_)
                 | TxtNode::Mark(_)
                 | TxtNode::Adjust(_)
@@ -766,7 +765,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
         match Node::from(p) {
             Node::Char(_) => print_font_and_char(p as _),
             Node::Text(n) => match n {
-                TxtNode::HList(p) | TxtNode::VList(p) => {
+                TxtNode::List(p) => {
                     if p.list_dir() == ListDir::Horizontal {
                         print_esc('h' as i32);
                     } else {
@@ -1218,7 +1217,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                 avail = Some(p);
             }
             Node::Text(n) => match n {
-                TxtNode::HList(b) | TxtNode::VList(b) => {
+                TxtNode::List(b) => {
                     flush_node_list(b.list_ptr().opt());
                     b.free();
                 }
@@ -1360,7 +1359,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
             r = get_avail();
         } else {
             match &TxtNode::from(p) {
-                TxtNode::HList(p) | TxtNode::VList(p) => {
+                TxtNode::List(p) => {
                     r = get_node(BOX_NODE_SIZE);
                     let mut r_box = List::from(r);
                     *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE);
@@ -8266,7 +8265,7 @@ pub(crate) unsafe fn conv_toks() {
                 cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt())
             };
             match p.map(TxtNode::from) {
-                Some(TxtNode::HList(_)) => {}
+                Some(TxtNode::List(b)) if b.list_dir() == ListDir::Horizontal => {}
                 _ => pdf_error("marginkern", "a non-empty hbox expected"),
             }
         }
@@ -8361,7 +8360,7 @@ pub(crate) unsafe fn conv_toks() {
                         TxtNode::Math(n) if n.is_empty() => true,
                         TxtNode::Kern(n) if n.is_empty() => true,
                         TxtNode::Glue(n) if n.is_empty() => true,
-                        TxtNode::HList(n) if n.is_empty() => true,
+                        TxtNode::List(n) if n.is_empty() => true,
                         TxtNode::Glue(n) if n.param() == (GluePar::right_skip as u16) + 1 => true,
                         _ => false,
                     },
@@ -8397,7 +8396,7 @@ pub(crate) unsafe fn conv_toks() {
                         TxtNode::Math(n) if n.is_empty() => true,
                         TxtNode::Kern(n) if n.is_empty() => true,
                         TxtNode::Glue(n) if n.is_empty() => true,
-                        TxtNode::HList(n) if n.is_empty() => true,
+                        TxtNode::List(n) if n.is_empty() => true,
                         TxtNode::Glue(n) if n.param() == (GluePar::right_skip as u16) + 1 => true,
                         _ => false,
                     },
@@ -8904,11 +8903,20 @@ pub(crate) unsafe fn conditional() {
                 find_sa_element(ValLevel::Ident, cur_val, false);
                 cur_ptr.and_then(|cp| MEM[cp + 1].b32.s1.opt())
             };
-            b = matches!((this_if, p.map(TxtNode::from)),
-                (IfTestCode::IfVoid, None)
-                | (IfTestCode::IfHBox, Some(TxtNode::HList(_)))
-                | (IfTestCode::IfVBox, Some(TxtNode::VList(_)))
-            );
+            b = match (this_if, p.map(TxtNode::from)) {
+                (IfTestCode::IfVoid, None) => true,
+                (IfTestCode::IfHBox, Some(TxtNode::List(l)))
+                    if l.list_dir() == ListDir::Horizontal =>
+                {
+                    true
+                }
+                (IfTestCode::IfVBox, Some(TxtNode::List(l)))
+                    if l.list_dir() == ListDir::Vertical =>
+                {
+                    true
+                }
+                _ => false,
+            };
         }
 
         IfTestCode::Ifx => {
@@ -9981,7 +9989,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 d = d.max(s);
             }
             CharOrText::Text(n) => match n {
-                TxtNode::HList(b) | TxtNode::VList(b) => {
+                TxtNode::List(b) => {
                     x += b.width();
                     let s = b.shift_amount();
                     h = h.max(b.height() - s);
@@ -10391,7 +10399,7 @@ pub(crate) unsafe fn vpackage(
     while let Some(p) = popt {
         /*694: */
         match &TxtNode::from(p) {
-            TxtNode::HList(b) | TxtNode::VList(b) => {
+            TxtNode::List(b) => {
                 x += d + b.height();
                 d = b.depth();
                 w = w.max(b.width() + b.shift_amount());
@@ -11647,7 +11655,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
         if let Some(p) = p.opt() {
             /*1008: */
             match &mut TxtNode::from(p) {
-                TxtNode::HList(b) | TxtNode::VList(b) => {
+                TxtNode::List(b) => {
                     active_width.width += prev_dp + b.height();
                     prev_dp = b.depth();
                 }
@@ -11664,8 +11672,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                 },
                 TxtNode::Glue(g) => {
                     match TxtNode::from(prev_p as usize) {
-                        TxtNode::HList(_)
-                        | TxtNode::VList(_)
+                        TxtNode::List(_)
                         | TxtNode::Rule(_)
                         | TxtNode::Ins(_)
                         | TxtNode::Mark(_)
@@ -12366,7 +12373,7 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
                     _ => {}
                 }
                 match &mut CharOrText::from(tx as usize) {
-                    CharOrText::Text(TxtNode::HList(b)) | CharOrText::Text(TxtNode::VList(b)) => {
+                    CharOrText::Text(TxtNode::List(b)) => {
                         /*1116:*/
                         let mut q = cur_list.head as i32;
                         let mut p = None.tex_int();
@@ -12530,7 +12537,7 @@ pub(crate) unsafe fn package(mut c: i16) {
             let mut h = 0;
             if let Some(p) = cb.list_ptr().opt() {
                 match Node::from(p) {
-                    Node::Text(TxtNode::HList(b)) | Node::Text(TxtNode::VList(b)) => {
+                    Node::Text(TxtNode::List(b)) => {
                         h = b.height();
                     }
                     Node::Text(TxtNode::Rule(r)) => {
@@ -12929,8 +12936,7 @@ pub(crate) unsafe fn build_discretionary() {
         match CharOrText::from(p) {
             CharOrText::Char(_) => {}
             CharOrText::Text(n) => match n {
-                TxtNode::HList(_)
-                | TxtNode::VList(_)
+                TxtNode::List(_)
                 | TxtNode::Rule(_)
                 | TxtNode::Kern(_)
                 | TxtNode::Ligature(_)
@@ -13222,7 +13228,7 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32
                 r = get_avail();
             }
             CharOrText::Text(p) => match p {
-                TxtNode::HList(p) | TxtNode::VList(p) => {
+                TxtNode::List(p) => {
                     r = get_node(BOX_NODE_SIZE);
                     *SYNCTEX_tag(r, BOX_NODE_SIZE) = *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE);
                     *SYNCTEX_line(r, BOX_NODE_SIZE) = *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE);
@@ -16289,7 +16295,7 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
     *LLIST_link(TEMP_HEAD) = popt.tex_int();
     while let Some(p) = popt {
         match TxtNode::from(p) {
-            TxtNode::HList(b) | TxtNode::VList(b) => {
+            TxtNode::List(b) => {
                 let (q, mut tmp_ptr) = new_skip_param(GluePar::split_top_skip);
                 *LLIST_link(prev_p) = Some(q).tex_int();
                 *LLIST_link(q) = Some(b.ptr()).tex_int();
