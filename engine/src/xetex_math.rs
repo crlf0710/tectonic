@@ -45,7 +45,7 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{
     is_char_node, llist_link, math_NODE_type, math_char, math_class, math_fam, set_NODE_type,
-    set_class, set_family, set_math_NODE_type, LLIST_link, NODE_type, TeXInt, TeXOpt,
+    set_class, set_family, set_math_NODE_type, LLIST_link, TeXInt, TeXOpt,
 };
 
 pub(crate) type scaled_t = i32;
@@ -3410,18 +3410,38 @@ unsafe fn build_opentype_assembly(
     let mut nat = 0;
     let mut str = 0;
     while let Some(p) = popt {
-        if NODE_type(p) == TextNode::WhatsIt.into() {
-            let p = BaseBox(p); // TODO: check
-            nat += if dir == ListDir::Horizontal {
-                p.width()
-            } else {
-                p.height() + p.depth()
-            };
-        } else if NODE_type(p) == TextNode::Glue.into() {
-            let g = Glue(p);
-            let spec = GlueSpec(g.glue_ptr() as usize);
-            nat += spec.size();
-            str += spec.stretch();
+        match TxtNode::from(p) {
+            TxtNode::WhatsIt(w) => match w {
+                // TODO: check unreachable
+                WhatsIt::NativeWord(nw) => {
+                    nat += if dir == ListDir::Horizontal {
+                        nw.width()
+                    } else {
+                        nw.height() + nw.depth()
+                    };
+                }
+                WhatsIt::Glyph(g) => {
+                    nat += if dir == ListDir::Horizontal {
+                        g.width()
+                    } else {
+                        g.height() + g.depth()
+                    };
+                }
+                WhatsIt::Pic(g) | WhatsIt::Pdf(g) => {
+                    nat += if dir == ListDir::Horizontal {
+                        g.width()
+                    } else {
+                        g.height() + g.depth()
+                    };
+                }
+                _ => {}
+            },
+            TxtNode::Glue(g) => {
+                let spec = GlueSpec(g.glue_ptr() as usize);
+                nat += spec.size();
+                str += spec.stretch();
+            }
+            _ => {}
         }
         popt = llist_link(p);
     }

@@ -2338,9 +2338,9 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr("indent");
             }
         }
-        Cmd::RemoveItem => match ND::from(chr_code as u16) {
-            ND::Text(TextNode::Glue) => print_esc_cstr("unskip"),
-            ND::Text(TextNode::Kern) => print_esc_cstr("unkern"),
+        Cmd::RemoveItem => match chr_code {
+            10 => print_esc_cstr("unskip"), // Node::Glue
+            11 => print_esc_cstr("unkern"), // Node::Kern
             _ => print_esc_cstr("unpenalty"),
         },
         Cmd::UnHBox => match BoxCode::n(chr_code as u8).unwrap() {
@@ -6754,7 +6754,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                         loop {
                             q = r as usize;
                             r = *LLIST_link(q);
-                            if !(r != tx as i32) {
+                            if r == tx as i32 {
                                 break;
                             }
                         }
