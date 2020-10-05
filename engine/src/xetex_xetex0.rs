@@ -766,7 +766,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
             Node::Char(_) => print_font_and_char(p as _),
             Node::Text(n) => match n {
                 TxtNode::List(p) => {
-                    if p.list_dir() == ListDir::Horizontal {
+                    if p.is_horizontal() {
                         print_esc('h' as i32);
                     } else {
                         print_esc('v' as i32);
@@ -799,7 +799,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_scaled(p.shift_amount());
                     }
                     /*1491:*/
-                    if p.list_dir() == ListDir::Horizontal && p.lr_mode() == LRMode::DList {
+                    if p.is_horizontal() && p.lr_mode() == LRMode::DList {
                         print_cstr(", display");
                     }
                     str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
@@ -8265,7 +8265,7 @@ pub(crate) unsafe fn conv_toks() {
                 cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt())
             };
             match p.map(TxtNode::from) {
-                Some(TxtNode::List(b)) if b.list_dir() == ListDir::Horizontal => {}
+                Some(TxtNode::List(b)) if b.is_horizontal() => {}
                 _ => pdf_error("marginkern", "a non-empty hbox expected"),
             }
         }
@@ -8905,16 +8905,8 @@ pub(crate) unsafe fn conditional() {
             };
             b = match (this_if, p.map(TxtNode::from)) {
                 (IfTestCode::IfVoid, None) => true,
-                (IfTestCode::IfHBox, Some(TxtNode::List(l)))
-                    if l.list_dir() == ListDir::Horizontal =>
-                {
-                    true
-                }
-                (IfTestCode::IfVBox, Some(TxtNode::List(l)))
-                    if l.list_dir() == ListDir::Vertical =>
-                {
-                    true
-                }
+                (IfTestCode::IfHBox, Some(TxtNode::List(l))) if l.is_horizontal() => true,
+                (IfTestCode::IfVBox, Some(TxtNode::List(l))) if l.is_vertical() => true,
                 _ => false,
             };
         }
@@ -11852,7 +11844,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
     }
     let v = v?;
     let mut v = List::from(v);
-    if v.list_dir() != ListDir::Vertical {
+    if !v.is_vertical() {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {

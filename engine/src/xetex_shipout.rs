@@ -273,7 +273,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         /* Done with the synthesized special. The meat: emit this page box. */
 
         cur_v = p.height() + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
-        if p.list_dir() == ListDir::Vertical {
+        if p.is_vertical() {
             vlist_out(&p);
         } else {
             hlist_out(&mut p);
@@ -708,7 +708,7 @@ unsafe fn hlist_out(this_box: &mut List) {
             match TxtNode::from(p) {
                 TxtNode::List(mut p) => {
                     if p.list_ptr().opt().is_none() {
-                        if p.list_dir() == ListDir::Vertical {
+                        if p.is_vertical() {
                             synctex_void_vlist(&p, this_box);
                         } else { synctex_void_hlist(&p, this_box); }
                         cur_h += p.width();
@@ -724,7 +724,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         if cur_dir == LR::RightToLeft {
                             cur_h = edge;
                         }
-                        if p.list_dir() == ListDir::Vertical {
+                        if p.is_vertical() {
                             vlist_out(&p);
                         } else { hlist_out(&mut p); }
                         dvi_h = save_h;
@@ -1002,7 +1002,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                         }
                                         let outer_doing_leaders = doing_leaders;
                                         doing_leaders = true;
-                                        if lb.list_dir() == ListDir::Vertical {
+                                        if lb.is_vertical() {
                                             vlist_out(lb);
                                         } else {
                                             hlist_out(lb);
@@ -1208,7 +1208,7 @@ unsafe fn vlist_out(this_box: &List) {
                     } else {
                         cur_v += p.height();
                     }
-                    if p.list_dir() == ListDir::Vertical {
+                    if p.is_vertical() {
                         synctex_void_vlist(&p, this_box);
                     } else {
                         synctex_void_hlist(&p, this_box);
@@ -1235,7 +1235,7 @@ unsafe fn vlist_out(this_box: &List) {
                     } else {
                         cur_h = left_edge + p.shift_amount();
                     }
-                    if p.list_dir() == ListDir::Vertical {
+                    if p.is_vertical() {
                         vlist_out(&p);
                     } else {
                         hlist_out(&mut p);
@@ -1467,7 +1467,7 @@ unsafe fn vlist_out(this_box: &List) {
                                     let outer_doing_leaders = doing_leaders;
                                     doing_leaders = true;
 
-                                    if lb.list_dir() == ListDir::Vertical {
+                                    if lb.is_vertical() {
                                         vlist_out(lb);
                                     } else {
                                         hlist_out(lb);

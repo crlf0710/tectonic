@@ -2777,7 +2777,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
         let t = l;
         if run {
             while let CharOrText::Text(TxtNode::List(n)) = CharOrText::from(l) {
-                if n.list_dir() != ListDir::Horizontal {
+                if !n.is_horizontal() {
                     break;
                 }
                 if let Some(next) = n.list_ptr().opt() {
@@ -2836,7 +2836,7 @@ unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Opt
         let t = r;
         if run {
             while let Node::Text(TxtNode::List(n)) = Node::from(r) {
-                if n.list_dir() != ListDir::Horizontal {
+                if !n.is_horizontal() {
                     break;
                 }
                 if let Some(hnext) = n.list_ptr().opt() {

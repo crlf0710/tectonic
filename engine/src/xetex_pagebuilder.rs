@@ -68,7 +68,7 @@ unsafe fn freeze_page_specs(s: PageContents) {
 
 unsafe fn ensure_vbox(mut n: u8) {
     if let Some(p) = BOX_REG(n as _).opt() {
-        if List::from(p).list_dir() == ListDir::Horizontal {
+        if List::from(p).is_horizontal() {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
