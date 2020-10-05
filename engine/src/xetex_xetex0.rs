@@ -1592,10 +1592,13 @@ pub(crate) unsafe fn show_activities() {
                                 t = 0;
                                 loop {
                                     q = *LLIST_link(q as usize) as usize;
-                                    if NODE_type(q) == TextNode::Ins.into()
-                                        && Insertion(q).box_reg() == r.box_reg()
-                                    {
-                                        t += 1
+                                    match Node::from(q as usize) {
+                                        Node::Text(TxtNode::Ins(ins))
+                                            if ins.box_reg() == r.box_reg() =>
+                                        {
+                                            t += 1;
+                                        }
+                                        _ => {}
                                     }
                                     if q == r.broken_ins() as usize {
                                         break;
@@ -10028,11 +10031,9 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 TxtNode::WhatsIt(w) => match w {
                     WhatsIt::NativeWord(mut p_nw) => {
                         let mut k = if q != r.ptr() + 5 {
-                            if NODE_type(q) == TextNode::Disc.into() {
-                                let q = Discretionary(q);
-                                q.replace_count() as i32
-                            } else {
-                                0
+                            match Node::from(q) {
+                                Node::Text(TxtNode::Disc(d)) => d.replace_count() as i32,
+                                _ => 0,
                             }
                         } else {
                             0
@@ -10040,9 +10041,9 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                         while llist_link(q) != Some(p) {
                             k -= 1;
                             q = *LLIST_link(q) as usize;
-                            if NODE_type(q) == TextNode::Disc.into() {
-                                let q = Discretionary(q);
-                                k = q.replace_count() as i32
+                            match Node::from(q) {
+                                Node::Text(TxtNode::Disc(d)) => k = d.replace_count() as i32,
+                                _ => {}
                             }
                         }
                         let mut pp_opt = llist_link(p);
@@ -11708,15 +11709,14 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     prev_dp = 0;
                 }
                 TxtNode::Kern(k) => {
-                    let t = if let Some(next) = llist_link(p) {
-                        NODE_type(next)
-                    } else {
-                        TextNode::Penalty.into()
-                    };
-                    if t == TextNode::Glue.into() {
-                        if with_penalty(p, 0, h, &mut prev_dp, &mut best_place, &mut least_cost) {
-                            return best_place.tex_int();
+                    match llist_link(p).map(|next| Node::from(next)) {
+                        Some(Node::Text(TxtNode::Glue(_))) => {
+                            if with_penalty(p, 0, h, &mut prev_dp, &mut best_place, &mut least_cost)
+                            {
+                                return best_place.tex_int();
+                            }
                         }
+                        _ => {}
                     }
                     active_width.width += prev_dp + k.width();
                     prev_dp = 0;
@@ -11861,8 +11861,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
         v.set_list_ptr(None.tex_int());
     } else {
         loop {
-            if NODE_type(p as usize) == TextNode::Mark.into() {
-                let p = Mark(p as usize);
+            if let Node::Text(TxtNode::Mark(p)) = Node::from(p as usize) {
                 if p.class() != 0 {
                     /*1615: */
                     find_sa_element(ValLevel::Mark, p.class(), true);
