@@ -2209,8 +2209,8 @@ unsafe fn make_ord(q: &mut Ord) {
             break;
         }
         let mut p = p.unwrap();
-        match NODE_type(p) {
-            ND::Math(m) => match m {
+        match Node::from(p) {
+            Node::Math(m) => match m {
                 MathNode::Ord
                 | MathNode::Op
                 | MathNode::Bin

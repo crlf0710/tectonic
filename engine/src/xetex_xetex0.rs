@@ -6745,10 +6745,8 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
             } else {
                 cur_val = 0;
                 let mut tx = cur_list.tail;
-                if tx < hi_mem_min as usize {
-                    if text_NODE_type(tx) == TextNode::Math.into()
-                        && Math(tx).subtype() == MathType::Eq(BE::End, MathMode::Middle)
-                    {
+                match Node::from(tx) {
+                    Node::Text(TxtNode::Math(m)) if m.subtype() == MathType::Eq(BE::End, MathMode::Middle) => {
                         r = cur_list.head as i32;
                         let mut q;
                         loop {
@@ -6760,6 +6758,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                         }
                         tx = q;
                     }
+                    _ => {}
                 }
                 if m == LastItemCode::LastNodeType {
                     cur_val_level = ValLevel::Int;
@@ -8370,14 +8369,11 @@ pub(crate) unsafe fn conv_toks() {
                     break;
                 }
             }
-            if let Some(p) = popt.filter(|&p| {
-                p < hi_mem_min as usize
-                    && text_NODE_type(p) == TextNode::MarginKern.into()
-                    && MEM[p].b16.s0 == 0
-            }) {
-                print_scaled(MEM[p + 1].b32.s1);
-            } else {
-                print('0' as i32);
+            match popt.map(|p| CharOrText::from(p)) {
+                Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 0 => {
+                    print_scaled(MEM[m.ptr() + 1].b32.s1);
+                }
+                _ => print('0' as i32),
             }
             print_cstr("pt");
         }
@@ -8406,14 +8402,11 @@ pub(crate) unsafe fn conv_toks() {
                     break;
                 }
             }
-            if let Some(p) = popt.filter(|&p| {
-                p < hi_mem_min as usize
-                    && text_NODE_type(p) == TextNode::MarginKern.into()
-                    && MEM[p].b16.s0 == 1
-            }) {
-                print_scaled(MEM[p + 1].b32.s1);
-            } else {
-                print('0' as i32);
+            match popt.map(|p| CharOrText::from(p)) {
+                Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 1 => {
+                    print_scaled(MEM[m.ptr() + 1].b32.s1);
+                }
+                _ => print('0' as i32),
             }
             print_cstr("pt");
         }
@@ -10004,8 +9997,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                         while llist_link(q) != Some(p) {
                             q = *LLIST_link(q) as usize;
                         }
-                        if text_NODE_type(p) == TextNode::Adjust.into() {
-                            let a = Adjust(p);
+                        if let TxtNode::Adjust(a) = TxtNode::from(p) {
                             match a.subtype() {
                                 AdjustType::Pre => {
                                     *LLIST_link(*pat) = a.adj_ptr();
@@ -12729,10 +12721,8 @@ pub(crate) unsafe fn delete_last() {
         }
     } else {
         let mut tx = cur_list.tail;
-        if !is_char_node(Some(tx)) {
-            if NODE_type(tx) == TextNode::Math.into()
-                && Math(tx).subtype() == MathType::Eq(BE::End, MathMode::Middle)
-            {
+        match Node::from(tx) {
+            Node::Text(TxtNode::Math(m)) if m.subtype() == MathType::Eq(BE::End, MathMode::Middle) => {
                 let mut r = cur_list.head as i32;
                 let mut q;
                 loop {
@@ -12744,6 +12734,7 @@ pub(crate) unsafe fn delete_last() {
                 }
                 tx = q as usize;
             }
+            _ => {}
         }
         if !is_char_node(Some(tx)) {
             if MEM[tx].b16.s1 as i32 == cur_chr {
@@ -14490,26 +14481,30 @@ pub(crate) unsafe fn handle_right_brace() {
             MEM[SAVE_STACK[SAVE_PTR + 0].val as usize].b32.s0 = p;
             if let Some(p) = p.opt() {
                 if llist_link(p).is_none() {
-                    if NODE_type(p) == MathNode::Ord.into() {
-                        if MEM[p + 3].b32.s1 == MathCell::Empty as _ {
-                            if MEM[p + 2].b32.s1 == MathCell::Empty as _ {
-                                MEM[SAVE_STACK[SAVE_PTR + 0].val as usize].b32 = MEM[p + 1].b32;
-                                free_node(p, NOAD_SIZE);
-                            }
-                        }
-                    } else if NODE_type(p) == MathNode::Accent.into() {
-                        if SAVE_STACK[SAVE_PTR + 0].val == cur_list.tail as i32 + 1 {
-                            if NODE_type(cur_list.tail) == MathNode::Ord.into() {
-                                /*1222:*/
-                                let mut q = cur_list.head;
-                                while llist_link(q) != Some(cur_list.tail) {
-                                    q = *LLIST_link(q) as usize;
+                    match Node::from(p) {
+                        Node::Math(MathNode::Ord) => {
+                            if MEM[p + 3].b32.s1 == MathCell::Empty as _ {
+                                if MEM[p + 2].b32.s1 == MathCell::Empty as _ {
+                                    MEM[SAVE_STACK[SAVE_PTR + 0].val as usize].b32 = MEM[p + 1].b32;
+                                    free_node(p, NOAD_SIZE);
                                 }
-                                *LLIST_link(q) = Some(p).tex_int();
-                                free_node(cur_list.tail, NOAD_SIZE);
-                                cur_list.tail = p;
                             }
                         }
+                        Node::Math(MathNode::Accent) => {
+                            if SAVE_STACK[SAVE_PTR + 0].val == cur_list.tail as i32 + 1 {
+                                if let Node::Math(MathNode::Ord) = Node::from(cur_list.tail) {
+                                    /*1222:*/
+                                    let mut q = cur_list.head;
+                                    while llist_link(q) != Some(cur_list.tail) {
+                                        q = *LLIST_link(q) as usize;
+                                    }
+                                    *LLIST_link(q) = Some(p).tex_int();
+                                    free_node(cur_list.tail, NOAD_SIZE);
+                                    cur_list.tail = p;
+                                }
+                            }
+                        }
+                        _ => {}
                     }
                 }
             }

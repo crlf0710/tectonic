@@ -40,7 +40,7 @@ use crate::xetex_xetex0::{
     str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, llist_link, print_c_str, set_NODE_type, text_NODE_type, LLIST_link, NODE_type,
+    is_char_node, llist_link, print_c_str, set_NODE_type, LLIST_link, NODE_type,
     SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
@@ -362,13 +362,13 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     break;
                                 }
                             }
-                            if let Some(q) = qopt.filter(|&q| !is_char_node(Some(q))) {
-                                if NODE_type(q) == TextNode::Glue.into() && Glue(q).param() == 0 {
-                                    if Glue(q).glue_ptr() == FONT_GLUE[r_nw.font() as usize] {
+                            match qopt.map(|q| CharOrText::from(q)) {
+                                Some(CharOrText::Text(TxtNode::Glue(g))) if g.param() == 0 => {
+                                    if g.glue_ptr() == FONT_GLUE[r_nw.font() as usize] {
                                         /* "Found a normal space; if the next node is
                                          * another word in the same font, we'll
                                          * merge." */
-                                        qopt = llist_link(q);
+                                        qopt = llist_link(g.ptr());
                                         while let Some(q) = qopt {
                                             if match CharOrText::from(p) {
                                                 CharOrText::Text(n) => match n {
@@ -406,7 +406,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                             _ => {}
                                         }
                                     } else {
-                                        qopt = llist_link(q);
+                                        qopt = llist_link(g.ptr());
                                     }
                                     if let Some(q) = qopt.filter(|&q| {
                                         !is_char_node(Some(q))
@@ -451,19 +451,12 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     } else {
                                         break;
                                     }
-                                } else {
-                                    match qopt.map(CharOrText::from) {
-                                        Some(CharOrText::Text(TxtNode::WhatsIt(
-                                            WhatsIt::NativeWord(q),
-                                        ))) if q.font() == r_nw.font() => {
-                                            p = q.ptr();
-                                            qopt = llist_link(q.ptr());
-                                        }
-                                        _ => break,
-                                    }
                                 }
-                            } else {
-                                break;
+                                Some(CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(q)))) if q.font() == r_nw.font() => {
+                                    p = q.ptr();
+                                    qopt = llist_link(q.ptr());
+                                }
+                                _ => break,
                             }
                         }
                         /* "Now r points to the first native_word_node of the run,
@@ -1717,9 +1710,9 @@ unsafe fn reverse(
                 // next_p
                 *LLIST_link(p) = l.tex_int();
                 let mut pp = Some(p);
-                if text_NODE_type(p) == TextNode::Kern.into() {
+                if let TxtNode::Kern(k) = TxtNode::from(p) {
                     if rule_wd == 0 || l.is_none() {
-                        free_node(p, MEDIUM_NODE_SIZE);
+                        k.free();
                         pp = l
                     }
                 }

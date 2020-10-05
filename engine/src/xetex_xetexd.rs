@@ -50,9 +50,6 @@ pub(crate) unsafe fn NODE_type(p: usize) -> ND {
 pub(crate) unsafe fn set_NODE_type(p: usize, n: TextNode) {
     MEM[p].b16.s1 = n as u16;
 }
-pub(crate) unsafe fn text_NODE_type(p: usize) -> Option<TextNode> {
-    TextNode::n(MEM[p].b16.s1)
-}
 pub(crate) unsafe fn math_NODE_type(p: usize) -> Option<MathNode> {
     MathNode::n(MEM[p].b16.s1)
 }
