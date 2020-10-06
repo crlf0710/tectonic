@@ -13,8 +13,7 @@ use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error};
 use crate::xetex_ini::{
-    cur_input,
-    best_height_plus_depth, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr,
+    best_height_plus_depth, cur_input, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr,
     file_line_error_style_p, insert_penalties, last_glue, last_kern, last_node_type, last_penalty,
     line, output_active, page_contents, page_so_far, page_tail, sa_root,
     semantic_pagination_enabled, NEST, NEST_PTR,

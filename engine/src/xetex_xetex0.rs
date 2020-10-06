@@ -3773,8 +3773,7 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
     if scanner_status != ScannerStatus::Normal {
         deletions_allowed = false;
         if *cs != 0 {
-            if input.state == InputState::TokenList || input.name < 1 || input.name > 17
-            {
+            if input.state == InputState::TokenList || input.name < 1 || input.name > 17 {
                 let p = get_avail();
                 MEM[p].b32.s0 = CS_TOKEN_FLAG + *cs;
                 begin_token_list(input, p, Btl::BackedUp);
@@ -3871,7 +3870,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) {
     cur_chr = chr;
     cur_cs = cs;
 }
-    
+
 pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
     //let mut chr;
     'c_63502: loop {
@@ -3883,21 +3882,22 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
             /*357:*/
             {
                 if input.loc <= input.limit {
-                    cur_chr = BUFFER[input.loc as usize];
+                    let mut chr = BUFFER[input.loc as usize];
                     input.loc += 1;
-                    if cur_chr >= 0xd800
-                        && cur_chr < 0xdc00
+                    if chr >= 0xd800
+                        && chr < 0xdc00
                         && input.loc <= input.limit
                         && BUFFER[input.loc as usize] >= 0xdc00
                         && BUFFER[input.loc as usize] < 0xe000
                     {
                         let lower = (BUFFER[input.loc as usize] - 0xdc00) as UTF16_code;
                         input.loc += 1;
-                        cur_chr =
-                            (0x1_0000 + ((cur_chr - 0xd800) * 1024) as i64 + lower as i64) as i32
+                        chr = (0x1_0000 + ((chr - 0xd800) * 1024) as i64 + lower as i64) as i32
                     }
                     'c_65186: loop {
-                        cur_cmd = Cmd::from(*CAT_CODE(cur_chr as usize) as u16);
+                        dbg!(chr);
+                        cur_chr = chr;
+                        cur_cmd = Cmd::from(*CAT_CODE(chr as usize) as u16);
                         match (input.state, cur_cmd) {
                             (InputState::MidLine, IGNORE)
                             | (InputState::SkipBlanks, IGNORE)
@@ -3918,23 +3918,24 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             (InputState::MidLine, Cmd::ActiveChar)
                             | (InputState::SkipBlanks, Cmd::ActiveChar)
                             | (InputState::NewLine, Cmd::ActiveChar) => {
-                                cs = cur_chr + 1;
+                                cs = chr + 1;
                                 cur_cmd = Cmd::from(EQTB[cs as usize].cmd);
-                                cur_chr = EQTB[cs as usize].val;
+                                let mut chr = EQTB[cs as usize].val;
                                 input.state = InputState::MidLine;
                                 if cur_cmd >= Cmd::OuterCall {
                                     if check_outer_validity(input, &mut cs) {
                                         cur_cmd = Cmd::Spacer;
-                                        cur_chr = ' ' as i32;
+                                        chr = ' ' as i32;
                                     }
                                 }
+                                cur_chr = chr;
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
                             (InputState::MidLine, Cmd::SupMark)
                             | (InputState::SkipBlanks, Cmd::SupMark)
                             | (InputState::NewLine, Cmd::SupMark) => {
-                                if !(cur_chr == BUFFER[input.loc as usize]) {
+                                if !(chr == BUFFER[input.loc as usize]) {
                                     current_block = 8567661057257693057;
                                     break 'c_63807;
                                 }
@@ -3945,14 +3946,13 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 let mut sup_count = 2;
                                 while sup_count < 6
                                     && input.loc + 2 * sup_count as i32 - 2 <= input.limit
-                                    && cur_chr
-                                        == BUFFER[(input.loc + sup_count as i32 - 1) as usize]
+                                    && chr == BUFFER[(input.loc + sup_count as i32 - 1) as usize]
                                 {
                                     sup_count += 1
                                 }
                                 for d in 1..=sup_count as i32 {
-                                    if !(BUFFER[(input.loc + sup_count as i32 - 2 + d as i32)
-                                        as usize]
+                                    if !(BUFFER
+                                        [(input.loc + sup_count as i32 - 2 + d as i32) as usize]
                                         >= '0' as i32
                                         && BUFFER[(input.loc + sup_count as i32 - 2 + d as i32)
                                             as usize]
@@ -3960,32 +3960,32 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         || BUFFER[(input.loc + sup_count as i32 - 2 + d as i32)
                                             as usize]
                                             >= 'a' as i32
-                                            && BUFFER[(input.loc + sup_count as i32 - 2
-                                                + d as i32)
+                                            && BUFFER[(input.loc + sup_count as i32 - 2 + d as i32)
                                                 as usize]
                                                 <= 'f' as i32)
                                     {
                                         let c = BUFFER[(input.loc + 1) as usize];
                                         if !(c < 128) {
+                                            cur_chr = chr;
                                             current_block = 8567661057257693057;
                                             break 'c_63807;
                                         }
                                         input.loc = input.loc + 2;
-                                        cur_chr = if c < 64 { c + 64 } else { c - 64 };
+                                        chr = if c < 64 { c + 64 } else { c - 64 };
                                         continue 'c_65186;
                                     }
                                 }
-                                cur_chr = 0i32;
+                                chr = 0;
                                 for d in 1..=sup_count as i32 {
-                                    let c = BUFFER[(input.loc + sup_count as i32 - 2 + d as i32)
-                                        as usize];
+                                    let c = BUFFER
+                                        [(input.loc + sup_count as i32 - 2 + d as i32) as usize];
                                     if c <= '9' as i32 {
-                                        cur_chr = 16 * cur_chr + c - '0' as i32
+                                        chr = 16 * chr + c - '0' as i32
                                     } else {
-                                        cur_chr = 16 * cur_chr + c - 'a' as i32 + 10
+                                        chr = 16 * chr + c - 'a' as i32 + 10
                                     }
                                 }
-                                if cur_chr > BIGGEST_USV as i32 {
+                                if chr > BIGGEST_USV as i32 {
                                     cur_chr = BUFFER[input.loc as usize];
                                     current_block = 8567661057257693057;
                                     break 'c_63807;
@@ -4112,9 +4112,8 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 } else {
                                     force_eof = true
                                 }
-                            } else if input_line(
-                                INPUT_FILE[input.index as usize].as_mut().unwrap(),
-                            ) {
+                            } else if input_line(INPUT_FILE[input.index as usize].as_mut().unwrap())
+                            {
                                 input.limit = last
                             } else if let Some(l) = LOCAL(Local::every_eof)
                                 .opt()
@@ -4486,7 +4485,8 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                         align_state -= 1;
                     }
                     OUT_PARAM => {
-                        begin_token_list(input,
+                        begin_token_list(
+                            input,
                             PARAM_STACK[(input.limit + chr - 1) as usize] as usize,
                             Btl::Parameter,
                         );
@@ -5393,7 +5393,11 @@ pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
                 if cur_cmd != Cmd::Spacer || p != BACKUP_HEAD {
                     back_input(&mut cur_input);
                     if p != BACKUP_HEAD {
-                        begin_token_list(&mut cur_input, *LLIST_link(BACKUP_HEAD) as usize, Btl::BackedUp);
+                        begin_token_list(
+                            &mut cur_input,
+                            *LLIST_link(BACKUP_HEAD) as usize,
+                            Btl::BackedUp,
+                        );
                     }
                     return false;
                 }
@@ -5413,7 +5417,11 @@ pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
         } else if cur_cmd != Cmd::Spacer || p != BACKUP_HEAD {
             back_input(&mut cur_input);
             if p != BACKUP_HEAD {
-                begin_token_list(&mut cur_input, *LLIST_link(BACKUP_HEAD) as usize, Btl::BackedUp);
+                begin_token_list(
+                    &mut cur_input,
+                    *LLIST_link(BACKUP_HEAD) as usize,
+                    Btl::BackedUp,
+                );
             }
             return false;
         }
@@ -8115,7 +8123,11 @@ pub(crate) unsafe fn the_toks() -> usize {
 }
 pub(crate) unsafe fn ins_the_toks() {
     *LLIST_link(GARBAGE as usize) = Some(the_toks()).tex_int();
-    begin_token_list(&mut cur_input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
+    begin_token_list(
+        &mut cur_input,
+        *LLIST_link(TEMP_HEAD) as usize,
+        Btl::Inserted,
+    );
 }
 pub(crate) unsafe fn conv_toks() {
     let mut save_warning_index: i32 = 0;
@@ -8217,7 +8229,11 @@ pub(crate) unsafe fn conv_toks() {
                 str_ptr -= 1;
                 pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
             }
-            begin_token_list(&mut cur_input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
+            begin_token_list(
+                &mut cur_input,
+                *LLIST_link(TEMP_HEAD) as usize,
+                Btl::Inserted,
+            );
             if u != 0 {
                 str_ptr -= 1;
             }
@@ -8444,7 +8460,11 @@ pub(crate) unsafe fn conv_toks() {
     }
     selector = old_setting;
     *LLIST_link(GARBAGE) = str_toks_cat(b, cat) as i32;
-    begin_token_list(&mut cur_input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
+    begin_token_list(
+        &mut cur_input,
+        *LLIST_link(TEMP_HEAD) as usize,
+        Btl::Inserted,
+    );
 }
 pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
     let mut s: i32 = 0;
@@ -12158,7 +12178,11 @@ pub(crate) unsafe fn off_save() {
             }
         }
         print_cstr(" inserted");
-        begin_token_list(&mut cur_input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
+        begin_token_list(
+            &mut cur_input,
+            *LLIST_link(TEMP_HEAD) as usize,
+            Btl::Inserted,
+        );
         help!(
             "I\'ve inserted something that you may have forgotten.",
             "(See the <inserted text> above.)",
@@ -14599,7 +14623,11 @@ pub(crate) unsafe fn main_control() {
                                 cur_tok = CS_TOKEN_FLAG + cur_cs
                             }
                             back_input(&mut cur_input);
-                            begin_token_list(&mut cur_input, MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
+                            begin_token_list(
+                                &mut cur_input,
+                                MEM[c + 1].b32.s1 as usize,
+                                Btl::InterCharText,
+                            );
                             continue 'big_switch;
                         }
                     }
@@ -15199,7 +15227,11 @@ pub(crate) unsafe fn main_control() {
                                 cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                 back_input(&mut cur_input);
                                 cur_input.index = Btl::BackedUpChar;
-                                begin_token_list(&mut cur_input, MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
+                                begin_token_list(
+                                    &mut cur_input,
+                                    MEM[c + 1].b32.s1 as usize,
+                                    Btl::InterCharText,
+                                );
                                 continue 'big_switch;
                             }
                         }
@@ -15216,7 +15248,11 @@ pub(crate) unsafe fn main_control() {
                             cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                             back_input(&mut cur_input);
                             cur_input.index = Btl::BackedUpChar;
-                            begin_token_list(&mut cur_input, MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
+                            begin_token_list(
+                                &mut cur_input,
+                                MEM[c + 1].b32.s1 as usize,
+                                Btl::InterCharText,
+                            );
                             prev_class = CHAR_CLASS_LIMIT - 1;
                             break false;
                         }
@@ -15297,7 +15333,11 @@ pub(crate) unsafe fn main_control() {
                         CS_TOKEN_FLAG + cur_cs
                     };
                     back_input(&mut cur_input);
-                    begin_token_list(&mut cur_input, MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
+                    begin_token_list(
+                        &mut cur_input,
+                        MEM[c + 1].b32.s1 as usize,
+                        Btl::InterCharText,
+                    );
                 }
             }
             /*collected */
@@ -15642,7 +15682,11 @@ pub(crate) unsafe fn main_control() {
                         cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                         back_input(&mut cur_input);
                         cur_input.index = Btl::BackedUpChar;
-                        begin_token_list(&mut cur_input, MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
+                        begin_token_list(
+                            &mut cur_input,
+                            MEM[c + 1].b32.s1 as usize,
+                            Btl::InterCharText,
+                        );
                         continue 'big_switch;
                     }
                 }
@@ -15659,7 +15703,11 @@ pub(crate) unsafe fn main_control() {
                     cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                     back_input(&mut cur_input);
                     cur_input.index = Btl::BackedUpChar;
-                    begin_token_list(&mut cur_input, MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
+                    begin_token_list(
+                        &mut cur_input,
+                        MEM[c + 1].b32.s1 as usize,
+                        Btl::InterCharText,
+                    );
                     prev_class = CHAR_CLASS_LIMIT - 1;
                     continue 'big_switch;
                 }
@@ -15999,7 +16047,8 @@ pub(crate) unsafe fn main_control() {
                                             cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                             back_input(&mut cur_input);
                                             cur_input.index = Btl::BackedUpChar;
-                                            begin_token_list(&mut cur_input,
+                                            begin_token_list(
+                                                &mut cur_input,
                                                 MEM[c + 1].b32.s1 as usize,
                                                 Btl::InterCharText,
                                             );
@@ -16019,7 +16068,8 @@ pub(crate) unsafe fn main_control() {
                                         cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                                         back_input(&mut cur_input);
                                         cur_input.index = Btl::BackedUpChar;
-                                        begin_token_list(&mut cur_input,
+                                        begin_token_list(
+                                            &mut cur_input,
                                             MEM[c + 1].b32.s1 as usize,
                                             Btl::InterCharText,
                                         );
@@ -16191,7 +16241,11 @@ pub(crate) unsafe fn main_control() {
                     cur_tok = CS_TOKEN_FLAG + cur_cs
                 }
                 back_input(&mut cur_input);
-                begin_token_list(&mut cur_input, MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
+                begin_token_list(
+                    &mut cur_input,
+                    MEM[c + 1].b32.s1 as usize,
+                    Btl::InterCharText,
+                );
                 return;
             }
         }

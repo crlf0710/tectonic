@@ -17,11 +17,10 @@ use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ext::{Font, NativeFont::*};
 use crate::xetex_ini::{
-    cur_input,
-    adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
-    cur_list, cur_val, cur_val1, file_line_error_style_p, insert_src_special_every_math, just_box,
-    memory_word, pre_adjust_tail, tex_remainder, total_shrink, xtx_ligature_present, LR_problems,
-    LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO,
+    adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_input,
+    cur_lang, cur_list, cur_val, cur_val1, file_line_error_style_p, insert_src_special_every_math,
+    just_box, memory_word, pre_adjust_tail, tex_remainder, total_shrink, xtx_ligature_present,
+    LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO,
     FONT_LAYOUT_ENGINE, FONT_PARAMS, HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM,
     NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
 };

@@ -9,8 +9,7 @@ use crate::xetex_errors::{confusion, error, fatal_error, overflow};
 use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, Font};
 use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
-    cur_input,
-    avail, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
+    avail, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_input, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_tok, cur_v, cur_v_offset, dead_cycles, def_ref,
     doing_leaders, doing_special, file_line_error_style_p, file_offset, font_used, init_pool_ptr,
     job_name, last_bop, log_opened, max_h, max_print_line, max_push, max_v, name_of_file,
