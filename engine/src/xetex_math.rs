@@ -400,7 +400,7 @@ pub(crate) unsafe fn init_math() {
             build_page();
         }
     } else {
-        back_input(&mut cur_input);
+        back_input(&mut cur_input, cur_tok);
         push_math(GroupCode::MathShift);
         eq_word_define(INT_BASE as usize + IntPar::cur_fam as usize, -1);
         if insert_src_special_every_math {
@@ -491,7 +491,7 @@ unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
             "Acceptable delimiters are characters whose \\delcode is",
             "nonnegative, or you can use `\\delimiter <delimiter code>\'."
         );
-        back_error(&mut cur_input);
+        back_error(&mut cur_input, cur_tok);
         cur_val = 0i32
     }
     if cur_val >= 0x40000000i32 {
@@ -1000,7 +1000,7 @@ pub(crate) unsafe fn after_math() {
                 "The `$\' that I just saw supposedly matches a previous `$$\'.",
                 "So I shall assume that you typed `$$\' both times."
             );
-            back_error(&mut cur_input);
+            back_error(&mut cur_input, cur_tok);
         }
         cur_mlist = p;
         cur_style = (MathStyle::Text, 0);
@@ -1102,7 +1102,7 @@ pub(crate) unsafe fn after_math() {
                     "The `$\' that I just saw supposedly matches a previous `$$\'.",
                     "So I shall assume that you typed `$$\' both times."
                 );
-                back_error(&mut cur_input);
+                back_error(&mut cur_input, cur_tok);
             }
         }
         cur_mlist = p;
@@ -1247,7 +1247,7 @@ pub(crate) unsafe fn resume_after_display() {
         + cur_lang as i64) as i32;
     get_x_token();
     if cur_cmd != Cmd::Spacer {
-        back_input(&mut cur_input);
+        back_input(&mut cur_input, cur_tok);
     }
     if NEST_PTR == 1 {
         build_page();

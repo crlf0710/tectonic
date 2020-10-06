@@ -1543,7 +1543,7 @@ pub(crate) unsafe fn prefixed_command() {
             print_cmd_chr(cur_cmd, cur_chr);
             print_chr('\'');
             help!("I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.");
-            back_error(&mut cur_input);
+            back_error(&mut cur_input, cur_tok);
             return;
         }
         if *INTPAR(IntPar::tracing_commands) > 2 {
@@ -1597,7 +1597,7 @@ pub(crate) unsafe fn prefixed_command() {
                 a = (a as i32 + 4i32) as i16
             }
             e = cur_chr >= 2;
-            get_r_token();
+            get_r_token(&mut cur_input);
             let p = cur_cs;
             let _q = scan_toks(true, e) as i32;
             if j != 0 {
@@ -1617,7 +1617,7 @@ pub(crate) unsafe fn prefixed_command() {
         }
         Cmd::Let => {
             let n = cur_chr;
-            get_r_token();
+            get_r_token(&mut cur_input);
             let p = cur_cs;
             if n == NORMAL as i32 {
                 loop  {
@@ -1654,9 +1654,9 @@ pub(crate) unsafe fn prefixed_command() {
                 cur_cmd = cmd;
                 cur_chr = chr;
                 cur_cs = cs;
-                back_input(&mut cur_input);
+                back_input(&mut cur_input, cur_tok);
                 cur_tok = q;
-                back_input(&mut cur_input);
+                back_input(&mut cur_input, cur_tok);
             }
             if cur_cmd >= Cmd::Call {
                 MEM[cur_chr as usize].b32.s0 += 1
@@ -1709,7 +1709,7 @@ pub(crate) unsafe fn prefixed_command() {
                     }
                 }
             } else {
-                get_r_token();
+                get_r_token(&mut cur_input);
                 let p = cur_cs;
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Relax, Some(TOO_BIG_USV));
@@ -1820,7 +1820,7 @@ pub(crate) unsafe fn prefixed_command() {
                 help!("You should have said `\\read<number> to \\cs\'.", "I\'m going to look for the \\cs now.");
                 error();
             }
-            get_r_token();
+            get_r_token(&mut cur_input);
             let p = cur_cs;
             read_toks(n, p, j);
             if a >= 4 {
@@ -1912,7 +1912,7 @@ pub(crate) unsafe fn prefixed_command() {
                 }
             }
 
-            back_input(&mut cur_input);
+            back_input(&mut cur_input, cur_tok);
             cur_cs = q;
             let q = scan_toks(false, false);
 
@@ -2251,7 +2251,7 @@ pub(crate) unsafe fn prefixed_command() {
     unsafe fn done() {
         if after_token != 0 {
             cur_tok = after_token;
-            back_input(&mut cur_input);
+            back_input(&mut cur_input, cur_tok);
             after_token = 0;
         }
     }

@@ -3310,7 +3310,7 @@ pub(crate) unsafe fn unsave() {
                         }
                     }
                 } else {
-                    back_input(&mut cur_input);
+                    back_input(&mut cur_input, cur_tok);
                     a = true
                 }
                 cur_tok = t
@@ -3690,7 +3690,7 @@ pub(crate) unsafe fn end_token_list(input: &mut input_state_t) {
     INPUT_PTR -= 1;
     *input = INPUT_STACK[INPUT_PTR]; // pop
 }
-pub(crate) unsafe fn back_input(input: &mut input_state_t) {
+pub(crate) unsafe fn back_input(input: &mut input_state_t, tok: i32) {
     while input.state == InputState::TokenList
         && input.loc.opt().is_none()
         && input.index != Btl::VTemplate
@@ -3698,9 +3698,9 @@ pub(crate) unsafe fn back_input(input: &mut input_state_t) {
         end_token_list(input);
     }
     let p = get_avail();
-    MEM[p].b32.s0 = cur_tok;
-    if cur_tok < RIGHT_BRACE_LIMIT {
-        if cur_tok < LEFT_BRACE_LIMIT {
+    MEM[p].b32.s0 = tok;
+    if tok < RIGHT_BRACE_LIMIT {
+        if tok < LEFT_BRACE_LIMIT {
             align_state -= 1
         } else {
             align_state += 1
@@ -3719,12 +3719,12 @@ pub(crate) unsafe fn back_input(input: &mut input_state_t) {
     input.index = Btl::BackedUp;
     input.loc = p as i32;
 }
-pub(crate) unsafe fn back_error(input: &mut input_state_t) {
-    back_input(input);
+pub(crate) unsafe fn back_error(input: &mut input_state_t, tok: i32) {
+    back_input(input, tok);
     error();
 }
-pub(crate) unsafe fn ins_error(input: &mut input_state_t) {
-    back_input(input);
+pub(crate) unsafe fn ins_error(input: &mut input_state_t, tok: i32) {
+    back_input(input, tok);
     cur_input.index = Btl::Inserted;
     error();
 }
@@ -3856,8 +3856,8 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
                 "This kind of error happens when you say `\\if...\' and forget",
                 "the matching `\\fi\'. I\'ve inserted a `\\fi\'; this might work."
             );
-            cur_tok = CS_TOKEN_FLAG + FROZEN_FI as i32;
-            ins_error(&mut cur_input);
+            let tok = CS_TOKEN_FLAG + FROZEN_FI as i32;
+            ins_error(&mut cur_input, tok);
         }
         deletions_allowed = true
     }
@@ -4676,7 +4676,7 @@ pub(crate) unsafe fn macro_call() {
                                 "control sequence to too much text. How can we recover?",
                                 "My plan is to forget the whole thing and hope for the best."
                             );
-                            back_error(&mut cur_input);
+                            back_error(&mut cur_input, cur_tok);
                         }
 
                         pstack[n as usize] = *LLIST_link(TEMP_HEAD);
@@ -4730,7 +4730,7 @@ pub(crate) unsafe fn macro_call() {
                                         help!("I suspect you\'ve forgotten a `}\', causing me to apply this",
                                         "control sequence to too much text. How can we recover?",
                                         "My plan is to forget the whole thing and hope for the best.");
-                                        back_error(&mut cur_input);
+                                        back_error(&mut cur_input, cur_tok);
                                     }
 
                                     pstack[n as usize] = *LLIST_link(TEMP_HEAD);
@@ -4765,7 +4765,7 @@ pub(crate) unsafe fn macro_call() {
                         p = q as i32;
                     } else {
                         /* 413 */
-                        back_input(&mut cur_input);
+                        back_input(&mut cur_input, cur_tok);
 
                         if file_line_error_style_p != 0 {
                             print_file_line();
@@ -4786,7 +4786,7 @@ pub(crate) unsafe fn macro_call() {
                         align_state += 1;
                         long_state = Cmd::Call as u8;
                         cur_tok = par_token;
-                        ins_error(&mut cur_input);
+                        ins_error(&mut cur_input, cur_tok);
                         cont = true;
                         continue;
                     }
@@ -4882,9 +4882,9 @@ pub(crate) unsafe fn macro_call() {
 }
 pub(crate) unsafe fn insert_relax(input: &mut input_state_t) {
     cur_tok = CS_TOKEN_FLAG + cur_cs;
-    back_input(input);
+    back_input(input, cur_tok);
     cur_tok = CS_TOKEN_FLAG + FROZEN_RELAX as i32;
-    back_input(input);
+    back_input(input, cur_tok);
     cur_input.index = Btl::Inserted;
 }
 pub(crate) unsafe fn new_index(i: u16, q: Option<usize>) -> usize {
@@ -5081,10 +5081,10 @@ pub(crate) unsafe fn expand() {
                         if cur_cmd > MAX_COMMAND {
                             expand();
                         } else {
-                            back_input(&mut cur_input);
+                            back_input(&mut cur_input, cur_tok);
                         }
                         cur_tok = t;
-                        back_input(&mut cur_input);
+                        back_input(&mut cur_input, cur_tok);
                         break;
                     } else {
                         let (tok, cmd, chr, cs) = get_token(&mut cur_input);
@@ -5106,7 +5106,7 @@ pub(crate) unsafe fn expand() {
                             print_cmd_chr(cur_cmd, cur_chr);
                             print_chr('\'');
                             help!("Continue, and I\'ll forget that it ever happened.");
-                            back_error(&mut cur_input);
+                            back_error(&mut cur_input, cur_tok);
                             break;
                         }
                     }
@@ -5123,7 +5123,7 @@ pub(crate) unsafe fn expand() {
                         cur_cs = cs;
                         scanner_status = save_scanner_status;
                         let t = cur_tok;
-                        back_input(&mut cur_input);
+                        back_input(&mut cur_input, cur_tok);
                         if t >= CS_TOKEN_FLAG {
                             let p = get_avail();
                             MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_DONT_EXPAND as i32;
@@ -5156,7 +5156,7 @@ pub(crate) unsafe fn expand() {
                             cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
                             cur_cs = 0;
                         } else {
-                            back_input(&mut cur_input);
+                            back_input(&mut cur_input, cur_tok);
                             let p = get_avail();
                             MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_PRIMITIVE as i32;
                             *LLIST_link(p) = cur_input.loc;
@@ -5197,7 +5197,7 @@ pub(crate) unsafe fn expand() {
                             "The control sequence marked <to be read again> should",
                             "not appear between \\csname and \\endcsname."
                         );
-                        back_error(&mut cur_input);
+                        back_error(&mut cur_input, cur_tok);
                     }
                     is_in_csname = b;
                     j = first;
@@ -5228,7 +5228,7 @@ pub(crate) unsafe fn expand() {
                         eq_define(cur_cs as usize, Cmd::Relax, Some(TOO_BIG_USV));
                     }
                     cur_tok = cur_cs + CS_TOKEN_FLAG;
-                    back_input(&mut cur_input);
+                    back_input(&mut cur_input, cur_tok);
                     break;
                 }
                 Cmd::Convert => {
@@ -5319,7 +5319,7 @@ pub(crate) unsafe fn expand() {
                 macro_call();
             } else {
                 cur_tok = CS_TOKEN_FLAG + FROZEN_ENDV as i32;
-                back_input(&mut cur_input);
+                back_input(&mut cur_input, cur_tok);
             }
             break;
         }
@@ -5392,7 +5392,7 @@ pub(crate) unsafe fn scan_left_brace() {
             "so that I will find a matching right brace soon.",
             "(If you\'re confused by all this, try typing `I}\' now.)"
         );
-        back_error(&mut cur_input);
+        back_error(&mut cur_input, cur_tok);
         cur_tok = LEFT_BRACE_TOKEN + '{' as i32;
         cur_cmd = Cmd::LeftBrace;
         cur_chr = '{' as i32;
@@ -5408,7 +5408,7 @@ pub(crate) unsafe fn scan_optional_equals() {
     }
     if cur_tok != OTHER_TOKEN + 61 {
         /*"="*/
-        back_input(&mut cur_input);
+        back_input(&mut cur_input, cur_tok);
     };
 }
 
@@ -5428,7 +5428,7 @@ pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
                 return true;
             } else {
                 if cur_cmd != Cmd::Spacer || p != BACKUP_HEAD {
-                    back_input(&mut cur_input);
+                    back_input(&mut cur_input, cur_tok);
                     if p != BACKUP_HEAD {
                         begin_token_list(
                             &mut cur_input,
@@ -5452,7 +5452,7 @@ pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
             p = q;
             i += 1;
         } else if cur_cmd != Cmd::Spacer || p != BACKUP_HEAD {
-            back_input(&mut cur_input);
+            back_input(&mut cur_input, cur_tok);
             if p != BACKUP_HEAD {
                 begin_token_list(
                     &mut cur_input,
@@ -5631,7 +5631,7 @@ pub(crate) unsafe fn scan_math(m: &mut MCell, p: usize) {
                     cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                     cur_chr = EQTB[cur_cs as usize].val;
                     x_token();
-                    back_input(&mut cur_input);
+                    back_input(&mut cur_input, cur_tok);
                     break;
                 }
                 Cmd::CharNum => {
@@ -5684,7 +5684,7 @@ pub(crate) unsafe fn scan_math(m: &mut MCell, p: usize) {
                     break 'c_118470;
                 }
                 _ => {
-                    back_input(&mut cur_input);
+                    back_input(&mut cur_input, cur_tok);
                     scan_left_brace();
                     SAVE_STACK[SAVE_PTR + 0].val = p as i32;
                     SAVE_PTR += 1;
@@ -5713,7 +5713,7 @@ pub(crate) unsafe fn set_math_char(mut c: i32) {
         cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd); /* ... "between 0 and 15" */
         cur_chr = EQTB[cur_cs as usize].val;
         x_token();
-        back_input(&mut cur_input);
+        back_input(&mut cur_input, cur_tok);
     } else {
         let p = new_noad();
         MEM[p + 1].b32.s1 = MathCell::MathChar as _;
@@ -5908,7 +5908,7 @@ pub(crate) unsafe fn scan_font_ident() {
             "I was looking for a control sequence whose",
             "current meaning has been defined by \\font."
         );
-        back_error(&mut cur_input);
+        back_error(&mut cur_input, cur_tok);
         f = FONT_BASE;
     }
     cur_val = f as i32;
@@ -6097,7 +6097,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                     "(If you can\'t figure out why I needed to see a number,",
                     "look up `weird error\' in the index to The TeXbook.)"
                 );
-                back_error(&mut cur_input);
+                back_error(&mut cur_input, cur_tok);
                 cur_val = 0;
                 cur_val_level = ValLevel::Dimen;
             } else if cur_cmd <= Cmd::AssignToks {
@@ -6132,7 +6132,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                 }
                 cur_val_level = ValLevel::Tok;
             } else {
-                back_input(&mut cur_input);
+                back_input(&mut cur_input, cur_tok);
                 scan_font_ident();
                 cur_val = FONT_ID_BASE as i32 + cur_val;
                 cur_val_level = ValLevel::Ident;
@@ -6995,11 +6995,11 @@ pub(crate) unsafe fn scan_int() {
                 "So I\'m essentially inserting \\0 here."
             );
             cur_val = '0' as i32;
-            back_error(&mut cur_input);
+            back_error(&mut cur_input, cur_tok);
         } else {
             get_x_token();
             if cur_cmd != Cmd::Spacer {
-                back_input(&mut cur_input);
+                back_input(&mut cur_input, cur_tok);
             }
         }
     } else if cur_cmd >= MIN_INTERNAL && cur_cmd <= MAX_INTERNAL {
@@ -7072,9 +7072,9 @@ pub(crate) unsafe fn scan_int() {
                 "(If you can\'t figure out why I needed to see a number,",
                 "look up `weird error\' in the index to The TeXbook.)"
             );
-            back_error(&mut cur_input);
+            back_error(&mut cur_input, cur_tok);
         } else if cur_cmd != Cmd::Spacer {
-            back_input(&mut cur_input);
+            back_input(&mut cur_input, cur_tok);
         }
     }
     if negative {
@@ -7140,7 +7140,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 }
             }
         } else {
-            back_input(&mut cur_input);
+            back_input(&mut cur_input, cur_tok);
             if cur_tok == CONTINENTAL_POINT_TOKEN {
                 cur_tok = POINT_TOKEN;
             }
@@ -7186,7 +7186,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 }
                 f = round_decimals(k);
                 if cur_cmd != Cmd::Spacer {
-                    back_input(&mut cur_input);
+                    back_input(&mut cur_input, cur_tok);
                 }
             }
         }
@@ -7229,7 +7229,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
             }
         }
         if cur_cmd < MIN_INTERNAL || cur_cmd > MAX_INTERNAL {
-            back_input(&mut cur_input);
+            back_input(&mut cur_input, cur_tok);
         } else {
             if mu {
                 scan_something_internal(ValLevel::Mu, false);
@@ -7259,7 +7259,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     .s1;
                 get_x_token();
                 if cur_cmd != Cmd::Spacer {
-                    back_input(&mut cur_input);
+                    back_input(&mut cur_input, cur_tok);
                 }
                 return found(save_cur_val, v, f, negative);
             } else if scan_keyword(b"ex") {
@@ -7269,7 +7269,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     .s1;
                 get_x_token();
                 if cur_cmd != Cmd::Spacer {
-                    back_input(&mut cur_input);
+                    back_input(&mut cur_input, cur_tok);
                 }
                 return found(save_cur_val, v, f, negative);
             }
@@ -7385,7 +7385,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
     unsafe fn done(negative: bool) {
         get_x_token();
         if cur_cmd != Cmd::Spacer {
-            back_input(&mut cur_input);
+            back_input(&mut cur_input, cur_tok);
         }
         attach_sign(negative)
     }
@@ -7466,7 +7466,7 @@ pub(crate) unsafe fn scan_glue(level: ValLevel) {
             mu_error();
         }
     } else {
-        back_input(&mut cur_input);
+        back_input(&mut cur_input, cur_tok);
         scan_dimen(mu, false, false);
         if negative {
             cur_val = -cur_val;
@@ -7667,7 +7667,7 @@ pub(crate) unsafe fn scan_expr() {
             if cur_tok == OTHER_TOKEN + 40 {
                 break;
             }
-            back_input(&mut cur_input);
+            back_input(&mut cur_input, cur_tok);
             match o {
                 ValLevel::Int => scan_int(),
                 ValLevel::Dimen => scan_dimen(false, false, false),
@@ -7697,7 +7697,7 @@ pub(crate) unsafe fn scan_expr() {
                     o = Expr::None;
                     if p.opt().is_none() {
                         if cur_cmd != Cmd::Relax {
-                            back_input(&mut cur_input);
+                            back_input(&mut cur_input, cur_tok);
                         }
                     } else if cur_tok != OTHER_TOKEN + 41 {
                         if file_line_error_style_p != 0 {
@@ -7707,7 +7707,7 @@ pub(crate) unsafe fn scan_expr() {
                         }
                         print_cstr("Missing ) inserted for expression");
                         help!("I was expecting to see `+\', `-\', `*\', `/\', or `)\'. Didn\'t.");
-                        back_error(&mut cur_input);
+                        back_error(&mut cur_input, cur_tok);
                     }
                 }
                 arith_error = b;
@@ -8593,7 +8593,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                             "I\'ve inserted the digit you should have used after the #.",
                             "Type `1\' to delete what you did use."
                         );
-                        back_error(&mut cur_input);
+                        back_error(&mut cur_input, cur_tok);
                     }
                     cur_tok = s
                 }
@@ -8705,7 +8705,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                             "Or maybe a } was forgotten somewhere earlier, and things",
                             "are all screwed up? I\'m going to assume that you meant ##."
                         );
-                        back_error(&mut cur_input);
+                        back_error(&mut cur_input, cur_tok);
                         cur_tok = s
                     } else {
                         cur_tok = OUT_PARAM_TOKEN - 48 + cur_chr
@@ -8977,7 +8977,7 @@ pub(crate) unsafe fn conditional() {
                 print_cstr("Missing = inserted for ");
                 print_cmd_chr(Cmd::IfTest, this_if as i32);
                 help!("I was expecting to see `<\', `=\', or `>\'. Didn\'t.");
-                back_error(&mut cur_input);
+                back_error(&mut cur_input, cur_tok);
                 r = b'=';
             }
 
@@ -9142,7 +9142,7 @@ pub(crate) unsafe fn conditional() {
                     "The control sequence marked <to be read again> should",
                     "not appear between \\csname and \\endcsname."
                 );
-                back_error(&mut cur_input);
+                back_error(&mut cur_input, cur_tok);
             }
 
             let mut m = first;
@@ -9448,7 +9448,7 @@ pub(crate) unsafe fn scan_file_name() {
     }
     loop {
         if cur_cmd > Cmd::OtherChar || cur_chr > BIGGEST_CHAR {
-            back_input(&mut cur_input);
+            back_input(&mut cur_input, cur_tok);
             break;
         } else {
             if !more_name(cur_chr as UTF16_code, stop_at_space) {
@@ -10894,7 +10894,7 @@ pub(crate) unsafe fn init_align() {
                         "\\halign or \\valign is being set up. In this case you had",
                         "none, so I\'ve put one in; maybe that will work."
                     );
-                    back_error(&mut cur_input);
+                    back_error(&mut cur_input, cur_tok);
                     break;
                 }
             } else if cur_cmd != Cmd::Spacer || p != HOLD_HEAD as i32 {
@@ -10984,7 +10984,7 @@ pub(crate) unsafe fn init_col() {
     if cur_cmd == Cmd::Omit {
         align_state = 0;
     } else {
-        back_input(&mut cur_input);
+        back_input(&mut cur_input, cur_tok);
         begin_token_list(&mut cur_input, MEM[ca + 3].b32.s1 as usize, Btl::UTemplate);
     };
 }
@@ -11493,7 +11493,7 @@ pub(crate) unsafe fn fin_align() {
                 "Displays can use special alignments (like \\eqalignno)",
                 "only if nothing but the alignment itself is between $$\'s."
             );
-            back_error(&mut cur_input);
+            back_error(&mut cur_input, cur_tok);
         } else {
             get_x_token();
             if cur_cmd != Cmd::MathShift {
@@ -11507,7 +11507,7 @@ pub(crate) unsafe fn fin_align() {
                     "The `$\' that I just saw supposedly matches a previous `$$\'.",
                     "So I shall assume that you typed `$$\' both times."
                 );
-                back_error(&mut cur_input);
+                back_error(&mut cur_input, cur_tok);
             }
         }
         flush_node_list(cur_list.eTeX_aux);
@@ -12156,7 +12156,7 @@ pub(crate) unsafe fn app_space() {
     cur_list.tail = q;
 }
 pub(crate) unsafe fn insert_dollar_sign() {
-    back_input(&mut cur_input);
+    back_input(&mut cur_input, cur_tok);
     cur_tok = MATH_SHIFT_TOKEN + 36;
     if file_line_error_style_p != 0 {
         print_file_line();
@@ -12168,7 +12168,7 @@ pub(crate) unsafe fn insert_dollar_sign() {
         "I\'ve inserted a begin-math/end-math symbol since I think",
         "you left one out. Proceed, with fingers crossed."
     );
-    ins_error(&mut cur_input);
+    ins_error(&mut cur_input, cur_tok);
 }
 pub(crate) unsafe fn you_cant() {
     if file_line_error_style_p != 0 {
@@ -12203,7 +12203,7 @@ pub(crate) unsafe fn its_all_over() -> bool {
         if PAGE_HEAD == page_tail && cur_list.head == cur_list.tail && dead_cycles == 0 {
             return true;
         }
-        back_input(&mut cur_input);
+        back_input(&mut cur_input, cur_tok);
         let nb = new_null_box();
         *LLIST_link(cur_list.tail) = Some(nb).tex_int();
         cur_list.tail = nb;
@@ -12259,7 +12259,7 @@ pub(crate) unsafe fn off_save() {
         help!("Things are pretty mixed up, but I think the worst is over.");
         error();
     } else {
-        back_input(&mut cur_input);
+        back_input(&mut cur_input, cur_tok);
         let mut p = get_avail();
         *LLIST_link(TEMP_HEAD) = Some(p).tex_int();
         if file_line_error_style_p != 0 {
@@ -12446,7 +12446,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
                     "I found the <box or rule>, but there\'s no suitable",
                     "<hskip or vskip>, so I\'m ignoring these leaders."
                 );
-                back_error(&mut cur_input);
+                back_error(&mut cur_input, cur_tok);
                 flush_node_list(Some(cb));
             }
         } else {
@@ -12650,7 +12650,7 @@ pub(crate) unsafe fn scan_box(mut box_context: i32) {
             "something like that. So you might find something missing in",
             "your output. But keep trying; you can fix this later."
         );
-        back_error(&mut cur_input);
+        back_error(&mut cur_input, cur_tok);
     };
 }
 pub(crate) unsafe fn package(mut c: i16) {
@@ -12783,9 +12783,9 @@ pub(crate) unsafe fn head_for_vmode() {
             error();
         }
     } else {
-        back_input(&mut cur_input);
+        back_input(&mut cur_input, cur_tok);
         cur_tok = par_token;
-        back_input(&mut cur_input);
+        back_input(&mut cur_input, cur_tok);
         cur_input.index = Btl::Inserted;
     };
 }
@@ -13194,7 +13194,7 @@ pub(crate) unsafe fn make_accent() {
             scan_char_num();
             q = new_character(f, cur_val as UTF16_code)
         } else {
-            back_input(&mut cur_input);
+            back_input(&mut cur_input, cur_tok);
         }
         if let Some(q) = q {
             /*1160: */
@@ -13266,7 +13266,7 @@ pub(crate) unsafe fn align_error() {
         }
         error();
     } else {
-        back_input(&mut cur_input);
+        back_input(&mut cur_input, cur_tok);
         if align_state < 0 {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -13291,7 +13291,7 @@ pub(crate) unsafe fn align_error() {
             "the current column of the current alignment.",
             "Try to go on, since this might almost work."
         );
-        ins_error(&mut cur_input);
+        ins_error(&mut cur_input, cur_tok);
     };
 }
 pub(crate) unsafe fn no_align_error() {
@@ -13551,21 +13551,25 @@ pub(crate) unsafe fn just_reverse(p: usize) {
     }
     *LLIST_link(TEMP_HEAD) = Some(l).tex_int();
 }
-pub(crate) unsafe fn get_r_token() {
+pub(crate) unsafe fn get_r_token(input: &mut input_state_t) {
+    let mut tok;
+    let mut cmd;
+    let mut chr;
+    let mut cs;
     loop {
         loop {
-            let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-            cur_tok = tok;
-            cur_cmd = cmd;
-            cur_chr = chr;
-            cur_cs = cs;
-            if cur_tok != SPACE_TOKEN {
+            let (tok_, cmd_, chr_, cs_) = get_token(input);
+            tok = tok_;
+            cmd = cmd_;
+            chr = chr_;
+            cs = cs_;
+            if tok != SPACE_TOKEN {
                 break;
             }
         }
-        if !(cur_cs == 0
-            || cur_cs > EQTB_TOP as i32
-            || cur_cs > FROZEN_CONTROL_SEQUENCE as i32 && cur_cs <= EQTB_SIZE as i32)
+        if !(cs == 0
+            || cs > EQTB_TOP as i32
+            || cs > FROZEN_CONTROL_SEQUENCE as i32 && cs <= EQTB_SIZE as i32)
         {
             break;
         }
@@ -13582,12 +13586,16 @@ pub(crate) unsafe fn get_r_token() {
             "You can recover graciously from this error, if you\'re",
             "careful; see exercise 27.2 in The TeXbook."
         );
-        if cur_cs == 0 {
-            back_input(&mut cur_input);
+        if cs == 0 {
+            back_input(input, tok);
         }
-        cur_tok = CS_TOKEN_FLAG + FROZEN_PROTECTION as i32;
-        ins_error(&mut cur_input);
+        tok = CS_TOKEN_FLAG + FROZEN_PROTECTION as i32;
+        ins_error(input, tok);
     }
+    cur_tok = tok;
+    cur_cmd = cmd;
+    cur_chr = chr;
+    cur_cs = cs;
 }
 pub(crate) unsafe fn trap_zero_glue() {
     if MEM[(cur_val + 1) as usize].b32.s1 == 0
@@ -13903,7 +13911,7 @@ pub(crate) unsafe fn new_font(mut a: i16) {
     if job_name == 0 {
         open_log_file();
     }
-    get_r_token();
+    get_r_token(&mut cur_input);
     let u = cur_cs as usize;
     let mut t = if u >= HASH_BASE {
         (*hash.offset(u as isize)).s1
@@ -14308,7 +14316,7 @@ pub(crate) unsafe fn do_extension() {
                 cur_list.tail = p;
                 *LLIST_link(p) = None.tex_int();
             } else {
-                back_input(&mut cur_input);
+                back_input(&mut cur_input, cur_tok);
             }
         }
         SET_LANGUAGE_CODE => {
@@ -14347,7 +14355,7 @@ pub(crate) unsafe fn do_extension() {
         }
         GLYPH_CODE => {
             if cur_list.mode.1 == ListMode::VMode {
-                back_input(&mut cur_input);
+                back_input(&mut cur_input, cur_tok);
                 new_graf(true);
             } else if cur_list.mode.1 == ListMode::MMode {
                 report_illegal_case();
@@ -14611,7 +14619,7 @@ pub(crate) unsafe fn handle_right_brace() {
         }
         GroupCode::Disc => build_discretionary(),
         GroupCode::Align => {
-            back_input(&mut cur_input);
+            back_input(&mut cur_input, cur_tok);
             cur_tok = CS_TOKEN_FLAG + FROZEN_CR as i32;
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -14622,7 +14630,7 @@ pub(crate) unsafe fn handle_right_brace() {
             print_esc_cstr("cr");
             print_cstr(" inserted");
             help!("I\'m guessing that you meant to end an alignment here.");
-            ins_error(&mut cur_input);
+            ins_error(&mut cur_input, cur_tok);
         }
         GroupCode::NoAlign => {
             end_graf();
@@ -14746,7 +14754,7 @@ pub(crate) unsafe fn main_control() {
                             } else {
                                 cur_tok = CS_TOKEN_FLAG + cur_cs
                             }
-                            back_input(&mut cur_input);
+                            back_input(&mut cur_input, cur_tok);
                             begin_token_list(
                                 &mut cur_input,
                                 MEM[c + 1].b32.s1 as usize,
@@ -14945,7 +14953,7 @@ pub(crate) unsafe fn main_control() {
                     | (VMode, Cmd::ExSpace)
                     | (VMode, Cmd::NoBoundary) => {
                         // 12 | 13 | 17 | 69 | 4 | 24 | 36 | 46 | 48 | 27 | 34 | 65 | 66
-                        back_input(&mut cur_input);
+                        back_input(&mut cur_input, cur_tok);
                         new_graf(true);
                     }
                     (HMode, Cmd::StartPar) | (MMode, Cmd::StartPar) => {
@@ -15081,7 +15089,7 @@ pub(crate) unsafe fn main_control() {
                         let n = new_noad();
                         *LLIST_link(cur_list.tail) = Some(n).tex_int();
                         cur_list.tail = n;
-                        back_input(&mut cur_input);
+                        back_input(&mut cur_input, cur_tok);
                         let m = BaseMath(cur_list.tail);
                         scan_math(m.first_mut(), cur_list.tail + 1);
                     }
@@ -15360,7 +15368,7 @@ pub(crate) unsafe fn main_control() {
                                     cur_cmd = Cmd::OtherChar;
                                 }
                                 cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                back_input(&mut cur_input);
+                                back_input(&mut cur_input, cur_tok);
                                 cur_input.index = Btl::BackedUpChar;
                                 begin_token_list(
                                     &mut cur_input,
@@ -15381,7 +15389,7 @@ pub(crate) unsafe fn main_control() {
                                 cur_cmd = Cmd::OtherChar;
                             }
                             cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                            back_input(&mut cur_input);
+                            back_input(&mut cur_input, cur_tok);
                             cur_input.index = Btl::BackedUpChar;
                             begin_token_list(
                                 &mut cur_input,
@@ -15470,7 +15478,7 @@ pub(crate) unsafe fn main_control() {
                     } else {
                         CS_TOKEN_FLAG + cur_cs
                     };
-                    back_input(&mut cur_input);
+                    back_input(&mut cur_input, cur_tok);
                     begin_token_list(
                         &mut cur_input,
                         MEM[c + 1].b32.s1 as usize,
@@ -15818,7 +15826,7 @@ pub(crate) unsafe fn main_control() {
                             cur_cmd = Cmd::OtherChar;
                         }
                         cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                        back_input(&mut cur_input);
+                        back_input(&mut cur_input, cur_tok);
                         cur_input.index = Btl::BackedUpChar;
                         begin_token_list(
                             &mut cur_input,
@@ -15839,7 +15847,7 @@ pub(crate) unsafe fn main_control() {
                         cur_cmd = Cmd::OtherChar;
                     }
                     cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                    back_input(&mut cur_input);
+                    back_input(&mut cur_input, cur_tok);
                     cur_input.index = Btl::BackedUpChar;
                     begin_token_list(
                         &mut cur_input,
@@ -16186,7 +16194,7 @@ pub(crate) unsafe fn main_control() {
                                                 cur_cmd = Cmd::OtherChar
                                             }
                                             cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                            back_input(&mut cur_input);
+                                            back_input(&mut cur_input, cur_tok);
                                             cur_input.index = Btl::BackedUpChar;
                                             begin_token_list(
                                                 &mut cur_input,
@@ -16207,7 +16215,7 @@ pub(crate) unsafe fn main_control() {
                                             cur_cmd = Cmd::OtherChar;
                                         }
                                         cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                        back_input(&mut cur_input);
+                                        back_input(&mut cur_input, cur_tok);
                                         cur_input.index = Btl::BackedUpChar;
                                         begin_token_list(
                                             &mut cur_input,
@@ -16381,7 +16389,7 @@ pub(crate) unsafe fn main_control() {
                 } else {
                     cur_tok = CS_TOKEN_FLAG + cur_cs
                 }
-                back_input(&mut cur_input);
+                back_input(&mut cur_input, cur_tok);
                 begin_token_list(
                     &mut cur_input,
                     MEM[c + 1].b32.s1 as usize,
