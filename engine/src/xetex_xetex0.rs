@@ -3768,7 +3768,8 @@ pub(crate) unsafe fn end_file_reading() {
     cur_input = INPUT_STACK[INPUT_PTR]; // pop
     IN_OPEN -= 1;
 }
-pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cmd: &mut Cmd, chr: &mut i32, cs: &mut i32) {
+pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i32) -> bool {
+    let mut spacer = false;
     if scanner_status != ScannerStatus::Normal {
         deletions_allowed = false;
         if *cs != 0 {
@@ -3778,8 +3779,7 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cmd: &mut C
                 MEM[p].b32.s0 = CS_TOKEN_FLAG + *cs;
                 begin_token_list(input, p, Btl::BackedUp);
             }
-            *cmd = Cmd::Spacer;
-            *chr = ' ' as i32
+            spacer = true;
         }
         if scanner_status != ScannerStatus::Normal && scanner_status != ScannerStatus::Skipping {
             /*350:*/
@@ -3861,7 +3861,8 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cmd: &mut C
             ins_error(&mut cur_input);
         }
         deletions_allowed = true
-    };
+    }
+    spacer
 }
 /* These macros are kinda scary, but convenient */
 pub(crate) unsafe fn get_next(input: &mut input_state_t) {
@@ -3872,6 +3873,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) {
 }
     
 pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
+    //let mut chr;
     'c_63502: loop {
         let mut current_block: u64;
         let mut cs = 0;
@@ -3921,7 +3923,10 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 cur_chr = EQTB[cs as usize].val;
                                 input.state = InputState::MidLine;
                                 if cur_cmd >= Cmd::OuterCall {
-                                    check_outer_validity(input, &mut cur_cmd, &mut cur_chr, &mut cs);
+                                    if check_outer_validity(input, &mut cs) {
+                                        cur_cmd = Cmd::Spacer;
+                                        cur_chr = ' ' as i32;
+                                    }
                                 }
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
@@ -4032,7 +4037,10 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 cur_cmd = Cmd::from(EQTB[cs as usize].cmd);
                                 cur_chr = EQTB[cs as usize].val;
                                 if cur_cmd >= Cmd::OuterCall {
-                                    check_outer_validity(input, &mut cur_cmd, &mut cur_chr, &mut cs);
+                                    if check_outer_validity(input, &mut cs) {
+                                        cur_cmd = Cmd::Spacer;
+                                        cur_chr = ' ' as i32;
+                                    }
                                 }
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
@@ -4135,7 +4143,10 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             }
                             force_eof = false;
                             end_file_reading();
-                            check_outer_validity(input, &mut cur_cmd, &mut cur_chr, &mut cs);
+                            if check_outer_validity(input, &mut cs) {
+                                cur_cmd = Cmd::Spacer;
+                                cur_chr = ' ' as i32;
+                            }
                             continue 'c_63502;
                         } else {
                             if *INTPAR(IntPar::end_line_char) < 0
@@ -4173,10 +4184,11 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                         7720778817628725688 => {
                             let mut k;
                             let mut cat;
+                            let mut chr;
                             'c_65963: loop {
                                 k = input.loc;
-                                cur_chr = BUFFER[k as usize];
-                                cat = Cmd::from(*CAT_CODE(cur_chr as usize) as u16);
+                                chr = BUFFER[k as usize];
+                                cat = Cmd::from(*CAT_CODE(chr as usize) as u16);
                                 k += 1;
                                 if cat == Cmd::Letter {
                                     input.state = InputState::SkipBlanks; // TODO: check
@@ -4189,15 +4201,15 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     loop
                                     /*368:*/
                                     {
-                                        cur_chr = BUFFER[k as usize];
-                                        cat = Cmd::from(*CAT_CODE(cur_chr as usize) as u16);
+                                        chr = BUFFER[k as usize];
+                                        cat = Cmd::from(*CAT_CODE(chr as usize) as u16);
                                         k += 1;
                                         if !(cat == Cmd::Letter && k <= input.limit) {
                                             break;
                                         }
                                     }
                                     if !(cat == Cmd::SupMark
-                                        && BUFFER[k as usize] == cur_chr
+                                        && BUFFER[k as usize] == chr
                                         && k < input.limit)
                                     {
                                         current_block = 5873035170358615968;
@@ -4211,7 +4223,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     let mut sup_count = 2;
                                     while sup_count < 6
                                         && k + 2 * sup_count as i32 - 2 <= input.limit
-                                        && BUFFER[(k + sup_count as i32 - 1) as usize] == cur_chr
+                                        && BUFFER[(k + sup_count as i32 - 1) as usize] == chr
                                     {
                                         sup_count += 1;
                                     }
@@ -4259,24 +4271,24 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         break;
                                     }
 
-                                    cur_chr = 0;
+                                    chr = 0;
 
                                     for d in 1..=sup_count as i32 {
                                         let c =
                                             BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize];
-                                        cur_chr = if c <= '9' as i32 {
-                                            16 * cur_chr + c - '0' as i32
+                                        chr = if c <= '9' as i32 {
+                                            16 * chr + c - '0' as i32
                                         } else {
-                                            16 * cur_chr + c - 'a' as i32 + 10
+                                            16 * chr + c - 'a' as i32 + 10
                                         };
                                     }
 
-                                    if cur_chr > BIGGEST_USV as i32 {
-                                        cur_chr = BUFFER[k as usize];
+                                    if chr > BIGGEST_USV as i32 {
+                                        chr = BUFFER[k as usize];
                                         current_block = 5873035170358615968;
                                         break;
                                     } else {
-                                        BUFFER[(k - 1) as usize] = cur_chr;
+                                        BUFFER[(k - 1) as usize] = chr;
                                         let d = (2 * sup_count as i32 - 1) as i16;
                                         input.limit = input.limit - d as i32;
                                         while k <= input.limit {
@@ -4286,7 +4298,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     }
                                 } else {
                                     if !(cat == Cmd::SupMark
-                                        && BUFFER[k as usize] == cur_chr
+                                        && BUFFER[k as usize] == chr
                                         && k < input.limit)
                                     {
                                         current_block = 1604201581803946138;
@@ -4296,7 +4308,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     let mut sup_count = 2;
                                     while sup_count < 6
                                         && k + 2 * sup_count as i32 - 2 <= input.limit
-                                        && BUFFER[(k + sup_count as i32 - 1) as usize] == cur_chr
+                                        && BUFFER[(k + sup_count as i32 - 1) as usize] == chr
                                     {
                                         sup_count += 1
                                     }
@@ -4329,23 +4341,23 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         current_block = 1604201581803946138;
                                         break;
                                     }
-                                    cur_chr = 0;
+                                    chr = 0;
                                     for d in 1..=sup_count as i32 {
                                         let c =
                                             BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize];
                                         if c <= '9' as i32 {
-                                            cur_chr = 16 * cur_chr + c - '0' as i32
+                                            chr = 16 * chr + c - '0' as i32
                                         } else {
-                                            cur_chr = 16 * cur_chr + c - 'a' as i32 + 10
+                                            chr = 16 * chr + c - 'a' as i32 + 10
                                         }
                                     }
 
-                                    if cur_chr > BIGGEST_USV as i32 {
-                                        cur_chr = BUFFER[k as usize];
+                                    if chr > BIGGEST_USV as i32 {
+                                        chr = BUFFER[k as usize];
                                         current_block = 1604201581803946138;
                                         break;
                                     } else {
-                                        BUFFER[(k - 1) as usize] = cur_chr;
+                                        BUFFER[(k - 1) as usize] = chr;
                                         let d = (2 * sup_count as i32 - 1) as i16;
                                         input.limit = input.limit - d as i32;
                                         while k <= input.limit {
@@ -4355,6 +4367,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     }
                                 }
                             }
+                            cur_chr = chr;
                             match current_block {
                                 5873035170358615968 => {
                                     if cat != Cmd::Letter {
@@ -4425,7 +4438,10 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             cur_cmd = Cmd::from(EQTB[cs as usize].cmd);
                             cur_chr = EQTB[cs as usize].val;
                             if cur_cmd >= Cmd::OuterCall {
-                                check_outer_validity(input, &mut cur_cmd, &mut cur_chr, &mut cs);
+                                if check_outer_validity(input, &mut cs) {
+                                    cur_cmd = Cmd::Spacer;
+                                    cur_chr = ' ' as i32;
+                                }
                             }
                         }
                     }
@@ -4451,13 +4467,18 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             cur_chr = NO_EXPAND_FLAG;
                         }
                     } else {
-                        check_outer_validity(input, &mut cur_cmd, &mut cur_chr, &mut cs);
+                        if check_outer_validity(input, &mut cs) {
+                            cur_cmd = Cmd::Spacer;
+                            cur_chr = ' ' as i32;
+                        }
                     }
                 }
             } else {
-                cur_cmd = Cmd::from((t / MAX_CHAR_VAL) as u16);
-                cur_chr = t % MAX_CHAR_VAL;
-                match cur_cmd {
+                let cmd = Cmd::from((t / MAX_CHAR_VAL) as u16);
+                let chr = t % MAX_CHAR_VAL;
+                cur_chr = chr;
+                cur_cmd = cmd;
+                match cmd {
                     Cmd::LeftBrace => {
                         align_state += 1;
                     }
@@ -4466,7 +4487,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                     }
                     OUT_PARAM => {
                         begin_token_list(input,
-                            PARAM_STACK[(input.limit + cur_chr - 1) as usize] as usize,
+                            PARAM_STACK[(input.limit + chr - 1) as usize] as usize,
                             Btl::Parameter,
                         );
                         continue;
@@ -4478,7 +4499,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
             end_token_list(input);
             continue;
         }
-        if cur_cmd <= Cmd::CarRet && cur_cmd >= Cmd::TabMark && align_state == 0 {
+        if (cur_cmd == Cmd::CarRet || cur_cmd == Cmd::TabMark) && align_state == 0 {
             /*818:*/
             if scanner_status == ScannerStatus::Aligning {
                 fatal_error("(interwoven alignment preambles are not allowed)");
@@ -4491,7 +4512,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                 } else {
                     begin_token_list(input, MEM[ca + 2].b32.s1 as usize, Btl::VTemplate);
                 }
-                align_state = 1000000;
+                align_state = 1_000_000;
             } else {
                 fatal_error("(interwoven alignment preambles are not allowed)");
             }
