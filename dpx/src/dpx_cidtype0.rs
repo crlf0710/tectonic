@@ -310,8 +310,7 @@ unsafe fn add_CIDVMetrics(
                 * 1i32 as f64;
             let mut vertOriginY = defaultVertOriginY;
             for m in &vorg.vertOriginYMetrics {
-                if !(gid as i32 > m.glyphIndex as i32) {
-                    // TODO: check unreachable
+                if !(gid as i32 >= m.glyphIndex as i32) {
                     break;
                 }
                 if gid as i32 == m.glyphIndex as i32 {
