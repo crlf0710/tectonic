@@ -1621,17 +1621,39 @@ pub(crate) unsafe fn prefixed_command() {
             let p = cur_cs;
             if n == NORMAL as i32 {
                 loop  {
-                    get_token(&mut cur_input);
+                    let (tok, cmd, chr, cs) = get_token(&mut cur_input);
+                    cur_tok = tok;
+                    cur_cmd = cmd;
+                    cur_chr = chr;
+                    cur_cs = cs;
                     if !(cur_cmd == Cmd::Spacer) { break ; }
                 }
                 if cur_tok == OTHER_TOKEN + '=' as i32 {
-                    get_token(&mut cur_input);
-                    if cur_cmd == Cmd::Spacer { get_token(&mut cur_input); }
+                    let (tok, cmd, chr, cs) = get_token(&mut cur_input);
+                    cur_tok = tok;
+                    cur_cmd = cmd;
+                    cur_chr = chr;
+                    cur_cs = cs;
+                    if cur_cmd == Cmd::Spacer {
+                        let (tok, cmd, chr, cs) = get_token(&mut cur_input);
+                        cur_tok = tok;
+                        cur_cmd = cmd;
+                        cur_chr = chr;
+                        cur_cs = cs;
+                    }
                 }
             } else {
-                get_token(&mut cur_input);
+                let (tok, cmd, chr, cs) = get_token(&mut cur_input);
+                cur_tok = tok;
+                cur_cmd = cmd;
+                cur_chr = chr;
+                cur_cs = cs;
                 let q = cur_tok;
-                get_token(&mut cur_input);
+                let (tok, cmd, chr, cs) = get_token(&mut cur_input);
+                cur_tok = tok;
+                cur_cmd = cmd;
+                cur_chr = chr;
+                cur_cs = cs;
                 back_input(&mut cur_input);
                 cur_tok = q;
                 back_input(&mut cur_input);
@@ -2179,7 +2201,11 @@ pub(crate) unsafe fn prefixed_command() {
                 help!();
                 error();
                 loop  {
-                    get_token(&mut cur_input);
+                    let (tok, cmd, chr, cs) = get_token(&mut cur_input);
+                    cur_tok = tok;
+                    cur_cmd = cmd;
+                    cur_chr = chr;
+                    cur_cs = cs;
                     if cur_cmd == Cmd::RightBrace { break ; }
                 }
                 return;
