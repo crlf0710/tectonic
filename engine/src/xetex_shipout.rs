@@ -9,6 +9,7 @@ use crate::xetex_errors::{confusion, error, fatal_error, overflow};
 use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, Font};
 use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
+    cur_input,
     avail, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_tok, cur_v, cur_v_offset, dead_cycles, def_ref,
     doing_leaders, doing_special, file_line_error_style_p, file_offset, font_used, init_pool_ptr,
@@ -2076,17 +2077,17 @@ unsafe fn write_out(p: &WriteFile) {
     let mut r = get_avail();
     *LLIST_link(q) = Some(r).tex_int();
     MEM[r].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
-    begin_token_list(q, Btl::Inserted);
-    begin_token_list(p.tokens() as usize, Btl::WriteText);
+    begin_token_list(&mut cur_input, q, Btl::Inserted);
+    begin_token_list(&mut cur_input, p.tokens() as usize, Btl::WriteText);
     let q = get_avail();
     MEM[q].b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
-    begin_token_list(q, Btl::Inserted);
+    begin_token_list(&mut cur_input, q, Btl::Inserted);
 
     let old_mode = cur_list.mode;
     cur_list.mode = (false, ListMode::NoMode);
     cur_cs = write_loc;
     let _q = scan_toks(false, true);
-    get_token();
+    get_token(&mut cur_input);
 
     if cur_tok != CS_TOKEN_FLAG + END_WRITE as i32 {
         /*1412:*/
@@ -2103,7 +2104,7 @@ unsafe fn write_out(p: &WriteFile) {
         error();
 
         loop {
-            get_token();
+            get_token(&mut cur_input);
             if !(cur_tok != CS_TOKEN_FLAG + END_WRITE as i32) {
                 break;
             }
@@ -2111,7 +2112,7 @@ unsafe fn write_out(p: &WriteFile) {
     }
 
     cur_list.mode = old_mode;
-    end_token_list();
+    end_token_list(&mut cur_input);
     let old_setting = selector;
     let j = p.id() as i16;
 

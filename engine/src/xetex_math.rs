@@ -17,6 +17,7 @@ use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ext::{Font, NativeFont::*};
 use crate::xetex_ini::{
+    cur_input,
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
     cur_list, cur_val, cur_val1, file_line_error_style_p, insert_src_special_every_math, just_box,
     memory_word, pre_adjust_tail, tex_remainder, total_shrink, xtx_ligature_present, LR_problems,
@@ -100,7 +101,7 @@ pub(crate) unsafe fn init_math() {
     let mut x: i32 = 0;
     let mut v: scaled_t = 0;
 
-    get_token();
+    get_token(&mut cur_input);
 
     if cur_cmd == Cmd::MathShift && cur_list.mode.0 == false {
         // 1180:
@@ -389,20 +390,20 @@ pub(crate) unsafe fn init_math() {
         eq_word_define(DIMEN_BASE as usize + DimenPar::display_width as usize, l);
         eq_word_define(DIMEN_BASE as usize + DimenPar::display_indent as usize, s);
         if let Some(ed) = LOCAL(Local::every_display).opt() {
-            begin_token_list(ed, Btl::EveryDisplayText);
+            begin_token_list(&mut cur_input, ed, Btl::EveryDisplayText);
         }
         if NEST_PTR == 1 {
             build_page();
         }
     } else {
-        back_input();
+        back_input(&mut cur_input);
         push_math(GroupCode::MathShift);
         eq_word_define(INT_BASE as usize + IntPar::cur_fam as usize, -1);
         if insert_src_special_every_math {
             insert_src_special();
         }
         if let Some(em) = LOCAL(Local::every_math).opt() {
-            begin_token_list(em, Btl::EveryMathText);
+            begin_token_list(&mut cur_input, em, Btl::EveryMathText);
         }
     };
 }
@@ -415,7 +416,7 @@ pub(crate) unsafe fn start_eq_no() {
         insert_src_special();
     }
     if let Some(em) = LOCAL(Local::every_math).opt() {
-        begin_token_list(em, Btl::EveryMathText);
+        begin_token_list(&mut cur_input, em, Btl::EveryMathText);
     };
 }
 pub(crate) unsafe fn math_limit_switch() {
@@ -486,7 +487,7 @@ unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
             "Acceptable delimiters are characters whose \\delcode is",
             "nonnegative, or you can use `\\delimiter <delimiter code>\'."
         );
-        back_error();
+        back_error(&mut cur_input);
         cur_val = 0i32
     }
     if cur_val >= 0x40000000i32 {
@@ -995,7 +996,7 @@ pub(crate) unsafe fn after_math() {
                 "The `$\' that I just saw supposedly matches a previous `$$\'.",
                 "So I shall assume that you typed `$$\' both times."
             );
-            back_error();
+            back_error(&mut cur_input);
         }
         cur_mlist = p;
         cur_style = (MathStyle::Text, 0);
@@ -1097,7 +1098,7 @@ pub(crate) unsafe fn after_math() {
                     "The `$\' that I just saw supposedly matches a previous `$$\'.",
                     "So I shall assume that you typed `$$\' both times."
                 );
-                back_error();
+                back_error(&mut cur_input);
             }
         }
         cur_mlist = p;
@@ -1242,7 +1243,7 @@ pub(crate) unsafe fn resume_after_display() {
         + cur_lang as i64) as i32;
     get_x_token();
     if cur_cmd != Cmd::Spacer {
-        back_input();
+        back_input(&mut cur_input);
     }
     if NEST_PTR == 1 {
         build_page();

@@ -1543,7 +1543,7 @@ pub(crate) unsafe fn prefixed_command() {
             print_cmd_chr(cur_cmd, cur_chr);
             print_chr('\'');
             help!("I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.");
-            back_error();
+            back_error(&mut cur_input);
             return;
         }
         if *INTPAR(IntPar::tracing_commands) > 2 {
@@ -1621,20 +1621,20 @@ pub(crate) unsafe fn prefixed_command() {
             let p = cur_cs;
             if n == NORMAL as i32 {
                 loop  {
-                    get_token();
+                    get_token(&mut cur_input);
                     if !(cur_cmd == Cmd::Spacer) { break ; }
                 }
                 if cur_tok == OTHER_TOKEN + '=' as i32 {
-                    get_token();
-                    if cur_cmd == Cmd::Spacer { get_token(); }
+                    get_token(&mut cur_input);
+                    if cur_cmd == Cmd::Spacer { get_token(&mut cur_input); }
                 }
             } else {
-                get_token();
+                get_token(&mut cur_input);
                 let q = cur_tok;
-                get_token();
-                back_input();
+                get_token(&mut cur_input);
+                back_input(&mut cur_input);
                 cur_tok = q;
-                back_input();
+                back_input(&mut cur_input);
             }
             if cur_cmd >= Cmd::Call {
                 MEM[cur_chr as usize].b32.s0 += 1
@@ -1890,7 +1890,7 @@ pub(crate) unsafe fn prefixed_command() {
                 }
             }
 
-            back_input();
+            back_input(&mut cur_input);
             cur_cs = q;
             let q = scan_toks(false, false);
 
@@ -2179,7 +2179,7 @@ pub(crate) unsafe fn prefixed_command() {
                 help!();
                 error();
                 loop  {
-                    get_token();
+                    get_token(&mut cur_input);
                     if cur_cmd == Cmd::RightBrace { break ; }
                 }
                 return;
@@ -2225,7 +2225,7 @@ pub(crate) unsafe fn prefixed_command() {
     unsafe fn done() {
         if after_token != 0 {
             cur_tok = after_token;
-            back_input();
+            back_input(&mut cur_input);
             after_token = 0;
         }
     }
@@ -2240,7 +2240,7 @@ unsafe fn final_cleanup() {
     }
     while INPUT_PTR > 0 {
         if cur_input.state == InputState::TokenList {
-            end_token_list();
+            end_token_list(&mut cur_input);
         } else {
             end_file_reading();
         }
