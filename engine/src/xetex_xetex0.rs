@@ -13551,7 +13551,7 @@ pub(crate) unsafe fn just_reverse(p: usize) {
     }
     *LLIST_link(TEMP_HEAD) = Some(l).tex_int();
 }
-pub(crate) unsafe fn get_r_token(input: &mut input_state_t) {
+pub(crate) unsafe fn get_r_token(input: &mut input_state_t) -> (i32, Cmd, i32, i32) {
     let mut tok;
     let mut cmd;
     let mut chr;
@@ -13592,10 +13592,7 @@ pub(crate) unsafe fn get_r_token(input: &mut input_state_t) {
         tok = CS_TOKEN_FLAG + FROZEN_PROTECTION as i32;
         ins_error(input, tok);
     }
-    cur_tok = tok;
-    cur_cmd = cmd;
-    cur_chr = chr;
-    cur_cs = cs;
+    (tok, cmd, chr, cs)
 }
 pub(crate) unsafe fn trap_zero_glue() {
     if MEM[(cur_val + 1) as usize].b32.s1 == 0
@@ -13911,7 +13908,11 @@ pub(crate) unsafe fn new_font(mut a: i16) {
     if job_name == 0 {
         open_log_file();
     }
-    get_r_token(&mut cur_input);
+    let (tok, cmd, chr, cs) = get_r_token(&mut cur_input);
+    cur_tok = tok;
+    cur_cmd = cmd;
+    cur_chr = chr;
+    cur_cs = cs;
     let u = cur_cs as usize;
     let mut t = if u >= HASH_BASE {
         (*hash.offset(u as isize)).s1

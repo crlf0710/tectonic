@@ -1597,7 +1597,11 @@ pub(crate) unsafe fn prefixed_command() {
                 a = (a as i32 + 4i32) as i16
             }
             e = cur_chr >= 2;
-            get_r_token(&mut cur_input);
+            let (tok, cmd, chr, cs) = get_r_token(&mut cur_input);
+            cur_tok = tok;
+            cur_cmd = cmd;
+            cur_chr = chr;
+            cur_cs = cs;
             let p = cur_cs;
             let _q = scan_toks(true, e) as i32;
             if j != 0 {
@@ -1617,7 +1621,11 @@ pub(crate) unsafe fn prefixed_command() {
         }
         Cmd::Let => {
             let n = cur_chr;
-            get_r_token(&mut cur_input);
+            let (tok, cmd, chr, cs) = get_r_token(&mut cur_input);
+            cur_tok = tok;
+            cur_cmd = cmd;
+            cur_chr = chr;
+            cur_cs = cs;
             let p = cur_cs;
             if n == NORMAL as i32 {
                 loop  {
@@ -1709,7 +1717,11 @@ pub(crate) unsafe fn prefixed_command() {
                     }
                 }
             } else {
-                get_r_token(&mut cur_input);
+                let (tok, cmd, chr, cs) = get_r_token(&mut cur_input);
+                cur_tok = tok;
+                cur_cmd = cmd;
+                cur_chr = chr;
+                cur_cs = cs;
                 let p = cur_cs;
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Relax, Some(TOO_BIG_USV));
@@ -1820,7 +1832,11 @@ pub(crate) unsafe fn prefixed_command() {
                 help!("You should have said `\\read<number> to \\cs\'.", "I\'m going to look for the \\cs now.");
                 error();
             }
-            get_r_token(&mut cur_input);
+            let (tok, cmd, chr, cs) = get_r_token(&mut cur_input);
+            cur_tok = tok;
+            cur_cmd = cmd;
+            cur_chr = chr;
+            cur_cs = cs;
             let p = cur_cs;
             read_toks(n, p, j);
             if a >= 4 {
