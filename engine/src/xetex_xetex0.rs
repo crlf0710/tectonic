@@ -390,7 +390,7 @@ pub(crate) unsafe fn free_node(p: usize, mut s: i32) {
 }
 pub(crate) unsafe fn new_null_box() -> usize {
     let mut p = List::from(get_node(BOX_NODE_SIZE));
-    set_NODE_type(p.ptr(), TextNode::HList);
+    p.set_horizontal();
     p.set_lr_mode(LRMode::Normal)
         .set_width(0)
         .set_depth(0)
@@ -3975,7 +3975,7 @@ pub(crate) unsafe fn get_next() {
                                     current_block = 8567661057257693057;
                                     break 'c_63807;
                                 } else {
-                                    cur_input.loc = cur_input.loc + 2i32 * sup_count as i32 - 1i32
+                                    cur_input.loc += 2 * sup_count as i32 - 1;
                                 }
                             }
                             (InputState::MidLine, INVALID_CHAR)
@@ -9939,7 +9939,7 @@ pub(crate) unsafe fn new_margin_kern(w: scaled_t, _p: i32, side: Side) -> usize 
 pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode) -> List {
     last_badness = 0;
     let mut r = List::from(get_node(BOX_NODE_SIZE));
-    set_NODE_type(r.ptr(), TextNode::HList);
+    r.set_horizontal();
     r.set_lr_mode(LRMode::Normal);
     r.set_shift_amount(0);
     let mut q = r.ptr() + 5;
@@ -10363,7 +10363,7 @@ pub(crate) unsafe fn vpackage(
 ) -> List {
     last_badness = 0;
     let mut r = List::from(get_node(BOX_NODE_SIZE) as usize);
-    set_NODE_type(r.ptr(), TextNode::VList);
+    r.set_vertical();
     r.set_lr_mode(if *INTPAR(IntPar::xetex_upwards) > 0 {
         LRMode::Reversed
     } else {
@@ -11155,13 +11155,13 @@ pub(crate) unsafe fn fin_align() {
                 /*836: */
                 let mut q = List::from(q);
                 if cur_list.mode == (true, ListMode::VMode) {
-                    set_NODE_type(q.ptr(), TextNode::HList);
+                    q.set_horizontal();
                     q.set_width(p.width());
                     if NEST[NEST_PTR - 1].mode == (false, ListMode::MMode) {
                         q.set_lr_mode(LRMode::DList);
                     }
                 } else {
-                    set_NODE_type(q.ptr(), TextNode::VList);
+                    q.set_vertical();
                     q.set_height(p.height());
                 }
                 q.set_glue_order(p.glue_order())
@@ -11203,7 +11203,7 @@ pub(crate) unsafe fn fin_align() {
                         if cur_list.mode == (true, ListMode::VMode) {
                             nb.set_width(BaseBox(s).width());
                         } else {
-                            set_NODE_type(nb.ptr(), TextNode::VList);
+                            nb.set_vertical();
                             nb.set_height(BaseBox(s).width());
                         }
                     }
@@ -11241,7 +11241,7 @@ pub(crate) unsafe fn fin_align() {
                             });
                         }
                         r_box.set_width(w);
-                        set_NODE_type(r, TextNode::HList);
+                        r_box.set_horizontal();
                     } else {
                         r_box.set_width(q.width());
                         if t == r_unset.height() {
@@ -11272,7 +11272,7 @@ pub(crate) unsafe fn fin_align() {
                             });
                         }
                         r_box.set_height(w);
-                        set_NODE_type(r, TextNode::VList);
+                        r_box.set_vertical();
                     }
                     r_box.set_shift_amount(0);
                     if u != HOLD_HEAD {
@@ -11280,8 +11280,8 @@ pub(crate) unsafe fn fin_align() {
                         *LLIST_link(r) = *LLIST_link(HOLD_HEAD);
                         r = u;
                     }
-                    let ropt = MEM[*LLIST_link(r) as usize].b32.s1.opt();
-                    s = MEM[*LLIST_link(s) as usize].b32.s1 as usize;
+                    let ropt = LLIST_link(*LLIST_link(r) as usize).opt();
+                    s = *LLIST_link(*LLIST_link(s) as usize) as usize;
                     if let Some(r_) = ropt {
                         r = r_;
                     } else {
