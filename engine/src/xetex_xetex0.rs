@@ -3872,7 +3872,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) {
 }
 
 pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
-    //let mut chr;
+    let mut ochr = None;
     'c_63502: loop {
         let mut current_block: u64;
         let mut cs = 0;
@@ -3895,8 +3895,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                         chr = (0x1_0000 + ((chr - 0xd800) * 1024) as i64 + lower as i64) as i32
                     }
                     'c_65186: loop {
-                        dbg!(chr);
-                        cur_chr = chr;
+                        ochr = Some(chr);
                         cur_cmd = Cmd::from(*CAT_CODE(chr as usize) as u16);
                         match (input.state, cur_cmd) {
                             (InputState::MidLine, IGNORE)
@@ -3919,16 +3918,17 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             | (InputState::SkipBlanks, Cmd::ActiveChar)
                             | (InputState::NewLine, Cmd::ActiveChar) => {
                                 cs = chr + 1;
-                                cur_cmd = Cmd::from(EQTB[cs as usize].cmd);
+                                let mut cmd = Cmd::from(EQTB[cs as usize].cmd);
                                 let mut chr = EQTB[cs as usize].val;
                                 input.state = InputState::MidLine;
-                                if cur_cmd >= Cmd::OuterCall {
+                                if cmd >= Cmd::OuterCall {
                                     if check_outer_validity(input, &mut cs) {
-                                        cur_cmd = Cmd::Spacer;
+                                        cmd = Cmd::Spacer;
                                         chr = ' ' as i32;
                                     }
                                 }
-                                cur_chr = chr;
+                                cur_cmd = cmd;
+                                ochr = Some(chr);
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
@@ -3966,7 +3966,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     {
                                         let c = BUFFER[(input.loc + 1) as usize];
                                         if !(c < 128) {
-                                            cur_chr = chr;
+                                            ochr = Some(chr);
                                             current_block = 8567661057257693057;
                                             break 'c_63807;
                                         }
@@ -3986,7 +3986,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     }
                                 }
                                 if chr > BIGGEST_USV as i32 {
-                                    cur_chr = BUFFER[input.loc as usize];
+                                    ochr = Some(BUFFER[input.loc as usize]);
                                     current_block = 8567661057257693057;
                                     break 'c_63807;
                                 } else {
@@ -4013,14 +4013,14 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             }
                             (InputState::MidLine, Cmd::Spacer) => {
                                 input.state = InputState::SkipBlanks;
-                                cur_chr = ' ' as i32;
+                                ochr = Some(' ' as i32);
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
                             (InputState::MidLine, Cmd::CarRet) => {
                                 input.loc = input.limit + 1;
                                 cur_cmd = Cmd::Spacer;
-                                cur_chr = ' ' as i32;
+                                ochr = Some(' ' as i32);
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
@@ -4034,14 +4034,16 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             (InputState::NewLine, Cmd::CarRet) => {
                                 input.loc = input.limit + 1;
                                 cs = par_loc;
-                                cur_cmd = Cmd::from(EQTB[cs as usize].cmd);
-                                cur_chr = EQTB[cs as usize].val;
-                                if cur_cmd >= Cmd::OuterCall {
+                                let mut cmd = Cmd::from(EQTB[cs as usize].cmd);
+                                let mut chr = EQTB[cs as usize].val;
+                                if cmd >= Cmd::OuterCall {
                                     if check_outer_validity(input, &mut cs) {
-                                        cur_cmd = Cmd::Spacer;
-                                        cur_chr = ' ' as i32;
+                                        cmd = Cmd::Spacer;
+                                        chr = ' ' as i32;
                                     }
                                 }
+                                cur_cmd = cmd;
+                                ochr = Some(chr);
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
                             }
@@ -4144,7 +4146,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             end_file_reading();
                             if check_outer_validity(input, &mut cs) {
                                 cur_cmd = Cmd::Spacer;
-                                cur_chr = ' ' as i32;
+                                ochr = Some(' ' as i32);
                             }
                             continue 'c_63502;
                         } else {
@@ -4366,7 +4368,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     }
                                 }
                             }
-                            cur_chr = chr;
+                            ochr = Some(chr);
                             match current_block {
                                 5873035170358615968 => {
                                     if cat != Cmd::Letter {
@@ -4434,14 +4436,16 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                         14956172121224201915 => {}
                         _ => {
                             // found:
-                            cur_cmd = Cmd::from(EQTB[cs as usize].cmd);
-                            cur_chr = EQTB[cs as usize].val;
-                            if cur_cmd >= Cmd::OuterCall {
+                            let mut cmd = Cmd::from(EQTB[cs as usize].cmd);
+                            let mut chr = EQTB[cs as usize].val;
+                            if cmd >= Cmd::OuterCall {
                                 if check_outer_validity(input, &mut cs) {
-                                    cur_cmd = Cmd::Spacer;
-                                    cur_chr = ' ' as i32;
+                                    cmd = Cmd::Spacer;
+                                    chr = ' ' as i32;
                                 }
                             }
+                            cur_cmd = cmd;
+                            ochr = Some(chr);
                         }
                     }
                 }
@@ -4452,30 +4456,32 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
             input.loc = *LLIST_link(loc);
             if t >= CS_TOKEN_FLAG {
                 cs = t - CS_TOKEN_FLAG;
-                cur_cmd = Cmd::from(EQTB[cs as usize].cmd);
-                cur_chr = EQTB[cs as usize].val;
-                if cur_cmd >= Cmd::OuterCall {
-                    if cur_cmd == Cmd::DontExpand {
+                let mut cmd = Cmd::from(EQTB[cs as usize].cmd);
+                let mut chr = EQTB[cs as usize].val;
+                if cmd >= Cmd::OuterCall {
+                    if cmd == Cmd::DontExpand {
                         /*370:*/
                         cs = MEM[input.loc.opt().unwrap()].b32.s0 - CS_TOKEN_FLAG;
                         input.loc = None.tex_int();
-                        cur_cmd = Cmd::from(EQTB[cs as usize].cmd);
-                        cur_chr = EQTB[cs as usize].val;
-                        if cur_cmd > MAX_COMMAND {
-                            cur_cmd = Cmd::Relax;
-                            cur_chr = NO_EXPAND_FLAG;
+                        cmd = Cmd::from(EQTB[cs as usize].cmd);
+                        chr = EQTB[cs as usize].val;
+                        if cmd > MAX_COMMAND {
+                            cmd = Cmd::Relax;
+                            chr = NO_EXPAND_FLAG;
                         }
                     } else {
                         if check_outer_validity(input, &mut cs) {
-                            cur_cmd = Cmd::Spacer;
-                            cur_chr = ' ' as i32;
+                            cmd = Cmd::Spacer;
+                            chr = ' ' as i32;
                         }
                     }
                 }
+                cur_cmd = cmd;
+                ochr = Some(chr);
             } else {
                 let cmd = Cmd::from((t / MAX_CHAR_VAL) as u16);
                 let chr = t % MAX_CHAR_VAL;
-                cur_chr = chr;
+                ochr = Some(chr);
                 cur_cmd = cmd;
                 match cmd {
                     Cmd::LeftBrace => {
@@ -4506,7 +4512,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
             }
             if let Some(ca) = cur_align {
                 cur_cmd = Cmd::from(MEM[ca + 5].b32.s0 as u16);
-                MEM[ca + 5].b32.s0 = cur_chr;
+                MEM[ca + 5].b32.s0 = ochr.unwrap();
                 if cur_cmd == Cmd::Omit {
                     begin_token_list(input, OMIT_TEMPLATE, Btl::VTemplate);
                 } else {
@@ -4517,7 +4523,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                 fatal_error("(interwoven alignment preambles are not allowed)");
             }
         } else {
-            return (cur_cmd, cur_chr, cs);
+            return (cur_cmd, ochr.unwrap(), cs);
         }
     }
 }
