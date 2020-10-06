@@ -3873,6 +3873,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) {
 
 pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
     let mut ochr = None;
+    let mut ocmd = None;
     'c_63502: loop {
         let mut current_block: u64;
         let mut cs = 0;
@@ -3896,8 +3897,9 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                     }
                     'c_65186: loop {
                         ochr = Some(chr);
-                        cur_cmd = Cmd::from(*CAT_CODE(chr as usize) as u16);
-                        match (input.state, cur_cmd) {
+                        let cmd = Cmd::from(*CAT_CODE(chr as usize) as u16);
+                        ocmd = Some(cmd);
+                        match (input.state, cmd) {
                             (InputState::MidLine, IGNORE)
                             | (InputState::SkipBlanks, IGNORE)
                             | (InputState::NewLine, IGNORE)
@@ -3927,7 +3929,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         chr = ' ' as i32;
                                     }
                                 }
-                                cur_cmd = cmd;
+                                ocmd = Some(cmd);
                                 ochr = Some(chr);
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
@@ -4019,7 +4021,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             }
                             (InputState::MidLine, Cmd::CarRet) => {
                                 input.loc = input.limit + 1;
-                                cur_cmd = Cmd::Spacer;
+                                ocmd = Some(Cmd::Spacer);
                                 ochr = Some(' ' as i32);
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
@@ -4042,7 +4044,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         chr = ' ' as i32;
                                     }
                                 }
-                                cur_cmd = cmd;
+                                ocmd = Some(cmd);
                                 ochr = Some(chr);
                                 current_block = 14956172121224201915;
                                 break 'c_63807;
@@ -4145,7 +4147,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             force_eof = false;
                             end_file_reading();
                             if check_outer_validity(input, &mut cs) {
-                                cur_cmd = Cmd::Spacer;
+                                ocmd = Some(Cmd::Spacer);
                                 ochr = Some(' ' as i32);
                             }
                             continue 'c_63502;
@@ -4444,7 +4446,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     chr = ' ' as i32;
                                 }
                             }
-                            cur_cmd = cmd;
+                            ocmd = Some(cmd);
                             ochr = Some(chr);
                         }
                     }
@@ -4476,13 +4478,13 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                         }
                     }
                 }
-                cur_cmd = cmd;
+                ocmd = Some(cmd);
                 ochr = Some(chr);
             } else {
                 let cmd = Cmd::from((t / MAX_CHAR_VAL) as u16);
                 let chr = t % MAX_CHAR_VAL;
                 ochr = Some(chr);
-                cur_cmd = cmd;
+                ocmd = Some(cmd);
                 match cmd {
                     Cmd::LeftBrace => {
                         align_state += 1;
@@ -4505,15 +4507,16 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
             end_token_list(input);
             continue;
         }
-        if (cur_cmd == Cmd::CarRet || cur_cmd == Cmd::TabMark) && align_state == 0 {
+        let mut cmd = ocmd.unwrap();
+        if (cmd == Cmd::CarRet || cmd == Cmd::TabMark) && align_state == 0 {
             /*818:*/
             if scanner_status == ScannerStatus::Aligning {
                 fatal_error("(interwoven alignment preambles are not allowed)");
             }
             if let Some(ca) = cur_align {
-                cur_cmd = Cmd::from(MEM[ca + 5].b32.s0 as u16);
+                cmd = Cmd::from(MEM[ca + 5].b32.s0 as u16);
                 MEM[ca + 5].b32.s0 = ochr.unwrap();
-                if cur_cmd == Cmd::Omit {
+                if cmd == Cmd::Omit {
                     begin_token_list(input, OMIT_TEMPLATE, Btl::VTemplate);
                 } else {
                     begin_token_list(input, MEM[ca + 2].b32.s1 as usize, Btl::VTemplate);
@@ -4523,7 +4526,7 @@ pub(crate) unsafe fn _get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                 fatal_error("(interwoven alignment preambles are not allowed)");
             }
         } else {
-            return (cur_cmd, ochr.unwrap(), cs);
+            return (cmd, ochr.unwrap(), cs);
         }
     }
 }
