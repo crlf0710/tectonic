@@ -5266,7 +5266,10 @@ pub(crate) unsafe fn expand() {
                         }
                     } else {
                         while cur_chr != FiOrElseCode::Fi as i32 {
-                            pass_text();
+                            let next = pass_text(&mut cur_input);
+                            cur_cmd = next.0;
+                            cur_chr = next.1;
+                            cur_cs = next.2;
                         }
                         if IF_STACK[IN_OPEN] == cond_ptr {
                             INPUT_STACK[INPUT_PTR] = cur_input;
@@ -6950,7 +6953,7 @@ pub(crate) unsafe fn scan_int() {
         /*424:*/
         {
             get_x_token();
-            if !(cur_cmd == Cmd::Spacer) {
+            if cur_cmd != Cmd::Spacer {
                 break;
             }
         }
@@ -6958,7 +6961,7 @@ pub(crate) unsafe fn scan_int() {
             negative = !negative;
             cur_tok = OTHER_TOKEN + '+' as i32
         }
-        if !(cur_tok == OTHER_TOKEN + '+' as i32) {
+        if cur_tok != OTHER_TOKEN + '+' as i32 {
             break;
         }
     }
@@ -6970,8 +6973,8 @@ pub(crate) unsafe fn scan_int() {
         cur_chr = chr;
         cur_cs = cs;
         /*461:*/
-        if cur_tok < CS_TOKEN_FLAG {
-            cur_val = cur_chr; /*462:*/
+        cur_val = if cur_tok < CS_TOKEN_FLAG {
+            /*462:*/
             if cur_cmd <= Cmd::RightBrace {
                 if cur_cmd == Cmd::RightBrace {
                     align_state += 1;
@@ -6979,11 +6982,12 @@ pub(crate) unsafe fn scan_int() {
                     align_state -= 1;
                 }
             }
+            cur_chr
         } else if cur_tok < CS_TOKEN_FLAG + SINGLE_BASE as i32 {
-            cur_val = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
+            cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
         } else {
-            cur_val = cur_tok - (CS_TOKEN_FLAG + SINGLE_BASE as i32)
-        } /*:463*/
+            cur_tok - (CS_TOKEN_FLAG + SINGLE_BASE as i32)
+        }; /*:463*/
         if cur_val > BIGGEST_USV as i32 {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -7158,11 +7162,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 /*471:*/
                 let mut k = 0; /* if(requires_units) */
                 let mut p = None.tex_int();
-                let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-                cur_tok = tok;
-                cur_cmd = cmd;
-                cur_chr = chr;
-                cur_cs = cs;
+                let _ = get_token(&mut cur_input);
                 loop {
                     get_x_token();
                     if cur_tok > ZERO_TOKEN + 9 || cur_tok < ZERO_TOKEN {
@@ -8849,31 +8849,35 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
     scanner_status = ScannerStatus::Normal;
     align_state = s;
 }
-pub(crate) unsafe fn pass_text() {
+pub(crate) unsafe fn pass_text(input: &mut input_state_t) -> (Cmd, i32, i32) {
     let save_scanner_status = scanner_status;
     scanner_status = ScannerStatus::Skipping;
     let mut l = 0;
     skip_line = line;
+    let mut cmd;
+    let mut chr;
+    let mut cs;
     loop {
-        let (cmd, chr, cs) = get_next(&mut cur_input);
-        cur_cmd = cmd;
-        cur_chr = chr;
-        cur_cs = cs;
-        if cur_cmd == Cmd::FiOrElse {
+        let next = get_next(input);
+        cmd = next.0;
+        chr = next.1;
+        cs = next.2;
+        if cmd == Cmd::FiOrElse {
             if l == 0 {
                 break;
             }
-            if cur_chr == FiOrElseCode::Fi as i32 {
+            if chr == FiOrElseCode::Fi as i32 {
                 l -= 1;
             }
-        } else if cur_cmd == Cmd::IfTest {
+        } else if cmd == Cmd::IfTest {
             l += 1;
         }
     }
     scanner_status = save_scanner_status;
     if *INTPAR(IntPar::tracing_ifs) > 0 {
-        show_cur_cmd_chr(cur_cmd, cur_chr);
+        show_cur_cmd_chr(cmd, chr);
     };
+    (cmd, chr, cs)
 }
 pub(crate) unsafe fn change_if_limit(l: FiOrElseCode, p: Option<usize>) {
     if p == cond_ptr {
@@ -8962,7 +8966,7 @@ pub(crate) unsafe fn conditional() {
 
             loop {
                 get_x_token();
-                if !(cur_cmd == Cmd::Spacer) {
+                if cur_cmd != Cmd::Spacer {
                     break;
                 }
             }
@@ -9202,7 +9206,10 @@ pub(crate) unsafe fn conditional() {
                     break;
                 }
 
-                pass_text();
+                let next = pass_text(&mut cur_input);
+                cur_cmd = next.0;
+                cur_chr = next.1;
+                cur_cs = next.2;
 
                 if cond_ptr == save_cond_ptr {
                     if cur_chr == FiOrElseCode::Or as i32 {
@@ -9262,7 +9269,10 @@ pub(crate) unsafe fn conditional() {
     }
 
     loop {
-        pass_text();
+        let next = pass_text(&mut cur_input);
+        cur_cmd = next.0;
+        cur_chr = next.1;
+        cur_cs = next.2;
 
         if cond_ptr == save_cond_ptr {
             if cur_chr != FiOrElseCode::Or as i32 {
@@ -14719,11 +14729,10 @@ pub(crate) unsafe fn main_control() {
             (HMode, Cmd::NoBoundary) => {
                 // 169
                 get_x_token();
-                if cur_cmd == Cmd::Letter
-                    || cur_cmd == Cmd::OtherChar
-                    || cur_cmd == Cmd::CharGiven
-                    || cur_cmd == Cmd::CharNum
-                {
+                if matches!(
+                    cur_cmd,
+                    Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven | Cmd::CharNum
+                ) {
                     cancel_boundary = true;
                 }
                 big_switch = false;
@@ -14742,15 +14751,15 @@ pub(crate) unsafe fn main_control() {
                             false,
                         );
                         if let Some(c) = cur_ptr {
-                            if cur_cs == 0 {
+                            let tok = if cur_cs == 0 {
                                 if cur_cmd == Cmd::CharNum {
                                     cur_cmd = Cmd::OtherChar;
                                 }
-                                cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
+                                cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
                             } else {
-                                cur_tok = CS_TOKEN_FLAG + cur_cs
-                            }
-                            back_input(&mut cur_input, cur_tok);
+                                CS_TOKEN_FLAG + cur_cs
+                            };
+                            back_input(&mut cur_input, tok);
                             begin_token_list(
                                 &mut cur_input,
                                 MEM[c + 1].b32.s1 as usize,
@@ -14787,16 +14796,13 @@ pub(crate) unsafe fn main_control() {
                         } else {
                             let t = scanner_status;
                             scanner_status = ScannerStatus::Normal;
-                            let (cmd, chr, cs) = get_next(&mut cur_input);
-                            cur_cmd = cmd;
-                            cur_chr = chr;
-                            cur_cs = cs;
+                            let (_, _, cs) = get_next(&mut cur_input);
                             scanner_status = t;
-                            if cur_cs < HASH_BASE as i32 {
-                                cur_cs = prim_lookup(cur_cs - SINGLE_BASE as i32) as i32
+                            cur_cs = if cs < HASH_BASE as i32 {
+                                prim_lookup(cs - SINGLE_BASE as i32) as i32
                             } else {
-                                cur_cs = prim_lookup((*hash.offset(cur_cs as isize)).s1) as i32
-                            }
+                                prim_lookup((*hash.offset(cs as isize)).s1) as i32
+                            };
                             if cur_cs != UNDEFINED_PRIMITIVE {
                                 cur_cmd = Cmd::from(prim_eqtb[cur_cs as usize].cmd);
                                 cur_chr = prim_eqtb[cur_cs as usize].val;
@@ -15269,21 +15275,13 @@ pub(crate) unsafe fn main_control() {
                     }
                     (_, Cmd::AfterAssignment) => {
                         // 41 | 144 | 247
-                        let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-                        cur_tok = tok;
-                        cur_cmd = cmd;
-                        cur_chr = chr;
-                        cur_cs = cs;
-                        after_token = cur_tok;
+                        let (tok, ..) = get_token(&mut cur_input);
+                        after_token = tok;
                     }
                     (_, Cmd::AfterGroup) => {
                         // 42 | 145 | 248
-                        let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-                        cur_tok = tok;
-                        cur_cmd = cmd;
-                        cur_chr = chr;
-                        cur_cs = cs;
-                        save_for_after(cur_tok);
+                        let (tok, ..) = get_token(&mut cur_input);
+                        save_for_after(tok);
                     }
                     (_, Cmd::InStream) => {
                         // 61 | 164 | 267
@@ -15363,8 +15361,8 @@ pub(crate) unsafe fn main_control() {
                                 if cur_cmd != Cmd::Letter {
                                     cur_cmd = Cmd::OtherChar;
                                 }
-                                cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                back_input(&mut cur_input, cur_tok);
+                                let tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
+                                back_input(&mut cur_input, tok);
                                 cur_input.index = Btl::BackedUpChar;
                                 begin_token_list(
                                     &mut cur_input,
@@ -15384,8 +15382,8 @@ pub(crate) unsafe fn main_control() {
                             if cur_cmd != Cmd::Letter {
                                 cur_cmd = Cmd::OtherChar;
                             }
-                            cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                            back_input(&mut cur_input, cur_tok);
+                            let tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
+                            back_input(&mut cur_input, tok);
                             cur_input.index = Btl::BackedUpChar;
                             begin_token_list(
                                 &mut cur_input,
@@ -15466,7 +15464,7 @@ pub(crate) unsafe fn main_control() {
                     false,
                 );
                 if let Some(c) = cur_ptr {
-                    cur_tok = if cur_cs == 0 {
+                    let tok = if cur_cs == 0 {
                         if cur_cmd == Cmd::CharNum {
                             cur_cmd = Cmd::OtherChar;
                         }
@@ -15474,7 +15472,7 @@ pub(crate) unsafe fn main_control() {
                     } else {
                         CS_TOKEN_FLAG + cur_cs
                     };
-                    back_input(&mut cur_input, cur_tok);
+                    back_input(&mut cur_input, tok);
                     begin_token_list(
                         &mut cur_input,
                         MEM[c + 1].b32.s1 as usize,
@@ -15821,8 +15819,8 @@ pub(crate) unsafe fn main_control() {
                         if cur_cmd != Cmd::Letter {
                             cur_cmd = Cmd::OtherChar;
                         }
-                        cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                        back_input(&mut cur_input, cur_tok);
+                        let tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
+                        back_input(&mut cur_input, tok);
                         cur_input.index = Btl::BackedUpChar;
                         begin_token_list(
                             &mut cur_input,
@@ -15842,8 +15840,8 @@ pub(crate) unsafe fn main_control() {
                     if cur_cmd != Cmd::Letter {
                         cur_cmd = Cmd::OtherChar;
                     }
-                    cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                    back_input(&mut cur_input, cur_tok);
+                    let tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
+                    back_input(&mut cur_input, tok);
                     cur_input.index = Btl::BackedUpChar;
                     begin_token_list(
                         &mut cur_input,
@@ -16189,8 +16187,8 @@ pub(crate) unsafe fn main_control() {
                                             if cur_cmd != Cmd::Letter {
                                                 cur_cmd = Cmd::OtherChar
                                             }
-                                            cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                            back_input(&mut cur_input, cur_tok);
+                                            let tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
+                                            back_input(&mut cur_input, tok);
                                             cur_input.index = Btl::BackedUpChar;
                                             begin_token_list(
                                                 &mut cur_input,
@@ -16210,8 +16208,8 @@ pub(crate) unsafe fn main_control() {
                                         if cur_cmd != Cmd::Letter {
                                             cur_cmd = Cmd::OtherChar;
                                         }
-                                        cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                        back_input(&mut cur_input, cur_tok);
+                                        let tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
+                                        back_input(&mut cur_input, tok);
                                         cur_input.index = Btl::BackedUpChar;
                                         begin_token_list(
                                             &mut cur_input,
@@ -16377,15 +16375,15 @@ pub(crate) unsafe fn main_control() {
                 false,
             );
             if let Some(c) = cur_ptr {
-                if cur_cs == 0 {
+                let tok = if cur_cs == 0 {
                     if cur_cmd == Cmd::CharNum {
                         cur_cmd = Cmd::OtherChar;
                     }
-                    cur_tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
+                    cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
                 } else {
-                    cur_tok = CS_TOKEN_FLAG + cur_cs
-                }
-                back_input(&mut cur_input, cur_tok);
+                    CS_TOKEN_FLAG + cur_cs
+                };
+                back_input(&mut cur_input, tok);
                 begin_token_list(
                     &mut cur_input,
                     MEM[c + 1].b32.s1 as usize,
