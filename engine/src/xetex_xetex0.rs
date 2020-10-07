@@ -4534,14 +4534,19 @@ pub(crate) unsafe fn get_token(input: &mut input_state_t) -> (i32, Cmd, i32, i32
     };
     (tok, cmd, chr, cs)
 }
-pub(crate) unsafe fn macro_call() {
+pub(crate) unsafe fn macro_call(
+    input: &mut input_state_t,
+    cmd: &mut Cmd,
+    chr: &mut i32,
+    cs: &mut i32,
+) {
     let mut p: i32 = None.tex_int();
     let mut rbrace_ptr: i32 = None.tex_int();
     let mut match_chr: UTF16_code = 0;
     let save_scanner_status = scanner_status;
     let save_warning_index = warning_index;
-    warning_index = cur_cs;
-    let ref_count = cur_chr as usize;
+    warning_index = *cs;
+    let ref_count = *chr as usize;
     let mut r = llist_link(ref_count).unwrap();
     let mut n = 0_i16;
     if *INTPAR(IntPar::tracing_macros) > 0 {
@@ -4559,7 +4564,7 @@ pub(crate) unsafe fn macro_call() {
         /*409:*/
         scanner_status = ScannerStatus::Matching;
         let mut unbalance = 0;
-        long_state = EQTB[cur_cs as usize].cmd as u8;
+        long_state = EQTB[*cs as usize].cmd as u8;
 
         if long_state as u16 >= Cmd::OuterCall as u16 {
             long_state = (long_state as i32 - 2) as u8
@@ -4583,16 +4588,16 @@ pub(crate) unsafe fn macro_call() {
             }
             cont = false;
 
-            let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-            cur_tok = tok;
-            cur_cmd = cmd;
-            cur_chr = chr;
-            cur_cs = cs;
-            if cur_tok == MEM[r].b32.s0 {
+            let next = get_token(input);
+            let mut tok = next.0;
+            *cmd = next.1;
+            *chr = next.2;
+            *cs = next.3;
+            if tok == MEM[r].b32.s0 {
                 /*412:*/
                 r = llist_link(r).unwrap();
                 if MEM[r].b32.s0 >= MATCH_TOKEN && MEM[r].b32.s0 <= END_MATCH_TOKEN {
-                    if cur_tok < LEFT_BRACE_LIMIT {
+                    if tok < LEFT_BRACE_LIMIT {
                         align_state -= 1
                     }
                 } else {
@@ -4613,7 +4618,7 @@ pub(crate) unsafe fn macro_call() {
                             let mut v = s;
                             loop {
                                 if u == r {
-                                    if cur_tok != MEM[v].b32.s0 {
+                                    if tok != MEM[v].b32.s0 {
                                         break;
                                     } else {
                                         r = llist_link(v).unwrap();
@@ -4658,7 +4663,7 @@ pub(crate) unsafe fn macro_call() {
                     }
                 }
 
-                if cur_tok == par_token {
+                if tok == par_token {
                     if long_state as u16 != Cmd::LongCall as u16 {
                         /*414:*/
                         if long_state as u16 == Cmd::Call as u16 {
@@ -4676,7 +4681,7 @@ pub(crate) unsafe fn macro_call() {
                                 "control sequence to too much text. How can we recover?",
                                 "My plan is to forget the whole thing and hope for the best."
                             );
-                            back_error(&mut cur_input, cur_tok);
+                            back_error(input, tok);
                         }
 
                         pstack[n as usize] = *LLIST_link(TEMP_HEAD);
@@ -4690,8 +4695,8 @@ pub(crate) unsafe fn macro_call() {
                     }
                 }
 
-                if cur_tok < RIGHT_BRACE_LIMIT {
-                    if cur_tok < LEFT_BRACE_LIMIT {
+                if tok < RIGHT_BRACE_LIMIT {
+                    if tok < LEFT_BRACE_LIMIT {
                         /*417:*/
                         unbalance = 1;
 
@@ -4705,16 +4710,16 @@ pub(crate) unsafe fn macro_call() {
                             };
 
                             *LLIST_link(p as usize) = Some(q).tex_int();
-                            MEM[q].b32.s0 = cur_tok;
+                            MEM[q].b32.s0 = tok;
                             p = q as i32;
 
-                            let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-                            cur_tok = tok;
-                            cur_cmd = cmd;
-                            cur_chr = chr;
-                            cur_cs = cs;
+                            let next = get_token(input);
+                            tok = next.0;
+                            *cmd = next.1;
+                            *chr = next.2;
+                            *cs = next.3;
 
-                            if cur_tok == par_token {
+                            if tok == par_token {
                                 if long_state as u16 != Cmd::LongCall as u16 {
                                     /*414:*/
                                     if long_state as u16 == Cmd::Call as u16 {
@@ -4730,7 +4735,7 @@ pub(crate) unsafe fn macro_call() {
                                         help!("I suspect you\'ve forgotten a `}\', causing me to apply this",
                                         "control sequence to too much text. How can we recover?",
                                         "My plan is to forget the whole thing and hope for the best.");
-                                        back_error(&mut cur_input, cur_tok);
+                                        back_error(input, tok);
                                     }
 
                                     pstack[n as usize] = *LLIST_link(TEMP_HEAD);
@@ -4744,8 +4749,8 @@ pub(crate) unsafe fn macro_call() {
                                 }
                             }
 
-                            if cur_tok < RIGHT_BRACE_LIMIT {
-                                if cur_tok < LEFT_BRACE_LIMIT {
+                            if tok < RIGHT_BRACE_LIMIT {
+                                if tok < LEFT_BRACE_LIMIT {
                                     unbalance += 1
                                 } else {
                                     unbalance -= 1;
@@ -4761,11 +4766,11 @@ pub(crate) unsafe fn macro_call() {
 
                         let q = get_avail();
                         *LLIST_link(p as usize) = Some(q).tex_int();
-                        MEM[q].b32.s0 = cur_tok;
+                        MEM[q].b32.s0 = tok;
                         p = q as i32;
                     } else {
                         /* 413 */
-                        back_input(&mut cur_input, cur_tok);
+                        back_input(input, tok);
 
                         if file_line_error_style_p != 0 {
                             print_file_line();
@@ -4785,13 +4790,13 @@ pub(crate) unsafe fn macro_call() {
                         );
                         align_state += 1;
                         long_state = Cmd::Call as u8;
-                        cur_tok = par_token;
-                        ins_error(&mut cur_input, cur_tok);
+                        tok = par_token;
+                        ins_error(input, tok);
                         cont = true;
                         continue;
                     }
                 } else {
-                    if cur_tok == SPACE_TOKEN {
+                    if tok == SPACE_TOKEN {
                         if MEM[r].b32.s0 <= END_MATCH_TOKEN {
                             if MEM[r].b32.s0 >= MATCH_TOKEN {
                                 cont = true;
@@ -4802,7 +4807,7 @@ pub(crate) unsafe fn macro_call() {
 
                     let q = get_avail();
                     *LLIST_link(p as usize) = Some(q).tex_int();
-                    MEM[q].b32.s0 = cur_tok;
+                    MEM[q].b32.s0 = tok;
                     p = q as i32;
                 }
 
@@ -4852,10 +4857,10 @@ pub(crate) unsafe fn macro_call() {
         && cur_input.loc.opt().is_none()
         && cur_input.index != Btl::VTemplate
     {
-        end_token_list(&mut cur_input);
+        end_token_list(input);
     }
 
-    begin_token_list(&mut cur_input, ref_count, Btl::Macro);
+    begin_token_list(input, ref_count, Btl::Macro);
     cur_input.name = warning_index;
     cur_input.loc = *LLIST_link(r);
 
@@ -5316,7 +5321,7 @@ pub(crate) unsafe fn expand() {
             }
         } else {
             if cur_cmd < Cmd::EndTemplate {
-                macro_call();
+                macro_call(&mut cur_input, &mut cur_cmd, &mut cur_chr, &mut cur_cs);
             } else {
                 cur_tok = CS_TOKEN_FLAG + FROZEN_ENDV as i32;
                 back_input(&mut cur_input, cur_tok);
@@ -5342,7 +5347,7 @@ pub(crate) unsafe fn get_x_token() {
         }
         if cur_cmd >= Cmd::Call {
             if cur_cmd < Cmd::EndTemplate {
-                macro_call();
+                macro_call(&mut cur_input, &mut cur_cmd, &mut cur_chr, &mut cur_cs);
             } else {
                 cur_cs = FROZEN_ENDV as i32;
                 cur_cmd = Cmd::EndV;
