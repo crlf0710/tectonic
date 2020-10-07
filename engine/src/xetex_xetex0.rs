@@ -9045,27 +9045,21 @@ pub(crate) unsafe fn conditional() {
         IfTestCode::Ifx => {
             let save_scanner_status = scanner_status;
             scanner_status = ScannerStatus::Normal;
-            let (cmd, chr, cs) = get_next(&mut cur_input);
-            cur_cmd = cmd;
-            cur_chr = chr;
-            cur_cs = cs;
-            let n = cur_cs;
-            let p = cur_cmd;
-            let q = cur_chr;
+            let (p, q, n) = get_next(&mut cur_input);
             let (cmd, chr, cs) = get_next(&mut cur_input);
             cur_cmd = cmd;
             cur_chr = chr;
             cur_cs = cs;
 
-            if cur_cmd != p {
-                b = false
+            b = if cur_cmd != p {
+                false
             } else if cur_cmd < Cmd::Call {
-                b = cur_chr == q
+                cur_chr == q
             } else {
                 let mut popt = LLIST_link(cur_chr as usize).opt();
                 let mut qopt = MEM[EQTB[n as usize].val as usize].b32.s1.opt();
                 if popt == qopt {
-                    b = true
+                    true
                 } else {
                     while let (Some(p), Some(q)) = (popt, qopt) {
                         if MEM[p].b32.s0 != MEM[q as usize].b32.s0 {
@@ -9075,9 +9069,9 @@ pub(crate) unsafe fn conditional() {
                             qopt = llist_link(q);
                         }
                     }
-                    b = popt.is_none() && qopt.is_none();
+                    popt.is_none() && qopt.is_none()
                 }
-            }
+            };
 
             scanner_status = save_scanner_status;
         }
