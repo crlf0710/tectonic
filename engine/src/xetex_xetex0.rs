@@ -3399,7 +3399,7 @@ pub(crate) unsafe fn print_meaning() {
         token_show(cur_mark[cur_chr as usize]);
     };
 }
-pub(crate) unsafe fn show_cur_cmd_chr() {
+pub(crate) unsafe fn show_cur_cmd_chr(cmd: Cmd, chr: i32) {
     diagnostic(false, || {
         print_nl('{' as i32);
         if cur_list.mode != shown_mode {
@@ -3407,14 +3407,14 @@ pub(crate) unsafe fn show_cur_cmd_chr() {
             print_cstr(": ");
             shown_mode = cur_list.mode
         }
-        print_cmd_chr(cur_cmd, cur_chr);
+        print_cmd_chr(cmd, chr);
         if *INTPAR(IntPar::tracing_ifs) > 0 {
-            if cur_cmd >= Cmd::IfTest {
-                if cur_cmd <= Cmd::FiOrElse {
+            if cmd >= Cmd::IfTest {
+                if cmd <= Cmd::FiOrElse {
                     print_cstr(": ");
                     let mut n;
                     let l;
-                    if cur_cmd == Cmd::FiOrElse {
+                    if cmd == Cmd::FiOrElse {
                         print_cmd_chr(Cmd::IfTest, cur_if as i32);
                         print_chr(' ');
                         n = 0;
@@ -5047,7 +5047,7 @@ pub(crate) unsafe fn expand() {
         if cur_cmd < Cmd::Call {
             /*384:*/
             if *INTPAR(IntPar::tracing_commands) > 1 {
-                show_cur_cmd_chr(); /*1612:*/
+                show_cur_cmd_chr(cur_cmd, cur_chr); /*1612:*/
             }
             match cur_cmd {
                 Cmd::TopBotMark => {
@@ -5071,13 +5071,9 @@ pub(crate) unsafe fn expand() {
                 Cmd::ExpandAfter => {
                     /*385:*/
                     if cur_chr == 0 {
-                        let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-                        cur_tok = tok;
-                        cur_cmd = cmd;
-                        cur_chr = chr;
-                        cur_cs = cs;
+                        let (t, _, _, _) = get_token(&mut cur_input);
+                        cur_tok = t;
                         /*1553: "\unless" implementation */
-                        let t = cur_tok;
                         let (tok, cmd, chr, cs) = get_token(&mut cur_input);
                         cur_tok = tok;
                         cur_cmd = cmd;
@@ -5251,7 +5247,7 @@ pub(crate) unsafe fn expand() {
                 Cmd::FiOrElse => {
                     if *INTPAR(IntPar::tracing_ifs) > 0 {
                         if *INTPAR(IntPar::tracing_commands) <= 1i32 {
-                            show_cur_cmd_chr();
+                            show_cur_cmd_chr(cur_cmd, cur_chr);
                         }
                     }
                     if cur_chr > if_limit as i32 {
@@ -5323,8 +5319,8 @@ pub(crate) unsafe fn expand() {
             if cur_cmd < Cmd::EndTemplate {
                 macro_call(&mut cur_input, &mut cur_cmd, &mut cur_chr, &mut cur_cs);
             } else {
-                cur_tok = CS_TOKEN_FLAG + FROZEN_ENDV as i32;
-                back_input(&mut cur_input, cur_tok);
+                let tok = CS_TOKEN_FLAG + FROZEN_ENDV as i32;
+                back_input(&mut cur_input, tok);
             }
             break;
         }
@@ -8876,7 +8872,7 @@ pub(crate) unsafe fn pass_text() {
     }
     scanner_status = save_scanner_status;
     if *INTPAR(IntPar::tracing_ifs) > 0 {
-        show_cur_cmd_chr();
+        show_cur_cmd_chr(cur_cmd, cur_chr);
     };
 }
 pub(crate) unsafe fn change_if_limit(l: FiOrElseCode, p: Option<usize>) {
@@ -8901,7 +8897,7 @@ pub(crate) unsafe fn conditional() {
 
     if *INTPAR(IntPar::tracing_ifs) > 0 {
         if *INTPAR(IntPar::tracing_commands) <= 1 {
-            show_cur_cmd_chr();
+            show_cur_cmd_chr(cur_cmd, cur_chr);
         }
     }
 
@@ -14715,7 +14711,7 @@ pub(crate) unsafe fn main_control() {
         // reswitch
         /*1066: */
         if *INTPAR(IntPar::tracing_commands) > 0i32 {
-            show_cur_cmd_chr(); /*:1490 */
+            show_cur_cmd_chr(cur_cmd, cur_chr); /*:1490 */
         }
         use ListMode::*;
         match (cur_list.mode.1, cur_cmd) {

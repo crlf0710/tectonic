@@ -1547,7 +1547,7 @@ pub(crate) unsafe fn prefixed_command() {
             return;
         }
         if *INTPAR(IntPar::tracing_commands) > 2 {
-            show_cur_cmd_chr();
+            show_cur_cmd_chr(cur_cmd, cur_chr);
         }
     }
     if a >= 8 {
