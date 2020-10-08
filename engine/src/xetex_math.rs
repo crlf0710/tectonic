@@ -441,15 +441,16 @@ pub(crate) unsafe fn math_limit_switch() {
 }
 unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
     if r {
-        if cur_chr == 1 {
+        cur_val = if cur_chr == 1 {
             cur_val1 = 0x40000000;
             scan_math_fam_int();
             cur_val1 += cur_val * 0x200000;
-            scan_usv_num();
-            cur_val += cur_val1
+            let val = scan_usv_num(&mut cur_input);
+            val + cur_val1
         } else {
             scan_delimiter_int();
-        }
+            cur_val
+        };
     } else {
         loop {
             get_x_token();
@@ -462,16 +463,17 @@ unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
                 cur_val = EQTB[(DEL_CODE_BASE as i32 + cur_chr) as usize].val
             }
             Cmd::DelimNum => {
-                if cur_chr == 1 {
+                cur_val = if cur_chr == 1 {
                     cur_val1 = 0x40000000;
                     scan_math_class_int();
                     scan_math_fam_int();
                     cur_val1 += cur_val * 0x20000;
-                    scan_usv_num();
-                    cur_val += cur_val1
+                    let val = scan_usv_num(&mut cur_input);
+                    val + cur_val1
                 } else {
                     scan_delimiter_int();
-                }
+                    cur_val
+                };
             }
             _ => cur_val = -1,
         }
@@ -544,7 +546,7 @@ pub(crate) unsafe fn math_ac() {
     acc.third_mut().empty();
     acc.second_mut().empty();
     acc.fourth_mut().typ = MathCell::MathChar as _;
-    if cur_chr == 1 {
+    cur_val = if cur_chr == 1 {
         acc.set_accent_type(if scan_keyword(b"fixed") {
             AccentType::Fixed
         } else if scan_keyword(b"bottom") {
@@ -560,12 +562,12 @@ pub(crate) unsafe fn math_ac() {
         let mut c = set_class(cur_val);
         scan_math_fam_int();
         c += set_family(cur_val);
-        scan_usv_num();
-        cur_val = cur_val + c
+        let val = scan_usv_num(&mut cur_input);
+        val + c
     } else {
         scan_fifteen_bit_int();
-        cur_val = set_class(cur_val / 4096) + set_family(cur_val % 4096 / 256) + (cur_val % 256);
-    }
+        set_class(cur_val / 4096) + set_family(cur_val % 4096 / 256) + (cur_val % 256)
+    };
     acc.fourth_mut().val.chr.character = (cur_val as i64 % 65536) as u16;
     let font = if math_class(cur_val) == 7
         && (*INTPAR(IntPar::cur_fam) >= 0 && *INTPAR(IntPar::cur_fam) < NUMBER_MATH_FAMILIES as i32)

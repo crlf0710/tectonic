@@ -1731,10 +1731,10 @@ pub(crate) unsafe fn prefixed_command() {
                 scan_optional_equals();
                 match n {
                     ShorthandDefCode::Char => {
-                        scan_usv_num();
+                        let val = scan_usv_num(&mut cur_input);
                         if a >= 4 {
-                            geq_define(p as usize, Cmd::CharGiven, cur_val.opt());
-                        } else { eq_define(p as usize, Cmd::CharGiven, cur_val.opt()); }
+                            geq_define(p as usize, Cmd::CharGiven, val.opt());
+                        } else { eq_define(p as usize, Cmd::CharGiven, val.opt()); }
                     }
                     ShorthandDefCode::MathChar => {
                         scan_fifteen_bit_int();
@@ -1753,8 +1753,8 @@ pub(crate) unsafe fn prefixed_command() {
                         let mut n = set_class(cur_val);
                         scan_math_fam_int();
                         n += set_family(cur_val);
-                        scan_usv_num();
-                        n += cur_val;
+                        let val = scan_usv_num(&mut cur_input);
+                        n += val;
                         if a >= 4 {
                             geq_define(p as usize, Cmd::XetexMathGiven, n.opt());
                         } else { eq_define(p as usize, Cmd::XetexMathGiven, n.opt()); }
@@ -1858,11 +1858,10 @@ pub(crate) unsafe fn prefixed_command() {
                     }
                 } else { e = true }
             } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
-                scan_char_class_not_ignored();
-                cur_ptr = cur_val.opt();
-                scan_char_class_not_ignored();
+                cur_ptr = scan_char_class_not_ignored(&mut cur_input).opt();
+                let val = scan_char_class_not_ignored(&mut cur_input);
                 find_sa_element(ValLevel::InterChar,
-                                cur_ptr.tex_int() * CHAR_CLASS_LIMIT + cur_val, true);
+                                cur_ptr.tex_int() * CHAR_CLASS_LIMIT + val, true);
                 cur_chr = cur_ptr.tex_int();
                 e = true
             }
@@ -1894,11 +1893,10 @@ pub(crate) unsafe fn prefixed_command() {
                                                  usize].b32.s1
                         }
                     } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
-                        scan_char_class_not_ignored(); /*:1268 */
-                        cur_ptr = cur_val.opt();
-                        scan_char_class_not_ignored();
+                        cur_ptr = scan_char_class_not_ignored(&mut cur_input).opt(); /*:1268 */
+                        let val = scan_char_class_not_ignored(&mut cur_input);
                         find_sa_element(ValLevel::InterChar,
-                                        cur_ptr.tex_int() * CHAR_CLASS_LIMIT + cur_val,
+                                        cur_ptr.tex_int() * CHAR_CLASS_LIMIT + val,
                                         false);
                         cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt()).tex_int()
                     } else { EQTB[cur_chr as usize].val };
@@ -1996,24 +1994,24 @@ pub(crate) unsafe fn prefixed_command() {
         Cmd::XetexDefCode => {
             if cur_chr == SF_CODE_BASE as i32 {
                 let p = cur_chr;
-                scan_usv_num();
-                let p = p + cur_val;
+                let val = scan_usv_num(&mut cur_input);
+                let p = p + val;
                 let n = *SF_CODE(cur_val as usize) % 65536;
                 scan_optional_equals();
-                scan_char_class();
+                let val = scan_char_class(&mut cur_input);
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Data,
-                               ((cur_val as i64 * 65536 +
+                               ((val as i64 * 65536 +
                                     n as i64) as i32).opt());
                 } else {
                     eq_define(p as usize, Cmd::Data,
-                              ((cur_val as i64 * 65536 +
+                              ((val as i64 * 65536 +
                                    n as i64) as i32).opt());
                 }
             } else if cur_chr == MATH_CODE_BASE as i32 {
                 let p = cur_chr;
-                scan_usv_num();
-                let p = p + cur_val;
+                let val = scan_usv_num(&mut cur_input);
+                let p = p + val;
                 scan_optional_equals();
                 scan_xetex_math_char_int();
                 if a >= 4 {
@@ -2021,22 +2019,22 @@ pub(crate) unsafe fn prefixed_command() {
                 } else { eq_define(p as usize, Cmd::Data, cur_val.opt()); }
             } else if cur_chr == MATH_CODE_BASE as i32 + 1 {
                 let p = cur_chr - 1;
-                scan_usv_num();
-                let p = p + cur_val;
+                let val = scan_usv_num(&mut cur_input);
+                let p = p + val;
                 scan_optional_equals();
                 scan_math_class_int();
                 let mut n = set_class(cur_val);
                 scan_math_fam_int();
                 n = n + set_family(cur_val);
-                scan_usv_num();
-                n = n + cur_val;
+                let val = scan_usv_num(&mut cur_input);
+                n = n + val;
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Data, n.opt());
                 } else { eq_define(p as usize, Cmd::Data, n.opt()); }
             } else if cur_chr == DEL_CODE_BASE as i32 {
                 let p = cur_chr;
-                scan_usv_num();
-                let p = p + cur_val;
+                let val = scan_usv_num(&mut cur_input);
+                let p = p + val;
                 scan_optional_equals();
                 let val = scan_int(&mut cur_input);
                 if a >= 4 {
@@ -2044,14 +2042,14 @@ pub(crate) unsafe fn prefixed_command() {
                 } else { eq_word_define(p as usize, val); }
             } else {
                 let p = cur_chr - 1;
-                scan_usv_num();
-                let p = p + cur_val;
+                let val = scan_usv_num(&mut cur_input);
+                let p = p + val;
                 scan_optional_equals();
                 let mut n = 0x40000000;
                 scan_math_fam_int();
                 n = n + cur_val * 0x200000;
-                scan_usv_num();
-                n = n + cur_val;
+                let val = scan_usv_num(&mut cur_input);
+                n = n + val;
                 if a >= 4 {
                     geq_word_define(p as usize, n);
                 } else { eq_word_define(p as usize, n); }
@@ -2069,8 +2067,8 @@ pub(crate) unsafe fn prefixed_command() {
             } else { BIGGEST_USV as i32 }; // :1268
 
             let p = cur_chr;
-            scan_usv_num();
-            let p = p + cur_val;
+            let val = scan_usv_num(&mut cur_input);
+            let p = p + val;
             scan_optional_equals();
             let val = scan_int(&mut cur_input);
 
