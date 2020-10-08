@@ -2129,10 +2129,10 @@ pub(crate) unsafe fn prefixed_command() {
             let val = scan_math_fam_int(&mut cur_input);
             let p = p + val;
             scan_optional_equals(&mut cur_input);
-            scan_font_ident();
+            let val = scan_font_ident(&mut cur_input);
             if a >= 4 {
-                geq_define(p as usize, Cmd::Data, cur_val.opt());
-            } else { eq_define(p as usize, Cmd::Data, cur_val.opt()); }
+                geq_define(p as usize, Cmd::Data, val.opt());
+            } else { eq_define(p as usize, Cmd::Data, val.opt()); }
         }
         Cmd::Register | Cmd::Advance | Cmd::Multiply | Cmd::Divide => { do_register_command(a); }
         Cmd::SetBox => {
@@ -2235,8 +2235,7 @@ pub(crate) unsafe fn prefixed_command() {
         }
         Cmd::AssignFontInt => {
             let n = cur_chr;
-            scan_font_ident();
-            f = cur_val as usize;
+            f = scan_font_ident(&mut cur_input) as usize;
             if n < 2 {
                 scan_optional_equals(&mut cur_input);
                 let val = scan_int(&mut cur_input);
