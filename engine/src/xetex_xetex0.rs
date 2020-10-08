@@ -6239,26 +6239,26 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
         }
         Cmd::SetPageInt => {
             let m = cur_chr;
-            if m == 0 {
-                cur_val = dead_cycles
+            cur_val = if m == 0 {
+                dead_cycles
             } else if m == 2 {
-                cur_val = interaction as i32
+                interaction as i32
             } else {
-                cur_val = insert_penalties
-            }
+                insert_penalties
+            };
             cur_val_level = ValLevel::Int
         }
         Cmd::SetPageDimen => {
             let m = cur_chr;
-            if page_contents == PageContents::Empty && !output_active {
+            cur_val = if page_contents == PageContents::Empty && !output_active {
                 if m == 0 {
-                    cur_val = MAX_HALFWORD;
+                    MAX_HALFWORD
                 } else {
-                    cur_val = 0;
+                    0
                 }
             } else {
-                cur_val = page_so_far[m as usize]
-            }
+                page_so_far[m as usize]
+            };
             cur_val_level = ValLevel::Dimen
         }
         Cmd::SetShape => {
@@ -6430,10 +6430,10 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                     return;
                 }
                 if m >= XETEX_DIM {
-                    match m {
+                    cur_val = match m {
                         LastItemCode::XetexGlyphBounds => {
                             /*1435:*/
-                            cur_val = if let Font::Native(_) =
+                            if let Font::Native(_) =
                                 &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
                                 let n = scan_int(&mut cur_input); /* shellenabledp */
@@ -6461,7 +6461,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     EQTB[CUR_FONT_LOC].val as usize,
                                 );
                                 0
-                            };
+                            }
                         }
                         LastItemCode::FontCharWd
                         | LastItemCode::FontCharHt
@@ -6469,7 +6469,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                         | LastItemCode::FontCharIc => {
                             let q = scan_font_ident(&mut cur_input) as usize;
                             let val = scan_usv_num(&mut cur_input);
-                            cur_val = if let Font::Native(nq) = &FONT_LAYOUT_ENGINE[q] {
+                            if let Font::Native(nq) = &FONT_LAYOUT_ENGINE[q] {
                                 match m {
                                     LastItemCode::FontCharWd => getnativecharwd(q, val),
                                     LastItemCode::FontCharHt => getnativecharht(q, val),
@@ -6493,14 +6493,14 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                 }
                             } else {
                                 0
-                            };
+                            }
                         }
                         LastItemCode::ParShapeLength
                         | LastItemCode::ParShapeIndent
                         | LastItemCode::ParShapeDimen => {
                             let mut q = cur_chr - (LastItemCode::ParShapeLength as i32);
                             let mut val = scan_int(&mut cur_input);
-                            cur_val = if cur_val <= 0 {
+                            if cur_val <= 0 {
                                 0
                             } else if let Some(l) = LOCAL(Local::par_shape).opt() {
                                 if q == 2 {
@@ -6513,48 +6513,48 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                 MEM[l + 2 * (val as usize) - (q as usize)].b32.s1
                             } else {
                                 0
-                            };
-                            cur_val_level = ValLevel::Dimen
+                            }
                         }
                         LastItemCode::GlueStretch | LastItemCode::GlueShrink => {
                             scan_normal_glue();
                             let q = cur_val as usize;
-                            if m == LastItemCode::GlueStretch {
-                                cur_val = MEM[q + 2].b32.s1
+                            let val = if m == LastItemCode::GlueStretch {
+                                MEM[q + 2].b32.s1
                             } else {
-                                cur_val = MEM[q + 3].b32.s1
-                            }
+                                MEM[q + 3].b32.s1
+                            };
                             delete_glue_ref(q);
+                            val
                         }
-                        _ => {}
-                    }
+                        _ => unreachable!(),
+                    };
                     cur_val_level = ValLevel::Dimen
                 } else {
-                    match m {
-                        LastItemCode::InputLineNo => cur_val = line,
-                        LastItemCode::Badness => cur_val = last_badness,
-                        LastItemCode::PdfShellEscape => cur_val = 0,
-                        LastItemCode::EtexVersion => cur_val = ETEX_VERSION,
-                        LastItemCode::XetexVersion => cur_val = XETEX_VERSION,
+                    cur_val = match m {
+                        LastItemCode::InputLineNo => line,
+                        LastItemCode::Badness => last_badness,
+                        LastItemCode::PdfShellEscape => 0,
+                        LastItemCode::EtexVersion => ETEX_VERSION,
+                        LastItemCode::XetexVersion => XETEX_VERSION,
                         LastItemCode::XetexCountGlyphs => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = match &FONT_LAYOUT_ENGINE[n as usize] {
+                            match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => aat::aat_font_get(m.into(), *e),
                                 Font::Native(Otgr(e)) => ot_font_get((m as i32) - 14, e),
                                 _ => 0,
-                            };
+                            }
                         }
                         LastItemCode::XetexCountFeatures => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = match &FONT_LAYOUT_ENGINE[n as usize] {
+                            match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => aat::aat_font_get(m.into(), *e),
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     ot_font_get((m as i32) - 14, e)
                                 }
                                 _ => 0,
-                            };
+                            }
                         }
                         LastItemCode::XetexVariation
                         | LastItemCode::XetexVariationMin
@@ -6562,13 +6562,13 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                         | LastItemCode::XetexVariationDefault
                         | LastItemCode::XetexCountVariations => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = 0;
+                            0
                         }
                         LastItemCode::XetexFeatureCode
                         | LastItemCode::XetexIsExclusiveFeature
                         | LastItemCode::XetexCountSelectors => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = match &FONT_LAYOUT_ENGINE[n as usize] {
+                            match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
                                     k = scan_int(&mut cur_input);
@@ -6582,11 +6582,11 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
                                     -1
                                 }
-                            };
+                            }
                         }
                         LastItemCode::XetexSelectorCode | LastItemCode::XetexIsDefaultSelector => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = match &FONT_LAYOUT_ENGINE[n as usize] {
+                            match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
                                     k = scan_int(&mut cur_input);
@@ -6602,11 +6602,11 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
                                     -1
                                 }
-                            };
+                            }
                         }
                         LastItemCode::XetexFindVariationByName => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = match &FONT_LAYOUT_ENGINE[n as usize] {
+                            match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
                                     scan_and_pack_name();
@@ -6616,11 +6616,11 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     not_aat_font_error(Cmd::LastItem, m as i32, n as usize);
                                     -1
                                 }
-                            };
+                            }
                         }
                         LastItemCode::XetexFindFeatureByName => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = match &FONT_LAYOUT_ENGINE[n as usize] {
+                            match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
                                     scan_and_pack_name();
@@ -6634,11 +6634,11 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
                                     -1
                                 }
-                            };
+                            }
                         }
                         LastItemCode::XetexFindSelectorByName => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = match &FONT_LAYOUT_ENGINE[n as usize] {
+                            match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
                                     k = scan_int(&mut cur_input);
@@ -6654,20 +6654,20 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
                                     -1
                                 }
-                            };
+                            }
                         }
                         LastItemCode::XetexOTCountScripts => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = match &FONT_LAYOUT_ENGINE[n as usize] {
+                            match &FONT_LAYOUT_ENGINE[n as usize] {
                                 Font::Native(Otgr(e)) if e.using_open_type() => {
                                     ot_font_get((m as i32) - 14, e)
                                 }
                                 _ => 0,
-                            };
+                            }
                         }
                         LastItemCode::XetexOTCountLanguages | LastItemCode::XetexOTScript => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = match &FONT_LAYOUT_ENGINE[n as usize] {
+                            match &FONT_LAYOUT_ENGINE[n as usize] {
                                 Font::Native(Otgr(e)) if e.using_open_type() => {
                                     let val = scan_int(&mut cur_input);
                                     ot_font_get_1((m as i32) - 14, e, val)
@@ -6676,11 +6676,11 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     not_ot_font_error(Cmd::LastItem, m as i32, n as usize);
                                     -1
                                 }
-                            };
+                            }
                         }
                         LastItemCode::XetexOTCountFeatures | LastItemCode::XetexOTLanguage => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = match &FONT_LAYOUT_ENGINE[n as usize] {
+                            match &FONT_LAYOUT_ENGINE[n as usize] {
                                 Font::Native(Otgr(e)) if e.using_open_type() => {
                                     k = scan_int(&mut cur_input);
                                     let val = scan_int(&mut cur_input);
@@ -6690,11 +6690,11 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     not_ot_font_error(Cmd::LastItem, m as i32, n as usize);
                                     -1
                                 }
-                            };
+                            }
                         }
                         LastItemCode::XetexOTFeature => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = match &FONT_LAYOUT_ENGINE[n as usize] {
+                            match &FONT_LAYOUT_ENGINE[n as usize] {
                                 Font::Native(Otgr(e)) if e.using_open_type() => {
                                     k = scan_int(&mut cur_input);
                                     kk = scan_int(&mut cur_input);
@@ -6705,21 +6705,21 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                     not_ot_font_error(Cmd::LastItem, m as i32, n as usize);
                                     -1
                                 }
-                            };
+                            }
                         }
                         LastItemCode::XetexMapCharToGlyph => {
                             if let Font::Native(nf) =
                                 &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
                                 n = scan_int(&mut cur_input);
-                                cur_val = map_char_to_glyph(nf, n)
+                                map_char_to_glyph(nf, n)
                             } else {
                                 not_native_font_error(
                                     Cmd::LastItem,
                                     m as i32,
                                     EQTB[CUR_FONT_LOC].val as usize,
                                 );
-                                cur_val = 0;
+                                0
                             }
                         }
                         LastItemCode::XetexGlyphIndex => {
@@ -6727,29 +6727,29 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                 &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
                                 scan_and_pack_name();
-                                cur_val = map_glyph_to_index(nf)
+                                map_glyph_to_index(nf)
                             } else {
                                 not_native_font_error(
                                     Cmd::LastItem,
                                     m as i32,
                                     EQTB[CUR_FONT_LOC].val as usize,
                                 );
-                                cur_val = 0;
+                                0
                             }
                         }
                         LastItemCode::XetexFontType => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = match &FONT_LAYOUT_ENGINE[n as usize] {
+                            match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(_)) => 1,
                                 Font::Native(Otgr(e)) if e.using_open_type() => 2,
                                 Font::Native(Otgr(e)) if e.using_graphite() => 3,
                                 _ => 0,
-                            };
+                            }
                         }
                         LastItemCode::XetexFirstChar | LastItemCode::XetexLastChar => {
                             n = scan_font_ident(&mut cur_input);
-                            cur_val = if let Font::Native(_) = &FONT_LAYOUT_ENGINE[n as usize] {
+                            if let Font::Native(_) = &FONT_LAYOUT_ENGINE[n as usize] {
                                 get_font_char_range(
                                     n as usize,
                                     (m == LastItemCode::XetexFirstChar) as i32,
@@ -6758,58 +6758,60 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                                 FONT_BC[n as usize] as i32
                             } else {
                                 FONT_EC[n as usize] as i32
-                            };
-                        }
-                        LastItemCode::PdfLastXPos => cur_val = pdf_last_x_pos,
-                        LastItemCode::PdfLastYPos => cur_val = pdf_last_y_pos,
-                        LastItemCode::XetexPdfPageCount => {
-                            scan_and_pack_name();
-                            cur_val = count_pdf_file_pages()
-                        }
-                        LastItemCode::CurrentGroupLevel => cur_val = cur_level as i32 - 1,
-                        LastItemCode::CurrentGroupType => cur_val = cur_group as i32,
-                        LastItemCode::CurrentIfLevel => {
-                            let mut qopt = cond_ptr;
-                            cur_val = 0;
-                            while let Some(q) = qopt {
-                                cur_val += 1;
-                                qopt = llist_link(q);
                             }
                         }
+                        LastItemCode::PdfLastXPos => pdf_last_x_pos,
+                        LastItemCode::PdfLastYPos => pdf_last_y_pos,
+                        LastItemCode::XetexPdfPageCount => {
+                            scan_and_pack_name();
+                            count_pdf_file_pages()
+                        }
+                        LastItemCode::CurrentGroupLevel => cur_level as i32 - 1,
+                        LastItemCode::CurrentGroupType => cur_group as i32,
+                        LastItemCode::CurrentIfLevel => {
+                            let mut qopt = cond_ptr;
+                            let mut val = 0;
+                            while let Some(q) = qopt {
+                                val += 1;
+                                qopt = llist_link(q);
+                            }
+                            val
+                        }
                         LastItemCode::CurrentIfType => {
-                            cur_val = if cond_ptr.is_none() {
+                            if cond_ptr.is_none() {
                                 0
                             } else if (cur_if as i32) < UNLESS_CODE {
                                 cur_if as i32 + 1
                             } else {
                                 -(cur_if as i32 - 31)
-                            };
+                            }
                         }
                         LastItemCode::CurrentIfBranch => {
                             if if_limit == FiOrElseCode::Or || if_limit == FiOrElseCode::Else {
-                                cur_val = 1;
+                                1
                             } else if if_limit == FiOrElseCode::Fi {
-                                cur_val = -1;
+                                -1
                             } else {
-                                cur_val = 0;
+                                0
                             }
                         }
                         LastItemCode::GlueStretchOrder | LastItemCode::GlueShrinkOrder => {
                             scan_normal_glue();
                             let q = cur_val as usize;
-                            if m == LastItemCode::GlueStretchOrder {
-                                cur_val = MEM[q].b16.s1 as i32
+                            let val = if m == LastItemCode::GlueStretchOrder {
+                                MEM[q].b16.s1 as i32
                             } else {
-                                cur_val = MEM[q].b16.s0 as i32
-                            }
+                                MEM[q].b16.s0 as i32
+                            };
                             delete_glue_ref(q);
+                            val
                         }
-                        _ => {}
-                    }
+                        _ => unreachable!(),
+                    };
                     cur_val_level = ValLevel::Int;
                 }
             } else {
-                cur_val = 0;
+                let mut val = 0;
                 let mut tx = cur_list.tail;
                 match Node::from(tx) {
                     Node::Text(TxtNode::Math(m))
@@ -6831,7 +6833,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                 if m == LastItemCode::LastNodeType {
                     cur_val_level = ValLevel::Int;
                     if tx == cur_list.head || cur_list.mode.1 == ListMode::NoMode {
-                        cur_val = -1;
+                        val = -1;
                     }
                 } else {
                     cur_val_level = ValLevel::from(m as u8);
@@ -6841,24 +6843,24 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                     match m {
                         LastItemCode::LastPenalty => {
                             if let Node::Text(TxtNode::Penalty(p)) = &nd {
-                                cur_val = p.penalty();
+                                val = p.penalty();
                             }
                         }
                         LastItemCode::LastKern => {
                             if let Node::Text(TxtNode::Kern(k)) = &nd {
-                                cur_val = k.width();
+                                val = k.width();
                             }
                         }
                         LastItemCode::LastSkip => {
                             if let Node::Text(TxtNode::Glue(g)) = &nd {
-                                cur_val = g.glue_ptr();
+                                val = g.glue_ptr();
                                 if g.param() == MU_GLUE {
                                     cur_val_level = ValLevel::Mu;
                                 }
                             }
                         }
                         LastItemCode::LastNodeType => {
-                            cur_val = match &nd {
+                            val = match &nd {
                                 Node::Text(nd) => match nd {
                                     TxtNode::Style(_)
                                     | TxtNode::Choice(_)
@@ -6872,17 +6874,18 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                     }
                 } else if cur_list.mode == (false, ListMode::VMode) && tx == cur_list.head {
                     match m {
-                        LastItemCode::LastPenalty => cur_val = last_penalty,
-                        LastItemCode::LastKern => cur_val = last_kern,
+                        LastItemCode::LastPenalty => val = last_penalty,
+                        LastItemCode::LastKern => val = last_kern,
                         LastItemCode::LastSkip => {
                             if last_glue != MAX_HALFWORD {
-                                cur_val = last_glue
+                                val = last_glue
                             }
                         }
-                        LastItemCode::LastNodeType => cur_val = last_node_type,
-                        _ => {}
+                        LastItemCode::LastNodeType => val = last_node_type,
+                        _ => unreachable!(),
                     }
                 }
+                cur_val = val;
             }
         }
         _ => {
@@ -6905,28 +6908,35 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
             };
         }
     }
+    let mut val = cur_val;
+
     while cur_val_level > level {
         /*447:*/
         if cur_val_level == ValLevel::Glue {
-            cur_val = MEM[(cur_val + 1) as usize].b32.s1
+            val = MEM[(val + 1) as usize].b32.s1
         } else if cur_val_level == ValLevel::Mu {
             mu_error();
         }
         cur_val_level.prev();
     }
-    if negative {
+    
+    cur_val = if negative {
         match cur_val_level {
-            ValLevel::Int | ValLevel::Dimen => cur_val = -cur_val,
+            ValLevel::Int | ValLevel::Dimen => -val,
             _ => {
-                let mut cur_val_ = GlueSpec(new_spec(cur_val as usize));
-                cur_val = cur_val_.ptr() as i32;
-                cur_val_.set_size(-cur_val_.size());
-                cur_val_.set_stretch(-cur_val_.stretch());
-                cur_val_.set_shrink(-cur_val_.shrink());
+                let mut spec = GlueSpec(new_spec(val as usize));
+                let val = spec.ptr() as i32;
+                spec.set_size(-spec.size());
+                spec.set_stretch(-spec.stretch());
+                spec.set_shrink(-spec.shrink());
+                val
             }
         }
-    } else if cur_val_level == ValLevel::Glue || cur_val_level == ValLevel::Mu {
-        GlueSpec(cur_val as usize).rc_inc();
+    } else {
+        if cur_val_level == ValLevel::Glue || cur_val_level == ValLevel::Mu {
+            GlueSpec(val as usize).rc_inc();
+        }
+        val
     };
 }
 pub(crate) unsafe fn scan_int(input: &mut input_state_t) -> i32 {
