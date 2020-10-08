@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 use std::collections::HashSet;
+use std::default::Default;
 use std::env;
 use std::path::Path;
 
@@ -112,8 +113,14 @@ impl TestCase {
             let mut events = NoopIoEventBackend::new();
             let mut status = NoopStatusBackend::new();
 
-            let tex_res =
-                TexEngine::new().process(&mut io, &mut events, &mut status, "plain.fmt", &texname);
+            let tex_res = TexEngine::new().process(
+                &mut io,
+                &mut events,
+                &mut status,
+                "plain.fmt",
+                &texname,
+                &Default::default(),
+            );
 
             if self.check_pdf && tex_res.definitely_same(&Ok(TexResult::Spotless)) {
                 // While the xdv and log output is deterministic without setting
@@ -123,7 +130,14 @@ impl TestCase {
                 XdvipdfmxEngine::new()
                     .with_compression(false)
                     .with_deterministic_tags(true)
-                    .process(&mut io, &mut events, &mut status, &xdvname, &pdfname)
+                    .process(
+                        &mut io,
+                        &mut events,
+                        &mut status,
+                        &xdvname,
+                        &pdfname,
+                        &Default::default(),
+                    )
                     .unwrap();
             }
 

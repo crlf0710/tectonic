@@ -8,6 +8,7 @@ use super::{ExecutionState, IoEventBackend, TectonicBridgeApi};
 use crate::errors::{DefinitelySame, ErrorKind, Result};
 use crate::io::IoStack;
 use crate::status::StatusBackend;
+use crate::unstable_opts::UnstableOptions;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TexResult {
@@ -98,6 +99,7 @@ impl TexEngine {
         status: &mut dyn StatusBackend,
         format_file_name: &str,
         input_file_name: &str,
+        unstables: &UnstableOptions,
     ) -> Result<TexResult> {
         let _guard = super::ENGINE_LOCK.lock().unwrap(); // until we're thread-safe ...
 
