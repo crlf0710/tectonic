@@ -440,17 +440,16 @@ pub(crate) unsafe fn math_limit_switch() {
     error();
 }
 unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
-    if r {
-        cur_val = if cur_chr == 1 {
+    let mut val = if r {
+        if cur_chr == 1 {
             cur_val1 = 0x40000000;
-            scan_math_fam_int();
-            cur_val1 += cur_val * 0x200000;
+            let val = scan_math_fam_int(&mut cur_input);
+            cur_val1 += val * 0x200000;
             let val = scan_usv_num(&mut cur_input);
             val + cur_val1
         } else {
-            scan_delimiter_int();
-            cur_val
-        };
+            scan_delimiter_int(&mut cur_input)
+        }
     } else {
         loop {
             get_x_token();
@@ -460,25 +459,24 @@ unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
         }
         match cur_cmd {
             Cmd::Letter | Cmd::OtherChar => {
-                cur_val = EQTB[(DEL_CODE_BASE as i32 + cur_chr) as usize].val
+                EQTB[(DEL_CODE_BASE as i32 + cur_chr) as usize].val
             }
             Cmd::DelimNum => {
-                cur_val = if cur_chr == 1 {
+                if cur_chr == 1 {
                     cur_val1 = 0x40000000;
-                    scan_math_class_int();
-                    scan_math_fam_int();
-                    cur_val1 += cur_val * 0x20000;
+                    scan_math_class_int(&mut cur_input);
+                    let val = scan_math_fam_int(&mut cur_input);
+                    cur_val1 += val * 0x20000;
                     let val = scan_usv_num(&mut cur_input);
                     val + cur_val1
                 } else {
-                    scan_delimiter_int();
-                    cur_val
-                };
+                    scan_delimiter_int(&mut cur_input)
+                }
             }
-            _ => cur_val = -1,
+            _ => -1,
         }
-    }
-    if cur_val < 0 {
+    };
+    if val < 0 {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -494,18 +492,18 @@ unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
             "nonnegative, or you can use `\\delimiter <delimiter code>\'."
         );
         back_error(&mut cur_input, cur_tok);
-        cur_val = 0i32
+        val = 0;
     }
-    if cur_val >= 0x40000000i32 {
-        d.s3 = (cur_val % 0x200000 / 0x10000 * 0x100 + cur_val / 0x200000i32 % 0x100i32) as u16;
-        d.s2 = (cur_val % 0x10000) as u16;
+    if val >= 0x40000000i32 {
+        d.s3 = (val % 0x200000 / 0x10000 * 0x100 + val / 0x200000i32 % 0x100i32) as u16;
+        d.s2 = (val % 0x10000) as u16;
         d.s1 = 0_u16;
         d.s0 = 0_u16
     } else {
-        d.s3 = (cur_val / 0x100000 % 16) as u16;
-        d.s2 = (cur_val / 0x1000 % 0x100) as u16;
-        d.s1 = (cur_val / 0x100 % 16) as u16;
-        d.s0 = (cur_val % 0x100) as u16
+        d.s3 = (val / 0x100000 % 16) as u16;
+        d.s2 = (val / 0x1000 % 0x100) as u16;
+        d.s1 = (val / 0x100 % 16) as u16;
+        d.s0 = (val % 0x100) as u16
     };
 }
 pub(crate) unsafe fn math_radical() {
@@ -546,7 +544,7 @@ pub(crate) unsafe fn math_ac() {
     acc.third_mut().empty();
     acc.second_mut().empty();
     acc.fourth_mut().typ = MathCell::MathChar as _;
-    cur_val = if cur_chr == 1 {
+    let val = if cur_chr == 1 {
         acc.set_accent_type(if scan_keyword(b"fixed") {
             AccentType::Fixed
         } else if scan_keyword(b"bottom") {
@@ -558,25 +556,25 @@ pub(crate) unsafe fn math_ac() {
         } else {
             AccentType::Normal
         });
-        scan_math_class_int();
-        let mut c = set_class(cur_val);
-        scan_math_fam_int();
-        c += set_family(cur_val);
+        let val = scan_math_class_int(&mut cur_input);
+        let mut c = set_class(val);
+        let val = scan_math_fam_int(&mut cur_input);
+        c += set_family(val);
         let val = scan_usv_num(&mut cur_input);
         val + c
     } else {
-        scan_fifteen_bit_int();
-        set_class(cur_val / 4096) + set_family(cur_val % 4096 / 256) + (cur_val % 256)
+        let val = scan_fifteen_bit_int(&mut cur_input);
+        set_class(val / 4096) + set_family(val % 4096 / 256) + (val % 256)
     };
-    acc.fourth_mut().val.chr.character = (cur_val as i64 % 65536) as u16;
-    let font = if math_class(cur_val) == 7
+    acc.fourth_mut().val.chr.character = (val as i64 % 65536) as u16;
+    let font = if math_class(val) == 7
         && (*INTPAR(IntPar::cur_fam) >= 0 && *INTPAR(IntPar::cur_fam) < NUMBER_MATH_FAMILIES as i32)
     {
         *INTPAR(IntPar::cur_fam) as u16
     } else {
-        math_fam(cur_val) as u16
+        math_fam(val) as u16
     };
-    acc.fourth_mut().val.chr.font = (font as i64 + math_char(cur_val) as i64 / 65536 * 256) as u16;
+    acc.fourth_mut().val.chr.font = (font as i64 + math_char(val) as i64 / 65536 * 256) as u16;
     scan_math(acc.first_mut(), acc.ptr() + 1);
 }
 pub(crate) unsafe fn append_choices() {

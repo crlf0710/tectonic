@@ -1408,8 +1408,7 @@ unsafe fn new_hyph_exceptions() {
                 }
             }
             Cmd::CharNum => {
-                scan_char_num();
-                cur_chr = cur_val;
+                cur_chr = scan_char_num(&mut cur_input);
                 cur_cmd = Cmd::CharGiven;
                 reswitch = true;
                 continue;
@@ -1682,12 +1681,11 @@ pub(crate) unsafe fn prefixed_command() {
         Cmd::ShorthandDef => {
             let mut n = ShorthandDefCode::n(cur_chr as u8).unwrap();
             if n == ShorthandDefCode::CharSub {
-                scan_char_num();
-                let p = CHAR_SUB_CODE_BASE as i32 + cur_val;
+                let val = scan_char_num(&mut cur_input);
+                let p = CHAR_SUB_CODE_BASE as i32 + val;
                 scan_optional_equals();
-                scan_char_num();
-                let mut n = cur_val;
-                scan_char_num();
+                let mut n = scan_char_num(&mut cur_input);
+                let val = scan_char_num(&mut cur_input);
                 if *INTPAR(IntPar::tracing_char_sub_def) > 0 {
                     diagnostic(false, || {
                         print_nl_cstr("New character substitution: ");
@@ -1695,10 +1693,10 @@ pub(crate) unsafe fn prefixed_command() {
                         print_cstr(" = ");
                         print(n);
                         print_chr(' ');
-                        print(cur_val);
+                        print(val);
                     });
                 }
-                n = n * 256 + cur_val;
+                n = n * 256 + val;
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Data, Some(n as usize));
                 } else { eq_define(p as usize, Cmd::Data, Some(n as usize)); }
@@ -1737,22 +1735,22 @@ pub(crate) unsafe fn prefixed_command() {
                         } else { eq_define(p as usize, Cmd::CharGiven, val.opt()); }
                     }
                     ShorthandDefCode::MathChar => {
-                        scan_fifteen_bit_int();
+                        let val = scan_fifteen_bit_int(&mut cur_input);
                         if a >= 4 {
-                            geq_define(p as usize, Cmd::MathGiven, cur_val.opt());
-                        } else { eq_define(p as usize, Cmd::MathGiven, cur_val.opt()); }
+                            geq_define(p as usize, Cmd::MathGiven, val.opt());
+                        } else { eq_define(p as usize, Cmd::MathGiven, val.opt()); }
                     }
                     ShorthandDefCode::XetexMathCharNum => {
-                        scan_xetex_math_char_int();
+                        let val = scan_xetex_math_char_int(&mut cur_input);
                         if a >= 4 {
-                            geq_define(p as usize, Cmd::XetexMathGiven, cur_val.opt());
-                        } else { eq_define(p as usize, Cmd::XetexMathGiven, cur_val.opt()); }
+                            geq_define(p as usize, Cmd::XetexMathGiven, val.opt());
+                        } else { eq_define(p as usize, Cmd::XetexMathGiven, val.opt()); }
                     }
                     ShorthandDefCode::XetexMathChar => {
-                        scan_math_class_int();
-                        let mut n = set_class(cur_val);
-                        scan_math_fam_int();
-                        n += set_family(cur_val);
+                        let val = scan_math_class_int(&mut cur_input);
+                        let mut n = set_class(val);
+                        let val = scan_math_fam_int(&mut cur_input);
+                        n += set_family(val);
                         let val = scan_usv_num(&mut cur_input);
                         n += val;
                         if a >= 4 {
@@ -1760,12 +1758,12 @@ pub(crate) unsafe fn prefixed_command() {
                         } else { eq_define(p as usize, Cmd::XetexMathGiven, n.opt()); }
                     }
                     _ => {
-                        scan_register_num();
-                        if cur_val > 255 {
+                        let val = scan_register_num(&mut cur_input);
+                        if val > 255 {
                             j = (n as i32) - 2; // TODO
                             if j > ValLevel::Mu as i32 { j = ValLevel::Tok as i32 }
 
-                            find_sa_element(ValLevel::from(j as u8), cur_val,
+                            find_sa_element(ValLevel::from(j as u8), val,
                                             true);
                             let c = cur_ptr.unwrap();
                             MEM[c + 1].b32.s0 += 1;
@@ -1778,37 +1776,37 @@ pub(crate) unsafe fn prefixed_command() {
                             match n {
                                 ShorthandDefCode::Count => {
                                     if a >= 4 {
-                                        geq_define(p as usize, Cmd::AssignInt, Some(COUNT_BASE + cur_val as usize));
+                                        geq_define(p as usize, Cmd::AssignInt, Some(COUNT_BASE + val as usize));
                                     } else {
-                                        eq_define(p as usize, Cmd::AssignInt, Some(COUNT_BASE + cur_val as usize));
+                                        eq_define(p as usize, Cmd::AssignInt, Some(COUNT_BASE + val as usize));
                                     }
                                 }
                                 ShorthandDefCode::Dimen => {
                                     if a >= 4 {
-                                        geq_define(p as usize, Cmd::AssignDimen, Some(SCALED_BASE + cur_val as usize));
+                                        geq_define(p as usize, Cmd::AssignDimen, Some(SCALED_BASE + val as usize));
                                     } else {
-                                        eq_define(p as usize, Cmd::AssignDimen, Some(SCALED_BASE + cur_val as usize));
+                                        eq_define(p as usize, Cmd::AssignDimen, Some(SCALED_BASE + val as usize));
                                     }
                                 }
                                 ShorthandDefCode::Skip => {
                                     if a >= 4 {
-                                        geq_define(p as usize, Cmd::AssignGlue, Some(SKIP_BASE + cur_val as usize));
+                                        geq_define(p as usize, Cmd::AssignGlue, Some(SKIP_BASE + val as usize));
                                     } else {
-                                        eq_define(p as usize, Cmd::AssignGlue, Some(SKIP_BASE + cur_val as usize));
+                                        eq_define(p as usize, Cmd::AssignGlue, Some(SKIP_BASE + val as usize));
                                     }
                                 }
                                 ShorthandDefCode::MuSkip => {
                                     if a >= 4 {
-                                        geq_define(p as usize, Cmd::AssignMuGlue, Some(MU_SKIP_BASE + cur_val as usize));
+                                        geq_define(p as usize, Cmd::AssignMuGlue, Some(MU_SKIP_BASE + val as usize));
                                     } else {
-                                        eq_define(p as usize, Cmd::AssignMuGlue, Some(MU_SKIP_BASE + cur_val as usize));
+                                        eq_define(p as usize, Cmd::AssignMuGlue, Some(MU_SKIP_BASE + val as usize));
                                     }
                                 }
                                 ShorthandDefCode::Toks => {
                                     if a >= 4 {
-                                        geq_define(p as usize, Cmd::AssignToks, Some(TOKS_BASE + cur_val as usize));
+                                        geq_define(p as usize, Cmd::AssignToks, Some(TOKS_BASE + val as usize));
                                     } else {
-                                        eq_define(p as usize, Cmd::AssignToks, Some(TOKS_BASE + cur_val as usize));
+                                        eq_define(p as usize, Cmd::AssignToks, Some(TOKS_BASE + val as usize));
                                     }
                                 }
                                 _ => { }
@@ -1847,14 +1845,14 @@ pub(crate) unsafe fn prefixed_command() {
             e = false;
             if cur_cmd == Cmd::ToksRegister {
                 if cur_chr == 0 {
-                    scan_register_num();
-                    if cur_val > 255 {
-                        find_sa_element(ValLevel::Tok, cur_val,
+                    let val = scan_register_num(&mut cur_input);
+                    if val > 255 {
+                        find_sa_element(ValLevel::Tok, val,
                                         true);
                         cur_chr = cur_ptr.tex_int();
                         e = true
                     } else {
-                        cur_chr = TOKS_BASE as i32 + cur_val;
+                        cur_chr = TOKS_BASE as i32 + val;
                     }
                 } else { e = true }
             } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
@@ -1880,11 +1878,11 @@ pub(crate) unsafe fn prefixed_command() {
                        cur_cmd == Cmd::AssignToks {
                     q = if cur_cmd == Cmd::ToksRegister {
                         if cur_chr == 0 {
-                            scan_register_num(); /* "extended delimiter code flag" */
-                            (if cur_val < 256 {
-                                TOKS_REG(cur_val as usize).opt()
+                            let val = scan_register_num(&mut cur_input); /* "extended delimiter code flag" */
+                            (if val < 256 {
+                                TOKS_REG(val as usize).opt()
                             } else {
-                                find_sa_element(ValLevel::Tok, cur_val,
+                                find_sa_element(ValLevel::Tok, val,
                                                 false); /* "extended delimiter code family */
                                 cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt())
                             }).tex_int()
@@ -2013,19 +2011,19 @@ pub(crate) unsafe fn prefixed_command() {
                 let val = scan_usv_num(&mut cur_input);
                 let p = p + val;
                 scan_optional_equals();
-                scan_xetex_math_char_int();
+                let val = scan_xetex_math_char_int(&mut cur_input);
                 if a >= 4 {
-                    geq_define(p as usize, Cmd::Data, cur_val.opt());
-                } else { eq_define(p as usize, Cmd::Data, cur_val.opt()); }
+                    geq_define(p as usize, Cmd::Data, val.opt());
+                } else { eq_define(p as usize, Cmd::Data, val.opt()); }
             } else if cur_chr == MATH_CODE_BASE as i32 + 1 {
                 let p = cur_chr - 1;
                 let val = scan_usv_num(&mut cur_input);
                 let p = p + val;
                 scan_optional_equals();
-                scan_math_class_int();
-                let mut n = set_class(cur_val);
-                scan_math_fam_int();
-                n = n + set_family(cur_val);
+                let val = scan_math_class_int(&mut cur_input);
+                let mut n = set_class(val);
+                let val = scan_math_fam_int(&mut cur_input);
+                n = n + set_family(val);
                 let val = scan_usv_num(&mut cur_input);
                 n = n + val;
                 if a >= 4 {
@@ -2046,8 +2044,8 @@ pub(crate) unsafe fn prefixed_command() {
                 let p = p + val;
                 scan_optional_equals();
                 let mut n = 0x40000000;
-                scan_math_fam_int();
-                n = n + cur_val * 0x200000;
+                let val = scan_math_fam_int(&mut cur_input);
+                n = n + val * 0x200000;
                 let val = scan_usv_num(&mut cur_input);
                 n = n + val;
                 if a >= 4 {
@@ -2124,8 +2122,8 @@ pub(crate) unsafe fn prefixed_command() {
         }
         Cmd::DefFamily => {
             let p = cur_chr;
-            scan_math_fam_int();
-            let p = p + cur_val;
+            let val = scan_math_fam_int(&mut cur_input);
+            let p = p + val;
             scan_optional_equals();
             scan_font_ident();
             if a >= 4 {
@@ -2134,10 +2132,10 @@ pub(crate) unsafe fn prefixed_command() {
         }
         Cmd::Register | Cmd::Advance | Cmd::Multiply | Cmd::Divide => { do_register_command(a); }
         Cmd::SetBox => {
-            scan_register_num();
+            let val = scan_register_num(&mut cur_input);
             let n = if a >= 4 {
-                GLOBAL_BOX_FLAG + cur_val
-            } else { BOX_FLAG + cur_val };
+                GLOBAL_BOX_FLAG + val
+            } else { BOX_FLAG + val };
             scan_optional_equals();
             if set_box_allowed {
                 scan_box(n);
@@ -2241,10 +2239,10 @@ pub(crate) unsafe fn prefixed_command() {
                     HYPHEN_CHAR[f] = val
                 } else { SKEW_CHAR[f] = val }
             } else {
-                if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
+                let p = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
                     scan_glyph_number(nf);
-                } else { scan_char_num(); }
-                let p = cur_val;
+                    cur_val
+                } else { scan_char_num(&mut cur_input) };
                 scan_optional_equals();
                 let val = scan_int(&mut cur_input);
                 match n {
