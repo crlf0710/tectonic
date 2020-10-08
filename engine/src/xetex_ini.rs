@@ -1074,7 +1074,7 @@ pub(crate) static mut yhash: *mut b32x2 = ptr::null_mut();
 
 pub(crate) const hash_offset: i32 = 514;
 
-unsafe fn primitive<I>(ident: &str, c: Cmd, o: I)
+unsafe fn primitive<I>(ident: &str, c: Cmd, o: I) -> i32
 where
     I: std::convert::TryInto<i32>,
     <I as std::convert::TryInto<i32>>::Error: std::fmt::Debug,
@@ -1083,6 +1083,7 @@ where
     let mut prim_val = 0;
     let b_ident = ident.as_bytes();
     let len = b_ident.len() as i32;
+    let mut val;
     if len > 1 {
         let mut s: str_number = maketexstring(ident);
         if first + len > BUF_SIZE as i32 + 1 {
@@ -1091,21 +1092,22 @@ where
         for i in 0..len {
             BUFFER[(first + i) as usize] = b_ident[i as usize] as UnicodeScalar;
         }
-        cur_val = id_lookup(first, len);
+        val = id_lookup(first, len);
         str_ptr -= 1;
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-        (*hash.offset(cur_val as isize)).s1 = s;
+        (*hash.offset(val as isize)).s1 = s;
         prim_val = prim_lookup(s)
     } else {
-        cur_val = b_ident[0] as i32 + SINGLE_BASE as i32;
+        val = b_ident[0] as i32 + SINGLE_BASE as i32;
         prim_val = prim_lookup(b_ident[0] as str_number)
     }
-    EQTB[cur_val as usize].lvl = LEVEL_ONE;
-    EQTB[cur_val as usize].cmd = c as u16;
-    EQTB[cur_val as usize].val = o;
+    EQTB[val as usize].lvl = LEVEL_ONE;
+    EQTB[val as usize].cmd = c as u16;
+    EQTB[val as usize].val = o;
     prim_eqtb[prim_val as usize].lvl = LEVEL_ONE;
     prim_eqtb[prim_val as usize].cmd = c as u16;
     prim_eqtb[prim_val as usize].val = o;
+    val
 }
 
 unsafe fn new_patterns() {
@@ -1994,7 +1996,7 @@ pub(crate) unsafe fn prefixed_command() {
                 let p = cur_chr;
                 let val = scan_usv_num(&mut cur_input);
                 let p = p + val;
-                let n = *SF_CODE(cur_val as usize) % 65536;
+                let n = *SF_CODE(val as usize) % 65536;
                 scan_optional_equals(&mut cur_input);
                 let val = scan_char_class(&mut cur_input);
                 if a >= 4 {
@@ -2070,7 +2072,7 @@ pub(crate) unsafe fn prefixed_command() {
             scan_optional_equals(&mut cur_input);
             let val = scan_int(&mut cur_input);
 
-            if (val < 0 && p < DEL_CODE_BASE as i32) || val > n {
+            let val = if (val < 0 && p < DEL_CODE_BASE as i32) || val > n {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -2086,8 +2088,10 @@ pub(crate) unsafe fn prefixed_command() {
                 print_int(n);
                 help!("I\'m going to use 0 instead of that illegal code value.");
                 error();
-                cur_val = 0
-            }
+                0
+            } else {
+                val
+            };
 
             if p < MATH_CODE_BASE as i32 {
                 if p >= SF_CODE_BASE as i32 {
@@ -2097,28 +2101,28 @@ pub(crate) unsafe fn prefixed_command() {
                     if a >= 4 {
                         geq_define(p as usize, Cmd::Data,
                                    ((n as i64 * 65536 +
-                                        cur_val as i64) as i32).opt());
+                                        val as i64) as i32).opt());
                     } else {
                         eq_define(p as usize, Cmd::Data,
                                   ((n as i64 * 65536 +
-                                       cur_val as i64) as i32).opt());
+                                       val as i64) as i32).opt());
                     }
                 } else if a >= 4 {
-                    geq_define(p as usize, Cmd::Data, cur_val.opt());
-                } else { eq_define(p as usize, Cmd::Data, cur_val.opt()); }
+                    geq_define(p as usize, Cmd::Data, val.opt());
+                } else { eq_define(p as usize, Cmd::Data, val.opt()); }
 
             } else if p < DEL_CODE_BASE as i32 {
-                if cur_val as i64 == 32768 {
-                    cur_val = ACTIVE_MATH_CHAR
+                let val = if val as i64 == 32768 {
+                    ACTIVE_MATH_CHAR
                 } else {
-                    cur_val = set_class(cur_val / 4096) + set_family((cur_val % 4096) / 256) + (cur_val % 256);
-                }
+                    set_class(val / 4096) + set_family((val % 4096) / 256) + (val % 256)
+                };
                 if a >= 4 {
-                    geq_define(p as usize, Cmd::Data, cur_val.opt());
-                } else { eq_define(p as usize, Cmd::Data, cur_val.opt()); }
+                    geq_define(p as usize, Cmd::Data, val.opt());
+                } else { eq_define(p as usize, Cmd::Data, val.opt()); }
             } else if a >= 4 {
-                geq_word_define(p as usize, cur_val);
-            } else { eq_word_define(p as usize, cur_val); }
+                geq_word_define(p as usize, val);
+            } else { eq_word_define(p as usize, val); }
         }
         Cmd::DefFamily => {
             let p = cur_chr;
@@ -2159,14 +2163,15 @@ pub(crate) unsafe fn prefixed_command() {
         Cmd::SetShape => {
             let q = cur_chr;
             scan_optional_equals(&mut cur_input);
-            let mut n = scan_int(&mut cur_input);
+            let val = scan_int(&mut cur_input);
+            let mut n = val;
             let p = if n <= 0 {
                 None
             } else if q > LOCAL_BASE as i32 + Local::par_shape as i32 {
-                n = cur_val / 2 + 1;
+                n = val / 2 + 1;
                 let p = get_node(2 * n + 1);
                 MEM[p].b32.s0 = n;
-                n = cur_val;
+                n = val;
                 MEM[p + 1].b32.s1 = n;
 
                 for j in (p + 2)..=(p + (n as usize) + 1) {
@@ -3249,9 +3254,9 @@ unsafe fn initialize_primitives() {
     primitive("Udelimiter", Cmd::DelimNum, 1);
     primitive("divide", Cmd::Divide, 0);
     primitive("endcsname", Cmd::EndCSName, 0);
-    primitive("endgroup", Cmd::EndGroup, 0);
+    let val = primitive("endgroup", Cmd::EndGroup, 0);
     (*hash.offset(FROZEN_END_GROUP as isize)).s1 = maketexstring("endgroup");
-    EQTB[FROZEN_END_GROUP] = EQTB[cur_val as usize];
+    EQTB[FROZEN_END_GROUP] = EQTB[val as usize];
     primitive("expandafter", Cmd::ExpandAfter, 0);
     primitive("font", Cmd::DefFont, 0);
     primitive("fontdimen", Cmd::AssignFontDimen, 0);
@@ -3287,9 +3292,9 @@ unsafe fn initialize_primitives() {
     primitive("XeTeXradical", Cmd::Radical, 1);
     primitive("Uradical", Cmd::Radical, 1);
     primitive("read", Cmd::ReadToCS, 0);
-    primitive("relax", Cmd::Relax, TOO_BIG_USV as i32);
+    let val = primitive("relax", Cmd::Relax, TOO_BIG_USV as i32);
     (*hash.offset(FROZEN_RELAX as isize)).s1 = maketexstring("relax");
-    EQTB[FROZEN_RELAX] = EQTB[cur_val as usize];
+    EQTB[FROZEN_RELAX] = EQTB[val as usize];
     primitive("setbox", Cmd::SetBox, 0);
     primitive("the", Cmd::The, 0);
     primitive("toks", Cmd::ToksRegister, 0);
@@ -3297,8 +3302,8 @@ unsafe fn initialize_primitives() {
     primitive("valign", Cmd::VAlign, 0);
     primitive("vcenter", Cmd::VCenter, 0);
     primitive("vrule", Cmd::VRule, 0);
-    primitive("par", PAR_END, TOO_BIG_USV as i32);
-    par_loc = cur_val;
+    let val = primitive("par", PAR_END, TOO_BIG_USV as i32);
+    par_loc = val;
     par_token = CS_TOKEN_FLAG + par_loc;
 
     primitive("input", Cmd::Input, 0);
@@ -3369,20 +3374,20 @@ unsafe fn initialize_primitives() {
     primitive("ifcase", Cmd::IfTest, IfTestCode::IfCase);
     primitive("ifprimitive", Cmd::IfTest, IfTestCode::IfPrimitive);
 
-    primitive("fi", Cmd::FiOrElse, FiOrElseCode::Fi);
+    let val = primitive("fi", Cmd::FiOrElse, FiOrElseCode::Fi);
     (*hash.offset(FROZEN_FI as isize)).s1 = maketexstring("fi");
-    EQTB[FROZEN_FI] = EQTB[cur_val as usize];
+    EQTB[FROZEN_FI] = EQTB[val as usize];
     primitive("or", Cmd::FiOrElse, FiOrElseCode::Or);
     primitive("else", Cmd::FiOrElse, FiOrElseCode::Else);
 
-    primitive("nullfont", Cmd::SetFont, FONT_BASE);
+    let val = primitive("nullfont", Cmd::SetFont, FONT_BASE);
     (*hash.offset(FROZEN_NULL_FONT as isize)).s1 = maketexstring("nullfont");
-    EQTB[FROZEN_NULL_FONT] = EQTB[cur_val as usize];
+    EQTB[FROZEN_NULL_FONT] = EQTB[val as usize];
 
     primitive("span", Cmd::TabMark, SPAN_CODE);
-    primitive("cr", Cmd::CarRet, CR_CODE);
+    let val = primitive("cr", Cmd::CarRet, CR_CODE);
     (*hash.offset(FROZEN_CR as isize)).s1 = maketexstring("cr");
-    EQTB[FROZEN_CR] = EQTB[cur_val as usize];
+    EQTB[FROZEN_CR] = EQTB[val as usize];
     primitive("crcr", Cmd::CarRet, CR_CR_CODE);
 
     (*hash.offset(FROZEN_END_TEMPLATE as isize)).s1 = maketexstring("endtemplate");
@@ -3493,9 +3498,9 @@ unsafe fn initialize_primitives() {
     primitive("atopwithdelims", Cmd::Above, DELIMITED_CODE + 2);
 
     primitive("left", Cmd::LeftRight, MathNode::Left as i32);
-    primitive("right", Cmd::LeftRight, MathNode::Right as i32);
+    let val = primitive("right", Cmd::LeftRight, MathNode::Right as i32);
     (*hash.offset(FROZEN_RIGHT as isize)).s1 = maketexstring("right");
-    EQTB[FROZEN_RIGHT] = EQTB[cur_val as usize];
+    EQTB[FROZEN_RIGHT] = EQTB[val as usize];
 
     primitive("long", Cmd::Prefix, 1);
     primitive("outer", Cmd::Prefix, 2);
@@ -3601,12 +3606,12 @@ unsafe fn initialize_primitives() {
     primitive("showlists", Cmd::XRay, SHOW_LISTS);
 
     primitive("openout", Cmd::Extension, WhatsItNST::Open as i32);
-    primitive("write", Cmd::Extension, WhatsItNST::Write as i32);
-    write_loc = cur_val;
+    let val = primitive("write", Cmd::Extension, WhatsItNST::Write as i32);
+    write_loc = val;
     primitive("closeout", Cmd::Extension, WhatsItNST::Close as i32);
-    primitive("special", Cmd::Extension, WhatsItNST::Special as i32);
+    let val = primitive("special", Cmd::Extension, WhatsItNST::Special as i32);
     (*hash.offset(FROZEN_SPECIAL as isize)).s1 = maketexstring("special");
-    EQTB[FROZEN_SPECIAL] = EQTB[cur_val as usize];
+    EQTB[FROZEN_SPECIAL] = EQTB[val as usize];
     primitive("immediate", Cmd::Extension, IMMEDIATE_CODE as i32);
     primitive("setlanguage", Cmd::Extension, SET_LANGUAGE_CODE as i32);
 
