@@ -5403,16 +5403,16 @@ pub(crate) unsafe fn scan_left_brace() {
         align_state += 1
     };
 }
-pub(crate) unsafe fn scan_optional_equals() {
+pub(crate) unsafe fn scan_optional_equals(input: &mut input_state_t) {
     loop {
         get_x_token();
-        if !(cur_cmd == Cmd::Spacer) {
+        if cur_cmd != Cmd::Spacer {
             break;
         }
     }
     if cur_tok != OTHER_TOKEN + 61 {
         /*"="*/
-        back_input(&mut cur_input, cur_tok);
+        back_input(input, cur_tok);
     };
 }
 
@@ -5675,9 +5675,7 @@ pub(crate) unsafe fn scan_math(m: &mut MCell, p: usize) {
                         c = val
                     } else {
                         let val = scan_fifteen_bit_int(&mut cur_input);
-                        c = set_class(val / 4096)
-                            + set_family((val % 4096) / 256)
-                            + (val % 256);
+                        c = set_class(val / 4096) + set_family((val % 4096) / 256) + (val % 256);
                     }
                     break 'c_118470;
                 }
@@ -5875,9 +5873,9 @@ pub(crate) unsafe fn scan_register_num(input: &mut input_state_t) -> i32 {
     };
     cur_val
 }
-pub(crate) unsafe fn scan_four_bit_int_or_18() {
-    let val = scan_int(&mut cur_input);
-    if val < 0 || val > 15 && val != 18 {
+pub(crate) unsafe fn scan_four_bit_int_or_18(input: &mut input_state_t) -> i32 {
+    let val = scan_int(input);
+    cur_val = if val < 0 || val > 15 && val != 18 {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -5889,8 +5887,11 @@ pub(crate) unsafe fn scan_four_bit_int_or_18() {
             "I changed this one to zero."
         );
         int_error(cur_val);
-        cur_val = 0;
+        0
+    } else {
+        val
     };
+    cur_val
 }
 pub(crate) unsafe fn get_x_or_protected() {
     loop {
@@ -6370,7 +6371,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                         ValLevel::Dimen => *SCALED_REG(val as usize),
                         ValLevel::Glue => *SKIP_REG(val as usize),
                         ValLevel::Mu => *MU_SKIP_REG(val as usize),
-                        _ => { val }
+                        _ => val,
                     }
                 };
             }
@@ -8731,7 +8732,12 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
         }
     }
 }
-pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
+pub(crate) unsafe fn read_toks(
+    input: &mut input_state_t,
+    mut n: i32,
+    mut r: i32,
+    mut j: i32,
+) -> i32 {
     let mut s: i32 = 0;
     let mut m: i16 = 0;
     scanner_status = ScannerStatus::Defining;
@@ -8753,7 +8759,7 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
     loop {
         /*502:*/
         begin_file_reading();
-        cur_input.name = m as i32 + 1;
+        input.name = m as i32 + 1;
         assert!(
             read_open[m as usize] != OpenMode::Closed,
             /*503:*/
@@ -8785,19 +8791,19 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
                 error();
             }
         }
-        cur_input.limit = last;
+        input.limit = last;
         if *INTPAR(IntPar::end_line_char) < 0 || *INTPAR(IntPar::end_line_char) > 255 {
-            cur_input.limit -= 1
+            input.limit -= 1
         } else {
-            BUFFER[cur_input.limit as usize] = *INTPAR(IntPar::end_line_char)
+            BUFFER[input.limit as usize] = *INTPAR(IntPar::end_line_char)
         }
-        first = cur_input.limit + 1;
-        cur_input.loc = cur_input.start;
-        cur_input.state = InputState::NewLine;
+        first = input.limit + 1;
+        input.loc = input.start;
+        input.state = InputState::NewLine;
         if j == 1 {
-            while cur_input.loc <= cur_input.limit {
-                cur_chr = BUFFER[cur_input.loc as usize];
-                cur_input.loc += 1;
+            while input.loc <= input.limit {
+                cur_chr = BUFFER[input.loc as usize];
+                input.loc += 1;
                 if cur_chr == ' ' as i32 {
                     cur_tok = SPACE_TOKEN
                 } else {
@@ -8810,7 +8816,7 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
             }
         } else {
             loop {
-                let (tok, cmd, chr, cs) = get_token(&mut cur_input);
+                let (tok, cmd, chr, cs) = get_token(input);
                 cur_tok = tok;
                 cur_cmd = cmd;
                 cur_chr = chr;
@@ -8820,7 +8826,7 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
                 }
                 if (align_state as i64) < 1000000 {
                     loop {
-                        let (tok, cmd, chr, cs) = get_token(&mut cur_input);
+                        let (tok, cmd, chr, cs) = get_token(input);
                         cur_tok = tok;
                         cur_cmd = cmd;
                         cur_chr = chr;
@@ -8847,6 +8853,7 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
     cur_val = def_ref as i32;
     scanner_status = ScannerStatus::Normal;
     align_state = s;
+    cur_val
 }
 pub(crate) unsafe fn pass_text(input: &mut input_state_t) -> (Cmd, i32, i32) {
     let save_scanner_status = scanner_status;
@@ -9082,11 +9089,11 @@ pub(crate) unsafe fn conditional() {
         }
 
         IfTestCode::IfEof => {
-            scan_four_bit_int_or_18();
-            b = if cur_val == 18 {
+            let val = scan_four_bit_int_or_18(&mut cur_input);
+            b = if val == 18 {
                 true
             } else {
-                read_open[cur_val as usize] == OpenMode::Closed
+                read_open[val as usize] == OpenMode::Closed
             };
         }
 
@@ -10811,7 +10818,7 @@ pub(crate) unsafe fn get_preamble_token() {
         if !(cur_cmd == Cmd::AssignGlue && cur_chr == GLUE_BASE as i32 + GluePar::tab_skip as i32) {
             break;
         }
-        scan_optional_equals();
+        scan_optional_equals(&mut cur_input);
         scan_glue(ValLevel::Glue);
         if *INTPAR(IntPar::global_defs) > 0 {
             geq_define(
@@ -13691,7 +13698,7 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
         /*:1272*/
     } /*1275:*/
     if q == Cmd::Register {
-        scan_optional_equals();
+        scan_optional_equals(&mut cur_input);
     } else {
         scan_keyword(b"by");
     }
@@ -13818,7 +13825,7 @@ pub(crate) unsafe fn alter_aux() {
         report_illegal_case();
     } else {
         let c = cur_chr;
-        scan_optional_equals();
+        scan_optional_equals(&mut cur_input);
         if c == ListMode::VMode as i32 {
             scan_dimen(false, false, false);
             cur_list.aux.b32.s1 = cur_val
@@ -13845,7 +13852,7 @@ pub(crate) unsafe fn alter_prev_graf() {
     while NEST[p as usize].mode.1 != ListMode::VMode {
         p -= 1;
     }
-    scan_optional_equals();
+    scan_optional_equals(&mut cur_input);
     let val = scan_int(&mut cur_input);
     if val < 0 {
         if file_line_error_style_p != 0 {
@@ -13864,14 +13871,14 @@ pub(crate) unsafe fn alter_prev_graf() {
 }
 pub(crate) unsafe fn alter_page_so_far() {
     let c = cur_chr as u8 as usize;
-    scan_optional_equals();
+    scan_optional_equals(&mut cur_input);
     scan_dimen(false, false, false);
     page_so_far[c] = cur_val;
 }
 pub(crate) unsafe fn alter_integer() {
     let mut c: i16 = 0;
     c = cur_chr as i16;
-    scan_optional_equals();
+    scan_optional_equals(&mut cur_input);
     let val = scan_int(&mut cur_input);
     if c == 0 {
         dead_cycles = val
@@ -13905,7 +13912,7 @@ pub(crate) unsafe fn alter_box_dimen() {
         find_sa_element(ValLevel::Ident, val, false);
         cur_ptr.and_then(|c| MEM[c + 1].b32.s1.opt())
     };
-    scan_optional_equals();
+    scan_optional_equals(&mut cur_input);
     scan_dimen(false, false, false);
     if let Some(b) = b {
         MEM[b + c].b32.s1 = cur_val;
@@ -13946,7 +13953,7 @@ pub(crate) unsafe fn new_font(mut a: i16) {
     } else {
         eq_define(u, Cmd::SetFont, Some(FONT_BASE));
     }
-    scan_optional_equals();
+    scan_optional_equals(&mut cur_input);
     scan_file_name();
     name_in_progress = true;
     if scan_keyword(b"at") {
@@ -14272,7 +14279,7 @@ pub(crate) unsafe fn do_extension() {
             cur_list.tail = o.ptr();
             let val = scan_four_bit_int(&mut cur_input);
             o.set_id(val);
-            scan_optional_equals();
+            scan_optional_equals(&mut cur_input);
             scan_file_name();
             o.set_name(cur_name).set_area(cur_area).set_ext(cur_ext);
         }

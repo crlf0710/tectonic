@@ -458,9 +458,7 @@ unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
             }
         }
         match cur_cmd {
-            Cmd::Letter | Cmd::OtherChar => {
-                EQTB[(DEL_CODE_BASE as i32 + cur_chr) as usize].val
-            }
+            Cmd::Letter | Cmd::OtherChar => EQTB[(DEL_CODE_BASE as i32 + cur_chr) as usize].val,
             Cmd::DelimNum => {
                 if cur_chr == 1 {
                     cur_val1 = 0x40000000;
