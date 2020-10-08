@@ -1820,8 +1820,7 @@ pub(crate) unsafe fn prefixed_command() {
         }
         Cmd::ReadToCS => {
             j = cur_chr;
-            scan_int();
-            let n = cur_val;
+            let n = scan_int(&mut cur_input);
             if !scan_keyword(b"to") {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -1969,10 +1968,10 @@ pub(crate) unsafe fn prefixed_command() {
         Cmd::AssignInt => {
             let p = cur_chr as usize;
             scan_optional_equals();
-            scan_int();
+            let val = scan_int(&mut cur_input);
             if a >= 4 {
-                geq_word_define(p, cur_val);
-            } else { eq_word_define(p, cur_val); }
+                geq_word_define(p, val);
+            } else { eq_word_define(p, val); }
         }
         Cmd::AssignDimen => {
             let p = cur_chr as usize;
@@ -2039,10 +2038,10 @@ pub(crate) unsafe fn prefixed_command() {
                 scan_usv_num();
                 let p = p + cur_val;
                 scan_optional_equals();
-                scan_int();
+                let val = scan_int(&mut cur_input);
                 if a >= 4 {
-                    geq_word_define(p as usize, cur_val);
-                } else { eq_word_define(p as usize, cur_val); }
+                    geq_word_define(p as usize, val);
+                } else { eq_word_define(p as usize, val); }
             } else {
                 let p = cur_chr - 1;
                 scan_usv_num();
@@ -2073,16 +2072,16 @@ pub(crate) unsafe fn prefixed_command() {
             scan_usv_num();
             let p = p + cur_val;
             scan_optional_equals();
-            scan_int();
+            let val = scan_int(&mut cur_input);
 
-            if (cur_val < 0 && p < DEL_CODE_BASE as i32) || cur_val > n {
+            if (val < 0 && p < DEL_CODE_BASE as i32) || val > n {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
                     print_nl_cstr("! ");
                 }
                 print_cstr("Invalid code (");
-                print_int(cur_val);
+                print_int(val);
                 if p < MATH_CODE_BASE as i32 {
                     print_cstr("), should be in the range 0..");
                 } else {
@@ -2164,8 +2163,7 @@ pub(crate) unsafe fn prefixed_command() {
         Cmd::SetShape => {
             let q = cur_chr;
             scan_optional_equals();
-            scan_int();
-            let mut n = cur_val;
+            let mut n = scan_int(&mut cur_input);
             let p = if n <= 0 {
                 None
             } else if q > LOCAL_BASE as i32 + Local::par_shape as i32 {
@@ -2176,8 +2174,8 @@ pub(crate) unsafe fn prefixed_command() {
                 MEM[p + 1].b32.s1 = n;
 
                 for j in (p + 2)..=(p + (n as usize) + 1) {
-                    scan_int();
-                    MEM[j].b32.s1 = cur_val;
+                    let val = scan_int(&mut cur_input);
+                    MEM[j].b32.s1 = val;
                 }
 
                 if n & 1 == 0 {
@@ -2240,20 +2238,20 @@ pub(crate) unsafe fn prefixed_command() {
             f = cur_val as usize;
             if n < 2 {
                 scan_optional_equals();
-                scan_int();
+                let val = scan_int(&mut cur_input);
                 if n == 0 {
-                    HYPHEN_CHAR[f] = cur_val
-                } else { SKEW_CHAR[f] = cur_val }
+                    HYPHEN_CHAR[f] = val
+                } else { SKEW_CHAR[f] = val }
             } else {
                 if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
                     scan_glyph_number(nf);
                 } else { scan_char_num(); }
                 let p = cur_val;
                 scan_optional_equals();
-                scan_int();
+                let val = scan_int(&mut cur_input);
                 match n {
-                    LP_CODE_BASE => { set_cp_code(f, p as u32, Side::Left, cur_val); }
-                    RP_CODE_BASE => { set_cp_code(f, p as u32, Side::Right, cur_val); }
+                    LP_CODE_BASE => { set_cp_code(f, p as u32, Side::Left, val); }
+                    RP_CODE_BASE => { set_cp_code(f, p as u32, Side::Right, val); }
                     _ => { }
                 }
             }

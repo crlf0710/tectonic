@@ -15,7 +15,8 @@ use crate::node::Picture;
 use crate::xetex_errors::error;
 use crate::xetex_ext::{D2Fix, Fix2D};
 use crate::xetex_ini::{
-    cur_area, cur_ext, cur_list, cur_name, cur_val, file_line_error_style_p, name_of_file,
+    cur_area, cur_ext, cur_input, cur_list, cur_name, cur_val, file_line_error_style_p,
+    name_of_file,
 };
 use crate::xetex_output::{
     print, print_cstr, print_file_line, print_file_name, print_nl_cstr, print_scaled,
@@ -191,8 +192,7 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
     page = 0i32;
     if is_pdf {
         if scan_keyword(b"page") {
-            scan_int();
-            page = cur_val
+            page = scan_int(&mut cur_input);
         }
         pdf_box_type = if scan_keyword(b"crop") {
             1
@@ -224,23 +224,23 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
     check_keywords = true;
     while check_keywords {
         if scan_keyword(b"scaled") {
-            scan_int();
+            let val = scan_int(&mut cur_input);
             if x_size_req == 0. && y_size_req == 0. {
-                let t2 = Transform::create_scale(cur_val as f64 / 1000., cur_val as f64 / 1000.);
+                let t2 = Transform::create_scale(val as f64 / 1000., val as f64 / 1000.);
                 corners = t2.transform_rect(&corners.to_f64()).to_f32();
                 t = t.post_transform(&t2);
             }
         } else if scan_keyword(b"xscaled") {
-            scan_int();
+            let val = scan_int(&mut cur_input);
             if x_size_req == 0. && y_size_req == 0. {
-                let t2 = Transform::create_scale(cur_val as f64 / 1000., 1.);
+                let t2 = Transform::create_scale(val as f64 / 1000., 1.);
                 corners = t2.transform_rect(&corners.to_f64()).to_f32();
                 t = t.post_transform(&t2);
             }
         } else if scan_keyword(b"yscaled") {
-            scan_int();
+            let val = scan_int(&mut cur_input);
             if x_size_req == 0.0f64 && y_size_req == 0.0f64 {
-                let t2 = Transform::create_scale(1., cur_val as f64 / 1000.);
+                let t2 = Transform::create_scale(1., val as f64 / 1000.);
                 corners = t2.transform_rect(&corners.to_f64()).to_f32();
                 t = t.post_transform(&t2);
             }
