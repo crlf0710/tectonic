@@ -18,7 +18,7 @@ use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ext::{Font, NativeFont::*};
 use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_cs, cur_dir, cur_f, cur_group, cur_i,
-    cur_input, cur_lang, cur_list, cur_tok, cur_val, cur_val1, file_line_error_style_p,
+    cur_input, cur_lang, cur_list, cur_tok, cur_val1, file_line_error_style_p,
     insert_src_special_every_math, just_box, memory_word, pre_adjust_tail, tex_remainder,
     total_shrink, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB,
     EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_PARAMS, HEIGHT_BASE,
@@ -703,7 +703,7 @@ pub(crate) unsafe fn math_fraction() {
             );
         }
         if c as i32 % DELIMITED_CODE == ABOVE_CODE {
-            scan_dimen(false, false, false);
+            let _ = scan_dimen(&mut cur_input, false, false, None);
         }
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -734,8 +734,8 @@ pub(crate) unsafe fn math_fraction() {
         }
         match c as i32 % DELIMITED_CODE {
             ABOVE_CODE => {
-                scan_dimen(false, false, false);
-                a.set_thickness(cur_val);
+                let val = scan_dimen(&mut cur_input, false, false, None);
+                a.set_thickness(val);
             }
             OVER_CODE => {
                 a.set_thickness(DEFAULT_CODE);

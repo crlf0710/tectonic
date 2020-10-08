@@ -1974,22 +1974,26 @@ pub(crate) unsafe fn prefixed_command() {
         Cmd::AssignDimen => {
             let p = cur_chr as usize;
             scan_optional_equals(&mut cur_input);
-            scan_dimen(false, false, false);
+            let val = scan_dimen(&mut cur_input, false, false, None);
             if a >= 4 {
-                geq_word_define(p, cur_val);
-            } else { eq_word_define(p, cur_val); }
+                geq_word_define(p, val);
+            } else { eq_word_define(p, val); }
         }
         Cmd::AssignGlue | Cmd::AssignMuGlue => {
             let p = cur_chr as usize;
             let n = cur_cmd;
             scan_optional_equals(&mut cur_input);
-            if n == Cmd::AssignMuGlue {
+            let mut val = if n == Cmd::AssignMuGlue {
                 scan_glue(ValLevel::Mu);
-            } else { scan_glue(ValLevel::Glue); }
-            trap_zero_glue();
+                cur_val
+            } else {
+                scan_glue(ValLevel::Glue);
+                cur_val
+            };
+            trap_zero_glue(&mut val);
             if a >= 4 {
-                geq_define(p, Cmd::GlueRef, cur_val.opt());
-            } else { eq_define(p, Cmd::GlueRef, cur_val.opt()); }
+                geq_define(p, Cmd::GlueRef, val.opt());
+            } else { eq_define(p, Cmd::GlueRef, val.opt()); }
         }
         Cmd::XetexDefCode => {
             if cur_chr == SF_CODE_BASE as i32 {
@@ -2188,11 +2192,10 @@ pub(crate) unsafe fn prefixed_command() {
                 MEM[p].b32.s0 = n;
     
                 for j in 1..=(n as usize) {
-                    scan_dimen(false, false, false);
-                    MEM[p + 2 * j - 1].b32.s1 =
-                        cur_val;
-                    scan_dimen(false, false, false);
-                    MEM[p + 2 * j].b32.s1 = cur_val;
+                    let val = scan_dimen(&mut cur_input, false, false, None);
+                    MEM[p + 2 * j - 1].b32.s1 = val;
+                    let val = scan_dimen(&mut cur_input, false, false, None);
+                    MEM[p + 2 * j].b32.s1 = val;
                 }
                 Some(p)
             };
@@ -2227,11 +2230,10 @@ pub(crate) unsafe fn prefixed_command() {
             } else { new_hyph_exceptions(); }
         }
         Cmd::AssignFontDimen => {
-            find_font_dimen(true);
-            k = cur_val;
+            k = find_font_dimen(&mut cur_input, true);
             scan_optional_equals(&mut cur_input);
-            scan_dimen(false, false, false);
-            FONT_INFO[k as usize].b32.s1 = cur_val
+            let val = scan_dimen(&mut cur_input, false, false, None);
+            FONT_INFO[k as usize].b32.s1 = val;
         }
         Cmd::AssignFontInt => {
             let n = cur_chr;

@@ -15,8 +15,7 @@ use crate::node::Picture;
 use crate::xetex_errors::error;
 use crate::xetex_ext::{D2Fix, Fix2D};
 use crate::xetex_ini::{
-    cur_area, cur_ext, cur_input, cur_list, cur_name, cur_val, file_line_error_style_p,
-    name_of_file,
+    cur_area, cur_ext, cur_input, cur_list, cur_name, file_line_error_style_p, name_of_file,
 };
 use crate::xetex_output::{
     print, print_cstr, print_file_line, print_file_name, print_nl_cstr, print_scaled,
@@ -245,8 +244,8 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
                 t = t.post_transform(&t2);
             }
         } else if scan_keyword(b"width") {
-            scan_dimen(false, false, false);
-            if cur_val <= 0i32 {
+            let val = scan_dimen(&mut cur_input, false, false, None);
+            if val <= 0i32 {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -254,7 +253,7 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
                 }
                 print_cstr("Improper image ");
                 print_cstr("size (");
-                print_scaled(cur_val);
+                print_scaled(val);
                 print_cstr("pt) will be ignored");
                 help!(
                     "I can\'t scale images to zero or negative sizes,",
@@ -262,11 +261,11 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
                 );
                 error();
             } else {
-                x_size_req = Fix2D(cur_val)
+                x_size_req = Fix2D(val)
             }
         } else if scan_keyword(b"height") {
-            scan_dimen(false, false, false);
-            if cur_val <= 0i32 {
+            let val = scan_dimen(&mut cur_input, false, false, None);
+            if val <= 0i32 {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -274,7 +273,7 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
                 }
                 print_cstr("Improper image ");
                 print_cstr("size (");
-                print_scaled(cur_val);
+                print_scaled(val);
                 print_cstr("pt) will be ignored");
                 help!(
                     "I can\'t scale images to zero or negative sizes,",
@@ -282,10 +281,10 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
                 );
                 error();
             } else {
-                y_size_req = Fix2D(cur_val)
+                y_size_req = Fix2D(val)
             }
         } else if scan_keyword(b"rotated") {
-            scan_decimal();
+            let val = scan_decimal(&mut cur_input);
             if x_size_req != 0.0f64 || y_size_req != 0.0f64 {
                 let brect = Rect::from_points(&to_points(&corners));
                 let xmin = brect.min_x() as f64;
@@ -305,7 +304,7 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
                 y_size_req = 0.0f64;
                 t = t.post_transform(&t2);
             }
-            let mut t2 = Transform::create_rotation(Angle::degrees(Fix2D(cur_val)));
+            let mut t2 = Transform::create_rotation(Angle::degrees(Fix2D(val)));
 
             corners = t2.transform_rect(&corners.to_f64()).to_f32();
             corners = Rect::from_points(&to_points(&corners));
