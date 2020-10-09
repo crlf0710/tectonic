@@ -1609,57 +1609,45 @@ pub(crate) unsafe fn prefixed_command() {
         }
         Cmd::Let => {
             let n = cur_chr;
-            let (tok, cmd, chr, cs) = get_r_token(&mut cur_input);
-            cur_tok = tok;
-            cur_cmd = cmd;
-            cur_chr = chr;
-            cur_cs = cs;
-            let p = cur_cs;
+            let (_, mut cmd, mut chr, p) = get_r_token(&mut cur_input);
             if n == NORMAL as i32 {
                 loop  {
-                    let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-                    cur_tok = tok;
-                    cur_cmd = cmd;
-                    cur_chr = chr;
-                    cur_cs = cs;
-                    if cur_cmd != Cmd::Spacer { break ; }
+                    let next = get_token(&mut cur_input);
+                    cur_tok = next.0;
+                    cmd = next.1;
+                    chr = next.2;
+                    if cmd != Cmd::Spacer { break ; }
                 }
                 if cur_tok == OTHER_TOKEN + '=' as i32 {
-                    let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-                    cur_tok = tok;
-                    cur_cmd = cmd;
-                    cur_chr = chr;
-                    cur_cs = cs;
-                    if cur_cmd == Cmd::Spacer {
-                        let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-                        cur_tok = tok;
-                        cur_cmd = cmd;
-                        cur_chr = chr;
-                        cur_cs = cs;
+                    let next = get_token(&mut cur_input);
+                    cmd = next.1;
+                    chr = next.2;
+                    if cmd == Cmd::Spacer {
+                        let next = get_token(&mut cur_input);
+                        cmd = next.1;
+                        chr = next.2;
                     }
                 }
             } else {
                 let q = get_token(&mut cur_input).0;
-                let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-                cur_cmd = cmd;
-                cur_chr = chr;
-                cur_cs = cs;
-                back_input(&mut cur_input, tok);
-                cur_tok = q;
+                let next = get_token(&mut cur_input);
+                cmd = next.1;
+                chr = next.2;
+                back_input(&mut cur_input, next.0);
                 back_input(&mut cur_input, q);
             }
-            if cur_cmd >= Cmd::Call {
-                MEM[cur_chr as usize].b32.s0 += 1
-            } else if cur_cmd == Cmd::Register ||
-                          cur_cmd == Cmd::ToksRegister {
-                if cur_chr < 0 || cur_chr > 19 {
+            if cmd >= Cmd::Call {
+                MEM[chr as usize].b32.s0 += 1
+            } else if cmd == Cmd::Register ||
+                          cmd == Cmd::ToksRegister {
+                if chr < 0 || chr > 19 {
                     /* 19 = lo_mem_stat_max, I think */
-                    MEM[(cur_chr + 1) as usize].b32.s0 += 1;
+                    MEM[(chr + 1) as usize].b32.s0 += 1;
                 }
             }
             if a >= 4 {
-                geq_define(p as usize, cur_cmd, cur_chr.opt());
-            } else { eq_define(p as usize, cur_cmd, cur_chr.opt()); }
+                geq_define(p as usize, cmd, chr.opt());
+            } else { eq_define(p as usize, cmd, chr.opt()); }
         }
         Cmd::ShorthandDef => {
             let mut n = ShorthandDefCode::n(cur_chr as u8).unwrap();
