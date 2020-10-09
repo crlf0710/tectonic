@@ -1984,11 +1984,9 @@ pub(crate) unsafe fn prefixed_command() {
             let n = cur_cmd;
             scan_optional_equals(&mut cur_input);
             let mut val = if n == Cmd::AssignMuGlue {
-                scan_glue(ValLevel::Mu);
-                cur_val
+                scan_glue(&mut cur_input, ValLevel::Mu)
             } else {
-                scan_glue(ValLevel::Glue);
-                cur_val
+                scan_glue(&mut cur_input, ValLevel::Glue)
             };
             trap_zero_glue(&mut val);
             if a >= 4 {
@@ -2246,8 +2244,7 @@ pub(crate) unsafe fn prefixed_command() {
                 } else { SKEW_CHAR[f] = val }
             } else {
                 let p = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
-                    scan_glyph_number(nf);
-                    cur_val
+                    scan_glyph_number(nf)
                 } else { scan_char_num(&mut cur_input) };
                 scan_optional_equals(&mut cur_input);
                 let val = scan_int(&mut cur_input);
