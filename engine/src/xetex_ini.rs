@@ -697,12 +697,6 @@ pub(crate) static mut long_state: u8 = 0;
 #[no_mangle]
 pub(crate) static mut pstack: [i32; 9] = [0; 9];
 #[no_mangle]
-pub(crate) static mut cur_val: i32 = 0;
-#[no_mangle]
-pub(crate) static mut cur_val1: i32 = 0;
-#[no_mangle]
-pub(crate) static mut cur_val_level: ValLevel = ValLevel::Int;
-#[no_mangle]
 pub(crate) static mut radix: i16 = 0;
 #[no_mangle]
 pub(crate) static mut cur_order: GlueOrder = GlueOrder::Normal;
@@ -2234,24 +2228,27 @@ pub(crate) unsafe fn prefixed_command() {
             FONT_INFO[k as usize].b32.s1 = val;
         }
         Cmd::AssignFontInt => {
-            let n = cur_chr;
+            let n = AssignFontInt::from(cur_chr);
             f = scan_font_ident(&mut cur_input) as usize;
-            if n < 2 {
-                scan_optional_equals(&mut cur_input);
-                let val = scan_int(&mut cur_input);
-                if n == 0 {
-                    HYPHEN_CHAR[f] = val
-                } else { SKEW_CHAR[f] = val }
-            } else {
-                let p = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
-                    scan_glyph_number(nf)
-                } else { scan_char_num(&mut cur_input) };
-                scan_optional_equals(&mut cur_input);
-                let val = scan_int(&mut cur_input);
-                match n {
-                    LP_CODE_BASE => { set_cp_code(f, p as u32, Side::Left, val); }
-                    RP_CODE_BASE => { set_cp_code(f, p as u32, Side::Right, val); }
-                    _ => { }
+            match n {
+                AssignFontInt::HyphenChar | AssignFontInt::SkewChar => {
+                    scan_optional_equals(&mut cur_input);
+                    let val = scan_int(&mut cur_input);
+                    if n == AssignFontInt::HyphenChar {
+                        HYPHEN_CHAR[f] = val
+                    } else { SKEW_CHAR[f] = val }
+                }
+                _ => {
+                    let p = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
+                        scan_glyph_number(nf)
+                    } else { scan_char_num(&mut cur_input) };
+                    scan_optional_equals(&mut cur_input);
+                    let val = scan_int(&mut cur_input);
+                    match n {
+                        AssignFontInt::LpCode => { set_cp_code(f, p as u32, Side::Left, val); }
+                        AssignFontInt::RpCode => { set_cp_code(f, p as u32, Side::Right, val); }
+                        _ => unreachable!(),
+                    }
                 }
             }
         }
@@ -2427,8 +2424,6 @@ unsafe fn initialize_more_variables() {
     cur_mark[BOT_MARK_CODE] = None;
     cur_mark[SPLIT_FIRST_MARK_CODE] = None;
     cur_mark[SPLIT_BOT_MARK_CODE] = None;
-    cur_val = 0;
-    cur_val_level = ValLevel::Int;
     radix = 0;
     cur_order = GlueOrder::Normal;
 
@@ -3577,10 +3572,18 @@ unsafe fn initialize_primitives() {
     primitive("hyphenation", Cmd::HyphData, 0);
     primitive("patterns", Cmd::HyphData, 1);
 
-    primitive("hyphenchar", Cmd::AssignFontInt, 0);
-    primitive("skewchar", Cmd::AssignFontInt, 1);
-    primitive("lpcode", Cmd::AssignFontInt, 2);
-    primitive("rpcode", Cmd::AssignFontInt, 3);
+    primitive(
+        "hyphenchar",
+        Cmd::AssignFontInt,
+        AssignFontInt::HyphenChar as i32,
+    );
+    primitive(
+        "skewchar",
+        Cmd::AssignFontInt,
+        AssignFontInt::SkewChar as i32,
+    );
+    primitive("lpcode", Cmd::AssignFontInt, AssignFontInt::LpCode as i32);
+    primitive("rpcode", Cmd::AssignFontInt, AssignFontInt::RpCode as i32);
 
     primitive("batchmode", Cmd::SetInteraction, InteractionMode::Batch);
     primitive("nonstopmode", Cmd::SetInteraction, InteractionMode::NonStop);

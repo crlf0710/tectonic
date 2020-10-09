@@ -150,6 +150,19 @@ pub(crate) const MIN_INTERNAL: Cmd = Cmd::CharGiven;
 pub(crate) const MAX_INTERNAL: Cmd = Cmd::Register;
 pub(crate) const MAX_COMMAND: Cmd = Cmd::SetInteraction;
 
+#[repr(i32)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum AssignFontInt {
+    HyphenChar = 0,
+    SkewChar = 1,
+    LpCode = 2,
+    RpCode = 3,
+}
+impl From<i32> for AssignFontInt {
+    fn from(n: i32) -> Self {
+        Self::n(n).expect(&format!("incorrect assign font int = {}", n))
+    }
+}
 /// args to Cmd::LastItem -- heavily overloaded by (X)eTeX for extensions
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, enumn::N)]

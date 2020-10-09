@@ -18,12 +18,11 @@ use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ext::{Font, NativeFont::*};
 use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_cs, cur_dir, cur_f, cur_group, cur_i,
-    cur_input, cur_lang, cur_list, cur_tok, cur_val1, file_line_error_style_p,
-    insert_src_special_every_math, just_box, memory_word, pre_adjust_tail, tex_remainder,
-    total_shrink, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB,
-    EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_PARAMS, HEIGHT_BASE,
-    ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR,
-    SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
+    cur_input, cur_lang, cur_list, cur_tok, file_line_error_style_p, insert_src_special_every_math,
+    just_box, memory_word, pre_adjust_tail, tex_remainder, total_shrink, xtx_ligature_present,
+    LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO,
+    FONT_LAYOUT_ENGINE, FONT_PARAMS, HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM,
+    NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t};
 use crate::xetex_layout_interface::*;
@@ -442,11 +441,11 @@ pub(crate) unsafe fn math_limit_switch() {
 unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
     let mut val = if r {
         if cur_chr == 1 {
-            cur_val1 = 0x40000000;
+            let mut val1 = 0x40000000;
             let val = scan_math_fam_int(&mut cur_input);
-            cur_val1 += val * 0x200000;
+            val1 += val * 0x200000;
             let val = scan_usv_num(&mut cur_input);
-            val + cur_val1
+            val + val1
         } else {
             scan_delimiter_int(&mut cur_input)
         }
@@ -461,12 +460,12 @@ unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
             Cmd::Letter | Cmd::OtherChar => EQTB[(DEL_CODE_BASE as i32 + cur_chr) as usize].val,
             Cmd::DelimNum => {
                 if cur_chr == 1 {
-                    cur_val1 = 0x40000000;
+                    let mut val1 = 0x40000000;
                     scan_math_class_int(&mut cur_input);
                     let val = scan_math_fam_int(&mut cur_input);
-                    cur_val1 += val * 0x20000;
+                    val1 += val * 0x20000;
                     let val = scan_usv_num(&mut cur_input);
-                    val + cur_val1
+                    val + val1
                 } else {
                     scan_delimiter_int(&mut cur_input)
                 }
