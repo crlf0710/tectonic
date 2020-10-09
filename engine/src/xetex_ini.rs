@@ -697,8 +697,6 @@ pub(crate) static mut long_state: u8 = 0;
 #[no_mangle]
 pub(crate) static mut pstack: [i32; 9] = [0; 9];
 #[no_mangle]
-pub(crate) static mut radix: i16 = 0;
-#[no_mangle]
 pub(crate) static mut cur_order: GlueOrder = GlueOrder::Normal;
 
 const NONE_UFILE: Option<Box<UFILE>> = None;
@@ -2424,7 +2422,6 @@ unsafe fn initialize_more_variables() {
     cur_mark[BOT_MARK_CODE] = None;
     cur_mark[SPLIT_FIRST_MARK_CODE] = None;
     cur_mark[SPLIT_BOT_MARK_CODE] = None;
-    radix = 0;
     cur_order = GlueOrder::Normal;
 
     read_file = [NONE_UFILE; 17];

@@ -52,18 +52,18 @@ use crate::xetex_ini::{
     native_text_size, no_new_control_sequence, open_parens, output_active, pack_begin_line,
     page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos,
     pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files,
-    pstack, quoted_filename, radix, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain,
-    sa_level, sa_root, save_native_len, scanner_status, selector, set_box_allowed, shown_mode,
-    skip_line, space_class, stop_at_space, str_pool, str_ptr, str_start, tally, term_offset,
-    tex_remainder, texmf_log_name, total_shrink, total_stretch, trick_buf, trick_count,
-    use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
-    xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE, EOF_SEEN,
-    EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR,
-    FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME,
-    FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK,
-    INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN,
-    MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE,
-    PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR,
+    pstack, quoted_filename, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level,
+    sa_root, save_native_len, scanner_status, selector, set_box_allowed, shown_mode, skip_line,
+    space_class, stop_at_space, str_pool, str_ptr, str_start, tally, term_offset, tex_remainder,
+    texmf_log_name, total_shrink, total_stretch, trick_buf, trick_count, use_err_help,
+    used_tectonic_coda_tokens, warning_index, write_file, write_open, xtx_ligature_present,
+    LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE, EOF_SEEN, EQTB, EQTB_TOP,
+    FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO,
+    FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR,
+    FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR,
+    INPUT_STACK, IN_OPEN, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK,
+    MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE,
+    PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR,
     SOURCE_FILENAME_STACK, STACK_SIZE,
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
@@ -5037,7 +5037,6 @@ pub(crate) unsafe fn expand() {
     if expand_depth_count >= expand_depth {
         overflow("expansion depth", expand_depth as usize);
     }
-    let radix_backup = radix;
     let co_backup = cur_order;
     let backup_backup = *LLIST_link(BACKUP_HEAD);
     loop {
@@ -5325,7 +5324,6 @@ pub(crate) unsafe fn expand() {
             break;
         }
     }
-    radix = radix_backup;
     cur_order = co_backup;
     *LLIST_link(BACKUP_HEAD) = backup_backup;
     expand_depth_count -= 1;
@@ -6902,8 +6900,11 @@ pub(crate) unsafe fn scan_something_internal(
     (val, val_level)
 }
 pub(crate) unsafe fn scan_int(input: &mut input_state_t) -> i32 {
+    scan_int_with_radix(input).0
+}
+pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16) {
     let mut d: i16 = 0;
-    radix = 0;
+    let mut radix: i16 = 0;
     let mut OK_so_far = true;
     let mut negative = false;
     loop {
@@ -7045,7 +7046,7 @@ pub(crate) unsafe fn scan_int(input: &mut input_state_t) -> i32 {
     if negative {
         ival = -ival;
     };
-    ival
+    (ival, radix)
 }
 unsafe fn round_decimals(mut k: i16) -> scaled_t {
     let mut a: i32 = 0;
@@ -7117,16 +7118,15 @@ pub(crate) unsafe fn xetex_scan_dimen(
             if cur_tok == CONTINENTAL_POINT_TOKEN {
                 cur_tok = POINT_TOKEN;
             }
-            let val = if cur_tok != POINT_TOKEN {
-                scan_int(input)
+            let (val, radix) = if cur_tok != POINT_TOKEN {
+                scan_int_with_radix(input)
             } else {
-                radix = 10;
-                0
+                (0, 10)
             };
             if cur_tok == CONTINENTAL_POINT_TOKEN {
                 cur_tok = POINT_TOKEN;
             }
-            if radix as i32 == 10 && cur_tok == POINT_TOKEN {
+            if radix == 10 && cur_tok == POINT_TOKEN {
                 /*471:*/
                 let mut k = 0; /* if(requires_units) */
                 let mut p = None.tex_int();
