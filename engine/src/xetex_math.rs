@@ -34,9 +34,9 @@ use crate::xetex_output::{
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_scaledmath::{half, mult_and_add, tex_round, x_over_n, xn_over_d};
 use crate::xetex_xetex0::{
-    append_to_vlist, back_error, back_input, begin_token_list, char_warning, copy_node_list,
-    delete_glue_ref, effective_char, eq_word_define, flush_node_list, free_node, get_avail,
-    get_node, get_token, get_x_token, hpack, insert_src_special, internal_font_number, just_copy,
+    _get_x_token, append_to_vlist, back_error, back_input, begin_token_list, char_warning,
+    copy_node_list, delete_glue_ref, effective_char, eq_word_define, flush_node_list, free_node,
+    get_avail, get_node, get_token, hpack, insert_src_special, internal_font_number, just_copy,
     just_reverse, new_character, new_choice, new_glue, new_kern, new_math, new_native_character,
     new_noad, new_null_box, new_param_glue, new_penalty, new_rule, new_skip_param, new_spec,
     norm_min, off_save, pop_nest, push_math, push_nest, scan_delimiter_int, scan_dimen,
@@ -450,16 +450,21 @@ unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
             scan_delimiter_int(&mut cur_input)
         }
     } else {
+        let mut cmd;
+        let mut chr;
         loop {
-            get_x_token();
-            if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
+            let next = _get_x_token(&mut cur_input);
+            cur_tok = next.0;
+            cmd = next.1;
+            chr = next.2;
+            if !(cmd == Cmd::Spacer || cmd == Cmd::Relax) {
                 break;
             }
         }
-        match cur_cmd {
-            Cmd::Letter | Cmd::OtherChar => EQTB[(DEL_CODE_BASE as i32 + cur_chr) as usize].val,
+        match cmd {
+            Cmd::Letter | Cmd::OtherChar => EQTB[(DEL_CODE_BASE as i32 + chr) as usize].val,
             Cmd::DelimNum => {
-                if cur_chr == 1 {
+                if chr == 1 {
                     let mut val1 = 0x40000000;
                     scan_math_class_int(&mut cur_input);
                     let val = scan_math_fam_int(&mut cur_input);
@@ -984,8 +989,8 @@ pub(crate) unsafe fn after_math() {
     l = false;
     p = fin_mlist(None);
     let a = if cur_list.mode == (!m.0, m.1) {
-        get_x_token();
-        if cur_cmd != Cmd::MathShift {
+        let (tok, cmd, ..) = _get_x_token(&mut cur_input);
+        if cmd != Cmd::MathShift {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
@@ -997,7 +1002,7 @@ pub(crate) unsafe fn after_math() {
                 "The `$\' that I just saw supposedly matches a previous `$$\'.",
                 "So I shall assume that you typed `$$\' both times."
             );
-            back_error(&mut cur_input, cur_tok);
+            back_error(&mut cur_input, tok);
         }
         cur_mlist = p;
         cur_style = (MathStyle::Text, 0);
@@ -1086,8 +1091,8 @@ pub(crate) unsafe fn after_math() {
     } else {
         if a.is_none() {
             // 1232:
-            get_x_token();
-            if cur_cmd != Cmd::MathShift {
+            let (tok, cmd, ..) = _get_x_token(&mut cur_input);
+            if cmd != Cmd::MathShift {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -1099,7 +1104,7 @@ pub(crate) unsafe fn after_math() {
                     "The `$\' that I just saw supposedly matches a previous `$$\'.",
                     "So I shall assume that you typed `$$\' both times."
                 );
-                back_error(&mut cur_input, cur_tok);
+                back_error(&mut cur_input, tok);
             }
         }
         cur_mlist = p;
@@ -1242,9 +1247,9 @@ pub(crate) unsafe fn resume_after_display() {
         + norm_min(*INTPAR(IntPar::right_hyphen_min)) as i32) as i64
         * 65536
         + cur_lang as i64) as i32;
-    get_x_token();
-    if cur_cmd != Cmd::Spacer {
-        back_input(&mut cur_input, cur_tok);
+    let (tok, cmd, ..) = _get_x_token(&mut cur_input);
+    if cmd != Cmd::Spacer {
+        back_input(&mut cur_input, tok);
     }
     if NEST_PTR == 1 {
         build_page();

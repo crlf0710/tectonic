@@ -2084,8 +2084,7 @@ unsafe fn write_out(p: &WriteFile) {
 
     let old_mode = cur_list.mode;
     cur_list.mode = (false, ListMode::NoMode);
-    cur_cs = write_loc;
-    let _q = scan_toks(false, true);
+    let _q = scan_toks(&mut cur_input, write_loc, false, true);
     let (tok, cmd, chr, cs) = get_token(&mut cur_input);
     cur_tok = tok;
     cur_cmd = cmd;

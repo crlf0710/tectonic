@@ -1317,7 +1317,7 @@ unsafe fn new_patterns() {
         print_esc_cstr("patterns");
         help!("All patterns must be given before typesetting begins.");
         error();
-        *LLIST_link(GARBAGE) = scan_toks(false, false) as i32;
+        *LLIST_link(GARBAGE) = scan_toks(&mut cur_input, cur_cs, false, false) as i32;
         flush_list(Some(def_ref));
     };
 }
@@ -1590,13 +1590,8 @@ pub(crate) unsafe fn prefixed_command() {
                 a = (a as i32 + 4i32) as i16
             }
             e = cur_chr >= 2;
-            let (tok, cmd, chr, cs) = get_r_token(&mut cur_input);
-            cur_tok = tok;
-            cur_cmd = cmd;
-            cur_chr = chr;
-            cur_cs = cs;
-            let p = cur_cs;
-            let _q = scan_toks(true, e) as i32;
+            let p = get_r_token(&mut cur_input).3;
+            let _q = scan_toks(&mut cur_input, p, true, e) as i32;
             if j != 0 {
                 let q = get_avail();
                 MEM[q].b32.s0 = j;
@@ -1627,7 +1622,7 @@ pub(crate) unsafe fn prefixed_command() {
                     cur_cmd = cmd;
                     cur_chr = chr;
                     cur_cs = cs;
-                    if !(cur_cmd == Cmd::Spacer) { break ; }
+                    if cur_cmd != Cmd::Spacer { break ; }
                 }
                 if cur_tok == OTHER_TOKEN + '=' as i32 {
                     let (tok, cmd, chr, cs) = get_token(&mut cur_input);
@@ -1644,20 +1639,14 @@ pub(crate) unsafe fn prefixed_command() {
                     }
                 }
             } else {
+                let q = get_token(&mut cur_input).0;
                 let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-                cur_tok = tok;
                 cur_cmd = cmd;
                 cur_chr = chr;
                 cur_cs = cs;
-                let q = cur_tok;
-                let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-                cur_tok = tok;
-                cur_cmd = cmd;
-                cur_chr = chr;
-                cur_cs = cs;
-                back_input(&mut cur_input, cur_tok);
+                back_input(&mut cur_input, tok);
                 cur_tok = q;
-                back_input(&mut cur_input, cur_tok);
+                back_input(&mut cur_input, q);
             }
             if cur_cmd >= Cmd::Call {
                 MEM[cur_chr as usize].b32.s0 += 1
@@ -1709,12 +1698,7 @@ pub(crate) unsafe fn prefixed_command() {
                     }
                 }
             } else {
-                let (tok, cmd, chr, cs) = get_r_token(&mut cur_input);
-                cur_tok = tok;
-                cur_cmd = cmd;
-                cur_chr = chr;
-                cur_cs = cs;
-                let p = cur_cs;
+                let p = get_r_token(&mut cur_input).3;
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Relax, Some(TOO_BIG_USV));
                 } else {
@@ -1823,12 +1807,7 @@ pub(crate) unsafe fn prefixed_command() {
                 help!("You should have said `\\read<number> to \\cs\'.", "I\'m going to look for the \\cs now.");
                 error();
             }
-            let (tok, cmd, chr, cs) = get_r_token(&mut cur_input);
-            cur_tok = tok;
-            cur_cmd = cmd;
-            cur_chr = chr;
-            cur_cs = cs;
-            let p = cur_cs;
+            let p = get_r_token(&mut cur_input).3;
             let val = read_toks(&mut cur_input, n, p, j);
             if a >= 4 {
                 geq_define(p as usize, Cmd::Call, val.opt());
@@ -1870,7 +1849,7 @@ pub(crate) unsafe fn prefixed_command() {
                 /*1262:*/
                 if cur_cmd == Cmd::ToksRegister ||
                        cur_cmd == Cmd::AssignToks {
-                    q = if cur_cmd == Cmd::ToksRegister {
+                    let q = if cur_cmd == Cmd::ToksRegister {
                         if cur_chr == 0 {
                             let val = scan_register_num(&mut cur_input); /* "extended delimiter code flag" */
                             (if val < 256 {
@@ -1918,8 +1897,7 @@ pub(crate) unsafe fn prefixed_command() {
             }
 
             back_input(&mut cur_input, cur_tok);
-            cur_cs = q;
-            let q = scan_toks(false, false);
+            let q = scan_toks(&mut cur_input, q, false, false);
 
             if llist_link(def_ref).is_none() {
                 if e {
@@ -2209,12 +2187,8 @@ pub(crate) unsafe fn prefixed_command() {
                 help!();
                 error();
                 loop  {
-                    let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-                    cur_tok = tok;
-                    cur_cmd = cmd;
-                    cur_chr = chr;
-                    cur_cs = cs;
-                    if cur_cmd == Cmd::RightBrace { break ; }
+                    let cmd = get_token(&mut cur_input).1;
+                    if cmd == Cmd::RightBrace { break ; }
                 }
                 return;
             } else { new_hyph_exceptions(); }
@@ -2258,8 +2232,8 @@ pub(crate) unsafe fn prefixed_command() {
     /*1304:*/
     unsafe fn done() {
         if after_token != 0 {
-            cur_tok = after_token;
-            back_input(&mut cur_input, cur_tok);
+            let tok = after_token;
+            back_input(&mut cur_input, tok);
             after_token = 0;
         }
     }

@@ -5338,6 +5338,38 @@ pub(crate) unsafe fn get_x_token() {
         CS_TOKEN_FLAG + cur_cs
     };
 }
+pub(crate) unsafe fn _get_x_token(input: &mut input_state_t) -> (i32, Cmd, i32, i32) {
+    let mut cmd;
+    let mut chr;
+    let mut cs;
+    loop {
+        let next = get_next(input);
+        cmd = next.0;
+        chr = next.1;
+        cs = next.2;
+        if cmd > MAX_COMMAND {
+            if cmd >= Cmd::Call {
+                if cmd < Cmd::EndTemplate {
+                    macro_call(input, chr, cs);
+                } else {
+                    cs = FROZEN_ENDV as i32;
+                    cmd = Cmd::EndV;
+                    break;
+                }
+            } else {
+                expand(input, cmd, chr, cs)
+            }
+        } else {
+            break;
+        }
+    }
+    let tok = if cs == 0 {
+        cmd as i32 * MAX_CHAR_VAL + chr
+    } else {
+        CS_TOKEN_FLAG + cs
+    };
+    (tok, cmd, chr, cs)
+}
 pub(crate) unsafe fn x_token() {
     while cur_cmd > MAX_COMMAND {
         expand(&mut cur_input, cur_cmd, cur_chr, cur_cs);
@@ -8226,7 +8258,7 @@ pub(crate) unsafe fn conv_toks(
                 u = 0;
             }
             boolvar = scan_keyword(b"file");
-            scan_pdf_ext_toks();
+            scan_pdf_ext_toks(&mut cur_input, cur_cs);
             if selector == Selector::NEW_STRING {
                 pdf_error(
                     "tokens",
@@ -8471,7 +8503,12 @@ pub(crate) unsafe fn conv_toks(
     *LLIST_link(GARBAGE) = str_toks_cat(b, cat) as i32;
     begin_token_list(input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
 }
-pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
+pub(crate) unsafe fn scan_toks(
+    input: &mut input_state_t,
+    cs: i32,
+    mut macro_def: bool,
+    mut xpand: bool,
+) -> usize {
     let mut s: i32 = 0;
     let mut unbalance: i32 = 0;
     scanner_status = if macro_def {
@@ -8479,7 +8516,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
     } else {
         ScannerStatus::Absorbing
     };
-    warning_index = cur_cs;
+    warning_index = cs;
     def_ref = get_avail();
     MEM[def_ref].b32.s0 = None.tex_int();
     let mut p = def_ref;
@@ -8490,7 +8527,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
         loop
         /*493: */
         {
-            let (tok, cmd, chr, cs) = get_token(&mut cur_input);
+            let (tok, cmd, chr, cs) = get_token(input);
             cur_tok = tok;
             cur_cmd = cmd;
             cur_chr = chr;
@@ -8501,7 +8538,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
             if cur_cmd == Cmd::MacParam {
                 /*495: */
                 s = MATCH_TOKEN + cur_chr;
-                let (tok, cmd, chr, cs) = get_token(&mut cur_input);
+                let (tok, cmd, chr, cs) = get_token(input);
                 cur_tok = tok;
                 cur_cmd = cmd;
                 cur_chr = chr;
@@ -8540,7 +8577,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                             "I\'ve inserted the digit you should have used after the #.",
                             "Type `1\' to delete what you did use."
                         );
-                        back_error(&mut cur_input, cur_tok);
+                        back_error(input, cur_tok);
                     }
                     cur_tok = s
                 }
@@ -8584,7 +8621,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
             loop
             /*497: */
             {
-                let (cmd, chr, cs) = get_next(&mut cur_input);
+                let (cmd, chr, cs) = get_next(input);
                 cur_cmd = cmd;
                 cur_chr = chr;
                 cur_cs = cs;
@@ -8602,7 +8639,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                             p = q
                         }
                     } else {
-                        expand(&mut cur_input, cmd, chr, cs);
+                        expand(input, cmd, chr, cs);
                     }
                 } else {
                     break;
@@ -8611,7 +8648,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
             // done2:
             x_token();
         } else {
-            let (tok, cmd, chr, cs) = get_token(&mut cur_input);
+            let (tok, cmd, chr, cs) = get_token(input);
             cur_tok = tok;
             cur_cmd = cmd;
             cur_chr = chr;
@@ -8633,7 +8670,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                 if xpand {
                     get_x_token();
                 } else {
-                    let (tok, cmd, chr, cs) = get_token(&mut cur_input);
+                    let (tok, cmd, chr, cs) = get_token(input);
                     cur_tok = tok;
                     cur_cmd = cmd;
                     cur_chr = chr;
@@ -8653,7 +8690,7 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                             "Or maybe a } was forgotten somewhere earlier, and things",
                             "are all screwed up? I\'m going to assume that you meant ##."
                         );
-                        back_error(&mut cur_input, cur_tok);
+                        back_error(input, cur_tok);
                         cur_tok = s
                     } else {
                         cur_tok = OUT_PARAM_TOKEN - 48 + cur_chr
@@ -12810,7 +12847,7 @@ pub(crate) unsafe fn make_mark() {
     } else {
         scan_register_num(&mut cur_input)
     };
-    let _p = scan_toks(false, true);
+    let _p = scan_toks(&mut cur_input, cur_cs, false, true);
     let mut p = Mark(get_node(SMALL_NODE_SIZE));
     p.set_class(c);
     set_NODE_type(p.ptr() as usize, TextNode::Mark);
@@ -14022,7 +14059,7 @@ pub(crate) unsafe fn issue_message() {
     let mut c: u8 = 0;
     let mut s: str_number = 0;
     c = cur_chr as u8;
-    *LLIST_link(GARBAGE) = scan_toks(false, true) as i32;
+    *LLIST_link(GARBAGE) = scan_toks(&mut cur_input, cur_cs, false, true) as i32;
     let old_setting_0 = selector;
     selector = Selector::NEW_STRING;
     token_show(Some(def_ref));
@@ -14072,7 +14109,7 @@ pub(crate) unsafe fn issue_message() {
 }
 pub(crate) unsafe fn shift_case() {
     let b = cur_chr;
-    let _p = scan_toks(false, false);
+    let _p = scan_toks(&mut cur_input, cur_cs, false, false);
     let mut popt = llist_link(def_ref);
     while let Some(p) = popt {
         let t = MEM[p].b32.s0;
@@ -14253,8 +14290,7 @@ pub(crate) unsafe fn do_extension() {
                 val
             };
             w.set_id(val);
-            cur_cs = k;
-            p = scan_toks(false, false);
+            p = scan_toks(&mut cur_input, k, false, false);
             w.set_tokens(def_ref as i32);
         }
         2 => {
@@ -14278,7 +14314,7 @@ pub(crate) unsafe fn do_extension() {
             *LLIST_link(cur_list.tail) = Some(s.ptr()).tex_int();
             cur_list.tail = s.ptr();
             MEM[cur_list.tail + 1].b32.s0 = None.tex_int();
-            p = scan_toks(false, true);
+            p = scan_toks(&mut cur_input, cur_cs, false, true);
             s.set_tokens(def_ref as i32);
         }
         IMMEDIATE_CODE => {
@@ -16424,8 +16460,8 @@ pub(crate) unsafe fn tokens_to_string(mut p: i32) -> str_number {
     selector = old_setting;
     make_string()
 }
-pub(crate) unsafe fn scan_pdf_ext_toks() {
-    scan_toks(false, true);
+pub(crate) unsafe fn scan_pdf_ext_toks(input: &mut input_state_t, cs: i32) {
+    scan_toks(input, cs, false, true);
 }
 pub(crate) unsafe fn compare_strings() -> i32 {
     unsafe fn done(s1: str_number, s2: str_number, val: i32) -> i32 {
@@ -16434,10 +16470,10 @@ pub(crate) unsafe fn compare_strings() -> i32 {
         //cur_val_level = ValLevel::Int;
         val
     }
-    scan_toks(false, true);
+    scan_toks(&mut cur_input, cur_cs, false, true);
     let s1 = tokens_to_string(def_ref as i32);
     delete_token_ref(def_ref);
-    scan_toks(false, true);
+    scan_toks(&mut cur_input, cur_cs, false, true);
     let s2 = tokens_to_string(def_ref as i32);
     delete_token_ref(def_ref);
     let mut i1 = str_start[(s1 as i64 - 65536) as usize];
