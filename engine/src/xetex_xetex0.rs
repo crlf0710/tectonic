@@ -3386,16 +3386,16 @@ pub(crate) unsafe fn token_show(p: Option<usize>) {
         show_token_list(llist_link(p), None, 10000000);
     };
 }
-pub(crate) unsafe fn print_meaning() {
-    print_cmd_chr(cur_cmd, cur_chr);
-    if cur_cmd >= Cmd::Call {
+pub(crate) unsafe fn print_meaning(cmd: Cmd, chr: i32) {
+    print_cmd_chr(cmd, chr);
+    if cmd >= Cmd::Call {
         print_chr(':');
         print_ln();
-        token_show(cur_chr.opt());
-    } else if cur_cmd == Cmd::TopBotMark && cur_chr < 5 {
+        token_show(chr.opt());
+    } else if cmd == Cmd::TopBotMark && chr < 5 {
         print_chr(':');
         print_ln();
-        token_show(cur_mark[cur_chr as usize]);
+        token_show(cur_mark[chr as usize]);
     };
 }
 pub(crate) unsafe fn show_cur_cmd_chr(cmd: Cmd, chr: i32) {
@@ -5996,16 +5996,6 @@ pub(crate) unsafe fn scan_something_internal(
     level: ValLevel,
     mut negative: bool,
 ) -> (i32, ValLevel) {
-    let mut n: i32 = 0;
-    let mut k: i32 = 0;
-    let mut kk: i32 = 0;
-    let mut r: i32 = 0;
-    let mut i: b16x4 = b16x4 {
-        s0: 0,
-        s1: 0,
-        s2: 0,
-        s3: 0,
-    };
     let (mut val, mut val_level) = match cur_cmd {
         Cmd::DefCode => {
             let m = cur_chr;
@@ -6281,8 +6271,8 @@ pub(crate) unsafe fn scan_something_internal(
                 AssignFontInt::HyphenChar => (HYPHEN_CHAR[val as usize], ValLevel::Int),
                 AssignFontInt::SkewChar => (SKEW_CHAR[val as usize], ValLevel::Int),
                 _ => {
-                    n = val;
-                    k = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[n as usize] {
+                    let n = val;
+                    let k = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[n as usize] {
                         scan_glyph_number(nf)
                     } else {
                         scan_char_num(input)
@@ -6358,7 +6348,7 @@ pub(crate) unsafe fn scan_something_internal(
                                 LastItemCode::EtexExprMu => ValLevel::Mu,
                                 _ => unreachable!(),
                             };
-                            let val = scan_expr(&mut val_level);
+                            let val = scan_expr(input, &mut val_level);
                             (val, val_level)
                         }
                     };
@@ -6439,7 +6429,7 @@ pub(crate) unsafe fn scan_something_internal(
                                     _ => unreachable!(),
                                 }
                             } else if FONT_BC[q] as i32 <= val && FONT_EC[q] as i32 >= val {
-                                i = FONT_CHARACTER_INFO(
+                                let i = FONT_CHARACTER_INFO(
                                     q,
                                     effective_char(true, q, val as u16) as usize,
                                 );
@@ -6495,7 +6485,7 @@ pub(crate) unsafe fn scan_something_internal(
                         LastItemCode::EtexVersion => ETEX_VERSION,
                         LastItemCode::XetexVersion => XETEX_VERSION,
                         LastItemCode::XetexCountGlyphs => {
-                            n = scan_font_ident(input);
+                            let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => aat::aat_font_get(m.into(), *e),
@@ -6504,7 +6494,7 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::XetexCountFeatures => {
-                            n = scan_font_ident(input);
+                            let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => aat::aat_font_get(m.into(), *e),
@@ -6519,21 +6509,21 @@ pub(crate) unsafe fn scan_something_internal(
                         | LastItemCode::XetexVariationMax
                         | LastItemCode::XetexVariationDefault
                         | LastItemCode::XetexCountVariations => {
-                            n = scan_font_ident(input);
+                            let _n = scan_font_ident(input);
                             0
                         }
                         LastItemCode::XetexFeatureCode
                         | LastItemCode::XetexIsExclusiveFeature
                         | LastItemCode::XetexCountSelectors => {
-                            n = scan_font_ident(input);
+                            let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
-                                    k = scan_int(input);
+                                    let k = scan_int(input);
                                     aat::aat_font_get_1(m.into(), *e, k)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
-                                    k = scan_int(input);
+                                    let k = scan_int(input);
                                     ot_font_get_1((m as i32) - 14, e, k)
                                 }
                                 _ => {
@@ -6543,16 +6533,16 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::XetexSelectorCode | LastItemCode::XetexIsDefaultSelector => {
-                            n = scan_font_ident(input);
+                            let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
-                                    k = scan_int(input);
+                                    let k = scan_int(input);
                                     let val = scan_int(input);
                                     aat::aat_font_get_2(m.into(), *e, k, val)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
-                                    k = scan_int(input);
+                                    let k = scan_int(input);
                                     let val = scan_int(input);
                                     ot_font_get_2((m as i32) - 14, e, k, val)
                                 }
@@ -6563,7 +6553,7 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::XetexFindVariationByName => {
-                            n = scan_font_ident(input);
+                            let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
@@ -6577,7 +6567,7 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::XetexFindFeatureByName => {
-                            n = scan_font_ident(input);
+                            let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
@@ -6595,16 +6585,16 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::XetexFindSelectorByName => {
-                            n = scan_font_ident(input);
+                            let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
-                                    k = scan_int(input);
+                                    let k = scan_int(input);
                                     scan_and_pack_name();
                                     aat::aat_font_get_named_1(m.into(), *e, k);
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
-                                    k = scan_int(input);
+                                    let k = scan_int(input);
                                     scan_and_pack_name();
                                     gr_font_get_named_1((m as i32) - 14, e, k)
                                 }
@@ -6615,7 +6605,7 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::XetexOTCountScripts => {
-                            n = scan_font_ident(input);
+                            let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 Font::Native(Otgr(e)) if e.using_open_type() => {
                                     ot_font_get((m as i32) - 14, e)
@@ -6624,7 +6614,7 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::XetexOTCountLanguages | LastItemCode::XetexOTScript => {
-                            n = scan_font_ident(input);
+                            let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 Font::Native(Otgr(e)) if e.using_open_type() => {
                                     let val = scan_int(input);
@@ -6637,10 +6627,10 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::XetexOTCountFeatures | LastItemCode::XetexOTLanguage => {
-                            n = scan_font_ident(input);
+                            let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 Font::Native(Otgr(e)) if e.using_open_type() => {
-                                    k = scan_int(input);
+                                    let k = scan_int(input);
                                     let val = scan_int(input);
                                     ot_font_get_2((m as i32) - 14, e, k, val)
                                 }
@@ -6651,11 +6641,11 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::XetexOTFeature => {
-                            n = scan_font_ident(input);
+                            let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 Font::Native(Otgr(e)) if e.using_open_type() => {
-                                    k = scan_int(input);
-                                    kk = scan_int(input);
+                                    let k = scan_int(input);
+                                    let kk = scan_int(input);
                                     let val = scan_int(input);
                                     ot_font_get_3((m as i32) - 14, e, k, kk, val)
                                 }
@@ -6669,7 +6659,7 @@ pub(crate) unsafe fn scan_something_internal(
                             if let Font::Native(nf) =
                                 &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
-                                n = scan_int(input);
+                                let n = scan_int(input);
                                 map_char_to_glyph(nf, n)
                             } else {
                                 not_native_font_error(
@@ -6696,7 +6686,7 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::XetexFontType => {
-                            n = scan_font_ident(input);
+                            let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(_)) => 1,
@@ -6706,7 +6696,7 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::XetexFirstChar | LastItemCode::XetexLastChar => {
-                            n = scan_font_ident(input);
+                            let n = scan_font_ident(input);
                             if let Font::Native(_) = &FONT_LAYOUT_ENGINE[n as usize] {
                                 get_font_char_range(
                                     n as usize,
@@ -6774,7 +6764,7 @@ pub(crate) unsafe fn scan_something_internal(
                     Node::Text(TxtNode::Math(m))
                         if m.subtype() == MathType::Eq(BE::End, MathMode::Middle) =>
                     {
-                        r = cur_list.head as i32;
+                        let mut r = cur_list.head as i32;
                         let mut q;
                         loop {
                             q = r as usize;
@@ -7629,7 +7619,7 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, mut max_answer: i
         found(a, negative)
     }
 }
-pub(crate) unsafe fn scan_expr(val_level: &mut ValLevel) -> i32 {
+pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLevel) -> i32 {
     let mut e: i32 = 0;
     let mut t: i32 = 0;
     let mut n: i32 = 0;
@@ -7655,12 +7645,12 @@ pub(crate) unsafe fn scan_expr(val_level: &mut ValLevel) -> i32 {
             if cur_tok == OTHER_TOKEN + 40 {
                 break;
             }
-            back_input(&mut cur_input, cur_tok);
+            back_input(input, cur_tok);
             let mut f = match o {
-                ValLevel::Int => scan_int(&mut cur_input),
-                ValLevel::Dimen => scan_dimen(&mut cur_input, false, false, None),
-                ValLevel::Glue => scan_normal_glue(&mut cur_input),
-                _ => scan_mu_glue(&mut cur_input),
+                ValLevel::Int => scan_int(input),
+                ValLevel::Dimen => scan_dimen(input, false, false, None),
+                ValLevel::Glue => scan_normal_glue(input),
+                _ => scan_mu_glue(input),
             };
             loop {
                 loop
@@ -7684,7 +7674,7 @@ pub(crate) unsafe fn scan_expr(val_level: &mut ValLevel) -> i32 {
                     o = Expr::None;
                     if p.opt().is_none() {
                         if cur_cmd != Cmd::Relax {
-                            back_input(&mut cur_input, cur_tok);
+                            back_input(input, cur_tok);
                         }
                     } else if cur_tok != OTHER_TOKEN + 41 {
                         if file_line_error_style_p != 0 {
@@ -7694,7 +7684,7 @@ pub(crate) unsafe fn scan_expr(val_level: &mut ValLevel) -> i32 {
                         }
                         print_cstr("Missing ) inserted for expression");
                         help!("I was expecting to see `+\', `-\', `*\', `/\', or `)\'. Didn\'t.");
-                        back_error(&mut cur_input, cur_tok);
+                        back_error(input, cur_tok);
                     }
                 }
                 arith_error = b;
@@ -8371,7 +8361,7 @@ pub(crate) unsafe fn conv_toks() {
                 print_char(cur_chr);
             }
         }
-        ConvertCode::Meaning => print_meaning(),
+        ConvertCode::Meaning => print_meaning(cur_cmd, cur_chr),
         ConvertCode::FontName => {
             let val = oval.unwrap();
             font_name_str = FONT_NAME[val as usize];
@@ -8628,17 +8618,18 @@ pub(crate) unsafe fn scan_toks(mut macro_def: bool, mut xpand: bool) -> usize {
                         cur_chr = NO_EXPAND_FLAG;
                     }
                 }
-                if cur_cmd <= MAX_COMMAND {
-                    break;
-                }
-                if cur_cmd != Cmd::The {
-                    expand();
-                } else {
-                    let q = the_toks();
-                    if let Some(m) = llist_link(TEMP_HEAD) {
-                        *LLIST_link(p) = Some(m).tex_int();
-                        p = q
+                if cur_cmd > MAX_COMMAND {
+                    if cur_cmd == Cmd::The {
+                        let q = the_toks();
+                        if let Some(m) = llist_link(TEMP_HEAD) {
+                            *LLIST_link(p) = Some(m).tex_int();
+                            p = q
+                        }
+                    } else {
+                        expand();
                     }
+                } else {
+                    break;
                 }
             }
             // done2:
@@ -14104,12 +14095,12 @@ pub(crate) unsafe fn shift_case() {
     *LLIST_link(def_ref) = avail.tex_int();
     avail = Some(def_ref);
 }
-pub(crate) unsafe fn show_whatever() {
-    match cur_chr {
-        3 => {
+pub(crate) unsafe fn show_whatever(chr: i32) {
+    match chr {
+        SHOW_LISTS => {
             diagnostic(true, || show_activities());
         }
-        1 => {
+        SHOW_BOX_CODE => {
             let val = scan_register_num(&mut cur_input);
             let p = if val < 256 {
                 BOX_REG(val as usize).opt()
@@ -14128,24 +14119,20 @@ pub(crate) unsafe fn show_whatever() {
                 }
             });
         }
-        0 => {
-            let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-            cur_tok = tok;
-            cur_cmd = cmd;
-            cur_chr = chr;
-            cur_cs = cs;
+        SHOW_CODE => {
+            let (_, cmd, chr, cs) = get_token(&mut cur_input);
             print_nl_cstr("> ");
-            if cur_cs != 0 {
-                sprint_cs(cur_cs);
+            if cs != 0 {
+                sprint_cs(cs);
                 print_chr('=');
             }
-            print_meaning();
+            print_meaning(cmd, chr);
             return common_ending();
         }
-        4 => {
+        SHOW_GROUPS => {
             diagnostic(true, || show_save_groups(cur_group, cur_level));
         }
-        6 => {
+        SHOW_IFS => {
             diagnostic(true, || {
                 print_nl_cstr("");
                 print_ln();
@@ -14192,13 +14179,14 @@ pub(crate) unsafe fn show_whatever() {
                 }
             });
         }
-        _ => {
+        SHOW_THE_CODE | SHOW_TOKENS => {
             let _p = the_toks() as i32;
             print_nl_cstr("> ");
             token_show(Some(TEMP_HEAD));
             flush_list(llist_link(TEMP_HEAD));
             return common_ending();
         }
+        _ => unreachable!()
     }
 
     if file_line_error_style_p != 0 {
@@ -15285,7 +15273,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (_, Cmd::XRay) => {
                         // 20 | 123 | 226
-                        show_whatever();
+                        show_whatever(cur_chr);
                     }
                     (_, Cmd::Extension) => {
                         // 60 | 163 | 266
