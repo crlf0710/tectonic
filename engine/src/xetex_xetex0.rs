@@ -11486,8 +11486,8 @@ pub(crate) unsafe fn fin_align() {
     pop_nest();
     if cur_list.mode == (false, ListMode::MMode) {
         /*1241: */
-        do_assignments(); /*1232: */
-        if cur_cmd != Cmd::MathShift {
+        let (tok, cmd, chr) = do_assignments(&mut cur_input); /*1232: */
+        if cmd != Cmd::MathShift {
             /*1242: */
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -11499,7 +11499,7 @@ pub(crate) unsafe fn fin_align() {
                 "Displays can use special alignments (like \\eqalignno)",
                 "only if nothing but the alignment itself is between $$\'s."
             );
-            back_error(&mut cur_input, cur_tok);
+            back_error(&mut cur_input, tok);
         } else {
             get_x_token();
             if cur_cmd != Cmd::MathShift {
@@ -13187,21 +13187,20 @@ pub(crate) unsafe fn make_accent() {
         } else {
             *FONT_CHARACTER_WIDTH(f, effective_char(true, f, Char(p).character()) as usize)
         };
-        do_assignments();
+        let (tok, cmd, chr) = do_assignments(&mut cur_input);
         let mut q = None;
         f = EQTB[CUR_FONT_LOC].val as usize;
-        let val =
-            if cur_cmd == Cmd::Letter || cur_cmd == Cmd::OtherChar || cur_cmd == Cmd::CharGiven {
-                q = new_character(f, cur_chr as UTF16_code);
-                cur_chr
-            } else if cur_cmd == Cmd::CharNum {
-                let val = scan_char_num(&mut cur_input);
-                q = new_character(f, val as UTF16_code);
-                val
-            } else {
-                back_input(&mut cur_input, cur_tok);
-                val
-            };
+        let val = if cmd == Cmd::Letter || cmd == Cmd::OtherChar || cmd == Cmd::CharGiven {
+            q = new_character(f, chr as UTF16_code);
+            chr
+        } else if cmd == Cmd::CharNum {
+            let val = scan_char_num(&mut cur_input);
+            q = new_character(f, val as UTF16_code);
+            val
+        } else {
+            back_input(&mut cur_input, tok);
+            val
+        };
         if let Some(q) = q {
             /*1160: */
             let mut h;
@@ -15277,7 +15276,7 @@ pub(crate) unsafe fn main_control() {
                         //| 200 | 303 | 98 | 201 | 304 | 99 | 202 | 305 | 100 | 203 | 306 | 101
                         //| 204 | 307 | 102 | 205 | 308 | 103 | 206 | 309
                         dbg!("BBBBBBBBBB");
-                        prefixed_command();
+                        prefixed_command(&mut cur_input, cur_cmd, cur_chr, cur_cs);
                     }
                     (_, Cmd::AfterAssignment) => {
                         // 41 | 144 | 247
@@ -16629,20 +16628,28 @@ pub(crate) unsafe fn do_marks(a: MarkMode, mut l: i16, q: usize) -> bool {
     }
     false
 }
-pub(crate) unsafe fn do_assignments() {
+pub(crate) unsafe fn do_assignments(input: &mut input_state_t) -> (i32, Cmd, i32) {
+    let mut tok;
+    let mut cmd;
+    let mut chr;
     loop {
+        let mut next;
         loop {
-            get_x_token();
-            if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
+            next = _get_x_token(input);
+            if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
                 break;
             }
         }
-        if cur_cmd <= MAX_NON_PREFIXED_COMMAND {
-            return;
+        tok = next.0;
+        cmd = next.1;
+        chr = next.2;
+        let cs = next.3;
+        if cmd <= MAX_NON_PREFIXED_COMMAND {
+            return (tok, cmd, chr);
         }
         dbg!("AAAAAAAAA");
         set_box_allowed = false;
-        prefixed_command();
+        prefixed_command(input, cmd, chr, cs);
         set_box_allowed = true
     }
 }

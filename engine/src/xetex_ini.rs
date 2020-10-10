@@ -1507,7 +1507,12 @@ unsafe fn new_hyph_exceptions() {
         }
     }
 }
-pub(crate) unsafe fn prefixed_command() {
+pub(crate) unsafe fn prefixed_command(
+    input: &mut input_state_t,
+    mut ocmd: Cmd,
+    mut ochr: i32,
+    mut ocs: i32,
+) {
     let mut f: internal_font_number = 0;
     let mut j: i32 = 0;
     let mut k: font_index = 0;
@@ -1515,13 +1520,17 @@ pub(crate) unsafe fn prefixed_command() {
 
     let mut a = 0 as i16;
 
+    cur_cmd = ocmd;
+    cur_chr = ochr;
+    cur_cs = ocs;
+
     while cur_cmd == Cmd::Prefix {
         if a as i32 / cur_chr & 1i32 == 0 {
             a = (a as i32 + cur_chr) as i16
         }
         let mut next;
         loop {
-            next = _get_x_token(&mut cur_input);
+            next = _get_x_token(input);
             if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
                 break;
             }
@@ -1541,7 +1550,7 @@ pub(crate) unsafe fn prefixed_command() {
             print_cmd_chr(cur_cmd, cur_chr);
             print_chr('\'');
             help!("I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.");
-            back_error(&mut cur_input, tok);
+            back_error(input, tok);
             return;
         }
         if *INTPAR(IntPar::tracing_commands) > 2 {
@@ -1595,8 +1604,8 @@ pub(crate) unsafe fn prefixed_command() {
                 a = (a as i32 + 4i32) as i16
             }
             e = cur_chr >= 2;
-            let p = get_r_token(&mut cur_input).3;
-            let _q = scan_toks(&mut cur_input, p, true, e) as i32;
+            let p = get_r_token(input).3;
+            let _q = scan_toks(input, p, true, e) as i32;
             if j != 0 {
                 let q = get_avail();
                 MEM[q].b32.s0 = j;
@@ -1614,32 +1623,32 @@ pub(crate) unsafe fn prefixed_command() {
         }
         Cmd::Let => {
             let n = cur_chr;
-            let (_, mut cmd, mut chr, p) = get_r_token(&mut cur_input);
+            let (_, mut cmd, mut chr, p) = get_r_token(input);
             if n == NORMAL as i32 {
                 let mut next;
                 loop  {
-                    next = get_token(&mut cur_input);
+                    next = get_token(input);
                     if next.1 != Cmd::Spacer { break ; }
                 }
                 cmd = next.1;
                 chr = next.2;
                 if next.0 == OTHER_TOKEN + '=' as i32 {
-                    let next = get_token(&mut cur_input);
+                    let next = get_token(input);
                     cmd = next.1;
                     chr = next.2;
                     if cmd == Cmd::Spacer {
-                        let next = get_token(&mut cur_input);
+                        let next = get_token(input);
                         cmd = next.1;
                         chr = next.2;
                     }
                 }
             } else {
-                let q = get_token(&mut cur_input).0;
-                let next = get_token(&mut cur_input);
+                let q = get_token(input).0;
+                let next = get_token(input);
                 cmd = next.1;
                 chr = next.2;
-                back_input(&mut cur_input, next.0);
-                back_input(&mut cur_input, q);
+                back_input(input, next.0);
+                back_input(input, q);
             }
             if cmd >= Cmd::Call {
                 MEM[chr as usize].b32.s0 += 1
@@ -1657,11 +1666,11 @@ pub(crate) unsafe fn prefixed_command() {
         Cmd::ShorthandDef => {
             let mut n = ShorthandDefCode::n(cur_chr as u8).unwrap();
             if n == ShorthandDefCode::CharSub {
-                let val = scan_char_num(&mut cur_input);
+                let val = scan_char_num(input);
                 let p = CHAR_SUB_CODE_BASE as i32 + val;
-                scan_optional_equals(&mut cur_input);
-                let mut n = scan_char_num(&mut cur_input);
-                let val = scan_char_num(&mut cur_input);
+                scan_optional_equals(input);
+                let mut n = scan_char_num(input);
+                let val = scan_char_num(input);
                 if *INTPAR(IntPar::tracing_char_sub_def) > 0 {
                     diagnostic(false, || {
                         print_nl_cstr("New character substitution: ");
@@ -1691,45 +1700,45 @@ pub(crate) unsafe fn prefixed_command() {
                     }
                 }
             } else {
-                let p = get_r_token(&mut cur_input).3;
+                let p = get_r_token(input).3;
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Relax, Some(TOO_BIG_USV));
                 } else {
                     eq_define(p as usize, Cmd::Relax, Some(TOO_BIG_USV));
                 }
-                scan_optional_equals(&mut cur_input);
+                scan_optional_equals(input);
                 match n {
                     ShorthandDefCode::Char => {
-                        let val = scan_usv_num(&mut cur_input);
+                        let val = scan_usv_num(input);
                         if a >= 4 {
                             geq_define(p as usize, Cmd::CharGiven, val.opt());
                         } else { eq_define(p as usize, Cmd::CharGiven, val.opt()); }
                     }
                     ShorthandDefCode::MathChar => {
-                        let val = scan_fifteen_bit_int(&mut cur_input);
+                        let val = scan_fifteen_bit_int(input);
                         if a >= 4 {
                             geq_define(p as usize, Cmd::MathGiven, val.opt());
                         } else { eq_define(p as usize, Cmd::MathGiven, val.opt()); }
                     }
                     ShorthandDefCode::XetexMathCharNum => {
-                        let val = scan_xetex_math_char_int(&mut cur_input);
+                        let val = scan_xetex_math_char_int(input);
                         if a >= 4 {
                             geq_define(p as usize, Cmd::XetexMathGiven, val.opt());
                         } else { eq_define(p as usize, Cmd::XetexMathGiven, val.opt()); }
                     }
                     ShorthandDefCode::XetexMathChar => {
-                        let val = scan_math_class_int(&mut cur_input);
+                        let val = scan_math_class_int(input);
                         let mut n = set_class(val);
-                        let val = scan_math_fam_int(&mut cur_input);
+                        let val = scan_math_fam_int(input);
                         n += set_family(val);
-                        let val = scan_usv_num(&mut cur_input);
+                        let val = scan_usv_num(input);
                         n += val;
                         if a >= 4 {
                             geq_define(p as usize, Cmd::XetexMathGiven, n.opt());
                         } else { eq_define(p as usize, Cmd::XetexMathGiven, n.opt()); }
                     }
                     _ => {
-                        let val = scan_register_num(&mut cur_input);
+                        let val = scan_register_num(input);
                         if val > 255 {
                             j = (n as i32) - 2; // TODO
                             if j > ValLevel::Mu as i32 { j = ValLevel::Tok as i32 }
@@ -1789,7 +1798,7 @@ pub(crate) unsafe fn prefixed_command() {
         }
         Cmd::ReadToCS => {
             j = cur_chr;
-            let n = scan_int(&mut cur_input);
+            let n = scan_int(input);
             if !scan_keyword(b"to") {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -1800,8 +1809,8 @@ pub(crate) unsafe fn prefixed_command() {
                 help!("You should have said `\\read<number> to \\cs\'.", "I\'m going to look for the \\cs now.");
                 error();
             }
-            let p = get_r_token(&mut cur_input).3;
-            let val = read_toks(&mut cur_input, n, p, j);
+            let p = get_r_token(input).3;
+            let val = read_toks(input, n, p, j);
             if a >= 4 {
                 geq_define(p as usize, Cmd::Call, val.opt());
             } else { eq_define(p as usize, Cmd::Call, val.opt()); }
@@ -1811,7 +1820,7 @@ pub(crate) unsafe fn prefixed_command() {
             e = false;
             if cur_cmd == Cmd::ToksRegister {
                 if cur_chr == 0 {
-                    let val = scan_register_num(&mut cur_input);
+                    let val = scan_register_num(input);
                     if val > 255 {
                         find_sa_element(ValLevel::Tok, val,
                                         true);
@@ -1822,18 +1831,18 @@ pub(crate) unsafe fn prefixed_command() {
                     }
                 } else { e = true }
             } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
-                cur_ptr = scan_char_class_not_ignored(&mut cur_input).opt();
-                let val = scan_char_class_not_ignored(&mut cur_input);
+                cur_ptr = scan_char_class_not_ignored(input).opt();
+                let val = scan_char_class_not_ignored(input);
                 find_sa_element(ValLevel::InterChar,
                                 cur_ptr.tex_int() * CHAR_CLASS_LIMIT + val, true);
                 cur_chr = cur_ptr.tex_int();
                 e = true
             }
             let p = cur_chr;
-            scan_optional_equals(&mut cur_input);
+            scan_optional_equals(input);
             let mut next;
             loop  {
-                next = _get_x_token(&mut cur_input);
+                next = _get_x_token(input);
                 if !(next.1 == Cmd::Spacer ||
                          next.1 == Cmd::Relax) {
                     break ;
@@ -1846,7 +1855,7 @@ pub(crate) unsafe fn prefixed_command() {
                        cmd == Cmd::AssignToks {
                     let q = if cmd == Cmd::ToksRegister {
                         if chr == 0 {
-                            let val = scan_register_num(&mut cur_input); /* "extended delimiter code flag" */
+                            let val = scan_register_num(input); /* "extended delimiter code flag" */
                             (if val < 256 {
                                 TOKS_REG(val as usize).opt()
                             } else {
@@ -1859,8 +1868,8 @@ pub(crate) unsafe fn prefixed_command() {
                                                  usize].b32.s1
                         }
                     } else if chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
-                        cur_ptr = scan_char_class_not_ignored(&mut cur_input).opt(); /*:1268 */
-                        let val = scan_char_class_not_ignored(&mut cur_input);
+                        cur_ptr = scan_char_class_not_ignored(input).opt(); /*:1268 */
+                        let val = scan_char_class_not_ignored(input);
                         find_sa_element(ValLevel::InterChar,
                                         cur_ptr.tex_int() * CHAR_CLASS_LIMIT + val,
                                         false);
@@ -1887,12 +1896,12 @@ pub(crate) unsafe fn prefixed_command() {
                             eq_define(p as usize, Cmd::UndefinedCS, None);
                         }
                     }
-                    return done();
+                    return done(input);
                 }
             }
 
-            back_input(&mut cur_input, tok);
-            let q = scan_toks(&mut cur_input, q, false, false);
+            back_input(input, tok);
+            let q = scan_toks(input, q, false, false);
 
             if llist_link(def_ref).is_none() {
                 if e {
@@ -1930,16 +1939,16 @@ pub(crate) unsafe fn prefixed_command() {
         }
         Cmd::AssignInt => {
             let p = cur_chr as usize;
-            scan_optional_equals(&mut cur_input);
-            let val = scan_int(&mut cur_input);
+            scan_optional_equals(input);
+            let val = scan_int(input);
             if a >= 4 {
                 geq_word_define(p, val);
             } else { eq_word_define(p, val); }
         }
         Cmd::AssignDimen => {
             let p = cur_chr as usize;
-            scan_optional_equals(&mut cur_input);
-            let val = scan_dimen(&mut cur_input, false, false, None);
+            scan_optional_equals(input);
+            let val = scan_dimen(input, false, false, None);
             if a >= 4 {
                 geq_word_define(p, val);
             } else { eq_word_define(p, val); }
@@ -1947,11 +1956,11 @@ pub(crate) unsafe fn prefixed_command() {
         Cmd::AssignGlue | Cmd::AssignMuGlue => {
             let p = cur_chr as usize;
             let n = cur_cmd;
-            scan_optional_equals(&mut cur_input);
+            scan_optional_equals(input);
             let mut val = if n == Cmd::AssignMuGlue {
-                scan_glue(&mut cur_input, ValLevel::Mu)
+                scan_glue(input, ValLevel::Mu)
             } else {
-                scan_glue(&mut cur_input, ValLevel::Glue)
+                scan_glue(input, ValLevel::Glue)
             };
             trap_zero_glue(&mut val);
             if a >= 4 {
@@ -1961,11 +1970,11 @@ pub(crate) unsafe fn prefixed_command() {
         Cmd::XetexDefCode => {
             if cur_chr == SF_CODE_BASE as i32 {
                 let p = cur_chr;
-                let val = scan_usv_num(&mut cur_input);
+                let val = scan_usv_num(input);
                 let p = p + val;
                 let n = *SF_CODE(val as usize) % 65536;
-                scan_optional_equals(&mut cur_input);
-                let val = scan_char_class(&mut cur_input);
+                scan_optional_equals(input);
+                let val = scan_char_class(input);
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Data,
                                ((val as i64 * 65536 +
@@ -1977,45 +1986,45 @@ pub(crate) unsafe fn prefixed_command() {
                 }
             } else if cur_chr == MATH_CODE_BASE as i32 {
                 let p = cur_chr;
-                let val = scan_usv_num(&mut cur_input);
+                let val = scan_usv_num(input);
                 let p = p + val;
-                scan_optional_equals(&mut cur_input);
-                let val = scan_xetex_math_char_int(&mut cur_input);
+                scan_optional_equals(input);
+                let val = scan_xetex_math_char_int(input);
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Data, val.opt());
                 } else { eq_define(p as usize, Cmd::Data, val.opt()); }
             } else if cur_chr == MATH_CODE_BASE as i32 + 1 {
                 let p = cur_chr - 1;
-                let val = scan_usv_num(&mut cur_input);
+                let val = scan_usv_num(input);
                 let p = p + val;
-                scan_optional_equals(&mut cur_input);
-                let val = scan_math_class_int(&mut cur_input);
+                scan_optional_equals(input);
+                let val = scan_math_class_int(input);
                 let mut n = set_class(val);
-                let val = scan_math_fam_int(&mut cur_input);
+                let val = scan_math_fam_int(input);
                 n = n + set_family(val);
-                let val = scan_usv_num(&mut cur_input);
+                let val = scan_usv_num(input);
                 n = n + val;
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Data, n.opt());
                 } else { eq_define(p as usize, Cmd::Data, n.opt()); }
             } else if cur_chr == DEL_CODE_BASE as i32 {
                 let p = cur_chr;
-                let val = scan_usv_num(&mut cur_input);
+                let val = scan_usv_num(input);
                 let p = p + val;
-                scan_optional_equals(&mut cur_input);
-                let val = scan_int(&mut cur_input);
+                scan_optional_equals(input);
+                let val = scan_int(input);
                 if a >= 4 {
                     geq_word_define(p as usize, val);
                 } else { eq_word_define(p as usize, val); }
             } else {
                 let p = cur_chr - 1;
-                let val = scan_usv_num(&mut cur_input);
+                let val = scan_usv_num(input);
                 let p = p + val;
-                scan_optional_equals(&mut cur_input);
+                scan_optional_equals(input);
                 let mut n = 0x40000000;
-                let val = scan_math_fam_int(&mut cur_input);
+                let val = scan_math_fam_int(input);
                 n = n + val * 0x200000;
-                let val = scan_usv_num(&mut cur_input);
+                let val = scan_usv_num(input);
                 n = n + val;
                 if a >= 4 {
                     geq_word_define(p as usize, n);
@@ -2034,10 +2043,10 @@ pub(crate) unsafe fn prefixed_command() {
             } else { BIGGEST_USV as i32 }; // :1268
 
             let p = cur_chr;
-            let val = scan_usv_num(&mut cur_input);
+            let val = scan_usv_num(input);
             let p = p + val;
-            scan_optional_equals(&mut cur_input);
-            let val = scan_int(&mut cur_input);
+            scan_optional_equals(input);
+            let val = scan_int(input);
 
             let val = if (val < 0 && p < DEL_CODE_BASE as i32) || val > n {
                 if file_line_error_style_p != 0 {
@@ -2093,21 +2102,21 @@ pub(crate) unsafe fn prefixed_command() {
         }
         Cmd::DefFamily => {
             let p = cur_chr;
-            let val = scan_math_fam_int(&mut cur_input);
+            let val = scan_math_fam_int(input);
             let p = p + val;
-            scan_optional_equals(&mut cur_input);
-            let val = scan_font_ident(&mut cur_input);
+            scan_optional_equals(input);
+            let val = scan_font_ident(input);
             if a >= 4 {
                 geq_define(p as usize, Cmd::Data, val.opt());
             } else { eq_define(p as usize, Cmd::Data, val.opt()); }
         }
         Cmd::Register | Cmd::Advance | Cmd::Multiply | Cmd::Divide => { do_register_command(a); }
         Cmd::SetBox => {
-            let val = scan_register_num(&mut cur_input);
+            let val = scan_register_num(input);
             let n = if a >= 4 {
                 GLOBAL_BOX_FLAG + val
             } else { BOX_FLAG + val };
-            scan_optional_equals(&mut cur_input);
+            scan_optional_equals(input);
             if set_box_allowed {
                 scan_box(n);
             } else {
@@ -2129,8 +2138,8 @@ pub(crate) unsafe fn prefixed_command() {
         Cmd::SetBoxDimen => { alter_box_dimen(); }
         Cmd::SetShape => {
             let q = cur_chr;
-            scan_optional_equals(&mut cur_input);
-            let val = scan_int(&mut cur_input);
+            scan_optional_equals(input);
+            let val = scan_int(input);
             let mut n = val;
             let p = if n <= 0 {
                 None
@@ -2142,7 +2151,7 @@ pub(crate) unsafe fn prefixed_command() {
                 MEM[p + 1].b32.s1 = n;
 
                 for j in (p + 2)..=(p + (n as usize) + 1) {
-                    let val = scan_int(&mut cur_input);
+                    let val = scan_int(input);
                     MEM[j].b32.s1 = val;
                 }
 
@@ -2155,9 +2164,9 @@ pub(crate) unsafe fn prefixed_command() {
                 MEM[p].b32.s0 = n;
     
                 for j in 1..=(n as usize) {
-                    let val = scan_dimen(&mut cur_input, false, false, None);
+                    let val = scan_dimen(input, false, false, None);
                     MEM[p + 2 * j - 1].b32.s1 = val;
-                    let val = scan_dimen(&mut cur_input, false, false, None);
+                    let val = scan_dimen(input, false, false, None);
                     MEM[p + 2 * j].b32.s1 = val;
                 }
                 Some(p)
@@ -2170,7 +2179,7 @@ pub(crate) unsafe fn prefixed_command() {
             if cur_chr == 1 {
                 if in_initex_mode {
                     new_patterns();
-                    return done();
+                    return done(input);
                 }
 
                 if file_line_error_style_p != 0 {
@@ -2182,25 +2191,25 @@ pub(crate) unsafe fn prefixed_command() {
                 help!();
                 error();
                 loop  {
-                    let cmd = get_token(&mut cur_input).1;
+                    let cmd = get_token(input).1;
                     if cmd == Cmd::RightBrace { break ; }
                 }
                 return;
             } else { new_hyph_exceptions(); }
         }
         Cmd::AssignFontDimen => {
-            k = find_font_dimen(&mut cur_input, true);
-            scan_optional_equals(&mut cur_input);
-            let val = scan_dimen(&mut cur_input, false, false, None);
+            k = find_font_dimen(input, true);
+            scan_optional_equals(input);
+            let val = scan_dimen(input, false, false, None);
             FONT_INFO[k as usize].b32.s1 = val;
         }
         Cmd::AssignFontInt => {
             let n = AssignFontInt::from(cur_chr);
-            f = scan_font_ident(&mut cur_input) as usize;
+            f = scan_font_ident(input) as usize;
             match n {
                 AssignFontInt::HyphenChar | AssignFontInt::SkewChar => {
-                    scan_optional_equals(&mut cur_input);
-                    let val = scan_int(&mut cur_input);
+                    scan_optional_equals(input);
+                    let val = scan_int(input);
                     if n == AssignFontInt::HyphenChar {
                         HYPHEN_CHAR[f] = val
                     } else { SKEW_CHAR[f] = val }
@@ -2208,9 +2217,9 @@ pub(crate) unsafe fn prefixed_command() {
                 _ => {
                     let p = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
                         scan_glyph_number(nf)
-                    } else { scan_char_num(&mut cur_input) };
-                    scan_optional_equals(&mut cur_input);
-                    let val = scan_int(&mut cur_input);
+                    } else { scan_char_num(input) };
+                    scan_optional_equals(input);
+                    let val = scan_int(input);
                     match n {
                         AssignFontInt::LpCode => { set_cp_code(f, p as u32, Side::Left, val); }
                         AssignFontInt::RpCode => { set_cp_code(f, p as u32, Side::Right, val); }
@@ -2225,15 +2234,15 @@ pub(crate) unsafe fn prefixed_command() {
     }
 
     /*1304:*/
-    unsafe fn done() {
+    unsafe fn done(input: &mut input_state_t) {
         if after_token != 0 {
             let tok = after_token;
-            back_input(&mut cur_input, tok);
+            back_input(input, tok);
             after_token = 0;
         }
     }
 
-    done()
+    done(input)
 }
 
 unsafe fn final_cleanup() {
