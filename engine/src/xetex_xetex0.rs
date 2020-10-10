@@ -5412,15 +5412,15 @@ pub(crate) unsafe fn scan_left_brace() {
     };
 }
 pub(crate) unsafe fn scan_optional_equals(input: &mut input_state_t) {
-    loop {
-        get_x_token();
-        if cur_cmd != Cmd::Spacer {
-            break;
+    let tok = loop {
+        let (tok, cmd, ..) = _get_x_token(input);
+        if cmd != Cmd::Spacer {
+            break tok;
         }
-    }
-    if cur_tok != OTHER_TOKEN + 61 {
+    };
+    if tok != OTHER_TOKEN + 61 {
         /*"="*/
-        back_input(input, cur_tok);
+        back_input(input, tok);
     };
 }
 
@@ -5888,9 +5888,9 @@ pub(crate) unsafe fn scan_four_bit_int_or_18(input: &mut input_state_t) -> i32 {
         val
     }
 }
-pub(crate) unsafe fn get_x_or_protected() {
+pub(crate) unsafe fn get_x_or_protected(input: &mut input_state_t) {
     loop {
-        let (tok, cmd, chr, cs) = get_token(&mut cur_input);
+        let (tok, cmd, chr, cs) = get_token(input);
         cur_tok = tok;
         cur_cmd = cmd;
         cur_chr = chr;
@@ -5903,7 +5903,7 @@ pub(crate) unsafe fn get_x_or_protected() {
                 return;
             }
         }
-        expand(&mut cur_input, cmd, chr, cs);
+        expand(input, cmd, chr, cs);
     }
 }
 pub(crate) unsafe fn effective_char(
@@ -5918,36 +5918,35 @@ pub(crate) unsafe fn effective_char(
     c as i32
 }
 pub(crate) unsafe fn scan_font_ident(input: &mut input_state_t) -> i32 {
-    let mut f: internal_font_number = 0;
-    let mut m: i32 = 0;
-    loop {
-        get_x_token();
-        if !(cur_cmd == Cmd::Spacer) {
-            break;
+    let (tok, cmd, chr, ..) = loop {
+        let next = _get_x_token(input);
+        if !(next.1 == Cmd::Spacer) {
+            break next;
         }
-    }
-    if cur_cmd == Cmd::DefFont {
-        f = EQTB[CUR_FONT_LOC].val as usize;
-    } else if cur_cmd == Cmd::SetFont {
-        f = cur_chr as usize;
-    } else if cur_cmd == Cmd::DefFamily {
-        m = cur_chr;
-        let val = scan_math_fam_int(input);
-        f = EQTB[(m + val) as usize].val as usize
-    } else {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
+    };
+    let f = match cmd {
+        Cmd::DefFont => EQTB[CUR_FONT_LOC].val as usize,
+        Cmd::SetFont => chr as usize,
+        Cmd::DefFamily => {
+            let m = chr;
+            let val = scan_math_fam_int(input);
+            EQTB[(m + val) as usize].val as usize
         }
-        print_cstr("Missing font identifier");
-        help!(
-            "I was looking for a control sequence whose",
-            "current meaning has been defined by \\font."
-        );
-        back_error(input, cur_tok);
-        f = FONT_BASE;
-    }
+        _ => {
+            if file_line_error_style_p != 0 {
+                print_file_line();
+            } else {
+                print_nl_cstr("! ");
+            }
+            print_cstr("Missing font identifier");
+            help!(
+                "I was looking for a control sequence whose",
+                "current meaning has been defined by \\font."
+            );
+            back_error(input, tok);
+            FONT_BASE
+        }
+    };
     f as i32
 }
 pub(crate) unsafe fn find_font_dimen(input: &mut input_state_t, writing: bool) -> i32 {
@@ -6008,12 +6007,15 @@ pub(crate) unsafe fn find_font_dimen(input: &mut input_state_t, writing: bool) -
 }
 pub(crate) unsafe fn scan_something_internal(
     input: &mut input_state_t,
+    tok: i32,
+    cmd: Cmd,
+    chr: i32,
     level: ValLevel,
     mut negative: bool,
 ) -> (i32, ValLevel) {
-    let (mut val, mut val_level) = match cur_cmd {
+    let (mut val, mut val_level) = match cmd {
         Cmd::DefCode => {
-            let m = cur_chr;
+            let m = chr;
             let val = scan_usv_num(input);
             let val = if m == MATH_CODE_BASE as i32 {
                 let mut val1 = *MATH_CODE(val as usize);
@@ -6062,7 +6064,7 @@ pub(crate) unsafe fn scan_something_internal(
             (val, ValLevel::Int)
         }
         Cmd::XetexDefCode => {
-            let m = cur_chr;
+            let m = chr;
             let val = scan_usv_num(input);
             let val = if m == SF_CODE_BASE as i32 {
                 (*SF_CODE(val as usize) as i64 / 65536) as i32
@@ -6100,7 +6102,7 @@ pub(crate) unsafe fn scan_something_internal(
             (val, ValLevel::Int)
         }
         Cmd::ToksRegister | Cmd::AssignToks | Cmd::DefFamily | Cmd::SetFont | Cmd::DefFont => {
-            let m = cur_chr;
+            let m = chr;
             if level != ValLevel::Tok {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -6113,10 +6115,10 @@ pub(crate) unsafe fn scan_something_internal(
                     "(If you can\'t figure out why I needed to see a number,",
                     "look up `weird error\' in the index to The TeXbook.)"
                 );
-                back_error(input, cur_tok);
+                back_error(input, tok);
                 (0, ValLevel::Dimen)
-            } else if cur_cmd <= Cmd::AssignToks {
-                let val = if cur_cmd < Cmd::AssignToks {
+            } else if cmd <= Cmd::AssignToks {
+                let val = if cmd < Cmd::AssignToks {
                     if m == 0i32 {
                         let val = scan_register_num(input);
                         if val < 256 {
@@ -6128,7 +6130,7 @@ pub(crate) unsafe fn scan_something_internal(
                     } else {
                         MEM[(m + 1) as usize].b32.s1
                     }
-                } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
+                } else if chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
                     cur_ptr = scan_char_class_not_ignored(input).opt();
                     let val = scan_char_class_not_ignored(input);
                     find_sa_element(
@@ -6146,29 +6148,29 @@ pub(crate) unsafe fn scan_something_internal(
                 };
                 (val, ValLevel::Tok)
             } else {
-                back_input(input, cur_tok);
+                back_input(input, tok);
                 let val = scan_font_ident(input);
                 (FONT_ID_BASE as i32 + val, ValLevel::Ident)
             }
         }
         Cmd::AssignInt => {
-            let m = cur_chr;
+            let m = chr;
             (EQTB[m as usize].val, ValLevel::Int)
         }
         Cmd::AssignDimen => {
-            let m = cur_chr;
+            let m = chr;
             (EQTB[m as usize].val, ValLevel::Dimen)
         }
         Cmd::AssignGlue => {
-            let m = cur_chr;
+            let m = chr;
             (EQTB[m as usize].val, ValLevel::Glue)
         }
         Cmd::AssignMuGlue => {
-            let m = cur_chr;
+            let m = chr;
             (EQTB[m as usize].val, ValLevel::Mu)
         }
         Cmd::SetAux => {
-            let m = cur_chr;
+            let m = chr;
             if cur_list.mode.1 as i32 != m {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -6208,7 +6210,7 @@ pub(crate) unsafe fn scan_something_internal(
             }
         }
         Cmd::SetPageInt => {
-            let m = cur_chr;
+            let m = chr;
             let val = if m == 0 {
                 dead_cycles
             } else if m == 2 {
@@ -6219,7 +6221,7 @@ pub(crate) unsafe fn scan_something_internal(
             (val, ValLevel::Int)
         }
         Cmd::SetPageDimen => {
-            let m = cur_chr;
+            let m = chr;
             let val = if page_contents == PageContents::Empty && !output_active {
                 if m == 0 {
                     MAX_HALFWORD
@@ -6232,7 +6234,7 @@ pub(crate) unsafe fn scan_something_internal(
             (val, ValLevel::Dimen)
         }
         Cmd::SetShape => {
-            let m = cur_chr;
+            let m = chr;
             let val = if m > LOCAL_BASE as i32 + Local::par_shape as i32 {
                 /*1654:*/
                 let mut val = scan_int(input);
@@ -6254,7 +6256,7 @@ pub(crate) unsafe fn scan_something_internal(
             (val, ValLevel::Int)
         }
         Cmd::SetBoxDimen => {
-            let m = cur_chr;
+            let m = chr;
             let val = scan_register_num(input);
             let q = if val < 256 {
                 BOX_REG(val as usize).opt()
@@ -6273,14 +6275,14 @@ pub(crate) unsafe fn scan_something_internal(
             };
             (val, ValLevel::Dimen)
         }
-        Cmd::CharGiven | Cmd::MathGiven => (cur_chr, ValLevel::Int),
+        Cmd::CharGiven | Cmd::MathGiven => (chr, ValLevel::Int),
         Cmd::AssignFontDimen => {
             let val = find_font_dimen(input, false);
             FONT_INFO[fmem_ptr as usize].b32.s1 = 0;
             (FONT_INFO[val as usize].b32.s1, ValLevel::Dimen)
         }
         Cmd::AssignFontInt => {
-            let m = AssignFontInt::from(cur_chr);
+            let m = AssignFontInt::from(chr);
             let val = scan_font_ident(input);
             match m {
                 AssignFontInt::HyphenChar => (HYPHEN_CHAR[val as usize], ValLevel::Int),
@@ -6306,7 +6308,7 @@ pub(crate) unsafe fn scan_something_internal(
             }
         }
         Cmd::Register => {
-            let m = cur_chr;
+            let m = chr;
             if m < 0 || m > 19 {
                 // TODO: may be bug
                 /* 19 = "lo_mem_stat_max" */
@@ -6342,17 +6344,17 @@ pub(crate) unsafe fn scan_something_internal(
             }
         }
         Cmd::LastItem => {
-            let m = LastItemCode::n(cur_chr as u8).unwrap();
+            let m = LastItemCode::n(chr as u8).unwrap();
             if m >= LastItemCode::InputLineNo {
                 if m >= LastItemCode::MuToGlue {
                     /*1568:*/
                     let (mut val, mut val_level) = match m {
                         LastItemCode::MuToGlue => {
-                            let val = scan_mu_glue(&mut cur_input); // 1595:
+                            let val = scan_mu_glue(input); // 1595:
                             (val, ValLevel::Glue)
                         }
                         LastItemCode::GlueToMu => {
-                            let val = scan_normal_glue(&mut cur_input); // 1596:
+                            let val = scan_normal_glue(input); // 1596:
                             (val, ValLevel::Mu)
                         }
                         _ => {
@@ -6462,7 +6464,7 @@ pub(crate) unsafe fn scan_something_internal(
                         LastItemCode::ParShapeLength
                         | LastItemCode::ParShapeIndent
                         | LastItemCode::ParShapeDimen => {
-                            let mut q = cur_chr - (LastItemCode::ParShapeLength as i32);
+                            let mut q = chr - (LastItemCode::ParShapeLength as i32);
                             let mut val = scan_int(input);
                             if val <= 0 {
                                 0
@@ -6480,7 +6482,7 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::GlueStretch | LastItemCode::GlueShrink => {
-                            let q = scan_normal_glue(&mut cur_input) as usize;
+                            let q = scan_normal_glue(input) as usize;
                             let val = if m == LastItemCode::GlueStretch {
                                 MEM[q + 2].b32.s1
                             } else {
@@ -6759,7 +6761,7 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::GlueStretchOrder | LastItemCode::GlueShrinkOrder => {
-                            let q = scan_normal_glue(&mut cur_input) as usize;
+                            let q = scan_normal_glue(input) as usize;
                             let val = if m == LastItemCode::GlueStretchOrder {
                                 MEM[q].b16.s1 as i32
                             } else {
@@ -6858,7 +6860,7 @@ pub(crate) unsafe fn scan_something_internal(
                 print_nl_cstr("! ");
             }
             print_cstr("You can\'t use `");
-            print_cmd_chr(cur_cmd, cur_chr);
+            print_cmd_chr(cmd, chr);
             print_cstr("\' after ");
             print_esc_cstr("the");
             help!("I\'m forgetting what you said and using zero instead.");
@@ -6907,51 +6909,66 @@ pub(crate) unsafe fn scan_something_internal(
 pub(crate) unsafe fn scan_int(input: &mut input_state_t) -> i32 {
     scan_int_with_radix(input).0
 }
-pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16) {
+pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16, i32, Cmd, i32, i32) {
     let mut d: i16 = 0;
     let mut radix: i16 = 0;
     let mut OK_so_far = true;
     let mut negative = false;
+    let mut tok = cur_tok;
+    let mut cmd = cur_cmd;
+    let mut chr = cur_chr;
+    let mut cs = cur_cs;
     loop {
+        let mut next;
         loop
         /*424:*/
         {
-            get_x_token();
-            if cur_cmd != Cmd::Spacer {
+            next = _get_x_token(input);
+            if next.1 != Cmd::Spacer {
                 break;
             }
         }
-        if cur_tok == OTHER_TOKEN + '-' as i32 {
+        tok = next.0;
+        cmd = next.1;
+        chr = next.2;
+        cs = next.3;
+        if tok == OTHER_TOKEN + '-' as i32 {
             negative = !negative;
-            cur_tok = OTHER_TOKEN + '+' as i32
+            tok = OTHER_TOKEN + '+' as i32
         }
-        if cur_tok != OTHER_TOKEN + '+' as i32 {
+        if tok != OTHER_TOKEN + '+' as i32 {
             break;
         }
     }
+
+    cur_tok = tok;
+    cur_cmd = cmd;
+    cur_chr = chr;
+    cur_cs = cs;
+    
     let mut ival;
-    if cur_tok == ALPHA_TOKEN as i32 {
+    if tok == ALPHA_TOKEN as i32 {
         /*460:*/
-        let (tok, cmd, chr, cs) = get_token(input);
-        cur_tok = tok;
-        cur_cmd = cmd;
-        cur_chr = chr;
-        cur_cs = cs;
+        let next = get_token(input);
+            tok = next.0;
+            cmd = next.1;
+            chr = next.2;
+            cs = next.3;
         /*461:*/
-        ival = if cur_tok < CS_TOKEN_FLAG {
+        ival = if tok < CS_TOKEN_FLAG {
             /*462:*/
-            if cur_cmd <= Cmd::RightBrace {
-                if cur_cmd == Cmd::RightBrace {
+            if cmd <= Cmd::RightBrace {
+                if cmd == Cmd::RightBrace {
                     align_state += 1;
                 } else {
                     align_state -= 1;
                 }
             }
-            cur_chr
-        } else if cur_tok < CS_TOKEN_FLAG + SINGLE_BASE as i32 {
-            cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
+            chr
+        } else if tok < CS_TOKEN_FLAG + SINGLE_BASE as i32 {
+            tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
         } else {
-            cur_tok - (CS_TOKEN_FLAG + SINGLE_BASE as i32)
+            tok - (CS_TOKEN_FLAG + SINGLE_BASE as i32)
         }; /*:463*/
         if ival > BIGGEST_USV as i32 {
             if file_line_error_style_p != 0 {
@@ -6965,47 +6982,60 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
                 "So I\'m essentially inserting \\0 here."
             );
             ival = '0' as i32;
-            back_error(input, cur_tok);
+            back_error(input, tok);
         } else {
-            get_x_token();
-            if cur_cmd != Cmd::Spacer {
-                back_input(input, cur_tok);
+            let next = _get_x_token(input);
+            tok = next.0;
+            cmd = next.1;
+            chr = next.2;
+            cs = next.3;
+            if cmd != Cmd::Spacer {
+                back_input(input, tok);
             }
         }
-    } else if cur_cmd >= MIN_INTERNAL && cur_cmd <= MAX_INTERNAL {
-        let (val, _) = scan_something_internal(&mut cur_input, ValLevel::Int, false);
+    } else if cmd >= MIN_INTERNAL && cmd <= MAX_INTERNAL {
+        let (val, _) = scan_something_internal(input, tok, cmd, chr, ValLevel::Int, false);
         ival = val;
     } else {
         radix = 10;
         let mut m = 0xccccccc;
-        if cur_tok == OCTAL_TOKEN {
+        if tok == OCTAL_TOKEN {
             radix = 8;
             m = 0x10000000;
-            get_x_token();
+            let next = _get_x_token(input);
+            tok = next.0;
+            cmd = next.1;
+            chr = next.2;
+            cs = next.3;
         } else if cur_tok == HEX_TOKEN {
             radix = 16;
             m = 0x8000000;
-            get_x_token();
+            let next = _get_x_token(input);
+            tok = next.0;
+            cmd = next.1;
+            chr = next.2;
+            cs = next.3;
         }
         let mut vacuous = true;
         ival = 0;
+        let mut i = 0;
         loop {
-            if cur_tok < ZERO_TOKEN + radix as i32
-                && cur_tok >= ZERO_TOKEN
-                && cur_tok <= ZERO_TOKEN + 9
+            if tok < ZERO_TOKEN + radix as i32
+                && tok >= ZERO_TOKEN
+                && tok <= ZERO_TOKEN + 9
             {
-                d = (cur_tok - ZERO_TOKEN) as i16
+                d = (tok - ZERO_TOKEN) as i16
             } else {
                 if !(radix as i32 == 16) {
                     break;
                 }
-                if cur_tok <= A_TOKEN + 5 && cur_tok >= A_TOKEN {
-                    d = (cur_tok - A_TOKEN + 10) as i16
+                if tok <= A_TOKEN + 5 && tok >= A_TOKEN {
+                    d = (tok - A_TOKEN + 10) as i16
                 } else {
-                    if !(cur_tok <= OTHER_A_TOKEN + 5 && cur_tok >= OTHER_A_TOKEN) {
+                    if !(tok <= OTHER_A_TOKEN + 5 && tok >= OTHER_A_TOKEN) {
                         break;
                     }
-                    d = (cur_tok - OTHER_A_TOKEN + 10) as i16
+                    d = (tok - OTHER_A_TOKEN + 10) as i16
                 }
             }
             vacuous = false;
@@ -7028,7 +7058,14 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             } else {
                 ival = ival * radix as i32 + d as i32
             }
-            get_x_token();
+            let next = _get_x_token(input);
+            tok = next.0;
+            cmd = next.1;
+            chr = next.2;
+            cs = next.3;
+
+            dbg!(i, tok, cmd, chr, cs);
+            i += 1;
         }
         if vacuous {
             /*464:*/
@@ -7043,15 +7080,19 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
                 "(If you can\'t figure out why I needed to see a number,",
                 "look up `weird error\' in the index to The TeXbook.)"
             );
-            back_error(input, cur_tok);
-        } else if cur_cmd != Cmd::Spacer {
-            back_input(input, cur_tok);
+            back_error(input, tok);
+        } else if cmd != Cmd::Spacer {
+            back_input(input, tok);
         }
     }
     if negative {
         ival = -ival;
     };
-    (ival, radix)
+        cur_tok = tok;
+        cur_cmd = cmd;
+        cur_chr = chr;
+        cur_cs = cs;
+    (ival, radix, cur_tok, cur_cmd, cur_chr, cur_cs)
 }
 unsafe fn round_decimals(mut k: i16) -> scaled_t {
     let mut a: i32 = 0;
@@ -7095,7 +7136,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
             /*468:*/
             if mu {
                 let (mut val, val_level) =
-                    scan_something_internal(&mut cur_input, ValLevel::Mu, false);
+                    scan_something_internal(input, cur_tok, cur_cmd, cur_chr, ValLevel::Mu, false);
                 match val_level {
                     ValLevel::Int | ValLevel::Dimen => {}
                     _ => {
@@ -7112,7 +7153,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 val
             } else {
                 let (val, val_level) =
-                    scan_something_internal(&mut cur_input, ValLevel::Dimen, false);
+                    scan_something_internal(input, cur_tok, cur_cmd, cur_chr, ValLevel::Dimen, false);
                 if val_level == ValLevel::Dimen {
                     return attach_sign(negative, val);
                 }
@@ -7123,12 +7164,13 @@ pub(crate) unsafe fn xetex_scan_dimen(
             if cur_tok == CONTINENTAL_POINT_TOKEN {
                 cur_tok = POINT_TOKEN;
             }
-            let (val, radix) = if cur_tok != POINT_TOKEN {
-                scan_int_with_radix(input)
+            let (val, radix, tok) = if cur_tok != POINT_TOKEN {
+                let i = scan_int_with_radix(input);
+                (i.0, i.1, i.2)
             } else {
-                (0, 10)
+                (0, 10, cur_tok)
             };
-            if cur_tok == CONTINENTAL_POINT_TOKEN {
+            if tok == CONTINENTAL_POINT_TOKEN {
                 cur_tok = POINT_TOKEN;
             }
             if radix == 10 && cur_tok == POINT_TOKEN {
@@ -7208,7 +7250,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
         } else {
             let v = if mu {
                 let (mut val, val_level) =
-                    scan_something_internal(&mut cur_input, ValLevel::Mu, false);
+                    scan_something_internal(input, cur_tok, cur_cmd, cur_chr, ValLevel::Mu, false);
                 match val_level {
                     ValLevel::Int | ValLevel::Dimen => {}
                     _ => {
@@ -7222,7 +7264,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 }
                 val
             } else {
-                let (val, _) = scan_something_internal(&mut cur_input, ValLevel::Dimen, false);
+                let (val, _) = scan_something_internal(input, cur_tok, cur_cmd, cur_chr, ValLevel::Dimen, false);
                 val
             };
             return found(save_val, v, f, negative);
@@ -7438,7 +7480,7 @@ pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> i3
         /*"+"*/
     }
     let val = if cur_cmd >= MIN_INTERNAL && cur_cmd <= MAX_INTERNAL {
-        let (val, val_level) = scan_something_internal(input, level, negative);
+        let (val, val_level) = scan_something_internal(input, cur_tok, cur_cmd, cur_chr, level, negative);
         match val_level {
             ValLevel::Int | ValLevel::Dimen => {}
             _ => {
@@ -8114,7 +8156,7 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32) -> usize {
         }
     }
     get_x_token();
-    let (val, val_level) = scan_something_internal(input, ValLevel::Tok, false);
+    let (val, val_level) = scan_something_internal(input, cur_tok, cur_cmd, cur_chr, ValLevel::Tok, false);
     match val_level {
         ValLevel::Ident | ValLevel::Tok | ValLevel::InterChar | ValLevel::Mark => {
             /*485: */
@@ -11140,7 +11182,7 @@ pub(crate) unsafe fn fin_col() -> bool {
     }
     align_state = 1000000;
     loop {
-        get_x_or_protected();
+        get_x_or_protected(&mut cur_input);
         if cur_cmd != Cmd::Spacer {
             break;
         }
@@ -11486,7 +11528,7 @@ pub(crate) unsafe fn fin_align() {
     pop_nest();
     if cur_list.mode == (false, ListMode::MMode) {
         /*1241: */
-        let (tok, cmd, chr) = do_assignments(&mut cur_input); /*1232: */
+        let (tok, cmd, _) = do_assignments(&mut cur_input); /*1232: */
         if cmd != Cmd::MathShift {
             /*1242: */
             if file_line_error_style_p != 0 {
@@ -11551,7 +11593,7 @@ pub(crate) unsafe fn align_peek() {
     loop {
         align_state = 1000000;
         loop {
-            get_x_or_protected();
+            get_x_or_protected(&mut cur_input);
             if cur_cmd != Cmd::Spacer {
                 break;
             }
@@ -15275,7 +15317,6 @@ pub(crate) unsafe fn main_control() {
                         //| 196 | 299 | 94 | 197 | 300 | 95 | 198 | 301 | 96 | 199 | 302 | 97
                         //| 200 | 303 | 98 | 201 | 304 | 99 | 202 | 305 | 100 | 203 | 306 | 101
                         //| 204 | 307 | 102 | 205 | 308 | 103 | 206 | 309
-                        dbg!("BBBBBBBBBB");
                         prefixed_command(&mut cur_input, cur_cmd, cur_chr, cur_cs);
                     }
                     (_, Cmd::AfterAssignment) => {
@@ -16647,7 +16688,6 @@ pub(crate) unsafe fn do_assignments(input: &mut input_state_t) -> (i32, Cmd, i32
         if cmd <= MAX_NON_PREFIXED_COMMAND {
             return (tok, cmd, chr);
         }
-        dbg!("AAAAAAAAA");
         set_box_allowed = false;
         prefixed_command(input, cmd, chr, cs);
         set_box_allowed = true

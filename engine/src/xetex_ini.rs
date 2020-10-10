@@ -1519,14 +1519,9 @@ pub(crate) unsafe fn prefixed_command(
     let mut e: bool = false;
 
     let mut a = 0 as i16;
-
-    cur_cmd = ocmd;
-    cur_chr = ochr;
-    cur_cs = ocs;
-
-    while cur_cmd == Cmd::Prefix {
-        if a as i32 / cur_chr & 1i32 == 0 {
-            a = (a as i32 + cur_chr) as i16
+    while ocmd == Cmd::Prefix {
+        if a as i32 / ochr & 1i32 == 0 {
+            a = (a as i32 + ochr) as i16
         }
         let mut next;
         loop {
@@ -1536,10 +1531,10 @@ pub(crate) unsafe fn prefixed_command(
             }
         }
         let tok = next.0;
-        cur_cmd = next.1;
-        cur_chr = next.2;
-        cur_cs = next.3;
-        if cur_cmd <= MAX_NON_PREFIXED_COMMAND {
+        ocmd = next.1;
+        ochr = next.2;
+        ocs = next.3;
+        if ocmd <= MAX_NON_PREFIXED_COMMAND {
             /*1247:*/
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -1547,14 +1542,14 @@ pub(crate) unsafe fn prefixed_command(
                 print_nl_cstr("! ");
             }
             print_cstr("You can\'t use a prefix with `");
-            print_cmd_chr(cur_cmd, cur_chr);
+            print_cmd_chr(ocmd, ochr);
             print_chr('\'');
             help!("I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.");
             back_error(input, tok);
             return;
         }
         if *INTPAR(IntPar::tracing_commands) > 2 {
-            show_cur_cmd_chr(cur_cmd, cur_chr);
+            show_cur_cmd_chr(ocmd, ochr);
         }
     }
     if a >= 8 {
@@ -1563,7 +1558,8 @@ pub(crate) unsafe fn prefixed_command(
     } else {
         j = 0;
     }
-    if cur_cmd != Cmd::Def && (a % 4 != 0 || j != 0) {
+
+    if ocmd != Cmd::Def && (a % 4 != 0 || j != 0) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -1577,10 +1573,15 @@ pub(crate) unsafe fn prefixed_command(
         print_cstr("\' or `");
         print_esc_cstr("protected");
         print_cstr("\' with `");
-        print_cmd_chr(cur_cmd, cur_chr);
+        print_cmd_chr(ocmd, ochr);
         print_chr('\'');
         error();
     }
+
+    cur_cmd = ocmd;
+    cur_chr = ochr;
+    cur_cs = ocs;
+
     if *INTPAR(IntPar::global_defs) != 0 {
         if *INTPAR(IntPar::global_defs) < 0 {
             if a >= 4 {
@@ -1896,6 +1897,7 @@ pub(crate) unsafe fn prefixed_command(
                             eq_define(p as usize, Cmd::UndefinedCS, None);
                         }
                     }
+                    //assert_eq!(cur_cmd, ocmd);
                     return done(input);
                 }
             }
@@ -2179,6 +2181,7 @@ pub(crate) unsafe fn prefixed_command(
             if cur_chr == 1 {
                 if in_initex_mode {
                     new_patterns();
+                    //assert_eq!(cur_cmd, ocmd);
                     return done(input);
                 }
 
@@ -2242,6 +2245,7 @@ pub(crate) unsafe fn prefixed_command(
         }
     }
 
+    //assert_eq!(cur_cmd, ocmd);
     done(input)
 }
 
