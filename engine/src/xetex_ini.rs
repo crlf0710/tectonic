@@ -31,17 +31,17 @@ use crate::xetex_stringpool::{length, load_pool_strings, make_string};
 use crate::xetex_synctex::synctex_init_command;
 use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{
-    alter_aux, alter_box_dimen, alter_integer, alter_page_so_far, alter_prev_graf, back_error,
-    back_input, close_files_and_terminate, delete_glue_ref, delete_token_ref, diagnostic, do_marks,
-    do_register_command, end_file_reading, end_token_list, eq_define, eq_word_define,
-    find_font_dimen, find_sa_element, flush_list, flush_node_list, free_node, geq_define,
-    geq_word_define, get_avail, get_node, get_r_token, get_token, get_x_token, gsa_def, id_lookup,
-    main_control, max_hyphenatable_length, new_font, new_interaction, open_log_file, prim_lookup,
-    print_cmd_chr, read_toks, sa_def, scan_box, scan_char_class, scan_char_class_not_ignored,
-    scan_char_num, scan_dimen, scan_fifteen_bit_int, scan_font_ident, scan_glue, scan_glyph_number,
-    scan_int, scan_keyword, scan_left_brace, scan_math_class_int, scan_math_fam_int,
-    scan_optional_equals, scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int,
-    show_cur_cmd_chr, show_save_groups, start_input, trap_zero_glue,
+    _get_x_token, alter_aux, alter_box_dimen, alter_integer, alter_page_so_far, alter_prev_graf,
+    back_error, back_input, close_files_and_terminate, delete_glue_ref, delete_token_ref,
+    diagnostic, do_marks, do_register_command, end_file_reading, end_token_list, eq_define,
+    eq_word_define, find_font_dimen, find_sa_element, flush_list, flush_node_list, free_node,
+    geq_define, geq_word_define, get_avail, get_node, get_r_token, get_token, get_x_token, gsa_def,
+    id_lookup, main_control, max_hyphenatable_length, new_font, new_interaction, open_log_file,
+    prim_lookup, print_cmd_chr, read_toks, sa_def, scan_box, scan_char_class,
+    scan_char_class_not_ignored, scan_char_num, scan_dimen, scan_fifteen_bit_int, scan_font_ident,
+    scan_glue, scan_glyph_number, scan_int, scan_keyword, scan_left_brace, scan_math_class_int,
+    scan_math_fam_int, scan_optional_equals, scan_register_num, scan_toks, scan_usv_num,
+    scan_xetex_math_char_int, show_cur_cmd_chr, show_save_groups, start_input, trap_zero_glue,
 };
 use crate::xetex_xetexd::{llist_link, set_class, set_family, LLIST_link, TeXInt, TeXOpt};
 use bridge::ttstub_output_open_stdout;
@@ -1519,12 +1519,17 @@ pub(crate) unsafe fn prefixed_command() {
         if a as i32 / cur_chr & 1i32 == 0 {
             a = (a as i32 + cur_chr) as i16
         }
+        let mut next;
         loop {
-            get_x_token();
-            if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
+            next = _get_x_token(&mut cur_input);
+            if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
                 break;
             }
         }
+        let tok = next.0;
+        cur_cmd = next.1;
+        cur_chr = next.2;
+        cur_cs = next.3;
         if cur_cmd <= MAX_NON_PREFIXED_COMMAND {
             /*1247:*/
             if file_line_error_style_p != 0 {
@@ -1536,7 +1541,7 @@ pub(crate) unsafe fn prefixed_command() {
             print_cmd_chr(cur_cmd, cur_chr);
             print_chr('\'');
             help!("I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.");
-            back_error(&mut cur_input, cur_tok);
+            back_error(&mut cur_input, tok);
             return;
         }
         if *INTPAR(IntPar::tracing_commands) > 2 {
@@ -1576,7 +1581,7 @@ pub(crate) unsafe fn prefixed_command() {
             a += 4;
         }
     }
-    match cur_cmd as _ {
+    match cur_cmd {
         Cmd::SetFont => {
             /*1252:*/
             if a >= 4 {
@@ -1611,14 +1616,14 @@ pub(crate) unsafe fn prefixed_command() {
             let n = cur_chr;
             let (_, mut cmd, mut chr, p) = get_r_token(&mut cur_input);
             if n == NORMAL as i32 {
+                let mut next;
                 loop  {
-                    let next = get_token(&mut cur_input);
-                    cur_tok = next.0;
-                    cmd = next.1;
-                    chr = next.2;
-                    if cmd != Cmd::Spacer { break ; }
+                    next = get_token(&mut cur_input);
+                    if next.1 != Cmd::Spacer { break ; }
                 }
-                if cur_tok == OTHER_TOKEN + '=' as i32 {
+                cmd = next.1;
+                chr = next.2;
+                if next.0 == OTHER_TOKEN + '=' as i32 {
                     let next = get_token(&mut cur_input);
                     cmd = next.1;
                     chr = next.2;
@@ -1826,19 +1831,21 @@ pub(crate) unsafe fn prefixed_command() {
             }
             let p = cur_chr;
             scan_optional_equals(&mut cur_input);
+            let mut next;
             loop  {
-                get_x_token();
-                if !(cur_cmd == Cmd::Spacer ||
-                         cur_cmd == Cmd::Relax) {
+                next = _get_x_token(&mut cur_input);
+                if !(next.1 == Cmd::Spacer ||
+                         next.1 == Cmd::Relax) {
                     break ;
                 }
             }
-            if cur_cmd != Cmd::LeftBrace {
+            let (tok, cmd, chr, _) = next;
+            if cmd != Cmd::LeftBrace {
                 /*1262:*/
-                if cur_cmd == Cmd::ToksRegister ||
-                       cur_cmd == Cmd::AssignToks {
-                    let q = if cur_cmd == Cmd::ToksRegister {
-                        if cur_chr == 0 {
+                if cmd == Cmd::ToksRegister ||
+                       cmd == Cmd::AssignToks {
+                    let q = if cmd == Cmd::ToksRegister {
+                        if chr == 0 {
                             let val = scan_register_num(&mut cur_input); /* "extended delimiter code flag" */
                             (if val < 256 {
                                 TOKS_REG(val as usize).opt()
@@ -1848,17 +1855,17 @@ pub(crate) unsafe fn prefixed_command() {
                                 cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt())
                             }).tex_int()
                         } else {
-                            MEM[(cur_chr + 1) as
+                            MEM[(chr + 1) as
                                                  usize].b32.s1
                         }
-                    } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
+                    } else if chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
                         cur_ptr = scan_char_class_not_ignored(&mut cur_input).opt(); /*:1268 */
                         let val = scan_char_class_not_ignored(&mut cur_input);
                         find_sa_element(ValLevel::InterChar,
                                         cur_ptr.tex_int() * CHAR_CLASS_LIMIT + val,
                                         false);
                         cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt()).tex_int()
-                    } else { EQTB[cur_chr as usize].val };
+                    } else { EQTB[chr as usize].val };
 
                     if let Some(q) = q.opt() {
                         MEM[q].b32.s0 += 1;
@@ -1884,7 +1891,7 @@ pub(crate) unsafe fn prefixed_command() {
                 }
             }
 
-            back_input(&mut cur_input, cur_tok);
+            back_input(&mut cur_input, tok);
             let q = scan_toks(&mut cur_input, q, false, false);
 
             if llist_link(def_ref).is_none() {

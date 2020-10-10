@@ -5217,7 +5217,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     break;
                 }
                 Cmd::The => {
-                    ins_the_toks(input);
+                    ins_the_toks(input, ochr);
                     break;
                 }
                 Cmd::IfTest => {
@@ -8094,10 +8094,10 @@ pub(crate) unsafe fn str_toks_cat(mut b: pool_pointer, mut cat: i16) -> usize {
 pub(crate) unsafe fn str_toks(mut b: pool_pointer) -> usize {
     str_toks_cat(b, 0)
 }
-pub(crate) unsafe fn the_toks() -> usize {
-    if cur_chr & 1 != 0 {
-        let c = cur_chr as i16;
-        let val = scan_general_text(&mut cur_input);
+pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32) -> usize {
+    if chr & 1 != 0 {
+        let c = chr as i16;
+        let val = scan_general_text(input);
         if c == 1 {
             assert!(val.opt().is_some());
             return val as usize; // TODO: check TEX_NULL
@@ -8114,7 +8114,7 @@ pub(crate) unsafe fn the_toks() -> usize {
         }
     }
     get_x_token();
-    let (val, val_level) = scan_something_internal(&mut cur_input, ValLevel::Tok, false);
+    let (val, val_level) = scan_something_internal(input, ValLevel::Tok, false);
     match val_level {
         ValLevel::Ident | ValLevel::Tok | ValLevel::InterChar | ValLevel::Mark => {
             /*485: */
@@ -8168,8 +8168,8 @@ pub(crate) unsafe fn the_toks() -> usize {
         }
     }
 }
-pub(crate) unsafe fn ins_the_toks(input: &mut input_state_t) {
-    *LLIST_link(GARBAGE as usize) = Some(the_toks()).tex_int();
+pub(crate) unsafe fn ins_the_toks(input: &mut input_state_t, chr: i32) {
+    *LLIST_link(GARBAGE as usize) = Some(the_toks(input, chr)).tex_int();
     begin_token_list(input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
 }
 pub(crate) unsafe fn conv_toks(
@@ -8633,7 +8633,7 @@ pub(crate) unsafe fn scan_toks(
                 }
                 if cur_cmd > MAX_COMMAND {
                     if cur_cmd == Cmd::The {
-                        let q = the_toks();
+                        let q = the_toks(&mut cur_input, cur_chr);
                         if let Some(m) = llist_link(TEMP_HEAD) {
                             *LLIST_link(p) = Some(m).tex_int();
                             p = q
@@ -14210,7 +14210,7 @@ pub(crate) unsafe fn show_whatever(chr: i32) {
             });
         }
         SHOW_THE_CODE | SHOW_TOKENS => {
-            let _p = the_toks() as i32;
+            let _p = the_toks(&mut cur_input, cur_chr) as i32;
             print_nl_cstr("> ");
             token_show(Some(TEMP_HEAD));
             flush_list(llist_link(TEMP_HEAD));
@@ -15276,6 +15276,7 @@ pub(crate) unsafe fn main_control() {
                         //| 196 | 299 | 94 | 197 | 300 | 95 | 198 | 301 | 96 | 199 | 302 | 97
                         //| 200 | 303 | 98 | 201 | 304 | 99 | 202 | 305 | 100 | 203 | 306 | 101
                         //| 204 | 307 | 102 | 205 | 308 | 103 | 206 | 309
+                        dbg!("BBBBBBBBBB");
                         prefixed_command();
                     }
                     (_, Cmd::AfterAssignment) => {
@@ -16639,6 +16640,7 @@ pub(crate) unsafe fn do_assignments() {
         if cur_cmd <= MAX_NON_PREFIXED_COMMAND {
             return;
         }
+        dbg!("AAAAAAAAA");
         set_box_allowed = false;
         prefixed_command();
         set_box_allowed = true
