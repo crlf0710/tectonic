@@ -7936,26 +7936,26 @@ pub(crate) unsafe fn scan_normal_glue(input: &mut input_state_t) -> i32 {
 pub(crate) unsafe fn scan_mu_glue(input: &mut input_state_t) -> i32 {
     scan_glue(input, ValLevel::Mu)
 }
-pub(crate) unsafe fn scan_rule_spec() -> usize {
+pub(crate) unsafe fn scan_rule_spec(input: &mut input_state_t, cmd: Cmd) -> usize {
     let q = new_rule();
-    if cur_cmd == Cmd::VRule {
+    if cmd == Cmd::VRule {
         MEM[q + 1].b32.s1 = DEFAULT_RULE
     } else {
         MEM[q + 3].b32.s1 = DEFAULT_RULE;
         MEM[q + 2].b32.s1 = 0
     }
     loop {
-        if scan_keyword(&mut cur_input, b"width") {
-            let val = scan_dimen(&mut cur_input, false, false, None);
+        if scan_keyword(input, b"width") {
+            let val = scan_dimen(input, false, false, None);
             MEM[q + 1].b32.s1 = val;
-        } else if scan_keyword(&mut cur_input, b"height") {
-            let val = scan_dimen(&mut cur_input, false, false, None);
+        } else if scan_keyword(input, b"height") {
+            let val = scan_dimen(input, false, false, None);
             MEM[q + 3].b32.s1 = val;
         } else {
-            if !scan_keyword(&mut cur_input, b"depth") {
+            if !scan_keyword(input, b"depth") {
                 break;
             }
-            let val = scan_dimen(&mut cur_input, false, false, None);
+            let val = scan_dimen(input, false, false, None);
             MEM[q + 2].b32.s1 = val;
         }
     }
@@ -12383,7 +12383,7 @@ pub(crate) unsafe fn normal_paragraph() {
  * a `\setbox<N>`; (3) GLOBAL_BOX_FLAG+N, signifying `\global\setbox<N>`; (4)
  * SHIP_OUT_FLAG, signifying `\shipout`; or (5) LEADER_FLAG+k, signifying (in
  * order) `\leaders`, `\cleaders`, or `\xleaders`. */
-pub(crate) unsafe fn box_end(mut box_context: i32) {
+pub(crate) unsafe fn box_end(input: &mut input_state_t, mut box_context: i32) {
     if box_context < BOX_FLAG {
         /*1111:*/
         if let Some(mut cb) = cur_box {
@@ -12447,7 +12447,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
             let (tok, cmd, chr, _) = loop
             /*1113:*/
             {
-                let next = _get_x_token(&mut cur_input);
+                let next = _get_x_token(input);
                 if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
                     break next;
                 }
@@ -12455,7 +12455,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
             if cmd == Cmd::HSkip && cur_list.mode.1 != ListMode::VMode
                 || cmd == Cmd::VSkip && cur_list.mode.1 == ListMode::VMode
             {
-                append_glue(&mut cur_input, chr);
+                append_glue(input, chr);
                 MEM[cur_list.tail].b16.s0 =
                     (box_context - (LEADER_FLAG - (A_LEADERS as i32))) as u16;
                 MEM[cur_list.tail + 1].b32.s1 = Some(cb).tex_int();
@@ -12471,7 +12471,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
                     "I found the <box or rule>, but there\'s no suitable",
                     "<hskip or vskip>, so I\'m ignoring these leaders."
                 );
-                back_error(&mut cur_input, tok);
+                back_error(input, tok);
                 flush_node_list(Some(cb));
             }
         } else {
@@ -12479,10 +12479,10 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
         }
     };
 }
-pub(crate) unsafe fn begin_box(mut box_context: i32) {
-    match BoxCode::n(cur_chr as u8).unwrap() {
+pub(crate) unsafe fn begin_box(input: &mut input_state_t, chr: i32, mut box_context: i32) {
+    match BoxCode::n(chr as u8).unwrap() {
         BoxCode::Box => {
-            let val = scan_register_num(&mut cur_input);
+            let val = scan_register_num(input);
             cur_box = if val < 256 {
                 BOX_REG(val as usize).opt()
             } else {
@@ -12501,7 +12501,7 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
             }
         }
         BoxCode::Copy => {
-            let val = scan_register_num(&mut cur_input);
+            let val = scan_register_num(input);
             let q = if val < 256 {
                 BOX_REG(val as usize).opt()
             } else {
@@ -12596,8 +12596,8 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
             }
         }
         BoxCode::VSplit => {
-            let n = scan_register_num(&mut cur_input);
-            if !scan_keyword(&mut cur_input, b"to") {
+            let n = scan_register_num(input);
+            if !scan_keyword(input, b"to") {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -12610,11 +12610,11 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
                 );
                 error();
             }
-            let val = scan_dimen(&mut cur_input, false, false, None);
+            let val = scan_dimen(input, false, false, None);
             cur_box = vsplit(n, val);
         }
         _ => {
-            let k = cur_chr - 4;
+            let k = chr - 4;
             let mut k = (k < 0, ListMode::from(k.abs() as u8));
             SAVE_STACK[SAVE_PTR + 0].val = box_context;
             if k == (false, ListMode::HMode) {
@@ -12637,31 +12637,31 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
             if k == (false, ListMode::VMode) {
                 cur_list.aux.b32.s1 = IGNORE_DEPTH;
                 if let Some(ev) = LOCAL(Local::every_vbox).opt() {
-                    begin_token_list(&mut cur_input, ev, Btl::EveryVBoxText);
+                    begin_token_list(input, ev, Btl::EveryVBoxText);
                 }
             } else {
                 cur_list.aux.b32.s0 = 1000;
                 if let Some(eh) = LOCAL(Local::every_hbox).opt() {
-                    begin_token_list(&mut cur_input, eh, Btl::EveryHBoxText);
+                    begin_token_list(input, eh, Btl::EveryHBoxText);
                 }
             }
             return;
         }
     }
-    box_end(box_context);
+    box_end(input, box_context);
 }
-pub(crate) unsafe fn scan_box(mut box_context: i32) {
-    loop {
-        get_x_token();
-        if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
-            break;
+pub(crate) unsafe fn scan_box(input: &mut input_state_t, mut box_context: i32) {
+    let (tok, cmd, chr, _) = loop {
+        let next = _get_x_token(input);
+        if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
+            break next;
         }
-    }
-    if cur_cmd == Cmd::MakeBox {
-        begin_box(box_context);
-    } else if box_context >= LEADER_FLAG && (cur_cmd == Cmd::HRule || cur_cmd == Cmd::VRule) {
-        cur_box = Some(scan_rule_spec());
-        box_end(box_context);
+    };
+    if cmd == Cmd::MakeBox {
+        begin_box(input, chr, box_context);
+    } else if box_context >= LEADER_FLAG && (cmd == Cmd::HRule || cmd == Cmd::VRule) {
+        cur_box = Some(scan_rule_spec(input, cmd));
+        box_end(input, box_context);
     } else {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -12674,7 +12674,7 @@ pub(crate) unsafe fn scan_box(mut box_context: i32) {
             "something like that. So you might find something missing in",
             "your output. But keep trying; you can fix this later."
         );
-        back_error(&mut cur_input, cur_tok);
+        back_error(input, tok);
     };
 }
 pub(crate) unsafe fn package(mut c: i16) {
@@ -12723,7 +12723,7 @@ pub(crate) unsafe fn package(mut c: i16) {
     }
     *INTPAR(IntPar::xetex_upwards) = v;
     pop_nest();
-    box_end(SAVE_STACK[SAVE_PTR + 0].val);
+    box_end(&mut cur_input, SAVE_STACK[SAVE_PTR + 0].val);
 }
 pub(crate) unsafe fn norm_min(mut h: i32) -> i16 {
     (if h <= 0 {
@@ -14918,7 +14918,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (VMode, Cmd::HRule) | (HMode, Cmd::VRule) | (MMode, Cmd::VRule) => {
                         // 37 | 139 | 242
-                        let srs = scan_rule_spec();
+                        let srs = scan_rule_spec(&mut cur_input, cur_cmd);
                         *LLIST_link(cur_list.tail) = Some(srs).tex_int();
                         cur_list.tail = srs;
                         if cur_list.mode.1 == ListMode::VMode {
@@ -14963,18 +14963,18 @@ pub(crate) unsafe fn main_control() {
                         let t = cur_chr;
                         let val = scan_dimen(&mut cur_input, false, false, None);
                         if t == 0 {
-                            scan_box(val);
+                            scan_box(&mut cur_input, val);
                         } else {
-                            scan_box(-val);
+                            scan_box(&mut cur_input, -val);
                         }
                     }
                     (_, Cmd::LeaderShip) => {
                         // 32 | 135 | 238
-                        scan_box(LEADER_FLAG - (A_LEADERS as i32) + cur_chr);
+                        scan_box(&mut cur_input, LEADER_FLAG - (A_LEADERS as i32) + cur_chr);
                     }
                     (_, Cmd::MakeBox) => {
                         // 21 | 124 | 227
-                        begin_box(0);
+                        begin_box(&mut cur_input, cur_chr, 0);
                     }
                     (VMode, Cmd::StartPar) => {
                         // 44

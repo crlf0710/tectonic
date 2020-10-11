@@ -2120,7 +2120,7 @@ pub(crate) unsafe fn prefixed_command(
             } else { BOX_FLAG + val };
             scan_optional_equals(input);
             if set_box_allowed {
-                scan_box(n);
+                scan_box(&mut cur_input, n);
             } else {
                 if file_line_error_style_p != 0 {
                     print_file_line();
