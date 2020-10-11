@@ -5217,7 +5217,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     break;
                 }
                 Cmd::The => {
-                    ins_the_toks(input, ochr);
+                    ins_the_toks(input, ochr, ocs);
                     break;
                 }
                 Cmd::IfTest => {
@@ -5269,7 +5269,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     } else if ochr == 2 {
                         /*1537:*/
                         /* \scantokens */
-                        pseudo_start();
+                        pseudo_start(input, ocs);
                     } else if name_in_progress {
                         insert_relax(input, ocs);
                     } else {
@@ -6888,7 +6888,6 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
     let mut tok;
     let mut cmd;
     let mut chr;
-    let mut cs;
     loop {
         let next = loop {
             /*424:*/
@@ -6900,7 +6899,6 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
         tok = next.0;
         cmd = next.1;
         chr = next.2;
-        cs = next.3;
         if tok == OTHER_TOKEN + '-' as i32 {
             negative = !negative;
             tok = OTHER_TOKEN + '+' as i32
@@ -6917,7 +6915,6 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
         tok = next.0;
         cmd = next.1;
         chr = next.2;
-        cs = next.3;
         /*461:*/
         ival = if tok < CS_TOKEN_FLAG {
             /*462:*/
@@ -6952,7 +6949,6 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             tok = next.0;
             cmd = next.1;
             chr = next.2;
-            cs = next.3;
             if cmd != Cmd::Spacer {
                 back_input(input, tok);
             }
@@ -6970,7 +6966,6 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             tok = next.0;
             cmd = next.1;
             chr = next.2;
-            cs = next.3;
         } else if tok == HEX_TOKEN {
             radix = 16;
             m = 0x8000000;
@@ -6978,7 +6973,6 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             tok = next.0;
             cmd = next.1;
             chr = next.2;
-            cs = next.3;
         }
         let mut vacuous = true;
         ival = 0;
@@ -7022,7 +7016,6 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             tok = next.0;
             cmd = next.1;
             chr = next.2;
-            cs = next.3;
         }
         if vacuous {
             /*464:*/
@@ -7916,30 +7909,22 @@ pub(crate) unsafe fn scan_rule_spec(input: &mut input_state_t, cmd: Cmd) -> usiz
     }
     q
 }
-pub(crate) unsafe fn scan_general_text(input: &mut input_state_t) -> i32 {
+pub(crate) unsafe fn scan_general_text(input: &mut input_state_t, cs: i32) -> i32 {
     let mut unbalance: i32 = 0;
     let mut s = scanner_status;
     let mut w = warning_index;
     let mut d = def_ref;
     scanner_status = ScannerStatus::Absorbing;
-    warning_index = cur_cs;
+    warning_index = cs;
     def_ref = get_avail();
     MEM[def_ref].b32.s0 = None.tex_int();
     let mut p = def_ref;
-    let next = scan_left_brace(&mut cur_input);
-    cur_tok = next.0;
-    cur_cmd = next.1;
-    cur_chr = next.2;
-    cur_cs = next.3;
+    scan_left_brace(&mut cur_input);
     unbalance = 1;
     loop {
-        let (tok, cmd, chr, cs) = get_token(input);
-        cur_tok = tok;
-        cur_cmd = cmd;
-        cur_chr = chr;
-        cur_cs = cs;
-        if cur_tok < RIGHT_BRACE_LIMIT {
-            if cur_cmd < Cmd::RightBrace {
+        let (tok, cmd, ..) = get_token(input);
+        if tok < RIGHT_BRACE_LIMIT {
+            if cmd < Cmd::RightBrace {
                 unbalance += 1
             } else {
                 unbalance -= 1;
@@ -7950,7 +7935,7 @@ pub(crate) unsafe fn scan_general_text(input: &mut input_state_t) -> i32 {
         }
         let q = get_avail();
         *LLIST_link(p) = Some(q).tex_int();
-        MEM[q].b32.s0 = cur_tok;
+        MEM[q].b32.s0 = tok;
         p = q;
     }
     let q = llist_link(def_ref);
@@ -7963,14 +7948,14 @@ pub(crate) unsafe fn scan_general_text(input: &mut input_state_t) -> i32 {
     def_ref = d;
     val
 }
-pub(crate) unsafe fn pseudo_start() {
+pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
     let mut w: b16x4 = b16x4 {
         s0: 0,
         s1: 0,
         s2: 0,
         s3: 0,
     };
-    let _ = scan_general_text(&mut cur_input);
+    let _ = scan_general_text(input, cs);
     let old_setting = selector;
     selector = Selector::NEW_STRING;
     token_show(Some(TEMP_HEAD));
@@ -8036,21 +8021,21 @@ pub(crate) unsafe fn pseudo_start() {
     pool_ptr = str_start[(str_ptr - 65536) as usize];
     begin_file_reading();
     line = 0;
-    cur_input.limit = cur_input.start;
-    cur_input.loc = cur_input.limit + 1;
+    input.limit = input.start;
+    input.loc = input.limit + 1;
     if *INTPAR(IntPar::tracing_scan_tokens) > 0 {
         if term_offset > max_print_line - 3 {
             print_ln();
         } else if term_offset > 0 || file_offset > 0 {
             print_chr(' ');
         }
-        cur_input.name = 19;
+        input.name = 19;
         print_cstr("( ");
         open_parens += 1;
         rust_stdout.as_mut().unwrap().flush().unwrap();
     } else {
-        cur_input.name = 18;
-        cur_input.synctex_tag = 0;
+        input.name = 18;
+        input.synctex_tag = 0;
     };
 }
 pub(crate) unsafe fn str_toks_cat(mut b: pool_pointer, mut cat: i16) -> usize {
@@ -8100,10 +8085,10 @@ pub(crate) unsafe fn str_toks_cat(mut b: pool_pointer, mut cat: i16) -> usize {
 pub(crate) unsafe fn str_toks(mut b: pool_pointer) -> usize {
     str_toks_cat(b, 0)
 }
-pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32) -> usize {
+pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> usize {
     if chr & 1 != 0 {
         let c = chr as i16;
-        let val = scan_general_text(input);
+        let val = scan_general_text(input, cs);
         if c == 1 {
             assert!(val.opt().is_some());
             return val as usize; // TODO: check TEX_NULL
@@ -8174,8 +8159,8 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32) -> usize {
         }
     }
 }
-pub(crate) unsafe fn ins_the_toks(input: &mut input_state_t, chr: i32) {
-    *LLIST_link(GARBAGE as usize) = Some(the_toks(input, chr)).tex_int();
+pub(crate) unsafe fn ins_the_toks(input: &mut input_state_t, chr: i32, cs: i32) {
+    *LLIST_link(GARBAGE as usize) = Some(the_toks(input, chr, cs)).tex_int();
     begin_token_list(input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
 }
 pub(crate) unsafe fn conv_toks(
@@ -8634,7 +8619,7 @@ pub(crate) unsafe fn scan_toks(
                 }
                 if ocmd > MAX_COMMAND {
                     if ocmd == Cmd::The {
-                        let q = the_toks(input, ochr);
+                        let q = the_toks(input, ochr, ocs);
                         if let Some(m) = llist_link(TEMP_HEAD) {
                             *LLIST_link(p) = Some(m).tex_int();
                             p = q
@@ -8784,36 +8769,28 @@ pub(crate) unsafe fn read_toks(
         input.state = InputState::NewLine;
         if j == 1 {
             while input.loc <= input.limit {
-                cur_chr = BUFFER[input.loc as usize];
+                let chr = BUFFER[input.loc as usize];
                 input.loc += 1;
-                if cur_chr == ' ' as i32 {
-                    cur_tok = SPACE_TOKEN
+                let tok = if chr == ' ' as i32 {
+                    SPACE_TOKEN
                 } else {
-                    cur_tok = cur_chr + OTHER_TOKEN
-                }
+                    chr + OTHER_TOKEN
+                };
                 let q = get_avail();
                 *LLIST_link(p) = Some(q).tex_int();
-                MEM[q].b32.s0 = cur_tok;
+                MEM[q].b32.s0 = tok;
                 p = q;
             }
         } else {
             loop {
-                let (tok, cmd, chr, cs) = get_token(input);
-                cur_tok = tok;
-                cur_cmd = cmd;
-                cur_chr = chr;
-                cur_cs = cs;
-                if cur_tok == 0 {
+                let mut tok = get_token(input).0;
+                if tok == 0 {
                     break;
                 }
                 if (align_state as i64) < 1000000 {
                     loop {
-                        let (tok, cmd, chr, cs) = get_token(input);
-                        cur_tok = tok;
-                        cur_cmd = cmd;
-                        cur_chr = chr;
-                        cur_cs = cs;
-                        if !(cur_tok != 0) {
+                        tok = get_token(input).0;
+                        if tok == 0 {
                             break;
                         }
                     }
@@ -8822,7 +8799,7 @@ pub(crate) unsafe fn read_toks(
                 } else {
                     let q = get_avail();
                     *LLIST_link(p) = Some(q).tex_int();
-                    MEM[q].b32.s0 = cur_tok;
+                    MEM[q].b32.s0 = tok;
                     p = q;
                 }
             }
@@ -9973,7 +9950,7 @@ pub(crate) unsafe fn new_character(
     char_warning(f, c as i32);
     None
 }
-pub(crate) unsafe fn scan_spec(c: GroupCode, mut three_codes: bool) {
+pub(crate) unsafe fn scan_spec(c: GroupCode, mut three_codes: bool) -> Cmd {
     let mut s: i32 = 0;
     let mut spec_code: PackMode = PackMode::Exactly;
     if three_codes {
@@ -9998,11 +9975,7 @@ pub(crate) unsafe fn scan_spec(c: GroupCode, mut three_codes: bool) {
     SAVE_STACK[SAVE_PTR + 1].val = val;
     SAVE_PTR += 2;
     new_save_level(c);
-    let next = scan_left_brace(&mut cur_input);
-    cur_tok = next.0;
-    cur_cmd = next.1;
-    cur_chr = next.2;
-    cur_cs = next.3;
+    scan_left_brace(&mut cur_input).1
 }
 pub(crate) unsafe fn char_pw(p: Option<usize>, side: Side) -> scaled_t {
     if side == Side::Left {
@@ -10755,36 +10728,35 @@ pub(crate) unsafe fn pop_alignment() {
     align_ptr = llist_link(p);
     free_node(p, ALIGN_STACK_NODE_SIZE);
 }
-pub(crate) unsafe fn get_preamble_token() {
+pub(crate) unsafe fn get_preamble_token(input: &mut input_state_t) -> (i32, Cmd) {
+    let mut otok;
+    let mut ocmd;
     loop {
-        let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-        cur_tok = tok;
-        cur_cmd = cmd;
-        cur_chr = chr;
-        cur_cs = cs;
-        while cur_chr == SPAN_CODE && cur_cmd == Cmd::TabMark {
-            let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-            cur_tok = tok;
-            cur_cmd = cmd;
-            cur_chr = chr;
-            cur_cs = cs;
-            if cur_cmd > MAX_COMMAND {
-                expand(&mut cur_input, cmd, chr, cs);
-                let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-                cur_tok = tok;
-                cur_cmd = cmd;
-                cur_chr = chr;
-                cur_cs = cs;
+        let (tok, cmd, chr, _) = get_token(input);
+        otok = tok;
+        ocmd = cmd;
+        let mut ochr = chr;
+        while ochr == SPAN_CODE && ocmd == Cmd::TabMark {
+            let (tok, cmd, chr, cs) = get_token(input);
+            otok = tok;
+            ocmd = cmd;
+            ochr = chr;
+            if cmd > MAX_COMMAND {
+                expand(input, cmd, chr, cs);
+                let (tok, cmd, chr, _) = get_token(input);
+                otok = tok;
+                ocmd = cmd;
+                ochr = chr;
             }
         }
-        if cur_cmd == Cmd::EndV {
+        if ocmd == Cmd::EndV {
             fatal_error("(interwoven alignment preambles are not allowed)");
         }
-        if !(cur_cmd == Cmd::AssignGlue && cur_chr == GLUE_BASE as i32 + GluePar::tab_skip as i32) {
+        if !(ocmd == Cmd::AssignGlue && ochr == GLUE_BASE as i32 + GluePar::tab_skip as i32) {
             break;
         }
-        scan_optional_equals(&mut cur_input);
-        let val = scan_glue(&mut cur_input, ValLevel::Glue);
+        scan_optional_equals(input);
+        let val = scan_glue(input, ValLevel::Glue);
         if *INTPAR(IntPar::global_defs) > 0 {
             geq_define(
                 (GLUE_BASE as usize) + (GluePar::tab_skip as usize),
@@ -10799,11 +10771,10 @@ pub(crate) unsafe fn get_preamble_token() {
             );
         }
     }
+    (otok, ocmd)
 }
-pub(crate) unsafe fn init_align() {
-    let mut save_cs_ptr: i32 = 0;
+pub(crate) unsafe fn init_align(input: &mut input_state_t, wcs: i32) {
     let mut p: i32 = 0;
-    save_cs_ptr = cur_cs;
     push_alignment();
     align_state = -1000000;
     if cur_list.mode == (false, ListMode::MMode)
@@ -10833,32 +10804,32 @@ pub(crate) unsafe fn init_align() {
         cur_list.mode = (!cur_list.mode.0, cur_list.mode.1);
         /*:804*/
     }
-    scan_spec(GroupCode::Align, false);
+    let mut ocmd = scan_spec(GroupCode::Align, false);
     *LLIST_link(ALIGN_HEAD) = None.tex_int();
     let mut ca = ALIGN_HEAD;
     cur_align = Some(ca);
     cur_loop = None;
     scanner_status = ScannerStatus::Aligning;
-    warning_index = save_cs_ptr;
+    warning_index = wcs;
     align_state = -1000000;
     loop {
         let ca2 = new_param_glue(GluePar::tab_skip);
         *LLIST_link(ca) = Some(ca2).tex_int();
         /*:808 */
         cur_align = Some(ca2); /*:807*/
-        if cur_cmd == Cmd::CarRet {
+        if ocmd == Cmd::CarRet {
             break; /*:813*/
         } /*:806 */
         p = HOLD_HEAD as i32;
         *LLIST_link(p as usize) = None.tex_int();
         loop {
-            get_preamble_token();
-            if cur_cmd == Cmd::MacParam {
+            let (tok, cmd) = get_preamble_token(input);
+            ocmd = cmd;
+            if cmd == Cmd::MacParam {
                 break;
             }
-            if (cur_cmd == Cmd::CarRet || cur_cmd == Cmd::TabMark) && align_state as i64 == -1000000
-            {
-                if p == HOLD_HEAD as i32 && cur_loop.is_none() && cur_cmd == Cmd::TabMark {
+            if (cmd == Cmd::CarRet || cmd == Cmd::TabMark) && align_state as i64 == -1000000 {
+                if p == HOLD_HEAD as i32 && cur_loop.is_none() && cmd == Cmd::TabMark {
                     cur_loop = Some(ca2);
                 } else {
                     if file_line_error_style_p != 0 {
@@ -10872,13 +10843,13 @@ pub(crate) unsafe fn init_align() {
                         "\\halign or \\valign is being set up. In this case you had",
                         "none, so I\'ve put one in; maybe that will work."
                     );
-                    back_error(&mut cur_input, cur_tok);
+                    back_error(input, tok);
                     break;
                 }
-            } else if cur_cmd != Cmd::Spacer || p != HOLD_HEAD as i32 {
+            } else if cmd != Cmd::Spacer || p != HOLD_HEAD as i32 {
                 *LLIST_link(p as usize) = Some(get_avail()).tex_int();
                 p = *LLIST_link(p as usize);
-                MEM[p as usize].b32.s0 = cur_tok;
+                MEM[p as usize].b32.s0 = tok;
             }
         }
         ca = new_null_box();
@@ -10890,12 +10861,12 @@ pub(crate) unsafe fn init_align() {
         p = HOLD_HEAD as i32;
         *LLIST_link(p as usize) = None.tex_int();
         loop {
-            get_preamble_token();
-            if (cur_cmd == Cmd::CarRet || cur_cmd == Cmd::TabMark) && align_state as i64 == -1000000
-            {
+            let (tok, cmd) = get_preamble_token(input);
+            ocmd = cmd;
+            if (cmd == Cmd::CarRet || cmd == Cmd::TabMark) && align_state as i64 == -1000000 {
                 break;
             }
-            if cur_cmd == Cmd::MacParam {
+            if cmd == Cmd::MacParam {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -10911,7 +10882,7 @@ pub(crate) unsafe fn init_align() {
             } else {
                 *LLIST_link(p as usize) = Some(get_avail()).tex_int();
                 p = *LLIST_link(p as usize);
-                MEM[p as usize].b32.s0 = cur_tok;
+                MEM[p as usize].b32.s0 = tok;
             }
         }
         *LLIST_link(p as usize) = Some(get_avail()).tex_int();
@@ -10922,7 +10893,7 @@ pub(crate) unsafe fn init_align() {
     scanner_status = ScannerStatus::Normal;
     new_save_level(GroupCode::Align);
     if let Some(l) = LOCAL(Local::every_cr).opt() {
-        begin_token_list(&mut cur_input, l, Btl::EveryCRText);
+        begin_token_list(input, l, Btl::EveryCRText);
     }
     align_peek();
 }
@@ -14115,13 +14086,13 @@ pub(crate) unsafe fn shift_case() {
     *LLIST_link(def_ref) = avail.tex_int();
     avail = Some(def_ref);
 }
-pub(crate) unsafe fn show_whatever(chr: i32) {
+pub(crate) unsafe fn show_whatever(input: &mut input_state_t, chr: i32, cs: i32) {
     match chr {
         SHOW_LISTS => {
             diagnostic(true, || show_activities());
         }
         SHOW_BOX_CODE => {
-            let val = scan_register_num(&mut cur_input);
+            let val = scan_register_num(input);
             let p = if val < 256 {
                 BOX_REG(val as usize).opt()
             } else {
@@ -14140,7 +14111,7 @@ pub(crate) unsafe fn show_whatever(chr: i32) {
             });
         }
         SHOW_CODE => {
-            let (_, cmd, chr, cs) = get_token(&mut cur_input);
+            let (_, cmd, chr, cs) = get_token(input);
             print_nl_cstr("> ");
             if cs != 0 {
                 sprint_cs(cs);
@@ -14200,7 +14171,7 @@ pub(crate) unsafe fn show_whatever(chr: i32) {
             });
         }
         SHOW_THE_CODE | SHOW_TOKENS => {
-            let _p = the_toks(&mut cur_input, cur_chr) as i32;
+            let _p = the_toks(input, chr, cs) as i32;
             print_nl_cstr("> ");
             token_show(Some(TEMP_HEAD));
             flush_list(llist_link(TEMP_HEAD));
@@ -15047,7 +15018,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (VMode, Cmd::HAlign) => {
                         // 33
-                        init_align();
+                        init_align(&mut cur_input, cur_cs);
                     }
                     (HMode, Cmd::VAlign) => {
                         // 137
@@ -15058,14 +15029,14 @@ pub(crate) unsafe fn main_control() {
                                 cur_list.tail = m;
                             }
                         } else {
-                            init_align();
+                            init_align(&mut cur_input, cur_cs);
                         }
                     }
                     (MMode, Cmd::HAlign) => {
                         // 239
                         if privileged() {
                             if cur_group == GroupCode::MathShift {
-                                init_align();
+                                init_align(&mut cur_input, cur_cs);
                             } else {
                                 off_save();
                             }
@@ -15310,7 +15281,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (_, Cmd::XRay) => {
                         // 20 | 123 | 226
-                        show_whatever(cur_chr);
+                        show_whatever(&mut cur_input, cur_chr, cur_cs);
                     }
                     (_, Cmd::Extension) => {
                         // 60 | 163 | 266
