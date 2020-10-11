@@ -5221,7 +5221,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     break;
                 }
                 Cmd::IfTest => {
-                    conditional(input, ocmd, ochr, ocs);
+                    conditional(input, ocmd, ochr);
                     break;
                 }
                 Cmd::FiOrElse => {
@@ -8926,19 +8926,14 @@ pub(crate) unsafe fn change_if_limit(l: FiOrElseCode, p: Option<usize>) {
         }
     };
 }
-pub(crate) unsafe fn conditional(
-    input: &mut input_state_t,
-    mut ocmd: Cmd,
-    mut ochr: i32,
-    mut ocs: i32,
-) {
+pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) {
     let mut b: bool = false;
     let mut e: bool = false;
     let mut r: u8 = 0;
 
     if *INTPAR(IntPar::tracing_ifs) > 0 {
         if *INTPAR(IntPar::tracing_commands) <= 1 {
-            show_cur_cmd_chr(ocmd, ochr);
+            show_cur_cmd_chr(cmd, chr);
         }
     }
 
@@ -8948,54 +8943,48 @@ pub(crate) unsafe fn conditional(
     MEM[p].b16.s0 = cur_if as u16;
     MEM[p + 1].b32.s1 = if_line;
     cond_ptr = Some(p);
-    cur_if = ochr as i16;
+    cur_if = chr as i16;
     if_limit = FiOrElseCode::If;
     if_line = line;
 
     let mut save_cond_ptr = cond_ptr;
-    let mut is_unless = ochr >= UNLESS_CODE;
-    let mut this_if = IfTestCode::n((ochr % UNLESS_CODE) as u8).unwrap();
+    let mut is_unless = chr >= UNLESS_CODE;
+    let mut this_if = IfTestCode::n((chr % UNLESS_CODE) as u8).unwrap();
 
     match this_if {
         IfTestCode::IfChar | IfTestCode::IfCat => {
-            get_x_token();
-            ocmd = cur_cmd;
-            ochr = cur_chr;
-            ocs = cur_cs;
-            if ocmd == Cmd::Relax {
-                if ochr == NO_EXPAND_FLAG {
-                    ocmd = Cmd::ActiveChar;
-                    ochr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
+            let (tok, mut cmd, mut chr, _) = _get_x_token(input);
+            if cmd == Cmd::Relax {
+                if chr == NO_EXPAND_FLAG {
+                    cmd = Cmd::ActiveChar;
+                    chr = tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
                 }
             }
 
-            let (m, n) = if ocmd > Cmd::ActiveChar || ochr > BIGGEST_USV as i32 {
+            let (m, n) = if cmd > Cmd::ActiveChar || chr > BIGGEST_USV as i32 {
                 (Cmd::Relax, TOO_BIG_USV as i32)
             } else {
-                (ocmd, ochr)
+                (cmd, chr)
             };
 
-            get_x_token();
-            ocmd = cur_cmd;
-            ochr = cur_chr;
-            ocs = cur_cs;
+            let (tok, mut cmd, mut chr, _) = _get_x_token(input);
 
-            if ocmd == Cmd::Relax {
-                if ochr == NO_EXPAND_FLAG {
-                    ocmd = Cmd::ActiveChar;
-                    ochr = cur_tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
+            if cmd == Cmd::Relax {
+                if chr == NO_EXPAND_FLAG {
+                    cmd = Cmd::ActiveChar;
+                    chr = tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
                 }
             }
 
-            if ocmd > Cmd::ActiveChar || ochr > BIGGEST_USV as i32 {
-                ocmd = Cmd::Relax;
-                ochr = TOO_BIG_USV as i32;
+            if cmd > Cmd::ActiveChar || chr > BIGGEST_USV as i32 {
+                cmd = Cmd::Relax;
+                chr = TOO_BIG_USV as i32;
             }
 
             if this_if == IfTestCode::IfChar {
-                b = n == ochr
+                b = n == chr
             } else {
-                b = m == ocmd
+                b = m == cmd
             }
         }
         IfTestCode::IfInt | IfTestCode::IfDim => {
@@ -9005,18 +8994,15 @@ pub(crate) unsafe fn conditional(
                 scan_dimen(input, false, false, None)
             };
 
-            loop {
-                get_x_token();
-                ocmd = cur_cmd;
-                ochr = cur_chr;
-                ocs = cur_cs;
-                if ocmd != Cmd::Spacer {
-                    break;
+            let tok = loop {
+                let (tok, cmd, ..) = _get_x_token(input);
+                if cmd != Cmd::Spacer {
+                    break tok;
                 }
-            }
+            };
 
-            if cur_tok >= OTHER_TOKEN + 60 && cur_tok <= OTHER_TOKEN + 62 {
-                r = (cur_tok - OTHER_TOKEN) as u8
+            if tok >= OTHER_TOKEN + 60 && tok <= OTHER_TOKEN + 62 {
+                r = (tok - OTHER_TOKEN) as u8
             } else {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -9026,7 +9012,7 @@ pub(crate) unsafe fn conditional(
                 print_cstr("Missing = inserted for ");
                 print_cmd_chr(Cmd::IfTest, this_if as i32);
                 help!("I was expecting to see `<\', `=\', or `>\'. Didn\'t.");
-                back_error(input, cur_tok);
+                back_error(input, tok);
                 r = b'=';
             }
 
@@ -9094,17 +9080,14 @@ pub(crate) unsafe fn conditional(
             let save_scanner_status = scanner_status;
             scanner_status = ScannerStatus::Normal;
             let (p, q, n) = get_next(input);
-            let (cmd, chr, cs) = get_next(input);
-            ocmd = cmd;
-            ochr = chr;
-            ocs = cs;
+            let (cmd, chr, _) = get_next(input);
 
-            b = if ocmd != p {
+            b = if cmd != p {
                 false
-            } else if ocmd < Cmd::Call {
-                ochr == q
+            } else if cmd < Cmd::Call {
+                chr == q
             } else {
-                let mut popt = LLIST_link(ochr as usize).opt();
+                let mut popt = LLIST_link(chr as usize).opt();
                 let mut qopt = MEM[EQTB[n as usize].val as usize].b32.s1.opt();
                 if popt == qopt {
                     true
@@ -9144,11 +9127,8 @@ pub(crate) unsafe fn conditional(
         IfTestCode::IfDef => {
             let save_scanner_status = scanner_status;
             scanner_status = ScannerStatus::Normal;
-            let (cmd, chr, cs) = get_next(input);
-            ocmd = cmd;
-            ochr = chr;
-            ocs = cs;
-            b = ocmd != Cmd::UndefinedCS;
+            let (cmd, _, _) = get_next(input);
+            b = cmd != Cmd::UndefinedCS;
             scanner_status = save_scanner_status;
         }
 
@@ -9158,23 +9138,20 @@ pub(crate) unsafe fn conditional(
             e = is_in_csname;
             is_in_csname = true;
 
-            loop {
-                get_x_token();
-                ocmd = cur_cmd;
-                ochr = cur_chr;
-                ocs = cur_cs;
-                if ocs == 0 {
+            let (tok, cmd) = loop {
+                let (tok, cmd, _, cs) = _get_x_token(input);
+                if cs == 0 {
                     let q = get_avail();
                     *LLIST_link(p) = Some(q).tex_int();
-                    MEM[q].b32.s0 = cur_tok;
+                    MEM[q].b32.s0 = tok;
                     p = q;
                 }
-                if !(ocs == 0) {
-                    break;
+                if !(cs == 0) {
+                    break (tok, cmd);
                 }
-            }
+            };
 
-            if ocmd != Cmd::EndCSName {
+            if cmd != Cmd::EndCSName {
                 /*391:*/
                 if file_line_error_style_p != 0 {
                     print_file_line(); /*:1556*/
@@ -9188,7 +9165,7 @@ pub(crate) unsafe fn conditional(
                     "The control sequence marked <to be read again> should",
                     "not appear between \\csname and \\endcsname."
                 );
-                back_error(input, cur_tok);
+                back_error(input, tok);
             }
 
             let mut m = first;
@@ -9206,7 +9183,7 @@ pub(crate) unsafe fn conditional(
                 popt = llist_link(p);
             }
 
-            ocs = if m == first {
+            let cs = if m == first {
                 NULL_CS as i32
             } else if m == first + 1i32 {
                 SINGLE_BASE as i32 + BUFFER[first as usize]
@@ -9215,7 +9192,7 @@ pub(crate) unsafe fn conditional(
             };
 
             flush_list(Some(n));
-            b = Cmd::from(EQTB[ocs as usize].cmd) != Cmd::UndefinedCS;
+            b = Cmd::from(EQTB[cs as usize].cmd) != Cmd::UndefinedCS;
             is_in_csname = e;
         }
 
@@ -9251,21 +9228,18 @@ pub(crate) unsafe fn conditional(
                     break;
                 }
 
-                let next = pass_text(input);
-                ocmd = next.0;
-                ochr = next.1;
-                ocs = next.2;
+                let chr = pass_text(input).1;
 
                 if cond_ptr == save_cond_ptr {
-                    if ochr == FiOrElseCode::Or as i32 {
+                    if chr == FiOrElseCode::Or as i32 {
                         n -= 1;
                     } else {
-                        return common_ending(ochr);
+                        return common_ending(input, chr);
                     }
-                } else if ochr == FiOrElseCode::Fi as i32 {
+                } else if chr == FiOrElseCode::Fi as i32 {
                     /*515:*/
                     if IF_STACK[IN_OPEN] == cond_ptr {
-                        INPUT_STACK[INPUT_PTR] = cur_input;
+                        INPUT_STACK[INPUT_PTR] = *input;
                         if_warning(&INPUT_STACK[..INPUT_PTR + 1]);
                     }
                     let p = cond_ptr.unwrap();
@@ -9283,19 +9257,16 @@ pub(crate) unsafe fn conditional(
             let save_scanner_status = scanner_status;
             scanner_status = ScannerStatus::Normal;
             let (cmd, chr, cs) = get_next(input);
-            ocmd = cmd;
-            ochr = chr;
-            ocs = cs;
             scanner_status = save_scanner_status;
-            let m = if ocs < HASH_BASE as i32 {
-                prim_lookup(ocs - SINGLE_BASE as i32)
+            let m = if cs < HASH_BASE as i32 {
+                prim_lookup(cs - SINGLE_BASE as i32)
             } else {
-                prim_lookup((*hash.offset(ocs as isize)).s1)
+                prim_lookup((*hash.offset(cs as isize)).s1)
             } as i32;
-            b = ocmd != Cmd::UndefinedCS
+            b = cmd != Cmd::UndefinedCS
                 && m != UNDEFINED_PRIMITIVE
-                && ocmd == Cmd::from(prim_eqtb[m as usize].cmd)
-                && ochr == prim_eqtb[m as usize].val;
+                && cmd == Cmd::from(prim_eqtb[m as usize].cmd)
+                && chr == prim_eqtb[m as usize].val;
         }
     }
 
@@ -9314,14 +9285,11 @@ pub(crate) unsafe fn conditional(
     }
 
     loop {
-        let next = pass_text(input);
-        ocmd = next.0;
-        ochr = next.1;
-        ocs = next.2;
+        let chr = pass_text(input).1;
 
         if cond_ptr == save_cond_ptr {
-            if ochr != FiOrElseCode::Or as i32 {
-                return common_ending(ochr);
+            if chr != FiOrElseCode::Or as i32 {
+                return common_ending(input, chr);
             }
 
             if file_line_error_style_p != 0 {
@@ -9333,10 +9301,10 @@ pub(crate) unsafe fn conditional(
             print_esc_cstr("or");
             help!("I\'m ignoring this; it doesn\'t match any \\if.");
             error();
-        } else if ochr == FiOrElseCode::Fi as i32 {
+        } else if chr == FiOrElseCode::Fi as i32 {
             /*515:*/
             if IF_STACK[IN_OPEN] == cond_ptr {
-                INPUT_STACK[INPUT_PTR] = cur_input;
+                INPUT_STACK[INPUT_PTR] = *input;
                 if_warning(&INPUT_STACK[..INPUT_PTR + 1]);
             }
             let p = cond_ptr.unwrap();
@@ -9348,11 +9316,11 @@ pub(crate) unsafe fn conditional(
         }
     }
 
-    unsafe fn common_ending(chr: i32) {
+    unsafe fn common_ending(input: &mut input_state_t, chr: i32) {
         if chr == FiOrElseCode::Fi as i32 {
             /*515:*/
             if IF_STACK[IN_OPEN] == cond_ptr {
-                INPUT_STACK[INPUT_PTR] = cur_input;
+                INPUT_STACK[INPUT_PTR] = *input;
                 if_warning(&INPUT_STACK[..INPUT_PTR + 1]);
             }
             let p = cond_ptr.unwrap();
