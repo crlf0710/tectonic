@@ -5696,15 +5696,15 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
     };
     m.val.chr.font = (font as i64 + ((math_char(c) as i64) / 65536) * 256) as u16;
 }
-pub(crate) unsafe fn set_math_char(mut c: i32) {
+pub(crate) unsafe fn set_math_char(input: &mut input_state_t, chr: i32, mut c: i32) {
     let mut ch: UnicodeScalar = 0;
     if math_char(c) == ACTIVE_MATH_CHAR as u32 {
         /*1187: */
-        cur_cs = cur_chr + 1; /* ... "between 0 and 15" */
-        cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd); /* ... "between 0 and 15" */
-        cur_chr = EQTB[cur_cs as usize].val;
-        let tok = x_token(&mut cur_input, &mut cur_cmd, &mut cur_chr, &mut cur_cs);
-        back_input(&mut cur_input, tok);
+        let mut cs = chr + 1; /* ... "between 0 and 15" */
+        let mut cmd = Cmd::from(EQTB[cs as usize].cmd); /* ... "between 0 and 15" */
+        let mut chr = EQTB[cs as usize].val;
+        let tok = x_token(input, &mut cmd, &mut chr, &mut cs);
+        back_input(input, tok);
     } else {
         let p = new_noad();
         MEM[p + 1].b32.s1 = MathCell::MathChar as _;
@@ -5856,19 +5856,22 @@ pub(crate) unsafe fn scan_four_bit_int_or_18(input: &mut input_state_t) -> i32 {
         val
     }
 }
-pub(crate) unsafe fn get_x_or_protected(input: &mut input_state_t) {
+pub(crate) unsafe fn get_x_or_protected(input: &mut input_state_t) -> (i32, Cmd, i32) {
+    let mut tok;
+    let mut cmd;
+    let mut chr;
     loop {
-        let (tok, cmd, chr, cs) = get_token(input);
-        cur_tok = tok;
-        cur_cmd = cmd;
-        cur_chr = chr;
-        cur_cs = cs;
-        if cur_cmd <= MAX_COMMAND {
-            return;
+        let next = get_token(input);
+        tok = next.0;
+        cmd = next.1;
+        chr = next.2;
+        let cs = next.3;
+        if cmd <= MAX_COMMAND {
+            return (tok, cmd, chr);
         }
-        if cur_cmd >= Cmd::Call && cur_cmd < Cmd::EndTemplate {
-            if MEM[*LLIST_link(cur_chr as usize) as usize].b32.s0 == PROTECTED_TOKEN {
-                return;
+        if cmd >= Cmd::Call && cmd < Cmd::EndTemplate {
+            if MEM[*LLIST_link(chr as usize) as usize].b32.s0 == PROTECTED_TOKEN {
+                return (tok, cmd, chr);
             }
         }
         expand(input, cmd, chr, cs);
@@ -6882,20 +6885,18 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
     let mut radix: i16 = 0;
     let mut OK_so_far = true;
     let mut negative = false;
-    let mut tok = cur_tok;
-    let mut cmd = cur_cmd;
-    let mut chr = cur_chr;
-    let mut cs = cur_cs;
+    let mut tok;
+    let mut cmd;
+    let mut chr;
+    let mut cs;
     loop {
-        let mut next;
-        loop
-        /*424:*/
-        {
-            next = get_x_token(input);
+        let next = loop {
+            /*424:*/
+            let next = get_x_token(input);
             if next.1 != Cmd::Spacer {
-                break;
+                break next;
             }
-        }
+        };
         tok = next.0;
         cmd = next.1;
         chr = next.2;
@@ -6908,11 +6909,6 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             break;
         }
     }
-
-    cur_tok = tok;
-    cur_cmd = cmd;
-    cur_chr = chr;
-    cur_cs = cs;
 
     let mut ival;
     if tok == ALPHA_TOKEN as i32 {
@@ -6975,7 +6971,7 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             cmd = next.1;
             chr = next.2;
             cs = next.3;
-        } else if cur_tok == HEX_TOKEN {
+        } else if tok == HEX_TOKEN {
             radix = 16;
             m = 0x8000000;
             let next = get_x_token(input);
@@ -10961,14 +10957,14 @@ pub(crate) unsafe fn init_row() {
     cur_pre_tail = cur_pre_head;
     init_span(cur_align);
 }
-pub(crate) unsafe fn init_col() {
+pub(crate) unsafe fn init_col(input: &mut input_state_t, tok: i32, cmd: Cmd) {
     let ca = cur_align.unwrap();
-    MEM[ca + 5].b32.s0 = cur_cmd as i32;
-    if cur_cmd == Cmd::Omit {
+    MEM[ca + 5].b32.s0 = cmd as i32;
+    if cmd == Cmd::Omit {
         align_state = 0;
     } else {
-        back_input(&mut cur_input, cur_tok);
-        begin_token_list(&mut cur_input, MEM[ca + 3].b32.s1 as usize, Btl::UTemplate);
+        back_input(input, tok);
+        begin_token_list(input, MEM[ca + 3].b32.s1 as usize, Btl::UTemplate);
     };
 }
 pub(crate) unsafe fn fin_col() -> bool {
@@ -11116,14 +11112,14 @@ pub(crate) unsafe fn fin_col() -> bool {
         init_span(p);
     }
     align_state = 1000000;
-    loop {
-        get_x_or_protected(&mut cur_input);
-        if cur_cmd != Cmd::Spacer {
-            break;
+    let (tok, cmd) = loop {
+        let (tok, cmd, _) = get_x_or_protected(&mut cur_input);
+        if cmd != Cmd::Spacer {
+            break (tok, cmd);
         }
-    }
+    };
     cur_align = p;
-    init_col();
+    init_col(&mut cur_input, tok, cmd);
     false
 }
 pub(crate) unsafe fn fin_row() {
@@ -11527,32 +11523,28 @@ pub(crate) unsafe fn fin_align() {
 pub(crate) unsafe fn align_peek() {
     loop {
         align_state = 1000000;
-        loop {
-            get_x_or_protected(&mut cur_input);
-            if cur_cmd != Cmd::Spacer {
-                break;
+        let (tok, cmd, chr) = loop {
+            let next = get_x_or_protected(&mut cur_input);
+            if next.1 != Cmd::Spacer {
+                break next;
             }
-        }
-        if cur_cmd == Cmd::NoAlign {
-            let next = scan_left_brace(&mut cur_input);
-            cur_tok = next.0;
-            cur_cmd = next.1;
-            cur_chr = next.2;
-            cur_cs = next.3;
+        };
+        if cmd == Cmd::NoAlign {
+            scan_left_brace(&mut cur_input);
             new_save_level(GroupCode::NoAlign);
             if cur_list.mode == (true, ListMode::VMode) {
                 normal_paragraph();
             }
             break;
-        } else if cur_cmd == Cmd::RightBrace {
+        } else if cmd == Cmd::RightBrace {
             fin_align();
             break;
         } else {
-            if cur_cmd == Cmd::CarRet && cur_chr == CR_CR_CODE {
+            if cmd == Cmd::CarRet && chr == CR_CR_CODE {
                 continue;
             }
             init_row();
-            init_col();
+            init_col(&mut cur_input, tok, cmd);
             break;
         }
     }
@@ -15113,12 +15105,12 @@ pub(crate) unsafe fn main_control() {
                     }
                     (MMode, Cmd::Letter) | (MMode, Cmd::OtherChar) | (MMode, Cmd::CharGiven) => {
                         // 218 | 219 | 275
-                        set_math_char(*MATH_CODE(cur_chr as usize));
+                        set_math_char(&mut cur_input, cur_chr, *MATH_CODE(cur_chr as usize));
                     }
                     (MMode, Cmd::CharNum) => {
                         // 223
                         cur_chr = scan_char_num(&mut cur_input);
-                        set_math_char(*MATH_CODE(cur_chr as usize));
+                        set_math_char(&mut cur_input, cur_chr, *MATH_CODE(cur_chr as usize));
                     }
                     (MMode, Cmd::MathCharNum) => {
                         // 224
@@ -15129,13 +15121,15 @@ pub(crate) unsafe fn main_control() {
                             let t = t + set_family(val);
                             let val = scan_usv_num(&mut cur_input);
                             let t = t + val;
-                            set_math_char(t);
+                            set_math_char(&mut cur_input, cur_chr, t);
                         } else if cur_chr == 1 {
                             let val = scan_xetex_math_char_int(&mut cur_input);
-                            set_math_char(val);
+                            set_math_char(&mut cur_input, cur_chr, val);
                         } else {
                             let val = scan_fifteen_bit_int(&mut cur_input);
                             set_math_char(
+                                &mut cur_input,
+                                cur_chr,
                                 set_class(val / 4096)
                                     + set_family((val % 4096) / 256)
                                     + (val % 256),
@@ -15145,6 +15139,8 @@ pub(crate) unsafe fn main_control() {
                     (MMode, Cmd::MathGiven) => {
                         // 276
                         set_math_char(
+                            &mut cur_input,
+                            cur_chr,
                             set_class(cur_chr / 4096)
                                 + set_family((cur_chr % 4096) / 256)
                                 + (cur_chr % 256),
@@ -15152,11 +15148,11 @@ pub(crate) unsafe fn main_control() {
                     }
                     (MMode, Cmd::XetexMathGiven) => {
                         // 277
-                        set_math_char(cur_chr);
+                        set_math_char(&mut cur_input, cur_chr, cur_chr);
                     }
                     (MMode, Cmd::DelimNum) => {
                         // 222
-                        if cur_chr == 1i32 {
+                        if cur_chr == 1 {
                             scan_math_class_int(&mut cur_input);
                             let val = scan_math_class_int(&mut cur_input);
                             let t = set_class(val);
@@ -15164,11 +15160,13 @@ pub(crate) unsafe fn main_control() {
                             let t = t + set_family(val);
                             let val = scan_usv_num(&mut cur_input);
                             let t = t + val;
-                            set_math_char(t);
+                            set_math_char(&mut cur_input, cur_chr, t);
                         } else {
                             let mut val = scan_delimiter_int(&mut cur_input);
                             let val = val / 4096;
                             set_math_char(
+                                &mut cur_input,
+                                cur_chr,
                                 set_class(val / 4096)
                                     + set_family((val % 4096) / 256)
                                     + (val % 256),
@@ -15229,7 +15227,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (MMode, Cmd::SubMark) | (MMode, Cmd::SupMark) => {
                         // 215 | 214
-                        sub_sup();
+                        sub_sup(&mut cur_input, cur_cmd);
                     }
                     (MMode, Cmd::Above) => {
                         // 259

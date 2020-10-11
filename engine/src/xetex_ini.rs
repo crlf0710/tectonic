@@ -1102,7 +1102,7 @@ where
     val
 }
 
-unsafe fn new_patterns() {
+unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
     if trie_not_ready {
         if *INTPAR(IntPar::language) <= 0 {
             cur_lang = 0
@@ -1111,16 +1111,12 @@ unsafe fn new_patterns() {
         } else {
             cur_lang = *INTPAR(IntPar::language) as _;
         }
-        let next = scan_left_brace(&mut cur_input);
-        cur_tok = next.0;
-        cur_cmd = next.1;
-        cur_chr = next.2;
-        cur_cs = next.3;
+        scan_left_brace(input);
         let mut k = 0;
         hyf[0] = 0;
         let mut digit_sensed = false;
         loop {
-            let (_, cmd, mut chr, _) = get_x_token(&mut cur_input);
+            let (_, cmd, mut chr, _) = get_x_token(input);
             match cmd {
                 Cmd::Letter | Cmd::OtherChar => {
                     if digit_sensed || chr < '0' as i32 || chr > '9' as i32 {
@@ -1321,17 +1317,13 @@ unsafe fn new_patterns() {
         print_esc_cstr("patterns");
         help!("All patterns must be given before typesetting begins.");
         error();
-        *LLIST_link(GARBAGE) = scan_toks(&mut cur_input, cur_cs, false, false) as i32;
+        *LLIST_link(GARBAGE) = scan_toks(input, cs, false, false) as i32;
         flush_list(Some(def_ref));
     };
 }
 /*:1001*/
 unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
-    let next = scan_left_brace(&mut cur_input);
-    cur_tok = next.0;
-    cur_cmd = next.1;
-    cur_chr = next.2;
-    cur_cs = next.3;
+    scan_left_brace(&mut cur_input);
 
     cur_lang = if *INTPAR(IntPar::language) <= 0 {
         0
@@ -1897,7 +1889,6 @@ pub(crate) unsafe fn prefixed_command(
                             eq_define(p as usize, Cmd::UndefinedCS, None);
                         }
                     }
-                    //assert_eq!(cur_cmd, ocmd);
                     return done(input);
                 }
             }
@@ -2180,8 +2171,7 @@ pub(crate) unsafe fn prefixed_command(
         Cmd::HyphData => {
             if cur_chr == 1 {
                 if in_initex_mode {
-                    new_patterns();
-                    //assert_eq!(cur_cmd, ocmd);
+                    new_patterns(input, cur_cs);
                     return done(input);
                 }
 
@@ -2245,7 +2235,6 @@ pub(crate) unsafe fn prefixed_command(
         }
     }
 
-    //assert_eq!(cur_cmd, ocmd);
     done(input)
 }
 

@@ -18,11 +18,12 @@ use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ext::{Font, NativeFont::*};
 use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_cs, cur_dir, cur_f, cur_group, cur_i,
-    cur_input, cur_lang, cur_list, cur_tok, file_line_error_style_p, insert_src_special_every_math,
-    just_box, memory_word, pre_adjust_tail, tex_remainder, total_shrink, xtx_ligature_present,
-    LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO,
-    FONT_LAYOUT_ENGINE, FONT_PARAMS, HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM,
-    NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
+    cur_input, cur_lang, cur_list, cur_tok, file_line_error_style_p, input_state_t,
+    insert_src_special_every_math, just_box, memory_word, pre_adjust_tail, tex_remainder,
+    total_shrink, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB,
+    EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_PARAMS, HEIGHT_BASE,
+    ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR,
+    SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t};
 use crate::xetex_layout_interface::*;
@@ -641,10 +642,10 @@ pub(crate) unsafe fn build_choices() {
     cur_chr = next.2;
     cur_cs = next.3;
 }
-pub(crate) unsafe fn sub_sup() {
+pub(crate) unsafe fn sub_sup(input: &mut input_state_t, cmd: Cmd) {
     let mut t = MathCell::Empty;
     let mut p = None;
-    let cell = match cur_cmd {
+    let cell = match cmd {
         Cmd::SupMark => 2,
         Cmd::SubMark => 3,
         _ => unreachable!(),
@@ -669,7 +670,7 @@ pub(crate) unsafe fn sub_sup() {
             *LLIST_link(cur_list.tail) = new_noad() as i32;
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
             if t != MathCell::Empty {
-                if cur_cmd == Cmd::SupMark {
+                if cmd == Cmd::SupMark {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
@@ -694,9 +695,9 @@ pub(crate) unsafe fn sub_sup() {
     let p = p + cell;
     let m = BaseMath(cur_list.tail);
     if cell == 2 {
-        scan_math(&mut cur_input, m.second_mut(), p);
+        scan_math(input, m.second_mut(), p);
     } else {
-        scan_math(&mut cur_input, m.third_mut(), p);
+        scan_math(input, m.third_mut(), p);
     }
 }
 pub(crate) unsafe fn math_fraction() {

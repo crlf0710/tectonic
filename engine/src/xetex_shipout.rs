@@ -9,16 +9,16 @@ use crate::xetex_errors::{confusion, error, fatal_error, overflow};
 use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, Font};
 use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
-    avail, cur_area, cur_chr, cur_cmd, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_input,
-    cur_list, cur_name, cur_page_height, cur_page_width, cur_tok, cur_v, cur_v_offset, dead_cycles,
-    def_ref, doing_leaders, doing_special, file_line_error_style_p, file_offset, font_used,
-    init_pool_ptr, job_name, last_bop, log_opened, max_h, max_print_line, max_push, max_v,
-    name_of_file, output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size,
-    rule_dp, rule_ht, rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool,
-    str_ptr, str_start, term_offset, write_file, write_loc, write_open, xtx_ligature_present,
-    LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE,
-    FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE,
-    MEM, TOTAL_PAGES, WIDTH_BASE,
+    avail, cur_area, cur_dir, cur_ext, cur_h, cur_h_offset, cur_input, cur_list, cur_name,
+    cur_page_height, cur_page_width, cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders,
+    doing_special, file_line_error_style_p, file_offset, font_used, init_pool_ptr, job_name,
+    last_bop, log_opened, max_h, max_print_line, max_push, max_v, name_of_file,
+    output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht,
+    rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr, str_start,
+    term_offset, write_file, write_loc, write_open, xtx_ligature_present, LR_problems, LR_ptr,
+    CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
+    FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM,
+    TOTAL_PAGES, WIDTH_BASE,
 };
 use crate::xetex_output::{
     print, print_chr, print_cstr, print_file_line, print_file_name, print_int, print_ln,
@@ -2085,13 +2085,9 @@ unsafe fn write_out(p: &WriteFile) {
     let old_mode = cur_list.mode;
     cur_list.mode = (false, ListMode::NoMode);
     let _q = scan_toks(&mut cur_input, write_loc, false, true);
-    let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-    cur_tok = tok;
-    cur_cmd = cmd;
-    cur_chr = chr;
-    cur_cs = cs;
+    let tok = get_token(&mut cur_input).0;
 
-    if cur_tok != CS_TOKEN_FLAG + END_WRITE as i32 {
+    if tok != CS_TOKEN_FLAG + END_WRITE as i32 {
         /*1412:*/
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -2106,12 +2102,8 @@ unsafe fn write_out(p: &WriteFile) {
         error();
 
         loop {
-            let (tok, cmd, chr, cs) = get_token(&mut cur_input);
-            cur_tok = tok;
-            cur_cmd = cmd;
-            cur_chr = chr;
-            cur_cs = cs;
-            if !(cur_tok != CS_TOKEN_FLAG + END_WRITE as i32) {
+            let tok = get_token(&mut cur_input).0;
+            if tok == CS_TOKEN_FLAG + END_WRITE as i32 {
                 break;
             }
         }
