@@ -5634,84 +5634,77 @@ pub(crate) unsafe fn scan_xetex_math_char_int(input: &mut input_state_t) -> i32 
         val
     }
 }
-pub(crate) unsafe fn scan_math(m: &mut MCell, p: usize) {
+pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usize) {
     let mut c: i32 = 0;
     'c_118470: loop {
-        loop
-        /*422:*/
-        {
-            get_x_token();
-            if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
-                break;
+        let (mut tok, mut cmd, mut chr, mut cs) = loop {
+            /*422:*/
+            let next = _get_x_token(input);
+            if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
+                break next;
             }
-        }
+        };
         loop {
-            match cur_cmd {
+            match cmd {
                 Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {
-                    c = *MATH_CODE(cur_chr as usize);
+                    c = *MATH_CODE(chr as usize);
                     if !(math_char(c) == ACTIVE_MATH_CHAR as u32) {
                         break 'c_118470;
                     }
-                    cur_cs = cur_chr + 1;
-                    cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
-                    cur_chr = EQTB[cur_cs as usize].val;
-                    let tok = x_token(&mut cur_input, &mut cur_cmd, &mut cur_chr, &mut cur_cs);
-                    back_input(&mut cur_input, tok);
+                    cs = chr + 1;
+                    cmd = Cmd::from(EQTB[cs as usize].cmd);
+                    chr = EQTB[cs as usize].val;
+                    let tok = x_token(input, &mut cmd, &mut chr, &mut cs);
+                    back_input(input, tok);
                     break;
                 }
                 Cmd::CharNum => {
-                    cur_chr = scan_char_num(&mut cur_input);
-                    cur_cmd = Cmd::CharGiven;
+                    chr = scan_char_num(input);
+                    cmd = Cmd::CharGiven;
                 }
                 Cmd::MathCharNum => {
-                    if cur_chr == 2 {
-                        let val = scan_math_class_int(&mut cur_input);
+                    if chr == 2 {
+                        let val = scan_math_class_int(input);
                         c = set_class(val);
-                        let val = scan_math_fam_int(&mut cur_input);
+                        let val = scan_math_fam_int(input);
                         c = c + set_family(val);
-                        let val = scan_usv_num(&mut cur_input);
+                        let val = scan_usv_num(input);
                         c = c + val;
-                    } else if cur_chr == 1 {
-                        let val = scan_xetex_math_char_int(&mut cur_input);
+                    } else if chr == 1 {
+                        let val = scan_xetex_math_char_int(input);
                         c = val
                     } else {
-                        let val = scan_fifteen_bit_int(&mut cur_input);
+                        let val = scan_fifteen_bit_int(input);
                         c = set_class(val / 4096) + set_family((val % 4096) / 256) + (val % 256);
                     }
                     break 'c_118470;
                 }
                 Cmd::MathGiven => {
-                    c = set_class(cur_chr / 4096)
-                        + set_family((cur_chr % 4096) / 256)
-                        + (cur_chr % 256);
+                    c = set_class(chr / 4096) + set_family((chr % 4096) / 256) + (chr % 256);
                     break 'c_118470;
                 }
                 Cmd::XetexMathGiven => {
-                    c = cur_chr;
+                    c = chr;
                     break 'c_118470;
                 }
                 Cmd::DelimNum => {
-                    if cur_chr == 1 {
-                        let val = scan_math_class_int(&mut cur_input);
+                    if chr == 1 {
+                        let val = scan_math_class_int(input);
                         c = set_class(val);
-                        let val = scan_math_fam_int(&mut cur_input);
+                        let val = scan_math_fam_int(input);
                         c = c + set_family(val);
-                        let val = scan_usv_num(&mut cur_input);
+                        let val = scan_usv_num(input);
                         c = c + val;
                     } else {
-                        let mut val = scan_delimiter_int(&mut cur_input);
+                        let mut val = scan_delimiter_int(input);
                         c = val / 4096;
                         c = set_class(c / 4096) + set_family((c % 4096) / 256) + (c % 256);
                     }
                     break 'c_118470;
                 }
                 _ => {
-                    back_input(&mut cur_input, cur_tok);
-                    let next = scan_left_brace(&mut cur_input);
-                    cur_tok = next.0;
-                    cur_cmd = next.1;
-                    cur_chr = next.2;
-                    cur_cs = next.3;
+                    back_input(input, tok);
+                    scan_left_brace(input);
                     SAVE_STACK[SAVE_PTR + 0].val = p as i32;
                     SAVE_PTR += 1;
                     push_math(GroupCode::Math);
@@ -7705,16 +7698,17 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
         n = 0;
         loop {
             o = if s == Expr::None { l } else { ValLevel::Int };
-            loop {
-                get_x_token();
-                if !(cur_cmd == Cmd::Spacer) {
-                    break;
+            let tok = loop {
+                let next = _get_x_token(input);
+                if !(next.1 == Cmd::Spacer) {
+                    break next;
                 }
             }
-            if cur_tok == OTHER_TOKEN + 40 {
+            .0;
+            if tok == OTHER_TOKEN + 40 {
                 break;
             }
-            back_input(input, cur_tok);
+            back_input(input, tok);
             let mut f = match o {
                 ValLevel::Int => scan_int(input),
                 ValLevel::Dimen => scan_dimen(input, false, false, None),
@@ -7722,30 +7716,29 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
                 _ => scan_mu_glue(input),
             };
             loop {
-                loop
-                /*1572:*//*424:*/
-                {
-                    get_x_token();
-                    if !(cur_cmd == Cmd::Spacer) {
-                        break;
+                let (tok, cmd, ..) = loop {
+                    /*1572:*//*424:*/
+                    let next = _get_x_token(input);
+                    if !(next.1 == Cmd::Spacer) {
+                        break next;
                     }
-                }
+                };
                 let mut o;
-                if cur_tok == OTHER_TOKEN + 43 {
+                if tok == OTHER_TOKEN + 43 {
                     o = Expr::Add;
-                } else if cur_tok == OTHER_TOKEN + 45 {
+                } else if tok == OTHER_TOKEN + 45 {
                     o = Expr::Sub;
-                } else if cur_tok == OTHER_TOKEN + 42 {
+                } else if tok == OTHER_TOKEN + 42 {
                     o = Expr::Mult;
-                } else if cur_tok == OTHER_TOKEN + 47 {
+                } else if tok == OTHER_TOKEN + 47 {
                     o = Expr::Div;
                 } else {
                     o = Expr::None;
                     if p.opt().is_none() {
-                        if cur_cmd != Cmd::Relax {
-                            back_input(input, cur_tok);
+                        if cmd != Cmd::Relax {
+                            back_input(input, tok);
                         }
-                    } else if cur_tok != OTHER_TOKEN + 41 {
+                    } else if tok != OTHER_TOKEN + 41 {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
@@ -7753,7 +7746,7 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
                         }
                         print_cstr("Missing ) inserted for expression");
                         help!("I was expecting to see `+\', `-\', `*\', `/\', or `)\'. Didn\'t.");
-                        back_error(input, cur_tok);
+                        back_error(input, tok);
                     }
                 }
                 arith_error = b;
@@ -8171,9 +8164,8 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32) -> usize {
             return str_toks(b);
         }
     }
-    get_x_token();
-    let (val, val_level) =
-        scan_something_internal(input, cur_tok, cur_cmd, cur_chr, ValLevel::Tok, false);
+    let (tok, cmd, chr, _) = _get_x_token(input);
+    let (val, val_level) = scan_something_internal(input, tok, cmd, chr, ValLevel::Tok, false);
     match val_level {
         ValLevel::Ident | ValLevel::Tok | ValLevel::InterChar | ValLevel::Mark => {
             /*485: */
@@ -15181,7 +15173,7 @@ pub(crate) unsafe fn main_control() {
                         cur_list.tail = n;
                         back_input(&mut cur_input, cur_tok);
                         let m = BaseMath(cur_list.tail);
-                        scan_math(m.first_mut(), cur_list.tail + 1);
+                        scan_math(&mut cur_input, m.first_mut(), cur_list.tail + 1);
                     }
                     (MMode, Cmd::Letter) | (MMode, Cmd::OtherChar) | (MMode, Cmd::CharGiven) => {
                         // 218 | 219 | 275
@@ -15254,7 +15246,7 @@ pub(crate) unsafe fn main_control() {
                         cur_list.tail = n;
                         set_math_NODE_type(n, MathNode::n(cur_chr as u16).unwrap());
                         let m = BaseMath(cur_list.tail);
-                        scan_math(m.first_mut(), cur_list.tail + 1);
+                        scan_math(&mut cur_input, m.first_mut(), cur_list.tail + 1);
                     }
                     (MMode, Cmd::LimitSwitch) => {
                         // 258

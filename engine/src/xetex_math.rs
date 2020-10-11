@@ -518,7 +518,7 @@ pub(crate) unsafe fn math_radical() {
     rn.third_mut().empty();
     rn.second_mut().empty();
     scan_delimiter(rn.delimeter_mut(), true);
-    scan_math(rn.first_mut(), rn.ptr() + 1);
+    scan_math(&mut cur_input, rn.first_mut(), rn.ptr() + 1);
 }
 pub(crate) unsafe fn math_ac() {
     if cur_cmd == Cmd::Accent {
@@ -577,7 +577,7 @@ pub(crate) unsafe fn math_ac() {
         math_fam(val) as u16
     };
     acc.fourth_mut().val.chr.font = (font as i64 + math_char(val) as i64 / 65536 * 256) as u16;
-    scan_math(acc.first_mut(), acc.ptr() + 1);
+    scan_math(&mut cur_input, acc.first_mut(), acc.ptr() + 1);
 }
 pub(crate) unsafe fn append_choices() {
     let c = new_choice();
@@ -694,9 +694,9 @@ pub(crate) unsafe fn sub_sup() {
     let p = p + cell;
     let m = BaseMath(cur_list.tail);
     if cell == 2 {
-        scan_math(m.second_mut(), p);
+        scan_math(&mut cur_input, m.second_mut(), p);
     } else {
-        scan_math(m.third_mut(), p);
+        scan_math(&mut cur_input, m.third_mut(), p);
     }
 }
 pub(crate) unsafe fn math_fraction() {
