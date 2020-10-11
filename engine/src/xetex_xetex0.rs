@@ -12120,18 +12120,18 @@ pub(crate) unsafe fn insert_dollar_sign() {
     );
     ins_error(&mut cur_input, cur_tok);
 }
-pub(crate) unsafe fn you_cant() {
+pub(crate) unsafe fn you_cant(cmd: Cmd, chr: i32) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
         print_nl_cstr("! ");
     }
     print_cstr("You can\'t use `");
-    print_cmd_chr(cur_cmd, cur_chr);
+    print_cmd_chr(cmd, chr);
     print_in_mode(cur_list.mode);
 }
-pub(crate) unsafe fn report_illegal_case() {
-    you_cant();
+pub(crate) unsafe fn report_illegal_case(cmd: Cmd, chr: i32) {
+    you_cant(cmd, chr);
     help!(
         "Sorry, but I\'m not programmed to handle this case;",
         "I\'ll just pretend that you didn\'t ask for it.",
@@ -12140,16 +12140,16 @@ pub(crate) unsafe fn report_illegal_case() {
     );
     error();
 }
-pub(crate) unsafe fn privileged() -> bool {
+pub(crate) unsafe fn privileged(cmd: Cmd, chr: i32) -> bool {
     if cur_list.mode.0 == false {
         true
     } else {
-        report_illegal_case();
+        report_illegal_case(cmd, chr);
         false
     }
 }
-pub(crate) unsafe fn its_all_over() -> bool {
-    if privileged() {
+pub(crate) unsafe fn its_all_over(cmd: Cmd, chr: i32) -> bool {
+    if privileged(cmd, chr) {
         if PAGE_HEAD == page_tail && cur_list.head == cur_list.tail && dead_cycles == 0 {
             return true;
         }
@@ -12401,7 +12401,7 @@ pub(crate) unsafe fn box_end(input: &mut input_state_t, mut box_context: i32) {
         }
     };
 }
-pub(crate) unsafe fn begin_box(input: &mut input_state_t, chr: i32, mut box_context: i32) {
+pub(crate) unsafe fn begin_box(input: &mut input_state_t, cmd: Cmd, chr: i32, mut box_context: i32) {
     match BoxCode::n(chr as u8).unwrap() {
         BoxCode::Box => {
             let val = scan_register_num(input);
@@ -12435,11 +12435,11 @@ pub(crate) unsafe fn begin_box(input: &mut input_state_t, chr: i32, mut box_cont
         BoxCode::LastBox => {
             cur_box = None;
             if cur_list.mode.1 == ListMode::MMode {
-                you_cant();
+                you_cant(cmd, chr);
                 help!("Sorry; this \\lastbox will be void.");
                 error();
             } else if cur_list.mode == (false, ListMode::VMode) && cur_list.head == cur_list.tail {
-                you_cant();
+                you_cant(cmd, chr);
                 help!(
                     "Sorry...I usually can\'t take things from the current page.",
                     "This \\lastbox will therefore be void."
@@ -12580,7 +12580,7 @@ pub(crate) unsafe fn scan_box(input: &mut input_state_t, mut box_context: i32) {
         }
     };
     if cmd == Cmd::MakeBox {
-        begin_box(input, chr, box_context);
+        begin_box(input, cmd, chr, box_context);
     } else if box_context >= LEADER_FLAG && (cmd == Cmd::HRule || cmd == Cmd::VRule) {
         cur_box = Some(scan_rule_spec(input, cmd));
         box_end(input, box_context);
@@ -12817,7 +12817,7 @@ pub(crate) unsafe fn delete_last() {
     if cur_list.mode == (false, ListMode::VMode) && cur_list.tail == cur_list.head {
         /*1141: */
         if cur_chr != TextNode::Glue as i32 || last_glue != MAX_HALFWORD {
-            you_cant();
+            you_cant(cur_cmd, cur_chr);
             let help0 = if cur_chr == TextNode::Kern as i32 {
                 &"Try `I\\kern-\\lastkern\' instead."[..]
             } else if cur_chr != TextNode::Glue as i32 {
@@ -13778,7 +13778,7 @@ pub(crate) unsafe fn do_register_command(
 }
 pub(crate) unsafe fn alter_aux() {
     if cur_chr != cur_list.mode.1 as i32 {
-        report_illegal_case();
+        report_illegal_case(cur_cmd, cur_chr);
     } else {
         let c = cur_chr;
         scan_optional_equals(&mut cur_input);
@@ -14221,7 +14221,7 @@ pub(crate) unsafe fn scan_and_pack_name() {
     scan_file_name(&mut cur_input);
     pack_file_name(cur_name, cur_area, cur_ext);
 }
-pub(crate) unsafe fn do_extension(input: &mut input_state_t, tok: i32, chr: i32, cs: i32) {
+pub(crate) unsafe fn do_extension(input: &mut input_state_t, tok: i32, cmd: Cmd, chr: i32, cs: i32) {
     let mut j: i32 = 0;
     let mut p: usize = 0;
     match chr as u16 {
@@ -14282,7 +14282,7 @@ pub(crate) unsafe fn do_extension(input: &mut input_state_t, tok: i32, chr: i32,
             let (tok, cmd, chr, cs) = get_x_token(input);
             if cmd == Cmd::Extension && chr <= WhatsItNST::Close as i32 {
                 p = cur_list.tail;
-                do_extension(input, tok, chr, cs);
+                do_extension(input, tok, cmd, chr, cs);
                 out_what(&WhatsIt::from(cur_list.tail));
                 flush_node_list(Some(cur_list.tail));
                 cur_list.tail = p;
@@ -14293,7 +14293,7 @@ pub(crate) unsafe fn do_extension(input: &mut input_state_t, tok: i32, chr: i32,
         }
         SET_LANGUAGE_CODE => {
             if cur_list.mode.1 != ListMode::HMode {
-                report_illegal_case();
+                report_illegal_case(cmd, chr);
             } else {
                 let mut l = Language::new_node();
                 *LLIST_link(cur_list.tail) = Some(l.ptr()).tex_int();
@@ -14313,14 +14313,14 @@ pub(crate) unsafe fn do_extension(input: &mut input_state_t, tok: i32, chr: i32,
         }
         PIC_FILE_CODE => {
             if cur_list.mode.1 == ListMode::MMode {
-                report_illegal_case();
+                report_illegal_case(cmd, chr);
             } else {
                 load_picture(false);
             }
         }
         PDF_FILE_CODE => {
             if cur_list.mode.1 == ListMode::MMode {
-                report_illegal_case();
+                report_illegal_case(cmd, chr);
             } else {
                 load_picture(true);
             }
@@ -14330,7 +14330,7 @@ pub(crate) unsafe fn do_extension(input: &mut input_state_t, tok: i32, chr: i32,
                 back_input(input, tok);
                 new_graf(true);
             } else if cur_list.mode.1 == ListMode::MMode {
-                report_illegal_case();
+                report_illegal_case(cmd, chr);
             } else if let Font::Native(_) = &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize] {
                 let mut g = Glyph::new_node();
                 *LLIST_link(cur_list.tail) = Some(g.ptr()).tex_int();
@@ -14791,7 +14791,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (VMode, Cmd::Comment) => {
                         // 15
-                        if its_all_over() {
+                        if its_all_over(cur_cmd, cur_chr) {
                             return;
                         }
                     }
@@ -14805,7 +14805,7 @@ pub(crate) unsafe fn main_control() {
                     | (HMode, Cmd::EqNo)
                     | (_, Cmd::MacParam) => {
                         // 23 | 125 | 228 | 72 | 175 | 278 | 39 | 45 | 49 | 152 | 7 | 110 | 213
-                        report_illegal_case();
+                        report_illegal_case(cur_cmd, cur_chr);
                     }
                     (VMode, Cmd::SupMark)
                     | (HMode, Cmd::SupMark)
@@ -14914,7 +14914,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (_, Cmd::MakeBox) => {
                         // 21 | 124 | 227
-                        begin_box(&mut cur_input, cur_chr, 0);
+                        begin_box(&mut cur_input, cur_cmd, cur_chr, 0);
                     }
                     (VMode, Cmd::StartPar) => {
                         // 44
@@ -15034,7 +15034,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (MMode, Cmd::HAlign) => {
                         // 239
-                        if privileged() {
+                        if privileged(cur_cmd, cur_chr) {
                             if cur_group == GroupCode::MathShift {
                                 init_align(&mut cur_input, cur_cs);
                             } else {
@@ -15057,7 +15057,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (MMode, Cmd::EqNo) => {
                         // 255
-                        if privileged() {
+                        if privileged(cur_cmd, cur_chr) {
                             if cur_group == GroupCode::MathShift {
                                 start_eq_no();
                             } else {
@@ -15285,7 +15285,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (_, Cmd::Extension) => {
                         // 60 | 163 | 266
-                        do_extension(&mut cur_input, cur_tok, cur_chr, cur_cs);
+                        do_extension(&mut cur_input, cur_tok, cur_cmd, cur_chr, cur_cs);
                     }
                     (_, Cmd::Relax)
                     | (VMode, Cmd::Spacer)
