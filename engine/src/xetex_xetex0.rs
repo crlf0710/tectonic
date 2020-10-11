@@ -3278,11 +3278,8 @@ pub(crate) unsafe fn save_for_after(mut t: i32) {
     };
 }
 pub(crate) unsafe fn unsave() {
-    let mut p: i32 = 0;
     let mut l = 0_u16;
-    let mut t: i32 = 0;
-    let mut a: bool = false;
-    a = false;
+    let mut a = false;
     if cur_level > LEVEL_ONE {
         cur_level -= 1;
         loop {
@@ -3290,29 +3287,27 @@ pub(crate) unsafe fn unsave() {
             if SAVE_STACK[SAVE_PTR].cmd == SaveCmd::LevelBoundary as u16 {
                 break;
             }
-            p = SAVE_STACK[SAVE_PTR].val;
+            let p = SAVE_STACK[SAVE_PTR].val;
             if SAVE_STACK[SAVE_PTR].cmd == SaveCmd::InsertToken as u16 {
                 /*338: */
-                t = cur_tok;
-                cur_tok = p;
+                let tok = p;
                 if a {
-                    p = get_avail() as i32;
-                    MEM[p as usize].b32.s0 = cur_tok;
+                    let p = get_avail() as i32;
+                    MEM[p as usize].b32.s0 = tok;
                     *LLIST_link(p as usize) = cur_input.loc;
                     cur_input.loc = p;
                     cur_input.start = p;
-                    if cur_tok < RIGHT_BRACE_LIMIT {
-                        if cur_tok < LEFT_BRACE_LIMIT {
+                    if tok < RIGHT_BRACE_LIMIT {
+                        if tok < LEFT_BRACE_LIMIT {
                             align_state -= 1
                         } else {
                             align_state += 1
                         }
                     }
                 } else {
-                    back_input(&mut cur_input, cur_tok);
+                    back_input(&mut cur_input, tok);
                     a = true
                 }
-                cur_tok = t
             } else if SAVE_STACK[SAVE_PTR].cmd == SaveCmd::RestoreSA as u16 {
                 sa_restore();
                 sa_chain = p;
@@ -5058,24 +5053,20 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     /*385:*/
                     if ochr == 0 {
                         let (t, _, _, _) = get_token(input);
-                        cur_tok = t;
                         /*1553: "\unless" implementation */
                         let (tok, cmd, chr, cs) = get_token(input);
-                        cur_tok = tok;
                         ocmd = cmd;
                         ochr = chr;
                         ocs = cs;
                         if ocmd > MAX_COMMAND {
                             expand(input, cmd, chr, cs);
                         } else {
-                            back_input(input, cur_tok);
+                            back_input(input, tok);
                         }
-                        cur_tok = t;
-                        back_input(input, cur_tok);
+                        back_input(input, t);
                         break;
                     } else {
                         let (tok, cmd, chr, cs) = get_token(input);
-                        cur_tok = tok;
                         ocmd = cmd;
                         ochr = chr;
                         ocs = cs;
@@ -5093,7 +5084,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                             print_cmd_chr(ocmd, ochr);
                             print_chr('\'');
                             help!("Continue, and I\'ll forget that it ever happened.");
-                            back_error(input, cur_tok);
+                            back_error(input, tok);
                             break;
                         }
                     }
@@ -5131,7 +5122,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         if t > MAX_COMMAND as i32 {
                             ocmd = Cmd::from(t as u16);
                             ochr = prim_eqtb[cs as usize].val;
-                            cur_tok = ocmd as i32 * MAX_CHAR_VAL + ochr;
+                            //otok = ocmd as i32 * MAX_CHAR_VAL + ochr;
                             ocs = 0;
                         } else {
                             back_input(input, tok);
@@ -5149,21 +5140,19 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     let mut p = r;
                     b = is_in_csname;
                     is_in_csname = true;
-                    loop {
+                    let (tok, cmd) = loop {
                         let (tok, cmd, _, cs) = get_x_token(input);
-                        ocmd = cmd;
-                        ocs = cs;
-                        if ocs == 0 {
+                        if cs == 0 {
                             let q = get_avail();
                             *LLIST_link(p) = Some(q).tex_int();
                             MEM[q].b32.s0 = tok;
                             p = q;
                         }
-                        if !(ocs == 0) {
-                            break;
+                        if !(cs == 0) {
+                            break (tok, cmd);
                         }
-                    }
-                    if ocmd != Cmd::EndCSName {
+                    };
+                    if cmd != Cmd::EndCSName {
                         /*391:*/
                         if file_line_error_style_p != 0 {
                             print_file_line();
@@ -5177,7 +5166,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                             "The control sequence marked <to be read again> should",
                             "not appear between \\csname and \\endcsname."
                         );
-                        back_error(input, cur_tok);
+                        back_error(input, tok);
                     }
                     is_in_csname = b;
                     j = first;
@@ -8189,8 +8178,7 @@ pub(crate) unsafe fn conv_toks(
         ConvertCode::String | ConvertCode::Meaning => {
             let save_scanner_status = scanner_status;
             scanner_status = ScannerStatus::Normal;
-            let (tok, cmd, chr, cs) = get_token(input);
-            cur_tok = tok;
+            let (_, cmd, chr, cs) = get_token(input);
             ocmd = cmd;
             ochr = chr;
             ocs = cs;
@@ -8231,7 +8219,7 @@ pub(crate) unsafe fn conv_toks(
             } else {
                 u = 0;
             }
-            oval = Some(compare_strings());
+            oval = Some(compare_strings(input, ocs));
             def_ref = save_def_ref;
             warning_index = save_warning_index;
             scanner_status = save_scanner_status;
@@ -8248,8 +8236,8 @@ pub(crate) unsafe fn conv_toks(
             } else {
                 u = 0;
             }
-            boolvar = scan_keyword(&mut cur_input, b"file");
-            scan_pdf_ext_toks(&mut cur_input, cur_cs);
+            boolvar = scan_keyword(input, b"file");
+            scan_pdf_ext_toks(input, ocs);
             if selector == Selector::NEW_STRING {
                 pdf_error(
                     "tokens",
@@ -12105,9 +12093,9 @@ pub(crate) unsafe fn app_space() {
     *LLIST_link(cur_list.tail) = Some(q).tex_int();
     cur_list.tail = q;
 }
-pub(crate) unsafe fn insert_dollar_sign() {
-    back_input(&mut cur_input, cur_tok);
-    cur_tok = MATH_SHIFT_TOKEN + 36;
+pub(crate) unsafe fn insert_dollar_sign(input: &mut input_state_t, tok: i32) {
+    back_input(input, tok);
+    let tok = MATH_SHIFT_TOKEN + 36;
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -12118,7 +12106,7 @@ pub(crate) unsafe fn insert_dollar_sign() {
         "I\'ve inserted a begin-math/end-math symbol since I think",
         "you left one out. Proceed, with fingers crossed."
     );
-    ins_error(&mut cur_input, cur_tok);
+    ins_error(input, tok);
 }
 pub(crate) unsafe fn you_cant(cmd: Cmd, chr: i32) {
     if file_line_error_style_p != 0 {
@@ -12148,12 +12136,12 @@ pub(crate) unsafe fn privileged(cmd: Cmd, chr: i32) -> bool {
         false
     }
 }
-pub(crate) unsafe fn its_all_over(cmd: Cmd, chr: i32) -> bool {
+pub(crate) unsafe fn its_all_over(input: &mut input_state_t, tok: i32, cmd: Cmd, chr: i32) -> bool {
     if privileged(cmd, chr) {
         if PAGE_HEAD == page_tail && cur_list.head == cur_list.tail && dead_cycles == 0 {
             return true;
         }
-        back_input(&mut cur_input, cur_tok);
+        back_input(input, tok);
         let nb = new_null_box();
         *LLIST_link(cur_list.tail) = Some(nb).tex_int();
         cur_list.tail = nb;
@@ -14449,7 +14437,7 @@ pub(crate) unsafe fn append_src_special() {
         remember_source_info(SOURCE_FILENAME_STACK[IN_OPEN], line);
     };
 }
-pub(crate) unsafe fn handle_right_brace() {
+pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
     match cur_group {
         GroupCode::Simple => unsave(),
         GroupCode::BottomLevel => {
@@ -14535,14 +14523,14 @@ pub(crate) unsafe fn handle_right_brace() {
                 );
                 error();
                 loop {
-                    let _ = get_token(&mut cur_input);
+                    let _ = get_token(input);
                     if cur_input.loc.opt().is_none() {
                         break;
                     }
                 }
             }
 
-            end_token_list(&mut cur_input);
+            end_token_list(input);
             end_graf();
             unsave();
             output_active = false;
@@ -14584,8 +14572,8 @@ pub(crate) unsafe fn handle_right_brace() {
         }
         GroupCode::Disc => build_discretionary(),
         GroupCode::Align => {
-            back_input(&mut cur_input, cur_tok);
-            cur_tok = CS_TOKEN_FLAG + FROZEN_CR as i32;
+            back_input(input, tok);
+            let tok = CS_TOKEN_FLAG + FROZEN_CR as i32;
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
@@ -14595,7 +14583,7 @@ pub(crate) unsafe fn handle_right_brace() {
             print_esc_cstr("cr");
             print_cstr(" inserted");
             help!("I\'m guessing that you meant to end an alignment here.");
-            ins_error(&mut cur_input, cur_tok);
+            ins_error(input, tok);
         }
         GroupCode::NoAlign => {
             end_graf();
@@ -14782,7 +14770,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (VMode, Cmd::Comment) => {
                         // 15
-                        if its_all_over(cur_cmd, cur_chr) {
+                        if its_all_over(&mut cur_input, cur_tok, cur_cmd, cur_chr) {
                             return;
                         }
                     }
@@ -14845,7 +14833,7 @@ pub(crate) unsafe fn main_control() {
                         //| 119 | 50 | 153 | 53 | 156 | 67 | 170 | 54 | 157 | 55 | 158 | 57 | 160
                         //| 56 | 159 | 31 | 134 | 52 | 155 | 29 | 132 | 47 | 150 | 216 | 220
                         //| 221 | 234 | 231 | 240 | 243
-                        insert_dollar_sign();
+                        insert_dollar_sign(&mut cur_input, cur_tok);
                     }
                     (VMode, Cmd::HRule) | (HMode, Cmd::VRule) | (MMode, Cmd::VRule) => {
                         // 37 | 139 | 242
@@ -14887,7 +14875,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (_, Cmd::RightBrace) => {
                         // 3 | 106 | 209
-                        handle_right_brace();
+                        handle_right_brace(&mut cur_input, cur_tok);
                     }
                     (VMode, Cmd::HMove) | (HMode, Cmd::VMove) | (MMode, Cmd::VMove) => {
                         // 22 | 126 | 229
@@ -16440,17 +16428,17 @@ pub(crate) unsafe fn tokens_to_string(mut p: i32) -> str_number {
 pub(crate) unsafe fn scan_pdf_ext_toks(input: &mut input_state_t, cs: i32) {
     scan_toks(input, cs, false, true);
 }
-pub(crate) unsafe fn compare_strings() -> i32 {
+pub(crate) unsafe fn compare_strings(input: &mut input_state_t, cs: i32) -> i32 {
     unsafe fn done(s1: str_number, s2: str_number, val: i32) -> i32 {
         flush_str(s2);
         flush_str(s1);
         //cur_val_level = ValLevel::Int;
         val
     }
-    scan_toks(&mut cur_input, cur_cs, false, true);
+    scan_toks(input, cs, false, true);
     let s1 = tokens_to_string(def_ref as i32);
     delete_token_ref(def_ref);
-    scan_toks(&mut cur_input, cur_cs, false, true);
+    scan_toks(input, cs, false, true);
     let s2 = tokens_to_string(def_ref as i32);
     delete_token_ref(def_ref);
     let mut i1 = str_start[(s1 as i64 - 65536) as usize];

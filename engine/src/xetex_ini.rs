@@ -1570,10 +1570,6 @@ pub(crate) unsafe fn prefixed_command(
         error();
     }
 
-    cur_cmd = ocmd;
-    cur_chr = ochr;
-    cur_cs = ocs;
-
     if *INTPAR(IntPar::global_defs) != 0 {
         if *INTPAR(IntPar::global_defs) < 0 {
             if a >= 4 {
@@ -1583,20 +1579,20 @@ pub(crate) unsafe fn prefixed_command(
             a += 4;
         }
     }
-    match cur_cmd {
+    match ocmd {
         Cmd::SetFont => {
             /*1252:*/
             if a >= 4 {
-                geq_define(CUR_FONT_LOC, Cmd::Data, cur_chr.opt());
+                geq_define(CUR_FONT_LOC, Cmd::Data, ochr.opt());
             } else {
-                eq_define(CUR_FONT_LOC, Cmd::Data, cur_chr.opt());
+                eq_define(CUR_FONT_LOC, Cmd::Data, ochr.opt());
             }
         }
         Cmd::Def => {
-            if cur_chr & 1i32 != 0 && (a as i32) < 4i32 && *INTPAR(IntPar::global_defs) >= 0 {
+            if ochr & 1i32 != 0 && (a as i32) < 4i32 && *INTPAR(IntPar::global_defs) >= 0 {
                 a = (a as i32 + 4i32) as i16
             }
-            e = cur_chr >= 2;
+            e = ochr >= 2;
             let p = get_r_token(input).3;
             let _q = scan_toks(input, p, true, e) as i32;
             if j != 0 {
@@ -1615,7 +1611,7 @@ pub(crate) unsafe fn prefixed_command(
             }
         }
         Cmd::Let => {
-            let n = cur_chr;
+            let n = ochr;
             let (_, mut cmd, mut chr, p) = get_r_token(input);
             if n == NORMAL as i32 {
                 let mut next;
@@ -1657,7 +1653,7 @@ pub(crate) unsafe fn prefixed_command(
             } else { eq_define(p as usize, cmd, chr.opt()); }
         }
         Cmd::ShorthandDef => {
-            let mut n = ShorthandDefCode::n(cur_chr as u8).unwrap();
+            let mut n = ShorthandDefCode::n(ochr as u8).unwrap();
             if n == ShorthandDefCode::CharSub {
                 let val = scan_char_num(input);
                 let p = CHAR_SUB_CODE_BASE as i32 + val;
@@ -1790,7 +1786,7 @@ pub(crate) unsafe fn prefixed_command(
             }
         }
         Cmd::ReadToCS => {
-            j = cur_chr;
+            j = ochr;
             let n = scan_int(input);
             if !scan_keyword(&mut cur_input, b"to") {
                 if file_line_error_style_p != 0 {
@@ -1809,29 +1805,29 @@ pub(crate) unsafe fn prefixed_command(
             } else { eq_define(p as usize, Cmd::Call, val.opt()); }
         }
         Cmd::ToksRegister | Cmd::AssignToks => {
-            let mut q = cur_cs;
+            let mut q = ocs;
             e = false;
-            if cur_cmd == Cmd::ToksRegister {
-                if cur_chr == 0 {
+            if ocmd == Cmd::ToksRegister {
+                if ochr == 0 {
                     let val = scan_register_num(input);
                     if val > 255 {
                         find_sa_element(ValLevel::Tok, val,
                                         true);
-                        cur_chr = cur_ptr.tex_int();
+                        ochr = cur_ptr.tex_int();
                         e = true
                     } else {
-                        cur_chr = TOKS_BASE as i32 + val;
+                        ochr = TOKS_BASE as i32 + val;
                     }
                 } else { e = true }
-            } else if cur_chr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
+            } else if ochr == LOCAL_BASE as i32 + Local::xetex_inter_char as i32 {
                 cur_ptr = scan_char_class_not_ignored(input).opt();
                 let val = scan_char_class_not_ignored(input);
                 find_sa_element(ValLevel::InterChar,
                                 cur_ptr.tex_int() * CHAR_CLASS_LIMIT + val, true);
-                cur_chr = cur_ptr.tex_int();
+                ochr = cur_ptr.tex_int();
                 e = true
             }
-            let p = cur_chr;
+            let p = ochr;
             scan_optional_equals(input);
             let mut next;
             loop  {
@@ -1931,7 +1927,7 @@ pub(crate) unsafe fn prefixed_command(
             }
         }
         Cmd::AssignInt => {
-            let p = cur_chr as usize;
+            let p = ochr as usize;
             scan_optional_equals(input);
             let val = scan_int(input);
             if a >= 4 {
@@ -1939,7 +1935,7 @@ pub(crate) unsafe fn prefixed_command(
             } else { eq_word_define(p, val); }
         }
         Cmd::AssignDimen => {
-            let p = cur_chr as usize;
+            let p = ochr as usize;
             scan_optional_equals(input);
             let val = scan_dimen(input, false, false, None);
             if a >= 4 {
@@ -1947,8 +1943,8 @@ pub(crate) unsafe fn prefixed_command(
             } else { eq_word_define(p, val); }
         }
         Cmd::AssignGlue | Cmd::AssignMuGlue => {
-            let p = cur_chr as usize;
-            let n = cur_cmd;
+            let p = ochr as usize;
+            let n = ocmd;
             scan_optional_equals(input);
             let mut val = if n == Cmd::AssignMuGlue {
                 scan_glue(input, ValLevel::Mu)
@@ -1961,8 +1957,8 @@ pub(crate) unsafe fn prefixed_command(
             } else { eq_define(p, Cmd::GlueRef, val.opt()); }
         }
         Cmd::XetexDefCode => {
-            if cur_chr == SF_CODE_BASE as i32 {
-                let p = cur_chr;
+            if ochr == SF_CODE_BASE as i32 {
+                let p = ochr;
                 let val = scan_usv_num(input);
                 let p = p + val;
                 let n = *SF_CODE(val as usize) % 65536;
@@ -1977,8 +1973,8 @@ pub(crate) unsafe fn prefixed_command(
                               ((val as i64 * 65536 +
                                    n as i64) as i32).opt());
                 }
-            } else if cur_chr == MATH_CODE_BASE as i32 {
-                let p = cur_chr;
+            } else if ochr == MATH_CODE_BASE as i32 {
+                let p = ochr;
                 let val = scan_usv_num(input);
                 let p = p + val;
                 scan_optional_equals(input);
@@ -1986,8 +1982,8 @@ pub(crate) unsafe fn prefixed_command(
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Data, val.opt());
                 } else { eq_define(p as usize, Cmd::Data, val.opt()); }
-            } else if cur_chr == MATH_CODE_BASE as i32 + 1 {
-                let p = cur_chr - 1;
+            } else if ochr == MATH_CODE_BASE as i32 + 1 {
+                let p = ochr - 1;
                 let val = scan_usv_num(input);
                 let p = p + val;
                 scan_optional_equals(input);
@@ -2000,8 +1996,8 @@ pub(crate) unsafe fn prefixed_command(
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Data, n.opt());
                 } else { eq_define(p as usize, Cmd::Data, n.opt()); }
-            } else if cur_chr == DEL_CODE_BASE as i32 {
-                let p = cur_chr;
+            } else if ochr == DEL_CODE_BASE as i32 {
+                let p = ochr;
                 let val = scan_usv_num(input);
                 let p = p + val;
                 scan_optional_equals(input);
@@ -2010,7 +2006,7 @@ pub(crate) unsafe fn prefixed_command(
                     geq_word_define(p as usize, val);
                 } else { eq_word_define(p as usize, val); }
             } else {
-                let p = cur_chr - 1;
+                let p = ochr - 1;
                 let val = scan_usv_num(input);
                 let p = p + val;
                 scan_optional_equals(input);
@@ -2025,17 +2021,17 @@ pub(crate) unsafe fn prefixed_command(
             }
         }
         Cmd::DefCode => {
-            let n = if cur_chr == CAT_CODE_BASE as i32 {
+            let n = if ochr == CAT_CODE_BASE as i32 {
                 MAX_CHAR_CODE
-            } else if cur_chr == MATH_CODE_BASE as i32 {
+            } else if ochr == MATH_CODE_BASE as i32 {
                 0x8000
-            } else if cur_chr == SF_CODE_BASE as i32 {
+            } else if ochr == SF_CODE_BASE as i32 {
                 0x7fff
-            } else if cur_chr == DEL_CODE_BASE as i32 {
+            } else if ochr == DEL_CODE_BASE as i32 {
                 0xffffff
             } else { BIGGEST_USV as i32 }; // :1268
 
-            let p = cur_chr;
+            let p = ochr;
             let val = scan_usv_num(input);
             let p = p + val;
             scan_optional_equals(input);
@@ -2094,7 +2090,7 @@ pub(crate) unsafe fn prefixed_command(
             } else { eq_word_define(p as usize, val); }
         }
         Cmd::DefFamily => {
-            let p = cur_chr;
+            let p = ochr;
             let val = scan_math_fam_int(input);
             let p = p + val;
             scan_optional_equals(input);
@@ -2103,7 +2099,7 @@ pub(crate) unsafe fn prefixed_command(
                 geq_define(p as usize, Cmd::Data, val.opt());
             } else { eq_define(p as usize, Cmd::Data, val.opt()); }
         }
-        Cmd::Register | Cmd::Advance | Cmd::Multiply | Cmd::Divide => { do_register_command(input, cur_cmd, cur_chr, a); }
+        Cmd::Register | Cmd::Advance | Cmd::Multiply | Cmd::Divide => { do_register_command(input, ocmd, ochr, a); }
         Cmd::SetBox => {
             let val = scan_register_num(input);
             let n = if a >= 4 {
@@ -2124,13 +2120,13 @@ pub(crate) unsafe fn prefixed_command(
                 error();
             }
         }
-        Cmd::SetAux => { alter_aux(input, cur_cmd, cur_chr); }
+        Cmd::SetAux => { alter_aux(input, ocmd, ochr); }
         Cmd::SetPrevGraf => { alter_prev_graf(); }
-        Cmd::SetPageDimen => { alter_page_so_far(input, cur_chr); }
-        Cmd::SetPageInt => { alter_integer(input, cur_chr); }
-        Cmd::SetBoxDimen => { alter_box_dimen(input, cur_chr); }
+        Cmd::SetPageDimen => { alter_page_so_far(input, ochr); }
+        Cmd::SetPageInt => { alter_integer(input, ochr); }
+        Cmd::SetBoxDimen => { alter_box_dimen(input, ochr); }
         Cmd::SetShape => {
-            let q = cur_chr;
+            let q = ochr;
             scan_optional_equals(input);
             let val = scan_int(input);
             let mut n = val;
@@ -2169,9 +2165,9 @@ pub(crate) unsafe fn prefixed_command(
             } else { eq_define(q as usize, Cmd::ShapeRef, p); }
         }
         Cmd::HyphData => {
-            if cur_chr == 1 {
+            if ochr == 1 {
                 if in_initex_mode {
-                    new_patterns(input, cur_cs);
+                    new_patterns(input, ocs);
                     return done(input);
                 }
 
@@ -2197,7 +2193,7 @@ pub(crate) unsafe fn prefixed_command(
             FONT_INFO[k as usize].b32.s1 = val;
         }
         Cmd::AssignFontInt => {
-            let n = AssignFontInt::from(cur_chr);
+            let n = AssignFontInt::from(ochr);
             f = scan_font_ident(input) as usize;
             match n {
                 AssignFontInt::HyphenChar | AssignFontInt::SkewChar => {
@@ -2222,7 +2218,7 @@ pub(crate) unsafe fn prefixed_command(
             }
         }
         Cmd::DefFont => { new_font(a); }
-        Cmd::SetInteraction => { new_interaction(cur_chr); }
+        Cmd::SetInteraction => { new_interaction(ochr); }
         _ => { confusion("prefix"); }
     }
 
