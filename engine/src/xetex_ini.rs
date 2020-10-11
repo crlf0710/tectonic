@@ -35,13 +35,13 @@ use crate::xetex_xetex0::{
     back_error, back_input, close_files_and_terminate, delete_glue_ref, delete_token_ref,
     diagnostic, do_marks, do_register_command, end_file_reading, end_token_list, eq_define,
     eq_word_define, find_font_dimen, find_sa_element, flush_list, flush_node_list, free_node,
-    geq_define, geq_word_define, get_avail, get_node, get_r_token, get_token, get_x_token, gsa_def,
-    id_lookup, main_control, max_hyphenatable_length, new_font, new_interaction, open_log_file,
-    prim_lookup, print_cmd_chr, read_toks, sa_def, scan_box, scan_char_class,
-    scan_char_class_not_ignored, scan_char_num, scan_dimen, scan_fifteen_bit_int, scan_font_ident,
-    scan_glue, scan_glyph_number, scan_int, scan_keyword, scan_left_brace, scan_math_class_int,
-    scan_math_fam_int, scan_optional_equals, scan_register_num, scan_toks, scan_usv_num,
-    scan_xetex_math_char_int, show_cur_cmd_chr, show_save_groups, start_input, trap_zero_glue,
+    geq_define, geq_word_define, get_avail, get_node, get_r_token, get_token, gsa_def, id_lookup,
+    main_control, max_hyphenatable_length, new_font, new_interaction, open_log_file, prim_lookup,
+    print_cmd_chr, read_toks, sa_def, scan_box, scan_char_class, scan_char_class_not_ignored,
+    scan_char_num, scan_dimen, scan_fifteen_bit_int, scan_font_ident, scan_glue, scan_glyph_number,
+    scan_int, scan_keyword, scan_left_brace, scan_math_class_int, scan_math_fam_int,
+    scan_optional_equals, scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int,
+    show_cur_cmd_chr, show_save_groups, start_input, trap_zero_glue,
 };
 use crate::xetex_xetexd::{llist_link, set_class, set_family, LLIST_link, TeXInt, TeXOpt};
 use bridge::ttstub_output_open_stdout;
@@ -1111,20 +1111,24 @@ unsafe fn new_patterns() {
         } else {
             cur_lang = *INTPAR(IntPar::language) as _;
         }
-        scan_left_brace();
+        let next = scan_left_brace(&mut cur_input);
+        cur_tok = next.0;
+        cur_cmd = next.1;
+        cur_chr = next.2;
+        cur_cs = next.3;
         let mut k = 0;
         hyf[0] = 0;
         let mut digit_sensed = false;
         loop {
-            get_x_token();
-            match cur_cmd {
+            let (_, cmd, mut chr, _) = _get_x_token(&mut cur_input);
+            match cmd {
                 Cmd::Letter | Cmd::OtherChar => {
-                    if digit_sensed || cur_chr < '0' as i32 || cur_chr > '9' as i32 {
-                        if cur_chr == '.' as i32 {
-                            cur_chr = 0
+                    if digit_sensed || chr < '0' as i32 || chr > '9' as i32 {
+                        if chr == '.' as i32 {
+                            chr = 0;
                         } else {
-                            cur_chr = *LC_CODE(cur_chr as usize);
-                            if cur_chr == 0 {
+                            chr = *LC_CODE(chr as usize);
+                            if chr == 0 {
                                 if file_line_error_style_p != 0 {
                                     print_file_line();
                                 } else {
@@ -1135,17 +1139,17 @@ unsafe fn new_patterns() {
                                 error();
                             }
                         }
-                        if cur_chr > max_hyph_char {
-                            max_hyph_char = cur_chr
+                        if chr > max_hyph_char {
+                            max_hyph_char = chr;
                         }
                         if (k as usize) < max_hyphenatable_length() {
                             k += 1;
-                            hc[k as usize] = cur_chr;
+                            hc[k as usize] = chr;
                             hyf[k as usize] = 0;
                             digit_sensed = false;
                         }
                     } else if (k as usize) < max_hyphenatable_length() {
-                        hyf[k as usize] = (cur_chr - 48) as u8;
+                        hyf[k as usize] = (chr - 48) as u8;
                         digit_sensed = true;
                     }
                 }
@@ -1216,7 +1220,7 @@ unsafe fn new_patterns() {
                         }
                         trie_o[q as usize] = v;
                     }
-                    if cur_cmd == Cmd::RightBrace {
+                    if cmd == Cmd::RightBrace {
                         break;
                     }
                     k = 0;
@@ -1322,22 +1326,20 @@ unsafe fn new_patterns() {
     };
 }
 /*:1001*/
-unsafe fn new_hyph_exceptions() {
-    let mut n: i16 = 0;
-    let mut k: str_number = 0;
-    let mut s: str_number = 0;
-    let mut u: pool_pointer = 0;
-    let mut v: pool_pointer = 0;
+unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
+    let next = scan_left_brace(&mut cur_input);
+    cur_tok = next.0;
+    cur_cmd = next.1;
+    cur_chr = next.2;
+    cur_cs = next.3;
 
-    scan_left_brace();
-
-    if *INTPAR(IntPar::language) <= 0 {
-        cur_lang = 0_u8
+    cur_lang = if *INTPAR(IntPar::language) <= 0 {
+        0
     } else if *INTPAR(IntPar::language) > BIGGEST_LANG {
-        cur_lang = 0_u8
+        0
     } else {
-        cur_lang = *INTPAR(IntPar::language) as _;
-    }
+        *INTPAR(IntPar::language) as _
+    };
 
     hyph_index = if trie_not_ready {
         0
@@ -1348,19 +1350,19 @@ unsafe fn new_hyph_exceptions() {
     };
 
     /*970: not_found:*/
-    n = 0_i16;
+    let mut n = 0_i16;
     let mut p = None;
 
-    let mut reswitch = false;
+    let mut reswitch = None;
     loop {
-        if !reswitch {
-            get_x_token();
-        }
-        reswitch = false;
+        let (cmd, chr) = reswitch.take().unwrap_or_else(|| {
+            let next = _get_x_token(input);
+            (next.1, next.2)
+        });
 
-        match cur_cmd {
+        match cmd {
             Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {
-                if cur_chr == '-' as i32 {
+                if chr == '-' as i32 {
                     /*973:*/
                     if (n as usize) < max_hyphenatable_length() {
                         let q = get_avail();
@@ -1369,12 +1371,12 @@ unsafe fn new_hyph_exceptions() {
                         p = Some(q);
                     }
                 } else {
-                    hc[0] = if hyph_index == 0 || cur_chr > 255 {
-                        *LC_CODE(cur_chr as usize) as _
-                    } else if trie_trc[(hyph_index + cur_chr) as usize] as i32 != cur_chr {
+                    hc[0] = if hyph_index == 0 || chr > 255 {
+                        *LC_CODE(chr as usize) as _
+                    } else if trie_trc[(hyph_index + chr) as usize] as i32 != chr {
                         0
                     } else {
-                        trie_tro[(hyph_index + cur_chr) as usize]
+                        trie_tro[(hyph_index + chr) as usize]
                     };
                     if hc[0] == 0 {
                         if file_line_error_style_p != 0 {
@@ -1402,9 +1404,7 @@ unsafe fn new_hyph_exceptions() {
                 }
             }
             Cmd::CharNum => {
-                cur_chr = scan_char_num(&mut cur_input);
-                cur_cmd = Cmd::CharGiven;
-                reswitch = true;
+                reswitch = Some((Cmd::CharGiven, scan_char_num(&mut cur_input)));
                 continue;
             }
             Cmd::Spacer | Cmd::RightBrace => {
@@ -1423,7 +1423,7 @@ unsafe fn new_hyph_exceptions() {
                         pool_ptr += 1;
                     }
 
-                    s = make_string();
+                    let mut s = make_string();
 
                     if HYPH_NEXT <= HYPH_PRIME as usize {
                         while HYPH_NEXT > 0 && HYPH_WORD[HYPH_NEXT - 1] > 0 {
@@ -1438,11 +1438,11 @@ unsafe fn new_hyph_exceptions() {
                     HYPH_COUNT += 1;
 
                     while HYPH_WORD[h as usize] != 0 {
-                        k = HYPH_WORD[h as usize];
+                        let mut k = HYPH_WORD[h as usize];
                         let mut not_found = false;
                         if length(k) == length(s) {
-                            u = str_start[(k as i64 - 65536) as usize];
-                            v = str_start[(s as i64 - 65536) as usize];
+                            let mut u = str_start[(k as i64 - 65536) as usize];
+                            let mut v = str_start[(s as i64 - 65536) as usize];
                             loop {
                                 if str_pool[u as usize] as i32 != str_pool[v as usize] as i32 {
                                     not_found = true;
@@ -1482,7 +1482,7 @@ unsafe fn new_hyph_exceptions() {
                     HYPH_LIST[h as usize] = p;
                 }
 
-                if cur_cmd == Cmd::RightBrace {
+                if cmd == Cmd::RightBrace {
                     return;
                 }
 
@@ -1800,7 +1800,7 @@ pub(crate) unsafe fn prefixed_command(
         Cmd::ReadToCS => {
             j = cur_chr;
             let n = scan_int(input);
-            if !scan_keyword(b"to") {
+            if !scan_keyword(&mut cur_input, b"to") {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -2198,7 +2198,7 @@ pub(crate) unsafe fn prefixed_command(
                     if cmd == Cmd::RightBrace { break ; }
                 }
                 return;
-            } else { new_hyph_exceptions(); }
+            } else { new_hyph_exceptions(input); }
         }
         Cmd::AssignFontDimen => {
             k = find_font_dimen(input, true);

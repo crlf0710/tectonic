@@ -5150,13 +5150,13 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     b = is_in_csname;
                     is_in_csname = true;
                     loop {
-                        get_x_token();
-                        ocmd = cur_cmd;
-                        ocs = cur_cs;
+                        let (tok, cmd, _, cs) = _get_x_token(input);
+                        ocmd = cmd;
+                        ocs = cs;
                         if ocs == 0 {
                             let q = get_avail();
                             *LLIST_link(p) = Some(q).tex_int();
-                            MEM[q].b32.s0 = cur_tok;
+                            MEM[q].b32.s0 = tok;
                             p = q;
                         }
                         if !(ocs == 0) {
@@ -5368,30 +5368,36 @@ pub(crate) unsafe fn _get_x_token(input: &mut input_state_t) -> (i32, Cmd, i32, 
     } else {
         CS_TOKEN_FLAG + cs
     };
+
     (tok, cmd, chr, cs)
 }
-pub(crate) unsafe fn x_token() {
-    while cur_cmd > MAX_COMMAND {
-        expand(&mut cur_input, cur_cmd, cur_chr, cur_cs);
-        let (cmd, chr, cs) = get_next(&mut cur_input);
-        cur_cmd = cmd;
-        cur_chr = chr;
-        cur_cs = cs;
+pub(crate) unsafe fn x_token(
+    input: &mut input_state_t,
+    cmd: &mut Cmd,
+    chr: &mut i32,
+    cs: &mut i32,
+) -> i32 {
+    while *cmd > MAX_COMMAND {
+        expand(input, *cmd, *chr, *cs);
+        let next = get_next(input);
+        *cmd = next.0;
+        *chr = next.1;
+        *cs = next.2;
     }
-    cur_tok = if cur_cs == 0 {
-        cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
+    if *cs == 0 {
+        *cmd as i32 * MAX_CHAR_VAL + *chr
     } else {
-        CS_TOKEN_FLAG + cur_cs
-    };
-}
-pub(crate) unsafe fn scan_left_brace() {
-    loop {
-        get_x_token();
-        if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
-            break;
-        }
+        CS_TOKEN_FLAG + *cs
     }
-    if cur_cmd != Cmd::LeftBrace {
+}
+pub(crate) unsafe fn scan_left_brace(input: &mut input_state_t) -> (i32, Cmd, i32, i32) {
+    let (mut tok, mut cmd, mut chr, cs) = loop {
+        let next = _get_x_token(input);
+        if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
+            break next;
+        }
+    };
+    if cmd != Cmd::LeftBrace {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -5404,12 +5410,13 @@ pub(crate) unsafe fn scan_left_brace() {
             "so that I will find a matching right brace soon.",
             "(If you\'re confused by all this, try typing `I}\' now.)"
         );
-        back_error(&mut cur_input, cur_tok);
-        cur_tok = LEFT_BRACE_TOKEN + '{' as i32;
-        cur_cmd = Cmd::LeftBrace;
-        cur_chr = '{' as i32;
+        back_error(&mut cur_input, tok);
+        tok = LEFT_BRACE_TOKEN + '{' as i32;
+        cmd = Cmd::LeftBrace;
+        chr = '{' as i32;
         align_state += 1
     };
+    (tok, cmd, chr, cs)
 }
 pub(crate) unsafe fn scan_optional_equals(input: &mut input_state_t) {
     let tok = loop {
@@ -5424,29 +5431,25 @@ pub(crate) unsafe fn scan_optional_equals(input: &mut input_state_t) {
     };
 }
 
-pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
+pub(crate) unsafe fn scan_keyword(input: &mut input_state_t, s: &[u8]) -> bool {
     let mut p = BACKUP_HEAD;
     *LLIST_link(p) = None.tex_int();
     if s.len() == 1 {
         let mut c: i8 = s[0] as i8;
         loop {
-            get_x_token();
-            if cur_cs == 0 && (cur_chr == c as i32 || cur_chr == c as i32 - 32) {
+            let (tok, cmd, chr, cs) = _get_x_token(input);
+            if cs == 0 && (chr == c as i32 || chr == c as i32 - 32) {
                 let q = get_avail();
                 *LLIST_link(p) = Some(q).tex_int();
-                MEM[q].b32.s0 = cur_tok;
+                MEM[q].b32.s0 = tok;
                 p = q;
                 flush_list(llist_link(BACKUP_HEAD));
                 return true;
             } else {
-                if cur_cmd != Cmd::Spacer || p != BACKUP_HEAD {
-                    back_input(&mut cur_input, cur_tok);
+                if cmd != Cmd::Spacer || p != BACKUP_HEAD {
+                    back_input(input, tok);
                     if p != BACKUP_HEAD {
-                        begin_token_list(
-                            &mut cur_input,
-                            *LLIST_link(BACKUP_HEAD) as usize,
-                            Btl::BackedUp,
-                        );
+                        begin_token_list(input, *LLIST_link(BACKUP_HEAD) as usize, Btl::BackedUp);
                     }
                     return false;
                 }
@@ -5456,21 +5459,17 @@ pub(crate) unsafe fn scan_keyword(s: &[u8]) -> bool {
     let slen = s.len();
     let mut i = 0;
     while i < slen {
-        get_x_token();
-        if cur_cs == 0 && (cur_chr == s[i] as i8 as i32 || cur_chr == s[i] as i8 as i32 - 32) {
+        let (tok, cmd, chr, cs) = _get_x_token(input);
+        if cs == 0 && (chr == s[i] as i8 as i32 || chr == s[i] as i8 as i32 - 32) {
             let q = get_avail();
             *LLIST_link(p) = Some(q).tex_int();
-            MEM[q].b32.s0 = cur_tok;
+            MEM[q].b32.s0 = tok;
             p = q;
             i += 1;
-        } else if cur_cmd != Cmd::Spacer || p != BACKUP_HEAD {
-            back_input(&mut cur_input, cur_tok);
+        } else if cmd != Cmd::Spacer || p != BACKUP_HEAD {
+            back_input(input, tok);
             if p != BACKUP_HEAD {
-                begin_token_list(
-                    &mut cur_input,
-                    *LLIST_link(BACKUP_HEAD) as usize,
-                    Btl::BackedUp,
-                );
+                begin_token_list(input, *LLIST_link(BACKUP_HEAD) as usize, Btl::BackedUp);
             }
             return false;
         }
@@ -5490,11 +5489,11 @@ pub(crate) unsafe fn mu_error() {
     error();
 }
 pub(crate) unsafe fn scan_glyph_number(f: &NativeFont) -> i32 {
-    if scan_keyword(b"/") {
+    if scan_keyword(&mut cur_input, b"/") {
         scan_and_pack_name();
         let val = map_glyph_to_index(f);
         val
-    } else if scan_keyword(b"u") {
+    } else if scan_keyword(&mut cur_input, b"u") {
         let val = scan_char_num(&mut cur_input);
         let val = map_char_to_glyph(f, val);
         val
@@ -5656,8 +5655,8 @@ pub(crate) unsafe fn scan_math(m: &mut MCell, p: usize) {
                     cur_cs = cur_chr + 1;
                     cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd);
                     cur_chr = EQTB[cur_cs as usize].val;
-                    x_token();
-                    back_input(&mut cur_input, cur_tok);
+                    let tok = x_token(&mut cur_input, &mut cur_cmd, &mut cur_chr, &mut cur_cs);
+                    back_input(&mut cur_input, tok);
                     break;
                 }
                 Cmd::CharNum => {
@@ -5708,7 +5707,11 @@ pub(crate) unsafe fn scan_math(m: &mut MCell, p: usize) {
                 }
                 _ => {
                     back_input(&mut cur_input, cur_tok);
-                    scan_left_brace();
+                    let next = scan_left_brace(&mut cur_input);
+                    cur_tok = next.0;
+                    cur_cmd = next.1;
+                    cur_chr = next.2;
+                    cur_cs = next.3;
                     SAVE_STACK[SAVE_PTR + 0].val = p as i32;
                     SAVE_PTR += 1;
                     push_math(GroupCode::Math);
@@ -5735,8 +5738,8 @@ pub(crate) unsafe fn set_math_char(mut c: i32) {
         cur_cs = cur_chr + 1; /* ... "between 0 and 15" */
         cur_cmd = Cmd::from(EQTB[cur_cs as usize].cmd); /* ... "between 0 and 15" */
         cur_chr = EQTB[cur_cs as usize].val;
-        x_token();
-        back_input(&mut cur_input, cur_tok);
+        let tok = x_token(&mut cur_input, &mut cur_cmd, &mut cur_chr, &mut cur_cs);
+        back_input(&mut cur_input, tok);
     } else {
         let p = new_noad();
         MEM[p + 1].b32.s1 = MathCell::MathChar as _;
@@ -6909,7 +6912,9 @@ pub(crate) unsafe fn scan_something_internal(
 pub(crate) unsafe fn scan_int(input: &mut input_state_t) -> i32 {
     scan_int_with_radix(input).0
 }
-pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16, i32, Cmd, i32, i32) {
+pub(crate) unsafe fn scan_int_with_radix(
+    input: &mut input_state_t,
+) -> (i32, i16, i32, Cmd, i32, i32) {
     let mut d: i16 = 0;
     let mut radix: i16 = 0;
     let mut OK_so_far = true;
@@ -6945,15 +6950,15 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
     cur_cmd = cmd;
     cur_chr = chr;
     cur_cs = cs;
-    
+
     let mut ival;
     if tok == ALPHA_TOKEN as i32 {
         /*460:*/
         let next = get_token(input);
-            tok = next.0;
-            cmd = next.1;
-            chr = next.2;
-            cs = next.3;
+        tok = next.0;
+        cmd = next.1;
+        chr = next.2;
+        cs = next.3;
         /*461:*/
         ival = if tok < CS_TOKEN_FLAG {
             /*462:*/
@@ -7018,12 +7023,8 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
         }
         let mut vacuous = true;
         ival = 0;
-        let mut i = 0;
         loop {
-            if tok < ZERO_TOKEN + radix as i32
-                && tok >= ZERO_TOKEN
-                && tok <= ZERO_TOKEN + 9
-            {
+            if tok < ZERO_TOKEN + radix as i32 && tok >= ZERO_TOKEN && tok <= ZERO_TOKEN + 9 {
                 d = (tok - ZERO_TOKEN) as i16
             } else {
                 if !(radix as i32 == 16) {
@@ -7063,9 +7064,6 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             cmd = next.1;
             chr = next.2;
             cs = next.3;
-
-            dbg!(i, tok, cmd, chr, cs);
-            i += 1;
         }
         if vacuous {
             /*464:*/
@@ -7088,10 +7086,10 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
     if negative {
         ival = -ival;
     };
-        cur_tok = tok;
-        cur_cmd = cmd;
-        cur_chr = chr;
-        cur_cs = cs;
+    cur_tok = tok;
+    cur_cmd = cmd;
+    cur_chr = chr;
+    cur_cs = cs;
     (ival, radix, cur_tok, cur_cmd, cur_chr, cur_cs)
 }
 unsafe fn round_decimals(mut k: i16) -> scaled_t {
@@ -7152,8 +7150,14 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 }
                 val
             } else {
-                let (val, val_level) =
-                    scan_something_internal(input, cur_tok, cur_cmd, cur_chr, ValLevel::Dimen, false);
+                let (val, val_level) = scan_something_internal(
+                    input,
+                    cur_tok,
+                    cur_cmd,
+                    cur_chr,
+                    ValLevel::Dimen,
+                    false,
+                );
                 if val_level == ValLevel::Dimen {
                     return attach_sign(negative, val);
                 }
@@ -7216,9 +7220,9 @@ pub(crate) unsafe fn xetex_scan_dimen(
     if requires_units {
         if inf {
             /*473:*/
-            if scan_keyword(b"fil") {
+            if scan_keyword(&mut cur_input, b"fil") {
                 cur_order = GlueOrder::Fil;
-                while scan_keyword(b"l") {
+                while scan_keyword(&mut cur_input, b"l") {
                     if cur_order == GlueOrder::Filll {
                         if file_line_error_style_p != 0 {
                             print_file_line();
@@ -7264,14 +7268,21 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 }
                 val
             } else {
-                let (val, _) = scan_something_internal(input, cur_tok, cur_cmd, cur_chr, ValLevel::Dimen, false);
+                let (val, _) = scan_something_internal(
+                    input,
+                    cur_tok,
+                    cur_cmd,
+                    cur_chr,
+                    ValLevel::Dimen,
+                    false,
+                );
                 val
             };
             return found(save_val, v, f, negative);
         }
 
         if !mu {
-            if scan_keyword(b"em") {
+            if scan_keyword(&mut cur_input, b"em") {
                 let v = FONT_INFO
                     [(QUAD_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
                     .b32
@@ -7281,7 +7292,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     back_input(input, cur_tok);
                 }
                 return found(save_val, v, f, negative);
-            } else if scan_keyword(b"ex") {
+            } else if scan_keyword(&mut cur_input, b"ex") {
                 let v = FONT_INFO
                     [(X_HEIGHT_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
                     .b32
@@ -7297,7 +7308,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
         // not_found:
         if mu {
             /*475:*/
-            if scan_keyword(b"mu") {
+            if scan_keyword(&mut cur_input, b"mu") {
                 return attach_fraction(input, f, negative, val);
             } else {
                 if file_line_error_style_p != 0 {
@@ -7318,7 +7329,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
             }
         }
 
-        if scan_keyword(b"true") {
+        if scan_keyword(&mut cur_input, b"true") {
             /*476:*/
             prepare_mag(); /* magic ratio consant */
             if *INTPAR(IntPar::mag) != 1000 {
@@ -7330,34 +7341,34 @@ pub(crate) unsafe fn xetex_scan_dimen(
             }
         }
 
-        if scan_keyword(b"pt") {
+        if scan_keyword(&mut cur_input, b"pt") {
             return attach_fraction(input, f, negative, val);
         }
 
         let num;
         let denom;
-        if scan_keyword(b"in") {
+        if scan_keyword(&mut cur_input, b"in") {
             num = 7227;
             denom = 100;
-        } else if scan_keyword(b"pc") {
+        } else if scan_keyword(&mut cur_input, b"pc") {
             num = 12;
             denom = 1;
-        } else if scan_keyword(b"cm") {
+        } else if scan_keyword(&mut cur_input, b"cm") {
             num = 7227; // magic ratio consant
             denom = 254; // magic ratio consant
-        } else if scan_keyword(b"mm") {
+        } else if scan_keyword(&mut cur_input, b"mm") {
             num = 7227; // magic ratio consant
             denom = 2540; // magic ratio consant
-        } else if scan_keyword(b"bp") {
+        } else if scan_keyword(&mut cur_input, b"bp") {
             num = 7227; // magic ratio consant
             denom = 7200; // magic ratio consant
-        } else if scan_keyword(b"dd") {
+        } else if scan_keyword(&mut cur_input, b"dd") {
             num = 1238; // magic ratio consant
             denom = 1157; // magic ratio consant
-        } else if scan_keyword(b"cc") {
+        } else if scan_keyword(&mut cur_input, b"cc") {
             num = 14856; // magic ratio consant
             denom = 1157; // magic ratio consant
-        } else if scan_keyword(b"sp") {
+        } else if scan_keyword(&mut cur_input, b"sp") {
             return done(input, negative, val);
         /*478:*/
         } else {
@@ -7480,7 +7491,8 @@ pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> i3
         /*"+"*/
     }
     let val = if cur_cmd >= MIN_INTERNAL && cur_cmd <= MAX_INTERNAL {
-        let (val, val_level) = scan_something_internal(input, cur_tok, cur_cmd, cur_chr, level, negative);
+        let (val, val_level) =
+            scan_something_internal(input, cur_tok, cur_cmd, cur_chr, level, negative);
         match val_level {
             ValLevel::Int | ValLevel::Dimen => {}
             _ => {
@@ -7509,11 +7521,11 @@ pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> i3
     };
     let mut q = GlueSpec(new_spec(0));
     q.set_size(val);
-    if scan_keyword(b"plus") {
+    if scan_keyword(&mut cur_input, b"plus") {
         let val = scan_dimen(input, mu, true, None);
         q.set_stretch(val).set_stretch_order(cur_order);
     }
-    if scan_keyword(b"minus") {
+    if scan_keyword(&mut cur_input, b"minus") {
         let val = scan_dimen(input, mu, true, None);
         q.set_shrink(val).set_shrink_order(cur_order);
     }
@@ -7940,14 +7952,14 @@ pub(crate) unsafe fn scan_rule_spec() -> usize {
         MEM[q + 2].b32.s1 = 0
     }
     loop {
-        if scan_keyword(b"width") {
+        if scan_keyword(&mut cur_input, b"width") {
             let val = scan_dimen(&mut cur_input, false, false, None);
             MEM[q + 1].b32.s1 = val;
-        } else if scan_keyword(b"height") {
+        } else if scan_keyword(&mut cur_input, b"height") {
             let val = scan_dimen(&mut cur_input, false, false, None);
             MEM[q + 3].b32.s1 = val;
         } else {
-            if !scan_keyword(b"depth") {
+            if !scan_keyword(&mut cur_input, b"depth") {
                 break;
             }
             let val = scan_dimen(&mut cur_input, false, false, None);
@@ -7966,7 +7978,11 @@ pub(crate) unsafe fn scan_general_text(input: &mut input_state_t) -> i32 {
     def_ref = get_avail();
     MEM[def_ref].b32.s0 = None.tex_int();
     let mut p = def_ref;
-    scan_left_brace();
+    let next = scan_left_brace(&mut cur_input);
+    cur_tok = next.0;
+    cur_cmd = next.1;
+    cur_chr = next.2;
+    cur_cs = next.3;
     unbalance = 1;
     loop {
         let (tok, cmd, chr, cs) = get_token(input);
@@ -8156,7 +8172,8 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32) -> usize {
         }
     }
     get_x_token();
-    let (val, val_level) = scan_something_internal(input, cur_tok, cur_cmd, cur_chr, ValLevel::Tok, false);
+    let (val, val_level) =
+        scan_something_internal(input, cur_tok, cur_cmd, cur_chr, ValLevel::Tok, false);
     match val_level {
         ValLevel::Ident | ValLevel::Tok | ValLevel::InterChar | ValLevel::Mark => {
             /*485: */
@@ -8299,7 +8316,7 @@ pub(crate) unsafe fn conv_toks(
             } else {
                 u = 0;
             }
-            boolvar = scan_keyword(b"file");
+            boolvar = scan_keyword(&mut cur_input, b"file");
             scan_pdf_ext_toks(&mut cur_input, cur_cs);
             if selector == Selector::NEW_STRING {
                 pdf_error(
@@ -8654,7 +8671,11 @@ pub(crate) unsafe fn scan_toks(
             }
         }
     } else {
-        scan_left_brace();
+        let next = scan_left_brace(&mut cur_input);
+        cur_tok = next.0;
+        cur_cmd = next.1;
+        cur_chr = next.2;
+        cur_cs = next.3;
     }
 
     unbalance = 1;
@@ -8688,7 +8709,7 @@ pub(crate) unsafe fn scan_toks(
                 }
             }
             // done2:
-            x_token();
+            cur_tok = x_token(&mut cur_input, &mut cur_cmd, &mut cur_chr, &mut cur_cs);
         } else {
             let (tok, cmd, chr, cs) = get_token(input);
             cur_tok = tok;
@@ -10053,9 +10074,9 @@ pub(crate) unsafe fn scan_spec(c: GroupCode, mut three_codes: bool) {
         s = SAVE_STACK[SAVE_PTR + 0].val
     }
     let mut sd = None;
-    if scan_keyword(b"to") {
+    if scan_keyword(&mut cur_input, b"to") {
         spec_code = PackMode::Exactly;
-    } else if scan_keyword(b"spread") {
+    } else if scan_keyword(&mut cur_input, b"spread") {
         spec_code = PackMode::Additional;
     } else {
         spec_code = PackMode::Additional;
@@ -10071,7 +10092,11 @@ pub(crate) unsafe fn scan_spec(c: GroupCode, mut three_codes: bool) {
     SAVE_STACK[SAVE_PTR + 1].val = val;
     SAVE_PTR += 2;
     new_save_level(c);
-    scan_left_brace();
+    let next = scan_left_brace(&mut cur_input);
+    cur_tok = next.0;
+    cur_cmd = next.1;
+    cur_chr = next.2;
+    cur_cs = next.3;
 }
 pub(crate) unsafe fn char_pw(p: Option<usize>, side: Side) -> scaled_t {
     if side == Side::Left {
@@ -11599,7 +11624,11 @@ pub(crate) unsafe fn align_peek() {
             }
         }
         if cur_cmd == Cmd::NoAlign {
-            scan_left_brace();
+            let next = scan_left_brace(&mut cur_input);
+            cur_tok = next.0;
+            cur_cmd = next.1;
+            cur_chr = next.2;
+            cur_cs = next.3;
             new_save_level(GroupCode::NoAlign);
             if cur_list.mode == (true, ListMode::VMode) {
                 normal_paragraph();
@@ -12617,7 +12646,7 @@ pub(crate) unsafe fn begin_box(mut box_context: i32) {
         }
         BoxCode::VSplit => {
             let n = scan_register_num(&mut cur_input);
-            if !scan_keyword(b"to") {
+            if !scan_keyword(&mut cur_input, b"to") {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -12870,14 +12899,18 @@ pub(crate) unsafe fn begin_insert_or_adjust() {
         }
     };
     SAVE_STACK[SAVE_PTR + 0].val = val;
-    if cur_cmd == Cmd::VAdjust && scan_keyword(b"pre") {
+    if cur_cmd == Cmd::VAdjust && scan_keyword(&mut cur_input, b"pre") {
         SAVE_STACK[SAVE_PTR + 1].val = 1;
     } else {
         SAVE_STACK[SAVE_PTR + 1].val = 0;
     }
     SAVE_PTR += 2;
     new_save_level(GroupCode::Insert);
-    scan_left_brace();
+    let next = scan_left_brace(&mut cur_input);
+    cur_tok = next.0;
+    cur_cmd = next.1;
+    cur_chr = next.2;
+    cur_cs = next.3;
     normal_paragraph();
     push_nest();
     cur_list.mode = (true, ListMode::VMode);
@@ -13112,7 +13145,11 @@ pub(crate) unsafe fn append_discretionary() {
         SAVE_PTR += 1;
         SAVE_STACK[SAVE_PTR - 1].val = 0;
         new_save_level(GroupCode::Disc);
-        scan_left_brace();
+        let next = scan_left_brace(&mut cur_input);
+        cur_tok = next.0;
+        cur_cmd = next.1;
+        cur_chr = next.2;
+        cur_cs = next.3;
         push_nest();
         cur_list.mode = (true, ListMode::HMode);
         cur_list.aux.b32.s0 = 1000;
@@ -13205,7 +13242,11 @@ pub(crate) unsafe fn build_discretionary() {
     }
     SAVE_STACK[SAVE_PTR - 1].val += 1;
     new_save_level(GroupCode::Disc);
-    scan_left_brace();
+    let next = scan_left_brace(&mut cur_input);
+    cur_tok = next.0;
+    cur_cmd = next.1;
+    cur_chr = next.2;
+    cur_cs = next.3;
     push_nest();
     cur_list.mode = (true, ListMode::HMode);
     cur_list.aux.b32.s0 = 1000;
@@ -13733,7 +13774,7 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
     if q == Cmd::Register {
         scan_optional_equals(&mut cur_input);
     } else {
-        scan_keyword(b"by");
+        scan_keyword(&mut cur_input, b"by");
     }
     arith_error = false;
     let mut val = if q < Cmd::Multiply {
@@ -13992,7 +14033,7 @@ pub(crate) unsafe fn new_font(mut a: i16) {
     scan_optional_equals(&mut cur_input);
     scan_file_name();
     name_in_progress = true;
-    if scan_keyword(b"at") {
+    if scan_keyword(&mut cur_input, b"at") {
         /*1294: */
         s = scan_dimen(&mut cur_input, false, false, None); /*:1293 */
         /*:79 */
@@ -14012,7 +14053,7 @@ pub(crate) unsafe fn new_font(mut a: i16) {
             error();
             s = (10_i64 * 65536) as scaled_t
         }
-    } else if scan_keyword(b"scaled") {
+    } else if scan_keyword(&mut cur_input, b"scaled") {
         let val = scan_int(&mut cur_input);
         s = -val;
         if val <= 0 || val > 32768 {
@@ -15485,7 +15526,7 @@ pub(crate) unsafe fn main_control() {
                 {
                     continue;
                 }
-                x_token();
+                cur_tok = x_token(&mut cur_input, &mut cur_cmd, &mut cur_chr, &mut cur_cs);
                 if cur_cmd == Cmd::Letter || cur_cmd == Cmd::OtherChar || cur_cmd == Cmd::CharGiven
                 {
                     continue;
@@ -16181,7 +16222,12 @@ pub(crate) unsafe fn main_control() {
                         match cur_cmd {
                             Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {}
                             _ => {
-                                x_token();
+                                cur_tok = x_token(
+                                    &mut cur_input,
+                                    &mut cur_cmd,
+                                    &mut cur_chr,
+                                    &mut cur_cs,
+                                );
                                 match cur_cmd {
                                     Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {}
                                     Cmd::CharNum => {

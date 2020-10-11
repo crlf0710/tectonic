@@ -547,10 +547,10 @@ pub(crate) unsafe fn math_ac() {
     acc.second_mut().empty();
     acc.fourth_mut().typ = MathCell::MathChar as _;
     let val = if cur_chr == 1 {
-        acc.set_accent_type(if scan_keyword(b"fixed") {
+        acc.set_accent_type(if scan_keyword(&mut cur_input, b"fixed") {
             AccentType::Fixed
-        } else if scan_keyword(b"bottom") {
-            if scan_keyword(b"fixed") {
+        } else if scan_keyword(&mut cur_input, b"bottom") {
+            if scan_keyword(&mut cur_input, b"fixed") {
                 AccentType::BottomFixed
             } else {
                 AccentType::Bottom
@@ -586,7 +586,11 @@ pub(crate) unsafe fn append_choices() {
     SAVE_STACK[SAVE_PTR].val = 0; // push
     SAVE_PTR += 1;
     push_math(GroupCode::MathChoice);
-    scan_left_brace();
+    let next = scan_left_brace(&mut cur_input);
+    cur_tok = next.0;
+    cur_cmd = next.1;
+    cur_chr = next.2;
+    cur_cs = next.3;
 }
 pub(crate) unsafe fn fin_mlist(p: Option<usize>) -> i32 {
     let q = if let Some(a) = cur_list.aux.b32.s1.opt() {
@@ -631,7 +635,11 @@ pub(crate) unsafe fn build_choices() {
     }
     SAVE_STACK[SAVE_PTR - 1].val += 1;
     push_math(GroupCode::MathChoice);
-    scan_left_brace();
+    let next = scan_left_brace(&mut cur_input);
+    cur_tok = next.0;
+    cur_cmd = next.1;
+    cur_chr = next.2;
+    cur_cs = next.3;
 }
 pub(crate) unsafe fn sub_sup() {
     let mut t = MathCell::Empty;

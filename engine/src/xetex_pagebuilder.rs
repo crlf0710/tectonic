@@ -13,10 +13,10 @@ use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error};
 use crate::xetex_ini::{
-    best_height_plus_depth, cur_input, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr,
-    file_line_error_style_p, insert_penalties, last_glue, last_kern, last_node_type, last_penalty,
-    line, output_active, page_contents, page_so_far, page_tail, sa_root,
-    semantic_pagination_enabled, NEST, NEST_PTR,
+    best_height_plus_depth, cur_chr, cur_cmd, cur_cs, cur_input, cur_list, cur_mark, cur_ptr,
+    cur_tok, dead_cycles, disc_ptr, file_line_error_style_p, insert_penalties, last_glue,
+    last_kern, last_node_type, last_penalty, line, output_active, page_contents, page_so_far,
+    page_tail, sa_root, semantic_pagination_enabled, NEST, NEST_PTR,
 };
 use crate::xetex_output::{print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr};
 use crate::xetex_scaledmath::x_over_n;
@@ -424,7 +424,11 @@ unsafe fn fire_up(c: usize) {
                 begin_token_list(&mut cur_input, l, Btl::OutputText);
                 new_save_level(GroupCode::Output);
                 normal_paragraph();
-                scan_left_brace();
+                let next = scan_left_brace(&mut cur_input);
+                cur_tok = next.0;
+                cur_cmd = next.1;
+                cur_chr = next.2;
+                cur_cs = next.3;
                 return;
             }
         }
