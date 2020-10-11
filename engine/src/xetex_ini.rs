@@ -2112,7 +2112,7 @@ pub(crate) unsafe fn prefixed_command(
                 geq_define(p as usize, Cmd::Data, val.opt());
             } else { eq_define(p as usize, Cmd::Data, val.opt()); }
         }
-        Cmd::Register | Cmd::Advance | Cmd::Multiply | Cmd::Divide => { do_register_command(a); }
+        Cmd::Register | Cmd::Advance | Cmd::Multiply | Cmd::Divide => { do_register_command(input, cur_cmd, cur_chr, a); }
         Cmd::SetBox => {
             let val = scan_register_num(input);
             let n = if a >= 4 {

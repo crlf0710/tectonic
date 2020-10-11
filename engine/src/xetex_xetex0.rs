@@ -13643,19 +13643,20 @@ pub(crate) unsafe fn trap_zero_glue(val: &mut i32) {
         *val = 0;
     };
 }
-pub(crate) unsafe fn do_register_command(mut a: i16) {
+pub(crate) unsafe fn do_register_command(input: &mut input_state_t, ocmd: Cmd, mut ochr: i32, mut a: i16) {
     let mut l: i32 = None.tex_int();
     let mut p = ValLevel::Int;
-    let mut q = cur_cmd;
+    let mut q = ocmd;
     let mut e = false;
 
     let mut flag = true;
     if q != Cmd::Register {
-        get_x_token();
-        match cur_cmd {
+        let (_, cmd, chr, _) = _get_x_token(input);
+        ochr = chr;
+        match cmd {
             Cmd::AssignInt | Cmd::AssignDimen | Cmd::AssignGlue | Cmd::AssignMuGlue => {
-                l = cur_chr;
-                p = match cur_cmd {
+                l = chr;
+                p = match cmd {
                     Cmd::AssignInt => ValLevel::Int,
                     Cmd::AssignDimen => ValLevel::Dimen,
                     Cmd::AssignGlue => ValLevel::Glue,
@@ -13665,14 +13666,14 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
                 flag = false;
             }
             _ => {
-                if cur_cmd != Cmd::Register {
+                if cmd != Cmd::Register {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
                         print_nl_cstr("! ");
                     }
                     print_cstr("You can\'t use `");
-                    print_cmd_chr(cur_cmd, cur_chr);
+                    print_cmd_chr(cmd, chr);
                     print_cstr("\' after ");
                     print_cmd_chr(q, 0);
                     help!("I\'m forgetting what you said and not changing anything.");
@@ -13684,14 +13685,14 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
     }
 
     if flag {
-        if cur_chr < 0 || cur_chr > 19 {
+        if ochr < 0 || ochr > 19 {
             /*lo_mem_stat_max*/
-            l = cur_chr;
+            l = ochr;
             p = ValLevel::from((MEM[l as usize].b16.s1 as i32 / 64) as u8);
             e = true
         } else {
-            p = ValLevel::from(cur_chr as u8);
-            let val = scan_register_num(&mut cur_input);
+            p = ValLevel::from(ochr as u8);
+            let val = scan_register_num(input);
             if val > 255 {
                 find_sa_element(p, val, true);
                 l = cur_ptr.tex_int();
@@ -13723,9 +13724,9 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
         /*:1272*/
     } /*1275:*/
     if q == Cmd::Register {
-        scan_optional_equals(&mut cur_input);
+        scan_optional_equals(input);
     } else {
-        scan_keyword(&mut cur_input, b"by");
+        scan_keyword(input, b"by");
     }
     arith_error = false;
     let mut val = if q < Cmd::Multiply {
@@ -13733,9 +13734,9 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
         match p {
             ValLevel::Int | ValLevel::Dimen => {
                 let val = if p == ValLevel::Int {
-                    scan_int(&mut cur_input)
+                    scan_int(input)
                 } else {
-                    scan_dimen(&mut cur_input, false, false, None)
+                    scan_dimen(input, false, false, None)
                 };
                 if q == Cmd::Advance {
                     val + w
@@ -13744,7 +13745,7 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
                 }
             }
             _ => {
-                let val = scan_glue(&mut cur_input, p);
+                let val = scan_glue(input, p);
                 if q == Cmd::Advance {
                     /*1274:*/
                     let mut q = GlueSpec(new_spec(val as usize));
@@ -13775,7 +13776,7 @@ pub(crate) unsafe fn do_register_command(mut a: i16) {
             }
         }
     } else {
-        let val = scan_int(&mut cur_input);
+        let val = scan_int(input);
         match p {
             ValLevel::Int | ValLevel::Dimen => {
                 if q == Cmd::Multiply {
@@ -14293,28 +14294,28 @@ pub(crate) unsafe fn scan_and_pack_name() {
     scan_file_name(&mut cur_input);
     pack_file_name(cur_name, cur_area, cur_ext);
 }
-pub(crate) unsafe fn do_extension() {
+pub(crate) unsafe fn do_extension(input: &mut input_state_t, tok: i32, chr: i32, cs: i32) {
     let mut j: i32 = 0;
     let mut p: usize = 0;
-    match cur_chr as u16 {
+    match chr as u16 {
         0 => {
             // OpenFile
             let mut o = OpenFile::new_node();
             *LLIST_link(cur_list.tail) = Some(o.ptr()).tex_int();
             cur_list.tail = o.ptr();
-            let val = scan_four_bit_int(&mut cur_input);
+            let val = scan_four_bit_int(input);
             o.set_id(val);
-            scan_optional_equals(&mut cur_input);
-            scan_file_name(&mut cur_input);
+            scan_optional_equals(input);
+            scan_file_name(input);
             o.set_name(cur_name).set_area(cur_area).set_ext(cur_ext);
         }
         1 => {
             // WriteFile
-            let k = cur_cs;
+            let k = cs;
             let mut w = WriteFile::new_node();
             *LLIST_link(cur_list.tail) = Some(w.ptr()).tex_int();
             cur_list.tail = w.ptr();
-            let val = scan_int(&mut cur_input);
+            let val = scan_int(input);
             let val = if val < 0 {
                 17
             } else if val > 15 && val != 18 {
@@ -14323,7 +14324,7 @@ pub(crate) unsafe fn do_extension() {
                 val
             };
             w.set_id(val);
-            p = scan_toks(&mut cur_input, k, false, false);
+            p = scan_toks(input, k, false, false);
             w.set_tokens(def_ref as i32);
         }
         2 => {
@@ -14331,7 +14332,7 @@ pub(crate) unsafe fn do_extension() {
             let mut c = CloseFile::new_node();
             *LLIST_link(cur_list.tail) = Some(c.ptr()).tex_int();
             cur_list.tail = c.ptr();
-            let val = scan_int(&mut cur_input);
+            let val = scan_int(input);
             let val = if val < 0 {
                 17
             } else if val > 15 && val != 18 {
@@ -14347,20 +14348,20 @@ pub(crate) unsafe fn do_extension() {
             *LLIST_link(cur_list.tail) = Some(s.ptr()).tex_int();
             cur_list.tail = s.ptr();
             MEM[cur_list.tail + 1].b32.s0 = None.tex_int();
-            p = scan_toks(&mut cur_input, cur_cs, false, true);
+            p = scan_toks(input, cs, false, true);
             s.set_tokens(def_ref as i32);
         }
         IMMEDIATE_CODE => {
-            get_x_token();
-            if cur_cmd == Cmd::Extension && cur_chr <= WhatsItNST::Close as i32 {
+            let (tok, cmd, chr, cs) = _get_x_token(input);
+            if cmd == Cmd::Extension && chr <= WhatsItNST::Close as i32 {
                 p = cur_list.tail;
-                do_extension();
+                do_extension(input, tok, chr, cs);
                 out_what(&WhatsIt::from(cur_list.tail));
                 flush_node_list(Some(cur_list.tail));
                 cur_list.tail = p;
                 *LLIST_link(p) = None.tex_int();
             } else {
-                back_input(&mut cur_input, cur_tok);
+                back_input(input, tok);
             }
         }
         SET_LANGUAGE_CODE => {
@@ -14370,7 +14371,7 @@ pub(crate) unsafe fn do_extension() {
                 let mut l = Language::new_node();
                 *LLIST_link(cur_list.tail) = Some(l.ptr()).tex_int();
                 cur_list.tail = l.ptr();
-                let val = scan_int(&mut cur_input);
+                let val = scan_int(input);
                 cur_list.aux.b32.s1 = if val <= 0 {
                     0
                 } else if val > 255 {
@@ -14399,7 +14400,7 @@ pub(crate) unsafe fn do_extension() {
         }
         GLYPH_CODE => {
             if cur_list.mode.1 == ListMode::VMode {
-                back_input(&mut cur_input, cur_tok);
+                back_input(input, tok);
                 new_graf(true);
             } else if cur_list.mode.1 == ListMode::MMode {
                 report_illegal_case();
@@ -14407,7 +14408,7 @@ pub(crate) unsafe fn do_extension() {
                 let mut g = Glyph::new_node();
                 *LLIST_link(cur_list.tail) = Some(g.ptr()).tex_int();
                 cur_list.tail = g.ptr();
-                let val = scan_int(&mut cur_input);
+                let val = scan_int(input);
                 let val = if val < 0 || val > 65535 {
                     if file_line_error_style_p != 0 {
                         print_file_line();
@@ -14461,7 +14462,7 @@ pub(crate) unsafe fn do_extension() {
             *INTPAR(IntPar::xetex_default_input_encoding) = j
         }
         XETEX_LINEBREAK_LOCALE_EXTENSION_CODE => {
-            scan_file_name(&mut cur_input);
+            scan_file_name(input);
             if length(cur_name) == 0 {
                 *INTPAR(IntPar::xetex_linebreak_locale) = 0;
             } else {
@@ -15339,7 +15340,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (_, Cmd::Extension) => {
                         // 60 | 163 | 266
-                        do_extension();
+                        do_extension(&mut cur_input, cur_tok, cur_chr, cur_cs);
                     }
                     (_, Cmd::Relax)
                     | (VMode, Cmd::Spacer)
