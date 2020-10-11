@@ -8575,37 +8575,30 @@ pub(crate) unsafe fn scan_toks(
     let mut t = ZERO_TOKEN;
     if macro_def {
         let mut done1 = true;
-        loop
+        let cmd = loop
         /*493: */
         {
-            let (tok, cmd, chr, cs) = get_token(input);
-            cur_tok = tok;
-            cur_cmd = cmd;
-            cur_chr = chr;
-            cur_cs = cs;
-            if cur_tok < RIGHT_BRACE_LIMIT {
-                break;
+            let (mut otok, cmd, chr, _) = get_token(input);
+            if otok < RIGHT_BRACE_LIMIT {
+                break cmd;
             }
-            if cur_cmd == Cmd::MacParam {
+            if cmd == Cmd::MacParam {
                 /*495: */
-                s = MATCH_TOKEN + cur_chr;
-                let (tok, cmd, chr, cs) = get_token(input);
-                cur_tok = tok;
-                cur_cmd = cmd;
-                cur_chr = chr;
-                cur_cs = cs;
-                if cur_cmd == Cmd::LeftBrace {
-                    hash_brace = cur_tok;
+                s = MATCH_TOKEN + chr;
+                let (tok, cmd, _, _) = get_token(input);
+                otok = tok;
+                if cmd == Cmd::LeftBrace {
+                    hash_brace = tok;
                     let q = get_avail();
                     *LLIST_link(p) = Some(q).tex_int();
-                    MEM[q].b32.s0 = cur_tok;
+                    MEM[q].b32.s0 = tok;
                     p = q;
                     let q = get_avail();
                     *LLIST_link(p) = Some(q).tex_int();
                     MEM[q].b32.s0 = END_MATCH_TOKEN;
                     p = q;
                     done1 = false;
-                    break;
+                    break cmd;
                 } else if t == ZERO_TOKEN + 9 {
                     if file_line_error_style_p != 0 {
                         print_file_line();
@@ -8617,7 +8610,7 @@ pub(crate) unsafe fn scan_toks(
                     error();
                 } else {
                     t += 1;
-                    if cur_tok != t {
+                    if tok != t {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
@@ -8628,16 +8621,16 @@ pub(crate) unsafe fn scan_toks(
                             "I\'ve inserted the digit you should have used after the #.",
                             "Type `1\' to delete what you did use."
                         );
-                        back_error(input, cur_tok);
+                        back_error(input, tok);
                     }
-                    cur_tok = s
+                    otok = s
                 }
             }
             let q = get_avail();
             *LLIST_link(p) = Some(q).tex_int();
-            MEM[q].b32.s0 = cur_tok;
+            MEM[q].b32.s0 = otok;
             p = q;
-        }
+        };
 
         if done1 {
             // done1:
@@ -8645,7 +8638,7 @@ pub(crate) unsafe fn scan_toks(
             *LLIST_link(p) = Some(q).tex_int();
             MEM[q].b32.s0 = END_MATCH_TOKEN;
             p = q;
-            if cur_cmd == Cmd::RightBrace {
+            if cmd == Cmd::RightBrace {
                 /*494: */
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -8663,32 +8656,30 @@ pub(crate) unsafe fn scan_toks(
             }
         }
     } else {
-        let next = scan_left_brace(&mut cur_input);
-        cur_tok = next.0;
-        cur_cmd = next.1;
-        cur_chr = next.2;
-        cur_cs = next.3;
+        scan_left_brace(input);
     }
 
     unbalance = 1;
     loop {
-        if xpand {
-            loop
-            /*497: */
-            {
+        let (mut tok, cmd) = if xpand {
+            let mut ocmd;
+            let mut ochr;
+            let mut ocs;
+            loop {
+                /*497: */
                 let (cmd, chr, cs) = get_next(input);
-                cur_cmd = cmd;
-                cur_chr = chr;
-                cur_cs = cs;
-                if cur_cmd >= Cmd::Call {
-                    if MEM[*LLIST_link(cur_chr as usize) as usize].b32.s0 == PROTECTED_TOKEN {
-                        cur_cmd = Cmd::Relax;
-                        cur_chr = NO_EXPAND_FLAG;
+                ocmd = cmd;
+                ochr = chr;
+                ocs = cs;
+                if ocmd >= Cmd::Call {
+                    if MEM[*LLIST_link(ochr as usize) as usize].b32.s0 == PROTECTED_TOKEN {
+                        ocmd = Cmd::Relax;
+                        ochr = NO_EXPAND_FLAG;
                     }
                 }
-                if cur_cmd > MAX_COMMAND {
-                    if cur_cmd == Cmd::The {
-                        let q = the_toks(&mut cur_input, cur_chr);
+                if ocmd > MAX_COMMAND {
+                    if ocmd == Cmd::The {
+                        let q = the_toks(input, ochr);
                         if let Some(m) = llist_link(TEMP_HEAD) {
                             *LLIST_link(p) = Some(m).tex_int();
                             p = q
@@ -8701,16 +8692,14 @@ pub(crate) unsafe fn scan_toks(
                 }
             }
             // done2:
-            cur_tok = x_token(&mut cur_input, &mut cur_cmd, &mut cur_chr, &mut cur_cs);
+            let tok = x_token(input, &mut ocmd, &mut ochr, &mut ocs);
+            (tok, ocmd)
         } else {
-            let (tok, cmd, chr, cs) = get_token(input);
-            cur_tok = tok;
-            cur_cmd = cmd;
-            cur_chr = chr;
-            cur_cs = cs;
-        }
-        if cur_tok < RIGHT_BRACE_LIMIT {
-            if cur_cmd < Cmd::RightBrace {
+            let (tok, cmd, ..) = get_token(input);
+            (tok, cmd)
+        };
+        if tok < RIGHT_BRACE_LIMIT {
+            if cmd < Cmd::RightBrace {
                 unbalance += 1;
             } else {
                 unbalance -= 1;
@@ -8718,21 +8707,20 @@ pub(crate) unsafe fn scan_toks(
                     return found(p, hash_brace);
                 }
             }
-        } else if cur_cmd == Cmd::MacParam {
+        } else if cmd == Cmd::MacParam {
             if macro_def {
                 /*498: */
-                s = cur_tok;
-                if xpand {
-                    get_x_token();
+                s = tok;
+                let next = if xpand {
+                    _get_x_token(input)
                 } else {
-                    let (tok, cmd, chr, cs) = get_token(input);
-                    cur_tok = tok;
-                    cur_cmd = cmd;
-                    cur_chr = chr;
-                    cur_cs = cs;
-                }
-                if cur_cmd != Cmd::MacParam {
-                    if cur_tok <= ZERO_TOKEN || cur_tok > t {
+                    get_token(input)
+                };
+                tok = next.0;
+                let cmd = next.1;
+                let chr = next.2;
+                if cmd != Cmd::MacParam {
+                    if tok <= ZERO_TOKEN || tok > t {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
@@ -8745,17 +8733,17 @@ pub(crate) unsafe fn scan_toks(
                             "Or maybe a } was forgotten somewhere earlier, and things",
                             "are all screwed up? I\'m going to assume that you meant ##."
                         );
-                        back_error(input, cur_tok);
-                        cur_tok = s
+                        back_error(input, tok);
+                        tok = s
                     } else {
-                        cur_tok = OUT_PARAM_TOKEN - 48 + cur_chr
+                        tok = OUT_PARAM_TOKEN - 48 + chr
                     }
                 }
             }
         }
         let q = get_avail();
         *LLIST_link(p) = Some(q).tex_int();
-        MEM[q].b32.s0 = cur_tok;
+        MEM[q].b32.s0 = tok;
         p = q;
     }
 
