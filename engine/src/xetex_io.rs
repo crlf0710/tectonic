@@ -15,7 +15,7 @@ use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_consts::UnicodeMode;
 use crate::xetex_ini::{
-    cur_area, cur_chr, cur_ext, cur_input, cur_name, first, last, max_buf_stack, name_in_progress,
+    cur_area, cur_ext, cur_name, first, input_state_t, last, max_buf_stack, name_in_progress,
     name_of_file, read_file, read_open, stop_at_space, BUFFER, BUF_SIZE,
 };
 use crate::xetex_output::{print_int, print_nl};
@@ -689,17 +689,17 @@ pub(crate) unsafe fn get_uni_c(f: &mut UFILE) -> i32 {
     }
     rval
 }
-pub(crate) unsafe fn open_or_close_in() {
+pub(crate) unsafe fn open_or_close_in(input: &mut input_state_t, chr: i32) {
     use xetex_consts::*;
-    let c = cur_chr as u8;
-    let n = scan_four_bit_int(&mut cur_input) as u8;
+    let c = chr as u8;
+    let n = scan_four_bit_int(input) as u8;
     if read_open[n as usize] != OpenMode::Closed {
         let _ = read_file[n as usize].take();
         read_open[n as usize] = OpenMode::Closed;
     }
     if c != 0 {
-        scan_optional_equals(&mut cur_input);
-        scan_file_name(&mut cur_input);
+        scan_optional_equals(input);
+        scan_file_name(input);
         pack_file_name(cur_name, cur_area, cur_ext);
         let ufile = u_open_in(
             TTInputFormat::TEX,

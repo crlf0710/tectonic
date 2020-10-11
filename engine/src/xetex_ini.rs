@@ -2124,11 +2124,11 @@ pub(crate) unsafe fn prefixed_command(
                 error();
             }
         }
-        Cmd::SetAux => { alter_aux(); }
+        Cmd::SetAux => { alter_aux(input, cur_cmd, cur_chr); }
         Cmd::SetPrevGraf => { alter_prev_graf(); }
-        Cmd::SetPageDimen => { alter_page_so_far(); }
-        Cmd::SetPageInt => { alter_integer(); }
-        Cmd::SetBoxDimen => { alter_box_dimen(); }
+        Cmd::SetPageDimen => { alter_page_so_far(input, cur_chr); }
+        Cmd::SetPageInt => { alter_integer(input, cur_chr); }
+        Cmd::SetBoxDimen => { alter_box_dimen(input, cur_chr); }
         Cmd::SetShape => {
             let q = cur_chr;
             scan_optional_equals(input);
@@ -2222,7 +2222,7 @@ pub(crate) unsafe fn prefixed_command(
             }
         }
         Cmd::DefFont => { new_font(a); }
-        Cmd::SetInteraction => { new_interaction(); }
+        Cmd::SetInteraction => { new_interaction(cur_chr); }
         _ => { confusion("prefix"); }
     }
 
