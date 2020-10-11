@@ -699,7 +699,7 @@ pub(crate) unsafe fn open_or_close_in() {
     }
     if c != 0 {
         scan_optional_equals(&mut cur_input);
-        scan_file_name();
+        scan_file_name(&mut cur_input);
         pack_file_name(cur_name, cur_area, cur_ext);
         let ufile = u_open_in(
             TTInputFormat::TEX,

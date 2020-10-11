@@ -9455,24 +9455,27 @@ pub(crate) unsafe fn make_name_string() -> str_number {
     ext_delimiter = save_ext_delimiter;
     Result
 }
-pub(crate) unsafe fn scan_file_name() {
+pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) {
     name_in_progress = true;
     begin_name();
-    loop {
-        get_x_token();
-        if !(cur_cmd == Cmd::Spacer) {
-            break;
+    let (mut tok, mut cmd, mut chr, _) = loop {
+        let next = _get_x_token(input);
+        if !(next.1 == Cmd::Spacer) {
+            break next;
         }
-    }
+    };
     loop {
-        if cur_cmd > Cmd::OtherChar || cur_chr > BIGGEST_CHAR {
-            back_input(&mut cur_input, cur_tok);
+        if cmd > Cmd::OtherChar || chr > BIGGEST_CHAR {
+            back_input(input, tok);
             break;
         } else {
-            if !more_name(cur_chr as UTF16_code, stop_at_space) {
+            if !more_name(chr as UTF16_code, stop_at_space) {
                 break;
             }
-            get_x_token();
+            let next = _get_x_token(input);
+            tok = next.0;
+            cmd = next.1;
+            chr = next.2;
         }
     }
     end_name();
@@ -9637,7 +9640,7 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
         /* Scan in the file name from the current token stream. The file name to
          * input is saved as the stringpool strings `cur_{name,area,ext}` and the
          * UTF-8 string `name_of_file`. */
-        scan_file_name();
+        scan_file_name(&mut cur_input);
     }
     pack_file_name(cur_name, cur_area, cur_ext);
     /* Open up the new file to be read. The name of the file to be read comes
@@ -11516,8 +11519,8 @@ pub(crate) unsafe fn fin_align() {
             );
             back_error(&mut cur_input, tok);
         } else {
-            get_x_token();
-            if cur_cmd != Cmd::MathShift {
+            let (tok, cmd, ..) = _get_x_token(&mut cur_input);
+            if cmd != Cmd::MathShift {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -11528,7 +11531,7 @@ pub(crate) unsafe fn fin_align() {
                     "The `$\' that I just saw supposedly matches a previous `$$\'.",
                     "So I shall assume that you typed `$$\' both times."
                 );
-                back_error(&mut cur_input, cur_tok);
+                back_error(&mut cur_input, tok);
             }
         }
         flush_node_list(cur_list.eTeX_aux);
@@ -12243,15 +12246,15 @@ pub(crate) unsafe fn its_all_over() -> bool {
     }
     false
 }
-pub(crate) unsafe fn append_glue() {
-    let s = SkipCode::n(cur_chr as u8).unwrap();
+pub(crate) unsafe fn append_glue(input: &mut input_state_t, chr: i32) {
+    let s = SkipCode::n(chr as u8).unwrap();
     let val = match s {
         SkipCode::Fil => 4,
         SkipCode::Fill => 8,
         SkipCode::Ss => 12,
         SkipCode::FilNeg => 16,
-        SkipCode::Skip => scan_glue(&mut cur_input, ValLevel::Glue),
-        SkipCode::MSkip => scan_glue(&mut cur_input, ValLevel::Mu),
+        SkipCode::Skip => scan_glue(input, ValLevel::Glue),
+        SkipCode::MSkip => scan_glue(input, ValLevel::Mu),
     };
     let g = new_glue(val as usize);
     *LLIST_link(cur_list.tail) = Some(g).tex_int();
@@ -12441,18 +12444,18 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
         }
     } else if let Some(cb) = cur_box {
         if box_context > SHIP_OUT_FLAG {
-            loop
+            let (tok, cmd, chr, _) = loop
             /*1113:*/
             {
-                get_x_token();
-                if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
-                    break;
+                let next = _get_x_token(&mut cur_input);
+                if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
+                    break next;
                 }
-            }
-            if cur_cmd == Cmd::HSkip && cur_list.mode.1 != ListMode::VMode
-                || cur_cmd == Cmd::VSkip && cur_list.mode.1 == ListMode::VMode
+            };
+            if cmd == Cmd::HSkip && cur_list.mode.1 != ListMode::VMode
+                || cmd == Cmd::VSkip && cur_list.mode.1 == ListMode::VMode
             {
-                append_glue();
+                append_glue(&mut cur_input, chr);
                 MEM[cur_list.tail].b16.s0 =
                     (box_context - (LEADER_FLAG - (A_LEADERS as i32))) as u16;
                 MEM[cur_list.tail + 1].b32.s1 = Some(cb).tex_int();
@@ -12468,7 +12471,7 @@ pub(crate) unsafe fn box_end(mut box_context: i32) {
                     "I found the <box or rule>, but there\'s no suitable",
                     "<hskip or vskip>, so I\'m ignoring these leaders."
                 );
-                back_error(&mut cur_input, cur_tok);
+                back_error(&mut cur_input, tok);
                 flush_node_list(Some(cb));
             }
         } else {
@@ -13979,7 +13982,7 @@ pub(crate) unsafe fn new_font(mut a: i16) {
         eq_define(u, Cmd::SetFont, Some(FONT_BASE));
     }
     scan_optional_equals(&mut cur_input);
-    scan_file_name();
+    scan_file_name(&mut cur_input);
     name_in_progress = true;
     if scan_keyword(&mut cur_input, b"at") {
         /*1294: */
@@ -14287,7 +14290,7 @@ pub(crate) unsafe fn show_whatever(chr: i32) {
     common_ending()
 }
 pub(crate) unsafe fn scan_and_pack_name() {
-    scan_file_name();
+    scan_file_name(&mut cur_input);
     pack_file_name(cur_name, cur_area, cur_ext);
 }
 pub(crate) unsafe fn do_extension() {
@@ -14302,7 +14305,7 @@ pub(crate) unsafe fn do_extension() {
             let val = scan_four_bit_int(&mut cur_input);
             o.set_id(val);
             scan_optional_equals(&mut cur_input);
-            scan_file_name();
+            scan_file_name(&mut cur_input);
             o.set_name(cur_name).set_area(cur_area).set_ext(cur_ext);
         }
         1 => {
@@ -14458,7 +14461,7 @@ pub(crate) unsafe fn do_extension() {
             *INTPAR(IntPar::xetex_default_input_encoding) = j
         }
         XETEX_LINEBREAK_LOCALE_EXTENSION_CODE => {
-            scan_file_name();
+            scan_file_name(&mut cur_input);
             if length(cur_name) == 0 {
                 *INTPAR(IntPar::xetex_linebreak_locale) = 0;
             } else {
@@ -14929,7 +14932,7 @@ pub(crate) unsafe fn main_control() {
                     | (MMode, Cmd::HSkip)
                     | (MMode, Cmd::MSkip) => {
                         // 28 | 130 | 233 | 235
-                        append_glue();
+                        append_glue(&mut cur_input, cur_chr);
                     }
                     (_, Cmd::Kern) | (MMode, Cmd::MKern) => {
                         // 30 | 133 | 236 | 237

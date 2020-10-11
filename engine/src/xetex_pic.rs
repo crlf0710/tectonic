@@ -185,7 +185,7 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
     let mut page: i32 = 0;
     let mut pdf_box_type: i32 = 0;
     let mut result: i32 = 0;
-    scan_file_name();
+    scan_file_name(&mut cur_input);
     pack_file_name(cur_name, cur_area, cur_ext);
     pdf_box_type = 0i32;
     page = 0i32;
