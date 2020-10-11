@@ -31,11 +31,11 @@ use crate::xetex_stringpool::{length, load_pool_strings, make_string};
 use crate::xetex_synctex::synctex_init_command;
 use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{
-    _get_x_token, alter_aux, alter_box_dimen, alter_integer, alter_page_so_far, alter_prev_graf,
-    back_error, back_input, close_files_and_terminate, delete_glue_ref, delete_token_ref,
-    diagnostic, do_marks, do_register_command, end_file_reading, end_token_list, eq_define,
-    eq_word_define, find_font_dimen, find_sa_element, flush_list, flush_node_list, free_node,
-    geq_define, geq_word_define, get_avail, get_node, get_r_token, get_token, gsa_def, id_lookup,
+    alter_aux, alter_box_dimen, alter_integer, alter_page_so_far, alter_prev_graf, back_error,
+    back_input, close_files_and_terminate, delete_glue_ref, delete_token_ref, diagnostic, do_marks,
+    do_register_command, end_file_reading, end_token_list, eq_define, eq_word_define,
+    find_font_dimen, find_sa_element, flush_list, flush_node_list, free_node, geq_define,
+    geq_word_define, get_avail, get_node, get_r_token, get_token, get_x_token, gsa_def, id_lookup,
     main_control, max_hyphenatable_length, new_font, new_interaction, open_log_file, prim_lookup,
     print_cmd_chr, read_toks, sa_def, scan_box, scan_char_class, scan_char_class_not_ignored,
     scan_char_num, scan_dimen, scan_fifteen_bit_int, scan_font_ident, scan_glue, scan_glyph_number,
@@ -1120,7 +1120,7 @@ unsafe fn new_patterns() {
         hyf[0] = 0;
         let mut digit_sensed = false;
         loop {
-            let (_, cmd, mut chr, _) = _get_x_token(&mut cur_input);
+            let (_, cmd, mut chr, _) = get_x_token(&mut cur_input);
             match cmd {
                 Cmd::Letter | Cmd::OtherChar => {
                     if digit_sensed || chr < '0' as i32 || chr > '9' as i32 {
@@ -1356,7 +1356,7 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
     let mut reswitch = None;
     loop {
         let (cmd, chr) = reswitch.take().unwrap_or_else(|| {
-            let next = _get_x_token(input);
+            let next = get_x_token(input);
             (next.1, next.2)
         });
 
@@ -1525,7 +1525,7 @@ pub(crate) unsafe fn prefixed_command(
         }
         let mut next;
         loop {
-            next = _get_x_token(input);
+            next = get_x_token(input);
             if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
                 break;
             }
@@ -1843,7 +1843,7 @@ pub(crate) unsafe fn prefixed_command(
             scan_optional_equals(input);
             let mut next;
             loop  {
-                next = _get_x_token(input);
+                next = get_x_token(input);
                 if !(next.1 == Cmd::Spacer ||
                          next.1 == Cmd::Relax) {
                     break ;

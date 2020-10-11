@@ -34,9 +34,9 @@ use crate::xetex_output::{
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_scaledmath::{half, mult_and_add, tex_round, x_over_n, xn_over_d};
 use crate::xetex_xetex0::{
-    _get_x_token, append_to_vlist, back_error, back_input, begin_token_list, char_warning,
-    copy_node_list, delete_glue_ref, effective_char, eq_word_define, flush_node_list, free_node,
-    get_avail, get_node, get_token, hpack, insert_src_special, internal_font_number, just_copy,
+    append_to_vlist, back_error, back_input, begin_token_list, char_warning, copy_node_list,
+    delete_glue_ref, effective_char, eq_word_define, flush_node_list, free_node, get_avail,
+    get_node, get_token, get_x_token, hpack, insert_src_special, internal_font_number, just_copy,
     just_reverse, new_character, new_choice, new_glue, new_kern, new_math, new_native_character,
     new_noad, new_null_box, new_param_glue, new_penalty, new_rule, new_skip_param, new_spec,
     norm_min, off_save, pop_nest, push_math, push_nest, scan_delimiter_int, scan_dimen,
@@ -453,7 +453,7 @@ unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
         let mut cmd;
         let mut chr;
         loop {
-            let next = _get_x_token(&mut cur_input);
+            let next = get_x_token(&mut cur_input);
             cur_tok = next.0;
             cmd = next.1;
             chr = next.2;
@@ -997,7 +997,7 @@ pub(crate) unsafe fn after_math() {
     l = false;
     p = fin_mlist(None);
     let a = if cur_list.mode == (!m.0, m.1) {
-        let (tok, cmd, ..) = _get_x_token(&mut cur_input);
+        let (tok, cmd, ..) = get_x_token(&mut cur_input);
         if cmd != Cmd::MathShift {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -1099,7 +1099,7 @@ pub(crate) unsafe fn after_math() {
     } else {
         if a.is_none() {
             // 1232:
-            let (tok, cmd, ..) = _get_x_token(&mut cur_input);
+            let (tok, cmd, ..) = get_x_token(&mut cur_input);
             if cmd != Cmd::MathShift {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -1255,7 +1255,7 @@ pub(crate) unsafe fn resume_after_display() {
         + norm_min(*INTPAR(IntPar::right_hyphen_min)) as i32) as i64
         * 65536
         + cur_lang as i64) as i32;
-    let (tok, cmd, ..) = _get_x_token(&mut cur_input);
+    let (tok, cmd, ..) = get_x_token(&mut cur_input);
     if cmd != Cmd::Spacer {
         back_input(&mut cur_input, tok);
     }

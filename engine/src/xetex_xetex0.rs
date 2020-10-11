@@ -5150,7 +5150,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     b = is_in_csname;
                     is_in_csname = true;
                     loop {
-                        let (tok, cmd, _, cs) = _get_x_token(input);
+                        let (tok, cmd, _, cs) = get_x_token(input);
                         ocmd = cmd;
                         ocs = cs;
                         if ocs == 0 {
@@ -5310,35 +5310,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
     *LLIST_link(BACKUP_HEAD) = backup_backup;
     expand_depth_count -= 1;
 }
-pub(crate) unsafe fn get_x_token() {
-    loop {
-        let (cmd, chr, cs) = get_next(&mut cur_input);
-        cur_cmd = cmd;
-        cur_chr = chr;
-        cur_cs = cs;
-        if cur_cmd > MAX_COMMAND {
-            if cur_cmd >= Cmd::Call {
-                if cur_cmd < Cmd::EndTemplate {
-                    macro_call(&mut cur_input, cur_chr, cur_cs);
-                } else {
-                    cur_cs = FROZEN_ENDV as i32;
-                    cur_cmd = Cmd::EndV;
-                    break;
-                }
-            } else {
-                expand(&mut cur_input, cmd, chr, cs)
-            }
-        } else {
-            break;
-        }
-    }
-    cur_tok = if cur_cs == 0 {
-        cur_cmd as i32 * MAX_CHAR_VAL + cur_chr
-    } else {
-        CS_TOKEN_FLAG + cur_cs
-    };
-}
-pub(crate) unsafe fn _get_x_token(input: &mut input_state_t) -> (i32, Cmd, i32, i32) {
+pub(crate) unsafe fn get_x_token(input: &mut input_state_t) -> (i32, Cmd, i32, i32) {
     let mut cmd;
     let mut chr;
     let mut cs;
@@ -5392,7 +5364,7 @@ pub(crate) unsafe fn x_token(
 }
 pub(crate) unsafe fn scan_left_brace(input: &mut input_state_t) -> (i32, Cmd, i32, i32) {
     let (mut tok, mut cmd, mut chr, cs) = loop {
-        let next = _get_x_token(input);
+        let next = get_x_token(input);
         if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
             break next;
         }
@@ -5420,7 +5392,7 @@ pub(crate) unsafe fn scan_left_brace(input: &mut input_state_t) -> (i32, Cmd, i3
 }
 pub(crate) unsafe fn scan_optional_equals(input: &mut input_state_t) {
     let tok = loop {
-        let (tok, cmd, ..) = _get_x_token(input);
+        let (tok, cmd, ..) = get_x_token(input);
         if cmd != Cmd::Spacer {
             break tok;
         }
@@ -5437,7 +5409,7 @@ pub(crate) unsafe fn scan_keyword(input: &mut input_state_t, s: &[u8]) -> bool {
     if s.len() == 1 {
         let mut c: i8 = s[0] as i8;
         loop {
-            let (tok, cmd, chr, cs) = _get_x_token(input);
+            let (tok, cmd, chr, cs) = get_x_token(input);
             if cs == 0 && (chr == c as i32 || chr == c as i32 - 32) {
                 let q = get_avail();
                 *LLIST_link(p) = Some(q).tex_int();
@@ -5459,7 +5431,7 @@ pub(crate) unsafe fn scan_keyword(input: &mut input_state_t, s: &[u8]) -> bool {
     let slen = s.len();
     let mut i = 0;
     while i < slen {
-        let (tok, cmd, chr, cs) = _get_x_token(input);
+        let (tok, cmd, chr, cs) = get_x_token(input);
         if cs == 0 && (chr == s[i] as i8 as i32 || chr == s[i] as i8 as i32 - 32) {
             let q = get_avail();
             *LLIST_link(p) = Some(q).tex_int();
@@ -5639,7 +5611,7 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
     'c_118470: loop {
         let (mut tok, mut cmd, mut chr, mut cs) = loop {
             /*422:*/
-            let next = _get_x_token(input);
+            let next = get_x_token(input);
             if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
                 break next;
             }
@@ -5915,7 +5887,7 @@ pub(crate) unsafe fn effective_char(
 }
 pub(crate) unsafe fn scan_font_ident(input: &mut input_state_t) -> i32 {
     let (tok, cmd, chr, ..) = loop {
-        let next = _get_x_token(input);
+        let next = get_x_token(input);
         if !(next.1 == Cmd::Spacer) {
             break next;
         }
@@ -6919,7 +6891,7 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
         loop
         /*424:*/
         {
-            next = _get_x_token(input);
+            next = get_x_token(input);
             if next.1 != Cmd::Spacer {
                 break;
             }
@@ -6980,7 +6952,7 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             ival = '0' as i32;
             back_error(input, tok);
         } else {
-            let next = _get_x_token(input);
+            let next = get_x_token(input);
             tok = next.0;
             cmd = next.1;
             chr = next.2;
@@ -6998,7 +6970,7 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
         if tok == OCTAL_TOKEN {
             radix = 8;
             m = 0x10000000;
-            let next = _get_x_token(input);
+            let next = get_x_token(input);
             tok = next.0;
             cmd = next.1;
             chr = next.2;
@@ -7006,7 +6978,7 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
         } else if cur_tok == HEX_TOKEN {
             radix = 16;
             m = 0x8000000;
-            let next = _get_x_token(input);
+            let next = get_x_token(input);
             tok = next.0;
             cmd = next.1;
             chr = next.2;
@@ -7050,7 +7022,7 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             } else {
                 ival = ival * radix as i32 + d as i32
             }
-            let next = _get_x_token(input);
+            let next = get_x_token(input);
             tok = next.0;
             cmd = next.1;
             chr = next.2;
@@ -7107,7 +7079,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
         let mut chr;
         loop {
             let next = loop {
-                let next = _get_x_token(input);
+                let next = get_x_token(input);
                 if !(next.1 == Cmd::Spacer) {
                     break next;
                 }
@@ -7169,7 +7141,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 let mut p = None.tex_int();
                 let _ = get_token(input);
                 let (tok, cmd) = loop {
-                    let (tok, cmd, ..) = _get_x_token(input);
+                    let (tok, cmd, ..) = get_x_token(input);
                     if tok > ZERO_TOKEN + 9 || tok < ZERO_TOKEN {
                         break (tok, cmd);
                     }
@@ -7230,7 +7202,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
         let save_val = val;
 
         let (tok, cmd, chr, _) = loop {
-            let next = _get_x_token(input);
+            let next = get_x_token(input);
             if !(next.1 == Cmd::Spacer) {
                 break next;
             }
@@ -7267,7 +7239,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     [(QUAD_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
                     .b32
                     .s1;
-                let (tok, cmd, ..) = _get_x_token(input);
+                let (tok, cmd, ..) = get_x_token(input);
                 if cmd != Cmd::Spacer {
                     back_input(input, tok);
                 }
@@ -7277,7 +7249,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     [(X_HEIGHT_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
                     .b32
                     .s1;
-                let (tok, cmd, ..) = _get_x_token(input);
+                let (tok, cmd, ..) = get_x_token(input);
                 if cmd != Cmd::Spacer {
                     back_input(input, tok);
                 }
@@ -7398,7 +7370,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
     }
 
     unsafe fn done(input: &mut input_state_t, negative: bool, val: i32) -> i32 {
-        let (tok, cmd, ..) = _get_x_token(input);
+        let (tok, cmd, ..) = get_x_token(input);
         if cmd != Cmd::Spacer {
             back_input(input, tok);
         }
@@ -7454,7 +7426,7 @@ pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> i3
     negative = false;
     let (tok, cmd, chr) = loop {
         let (mut tok, cmd, chr, _) = loop {
-            let next = _get_x_token(input);
+            let next = get_x_token(input);
             if !(next.1 == Cmd::Spacer) {
                 break next;
             }
@@ -7686,7 +7658,7 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
         loop {
             o = if s == Expr::None { l } else { ValLevel::Int };
             let tok = loop {
-                let next = _get_x_token(input);
+                let next = get_x_token(input);
                 if !(next.1 == Cmd::Spacer) {
                     break next;
                 }
@@ -7705,7 +7677,7 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
             loop {
                 let (tok, cmd, ..) = loop {
                     /*1572:*//*424:*/
-                    let next = _get_x_token(input);
+                    let next = get_x_token(input);
                     if !(next.1 == Cmd::Spacer) {
                         break next;
                     }
@@ -8151,7 +8123,7 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32) -> usize {
             return str_toks(b);
         }
     }
-    let (tok, cmd, chr, _) = _get_x_token(input);
+    let (tok, cmd, chr, _) = get_x_token(input);
     let (val, val_level) = scan_something_internal(input, tok, cmd, chr, ValLevel::Tok, false);
     match val_level {
         ValLevel::Ident | ValLevel::Tok | ValLevel::InterChar | ValLevel::Mark => {
@@ -8699,7 +8671,7 @@ pub(crate) unsafe fn scan_toks(
                 /*498: */
                 s = tok;
                 let next = if xpand {
-                    _get_x_token(input)
+                    get_x_token(input)
                 } else {
                     get_token(input)
                 };
@@ -8940,7 +8912,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
 
     match this_if {
         IfTestCode::IfChar | IfTestCode::IfCat => {
-            let (tok, mut cmd, mut chr, _) = _get_x_token(input);
+            let (tok, mut cmd, mut chr, _) = get_x_token(input);
             if cmd == Cmd::Relax {
                 if chr == NO_EXPAND_FLAG {
                     cmd = Cmd::ActiveChar;
@@ -8954,7 +8926,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
                 (cmd, chr)
             };
 
-            let (tok, mut cmd, mut chr, _) = _get_x_token(input);
+            let (tok, mut cmd, mut chr, _) = get_x_token(input);
 
             if cmd == Cmd::Relax {
                 if chr == NO_EXPAND_FLAG {
@@ -8982,7 +8954,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             };
 
             let tok = loop {
-                let (tok, cmd, ..) = _get_x_token(input);
+                let (tok, cmd, ..) = get_x_token(input);
                 if cmd != Cmd::Spacer {
                     break tok;
                 }
@@ -9126,7 +9098,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             is_in_csname = true;
 
             let (tok, cmd) = loop {
-                let (tok, cmd, _, cs) = _get_x_token(input);
+                let (tok, cmd, _, cs) = get_x_token(input);
                 if cs == 0 {
                     let q = get_avail();
                     *LLIST_link(p) = Some(q).tex_int();
@@ -9446,7 +9418,7 @@ pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) {
     name_in_progress = true;
     begin_name();
     let (mut tok, mut cmd, mut chr, _) = loop {
-        let next = _get_x_token(input);
+        let next = get_x_token(input);
         if !(next.1 == Cmd::Spacer) {
             break next;
         }
@@ -9459,7 +9431,7 @@ pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) {
             if !more_name(chr as UTF16_code, stop_at_space) {
                 break;
             }
-            let next = _get_x_token(input);
+            let next = get_x_token(input);
             tok = next.0;
             cmd = next.1;
             chr = next.2;
@@ -11506,7 +11478,7 @@ pub(crate) unsafe fn fin_align() {
             );
             back_error(&mut cur_input, tok);
         } else {
-            let (tok, cmd, ..) = _get_x_token(&mut cur_input);
+            let (tok, cmd, ..) = get_x_token(&mut cur_input);
             if cmd != Cmd::MathShift {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -12434,7 +12406,7 @@ pub(crate) unsafe fn box_end(input: &mut input_state_t, mut box_context: i32) {
             let (tok, cmd, chr, _) = loop
             /*1113:*/
             {
-                let next = _get_x_token(input);
+                let next = get_x_token(input);
                 if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
                     break next;
                 }
@@ -12639,7 +12611,7 @@ pub(crate) unsafe fn begin_box(input: &mut input_state_t, chr: i32, mut box_cont
 }
 pub(crate) unsafe fn scan_box(input: &mut input_state_t, mut box_context: i32) {
     let (tok, cmd, chr, _) = loop {
-        let next = _get_x_token(input);
+        let next = get_x_token(input);
         if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
             break next;
         }
@@ -13643,7 +13615,7 @@ pub(crate) unsafe fn do_register_command(
 
     let mut flag = true;
     if q != Cmd::Register {
-        let (_, cmd, chr, _) = _get_x_token(input);
+        let (_, cmd, chr, _) = get_x_token(input);
         ochr = chr;
         match cmd {
             Cmd::AssignInt | Cmd::AssignDimen | Cmd::AssignGlue | Cmd::AssignMuGlue => {
@@ -14344,7 +14316,7 @@ pub(crate) unsafe fn do_extension(input: &mut input_state_t, tok: i32, chr: i32,
             s.set_tokens(def_ref as i32);
         }
         IMMEDIATE_CODE => {
-            let (tok, cmd, chr, cs) = _get_x_token(input);
+            let (tok, cmd, chr, cs) = get_x_token(input);
             if cmd == Cmd::Extension && chr <= WhatsItNST::Close as i32 {
                 p = cur_list.tail;
                 do_extension(input, tok, chr, cs);
@@ -14741,7 +14713,11 @@ pub(crate) unsafe fn main_control() {
     'big_switch: loop {
         /* big_switch */
         if big_switch {
-            get_x_token();
+            let next = get_x_token(&mut cur_input);
+            cur_tok = next.0;
+            cur_cmd = next.1;
+            cur_chr = next.2;
+            cur_cs = next.3;
         }
         big_switch = true;
 
@@ -14760,7 +14736,11 @@ pub(crate) unsafe fn main_control() {
             }
             (HMode, Cmd::NoBoundary) => {
                 // 169
-                get_x_token();
+                let next = get_x_token(&mut cur_input);
+                cur_tok = next.0;
+                cur_cmd = next.1;
+                cur_chr = next.2;
+                cur_cs = next.3;
                 if matches!(
                     cur_cmd,
                     Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven | Cmd::CharNum
@@ -14819,7 +14799,11 @@ pub(crate) unsafe fn main_control() {
                         // 40 | 143 | 246
                         if cur_chr == 0 {
                             loop {
-                                get_x_token();
+                                let next = get_x_token(&mut cur_input);
+                                cur_tok = next.0;
+                                cur_cmd = next.1;
+                                cur_chr = next.2;
+                                cur_cs = next.3;
                                 if !(cur_cmd == Cmd::Spacer) {
                                     break;
                                 }
@@ -16666,7 +16650,7 @@ pub(crate) unsafe fn do_assignments(input: &mut input_state_t) -> (i32, Cmd, i32
     loop {
         let mut next;
         loop {
-            next = _get_x_token(input);
+            next = get_x_token(input);
             if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
                 break;
             }
