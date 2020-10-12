@@ -13,9 +13,9 @@ use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error};
 use crate::xetex_ini::{
-    best_height_plus_depth, cur_input, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr,
-    file_line_error_style_p, insert_penalties, last_glue, last_kern, last_node_type, last_penalty,
-    line, output_active, page_contents, page_so_far, page_tail, sa_root,
+    best_height_plus_depth, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr,
+    file_line_error_style_p, input_state_t, insert_penalties, last_glue, last_kern, last_node_type,
+    last_penalty, line, output_active, page_contents, page_so_far, page_tail, sa_root,
     semantic_pagination_enabled, NEST, NEST_PTR,
 };
 use crate::xetex_output::{print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr};
@@ -90,7 +90,7 @@ unsafe fn ensure_vbox(mut n: u8) {
  * simple ships out the page. There is one parameter, `c`, which represents
  * the node that was being contributed to the page when the decision to force
  * an output was made." */
-unsafe fn fire_up(c: usize) {
+unsafe fn fire_up(input: &mut input_state_t, c: usize) {
     let mut s: usize = 0;
     let mut n: u8 = 0;
     let mut wait = false;
@@ -421,10 +421,10 @@ unsafe fn fire_up(c: usize) {
                 cur_list.mode = (true, ListMode::VMode);
                 cur_list.aux.b32.s1 = IGNORE_DEPTH; /* this is `prev_depth` */
                 cur_list.mode_line = -line;
-                begin_token_list(&mut cur_input, l, Btl::OutputText);
+                begin_token_list(input, l, Btl::OutputText);
                 new_save_level(GroupCode::Output);
                 normal_paragraph();
-                scan_left_brace(&mut cur_input);
+                scan_left_brace(input);
                 return;
             }
         }
@@ -468,14 +468,14 @@ unsafe fn fire_up(c: usize) {
 
 const AWFUL_BAD: i32 = MAX_HALFWORD; /* XXX redundant with xetex-linebreak.c */
 
-pub(crate) unsafe fn build_page() {
+pub(crate) unsafe fn build_page(input: &mut input_state_t) {
     /*1040: "Check if node p is the new champion breakpoint; then if it is
      * time for a page break, prepare for output, and either fire up the
      * user's output routine and return or ship out the page and goto
      * done." We reach this point when p is a glue, kern, or penalty, and
      * there's already content on the page -- so this might be a place to
      * break the page. */
-    unsafe fn with_penalty(p: usize, pi: i32) -> Option<bool> {
+    unsafe fn with_penalty(input: &mut input_state_t, p: usize, pi: i32) -> Option<bool> {
         if pi < INF_PENALTY {
             /*1042: "Compute the badness b of the current page, using
              * awful_bad if the box is too full." */
@@ -522,7 +522,7 @@ pub(crate) unsafe fn build_page() {
             }
 
             if c == AWFUL_BAD || pi <= EJECT_PENALTY {
-                fire_up(p);
+                fire_up(input, p);
                 if output_active {
                     /* "user's output routine will act" */
                     return Some(true);
@@ -575,7 +575,7 @@ pub(crate) unsafe fn build_page() {
         }
     }
 
-    unsafe fn do_smth() -> bool {
+    unsafe fn do_smth(input: &mut input_state_t) -> bool {
         let p = llist_link(CONTRIB_HEAD).unwrap();
 
         /*1031: "Update the values of last_glue, last_penalty, and last_kern" */
@@ -713,7 +713,7 @@ pub(crate) unsafe fn build_page() {
                         | TxtNode::Ligature(_)
                         | TxtNode::Disc(_)
                         | TxtNode::WhatsIt(_) => {
-                            if let Some(res) = with_penalty(g.ptr(), 0) {
+                            if let Some(res) = with_penalty(input, g.ptr(), 0) {
                                 return res;
                             }
                         }
@@ -762,7 +762,7 @@ pub(crate) unsafe fn build_page() {
                 } else if LLIST_link(k.ptr()).opt().is_none() {
                     return true;
                 } else if let TxtNode::Glue(_) = TxtNode::from(*LLIST_link(k.ptr()) as usize) {
-                    if let Some(res) = with_penalty(k.ptr(), 0) {
+                    if let Some(res) = with_penalty(input, k.ptr(), 0) {
                         return res;
                     }
                 }
@@ -778,7 +778,7 @@ pub(crate) unsafe fn build_page() {
                     done1(p.ptr());
                     false
                 } else {
-                    if let Some(res) = with_penalty(p.ptr(), p.penalty()) {
+                    if let Some(res) = with_penalty(input, p.ptr(), p.penalty()) {
                         res
                     } else {
                         contribute(p.ptr());
@@ -935,7 +935,7 @@ pub(crate) unsafe fn build_page() {
     }
 
     loop {
-        if do_smth() {
+        if do_smth(input) {
             return;
         };
         if llist_link(CONTRIB_HEAD).is_none() {

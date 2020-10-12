@@ -15,7 +15,7 @@ use crate::node::Picture;
 use crate::xetex_errors::error;
 use crate::xetex_ext::{D2Fix, Fix2D};
 use crate::xetex_ini::{
-    cur_area, cur_ext, cur_input, cur_list, cur_name, file_line_error_style_p, name_of_file,
+    cur_area, cur_ext, cur_list, cur_name, file_line_error_style_p, input_state_t, name_of_file,
 };
 use crate::xetex_output::{
     print, print_cstr, print_file_line, print_file_name, print_nl_cstr, print_scaled,
@@ -180,28 +180,28 @@ fn to_points(r: &Rect) -> [Point; 4] {
     ]
 }
 
-pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
+pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
     let mut check_keywords: bool = false;
     let mut page: i32 = 0;
     let mut pdf_box_type: i32 = 0;
     let mut result: i32 = 0;
-    scan_file_name(&mut cur_input);
+    scan_file_name(input);
     pack_file_name(cur_name, cur_area, cur_ext);
     pdf_box_type = 0i32;
     page = 0i32;
     if is_pdf {
-        if scan_keyword(&mut cur_input, b"page") {
-            page = scan_int(&mut cur_input);
+        if scan_keyword(input, b"page") {
+            page = scan_int(input);
         }
-        pdf_box_type = if scan_keyword(&mut cur_input, b"crop") {
+        pdf_box_type = if scan_keyword(input, b"crop") {
             1
-        } else if scan_keyword(&mut cur_input, b"media") {
+        } else if scan_keyword(input, b"media") {
             2
-        } else if scan_keyword(&mut cur_input, b"bleed") {
+        } else if scan_keyword(input, b"bleed") {
             3
-        } else if scan_keyword(&mut cur_input, b"trim") {
+        } else if scan_keyword(input, b"trim") {
             4
-        } else if scan_keyword(&mut cur_input, b"art") {
+        } else if scan_keyword(input, b"art") {
             5
         } else {
             6
@@ -222,29 +222,29 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
     let mut t = Transform::identity();
     check_keywords = true;
     while check_keywords {
-        if scan_keyword(&mut cur_input, b"scaled") {
-            let val = scan_int(&mut cur_input);
+        if scan_keyword(input, b"scaled") {
+            let val = scan_int(input);
             if x_size_req == 0. && y_size_req == 0. {
                 let t2 = Transform::create_scale(val as f64 / 1000., val as f64 / 1000.);
                 corners = t2.transform_rect(&corners.to_f64()).to_f32();
                 t = t.post_transform(&t2);
             }
-        } else if scan_keyword(&mut cur_input, b"xscaled") {
-            let val = scan_int(&mut cur_input);
+        } else if scan_keyword(input, b"xscaled") {
+            let val = scan_int(input);
             if x_size_req == 0. && y_size_req == 0. {
                 let t2 = Transform::create_scale(val as f64 / 1000., 1.);
                 corners = t2.transform_rect(&corners.to_f64()).to_f32();
                 t = t.post_transform(&t2);
             }
-        } else if scan_keyword(&mut cur_input, b"yscaled") {
-            let val = scan_int(&mut cur_input);
+        } else if scan_keyword(input, b"yscaled") {
+            let val = scan_int(input);
             if x_size_req == 0.0f64 && y_size_req == 0.0f64 {
                 let t2 = Transform::create_scale(1., val as f64 / 1000.);
                 corners = t2.transform_rect(&corners.to_f64()).to_f32();
                 t = t.post_transform(&t2);
             }
-        } else if scan_keyword(&mut cur_input, b"width") {
-            let val = scan_dimen(&mut cur_input, false, false, None);
+        } else if scan_keyword(input, b"width") {
+            let val = scan_dimen(input, false, false, None);
             if val <= 0i32 {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -263,8 +263,8 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
             } else {
                 x_size_req = Fix2D(val)
             }
-        } else if scan_keyword(&mut cur_input, b"height") {
-            let val = scan_dimen(&mut cur_input, false, false, None);
+        } else if scan_keyword(input, b"height") {
+            let val = scan_dimen(input, false, false, None);
             if val <= 0i32 {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -283,8 +283,8 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
             } else {
                 y_size_req = Fix2D(val)
             }
-        } else if scan_keyword(&mut cur_input, b"rotated") {
-            let val = scan_decimal(&mut cur_input);
+        } else if scan_keyword(input, b"rotated") {
+            let val = scan_decimal(input);
             if x_size_req != 0.0f64 || y_size_req != 0.0f64 {
                 let brect = Rect::from_points(&to_points(&corners));
                 let xmin = brect.min_x() as f64;

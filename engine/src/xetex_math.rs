@@ -392,7 +392,7 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
             begin_token_list(input, ed, Btl::EveryDisplayText);
         }
         if NEST_PTR == 1 {
-            build_page();
+            build_page(input);
         }
     } else {
         back_input(input, tok);
@@ -617,8 +617,8 @@ pub(crate) unsafe fn fin_mlist(p: Option<usize>) -> i32 {
     pop_nest();
     q
 }
-pub(crate) unsafe fn build_choices() {
-    unsave();
+pub(crate) unsafe fn build_choices(input: &mut input_state_t) {
+    unsave(input);
     let mut p = fin_mlist(None).opt();
     let mut tail_choice = Choice(cur_list.tail);
     match MathStyle::n(SAVE_STACK[SAVE_PTR - 1].val as i16).unwrap() {
@@ -633,7 +633,7 @@ pub(crate) unsafe fn build_choices() {
     }
     SAVE_STACK[SAVE_PTR - 1].val += 1;
     push_math(GroupCode::MathChoice);
-    scan_left_brace(&mut cur_input);
+    scan_left_brace(input);
 }
 pub(crate) unsafe fn sub_sup(input: &mut input_state_t, cmd: Cmd) {
     let mut t = MathCell::Empty;
@@ -801,7 +801,7 @@ pub(crate) unsafe fn math_left_right(input: &mut input_state_t, tok: i32, cmd: C
             q = p as i32;
         } else {
             q = fin_mlist(Some(p));
-            unsave();
+            unsave(input);
         }
         if t != MathNode::Right as i16 {
             push_math(GroupCode::MathLeft);
@@ -934,7 +934,7 @@ unsafe fn app_display(j: Option<usize>, mut b: List, mut d: scaled_t) {
     }
     append_to_vlist(b);
 }
-pub(crate) unsafe fn after_math() {
+pub(crate) unsafe fn after_math(input: &mut input_state_t) {
     let mut l: bool = false;
     let mut danger: bool = false;
     let mut p: i32 = 0;
@@ -1000,7 +1000,7 @@ pub(crate) unsafe fn after_math() {
     l = false;
     p = fin_mlist(None);
     let a = if cur_list.mode == (!m.0, m.1) {
-        let (tok, cmd, ..) = get_x_token(&mut cur_input);
+        let (tok, cmd, ..) = get_x_token(input);
         if cmd != Cmd::MathShift {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -1013,7 +1013,7 @@ pub(crate) unsafe fn after_math() {
                 "The `$\' that I just saw supposedly matches a previous `$$\'.",
                 "So I shall assume that you typed `$$\' both times."
             );
-            back_error(&mut cur_input, tok);
+            back_error(input, tok);
         }
         cur_mlist = p;
         cur_style = (MathStyle::Text, 0);
@@ -1021,7 +1021,7 @@ pub(crate) unsafe fn after_math() {
         mlist_to_hlist();
         let mut a = hpack(llist_link(TEMP_HEAD), 0, PackMode::Additional);
         a.set_lr_mode(LRMode::DList);
-        unsave();
+        unsave(input);
         SAVE_PTR -= 1;
         if SAVE_STACK[SAVE_PTR].val == 1 {
             l = true
@@ -1098,11 +1098,11 @@ pub(crate) unsafe fn after_math() {
             new_math(*DIMENPAR(DimenPar::math_surround), MathType::After) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         cur_list.aux.b32.s0 = 1000;
-        unsave();
+        unsave(input);
     } else {
         if a.is_none() {
             // 1232:
-            let (tok, cmd, ..) = get_x_token(&mut cur_input);
+            let (tok, cmd, ..) = get_x_token(input);
             if cmd != Cmd::MathShift {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -1115,7 +1115,7 @@ pub(crate) unsafe fn after_math() {
                     "The `$\' that I just saw supposedly matches a previous `$$\'.",
                     "So I shall assume that you typed `$$\' both times."
                 );
-                back_error(&mut cur_input, tok);
+                back_error(input, tok);
             }
         }
         cur_mlist = p;
@@ -1241,7 +1241,7 @@ pub(crate) unsafe fn resume_after_display() {
     if cur_group != GroupCode::MathShift {
         confusion("display");
     }
-    unsave();
+    unsave(&mut cur_input);
     cur_list.prev_graf = cur_list.prev_graf + 3;
     push_nest();
     cur_list.mode = (false, ListMode::HMode);
@@ -1263,7 +1263,7 @@ pub(crate) unsafe fn resume_after_display() {
         back_input(&mut cur_input, tok);
     }
     if NEST_PTR == 1 {
-        build_page();
+        build_page(&mut cur_input);
     };
 }
 /* Copyright 2016-2018 The Tectonic Project

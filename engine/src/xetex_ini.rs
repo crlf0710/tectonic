@@ -2121,7 +2121,7 @@ pub(crate) unsafe fn prefixed_command(
             }
         }
         Cmd::SetAux => { alter_aux(input, ocmd, ochr); }
-        Cmd::SetPrevGraf => { alter_prev_graf(); }
+        Cmd::SetPrevGraf => { alter_prev_graf(input); }
         Cmd::SetPageDimen => { alter_page_so_far(input, ochr); }
         Cmd::SetPageInt => { alter_integer(input, ochr); }
         Cmd::SetBoxDimen => { alter_box_dimen(input, ochr); }
@@ -2205,7 +2205,7 @@ pub(crate) unsafe fn prefixed_command(
                 }
                 _ => {
                     let p = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
-                        scan_glyph_number(nf)
+                        scan_glyph_number(input, nf)
                     } else { scan_char_num(input) };
                     scan_optional_equals(input);
                     let val = scan_int(input);
@@ -2217,7 +2217,7 @@ pub(crate) unsafe fn prefixed_command(
                 }
             }
         }
-        Cmd::DefFont => { new_font(a); }
+        Cmd::DefFont => { new_font(&mut cur_input, a); }
         Cmd::SetInteraction => { new_interaction(ochr); }
         _ => { confusion("prefix"); }
     }
@@ -4360,7 +4360,7 @@ pub(crate) unsafe fn tt_run_engine(
     synctex_init_command();
     start_input(input_file_name);
     history = TTHistory::SPOTLESS;
-    main_control();
+    main_control(&mut cur_input);
     final_cleanup();
     close_files_and_terminate();
     pdf_files_close();

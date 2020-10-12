@@ -11,8 +11,8 @@ use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
     avail, cur_area, cur_dir, cur_ext, cur_h, cur_h_offset, cur_input, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders,
-    doing_special, file_line_error_style_p, file_offset, font_used, init_pool_ptr, job_name,
-    last_bop, log_opened, max_h, max_print_line, max_push, max_v, name_of_file,
+    doing_special, file_line_error_style_p, file_offset, font_used, init_pool_ptr, input_state_t,
+    job_name, last_bop, log_opened, max_h, max_print_line, max_push, max_v, name_of_file,
     output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht,
     rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr, str_start,
     term_offset, write_file, write_loc, write_open, xtx_ligature_present, LR_problems, LR_ptr,
@@ -857,7 +857,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                             pdf_last_y_pos =
                                 cur_page_height - cur_v - cur_v_offset
                         }
-                        _ => { out_what(&p); }
+                        _ => { out_what(&mut cur_input, &p); }
                     }
                 }
                 TxtNode::Glue(mut p) => {
@@ -1336,7 +1336,7 @@ unsafe fn vlist_out(this_box: &List) {
                     pdf_last_x_pos = cur_h + cur_h_offset;
                     pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
                 }
-                _ => out_what(p),
+                _ => out_what(&mut cur_input, p),
             },
             TxtNode::Glue(p) => {
                 /*656: "Move down or output leaders" */
@@ -1739,7 +1739,7 @@ pub(crate) unsafe fn new_edge(s: LR, w: scaled_t) -> usize {
     p.ptr()
 }
 
-pub(crate) unsafe fn out_what(p: &WhatsIt) {
+pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
     let mut j: i16;
     match p {
         WhatsIt::Open(p) => {
@@ -1795,7 +1795,7 @@ pub(crate) unsafe fn out_what(p: &WhatsIt) {
             if doing_leaders {
                 return;
             }
-            write_out(&p);
+            write_out(input, &p);
             return;
         }
         WhatsIt::Close(p) => {
@@ -2070,22 +2070,22 @@ unsafe fn special_out(p: &Special) {
     doing_special = false;
 }
 
-unsafe fn write_out(p: &WriteFile) {
+unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
     let q = get_avail();
     MEM[q].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
     let mut r = get_avail();
     *LLIST_link(q) = Some(r).tex_int();
     MEM[r].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
-    begin_token_list(&mut cur_input, q, Btl::Inserted);
-    begin_token_list(&mut cur_input, p.tokens() as usize, Btl::WriteText);
+    begin_token_list(input, q, Btl::Inserted);
+    begin_token_list(input, p.tokens() as usize, Btl::WriteText);
     let q = get_avail();
     MEM[q].b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
-    begin_token_list(&mut cur_input, q, Btl::Inserted);
+    begin_token_list(input, q, Btl::Inserted);
 
     let old_mode = cur_list.mode;
     cur_list.mode = (false, ListMode::NoMode);
-    let _q = scan_toks(&mut cur_input, write_loc, false, true);
-    let tok = get_token(&mut cur_input).0;
+    let _q = scan_toks(input, write_loc, false, true);
+    let tok = get_token(input).0;
 
     if tok != CS_TOKEN_FLAG + END_WRITE as i32 {
         /*1412:*/
@@ -2102,7 +2102,7 @@ unsafe fn write_out(p: &WriteFile) {
         error();
 
         loop {
-            let tok = get_token(&mut cur_input).0;
+            let tok = get_token(input).0;
             if tok == CS_TOKEN_FLAG + END_WRITE as i32 {
                 break;
             }
@@ -2110,7 +2110,7 @@ unsafe fn write_out(p: &WriteFile) {
     }
 
     cur_list.mode = old_mode;
-    end_token_list(&mut cur_input);
+    end_token_list(input);
     let old_setting = selector;
     let j = p.id() as i16;
 

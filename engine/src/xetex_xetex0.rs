@@ -2850,15 +2850,15 @@ pub(crate) unsafe fn print_group(group: GroupCode, level: u16, saveptr: usize, e
 }
 /*:1448*/
 /*1449: */
-pub(crate) unsafe fn pseudo_input() -> bool {
+pub(crate) unsafe fn pseudo_input(input: &mut input_state_t) -> bool {
     last = first;
     if let Some(p) = MEM[pseudo_files as usize].b32.s0.opt() {
         MEM[pseudo_files as usize].b32.s0 = MEM[p as usize].b32.s1;
         let sz = MEM[p].b32.s0 as usize;
         if 4 * sz - 3 >= BUF_SIZE - last as usize {
             /*35: */
-            cur_input.loc = first;
-            cur_input.limit = last - 1;
+            input.loc = first;
+            input.limit = last - 1;
             overflow("buffer size", BUF_SIZE);
         }
         last = first;
@@ -2893,7 +2893,7 @@ pub(crate) unsafe fn pseudo_close() {
         free_node(p, MEM[p].b32.s0);
     }
 }
-pub(crate) unsafe fn group_warning(input_stack: &[input_state_t]) {
+pub(crate) unsafe fn group_warning(input: &mut input_state_t, input_stack: &[input_state_t]) {
     let mut base_ptr = input_stack.len() - 1;
     let mut i = IN_OPEN;
     let mut w = false;
@@ -2917,7 +2917,7 @@ pub(crate) unsafe fn group_warning(input_stack: &[input_state_t]) {
         print_cstr(" of a different file");
         print_ln();
         if *INTPAR(IntPar::tracing_nesting) > 1 {
-            INPUT_STACK[INPUT_PTR] = cur_input;
+            INPUT_STACK[INPUT_PTR] = *input;
             show_context(&INPUT_STACK[..INPUT_PTR + 1]);
         }
         if history == TTHistory::SPOTLESS {
@@ -2925,7 +2925,7 @@ pub(crate) unsafe fn group_warning(input_stack: &[input_state_t]) {
         }
     };
 }
-pub(crate) unsafe fn if_warning(input_stack: &[input_state_t]) {
+pub(crate) unsafe fn if_warning(input: &mut input_state_t, input_stack: &[input_state_t]) {
     let mut w: bool = false;
     let mut base_ptr = input_stack.len() - 1;
     let mut i = IN_OPEN;
@@ -2954,7 +2954,7 @@ pub(crate) unsafe fn if_warning(input_stack: &[input_state_t]) {
         print_cstr(" of a different file");
         print_ln();
         if *INTPAR(IntPar::tracing_nesting) > 1 {
-            INPUT_STACK[INPUT_PTR] = cur_input;
+            INPUT_STACK[INPUT_PTR] = *input;
             show_context(&INPUT_STACK[..INPUT_PTR + 1]);
         }
         if history == TTHistory::SPOTLESS {
@@ -2962,7 +2962,7 @@ pub(crate) unsafe fn if_warning(input_stack: &[input_state_t]) {
         }
     };
 }
-pub(crate) unsafe fn file_warning() {
+pub(crate) unsafe fn file_warning(input: &mut input_state_t) {
     let mut level = cur_level;
     let mut group = cur_group;
     let mut saveptr = cur_boundary as usize;
@@ -2998,7 +2998,7 @@ pub(crate) unsafe fn file_warning() {
     }
     print_ln();
     if *INTPAR(IntPar::tracing_nesting) > 1 {
-        INPUT_STACK[INPUT_PTR] = cur_input;
+        INPUT_STACK[INPUT_PTR] = *input;
         show_context(&INPUT_STACK[..INPUT_PTR + 1]);
     }
     if history == TTHistory::SPOTLESS {
@@ -3277,7 +3277,7 @@ pub(crate) unsafe fn save_for_after(mut t: i32) {
         SAVE_PTR += 1;
     };
 }
-pub(crate) unsafe fn unsave() {
+pub(crate) unsafe fn unsave(input: &mut input_state_t) {
     let mut l = 0_u16;
     let mut a = false;
     if cur_level > LEVEL_ONE {
@@ -3294,9 +3294,9 @@ pub(crate) unsafe fn unsave() {
                 if a {
                     let p = get_avail() as i32;
                     MEM[p as usize].b32.s0 = tok;
-                    *LLIST_link(p as usize) = cur_input.loc;
-                    cur_input.loc = p;
-                    cur_input.start = p;
+                    *LLIST_link(p as usize) = input.loc;
+                    input.loc = p;
+                    input.start = p;
                     if tok < RIGHT_BRACE_LIMIT {
                         if tok < LEFT_BRACE_LIMIT {
                             align_state -= 1
@@ -3305,7 +3305,7 @@ pub(crate) unsafe fn unsave() {
                         }
                     }
                 } else {
-                    back_input(&mut cur_input, tok);
+                    back_input(input, tok);
                     a = true
                 }
             } else if SAVE_STACK[SAVE_PTR].cmd == SaveCmd::RestoreSA as u16 {
@@ -3333,8 +3333,8 @@ pub(crate) unsafe fn unsave() {
             }
         }
         if GRP_STACK[IN_OPEN] == cur_boundary {
-            INPUT_STACK[INPUT_PTR] = cur_input;
-            group_warning(&INPUT_STACK[..INPUT_PTR + 1]);
+            INPUT_STACK[INPUT_PTR] = *input;
+            group_warning(input, &INPUT_STACK[..INPUT_PTR + 1]);
         }
         cur_group = GroupCode::from(SAVE_STACK[SAVE_PTR].lvl);
         cur_boundary = SAVE_STACK[SAVE_PTR].val;
@@ -3722,7 +3722,7 @@ pub(crate) unsafe fn ins_error(input: &mut input_state_t, tok: i32) {
     cur_input.index = Btl::Inserted;
     error();
 }
-pub(crate) unsafe fn begin_file_reading() {
+pub(crate) unsafe fn begin_file_reading(input: &mut input_state_t) {
     if IN_OPEN == MAX_IN_OPEN {
         overflow("text input levels", MAX_IN_OPEN);
     }
@@ -3736,19 +3736,19 @@ pub(crate) unsafe fn begin_file_reading() {
             overflow("input stack size", STACK_SIZE);
         }
     }
-    INPUT_STACK[INPUT_PTR] = cur_input; // push
+    INPUT_STACK[INPUT_PTR] = *input; // push
     INPUT_PTR += 1;
-    cur_input.index = Btl::from(IN_OPEN as u16);
-    SOURCE_FILENAME_STACK[cur_input.index as usize] = 0;
-    FULL_SOURCE_FILENAME_STACK[cur_input.index as usize] = 0;
-    EOF_SEEN[cur_input.index as usize] = false;
-    GRP_STACK[cur_input.index as usize] = cur_boundary;
-    IF_STACK[cur_input.index as usize] = cond_ptr;
-    LINE_STACK[cur_input.index as usize] = line;
-    cur_input.start = first;
-    cur_input.state = InputState::MidLine;
-    cur_input.name = 0;
-    cur_input.synctex_tag = 0;
+    input.index = Btl::from(IN_OPEN as u16);
+    SOURCE_FILENAME_STACK[input.index as usize] = 0;
+    FULL_SOURCE_FILENAME_STACK[input.index as usize] = 0;
+    EOF_SEEN[input.index as usize] = false;
+    GRP_STACK[input.index as usize] = cur_boundary;
+    IF_STACK[input.index as usize] = cond_ptr;
+    LINE_STACK[input.index as usize] = line;
+    input.start = first;
+    input.state = InputState::MidLine;
+    input.name = 0;
+    input.synctex_tag = 0;
 }
 pub(crate) unsafe fn end_file_reading() {
     first = cur_input.start;
@@ -4090,7 +4090,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                         first = input.start;
                         if !force_eof {
                             if input.name <= 19 {
-                                if pseudo_input() {
+                                if pseudo_input(input) {
                                     input.limit = last
                                 } else if let Some(l) = LOCAL(Local::every_eof)
                                     .opt()
@@ -4123,7 +4123,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 if GRP_STACK[IN_OPEN] != cur_boundary
                                     || IF_STACK[IN_OPEN] != cond_ptr
                                 {
-                                    file_warning();
+                                    file_warning(input);
                                 }
                             }
                             if input.name >= 19 {
@@ -4871,7 +4871,7 @@ pub(crate) unsafe fn insert_relax(input: &mut input_state_t, cs: i32) {
     back_input(input, tok);
     let tok = CS_TOKEN_FLAG + FROZEN_RELAX as i32;
     back_input(input, tok);
-    cur_input.index = Btl::Inserted;
+    input.index = Btl::Inserted;
 }
 pub(crate) unsafe fn new_index(i: u16, q: Option<usize>) -> usize {
     let mut p = Index(get_node(INDEX_NODE_SIZE));
@@ -5240,7 +5240,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         }
                         if IF_STACK[IN_OPEN] == cond_ptr {
                             INPUT_STACK[INPUT_PTR] = cur_input;
-                            if_warning(&INPUT_STACK[..INPUT_PTR + 1]);
+                            if_warning(input, &INPUT_STACK[..INPUT_PTR + 1]);
                         }
                         let p = cond_ptr.unwrap();
                         if_line = MEM[p + 1].b32.s1;
@@ -5449,17 +5449,17 @@ pub(crate) unsafe fn mu_error() {
     help!("I\'m going to assume that 1mu=1pt when they\'re mixed.");
     error();
 }
-pub(crate) unsafe fn scan_glyph_number(f: &NativeFont) -> i32 {
-    if scan_keyword(&mut cur_input, b"/") {
+pub(crate) unsafe fn scan_glyph_number(input: &mut input_state_t, f: &NativeFont) -> i32 {
+    if scan_keyword(input, b"/") {
         scan_and_pack_name();
         let val = map_glyph_to_index(f);
         val
-    } else if scan_keyword(&mut cur_input, b"u") {
-        let val = scan_char_num(&mut cur_input);
+    } else if scan_keyword(input, b"u") {
+        let val = scan_char_num(input);
         let val = map_char_to_glyph(f, val);
         val
     } else {
-        scan_int(&mut cur_input)
+        scan_int(input)
     }
 }
 pub(crate) unsafe fn scan_char_class(input: &mut input_state_t) -> i32 {
@@ -6250,7 +6250,7 @@ pub(crate) unsafe fn scan_something_internal(
                 _ => {
                     let n = val;
                     let k = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[n as usize] {
-                        scan_glyph_number(nf)
+                        scan_glyph_number(input, nf)
                     } else {
                         scan_char_num(input)
                     };
@@ -7908,7 +7908,7 @@ pub(crate) unsafe fn scan_general_text(input: &mut input_state_t, cs: i32) -> i3
     def_ref = get_avail();
     MEM[def_ref].b32.s0 = None.tex_int();
     let mut p = def_ref;
-    scan_left_brace(&mut cur_input);
+    scan_left_brace(input);
     unbalance = 1;
     loop {
         let (tok, cmd, ..) = get_token(input);
@@ -8008,7 +8008,7 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
     pseudo_files = p as i32;
     str_ptr -= 1;
     pool_ptr = str_start[(str_ptr - 65536) as usize];
-    begin_file_reading();
+    begin_file_reading(input);
     line = 0;
     input.limit = input.start;
     input.loc = input.limit + 1;
@@ -8713,7 +8713,7 @@ pub(crate) unsafe fn read_toks(
     align_state = 1000000;
     loop {
         /*502:*/
-        begin_file_reading();
+        begin_file_reading(input);
         input.name = m as i32 + 1;
         assert!(
             read_open[m as usize] != OpenMode::Closed,
@@ -9160,7 +9160,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
                     /*515:*/
                     if IF_STACK[IN_OPEN] == cond_ptr {
                         INPUT_STACK[INPUT_PTR] = *input;
-                        if_warning(&INPUT_STACK[..INPUT_PTR + 1]);
+                        if_warning(input, &INPUT_STACK[..INPUT_PTR + 1]);
                     }
                     let p = cond_ptr.unwrap();
                     if_line = MEM[p + 1].b32.s1;
@@ -9225,7 +9225,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             /*515:*/
             if IF_STACK[IN_OPEN] == cond_ptr {
                 INPUT_STACK[INPUT_PTR] = *input;
-                if_warning(&INPUT_STACK[..INPUT_PTR + 1]);
+                if_warning(input, &INPUT_STACK[..INPUT_PTR + 1]);
             }
             let p = cond_ptr.unwrap();
             if_line = MEM[p + 1].b32.s1;
@@ -9241,7 +9241,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             /*515:*/
             if IF_STACK[IN_OPEN] == cond_ptr {
                 INPUT_STACK[INPUT_PTR] = *input;
-                if_warning(&INPUT_STACK[..INPUT_PTR + 1]);
+                if_warning(input, &INPUT_STACK[..INPUT_PTR + 1]);
             }
             let p = cond_ptr.unwrap();
             if_line = MEM[p + 1].b32.s1;
@@ -9565,7 +9565,7 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     pack_file_name(cur_name, cur_area, cur_ext);
     /* Open up the new file to be read. The name of the file to be read comes
      * from `name_of_file`. */
-    begin_file_reading();
+    begin_file_reading(&mut cur_input);
     let ufile = u_open_in(
         format,
         b"rb",
@@ -10926,7 +10926,7 @@ pub(crate) unsafe fn init_col(input: &mut input_state_t, tok: i32, cmd: Cmd) {
         begin_token_list(input, MEM[ca + 3].b32.s1 as usize, Btl::UTemplate);
     };
 }
-pub(crate) unsafe fn fin_col() -> bool {
+pub(crate) unsafe fn fin_col(input: &mut input_state_t) -> bool {
     let ca = cur_align.confuse("endv");
     let q = llist_link(ca).confuse("endv");
     if (align_state as i64) < 500000 {
@@ -10986,7 +10986,7 @@ pub(crate) unsafe fn fin_col() -> bool {
         }
     }
     if MEM[ca + 5].b32.s0 != SPAN_CODE {
-        unsave();
+        unsave(input);
         new_save_level(GroupCode::Align);
         let u;
         let w;
@@ -11072,13 +11072,13 @@ pub(crate) unsafe fn fin_col() -> bool {
     }
     align_state = 1000000;
     let (tok, cmd) = loop {
-        let (tok, cmd, _) = get_x_or_protected(&mut cur_input);
+        let (tok, cmd, _) = get_x_or_protected(input);
         if cmd != Cmd::Spacer {
             break (tok, cmd);
         }
     };
     cur_align = p;
-    init_col(&mut cur_input, tok, cmd);
+    init_col(input, tok, cmd);
     false
 }
 pub(crate) unsafe fn fin_row() {
@@ -11115,7 +11115,7 @@ pub(crate) unsafe fn fin_row() {
     }
     align_peek();
 }
-pub(crate) unsafe fn fin_align() {
+pub(crate) unsafe fn fin_align(input: &mut input_state_t) {
     let mut t: scaled_t = 0;
     let mut w: scaled_t = 0;
     let mut n: i32 = 0;
@@ -11126,11 +11126,11 @@ pub(crate) unsafe fn fin_align() {
     if cur_group != GroupCode::Align {
         confusion("align1");
     }
-    unsave();
+    unsave(input);
     if cur_group != GroupCode::Align {
         confusion("align0");
     }
-    unsave();
+    unsave(input);
     let o = if NEST[(NEST_PTR - 1) as usize].mode == (false, ListMode::MMode) {
         *DIMENPAR(DimenPar::display_indent)
     } else {
@@ -11418,7 +11418,7 @@ pub(crate) unsafe fn fin_align() {
     pop_nest();
     if cur_list.mode == (false, ListMode::MMode) {
         /*1241: */
-        let (tok, cmd, _) = do_assignments(&mut cur_input); /*1232: */
+        let (tok, cmd, _) = do_assignments(input); /*1232: */
         if cmd != Cmd::MathShift {
             /*1242: */
             if file_line_error_style_p != 0 {
@@ -11431,9 +11431,9 @@ pub(crate) unsafe fn fin_align() {
                 "Displays can use special alignments (like \\eqalignno)",
                 "only if nothing but the alignment itself is between $$\'s."
             );
-            back_error(&mut cur_input, tok);
+            back_error(input, tok);
         } else {
-            let (tok, cmd, ..) = get_x_token(&mut cur_input);
+            let (tok, cmd, ..) = get_x_token(input);
             if cmd != Cmd::MathShift {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -11445,7 +11445,7 @@ pub(crate) unsafe fn fin_align() {
                     "The `$\' that I just saw supposedly matches a previous `$$\'.",
                     "So I shall assume that you typed `$$\' both times."
                 );
-                back_error(&mut cur_input, tok);
+                back_error(input, tok);
             }
         }
         flush_node_list(cur_list.eTeX_aux);
@@ -11475,7 +11475,7 @@ pub(crate) unsafe fn fin_align() {
             cur_list.tail = q;
         }
         if cur_list.mode == (false, ListMode::VMode) {
-            build_page();
+            build_page(input);
         }
     };
 }
@@ -11496,7 +11496,7 @@ pub(crate) unsafe fn align_peek() {
             }
             break;
         } else if cmd == Cmd::RightBrace {
-            fin_align();
+            fin_align(&mut cur_input);
             break;
         } else {
             if cmd == Cmd::CarRet && chr == CR_CR_CODE {
@@ -12152,7 +12152,7 @@ pub(crate) unsafe fn its_all_over(input: &mut input_state_t, tok: i32, cmd: Cmd,
         let p = new_penalty(NULL_FLAG);
         *LLIST_link(cur_list.tail) = Some(p).tex_int();
         cur_list.tail = p;
-        build_page();
+        build_page(input);
     }
     false
 }
@@ -12311,7 +12311,7 @@ pub(crate) unsafe fn box_end(input: &mut input_state_t, mut box_context: i32) {
                     adjust_tail = None;
                 }
                 if cur_list.mode.0 == false {
-                    build_page();
+                    build_page(input);
                 }
             } else {
                 if cur_list.mode.1 == ListMode::HMode {
@@ -12588,10 +12588,10 @@ pub(crate) unsafe fn scan_box(input: &mut input_state_t, mut box_context: i32) {
         back_error(input, tok);
     };
 }
-pub(crate) unsafe fn package(mut c: i16) {
+pub(crate) unsafe fn package(input: &mut input_state_t, c: i16) {
     let d = *DIMENPAR(DimenPar::box_max_depth);
     let u = *INTPAR(IntPar::xetex_upwards);
-    unsave();
+    unsave(input);
     SAVE_PTR -= 3;
     let v = *INTPAR(IntPar::xetex_upwards);
     *INTPAR(IntPar::xetex_upwards) = u;
@@ -12634,7 +12634,7 @@ pub(crate) unsafe fn package(mut c: i16) {
     }
     *INTPAR(IntPar::xetex_upwards) = v;
     pop_nest();
-    box_end(&mut cur_input, SAVE_STACK[SAVE_PTR + 0].val);
+    box_end(input, SAVE_STACK[SAVE_PTR + 0].val);
 }
 pub(crate) unsafe fn norm_min(mut h: i32) -> i16 {
     (if h <= 0 {
@@ -12679,7 +12679,7 @@ pub(crate) unsafe fn new_graf(mut indented: bool) {
         begin_token_list(&mut cur_input, ep, Btl::EveryParText);
     }
     if NEST_PTR == 1 {
-        build_page();
+        build_page(&mut cur_input);
     };
 }
 pub(crate) unsafe fn indent_in_hmode(chr: i32) {
@@ -12795,7 +12795,7 @@ pub(crate) unsafe fn append_penalty() {
     *LLIST_link(cur_list.tail) = Some(p).tex_int();
     cur_list.tail = p;
     if cur_list.mode == (false, ListMode::VMode) {
-        build_page();
+        build_page(&mut cur_input);
     };
 }
 pub(crate) unsafe fn delete_last(cmd: Cmd, chr: i32) {
@@ -13009,8 +13009,8 @@ pub(crate) unsafe fn append_discretionary(input: &mut input_state_t, chr: i32) {
         cur_list.aux.b32.s0 = 1000;
     };
 }
-pub(crate) unsafe fn build_discretionary() {
-    unsave();
+pub(crate) unsafe fn build_discretionary(input: &mut input_state_t) {
+    unsave(input);
     let mut q = cur_list.head;
     let mut popt = llist_link(q);
     let mut n = 0;
@@ -13096,13 +13096,13 @@ pub(crate) unsafe fn build_discretionary() {
     }
     SAVE_STACK[SAVE_PTR - 1].val += 1;
     new_save_level(GroupCode::Disc);
-    scan_left_brace(&mut cur_input);
+    scan_left_brace(input);
     push_nest();
     cur_list.mode = (true, ListMode::HMode);
     cur_list.aux.b32.s0 = 1000;
 }
-pub(crate) unsafe fn make_accent() {
-    let val = scan_char_num(&mut cur_input);
+pub(crate) unsafe fn make_accent(input: &mut input_state_t) {
+    let val = scan_char_num(input);
     let mut f = EQTB[CUR_FONT_LOC].val as usize;
     if let Some(mut p) = new_character(f, val as UTF16_code) {
         let mut lsb: scaled_t = 0;
@@ -13120,18 +13120,18 @@ pub(crate) unsafe fn make_accent() {
         } else {
             *FONT_CHARACTER_WIDTH(f, effective_char(true, f, Char(p).character()) as usize)
         };
-        let (tok, cmd, chr) = do_assignments(&mut cur_input);
+        let (tok, cmd, chr) = do_assignments(input);
         let mut q = None;
         f = EQTB[CUR_FONT_LOC].val as usize;
         let val = if cmd == Cmd::Letter || cmd == Cmd::OtherChar || cmd == Cmd::CharGiven {
             q = new_character(f, chr as UTF16_code);
             chr
         } else if cmd == Cmd::CharNum {
-            let val = scan_char_num(&mut cur_input);
+            let val = scan_char_num(input);
             q = new_character(f, val as UTF16_code);
             val
         } else {
-            back_input(&mut cur_input, tok);
+            back_input(input, tok);
             val
         };
         if let Some(q) = q {
@@ -13282,7 +13282,7 @@ pub(crate) unsafe fn do_endv(
     }
     if cur_group == GroupCode::Align {
         end_graf();
-        if fin_col() {
+        if fin_col(input) {
             fin_row();
         }
     } else {
@@ -13785,14 +13785,14 @@ pub(crate) unsafe fn alter_aux(input: &mut input_state_t, cmd: Cmd, chr: i32) {
         }
     };
 }
-pub(crate) unsafe fn alter_prev_graf() {
+pub(crate) unsafe fn alter_prev_graf(input: &mut input_state_t) {
     NEST[NEST_PTR] = cur_list;
     let mut p = NEST_PTR;
     while NEST[p as usize].mode.1 != ListMode::VMode {
         p -= 1;
     }
-    scan_optional_equals(&mut cur_input);
-    let val = scan_int(&mut cur_input);
+    scan_optional_equals(input);
+    let val = scan_int(input);
     if val < 0 {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -13856,12 +13856,12 @@ pub(crate) unsafe fn alter_box_dimen(input: &mut input_state_t, chr: i32) {
         MEM[b + c].b32.s1 = val;
     };
 }
-pub(crate) unsafe fn new_font(mut a: i16) {
+pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
     let mut s: scaled_t = 0;
     if job_name == 0 {
         open_log_file();
     }
-    let u = get_r_token(&mut cur_input).3 as usize;
+    let u = get_r_token(input).3 as usize;
     let mut t = if u >= HASH_BASE {
         (*hash.offset(u as isize)).s1
     } else if u >= SINGLE_BASE {
@@ -13886,12 +13886,12 @@ pub(crate) unsafe fn new_font(mut a: i16) {
     } else {
         eq_define(u, Cmd::SetFont, Some(FONT_BASE));
     }
-    scan_optional_equals(&mut cur_input);
-    scan_file_name(&mut cur_input);
+    scan_optional_equals(input);
+    scan_file_name(input);
     name_in_progress = true;
-    if scan_keyword(&mut cur_input, b"at") {
+    if scan_keyword(input, b"at") {
         /*1294: */
-        s = scan_dimen(&mut cur_input, false, false, None); /*:1293 */
+        s = scan_dimen(input, false, false, None); /*:1293 */
         /*:79 */
         if s <= 0 || s >= 0x8000000 {
             if file_line_error_style_p != 0 {
@@ -13909,8 +13909,8 @@ pub(crate) unsafe fn new_font(mut a: i16) {
             error();
             s = (10_i64 * 65536) as scaled_t
         }
-    } else if scan_keyword(&mut cur_input, b"scaled") {
-        let val = scan_int(&mut cur_input);
+    } else if scan_keyword(input, b"scaled") {
+        let val = scan_int(input);
         s = -val;
         if val <= 0 || val > 32768 {
             if file_line_error_style_p != 0 {
@@ -14266,7 +14266,7 @@ pub(crate) unsafe fn do_extension(
             if cmd == Cmd::Extension && chr <= WhatsItNST::Close as i32 {
                 p = cur_list.tail;
                 do_extension(input, tok, cmd, chr, cs);
-                out_what(&WhatsIt::from(cur_list.tail));
+                out_what(input, &WhatsIt::from(cur_list.tail));
                 flush_node_list(Some(cur_list.tail));
                 cur_list.tail = p;
                 *LLIST_link(p) = None.tex_int();
@@ -14298,14 +14298,14 @@ pub(crate) unsafe fn do_extension(
             if cur_list.mode.1 == ListMode::MMode {
                 report_illegal_case(cmd, chr);
             } else {
-                load_picture(false);
+                load_picture(input, false);
             }
         }
         PDF_FILE_CODE => {
             if cur_list.mode.1 == ListMode::MMode {
                 report_illegal_case(cmd, chr);
             } else {
-                load_picture(true);
+                load_picture(input, true);
             }
         }
         GLYPH_CODE => {
@@ -14439,7 +14439,7 @@ pub(crate) unsafe fn append_src_special() {
 }
 pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
     match cur_group {
-        GroupCode::Simple => unsave(),
+        GroupCode::Simple => unsave(input),
         GroupCode::BottomLevel => {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -14454,19 +14454,19 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
             error();
         }
         GroupCode::SemiSimple | GroupCode::MathShift | GroupCode::MathLeft => extra_right_brace(),
-        GroupCode::HBox => package(0),
+        GroupCode::HBox => package(input, 0),
         GroupCode::AdjustedHBox => {
             adjust_tail = Some(ADJUST_HEAD);
             pre_adjust_tail = Some(PRE_ADJUST_HEAD);
-            package(0);
+            package(input, 0);
         }
         GroupCode::VBox => {
             end_graf();
-            package(0);
+            package(input, 0);
         }
         GroupCode::VTop => {
             end_graf();
-            package(BoxCode::VTop as i16);
+            package(input, BoxCode::VTop as i16);
         }
         GroupCode::Insert => {
             end_graf();
@@ -14474,7 +14474,7 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
             GlueSpec(q).rc_inc();
             let d = *DIMENPAR(DimenPar::split_max_depth);
             let f = *INTPAR(IntPar::floating_penalty);
-            unsave();
+            unsave(input);
             SAVE_PTR -= 2;
             let p = vpackage(
                 MEM[cur_list.head].b32.s1.opt(),
@@ -14503,7 +14503,7 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
             }
             free_node(p.ptr(), BOX_NODE_SIZE);
             if NEST_PTR == 0 {
-                build_page();
+                build_page(input);
             }
         }
         GroupCode::Output => {
@@ -14532,7 +14532,7 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
 
             end_token_list(input);
             end_graf();
-            unsave();
+            unsave(input);
             output_active = false;
             insert_penalties = 0;
 
@@ -14568,9 +14568,9 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
             flush_node_list(disc_ptr[LAST_BOX_CODE as usize].opt());
             disc_ptr[LAST_BOX_CODE as usize] = None.tex_int();
             pop_nest();
-            build_page();
+            build_page(input);
         }
-        GroupCode::Disc => build_discretionary(),
+        GroupCode::Disc => build_discretionary(input),
         GroupCode::Align => {
             back_input(input, tok);
             let tok = CS_TOKEN_FLAG + FROZEN_CR as i32;
@@ -14587,12 +14587,12 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
         }
         GroupCode::NoAlign => {
             end_graf();
-            unsave();
+            unsave(input);
             align_peek();
         }
         GroupCode::VCenter => {
             end_graf();
-            unsave();
+            unsave(input);
             SAVE_PTR -= 2;
             let p = vpackage(
                 MEM[cur_list.head].b32.s1.opt(),
@@ -14608,9 +14608,9 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
             MEM[cur_list.tail + 1].b32.s1 = MathCell::SubBox as _;
             MEM[cur_list.tail + 1].b32.s0 = Some(p.ptr()).tex_int()
         }
-        GroupCode::MathChoice => build_choices(),
+        GroupCode::MathChoice => build_choices(input),
         GroupCode::Math => {
-            unsave();
+            unsave(input);
             SAVE_PTR -= 1;
             MEM[SAVE_STACK[SAVE_PTR + 0].val as usize].b32.s1 = MathCell::SubMList as _;
             let mut p = fin_mlist(None);
@@ -14647,15 +14647,15 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
         } //_ => confusion("rightbrace"),
     };
 }
-pub(crate) unsafe fn main_control() {
+pub(crate) unsafe fn main_control(input: &mut input_state_t) {
     if let Some(ej) = LOCAL(Local::every_job).opt() {
-        begin_token_list(&mut cur_input, ej, Btl::EveryJobText);
+        begin_token_list(input, ej, Btl::EveryJobText);
     }
     let mut big_switch = true;
     'big_switch: loop {
         /* big_switch */
         if big_switch {
-            let next = get_x_token(&mut cur_input);
+            let next = get_x_token(input);
             cur_tok = next.0;
             cur_cmd = next.1;
             cur_chr = next.2;
@@ -14674,11 +14674,11 @@ pub(crate) unsafe fn main_control() {
             }
             (HMode, Cmd::CharNum) => {
                 // 120
-                cur_chr = scan_usv_num(&mut cur_input);
+                cur_chr = scan_usv_num(input);
             }
             (HMode, Cmd::NoBoundary) => {
                 // 169
-                let next = get_x_token(&mut cur_input);
+                let next = get_x_token(input);
                 cur_tok = next.0;
                 cur_cmd = next.1;
                 cur_chr = next.2;
@@ -14713,12 +14713,8 @@ pub(crate) unsafe fn main_control() {
                             } else {
                                 CS_TOKEN_FLAG + cur_cs
                             };
-                            back_input(&mut cur_input, tok);
-                            begin_token_list(
-                                &mut cur_input,
-                                MEM[c + 1].b32.s1 as usize,
-                                Btl::InterCharText,
-                            );
+                            back_input(input, tok);
+                            begin_token_list(input, MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                             continue 'big_switch;
                         }
                     }
@@ -14728,20 +14724,20 @@ pub(crate) unsafe fn main_control() {
                     (HMode, Cmd::Spacer) => {
                         // 114
                         if cur_list.aux.b32.s0 == 1000 {
-                            append_normal_space(&mut cur_input, cur_cmd, cur_chr, cur_cs);
+                            append_normal_space(input, cur_cmd, cur_chr, cur_cs);
                         } else {
                             app_space();
                         }
                     }
                     (HMode, Cmd::ExSpace) | (MMode, Cmd::ExSpace) => {
                         // 168 | 271
-                        append_normal_space(&mut cur_input, cur_cmd, cur_chr, cur_cs);
+                        append_normal_space(input, cur_cmd, cur_chr, cur_cs);
                     }
                     (_, Cmd::IgnoreSpaces) => {
                         // 40 | 143 | 246
                         if cur_chr == 0 {
                             loop {
-                                let next = get_x_token(&mut cur_input);
+                                let next = get_x_token(input);
                                 cur_tok = next.0;
                                 cur_cmd = next.1;
                                 cur_chr = next.2;
@@ -14754,7 +14750,7 @@ pub(crate) unsafe fn main_control() {
                         } else {
                             let t = scanner_status;
                             scanner_status = ScannerStatus::Normal;
-                            let (_, _, cs) = get_next(&mut cur_input);
+                            let (_, _, cs) = get_next(input);
                             scanner_status = t;
                             cur_cs = if cs < HASH_BASE as i32 {
                                 prim_lookup(cs - SINGLE_BASE as i32) as i32
@@ -14770,7 +14766,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (VMode, Cmd::Comment) => {
                         // 15
-                        if its_all_over(&mut cur_input, cur_tok, cur_cmd, cur_chr) {
+                        if its_all_over(input, cur_tok, cur_cmd, cur_chr) {
                             return;
                         }
                     }
@@ -14833,11 +14829,11 @@ pub(crate) unsafe fn main_control() {
                         //| 119 | 50 | 153 | 53 | 156 | 67 | 170 | 54 | 157 | 55 | 158 | 57 | 160
                         //| 56 | 159 | 31 | 134 | 52 | 155 | 29 | 132 | 47 | 150 | 216 | 220
                         //| 221 | 234 | 231 | 240 | 243
-                        insert_dollar_sign(&mut cur_input, cur_tok);
+                        insert_dollar_sign(input, cur_tok);
                     }
                     (VMode, Cmd::HRule) | (HMode, Cmd::VRule) | (MMode, Cmd::VRule) => {
                         // 37 | 139 | 242
-                        let srs = scan_rule_spec(&mut cur_input, cur_cmd);
+                        let srs = scan_rule_spec(input, cur_cmd);
                         *LLIST_link(cur_list.tail) = Some(srs).tex_int();
                         cur_list.tail = srs;
                         if cur_list.mode.1 == ListMode::VMode {
@@ -14851,11 +14847,11 @@ pub(crate) unsafe fn main_control() {
                     | (MMode, Cmd::HSkip)
                     | (MMode, Cmd::MSkip) => {
                         // 28 | 130 | 233 | 235
-                        append_glue(&mut cur_input, cur_chr);
+                        append_glue(input, cur_chr);
                     }
                     (_, Cmd::Kern) | (MMode, Cmd::MKern) => {
                         // 30 | 133 | 236 | 237
-                        append_kern(&mut cur_input, cur_chr);
+                        append_kern(input, cur_chr);
                     }
                     (VMode, Cmd::LeftBrace) | (HMode, Cmd::LeftBrace) => {
                         // 2 | 105
@@ -14868,32 +14864,32 @@ pub(crate) unsafe fn main_control() {
                     (_, Cmd::EndGroup) => {
                         // 63 | 166 | 269
                         if cur_group == GroupCode::SemiSimple {
-                            unsave();
+                            unsave(input);
                         } else {
-                            off_save(&mut cur_input, cur_tok, cur_cmd, cur_chr);
+                            off_save(input, cur_tok, cur_cmd, cur_chr);
                         }
                     }
                     (_, Cmd::RightBrace) => {
                         // 3 | 106 | 209
-                        handle_right_brace(&mut cur_input, cur_tok);
+                        handle_right_brace(input, cur_tok);
                     }
                     (VMode, Cmd::HMove) | (HMode, Cmd::VMove) | (MMode, Cmd::VMove) => {
                         // 22 | 126 | 229
                         let t = cur_chr;
-                        let val = scan_dimen(&mut cur_input, false, false, None);
+                        let val = scan_dimen(input, false, false, None);
                         if t == 0 {
-                            scan_box(&mut cur_input, val);
+                            scan_box(input, val);
                         } else {
-                            scan_box(&mut cur_input, -val);
+                            scan_box(input, -val);
                         }
                     }
                     (_, Cmd::LeaderShip) => {
                         // 32 | 135 | 238
-                        scan_box(&mut cur_input, LEADER_FLAG - (A_LEADERS as i32) + cur_chr);
+                        scan_box(input, LEADER_FLAG - (A_LEADERS as i32) + cur_chr);
                     }
                     (_, Cmd::MakeBox) => {
                         // 21 | 124 | 227
-                        begin_box(&mut cur_input, cur_cmd, cur_chr, 0);
+                        begin_box(input, cur_cmd, cur_chr, 0);
                     }
                     (VMode, Cmd::StartPar) => {
                         // 44
@@ -14913,7 +14909,7 @@ pub(crate) unsafe fn main_control() {
                     | (VMode, Cmd::ExSpace)
                     | (VMode, Cmd::NoBoundary) => {
                         // 12 | 13 | 17 | 69 | 4 | 24 | 36 | 46 | 48 | 27 | 34 | 65 | 66
-                        back_input(&mut cur_input, cur_tok);
+                        back_input(input, cur_tok);
                         new_graf(true);
                     }
                     (HMode, Cmd::StartPar) | (MMode, Cmd::StartPar) => {
@@ -14924,17 +14920,17 @@ pub(crate) unsafe fn main_control() {
                         // 14
                         normal_paragraph();
                         if cur_list.mode.0 == false {
-                            build_page();
+                            build_page(input);
                         }
                     }
                     (HMode, Cmd::ActiveChar) => {
                         // 117
                         if align_state < 0 {
-                            off_save(&mut cur_input, cur_tok, cur_cmd, cur_chr);
+                            off_save(input, cur_tok, cur_cmd, cur_chr);
                         }
                         end_graf();
                         if cur_list.mode == (false, ListMode::VMode) {
-                            build_page();
+                            build_page(input);
                         }
                     }
                     (HMode, Cmd::Comment)
@@ -14943,15 +14939,15 @@ pub(crate) unsafe fn main_control() {
                     | (HMode, Cmd::UnVBox)
                     | (HMode, Cmd::HAlign) => {
                         // 118 | 131 | 140 | 128 | 136
-                        head_for_vmode(&mut cur_input, cur_tok, cur_cmd, cur_chr);
+                        head_for_vmode(input, cur_tok, cur_cmd, cur_chr);
                     }
                     (_, Cmd::Insert) | (HMode, Cmd::VAdjust) | (MMode, Cmd::VAdjust) => {
                         // 38 | 141 | 244 | 142 | 245
-                        begin_insert_or_adjust(&mut cur_input, cur_cmd);
+                        begin_insert_or_adjust(input, cur_cmd);
                     }
                     (_, Cmd::Mark) => {
                         // 19 | 122 | 225
-                        make_mark(&mut cur_input, cur_chr, cur_cs);
+                        make_mark(input, cur_chr, cur_cs);
                     }
                     (_, Cmd::BreakPenalty) => {
                         // 43 | 146 | 249
@@ -14963,7 +14959,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (VMode, Cmd::UnVBox) | (HMode, Cmd::UnHBox) | (MMode, Cmd::UnHBox) => {
                         // 25 | 127 | 230
-                        unpackage(&mut cur_input, cur_chr);
+                        unpackage(input, cur_chr);
                     }
                     (HMode, Cmd::ItalCorr) => {
                         // 148
@@ -14977,15 +14973,15 @@ pub(crate) unsafe fn main_control() {
                     }
                     (HMode, Cmd::Discretionary) | (MMode, Cmd::Discretionary) => {
                         // 151 | 254
-                        append_discretionary(&mut cur_input, cur_chr);
+                        append_discretionary(input, cur_chr);
                     }
                     (HMode, Cmd::Accent) => {
                         // 149
-                        make_accent();
+                        make_accent(input);
                     }
                     (_, Cmd::CarRet) | (_, Cmd::TabMark) => {
                         // 6 | 109 | 212 | 5 | 108 | 211
-                        align_error(&mut cur_input, cur_tok, cur_cmd, cur_chr);
+                        align_error(input, cur_tok, cur_cmd, cur_chr);
                     }
                     (_, Cmd::NoAlign) => {
                         // 35 | 138 | 241
@@ -14997,7 +14993,7 @@ pub(crate) unsafe fn main_control() {
                     }
                     (VMode, Cmd::HAlign) => {
                         // 33
-                        init_align(&mut cur_input, cur_cs);
+                        init_align(input, cur_cs);
                     }
                     (HMode, Cmd::VAlign) => {
                         // 137
@@ -15008,24 +15004,24 @@ pub(crate) unsafe fn main_control() {
                                 cur_list.tail = m;
                             }
                         } else {
-                            init_align(&mut cur_input, cur_cs);
+                            init_align(input, cur_cs);
                         }
                     }
                     (MMode, Cmd::HAlign) => {
                         // 239
                         if privileged(cur_cmd, cur_chr) {
                             if cur_group == GroupCode::MathShift {
-                                init_align(&mut cur_input, cur_cs);
+                                init_align(input, cur_cs);
                             } else {
-                                off_save(&mut cur_input, cur_tok, cur_cmd, cur_chr);
+                                off_save(input, cur_tok, cur_cmd, cur_chr);
                             }
                         }
                     }
                     (VMode, Cmd::EndV) | (HMode, Cmd::EndV) => {
                         // 10 | 113
-                        INPUT_STACK[INPUT_PTR] = cur_input;
+                        INPUT_STACK[INPUT_PTR] = *input;
                         do_endv(
-                            &mut cur_input,
+                            input,
                             cur_tok,
                             cur_cmd,
                             cur_chr,
@@ -15038,15 +15034,15 @@ pub(crate) unsafe fn main_control() {
                     }
                     (HMode, Cmd::MathShift) => {
                         // 107
-                        init_math(&mut cur_input);
+                        init_math(input);
                     }
                     (MMode, Cmd::EqNo) => {
                         // 255
                         if privileged(cur_cmd, cur_chr) {
                             if cur_group == GroupCode::MathShift {
-                                start_eq_no(&mut cur_input, cur_chr);
+                                start_eq_no(input, cur_chr);
                             } else {
-                                off_save(&mut cur_input, cur_tok, cur_cmd, cur_chr);
+                                off_save(input, cur_tok, cur_cmd, cur_chr);
                             }
                         }
                     }
@@ -15055,36 +15051,36 @@ pub(crate) unsafe fn main_control() {
                         let n = new_noad();
                         *LLIST_link(cur_list.tail) = Some(n).tex_int();
                         cur_list.tail = n;
-                        back_input(&mut cur_input, cur_tok);
+                        back_input(input, cur_tok);
                         let m = BaseMath(cur_list.tail);
-                        scan_math(&mut cur_input, m.first_mut(), cur_list.tail + 1);
+                        scan_math(input, m.first_mut(), cur_list.tail + 1);
                     }
                     (MMode, Cmd::Letter) | (MMode, Cmd::OtherChar) | (MMode, Cmd::CharGiven) => {
                         // 218 | 219 | 275
-                        set_math_char(&mut cur_input, cur_chr, *MATH_CODE(cur_chr as usize));
+                        set_math_char(input, cur_chr, *MATH_CODE(cur_chr as usize));
                     }
                     (MMode, Cmd::CharNum) => {
                         // 223
-                        cur_chr = scan_char_num(&mut cur_input);
-                        set_math_char(&mut cur_input, cur_chr, *MATH_CODE(cur_chr as usize));
+                        cur_chr = scan_char_num(input);
+                        set_math_char(input, cur_chr, *MATH_CODE(cur_chr as usize));
                     }
                     (MMode, Cmd::MathCharNum) => {
                         // 224
                         if cur_chr == 2 {
-                            let val = scan_math_class_int(&mut cur_input);
+                            let val = scan_math_class_int(input);
                             let t = set_class(val);
-                            let val = scan_math_fam_int(&mut cur_input);
+                            let val = scan_math_fam_int(input);
                             let t = t + set_family(val);
-                            let val = scan_usv_num(&mut cur_input);
+                            let val = scan_usv_num(input);
                             let t = t + val;
-                            set_math_char(&mut cur_input, cur_chr, t);
+                            set_math_char(input, cur_chr, t);
                         } else if cur_chr == 1 {
-                            let val = scan_xetex_math_char_int(&mut cur_input);
-                            set_math_char(&mut cur_input, cur_chr, val);
+                            let val = scan_xetex_math_char_int(input);
+                            set_math_char(input, cur_chr, val);
                         } else {
-                            let val = scan_fifteen_bit_int(&mut cur_input);
+                            let val = scan_fifteen_bit_int(input);
                             set_math_char(
-                                &mut cur_input,
+                                input,
                                 cur_chr,
                                 set_class(val / 4096)
                                     + set_family((val % 4096) / 256)
@@ -15095,7 +15091,7 @@ pub(crate) unsafe fn main_control() {
                     (MMode, Cmd::MathGiven) => {
                         // 276
                         set_math_char(
-                            &mut cur_input,
+                            input,
                             cur_chr,
                             set_class(cur_chr / 4096)
                                 + set_family((cur_chr % 4096) / 256)
@@ -15104,24 +15100,24 @@ pub(crate) unsafe fn main_control() {
                     }
                     (MMode, Cmd::XetexMathGiven) => {
                         // 277
-                        set_math_char(&mut cur_input, cur_chr, cur_chr);
+                        set_math_char(input, cur_chr, cur_chr);
                     }
                     (MMode, Cmd::DelimNum) => {
                         // 222
                         if cur_chr == 1 {
-                            scan_math_class_int(&mut cur_input);
-                            let val = scan_math_class_int(&mut cur_input);
+                            scan_math_class_int(input);
+                            let val = scan_math_class_int(input);
                             let t = set_class(val);
-                            let val = scan_math_fam_int(&mut cur_input);
+                            let val = scan_math_fam_int(input);
                             let t = t + set_family(val);
-                            let val = scan_usv_num(&mut cur_input);
+                            let val = scan_usv_num(input);
                             let t = t + val;
-                            set_math_char(&mut cur_input, cur_chr, t);
+                            set_math_char(input, cur_chr, t);
                         } else {
-                            let mut val = scan_delimiter_int(&mut cur_input);
+                            let mut val = scan_delimiter_int(input);
                             let val = val / 4096;
                             set_math_char(
-                                &mut cur_input,
+                                input,
                                 cur_chr,
                                 set_class(val / 4096)
                                     + set_family((val % 4096) / 256)
@@ -15136,7 +15132,7 @@ pub(crate) unsafe fn main_control() {
                         cur_list.tail = n;
                         set_math_NODE_type(n, MathNode::n(cur_chr as u16).unwrap());
                         let m = BaseMath(cur_list.tail);
-                        scan_math(&mut cur_input, m.first_mut(), cur_list.tail + 1);
+                        scan_math(input, m.first_mut(), cur_list.tail + 1);
                     }
                     (MMode, Cmd::LimitSwitch) => {
                         // 258
@@ -15144,11 +15140,11 @@ pub(crate) unsafe fn main_control() {
                     }
                     (MMode, Cmd::Radical) => {
                         // 273
-                        math_radical(&mut cur_input, cur_tok, cur_chr);
+                        math_radical(input, cur_tok, cur_chr);
                     }
                     (MMode, Cmd::Accent) | (MMode, Cmd::MathAccent) => {
                         // 252 | 253
-                        math_ac(&mut cur_input, cur_cmd, cur_chr);
+                        math_ac(input, cur_cmd, cur_chr);
                     }
                     (MMode, Cmd::VCenter) => {
                         // 263
@@ -15161,7 +15157,7 @@ pub(crate) unsafe fn main_control() {
                             insert_src_special();
                         }
                         if let Some(ev) = LOCAL(Local::every_vbox).opt() {
-                            begin_token_list(&mut cur_input, ev, Btl::EveryVBoxText);
+                            begin_token_list(input, ev, Btl::EveryVBoxText);
                         }
                     }
                     (MMode, Cmd::MathStyle) => {
@@ -15179,26 +15175,26 @@ pub(crate) unsafe fn main_control() {
                     }
                     (MMode, Cmd::MathChoice) => {
                         // 261
-                        append_choices(&mut cur_input);
+                        append_choices(input);
                     }
                     (MMode, Cmd::SubMark) | (MMode, Cmd::SupMark) => {
                         // 215 | 214
-                        sub_sup(&mut cur_input, cur_cmd);
+                        sub_sup(input, cur_cmd);
                     }
                     (MMode, Cmd::Above) => {
                         // 259
-                        math_fraction(&mut cur_input, cur_tok, cur_chr);
+                        math_fraction(input, cur_tok, cur_chr);
                     }
                     (MMode, Cmd::LeftRight) => {
                         // 256
-                        math_left_right(&mut cur_input, cur_tok, cur_cmd, cur_chr);
+                        math_left_right(input, cur_tok, cur_cmd, cur_chr);
                     }
                     (MMode, Cmd::MathShift) => {
                         // 210
                         if cur_group == GroupCode::MathShift {
-                            after_math();
+                            after_math(input);
                         } else {
-                            off_save(&mut cur_input, cur_tok, cur_cmd, cur_chr);
+                            off_save(input, cur_tok, cur_cmd, cur_chr);
                         }
                     }
                     (_, Cmd::ToksRegister)
@@ -15240,37 +15236,37 @@ pub(crate) unsafe fn main_control() {
                         //| 196 | 299 | 94 | 197 | 300 | 95 | 198 | 301 | 96 | 199 | 302 | 97
                         //| 200 | 303 | 98 | 201 | 304 | 99 | 202 | 305 | 100 | 203 | 306 | 101
                         //| 204 | 307 | 102 | 205 | 308 | 103 | 206 | 309
-                        prefixed_command(&mut cur_input, cur_cmd, cur_chr, cur_cs);
+                        prefixed_command(input, cur_cmd, cur_chr, cur_cs);
                     }
                     (_, Cmd::AfterAssignment) => {
                         // 41 | 144 | 247
-                        let (tok, ..) = get_token(&mut cur_input);
+                        let (tok, ..) = get_token(input);
                         after_token = tok;
                     }
                     (_, Cmd::AfterGroup) => {
                         // 42 | 145 | 248
-                        let (tok, ..) = get_token(&mut cur_input);
+                        let (tok, ..) = get_token(input);
                         save_for_after(tok);
                     }
                     (_, Cmd::InStream) => {
                         // 61 | 164 | 267
-                        open_or_close_in(&mut cur_input, cur_chr);
+                        open_or_close_in(input, cur_chr);
                     }
                     (_, Cmd::Message) => {
                         // 59 | 162 | 265
-                        issue_message(&mut cur_input, cur_chr, cur_cs);
+                        issue_message(input, cur_chr, cur_cs);
                     }
                     (_, Cmd::CaseShift) => {
                         // 58 | 161 | 264
-                        shift_case(&mut cur_input, cur_chr, cur_cs);
+                        shift_case(input, cur_chr, cur_cs);
                     }
                     (_, Cmd::XRay) => {
                         // 20 | 123 | 226
-                        show_whatever(&mut cur_input, cur_chr, cur_cs);
+                        show_whatever(input, cur_chr, cur_cs);
                     }
                     (_, Cmd::Extension) => {
                         // 60 | 163 | 266
-                        do_extension(&mut cur_input, cur_tok, cur_cmd, cur_chr, cur_cs);
+                        do_extension(input, cur_tok, cur_cmd, cur_chr, cur_cs);
                     }
                     (_, Cmd::Relax)
                     | (VMode, Cmd::Spacer)
@@ -15318,8 +15314,7 @@ pub(crate) unsafe fn main_control() {
                 space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
                 if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != 4096 {
                     if prev_class == CHAR_CLASS_LIMIT - 1 {
-                        if cur_input.state != InputState::TokenList
-                            || cur_input.index != Btl::BackedUpChar
+                        if input.state != InputState::TokenList || input.index != Btl::BackedUpChar
                         {
                             find_sa_element(
                                 ValLevel::InterChar,
@@ -15331,10 +15326,10 @@ pub(crate) unsafe fn main_control() {
                                     cur_cmd = Cmd::OtherChar;
                                 }
                                 let tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                back_input(&mut cur_input, tok);
-                                cur_input.index = Btl::BackedUpChar;
+                                back_input(input, tok);
+                                input.index = Btl::BackedUpChar;
                                 begin_token_list(
-                                    &mut cur_input,
+                                    input,
                                     MEM[c + 1].b32.s1 as usize,
                                     Btl::InterCharText,
                                 );
@@ -15352,13 +15347,9 @@ pub(crate) unsafe fn main_control() {
                                 cur_cmd = Cmd::OtherChar;
                             }
                             let tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                            back_input(&mut cur_input, tok);
-                            cur_input.index = Btl::BackedUpChar;
-                            begin_token_list(
-                                &mut cur_input,
-                                MEM[c + 1].b32.s1 as usize,
-                                Btl::InterCharText,
-                            );
+                            back_input(input, tok);
+                            input.index = Btl::BackedUpChar;
+                            begin_token_list(input, MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                             prev_class = CHAR_CLASS_LIMIT - 1;
                             break false;
                         }
@@ -15400,7 +15391,7 @@ pub(crate) unsafe fn main_control() {
                 if main_h == 0 && is_hyph {
                     main_h = native_len
                 }
-                let (cmd, chr, cs) = get_next(&mut cur_input);
+                let (cmd, chr, cs) = get_next(input);
                 cur_cmd = cmd;
                 cur_chr = chr;
                 cur_cs = cs;
@@ -15408,13 +15399,13 @@ pub(crate) unsafe fn main_control() {
                 {
                     continue;
                 }
-                cur_tok = x_token(&mut cur_input, &mut cur_cmd, &mut cur_chr, &mut cur_cs);
+                cur_tok = x_token(input, &mut cur_cmd, &mut cur_chr, &mut cur_cs);
                 if cur_cmd == Cmd::Letter || cur_cmd == Cmd::OtherChar || cur_cmd == Cmd::CharGiven
                 {
                     continue;
                 }
                 if cur_cmd == Cmd::CharNum {
-                    cur_chr = scan_usv_num(&mut cur_input);
+                    cur_chr = scan_usv_num(input);
                 } else if *INTPAR(IntPar::xetex_inter_char_tokens) > 0
                     && space_class != CHAR_CLASS_LIMIT
                     && prev_class != CHAR_CLASS_LIMIT - 1
@@ -15440,12 +15431,8 @@ pub(crate) unsafe fn main_control() {
                     } else {
                         CS_TOKEN_FLAG + cur_cs
                     };
-                    back_input(&mut cur_input, tok);
-                    begin_token_list(
-                        &mut cur_input,
-                        MEM[c + 1].b32.s1 as usize,
-                        Btl::InterCharText,
-                    );
+                    back_input(input, tok);
+                    begin_token_list(input, MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                 }
             }
             /*collected */
@@ -15776,8 +15763,7 @@ pub(crate) unsafe fn main_control() {
         space_class = (*SF_CODE(cur_chr as usize) as i64 / 65536) as i32;
         if *INTPAR(IntPar::xetex_inter_char_tokens) > 0 && space_class != CHAR_CLASS_LIMIT {
             if prev_class == CHAR_CLASS_LIMIT - 1 {
-                if cur_input.state != InputState::TokenList || cur_input.index != Btl::BackedUpChar
-                {
+                if input.state != InputState::TokenList || input.index != Btl::BackedUpChar {
                     find_sa_element(
                         ValLevel::InterChar,
                         (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
@@ -15788,13 +15774,9 @@ pub(crate) unsafe fn main_control() {
                             cur_cmd = Cmd::OtherChar;
                         }
                         let tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                        back_input(&mut cur_input, tok);
-                        cur_input.index = Btl::BackedUpChar;
-                        begin_token_list(
-                            &mut cur_input,
-                            MEM[c + 1].b32.s1 as usize,
-                            Btl::InterCharText,
-                        );
+                        back_input(input, tok);
+                        input.index = Btl::BackedUpChar;
+                        begin_token_list(input, MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                         continue 'big_switch;
                     }
                 }
@@ -15809,13 +15791,9 @@ pub(crate) unsafe fn main_control() {
                         cur_cmd = Cmd::OtherChar;
                     }
                     let tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                    back_input(&mut cur_input, tok);
-                    cur_input.index = Btl::BackedUpChar;
-                    begin_token_list(
-                        &mut cur_input,
-                        MEM[c + 1].b32.s1 as usize,
-                        Btl::InterCharText,
-                    );
+                    back_input(input, tok);
+                    input.index = Btl::BackedUpChar;
+                    begin_token_list(input, MEM[c + 1].b32.s1 as usize, Btl::InterCharText);
                     prev_class = CHAR_CLASS_LIMIT - 1;
                     continue 'big_switch;
                 }
@@ -16097,23 +16075,18 @@ pub(crate) unsafe fn main_control() {
                         // lab100:
                         /*main_loop_lookahead *//*1073: */
                         let mut lab101 = true;
-                        let (cmd, chr, cs) = get_next(&mut cur_input);
+                        let (cmd, chr, cs) = get_next(input);
                         cur_cmd = cmd;
                         cur_chr = chr;
                         cur_cs = cs;
                         match cur_cmd {
                             Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {}
                             _ => {
-                                cur_tok = x_token(
-                                    &mut cur_input,
-                                    &mut cur_cmd,
-                                    &mut cur_chr,
-                                    &mut cur_cs,
-                                );
+                                cur_tok = x_token(input, &mut cur_cmd, &mut cur_chr, &mut cur_cs);
                                 match cur_cmd {
                                     Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {}
                                     Cmd::CharNum => {
-                                        cur_chr = scan_char_num(&mut cur_input);
+                                        cur_chr = scan_char_num(input);
                                     }
                                     _ => {
                                         if cur_cmd == Cmd::NoBoundary {
@@ -16147,8 +16120,8 @@ pub(crate) unsafe fn main_control() {
                                 && space_class != CHAR_CLASS_LIMIT
                             {
                                 if prev_class == CHAR_CLASS_LIMIT - 1 {
-                                    if cur_input.state != InputState::TokenList
-                                        || cur_input.index != Btl::BackedUpChar
+                                    if input.state != InputState::TokenList
+                                        || input.index != Btl::BackedUpChar
                                     {
                                         find_sa_element(
                                             ValLevel::InterChar,
@@ -16160,10 +16133,10 @@ pub(crate) unsafe fn main_control() {
                                                 cur_cmd = Cmd::OtherChar
                                             }
                                             let tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                            back_input(&mut cur_input, tok);
-                                            cur_input.index = Btl::BackedUpChar;
+                                            back_input(input, tok);
+                                            input.index = Btl::BackedUpChar;
                                             begin_token_list(
-                                                &mut cur_input,
+                                                input,
                                                 MEM[c + 1].b32.s1 as usize,
                                                 Btl::InterCharText,
                                             );
@@ -16181,10 +16154,10 @@ pub(crate) unsafe fn main_control() {
                                             cur_cmd = Cmd::OtherChar;
                                         }
                                         let tok = cur_cmd as i32 * MAX_CHAR_VAL + cur_chr;
-                                        back_input(&mut cur_input, tok);
-                                        cur_input.index = Btl::BackedUpChar;
+                                        back_input(input, tok);
+                                        input.index = Btl::BackedUpChar;
                                         begin_token_list(
-                                            &mut cur_input,
+                                            input,
                                             MEM[c + 1].b32.s1 as usize,
                                             Btl::InterCharText,
                                         );
@@ -16594,9 +16567,6 @@ pub(crate) unsafe fn do_marks(a: MarkMode, mut l: i16, q: usize) -> bool {
     false
 }
 pub(crate) unsafe fn do_assignments(input: &mut input_state_t) -> (i32, Cmd, i32) {
-    let mut tok;
-    let mut cmd;
-    let mut chr;
     loop {
         let mut next;
         loop {
@@ -16605,9 +16575,9 @@ pub(crate) unsafe fn do_assignments(input: &mut input_state_t) -> (i32, Cmd, i32
                 break;
             }
         }
-        tok = next.0;
-        cmd = next.1;
-        chr = next.2;
+        let tok = next.0;
+        let cmd = next.1;
+        let chr = next.2;
         let cs = next.3;
         if cmd <= MAX_NON_PREFIXED_COMMAND {
             return (tok, cmd, chr);
