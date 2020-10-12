@@ -1323,7 +1323,7 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
 }
 /*:1001*/
 unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
-    scan_left_brace(&mut cur_input);
+    scan_left_brace(input);
 
     cur_lang = if *INTPAR(IntPar::language) <= 0 {
         0
@@ -1396,7 +1396,7 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                 }
             }
             Cmd::CharNum => {
-                reswitch = Some((Cmd::CharGiven, scan_char_num(&mut cur_input)));
+                reswitch = Some((Cmd::CharGiven, scan_char_num(input)));
                 continue;
             }
             Cmd::Spacer | Cmd::RightBrace => {
@@ -1788,7 +1788,7 @@ pub(crate) unsafe fn prefixed_command(
         Cmd::ReadToCS => {
             j = ochr;
             let n = scan_int(input);
-            if !scan_keyword(&mut cur_input, b"to") {
+            if !scan_keyword(input, b"to") {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -2107,7 +2107,7 @@ pub(crate) unsafe fn prefixed_command(
             } else { BOX_FLAG + val };
             scan_optional_equals(input);
             if set_box_allowed {
-                scan_box(&mut cur_input, n);
+                scan_box(input, n);
             } else {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -2217,7 +2217,7 @@ pub(crate) unsafe fn prefixed_command(
                 }
             }
         }
-        Cmd::DefFont => { new_font(&mut cur_input, a); }
+        Cmd::DefFont => { new_font(input, a); }
         Cmd::SetInteraction => { new_interaction(ochr); }
         _ => { confusion("prefix"); }
     }
@@ -2234,16 +2234,16 @@ pub(crate) unsafe fn prefixed_command(
     done(input)
 }
 
-unsafe fn final_cleanup() {
+unsafe fn final_cleanup(input: &mut input_state_t) {
     let mut c = cur_chr as usize;
     if job_name == 0 {
         open_log_file();
     }
     while INPUT_PTR > 0 {
-        if cur_input.state == InputState::TokenList {
-            end_token_list(&mut cur_input);
+        if input.state == InputState::TokenList {
+            end_token_list(input);
         } else {
-            end_file_reading();
+            end_file_reading(input);
         }
     }
     while open_parens > 0 {
@@ -2309,7 +2309,7 @@ unsafe fn final_cleanup() {
     };
 }
 /* Engine initialization */
-unsafe fn init_io() {
+unsafe fn init_io(input: &mut input_state_t) {
     /* This is largely vestigial at this point */
     INPUT_FILE[0] = Some(Box::new(UFILE {
         handle: None,
@@ -2321,8 +2321,8 @@ unsafe fn init_io() {
 
     BUFFER[first as usize] = 0;
     last = first;
-    cur_input.loc = first;
-    cur_input.limit = last;
+    input.loc = first;
+    input.limit = last;
     first = last + 1;
 }
 unsafe fn initialize_more_variables() {
@@ -3801,7 +3801,7 @@ pub(crate) unsafe fn tt_run_engine(
     force_eof = false;
     align_state = 1000000;
 
-    init_io();
+    init_io(&mut cur_input);
 
     if in_initex_mode {
         no_new_control_sequence = false;
@@ -4358,10 +4358,10 @@ pub(crate) unsafe fn tt_run_engine(
     }
     pdf_files_init();
     synctex_init_command();
-    start_input(input_file_name);
+    start_input(&mut cur_input, input_file_name);
     history = TTHistory::SPOTLESS;
     main_control(&mut cur_input);
-    final_cleanup();
+    final_cleanup(&mut cur_input);
     close_files_and_terminate();
     pdf_files_close();
     TEX_format_default = String::new();

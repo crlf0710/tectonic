@@ -3719,7 +3719,7 @@ pub(crate) unsafe fn back_error(input: &mut input_state_t, tok: i32) {
 }
 pub(crate) unsafe fn ins_error(input: &mut input_state_t, tok: i32) {
     back_input(input, tok);
-    cur_input.index = Btl::Inserted;
+    input.index = Btl::Inserted;
     error();
 }
 pub(crate) unsafe fn begin_file_reading(input: &mut input_state_t) {
@@ -3750,16 +3750,16 @@ pub(crate) unsafe fn begin_file_reading(input: &mut input_state_t) {
     input.name = 0;
     input.synctex_tag = 0;
 }
-pub(crate) unsafe fn end_file_reading() {
-    first = cur_input.start;
-    line = LINE_STACK[cur_input.index as usize];
-    if cur_input.name == 18 || cur_input.name == 19 {
+pub(crate) unsafe fn end_file_reading(input: &mut input_state_t) {
+    first = input.start;
+    line = LINE_STACK[input.index as usize];
+    if input.name == 18 || input.name == 19 {
         pseudo_close();
-    } else if cur_input.name > 17 {
-        let _ = INPUT_FILE[cur_input.index as usize].take();
+    } else if input.name > 17 {
+        let _ = INPUT_FILE[input.index as usize].take();
     }
     INPUT_PTR -= 1;
-    cur_input = INPUT_STACK[INPUT_PTR]; // pop
+    *input = INPUT_STACK[INPUT_PTR]; // pop
     IN_OPEN -= 1;
 }
 pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i32) -> bool {
@@ -3851,7 +3851,7 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
                 "the matching `\\fi\'. I\'ve inserted a `\\fi\'; this might work."
             );
             let tok = CS_TOKEN_FLAG + FROZEN_FI as i32;
-            ins_error(&mut cur_input, tok);
+            ins_error(input, tok);
         }
         deletions_allowed = true
     }
@@ -4132,7 +4132,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 rust_stdout.as_mut().unwrap().flush().unwrap();
                             }
                             force_eof = false;
-                            end_file_reading();
+                            end_file_reading(input);
                             if check_outer_validity(input, &mut cs) {
                                 ocmd = Some(Cmd::Spacer);
                                 ochr = Some(' ' as i32);
@@ -4394,7 +4394,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             current_block = 10802200937357087535;
                         }
                         4001239642700071046 => {
-                            end_file_reading();
+                            end_file_reading(input);
                             continue;
                         }
                         _ =>
@@ -4834,16 +4834,16 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
         }
     }
 
-    while cur_input.state == InputState::TokenList
-        && cur_input.loc.opt().is_none()
-        && cur_input.index != Btl::VTemplate
+    while input.state == InputState::TokenList
+        && input.loc.opt().is_none()
+        && input.index != Btl::VTemplate
     {
         end_token_list(input);
     }
 
     begin_token_list(input, ref_count, Btl::Macro);
-    cur_input.name = warning_index;
-    cur_input.loc = *LLIST_link(r);
+    input.name = warning_index;
+    input.loc = *LLIST_link(r);
 
     if n > 0 {
         if PARAM_PTR + n as usize > MAX_PARAM_STACK {
@@ -5100,9 +5100,9 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         if t >= CS_TOKEN_FLAG {
                             let p = get_avail();
                             MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_DONT_EXPAND as i32;
-                            *LLIST_link(p) = cur_input.loc;
-                            cur_input.start = p as i32;
-                            cur_input.loc = p as i32;
+                            *LLIST_link(p) = input.loc;
+                            input.start = p as i32;
+                            input.loc = p as i32;
                         }
                         break;
                     } else {
@@ -5128,9 +5128,9 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                             back_input(input, tok);
                             let p = get_avail();
                             MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_PRIMITIVE as i32;
-                            *LLIST_link(p) = cur_input.loc;
-                            cur_input.loc = Some(p).tex_int();
-                            cur_input.start = Some(p).tex_int();
+                            *LLIST_link(p) = input.loc;
+                            input.loc = Some(p).tex_int();
+                            input.start = Some(p).tex_int();
                             break;
                         }
                     }
@@ -5239,7 +5239,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                             chr = pass_text(input).1;
                         }
                         if IF_STACK[IN_OPEN] == cond_ptr {
-                            INPUT_STACK[INPUT_PTR] = cur_input;
+                            INPUT_STACK[INPUT_PTR] = *input;
                             if_warning(input, &INPUT_STACK[..INPUT_PTR + 1]);
                         }
                         let p = cond_ptr.unwrap();
@@ -5263,7 +5263,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         insert_relax(input, ocs);
                     } else {
                         /* \input */
-                        start_input(ptr::null()); /*393:*/
+                        start_input(input, ptr::null()); /*393:*/
                     }
                     break;
                 }
@@ -5371,7 +5371,7 @@ pub(crate) unsafe fn scan_left_brace(input: &mut input_state_t) -> (i32, Cmd, i3
             "so that I will find a matching right brace soon.",
             "(If you\'re confused by all this, try typing `I}\' now.)"
         );
-        back_error(&mut cur_input, tok);
+        back_error(input, tok);
         tok = LEFT_BRACE_TOKEN + '{' as i32;
         cmd = Cmd::LeftBrace;
         chr = '{' as i32;
@@ -5451,7 +5451,7 @@ pub(crate) unsafe fn mu_error() {
 }
 pub(crate) unsafe fn scan_glyph_number(input: &mut input_state_t, f: &NativeFont) -> i32 {
     if scan_keyword(input, b"/") {
-        scan_and_pack_name();
+        scan_and_pack_name(input);
         let val = map_glyph_to_index(f);
         val
     } else if scan_keyword(input, b"u") {
@@ -6534,7 +6534,7 @@ pub(crate) unsafe fn scan_something_internal(
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
-                                    scan_and_pack_name();
+                                    scan_and_pack_name(input);
                                     aat::aat_font_get_named(m.into(), *e)
                                 }
                                 _ => {
@@ -6548,11 +6548,11 @@ pub(crate) unsafe fn scan_something_internal(
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
-                                    scan_and_pack_name();
+                                    scan_and_pack_name(input);
                                     aat::aat_font_get_named(m.into(), *e)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
-                                    scan_and_pack_name();
+                                    scan_and_pack_name(input);
                                     gr_font_get_named((m as i32) - 14, e)
                                 }
                                 _ => {
@@ -6567,12 +6567,12 @@ pub(crate) unsafe fn scan_something_internal(
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
                                     let k = scan_int(input);
-                                    scan_and_pack_name();
+                                    scan_and_pack_name(input);
                                     aat::aat_font_get_named_1(m.into(), *e, k);
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
-                                    scan_and_pack_name();
+                                    scan_and_pack_name(input);
                                     gr_font_get_named_1((m as i32) - 14, e, k)
                                 }
                                 _ => {
@@ -6651,7 +6651,7 @@ pub(crate) unsafe fn scan_something_internal(
                             if let Font::Native(nf) =
                                 &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
-                                scan_and_pack_name();
+                                scan_and_pack_name(input);
                                 map_glyph_to_index(nf)
                             } else {
                                 not_native_font_error(
@@ -6688,7 +6688,7 @@ pub(crate) unsafe fn scan_something_internal(
                         LastItemCode::PdfLastXPos => pdf_last_x_pos,
                         LastItemCode::PdfLastYPos => pdf_last_y_pos,
                         LastItemCode::XetexPdfPageCount => {
-                            scan_and_pack_name();
+                            scan_and_pack_name(input);
                             count_pdf_file_pages()
                         }
                         LastItemCode::CurrentGroupLevel => cur_level as i32 - 1,
@@ -8792,7 +8792,7 @@ pub(crate) unsafe fn read_toks(
                 }
             }
         }
-        end_file_reading();
+        end_file_reading(input);
         if !(align_state as i64 != 1000000) {
             break;
         }
@@ -9436,7 +9436,7 @@ pub(crate) unsafe fn open_log_file() {
     print_ln();
     selector = (u8::from(old_setting) + 2).into();
 }
-pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
+pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_name: *const i8) {
     let mut format = TTInputFormat::TEX;
     let mut temp_str: str_number = 0;
     if !primary_input_name.is_null() {
@@ -9560,12 +9560,12 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
         /* Scan in the file name from the current token stream. The file name to
          * input is saved as the stringpool strings `cur_{name,area,ext}` and the
          * UTF-8 string `name_of_file`. */
-        scan_file_name(&mut cur_input);
+        scan_file_name(input);
     }
     pack_file_name(cur_name, cur_area, cur_ext);
     /* Open up the new file to be read. The name of the file to be read comes
      * from `name_of_file`. */
-    begin_file_reading(&mut cur_input);
+    begin_file_reading(input);
     let ufile = u_open_in(
         format,
         b"rb",
@@ -9592,14 +9592,14 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
      * input file. This calls make_utf16_name() again and reruns through the
      * {begin,more,end}_name() trifecta to re-re-compute
      * `cur_{name,area,ext}`. */
-    cur_input.name = make_name_string();
-    SOURCE_FILENAME_STACK[IN_OPEN] = cur_input.name;
+    input.name = make_name_string();
+    SOURCE_FILENAME_STACK[IN_OPEN] = input.name;
     /* *This* variant is a TeX string made out of `name_of_input_file`. */
     FULL_SOURCE_FILENAME_STACK[IN_OPEN] = maketexstring(&name_of_input_file);
-    if cur_input.name == str_ptr - 1 {
-        temp_str = search_string(cur_input.name);
+    if input.name == str_ptr - 1 {
+        temp_str = search_string(input.name);
         if temp_str > 0 {
-            cur_input.name = temp_str;
+            input.name = temp_str;
             str_ptr -= 1;
             pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
         }
@@ -9618,18 +9618,18 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     open_parens += 1;
     print(FULL_SOURCE_FILENAME_STACK[IN_OPEN]);
     rust_stdout.as_mut().unwrap().flush().unwrap();
-    cur_input.state = InputState::NewLine;
-    synctex_start_input();
+    input.state = InputState::NewLine;
+    synctex_start_input(input);
     line = 1;
-    input_line(INPUT_FILE[cur_input.index as usize].as_mut().unwrap());
-    cur_input.limit = last;
+    input_line(INPUT_FILE[input.index as usize].as_mut().unwrap());
+    input.limit = last;
     if *INTPAR(IntPar::end_line_char) < 0 || *INTPAR(IntPar::end_line_char) > 255 {
-        cur_input.limit -= 1
+        input.limit -= 1
     } else {
-        BUFFER[cur_input.limit as usize] = *INTPAR(IntPar::end_line_char)
+        BUFFER[input.limit as usize] = *INTPAR(IntPar::end_line_char)
     }
-    first = cur_input.limit + 1;
-    cur_input.loc = cur_input.start;
+    first = input.limit + 1;
+    input.loc = input.start;
 }
 pub(crate) unsafe fn effective_char_info(mut f: internal_font_number, mut c: u16) -> b16x4 {
     if !xtx_ligature_present && !(FONT_MAPPING[f]).is_null() {
@@ -9938,22 +9938,26 @@ pub(crate) unsafe fn new_character(
     char_warning(f, c as i32);
     None
 }
-pub(crate) unsafe fn scan_spec(c: GroupCode, mut three_codes: bool) -> Cmd {
+pub(crate) unsafe fn scan_spec(
+    input: &mut input_state_t,
+    c: GroupCode,
+    mut three_codes: bool,
+) -> Cmd {
     let mut s: i32 = 0;
     let mut spec_code: PackMode = PackMode::Exactly;
     if three_codes {
         s = SAVE_STACK[SAVE_PTR + 0].val
     }
     let mut sd = None;
-    if scan_keyword(&mut cur_input, b"to") {
+    if scan_keyword(input, b"to") {
         spec_code = PackMode::Exactly;
-    } else if scan_keyword(&mut cur_input, b"spread") {
+    } else if scan_keyword(input, b"spread") {
         spec_code = PackMode::Additional;
     } else {
         spec_code = PackMode::Additional;
         sd = Some(0);
     }
-    let val = sd.unwrap_or_else(|| scan_dimen(&mut cur_input, false, false, None));
+    let val = sd.unwrap_or_else(|| scan_dimen(input, false, false, None));
     // found
     if three_codes {
         SAVE_STACK[SAVE_PTR + 0].val = s;
@@ -9963,7 +9967,7 @@ pub(crate) unsafe fn scan_spec(c: GroupCode, mut three_codes: bool) -> Cmd {
     SAVE_STACK[SAVE_PTR + 1].val = val;
     SAVE_PTR += 2;
     new_save_level(c);
-    scan_left_brace(&mut cur_input).1
+    scan_left_brace(input).1
 }
 pub(crate) unsafe fn char_pw(p: Option<usize>, side: Side) -> scaled_t {
     if side == Side::Left {
@@ -10792,7 +10796,7 @@ pub(crate) unsafe fn init_align(input: &mut input_state_t, wcs: i32) {
         cur_list.mode = (!cur_list.mode.0, cur_list.mode.1);
         /*:804*/
     }
-    let mut ocmd = scan_spec(GroupCode::Align, false);
+    let mut ocmd = scan_spec(input, GroupCode::Align, false);
     *LLIST_link(ALIGN_HEAD) = None.tex_int();
     let mut ca = ALIGN_HEAD;
     cur_align = Some(ca);
@@ -10883,7 +10887,7 @@ pub(crate) unsafe fn init_align(input: &mut input_state_t, wcs: i32) {
     if let Some(l) = LOCAL(Local::every_cr).opt() {
         begin_token_list(input, l, Btl::EveryCRText);
     }
-    align_peek();
+    align_peek(input);
 }
 pub(crate) unsafe fn init_span(p: Option<usize>) {
     push_nest();
@@ -11081,7 +11085,7 @@ pub(crate) unsafe fn fin_col(input: &mut input_state_t) -> bool {
     init_col(input, tok, cmd);
     false
 }
-pub(crate) unsafe fn fin_row() {
+pub(crate) unsafe fn fin_row(input: &mut input_state_t) {
     let p;
     if cur_list.mode == (true, ListMode::HMode) {
         p = hpack(MEM[cur_list.head].b32.s1.opt(), 0, PackMode::Additional);
@@ -11111,9 +11115,9 @@ pub(crate) unsafe fn fin_row() {
     set_NODE_type(p.ptr(), TextNode::Unset);
     p.set_stretch(0);
     if let Some(ecr) = LOCAL(Local::every_cr).opt() {
-        begin_token_list(&mut cur_input, ecr, Btl::EveryCRText);
+        begin_token_list(input, ecr, Btl::EveryCRText);
     }
-    align_peek();
+    align_peek(input);
 }
 pub(crate) unsafe fn fin_align(input: &mut input_state_t) {
     let mut t: scaled_t = 0;
@@ -11467,7 +11471,7 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t) {
         *LLIST_link(cur_list.tail) = Some(pg).tex_int();
         cur_list.tail = pg;
         cur_list.aux.b32.s1 = aux_save.b32.s1;
-        resume_after_display();
+        resume_after_display(input);
     } else {
         cur_list.aux = aux_save;
         *LLIST_link(cur_list.tail) = p.tex_int();
@@ -11479,31 +11483,31 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t) {
         }
     };
 }
-pub(crate) unsafe fn align_peek() {
+pub(crate) unsafe fn align_peek(input: &mut input_state_t) {
     loop {
         align_state = 1000000;
         let (tok, cmd, chr) = loop {
-            let next = get_x_or_protected(&mut cur_input);
+            let next = get_x_or_protected(input);
             if next.1 != Cmd::Spacer {
                 break next;
             }
         };
         if cmd == Cmd::NoAlign {
-            scan_left_brace(&mut cur_input);
+            scan_left_brace(input);
             new_save_level(GroupCode::NoAlign);
             if cur_list.mode == (true, ListMode::VMode) {
                 normal_paragraph();
             }
             break;
         } else if cmd == Cmd::RightBrace {
-            fin_align(&mut cur_input);
+            fin_align(input);
             break;
         } else {
             if cmd == Cmd::CarRet && chr == CR_CR_CODE {
                 continue;
             }
             init_row();
-            init_col(&mut cur_input, tok, cmd);
+            init_col(input, tok, cmd);
             break;
         }
     }
@@ -12530,15 +12534,15 @@ pub(crate) unsafe fn begin_box(
             SAVE_STACK[SAVE_PTR + 0].val = box_context;
             if k == (false, ListMode::HMode) {
                 if box_context < BOX_FLAG && cur_list.mode.1 == ListMode::VMode {
-                    scan_spec(GroupCode::AdjustedHBox, true);
+                    scan_spec(input, GroupCode::AdjustedHBox, true);
                 } else {
-                    scan_spec(GroupCode::HBox, true);
+                    scan_spec(input, GroupCode::HBox, true);
                 }
             } else {
                 if k == (false, ListMode::VMode) {
-                    scan_spec(GroupCode::VBox, true);
+                    scan_spec(input, GroupCode::VBox, true);
                 } else {
-                    scan_spec(GroupCode::VTop, true);
+                    scan_spec(input, GroupCode::VTop, true);
                     k = (false, ListMode::VMode);
                 }
                 normal_paragraph();
@@ -12645,7 +12649,7 @@ pub(crate) unsafe fn norm_min(mut h: i32) -> i16 {
         h
     }) as i16
 }
-pub(crate) unsafe fn new_graf(mut indented: bool) {
+pub(crate) unsafe fn new_graf(input: &mut input_state_t, mut indented: bool) {
     cur_list.prev_graf = 0;
     if cur_list.mode == (false, ListMode::VMode) || cur_list.head != cur_list.tail {
         let pg = new_param_glue(GluePar::par_skip);
@@ -12676,10 +12680,10 @@ pub(crate) unsafe fn new_graf(mut indented: bool) {
         }
     }
     if let Some(ep) = LOCAL(Local::every_par).opt() {
-        begin_token_list(&mut cur_input, ep, Btl::EveryParText);
+        begin_token_list(input, ep, Btl::EveryParText);
     }
     if NEST_PTR == 1 {
-        build_page(&mut cur_input);
+        build_page(input);
     };
 }
 pub(crate) unsafe fn indent_in_hmode(chr: i32) {
@@ -12721,7 +12725,7 @@ pub(crate) unsafe fn head_for_vmode(input: &mut input_state_t, tok: i32, cmd: Cm
         back_input(input, tok);
         let tok = par_token;
         back_input(input, tok);
-        cur_input.index = Btl::Inserted;
+        input.index = Btl::Inserted;
     };
 }
 pub(crate) unsafe fn end_graf() {
@@ -12789,13 +12793,13 @@ pub(crate) unsafe fn make_mark(input: &mut input_state_t, chr: i32, cs: i32) {
     *LLIST_link(cur_list.tail) = Some(p.ptr()).tex_int();
     cur_list.tail = p.ptr();
 }
-pub(crate) unsafe fn append_penalty() {
-    let val = scan_int(&mut cur_input);
+pub(crate) unsafe fn append_penalty(input: &mut input_state_t) {
+    let val = scan_int(input);
     let p = new_penalty(val);
     *LLIST_link(cur_list.tail) = Some(p).tex_int();
     cur_list.tail = p;
     if cur_list.mode == (false, ListMode::VMode) {
-        build_page(&mut cur_input);
+        build_page(input);
     };
 }
 pub(crate) unsafe fn delete_last(cmd: Cmd, chr: i32) {
@@ -13283,7 +13287,7 @@ pub(crate) unsafe fn do_endv(
     if cur_group == GroupCode::Align {
         end_graf();
         if fin_col(input) {
-            fin_row();
+            fin_row(input);
         }
     } else {
         off_save(input, tok, cmd, chr);
@@ -14194,8 +14198,8 @@ pub(crate) unsafe fn show_whatever(input: &mut input_state_t, chr: i32, cs: i32)
     }
     common_ending()
 }
-pub(crate) unsafe fn scan_and_pack_name() {
-    scan_file_name(&mut cur_input);
+pub(crate) unsafe fn scan_and_pack_name(input: &mut input_state_t) {
+    scan_file_name(input);
     pack_file_name(cur_name, cur_area, cur_ext);
 }
 pub(crate) unsafe fn do_extension(
@@ -14311,7 +14315,7 @@ pub(crate) unsafe fn do_extension(
         GLYPH_CODE => {
             if cur_list.mode.1 == ListMode::VMode {
                 back_input(input, tok);
-                new_graf(true);
+                new_graf(input, true);
             } else if cur_list.mode.1 == ListMode::MMode {
                 report_illegal_case(cmd, chr);
             } else if let Font::Native(_) = &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize] {
@@ -14347,7 +14351,7 @@ pub(crate) unsafe fn do_extension(
             }
         }
         XETEX_INPUT_ENCODING_EXTENSION_CODE => {
-            scan_and_pack_name();
+            scan_and_pack_name(input);
             let i = get_encoding_mode_and_info(&mut j);
             if i == UnicodeMode::Auto {
                 if file_line_error_style_p != 0 {
@@ -14366,7 +14370,7 @@ pub(crate) unsafe fn do_extension(
             }
         }
         XETEX_DEFAULT_ENCODING_EXTENSION_CODE => {
-            scan_and_pack_name();
+            scan_and_pack_name(input);
             let i = get_encoding_mode_and_info(&mut j);
             *INTPAR(IntPar::xetex_default_input_mode) = i as i32;
             *INTPAR(IntPar::xetex_default_input_encoding) = j
@@ -14508,8 +14512,8 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
         }
         GroupCode::Output => {
             /*1062:*/
-            if cur_input.loc.opt().is_some()
-                || cur_input.index != Btl::OutputText && cur_input.index != Btl::BackedUp
+            if input.loc.opt().is_some()
+                || input.index != Btl::OutputText && input.index != Btl::BackedUp
             {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -14524,7 +14528,7 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
                 error();
                 loop {
                     let _ = get_token(input);
-                    if cur_input.loc.opt().is_none() {
+                    if input.loc.opt().is_none() {
                         break;
                     }
                 }
@@ -14588,7 +14592,7 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
         GroupCode::NoAlign => {
             end_graf();
             unsave(input);
-            align_peek();
+            align_peek(input);
         }
         GroupCode::VCenter => {
             end_graf();
@@ -14893,7 +14897,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     }
                     (VMode, Cmd::StartPar) => {
                         // 44
-                        new_graf(cur_chr > 0);
+                        new_graf(input, cur_chr > 0);
                     }
                     (VMode, Cmd::Letter)
                     | (VMode, Cmd::OtherChar)
@@ -14910,7 +14914,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     | (VMode, Cmd::NoBoundary) => {
                         // 12 | 13 | 17 | 69 | 4 | 24 | 36 | 46 | 48 | 27 | 34 | 65 | 66
                         back_input(input, cur_tok);
-                        new_graf(true);
+                        new_graf(input, true);
                     }
                     (HMode, Cmd::StartPar) | (MMode, Cmd::StartPar) => {
                         // 147 | 250
@@ -14951,7 +14955,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     }
                     (_, Cmd::BreakPenalty) => {
                         // 43 | 146 | 249
-                        append_penalty();
+                        append_penalty(input);
                     }
                     (_, Cmd::RemoveItem) => {
                         // 26 | 129 | 232
@@ -15148,7 +15152,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     }
                     (MMode, Cmd::VCenter) => {
                         // 263
-                        scan_spec(GroupCode::VCenter, false);
+                        scan_spec(input, GroupCode::VCenter, false);
                         normal_paragraph();
                         push_nest();
                         cur_list.mode = (true, ListMode::VMode);

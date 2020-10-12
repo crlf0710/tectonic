@@ -515,12 +515,11 @@ pub(crate) unsafe fn store_fmt_file() {
 }
 
 pub(crate) unsafe fn load_fmt_file() -> bool {
-    let mut j: i32 = 0;
     let mut p: i32 = 0;
     let mut q: i32 = 0;
     let mut x: i32 = 0;
 
-    j = cur_input.loc;
+    let j = cur_input.loc;
 
     /* This is where a first line starting with "&" used to
      * trigger code that would change the format file. */
@@ -766,7 +765,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             bad_fmt();
         }
 
-        j = k;
+        let mut j = k;
         while j <= k + x - 1 {
             EQTB[j as usize] = EQTB[(k - 1) as usize];
             j += 1
@@ -1041,7 +1040,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     }
     HYPH_NEXT = x as usize;
 
-    j = 0;
+    let mut j = 0;
 
     for _k in 1..=HYPH_COUNT {
         fmt_in.undump_one(&mut j);
@@ -1090,7 +1089,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         panic!("must increase trie_size");
     }
 
-    j = x;
+    let mut j = x;
     trie_max = j;
 
     fmt_in.undump_one(&mut x);
@@ -1121,7 +1120,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         panic!("must increase TRIE_OP_SIZE");
     }
 
-    j = x;
+    let mut j = x;
     trie_op_ptr = j;
 
     fmt_in.undump(&mut hyf_distance[1..(j + 1) as usize]);

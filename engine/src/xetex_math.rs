@@ -17,7 +17,7 @@ use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ext::{Font, NativeFont::*};
 use crate::xetex_ini::{
-    adjust_tail, avail, cur_c, cur_dir, cur_f, cur_group, cur_i, cur_input, cur_lang, cur_list,
+    adjust_tail, avail, cur_c, cur_dir, cur_f, cur_group, cur_i, cur_lang, cur_list,
     file_line_error_style_p, input_state_t, insert_src_special_every_math, just_box, memory_word,
     pre_adjust_tail, tex_remainder, total_shrink, xtx_ligature_present, LR_problems, LR_ptr,
     CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO, FONT_LAYOUT_ENGINE,
@@ -1234,14 +1234,14 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         }
         flush_node_list(j);
-        resume_after_display();
+        resume_after_display(input);
     };
 }
-pub(crate) unsafe fn resume_after_display() {
+pub(crate) unsafe fn resume_after_display(input: &mut input_state_t) {
     if cur_group != GroupCode::MathShift {
         confusion("display");
     }
-    unsave(&mut cur_input);
+    unsave(input);
     cur_list.prev_graf = cur_list.prev_graf + 3;
     push_nest();
     cur_list.mode = (false, ListMode::HMode);
@@ -1258,12 +1258,12 @@ pub(crate) unsafe fn resume_after_display() {
         + norm_min(*INTPAR(IntPar::right_hyphen_min)) as i32) as i64
         * 65536
         + cur_lang as i64) as i32;
-    let (tok, cmd, ..) = get_x_token(&mut cur_input);
+    let (tok, cmd, ..) = get_x_token(input);
     if cmd != Cmd::Spacer {
-        back_input(&mut cur_input, tok);
+        back_input(input, tok);
     }
     if NEST_PTR == 1 {
-        build_page(&mut cur_input);
+        build_page(input);
     };
 }
 /* Copyright 2016-2018 The Tectonic Project

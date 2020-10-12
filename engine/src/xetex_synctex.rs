@@ -14,7 +14,8 @@ use std::io::Write;
 use crate::node::{Kern, List, TxtNode, BOX_NODE_SIZE, MEDIUM_NODE_SIZE, RULE_NODE_SIZE};
 use crate::xetex_consts::{IntPar, INTPAR};
 use crate::xetex_ini::{
-    cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, MEM, TOTAL_PAGES,
+    cur_h, cur_v, input_state_t, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, MEM,
+    TOTAL_PAGES,
 };
 use crate::xetex_io::name_of_input_file;
 use crate::xetex_texmfmp::gettexstring;
@@ -248,7 +249,7 @@ unsafe fn synctex_prepare_content() -> bool {
  *  treats the same way .tex, .aux, .sty ... files, even if many of them do not
  *  contain any material meant to be typeset.
  */
-pub(crate) unsafe fn synctex_start_input() {
+pub(crate) unsafe fn synctex_start_input(input: &mut input_state_t) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
         return;
     }
@@ -264,10 +265,10 @@ pub(crate) unsafe fn synctex_start_input() {
          *  use the 16 other bits to store the column number */
         synctex_ctxt.synctex_tag_counter = 0_u32;
         /* was this, but this looks like a bug */
-        /* cur_input.synctex_tag = 0; */
+        /* input.synctex_tag = 0; */
         return;
     } /*  -> *TeX.web  */
-    cur_input.synctex_tag = synctex_ctxt.synctex_tag_counter as i32;
+    input.synctex_tag = synctex_ctxt.synctex_tag_counter as i32;
     if synctex_ctxt.synctex_tag_counter == 1_u32 {
         /*  this is the first file TeX ever opens, in general \jobname.tex we
          *  do not know yet if synchronization will ever be enabled so we have
@@ -282,7 +283,7 @@ pub(crate) unsafe fn synctex_start_input() {
     if synctex_ctxt.file.is_some() || synctex_dot_open() {
         let tmp = get_current_name();
         /* Always record the input, even if INTPAR(synctex) is 0 */
-        synctex_record_input(cur_input.synctex_tag, &tmp);
+        synctex_record_input(input.synctex_tag, &tmp);
     };
 }
 /*  Send this message to clean memory, and close the file.  */
