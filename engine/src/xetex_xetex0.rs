@@ -11119,7 +11119,7 @@ pub(crate) unsafe fn fin_row(input: &mut input_state_t) {
     }
     align_peek(input);
 }
-pub(crate) unsafe fn fin_align(input: &mut input_state_t) {
+pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
     let mut t: scaled_t = 0;
     let mut w: scaled_t = 0;
     let mut n: i32 = 0;
@@ -11127,11 +11127,11 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t) {
     let mut aux_save: memory_word = memory_word {
         b32: b32x2 { s0: 0, s1: 0 },
     };
-    if cur_group != GroupCode::Align {
+    if group != GroupCode::Align {
         confusion("align1");
     }
     unsave(input);
-    if cur_group != GroupCode::Align {
+    if group != GroupCode::Align {
         confusion("align0");
     }
     unsave(input);
@@ -11500,7 +11500,7 @@ pub(crate) unsafe fn align_peek(input: &mut input_state_t) {
             }
             break;
         } else if cmd == Cmd::RightBrace {
-            fin_align(input);
+            fin_align(input, cur_group);
             break;
         } else {
             if cmd == Cmd::CarRet && chr == CR_CR_CODE {
@@ -12188,8 +12188,14 @@ pub(crate) unsafe fn append_kern(input: &mut input_state_t, chr: i32) {
     cur_list.tail = k;
     MEM[cur_list.tail].b16.s0 = s;
 }
-pub(crate) unsafe fn off_save(input: &mut input_state_t, tok: i32, cmd: Cmd, chr: i32) {
-    if cur_group == GroupCode::BottomLevel {
+pub(crate) unsafe fn off_save(
+    input: &mut input_state_t,
+    group: GroupCode,
+    tok: i32,
+    cmd: Cmd,
+    chr: i32,
+) {
+    if group == GroupCode::BottomLevel {
         /*1101:*/
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -12210,7 +12216,7 @@ pub(crate) unsafe fn off_save(input: &mut input_state_t, tok: i32, cmd: Cmd, chr
             print_nl_cstr("! ");
         }
         print_cstr("Missing ");
-        match cur_group {
+        match group {
             GroupCode::SemiSimple => {
                 MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_END_GROUP as i32;
                 print_esc_cstr("endgroup");
@@ -12243,14 +12249,14 @@ pub(crate) unsafe fn off_save(input: &mut input_state_t, tok: i32, cmd: Cmd, chr
         error();
     };
 }
-pub(crate) unsafe fn extra_right_brace() {
+pub(crate) unsafe fn extra_right_brace(group: GroupCode) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
         print_nl_cstr("! ");
     }
     print_cstr("Extra }, or forgotten ");
-    match cur_group {
+    match group {
         GroupCode::SemiSimple => print_esc_cstr("endgroup"),
         GroupCode::MathShift => print_chr('$'),
         GroupCode::MathLeft => print_esc_cstr("right"),
@@ -12705,7 +12711,7 @@ pub(crate) unsafe fn indent_in_hmode(chr: i32) {
 pub(crate) unsafe fn head_for_vmode(input: &mut input_state_t, tok: i32, cmd: Cmd, chr: i32) {
     if cur_list.mode.0 == true {
         if cmd != Cmd::HRule {
-            off_save(input, tok, cmd, chr);
+            off_save(input, cur_group, tok, cmd, chr);
         } else {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -13266,6 +13272,7 @@ pub(crate) unsafe fn omit_error() {
 }
 pub(crate) unsafe fn do_endv(
     input: &mut input_state_t,
+    group: GroupCode,
     tok: i32,
     cmd: Cmd,
     chr: i32,
@@ -13284,13 +13291,13 @@ pub(crate) unsafe fn do_endv(
     {
         fatal_error("(interwoven alignment preambles are not allowed)");
     }
-    if cur_group == GroupCode::Align {
+    if group == GroupCode::Align {
         end_graf();
         if fin_col(input) {
             fin_row(input);
         }
     } else {
-        off_save(input, tok, cmd, chr);
+        off_save(input, group, tok, cmd, chr);
     };
 }
 pub(crate) unsafe fn cs_error() {
@@ -14441,8 +14448,8 @@ pub(crate) unsafe fn append_src_special() {
         remember_source_info(SOURCE_FILENAME_STACK[IN_OPEN], line);
     };
 }
-pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
-    match cur_group {
+pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, group: GroupCode, tok: i32) {
+    match group {
         GroupCode::Simple => unsave(input),
         GroupCode::BottomLevel => {
             if file_line_error_style_p != 0 {
@@ -14457,7 +14464,9 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, tok: i32) {
             );
             error();
         }
-        GroupCode::SemiSimple | GroupCode::MathShift | GroupCode::MathLeft => extra_right_brace(),
+        GroupCode::SemiSimple | GroupCode::MathShift | GroupCode::MathLeft => {
+            extra_right_brace(group)
+        }
         GroupCode::HBox => package(input, 0),
         GroupCode::AdjustedHBox => {
             adjust_tail = Some(ADJUST_HEAD);
@@ -14870,12 +14879,12 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         if cur_group == GroupCode::SemiSimple {
                             unsave(input);
                         } else {
-                            off_save(input, cur_tok, cur_cmd, cur_chr);
+                            off_save(input, cur_group, cur_tok, cur_cmd, cur_chr);
                         }
                     }
                     (_, Cmd::RightBrace) => {
                         // 3 | 106 | 209
-                        handle_right_brace(input, cur_tok);
+                        handle_right_brace(input, cur_group, cur_tok);
                     }
                     (VMode, Cmd::HMove) | (HMode, Cmd::VMove) | (MMode, Cmd::VMove) => {
                         // 22 | 126 | 229
@@ -14930,7 +14939,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     (HMode, Cmd::ActiveChar) => {
                         // 117
                         if align_state < 0 {
-                            off_save(input, cur_tok, cur_cmd, cur_chr);
+                            off_save(input, cur_group, cur_tok, cur_cmd, cur_chr);
                         }
                         end_graf();
                         if cur_list.mode == (false, ListMode::VMode) {
@@ -15017,7 +15026,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                             if cur_group == GroupCode::MathShift {
                                 init_align(input, cur_cs);
                             } else {
-                                off_save(input, cur_tok, cur_cmd, cur_chr);
+                                off_save(input, cur_group, cur_tok, cur_cmd, cur_chr);
                             }
                         }
                     }
@@ -15026,6 +15035,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         INPUT_STACK[INPUT_PTR] = *input;
                         do_endv(
                             input,
+                            cur_group,
                             cur_tok,
                             cur_cmd,
                             cur_chr,
@@ -15046,7 +15056,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                             if cur_group == GroupCode::MathShift {
                                 start_eq_no(input, cur_chr);
                             } else {
-                                off_save(input, cur_tok, cur_cmd, cur_chr);
+                                off_save(input, cur_group, cur_tok, cur_cmd, cur_chr);
                             }
                         }
                     }
@@ -15191,14 +15201,14 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     }
                     (MMode, Cmd::LeftRight) => {
                         // 256
-                        math_left_right(input, cur_tok, cur_cmd, cur_chr);
+                        math_left_right(input, cur_group, cur_tok, cur_cmd, cur_chr);
                     }
                     (MMode, Cmd::MathShift) => {
                         // 210
                         if cur_group == GroupCode::MathShift {
                             after_math(input);
                         } else {
-                            off_save(input, cur_tok, cur_cmd, cur_chr);
+                            off_save(input, cur_group, cur_tok, cur_cmd, cur_chr);
                         }
                     }
                     (_, Cmd::ToksRegister)

@@ -759,12 +759,18 @@ pub(crate) unsafe fn math_fraction(input: &mut input_state_t, tok: i32, chr: i32
         }
     };
 }
-pub(crate) unsafe fn math_left_right(input: &mut input_state_t, tok: i32, cmd: Cmd, chr: i32) {
+pub(crate) unsafe fn math_left_right(
+    input: &mut input_state_t,
+    group: GroupCode,
+    tok: i32,
+    cmd: Cmd,
+    chr: i32,
+) {
     let mut q: i32 = 0;
     let mut t = chr as i16;
-    if t != MathNode::Left as i16 && cur_group != GroupCode::MathLeft {
+    if t != MathNode::Left as i16 && group != GroupCode::MathLeft {
         /*1227: */
-        if cur_group == GroupCode::MathShift {
+        if group == GroupCode::MathShift {
             scan_delimiter(
                 input,
                 tok,
@@ -787,7 +793,7 @@ pub(crate) unsafe fn math_left_right(input: &mut input_state_t, tok: i32, cmd: C
             }
             error();
         } else {
-            off_save(input, tok, cmd, chr);
+            off_save(input, group, tok, cmd, chr);
         }
     } else {
         let p = new_noad() as usize;
