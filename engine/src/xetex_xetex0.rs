@@ -1892,20 +1892,20 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr("toks");
                 print_int(chr_code - TOKS_BASE as i32);
             } else {
-                match Local::n(chr_code - LOCAL_BASE as i32) {
-                    Some(Local::output_routine) => print_esc_cstr("output"),
-                    Some(Local::every_par) => print_esc_cstr("everypar"),
-                    Some(Local::every_math) => print_esc_cstr("everymath"),
-                    Some(Local::every_display) => print_esc_cstr("everydisplay"),
-                    Some(Local::every_hbox) => print_esc_cstr("everyhbox"),
-                    Some(Local::every_vbox) => print_esc_cstr("everyvbox"),
-                    Some(Local::every_job) => print_esc_cstr("everyjob"),
-                    Some(Local::every_cr) => print_esc_cstr("everycr"),
-                    Some(Local::every_eof) => print_esc_cstr("everyeof"),
-                    Some(Local::xetex_inter_char) => print_esc_cstr("XeTeXinterchartoks"),
-                    Some(Local::TectonicCodaTokens) => print_esc_cstr("TectonicCodaTokens"),
-                    _ => print_esc_cstr("errhelp"),
-                }
+                print_esc_cstr(match Local::n(chr_code - LOCAL_BASE as i32) {
+                    Some(Local::output_routine) => "output",
+                    Some(Local::every_par) => "everypar",
+                    Some(Local::every_math) => "everymath",
+                    Some(Local::every_display) => "everydisplay",
+                    Some(Local::every_hbox) => "everyhbox",
+                    Some(Local::every_vbox) => "everyvbox",
+                    Some(Local::every_job) => "everyjob",
+                    Some(Local::every_cr) => "everycr",
+                    Some(Local::every_eof) => "everyeof",
+                    Some(Local::xetex_inter_char) => "XeTeXinterchartoks",
+                    Some(Local::TectonicCodaTokens) => "TectonicCodaTokens",
+                    _ => "errhelp",
+                });
             }
         }
         Cmd::AssignInt => {
@@ -1940,33 +1940,27 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         Cmd::CharNum => print_esc_cstr("char"),
         Cmd::CSName => print_esc_cstr("csname"),
         Cmd::DefFont => print_esc_cstr("font"),
-        Cmd::DelimNum => {
-            if chr_code == 1 {
-                print_esc_cstr("Udelimiter");
-            } else {
-                print_esc_cstr("delimiter");
-            }
-        }
+        Cmd::DelimNum => print_esc_cstr(if chr_code == 1 {
+            "Udelimiter"
+        } else {
+            "delimiter"
+        }),
         Cmd::Divide => print_esc_cstr("divide"),
         Cmd::EndCSName => print_esc_cstr("endcsname"),
         Cmd::EndGroup => print_esc_cstr("endgroup"),
         Cmd::ExSpace => print_esc(' ' as i32),
-        Cmd::ExpandAfter => {
-            if chr_code == 0 {
-                print_esc_cstr("expandafter");
-            } else {
-                print_esc_cstr("unless");
-            }
-        }
+        Cmd::ExpandAfter => print_esc_cstr(if chr_code == 0 {
+            "expandafter"
+        } else {
+            "unless"
+        }),
         Cmd::HAlign => print_esc_cstr("halign"),
         Cmd::HRule => print_esc_cstr("hrule"),
-        Cmd::IgnoreSpaces => {
-            if chr_code == 0 {
-                print_esc_cstr("ignorespaces");
-            } else {
-                print_esc_cstr("primitive");
-            }
-        }
+        Cmd::IgnoreSpaces => print_esc_cstr(if chr_code == 0 {
+            "ignorespaces"
+        } else {
+            "primitive"
+        }),
         Cmd::Insert => print_esc_cstr("insert"),
         Cmd::ItalCorr => print_esc('/' as i32),
         Cmd::Mark => {
@@ -1975,69 +1969,45 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_chr('s');
             }
         }
-        Cmd::MathAccent => {
-            if chr_code == 1 {
-                print_esc_cstr("Umathaccent");
-            } else {
-                print_esc_cstr("mathaccent");
-            }
-        }
-        Cmd::MathCharNum => {
-            if chr_code == 2 {
-                print_esc_cstr("Umathchar");
-            } else if chr_code == 1 {
-                print_esc_cstr("Umathcharnum");
-            } else {
-                print_esc_cstr("mathchar");
-            }
-        }
+        Cmd::MathAccent => print_esc_cstr(if chr_code == 1 {
+            "Umathaccent"
+        } else {
+            "mathaccent"
+        }),
+        Cmd::MathCharNum => print_esc_cstr(match chr_code {
+            2 => "Umathchar",
+            1 => "Umathcharnum",
+            _ => "mathchar",
+        }),
         Cmd::MathChoice => print_esc_cstr("mathchoice"),
         Cmd::Multiply => print_esc_cstr("multiply"),
         Cmd::NoAlign => print_esc_cstr("noalign"),
         Cmd::NoBoundary => print_esc_cstr("noboundary"),
-        Cmd::NoExpand => {
-            if chr_code == 0 {
-                print_esc_cstr("noexpand");
-            } else {
-                print_esc_cstr("primitive");
-            }
-        }
+        Cmd::NoExpand => print_esc_cstr(if chr_code == 0 {
+            "noexpand"
+        } else {
+            "primitive"
+        }),
         Cmd::NonScript => print_esc_cstr("nonscript"),
         Cmd::Omit => print_esc_cstr("omit"),
-        Cmd::Radical => {
-            if chr_code == 1 {
-                print_esc_cstr("Uradical");
-            } else {
-                print_esc_cstr("radical");
-            }
-        }
-        Cmd::ReadToCS => {
-            if chr_code == 0 {
-                print_esc_cstr("read");
-            } else {
-                print_esc_cstr("readline");
-            }
-        }
+        Cmd::Radical => print_esc_cstr(if chr_code == 1 { "Uradical" } else { "radical" }),
+        Cmd::ReadToCS => print_esc_cstr(if chr_code == 0 { "read" } else { "readline" }),
         Cmd::Relax => print_esc_cstr("relax"),
         Cmd::SetBox => print_esc_cstr("setbox"),
         Cmd::SetPrevGraf => print_esc_cstr("prevgraf"),
-        Cmd::SetShape => match chr_code as usize {
-            c if c == LOCAL_BASE as usize + Local::par_shape as usize => print_esc_cstr("parshape"),
-            INTER_LINE_PENALTIES_LOC => print_esc_cstr("interlinepenalties"),
-            CLUB_PENALTIES_LOC => print_esc_cstr("clubpenalties"),
-            WIDOW_PENALTIES_LOC => print_esc_cstr("widowpenalties"),
-            DISPLAY_WIDOW_PENALTIES_LOC => print_esc_cstr("displaywidowpenalties"),
-            _ => {}
-        },
-        Cmd::The => {
-            if chr_code == 0 {
-                print_esc_cstr("the");
-            } else if chr_code == 1 {
-                print_esc_cstr("unexpanded");
-            } else {
-                print_esc_cstr("detokenize");
-            }
-        }
+        Cmd::SetShape => print_esc_cstr(match chr_code as usize {
+            c if c == LOCAL_BASE as usize + Local::par_shape as usize => "parshape",
+            INTER_LINE_PENALTIES_LOC => "interlinepenalties",
+            CLUB_PENALTIES_LOC => "clubpenalties",
+            WIDOW_PENALTIES_LOC => "widowpenalties",
+            DISPLAY_WIDOW_PENALTIES_LOC => "displaywidowpenalties",
+            _ => unreachable!(),
+        }),
+        Cmd::The => print_esc_cstr(match chr_code {
+            0 => "the",
+            1 => "unexpanded",
+            _ => "detokenize",
+        }),
         Cmd::ToksRegister => {
             print_esc_cstr("toks");
             if chr_code != 0 {
@@ -2045,38 +2015,32 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             }
         }
         Cmd::VAdjust => print_esc_cstr("vadjust"),
-        Cmd::VAlign => {
-            if chr_code == 0 {
-                print_esc_cstr("valign");
-            } else {
-                match MathType::from(chr_code as u16) {
-                    MathType::Eq(BE::Begin, MathMode::Left) => print_esc_cstr("beginL"),
-                    MathType::Eq(BE::End, MathMode::Left) => print_esc_cstr("endL"),
-                    MathType::Eq(BE::Begin, MathMode::Right) => print_esc_cstr("beginR"),
-                    _ => print_esc_cstr("endR"),
-                }
+        Cmd::VAlign => print_esc_cstr(if chr_code == 0 {
+            "valign"
+        } else {
+            match MathType::from(chr_code as u16) {
+                MathType::Eq(BE::Begin, MathMode::Left) => "beginL",
+                MathType::Eq(BE::End, MathMode::Left) => "endL",
+                MathType::Eq(BE::Begin, MathMode::Right) => "beginR",
+                _ => "endR",
             }
-        }
+        }),
         Cmd::VCenter => print_esc_cstr("vcenter"),
         Cmd::VRule => print_esc_cstr("vrule"),
         PAR_END => print_esc_cstr("par"),
-        Cmd::Input => {
-            if chr_code == 0 {
-                print_esc_cstr("input");
-            } else if chr_code == 2i32 {
-                print_esc_cstr("scantokens");
-            } else {
-                print_esc_cstr("endinput");
-            }
-        }
+        Cmd::Input => print_esc_cstr(match chr_code {
+            0 => "input",
+            2 => "scantokens",
+            _ => "endinput",
+        }),
         Cmd::TopBotMark => {
-            match (chr_code % MARKS_CODE) as usize {
-                FIRST_MARK_CODE => print_esc_cstr("firstmark"),
-                BOT_MARK_CODE => print_esc_cstr("botmark"),
-                SPLIT_FIRST_MARK_CODE => print_esc_cstr("splitfirstmark"),
-                SPLIT_BOT_MARK_CODE => print_esc_cstr("splitbotmark"),
-                _ => print_esc_cstr("topmark"),
-            }
+            print_esc_cstr(match (chr_code % MARKS_CODE) as usize {
+                FIRST_MARK_CODE => "firstmark",
+                BOT_MARK_CODE => "botmark",
+                SPLIT_FIRST_MARK_CODE => "splitfirstmark",
+                SPLIT_BOT_MARK_CODE => "splitbotmark",
+                _ => "topmark",
+            });
             if chr_code >= MARKS_CODE {
                 print_chr('s');
             }
@@ -2090,164 +2054,160 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 cmd = chr_code as u16;
                 chr_code = None.tex_int();
             }
-            if cmd == ValLevel::Int as u16 {
-                print_esc_cstr("count");
+            print_esc_cstr(if cmd == ValLevel::Int as u16 {
+                "count"
             } else if cmd == ValLevel::Dimen as u16 {
-                print_esc_cstr("dimen");
+                "dimen"
             } else if cmd == ValLevel::Glue as u16 {
-                print_esc_cstr("skip");
+                "skip"
             } else {
-                print_esc_cstr("muskip");
-            }
+                "muskip"
+            });
             if let Some(q) = chr_code.opt() {
                 print_sa_num(q);
             }
         }
-        Cmd::SetAux => {
-            if chr_code == ListMode::VMode as i32 {
-                print_esc_cstr("prevdepth");
-            } else {
-                print_esc_cstr("spacefactor");
-            }
-        }
-        Cmd::SetPageInt => {
-            if chr_code == 0 {
-                print_esc_cstr("deadcycles");
-            } else if chr_code == 2 {
-                print_esc_cstr("interactionmode");
-            } else {
-                print_esc_cstr("insertpenalties");
-            }
-        }
-        Cmd::SetBoxDimen => match SetBoxDimen::n(chr_code as u8).unwrap() {
-            SetBoxDimen::WidthOffset => print_esc_cstr("wd"),
-            SetBoxDimen::HeightOffset => print_esc_cstr("ht"),
-            SetBoxDimen::DepthOffset => print_esc_cstr("dp"),
-        },
-        Cmd::LastItem => {
+        Cmd::SetAux => print_esc_cstr(if chr_code == ListMode::VMode as i32 {
+            "prevdepth"
+        } else {
+            "spacefactor"
+        }),
+        Cmd::SetPageInt => print_esc_cstr(match chr_code {
+            0 => "deadcycles",
+            2 => "interactionmode",
+            _ => "insertpenalties",
+        }),
+        Cmd::SetBoxDimen => print_esc_cstr(match SetBoxDimen::n(chr_code as u8).unwrap() {
+            SetBoxDimen::WidthOffset => "wd",
+            SetBoxDimen::HeightOffset => "ht",
+            SetBoxDimen::DepthOffset => "dp",
+        }),
+        Cmd::LastItem => print_esc_cstr({
             use LastItemCode::*;
             match LastItemCode::n(chr_code as u8).unwrap() {
-                LastPenalty => print_esc_cstr("lastpenalty"),
-                LastKern => print_esc_cstr("lastkern"),
-                LastSkip => print_esc_cstr("lastskip"),
-                InputLineNo => print_esc_cstr("inputlineno"),
-                PdfShellEscape => print_esc_cstr("shellescape"),
-                LastNodeType => print_esc_cstr("lastnodetype"),
-                EtexVersion => print_esc_cstr("eTeXversion"),
-                XetexVersion => print_esc_cstr("XeTeXversion"),
-                XetexCountGlyphs => print_esc_cstr("XeTeXcountglyphs"),
-                XetexCountVariations => print_esc_cstr("XeTeXcountvariations"),
-                XetexVariation => print_esc_cstr("XeTeXvariation"),
-                XetexFindVariationByName => print_esc_cstr("XeTeXfindvariationbyname"),
-                XetexVariationMin => print_esc_cstr("XeTeXvariationmin"),
-                XetexVariationMax => print_esc_cstr("XeTeXvariationmax"),
-                XetexVariationDefault => print_esc_cstr("XeTeXvariationdefault"),
-                XetexCountFeatures => print_esc_cstr("XeTeXcountfeatures"),
-                XetexFeatureCode => print_esc_cstr("XeTeXfeaturecode"),
-                XetexFindFeatureByName => print_esc_cstr("XeTeXfindfeaturebyname"),
-                XetexIsExclusiveFeature => print_esc_cstr("XeTeXisexclusivefeature"),
-                XetexCountSelectors => print_esc_cstr("XeTeXcountselectors"),
-                XetexSelectorCode => print_esc_cstr("XeTeXselectorcode"),
-                XetexFindSelectorByName => print_esc_cstr("XeTeXfindselectorbyname"),
-                XetexIsDefaultSelector => print_esc_cstr("XeTeXisdefaultselector"),
-                XetexOTCountScripts => print_esc_cstr("XeTeXOTcountscripts"),
-                XetexOTCountLanguages => print_esc_cstr("XeTeXOTcountlanguages"),
-                XetexOTCountFeatures => print_esc_cstr("XeTeXOTcountfeatures"),
-                XetexOTScript => print_esc_cstr("XeTeXOTscripttag"),
-                XetexOTLanguage => print_esc_cstr("XeTeXOTlanguagetag"),
-                XetexOTFeature => print_esc_cstr("XeTeXOTfeaturetag"),
-                XetexMapCharToGlyph => print_esc_cstr("XeTeXcharglyph"),
-                XetexGlyphIndex => print_esc_cstr("XeTeXglyphindex"),
-                XetexGlyphBounds => print_esc_cstr("XeTeXglyphbounds"),
-                XetexFontType => print_esc_cstr("XeTeXfonttype"),
-                XetexFirstChar => print_esc_cstr("XeTeXfirstfontchar"),
-                XetexLastChar => print_esc_cstr("XeTeXlastfontchar"),
-                PdfLastXPos => print_esc_cstr("pdflastxpos"),
-                PdfLastYPos => print_esc_cstr("pdflastypos"),
-                XetexPdfPageCount => print_esc_cstr("XeTeXpdfpagecount"),
-                CurrentGroupLevel => print_esc_cstr("currentgrouplevel"),
-                CurrentGroupType => print_esc_cstr("currentgrouptype"),
-                CurrentIfLevel => print_esc_cstr("currentiflevel"),
-                CurrentIfType => print_esc_cstr("currentiftype"),
-                CurrentIfBranch => print_esc_cstr("currentifbranch"),
-                FontCharWd => print_esc_cstr("fontcharwd"),
-                FontCharHt => print_esc_cstr("fontcharht"),
-                FontCharDp => print_esc_cstr("fontchardp"),
-                FontCharIc => print_esc_cstr("fontcharic"),
-                ParShapeLength => print_esc_cstr("parshapelength"),
-                ParShapeIndent => print_esc_cstr("parshapeindent"),
-                ParShapeDimen => print_esc_cstr("parshapedimen"),
-                EtexExprInt => print_esc_cstr("numexpr"),
-                EtexExprDimen => print_esc_cstr("dimexpr"),
-                EtexExprGlue => print_esc_cstr("glueexpr"),
-                EtexExprMu => print_esc_cstr("muexpr"),
-                GlueStretchOrder => print_esc_cstr("gluestretchorder"),
-                GlueShrinkOrder => print_esc_cstr("glueshrinkorder"),
-                GlueStretch => print_esc_cstr("gluestretch"),
-                GlueShrink => print_esc_cstr("glueshrink"),
-                MuToGlue => print_esc_cstr("mutoglue"),
-                GlueToMu => print_esc_cstr("gluetomu"),
-                Badness => print_esc_cstr("badness"),
+                LastPenalty => "lastpenalty",
+                LastKern => "lastkern",
+                LastSkip => "lastskip",
+                InputLineNo => "inputlineno",
+                PdfShellEscape => "shellescape",
+                LastNodeType => "lastnodetype",
+                EtexVersion => "eTeXversion",
+                XetexVersion => "XeTeXversion",
+                XetexCountGlyphs => "XeTeXcountglyphs",
+                XetexCountVariations => "XeTeXcountvariations",
+                XetexVariation => "XeTeXvariation",
+                XetexFindVariationByName => "XeTeXfindvariationbyname",
+                XetexVariationMin => "XeTeXvariationmin",
+                XetexVariationMax => "XeTeXvariationmax",
+                XetexVariationDefault => "XeTeXvariationdefault",
+                XetexCountFeatures => "XeTeXcountfeatures",
+                XetexFeatureCode => "XeTeXfeaturecode",
+                XetexFindFeatureByName => "XeTeXfindfeaturebyname",
+                XetexIsExclusiveFeature => "XeTeXisexclusivefeature",
+                XetexCountSelectors => "XeTeXcountselectors",
+                XetexSelectorCode => "XeTeXselectorcode",
+                XetexFindSelectorByName => "XeTeXfindselectorbyname",
+                XetexIsDefaultSelector => "XeTeXisdefaultselector",
+                XetexOTCountScripts => "XeTeXOTcountscripts",
+                XetexOTCountLanguages => "XeTeXOTcountlanguages",
+                XetexOTCountFeatures => "XeTeXOTcountfeatures",
+                XetexOTScript => "XeTeXOTscripttag",
+                XetexOTLanguage => "XeTeXOTlanguagetag",
+                XetexOTFeature => "XeTeXOTfeaturetag",
+                XetexMapCharToGlyph => "XeTeXcharglyph",
+                XetexGlyphIndex => "XeTeXglyphindex",
+                XetexGlyphBounds => "XeTeXglyphbounds",
+                XetexFontType => "XeTeXfonttype",
+                XetexFirstChar => "XeTeXfirstfontchar",
+                XetexLastChar => "XeTeXlastfontchar",
+                PdfLastXPos => "pdflastxpos",
+                PdfLastYPos => "pdflastypos",
+                XetexPdfPageCount => "XeTeXpdfpagecount",
+                CurrentGroupLevel => "currentgrouplevel",
+                CurrentGroupType => "currentgrouptype",
+                CurrentIfLevel => "currentiflevel",
+                CurrentIfType => "currentiftype",
+                CurrentIfBranch => "currentifbranch",
+                FontCharWd => "fontcharwd",
+                FontCharHt => "fontcharht",
+                FontCharDp => "fontchardp",
+                FontCharIc => "fontcharic",
+                ParShapeLength => "parshapelength",
+                ParShapeIndent => "parshapeindent",
+                ParShapeDimen => "parshapedimen",
+                EtexExprInt => "numexpr",
+                EtexExprDimen => "dimexpr",
+                EtexExprGlue => "glueexpr",
+                EtexExprMu => "muexpr",
+                GlueStretchOrder => "gluestretchorder",
+                GlueShrinkOrder => "glueshrinkorder",
+                GlueStretch => "gluestretch",
+                GlueShrink => "glueshrink",
+                MuToGlue => "mutoglue",
+                GlueToMu => "gluetomu",
+                Badness => "badness",
             }
-        }
-        Cmd::Convert => {
+        }),
+        Cmd::Convert => print_esc_cstr({
             use ConvertCode::*;
             match ConvertCode::n(chr_code as u8).unwrap() {
-                Number => print_esc_cstr("number"),
-                RomanNumeral => print_esc_cstr("romannumeral"),
-                String => print_esc_cstr("string"),
-                Meaning => print_esc_cstr("meaning"),
-                FontName => print_esc_cstr("fontname"),
-                PdfStrcmp => print_esc_cstr("strcmp"),
-                PdfMdfiveSum => print_esc_cstr("mdfivesum"),
-                LeftMarginKern => print_esc_cstr("leftmarginkern"),
-                RightMarginKern => print_esc_cstr("rightmarginkern"),
-                EtexRevision => print_esc_cstr("eTeXrevision"),
-                XetexRevision => print_esc_cstr("XeTeXrevision"),
-                XetexVariationName => print_esc_cstr("XeTeXvariationname"),
-                XetexFeatureName => print_esc_cstr("XeTeXfeaturename"),
-                XetexSelectorName => print_esc_cstr("XeTeXselectorname"),
-                XetexGlyphName => print_esc_cstr("XeTeXglyphname"),
-                XetexUchar => print_esc_cstr("Uchar"),
-                XetexUcharcat => print_esc_cstr("Ucharcat"),
-                JobName => print_esc_cstr("jobname"),
+                Number => "number",
+                RomanNumeral => "romannumeral",
+                String => "string",
+                Meaning => "meaning",
+                FontName => "fontname",
+                PdfStrcmp => "strcmp",
+                PdfMdfiveSum => "mdfivesum",
+                LeftMarginKern => "leftmarginkern",
+                RightMarginKern => "rightmarginkern",
+                EtexRevision => "eTeXrevision",
+                XetexRevision => "XeTeXrevision",
+                XetexVariationName => "XeTeXvariationname",
+                XetexFeatureName => "XeTeXfeaturename",
+                XetexSelectorName => "XeTeXselectorname",
+                XetexGlyphName => "XeTeXglyphname",
+                XetexUchar => "Uchar",
+                XetexUcharcat => "Ucharcat",
+                JobName => "jobname",
             }
-        }
+        }),
         Cmd::IfTest => {
             if chr_code >= UNLESS_CODE {
                 print_esc_cstr("unless");
             }
-            match IfTestCode::n((chr_code % UNLESS_CODE) as u8).unwrap() {
-                IfTestCode::IfCat => print_esc_cstr("ifcat"),
-                IfTestCode::IfInt => print_esc_cstr("ifnum"),
-                IfTestCode::IfDim => print_esc_cstr("ifdim"),
-                IfTestCode::IfOdd => print_esc_cstr("ifodd"),
-                IfTestCode::IfVMode => print_esc_cstr("ifvmode"),
-                IfTestCode::IfHMode => print_esc_cstr("ifhmode"),
-                IfTestCode::IfMMode => print_esc_cstr("ifmmode"),
-                IfTestCode::IfInner => print_esc_cstr("ifinner"),
-                IfTestCode::IfVoid => print_esc_cstr("ifvoid"),
-                IfTestCode::IfHBox => print_esc_cstr("ifhbox"),
-                IfTestCode::IfVBox => print_esc_cstr("ifvbox"),
-                IfTestCode::Ifx => print_esc_cstr("ifx"),
-                IfTestCode::IfEof => print_esc_cstr("ifeof"),
-                IfTestCode::IfTrue => print_esc_cstr("iftrue"),
-                IfTestCode::IfFalse => print_esc_cstr("iffalse"),
-                IfTestCode::IfCase => print_esc_cstr("ifcase"),
-                IfTestCode::IfPrimitive => print_esc_cstr("ifprimitive"),
-                IfTestCode::IfDef => print_esc_cstr("ifdefined"),
-                IfTestCode::IfCS => print_esc_cstr("ifcsname"),
-                IfTestCode::IfFontChar => print_esc_cstr("iffontchar"),
-                IfTestCode::IfInCSName => print_esc_cstr("ifincsname"),
-                IfTestCode::IfChar => print_esc_cstr("if"),
-            }
+            print_esc_cstr(
+                match IfTestCode::n((chr_code % UNLESS_CODE) as u8).unwrap() {
+                    IfTestCode::IfCat => "ifcat",
+                    IfTestCode::IfInt => "ifnum",
+                    IfTestCode::IfDim => "ifdim",
+                    IfTestCode::IfOdd => "ifodd",
+                    IfTestCode::IfVMode => "ifvmode",
+                    IfTestCode::IfHMode => "ifhmode",
+                    IfTestCode::IfMMode => "ifmmode",
+                    IfTestCode::IfInner => "ifinner",
+                    IfTestCode::IfVoid => "ifvoid",
+                    IfTestCode::IfHBox => "ifhbox",
+                    IfTestCode::IfVBox => "ifvbox",
+                    IfTestCode::Ifx => "ifx",
+                    IfTestCode::IfEof => "ifeof",
+                    IfTestCode::IfTrue => "iftrue",
+                    IfTestCode::IfFalse => "iffalse",
+                    IfTestCode::IfCase => "ifcase",
+                    IfTestCode::IfPrimitive => "ifprimitive",
+                    IfTestCode::IfDef => "ifdefined",
+                    IfTestCode::IfCS => "ifcsname",
+                    IfTestCode::IfFontChar => "iffontchar",
+                    IfTestCode::IfInCSName => "ifincsname",
+                    IfTestCode::IfChar => "if",
+                },
+            );
         }
-        Cmd::FiOrElse => match FiOrElseCode::n(chr_code as u8).unwrap() {
-            FiOrElseCode::Fi => print_esc_cstr("fi"),
-            FiOrElseCode::Or => print_esc_cstr("or"),
-            FiOrElseCode::Else => print_esc_cstr("else"),
+        Cmd::FiOrElse => print_esc_cstr(match FiOrElseCode::n(chr_code as u8).unwrap() {
+            FiOrElseCode::Fi => "fi",
+            FiOrElseCode::Or => "or",
+            FiOrElseCode::Else => "else",
             _ => unreachable!(),
-        },
+        }),
         Cmd::TabMark => {
             if chr_code == SPAN_CODE {
                 print_esc_cstr("span");
@@ -2260,102 +2220,80 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 }
             }
         }
-        Cmd::CarRet => {
-            if chr_code == CR_CODE {
-                print_esc_cstr("cr");
-            } else {
-                print_esc_cstr("crcr");
-            }
-        }
-        Cmd::SetPageDimen => {
-            match chr_code {
-                0 => print_esc_cstr("pagegoal"),         // genuine literal in WEB
-                1 => print_esc_cstr("pagetotal"),        // genuine literal in WEB
-                2 => print_esc_cstr("pagestretch"),      // genuine literal in WEB
-                3 => print_esc_cstr("pagefilstretch"),   // genuine literal in WEB
-                4 => print_esc_cstr("pagefillstretch"),  // genuine literal in WEB
-                5 => print_esc_cstr("pagefilllstretch"), // genuine literal in WEB
-                6 => print_esc_cstr("pageshrink"),       // genuine literal in WEB
-                _ => print_esc_cstr("pagedepth"),
-            }
-        }
-        STOP => {
-            if chr_code == 1 {
-                print_esc_cstr("dump");
-            } else {
-                print_esc_cstr("end");
-            }
-        }
-        Cmd::HSkip => match SkipCode::n(chr_code as u8).unwrap() {
-            SkipCode::Skip => print_esc_cstr("hskip"),
-            SkipCode::Fil => print_esc_cstr("hfil"),
-            SkipCode::Fill => print_esc_cstr("hfill"),
-            SkipCode::Ss => print_esc_cstr("hss"),
-            SkipCode::FilNeg => print_esc_cstr("hfilneg"),
+        Cmd::CarRet => print_esc_cstr(if chr_code == CR_CODE { "cr" } else { "crcr" }),
+        Cmd::SetPageDimen => print_esc_cstr(match chr_code {
+            0 => "pagegoal",         // genuine literal in WEB
+            1 => "pagetotal",        // genuine literal in WEB
+            2 => "pagestretch",      // genuine literal in WEB
+            3 => "pagefilstretch",   // genuine literal in WEB
+            4 => "pagefillstretch",  // genuine literal in WEB
+            5 => "pagefilllstretch", // genuine literal in WEB
+            6 => "pageshrink",       // genuine literal in WEB
+            _ => "pagedepth",
+        }),
+        STOP => print_esc_cstr(if chr_code == 1 { "dump" } else { "end" }),
+        Cmd::HSkip => print_esc_cstr(match SkipCode::n(chr_code as u8).unwrap() {
+            SkipCode::Skip => "hskip",
+            SkipCode::Fil => "hfil",
+            SkipCode::Fill => "hfill",
+            SkipCode::Ss => "hss",
+            SkipCode::FilNeg => "hfilneg",
             _ => unreachable!(),
-        },
-        Cmd::VSkip => match SkipCode::n(chr_code as u8).unwrap() {
-            SkipCode::Skip => print_esc_cstr("vskip"),
-            SkipCode::Fil => print_esc_cstr("vfil"),
-            SkipCode::Fill => print_esc_cstr("vfill"),
-            SkipCode::Ss => print_esc_cstr("vss"),
-            SkipCode::FilNeg => print_esc_cstr("vfilneg"),
+        }),
+        Cmd::VSkip => print_esc_cstr(match SkipCode::n(chr_code as u8).unwrap() {
+            SkipCode::Skip => "vskip",
+            SkipCode::Fil => "vfil",
+            SkipCode::Fill => "vfill",
+            SkipCode::Ss => "vss",
+            SkipCode::FilNeg => "vfilneg",
             _ => unreachable!(),
-        },
+        }),
         Cmd::MSkip => print_esc_cstr("mskip"),
         Cmd::Kern => print_esc_cstr("kern"),
         Cmd::MKern => print_esc_cstr("mkern"),
-        Cmd::HMove => {
-            if chr_code == 1i32 {
-                print_esc_cstr("moveleft");
-            } else {
-                print_esc_cstr("moveright");
-            }
-        }
-        Cmd::VMove => {
+        Cmd::HMove => print_esc_cstr(if chr_code == 1 {
+            "moveleft"
+        } else {
+            "moveright"
+        }),
+        Cmd::VMove => print_esc_cstr({
             if chr_code == 1 {
-                print_esc_cstr("raise");
+                "raise"
             } else {
-                print_esc_cstr("lower");
+                "lower"
             }
-        }
-        Cmd::MakeBox => match BoxCode::n(chr_code as u8).unwrap() {
-            BoxCode::Box => print_esc_cstr("box"),
-            BoxCode::Copy => print_esc_cstr("copy"),
-            BoxCode::LastBox => print_esc_cstr("lastbox"),
-            BoxCode::VSplit => print_esc_cstr("vsplit"),
-            BoxCode::VTop => print_esc_cstr("vtop"),
-            BoxCode::VBox => print_esc_cstr("vbox"),
-            BoxCode::HBox => print_esc_cstr("hbox"),
-        },
-        Cmd::LeaderShip => match chr_code as u16 {
-            A_LEADERS => print_esc_cstr("leaders"),
-            C_LEADERS => print_esc_cstr("cleaders"),
-            X_LEADERS => print_esc_cstr("xleaders"),
-            _ => print_esc_cstr("shipout"),
-        },
-        Cmd::StartPar => {
-            if chr_code == 0 {
-                print_esc_cstr("noindent");
-            } else {
-                print_esc_cstr("indent");
-            }
-        }
-        Cmd::RemoveItem => match chr_code {
-            10 => print_esc_cstr("unskip"), // Node::Glue
-            11 => print_esc_cstr("unkern"), // Node::Kern
-            _ => print_esc_cstr("unpenalty"),
-        },
-        Cmd::UnHBox => match BoxCode::n(chr_code as u8).unwrap() {
-            BoxCode::Copy => print_esc_cstr("unhcopy"),
-            _ => print_esc_cstr("unhbox"),
-        },
-        Cmd::UnVBox => match BoxCode::n(chr_code as u8).unwrap() {
-            BoxCode::Copy => print_esc_cstr("unvcopy"),
-            BoxCode::LastBox => print_esc_cstr("pagediscards"),
-            BoxCode::VSplit => print_esc_cstr("splitdiscards"),
-            _ => print_esc_cstr("unvbox"),
-        },
+        }),
+        Cmd::MakeBox => print_esc_cstr(match BoxCode::n(chr_code as u8).unwrap() {
+            BoxCode::Box => "box",
+            BoxCode::Copy => "copy",
+            BoxCode::LastBox => "lastbox",
+            BoxCode::VSplit => "vsplit",
+            BoxCode::VTop => "vtop",
+            BoxCode::VBox => "vbox",
+            BoxCode::HBox => "hbox",
+        }),
+        Cmd::LeaderShip => print_esc_cstr(match chr_code as u16 {
+            A_LEADERS => "leaders",
+            C_LEADERS => "cleaders",
+            X_LEADERS => "xleaders",
+            _ => "shipout",
+        }),
+        Cmd::StartPar => print_esc_cstr(if chr_code == 0 { "noindent" } else { "indent" }),
+        Cmd::RemoveItem => print_esc_cstr(match chr_code {
+            10 => "unskip", // Node::Glue
+            11 => "unkern", // Node::Kern
+            _ => "unpenalty",
+        }),
+        Cmd::UnHBox => print_esc_cstr(match BoxCode::n(chr_code as u8).unwrap() {
+            BoxCode::Copy => "unhcopy",
+            _ => "unhbox",
+        }),
+        Cmd::UnVBox => print_esc_cstr(match BoxCode::n(chr_code as u8).unwrap() {
+            BoxCode::Copy => "unvcopy",
+            BoxCode::LastBox => "pagediscards",
+            BoxCode::VSplit => "splitdiscards",
+            _ => "unvbox",
+        }),
         Cmd::Discretionary => {
             if chr_code == 1 {
                 print_esc('-' as i32);
@@ -2363,92 +2301,74 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr("discretionary");
             }
         }
-        Cmd::EqNo => {
-            if chr_code == 1 {
-                print_esc_cstr("leqno");
-            } else {
-                print_esc_cstr("eqno");
-            }
-        }
-        Cmd::MathComp => match MathNode::n(chr_code as u16).unwrap() {
-            MathNode::Ord => print_esc_cstr("mathord"),
-            MathNode::Op => print_esc_cstr("mathop"),
-            MathNode::Bin => print_esc_cstr("mathbin"),
-            MathNode::Rel => print_esc_cstr("mathrel"),
-            MathNode::Open => print_esc_cstr("mathopen"),
-            MathNode::Close => print_esc_cstr("mathclose"),
-            MathNode::Punct => print_esc_cstr("mathpunct"),
-            MathNode::Inner => print_esc_cstr("mathinner"),
-            MathNode::Under => print_esc_cstr("underline"),
-            _ => print_esc_cstr("overline"),
-        },
+        Cmd::EqNo => print_esc_cstr(if chr_code == 1 { "leqno" } else { "eqno" }),
+        Cmd::MathComp => print_esc_cstr(match MathNode::n(chr_code as u16).unwrap() {
+            MathNode::Ord => "mathord",
+            MathNode::Op => "mathop",
+            MathNode::Bin => "mathbin",
+            MathNode::Rel => "mathrel",
+            MathNode::Open => "mathopen",
+            MathNode::Close => "mathclose",
+            MathNode::Punct => "mathpunct",
+            MathNode::Inner => "mathinner",
+            MathNode::Under => "underline",
+            _ => "overline",
+        }),
         Cmd::LimitSwitch => match Limit::from(chr_code as u16) {
             Limit::Limits => print_esc_cstr("limits"),
             Limit::NoLimits => print_esc_cstr("nolimits"),
             Limit::Normal => print_esc_cstr("displaylimits"),
         },
         Cmd::MathStyle => print_style(chr_code),
-        Cmd::Above => match chr_code {
-            OVER_CODE => print_esc_cstr("over"),
-            ATOP_CODE => print_esc_cstr("atop"),
+        Cmd::Above => print_esc_cstr(match chr_code {
+            OVER_CODE => "over",
+            ATOP_CODE => "atop",
             // DELIMITED_CODE + ABOVE_CODE
-            3 => print_esc_cstr("abovewithdelims"),
+            3 => "abovewithdelims",
             // DELIMITED_CODE + OVER_CODE
-            4 => print_esc_cstr("overwithdelims"),
+            4 => "overwithdelims",
             // DELIMITED_CODE + ATOP_CODE
-            5 => print_esc_cstr("atopwithdelims"),
-            _ => print_esc_cstr("above"),
-        },
-        Cmd::LeftRight => {
-            if chr_code as u16 == MathNode::Left as u16 {
-                print_esc_cstr("left");
-            } else if chr_code as u16 == MIDDLE_NOAD {
-                print_esc_cstr("middle");
-            } else {
-                print_esc_cstr("right");
-            }
-        }
-        Cmd::Prefix => {
-            if chr_code == 1 {
-                print_esc_cstr("long");
-            } else if chr_code == 2 {
-                print_esc_cstr("outer");
-            } else if chr_code == 8 {
-                print_esc_cstr("protected");
-            } else {
-                print_esc_cstr("global");
-            }
-        }
-        Cmd::Def => {
-            if chr_code == 0 {
-                print_esc_cstr("def");
-            } else if chr_code == 1 {
-                print_esc_cstr("gdef");
-            } else if chr_code == 2 {
-                print_esc_cstr("edef");
-            } else {
-                print_esc_cstr("xdef");
-            }
-        }
+            5 => "atopwithdelims",
+            _ => "above",
+        }),
+        Cmd::LeftRight => print_esc_cstr(if chr_code as u16 == MathNode::Left as u16 {
+            "left"
+        } else if chr_code as u16 == MIDDLE_NOAD {
+            "middle"
+        } else {
+            "right"
+        }),
+        Cmd::Prefix => print_esc_cstr(match chr_code {
+            1 => "long",
+            2 => "outer",
+            8 => "protected",
+            _ => "global",
+        }),
+        Cmd::Def => print_esc_cstr(match chr_code {
+            0 => "def",
+            1 => "gdef",
+            2 => "edef",
+            _ => "xdef",
+        }),
         Cmd::Let => {
-            if chr_code as u16 != NORMAL {
-                print_esc_cstr("futurelet");
+            print_esc_cstr(if chr_code as u16 != NORMAL {
+                "futurelet"
             } else {
-                print_esc_cstr("let");
-            }
+                "let"
+            });
         }
-        Cmd::ShorthandDef => match ShorthandDefCode::n(chr_code as u8).unwrap() {
-            ShorthandDefCode::Char => print_esc_cstr("chardef"),
-            ShorthandDefCode::MathChar => print_esc_cstr("mathchardef"),
-            ShorthandDefCode::XetexMathChar => print_esc_cstr("Umathchardef"),
-            ShorthandDefCode::XetexMathCharNum => print_esc_cstr("Umathcharnumdef"),
-            ShorthandDefCode::Count => print_esc_cstr("countdef"),
-            ShorthandDefCode::Dimen => print_esc_cstr("dimendef"),
-            ShorthandDefCode::Skip => print_esc_cstr("skipdef"),
-            ShorthandDefCode::MuSkip => print_esc_cstr("muskipdef"),
-            ShorthandDefCode::CharSub => print_esc_cstr("charsubdef"),
-            ShorthandDefCode::Toks => print_esc_cstr("toksdef"),
-        },
+        Cmd::ShorthandDef => print_esc_cstr(match ShorthandDefCode::n(chr_code as u8).unwrap() {
+            ShorthandDefCode::Char => "chardef",
+            ShorthandDefCode::MathChar => "mathchardef",
+            ShorthandDefCode::XetexMathChar => "Umathchardef",
+            ShorthandDefCode::XetexMathCharNum => "Umathcharnumdef",
+            ShorthandDefCode::Count => "countdef",
+            ShorthandDefCode::Dimen => "dimendef",
+            ShorthandDefCode::Skip => "skipdef",
+            ShorthandDefCode::MuSkip => "muskipdef",
+            ShorthandDefCode::CharSub => "charsubdef",
+            ShorthandDefCode::Toks => "toksdef",
+        }),
         Cmd::CharGiven => {
             print_esc_cstr("char");
             print_hex(chr_code);
@@ -2463,48 +2383,42 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             print_hex(math_fam(chr_code) as i32);
             print_hex(math_char(chr_code) as i32);
         }
-        Cmd::DefCode => {
-            if chr_code == CAT_CODE_BASE as i32 {
-                print_esc_cstr("catcode");
-            } else if chr_code == MATH_CODE_BASE as i32 {
-                print_esc_cstr("mathcode");
-            } else if chr_code == LC_CODE_BASE as i32 {
-                print_esc_cstr("lccode");
-            } else if chr_code == UC_CODE_BASE as i32 {
-                print_esc_cstr("uccode");
-            } else if chr_code == SF_CODE_BASE as i32 {
-                print_esc_cstr("sfcode");
-            } else {
-                print_esc_cstr("delcode");
-            }
-        }
-        Cmd::XetexDefCode => {
-            if chr_code == SF_CODE_BASE as i32 {
-                print_esc_cstr("XeTeXcharclass");
-            } else if chr_code == MATH_CODE_BASE as i32 {
-                print_esc_cstr("Umathcodenum");
-            } else if chr_code == MATH_CODE_BASE as i32 + 1 {
-                print_esc_cstr("Umathcode");
-            } else if chr_code == DEL_CODE_BASE as i32 {
-                print_esc_cstr("Udelcodenum");
-            } else {
-                print_esc_cstr("Udelcode");
-            }
-        }
+        Cmd::DefCode => print_esc_cstr(if chr_code == CAT_CODE_BASE as i32 {
+            "catcode"
+        } else if chr_code == MATH_CODE_BASE as i32 {
+            "mathcode"
+        } else if chr_code == LC_CODE_BASE as i32 {
+            "lccode"
+        } else if chr_code == UC_CODE_BASE as i32 {
+            "uccode"
+        } else if chr_code == SF_CODE_BASE as i32 {
+            "sfcode"
+        } else {
+            "delcode"
+        }),
+        Cmd::XetexDefCode => print_esc_cstr(if chr_code == SF_CODE_BASE as i32 {
+            "XeTeXcharclass"
+        } else if chr_code == MATH_CODE_BASE as i32 {
+            "Umathcodenum"
+        } else if chr_code == MATH_CODE_BASE as i32 + 1 {
+            "Umathcode"
+        } else if chr_code == DEL_CODE_BASE as i32 {
+            "Udelcodenum"
+        } else {
+            "Udelcode"
+        }),
         Cmd::DefFamily => print_size(chr_code - (MATH_FONT_BASE as i32)),
-        Cmd::HyphData => {
-            if chr_code == 1 {
-                print_esc_cstr("patterns");
-            } else {
-                print_esc_cstr("hyphenation");
-            }
-        }
-        Cmd::AssignFontInt => match AssignFontInt::from(chr_code) {
-            AssignFontInt::HyphenChar => print_esc_cstr("hyphenchar"),
-            AssignFontInt::SkewChar => print_esc_cstr("skewchar"),
-            AssignFontInt::LpCode => print_esc_cstr("lpcode"),
-            AssignFontInt::RpCode => print_esc_cstr("rpcode"),
-        },
+        Cmd::HyphData => print_esc_cstr(if chr_code == 1 {
+            "patterns"
+        } else {
+            "hyphenation"
+        }),
+        Cmd::AssignFontInt => print_esc_cstr(match AssignFontInt::from(chr_code) {
+            AssignFontInt::HyphenChar => "hyphenchar",
+            AssignFontInt::SkewChar => "skewchar",
+            AssignFontInt::LpCode => "lpcode",
+            AssignFontInt::RpCode => "rpcode",
+        }),
         Cmd::SetFont => {
             print_cstr("select font ");
             font_name_str = FONT_NAME[chr_code as usize];
@@ -2530,42 +2444,32 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_cstr("pt");
             }
         }
-        Cmd::SetInteraction => match InteractionMode::n(chr_code as u8).unwrap() {
-            InteractionMode::Batch => print_esc_cstr("batchmode"),
-            InteractionMode::NonStop => print_esc_cstr("nonstopmode"),
-            InteractionMode::Scroll => print_esc_cstr("scrollmode"),
-            InteractionMode::ErrorStop => print_esc_cstr("errorstopmode"),
-        },
-        Cmd::InStream => {
-            if chr_code == 0 {
-                print_esc_cstr("closein");
-            } else {
-                print_esc_cstr("openin");
-            }
-        }
-        Cmd::Message => {
-            if chr_code == 0 {
-                print_esc_cstr("message");
-            } else {
-                print_esc_cstr("errmessage");
-            }
-        }
-        Cmd::CaseShift => {
-            if chr_code == LC_CODE_BASE as i32 {
-                print_esc_cstr("lowercase");
-            } else {
-                print_esc_cstr("uppercase");
-            }
-        }
-        Cmd::XRay => match chr_code {
-            SHOW_BOX_CODE => print_esc_cstr("showbox"),
-            SHOW_THE_CODE => print_esc_cstr("showthe"),
-            SHOW_LISTS => print_esc_cstr("showlists"),
-            SHOW_GROUPS => print_esc_cstr("showgroups"),
-            SHOW_TOKENS => print_esc_cstr("showtokens"),
-            SHOW_IFS => print_esc_cstr("showifs"),
-            _ => print_esc_cstr("show"),
-        },
+        Cmd::SetInteraction => print_esc_cstr(match InteractionMode::n(chr_code as u8).unwrap() {
+            InteractionMode::Batch => "batchmode",
+            InteractionMode::NonStop => "nonstopmode",
+            InteractionMode::Scroll => "scrollmode",
+            InteractionMode::ErrorStop => "errorstopmode",
+        }),
+        Cmd::InStream => print_esc_cstr(if chr_code == 0 { "closein" } else { "openin" }),
+        Cmd::Message => print_esc_cstr(if chr_code == 0 {
+            "message"
+        } else {
+            "errmessage"
+        }),
+        Cmd::CaseShift => print_esc_cstr(if chr_code == LC_CODE_BASE as i32 {
+            "lowercase"
+        } else {
+            "uppercase"
+        }),
+        Cmd::XRay => print_esc_cstr(match chr_code {
+            SHOW_BOX_CODE => "showbox",
+            SHOW_THE_CODE => "showthe",
+            SHOW_LISTS => "showlists",
+            SHOW_GROUPS => "showgroups",
+            SHOW_TOKENS => "showtokens",
+            SHOW_IFS => "showifs",
+            _ => "show",
+        }),
         Cmd::UndefinedCS => print_cstr("undefined"),
         Cmd::Call | Cmd::LongCall | Cmd::OuterCall | Cmd::LongOuterCall => {
             let mut n = cmd as u8 - Cmd::Call as u8;

@@ -267,7 +267,7 @@ pub(crate) unsafe fn print_esc_cstr(s: &str) {
 }
 unsafe fn print_the_digs(mut k: u8) {
     while k as i32 > 0 {
-        k = k.wrapping_sub(1);
+        k -= 1;
         if (dig[k as usize] as i32) < 10 {
             print_char('0' as i32 + dig[k as usize] as i32);
         } else {
