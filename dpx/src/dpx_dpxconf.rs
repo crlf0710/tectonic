@@ -26,16 +26,6 @@
     non_upper_case_globals
 )]
 
-//#ifndef DEFAULT_PAPER_NAME
-const DEFAULT_PAPER_NAME: &[u8] = b"a4";
-
-pub(crate) const fn defaultpapername() -> &'static [u8] {
-    DEFAULT_PAPER_NAME
-}
-pub(crate) const fn systempapername() -> &'static [u8] {
-    DEFAULT_PAPER_NAME
-}
-
 pub(crate) type __off_t = i64;
 pub(crate) type __off64_t = i64;
 #[derive(Copy, Clone)]

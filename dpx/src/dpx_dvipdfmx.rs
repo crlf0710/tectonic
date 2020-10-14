@@ -50,7 +50,7 @@ use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_cid::CIDFont_set_flags;
-use super::dpx_dpxconf::{defaultpapername, paperinfo, systempapername};
+use super::dpx_dpxconf::paperinfo;
 use super::dpx_dpxfile::dpx_delete_old_cache;
 use super::dpx_error::shut_up;
 use super::dpx_fontmap::{
@@ -75,6 +75,8 @@ pub(crate) struct page_range {
     pub(crate) first: i32,
     pub(crate) last: i32,
 }
+
+pub(crate) static mut PAPERSPEC: &[u8] = b"letter";
 
 pub(crate) static mut is_xdv: i32 = 0i32;
 
@@ -192,14 +194,6 @@ unsafe fn select_pages(pagespec: *const i8, page_ranges: &mut Vec<PageRange>) {
             }
         }
     }
-}
-
-unsafe fn system_default() {
-    if !systempapername().is_empty() {
-        select_paper(systempapername());
-    } else if !defaultpapername().is_empty() {
-        select_paper(defaultpapername());
-    };
 }
 
 unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
@@ -325,13 +319,12 @@ pub unsafe fn dvipdfmx_main(
     } else {
         0i32
     });
-    system_default();
     pdf_init_fontmaps();
     /* We used to read the config file here. It synthesized command-line
      * arguments, so we emulate the default TeXLive config file by copying those
      * code bits. */
     pdf_set_version(5_u32); /* last page */
-    select_paper(b"letter");
+    select_paper(PAPERSPEC);
     annot_grow = 0i32 as f64;
     bookmark_open = 0i32;
     key_bits = 40i32;
