@@ -410,6 +410,8 @@ pub(crate) use super::xetex_io::UFILE;
    Licensed under the MIT License.
 */
 /* All the following variables are declared in xetex-xetexd.h */
+pub(crate) static mut shell_escape_enabled: bool = false;
+
 pub(crate) static mut EQTB: Vec<EqtbWord> = Vec::new();
 #[no_mangle]
 pub(crate) static mut bad: i32 = 0;

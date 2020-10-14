@@ -9,7 +9,8 @@
 )]
 
 use crate::xetex_ini::{
-    halt_on_error_p, in_initex_mode, semantic_pagination_enabled, synctex_enabled,
+    halt_on_error_p, in_initex_mode, semantic_pagination_enabled, shell_escape_enabled,
+    synctex_enabled,
 };
 
 /* tectonic/core-strutils.h: miscellaneous C string utilities
@@ -34,6 +35,8 @@ pub unsafe fn tt_xetex_set_int_variable(var_name: &str, value: i32) -> i32 {
         synctex_enabled = (value != 0i32) as i32
     } else if var_name == "semantic_pagination_enabled" {
         semantic_pagination_enabled = value != 0i32
+    } else if var_name == "shell_escape_enabled" {
+        shell_escape_enabled = value != 0i32
     } else {
         return 1i32;
     } /* Uh oh: unrecognized variable */
