@@ -421,7 +421,7 @@ static mut num_text_chars: buf_pointer = 0;
 static mut conversion_type: u8 = 0;
 static mut prev_colon: bool = false;
 static mut verbose: i32 = 0;
-static mut min_crossrefs: i32 = 0;
+static mut min_crossrefs: i32 = MIN_CROSSREFS;
 /*:473*/
 /*12: *//*3: */
 
@@ -7192,7 +7192,6 @@ pub unsafe fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
     max_glob_strs = MAX_GLOB_STRS;
     max_fields = MAX_FIELDS;
     max_cites = MAX_CITES;
-    min_crossrefs = MIN_CROSSREFS;
     wiz_fn_space = WIZ_FN_SPACE;
     lit_stk_size = LIT_STK_SIZE;
     standard_output = ttstub_output_open_stdout();
