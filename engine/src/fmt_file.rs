@@ -1,9 +1,9 @@
 use crate::cmd::{Cmd, InteractionMode};
-use crate::help;
 use crate::xetex_consts::IntPar;
 use crate::xetex_ini::{
     b16x4, b32x2, memory_word, name_of_file, EqtbWord, Selector, UTF16_code, FONT_PTR,
 };
+use crate::{help, print_cstr};
 use bridge::{ttstub_output_close, ttstub_output_open, InFile, TTHistory, TTInputFormat};
 use std::ffi::CString;
 
@@ -52,7 +52,7 @@ use crate::xetex_errors::overflow;
 use crate::xetex_output::print_file_name;
 use crate::xetex_output::{
     print, print_chr, print_cstr, print_esc, print_file_line, print_int, print_ln, print_nl_cstr,
-    print_scaled,
+    Scaled,
 };
 use crate::xetex_stringpool::make_string;
 use crate::xetex_stringpool::EMPTY_STRING;
@@ -429,9 +429,7 @@ pub(crate) unsafe fn store_fmt_file() {
         }
 
         if FONT_SIZE[k] != FONT_DSIZE[k] {
-            print_cstr(" at ");
-            print_scaled(FONT_SIZE[k]);
-            print_cstr("pt");
+            print_cstr!(" at {}pt", Scaled(FONT_SIZE[k]));
         }
     }
 

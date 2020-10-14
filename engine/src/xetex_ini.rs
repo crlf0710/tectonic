@@ -14,7 +14,6 @@ use super::xetex_texmfmp::{get_date_and_time, to_rust_string};
 use crate::cmd::*;
 use crate::core_memory::{xmalloc, xmalloc_array};
 use crate::fmt_file::{load_fmt_file, store_fmt_file};
-use crate::help;
 use crate::node::*;
 use crate::trie::*;
 use crate::xetex_consts::*;
@@ -22,7 +21,7 @@ use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_layout_interface::{destroy_font_manager, set_cp_code};
 use crate::xetex_output::{
     print, print_chr, print_cstr, print_esc_cstr, print_file_line, print_int, print_nl,
-    print_nl_cstr,
+    print_nl_cstr, Esc, Int,
 };
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
@@ -44,6 +43,7 @@ use crate::xetex_xetex0::{
     show_cur_cmd_chr, show_save_groups, start_input, trap_zero_glue,
 };
 use crate::xetex_xetexd::{llist_link, set_class, set_family, LLIST_link, TeXInt, TeXOpt};
+use crate::{help, print_cstr, print_nl_cstr};
 use bridge::ttstub_output_open_stdout;
 use dpx::{pdf_files_close, pdf_files_init};
 use libc::free;
@@ -71,6 +71,8 @@ use bridge::OutputHandleWrapper;
 /* Endianness foo */
 /* our typedefs */
 pub(crate) type scaled_t = i32;
+
+pub(crate) static mut cur_output: crate::xetex_output::Output = crate::xetex_output::Output;
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq)]
@@ -1122,7 +1124,7 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                                 } else {
                                     print_nl_cstr("! ");
                                 }
-                                print_cstr("Nonletter");
+                                print_cstr!("Nonletter");
                                 help!("(See Appendix H.)");
                                 error();
                             }
@@ -1202,7 +1204,7 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                             } else {
                                 print_nl_cstr("! ");
                             }
-                            print_cstr("Duplicate pattern");
+                            print_cstr!("Duplicate pattern");
                             help!("(See Appendix H.)");
                             error();
                         }
@@ -1221,8 +1223,7 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                     } else {
                         print_nl_cstr("! ");
                     }
-                    print_cstr("Bad ");
-                    print_esc_cstr("patterns");
+                    print_cstr!("Bad {}", Esc("patterns"));
                     help!("(See Appendix H.)");
                     error();
                 }
@@ -1305,8 +1306,7 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
         } else {
             print_nl_cstr("! ");
         }
-        print_cstr("Too late for ");
-        print_esc_cstr("patterns");
+        print_cstr!("Too late for {}", Esc("patterns"));
         help!("All patterns must be given before typesetting begins.");
         error();
         *LLIST_link(GARBAGE) = scan_toks(input, cs, false, false) as i32;
@@ -1366,9 +1366,9 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr("! ");
+                            print_nl_cstr!("! ");
                         }
-                        print_cstr("Not a letter");
+                        print_cstr!("Not a letter");
                         help!(
                             "Letters in \\hyphenation words must have \\lccode>0.",
                             "Proceed; I\'ll ignore the character I just read."
@@ -1479,9 +1479,7 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                 } else {
                     print_nl_cstr("! ");
                 }
-                print_cstr("Improper ");
-                print_esc_cstr("hyphenation");
-                print_cstr(" will be flushed");
+                print_cstr!("Improper {} will be flushed", Esc("hyphenation"));
                 help!(
                     "Hyphenation exceptions must contain only letters",
                     "and hyphens. But continue; I\'ll forgive and forget."
@@ -1549,10 +1547,7 @@ pub(crate) unsafe fn prefixed_command(
         } else {
             print_nl_cstr("! ");
         }
-        print_cstr("You can\'t use `");
-        print_esc_cstr("long");
-        print_cstr("\' or `");
-        print_esc_cstr("outer");
+        print_cstr!("You can\'t use `{}\' or `{}", Esc("long"), Esc("outer"));
         help!("I\'ll pretend you didn\'t say \\long or \\outer or \\protected here.");
         print_cstr("\' or `");
         print_esc_cstr("protected");
@@ -2035,14 +2030,11 @@ pub(crate) unsafe fn prefixed_command(
                 } else {
                     print_nl_cstr("! ");
                 }
-                print_cstr("Invalid code (");
-                print_int(val);
                 if p < MATH_CODE_BASE as i32 {
-                    print_cstr("), should be in the range 0..");
+                    print_cstr!("Invalid code ({}), should be in the range 0..{}", Int(val), Int(n));
                 } else {
-                    print_cstr("), should be at most ");
+                    print_cstr!("Invalid code ({}), should be at most {}", Int(val), Int(n));
                 }
-                print_int(n);
                 help!("I\'m going to use 0 instead of that illegal code value.");
                 error();
                 0

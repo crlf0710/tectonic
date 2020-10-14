@@ -8,6 +8,10 @@
     unused_mut
 )]
 
+use std::fmt;
+
+use crate::{print_cstr, print_nl_cstr};
+
 use super::xetex_consts::{
     IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE, INTPAR,
     NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
@@ -22,6 +26,26 @@ use super::xetex_ini::{
     trick_count, write_file, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
 use bridge::ttstub_output_putc;
+
+pub(crate) struct Output;
+
+impl fmt::Write for Output {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        unsafe {
+            print_cstr(s);
+        }
+        Ok(())
+    }
+
+    #[inline]
+    fn write_char(&mut self, c: char) -> fmt::Result {
+        unsafe {
+            print_chr(c);
+        }
+        Ok(())
+    }
+}
 
 /* tectonic/xetex-xetexd.h -- many, many XeTeX symbol definitions
    Copyright 2016-2018 The Tectonic Project
@@ -235,6 +259,21 @@ pub(crate) unsafe fn print_cstr(slice: &str) {
         print_char(s as i32);
     }
 }
+pub(crate) struct Nl;
+impl fmt::Display for Nl {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unsafe {
+            if term_offset > 0 && u8::from(selector) & 1 != 0
+                || file_offset > 0 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
+            {
+                std::char::from_u32(*INTPAR(IntPar::new_line_char) as u32)
+                    .unwrap()
+                    .fmt(f)?;
+            }
+        }
+        Ok(())
+    }
+}
 pub(crate) unsafe fn print_nl(mut s: str_number) {
     if term_offset > 0 && u8::from(selector) & 1 != 0
         || file_offset > 0 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
@@ -258,6 +297,17 @@ pub(crate) unsafe fn print_esc(mut s: str_number) {
     }
     print(s);
 }
+
+pub(crate) struct Esc<'a>(pub &'a str);
+impl<'a> fmt::Display for Esc<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut c = unsafe { *INTPAR(IntPar::escape_char) };
+        if c >= 0 && c <= BIGGEST_USV as i32 {
+            std::char::from_u32(c as u32).unwrap().fmt(f)?;
+        }
+        self.0.fmt(f)
+    }
+}
 pub(crate) unsafe fn print_esc_cstr(s: &str) {
     let mut c = *INTPAR(IntPar::escape_char);
     if c >= 0 && c <= BIGGEST_USV as i32 {
@@ -273,6 +323,30 @@ unsafe fn print_the_digs(mut k: u8) {
         } else {
             print_char(55 + dig[k as usize] as i32);
         }
+    }
+}
+pub(crate) struct Int(pub i32);
+impl fmt::Display for Int {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut n = self.0;
+        if n < 0 {
+            let mut b = b'-';
+            if n as i64 > -100000000 {
+                n = -n
+            } else {
+                let mut m = -1 - n;
+                n = m / 10;
+                m = m % 10 + 1;
+                if m < 10 {
+                    b = m as u8 + b'0'
+                } else {
+                    b = b'0';
+                    n += 1;
+                }
+            }
+            char::from(b).fmt(f)?;
+        }
+        n.fmt(f)
     }
 }
 pub(crate) unsafe fn print_int(mut n: i32) {
@@ -483,9 +557,9 @@ pub(crate) unsafe fn print_file_line() {
         level -= 1
     }
     if level == 0 {
-        print_nl_cstr("! ");
+        print_nl_cstr!("! ");
     } else {
-        print_nl_cstr("");
+        print_nl_cstr!("");
         print(FULL_SOURCE_FILENAME_STACK[level]);
         print(':' as i32);
         if level == IN_OPEN {
@@ -493,7 +567,7 @@ pub(crate) unsafe fn print_file_line() {
         } else {
             print_int(LINE_STACK[level + 1]);
         }
-        print_cstr(": ");
+        print_cstr!(": ");
     };
 }
 /*:251 */
@@ -503,6 +577,23 @@ pub(crate) unsafe fn print_two(mut n: i32) {
     n = n.abs() % 100;
     print_char('0' as i32 + n / 10);
     print_char('0' as i32 + n % 10);
+}
+
+pub(crate) struct Hex(pub i32);
+impl fmt::Display for Hex {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        '\"'.fmt(f)?;
+        let mut n = self.0;
+        loop {
+            let b = (n % 16) as u8;
+            char::from(b + if b < 10 { b'0' } else { 55 }).fmt(f)?;
+            n = n / 16;
+            if n == 0 {
+                break;
+            }
+        }
+        Ok(())
+    }
 }
 pub(crate) unsafe fn print_hex(mut n: i32) {
     let mut k: u8 = 0_u8;
@@ -573,5 +664,33 @@ pub(crate) unsafe fn print_scaled(mut s: i32) {
         if !(s > delta) {
             break;
         }
+    }
+}
+
+pub(crate) struct Scaled(pub i32);
+impl fmt::Display for Scaled {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut s = self.0;
+        let mut delta = 0;
+        if s < 0 {
+            '-'.fmt(f)?;
+            s = s.wrapping_neg(); // TODO: check
+        }
+        Int(s / 0x10000).fmt(f)?;
+        '.'.fmt(f)?;
+        s = 10 * (s % 0x10000) + 5;
+        delta = 10;
+        loop {
+            if delta > 0x10000 {
+                s = s + 0x8000 - 50000
+            }
+            char::from(('0' as i32 + s / 0x10000) as u8).fmt(f)?;
+            s = 10 * (s % 0x10000);
+            delta *= 10;
+            if !(s > delta) {
+                break;
+            }
+        }
+        Ok(())
     }
 }

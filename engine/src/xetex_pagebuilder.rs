@@ -8,7 +8,6 @@
     unused_mut
 )]
 
-use crate::help;
 use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error};
@@ -18,7 +17,7 @@ use crate::xetex_ini::{
     last_penalty, line, output_active, page_contents, page_so_far, page_tail, sa_root,
     semantic_pagination_enabled, NEST, NEST_PTR,
 };
-use crate::xetex_output::{print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr};
+use crate::xetex_output::{print_file_line, Esc, Int};
 use crate::xetex_scaledmath::x_over_n;
 use crate::xetex_shipout::ship_out;
 use crate::xetex_xetex0::{
@@ -28,6 +27,7 @@ use crate::xetex_xetex0::{
     scan_left_brace, vert_break, vpackage,
 };
 use crate::xetex_xetexd::{llist_link, LLIST_link, TOKEN_LIST_ref_count, TeXInt, TeXOpt};
+use crate::{help, print_cstr, print_nl_cstr};
 
 pub(crate) type scaled_t = i32;
 /* tectonic/xetex-pagebuilder.c: the page builder
@@ -72,9 +72,9 @@ unsafe fn ensure_vbox(mut n: u8) {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
-                print_nl_cstr("! ");
+                print_nl_cstr!("! ");
             }
-            print_cstr("Insertions can only be added to a vbox");
+            print_cstr!("Insertions can only be added to a vbox");
             help!(
                 "Tut tut: You\'re trying to \\insert into a",
                 "\\box register that now contains an \\hbox.",
@@ -147,11 +147,9 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr("! ");
+            print_nl_cstr!("! ");
         }
-        print_cstr("");
-        print_esc_cstr("box");
-        print_cstr("255 is not void");
+        print_cstr!("{}255 is not void", Esc("box"));
         help!(
             "You shouldn\'t use \\box255 except in \\output routines.",
             "Proceed, and I\'ll discard its present contents."
@@ -402,11 +400,9 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr("! ");
+                    print_nl_cstr!("! ");
                 }
-                print_cstr("Output loop---");
-                print_int(dead_cycles);
-                print_cstr(" consecutive dead cycles");
+                print_cstr!("Output loop---{} consecutive dead cycles", Int(dead_cycles));
                 help!(
                     "I\'ve concluded that your \\output is awry; it never does a",
                     "\\shipout, so I\'m shipping \\box255 out myself. Next time",
@@ -728,9 +724,9 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                             if file_line_error_style_p != 0 {
                                 print_file_line();
                             } else {
-                                print_nl_cstr("! ");
+                                print_nl_cstr!("! ");
                             }
-                            print_cstr("Infinite glue shrinkage found on current page");
+                            print_cstr!("Infinite glue shrinkage found on current page");
                             help!(
                                 "The page about to be output contains some infinitely",
                                 "shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
@@ -843,11 +839,13 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
-                            print_nl_cstr("! ");
+                            print_nl_cstr!("! ");
                         }
-                        print_cstr("Infinite glue shrinkage inserted from ");
-                        print_esc_cstr("skip");
-                        print_int(n as i32);
+                        print_cstr!(
+                            "Infinite glue shrinkage inserted from {}{}",
+                            Esc("skip"),
+                            Int(n as i32)
+                        );
                         help!(
                             "The correction glue for page breaking with insertions",
                             "must have finite shrinkability. But you may proceed,",

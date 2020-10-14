@@ -2,7 +2,6 @@ use bridge::abort;
 use std::ffi::CString;
 use std::io::Write;
 
-use crate::help;
 use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow};
@@ -22,7 +21,7 @@ use crate::xetex_ini::{
 };
 use crate::xetex_output::{
     print, print_chr, print_cstr, print_file_line, print_file_name, print_int, print_ln,
-    print_nl_cstr, print_raw_char, print_scaled,
+    print_nl_cstr, print_raw_char, Int, Scaled,
 };
 use crate::xetex_scaledmath::tex_round;
 use crate::xetex_stringpool::{length, PoolString};
@@ -40,9 +39,10 @@ use crate::xetex_xetex0::{
     str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, llist_link, print_c_str, set_NODE_type, LLIST_link, SYNCTEX_tag, TeXInt, TeXOpt,
+    is_char_node, llist_link, set_NODE_type, LLIST_link, SYNCTEX_tag, TeXInt, TeXOpt,
     FONT_CHARACTER_WIDTH,
 };
+use crate::{help, print_cstr};
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
 
@@ -145,9 +145,9 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr("! ");
+            print_nl_cstr!("! ");
         }
-        print_cstr("Huge page cannot be shipped out");
+        print_cstr!("Huge page cannot be shipped out");
         help!(
             "The page just created is more than 18 feet tall or",
             "more than 18 feet wide, so I suspect something went wrong."
@@ -156,7 +156,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
         if *INTPAR(IntPar::tracing_output) <= 0 {
             diagnostic(true, || {
-                print_nl_cstr("The following box has been deleted:");
+                print_nl_cstr!("The following box has been deleted:");
                 show_box(Some(p.ptr()));
             });
         }
@@ -245,19 +245,15 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
         let old_setting = selector;
         selector = Selector::NEW_STRING;
-        print_cstr("pdf:pagesize ");
+        print_cstr!("pdf:pagesize ");
         if *DIMENPAR(DimenPar::pdf_page_width) <= 0 || *DIMENPAR(DimenPar::pdf_page_height) <= 0 {
-            print_cstr("default");
+            print_cstr!("default");
         } else {
-            print_cstr("width");
-            print(' ' as i32);
-            print_scaled(*DIMENPAR(DimenPar::pdf_page_width));
-            print_cstr("pt");
-            print(' ' as i32);
-            print_cstr("height");
-            print(' ' as i32);
-            print_scaled(*DIMENPAR(DimenPar::pdf_page_height));
-            print_cstr("pt");
+            print_cstr!(
+                "width {}pt height {}pt",
+                Scaled(*DIMENPAR(DimenPar::pdf_page_width)),
+                Scaled(*DIMENPAR(DimenPar::pdf_page_height))
+            );
         }
         selector = old_setting;
 
@@ -288,13 +284,12 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
     if LR_problems > 0 {
         print_ln();
-        print_nl_cstr("\\endL or \\endR problem (");
-        print_int(LR_problems / 10000);
-        print_cstr(" missing, ");
-        print_int(LR_problems % 10000);
-        print_cstr(" extra");
+        print_nl_cstr!(
+            "\\endL or \\endR problem ({} missing, {} extra)",
+            Int(LR_problems / 10000),
+            Int(LR_problems % 10000)
+        );
         LR_problems = 0;
-        print_chr(')');
         print_ln();
     }
 
@@ -2157,24 +2152,17 @@ unsafe fn pic_out(p: &Picture) {
 
     let old_setting = selector;
     selector = Selector::NEW_STRING;
-    print_cstr("pdf:image ");
-    print_cstr("matrix ");
     let matrix = p.transform_matrix();
-    print_scaled(matrix[0]);
-    print(' ' as i32);
-    print_scaled(matrix[1]);
-    print(' ' as i32);
-    print_scaled(matrix[2]);
-    print(' ' as i32);
-    print_scaled(matrix[3]);
-    print(' ' as i32);
-    print_scaled(matrix[4]);
-    print(' ' as i32);
-    print_scaled(matrix[5]);
-    print(' ' as i32);
-    print_cstr("page ");
-    print_int(p.page() as i32);
-    print(' ' as i32);
+    print_cstr!(
+        "pdf:image matrix {} {} {} {} {} {} page {} ",
+        Scaled(matrix[0]),
+        Scaled(matrix[1]),
+        Scaled(matrix[2]),
+        Scaled(matrix[3]),
+        Scaled(matrix[4]),
+        Scaled(matrix[5]),
+        Int(p.page() as i32)
+    );
 
     match p.pagebox() {
         1 => print_cstr("pagebox cropbox "),
@@ -2298,7 +2286,7 @@ pub(crate) unsafe fn finalize_dvi_file() {
         print_nl_cstr("Error ");
         print_int(k as i32);
         print_cstr(" (");
-        print_c_str(
+        print_cstr(
             std::ffi::CStr::from_ptr(strerror(k as i32))
                 .to_str()
                 .unwrap(),

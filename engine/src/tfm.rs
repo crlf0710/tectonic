@@ -1,6 +1,6 @@
 use bridge::TTInputFormat;
 
-use crate::help;
+use crate::{help, print_cstr};
 
 use std::io::Read;
 
@@ -9,8 +9,8 @@ use crate::xetex_ini::nine_bits;
 use crate::xetex_ini::packed_UTF16_code;
 use crate::xetex_ini::str_number;
 use crate::xetex_ini::UTF16_code;
+use crate::xetex_output::Int;
 
-use crate::xetex_xetexd::print_c_str;
 use crate::xetex_xetexd::TeXInt;
 
 use crate::xetex_ini::cur_ext;
@@ -73,9 +73,7 @@ use crate::xetex_output::print;
 use crate::xetex_output::print_file_line;
 use crate::xetex_output::print_file_name;
 use crate::xetex_output::sprint_cs;
-use crate::xetex_output::{
-    print_char, print_chr, print_cstr, print_int, print_nl_cstr, print_scaled,
-};
+use crate::xetex_output::{print_char, print_chr, print_cstr, print_nl_cstr, print_scaled, Scaled};
 use crate::xetex_stringpool::length;
 use crate::xetex_stringpool::make_string;
 use crate::xetex_stringpool::PoolString;
@@ -113,11 +111,10 @@ pub(crate) unsafe fn read_font_info(
     if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
         diagnostic(false, || {
             print_nl_cstr("Requested font \"");
-            print_c_str(&name_of_file);
+            print_cstr(&name_of_file);
             print('\"' as i32);
             if s < 0 {
-                print_cstr(" scaled ");
-                print_int(-s);
+                print_cstr!(" scaled {}", Int(-s));
             } else {
                 print_cstr(" at ");
                 print_scaled(s);
@@ -577,12 +574,9 @@ pub(crate) unsafe fn bad_tfm(
             print_char(qc as i32);
         }
         if s >= 0 {
-            print_cstr(" at ");
-            print_scaled(s);
-            print_cstr("pt");
+            print_cstr!(" at {}pt", Scaled(s));
         } else if s != -1000 {
-            print_cstr(" scaled ");
-            print_int(-s);
+            print_cstr!(" scaled {}", Scaled(-s));
         }
         match err {
             TfmError::BadMetric => print_cstr(" not loadable: Bad metric (TFM) file"),
@@ -613,7 +607,7 @@ pub(crate) fn good_tfm(ok: (bool, usize)) -> usize {
             if ok.0 {
                 diagnostic(false, || {
                     print_nl_cstr(" -> ");
-                    print_c_str(&name_of_file);
+                    print_cstr(&name_of_file);
                 });
             }
         }
@@ -756,12 +750,9 @@ unsafe fn nf_error(
                 print_char(qc as i32);
             }
             if s >= 0 {
-                print_cstr(" at ");
-                print_scaled(s);
-                print_cstr("pt");
+                print_cstr!(" at {}pt", Scaled(s));
             } else if s != -1000 {
-                print_cstr(" scaled ");
-                print_int(-s);
+                print_cstr!(" scaled {}", Scaled(-s));
             }
             print_cstr(" not loaded: Not enough room left");
             help!(

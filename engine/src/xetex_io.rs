@@ -8,6 +8,7 @@
     unused_mut
 )]
 
+use crate::print_cstr;
 use bridge::{stub_errno as errno, ttstub_input_getc, InFile, TTInputFormat};
 
 use crate::core_memory::{xcalloc, xmalloc};
@@ -18,13 +19,12 @@ use crate::xetex_ini::{
     cur_area, cur_ext, cur_name, first, input_state_t, last, max_buf_stack, name_in_progress,
     name_of_file, read_file, read_open, stop_at_space, BUFFER, BUF_SIZE,
 };
-use crate::xetex_output::{print_int, print_nl};
+use crate::xetex_output::{Int, Nl};
 use crate::xetex_texmfmp::gettexstring;
 use crate::xetex_xetex0::{
     bad_utf8_warning, diagnostic, get_input_normalization_state, make_name, more_name,
     pack_file_name, scan_file_name, scan_four_bit_int, scan_optional_equals,
 };
-use crate::xetex_xetexd::print_c_str;
 use std::ffi::CString;
 use std::io::{Seek, SeekFrom};
 
@@ -276,12 +276,12 @@ pub(crate) unsafe fn set_input_file_encoding(
                 icu::ucnv_open(CString::new(name.as_str()).unwrap().as_ptr(), &mut err);
             if cnv.is_null() {
                 diagnostic(true, || {
-                    print_nl('E' as i32);
-                    print_c_str("rror ");
-                    print_int(err as i32);
-                    print_c_str(" creating Unicode converter for `");
-                    print_c_str(&name);
-                    print_c_str("\'; reading as raw bytes");
+                    print_cstr!(
+                        "{}Error {} creating Unicode converter for `{}\'; reading as raw bytes",
+                        Nl,
+                        Int(err as i32),
+                        name
+                    );
                 });
                 f.encodingMode = UnicodeMode::Raw;
             } else {
@@ -345,10 +345,11 @@ unsafe extern "C" fn buffer_overflow() {
 }
 unsafe extern "C" fn conversion_error(mut errcode: i32) {
     diagnostic(true, || {
-        print_nl('U' as i32);
-        print_c_str(&"nicode conversion failed (ICU error code = "[..]);
-        print_int(errcode);
-        print_c_str(&") discarding any remaining text"[..]);
+        print_cstr!(
+            "{}Unicode conversion failed (ICU error code = {}) discarding any remaining text",
+            Nl,
+            Int(errcode)
+        );
     });
 }
 unsafe extern "C" fn apply_normalization(mut buf: *mut u32, mut len: i32, mut norm: i32) {

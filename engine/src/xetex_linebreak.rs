@@ -8,7 +8,6 @@
     unused_mut
 )]
 
-use crate::help;
 use crate::node::*;
 use crate::trie::{
     hyf_distance, hyf_next, hyf_num, hyph_start, init_trie, max_hyph_char, op_start,
@@ -26,7 +25,7 @@ use crate::xetex_ini::{
     KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, memory_word};
-use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
+use crate::xetex_output::{print_cstr, print_file_line};
 use crate::xetex_stringpool::length;
 use crate::xetex_xetex0::{
     append_to_vlist, badness, char_pw, delete_glue_ref, effective_char, flush_list,
@@ -39,6 +38,7 @@ use crate::xetex_xetexd::{
     clear_NODE_subtype, is_char_node, llist_link, set_NODE_type, LLIST_info, LLIST_link, TeXInt,
     TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
+use crate::{help, print_nl_cstr};
 
 pub(crate) type scaled_t = i32;
 pub(crate) type UTF16_code = u16;
@@ -2406,7 +2406,7 @@ unsafe fn finite_shrink(p: usize) -> usize {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr("! ");
+            print_nl_cstr!("! ");
         }
         print_cstr("Infinite glue shrinkage found in a paragraph");
         help!(

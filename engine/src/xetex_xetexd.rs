@@ -1,6 +1,5 @@
 use crate::node::{MathNode, TextNode, SYNCTEX_FIELD_SIZE};
 use crate::xetex_ini::MEM;
-use crate::{xetex_ini, xetex_output};
 
 /* Symbolic accessors for various TeX data structures. I would loooove to turn these
  * into actual structs, but the path to doing that is not currently clear. Making
@@ -111,15 +110,8 @@ pub(crate) unsafe fn TOKEN_LIST_ref_count<'a>(p: usize) -> &'a mut i32 {
 #[inline]
 pub(crate) unsafe fn is_char_node(p: Option<usize>) -> bool {
     match p {
-        Some(p) => p >= xetex_ini::hi_mem_min as usize,
+        Some(p) => p >= crate::xetex_ini::hi_mem_min as usize,
         None => false,
-    }
-}
-
-#[inline]
-pub(crate) unsafe fn print_c_str(string: &str) {
-    for s in string.bytes() {
-        xetex_output::print_char(s as i32);
     }
 }
 

@@ -698,3 +698,19 @@ pub(crate) fn c_pointer_to_str<'a>(p: *const i8) -> &'a str {
         unsafe { std::ffi::CStr::from_ptr(p).to_str().unwrap() }
     }
 }
+
+#[macro_export]
+macro_rules! print_cstr(
+    ($($arg:tt)*) => {{
+        unsafe { std::fmt::Write::write_fmt(&mut $crate::xetex_ini::cur_output, std::format_args!($($arg)*)).unwrap(); }
+    }};
+);
+#[macro_export]
+macro_rules! print_nl_cstr(
+    ($fmt:literal) => {
+        $crate::print_cstr!(concat!("{}", $fmt), $crate::xetex_output::Nl);
+    };
+    ($fmt:literal, $($arg:tt)*) => {
+        $crate::print_cstr!(concat!("{}", $fmt), $crate::xetex_output::Nl, $($arg)*);
+    };
+);
