@@ -2141,6 +2141,10 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
             print_cstr("disabled");
             print_chr('.');
         } else {
+            // Currently, -Z shell-escape is implemented but hidden (see
+            // src/unstable_opts.rs). When this gets actually implemented,
+            // uncomment the relevant parts in that file.
+
             print_cstr("enabled but not implemented yet!");
         }
 
