@@ -6472,7 +6472,7 @@ pub(crate) unsafe fn scan_something_internal(
                                 Font::Native(Aat(e)) => {
                                     let k = scan_int(input);
                                     scan_and_pack_name(input);
-                                    aat::aat_font_get_named_1(m.into(), *e, k);
+                                    aat::aat_font_get_named_1(m.into(), *e, k)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
