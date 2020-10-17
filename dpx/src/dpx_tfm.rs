@@ -263,7 +263,7 @@ fn tfm_unpack_header(fm: &mut font_metric, tfm: &tfm_font) {
         fm.codingscheme = Vec::new();
     } else {
         let len = tfm.header[8] as usize;
-        if len < 0 || len > 39 {
+        if len > 39 {
             panic!("Invalid TFM header.");
         }
         if len > 0 {

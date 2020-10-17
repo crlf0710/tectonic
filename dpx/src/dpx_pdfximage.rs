@@ -36,14 +36,12 @@ use std::ptr;
 use super::dpx_bmpimage::{bmp_include_image, check_for_bmp};
 use super::dpx_dpxfile::{dpx_delete_temp_file, keep_cache};
 use super::dpx_jpegimage::{check_for_jpeg, jpeg_include_image};
-use super::dpx_mem::new;
 use super::dpx_mfileio::{tt_mfgets, work_buffer};
 use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
 use crate::dpx_epdf::pdf_include_page;
 use crate::dpx_pdfobj::{check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj};
 use crate::shims::sprintf;
-use libc::{free, strcpy, strlen};
 
 use std::io::{Read, Seek, SeekFrom};
 
@@ -533,9 +531,9 @@ pub(crate) unsafe fn pdf_ximage_set_form(
     I.resource = ptr::null_mut();
 }
 
-pub(crate) unsafe fn pdf_ximage_get_page(I: &pdf_ximage) -> i32 {
+/*pub(crate) unsafe fn pdf_ximage_get_page(I: &pdf_ximage) -> i32 {
     I.attr.page_no
-}
+}*/
 
 pub(crate) unsafe fn pdf_ximage_get_reference(id: i32) -> *mut pdf_obj {
     if id < 0 || id >= ximages.len() as i32 {
@@ -597,16 +595,16 @@ pub(crate) unsafe fn pdf_ximage_get_resname(id: i32) -> *const i8 {
     I.res_name.as_ptr()
 }
 
-pub(crate) unsafe fn pdf_ximage_get_subtype(id: i32) -> PdfXObjectType {
+/*pub(crate) unsafe fn pdf_ximage_get_subtype(id: i32) -> PdfXObjectType {
     if id < 0 || id >= ximages.len() as i32 {
         panic!("Invalid XObject ID: {}", id);
     }
     let I = &ximages[id as usize];
     I.subtype
-}
+}*/
 /* from spc_pdfm.c */
 
-pub(crate) unsafe fn pdf_ximage_set_attr(
+/*pub(crate) unsafe fn pdf_ximage_set_attr(
     id: i32,
     width: i32,
     height: i32,
@@ -626,7 +624,7 @@ pub(crate) unsafe fn pdf_ximage_set_attr(
     I.attr.xdensity = xdensity;
     I.attr.ydensity = ydensity;
     I.attr.bbox = Rect::new(point2(llx, lly), point2(urx, ury));
-}
+}*/
 /* depth...
  * Dvipdfm treat "depth" as "yoffset" for pdf:image and pdf:uxobj
  * not as vertical dimension of scaled image. (And there are bugs.)
@@ -801,7 +799,7 @@ pub(crate) unsafe fn pdf_ximage_scale_image(
 }
 /* Migrated from psimage.c */
 
-pub(crate) unsafe fn set_distiller_template(s: *mut i8) {
+/*pub(crate) unsafe fn set_distiller_template(s: *mut i8) {
     free(_opts.cmdtmpl as *mut libc::c_void);
     if s.is_null() || *s as i32 == '\u{0}' as i32 {
         _opts.cmdtmpl = ptr::null_mut()
@@ -811,7 +809,7 @@ pub(crate) unsafe fn set_distiller_template(s: *mut i8) {
                 as *mut i8;
         strcpy(_opts.cmdtmpl, s);
     };
-}
+}*/
 /* NOT USED YET */
 /* scale factor for bp */
 /* Please use different interface than findresource...
@@ -821,9 +819,9 @@ pub(crate) unsafe fn set_distiller_template(s: *mut i8) {
 /* Called by pngimage, jpegimage, epdf, mpost, etc. */
 /* from pdfximage.c */
 
-pub(crate) unsafe fn get_distiller_template() -> *mut i8 {
+/*pub(crate) unsafe fn get_distiller_template() -> *mut i8 {
     _opts.cmdtmpl
-}
+}*/
 unsafe fn check_for_ps<R: Read + Seek>(handle: &mut R) -> i32 {
     handle.seek(SeekFrom::Start(0)).unwrap();
     tt_mfgets(work_buffer.as_mut_ptr(), 1024i32, handle);

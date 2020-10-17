@@ -494,9 +494,9 @@ pub(crate) unsafe fn pdf_get_version() -> u32 {
     pdf_version
 }
 
-pub(crate) unsafe fn pdf_obj_get_verbose() -> i32 {
+/*pub(crate) unsafe fn pdf_obj_get_verbose() -> i32 {
     verbose
-}
+}*/
 
 pub(crate) unsafe fn pdf_obj_set_verbose(level: i32) {
     verbose = level;
@@ -516,11 +516,7 @@ unsafe fn add_xref_entry(label: usize, typ: u8, id: ObjectId) {
     }
 }
 
-pub(crate) unsafe fn pdf_out_init(
-    filename: *const i8,
-    do_encryption: bool,
-    enable_object_stream: bool,
-) {
+pub(crate) unsafe fn pdf_out_init(filename: &str, do_encryption: bool, enable_object_stream: bool) {
     output_xref = vec![];
     pdf_max_ind_objects = 0;
     add_xref_entry(0, 0_u8, (0_u32, 0xffff_u16));
@@ -542,13 +538,14 @@ pub(crate) unsafe fn pdf_out_init(
         do_objstm = 0i32
     }
     output_stream = ptr::null_mut();
-    if filename.is_null() {
+    if filename.is_empty() {
         panic!("stdout PDF output not supported");
     }
-    pdf_output_handle = ttstub_output_open(filename, 0i32);
+    let cfilename = CString::new(filename).unwrap();
+    pdf_output_handle = ttstub_output_open(cfilename.as_ptr(), 0i32);
     if pdf_output_handle.is_none() {
-        if strlen(filename) < 128 {
-            panic!("Unable to open \"{}\".", CStr::from_ptr(filename).display());
+        if filename.len() < 128 {
+            panic!("Unable to open \"{}\".", filename);
         } else {
             panic!("Unable to open file.");
         }
@@ -677,16 +674,6 @@ pub(crate) unsafe fn pdf_out_flush() {
                 );
             }
         }
-        ttstub_output_close(pdf_output_handle.take().unwrap());
-    };
-}
-
-pub(crate) unsafe fn pdf_error_cleanup() {
-    /*
-     * This routine is the cleanup required for an abnormal exit.
-     * For now, simply close the file.
-     */
-    if pdf_output_handle.is_some() {
         ttstub_output_close(pdf_output_handle.take().unwrap());
     };
 }
@@ -1091,7 +1078,7 @@ unsafe fn write_array(array: *mut pdf_array, handle: &mut OutputHandleWrapper) {
     pdf_out_char(handle, b']');
 }
 impl pdf_array {
-    pub(crate) unsafe fn get(&self, idx: i32) -> Option<&pdf_obj> {
+    /*pub(crate) unsafe fn get(&self, idx: i32) -> Option<&pdf_obj> {
         let len = self.values.len();
         if idx < 0 {
             Some(&*self.values[len - (idx.abs() as usize)])
@@ -1110,7 +1097,7 @@ impl pdf_array {
         } else {
             None
         }
-    }
+    }*/
 
     pub(crate) fn len(&self) -> u32 {
         self.values.len() as u32
@@ -2718,7 +2705,7 @@ unsafe fn find_xref<R: Read + Seek>(handle: &mut R, file_size: i32) -> i32 {
             let currentpos = handle.seek(SeekFrom::Current(0)).unwrap() as i32;
             let n = core::cmp::min(b"startxref".len() as i32, file_size - currentpos) as usize;
             let mut buf = vec![0; n];
-            handle.read_exact(buf.as_mut_slice());
+            handle.read_exact(buf.as_mut_slice()).unwrap();
             handle.seek(SeekFrom::Start(currentpos as u64)).unwrap();
             tries -= 1;
             if !(tries > 0 && !buf.starts_with(b"startxref")) {
@@ -2809,7 +2796,7 @@ unsafe fn pdf_read_object(
     }
     let mut buffer = vec![0u8; length + 1];
     (*pf).handle.seek(SeekFrom::Start(offset as u64)).unwrap();
-    (*pf).handle.read_exact(&mut buffer[..length]);
+    (*pf).handle.read_exact(&mut buffer[..length]).unwrap();
     let p = buffer.as_slice();
     /* Check for obj_num and obj_gen */
     let mut q = p; /* <== p */
@@ -3538,9 +3525,9 @@ pub(crate) unsafe fn pdf_file_get_version(pf: &pdf_file) -> u32 {
     pf.version
 }
 
-pub(crate) unsafe fn pdf_file_get_trailer(pf: &pdf_file) -> *mut pdf_obj {
+/*pub(crate) unsafe fn pdf_file_get_trailer(pf: &pdf_file) -> *mut pdf_obj {
     pdf_link_obj(pf.trailer)
-}
+}*/
 
 pub(crate) unsafe fn pdf_file_get_catalog(pf: &pdf_file) -> *mut pdf_obj {
     pf.catalog

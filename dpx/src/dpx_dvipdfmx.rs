@@ -67,7 +67,6 @@ use crate::specials::{
     spc_exec_at_begin_document, spc_exec_at_end_document, tpic::tpic_set_fill_mode,
 };
 use libc::{atoi, free, strlen};
-use std::slice::from_raw_parts;
 
 pub(crate) type PageRange = page_range;
 #[derive(Copy, Clone)]
@@ -288,7 +287,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
 }
 
 pub unsafe fn dvipdfmx_main(
-    pdf_filename: *const i8,
+    pdf_filename: &str,
     dvi_filename: &str,
     pagespec: *const i8,
     opt_flags: i32,
@@ -300,7 +299,7 @@ pub unsafe fn dvipdfmx_main(
 ) -> i32 {
     let mut enable_object_stream: bool = true; /* This must come before parsing options... */
     let mut page_ranges = Vec::new();
-    assert!(!pdf_filename.is_null());
+    assert!(!pdf_filename.is_empty());
     assert!(!dvi_filename.is_empty());
     translate_origin = translate as i32;
     dvi_reset_global_state();
@@ -359,13 +358,10 @@ pub unsafe fn dvipdfmx_main(
         } else {
             Some(dvi_filename.as_bytes())
         },
-        if pdf_filename.is_null() {
+        if pdf_filename.is_empty() {
             None
         } else {
-            Some(from_raw_parts(
-                pdf_filename as *const u8,
-                strlen(pdf_filename),
-            ))
+            Some(pdf_filename.as_bytes())
         },
     );
     let mut ver_major: i32 = 0i32;

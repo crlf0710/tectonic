@@ -64,14 +64,14 @@ use super::dpx_pdfximage::{
     pdf_ximage_get_reference, pdf_ximage_init_form_info, pdf_ximage_set_verbose, XInfo,
 };
 use super::dpx_pngimage::check_for_png;
-use crate::bridge::{size_t, InFile, TTInputFormat};
+use crate::bridge::{InFile, TTInputFormat};
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_obj, pdf_out_flush,
     pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
     pdf_set_info, pdf_set_root, pdf_stream, pdf_string, IntoObj, PdfObjType, PushObj,
     STREAM_COMPRESS,
 };
-use libc::{free, strcmp, strcpy, strlen, strncmp, strncpy};
+use libc::{free, strcmp, strcpy, strlen};
 
 pub(crate) use super::dpx_pdfcolor::PdfColor;
 
@@ -216,13 +216,13 @@ pub(crate) struct C2RustUnnamed_4 {
  * as directory separators. */
 static mut verbose: i32 = 0i32;
 static mut manual_thumb_enabled: i8 = 0_i8;
-static mut thumb_basename: *mut i8 = ptr::null_mut();
+static mut thumb_basename: String = String::new();
 
-pub(crate) unsafe fn pdf_doc_enable_manual_thumbnails() {
+/*pub(crate) unsafe fn pdf_doc_enable_manual_thumbnails() {
     manual_thumb_enabled = 1_i8;
     // without HAVE_LIBPNG:
     // warn!("Manual thumbnail is not supported without the libpng library.");
-}
+}*/
 unsafe fn read_thumbnail(thumb_filename: &str) -> *mut pdf_obj {
     let options: load_options = load_options {
         page_no: 1i32,
@@ -2234,7 +2234,7 @@ unsafe fn pdf_doc_finish_page(mut p: *mut pdf_doc) {
     if manual_thumb_enabled != 0 {
         let thumb_filename = format!(
             "{}.{}",
-            CStr::from_ptr(thumb_basename).to_string_lossy(),
+            thumb_basename,
             (*p).pages.num_entries.wrapping_rem(99999_u32) as i64 + 1
         );
         let thumb_ref = read_thumbnail(&thumb_filename);
@@ -2314,7 +2314,7 @@ static mut doccreator: *mut i8 = ptr::null_mut();
 /* Ugh */
 
 pub(crate) unsafe fn pdf_open_document(
-    filename: *const i8,
+    filename: &str,
     enable_encrypt: bool,
     enable_object_stream: bool,
     media_width: f64,
@@ -2354,25 +2354,11 @@ pub(crate) unsafe fn pdf_open_document(
     pdf_set_id(pdf_enc_id_array());
     /* Create a default name for thumbnail image files */
     if manual_thumb_enabled != 0 {
-        let fn_len: size_t = strlen(filename) as _;
-        if fn_len > 4
-            && strncmp(
-                b".pdf\x00" as *const u8 as *const i8,
-                filename.offset(fn_len as isize).offset(-4),
-                4,
-            ) == 0
-        {
-            thumb_basename = new((fn_len.wrapping_sub(4).wrapping_add(1) as u32 as u64)
-                .wrapping_mul(::std::mem::size_of::<i8>() as u64)
-                as u32) as *mut i8;
-            strncpy(thumb_basename, filename, fn_len.wrapping_sub(4) as _);
-            *thumb_basename.offset(fn_len.wrapping_sub(4) as isize) = 0_i8
+        thumb_basename = if filename.ends_with(".pdf") {
+            filename[..filename.len() - 4].to_string()
         } else {
-            thumb_basename = new((fn_len.wrapping_add(1) as u32 as u64)
-                .wrapping_mul(::std::mem::size_of::<i8>() as u64)
-                as u32) as *mut i8;
-            strcpy(thumb_basename, filename);
-        }
+            filename.to_string()
+        };
     }
     p.pending_forms = ptr::null_mut();
 }
@@ -2404,7 +2390,7 @@ pub(crate) unsafe fn pdf_close_document() {
     pdf_close_colors();
     pdf_close_resources();
     pdf_out_flush();
-    free(thumb_basename as *mut libc::c_void);
+    thumb_basename = String::new();
 }
 /*
  * All this routine does is give the form a name and add a unity scaling matrix.

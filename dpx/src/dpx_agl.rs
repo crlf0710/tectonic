@@ -348,7 +348,7 @@ pub(crate) unsafe fn agl_init_map() {
         &mut aglmap,
         Some(hval_free as unsafe fn(_: *mut libc::c_void) -> ()),
     );
-    agl_load_listfile("texglyphlist.txt", 0);
+    agl_load_listfile("texglyphlist.txt", 0).ok();
     if agl_load_listfile("pdfglyphlist.txt", 1).is_err() {
         warn!("Failed to load AGL file \"{}\"...", "pdfglyphlist.txt");
     }

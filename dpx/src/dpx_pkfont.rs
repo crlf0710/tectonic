@@ -549,7 +549,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
     );
     loop {
         let opcode = u8::get(&mut fp);
-        if !(opcode >= 0 && opcode != 245) {
+        if opcode == 245 {
             break;
         }
         if opcode < 240 {

@@ -22,10 +22,10 @@ use std::ffi::{CStr, OsStr, OsString};
 use std::io::{Read, SeekFrom, Write};
 use std::path::Path;
 use std::sync::Mutex;
-use std::{io, ptr, slice};
+use std::{ptr, slice};
 
 use crate::digest::DigestData;
-use crate::errors::{Error, ErrorKind, Result};
+use crate::errors::{Error, Result};
 use crate::io::{InputFeatures, InputHandle, InputOrigin, IoProvider, OpenResult, OutputHandle};
 use crate::status::StatusBackend;
 use crate::{tt_error, tt_warning};
@@ -425,17 +425,12 @@ impl<'a, I: 'a + IoProvider> ExecutionState<'a, I> {
         let rhandle: &mut InputHandle = unsafe { &mut *handle };
         rhandle.read_exact(buf).map_err(Error::from)
     }
-
-    fn input_getc(&mut self, handle: *mut InputHandle) -> Result<u8> {
-        let rhandle: &mut InputHandle = unsafe { &mut *handle };
-        rhandle.getc()
-    }
-
-    fn input_ungetc(&mut self, handle: *mut InputHandle, byte: u8) -> Result<()> {
-        let rhandle: &mut InputHandle = unsafe { &mut *handle };
-        rhandle.ungetc(byte)
-    }
-
+    /*
+        fn input_getc(&mut self, handle: *mut InputHandle) -> Result<u8> {
+            let rhandle: &mut InputHandle = unsafe { &mut *handle };
+            rhandle.getc()
+        }
+    */
     fn input_close(&mut self, handle: *mut InputHandle) -> bool {
         let len = self.input_handles.len();
 
@@ -485,7 +480,6 @@ struct TectonicBridgeApi {
     input_seek: *const libc::c_void,
     input_read: *const libc::c_void,
     input_getc: *const libc::c_void,
-    input_ungetc: *const libc::c_void,
     input_close: *const libc::c_void,
 }
 */
@@ -720,45 +714,6 @@ extern "C" fn input_seek<'a, I: 'a + IoProvider>(
     }
 }
 
-extern "C" fn input_getc<'a, I: 'a + IoProvider>(
-    es: *mut ExecutionState<'a, I>,
-    handle: *mut libc::c_void,
-) -> libc::c_int {
-    let es = unsafe { &mut *es };
-    let rhandle = handle as *mut InputHandle;
-
-    // If we couldn't fill the whole (1-byte) buffer, that's boring old EOF.
-    // No need to complain. Fun match statement here.
-
-    match es.input_getc(rhandle) {
-        Ok(b) => libc::c_int::from(b),
-        Err(Error(ErrorKind::Io(ref ioe), _)) if ioe.kind() == io::ErrorKind::UnexpectedEof => {
-            libc::EOF
-        }
-        Err(e) => {
-            tt_warning!(es.status, "getc failed"; e);
-            -1
-        }
-    }
-}
-
-extern "C" fn input_ungetc<'a, I: 'a + IoProvider>(
-    es: *mut ExecutionState<'a, I>,
-    handle: *mut libc::c_void,
-    ch: libc::c_int,
-) -> libc::c_int {
-    let es = unsafe { &mut *es };
-    let rhandle = handle as *mut InputHandle;
-
-    match es.input_ungetc(rhandle, ch as u8) {
-        Ok(_) => 0,
-        Err(e) => {
-            tt_warning!(es.status, "ungetc() failed"; e);
-            -1
-        }
-    }
-}
-
 extern "C" fn input_read<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     handle: *mut libc::c_void,
@@ -772,6 +727,7 @@ extern "C" fn input_read<'a, I: 'a + IoProvider>(
     /*if len == 1 {
         // If we couldn't fill the whole (1-byte) buffer, that's boring old EOF.
         // No need to complain. Fun match statement here.
+
         match es.input_getc(rhandle) {
             Ok(b) => b as _,
             Err(Error(ErrorKind::Io(ref ioe), _)) if ioe.kind() == io::ErrorKind::UnexpectedEof => {
@@ -840,8 +796,6 @@ impl TectonicBridgeApi {
                 input_get_size: transmute(input_get_size::<'a, I> as *const libc::c_void),
                 input_seek: transmute(input_seek::<'a, I> as *const libc::c_void),
                 input_read: transmute(input_read::<'a, I> as *const libc::c_void),
-                input_getc: transmute(input_getc::<'a, I> as *const libc::c_void),
-                input_ungetc: transmute(input_ungetc::<'a, I> as *const libc::c_void),
                 input_close: transmute(input_close::<'a, I> as *const libc::c_void),
             })
         }

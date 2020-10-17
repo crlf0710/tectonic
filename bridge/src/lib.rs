@@ -215,9 +215,6 @@ pub struct tt_bridge_api_t {
     pub input_read: Option<
         unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t, _: *mut i8, _: size_t) -> ssize_t,
     >,
-    pub input_getc: Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
-    pub input_ungetc:
-        Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t, _: i32) -> i32>,
     pub input_close: Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
 }
 
