@@ -467,8 +467,6 @@ pub(crate) static mut file_line_error_style_p: i32 = 0;
 #[no_mangle]
 pub(crate) static mut halt_on_error_p: i32 = 0;
 #[no_mangle]
-pub(crate) static mut quoted_filename: bool = false;
-#[no_mangle]
 pub(crate) static mut insert_src_special_auto: bool = false;
 #[no_mangle]
 pub(crate) static mut insert_src_special_every_par: bool = false;
@@ -719,12 +717,6 @@ pub(crate) static mut cur_name: str_number = 0;
 pub(crate) static mut cur_area: str_number = 0;
 #[no_mangle]
 pub(crate) static mut cur_ext: str_number = 0;
-#[no_mangle]
-pub(crate) static mut area_delimiter: pool_pointer = 0;
-#[no_mangle]
-pub(crate) static mut ext_delimiter: pool_pointer = 0;
-#[no_mangle]
-pub(crate) static mut file_name_quote_char: Option<UTF16_code> = None;
 #[no_mangle]
 pub(crate) static mut TEX_format_default: String = String::new();
 #[no_mangle]

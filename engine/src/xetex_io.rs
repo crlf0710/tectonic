@@ -21,7 +21,7 @@ use crate::xetex_ini::{
 use crate::xetex_output::{print_int, print_nl};
 use crate::xetex_texmfmp::gettexstring;
 use crate::xetex_xetex0::{
-    bad_utf8_warning, begin_name, diagnostic, end_name, get_input_normalization_state, more_name,
+    bad_utf8_warning, diagnostic, make_name, get_input_normalization_state, more_name,
     pack_file_name, scan_file_name, scan_four_bit_int, scan_optional_equals,
 };
 use crate::xetex_xetexd::print_c_str;
@@ -710,14 +710,14 @@ pub(crate) unsafe fn open_or_close_in(input: &mut input_state_t, chr: i32) {
         if ufile.is_some() {
             read_file[n as usize] = ufile;
             name_in_progress = true;
-            begin_name();
-            for k in name_of_file.encode_utf16() {
-                if !more_name(k, false) {
-                    break;
+            make_name(|a, e, q, qc| {
+                for k in name_of_file.encode_utf16() {
+                    if !more_name(k, false, a, e, q, qc) {
+                        break;
+                    }
                 }
-            }
-            stop_at_space = true;
-            end_name();
+                stop_at_space = true;
+            });
             name_in_progress = false;
             read_open[n as usize] = OpenMode::JustOpen;
         }

@@ -33,13 +33,13 @@ use crate::xetex_ext::{
 use crate::xetex_ini::FONT_LETTER_SPACE;
 use crate::xetex_ini::{
     _xeq_level_array, active_width, adjust_tail, after_token, align_ptr, align_state,
-    area_delimiter, arith_error, avail, bchar, best_height_plus_depth, breadth_max,
+    arith_error, avail, bchar, best_height_plus_depth, breadth_max,
     cancel_boundary, cond_ptr, cur_align, cur_area, cur_boundary, cur_box, cur_chr, cur_cmd,
     cur_cs, cur_dir, cur_ext, cur_group, cur_head, cur_if, cur_input, cur_l, cur_lang, cur_level,
     cur_list, cur_loop, cur_mark, cur_name, cur_order, cur_pre_head, cur_pre_tail, cur_ptr, cur_q,
     cur_r, cur_span, cur_tail, cur_tok, dead_cycles, def_ref, deletions_allowed, depth_threshold,
-    dig, disc_ptr, error_count, error_line, expand_depth, expand_depth_count, ext_delimiter,
-    false_bchar, file_line_error_style_p, file_name_quote_char, file_offset, first, first_count,
+    dig, disc_ptr, error_count, error_line, expand_depth, expand_depth_count,
+    false_bchar, file_line_error_style_p, file_offset, first, first_count,
     fmem_ptr, font_in_short_display, force_eof, gave_char_warning_help, half_error_line, hash,
     hash_extra, hash_high, hash_used, hi_mem_min, history, if_limit, if_line, init_pool_ptr,
     init_str_ptr, ins_disc, insert_penalties, insert_src_special_auto,
@@ -52,7 +52,7 @@ use crate::xetex_ini::{
     native_text_size, no_new_control_sequence, open_parens, output_active, pack_begin_line,
     page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos,
     pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files,
-    pstack, quoted_filename, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level,
+    pstack, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level,
     sa_root, save_native_len, scanner_status, selector, set_box_allowed, shown_mode, skip_line,
     space_class, stop_at_space, str_pool, str_ptr, str_start, tally, term_offset, tex_remainder,
     texmf_log_name, total_shrink, total_stretch, trick_buf, trick_count, use_err_help,
@@ -9156,23 +9156,17 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
         }
     }
 }
-pub(crate) unsafe fn begin_name() {
-    area_delimiter = 0;
-    ext_delimiter = 0;
-    quoted_filename = false;
-    file_name_quote_char = None;
-}
-pub(crate) unsafe fn more_name(c: UTF16_code, stop_at_space_: bool) -> bool {
-    if stop_at_space_ && file_name_quote_char.is_none() && c as i32 == ' ' as i32 {
+pub(crate) unsafe fn more_name(c: UTF16_code, stop_at_space_: bool, area_delimiter_: &mut pool_pointer, ext_delimiter_: &mut pool_pointer, quoted_filename_: &mut bool, file_name_quote_char_: &mut Option<u16>) -> bool {
+    if stop_at_space_ && file_name_quote_char_.is_none() && c as i32 == ' ' as i32 {
         return false;
     }
-    if stop_at_space_ && file_name_quote_char == Some(c) {
-        file_name_quote_char = None;
+    if stop_at_space_ && *file_name_quote_char_ == Some(c) {
+        *file_name_quote_char_ = None;
         return true;
     }
-    if stop_at_space_ && file_name_quote_char.is_none() && (c == '\"' as u16 || c == '\'' as u16) {
-        file_name_quote_char = Some(c);
-        quoted_filename = true;
+    if stop_at_space_ && file_name_quote_char_.is_none() && (c == '\"' as u16 || c == '\'' as u16) {
+        *file_name_quote_char_ = Some(c);
+        *quoted_filename_ = true;
         return true;
     }
     if pool_ptr + 1 > pool_size {
@@ -9182,14 +9176,24 @@ pub(crate) unsafe fn more_name(c: UTF16_code, stop_at_space_: bool) -> bool {
     pool_ptr += 1;
     if c == '/' as u16 {
         // IS_DIR_SEP
-        area_delimiter = cur_length();
-        ext_delimiter = 0;
+        *area_delimiter_ = cur_length();
+        *ext_delimiter_ = 0;
     } else if c == '.' as u16 {
-        ext_delimiter = cur_length()
+        *ext_delimiter_ = cur_length()
     }
     true
 }
-pub(crate) unsafe fn end_name() {
+pub(crate) unsafe fn make_name<F>(mut f: F) -> (bool, Option<u16>)
+where
+    F: FnMut(&mut pool_pointer, &mut pool_pointer, &mut bool, &mut Option<u16>),
+{
+    let mut area_delimiter = 0;
+    let mut ext_delimiter = 0;
+    let mut quoted_filename = false;
+    let mut file_name_quote_char = None;
+
+    f(&mut area_delimiter, &mut ext_delimiter, &mut quoted_filename, &mut file_name_quote_char);
+
     let mut temp_str: str_number = 0;
     let mut j: pool_pointer = 0;
     if str_ptr + 3 > max_strings as i32 {
@@ -9244,6 +9248,7 @@ pub(crate) unsafe fn end_name() {
         }
         cur_ext = slow_make_string()
     };
+    (quoted_filename, file_name_quote_char)
 }
 pub(crate) unsafe fn pack_file_name(name: str_number, path: str_number, ext: str_number) {
     name_of_file = gettexstring(path) + &gettexstring(name) + &gettexstring(ext);
@@ -9261,47 +9266,44 @@ pub(crate) unsafe fn make_name_string() -> str_number {
         pool_ptr += 1;
     }
     let Result: str_number = make_string();
-    let save_area_delimiter = area_delimiter;
-    let save_ext_delimiter = ext_delimiter;
     let save_name_in_progress = name_in_progress;
     name_in_progress = true;
-    begin_name();
-    for &k in &name_of_file16 {
-        if !more_name(k, false) {
-            break;
-        }
-    }
-    end_name();
-    name_in_progress = save_name_in_progress;
-    area_delimiter = save_area_delimiter;
-    ext_delimiter = save_ext_delimiter;
-    Result
-}
-pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) {
-    name_in_progress = true;
-    begin_name();
-    let (mut tok, mut cmd, mut chr, _) = loop {
-        let next = get_x_token(input);
-        if !(next.1 == Cmd::Spacer) {
-            break next;
-        }
-    };
-    loop {
-        if cmd > Cmd::OtherChar || chr > BIGGEST_CHAR {
-            back_input(input, tok);
-            break;
-        } else {
-            if !more_name(chr as UTF16_code, stop_at_space) {
+    make_name(|a, e, q, qc| {
+        for &k in &name_of_file16 {
+            if !more_name(k, false, a, e, q, qc) {
                 break;
             }
-            let next = get_x_token(input);
-            tok = next.0;
-            cmd = next.1;
-            chr = next.2;
         }
-    }
-    end_name();
+    });
+    name_in_progress = save_name_in_progress;
+    Result
+}
+pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (bool, Option<u16>) {
+    name_in_progress = true;
+    let res = make_name(|a, e, q, qc| {
+        let (mut tok, mut cmd, mut chr, _) = loop {
+            let next = get_x_token(input);
+            if !(next.1 == Cmd::Spacer) {
+                break next;
+            }
+        };
+        loop {
+            if cmd > Cmd::OtherChar || chr > BIGGEST_CHAR {
+                back_input(input, tok);
+                break;
+            } else {
+                if !more_name(chr as UTF16_code, stop_at_space, a, e, q, qc) {
+                    break;
+                }
+                let next = get_x_token(input);
+                tok = next.0;
+                cmd = next.1;
+                chr = next.2;
+            }
+        }
+    });
     name_in_progress = false;
+    res
 }
 pub(crate) unsafe fn pack_job_name(s: &str) {
     cur_area = EMPTY_STRING as str_number;
@@ -9349,56 +9351,56 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_na
          * are hardly used so it'd be nice to get rid of them someday. */
         format = TTInputFormat::TECTONIC_PRIMARY;
         name_in_progress = true;
-        begin_name();
-        stop_at_space = false;
-        let mut cp: *const u8 = primary_input_name as *const u8;
-        assert!(
-            !((pool_ptr as usize).wrapping_add(strlen(primary_input_name).wrapping_mul(2))
-                >= pool_size as usize),
-            "string pool overflow [{} bytes]",
-            pool_size,
-        );
-        loop {
-            let mut rval = *cp as u32;
-            if !(rval != 0_u32) {
-                break;
-            }
-            cp = cp.offset(1);
-            let mut extraBytes: u16 = bytesFromUTF8[rval as usize] as u16;
-            if extraBytes < 6 {
-                for _ in 0..extraBytes {
-                    rval <<= 6i32;
-                    if *cp != 0 {
-                        rval = (rval as u32).wrapping_add(*cp as u32) as u32 as u32;
-                        cp = cp.offset(1);
+        make_name(|area_delimiter, ext_delimiter, _, _| {
+            stop_at_space = false;
+            let mut cp: *const u8 = primary_input_name as *const u8;
+            assert!(
+                !((pool_ptr as usize).wrapping_add(strlen(primary_input_name).wrapping_mul(2))
+                    >= pool_size as usize),
+                "string pool overflow [{} bytes]",
+                pool_size,
+            );
+            loop {
+                let mut rval = *cp as u32;
+                if !(rval != 0_u32) {
+                    break;
+                }
+                cp = cp.offset(1);
+                let mut extraBytes: u16 = bytesFromUTF8[rval as usize] as u16;
+                if extraBytes < 6 {
+                    for _ in 0..extraBytes {
+                        rval <<= 6i32;
+                        if *cp != 0 {
+                            rval = (rval as u32).wrapping_add(*cp as u32) as u32 as u32;
+                            cp = cp.offset(1);
+                        }
                     }
                 }
+                rval = (rval as u32).wrapping_sub(offsetsFromUTF8[extraBytes as usize]) as u32 as u32;
+                if rval > 0xffff_u32 {
+                    rval = (rval as u32).wrapping_sub(0x10000_u32) as u32 as u32;
+                    let fresh45 = pool_ptr;
+                    pool_ptr = pool_ptr + 1;
+                    str_pool[fresh45 as usize] =
+                        (0xd800_u32).wrapping_add(rval.wrapping_div(0x400_u32)) as packed_UTF16_code;
+                    let fresh46 = pool_ptr;
+                    pool_ptr = pool_ptr + 1;
+                    str_pool[fresh46 as usize] =
+                        (0xdc00_u32).wrapping_add(rval.wrapping_rem(0x400_u32)) as packed_UTF16_code
+                } else {
+                    let fresh47 = pool_ptr;
+                    pool_ptr = pool_ptr + 1;
+                    str_pool[fresh47 as usize] = rval as packed_UTF16_code
+                }
+                if rval == '/' as i32 as u32 {
+                    *area_delimiter = cur_length();
+                    *ext_delimiter = 0;
+                } else if rval == '.' as i32 as u32 {
+                    *ext_delimiter = cur_length()
+                }
             }
-            rval = (rval as u32).wrapping_sub(offsetsFromUTF8[extraBytes as usize]) as u32 as u32;
-            if rval > 0xffff_u32 {
-                rval = (rval as u32).wrapping_sub(0x10000_u32) as u32 as u32;
-                let fresh45 = pool_ptr;
-                pool_ptr = pool_ptr + 1;
-                str_pool[fresh45 as usize] =
-                    (0xd800_u32).wrapping_add(rval.wrapping_div(0x400_u32)) as packed_UTF16_code;
-                let fresh46 = pool_ptr;
-                pool_ptr = pool_ptr + 1;
-                str_pool[fresh46 as usize] =
-                    (0xdc00_u32).wrapping_add(rval.wrapping_rem(0x400_u32)) as packed_UTF16_code
-            } else {
-                let fresh47 = pool_ptr;
-                pool_ptr = pool_ptr + 1;
-                str_pool[fresh47 as usize] = rval as packed_UTF16_code
-            }
-            if rval == '/' as i32 as u32 {
-                area_delimiter = cur_length();
-                ext_delimiter = 0;
-            } else if rval == '.' as i32 as u32 {
-                ext_delimiter = cur_length()
-            }
-        }
-        stop_at_space = true;
-        end_name();
+            stop_at_space = true;
+        });
         name_in_progress = false
     } else {
         /* Scan in the file name from the current token stream. The file name to
@@ -9423,14 +9425,14 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_na
     /* Now re-encode `name_of_file` into the UTF-16 variable `name_of_file16`,
      * and use that to recompute `cur_{name,area,ext}`. */
     name_in_progress = true;
-    begin_name();
-    for k in name_of_file.encode_utf16() {
-        if !more_name(k, false) {
-            break;
+    make_name(|a, e, q, qc| {
+        for k in name_of_file.encode_utf16() {
+            if !more_name(k, false, a, e, q, qc) {
+                break;
+            }
         }
-    }
-    stop_at_space = true;
-    end_name();
+        stop_at_space = true;
+    });
     name_in_progress = false;
     /* Now generate a stringpool string corresponding to the full path of the
      * input file. This calls make_utf16_name() again and reruns through the
@@ -13739,7 +13741,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
         eq_define(u, Cmd::SetFont, Some(FONT_BASE));
     }
     scan_optional_equals(input);
-    scan_file_name(input);
+    let (quoted_filename, file_name_quote_char) = scan_file_name(input);
     name_in_progress = true;
     if scan_keyword(input, b"at") {
         /*1294: */
@@ -13825,10 +13827,10 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
         (*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1 = t;
     }
 
-    let f = crate::tfm::read_font_info(u as i32, cur_name, cur_area, s)
+    let f = crate::tfm::read_font_info(u as i32, cur_name, cur_area, s, quoted_filename, file_name_quote_char)
         .map(crate::tfm::good_tfm)
         .unwrap_or_else(|e| {
-            crate::tfm::bad_tfm(e, u as i32, cur_name, cur_area, s);
+            crate::tfm::bad_tfm(e, u as i32, cur_name, cur_area, s, file_name_quote_char);
             FONT_BASE
         });
     common_ending(a, u, f, t)
