@@ -493,25 +493,20 @@ unsafe fn read_font_record(tex_id: u32) {
     u32::get(handle);
     let point_size = get_positive_quad(handle, "DVI", "point_size");
     let design_size = get_positive_quad(handle, "DVI", "design_size");
-    let dir_length = u8::get(handle) as i32;
-    let name_length = u8::get(handle) as i32;
-    let directory = new(
-        ((dir_length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
-    ) as *mut i8;
-
-    let slice = std::slice::from_raw_parts_mut(directory as *mut u8, dir_length as usize);
-    handle.read_exact(slice).expect(invalid_signature);
-    *directory.offset(dir_length as isize) = '\u{0}' as i32 as i8;
-    free(directory as *mut libc::c_void);
-    let font_name = new(((name_length + 1i32) as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    let slice = std::slice::from_raw_parts_mut(font_name as *mut u8, name_length as usize);
-    handle.read_exact(slice).expect(invalid_signature);
-    *font_name.offset(name_length as isize) = '\u{0}' as i32 as i8;
+    let dir_length = u8::get(handle) as usize;
+    let name_length = u8::get(handle) as usize;
+    let mut directory = vec![0_u8; dir_length];
+    handle
+        .read_exact(directory.as_mut_slice())
+        .expect(invalid_signature);
+    let mut font_name = vec![0_u8; name_length];
+    handle
+        .read_exact(font_name.as_mut_slice())
+        .expect(invalid_signature);
     def_fonts.push(font_def {
         font_id: -1,
         tex_id,
-        font_name: CStr::from_ptr(font_name).to_str().unwrap().to_owned(),
+        font_name: String::from_utf8(font_name).unwrap(),
         point_size: point_size as spt_t,
         design_size: design_size as spt_t,
         used: 0i32,
@@ -523,7 +518,6 @@ unsafe fn read_font_record(tex_id: u32) {
         slant: 0i32,
         embolden: 0i32,
     });
-    free(font_name as *mut _);
 }
 unsafe fn read_native_font_record(tex_id: u32) {
     let handle = dvi_handle.as_mut().unwrap();
@@ -647,16 +641,18 @@ static mut dvi_stack_depth: i32 = 0i32;
 static mut current_font: i32 = -1i32; // TODO: Option<usize> or Option<&loaded_font>
 static mut processing_page: i32 = 0i32;
 unsafe fn clear_state() {
-    dvi_state.h = 0i32;
-    dvi_state.v = 0i32;
-    dvi_state.w = 0i32;
-    dvi_state.x = 0i32;
-    dvi_state.y = 0i32;
-    dvi_state.z = 0i32;
-    dvi_state.d = 0_u32;
-    pdf_dev_set_dirmode(0i32);
-    dvi_stack_depth = 0i32;
-    current_font = -1i32;
+    dvi_state = dvi_registers {
+        h: 0,
+        v: 0,
+        w: 0,
+        x: 0,
+        y: 0,
+        z: 0,
+        d: 0,
+    };
+    pdf_dev_set_dirmode(0);
+    dvi_stack_depth = 0;
+    current_font = -1;
 }
 /* Migrated from pdfdev.c:
  * The following codes are originally put into pdfdev.c.
@@ -850,8 +846,8 @@ pub(crate) unsafe fn dvi_locate_font(tfm_name: &str, ptsize: spt_t) -> u32 {
         _ => tfm_name,
     };
     /* We need ptsize for PK font creation. */
-    let font_id = pdf_dev_locate_font(&CString::new(name).unwrap(), ptsize);
-    if font_id < 0i32 {
+    let font_id = pdf_dev_locate_font(&name, ptsize);
+    if font_id < 0 {
         warn!(
             "Could not locate a virtual/physical font for TFM \"{}\".",
             tfm_name
@@ -961,7 +957,7 @@ unsafe fn dvi_locate_native_font(
             ))
     };
     let mut font = loaded_font {
-        font_id: pdf_dev_locate_font(&CString::new(fontmap_key).unwrap(), ptsize),
+        font_id: pdf_dev_locate_font(&fontmap_key, ptsize),
         size: ptsize,
         type_0: 4i32,
 
@@ -1196,10 +1192,10 @@ pub(crate) unsafe fn dvi_put(ch: i32) {
         panic!("No font selected!");
     }
     let font = &mut loaded_fonts[current_font as usize];
-    match (*font).type_0 {
+    match font.type_0 {
         1 => {
-            let mut width = tfm_get_fw_width((*font).tfm_id, ch);
-            width = sqxfw((*font).size, width);
+            let mut width = tfm_get_fw_width(font.tfm_id, ch);
+            width = sqxfw(font.size, width);
             /* Treat a single character as a one byte string and use the
              * string routine.
              */
@@ -1216,7 +1212,7 @@ pub(crate) unsafe fn dvi_put(ch: i32) {
                     wbuf.as_mut_ptr() as *const libc::c_void,
                     4i32 as size_t,
                     width,
-                    (*font).font_id,
+                    font.font_id,
                     2i32,
                 );
             } else if ch > 255i32 {
@@ -1229,11 +1225,11 @@ pub(crate) unsafe fn dvi_put(ch: i32) {
                     wbuf.as_mut_ptr() as *const libc::c_void,
                     2i32 as size_t,
                     width,
-                    (*font).font_id,
+                    font.font_id,
                     2i32,
                 );
-            } else if (*font).subfont_id >= 0i32 {
-                let uch = lookup_sfd_record((*font).subfont_id, ch as u8) as u32;
+            } else if font.subfont_id >= 0i32 {
+                let uch = lookup_sfd_record(font.subfont_id, ch as u8) as u32;
                 wbuf[0] = (uch >> 8i32 & 0xff_u32) as u8;
                 wbuf[1] = (uch & 0xff_u32) as u8;
                 pdf_dev_set_string(
@@ -1242,7 +1238,7 @@ pub(crate) unsafe fn dvi_put(ch: i32) {
                     wbuf.as_mut_ptr() as *const libc::c_void,
                     2i32 as size_t,
                     width,
-                    (*font).font_id,
+                    font.font_id,
                     2i32,
                 );
             } else {
@@ -1253,22 +1249,22 @@ pub(crate) unsafe fn dvi_put(ch: i32) {
                     wbuf.as_mut_ptr() as *const libc::c_void,
                     1i32 as size_t,
                     width,
-                    (*font).font_id,
+                    font.font_id,
                     1i32,
                 );
             }
             if dvi_is_tracking_boxes() {
                 let mut rect = Rect::zero();
-                let mut height = tfm_get_fw_height((*font).tfm_id, ch);
-                let mut depth = tfm_get_fw_depth((*font).tfm_id, ch);
-                height = sqxfw((*font).size, height);
-                depth = sqxfw((*font).size, depth);
+                let mut height = tfm_get_fw_height(font.tfm_id, ch);
+                let mut depth = tfm_get_fw_depth(font.tfm_id, ch);
+                height = sqxfw(font.size, height);
+                depth = sqxfw(font.size, depth);
                 pdf_dev_set_rect(&mut rect, dvi_state.h, -dvi_state.v, width, height, depth);
                 pdf_doc_expand_box(&mut rect);
             }
         }
         2 => {
-            vf_set_char(ch, (*font).font_id);
+            vf_set_char(ch, font.font_id);
         }
         _ => {}
     };
@@ -1593,11 +1589,11 @@ unsafe fn do_glyphs(do_actual_text: i32) {
         *xloc.offset(i as isize) = get_buffered_signed_quad();
         *yloc.offset(i as isize) = get_buffered_signed_quad();
     }
-    if (*font).rgba_color != 0xffffffffu32 {
+    if font.rgba_color != 0xffffffffu32 {
         let mut color = PdfColor::from_rgb(
-            (((*font).rgba_color >> 24i32) as u8 as i32 & 0xffi32) as f64 / 255i32 as f64,
-            (((*font).rgba_color >> 16i32) as u8 as i32 & 0xffi32) as f64 / 255i32 as f64,
-            (((*font).rgba_color >> 8i32) as u8 as i32 & 0xffi32) as f64 / 255i32 as f64,
+            ((font.rgba_color >> 24i32) as u8 as i32 & 0xffi32) as f64 / 255i32 as f64,
+            ((font.rgba_color >> 16i32) as u8 as i32 & 0xffi32) as f64 / 255i32 as f64,
+            ((font.rgba_color >> 8i32) as u8 as i32 & 0xffi32) as f64 / 255i32 as f64,
         )
         .unwrap();
         let color_clone = color.clone();
@@ -1605,16 +1601,16 @@ unsafe fn do_glyphs(do_actual_text: i32) {
     }
     for i in 0..slen {
         let mut glyph_id = get_buffered_unsigned_pair();
-        if (glyph_id as u32) < (*font).numGlyphs {
+        if (glyph_id as u32) < font.numGlyphs {
             let advance;
-            let mut ascent: f64 = (*font).ascent as f64;
-            let mut descent: f64 = (*font).descent as f64;
-            if !(*font).cffont.is_null() {
-                let cstrings: *mut cff_index = (*(*font).cffont).cstrings;
+            let mut ascent: f64 = font.ascent as f64;
+            let mut descent: f64 = font.descent as f64;
+            if !font.cffont.is_null() {
+                let cstrings: *mut cff_index = (*font.cffont).cstrings;
                 let mut gm = t1_ginfo::new();
                 /* If .notdef is not the 1st glyph in CharStrings, glyph_id given by
                 FreeType should be increased by 1 */
-                if (*(*font).cffont).is_notdef_notzero != 0 {
+                if (*font.cffont).is_notdef_notzero != 0 {
                     glyph_id += 1;
                 }
                 t1char_get_metrics(
@@ -1625,10 +1621,10 @@ unsafe fn do_glyphs(do_actual_text: i32) {
                     (*(*cstrings).offset.offset((glyph_id + 1) as isize))
                         .wrapping_sub(*(*cstrings).offset.offset(glyph_id as isize))
                         as i32,
-                    *(*(*font).cffont).subrs.offset(0),
+                    *(*font.cffont).subrs.offset(0),
                     &mut gm,
                 );
-                advance = (if (*font).layout_dir == 0i32 {
+                advance = (if font.layout_dir == 0i32 {
                     gm.wx
                 } else {
                     gm.wy
@@ -1636,15 +1632,14 @@ unsafe fn do_glyphs(do_actual_text: i32) {
                 ascent = gm.bbox.ury;
                 descent = gm.bbox.lly
             } else {
-                advance = (*font).hvmt[glyph_id as usize].advance as u32
+                advance = font.hvmt[glyph_id as usize].advance as u32
             }
-            glyph_width =
-                ((*font).size as f64 * advance as f64 / (*font).unitsPerEm as f64) as spt_t;
-            glyph_width = (glyph_width as f32 * (*font).extend) as spt_t;
+            glyph_width = (font.size as f64 * advance as f64 / font.unitsPerEm as f64) as spt_t;
+            glyph_width = (glyph_width as f32 * font.extend) as spt_t;
             if dvi_is_tracking_boxes() {
                 let mut rect = Rect::zero();
-                let height = ((*font).size as f64 * ascent / (*font).unitsPerEm as f64) as spt_t;
-                let depth = ((*font).size as f64 * -descent / (*font).unitsPerEm as f64) as spt_t;
+                let height = (font.size as f64 * ascent / font.unitsPerEm as f64) as spt_t;
+                let depth = (font.size as f64 * -descent / font.unitsPerEm as f64) as spt_t;
                 pdf_dev_set_rect(
                     &mut rect,
                     dvi_state.h + *xloc.offset(i as isize),
@@ -1663,11 +1658,11 @@ unsafe fn do_glyphs(do_actual_text: i32) {
             wbuf.as_ptr() as *const libc::c_void,
             2i32 as size_t,
             glyph_width,
-            (*font).font_id,
+            font.font_id,
             -1i32,
         );
     }
-    if (*font).rgba_color != 0xffffffffu32 {
+    if font.rgba_color != 0xffffffffu32 {
         pdf_color_pop();
     }
     free(xloc as *mut libc::c_void);

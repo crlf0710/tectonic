@@ -30,7 +30,7 @@
 use euclid::point2;
 
 use crate::bridge::DisplayExt;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::ptr;
 
 use crate::strstartswith;
@@ -199,8 +199,7 @@ unsafe fn mp_setfont(font_name: &str, pt_size: f64) -> i32 {
         Some(mrec) if !mrec.map_name.is_empty() => &mrec.map_name,
         _ => font_name,
     };
-    let name_ = CString::new(name).unwrap();
-    let font_id = pdf_dev_locate_font(&name_, (pt_size * dev_unit_dviunit()) as spt_t);
+    let font_id = pdf_dev_locate_font(name, (pt_size * dev_unit_dviunit()) as spt_t);
     let new_font = mp_font {
         font_name: font_name.to_string(),
         font_id,

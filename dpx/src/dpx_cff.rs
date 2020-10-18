@@ -1829,51 +1829,51 @@ pub(crate) unsafe fn cff_charsets_lookup_inverse(cff: &cff_font, gid: u16) -> u1
         return 0i32 as u16;
         /* .notdef */
     }
-    cff_charsets_lookup_cid(cff.charsets, gid)
+    cff_charsets_lookup_cid(&*cff.charsets, gid)
 }
 
-pub(crate) unsafe fn cff_charsets_lookup_cid(charset: *mut cff_charsets, mut gid: u16) -> u16 {
+pub(crate) unsafe fn cff_charsets_lookup_cid(charset: &cff_charsets, mut gid: u16) -> u16 {
     let mut sid: u16 = 0i32 as u16;
-    match (*charset).format as i32 {
+    match charset.format as i32 {
         0 => {
-            if gid as i32 - 1i32 >= (*charset).num_entries as i32 {
+            if gid as i32 - 1i32 >= charset.num_entries as i32 {
                 panic!("Invalid GID.");
             }
-            sid = *(*charset).data.glyphs.offset((gid as i32 - 1i32) as isize)
+            sid = *charset.data.glyphs.offset((gid as i32 - 1i32) as isize)
         }
         1 => {
             let mut i = 0;
-            while (i as i32) < (*charset).num_entries as i32 {
-                if gid as i32 <= (*(*charset).data.range1.offset(i as isize)).n_left as i32 + 1i32 {
-                    sid = (gid as i32 + (*(*charset).data.range1.offset(i as isize)).first as i32
+            while (i as i32) < charset.num_entries as i32 {
+                if gid as i32 <= (*charset.data.range1.offset(i as isize)).n_left as i32 + 1i32 {
+                    sid = (gid as i32 + (*charset.data.range1.offset(i as isize)).first as i32
                         - 1i32) as u16;
                     break;
                 } else {
                     gid = (gid as i32
-                        - ((*(*charset).data.range1.offset(i as isize)).n_left as i32 + 1i32))
+                        - ((*charset.data.range1.offset(i as isize)).n_left as i32 + 1i32))
                         as u16;
                     i += 1;
                 }
             }
-            if i as i32 == (*charset).num_entries as i32 {
+            if i as i32 == charset.num_entries as i32 {
                 panic!("Invalid GID");
             }
         }
         2 => {
             let mut i = 0;
-            while (i as i32) < (*charset).num_entries as i32 {
-                if gid as i32 <= (*(*charset).data.range2.offset(i as isize)).n_left as i32 + 1i32 {
-                    sid = (gid as i32 + (*(*charset).data.range2.offset(i as isize)).first as i32
+            while (i as i32) < charset.num_entries as i32 {
+                if gid as i32 <= (*charset.data.range2.offset(i as isize)).n_left as i32 + 1i32 {
+                    sid = (gid as i32 + (*charset.data.range2.offset(i as isize)).first as i32
                         - 1i32) as u16;
                     break;
                 } else {
                     gid = (gid as i32
-                        - ((*(*charset).data.range2.offset(i as isize)).n_left as i32 + 1i32))
+                        - ((*charset.data.range2.offset(i as isize)).n_left as i32 + 1i32))
                         as u16;
                     i += 1;
                 }
             }
-            if i as i32 == (*charset).num_entries as i32 {
+            if i as i32 == charset.num_entries as i32 {
                 panic!("Invalid GID");
             }
         }
