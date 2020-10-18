@@ -210,7 +210,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
     let init_paper_height = page_height;
     let mut page_count = 0;
     let mut mediabox = Rect::new(Point::zero(), point2(paper_width, paper_height));
-    pdf_doc_set_mediabox(0_u32, &mediabox);
+    pdf_doc_set_mediabox(0, &mediabox);
     let mut i = 0;
     while i < page_ranges.len() && dvi_npages() != 0 {
         if page_ranges[i].last < 0i32 {
@@ -280,7 +280,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
         }
         i = i.wrapping_add(1)
     }
-    if page_count < 1_u32 {
+    if page_count < 1 {
         panic!("No pages fall in range!");
     }
     spc_exec_at_end_document();

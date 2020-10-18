@@ -529,7 +529,7 @@ unsafe fn spc_handler_pdfm_annot(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     }
     /* Add this reference. */
     pdf_doc_add_annot(
-        pdf_doc_current_page_number() as u32,
+        pdf_doc_current_page_number() as usize,
         &mut rect,
         annot_dict,
         1i32,

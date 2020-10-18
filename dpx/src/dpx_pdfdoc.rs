@@ -135,7 +135,7 @@ pub(crate) struct pdf_page {
     pub(crate) annots: *mut pdf_obj,
     pub(crate) beads: *mut pdf_obj,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct pdf_doc {
     pub(crate) root: C2RustUnnamed_3,
@@ -175,15 +175,14 @@ pub(crate) struct C2RustUnnamed_1 {
     pub(crate) current: *mut pdf_olitem,
     pub(crate) current_depth: i32,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct C2RustUnnamed_2 {
     pub(crate) mediabox: Rect,
     pub(crate) bop: *mut pdf_obj,
     pub(crate) eop: *mut pdf_obj,
-    pub(crate) num_entries: u32,
-    pub(crate) max_entries: u32,
-    pub(crate) entries: *mut pdf_page,
+    pub(crate) num_entries: usize,
+    pub(crate) entries: Vec<pdf_page>,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -269,8 +268,7 @@ static mut pdoc: pdf_doc = pdf_doc {
         bop: ptr::null_mut(),
         eop: ptr::null_mut(),
         num_entries: 0,
-        max_entries: 0,
-        entries: ptr::null_mut(),
+        entries: Vec::new(),
     },
     outlines: C2RustUnnamed_1 {
         first: ptr::null_mut(),
@@ -349,43 +347,29 @@ unsafe fn pdf_doc_close_catalog(p: &mut pdf_doc) {
  * Pages are starting at 1.
  * The page count does not increase until the page is finished.
  */
-unsafe fn doc_resize_page_entries(p: &mut pdf_doc, size: u32) {
-    if size > p.pages.max_entries {
-        /* global bop */
-        p.pages.entries = renew(
-            p.pages.entries as *mut libc::c_void,
-            (size as u64).wrapping_mul(::std::mem::size_of::<pdf_page>() as u64) as u32,
-        ) as *mut pdf_page; /* background */
-        /* page body  */
-        for i in p.pages.max_entries..size {
-            (*p.pages.entries.offset(i as isize)).page_obj = ptr::null_mut(); /* global eop */
-            (*p.pages.entries.offset(i as isize)).page_ref = ptr::null_mut();
-            (*p.pages.entries.offset(i as isize)).flags = 0i32;
-            (*p.pages.entries.offset(i as isize)).resources = ptr::null_mut();
-            (*p.pages.entries.offset(i as isize)).background = ptr::null_mut();
-            (*p.pages.entries.offset(i as isize)).contents = ptr::null_mut();
-            (*p.pages.entries.offset(i as isize)).content_refs[0] = ptr::null_mut();
-            (*p.pages.entries.offset(i as isize)).content_refs[1] = ptr::null_mut();
-            (*p.pages.entries.offset(i as isize)).content_refs[2] = ptr::null_mut();
-            (*p.pages.entries.offset(i as isize)).content_refs[3] = ptr::null_mut();
-            (*p.pages.entries.offset(i as isize)).annots = ptr::null_mut();
-            (*p.pages.entries.offset(i as isize)).beads = ptr::null_mut();
-        }
-        p.pages.max_entries = size
-    };
+unsafe fn doc_resize_page_entries(p: &mut pdf_doc, size: usize) {
+    p.pages.entries.resize_with(size, || pdf_page {
+        ref_x: 0.,
+        ref_y: 0.,
+        cropbox: Rect::zero(),
+        page_obj: ptr::null_mut(),
+        page_ref: ptr::null_mut(),
+        flags: 0,
+        resources: ptr::null_mut(),
+        background: ptr::null_mut(),
+        contents: ptr::null_mut(),
+        content_refs: [ptr::null_mut(); 4],
+        annots: ptr::null_mut(),
+        beads: ptr::null_mut(),
+    });
 }
-unsafe fn doc_get_page_entry<'a>(p: &'a mut pdf_doc, page_no: u32) -> &'a mut pdf_page {
-    if page_no as u64 > 65535 {
-        panic!("Page number {} too large!", page_no);
-    } else {
-        if page_no == 0_u32 {
-            panic!("Invalid Page number {}.", page_no);
-        }
+unsafe fn doc_get_page_entry<'a>(p: &'a mut pdf_doc, page_no: usize) -> &'a mut pdf_page {
+    assert!(page_no < 65536, "Page number {} too large!", page_no);
+    assert!(page_no != 0, "Invalid Page number {}.", page_no);
+    if page_no > p.pages.entries.len() as _ {
+        doc_resize_page_entries(p, page_no);
     }
-    if page_no > p.pages.max_entries {
-        doc_resize_page_entries(p, page_no.wrapping_add(128u32));
-    }
-    &mut *p.pages.entries.offset(page_no.wrapping_sub(1_u32) as isize)
+    &mut p.pages.entries[page_no - 1]
 }
 
 pub(crate) unsafe fn pdf_doc_set_bop_content(content: &[u8]) {
@@ -502,8 +486,7 @@ unsafe fn pdf_doc_get_page_resources(mut p: *mut pdf_doc, category: &str) -> *mu
             (*(*p).pending_forms).form.resources
         }
     } else {
-        let currentpage =
-            &mut *(*p).pages.entries.offset((*p).pages.num_entries as isize) as *mut pdf_page;
+        let currentpage = &mut (*p).pages.entries[(*p).pages.num_entries] as *mut pdf_page;
         if !(*currentpage).resources.is_null() {
             (*currentpage).resources
         } else {
@@ -694,9 +677,8 @@ unsafe fn pdf_doc_init_page_tree(p: &mut pdf_doc, media_width: f64, media_height
      * This allows the user to write to pages if he so choses.
      */
     p.root.pages = pdf_dict::new().into_obj();
-    p.pages.num_entries = 0_u32;
-    p.pages.max_entries = 0_u32;
-    p.pages.entries = ptr::null_mut();
+    p.pages.num_entries = 0;
+    p.pages.entries = Vec::new();
     p.pages.bop = ptr::null_mut();
     p.pages.eop = ptr::null_mut();
     p.pages.mediabox = Rect::new(point2(0., 0.), point2(media_width, media_height));
@@ -705,7 +687,7 @@ unsafe fn pdf_doc_close_page_tree(p: &mut pdf_doc) {
     /*
      * Do consistency check on forward references to pages.
      */
-    for page_no in p.pages.num_entries.wrapping_add(1_u32)..=p.pages.max_entries {
+    for page_no in (p.pages.num_entries + 1)..=p.pages.entries.len() {
         let page = doc_get_page_entry(&mut *p, page_no);
         if !page.page_obj.is_null() {
             warn!("Nonexistent page #{} refered.", page_no);
@@ -737,7 +719,7 @@ unsafe fn pdf_doc_close_page_tree(p: &mut pdf_doc) {
      */
     let page_tree_root = build_page_tree(
         p,
-        &mut *p.pages.entries.offset(0),
+        &mut p.pages.entries[0],
         p.pages.num_entries as i32,
         ptr::null_mut(),
     );
@@ -768,9 +750,8 @@ unsafe fn pdf_doc_close_page_tree(p: &mut pdf_doc) {
         .set("Pages", pdf_ref_obj(p.root.pages));
     pdf_release_obj(p.root.pages);
     p.root.pages = ptr::null_mut();
-    p.pages.entries = mfree(p.pages.entries as *mut libc::c_void) as *mut pdf_page;
-    p.pages.num_entries = 0_u32;
-    p.pages.max_entries = 0_u32;
+    p.pages.entries = Vec::new();
+    p.pages.num_entries = 0;
 }
 
 pub unsafe fn pdf_doc_get_page_count(pf: &pdf_file) -> i32 {
@@ -1724,7 +1705,7 @@ unsafe fn pdf_doc_close_names(mut p: *mut pdf_doc) {
 }
 
 pub(crate) unsafe fn pdf_doc_add_annot(
-    page_no: u32,
+    page_no: usize,
     rect: &Rect,
     annot_dict: *mut pdf_obj,
     new_annot: i32,
@@ -1808,17 +1789,17 @@ pub(crate) unsafe fn pdf_doc_begin_article(article_id: &str, article_info: *mut 
     let article = &mut *(*p)
         .articles
         .entries
-        .offset((*p).articles.num_entries as isize) as *mut pdf_article;
-    (*article).id =
+        .offset((*p).articles.num_entries as isize);
+    article.id =
         new((article_id.len().wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
             as *mut i8;
     let article_id = CString::new(article_id.as_bytes()).unwrap();
-    strcpy((*article).id, article_id.as_ptr());
-    (*article).info = article_info;
-    (*article).num_beads = 0_u32;
-    (*article).max_beads = 0_u32;
-    (*article).beads = ptr::null_mut();
-    (*p).articles.num_entries = (*p).articles.num_entries.wrapping_add(1);
+    strcpy(article.id, article_id.as_ptr());
+    article.info = article_info;
+    article.num_beads = 0_u32;
+    article.max_beads = 0_u32;
+    article.beads = ptr::null_mut();
+    (*p).articles.num_entries += 1;
 }
 unsafe fn find_bead(article: *mut pdf_article, bead_id: &[u8]) -> *mut pdf_bead {
     let mut bead = ptr::null_mut();
@@ -1831,7 +1812,12 @@ unsafe fn find_bead(article: *mut pdf_article, bead_id: &[u8]) -> *mut pdf_bead 
     bead
 }
 
-pub(crate) unsafe fn pdf_doc_add_bead(article_id: &str, bead_id: &[u8], page_no: i32, rect: &Rect) {
+pub(crate) unsafe fn pdf_doc_add_bead(
+    article_id: &str,
+    bead_id: &[u8],
+    page_no: usize,
+    rect: &Rect,
+) {
     let p: *mut pdf_doc = &mut pdoc;
     if article_id.is_empty() {
         panic!("No article identifier specified.");
@@ -1875,7 +1861,7 @@ pub(crate) unsafe fn pdf_doc_add_bead(article_id: &str, bead_id: &[u8], page_no:
         (*article).num_beads = (*article).num_beads.wrapping_add(1)
     }
     (*bead).rect = *rect;
-    (*bead).page_no = page_no;
+    (*bead).page_no = page_no as i32;
 }
 unsafe fn make_article(
     p: &mut pdf_doc,
@@ -1924,7 +1910,7 @@ unsafe fn make_article(
                 }
             }
             /* Realize bead now. */
-            let page = doc_get_page_entry(p, (*bead).page_no as u32);
+            let page = doc_get_page_entry(p, (*bead).page_no as usize);
             if page.beads.is_null() {
                 page.beads = Vec::new().into_obj();
             }
@@ -2007,9 +1993,9 @@ unsafe fn pdf_doc_close_articles(p: &mut pdf_doc) {
 }
 /* page_no = 0 for root page tree node. */
 
-pub(crate) unsafe fn pdf_doc_set_mediabox(page_no: u32, mediabox: &Rect) {
+pub(crate) unsafe fn pdf_doc_set_mediabox(page_no: usize, mediabox: &Rect) {
     let mut p = &mut pdoc;
-    if page_no == 0_u32 {
+    if page_no == 0 {
         p.pages.mediabox = *mediabox;
     } else {
         let page = doc_get_page_entry(p, page_no);
@@ -2017,9 +2003,9 @@ pub(crate) unsafe fn pdf_doc_set_mediabox(page_no: u32, mediabox: &Rect) {
         page.flags |= 1i32 << 0i32
     };
 }
-unsafe fn pdf_doc_get_mediabox(page_no: u32, mediabox: &mut Rect) {
+unsafe fn pdf_doc_get_mediabox(page_no: usize, mediabox: &mut Rect) {
     let p = &mut pdoc;
-    if page_no == 0_u32 {
+    if page_no == 0 {
         *mediabox = p.pages.mediabox;
     } else {
         let page = doc_get_page_entry(p, page_no);
@@ -2041,8 +2027,7 @@ pub(crate) unsafe fn pdf_doc_current_page_resources() -> *mut pdf_obj {
             (*(*p).pending_forms).form.resources
         }
     } else {
-        let currentpage =
-            &mut *(*p).pages.entries.offset((*p).pages.num_entries as isize) as *mut pdf_page;
+        let currentpage = &mut (*p).pages.entries[(*p).pages.num_entries] as *mut pdf_page;
         if !(*currentpage).resources.is_null() {
             (*currentpage).resources
         } else {
@@ -2081,8 +2066,7 @@ pub(crate) unsafe fn pdf_doc_get_dictionary(category: &str) -> *mut pdf_obj {
         }
         "@THISPAGE" => {
             /* Sorry for this... */
-            let currentpage =
-                &mut *(*p).pages.entries.offset((*p).pages.num_entries as isize) as *mut pdf_page;
+            let currentpage = &mut (*p).pages.entries[(*p).pages.num_entries] as *mut pdf_page;
             (*currentpage).page_obj
         }
         _ => ptr::null_mut(),
@@ -2093,12 +2077,12 @@ pub(crate) unsafe fn pdf_doc_get_dictionary(category: &str) -> *mut pdf_obj {
     dict
 }
 
-pub(crate) unsafe fn pdf_doc_current_page_number() -> i32 {
+pub(crate) unsafe fn pdf_doc_current_page_number() -> usize {
     let p: *mut pdf_doc = &mut pdoc;
-    (*p).pages.num_entries.wrapping_add(1_u32) as i32
+    (*p).pages.num_entries + 1
 }
 
-pub(crate) unsafe fn pdf_doc_ref_page(page_no: u32) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_doc_ref_page(page_no: usize) -> *mut pdf_obj {
     let p = &mut pdoc;
     let page = doc_get_page_entry(p, page_no);
     if page.page_obj.is_null() {
@@ -2111,14 +2095,14 @@ pub(crate) unsafe fn pdf_doc_ref_page(page_no: u32) -> *mut pdf_obj {
 pub(crate) unsafe fn pdf_doc_get_reference(category: &str) -> *mut pdf_obj {
     let page_no = pdf_doc_current_page_number();
     let ref_0 = match category {
-        "@THISPAGE" => pdf_doc_ref_page(page_no as u32),
+        "@THISPAGE" => pdf_doc_ref_page(page_no),
         "@PREVPAGE" => {
-            if page_no <= 1i32 {
+            if page_no <= 1 {
                 panic!("Reference to previous page, but no pages have been completed yet.");
             }
-            pdf_doc_ref_page((page_no - 1i32) as u32)
+            pdf_doc_ref_page(page_no - 1)
         }
-        "@NEXTPAGE" => pdf_doc_ref_page((page_no + 1i32) as u32),
+        "@NEXTPAGE" => pdf_doc_ref_page(page_no + 1),
         _ => ptr::null_mut(),
     };
     if ref_0.is_null() {
@@ -2127,13 +2111,13 @@ pub(crate) unsafe fn pdf_doc_get_reference(category: &str) -> *mut pdf_obj {
     ref_0
 }
 unsafe fn pdf_doc_new_page(p: &mut pdf_doc) {
-    if p.pages.num_entries >= p.pages.max_entries {
-        doc_resize_page_entries(p, p.pages.max_entries.wrapping_add(128u32));
+    if p.pages.num_entries >= p.pages.entries.len() as _ {
+        doc_resize_page_entries(p, p.pages.num_entries + 1);
     }
     /*
      * This is confusing. pdf_doc_finish_page() have increased page count!
      */
-    let currentpage = &mut *p.pages.entries.offset(p.pages.num_entries as isize) as *mut pdf_page;
+    let currentpage = &mut p.pages.entries[p.pages.num_entries] as *mut pdf_page;
     /* Was this page already instantiated by a forward reference to it? */
     if (*currentpage).page_ref.is_null() {
         (*currentpage).page_obj = pdf_dict::new().into_obj();
@@ -2150,8 +2134,7 @@ unsafe fn pdf_doc_finish_page(mut p: *mut pdf_doc) {
     if !(*p).pending_forms.is_null() {
         panic!("A pending form XObject at the end of page.");
     }
-    let currentpage =
-        &mut *(*p).pages.entries.offset((*p).pages.num_entries as isize) as *mut pdf_page;
+    let currentpage = &mut (*p).pages.entries[(*p).pages.num_entries] as *mut pdf_page;
     if (*currentpage).page_obj.is_null() {
         (*currentpage).page_obj = pdf_dict::new().into_obj();
     }
@@ -2222,7 +2205,7 @@ unsafe fn pdf_doc_finish_page(mut p: *mut pdf_doc) {
         let thumb_filename = format!(
             "{}.{}",
             thumb_basename,
-            (*p).pages.num_entries.wrapping_rem(99999_u32) as i64 + 1
+            ((*p).pages.num_entries % 99999) as i64 + 1
         );
         let thumb_ref = read_thumbnail(&thumb_filename);
         if !thumb_ref.is_null() {
@@ -2231,7 +2214,7 @@ unsafe fn pdf_doc_finish_page(mut p: *mut pdf_doc) {
                 .set("Thumb", thumb_ref);
         }
     }
-    (*p).pages.num_entries = (*p).pages.num_entries.wrapping_add(1);
+    (*p).pages.num_entries += 1;
 }
 
 static mut bgcolor: PdfColor = WHITE;
@@ -2253,8 +2236,8 @@ unsafe fn doc_fill_page_background(p: &mut pdf_doc) {
     if cm == 0 || bgcolor.is_white() {
         return;
     }
-    pdf_doc_get_mediabox(pdf_doc_current_page_number() as u32, &mut r);
-    let currentpage = &mut *p.pages.entries.offset(p.pages.num_entries as isize);
+    pdf_doc_get_mediabox(pdf_doc_current_page_number(), &mut r);
+    let currentpage = &mut p.pages.entries[p.pages.num_entries];
     if currentpage.background.is_null() {
         currentpage.background = pdf_stream::new(STREAM_COMPRESS).into_obj()
     }
@@ -2289,11 +2272,8 @@ pub(crate) unsafe fn pdf_doc_add_page_content(buffer: &[u8]) {
             .as_stream_mut()
             .add_slice(&buffer);
     } else {
-        let currentpage =
-            &mut *p.pages.entries.offset(p.pages.num_entries as isize) as *mut pdf_page;
-        (*(*currentpage).contents)
-            .as_stream_mut()
-            .add_slice(&buffer);
+        let currentpage = &mut p.pages.entries[p.pages.num_entries];
+        (*currentpage.contents).as_stream_mut().add_slice(&buffer);
     };
 }
 
@@ -2530,7 +2510,7 @@ pub(crate) unsafe fn pdf_doc_break_annot() {
         annot_dict.merge((*breaking_state.annot_dict).as_dict());
         let annot_dict = annot_dict.into_obj();
         pdf_doc_add_annot(
-            pdf_doc_current_page_number() as u32,
+            pdf_doc_current_page_number(),
             &mut breaking_state.rect,
             annot_dict,
             (breaking_state.broken == 0) as i32,

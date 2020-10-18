@@ -173,7 +173,7 @@ pub(crate) unsafe fn spc_lookup_reference(key: &str) -> Option<*mut pdf_obj> {
         "docinfo" => pdf_ref_obj(pdf_doc_get_dictionary("Info")),
         _ => {
             if ispageref(key) {
-                pdf_doc_ref_page((key[4..]).parse::<i32>().unwrap() as u32)
+                pdf_doc_ref_page((key[4..]).parse::<i32>().unwrap() as usize)
             } else {
                 pdf_names_lookup_reference(
                     NAMED_OBJECTS,
@@ -275,7 +275,7 @@ unsafe fn init_special<'a, 'b>(
     spe.x_user = x_user;
     spe.y_user = y_user;
     spe.mag = mag;
-    spe.pg = pdf_doc_current_page_number();
+    spe.pg = pdf_doc_current_page_number() as i32;
     args.cur = buf;
     args.base = buf;
     args.command = None;
