@@ -2,7 +2,7 @@
 // Copyright 2017-2018 the Tectonic Project
 // Licensed under the MIT License.
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 use super::{ExecutionState, IoEventBackend, TectonicBridgeApi};
 use crate::errors::{DefinitelySame, ErrorKind, Result};
@@ -135,8 +135,7 @@ impl TexEngine {
                 1 => Ok(TexResult::Warnings),
                 2 => Ok(TexResult::Errors),
                 3 => {
-                    let ptr = super::tt_get_error_message();
-                    let msg = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+                    let msg = super::tt_get_error_message().to_string();
                     Err(ErrorKind::Msg(msg).into())
                 }
                 x => Err(ErrorKind::Msg(format!(

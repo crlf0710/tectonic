@@ -2,8 +2,6 @@
 // Copyright 2017 the Tectonic Project
 // Licensed under the MIT License.
 
-use std::ffi::CStr;
-
 use super::{ExecutionState, IoEventBackend, TectonicBridgeApi};
 use crate::errors::{ErrorKind, Result};
 use crate::io::IoStack;
@@ -54,8 +52,7 @@ impl XdvipdfmxEngine {
                 self.deterministic_tags,
             ) {
                 99 => {
-                    let ptr = super::tt_get_error_message();
-                    let msg = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+                    let msg = super::tt_get_error_message().to_string();
                     Err(ErrorKind::Msg(msg).into())
                 }
                 x => Ok(x as i32),

@@ -277,23 +277,6 @@ pub(crate) unsafe fn tt_get_current_bridge() -> Option<&'static tt_bridge_api_t>
  * will one day eliminate all of the global state and get rid of all of
  * these. */
 /* Global symbols that route through the global API */
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_issue_warning(mut format: *const i8, mut args: ...) {
-    let mut ap: ::std::ffi::VaListImpl; /* Not ideal to (ab)use error_buf here */
-    ap = args.clone(); /* Not ideal to (ab)use error_buf here */
-    vsnprintf(
-        error_buf.as_mut_ptr() as *mut i8,
-        1024i32 as u64,
-        format,
-        ap.as_va_list(),
-    );
-    (*tectonic_global_bridge)
-        .issue_warning
-        .expect("non-null function pointer")(
-        (*tectonic_global_bridge).context,
-        error_buf.as_mut_ptr() as *mut i8,
-    );
-}
 pub unsafe fn ttstub_issue_warning_slice(buf: &[u8]) {
     (*tectonic_global_bridge)
         .issue_warning
@@ -303,21 +286,23 @@ pub unsafe fn ttstub_issue_warning_slice(buf: &[u8]) {
     );
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn ttstub_issue_error(mut format: *const i8, mut args: ...) {
-    let mut ap: ::std::ffi::VaListImpl;
-    ap = args.clone();
-    vsnprintf(
-        error_buf.as_mut_ptr() as *mut i8,
-        1024i32 as u64,
-        format,
-        ap.as_va_list(),
+pub unsafe fn ttstub_issue_warning(buf: &str) {
+    let buf = std::ffi::CString::new(buf).unwrap();
+    (*tectonic_global_bridge)
+        .issue_warning
+        .expect("non-null function pointer")(
+        (*tectonic_global_bridge).context,
+        buf.as_ptr() as *const i8,
     );
+}
+
+pub unsafe fn ttstub_issue_error(buf: &str) {
+    let buf = std::ffi::CString::new(buf).unwrap();
     (*tectonic_global_bridge)
         .issue_error
         .expect("non-null function pointer")(
         (*tectonic_global_bridge).context,
-        error_buf.as_mut_ptr() as *mut i8,
+        buf.as_ptr() as *const i8,
     );
 }
 
@@ -434,22 +419,20 @@ pub fn ttstub_input_getc<R: Read>(handle: &mut R) -> i32 {
  * probably be moved out into other files. */
 /* The global variable that represents the Rust API. Some fine day we'll get
  * rid of all of the globals ... */
-pub static mut error_buf: [u8; 1024] = [0; 1024];
+pub static mut error_buf: String = String::new();
 
 #[macro_export]
 macro_rules! abort(
     ($($arg:tt)*) => {{
         use std::io::Write;
         let v = format!($($arg)*);
-        let len = v.as_bytes().len();
-        bridge::error_buf[..len].copy_from_slice(v.as_bytes());
-        bridge::error_buf[len] = 0;
+        bridge::error_buf = v.clone();
         panic!(v);
     }};
 );
 
-pub unsafe fn tt_get_error_message() -> *const i8 {
-    error_buf.as_mut_ptr() as *mut i8
+pub unsafe fn tt_get_error_message<'a>() -> &'a str {
+    &error_buf
 }
 
 #[macro_use]

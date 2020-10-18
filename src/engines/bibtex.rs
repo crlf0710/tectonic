@@ -2,7 +2,7 @@
 // Copyright 2017 the Tectonic Project
 // Licensed under the MIT License.
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 use super::tex::TexResult;
 use super::{ExecutionState, IoEventBackend, TectonicBridgeApi};
@@ -39,8 +39,7 @@ impl BibtexEngine {
                 2 => Ok(TexResult::Errors),
                 3 => Err(ErrorKind::Msg("unspecified fatal bibtex error".into()).into()),
                 99 => {
-                    let ptr = super::tt_get_error_message();
-                    let msg = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+                    let msg = super::tt_get_error_message().to_string();
                     Err(ErrorKind::Msg(msg).into())
                 }
                 x => Err(ErrorKind::Msg(format!(

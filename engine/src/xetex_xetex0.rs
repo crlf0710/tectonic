@@ -94,9 +94,7 @@ use crate::xetex_texmfmp::{
     getmd5sum, gettexstring, is_new_source, make_src_special, maketexstring, remember_source_info,
 };
 use crate::xetex_xetexd::*;
-use bridge::{
-    ttstub_issue_warning_slice, ttstub_output_close, ttstub_output_open, ttstub_output_putc,
-};
+use bridge::{ttstub_issue_warning, ttstub_output_close, ttstub_output_open, ttstub_output_putc};
 
 use bridge::{TTHistory, TTInputFormat};
 
@@ -9360,79 +9358,21 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_na
             "string pool overflow [{} bytes]",
             pool_size,
         );
-        let mut rval: u32 = 0;
         loop {
-            let fresh39 = cp;
-            cp = cp.offset(1);
-            rval = *fresh39 as u32;
+            let mut rval = *cp as u32;
             if !(rval != 0_u32) {
                 break;
             }
+            cp = cp.offset(1);
             let mut extraBytes: u16 = bytesFromUTF8[rval as usize] as u16;
-            let mut current_block_21: u64;
-            match extraBytes as i32 {
-                5 => {
-                    /* note: code falls through cases! */
+            if extraBytes < 6 {
+                for _ in 0..extraBytes {
                     rval <<= 6i32;
                     if *cp != 0 {
-                        let fresh40 = cp;
+                        rval = (rval as u32).wrapping_add(*cp as u32) as u32 as u32;
                         cp = cp.offset(1);
-                        rval = (rval as u32).wrapping_add(*fresh40 as u32) as u32 as u32
-                    }
-                    current_block_21 = 7676382540965064243;
-                }
-                4 => current_block_21 = 7676382540965064243,
-                3 => current_block_21 = 13258898395114305131,
-                2 => current_block_21 = 10625751394499422232,
-                1 => current_block_21 = 4051951890355284227,
-                0 | _ => current_block_21 = 14818589718467733107,
-            }
-            match current_block_21 {
-                7676382540965064243 => {
-                    rval <<= 6i32;
-                    if *cp != 0 {
-                        let fresh41 = cp;
-                        cp = cp.offset(1);
-                        rval = (rval as u32).wrapping_add(*fresh41 as u32) as u32 as u32
-                    }
-                    current_block_21 = 13258898395114305131;
-                }
-                _ => {}
-            }
-            match current_block_21 {
-                13258898395114305131 => {
-                    rval <<= 6i32;
-                    if *cp != 0 {
-                        let fresh42 = cp;
-                        cp = cp.offset(1);
-                        rval = (rval as u32).wrapping_add(*fresh42 as u32) as u32 as u32
-                    }
-                    current_block_21 = 10625751394499422232;
-                }
-                _ => {}
-            }
-            match current_block_21 {
-                10625751394499422232 => {
-                    rval <<= 6i32;
-                    if *cp != 0 {
-                        let fresh43 = cp;
-                        cp = cp.offset(1);
-                        rval = (rval as u32).wrapping_add(*fresh43 as u32) as u32 as u32
-                    }
-                    current_block_21 = 4051951890355284227;
-                }
-                _ => {}
-            }
-            match current_block_21 {
-                4051951890355284227 => {
-                    rval <<= 6i32;
-                    if *cp != 0 {
-                        let fresh44 = cp;
-                        cp = cp.offset(1);
-                        rval = (rval as u32).wrapping_add(*fresh44 as u32) as u32 as u32
                     }
                 }
-                _ => {}
             }
             rval = (rval as u32).wrapping_sub(offsetsFromUTF8[extraBytes as usize]) as u32 as u32;
             if rval > 0xffff_u32 {
@@ -9575,19 +9515,16 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
     let chr = gettexstring(s);
     str_ptr -= 1;
     pool_ptr = str_start[(str_ptr - 0x10000) as usize];
-    ttstub_issue_warning_slice(
-        format!(
-            "could not represent character \"{}\" in font \"{}\"",
-            chr, fn_0
-        )
-        .as_bytes(),
-    );
+    ttstub_issue_warning(&format!(
+        "could not represent character \"{}\" in font \"{}\"",
+        chr, fn_0
+    ));
     if !gave_char_warning_help {
-        ttstub_issue_warning_slice(
-            b"  you may need to load the `fontspec` package and use (e.g.) \\setmainfont to",
+        ttstub_issue_warning(
+            "  you may need to load the `fontspec` package and use (e.g.) \\setmainfont to",
         );
-        ttstub_issue_warning_slice(
-            b"  choose a different font that covers the unrepresentable character(s)",
+        ttstub_issue_warning(
+            "  choose a different font that covers the unrepresentable character(s)",
         );
         gave_char_warning_help = true
     };
