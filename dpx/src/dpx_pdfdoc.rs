@@ -32,7 +32,7 @@ use crate::bridge::DisplayExt;
 use crate::mfree;
 use crate::streq_ptr;
 use crate::{info, warn};
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_dpxutil::{
@@ -41,7 +41,7 @@ use super::dpx_dpxutil::{
 };
 use super::dpx_dvipdfmx::is_xdv;
 use super::dpx_jpegimage::check_for_jpeg;
-use super::dpx_mem::{new, renew};
+use super::dpx_mem::new;
 use super::dpx_pdfcolor::{pdf_close_colors, pdf_color_set_verbose, pdf_init_colors, WHITE};
 use super::dpx_pdfdev::{
     pdf_dev_bop, pdf_dev_eop, pdf_dev_get_coord, pdf_dev_get_param, pdf_dev_reset_color,
@@ -94,19 +94,15 @@ pub(crate) struct pdf_form {
 }
 
 use super::dpx_dpxutil::ht_table;
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct pdf_article {
-    pub(crate) id: *mut i8,
+    pub(crate) id: String,
     pub(crate) info: *mut pdf_obj,
-    pub(crate) num_beads: u32,
-    pub(crate) max_beads: u32,
-    pub(crate) beads: *mut pdf_bead,
+    pub(crate) beads: Vec<pdf_bead>,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct pdf_bead {
-    pub(crate) id: *mut i8,
+    pub(crate) id: String,
     pub(crate) page_no: i32,
     pub(crate) rect: Rect,
 }
@@ -136,13 +132,12 @@ pub(crate) struct pdf_page {
     pub(crate) beads: *mut pdf_obj,
 }
 #[derive(Clone)]
-#[repr(C)]
 pub(crate) struct pdf_doc {
     pub(crate) root: C2RustUnnamed_3,
     pub(crate) info: *mut pdf_obj,
     pub(crate) pages: C2RustUnnamed_2,
     pub(crate) outlines: C2RustUnnamed_1,
-    pub(crate) articles: C2RustUnnamed_0,
+    pub(crate) articles: Vec<pdf_article>,
     pub(crate) names: *mut name_dict,
     pub(crate) check_gotos: i32,
     pub(crate) gotos: ht_table,
@@ -160,13 +155,6 @@ pub(crate) struct C2RustUnnamed {
 pub(crate) struct name_dict {
     pub(crate) category: *const i8,
     pub(crate) data: *mut ht_table,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct C2RustUnnamed_0 {
-    pub(crate) num_entries: u32,
-    pub(crate) max_entries: u32,
-    pub(crate) entries: *mut pdf_article,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -275,11 +263,7 @@ static mut pdoc: pdf_doc = pdf_doc {
         current: ptr::null_mut(),
         current_depth: 0,
     },
-    articles: C2RustUnnamed_0 {
-        num_entries: 0,
-        max_entries: 0,
-        entries: ptr::null_mut(),
-    },
+    articles: Vec::new(),
     names: ptr::null_mut(),
     check_gotos: 0,
     gotos: ht_table {
@@ -1766,113 +1750,76 @@ pub(crate) unsafe fn pdf_doc_add_annot(
 /*
  * PDF Article Thread
  */
-unsafe fn pdf_doc_init_articles(mut p: *mut pdf_doc) {
-    (*p).root.threads = ptr::null_mut();
-    (*p).articles.num_entries = 0_u32;
-    (*p).articles.max_entries = 0_u32;
-    (*p).articles.entries = ptr::null_mut();
+unsafe fn pdf_doc_init_articles(p: &mut pdf_doc) {
+    p.root.threads = ptr::null_mut();
+    p.articles = Vec::new();
 }
 
 pub(crate) unsafe fn pdf_doc_begin_article(article_id: &str, article_info: *mut pdf_obj) {
-    let mut p: *mut pdf_doc = &mut pdoc;
-    if article_id.is_empty() {
-        panic!("Article thread without internal identifier.");
-    }
-    if (*p).articles.num_entries >= (*p).articles.max_entries {
-        (*p).articles.max_entries = (*p).articles.max_entries.wrapping_add(16_u32);
-        (*p).articles.entries = renew(
-            (*p).articles.entries as *mut libc::c_void,
-            ((*p).articles.max_entries as u64)
-                .wrapping_mul(::std::mem::size_of::<pdf_article>() as u64) as u32,
-        ) as *mut pdf_article
-    }
-    let article = &mut *(*p)
-        .articles
-        .entries
-        .offset((*p).articles.num_entries as isize);
-    article.id =
-        new((article_id.len().wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-            as *mut i8;
-    let article_id = CString::new(article_id.as_bytes()).unwrap();
-    strcpy(article.id, article_id.as_ptr());
-    article.info = article_info;
-    article.num_beads = 0_u32;
-    article.max_beads = 0_u32;
-    article.beads = ptr::null_mut();
-    (*p).articles.num_entries += 1;
+    assert!(
+        !article_id.is_empty(),
+        "Article thread without internal identifier."
+    );
+    pdoc.articles.push(pdf_article {
+        id: article_id.to_string(),
+        info: article_info,
+        beads: Vec::new(),
+    });
 }
-unsafe fn find_bead(article: *mut pdf_article, bead_id: &[u8]) -> *mut pdf_bead {
-    let mut bead = ptr::null_mut();
-    for i in 0..(*article).num_beads {
-        if CStr::from_ptr((*(*article).beads.offset(i as isize)).id).to_bytes() == bead_id {
-            bead = &mut *(*article).beads.offset(i as isize) as *mut pdf_bead;
-            break;
+unsafe fn find_bead<'a>(article: &'a mut pdf_article, bead_id: &str) -> Option<&'a mut pdf_bead> {
+    for b in &mut article.beads {
+        if b.id == bead_id {
+            return Some(b);
         }
     }
-    bead
+    None
 }
 
 pub(crate) unsafe fn pdf_doc_add_bead(
     article_id: &str,
-    bead_id: &[u8],
+    bead_id: &str,
     page_no: usize,
     rect: &Rect,
 ) {
-    let p: *mut pdf_doc = &mut pdoc;
+    let p = &mut pdoc;
     if article_id.is_empty() {
         panic!("No article identifier specified.");
     }
-    let mut article = ptr::null_mut();
-    for i in 0..(*p).articles.num_entries {
-        if CStr::from_ptr((*(*p).articles.entries.offset(i as isize)).id).to_bytes()
-            == article_id.as_bytes()
-        {
-            article = &mut *(*p).articles.entries.offset(i as isize) as *mut pdf_article;
+    let mut article = None;
+    for a in &mut p.articles {
+        if a.id == article_id {
+            article = Some(a);
             break;
         }
     }
-    if article.is_null() {
-        panic!("Specified article thread that doesn\'t exist.");
-    }
-    let mut bead = if !bead_id.is_empty() {
+    let article = article.expect("Specified article thread that doesn\'t exist.");
+    let bead = if !bead_id.is_empty() {
         find_bead(article, bead_id)
     } else {
-        ptr::null_mut()
+        None
     };
-    if bead.is_null() {
-        if (*article).num_beads >= (*article).max_beads {
-            (*article).max_beads = (*article).max_beads.wrapping_add(16_u32);
-            (*article).beads = renew(
-                (*article).beads as *mut libc::c_void,
-                ((*article).max_beads as u64).wrapping_mul(::std::mem::size_of::<pdf_bead>() as u64)
-                    as u32,
-            ) as *mut pdf_bead;
-            for i in (*article).num_beads..(*article).max_beads {
-                (*(*article).beads.offset(i as isize)).id = ptr::null_mut();
-                (*(*article).beads.offset(i as isize)).page_no = -1i32;
-            }
-        }
-        bead = &mut *(*article).beads.offset((*article).num_beads as isize) as *mut pdf_bead;
-        if !bead_id.is_empty() {
-            (*bead).id = CString::new(bead_id).unwrap().into_raw();
+    if let Some(bead) = bead {
+        bead.rect = *rect;
+        bead.page_no = page_no as i32;
+    } else {
+        let id = if !bead_id.is_empty() {
+            bead_id.to_string()
         } else {
-            (*bead).id = ptr::null_mut()
-        }
-        (*article).num_beads = (*article).num_beads.wrapping_add(1)
+            String::new()
+        };
+        article.beads.push(pdf_bead {
+            id,
+            rect: *rect,
+            page_no: page_no as i32,
+        });
     }
-    (*bead).rect = *rect;
-    (*bead).page_no = page_no as i32;
 }
 unsafe fn make_article(
     p: &mut pdf_doc,
-    mut article: *mut pdf_article,
-    bead_ids: *mut *const i8,
-    num_beads: u32,
+    article: &mut pdf_article,
+    bead_ids: &[String],
     article_info: *mut pdf_obj,
 ) -> *mut pdf_obj {
-    if article.is_null() {
-        return ptr::null_mut();
-    }
     let mut art_dict = pdf_dict::new().into_obj();
     let mut last = ptr::null_mut();
     let mut prev = last;
@@ -1882,47 +1829,47 @@ unsafe fn make_article(
      * If bead_ids is not given, we create an article thread in the order of
      * beads appeared.
      */
-    let n = (if !bead_ids.is_null() {
-        num_beads
+    let n = if !bead_ids.is_empty() {
+        bead_ids.len()
     } else {
-        (*article).num_beads
-    }) as i32;
+        article.beads.len()
+    };
     for i in 0..n {
-        let bead = if !bead_ids.is_null() {
-            find_bead(
-                article,
-                CStr::from_ptr(*bead_ids.offset(i as isize)).to_bytes(),
-            )
+        let bead = if !bead_ids.is_empty() {
+            find_bead(article, &bead_ids[i])
         } else {
-            &mut *(*article).beads.offset(i as isize) as *mut pdf_bead
+            Some(&mut article.beads[i])
         };
-        if !(bead.is_null() || (*bead).page_no < 0i32) {
-            last = pdf_dict::new().into_obj();
-            if prev.is_null() {
-                first = last;
-                (*first).as_dict_mut().set("T", pdf_ref_obj(art_dict));
-            } else {
-                (*prev).as_dict_mut().set("N", pdf_ref_obj(last));
-                (*last).as_dict_mut().set("V", pdf_ref_obj(prev));
-                /* We must link first to last. */
-                if prev != first {
-                    pdf_release_obj(prev);
+        match bead {
+            Some(bead) if bead.page_no >= 0 => {
+                last = pdf_dict::new().into_obj();
+                if prev.is_null() {
+                    first = last;
+                    (*first).as_dict_mut().set("T", pdf_ref_obj(art_dict));
+                } else {
+                    (*prev).as_dict_mut().set("N", pdf_ref_obj(last));
+                    (*last).as_dict_mut().set("V", pdf_ref_obj(prev));
+                    /* We must link first to last. */
+                    if prev != first {
+                        pdf_release_obj(prev);
+                    }
                 }
+                /* Realize bead now. */
+                let page = doc_get_page_entry(p, bead.page_no as usize);
+                if page.beads.is_null() {
+                    page.beads = Vec::new().into_obj();
+                }
+                (*last).as_dict_mut().set("P", pdf_link_obj(page.page_ref));
+                let mut rect = vec![];
+                rect.push_obj((bead.rect.min.x / 0.01 + 0.5).floor() * 0.01);
+                rect.push_obj((bead.rect.min.y / 0.01 + 0.5).floor() * 0.01);
+                rect.push_obj((bead.rect.max.x / 0.01 + 0.5).floor() * 0.01);
+                rect.push_obj((bead.rect.max.y / 0.01 + 0.5).floor() * 0.01);
+                (*last).as_dict_mut().set("R", rect);
+                (*page.beads).as_array_mut().push(pdf_ref_obj(last));
+                prev = last
             }
-            /* Realize bead now. */
-            let page = doc_get_page_entry(p, (*bead).page_no as usize);
-            if page.beads.is_null() {
-                page.beads = Vec::new().into_obj();
-            }
-            (*last).as_dict_mut().set("P", pdf_link_obj(page.page_ref));
-            let mut rect = vec![];
-            rect.push_obj(((*bead).rect.min.x / 0.01 + 0.5).floor() * 0.01);
-            rect.push_obj(((*bead).rect.min.y / 0.01 + 0.5).floor() * 0.01);
-            rect.push_obj(((*bead).rect.max.x / 0.01 + 0.5).floor() * 0.01);
-            rect.push_obj(((*bead).rect.max.y / 0.01 + 0.5).floor() * 0.01);
-            (*last).as_dict_mut().set("R", rect);
-            (*page.beads).as_array_mut().push(pdf_ref_obj(last));
-            prev = last
+            _ => {}
         }
     }
     if !first.is_null() && !last.is_null() {
@@ -1935,12 +1882,12 @@ unsafe fn make_article(
         /* If article_info is supplied, we override article->info. */
         if !article_info.is_null() {
             (*art_dict).as_dict_mut().set("I", article_info);
-        } else if !(*article).info.is_null() {
+        } else if !article.info.is_null() {
             (*art_dict)
                 .as_dict_mut()
-                .set("I", pdf_ref_obj((*article).info));
-            pdf_release_obj((*article).info);
-            (*article).info = ptr::null_mut()
+                .set("I", pdf_ref_obj(article.info));
+            pdf_release_obj(article.info);
+            article.info = ptr::null_mut()
             /* We do not write as object reference. */
         }
         pdf_release_obj(first);
@@ -1950,45 +1897,26 @@ unsafe fn make_article(
     }
     art_dict
 }
-unsafe fn clean_article(mut article: *mut pdf_article) {
-    if article.is_null() {
-        return;
-    }
-    if !(*article).beads.is_null() {
-        for i in 0..(*article).num_beads {
-            let id = (*(*article).beads.offset(i as isize)).id;
-            if !id.is_null() {
-                let _ = CString::from_raw(id);
+unsafe fn pdf_doc_close_articles(p: *mut pdf_doc) {
+    for article in &mut (*p).articles {
+        if !article.beads.is_empty() {
+            let art_dict = make_article(&mut (*p), article, &[], ptr::null_mut());
+            if (*p).root.threads.is_null() {
+                (*p).root.threads = Vec::new().into_obj();
             }
-        }
-        (*article).beads = mfree((*article).beads as *mut libc::c_void) as *mut pdf_bead
-    }
-    (*article).id = mfree((*article).id as *mut libc::c_void) as *mut i8;
-    (*article).num_beads = 0_u32;
-    (*article).max_beads = 0_u32;
-}
-unsafe fn pdf_doc_close_articles(p: &mut pdf_doc) {
-    for i in 0..p.articles.num_entries {
-        let article = &mut *p.articles.entries.offset(i as isize) as *mut pdf_article;
-        if !(*article).beads.is_null() {
-            let art_dict = make_article(p, article, 0 as *mut *const i8, 0_u32, ptr::null_mut());
-            if p.root.threads.is_null() {
-                p.root.threads = Vec::new().into_obj();
-            }
-            (*p.root.threads).as_array_mut().push(pdf_ref_obj(art_dict));
+            (*(*p).root.threads)
+                .as_array_mut()
+                .push(pdf_ref_obj(art_dict));
             pdf_release_obj(art_dict);
         }
-        clean_article(article);
     }
-    p.articles.entries = mfree(p.articles.entries as *mut libc::c_void) as *mut pdf_article;
-    p.articles.num_entries = 0_u32;
-    p.articles.max_entries = 0_u32;
-    if !p.root.threads.is_null() {
-        (*p.root.dict)
+    (*p).articles = Vec::new();
+    if !(*p).root.threads.is_null() {
+        (*(*p).root.dict)
             .as_dict_mut()
-            .set("Threads", pdf_ref_obj(p.root.threads));
-        pdf_release_obj(p.root.threads);
-        p.root.threads = ptr::null_mut()
+            .set("Threads", pdf_ref_obj((*p).root.threads));
+        pdf_release_obj((*p).root.threads);
+        (*p).root.threads = ptr::null_mut()
     };
 }
 /* page_no = 0 for root page tree node. */
