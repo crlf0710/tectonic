@@ -21,7 +21,7 @@ use crate::xetex_ini::{
 use crate::xetex_output::{print_int, print_nl};
 use crate::xetex_texmfmp::gettexstring;
 use crate::xetex_xetex0::{
-    bad_utf8_warning, diagnostic, make_name, get_input_normalization_state, more_name,
+    bad_utf8_warning, diagnostic, get_input_normalization_state, make_name, more_name,
     pack_file_name, scan_file_name, scan_four_bit_int, scan_optional_equals,
 };
 use crate::xetex_xetexd::print_c_str;

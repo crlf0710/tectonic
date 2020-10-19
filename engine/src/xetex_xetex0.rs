@@ -32,27 +32,26 @@ use crate::xetex_ext::{
 };
 use crate::xetex_ini::FONT_LETTER_SPACE;
 use crate::xetex_ini::{
-    _xeq_level_array, active_width, adjust_tail, after_token, align_ptr, align_state,
-    arith_error, avail, bchar, best_height_plus_depth, breadth_max,
-    cancel_boundary, cond_ptr, cur_align, cur_area, cur_boundary, cur_box, cur_chr, cur_cmd,
-    cur_cs, cur_dir, cur_ext, cur_group, cur_head, cur_if, cur_input, cur_l, cur_lang, cur_level,
-    cur_list, cur_loop, cur_mark, cur_name, cur_order, cur_pre_head, cur_pre_tail, cur_ptr, cur_q,
-    cur_r, cur_span, cur_tail, cur_tok, dead_cycles, def_ref, deletions_allowed, depth_threshold,
-    dig, disc_ptr, error_count, error_line, expand_depth, expand_depth_count,
-    false_bchar, file_line_error_style_p, file_offset, first, first_count,
-    fmem_ptr, font_in_short_display, force_eof, gave_char_warning_help, half_error_line, hash,
-    hash_extra, hash_high, hash_used, hi_mem_min, history, if_limit, if_line, init_pool_ptr,
-    init_str_ptr, ins_disc, insert_penalties, insert_src_special_auto,
-    insert_src_special_every_par, insert_src_special_every_vbox, interaction, is_hyph,
-    is_in_csname, job_name, last, last_badness, last_glue, last_kern, last_leftmost_char,
-    last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack, ligature_present, line,
-    lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set, main_f, main_h, main_i,
-    main_j, main_k, main_s, mapped_text, max_buf_stack, max_print_line, max_reg_help_line,
-    max_reg_num, max_strings, mem_end, name_in_progress, name_of_file, native_len, native_text,
-    native_text_size, no_new_control_sequence, open_parens, output_active, pack_begin_line,
-    page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos,
-    pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files,
-    pstack, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level,
+    _xeq_level_array, active_width, adjust_tail, after_token, align_ptr, align_state, arith_error,
+    avail, bchar, best_height_plus_depth, breadth_max, cancel_boundary, cond_ptr, cur_align,
+    cur_area, cur_boundary, cur_box, cur_chr, cur_cmd, cur_cs, cur_dir, cur_ext, cur_group,
+    cur_head, cur_if, cur_input, cur_l, cur_lang, cur_level, cur_list, cur_loop, cur_mark,
+    cur_name, cur_order, cur_pre_head, cur_pre_tail, cur_ptr, cur_q, cur_r, cur_span, cur_tail,
+    cur_tok, dead_cycles, def_ref, deletions_allowed, depth_threshold, dig, disc_ptr, error_count,
+    error_line, expand_depth, expand_depth_count, false_bchar, file_line_error_style_p,
+    file_offset, first, first_count, fmem_ptr, font_in_short_display, force_eof,
+    gave_char_warning_help, half_error_line, hash, hash_extra, hash_high, hash_used, hi_mem_min,
+    history, if_limit, if_line, init_pool_ptr, init_str_ptr, ins_disc, insert_penalties,
+    insert_src_special_auto, insert_src_special_every_par, insert_src_special_every_vbox,
+    interaction, is_hyph, is_in_csname, job_name, last, last_badness, last_glue, last_kern,
+    last_leftmost_char, last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack,
+    ligature_present, line, lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set,
+    main_f, main_h, main_i, main_j, main_k, main_s, mapped_text, max_buf_stack, max_print_line,
+    max_reg_help_line, max_reg_num, max_strings, mem_end, name_in_progress, name_of_file,
+    native_len, native_text, native_text_size, no_new_control_sequence, open_parens, output_active,
+    pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos,
+    pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used,
+    pseudo_files, pstack, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level,
     sa_root, save_native_len, scanner_status, selector, set_box_allowed, shown_mode, skip_line,
     space_class, stop_at_space, str_pool, str_ptr, str_start, tally, term_offset, tex_remainder,
     texmf_log_name, total_shrink, total_stretch, trick_buf, trick_count, use_err_help,
@@ -9156,17 +9155,24 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
         }
     }
 }
-pub(crate) unsafe fn more_name(c: UTF16_code, stop_at_space_: bool, area_delimiter_: &mut pool_pointer, ext_delimiter_: &mut pool_pointer, quoted_filename_: &mut bool, file_name_quote_char_: &mut Option<u16>) -> bool {
-    if stop_at_space_ && file_name_quote_char_.is_none() && c as i32 == ' ' as i32 {
+pub(crate) unsafe fn more_name(
+    c: UTF16_code,
+    stop_at_space_: bool,
+    area_delimiter: &mut pool_pointer,
+    ext_delimiter: &mut pool_pointer,
+    quoted_filename: &mut bool,
+    file_name_quote_char: &mut Option<u16>,
+) -> bool {
+    if stop_at_space_ && file_name_quote_char.is_none() && c as i32 == ' ' as i32 {
         return false;
     }
-    if stop_at_space_ && *file_name_quote_char_ == Some(c) {
-        *file_name_quote_char_ = None;
+    if stop_at_space_ && *file_name_quote_char == Some(c) {
+        *file_name_quote_char = None;
         return true;
     }
-    if stop_at_space_ && file_name_quote_char_.is_none() && (c == '\"' as u16 || c == '\'' as u16) {
-        *file_name_quote_char_ = Some(c);
-        *quoted_filename_ = true;
+    if stop_at_space_ && file_name_quote_char.is_none() && (c == '\"' as u16 || c == '\'' as u16) {
+        *file_name_quote_char = Some(c);
+        *quoted_filename = true;
         return true;
     }
     if pool_ptr + 1 > pool_size {
@@ -9176,10 +9182,10 @@ pub(crate) unsafe fn more_name(c: UTF16_code, stop_at_space_: bool, area_delimit
     pool_ptr += 1;
     if c == '/' as u16 {
         // IS_DIR_SEP
-        *area_delimiter_ = cur_length();
-        *ext_delimiter_ = 0;
+        *area_delimiter = cur_length();
+        *ext_delimiter = 0;
     } else if c == '.' as u16 {
-        *ext_delimiter_ = cur_length()
+        *ext_delimiter = cur_length()
     }
     true
 }
@@ -9192,7 +9198,12 @@ where
     let mut quoted_filename = false;
     let mut file_name_quote_char = None;
 
-    f(&mut area_delimiter, &mut ext_delimiter, &mut quoted_filename, &mut file_name_quote_char);
+    f(
+        &mut area_delimiter,
+        &mut ext_delimiter,
+        &mut quoted_filename,
+        &mut file_name_quote_char,
+    );
 
     let mut temp_str: str_number = 0;
     let mut j: pool_pointer = 0;
@@ -9376,13 +9387,15 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_na
                         }
                     }
                 }
-                rval = (rval as u32).wrapping_sub(offsetsFromUTF8[extraBytes as usize]) as u32 as u32;
+                rval =
+                    (rval as u32).wrapping_sub(offsetsFromUTF8[extraBytes as usize]) as u32 as u32;
                 if rval > 0xffff_u32 {
                     rval = (rval as u32).wrapping_sub(0x10000_u32) as u32 as u32;
                     let fresh45 = pool_ptr;
                     pool_ptr = pool_ptr + 1;
-                    str_pool[fresh45 as usize] =
-                        (0xd800_u32).wrapping_add(rval.wrapping_div(0x400_u32)) as packed_UTF16_code;
+                    str_pool[fresh45 as usize] = (0xd800_u32)
+                        .wrapping_add(rval.wrapping_div(0x400_u32))
+                        as packed_UTF16_code;
                     let fresh46 = pool_ptr;
                     pool_ptr = pool_ptr + 1;
                     str_pool[fresh46 as usize] =
@@ -13827,12 +13840,19 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
         (*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1 = t;
     }
 
-    let f = crate::tfm::read_font_info(u as i32, cur_name, cur_area, s, quoted_filename, file_name_quote_char)
-        .map(crate::tfm::good_tfm)
-        .unwrap_or_else(|e| {
-            crate::tfm::bad_tfm(e, u as i32, cur_name, cur_area, s, file_name_quote_char);
-            FONT_BASE
-        });
+    let f = crate::tfm::read_font_info(
+        u as i32,
+        cur_name,
+        cur_area,
+        s,
+        quoted_filename,
+        file_name_quote_char,
+    )
+    .map(crate::tfm::good_tfm)
+    .unwrap_or_else(|e| {
+        crate::tfm::bad_tfm(e, u as i32, cur_name, cur_area, s, file_name_quote_char);
+        FONT_BASE
+    });
     common_ending(a, u, f, t)
 }
 pub(crate) unsafe fn new_interaction(chr: i32) {
