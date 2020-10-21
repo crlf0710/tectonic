@@ -8,25 +8,22 @@
     unused_mut
 )]
 
-use crate::core_memory::xstrdup;
+use std::ffi::CString;
+
 use crate::help;
-use crate::xetex_consts::WhatsItNST;
+use crate::xetex_consts::Picture;
 use crate::xetex_errors::error;
 use crate::xetex_ext::{D2Fix, Fix2D};
-use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
-    cur_area, cur_ext, cur_list, cur_name, cur_val, file_line_error_style_p, name_of_file, MEM,
+    cur_area, cur_ext, cur_list, cur_name, cur_val, file_line_error_style_p, name_of_file,
 };
 use crate::xetex_output::{
     print, print_cstr, print_file_line, print_file_name, print_nl_cstr, print_scaled,
 };
 use crate::xetex_xetex0::{
-    new_whatsit, pack_file_name, scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword,
+    pack_file_name, scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword,
 };
-use crate::xetex_xetexd::{
-    set_PIC_NODE_transform_matrix, BOX_depth, BOX_height, BOX_width, PIC_NODE_page,
-    PIC_NODE_pagebox, PIC_NODE_path, PIC_NODE_path_len,
-};
+use crate::xetex_xetexd::{LLIST_link, TeXInt};
 
 use bridge::InputHandleWrapper;
 use bridge::TTInputFormat;
@@ -38,7 +35,6 @@ use dpx::{check_for_jpeg, jpeg_get_bbox};
 use dpx::{check_for_png, png_get_bbox};
 use dpx::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
 use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
-use libc::{free, strlen};
 pub type scaled_t = i32;
 pub type Fixed = scaled_t;
 pub type str_number = i32;
@@ -71,11 +67,18 @@ type Rect = euclid::Rect<f32, ()>;
 */
 
 pub(crate) unsafe fn count_pdf_file_pages() -> i32 {
-    let handle = ttstub_input_open(name_of_file, TTInputFormat::PICT, 0i32);
+    let handle = ttstub_input_open(
+        CString::new(name_of_file.as_str()).unwrap().as_ptr(),
+        TTInputFormat::PICT,
+        0i32,
+    );
     if handle.is_none() {
         return 0;
     }
-    let pf = pdf_open(name_of_file, handle.unwrap());
+    let pf = pdf_open(
+        CString::new(name_of_file.as_str()).unwrap().as_ptr(),
+        handle.unwrap(),
+    );
     if pf.is_null() {
         /* TODO: issue warning */
         //ttstub_input_close(handle);
@@ -86,7 +89,7 @@ pub(crate) unsafe fn count_pdf_file_pages() -> i32 {
     pages
 }
 unsafe fn pdf_get_rect(
-    mut filename: *mut i8,
+    filename: *const i8,
     handle: InputHandleWrapper,
     mut page_num: i32,
     mut pdf_box: i32,
@@ -94,7 +97,7 @@ unsafe fn pdf_get_rect(
     let mut pages: i32 = 0;
     let mut dpx_options: i32 = 0;
     let mut pf: *mut pdf_file = 0 as *mut pdf_file;
-    pf = pdf_open(filename, handle);
+    pf = pdf_open(filename as *mut i8, handle);
     if pf.is_null() {
         /* TODO: issue warning */
         return Err(());
@@ -178,15 +181,25 @@ unsafe fn get_image_size_in_inches(handle: &mut InputHandleWrapper) -> Result<(f
   return full path in *path
   return bounds (tex points) in *bounds
 */
-unsafe fn find_pic_file(mut pdfBoxType: i32, mut page: i32) -> Result<(Rect, *mut i8), i32> {
-    let handle = ttstub_input_open(name_of_file, TTInputFormat::PICT, 0i32);
+unsafe fn find_pic_file(mut pdfBoxType: i32, mut page: i32) -> Result<(Rect, String), i32> {
+    let handle = ttstub_input_open(
+        CString::new(name_of_file.as_str()).unwrap().as_ptr(),
+        TTInputFormat::PICT,
+        0i32,
+    );
     if handle.is_none() {
         return Err(1);
     }
     let mut handle = handle.unwrap();
     let bounds = if pdfBoxType != 0i32 {
         /* if cmd was \XeTeXpdffile, use xpdflib to read it */
-        pdf_get_rect(name_of_file, handle, page, pdfBoxType).map_err(|_| -1)?
+        pdf_get_rect(
+            CString::new(name_of_file.as_str()).unwrap().as_ptr(),
+            handle,
+            page,
+            pdfBoxType,
+        )
+        .map_err(|_| -1)?
     } else {
         match get_image_size_in_inches(&mut handle) {
             Ok((wd, ht)) => {
@@ -199,7 +212,7 @@ unsafe fn find_pic_file(mut pdfBoxType: i32, mut page: i32) -> Result<(Rect, *mu
             Err(e) => return Err(e),
         }
     };
-    Ok((bounds, xstrdup(name_of_file)))
+    Ok((bounds, name_of_file.clone()))
 }
 
 fn to_points(r: &Rect) -> [Point; 4] {
@@ -245,7 +258,7 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
     }
     .unwrap_or_else(|e| {
         result = e;
-        (Rect::zero(), std::ptr::null_mut())
+        (Rect::zero(), String::new())
     });
     let mut corners = bounds;
     let mut x_size_req = 0_f64;
@@ -280,15 +293,15 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Improper image ");
-                print_cstr(b"size (");
+                print_cstr("Improper image ");
+                print_cstr("size (");
                 print_scaled(cur_val);
-                print_cstr(b"pt) will be ignored");
+                print_cstr("pt) will be ignored");
                 help!(
-                    b"I can\'t scale images to zero or negative sizes,",
-                    b"so I\'m ignoring this."
+                    "I can\'t scale images to zero or negative sizes,",
+                    "so I\'m ignoring this."
                 );
                 error();
             } else {
@@ -300,15 +313,15 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
-                    print_nl_cstr(b"! ");
+                    print_nl_cstr("! ");
                 }
-                print_cstr(b"Improper image ");
-                print_cstr(b"size (");
+                print_cstr("Improper image ");
+                print_cstr("size (");
                 print_scaled(cur_val);
-                print_cstr(b"pt) will be ignored");
+                print_cstr("pt) will be ignored");
                 help!(
-                    b"I can\'t scale images to zero or negative sizes,",
-                    b"so I\'m ignoring this."
+                    "I can\'t scale images to zero or negative sizes,",
+                    "so I\'m ignoring this."
                 );
                 error();
             } else {
@@ -375,59 +388,50 @@ pub(crate) unsafe fn load_picture(mut is_pdf: bool) {
         (-(ymin as i32) * 72i32) as f64 / 72.27,
     );
     t = t.post_transform(&t2);
-    if result == 0i32 {
-        let len = strlen(pic_path);
-        new_whatsit(
-            WhatsItNST::Pic,
-            (9usize).wrapping_add(
-                len.wrapping_add(::std::mem::size_of::<memory_word>())
-                    .wrapping_sub(1)
-                    .wrapping_div(::std::mem::size_of::<memory_word>()),
-            ) as i16,
-        );
-        if is_pdf {
-            MEM[cur_list.tail as usize].b16.s0 = 44
-        }
-        *PIC_NODE_path_len(cur_list.tail) = len as u16;
-        *PIC_NODE_page(cur_list.tail) = page as u16;
-        *PIC_NODE_pagebox(cur_list.tail) = pdf_box_type as u16;
-        *BOX_width(cur_list.tail) = D2Fix(xmax - xmin);
-        *BOX_height(cur_list.tail) = D2Fix(ymax - ymin);
-        *BOX_depth(cur_list.tail) = 0;
-        set_PIC_NODE_transform_matrix(
-            cur_list.tail,
-            (
-                D2Fix(t.m11),
-                D2Fix(t.m12),
-                D2Fix(t.m21),
-                D2Fix(t.m22),
-                D2Fix(t.m31),
-                D2Fix(t.m32),
-            ),
-        );
+    if result == 0 {
+        let len = pic_path.as_bytes().len();
+        let mut tail_pic = if is_pdf {
+            Picture::new_pdf_node(len)
+        } else {
+            Picture::new_pic_node(len)
+        };
+        *LLIST_link(cur_list.tail) = Some(tail_pic.ptr()).tex_int();
+        cur_list.tail = tail_pic.ptr();
+        tail_pic
+            .set_page(page as u16)
+            .set_pagebox(pdf_box_type as u16);
+        tail_pic
+            .set_width(D2Fix(xmax - xmin))
+            .set_height(D2Fix(ymax - ymin))
+            .set_depth(0);
+        tail_pic.set_transform_matrix([
+            D2Fix(t.m11),
+            D2Fix(t.m12),
+            D2Fix(t.m21),
+            D2Fix(t.m22),
+            D2Fix(t.m31),
+            D2Fix(t.m32),
+        ]);
 
-        let slice = std::slice::from_raw_parts(pic_path as *const u8, len as usize);
-        PIC_NODE_path(cur_list.tail).copy_from_slice(&slice);
-
-        free(pic_path as *mut libc::c_void);
+        tail_pic.path_mut().copy_from_slice(pic_path.as_bytes());
     } else {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Unable to load picture or PDF file \'");
+        print_cstr("Unable to load picture or PDF file \'");
         print_file_name(cur_name, cur_area, cur_ext);
         print('\'' as i32);
         if result == -43i32 {
             help!(
-                b"The requested image couldn\'t be read because",
-                b"the file was not found."
+                "The requested image couldn\'t be read because",
+                "the file was not found."
             );
         } else {
             help!(
-                b"The requested image couldn\'t be read because",
-                b"it was not a recognized image format."
+                "The requested image couldn\'t be read because",
+                "it was not a recognized image format."
             );
         }
         error();

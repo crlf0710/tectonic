@@ -248,18 +248,6 @@ pub unsafe fn ttstub_get_file_md5(mut path: *const i8, mut digest: *mut i8) -> i
         .expect("non-null function pointer")((*tectonic_global_bridge).context, path, digest)
 }
 
-pub unsafe fn ttstub_get_data_md5(
-    mut data: *const i8,
-    mut len: size_t,
-    mut digest: *mut i8,
-) -> i32 {
-    (*tectonic_global_bridge)
-        .get_data_md5
-        .expect("non-null function pointer")(
-        (*tectonic_global_bridge).context, data, len, digest
-    )
-}
-
 pub unsafe fn ttstub_output_open(
     mut path: *const i8,
     mut is_gz: i32,

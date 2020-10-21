@@ -12,14 +12,13 @@ use crate::bridge::{
     ttstub_input_close, ttstub_input_getc, ttstub_input_open, ttstub_input_open_primary,
     ttstub_input_ungetc,
 };
-use crate::core_memory::{xcalloc, xmalloc, xstrdup};
+use crate::core_memory::{xcalloc, xmalloc};
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_consts::UnicodeMode;
 use crate::xetex_ini::{
     cur_area, cur_chr, cur_ext, cur_name, cur_val, first, last, max_buf_stack, name_in_progress,
-    name_length, name_length16, name_of_file, name_of_file16, read_file, read_open, stop_at_space,
-    BUFFER, BUF_SIZE,
+    name_of_file, read_file, read_open, stop_at_space, BUFFER, BUF_SIZE,
 };
 use crate::xetex_output::{print_int, print_nl};
 use crate::xetex_texmfmp::gettexstring;
@@ -28,9 +27,10 @@ use crate::xetex_xetex0::{
     get_input_normalization_state, more_name, pack_file_name, scan_file_name, scan_four_bit_int,
     scan_optional_equals,
 };
-use crate::xetex_xetexd::print_c_string;
+use crate::xetex_xetexd::{print_c_str, print_c_string};
 use bridge::stub_errno as errno;
-use libc::{free, strlen};
+use libc::free;
+use std::ffi::CString;
 use std::io::{Seek, SeekFrom};
 
 use crate::*;
@@ -232,26 +232,27 @@ pub(crate) struct UFILE {
    Licensed under the MIT License.
 */
 #[no_mangle]
-pub(crate) static mut name_of_input_file: *mut i8 = ptr::null_mut();
+pub(crate) static mut name_of_input_file: String = String::new();
 pub(crate) unsafe fn tt_xetex_open_input(mut filefmt: TTInputFormat) -> Option<InputHandleWrapper> {
     let handle = if filefmt == TTInputFormat::TECTONIC_PRIMARY {
         ttstub_input_open_primary()
     } else {
-        ttstub_input_open(name_of_file, filefmt as TTInputFormat, 0)
+        ttstub_input_open(
+            CString::new(name_of_file.as_str()).unwrap().as_ptr(),
+            filefmt as TTInputFormat,
+            0,
+        )
     };
     if handle.is_none() {
         return None;
     }
-    name_length = strlen(name_of_file) as i32;
-    free(name_of_input_file as *mut libc::c_void);
-    name_of_input_file = xstrdup(name_of_file);
+    name_of_input_file = name_of_file.clone();
     handle
 }
 /* tables/values used in UTF-8 interpretation -
 code is based on ConvertUTF.[ch] sample code
 published by the Unicode consortium */
-#[no_mangle]
-pub(crate) static mut offsetsFromUTF8: [u32; 6] = [
+pub(crate) const offsetsFromUTF8: [u32; 6] = [
     0u64 as u32,
     0x3080u64 as u32,
     0xe2080u64 as u32,
@@ -259,8 +260,7 @@ pub(crate) static mut offsetsFromUTF8: [u32; 6] = [
     0xfa082080u64 as u32,
     0x82082080u64 as u32,
 ];
-#[no_mangle]
-pub(crate) static mut bytesFromUTF8: [u8; 256] = [
+pub(crate) const bytesFromUTF8: [u8; 256] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -270,8 +270,6 @@ pub(crate) static mut bytesFromUTF8: [u8; 256] = [
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5,
 ];
-#[no_mangle]
-pub(crate) static mut firstByteMark: [u8; 7] = [0, 0, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc];
 pub(crate) unsafe fn set_input_file_encoding(
     mut f: *mut UFILE,
     mode: UnicodeMode,
@@ -286,16 +284,17 @@ pub(crate) unsafe fn set_input_file_encoding(
             (*f).encodingMode = mode
         }
         UnicodeMode::ICUMapping => {
-            let mut name: *mut i8 = gettexstring(encodingData);
+            let mut name = gettexstring(encodingData);
             let mut err: UErrorCode = U_ZERO_ERROR;
-            let mut cnv: *mut icu::UConverter = icu::ucnv_open(name, &mut err);
+            let mut cnv: *mut icu::UConverter =
+                icu::ucnv_open(CString::new(name.as_str()).unwrap().as_ptr(), &mut err);
             if cnv.is_null() {
                 begin_diagnostic();
                 print_nl('E' as i32);
                 print_c_string(b"rror \x00" as *const u8 as *const i8);
                 print_int(err as i32);
                 print_c_string(b" creating Unicode converter for `\x00" as *const u8 as *const i8);
-                print_c_string(name);
+                print_c_str(&name);
                 print_c_string(b"\'; reading as raw bytes\x00" as *const u8 as *const i8);
                 end_diagnostic(true);
                 (*f).encodingMode = UnicodeMode::Raw;
@@ -303,7 +302,6 @@ pub(crate) unsafe fn set_input_file_encoding(
                 (*f).encodingMode = UnicodeMode::ICUMapping;
                 (*f).conversionData = cnv as *mut libc::c_void
             }
-            free(name as *mut libc::c_void);
         }
         _ => {}
     };
@@ -710,56 +708,10 @@ pub(crate) unsafe fn get_uni_c(mut f: *mut UFILE) -> i32 {
     }
     rval
 }
-/* tectonic/xetex-io.h: XeTeX-specific low-level I/O routines
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
-pub(crate) unsafe fn make_utf16_name() {
-    let mut s: *mut u8 = name_of_file as *mut u8;
-    let mut rval: u32 = 0;
-    let mut t: *mut u16 = 0 as *mut u16;
-    static mut name16len: i32 = 0i32;
-    if name16len <= name_length {
-        free(name_of_file16 as *mut libc::c_void);
-        name16len = name_length + 10i32;
-        name_of_file16 =
-            xcalloc(name16len as size_t, ::std::mem::size_of::<u16>() as _) as *mut UTF16_code
-    }
-    t = name_of_file16;
-    while s < (name_of_file as *mut u8).offset(name_length as isize) {
-        let mut extraBytes: u16 = 0;
-        rval = *s as u32;
-        s = s.offset(1);
-        extraBytes = bytesFromUTF8[rval as usize] as u16;
-        for _ in 0..extraBytes {
-            rval <<= 6;
-            if *s != 0 {
-                rval = (rval as u32).wrapping_add(*s as u32);
-                s = s.offset(1);
-            }
-        }
-        rval = (rval as u32).wrapping_sub(offsetsFromUTF8[extraBytes as usize]) as u32;
-        if rval > 0xffff_u32 {
-            rval = (rval as u32).wrapping_sub(0x10000_u32) as u32;
-            let fresh13 = t;
-            t = t.offset(1);
-            *fresh13 = (0xd800_u32).wrapping_add(rval.wrapping_div(0x400_u32)) as u16;
-            let fresh14 = t;
-            t = t.offset(1);
-            *fresh14 = (0xdc00_u32).wrapping_add(rval.wrapping_rem(0x400_u32)) as u16
-        } else {
-            let fresh15 = t;
-            t = t.offset(1);
-            *fresh15 = rval as u16
-        }
-    }
-    name_length16 = t.offset_from(name_of_file16) as i64 as i32;
-}
 pub(crate) unsafe fn open_or_close_in() {
     use xetex_consts::*;
     let mut c: u8 = 0;
     let mut n: u8 = 0;
-    let mut k: i32 = 0;
     c = cur_chr as u8;
     scan_four_bit_int();
     n = cur_val as u8;
@@ -779,13 +731,12 @@ pub(crate) unsafe fn open_or_close_in() {
             *INTPAR(IntPar::xetex_default_input_encoding),
         ) != 0
         {
-            make_utf16_name();
             name_in_progress = true;
             begin_name();
-            stop_at_space = false;
-            k = 0;
-            while k < name_length16 && more_name(*name_of_file16.offset(k as isize)) {
-                k += 1
+            for k in name_of_file.encode_utf16() {
+                if !more_name(k, false) {
+                    break;
+                }
             }
             stop_at_space = true;
             end_name();

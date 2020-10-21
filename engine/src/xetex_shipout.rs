@@ -1,14 +1,12 @@
-use bridge::{abort, DisplayExt};
-use std::ffi::CStr;
+use bridge::abort;
+use std::ffi::CString;
 use std::io::Write;
 
 use crate::help;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow};
-use crate::xetex_ext::{
-    apply_tfm_font_mapping, makeXDVGlyphArrayData, make_font_def, store_justified_native_glyphs,
-    AAT_FONT_FLAG, OTGR_FONT_FLAG,
-};
+use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, AAT_FONT_FLAG, OTGR_FONT_FLAG};
+use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
     avail, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_tok, cur_v, cur_v_offset, dead_cycles, def_ref,
@@ -20,9 +18,8 @@ use crate::xetex_ini::{
     LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
     FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
 };
-use crate::xetex_ini::{memory_word, Selector};
 use crate::xetex_output::{
-    print, print_char, print_cstr, print_file_line, print_file_name, print_int, print_ln,
+    print, print_chr, print_cstr, print_file_line, print_file_name, print_int, print_ln,
     print_nl_cstr, print_raw_char, print_scaled,
 };
 use crate::xetex_scaledmath::tex_round;
@@ -35,23 +32,14 @@ use crate::xetex_synctex::{
 use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{
     begin_diagnostic, begin_token_list, cur_length, effective_char, end_diagnostic, end_token_list,
-    flush_list, flush_node_list, free_node, get_avail, get_node, get_token, glue_ord,
-    internal_font_number, make_name_string, new_kern, new_math, new_native_word_node,
-    open_log_file, pack_file_name, pack_job_name, packed_UTF16_code, prepare_mag, scaled_t,
-    scan_toks, show_box, show_token_list, str_number, token_show, UTF16_code,
+    flush_list, flush_node_list, free_node, get_avail, get_node, get_token, internal_font_number,
+    make_name_string, new_kern, new_math, new_native_word_node, open_log_file, pack_file_name,
+    pack_job_name, packed_UTF16_code, prepare_mag, scaled_t, scan_toks, show_box, show_token_list,
+    str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, kern_NODE_subtype, kern_NODE_width, print_c_string, set_BOX_lr_mode,
-    /*set_NODE_subtype, */ set_NODE_type, set_whatsit_NODE_subtype, text_NODE_type,
-    whatsit_NODE_subtype, BOX_depth, BOX_glue_order, BOX_glue_set, BOX_glue_sign, BOX_height,
-    BOX_list_ptr, BOX_lr_mode, BOX_shift_amount, BOX_width, CHAR_NODE_character, CHAR_NODE_font,
-    EDGE_NODE_edge_dist, FILE_NODE_id, GLUE_NODE_glue_ptr, GLUE_NODE_leader_ptr,
-    GLUE_SPEC_ref_count, GLUE_SPEC_shrink, GLUE_SPEC_shrink_order, GLUE_SPEC_size,
-    GLUE_SPEC_stretch, GLUE_SPEC_stretch_order, LIGATURE_NODE_lig_char, LIGATURE_NODE_lig_font,
-    LIGATURE_NODE_lig_ptr, LLIST_info, LLIST_link, NATIVE_NODE_font, NATIVE_NODE_glyph,
-    NATIVE_NODE_glyph_info_ptr, NATIVE_NODE_length, NATIVE_NODE_text, NODE_type, OPEN_NODE_area,
-    OPEN_NODE_ext, OPEN_NODE_name, PIC_NODE_page, PIC_NODE_pagebox, PIC_NODE_path,
-    PIC_NODE_transform_matrix, SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    is_char_node, llist_link, print_c_string, set_NODE_type, text_NODE_type, LLIST_link, NODE_type,
+    SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -102,7 +90,7 @@ unsafe fn dvi_out(c: u8) {
 }
 
 /*660: output the box `p` */
-pub(crate) unsafe fn ship_out(p: usize) {
+pub(crate) unsafe fn ship_out(mut p: List) {
     const output_comment: &[u8] = b"tectonic";
 
     synctex_sheet(*INTPAR(IntPar::mag));
@@ -112,18 +100,18 @@ pub(crate) unsafe fn ship_out(p: usize) {
     }
 
     if *INTPAR(IntPar::tracing_output) > 0 {
-        print_nl_cstr(b"");
+        print_nl_cstr("");
         print_ln();
-        print_cstr(b"Completed box being shipped out");
+        print_cstr("Completed box being shipped out");
     }
 
     if term_offset > max_print_line - 9 {
         print_ln();
     } else if term_offset > 0 || file_offset > 0 {
-        print_char(' ' as i32);
+        print_chr(' ');
     }
 
-    print_char('[' as i32);
+    print_chr('[');
     let mut j = 9;
     while j > 0 && *COUNT_REG(j as _) == 0 {
         j -= 1;
@@ -132,16 +120,16 @@ pub(crate) unsafe fn ship_out(p: usize) {
     for k in 0..=j {
         print_int(*COUNT_REG(k as _));
         if k < j {
-            print_char('.' as i32);
+            print_chr('.');
         }
     }
 
     rust_stdout.as_mut().unwrap().flush().unwrap();
 
     if *INTPAR(IntPar::tracing_output) > 0 {
-        print_char(']' as i32);
+        print_chr(']');
         begin_diagnostic();
-        show_box(Some(p));
+        show_box(Some(p.ptr()));
         end_diagnostic(true);
     }
 
@@ -149,35 +137,35 @@ pub(crate) unsafe fn ship_out(p: usize) {
     /*663: "Update the values of max_h and max_v; but if the page is too
      * large, goto done". */
 
-    if *BOX_height(p) > MAX_HALFWORD
-        || *BOX_depth(p) > MAX_HALFWORD
-        || *BOX_height(p) + *BOX_depth(p) + *DIMENPAR(DimenPar::v_offset) > MAX_HALFWORD
-        || *BOX_width(p) + *DIMENPAR(DimenPar::h_offset) > MAX_HALFWORD
+    if p.height() > MAX_HALFWORD
+        || p.depth() > MAX_HALFWORD
+        || p.height() + p.depth() + *DIMENPAR(DimenPar::v_offset) > MAX_HALFWORD
+        || p.width() + *DIMENPAR(DimenPar::h_offset) > MAX_HALFWORD
     {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Huge page cannot be shipped out");
+        print_cstr("Huge page cannot be shipped out");
         help!(
-            b"The page just created is more than 18 feet tall or",
-            b"more than 18 feet wide, so I suspect something went wrong."
+            "The page just created is more than 18 feet tall or",
+            "more than 18 feet wide, so I suspect something went wrong."
         );
         error();
 
         if *INTPAR(IntPar::tracing_output) <= 0 {
             begin_diagnostic();
-            print_nl_cstr(b"The following box has been deleted:");
-            show_box(Some(p));
+            print_nl_cstr("The following box has been deleted:");
+            show_box(Some(p.ptr()));
             end_diagnostic(true);
         }
     } else {
-        if *BOX_height(p) + *BOX_depth(p) + *DIMENPAR(DimenPar::v_offset) > max_v {
-            max_v = *BOX_height(p) + *BOX_depth(p) + *DIMENPAR(DimenPar::v_offset);
+        if p.height() + p.depth() + *DIMENPAR(DimenPar::v_offset) > max_v {
+            max_v = p.height() + p.depth() + *DIMENPAR(DimenPar::v_offset);
         }
-        if *BOX_width(p) + *DIMENPAR(DimenPar::h_offset) > max_h {
-            max_h = *BOX_width(p) + *DIMENPAR(DimenPar::h_offset);
+        if p.width() + *DIMENPAR(DimenPar::h_offset) > max_h {
+            max_h = p.width() + *DIMENPAR(DimenPar::h_offset);
         }
 
         /*637: "Initialize variables as ship_out begins." */
@@ -195,12 +183,12 @@ pub(crate) unsafe fn ship_out(p: usize) {
         if *DIMENPAR(DimenPar::pdf_page_width) != 0 {
             cur_page_width = *DIMENPAR(DimenPar::pdf_page_width);
         } else {
-            cur_page_width = *BOX_width(p as usize) + 2 * cur_h_offset;
+            cur_page_width = p.width() + 2 * cur_h_offset;
         }
         if *DIMENPAR(DimenPar::pdf_page_height) != 0 {
             cur_page_height = *DIMENPAR(DimenPar::pdf_page_height);
         } else {
-            cur_page_height = *BOX_height(p as usize) + *BOX_depth(p as usize) + 2 * cur_v_offset;
+            cur_page_height = p.height() + p.depth() + 2 * cur_v_offset;
         }
 
         /* ... resuming 637 ... open up the DVI file if needed */
@@ -209,13 +197,10 @@ pub(crate) unsafe fn ship_out(p: usize) {
             if job_name == 0 {
                 open_log_file();
             }
-            pack_job_name(CStr::from_ptr(output_file_extension).to_bytes());
-            dvi_file = ttstub_output_open(name_of_file, 0);
+            pack_job_name(&output_file_extension);
+            dvi_file = ttstub_output_open(CString::new(name_of_file.as_str()).unwrap().as_ptr(), 0);
             if dvi_file.is_none() {
-                abort!(
-                    "cannot open output file \"{}\"",
-                    CStr::from_ptr(name_of_file).display()
-                );
+                abort!("cannot open output file \"{}\"", name_of_file);
             }
             output_file_name = make_name_string()
         }
@@ -260,19 +245,19 @@ pub(crate) unsafe fn ship_out(p: usize) {
 
         let old_setting = selector;
         selector = Selector::NEW_STRING;
-        print_cstr(b"pdf:pagesize ");
+        print_cstr("pdf:pagesize ");
         if *DIMENPAR(DimenPar::pdf_page_width) <= 0 || *DIMENPAR(DimenPar::pdf_page_height) <= 0 {
-            print_cstr(b"default");
+            print_cstr("default");
         } else {
-            print_cstr(b"width");
+            print_cstr("width");
             print(' ' as i32);
             print_scaled(*DIMENPAR(DimenPar::pdf_page_width));
-            print_cstr(b"pt");
+            print_cstr("pt");
             print(' ' as i32);
-            print_cstr(b"height");
+            print_cstr("height");
             print(' ' as i32);
             print_scaled(*DIMENPAR(DimenPar::pdf_page_height));
-            print_cstr(b"pt");
+            print_cstr("pt");
         }
         selector = old_setting;
 
@@ -287,12 +272,11 @@ pub(crate) unsafe fn ship_out(p: usize) {
 
         /* Done with the synthesized special. The meat: emit this page box. */
 
-        cur_v = *BOX_height(p) + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
-        let tmp_ptr = p;
-        if NODE_type(p) == TextNode::VList.into() {
-            vlist_out(tmp_ptr);
+        cur_v = p.height() + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
+        if NODE_type(p.ptr()) == TextNode::VList.into() {
+            vlist_out(&p);
         } else {
-            hlist_out(tmp_ptr);
+            hlist_out(&mut p);
         }
 
         dvi_out(EOP);
@@ -304,291 +288,300 @@ pub(crate) unsafe fn ship_out(p: usize) {
 
     if LR_problems > 0 {
         print_ln();
-        print_nl_cstr(b"\\endL or \\endR problem (");
+        print_nl_cstr("\\endL or \\endR problem (");
         print_int(LR_problems / 10000);
-        print_cstr(b" missing, ");
+        print_cstr(" missing, ");
         print_int(LR_problems % 10000);
-        print_cstr(b" extra");
+        print_cstr(" extra");
         LR_problems = 0;
-        print_char(')' as i32);
+        print_chr(')');
         print_ln();
     }
 
     if LR_ptr.opt().is_some() || cur_dir != LR::LeftToRight {
-        confusion(b"LR3");
+        confusion("LR3");
     }
 
     if *INTPAR(IntPar::tracing_output) <= 0 {
-        print_char(']' as i32);
+        print_chr(']');
     }
 
     dead_cycles = 0;
     rust_stdout.as_mut().unwrap().flush().unwrap();
-    flush_node_list(Some(p));
+    flush_node_list(Some(p.ptr()));
     synctex_teehs();
 }
 
 /*639: Output an hlist */
-unsafe fn hlist_out(tmp_ptr: usize) {
-    let this_box = tmp_ptr;
-    let g_order: glue_ord = *BOX_glue_order(this_box) as _;
-    let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
+unsafe fn hlist_out(this_box: &mut List) {
+    let g_order = this_box.glue_order();
+    let g_sign = this_box.glue_sign();
 
     if *INTPAR(IntPar::xetex_interword_space_shaping) > 1 {
         /*640: "Extra stuff for justifiable AAT text..." "Merge sequences of
          * words using native fonts and inter-word spaces into single
          * nodes" */
 
-        let mut popt = BOX_list_ptr(this_box).opt();
-        let mut prev_p = this_box + 5; /* this gets the list within the box */
+        let mut popt = this_box.list_ptr().opt();
+        let mut prev_p = this_box.ptr() + 5; /* this gets the list within the box */
 
         while let Some(mut p) = popt {
-            if LLIST_link(p).opt().is_some() {
-                if !is_char_node(Some(p))
-                    && NODE_type(p) != TextNode::WhatsIt.into()
-                    && (whatsit_NODE_subtype(p) == WhatsItNST::NativeWord
-                        || whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt)
-                    && FONT_LETTER_SPACE[*NATIVE_NODE_font(p) as usize] == 0
-                {
-                    /* "got a word in an AAT font, might be the start of a run" */
-                    let r = p;
-                    let mut k = *NATIVE_NODE_length(r) as i32;
-                    let mut qopt = LLIST_link(p).opt();
-                    loop {
-                        /*641: "Advance `q` past ignorable nodes." This test is
-                         * mostly `node_is_invisible_to_interword_space`. 641 is
-                         * reused a few times here. */
-                        while let Some(q) = qopt.filter(|&q| {
-                            !is_char_node(Some(q))
-                                && (NODE_type(q) == TextNode::Penalty.into()
-                                    || NODE_type(q) == TextNode::Ins.into()
-                                    || NODE_type(q) == TextNode::Mark.into()
-                                    || NODE_type(q) == TextNode::Adjust.into()
-                                    || (NODE_type(q) == TextNode::WhatsIt.into()
-                                        && [
-                                            WhatsItNST::Open,
-                                            WhatsItNST::Write,
-                                            WhatsItNST::Close,
-                                            WhatsItNST::Special,
-                                            WhatsItNST::Language,
-                                        ]
-                                        .contains(&whatsit_NODE_subtype(q))))
-                        }) {
-                            qopt = LLIST_link(q).opt();
-                        }
-                        if let Some(q) = qopt.filter(|&q| !is_char_node(Some(q))) {
-                            if NODE_type(q) == TextNode::Glue.into()
-                                && *GLUE_SPEC_shrink_order(q) == GlueOrder::Normal as _
-                            {
-                                if *GLUE_NODE_glue_ptr(q)
-                                    == FONT_GLUE[*NATIVE_NODE_font(r) as usize]
-                                {
-                                    /* "Found a normal space; if the next node is
-                                     * another word in the same font, we'll
-                                     * merge." */
-                                    qopt = LLIST_link(q).opt();
-
-                                    while let Some(q) = qopt.filter(|&q| {
-                                        !is_char_node(Some(q))
-                                            && (NODE_type(q) == TextNode::Penalty.into()
-                                                || NODE_type(q) == TextNode::Ins.into()
-                                                || NODE_type(q) == TextNode::Mark.into()
-                                                || NODE_type(q) == TextNode::Adjust.into()
-                                                || (NODE_type(q) == TextNode::WhatsIt.into()
-                                                    && [
-                                                        WhatsItNST::Open,
-                                                        WhatsItNST::Write,
-                                                        WhatsItNST::Close,
-                                                        WhatsItNST::Special,
-                                                        WhatsItNST::Language,
-                                                    ]
-                                                    .contains(&whatsit_NODE_subtype(q))))
-                                    }) {
-                                        qopt = LLIST_link(q).opt();
-                                    }
-
-                                    if let Some(q) = qopt.filter(|&q| {
-                                        !is_char_node(Some(q))
-                                            && NODE_type(q) == TextNode::WhatsIt.into()
-                                            && (whatsit_NODE_subtype(q) == WhatsItNST::NativeWord
-                                                || whatsit_NODE_subtype(q)
-                                                    == WhatsItNST::NativeWordAt)
-                                            && *NATIVE_NODE_font(q) as i32
-                                                == *NATIVE_NODE_font(r) as i32
-                                    }) {
-                                        p = q;
-                                        k += 1 + *NATIVE_NODE_length(q) as i32;
-                                        qopt = LLIST_link(q).opt();
-                                        continue;
-                                    }
+            if llist_link(p).is_some() {
+                match CharOrText::from(p) {
+                    CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(r_nw)))
+                        if FONT_LETTER_SPACE[r_nw.font() as usize] == 0 =>
+                    {
+                        /* "got a word in an AAT font, might be the start of a run" */
+                        let mut k = r_nw.text().len() as i32;
+                        let mut qopt = llist_link(p);
+                        loop {
+                            /*641: "Advance `q` past ignorable nodes." This test is
+                             * mostly `node_is_invisible_to_interword_space`. 641 is
+                             * reused a few times here. */
+                            while let Some(q) = qopt {
+                                if match CharOrText::from(p) {
+                                    CharOrText::Text(n) => match n {
+                                        TxtNode::Penalty(_)
+                                        | TxtNode::Ins(_)
+                                        | TxtNode::Mark(_)
+                                        | TxtNode::Adjust(_) => true,
+                                        TxtNode::WhatsIt(n) => match n {
+                                            WhatsIt::Open(_)
+                                            | WhatsIt::Write(_)
+                                            | WhatsIt::Close(_)
+                                            | WhatsIt::Special(_)
+                                            | WhatsIt::Language(_) => true,
+                                            _ => false,
+                                        },
+                                        _ => false,
+                                    },
+                                    _ => false,
+                                } {
+                                    qopt = llist_link(q);
                                 } else {
-                                    qopt = LLIST_link(q).opt();
+                                    break;
                                 }
-                                if let Some(q) = qopt.filter(|&q| {
-                                    !is_char_node(Some(q))
-                                        && NODE_type(q) == TextNode::Kern.into()
-                                        && kern_NODE_subtype(q) == KernNST::SpaceAdjustment
-                                }) {
-                                    qopt = LLIST_link(q).opt();
-                                    while let Some(q) = qopt.filter(|&q| {
-                                        !is_char_node(Some(q))
-                                            && (NODE_type(q) == TextNode::Penalty.into()
-                                                || NODE_type(q) == TextNode::Ins.into()
-                                                || NODE_type(q) == TextNode::Mark.into()
-                                                || NODE_type(q) == TextNode::Adjust.into()
-                                                || NODE_type(q) == TextNode::WhatsIt.into()
-                                                    && [
-                                                        WhatsItNST::Open,
-                                                        WhatsItNST::Write,
-                                                        WhatsItNST::Close,
-                                                        WhatsItNST::Special,
-                                                        WhatsItNST::Language,
-                                                    ]
-                                                    .contains(&whatsit_NODE_subtype(q)))
-                                    }) {
-                                        qopt = LLIST_link(q).opt();
+                            }
+                            if let Some(q) = qopt.filter(|&q| !is_char_node(Some(q))) {
+                                if NODE_type(q) == TextNode::Glue.into() && Glue(q).param() == 0 {
+                                    if Glue(q).glue_ptr() == FONT_GLUE[r_nw.font() as usize] {
+                                        /* "Found a normal space; if the next node is
+                                         * another word in the same font, we'll
+                                         * merge." */
+                                        qopt = llist_link(q);
+                                        while let Some(q) = qopt {
+                                            if match CharOrText::from(p) {
+                                                CharOrText::Text(n) => match n {
+                                                    TxtNode::Penalty(_)
+                                                    | TxtNode::Ins(_)
+                                                    | TxtNode::Mark(_)
+                                                    | TxtNode::Adjust(_) => true,
+                                                    TxtNode::WhatsIt(n) => match n {
+                                                        WhatsIt::Open(_)
+                                                        | WhatsIt::Write(_)
+                                                        | WhatsIt::Close(_)
+                                                        | WhatsIt::Special(_)
+                                                        | WhatsIt::Language(_) => true,
+                                                        _ => false,
+                                                    },
+                                                    _ => false,
+                                                },
+                                                _ => false,
+                                            } {
+                                                qopt = llist_link(q);
+                                            } else {
+                                                break;
+                                            }
+                                        }
+
+                                        match qopt.map(CharOrText::from) {
+                                            Some(CharOrText::Text(TxtNode::WhatsIt(
+                                                WhatsIt::NativeWord(q),
+                                            ))) if q.font() == r_nw.font() => {
+                                                p = q.ptr();
+                                                k += 1 + q.text().len() as i32;
+                                                qopt = llist_link(q.ptr());
+                                                continue;
+                                            }
+                                            _ => {}
+                                        }
+                                    } else {
+                                        qopt = llist_link(q);
                                     }
                                     if let Some(q) = qopt.filter(|&q| {
                                         !is_char_node(Some(q))
-                                            && NODE_type(q) == TextNode::WhatsIt.into()
-                                            && (whatsit_NODE_subtype(q) == WhatsItNST::NativeWord
-                                                || whatsit_NODE_subtype(q)
-                                                    == WhatsItNST::NativeWordAt)
-                                            && *NATIVE_NODE_font(q) == *NATIVE_NODE_font(r)
+                                            && NODE_type(q) == TextNode::Kern.into()
+                                            && Kern(q).subtype() == KernType::SpaceAdjustment
                                     }) {
-                                        p = q;
-                                        k += (1 + *NATIVE_NODE_length(q)) as i32;
-                                        qopt = LLIST_link(q).opt();
+                                        qopt = llist_link(q);
+                                        while let Some(q) = qopt {
+                                            if match CharOrText::from(p) {
+                                                CharOrText::Text(n) => match n {
+                                                    TxtNode::Penalty(_)
+                                                    | TxtNode::Ins(_)
+                                                    | TxtNode::Mark(_)
+                                                    | TxtNode::Adjust(_) => true,
+                                                    TxtNode::WhatsIt(n) => match n {
+                                                        WhatsIt::Open(_)
+                                                        | WhatsIt::Write(_)
+                                                        | WhatsIt::Close(_)
+                                                        | WhatsIt::Special(_)
+                                                        | WhatsIt::Language(_) => true,
+                                                        _ => false,
+                                                    },
+                                                    _ => false,
+                                                },
+                                                _ => false,
+                                            } {
+                                                qopt = llist_link(q);
+                                            } else {
+                                                break;
+                                            }
+                                        }
+                                        match qopt.map(CharOrText::from) {
+                                            Some(CharOrText::Text(TxtNode::WhatsIt(
+                                                WhatsIt::NativeWord(q),
+                                            ))) if q.font() == r_nw.font() => {
+                                                p = q.ptr();
+                                                k += (1 + q.text().len()) as i32;
+                                                qopt = llist_link(q.ptr());
+                                            }
+                                            _ => break,
+                                        }
                                     } else {
                                         break;
                                     }
                                 } else {
-                                    break;
+                                    match qopt.map(CharOrText::from) {
+                                        Some(CharOrText::Text(TxtNode::WhatsIt(
+                                            WhatsIt::NativeWord(q),
+                                        ))) if q.font() == r_nw.font() => {
+                                            p = q.ptr();
+                                            qopt = llist_link(q.ptr());
+                                        }
+                                        _ => break,
+                                    }
                                 }
                             } else {
-                                if let Some(q) = qopt.filter(|&q| {
-                                    !is_char_node(Some(q))
-                                        && NODE_type(q) == TextNode::WhatsIt.into()
-                                        && (whatsit_NODE_subtype(q) == WhatsItNST::NativeWord
-                                            || whatsit_NODE_subtype(q) == WhatsItNST::NativeWordAt)
-                                        && *NATIVE_NODE_font(q) == *NATIVE_NODE_font(r)
-                                }) {
-                                    p = q;
-                                    qopt = LLIST_link(q).opt();
-                                } else {
-                                    break;
-                                }
-                            }
-                        } else {
-                            break;
-                        }
-                    }
-                    /* "Now r points to the first native_word_node of the run,
-                     * and p to the last." */
-                    if p != r {
-                        if pool_ptr + k > pool_size {
-                            overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
-                        }
-                        k = 0;
-                        let mut q = r;
-                        loop {
-                            if NODE_type(q) == TextNode::WhatsIt.into() {
-                                match whatsit_NODE_subtype(q) {
-                                    WhatsItNST::NativeWord | WhatsItNST::NativeWordAt => {
-                                        for j in NATIVE_NODE_text(q) {
-                                            str_pool[pool_ptr as usize] = *j;
-                                            pool_ptr += 1;
-                                        }
-                                        k += *BOX_width(q);
-                                    }
-                                    _ => {}
-                                }
-                            } else if NODE_type(q) == TextNode::Glue.into() {
-                                str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
-                                pool_ptr += 1;
-                                let g = *GLUE_NODE_glue_ptr(q) as usize;
-                                k += *GLUE_SPEC_size(g);
-                                if g_sign != GlueSign::Normal {
-                                    if g_sign == GlueSign::Stretching {
-                                        if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
-                                            k += tex_round(
-                                                *BOX_glue_set(this_box)
-                                                    * *GLUE_SPEC_stretch(g) as f64,
-                                            )
-                                        }
-                                    } else if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
-                                        k -= tex_round(
-                                            *BOX_glue_set(this_box) * *GLUE_SPEC_shrink(g) as f64,
-                                        )
-                                    }
-                                }
-                            } else if NODE_type(q) == TextNode::Kern.into() {
-                                k += *BOX_width(q);
-                            }
-                            if q == p {
                                 break;
                             }
-                            q = *LLIST_link(q) as usize;
                         }
-                        let mut q = new_native_word_node(
-                            *NATIVE_NODE_font(r) as internal_font_number,
-                            cur_length(),
-                        );
-                        set_whatsit_NODE_subtype(q, whatsit_NODE_subtype(r));
-
-                        let start = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-                        NATIVE_NODE_text(q).copy_from_slice(
-                            &str_pool[start as usize..(start + cur_length()) as usize],
-                        );
-
-                        /* "Link q into the list in place of r...p" */
-                        *BOX_width(q) = k;
-                        store_justified_native_glyphs(
-                            &mut MEM[q] as *mut memory_word as *mut libc::c_void,
-                        );
-                        *LLIST_link(prev_p) = Some(q).tex_int();
-                        *LLIST_link(q) = *LLIST_link(p);
-                        *LLIST_link(p) = None.tex_int();
-                        prev_p = r;
-                        let mut popt2 = LLIST_link(r).opt();
-
-                        /* "Extract any 'invisible' nodes from the old list
-                         * and insert them after the new node, so we don't
-                         * lose them altogether. Note that the first node
-                         * cannot be one of these, as we always start merging
-                         * at a native_word node." */
-
-                        while let Some(p) = popt2 {
-                            if !is_char_node(Some(p))
-                                && (NODE_type(p) == TextNode::Penalty.into()
-                                    || NODE_type(p) == TextNode::Ins.into()
-                                    || NODE_type(p) == TextNode::Mark.into()
-                                    || NODE_type(p) == TextNode::Adjust.into()
-                                    || NODE_type(p) == TextNode::WhatsIt.into()
-                                        && whatsit_NODE_subtype(p) as u16 <= 4)
-                            {
-                                *LLIST_link(prev_p) = *LLIST_link(p);
-                                *LLIST_link(p) = *LLIST_link(q);
-                                *LLIST_link(q) = Some(p).tex_int();
-                                q = p;
+                        /* "Now r points to the first native_word_node of the run,
+                         * and p to the last." */
+                        if p != r_nw.ptr() {
+                            if pool_ptr + k > pool_size {
+                                overflow("pool size", (pool_size - init_pool_ptr) as usize);
                             }
-                            prev_p = p;
-                            popt2 = LLIST_link(p).opt();
+                            k = 0;
+                            let mut q = r_nw.ptr();
+                            loop {
+                                if NODE_type(q) == TextNode::WhatsIt.into() {
+                                    match WhatsIt::from(q) {
+                                        WhatsIt::NativeWord(q) => {
+                                            for j in q.text() {
+                                                str_pool[pool_ptr as usize] = *j;
+                                                pool_ptr += 1;
+                                            }
+                                            k += q.width();
+                                        }
+                                        _ => {}
+                                    }
+                                } else if NODE_type(q) == TextNode::Glue.into() {
+                                    let q = Glue(q);
+                                    str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
+                                    pool_ptr += 1;
+                                    let mut g = GlueSpec(q.glue_ptr() as usize);
+                                    k += g.size();
+                                    if g_sign != GlueSign::Normal {
+                                        if g_sign == GlueSign::Stretching {
+                                            if g.stretch_order() == g_order {
+                                                k += tex_round(
+                                                    this_box.glue_set() * g.stretch() as f64,
+                                                )
+                                            }
+                                        } else if g.shrink_order() == g_order {
+                                            k -= tex_round(this_box.glue_set() * g.shrink() as f64)
+                                        }
+                                    }
+                                } else if NODE_type(q) == TextNode::Kern.into() {
+                                    let q = Kern(q);
+                                    k += q.width();
+                                }
+                                if q == p {
+                                    break;
+                                }
+                                q = *LLIST_link(q) as usize;
+                            }
+                            let mut nw = new_native_word_node(
+                                r_nw.font() as internal_font_number,
+                                cur_length(),
+                            );
+                            nw.set_actual_text_from(&r_nw);
+
+                            let start = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+                            nw.text_mut().copy_from_slice(
+                                &str_pool[start as usize..(start + cur_length()) as usize],
+                            );
+
+                            /* "Link q into the list in place of r...p" */
+                            nw.set_width(k);
+                            nw.set_justified_native_glyphs();
+                            let mut q = nw.ptr();
+                            *LLIST_link(prev_p) = Some(q).tex_int();
+                            *LLIST_link(q) = *LLIST_link(p);
+                            *LLIST_link(p) = None.tex_int();
+                            prev_p = r_nw.ptr();
+                            let mut popt2 = llist_link(r_nw.ptr());
+
+                            /* "Extract any 'invisible' nodes from the old list
+                             * and insert them after the new node, so we don't
+                             * lose them altogether. Note that the first node
+                             * cannot be one of these, as we always start merging
+                             * at a native_word node." */
+
+                            while let Some(p) = popt2 {
+                                if match CharOrText::from(p) {
+                                    CharOrText::Text(n) => match n {
+                                        TxtNode::Penalty(_)
+                                        | TxtNode::Ins(_)
+                                        | TxtNode::Mark(_)
+                                        | TxtNode::Adjust(_) => true,
+                                        TxtNode::WhatsIt(n) => match n {
+                                            WhatsIt::Open(_)
+                                            | WhatsIt::Write(_)
+                                            | WhatsIt::Close(_)
+                                            | WhatsIt::Special(_)
+                                            | WhatsIt::Language(_) => true,
+                                            _ => false,
+                                        },
+                                        _ => false,
+                                    },
+                                    _ => false,
+                                } {
+                                    *LLIST_link(prev_p) = *LLIST_link(p);
+                                    *LLIST_link(p) = *LLIST_link(q);
+                                    *LLIST_link(q) = Some(p).tex_int();
+                                    q = p;
+                                }
+                                prev_p = p;
+                                popt2 = llist_link(p);
+                            }
+                            flush_node_list(Some(r_nw.ptr()));
+                            pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+                            p = q
                         }
-                        flush_node_list(Some(r));
-                        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-                        p = q
                     }
+                    _ => {}
                 }
                 prev_p = p;
             }
-            popt = LLIST_link(p).opt();
+            popt = llist_link(p);
         }
     }
 
     /* ... resuming 639 ... */
 
-    let mut popt = BOX_list_ptr(this_box as _).opt();
+    let mut popt = this_box.list_ptr().opt();
     cur_s += 1;
     if cur_s > 0 {
         dvi_out(PUSH as _);
@@ -598,38 +591,38 @@ unsafe fn hlist_out(tmp_ptr: usize) {
 
     let save_loc = dvi_offset + dvi_ptr;
     let base_line = cur_v;
-    let mut prev_p = this_box + 5; /* this is list_offset, the offset of the box list pointer */
+    let mut prev_p = this_box.ptr() + 5; /* this is list_offset, the offset of the box list pointer */
 
     /*1501: "Initialize hlist_out for mixed direction typesetting" */
 
-    let tmp_ptr = get_avail();
-    *LLIST_info(tmp_ptr) = u16::from(MathNST::Before) as i32;
-    *LLIST_link(tmp_ptr) = LR_ptr;
-    LR_ptr = Some(tmp_ptr).tex_int();
-    if BOX_lr_mode(this_box) == LRMode::DList {
+    let mut tmp_ptr = Math(get_avail());
+    tmp_ptr.set_subtype_i32(MathType::Before);
+    *LLIST_link(tmp_ptr.ptr()) = LR_ptr;
+    LR_ptr = Some(tmp_ptr.ptr()).tex_int();
+    if this_box.lr_mode() == LRMode::DList {
         if cur_dir == LR::RightToLeft {
             cur_dir = LR::LeftToRight;
-            cur_h -= *BOX_width(this_box);
+            cur_h -= this_box.width();
         } else {
-            set_BOX_lr_mode(this_box, LRMode::Normal);
+            this_box.set_lr_mode(LRMode::Normal);
         }
     }
 
     let mut cur_g: scaled_t = 0;
     let mut cur_glue: f64 = 0.0;
-    if cur_dir == LR::RightToLeft && BOX_lr_mode(this_box) != LRMode::Reversed {
+    if cur_dir == LR::RightToLeft && this_box.lr_mode() != LRMode::Reversed {
         /*1508: "Reverse the complete hlist and set the subtype to reversed." */
         let save_h = cur_h; /* "SyncTeX: do nothing, it is too late" */
         let tmp_ptr = popt.unwrap();
-        let p = new_kern(0);
-        *SYNCTEX_tag(p, MEDIUM_NODE_SIZE) = 0;
-        *LLIST_link(prev_p) = Some(p).tex_int();
+        let mut p = Kern(new_kern(0));
+        *SYNCTEX_tag(p.ptr(), MEDIUM_NODE_SIZE) = 0;
+        *LLIST_link(prev_p) = Some(p.ptr()).tex_int();
         cur_h = 0;
-        *LLIST_link(p) = reverse(this_box, tmp_ptr, None, &mut cur_g, &mut cur_glue);
-        *kern_NODE_width(p) = -cur_h;
-        popt = Some(p);
+        *LLIST_link(p.ptr()) = reverse(this_box, tmp_ptr, None, &mut cur_g, &mut cur_glue);
+        p.set_width(-cur_h);
+        popt = Some(p.ptr());
         cur_h = save_h;
-        set_BOX_lr_mode(this_box, LRMode::Reversed);
+        this_box.set_lr_mode(LRMode::Reversed);
     }
 
     /* ... resuming 639 ... */
@@ -654,8 +647,9 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                 dvi_v = cur_v
             }
             loop  {
-                let f = *CHAR_NODE_font(p) as usize;
-                let mut c = *CHAR_NODE_character(p);
+                let chr = Char(p);
+                let f = chr.font() as usize;
+                let mut c = chr.character();
                 if p != LIG_TRICK &&
                        !(FONT_MAPPING[f]).is_null() {
                     c = apply_tfm_font_mapping(FONT_MAPPING[f], c as i32) as u16;
@@ -696,7 +690,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                     }
                 }
                 prev_p = *LLIST_link(prev_p) as usize;
-                popt = LLIST_link(p).opt();
+                popt = llist_link(p);
                 if !is_char_node(popt) {
                     break;
                 } else {
@@ -710,27 +704,27 @@ unsafe fn hlist_out(tmp_ptr: usize) {
             let n = text_NODE_type(p).unwrap();
             match n {
                 TextNode::HList | TextNode::VList => {
-                    if BOX_list_ptr(p).opt().is_none() {
+                    let mut p = List::from(p);
+                    if p.list_ptr().opt().is_none() {
                         if n == TextNode::VList {
-                            synctex_void_vlist(p, this_box);
-                        } else { synctex_void_hlist(p, this_box); }
-                        cur_h += *BOX_width(p);
+                            synctex_void_vlist(&p, this_box);
+                        } else { synctex_void_hlist(&p, this_box); }
+                        cur_h += p.width();
                     } else {
                         let save_h = dvi_h;
                         let save_v = dvi_v;
                         cur_v =
                             base_line +
-                                *BOX_shift_amount(p);
-                        let tmp_ptr = p;
+                                p.shift_amount();
                         let edge =
                             cur_h +
-                                *BOX_width(p);
+                                p.width();
                         if cur_dir == LR::RightToLeft {
                             cur_h = edge;
                         }
                         if n == TextNode::VList {
-                            vlist_out(tmp_ptr);
-                        } else { hlist_out(tmp_ptr); }
+                            vlist_out(&p);
+                        } else { hlist_out(&mut p); }
                         dvi_h = save_h;
                         dvi_v = save_v;
                         cur_h = edge;
@@ -738,18 +732,19 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                     }
                 }
                 TextNode::Rule => {
+                    let mut p = Rule::from(p);
                     rule_ht =
-                        *BOX_height(p);
+                        p.height();
                     rule_dp =
-                        *BOX_depth(p);
+                        p.depth();
                     rule_wd =
-                        *BOX_width(p);
+                        p.width();
                     /*646: "Output a rule in an hlist" */
                     if rule_ht == NULL_FLAG {
-                        rule_ht = *BOX_height(this_box);
+                        rule_ht = this_box.height();
                     }
                     if rule_dp == NULL_FLAG {
-                        rule_dp = *BOX_depth(this_box);
+                        rule_dp = this_box.depth();
                     }
                     rule_ht += rule_dp;
                     if rule_ht > 0 && rule_wd > 0 {
@@ -771,116 +766,107 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                     /* ... resuming 644 ... */
                     {
                         cur_h += rule_wd; /* end GLUE_NODE case */
-                        synctex_horizontal_rule_or_glue(p, this_box);
+                        synctex_horizontal_rule_or_glue(p.ptr(), this_box.ptr());
                     }
                 }
                 TextNode::WhatsIt => {
                     /*1407: "Output the whatsit node p in an hlist" */
-                    match whatsit_NODE_subtype(p) {
-                        WhatsItNST::NativeWord | WhatsItNST::NativeWordAt | WhatsItNST::Glyph => {
-                            if cur_h != dvi_h {
-                                movement(cur_h - dvi_h,
-                                         RIGHT1); /* glyph count */
-                                dvi_h = cur_h
-                            } /* x offset, as fixed-point */
-                            if cur_v != dvi_v {
-                                movement(cur_v - dvi_v,
-                                         DOWN1); /* y offset, as fixed-point */
-                                dvi_v = cur_v
-                            } /* end of TextNode::WhatsIt case */
-                            let f =
-                                *NATIVE_NODE_font(p) as
-                                    internal_font_number;
-                            if f != dvi_f {
-                                if !font_used[f] {
-                                    dvi_font_def(f);
-                                    font_used[f] =
-                                        true
-                                }
-                                if f <= 64 {
-                                    dvi_out((f + 170) as
-                                                u8);
-                                } else if f <= 256 {
-                                    dvi_out(FNT1);
-                                    dvi_out((f - 1) as u8);
-                                } else {
-                                    dvi_out(FNT1 + 1);
-                                    dvi_out(((f - 1) / 256) as
-                                                u8);
-                                    dvi_out(((f - 1) % 256) as
-                                                u8);
-                                }
-                                dvi_f = f
+                    unsafe fn out_font(f: usize) {
+                        if cur_h != dvi_h {
+                            movement(cur_h - dvi_h,
+                                     RIGHT1); /* glyph count */
+                            dvi_h = cur_h
+                        } /* x offset, as fixed-point */
+                        if cur_v != dvi_v {
+                            movement(cur_v - dvi_v,
+                                     DOWN1); /* y offset, as fixed-point */
+                            dvi_v = cur_v
+                        } /* end of TextNode::WhatsIt case */
+                        if f != dvi_f {
+                            if !font_used[f] {
+                                dvi_font_def(f);
+                                font_used[f] =
+                                    true
                             }
-                            if whatsit_NODE_subtype(p) == WhatsItNST::Glyph {
-                                dvi_out(SET_GLYPHS);
-                                dvi_four(*BOX_width(p));
-                                dvi_two(1);
-                                dvi_four(0);
-                                dvi_four(0);
-                                dvi_two(*NATIVE_NODE_glyph(p));
-                                cur_h +=
-                                    *BOX_width(p);
+                            if f <= 64 {
+                                dvi_out((f + 170) as
+                                            u8);
+                            } else if f <= 256 {
+                                dvi_out(FNT1);
+                                dvi_out((f - 1) as u8);
                             } else {
-                                if whatsit_NODE_subtype(p) == WhatsItNST::NativeWordAt {
-                                    if *NATIVE_NODE_length(p) > 0 ||
-                                           !NATIVE_NODE_glyph_info_ptr(p).is_null()
-                                       {
-                                        dvi_out(SET_TEXT_AND_GLYPHS);
-                                        let text = NATIVE_NODE_text(p);
-                                        dvi_two(text.len() as UTF16_code);
-                                        for k in text {
-                                            dvi_two(*k);
-                                        }
-                                        let len =
-                                            makeXDVGlyphArrayData(&mut MEM[p]
-                                                                      as
-                                                                      *mut memory_word
-                                                                      as
-                                                                      *mut libc::c_void);
-                                        for k in 0..len {
-                                            dvi_out(*xdv_buffer.offset(k
-                                                                           as
-                                                                           isize)
-                                                        as
-                                                        u8);
-                                        }
+                                dvi_out(FNT1 + 1);
+                                dvi_out(((f - 1) / 256) as
+                                            u8);
+                                dvi_out(((f - 1) % 256) as
+                                            u8);
+                            }
+                            dvi_f = f
+                        }
+                    }
+                    match WhatsIt::from(p) {
+                        WhatsIt::Glyph(g) => {
+                            out_font(g.font() as usize);
+                            dvi_out(SET_GLYPHS);
+                            dvi_four(g.width());
+                            dvi_two(1);
+                            dvi_four(0);
+                            dvi_four(0);
+                            dvi_two(g.glyph());
+                            cur_h +=
+                                g.width();
+                            dvi_h = cur_h;
+                        }
+                        WhatsIt::NativeWord(nw) => {
+                            out_font(nw.font() as usize);
+                            if nw.actual_text() {
+                                if nw.text().len() > 0 ||
+                                       !nw.glyph_info_ptr().is_null()
+                                   {
+                                    dvi_out(SET_TEXT_AND_GLYPHS);
+                                    let text = nw.text();
+                                    dvi_two(text.len() as UTF16_code);
+                                    for k in text {
+                                        dvi_two(*k);
                                     }
-                                } else if !NATIVE_NODE_glyph_info_ptr(p).is_null()
-                                 {
-                                    dvi_out(SET_GLYPHS);
-                                    let len =
-                                        makeXDVGlyphArrayData(&mut MEM[p]
-                                                                  as
-                                                                  *mut memory_word
-                                                                  as
-                                                                  *mut libc::c_void);
+                                    let len = nw.make_xdv_glyph_array_data();
                                     for k in 0..len {
                                         dvi_out(*xdv_buffer.offset(k
                                                                        as
                                                                        isize)
-                                                    as u8);
+                                                    as
+                                                    u8);
                                     }
                                 }
-                                cur_h +=
-                                    *BOX_width(p);
+                            } else if !nw.glyph_info_ptr().is_null()
+                             {
+                                dvi_out(SET_GLYPHS);
+                                let len = nw.make_xdv_glyph_array_data();
+                                for k in 0..len {
+                                    dvi_out(*xdv_buffer.offset(k
+                                                                   as
+                                                                   isize)
+                                                as u8);
+                                }
                             }
-                            dvi_h = cur_h
+                            cur_h +=
+                                nw.width();
+                            dvi_h = cur_h;
                         }
-                        WhatsItNST::Pic | WhatsItNST::Pdf => {
+                        WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                             let save_h = dvi_h;
                             let save_v = dvi_v;
                             cur_v = base_line;
                             let edge =
                                 cur_h +
-                                    *BOX_width(p);
-                            pic_out(p);
+                                    p.width();
+                            pic_out(&p);
                             dvi_h = save_h;
                             dvi_v = save_v;
                             cur_h = edge;
                             cur_v = base_line
                         }
-                        WhatsItNST::PdfSavePos => {
+                        WhatsIt::PdfSavePos(_) => {
                             pdf_last_x_pos = cur_h + cur_h_offset;
                             pdf_last_y_pos =
                                 cur_page_height - cur_v - cur_v_offset
@@ -889,27 +875,28 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                     }
                 }
                 TextNode::Glue => {
+                    let mut p = Glue(p);
                     /*647: "Move right or output leaders" */
-                    let g = *GLUE_NODE_glue_ptr(p) as usize;
+                    let mut g = GlueSpec(p.glue_ptr() as usize);
                     rule_wd =
-                        *GLUE_SPEC_size(g) -
+                        g.size() -
                             cur_g;
 
                     if g_sign != GlueSign::Normal {
                         if g_sign == GlueSign::Stretching {
-                            if *GLUE_SPEC_stretch_order(g) ==
-                                   g_order as u16 {
+                            if g.stretch_order() ==
+                                   g_order {
                                 cur_glue +=
-                                    *GLUE_SPEC_stretch(g) as f64;
-                                cur_g = tex_round((*BOX_glue_set(this_box) *
+                                    g.stretch() as f64;
+                                cur_g = tex_round((this_box.glue_set() *
                                         cur_glue).min(1_000_000_000.).max(-1_000_000_000.));
                             }
-                        } else if *GLUE_SPEC_shrink_order(g) ==
-                                      g_order as u16 {
+                        } else if g.shrink_order() ==
+                                      g_order {
                             cur_glue -=
-                                *GLUE_SPEC_shrink(g) as
+                                g.shrink() as
                                     f64;
-                            cur_g = tex_round((*BOX_glue_set(this_box) *
+                            cur_g = tex_round((this_box.glue_set() *
                                     cur_glue).min(1_000_000_000.).max(-1_000_000_000.));
                         }
                     }
@@ -919,47 +906,44 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                     /*1486: "Handle a glue node for mixed direction typesetting". */
 
                     if g_sign == GlueSign::Stretching &&
-                           *GLUE_SPEC_stretch_order(g) == g_order as u16
+                           g.stretch_order() == g_order
                            ||
                            g_sign == GlueSign::Shrinking &&
-                               *GLUE_SPEC_shrink_order(g) ==
-                                   g_order as u16 {
-                        if GLUE_SPEC_ref_count(g).opt().is_none() {
-                            free_node(g,
+                               g.shrink_order() ==
+                                   g_order {
+                        if g.rc().opt().is_none() {
+                            free_node(g.ptr(),
                                       GLUE_SPEC_SIZE);
                         } else {
-                            *GLUE_SPEC_ref_count(g) -= 1;
+                            g.rc_dec();
                         }
-                        if MEM[p].b16.s0 < A_LEADERS { // NODE_subtype(p)
-                            set_NODE_type(p, TextNode::Kern);
-                            *GLUE_SPEC_size(p)
-                                = rule_wd;
+                        if p.param() < A_LEADERS {
+                            set_NODE_type(p.ptr(), TextNode::Kern);
+                            Kern(p.ptr()).set_width(rule_wd);
                         } else {
-                            let g = get_node(GLUE_SPEC_SIZE);
-                            *GLUE_SPEC_stretch_order(g) =
-                                GlueOrder::Incorrect as u16; /* "will never match" */
-                            *GLUE_SPEC_shrink_order(g) =
-                                GlueOrder::Incorrect as u16;
-                            *GLUE_SPEC_size(g) = rule_wd;
-                            *GLUE_SPEC_stretch(g) = 0;
-                            *GLUE_SPEC_shrink(g) = 0;
-                            *GLUE_NODE_glue_ptr(p) = g as i32;
+                            let mut g = GlueSpec(get_node(GLUE_SPEC_SIZE));
+                            g.set_stretch_order(GlueOrder::Incorrect) /* "will never match" */
+                            .set_shrink_order(GlueOrder::Incorrect)
+                            .set_size(rule_wd)
+                            .set_stretch(0)
+                            .set_shrink(0);
+                            p.set_glue_ptr(g.ptr() as i32);
                         }
                     }
-                    if MEM[p as usize].b16.s0
-                           >= A_LEADERS { // NODE_subtype(p)
+                    if p.param() >= A_LEADERS {
                         /*648: "Output leaders into an hlist, goto fin_rule if a
                          * rule or next_p if done." */
-                        let leader_box = *GLUE_NODE_leader_ptr(p); /* "compensate for floating-point rounding" ?? */
+                        let leader_box = p.leader_ptr(); /* "compensate for floating-point rounding" ?? */
                         if NODE_type(leader_box as usize) == TextNode::Rule.into() {
-                            rule_ht = *BOX_height(leader_box as usize);
-                            rule_dp = *BOX_depth(leader_box as usize);
+                            let lb = Rule::from(leader_box as usize);
+                            rule_ht = lb.height();
+                            rule_dp = lb.depth();
                             /*646: "Output a rule in an hlist" */
                             if rule_ht == NULL_FLAG {
-                                rule_ht = *BOX_height(this_box);
+                                rule_ht = this_box.height();
                             }
                             if rule_dp == NULL_FLAG {
-                                rule_dp = *BOX_depth(this_box);
+                                rule_dp = this_box.depth();
                             }
                             rule_ht += rule_dp;
                             if rule_ht > 0 && rule_wd > 0 {
@@ -979,7 +963,8 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                 dvi_h += rule_wd;
                             }
                         } else {
-                            let leader_wd = *BOX_width(leader_box as usize);
+                            let mut lb = List::from(leader_box as usize);
+                            let leader_wd = lb.width();
                             if leader_wd > 0 && rule_wd > 0 {
                                 rule_wd += 10;
                                 if cur_dir == LR::RightToLeft {
@@ -991,8 +976,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                  * and set leader_wd + lx to the spacing between
                                  * corresponding parts of boxes". Additional
                                  * explanator comments in XTTP. */
-                                if MEM[p as usize].b16.s0 == A_LEADERS {
-                                    // NODE_subtype(p)
+                                if p.param() == A_LEADERS {
                                     let save_h = cur_h;
                                     cur_h = left_edge + leader_wd * ((cur_h - left_edge) / leader_wd);
                                     if cur_h < save_h {
@@ -1001,8 +985,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                 } else {
                                     let lq = rule_wd / leader_wd;
                                     let lr = rule_wd % leader_wd;
-                                    if MEM[p].b16.s0 == C_LEADERS {
-                                        // NODE_subtype(p)
+                                    if p.param() == C_LEADERS {
                                         cur_h = cur_h + lr / 2;
                                     } else {
                                         lx = lr / (lq + 1);
@@ -1012,7 +995,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
 
                                 while cur_h + leader_wd <= edge {
                                     /*650: "Output a leader box at cur_h, then advance cur_h by leader_wd + lx" */
-                                    cur_v = base_line + *BOX_shift_amount(leader_box as usize);
+                                    cur_v = base_line + lb.shift_amount();
                                     if cur_v != dvi_v {
                                         movement(cur_v - dvi_v, DOWN1);
                                         dvi_v = cur_v
@@ -1023,16 +1006,15 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                         dvi_h = cur_h
                                     }
                                     let save_h = dvi_h;
-                                    let tmp_ptr = leader_box as usize;
                                     if cur_dir == LR::RightToLeft {
                                         cur_h += leader_wd;
                                     }
                                     let outer_doing_leaders = doing_leaders;
                                     doing_leaders = true;
                                     if NODE_type(leader_box as usize) == TextNode::VList.into() {
-                                        vlist_out(tmp_ptr);
+                                        vlist_out(&lb);
                                     } else {
-                                        hlist_out(tmp_ptr);
+                                        hlist_out(&mut lb);
                                     }
                                     doing_leaders = outer_doing_leaders;
                                     dvi_v = save_v;
@@ -1046,8 +1028,8 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                                 } else {
                                     cur_h = edge - 10;
                                 }
-                                prev_p = p;
-                                popt = LLIST_link(p).opt();
+                                prev_p = p.ptr();
+                                popt = llist_link(p.ptr());
                                 continue;
                             }
                         }
@@ -1055,28 +1037,31 @@ unsafe fn hlist_out(tmp_ptr: usize) {
 
                     /* ... resuming 644 ... */
                     cur_h += rule_wd; /* end GLUE_NODE case */
-                    synctex_horizontal_rule_or_glue(p, this_box);
+                    synctex_horizontal_rule_or_glue(p.ptr(), this_box.ptr());
                 }
                 TextNode::MarginKern => {
+                    let p = MarginKern(p);
                     cur_h +=
-                        *BOX_width(p);
+                        p.width();
                 }
                 TextNode::Kern => {
-                    synctex_kern(p, this_box);
+                    let p = Kern(p);
+                    synctex_kern(p.ptr(), this_box.ptr());
                     cur_h +=
-                        *BOX_width(p);
+                        p.width();
                 }
                 TextNode::Math => {
-                    synctex_math(p, this_box);
+                    let p = Math(p);
+                    synctex_math(p.ptr(), this_box.ptr());
                     /* 1504: "Adjust the LR stack...; if necessary reverse and
                      * hlist segment and goto reswitch." "Breaking a paragraph
                      * into lines while TeXXeT is disabled may result in lines
                      * with unpaired math nodes. Such hlists are silently accepted
                      * in the absence of text direction directives." */
-                    let (be, mode) = MathNST::from(MEM[p].b16.s0).equ();
-                    if be == BE::End { // odd(NODE_subtype(p))
+                    let (be, mode) = p.subtype().equ();
+                    if be == BE::End {
                         /* <= this is end_LR(p) */
-                        if MathNST::from(MEM[LR_ptr as usize].b32.s0 as u16) == MathNST::Eq(BE::End, mode)
+                        if Math(LR_ptr as usize).subtype_i32() == MathType::Eq(BE::End, mode)
                            {
                             let tmp_ptr = LR_ptr as usize;
                             LR_ptr =
@@ -1084,77 +1069,80 @@ unsafe fn hlist_out(tmp_ptr: usize) {
                             *LLIST_link(tmp_ptr) =
                                 avail.tex_int();
                             avail = Some(tmp_ptr);
-                        } else if mode != MathMode::Middle { // NODE_subtype(p)
+                        } else if mode != MathMode::Middle {
                             LR_problems += 1;
                         }
                     } else {
-                        let tmp_ptr = get_avail();
-                        *LLIST_info(tmp_ptr) = u16::from(MathNST::Eq(BE::End, mode)) as i32;
-                        *LLIST_link(tmp_ptr) =
+                        let mut tmp_ptr = Math(get_avail());
+                        tmp_ptr.set_subtype_i32(MathType::Eq(BE::End, mode));
+                        *LLIST_link(tmp_ptr.ptr()) =
                             LR_ptr;
-                        LR_ptr = Some(tmp_ptr).tex_int();
-                        if MathNST::from(MEM[p].b16.s0).dir() !=
+                        LR_ptr = Some(tmp_ptr.ptr()).tex_int();
+                        if p.dir() !=
                                  cur_dir {
                             /*1509: "Reverse an hlist segment and goto reswitch" */
-                            let save_h = cur_h; /* = lig_char(p) */
-                            let tmp_ptr = LLIST_link(p).opt().unwrap();
+                            let save_h = cur_h; /* = char(p) */
+                            let tmp_ptr = llist_link(p.ptr()).unwrap();
                             rule_wd =
-                                *BOX_width(p);
-                            free_node(p, MEDIUM_NODE_SIZE);
+                                p.width();
+                            p.free();
                             cur_dir = !cur_dir;
-                            p = new_edge(cur_dir, rule_wd);
-                            *LLIST_link(prev_p) = Some(p).tex_int();
+                            let mut p = Edge(new_edge(cur_dir, rule_wd));
+                            *LLIST_link(prev_p) = Some(p.ptr()).tex_int();
                             cur_h = cur_h - left_edge + rule_wd;
-                            *LLIST_link(p) =
+                            *LLIST_link(p.ptr()) =
                                 reverse(this_box, tmp_ptr,
                                         Some(new_edge(!cur_dir, 0)),
                                         &mut cur_g, &mut cur_glue);
-                            *EDGE_NODE_edge_dist(p) =
-                                cur_h;
+                            p.set_edge_dist(cur_h);
                             cur_dir = !cur_dir;
                             cur_h = save_h;
-                            popt = Some(p);
+                            popt = Some(p.ptr());
                             continue;
                         }
                     }
 
-                    set_NODE_type(p, TextNode::Kern);
-                    cur_h += *BOX_width(p);
+                    set_NODE_type(p.ptr(), TextNode::Kern);
+                    let p = Kern(p.ptr());
+                    cur_h += p.width();
                 }
                 TextNode::Ligature => {
+                    let l = Ligature(p);
                     /* 675: "Make node p look like a char_node and goto reswitch" */
-                    *CHAR_NODE_character(LIG_TRICK) = *LIGATURE_NODE_lig_char(p);
-                    *CHAR_NODE_font(LIG_TRICK) = *LIGATURE_NODE_lig_font(p);
-                    *LLIST_link(LIG_TRICK) = *LLIST_link(p);
+                    let mut c = Char(LIG_TRICK);
+                    c.set_character(l.char());
+                    c.set_font(l.font());
+                    *LLIST_link(LIG_TRICK) = *LLIST_link(l.ptr());
                     popt = Some(LIG_TRICK);
                     xtx_ligature_present = true;
                     continue;
                 }
                 EDGE_NODE => {
+                    let p = Edge(p);
                     /*1507: "Cases of hlist_out that arise in mixed direction text only" */
                     cur_h +=
-                        *BOX_width(p);
+                        p.width();
                     left_edge =
                         cur_h +
-                            *EDGE_NODE_edge_dist(p as usize);
-                    cur_dir = LR::n(MEM[p as usize].b16.s0).unwrap();
+                            p.edge_dist();
+                    cur_dir = p.lr();
                 }
                 _ => {  }
             }
             // next_p
             prev_p = p;
-            popt = LLIST_link(p).opt();
+            popt = llist_link(p);
         }
 
     }
 
-    synctex_tsilh(this_box);
+    synctex_tsilh(this_box.ptr());
 
     /*1502: "Finish hlist_out for mixed direction typesetting" */
     /*1505: "Check for LR anomalies" */
-    while MathNST::from(*LLIST_info(LR_ptr as usize) as u16) != MathNST::Before {
-        match MathNST::from(*LLIST_info(LR_ptr as usize) as u16) {
-            MathNST::Eq(_, MathMode::Left) | MathNST::Eq(_, MathMode::Right) => {
+    while Math(LR_ptr as usize).subtype_i32() != MathType::Before {
+        match Math(LR_ptr as usize).subtype_i32() {
+            MathType::Eq(_, MathMode::Left) | MathType::Eq(_, MathMode::Right) => {
                 // LLIST_info(LR_ptr)
                 LR_problems += 10000;
             }
@@ -1171,7 +1159,7 @@ unsafe fn hlist_out(tmp_ptr: usize) {
     *LLIST_link(tmp_ptr) = avail.tex_int();
     avail = Some(tmp_ptr);
 
-    if BOX_lr_mode(this_box) == LRMode::DList {
+    if this_box.lr_mode() == LRMode::DList {
         cur_dir = LR::RightToLeft;
     }
 
@@ -1187,14 +1175,13 @@ unsafe fn hlist_out(tmp_ptr: usize) {
 /*651: "When vlist_out is called, its duty is to output the box represented by
  * the vlist_node pointed to by tmp_ptr. The reference point of that box has
  * coordinates (cur_h, cur_v)." */
-unsafe fn vlist_out(tmp_ptr: usize) {
+unsafe fn vlist_out(this_box: &List) {
     let mut cur_g = 0;
     let mut cur_glue = 0_f64;
-    let this_box = tmp_ptr;
-    let g_order = GlueOrder::from(*BOX_glue_order(this_box));
-    let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
-    let mut popt = BOX_list_ptr(this_box).opt();
-    let upwards = BOX_lr_mode(this_box) == LRMode::Reversed; // NODE_subtype(this_box)
+    let g_order = this_box.glue_order();
+    let g_sign = this_box.glue_sign();
+    let mut popt = this_box.list_ptr().opt();
+    let upwards = this_box.lr_mode() == LRMode::Reversed;
 
     cur_s += 1;
     if cur_s > 0 {
@@ -1210,9 +1197,9 @@ unsafe fn vlist_out(tmp_ptr: usize) {
     synctex_vlist(this_box);
 
     if upwards {
-        cur_v += *BOX_depth(this_box);
+        cur_v += this_box.depth();
     } else {
-        cur_v -= *BOX_height(this_box);
+        cur_v -= this_box.height();
     }
 
     let top_edge = cur_v;
@@ -1221,34 +1208,35 @@ unsafe fn vlist_out(tmp_ptr: usize) {
         /*652: "Output node p and move to the next node, maintaining the
          * condition cur_h = left_edge" */
         if is_char_node(Some(p)) {
-            confusion(b"vlistout");
+            confusion("vlistout");
         }
         /*653: "Output the non-char_node p" */
         let n = text_NODE_type(p).unwrap();
         match n {
             TextNode::HList | TextNode::VList => {
+                let mut p = List::from(p);
                 /*654: "Output a box in a vlist" */
-                if BOX_list_ptr(p).opt().is_none() {
+                if p.list_ptr().opt().is_none() {
                     if upwards {
-                        cur_v -= *BOX_depth(p);
+                        cur_v -= p.depth();
                     } else {
-                        cur_v += *BOX_height(p);
+                        cur_v += p.height();
                     }
                     if n == TextNode::VList {
-                        synctex_void_vlist(p, this_box);
+                        synctex_void_vlist(&p, this_box);
                     } else {
-                        synctex_void_hlist(p, this_box);
+                        synctex_void_hlist(&p, this_box);
                     }
                     if upwards {
-                        cur_v -= *BOX_height(p);
+                        cur_v -= p.height();
                     } else {
-                        cur_v += *BOX_depth(p);
+                        cur_v += p.depth();
                     }
                 } else {
                     if upwards {
-                        cur_v -= *BOX_depth(p);
+                        cur_v -= p.depth();
                     } else {
-                        cur_v += *BOX_height(p);
+                        cur_v += p.height();
                     }
                     if cur_v != dvi_v {
                         movement(cur_v - dvi_v, DOWN1);
@@ -1257,34 +1245,34 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                     let save_h = dvi_h;
                     let save_v = dvi_v;
                     if cur_dir == LR::RightToLeft {
-                        cur_h = left_edge - *BOX_shift_amount(p);
+                        cur_h = left_edge - p.shift_amount();
                     } else {
-                        cur_h = left_edge + *BOX_shift_amount(p);
+                        cur_h = left_edge + p.shift_amount();
                     }
-                    let tmp_ptr = p;
                     if n == TextNode::VList {
-                        vlist_out(tmp_ptr);
+                        vlist_out(&p);
                     } else {
-                        hlist_out(tmp_ptr);
+                        hlist_out(&mut p);
                     }
                     dvi_h = save_h;
                     dvi_v = save_v;
                     if upwards {
-                        cur_v = save_v - *BOX_height(p);
+                        cur_v = save_v - p.height();
                     } else {
-                        cur_v = save_v + *BOX_depth(p);
+                        cur_v = save_v + p.depth();
                     }
                     cur_h = left_edge
                 }
             }
             TextNode::Rule => {
-                rule_ht = *BOX_height(p);
-                rule_dp = *BOX_depth(p);
-                rule_wd = *BOX_width(p);
+                let r = Rule::from(p);
+                rule_ht = r.height();
+                rule_dp = r.depth();
+                rule_wd = r.width();
                 // 655: "Output a rule in a vlist, goto next_p
 
                 if rule_wd == NULL_FLAG {
-                    rule_wd = *BOX_width(this_box);
+                    rule_wd = this_box.width();
                 }
 
                 rule_ht += rule_dp;
@@ -1315,9 +1303,9 @@ unsafe fn vlist_out(tmp_ptr: usize) {
             }
             TextNode::WhatsIt => {
                 /*1403: "Output the whatsit node p in a vlist" */
-                match whatsit_NODE_subtype(p) {
-                    WhatsItNST::Glyph => {
-                        cur_v = cur_v + *BOX_height(p);
+                match WhatsIt::from(p) {
+                    WhatsIt::Glyph(g) => {
+                        cur_v = cur_v + g.height();
                         cur_h = left_edge;
                         if cur_h != dvi_h {
                             movement(cur_h - dvi_h, RIGHT1);
@@ -1327,7 +1315,7 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                             movement(cur_v - dvi_v, DOWN1);
                             dvi_v = cur_v
                         }
-                        let f = *NATIVE_NODE_font(p) as usize;
+                        let f = g.font() as usize;
                         if f != dvi_f {
                             /*643:*/
                             if !font_used[f] {
@@ -1351,22 +1339,22 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                         dvi_two(1 as UTF16_code); /* glyph count */
                         dvi_four(0); /* x offset as fixed-point */
                         dvi_four(0); /* y offset as fixed-point */
-                        dvi_two(*NATIVE_NODE_glyph(p));
+                        dvi_two(g.glyph());
 
-                        cur_v += *BOX_depth(p);
+                        cur_v += g.depth();
                         cur_h = left_edge;
                     }
-                    WhatsItNST::Pic | WhatsItNST::Pdf => {
+                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                         let save_h = dvi_h;
                         let save_v = dvi_v;
-                        cur_v = cur_v + *BOX_height(p);
-                        pic_out(p);
+                        cur_v = cur_v + p.height();
+                        pic_out(&p);
                         dvi_h = save_h;
                         dvi_v = save_v;
-                        cur_v = save_v + *BOX_depth(p);
+                        cur_v = save_v + p.depth();
                         cur_h = left_edge;
                     }
-                    WhatsItNST::PdfSavePos => {
+                    WhatsIt::PdfSavePos(_) => {
                         pdf_last_x_pos = cur_h + cur_h_offset;
                         pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
                     }
@@ -1374,24 +1362,25 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                 }
             }
             TextNode::Glue => {
+                let p = Glue(p);
                 /*656: "Move down or output leaders" */
-                let g = *GLUE_NODE_glue_ptr(p) as usize;
-                rule_ht = *GLUE_SPEC_size(g) - cur_g;
+                let g = GlueSpec(p.glue_ptr() as usize);
+                rule_ht = g.size() - cur_g;
 
                 if g_sign != GlueSign::Normal {
                     if g_sign == GlueSign::Stretching {
-                        if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
-                            cur_glue += *GLUE_SPEC_stretch(g) as f64;
+                        if g.stretch_order() == g_order {
+                            cur_glue += g.stretch() as f64;
                             cur_g = tex_round(
-                                (*BOX_glue_set(this_box) * cur_glue)
+                                (this_box.glue_set() * cur_glue)
                                     .min(1_000_000_000.)
                                     .max(-1_000_000_000.),
                             )
                         }
-                    } else if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
-                        cur_glue -= *GLUE_SPEC_shrink(g) as f64;
+                    } else if g.shrink_order() == g_order {
+                        cur_glue -= g.shrink() as f64;
                         cur_g = tex_round(
-                            (*BOX_glue_set(this_box) * cur_glue)
+                            (this_box.glue_set() * cur_glue)
                                 .min(1_000_000_000.)
                                 .max(-1_000_000_000.),
                         )
@@ -1400,19 +1389,18 @@ unsafe fn vlist_out(tmp_ptr: usize) {
 
                 rule_ht += cur_g;
 
-                if MEM[p].b16.s0 >= A_LEADERS {
-                    // NODE_subtype(p)
+                if p.param() >= A_LEADERS {
                     /*657: "Output leaders in a vlist, goto fin_rule if a rule
                      * or next_p if done" */
-                    let leader_box = *GLUE_NODE_leader_ptr(p) as usize; /* "compensate for floating-point rounding" */
+                    let leader_box = p.leader_ptr() as usize; /* "compensate for floating-point rounding" */
 
                     if NODE_type(leader_box) == TextNode::Rule.into() {
-                        rule_wd = *BOX_width(leader_box);
+                        rule_wd = Rule::from(leader_box).width();
                         rule_dp = 0;
                         // 655: "Output a rule in a vlist, goto next_p
 
                         if rule_wd == NULL_FLAG {
-                            rule_wd = *BOX_width(this_box);
+                            rule_wd = this_box.width();
                         }
 
                         rule_ht += rule_dp;
@@ -1440,10 +1428,11 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                             dvi_four(rule_wd);
                             cur_h = left_edge;
                         }
-                        popt = LLIST_link(p).opt();
+                        popt = llist_link(p.ptr());
                         continue;
                     } else {
-                        let leader_ht = *BOX_height(leader_box) + *BOX_depth(leader_box);
+                        let mut lb = List::from(leader_box);
+                        let leader_ht = lb.height() + lb.depth();
                         if leader_ht > 0i32 && rule_ht > 0i32 {
                             rule_ht += 10i32;
                             let edge = cur_v + rule_ht;
@@ -1451,8 +1440,7 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                             /*658: "Let cur_v be the position of the first box,
                              * and set leader_ht + lx to the spacing between
                              * corresponding parts of boxes" */
-                            if MEM[p].b16.s0 == A_LEADERS {
-                                // NODE_subtype(p)
+                            if p.param() == A_LEADERS {
                                 let save_v = cur_v;
                                 cur_v = top_edge + leader_ht * ((cur_v - top_edge) / leader_ht);
                                 if cur_v < save_v {
@@ -1461,7 +1449,7 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                             } else {
                                 let lq = rule_ht / leader_ht;
                                 let lr = rule_ht % leader_ht;
-                                if MEM[p].b16.s0 == C_LEADERS {
+                                if p.param() == C_LEADERS {
                                     cur_v = cur_v + lr / 2;
                                 } else {
                                     lx = lr / (lq + 1);
@@ -1475,9 +1463,9 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                                  * part of the program, cur_v indicates the top of
                                  * a leader box, not its baseline." */
                                 if cur_dir == LR::RightToLeft {
-                                    cur_h = left_edge - *BOX_shift_amount(leader_box);
+                                    cur_h = left_edge - lb.shift_amount();
                                 } else {
-                                    cur_h = left_edge + *BOX_shift_amount(leader_box);
+                                    cur_h = left_edge + lb.shift_amount();
                                 }
                                 if cur_h != dvi_h {
                                     movement(cur_h - dvi_h, RIGHT1);
@@ -1485,7 +1473,7 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                                 }
 
                                 let save_h = dvi_h;
-                                cur_v += *BOX_height(leader_box);
+                                cur_v += lb.height();
 
                                 if cur_v != dvi_v {
                                     movement(cur_v - dvi_v, DOWN1);
@@ -1493,24 +1481,23 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                                 }
 
                                 let save_v = dvi_v;
-                                let tmp_ptr = leader_box;
                                 let outer_doing_leaders = doing_leaders;
                                 doing_leaders = true;
 
                                 if NODE_type(leader_box) == TextNode::VList.into() {
-                                    vlist_out(tmp_ptr);
+                                    vlist_out(&lb);
                                 } else {
-                                    hlist_out(tmp_ptr);
+                                    hlist_out(&mut lb);
                                 }
 
                                 doing_leaders = outer_doing_leaders;
                                 dvi_v = save_v;
                                 dvi_h = save_h;
                                 cur_h = left_edge;
-                                cur_v = save_v - *BOX_height(leader_box) + leader_ht + lx
+                                cur_v = save_v - lb.height() + leader_ht + lx
                             }
                             cur_v = edge - 10;
-                            popt = LLIST_link(p).opt();
+                            popt = llist_link(p.ptr());
                             continue;
                         }
                     }
@@ -1522,18 +1509,19 @@ unsafe fn vlist_out(tmp_ptr: usize) {
                 }
             }
             TextNode::Kern => {
+                let k = Kern(p);
                 if upwards {
-                    cur_v -= *BOX_width(p);
+                    cur_v -= k.width();
                 } else {
-                    cur_v += *BOX_width(p);
+                    cur_v += k.width();
                 }
             }
             _ => {}
         }
 
-        popt = LLIST_link(p).opt();
+        popt = llist_link(p);
     }
-    synctex_tsilv(this_box);
+    synctex_tsilv(this_box.ptr());
     prune_movements(save_loc);
     if cur_s > 0 {
         dvi_pop(save_loc);
@@ -1549,14 +1537,14 @@ unsafe fn vlist_out(tmp_ptr: usize) {
  * nodes from the original list and add them to the head of the new one."
  */
 unsafe fn reverse(
-    this_box: usize,
+    this_box: &List,
     tmp_ptr: usize,
     mut t: Option<usize>,
     mut cur_g: *mut scaled_t,
     mut cur_glue: *mut f64,
 ) -> i32 {
-    let g_order = GlueOrder::from(*BOX_glue_order(this_box));
-    let g_sign = GlueSign::from(*BOX_glue_sign(this_box));
+    let g_order = this_box.glue_order();
+    let g_sign = this_box.glue_sign();
     let mut l = t;
     let mut popt = Some(tmp_ptr);
     let mut m = MIN_HALFWORD;
@@ -1568,15 +1556,16 @@ unsafe fn reverse(
              * reached." */
             if is_char_node(Some(p)) {
                 loop {
-                    let f = *CHAR_NODE_font(p) as usize;
-                    let c = *CHAR_NODE_character(p);
+                    let chr = Char(p);
+                    let f = chr.font() as usize;
+                    let c = chr.character();
                     cur_h += FONT_INFO[(WIDTH_BASE[f]
                         + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize]
                             .b16
                             .s3 as i32) as usize]
                         .b32
                         .s1;
-                    popt = LLIST_link(p).opt();
+                    popt = llist_link(p);
                     *LLIST_link(p) = l.tex_int();
                     l = Some(p);
                     if !is_char_node(popt) {
@@ -1589,41 +1578,53 @@ unsafe fn reverse(
                 let mut add_rule = true;
                 let q = *LLIST_link(p);
                 match text_NODE_type(p).unwrap() {
-                    TextNode::HList | TextNode::VList | TextNode::Rule | TextNode::Kern => {
-                        rule_wd = *BOX_width(p);
+                    TextNode::HList | TextNode::VList => {
+                        let p = List::from(p);
+                        rule_wd = p.width();
                     }
-                    TextNode::WhatsIt => match whatsit_NODE_subtype(p) {
-                        WhatsItNST::NativeWord
-                        | WhatsItNST::NativeWordAt
-                        | WhatsItNST::Glyph
-                        | WhatsItNST::Pic
-                        | WhatsItNST::Pdf => {
-                            rule_wd = *BOX_width(p);
+                    TextNode::Rule => {
+                        let p = Rule::from(p);
+                        rule_wd = p.width();
+                    }
+                    TextNode::Kern => {
+                        let p = Kern(p);
+                        rule_wd = p.width();
+                    }
+                    TextNode::WhatsIt => match WhatsIt::from(p) {
+                        WhatsIt::NativeWord(p) => {
+                            rule_wd = p.width();
+                        }
+                        WhatsIt::Glyph(p) => {
+                            rule_wd = p.width();
+                        }
+                        WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                            rule_wd = p.width();
                         }
                         _ => add_rule = false,
                     },
                     TextNode::Glue => {
+                        let mut p = Glue(p);
                         /*1486: "Handle a glue node for mixed direction typesetting" */
-                        let g = *GLUE_NODE_glue_ptr(p) as usize; /* "will never match" */
-                        rule_wd = *BOX_width(g) - *cur_g; /* = mem[lig_char(tmp_ptr)] */
+                        let mut g = GlueSpec(p.glue_ptr() as usize); /* "will never match" */
+                        rule_wd = g.size() - *cur_g; /* = mem[char(tmp_ptr)] */
 
                         match g_sign {
                             GlueSign::Normal => {}
                             GlueSign::Stretching => {
-                                if *GLUE_SPEC_stretch_order(g) == g_order as u16 {
-                                    *cur_glue = *cur_glue + *GLUE_SPEC_stretch(g) as f64;
+                                if g.stretch_order() == g_order {
+                                    *cur_glue = *cur_glue + g.stretch() as f64;
                                     *cur_g = tex_round(
-                                        (*BOX_glue_set(this_box) * *cur_glue)
+                                        (this_box.glue_set() * *cur_glue)
                                             .min(1_000_000_000.)
                                             .max(-1_000_000_000.),
                                     );
                                 }
                             }
                             GlueSign::Shrinking => {
-                                if *GLUE_SPEC_shrink_order(g) == g_order as u16 {
-                                    *cur_glue = *cur_glue - *GLUE_SPEC_shrink(g) as f64;
+                                if g.shrink_order() == g_order {
+                                    *cur_glue = *cur_glue - g.shrink() as f64;
                                     *cur_g = tex_round(
-                                        (*BOX_glue_set(this_box) * *cur_glue)
+                                        (this_box.glue_set() * *cur_glue)
                                             .min(1_000_000_000.)
                                             .max(-1_000_000_000.),
                                     );
@@ -1633,52 +1634,52 @@ unsafe fn reverse(
 
                         rule_wd += *cur_g;
 
-                        if g_sign == GlueSign::Stretching
-                            && *GLUE_SPEC_stretch_order(g) == g_order as u16
-                            || g_sign == GlueSign::Shrinking
-                                && *GLUE_SPEC_shrink_order(g) == g_order as u16
+                        if g_sign == GlueSign::Stretching && g.stretch_order() == g_order
+                            || g_sign == GlueSign::Shrinking && g.shrink_order() == g_order
                         {
-                            if GLUE_SPEC_ref_count(g).opt().is_none() {
-                                free_node(g, GLUE_SPEC_SIZE);
+                            if g.rc().opt().is_none() {
+                                free_node(g.ptr(), GLUE_SPEC_SIZE);
                             } else {
-                                *GLUE_SPEC_ref_count(g) -= 1;
+                                g.rc_dec();
                             }
-                            if MEM[p].b16.s0 < A_LEADERS {
-                                // NODE_subtype(p)
-                                set_NODE_type(p, TextNode::Kern);
-                                *BOX_width(p) = rule_wd;
+                            if p.param() < A_LEADERS {
+                                set_NODE_type(p.ptr(), TextNode::Kern);
+                                let mut k = Kern(p.ptr());
+                                k.set_width(rule_wd);
                             } else {
-                                let g = get_node(GLUE_SPEC_SIZE);
-                                *GLUE_SPEC_stretch_order(g) = GlueOrder::Incorrect as u16;
-                                *GLUE_SPEC_shrink_order(g) = GlueOrder::Incorrect as u16;
-                                *GLUE_SPEC_size(g) = rule_wd;
-                                *GLUE_SPEC_stretch(g) = 0;
-                                *GLUE_SPEC_shrink(g) = 0;
-                                *GLUE_NODE_glue_ptr(p) = g as i32;
+                                let mut g = GlueSpec(get_node(GLUE_SPEC_SIZE));
+                                g.set_stretch_order(GlueOrder::Incorrect)
+                                    .set_shrink_order(GlueOrder::Incorrect)
+                                    .set_size(rule_wd)
+                                    .set_stretch(0)
+                                    .set_shrink(0);
+                                p.set_glue_ptr(g.ptr() as i32);
                             }
                         }
                     }
                     TextNode::Ligature => {
-                        flush_node_list(LIGATURE_NODE_lig_ptr(p).opt());
-                        let tmp_ptr = p;
-                        let p = get_avail();
-                        *LIGATURE_NODE_lig_char(p) = *LIGATURE_NODE_lig_char(tmp_ptr);
-                        *LIGATURE_NODE_lig_font(p) = *LIGATURE_NODE_lig_font(tmp_ptr);
-                        *LIGATURE_NODE_lig_ptr(p) = *LIGATURE_NODE_lig_ptr(tmp_ptr);
-                        *LLIST_link(p) = q;
-                        popt = Some(p);
-                        free_node(tmp_ptr, SMALL_NODE_SIZE);
+                        let tmp_ptr = Ligature(p);
+                        flush_node_list(tmp_ptr.lig_ptr().opt());
+                        let mut p = Ligature(get_avail());
+                        p.set_char(tmp_ptr.char())
+                            .set_font(tmp_ptr.font())
+                            .set_lig_ptr(tmp_ptr.lig_ptr());
+                        *LLIST_link(p.ptr()) = q;
+                        popt = Some(p.ptr());
+                        tmp_ptr.free();
                         continue;
                     }
                     TextNode::Math => {
+                        let mut p = Math(p);
                         /*1516: "Math nodes in an inner reflected segment are
                          * modified, those at the outer level are changed into
                          * kern nodes." */
-                        rule_wd = *BOX_width(p);
+                        rule_wd = p.width();
 
-                        if (BOX_lr_mode(p) as u16) & 1 != 0 {
-                            if *LLIST_info(LR_ptr as usize) != 4 * (MEM[p].b16.s0 as i32 / 4) + 3 {
-                                set_NODE_type(p, TextNode::Kern);
+                        let (be, mode) = p.subtype().equ();
+                        if be == BE::End {
+                            if Math(LR_ptr as usize).subtype_i32() != MathType::Eq(BE::End, mode) {
+                                set_NODE_type(p.ptr(), TextNode::Kern);
                                 LR_problems += 1;
                             } else {
                                 let tmp_ptr = LR_ptr as usize;
@@ -1688,37 +1689,46 @@ unsafe fn reverse(
 
                                 if n > MIN_HALFWORD {
                                     n -= 1;
-                                    MEM[p].b16.s0 -= 1; // NODE_subtype(p)
+                                    p.set_subtype(match p.subtype() {
+                                        MathType::After => MathType::Before,
+                                        MathType::Eq(BE::End, mode) => {
+                                            MathType::Eq(BE::Begin, mode)
+                                        }
+                                        _ => unreachable!(),
+                                    });
                                 } else {
-                                    set_NODE_type(p, TextNode::Kern);
                                     if m > MIN_HALFWORD {
+                                        set_NODE_type(p.ptr(), TextNode::Kern);
                                         m -= 1
                                     } else {
                                         /*1517: "Finish the reverse hlist segment and goto done" */
-                                        free_node(p, MEDIUM_NODE_SIZE); /* end GLUE_NODE case */
-                                        let t = t.unwrap();
-                                        *LLIST_link(t) = q;
-                                        *BOX_width(t) = rule_wd;
-                                        *EDGE_NODE_edge_dist(t) = -cur_h - rule_wd;
+                                        p.free(); /* end GLUE_NODE case */
+                                        let mut t = Edge(t.unwrap());
+                                        *LLIST_link(t.ptr()) = q;
+                                        t.set_width(rule_wd).set_edge_dist(-cur_h - rule_wd);
                                         break 's_58;
                                     }
                                 }
                             }
                         } else {
-                            let tmp_ptr = get_avail();
-                            *LLIST_info(tmp_ptr) = 4 * (MEM[p].b16.s0 as i32 / 4) + 3;
-                            *LLIST_link(tmp_ptr) = LR_ptr;
-                            LR_ptr = Some(tmp_ptr).tex_int();
-                            if n > MIN_HALFWORD || MEM[p].b16.s0 / 8 != cur_dir as u16 {
+                            let mut tmp_ptr = Math(get_avail());
+                            tmp_ptr.set_subtype_i32(MathType::Eq(BE::End, mode));
+                            *LLIST_link(tmp_ptr.ptr()) = LR_ptr;
+                            LR_ptr = Some(tmp_ptr.ptr()).tex_int();
+                            if n > MIN_HALFWORD || p.dir() != cur_dir {
                                 n += 1;
-                                MEM[p].b16.s0 += 1; // NODE_subtype(p)
+                                p.set_subtype(match p.subtype() {
+                                    MathType::Before => MathType::After,
+                                    MathType::Eq(BE::Begin, mode) => MathType::Eq(BE::End, mode),
+                                    _ => unreachable!(),
+                                });
                             } else {
-                                set_NODE_type(p, TextNode::Kern);
+                                set_NODE_type(p.ptr(), TextNode::Kern);
                                 m += 1;
                             }
                         }
                     }
-                    EDGE_NODE => confusion(b"LR2"),
+                    EDGE_NODE => confusion("LR2"),
                     _ => add_rule = false,
                 }
 
@@ -1743,10 +1753,7 @@ unsafe fn reverse(
         if t.is_none() && m == MIN_HALFWORD && n == MIN_HALFWORD {
             break; /* "Manufacture a missing math node" */
         }
-        popt = Some(new_math(
-            0,
-            MathNST::from(*LLIST_info(LR_ptr as usize) as u16),
-        ));
+        popt = Some(new_math(0, Math(LR_ptr as usize).subtype_i32()));
         LR_problems += 10000i32
     }
     l.tex_int()
@@ -1754,57 +1761,43 @@ unsafe fn reverse(
 
 /*1506: Create a new edge node of subtype `s` and width `w` */
 pub(crate) unsafe fn new_edge(s: LR, w: scaled_t) -> usize {
-    let p = get_node(EDGE_NODE_SIZE);
-    set_NODE_type(p, EDGE_NODE);
-    MEM[p].b16.s0 = s as u16; // set_NODE_subtype
-    *BOX_width(p) = w;
-    *EDGE_NODE_edge_dist(p) = 0;
-    p
+    let mut p = Edge(get_node(EDGE_NODE_SIZE));
+    set_NODE_type(p.ptr(), EDGE_NODE);
+    p.set_lr(s).set_width(w).set_edge_dist(0);
+    p.ptr()
 }
 
 pub(crate) unsafe fn out_what(p: usize) {
     let mut j: i16;
-    match whatsit_NODE_subtype(p) {
-        WhatsItNST::Open | WhatsItNST::Write | WhatsItNST::Close => {
+    match WhatsIt::from(p) {
+        WhatsIt::Open(p) => {
             if doing_leaders {
                 return;
             }
 
-            j = *FILE_NODE_id(p) as i16;
-            if whatsit_NODE_subtype(p) == WhatsItNST::Write {
-                write_out(p);
-                return;
-            }
+            j = p.id() as i16;
 
             if write_open[j as usize] {
                 ttstub_output_close(write_file[j as usize].take().unwrap());
             }
 
-            if whatsit_NODE_subtype(p) == WhatsItNST::Close {
-                write_open[j as usize] = false;
-                return;
-            }
-
-            /* By this point must be WhatsItNST::Open */
             if j >= 16 {
                 return;
             }
 
-            cur_name = *OPEN_NODE_name(p);
-            cur_area = *OPEN_NODE_area(p);
-            cur_ext = *OPEN_NODE_ext(p);
+            cur_name = p.name();
+            cur_area = p.area();
+            cur_ext = p.ext();
             if length(cur_ext) == 0 {
-                cur_ext = maketexstring(b".tex")
+                cur_ext = maketexstring(".tex")
             }
 
             pack_file_name(cur_name, cur_area, cur_ext);
 
-            write_file[j as usize] = ttstub_output_open(name_of_file, 0);
+            write_file[j as usize] =
+                ttstub_output_open(CString::new(name_of_file.as_str()).unwrap().as_ptr(), 0);
             if write_file[j as usize].is_none() {
-                abort!(
-                    "cannot open output file \"{}\"",
-                    CStr::from_ptr(name_of_file).display()
-                );
+                abort!("cannot open output file \"{}\"", name_of_file);
             }
 
             write_open[j as usize] = true;
@@ -1816,19 +1809,39 @@ pub(crate) unsafe fn out_what(p: usize) {
                 } else {
                     selector = Selector::TERM_AND_LOG
                 }
-                print_nl_cstr(b"\\openout");
+                print_nl_cstr("\\openout");
                 print_int(j as i32);
-                print_cstr(b" = `");
+                print_cstr(" = `");
                 print_file_name(cur_name, cur_area, cur_ext);
-                print_cstr(b"\'.");
-                print_nl_cstr(b"");
+                print_cstr("\'.");
+                print_nl_cstr("");
                 print_ln();
                 selector = old_setting
             }
         }
-        WhatsItNST::Special => special_out(p),
-        WhatsItNST::Language => {}
-        _ => confusion(b"ext4"),
+        WhatsIt::Write(p) => {
+            if doing_leaders {
+                return;
+            }
+            write_out(&p);
+            return;
+        }
+        WhatsIt::Close(p) => {
+            if doing_leaders {
+                return;
+            }
+
+            j = p.id() as i16;
+            if write_open[j as usize] {
+                ttstub_output_close(write_file[j as usize].take().unwrap());
+            }
+
+            write_open[j as usize] = false;
+            return;
+        }
+        WhatsIt::Special(p) => special_out(&p),
+        WhatsIt::Language(_) => {}
+        _ => confusion("ext4"),
     };
 }
 
@@ -1900,7 +1913,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
         right_ptr = Some(q);
     }
 
-    let mut popt = LLIST_link(q).opt();
+    let mut popt = llist_link(q);
     let mut mstate = MoveSeen::None;
 
     loop {
@@ -1961,7 +1974,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
                     _ => {}
                 }
             }
-            popt = LLIST_link(p).opt();
+            popt = llist_link(p);
         } else {
             return not_found(q, o, w);
         }
@@ -1972,7 +1985,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
         MEM[q].b32.s0 = MEM[p].b32.s0; /*634:*/
         if MEM[q].b32.s0 == MoveDir::YHere as i32 {
             dvi_out(o + 4); /* max_selector enum */
-            while LLIST_link(q).opt() != Some(p) {
+            while llist_link(q) != Some(p) {
                 q = *LLIST_link(q) as usize;
 
                 match MoveDir::from(MEM[q].b32.s0) {
@@ -1983,7 +1996,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
             }
         } else {
             dvi_out(o + 9);
-            while LLIST_link(q).opt() != Some(p) {
+            while llist_link(q) != Some(p) {
                 q = *LLIST_link(q) as usize;
 
                 match MoveDir::from(MEM[q].b32.s0) {
@@ -2035,19 +2048,19 @@ unsafe fn prune_movements(l: usize) {
             break;
         }
 
-        down_ptr = LLIST_link(p).opt();
+        down_ptr = llist_link(p);
         free_node(p, MOVEMENT_NODE_SIZE);
     }
     while let Some(p) = right_ptr {
         if MEM[p + 2].b32.s1 < l as i32 {
             return;
         }
-        right_ptr = LLIST_link(p).opt();
+        right_ptr = llist_link(p);
         free_node(p, MOVEMENT_NODE_SIZE);
     }
 }
 
-unsafe fn special_out(p: usize) {
+unsafe fn special_out(p: &Special) {
     if cur_h != dvi_h {
         movement(cur_h - dvi_h, RIGHT1);
         dvi_h = cur_h
@@ -2060,14 +2073,14 @@ unsafe fn special_out(p: usize) {
     let old_setting = selector;
     selector = Selector::NEW_STRING;
     show_token_list(
-        MEM[MEM[p + 1].b32.s1 as usize].b32.s1.opt(),
+        MEM[p.tokens() as usize].b32.s1.opt(),
         None,
         pool_size - pool_ptr,
     );
     selector = old_setting;
 
     if pool_ptr + 1 > pool_size {
-        overflow(b"pool size", (pool_size - init_pool_ptr) as usize);
+        overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
 
     if cur_length() < 256 {
@@ -2087,14 +2100,14 @@ unsafe fn special_out(p: usize) {
     doing_special = false;
 }
 
-unsafe fn write_out(p: usize) {
+unsafe fn write_out(p: &WriteFile) {
     let q = get_avail();
     MEM[q].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
     let mut r = get_avail();
     *LLIST_link(q) = Some(r).tex_int();
     MEM[r].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
     begin_token_list(q, Btl::Inserted);
-    begin_token_list(MEM[p + 1].b32.s1 as usize, Btl::WriteText);
+    begin_token_list(p.tokens() as usize, Btl::WriteText);
     let q = get_avail();
     MEM[q].b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
     begin_token_list(q, Btl::Inserted);
@@ -2110,12 +2123,12 @@ unsafe fn write_out(p: usize) {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
-            print_nl_cstr(b"! ");
+            print_nl_cstr("! ");
         }
-        print_cstr(b"Unbalanced write command");
+        print_cstr("Unbalanced write command");
         help!(
-            b"On this page there\'s a \\write with fewer real {\'s than }\'s.",
-            b"I can\'t handle that very well; good luck."
+            "On this page there\'s a \\write with fewer real {\'s than }\'s.",
+            "I can\'t handle that very well; good luck."
         );
         error();
 
@@ -2130,7 +2143,7 @@ unsafe fn write_out(p: usize) {
     cur_list.mode = old_mode;
     end_token_list();
     let old_setting = selector;
-    let j = *FILE_NODE_id(p) as i16;
+    let j = p.id() as i16;
 
     if j == 18 {
         selector = Selector::NEW_STRING
@@ -2140,7 +2153,7 @@ unsafe fn write_out(p: usize) {
         if j == 17 && (selector == Selector::TERM_AND_LOG) {
             selector = Selector::LOG_ONLY
         }
-        print_nl_cstr(b"");
+        print_nl_cstr("");
     }
 
     token_show(Some(def_ref));
@@ -2157,23 +2170,23 @@ unsafe fn write_out(p: usize) {
             selector = Selector::TERM_ONLY
         }
 
-        print_nl_cstr(b"runsystem(");
+        print_nl_cstr("runsystem(");
         let mut d = 0;
         while d <= cur_length() - 1 {
             print(str_pool[(str_start[(str_ptr - TOO_BIG_CHAR) as usize] + d) as usize] as i32);
             d += 1
         }
-        print_cstr(b")...");
-        print_cstr(b"disabled");
-        print_char('.' as i32);
-        print_nl_cstr(b"");
+        print_cstr(")...");
+        print_cstr("disabled");
+        print_chr('.');
+        print_nl_cstr("");
         print_ln();
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
     }
     selector = old_setting;
 }
 
-unsafe fn pic_out(p: usize) {
+unsafe fn pic_out(p: &Picture) {
     if cur_h != dvi_h {
         movement(cur_h - dvi_h, RIGHT1);
         dvi_h = cur_h
@@ -2186,36 +2199,36 @@ unsafe fn pic_out(p: usize) {
 
     let old_setting = selector;
     selector = Selector::NEW_STRING;
-    print_cstr(b"pdf:image ");
-    print_cstr(b"matrix ");
-    let matrix = PIC_NODE_transform_matrix(p);
-    print_scaled(matrix.0);
+    print_cstr("pdf:image ");
+    print_cstr("matrix ");
+    let matrix = p.transform_matrix();
+    print_scaled(matrix[0]);
     print(' ' as i32);
-    print_scaled(matrix.1);
+    print_scaled(matrix[1]);
     print(' ' as i32);
-    print_scaled(matrix.2);
+    print_scaled(matrix[2]);
     print(' ' as i32);
-    print_scaled(matrix.3);
+    print_scaled(matrix[3]);
     print(' ' as i32);
-    print_scaled(matrix.4);
+    print_scaled(matrix[4]);
     print(' ' as i32);
-    print_scaled(matrix.5);
+    print_scaled(matrix[5]);
     print(' ' as i32);
-    print_cstr(b"page ");
-    print_int(*PIC_NODE_page(p) as i32);
+    print_cstr("page ");
+    print_int(p.page() as i32);
     print(' ' as i32);
 
-    match *PIC_NODE_pagebox(p) {
-        1 => print_cstr(b"pagebox cropbox "),
-        2 => print_cstr(b"pagebox mediabox "),
-        3 => print_cstr(b"pagebox bleedbox "),
-        5 => print_cstr(b"pagebox artbox "),
-        4 => print_cstr(b"pagebox trimbox "),
+    match p.pagebox() {
+        1 => print_cstr("pagebox cropbox "),
+        2 => print_cstr("pagebox mediabox "),
+        3 => print_cstr("pagebox bleedbox "),
+        5 => print_cstr("pagebox artbox "),
+        4 => print_cstr("pagebox trimbox "),
         _ => {}
     }
 
     print('(' as i32);
-    for i in PIC_NODE_path(p) {
+    for i in p.path() {
         print_raw_char(*i as UTF16_code, true);
     }
     print(')' as i32);
@@ -2249,7 +2262,7 @@ pub(crate) unsafe fn finalize_dvi_file() {
     }
 
     if TOTAL_PAGES == 0 {
-        print_nl_cstr(b"No pages of output.");
+        print_nl_cstr("No pages of output.");
         return;
     }
 
@@ -2301,7 +2314,7 @@ pub(crate) unsafe fn finalize_dvi_file() {
 
     if dvi_ptr as i32 > TEX_INFINITY - dvi_offset as i32 {
         cur_s = -2;
-        fatal_error(b"dvi length exceeds 0x7FFFFFFF");
+        fatal_error("dvi length exceeds 0x7FFFFFFF");
     }
 
     if dvi_ptr > 0 {
@@ -2311,27 +2324,27 @@ pub(crate) unsafe fn finalize_dvi_file() {
     let mut k = ttstub_output_close(dvi_file.take().unwrap()) as u8;
 
     if k == 0 {
-        print_nl_cstr(b"Output written on ");
+        print_nl_cstr("Output written on ");
         print(output_file_name);
-        print_cstr(b" (");
+        print_cstr(" (");
         print_int(TOTAL_PAGES as i32);
         if TOTAL_PAGES != 1 {
-            print_cstr(b" pages");
+            print_cstr(" pages");
         } else {
-            print_cstr(b" page");
+            print_cstr(" page");
         }
-        print_cstr(b", ");
+        print_cstr(", ");
         print_int((dvi_offset + dvi_ptr) as i32);
-        print_cstr(b" bytes).");
+        print_cstr(" bytes).");
     } else {
-        print_nl_cstr(b"Error ");
+        print_nl_cstr("Error ");
         print_int(k as i32);
-        print_cstr(b" (");
+        print_cstr(" (");
         print_c_string(strerror(k as i32));
-        print_cstr(b") generating output;");
-        print_nl_cstr(b"file ");
+        print_cstr(") generating output;");
+        print_nl_cstr("file ");
         print(output_file_name);
-        print_cstr(b" may not be valid.");
+        print_cstr(" may not be valid.");
         /* XeTeX adds history = OUTPUT_FAILURE = 4 here; I'm not implementing that. */
     };
 }
@@ -2347,7 +2360,7 @@ unsafe fn write_to_dvi(a: usize, b: usize) {
 unsafe fn dvi_swap() {
     if dvi_ptr as i32 > TEX_INFINITY - dvi_offset as i32 {
         cur_s = -2;
-        fatal_error(b"dvi length exceeds 0x7FFFFFFF");
+        fatal_error("dvi length exceeds 0x7FFFFFFF");
     }
     if dvi_limit == DVI_BUF_SIZE {
         write_to_dvi(0, HALF_BUF - 1);

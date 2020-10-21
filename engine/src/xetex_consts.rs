@@ -390,95 +390,6 @@ pub(crate) const BOT_MARK_CODE: usize = TopBotMarkCode::Bot as usize;
 pub(crate) const SPLIT_FIRST_MARK_CODE: usize = TopBotMarkCode::SplitFirst as usize;
 pub(crate) const SPLIT_BOT_MARK_CODE: usize = TopBotMarkCode::SplitBot as usize;
 
-#[repr(u16)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
-pub(crate) enum BE {
-    Begin = 2,
-    End = 3,
-}
-
-#[repr(u16)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
-pub(crate) enum MathMode {
-    Middle = 0,
-    Left = 4,
-    Right = 8,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum MathNST {
-    Before,
-    After,
-    Eq(BE, MathMode),
-}
-
-impl MathNST {
-    pub(crate) fn dir(self) -> LR {
-        /*if let Self::Eq(_, mode) = self {
-            match mode {
-                MathMode::Right => LR::RightToLeft,
-                _ => LR::LeftToRight,
-            }
-        } else {
-            panic!("No MathNST direction");
-        }*/
-        match self {
-            Self::Eq(_, mode) => match mode {
-                MathMode::Right => LR::RightToLeft,
-                _ => LR::LeftToRight,
-            },
-            Self::Before => LR::LeftToRight,
-            Self::After => LR::LeftToRight,
-        }
-    }
-    pub(crate) fn equ(self) -> (BE, MathMode) {
-        /*if let Self::Eq(be, mode) = self {
-            (be, mode)
-        } else {
-            panic!("Not inner MathNode data {:?}", self);
-        }*/
-        match self {
-            Self::Eq(be, mode) => (be, mode),
-            Self::Before => (BE::Begin, MathMode::Middle),
-            Self::After => (BE::End, MathMode::Middle),
-        }
-    }
-}
-
-impl From<MathNST> for u16 {
-    fn from(mnt: MathNST) -> Self {
-        match mnt {
-            MathNST::Before => 0,
-            MathNST::After => 1,
-            MathNST::Eq(be, mode) => (be as u16) + (mode as u16),
-        }
-    }
-}
-impl From<u16> for MathNST {
-    fn from(n: u16) -> Self {
-        match n {
-            0 => Self::Before,
-            1 => Self::After,
-            2 => Self::Eq(BE::Begin, MathMode::Middle),
-            3 => Self::Eq(BE::End, MathMode::Middle),
-            6 => Self::Eq(BE::Begin, MathMode::Left),
-            7 => Self::Eq(BE::End, MathMode::Left),
-            10 => Self::Eq(BE::Begin, MathMode::Right),
-            11 => Self::Eq(BE::End, MathMode::Right),
-            _ => panic!(format!("Incorrect Math node subtype {}", n)),
-        }
-    }
-}
-/* MATH_NODE stuff with L/R typesetting extras */
-pub(crate) const BEGIN_M_CODE: MathNST = MathNST::Eq(BE::Begin, MathMode::Middle);
-pub(crate) const END_M_CODE: MathNST = MathNST::Eq(BE::End, MathMode::Middle);
-//pub(crate) const L_CODE: u16 = 4;
-//pub(crate) const R_CODE: u16 = 8;
-pub(crate) const BEGIN_L_CODE: MathNST = MathNST::Eq(BE::Begin, MathMode::Left);
-pub(crate) const END_L_CODE: MathNST = MathNST::Eq(BE::End, MathMode::Left);
-pub(crate) const BEGIN_R_CODE: MathNST = MathNST::Eq(BE::Begin, MathMode::Right);
-pub(crate) const END_R_CODE: MathNST = MathNST::Eq(BE::End, MathMode::Right);
-
 #[repr(i16)]
 #[derive(Clone, Copy, PartialEq, enumn::N)]
 pub(crate) enum Expr {
@@ -526,7 +437,7 @@ pub(crate) const SUP_CMD: placeholdertype = 0;
 pub(crate) const SUB_CMD: placeholdertype = 1;
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, enumn::N)]
 pub(crate) enum GlueOrder {
     Normal = 0,
     Fil = 1,
@@ -734,6 +645,11 @@ pub(crate) enum BreakType {
     Unhyphenated = 0,
     Hyphenated = 1,
 }
+impl From<u16> for BreakType {
+    fn from(n: u16) -> Self {
+        Self::n(n).expect(&format!("incorrect break type = {}", n))
+    }
+}
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, enumn::N)]
@@ -799,25 +715,6 @@ impl From<i32> for PackMode {
     }
 }
 
-#[repr(u16)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
-pub(crate) enum AccentType {
-    Normal = 0,
-    Fixed = 1,
-    Bottom = 2,
-    BottomFixed = 3,
-}
-
-#[repr(i32)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
-pub(crate) enum MathCell {
-    Empty = 0,
-    MathChar = 1,
-    SubBox = 2,
-    SubMList = 3,
-    MathTextChar = 4,
-}
-
 pub(crate) const DISPLAYOPERATORMINHEIGHT: placeholdertype = 3;
 pub(crate) const ACCENTBASEHEIGHT: placeholdertype = 6;
 pub(crate) const SUBSCRIPTTOPMAX: placeholdertype = 9;
@@ -868,7 +765,6 @@ pub(crate) const QUAD_CODE: placeholdertype = 6;
 pub(crate) const EXTRA_SPACE_CODE: placeholdertype = 7;
 pub(crate) const VAR_FAM_CLASS: placeholdertype = 7;
 pub(crate) const NATIVE_GLYPH_INFO_SIZE: placeholdertype = 10;
-pub(crate) const CARRIAGE_RETURN: placeholdertype = 13;
 pub(crate) const TOTAL_MATHEX_PARAMS: placeholdertype = 13;
 pub(crate) const HI_MEM_STAT_USAGE: placeholdertype = 15;
 pub(crate) const MAX_CHAR_CODE: placeholdertype = 15;
