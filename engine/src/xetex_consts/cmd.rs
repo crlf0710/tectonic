@@ -129,7 +129,7 @@ pub(crate) enum Cmd {
 
 impl From<u16> for Cmd {
     fn from(n: u16) -> Self {
-        Self::n(n as u8).expect(&format!("incorrect command = {}", n))
+        Self::n(n as u8).unwrap_or_else(|| panic!("incorrect command = {}", n))
     }
 }
 
