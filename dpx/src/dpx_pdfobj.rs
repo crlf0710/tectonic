@@ -2000,19 +2000,88 @@ impl pdf_stream {
     }
 }
 
+
+#[cfg(feature = "libz-sys")]
+mod flate2_libz_helpers {
+    // Workaround for https://github.com/rust-lang/libz-sys/issues/55
+    // (This code is stolen from flate2: https://github.com/rust-lang/flate2-rs/blob/31fb07820345691352aaa64f367c1e482ad9cfdc/src/ffi/c.rs#L60)
+    use libc::c_void;
+    use std::{
+        alloc::{self, Layout},
+        ptr
+    };
+
+    const ALIGN: usize = std::mem::align_of::<usize>();
+
+    fn align_up(size: usize, align: usize) -> usize {
+        (size + align - 1) & !(align - 1)
+    }
+
+    pub extern "C" fn zalloc(_ptr: *mut c_void, items: u32, item_size: u32) -> *mut c_void {
+        // We need to multiply `items` and `item_size` to get the actual desired
+        // allocation size. Since `zfree` doesn't receive a size argument we
+        // also need to allocate space for a `usize` as a header so we can store
+        // how large the allocation is to deallocate later.
+        let size = match (items as usize)
+            .checked_mul(item_size as usize)
+            .map(|size| align_up(size, ALIGN))
+            .and_then(|i| i.checked_add(std::mem::size_of::<usize>()))
+        {
+            Some(i) => i,
+            None => return ptr::null_mut(),
+        };
+
+        // Make sure the `size` isn't too big to fail `Layout`'s restrictions
+        let layout = match Layout::from_size_align(size, ALIGN) {
+            Ok(layout) => layout,
+            Err(_) => return ptr::null_mut(),
+        };
+
+        unsafe {
+            // Allocate the data, and if successful store the size we allocated
+            // at the beginning and then return an offset pointer.
+            let ptr = alloc::alloc(layout) as *mut usize;
+            if ptr.is_null() {
+                return ptr as *mut c_void;
+            }
+            *ptr = size;
+            ptr.add(1) as *mut c_void
+        }
+    }
+
+    pub extern "C" fn zfree(_ptr: *mut c_void, address: *mut c_void) {
+        unsafe {
+            // Move our address being free'd back one pointer, read the size we
+            // stored in `zalloc`, and then free it using the standard Rust
+            // allocator.
+            let ptr = (address as *mut usize).offset(-1);
+            let size = *ptr;
+            let layout = Layout::from_size_align_unchecked(size, ALIGN);
+            alloc::dealloc(ptr as *mut u8, layout)
+        }
+    }
+}
+
 #[cfg(feature = "libz-sys")]
 pub(crate) unsafe fn pdf_add_stream_flate(dst: &mut pdf_stream, data: &[u8]) -> libc::c_int {
     const WBUF_SIZE: usize = 4096;
-    let mut z: libz::z_stream = std::mem::zeroed();
     let mut wbuf = [0u8; WBUF_SIZE];
-    // FIXME: Bug in libz-sys
-    // z.zalloc = null_mut();
-    // z.zfree = null_mut();
-    z.opaque = 0 as libz::voidpf;
-    z.next_in = data.as_ptr() as *mut u8;
-    z.avail_in = data.len() as libz::uInt;
-    z.next_out = wbuf.as_mut_ptr();
-    z.avail_out = WBUF_SIZE as libz::uInt;
+    let mut z: libz::z_stream = libz::z_stream {
+        next_in: data.as_ptr() as *mut u8,
+        avail_in: data.len() as libz::uInt,
+        total_in: 0,
+        next_out: wbuf.as_mut_ptr(),
+        avail_out: WBUF_SIZE as libz::uInt,
+        total_out: 0,
+        msg: ptr::null_mut(),
+        state: ptr::null_mut(),
+        zalloc: flate2_libz_helpers::zalloc,
+        zfree: flate2_libz_helpers::zfree,
+        opaque: 0 as libz::voidpf,
+        data_type: 0,
+        adler: 0,
+        reserved: 0,
+    };
     if libz::inflateInit_(
         &mut z,
         b"1.2.11\x00" as *const u8 as *const i8,
@@ -2400,16 +2469,24 @@ unsafe fn pdf_add_stream_flate_filtered(
     data: &[u8],
     parms: &mut decode_parms,
 ) -> libc::c_int {
-    let mut z: libz::z_stream = std::mem::zeroed();
-    // FIXME: Bug in libz-sys
-    // z.zalloc = null_mut();
-    // z.zfree = null_mut();
-    let mut wbuf: [u8; 4096] = [0; 4096];
-    z.opaque = 0 as libz::voidpf;
-    z.next_in = data.as_ptr() as *mut u8;
-    z.avail_in = data.len() as libz::uInt;
-    z.next_out = wbuf.as_mut_ptr();
-    z.avail_out = 4096i32 as libz::uInt;
+    const WBUF_SIZE: usize = 4096;
+    let mut wbuf: [libz::Bytef; WBUF_SIZE] = [0; WBUF_SIZE];
+    let mut z: libz::z_stream = libz::z_stream {
+        next_in: data.as_ptr() as *mut u8,
+        avail_in: data.len() as libz::uInt,
+        total_in: 0,
+        next_out: wbuf.as_mut_ptr(),
+        avail_out: WBUF_SIZE as libz::uInt,
+        total_out: 0,
+        msg: ptr::null_mut(),
+        state: ptr::null_mut(),
+        zalloc: flate2_libz_helpers::zalloc,
+        zfree: flate2_libz_helpers::zfree,
+        opaque: 0 as libz::voidpf,
+        data_type: 0,
+        adler: 0,
+        reserved: 0,
+    };
     if libz::inflateInit_(
         &mut z,
         b"1.2.11\x00" as *const u8 as *const i8,
