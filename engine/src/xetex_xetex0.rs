@@ -13764,8 +13764,8 @@ pub(crate) unsafe fn delete_last() {
                     r = p;
                     p = q;
                     fm = false;
-                    match CharOrText::from(q as usize) {
-                        CharOrText::Text(TxtNode::Disc(d)) => {
+                    match Node::from(q as usize) {
+                        Node::Text(TxtNode::Disc(d)) => {
                             for _ in 0..d.replace_count() {
                                 p = *LLIST_link(p as usize);
                             }
@@ -13773,7 +13773,7 @@ pub(crate) unsafe fn delete_last() {
                                 return;
                             }
                         }
-                        CharOrText::Text(TxtNode::Math(m))
+                        Node::Text(TxtNode::Math(m))
                             if m.subtype() == MathType::Eq(BE::Begin, MathMode::Middle) =>
                         {
                             fm = true
