@@ -316,19 +316,19 @@ pub(crate) unsafe fn u_open_in(
         let handle = ufile.handle.as_mut().unwrap();
         B1 = ttstub_input_getc(handle);
         B2 = ttstub_input_getc(handle);
-        if B1 == 0xfei32 && B2 == 0xffi32 {
+        if B1 == 0xfe && B2 == 0xff {
             mode = UnicodeMode::Utf16be;
-        } else if B2 == 0xfei32 && B1 == 0xffi32 {
+        } else if B2 == 0xfe && B1 == 0xff {
             mode = UnicodeMode::Utf16le;
-        } else if B1 == 0i32 && B2 != 0i32 {
+        } else if B1 == 0 && B2 != 0 {
             mode = UnicodeMode::Utf16be;
             handle.seek(SeekFrom::Start(0)).unwrap();
-        } else if B2 == 0i32 && B1 != 0i32 {
+        } else if B2 == 0 && B1 != 0 {
             mode = UnicodeMode::Utf16le;
             handle.seek(SeekFrom::Start(0)).unwrap();
-        } else if B1 == 0xefi32 && B2 == 0xbbi32 {
+        } else if B1 == 0xef && B2 == 0xbb {
             let mut B3: i32 = ttstub_input_getc(handle);
-            if B3 == 0xbfi32 {
+            if B3 == 0xbf {
                 mode = UnicodeMode::Utf8;
             }
         }
@@ -646,39 +646,39 @@ pub(crate) unsafe fn get_uni_c(f: &mut UFILE) -> i32 {
         }
         UnicodeMode::Utf16be => {
             rval = ttstub_input_getc(handle);
-            if rval != -1i32 {
-                rval <<= 8i32;
+            if rval != -1 {
+                rval <<= 8;
                 rval += ttstub_input_getc(handle);
-                if rval >= 0xd800i32 && rval <= 0xdbffi32 {
+                if rval >= 0xd800 && rval <= 0xdbff {
                     let mut lo: i32 = ttstub_input_getc(handle);
-                    lo <<= 8i32;
+                    lo <<= 8;
                     lo += ttstub_input_getc(handle);
-                    if lo >= 0xdc00i32 && lo <= 0xdfffi32 {
-                        rval = 0x10000i32 + (rval - 0xd800i32) * 0x400i32 + (lo - 0xdc00i32)
+                    if lo >= 0xdc00 && lo <= 0xdfff {
+                        rval = 0x10000 + (rval - 0xd800) * 0x400 + (lo - 0xdc00)
                     } else {
-                        rval = 0xfffdi32;
+                        rval = 0xfffd;
                         f.savedChar = lo as i64
                     }
-                } else if rval >= 0xdc00i32 && rval <= 0xdfffi32 {
-                    rval = 0xfffdi32
+                } else if rval >= 0xdc00 && rval <= 0xdfff {
+                    rval = 0xfffd
                 }
             }
         }
         UnicodeMode::Utf16le => {
             rval = ttstub_input_getc(handle);
-            if rval != -1i32 {
-                rval += ttstub_input_getc(handle) << 8i32;
-                if rval >= 0xd800i32 && rval <= 0xdbffi32 {
+            if rval != -1 {
+                rval += ttstub_input_getc(handle) << 8;
+                if rval >= 0xd800 && rval <= 0xdbff {
                     let mut lo_0: i32 = ttstub_input_getc(handle);
-                    lo_0 += ttstub_input_getc(handle) << 8i32;
-                    if lo_0 >= 0xdc00i32 && lo_0 <= 0xdfffi32 {
-                        rval = 0x10000i32 + (rval - 0xd800i32) * 0x400i32 + (lo_0 - 0xdc00i32)
+                    lo_0 += ttstub_input_getc(handle) << 8;
+                    if lo_0 >= 0xdc00 && lo_0 <= 0xdfff {
+                        rval = 0x10000 + (rval - 0xd800) * 0x400 + (lo_0 - 0xdc00)
                     } else {
-                        rval = 0xfffdi32;
+                        rval = 0xfffd;
                         f.savedChar = lo_0 as i64
                     }
-                } else if rval >= 0xdc00i32 && rval <= 0xdfffi32 {
-                    rval = 0xfffdi32
+                } else if rval >= 0xdc00 && rval <= 0xdfff {
+                    rval = 0xfffd
                 }
             }
         }

@@ -25,7 +25,7 @@ use crate::xetex_output::{
     print_nl_cstr, print_raw_char, print_scaled,
 };
 use crate::xetex_scaledmath::tex_round;
-use crate::xetex_stringpool::length;
+use crate::xetex_stringpool::{length, PoolString};
 use crate::xetex_synctex::{
     synctex_current, synctex_hlist, synctex_horizontal_rule_or_glue, synctex_kern, synctex_math,
     synctex_sheet, synctex_teehs, synctex_tsilh, synctex_tsilv, synctex_vlist, synctex_void_hlist,
@@ -1844,28 +1844,17 @@ unsafe fn dvi_font_def(f: internal_font_number) {
         dvi_four(FONT_SIZE[f]);
         dvi_four(FONT_DSIZE[f]);
         dvi_out(length(FONT_AREA[f]) as u8);
-        let mut l = 0;
-        let mut k = str_start[(FONT_NAME[f] as i64 - 65536) as usize];
-
-        while l == 0 && k < str_start[((FONT_NAME[f] + 1) as i64 - 65536) as usize] {
-            if str_pool[k as usize] as i32 == ':' as i32 {
-                l = k - str_start[(FONT_NAME[f] as i64 - 65536) as usize]
-            }
-            k += 1;
-        }
-        if l == 0i32 {
-            l = length(FONT_NAME[f])
-        }
+        let l = PoolString::from(FONT_NAME[f])
+            .as_slice()
+            .iter()
+            .position(|&x| x == ':' as u16)
+            .unwrap_or_else(|| length(FONT_NAME[f]) as usize);
         dvi_out(l as u8);
-        for k in str_start[(FONT_AREA[f] as i64 - 65536) as usize]
-            ..str_start[((FONT_AREA[f] + 1) as i64 - 65536) as usize]
-        {
-            dvi_out(str_pool[k as usize] as u8);
+        for k in PoolString::from(FONT_AREA[f]).as_slice() {
+            dvi_out(*k as u8);
         }
-        for k in str_start[(FONT_NAME[f] as i64 - 65536) as usize]
-            ..(str_start[(FONT_NAME[f] as i64 - 65536) as usize] + l)
-        {
-            dvi_out(str_pool[k as usize] as u8);
+        for k in PoolString::from(FONT_NAME[f]).as_slice() {
+            dvi_out(*k as u8);
         }
     };
 }

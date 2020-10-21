@@ -86,7 +86,7 @@ use crate::xetex_scaledmath::{mult_and_add, round_xn_over_d, tex_round, x_over_n
 use crate::xetex_shipout::{finalize_dvi_file, new_edge, out_what, ship_out};
 use crate::xetex_stringpool::EMPTY_STRING;
 use crate::xetex_stringpool::{
-    append_str, length, make_string, search_string, slow_make_string, str_eq_buf, str_eq_str,
+    append_str, length, make_string, search_string, slow_make_string, str_eq_buf, PoolString,
 };
 use crate::xetex_synctex::{synctex_start_input, synctex_terminate};
 use crate::xetex_texmfmp::{
@@ -2662,7 +2662,7 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> usize {
     loop {
         if prim[p].s1 as i64 > 65536 {
             if length(prim[p].s1) - 1 == l {
-                if str_eq_str(prim[p].s1 - 1, s) {
+                if PoolString::from(prim[p].s1 - 1) == PoolString::from(s) {
                     return p;
                 }
             }
@@ -9205,7 +9205,6 @@ where
         &mut file_name_quote_char,
     );
 
-    let mut temp_str: str_number = 0;
     let mut j: pool_pointer = 0;
     if str_ptr + 3 > max_strings as i32 {
         overflow("number of strings", max_strings - init_str_ptr as usize);
@@ -9221,8 +9220,7 @@ where
         str_start[((str_ptr + 1) as i64 - 65536) as usize] =
             str_start[(str_ptr - 65536) as usize] + area_delimiter;
         str_ptr += 1;
-        temp_str = search_string(cur_area);
-        if temp_str > 0 {
+        if let Some(temp_str) = search_string(cur_area) {
             cur_area = temp_str;
             str_ptr -= 1;
             j = str_start[((str_ptr + 1) as i64 - 65536) as usize];
@@ -9237,7 +9235,7 @@ where
      * extension '.' delimiter, which we use to construct the stringpool
      * strings `cur_ext` and `cur_name`. */
     if ext_delimiter == 0 {
-        cur_ext = (65536 + 1 as i64) as str_number;
+        cur_ext = EMPTY_STRING as str_number;
         cur_name = slow_make_string()
     } else {
         cur_name = str_ptr;
@@ -9246,8 +9244,7 @@ where
         str_ptr += 1;
         cur_ext = make_string();
         str_ptr -= 1;
-        temp_str = search_string(cur_name);
-        if temp_str > 0 {
+        if let Some(temp_str) = search_string(cur_name) {
             cur_name = temp_str;
             str_ptr -= 1;
             j = str_start[((str_ptr + 1) as i64 - 65536) as usize];
@@ -9353,7 +9350,6 @@ pub(crate) unsafe fn open_log_file() {
 }
 pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_name: *const i8) {
     let mut format = TTInputFormat::TEX;
-    let mut temp_str: str_number = 0;
     if !primary_input_name.is_null() {
         /* If this is the case, we're opening the primary input file, and the
          * name that we should use to refer to it has been handed directly to
@@ -9456,8 +9452,7 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_na
     /* *This* variant is a TeX string made out of `name_of_input_file`. */
     FULL_SOURCE_FILENAME_STACK[IN_OPEN] = maketexstring(&name_of_input_file);
     if input.name == str_ptr - 1 {
-        temp_str = search_string(input.name);
-        if temp_str > 0 {
+        if let Some(temp_str) = search_string(input.name) {
             input.name = temp_str;
             str_ptr -= 1;
             pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
@@ -13797,9 +13792,9 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
 
     for f in (FONT_BASE + 1)..=FONT_PTR {
         // TODO: check
-        if str_eq_str(FONT_NAME[f], cur_name)
+        if PoolString::from(FONT_NAME[f]) == PoolString::from(cur_name)
             && ((length(cur_area) == 0 && matches!(&FONT_LAYOUT_ENGINE[f], Font::Native(_)))
-                || str_eq_str(FONT_AREA[f], cur_area))
+                || PoolString::from(FONT_AREA[f]) == PoolString::from(cur_area))
         {
             if s > 0 {
                 if s == FONT_SIZE[f] {
@@ -13812,7 +13807,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
         append_str(cur_area);
         append_str(cur_name);
         append_str(cur_ext);
-        if str_eq_str(FONT_NAME[f], make_string()) {
+        if PoolString::from(FONT_NAME[f]) == PoolString::from(make_string()) {
             str_ptr -= 1;
             pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
             if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {

@@ -78,7 +78,7 @@ use crate::xetex_output::{
 };
 use crate::xetex_stringpool::length;
 use crate::xetex_stringpool::make_string;
-use crate::xetex_stringpool::str_eq_str;
+use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::EMPTY_STRING;
 use crate::xetex_xetex0::diagnostic;
 use crate::xetex_xetex0::new_native_character;
@@ -646,7 +646,7 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
 
     for f in 1..FONT_PTR + 1 {
         if FONT_AREA[f] == font_engine.flag() as i32
-            && str_eq_str(FONT_NAME[f], full_name)
+            && PoolString::from(FONT_NAME[f]) == PoolString::from(full_name)
             && FONT_SIZE[f] == actual_size
         {
             str_ptr -= 1;

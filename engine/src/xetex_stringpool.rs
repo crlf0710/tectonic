@@ -14,7 +14,7 @@ use crate::xetex_ini::{
     BUFFER,
 };
 
-pub(crate) const EMPTY_STRING: i32 = 65536 + 1;
+pub(crate) const EMPTY_STRING: i32 = TOO_BIG_CHAR + 1;
 
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type pool_pointer = i32;
@@ -37,6 +37,12 @@ const TOO_BIG_CHAR: i32 = 0x10000;
 pub enum PoolString {
     Char(Utf16),
     Span(&'static [Utf16]),
+}
+
+impl std::cmp::PartialEq for PoolString {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_slice() == other.as_slice()
+    }
 }
 
 impl PoolString {
@@ -78,8 +84,7 @@ impl PoolString {
     }
 }
 
-#[no_mangle]
-pub extern "C" fn length(s: StrNumber) -> i32 {
+pub fn length(s: StrNumber) -> i32 {
     // I have no idea what these cases do and why these specific numbers are used
     if let PoolString::Span(string) = PoolString::from(s) {
         string.len() as _
@@ -92,11 +97,6 @@ pub extern "C" fn length(s: StrNumber) -> i32 {
     } else {
         8
     }
-}
-
-#[no_mangle]
-pub extern "C" fn str_eq_str(s: StrNumber, t: StrNumber) -> bool {
-    PoolString::from(s).as_slice() == PoolString::from(t).as_slice()
 }
 
 const string_constants: [&str; 2] = ["this marks the start of the stringpool", ""];
@@ -122,18 +122,16 @@ pub(crate) unsafe fn make_string() -> str_number {
         overflow("number of strings", max_strings - init_str_ptr as usize);
     }
     str_ptr += 1;
-    str_start[(str_ptr - 65536) as usize] = pool_ptr;
+    str_start[(str_ptr - TOO_BIG_CHAR) as usize] = pool_ptr;
     str_ptr - 1
 }
 pub(crate) unsafe fn append_str(mut s: str_number) {
-    let mut i: i32 = 0;
-    let mut j: pool_pointer = 0;
-    i = length(s);
+    let mut i = length(s);
     if pool_ptr + i > pool_size {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
-    j = str_start[(s as i64 - 65536) as usize];
-    while i > 0i32 {
+    let mut j = str_start[(s - TOO_BIG_CHAR) as usize];
+    while i > 0 {
         str_pool[pool_ptr as usize] = str_pool[j as usize];
         pool_ptr += 1;
         j += 1;
@@ -141,8 +139,8 @@ pub(crate) unsafe fn append_str(mut s: str_number) {
     }
 }
 pub(crate) unsafe fn str_eq_buf(mut s: str_number, mut k: i32) -> bool {
-    let mut j = str_start[s as usize - 65536] as usize;
-    while j < str_start[s as usize + 1 - 65536] as usize {
+    let mut j = str_start[s as usize - TOO_BIG_CHAR as usize] as usize;
+    while j < str_start[s as usize + 1 - TOO_BIG_CHAR as usize] as usize {
         let mut b = [0; 2];
         for c16 in std::char::from_u32(BUFFER[k as usize] as u32)
             .unwrap()
@@ -157,37 +155,30 @@ pub(crate) unsafe fn str_eq_buf(mut s: str_number, mut k: i32) -> bool {
     }
     true
 }
-pub(crate) unsafe fn search_string(mut search: str_number) -> str_number {
-    let mut s: str_number = 0;
-    let mut len: i32 = 0;
-    len = length(search);
-    if len == 0i32 {
-        return (65536 + 1i32 as i64) as str_number;
+pub(crate) unsafe fn search_string(mut search: str_number) -> Option<str_number> {
+    let mut len = length(search);
+    if len == 0 {
+        return Some(EMPTY_STRING);
     } else {
-        s = search - 1i32;
-        while s as i64 > 65535 {
+        for s in (TOO_BIG_CHAR..search).rev() {
             if length(s) == len {
-                if str_eq_str(s, search) {
-                    return s;
+                if PoolString::from(s) == PoolString::from(search) {
+                    return Some(s);
                 }
             }
-            s -= 1
         }
     }
-    0i32
+    None
 }
 /* tectonic/xetex-stringpool.h: preloaded "string pool" constants
    Copyright 2017 the Tectonic Project
    Licensed under the MIT License.
 */
 pub(crate) unsafe fn slow_make_string() -> str_number {
-    let mut s: str_number = 0;
-    let mut t: str_number = 0;
-    t = make_string();
-    s = search_string(t);
-    if s > 0 {
+    let mut t = make_string();
+    if let Some(s) = search_string(t) {
         str_ptr -= 1;
-        pool_ptr = str_start[(str_ptr - 65536) as usize];
+        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
         return s;
     }
     t
