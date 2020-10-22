@@ -381,7 +381,6 @@ pub(crate) fn pdf_sprint_coord(buf: &mut Vec<u8>, p: &Point) {
 }
 pub(crate) fn pdf_sprint_length(buf: &mut Vec<u8>, value: f64) {
     p_dtoa(value, unsafe { dev_unit.precision }, buf);
-    buf.push(b' ');
 }
 pub(crate) fn pdf_sprint_number(buf: &mut Vec<u8>, value: f64) {
     p_dtoa(value, 8, buf);
