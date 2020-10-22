@@ -2000,7 +2000,6 @@ impl pdf_stream {
     }
 }
 
-
 #[cfg(feature = "libz-sys")]
 mod flate2_libz_helpers {
     // Workaround for https://github.com/rust-lang/libz-sys/issues/55
@@ -2008,7 +2007,7 @@ mod flate2_libz_helpers {
     use libc::c_void;
     use std::{
         alloc::{self, Layout},
-        ptr
+        ptr,
     };
 
     const ALIGN: usize = std::mem::align_of::<usize>();
