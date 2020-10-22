@@ -551,7 +551,7 @@ unsafe fn pdf_doc_get_page_resources(mut p: *mut pdf_doc, category: &str) -> *mu
 
 pub(crate) unsafe fn pdf_doc_add_page_resource(
     category: &str,
-    resource_name: *const i8,
+    resource_name: &[u8],
     mut resource_ref: *mut pdf_obj,
 ) {
     let p: *mut pdf_doc = &mut pdoc;
@@ -560,9 +560,8 @@ pub(crate) unsafe fn pdf_doc_add_page_resource(
         resource_ref = pdf_ref_obj(resource_ref)
         /* leak */
     }
-    let resource_name = CStr::from_ptr(resource_name);
     let resources = pdf_doc_get_page_resources(p, category);
-    if let Some(duplicate) = (*resources).as_dict_mut().get_mut(resource_name.to_bytes()) {
+    if let Some(duplicate) = (*resources).as_dict_mut().get_mut(resource_name) {
         if (*duplicate)
             .as_indirect()
             .compare((*resource_ref).as_indirect())
@@ -576,14 +575,10 @@ pub(crate) unsafe fn pdf_doc_add_page_resource(
             warn!("Ignoring...");
             pdf_release_obj(resource_ref);
         } else {
-            (*resources)
-                .as_dict_mut()
-                .set(resource_name.to_bytes(), resource_ref);
+            (*resources).as_dict_mut().set(resource_name, resource_ref);
         }
     } else {
-        (*resources)
-            .as_dict_mut()
-            .set(resource_name.to_bytes(), resource_ref);
+        (*resources).as_dict_mut().set(resource_name, resource_ref);
     }
 }
 unsafe fn doc_flush_page(p: *mut pdf_doc, mut page: *mut pdf_page, parent_ref: *mut pdf_obj) {
@@ -806,7 +801,7 @@ unsafe fn pdf_doc_close_page_tree(mut p: *mut pdf_doc) {
     (*p).pages.max_entries = 0_u32;
 }
 
-pub unsafe fn pdf_doc_get_page_count(pf: *mut pdf_file) -> i32 {
+pub unsafe fn pdf_doc_get_page_count(pf: &pdf_file) -> i32 {
     let catalog = pdf_file_get_catalog(pf);
     let page_tree = pdf_deref_obj((*catalog).as_dict_mut().get_mut("Pages"));
     if !(!page_tree.is_null() && (*page_tree).is_dict()) {
@@ -877,7 +872,7 @@ pub unsafe fn pdf_doc_get_page_count(pf: *mut pdf_file) -> i32 {
  */
 
 pub unsafe fn pdf_doc_get_page(
-    pf: *mut pdf_file,
+    pf: &pdf_file,
     page_no: i32,
     options: i32,
     resources_p: *mut *mut pdf_obj,

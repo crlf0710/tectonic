@@ -153,9 +153,8 @@ unsafe fn write_map(
                         num_blocks = num_blocks.wrapping_add(1);
                         c = (c as u64).wrapping_add(block_length as _) as _
                     } else {
-                        let fresh0 = (*wbuf).curptr;
+                        *(*wbuf).curptr = '<' as i32 as i8;
                         (*wbuf).curptr = (*wbuf).curptr.offset(1);
-                        *fresh0 = '<' as i32 as i8;
                         for i in 0..=depth {
                             sputx(
                                 *codestr.offset(i as isize),
@@ -163,15 +162,12 @@ unsafe fn write_map(
                                 (*wbuf).limptr,
                             );
                         }
-                        let fresh1 = (*wbuf).curptr;
+                        *(*wbuf).curptr = '>' as i32 as i8;
                         (*wbuf).curptr = (*wbuf).curptr.offset(1);
-                        *fresh1 = '>' as i32 as i8;
-                        let fresh2 = (*wbuf).curptr;
+                        *(*wbuf).curptr = ' ' as i32 as i8;
                         (*wbuf).curptr = (*wbuf).curptr.offset(1);
-                        *fresh2 = ' ' as i32 as i8;
-                        let fresh3 = (*wbuf).curptr;
+                        *(*wbuf).curptr = '<' as i32 as i8;
                         (*wbuf).curptr = (*wbuf).curptr.offset(1);
-                        *fresh3 = '<' as i32 as i8;
                         for i in 0..(*mtab.offset(c as isize)).len {
                             sputx(
                                 *(*mtab.offset(c as isize)).code.offset(i as isize),
@@ -179,12 +175,10 @@ unsafe fn write_map(
                                 (*wbuf).limptr,
                             );
                         }
-                        let fresh4 = (*wbuf).curptr;
+                        *(*wbuf).curptr = '>' as i32 as i8;
                         (*wbuf).curptr = (*wbuf).curptr.offset(1);
-                        *fresh4 = '>' as i32 as i8;
-                        let fresh5 = (*wbuf).curptr;
+                        *(*wbuf).curptr = '\n' as i32 as i8;
                         (*wbuf).curptr = (*wbuf).curptr.offset(1);
-                        *fresh5 = '\n' as i32 as i8;
                         count = count.wrapping_add(1)
                     }
                 }
@@ -231,9 +225,8 @@ unsafe fn write_map(
         stream.add_str(&format!("{} beginbfrange\n", num_blocks));
         for i in 0..num_blocks {
             let c = blocks[i as usize].start as size_t;
-            let fresh6 = (*wbuf).curptr;
+            *(*wbuf).curptr = '<' as i32 as i8;
             (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *fresh6 = '<' as i32 as i8;
             for j in 0..depth {
                 sputx(
                     *codestr.offset(j as isize),
@@ -242,15 +235,12 @@ unsafe fn write_map(
                 );
             }
             sputx(c as u8, &mut (*wbuf).curptr, (*wbuf).limptr);
-            let fresh7 = (*wbuf).curptr;
+            *(*wbuf).curptr = '>' as i32 as i8;
             (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *fresh7 = '>' as i32 as i8;
-            let fresh8 = (*wbuf).curptr;
+            *(*wbuf).curptr = ' ' as i32 as i8;
             (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *fresh8 = ' ' as i32 as i8;
-            let fresh9 = (*wbuf).curptr;
+            *(*wbuf).curptr = '<' as i32 as i8;
             (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *fresh9 = '<' as i32 as i8;
             for j in 0..depth {
                 sputx(
                     *codestr.offset(j as isize),
@@ -263,15 +253,12 @@ unsafe fn write_map(
                 &mut (*wbuf).curptr,
                 (*wbuf).limptr,
             );
-            let fresh10 = (*wbuf).curptr;
+            *(*wbuf).curptr = '>' as i32 as i8;
             (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *fresh10 = '>' as i32 as i8;
-            let fresh11 = (*wbuf).curptr;
+            *(*wbuf).curptr = ' ' as i32 as i8;
             (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *fresh11 = ' ' as i32 as i8;
-            let fresh12 = (*wbuf).curptr;
+            *(*wbuf).curptr = '<' as i32 as i8;
             (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *fresh12 = '<' as i32 as i8;
             for j in 0..(*mtab.offset(c as isize)).len {
                 sputx(
                     *(*mtab.offset(c as isize)).code.offset(j as isize),
@@ -279,12 +266,10 @@ unsafe fn write_map(
                     (*wbuf).limptr,
                 );
             }
-            let fresh13 = (*wbuf).curptr;
+            *(*wbuf).curptr = '>' as i32 as i8;
             (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *fresh13 = '>' as i32 as i8;
-            let fresh14 = (*wbuf).curptr;
+            *(*wbuf).curptr = '\n' as i32 as i8;
             (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *fresh14 = '\n' as i32 as i8;
         }
         stream.add(
             (*wbuf).buf as *const libc::c_void,
@@ -400,9 +385,8 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
         (*cmap).codespace.num,
     ) as isize);
     for i in 0..(*cmap).codespace.num as u64 {
-        let fresh15 = wbuf.curptr;
+        *wbuf.curptr = '<' as i32 as i8;
         wbuf.curptr = wbuf.curptr.offset(1);
-        *fresh15 = '<' as i32 as i8;
         for j in 0..(*ranges.offset(i as isize)).dim {
             sputx(
                 *(*ranges.offset(i as isize)).codeLo.offset(j as isize),
@@ -410,15 +394,12 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
                 wbuf.limptr,
             );
         }
-        let fresh16 = wbuf.curptr;
+        *wbuf.curptr = '>' as i32 as i8;
         wbuf.curptr = wbuf.curptr.offset(1);
-        *fresh16 = '>' as i32 as i8;
-        let fresh17 = wbuf.curptr;
+        *wbuf.curptr = ' ' as i32 as i8;
         wbuf.curptr = wbuf.curptr.offset(1);
-        *fresh17 = ' ' as i32 as i8;
-        let fresh18 = wbuf.curptr;
+        *wbuf.curptr = '<' as i32 as i8;
         wbuf.curptr = wbuf.curptr.offset(1);
-        *fresh18 = '<' as i32 as i8;
         for j in 0..(*ranges.offset(i as isize)).dim {
             sputx(
                 *(*ranges.offset(i as isize)).codeHi.offset(j as isize),
@@ -426,12 +407,10 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
                 wbuf.limptr,
             );
         }
-        let fresh19 = wbuf.curptr;
+        *wbuf.curptr = '>' as i32 as i8;
         wbuf.curptr = wbuf.curptr.offset(1);
-        *fresh19 = '>' as i32 as i8;
-        let fresh20 = wbuf.curptr;
+        *wbuf.curptr = '\n' as i32 as i8;
         wbuf.curptr = wbuf.curptr.offset(1);
-        *fresh20 = '\n' as i32 as i8;
     }
     stream.add(
         wbuf.buf as *const libc::c_void,
@@ -441,14 +420,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
     stream.add_str("endcodespacerange\n");
     /* CMap body */
     if !(*cmap).mapTbl.is_null() {
-        let count = write_map(
-            (*cmap).mapTbl,
-            0i32 as size_t,
-            codestr,
-            0i32 as size_t,
-            &mut wbuf,
-            &mut stream,
-        ) as size_t; /* Top node */
+        let count = write_map((*cmap).mapTbl, 0, codestr, 0, &mut wbuf, &mut stream) as size_t; /* Top node */
         if count > 0 {
             /* Flush */
             if count > 100 {

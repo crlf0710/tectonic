@@ -482,7 +482,7 @@ pub(crate) mod whatsit {
         pub(crate) unsafe fn italic_correction(&self) -> i32 {
             crate::xetex_ext::real_get_native_italic_correction(self)
         }
-        pub(crate) unsafe fn make_xdv_glyph_array_data(&self) -> i32 {
+        pub(crate) unsafe fn make_xdv_glyph_array_data(&self) -> Vec<u8> {
             crate::xetex_ext::makeXDVGlyphArrayData(self)
         }
         pub(crate) unsafe fn native_glyph(&self, index: u32) -> u16 {
@@ -1218,8 +1218,57 @@ impl Delta {
         MEM[self.ptr() + 6].b32.s1 = v;
         self
     }
+
+    pub(crate) unsafe fn set_from_size(&mut self, size: DeltaSize) {
+        self.set_dwidth(size.width)
+            .set_dstretch0(size.stretch0)
+            .set_dstretch1(size.stretch1)
+            .set_dstretch2(size.stretch2)
+            .set_dstretch3(size.stretch3)
+            .set_dshrink(size.shrink);
+    }
+    pub(crate) unsafe fn to_size(&self) -> DeltaSize {
+        DeltaSize {
+            width: self.dwidth(),
+            stretch0: self.dstretch0(),
+            stretch1: self.dstretch1(),
+            stretch2: self.dstretch2(),
+            stretch3: self.dstretch3(),
+            shrink: self.dshrink(),
+        }
+    }
+
     pub(crate) unsafe fn free(self) {
         free_node(self.ptr(), Self::SIZE);
+    }
+}
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    derive_more::Add,
+    derive_more::Sub,
+    derive_more::AddAssign,
+    derive_more::SubAssign,
+)]
+pub(crate) struct DeltaSize {
+    pub width: i32,
+    pub stretch0: i32,
+    pub stretch1: i32,
+    pub stretch2: i32,
+    pub stretch3: i32,
+    pub shrink: i32,
+}
+impl DeltaSize {
+    pub(crate) const fn new() -> Self {
+        Self {
+            width: 0,
+            stretch0: 0,
+            stretch1: 0,
+            stretch2: 0,
+            stretch3: 0,
+            shrink: 0,
+        }
     }
 }
 

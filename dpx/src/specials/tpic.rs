@@ -24,7 +24,6 @@
 use crate::bridge::DisplayExt;
 use crate::warn;
 use crate::SkipBlank;
-use std::ffi::CString;
 use std::ptr;
 
 use super::{spc_arg, spc_env};
@@ -133,8 +132,7 @@ unsafe fn set_fillstyle(g: f64, a: f64, f_ais: i32) -> i32 {
                 f_ais,
             )
             .into_obj();
-            let s = CString::new(resname.as_bytes()).unwrap();
-            pdf_doc_add_page_resource("ExtGState", s.as_ptr() as *const i8, pdf_ref_obj(dict));
+            pdf_doc_add_page_resource("ExtGState", resname.as_bytes(), pdf_ref_obj(dict));
             pdf_release_obj(dict);
         }
         let buf = format!(" /{} gs", resname);

@@ -26,7 +26,7 @@ use crate::xetex_ini::loaded_font_design_size;
 use crate::xetex_layout_interface::collection_types::*;
 use crate::xetex_layout_interface::{createFont, deleteFont};
 use crate::xetex_output::{print_char, print_nl};
-use crate::xetex_xetex0::{begin_diagnostic, end_diagnostic, get_tracing_fonts_state};
+use crate::xetex_xetex0::{diagnostic, get_tracing_fonts_state};
 
 #[cfg(not(target_os = "macos"))]
 use self::imp::XeTeXFontMgr_FC_create;
@@ -783,24 +783,24 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
             ((*font).opSizeInfo.designSize << 16i64).wrapping_div(10i32 as libc::c_uint) as Fixed
     }
     if get_tracing_fonts_state() > 0i32 {
-        begin_diagnostic();
-        print_nl(' ' as i32);
-        let mut ch_ptr: *const libc::c_char = b"-> \x00" as *const u8 as *const libc::c_char;
-        while *ch_ptr != 0 {
-            let fresh0 = ch_ptr;
-            ch_ptr = ch_ptr.offset(1);
-            print_char(*fresh0 as libc::c_int);
-        }
-        let mut font_desc: *mut libc::c_char =
-            XeTeXFontMgr_getPlatformFontDesc(self_0, (*font).fontRef);
-        let mut ch_ptr_0: *const libc::c_char = font_desc;
-        while *ch_ptr_0 != 0 {
-            let fresh1 = ch_ptr_0;
-            ch_ptr_0 = ch_ptr_0.offset(1);
-            print_char(*fresh1 as libc::c_int);
-        }
-        free(font_desc as *mut libc::c_void);
-        end_diagnostic(false);
+        diagnostic(false, || {
+            print_nl(' ' as i32);
+            let mut ch_ptr: *const libc::c_char = b"-> \x00" as *const u8 as *const libc::c_char;
+            while *ch_ptr != 0 {
+                let fresh0 = ch_ptr;
+                ch_ptr = ch_ptr.offset(1);
+                print_char(*fresh0 as libc::c_int);
+            }
+            let mut font_desc: *mut libc::c_char =
+                XeTeXFontMgr_getPlatformFontDesc(self_0, (*font).fontRef);
+            let mut ch_ptr_0: *const libc::c_char = font_desc;
+            while *ch_ptr_0 != 0 {
+                let fresh1 = ch_ptr_0;
+                ch_ptr_0 = ch_ptr_0.offset(1);
+                print_char(*fresh1 as libc::c_int);
+            }
+            free(font_desc as *mut libc::c_void);
+        });
     }
     return (*font).fontRef;
 }
@@ -1064,48 +1064,36 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
         (*thisFont).m_styleName = CppStdString_create()
     }
     for familyName in (*(*names).m_familyNames).iter() {
-        let mut family: *mut XeTeXFontMgrFamily;
+        let family: &mut XeTeXFontMgrFamily;
         if let Some(family_mut) = (*(*self_0).m_nameToFamily).get_mut(familyName) {
             family = family_mut.as_mut();
-            if ((*thisFont).weight as libc::c_int) < (*family).minWeight as libc::c_int {
-                (*family).minWeight = (*thisFont).weight
-            }
-            if (*thisFont).weight as libc::c_int > (*family).maxWeight as libc::c_int {
-                (*family).maxWeight = (*thisFont).weight
-            }
-            if ((*thisFont).width as libc::c_int) < (*family).minWidth as libc::c_int {
-                (*family).minWidth = (*thisFont).width
-            }
-            if (*thisFont).width as libc::c_int > (*family).maxWidth as libc::c_int {
-                (*family).maxWidth = (*thisFont).width
-            }
-            if ((*thisFont).slant as libc::c_int) < (*family).minSlant as libc::c_int {
-                (*family).minSlant = (*thisFont).slant
-            }
-            if (*thisFont).slant as libc::c_int > (*family).maxSlant as libc::c_int {
-                (*family).maxSlant = (*thisFont).slant
-            }
+            family.minWeight = family.minWeight.min((*thisFont).weight);
+            family.maxWeight = family.maxWeight.max((*thisFont).weight);
+            family.minWidth = family.minWidth.min((*thisFont).width);
+            family.maxWidth = family.maxWidth.max((*thisFont).width);
+            family.minSlant = family.minSlant.min((*thisFont).slant);
+            family.maxSlant = family.maxSlant.max((*thisFont).slant);
         } else {
-            family = XeTeXFontMgrFamily_create();
+            family = &mut *XeTeXFontMgrFamily_create();
             CppStdMap_put(
                 (*self_0).m_nameToFamily,
                 familyName.clone(),
                 NonNull::new(family).expect("expect non-null pointer"),
             );
-            (*family).minWeight = (*thisFont).weight;
-            (*family).maxWeight = (*thisFont).weight;
-            (*family).minWidth = (*thisFont).width;
-            (*family).maxWidth = (*thisFont).width;
-            (*family).minSlant = (*thisFont).slant;
-            (*family).maxSlant = (*thisFont).slant;
+            family.minWeight = (*thisFont).weight;
+            family.maxWeight = (*thisFont).weight;
+            family.minWidth = (*thisFont).width;
+            family.maxWidth = (*thisFont).width;
+            family.minSlant = (*thisFont).slant;
+            family.maxSlant = (*thisFont).slant;
         }
         if (*thisFont).parent.is_null() {
             (*thisFont).parent = family;
         }
         // ensure all style names in the family point to thisFont
         for styleName in (*(*names).m_styleNames).iter() {
-            if !(*(*family).styles).contains_key(styleName) {
-                CppStdMap_put((*family).styles, styleName.clone(), thisFont_nonnull);
+            if !(*family.styles).contains_key(styleName) {
+                CppStdMap_put(family.styles, styleName.clone(), thisFont_nonnull);
             }
             /*
                 else if (iFont->second != thisFont)

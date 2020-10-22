@@ -35,14 +35,12 @@ use crate::FromBEByteSlice;
 use std::ffi::{CStr, CString};
 
 use super::dpx_sfnt::{
-    dfont_open, sfnt_close, sfnt_find_table_pos, sfnt_locate_table, sfnt_open,
-    sfnt_read_table_directory,
+    dfont_open, sfnt_find_table_pos, sfnt_locate_table, sfnt_open, sfnt_read_table_directory,
 };
 use crate::bridge::size_t;
 use crate::mfree;
 use crate::warn;
 
-use super::dpx_cff::cff_close;
 use super::dpx_cff_dict::{cff_dict_get, cff_dict_known};
 use super::dpx_dpxfile::{
     dpx_open_dfont_file, dpx_open_opentype_file, dpx_open_truetype_file, dpx_open_type1_file,
@@ -51,10 +49,7 @@ use super::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use super::dpx_dvipdfmx::{is_xdv, landscape_mode, paper_height, paper_width};
 use super::dpx_fontmap::{pdf_insert_native_fontmap_record, pdf_lookup_fontmap_record};
 use super::dpx_mem::new;
-use super::dpx_numbers::{
-    sqxfw, tt_get_positive_quad, tt_get_signed_quad, tt_get_unsigned_byte, tt_get_unsigned_num,
-    tt_get_unsigned_pair, tt_get_unsigned_quad, tt_skip_bytes,
-};
+use super::dpx_numbers::{get_positive_quad, get_unsigned_num, skip_bytes, sqxfw, GetFromFile};
 use super::dpx_pdfcolor::{pdf_color_pop, pdf_color_push, PdfColor};
 use super::dpx_pdfdev::{
     graphics_mode, pdf_dev_begin_actualtext, pdf_dev_end_actualtext, pdf_dev_locate_font,
@@ -78,7 +73,6 @@ use super::dpx_tt_table::{
 use super::dpx_vf::{vf_close_all_fonts, vf_locate_font, vf_set_char, vf_set_verbose};
 use crate::bridge::{
     ttstub_input_close, ttstub_input_get_size, ttstub_input_getc, ttstub_input_open,
-    ttstub_input_read, ttstub_input_ungetc,
 };
 use crate::dpx_dvicodes::*;
 use crate::dpx_pdfobj::{pdf_release_obj, pdf_string_value};
@@ -132,7 +126,7 @@ pub(crate) struct font_def {
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub(crate) struct loaded_font<'a> {
+pub(crate) struct loaded_font {
     pub(crate) type_0: i32,
     pub(crate) font_id: i32,
     pub(crate) subfont_id: i32,
@@ -144,7 +138,7 @@ pub(crate) struct loaded_font<'a> {
     pub(crate) ascent: i32,
     pub(crate) descent: i32,
     pub(crate) unitsPerEm: u32,
-    pub(crate) cffont: *mut cff_font<'a>,
+    pub(crate) cffont: *mut cff_font,
     pub(crate) numGlyphs: u32,
     pub(crate) layout_dir: i32,
     pub(crate) extend: f32,
@@ -243,7 +237,7 @@ static mut verbose: i32 = 0i32;
 static mut DVI_PAGE_BUFFER: Vec<u8> = Vec::new();
 static mut DVI_PAGE_BUF_INDEX: usize = 0;
 /* functions to read numbers from the dvi file and store them in DVI_PAGE_BUFFER */
-unsafe fn get_and_buffer_unsigned_byte(handle: &mut InputHandleWrapper) -> i32 {
+unsafe fn get_and_buffer_unsigned_byte<R: Read>(handle: &mut R) -> i32 {
     let ch = ttstub_input_getc(handle);
     if ch < 0i32 {
         panic!("File ended prematurely\n");
@@ -256,12 +250,12 @@ unsafe fn get_and_buffer_unsigned_byte(handle: &mut InputHandleWrapper) -> i32 {
     DVI_PAGE_BUF_INDEX += 1;
     ch
 }
-unsafe fn get_and_buffer_unsigned_pair(handle: &mut InputHandleWrapper) -> u32 {
+unsafe fn get_and_buffer_unsigned_pair<R: Read>(handle: &mut R) -> u32 {
     let mut pair: u32 = get_and_buffer_unsigned_byte(handle) as u32;
     pair = pair << 8i32 | get_and_buffer_unsigned_byte(handle) as u32;
     pair
 }
-unsafe fn get_and_buffer_bytes(handle: &mut InputHandleWrapper, count: u32) {
+unsafe fn get_and_buffer_bytes<R: Read>(handle: &mut R, count: u32) {
     DVI_PAGE_BUFFER.resize_with(DVI_PAGE_BUF_INDEX + count as usize, Default::default);
     handle
         .read_exact(&mut DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX..])
@@ -403,7 +397,7 @@ unsafe fn find_post() -> i32 {
         info!("Found {} where post_post opcode should be\n", ch);
         panic!(invalid_signature);
     }
-    current = tt_get_signed_quad(handle);
+    current = i32::get(handle);
     handle.seek(SeekFrom::Start(current as u64)).unwrap();
     let ch = ttstub_input_getc(handle) as u8;
     if ch != POST {
@@ -413,12 +407,12 @@ unsafe fn find_post() -> i32 {
     /* Finally check the ID byte in the preamble */
     /* An Ascii pTeX DVI file has id_byte DVI_ID in the preamble but DVIV_ID in the postamble. */
     handle.seek(SeekFrom::Start(0)).unwrap();
-    let ch = tt_get_unsigned_byte(handle);
+    let ch = u8::get(handle);
     if ch != PRE {
         info!("Found {} where PRE was expected\n", ch);
         panic!(invalid_signature);
     }
-    let ch = tt_get_unsigned_byte(handle);
+    let ch = u8::get(handle);
     if !(ch == DVI_ID || ch == XDV_ID || ch == XDV_ID_OLD) {
         info!("DVI ID = {}\n", ch);
         panic!(invalid_signature);
@@ -432,7 +426,7 @@ unsafe fn get_page_info(post_location: i32) {
     handle
         .seek(SeekFrom::Start(post_location as u64 + 27))
         .unwrap();
-    num_pages = tt_get_unsigned_pair(handle) as u32;
+    num_pages = u16::get(handle) as u32;
     if num_pages == 0_u32 {
         panic!("Page count is 0!");
     }
@@ -444,7 +438,7 @@ unsafe fn get_page_info(post_location: i32) {
     handle
         .seek(SeekFrom::Start(post_location as u64 + 1))
         .unwrap();
-    *page_loc.offset(num_pages.wrapping_sub(1_u32) as isize) = tt_get_unsigned_quad(handle);
+    *page_loc.offset(num_pages.wrapping_sub(1_u32) as isize) = u32::get(handle);
     if (*page_loc.offset(num_pages.wrapping_sub(1_u32) as isize)).wrapping_add(41_u32)
         > dvi_file_size
     {
@@ -457,7 +451,7 @@ unsafe fn get_page_info(post_location: i32) {
                 *page_loc.offset((i + 1) as isize) as u64 + 41,
             ))
             .unwrap();
-        *page_loc.offset(i as isize) = tt_get_unsigned_quad(handle);
+        *page_loc.offset(i as isize) = u32::get(handle);
         if (*page_loc.offset(num_pages.wrapping_sub(1_u32) as isize)).wrapping_add(41_u32)
             > dvi_file_size
         {
@@ -483,12 +477,12 @@ unsafe fn get_dvi_info(post_location: i32) {
     handle
         .seek(SeekFrom::Start(post_location as u64 + 5))
         .unwrap(); /* direction */
-    DVI_INFO.unit_num = tt_get_unsigned_quad(handle);
-    DVI_INFO.unit_den = tt_get_unsigned_quad(handle);
-    DVI_INFO.mag = tt_get_unsigned_quad(handle);
-    DVI_INFO.media_height = tt_get_unsigned_quad(handle);
-    DVI_INFO.media_width = tt_get_unsigned_quad(handle);
-    DVI_INFO.stackdepth = tt_get_unsigned_pair(handle) as u32;
+    DVI_INFO.unit_num = u32::get(handle);
+    DVI_INFO.unit_den = u32::get(handle);
+    DVI_INFO.mag = u32::get(handle);
+    DVI_INFO.media_height = u32::get(handle);
+    DVI_INFO.media_width = u32::get(handle);
+    DVI_INFO.stackdepth = u16::get(handle) as u32;
     if DVI_INFO.stackdepth > 256u32 {
         warn!("DVI need stack depth of {},", DVI_INFO.stackdepth);
         warn!("but DVI_STACK_DEPTH_MAX is {}.", 256u32);
@@ -509,25 +503,23 @@ pub(crate) unsafe fn dvi_comment() -> *const i8 {
 }
 unsafe fn read_font_record(tex_id: u32) {
     let handle = dvi_handle.as_mut().unwrap();
-    tt_get_unsigned_quad(handle);
-    let point_size = tt_get_positive_quad(handle, "DVI", "point_size");
-    let design_size = tt_get_positive_quad(handle, "DVI", "design_size");
-    let dir_length = tt_get_unsigned_byte(handle) as i32;
-    let name_length = tt_get_unsigned_byte(handle) as i32;
+    u32::get(handle);
+    let point_size = get_positive_quad(handle, "DVI", "point_size");
+    let design_size = get_positive_quad(handle, "DVI", "design_size");
+    let dir_length = u8::get(handle) as i32;
+    let name_length = u8::get(handle) as i32;
     let directory = new(
         ((dir_length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
     ) as *mut i8;
-    if ttstub_input_read(handle.as_ptr(), directory, dir_length as size_t) != dir_length as isize {
-        panic!(invalid_signature);
-    }
+
+    let slice = std::slice::from_raw_parts_mut(directory as *mut u8, dir_length as usize);
+    handle.read_exact(slice).expect(invalid_signature);
     *directory.offset(dir_length as isize) = '\u{0}' as i32 as i8;
     free(directory as *mut libc::c_void);
     let font_name = new(((name_length + 1i32) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    if ttstub_input_read(handle.as_ptr(), font_name, name_length as size_t) != name_length as isize
-    {
-        panic!(invalid_signature);
-    }
+    let slice = std::slice::from_raw_parts_mut(font_name as *mut u8, name_length as usize);
+    handle.read_exact(slice).expect(invalid_signature);
     *font_name.offset(name_length as isize) = '\u{0}' as i32 as i8;
     def_fonts.push(font_def {
         font_id: -1,
@@ -548,18 +540,18 @@ unsafe fn read_font_record(tex_id: u32) {
 }
 unsafe fn read_native_font_record(tex_id: u32) {
     let handle = dvi_handle.as_mut().unwrap();
-    let point_size = tt_get_positive_quad(handle, "DVI", "point_size");
-    let flags = tt_get_unsigned_pair(handle) as u32;
-    let len = tt_get_unsigned_byte(handle) as i32;
+    let point_size = get_positive_quad(handle, "DVI", "point_size");
+    let flags = u16::get(handle) as u32;
+    let len = u8::get(handle) as i32;
     let font_name =
         new(((len + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
             as *mut i8;
-    if ttstub_input_read(handle.as_ptr(), font_name, len as size_t) != len as isize {
-        panic!(invalid_signature);
-    }
+
+    let slice = std::slice::from_raw_parts_mut(font_name as *mut u8, len as usize);
+    handle.read_exact(slice).expect(invalid_signature);
     *font_name.offset(len as isize) = '\u{0}' as i32 as i8;
 
-    let index = tt_get_positive_quad(handle, "DVI", "index");
+    let index = get_positive_quad(handle, "DVI", "index");
     let mut font = font_def {
         font_id: -1,
         tex_id: tex_id,
@@ -579,16 +571,16 @@ unsafe fn read_native_font_record(tex_id: u32) {
         font.layout_dir = 1i32
     }
     if flags & 0x200_u32 != 0 {
-        font.rgba_color = tt_get_unsigned_quad(handle)
+        font.rgba_color = u32::get(handle)
     }
     if flags & 0x1000_u32 != 0 {
-        font.extend = tt_get_signed_quad(handle)
+        font.extend = i32::get(handle)
     }
     if flags & 0x2000_u32 != 0 {
-        font.slant = tt_get_signed_quad(handle)
+        font.slant = i32::get(handle)
     }
     if flags & 0x4000_u32 != 0 {
-        font.embolden = tt_get_signed_quad(handle)
+        font.embolden = i32::get(handle)
     }
     def_fonts.push(font);
     free(font_name as *mut _);
@@ -599,17 +591,17 @@ unsafe fn get_dvi_fonts(post_location: i32) {
         .seek(SeekFrom::Start(post_location as u64 + 29))
         .unwrap();
     loop {
-        let code = tt_get_unsigned_byte(handle);
+        let code = u8::get(handle);
         if code == POST_POST {
             break;
         }
         match code {
             FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
-                read_font_record(tt_get_unsigned_num(handle, code - FNT_DEF1));
+                read_font_record(get_unsigned_num(handle, code - FNT_DEF1));
             }
             XDV_NATIVE_FONT_DEF => {
                 need_XeTeX(code as i32);
-                read_native_font_record(tt_get_signed_quad(handle) as u32);
+                read_native_font_record(i32::get(handle) as u32);
             }
             _ => {
                 info!("Unexpected op code: {:3}\n", code,);
@@ -637,7 +629,7 @@ unsafe fn get_dvi_fonts(post_location: i32) {
 unsafe fn get_comment() {
     let handle = dvi_handle.as_mut().unwrap();
     handle.seek(SeekFrom::Start(14)).unwrap();
-    let length = tt_get_unsigned_byte(handle) as usize;
+    let length = u8::get(handle) as usize;
     handle
         .read_exact(&mut DVI_INFO.comment[..length])
         .expect(invalid_signature);
@@ -1009,19 +1001,14 @@ unsafe fn dvi_locate_native_font(
             (256usize).wrapping_mul(::std::mem::size_of::<*mut i8>()),
         );
         let cffont = t1_load_font(enc_vec.as_mut_ptr(), 0i32, handle);
-        if cffont.is_null() {
-            panic!("Failed to read Type 1 font \"{}\".", filename);
-        }
-        let ref mut fresh18 = font.cffont;
-        *fresh18 = cffont;
-        if cff_dict_known((*cffont).topdict, b"FontBBox\x00" as *const u8 as *const i8) {
+        if cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) {
             font.ascent = cff_dict_get(
-                (*cffont).topdict,
+                cffont.topdict,
                 b"FontBBox\x00" as *const u8 as *const i8,
                 3i32,
             ) as i32;
             font.descent = cff_dict_get(
-                (*cffont).topdict,
+                cffont.topdict,
                 b"FontBBox\x00" as *const u8 as *const i8,
                 1i32,
             ) as i32
@@ -1030,42 +1017,43 @@ unsafe fn dvi_locate_native_font(
             font.descent = -190i32
         }
         font.unitsPerEm = 1000_u32;
-        font.numGlyphs = (*cffont).num_glyphs as u32;
+        font.numGlyphs = cffont.num_glyphs as u32;
+        font.cffont = Box::into_raw(cffont);
     } else {
-        let sfont = if is_dfont != 0 {
-            dfont_open(handle, index as i32)
+        let mut sfont = if is_dfont != 0 {
+            dfont_open(handle, index as i32).unwrap()
         } else {
             sfnt_open(handle)
         };
-        if (*sfont).type_0 == 1i32 << 4i32 {
-            offset = ttc_read_offset(sfont, index as i32)
-        } else if (*sfont).type_0 == 1i32 << 8i32 {
-            offset = (*sfont).offset
+        if sfont.type_0 == 1 << 4 {
+            offset = ttc_read_offset(&mut sfont, index as i32)
+        } else if sfont.type_0 == 1i32 << 8i32 {
+            offset = sfont.offset
         }
-        sfnt_read_table_directory(sfont, offset);
-        let head = tt_read_head_table(sfont);
-        let maxp = tt_read_maxp_table(sfont);
-        let hhea = tt_read_hhea_table(sfont);
+        sfnt_read_table_directory(&mut sfont, offset);
+        let head = tt_read_head_table(&mut sfont);
+        let maxp = tt_read_maxp_table(&mut sfont);
+        let hhea = tt_read_hhea_table(&mut sfont);
         font.ascent = (*hhea).ascent as i32;
         font.descent = (*hhea).descent as i32;
         font.unitsPerEm = (*head).unitsPerEm as u32;
         font.numGlyphs = (*maxp).numGlyphs as u32;
-        if layout_dir == 1i32 && sfnt_find_table_pos(sfont, b"vmtx") > 0_u32 {
-            let vhea: *mut tt_vhea_table = tt_read_vhea_table(sfont);
-            sfnt_locate_table(sfont, b"vmtx");
+        if layout_dir == 1i32 && sfnt_find_table_pos(&sfont, b"vmtx") > 0_u32 {
+            let vhea: *mut tt_vhea_table = tt_read_vhea_table(&mut sfont);
+            sfnt_locate_table(&mut sfont, b"vmtx");
             let ref mut fresh19 = font.hvmt;
             *fresh19 = tt_read_longMetrics(
-                sfont,
+                &mut &*sfont.handle,
                 (*maxp).numGlyphs,
                 (*vhea).numOfLongVerMetrics,
                 (*vhea).numOfExSideBearings,
             );
             free(vhea as *mut libc::c_void);
         } else {
-            sfnt_locate_table(sfont, sfnt_table_info::HMTX);
+            sfnt_locate_table(&mut sfont, sfnt_table_info::HMTX);
             let ref mut fresh20 = font.hvmt;
             *fresh20 = tt_read_longMetrics(
-                sfont,
+                &mut &*sfont.handle,
                 (*maxp).numGlyphs,
                 (*hhea).numOfLongHorMetrics,
                 (*hhea).numOfExSideBearings,
@@ -1074,7 +1062,6 @@ unsafe fn dvi_locate_native_font(
         free(hhea as *mut libc::c_void);
         free(maxp as *mut libc::c_void);
         free(head as *mut libc::c_void);
-        sfnt_close(sfont);
     }
     font.layout_dir = layout_dir;
     font.extend = (*mrec).opt.extend as f32;
@@ -1428,10 +1415,10 @@ pub(crate) unsafe fn dvi_z0() {
 }
 unsafe fn skip_fntdef() {
     let handle = dvi_handle.as_mut().unwrap();
-    tt_skip_bytes(12_u32, handle);
-    let area_len = tt_get_unsigned_byte(handle) as i32;
-    let name_len = tt_get_unsigned_byte(handle) as i32;
-    tt_skip_bytes((area_len + name_len) as u32, handle);
+    skip_bytes(12_u32, handle);
+    let area_len = u8::get(handle) as i32;
+    let name_len = u8::get(handle) as i32;
+    skip_bytes((area_len + name_len) as u32, handle);
 }
 /* when pre-scanning the page, we process fntdef
 and remove the fntdef opcode from the buffer */
@@ -1559,21 +1546,21 @@ unsafe fn dvi_end_reflect() {
 }
 unsafe fn skip_native_font_def() {
     let handle = dvi_handle.as_mut().unwrap();
-    tt_skip_bytes(4, handle);
-    let flags = tt_get_unsigned_pair(handle) as u32;
-    let name_length = tt_get_unsigned_byte(handle) as i32;
-    tt_skip_bytes((name_length + 4) as u32, handle);
+    skip_bytes(4, handle);
+    let flags = u16::get(handle) as u32;
+    let name_length = u8::get(handle) as i32;
+    skip_bytes((name_length + 4) as u32, handle);
     if flags & 0x200_u32 != 0 {
-        tt_skip_bytes(4, handle);
+        skip_bytes(4, handle);
     }
     if flags & 0x1000_u32 != 0 {
-        tt_skip_bytes(4, handle);
+        skip_bytes(4, handle);
     }
     if flags & 0x2000_u32 != 0 {
-        tt_skip_bytes(4, handle);
+        skip_bytes(4, handle);
     }
     if flags & 0x4000_u32 != 0 {
-        tt_skip_bytes(4, handle);
+        skip_bytes(4, handle);
     };
 }
 unsafe fn do_native_font_def(tex_id: i32) {
@@ -1723,19 +1710,19 @@ unsafe fn do_glyphs(do_actual_text: i32) {
 }
 unsafe fn check_postamble() {
     let handle = dvi_handle.as_mut().unwrap();
-    tt_skip_bytes(28, handle);
+    skip_bytes(28, handle);
     loop {
-        let code = tt_get_unsigned_byte(handle) as u8;
+        let code = u8::get(handle) as u8;
         if code == POST_POST {
             break;
         }
         match code {
             FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
-                tt_skip_bytes((code + 1 - FNT_DEF1) as u32, handle);
+                skip_bytes((code + 1 - FNT_DEF1) as u32, handle);
                 skip_fntdef();
             }
             XDV_NATIVE_FONT_DEF => {
-                tt_skip_bytes(4, handle);
+                skip_bytes(4, handle);
                 skip_native_font_def();
             }
             _ => {
@@ -1743,8 +1730,8 @@ unsafe fn check_postamble() {
             }
         }
     }
-    tt_skip_bytes(4, handle);
-    post_id_byte = tt_get_unsigned_byte(handle) as i32;
+    skip_bytes(4, handle);
+    post_id_byte = u8::get(handle) as i32;
     let post_id_byte_0 = post_id_byte as u8;
     if !(post_id_byte_0 == DVI_ID
         || post_id_byte_0 == DVIV_ID
@@ -1815,11 +1802,11 @@ pub(crate) unsafe fn dvi_do_page(page_paper_height: f64, hmargin: f64, vmargin: 
                 do_eop();
                 if linear != 0 {
                     let handle = dvi_handle.as_mut().unwrap();
-                    let opcode = tt_get_unsigned_byte(handle);
+                    let opcode = u8::get(handle);
                     if opcode == POST {
                         check_postamble();
                     } else {
-                        ttstub_input_ungetc(handle, opcode as i32);
+                        handle.seek(SeekFrom::Current(-1)).unwrap();
                     }
                 }
                 return;
@@ -1940,7 +1927,7 @@ pub(crate) unsafe fn dvi_init(dvi_filename: *const i8, mag: f64) -> f64 {
     if dvi_filename.is_null() {
         panic!("filename must be specified");
     }
-    dvi_handle = ttstub_input_open(dvi_filename, TTInputFormat::BINARY, 0i32);
+    dvi_handle = ttstub_input_open(dvi_filename, TTInputFormat::BINARY, 0);
     if dvi_handle.is_none() {
         panic!("cannot open \"{}\"", CStr::from_ptr(dvi_filename).display());
     }
@@ -1981,7 +1968,7 @@ pub(crate) unsafe fn dvi_close() {
     for font in &mut loaded_fonts {
         font.hvmt = mfree(font.hvmt as *mut libc::c_void) as _;
         if !(font.cffont.is_null()) {
-            cff_close(font.cffont);
+            let _ = Box::from_raw(font.cffont);
         }
         font.cffont = ptr::null_mut();
     }
@@ -2431,7 +2418,7 @@ pub(crate) unsafe fn dvi_scan_specials(
                     get_and_buffer_bytes(handle, 8_u32);
                 }
                 FNT_DEF1 | FNT_DEF2 | FNT_DEF3 | FNT_DEF4 => {
-                    do_fntdef(tt_get_unsigned_num(handle, opcode - FNT_DEF1));
+                    do_fntdef(get_unsigned_num(handle, opcode - FNT_DEF1));
                 }
                 XDV_GLYPHS => {
                     need_XeTeX(opcode as i32);
@@ -2449,7 +2436,7 @@ pub(crate) unsafe fn dvi_scan_specials(
                 }
                 XDV_NATIVE_FONT_DEF => {
                     need_XeTeX(opcode as i32);
-                    do_native_font_def(tt_get_signed_quad(handle));
+                    do_native_font_def(i32::get(handle));
                 }
                 BEGIN_REFLECT | END_REFLECT => {
                     need_XeTeX(opcode as i32);

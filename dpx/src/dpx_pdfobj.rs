@@ -30,23 +30,22 @@ use crate::bridge::DisplayExt;
 use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use crate::dpx_pdfparse::{parse_number, parse_pdf_object, parse_unsigned, ParsePdfObj, SkipWhite};
-use crate::strstartswith;
+use crate::dpx_pdfparse::{ParseNumber, ParsePdfObj, SkipWhite};
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_dpxutil::{ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table};
 use super::dpx_mem::{new, renew};
-use super::dpx_mfileio::{tt_mfgets, work_buffer, work_buffer_u8 as WORK_BUFFER};
+use super::dpx_mfileio::{tt_mfgets, work_buffer};
 use super::dpx_pdfdev::pdf_sprint_number;
 use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encrypt_data};
 use super::dpx_pdfparse::skip_white;
 use crate::bridge::{
-    ttstub_input_get_size, ttstub_input_getc, ttstub_input_read, ttstub_input_ungetc,
-    ttstub_output_close, ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
+    ttstub_input_get_size, ttstub_input_getc, ttstub_output_close, ttstub_output_open,
+    ttstub_output_open_stdout, ttstub_output_putc,
 };
-use libc::{atof, atoi, free, memcmp, memset, strlen, strtoul};
+use libc::{free, memset, strlen, strtoul};
 
 use libz_sys as libz;
 
@@ -889,8 +888,9 @@ unsafe fn write_boolean(data: bool, handle: &mut OutputHandleWrapper) {
 }
 
 unsafe fn write_number(number: *mut pdf_number, handle: &mut OutputHandleWrapper) {
-    let count = pdf_sprint_number(&mut format_buffer[..], (*number).value) as usize;
-    pdf_out(handle, &format_buffer[..count]);
+    let mut buf = Vec::new();
+    pdf_sprint_number(&mut buf, (*number).value);
+    pdf_out(handle, &buf);
 }
 
 pub(crate) unsafe fn pdf_set_number(object: &mut pdf_obj, value: f64) {
@@ -965,55 +965,39 @@ pub(crate) unsafe fn pdf_string_length(object: &pdf_obj) -> u32 {
  * characters in an output string.
  */
 
-pub(crate) unsafe fn pdfobj_escape_str(buffer: &mut [u8], s: *const u8, len: size_t) -> size_t {
-    let bufsize = buffer.len();
-    let mut result = 0;
+pub(crate) unsafe fn pdfobj_escape_str(buffer: &mut Vec<u8>, s: *const u8, len: size_t) {
     for i in 0..len {
         let ch = *s.offset(i as isize);
-        if result > bufsize - 4 {
-            panic!("pdfobj_escape_str: Buffer overflow");
-        }
         /*
          * We always write three octal digits. Optimization only gives few Kb
          * smaller size for most documents when zlib compressed.
          */
         if ch < 32 || ch > 126 {
-            buffer[result] = b'\\';
-            result += 1;
-            write!(&mut buffer[result..], "{:03o}", ch).unwrap();
-            result += 3;
+            buffer.push(b'\\');
+            write!(buffer, "{:03o}", ch).unwrap();
         } else {
             match ch {
                 40 => {
-                    buffer[result] = b'\\';
-                    result += 1;
-                    buffer[result] = b'(';
-                    result += 1;
+                    buffer.push(b'\\');
+                    buffer.push(b'(');
                 }
                 41 => {
-                    buffer[result] = b'\\';
-                    result += 1;
-                    buffer[result] = b')';
-                    result += 1;
+                    buffer.push(b'\\');
+                    buffer.push(b')');
                 }
                 92 => {
-                    buffer[result] = b'\\';
-                    result += 1;
-                    buffer[result] = b'\\';
-                    result += 1;
+                    buffer.push(b'\\');
+                    buffer.push(b'\\');
                 }
                 _ => {
-                    buffer[result] = ch;
-                    result += 1;
+                    buffer.push(ch);
                 }
             }
         }
     }
-    result as size_t
 }
 unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
     let mut s: *mut u8 = ptr::null_mut();
-    let mut wbuf = [0_u8; 4096];
     let mut nescc: i32 = 0i32;
     let mut len: size_t = 0i32 as size_t;
     if enc_mode {
@@ -1062,10 +1046,11 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
          * is also used for strings of text with no kerning.  These must be
          * handled as quickly as possible since there are so many of them.
          */
+        let mut wbuf = Vec::new();
         for i in 0..len {
-            let count = pdfobj_escape_str(&mut wbuf[..], &mut *s.offset(i as isize), 1i32 as size_t)
-                as usize;
-            pdf_out(handle, &wbuf[..count]);
+            pdfobj_escape_str(&mut wbuf, &mut *s.offset(i as isize), 1i32 as size_t);
+            pdf_out(handle, wbuf.as_slice());
+            wbuf.clear();
         }
         pdf_out_char(handle, b')');
     }
@@ -2798,36 +2783,39 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
  * null-terminated string. Returns -1 for when EOF is already reached, and -2
  * if buffer has no enough space.
  */
-unsafe fn tt_mfreadln(buf: *mut i8, size: i32, handle: &mut InputHandleWrapper) -> i32 {
+#[derive(Copy, Clone, Debug)]
+enum MfReadErr {
+    Eof,
+    NotEnoughSpace,
+}
+unsafe fn tt_mfreadln<R: Read + Seek>(size: usize, handle: &mut R) -> Result<Vec<u8>, MfReadErr> {
     let mut c;
-    let mut len: i32 = 0i32;
+    let mut buf = Vec::with_capacity(size + 1);
     loop {
         c = ttstub_input_getc(handle);
-        if !(c != -1i32 && c != '\n' as i32 && c != '\r' as i32) {
+        if !(c != -1 && c != '\n' as i32 && c != '\r' as i32) {
             break;
         }
-        if len >= size {
-            return -2i32;
+        if buf.len() >= size {
+            return Err(MfReadErr::NotEnoughSpace);
         }
-        let fresh19 = len;
-        len = len + 1;
-        *buf.offset(fresh19 as isize) = c as i8
+        buf.push(c as u8);
     }
-    if c == -1i32 && len == 0i32 {
-        return -1i32;
+    if c == -1 && buf.is_empty() {
+        return Err(MfReadErr::Eof);
     }
     if c == '\r' as i32
         && {
             c = ttstub_input_getc(handle);
-            c >= 0i32
+            c >= 0
         }
         && c != '\n' as i32
     {
-        ttstub_input_ungetc(handle, c);
+        handle.seek(SeekFrom::Current(-1)).unwrap();
     }
-    len
+    Ok(buf)
 }
-unsafe fn backup_line(handle: &mut InputHandleWrapper) -> i32 {
+unsafe fn backup_line<R: Read + Seek>(handle: &mut R) -> i32 {
     let mut ch: i32 = -1i32;
     /* Note: this code should work even if \r\n is eol. It could fail on a
      * machine where \n is eol and there is a \r in the stream --- Highly
@@ -2854,7 +2842,7 @@ unsafe fn backup_line(handle: &mut InputHandleWrapper) -> i32 {
     }
     1i32
 }
-unsafe fn find_xref(handle: &mut InputHandleWrapper, file_size: i32) -> i32 {
+unsafe fn find_xref<R: Read + Seek>(handle: &mut R, file_size: i32) -> i32 {
     let mut tries: i32 = 10i32;
     loop {
         if backup_line(handle) == 0 {
@@ -2862,17 +2850,12 @@ unsafe fn find_xref(handle: &mut InputHandleWrapper, file_size: i32) -> i32 {
             break;
         } else {
             let currentpos = handle.seek(SeekFrom::Current(0)).unwrap() as i32;
-            let n = core::cmp::min(b"startxref".len() as i32, file_size - currentpos);
-            ttstub_input_read(handle.as_ptr(), work_buffer.as_mut_ptr(), n as size_t);
+            let n = core::cmp::min(b"startxref".len() as i32, file_size - currentpos) as usize;
+            let mut buf = vec![0; n];
+            handle.read_exact(buf.as_mut_slice());
             handle.seek(SeekFrom::Start(currentpos as u64)).unwrap();
             tries -= 1;
-            if !(tries > 0i32
-                && strstartswith(
-                    work_buffer.as_mut_ptr(),
-                    b"startxref\x00" as *const u8 as *const i8,
-                )
-                .is_null())
-            {
+            if !(tries > 0 && !buf.starts_with(b"startxref")) {
                 break;
             }
         }
@@ -2883,18 +2866,23 @@ unsafe fn find_xref(handle: &mut InputHandleWrapper, file_size: i32) -> i32 {
     /* Skip rest of this line */
     tt_mfgets(work_buffer.as_mut_ptr(), 1024i32, handle);
     /* Next line of input file should contain actual xref location */
-    let len = tt_mfreadln(work_buffer.as_mut_ptr(), 1024i32, handle);
-    if len <= 0i32 {
-        warn!("Reading xref location data failed... Not a PDF file?");
-        return 0i32;
+    match tt_mfreadln(1024, handle) {
+        Err(_) => {
+            warn!("Reading xref location data failed... Not a PDF file?");
+            0
+        }
+        Ok(buf) if buf.len() == 0 => {
+            warn!("Reading xref location data failed... Not a PDF file?");
+            0
+        }
+        Ok(buf) => {
+            let mut p = buf.as_slice();
+            p.skip_white();
+            let number = p.parse_number().unwrap();
+            let xref_pos = number.to_str().unwrap().parse::<f64>().unwrap() as i32;
+            xref_pos
+        }
     }
-    let mut start = work_buffer.as_mut_ptr() as *const i8;
-    let end = start.offset(len as isize);
-    skip_white(&mut start, end);
-    let number = parse_number(&mut start, end);
-    let xref_pos = atof(number) as i32;
-    free(number as *mut libc::c_void);
-    xref_pos
 }
 /*
  * This routine must be called with the file pointer located
@@ -2906,19 +2894,15 @@ unsafe fn parse_trailer(pf: *mut pdf_file) -> Option<*mut pdf_obj> {
      * be made a bit more robust sometime.
      */
     let cur_pos = (*pf).handle.seek(SeekFrom::Current(0)).unwrap() as i32;
-    let nmax = if (*pf).file_size - cur_pos < 1024 {
-        (*pf).file_size - cur_pos
-    } else {
-        1024
-    } as usize;
-    let nread = (*pf).handle.read(&mut WORK_BUFFER[..nmax]).ok();
-    if nread.is_none() || nread == Some(0) || !WORK_BUFFER.starts_with(b"trailer") {
+    let nmax = ((*pf).file_size - cur_pos).min(1024) as usize;
+    let mut buf = vec![0u8; nmax];
+    let r = (*pf).handle.read_exact(&mut buf);
+    if r.is_err() || !buf.starts_with(b"trailer") {
         warn!("No trailer.  Are you sure this is a PDF file?");
-        warn!("buffer:\n->{}<-\n", WORK_BUFFER.display(),);
+        warn!("buffer:\n->{}<-\n", buf.as_slice().display());
         None
     } else {
-        let nread = nread.unwrap();
-        let mut p = &WORK_BUFFER[b"trailer".len()..nread];
+        let mut p = &buf[b"trailer".len()..];
         p.skip_white();
         p.parse_pdf_dict(pf)
     }
@@ -2953,66 +2937,47 @@ unsafe fn pdf_read_object(
     offset: i32,
     limit: i32,
 ) -> *mut pdf_obj {
-    let length = limit - offset;
-    if length <= 0i32 {
+    let length = (limit - offset) as usize;
+    if length <= 0 {
         return ptr::null_mut();
     }
-    let buffer = new(
-        ((length + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
-    ) as *mut i8;
+    let mut buffer = vec![0u8; length + 1];
     (*pf).handle.seek(SeekFrom::Start(offset as u64)).unwrap();
-    ttstub_input_read((*pf).handle.as_ptr(), buffer, length as size_t);
-    let mut p = buffer as *const i8;
-    let endptr = p.offset(length as isize);
+    (*pf).handle.read_exact(&mut buffer[..length]);
+    let p = buffer.as_slice();
     /* Check for obj_num and obj_gen */
-    let mut q: *const i8 = p; /* <== p */
-    skip_white(&mut q, endptr);
-    let sp = parse_unsigned(&mut q, endptr);
-    if sp.is_null() {
-        free(buffer as *mut libc::c_void);
+    let mut q = p; /* <== p */
+    q.skip_white();
+    let sp = q.parse_unsigned();
+    if sp.is_none() {
         return ptr::null_mut();
     }
-    let n = strtoul(sp, 0 as *mut *mut i8, 10i32) as u32;
-    free(sp as *mut libc::c_void);
-    skip_white(&mut q, endptr);
-    let sp = parse_unsigned(&mut q, endptr);
-    if sp.is_null() {
-        free(buffer as *mut libc::c_void);
+    let n = sp.unwrap().to_str().unwrap().parse::<u32>().unwrap();
+    q.skip_white();
+    let sp = q.parse_unsigned();
+    if sp.is_none() {
         return ptr::null_mut();
     }
-    let g = strtoul(sp, 0 as *mut *mut i8, 10i32) as u32;
-    free(sp as *mut libc::c_void);
+    let g = sp.unwrap().to_str().unwrap().parse::<u32>().unwrap();
     if obj_num != 0 && (n != obj_num || g != obj_gen as u32) {
-        free(buffer as *mut libc::c_void);
         return ptr::null_mut();
     }
-    p = q;
-    skip_white(&mut p, endptr);
-    if memcmp(
-        p as *const libc::c_void,
-        b"obj\x00" as *const u8 as *const i8 as *const libc::c_void,
-        strlen(b"obj\x00" as *const u8 as *const i8),
-    ) != 0
-    {
+    let mut p = q;
+    p.skip_white();
+    if !p.starts_with(b"obj") {
         warn!("Didn\'t find \"obj\".");
-        free(buffer as *mut libc::c_void);
         return ptr::null_mut();
     }
-    p = p.offset(strlen(b"obj\x00" as *const u8 as *const i8) as isize);
-    let mut result = parse_pdf_object(&mut p, endptr, pf);
-    skip_white(&mut p, endptr);
-    if memcmp(
-        p as *const libc::c_void,
-        b"endobj\x00" as *const u8 as *const i8 as *const libc::c_void,
-        strlen(b"endobj\x00" as *const u8 as *const i8),
-    ) != 0
-    {
+    p = &p[b"obj".len()..];
+    let result = p.parse_pdf_object(pf).unwrap_or(ptr::null_mut());
+    p.skip_white();
+    if !p.starts_with(b"endobj") {
         warn!("Didn\'t find \"endobj\".");
         pdf_release_obj(result);
-        result = ptr::null_mut()
+        ptr::null_mut()
+    } else {
+        result
     }
-    free(buffer as *mut libc::c_void);
-    result
 }
 unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
     let current_block: u64;
@@ -3103,13 +3068,13 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
  * null object, as required by the PDF spec. This is important to parse
  * several cross-reference sections.
  */
-unsafe fn pdf_get_object(pf: *mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
+unsafe fn pdf_get_object(pf: &mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
     let (obj_num, obj_gen) = obj_id;
     if !(obj_num > 0_u32
-        && obj_num < (*pf).num_obj as u32
-        && ((*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 1i32
-            && (*(*pf).xref_table.offset(obj_num as isize)).id.1 as i32 == obj_gen as i32
-            || (*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 2i32 && obj_gen == 0))
+        && obj_num < pf.num_obj as u32
+        && ((*pf.xref_table.offset(obj_num as isize)).typ as i32 == 1i32
+            && (*pf.xref_table.offset(obj_num as isize)).id.1 as i32 == obj_gen as i32
+            || (*pf.xref_table.offset(obj_num as isize)).typ as i32 == 2i32 && obj_gen == 0))
     {
         warn!(
             "Trying to read nonexistent or deleted object: {} {}",
@@ -3117,24 +3082,24 @@ unsafe fn pdf_get_object(pf: *mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
         );
         return pdf_new_null();
     }
-    let result = (*(*pf).xref_table.offset(obj_num as isize)).direct;
+    let result = (*pf.xref_table.offset(obj_num as isize)).direct;
     if !result.is_null() {
         return pdf_link_obj(result);
     }
     let mut result = None;
-    if (*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 1i32 {
+    if (*pf.xref_table.offset(obj_num as isize)).typ as i32 == 1i32 {
         /* type == 1 */
-        let offset = (*(*pf).xref_table.offset(obj_num as isize)).id.0;
+        let offset = (*pf.xref_table.offset(obj_num as isize)).id.0;
         let limit = next_object_offset(pf, obj_num);
         result = Some(pdf_read_object(obj_num, obj_gen, pf, offset as i32, limit))
     } else {
         /* type == 2 */
-        let (objstm_num, index) = (*(*pf).xref_table.offset(obj_num as isize)).id;
+        let (objstm_num, index) = (*pf.xref_table.offset(obj_num as isize)).id;
         let mut objstm: *mut pdf_obj = ptr::null_mut();
-        if !(objstm_num >= (*pf).num_obj as u32)
-            && (*(*pf).xref_table.offset(objstm_num as isize)).typ as i32 == 1i32
+        if !(objstm_num >= pf.num_obj as u32)
+            && (*pf.xref_table.offset(objstm_num as isize)).typ as i32 == 1i32
             && {
-                objstm = (*(*pf).xref_table.offset(objstm_num as isize)).direct;
+                objstm = (*pf.xref_table.offset(objstm_num as isize)).direct;
                 !objstm.is_null() || {
                     objstm = read_objstm(pf, objstm_num);
                     !objstm.is_null()
@@ -3168,7 +3133,7 @@ unsafe fn pdf_get_object(pf: *mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
 
     if let Some(result) = result {
         /* Make sure the caller doesn't free this object */
-        let ref mut fresh27 = (*(*pf).xref_table.offset(obj_num as isize)).direct;
+        let ref mut fresh27 = (*pf.xref_table.offset(obj_num as isize)).direct;
         *fresh27 = pdf_link_obj(result);
         result
     } else {
@@ -3204,8 +3169,7 @@ pub(crate) unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
         count -= 1;
         count != 0
     } {
-        let pf: *mut pdf_file = (*obj).as_indirect().pf;
-        if !pf.is_null() {
+        if let Some(pf) = (*obj).as_indirect().pf.as_mut() {
             let obj_id = (*obj).as_indirect().id;
             pdf_release_obj(obj);
             obj = pdf_get_object(pf, obj_id)
@@ -3245,62 +3209,55 @@ unsafe fn extend_xref(mut pf: *mut pdf_file, new_size: i32) {
 }
 /* Returns < 0 for error, 1 for success, and 0 when xref stream found. */
 unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
-    /* See, PDF ref. v.1.7, p.91 for "255+1" here. */
-    let mut buf: [i8; 256] = [0; 256];
     /*
      * This routine reads one xref segment. It may be called multiple times
      * on the same file.  xref tables sometimes come in pieces.
      */
     (*pf).handle.seek(SeekFrom::Start(xref_pos as u64)).unwrap();
-    let len = tt_mfreadln(buf.as_mut_ptr(), 255i32, &mut (*pf).handle);
+    let buf = tt_mfreadln(255, &mut (*pf).handle);
     /* We should have already checked that "startxref" section exists. So, EOF
      * here (len = -1) is impossible. We don't treat too long line case
      * seriously.
      */
-    if len < 0i32 {
+    if buf.is_err() {
         warn!("Something went wrong while reading xref table...giving up.");
-        return -1i32;
+        return -1;
     }
-    let mut p = buf.as_mut_ptr() as *const i8;
-    let mut endptr = buf.as_mut_ptr().offset(len as isize);
+    let buf = buf.unwrap();
+    let mut p = buf.as_slice();
     /* No skip_white() here. There should not be any white-spaces here. */
-    if memcmp(
-        p as *const libc::c_void,
-        b"xref\x00" as *const u8 as *const i8 as *const libc::c_void,
-        strlen(b"xref\x00" as *const u8 as *const i8),
-    ) != 0
-    {
+    if !p.starts_with(b"xref") {
         /* Might be an xref stream and not an xref table */
         return 0i32;
     }
-    p = p.offset(strlen(b"xref\x00" as *const u8 as *const i8) as isize);
-    skip_white(&mut p, endptr);
-    if p != endptr {
+    p = &p[b"xref".len()..];
+    p.skip_white();
+    if !p.is_empty() {
         warn!("Garbage after \"xref\" keyword found.");
-        return -1i32;
+        return -1;
     }
     loop
     /* Next line in file has first item and size of table */
     {
         let mut current_pos = (*pf).handle.seek(SeekFrom::Current(0)).unwrap();
-        let len = tt_mfreadln(buf.as_mut_ptr(), 255i32, &mut (*pf).handle);
-        if !(len == 0i32) {
-            if len < 0i32 {
-                warn!("Reading a line failed in xref table.");
-                return -1i32;
-            }
-            p = buf.as_mut_ptr();
-            endptr = buf.as_mut_ptr().offset(len as isize);
-            skip_white(&mut p, endptr);
-            if !(p == endptr) {
-                if !strstartswith(p, b"trailer\x00" as *const u8 as *const i8).is_null() {
+        let buf = tt_mfreadln(255, &mut (*pf).handle);
+        if buf.is_err() {
+            warn!("Reading a line failed in xref table.");
+            return -1i32;
+        }
+        let buf = buf.unwrap();
+        if !buf.is_empty() {
+            let mut p = buf.as_slice();
+            p.skip_white();
+            if !p.is_empty() {
+                if p.starts_with(b"trailer") {
                     /* Backup... This is ugly, but it seems like the safest thing to
                      * do. It is possible the trailer dictionary starts on the same
                      * logical line as the word trailer. In that case, the mfgets call
                      * might have started to read the trailer dictionary and
                      * parse_trailer would fail.
                      */
-                    current_pos += p.offset_from(buf.as_mut_ptr()) as u64; /* Jump to the beginning of "trailer" keyword. */
+                    current_pos += (buf.len() as u64) - (p.len() as u64); /* Jump to the beginning of "trailer" keyword. */
                     (*pf).handle.seek(SeekFrom::Start(current_pos)).unwrap();
                     break;
                 } else {
@@ -3314,25 +3271,25 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                      * more white-space characters.
                      */
                     /* Object number of the first object whithin this xref subsection. */
-                    let q = parse_unsigned(&mut p, endptr);
-                    if q.is_null() {
+                    let q = p.parse_unsigned();
+                    if q.is_none() {
                         warn!("An unsigned integer expected but could not find. (xref)");
                         return -1i32;
                     }
-                    let first = atoi(q) as u32;
-                    free(q as *mut libc::c_void);
-                    skip_white(&mut p, endptr);
+                    let q = q.unwrap();
+                    let first = q.to_str().unwrap().parse::<i32>().unwrap() as u32;
+                    p.skip_white();
                     /* Nnumber of objects in this xref subsection. */
-                    let q = parse_unsigned(&mut p, endptr);
-                    if q.is_null() {
+                    let q = p.parse_unsigned();
+                    if q.is_none() {
                         warn!("An unsigned integer expected but could not find. (xref)");
                         return -1i32;
                     }
-                    let size = atoi(q) as u32;
-                    free(q as *mut libc::c_void);
-                    skip_white(&mut p, endptr);
+                    let q = q.unwrap();
+                    let size = q.to_str().unwrap().parse::<i32>().unwrap() as u32;
+                    p.skip_white();
                     /* Check for unrecognized tokens */
-                    if p != endptr {
+                    if !p.is_empty() {
                         warn!("Unexpected token found in xref table.");
                         return -1i32;
                     }
@@ -3351,16 +3308,16 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                          * More than one "white-spaces" allowed, can be ended with a comment,
                          * and so on.
                          */
-                        let len = tt_mfreadln(buf.as_mut_ptr(), 255i32, &mut (*pf).handle);
-                        if !(len == 0i32) {
-                            if len < 0i32 {
-                                warn!("Something went wrong while reading xref subsection...");
-                                return -1i32;
-                            }
-                            p = buf.as_mut_ptr();
-                            endptr = buf.as_mut_ptr().offset(len as isize);
-                            skip_white(&mut p, endptr);
-                            if p == endptr {
+                        let buf = tt_mfreadln(255, &mut (*pf).handle);
+                        if buf.is_err() {
+                            warn!("Something went wrong while reading xref subsection...");
+                            return -1i32;
+                        }
+                        let buf = buf.unwrap();
+                        if !buf.is_empty() {
+                            let mut p = buf.as_slice();
+                            p.skip_white();
+                            if p.is_empty() {
                                 continue;
                             }
                             /*
@@ -3370,68 +3327,64 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                              * if it hasn't been set yet.
                              */
                             /* Offset value -- 10 digits (0 padded) */
-                            let q_0 = parse_unsigned(&mut p, endptr);
-                            if q_0.is_null() {
-                                warn!("An unsigned integer expected but could not find. (xref)");
-                                return -1i32;
-                            } else {
-                                if strlen(q_0) != 10 {
+                            let q_0 = if let Some(q_0) = p.parse_unsigned() {
+                                if q_0.to_bytes().len() != 10 {
                                     /* exactly 10 digits */
                                     warn!("Offset must be a 10 digits number. (xref)");
-                                    free(q_0 as *mut libc::c_void);
                                     return -1i32;
                                 }
-                            }
-                            /* FIXME: Possible overflow here. Consider using strtoll(). */
-                            let offset = atoi(q_0) as u32;
-                            free(q_0 as *mut libc::c_void);
-                            skip_white(&mut p, endptr);
-                            /* Generation number -- 5 digits (0 padded) */
-                            let q_0 = parse_unsigned(&mut p, endptr);
-                            if q_0.is_null() {
+                                q_0
+                            } else {
                                 warn!("An unsigned integer expected but could not find. (xref)");
                                 return -1i32;
-                            } else {
-                                if strlen(q_0) != 5 {
+                            };
+                            /* FIXME: Possible overflow here. Consider using strtoll(). */
+                            let offset = q_0.to_str().unwrap().parse::<i32>().unwrap() as u32;
+                            p.skip_white();
+                            /* Generation number -- 5 digits (0 padded) */
+                            let q_0 = if let Some(q_0) = p.parse_unsigned() {
+                                if q_0.to_bytes().len() != 5 {
                                     /* exactly 5 digits */
                                     warn!("Expecting a 5 digits number. (xref)");
-                                    free(q_0 as *mut libc::c_void);
                                     return -1i32;
                                 }
-                            }
-                            let obj_gen = atoi(q_0) as u32;
-                            free(q_0 as *mut libc::c_void);
-                            skip_white(&mut p, endptr);
-                            if p == endptr {
+                                q_0
+                            } else {
+                                warn!("An unsigned integer expected but could not find. (xref)");
+                                return -1i32;
+                            };
+                            let obj_gen = q_0.to_str().unwrap().parse::<i32>().unwrap() as u32;
+                            p.skip_white();
+                            if p.is_empty() {
                                 warn!(
                                     "Unexpected EOL reached while reading a xref subsection entry."
                                 );
                                 return -1i32;
                             }
                             /* Flag -- a char */
-                            let flag = *p;
-                            p = p.offset(1);
-                            skip_white(&mut p, endptr);
-                            if p < endptr {
+                            let flag = p[0];
+                            p = &p[1..];
+                            p.skip_white();
+                            if !p.is_empty() {
                                 warn!("Garbage in xref subsection entry found...");
-                                return -1i32;
+                                return -1;
                             } else {
-                                if flag as i32 != 'n' as i32 && flag as i32 != 'f' as i32
-                                    || flag as i32 == 'n' as i32
+                                if flag != b'n' && flag != b'f'
+                                    || flag == b'n'
                                         && (offset >= (*pf).file_size as u32
-                                            || offset > 0_u32 && offset < 4_u32)
+                                            || offset > 0 && offset < 4)
                                 {
                                     warn!(
                                         "Invalid xref table entry [{}]. PDF file is corrupt...",
                                         i,
                                     );
-                                    return -1i32;
+                                    return -1;
                                 }
                             }
                             /* Everything seems to be OK. */
                             if (*(*pf).xref_table.offset(i as isize)).id.0 == 0 {
                                 (*(*pf).xref_table.offset(i as isize)).typ =
-                                    (flag as i32 == 'n' as i32) as i32 as u8; /* TODO: change! why? */
+                                    (flag == b'n') as i32 as u8; /* TODO: change! why? */
                                 (*(*pf).xref_table.offset(i as isize)).id = (offset, obj_gen as u16)
                             }
                             i += 1
@@ -3696,17 +3649,17 @@ unsafe fn read_xref(pf: *mut pdf_file) -> *mut pdf_obj {
 }
 static mut pdf_files: *mut ht_table = ptr::null_mut();
 unsafe fn pdf_file_new(mut handle: InputHandleWrapper) -> *mut pdf_file {
-    let pf =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_file>() as u64) as u32) as *mut pdf_file;
+    let pf = &mut *(new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_file>() as u64) as u32)
+        as *mut pdf_file);
     let file_size = ttstub_input_get_size(&mut handle) as i32;
     handle.seek(SeekFrom::End(0)).unwrap();
-    (*pf).handle = handle;
-    (*pf).trailer = ptr::null_mut();
-    (*pf).xref_table = ptr::null_mut();
-    (*pf).catalog = ptr::null_mut();
-    (*pf).num_obj = 0i32;
-    (*pf).version = 0_u32;
-    (*pf).file_size = file_size;
+    pf.handle = handle;
+    pf.trailer = ptr::null_mut();
+    pf.xref_table = ptr::null_mut();
+    pf.catalog = ptr::null_mut();
+    pf.num_obj = 0i32;
+    pf.version = 0_u32;
+    pf.file_size = file_size;
     pf
 }
 unsafe fn pdf_file_free(pf: *mut pdf_file) {
@@ -3736,31 +3689,29 @@ pub unsafe fn pdf_files_init() {
     );
 }
 
-pub(crate) unsafe fn pdf_file_get_version(pf: *mut pdf_file) -> u32 {
-    assert!(!pf.is_null());
-    (*pf).version
+pub(crate) unsafe fn pdf_file_get_version(pf: &pdf_file) -> u32 {
+    pf.version
 }
 
-pub(crate) unsafe fn pdf_file_get_trailer(pf: *mut pdf_file) -> *mut pdf_obj {
-    assert!(!pf.is_null());
-    pdf_link_obj((*pf).trailer)
+pub(crate) unsafe fn pdf_file_get_trailer(pf: &pdf_file) -> *mut pdf_obj {
+    pdf_link_obj(pf.trailer)
 }
 
-pub(crate) unsafe fn pdf_file_get_catalog(pf: *mut pdf_file) -> *mut pdf_obj {
-    assert!(!pf.is_null());
-    (*pf).catalog
+pub(crate) unsafe fn pdf_file_get_catalog(pf: &pdf_file) -> *mut pdf_obj {
+    pf.catalog
 }
 
 pub unsafe fn pdf_open(ident: *const i8, mut handle: InputHandleWrapper) -> *mut pdf_file {
-    let mut pf: *mut pdf_file = ptr::null_mut();
     assert!(!pdf_files.is_null());
-    if !ident.is_null() {
-        pf = ht_lookup_table(
+    let mut pf = if !ident.is_null() {
+        ht_lookup_table(
             pdf_files,
             ident as *const libc::c_void,
             strlen(ident) as i32,
         ) as *mut pdf_file
-    }
+    } else {
+        ptr::null_mut()
+    };
     if !pf.is_null() {
         (*pf).handle = handle
     } else {
@@ -3839,7 +3790,7 @@ pub unsafe fn pdf_files_close() {
     free(pdf_files as *mut libc::c_void);
 }
 
-fn parse_pdf_version(handle: &mut InputHandleWrapper) -> Result<u32, ()> {
+fn parse_pdf_version<R: Read + Seek>(handle: &mut R) -> Result<u32, ()> {
     handle.seek(SeekFrom::Start(0)).unwrap();
 
     let mut buffer_ = [0u8; 32];
@@ -3862,8 +3813,7 @@ fn parse_pdf_version(handle: &mut InputHandleWrapper) -> Result<u32, ()> {
     buffer["%PDF-1.".len()..].parse::<u32>().map_err(|_| ())
 }
 
-#[no_mangle]
-pub(crate) unsafe extern "C" fn check_for_pdf(handle: &mut InputHandleWrapper) -> bool {
+pub(crate) unsafe fn check_for_pdf<R: Read + Seek>(handle: &mut R) -> bool {
     match parse_pdf_version(handle) {
         Ok(version) => {
             if version <= pdf_version {
@@ -3896,37 +3846,34 @@ static mut loop_marker: pdf_obj = pdf_obj {
     data: PdfObjVariant::OBJ_INVALID,
 };
 unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
-    let pf: *mut pdf_file = (*object).as_indirect().pf;
+    let pf = &mut *(*object).as_indirect().pf;
     let (obj_num, obj_gen) = (*object).as_indirect().id;
-    assert!(!pf.is_null());
     if !(obj_num > 0_u32
-        && obj_num < (*pf).num_obj as u32
-        && ((*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 1i32
-            && (*(*pf).xref_table.offset(obj_num as isize)).id.1 as i32 == obj_gen as i32
-            || (*(*pf).xref_table.offset(obj_num as isize)).typ as i32 == 2i32 && obj_gen == 0))
+        && obj_num < pf.num_obj as u32
+        && ((*pf.xref_table.offset(obj_num as isize)).typ as i32 == 1i32
+            && (*pf.xref_table.offset(obj_num as isize)).id.1 as i32 == obj_gen as i32
+            || (*pf.xref_table.offset(obj_num as isize)).typ as i32 == 2i32 && obj_gen == 0))
     {
         warn!("Can\'t resolve object: {} {}", obj_num, obj_gen as i32,);
         return pdf_new_null();
     }
-    let mut ref_0 = (*(*pf).xref_table.offset(obj_num as isize)).indirect;
+    let mut ref_0 = (*pf.xref_table.offset(obj_num as isize)).indirect;
     if !ref_0.is_null() {
         if ref_0 == &mut loop_marker as *mut pdf_obj {
             panic!("Loop in object hierarchy detected. Broken PDF file?");
         }
         return pdf_link_obj(ref_0);
     } else {
-        let obj = pdf_get_object(pf, (obj_num, obj_gen));
+        let obj = pdf_get_object(&mut *pf, (obj_num, obj_gen));
         if obj.is_null() {
             warn!("Could not read object: {} {}", obj_num, obj_gen as i32,);
             return ptr::null_mut();
         }
         /* We mark the reference to be able to detect loops */
-        let ref mut fresh36 = (*(*pf).xref_table.offset(obj_num as isize)).indirect;
-        *fresh36 = &mut loop_marker;
+        (*pf.xref_table.offset(obj_num as isize)).indirect = &mut loop_marker;
         let tmp = pdf_import_object(obj);
         ref_0 = pdf_ref_obj(tmp);
-        let ref mut fresh37 = (*(*pf).xref_table.offset(obj_num as isize)).indirect;
-        *fresh37 = ref_0;
+        (*pf.xref_table.offset(obj_num as isize)).indirect = ref_0;
         pdf_release_obj(tmp);
         pdf_release_obj(obj);
         return pdf_link_obj(ref_0);

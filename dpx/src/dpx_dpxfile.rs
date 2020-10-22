@@ -26,19 +26,17 @@
     non_upper_case_globals
 )]
 
-use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom};
 
-use super::dpx_mem::new;
-use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
-use libc::{free, remove, strcat, strcpy, strlen, strrchr};
+use super::dpx_numbers::GetFromFile;
+use crate::bridge::ttstub_input_open_str;
+use libc::{free, remove};
 
 pub(crate) type __ssize_t = i64;
 
 use crate::bridge::TTInputFormat;
 
-use bridge::InputHandleWrapper;
+use bridge::DroppableInputHandleWrapper;
 /* quasi-hack to get the primary input */
 
 pub(crate) static mut keep_cache: i32 = 0i32;
@@ -52,7 +50,7 @@ static mut _SBUF: [u8; 128] = [0; 128];
  *  `OTTO': PostScript CFF font with OpenType wrapper
  *  `ttcf': TrueType Collection
  */
-unsafe fn check_stream_is_truetype(handle: &mut InputHandleWrapper) -> bool {
+unsafe fn check_stream_is_truetype<R: Read + Seek>(handle: &mut R) -> bool {
     handle.seek(SeekFrom::Start(0)).unwrap();
     let n = handle.read(&mut _SBUF[..4]).unwrap();
     handle.seek(SeekFrom::Start(0)).unwrap();
@@ -66,7 +64,7 @@ unsafe fn check_stream_is_truetype(handle: &mut InputHandleWrapper) -> bool {
     &_SBUF[..4] == b"ttcf"
 }
 /* "OpenType" is only for ".otf" here */
-unsafe fn check_stream_is_opentype(handle: &mut InputHandleWrapper) -> bool {
+unsafe fn check_stream_is_opentype<R: Read + Seek>(handle: &mut R) -> bool {
     handle.seek(SeekFrom::Start(0)).unwrap();
     let n = handle.read(&mut _SBUF[..4]).unwrap();
     handle.seek(SeekFrom::Start(0)).unwrap();
@@ -75,7 +73,7 @@ unsafe fn check_stream_is_opentype(handle: &mut InputHandleWrapper) -> bool {
     }
     &_SBUF[..4] == b"OTTO"
 }
-unsafe fn check_stream_is_type1(handle: &mut InputHandleWrapper) -> bool {
+unsafe fn check_stream_is_type1<R: Read + Seek>(handle: &mut R) -> bool {
     let p = &_SBUF;
     handle.seek(SeekFrom::Start(0)).unwrap();
     let n = handle.read(&mut _SBUF[..21]).unwrap();
@@ -98,31 +96,28 @@ unsafe fn check_stream_is_type1(handle: &mut InputHandleWrapper) -> bool {
     }
     false
 }
-unsafe fn check_stream_is_dfont(handle: &mut InputHandleWrapper) -> bool {
+unsafe fn check_stream_is_dfont<R: Read + Seek>(handle: &mut R) -> bool {
     handle.seek(SeekFrom::Start(0)).unwrap();
-    tt_get_unsigned_quad(handle);
-    let pos = tt_get_unsigned_quad(handle) as u64;
+    u32::get(handle);
+    let pos = u32::get(handle) as u64;
     handle.seek(SeekFrom::Start(pos + 0x18)).unwrap();
-    let n = tt_get_unsigned_pair(handle) as u64;
+    let n = u16::get(handle) as u64;
     handle.seek(SeekFrom::Start(pos + n)).unwrap();
-    let n = tt_get_unsigned_pair(handle) as i32;
+    let n = u16::get(handle) as i32;
     for _ in 0..=n {
-        if tt_get_unsigned_quad(handle) as u64 == 0x73666e74 {
+        if u32::get(handle) as u64 == 0x73666e74 {
             /* "sfnt" */
             return true;
         }
-        tt_get_unsigned_quad(handle);
+        u32::get(handle);
     }
     false
 }
 /* ensuresuffix() returns a copy of basename if sfx is "". */
-unsafe fn ensuresuffix(basename: *const i8, sfx: *const i8) -> *mut i8 {
-    let p = new((strlen(basename).wrapping_add(strlen(sfx)).wrapping_add(1))
-        .wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    strcpy(p, basename);
-    let q = strrchr(p, '.' as i32);
-    if q.is_null() && *sfx.offset(0) as i32 != 0 {
-        strcat(p, sfx);
+unsafe fn ensuresuffix(basename: &str, sfx: &str) -> String {
+    let mut p = String::from(basename);
+    if !p.contains('.') && !sfx.is_empty() {
+        p += sfx;
     }
     p
 }
@@ -133,14 +128,9 @@ pub(crate) unsafe fn dpx_tt_open(
     filename: &str,
     suffix: &str,
     format: TTInputFormat,
-) -> Option<InputHandleWrapper> {
-    let filename_ = CString::new(filename).unwrap();
-    let filename = filename_.as_ptr();
-    let suffix_ = CString::new(suffix).unwrap();
-    let suffix = suffix_.as_ptr();
+) -> Option<DroppableInputHandleWrapper> {
     let q = ensuresuffix(filename, suffix);
-    let handle = ttstub_input_open(q, format, 0i32);
-    free(q as *mut libc::c_void);
+    let handle = ttstub_input_open_str(&q, format, 0i32);
     handle
 }
 /* Search order:
@@ -150,13 +140,10 @@ pub(crate) unsafe fn dpx_tt_open(
  *   dvipdfm  (text file)
  */
 
-pub(crate) unsafe fn dpx_open_type1_file(filename: &str) -> Option<InputHandleWrapper> {
-    let filename_ = CString::new(filename).unwrap();
-    let filename = filename_.as_ptr();
-    match ttstub_input_open(filename, TTInputFormat::TYPE1, 0) {
+pub(crate) unsafe fn dpx_open_type1_file(filename: &str) -> Option<DroppableInputHandleWrapper> {
+    match ttstub_input_open_str(filename, TTInputFormat::TYPE1, 0) {
         Some(mut handle) => {
             if !check_stream_is_type1(&mut handle) {
-                ttstub_input_close(handle);
                 None
             } else {
                 Some(handle)
@@ -166,13 +153,10 @@ pub(crate) unsafe fn dpx_open_type1_file(filename: &str) -> Option<InputHandleWr
     }
 }
 
-pub(crate) unsafe fn dpx_open_truetype_file(filename: &str) -> Option<InputHandleWrapper> {
-    let filename_ = CString::new(filename).unwrap();
-    let filename = filename_.as_ptr();
-    match ttstub_input_open(filename, TTInputFormat::TRUETYPE, 0) {
+pub(crate) unsafe fn dpx_open_truetype_file(filename: &str) -> Option<DroppableInputHandleWrapper> {
+    match ttstub_input_open_str(filename, TTInputFormat::TRUETYPE, 0) {
         Some(mut handle) => {
             if !check_stream_is_truetype(&mut handle) {
-                ttstub_input_close(handle);
                 None
             } else {
                 Some(handle)
@@ -182,16 +166,12 @@ pub(crate) unsafe fn dpx_open_truetype_file(filename: &str) -> Option<InputHandl
     }
 }
 
-pub(crate) unsafe fn dpx_open_opentype_file(filename: &str) -> Option<InputHandleWrapper> {
-    let filename_ = CString::new(filename).unwrap();
-    let filename = filename_.as_ptr();
-    let q = ensuresuffix(filename, b".otf\x00" as *const u8 as *const i8);
-    let handle = ttstub_input_open(q, TTInputFormat::OPENTYPE, 0i32);
-    free(q as *mut libc::c_void);
+pub(crate) unsafe fn dpx_open_opentype_file(filename: &str) -> Option<DroppableInputHandleWrapper> {
+    let q = ensuresuffix(filename, ".otf");
+    let handle = ttstub_input_open_str(&q, TTInputFormat::OPENTYPE, 0i32);
     match handle {
         Some(mut handle) => {
             if !check_stream_is_opentype(&mut handle) {
-                ttstub_input_close(handle);
                 None
             } else {
                 Some(handle)
@@ -201,24 +181,23 @@ pub(crate) unsafe fn dpx_open_opentype_file(filename: &str) -> Option<InputHandl
     }
 }
 
-pub(crate) unsafe fn dpx_open_dfont_file(filename: &str) -> Option<InputHandleWrapper> {
-    let q;
-    if filename.len() > 6 && !filename.ends_with(".dfont") {
+pub(crate) unsafe fn dpx_open_dfont_file(filename: &str) -> Option<DroppableInputHandleWrapper> {
+    let handle = if filename.len() > 6 && !filename.ends_with(".dfont") {
         // FIXME: we might want to invert this
         /* I've double-checked that we're accurately representing the original
          * code -- the above strncmp() is *not* missing a logical negation.
          */
-        q = filename.to_owned() + "/rsrc";
+        ttstub_input_open_str(
+            &(filename.to_string() + "/rsrc"),
+            TTInputFormat::TRUETYPE,
+            0,
+        )
     } else {
-        q = filename.to_owned();
-    }
-    let q_ = CString::new(q).unwrap();
-    let q = q_.as_ptr();
-    let handle = ttstub_input_open(q, TTInputFormat::TRUETYPE, 0i32);
+        ttstub_input_open_str(filename, TTInputFormat::TRUETYPE, 0)
+    };
     match handle {
         Some(mut handle) => {
             if !check_stream_is_dfont(&mut handle) {
-                ttstub_input_close(handle);
                 None
             } else {
                 Some(handle)

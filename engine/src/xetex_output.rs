@@ -8,10 +8,13 @@
     unused_mut
 )]
 
+
 use super::xetex_consts::{
-    Cmd, IntPar, NativeWord, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE,
-    HASH_BASE, INTPAR, NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
+    IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE, INTPAR,
+    NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
 };
+use crate::cmd::Cmd;
+use crate::node::NativeWord;
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
@@ -20,8 +23,6 @@ use super::xetex_ini::{
     trick_count, write_file, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
 use bridge::ttstub_output_putc;
-
-pub(crate) type scaled_t = i32;
 
 /* tectonic/xetex-xetexd.h -- many, many XeTeX symbol definitions
    Copyright 2016-2018 The Tectonic Project
@@ -32,9 +33,7 @@ pub(crate) type scaled_t = i32;
 /*11:*/
 /*18: */
 pub(crate) type UTF16_code = u16;
-pub(crate) type pool_pointer = i32;
 pub(crate) type str_number = i32;
-pub(crate) type packed_UTF16_code = u16;
 /* xetex-output */
 /* tectonic/output.c -- functions related to outputting messages
  * Copyright 2016 the Tectonic Project
@@ -549,14 +548,14 @@ pub(crate) unsafe fn print_roman_int(mut n: i32) {
     }
 }
 pub(crate) unsafe fn print_current_string() {
-    let mut j: pool_pointer = str_start[(str_ptr - 0x10000) as usize];
+    let mut j = str_start[(str_ptr - 0x10000) as usize];
     while j < pool_ptr {
         print_char(str_pool[j as usize] as i32);
         j += 1
     }
 }
-pub(crate) unsafe fn print_scaled(mut s: scaled_t) {
-    let mut delta: scaled_t = 0;
+pub(crate) unsafe fn print_scaled(mut s: i32) {
+    let mut delta = 0;
     if s < 0 {
         print_chr('-');
         s = s.wrapping_neg(); // TODO: check

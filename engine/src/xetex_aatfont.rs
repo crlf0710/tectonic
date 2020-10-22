@@ -22,8 +22,9 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::ptr;
 
+use crate::cmd::ExtCmd;
 use crate::core_memory::{xcalloc, xmalloc};
-use crate::xetex_consts::{ExtCmd, NativeWord};
+use crate::node::NativeWord;
 use crate::xetex_ext::{print_chars, readCommonFeatures, read_double, D2Fix, Fix2D};
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
@@ -1098,20 +1099,16 @@ pub(crate) unsafe fn loadAATfont(
 /* these are here, not XeTeX_mac.c, because we need stubs on other platforms */
 pub(crate) unsafe fn aat_get_font_metrics(
     mut attributes: CFDictionaryRef,
-    mut ascent: *mut i32,
-    mut descent: *mut i32,
-    mut xheight: *mut i32,
-    mut capheight: *mut i32,
-    mut slant: *mut i32,
-) {
+) -> (i32, i32, i32, i32, i32) {
     let mut font: CTFontRef = font_from_attributes(attributes);
-    *ascent = D2Fix(CTFontGetAscent(font));
-    *descent = D2Fix(CTFontGetDescent(font));
-    *xheight = D2Fix(CTFontGetXHeight(font));
-    *capheight = D2Fix(CTFontGetCapHeight(font));
-    *slant = D2Fix(
+    let ascent = D2Fix(CTFontGetAscent(font));
+    let descent = D2Fix(CTFontGetDescent(font));
+    let xheight = D2Fix(CTFontGetXHeight(font));
+    let capheight = D2Fix(CTFontGetCapHeight(font));
+    let slant = D2Fix(
         (-CTFontGetSlantAngle(font) * 3.14159265358979323846264338327950288f64 / 180.0f64).tan(),
     );
+    (ascent, descent, xheight, capheight, slant)
 }
 
 pub(crate) unsafe fn aat_font_get(what: ExtCmd, attributes: CFDictionaryRef) -> i32 {

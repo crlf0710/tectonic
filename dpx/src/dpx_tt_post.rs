@@ -26,21 +26,18 @@
     non_upper_case_globals,
 )]
 
-use super::dpx_numbers::{
-    tt_get_signed_pair, tt_get_unsigned_byte, tt_get_unsigned_pair, tt_get_unsigned_quad,
-};
+use super::dpx_numbers::GetFromFile;
 use super::dpx_sfnt::sfnt_locate_table;
 use crate::streq_ptr;
 use crate::warn;
+use std::io::Read;
 
 use super::dpx_mem::{new, xstrdup};
-use crate::bridge::ttstub_input_read;
 use libc::free;
 
 use std::ptr;
 
 pub(crate) type __ssize_t = i64;
-use crate::bridge::size_t;
 pub(crate) type Fixed = u32;
 pub(crate) type FWord = i16;
 
@@ -71,14 +68,13 @@ pub(crate) struct tt_post_table {
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
 /* offset from begenning of the post table */
-unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: *mut sfnt) -> i32 {
-    let handle = &mut (*sfont).handle;
-    (*post).numberOfGlyphs = tt_get_unsigned_pair(handle);
+unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut R) -> i32 {
+    (*post).numberOfGlyphs = u16::get(handle);
     let indices = new(((*post).numberOfGlyphs as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16;
     let mut maxidx = 257_u16;
     for i in 0..(*post).numberOfGlyphs as i32 {
-        let mut idx = tt_get_unsigned_pair(handle);
+        let mut idx = u16::get(handle);
         if idx as i32 >= 258i32 {
             if idx as i32 > maxidx as i32 {
                 maxidx = idx
@@ -111,17 +107,17 @@ unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: *mut sfnt) -> 
             as u32) as *mut *mut i8;
         for i in 0..(*post).count as i32 {
             /* read Pascal strings */
-            let len = tt_get_unsigned_byte(handle) as i32;
+            let len = u8::get(handle) as i32;
             if len > 0i32 {
                 let ref mut fresh0 = *(*post).names.offset(i as isize);
                 *fresh0 = new(((len + 1i32) as u32 as u64)
                     .wrapping_mul(::std::mem::size_of::<i8>() as u64)
                     as u32) as *mut i8;
-                ttstub_input_read(
-                    handle.as_ptr(),
-                    *(*post).names.offset(i as isize),
-                    len as size_t,
+                let slice = std::slice::from_raw_parts_mut(
+                    (*(*post).names.offset(i as isize)) as *mut u8,
+                    len as usize,
                 );
+                handle.read(slice).unwrap();
                 *(*(*post).names.offset(i as isize)).offset(len as isize) = 0_i8
             } else {
                 let ref mut fresh1 = *(*post).names.offset(i as isize);
@@ -154,21 +150,21 @@ unsafe fn read_v2_post_names(mut post: *mut tt_post_table, sfont: *mut sfnt) -> 
     0i32
 }
 
-pub(crate) unsafe fn tt_read_post_table(sfont: *mut sfnt) -> *mut tt_post_table {
+pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
     /* offset = */
     sfnt_locate_table(sfont, b"post"); /* Fixed */
     let mut post = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_post_table>() as u64) as u32)
         as *mut tt_post_table; /* Fixed */
-    let handle = &mut (*sfont).handle;
-    (*post).Version = tt_get_unsigned_quad(handle); /* FWord */
-    (*post).italicAngle = tt_get_unsigned_quad(handle); /* FWord */
-    (*post).underlinePosition = tt_get_signed_pair(handle); /* wrong */
-    (*post).underlineThickness = tt_get_signed_pair(handle);
-    (*post).isFixedPitch = tt_get_unsigned_quad(handle);
-    (*post).minMemType42 = tt_get_unsigned_quad(handle);
-    (*post).maxMemType42 = tt_get_unsigned_quad(handle);
-    (*post).minMemType1 = tt_get_unsigned_quad(handle);
-    (*post).maxMemType1 = tt_get_unsigned_quad(handle);
+    let handle = &mut &*sfont.handle;
+    (*post).Version = u32::get(handle); /* FWord */
+    (*post).italicAngle = u32::get(handle); /* FWord */
+    (*post).underlinePosition = i16::get(handle); /* wrong */
+    (*post).underlineThickness = i16::get(handle);
+    (*post).isFixedPitch = u32::get(handle);
+    (*post).minMemType42 = u32::get(handle);
+    (*post).maxMemType42 = u32::get(handle);
+    (*post).minMemType1 = u32::get(handle);
+    (*post).maxMemType1 = u32::get(handle);
     (*post).numberOfGlyphs = 0_u16;
     (*post).glyphNamePtr = 0 as *mut *const i8;
     (*post).count = 0_u16;
@@ -179,7 +175,7 @@ pub(crate) unsafe fn tt_read_post_table(sfont: *mut sfnt) -> *mut tt_post_table 
     } else if (*post).Version as u64 == 0x28000 {
         warn!("TrueType \'post\' version 2.5 found (deprecated)");
     } else if (*post).Version as u64 == 0x20000 {
-        if read_v2_post_names(post, sfont) < 0i32 {
+        if read_v2_post_names(post, handle) < 0i32 {
             warn!("Invalid version 2.0 \'post\' table");
             tt_release_post_table(post);
             post = ptr::null_mut()

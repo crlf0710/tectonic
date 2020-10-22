@@ -10,7 +10,6 @@
 
 use crate::bridge::{
     ttstub_input_close, ttstub_input_getc, ttstub_input_open, ttstub_input_open_primary,
-    ttstub_input_ungetc,
 };
 use crate::core_memory::{xcalloc, xmalloc};
 use crate::stub_icu as icu;
@@ -23,9 +22,8 @@ use crate::xetex_ini::{
 use crate::xetex_output::{print_int, print_nl};
 use crate::xetex_texmfmp::gettexstring;
 use crate::xetex_xetex0::{
-    bad_utf8_warning, begin_diagnostic, begin_name, end_diagnostic, end_name,
-    get_input_normalization_state, more_name, pack_file_name, scan_file_name, scan_four_bit_int,
-    scan_optional_equals,
+    bad_utf8_warning, begin_name, diagnostic, end_name, get_input_normalization_state, more_name,
+    pack_file_name, scan_file_name, scan_four_bit_int, scan_optional_equals,
 };
 use crate::xetex_xetexd::{print_c_str, print_c_string};
 use bridge::stub_errno as errno;
@@ -289,14 +287,16 @@ pub(crate) unsafe fn set_input_file_encoding(
             let mut cnv: *mut icu::UConverter =
                 icu::ucnv_open(CString::new(name.as_str()).unwrap().as_ptr(), &mut err);
             if cnv.is_null() {
-                begin_diagnostic();
-                print_nl('E' as i32);
-                print_c_string(b"rror \x00" as *const u8 as *const i8);
-                print_int(err as i32);
-                print_c_string(b" creating Unicode converter for `\x00" as *const u8 as *const i8);
-                print_c_str(&name);
-                print_c_string(b"\'; reading as raw bytes\x00" as *const u8 as *const i8);
-                end_diagnostic(true);
+                diagnostic(true, || {
+                    print_nl('E' as i32);
+                    print_c_string(b"rror \x00" as *const u8 as *const i8);
+                    print_int(err as i32);
+                    print_c_string(
+                        b" creating Unicode converter for `\x00" as *const u8 as *const i8,
+                    );
+                    print_c_str(&name);
+                    print_c_string(b"\'; reading as raw bytes\x00" as *const u8 as *const i8);
+                });
                 (*f).encodingMode = UnicodeMode::Raw;
             } else {
                 (*f).encodingMode = UnicodeMode::ICUMapping;
@@ -358,12 +358,12 @@ unsafe extern "C" fn buffer_overflow() {
     panic!("unable to read an entire line (buf_size={})", BUF_SIZE,);
 }
 unsafe extern "C" fn conversion_error(mut errcode: i32) {
-    begin_diagnostic();
-    print_nl('U' as i32);
-    print_c_string(b"nicode conversion failed (ICU error code = \x00" as *const u8 as *const i8);
-    print_int(errcode);
-    print_c_string(b") discarding any remaining text\x00" as *const u8 as *const i8);
-    end_diagnostic(true);
+    diagnostic(true, || {
+        print_nl('U' as i32);
+        print_c_str(&"nicode conversion failed (ICU error code = "[..]);
+        print_int(errcode);
+        print_c_str(&") discarding any remaining text"[..]);
+    });
 }
 unsafe extern "C" fn apply_normalization(mut buf: *mut u32, mut len: i32, mut norm: i32) {
     static mut normalizers: [teckit::TECkit_Converter; 2] =
@@ -531,9 +531,8 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
                 }
                 tmpLen = 0i32;
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-                    let fresh3 = tmpLen;
-                    tmpLen = tmpLen + 1;
-                    *utf32Buf.offset(fresh3 as isize) = i as u32
+                    *utf32Buf.offset(tmpLen as isize) = i as u32;
+                    tmpLen += 1;
                 }
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
                     while tmpLen < BUF_SIZE as i32
@@ -544,9 +543,8 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
                         && i != '\n' as i32
                         && i != '\r' as i32
                     {
-                        let fresh4 = tmpLen;
-                        tmpLen = tmpLen + 1;
-                        *utf32Buf.offset(fresh4 as isize) = i as u32
+                        *utf32Buf.offset(tmpLen as isize) = i as u32;
+                        tmpLen += 1;
                     }
                 }
                 if i == -1i32 && errno::errno() != errno::EINTR && tmpLen == 0i32 {
@@ -561,9 +559,8 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
             _ => {
                 // none
                 if last < BUF_SIZE as i32 && i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-                    let fresh5 = last;
-                    last = last + 1;
-                    BUFFER[fresh5 as usize] = i
+                    BUFFER[last as usize] = i;
+                    last += 1;
                 }
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
                     while last < BUF_SIZE as i32
@@ -574,9 +571,8 @@ pub(crate) unsafe fn input_line(mut f: *mut UFILE) -> bool {
                         && i != '\n' as i32
                         && i != '\r' as i32
                     {
-                        let fresh6 = last;
+                        BUFFER[last as usize] = i;
                         last = last + 1;
-                        BUFFER[fresh6 as usize] = i
                     }
                 }
                 if i == -1i32 && errno::errno() != errno::EINTR && last == first {
@@ -639,7 +635,7 @@ pub(crate) unsafe fn get_uni_c(mut f: *mut UFILE) -> i32 {
                             c = ttstub_input_getc(handle);
                             if c < 0x80 || c >= 0xC0 {
                                 if c != -1 {
-                                    ttstub_input_ungetc(handle, c);
+                                    handle.seek(SeekFrom::Current(-1)).unwrap();
                                 }
                                 bad_utf8_warning();
                                 return 0xFFFD; /* return without adjusting by offsetsFromUTF8 */

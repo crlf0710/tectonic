@@ -27,7 +27,7 @@
 )]
 
 use super::dpx_dvipdfmx::always_embed;
-use super::dpx_numbers::tt_get_unsigned_quad;
+use super::dpx_numbers::GetFromFile;
 use super::dpx_tt_post::{tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::{tt_read_head_table, tt_read_os2__table};
 use crate::dpx_pdfobj::{pdf_dict, pdf_string, PushObj};
@@ -43,25 +43,22 @@ pub(crate) unsafe fn tt_aux_set_verbose(level: i32) {
     verbose = level; /* skip version tag */
 }
 
-pub(crate) unsafe fn ttc_read_offset(sfont: *mut sfnt, ttc_idx: i32) -> u32 {
-    if sfont.is_null() {
-        panic!("file not opened");
-    }
-    if (*sfont).type_0 != 1i32 << 4i32 {
+pub(crate) unsafe fn ttc_read_offset(sfont: &sfnt, ttc_idx: i32) -> u32 {
+    if sfont.type_0 != 1i32 << 4i32 {
         panic!("ttc_read_offset(): invalid font type");
     }
-    let handle = &mut (*sfont).handle;
+    let handle = &mut &*sfont.handle;
     handle.seek(SeekFrom::Start(4)).unwrap();
     /* version = */
-    tt_get_unsigned_quad(handle);
-    let num_dirs = tt_get_unsigned_quad(handle);
+    u32::get(handle);
+    let num_dirs = u32::get(handle);
     if ttc_idx < 0i32 || ttc_idx as u32 > num_dirs.wrapping_sub(1_u32) {
         panic!("Invalid TTC index number");
     }
     handle
         .seek(SeekFrom::Start((12 + ttc_idx * 4) as u64))
         .unwrap();
-    tt_get_unsigned_quad(handle)
+    u32::get(handle)
 }
 /* flag declared in dvipdfmx.c */
 /* TTC (TrueType Collection) */
@@ -69,16 +66,13 @@ pub(crate) unsafe fn ttc_read_offset(sfont: *mut sfnt, ttc_idx: i32) -> u32 {
 /* Force bold at small text sizes */
 
 pub(crate) unsafe fn tt_get_fontdesc(
-    sfont: *mut sfnt,
+    sfont: &sfnt,
     embed: *mut i32,
     mut stemv: i32,
     type_0: i32,
     fontname: &str,
 ) -> Option<pdf_dict> {
     let mut flag: i32 = 1i32 << 2i32;
-    if sfont.is_null() {
-        panic!("font file not opened");
-    }
     /* TrueType tables */
     let os2 = tt_read_os2__table(sfont);
     let head = tt_read_head_table(sfont);

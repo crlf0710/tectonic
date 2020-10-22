@@ -24,8 +24,7 @@
     non_snake_case,
 )]
 
-use crate::bridge::DisplayExt;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::ptr;
 
 use crate::warn;
@@ -33,12 +32,11 @@ use crate::warn;
 use super::{spc_arg, spc_env};
 use crate::bridge::TTInputFormat;
 
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
+use crate::bridge::ttstub_input_open_str;
 use crate::dpx_pdfdraw::pdf_dev_concat;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 
 use super::util::spc_util_read_dimtrns;
-use crate::dpx_mem::xmalloc;
 use crate::dpx_mpost::{mps_eop_cleanup, mps_exec_inline, mps_stack_depth};
 use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear, TMatrix};
 use crate::dpx_pdfdraw::{
@@ -46,9 +44,7 @@ use crate::dpx_pdfdraw::{
 };
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
-use libc::{free, strncpy};
 
-use crate::bridge::size_t;
 /* quasi-hack to get the primary input */
 
 use super::SpcHandler;
@@ -58,7 +54,7 @@ static mut BLOCK_PENDING: i32 = 0i32;
 static mut PENDING_X: f64 = 0.0f64;
 static mut PENDING_Y: f64 = 0.0f64;
 static mut POSITION_SET: i32 = 0i32;
-static mut PS_HEADERS: Vec<*mut i8> = Vec::new();
+static mut PS_HEADERS: Vec<String> = Vec::new();
 
 unsafe fn spc_handler_ps_header(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     args.cur.skip_white();
@@ -67,26 +63,16 @@ unsafe fn spc_handler_ps_header(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
         return -1i32;
     }
     args.cur = &args.cur[1..];
-    let pro = xmalloc((args.cur.len() as i64 + 1i32 as i64) as size_t) as *mut i8;
-    strncpy(pro, args.cur.as_ptr() as *mut i8, args.cur.len() as _);
-    *pro.offset(args.cur.len() as isize) = 0_i8;
-    let ps_header = ttstub_input_open(pro, TTInputFormat::TEX_PS_HEADER, 0i32);
-    if ps_header.is_none() {
-        spc_warn!(
-            spe,
-            "PS header {} not found.",
-            CStr::from_ptr(pro).display(),
-        );
-        free(pro as *mut libc::c_void);
+    let pro = String::from_utf8_lossy(args.cur).to_string();
+    if ttstub_input_open_str(&pro, TTInputFormat::TEX_PS_HEADER, 0).is_none() {
+        spc_warn!(spe, "PS header {} not found.", pro,);
         return -1i32;
     }
-    let ps_header = ps_header.unwrap();
-    ttstub_input_close(ps_header);
     PS_HEADERS.push(pro);
     args.cur = &[];
     0i32
 }
-unsafe fn parse_filename(pp: &mut &[u8]) -> Option<CString> {
+unsafe fn parse_filename<'a>(pp: &mut &'a [u8]) -> Option<&'a str> {
     let mut p = *pp;
     let qchar;
     if p.is_empty() {
@@ -115,7 +101,7 @@ unsafe fn parse_filename(pp: &mut &[u8]) -> Option<CString> {
     if q.is_empty() || n == 0 {
         return None;
     }
-    let r = Some(CString::new(&q[..n]).unwrap());
+    let r = Some(std::str::from_utf8(&q[..n]).unwrap());
     *pp = p;
     r
 }
@@ -138,9 +124,10 @@ unsafe fn spc_handler_ps_file(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
         if spc_util_read_dimtrns(spe, &mut ti, args, 1i32) < 0i32 {
             return -1;
         }
-        let form_id = pdf_ximage_findresource(filename.as_ptr(), options);
+        let cfilename = CString::new(filename).unwrap();
+        let form_id = pdf_ximage_findresource(cfilename.as_ptr(), options);
         if form_id < 0i32 {
-            spc_warn!(spe, "Failed to read image file: {}", filename.display(),);
+            spc_warn!(spe, "Failed to read image file: {}", filename);
             return -1i32;
         }
         pdf_dev_put_image(form_id, &mut ti, spe.x_user, spe.y_user);
@@ -162,9 +149,10 @@ unsafe fn spc_handler_ps_plotfile(spe: &mut spc_env, args: &mut spc_arg) -> i32 
     spc_warn!(spe, "\"ps: plotfile\" found (not properly implemented)");
     args.cur.skip_white();
     if let Some(filename) = parse_filename(&mut args.cur) {
-        let form_id = pdf_ximage_findresource(filename.as_ptr(), options);
+        let cfilename = CString::new(filename).unwrap();
+        let form_id = pdf_ximage_findresource(cfilename.as_ptr(), options);
         if form_id < 0i32 {
-            spc_warn!(spe, "Could not open PS file: {}", filename.display(),);
+            spc_warn!(spe, "Could not open PS file: {}", filename);
             error = -1i32
         } else {
             transform_info_clear(&mut p);
@@ -333,9 +321,6 @@ pub(crate) unsafe fn spc_dvips_at_begin_document() -> i32 {
 }
 
 pub(crate) unsafe fn spc_dvips_at_end_document() -> i32 {
-    for &elem in &PS_HEADERS {
-        free(elem as *mut libc::c_void);
-    }
     PS_HEADERS.clear();
     0
 }

@@ -9,3 +9,4 @@ cc = "^1.0"
 
 [dependencies]
 libc = "0.2"
+derive_more = "0.99"

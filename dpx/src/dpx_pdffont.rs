@@ -26,8 +26,6 @@
     non_upper_case_globals
 )]
 
-use crate::bridge::DisplayExt;
-use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_agl::{agl_close_map, agl_init_map, agl_set_verbose};
@@ -529,7 +527,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                         info!("\n");
                         info!(
                             "pdf_font>> Input encoding \"{}\" requires at least 2 bytes.\n",
-                            CStr::from_ptr(CMap_get_name(cmap)).display()
+                            CMap_get_name(&*cmap)
                         );
                         info!(
                             "pdf_font>> The -m <00> option will be assumed for \"{}\".\n",
@@ -676,18 +674,18 @@ pub(crate) unsafe fn pdf_font_findresource(
             } else {
                 0i32
             };
-            if pdf_font_open_type1(font) >= 0i32 {
-                font.subtype = 0i32
-            } else if pdf_font_open_type1c(font) >= 0i32 {
-                font.subtype = 1i32
-            } else if pdf_font_open_truetype(font) >= 0i32 {
-                font.subtype = 3i32
-            } else if pdf_font_open_pkfont(font) >= 0i32 {
-                font.subtype = 2i32
+            font.subtype = if pdf_font_open_type1(font) >= 0 {
+                0
+            } else if pdf_font_open_type1c(font) >= 0 {
+                1
+            } else if pdf_font_open_truetype(font) >= 0 {
+                3
+            } else if pdf_font_open_pkfont(font) >= 0 {
+                2
             } else {
                 pdf_clean_font_struct(font);
                 return -1i32;
-            }
+            };
             if __verbose != 0 {
                 info!("\npdf_font>> Simple font \"{}\"", fontname);
                 info!(

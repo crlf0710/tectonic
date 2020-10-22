@@ -84,7 +84,7 @@ pub(crate) unsafe fn pdf_include_page(
     if pf.is_null() {
         return -1;
     }
-    if pdf_file_get_version(pf) > pdf_get_version() {
+    if pdf_file_get_version(&*pf) > pdf_get_version() {
         warn!(
             "Trying to include PDF file which has newer version number than output PDF: 1.{}.",
             pdf_get_version()
@@ -106,13 +106,13 @@ pub(crate) unsafe fn pdf_include_page(
     };
 
     if let Some((page, bbox, matrix)) =
-        pdf_doc_get_page(pf, options.page_no, options.bbox_type, &mut resources)
+        pdf_doc_get_page(&*pf, options.page_no, options.bbox_type, &mut resources)
     {
         let mut info = xform_info::default();
         pdf_ximage_init_form_info(&mut info);
         info.bbox = bbox;
         info.matrix = matrix;
-        let catalog = pdf_file_get_catalog(pf);
+        let catalog = pdf_file_get_catalog(&*pf);
         markinfo = pdf_deref_obj((*catalog).as_dict_mut().get_mut("MarkInfo"));
         if !markinfo.is_null() {
             let tmp: *mut pdf_obj = pdf_deref_obj((*markinfo).as_dict_mut().get_mut("Marked"));

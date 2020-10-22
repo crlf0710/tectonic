@@ -13,23 +13,22 @@ use std::io::Write;
 use std::ptr;
 
 use super::xetex_ini::{input_state_t, EqtbWord, Selector};
-use super::xetex_io::{
-    bytesFromUTF8, name_of_input_file, offsetsFromUTF8, tt_xetex_open_input, u_open_in,
-};
+use super::xetex_io::{bytesFromUTF8, name_of_input_file, offsetsFromUTF8, u_open_in};
+use crate::cmd::*;
 use crate::core_memory::{mfree, xmalloc_array, xrealloc};
 use crate::help;
+use crate::node::*;
 #[cfg(target_os = "macos")]
 use crate::xetex_aatfont as aat;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow, pdf_error, Confuse};
 use crate::xetex_ext::{
-    apply_mapping, apply_tfm_font_mapping, check_for_tfm_font_mapping, find_native_font,
-    get_encoding_mode_and_info, get_font_char_range, get_glyph_bounds,
-    get_native_char_height_depth, get_native_char_sidebearings, getnativechardp, getnativecharht,
-    getnativecharic, getnativecharwd, gr_font_get_named, gr_font_get_named_1, gr_print_font_name,
-    linebreak_next, linebreak_start, load_tfm_font_mapping, map_char_to_glyph, map_glyph_to_index,
-    ot_font_get, ot_font_get_1, ot_font_get_2, ot_font_get_3, ot_get_font_metrics,
-    print_glyph_name, print_utf8_str, release_font_engine, AAT_FONT_FLAG, OTGR_FONT_FLAG,
+    apply_mapping, apply_tfm_font_mapping, get_encoding_mode_and_info, get_font_char_range,
+    get_glyph_bounds, get_native_char_height_depth, get_native_char_sidebearings, getnativechardp,
+    getnativecharht, getnativecharic, getnativecharwd, gr_font_get_named, gr_font_get_named_1,
+    gr_print_font_name, linebreak_next, linebreak_start, map_char_to_glyph, map_glyph_to_index,
+    ot_font_get, ot_font_get_1, ot_font_get_2, ot_font_get_3, print_glyph_name, print_utf8_str,
+    AAT_FONT_FLAG, OTGR_FONT_FLAG,
 };
 use crate::xetex_ini::{
     _xeq_level_array, active_width, adjust_tail, after_token, align_ptr, align_state,
@@ -40,18 +39,16 @@ use crate::xetex_ini::{
     cur_r, cur_span, cur_tail, cur_tok, cur_val, cur_val1, cur_val_level, dead_cycles, def_ref,
     deletions_allowed, depth_threshold, dig, disc_ptr, error_count, error_line, expand_depth,
     expand_depth_count, ext_delimiter, false_bchar, file_line_error_style_p, file_name_quote_char,
-    file_offset, first, first_count, fmem_ptr, font_in_short_display, font_used, force_eof,
+    file_offset, first, first_count, fmem_ptr, font_in_short_display, force_eof,
     gave_char_warning_help, half_error_line, hash, hash_extra, hash_high, hash_used, hi_mem_min,
     history, if_limit, if_line, init_pool_ptr, init_str_ptr, ins_disc, insert_penalties,
     insert_src_special_auto, insert_src_special_every_par, insert_src_special_every_vbox,
     interaction, is_hyph, is_in_csname, job_name, last, last_badness, last_glue, last_kern,
     last_leftmost_char, last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack,
-    ligature_present, line, lo_mem_max, loaded_font_design_size, loaded_font_flags,
-    loaded_font_letter_space, loaded_font_mapping, log_file, log_opened, long_help_seen,
-    long_state, mag_set, main_f, main_h, main_i, main_j, main_k, main_s, mapped_text,
-    max_buf_stack, max_print_line, max_reg_help_line, max_reg_num, max_strings, mem_end,
-    name_in_progress, name_of_file, native_font_type_flag, native_len, native_text,
-    native_text_size, no_new_control_sequence, old_setting, open_parens, output_active,
+    ligature_present, line, lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set,
+    main_f, main_h, main_i, main_j, main_k, main_s, mapped_text, max_buf_stack, max_print_line,
+    max_reg_help_line, max_reg_num, max_strings, mem_end, name_in_progress, name_of_file,
+    native_len, native_text, native_text_size, no_new_control_sequence, open_parens, output_active,
     pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos,
     pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used,
     pseudo_files, pstack, quoted_filename, radix, read_file, read_open, rover, rt_hit, rust_stdout,
@@ -59,15 +56,14 @@ use crate::xetex_ini::{
     shown_mode, skip_line, space_class, stop_at_space, str_pool, str_ptr, str_start, tally,
     term_offset, tex_remainder, texmf_log_name, total_shrink, total_stretch, trick_buf,
     trick_count, use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
-    xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE,
-    DEPTH_BASE, EOF_SEEN, EQTB, EQTB_TOP, EXTEN_BASE, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_CHECK,
-    FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_FLAGS, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE,
-    FONT_LETTER_SPACE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR,
-    FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HEIGHT_BASE, HYPHEN_CHAR, IF_STACK,
-    INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, LINE_STACK,
-    MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST,
-    NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE,
-    SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK, STACK_SIZE, WIDTH_BASE,
+    xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE, EOF_SEEN,
+    EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR,
+    FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME,
+    FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK,
+    INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN,
+    MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE,
+    PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR,
+    SOURCE_FILENAME_STACK, STACK_SIZE,
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding, u_close};
@@ -98,15 +94,13 @@ use crate::xetex_texmfmp::{
 };
 use crate::xetex_xetexd::*;
 use bridge::{
-    ttstub_input_close, ttstub_input_getc, ttstub_issue_warning_slice, ttstub_output_close,
-    ttstub_output_open, ttstub_output_putc,
+    ttstub_issue_warning_slice, ttstub_output_close, ttstub_output_open, ttstub_output_putc,
 };
 
 use bridge::{TTHistory, TTInputFormat};
 
 use libc::{memcpy, strlen};
 
-use bridge::InputHandleWrapper;
 pub(crate) type scaled_t = i32;
 pub(crate) type CFDictionaryRef = *mut libc::c_void;
 
@@ -1795,22 +1789,26 @@ pub(crate) unsafe fn print_param(n: IntPar) {
         _ => print_cstr("[unknown i32 parameter!]"), // NOTE: several parameters not covered
     };
 }
-pub(crate) unsafe fn begin_diagnostic() {
-    old_setting = selector;
+
+pub(crate) unsafe fn diagnostic<F>(blank_line: bool, f: F)
+where
+    F: Fn(),
+{
+    let oldsetting = selector;
     if *INTPAR(IntPar::tracing_online) <= 0 && selector == Selector::TERM_AND_LOG {
         selector = (u8::from(selector) - 1).into();
         if history == TTHistory::SPOTLESS {
             history = TTHistory::WARNING_ISSUED
         }
     };
-}
-pub(crate) unsafe fn end_diagnostic(mut blank_line: bool) {
+    f();
     print_nl_cstr("");
     if blank_line {
         print_ln();
     }
-    selector = old_setting;
+    selector = oldsetting;
 }
+
 pub(crate) unsafe fn print_length_param(mut n: DimenPar) {
     use DimenPar::*;
     match n {
@@ -3445,46 +3443,46 @@ pub(crate) unsafe fn print_meaning() {
     };
 }
 pub(crate) unsafe fn show_cur_cmd_chr() {
-    begin_diagnostic();
-    print_nl('{' as i32);
-    if cur_list.mode != shown_mode {
-        print_mode(cur_list.mode);
-        print_cstr(": ");
-        shown_mode = cur_list.mode
-    }
-    print_cmd_chr(cur_cmd, cur_chr);
-    if *INTPAR(IntPar::tracing_ifs) > 0 {
-        if cur_cmd >= Cmd::IfTest {
-            if cur_cmd <= Cmd::FiOrElse {
-                print_cstr(": ");
-                let mut n;
-                let l;
-                if cur_cmd == Cmd::FiOrElse {
-                    print_cmd_chr(Cmd::IfTest, cur_if as i32);
-                    print_chr(' ');
-                    n = 0;
-                    l = if_line
-                } else {
-                    n = 1;
-                    l = line
-                }
-                let mut popt = cond_ptr;
-                while let Some(p) = popt {
-                    n += 1;
-                    popt = llist_link(p)
-                }
-                print_cstr("(level ");
-                print_int(n);
-                print_chr(')');
-                if l != 0 {
-                    print_cstr(" entered on line ");
-                    print_int(l);
+    diagnostic(false, || {
+        print_nl('{' as i32);
+        if cur_list.mode != shown_mode {
+            print_mode(cur_list.mode);
+            print_cstr(": ");
+            shown_mode = cur_list.mode
+        }
+        print_cmd_chr(cur_cmd, cur_chr);
+        if *INTPAR(IntPar::tracing_ifs) > 0 {
+            if cur_cmd >= Cmd::IfTest {
+                if cur_cmd <= Cmd::FiOrElse {
+                    print_cstr(": ");
+                    let mut n;
+                    let l;
+                    if cur_cmd == Cmd::FiOrElse {
+                        print_cmd_chr(Cmd::IfTest, cur_if as i32);
+                        print_chr(' ');
+                        n = 0;
+                        l = if_line
+                    } else {
+                        n = 1;
+                        l = line
+                    }
+                    let mut popt = cond_ptr;
+                    while let Some(p) = popt {
+                        n += 1;
+                        popt = llist_link(p)
+                    }
+                    print_cstr("(level ");
+                    print_int(n);
+                    print_chr(')');
+                    if l != 0 {
+                        print_cstr(" entered on line ");
+                        print_int(l);
+                    }
                 }
             }
         }
-    }
-    print_chr('}');
-    end_diagnostic(false);
+        print_chr('}');
+    });
 }
 pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
     let last_ptr = input_stack.len() - 1;
@@ -3506,7 +3504,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                 || input.loc.opt().is_some()
             {
                 tally = 0i32;
-                let old_setting_0 = selector;
+                let old_setting = selector;
                 let l;
                 if input.state != InputState::TokenList {
                     if input.name <= 17 {
@@ -3609,7 +3607,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                         );
                     }
                 }
-                selector = old_setting_0;
+                selector = old_setting;
                 if trick_count == 1_000_000 {
                     first_count = tally;
                     trick_count = tally + 1 + error_line - half_error_line;
@@ -3690,22 +3688,22 @@ pub(crate) unsafe fn begin_token_list(p: usize, t: Btl) {
         } else {
             cur_input.loc = *LLIST_link(p);
             if *INTPAR(IntPar::tracing_macros) > 1i32 {
-                begin_diagnostic();
-                print_nl_cstr("");
-                match t {
-                    Btl::MarkText => print_esc_cstr("mark"),
-                    Btl::WriteText => print_esc_cstr("write"),
-                    _ => {
-                        print_cmd_chr(
-                            Cmd::AssignToks,
-                            (t as i32) + LOCAL_BASE as i32 + (Local::output_routine as i32)
-                                - (Btl::OutputText) as i32,
-                        );
+                diagnostic(false, || {
+                    print_nl_cstr("");
+                    match t {
+                        Btl::MarkText => print_esc_cstr("mark"),
+                        Btl::WriteText => print_esc_cstr("write"),
+                        _ => {
+                            print_cmd_chr(
+                                Cmd::AssignToks,
+                                (t as i32) + LOCAL_BASE as i32 + (Local::output_routine as i32)
+                                    - (Btl::OutputText) as i32,
+                            );
+                        }
                     }
-                }
-                print_cstr("->");
-                token_show(Some(p));
-                end_diagnostic(false);
+                    print_cstr("->");
+                    token_show(Some(p));
+                });
             }
         }
     } else {
@@ -4563,11 +4561,11 @@ pub(crate) unsafe fn macro_call() {
     let mut n = 0_i16;
     if *INTPAR(IntPar::tracing_macros) > 0 {
         /*419:*/
-        begin_diagnostic();
-        print_ln();
-        print_cs(warning_index);
-        token_show(Some(ref_count));
-        end_diagnostic(false);
+        diagnostic(false, || {
+            print_ln();
+            print_cs(warning_index);
+            token_show(Some(ref_count));
+        });
     }
     if MEM[r].b32.s0 == PROTECTED_TOKEN {
         r = llist_link(r).unwrap();
@@ -4843,12 +4841,12 @@ pub(crate) unsafe fn macro_call() {
                 }
                 n += 1;
                 if *INTPAR(IntPar::tracing_macros) > 0 {
-                    begin_diagnostic();
-                    print_nl(match_chr as str_number);
-                    print_int(n as i32);
-                    print_cstr("<-");
-                    show_token_list(pstack[(n as i32 - 1) as usize].opt(), None, 1000);
-                    end_diagnostic(false);
+                    diagnostic(false, || {
+                        print_nl(match_chr as str_number);
+                        print_int(n as i32);
+                        print_cstr("<-");
+                        show_token_list(pstack[(n as i32 - 1) as usize].opt(), None, 1000);
+                    });
                 }
             }
             if !(MEM[r].b32.s0 != END_MATCH_TOKEN) {
@@ -7047,11 +7045,11 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
             help!("I\'m forgetting what you said and using zero instead.");
             error();
             cur_val = 0;
-            if level != ValLevel::Tok {
-                cur_val_level = ValLevel::Dimen;
+            cur_val_level = if level != ValLevel::Tok {
+                ValLevel::Dimen
             } else {
-                cur_val_level = ValLevel::Int;
-            }
+                ValLevel::Int
+            };
         }
     }
     while cur_val_level > level {
@@ -8098,10 +8096,10 @@ pub(crate) unsafe fn pseudo_start() {
         s3: 0,
     };
     scan_general_text();
-    let old_setting_0 = selector;
+    let old_setting = selector;
     selector = Selector::NEW_STRING;
     token_show(Some(TEMP_HEAD));
-    selector = old_setting_0;
+    selector = old_setting;
     flush_list(llist_link(TEMP_HEAD));
     if pool_ptr + 1 > pool_size {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
@@ -8235,14 +8233,14 @@ pub(crate) unsafe fn the_toks() -> usize {
             assert!(cur_val.opt().is_some());
             return cur_val as usize; // TODO: check TEX_NULL
         } else {
-            let old_setting_0 = selector;
+            let old_setting = selector;
             selector = Selector::NEW_STRING;
             let b = pool_ptr;
             let p = get_avail();
             *LLIST_link(p) = *LLIST_link(TEMP_HEAD);
             token_show(Some(p));
             flush_list(Some(p));
-            selector = old_setting_0;
+            selector = old_setting;
             return str_toks(b);
         }
     }
@@ -8277,7 +8275,7 @@ pub(crate) unsafe fn the_toks() -> usize {
             p
         }
         _ => {
-            let old_setting_0 = selector;
+            let old_setting = selector;
             selector = Selector::NEW_STRING;
             let b = pool_ptr;
             match cur_val_level {
@@ -8296,7 +8294,7 @@ pub(crate) unsafe fn the_toks() -> usize {
                 }
                 _ => {}
             }
-            selector = old_setting_0;
+            selector = old_setting;
             str_toks(b)
         }
     }
@@ -8389,10 +8387,10 @@ pub(crate) unsafe fn conv_toks() {
                     "tokens_to_string() called while selector = new_string",
                 );
             }
-            let old_setting_0 = selector;
+            let old_setting = selector;
             selector = Selector::NEW_STRING;
             show_token_list(llist_link(def_ref), None, pool_size - pool_ptr);
-            selector = old_setting_0;
+            selector = old_setting;
             s = make_string();
             delete_token_ref(def_ref);
             def_ref = save_def_ref;
@@ -8486,7 +8484,7 @@ pub(crate) unsafe fn conv_toks() {
         }
         ConvertCode::EtexRevision | ConvertCode::XetexRevision => {}
     }
-    let old_setting_0 = selector;
+    let old_setting = selector;
     selector = Selector::NEW_STRING;
     b = pool_ptr;
     match c {
@@ -8652,7 +8650,7 @@ pub(crate) unsafe fn conv_toks() {
         ConvertCode::JobName => print_file_name(job_name, 0, 0),
         _ => {}
     }
-    selector = old_setting_0;
+    selector = old_setting;
     *LLIST_link(GARBAGE) = str_toks_cat(b, cat) as i32;
     begin_token_list(*LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
 }
@@ -9293,11 +9291,11 @@ pub(crate) unsafe fn conditional() {
             let mut n = cur_val;
 
             if *INTPAR(IntPar::tracing_commands) > 1 {
-                begin_diagnostic();
-                print_cstr("{case ");
-                print_int(n);
-                print_chr('}');
-                end_diagnostic(false);
+                diagnostic(false, || {
+                    print_cstr("{case ");
+                    print_int(n);
+                    print_chr('}');
+                });
             }
 
             loop {
@@ -9353,13 +9351,7 @@ pub(crate) unsafe fn conditional() {
 
     if *INTPAR(IntPar::tracing_commands) > 1 {
         /*521:*/
-        begin_diagnostic();
-        if b {
-            print_cstr("{true}");
-        } else {
-            print_cstr("{false}");
-        }
-        end_diagnostic(false);
+        diagnostic(false, || print_cstr(if b { "{true}" } else { "{false}" }));
     }
 
     if b {
@@ -9506,8 +9498,8 @@ pub(crate) unsafe fn end_name() {
         cur_ext = slow_make_string()
     };
 }
-pub(crate) unsafe fn pack_file_name(mut n: str_number, mut a: str_number, mut e: str_number) {
-    name_of_file = gettexstring(a) + &gettexstring(n) + &gettexstring(e);
+pub(crate) unsafe fn pack_file_name(name: str_number, path: str_number, ext: str_number) {
+    name_of_file = gettexstring(path) + &gettexstring(name) + &gettexstring(ext);
 }
 pub(crate) unsafe fn make_name_string() -> str_number {
     if pool_ptr as usize + name_of_file.as_bytes().len() > pool_size as usize
@@ -9568,7 +9560,7 @@ pub(crate) unsafe fn pack_job_name(s: &str) {
     pack_file_name(cur_name, cur_area, cur_ext);
 }
 pub(crate) unsafe fn open_log_file() {
-    let old_setting_0 = selector;
+    let old_setting = selector;
     if job_name == 0 {
         job_name = maketexstring("texput")
     }
@@ -9594,7 +9586,7 @@ pub(crate) unsafe fn open_log_file() {
         k += 1;
     }
     print_ln();
-    selector = (u8::from(old_setting_0) + 2).into();
+    selector = (u8::from(old_setting) + 2).into();
 }
 pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     let mut format = TTInputFormat::TEX;
@@ -9799,24 +9791,23 @@ pub(crate) unsafe fn effective_char_info(mut f: internal_font_number, mut c: u16
     FONT_CHARACTER_INFO(f, c as usize)
 }
 pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
-    let mut old_setting_0: i32 = 0;
     if *INTPAR(IntPar::tracing_lost_chars) > 0 {
-        old_setting_0 = *INTPAR(IntPar::tracing_online);
+        let old_setting = *INTPAR(IntPar::tracing_online);
         if *INTPAR(IntPar::tracing_lost_chars) > 1 {
             *INTPAR(IntPar::tracing_online) = 1
         }
-        begin_diagnostic();
-        print_nl_cstr("Missing character: There is no ");
-        if (c as i64) < 65536 {
-            print(c);
-        } else {
-            print_char(c);
-        }
-        print_cstr(" in font ");
-        print(FONT_NAME[f]);
-        print_chr('!');
-        end_diagnostic(false);
-        *INTPAR(IntPar::tracing_online) = old_setting_0
+        diagnostic(false, || {
+            print_nl_cstr("Missing character: There is no ");
+            if (c as i64) < 65536 {
+                print(c);
+            } else {
+                print_char(c);
+            }
+            print_cstr(" in font ");
+            print(FONT_NAME[f]);
+            print_chr('!');
+        });
+        *INTPAR(IntPar::tracing_online) = old_setting
     }
     let fn_0 = gettexstring(FONT_NAME[f]);
     let prev_selector = selector;
@@ -9949,224 +9940,52 @@ pub(crate) unsafe fn new_native_character(
     p
 }
 pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u8]) {
-    begin_diagnostic();
-    print_nl_cstr("Unknown ");
-    if !setting_name.is_empty() {
-        print_cstr("selector `");
-        print_utf8_str(setting_name);
-        print_cstr("\' for ");
-    }
-    print_cstr("feature `");
-    print_utf8_str(feature_name);
-    print_cstr("\' in font `");
-    for b in name_of_file.bytes() {
-        print_raw_char(b as UTF16_code, true);
-    }
-    print_cstr("\'.");
-    end_diagnostic(false);
+    diagnostic(false, || {
+        print_nl_cstr("Unknown ");
+        if !setting_name.is_empty() {
+            print_cstr("selector `");
+            print_utf8_str(setting_name);
+            print_cstr("\' for ");
+        }
+        print_cstr("feature `");
+        print_utf8_str(feature_name);
+        print_cstr("\' in font `");
+        for b in name_of_file.bytes() {
+            print_raw_char(b as UTF16_code, true);
+        }
+        print_cstr("\'.");
+    });
 }
 pub(crate) unsafe fn font_mapping_warning(mut mapping_name: &[u8], mut warningType: i32) {
-    begin_diagnostic();
-    if warningType == 0i32 {
-        print_nl_cstr("Loaded mapping `");
-    } else {
-        print_nl_cstr("Font mapping `");
-    }
-    print_utf8_str(mapping_name);
-    print_cstr("\' for font `");
-    for b in name_of_file.bytes() {
-        print_raw_char(b as UTF16_code, true);
-    }
-    match warningType {
-        1 => print_cstr("\' not found."),
-        2 => {
-            print_cstr("\' not usable;");
-            print_nl_cstr("bad mapping file or incorrect mapping type.");
+    diagnostic(false, || {
+        if warningType == 0i32 {
+            print_nl_cstr("Loaded mapping `");
+        } else {
+            print_nl_cstr("Font mapping `");
         }
-        _ => print_cstr("\'."),
-    }
-    end_diagnostic(false);
+        print_utf8_str(mapping_name);
+        print_cstr("\' for font `");
+        for b in name_of_file.bytes() {
+            print_raw_char(b as UTF16_code, true);
+        }
+        match warningType {
+            1 => print_cstr("\' not found."),
+            2 => {
+                print_cstr("\' not usable;");
+                print_nl_cstr("bad mapping file or incorrect mapping type.");
+            }
+            _ => print_cstr("\'."),
+        }
+    });
 }
 pub(crate) unsafe fn graphite_warning() {
-    begin_diagnostic();
-    print_nl_cstr("Font `");
-    for b in name_of_file.bytes() {
-        print_raw_char(b as UTF16_code, true);
-    }
-    print_cstr("\' does not support Graphite. Trying OpenType layout instead.");
-    end_diagnostic(false);
-}
-pub(crate) unsafe fn load_native_font(
-    mut u: i32,
-    mut nom: str_number,
-    mut aire: str_number,
-    mut s: scaled_t,
-) -> usize {
-    let mut num_font_dimens: i32 = 0;
-    let mut actual_size: scaled_t = 0;
-    let mut ascent: scaled_t = 0;
-    let mut descent: scaled_t = 0;
-    let mut font_slant: scaled_t = 0;
-    let mut x_ht: scaled_t = 0;
-    let mut cap_ht: scaled_t = 0;
-    let mut font_engine =
-        find_native_font(CString::new(name_of_file.as_str()).unwrap().as_ptr(), s);
-    if font_engine.is_null() {
-        return FONT_BASE;
-    }
-    if s >= 0 {
-        actual_size = s
-    } else if s != -1000 {
-        actual_size = xn_over_d(loaded_font_design_size, -s, 1000)
-    } else {
-        actual_size = loaded_font_design_size
-    }
-    if (pool_ptr as usize) + name_of_file.as_bytes().len() > (pool_size as usize) {
-        overflow("pool size", (pool_size - init_pool_ptr) as usize);
-    }
-    for b in name_of_file.bytes() {
-        str_pool[pool_ptr as usize] = b as packed_UTF16_code;
-        pool_ptr = pool_ptr + 1;
-    }
-
-    let full_name = make_string();
-
-    for f in (0 + 1)..=FONT_PTR {
-        if FONT_AREA[f] == native_font_type_flag
-            && str_eq_str(FONT_NAME[f], full_name)
-            && FONT_SIZE[f] == actual_size
-        {
-            release_font_engine(font_engine, native_font_type_flag);
-            str_ptr -= 1;
-            pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-            return f;
+    diagnostic(false, || {
+        print_nl_cstr("Font `");
+        for b in name_of_file.bytes() {
+            print_raw_char(b as UTF16_code, true);
         }
-    }
-
-    num_font_dimens = if native_font_type_flag as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(font_engine as XeTeXLayoutEngine)
-    {
-        65 // = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55)
-    } else {
-        8
-    };
-    if FONT_PTR == FONT_MAX || fmem_ptr + num_font_dimens > FONT_MEM_SIZE as i32 {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Font ");
-        sprint_cs(u);
-        print_chr('=');
-        if let Some(qc) = file_name_quote_char {
-            print_char(qc as i32);
-        }
-        print_file_name(nom, aire, cur_ext);
-        if let Some(qc) = file_name_quote_char {
-            print_char(qc as i32);
-        }
-        if s >= 0 {
-            print_cstr(" at ");
-            print_scaled(s);
-            print_cstr("pt");
-        } else if s != -1000 {
-            print_cstr(" scaled ");
-            print_int(-s);
-        }
-        print_cstr(" not loaded: Not enough room left");
-        help!(
-            "I\'m afraid I won\'t be able to make use of this font,",
-            "because my memory for character-size data is too small.",
-            "If you\'re really stuck, ask a wizard to enlarge me.",
-            "Or maybe try `I\\font<same font id>=<name of loaded font>\'."
-        );
-        error();
-        return FONT_BASE;
-    }
-    FONT_PTR += 1;
-    FONT_AREA[FONT_PTR] = native_font_type_flag;
-    FONT_NAME[FONT_PTR] = full_name;
-    FONT_CHECK[FONT_PTR].s3 = 0;
-    FONT_CHECK[FONT_PTR].s2 = 0;
-    FONT_CHECK[FONT_PTR].s1 = 0;
-    FONT_CHECK[FONT_PTR].s0 = 0;
-    FONT_GLUE[FONT_PTR] = None.tex_int();
-    FONT_DSIZE[FONT_PTR] = loaded_font_design_size;
-    FONT_SIZE[FONT_PTR] = actual_size;
-    match native_font_type_flag as u32 {
-        #[cfg(target_os = "macos")]
-        AAT_FONT_FLAG => {
-            aat::aat_get_font_metrics(
-                font_engine as _,
-                &mut ascent,
-                &mut descent,
-                &mut x_ht,
-                &mut cap_ht,
-                &mut font_slant,
-            );
-        }
-        #[cfg(not(target_os = "macos"))]
-        AAT_FONT_FLAG => {
-            // do nothing
-        }
-        _ => {
-            ot_get_font_metrics(
-                font_engine,
-                &mut ascent,
-                &mut descent,
-                &mut x_ht,
-                &mut cap_ht,
-                &mut font_slant,
-            );
-        }
-    }
-    HEIGHT_BASE[FONT_PTR] = ascent;
-    DEPTH_BASE[FONT_PTR] = -descent;
-    FONT_PARAMS[FONT_PTR] = num_font_dimens;
-    FONT_BC[FONT_PTR] = 0 as UTF16_code;
-    FONT_EC[FONT_PTR] = 65535 as UTF16_code;
-    font_used[FONT_PTR] = false;
-    HYPHEN_CHAR[FONT_PTR] = *INTPAR(IntPar::default_hyphen_char);
-    SKEW_CHAR[FONT_PTR] = *INTPAR(IntPar::default_skew_char);
-    PARAM_BASE[FONT_PTR] = fmem_ptr - 1;
-    FONT_LAYOUT_ENGINE[FONT_PTR] = font_engine;
-    FONT_MAPPING[FONT_PTR] = 0 as *mut libc::c_void;
-    FONT_LETTER_SPACE[FONT_PTR] = loaded_font_letter_space;
-    /* "measure the width of the space character and set up font parameters" */
-    let p = new_native_character(FONT_PTR, ' ' as i32);
-    s = p.width() + loaded_font_letter_space;
-    p.free();
-
-    FONT_INFO[fmem_ptr as usize].b32.s1 = font_slant;
-    fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = s;
-    fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = s / 2; // space_stretch
-    fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = s / 3; // space_shrink
-    fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = x_ht;
-    fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = FONT_SIZE[FONT_PTR]; // quad
-    fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = s / 3; // extra_space
-    fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = cap_ht;
-    fmem_ptr += 1;
-    if num_font_dimens == 65 {
-        FONT_INFO[fmem_ptr as usize].b32.s1 = num_font_dimens;
-        fmem_ptr += 1;
-        for k in 0..=55 {
-            /* 55 = lastMathConstant */
-            /*:582*/
-            FONT_INFO[fmem_ptr as usize].b32.s1 = get_ot_math_constant(FONT_PTR, k);
-            fmem_ptr += 1;
-        }
-    }
-    FONT_MAPPING[FONT_PTR] = loaded_font_mapping;
-    FONT_FLAGS[FONT_PTR] = loaded_font_flags;
-    FONT_PTR
+        print_cstr("\' does not support Graphite. Trying OpenType layout instead.");
+    });
 }
 pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
     let mut offs: i32 = 0;
@@ -10226,16 +10045,16 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
     };
 }
 pub(crate) unsafe fn bad_utf8_warning() {
-    begin_diagnostic();
-    print_nl_cstr("Invalid UTF-8 byte or sequence");
-    if cur_input.name == 0 {
-        print_cstr(" in terminal input");
-    } else {
-        print_cstr(" at line ");
-        print_int(line);
-    }
-    print_cstr(" replaced by U+FFFD.");
-    end_diagnostic(false);
+    diagnostic(false, || {
+        print_nl_cstr("Invalid UTF-8 byte or sequence");
+        if cur_input.name == 0 {
+            print_cstr(" in terminal input");
+        } else {
+            print_cstr(" at line ");
+            print_int(line);
+        }
+        print_cstr(" replaced by U+FFFD.");
+    });
 }
 pub(crate) unsafe fn get_input_normalization_state() -> i32 {
     if EQTB.is_empty() {
@@ -10247,570 +10066,7 @@ pub(crate) unsafe fn get_input_normalization_state() -> i32 {
 pub(crate) unsafe fn get_tracing_fonts_state() -> i32 {
     *INTPAR(IntPar::xetex_tracing_fonts)
 }
-pub(crate) unsafe fn read_font_info(
-    mut u: i32,
-    mut nom: str_number,
-    mut aire: str_number,
-    mut s: scaled_t,
-) -> internal_font_number {
-    let mut k: font_index = 0;
-    let mut name_too_long: bool = false;
-    let mut lf: i32 = 0;
-    let mut lh: i32 = 0;
-    let mut bc: i32 = 0;
-    let mut ec: i32 = 0;
-    let mut nw: i32 = 0;
-    let mut nh: i32 = 0;
-    let mut nd: i32 = 0;
-    let mut ni: i32 = 0;
-    let mut nl: i32 = 0;
-    let mut nk: i32 = 0;
-    let mut ne: i32 = 0;
-    let mut np: i32 = 0;
-    let mut f: internal_font_number = 0;
-    let mut a: i32 = 0;
-    let mut b: i32 = 0;
-    let mut c: i32 = 0;
-    let mut d: i32 = 0;
-    let mut qw: b16x4 = b16x4 {
-        s0: 0,
-        s1: 0,
-        s2: 0,
-        s3: 0,
-    };
-    let mut sw: scaled_t = 0;
-    let mut bch_label: i32 = 0;
-    let mut bchar_0: i16 = 0;
-    let mut z: scaled_t = 0;
-    let mut alpha: i32 = 0;
-    let mut beta: u8 = 0;
 
-    let mut g = FONT_BASE;
-
-    pack_file_name(nom, aire, cur_ext);
-
-    if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
-        begin_diagnostic();
-        print_nl_cstr("Requested font \"");
-        print_c_str(&name_of_file);
-        print('\"' as i32);
-        if s < 0 {
-            print_cstr(" scaled ");
-            print_int(-s);
-        } else {
-            print_cstr(" at ");
-            print_scaled(s);
-            print_cstr("pt");
-        }
-        end_diagnostic(false);
-    }
-
-    if quoted_filename {
-        g = load_native_font(u, nom, aire, s);
-        if g != FONT_BASE {
-            return done(None, g);
-        }
-    }
-
-    name_too_long = length(nom) > 255 || length(aire) > 255;
-    if name_too_long {
-        return bad_tfm(None, g, u, nom, aire, s, name_too_long);
-    }
-    pack_file_name(nom, aire, EMPTY_STRING as str_number);
-    check_for_tfm_font_mapping();
-
-    let mut tfm_file_owner = tt_xetex_open_input(TTInputFormat::TFM);
-    if tfm_file_owner.is_none() {
-        if !quoted_filename {
-            g = load_native_font(u, nom, aire, s);
-            if g != FONT_BASE {
-                return done(None, g);
-            }
-        }
-        return bad_tfm(None, g, u, nom, aire, s, name_too_long);
-    }
-
-    let tfm_file = tfm_file_owner.as_mut().unwrap();
-
-    /* We are a bit cavalier about EOF-checking since we can't very
-     * conveniently implement feof() in the Rust layer, and it only ever is
-     * used in this one place. */
-
-    macro_rules! READFIFTEEN (
-        ($x:expr) => {
-            $x = ttstub_input_getc(tfm_file);
-            if $x > 127 || $x == libc::EOF {
-                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-            }
-            $x *= 256;
-            $x += ttstub_input_getc(tfm_file);
-
-        };
-    );
-
-    READFIFTEEN!(lf);
-    READFIFTEEN!(lh);
-    READFIFTEEN!(bc);
-    READFIFTEEN!(ec);
-
-    if bc > ec + 1 || ec > 255 {
-        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-    }
-    if bc > 255 {
-        bc = 1;
-        ec = 0
-    }
-
-    READFIFTEEN!(nw);
-    READFIFTEEN!(nh);
-    READFIFTEEN!(nd);
-    READFIFTEEN!(ni);
-    READFIFTEEN!(nl);
-    READFIFTEEN!(nk);
-    READFIFTEEN!(ne);
-    READFIFTEEN!(np);
-
-    if lf != 6 + lh + (ec - bc + 1) + nw + nh + nd + ni + nl + nk + ne + np {
-        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-    } else if nw == 0 || nh == 0 || nd == 0 || ni == 0 {
-        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-    }
-
-    lf = lf - 6 - lh;
-    if np < 7 {
-        lf = lf + 7 - np
-    }
-    assert!(
-        !(FONT_PTR == FONT_MAX || fmem_ptr + lf > FONT_MEM_SIZE as i32),
-        "not enough memory to load another font"
-    );
-
-    f = FONT_PTR + 1;
-    CHAR_BASE[f] = fmem_ptr - bc;
-    WIDTH_BASE[f] = CHAR_BASE[f] + ec + 1;
-    HEIGHT_BASE[f] = WIDTH_BASE[f] + nw;
-    DEPTH_BASE[f] = HEIGHT_BASE[f] + nh;
-    ITALIC_BASE[f] = DEPTH_BASE[f] + nd;
-    LIG_KERN_BASE[f] = ITALIC_BASE[f] + ni;
-    KERN_BASE[f] = LIG_KERN_BASE[f] + nl - 256 * 128;
-    EXTEN_BASE[f] = KERN_BASE[f] + 256 * 128 + nk;
-    PARAM_BASE[f] = EXTEN_BASE[f] + ne;
-    if lh < 2 {
-        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-    }
-    a = ttstub_input_getc(tfm_file);
-    qw.s3 = a as u16;
-    b = ttstub_input_getc(tfm_file);
-    qw.s2 = b as u16;
-    c = ttstub_input_getc(tfm_file);
-    qw.s1 = c as u16;
-    d = ttstub_input_getc(tfm_file);
-    qw.s0 = d as u16;
-    if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-    }
-    FONT_CHECK[f as usize] = qw;
-
-    READFIFTEEN!(z);
-    z = z * 256 + ttstub_input_getc(tfm_file);
-    z = z * 16 + ttstub_input_getc(tfm_file) / 16;
-    if z < 65536 {
-        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-    }
-    while lh > 2 {
-        ttstub_input_getc(tfm_file);
-        ttstub_input_getc(tfm_file);
-        ttstub_input_getc(tfm_file);
-        ttstub_input_getc(tfm_file);
-        lh -= 1
-    }
-    FONT_DSIZE[f] = z;
-    if s != -1000 {
-        if s >= 0 {
-            z = s
-        } else {
-            z = xn_over_d(z, -s, 1000)
-        }
-    }
-    FONT_SIZE[f] = z;
-
-    k = fmem_ptr;
-    loop {
-        if !(k <= WIDTH_BASE[f] - 1) {
-            break;
-        }
-        a = ttstub_input_getc(tfm_file);
-        qw.s3 = a as u16;
-        b = ttstub_input_getc(tfm_file);
-        qw.s2 = b as u16;
-        c = ttstub_input_getc(tfm_file);
-        qw.s1 = c as u16;
-        d = ttstub_input_getc(tfm_file);
-        qw.s0 = d as u16;
-        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-        }
-        FONT_INFO[k as usize].b16 = qw;
-
-        if a >= nw || b / 16 >= nh || b % 16 >= nd || c / 4 >= ni {
-            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-        }
-
-        match c % 4 {
-            1 => {
-                if d >= nl {
-                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-                }
-            }
-            3 => {
-                if d >= ne {
-                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-                }
-            }
-            2 => {
-                if d < bc || d > ec {
-                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-                }
-                loop {
-                    if !(d < k + bc - fmem_ptr) {
-                        break;
-                    }
-                    qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
-                    if qw.s1 as i32 % 4 != LIST_TAG {
-                        break;
-                    }
-                    d = qw.s0 as i32
-                }
-                if d == k + bc - fmem_ptr {
-                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-                }
-            }
-            _ => {}
-        }
-        k += 1;
-    }
-
-    alpha = 16;
-    while z >= 0x800000 {
-        z = z / 2;
-        alpha = alpha + alpha
-    }
-    beta = (256 / alpha) as u8;
-    alpha = alpha * z;
-
-    for k in WIDTH_BASE[f]..=LIG_KERN_BASE[f] - 1 {
-        a = ttstub_input_getc(tfm_file);
-        b = ttstub_input_getc(tfm_file);
-        c = ttstub_input_getc(tfm_file);
-        d = ttstub_input_getc(tfm_file);
-        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-        }
-        sw = ((d * z / 256 + c * z) / 256 + b * z) / beta as i32;
-
-        if a == 0 {
-            FONT_INFO[k as usize].b32.s1 = sw
-        } else if a == 255 {
-            FONT_INFO[k as usize].b32.s1 = sw - alpha
-        } else {
-            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-        }
-    }
-
-    if FONT_INFO[WIDTH_BASE[f] as usize].b32.s1 != 0 {
-        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-    }
-    if FONT_INFO[HEIGHT_BASE[f] as usize].b32.s1 != 0 {
-        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-    }
-    if FONT_INFO[DEPTH_BASE[f] as usize].b32.s1 != 0 {
-        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-    }
-    if FONT_INFO[ITALIC_BASE[f] as usize].b32.s1 != 0 {
-        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-    }
-
-    bch_label = 32767;
-    bchar_0 = 256;
-    if nl > 0 {
-        for k in LIG_KERN_BASE[f]..=KERN_BASE[f] + 256 * 128 - 1 {
-            a = ttstub_input_getc(tfm_file);
-            qw.s3 = a as u16;
-            b = ttstub_input_getc(tfm_file);
-            qw.s2 = b as u16;
-            c = ttstub_input_getc(tfm_file);
-            qw.s1 = c as u16;
-            d = ttstub_input_getc(tfm_file);
-            qw.s0 = d as u16;
-            if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-            }
-            FONT_INFO[k as usize].b16 = qw;
-
-            if a > 128 {
-                if 256 * c + d >= nl {
-                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-                }
-                if a == 255 && k == LIG_KERN_BASE[f] {
-                    bchar_0 = b as i16
-                }
-            } else {
-                if b != bchar_0 as i32 {
-                    if b < bc || b > ec {
-                        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-                    }
-
-                    qw = FONT_INFO[(CHAR_BASE[f] + b) as usize].b16;
-                    if !(qw.s3 > 0) {
-                        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-                    }
-                }
-
-                if c < 128 {
-                    if d < bc || d > ec {
-                        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-                    }
-                    qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
-                    if !(qw.s3 > 0) {
-                        return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-                    }
-                } else if 256 * (c - 128) + d >= nk {
-                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-                }
-                if a < 128 && k - LIG_KERN_BASE[f] + a + 1i32 >= nl {
-                    return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-                }
-            }
-        }
-        if a == 255 {
-            bch_label = 256 * c + d
-        }
-    }
-
-    for k in KERN_BASE[f] + 256 * 128..=EXTEN_BASE[f] - 1 {
-        a = ttstub_input_getc(tfm_file);
-        b = ttstub_input_getc(tfm_file);
-        c = ttstub_input_getc(tfm_file);
-        d = ttstub_input_getc(tfm_file);
-        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-        }
-        sw = ((d * z / 256i32 + c * z) / 256i32 + b * z) / beta as i32;
-        if a == 0 {
-            FONT_INFO[k as usize].b32.s1 = sw
-        } else if a == 255 {
-            FONT_INFO[k as usize].b32.s1 = sw - alpha
-        } else {
-            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-        }
-    }
-
-    for k in EXTEN_BASE[f]..=PARAM_BASE[f] - 1 {
-        a = ttstub_input_getc(tfm_file);
-        qw.s3 = a as u16;
-        b = ttstub_input_getc(tfm_file);
-        qw.s2 = b as u16;
-        c = ttstub_input_getc(tfm_file);
-        qw.s1 = c as u16;
-        d = ttstub_input_getc(tfm_file);
-        qw.s0 = d as u16;
-        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-        }
-        FONT_INFO[k as usize].b16 = qw;
-
-        if a != 0 {
-            if a < bc || a > ec {
-                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-            }
-            qw = FONT_INFO[(CHAR_BASE[f] + a) as usize].b16;
-            if !(qw.s3 as i32 > 0i32) {
-                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-            }
-        }
-
-        if b != 0 {
-            if b < bc || b > ec {
-                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-            }
-            qw = FONT_INFO[(CHAR_BASE[f] + b) as usize].b16;
-            if !(qw.s3 > 0) {
-                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-            }
-        }
-
-        if c != 0 {
-            if c < bc || c > ec {
-                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-            }
-            qw = FONT_INFO[(CHAR_BASE[f] + c) as usize].b16;
-            if !(qw.s3 > 0) {
-                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-            }
-        }
-
-        if d < bc || d > ec {
-            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-        }
-        qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
-        if !(qw.s3 > 0) {
-            return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-        }
-    }
-
-    for k in 1..=np {
-        if k == 1 {
-            sw = ttstub_input_getc(tfm_file);
-            if sw == libc::EOF {
-                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-            }
-            if sw > 127 {
-                sw = sw - 256
-            }
-
-            sw = sw * 256 + ttstub_input_getc(tfm_file);
-            sw = sw * 256 + ttstub_input_getc(tfm_file);
-            FONT_INFO[PARAM_BASE[f] as usize].b32.s1 = sw * 16 + ttstub_input_getc(tfm_file) / 16
-        } else {
-            a = ttstub_input_getc(tfm_file);
-            b = ttstub_input_getc(tfm_file);
-            c = ttstub_input_getc(tfm_file);
-            d = ttstub_input_getc(tfm_file);
-            if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-            }
-            sw = ((d * z / 256 + c * z) / 256 + b * z) / beta as i32;
-            if a == 0 {
-                FONT_INFO[(PARAM_BASE[f] + k - 1) as usize].b32.s1 = sw
-            } else if a == 255 {
-                FONT_INFO[(PARAM_BASE[f] + k - 1) as usize].b32.s1 = sw - alpha
-            } else {
-                return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-            }
-        }
-    }
-
-    for k in np + 1..=7 {
-        FONT_INFO[(PARAM_BASE[f] + k - 1) as usize].b32.s1 = 0;
-    }
-
-    if np >= 7 {
-        FONT_PARAMS[f] = np
-    } else {
-        FONT_PARAMS[f] = 7
-    }
-
-    HYPHEN_CHAR[f] = *INTPAR(IntPar::default_hyphen_char);
-    SKEW_CHAR[f] = *INTPAR(IntPar::default_skew_char);
-    if bch_label < nl {
-        BCHAR_LABEL[f] = bch_label + LIG_KERN_BASE[f]
-    } else {
-        BCHAR_LABEL[f] = NON_ADDRESS;
-    }
-    FONT_BCHAR[f] = bchar_0 as _;
-    FONT_FALSE_BCHAR[f] = bchar_0 as nine_bits;
-
-    if bchar_0 as i32 <= ec {
-        if bchar_0 as i32 >= bc {
-            qw = FONT_INFO[(CHAR_BASE[f] + bchar_0 as i32) as usize].b16;
-            if qw.s3 as i32 > 0 {
-                FONT_FALSE_BCHAR[f] = TOO_BIG_CHAR;
-            }
-        }
-    }
-
-    FONT_NAME[f] = nom;
-    FONT_AREA[f] = aire;
-    FONT_BC[f] = bc as UTF16_code;
-    FONT_EC[f] = ec as UTF16_code;
-    FONT_GLUE[f] = None.tex_int();
-    PARAM_BASE[f] -= 1;
-    fmem_ptr = fmem_ptr + lf;
-    FONT_PTR = f;
-    g = f;
-    FONT_MAPPING[f] = load_tfm_font_mapping();
-
-    return done(tfm_file_owner, g);
-
-    /// Called on error
-    unsafe fn bad_tfm(
-        tfm_file: Option<InputHandleWrapper>,
-        g: usize,
-        u: i32,
-        nom: i32,
-        aire: i32,
-        s: i32,
-        name_too_long: bool,
-    ) -> usize {
-        if *INTPAR(IntPar::suppress_fontnotfound_error) == 0 {
-            /* NOTE: must preserve this path to keep passing the TRIP tests */
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Font ");
-            sprint_cs(u);
-            print_chr('=');
-            if let Some(qc) = file_name_quote_char {
-                print_char(qc as i32);
-            }
-            print_file_name(nom, aire, cur_ext);
-            if let Some(qc) = file_name_quote_char {
-                print_char(qc as i32);
-            }
-            if s >= 0 {
-                print_cstr(" at ");
-                print_scaled(s);
-                print_cstr("pt");
-            } else if s != -1000 {
-                print_cstr(" scaled ");
-                print_int(-s);
-            }
-            if tfm_file.is_some() {
-                print_cstr(" not loadable: Bad metric (TFM) file");
-            } else if name_too_long {
-                print_cstr(" not loadable: Metric (TFM) file name too long");
-            } else {
-                print_cstr(" not loadable: Metric (TFM) file or installed font not found");
-            }
-            help!(
-                "I wasn\'t able to read the size data for this font,",
-                "so I will ignore the font specification.",
-                "[Wizards can fix TFM files using TFtoPL/PLtoTF.]",
-                "You might try inserting a different font spec;",
-                "e.g., type `I\\font<same font id>=<substitute font name>\'."
-            );
-            error();
-        }
-        return done(tfm_file, g);
-    }
-    // unreachable
-    // return bad_tfm(tfm_file_owner, g, u, nom, aire, s, name_too_long);
-
-    unsafe fn done(tfm_file: Option<InputHandleWrapper>, g: usize) -> usize {
-        let file_opened = tfm_file.is_some();
-        if let Some(handle) = tfm_file {
-            ttstub_input_close(handle);
-        }
-
-        if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
-            if g == FONT_BASE {
-                begin_diagnostic();
-                print_nl_cstr(" -> font not found, using \"nullfont\"");
-                end_diagnostic(false);
-            } else if file_opened {
-                begin_diagnostic();
-                print_nl_cstr(" -> ");
-                print_c_str(&name_of_file);
-                end_diagnostic(false);
-            }
-        }
-        g
-    }
-    // unreachable
-    // return done(tfm_file_owner, g);
-}
 pub(crate) unsafe fn new_character(
     mut f: internal_font_number,
     mut c: UTF16_code,
@@ -11295,9 +10551,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
         font_in_short_display = 0;
         short_display(r.list_ptr().opt());
         print_ln();
-        begin_diagnostic();
-        show_box(Some(r.ptr()));
-        end_diagnostic(true);
+        diagnostic(true, || show_box(Some(r.ptr())));
         return exit(r, q);
     }
 
@@ -11535,9 +10789,7 @@ pub(crate) unsafe fn vpackage(
             print_int(line);
             print_ln();
         }
-        begin_diagnostic();
-        show_box(Some(r.ptr()));
-        end_diagnostic(true);
+        diagnostic(true, || show_box(Some(r.ptr())));
         return r;
     }
 }
@@ -12637,7 +11889,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
     let mut best_place: i32 = None.tex_int();
     let mut prev_p = p;
     let mut least_cost = MAX_HALFWORD;
-    active_width[1..].copy_from_slice(&[0; 6]);
+    active_width = DeltaSize::new();
     let mut prev_dp = 0;
     loop {
         if let Some(p) = p.opt() {
@@ -12645,20 +11897,20 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
             match text_NODE_type(p).unwrap() {
                 TextNode::HList | TextNode::VList => {
                     let b = List::from(p);
-                    active_width[1] += prev_dp + b.height();
+                    active_width.width += prev_dp + b.height();
                     prev_dp = b.depth();
                     current_block = 10249009913728301645;
                 }
                 TextNode::Rule => {
                     let r = Rule::from(p);
-                    active_width[1] += prev_dp + r.height();
+                    active_width.width += prev_dp + r.height();
                     prev_dp = r.depth();
                     current_block = 10249009913728301645;
                 }
                 TextNode::WhatsIt => {
                     match WhatsIt::from(p as usize) {
                         WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                            active_width[1] += prev_dp + p.height();
+                            active_width.width += prev_dp + p.height();
                             prev_dp = p.depth();
                         }
                         _ => {}
@@ -12708,16 +11960,19 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
         match current_block {
             9007357115414505193 => {
                 if pi < INF_PENALTY {
-                    b = if active_width[1] < h {
-                        if active_width[3] != 0 || active_width[4] != 0 || active_width[5] != 0 {
+                    b = if active_width.width < h {
+                        if active_width.stretch1 != 0
+                            || active_width.stretch2 != 0
+                            || active_width.stretch3 != 0
+                        {
                             0
                         } else {
-                            badness(h - active_width[1], active_width[2])
+                            badness(h - active_width.width, active_width.stretch0)
                         }
-                    } else if active_width[1] - h > active_width[6] {
+                    } else if active_width.width - h > active_width.shrink {
                         MAX_HALFWORD
                     } else {
-                        badness(active_width[1] - h, active_width[6])
+                        badness(active_width.width - h, active_width.shrink)
                     };
                     if b < MAX_HALFWORD {
                         if pi <= EJECT_PENALTY {
@@ -12731,7 +11986,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     if b <= least_cost {
                         best_place = p;
                         least_cost = b;
-                        best_height_plus_depth = active_width[1] + prev_dp
+                        best_height_plus_depth = active_width.width + prev_dp
                     }
                     if b == MAX_HALFWORD || pi <= EJECT_PENALTY {
                         return best_place;
@@ -12755,8 +12010,14 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                 } else {
                     let mut p = Glue(p as usize);
                     let mut q = GlueSpec(p.glue_ptr() as usize); /*:1011 */
-                    active_width[2 + q.stretch_order() as usize] += q.stretch(); /*:1014*/
-                    active_width[6] += q.shrink();
+                    match q.stretch_order() {
+                        GlueOrder::Normal => active_width.stretch0 += q.stretch(),
+                        GlueOrder::Fil => active_width.stretch1 += q.stretch(),
+                        GlueOrder::Fill => active_width.stretch2 += q.stretch(),
+                        GlueOrder::Filll => active_width.stretch3 += q.stretch(),
+                        _ => unreachable!(),
+                    } /*:1014*/
+                    active_width.shrink += q.shrink();
                     if q.shrink_order() != GlueOrder::Normal && q.shrink() != 0 {
                         if file_line_error_style_p != 0 {
                             print_file_line();
@@ -12780,13 +12041,13 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                         q.size()
                     }
                 };
-                active_width[1] += prev_dp + width;
+                active_width.width += prev_dp + width;
                 prev_dp = 0;
             }
             _ => {}
         }
         if prev_dp > d {
-            active_width[1] += prev_dp - d;
+            active_width.width += prev_dp - d;
             prev_dp = d
         }
         prev_p = p;
@@ -12931,10 +12192,10 @@ pub(crate) unsafe fn print_totals() {
 }
 pub(crate) unsafe fn box_error(mut n: u8) {
     error();
-    begin_diagnostic();
-    print_nl_cstr("The following box has been deleted:");
-    show_box(BOX_REG(n as usize).opt());
-    end_diagnostic(true);
+    diagnostic(true, || {
+        print_nl_cstr("The following box has been deleted:");
+        show_box(BOX_REG(n as usize).opt());
+    });
     flush_node_list(BOX_REG(n as usize).opt());
     *BOX_REG(n as usize) = None.tex_int();
 }
@@ -13924,10 +13185,10 @@ pub(crate) unsafe fn build_discretionary() {
                     print_cstr("Improper discretionary list");
                     help!("Discretionary lists must contain only boxes and kerns.");
                     error();
-                    begin_diagnostic();
-                    print_nl_cstr("The following discretionary sublist has been deleted:");
-                    show_box(Some(p));
-                    end_diagnostic(true);
+                    diagnostic(true, || {
+                        print_nl_cstr("The following discretionary sublist has been deleted:");
+                        show_box(Some(p));
+                    });
                     flush_node_list(Some(p));
                     *LLIST_link(q as usize) = None.tex_int();
                     break;
@@ -14149,9 +13410,8 @@ pub(crate) unsafe fn omit_error() {
     );
     error();
 }
-pub(crate) unsafe fn do_endv() {
-    let mut base_ptr = INPUT_PTR;
-    INPUT_STACK[base_ptr] = cur_input;
+pub(crate) unsafe fn do_endv(input_stack: &[input_state_t]) {
+    let mut base_ptr = input_stack.len() - 1;
     while INPUT_STACK[base_ptr].index != Btl::VTemplate
         && INPUT_STACK[base_ptr].loc.opt().is_none()
         && INPUT_STACK[base_ptr].state == InputState::TokenList
@@ -14738,11 +13998,11 @@ pub(crate) unsafe fn new_font(mut a: i16) {
             (u - SINGLE_BASE) as i32
         }
     } else {
-        let old_setting_0 = selector;
+        let old_setting = selector;
         selector = Selector::NEW_STRING;
         print_cstr("FONT");
         print((u - 1) as i32);
-        selector = old_setting_0;
+        selector = old_setting;
         if pool_ptr + 1 > pool_size {
             overflow("pool size", (pool_size - init_pool_ptr) as usize);
         }
@@ -14841,7 +14101,12 @@ pub(crate) unsafe fn new_font(mut a: i16) {
         (*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1 = t;
     }
 
-    let f = read_font_info(u as i32, cur_name, cur_area, s);
+    let f = crate::tfm::read_font_info(u as i32, cur_name, cur_area, s)
+        .map(crate::tfm::good_tfm)
+        .unwrap_or_else(|e| {
+            crate::tfm::bad_tfm(e, u as i32, cur_name, cur_area, s);
+            FONT_BASE
+        });
     common_ending(a, u, f, t)
 }
 pub(crate) unsafe fn new_interaction() {
@@ -14929,8 +14194,7 @@ pub(crate) unsafe fn shift_case() {
 pub(crate) unsafe fn show_whatever() {
     match cur_chr {
         3 => {
-            begin_diagnostic();
-            show_activities();
+            diagnostic(true, || show_activities());
         }
         1 => {
             scan_register_num();
@@ -14940,15 +14204,16 @@ pub(crate) unsafe fn show_whatever() {
                 find_sa_element(ValLevel::Ident, cur_val, false);
                 cur_ptr.and_then(|c| MEM[c + 1].b32.s1.opt())
             };
-            begin_diagnostic();
-            print_nl_cstr("> \\box");
-            print_int(cur_val);
-            print_chr('=');
-            if p.is_none() {
-                print_cstr("void");
-            } else {
-                show_box(p);
-            }
+            diagnostic(true, || {
+                print_nl_cstr("> \\box");
+                print_int(cur_val);
+                print_chr('=');
+                if p.is_none() {
+                    print_cstr("void");
+                } else {
+                    show_box(p);
+                }
+            });
         }
         0 => {
             get_token();
@@ -14961,54 +14226,54 @@ pub(crate) unsafe fn show_whatever() {
             return common_ending();
         }
         4 => {
-            begin_diagnostic();
-            show_save_groups(cur_group, cur_level);
+            diagnostic(true, || show_save_groups(cur_group, cur_level));
         }
         6 => {
-            begin_diagnostic();
-            print_nl_cstr("");
-            print_ln();
-            if let Some(cp) = cond_ptr {
-                let mut p = cp;
-                let mut n = 0;
-                loop {
-                    n += 1;
-                    if let Some(next) = llist_link(p) {
-                        p = next;
-                    } else {
-                        break;
+            diagnostic(true, || {
+                print_nl_cstr("");
+                print_ln();
+                if let Some(cp) = cond_ptr {
+                    let mut p = cp;
+                    let mut n = 0;
+                    loop {
+                        n += 1;
+                        if let Some(next) = llist_link(p) {
+                            p = next;
+                        } else {
+                            break;
+                        }
                     }
+                    let mut p = cp;
+                    let mut t = cur_if;
+                    let mut l = if_line;
+                    let mut m = if_limit;
+                    loop {
+                        print_nl_cstr("### level ");
+                        print_int(n);
+                        print_cstr(": ");
+                        print_cmd_chr(Cmd::IfTest, t as i32);
+                        if m == FiOrElseCode::Fi {
+                            print_esc_cstr("else");
+                        }
+                        if l != 0i32 {
+                            print_cstr(" entered on line ");
+                            print_int(l);
+                        }
+                        n -= 1;
+                        t = MEM[p].b16.s0 as i16;
+                        l = MEM[p + 1].b32.s1;
+                        m = FiOrElseCode::n(MEM[p].b16.s1 as u8).unwrap();
+                        if let Some(next) = llist_link(p) {
+                            p = next;
+                        } else {
+                            break;
+                        }
+                    }
+                } else {
+                    print_nl_cstr("### ");
+                    print_cstr("no active conditionals");
                 }
-                let mut p = cp;
-                let mut t = cur_if;
-                let mut l = if_line;
-                let mut m = if_limit;
-                loop {
-                    print_nl_cstr("### level ");
-                    print_int(n);
-                    print_cstr(": ");
-                    print_cmd_chr(Cmd::IfTest, t as i32);
-                    if m == FiOrElseCode::Fi {
-                        print_esc_cstr("else");
-                    }
-                    if l != 0i32 {
-                        print_cstr(" entered on line ");
-                        print_int(l);
-                    }
-                    n -= 1;
-                    t = MEM[p].b16.s0 as i16;
-                    l = MEM[p + 1].b32.s1;
-                    m = FiOrElseCode::n(MEM[p].b16.s1 as u8).unwrap();
-                    if let Some(next) = llist_link(p) {
-                        p = next;
-                    } else {
-                        break;
-                    }
-                }
-            } else {
-                print_nl_cstr("### ");
-                print_cstr("no active conditionals");
-            }
+            });
         }
         _ => {
             let _p = the_toks() as i32;
@@ -15019,7 +14284,6 @@ pub(crate) unsafe fn show_whatever() {
         }
     }
 
-    end_diagnostic(true);
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -15564,6 +14828,7 @@ pub(crate) unsafe fn main_control() {
                     }
                 }
                 match (cur_list.mode.1, cur_cmd) {
+                    (NoMode, _) => {}
                     (HMode, Cmd::Spacer) => {
                         // 114
                         if cur_list.aux.b32.s0 == 1000 {
@@ -15576,9 +14841,7 @@ pub(crate) unsafe fn main_control() {
                         // 168 | 271
                         append_normal_space();
                     }
-                    (VMode, Cmd::IgnoreSpaces)
-                    | (HMode, Cmd::IgnoreSpaces)
-                    | (MMode, Cmd::IgnoreSpaces) => {
+                    (_, Cmd::IgnoreSpaces) => {
                         // 40 | 143 | 246
                         if cur_chr == 0 {
                             loop {
@@ -15614,16 +14877,12 @@ pub(crate) unsafe fn main_control() {
                     (VMode, Cmd::VMove)
                     | (HMode, Cmd::HMove)
                     | (MMode, Cmd::HMove)
-                    | (VMode, Cmd::LastItem)
-                    | (HMode, Cmd::LastItem)
-                    | (MMode, Cmd::LastItem)
+                    | (_, Cmd::LastItem)
                     | (VMode, Cmd::VAdjust)
                     | (VMode, Cmd::ItalCorr)
                     | (VMode, Cmd::EqNo)
                     | (HMode, Cmd::EqNo)
-                    | (VMode, Cmd::MacParam)
-                    | (HMode, Cmd::MacParam)
-                    | (MMode, Cmd::MacParam) => {
+                    | (_, Cmd::MacParam) => {
                         // 23 | 125 | 228 | 72 | 175 | 278 | 39 | 45 | 49 | 152 | 7 | 110 | 213
                         report_illegal_case();
                     }
@@ -15694,10 +14953,7 @@ pub(crate) unsafe fn main_control() {
                         // 28 | 130 | 233 | 235
                         append_glue();
                     }
-                    (VMode, Cmd::Kern)
-                    | (HMode, Cmd::Kern)
-                    | (MMode, Cmd::Kern)
-                    | (MMode, Cmd::MKern) => {
+                    (_, Cmd::Kern) | (MMode, Cmd::MKern) => {
                         // 30 | 133 | 236 | 237
                         append_kern();
                     }
@@ -15705,13 +14961,11 @@ pub(crate) unsafe fn main_control() {
                         // 2 | 105
                         new_save_level(GroupCode::Simple);
                     }
-                    (VMode, Cmd::BeginGroup)
-                    | (HMode, Cmd::BeginGroup)
-                    | (MMode, Cmd::BeginGroup) => {
+                    (_, Cmd::BeginGroup) => {
                         // 62 | 165 | 268
                         new_save_level(GroupCode::SemiSimple);
                     }
-                    (VMode, Cmd::EndGroup) | (HMode, Cmd::EndGroup) | (MMode, Cmd::EndGroup) => {
+                    (_, Cmd::EndGroup) => {
                         // 63 | 166 | 269
                         if cur_group == GroupCode::SemiSimple {
                             unsave();
@@ -15719,9 +14973,7 @@ pub(crate) unsafe fn main_control() {
                             off_save();
                         }
                     }
-                    (VMode, Cmd::RightBrace)
-                    | (HMode, Cmd::RightBrace)
-                    | (MMode, Cmd::RightBrace) => {
+                    (_, Cmd::RightBrace) => {
                         // 3 | 106 | 209
                         handle_right_brace();
                     }
@@ -15735,13 +14987,11 @@ pub(crate) unsafe fn main_control() {
                             scan_box(-cur_val);
                         }
                     }
-                    (VMode, Cmd::LeaderShip)
-                    | (HMode, Cmd::LeaderShip)
-                    | (MMode, Cmd::LeaderShip) => {
+                    (_, Cmd::LeaderShip) => {
                         // 32 | 135 | 238
                         scan_box(LEADER_FLAG - (A_LEADERS as i32) + cur_chr);
                     }
-                    (VMode, Cmd::MakeBox) | (HMode, Cmd::MakeBox) | (MMode, Cmd::MakeBox) => {
+                    (_, Cmd::MakeBox) => {
                         // 21 | 124 | 227
                         begin_box(0);
                     }
@@ -15795,27 +15045,19 @@ pub(crate) unsafe fn main_control() {
                         // 118 | 131 | 140 | 128 | 136
                         head_for_vmode();
                     }
-                    (VMode, Cmd::Insert)
-                    | (HMode, Cmd::Insert)
-                    | (MMode, Cmd::Insert)
-                    | (HMode, Cmd::VAdjust)
-                    | (MMode, Cmd::VAdjust) => {
+                    (_, Cmd::Insert) | (HMode, Cmd::VAdjust) | (MMode, Cmd::VAdjust) => {
                         // 38 | 141 | 244 | 142 | 245
                         begin_insert_or_adjust();
                     }
-                    (VMode, Cmd::Mark) | (HMode, Cmd::Mark) | (MMode, Cmd::Mark) => {
+                    (_, Cmd::Mark) => {
                         // 19 | 122 | 225
                         make_mark();
                     }
-                    (VMode, Cmd::BreakPenalty)
-                    | (HMode, Cmd::BreakPenalty)
-                    | (MMode, Cmd::BreakPenalty) => {
+                    (_, Cmd::BreakPenalty) => {
                         // 43 | 146 | 249
                         append_penalty();
                     }
-                    (VMode, Cmd::RemoveItem)
-                    | (HMode, Cmd::RemoveItem)
-                    | (MMode, Cmd::RemoveItem) => {
+                    (_, Cmd::RemoveItem) => {
                         // 26 | 129 | 232
                         delete_last();
                     }
@@ -15841,20 +15083,15 @@ pub(crate) unsafe fn main_control() {
                         // 149
                         make_accent();
                     }
-                    (VMode, Cmd::CarRet)
-                    | (HMode, Cmd::CarRet)
-                    | (MMode, Cmd::CarRet)
-                    | (VMode, Cmd::TabMark)
-                    | (HMode, Cmd::TabMark)
-                    | (MMode, Cmd::TabMark) => {
+                    (_, Cmd::CarRet) | (_, Cmd::TabMark) => {
                         // 6 | 109 | 212 | 5 | 108 | 211
                         align_error();
                     }
-                    (VMode, Cmd::NoAlign) | (HMode, Cmd::NoAlign) | (MMode, Cmd::NoAlign) => {
+                    (_, Cmd::NoAlign) => {
                         // 35 | 138 | 241
                         no_align_error();
                     }
-                    (VMode, Cmd::Omit) | (HMode, Cmd::Omit) | (MMode, Cmd::Omit) => {
+                    (_, Cmd::Omit) => {
                         // 64 | 167 | 270
                         omit_error();
                     }
@@ -15886,9 +15123,10 @@ pub(crate) unsafe fn main_control() {
                     }
                     (VMode, Cmd::EndV) | (HMode, Cmd::EndV) => {
                         // 10 | 113
-                        do_endv();
+                        INPUT_STACK[INPUT_PTR] = cur_input;
+                        do_endv(&INPUT_STACK[..INPUT_PTR + 1]);
                     }
-                    (VMode, Cmd::EndCSName) | (HMode, Cmd::EndCSName) | (MMode, Cmd::EndCSName) => {
+                    (_, Cmd::EndCSName) => {
                         // 68 | 171 | 274
                         cs_error();
                     }
@@ -16052,99 +15290,37 @@ pub(crate) unsafe fn main_control() {
                             off_save();
                         }
                     }
-                    (VMode, Cmd::ToksRegister)
-                    | (HMode, Cmd::ToksRegister)
-                    | (MMode, Cmd::ToksRegister)
-                    | (VMode, Cmd::AssignToks)
-                    | (HMode, Cmd::AssignToks)
-                    | (MMode, Cmd::AssignToks)
-                    | (VMode, Cmd::AssignInt)
-                    | (HMode, Cmd::AssignInt)
-                    | (MMode, Cmd::AssignInt)
-                    | (VMode, Cmd::AssignDimen)
-                    | (HMode, Cmd::AssignDimen)
-                    | (MMode, Cmd::AssignDimen)
-                    | (VMode, Cmd::AssignGlue)
-                    | (HMode, Cmd::AssignGlue)
-                    | (MMode, Cmd::AssignGlue)
-                    | (VMode, Cmd::AssignMuGlue)
-                    | (HMode, Cmd::AssignMuGlue)
-                    | (MMode, Cmd::AssignMuGlue)
-                    | (VMode, Cmd::AssignFontDimen)
-                    | (HMode, Cmd::AssignFontDimen)
-                    | (MMode, Cmd::AssignFontDimen)
-                    | (VMode, Cmd::AssignFontInt)
-                    | (HMode, Cmd::AssignFontInt)
-                    | (MMode, Cmd::AssignFontInt)
-                    | (VMode, Cmd::SetAux)
-                    | (HMode, Cmd::SetAux)
-                    | (MMode, Cmd::SetAux)
-                    | (VMode, Cmd::SetPrevGraf)
-                    | (HMode, Cmd::SetPrevGraf)
-                    | (MMode, Cmd::SetPrevGraf)
-                    | (VMode, Cmd::SetPageDimen)
-                    | (HMode, Cmd::SetPageDimen)
-                    | (MMode, Cmd::SetPageDimen)
-                    | (VMode, Cmd::SetPageInt)
-                    | (HMode, Cmd::SetPageInt)
-                    | (MMode, Cmd::SetPageInt)
-                    | (VMode, Cmd::SetBoxDimen)
-                    | (HMode, Cmd::SetBoxDimen)
-                    | (MMode, Cmd::SetBoxDimen)
-                    | (VMode, Cmd::SetShape)
-                    | (HMode, Cmd::SetShape)
-                    | (MMode, Cmd::SetShape)
-                    | (VMode, Cmd::DefCode)
-                    | (HMode, Cmd::DefCode)
-                    | (MMode, Cmd::DefCode)
-                    | (VMode, Cmd::XetexDefCode)
-                    | (HMode, Cmd::XetexDefCode)
-                    | (MMode, Cmd::XetexDefCode)
-                    | (VMode, Cmd::DefFamily)
-                    | (HMode, Cmd::DefFamily)
-                    | (MMode, Cmd::DefFamily)
-                    | (VMode, Cmd::SetFont)
-                    | (HMode, Cmd::SetFont)
-                    | (MMode, Cmd::SetFont)
-                    | (VMode, Cmd::DefFont)
-                    | (HMode, Cmd::DefFont)
-                    | (MMode, Cmd::DefFont)
-                    | (VMode, Cmd::Register)
-                    | (HMode, Cmd::Register)
-                    | (MMode, Cmd::Register)
-                    | (VMode, Cmd::Advance)
-                    | (HMode, Cmd::Advance)
-                    | (MMode, Cmd::Advance)
-                    | (VMode, Cmd::Multiply)
-                    | (HMode, Cmd::Multiply)
-                    | (MMode, Cmd::Multiply)
-                    | (VMode, Cmd::Divide)
-                    | (HMode, Cmd::Divide)
-                    | (MMode, Cmd::Divide)
-                    | (VMode, Cmd::Prefix)
-                    | (HMode, Cmd::Prefix)
-                    | (MMode, Cmd::Prefix)
-                    | (VMode, Cmd::Let)
-                    | (HMode, Cmd::Let)
-                    | (MMode, Cmd::Let)
-                    | (VMode, Cmd::ShorthandDef)
-                    | (HMode, Cmd::ShorthandDef)
-                    | (MMode, Cmd::ShorthandDef)
-                    | (VMode, Cmd::ReadToCS)
-                    | (HMode, Cmd::ReadToCS)
-                    | (MMode, Cmd::ReadToCS)
-                    | (VMode, Cmd::Def)
-                    | (HMode, Cmd::Def)
-                    | (MMode, Cmd::Def)
-                    | (VMode, Cmd::SetBox)
-                    | (HMode, Cmd::SetBox)
-                    | (MMode, Cmd::SetBox)
-                    | (VMode, Cmd::HyphData)
-                    | (HMode, Cmd::HyphData)
-                    | (MMode, Cmd::HyphData)
-                    | (VMode, Cmd::SetInteraction)
-                    | (HMode, Cmd::SetInteraction)
-                    | (MMode, Cmd::SetInteraction) => {
+                    (_, Cmd::ToksRegister)
+                    | (_, Cmd::AssignToks)
+                    | (_, Cmd::AssignInt)
+                    | (_, Cmd::AssignDimen)
+                    | (_, Cmd::AssignGlue)
+                    | (_, Cmd::AssignMuGlue)
+                    | (_, Cmd::AssignFontDimen)
+                    | (_, Cmd::AssignFontInt)
+                    | (_, Cmd::SetAux)
+                    | (_, Cmd::SetPrevGraf)
+                    | (_, Cmd::SetPageDimen)
+                    | (_, Cmd::SetPageInt)
+                    | (_, Cmd::SetBoxDimen)
+                    | (_, Cmd::SetShape)
+                    | (_, Cmd::DefCode)
+                    | (_, Cmd::XetexDefCode)
+                    | (_, Cmd::DefFamily)
+                    | (_, Cmd::SetFont)
+                    | (_, Cmd::DefFont)
+                    | (_, Cmd::Register)
+                    | (_, Cmd::Advance)
+                    | (_, Cmd::Multiply)
+                    | (_, Cmd::Divide)
+                    | (_, Cmd::Prefix)
+                    | (_, Cmd::Let)
+                    | (_, Cmd::ShorthandDef)
+                    | (_, Cmd::ReadToCS)
+                    | (_, Cmd::Def)
+                    | (_, Cmd::SetBox)
+                    | (_, Cmd::HyphData)
+                    | (_, Cmd::SetInteraction) => {
                         // 73 | 176 | 279 | 74 | 177 | 280 | 75 | 178 | 281 | 76 | 179 | 282 | 77
                         //| 180 | 283 | 78 | 181 | 284 | 79 | 182 | 285 | 80 | 183 | 286 | 81
                         //| 184 | 287 | 82 | 185 | 288 | 83 | 186 | 289 | 84 | 187 | 290 | 85
@@ -16155,43 +15331,37 @@ pub(crate) unsafe fn main_control() {
                         //| 204 | 307 | 102 | 205 | 308 | 103 | 206 | 309
                         prefixed_command();
                     }
-                    (VMode, Cmd::AfterAssignment)
-                    | (HMode, Cmd::AfterAssignment)
-                    | (MMode, Cmd::AfterAssignment) => {
+                    (_, Cmd::AfterAssignment) => {
                         // 41 | 144 | 247
                         get_token();
                         after_token = cur_tok;
                     }
-                    (VMode, Cmd::AfterGroup)
-                    | (HMode, Cmd::AfterGroup)
-                    | (MMode, Cmd::AfterGroup) => {
+                    (_, Cmd::AfterGroup) => {
                         // 42 | 145 | 248
                         get_token();
                         save_for_after(cur_tok);
                     }
-                    (VMode, Cmd::InStream) | (HMode, Cmd::InStream) | (MMode, Cmd::InStream) => {
+                    (_, Cmd::InStream) => {
                         // 61 | 164 | 267
                         open_or_close_in();
                     }
-                    (VMode, Cmd::Message) | (HMode, Cmd::Message) | (MMode, Cmd::Message) => {
+                    (_, Cmd::Message) => {
                         // 59 | 162 | 265
                         issue_message();
                     }
-                    (VMode, Cmd::CaseShift) | (HMode, Cmd::CaseShift) | (MMode, Cmd::CaseShift) => {
+                    (_, Cmd::CaseShift) => {
                         // 58 | 161 | 264
                         shift_case();
                     }
-                    (VMode, Cmd::XRay) | (HMode, Cmd::XRay) | (MMode, Cmd::XRay) => {
+                    (_, Cmd::XRay) => {
                         // 20 | 123 | 226
                         show_whatever();
                     }
-                    (VMode, Cmd::Extension) | (HMode, Cmd::Extension) | (MMode, Cmd::Extension) => {
+                    (_, Cmd::Extension) => {
                         // 60 | 163 | 266
                         do_extension();
                     }
-                    (VMode, Cmd::Relax)
-                    | (HMode, Cmd::Relax)
-                    | (MMode, Cmd::Relax)
+                    (_, Cmd::Relax)
                     | (VMode, Cmd::Spacer)
                     | (MMode, Cmd::Spacer)
                     | (MMode, Cmd::NoBoundary)
@@ -17309,7 +16479,7 @@ pub(crate) unsafe fn tokens_to_string(mut p: i32) -> str_number {
             "tokens_to_string() called while selector = new_string",
         );
     }
-    old_setting = selector;
+    let old_setting = selector;
     selector = Selector::NEW_STRING;
     show_token_list(LLIST_link(p as usize).opt(), None, pool_size - pool_ptr);
     selector = old_setting;

@@ -31,7 +31,7 @@ use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_sfnt::{
-    dfont_open, sfnt_close, sfnt_create_FontFile_stream, sfnt_find_table_pos, sfnt_open,
+    dfont_open, sfnt_create_FontFile_stream, sfnt_find_table_pos, sfnt_open,
     sfnt_read_table_directory, sfnt_require_table,
 };
 use crate::dpx_truetype::SfntTableInfo;
@@ -620,19 +620,17 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
         (*font.fontdict).as_dict_mut().set("DW", 1000_f64);
         return;
     }
-    let sfont = if let Some(handle) = dpx_open_truetype_file(&font.ident) {
+    let mut sfont = if let Some(handle) = dpx_open_truetype_file(&font.ident) {
         sfnt_open(handle)
     } else if let Some(handle) = dpx_open_dfont_file(&font.ident) {
         dfont_open(handle, (*font.options).index)
+            .expect(&format!("Could not open TTF file: {}", font.ident))
     } else {
         panic!("Could not open TTF/dfont file: {}", font.ident);
     };
-    if sfont.is_null() {
-        panic!("Could not open TTF file: {}", font.ident);
-    }
-    match (*sfont).type_0 {
+    match sfont.type_0 {
         16 => {
-            offset = ttc_read_offset(sfont, (*font.options).index);
+            offset = ttc_read_offset(&mut sfont, (*font.options).index);
             if offset == 0_u32 {
                 panic!("Invalid TTC index in {}.", font.ident);
             }
@@ -646,12 +644,12 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
             }
             offset = 0_u32
         }
-        256 => offset = (*sfont).offset,
+        256 => offset = sfont.offset,
         _ => {
             panic!("Not a TrueType/TTC font ({})?", font.ident);
         }
     }
-    if sfnt_read_table_directory(sfont, offset) < 0i32 {
+    if sfnt_read_table_directory(&mut sfont, offset) < 0i32 {
         panic!("Could not read TrueType table directory ({}).", font.ident);
     }
     /*
@@ -671,7 +669,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
          */
         for i in 0..=9 {
             ttcmap = tt_cmap_read(
-                sfont,
+                &mut sfont,
                 known_encodings[i].platform,
                 known_encodings[i].encoding,
             );
@@ -822,8 +820,8 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
             gsub_list = ptr::null_mut()
         } else {
             gsub_list = otl_gsub_new();
-            if otl_gsub_add_feat(gsub_list, b"*", b"*", b"vrt2", sfont) < 0i32 {
-                if otl_gsub_add_feat(gsub_list, b"*", b"*", b"vert", sfont) < 0i32 {
+            if otl_gsub_add_feat(&mut *gsub_list, b"*", b"*", b"vrt2", &sfont) < 0i32 {
+                if otl_gsub_add_feat(&mut *gsub_list, b"*", b"*", b"vert", &sfont) < 0i32 {
                     warn!("GSUB feature vrt2/vert not found.");
                     otl_gsub_release(gsub_list);
                     gsub_list = ptr::null_mut()
@@ -902,13 +900,13 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     }
     tt_cmap_release(ttcmap);
     if CIDFont_get_embedding(font) != 0 {
-        if tt_build_tables(sfont, glyphs) < 0i32 {
+        if tt_build_tables(&mut sfont, glyphs) < 0i32 {
             panic!("Could not created FontFile stream.");
         }
         if verbose > 1i32 {
             info!("[{} glyphs (Max CID: {})]", (*glyphs).num_glyphs, last_cid);
         }
-    } else if tt_get_metrics(sfont, glyphs) < 0i32 {
+    } else if tt_get_metrics(&mut sfont, glyphs) < 0i32 {
         panic!("Reading glyph metrics failed...");
     }
     /*
@@ -926,12 +924,11 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     /* Finish here if not embedded. */
     if CIDFont_get_embedding(font) == 0 {
         free(cidtogidmap as *mut libc::c_void);
-        sfnt_close(sfont);
         return;
     }
     /* Create font file */
     for table in &required_table {
-        if sfnt_require_table(sfont.as_mut().unwrap(), table).is_err() {
+        if sfnt_require_table(&mut sfont, table).is_err() {
             panic!(
                 "Some required TrueType table ({}) does not exist.",
                 table.name_str()
@@ -941,8 +938,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     /*
      * FontFile2
      */
-    let fontfile = sfnt_create_FontFile_stream(sfont);
-    sfnt_close(sfont);
+    let fontfile = sfnt_create_FontFile_stream(&mut sfont);
     if verbose > 1i32 {
         info!("[{} bytes]", fontfile.len());
     }
@@ -998,41 +994,40 @@ pub(crate) unsafe fn CIDFont_type2_open(
     let offset;
     assert!(!opt.is_null());
 
-    let sfont = if let Some(handle) = dpx_open_truetype_file(name) {
+    let mut sfont = if let Some(handle) = dpx_open_truetype_file(name) {
         sfnt_open(handle)
     } else if let Some(handle) = dpx_open_dfont_file(name) {
-        dfont_open(handle, (*opt).index)
+        if let Some(sfont) = dfont_open(handle, (*opt).index) {
+            sfont
+        } else {
+            return -1i32;
+        }
     } else {
         return -1i32;
     };
-    if sfont.is_null() {
-        return -1i32;
-    }
-    match (*sfont).type_0 {
-        16 => offset = ttc_read_offset(sfont, (*opt).index),
+    match sfont.type_0 {
+        16 => offset = ttc_read_offset(&mut sfont, (*opt).index),
         1 => {
             if (*opt).index > 0i32 {
                 panic!("Invalid TTC index (not TTC font): {}", name);
             }
             offset = 0_u32
         }
-        256 => offset = (*sfont).offset,
+        256 => offset = sfont.offset,
         _ => {
-            sfnt_close(sfont);
             return -1i32;
         }
     }
-    if sfnt_read_table_directory(sfont, offset) < 0i32 {
+    if sfnt_read_table_directory(&mut sfont, offset) < 0i32 {
         panic!("Reading TrueType table directory failed.");
     }
     /* Ignore TrueType Collection with CFF table. */
-    if (*sfont).type_0 == 1i32 << 4i32 && sfnt_find_table_pos(sfont, b"CFF ") != 0 {
-        sfnt_close(sfont);
+    if sfont.type_0 == 1i32 << 4i32 && sfnt_find_table_pos(&sfont, b"CFF ") != 0 {
         return -1i32;
     }
     /* MAC-ROMAN-EN-POSTSCRIPT or WIN-UNICODE-EN(US)-POSTSCRIPT */
     /* for SJIS, UTF-16, ... string */
-    let shortname = tt_get_ps_fontname(sfont).unwrap_or_else(|| name.to_owned());
+    let shortname = tt_get_ps_fontname(&mut sfont).unwrap_or_else(|| name.to_owned());
     let shortname = validate_name(shortname);
 
     if (*opt).embed != 0 && (*opt).style != 0i32 {
@@ -1099,7 +1094,7 @@ pub(crate) unsafe fn CIDFont_type2_open(
     (*(*font).fontdict)
         .as_dict_mut()
         .set("Subtype", "CIDFontType2");
-    if let Some(descriptor) = tt_get_fontdesc(sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name) {
+    if let Some(descriptor) = tt_get_fontdesc(&sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name) {
         (*font).descriptor = descriptor.into_obj();
     } else {
         panic!("Could not obtain necessary font info.");
@@ -1117,7 +1112,6 @@ pub(crate) unsafe fn CIDFont_type2_open(
 
     (*font).fontname = fontname.clone();
 
-    sfnt_close(sfont);
     /*
      * Don't write fontdict here.
      * /Supplement in /CIDSystemInfo may change.

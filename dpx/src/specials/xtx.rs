@@ -251,7 +251,7 @@ unsafe fn spc_handler_xtx_fontmapfile(spe: &mut spc_env, args: &mut spc_arg) -> 
         _ => 0,
     };
     if let Some(mapfile) = args.cur.parse_val_ident() {
-        pdf_load_fontmap_file(mapfile.as_c_str(), mode)
+        pdf_load_fontmap_file(&mapfile.to_string_lossy(), mode)
     } else {
         spc_warn!(spe, "No fontmap file specified.");
         -1

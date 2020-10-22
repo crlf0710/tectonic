@@ -36,7 +36,7 @@ use super::{
     spc_begin_annot, spc_clear_objects, spc_end_annot, spc_flush_object, spc_lookup_object,
     spc_push_object, spc_resume_annot, spc_suspend_annot,
 };
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
+use crate::bridge::ttstub_input_open_str;
 use crate::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_decode};
 use crate::dpx_dpxutil::{
     ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table, ParseCIdent,
@@ -1093,27 +1093,20 @@ unsafe fn spc_handler_pdfm_object(spe: &mut spc_env, args: &mut spc_arg) -> i32 
     }
 }
 unsafe fn spc_handler_pdfm_content(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
-    let mut len = 0;
     args.cur.skip_white();
     if !args.cur.is_empty() {
         let mut M = TMatrix::create_translation(spe.x_user, spe.y_user);
-        WORK_BUFFER[len] = b' ';
-        len += 1;
-        WORK_BUFFER[len] = b'q';
-        len += 1;
-        WORK_BUFFER[len] = b' ';
-        len += 1;
-        len += pdf_sprint_matrix(&mut WORK_BUFFER[len..], &mut M) as usize;
-        WORK_BUFFER[len] = b' ';
-        len += 1;
-        WORK_BUFFER[len] = b'c';
-        len += 1;
-        WORK_BUFFER[len] = b'm';
-        len += 1;
-        WORK_BUFFER[len] = b' ';
-        len += 1;
+        let mut buf = Vec::new();
+        buf.push(b' ');
+        buf.push(b'q');
+        buf.push(b' ');
+        pdf_sprint_matrix(&mut buf, &mut M);
+        buf.push(b' ');
+        buf.push(b'c');
+        buf.push(b'm');
+        buf.push(b' ');
         /* op: Q */
-        pdf_doc_add_page_content(&WORK_BUFFER[..len]); /* op: q cm */
+        pdf_doc_add_page_content(&buf); /* op: q cm */
         pdf_doc_add_page_content(args.cur); /* op: ANY */
         pdf_doc_add_page_content(b" Q");
         /* op: ANY */
@@ -1210,32 +1203,29 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                 pdf_release_obj(tmp);
                 return -1i32;
             }
-            let fullname = ptr::null_mut::<i8>(); // TODO: check dead code
-            if fullname.is_null() {
+            let fullname: Option<String> = None; // TODO: check dead code
+            if let Some(fullname) = &fullname {
+                if let Some(mut handle) = ttstub_input_open_str(fullname, TTInputFormat::PICT, 0) {
+                    let mut fstream = pdf_stream::new(STREAM_COMPRESS);
+                    loop {
+                        let nb_read = handle.read(&mut WORK_BUFFER[..]).unwrap();
+                        if !(nb_read > 0) {
+                            // TODO: check
+                            break;
+                        }
+                        fstream.add_slice(&WORK_BUFFER[..nb_read]);
+                    }
+                    fstream
+                } else {
+                    spc_warn!(spe, "Could not open file: {}", instring.display(),);
+                    pdf_release_obj(tmp);
+                    return -1i32;
+                }
+            } else {
                 spc_warn!(spe, "File \"{}\" not found.", instring.display(),);
                 pdf_release_obj(tmp);
                 return -1i32;
             }
-            let handle = ttstub_input_open(fullname, TTInputFormat::PICT, 0i32);
-            if handle.is_none() {
-                spc_warn!(spe, "Could not open file: {}", instring.display(),);
-                pdf_release_obj(tmp);
-                free(fullname as *mut libc::c_void);
-                return -1i32;
-            }
-            let mut handle = handle.unwrap();
-            let mut fstream = pdf_stream::new(STREAM_COMPRESS);
-            loop {
-                let nb_read = handle.read(&mut WORK_BUFFER[..]).unwrap();
-                if !(nb_read > 0) {
-                    // TODO: check
-                    break;
-                }
-                fstream.add_slice(&WORK_BUFFER[..nb_read]);
-            }
-            ttstub_input_close(handle);
-            free(fullname as *mut libc::c_void);
-            fstream
         }
         0 => {
             let mut fstream = pdf_stream::new(STREAM_COMPRESS);
@@ -1524,7 +1514,7 @@ unsafe fn spc_handler_pdfm_mapfile(spe: &mut spc_env, args: &mut spc_arg) -> i32
         _ => 0,
     };
     if let Some(mapfile) = args.cur.parse_val_ident() {
-        error = pdf_load_fontmap_file(mapfile.as_c_str(), mode)
+        error = pdf_load_fontmap_file(&mapfile.to_string_lossy(), mode)
     } else {
         spc_warn!(spe, "No fontmap file specified.");
         return -1i32;

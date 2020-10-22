@@ -769,13 +769,30 @@ extern "C" fn input_read<'a, I: 'a + IoProvider>(
     let rhandle = handle as *mut InputHandle;
     let rdata = unsafe { slice::from_raw_parts_mut(data, len) };
 
+    /*if len == 1 {
+        // If we couldn't fill the whole (1-byte) buffer, that's boring old EOF.
+        // No need to complain. Fun match statement here.
+        match es.input_getc(rhandle) {
+            Ok(b) => b as _,
+            Err(Error(ErrorKind::Io(ref ioe), _)) if ioe.kind() == io::ErrorKind::UnexpectedEof => {
+                libc::EOF as _
+            }
+            Err(e) => {
+                tt_warning!(es.status, "getc failed"; e);
+                -1
+            }
+        }
+    } else {*/
     match es.input_read(rhandle, rdata) {
         Ok(_) => len as isize,
         Err(e) => {
-            tt_warning!(es.status, "{}-byte read failed", len; e);
+            if len != 1 {
+                tt_warning!(es.status, "{}-byte read failed", len; e);
+            }
             -1
         }
     }
+    //}
 }
 
 extern "C" fn input_close<'a, I: 'a + IoProvider>(

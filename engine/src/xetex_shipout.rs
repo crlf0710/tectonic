@@ -3,6 +3,7 @@ use std::ffi::CString;
 use std::io::Write;
 
 use crate::help;
+use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow};
 use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, AAT_FONT_FLAG, OTGR_FONT_FLAG};
@@ -14,8 +15,8 @@ use crate::xetex_ini::{
     job_name, last_bop, log_opened, max_h, max_print_line, max_push, max_v, name_of_file,
     output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht,
     rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr, str_start,
-    term_offset, write_file, write_loc, write_open, xdv_buffer, xtx_ligature_present, LR_problems,
-    LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
+    term_offset, write_file, write_loc, write_open, xtx_ligature_present, LR_problems, LR_ptr,
+    CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
     FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
 };
 use crate::xetex_output::{
@@ -31,8 +32,8 @@ use crate::xetex_synctex::{
 };
 use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{
-    begin_diagnostic, begin_token_list, cur_length, effective_char, end_diagnostic, end_token_list,
-    flush_list, flush_node_list, free_node, get_avail, get_node, get_token, internal_font_number,
+    begin_token_list, cur_length, diagnostic, effective_char, end_token_list, flush_list,
+    flush_node_list, free_node, get_avail, get_node, get_token, internal_font_number,
     make_name_string, new_kern, new_math, new_native_word_node, open_log_file, pack_file_name,
     pack_job_name, packed_UTF16_code, prepare_mag, scaled_t, scan_toks, show_box, show_token_list,
     str_number, token_show, UTF16_code,
@@ -128,9 +129,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
     if *INTPAR(IntPar::tracing_output) > 0 {
         print_chr(']');
-        begin_diagnostic();
-        show_box(Some(p.ptr()));
-        end_diagnostic(true);
+        diagnostic(true, || show_box(Some(p.ptr())));
     }
 
     /*662: "Ship box `p` out." */
@@ -155,10 +154,10 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         error();
 
         if *INTPAR(IntPar::tracing_output) <= 0 {
-            begin_diagnostic();
-            print_nl_cstr("The following box has been deleted:");
-            show_box(Some(p.ptr()));
-            end_diagnostic(true);
+            diagnostic(true, || {
+                print_nl_cstr("The following box has been deleted:");
+                show_box(Some(p.ptr()));
+            });
         }
     } else {
         if p.height() + p.depth() + *DIMENPAR(DimenPar::v_offset) > max_v {
@@ -829,24 +828,15 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     for k in text {
                                         dvi_two(*k);
                                     }
-                                    let len = nw.make_xdv_glyph_array_data();
-                                    for k in 0..len {
-                                        dvi_out(*xdv_buffer.offset(k
-                                                                       as
-                                                                       isize)
-                                                    as
-                                                    u8);
+                                    for &k in &nw.make_xdv_glyph_array_data() {
+                                        dvi_out(k);
                                     }
                                 }
                             } else if !nw.glyph_info_ptr().is_null()
                              {
                                 dvi_out(SET_GLYPHS);
-                                let len = nw.make_xdv_glyph_array_data();
-                                for k in 0..len {
-                                    dvi_out(*xdv_buffer.offset(k
-                                                                   as
-                                                                   isize)
-                                                as u8);
+                                for &k in &nw.make_xdv_glyph_array_data() {
+                                    dvi_out(k);
                                 }
                             }
                             cur_h +=
@@ -1848,10 +1838,8 @@ pub(crate) unsafe fn out_what(p: usize) {
 unsafe fn dvi_native_font_def(f: internal_font_number) {
     dvi_out(DEFINE_NATIVE_FONT as _);
     dvi_four(f as i32 - 1);
-    let font_def_length = make_font_def(f);
-
-    for i in 0..font_def_length {
-        dvi_out(*xdv_buffer.offset(i as isize) as u8);
+    for &i in &make_font_def(f) {
+        dvi_out(i);
     }
 }
 

@@ -26,8 +26,8 @@
     non_upper_case_globals,
 )]
 use libpng_sys::ffi::*;
+use std::io::Read;
 
-use std::convert::TryInto;
 use std::ptr;
 
 use crate::warn;
@@ -35,7 +35,6 @@ use crate::warn;
 use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use super::dpx_pdfximage::pdf_ximage_set_image;
-use crate::bridge::ttstub_input_read;
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_get_version, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
     pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
@@ -56,15 +55,10 @@ pub(crate) type png_uint_16 = libc::c_ushort;
 pub(crate) type png_bytep = *mut png_byte;
 pub(crate) type png_uint_32 = libc::c_uint;
 
-pub unsafe fn check_for_png(handle: &mut InputHandleWrapper) -> i32 {
+pub unsafe fn check_for_png<R: Read + Seek>(handle: &mut R) -> i32 {
     let mut sigbytes: [u8; 8] = [0; 8];
     handle.seek(SeekFrom::Start(0)).unwrap();
-    if ttstub_input_read(
-        handle.as_ptr(),
-        sigbytes.as_mut_ptr() as *mut i8,
-        ::std::mem::size_of::<[u8; 8]>(),
-    ) as u64
-        != ::std::mem::size_of::<[u8; 8]>() as u64
+    if handle.read_exact(&mut sigbytes[..]).is_err()
         || png_sig_cmp(
             sigbytes.as_mut_ptr(),
             0,
@@ -83,16 +77,18 @@ unsafe extern "C" fn _png_warning_callback(
     /* Make compiler happy */
 }
 unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: usize) {
+    let outbytes = std::slice::from_raw_parts_mut(outbytes, n);
     let png = png_ptr.as_ref().unwrap();
-    let handle = png_get_io_ptr(png) as tectonic_bridge::rust_input_handle_t;
-    let r = ttstub_input_read(handle, outbytes as *mut i8, n.try_into().unwrap());
-    if r < 0 || r as size_t != n.try_into().unwrap() {
+    let handle =
+        InputHandleWrapper::new(png_get_io_ptr(png) as tectonic_bridge::rust_input_handle_t)
+            .unwrap();
+    if (&handle).read_exact(outbytes).is_err() {
         panic!("error reading PNG");
     };
 }
 
 pub(crate) unsafe fn png_include_image(
-    ximage: *mut pdf_ximage,
+    ximage: &mut pdf_ximage,
     handle: &mut InputHandleWrapper,
 ) -> i32 {
     /* Libpng stuff */
@@ -1101,8 +1097,8 @@ unsafe fn read_image_data(
     free(rows_p as *mut libc::c_void);
 }
 
-pub unsafe fn png_get_bbox(handle: &mut InputHandleWrapper) -> Result<(u32, u32, f64, f64), ()> {
-    handle.seek(SeekFrom::Start(0)).unwrap();
+pub unsafe fn png_get_bbox(handle: &InputHandleWrapper) -> Result<(u32, u32, f64, f64), ()> {
+    (&*handle).seek(SeekFrom::Start(0)).unwrap();
     let png = png_create_read_struct(
         b"1.6.37\x00" as *const u8 as *const i8,
         ptr::null_mut(),

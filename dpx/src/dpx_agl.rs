@@ -37,7 +37,6 @@ use super::dpx_mem::new;
 use super::dpx_mfileio::tt_mfgets;
 use super::dpx_pdfparse::{parse_ident, skip_white};
 use super::dpx_unicode::{UC_UTF16BE_encode_char, UC_is_valid};
-use crate::bridge::ttstub_input_close;
 use libc::{free, memcpy, strchr, strlen, strtol};
 
 pub(crate) type __ssize_t = i64;
@@ -487,7 +486,6 @@ unsafe fn agl_load_listfile(filename: &str, is_predef: i32) -> Result<u32, ()> {
             }
         }
     }
-    ttstub_input_close(handle);
     if verbose != 0 {
         info!(">");
     }

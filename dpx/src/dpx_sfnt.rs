@@ -26,22 +26,19 @@
     non_upper_case_globals,
 )]
 
-use tectonic_bridge::ttstub_input_close;
-
 use super::dpx_mem::{new, renew};
-use super::dpx_numbers::{tt_get_unsigned_pair, tt_get_unsigned_quad};
-use crate::bridge::ttstub_input_read;
+use super::dpx_numbers::GetFromFile;
 use crate::dpx_pdfobj::{pdf_stream, STREAM_COMPRESS};
 use crate::dpx_truetype::SfntTableInfo;
 use crate::mfree;
 use libc::{free, memcpy};
+use std::rc::Rc;
 
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
 pub(crate) type __ssize_t = i64;
-use crate::bridge::size_t;
-use bridge::InputHandleWrapper;
+use bridge::DroppableInputHandleWrapper;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct sfnt_table {
@@ -67,82 +64,93 @@ pub(crate) struct sfnt_table_directory {
 pub(crate) struct sfnt {
     pub(crate) type_0: i32,
     pub(crate) directory: *mut sfnt_table_directory,
-    pub(crate) handle: InputHandleWrapper,
+    pub(crate) handle: Rc<DroppableInputHandleWrapper>,
     pub(crate) offset: u32,
 }
 
-pub(crate) unsafe fn sfnt_open(mut handle: InputHandleWrapper) -> *mut sfnt {
+pub(crate) unsafe fn sfnt_open(mut handle: DroppableInputHandleWrapper) -> sfnt {
     handle.seek(SeekFrom::Start(0)).unwrap(); /* mbz */
-    let sfont =
-        new((1_u32 as u64).wrapping_mul(::std::mem::size_of::<sfnt>() as u64) as u32) as *mut sfnt; /* typefaces position */
-    let type_0 = tt_get_unsigned_quad(&mut handle); /* resource id */
-    if type_0 as u64 == 0x10000 || type_0 as u64 == 0x74727565 {
-        (*sfont).type_0 = 1i32 << 0i32
-    } else if type_0 as u64 == 0x10000 {
-        (*sfont).type_0 = 1i32 << 1i32
-    } else if type_0 as u64 == 0x4f54544f {
-        (*sfont).type_0 = 1i32 << 2i32
-    } else if type_0 as u64 == 0x74746366 {
-        (*sfont).type_0 = 1i32 << 4i32
-    }
+    /* typefaces position */
+    let typ = u32::get(&mut handle); /* resource id */
+    let typ = if typ as u64 == 0x10000 || typ as u64 == 0x74727565 {
+        1 << 0
+    } else if typ as u64 == 0x10000 {
+        1 << 1
+    } else if typ as u64 == 0x4f54544f {
+        1 << 2
+    } else if typ as u64 == 0x74746366 {
+        1 << 4
+    } else {
+        typ
+    } as i32;
     handle.seek(SeekFrom::Start(0)).unwrap();
-    (*sfont).handle = handle;
-    (*sfont).directory = ptr::null_mut();
-    (*sfont).offset = 0u64 as u32;
-    sfont
+    sfnt {
+        type_0: typ,
+        handle: Rc::new(handle),
+        directory: ptr::null_mut(),
+        offset: 0,
+    }
 }
 
-pub(crate) unsafe fn dfont_open(mut handle: InputHandleWrapper, index: i32) -> *mut sfnt {
+impl Drop for sfnt {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.directory.is_null() {
+                release_directory(self.directory);
+            }
+        }
+    }
+}
+
+pub(crate) unsafe fn dfont_open(
+    mut handle: DroppableInputHandleWrapper,
+    index: i32,
+) -> Option<sfnt> {
     let mut types_pos: u32 = 0;
     let mut res_pos: u32 = 0;
     let mut types_num: u16 = 0;
     handle.seek(SeekFrom::Start(0)).unwrap();
-    let sfont =
-        new((1_u32 as u64).wrapping_mul(::std::mem::size_of::<sfnt>() as u64) as u32) as *mut sfnt;
-    let rdata_pos = tt_get_unsigned_quad(&mut handle);
-    let map_pos = tt_get_unsigned_quad(&mut handle);
+    let rdata_pos = u32::get(&mut handle);
+    let map_pos = u32::get(&mut handle);
     handle
         .seek(SeekFrom::Start((map_pos + 0x18) as u64))
         .unwrap();
-    let tags_pos = map_pos.wrapping_add(tt_get_unsigned_pair(&mut handle) as u32);
+    let tags_pos = map_pos.wrapping_add(u16::get(&mut handle) as u32);
     handle.seek(SeekFrom::Start(tags_pos as u64)).unwrap();
-    let tags_num = tt_get_unsigned_pair(&mut handle);
+    let tags_num = u16::get(&mut handle);
     let mut i = 0;
     while i as i32 <= tags_num as i32 {
-        let tag = tt_get_unsigned_quad(&mut handle);
-        types_num = tt_get_unsigned_pair(&mut handle);
-        types_pos = tags_pos.wrapping_add(tt_get_unsigned_pair(&mut handle) as u32);
+        let tag = u32::get(&mut handle);
+        types_num = u16::get(&mut handle);
+        types_pos = tags_pos.wrapping_add(u16::get(&mut handle) as u32);
         if tag as u64 == 0x73666e74 {
             break;
         }
         i += 1;
     }
     if i as i32 > tags_num as i32 {
-        free(sfont as *mut libc::c_void);
-        ttstub_input_close(handle);
-        return ptr::null_mut();
+        return None;
     }
     handle.seek(SeekFrom::Start(types_pos as u64)).unwrap();
     if index > types_num as i32 {
         panic!("Invalid index {} for dfont.", index);
     }
     for i in 0..=types_num as i32 {
-        tt_get_unsigned_pair(&mut handle);
-        tt_get_unsigned_pair(&mut handle);
-        res_pos = tt_get_unsigned_quad(&mut handle);
-        tt_get_unsigned_quad(&mut handle);
+        u16::get(&mut handle);
+        u16::get(&mut handle);
+        res_pos = u32::get(&mut handle);
+        u32::get(&mut handle);
         if i as i32 == index {
             break;
         }
     }
     handle.seek(SeekFrom::Start(0)).unwrap();
-    (*sfont).handle = handle;
-    (*sfont).type_0 = 1i32 << 8i32;
-    (*sfont).directory = ptr::null_mut();
-    (*sfont).offset = (res_pos as u64 & 0xffffff)
-        .wrapping_add(rdata_pos as u64)
-        .wrapping_add(4i32 as u64) as u32;
-    sfont
+    Some(sfnt {
+        handle: Rc::new(handle),
+        type_0: 1 << 8,
+        directory: ptr::null_mut(),
+        offset: ((res_pos as u64 & 0xffffff) + (rdata_pos as u64) + 4) as u32,
+    })
 }
 unsafe fn release_directory(td: *mut sfnt_table_directory) {
     if !td.is_null() {
@@ -154,16 +162,6 @@ unsafe fn release_directory(td: *mut sfnt_table_directory) {
         }
         free((*td).flags as *mut libc::c_void);
         free(td as *mut libc::c_void);
-    };
-}
-
-pub(crate) unsafe fn sfnt_close(sfont: *mut sfnt) {
-    if !sfont.is_null() {
-        ttstub_input_close((*sfont).handle.clone()); // TODO: use drop
-        if !(*sfont).directory.is_null() {
-            release_directory((*sfont).directory);
-        }
-        free(sfont as *mut libc::c_void);
     };
 }
 
@@ -227,13 +225,12 @@ unsafe fn find_table_index(td: Option<&sfnt_table_directory>, tag: &[u8; 4]) -> 
 }
 
 pub(crate) unsafe fn sfnt_set_table(
-    sfont: *mut sfnt,
+    sfont: &mut sfnt,
     tag: &[u8; 4],
     data: *mut libc::c_void,
     length: u32,
 ) {
-    assert!(!sfont.is_null());
-    let td = (*sfont).directory;
+    let td = sfont.directory;
     let mut idx = find_table_index(td.as_ref(), tag);
     if idx < 0i32 {
         idx = (*td).num_tables as i32;
@@ -252,9 +249,8 @@ pub(crate) unsafe fn sfnt_set_table(
     *fresh0 = data as *mut i8;
 }
 
-pub(crate) unsafe fn sfnt_find_table_len(sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
-    assert!(!sfont.is_null());
-    let td = (*sfont).directory;
+pub(crate) unsafe fn sfnt_find_table_len(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
+    let td = sfont.directory;
     let idx = find_table_index(td.as_ref(), tag);
     if idx < 0i32 {
         0
@@ -263,9 +259,8 @@ pub(crate) unsafe fn sfnt_find_table_len(sfont: *mut sfnt, tag: &[u8; 4]) -> u32
     }
 }
 
-pub(crate) unsafe fn sfnt_find_table_pos(sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
-    assert!(!sfont.is_null());
-    let td = (*sfont).directory;
+pub(crate) unsafe fn sfnt_find_table_pos(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
+    let td = sfont.directory;
     let idx = find_table_index(td.as_ref(), tag);
     if idx < 0i32 {
         0
@@ -274,35 +269,34 @@ pub(crate) unsafe fn sfnt_find_table_pos(sfont: *mut sfnt, tag: &[u8; 4]) -> u32
     }
 }
 
-pub(crate) unsafe fn sfnt_locate_table(sfont: *mut sfnt, tag: &[u8; 4]) -> u32 {
-    assert!(!sfont.is_null());
+pub(crate) unsafe fn sfnt_locate_table(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
     let offset = sfnt_find_table_pos(sfont, tag);
     if offset == 0_u32 {
         panic!("sfnt: table not found...");
     }
-    (*sfont)
+    sfont
         .handle
+        .as_ref()
         .seek(SeekFrom::Start(offset as u64))
         .unwrap();
     offset
 }
 
-pub(crate) unsafe fn sfnt_read_table_directory(mut sfont: *mut sfnt, offset: u32) -> i32 {
-    assert!(!sfont.is_null());
-    if !(*sfont).directory.is_null() {
-        release_directory((*sfont).directory);
+pub(crate) unsafe fn sfnt_read_table_directory(sfont: &mut sfnt, offset: u32) -> i32 {
+    if !sfont.directory.is_null() {
+        release_directory(sfont.directory);
     }
     let td = new(
         (1_u32 as u64).wrapping_mul(::std::mem::size_of::<sfnt_table_directory>() as u64) as u32,
     ) as *mut sfnt_table_directory;
-    let handle = &mut (*sfont).handle;
-    (*sfont).directory = td;
+    let handle = &mut &*sfont.handle;
+    sfont.directory = td;
     handle.seek(SeekFrom::Start(offset as u64)).unwrap();
-    (*td).version = tt_get_unsigned_quad(handle);
-    (*td).num_tables = tt_get_unsigned_pair(handle);
-    (*td).search_range = tt_get_unsigned_pair(handle);
-    (*td).entry_selector = tt_get_unsigned_pair(handle);
-    (*td).range_shift = tt_get_unsigned_pair(handle);
+    (*td).version = u32::get(handle);
+    (*td).num_tables = u16::get(handle);
+    (*td).search_range = u16::get(handle);
+    (*td).entry_selector = u16::get(handle);
+    (*td).range_shift = u16::get(handle);
     (*td).flags = new(
         ((*td).num_tables as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
     ) as *mut i8;
@@ -310,12 +304,11 @@ pub(crate) unsafe fn sfnt_read_table_directory(mut sfont: *mut sfnt, offset: u32
         .wrapping_mul(::std::mem::size_of::<sfnt_table>() as u64) as u32)
         as *mut sfnt_table;
     for i in 0..(*td).num_tables as u32 {
-        let u_tag = tt_get_unsigned_quad(handle);
+        let u_tag = u32::get(handle);
         convert_tag(&mut (*(*td).tables.offset(i as isize)).tag, u_tag);
-        (*(*td).tables.offset(i as isize)).check_sum = tt_get_unsigned_quad(handle);
-        (*(*td).tables.offset(i as isize)).offset =
-            tt_get_unsigned_quad(handle).wrapping_add((*sfont).offset);
-        (*(*td).tables.offset(i as isize)).length = tt_get_unsigned_quad(handle);
+        (*(*td).tables.offset(i as isize)).check_sum = u32::get(handle);
+        (*(*td).tables.offset(i as isize)).offset = u32::get(handle).wrapping_add(sfont.offset);
+        (*(*td).tables.offset(i as isize)).length = u32::get(handle);
         let ref mut fresh1 = (*(*td).tables.offset(i as isize)).data;
         *fresh1 = ptr::null_mut();
         //fprintf(stderr, "[%4s:%x]", td->tables[i].tag, td->tables[i].offset);
@@ -326,7 +319,7 @@ pub(crate) unsafe fn sfnt_read_table_directory(mut sfont: *mut sfnt, offset: u32
 }
 
 pub(crate) unsafe fn sfnt_require_table(sfont: &mut sfnt, table: &SfntTableInfo) -> Result<(), ()> {
-    let mut td = (*sfont).directory.as_mut().unwrap();
+    let mut td = sfont.directory.as_mut().unwrap();
     let idx = find_table_index(Some(td), table.name());
     if idx < 0 {
         if table.must_exist() {
@@ -364,109 +357,108 @@ static mut padbytes: [u8; 4] = [0; 4];
 /* get_***_*** from numbers.h */
 /* table directory */
 
-pub(crate) unsafe fn sfnt_create_FontFile_stream(sfont: *mut sfnt) -> pdf_stream {
+pub(crate) unsafe fn sfnt_create_FontFile_stream(sfont: &sfnt) -> pdf_stream {
     let mut length;
-    assert!(!sfont.is_null() && !(*sfont).directory.is_null());
+    assert!(!sfont.directory.is_null());
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
-    let td = (*sfont).directory;
+    let td = &*sfont.directory;
     /* Header */
     let mut p = wbuf.as_mut_ptr() as *mut i8;
-    p = p.offset(put_big_endian(p as *mut libc::c_void, (*td).version as i32, 4i32) as isize);
-    p = p.offset(
-        put_big_endian(p as *mut libc::c_void, (*td).num_kept_tables as i32, 2i32) as isize,
-    );
-    let sr = max2floor((*td).num_kept_tables as u32).wrapping_mul(16_u32) as i32;
+    p = p.offset(put_big_endian(p as *mut libc::c_void, td.version as i32, 4i32) as isize);
+    p = p.offset(put_big_endian(p as *mut libc::c_void, td.num_kept_tables as i32, 2i32) as isize);
+    let sr = max2floor(td.num_kept_tables as u32).wrapping_mul(16_u32) as i32;
     p = p.offset(put_big_endian(p as *mut libc::c_void, sr, 2i32) as isize);
     p = p.offset(put_big_endian(
         p as *mut libc::c_void,
-        log2floor((*td).num_kept_tables as u32) as i32,
+        log2floor(td.num_kept_tables as u32) as i32,
         2i32,
     ) as isize);
     put_big_endian(
         p as *mut libc::c_void,
-        (*td).num_kept_tables as i32 * 16i32 - sr,
+        td.num_kept_tables as i32 * 16i32 - sr,
         2i32,
     );
     stream.add_slice(&wbuf[..12]);
     /*
      * Compute start of actual tables (after headers).
      */
-    let mut offset = 12 + 16 * (*td).num_kept_tables as i32;
-    for i in 0..(*td).num_tables as i32 {
+    let mut offset = 12 + 16 * td.num_kept_tables as i32;
+    for i in 0..td.num_tables as i32 {
         /* This table must exist in FontFile */
-        if *(*td).flags.offset(i as isize) as i32 & 1i32 << 0i32 != 0 {
+        if *td.flags.offset(i as isize) as i32 & 1i32 << 0i32 != 0 {
             if offset % 4i32 != 0i32 {
                 offset += 4i32 - offset % 4i32
             }
             p = wbuf.as_mut_ptr() as *mut i8;
             memcpy(
                 p as *mut libc::c_void,
-                (*(*td).tables.offset(i as isize)).tag.as_mut_ptr() as *const libc::c_void,
+                (*td.tables.offset(i as isize)).tag.as_mut_ptr() as *const libc::c_void,
                 4,
             );
             p = p.offset(4);
             p = p.offset(put_big_endian(
                 p as *mut libc::c_void,
-                (*(*td).tables.offset(i as isize)).check_sum as i32,
+                (*td.tables.offset(i as isize)).check_sum as i32,
                 4i32,
             ) as isize);
             p = p.offset(put_big_endian(p as *mut libc::c_void, offset, 4i32) as isize);
             put_big_endian(
                 p as *mut libc::c_void,
-                (*(*td).tables.offset(i as isize)).length as i32,
+                (*td.tables.offset(i as isize)).length as i32,
                 4i32,
             );
             stream.add_slice(&wbuf[..16]);
-            offset = (offset as u32).wrapping_add((*(*td).tables.offset(i as isize)).length) as i32
-                as i32
+            offset =
+                (offset as u32).wrapping_add((*td.tables.offset(i as isize)).length) as i32 as i32
         }
     }
-    let mut offset = 12 + 16 * (*td).num_kept_tables as i32;
-    for i in 0..(*td).num_tables as i32 {
-        if *(*td).flags.offset(i as isize) as i32 & 1i32 << 0i32 != 0 {
+    let mut offset = 12 + 16 * td.num_kept_tables as i32;
+    for i in 0..td.num_tables as i32 {
+        if *td.flags.offset(i as isize) as i32 & 1i32 << 0i32 != 0 {
             if offset % 4i32 != 0i32 {
                 length = 4i32 - offset % 4i32;
                 stream.add_slice(&padbytes[..length as usize]);
                 offset += length
             }
-            if (*(*td).tables.offset(i as isize)).data.is_null() {
-                /*if (*sfont).handle.is_null() {
+            if (*td.tables.offset(i as isize)).data.is_null() {
+                /*if sfont.handle.is_null() {
                     panic!("Font file not opened or already closed...");
                 }*/
-                length = (*(*td).tables.offset(i as isize)).length as i32;
-                (*sfont)
+                length = (*td.tables.offset(i as isize)).length as i32;
+                sfont
                     .handle
+                    .as_ref()
                     .seek(SeekFrom::Start(
-                        (*(*td).tables.offset(i as isize)).offset as u64,
+                        (*td.tables.offset(i as isize)).offset as u64,
                     ))
                     .unwrap();
-                while length > 0i32 {
-                    let nb_read = ttstub_input_read(
-                        (*sfont).handle.as_ptr(),
-                        wbuf.as_mut_ptr() as *mut i8,
-                        (if length < 1024i32 { length } else { 1024i32 }) as size_t,
-                    ) as i32;
-                    if nb_read < 0i32 {
-                        panic!("Reading file failed...");
-                    } else {
-                        if nb_read > 0i32 {
-                            stream.add_slice(&wbuf[..nb_read as usize]);
-                        }
+                while length > 0 {
+                    let slice = std::slice::from_raw_parts_mut(
+                        wbuf.as_mut_ptr(),
+                        length.min(1024) as usize,
+                    );
+                    let nb_read = sfont
+                        .handle
+                        .as_ref()
+                        .read(slice)
+                        .expect("Reading file failed...") as i32;
+                    if nb_read > 0 {
+                        stream.add_slice(&wbuf[..nb_read as usize]);
                     }
                     length -= nb_read
                 }
             } else {
                 stream.add(
-                    (*(*td).tables.offset(i as isize)).data as *const libc::c_void,
-                    (*(*td).tables.offset(i as isize)).length as i32,
+                    (*td.tables.offset(i as isize)).data as *const libc::c_void,
+                    (*td.tables.offset(i as isize)).length as i32,
                 );
-                let ref mut fresh3 = (*(*td).tables.offset(i as isize)).data;
+                let ref mut fresh3 = (*td.tables.offset(i as isize)).data;
                 *fresh3 =
-                    mfree((*(*td).tables.offset(i as isize)).data as *mut libc::c_void) as *mut i8
+                    mfree((*td.tables.offset(i as isize)).data as *mut libc::c_void) as *mut i8
             }
             /* Set offset for next table */
-            offset = (offset as u32).wrapping_add((*(*td).tables.offset(i as isize)).length) as i32
-                as i32
+            offset =
+                (offset as u32).wrapping_add((*td.tables.offset(i as isize)).length) as i32 as i32
         }
     }
     stream.get_dict_mut().set("Length1", offset as f64);

@@ -74,15 +74,16 @@ pub(crate) fn xtoi(c: u8) -> i32 {
     -1
 }
 
+pub(crate) fn is_space(c: &u8) -> bool {
+    c.is_ascii_whitespace() || *c == 0
+}
+pub(crate) fn is_delim(c: &u8) -> bool {
+    b"()/<>[]{}%".contains(c)
+}
+
 pub(crate) unsafe fn skip_white_spaces(s: *mut *mut u8, endptr: *mut u8) {
     while *s < endptr {
-        if !(**s as i32 == ' ' as i32
-            || **s as i32 == '\t' as i32
-            || **s as i32 == '\u{c}' as i32
-            || **s as i32 == '\r' as i32
-            || **s as i32 == '\n' as i32
-            || **s as i32 == '\u{0}' as i32)
-        {
+        if !((**s).is_ascii_whitespace() || **s as i32 == '\u{0}' as i32) {
             break;
         }
         *s = (*s).offset(1)

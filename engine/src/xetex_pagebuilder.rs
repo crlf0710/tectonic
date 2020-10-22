@@ -9,6 +9,7 @@
 )]
 
 use crate::help;
+use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ini::{

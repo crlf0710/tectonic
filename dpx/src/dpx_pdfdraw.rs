@@ -40,8 +40,6 @@ use super::dpx_pdfdoc::pdf_doc_add_page_content;
 // TODO move to context structure
 static mut gs_stack: Vec<pdf_gstate> = Vec::new();
 
-use crate::shims::sprintf;
-
 use super::dpx_pdfdev::{Equal, Point, Rect, TMatrix};
 
 /* Graphics State */
@@ -344,8 +342,6 @@ impl PeType {
     }
 }
 
-static mut fmt_buf: [u8; 1024] = [0; 1024];
-
 unsafe fn pdf_path__closepath(pa: &mut pdf_path, cp: &mut Point) -> i32
 /* no arg */ {
     /* search for start point of the last subpath */
@@ -440,8 +436,7 @@ unsafe fn INVERTIBLE_MATRIX(M: &TMatrix) -> i32 {
  *  current graphcs state parameter.
  */
 unsafe fn pdf_dev__rectshape(r: &Rect, M: Option<&TMatrix>, opchr: u8) -> i32 {
-    let buf = &mut fmt_buf;
-    let mut len = 0;
+    let mut buf = Vec::new();
     assert!(b"fFsSbBW ".contains(&(opchr as u8)));
     let isclip = if opchr == b'W' || opchr == b' ' {
         1i32
@@ -456,65 +451,46 @@ unsafe fn pdf_dev__rectshape(r: &Rect, M: Option<&TMatrix>, opchr: u8) -> i32 {
         return -1i32;
     } /* op: q cm n re Q */
     graphics_mode();
-    buf[len] = b' ';
-    len += 1;
+    buf.push(b' ');
     if isclip == 0 {
-        buf[len] = b'q';
-        len += 1;
+        buf.push(b'q');
         if let Some(m) = M {
-            buf[len] = b' ';
-            len += 1;
-            len += pdf_sprint_matrix(&mut buf[len..], m);
-            buf[len] = b' ';
-            len += 1;
-            buf[len] = b'c';
-            len += 1;
-            buf[len] = b'm';
-            len += 1;
+            buf.push(b' ');
+            pdf_sprint_matrix(&mut buf, m);
+            buf.push(b' ');
+            buf.push(b'c');
+            buf.push(b'm');
         }
-        buf[len] = b' ';
-        len += 1;
+        buf.push(b' ');
     }
-    buf[len] = b'n';
-    len += 1;
+    buf.push(b'n');
     let p = r.min;
     let wd = r.size().width;
     let ht = r.size().height;
-    buf[len] = b' ';
-    len += 1;
-    len += pdf_sprint_coord(&mut buf[len..], &p);
-    buf[len] = b' ';
-    len += 1;
-    len += pdf_sprint_length(&mut buf[len..], wd);
-    buf[len] = b' ';
-    len += 1;
-    len += pdf_sprint_length(&mut buf[len..], ht);
-    buf[len] = b' ';
-    len += 1;
-    buf[len] = b'r';
-    len += 1;
-    buf[len] = b'e';
-    len += 1;
+    buf.push(b' ');
+    pdf_sprint_coord(&mut buf, &p);
+    buf.push(b' ');
+    pdf_sprint_length(&mut buf, wd);
+    buf.push(b' ');
+    pdf_sprint_length(&mut buf, ht);
+    buf.push(b' ');
+    buf.push(b'r');
+    buf.push(b'e');
     if opchr != b' ' {
-        buf[len] = b' ';
-        len += 1;
-        buf[len] = opchr;
-        len += 1;
-        buf[len] = b' ';
-        len += 1;
-        buf[len] = if isclip != 0 { b'n' } else { b'Q' };
-        len += 1;
+        buf.push(b' ');
+        buf.push(opchr);
+        buf.push(b' ');
+        buf.push(if isclip != 0 { b'n' } else { b'Q' });
     }
-    pdf_doc_add_page_content(&buf[..len]);
+    pdf_doc_add_page_content(&buf);
     0i32
 }
 static mut path_added: i32 = 0i32;
 /* FIXME */
 unsafe fn pdf_dev__flushpath(pa: &mut pdf_path, opchr: u8, rule: i32, ignore_rule: i32) -> i32 {
-    let b = &mut fmt_buf; /* height... */
-    let b_len = 1024; /* op: re */
+    let mut b = Vec::new(); /* height... */
+    const B_LEN: usize = 1024; /* op: re */
     let mut r = Rect::zero(); /* op: m l c v y h */
-    let mut len = 0_usize;
     assert!(b"fFsSbBW ".contains(&opchr));
     let isclip = if opchr == b'W' { true } else { false };
     if
@@ -530,17 +506,13 @@ unsafe fn pdf_dev__flushpath(pa: &mut pdf_path, opchr: u8, rule: i32, ignore_rul
         let pe1 = &pa.path[2];
         r.min = pe.p[0];
         r.max = pe1.p[0] - pe.p[0].to_vector();
-        b[len] = b' ';
-        len += 1;
-        len += pdf_sprint_rect(&mut b[len..], &r);
-        b[len] = b' ';
-        len += 1;
-        b[len] = b'r';
-        len += 1;
-        b[len] = b'e';
-        len += 1;
-        pdf_doc_add_page_content(&b[..len]);
-        len = 0;
+        b.push(b' ');
+        pdf_sprint_rect(&mut b, &r);
+        b.push(b' ');
+        b.push(b'r');
+        b.push(b'e');
+        pdf_doc_add_page_content(&b);
+        b.clear();
     } else {
         for pe in pa.path.iter_mut() {
             /* op: f F s S b B W f* F* s* S* b* B* W* */
@@ -551,45 +523,39 @@ unsafe fn pdf_dev__flushpath(pa: &mut pdf_path, opchr: u8, rule: i32, ignore_rul
             };
             for (_j, pt) in (0..n_pts).zip(pe.p.iter_mut()) {
                 /* op: m l c v y h */
-                b[len] = b' ';
-                len += 1;
-                len += pdf_sprint_coord(&mut b[len..], &mut *pt);
+                b.push(b' ');
+                pdf_sprint_coord(&mut b, &mut *pt);
             }
-            b[len] = b' ';
-            len += 1;
-            b[len] = if
-            /* !pe.is_null() &&*/
-            pe.typ != PeType::TERMINATE {
-                pe.typ.opchr() as u8
-            } else {
-                b' '
-            };
-            len += 1;
-            if len + 128 > b_len {
-                pdf_doc_add_page_content(&b[..len]);
-                len = 0
+            b.push(b' ');
+            b.push(
+                if
+                /* !pe.is_null() &&*/
+                pe.typ != PeType::TERMINATE {
+                    pe.typ.opchr() as u8
+                } else {
+                    b' '
+                },
+            );
+            if b.len() + 128 > B_LEN {
+                pdf_doc_add_page_content(&b);
+                b.clear();
             }
         }
-        if len > 0 {
-            pdf_doc_add_page_content(&b[..len]);
-            len = 0;
+        if !b.is_empty() {
+            pdf_doc_add_page_content(&b);
+            b.clear();
         }
     }
-    b[len] = b' ';
-    len += 1;
-    b[len] = opchr;
-    len += 1;
-    if rule == 1i32 {
-        b[len] = b'*';
-        len += 1;
+    b.push(b' ');
+    b.push(opchr);
+    if rule == 1 {
+        b.push(b'*');
     }
     if isclip {
-        b[len] = b' ';
-        len += 1;
-        b[len] = b'n';
-        len += 1;
+        b.push(b' ');
+        b.push(b'n');
     }
-    pdf_doc_add_page_content(&b[..len]);
+    pdf_doc_add_page_content(&b);
     0i32
 }
 
@@ -788,8 +754,6 @@ pub(crate) unsafe fn pdf_dev_concat(M: &TMatrix) -> i32 {
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
     let CTM = &mut gs.matrix;
-    let buf = &mut fmt_buf;
-    let mut len = 0;
     /* Adobe Reader erases page content if there are
      * non invertible transformation.
      */
@@ -808,16 +772,13 @@ pub(crate) unsafe fn pdf_dev_concat(M: &TMatrix) -> i32 {
         || M.m31.abs() > 2.5e-16
         || M.m32.abs() > 2.5e-16
     {
-        buf[len] = b' ';
-        len += 1;
-        len += pdf_sprint_matrix(&mut buf[len..], M);
-        buf[len] = b' ';
-        len += 1;
-        buf[len] = b'c';
-        len += 1;
-        buf[len] = b'm';
-        len += 1;
-        pdf_doc_add_page_content(&buf[..len]);
+        let mut buf = Vec::new();
+        buf.push(b' ');
+        pdf_sprint_matrix(&mut buf, M);
+        buf.push(b' ');
+        buf.push(b'c');
+        buf.push(b'm');
+        pdf_doc_add_page_content(&buf);
         *CTM = M.post_transform(CTM);
     }
     let W = M.inverse().unwrap();
@@ -839,18 +800,15 @@ pub(crate) unsafe fn pdf_dev_concat(M: &TMatrix) -> i32 {
 pub(crate) unsafe fn pdf_dev_setmiterlimit(mlimit: f64) -> i32 {
     let gss = unsafe { &mut gs_stack }; /* op: M */
     let gs = gss.last_mut().unwrap(); /* op: J */
-    let mut len = 0_usize; /* op: j */
-    let buf = &mut fmt_buf; /* op: w */
+    /* op: j */
+    let mut buf = Vec::new(); /* op: w */
     if gs.miterlimit != mlimit {
-        buf[len] = b' '; /* op: */
-        len += 1;
-        len += pdf_sprint_length(&mut buf[len..], mlimit); /* op: */
+        buf.push(b' '); /* op: */
+        pdf_sprint_length(&mut buf, mlimit); /* op: */
         /* op: d */
-        buf[len] = b' ';
-        len += 1;
-        buf[len] = b'M';
-        len += 1;
-        pdf_doc_add_page_content(&buf[..len]);
+        buf.push(b' ');
+        buf.push(b'M');
+        pdf_doc_add_page_content(&buf);
         gs.miterlimit = mlimit
     }
     0i32
@@ -859,14 +817,9 @@ pub(crate) unsafe fn pdf_dev_setmiterlimit(mlimit: f64) -> i32 {
 pub(crate) unsafe fn pdf_dev_setlinecap(capstyle: i32) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
-    let buf = &mut fmt_buf;
     if gs.linecap != capstyle {
-        let len = sprintf(
-            buf.as_mut_ptr() as *mut i8,
-            b" %d J\x00" as *const u8 as *const i8,
-            capstyle,
-        ) as usize;
-        pdf_doc_add_page_content(&buf[..len]);
+        let buf = format!(" {} J", capstyle);
+        pdf_doc_add_page_content(buf.as_bytes());
         gs.linecap = capstyle
     }
     0i32
@@ -875,14 +828,9 @@ pub(crate) unsafe fn pdf_dev_setlinecap(capstyle: i32) -> i32 {
 pub(crate) unsafe fn pdf_dev_setlinejoin(joinstyle: i32) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
-    let buf = &mut fmt_buf;
     if gs.linejoin != joinstyle {
-        let len = sprintf(
-            buf.as_mut_ptr() as *mut i8,
-            b" %d j\x00" as *const u8 as *const i8,
-            joinstyle,
-        ) as usize;
-        pdf_doc_add_page_content(&buf[..len]);
+        let buf = format!(" {} j", joinstyle);
+        pdf_doc_add_page_content(buf.as_bytes());
         gs.linejoin = joinstyle
     }
     0i32
@@ -891,17 +839,13 @@ pub(crate) unsafe fn pdf_dev_setlinejoin(joinstyle: i32) -> i32 {
 pub(crate) unsafe fn pdf_dev_setlinewidth(width: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
-    let mut len = 0_usize;
-    let buf = &mut fmt_buf;
+    let mut buf = Vec::new();
     if gs.linewidth != width {
-        buf[len] = b' ';
-        len += 1;
-        len += pdf_sprint_length(&mut buf[len..], width);
-        buf[len] = b' ';
-        len += 1;
-        buf[len] = b'w';
-        len += 1;
-        pdf_doc_add_page_content(&buf[..len]);
+        buf.push(b' ');
+        pdf_sprint_length(&mut buf, width);
+        buf.push(b' ');
+        buf.push(b'w');
+        pdf_doc_add_page_content(&buf);
         gs.linewidth = width
     }
     0i32
@@ -910,20 +854,21 @@ pub(crate) unsafe fn pdf_dev_setlinewidth(width: f64) -> i32 {
 pub(crate) unsafe fn pdf_dev_setdash(pattern: &[f64], offset: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
-    let buf = &mut fmt_buf;
+    let mut buf = Vec::new();
     let count = pattern.len();
     gs.linedash.num_dash = count as i32;
     gs.linedash.offset = offset;
     pdf_doc_add_page_content(b" [");
     for i in 0..count {
-        buf[0] = b' ';
-        let len = pdf_sprint_length(&mut buf[1..], pattern[i]);
-        pdf_doc_add_page_content(&buf[..len + 1]);
+        buf.push(b' ');
+        pdf_sprint_length(&mut buf, pattern[i]);
+        pdf_doc_add_page_content(&buf);
         gs.linedash.pattern[i] = pattern[i];
+        buf.clear();
     }
     pdf_doc_add_page_content(b"] ");
-    let len = pdf_sprint_length(&mut buf[..], offset);
-    pdf_doc_add_page_content(&buf[..len]);
+    pdf_sprint_length(&mut buf, offset);
+    pdf_doc_add_page_content(&buf);
     pdf_doc_add_page_content(b" d");
     0i32
 }

@@ -41,7 +41,7 @@ use crate::specials::spc_lookup_reference;
 use libc::memcpy;
 
 fn is_space(c: &u8) -> bool {
-    [b' ', b'\t', '\u{c}' as u8, b'\r', b'\n', 0].contains(c)
+    c.is_ascii_whitespace() || *c == 0
 }
 fn is_delim(c: &u8) -> bool {
     b"()/<>[]%".contains(c)
@@ -95,11 +95,7 @@ pub(crate) unsafe fn skip_white(start: *mut *const i8, end: *const i8) {
      * isspace(0x0B) returns TRUE.
      */
     while *start < end
-        && (**start as i32 == ' ' as i32
-            || **start as i32 == '\t' as i32
-            || **start as i32 == '\u{c}' as i32
-            || **start as i32 == '\r' as i32
-            || **start as i32 == '\n' as i32
+        && ((**start as u8).is_ascii_whitespace()
             || **start as i32 == '\u{0}' as i32
             || **start as i32 == '%' as i32)
     {
@@ -204,6 +200,48 @@ pub(crate) unsafe fn parse_unsigned(start: *mut *const i8, end: *const i8) -> *m
     *start = p;
     number
 }
+
+pub(crate) trait ParseNumber {
+    fn parse_number(&mut self) -> Option<CString>;
+    fn parse_unsigned(&mut self) -> Option<CString>;
+}
+
+impl ParseNumber for &[u8] {
+    fn parse_number(&mut self) -> Option<CString> {
+        self.skip_white();
+        let mut i = 0;
+        if !self.is_empty() && (self[0] == b'+' || self[0] == b'-') {
+            i += 1;
+        }
+        while !self[i..].is_empty() && self[0].is_ascii_digit() {
+            i += 1;
+        }
+        if !self[i..].is_empty() && self[0] == b'.' {
+            i += 1;
+            while !self[i..].is_empty() && self[0].is_ascii_digit() {
+                i += 1;
+            }
+        }
+        let number = parsed_string_slice(&self[..i]);
+        *self = &self[i..];
+        number
+    }
+
+    fn parse_unsigned(&mut self) -> Option<CString> {
+        self.skip_white();
+        let mut i = 0;
+        for p in *self {
+            if !p.is_ascii_digit() {
+                break;
+            }
+            i += 1;
+        }
+        let number = parsed_string_slice(&self[..i]);
+        *self = &self[i..];
+        number
+    }
+}
+
 unsafe fn parse_gen_ident(start: *mut *const i8, end: *const i8, valid_chars: &[u8]) -> *mut i8 {
     /* No skip_white(start, end)? */
     let mut p = *start;
@@ -888,25 +926,7 @@ impl ParsePdfObj for &[u8] {
             sign = 1;
             p = &p[1..];
         }
-        while !p.is_empty()
-            && !([
-                b' ',
-                b'\t',
-                b'\r',
-                b'\n',
-                b'(',
-                b')',
-                b'/',
-                b'<',
-                b'>',
-                b'[',
-                b']',
-                b'%',
-                '\u{c}' as u8,
-                0,
-            ]
-            .contains(&p[0]))
-        {
+        while !p.is_empty() && !(is_space(&p[0]) | is_delim(&p[0])) {
             if p[0] == b'.' {
                 if has_dot {
                     /* Two dots */
