@@ -1101,7 +1101,6 @@ pub(crate) unsafe fn pdf_dev_set_string(
     font_id: i32,
     ctype: i32,
 ) {
-    dbg!(dev_fonts.len());
     /* Pointer to the reencoded string. */
     if font_id < 0 || font_id as usize >= dev_fonts.len() {
         panic!("Invalid font: {} ({})", font_id, dev_fonts.len());
