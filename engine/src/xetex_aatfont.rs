@@ -22,8 +22,9 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::ptr;
 
+use crate::cmd::ExtCmd;
 use crate::core_memory::{xcalloc, xmalloc};
-use crate::xetex_consts::{ExtCmd, NativeWord};
+use crate::node::NativeWord;
 use crate::xetex_ext::{print_chars, readCommonFeatures, read_double, D2Fix, Fix2D};
 use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{

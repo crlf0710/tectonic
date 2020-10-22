@@ -740,7 +740,7 @@ pub(crate) unsafe fn load_native_font(
 
     let (ascent, descent, x_ht, cap_ht, font_slant) = match native_font_type_flag as u32 {
         #[cfg(target_os = "macos")]
-        AAT_FONT_FLAG => aat::aat_get_font_metrics(font_engine as _),
+        AAT_FONT_FLAG => crate::xetex_aatfont::aat_get_font_metrics(font_engine as _),
         #[cfg(not(target_os = "macos"))]
         AAT_FONT_FLAG => unreachable!(),
         _ => ot_get_font_metrics(font_engine),
