@@ -743,7 +743,7 @@ pub(crate) unsafe fn load_native_font(
     FONT_DSIZE[FONT_PTR] = loaded_font_design_size;
     FONT_SIZE[FONT_PTR] = actual_size;
     
-    let (ascent, descent, font_slant, x_ht, cap_ht) =
+    let (ascent, descent, x_ht, cap_ht, font_slant) =
     match native_font_type_flag as u32 {
         #[cfg(target_os = "macos")]
         AAT_FONT_FLAG => {
