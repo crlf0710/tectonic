@@ -159,7 +159,7 @@ impl TxtNode {
 
 impl From<u16> for TextNode {
     fn from(n: u16) -> Self {
-        Self::n(n).expect(&format!("Incorrect TextNode = {}", n))
+        Self::n(n).unwrap_or_else(|| panic!("Incorrect TextNode = {}", n))
     }
 }
 
@@ -667,7 +667,7 @@ impl Kern {
     }
     pub(crate) unsafe fn subtype(&self) -> KernType {
         let n = MEM[self.ptr()].b16.s0;
-        KernType::n(n).expect(&format!("Incorrect Kern type {}", n))
+        KernType::n(n).unwrap_or_else(|| panic!("Incorrect Kern type {}", n))
     }
     pub(crate) unsafe fn set_subtype(&mut self, v: KernType) -> &mut Self {
         MEM[self.ptr()].b16.s0 = v as u16;
@@ -820,7 +820,7 @@ impl PageInsertion {
     }
     pub(crate) unsafe fn subtype(&self) -> PageInsType {
         let n = MEM[self.ptr()].b16.s1;
-        PageInsType::n(n).expect(&format!("Incorrect Page Insertion type {}", n))
+        PageInsType::n(n).unwrap_or_else(|| panic!("Incorrect Page Insertion type {}", n))
     }
     pub(crate) unsafe fn set_subtype(&mut self, v: PageInsType) -> &mut Self {
         MEM[self.ptr()].b16.s1 = v as u16;
@@ -1055,7 +1055,7 @@ pub(crate) enum ListDir {
 }
 impl From<u16> for ListDir {
     fn from(n: u16) -> Self {
-        Self::n(n).expect(&format!("Incorrect List box type = {}", n))
+        Self::n(n).unwrap_or_else(|| panic!("Incorrect List box type = {}", n))
     }
 }
 
@@ -1069,7 +1069,7 @@ pub(crate) enum LRMode {
 
 impl From<u16> for LRMode {
     fn from(n: u16) -> Self {
-        Self::n(n).expect(&format!("Incorrect LRMode = {}", n))
+        Self::n(n).unwrap_or_else(|| panic!("Incorrect LRMode = {}", n))
     }
 }
 
@@ -1341,7 +1341,7 @@ impl Adjust {
     }
     pub(crate) unsafe fn subtype(&self) -> AdjustType {
         let n = MEM[self.ptr()].b16.s0;
-        AdjustType::n(n).expect(&format!("Incorrect Adjust type {}", n))
+        AdjustType::n(n).unwrap_or_else(|| panic!("Incorrect Adjust type {}", n))
     }
     pub(crate) unsafe fn set_subtype(&mut self, v: AdjustType) -> &mut Self {
         MEM[self.ptr()].b16.s0 = v as u16;
@@ -1674,7 +1674,7 @@ impl Edge {
     }
     pub(crate) unsafe fn lr(&self) -> LR {
         let n = unsafe { MEM[self.ptr()].b16.s0 };
-        LR::n(n).expect(&format!("Incorrect LR = {}", n))
+        LR::n(n).unwrap_or_else(|| panic!("Incorrect LR = {}", n))
     }
     pub(crate) unsafe fn set_lr(&mut self, v: LR) -> &mut Self {
         MEM[self.ptr()].b16.s0 = v as _;
@@ -1734,7 +1734,7 @@ pub(crate) enum InsNST {
 
 impl From<u16> for InsNST {
     fn from(n: u16) -> Self {
-        Self::n(n).expect(&format!("Incorrect InsNST = {}", n))
+        Self::n(n).unwrap_or_else(|| panic!("Incorrect InsNST = {}", n))
     }
 }
 
@@ -1901,7 +1901,7 @@ pub(crate) mod math {
 
     impl From<u16> for MathNode {
         fn from(n: u16) -> Self {
-            Self::n(n).expect(&format!("Incorrect MathNode = {}", n))
+            Self::n(n).unwrap_or_else(|| panic!("Incorrect MathNode = {}", n))
         }
     }
 
