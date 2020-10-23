@@ -889,7 +889,12 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
             ptr::null_mut()
         };
     }
-    let xobj_id = pdf_ximage_findresource(CString::new((*fspec).as_string().to_bytes()).unwrap().as_ptr(), options);
+    let xobj_id = pdf_ximage_findresource(
+        CString::new((*fspec).as_string().to_bytes())
+            .unwrap()
+            .as_ptr(),
+        options,
+    );
     if xobj_id < 0i32 {
         spc_warn!(spe, "Could not find image resource...");
         pdf_release_obj(fspec);

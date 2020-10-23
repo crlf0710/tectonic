@@ -608,15 +608,7 @@ unsafe fn create_cspace_CalRGB(
     {
         return None;
     }
-    if xw <= 0.
-        || yw < 1.0e-10
-        || xr < 0.
-        || yr < 0.
-        || xg < 0.
-        || yg < 0.
-        || xb < 0.
-        || yb < 0.
-    {
+    if xw <= 0. || yw < 1.0e-10 || xr < 0. || yr < 0. || xg < 0. || yg < 0. || xb < 0. || yb < 0. {
         warn!("{}: Invalid cHRM chunk parameters found.", "PNG");
         return None;
     }
@@ -951,11 +943,7 @@ unsafe fn strip_soft_mask(
     let color_type = png_get_color_type(png, png_info);
     let bpc = png_get_bit_depth(png, png_info);
     if color_type as libc::c_int & 2 != 0 {
-        let bps: libc::c_int = if bpc as libc::c_int == 8 {
-            4
-        } else {
-            8
-        };
+        let bps: libc::c_int = if bpc as libc::c_int == 8 { 4 } else { 8 };
         if *rowbytes_ptr as u64
             != ((bps as libc::c_uint).wrapping_mul(width) as u64)
                 .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)

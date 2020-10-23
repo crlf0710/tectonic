@@ -68,8 +68,8 @@ use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_obj, pdf_out_flush,
     pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
-    pdf_set_info, pdf_set_root, pdf_stream, pdf_string,
-    IntoObj, PdfObjType, PushObj, STREAM_COMPRESS,
+    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, IntoObj, PdfObjType, PushObj,
+    STREAM_COMPRESS,
 };
 use libc::{free, strcmp, strcpy, strlen, strncmp, strncpy};
 
@@ -1608,8 +1608,11 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
         return error(subtype, A, S, D);
     };
 
-    let mut D_new =
-        ht_lookup_table(&mut pdoc.gotos, dest.as_ptr() as *const libc::c_void, dest.len() as i32) as *mut pdf_obj;
+    let mut D_new = ht_lookup_table(
+        &mut pdoc.gotos,
+        dest.as_ptr() as *const libc::c_void,
+        dest.len() as i32,
+    ) as *mut pdf_obj;
     if D_new.is_null() {
         /* We use hexadecimal notation for our numeric destinations.
          * Other bases (e.g., 10+26 or 10+2*26) would be more efficient.
@@ -1659,10 +1662,7 @@ unsafe fn warn_undef_dests(dests: *mut ht_table, gotos: *mut ht_table) {
         let key: *mut i8 = ht_iter_getkey(&mut iter, &mut keylen);
         if ht_lookup_table(dests, key as *const libc::c_void, keylen).is_null() {
             let dest = std::slice::from_raw_parts(key as *const u8, keylen as usize);
-            warn!(
-                "PDF destination \"{}\" not defined.",
-                dest.display()
-            );
+            warn!("PDF destination \"{}\" not defined.", dest.display());
         }
         if !(ht_iter_next(&mut iter) >= 0i32) {
             break;

@@ -546,7 +546,10 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {
         spc_warn!(spe, "Error in html \"img\" tag attribute."); /* Not Tps prefix but... */
         return error;
     } /* op: */
-    let id = pdf_ximage_findresource(CString::new(src.as_string().to_bytes()).unwrap().as_ptr(), options); /* op: */
+    let id = pdf_ximage_findresource(
+        CString::new(src.as_string().to_bytes()).unwrap().as_ptr(),
+        options,
+    ); /* op: */
     if id < 0i32 {
         spc_warn!(
             spe,

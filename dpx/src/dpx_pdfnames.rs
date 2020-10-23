@@ -40,8 +40,7 @@ use super::dpx_dpxutil::{
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_undefined, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_string, pdf_string_value, pdf_transfer_label, IntoObj, PdfObjType,
-    PushObj, PdfObjVariant,
+    pdf_string, pdf_string_value, pdf_transfer_label, IntoObj, PdfObjType, PdfObjVariant, PushObj,
 };
 use libc::free;
 
@@ -295,10 +294,7 @@ unsafe fn build_name_tree(first: &mut [named_object], is_root: i32) -> pdf_dict 
                     names.push(pdf_ref_obj(cur.value));
                 }
                 PdfObjType::OBJ_INVALID => {
-                    panic!(
-                        "Invalid object...: {}",
-                        printable_key(cur.key, cur.keylen),
-                    );
+                    panic!("Invalid object...: {}", printable_key(cur.key, cur.keylen),);
                 }
                 _ => {
                     names.push(pdf_link_obj(cur.value));
@@ -314,8 +310,7 @@ unsafe fn build_name_tree(first: &mut [named_object], is_root: i32) -> pdf_dict 
         for i in 0..4 {
             let start = i * first.len() / 4;
             let end = (i + 1) * first.len() / 4;
-            let subtree =
-                build_name_tree(&mut first[start..end], 0).into_obj();
+            let subtree = build_name_tree(&mut first[start..end], 0).into_obj();
             kids.push(pdf_ref_obj(subtree));
             pdf_release_obj(subtree);
         }
@@ -323,10 +318,7 @@ unsafe fn build_name_tree(first: &mut [named_object], is_root: i32) -> pdf_dict 
     }
     result
 }
-unsafe fn flat_table(
-    ht_tab: *mut ht_table,
-    filter: *mut ht_table,
-) -> Vec<named_object> {
+unsafe fn flat_table(ht_tab: *mut ht_table, filter: *mut ht_table) -> Vec<named_object> {
     let mut iter: ht_iter = ht_iter {
         index: 0,
         curr: ptr::null_mut(),

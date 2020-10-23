@@ -369,8 +369,8 @@ fn make_transmatrix(
 }
 unsafe fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, t: &mut transform_info, ap: &mut SpcArg) -> i32 {
     const _DTKEYS: [&str; 14] = [
-        "hoffset", "voffset", "hsize", "vsize", "hscale", "vscale", "angle", "clip",
-        "llx", "lly", "urx", "ury", "rwi", "rhi",
+        "hoffset", "voffset", "hsize", "vsize", "hscale", "vscale", "angle", "clip", "llx", "lly",
+        "urx", "ury", "rwi", "rhi",
     ];
     let mut error: i32 = 0i32;
     let mut rotate = 0.0f64;
@@ -389,11 +389,7 @@ unsafe fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, t: &mut transform_info, ap: &
                 k += 1;
             }
             if k == 14 {
-                spc_warn!(
-                    spe,
-                    "Unrecognized dimension/transformation key: {}",
-                    kp,
-                );
+                spc_warn!(spe, "Unrecognized dimension/transformation key: {}", kp,);
                 error = -1;
                 break;
             } else {
@@ -426,11 +422,7 @@ unsafe fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, t: &mut transform_info, ap: &
                         ap.cur.parse_float_decimal()
                     };
                     if error == 0 && vp.is_none() {
-                        spc_warn!(
-                            spe,
-                            "Missing value for dimension/transformation: {}",
-                            kp,
-                        );
+                        spc_warn!(spe, "Missing value for dimension/transformation: {}", kp,);
                         error = -1;
                     }
                     if error != 0 {

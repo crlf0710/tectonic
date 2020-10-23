@@ -666,8 +666,7 @@ unsafe fn do_show() -> i32 {
         );
     } else {
         if (*font).tfm_id >= 0i32 {
-            text_width = tfm_string_width((*font).tfm_id, text) as f64
-                / (1i32 << 20i32) as f64;
+            text_width = tfm_string_width((*font).tfm_id, text) as f64 / (1i32 << 20i32) as f64;
             text_width *= (*font).pt_size
         }
         pdf_dev_set_string(
