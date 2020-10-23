@@ -694,17 +694,10 @@ static mut cff_stdstr: [&[u8]; 391] = [
     b"Roman\x00",
     b"Semibold\x00",
 ];
-unsafe fn get_unsigned<R: Read>(handle: &mut R, mut n: i32) -> u32 {
+unsafe fn get_unsigned<R: Read>(handle: &mut R, n: i32) -> u32 {
     let mut v: u32 = 0_u32;
-    loop {
-        let fresh0 = n;
-        n = n - 1;
-        if !(fresh0 > 0i32) {
-            break;
-        }
-        v = v
-            .wrapping_mul(0x100u32)
-            .wrapping_add(u8::get(handle) as u32)
+    for _ in 0..n {
+        v = v * 0x100 + (u8::get(handle) as u32)
     }
     v
 }
@@ -2124,8 +2117,7 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
                     b"Subrs\x00" as *const u8 as *const i8,
                 )
             {
-                let ref mut fresh47 = *cff.subrs.offset(i as isize);
-                *fresh47 = ptr::null_mut()
+                *cff.subrs.offset(i as isize) = ptr::null_mut();
             } else {
                 let offset = cff_dict_get(
                     *cff.fdarray.offset(i as isize),
@@ -2144,8 +2136,7 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
                     .as_ref()
                     .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
                     .unwrap();
-                let ref mut fresh48 = *cff.subrs.offset(i as isize);
-                *fresh48 = cff_get_index(cff);
+                *cff.subrs.offset(i as isize) = cff_get_index(cff);
                 len += cff_index_size(*cff.subrs.offset(i as isize)) as i32
             }
         }
@@ -2155,8 +2146,7 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
             b"Subrs\x00" as *const u8 as *const i8,
         )
     {
-        let ref mut fresh49 = *cff.subrs.offset(0);
-        *fresh49 = ptr::null_mut()
+        *cff.subrs.offset(0) = ptr::null_mut();
     } else {
         let offset =
             cff_dict_get(cff.topdict, b"Private\x00" as *const u8 as *const i8, 1i32) as i32;
@@ -2172,8 +2162,7 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
             .as_ref()
             .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
             .unwrap();
-        let ref mut fresh50 = *cff.subrs.offset(0);
-        *fresh50 = cff_get_index(cff);
+        *cff.subrs.offset(0) = cff_get_index(cff);
         len += cff_index_size(*cff.subrs.offset(0)) as i32
     }
     len
@@ -2207,11 +2196,9 @@ pub(crate) unsafe fn cff_read_fdarray(cff: &mut cff_font) -> i32 {
         let size = (*(*idx).offset.offset((i as i32 + 1i32) as isize))
             .wrapping_sub(*(*idx).offset.offset(i as isize)) as i32;
         if size > 0i32 {
-            let ref mut fresh51 = *cff.fdarray.offset(i as isize);
-            *fresh51 = cff_dict_unpack(data, data.offset(size as isize))
+            *cff.fdarray.offset(i as isize) = cff_dict_unpack(data, data.offset(size as isize));
         } else {
-            let ref mut fresh52 = *cff.fdarray.offset(i as isize);
-            *fresh52 = ptr::null_mut()
+            *cff.fdarray.offset(i as isize) = ptr::null_mut();
         }
     }
     let len = cff_index_size(idx) as i32;
@@ -2297,13 +2284,11 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
                 ) as *mut u8;
                 let slice = std::slice::from_raw_parts_mut(data, size as usize);
                 handle.read_exact(slice).expect("reading file failed");
-                let ref mut fresh53 = *cff.private.offset(i as isize);
-                *fresh53 = cff_dict_unpack(data, data.offset(size as isize));
+                *cff.private.offset(i as isize) = cff_dict_unpack(data, data.offset(size as isize));
                 free(data as *mut libc::c_void);
                 len += size
             } else {
-                let ref mut fresh54 = *cff.private.offset(i as isize);
-                *fresh54 = ptr::null_mut()
+                *cff.private.offset(i as isize) = ptr::null_mut()
             }
         }
     } else {
@@ -2327,13 +2312,11 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
 
             let slice = std::slice::from_raw_parts_mut(data, size as usize);
             handle.read_exact(slice).expect("reading file failed");
-            let ref mut fresh55 = *cff.private.offset(0);
-            *fresh55 = cff_dict_unpack(data, data.offset(size as isize));
+            *cff.private.offset(0) = cff_dict_unpack(data, data.offset(size as isize));
             free(data as *mut libc::c_void);
             len += size
         } else {
-            let ref mut fresh56 = *cff.private.offset(0);
-            *fresh56 = ptr::null_mut();
+            *cff.private.offset(0) = ptr::null_mut();
             len = 0i32
         }
     }

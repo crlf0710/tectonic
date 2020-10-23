@@ -37,11 +37,10 @@ use super::dpx_dpxutil::{
     ht_append_table, ht_clear_iter, ht_clear_table, ht_init_table, ht_iter_getkey, ht_iter_getval,
     ht_iter_next, ht_lookup_table, ht_set_iter,
 };
-use super::dpx_mem::{new, renew};
+use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_undefined, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_string, pdf_string_length, pdf_string_value, pdf_transfer_label, IntoObj, PdfObjType,
-    PushObj,
+    pdf_string, pdf_string_value, pdf_transfer_label, IntoObj, PdfObjType, PdfObjVariant, PushObj,
 };
 use libc::free;
 
@@ -60,12 +59,21 @@ pub(crate) struct obj_data {
     /* 1 if object is closed */
 }
 #[derive(Copy, Clone)]
-#[repr(C)]
 pub(crate) struct named_object {
     pub(crate) key: *mut i8,
     pub(crate) keylen: i32,
     pub(crate) value: *mut pdf_obj,
 }
+impl Default for named_object {
+    fn default() -> Self {
+        Self {
+            key: ptr::null_mut(),
+            keylen: 0,
+            value: ptr::null_mut(),
+        }
+    }
+}
+
 unsafe fn printable_key(key: *const i8, keylen: i32) -> String {
     let bytes = slice::from_raw_parts(key as *const u8, keylen as usize);
     let mut printable = String::with_capacity(bytes.len() * 2);
@@ -249,7 +257,7 @@ fn cmp_key(sd1: &named_object, sd2: &named_object) -> Ordering {
         }
     }
 }
-unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i32) -> pdf_dict {
+unsafe fn build_name_tree(first: &mut [named_object], is_root: i32) -> pdf_dict {
     let mut result = pdf_dict::new();
     /*
      * According to PDF Refrence, Third Edition (p.101-102), a name tree
@@ -262,52 +270,47 @@ unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i3
      */
     if is_root == 0 {
         let mut limits = vec![];
-        let last = &mut *first.offset((num_leaves - 1i32) as isize) as *mut named_object;
+        let last = &first[first.len() - 1];
         limits.push_obj(pdf_string::new_from_ptr(
-            (*first).key as *const libc::c_void,
-            (*first).keylen as size_t,
+            first[0].key as *const libc::c_void,
+            first[0].keylen as size_t,
         ));
         limits.push_obj(pdf_string::new_from_ptr(
-            (*last).key as *const libc::c_void,
-            (*last).keylen as size_t,
+            last.key as *const libc::c_void,
+            last.keylen as size_t,
         ));
         result.set("Limits", limits);
     }
-    if num_leaves > 0i32 && num_leaves <= 2i32 * 4i32 {
+    if first.len() > 0 && first.len() <= 2 * 4 {
         /* Create leaf nodes. */
         let mut names = vec![];
-        for i in 0..num_leaves {
-            let cur = &mut *first.offset(i as isize) as *mut named_object;
+        for cur in first.iter_mut() {
             names.push_obj(pdf_string::new_from_ptr(
-                (*cur).key as *const libc::c_void,
-                (*cur).keylen as size_t,
+                cur.key as *const libc::c_void,
+                cur.keylen as size_t,
             ));
-            match (&*(*cur).value).typ() {
+            match (&*cur.value).typ() {
                 PdfObjType::ARRAY | PdfObjType::DICT | PdfObjType::STREAM | PdfObjType::STRING => {
-                    names.push(pdf_ref_obj((*cur).value));
+                    names.push(pdf_ref_obj(cur.value));
                 }
                 PdfObjType::OBJ_INVALID => {
-                    panic!(
-                        "Invalid object...: {}",
-                        printable_key((*cur).key, (*cur).keylen),
-                    );
+                    panic!("Invalid object...: {}", printable_key(cur.key, cur.keylen),);
                 }
                 _ => {
-                    names.push(pdf_link_obj((*cur).value));
+                    names.push(pdf_link_obj(cur.value));
                 }
             }
-            pdf_release_obj((*cur).value);
-            (*cur).value = ptr::null_mut();
+            pdf_release_obj(cur.value);
+            cur.value = ptr::null_mut();
         }
         result.set("Names", names.into_obj());
-    } else if num_leaves > 0i32 {
+    } else if first.len() > 0 {
         /* Intermediate node */
         let mut kids = vec![];
         for i in 0..4 {
-            let start = i * num_leaves / 4i32;
-            let end = (i + 1i32) * num_leaves / 4i32;
-            let subtree =
-                build_name_tree(&mut *first.offset(start as isize), end - start, 0i32).into_obj();
+            let start = i * first.len() / 4;
+            let end = (i + 1) * first.len() / 4;
+            let subtree = build_name_tree(&mut first[start..end], 0).into_obj();
             kids.push(pdf_ref_obj(subtree));
             pdf_release_obj(subtree);
         }
@@ -315,22 +318,15 @@ unsafe fn build_name_tree(first: *mut named_object, num_leaves: i32, is_root: i3
     }
     result
 }
-unsafe fn flat_table(
-    ht_tab: *mut ht_table,
-    num_entries: *mut i32,
-    filter: *mut ht_table,
-) -> *mut named_object {
+unsafe fn flat_table(ht_tab: *mut ht_table, filter: *mut ht_table) -> Vec<named_object> {
     let mut iter: ht_iter = ht_iter {
         index: 0,
         curr: ptr::null_mut(),
         hash: ptr::null_mut(),
     };
     assert!(!ht_tab.is_null());
-    let mut objects = new(((*ht_tab).count as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<named_object>() as u64)
-        as u32) as *mut named_object;
-    let mut count = 0i32;
-    if ht_set_iter(ht_tab, &mut iter) >= 0i32 {
+    let mut objects = Vec::with_capacity((*ht_tab).count as usize);
+    if ht_set_iter(ht_tab, &mut iter) >= 0 {
         loop {
             let mut keylen: i32 = 0;
             let mut key = ht_iter_getkey(&mut iter, &mut keylen);
@@ -345,39 +341,35 @@ unsafe fn flat_table(
                     continue;
                 }
                 key = pdf_string_value(&*new_obj) as *mut i8;
-                keylen = pdf_string_length(&*new_obj) as i32;
+                keylen = (*new_obj).as_string().len() as i32;
             }
 
             let value = ht_iter_getval(&mut iter) as *mut obj_data;
             assert!(!(*value).object.is_null());
-            if (&*(*value).object).typ() == PdfObjType::UNDEFINED {
+            objects.push(if let PdfObjVariant::UNDEFINED = (*(*value).object).data {
                 warn!(
                     "Object @{}\" not defined. Replaced by null.",
                     printable_key(key, keylen),
                 );
-                let obj = &mut *objects.offset(count as isize);
-                obj.key = key;
-                obj.keylen = keylen;
-                obj.value = pdf_new_null();
-            } else if !(*value).object.is_null() {
-                let obj = &mut *objects.offset(count as isize);
-                obj.key = key;
-                obj.keylen = keylen;
-                obj.value = pdf_link_obj((*value).object);
-            }
-            count += 1;
+                named_object {
+                    key,
+                    keylen,
+                    value: pdf_new_null(),
+                }
+            } else {
+                named_object {
+                    key,
+                    keylen,
+                    value: pdf_link_obj((*value).object),
+                }
+            });
 
-            if !(ht_iter_next(&mut iter) >= 0i32) {
+            if !(ht_iter_next(&mut iter) >= 0) {
                 break;
             }
         }
         ht_clear_iter(&mut iter);
     }
-    *num_entries = count;
-    objects = renew(
-        objects as *mut libc::c_void,
-        (count as u32 as u64).wrapping_mul(::std::mem::size_of::<named_object>() as u64) as u32,
-    ) as *mut named_object;
     objects
 }
 /* Hash */
@@ -386,17 +378,14 @@ unsafe fn flat_table(
 
 pub(crate) unsafe fn pdf_names_create_tree(
     names: *mut ht_table,
-    count: *mut i32,
     filter: *mut ht_table,
-) -> Option<pdf_dict> {
-    let name_tree;
-    let flat = flat_table(names, count, filter);
-    if flat.is_null() {
-        name_tree = None;
+) -> (Option<pdf_dict>, i32) {
+    let mut flat = flat_table(names, filter);
+    if flat.is_empty() {
+        (None, flat.len() as i32)
     } else {
-        slice::from_raw_parts_mut(flat, *count as usize).sort_unstable_by(cmp_key);
-        name_tree = Some(build_name_tree(flat, *count, 1i32));
-        free(flat as *mut libc::c_void);
+        flat.sort_unstable_by(cmp_key);
+        let name_tree = build_name_tree(flat.as_mut_slice(), 1i32);
+        (Some(name_tree), flat.len() as i32)
     }
-    name_tree
 }

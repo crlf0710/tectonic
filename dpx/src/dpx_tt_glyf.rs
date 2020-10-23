@@ -145,10 +145,9 @@ pub(crate) unsafe fn tt_add_glyph(mut g: *mut tt_glyphs, gid: u16, new_gid: u16)
         (*(*g).gd.offset((*g).num_glyphs as isize)).gid = new_gid;
         (*(*g).gd.offset((*g).num_glyphs as isize)).ogid = gid;
         (*(*g).gd.offset((*g).num_glyphs as isize)).length = 0_u32;
-        let ref mut fresh0 = (*(*g).gd.offset((*g).num_glyphs as isize)).data;
-        *fresh0 = ptr::null_mut();
-        let ref mut fresh1 = *(*g).used_slot.offset((new_gid as i32 / 8i32) as isize);
-        *fresh1 = (*fresh1 as i32 | 1i32 << 7i32 - new_gid as i32 % 8i32) as u8;
+        (*(*g).gd.offset((*g).num_glyphs as isize)).data = ptr::null_mut();
+        *(*g).used_slot.offset((new_gid as i32 / 8) as isize) |=
+            (1i32 << 7 - new_gid as i32 % 8) as u8;
         (*g).num_glyphs = ((*g).num_glyphs as i32 + 1i32) as u16
     }
     if new_gid as i32 > (*g).last_gid as i32 {
@@ -296,14 +295,11 @@ pub(crate) unsafe fn tt_build_tables(sfont: &mut sfnt, mut g: *mut tt_glyphs) ->
             (*(*g).gd.offset(i as isize)).tsb = (*g).default_tsb
         }
         (*(*g).gd.offset(i as isize)).length = len;
-        let ref mut fresh2 = (*(*g).gd.offset(i as isize)).data;
-        *fresh2 = ptr::null_mut();
+        (*(*g).gd.offset(i as isize)).data = ptr::null_mut();
         if (*(*g).gd.offset(i as isize)).advw as i32 <= (*g).emsize as i32 {
-            let ref mut fresh3 = *w_stat.offset((*(*g).gd.offset(i as isize)).advw as isize);
-            *fresh3 = (*fresh3 as i32 + 1i32) as u16
+            *w_stat.offset((*(*g).gd.offset(i as isize)).advw as isize) += 1;
         } else {
-            let ref mut fresh4 = *w_stat.offset(((*g).emsize as i32 + 1i32) as isize);
-            *fresh4 = (*fresh4 as i32 + 1i32) as u16
+            *w_stat.offset(((*g).emsize as i32 + 1i32) as isize) += 1;
             /* larger than em */
         }
         if !(len == 0_u32) {
@@ -312,8 +308,7 @@ pub(crate) unsafe fn tt_build_tables(sfont: &mut sfnt, mut g: *mut tt_glyphs) ->
             }
             let mut p = new((len as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
                 as *mut u8;
-            let ref mut fresh5 = (*(*g).gd.offset(i as isize)).data;
-            *fresh5 = p;
+            (*(*g).gd.offset(i as isize)).data = p;
             let endptr = p.offset(len as isize);
             let handle = &mut &*sfont.handle;
             handle
@@ -549,8 +544,7 @@ pub(crate) unsafe fn tt_build_tables(sfont: &mut sfnt, mut g: *mut tt_glyphs) ->
         /* free data here since it consume much memory */
         free((*(*g).gd.offset(i as isize)).data as *mut libc::c_void);
         (*(*g).gd.offset(i as isize)).length = 0_u32;
-        let ref mut fresh6 = (*(*g).gd.offset(i as isize)).data;
-        *fresh6 = ptr::null_mut();
+        (*(*g).gd.offset(i as isize)).data = ptr::null_mut();
     }
     if (*head).indexToLocFormat as i32 == 0i32 {
         put_big_endian(
@@ -700,14 +694,11 @@ pub(crate) unsafe fn tt_get_metrics(sfont: &sfnt, mut g: *mut tt_glyphs) -> i32 
             (*(*g).gd.offset(i as isize)).tsb = (*g).default_tsb
         }
         (*(*g).gd.offset(i as isize)).length = len;
-        let ref mut fresh7 = (*(*g).gd.offset(i as isize)).data;
-        *fresh7 = ptr::null_mut();
+        (*(*g).gd.offset(i as isize)).data = ptr::null_mut();
         if (*(*g).gd.offset(i as isize)).advw as i32 <= (*g).emsize as i32 {
-            let ref mut fresh8 = *w_stat.offset((*(*g).gd.offset(i as isize)).advw as isize);
-            *fresh8 = (*fresh8 as i32 + 1i32) as u16
+            *w_stat.offset((*(*g).gd.offset(i as isize)).advw as isize) += 1;
         } else {
-            let ref mut fresh9 = *w_stat.offset(((*g).emsize as i32 + 1i32) as isize);
-            *fresh9 = (*fresh9 as i32 + 1i32) as u16
+            *w_stat.offset(((*g).emsize as i32 + 1i32) as isize) += 1;
             /* larger than em */
         }
         if !(len == 0_u32) {

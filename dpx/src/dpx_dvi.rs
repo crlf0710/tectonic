@@ -75,7 +75,7 @@ use crate::bridge::{
     ttstub_input_close, ttstub_input_get_size, ttstub_input_getc, ttstub_input_open,
 };
 use crate::dpx_dvicodes::*;
-use crate::dpx_pdfobj::{pdf_release_obj, pdf_string_value};
+use crate::dpx_pdfobj::pdf_release_obj;
 use crate::dpx_truetype::sfnt_table_info;
 use crate::specials::{
     spc_exec_at_begin_page, spc_exec_at_end_page, spc_exec_special, spc_set_verbose,
@@ -1041,8 +1041,7 @@ unsafe fn dvi_locate_native_font(
         if layout_dir == 1i32 && sfnt_find_table_pos(&sfont, b"vmtx") > 0_u32 {
             let vhea: *mut tt_vhea_table = tt_read_vhea_table(&mut sfont);
             sfnt_locate_table(&mut sfont, b"vmtx");
-            let ref mut fresh19 = font.hvmt;
-            *fresh19 = tt_read_longMetrics(
+            font.hvmt = tt_read_longMetrics(
                 &mut &*sfont.handle,
                 (*maxp).numGlyphs,
                 (*vhea).numOfLongVerMetrics,
@@ -1051,8 +1050,7 @@ unsafe fn dvi_locate_native_font(
             free(vhea as *mut libc::c_void);
         } else {
             sfnt_locate_table(&mut sfont, sfnt_table_info::HMTX);
-            let ref mut fresh20 = font.hvmt;
-            *fresh20 = tt_read_longMetrics(
+            font.hvmt = tt_read_longMetrics(
                 &mut &*sfont.handle,
                 (*maxp).numGlyphs,
                 (*hhea).numOfLongHorMetrics,
@@ -1359,16 +1357,15 @@ unsafe fn do_putrule() {
 }
 
 pub(crate) unsafe fn dvi_push() {
-    if dvi_stack_depth as u32 >= 256u32 {
+    if dvi_stack_depth as u32 >= 256 {
         panic!("DVI stack exceeded limit.");
     }
-    let fresh21 = dvi_stack_depth;
-    dvi_stack_depth = dvi_stack_depth + 1;
-    dvi_stack[fresh21 as usize] = dvi_state;
+    dvi_stack[dvi_stack_depth as usize] = dvi_state;
+    dvi_stack_depth += 1;
 }
 
 pub(crate) unsafe fn dpx_dvi_pop() {
-    if dvi_stack_depth <= 0i32 {
+    if dvi_stack_depth <= 0 {
         panic!("Tried to pop an empty stack.");
     }
     dvi_stack_depth -= 1;
@@ -1498,13 +1495,12 @@ unsafe fn do_dir() {
     /* 0: horizontal, 1,3: vertical */
 }
 unsafe fn lr_width_push() {
-    if lr_width_stack_depth >= 256u32 {
+    if lr_width_stack_depth >= 256 {
         panic!("Segment width stack exceeded limit.");
         /* must precede dvi_right */
     }
-    let fresh22 = lr_width_stack_depth;
-    lr_width_stack_depth = lr_width_stack_depth.wrapping_add(1);
-    lr_width_stack[fresh22 as usize] = lr_width;
+    lr_width_stack[lr_width_stack_depth as usize] = lr_width;
+    lr_width_stack_depth += 1;
 }
 unsafe fn lr_width_pop() {
     if lr_width_stack_depth <= 0_u32 {
@@ -1990,15 +1986,14 @@ static mut num_saved_fonts: u32 = 0_u32;
 
 pub(crate) unsafe fn dvi_vf_init(dev_font_id: i32) {
     dvi_push();
-    dvi_state.w = 0i32;
-    dvi_state.x = 0i32;
-    dvi_state.y = 0i32;
-    dvi_state.z = 0i32;
+    dvi_state.w = 0;
+    dvi_state.x = 0;
+    dvi_state.y = 0;
+    dvi_state.z = 0;
     /* do not reset dvi_state.d. */
-    if num_saved_fonts < 16u32 {
-        let fresh26 = num_saved_fonts;
-        num_saved_fonts = num_saved_fonts.wrapping_add(1);
-        saved_dvi_font[fresh26 as usize] = current_font
+    if num_saved_fonts < 16 {
+        saved_dvi_font[num_saved_fonts as usize] = current_font;
+        num_saved_fonts += 1;
     } else {
         panic!("Virtual fonts nested too deeply!");
     }
@@ -2037,31 +2032,31 @@ impl ReadLength for &[u8] {
         let v = unsafe { atof(q.unwrap().as_ptr()) };
         p.skip_white();
         if let Some(q) = p.parse_c_ident() {
-            let mut bytes = q.to_bytes();
-            if bytes.starts_with(b"true") {
-                u /= if mag != 0.0f64 { mag } else { 1.0f64 };
-                bytes = &bytes[b"true".len()..];
+            let mut bytes = q.as_str();
+            if bytes.starts_with("true") {
+                u /= if mag != 0. { mag } else { 1. };
+                bytes = &bytes["true".len()..];
             }
             let q = if bytes.is_empty() {
                 /* "true" was a separate word from the units */
                 p.skip_white();
                 p.parse_c_ident()
             } else {
-                Some(CString::new(bytes).unwrap())
+                Some(String::from(bytes))
             };
             if let Some(ident) = q {
-                match ident.to_bytes() {
-                    b"pt" => u *= 72. / 72.27,
-                    b"in" => u *= 72.,
-                    b"cm" => u *= 72. / 2.54,
-                    b"mm" => u *= 72. / 25.4,
-                    b"bp" => u *= 1.,
-                    b"pc" => u *= 12. * 72. / 72.27,
-                    b"dd" => u *= 1238. / 1157. * 72. / 72.27,
-                    b"cc" => u *= 12. * 1238. / 1157. * 72. / 72.27,
-                    b"sp" => u *= 72. / (72.27 * 65536.),
+                match ident.as_str() {
+                    "pt" => u *= 72. / 72.27,
+                    "in" => u *= 72.,
+                    "cm" => u *= 72. / 2.54,
+                    "mm" => u *= 72. / 25.4,
+                    "bp" => u *= 1.,
+                    "pc" => u *= 12. * 72. / 72.27,
+                    "dd" => u *= 1238. / 1157. * 72. / 72.27,
+                    "cc" => u *= 12. * 1238. / 1157. * 72. / 72.27,
+                    "sp" => u *= 72. / (72.27 * 65536.),
                     _ => {
-                        warn!("Unknown unit of measure: {}", ident.display(),);
+                        warn!("Unknown unit of measure: {}", ident);
                         error = -1i32
                     }
                 }
@@ -2103,8 +2098,8 @@ unsafe fn scan_special(
     buf.skip_white();
     let mut q = buf.parse_c_ident();
     if let Some(ident) = q.as_ref() {
-        match ident.to_bytes() {
-            b"pdf" => {
+        match ident.as_str() {
+            "pdf" => {
                 buf.skip_white();
                 if !buf.is_empty() && buf[0] == b':' {
                     buf = &buf[1..];
@@ -2113,7 +2108,7 @@ unsafe fn scan_special(
                     ns_pdf = 1;
                 }
             }
-            b"x" => {
+            "x" => {
                 buf.skip_white();
                 if !buf.is_empty() && buf[0] == b':' {
                     buf = &buf[1..];
@@ -2121,7 +2116,7 @@ unsafe fn scan_special(
                     q = buf.parse_c_ident();
                 }
             }
-            b"dvipdfmx" => {
+            "dvipdfmx" => {
                 buf.skip_white();
                 if !buf.is_empty() && buf[0] == b':' {
                     buf = &buf[1..];
@@ -2135,42 +2130,42 @@ unsafe fn scan_special(
     }
     buf.skip_white();
     if let Some(q) = q {
-        if q.to_bytes() == b"landscape" {
+        if q == "landscape" {
             *lm = 1
-        } else if ns_pdf != 0 && q.to_bytes() == b"pagesize" {
+        } else if ns_pdf != 0 && q == "pagesize" {
             while error == 0 && !buf.is_empty() {
                 if let Some(kp) = buf.parse_c_ident() {
                     buf.skip_white();
-                    match kp.to_bytes() {
-                        b"width" => {
+                    match kp.as_str() {
+                        "width" => {
                             if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
                                 *wd = tmp * dvi_tell_mag()
                             } else {
                                 error = -1;
                             }
                         }
-                        b"height" => {
+                        "height" => {
                             if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
                                 *ht = tmp * dvi_tell_mag()
                             } else {
                                 error = -1;
                             }
                         }
-                        b"xoffset" => {
+                        "xoffset" => {
                             if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
                                 *xo = tmp * dvi_tell_mag()
                             } else {
                                 error = -1;
                             }
                         }
-                        b"yoffset" => {
+                        "yoffset" => {
                             if let Ok(tmp) = buf.read_length(dvi_tell_mag()) {
                                 *yo = tmp * dvi_tell_mag()
                             } else {
                                 error = -1;
                             }
                         }
-                        b"default" => {
+                        "default" => {
                             *wd = paper_width;
                             *ht = paper_height;
                             *lm = landscape_mode;
@@ -2184,7 +2179,7 @@ unsafe fn scan_special(
                     break;
                 }
             }
-        } else if q.to_bytes() == b"papersize" {
+        } else if q == "papersize" {
             let mut qchr = 0_u8;
             if buf[0] == b'=' {
                 buf = &buf[1..];
@@ -2221,7 +2216,7 @@ unsafe fn scan_special(
                 paper_width = *wd;
                 paper_height = *ht
             }
-        } else if !minorversion.is_null() && ns_pdf != 0 && q.to_bytes() == b"minorversion" {
+        } else if !minorversion.is_null() && ns_pdf != 0 && q == "minorversion" {
             if buf[0] == b'=' {
                 buf = &buf[1..];
             }
@@ -2229,7 +2224,7 @@ unsafe fn scan_special(
             if let Some(kv) = buf.parse_float_decimal() {
                 *minorversion = strtol(kv.as_ptr(), 0 as *mut *mut i8, 10i32) as i32;
             }
-        } else if !majorversion.is_null() && ns_pdf != 0 && q.to_bytes() == b"majorversion" {
+        } else if !majorversion.is_null() && ns_pdf != 0 && q == "majorversion" {
             if buf[0] == b'=' {
                 buf = &buf[1..];
             }
@@ -2237,35 +2232,37 @@ unsafe fn scan_special(
             if let Some(kv_0) = buf.parse_float_decimal() {
                 *majorversion = strtol(kv_0.as_ptr(), 0 as *mut *mut i8, 10) as i32;
             }
-        } else if ns_pdf != 0 && q.to_bytes() == b"encrypt" && !do_enc.is_null() {
+        } else if ns_pdf != 0 && q == "encrypt" && !do_enc.is_null() {
             *do_enc = 1i32;
             *user_pw = 0_i8;
             *owner_pw = *user_pw;
             while error == 0 && !buf.is_empty() {
                 if let Some(kp) = buf.parse_c_ident() {
                     buf.skip_white();
-                    match kp.to_bytes() {
-                        b"ownerpw" => {
+                    match kp.as_str() {
+                        "ownerpw" => {
                             if let Some(obj) = buf.parse_pdf_string() {
-                                if !pdf_string_value(&*obj).is_null() {
-                                    strncpy(owner_pw, pdf_string_value(&*obj) as *const i8, 127);
+                                let bytes = (*obj).as_string().to_bytes();
+                                if !bytes.is_empty() {
+                                    strncpy(owner_pw, CString::new(bytes).unwrap().as_ptr(), 127);
                                 }
                                 pdf_release_obj(obj);
                             } else {
                                 error = -1i32
                             }
                         }
-                        b"userpw" => {
+                        "userpw" => {
                             if let Some(obj) = buf.parse_pdf_string() {
-                                if !pdf_string_value(&*obj).is_null() {
-                                    strncpy(user_pw, pdf_string_value(&*obj) as *const i8, 127);
+                                let bytes = (*obj).as_string().to_bytes();
+                                if !bytes.is_empty() {
+                                    strncpy(user_pw, CString::new(bytes).unwrap().as_ptr(), 127);
                                 }
                                 pdf_release_obj(obj);
                             } else {
                                 error = -1i32
                             }
                         }
-                        b"length" => {
+                        "length" => {
                             if let Some(obj) = buf.parse_pdf_number() {
                                 if (*obj).is_number() {
                                     *key_bits = (*obj).as_f64() as u32 as i32
@@ -2277,7 +2274,7 @@ unsafe fn scan_special(
                                 error = -1i32
                             }
                         }
-                        b"perm" => {
+                        "perm" => {
                             if let Some(obj) = buf.parse_pdf_number() {
                                 if (*obj).is_number() {
                                     *permission = (*obj).as_f64() as u32 as i32
@@ -2296,7 +2293,7 @@ unsafe fn scan_special(
                     break;
                 }
             }
-        } else if ns_dvipdfmx != 0 && q.to_bytes() == b"config" {
+        } else if ns_dvipdfmx != 0 && q == "config" {
             warn!("Tectonic does not support `config\' special. Ignored.");
         }
     }

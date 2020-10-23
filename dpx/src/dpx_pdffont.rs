@@ -271,7 +271,7 @@ pub(crate) unsafe fn pdf_get_font_reference(font_id: i32) -> *mut pdf_obj {
     let font: &mut pdf_font = &mut font_cache[font_id as usize];
     if font.subtype == 4i32 {
         let t0font = Type0Font_cache_get(font.font_id);
-        return Type0Font_get_resource(t0font);
+        return Type0Font_get_resource(&mut *t0font);
     } else {
         if font.reference.is_null() {
             font.reference = pdf_ref_obj(pdf_font_get_resource(&mut *font))
@@ -287,7 +287,7 @@ pub(crate) unsafe fn pdf_get_font_usedchars(font_id: i32) -> *mut i8 {
     let font = &mut font_cache[font_id as usize];
     if font.subtype == 4i32 {
         let t0font = Type0Font_cache_get(font.font_id);
-        return Type0Font_get_usedchars(t0font);
+        return Type0Font_get_usedchars(&*t0font);
     } else {
         if font.usedchars.is_null() {
             font.usedchars =
@@ -309,7 +309,7 @@ pub(crate) unsafe fn pdf_get_font_wmode(font_id: i32) -> i32 {
     let font = &mut font_cache[font_id as usize];
     if font.subtype == 4i32 {
         let t0font = Type0Font_cache_get(font.font_id);
-        return Type0Font_get_wmode(t0font);
+        return Type0Font_get_wmode(&*t0font);
     } else {
         return 0i32;
     };
@@ -511,7 +511,7 @@ pub(crate) unsafe fn pdf_font_findresource(
             cmap_id = CMap_cache_find(&enc_name);
             if cmap_id >= 0i32 {
                 let cmap = CMap_cache_get(cmap_id);
-                let cmap_type = CMap_get_type(cmap);
+                let cmap_type = CMap_get_type(&*cmap);
                 let minbytes = CMap_get_profile(cmap, 0i32);
                 /*
                  * Check for output encoding.

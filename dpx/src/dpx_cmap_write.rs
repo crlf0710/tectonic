@@ -26,15 +26,13 @@
     non_upper_case_globals
 )]
 
-use std::ptr;
-
 use crate::warn;
+use std::io::Write;
 
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{CMap_get_CIDSysInfo, CMap_is_valid};
 use super::dpx_mem::new;
-use crate::dpx_pdfobj::{pdf_copy_name, pdf_dict, pdf_stream, pdf_string, STREAM_COMPRESS};
-use crate::shims::sprintf;
+use crate::dpx_pdfobj::{pdf_dict, pdf_stream, pdf_string, STREAM_COMPRESS};
 use libc::{free, memcmp, memset};
 
 use crate::bridge::size_t;
@@ -56,13 +54,6 @@ use super::dpx_cmap::CMap;
  *    PLRM 3rd. ed., sec. 5.11.5., "Handling Undefined Characters"
  *
  */
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct sbuf {
-    pub(crate) buf: *mut i8,
-    pub(crate) curptr: *mut i8,
-    pub(crate) limptr: *mut i8,
-}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct C2RustUnnamed_1 {
@@ -102,31 +93,34 @@ unsafe fn block_count(mtab: *mut mapDef, mut c: i32) -> size_t {
     }
     count
 }
-unsafe fn sputx(c: u8, s: *mut *mut i8, end: *mut i8) -> i32 {
+unsafe fn sputx(c: u8, s: &mut Vec<u8>, lim: usize) {
     let hi: i8 = (c as i32 >> 4i32) as i8;
     let lo: i8 = (c as i32 & 0xfi32) as i8;
-    if (*s).offset(2) > end {
+    if s.len() > lim - 2 {
         panic!("Buffer overflow.");
     }
-    **s = (if (hi as i32) < 10i32 {
-        hi as i32 + '0' as i32
-    } else {
-        hi as i32 + '7' as i32
-    }) as i8;
-    *(*s).offset(1) = (if (lo as i32) < 10i32 {
-        lo as i32 + '0' as i32
-    } else {
-        lo as i32 + '7' as i32
-    }) as i8;
-    *s = (*s).offset(2);
-    2i32
+    s.push(
+        (if (hi as i32) < 10i32 {
+            hi as i32 + '0' as i32
+        } else {
+            hi as i32 + '7' as i32
+        }) as u8,
+    );
+    s.push(
+        (if (lo as i32) < 10i32 {
+            lo as i32 + '0' as i32
+        } else {
+            lo as i32 + '7' as i32
+        }) as u8,
+    );
 }
 unsafe fn write_map(
     mtab: *mut mapDef,
     mut count: size_t,
     codestr: *mut u8,
     depth: size_t,
-    mut wbuf: *mut sbuf,
+    wbuf: &mut Vec<u8>,
+    lim: usize,
     stream: &mut pdf_stream,
 ) -> i32 {
     /* Must be greater than 1 */
@@ -137,7 +131,15 @@ unsafe fn write_map(
         *codestr.offset(depth as isize) = (c & 0xffi32 as u64) as u8;
         if (*mtab.offset(c as isize)).flag & 1i32 << 4i32 != 0 {
             let mtab1 = (*mtab.offset(c as isize)).next;
-            count = write_map(mtab1, count, codestr, depth.wrapping_add(1), wbuf, stream) as size_t
+            count = write_map(
+                mtab1,
+                count,
+                codestr,
+                depth.wrapping_add(1),
+                wbuf,
+                lim,
+                stream,
+            ) as size_t
         } else if if (*mtab.offset(c as isize)).flag & 0xfi32 != 0i32 {
             1i32
         } else {
@@ -153,32 +155,22 @@ unsafe fn write_map(
                         num_blocks = num_blocks.wrapping_add(1);
                         c = (c as u64).wrapping_add(block_length as _) as _
                     } else {
-                        *(*wbuf).curptr = '<' as i32 as i8;
-                        (*wbuf).curptr = (*wbuf).curptr.offset(1);
+                        wbuf.push(b'<');
                         for i in 0..=depth {
-                            sputx(
-                                *codestr.offset(i as isize),
-                                &mut (*wbuf).curptr,
-                                (*wbuf).limptr,
-                            );
+                            sputx(*codestr.offset(i as isize), wbuf, lim);
                         }
-                        *(*wbuf).curptr = '>' as i32 as i8;
-                        (*wbuf).curptr = (*wbuf).curptr.offset(1);
-                        *(*wbuf).curptr = ' ' as i32 as i8;
-                        (*wbuf).curptr = (*wbuf).curptr.offset(1);
-                        *(*wbuf).curptr = '<' as i32 as i8;
-                        (*wbuf).curptr = (*wbuf).curptr.offset(1);
+                        wbuf.push(b'>');
+                        wbuf.push(b' ');
+                        wbuf.push(b'<');
                         for i in 0..(*mtab.offset(c as isize)).len {
                             sputx(
                                 *(*mtab.offset(c as isize)).code.offset(i as isize),
-                                &mut (*wbuf).curptr,
-                                (*wbuf).limptr,
+                                wbuf,
+                                lim,
                             );
                         }
-                        *(*wbuf).curptr = '>' as i32 as i8;
-                        (*wbuf).curptr = (*wbuf).curptr.offset(1);
-                        *(*wbuf).curptr = '\n' as i32 as i8;
-                        (*wbuf).curptr = (*wbuf).curptr.offset(1);
+                        wbuf.push(b'>');
+                        wbuf.push(b'\n');
                         count = count.wrapping_add(1)
                     }
                 }
@@ -196,16 +188,13 @@ unsafe fn write_map(
             }
         }
         /* Flush if necessary */
-        if count >= 100 || (*wbuf).curptr >= (*wbuf).limptr {
+        if count >= 100 || wbuf.len() >= lim {
             if count > 100 {
                 panic!("Unexpected error....: {}", count,);
             }
             stream.add_str(&format!("{} beginbfchar\n", count));
-            stream.add(
-                (*wbuf).buf as *const libc::c_void,
-                (*wbuf).curptr.offset_from((*wbuf).buf) as i64 as i32,
-            );
-            (*wbuf).curptr = (*wbuf).buf;
+            stream.add_slice(wbuf.as_slice());
+            wbuf.clear();
             stream.add_str("endbfchar\n");
             count = 0i32 as size_t
         }
@@ -214,79 +203,51 @@ unsafe fn write_map(
     if num_blocks > 0 {
         if count > 0 {
             stream.add_str(&format!("{} beginbfchar\n", count));
-            stream.add(
-                (*wbuf).buf as *const libc::c_void,
-                (*wbuf).curptr.offset_from((*wbuf).buf) as i64 as i32,
-            );
-            (*wbuf).curptr = (*wbuf).buf;
+            stream.add_slice(wbuf.as_slice());
+            wbuf.clear();
             stream.add_str("endbfchar\n");
             count = 0i32 as size_t
         }
         stream.add_str(&format!("{} beginbfrange\n", num_blocks));
         for i in 0..num_blocks {
             let c = blocks[i as usize].start as size_t;
-            *(*wbuf).curptr = '<' as i32 as i8;
-            (*wbuf).curptr = (*wbuf).curptr.offset(1);
+            wbuf.push(b'<');
             for j in 0..depth {
-                sputx(
-                    *codestr.offset(j as isize),
-                    &mut (*wbuf).curptr,
-                    (*wbuf).limptr,
-                );
+                sputx(*codestr.offset(j as isize), wbuf, lim);
             }
-            sputx(c as u8, &mut (*wbuf).curptr, (*wbuf).limptr);
-            *(*wbuf).curptr = '>' as i32 as i8;
-            (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *(*wbuf).curptr = ' ' as i32 as i8;
-            (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *(*wbuf).curptr = '<' as i32 as i8;
-            (*wbuf).curptr = (*wbuf).curptr.offset(1);
+            sputx(c as u8, wbuf, lim);
+            wbuf.push(b'>');
+            wbuf.push(b' ');
+            wbuf.push(b'<');
             for j in 0..depth {
-                sputx(
-                    *codestr.offset(j as isize),
-                    &mut (*wbuf).curptr,
-                    (*wbuf).limptr,
-                );
+                sputx(*codestr.offset(j as isize), wbuf, lim);
             }
             sputx(
                 c.wrapping_add(blocks[i as usize].count as _) as u8,
-                &mut (*wbuf).curptr,
-                (*wbuf).limptr,
+                wbuf,
+                lim,
             );
-            *(*wbuf).curptr = '>' as i32 as i8;
-            (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *(*wbuf).curptr = ' ' as i32 as i8;
-            (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *(*wbuf).curptr = '<' as i32 as i8;
-            (*wbuf).curptr = (*wbuf).curptr.offset(1);
+            wbuf.push(b'>');
+            wbuf.push(b' ');
+            wbuf.push(b'<');
             for j in 0..(*mtab.offset(c as isize)).len {
                 sputx(
                     *(*mtab.offset(c as isize)).code.offset(j as isize),
-                    &mut (*wbuf).curptr,
-                    (*wbuf).limptr,
+                    wbuf,
+                    lim,
                 );
             }
-            *(*wbuf).curptr = '>' as i32 as i8;
-            (*wbuf).curptr = (*wbuf).curptr.offset(1);
-            *(*wbuf).curptr = '\n' as i32 as i8;
-            (*wbuf).curptr = (*wbuf).curptr.offset(1);
+            wbuf.push(b'>');
+            wbuf.push(b'\n');
         }
-        stream.add(
-            (*wbuf).buf as *const libc::c_void,
-            (*wbuf).curptr.offset_from((*wbuf).buf) as i64 as i32,
-        );
-        (*wbuf).curptr = (*wbuf).buf;
+        stream.add_slice(wbuf.as_slice());
+        wbuf.clear();
         stream.add_str("endbfrange\n");
     }
     count as i32
 }
 
 pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
-    let mut wbuf: sbuf = sbuf {
-        buf: ptr::null_mut(),
-        curptr: ptr::null_mut(),
-        limptr: ptr::null_mut(),
-    };
     if cmap.is_null() || !CMap_is_valid(cmap) {
         warn!("Invalid CMap");
         return None;
@@ -310,7 +271,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
         csi_dict.set("Ordering", pdf_string::new((*csi).ordering.as_bytes()));
         csi_dict.set("Supplement", (*csi).supplement as f64);
         stream_dict.set("Type", "CMap");
-        stream_dict.set("CMapName", pdf_copy_name((*cmap).name));
+        stream_dict.set("CMapName", (*cmap).name.as_str());
         stream_dict.set("CIDSystemInfo", csi_dict);
         if (*cmap).wmode != 0i32 {
             stream_dict.set("WMode", (*cmap).wmode as f64);
@@ -322,7 +283,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
     if !(*cmap).useCMap.is_null() {
         panic!("UseCMap found (not supported yet)...");
     }
-    wbuf.buf = new((4096_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
+    let mut wbuf = Vec::<u8>::with_capacity(4096);
     let codestr = new(((*cmap).profile.maxBytesIn as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
     memset(
@@ -330,114 +291,77 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
         0i32,
         (*cmap).profile.maxBytesIn as _,
     );
-    wbuf.curptr = wbuf.buf;
-    wbuf.limptr = wbuf
-        .buf
-        .offset(4096)
-        .offset(
-            -((2i32 as u64).wrapping_mul(
-                (*cmap)
-                    .profile
-                    .maxBytesIn
-                    .wrapping_add((*cmap).profile.maxBytesOut) as _,
-            ) as isize),
-        )
-        .offset(16);
+    let lim = 4096
+        - ((2_u64).wrapping_mul(
+            (*cmap)
+                .profile
+                .maxBytesIn
+                .wrapping_add((*cmap).profile.maxBytesOut) as _,
+        ) as usize)
+        + 16;
     /* Start CMap */
     stream.add_str("/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n");
-    wbuf.curptr = wbuf.curptr.offset(sprintf(
-        wbuf.curptr,
-        b"/CMapName /%s def\n\x00" as *const u8 as *const i8,
-        (*cmap).name,
-    ) as isize);
-    wbuf.curptr = wbuf.curptr.offset(sprintf(
-        wbuf.curptr,
-        b"/CMapType %d def\n\x00" as *const u8 as *const i8,
-        (*cmap).type_0,
-    ) as isize);
-    if (*cmap).wmode != 0i32 && (*cmap).type_0 != 2i32 {
-        wbuf.curptr = wbuf.curptr.offset(sprintf(
-            wbuf.curptr,
-            b"/WMode %d def\n\x00" as *const u8 as *const i8,
-            (*cmap).wmode,
-        ) as isize)
+    write!(wbuf, "/CMapName /{} def\n", (*cmap).name).unwrap();
+    write!(wbuf, "/CMapType {} def\n", (*cmap).type_0).unwrap();
+
+    if (*cmap).wmode != 0 && (*cmap).type_0 != 2 {
+        write!(wbuf, "/WMode {} def\n", (*cmap).wmode).unwrap();
     }
-    let s = format!(
+    write!(
+        wbuf,
         "/CIDSystemInfo <<\n  /Registry ({})\n  /Ordering ({})\n  /Supplement {}\n>> def\n",
         (*csi).registry,
         (*csi).ordering,
         (*csi).supplement,
-    );
-    s.as_bytes()
-        .as_ptr()
-        .copy_to_nonoverlapping(wbuf.curptr as *mut u8, s.len());
-    wbuf.curptr = wbuf.curptr.add(s.len());
-    stream.add(
-        wbuf.buf as *const libc::c_void,
-        wbuf.curptr.offset_from(wbuf.buf) as i64 as i32,
-    );
-    wbuf.curptr = wbuf.buf;
+    )
+    .unwrap();
+
+    stream.add_slice(wbuf.as_slice());
+    wbuf.clear();
     /* codespacerange */
     let ranges = (*cmap).codespace.ranges;
-    wbuf.curptr = wbuf.curptr.offset(sprintf(
-        wbuf.curptr,
-        b"%d begincodespacerange\n\x00" as *const u8 as *const i8,
-        (*cmap).codespace.num,
-    ) as isize);
+    write!(wbuf, "{} begincodespacerange\n", (*cmap).codespace.num).unwrap();
     for i in 0..(*cmap).codespace.num as u64 {
-        *wbuf.curptr = '<' as i32 as i8;
-        wbuf.curptr = wbuf.curptr.offset(1);
+        wbuf.push(b'<');
         for j in 0..(*ranges.offset(i as isize)).dim {
             sputx(
                 *(*ranges.offset(i as isize)).codeLo.offset(j as isize),
-                &mut wbuf.curptr,
-                wbuf.limptr,
+                &mut wbuf,
+                lim,
             );
         }
-        *wbuf.curptr = '>' as i32 as i8;
-        wbuf.curptr = wbuf.curptr.offset(1);
-        *wbuf.curptr = ' ' as i32 as i8;
-        wbuf.curptr = wbuf.curptr.offset(1);
-        *wbuf.curptr = '<' as i32 as i8;
-        wbuf.curptr = wbuf.curptr.offset(1);
+        wbuf.push(b'>');
+        wbuf.push(b' ');
+        wbuf.push(b'<');
         for j in 0..(*ranges.offset(i as isize)).dim {
             sputx(
                 *(*ranges.offset(i as isize)).codeHi.offset(j as isize),
-                &mut wbuf.curptr,
-                wbuf.limptr,
+                &mut wbuf,
+                lim,
             );
         }
-        *wbuf.curptr = '>' as i32 as i8;
-        wbuf.curptr = wbuf.curptr.offset(1);
-        *wbuf.curptr = '\n' as i32 as i8;
-        wbuf.curptr = wbuf.curptr.offset(1);
+        wbuf.push(b'>');
+        wbuf.push(b'\n');
     }
-    stream.add(
-        wbuf.buf as *const libc::c_void,
-        wbuf.curptr.offset_from(wbuf.buf) as i64 as i32,
-    );
-    wbuf.curptr = wbuf.buf;
+    stream.add_slice(wbuf.as_slice());
+    wbuf.clear();
     stream.add_str("endcodespacerange\n");
     /* CMap body */
     if !(*cmap).mapTbl.is_null() {
-        let count = write_map((*cmap).mapTbl, 0, codestr, 0, &mut wbuf, &mut stream) as size_t; /* Top node */
+        let count = write_map((*cmap).mapTbl, 0, codestr, 0, &mut wbuf, lim, &mut stream) as size_t; /* Top node */
         if count > 0 {
             /* Flush */
             if count > 100 {
                 panic!("Unexpected error....: {}", count,);
             }
             stream.add_str(&format!("{} beginbfchar\n", count));
-            stream.add(
-                wbuf.buf as *const libc::c_void,
-                wbuf.curptr.offset_from(wbuf.buf) as i64 as i32,
-            );
+            stream.add_slice(wbuf.as_slice());
             stream.add_str("endbfchar\n");
-            wbuf.curptr = wbuf.buf
+            wbuf.clear();
         }
     }
     /* End CMap */
     stream.add_str("endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n");
     free(codestr as *mut libc::c_void);
-    free(wbuf.buf as *mut libc::c_void);
     Some(stream)
 }

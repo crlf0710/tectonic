@@ -72,26 +72,23 @@ use crate::dpx_pdfobj::{pdf_obj, pdf_ref_obj, IntoObj};
 use crate::shims::sprintf;
 use libc::{atoi, memcmp, strcmp, strlen};
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct spc_env {
+#[derive(Copy, Clone, Default)]
+pub(crate) struct SpcEnv {
     pub(crate) x_user: f64,
     pub(crate) y_user: f64,
     pub(crate) mag: f64,
     pub(crate) pg: i32,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct spc_arg<'a> {
+#[derive(Copy, Clone, Default)]
+pub(crate) struct SpcArg<'a> {
     pub(crate) cur: &'a [u8],
     pub(crate) base: &'a [u8],
-    pub(crate) command: Option<&'static [u8]>,
+    pub(crate) command: Option<&'static str>,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Copy, Clone, Default)]
 pub(crate) struct SpcHandler {
-    pub(crate) key: &'static [u8],
-    pub(crate) exec: Option<unsafe fn(_: &mut spc_env, _: &mut spc_arg) -> i32>,
+    pub(crate) key: &'static str,
+    pub(crate) exec: Option<unsafe fn(_: &mut SpcEnv, _: &mut SpcArg) -> i32>,
 }
 
 use super::dpx_dpxutil::ht_table;
@@ -105,7 +102,7 @@ pub(crate) struct Special {
     pub(crate) bophk_func: Option<unsafe fn() -> i32>,
     pub(crate) eophk_func: Option<unsafe fn() -> i32>,
     pub(crate) check_func: fn(_: &[u8]) -> bool,
-    pub(crate) setup_func: unsafe fn(_: &mut SpcHandler, _: &mut spc_env, _: &mut spc_arg) -> i32,
+    pub(crate) setup_func: unsafe fn(_: &mut SpcHandler, _: &mut SpcEnv, _: &mut SpcArg) -> i32,
 }
 static mut VERBOSE: i32 = 0i32;
 pub(crate) unsafe fn spc_set_verbose(level: i32) {
@@ -114,22 +111,22 @@ pub(crate) unsafe fn spc_set_verbose(level: i32) {
 /* This is currently just to make other spc_xxx to not directly
  * call dvi_xxx.
  */
-pub(crate) unsafe fn spc_begin_annot(mut _spe: &mut spc_env, dict: *mut pdf_obj) -> i32 {
+pub(crate) unsafe fn spc_begin_annot(mut _spe: &mut SpcEnv, dict: *mut pdf_obj) -> i32 {
     pdf_doc_begin_annot(dict); /* Tell dvi interpreter to handle line-break. */
     dvi_tag_depth();
     0i32
 }
-pub(crate) unsafe fn spc_end_annot(mut _spe: &mut spc_env) -> i32 {
+pub(crate) unsafe fn spc_end_annot(mut _spe: &mut SpcEnv) -> i32 {
     dvi_untag_depth();
     pdf_doc_end_annot();
     0i32
 }
-pub(crate) unsafe fn spc_resume_annot(mut _spe: &mut spc_env) -> i32 {
+pub(crate) unsafe fn spc_resume_annot(mut _spe: &mut SpcEnv) -> i32 {
     dvi_link_annot(1i32);
     0i32
 }
 
-pub(crate) unsafe fn spc_suspend_annot(mut _spe: &mut spc_env) -> i32 {
+pub(crate) unsafe fn spc_suspend_annot(mut _spe: &mut SpcEnv) -> i32 {
     dvi_link_annot(0i32);
     0i32
 }
@@ -208,7 +205,7 @@ pub(crate) unsafe fn spc_lookup_reference(key: &CString) -> Option<*mut pdf_obj>
         }
     };
     if value.is_null() {
-        panic!("Object reference {} not exist.", key.display(),);
+        panic!("Object reference {} not exist.", key.display());
     }
     if value.is_null() {
         None
@@ -281,14 +278,14 @@ pub(crate) unsafe fn spc_clear_objects() {
     pdf_delete_name_tree(&mut NAMED_OBJECTS);
     NAMED_OBJECTS = pdf_new_name_tree();
 }
-unsafe fn spc_handler_unknown(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_unknown(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur = &[];
     -1i32
 }
 unsafe fn init_special<'a, 'b>(
-    mut special: &mut SpcHandler,
-    mut spe: &mut spc_env,
-    mut args: &'a mut spc_arg<'b>,
+    special: &mut SpcHandler,
+    mut spe: &mut SpcEnv,
+    mut args: &'a mut SpcArg<'b>,
     buf: &'b [u8],
     x_user: f64,
     y_user: f64,
@@ -296,8 +293,10 @@ unsafe fn init_special<'a, 'b>(
 ) where
     'b: 'a,
 {
-    special.key = &[];
-    special.exec = Some(spc_handler_unknown);
+    *special = SpcHandler {
+        key: "",
+        exec: Some(spc_handler_unknown),
+    };
     spe.x_user = x_user;
     spe.y_user = y_user;
     spe.mag = mag;
@@ -306,7 +305,7 @@ unsafe fn init_special<'a, 'b>(
     args.base = buf;
     args.command = None;
 }
-unsafe fn check_garbage(args: &mut spc_arg) {
+unsafe fn check_garbage(args: &mut SpcArg) {
     if args.cur.is_empty() {
         return;
     }
@@ -432,7 +431,7 @@ pub(crate) unsafe fn spc_exec_at_end_document() -> i32 {
     }
     error
 }
-unsafe fn print_error(name: *const i8, spe: &mut spc_env, ap: &mut spc_arg) {
+unsafe fn print_error(name: *const i8, spe: &mut SpcEnv, ap: &mut SpcArg) {
     let mut ebuf: [u8; 64] = [0; 64];
     let pg: i32 = spe.pg;
     let mut c = point2(spe.x_user, spe.y_user);
@@ -440,7 +439,7 @@ unsafe fn print_error(name: *const i8, spe: &mut spc_env, ap: &mut spc_arg) {
     if ap.command.is_some() && !name.is_null() {
         warn!(
             "Interpreting special command {} ({}) failed.",
-            ap.command.unwrap().display(),
+            ap.command.unwrap(),
             CStr::from_ptr(name).display(),
         );
         warn!(
@@ -469,13 +468,8 @@ unsafe fn print_error(name: *const i8, spe: &mut spc_env, ap: &mut spc_arg) {
     }
     ebuf[i] = 0;
     if !ap.cur.is_empty() {
-        loop {
-            let fresh1 = i;
-            i = i - 1;
-            if !(fresh1 > 60) {
-                break;
-            }
-            ebuf[i] = b'.';
+        for j in 60..i {
+            ebuf[j] = b'.';
         }
     }
     warn!(
@@ -483,7 +477,7 @@ unsafe fn print_error(name: *const i8, spe: &mut spc_env, ap: &mut spc_arg) {
         CStr::from_ptr(ebuf.as_ptr() as *const i8).display()
     );
     if !ap.cur.is_empty() {
-        i = 0;
+        let mut i = 0;
         for &b in ap.cur {
             if i >= 63 {
                 break;
@@ -504,13 +498,8 @@ unsafe fn print_error(name: *const i8, spe: &mut spc_env, ap: &mut spc_arg) {
         }
         ebuf[i] = 0;
         if !ap.cur.is_empty() {
-            loop {
-                let fresh3 = i;
-                i = i - 1;
-                if !(fresh3 > 60) {
-                    break;
-                }
-                ebuf[i] = b'.' as u8
+            for j in 60..i {
+                ebuf[j] = b'.' as u8
             }
         }
         warn!(
@@ -526,21 +515,9 @@ unsafe fn print_error(name: *const i8, spe: &mut spc_env, ap: &mut spc_arg) {
  */
 pub(crate) unsafe fn spc_exec_special(buffer: &[u8], x_user: f64, y_user: f64, mag: f64) -> i32 {
     let mut error: i32 = -1i32;
-    let mut spe: spc_env = spc_env {
-        x_user: 0.,
-        y_user: 0.,
-        mag: 0.,
-        pg: 0,
-    };
-    let mut args: spc_arg = spc_arg {
-        cur: &[],
-        base: &[],
-        command: None,
-    };
-    let mut special = SpcHandler {
-        key: &[],
-        exec: None,
-    };
+    let mut spe = SpcEnv::default();
+    let mut args = SpcArg::default();
+    let mut special = SpcHandler::default();
     if VERBOSE > 3 {
         dump(buffer);
     }

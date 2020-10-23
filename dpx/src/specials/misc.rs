@@ -31,7 +31,7 @@ use crate::spc_warn;
 use libc::strlen;
 use std::ptr;
 
-use super::{spc_arg, spc_env};
+use super::{SpcArg, SpcEnv};
 
 use super::SpcHandler;
 
@@ -62,7 +62,7 @@ fn parse_postscriptbox_special(buf: &str) -> Result<(f64, f64, String), ()> {
 }
 
 /* quasi-hack to get the primary input */
-unsafe fn spc_handler_postscriptbox(spe: &mut spc_env, ap: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     let mut ti = transform_info::new();
     let options: load_options = load_options {
         page_no: 1i32,
@@ -125,33 +125,33 @@ unsafe fn spc_handler_postscriptbox(spe: &mut spc_env, ap: &mut spc_arg) -> i32 
         return -1i32;
     }
 }
-unsafe fn spc_handler_null(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_null(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur = &[];
     0i32
 }
 const MISC_HANDLERS: [SpcHandler; 6] = [
     SpcHandler {
-        key: b"postscriptbox",
+        key: "postscriptbox",
         exec: Some(spc_handler_postscriptbox),
     },
     SpcHandler {
-        key: b"landscape",
+        key: "landscape",
         exec: Some(spc_handler_null),
     },
     SpcHandler {
-        key: b"papersize",
+        key: "papersize",
         exec: Some(spc_handler_null),
     },
     SpcHandler {
-        key: b"src:",
+        key: "src:",
         exec: Some(spc_handler_null),
     },
     SpcHandler {
-        key: b"pos:",
+        key: "pos:",
         exec: Some(spc_handler_null),
     },
     SpcHandler {
-        key: b"om:",
+        key: "om:",
         exec: Some(spc_handler_null),
     },
 ];
@@ -159,7 +159,7 @@ const MISC_HANDLERS: [SpcHandler; 6] = [
 pub(crate) fn spc_misc_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
     for handler in MISC_HANDLERS.iter() {
-        if buf.starts_with(handler.key) {
+        if buf.starts_with(handler.key.as_bytes()) {
             return true;
         }
     }
@@ -168,8 +168,8 @@ pub(crate) fn spc_misc_check_special(mut buf: &[u8]) -> bool {
 
 pub(crate) unsafe fn spc_misc_setup_handler(
     handle: &mut SpcHandler,
-    _spe: &mut spc_env,
-    args: &mut spc_arg,
+    _spe: &mut SpcEnv,
+    args: &mut SpcArg,
 ) -> i32 {
     args.cur.skip_white();
     let key = args.cur;
@@ -189,11 +189,13 @@ pub(crate) unsafe fn spc_misc_setup_handler(
         return -1i32;
     }
     for handler in MISC_HANDLERS.iter() {
-        if keylen == handler.key.len() && &key[..keylen] == handler.key {
+        if &key[..keylen] == handler.key.as_bytes() {
             args.cur.skip_white();
             args.command = Some(handler.key);
-            (*handle).key = b"???:";
-            (*handle).exec = handler.exec;
+            *handle = SpcHandler {
+                key: "???:",
+                exec: handler.exec,
+            };
             return 0i32;
         }
     }

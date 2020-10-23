@@ -26,7 +26,7 @@ use crate::warn;
 use crate::SkipBlank;
 use std::ptr;
 
-use super::{spc_arg, spc_env};
+use super::{SpcArg, SpcEnv};
 use crate::spc_warn;
 
 use crate::dpx_dpxutil::{ParseCIdent, ParseCString, ParseFloatDecimal};
@@ -302,11 +302,11 @@ unsafe fn tpic__arc(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64, v: *
     tpic__clear(tp);
     0i32
 }
-unsafe fn spc_currentpoint(spe: &mut spc_env, pg: *mut i32) -> Point {
+unsafe fn spc_currentpoint(spe: &mut SpcEnv, pg: *mut i32) -> Point {
     *pg = 0;
     Point::new(spe.x_user, spe.y_user)
 }
-unsafe fn spc_handler_tpic_pn(spe: &mut spc_env, ap: &mut spc_arg) -> i32
+unsafe fn spc_handler_tpic_pn(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     ap.cur.skip_blank();
@@ -318,7 +318,7 @@ unsafe fn spc_handler_tpic_pn(spe: &mut spc_env, ap: &mut spc_arg) -> i32
         -1
     }
 }
-unsafe fn spc_handler_tpic_pa(spe: &mut spc_env, ap: &mut spc_arg) -> i32
+unsafe fn spc_handler_tpic_pa(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     let mut v: [f64; 2] = [0.; 2];
@@ -344,7 +344,7 @@ unsafe fn spc_handler_tpic_pa(spe: &mut spc_env, ap: &mut spc_arg) -> i32
     ));
     0i32
 }
-unsafe fn spc_handler_tpic_fp(spe: &mut spc_env, _ap: &mut spc_arg) -> i32
+unsafe fn spc_handler_tpic_fp(spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     let mut pg: i32 = 0;
@@ -355,7 +355,7 @@ unsafe fn spc_handler_tpic_fp(spe: &mut spc_env, _ap: &mut spc_arg) -> i32
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__polyline(tp, &mut cp, true, 0.0f64)
 }
-unsafe fn spc_handler_tpic_ip(spe: &mut spc_env, _ap: &mut spc_arg) -> i32
+unsafe fn spc_handler_tpic_ip(spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     let mut pg: i32 = 0;
@@ -366,7 +366,7 @@ unsafe fn spc_handler_tpic_ip(spe: &mut spc_env, _ap: &mut spc_arg) -> i32
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__polyline(tp, &mut cp, false, 0.0f64)
 }
-unsafe fn spc_handler_tpic_da(spe: &mut spc_env, ap: &mut spc_arg) -> i32
+unsafe fn spc_handler_tpic_da(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     let mut da: f64 = 0.;
@@ -382,7 +382,7 @@ unsafe fn spc_handler_tpic_da(spe: &mut spc_env, ap: &mut spc_arg) -> i32
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__polyline(tp, &mut cp, true, da)
 }
-unsafe fn spc_handler_tpic_dt(spe: &mut spc_env, ap: &mut spc_arg) -> i32
+unsafe fn spc_handler_tpic_dt(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     let mut da: f64 = 0.0f64;
@@ -398,7 +398,7 @@ unsafe fn spc_handler_tpic_dt(spe: &mut spc_env, ap: &mut spc_arg) -> i32
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__polyline(tp, &mut cp, true, da)
 }
-unsafe fn spc_handler_tpic_sp(spe: &mut spc_env, ap: &mut spc_arg) -> i32
+unsafe fn spc_handler_tpic_sp(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     let mut da: f64 = 0.0f64;
@@ -414,7 +414,7 @@ unsafe fn spc_handler_tpic_sp(spe: &mut spc_env, ap: &mut spc_arg) -> i32
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__spline(tp, &mut cp, true, da)
 }
-unsafe fn spc_handler_tpic_ar(spe: &mut spc_env, ap: &mut spc_arg) -> i32
+unsafe fn spc_handler_tpic_ar(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     let mut v: [f64; 6] = [0.; 6];
@@ -444,7 +444,7 @@ unsafe fn spc_handler_tpic_ar(spe: &mut spc_env, ap: &mut spc_arg) -> i32
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__arc(tp, &mut cp, true, 0.0f64, v.as_mut_ptr())
 }
-unsafe fn spc_handler_tpic_ia(spe: &mut spc_env, ap: &mut spc_arg) -> i32
+unsafe fn spc_handler_tpic_ia(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     let mut v: [f64; 6] = [0.; 6];
@@ -474,7 +474,7 @@ unsafe fn spc_handler_tpic_ia(spe: &mut spc_env, ap: &mut spc_arg) -> i32
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__arc(tp, &mut cp, false, 0.0f64, v.as_mut_ptr())
 }
-unsafe fn spc_handler_tpic_sh(_spe: &mut spc_env, ap: &mut spc_arg) -> i32
+unsafe fn spc_handler_tpic_sh(_spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     tp.fill_shape = true;
@@ -491,27 +491,27 @@ unsafe fn spc_handler_tpic_sh(_spe: &mut spc_env, ap: &mut spc_arg) -> i32
     }
     0i32
 }
-unsafe fn spc_handler_tpic_wh(_spe: &mut spc_env, _ap: &mut spc_arg) -> i32
+unsafe fn spc_handler_tpic_wh(_spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     tp.fill_shape = true;
     tp.fill_color = 0.0f64;
     0i32
 }
-unsafe fn spc_handler_tpic_bk(_spe: &mut spc_env, _ap: &mut spc_arg) -> i32
+unsafe fn spc_handler_tpic_bk(_spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     tp.fill_shape = true;
     tp.fill_color = 1.0f64;
     0i32
 }
-unsafe fn spc_handler_tpic_tx(spe: &mut spc_env, _ap: &mut spc_arg) -> i32
+unsafe fn spc_handler_tpic_tx(spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let _tp = &mut _TPIC_STATE; /* NULL terminate */
     spc_warn!(spe, "TPIC command \"tx\" not supported.");
     -1i32
 }
-unsafe fn spc_handler_tpic__init(spe: *mut spc_env, tp: &mut spc_tpic_) -> i32 {
+unsafe fn spc_handler_tpic__init(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> i32 {
     tp.pen_size = 1.0f64;
     tp.fill_shape = false;
     tp.fill_color = 0.0f64;
@@ -527,7 +527,7 @@ unsafe fn spc_handler_tpic__bophook(tp: &mut spc_tpic_) -> i32 {
     tpic__clear(tp);
     0i32
 }
-unsafe fn spc_handler_tpic__eophook(spe: *mut spc_env, tp: &mut spc_tpic_) -> i32 {
+unsafe fn spc_handler_tpic__eophook(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> i32 {
     if !tp.points.is_empty() {
         let spe = &*spe;
         spc_warn!(spe, "Unflushed tpic path at end of the page.");
@@ -535,7 +535,7 @@ unsafe fn spc_handler_tpic__eophook(spe: *mut spc_env, tp: &mut spc_tpic_) -> i3
     tpic__clear(tp);
     0i32
 }
-unsafe fn spc_handler_tpic__clean(spe: *mut spc_env, tp: &mut spc_tpic_) -> i32 {
+unsafe fn spc_handler_tpic__clean(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> i32 {
     if !tp.points.is_empty() {
         let spe = &*spe;
         spc_warn!(spe, "Unflushed tpic path at end of the document.");
@@ -568,7 +568,7 @@ pub(crate) unsafe fn spc_tpic_at_end_document() -> i32 {
     let tp = &mut _TPIC_STATE;
     spc_handler_tpic__clean(ptr::null_mut(), tp)
 }
-unsafe fn spc_parse_kvpairs(ap: &mut spc_arg) -> Option<pdf_dict> {
+unsafe fn spc_parse_kvpairs(ap: &mut SpcArg) -> Option<pdf_dict> {
     let mut error: i32 = 0i32;
     let mut dict = pdf_dict::new();
     ap.cur.skip_blank();
@@ -638,7 +638,7 @@ unsafe fn tpic_filter_getopts(kp: &pdf_name, vp: &mut pdf_obj, tp: &mut spc_tpic
     }
     error
 }
-unsafe fn spc_handler_tpic__setopts(spe: &mut spc_env, ap: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_tpic__setopts(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     let tp = &mut _TPIC_STATE;
     if let Some(mut dict) = spc_parse_kvpairs(ap) {
         let error = dict.foreach(tpic_filter_getopts, tp);
@@ -656,55 +656,55 @@ unsafe fn spc_handler_tpic__setopts(spe: &mut spc_env, ap: &mut spc_arg) -> i32 
 /* DEBUG */
 const TPIC_HANDLERS: [SpcHandler; 13] = [
     SpcHandler {
-        key: b"pn",
+        key: "pn",
         exec: Some(spc_handler_tpic_pn),
     },
     SpcHandler {
-        key: b"pa",
+        key: "pa",
         exec: Some(spc_handler_tpic_pa),
     },
     SpcHandler {
-        key: b"fp",
+        key: "fp",
         exec: Some(spc_handler_tpic_fp),
     },
     SpcHandler {
-        key: b"ip",
+        key: "ip",
         exec: Some(spc_handler_tpic_ip),
     },
     SpcHandler {
-        key: b"da",
+        key: "da",
         exec: Some(spc_handler_tpic_da),
     },
     SpcHandler {
-        key: b"dt",
+        key: "dt",
         exec: Some(spc_handler_tpic_dt),
     },
     SpcHandler {
-        key: b"sp",
+        key: "sp",
         exec: Some(spc_handler_tpic_sp),
     },
     SpcHandler {
-        key: b"ar",
+        key: "ar",
         exec: Some(spc_handler_tpic_ar),
     },
     SpcHandler {
-        key: b"ia",
+        key: "ia",
         exec: Some(spc_handler_tpic_ia),
     },
     SpcHandler {
-        key: b"sh",
+        key: "sh",
         exec: Some(spc_handler_tpic_sh),
     },
     SpcHandler {
-        key: b"wh",
+        key: "wh",
         exec: Some(spc_handler_tpic_wh),
     },
     SpcHandler {
-        key: b"bk",
+        key: "bk",
         exec: Some(spc_handler_tpic_bk),
     },
     SpcHandler {
-        key: b"tx",
+        key: "tx",
         exec: Some(spc_handler_tpic_tx),
     },
 ];
@@ -716,11 +716,11 @@ pub(crate) fn spc_tpic_check_special(mut buf: &[u8]) -> bool {
     }
     let mut istpic = false;
     if let Some(q) = buf.parse_c_ident() {
-        if hasnsp && q.to_bytes() == b"__setopt__" {
+        if hasnsp && q == "__setopt__" {
             istpic = true;
         } else {
             for handler in TPIC_HANDLERS.iter() {
-                if q.to_bytes() == handler.key {
+                if q == handler.key {
                     istpic = true;
                     break;
                 }
@@ -732,8 +732,8 @@ pub(crate) fn spc_tpic_check_special(mut buf: &[u8]) -> bool {
 
 pub(crate) unsafe fn spc_tpic_setup_handler(
     sph: &mut SpcHandler,
-    _spe: &mut spc_env,
-    ap: &mut spc_arg,
+    _spe: &mut SpcEnv,
+    ap: &mut SpcArg,
 ) -> i32 {
     let mut hasnsp: i32 = 0i32;
     let mut error: i32 = -1i32;
@@ -743,18 +743,22 @@ pub(crate) unsafe fn spc_tpic_setup_handler(
         hasnsp = 1;
     }
     if let Some(q) = ap.cur.parse_c_ident() {
-        if hasnsp != 0 && q.to_bytes() == b"__setopt__" {
-            ap.command = Some(b"__setopt__");
-            sph.key = b"tpic:";
-            sph.exec = Some(spc_handler_tpic__setopts);
+        if hasnsp != 0 && q == "__setopt__" {
+            ap.command = Some("__setopt__");
+            *sph = SpcHandler {
+                key: "tpic:",
+                exec: Some(spc_handler_tpic__setopts),
+            };
             ap.cur.skip_blank();
             error = 0i32;
         } else {
             for handler in TPIC_HANDLERS.iter() {
-                if q.to_bytes() == handler.key {
+                if q == handler.key {
                     ap.command = Some(handler.key);
-                    sph.key = b"tpic:";
-                    sph.exec = handler.exec;
+                    *sph = SpcHandler {
+                        key: "tpic:",
+                        exec: handler.exec,
+                    };
                     ap.cur.skip_blank();
                     error = 0i32;
                     break;

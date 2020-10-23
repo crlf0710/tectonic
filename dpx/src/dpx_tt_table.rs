@@ -206,14 +206,12 @@ pub(crate) unsafe fn tt_pack_head_table(table: *mut tt_head_table) -> *mut i8 {
     p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).flags as i32, 2i32) as isize);
     p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).unitsPerEm as i32, 2i32) as isize);
     for i in 0..8 {
-        let fresh0 = p;
+        *p = (*table).created[i] as i8;
         p = p.offset(1);
-        *fresh0 = (*table).created[i] as i8;
     }
     for i in 0..8 {
-        let fresh1 = p;
+        *p = (*table).modified[i] as i8;
         p = p.offset(1);
-        *fresh1 = (*table).modified[i] as i8;
     }
     p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).xMin as i32, 2i32) as isize);
     p = p.offset(put_big_endian(p as *mut libc::c_void, (*table).yMin as i32, 2i32) as isize);

@@ -38,7 +38,6 @@ use crate::warn;
 
 use super::dpx_dvipdfmx::translate_origin;
 use super::dpx_fontmap::pdf_lookup_fontmap_record;
-use super::dpx_mem::new;
 use super::dpx_pdfcolor::PdfColor;
 use super::dpx_pdfdev::{
     dev_unit_dviunit, graphics_mode, pdf_dev_get_dirmode, pdf_dev_get_font_wmode,
@@ -59,8 +58,7 @@ use super::dpx_pdfparse::dump;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_obj, pdf_release_obj, pdf_set_number, pdf_string_length,
-    pdf_string_value, IntoObj, PushObj,
+    pdf_dict, pdf_name, pdf_obj, pdf_release_obj, pdf_set_number, IntoObj, PushObj,
 };
 use crate::dpx_pdfparse::{
     parse_number, pdfparse_skip_line, skip_white, ParseIdent, ParsePdfObj, SkipWhite,
@@ -637,8 +635,7 @@ unsafe fn do_show() -> i32 {
         pdf_release_obj(text_str);
         return 1i32;
     }
-    let strptr = pdf_string_value(&*text_str) as *mut u8;
-    let length = pdf_string_length(&*text_str) as i32;
+    let text = (*text_str).as_string().to_bytes();
     if (*font).tfm_id < 0i32 {
         warn!(
             "mpost: TFM not found for \"{}\".",
@@ -648,39 +645,35 @@ unsafe fn do_show() -> i32 {
     }
     let mut text_width = 0_f64;
     if (*font).subfont_id >= 0i32 {
-        let ustr = new(
-            ((length * 2i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32
-        ) as *mut u8;
-        for i in 0..length {
-            let uch = lookup_sfd_record((*font).subfont_id, *strptr.offset(i as isize));
-            *ustr.offset((2i32 * i) as isize) = (uch as i32 >> 8i32) as u8;
-            *ustr.offset((2i32 * i + 1i32) as isize) = (uch as i32 & 0xffi32) as u8;
-            if (*font).tfm_id >= 0i32 {
-                text_width += tfm_get_width((*font).tfm_id, *strptr.offset(i as isize) as i32)
+        let mut ustr = Vec::with_capacity(text.len() * 2);
+        for i in 0..text.len() {
+            let uch = lookup_sfd_record((*font).subfont_id, text[i]);
+            ustr.push((uch as i32 >> 8) as u8);
+            ustr.push((uch as i32 & 0xff) as u8);
+            if (*font).tfm_id >= 0 {
+                text_width += tfm_get_width((*font).tfm_id, text[i] as i32)
             }
         }
         text_width *= (*font).pt_size;
         pdf_dev_set_string(
             (cp.x * dev_unit_dviunit()) as spt_t,
             (cp.y * dev_unit_dviunit()) as spt_t,
-            ustr as *const libc::c_void,
-            (length * 2i32) as size_t,
+            ustr.as_ptr() as *const libc::c_void,
+            ustr.len() as size_t,
             (text_width * dev_unit_dviunit()) as spt_t,
             (*font).font_id,
             0i32,
         );
-        free(ustr as *mut libc::c_void);
     } else {
         if (*font).tfm_id >= 0i32 {
-            text_width = tfm_string_width((*font).tfm_id, strptr, length as u32) as f64
-                / (1i32 << 20i32) as f64;
+            text_width = tfm_string_width((*font).tfm_id, text) as f64 / (1i32 << 20i32) as f64;
             text_width *= (*font).pt_size
         }
         pdf_dev_set_string(
             (cp.x * dev_unit_dviunit()) as spt_t,
             (cp.y * dev_unit_dviunit()) as spt_t,
-            strptr as *const libc::c_void,
-            length as size_t,
+            text.as_ptr() as *const libc::c_void,
+            text.len() as size_t,
             (text_width * dev_unit_dviunit()) as spt_t,
             (*font).font_id,
             0i32,

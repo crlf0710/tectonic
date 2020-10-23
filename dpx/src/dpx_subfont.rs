@@ -185,24 +185,24 @@ unsafe fn read_sfd_record(rec: &mut sfd_rec_, lbuf: *const i8) -> i32 {
                         "Invalid value in subfont mapping table: 0x{:x}_0x{:x}",
                         v1, v2,
                     );
-                    return -1i32;
+                    return -1;
                 } else {
                     if q == p || !(*q as i32 == '\u{0}' as i32 || libc::isspace(*q as _) != 0) {
                         warn!(
                             "Invalid char in subfont mapping table: {}",
                             char::from(*q as u8),
                         );
-                        return -1i32;
+                        return -1;
                     }
                 }
             }
             _ => {
-                if v1 < 0i32 || v1 as i64 > 0xffff {
+                if v1 < 0 || v1 as i64 > 0xffff {
                     warn!(
                         "Invalid character code in subfont mapping table: 0x{:x}",
                         v1,
                     );
-                    return -1i32;
+                    return -1;
                 }
                 v2 = v1
             }
@@ -210,7 +210,7 @@ unsafe fn read_sfd_record(rec: &mut sfd_rec_, lbuf: *const i8) -> i32 {
         if repos != 0 {
             curpos = v1
         } else {
-            if v2 < v1 || curpos + (v2 - v1) > 0xffi32 {
+            if v2 < v1 || curpos + (v2 - v1) > 0xff {
                 warn!("Invalid range in subfont mapping: curpos=\"0x{:02x}\" range=\"0x{:04x},0x{:04x}\"", curpos,
                             v1, v2);
                 return -1i32;
@@ -223,10 +223,9 @@ unsafe fn read_sfd_record(rec: &mut sfd_rec_, lbuf: *const i8) -> i32 {
                     );
                     return -1i32;
                 }
-                assert!(curpos >= 0i32 && curpos <= 255i32);
-                let fresh0 = curpos;
-                curpos = curpos + 1;
-                rec.vector[fresh0 as usize] = c as u16;
+                assert!(curpos >= 0 && curpos <= 255);
+                rec.vector[curpos as usize] = c as u16;
+                curpos += 1;
             }
         }
         p = q;

@@ -64,7 +64,7 @@ use crate::dpx_pdfdoc::{
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj, pdf_remove_dict, pdf_stream,
-    pdf_string, pdf_string_value, IntoObj, PdfObjVariant, STREAM_COMPRESS,
+    pdf_string, IntoObj, PdfObjVariant, STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
@@ -77,7 +77,7 @@ use libc::{free, strlen, strstr};
 pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
 
-use super::{spc_arg, spc_env};
+use super::{SpcArg, SpcEnv};
 
 use super::SpcHandler;
 #[derive(Copy, Clone)]
@@ -216,16 +216,16 @@ pub(crate) unsafe fn spc_pdfm_at_end_document() -> i32 {
     spc_handler_pdfm__clean(sd)
 }
 /* Dvipdfm specials */
-unsafe fn spc_handler_pdfm_bop(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_bop(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     if !args.cur.is_empty() {
-        pdf_doc_set_bop_content(args.cur.as_ptr() as *const i8, args.cur.len() as u32);
+        pdf_doc_set_bop_content(&args.cur);
     }
     args.cur = &[];
     0i32
 }
-unsafe fn spc_handler_pdfm_eop(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_eop(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     if !args.cur.is_empty() {
-        pdf_doc_set_eop_content(args.cur.as_ptr() as *const i8, args.cur.len() as u32);
+        pdf_doc_set_eop_content(&args.cur);
     }
     args.cur = &[];
     0i32
@@ -268,7 +268,7 @@ unsafe fn safeputresdict(kp: &pdf_name, vp: &mut pdf_obj, dp: &mut pdf_dict) -> 
  *  pdf:put @resources << /Font << >> >>
  *
  */
-unsafe fn spc_handler_pdfm_put(spe: &mut spc_env, ap: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_put(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     let mut error: i32 = 0i32;
     ap.cur.skip_white();
     let ident = ap.cur.parse_opt_ident();
@@ -420,12 +420,10 @@ unsafe fn maybe_reencode_utf8(instring: *mut pdf_string) -> i32 {
     } /* no need to reencode UTF16BE with BOM */
     cp = inbuf; /* out of valid Unicode range, give up (redundant) */
     let mut op = wbuf.as_mut_ptr();
-    let fresh0 = op;
+    *op = 0xfe_u8;
     op = op.offset(1);
-    *fresh0 = 0xfe_u8;
-    let fresh1 = op;
+    *op = 0xff_u8;
     op = op.offset(1);
-    *fresh1 = 0xff_u8;
     while cp < inbuf.offset(inlen as isize) as *const u8 {
         let usv = UC_UTF8_decode_char(&mut cp, inbuf.offset(inlen as isize));
         if !UC_is_valid(usv) {
@@ -518,7 +516,7 @@ impl ParsePdfDictU for &[u8] {
     }
 }
 
-unsafe fn spc_handler_pdfm_annot(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_annot(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     let mut rect = Rect::zero();
     let mut ident = None;
@@ -577,7 +575,7 @@ unsafe fn spc_handler_pdfm_annot(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     0i32
 }
 /* NOTE: This can't have ident. See "Dvipdfm User's Manual". */
-unsafe fn spc_handler_pdfm_bann(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_bann(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     if !sd.annot_dict.is_null() {
         spc_warn!(spe, "Can\'t begin an annotation when one is pending.");
@@ -599,7 +597,7 @@ unsafe fn spc_handler_pdfm_bann(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     }
     spc_begin_annot(spe, sd.annot_dict)
 }
-unsafe fn spc_handler_pdfm_eann(spe: &mut spc_env, _args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_eann(spe: &mut SpcEnv, _args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     if sd.annot_dict.is_null() {
         spc_warn!(spe, "Tried to end an annotation without starting one!");
@@ -611,7 +609,7 @@ unsafe fn spc_handler_pdfm_eann(spe: &mut spc_env, _args: &mut spc_arg) -> i32 {
     error
 }
 /* Color:.... */
-unsafe fn spc_handler_pdfm_bcolor(spe: &mut spc_env, ap: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_bcolor(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     let (psc, pfc) = pdf_color_get_current();
     let fc = spc_util_read_pdfcolor(spe, ap, Some(pfc));
     let mut sc = Err(());
@@ -634,7 +632,7 @@ unsafe fn spc_handler_pdfm_bcolor(spe: &mut spc_env, ap: &mut spc_arg) -> i32 {
  * This special changes the current color without clearing the color stack.
  * It therefore differs from "color rgb 1 0 0".
  */
-unsafe fn spc_handler_pdfm_scolor(spe: &mut spc_env, ap: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_scolor(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     let (psc, pfc) = pdf_color_get_current();
     let fc = spc_util_read_pdfcolor(spe, ap, Some(pfc));
     let mut sc = Err(());
@@ -653,11 +651,11 @@ unsafe fn spc_handler_pdfm_scolor(spe: &mut spc_env, ap: &mut spc_arg) -> i32 {
         -1
     }
 }
-unsafe fn spc_handler_pdfm_ecolor(_spe: &mut spc_env, _args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_ecolor(_spe: &mut SpcEnv, _args: &mut SpcArg) -> i32 {
     pdf_color_pop();
     0i32
 }
-unsafe fn spc_handler_pdfm_btrans(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_btrans(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let mut ti = transform_info::new();
     transform_info_clear(&mut ti);
     if spc_util_read_dimtrns(spe, &mut ti, args, 0i32) < 0i32 {
@@ -671,7 +669,7 @@ unsafe fn spc_handler_pdfm_btrans(spe: &mut spc_env, args: &mut spc_arg) -> i32 
     pdf_dev_concat(&mut M);
     0i32
 }
-unsafe fn spc_handler_pdfm_etrans(_spe: &mut spc_env, _args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_etrans(_spe: &mut SpcEnv, _args: &mut SpcArg) -> i32 {
     pdf_dev_grestore();
     /*
      * Unfortunately, the following line is necessary in case
@@ -684,7 +682,7 @@ unsafe fn spc_handler_pdfm_etrans(_spe: &mut spc_env, _args: &mut spc_arg) -> i3
     pdf_dev_reset_color(0i32);
     0i32
 }
-unsafe fn spc_handler_pdfm_outline(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_outline(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     let mut is_open: i32 = -1i32;
     args.cur.skip_white();
@@ -740,28 +738,20 @@ unsafe fn spc_handler_pdfm_outline(spe: &mut spc_env, args: &mut spc_arg) -> i32
     let item_dict = item_dict.unwrap();
     let mut current_depth = pdf_doc_bookmarks_depth();
     if current_depth > level {
-        loop {
-            let fresh2 = current_depth;
-            current_depth = current_depth - 1;
-            if !(fresh2 > level) {
-                break;
-            }
+        while current_depth > level {
+            current_depth -= 1;
             pdf_doc_bookmarks_up();
         }
     } else if current_depth < level {
-        loop {
-            let fresh3 = current_depth;
-            current_depth = current_depth + 1;
-            if !(fresh3 < level) {
-                break;
-            }
+        while current_depth < level {
+            current_depth += 1;
             pdf_doc_bookmarks_down();
         }
     }
     pdf_doc_bookmarks_add(item_dict, is_open);
     0i32
 }
-unsafe fn spc_handler_pdfm_article(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_article(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     args.cur.skip_white();
     if let Some(ident) = args.cur.parse_opt_ident() {
@@ -778,7 +768,7 @@ unsafe fn spc_handler_pdfm_article(spe: &mut spc_env, args: &mut spc_arg) -> i32
         -1
     }
 }
-unsafe fn spc_handler_pdfm_bead(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_bead(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     let article_info;
     let mut ti = transform_info::new();
@@ -838,7 +828,7 @@ unsafe fn spc_handler_pdfm_bead(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     pdf_doc_add_bead(article_name.as_ptr(), &[], page_no, &mut rect);
     0i32
 }
-unsafe fn spc_handler_pdfm_image(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     let mut ident = None;
     let mut ti = transform_info::new();
@@ -899,7 +889,12 @@ unsafe fn spc_handler_pdfm_image(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
             ptr::null_mut()
         };
     }
-    let xobj_id = pdf_ximage_findresource(pdf_string_value(&*fspec) as *const i8, options);
+    let xobj_id = pdf_ximage_findresource(
+        CString::new((*fspec).as_string().to_bytes())
+            .unwrap()
+            .as_ptr(),
+        options,
+    );
     if xobj_id < 0i32 {
         spc_warn!(spe, "Could not find image resource...");
         pdf_release_obj(fspec);
@@ -915,7 +910,7 @@ unsafe fn spc_handler_pdfm_image(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     0i32
 }
 /* Use do_names instead. */
-unsafe fn spc_handler_pdfm_dest(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_dest(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     let name = args.cur.parse_pdf_object(ptr::null_mut());
     if name.is_none() {
@@ -954,7 +949,7 @@ unsafe fn spc_handler_pdfm_dest(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     pdf_release_obj(name);
     0i32
 }
-unsafe fn spc_handler_pdfm_names(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let category = args.cur.parse_pdf_object(ptr::null_mut());
     if category.is_none() {
         spc_warn!(spe, "PDF name expected but not found.");
@@ -1033,7 +1028,7 @@ unsafe fn spc_handler_pdfm_names(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     pdf_release_obj(category);
     0i32
 }
-unsafe fn spc_handler_pdfm_docinfo(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_docinfo(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     if let Some(dict) = args.cur.parse_pdf_dict_with_tounicode(&mut sd.cd) {
         let docinfo = pdf_doc_get_dictionary("Info");
@@ -1045,7 +1040,7 @@ unsafe fn spc_handler_pdfm_docinfo(spe: &mut spc_env, args: &mut spc_arg) -> i32
         -1
     }
 }
-unsafe fn spc_handler_pdfm_docview(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_docview(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     if let Some(dict) = args.cur.parse_pdf_dict_with_tounicode(&mut sd.cd) {
         let catalog = pdf_doc_get_dictionary("Catalog");
@@ -1064,7 +1059,7 @@ unsafe fn spc_handler_pdfm_docview(spe: &mut spc_env, args: &mut spc_arg) -> i32
         return -1i32;
     }
 }
-unsafe fn spc_handler_pdfm_close(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_close(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     if let Some(ident) = args.cur.parse_opt_ident() {
         spc_flush_object(ident.as_ptr());
@@ -1073,7 +1068,7 @@ unsafe fn spc_handler_pdfm_close(_spe: &mut spc_env, args: &mut spc_arg) -> i32 
     }
     0i32
 }
-unsafe fn spc_handler_pdfm_object(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_object(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     if let Some(ident) = args.cur.parse_opt_ident() {
         if let Some(object) = args.cur.parse_pdf_object(ptr::null_mut()) {
@@ -1092,7 +1087,7 @@ unsafe fn spc_handler_pdfm_object(spe: &mut spc_env, args: &mut spc_arg) -> i32 
         return -1i32;
     }
 }
-unsafe fn spc_handler_pdfm_content(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_content(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     if !args.cur.is_empty() {
         let mut M = TMatrix::create_translation(spe.x_user, spe.y_user);
@@ -1114,7 +1109,7 @@ unsafe fn spc_handler_pdfm_content(spe: &mut spc_env, args: &mut spc_arg) -> i32
     args.cur = &[]; /* op: ANY */
     return 0i32; /*kpse_find_pict(instring);*/
 }
-unsafe fn spc_handler_pdfm_literal(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_literal(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let mut direct: i32 = 0i32;
     args.cur.skip_white();
     while !args.cur.is_empty() {
@@ -1145,7 +1140,7 @@ unsafe fn spc_handler_pdfm_literal(spe: &mut spc_env, args: &mut spc_arg) -> i32
     args.cur = &[];
     0i32
 }
-unsafe fn spc_handler_pdfm_bcontent(spe: &mut spc_env, _args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_bcontent(spe: &mut SpcEnv, _args: &mut SpcArg) -> i32 {
     pdf_dev_gsave();
     let pos = pdf_dev_get_coord();
     let mut M = TMatrix::create_translation(spe.x_user - pos.x, spe.y_user - pos.y);
@@ -1153,13 +1148,13 @@ unsafe fn spc_handler_pdfm_bcontent(spe: &mut spc_env, _args: &mut spc_arg) -> i
     pdf_dev_push_coord(spe.x_user, spe.y_user);
     0i32
 }
-unsafe fn spc_handler_pdfm_econtent(_spe: &mut spc_env, _args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_econtent(_spe: &mut SpcEnv, _args: &mut SpcArg) -> i32 {
     pdf_dev_pop_coord();
     pdf_dev_grestore();
     pdf_dev_reset_color(0i32);
     0i32
 }
-unsafe fn spc_handler_pdfm_code(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_code(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     if !args.cur.is_empty() {
         pdf_doc_add_page_content(b" ");
@@ -1168,13 +1163,13 @@ unsafe fn spc_handler_pdfm_code(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     }
     0i32
 }
-unsafe fn spc_handler_pdfm_do_nothing(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_do_nothing(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur = &[];
     0i32
 }
 unsafe fn spc_handler_pdfm_stream_with_type(
-    spe: &mut spc_env,
-    args: &mut spc_arg,
+    spe: &mut SpcEnv,
+    args: &mut SpcArg,
     type_0: i32,
 ) -> i32 {
     args.cur.skip_white();
@@ -1273,7 +1268,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
  *
  *  pdf: stream @objname (input_string) [PDF_DICT]
  */
-unsafe fn spc_handler_pdfm_stream(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_stream(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     spc_handler_pdfm_stream_with_type(spe, args, 0i32)
 }
 /*
@@ -1281,7 +1276,7 @@ unsafe fn spc_handler_pdfm_stream(spe: &mut spc_env, args: &mut spc_arg) -> i32 
  *
  *  pdf: fstream @objname (filename) [PDF_DICT]
  */
-unsafe fn spc_handler_pdfm_fstream(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_fstream(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     spc_handler_pdfm_stream_with_type(spe, args, 1i32)
 }
 /* Grab page content as follows:
@@ -1300,7 +1295,7 @@ unsafe fn spc_handler_pdfm_fstream(spe: &mut spc_env, args: &mut spc_arg) -> i32
  *
  * Note that scale, xscale, yscale, xoffset, yoffset options are ignored.
  */
-unsafe fn spc_handler_pdfm_bform(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_bform(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let mut ti = transform_info::new();
     args.cur.skip_white();
     if let Some(ident) = args.cur.parse_opt_ident() {
@@ -1342,7 +1337,7 @@ unsafe fn spc_handler_pdfm_bform(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
  * not resource dictionary.
  * Please use pdf:put @resources (before pdf:exobj) instead.
  */
-unsafe fn spc_handler_pdfm_eform(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_eform(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let attrib: *mut pdf_obj = ptr::null_mut();
     args.cur.skip_white();
     let attrib = if !args.cur.is_empty() {
@@ -1385,7 +1380,7 @@ unsafe fn spc_handler_pdfm_eform(_spe: &mut spc_env, args: &mut spc_arg) -> i32 
  * Note that xoffset and yoffset moves the reference point where the
  * lower-left corner of the XObject will be put.
  */
-unsafe fn spc_handler_pdfm_uxobj(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_uxobj(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let mut ti = transform_info::new();
     let sd = &mut _PDF_STAT;
     let options: load_options = load_options {
@@ -1424,21 +1419,21 @@ unsafe fn spc_handler_pdfm_uxobj(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
         -1
     }
 }
-unsafe fn spc_handler_pdfm_link(spe: &mut spc_env, _args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_link(spe: &mut SpcEnv, _args: &mut SpcArg) -> i32 {
     spc_resume_annot(spe)
 }
-unsafe fn spc_handler_pdfm_nolink(spe: &mut spc_env, _args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_nolink(spe: &mut SpcEnv, _args: &mut SpcArg) -> i32 {
     spc_suspend_annot(spe)
 }
 /* Handled at BOP */
-unsafe fn spc_handler_pdfm_pagesize(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_pagesize(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur = &[];
     0i32
 }
 /* Please remove this.
  * This should be handled before processing pages!
  */
-unsafe fn spc_handler_pdfm_bgcolor(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_bgcolor(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     match spc_util_read_pdfcolor(spe, args, None) {
         Ok(colorspec) => {
             pdf_doc_set_bgcolor(Some(&colorspec));
@@ -1450,7 +1445,7 @@ unsafe fn spc_handler_pdfm_bgcolor(spe: &mut spc_env, args: &mut spc_arg) -> i32
         }
     }
 }
-unsafe fn spc_handler_pdfm_mapline(spe: &mut spc_env, ap: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_mapline(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     let mut error: i32 = 0i32;
     static mut BUFFER: [u8; 1024] = [0; 1024];
     ap.cur.skip_white();
@@ -1496,7 +1491,7 @@ unsafe fn spc_handler_pdfm_mapline(spe: &mut spc_env, ap: &mut spc_arg) -> i32 {
     }
     0i32
 }
-unsafe fn spc_handler_pdfm_mapfile(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_mapfile(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let error;
     args.cur.skip_white();
     if args.cur.is_empty() {
@@ -1521,7 +1516,7 @@ unsafe fn spc_handler_pdfm_mapfile(spe: &mut spc_env, args: &mut spc_arg) -> i32
     }
     error
 }
-unsafe fn spc_handler_pdfm_tounicode(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_pdfm_tounicode(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     /* First clear */
     sd.cd.cmap_id = -1i32;
@@ -1566,323 +1561,323 @@ unsafe fn spc_handler_pdfm_tounicode(spe: &mut spc_env, args: &mut spc_arg) -> i
 }
 const PDFM_HANDLERS: [SpcHandler; 80] = [
     SpcHandler {
-        key: b"annotation",
+        key: "annotation",
         exec: Some(spc_handler_pdfm_annot),
     },
     SpcHandler {
-        key: b"annotate",
+        key: "annotate",
         exec: Some(spc_handler_pdfm_annot),
     },
     SpcHandler {
-        key: b"annot",
+        key: "annot",
         exec: Some(spc_handler_pdfm_annot),
     },
     SpcHandler {
-        key: b"ann",
+        key: "ann",
         exec: Some(spc_handler_pdfm_annot),
     },
     SpcHandler {
-        key: b"outline",
+        key: "outline",
         exec: Some(spc_handler_pdfm_outline),
     },
     SpcHandler {
-        key: b"out",
+        key: "out",
         exec: Some(spc_handler_pdfm_outline),
     },
     SpcHandler {
-        key: b"article",
+        key: "article",
         exec: Some(spc_handler_pdfm_article),
     },
     SpcHandler {
-        key: b"art",
+        key: "art",
         exec: Some(spc_handler_pdfm_article),
     },
     SpcHandler {
-        key: b"bead",
+        key: "bead",
         exec: Some(spc_handler_pdfm_bead),
     },
     SpcHandler {
-        key: b"thread",
+        key: "thread",
         exec: Some(spc_handler_pdfm_bead),
     },
     SpcHandler {
-        key: b"destination",
+        key: "destination",
         exec: Some(spc_handler_pdfm_dest),
     },
     SpcHandler {
-        key: b"dest",
+        key: "dest",
         exec: Some(spc_handler_pdfm_dest),
     },
     SpcHandler {
-        key: b"object",
+        key: "object",
         exec: Some(spc_handler_pdfm_object),
     },
     SpcHandler {
-        key: b"obj",
+        key: "obj",
         exec: Some(spc_handler_pdfm_object),
     },
     SpcHandler {
-        key: b"docinfo",
+        key: "docinfo",
         exec: Some(spc_handler_pdfm_docinfo),
     },
     SpcHandler {
-        key: b"docview",
+        key: "docview",
         exec: Some(spc_handler_pdfm_docview),
     },
     SpcHandler {
-        key: b"content",
+        key: "content",
         exec: Some(spc_handler_pdfm_content),
     },
     SpcHandler {
-        key: b"put",
+        key: "put",
         exec: Some(spc_handler_pdfm_put),
     },
     SpcHandler {
-        key: b"close",
+        key: "close",
         exec: Some(spc_handler_pdfm_close),
     },
     SpcHandler {
-        key: b"bop",
+        key: "bop",
         exec: Some(spc_handler_pdfm_bop),
     },
     SpcHandler {
-        key: b"eop",
+        key: "eop",
         exec: Some(spc_handler_pdfm_eop),
     },
     SpcHandler {
-        key: b"image",
+        key: "image",
         exec: Some(spc_handler_pdfm_image),
     },
     SpcHandler {
-        key: b"img",
+        key: "img",
         exec: Some(spc_handler_pdfm_image),
     },
     SpcHandler {
-        key: b"epdf",
+        key: "epdf",
         exec: Some(spc_handler_pdfm_image),
     },
     SpcHandler {
-        key: b"link",
+        key: "link",
         exec: Some(spc_handler_pdfm_link),
     },
     SpcHandler {
-        key: b"nolink",
+        key: "nolink",
         exec: Some(spc_handler_pdfm_nolink),
     },
     SpcHandler {
-        key: b"begincolor",
+        key: "begincolor",
         exec: Some(spc_handler_pdfm_bcolor),
     },
     SpcHandler {
-        key: b"bcolor",
+        key: "bcolor",
         exec: Some(spc_handler_pdfm_bcolor),
     },
     SpcHandler {
-        key: b"bc",
+        key: "bc",
         exec: Some(spc_handler_pdfm_bcolor),
     },
     SpcHandler {
-        key: b"setcolor",
+        key: "setcolor",
         exec: Some(spc_handler_pdfm_scolor),
     },
     SpcHandler {
-        key: b"scolor",
+        key: "scolor",
         exec: Some(spc_handler_pdfm_scolor),
     },
     SpcHandler {
-        key: b"sc",
+        key: "sc",
         exec: Some(spc_handler_pdfm_scolor),
     },
     SpcHandler {
-        key: b"endcolor",
+        key: "endcolor",
         exec: Some(spc_handler_pdfm_ecolor),
     },
     SpcHandler {
-        key: b"ecolor",
+        key: "ecolor",
         exec: Some(spc_handler_pdfm_ecolor),
     },
     SpcHandler {
-        key: b"ec",
+        key: "ec",
         exec: Some(spc_handler_pdfm_ecolor),
     },
     SpcHandler {
-        key: b"begingray",
+        key: "begingray",
         exec: Some(spc_handler_pdfm_bcolor),
     },
     SpcHandler {
-        key: b"bgray",
+        key: "bgray",
         exec: Some(spc_handler_pdfm_bcolor),
     },
     SpcHandler {
-        key: b"bg",
+        key: "bg",
         exec: Some(spc_handler_pdfm_bcolor),
     },
     SpcHandler {
-        key: b"endgray",
+        key: "endgray",
         exec: Some(spc_handler_pdfm_ecolor),
     },
     SpcHandler {
-        key: b"egray",
+        key: "egray",
         exec: Some(spc_handler_pdfm_ecolor),
     },
     SpcHandler {
-        key: b"eg",
+        key: "eg",
         exec: Some(spc_handler_pdfm_ecolor),
     },
     SpcHandler {
-        key: b"bgcolor",
+        key: "bgcolor",
         exec: Some(spc_handler_pdfm_bgcolor),
     },
     SpcHandler {
-        key: b"bgc",
+        key: "bgc",
         exec: Some(spc_handler_pdfm_bgcolor),
     },
     SpcHandler {
-        key: b"bbc",
+        key: "bbc",
         exec: Some(spc_handler_pdfm_bgcolor),
     },
     SpcHandler {
-        key: b"bbg",
+        key: "bbg",
         exec: Some(spc_handler_pdfm_bgcolor),
     },
     SpcHandler {
-        key: b"pagesize",
+        key: "pagesize",
         exec: Some(spc_handler_pdfm_pagesize),
     },
     SpcHandler {
-        key: b"bannot",
+        key: "bannot",
         exec: Some(spc_handler_pdfm_bann),
     },
     SpcHandler {
-        key: b"beginann",
+        key: "beginann",
         exec: Some(spc_handler_pdfm_bann),
     },
     SpcHandler {
-        key: b"bann",
+        key: "bann",
         exec: Some(spc_handler_pdfm_bann),
     },
     SpcHandler {
-        key: b"eannot",
+        key: "eannot",
         exec: Some(spc_handler_pdfm_eann),
     },
     SpcHandler {
-        key: b"endann",
+        key: "endann",
         exec: Some(spc_handler_pdfm_eann),
     },
     SpcHandler {
-        key: b"eann",
+        key: "eann",
         exec: Some(spc_handler_pdfm_eann),
     },
     SpcHandler {
-        key: b"btrans",
+        key: "btrans",
         exec: Some(spc_handler_pdfm_btrans),
     },
     SpcHandler {
-        key: b"begintransform",
+        key: "begintransform",
         exec: Some(spc_handler_pdfm_btrans),
     },
     SpcHandler {
-        key: b"begintrans",
+        key: "begintrans",
         exec: Some(spc_handler_pdfm_btrans),
     },
     SpcHandler {
-        key: b"bt",
+        key: "bt",
         exec: Some(spc_handler_pdfm_btrans),
     },
     SpcHandler {
-        key: b"etrans",
+        key: "etrans",
         exec: Some(spc_handler_pdfm_etrans),
     },
     SpcHandler {
-        key: b"endtransform",
+        key: "endtransform",
         exec: Some(spc_handler_pdfm_etrans),
     },
     SpcHandler {
-        key: b"endtrans",
+        key: "endtrans",
         exec: Some(spc_handler_pdfm_etrans),
     },
     SpcHandler {
-        key: b"et",
+        key: "et",
         exec: Some(spc_handler_pdfm_etrans),
     },
     SpcHandler {
-        key: b"bform",
+        key: "bform",
         exec: Some(spc_handler_pdfm_bform),
     },
     SpcHandler {
-        key: b"beginxobj",
+        key: "beginxobj",
         exec: Some(spc_handler_pdfm_bform),
     },
     SpcHandler {
-        key: b"bxobj",
+        key: "bxobj",
         exec: Some(spc_handler_pdfm_bform),
     },
     SpcHandler {
-        key: b"eform",
+        key: "eform",
         exec: Some(spc_handler_pdfm_eform),
     },
     SpcHandler {
-        key: b"endxobj",
+        key: "endxobj",
         exec: Some(spc_handler_pdfm_eform),
     },
     SpcHandler {
-        key: b"exobj",
+        key: "exobj",
         exec: Some(spc_handler_pdfm_eform),
     },
     SpcHandler {
-        key: b"usexobj",
+        key: "usexobj",
         exec: Some(spc_handler_pdfm_uxobj),
     },
     SpcHandler {
-        key: b"uxobj",
+        key: "uxobj",
         exec: Some(spc_handler_pdfm_uxobj),
     },
     SpcHandler {
-        key: b"tounicode",
+        key: "tounicode",
         exec: Some(spc_handler_pdfm_tounicode),
     },
     SpcHandler {
-        key: b"literal",
+        key: "literal",
         exec: Some(spc_handler_pdfm_literal),
     },
     SpcHandler {
-        key: b"stream",
+        key: "stream",
         exec: Some(spc_handler_pdfm_stream),
     },
     SpcHandler {
-        key: b"fstream",
+        key: "fstream",
         exec: Some(spc_handler_pdfm_fstream),
     },
     SpcHandler {
-        key: b"names",
+        key: "names",
         exec: Some(spc_handler_pdfm_names),
     },
     SpcHandler {
-        key: b"mapline",
+        key: "mapline",
         exec: Some(spc_handler_pdfm_mapline),
     },
     SpcHandler {
-        key: b"mapfile",
+        key: "mapfile",
         exec: Some(spc_handler_pdfm_mapfile),
     },
     SpcHandler {
-        key: b"bcontent",
+        key: "bcontent",
         exec: Some(spc_handler_pdfm_bcontent),
     },
     SpcHandler {
-        key: b"econtent",
+        key: "econtent",
         exec: Some(spc_handler_pdfm_econtent),
     },
     SpcHandler {
-        key: b"code",
+        key: "code",
         exec: Some(spc_handler_pdfm_code),
     },
     SpcHandler {
-        key: b"minorversion",
+        key: "minorversion",
         exec: Some(spc_handler_pdfm_do_nothing),
     },
     SpcHandler {
-        key: b"encrypt",
+        key: "encrypt",
         exec: Some(spc_handler_pdfm_do_nothing),
     },
 ];
@@ -1893,8 +1888,8 @@ pub(crate) fn spc_pdfm_check_special(mut buf: &[u8]) -> bool {
 
 pub(crate) unsafe fn spc_pdfm_setup_handler(
     sph: &mut SpcHandler,
-    spe: &mut spc_env,
-    ap: &mut spc_arg,
+    spe: &mut SpcEnv,
+    ap: &mut SpcArg,
 ) -> i32 {
     let mut error: i32 = -1i32;
     ap.cur.skip_white();
@@ -1906,10 +1901,12 @@ pub(crate) unsafe fn spc_pdfm_setup_handler(
     ap.cur.skip_white();
     if let Some(q) = ap.cur.parse_c_ident() {
         for handler in PDFM_HANDLERS.iter() {
-            if q.to_bytes() == handler.key {
+            if q == handler.key {
                 ap.command = Some(handler.key);
-                sph.key = b"pdf:";
-                sph.exec = handler.exec;
+                *sph = SpcHandler {
+                    key: "pdf:",
+                    exec: handler.exec,
+                };
                 ap.cur.skip_white();
                 error = 0i32;
                 break;

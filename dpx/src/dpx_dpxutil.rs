@@ -494,10 +494,10 @@ impl ParseCString for &[u8] {
 }
 
 pub(crate) trait ParseCIdent {
-    fn parse_c_ident(&mut self) -> Option<CString>;
+    fn parse_c_ident(&mut self) -> Option<String>;
 }
 impl ParseCIdent for &[u8] {
-    fn parse_c_ident(&mut self) -> Option<CString> {
+    fn parse_c_ident(&mut self) -> Option<String> {
         if self.len() == 0 || !(self[0] == b'_' || self[0].is_ascii_alphabetic()) {
             return None;
         }
@@ -508,7 +508,7 @@ impl ParseCIdent for &[u8] {
             }
             n += 1;
         }
-        let s = Some(CString::new(&self[..n]).unwrap());
+        let s = Some(String::from_utf8_lossy(&self[..n]).to_string());
         *self = &self[n..];
         s
     }

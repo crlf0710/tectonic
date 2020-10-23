@@ -670,13 +670,7 @@ pub(crate) unsafe fn pdf_append_fontmap_record(kp: &str, vp: &fontmap_rec) -> i3
         if subfont_ids.is_empty() {
             return -1i32;
         }
-        let mut n = subfont_ids.len();
-        loop {
-            let fresh0 = n;
-            n = n - 1;
-            if !(fresh0 > 0) {
-                break;
-            }
+        for n in (0..subfont_ids.len()).rev() {
             if let Some(tfm_name) = make_subfont_name(kp, &sfd_name, &subfont_ids[n]) {
                 let mrec = ht_lookup_table(
                     fontmap,
@@ -723,29 +717,24 @@ pub(crate) unsafe fn pdf_append_fontmap_record(kp: &str, vp: &fontmap_rec) -> i3
 
 pub(crate) unsafe fn pdf_remove_fontmap_record(kp: &str) -> i32 {
     if kp.is_empty() {
-        return -1i32;
+        return -1;
     }
-    if verbose > 3i32 {
+    if verbose > 3 {
         info!("fontmap>> remove key=\"{}\"...", kp);
     }
 
     if let Some((_, sfd_name)) = chop_sfd_name(kp) {
         let subfont_ids = sfd_get_subfont_ids(&sfd_name);
         if subfont_ids.is_empty() {
-            return -1i32;
+            return -1;
         }
-        let mut n = subfont_ids.len();
-        if verbose > 3i32 {
+        let len = subfont_ids.len();
+        if verbose > 3 {
             info!("\nfontmap>> Expand @{}@:", sfd_name);
         }
-        loop {
-            let fresh1 = n;
-            n = n - 1;
-            if !(fresh1 > 0) {
-                break;
-            }
+        for n in (0..len).rev() {
             if let Some(tfm_name) = make_subfont_name(kp, &sfd_name, &subfont_ids[n]) {
-                if verbose > 3i32 {
+                if verbose > 3 {
                     info!(" {}", tfm_name);
                 }
                 ht_remove_table(
@@ -781,16 +770,11 @@ pub(crate) unsafe fn pdf_insert_fontmap_record(kp: &str, vp: &fontmap_rec) -> *m
             warn!("Could not open SFD file: {}", sfd_name);
             return ptr::null_mut();
         }
-        let mut n = subfont_ids.len();
+        let len = subfont_ids.len();
         if verbose > 3i32 {
             info!("\nfontmap>> Expand @{}@:", sfd_name);
         }
-        loop {
-            let fresh2 = n;
-            n = n - 1;
-            if !(fresh2 > 0) {
-                break;
-            }
+        for n in (0..len).rev() {
             if let Some(tfm_name) = make_subfont_name(kp, &sfd_name, &subfont_ids[n]) {
                 if verbose > 3i32 {
                     info!(" {}", tfm_name);

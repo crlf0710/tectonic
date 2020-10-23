@@ -21,8 +21,6 @@
 */
 #![allow(non_camel_case_types, non_snake_case)]
 
-use crate::bridge::DisplayExt;
-
 use super::util::{spc_util_read_colorspec, spc_util_read_numbers};
 use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_fontmap::{
@@ -38,7 +36,7 @@ use crate::dpx_pdfdraw::{
 use crate::dpx_pdfparse::{ParseIdent, SkipWhite};
 use crate::spc_warn;
 
-use super::{spc_arg, spc_env};
+use super::{SpcArg, SpcEnv};
 
 use super::SpcHandler;
 
@@ -78,7 +76,7 @@ pub(crate) unsafe fn spc_handler_xtx_do_transform(
     pdf_dev_set_fixed_point(x_user - pt.x, y_user - pt.y);
     0i32
 }
-unsafe fn spc_handler_xtx_scale(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_scale(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let mut values: [f64; 2] = [0.; 2];
     if spc_util_read_numbers(&mut *values.as_mut_ptr().offset(0), 2i32, args) < 2i32 {
         return -1i32;
@@ -98,7 +96,7 @@ unsafe fn spc_handler_xtx_scale(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
 /* Scaling without gsave/grestore. */
 static mut SCALE_FACTORS: Vec<Point> = Vec::new();
 
-unsafe fn spc_handler_xtx_bscale(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_bscale(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let mut values: [f64; 2] = [0.; 2];
 
     if spc_util_read_numbers(&mut *values.as_mut_ptr().offset(0), 2i32, args) < 2i32 {
@@ -120,7 +118,7 @@ unsafe fn spc_handler_xtx_bscale(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
         0i32 as f64,
     );
 }
-unsafe fn spc_handler_xtx_escale(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_escale(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let factor = SCALE_FACTORS.pop().unwrap();
     args.cur = &[];
     return spc_handler_xtx_do_transform(
@@ -134,7 +132,7 @@ unsafe fn spc_handler_xtx_escale(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
         0i32 as f64,
     );
 }
-unsafe fn spc_handler_xtx_rotate(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_rotate(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let mut value: f64 = 0.;
     if spc_util_read_numbers(&mut value, 1i32, args) < 1i32 {
         return -1i32;
@@ -153,12 +151,12 @@ unsafe fn spc_handler_xtx_rotate(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
     )
 }
 
-pub(crate) unsafe fn spc_handler_xtx_gsave(_spe: &mut spc_env, _args: &mut spc_arg) -> i32 {
+pub(crate) unsafe fn spc_handler_xtx_gsave(_spe: &mut SpcEnv, _args: &mut SpcArg) -> i32 {
     pdf_dev_gsave();
     0i32
 }
 
-pub(crate) unsafe fn spc_handler_xtx_grestore(_spe: &mut spc_env, _args: &mut spc_arg) -> i32 {
+pub(crate) unsafe fn spc_handler_xtx_grestore(_spe: &mut SpcEnv, _args: &mut SpcArg) -> i32 {
     pdf_dev_grestore();
     /*
      * Unfortunately, the following line is necessary in case
@@ -174,10 +172,10 @@ pub(crate) unsafe fn spc_handler_xtx_grestore(_spe: &mut spc_env, _args: &mut sp
 /* Please remove this.
  * This should be handled before processing pages!
  */
-unsafe fn spc_handler_xtx_papersize(_spe: &mut spc_env, _args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_papersize(_spe: &mut SpcEnv, _args: &mut SpcArg) -> i32 {
     0i32
 }
-unsafe fn spc_handler_xtx_backgroundcolor(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_backgroundcolor(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     if let Ok(colorspec) = spc_util_read_colorspec(spe, args, false) {
         pdf_doc_set_bgcolor(Some(&colorspec));
         1
@@ -188,7 +186,7 @@ unsafe fn spc_handler_xtx_backgroundcolor(spe: &mut spc_env, args: &mut spc_arg)
 }
 
 /* FIXME: xdv2pdf's x:fontmapline and x:fontmapfile may have slightly different syntax/semantics */
-unsafe fn spc_handler_xtx_fontmapline(spe: &mut spc_env, ap: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_fontmapline(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     let mut error: i32 = 0i32;
     static mut BUFFER: [u8; 1024] = [0; 1024];
     ap.cur.skip_white();
@@ -234,7 +232,7 @@ unsafe fn spc_handler_xtx_fontmapline(spe: &mut spc_env, ap: &mut spc_arg) -> i3
     }
     0i32
 }
-unsafe fn spc_handler_xtx_fontmapfile(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_fontmapfile(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     if args.cur.is_empty() {
         return 0i32;
@@ -258,7 +256,7 @@ unsafe fn spc_handler_xtx_fontmapfile(spe: &mut spc_env, args: &mut spc_arg) -> 
     }
 }
 static mut OVERLAY_NAME: [u8; 256] = [0; 256];
-unsafe fn spc_handler_xtx_initoverlay(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_initoverlay(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     if args.cur.is_empty() {
         return -1i32;
@@ -268,7 +266,7 @@ unsafe fn spc_handler_xtx_initoverlay(_spe: &mut spc_env, args: &mut spc_arg) ->
     args.cur = &[];
     0i32
 }
-unsafe fn spc_handler_xtx_clipoverlay(_spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_clipoverlay(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     if args.cur.is_empty() {
         return -1i32;
@@ -282,7 +280,7 @@ unsafe fn spc_handler_xtx_clipoverlay(_spe: &mut spc_env, args: &mut spc_arg) ->
     args.cur = &[];
     0i32
 }
-unsafe fn spc_handler_xtx_renderingmode(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_renderingmode(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let mut value: f64 = 0.;
     if spc_util_read_numbers(&mut value, 1i32, args) < 1i32 {
         return -1i32;
@@ -301,107 +299,107 @@ unsafe fn spc_handler_xtx_renderingmode(spe: &mut spc_env, args: &mut spc_arg) -
     args.cur = &[];
     0i32
 }
-unsafe fn spc_handler_xtx_unsupportedcolor(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_unsupportedcolor(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     spc_warn!(
         spe,
         "xetex-style \\special{{x:{}}} is not supported by this driver;\nupdate document or driver to use \\special{{color}} instead.",
-        args.command.unwrap().display(),
+        args.command.unwrap(),
     );
     args.cur = &[];
     0i32
 }
-unsafe fn spc_handler_xtx_unsupported(spe: &mut spc_env, args: &mut spc_arg) -> i32 {
+unsafe fn spc_handler_xtx_unsupported(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     spc_warn!(
         spe,
         "xetex-style \\special{{x:{}}} is not supported by this driver.",
-        args.command.unwrap().display(),
+        args.command.unwrap(),
     );
     args.cur = &[];
     0i32
 }
 const XTX_HANDLERS: [SpcHandler; 21] = [
     SpcHandler {
-        key: b"textcolor",
+        key: "textcolor",
         exec: Some(spc_handler_xtx_unsupportedcolor),
     },
     SpcHandler {
-        key: b"textcolorpush",
+        key: "textcolorpush",
         exec: Some(spc_handler_xtx_unsupportedcolor),
     },
     SpcHandler {
-        key: b"textcolorpop",
+        key: "textcolorpop",
         exec: Some(spc_handler_xtx_unsupportedcolor),
     },
     SpcHandler {
-        key: b"rulecolor",
+        key: "rulecolor",
         exec: Some(spc_handler_xtx_unsupportedcolor),
     },
     SpcHandler {
-        key: b"rulecolorpush",
+        key: "rulecolorpush",
         exec: Some(spc_handler_xtx_unsupportedcolor),
     },
     SpcHandler {
-        key: b"rulecolorpop",
+        key: "rulecolorpop",
         exec: Some(spc_handler_xtx_unsupportedcolor),
     },
     SpcHandler {
-        key: b"papersize",
+        key: "papersize",
         exec: Some(spc_handler_xtx_papersize),
     },
     SpcHandler {
-        key: b"backgroundcolor",
+        key: "backgroundcolor",
         exec: Some(spc_handler_xtx_backgroundcolor),
     },
     SpcHandler {
-        key: b"gsave",
+        key: "gsave",
         exec: Some(spc_handler_xtx_gsave),
     },
     SpcHandler {
-        key: b"grestore",
+        key: "grestore",
         exec: Some(spc_handler_xtx_grestore),
     },
     SpcHandler {
-        key: b"scale",
+        key: "scale",
         exec: Some(spc_handler_xtx_scale),
     },
     SpcHandler {
-        key: b"bscale",
+        key: "bscale",
         exec: Some(spc_handler_xtx_bscale),
     },
     SpcHandler {
-        key: b"escale",
+        key: "escale",
         exec: Some(spc_handler_xtx_escale),
     },
     SpcHandler {
-        key: b"rotate",
+        key: "rotate",
         exec: Some(spc_handler_xtx_rotate),
     },
     SpcHandler {
-        key: b"fontmapline",
+        key: "fontmapline",
         exec: Some(spc_handler_xtx_fontmapline),
     },
     SpcHandler {
-        key: b"fontmapfile",
+        key: "fontmapfile",
         exec: Some(spc_handler_xtx_fontmapfile),
     },
     SpcHandler {
-        key: b"shadow",
+        key: "shadow",
         exec: Some(spc_handler_xtx_unsupported),
     },
     SpcHandler {
-        key: b"colorshadow",
+        key: "colorshadow",
         exec: Some(spc_handler_xtx_unsupported),
     },
     SpcHandler {
-        key: b"renderingmode",
+        key: "renderingmode",
         exec: Some(spc_handler_xtx_renderingmode),
     },
     SpcHandler {
-        key: b"initoverlay",
+        key: "initoverlay",
         exec: Some(spc_handler_xtx_initoverlay),
     },
     SpcHandler {
-        key: b"clipoverlay",
+        key: "clipoverlay",
         exec: Some(spc_handler_xtx_clipoverlay),
     },
 ];
@@ -412,8 +410,8 @@ pub(crate) fn spc_xtx_check_special(mut buf: &[u8]) -> bool {
 
 pub(crate) unsafe fn spc_xtx_setup_handler(
     sph: &mut SpcHandler,
-    spe: &mut spc_env,
-    ap: &mut spc_arg,
+    spe: &mut SpcEnv,
+    ap: &mut SpcArg,
 ) -> i32 {
     let mut error: i32 = -1i32;
     ap.cur.skip_white();
@@ -425,10 +423,12 @@ pub(crate) unsafe fn spc_xtx_setup_handler(
     ap.cur.skip_white();
     if let Some(q) = ap.cur.parse_c_ident() {
         for handler in XTX_HANDLERS.iter() {
-            if q.to_bytes() == handler.key {
+            if q == handler.key {
                 ap.command = Some(handler.key);
-                sph.key = b"x:";
-                sph.exec = handler.exec;
+                *sph = SpcHandler {
+                    key: "x:",
+                    exec: handler.exec,
+                };
                 ap.cur.skip_white();
                 error = 0i32;
                 break;

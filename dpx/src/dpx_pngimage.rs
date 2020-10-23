@@ -51,7 +51,6 @@ use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 pub(crate) type png_byte = u8;
 pub(crate) type png_infopp = *mut *mut png_info;
 pub(crate) type png_const_charp = *const i8;
-pub(crate) type png_uint_16 = libc::c_ushort;
 pub(crate) type png_bytep = *mut png_byte;
 pub(crate) type png_uint_32 = libc::c_uint;
 
@@ -65,10 +64,10 @@ pub unsafe fn check_for_png<R: Read + Seek>(handle: &mut R) -> i32 {
             ::std::mem::size_of::<[libc::c_uchar; 8]>(),
         ) != 0
     {
-        return 0i32;
+        0
     } else {
-        return 1i32;
-    };
+        1
+    }
 }
 unsafe extern "C" fn _png_warning_callback(
     mut _png_ptr: *mut png_struct,
@@ -175,11 +174,11 @@ pub(crate) unsafe fn png_include_image(
     info.bits_per_component = bpc as libc::c_int;
     let xppm: png_uint_32 = png_get_x_pixels_per_meter(png, png_info);
     let yppm: png_uint_32 = png_get_y_pixels_per_meter(png, png_info);
-    if xppm > 0i32 as libc::c_uint {
-        info.xdensity = 72.0f64 / 0.0254f64 / xppm as f64
+    if xppm > 0 {
+        info.xdensity = 72. / 0.0254 / xppm as f64
     }
-    if yppm > 0_u32 {
-        info.ydensity = 72.0f64 / 0.0254f64 / yppm as f64
+    if yppm > 0 {
+        info.ydensity = 72. / 0.0254 / yppm as f64
     }
     let stream = pdf_stream::new(STREAM_COMPRESS).into_obj();
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
@@ -416,14 +415,9 @@ unsafe fn check_transparency(png: &mut png_struct, info: &mut png_info) -> libc:
                 /* Have valid tRNS chunk. */
                 /* Use color-key mask if possible. */
                 trans_type = 1i32;
-                loop {
-                    let fresh0 = num_trans;
-                    num_trans = num_trans - 1;
-                    if !(fresh0 > 0i32) {
-                        break;
-                    }
-                    if !(*trans.offset(num_trans as isize) as i32 != 0i32
-                        && *trans.offset(num_trans as isize) as i32 != 0xffi32)
+                for i in (0..num_trans).rev() {
+                    if !(*trans.offset(i as isize) as i32 != 0i32
+                        && *trans.offset(i as isize) as i32 != 0xff)
                     {
                         continue;
                     }
@@ -438,18 +432,18 @@ unsafe fn check_transparency(png: &mut png_struct, info: &mut png_info) -> libc:
             }
             _ => {
                 /* Else tRNS silently ignored. */
-                trans_type = 0i32
+                trans_type = 0
             }
         }
     } else {
-        trans_type = 0i32
+        trans_type = 0
     }
     /*
      * Now we check PDF version.
      * We can convert alpha cahnnels to explicit mask via user supplied alpha-
      * threshold value. But I will not do that.
      */
-    if pdf_version < 3_u32 && trans_type != 0i32 || pdf_version < 4_u32 && trans_type == 2i32 {
+    if pdf_version < 3 && trans_type != 0 || pdf_version < 4 && trans_type == 2 {
         /*
          *   No transparency supported but PNG uses transparency, or Soft-Mask
          * required but no support for it is available in this version of PDF.
@@ -462,18 +456,13 @@ unsafe fn check_transparency(png: &mut png_struct, info: &mut png_info) -> libc:
          * as background color, which is most probable color in our cases.
          * We ignore bKGD chunk.
          */
-        let mut bg: png_color_16 = png_color_16 {
+        let mut bg = png_color_16 {
             index: 0,
-            red: 0,
-            green: 0,
-            blue: 0,
-            gray: 0,
+            red: 255,
+            green: 255,
+            blue: 255,
+            gray: 255,
         };
-        bg.red = 255i32 as png_uint_16;
-        bg.green = 255i32 as png_uint_16;
-        bg.blue = 255i32 as png_uint_16;
-        bg.gray = 255i32 as png_uint_16;
-        bg.index = 0i32 as png_byte;
         png_set_background(png, &mut bg as *mut png_color_16, 1i32, 0i32, 1.0f64);
         warn!(
             "{}: Transparency will be ignored. (no support in PDF ver. < 1.3)",
@@ -491,7 +480,7 @@ unsafe fn check_transparency(png: &mut png_struct, info: &mut png_info) -> libc:
                 "PNG",
             );
         }
-        trans_type = 0i32
+        trans_type = 0
     }
     trans_type
 }
@@ -619,29 +608,21 @@ unsafe fn create_cspace_CalRGB(
     {
         return None;
     }
-    if xw <= 0.0f64
-        || yw < 1.0e-10f64
-        || xr < 0.0f64
-        || yr < 0.0f64
-        || xg < 0.0f64
-        || yg < 0.0f64
-        || xb < 0.0f64
-        || yb < 0.0f64
-    {
+    if xw <= 0. || yw < 1.0e-10 || xr < 0. || yr < 0. || xg < 0. || yg < 0. || xb < 0. || yb < 0. {
         warn!("{}: Invalid cHRM chunk parameters found.", "PNG");
         return None;
     }
-    if png_get_valid(png, png_info, 0x1u32) != 0 && png_get_gAMA(png, png_info, &mut G) != 0 {
-        if G < 1.0e-2f64 {
+    if png_get_valid(png, png_info, 0x1) != 0 && png_get_gAMA(png, png_info, &mut G) != 0 {
+        if G < 1e-2 {
             warn!("{}: Unusual Gamma value: 1.0 / {}", "PNG", G,);
             return None;
         }
-        G = 1.0f64 / G
+        G = 1. / G
     /* Gamma is inverted. */
     } else {
-        G = 2.2f64
+        G = 2.2
     }
-    let cal_param = make_param_Cal(2i32 as png_byte, G, xw, yw, xr, yr, xg, yg, xb, yb)?;
+    let cal_param = make_param_Cal(2 as png_byte, G, xw, yw, xr, yr, xg, yg, xb, yb)?;
     let mut colorspace = vec![];
     colorspace.push_obj("CalRGB");
     colorspace.push_obj(cal_param);
@@ -813,17 +794,17 @@ unsafe fn create_cspace_Indexed(
         base = "DeviceRGB".into_obj();
     }
     colorspace.push(base);
-    colorspace.push_obj((num_plte - 1i32) as f64);
-    let data_ptr = new(((num_plte * 3i32) as u32 as u64)
+    colorspace.push_obj((num_plte - 1) as f64);
+    let data_ptr = new(((num_plte * 3) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
         as *mut png_byte;
     for i in 0..num_plte {
-        *data_ptr.offset((3i32 * i) as isize) = (*plte.offset(i as isize)).red;
-        *data_ptr.offset((3i32 * i + 1i32) as isize) = (*plte.offset(i as isize)).green;
-        *data_ptr.offset((3i32 * i + 2i32) as isize) = (*plte.offset(i as isize)).blue;
+        *data_ptr.offset((3 * i) as isize) = (*plte.offset(i as isize)).red;
+        *data_ptr.offset((3 * i + 1) as isize) = (*plte.offset(i as isize)).green;
+        *data_ptr.offset((3 * i + 2) as isize) = (*plte.offset(i as isize)).blue;
     }
     let lookup =
-        pdf_string::new_from_ptr(data_ptr as *const libc::c_void, (num_plte * 3i32) as size_t);
+        pdf_string::new_from_ptr(data_ptr as *const libc::c_void, (num_plte * 3) as size_t);
     free(data_ptr as *mut libc::c_void);
     colorspace.push_obj(lookup);
     Some(colorspace)
@@ -842,7 +823,7 @@ unsafe fn create_ckey_mask(
     let mut trans: png_bytep = ptr::null_mut();
     let mut num_trans: libc::c_int = 0;
     let mut colors = ptr::null_mut();
-    if png_get_valid(png, png_info, 0x10u32) == 0
+    if png_get_valid(png, png_info, 0x10) == 0
         || png_get_tRNS(png, png_info, &mut trans, &mut num_trans, &mut colors) == 0
     {
         warn!("{}: PNG does not have valid tRNS chunk!", "PNG");
@@ -853,10 +834,10 @@ unsafe fn create_ckey_mask(
     match color_type as libc::c_int {
         3 => {
             for i in 0..num_trans {
-                if *trans.offset(i as isize) as i32 == 0i32 {
+                if *trans.offset(i as isize) as i32 == 0 {
                     colorkeys.push_obj(i as f64);
                     colorkeys.push_obj(i as f64);
-                } else if *trans.offset(i as isize) as i32 != 0xffi32 {
+                } else if *trans.offset(i as isize) as i32 != 0xff {
                     warn!("{}: You found a bug in pngimage.c.", "PNG");
                 }
             }
@@ -940,7 +921,7 @@ unsafe fn create_soft_mask(
         *smask_data_ptr.offset(i as isize) = (if (idx as i32) < num_trans {
             *trans.offset(idx as isize) as i32
         } else {
-            0xffi32
+            0xff
         }) as png_byte;
     }
     smask.add(
@@ -961,12 +942,8 @@ unsafe fn strip_soft_mask(
 ) -> Option<pdf_stream> {
     let color_type = png_get_color_type(png, png_info);
     let bpc = png_get_bit_depth(png, png_info);
-    if color_type as libc::c_int & 2i32 != 0 {
-        let bps: libc::c_int = if bpc as libc::c_int == 8i32 {
-            4i32
-        } else {
-            8i32
-        };
+    if color_type as libc::c_int & 2 != 0 {
+        let bps: libc::c_int = if bpc as libc::c_int == 8 { 4 } else { 8 };
         if *rowbytes_ptr as u64
             != ((bps as libc::c_uint).wrapping_mul(width) as u64)
                 .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
@@ -994,7 +971,7 @@ unsafe fn strip_soft_mask(
     dict.set("Height", height as f64);
     dict.set("ColorSpace", "DeviceGray");
     dict.set("BitsPerComponent", bpc as f64);
-    let smask_data_ptr = new((((bpc as i32 / 8i32) as u32)
+    let smask_data_ptr = new((((bpc as i32 / 8) as u32)
         .wrapping_mul(width)
         .wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
@@ -1090,8 +1067,7 @@ unsafe fn read_image_data(
     let rows_p = new((height as u64).wrapping_mul(::std::mem::size_of::<png_bytep>() as u64) as u32)
         as *mut png_bytep;
     for i in 0..height {
-        let ref mut fresh1 = *rows_p.offset(i as isize);
-        *fresh1 = dest_ptr.offset(rowbytes.wrapping_mul(i) as isize);
+        *rows_p.offset(i as isize) = dest_ptr.offset(rowbytes.wrapping_mul(i) as isize);
     }
     png_read_image(png, rows_p);
     free(rows_p as *mut libc::c_void);
@@ -1135,14 +1111,14 @@ pub unsafe fn png_get_bbox(handle: &InputHandleWrapper) -> Result<(u32, u32, f64
     let xppm: png_uint_32 = png_get_x_pixels_per_meter(png, png_info);
     let yppm: png_uint_32 = png_get_y_pixels_per_meter(png, png_info);
     let xdensity = if xppm != 0 {
-        72.0f64 / 0.0254f64 / xppm as f64
+        72. / 0.0254 / xppm as f64
     } else {
-        1.0f64
+        1.
     };
     let ydensity = if yppm != 0 {
-        72.0f64 / 0.0254f64 / yppm as f64
+        72. / 0.0254 / yppm as f64
     } else {
-        1.0f64
+        1.
     };
     /* Cleanup */
     png_destroy_info_struct(png, &mut (png_info as *mut png_info) as png_infopp);

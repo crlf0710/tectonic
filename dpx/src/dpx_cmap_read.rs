@@ -164,17 +164,8 @@ unsafe fn get_coderange(
         return Err(());
     }
 }
-unsafe fn do_codespacerange(
-    cmap: *mut CMap,
-    input: &mut ifreader,
-    mut count: i32,
-) -> Result<(), ()> {
-    loop {
-        let fresh0 = count;
-        count = count - 1;
-        if !(fresh0 > 0i32) {
-            break;
-        }
+unsafe fn do_codespacerange(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+    for _ in 0..count {
         let (codeLo, codeHi, dim) = get_coderange(input, 127)?;
         CMap_add_codespacerange(cmap, codeLo.as_ptr(), codeHi.as_ptr(), dim as size_t);
     }
@@ -189,17 +180,12 @@ unsafe fn handle_codearray(
     input: &mut ifreader,
     codeLo: &mut Vec<u8>,
     dim: i32,
-    mut count: i32,
+    count: i32,
 ) -> Result<(), ()> {
     if dim < 1i32 {
         panic!("Invalid code range.");
     }
-    loop {
-        let fresh1 = count;
-        count = count - 1;
-        if !(fresh1 > 0i32) {
-            break;
-        }
+    for _ in 0..count {
         match pst_get_token(&mut input.cursor, input.endptr).ok_or(())? {
             PstObj::String(data) => {
                 let data = data.as_bytes();
@@ -222,13 +208,8 @@ unsafe fn handle_codearray(
     }
     check_next_token(input, "]")
 }
-unsafe fn do_notdefrange(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -> Result<(), ()> {
-    loop {
-        let fresh3 = count;
-        count = count - 1;
-        if !(fresh3 > 0i32) {
-            break;
-        }
+unsafe fn do_notdefrange(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+    for _ in 0..count {
         if ifreader_read(input, (127i32 * 3i32) as size_t) == 0 {
             return Err(());
         }
@@ -249,13 +230,8 @@ unsafe fn do_notdefrange(cmap: *mut CMap, input: &mut ifreader, mut count: i32) 
     }
     check_next_token(input, "endnotdefrange")
 }
-unsafe fn do_bfrange(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -> Result<(), ()> {
-    loop {
-        let fresh4 = count;
-        count = count - 1;
-        if !(fresh4 > 0i32) {
-            break;
-        }
+unsafe fn do_bfrange(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+    for _ in 0..count {
         if ifreader_read(input, (127i32 * 3i32) as size_t) == 0 {
             return Err(());
         }
@@ -287,13 +263,8 @@ unsafe fn do_bfrange(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -> R
     }
     check_next_token(input, "endbfrange")
 }
-unsafe fn do_cidrange(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -> Result<(), ()> {
-    loop {
-        let fresh5 = count;
-        count = count - 1;
-        if !(fresh5 > 0i32) {
-            break;
-        }
+unsafe fn do_cidrange(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+    for _ in 0..count {
         if ifreader_read(input, (127i32 * 3i32) as size_t) == 0 {
             return Err(());
         }
@@ -314,13 +285,8 @@ unsafe fn do_cidrange(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -> 
     }
     check_next_token(input, "endcidrange")
 }
-unsafe fn do_notdefchar(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -> Result<(), ()> {
-    loop {
-        let fresh6 = count;
-        count = count - 1;
-        if !(fresh6 > 0i32) {
-            break;
-        }
+unsafe fn do_notdefchar(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+    for _ in 0..count {
         if ifreader_read(input, (127i32 * 2i32) as size_t) == 0 {
             return Err(());
         }
@@ -337,13 +303,8 @@ unsafe fn do_notdefchar(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -
     }
     check_next_token(input, "endnotdefchar")
 }
-unsafe fn do_bfchar(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -> Result<(), ()> {
-    loop {
-        let fresh7 = count;
-        count = count - 1;
-        if !(fresh7 > 0i32) {
-            break;
-        }
+unsafe fn do_bfchar(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+    for _ in 0..count {
         if ifreader_read(input, (127i32 * 2i32) as size_t) == 0 {
             return Err(());
         }
@@ -368,13 +329,8 @@ unsafe fn do_bfchar(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -> Re
     }
     check_next_token(input, "endbfchar")
 }
-unsafe fn do_cidchar(cmap: *mut CMap, input: &mut ifreader, mut count: i32) -> Result<(), ()> {
-    loop {
-        let fresh8 = count;
-        count = count - 1;
-        if !(fresh8 > 0i32) {
-            break;
-        }
+unsafe fn do_cidchar(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
+    for _ in 0..count {
         if ifreader_read(input, (127i32 * 2i32) as size_t) == 0 {
             return Err(());
         }
@@ -525,12 +481,11 @@ pub(crate) unsafe fn CMap_parse_check_sig<R: Read + Seek>(handle: &mut R) -> i32
 }
 
 pub(crate) unsafe fn CMap_parse(
-    cmap: *mut CMap,
+    cmap: &mut CMap,
     mut handle: DroppableInputHandleWrapper,
 ) -> Result<i32, ()> {
     let mut status: i32 = 0i32;
     let mut tmpint: i32 = -1i32;
-    assert!(!cmap.is_null());
     let size = ttstub_input_get_size(&mut handle);
     let mut input = ifreader::new(handle, size, (4096i32 - 1i32) as size_t);
     while status >= 0i32 {

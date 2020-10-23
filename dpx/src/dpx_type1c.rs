@@ -343,11 +343,10 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         for code in 0..256 {
             if *usedchars.offset(code as isize) != 0 {
                 let gid = cff_encoding_lookup(&cffont, code as u8);
-                let ref mut fresh0 = *enc_vec.offset(code as isize);
-                *fresh0 = cff_get_string(&cffont, cff_charsets_lookup_inverse(&cffont, gid))
+                *enc_vec.offset(code as isize) =
+                    cff_get_string(&cffont, cff_charsets_lookup_inverse(&cffont, gid))
             } else {
-                let ref mut fresh1 = *enc_vec.offset(code as isize);
-                *fresh1 = ptr::null_mut()
+                *enc_vec.offset(code as isize) = ptr::null_mut()
             }
         }
         let fontdict = pdf_font_get_resource(font).as_dict_mut();
@@ -653,15 +652,14 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                     b".notdef\x00" as *const u8 as *const i8,
                 ) != 0
             {
-                let ref mut fresh2 = (*(*encoding)
+                (*(*encoding)
                     .data
                     .range1
                     .offset((*encoding).num_entries as isize))
-                .n_left;
-                *fresh2 = (*fresh2 as i32 + 1i32) as u8;
-                code = code.wrapping_add(1)
+                .n_left += 1;
+                code += 1;
             }
-            (*encoding).num_entries = ((*encoding).num_entries as i32 + 1i32) as u8
+            (*encoding).num_entries = ((*encoding).num_entries as i32 + 1) as u8
         }
         code = code.wrapping_add(1)
         /* The above while() loop stopped at unused char or code == 256. */
@@ -701,8 +699,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     if !(*cffont.subrs.offset(0)).is_null() {
         cff_release_index(*cffont.subrs.offset(0));
     }
-    let ref mut fresh3 = *cffont.subrs.offset(0);
-    *fresh3 = ptr::null_mut();
+    *cffont.subrs.offset(0) = ptr::null_mut();
     /*
      * Flag must be reset since cff_pack_encoding(charset) does not write
      * encoding(charset) if HAVE_STANDARD_ENCODING(CHARSET) is set. We are

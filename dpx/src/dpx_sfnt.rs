@@ -243,10 +243,9 @@ pub(crate) unsafe fn sfnt_set_table(
         (*(*td).tables.offset(idx as isize)).tag = tag.clone();
     }
     (*(*td).tables.offset(idx as isize)).check_sum = sfnt_calc_checksum(data, length);
-    (*(*td).tables.offset(idx as isize)).offset = 0i64 as u32;
+    (*(*td).tables.offset(idx as isize)).offset = 0;
     (*(*td).tables.offset(idx as isize)).length = length;
-    let ref mut fresh0 = (*(*td).tables.offset(idx as isize)).data;
-    *fresh0 = data as *mut i8;
+    (*(*td).tables.offset(idx as isize)).data = data as *mut i8;
 }
 
 pub(crate) unsafe fn sfnt_find_table_len(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
@@ -309,8 +308,7 @@ pub(crate) unsafe fn sfnt_read_table_directory(sfont: &mut sfnt, offset: u32) ->
         (*(*td).tables.offset(i as isize)).check_sum = u32::get(handle);
         (*(*td).tables.offset(i as isize)).offset = u32::get(handle).wrapping_add(sfont.offset);
         (*(*td).tables.offset(i as isize)).length = u32::get(handle);
-        let ref mut fresh1 = (*(*td).tables.offset(i as isize)).data;
-        *fresh1 = ptr::null_mut();
+        (*(*td).tables.offset(i as isize)).data = ptr::null_mut();
         //fprintf(stderr, "[%4s:%x]", td->tables[i].tag, td->tables[i].offset);
         *(*td).flags.offset(i as isize) = 0_i8;
     }
@@ -326,8 +324,7 @@ pub(crate) unsafe fn sfnt_require_table(sfont: &mut sfnt, table: &SfntTableInfo)
             return Err(());
         }
     } else {
-        let ref mut fresh2 = *td.flags.offset(idx as isize);
-        *fresh2 = (*fresh2 as i32 | 1i32 << 0i32) as i8;
+        *td.flags.offset(idx as isize) |= 1 << 0;
         td.num_kept_tables = td.num_kept_tables + 1;
     }
     Ok(())
@@ -452,8 +449,7 @@ pub(crate) unsafe fn sfnt_create_FontFile_stream(sfont: &sfnt) -> pdf_stream {
                     (*td.tables.offset(i as isize)).data as *const libc::c_void,
                     (*td.tables.offset(i as isize)).length as i32,
                 );
-                let ref mut fresh3 = (*td.tables.offset(i as isize)).data;
-                *fresh3 =
+                (*td.tables.offset(i as isize)).data =
                     mfree((*td.tables.offset(i as isize)).data as *mut libc::c_void) as *mut i8
             }
             /* Set offset for next table */

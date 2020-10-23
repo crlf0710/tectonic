@@ -26,8 +26,7 @@
 
 use euclid::point2;
 
-use super::{spc_arg, spc_env};
-use crate::bridge::DisplayExt;
+use super::{SpcArg, SpcEnv};
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_pdfcolor::PdfColor;
 use crate::dpx_pdfdev::{transform_info, Rect, TMatrix};
@@ -35,7 +34,6 @@ use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
 use crate::SkipBlank;
 use libc::atof;
-use std::ffi::CString;
 
 /* tectonic/core-memory.h: basic dynamic memory helpers
    Copyright 2016-2018 the Tectonic Project
@@ -45,7 +43,7 @@ use std::ffi::CString;
 pub(crate) unsafe fn spc_util_read_numbers(
     values: *mut f64,
     num_values: i32,
-    args: &mut spc_arg,
+    args: &mut SpcArg,
 ) -> i32 {
     args.cur.skip_blank();
     let mut count = 0;
@@ -112,13 +110,13 @@ unsafe fn rgb_color_from_hsv(h: f64, s: f64, v: f64) -> PdfColor {
     }
     PdfColor::from_rgb(r, g, b).unwrap()
 }
-unsafe fn spc_read_color_color(spe: &mut spc_env, ap: &mut spc_arg) -> Result<PdfColor, ()> {
+unsafe fn spc_read_color_color(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfColor, ()> {
     let mut cv: [f64; 4] = [0.; 4];
     let result: Result<PdfColor, ()>;
     if let Some(q) = ap.cur.parse_c_ident() {
         ap.cur.skip_blank();
-        match q.to_bytes() {
-            b"rgb" => {
+        match q.as_str() {
+            "rgb" => {
                 /* Handle rgb color */
                 let nc = spc_util_read_numbers(cv.as_mut_ptr(), 3i32, ap);
                 if nc != 3i32 {
@@ -128,7 +126,7 @@ unsafe fn spc_read_color_color(spe: &mut spc_env, ap: &mut spc_arg) -> Result<Pd
                     result = PdfColor::from_rgb(cv[0], cv[1], cv[2]).map_err(|err| err.warn())
                 }
             }
-            b"cmyk" => {
+            "cmyk" => {
                 /* Handle cmyk color */
                 let nc = spc_util_read_numbers(cv.as_mut_ptr(), 4i32, ap);
                 if nc != 4i32 {
@@ -139,7 +137,7 @@ unsafe fn spc_read_color_color(spe: &mut spc_env, ap: &mut spc_arg) -> Result<Pd
                         PdfColor::from_cmyk(cv[0], cv[1], cv[2], cv[3]).map_err(|err| err.warn())
                 }
             }
-            b"gray" => {
+            "gray" => {
                 /* Handle gray */
                 let nc = spc_util_read_numbers(cv.as_mut_ptr(), 1i32, ap);
                 if nc != 1i32 {
@@ -149,7 +147,7 @@ unsafe fn spc_read_color_color(spe: &mut spc_env, ap: &mut spc_arg) -> Result<Pd
                     result = PdfColor::from_gray(cv[0]).map_err(|err| err.warn())
                 }
             }
-            b"spot" => {
+            "spot" => {
                 /* Handle spot colors */
                 if let Some(color_name) = ap.cur.parse_c_ident() {
                     /* Must be a "named" color */
@@ -159,14 +157,14 @@ unsafe fn spc_read_color_color(spe: &mut spc_env, ap: &mut spc_arg) -> Result<Pd
                         spc_warn!(spe, "Invalid value for spot color specification.");
                         result = Err(());
                     } else {
-                        result = PdfColor::from_spot(color_name, cv[0]).map_err(|err| err.warn())
+                        result = PdfColor::from_spot(&color_name, cv[0]).map_err(|err| err.warn())
                     }
                 } else {
                     spc_warn!(spe, "No valid spot color name specified?");
                     return Err(());
                 }
             }
-            b"hsb" => {
+            "hsb" => {
                 let nc = spc_util_read_numbers(cv.as_mut_ptr(), 3i32, ap);
                 if nc != 3i32 {
                     spc_warn!(spe, "Invalid value for HSB color specification.");
@@ -191,17 +189,9 @@ unsafe fn spc_read_color_color(spe: &mut spc_env, ap: &mut spc_arg) -> Result<Pd
                 }
             }
             _ => {
-                result = if let Ok(name) = q.to_str() {
-                    if let Some(color) = pdf_color_namedcolor(name) {
-                        Ok(color)
-                    } else {
-                        Err(())
-                    }
-                } else {
-                    Err(())
-                };
+                result = pdf_color_namedcolor(&q).ok_or(());
                 if result.is_err() {
-                    spc_warn!(spe, "Unrecognized color name: {}", q.display(),);
+                    spc_warn!(spe, "Unrecognized color name: {}", q);
                 }
             }
         }
@@ -217,7 +207,7 @@ unsafe fn spc_read_color_color(spe: &mut spc_env, ap: &mut spc_arg) -> Result<Pd
  * allowed for color specification. "pdf" here
  * means pdf: special syntax.
  */
-unsafe fn spc_read_color_pdf(spe: &mut spc_env, ap: &mut spc_arg) -> Result<PdfColor, ()> {
+unsafe fn spc_read_color_pdf(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfColor, ()> {
     let mut cv: [f64; 4] = [0.; 4]; /* at most four */
     let mut isarry: bool = false;
     ap.cur.skip_blank();
@@ -234,16 +224,12 @@ unsafe fn spc_read_color_pdf(spe: &mut spc_env, ap: &mut spc_arg) -> Result<PdfC
         _ => {
             /* Try to read the color names defined in dvipsname.def */
             if let Some(q) = ap.cur.parse_c_ident() {
-                let result = q
-                    .to_str()
-                    .ok()
-                    .and_then(|name| pdf_color_namedcolor(name))
-                    .ok_or(());
+                let result = pdf_color_namedcolor(&q).ok_or(());
                 if result.is_err() {
                     spc_warn!(
                         spe,
                         "Unrecognized color name: {}, keep the current color",
-                        q.display(),
+                        q,
                     );
                 }
                 result
@@ -267,8 +253,8 @@ unsafe fn spc_read_color_pdf(spe: &mut spc_env, ap: &mut spc_arg) -> Result<PdfC
 /* This is for reading *single* color specification. */
 
 pub(crate) unsafe fn spc_util_read_colorspec(
-    spe: &mut spc_env,
-    ap: &mut spc_arg,
+    spe: &mut SpcEnv,
+    ap: &mut SpcArg,
     syntax: bool,
 ) -> Result<PdfColor, ()> {
     ap.cur.skip_blank();
@@ -282,8 +268,8 @@ pub(crate) unsafe fn spc_util_read_colorspec(
 }
 
 pub(crate) unsafe fn spc_util_read_pdfcolor(
-    spe: &mut spc_env,
-    ap: &mut spc_arg,
+    spe: &mut SpcEnv,
+    ap: &mut SpcArg,
     defaultcolor: Option<&PdfColor>,
 ) -> Result<PdfColor, ()> {
     ap.cur.skip_blank();
@@ -300,10 +286,10 @@ pub(crate) unsafe fn spc_util_read_pdfcolor(
 }
 
 pub(crate) trait ReadLengthSpc {
-    fn read_length(&mut self, spe: &spc_env) -> Result<f64, ()>;
+    fn read_length(&mut self, spe: &SpcEnv) -> Result<f64, ()>;
 }
 impl ReadLengthSpc for &[u8] {
-    fn read_length(&mut self, spe: &spc_env) -> Result<f64, ()> {
+    fn read_length(&mut self, spe: &SpcEnv) -> Result<f64, ()> {
         let mut p = *self; /* inverse magnify */
         let mut u: f64 = 1.0f64;
         let mut error: i32 = 0i32;
@@ -315,10 +301,10 @@ impl ReadLengthSpc for &[u8] {
         let v = unsafe { atof(q.unwrap().as_ptr()) };
         p.skip_white();
         if let Some(q) = p.parse_c_ident() {
-            let mut bytes = q.to_bytes();
-            if bytes.starts_with(b"true") {
-                u /= if spe.mag != 0.0f64 { spe.mag } else { 1.0f64 };
-                bytes = &bytes[b"true".len()..];
+            let mut bytes = q.as_str();
+            if bytes.starts_with("true") {
+                u /= if spe.mag != 0. { spe.mag } else { 1. };
+                bytes = &bytes["true".len()..];
             }
             let q = if bytes.is_empty() {
                 // TODO: check
@@ -326,22 +312,22 @@ impl ReadLengthSpc for &[u8] {
                 p.skip_white();
                 p.parse_c_ident()
             } else {
-                Some(CString::new(bytes).unwrap())
+                Some(String::from(bytes))
             };
             if let Some(ident) = q {
-                match ident.to_bytes() {
-                    b"pt" => u *= 72. / 72.27,
-                    b"in" => u *= 72.,
-                    b"cm" => u *= 72. / 2.54,
-                    b"mm" => u *= 72. / 25.4,
-                    b"bp" => u *= 1.,
-                    b"pc" => u *= 12. * 72. / 72.27,
-                    b"dd" => u *= 1238. / 1157. * 72. / 72.27,
-                    b"cc" => u *= 12. * 1238. / 1157. * 72. / 72.27,
-                    b"sp" => u *= 72. / (72.27 * 65536.),
+                match ident.as_str() {
+                    "pt" => u *= 72. / 72.27,
+                    "in" => u *= 72.,
+                    "cm" => u *= 72. / 2.54,
+                    "mm" => u *= 72. / 25.4,
+                    "bp" => u *= 1.,
+                    "pc" => u *= 12. * 72. / 72.27,
+                    "dd" => u *= 1238. / 1157. * 72. / 72.27,
+                    "cc" => u *= 12. * 1238. / 1157. * 72. / 72.27,
+                    "sp" => u *= 72. / (72.27 * 65536.),
                     _ => {
-                        spc_warn!(spe, "Unknown unit of measure: {}", ident.display(),);
-                        error = -1i32
+                        spc_warn!(spe, "Unknown unit of measure: {}", ident);
+                        error = -1;
                     }
                 }
             } else {
@@ -381,14 +367,10 @@ fn make_transmatrix(
         yoffset,
     );
 }
-unsafe fn spc_read_dimtrns_dvips(
-    spe: &mut spc_env,
-    t: &mut transform_info,
-    ap: &mut spc_arg,
-) -> i32 {
-    const _DTKEYS: [&[u8]; 14] = [
-        b"hoffset", b"voffset", b"hsize", b"vsize", b"hscale", b"vscale", b"angle", b"clip",
-        b"llx", b"lly", b"urx", b"ury", b"rwi", b"rhi",
+unsafe fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, t: &mut transform_info, ap: &mut SpcArg) -> i32 {
+    const _DTKEYS: [&str; 14] = [
+        "hoffset", "voffset", "hsize", "vsize", "hscale", "vscale", "angle", "clip", "llx", "lly",
+        "urx", "ury", "rwi", "rhi",
     ];
     let mut error: i32 = 0i32;
     let mut rotate = 0.0f64;
@@ -401,23 +383,19 @@ unsafe fn spc_read_dimtrns_dvips(
         if let Some(kp) = ap.cur.parse_c_ident() {
             let mut k = 0;
             for &key in &_DTKEYS {
-                if kp.to_bytes() == key {
+                if kp == key {
                     break;
                 }
                 k += 1;
             }
             if k == 14 {
-                spc_warn!(
-                    spe,
-                    "Unrecognized dimension/transformation key: {}",
-                    kp.display(),
-                );
-                error = -1i32;
+                spc_warn!(spe, "Unrecognized dimension/transformation key: {}", kp,);
+                error = -1;
                 break;
             } else {
                 ap.cur.skip_blank();
                 if k == 7 {
-                    t.flags |= 1i32 << 3i32;
+                    t.flags |= 1 << 3;
                 /* not key-value */
                 } else {
                     if !ap.cur.is_empty() && ap.cur[0] == b'=' {
@@ -435,7 +413,7 @@ unsafe fn spc_read_dimtrns_dvips(
                                 spe,
                                 "Syntax error in dimension/transformation specification."
                             );
-                            error = -1i32;
+                            error = -1;
                             vp = None;
                         }
                         ap.cur = &ap.cur[1..];
@@ -444,12 +422,8 @@ unsafe fn spc_read_dimtrns_dvips(
                         ap.cur.parse_float_decimal()
                     };
                     if error == 0 && vp.is_none() {
-                        spc_warn!(
-                            spe,
-                            "Missing value for dimension/transformation: {}",
-                            kp.display(),
-                        );
-                        error = -1i32
+                        spc_warn!(spe, "Missing value for dimension/transformation: {}", kp,);
+                        error = -1;
                     }
                     if error != 0 {
                         break;
@@ -461,38 +435,38 @@ unsafe fn spc_read_dimtrns_dvips(
                             1 => yoffset = atof(vp),
                             2 => {
                                 t.width = atof(vp);
-                                t.flags |= 1i32 << 1i32
+                                t.flags |= 1 << 1;
                             }
                             3 => {
                                 t.height = atof(vp);
-                                t.flags |= 1i32 << 2i32
+                                t.flags |= 1 << 2;
                             }
-                            4 => xscale = atof(vp) / 100.0f64,
-                            5 => yscale = atof(vp) / 100.0f64,
-                            6 => rotate = std::f64::consts::PI * atof(vp) / 180.0f64,
+                            4 => xscale = atof(vp) / 100.,
+                            5 => yscale = atof(vp) / 100.,
+                            6 => rotate = std::f64::consts::PI * atof(vp) / 180.,
                             8 => {
                                 t.bbox.min.x = atof(vp);
-                                t.flags |= 1i32 << 0i32
+                                t.flags |= 1 << 0;
                             }
                             9 => {
                                 t.bbox.min.y = atof(vp);
-                                t.flags |= 1i32 << 0i32
+                                t.flags |= 1 << 0;
                             }
                             10 => {
                                 t.bbox.max.x = atof(vp);
-                                t.flags |= 1i32 << 0i32
+                                t.flags |= 1 << 0;
                             }
                             11 => {
                                 t.bbox.max.y = atof(vp);
-                                t.flags |= 1i32 << 0i32
+                                t.flags |= 1 << 0;
                             }
                             12 => {
-                                t.width = atof(vp) / 10.0f64;
-                                t.flags |= 1i32 << 1i32
+                                t.width = atof(vp) / 10.;
+                                t.flags |= 1 << 1;
                             }
                             13 => {
-                                t.height = atof(vp) / 10.0f64;
-                                t.flags |= 1i32 << 2i32
+                                t.height = atof(vp) / 10.;
+                                t.flags |= 1 << 2;
                             }
                             _ => {}
                         }
@@ -513,11 +487,7 @@ unsafe fn spc_read_dimtrns_dvips(
  * something acceptable to put into here.
  * PLEASE DONT ADD HERE!
  */
-unsafe fn spc_read_dimtrns_pdfm(
-    spe: &mut spc_env,
-    p: &mut transform_info,
-    ap: &mut spc_arg,
-) -> i32 {
+unsafe fn spc_read_dimtrns_pdfm(spe: &mut SpcEnv, p: &mut transform_info, ap: &mut SpcArg) -> i32 {
     let mut error: i32 = 0i32;
     let mut has_matrix = 0i32;
     let mut has_rotate = has_matrix;
@@ -533,101 +503,101 @@ unsafe fn spc_read_dimtrns_pdfm(
     while error == 0 && !ap.cur.is_empty() {
         if let Some(kp) = ap.cur.parse_c_ident() {
             ap.cur.skip_blank();
-            match kp.to_bytes() {
-                b"width" => {
+            match kp.as_str() {
+                "width" => {
                     if let Ok(width) = ap.cur.read_length(&*spe) {
                         p.width = width;
                     } else {
                         error = -1;
                     }
-                    p.flags |= 1i32 << 1i32
+                    p.flags |= 1 << 1;
                 }
-                b"height" => {
+                "height" => {
                     if let Ok(height) = ap.cur.read_length(&*spe) {
                         p.height = height;
                     } else {
                         error = -1;
                     }
-                    p.flags |= 1i32 << 2i32
+                    p.flags |= 1 << 2;
                 }
-                b"depth" => {
+                "depth" => {
                     if let Ok(depth) = ap.cur.read_length(&*spe) {
                         p.depth = depth;
                     } else {
                         error = -1;
                     }
-                    p.flags |= 1i32 << 2i32
+                    p.flags |= 1 << 2;
                 }
-                b"scale" => {
+                "scale" => {
                     if let Some(vp) = ap.cur.parse_float_decimal() {
                         yscale = atof(vp.as_ptr());
                         xscale = yscale;
-                        has_scale = 1i32;
+                        has_scale = 1;
                     } else {
-                        error = -1i32
+                        error = -1;
                     }
                 }
-                b"xscale" => {
+                "xscale" => {
                     if let Some(vp) = ap.cur.parse_float_decimal() {
                         xscale = atof(vp.as_ptr());
-                        has_xscale = 1i32;
+                        has_xscale = 1;
                     } else {
-                        error = -1i32
+                        error = -1;
                     }
                 }
-                b"yscale" => {
+                "yscale" => {
                     if let Some(vp) = ap.cur.parse_float_decimal() {
                         yscale = atof(vp.as_ptr());
-                        has_yscale = 1i32;
+                        has_yscale = 1;
                     } else {
-                        error = -1i32
+                        error = -1;
                     }
                 }
-                b"rotate" => {
+                "rotate" => {
                     if let Some(vp) = ap.cur.parse_float_decimal() {
                         rotate = 3.14159265358979323846f64 * atof(vp.as_ptr()) / 180.0f64;
-                        has_rotate = 1i32;
+                        has_rotate = 1;
                     } else {
-                        error = -1i32
+                        error = -1;
                     }
                 }
-                b"bbox" => {
+                "bbox" => {
                     let mut v: [f64; 4] = [0.; 4];
-                    if spc_util_read_numbers(v.as_mut_ptr(), 4i32, ap) != 4i32 {
-                        error = -1i32
+                    if spc_util_read_numbers(v.as_mut_ptr(), 4, ap) != 4 {
+                        error = -1;
                     } else {
                         p.bbox = Rect::new(point2(v[0], v[1]), point2(v[2], v[3]));
-                        p.flags |= 1i32 << 0i32
+                        p.flags |= 1 << 0;
                     }
                 }
-                b"matrix" => {
+                "matrix" => {
                     let mut v_0: [f64; 6] = [0.; 6];
-                    if spc_util_read_numbers(v_0.as_mut_ptr(), 6i32, ap) != 6i32 {
-                        error = -1i32
+                    if spc_util_read_numbers(v_0.as_mut_ptr(), 6, ap) != 6 {
+                        error = -1;
                     } else {
                         p.matrix = TMatrix::from_row_major_array(v_0);
-                        has_matrix = 1i32
+                        has_matrix = 1;
                     }
                 }
-                b"clip" => {
+                "clip" => {
                     if let Some(vp) = ap.cur.parse_float_decimal() {
                         if atof(vp.as_ptr()) != 0. {
-                            p.flags |= 1i32 << 3i32
+                            p.flags |= 1 << 3;
                         } else {
-                            p.flags &= !(1i32 << 3i32)
+                            p.flags &= !(1 << 3)
                         }
                     } else {
-                        error = -1i32
+                        error = -1;
                     }
                 }
-                b"hide" => p.flags |= 1i32 << 4i32,
-                _ => error = -1i32,
+                "hide" => p.flags |= 1 << 4,
+                _ => error = -1,
             }
             if error != 0 {
                 spc_warn!(
                     spe,
                     "Unrecognized key or invalid value for dimension/transformation: {}",
-                    kp.display(),
+                    kp,
                 );
             } else {
                 ap.cur.skip_blank();
@@ -667,9 +637,9 @@ unsafe fn spc_read_dimtrns_pdfm(
 }
 
 pub(crate) unsafe fn spc_util_read_dimtrns(
-    spe: *mut spc_env,
+    spe: *mut SpcEnv,
     ti: &mut transform_info,
-    args: *mut spc_arg,
+    args: *mut SpcArg,
     syntax: i32,
 ) -> i32 {
     if spe.is_null() || args.is_null() {
@@ -688,11 +658,11 @@ pub(crate) unsafe fn spc_util_read_dimtrns(
  */
 
 pub(crate) unsafe fn spc_util_read_blahblah(
-    spe: &mut spc_env,
+    spe: &mut SpcEnv,
     p: &mut transform_info,
     page_no: *mut i32,
     bbox_type: *mut i32,
-    ap: &mut spc_arg,
+    ap: &mut SpcArg,
 ) -> i32 {
     let mut error: i32 = 0i32;
     let mut has_matrix = 0i32; /* default: do clipping */
@@ -709,8 +679,8 @@ pub(crate) unsafe fn spc_util_read_blahblah(
     while error == 0 && !ap.cur.is_empty() {
         if let Some(kp) = ap.cur.parse_c_ident() {
             ap.cur.skip_blank();
-            match kp.to_bytes() {
-                b"width" => {
+            match kp.as_str() {
+                "width" => {
                     if let Ok(width) = ap.cur.read_length(spe) {
                         p.width = width;
                     } else {
@@ -718,7 +688,7 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                     }
                     p.flags |= 1i32 << 1i32
                 }
-                b"height" => {
+                "height" => {
                     if let Ok(height) = ap.cur.read_length(spe) {
                         p.height = height;
                     } else {
@@ -726,7 +696,7 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                     }
                     p.flags |= 1i32 << 2i32
                 }
-                b"depth" => {
+                "depth" => {
                     if let Ok(depth) = ap.cur.read_length(spe) {
                         p.depth = depth;
                     } else {
@@ -734,7 +704,7 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                     }
                     p.flags |= 1i32 << 2i32
                 }
-                b"scale" => {
+                "scale" => {
                     if let Some(vp) = ap.cur.parse_float_decimal() {
                         yscale = atof(vp.as_ptr());
                         xscale = yscale;
@@ -743,7 +713,7 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                         error = -1i32
                     }
                 }
-                b"xscale" => {
+                "xscale" => {
                     if let Some(vp) = ap.cur.parse_float_decimal() {
                         xscale = atof(vp.as_ptr());
                         has_xscale = 1i32;
@@ -751,7 +721,7 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                         error = -1i32
                     }
                 }
-                b"yscale" => {
+                "yscale" => {
                     if let Some(vp) = ap.cur.parse_float_decimal() {
                         yscale = atof(vp.as_ptr());
                         has_yscale = 1i32;
@@ -759,7 +729,7 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                         error = -1i32
                     }
                 }
-                b"rotate" => {
+                "rotate" => {
                     if let Some(vp) = ap.cur.parse_float_decimal() {
                         rotate = 3.14159265358979323846f64 * atof(vp.as_ptr()) / 180.0f64;
                         has_rotate = 1i32;
@@ -767,7 +737,7 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                         error = -1i32
                     }
                 }
-                b"bbox" => {
+                "bbox" => {
                     let mut v: [f64; 4] = [0.; 4];
                     if spc_util_read_numbers(v.as_mut_ptr(), 4i32, ap) != 4i32 {
                         error = -1i32
@@ -776,7 +746,7 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                         p.flags |= 1i32 << 0i32
                     }
                 }
-                b"matrix" => {
+                "matrix" => {
                     let mut v_0: [f64; 6] = [0.; 6];
                     if spc_util_read_numbers(v_0.as_mut_ptr(), 6i32, ap) != 6i32 {
                         error = -1i32
@@ -785,7 +755,7 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                         has_matrix = 1i32
                     }
                 }
-                b"clip" => {
+                "clip" => {
                     if let Some(vp) = ap.cur.parse_float_decimal() {
                         if atof(vp.as_ptr()) != 0. {
                             p.flags |= 1 << 3
@@ -796,7 +766,7 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                         error = -1i32
                     }
                 }
-                b"page" => {
+                "page" => {
                     let mut page: f64 = 0.;
                     if !page_no.is_null() && spc_util_read_numbers(&mut page, 1i32, ap) == 1i32 {
                         *page_no = page as i32
@@ -804,30 +774,30 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                         error = -1i32
                     }
                 }
-                b"hide" => p.flags |= 1i32 << 4i32,
-                b"pagebox" => {
+                "hide" => p.flags |= 1i32 << 4i32,
+                "pagebox" => {
                     if let Some(q) = ap.cur.parse_c_ident() {
                         if !bbox_type.is_null() {
-                            match q.to_bytes().to_ascii_lowercase().as_slice() {
-                                b"cropbox" => *bbox_type = 1,
-                                b"mediabox" => *bbox_type = 2,
-                                b"artbox" => *bbox_type = 3,
-                                b"trimbox" => *bbox_type = 4,
-                                b"bleedbox" => *bbox_type = 5,
+                            match q.to_ascii_lowercase().as_str() {
+                                "cropbox" => *bbox_type = 1,
+                                "mediabox" => *bbox_type = 2,
+                                "artbox" => *bbox_type = 3,
+                                "trimbox" => *bbox_type = 4,
+                                "bleedbox" => *bbox_type = 5,
                                 _ => {}
                             }
                         }
                     } else if !bbox_type.is_null() {
-                        *bbox_type = 0i32
+                        *bbox_type = 0;
                     }
                 }
-                _ => error = -1i32,
+                _ => error = -1,
             }
             if error != 0 {
                 spc_warn!(
                     spe,
                     "Unrecognized key or invalid value for dimension/transformation: {}",
-                    kp.display(),
+                    kp,
                 );
             } else {
                 ap.cur.skip_blank();

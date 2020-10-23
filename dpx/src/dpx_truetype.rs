@@ -405,8 +405,7 @@ unsafe fn agl_decompose_glyphname(
         q = q.offset(1);
         *suffix = q
     }
-    let ref mut fresh0 = *nptrs.offset(0);
-    *fresh0 = p;
+    *nptrs.offset(0) = p;
     let mut n = 1;
     while !p.is_null() && *p as i32 != 0 {
         p = strchr(p, '_' as i32);
@@ -418,9 +417,8 @@ unsafe fn agl_decompose_glyphname(
         }
         *p = '\u{0}' as i32 as i8;
         p = p.offset(1);
-        let ref mut fresh1 = *nptrs.offset(n as isize);
-        *fresh1 = p;
-        n += 1
+        *nptrs.offset(n as isize) = p;
+        n += 1;
     }
     n
 }
@@ -716,13 +714,12 @@ unsafe fn findparanoiac(glyphname: *const i8, gid: *mut u16, gm: &mut glyph_mapp
                         idx,
                     );
                     _p = _buf.as_mut_ptr();
-                    _i = 0i32;
-                    while _i < (*agln).n_components && _n < 245i32 {
-                        let fresh2 = _n;
+                    _i = 0;
+                    while _i < (*agln).n_components && _n < 245 {
+                        *_p.offset(_n as isize) =
+                            (if _i == 0 { '<' as i32 } else { ' ' as i32 }) as i8;
                         _n = _n + 1;
-                        *_p.offset(fresh2 as isize) =
-                            (if _i == 0i32 { '<' as i32 } else { ' ' as i32 }) as i8;
-                        if (*agln).unicodes[_i as usize] >= 0x10000i32 {
+                        if (*agln).unicodes[_i as usize] >= 0x10000 {
                             _n += sprintf(
                                 _p.offset(_n as isize),
                                 b"U+%06X\x00" as *const u8 as *const i8,
@@ -735,18 +732,16 @@ unsafe fn findparanoiac(glyphname: *const i8, gid: *mut u16, gm: &mut glyph_mapp
                                 (*agln).unicodes[_i as usize],
                             )
                         }
-                        let fresh3 = _n;
-                        _n = _n + 1;
-                        *_p.offset(fresh3 as isize) = (if _i == (*agln).n_components - 1i32 {
+                        *_p.offset(_n as isize) = (if _i == (*agln).n_components - 1i32 {
                             '>' as i32
                         } else {
                             ',' as i32
                         }) as i8;
+                        _n = _n + 1;
                         _i += 1;
                     }
-                    let fresh4 = _n;
+                    *_p.offset(_n as isize) = '\u{0}' as i32 as i8;
                     _n = _n + 1;
-                    *_p.offset(fresh4 as isize) = '\u{0}' as i32 as i8;
                     warn!(">> Input Unicode seq.=\"{}\" ==> glyph-id=\"{}\" in font-file=\"_please_try_-v_\".",
                                 CStr::from_ptr(_buf.as_mut_ptr()).display(), idx);
                 }

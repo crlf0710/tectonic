@@ -630,15 +630,9 @@ unsafe fn dump_xref_stream() {
     for i in 0..next_label {
         buf[0] = output_xref[i].typ;
         pos = output_xref[i].id.0;
-        let mut j = poslen;
-        loop {
-            let fresh2 = j;
-            j = j.wrapping_sub(1);
-            if !(fresh2 != 0) {
-                break;
-            }
-            buf[(1_u32).wrapping_add(j) as usize] = pos as u8;
-            pos >>= 8i32
+        for j in (0..poslen).rev() {
+            buf[(1 + j) as usize] = pos as u8;
+            pos >>= 8;
         }
         let f3 = output_xref[i].id.1;
         buf[poslen.wrapping_add(1_u32) as usize] = (f3 as i32 >> 8i32) as u8;
@@ -956,10 +950,6 @@ pub(crate) unsafe fn pdf_string_value(object: &pdf_obj) -> *mut libc::c_void {
     }
 }
 
-pub(crate) unsafe fn pdf_string_length(object: &pdf_obj) -> u32 {
-    let data = object.as_string();
-    data.len() as u32
-}
 /*
  * This routine escapes non printable characters and control
  * characters in an output string.
@@ -2152,7 +2142,7 @@ unsafe fn get_decode_parms(parms: &mut decode_parms, dict: &mut pdf_obj) -> libc
  */
 #[cfg(feature = "libz-sys")]
 unsafe fn filter_row_TIFF2(
-    dst: *mut libc::c_uchar,
+    dst: &mut [u8],
     src: *const libc::c_uchar,
     parms: &mut decode_parms,
 ) -> libc::c_int {
@@ -2174,10 +2164,9 @@ unsafe fn filter_row_TIFF2(
         for ci in 0..parms.colors {
             if inbits < parms.bits_per_component {
                 /* need more byte */
-                let fresh16 = j;
-                j = j + 1;
-                inbuf = inbuf << 8i32 | *p.offset(fresh16 as isize) as libc::c_int;
-                inbits += 8i32
+                inbuf = inbuf << 8i32 | *p.offset(j as isize) as libc::c_int;
+                j += 1;
+                inbits += 8;
             }
             /* predict current color component */
             *col.offset(ci as isize) = (*col.offset(ci as isize) as libc::c_int
@@ -2185,19 +2174,18 @@ unsafe fn filter_row_TIFF2(
                 & mask) as libc::c_uchar; /* consumed bpc bits */
             inbits -= parms.bits_per_component;
             /* append newly predicted color component value */
-            outbuf = outbuf << parms.bits_per_component | *col.offset(ci as isize) as libc::c_int;
+            outbuf = outbuf << parms.bits_per_component | *col.offset(ci as isize) as i32;
             outbits += parms.bits_per_component;
-            if outbits >= 8i32 {
+            if outbits >= 8 {
                 /* flush */
-                let fresh17 = k;
+                dst[k as usize] = (outbuf >> outbits - 8) as u8;
                 k = k + 1;
-                *dst.offset(fresh17 as isize) = (outbuf >> outbits - 8i32) as libc::c_uchar;
-                outbits -= 8i32
+                outbits -= 8;
             }
         }
     }
-    if outbits > 0i32 {
-        *dst.offset(k as isize) = (outbuf << 8i32 - outbits) as libc::c_uchar
+    if outbits > 0 {
+        dst[k as usize] = (outbuf << 8 - outbits) as u8
     }
     free(col as *mut libc::c_void);
     return 0i32;
@@ -2208,248 +2196,147 @@ unsafe fn filter_row_TIFF2(
  */
 #[cfg(feature = "libz-sys")]
 unsafe fn filter_decoded(
-    dst: &mut pdf_stream,
-    src: &[u8],
+    dst_stream: &mut pdf_stream,
+    data: &[u8],
     parms: &mut decode_parms,
 ) -> libc::c_int {
-    let mut p = src.as_ptr(); /* Just copy */
-    let endptr = p.offset(src.len() as isize);
-    let bits_per_pixel: libc::c_int = parms.colors * parms.bits_per_component;
-    let bytes_per_pixel: libc::c_int = (bits_per_pixel + 7i32) / 8i32;
-    let length: libc::c_int = (parms.columns * bits_per_pixel + 7i32) / 8i32;
-    let mut error: libc::c_int = 0i32;
-    let prev = new(
-        (length as u32 as u64).wrapping_mul(::std::mem::size_of::<libc::c_uchar>() as u64) as u32
-    ) as *mut libc::c_uchar;
-    let buf = new(
-        (length as u32 as u64).wrapping_mul(::std::mem::size_of::<libc::c_uchar>() as u64) as u32,
-    ) as *mut libc::c_uchar;
-    memset(prev as *mut libc::c_void, 0i32, length as _);
-    let mut current_block_77: u64;
-    match parms.predictor {
-        1 => {
-            /* No prediction */
-            dst.add_slice(src);
-            current_block_77 = 6040267449472925966;
-        }
-        2 => {
-            /* TIFF Predictor 2 */
-            if parms.bits_per_component == 8i32 {
-                while p.offset(length as isize) < endptr {
-                    /* Same as PNG Sub */
-                    /* bits per component 1, 2, 4 */
-                    for i in 0..length {
-                        let pv: libc::c_int = if i - bytes_per_pixel >= 0i32 {
-                            *buf.offset((i - bytes_per_pixel) as isize) as libc::c_int
-                        } else {
-                            0i32
-                        };
-                        *buf.offset(i as isize) =
-                            (*p.offset(i as isize) as libc::c_int + pv & 0xffi32) as libc::c_uchar;
-                    }
-                    dst.add(buf as *const libc::c_void, length);
-                    p = p.offset(length as isize)
-                }
-            } else if parms.bits_per_component == 16i32 {
-                while p.offset(length as isize) < endptr {
-                    for i in (0..length).step_by(2) {
-                        let b: libc::c_int = i - bytes_per_pixel;
-                        let hi: i8 = (if b >= 0i32 {
-                            *buf.offset(b as isize) as libc::c_int
-                        } else {
-                            0i32
-                        }) as i8;
-                        let lo: i8 = (if b >= 0i32 {
-                            *buf.offset((b + 1i32) as isize) as libc::c_int
-                        } else {
-                            0i32
-                        }) as i8;
-                        let pv_0: libc::c_int = (hi as libc::c_int) << 8i32 | lo as libc::c_int;
-                        let cv: libc::c_int = (*p.offset(i as isize) as libc::c_int) << 8i32
-                            | *p.offset((i + 1i32) as isize) as libc::c_int;
-                        let c: libc::c_int = pv_0 + cv;
-                        *buf.offset(i as isize) = (c >> 8i32) as libc::c_uchar;
-                        *buf.offset((i + 1i32) as isize) = (c & 0xffi32) as libc::c_uchar;
-                    }
-                    dst.add(buf as *const libc::c_void, length);
-                    p = p.offset(length as isize)
-                }
-            } else {
-                while error == 0 && p.offset(length as isize) < endptr {
-                    error = filter_row_TIFF2(buf, p, parms);
-                    if error == 0 {
-                        dst.add(buf as *const libc::c_void, length);
-                        p = p.offset(length as isize)
-                    }
-                }
+    let bits_per_pixel: i32 = parms.colors * parms.bits_per_component;
+    let bytes_per_pixel: i32 = (bits_per_pixel + 7i32) / 8i32;
+    let length: i32 = (parms.columns * bits_per_pixel + 7i32) / 8i32;
+    let len_usize = length as usize;
+    let mut error = 0i32;
+    if parms.predictor < 10 {
+        let mut buf = vec![0u8; length as usize];
+        match parms.predictor {
+            1 => {
+                /* No prediction */
+                dst_stream.add_slice(&data);
+                return error;
             }
-            current_block_77 = 6040267449472925966;
-        }
-        10 => {
-            /* PNG None */
-            current_block_77 = 18089190442011260268;
-        }
-        11 => {
-            current_block_77 = 18089190442011260268;
-        }
-        12 => {
-            current_block_77 = 15842817987810867823;
-        }
-        13 => {
-            current_block_77 = 6139367728676434155;
-        }
-        14 | 15 => {
-            current_block_77 = 6912830033131235815;
-        }
-        _ => {
-            warn!("Unknown Predictor type value :{}", parms.predictor,);
-            error = -1i32;
-            current_block_77 = 6040267449472925966;
-        }
-    }
-    match current_block_77 {
-        18089190442011260268 =>
-        /* PNG Sub on all rows */
-        {
-            current_block_77 = 15842817987810867823;
-        }
-        _ => {}
-    }
-    match current_block_77 {
-        15842817987810867823 =>
-        /* PNG UP on all rows */
-        {
-            current_block_77 = 6139367728676434155;
-        }
-        _ => {}
-    }
-    match current_block_77 {
-        6139367728676434155 =>
-        /* PNG Average on all rows */
-        {
-            current_block_77 = 6912830033131235815;
-        }
-        _ => {}
-    }
-    match current_block_77 {
-        6912830033131235815 =>
-        /* PNG Paeth on all rows */
-        /* PNG optimun: prediction algorithm can change from line to line. */
-        {
-            let mut typ: libc::c_int = parms.predictor - 10i32;
-            while error == 0 && p.offset(length as isize) < endptr {
-                if parms.predictor == 15i32 {
-                    typ = *p as libc::c_int
-                } else if *p as libc::c_int != typ {
-                    warn!("Mismatched Predictor type in data stream.",);
-                    error = -1i32
+            2 => {
+                let bytes_per_pixel = bytes_per_pixel as usize;
+                /* TIFF Predictor 2 */
+                if parms.bits_per_component == 8i32 {
+                    let mut chunks = data.chunks_exact(len_usize);
+                    while let Some(p) = chunks.next() {
+                        for i in 0..len_usize {
+                            let pixel_value: i32 = if i >= bytes_per_pixel {
+                                buf[(i - bytes_per_pixel) as usize] as i32
+                            } else {
+                                0i32
+                            };
+                            buf[i] = ((p[i] as i32) + pixel_value & 0xff) as u8;
+                        }
+                        dst_stream.add_slice(&buf[..len_usize]);
+                    }
+                    assert!(chunks.remainder().is_empty());
+                } else if parms.bits_per_component == 16i32 {
+                    let mut chunks = data.chunks_exact(len_usize);
+                    while let Some(p) = chunks.next() {
+                        for i in (0..length).step_by(2) {
+                            let b = (i - (bytes_per_pixel as i32)) as i32;
+                            let hi = if b >= 0 { buf[b as usize] as i32 } else { 0i32 };
+                            let lo = if b >= 0 {
+                                buf[(b as usize) + 1] as i32
+                            } else {
+                                0i32
+                            };
+                            let pv_0 = hi << 8 | lo;
+                            let i = i as usize;
+                            let cv = (p[i] as i32) << 8 | p[i + 1] as i32;
+                            let c = pv_0 + cv;
+                            buf[i] = (c >> 8) as u8;
+                            buf[i + 1] = (c & 0xff) as u8;
+                        }
+                        dst_stream.add_slice(&buf[..len_usize]);
+                    }
+                    assert!(chunks.remainder().is_empty());
+                } else {
+                    let mut chunks = data.chunks_exact(len_usize);
+                    while let Some(p) = chunks.next() {
+                        if error != 0 {
+                            break;
+                        }
+                        error = filter_row_TIFF2(buf.as_mut_slice(), p.as_ptr(), parms);
+                        if error == 0 {
+                            dst_stream.add_slice(&buf[..(length as usize)]);
+                        }
+                    }
+                    assert!(chunks.remainder().is_empty());
                 }
-                p = p.offset(1);
-                match typ {
-                    0 => {
-                        /* Do nothing just skip first byte */
-                        libc::memcpy(
-                            buf as *mut libc::c_void,
-                            p as *const libc::c_void,
-                            length as usize,
-                        ); /* left */
+                return error;
+            }
+            _ => {
+                warn!("Unknown Predictor type value :{}", parms.predictor,);
+                error = -1i32;
+                return error;
+            }
+        }
+    } else {
+        let rowlen = len_usize + 1;
+        let mut prev = vec![0u8; rowlen];
+        let mut current = vec![0u8; rowlen];
+        match parms.predictor {
+            // PNG can improve its compression ratios by applying filters to each scanline of the image.
+            // FlateDecode incorporates these filtering methods.
+            10 | // PNG None
+            11 | // PNG Sub on all rows
+            12 | // PNG UP on all rows
+            13 | // PNG Average on all rows
+            14 | // PNG Paeth on all rows
+            15   // PNG Optimun: each scanline encodes the filter type in its first byte.
+                 // The prediction algorithm can change from line to line
+            => {
+                let typ = (parms.predictor - 10) as u8;
+                let mut chunks = data.chunks_exact(rowlen);
+                let bytes_per_pixel = bytes_per_pixel as usize;
+                while let Some(p) = chunks.next() {
+                    if error != 0 {
+                        break;
                     }
-                    1 => {
-                        /* above */
-                        for i in 0..length {
-                            let pv_1: libc::c_int = if i - bytes_per_pixel >= 0i32 {
-                                *buf.offset((i - bytes_per_pixel) as isize) as libc::c_int
-                            } else {
-                                0i32
-                            }; /* upper left */
-                            *buf.offset(i as isize) = (*p.offset(i as isize) as libc::c_int + pv_1
-                                & 0xffi32)
-                                as libc::c_uchar; /* highly inefficient */
+                    if parms.predictor != 15 && p[0] != typ {
+                        warn!(
+                            "Mismatched Predictor type in data stream: predictor said {:?}, but line had {:?}",
+                            PngFilterType::from_u8(typ),
+                            PngFilterType::from_u8(p[0])
+                        );
+                        error = -1i32;
+                    }
+                    if let Some(filter) = PngFilterType::from_u8(p[0]) {
+                        current[..rowlen].copy_from_slice(p);
+                        if let Err(unf_err) = png_unfilter_scanline(filter, bytes_per_pixel, &prev[1..rowlen], &mut current[1..rowlen]) {
+                            warn!("unfiltering PNG scanline failed: {}", unf_err);
+                            error = -1;
                         }
+                        prev[..rowlen].copy_from_slice(&current[..rowlen]);
+                    } else {
+                        warn!("Unknown PNG predictor type: {}", p[0],);
+                        error = -1;
                     }
-                    2 => {
-                        for i in 0..length {
-                            *buf.offset(i as isize) = (*p.offset(i as isize) as libc::c_int
-                                + *prev.offset(i as isize) as libc::c_int
-                                & 0xffi32)
-                                as libc::c_uchar;
-                        }
-                    }
-                    3 => {
-                        for i in 0..length {
-                            let up: libc::c_int = *prev.offset(i as isize) as libc::c_int;
-                            let left: libc::c_int = if i - bytes_per_pixel >= 0i32 {
-                                *buf.offset((i - bytes_per_pixel) as isize) as libc::c_int
-                            } else {
-                                0i32
-                            };
-                            let tmp: libc::c_int =
-                                (((up + left) / 2i32) as f64).floor() as libc::c_int;
-                            *buf.offset(i as isize) = (*p.offset(i as isize) as libc::c_int + tmp
-                                & 0xffi32)
-                                as libc::c_uchar;
-                        }
-                    }
-                    4 => {
-                        for i in 0..length {
-                            let a: libc::c_int = if i - bytes_per_pixel >= 0i32 {
-                                *buf.offset((i - bytes_per_pixel) as isize) as libc::c_int
-                            } else {
-                                0i32
-                            };
-                            let b_0: libc::c_int = *prev.offset(i as isize) as libc::c_int;
-                            let c_0: libc::c_int = if i - bytes_per_pixel >= 0i32 {
-                                *prev.offset((i - bytes_per_pixel) as isize) as libc::c_int
-                            } else {
-                                0i32
-                            };
-                            let q: libc::c_int = a + b_0 - c_0;
-                            let mut qa: libc::c_int = q - a;
-                            let mut qb: libc::c_int = q - b_0;
-                            let mut qc: libc::c_int = q - c_0;
-                            qa = if qa < 0i32 { -qa } else { qa };
-                            qb = if qb < 0i32 { -qb } else { qb };
-                            qc = if qc < 0i32 { -qc } else { qc };
-                            if qa <= qb && qa <= qc {
-                                *buf.offset(i as isize) = (*p.offset(i as isize) as libc::c_int + a
-                                    & 0xffi32)
-                                    as libc::c_uchar
-                            } else if qb <= qc {
-                                *buf.offset(i as isize) =
-                                    (*p.offset(i as isize) as libc::c_int + b_0 & 0xffi32)
-                                        as libc::c_uchar
-                            } else {
-                                *buf.offset(i as isize) =
-                                    (*p.offset(i as isize) as libc::c_int + c_0 & 0xffi32)
-                                        as libc::c_uchar
-                            }
-                        }
-                    }
-                    _ => {
-                        warn!("Unknown PNG predictor type: {}", typ,);
-                        error = -1i32
+                    if error == 0 {
+                        dst_stream.add_slice(&current[1..rowlen]);
                     }
                 }
                 if error == 0 {
-                    dst.add(buf as *const libc::c_void, length);
-                    libc::memcpy(
-                        prev as *mut libc::c_void,
-                        buf as *const libc::c_void,
-                        length as usize,
-                    );
-                    p = p.offset(length as isize)
+                    if !chunks.remainder().is_empty() {
+                        warn!("remaining scanlines in PNG stream decoding");
+                        error = -1;
+                    }
                 }
             }
+            _ => {
+                warn!("Unknown Predictor type value: {}", parms.predictor,);
+                error = -1i32;
+                return error;
+            }
         }
-        _ => {}
     }
-    free(prev as *mut libc::c_void);
-    free(buf as *mut libc::c_void);
     error
 }
+
 #[cfg(feature = "libz-sys")]
 unsafe fn pdf_add_stream_flate_filtered(
-    dst: &mut pdf_stream,
+    dst_stream: &mut pdf_stream,
     data: &[u8],
     parms: &mut decode_parms,
 ) -> libc::c_int {
@@ -2480,7 +2367,7 @@ unsafe fn pdf_add_stream_flate_filtered(
         warn!("inflateInit() failed.");
         return -1i32;
     }
-    let mut tmp = pdf_stream::new(0i32);
+    let mut tmp_stream = pdf_stream::new(0);
     loop {
         let status = libz::inflate(&mut z, 0i32);
         if status == 1i32 {
@@ -2492,15 +2379,16 @@ unsafe fn pdf_add_stream_flate_filtered(
             return -1i32;
         }
         if z.avail_out == 0i32 as libc::c_uint {
-            tmp.add(wbuf.as_mut_ptr() as *const libc::c_void, 4096i32);
+            tmp_stream.add_slice(&wbuf[..]);
             z.next_out = wbuf.as_mut_ptr();
-            z.avail_out = 4096i32 as libz::uInt
+            z.avail_out = WBUF_SIZE as libz::uInt
         }
     }
-    if (4096i32 as libc::c_uint).wrapping_sub(z.avail_out) > 0i32 as libc::c_uint {
-        tmp.add_slice(&wbuf[..((4096u32).wrapping_sub(z.avail_out) as usize)]);
+    if (WBUF_SIZE as u32) > z.avail_out {
+        let remain = &wbuf[..(WBUF_SIZE - (z.avail_out as usize))];
+        tmp_stream.add_slice(remain);
     }
-    let error = filter_decoded(dst, &tmp.content, parms);
+    let error = filter_decoded(dst_stream, &tmp_stream.content, parms);
     if error == 0 && libz::inflateEnd(&mut z) == 0i32 {
         0i32
     } else {
@@ -2682,14 +2570,8 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
         &mut (*stream).content,
         Vec::with_capacity(22 * pos as usize),
     );
-    let mut i: i32 = 2i32 * pos;
     let mut val: *mut i32 = data.offset(2);
-    loop {
-        let fresh16 = i;
-        i = i - 1;
-        if !(fresh16 != 0) {
-            break;
-        }
+    for _ in 0..(2 * pos) {
         let slice = format!("{} ", *val);
         val = val.offset(1);
         (*objstm).as_stream_mut().add_slice(slice.as_bytes());
@@ -2735,9 +2617,8 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
                     let data: *mut i32 = new(((2i32 * 200i32 + 2i32) as u32 as u64)
                         .wrapping_mul(::std::mem::size_of::<i32>() as u64)
                         as u32) as *mut i32;
-                    let ref mut fresh18 = *data.offset(1);
-                    *fresh18 = 0i32;
-                    *data.offset(0) = *fresh18;
+                    *data.offset(1) = 0;
+                    *data.offset(0) = 0;
                     current_objstm = pdf_stream::new(STREAM_COMPRESS).into_obj();
                     set_objstm_data(&mut *current_objstm, data);
                     pdf_label_obj(current_objstm);
@@ -3004,12 +2885,10 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
                                 .wrapping_mul(::std::mem::size_of::<i32>() as u64)
                                 as u32) as *mut i32;
                             set_objstm_data(&mut *objstm, header);
-                            let fresh20 = header;
+                            *header = n;
                             header = header.offset(1);
-                            *fresh20 = n;
-                            let fresh21 = header;
+                            *header = first;
                             header = header.offset(1);
-                            *fresh21 = first;
                             /* avoid parsing beyond offset table */
                             data = new(((first + 1i32) as u32 as u64)
                                 .wrapping_mul(::std::mem::size_of::<i8>() as u64)
@@ -3030,9 +2909,8 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
                                     current_block = 3275366147856559585;
                                     break;
                                 }
-                                let fresh23 = header;
+                                *header = strtoul(p, &mut q, 10i32) as i32;
                                 header = header.offset(1);
-                                *fresh23 = strtoul(p, &mut q, 10i32) as i32;
                                 if q == p as *mut i8 {
                                     current_block = 13429587009686472387;
                                     break;
@@ -3107,12 +2985,10 @@ unsafe fn pdf_get_object(pf: &mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
             }
         {
             let mut data = get_objstm_data(&*objstm);
-            let fresh25 = data;
+            let n = *data;
             data = data.offset(1);
-            let n = *fresh25;
-            let fresh26 = data;
+            let first = *data;
             data = data.offset(1);
-            let first = *fresh26;
             if !(index as i32 >= n)
                 && *data.offset((2i32 * index as i32) as isize) as u32 == obj_num
             {
@@ -3133,8 +3009,7 @@ unsafe fn pdf_get_object(pf: &mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
 
     if let Some(result) = result {
         /* Make sure the caller doesn't free this object */
-        let ref mut fresh27 = (*pf.xref_table.offset(obj_num as isize)).direct;
-        *fresh27 = pdf_link_obj(result);
+        (*pf.xref_table.offset(obj_num as isize)).direct = pdf_link_obj(result);
         result
     } else {
         warn!("Could not read object from object stream.");
@@ -3198,10 +3073,8 @@ unsafe fn extend_xref(mut pf: *mut pdf_file, new_size: i32) {
         (new_size as u32 as u64).wrapping_mul(::std::mem::size_of::<xref_entry>() as u64) as u32,
     ) as *mut xref_entry;
     for i in ((*pf).num_obj as u32)..new_size as u32 {
-        let ref mut fresh29 = (*(*pf).xref_table.offset(i as isize)).direct;
-        *fresh29 = ptr::null_mut();
-        let ref mut fresh30 = (*(*pf).xref_table.offset(i as isize)).indirect;
-        *fresh30 = ptr::null_mut();
+        (*(*pf).xref_table.offset(i as isize)).direct = ptr::null_mut();
+        (*(*pf).xref_table.offset(i as isize)).indirect = ptr::null_mut();
         (*(*pf).xref_table.offset(i as isize)).typ = 0_u8;
         (*(*pf).xref_table.offset(i as isize)).id = (0, 0);
     }
@@ -3396,21 +3269,15 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
     }
     1i32
 }
-unsafe fn parse_xrefstm_field(p: *mut *const i8, mut length: i32, def: u32) -> u32 {
+unsafe fn parse_xrefstm_field(p: *mut *const i8, length: i32, def: u32) -> u32 {
     let mut val: u32 = 0_u32;
     if length == 0 {
         return def;
     }
-    loop {
-        let fresh31 = length;
-        length = length - 1;
-        if !(fresh31 != 0) {
-            break;
-        }
-        val <<= 8i32;
-        let fresh32 = *p;
+    for _ in 0..length {
+        val <<= 8;
+        val |= **p as u8 as u32;
         *p = (*p).offset(1);
-        val |= *fresh32 as u8 as u32
     }
     val
 }
@@ -3421,7 +3288,7 @@ unsafe fn parse_xrefstm_subsec(
     W: *mut i32,
     wsum: i32,
     first: i32,
-    mut size: i32,
+    size: i32,
 ) -> i32 {
     *length -= wsum * size;
     if *length < 0i32 {
@@ -3431,12 +3298,7 @@ unsafe fn parse_xrefstm_subsec(
         extend_xref(pf, first + size);
     }
     let mut e: *mut xref_entry = (*pf).xref_table.offset(first as isize);
-    loop {
-        let fresh33 = size;
-        size = size - 1;
-        if !(fresh33 != 0) {
-            break;
-        }
+    for _ in 0..size {
         let typ = parse_xrefstm_field(p, *W.offset(0), 1_u32) as u8;
         if typ as i32 > 2i32 {
             warn!("Unknown cross-reference stream entry type.");
@@ -3947,4 +3809,147 @@ pub(crate) unsafe fn pdf_obj_reset_global_state() {
     pdf_output_file_position = 0;
     pdf_output_line_position = 0;
     compression_saved = 0i32;
+}
+
+use self::png_crate_filter::{unfilter as png_unfilter_scanline, FilterType as PngFilterType};
+
+/// The png crate doesn't export these, but we need them to implement the FlateDecode parameters
+/// Each function does
+/// MIT / Apache-2.0 dual-licenced.
+mod png_crate_filter {
+
+    // Snipped
+    pub use png::FilterType;
+
+    fn filter_paeth(a: u8, b: u8, c: u8) -> u8 {
+        let ia = a as i16;
+        let ib = b as i16;
+        let ic = c as i16;
+
+        let p = ia + ib - ic;
+
+        let pa = (p - ia).abs();
+        let pb = (p - ib).abs();
+        let pc = (p - ic).abs();
+
+        if pa <= pb && pa <= pc {
+            a
+        } else if pb <= pc {
+            b
+        } else {
+            c
+        }
+    }
+
+    pub fn unfilter(
+        filter: FilterType,
+        bpp: usize,
+        previous: &[u8],
+        current: &mut [u8],
+    ) -> std::result::Result<(), &'static str> {
+        use self::FilterType::*;
+        assert!(bpp > 0);
+        let len = current.len();
+
+        match filter {
+            NoFilter => Ok(()),
+            Sub => {
+                for i in bpp..len {
+                    current[i] = current[i].wrapping_add(current[i - bpp]);
+                }
+                Ok(())
+            }
+            Up => {
+                if previous.len() < len {
+                    Err("Filtering failed: not enough data in previous row")
+                } else {
+                    for i in 0..len {
+                        current[i] = current[i].wrapping_add(previous[i]);
+                    }
+                    Ok(())
+                }
+            }
+            Avg => {
+                if previous.len() < len {
+                    Err("Filtering failed:  not enough data in previous row")
+                } else if bpp > len {
+                    Err("Filtering failed: bytes per pixel is greater than length of row")
+                } else {
+                    for i in 0..bpp {
+                        current[i] = current[i].wrapping_add(previous[i] / 2);
+                    }
+
+                    for i in bpp..len {
+                        current[i] = current[i].wrapping_add(
+                            ((current[i - bpp] as i16 + previous[i] as i16) / 2) as u8,
+                        );
+                    }
+                    Ok(())
+                }
+            }
+            Paeth => {
+                if previous.len() < len {
+                    Err("Filtering failed: not enough data in previous row")
+                } else if bpp > len {
+                    Err("Filtering failed: bytes per pixel is greater than length of row")
+                } else {
+                    for i in 0..bpp {
+                        current[i] = current[i].wrapping_add(filter_paeth(0, previous[i], 0));
+                    }
+
+                    for i in bpp..len {
+                        current[i] = current[i].wrapping_add(filter_paeth(
+                            current[i - bpp],
+                            previous[i],
+                            previous[i - bpp],
+                        ));
+                    }
+                    Ok(())
+                }
+            }
+        }
+    }
+
+    pub fn filter(method: FilterType, bpp: usize, previous: &[u8], current: &mut [u8]) {
+        use self::FilterType::*;
+        assert!(bpp > 0);
+        let len = current.len();
+
+        match method {
+            NoFilter => (),
+            Sub => {
+                for i in (bpp..len).rev() {
+                    current[i] = current[i].wrapping_sub(current[i - bpp]);
+                }
+            }
+            Up => {
+                for i in 0..len {
+                    current[i] = current[i].wrapping_sub(previous[i]);
+                }
+            }
+            Avg => {
+                for i in (bpp..len).rev() {
+                    current[i] =
+                        current[i].wrapping_sub(current[i - bpp].wrapping_add(previous[i]) / 2);
+                }
+
+                for i in 0..bpp {
+                    current[i] = current[i].wrapping_sub(previous[i] / 2);
+                }
+            }
+            Paeth => {
+                for i in (bpp..len).rev() {
+                    current[i] = current[i].wrapping_sub(filter_paeth(
+                        current[i - bpp],
+                        previous[i],
+                        previous[i - bpp],
+                    ));
+                }
+
+                for i in 0..bpp {
+                    current[i] = current[i].wrapping_sub(filter_paeth(0, previous[i], 0));
+                }
+            }
+        }
+    }
 }

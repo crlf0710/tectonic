@@ -71,38 +71,19 @@ use super::dpx_cff::cff_font;
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-unsafe fn t1_decrypt(
-    mut key: u16,
-    mut dst: *mut u8,
-    mut src: *const u8,
-    mut skip: i32,
-    mut len: i32,
-) {
+unsafe fn t1_decrypt(mut key: u16, mut dst: *mut u8, mut src: *const u8, skip: i32, mut len: i32) {
     len -= skip;
-    loop {
-        let fresh0 = skip;
-        skip = skip - 1;
-        if !(fresh0 != 0) {
-            break;
-        }
-        let fresh1 = src;
-        src = src.offset(1);
-        key = ((key as i32 + *fresh1 as i32) as u32)
+    for _ in 0..skip {
+        key = ((key as i32 + *src as i32) as u32)
             .wrapping_mul(52845u32)
-            .wrapping_add(22719u32) as u16
-    }
-    loop {
-        let fresh2 = len;
-        len = len - 1;
-        if !(fresh2 != 0) {
-            break;
-        }
-        let fresh3 = src;
+            .wrapping_add(22719u32) as u16;
         src = src.offset(1);
-        let c: u8 = *fresh3;
-        let fresh4 = dst;
+    }
+    for _ in 0..len {
+        let c: u8 = *src;
+        src = src.offset(1);
+        *dst = (c as i32 ^ key as i32 >> 8) as u8;
         dst = dst.offset(1);
-        *fresh4 = (c as i32 ^ key as i32 >> 8i32) as u8;
         key = ((key as i32 + c as i32) as u32)
             .wrapping_mul(52845u32)
             .wrapping_add(22719u32) as u16
@@ -748,8 +729,7 @@ unsafe fn try_put_or_putinterval(
                 _ => return Err(()),
             }
             free(*enc_vec.offset(num1 as isize) as *mut libc::c_void);
-            let ref mut fresh6 = *enc_vec.offset(num1 as isize);
-            *fresh6 = xstrdup(*enc_vec.offset(num2 as isize));
+            *enc_vec.offset(num1 as isize) = xstrdup(*enc_vec.offset(num2 as isize));
             Ok(())
         }
         Some(PstObj::Integer(num2)) if (num2 >= 0 && num2 + num1 < 256) => {
@@ -772,11 +752,10 @@ unsafe fn try_put_or_putinterval(
             for i in 0..num2 {
                 if !(*enc_vec.offset((num1 + i) as isize)).is_null() {
                     /* num1 + i < 256 here */
-                    let ref mut fresh7 = *enc_vec.offset((num3 + i) as isize);
-                    *fresh7 =
+                    *enc_vec.offset((num3 + i) as isize) =
                         mfree(*enc_vec.offset((num3 + i) as isize) as *mut libc::c_void) as *mut i8;
-                    let ref mut fresh8 = *enc_vec.offset((num3 + i) as isize);
-                    *fresh8 = xstrdup(*enc_vec.offset((num1 + i) as isize))
+                    *enc_vec.offset((num3 + i) as isize) =
+                        xstrdup(*enc_vec.offset((num1 + i) as isize));
                 }
             }
             Ok(())
@@ -806,17 +785,16 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
                             b".notdef\x00" as *const u8 as *const i8,
                         ) != 0i32
                     {
-                        let ref mut fresh9 = *enc_vec.offset(code as isize);
-                        *fresh9 = new((strlen(StandardEncoding[code as usize]).wrapping_add(1))
-                            .wrapping_mul(::std::mem::size_of::<i8>())
-                            as _) as *mut i8;
+                        *enc_vec.offset(code as isize) =
+                            new((strlen(StandardEncoding[code as usize]).wrapping_add(1))
+                                .wrapping_mul(::std::mem::size_of::<i8>())
+                                as _) as *mut i8;
                         strcpy(
                             *enc_vec.offset(code as isize),
                             StandardEncoding[code as usize],
                         );
                     } else {
-                        let ref mut fresh10 = *enc_vec.offset(code as isize);
-                        *fresh10 = ptr::null_mut()
+                        *enc_vec.offset(code as isize) = ptr::null_mut();
                     }
                     code += 1
                 }
@@ -832,17 +810,16 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
                             b".notdef\x00" as *const u8 as *const i8,
                         ) != 0i32
                     {
-                        let ref mut fresh11 = *enc_vec.offset(code as isize);
-                        *fresh11 = new((strlen(ISOLatin1Encoding[code as usize]).wrapping_add(1))
-                            .wrapping_mul(::std::mem::size_of::<i8>())
-                            as _) as *mut i8;
+                        *enc_vec.offset(code as isize) =
+                            new((strlen(ISOLatin1Encoding[code as usize]).wrapping_add(1))
+                                .wrapping_mul(::std::mem::size_of::<i8>())
+                                as _) as *mut i8;
                         strcpy(
                             *enc_vec.offset(code as isize),
                             ISOLatin1Encoding[code as usize],
                         );
                     } else {
-                        let ref mut fresh12 = *enc_vec.offset(code as isize);
-                        *fresh12 = ptr::null_mut()
+                        *enc_vec.offset(code as isize) = ptr::null_mut()
                     }
                     code += 1
                 }
@@ -910,11 +887,10 @@ unsafe fn parse_encoding(enc_vec: *mut *mut i8, start: *mut *mut u8, end: *mut u
                                         match pst_get_token(start, end).unwrap() {
                                             PstObj::Unknown(data) if data.starts_with(b"put") => {}
                                             _ => {
-                                                let ref mut fresh14 =
-                                                    *enc_vec.offset(code as isize);
-                                                *fresh14 = mfree(*enc_vec.offset(code as isize)
-                                                    as *mut libc::c_void)
-                                                    as *mut i8;
+                                                *enc_vec.offset(code as isize) =
+                                                    mfree(*enc_vec.offset(code as isize)
+                                                        as *mut libc::c_void)
+                                                        as *mut i8;
                                             }
                                         }
                                     }
@@ -948,8 +924,7 @@ unsafe fn parse_subrs(
         }
     };
     if count == 0i32 {
-        let ref mut fresh15 = *font.subrs.offset(0);
-        *fresh15 = ptr::null_mut();
+        *font.subrs.offset(0) = ptr::null_mut();
         return Ok(());
     }
     match pst_get_token(start, end) {
@@ -1221,12 +1196,8 @@ unsafe fn parse_charstrings(
                                         offset as _,
                                     );
                                     for j in 1..=i {
-                                        let ref mut fresh18 =
-                                            *(*charstrings).offset.offset(j as isize);
-                                        *fresh18 = (*fresh18 as u32)
-                                            .wrapping_add((len - lenIV) as u32)
-                                            as l_offset
-                                            as l_offset;
+                                        *(*charstrings).offset.offset(j as isize) +=
+                                            (len - lenIV) as l_offset;
                                     }
                                 } else {
                                     memmove(
@@ -1236,11 +1207,8 @@ unsafe fn parse_charstrings(
                                         offset as _,
                                     );
                                     for j in 1..=i {
-                                        let ref mut fresh19 =
-                                            *(*charstrings).offset.offset(j as isize);
-                                        *fresh19 = (*fresh19 as u32).wrapping_add(len as u32)
-                                            as l_offset
-                                            as l_offset;
+                                        *(*charstrings).offset.offset(j as isize) +=
+                                            len as l_offset;
                                     }
                                 }
                             }
@@ -1694,10 +1662,8 @@ impl cff_font {
             _string: cff_new_index(0),
             is_notdef_notzero: 0,
         };
-        let ref mut fresh23 = *cff.private.offset(0);
-        *fresh23 = cff_new_dict();
-        let ref mut fresh24 = *cff.subrs.offset(0);
-        *fresh24 = ptr::null_mut();
+        *cff.private.offset(0) = cff_new_dict();
+        *cff.subrs.offset(0) = ptr::null_mut();
         cff
     }
 }

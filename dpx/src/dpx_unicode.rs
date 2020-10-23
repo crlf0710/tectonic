@@ -123,10 +123,9 @@ pub(crate) unsafe fn UC_UTF16BE_encode_char(
 
 pub(crate) unsafe fn UC_UTF8_decode_char(pp: *mut *const u8, endptr: *const u8) -> i32 {
     let mut p: *const u8 = *pp;
-    let fresh0 = p;
+    let mut c: u8 = *p;
     p = p.offset(1);
-    let mut c: u8 = *fresh0;
-    let (mut ucv, mut nbytes) = if c <= 0x7f {
+    let (mut ucv, nbytes) = if c <= 0x7f {
         (c as i32, 0)
     } else if c & 0xe0 == 0xc0 {
         /* 110x xxxx */
@@ -144,24 +143,18 @@ pub(crate) unsafe fn UC_UTF8_decode_char(pp: *mut *const u8, endptr: *const u8) 
         /* 1111 110x */
         (c as i32 & 0x1, 5)
     } else {
-        return -1i32;
+        return -1;
     };
     if p.offset(nbytes as isize) > endptr {
-        return -1i32;
+        return -1;
     }
-    loop {
-        let fresh1 = nbytes;
-        nbytes = nbytes - 1;
-        if !(fresh1 > 0i32) {
-            break;
+    for _ in 0..nbytes {
+        c = *p;
+        if c as i32 & 0xc0 != 0x80 {
+            return -1;
         }
-        let fresh2 = p;
         p = p.offset(1);
-        c = *fresh2;
-        if c as i32 & 0xc0i32 != 0x80i32 {
-            return -1i32;
-        }
-        ucv = ucv << 6i32 | c as i32 & 0x3fi32
+        ucv = ucv << 6 | c as i32 & 0x3f
     }
     *pp = p;
     ucv

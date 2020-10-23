@@ -23,7 +23,7 @@ macro_rules! info(
     }};
 );
 
-fn spe_do_nothing(_spe: &specials::spc_env) {}
+fn spe_do_nothing(_spe: &specials::SpcEnv) {}
 
 #[macro_export]
 macro_rules! spc_warn(

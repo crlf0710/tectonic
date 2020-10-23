@@ -25,19 +25,16 @@
     non_snake_case,
     non_upper_case_globals
 )]
-use crate::streq_ptr;
 use crate::{info, warn};
-use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_cid::CSI_IDENTITY;
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_mem::{new, renew};
 use crate::bridge::ttstub_input_open_str;
-use libc::{free, memcmp, memcpy, memset, strcpy};
+use libc::{free, memcmp, memcpy, memset};
 
 use crate::bridge::size_t;
-use crate::bridge::DisplayExt;
 use crate::bridge::TTInputFormat;
 
 use super::dpx_cid::CIDSysInfo;
@@ -68,10 +65,9 @@ pub(crate) struct mapData {
 /* CID, Code... MEM_ALLOC_SIZE bytes  */
 /* Previous mapData data segment      */
 /* Position of next free data segment */
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct CMap {
-    pub(crate) name: *mut i8,
+    pub(crate) name: String,
     pub(crate) type_0: i32,
     pub(crate) wmode: i32,
     pub(crate) CSI: *mut CIDSysInfo,
@@ -156,7 +152,7 @@ pub(crate) unsafe fn CMap_new() -> CMap {
 
     CMap {
         profile,
-        name: ptr::null_mut(),
+        name: String::new(),
         type_0: 1i32,
         wmode: 0i32,
         useCMap: ptr::null_mut(),
@@ -177,7 +173,7 @@ pub(crate) unsafe fn CMap_release(cmap: *mut CMap) {
     if cmap.is_null() {
         return;
     }
-    free((*cmap).name as *mut libc::c_void);
+    (*cmap).name = String::new();
     if !(*cmap).CSI.is_null() {
         free((*cmap).CSI as *mut libc::c_void);
     }
@@ -197,14 +193,13 @@ pub(crate) unsafe fn CMap_release(cmap: *mut CMap) {
 
 pub(crate) unsafe fn CMap_is_Identity(cmap: *mut CMap) -> bool {
     assert!(!cmap.is_null());
-    return streq_ptr((*cmap).name, b"Identity-H\x00" as *const u8 as *const i8) as i32 != 0
-        || streq_ptr((*cmap).name, b"Identity-V\x00" as *const u8 as *const i8) as i32 != 0;
+    return (*cmap).name == "Identity-H" || (*cmap).name == "Identity-V";
 }
 
 pub(crate) unsafe fn CMap_is_valid(cmap: *mut CMap) -> bool {
     /* Quick check */
     if cmap.is_null()
-        || (*cmap).name.is_null()
+        || (*cmap).name.is_empty()
         || (*cmap).type_0 < 0i32
         || (*cmap).type_0 > 3i32
         || (*cmap).codespace.num < 1_u32
@@ -330,10 +325,9 @@ pub(crate) unsafe fn CMap_decode_char(
     assert!(!(*cmap).mapTbl.is_null());
     let mut t = (*cmap).mapTbl;
     while count < *inbytesleft {
-        let fresh0 = p;
+        c = *p;
         p = p.offset(1);
-        c = *fresh0;
-        count = count.wrapping_add(1);
+        count += 1;
         if (*t.offset(c as isize)).flag & 1i32 << 4i32 == 0 {
             break;
         }
@@ -437,17 +431,15 @@ pub(crate) unsafe fn CMap_reverse_decode(cmap: *mut CMap, cid: CID) -> i32 {
 }
 
 pub(crate) unsafe fn CMap_get_name(cmap: &CMap) -> &str {
-    CStr::from_ptr((*cmap).name).to_str().unwrap_or("")
+    cmap.name.as_str()
 }
 
-pub(crate) unsafe fn CMap_get_type(cmap: *mut CMap) -> i32 {
-    assert!(!cmap.is_null());
-    (*cmap).type_0
+pub(crate) unsafe fn CMap_get_type(cmap: &CMap) -> i32 {
+    cmap.type_0
 }
 
-pub(crate) unsafe fn CMap_get_wmode(cmap: *mut CMap) -> i32 {
-    assert!(!cmap.is_null());
-    (*cmap).wmode
+pub(crate) unsafe fn CMap_get_wmode(cmap: &CMap) -> i32 {
+    cmap.wmode
 }
 
 pub(crate) unsafe fn CMap_get_CIDSysInfo(cmap: *mut CMap) -> *mut CIDSysInfo {
@@ -455,12 +447,8 @@ pub(crate) unsafe fn CMap_get_CIDSysInfo(cmap: *mut CMap) -> *mut CIDSysInfo {
     (*cmap).CSI
 }
 
-pub(crate) unsafe fn CMap_set_name(mut cmap: *mut CMap, name: &str) {
-    assert!(!cmap.is_null());
-    free((*cmap).name as *mut libc::c_void);
-    (*cmap).name = new(name.len() as u32 + 1) as *mut i8;
-    let name_cstr = CString::new(name).unwrap();
-    strcpy((*cmap).name, name_cstr.as_ptr());
+pub(crate) unsafe fn CMap_set_name(cmap: &mut CMap, name: &str) {
+    cmap.name = name.to_string();
 }
 
 pub(crate) unsafe fn CMap_set_type(mut cmap: *mut CMap, type_0: i32) {
@@ -507,12 +495,12 @@ pub(crate) unsafe fn CMap_set_usecmap(mut cmap: *mut CMap, ucmap: *mut CMap) {
      *  CMapName of cmap can be undefined when usecmap is executed in CMap parsing.
      *  And it is also possible CSI is not defined at that time.
      */
-    if streq_ptr((*cmap).name, (*ucmap).name) {
+    if (*cmap).name == (*ucmap).name {
         panic!(
             "{}: CMap refering itself not allowed: CMap {} --> {}",
             "CMap",
-            CStr::from_ptr((*cmap).name).display(),
-            CStr::from_ptr((*ucmap).name).display(),
+            (*cmap).name,
+            (*ucmap).name,
         );
     }
     if !(*cmap).CSI.is_null() {
@@ -675,8 +663,7 @@ pub(crate) unsafe fn CMap_add_notdefrange(
             }
         } else {
             (*cur.offset(c as isize)).flag = 0i32 | 1i32 << 3i32;
-            let ref mut fresh1 = (*cur.offset(c as isize)).code;
-            *fresh1 = get_mem(cmap, 2i32);
+            (*cur.offset(c as isize)).code = get_mem(cmap, 2i32);
             (*cur.offset(c as isize)).len = 2i32 as size_t;
             *(*cur.offset(c as isize)).code.offset(0) = (dst as i32 >> 8i32) as u8;
             *(*cur.offset(c as isize)).code.offset(1) = (dst as i32 & 0xffi32) as u8
@@ -731,8 +718,7 @@ pub(crate) unsafe fn CMap_add_bfrange(
             || (*cur.offset(c as isize)).len < dstdim
         {
             (*cur.offset(c as isize)).flag = 0i32 | 1i32 << 2i32;
-            let ref mut fresh2 = (*cur.offset(c as isize)).code;
-            *fresh2 = get_mem(cmap, dstdim as i32)
+            (*cur.offset(c as isize)).code = get_mem(cmap, dstdim as i32)
         }
         /*
          * We assume restriction to code ranges also applied here.
@@ -815,8 +801,7 @@ pub(crate) unsafe fn CMap_add_cidrange(
         } else {
             (*cur.offset(c as isize)).flag = 0i32 | 1i32 << 0i32;
             (*cur.offset(c as isize)).len = 2i32 as size_t;
-            let ref mut fresh3 = (*cur.offset(c as isize)).code;
-            *fresh3 = get_mem(cmap, 2i32);
+            (*cur.offset(c as isize)).code = get_mem(cmap, 2i32);
             *(*cur.offset(c as isize)).code.offset(0) = (base as i32 >> 8i32) as u8;
             *(*cur.offset(c as isize)).code.offset(1) = (base as i32 & 0xffi32) as u8;
             *(*cmap).reverseMap.offset(base as isize) = (v << 8i32).wrapping_add(c as _) as i32
@@ -842,10 +827,8 @@ unsafe fn mapDef_new() -> *mut mapDef {
         new((256_u64).wrapping_mul(::std::mem::size_of::<mapDef>() as u64) as u32) as *mut mapDef;
     for c in 0..256 {
         (*t.offset(c as isize)).flag = 0i32 | 0i32;
-        let ref mut fresh4 = (*t.offset(c as isize)).code;
-        *fresh4 = ptr::null_mut();
-        let ref mut fresh5 = (*t.offset(c as isize)).next;
-        *fresh5 = ptr::null_mut();
+        (*t.offset(c as isize)).code = ptr::null_mut();
+        (*t.offset(c as isize)).next = ptr::null_mut();
     }
     t
 }
@@ -881,8 +864,7 @@ unsafe fn locate_tbl(cur: *mut *mut mapDef, code: *const u8, dim: i32) -> i32 {
         }
         if (*(*cur).offset(c as isize)).next.is_null() {
             /* create new node */
-            let ref mut fresh6 = (*(*cur).offset(c as isize)).next;
-            *fresh6 = mapDef_new()
+            (*(*cur).offset(c as isize)).next = mapDef_new();
         }
         (*(*cur).offset(c as isize)).flag |= 1i32 << 4i32;
         *cur = (*(*cur).offset(c as isize)).next;
@@ -1056,7 +1038,7 @@ pub(crate) unsafe fn CMap_cache_add(mut cmap: Box<CMap>) -> i32 {
         let cmap_name0 = CMap_get_name(&*cmap);
         let cmap_name1 = CMap_get_name(&**other);
         if cmap_name0 == cmap_name1 {
-            panic!("{}: CMap \"{}\" already defined.", "CMap", cmap_name0,);
+            panic!("{}: CMap \"{}\" already defined.", "CMap", cmap_name0);
         }
     }
 

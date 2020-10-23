@@ -68,10 +68,10 @@ use crate::bridge::{ttstub_input_close, ttstub_input_open};
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_obj, pdf_out_flush,
     pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
-    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, pdf_string_length, pdf_string_value,
-    IntoObj, PdfObjType, PushObj, STREAM_COMPRESS,
+    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, IntoObj, PdfObjType, PushObj,
+    STREAM_COMPRESS,
 };
-use libc::{free, memcpy, strcmp, strcpy, strlen, strncmp, strncpy};
+use libc::{free, strcmp, strcpy, strlen, strncmp, strncpy};
 
 use crate::bridge::size_t;
 
@@ -367,29 +367,18 @@ unsafe fn doc_resize_page_entries(mut p: *mut pdf_doc, size: u32) {
         ) as *mut pdf_page; /* background */
         /* page body  */
         for i in (*p).pages.max_entries..size {
-            let ref mut fresh0 = (*(*p).pages.entries.offset(i as isize)).page_obj; /* global eop */
-            *fresh0 = ptr::null_mut();
-            let ref mut fresh1 = (*(*p).pages.entries.offset(i as isize)).page_ref;
-            *fresh1 = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).page_obj = ptr::null_mut(); /* global eop */
+            (*(*p).pages.entries.offset(i as isize)).page_ref = ptr::null_mut();
             (*(*p).pages.entries.offset(i as isize)).flags = 0i32;
-            let ref mut fresh2 = (*(*p).pages.entries.offset(i as isize)).resources;
-            *fresh2 = ptr::null_mut();
-            let ref mut fresh3 = (*(*p).pages.entries.offset(i as isize)).background;
-            *fresh3 = ptr::null_mut();
-            let ref mut fresh4 = (*(*p).pages.entries.offset(i as isize)).contents;
-            *fresh4 = ptr::null_mut();
-            let ref mut fresh5 = (*(*p).pages.entries.offset(i as isize)).content_refs[0];
-            *fresh5 = ptr::null_mut();
-            let ref mut fresh6 = (*(*p).pages.entries.offset(i as isize)).content_refs[1];
-            *fresh6 = ptr::null_mut();
-            let ref mut fresh7 = (*(*p).pages.entries.offset(i as isize)).content_refs[2];
-            *fresh7 = ptr::null_mut();
-            let ref mut fresh8 = (*(*p).pages.entries.offset(i as isize)).content_refs[3];
-            *fresh8 = ptr::null_mut();
-            let ref mut fresh9 = (*(*p).pages.entries.offset(i as isize)).annots;
-            *fresh9 = ptr::null_mut();
-            let ref mut fresh10 = (*(*p).pages.entries.offset(i as isize)).beads;
-            *fresh10 = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).resources = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).background = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).contents = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).content_refs[0] = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).content_refs[1] = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).content_refs[2] = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).content_refs[3] = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).annots = ptr::null_mut();
+            (*(*p).pages.entries.offset(i as isize)).beads = ptr::null_mut();
         }
         (*p).pages.max_entries = size
     };
@@ -411,34 +400,30 @@ unsafe fn doc_get_page_entry(p: *mut pdf_doc, page_no: u32) -> *mut pdf_page {
         .offset(page_no.wrapping_sub(1_u32) as isize) as *mut pdf_page
 }
 
-pub(crate) unsafe fn pdf_doc_set_bop_content(content: *const i8, length: u32) {
+pub(crate) unsafe fn pdf_doc_set_bop_content(content: &[u8]) {
     let mut p: *mut pdf_doc = &mut pdoc;
     assert!(!p.is_null());
     if !(*p).pages.bop.is_null() {
         pdf_release_obj((*p).pages.bop);
         (*p).pages.bop = ptr::null_mut()
     }
-    if length > 0_u32 {
+    if !content.is_empty() {
         (*p).pages.bop = pdf_stream::new(STREAM_COMPRESS).into_obj();
-        (*(*p).pages.bop)
-            .as_stream_mut()
-            .add(content as *const libc::c_void, length as i32);
+        (*(*p).pages.bop).as_stream_mut().add_slice(content);
     } else {
         (*p).pages.bop = ptr::null_mut()
     };
 }
 
-pub(crate) unsafe fn pdf_doc_set_eop_content(content: *const i8, length: u32) {
+pub(crate) unsafe fn pdf_doc_set_eop_content(content: &[u8]) {
     let mut p: *mut pdf_doc = &mut pdoc;
     if !(*p).pages.eop.is_null() {
         pdf_release_obj((*p).pages.eop);
         (*p).pages.eop = ptr::null_mut()
     }
-    if length > 0_u32 {
+    if !content.is_empty() {
         (*p).pages.eop = pdf_stream::new(STREAM_COMPRESS).into_obj();
-        (*(*p).pages.eop)
-            .as_stream_mut()
-            .add(content as *const libc::c_void, length as i32);
+        (*(*p).pages.eop).as_stream_mut().add_slice(content);
     } else {
         (*p).pages.eop = ptr::null_mut()
     };
@@ -496,7 +481,7 @@ unsafe fn pdf_doc_close_docinfo(mut p: *mut pdf_doc) {
                 warn!("\"{}\" in DocInfo dictionary not string type.", key,);
                 pdf_remove_dict(&mut *docinfo, key);
                 warn!("\"{}\" removed from DocInfo.", key,);
-            } else if pdf_string_length(&*value) == 0_u32 {
+            } else if (*value).as_string().len() == 0 {
                 /* The hyperref package often uses emtpy strings. */
                 pdf_remove_dict(&mut *docinfo, key);
             }
@@ -1499,10 +1484,8 @@ unsafe fn pdf_doc_init_names(mut p: *mut pdf_doc, check_gotos: i32) {
     for i in 0..(::std::mem::size_of::<[*const i8; 10]>() as u64)
         .wrapping_div(::std::mem::size_of::<*const i8>() as u64)
     {
-        let ref mut fresh13 = (*(*p).names.offset(i as isize)).category;
-        *fresh13 = name_dict_categories[i as usize];
-        let ref mut fresh14 = (*(*p).names.offset(i as isize)).data;
-        *fresh14 = if strcmp(
+        (*(*p).names.offset(i as isize)).category = name_dict_categories[i as usize];
+        (*(*p).names.offset(i as isize)).data = if strcmp(
             name_dict_categories[i as usize],
             b"Dests\x00" as *const u8 as *const i8,
         ) != 0
@@ -1516,18 +1499,16 @@ unsafe fn pdf_doc_init_names(mut p: *mut pdf_doc, check_gotos: i32) {
          * broken links even if no destination is defined in the DVI file.
          */
     }
-    let ref mut fresh15 = (*(*p).names.offset(
+    (*(*p).names.offset(
         (::std::mem::size_of::<[*const i8; 10]>() as u64)
             .wrapping_div(::std::mem::size_of::<*const i8>() as u64) as isize,
     ))
-    .category;
-    *fresh15 = ptr::null();
-    let ref mut fresh16 = (*(*p).names.offset(
+    .category = ptr::null();
+    (*(*p).names.offset(
         (::std::mem::size_of::<[*const i8; 10]>() as u64)
             .wrapping_div(::std::mem::size_of::<*const i8>() as u64) as isize,
     ))
-    .data;
-    *fresh16 = ptr::null_mut();
+    .data = ptr::null_mut();
     (*p).check_gotos = check_gotos;
     ht_init_table(
         &mut (*p).gotos,
@@ -1559,8 +1540,7 @@ pub(crate) unsafe fn pdf_doc_add_names(
         return -1i32;
     }
     if (*(*p).names.offset(i as isize)).data.is_null() {
-        let ref mut fresh17 = (*(*p).names.offset(i as isize)).data;
-        *fresh17 = pdf_new_name_tree()
+        (*(*p).names.offset(i as isize)).data = pdf_new_name_tree()
     }
     let keyptr = key.as_ptr() as *const libc::c_void;
     let keylen = key.len() as i32;
@@ -1618,11 +1598,8 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
         }
     }
 
-    let (dest, destlen) = if !D.is_null() && (*D).is_string() {
-        (
-            pdf_string_value(&*D) as *mut i8,
-            pdf_string_length(&*D) as i32,
-        )
+    let dest = if !D.is_null() && (*D).is_string() {
+        (*D).as_string().to_bytes()
     } else if !D.is_null() && (*D).is_array() {
         return cleanup(subtype, A, S, D);
     } else if !D.is_null() && (&*D).typ() == PdfObjType::UNDEFINED {
@@ -1631,8 +1608,11 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
         return error(subtype, A, S, D);
     };
 
-    let mut D_new =
-        ht_lookup_table(&mut pdoc.gotos, dest as *const libc::c_void, destlen) as *mut pdf_obj;
+    let mut D_new = ht_lookup_table(
+        &mut pdoc.gotos,
+        dest.as_ptr() as *const libc::c_void,
+        dest.len() as i32,
+    ) as *mut pdf_obj;
     if D_new.is_null() {
         /* We use hexadecimal notation for our numeric destinations.
          * Other bases (e.g., 10+26 or 10+2*26) would be more efficient.
@@ -1642,8 +1622,8 @@ unsafe fn pdf_doc_add_goto(annot_dict: *mut pdf_obj) {
         D_new = pdf_string::new(buf).into_obj();
         ht_append_table(
             &mut pdoc.gotos,
-            dest as *const libc::c_void,
-            destlen,
+            dest.as_ptr() as *const libc::c_void,
+            dest.len() as i32,
             D_new as *mut libc::c_void,
         );
     }
@@ -1681,20 +1661,8 @@ unsafe fn warn_undef_dests(dests: *mut ht_table, gotos: *mut ht_table) {
         let mut keylen: i32 = 0;
         let key: *mut i8 = ht_iter_getkey(&mut iter, &mut keylen);
         if ht_lookup_table(dests, key as *const libc::c_void, keylen).is_null() {
-            let dest: *mut i8 = new(((keylen + 1i32) as u32 as u64)
-                .wrapping_mul(::std::mem::size_of::<i8>() as u64)
-                as u32) as *mut i8;
-            memcpy(
-                dest as *mut libc::c_void,
-                key as *const libc::c_void,
-                keylen as _,
-            );
-            *dest.offset(keylen as isize) = 0_i8;
-            warn!(
-                "PDF destination \"{}\" not defined.",
-                CStr::from_ptr(dest).display()
-            );
-            free(dest as *mut libc::c_void);
+            let dest = std::slice::from_raw_parts(key as *const u8, keylen as usize);
+            warn!("PDF destination \"{}\" not defined.", dest.display());
         }
         if !(ht_iter_next(&mut iter) >= 0i32) {
             break;
@@ -1707,7 +1675,6 @@ unsafe fn pdf_doc_close_names(mut p: *mut pdf_doc) {
     while !(*(*p).names.offset(i as isize)).category.is_null() {
         if !(*(*p).names.offset(i as isize)).data.is_null() {
             let data: *mut ht_table = (*(*p).names.offset(i as isize)).data;
-            let mut count: i32 = 0;
             let name_tree;
             if pdoc.check_gotos == 0
                 || strcmp(
@@ -1715,9 +1682,11 @@ unsafe fn pdf_doc_close_names(mut p: *mut pdf_doc) {
                     b"Dests\x00" as *const u8 as *const i8,
                 ) != 0
             {
-                name_tree = pdf_names_create_tree(data, &mut count, ptr::null_mut());
+                let (_name_tree, _) = pdf_names_create_tree(data, ptr::null_mut());
+                name_tree = _name_tree;
             } else {
-                name_tree = pdf_names_create_tree(data, &mut count, &mut pdoc.gotos);
+                let (_name_tree, count) = pdf_names_create_tree(data, &mut pdoc.gotos);
+                name_tree = _name_tree;
                 if verbose != 0 && count < (*data).count {
                     info!(
                         "\nRemoved {} unused PDF destinations\n",
@@ -1910,8 +1879,7 @@ pub(crate) unsafe fn pdf_doc_add_bead(
                     as u32,
             ) as *mut pdf_bead;
             for i in (*article).num_beads..(*article).max_beads {
-                let ref mut fresh18 = (*(*article).beads.offset(i as isize)).id;
-                *fresh18 = ptr::null_mut();
+                (*(*article).beads.offset(i as isize)).id = ptr::null_mut();
                 (*(*article).beads.offset(i as isize)).page_no = -1i32;
             }
         }

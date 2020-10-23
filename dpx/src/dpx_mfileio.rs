@@ -52,9 +52,8 @@ pub(crate) unsafe fn tt_mfgets<R: Read + Seek>(
         && ch != '\n' as i32
         && ch != '\r' as i32
     {
-        let fresh1 = i;
+        *buffer.offset(i as isize) = ch as i8;
         i = i + 1;
-        *buffer.offset(fresh1 as isize) = ch as i8
     }
     *buffer.offset(i as isize) = '\u{0}' as i32 as i8;
     if ch < 0i32 && i == 0i32 {

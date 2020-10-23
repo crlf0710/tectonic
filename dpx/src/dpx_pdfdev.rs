@@ -311,16 +311,10 @@ fn p_dtoa(mut value: f64, prec: i32, b: &mut Vec<u8>) {
         n = 1;
     }
     if g != 0 {
-        let mut j: i32 = prec;
         buf[n] = b'.';
-        loop {
-            let fresh4 = j;
-            j = j - 1;
-            if !(fresh4 != 0) {
-                break;
-            }
+        for j in (0..prec).rev() {
             buf[n + 1 + j as usize] = ((g % 10) as u8).wrapping_add(b'0'); // TODO: check
-            g /= 10
+            g /= 10;
         }
         n += 1 + prec as usize;
         while buf[n - 1] == b'0' {
@@ -1028,16 +1022,16 @@ pub(crate) unsafe fn pdf_dev_set_string(
     let mut str_ptr = instr_ptr as *const u8;
     let mut length = instr_len;
     if (*font).format == 3i32 {
-        if handle_multibyte_string(font, &mut str_ptr, &mut length, ctype) < 0i32 {
+        if handle_multibyte_string(font, &mut str_ptr, &mut length, ctype) < 0 {
             panic!("Error in converting input string...");
         }
         if !(*real_font).used_chars.is_null() {
             for i in (0..length).step_by(2) {
-                let cid: u16 = ((*str_ptr.offset(i as isize) as i32) << 8i32
-                    | *str_ptr.offset(i.wrapping_add(1) as isize) as i32)
+                let cid: u16 = ((*str_ptr.offset(i as isize) as i32) << 8
+                    | *str_ptr.offset((i + 1) as isize) as i32)
                     as u16;
-                let ref mut fresh38 = *(*real_font).used_chars.offset((cid as i32 / 8i32) as isize);
-                *fresh38 = (*fresh38 as i32 | 1i32 << 7i32 - cid as i32 % 8i32) as i8;
+                *(*real_font).used_chars.offset((cid as i32 / 8) as isize) |=
+                    (1i32 << 7 - cid as i32 % 8) as i8;
             }
         }
     } else if !(*real_font).used_chars.is_null() {

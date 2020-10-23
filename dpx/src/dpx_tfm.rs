@@ -58,6 +58,7 @@ pub(crate) struct font_metric {
     pub(crate) source: i32,
 }
 
+#[allow(unused)]
 #[derive(Clone)]
 pub(crate) enum CharMap {
     None,
@@ -543,9 +544,9 @@ pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
     if verbose != 0 {
         info!(")");
     }
-    let fresh1 = fms.len();
+    let last = fms.len();
     fms.push(fm);
-    fresh1 as i32
+    last as i32
 }
 
 pub(crate) unsafe fn tfm_close_all() {
@@ -645,13 +646,13 @@ pub(crate) unsafe fn tfm_get_width(font_id: i32, ch: i32) -> f64 {
 }
 /* tfm_string_xxx() do not work for OFM... */
 
-pub(crate) unsafe fn tfm_string_width(font_id: i32, s: *const u8, len: u32) -> fixword {
+pub(crate) unsafe fn tfm_string_width(font_id: i32, s: &[u8]) -> fixword {
     let mut result: fixword = 0i32;
     if font_id < 0i32 || font_id as usize >= fms.len() {
         panic!("TFM: Invalid TFM ID: {}", font_id);
     }
-    for i in 0..len {
-        result += tfm_get_fw_width(font_id, *s.offset(i as isize) as i32);
+    for &i in s.iter() {
+        result += tfm_get_fw_width(font_id, i as i32);
     }
     result
 }

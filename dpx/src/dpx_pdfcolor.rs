@@ -35,7 +35,7 @@ use crate::{info, warn, FromBEByteSlice};
 use libc::{free, memcmp, memcpy, memset, strcmp, strcpy, strlen};
 use md5::{Digest, Md5};
 use std::error::Error;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::fmt;
 use std::ptr;
 
@@ -67,7 +67,7 @@ impl Error for PdfColorError {}
 #[derive(PartialEq, Clone, Debug)]
 pub(crate) enum PdfColor {
     Gray(f64),
-    Spot(CString, f64),
+    Spot(String, f64),
     Rgb(f64, f64, f64),
     Cmyk(f64, f64, f64, f64),
 }
@@ -134,16 +134,16 @@ impl PdfColor {
         }
     }
 
-    pub(crate) fn from_spot(name: CString, c: f64) -> Result<Self, PdfColorError> {
+    pub(crate) fn from_spot(name: &str, c: f64) -> Result<Self, PdfColorError> {
         if c < 0.0 || c > 1.0 {
             Err(PdfColorError::InvalidValue {
                 name: "grade",
                 value: c,
             })
-        } else if name.to_str().map(|s| s.is_empty()).unwrap_or(false) {
+        } else if name.is_empty() {
             Err(PdfColorError::EmptyName)
         } else {
-            Ok(PdfColor::Spot(name, c))
+            Ok(PdfColor::Spot(name.to_string(), c))
         }
     }
 
@@ -204,7 +204,7 @@ impl PdfColor {
         match self {
             PdfColor::Spot(name, c) => format!(
                 " /{} {} {} {} {}{}",
-                name.display(),
+                name,
                 ('C' as u8 | mask) as char,
                 ('S' as u8 | mask) as char,
                 format_float_with_printf_g((c / 0.001 + 0.5).floor() * 0.001),
@@ -322,7 +322,7 @@ pub(crate) unsafe fn pdf_color_clear_stack() {
     loop {
         let fresh4 = COLOR_STACK.current;
         COLOR_STACK.current = COLOR_STACK.current - 1;
-        if !(fresh4 != 0) {
+        if fresh4 == 0 {
             break;
         }
     }

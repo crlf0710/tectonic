@@ -188,9 +188,8 @@ pub(crate) unsafe fn pst_parse_name(inbuf: *mut *mut u8, inbufend: *mut u8) -> O
     }
     cur = cur.offset(1);
     while !(cur == inbufend || pst_token_end(*cur)) {
-        let fresh0 = cur;
+        let mut c = *cur;
         cur = cur.offset(1);
-        let mut c = *fresh0;
         if c as i32 == '#' as i32 {
             if cur.offset(2) >= inbufend {
                 warn!("Premature end of input name string.");
@@ -318,9 +317,8 @@ unsafe fn pst_string_parse_literal(inbuf: *mut *mut u8, inbufend: *mut u8) -> Op
     }
     cur = cur.offset(1);
     while cur < inbufend && wbuf.len() < 4096 && balance > 0 {
-        let fresh2 = cur;
+        c = *cur;
         cur = cur.offset(1);
-        c = *fresh2;
         match c {
             b'\\' => {
                 let mut valid: u8 = 0;
@@ -373,9 +371,9 @@ unsafe fn pst_string_parse_hex(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option
         if *cur == b'>' {
             break;
         }
-        let fresh8 = cur;
+        let byte = *cur;
         cur = cur.offset(1);
-        let mut hi = xtoi(*fresh8);
+        let mut hi = xtoi(byte);
         if hi < 0i32 {
             warn!(
                 "Invalid char for hex string <{:x}> treated as <0>.",
@@ -389,9 +387,9 @@ unsafe fn pst_string_parse_hex(inbuf: *mut *mut u8, inbufend: *mut u8) -> Option
         }
         /* 0 is appended if final hex digit is missing */
         let mut lo = if cur < inbufend {
-            let fresh9 = cur;
+            let byte = *cur;
             cur = cur.offset(1);
-            xtoi(*fresh9)
+            xtoi(byte)
         } else {
             0
         };
