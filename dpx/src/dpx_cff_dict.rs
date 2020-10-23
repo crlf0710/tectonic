@@ -417,7 +417,7 @@ unsafe fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
     let mut len: i32 = 0;
     let mut fail: i32 = 0;
     /* skip first byte (30) */
-    if data[0] as i32 != 30 || data.len() >= 1 {
+    if data[0] as i32 != 30 || data.len() <= 1 {
         return Err(CffError::ParseError);
     }
     *data = &data[1..];
@@ -483,7 +483,7 @@ unsafe fn add_dict(mut dict: *mut cff_dict, data: &mut &[u8]) -> Result<(), CffE
     let mut id = data[0] as i32;
     if id == 0xci32 {
         *data = &data[1..];
-        if !data.is_empty() || {
+        if data.is_empty() || {
             id = data[0] as i32 + CFF_LAST_DICT_OP1 as i32;
             id >= CFF_LAST_DICT_OP as i32
         } {
