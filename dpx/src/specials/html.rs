@@ -256,15 +256,19 @@ unsafe fn spc_handler_html__eophook(spe: *mut SpcEnv, dp: *mut libc::c_void) -> 
 }
 
 unsafe fn fqurl(baseurl: &[u8], name: &[u8]) -> Vec<u8> {
-    let mut q = Vec::new();
-    if !baseurl.is_empty() && baseurl[0] != 0 {
+    let mut q = Vec::with_capacity(if baseurl.is_empty() {
+        name.len()
+    } else {
+        name.len() + baseurl.len() + 1
+    });
+    if !baseurl.is_empty() {
         let len = baseurl.len();
-        q.extend(if baseurl[len-1] ==  b'/' {
-            &baseurl[..len-1]
+        q.extend(if baseurl[len - 1] == b'/' {
+            &baseurl[..len - 1]
         } else {
             baseurl
         });
-        if name[0] != 0 && name[0] != b'/' {
+        if !name.is_empty() && name[0] != b'/' {
             q.push(b'/');
         }
     }
@@ -283,21 +287,24 @@ unsafe fn html_open_link(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) 
     color.push_obj(0f64);
     color.push_obj(1f64);
     (*(*sd).link_dict).as_dict_mut().set("C", color);
-    let url = fqurl(CStr::from_ptr((*sd).baseurl).to_bytes(), name);
+    let url = fqurl(
+        if (*sd).baseurl.is_null() {
+            &[]
+        } else {
+            CStr::from_ptr((*sd).baseurl).to_bytes()
+        },
+        name,
+    );
     if url[0] == b'#' {
         /* url++; causes memory leak in free(url) */
-        (*(*sd).link_dict).as_dict_mut().set(
-            "Dest",
-            pdf_string::new(&url[1..]),
-        ); /* Otherwise must be bug */
+        (*(*sd).link_dict)
+            .as_dict_mut()
+            .set("Dest", pdf_string::new(&url[1..])); /* Otherwise must be bug */
     } else {
         let mut action = pdf_dict::new();
         action.set("Type", "Action");
         action.set("S", "URI");
-        action.set(
-            "URI",
-            pdf_string::new(url),
-        );
+        action.set("URI", pdf_string::new(url));
         let action = action.into_obj();
         (*(*sd).link_dict)
             .as_dict_mut()
@@ -326,11 +333,7 @@ unsafe fn html_open_dest(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) 
         array.into_obj(),
     );
     if error != 0 {
-        spc_warn!(
-            spe,
-            "Failed to add named destination: {}",
-            name.display(),
-        );
+        spc_warn!(spe, "Failed to add named destination: {}", name.display(),);
     }
     (*sd).pending_type = 1i32;
     error
@@ -351,10 +354,10 @@ unsafe fn spc_html__anchor_open(spe: &mut SpcEnv, attr: &pdf_obj, sd: *mut spc_h
             );
             -1i32
         }
-        (Some(href), None) => html_open_link(spe, href.as_string().to_bytes(), sd),
+        (Some(href), None) => html_open_link(spe, href.as_string().to_bytes_without_nul(), sd),
         (None, Some(name)) => {
             /* name */
-            html_open_dest(spe, name.as_string().to_bytes(), sd)
+            html_open_dest(spe, name.as_string().to_bytes_without_nul(), sd)
         }
         _ => {
             spc_warn!(spe, "You should have \"href\" or \"name\" in anchor tag!");
