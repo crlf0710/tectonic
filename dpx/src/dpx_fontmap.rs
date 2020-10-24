@@ -26,20 +26,16 @@
     non_upper_case_globals
 )]
 
-use std::io::{Read, Seek};
-
 use crate::bridge::DisplayExt;
 use std::ffi::{CStr, CString};
 use std::ptr;
 
-use super::dpx_mfileio::work_buffer;
 use crate::strstartswith;
 use crate::{info, warn, SkipBlank};
 
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_dpxutil::{ParseCString, ParseFloatDecimal};
 use super::dpx_mem::new;
-use super::dpx_mfileio::tt_mfgets;
 use super::dpx_subfont::{release_sfd_record, sfd_get_subfont_ids};
 use libc::{atof, atoi, memcpy, strchr, strcpy, strlen, strtol, strtoul};
 
@@ -181,28 +177,6 @@ unsafe fn fill_in_defaults(mrec: &mut fontmap_rec, tex_name: &str) {
             mrec.opt.charcoll = "UCS".to_owned();
         }
     };
-}
-unsafe fn tt_readline<R: Read + Seek>(buf: *mut i8, buf_len: i32, handle: &mut R) -> *mut i8 {
-    assert!(!buf.is_null() && buf_len > 0i32);
-    let p = tt_mfgets(buf, buf_len, handle);
-    if p.is_null() {
-        return ptr::null_mut();
-    }
-    let q = strchr(p, '%' as i32); /* we don't have quoted string */
-    if !q.is_null() {
-        *q = '\u{0}' as i32 as i8
-    }
-    p
-}
-unsafe fn skip_blank(pp: *mut *const i8, endptr: *const i8) {
-    let mut p: *const i8 = *pp;
-    if p.is_null() || p >= endptr {
-        return;
-    }
-    while p < endptr && (*p as i32 & !0x7fi32 == 0i32 && crate::isblank(*p as _)) {
-        p = p.offset(1)
-    }
-    *pp = p;
 }
 
 trait ParseStringValue {
@@ -769,10 +743,10 @@ pub(crate) unsafe fn pdf_insert_fontmap_record(kp: &str, vp: &fontmap_rec) -> Re
 
 pub(crate) unsafe fn pdf_read_fontmap_line(
     mrec: &mut fontmap_rec,
-    mline: &[u8],
+    mline: &str,
     format: i32,
 ) -> i32 {
-    let mut p = mline;
+    let mut p = mline.as_bytes();
     p.skip_blank();
     if p.is_empty() {
         return -1i32;
@@ -814,38 +788,20 @@ pub(crate) unsafe fn pdf_read_fontmap_line(
  * DVIPDFM fontmap line otherwise.
  */
 
-pub(crate) unsafe fn is_pdfm_mapline(mline: &[u8]) -> i32
-/* NULL terminated. */ {
-    let mut n: u32 = 0_u32; /* DVIPS/pdfTeX format */
-    if mline.contains(&b'\"') || mline.contains(&b'<') {
-        return -1;
+pub(crate) unsafe fn is_pdfm_mapline(mline: &str) -> i32 {
+    if mline.contains('"') || mline.contains('<') {
+        return -1; /* DVIPS/pdfTeX format */
     }
-    let mut p = mline;
-    p.skip_blank();
-    while !p.is_empty() {
-        /* Break if '-' preceeded by blanks is found. (DVIPDFM format) */
-        if p[0] == b'-' {
-            return 1;
-        }
-        n += 1;
-        while !p.is_empty() && !(p[0] as i32 & !0x7fi32 == 0i32 && crate::isblank(p[0] as _)) {
-            p = &p[1..];
-        }
-        p.skip_blank();
-    }
-    /* Two entries: TFM_NAME PS_NAME only (DVIPS format)
-     * Otherwise (DVIPDFM format) */
-    if n == 2 {
-        0
+    if mline.split_ascii_whitespace().count() == 2 {
+        0 // Two entries: TFM_NAME PS_NAME only (DVIPS format)
     } else {
-        1
+        1 // Otherwise (DVIPDFM format)
     }
 }
 
 pub(crate) unsafe fn pdf_load_fontmap_file(filename: &str, mode: i32) -> i32 {
-    let mut p: *const i8 = std::ptr::null();
-    let mut lpos: i32 = 0i32;
     let mut error: i32 = 0i32;
+    let mut lpos: i32 = 0i32;
     let mut format: i32 = 0i32;
     if verbose != 0 {
         info!("<FONTMAP:");
@@ -855,37 +811,49 @@ pub(crate) unsafe fn pdf_load_fontmap_file(filename: &str, mode: i32) -> i32 {
         warn!("Couldn\'t open font map file \"{}\".", filename);
         return -1i32;
     }
-    let mut handle = handle.unwrap();
-    while error == 0 && {
-        p = tt_readline(work_buffer.as_mut_ptr(), 1024i32, &mut handle);
-        !p.is_null()
-    } {
+    let handle = handle.unwrap();
+    let mut bufreader = std::io::BufReader::new(handle);
+    use std::io::BufRead;
+    let mut line = String::new();
+    loop {
         lpos += 1;
-        let llen = strlen(work_buffer.as_mut_ptr()) as i32;
-        let mut p = std::slice::from_raw_parts(p as *const u8, llen as usize);
-        p.skip_blank();
-        if p.is_empty() {
+        line.clear();
+        bufreader.read_line(&mut line).expect("failed to fill fontmap line");
+        if line.is_empty() {
+            break;
+        }
+
+        // remove comments
+        if let Some((idx, _)) = line.char_indices().find(|(_, c)| *c == '%') {
+            line.truncate(idx);
+        }
+
+        let s = line.trim_start()
+            .trim_end_matches('\n')
+            .trim_end_matches('\r');
+        if s.is_empty() {
             continue;
         }
-        let m = is_pdfm_mapline(p);
+        let m = is_pdfm_mapline(s);
         if format * m < 0i32 {
             /* mismatch */
             warn!(
                 "Found a mismatched fontmap line {} from {}.",
                 lpos, filename,
             );
-            warn!("-- Ignore the current input buffer: {}", p.display());
+            warn!("-- Ignore the current input buffer: {}", s,);
         } else {
             format += m;
             let mut mrec = pdf_init_fontmap_record();
             /* format > 0: DVIPDFM, format <= 0: DVIPS/pdfTeX */
-            error = pdf_read_fontmap_line(&mut mrec, &p, format); // CHECK
+            error = pdf_read_fontmap_line(&mut mrec, s, format); // CHECK
             if error != 0 {
                 warn!(
                     "Invalid map record in fontmap line {} from {}.",
-                    lpos, filename,
+                    lpos, filename
                 );
-                warn!("-- Ignore the current input buffer: {}", p.display());
+                warn!("-- Ignore the current input buffer: {}", s);
+                break;
             } else {
                 match mode {
                     0 => {
