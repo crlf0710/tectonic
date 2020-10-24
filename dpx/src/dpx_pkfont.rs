@@ -532,7 +532,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
     let ident = &*font.ident;
     assert!(!ident.is_empty() && !usedchars.is_null() && point_size > 0.);
     let dpi = truedpi(ident, point_size, base_dpi);
-    let mut fp = dpx_open_pk_font_at(ident, dpi).expect(&format!(
+    let mut fp = dpx_open_pk_font_at(ident, dpi).unwrap_or_else(|| panic!(
         "Could not find/open PK font file: {} (at {}dpi)",
         ident, dpi
     ));

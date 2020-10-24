@@ -225,7 +225,7 @@ unsafe fn load_encoding_file(filename: &str) -> i32 {
     let mut wbuf_0 = vec![0_u8; fsize];
     handle
         .read(&mut wbuf_0[..])
-        .expect(&format!("error reading {}", filename));
+        .unwrap_or_else(|_| panic!("error reading {}", filename));
     let mut p = &wbuf_0[..fsize];
     p.skip_white();
     /*
