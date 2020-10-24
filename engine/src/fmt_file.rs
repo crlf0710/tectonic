@@ -581,24 +581,19 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     yhash = xmalloc_array::<b32x2>((1 + hash_top - hash_offset) as usize);
     hash = yhash.offset(-514);
-    (*hash.offset(HASH_BASE as isize)).s0 = 0;
-    (*hash.offset(HASH_BASE as isize)).s1 = 0;
 
-    x = (HASH_BASE + 1) as i32;
-    while x <= hash_top {
-        *hash.offset(x as isize) = *hash.offset(HASH_BASE as isize);
-        x += 1;
+    for x in HASH_BASE..=(hash_top as usize) {
+        *hash.add(x) = b32x2_le_t { s0: 0, s1: 0 };
     }
 
-    EQTB = vec![EqtbWord::default(); EQTB_TOP + 2];
-    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].cmd = Cmd::UndefinedCS as _;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].val = None.tex_int() as _;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE as usize].lvl = LEVEL_ZERO as _;
-
-    x = EQTB_SIZE as i32 + 1;
-    while x <= EQTB_TOP as i32 {
-        EQTB[x as usize] = EQTB[UNDEFINED_CONTROL_SEQUENCE as usize];
-        x += 1;
+    EQTB = Vec::with_capacity(EQTB_TOP+2);
+    unsafe { EQTB.set_len(EQTB_TOP + 2) };
+    for x in EQTB_SIZE..=EQTB_TOP {
+        EQTB[x] = EqtbWord {
+            cmd: Cmd::UndefinedCS as _,
+            val: None.tex_int() as _,
+            lvl: LEVEL_ZERO as _,
+        };
     }
 
     max_reg_num = 32767;
@@ -614,7 +609,10 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     cur_list.head = CONTRIB_HEAD;
     cur_list.tail = CONTRIB_HEAD;
     page_tail = PAGE_HEAD;
-    MEM = vec![memory_word::default(); MEM_TOP as usize + 2];
+
+
+    MEM = Vec::with_capacity(MEM_TOP+2);
+    unsafe { MEM.set_len(MEM_TOP + 2) };
 
     fmt_in.undump_one(&mut x);
     if x != EQTB_SIZE as i32 {
