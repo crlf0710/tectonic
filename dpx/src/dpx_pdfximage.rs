@@ -266,8 +266,7 @@ unsafe fn load_image(
     }
     if !fullname.is_empty() {
         I.filename =
-            new((fullname.len() + 1).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-                as *mut i8;
+            new((fullname.len() + 1).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
         let fullname = std::ffi::CString::new(fullname).unwrap();
         strcpy(I.filename, fullname.as_ptr());
     }

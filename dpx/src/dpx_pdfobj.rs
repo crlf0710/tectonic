@@ -3508,9 +3508,12 @@ unsafe fn read_xref(pf: &mut pdf_file) -> *mut pdf_obj {
         }
     }
 }
+use crate::dpx_dpxutil::HTHasher;
 use once_cell::sync::Lazy;
+use std::hash::BuildHasherDefault;
 
-static mut pdf_files: Lazy<HashMap<String, Box<pdf_file>>> = Lazy::new(|| HashMap::new());
+static mut pdf_files: Lazy<HashMap<Vec<u8>, Box<pdf_file>, BuildHasherDefault<HTHasher>>> =
+    Lazy::new(|| HashMap::default());
 
 impl pdf_file {
     fn new(mut handle: DroppableInputHandleWrapper) -> Box<Self> {
@@ -3563,7 +3566,7 @@ pub unsafe fn pdf_open(
     mut handle: DroppableInputHandleWrapper,
 ) -> Option<&mut Box<pdf_file>> {
     let pf = if !ident.is_empty() {
-        pdf_files.get_mut(ident)
+        pdf_files.get_mut(ident.as_bytes())
     } else {
         None
     };
@@ -3618,8 +3621,8 @@ pub unsafe fn pdf_open(
             }
             pdf_release_obj(new_version);
         }
-        pdf_files.insert(ident.to_string(), pf);
-        pdf_files.get_mut(ident)
+        pdf_files.insert(ident.as_bytes().to_owned(), pf);
+        pdf_files.get_mut(ident.as_bytes())
     }
 }
 
