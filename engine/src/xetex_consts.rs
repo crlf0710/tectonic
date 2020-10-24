@@ -398,7 +398,7 @@ pub(crate) enum Expr {
 }
 impl From<i32> for Expr {
     fn from(n: i32) -> Self {
-        Self::n(n as i16).expect(&format!("incorrect expression = {}", n))
+        Self::n(n as i16).unwrap_or_else(|| panic!("incorrect expression = {}", n))
     }
 }
 
@@ -631,7 +631,7 @@ pub(crate) enum SaveCmd {
 }
 impl From<u16> for SaveCmd {
     fn from(n: u16) -> Self {
-        Self::n(n as u8).expect(&format!("incorrect save command = {}", n))
+        Self::n(n as u8).unwrap_or_else(|| panic!("incorrect save command = {}", n))
     }
 }
 
@@ -643,7 +643,7 @@ pub(crate) enum BreakType {
 }
 impl From<u16> for BreakType {
     fn from(n: u16) -> Self {
-        Self::n(n).expect(&format!("incorrect break type = {}", n))
+        Self::n(n).unwrap_or_else(|| panic!("incorrect break type = {}", n))
     }
 }
 
@@ -662,7 +662,7 @@ pub(crate) enum ValLevel {
 
 impl From<u8> for ValLevel {
     fn from(n: u8) -> Self {
-        Self::n(n).expect(&format!("incorrect value level = {}", n))
+        Self::n(n).unwrap_or_else(|| panic!("incorrect value level = {}", n))
     }
 }
 
@@ -707,7 +707,7 @@ pub(crate) enum PackMode {
 
 impl From<i32> for PackMode {
     fn from(n: i32) -> Self {
-        Self::n(n as u8).expect(&format!("incorrect PackMode = {}", n))
+        Self::n(n as u8).unwrap_or_else(|| panic!("incorrect PackMode = {}", n))
     }
 }
 
@@ -873,7 +873,7 @@ pub(crate) enum MoveDir {
 }
 impl From<i32> for MoveDir {
     fn from(n: i32) -> Self {
-        Self::n(n).expect(&format!("incorrect move direction = {}", n))
+        Self::n(n).unwrap_or_else(|| panic!("incorrect move direction = {}", n))
     }
 }
 
@@ -897,6 +897,6 @@ pub(crate) enum UnicodeMode {
 }
 impl From<i32> for UnicodeMode {
     fn from(n: i32) -> Self {
-        Self::n(n).expect(&format!("incorrect unicode encoding mode = {}", n))
+        Self::n(n).unwrap_or_else(|| panic!("incorrect unicode encoding mode = {}", n))
     }
 }

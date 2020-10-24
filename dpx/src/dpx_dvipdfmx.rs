@@ -127,7 +127,7 @@ unsafe fn select_paper(paperspec_str: &str) {
         let comma = paperspec
             .iter()
             .position(|&x| x == b',')
-            .expect(&format!("Unrecognized paper format: {}", paperspec_str,));
+            .unwrap_or_else(|| panic!("Unrecognized paper format: {}", paperspec_str));
         if let (Ok(width), Ok(height)) = (
             (&paperspec[..comma]).read_length_no_mag(),
             (&paperspec[comma + 1..]).read_length_no_mag(),
