@@ -713,12 +713,12 @@ extern "C" fn input_seek<'a, I: 'a + IoProvider>(
     }
 }
 
-extern "C" fn input_read<'a, I: 'a + IoProvider>(
+fn input_read<'a, I: 'a + IoProvider>(
     es: *mut ExecutionState<'a, I>,
     handle: *mut libc::c_void,
     data: *mut u8,
     len: libc::size_t,
-) -> libc::ssize_t {
+) -> Option<usize> {
     let es = unsafe { &mut *es };
     let rhandle = handle as *mut InputHandle;
     let rdata = unsafe { slice::from_raw_parts_mut(data, len) };
@@ -739,12 +739,12 @@ extern "C" fn input_read<'a, I: 'a + IoProvider>(
         }
     } else {*/
     match es.input_read(rhandle, rdata) {
-        Ok(l) => l as isize,
+        Ok(x) => Some(x),
         Err(e) => {
             if len != 1 {
                 tt_warning!(es.status, "{}-byte read failed", len; e);
             }
-            -1
+            None
         }
     }
     //}

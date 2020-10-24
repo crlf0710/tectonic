@@ -120,12 +120,8 @@ impl InFile {
 impl Read for InFile {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         unsafe {
-            let res = ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len());
-            if res < 0 {
-                Err(std::io::ErrorKind::UnexpectedEof.into())
-            } else {
-                Ok(res as usize)
-            }
+            let res = ttstub_input_read_rust_style(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len());
+            res.ok_or_else(|| std::io::ErrorKind::UnexpectedEof.into())
         }
     }
 }
@@ -133,12 +129,8 @@ impl Read for InFile {
 impl Read for &InFile {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         unsafe {
-            let res = ttstub_input_read(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len());
-            if res < 0 {
-                Err(std::io::ErrorKind::UnexpectedEof.into())
-            } else {
-                Ok(res as usize)
-            }
+            let res = ttstub_input_read_rust_style(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len());
+            res.ok_or_else(|| std::io::ErrorKind::UnexpectedEof.into())
         }
     }
 }
@@ -206,7 +198,7 @@ pub struct tt_bridge_api_t {
         ) -> size_t,
     >,
     pub input_read: Option<
-        unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t, _: *mut i8, _: size_t) -> ssize_t,
+        unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t, _: *mut i8, _: size_t) -> Option<usize>,
     >,
     pub input_close: Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
 }
@@ -403,11 +395,28 @@ pub(crate) unsafe fn ttstub_input_seek(
     }
     rv
 }
+
 pub unsafe fn ttstub_input_read(
     mut handle: rust_input_handle_t,
     mut data: *mut i8,
     mut len: size_t,
 ) -> ssize_t {
+    let res = (*tectonic_global_bridge)
+        .input_read
+        .expect("non-null function pointer")(
+        (*tectonic_global_bridge).context, handle, data, len
+    );
+    match res {
+        Some(x) if x == len => len as ssize_t,
+        _ => -1,
+    }
+}
+
+pub unsafe fn ttstub_input_read_rust_style(
+    mut handle: rust_input_handle_t,
+    mut data: *mut i8,
+    mut len: size_t,
+) -> Option<usize> {
     (*tectonic_global_bridge)
         .input_read
         .expect("non-null function pointer")(
