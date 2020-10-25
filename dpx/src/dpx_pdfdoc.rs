@@ -64,7 +64,7 @@ use super::dpx_pdfximage::{
     pdf_ximage_get_reference, pdf_ximage_init_form_info, pdf_ximage_set_verbose, XInfo,
 };
 use super::dpx_pngimage::check_for_png;
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
+use crate::bridge::DroppableInputHandleWrapper as InFile;
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_obj, pdf_out_flush,
     pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
@@ -233,8 +233,7 @@ unsafe fn read_thumbnail(thumb_filename: &str) -> *mut pdf_obj {
         bbox_type: 0i32,
         dict: ptr::null_mut(),
     };
-    let filename = CString::new(thumb_filename).unwrap();
-    let handle = ttstub_input_open(filename.as_ptr(), TTInputFormat::PICT, 0i32);
+    let handle = InFile::open(thumb_filename, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         warn!("Could not open thumbnail file \"{}\"", thumb_filename);
         return ptr::null_mut();
@@ -242,12 +241,10 @@ unsafe fn read_thumbnail(thumb_filename: &str) -> *mut pdf_obj {
     let mut handle = handle.unwrap();
     if check_for_png(&mut handle) == 0 && check_for_jpeg(&mut handle) == 0 {
         warn!("Thumbnail \"{}\" not a png/jpeg file!", thumb_filename);
-        ttstub_input_close(handle);
         return ptr::null_mut();
     }
-    ttstub_input_close(handle);
-    let xobj_id = pdf_ximage_findresource(filename.as_ptr(), options);
-    if xobj_id < 0i32 {
+    let xobj_id = pdf_ximage_findresource(thumb_filename, options);
+    if xobj_id < 0 {
         warn!("Could not read thumbnail file \"{}\".", thumb_filename);
         ptr::null_mut()
     } else {
@@ -2458,7 +2455,7 @@ unsafe fn pdf_doc_make_xform(
  */
 
 pub(crate) unsafe fn pdf_doc_begin_grabbing(
-    ident: *const i8,
+    ident: &str,
     ref_x: f64,
     ref_y: f64,
     cropbox: &Rect,

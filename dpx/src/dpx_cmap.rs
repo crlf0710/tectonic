@@ -31,7 +31,7 @@ use std::ptr;
 use super::dpx_cid::CSI_IDENTITY;
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_mem::{new, renew};
-use crate::bridge::ttstub_input_open_str;
+use crate::bridge::DroppableInputHandleWrapper as InFile;
 use libc::{free, memcmp, memcpy, memset};
 
 use crate::bridge::size_t;
@@ -1007,7 +1007,7 @@ pub(crate) unsafe fn CMap_cache_find(cmap_name: &str) -> i32 {
             return id as i32;
         }
     }
-    if let Some(handle) = ttstub_input_open_str(cmap_name, TTInputFormat::CMAP, 0i32) {
+    if let Some(handle) = InFile::open(cmap_name, TTInputFormat::CMAP, 0i32) {
         if CMap_parse_check_sig(&mut &handle) < 0 {
             return -1i32;
         }

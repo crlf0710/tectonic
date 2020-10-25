@@ -27,16 +27,14 @@
 )]
 
 use super::dpx_sfnt::{sfnt_find_table_pos, sfnt_open, sfnt_read_table_directory};
-use crate::bridge::DisplayExt;
-use crate::streq_ptr;
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_cff::{
-    cff_add_string, cff_charsets_lookup, cff_charsets_lookup_inverse, cff_encoding_lookup,
-    cff_get_index_header, cff_get_name, cff_get_sid, cff_get_string, cff_index_size, cff_new_index,
-    cff_open, cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header,
+    cff_add_string_str, cff_charsets_lookup, cff_charsets_lookup_inverse, cff_encoding_lookup,
+    cff_get_index_header, cff_get_name, cff_get_sid_str, cff_get_string_string, cff_index_size,
+    cff_new_index, cff_open, cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header,
     cff_read_charsets, cff_read_encoding, cff_read_private, cff_read_subrs, cff_release_charsets,
     cff_release_encoding, cff_release_index, cff_set_name, cff_update_string, CffIndex, Pack,
 };
@@ -59,7 +57,7 @@ use super::dpx_tt_aux::tt_get_fontdesc;
 use crate::dpx_pdfobj::{
     pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
-use libc::{free, strcmp, strlen};
+use libc::free;
 
 use std::io::{Read, Seek, SeekFrom};
 
@@ -331,33 +329,36 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /*
      * Encoding related things.
      */
-    let enc_vec;
-    if encoding_id >= 0i32 {
-        enc_vec = pdf_encoding_get_encoding(encoding_id)
+    let mut enc_vec: Vec<String> = Vec::new();
+    let enc_slice = if encoding_id >= 0 {
+        pdf_encoding_get_encoding(encoding_id)
     } else {
         /*
          * Create enc_vec and ToUnicode CMap for built-in encoding.
          */
-        enc_vec = new((256_u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64) as u32)
-            as *mut *mut i8;
         for code in 0..256 {
             if *usedchars.offset(code as isize) != 0 {
                 let gid = cff_encoding_lookup(&cffont, code as u8);
-                *enc_vec.offset(code as isize) =
-                    cff_get_string(&cffont, cff_charsets_lookup_inverse(&cffont, gid))
+                enc_vec.push(cff_get_string_string(
+                    &cffont,
+                    cff_charsets_lookup_inverse(&cffont, gid),
+                ));
             } else {
-                *enc_vec.offset(code as isize) = ptr::null_mut()
+                enc_vec.push(String::new());
             }
         }
         let fontdict = pdf_font_get_resource(font).as_dict_mut();
         if !fontdict.has("ToUnicode") {
-            if let Some(tounicode) = pdf_create_ToUnicode_CMap(&fullname, enc_vec, usedchars) {
+            if let Some(tounicode) =
+                pdf_create_ToUnicode_CMap(&fullname, enc_vec.as_mut_slice(), usedchars)
+            {
                 let tounicode = tounicode.into_obj();
                 fontdict.set("ToUnicode", pdf_ref_obj(tounicode));
                 pdf_release_obj(tounicode);
             }
         }
-    }
+        enc_vec.as_mut_slice()
+    };
     /*
      * New Encoding data:
      *
@@ -501,12 +502,8 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     for code in 0..256 {
         widths[code as usize] = notdef_width;
         if !(*usedchars.offset(code as isize) == 0
-            || (*enc_vec.offset(code as isize)).is_null()
-            || streq_ptr(
-                *enc_vec.offset(code as isize),
-                b".notdef\x00" as *const u8 as *const i8,
-            ) as i32
-                != 0)
+            || enc_slice[code as usize].is_empty()
+            || enc_slice[code as usize] == ".notdef")
         {
             /*
              * FIXME:
@@ -514,11 +511,11 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
              *  It should be cff_string_get_sid(string, ...).
              *  cff_add_string(cff, ...) -> cff_string_add(string, ...).
              */
-            let sid_orig = cff_get_sid(&cffont, *enc_vec.offset(code as isize)) as s_SID;
-            let sid = (if (sid_orig as i32) < 391i32 {
+            let sid_orig = cff_get_sid_str(&cffont, &enc_slice[code as usize]) as s_SID;
+            let sid = (if (sid_orig as i32) < 391 {
                 sid_orig as i32
             } else {
-                cff_add_string(&mut cffont, *enc_vec.offset(code as isize), 0i32) as i32
+                cff_add_string_str(&mut cffont, &enc_slice[code as usize], 0i32) as i32
             }) as s_SID;
             /*
              * We use "unique = 0" because duplicate strings are impossible
@@ -546,22 +543,15 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                 if gid_0 as i32 == 0i32 {
                     warn!(
                         "Glyph \"{}\" missing in font \"{}\".",
-                        CStr::from_ptr(*enc_vec.offset(code as isize)).display(),
-                        font.fontname,
+                        enc_slice[code as usize], font.fontname,
                     ); /* Set unused for writing correct encoding */
                     warn!("Maybe incorrect encoding specified.");
                     *usedchars.offset(code as isize) = 0_i8
                 } else {
                     pdfcharset.add_str("/");
-                    pdfcharset.add(
-                        *enc_vec.offset(code as isize) as *const libc::c_void,
-                        strlen(*enc_vec.offset(code as isize)) as i32,
-                    );
+                    pdfcharset.add_slice(enc_slice[code as usize].as_bytes());
                     if verbose > 2i32 {
-                        info!(
-                            "/{}",
-                            CStr::from_ptr(*enc_vec.offset(code as isize)).display(),
-                        );
+                        info!("/{}", enc_slice[code as usize]);
                     }
                     size = (*(*cs_idx).offset.offset((gid_0 as i32 + 1i32) as isize))
                         .wrapping_sub(*(*cs_idx).offset.offset(gid_0 as isize))
@@ -626,12 +616,8 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     let mut code = 0_u16;
     while code < 256 {
         if !(*usedchars.offset(code as isize) == 0
-            || (*enc_vec.offset(code as isize)).is_null()
-            || streq_ptr(
-                *enc_vec.offset(code as isize),
-                b".notdef\x00" as *const u8 as *const i8,
-            ) as i32
-                != 0)
+            || enc_slice[code as usize].is_empty()
+            || enc_slice[code as usize] == ".notdef")
         {
             (*(*encoding)
                 .data
@@ -646,11 +632,8 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
             code = code.wrapping_add(1);
             while (code as i32) < 256i32
                 && *usedchars.offset(code as isize) as i32 != 0
-                && !(*enc_vec.offset(code as isize)).is_null()
-                && strcmp(
-                    *enc_vec.offset(code as isize),
-                    b".notdef\x00" as *const u8 as *const i8,
-                ) != 0
+                && !enc_slice[code as usize].is_empty()
+                && enc_slice[code as usize] != ".notdef"
             {
                 (*(*encoding)
                     .data
@@ -663,15 +646,6 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         }
         code = code.wrapping_add(1)
         /* The above while() loop stopped at unused char or code == 256. */
-    }
-    /* cleanup */
-    if encoding_id < 0i32 && !enc_vec.is_null() {
-        for code in 0..256 {
-            if !(*enc_vec.offset(code as isize)).is_null() {
-                free(*enc_vec.offset(code as isize) as *mut libc::c_void);
-            }
-        }
-        free(enc_vec as *mut libc::c_void);
     }
     cff_release_index(cs_idx);
     *(*charstrings).offset.offset(num_glyphs as isize) = (charstring_len + 1i32) as l_offset;

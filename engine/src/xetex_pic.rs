@@ -25,9 +25,8 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{LLIST_link, TeXInt};
 
-use bridge::ttstub_input_open_str;
+use bridge::DroppableInputHandleWrapper as InFile;
 use bridge::TTInputFormat;
-use bridge::{DroppableInputHandleWrapper, InputHandleWrapper};
 use dpx::pdf_dev_transform;
 use dpx::Corner;
 use dpx::{bmp_get_bbox, check_for_bmp};
@@ -45,7 +44,7 @@ type Point = euclid::Point2D<f32, ()>;
 type Rect = euclid::Rect<f32, ()>;
 
 pub(crate) unsafe fn count_pdf_file_pages() -> i32 {
-    let handle = ttstub_input_open_str(&name_of_file, TTInputFormat::PICT, 0i32);
+    let handle = InFile::open(&name_of_file, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         return 0;
     }
@@ -58,7 +57,7 @@ pub(crate) unsafe fn count_pdf_file_pages() -> i32 {
 }
 unsafe fn pdf_get_rect(
     filename: *const i8,
-    handle: DroppableInputHandleWrapper,
+    handle: InFile,
     mut page_num: i32,
     mut pdf_box: i32,
 ) -> Result<Rect, ()> {
@@ -123,7 +122,7 @@ unsafe fn pdf_get_rect(
         Err(())
     }
 }
-unsafe fn get_image_size_in_inches(handle: &mut InputHandleWrapper) -> Result<(f32, f32), i32> {
+unsafe fn get_image_size_in_inches(handle: &mut InFile) -> Result<(f32, f32), i32> {
     let (width_pix, height_pix, xdensity, ydensity) = if check_for_jpeg(handle) != 0 {
         jpeg_get_bbox(handle).map_err(|_| -1)?
     } else if check_for_bmp(handle) {
@@ -147,7 +146,7 @@ unsafe fn get_image_size_in_inches(handle: &mut InputHandleWrapper) -> Result<(f
   return bounds (tex points) in *bounds
 */
 unsafe fn find_pic_file(mut pdfBoxType: i32, mut page: i32) -> Result<(Rect, String), i32> {
-    let handle = ttstub_input_open_str(&name_of_file, TTInputFormat::PICT, 0i32);
+    let handle = InFile::open(&name_of_file, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         return Err(1);
     }

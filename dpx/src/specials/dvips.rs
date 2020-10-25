@@ -24,7 +24,6 @@
     non_snake_case,
 )]
 
-use std::ffi::CString;
 use std::ptr;
 
 use crate::warn;
@@ -32,7 +31,7 @@ use crate::warn;
 use super::{SpcArg, SpcEnv};
 use crate::bridge::TTInputFormat;
 
-use crate::bridge::ttstub_input_open_str;
+use crate::bridge::DroppableInputHandleWrapper as InFile;
 use crate::dpx_pdfdraw::pdf_dev_concat;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 
@@ -64,7 +63,7 @@ unsafe fn spc_handler_ps_header(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     }
     args.cur = &args.cur[1..];
     let pro = String::from_utf8_lossy(args.cur).to_string();
-    if ttstub_input_open_str(&pro, TTInputFormat::TEX_PS_HEADER, 0).is_none() {
+    if InFile::open(&pro, TTInputFormat::TEX_PS_HEADER, 0).is_none() {
         spc_warn!(spe, "PS header {} not found.", pro,);
         return -1i32;
     }
@@ -124,8 +123,7 @@ unsafe fn spc_handler_ps_file(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         if spc_util_read_dimtrns(spe, &mut ti, args, 1i32) < 0i32 {
             return -1;
         }
-        let cfilename = CString::new(filename).unwrap();
-        let form_id = pdf_ximage_findresource(cfilename.as_ptr(), options);
+        let form_id = pdf_ximage_findresource(filename, options);
         if form_id < 0i32 {
             spc_warn!(spe, "Failed to read image file: {}", filename);
             return -1i32;
@@ -149,11 +147,10 @@ unsafe fn spc_handler_ps_plotfile(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     spc_warn!(spe, "\"ps: plotfile\" found (not properly implemented)");
     args.cur.skip_white();
     if let Some(filename) = parse_filename(&mut args.cur) {
-        let cfilename = CString::new(filename).unwrap();
-        let form_id = pdf_ximage_findresource(cfilename.as_ptr(), options);
-        if form_id < 0i32 {
+        let form_id = pdf_ximage_findresource(filename, options);
+        if form_id < 0 {
             spc_warn!(spe, "Could not open PS file: {}", filename);
-            error = -1i32
+            error = -1;
         } else {
             transform_info_clear(&mut p);
             p.matrix.m22 = -1.;

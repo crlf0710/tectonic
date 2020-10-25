@@ -39,7 +39,7 @@ use crate::dpx_pdfobj::{
 };
 pub(crate) type __off_t = i64;
 pub(crate) type __off64_t = i64;
-use bridge::DroppableInputHandleWrapper;
+use bridge::DroppableInputHandleWrapper as InFile;
 
 use crate::dpx_pdfximage::{load_options, pdf_ximage, xform_info};
 pub(crate) const OP_CURVETO2: C2RustUnnamed_0 = 15;
@@ -72,8 +72,8 @@ pub(crate) const OP_UNKNOWN: C2RustUnnamed_0 = 16;
 /* ximage here is the result. DONT USE IT FOR PASSING OPTIONS! */
 
 pub(crate) unsafe fn pdf_include_page(
-    ximage: *mut pdf_ximage,
-    handle: DroppableInputHandleWrapper,
+    ximage: &mut pdf_ximage,
+    handle: InFile,
     ident: &str,
     mut options: load_options,
 ) -> i32 {

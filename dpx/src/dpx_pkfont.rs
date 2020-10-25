@@ -30,11 +30,8 @@ use euclid::point2;
 use std::io::Write;
 
 use crate::warn;
-use std::ffi::{CStr, CString};
-use std::ptr;
 
 use super::dpx_mem::new;
-use super::dpx_mfileio::work_buffer_u8 as work_buffer;
 use super::dpx_pdfdev::{pdf_sprint_number, Rect};
 use super::dpx_pdfencoding::{
     pdf_encoding_get_encoding, pdf_encoding_get_name, pdf_encoding_used_by_type3,
@@ -45,18 +42,16 @@ use super::dpx_pdffont::{
 };
 use super::dpx_tfm::{tfm_get_design_size, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_copy_name, pdf_dict, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj,
-    STREAM_COMPRESS,
+    pdf_dict, pdf_name, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
 };
-use crate::shims::sprintf;
 use libc::{free, memset};
 
 use crate::dpx_numbers::{
     get_positive_quad, get_unsigned_num, get_unsigned_triple, skip_bytes, GetFromFile,
 };
 
-use crate::bridge::InputHandleWrapper;
-use crate::bridge::{ttstub_input_open, TTInputFormat};
+use crate::bridge::DroppableInputHandleWrapper as InFile;
+use crate::bridge::TTInputFormat;
 use std::io::Read;
 
 #[derive(Copy, Clone)]
@@ -98,13 +93,13 @@ unsafe fn truedpi(ident: &str, point_size: f64, bdpi: u32) -> u32 {
     }
     dpi
 }
-unsafe fn dpx_open_pk_font_at(_ident: *const i8, _dpi: u32) -> Option<InputHandleWrapper> {
+unsafe fn dpx_open_pk_font_at(_ident: &str, _dpi: u32) -> Option<InFile> {
     /*kpse_glyph_file_type kpse_file_info;*/
-    let fqpn = ptr::null_mut::<i8>(); /*kpse_find_glyph(ident, dpi, kpse_pk_format, &kpse_file_info);*/
-    if fqpn.is_null() {
+    let fqpn = ""; /*kpse_find_glyph(ident, dpi, kpse_pk_format, &kpse_file_info);*/
+    if fqpn.is_empty() {
         return None;
     }
-    ttstub_input_open(fqpn, TTInputFormat::PK, 0)
+    InFile::open(fqpn, TTInputFormat::PK, 0)
 }
 
 pub(crate) unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {
@@ -114,11 +109,8 @@ pub(crate) unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {
     if ident.is_empty() || point_size <= 0.0f64 {
         return -1i32;
     }
-    let ident_ = CString::new(ident).unwrap();
     let dpi = truedpi(ident, point_size, base_dpi);
-    if let Some(fp) = dpx_open_pk_font_at(ident_.as_ptr(), dpi) {
-        fp.close();
-    } else {
+    if dpx_open_pk_font_at(ident, dpi).is_none() {
         return -1i32;
     }
     /* Type 3 fonts doesn't have FontName.
@@ -533,17 +525,15 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
     let point_size = pdf_font_get_param(font, 2i32);
     let usedchars = pdf_font_get_usedchars(font);
     let encoding_id = pdf_font_get_encoding(font);
-    let enc_vec = if encoding_id < 0i32 {
-        0 as *mut *mut i8
-    } else {
-        pdf_encoding_get_encoding(encoding_id)
+    let mut enc_vec: &mut [String] = &mut &mut [][..];
+    if encoding_id >= 0 {
+        enc_vec = pdf_encoding_get_encoding(encoding_id)
     };
     /* ENABLE_GLYPHENC */
     let ident = &*font.ident;
-    assert!(!ident.is_empty() && !usedchars.is_null() && point_size > 0.0f64);
-    let ident_ = CString::new(ident).unwrap();
+    assert!(!ident.is_empty() && !usedchars.is_null() && point_size > 0.);
     let dpi = truedpi(ident, point_size, base_dpi);
-    let mut fp = dpx_open_pk_font_at(ident_.as_ptr(), dpi).expect(&format!(
+    let mut fp = dpx_open_pk_font_at(ident, dpi).expect(&format!(
         "Could not find/open PK font file: {} (at {}dpi)",
         ident, dpi
     ));
@@ -591,7 +581,6 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
             if *usedchars.offset((pkh.chrcode & 0xffi32) as isize) == 0 {
                 skip_bytes(pkh.pkt_len, &mut fp);
             } else {
-                let mut charname;
                 /* Charwidth in PDF units */
                 let charwidth =
                     (1000.0f64 * pkh.wd as f64 / ((1i32 << 20i32) as f64 * pix2charu) / 0.1f64
@@ -619,30 +608,21 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
                     bytesread as u32,
                 )
                 .into_obj();
-                if encoding_id >= 0i32 && !enc_vec.is_null() {
-                    charname = *enc_vec.offset((pkh.chrcode & 0xffi32) as isize);
-                    if charname.is_null() {
+                let charname = if encoding_id >= 0i32 && !enc_vec[0].is_empty() {
+                    if enc_vec[(pkh.chrcode & 0xff) as usize].is_empty() {
                         warn!(
                             "\".notdef\" glyph used in font (code=0x{:02x}): {}",
                             pkh.chrcode, ident,
                         );
-                        charname = work_buffer.as_mut_ptr() as *mut i8;
-                        sprintf(
-                            charname,
-                            b"x%02X\x00" as *const u8 as *const i8,
-                            pkh.chrcode as u8 as i32,
-                        );
+                        format!("x{:02X}", pkh.chrcode)
+                    } else {
+                        enc_vec[(pkh.chrcode & 0xff) as usize].clone()
                     }
                 } else {
                     /* ENABLE_GLYPHENC */
-                    charname = work_buffer.as_mut_ptr() as *mut i8; /* _FIXME_ */
-                    sprintf(
-                        charname,
-                        b"x%02X\x00" as *const u8 as *const i8,
-                        pkh.chrcode as u8 as i32,
-                    );
-                }
-                charprocs.set(CStr::from_ptr(charname).to_bytes(), pdf_ref_obj(charproc));
+                    format!("x{:02X}", pkh.chrcode)
+                };
+                charprocs.set(charname.as_bytes(), pdf_ref_obj(charproc));
                 pdf_release_obj(charproc);
             }
             charavail[(pkh.chrcode & 0xffi32) as usize] = 1_i8
@@ -666,7 +646,6 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
             }
         }
     }
-    fp.close();
     /* Check if we really got all glyphs needed. */
     for code in 0..256 {
         if *usedchars.offset(code as isize) as i32 != 0 && charavail[code as usize] == 0 {
@@ -704,7 +683,6 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
     let mut lastchar = 0i32;
     for code in 0..256 {
         if *usedchars.offset(code as isize) != 0 {
-            let mut charname_0;
             if code < firstchar {
                 firstchar = code
             }
@@ -714,26 +692,17 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
             if code != prev + 1i32 {
                 tmp_array.push_obj(code as f64);
             }
-            if encoding_id >= 0i32 && !enc_vec.is_null() {
-                charname_0 = *enc_vec.offset(code as u8 as isize);
-                if charname_0.is_null() {
-                    charname_0 = work_buffer.as_mut_ptr() as *mut i8;
-                    sprintf(
-                        charname_0,
-                        b"x%02X\x00" as *const u8 as *const i8,
-                        code as u8 as i32,
-                    );
+            let charname_0 = if encoding_id >= 0i32 && !enc_vec[0].is_empty() {
+                if enc_vec[code as usize].is_empty() {
+                    format!("x{:02X}", code)
+                } else {
+                    enc_vec[code as usize].clone()
                 }
             } else {
                 /* ENABLE_GLYPHENC */
-                charname_0 = work_buffer.as_mut_ptr() as *mut i8;
-                sprintf(
-                    charname_0,
-                    b"x%02X\x00" as *const u8 as *const i8,
-                    code as u8 as i32,
-                );
-            }
-            tmp_array.push(pdf_copy_name(charname_0));
+                format!("x{:02X}", code)
+            };
+            tmp_array.push(pdf_name::new(charname_0.as_bytes()).into_obj());
             prev = code
         }
     }
@@ -743,7 +712,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
             firstchar, lastchar
         );
     }
-    if encoding_id < 0i32 || enc_vec.is_null() {
+    if encoding_id < 0 || enc_vec[0].is_empty() {
         /* ENABLE_GLYPHENC */
         let mut encoding = pdf_dict::new();
         encoding.set("Type", "Encoding");

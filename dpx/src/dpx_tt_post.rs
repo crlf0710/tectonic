@@ -28,8 +28,8 @@
 
 use super::dpx_numbers::GetFromFile;
 use super::dpx_sfnt::sfnt_locate_table;
-use crate::streq_ptr;
 use crate::warn;
+use std::ffi::CStr;
 use std::io::Read;
 
 use super::dpx_mem::{new, xstrdup};
@@ -187,11 +187,12 @@ pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
     post
 }
 
-pub(crate) unsafe fn tt_lookup_post_table(post: *mut tt_post_table, glyphname: *const i8) -> u16 {
-    assert!(!post.is_null() && !glyphname.is_null());
+pub(crate) unsafe fn tt_lookup_post_table(post: *mut tt_post_table, glyphname: &str) -> u16 {
+    assert!(!post.is_null() && !glyphname.is_empty());
     for gid in 0..(*post).count as u16 {
         if !(*(*post).glyphNamePtr.offset(gid as isize)).is_null()
-            && streq_ptr(glyphname, *(*post).glyphNamePtr.offset(gid as isize)) as i32 != 0
+            && glyphname.as_bytes()
+                == CStr::from_ptr(*(*post).glyphNamePtr.offset(gid as isize)).to_bytes()
         {
             return gid;
         }

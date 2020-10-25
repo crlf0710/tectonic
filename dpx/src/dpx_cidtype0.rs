@@ -941,7 +941,7 @@ pub(crate) unsafe fn CIDFont_type0_open(
             return -1i32;
         }
         let handle = handle.unwrap();
-        let cffont = t1_load_font(0 as *mut *mut i8, 1i32, handle);
+        let cffont = t1_load_font(&mut (&mut [])[..], 1, handle);
         (None, cffont)
     };
     let csi = Box::into_raw(Box::new(CIDSysInfo {
@@ -1458,7 +1458,7 @@ pub(crate) unsafe fn t1_load_UnicodeCMap(font_name: &str, otl_tags: &str, wmode:
         return -1i32;
     }
     let handle = handle.unwrap();
-    let cffont = t1_load_font(0 as *mut *mut i8, 1i32, handle);
+    let cffont = t1_load_font(&mut (&mut [])[..], 1, handle);
     let cmap_id = load_base_CMap(&font_name, wmode, &*cffont);
     if cmap_id < 0i32 {
         panic!(
@@ -1847,7 +1847,7 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: *mut CIDFont) {
         panic!("Type1: Could not open Type1 font.");
     }
     let handle = handle.unwrap();
-    let mut cffont = t1_load_font(0 as *mut *mut i8, 0i32, handle);
+    let mut cffont = t1_load_font(&mut (&mut [])[..], 0, handle);
     if (*font).fontname.is_empty() {
         panic!("Fontname undefined...");
     }

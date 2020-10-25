@@ -49,7 +49,7 @@ pub unsafe fn tex_simple_main(
 
 pub unsafe fn dvipdfmx_simple_main(
     mut api: *const tt_bridge_api_t,
-    mut dviname: *const i8,
+    dviname: &str,
     mut pdfname: *const i8,
     mut compress: bool,
     mut deterministic_tags: bool,

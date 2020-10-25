@@ -44,7 +44,7 @@ use libc::{free, memmove, strstr};
 
 pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
-use bridge::DroppableInputHandleWrapper;
+use bridge::DroppableInputHandleWrapper as InFile;
 
 use super::dpx_cid::CIDSysInfo;
 /* Mapping types, MAP_IS_NAME is not supported. */
@@ -62,11 +62,11 @@ pub(crate) struct ifreader {
     pub(crate) endptr: *mut u8,
     pub(crate) buf: *mut u8,
     pub(crate) max: size_t,
-    pub(crate) handle: DroppableInputHandleWrapper,
+    pub(crate) handle: InFile,
     pub(crate) unread: size_t,
 }
 impl ifreader {
-    unsafe fn new(handle: DroppableInputHandleWrapper, size: size_t, bufsize: size_t) -> Self {
+    unsafe fn new(handle: InFile, size: size_t, bufsize: size_t) -> Self {
         let buf = new((bufsize.wrapping_add(1) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
         let reader = Self {
@@ -480,10 +480,7 @@ pub(crate) unsafe fn CMap_parse_check_sig<R: Read + Seek>(handle: &mut R) -> i32
     result
 }
 
-pub(crate) unsafe fn CMap_parse(
-    cmap: &mut CMap,
-    mut handle: DroppableInputHandleWrapper,
-) -> Result<i32, ()> {
+pub(crate) unsafe fn CMap_parse(cmap: &mut CMap, mut handle: InFile) -> Result<i32, ()> {
     let mut status: i32 = 0i32;
     let mut tmpint: i32 = -1i32;
     let size = ttstub_input_get_size(&mut handle);

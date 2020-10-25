@@ -36,7 +36,7 @@ use super::{
     spc_begin_annot, spc_clear_objects, spc_end_annot, spc_flush_object, spc_lookup_object,
     spc_push_object, spc_resume_annot, spc_suspend_annot,
 };
-use crate::bridge::ttstub_input_open_str;
+use crate::bridge::DroppableInputHandleWrapper as InFile;
 use crate::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_decode};
 use crate::dpx_dpxutil::{
     ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table, ParseCIdent,
@@ -890,9 +890,7 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         };
     }
     let xobj_id = pdf_ximage_findresource(
-        CString::new((*fspec).as_string().to_bytes())
-            .unwrap()
-            .as_ptr(),
+        std::str::from_utf8((*fspec).as_string().to_bytes()).unwrap(),
         options,
     );
     if xobj_id < 0i32 {
@@ -1200,7 +1198,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
             }
             let fullname: Option<String> = None; // TODO: check dead code
             if let Some(fullname) = &fullname {
-                if let Some(mut handle) = ttstub_input_open_str(fullname, TTInputFormat::PICT, 0) {
+                if let Some(mut handle) = InFile::open(fullname, TTInputFormat::PICT, 0) {
                     let mut fstream = pdf_stream::new(STREAM_COMPRESS);
                     loop {
                         let nb_read = handle.read(&mut WORK_BUFFER[..]).unwrap();
@@ -1321,7 +1319,12 @@ unsafe fn spc_handler_pdfm_bform(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
             }
             Rect::new(point2(0., -ti.depth), point2(ti.width, ti.height))
         };
-        let xobj_id = pdf_doc_begin_grabbing(ident.as_ptr(), spe.x_user, spe.y_user, &mut cropbox);
+        let xobj_id = pdf_doc_begin_grabbing(
+            ident.to_str().unwrap(),
+            spe.x_user,
+            spe.y_user,
+            &mut cropbox,
+        );
         if xobj_id < 0i32 {
             spc_warn!(spe, "Couldn\'t start form object.");
             return -1i32;
@@ -1402,7 +1405,7 @@ unsafe fn spc_handler_pdfm_uxobj(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
          */
         let mut xobj_id = findresource(sd, Some(&ident));
         if xobj_id < 0i32 {
-            xobj_id = pdf_ximage_findresource(ident.as_ptr(), options);
+            xobj_id = pdf_ximage_findresource(ident.to_str().unwrap(), options);
             if xobj_id < 0i32 {
                 spc_warn!(
                     spe,
@@ -1482,7 +1485,7 @@ unsafe fn spc_handler_pdfm_mapline(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
             } else if opchr == b'+' {
                 pdf_append_fontmap_record(&mrec.map_name, &mrec);
             } else {
-                pdf_insert_fontmap_record(&mrec.map_name, &mrec);
+                pdf_insert_fontmap_record(&mrec.map_name, &mrec).ok();
             }
         }
     }

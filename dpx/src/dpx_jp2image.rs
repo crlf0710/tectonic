@@ -304,42 +304,44 @@ unsafe fn scan_file<R: Read + Seek>(info: &mut ximage_info, smask: *mut i32, fp:
     error
 }
 
+#[allow(unused)]
 pub(crate) unsafe fn check_for_jp2<R: Read + Seek>(fp: &mut R) -> i32 {
     let mut lbox: u32 = 0;
     let mut tbox: u32 = 0;
     fp.seek(SeekFrom::Start(0)).unwrap();
     /* JPEG 2000 Singature box */
     if check_jp___box(fp) == 0 {
-        return 0i32;
+        return 0;
     }
     /* File Type box shall immediately follow */
     let len = read_box_hdr(fp, &mut lbox, &mut tbox);
-    if tbox != 0x66747970_u32 {
-        return 0i32;
+    if tbox != 0x66747970 {
+        return 0;
     }
     if check_ftyp_data(fp, lbox.wrapping_sub(len)) == 0 {
-        return 0i32;
+        return 0;
     }
-    1i32
+    1
 }
 
+#[allow(unused)]
 pub(crate) unsafe fn jp2_include_image<R: Read + Seek>(ximage: &mut pdf_ximage, fp: &mut R) -> i32 {
-    let mut smask: i32 = 0i32;
+    let mut smask: i32 = 0;
     let pdf_version = pdf_get_version();
-    if pdf_version < 5_u32 {
+    if pdf_version < 5 {
         warn!(
             "JPEG 2000 support requires PDF version >= 1.5 (Current setting 1.{})\n",
             pdf_version
         );
-        return -1i32;
+        return -1;
     }
     let mut info = ximage_info::init();
     fp.seek(SeekFrom::Start(0)).unwrap();
-    if scan_file(&mut info, &mut smask, fp) < 0i32 {
+    if scan_file(&mut info, &mut smask, fp) < 0 {
         warn!("JPEG2000: Reading JPEG 2000 file failed.");
-        return -1i32;
+        return -1;
     }
-    let mut stream = pdf_stream::new(0i32);
+    let mut stream = pdf_stream::new(0);
     let stream_dict = stream.get_dict_mut();
     stream_dict.set("Filter", "JPXDecode");
     if smask != 0 {
@@ -356,9 +358,10 @@ pub(crate) unsafe fn jp2_include_image<R: Read + Seek>(ximage: &mut pdf_ximage, 
         stream.add(buffer.as_mut_ptr() as *const libc::c_void, nb_read as i32);
     }
     pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
-    0i32
+    0
 }
 
+#[allow(unused)]
 pub(crate) unsafe fn jp2_get_bbox<R: Read + Seek>(
     fp: &mut R,
     width: *mut i32,

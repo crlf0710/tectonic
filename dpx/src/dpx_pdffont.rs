@@ -35,7 +35,7 @@ use super::dpx_cmap::{
     CMap_cache_close, CMap_cache_find, CMap_cache_get, CMap_cache_init, CMap_get_name,
     CMap_get_profile, CMap_get_type, CMap_set_verbose,
 };
-use super::dpx_fontmap::pdf_lookup_fontmap_record;
+use super::dpx_fontmap::fontmap;
 use super::dpx_mem::new;
 use super::dpx_pdfencoding::{
     pdf_close_encodings, pdf_encoding_add_usedchars, pdf_encoding_complete,
@@ -346,33 +346,37 @@ unsafe fn try_load_ToUnicode_CMap(font: &mut pdf_font) -> i32 {
         return 0i32;
     } /* _FIXME_ */
     assert!(!font.map_name.is_empty());
-    let mrec = pdf_lookup_fontmap_record(font.map_name.as_bytes());
-    let cmap_name = if !mrec.is_null() && !(*mrec).opt.tounicode.is_empty() {
-        (*mrec).opt.tounicode.clone()
-    } else {
-        font.map_name.clone()
+    let mrec = fontmap.get(&font.map_name);
+    let cmap_name = match mrec {
+        Some(mrec) if !mrec.opt.tounicode.is_empty() => mrec.opt.tounicode.clone(),
+        _ => font.map_name.clone(),
     };
     let fontdict = pdf_font_get_resource(&mut *font);
     let tounicode = pdf_load_ToUnicode_stream(&cmap_name);
-    if tounicode.is_none() && (!mrec.is_null() && !(*mrec).opt.tounicode.is_empty()) {
-        warn!(
-            "Failed to read ToUnicode mapping \"{}\"...",
-            (*mrec).opt.tounicode,
-        );
-    } else if let Some(tounicode) = tounicode {
-        let tounicode = tounicode.into_obj();
-        if (*tounicode).as_stream().len() > 0 {
-            fontdict
-                .as_dict_mut()
-                .set("ToUnicode", pdf_ref_obj(tounicode));
-            if __verbose != 0 {
-                info!(
-                    "pdf_font>> ToUnicode CMap \"{}\" attached to font id=\"{}\".\n",
-                    cmap_name, font.map_name,
-                );
+    match mrec {
+        Some(mrec) if (tounicode.is_none() && !mrec.opt.tounicode.is_empty()) => {
+            warn!(
+                "Failed to read ToUnicode mapping \"{}\"...",
+                (*mrec).opt.tounicode,
+            );
+        }
+        _ => {
+            if let Some(tounicode) = tounicode {
+                let tounicode = tounicode.into_obj();
+                if (*tounicode).as_stream().len() > 0 {
+                    fontdict
+                        .as_dict_mut()
+                        .set("ToUnicode", pdf_ref_obj(tounicode));
+                    if __verbose != 0 {
+                        info!(
+                            "pdf_font>> ToUnicode CMap \"{}\" attached to font id=\"{}\".\n",
+                            cmap_name, font.map_name,
+                        );
+                    }
+                }
+                pdf_release_obj(tounicode);
             }
         }
-        pdf_release_obj(tounicode);
     }
     0i32
 }
@@ -491,7 +495,7 @@ pub(crate) unsafe fn pdf_close_fonts() {
 pub(crate) unsafe fn pdf_font_findresource(
     tex_name: &str,
     font_scale: f64,
-    mut mrec: *mut fontmap_rec,
+    mrec: Option<&mut Box<fontmap_rec>>,
 ) -> i32 {
     let mut font_id;
     let mut encoding_id: i32 = -1i32;
@@ -500,204 +504,274 @@ pub(crate) unsafe fn pdf_font_findresource(
      * Get appropriate info from map file. (PK fonts at two different
      * point sizes would be looked up twice unecessarily.)
      */
-    let fontname = if !mrec.is_null() {
-        &(*mrec).font_name
-    } else {
-        tex_name
-    };
-    if !mrec.is_null() && !(*mrec).enc_name.is_empty() {
-        if !(*mrec).enc_name.ends_with(".enc") || (*mrec).enc_name.ends_with(".cmap") {
-            let enc_name = &(*mrec).enc_name;
-            cmap_id = CMap_cache_find(&enc_name);
-            if cmap_id >= 0i32 {
-                let cmap = CMap_cache_get(cmap_id);
-                let cmap_type = CMap_get_type(&*cmap);
-                let minbytes = CMap_get_profile(cmap, 0i32);
-                /*
-                 * Check for output encoding.
-                 */
-                if cmap_type != 0i32 && cmap_type != 1i32 && cmap_type != 2i32 {
-                    warn!("Only 16-bit encoding supported for output encoding.");
-                }
-                /*
-                 * Turn on map option.
-                 */
-                if minbytes == 2i32 && (*mrec).opt.mapc < 0i32 {
-                    if __verbose != 0 {
-                        info!("\n");
-                        info!(
-                            "pdf_font>> Input encoding \"{}\" requires at least 2 bytes.\n",
-                            CMap_get_name(&*cmap)
+    match mrec {
+        Some(mrec) => {
+            if !mrec.enc_name.is_empty() {
+                if !mrec.enc_name.ends_with(".enc") || mrec.enc_name.ends_with(".cmap") {
+                    let enc_name = &mrec.enc_name;
+                    cmap_id = CMap_cache_find(&enc_name);
+                    if cmap_id >= 0i32 {
+                        let cmap = CMap_cache_get(cmap_id);
+                        let cmap_type = CMap_get_type(&*cmap);
+                        let minbytes = CMap_get_profile(cmap, 0i32);
+                        /*
+                         * Check for output encoding.
+                         */
+                        if cmap_type != 0i32 && cmap_type != 1i32 && cmap_type != 2i32 {
+                            warn!("Only 16-bit encoding supported for output encoding.");
+                        }
+                        /*
+                         * Turn on map option.
+                         */
+                        if minbytes == 2i32 && mrec.opt.mapc < 0i32 {
+                            if __verbose != 0 {
+                                info!("\n");
+                                info!(
+                                    "pdf_font>> Input encoding \"{}\" requires at least 2 bytes.\n",
+                                    CMap_get_name(&*cmap)
+                                );
+                                info!(
+                                    "pdf_font>> The -m <00> option will be assumed for \"{}\".\n",
+                                    mrec.font_name
+                                );
+                            }
+                            mrec.opt.mapc = 0;
+                            /* _FIXME_ */
+                        }
+                    } else if mrec.enc_name == "unicode" {
+                        cmap_id = otf_load_Unicode_CMap(
+                            &mrec.font_name,
+                            mrec.opt.index,
+                            &mrec.opt.otl_tags,
+                            if mrec.opt.flags & 1i32 << 2i32 != 0 {
+                                1i32
+                            } else {
+                                0i32
+                            },
                         );
-                        info!(
-                            "pdf_font>> The -m <00> option will be assumed for \"{}\".\n",
-                            (*mrec).font_name
-                        );
-                    }
-                    (*mrec).opt.mapc = 0i32
-                    /* _FIXME_ */
-                }
-            } else if (*mrec).enc_name == "unicode" {
-                cmap_id = otf_load_Unicode_CMap(
-                    &(*mrec).font_name,
-                    (*mrec).opt.index,
-                    &(*mrec).opt.otl_tags,
-                    if (*mrec).opt.flags & 1i32 << 2i32 != 0 {
-                        1i32
-                    } else {
-                        0i32
-                    },
-                );
-                if cmap_id < 0i32 {
-                    cmap_id = t1_load_UnicodeCMap(
-                        &(*mrec).font_name,
-                        &(*mrec).opt.otl_tags,
-                        if (*mrec).opt.flags & 1i32 << 2i32 != 0 {
-                            1i32
-                        } else {
-                            0i32
-                        },
-                    )
-                }
-                if cmap_id < 0i32 {
-                    panic!("Failed to read UCS2/UCS4 TrueType cmap...");
-                }
-            }
-        }
-        if cmap_id < 0i32 {
-            encoding_id = pdf_encoding_findresource(&(*mrec).enc_name);
-            if encoding_id < 0i32 {
-                panic!("Could not find encoding file \"{}\".", (*mrec).enc_name);
-            }
-        }
-    }
-    if !mrec.is_null() && cmap_id >= 0i32 {
-        /*
-         * Composite Font
-         */
-        let mut found: i32 = 0i32;
-        let type0_id = Type0Font_cache_find(&(*mrec).font_name, cmap_id, &mut (*mrec).opt);
-        if type0_id < 0i32 {
-            return -1i32;
-        }
-        font_id = 0i32;
-        while font_id < font_cache.len() as i32 {
-            let font = &mut font_cache[font_id as usize];
-            if font.subtype == 4i32 && font.font_id == type0_id && font.encoding_id == cmap_id {
-                found = 1i32;
-                if __verbose != 0 {
-                    info!(
-                        "\npdf_font>> Type0 font \"{}\" (cmap_id={}) found at font_id={}.\n",
-                        (*mrec).font_name,
-                        cmap_id,
-                        font_id,
-                    );
-                }
-                break;
-            } else {
-                font_id += 1
-            }
-        }
-        if found == 0 {
-            font_id = font_cache.len() as i32;
-
-            font_cache.push(pdf_init_font_struct());
-            let font = &mut font_cache[font_id as usize];
-            font.font_id = type0_id;
-            font.subtype = 4i32;
-            font.encoding_id = cmap_id;
-            if __verbose != 0 {
-                info!("\npdf_font>> Type0 font \"{}\"", fontname);
-                info!(" cmap_id=<{},{}>", (*mrec).enc_name, font.encoding_id,);
-                info!(" opened at font_id=<{},{}>.\n", tex_name, font_id,);
-            }
-        }
-    } else {
-        /*
-         * Simple Font - always embed.
-         */
-        let mut found_0: i32 = 0i32;
-        font_id = 0i32;
-        while font_id < font_cache.len() as i32 {
-            let font = &mut font_cache[font_id as usize];
-            match font.subtype {
-                0 | 1 | 3 => {
-                    /* fontname here is font file name.
-                     * We must compare both font file name and encoding
-                     *
-                     * TODO: Embed a font only once if it is used
-                     *       with two different encodings
-                     */
-                    if fontname == font.ident && encoding_id == font.encoding_id {
-                        if !mrec.is_null() && (*mrec).opt.index == font.index {
-                            found_0 = 1i32
+                        if cmap_id < 0i32 {
+                            cmap_id = t1_load_UnicodeCMap(
+                                &mrec.font_name,
+                                &mrec.opt.otl_tags,
+                                if mrec.opt.flags & 1i32 << 2i32 != 0 {
+                                    1i32
+                                } else {
+                                    0i32
+                                },
+                            )
+                        }
+                        if cmap_id < 0i32 {
+                            panic!("Failed to read UCS2/UCS4 TrueType cmap...");
                         }
                     }
                 }
-                2 => {
-                    /* There shouldn't be any encoding specified for PK font.
-                     * It must be always font's build-in encoding.
-                     *
-                     * TODO: a PK font with two encodings makes no sense. Change?
-                     */
-                    if fontname == font.ident && font_scale == font.point_size {
-                        found_0 = 1i32
+                if cmap_id < 0i32 {
+                    encoding_id = pdf_encoding_findresource(&mrec.enc_name);
+                    if encoding_id < 0i32 {
+                        panic!("Could not find encoding file \"{}\".", mrec.enc_name);
                     }
                 }
-                4 => {}
-                _ => {
-                    panic!("Unknown font type: {}", font.subtype);
-                }
             }
-            if found_0 != 0 {
-                if __verbose != 0 {
-                    info!(
-                        "\npdf_font>> Simple font \"{}\" (enc_id={}) found at id={}.\n",
-                        fontname, encoding_id, font_id,
-                    );
+            if cmap_id >= 0 {
+                /*
+                 * Composite Font
+                 */
+                let mut found: i32 = 0i32;
+                let type0_id = Type0Font_cache_find(&mrec.font_name, cmap_id, &mut mrec.opt);
+                if type0_id < 0 {
+                    return -1;
                 }
-                break;
+                font_id = 0i32;
+                while font_id < font_cache.len() as i32 {
+                    let font = &mut font_cache[font_id as usize];
+                    if font.subtype == 4i32
+                        && font.font_id == type0_id
+                        && font.encoding_id == cmap_id
+                    {
+                        found = 1i32;
+                        if __verbose != 0 {
+                            info!(
+                                "\npdf_font>> Type0 font \"{}\" (cmap_id={}) found at font_id={}.\n",
+                                mrec.font_name,
+                                cmap_id,
+                                font_id,
+                            );
+                        }
+                        break;
+                    } else {
+                        font_id += 1
+                    }
+                }
+                if found == 0 {
+                    font_id = font_cache.len() as i32;
+
+                    font_cache.push(pdf_init_font_struct());
+                    let font = &mut font_cache[font_id as usize];
+                    font.font_id = type0_id;
+                    font.subtype = 4i32;
+                    font.encoding_id = cmap_id;
+                    if __verbose != 0 {
+                        info!("\npdf_font>> Type0 font \"{}\"", mrec.font_name);
+                        info!(" cmap_id=<{},{}>", mrec.enc_name, font.encoding_id,);
+                        info!(" opened at font_id=<{},{}>.\n", tex_name, font_id,);
+                    }
+                }
             } else {
-                font_id += 1
+                /*
+                 * Simple Font - always embed.
+                 */
+                let mut found_0: i32 = 0;
+                font_id = 0i32;
+                while font_id < font_cache.len() as i32 {
+                    let font = &mut font_cache[font_id as usize];
+                    match font.subtype {
+                        0 | 1 | 3 => {
+                            /* fontname here is font file name.
+                             * We must compare both font file name and encoding
+                             *
+                             * TODO: Embed a font only once if it is used
+                             *       with two different encodings
+                             */
+                            if mrec.font_name == font.ident && encoding_id == font.encoding_id {
+                                if mrec.opt.index == font.index {
+                                    found_0 = 1;
+                                }
+                            }
+                        }
+                        2 => {
+                            /* There shouldn't be any encoding specified for PK font.
+                             * It must be always font's build-in encoding.
+                             *
+                             * TODO: a PK font with two encodings makes no sense. Change?
+                             */
+                            if mrec.font_name == font.ident && font_scale == font.point_size {
+                                found_0 = 1i32
+                            }
+                        }
+                        4 => {}
+                        _ => {
+                            panic!("Unknown font type: {}", font.subtype);
+                        }
+                    }
+                    if found_0 != 0 {
+                        if __verbose != 0 {
+                            info!(
+                                "\npdf_font>> Simple font \"{}\" (enc_id={}) found at id={}.\n",
+                                mrec.font_name, encoding_id, font_id,
+                            );
+                        }
+                        break;
+                    } else {
+                        font_id += 1
+                    }
+                }
+                if found_0 == 0 {
+                    font_id = font_cache.len() as i32;
+                    font_cache.push(pdf_init_font_struct());
+                    let font = &mut font_cache[font_id as usize];
+                    font.point_size = font_scale;
+                    font.encoding_id = encoding_id;
+                    font.ident = mrec.font_name.to_owned();
+                    font.map_name = tex_name.to_owned();
+                    font.index = mrec.opt.index;
+                    font.subtype = if pdf_font_open_type1(font) >= 0 {
+                        0
+                    } else if pdf_font_open_type1c(font) >= 0 {
+                        1
+                    } else if pdf_font_open_truetype(font) >= 0 {
+                        3
+                    } else if pdf_font_open_pkfont(font) >= 0 {
+                        2
+                    } else {
+                        pdf_clean_font_struct(font);
+                        return -1i32;
+                    };
+                    if __verbose != 0 {
+                        info!("\npdf_font>> Simple font \"{}\"", mrec.font_name);
+                        info!(
+                            " enc_id=<{},{}>",
+                            if !mrec.enc_name.is_empty() {
+                                &mrec.enc_name
+                            } else {
+                                "builtin"
+                            },
+                            font.encoding_id,
+                        );
+                        info!(" opened at font_id=<{},{}>.\n", tex_name, font_id,);
+                    }
+                }
             }
         }
-        if found_0 == 0 {
-            font_id = font_cache.len() as i32;
-            font_cache.push(pdf_init_font_struct());
-            let font = &mut font_cache[font_id as usize];
-            font.point_size = font_scale;
-            font.encoding_id = encoding_id;
-            font.ident = fontname.to_owned();
-            font.map_name = tex_name.to_owned();
-            font.index = if !mrec.is_null() && (*mrec).opt.index != 0 {
-                (*mrec).opt.index
-            } else {
-                0i32
-            };
-            font.subtype = if pdf_font_open_type1(font) >= 0 {
-                0
-            } else if pdf_font_open_type1c(font) >= 0 {
-                1
-            } else if pdf_font_open_truetype(font) >= 0 {
-                3
-            } else if pdf_font_open_pkfont(font) >= 0 {
-                2
-            } else {
-                pdf_clean_font_struct(font);
-                return -1i32;
-            };
-            if __verbose != 0 {
-                info!("\npdf_font>> Simple font \"{}\"", fontname);
-                info!(
-                    " enc_id=<{},{}>",
-                    if !mrec.is_null() && !(*mrec).enc_name.is_empty() {
-                        &(*mrec).enc_name
-                    } else {
-                        "builtin"
-                    },
-                    font.encoding_id,
-                );
-                info!(" opened at font_id=<{},{}>.\n", tex_name, font_id,);
+        None => {
+            /*
+             * Simple Font - always embed.
+             */
+            let mut found_0: i32 = 0;
+            font_id = 0i32;
+            while font_id < font_cache.len() as i32 {
+                let font = &mut font_cache[font_id as usize];
+                match font.subtype {
+                    0 | 1 | 3 => {
+                        /* fontname here is font file name.
+                         * We must compare both font file name and encoding
+                         *
+                         * TODO: Embed a font only once if it is used
+                         *       with two different encodings
+                         */
+                    }
+                    2 => {
+                        /* There shouldn't be any encoding specified for PK font.
+                         * It must be always font's build-in encoding.
+                         *
+                         * TODO: a PK font with two encodings makes no sense. Change?
+                         */
+                        if tex_name == font.ident && font_scale == font.point_size {
+                            found_0 = 1i32
+                        }
+                    }
+                    4 => {}
+                    _ => {
+                        panic!("Unknown font type: {}", font.subtype);
+                    }
+                }
+                if found_0 != 0 {
+                    if __verbose != 0 {
+                        info!(
+                            "\npdf_font>> Simple font \"{}\" (enc_id={}) found at id={}.\n",
+                            tex_name, encoding_id, font_id,
+                        );
+                    }
+                    break;
+                } else {
+                    font_id += 1
+                }
+            }
+            if found_0 == 0 {
+                font_id = font_cache.len() as i32;
+                font_cache.push(pdf_init_font_struct());
+                let font = &mut font_cache[font_id as usize];
+                font.point_size = font_scale;
+                font.encoding_id = encoding_id;
+                font.ident = tex_name.to_owned();
+                font.map_name = tex_name.to_owned();
+                font.index = 0;
+                font.subtype = if pdf_font_open_type1(font) >= 0 {
+                    0
+                } else if pdf_font_open_type1c(font) >= 0 {
+                    1
+                } else if pdf_font_open_truetype(font) >= 0 {
+                    3
+                } else if pdf_font_open_pkfont(font) >= 0 {
+                    2
+                } else {
+                    pdf_clean_font_struct(font);
+                    return -1i32;
+                };
+                if __verbose != 0 {
+                    info!("\npdf_font>> Simple font \"{}\"", tex_name);
+                    info!(" enc_id=<{},{}>", "builtin", font.encoding_id,);
+                    info!(" opened at font_id=<{},{}>.\n", tex_name, font_id,);
+                }
             }
         }
     }

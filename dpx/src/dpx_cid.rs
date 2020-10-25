@@ -691,19 +691,19 @@ pub(crate) unsafe fn CIDFont_cache_get(font_id: i32) -> *mut CIDFont {
 pub(crate) unsafe fn CIDFont_cache_find(
     map_name: &str,
     cmap_csi: *mut CIDSysInfo,
-    mut fmap_opt: *mut fontmap_opt,
+    fmap_opt: &mut fontmap_opt,
 ) -> i32 {
     let opt = Box::into_raw(Box::new(cid_opt {
-        style: (*fmap_opt).style,
-        index: (*fmap_opt).index,
-        embed: if (*fmap_opt).flags & 1i32 << 1i32 != 0 {
+        style: fmap_opt.style,
+        index: fmap_opt.index,
+        embed: if fmap_opt.flags & 1i32 << 1i32 != 0 {
             0i32
         } else {
             1i32
         },
         name: String::new(),
         csi: get_cidsysinfo(map_name, fmap_opt),
-        stemv: (*fmap_opt).stemv,
+        stemv: fmap_opt.stemv,
         cff_charsets: ptr::null_mut(),
     }));
 
@@ -780,7 +780,7 @@ pub(crate) unsafe fn CIDFont_cache_find(
             font.name = map_name.to_owned();
             font.ident = map_name.to_owned();
             font.options = opt;
-            (*fmap_opt).cff_charsets = (*opt).cff_charsets
+            fmap_opt.cff_charsets = (*opt).cff_charsets
         }
     } else if !opt.is_null() {
         release_opt(opt);
