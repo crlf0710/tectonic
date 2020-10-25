@@ -27,6 +27,7 @@
 )]
 
 use crate::bridge::DisplayExt;
+use std::collections::HashMap;
 use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom, Write};
 
@@ -35,7 +36,6 @@ use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
 
-use super::dpx_dpxutil::{ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table};
 use super::dpx_mem::{new, renew};
 use super::dpx_mfileio::{tt_mfgets, work_buffer};
 use super::dpx_pdfdev::pdf_sprint_number;
@@ -51,7 +51,7 @@ use libz_sys as libz;
 
 pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
-use bridge::{InputHandleWrapper, OutputHandleWrapper};
+use bridge::{DroppableInputHandleWrapper, OutputHandleWrapper};
 
 pub(crate) const STREAM_COMPRESS: i32 = 1 << 0;
 pub(crate) const STREAM_USE_PREDICTOR: i32 = 1 << 1;
@@ -66,7 +66,6 @@ const OBJ_NO_ENCRYPT: i32 = 1 << 1;
 /// (label, generation)
 pub(crate) type ObjectId = (u32, u16);
 
-use super::dpx_dpxutil::ht_table;
 pub struct pdf_obj {
     pub(crate) id: ObjectId,
     pub(crate) refcount: u32,
@@ -241,7 +240,7 @@ impl pdf_obj {
 
 #[repr(C)]
 pub struct pdf_file {
-    pub(crate) handle: InputHandleWrapper,
+    pub(crate) handle: DroppableInputHandleWrapper,
     pub(crate) trailer: *mut pdf_obj,
     pub(crate) xref_table: *mut xref_entry,
     pub(crate) catalog: *mut pdf_obj,
@@ -3067,18 +3066,18 @@ pub(crate) unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
         obj
     }
 }
-unsafe fn extend_xref(mut pf: *mut pdf_file, new_size: i32) {
-    (*pf).xref_table = renew(
-        (*pf).xref_table as *mut libc::c_void,
+unsafe fn extend_xref(pf: &mut pdf_file, new_size: i32) {
+    pf.xref_table = renew(
+        pf.xref_table as *mut libc::c_void,
         (new_size as u32 as u64).wrapping_mul(::std::mem::size_of::<xref_entry>() as u64) as u32,
     ) as *mut xref_entry;
-    for i in ((*pf).num_obj as u32)..new_size as u32 {
-        (*(*pf).xref_table.offset(i as isize)).direct = ptr::null_mut();
-        (*(*pf).xref_table.offset(i as isize)).indirect = ptr::null_mut();
-        (*(*pf).xref_table.offset(i as isize)).typ = 0_u8;
-        (*(*pf).xref_table.offset(i as isize)).id = (0, 0);
+    for i in (pf.num_obj as u32)..new_size as u32 {
+        (*pf.xref_table.offset(i as isize)).direct = ptr::null_mut();
+        (*pf.xref_table.offset(i as isize)).indirect = ptr::null_mut();
+        (*pf.xref_table.offset(i as isize)).typ = 0_u8;
+        (*pf.xref_table.offset(i as isize)).id = (0, 0);
     }
-    (*pf).num_obj = new_size;
+    pf.num_obj = new_size;
 }
 /* Returns < 0 for error, 1 for success, and 0 when xref stream found. */
 unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
@@ -3168,7 +3167,7 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                     }
                     /* The first line of a xref subsection OK. */
                     if ((*pf).num_obj as u32) < first.wrapping_add(size) {
-                        extend_xref(pf, first.wrapping_add(size) as i32);
+                        extend_xref(&mut *pf, first.wrapping_add(size) as i32);
                     }
                     /* Start parsing xref subsection body... */
                     let mut i = first as i32;
@@ -3282,7 +3281,7 @@ unsafe fn parse_xrefstm_field(p: *mut *const i8, length: i32, def: u32) -> u32 {
     val
 }
 unsafe fn parse_xrefstm_subsec(
-    pf: *mut pdf_file,
+    pf: &mut pdf_file,
     p: *mut *const i8,
     length: *mut i32,
     W: *mut i32,
@@ -3294,10 +3293,10 @@ unsafe fn parse_xrefstm_subsec(
     if *length < 0i32 {
         return -1i32;
     }
-    if (*pf).num_obj < first + size {
+    if pf.num_obj < first + size {
         extend_xref(pf, first + size);
     }
-    let mut e: *mut xref_entry = (*pf).xref_table.offset(first as isize);
+    let mut e: *mut xref_entry = pf.xref_table.offset(first as isize);
     for _ in 0..size {
         let typ = parse_xrefstm_field(p, *W.offset(0), 1_u32) as u8;
         if typ as i32 > 2i32 {
@@ -3313,11 +3312,11 @@ unsafe fn parse_xrefstm_subsec(
     }
     0i32
 }
-unsafe fn parse_xref_stream(pf: *mut pdf_file, xref_pos: i32, trailer: *mut *mut pdf_obj) -> i32 {
+unsafe fn parse_xref_stream(pf: &mut pdf_file, xref_pos: i32, trailer: *mut *mut pdf_obj) -> i32 {
     let mut current_block: u64;
     let mut W: [i32; 3] = [0; 3];
     let mut wsum: i32 = 0i32;
-    let mut xrefstm = pdf_read_object(0_u32, 0_u16, pf, xref_pos, (*pf).file_size);
+    let mut xrefstm = pdf_read_object(0_u32, 0_u16, pf, xref_pos, pf.file_size);
     if !xrefstm.is_null() && (*xrefstm).is_stream() {
         let tmp: *mut pdf_obj = pdf_stream_uncompress(&mut *xrefstm);
         if !tmp.is_null() {
@@ -3435,7 +3434,7 @@ unsafe fn parse_xref_stream(pf: *mut pdf_file, xref_pos: i32, trailer: *mut *mut
     0i32
 }
 /* TODO: parse Version entry */
-unsafe fn read_xref(pf: *mut pdf_file) -> *mut pdf_obj {
+unsafe fn read_xref(pf: &mut pdf_file) -> *mut pdf_obj {
     let mut current_block: u64;
     let mut trailer: *mut pdf_obj = ptr::null_mut();
     let mut main_trailer: *mut pdf_obj = ptr::null_mut();
@@ -3509,46 +3508,45 @@ unsafe fn read_xref(pf: *mut pdf_file) -> *mut pdf_obj {
         }
     }
 }
-static mut pdf_files: *mut ht_table = ptr::null_mut();
-unsafe fn pdf_file_new(mut handle: InputHandleWrapper) -> *mut pdf_file {
-    let pf = &mut *(new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_file>() as u64) as u32)
-        as *mut pdf_file);
-    let file_size = ttstub_input_get_size(&mut handle) as i32;
-    handle.seek(SeekFrom::End(0)).unwrap();
-    pf.handle = handle;
-    pf.trailer = ptr::null_mut();
-    pf.xref_table = ptr::null_mut();
-    pf.catalog = ptr::null_mut();
-    pf.num_obj = 0i32;
-    pf.version = 0_u32;
-    pf.file_size = file_size;
-    pf
+use crate::dpx_dpxutil::HTHasher;
+use once_cell::sync::Lazy;
+use std::hash::BuildHasherDefault;
+
+static mut pdf_files: Lazy<HashMap<Vec<u8>, Box<pdf_file>, BuildHasherDefault<HTHasher>>> =
+    Lazy::new(|| HashMap::default());
+
+impl pdf_file {
+    fn new(mut handle: DroppableInputHandleWrapper) -> Box<Self> {
+        let file_size = ttstub_input_get_size(&mut handle) as i32;
+        handle.seek(SeekFrom::End(0)).unwrap();
+        Box::new(Self {
+            handle,
+            trailer: ptr::null_mut(),
+            xref_table: ptr::null_mut(),
+            catalog: ptr::null_mut(),
+            num_obj: 0,
+            version: 0,
+            file_size,
+        })
+    }
 }
-unsafe fn pdf_file_free(pf: *mut pdf_file) {
-    if pf.is_null() {
-        return;
+impl Drop for pdf_file {
+    fn drop(&mut self) {
+        unsafe {
+            //tectonic_bridge::ttstub_input_close(self.handle.clone()); // TODO: use drop
+            for i in 0..self.num_obj {
+                pdf_release_obj((*self.xref_table.offset(i as isize)).direct);
+                pdf_release_obj((*self.xref_table.offset(i as isize)).indirect);
+            }
+            free(self.xref_table as *mut libc::c_void);
+            pdf_release_obj(self.trailer);
+            pdf_release_obj(self.catalog);
+        }
     }
-    //tectonic_bridge::ttstub_input_close((*pf).handle.clone()); // TODO: use drop
-    for i in 0..(*pf).num_obj {
-        pdf_release_obj((*(*pf).xref_table.offset(i as isize)).direct);
-        pdf_release_obj((*(*pf).xref_table.offset(i as isize)).indirect);
-    }
-    free((*pf).xref_table as *mut libc::c_void);
-    pdf_release_obj((*pf).trailer);
-    pdf_release_obj((*pf).catalog);
-    free(pf as *mut libc::c_void);
 }
 
 pub unsafe fn pdf_files_init() {
-    pdf_files =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<ht_table>() as u64) as u32) as *mut ht_table;
-    ht_init_table(
-        pdf_files,
-        ::std::mem::transmute::<
-            Option<unsafe fn(_: *mut pdf_file) -> ()>,
-            Option<unsafe fn(_: *mut libc::c_void) -> ()>,
-        >(Some(pdf_file_free as unsafe fn(_: *mut pdf_file) -> ())),
-    );
+    pdf_files.clear();
 }
 
 pub(crate) unsafe fn pdf_file_get_version(pf: &pdf_file) -> u32 {
@@ -3563,19 +3561,18 @@ pub(crate) unsafe fn pdf_file_get_catalog(pf: &pdf_file) -> *mut pdf_obj {
     pf.catalog
 }
 
-pub unsafe fn pdf_open(ident: *const i8, mut handle: InputHandleWrapper) -> *mut pdf_file {
-    assert!(!pdf_files.is_null());
-    let mut pf = if !ident.is_null() {
-        ht_lookup_table(
-            pdf_files,
-            ident as *const libc::c_void,
-            strlen(ident) as i32,
-        ) as *mut pdf_file
+pub unsafe fn pdf_open(
+    ident: &str,
+    mut handle: DroppableInputHandleWrapper,
+) -> Option<&mut Box<pdf_file>> {
+    let pf = if !ident.is_empty() {
+        pdf_files.get_mut(ident.as_bytes())
     } else {
-        ptr::null_mut()
+        None
     };
-    if !pf.is_null() {
-        (*pf).handle = handle
+    if let Some(pf) = pf {
+        pf.handle = handle;
+        Some(pf)
     } else {
         let version = parse_pdf_version(&mut handle).unwrap_or(0);
         if version < 1 || version > pdf_version {
@@ -3586,22 +3583,22 @@ pub unsafe fn pdf_open(ident: *const i8, mut handle: InputHandleWrapper) -> *mut
               return NULL;
             */
         }
-        pf = pdf_file_new(handle);
-        (*pf).version = version;
-        (*pf).trailer = read_xref(pf);
-        if (*pf).trailer.is_null() {
-            return error(pf);
+        let mut pf = pdf_file::new(handle);
+        pf.version = version;
+        pf.trailer = read_xref(&mut pf);
+        if pf.trailer.is_null() {
+            return None;
         }
-        if (*(*pf).trailer).as_dict().has("Encrypt") {
+        if (*pf.trailer).as_dict().has("Encrypt") {
             warn!("PDF document is encrypted.");
-            return error(pf);
+            return None;
         }
-        (*pf).catalog = pdf_deref_obj((*(*pf).trailer).as_dict_mut().get_mut("Root"));
-        if !(!(*pf).catalog.is_null() && (*(*pf).catalog).is_dict()) {
+        pf.catalog = pdf_deref_obj((*pf.trailer).as_dict_mut().get_mut("Root"));
+        if !(!pf.catalog.is_null() && (*pf.catalog).is_dict()) {
             warn!("Cannot read PDF document catalog. Broken PDF file?");
-            return error(pf);
+            return None;
         }
-        let new_version = pdf_deref_obj((*(*pf).catalog).as_dict_mut().get_mut("Version"));
+        let new_version = pdf_deref_obj((*pf.catalog).as_dict_mut().get_mut("Version"));
         if !new_version.is_null() {
             let mut minor: u32 = 0;
             if (&*new_version).is_name() {
@@ -3616,40 +3613,21 @@ pub unsafe fn pdf_open(ident: *const i8, mut handle: InputHandleWrapper) -> *mut
                 } else {
                     pdf_release_obj(new_version);
                     warn!("Illegal Version entry in document catalog. Broken PDF file?");
-                    return error(pf);
+                    return None;
                 }
             }
-            if (*pf).version < minor {
-                (*pf).version = minor
+            if pf.version < minor {
+                pf.version = minor
             }
             pdf_release_obj(new_version);
         }
-        if !ident.is_null() {
-            ht_append_table(
-                pdf_files,
-                ident as *const libc::c_void,
-                strlen(ident) as i32,
-                pf as *mut libc::c_void,
-            );
-        }
+        pdf_files.insert(ident.as_bytes().to_owned(), pf);
+        pdf_files.get_mut(ident.as_bytes())
     }
-    unsafe fn error(pf: *mut pdf_file) -> *mut pdf_file {
-        pdf_file_free(pf);
-        return ptr::null_mut();
-    }
-    pf
-}
-
-pub unsafe fn pdf_close(pf: *mut pdf_file) {
-    if !pf.is_null() {
-        //tectonic_bridge::ttstub_input_close((*pf).handle.clone()); // TODO: use drop
-    };
 }
 
 pub unsafe fn pdf_files_close() {
-    assert!(!pdf_files.is_null());
-    ht_clear_table(pdf_files);
-    free(pdf_files as *mut libc::c_void);
+    pdf_files.clear();
 }
 
 fn parse_pdf_version<R: Read + Seek>(handle: &mut R) -> Result<u32, ()> {

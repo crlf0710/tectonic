@@ -220,6 +220,6 @@ pub use crate::dpx_jpegimage::{check_for_jpeg, jpeg_get_bbox};
 pub use crate::dpx_pdfdev::Corner;
 pub use crate::dpx_pdfdoc::{pdf_doc_get_page, pdf_doc_get_page_count};
 pub use crate::dpx_pdfdraw::pdf_dev_transform;
-pub use crate::dpx_pdfobj::{pdf_close, pdf_file, pdf_obj, pdf_open, pdf_release_obj};
+pub use crate::dpx_pdfobj::{pdf_file, pdf_obj, pdf_open, pdf_release_obj};
 pub use crate::dpx_pdfobj::{pdf_files_close, pdf_files_init};
 pub use crate::dpx_pngimage::{check_for_png, png_get_bbox};

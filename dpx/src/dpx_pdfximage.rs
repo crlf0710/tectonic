@@ -42,7 +42,7 @@ use super::dpx_mem::{new, renew};
 use super::dpx_mfileio::{tt_mfgets, work_buffer};
 use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
-use crate::bridge::{ttstub_input_close, ttstub_input_open};
+use crate::bridge::ttstub_input_open_str;
 use crate::dpx_epdf::pdf_include_page;
 use crate::dpx_pdfobj::{check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj};
 use crate::shims::sprintf;
@@ -54,7 +54,7 @@ pub(crate) type __ssize_t = i64;
 
 use crate::bridge::TTInputFormat;
 
-use bridge::InputHandleWrapper;
+use bridge::DroppableInputHandleWrapper;
 
 use super::dpx_pdfdev::{transform_info, Point, Rect, TMatrix};
 #[derive(Copy, Clone)]
@@ -241,9 +241,9 @@ unsafe fn source_image_type<R: Read + Seek>(handle: &mut R) -> i32 {
 }
 unsafe fn load_image(
     ident: *const i8,
-    fullname: *const i8,
+    fullname: &str,
     format: i32,
-    mut handle: InputHandleWrapper,
+    mut handle: DroppableInputHandleWrapper,
     options: load_options,
 ) -> i32 {
     let mut ic: *mut ic_ = &mut _ic;
@@ -264,11 +264,11 @@ unsafe fn load_image(
                 as *mut i8;
         strcpy(I.ident, ident);
     }
-    if !fullname.is_null() {
+    if !fullname.is_empty() {
         I.filename =
-            new((strlen(fullname).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-                as *mut i8;
-        strcpy(I.filename, fullname);
+            new((fullname.len() + 1).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
+        let fullname = std::ffi::CString::new(fullname).unwrap();
+        strcpy(I.filename, fullname.as_ptr());
     }
     I.attr.page_no = options.page_no;
     I.attr.bbox_type = options.bbox_type;
@@ -286,7 +286,6 @@ unsafe fn load_image(
             }
 
             I.subtype = 1;
-            ttstub_input_close(handle);
             // FIXME: `ttstub_input_close` is not used in this place in
             // https://github.com/tectonic-typesetting/tectonic/blob/e4b884ceeeeda2808289d034480f27008a678746/tectonic/dpx-pdfximage.c#L254
         }
@@ -296,7 +295,6 @@ unsafe fn load_image(
             }
             /*if (jp2_include_image(I, fp) < 0)*/
             warn!("Tectonic: JP2 not yet supported");
-            ttstub_input_close(handle);
             pdf_clean_ximage_struct(I);
             return -1;
             /*I->subtype = PDF_XOBJECT_TYPE_IMAGE;
@@ -310,7 +308,6 @@ unsafe fn load_image(
                 pdf_clean_ximage_struct(I);
                 return -1;
             }
-            ttstub_input_close(handle);
         }
         6 => {
             if _opts.verbose != 0 {
@@ -321,13 +318,12 @@ unsafe fn load_image(
                 return -1;
             }
             I.subtype = 1;
-            ttstub_input_close(handle);
         }
         0 => {
             if _opts.verbose != 0 {
                 info!("[PDF]");
             }
-            let result: i32 = pdf_include_page(I, handle.clone(), fullname, options);
+            let result: i32 = pdf_include_page(I, handle, fullname, options);
             /* Tectonic: this used to try ps_include_page() */
             if result != 0 {
                 pdf_clean_ximage_struct(I);
@@ -336,7 +332,6 @@ unsafe fn load_image(
             if _opts.verbose != 0 {
                 info!(",Page:{}", I.attr.page_no);
             }
-            ttstub_input_close(handle);
             I.subtype = 0;
         }
         5 => {
@@ -345,7 +340,6 @@ unsafe fn load_image(
             }
             warn!("sorry, PostScript images are not supported by Tectonic");
             warn!("for details, please see https://github.com/tectonic-typesetting/tectonic/issues/27");
-            ttstub_input_close(handle);
             pdf_clean_ximage_struct(I);
             return -1;
         }
@@ -354,7 +348,6 @@ unsafe fn load_image(
                 info!("[UNKNOWN]");
             }
             /* Tectonic: this used to try ps_include_page() */
-            ttstub_input_close(handle);
             pdf_clean_ximage_struct(I);
             return -1;
         }
@@ -409,7 +402,8 @@ pub(crate) unsafe fn pdf_ximage_findresource(ident: *const i8, options: load_opt
      *   strcpy(fullname, f);
      * } else { kpse_find_file() }
      */
-    let handle = ttstub_input_open(ident, TTInputFormat::PICT, 0i32);
+    let ident_ = CStr::from_ptr(ident).to_str().unwrap();
+    let handle = ttstub_input_open_str(ident_, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         warn!(
             "Error locating image file \"{}\"",
@@ -422,7 +416,7 @@ pub(crate) unsafe fn pdf_ximage_findresource(ident: *const i8, options: load_opt
         info!("(Image:{}", CStr::from_ptr(ident).display());
     }
     let format = source_image_type(&mut handle);
-    let id = load_image(ident, ident, format, handle, options);
+    let id = load_image(ident, ident_, format, handle, options);
     if _opts.verbose != 0 {
         info!(")");
     }

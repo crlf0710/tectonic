@@ -8,7 +8,7 @@
     unused_mut
 )]
 
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 
 use crate::help;
 use crate::node::Picture;
@@ -25,16 +25,16 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{LLIST_link, TeXInt};
 
-use bridge::InputHandleWrapper;
+use bridge::ttstub_input_open_str;
 use bridge::TTInputFormat;
-use bridge::{ttstub_input_close, ttstub_input_open};
+use bridge::{DroppableInputHandleWrapper, InputHandleWrapper};
 use dpx::pdf_dev_transform;
 use dpx::Corner;
 use dpx::{bmp_get_bbox, check_for_bmp};
 use dpx::{check_for_jpeg, jpeg_get_bbox};
 use dpx::{check_for_png, png_get_bbox};
-use dpx::{pdf_close, pdf_obj, pdf_open, pdf_release_obj};
 use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
+use dpx::{pdf_obj, pdf_open, pdf_release_obj};
 pub type scaled_t = i32;
 pub type Fixed = scaled_t;
 pub type str_number = i32;
@@ -45,40 +45,31 @@ type Point = euclid::Point2D<f32, ()>;
 type Rect = euclid::Rect<f32, ()>;
 
 pub(crate) unsafe fn count_pdf_file_pages() -> i32 {
-    let handle = ttstub_input_open(
-        CString::new(name_of_file.as_str()).unwrap().as_ptr(),
-        TTInputFormat::PICT,
-        0i32,
-    );
+    let handle = ttstub_input_open_str(&name_of_file, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         return 0;
     }
-    let pf = pdf_open(
-        CString::new(name_of_file.as_str()).unwrap().as_ptr(),
-        handle.unwrap(),
-    );
-    if pf.is_null() {
+    if let Some(pf) = pdf_open(&name_of_file, handle.unwrap()) {
+        pdf_doc_get_page_count(&*pf)
+    } else {
         /* TODO: issue warning */
-        //ttstub_input_close(handle);
-        return 0;
+        0
     }
-    let pages = pdf_doc_get_page_count(&*pf);
-    pdf_close(pf);
-    pages
 }
 unsafe fn pdf_get_rect(
     filename: *const i8,
-    handle: InputHandleWrapper,
+    handle: DroppableInputHandleWrapper,
     mut page_num: i32,
     mut pdf_box: i32,
 ) -> Result<Rect, ()> {
     let mut dpx_options: i32 = 0;
-    let pf = pdf_open(filename as *mut i8, handle);
-    if pf.is_null() {
+    let pf = pdf_open(CStr::from_ptr(filename).to_str().unwrap(), handle);
+    if pf.is_none() {
         /* TODO: issue warning */
         return Err(());
     }
-    let pages = pdf_doc_get_page_count(&*pf);
+    let pf = pf.unwrap();
+    let pages = pdf_doc_get_page_count(pf);
     if page_num > pages {
         page_num = pages
     }
@@ -99,9 +90,8 @@ unsafe fn pdf_get_rect(
         1 | _ => 1,
     };
     if let Some((page, mut bbox, matrix)) =
-        pdf_doc_get_page(&*pf, page_num, dpx_options, 0 as *mut *mut pdf_obj)
+        pdf_doc_get_page(pf, page_num, dpx_options, 0 as *mut *mut pdf_obj)
     {
-        pdf_close(pf);
         pdf_release_obj(page);
         /* Image's attribute "bbox" here is affected by /Rotate entry of included
          * PDF page.
@@ -129,7 +119,6 @@ unsafe fn pdf_get_rect(
             ),
         ))
     } else {
-        pdf_close(pf);
         /* TODO: issue warning */
         Err(())
     }
@@ -158,11 +147,7 @@ unsafe fn get_image_size_in_inches(handle: &mut InputHandleWrapper) -> Result<(f
   return bounds (tex points) in *bounds
 */
 unsafe fn find_pic_file(mut pdfBoxType: i32, mut page: i32) -> Result<(Rect, String), i32> {
-    let handle = ttstub_input_open(
-        CString::new(name_of_file.as_str()).unwrap().as_ptr(),
-        TTInputFormat::PICT,
-        0i32,
-    );
+    let handle = ttstub_input_open_str(&name_of_file, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         return Err(1);
     }
@@ -178,13 +163,10 @@ unsafe fn find_pic_file(mut pdfBoxType: i32, mut page: i32) -> Result<(Rect, Str
         .map_err(|_| -1)?
     } else {
         match get_image_size_in_inches(&mut handle) {
-            Ok((wd, ht)) => {
-                ttstub_input_close(handle);
-                Rect::from_size(size2(
-                    (wd as f64 * 72.27) as f32,
-                    (ht as f64 * 72.27) as f32,
-                ))
-            }
+            Ok((wd, ht)) => Rect::from_size(size2(
+                (wd as f64 * 72.27) as f32,
+                (ht as f64 * 72.27) as f32,
+            )),
             Err(e) => return Err(e),
         }
     };
