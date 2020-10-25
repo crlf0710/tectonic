@@ -123,14 +123,6 @@ pub(crate) unsafe fn is_char_node(p: Option<usize>) -> bool {
 }
 
 #[inline]
-pub(crate) unsafe fn print_c_string(mut str: *const i8) {
-    while *str != 0 {
-        let fresh0 = str;
-        str = str.offset(1);
-        xetex_output::print_char(*fresh0 as i32);
-    }
-}
-
 pub(crate) unsafe fn print_c_str(string: &str) {
     for s in string.bytes() {
         xetex_output::print_char(s as i32);

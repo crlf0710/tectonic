@@ -8,7 +8,7 @@
     unused_mut
 )]
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 use crate::help;
 use crate::node::Picture;
@@ -62,7 +62,7 @@ unsafe fn pdf_get_rect(
     mut pdf_box: i32,
 ) -> Result<Rect, ()> {
     let mut dpx_options: i32 = 0;
-    let pf = pdf_open(CStr::from_ptr(filename).to_str().unwrap(), handle);
+    let pf = pdf_open(crate::c_pointer_to_str(filename), handle);
     if pf.is_none() {
         /* TODO: issue warning */
         return Err(());

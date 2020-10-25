@@ -8,15 +8,15 @@
     unused_mut
 )]
 
-use bridge::DisplayExt;
-use std::ffi::{CStr, CString};
+use crate::c_pointer_to_str;
+use std::ffi::CString;
 
 use crate::node::{Glyph, NativeWord};
 use crate::strstartswith;
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_consts::{Side, UnicodeMode};
-use crate::xetex_xetexd::{print_c_str, print_c_string};
+use crate::xetex_xetexd::print_c_str;
 use bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read};
 use libc::free;
 use std::ptr;
@@ -181,15 +181,11 @@ pub(crate) unsafe fn linebreak_start(
         if status as i32 > icu::U_ZERO_ERROR as i32 {
             diagnostic(true, || {
                 print_nl('E' as i32);
-                print_c_string(b"rror \x00" as *const u8 as *const i8);
+                print_c_str("rror ");
                 print_int(status as i32);
-                print_c_string(
-                    b" creating linebreak iterator for locale `\x00" as *const u8 as *const i8,
-                );
+                print_c_str(" creating linebreak iterator for locale `");
                 print_c_str(&locale);
-                print_c_string(
-                    b"\'; trying default locale `en_us\'.\x00" as *const u8 as *const i8,
-                );
+                print_c_str("\'; trying default locale `en_us\'.");
             });
             if !brkIter.is_null() {
                 icu::ubrk_close(brkIter);
@@ -250,9 +246,9 @@ pub(crate) unsafe fn get_encoding_mode_and_info(mut info: *mut i32) -> UnicodeMo
     let result = if cnv.is_null() {
         diagnostic(true, || {
             print_nl('U' as i32);
-            print_c_string(b"nknown encoding `\x00" as *const u8 as *const i8);
+            print_c_str("nknown encoding `");
             print_c_str(&name_of_file);
-            print_c_string(b"\'; reading as raw bytes\x00" as *const u8 as *const i8);
+            print_c_str("\'; reading as raw bytes");
         });
         UnicodeMode::Raw
     } else {
@@ -296,7 +292,7 @@ unsafe fn load_mapping_file(
         if r < 0 || r as size_t != mappingSize {
             abort!(
                 "could not read mapping file \"{}\"",
-                CStr::from_ptr(buffer).display()
+                c_pointer_to_str(buffer)
             );
         }
         ttstub_input_close(map);
@@ -687,7 +683,7 @@ unsafe fn loadOTfont(
             fontRef,
             font,
             script,
-            language,
+            c_pointer_to_str(language).to_string(),
             features,
             nFeatures,
             tmpShapers.as_mut_ptr(),
@@ -788,8 +784,15 @@ unsafe fn loadOTfont(
                             if reqEngine as i32 == 'G' as i32 {
                                 let mut value: i32 = 0i32;
                                 if readFeatureNumber(cp1, cp2, &mut tag, &mut value)
-                                    || findGraphiteFeature(engine, cp1, cp2, &mut tag, &mut value)
-                                        as i32
+                                    || findGraphiteFeature(
+                                        engine,
+                                        std::slice::from_raw_parts(
+                                            cp1 as *mut u8,
+                                            cp2.offset_from(cp1) as usize,
+                                        ),
+                                        &mut tag,
+                                        &mut value,
+                                    ) as i32
                                         != 0
                                 {
                                     features = xrealloc(
@@ -926,7 +929,16 @@ unsafe fn loadOTfont(
         setFontLayoutDir(font, 1i32);
     }
     engine = createLayoutEngine(
-        fontRef, font, script, language, features, nFeatures, shapers, rgbValue, extend, slant,
+        fontRef,
+        font,
+        script,
+        c_pointer_to_str(language).to_string(),
+        features,
+        nFeatures,
+        shapers,
+        rgbValue,
+        extend,
+        slant,
         embolden,
     );
     if engine.is_null() {
@@ -1072,8 +1084,8 @@ pub(crate) unsafe fn find_native_font(
             if !rval.is_null() && get_tracing_fonts_state() > 0i32 {
                 diagnostic(false, || {
                     print_nl(' ' as i32);
-                    print_c_string(b"-> \x00" as *const u8 as *const i8);
-                    print_c_string(nameString.offset(1));
+                    print_c_str("-> ");
+                    print_c_str(c_pointer_to_str(nameString.offset(1)));
                 });
             }
         }
@@ -1301,7 +1313,7 @@ pub(crate) unsafe fn gr_print_font_name(
         _ => {}
     }
     if !name.is_null() {
-        print_c_string(name);
+        print_c_str(c_pointer_to_str(name));
         gr_label_destroy(name as *mut libc::c_void);
     };
 }
@@ -1310,10 +1322,7 @@ pub(crate) unsafe fn gr_font_get_named(mut what: i32, mut pEngine: *mut libc::c_
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
     match what {
         10 => {
-            let name = CString::new(name_of_file.as_str()).unwrap();
-            rval =
-                findGraphiteFeatureNamed(engine, name.as_ptr(), name_of_file.as_bytes().len() as _)
-                    as _;
+            rval = findGraphiteFeatureNamed(engine, name_of_file.as_bytes()) as _;
         }
         _ => {}
     }
@@ -1328,13 +1337,8 @@ pub(crate) unsafe fn gr_font_get_named_1(
     let mut engine: XeTeXLayoutEngine = pEngine as XeTeXLayoutEngine;
     match what {
         14 => {
-            let name = CString::new(name_of_file.as_str()).unwrap();
-            rval = findGraphiteFeatureSettingNamed(
-                engine,
-                param as u32,
-                name.as_ptr(),
-                name_of_file.as_bytes().len() as _,
-            ) as _;
+            rval =
+                findGraphiteFeatureSettingNamed(engine, param as u32, name_of_file.as_bytes()) as _;
         }
         _ => {}
     }
@@ -1382,7 +1386,7 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
     let mut flags: u16 = 0_u16;
     let mut rgba: u32 = 0;
     let mut size: Fixed = 0;
-    let mut filename: *mut i8 = 0 as *mut i8;
+    let filename: String;
     let mut index: u32 = 0;
     /* PlatformFontRef fontRef = 0; */
     let mut extend: f32 = 1.0f64 as f32;
@@ -1447,7 +1451,7 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
             /* fontRef = */
             getFontRef(engine);
             filename = getFontFilename(engine, &mut index);
-            assert!(!filename.is_null());
+            assert!(!filename.is_empty());
             rgba = getRgbValue(engine);
             if FONT_FLAGS[f] as i32 & 0x2i32 != 0i32 {
                 flags = (flags as i32 | 0x100i32) as u16
@@ -1459,7 +1463,6 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
         }
         _ => panic!("bad native font flag in `make_font_def`"),
     }
-    let filenameLen = strlen(filename) as u8;
     /* parameters after internal font ID:
     //  size[4]
     //  flags[2]
@@ -1467,7 +1470,7 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
     //  if flags & COLORED:
     //      c[4]
      */
-    let mut fontDefLength = 4 + 2 + 1 + filenameLen as i32 + 4; /* face index */
+    let mut fontDefLength = 4 + 2 + 1 + filename.len() as i32 + 4; /* face index */
     if FONT_FLAGS[f] as i32 & 0x1i32 != 0i32 {
         fontDefLength += 4; /* 32-bit RGBA value */
         flags |= 0x200;
@@ -1487,10 +1490,9 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
     let mut buf = Vec::with_capacity((fontDefLength as usize / 1024 + 1) * 1024);
     buf.extend_from_slice(&(size as u32).to_be_bytes()[..]);
     buf.extend_from_slice(&flags.to_be_bytes()[..]);
-    buf.push(filenameLen);
+    buf.push(filename.len() as u8);
 
-    let filename_slice = std::slice::from_raw_parts(filename as *const u8, filenameLen as _);
-    buf.extend_from_slice(filename_slice);
+    buf.extend_from_slice(filename.as_bytes());
 
     buf.extend_from_slice(&index.to_be_bytes()[..]);
     if FONT_FLAGS[f] as i32 & 0x1i32 != 0i32 {
@@ -1505,7 +1507,6 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
     if flags as i32 & 0x4000i32 != 0 {
         buf.extend_from_slice(&D2Fix(embolden as f64).to_be_bytes()[..]);
     }
-    free(filename as *mut libc::c_void);
     buf
 }
 pub(crate) unsafe fn apply_mapping(

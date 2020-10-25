@@ -32,7 +32,7 @@ use freetype::freetype_sys::{
     FT_Parameter, FT_Pointer, FT_Sfnt_Tag, FT_String, FT_UInt, FT_ULong, FT_Vector,
 };
 
-use bridge::{ttstub_input_close, ttstub_input_get_size, ttstub_input_open, ttstub_input_read};
+use bridge::{ttstub_input_get_size, ttstub_input_read, DroppableInputHandleWrapper as InFile};
 
 use std::ptr;
 
@@ -45,9 +45,8 @@ pub(crate) mod imp {}
 #[path = "xetex_font_info_coretext.rs"]
 pub(crate) mod imp;
 
-use crate::core_memory::xstrdup;
 use crate::xetex_ext::Fix2D;
-use libc::{free, malloc, strcpy, strlen, strrchr, tolower};
+use libc::{free, malloc, strlen};
 extern "C" {
     // TODO: NOTE: this api doesn't included in harfbuzz_sys
     #[no_mangle]
@@ -118,8 +117,7 @@ pub(crate) struct GlyphBBox {
     pub(crate) yMax: f32,
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct XeTeXFontInst {
     pub(crate) m_unitsPerEM: libc::c_ushort,
     pub(crate) m_pointSize: f32,
@@ -148,24 +146,23 @@ pub(crate) struct XeTeXFontInst {
 /* Return NAME with any leading path stripped off.  This returns a
 pointer into NAME.  For example, `basename ("/foo/bar.baz")'
 returns "bar.baz".  */
-unsafe extern "C" fn xbasename(mut name: *const libc::c_char) -> *const libc::c_char {
-    let mut base: *const libc::c_char = name;
-    let mut p: *const libc::c_char = ptr::null();
-    p = base;
-    while *p != 0 {
-        if *p as libc::c_int == '/' as i32 {
-            base = p.offset(1)
+unsafe fn xbasename(mut name: &str) -> &str {
+    let mut base = name;
+    let mut p = base;
+    while !p.is_empty() {
+        if p.chars().nth(0) == Some('/') {
+            base = &p[1..];
         }
-        p = p.offset(1)
+        p = &p[1..];
     }
-    return base;
+    base
 }
 #[no_mangle]
 pub(crate) static mut gFreeTypeLibrary: FT_Library = 0 as FT_Library;
 static mut hbFontFuncs: *mut hb_font_funcs_t = 0 as *mut hb_font_funcs_t;
 pub(crate) unsafe fn XeTeXFontInst_base_ctor(
     mut self_0: *mut XeTeXFontInst,
-    mut pathname: *const libc::c_char,
+    pathname: &str,
     mut index: libc::c_int,
     mut pointSize: f32,
     mut status: *mut libc::c_int,
@@ -185,12 +182,12 @@ pub(crate) unsafe fn XeTeXFontInst_base_ctor(
     (*self_0).m_backingData2 = 0 as *mut FT_Byte;
     (*self_0).m_hbFont = 0 as *mut hb_font_t;
     (*self_0).m_subdtor = None;
-    if !pathname.is_null() {
+    if !pathname.is_empty() {
         XeTeXFontInst_initialize(self_0, pathname, index, status);
     };
 }
 pub(crate) unsafe fn XeTeXFontInst_create(
-    mut pathname: *const libc::c_char,
+    pathname: &str,
     mut index: libc::c_int,
     mut pointSize: f32,
     mut status: *mut libc::c_int,
@@ -524,7 +521,7 @@ unsafe extern "C" fn _get_table(
 }
 pub(crate) unsafe fn XeTeXFontInst_initialize(
     mut self_0: *mut XeTeXFontInst,
-    mut pathname: *const libc::c_char,
+    pathname: &str,
     mut index: libc::c_int,
     mut status: *mut libc::c_int,
 ) {
@@ -542,9 +539,9 @@ pub(crate) unsafe fn XeTeXFontInst_initialize(
         }
     }
     // Here we emulate some logic that was originally in find_native_font();
-    let mut handle = ttstub_input_open(pathname, TTInputFormat::OPENTYPE, 0)
-        .or_else(|| ttstub_input_open(pathname, TTInputFormat::TRUETYPE, 0))
-        .or_else(|| ttstub_input_open(pathname, TTInputFormat::TYPE1, 0));
+    let mut handle = InFile::open(pathname, TTInputFormat::OPENTYPE, 0)
+        .or_else(|| InFile::open(pathname, TTInputFormat::TRUETYPE, 0))
+        .or_else(|| InFile::open(pathname, TTInputFormat::TYPE1, 0));
     if handle.is_none() {
         *status = 1i32;
         return;
@@ -560,7 +557,6 @@ pub(crate) unsafe fn XeTeXFontInst_initialize(
     if r < 0 || r != sz as _ {
         abort!("failed to read font file");
     }
-    ttstub_input_close(handle);
     error = FT_New_Memory_Face(
         gFreeTypeLibrary,
         (*self_0).m_backingData,
@@ -578,17 +574,17 @@ pub(crate) unsafe fn XeTeXFontInst_initialize(
         // to try to find metrics for this font. Thanks to the existence of
         // FT_Attach_Stream we can emulate this behavior while going through
         // the Rust I/O layer.
-        let mut afm: *mut libc::c_char = xstrdup(xbasename(pathname));
-        let mut p: *mut libc::c_char = strrchr(afm, '.' as i32);
-        if !p.is_null()
-            && strlen(p) == 4
-            && tolower(*p.offset(1) as libc::c_int) == 'p' as i32
-            && tolower(*p.offset(2) as libc::c_int) == 'f' as i32
-        {
-            strcpy(p, b".afm\x00" as *const u8 as *const libc::c_char);
+        let mut afm = xbasename(pathname).to_string();
+        if let Some(p) = afm.bytes().rposition(|b| b == b'.') {
+            match afm[p + 1..].to_lowercase().as_bytes() {
+                [b'p', b'f', _] => {
+                    afm.truncate(p);
+                    afm += ".afm";
+                }
+                _ => {}
+            }
         }
-        let mut afm_handle = ttstub_input_open(afm, TTInputFormat::AFM, 0i32);
-        free(afm as *mut libc::c_void);
+        let mut afm_handle = InFile::open(&afm, TTInputFormat::AFM, 0i32);
         if let Some(mut afm_handle) = afm_handle {
             sz = ttstub_input_get_size(&mut afm_handle);
             (*self_0).m_backingData2 = xmalloc(sz as _) as *mut FT_Byte;
@@ -600,7 +596,6 @@ pub(crate) unsafe fn XeTeXFontInst_initialize(
             if r < 0 || r != sz as _ {
                 abort!("failed to read AFM file");
             }
-            ttstub_input_close(afm_handle);
             let mut open_args: FT_Open_Args = FT_Open_Args {
                 flags: 0,
                 memory_base: ptr::null(),
@@ -617,7 +612,7 @@ pub(crate) unsafe fn XeTeXFontInst_initialize(
             FT_Attach_Stream((*self_0).m_ftFace, &mut open_args);
         }
     }
-    (*self_0).m_filename = xstrdup(pathname);
+    (*self_0).m_filename = crate::core_memory::strdup(pathname);
     (*self_0).m_index = index as uint32_t;
     (*self_0).m_unitsPerEM = (*(*self_0).m_ftFace).units_per_EM;
     (*self_0).m_ascent = XeTeXFontInst_unitsToPoints(self_0, (*(*self_0).m_ftFace).ascender as f32);
