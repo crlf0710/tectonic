@@ -626,11 +626,11 @@ pub(crate) unsafe fn agl_sput_UTF16BE(
     limptr: *mut u8,
     fail_count: *mut i32,
 ) -> i32 {
-    let glyphstr = CString::new(glyphstr.as_bytes()).unwrap().as_ptr();
+    let glyphstr = CString::new(glyphstr.as_bytes()).unwrap();
     let mut len: i32 = 0i32;
     let mut count: i32 = 0i32;
-    assert!(!glyphstr.is_null() && !dstpp.is_null());
-    let mut p = glyphstr;
+    assert!(!dstpp.is_null());
+    let mut p = glyphstr.as_ptr();
     let mut endptr = strchr(p, '.' as i32) as *const i8;
     if endptr.is_null() {
         endptr = p.offset(strlen(p) as isize)
@@ -644,7 +644,7 @@ pub(crate) unsafe fn agl_sput_UTF16BE(
              */
             warn!(
                 "Invalid glyph name component in \"{}\".",
-                CStr::from_ptr(glyphstr).display()
+                glyphstr.display()
             );
             count += 1;
             if !fail_count.is_null() {
@@ -732,9 +732,9 @@ pub(crate) unsafe fn agl_get_unicodes(
     unicodes: *mut i32,
     max_unicodes: i32,
 ) -> i32 {
-    let glyphstr = CString::new(glyphstr.as_bytes()).unwrap().as_ptr();
+    let glyphstr = CString::new(glyphstr).unwrap();
     let mut count: i32 = 0i32;
-    let mut p = glyphstr;
+    let mut p = glyphstr.as_ptr();
     let mut endptr = strchr(p, '.' as i32) as *const i8;
     if endptr.is_null() {
         endptr = p.offset(strlen(p) as isize)
@@ -748,7 +748,7 @@ pub(crate) unsafe fn agl_get_unicodes(
              */
             warn!(
                 "Invalid glyph name component in \"{}\".",
-                CStr::from_ptr(glyphstr).display()
+                glyphstr.display()
             );
             return -1i32;
         /* Cannot continue */

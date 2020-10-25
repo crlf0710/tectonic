@@ -405,7 +405,8 @@ unsafe fn spc_html__base_empty(spe: &mut SpcEnv, attr: &pdf_obj, mut sd: *mut sp
     }
     (*sd).baseurl =
         new((vp.len().wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    strcpy((*sd).baseurl, CString::new(vp).unwrap().as_ptr());
+    let cstr = CString::new(vp).unwrap();
+    strcpy((*sd).baseurl, cstr.as_ptr());
     0i32
 }
 /* This isn't completed.
@@ -500,7 +501,8 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {
         ti.flags |= 1 << 2;
     }
     if let Some(obj) = attr.as_dict().get("svg:opacity") {
-        alpha = atof(CString::new(obj.as_string().to_bytes()).unwrap().as_ptr());
+        let cstr = CString::new(obj.as_string().to_bytes()).unwrap();
+        alpha = atof(cstr.as_ptr());
         if alpha < 0. || alpha > 1. {
             spc_warn!(
                 spe,

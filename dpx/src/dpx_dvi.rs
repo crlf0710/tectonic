@@ -2222,7 +2222,8 @@ unsafe fn scan_special(
                             if let Some(obj) = buf.parse_pdf_string() {
                                 let bytes = (*obj).as_string().to_bytes();
                                 if !bytes.is_empty() {
-                                    strncpy(owner_pw, CString::new(bytes).unwrap().as_ptr(), 127);
+                                    let cstr = CString::new(bytes).unwrap();
+                                    strncpy(owner_pw, cstr.as_ptr(), 127);
                                 }
                                 pdf_release_obj(obj);
                             } else {
@@ -2233,7 +2234,8 @@ unsafe fn scan_special(
                             if let Some(obj) = buf.parse_pdf_string() {
                                 let bytes = (*obj).as_string().to_bytes();
                                 if !bytes.is_empty() {
-                                    strncpy(user_pw, CString::new(bytes).unwrap().as_ptr(), 127);
+                                    let cstr = CString::new(bytes).unwrap();
+                                    strncpy(user_pw, cstr.as_ptr(), 127);
                                 }
                                 pdf_release_obj(obj);
                             } else {
