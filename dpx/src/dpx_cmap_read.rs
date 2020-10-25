@@ -57,8 +57,8 @@ static mut __verbose: i32 = 0i32;
 pub(crate) type CID = u16;
 #[repr(C)]
 pub(crate) struct ifreader {
-    pub(crate) cursor: *mut u8,
-    pub(crate) endptr: *mut u8,
+    pub(crate) cursor: *const u8,
+    pub(crate) endptr: *const u8,
     pub(crate) buf: *mut u8,
     pub(crate) max: size_t,
     pub(crate) handle: InFile,
@@ -76,7 +76,7 @@ impl ifreader {
             endptr: buf,
             cursor: buf,
         };
-        *reader.endptr = 0;
+        *buf = 0;
         reader
     }
 }
@@ -112,14 +112,16 @@ unsafe fn ifreader_read(reader: &mut ifreader, size: size_t) -> size_t {
             reader.cursor as *const libc::c_void,
             bytesrem as _,
         );
-        reader.cursor = reader.buf;
-        reader.endptr = reader.buf.offset(bytesrem as isize);
-        let slice = std::slice::from_raw_parts_mut(reader.endptr, bytesread as usize);
+        let slice = std::slice::from_raw_parts_mut(
+            reader.buf.offset(bytesrem as isize),
+            bytesread as usize,
+        );
         reader
             .handle
             .read_exact(slice)
             .expect("Reading file failed.");
-        reader.endptr = reader.endptr.offset(bytesread as isize);
+        reader.cursor = reader.buf;
+        reader.endptr = reader.buf.offset((bytesrem + bytesread) as isize);
         reader.unread = (reader.unread as u64).wrapping_sub(bytesread as _) as size_t as size_t;
         if __verbose != 0 {
             info!(
@@ -128,7 +130,8 @@ unsafe fn ifreader_read(reader: &mut ifreader, size: size_t) -> size_t {
             );
         }
     }
-    *reader.endptr = 0_u8;
+    let len = reader.endptr.offset_from(reader.cursor);
+    *reader.buf.offset(len) = 0_u8;
     bytesread.wrapping_add(bytesrem)
 }
 unsafe fn check_next_token(input: &mut ifreader, key: &str) -> Result<(), ()> {
@@ -346,7 +349,7 @@ unsafe fn do_cidchar(cmap: *mut CMap, input: &mut ifreader, count: i32) -> Resul
     }
     check_next_token(input, "endcidchar")
 }
-unsafe fn do_cidsysteminfo(cmap: *mut CMap, input: &mut ifreader) -> i32 {
+unsafe fn do_cidsysteminfo(cmap: &mut CMap, input: &mut ifreader) -> i32 {
     let mut csi: CIDSysInfo = CIDSysInfo {
         registry: "".into(),
         ordering: "".into(),

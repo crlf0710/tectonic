@@ -602,7 +602,7 @@ fn xtol(buf: &[u8]) -> i32 {
     v
 }
 
-unsafe fn put_unicode_glyph(name: &[u8], dstpp: *mut *mut u8, limptr: *mut u8) -> i32 {
+unsafe fn put_unicode_glyph(name: &[u8], dstpp: &mut *mut u8, limptr: *mut u8) -> i32 {
     let mut len = 0;
     let mut p = name;
     if p[1] != b'n' {
@@ -622,7 +622,7 @@ unsafe fn put_unicode_glyph(name: &[u8], dstpp: *mut *mut u8, limptr: *mut u8) -
 
 pub(crate) unsafe fn agl_sput_UTF16BE(
     glyphstr: &str,
-    dstpp: *mut *mut u8,
+    dstpp: &mut *mut u8,
     limptr: *mut u8,
     fail_count: *mut i32,
 ) -> i32 {

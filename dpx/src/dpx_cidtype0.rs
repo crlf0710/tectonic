@@ -424,7 +424,7 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     let mut destlen = 4_usize;
     destlen += cff_set_name(cffont, &(*font).fontname) as usize;
     destlen += topdict.size();
-    destlen += cff_index_size(cffont.string);
+    destlen += cffont.string.as_deref_mut().unwrap().size();
     destlen += cff_index_size(cffont.gsubr);
     destlen += (*cffont.charsets).num_entries as usize * 2 + 1;
     destlen += (*cffont.fdselect).num_entries as usize * 3 + 5;
@@ -443,7 +443,11 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     let topdict_offset = offset;
     offset += topdict.size();
     /* Strings */
-    offset += cff_pack_index(cffont.string, &mut dest[offset..]);
+    offset += cffont
+        .string
+        .as_deref_mut()
+        .unwrap()
+        .pack(&mut dest[offset..]);
     /* Global Subrs */
     offset += cff_pack_index(cffont.gsubr, &mut dest[offset..]);
     /* charset */

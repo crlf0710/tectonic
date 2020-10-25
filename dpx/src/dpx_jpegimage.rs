@@ -92,12 +92,12 @@ pub(crate) const JM_DQT: JPEG_marker = 219;
 pub(crate) const JM_SOS: JPEG_marker = 218;
 pub(crate) const JM_EOI: JPEG_marker = 217;
 pub(crate) const JM_RST7: JPEG_marker = 215;
-pub(crate) const JM_RST6: JPEG_marker = 214;
-pub(crate) const JM_RST5: JPEG_marker = 213;
-pub(crate) const JM_RST4: JPEG_marker = 212;
-pub(crate) const JM_RST3: JPEG_marker = 211;
-pub(crate) const JM_RST2: JPEG_marker = 210;
-pub(crate) const JM_RST1: JPEG_marker = 209;
+//pub(crate) const JM_RST6: JPEG_marker = 214;
+//pub(crate) const JM_RST5: JPEG_marker = 213;
+//pub(crate) const JM_RST4: JPEG_marker = 212;
+//pub(crate) const JM_RST3: JPEG_marker = 211;
+//pub(crate) const JM_RST2: JPEG_marker = 210;
+//pub(crate) const JM_RST1: JPEG_marker = 209;
 pub(crate) const JM_RST0: JPEG_marker = 208;
 pub(crate) const JM_SOF15: JPEG_marker = 207;
 pub(crate) const JM_SOF14: JPEG_marker = 206;
@@ -388,7 +388,7 @@ unsafe fn read_APP14_Adobe<R: Read>(j_info: *mut JPEG_info, handle: &mut R) -> u
     add_APPn_marker(j_info, JM_APP14, AppData::ADOBE(app_data));
     7_u16
 }
-unsafe fn read_exif_bytes(pp: *mut *mut u8, n: i32, endian: i32) -> i32 {
+unsafe fn read_exif_bytes(pp: &mut *mut u8, n: i32, endian: i32) -> i32 {
     let mut rval: i32 = 0i32;
     let p: *mut u8 = *pp;
     match endian {
@@ -621,8 +621,8 @@ unsafe fn read_APP0_JFIF<R: Read>(j_info: *mut JPEG_info, handle: &mut R) -> siz
         }
         2 => {
             /* density is in pixels per cm */
-            (*j_info).xdpi = Xdensity as i32 as f64 * 2.54;
-            (*j_info).ydpi = Ydensity as i32 as f64 * 2.54;
+            (*j_info).xdpi = Xdensity as f64 * 2.54;
+            (*j_info).ydpi = Ydensity as f64 * 2.54;
         }
         _ => {
             /* FIXME: not sure what to do with this.... */

@@ -132,10 +132,10 @@ pub(crate) unsafe fn CMap_set_silent(value: i32) {
 
 pub(crate) unsafe fn CMap_new() -> CMap {
     let profile = C2RustUnnamed {
-        minBytesIn: 2i32 as usize,
-        maxBytesIn: 2i32 as usize,
-        minBytesOut: 2i32 as usize,
-        maxBytesOut: 2i32 as usize,
+        minBytesIn: 2,
+        maxBytesIn: 2,
+        minBytesOut: 2,
+        maxBytesOut: 2,
     };
     let map_data = Box::into_raw(Box::new(mapData {
         prev: ptr::null_mut(),
@@ -200,10 +200,10 @@ pub(crate) unsafe fn CMap_is_valid(cmap: *mut CMap) -> bool {
     /* Quick check */
     if cmap.is_null()
         || (*cmap).name.is_empty()
-        || (*cmap).type_0 < 0i32
-        || (*cmap).type_0 > 3i32
-        || (*cmap).codespace.num < 1_u32
-        || (*cmap).type_0 != 0i32 && (*cmap).mapTbl.is_null()
+        || (*cmap).type_0 < 0
+        || (*cmap).type_0 > 3
+        || (*cmap).codespace.num < 1
+        || (*cmap).type_0 != 0 && (*cmap).mapTbl.is_null()
     {
         return false;
     }
@@ -239,9 +239,9 @@ pub(crate) unsafe fn CMap_get_profile(cmap: *mut CMap, type_0: i32) -> i32 {
  */
 unsafe fn handle_undefined(
     cmap: *mut CMap,
-    inbuf: *mut *const u8,
+    inbuf: &mut *const u8,
     inbytesleft: *mut size_t,
-    outbuf: *mut *mut u8,
+    outbuf: &mut *mut u8,
     outbytesleft: *mut size_t,
 ) {
     if *outbytesleft < 2 {
@@ -280,19 +280,19 @@ unsafe fn handle_undefined(
 
 pub(crate) unsafe fn CMap_decode_char(
     cmap: *mut CMap,
-    inbuf: *mut *const u8,
+    inbuf: &mut *const u8,
     inbytesleft: *mut size_t,
-    outbuf: *mut *mut u8,
+    outbuf: &mut *mut u8,
     outbytesleft: *mut size_t,
 ) {
     let mut c: u8 = 0_u8;
-    let mut count: size_t = 0i32 as size_t;
+    let mut count: size_t = 0;
     let mut save = *inbuf;
     let mut p = save as *const u8;
     /*
      * First handle some special cases:
      */
-    if (*cmap).type_0 == 0i32 {
+    if (*cmap).type_0 == 0 {
         if (*inbytesleft).wrapping_rem(2) != 0 {
             panic!("{}: Invalid/truncated input string.", "CMap");
         }
@@ -403,14 +403,14 @@ pub(crate) unsafe fn CMap_decode_char(
 
 pub(crate) unsafe fn CMap_decode(
     cmap: *mut CMap,
-    inbuf: *mut *const u8,
+    inbuf: &mut *const u8,
     inbytesleft: *mut size_t,
-    outbuf: *mut *mut u8,
+    outbuf: &mut *mut u8,
     outbytesleft: *mut size_t,
 ) -> size_t {
     assert!(!cmap.is_null() && !inbuf.is_null() && !outbuf.is_null());
     assert!(!inbytesleft.is_null() && !outbytesleft.is_null());
-    let mut count = 0i32 as size_t;
+    let mut count = 0;
     while *inbytesleft > 0 && *outbytesleft > 0 {
         CMap_decode_char(cmap, inbuf, inbytesleft, outbuf, outbytesleft);
         count += 1;
@@ -451,37 +451,33 @@ pub(crate) unsafe fn CMap_set_name(cmap: &mut CMap, name: &str) {
     cmap.name = name.to_string();
 }
 
-pub(crate) unsafe fn CMap_set_type(mut cmap: *mut CMap, type_0: i32) {
-    assert!(!cmap.is_null());
-    (*cmap).type_0 = type_0;
+pub(crate) unsafe fn CMap_set_type(cmap: &mut CMap, type_0: i32) {
+    cmap.type_0 = type_0;
 }
 
-pub(crate) unsafe fn CMap_set_wmode(mut cmap: *mut CMap, wmode: i32) {
-    assert!(!cmap.is_null());
-    (*cmap).wmode = wmode;
+pub(crate) unsafe fn CMap_set_wmode(cmap: &mut CMap, wmode: i32) {
+    cmap.wmode = wmode;
 }
 
-pub(crate) unsafe fn CMap_set_CIDSysInfo(mut cmap: *mut CMap, csi: *const CIDSysInfo) {
-    assert!(!cmap.is_null());
-    if !(*cmap).CSI.is_null() {
-        free((*cmap).CSI as *mut libc::c_void);
+pub(crate) unsafe fn CMap_set_CIDSysInfo(cmap: &mut CMap, csi: *const CIDSysInfo) {
+    if !cmap.CSI.is_null() {
+        free(cmap.CSI as *mut libc::c_void);
     }
     if !csi.is_null() && !(*csi).registry.is_empty() && !(*csi).ordering.is_empty() {
-        (*cmap).CSI = Box::into_raw(Box::new((*csi).clone()));
+        cmap.CSI = Box::into_raw(Box::new((*csi).clone()));
     } else {
         warn!("Invalid CIDSystemInfo.");
-        (*cmap).CSI = ptr::null_mut()
+        cmap.CSI = ptr::null_mut()
     };
 }
 /*
  * Can have muliple entry ?
  */
 
-pub(crate) unsafe fn CMap_set_usecmap(mut cmap: *mut CMap, ucmap: *mut CMap) {
+pub(crate) unsafe fn CMap_set_usecmap(cmap: &mut CMap, ucmap: *mut CMap) {
     /* Maybe if (!ucmap) panic! is better for this. */
-    assert!(!cmap.is_null());
     assert!(!ucmap.is_null());
-    if cmap == ucmap {
+    if (cmap as *mut CMap) == ucmap {
         panic!(
             "{}: Identical CMap object cannot be used for usecmap CMap: 0x{:p}=0x{:p}",
             "CMap", cmap, ucmap,
@@ -495,17 +491,17 @@ pub(crate) unsafe fn CMap_set_usecmap(mut cmap: *mut CMap, ucmap: *mut CMap) {
      *  CMapName of cmap can be undefined when usecmap is executed in CMap parsing.
      *  And it is also possible CSI is not defined at that time.
      */
-    if (*cmap).name == (*ucmap).name {
+    if cmap.name == (*ucmap).name {
         panic!(
             "{}: CMap refering itself not allowed: CMap {} --> {}",
             "CMap",
-            (*cmap).name,
+            cmap.name,
             (*ucmap).name,
         );
     }
-    if !(*cmap).CSI.is_null() {
-        if (*(*cmap).CSI).registry != (*(*ucmap).CSI).registry
-            || (*(*cmap).CSI).ordering != (*(*ucmap).CSI).ordering
+    if !cmap.CSI.is_null() {
+        if (*cmap.CSI).registry != (*(*ucmap).CSI).registry
+            || (*cmap.CSI).ordering != (*(*ucmap).CSI).ordering
         {
             panic!(
                 "CMap: CMap {} required by {} have different CSI.",
@@ -519,7 +515,7 @@ pub(crate) unsafe fn CMap_set_usecmap(mut cmap: *mut CMap, ucmap: *mut CMap) {
         let csr: *mut rangeDef = (*ucmap).codespace.ranges.offset(i as isize);
         CMap_add_codespacerange(cmap, (*csr).codeLo, (*csr).codeHi, (*csr).dim);
     }
-    (*cmap).useCMap = ucmap;
+    cmap.useCMap = ucmap;
 }
 /* Test the validity of character c. */
 unsafe fn CMap_match_codespace(cmap: *mut CMap, c: *const u8, dim: size_t) -> i32 {

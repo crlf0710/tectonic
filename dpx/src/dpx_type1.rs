@@ -27,15 +27,13 @@
 )]
 
 use crate::mfree;
-use crate::streq_ptr;
 use crate::{info, warn};
-use std::ffi::CString;
 use std::ptr;
 
 use super::dpx_cff::{
-    cff_add_string, cff_get_seac_sid, cff_glyph_lookup, cff_glyph_lookup_str, cff_index_size,
-    cff_new_index, cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header,
-    cff_release_charsets, cff_release_index, cff_set_name, cff_update_string, CffIndex, Pack,
+    cff_add_string, cff_get_seac_sid, cff_glyph_lookup_str, cff_index_size, cff_new_index,
+    cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header, cff_release_charsets,
+    cff_release_index, cff_set_name, cff_update_string, CffIndex, Pack,
 };
 use super::dpx_mem::{new, renew};
 use super::dpx_pdfencoding::{pdf_create_ToUnicode_CMap, pdf_encoding_get_encoding};
@@ -94,25 +92,25 @@ use super::dpx_t1_char::t1_ginfo;
  * as directory separators. */
 
 /* Force bold at small text sizes */
-unsafe fn is_basefont(name: *const i8) -> bool {
-    static mut basefonts: [*const i8; 14] = [
-        b"Courier\x00" as *const u8 as *const i8,
-        b"Courier-Bold\x00" as *const u8 as *const i8,
-        b"Courier-Oblique\x00" as *const u8 as *const i8,
-        b"Courier-BoldOblique\x00" as *const u8 as *const i8,
-        b"Helvetica\x00" as *const u8 as *const i8,
-        b"Helvetica-Bold\x00" as *const u8 as *const i8,
-        b"Helvetica-Oblique\x00" as *const u8 as *const i8,
-        b"Helvetica-BoldOblique\x00" as *const u8 as *const i8,
-        b"Symbol\x00" as *const u8 as *const i8,
-        b"Times-Roman\x00" as *const u8 as *const i8,
-        b"Times-Bold\x00" as *const u8 as *const i8,
-        b"Times-Italic\x00" as *const u8 as *const i8,
-        b"Times-BoldItalic\x00" as *const u8 as *const i8,
-        b"ZapfDingbats\x00" as *const u8 as *const i8,
+unsafe fn is_basefont(name: &str) -> bool {
+    const BASEFONTS: [&str; 14] = [
+        "Courier",
+        "Courier-Bold",
+        "Courier-Oblique",
+        "Courier-BoldOblique",
+        "Helvetica",
+        "Helvetica-Bold",
+        "Helvetica-Oblique",
+        "Helvetica-BoldOblique",
+        "Symbol",
+        "Times-Roman",
+        "Times-Bold",
+        "Times-Italic",
+        "Times-BoldItalic",
+        "ZapfDingbats",
     ];
-    for i in 0..14 {
-        if streq_ptr(name, basefonts[i]) {
+    for f in &BASEFONTS {
+        if name == *f {
             return true;
         }
     }
@@ -121,8 +119,7 @@ unsafe fn is_basefont(name: *const i8) -> bool {
 
 pub(crate) unsafe fn pdf_font_open_type1(font: &mut pdf_font) -> i32 {
     let ident = font.ident.as_str();
-    let ident_ = CString::new(ident).unwrap();
-    if is_basefont(ident_.as_ptr()) {
+    if is_basefont(ident) {
         font.fontname = ident.to_owned();
         pdf_font_set_subtype(font, 0i32);
         pdf_font_set_flags(font, 1i32 << 0i32 | 1i32 << 2i32);
@@ -146,26 +143,9 @@ pub(crate) unsafe fn pdf_font_open_type1(font: &mut pdf_font) -> i32 {
 unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
     let italicangle;
     let mut flags: i32 = 0i32;
-    static mut L_c: [*const i8; 5] = [
-        b"H\x00" as *const u8 as *const i8,
-        b"P\x00" as *const u8 as *const i8,
-        b"Pi\x00" as *const u8 as *const i8,
-        b"Rho\x00" as *const u8 as *const i8,
-        ptr::null(),
-    ];
-    static mut L_d: [*const i8; 5] = [
-        b"p\x00" as *const u8 as *const i8,
-        b"q\x00" as *const u8 as *const i8,
-        b"mu\x00" as *const u8 as *const i8,
-        b"eta\x00" as *const u8 as *const i8,
-        ptr::null(),
-    ];
-    static mut L_a: [*const i8; 4] = [
-        b"b\x00" as *const u8 as *const i8,
-        b"h\x00" as *const u8 as *const i8,
-        b"lambda\x00" as *const u8 as *const i8,
-        ptr::null(),
-    ];
+    const L_c: [&str; 4] = ["H", "P", "Pi", "Rho"];
+    const L_d: [&str; 4] = ["p", "q", "mu", "eta"];
+    const L_a: [&str; 3] = ["b", "h", "lambda"];
     let mut gm = t1_ginfo::new();
     let mut defaultwidth = 500_f64;
     let nominalwidth = 0_f64;
@@ -226,9 +206,8 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
         );
         defaultwidth = gm.wx
     }
-    let mut i = 0;
-    while !L_c[i].is_null() {
-        gid = cff_glyph_lookup(cffont, L_c[i]) as i32;
+    for i in &L_c {
+        gid = cff_glyph_lookup_str(cffont, *i) as i32;
         if gid >= 0i32 && gid < (*cffont.cstrings).count as i32 {
             t1char_get_metrics(
                 (*cffont.cstrings)
@@ -243,13 +222,10 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
             );
             capheight = gm.bbox.ury;
             break;
-        } else {
-            i += 1
         }
     }
-    let mut i = 0;
-    while !L_d[i].is_null() {
-        gid = cff_glyph_lookup(cffont, L_d[i]) as i32;
+    for i in &L_d {
+        gid = cff_glyph_lookup_str(cffont, *i) as i32;
         if gid >= 0i32 && gid < (*cffont.cstrings).count as i32 {
             t1char_get_metrics(
                 (*cffont.cstrings)
@@ -264,13 +240,10 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
             );
             descent = gm.bbox.lly;
             break;
-        } else {
-            i += 1
         }
     }
-    let mut i = 0;
-    while !L_a[i].is_null() {
-        gid = cff_glyph_lookup(cffont, L_a[i]) as i32;
+    for i in &L_a {
+        gid = cff_glyph_lookup_str(cffont, *i) as i32;
         if gid >= 0i32 && gid < (*cffont.cstrings).count as i32 {
             t1char_get_metrics(
                 (*cffont.cstrings)
@@ -285,8 +258,6 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
             );
             ascent = gm.bbox.ury;
             break;
-        } else {
-            i += 1
         }
     }
     if defaultwidth != 0.0f64 {
@@ -431,7 +402,11 @@ unsafe fn add_metrics(
     fontdict.set("FirstChar", firstchar as f64);
     fontdict.set("LastChar", lastchar as f64);
 }
-unsafe fn write_fontfile(font: &mut pdf_font, cffont: &cff_font, pdfcharset: &pdf_stream) -> i32 {
+unsafe fn write_fontfile(
+    font: &mut pdf_font,
+    cffont: &mut cff_font,
+    pdfcharset: &pdf_stream,
+) -> i32 {
     let mut wbuf: [u8; 1024] = [0; 1024];
     let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
     let mut topdict = CffIndex::new(1);
@@ -461,7 +436,7 @@ unsafe fn write_fontfile(font: &mut pdf_font, cffont: &cff_font, pdfcharset: &pd
     let mut stream_data_len = 4_usize;
     stream_data_len += cff_index_size(cffont.name);
     stream_data_len += topdict.size();
-    stream_data_len += cff_index_size(cffont.string);
+    stream_data_len += cffont.string.as_deref_mut().unwrap().size();
     stream_data_len += cff_index_size(cffont.gsubr);
     /* We are using format 1 for Encoding and format 0 for charset.
      * TODO: Should implement cff_xxx_size().
@@ -489,7 +464,11 @@ unsafe fn write_fontfile(font: &mut pdf_font, cffont: &cff_font, pdfcharset: &pd
     let topdict_offset = offset;
     offset += topdict.size();
     /* Strings */
-    offset += cff_pack_index(cffont.string, &mut stream_data[offset..]);
+    offset += cffont
+        .string
+        .as_deref_mut()
+        .unwrap()
+        .pack(&mut stream_data[offset..]);
     /* Global Subrs */
     offset += cff_pack_index(cffont.gsubr, &mut stream_data[offset..]);
     /* Encoding */
@@ -839,7 +818,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     (**cffont.private.offset(0)).update(&mut cffont);
     cff_update_string(&mut cffont);
     add_metrics(font, &cffont, enc_slice, widths, num_glyphs as i32);
-    offset = write_fontfile(font, &cffont, &pdfcharset);
+    offset = write_fontfile(font, &mut cffont, &pdfcharset);
     if verbose > 1i32 {
         info!("[{} glyphs][{} bytes]", num_glyphs, offset);
     }

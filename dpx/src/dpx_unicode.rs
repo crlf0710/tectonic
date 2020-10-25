@@ -86,7 +86,7 @@ pub(crate) unsafe fn UC_UTF16BE_decode_char(pp: *mut *const u8, endptr: *const u
 
 pub(crate) unsafe fn UC_UTF16BE_encode_char(
     mut ucv: i32,
-    pp: *mut *mut u8,
+    pp: &mut *mut u8,
     endptr: *mut u8,
 ) -> size_t {
     let p: *mut u8 = *pp;
@@ -160,7 +160,7 @@ pub(crate) unsafe fn UC_UTF8_decode_char(pp: *mut *const u8, endptr: *const u8) 
     ucv
 }
 
-pub(crate) unsafe fn UC_UTF8_encode_char(ucv: i32, pp: *mut *mut u8, endptr: *mut u8) -> size_t {
+pub(crate) unsafe fn UC_UTF8_encode_char(ucv: i32, pp: &mut *mut u8, endptr: *mut u8) -> size_t {
     let p: *mut u8 = *pp;
     assert!(!pp.is_null() && !(*pp).is_null() && !endptr.is_null());
     if !UC_is_valid(ucv) {
