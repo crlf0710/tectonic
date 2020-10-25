@@ -50,9 +50,7 @@ use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use super::dpx_tt_aux::ttc_read_offset;
 use super::dpx_tt_cmap::{tt_cmap_lookup, tt_cmap_read, tt_cmap_release};
-use super::dpx_tt_glyf::{
-    tt_add_glyph, tt_build_finish, tt_build_init, tt_build_tables, tt_find_glyph, tt_get_index,
-};
+use super::dpx_tt_glyf::{tt_add_glyph, tt_build_tables, tt_find_glyph, tt_get_index, tt_glyphs};
 use super::dpx_tt_gsub::{
     otl_gsub, otl_gsub_add_feat, otl_gsub_apply, otl_gsub_apply_alt, otl_gsub_apply_lig,
     otl_gsub_new, otl_gsub_release, otl_gsub_select,
@@ -63,7 +61,7 @@ use crate::dpx_pdfobj::{pdf_obj, pdf_ref_obj, pdf_release_obj, IntoObj, PushObj}
 use crate::shims::sprintf;
 use libc::{atoi, free, memcpy, memset, strcpy, strlen};
 
-use super::dpx_sfnt::{put_big_endian, sfnt};
+use super::dpx_sfnt::{sfnt, PutBE};
 
 use super::dpx_tt_post::tt_post_table;
 
@@ -162,7 +160,7 @@ pub(crate) unsafe fn pdf_font_open_truetype(font: &mut pdf_font) -> i32 {
         if let Some(sfont) = dfont_open(handle, index) {
             sfont
         } else {
-            warn!("Could not open TrueType font: {}", ident,);
+            warn!("Could not open TrueType font: {}", ident);
             return -1i32;
         }
     } else {
@@ -302,26 +300,17 @@ unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: 
         warn!("Could not read Mac-Roman TrueType cmap table...");
         return -1i32;
     }
-    let cmap_table =
-        new((274_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    memset(cmap_table as *mut libc::c_void, 0i32, 274);
-    put_big_endian(cmap_table as *mut libc::c_void, 0i32, 2i32);
-    /* Version  */
-    put_big_endian(cmap_table.offset(2) as *mut libc::c_void, 1i32, 2i32);
-    /* Number of subtables */
-    put_big_endian(cmap_table.offset(4) as *mut libc::c_void, 1u32 as i32, 2i32);
-    /* Platform ID */
-    put_big_endian(cmap_table.offset(6) as *mut libc::c_void, 0u32 as i32, 2i32);
-    /* Encoding ID */
-    put_big_endian(cmap_table.offset(8) as *mut libc::c_void, 12i32, 4i32);
-    /* Offset   */
-    put_big_endian(cmap_table.offset(12) as *mut libc::c_void, 0i32, 2i32);
-    /* Format   */
-    put_big_endian(cmap_table.offset(14) as *mut libc::c_void, 262i32, 2i32);
-    /* Length   */
-    put_big_endian(cmap_table.offset(16) as *mut libc::c_void, 0i32, 2i32);
-    /* Language */
-    let glyphs = tt_build_init(); /* .notdef */
+    let mut cmap_table = Vec::with_capacity(274);
+    cmap_table.put_be(0_u16); //  Version
+    cmap_table.put_be(1_u16); // Number of subtables
+    cmap_table.put_be(1_u16); // Platform ID
+    cmap_table.put_be(0_u16); // Encoding ID
+    cmap_table.put_be(12_u32); // Offset
+    cmap_table.put_be(0_u16); // Format
+    cmap_table.put_be(262_u16); // Length
+    cmap_table.put_be(0_u16); // Language
+
+    let mut glyphs = tt_glyphs::init(); /* .notdef */
     if verbose > 2i32 {
         info!("[glyphs:/.notdef");
     }
@@ -341,51 +330,45 @@ unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: 
                 );
                 idx = 0_u16
             } else {
-                idx = tt_find_glyph(glyphs, gid);
+                idx = tt_find_glyph(&glyphs, gid);
                 if idx as i32 == 0i32 {
-                    idx = tt_add_glyph(glyphs, gid, count as u16)
+                    idx = tt_add_glyph(&mut glyphs, gid, count as u16)
                 }
                 /* count returned. */
             } /* bug here */
-            *cmap_table.offset((18i32 + code) as isize) = (idx as i32 & 0xffi32) as i8;
-            count += 1
+            cmap_table.push((idx as i32 & 0xff) as u8);
+            count += 1;
+        } else {
+            cmap_table.push(0);
         }
     }
+
     tt_cmap_release(ttcm);
     if verbose > 2i32 {
         info!("]");
     }
-    if tt_build_tables(sfont, glyphs) < 0i32 {
+    if tt_build_tables(sfont, &mut glyphs) < 0 {
         warn!("Packing TrueType font into SFNT failed!");
-        tt_build_finish(glyphs);
-        free(cmap_table as *mut libc::c_void);
         return -1i32;
     }
     for code in 0..256 {
         if *usedchars.offset(code as isize) != 0 {
-            let idx = tt_get_index(glyphs, *cmap_table.offset((18i32 + code) as isize) as u16);
-            widths[code as usize] = (1000.0f64
-                * (*(*glyphs).gd.offset(idx as isize)).advw as i32 as f64
-                / (*glyphs).emsize as i32 as f64
+            let idx = tt_get_index(&glyphs, cmap_table[(18 + code) as usize] as u16);
+            widths[code as usize] = (1000.0f64 * glyphs.gd[idx as usize].advw as i32 as f64
+                / glyphs.emsize as i32 as f64
                 / 1i32 as f64
                 + 0.5f64)
                 .floor()
                 * 1i32 as f64
         } else {
-            widths[code as usize] = 0.0f64
+            widths[code as usize] = 0.;
         }
     }
     do_widths(font, widths.as_mut_ptr());
     if verbose > 1i32 {
-        info!("[{} glyphs]", (*glyphs).num_glyphs as i32);
+        info!("[{} glyphs]", glyphs.gd.len());
     }
-    tt_build_finish(glyphs);
-    sfnt_set_table(
-        sfont,
-        sfnt_table_info::CMAP,
-        cmap_table as *mut libc::c_void,
-        274_u32,
-    );
+    sfnt_set_table(sfont, sfnt_table_info::CMAP, cmap_table);
     0i32
 }
 /* WARNING: This modifies glyphname itself */
@@ -827,8 +810,8 @@ unsafe fn do_custom_encoding(
         warn!(">> I can\'t find glyphs without this!");
         return -1i32;
     } else {
-        let glyphs;
-        let cmap_table;
+        let mut glyphs;
+        let mut cmap_table;
         {
             let mut gm = glyph_mapper {
                 sfont,
@@ -836,26 +819,17 @@ unsafe fn do_custom_encoding(
                 codetogid,
                 gsub: otl_gsub_new(),
             };
-            cmap_table =
-                new((274_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-            memset(cmap_table as *mut libc::c_void, 0i32, 274);
-            put_big_endian(cmap_table as *mut libc::c_void, 0i32, 2i32);
-            /* Version  */
-            put_big_endian(cmap_table.offset(2) as *mut libc::c_void, 1i32, 2i32);
-            /* Number of subtables */
-            put_big_endian(cmap_table.offset(4) as *mut libc::c_void, 1u32 as i32, 2i32);
-            /* Platform ID */
-            put_big_endian(cmap_table.offset(6) as *mut libc::c_void, 0u32 as i32, 2i32);
-            /* Encoding ID */
-            put_big_endian(cmap_table.offset(8) as *mut libc::c_void, 12i32, 4i32);
-            /* Offset   */
-            put_big_endian(cmap_table.offset(12) as *mut libc::c_void, 0i32, 2i32);
-            /* Format   */
-            put_big_endian(cmap_table.offset(14) as *mut libc::c_void, 262i32, 2i32);
-            /* Length   */
-            put_big_endian(cmap_table.offset(16) as *mut libc::c_void, 0i32, 2i32);
-            /* Language */
-            glyphs = tt_build_init(); /* +1 for .notdef */
+            cmap_table = Vec::with_capacity(274);
+            cmap_table.put_be(0_u16); // Version
+            cmap_table.put_be(1_u16); // Number of subtables
+            cmap_table.put_be(1_u16); // Platform ID
+            cmap_table.put_be(0_u16); // Encoding ID
+            cmap_table.put_be(12_u32); // Offset
+            cmap_table.put_be(0_u16); // Format
+            cmap_table.put_be(262_u16); // Length
+            cmap_table.put_be(0_u16); // Language
+
+            glyphs = tt_glyphs::init(); /* +1 for .notdef */
             let mut count = 1;
             for code in 0..256 {
                 if !(*usedchars.offset(code as isize) == 0) {
@@ -889,29 +863,28 @@ unsafe fn do_custom_encoding(
                                 encoding[code as usize], gid,
                             );
                         }
-                        idx = tt_find_glyph(glyphs, gid);
-                        if idx as i32 == 0i32 {
-                            idx = tt_add_glyph(glyphs, gid, count as u16);
+                        idx = tt_find_glyph(&glyphs, gid);
+                        if idx == 0 {
+                            idx = tt_add_glyph(&mut glyphs, gid, count as u16);
                             count += 1
                         }
                     }
-                    *cmap_table.offset((18i32 + code) as isize) = (idx as i32 & 0xffi32) as i8
+                    cmap_table.push((idx as i32 & 0xff) as u8);
+                } else {
+                    cmap_table.push(0);
                 }
                 /* bug here */
             } /* _FIXME_: wrong message */
         }
-        if tt_build_tables(sfont, glyphs) < 0i32 {
+        if tt_build_tables(sfont, &mut glyphs) < 0i32 {
             warn!("Packing TrueType font into SFNT file faild...");
-            tt_build_finish(glyphs);
-            free(cmap_table as *mut libc::c_void);
             return -1i32;
         }
         for code in 0..256 {
             if *usedchars.offset(code as isize) != 0 {
-                let idx = tt_get_index(glyphs, *cmap_table.offset((18i32 + code) as isize) as u16);
-                widths[code as usize] = (1000.0f64
-                    * (*(*glyphs).gd.offset(idx as isize)).advw as i32 as f64
-                    / (*glyphs).emsize as i32 as f64
+                let idx = tt_get_index(&glyphs, cmap_table[(18 + code) as usize] as u16);
+                widths[code as usize] = (1000.0f64 * glyphs.gd[idx as usize].advw as i32 as f64
+                    / glyphs.emsize as i32 as f64
                     / 1i32 as f64
                     + 0.5f64)
                     .floor()
@@ -922,15 +895,9 @@ unsafe fn do_custom_encoding(
         }
         do_widths(font, widths.as_mut_ptr());
         if verbose > 1i32 {
-            info!("[{} glyphs]", (*glyphs).num_glyphs as i32);
+            info!("[{} glyphs]", glyphs.gd.len());
         }
-        tt_build_finish(glyphs);
-        sfnt_set_table(
-            sfont,
-            sfnt_table_info::CMAP,
-            cmap_table as *mut libc::c_void,
-            274_u32,
-        );
+        sfnt_set_table(sfont, sfnt_table_info::CMAP, cmap_table);
         0i32
     }
 }

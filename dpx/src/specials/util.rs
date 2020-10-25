@@ -19,10 +19,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-)]
+#![allow(non_camel_case_types, non_snake_case)]
 
 use euclid::point2;
 
@@ -389,7 +386,7 @@ unsafe fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, t: &mut transform_info, ap: &
                 k += 1;
             }
             if k == 14 {
-                spc_warn!(spe, "Unrecognized dimension/transformation key: {}", kp,);
+                spc_warn!(spe, "Unrecognized dimension/transformation key: {}", kp);
                 error = -1;
                 break;
             } else {
@@ -422,7 +419,7 @@ unsafe fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, t: &mut transform_info, ap: &
                         ap.cur.parse_float_decimal()
                     };
                     if error == 0 && vp.is_none() {
-                        spc_warn!(spe, "Missing value for dimension/transformation: {}", kp,);
+                        spc_warn!(spe, "Missing value for dimension/transformation: {}", kp);
                         error = -1;
                     }
                     if error != 0 {

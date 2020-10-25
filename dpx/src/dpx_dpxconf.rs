@@ -23,9 +23,8 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
-
 
 //#ifndef DEFAULT_PAPER_NAME
 const DEFAULT_PAPER_NAME: &[u8] = b"a4";

@@ -34,7 +34,7 @@ use euclid::point2;
 
 use crate::bridge::DisplayExt;
 use crate::warn;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::ptr;
 
 use self::color::{spc_color_check_special, spc_color_setup_handler};
@@ -70,7 +70,6 @@ use super::specials::dvips::{
 };
 use crate::dpx_pdfobj::{pdf_obj, pdf_ref_obj, IntoObj};
 use crate::shims::sprintf;
-use libc::{atoi, memcmp, strcmp, strlen};
 
 #[derive(Copy, Clone, Default)]
 pub(crate) struct SpcEnv {
@@ -132,80 +131,72 @@ pub(crate) unsafe fn spc_suspend_annot(mut _spe: &mut SpcEnv) -> i32 {
 }
 static mut NAMED_OBJECTS: *mut ht_table = ptr::null_mut();
 /* reserved keys */
-static mut _RKEYS: [*const i8; 11] = [
-    b"xpos\x00" as *const u8 as *const i8,
-    b"ypos\x00" as *const u8 as *const i8,
-    b"thispage\x00" as *const u8 as *const i8,
-    b"prevpage\x00" as *const u8 as *const i8,
-    b"nextpage\x00" as *const u8 as *const i8,
-    b"resources\x00" as *const u8 as *const i8,
-    b"pages\x00" as *const u8 as *const i8,
-    b"names\x00" as *const u8 as *const i8,
-    b"catalog\x00" as *const u8 as *const i8,
-    b"docinfo\x00" as *const u8 as *const i8,
-    ptr::null(),
+static mut _RKEYS: [&str; 10] = [
+    "xpos",
+    "ypos",
+    "thispage",
+    "prevpage",
+    "nextpage",
+    "resources",
+    "pages",
+    "names",
+    "catalog",
+    "docinfo",
 ];
 /* pageN where N is a positive integer.
  * Note that page need not exist at this time.
  */
-unsafe fn ispageref(key: *const i8) -> i32 {
-    if strlen(key) <= strlen(b"page\x00" as *const u8 as *const i8)
-        || memcmp(
-            key as *const libc::c_void,
-            b"page\x00" as *const u8 as *const i8 as *const libc::c_void,
-            strlen(b"page\x00" as *const u8 as *const i8),
-        ) != 0
-    {
-        return 0i32;
+unsafe fn ispageref(key: &str) -> bool {
+    if !key.starts_with("page") {
+        return false;
     } else {
-        let mut p = key.offset(4);
-        while *p as i32 != 0 && *p as i32 >= '0' as i32 && *p as i32 <= '9' as i32 {
-            p = p.offset(1)
+        let mut p = &key[4..];
+        while !p.is_empty() && (b'0'..=b'9').contains(&p.as_bytes()[0]) {
+            p = &p[1..];
         }
-        if *p as i32 != '\u{0}' as i32 {
-            return 0i32;
+        if !p.is_empty() {
+            return false;
         }
     }
-    1i32
+    true
 }
 
-pub(crate) unsafe fn spc_lookup_reference(key: &CString) -> Option<*mut pdf_obj> {
+pub(crate) unsafe fn spc_lookup_reference(key: &str) -> Option<*mut pdf_obj> {
     assert!(!NAMED_OBJECTS.is_null());
-    let value = match key.to_bytes() {
-        b"xpos" => {
+    let value = match key {
+        "xpos" => {
             /* xpos and ypos must be position in device space here. */
             let mut cp = point2(dvi_dev_xpos(), 0.);
             pdf_dev_transform(&mut cp, None);
             ((cp.x / 0.01 + 0.5).floor() * 0.01).into_obj()
         }
-        b"ypos" => {
+        "ypos" => {
             let mut cp = point2(0., dvi_dev_ypos());
             pdf_dev_transform(&mut cp, None);
             ((cp.y / 0.01 + 0.5).floor() * 0.01).into_obj()
         }
-        b"thispage" => pdf_doc_get_reference("@THISPAGE"),
-        b"prevpage" => pdf_doc_get_reference("@PREVPAGE"),
-        b"nextpage" => pdf_doc_get_reference("@NEXTPAGE"),
-        b"pages" => pdf_ref_obj(pdf_doc_get_dictionary("Pages")),
-        b"names" => pdf_ref_obj(pdf_doc_get_dictionary("Names")),
-        b"resources" => pdf_ref_obj(pdf_doc_current_page_resources()),
-        b"catalog" => pdf_ref_obj(pdf_doc_get_dictionary("Catalog")),
-        b"docinfo" => pdf_ref_obj(pdf_doc_get_dictionary("Info")),
+        "thispage" => pdf_doc_get_reference("@THISPAGE"),
+        "prevpage" => pdf_doc_get_reference("@PREVPAGE"),
+        "nextpage" => pdf_doc_get_reference("@NEXTPAGE"),
+        "pages" => pdf_ref_obj(pdf_doc_get_dictionary("Pages")),
+        "names" => pdf_ref_obj(pdf_doc_get_dictionary("Names")),
+        "resources" => pdf_ref_obj(pdf_doc_current_page_resources()),
+        "catalog" => pdf_ref_obj(pdf_doc_get_dictionary("Catalog")),
+        "docinfo" => pdf_ref_obj(pdf_doc_get_dictionary("Info")),
         _ => {
-            let key = key.as_ptr();
-            if ispageref(key) != 0 {
-                pdf_doc_ref_page(atoi(key.offset(4)) as u32)
+            if ispageref(key) {
+                pdf_doc_ref_page((key[4..]).parse::<i32>().unwrap() as u32)
             } else {
                 pdf_names_lookup_reference(
                     NAMED_OBJECTS,
-                    key as *const libc::c_void,
-                    strlen(key) as i32,
+                    key.as_ptr() as *const libc::c_void,
+                    key.len() as i32,
                 )
             }
         }
     };
     if value.is_null() {
-        panic!("Object reference {} not exist.", key.display());
+        panic!("Object reference {} not exist.", key);
     }
     if value.is_null() {
         None
@@ -213,13 +204,16 @@ pub(crate) unsafe fn spc_lookup_reference(key: &CString) -> Option<*mut pdf_obj>
         Some(value)
     }
 }
-pub(crate) unsafe fn spc_lookup_object(key: *const i8) -> *mut pdf_obj {
+pub(crate) unsafe fn spc_lookup_object(key: &str) -> *mut pdf_obj {
     assert!(!NAMED_OBJECTS.is_null());
-    if key.is_null() {
+    if key.is_empty() {
         return ptr::null_mut();
     }
     let mut k = 0i32;
-    while !_RKEYS[k as usize].is_null() && strcmp(key, _RKEYS[k as usize]) != 0 {
+    for rkey in &_RKEYS {
+        if &key == rkey {
+            break;
+        }
         k += 1
     }
     let value;
@@ -243,8 +237,8 @@ pub(crate) unsafe fn spc_lookup_object(key: *const i8) -> *mut pdf_obj {
         _ => {
             value = pdf_names_lookup_object(
                 NAMED_OBJECTS,
-                key as *const libc::c_void,
-                strlen(key) as i32,
+                key.as_ptr() as *const libc::c_void,
+                key.len() as i32,
             )
         }
     }
@@ -255,23 +249,23 @@ pub(crate) unsafe fn spc_lookup_object(key: *const i8) -> *mut pdf_obj {
     */
     return value; /* _FIXME_ */
 }
-pub(crate) unsafe fn spc_push_object(key: *const i8, value: *mut pdf_obj) {
+pub(crate) unsafe fn spc_push_object(key: &str, value: *mut pdf_obj) {
     assert!(!NAMED_OBJECTS.is_null());
-    if key.is_null() || value.is_null() {
+    if key.is_empty() || value.is_null() {
         return;
     }
     pdf_names_add_object(
         NAMED_OBJECTS,
-        key as *const libc::c_void,
-        strlen(key) as i32,
+        key.as_ptr() as *const libc::c_void,
+        key.len() as i32,
         value,
     );
 }
-pub(crate) unsafe fn spc_flush_object(key: *const i8) {
+pub(crate) unsafe fn spc_flush_object(key: &str) {
     pdf_names_close_object(
         NAMED_OBJECTS,
-        key as *const libc::c_void,
-        strlen(key) as i32,
+        key.as_ptr() as *const libc::c_void,
+        key.len() as i32,
     );
 }
 pub(crate) unsafe fn spc_clear_objects() {

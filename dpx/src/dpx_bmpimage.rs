@@ -37,7 +37,6 @@ use libc::free;
 
 use std::io::{Read, Seek, SeekFrom};
 
-pub(crate) type __ssize_t = i64;
 use crate::bridge::size_t;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
@@ -113,7 +112,7 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
             && hdr.bit_count as i32 != 4i32
             && hdr.bit_count as i32 != 8i32
         {
-            warn!("Unsupported palette size: {}", hdr.bit_count as i32,);
+            warn!("Unsupported palette size: {}", hdr.bit_count as i32);
             return Err(());
         }
         num_palette = hdr

@@ -19,10 +19,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-)]
+#![allow(non_camel_case_types, non_snake_case)]
 
 use std::ptr;
 
@@ -64,7 +61,7 @@ unsafe fn spc_handler_ps_header(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur = &args.cur[1..];
     let pro = String::from_utf8_lossy(args.cur).to_string();
     if InFile::open(&pro, TTInputFormat::TEX_PS_HEADER, 0).is_none() {
-        spc_warn!(spe, "PS header {} not found.", pro,);
+        spc_warn!(spe, "PS header {} not found.", pro);
         return -1i32;
     }
     PS_HEADERS.push(pro);

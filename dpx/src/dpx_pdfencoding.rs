@@ -28,7 +28,6 @@
 
 use crate::bridge::DisplayExt;
 use crate::info;
-use std::ffi::CString;
 use std::io::Read;
 use std::ptr;
 
@@ -72,6 +71,9 @@ static mut verbose: u8 = 0_u8;
 pub(crate) unsafe fn pdf_encoding_set_verbose(level: i32) {
     verbose = level as u8;
 }
+
+const NEW_STRING: String = String::new();
+
 unsafe fn pdf_init_encoding_struct() -> pdf_encoding {
     pdf_encoding {
         ident: String::new(),
@@ -81,264 +83,7 @@ unsafe fn pdf_init_encoding_struct() -> pdf_encoding {
         resource: ptr::null_mut(),
         flags: 0i32,
         is_used: [0; 256],
-        glyphs: [
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-        ],
+        glyphs: [NEW_STRING; 256],
     }
 }
 /* Creates the PDF Encoding entry for the encoding.
@@ -353,7 +98,7 @@ unsafe fn create_encoding_resource(
     if let Some(differences) = make_encoding_differences(
         &mut (*encoding).glyphs,
         if !baseenc.is_null() {
-            Some(&mut (*baseenc).glyphs)
+            Some(&(*baseenc).glyphs)
         } else {
             None
         },
@@ -386,25 +131,23 @@ unsafe fn create_encoding_resource(
         };
     };
 }
-unsafe fn pdf_flush_encoding(mut encoding: *mut pdf_encoding) {
-    assert!(!encoding.is_null());
-    if !(*encoding).resource.is_null() {
-        pdf_release_obj((*encoding).resource);
-        (*encoding).resource = ptr::null_mut()
+unsafe fn pdf_flush_encoding(encoding: &mut pdf_encoding) {
+    if !encoding.resource.is_null() {
+        pdf_release_obj(encoding.resource);
+        encoding.resource = ptr::null_mut()
     }
-    if !(*encoding).tounicode.is_null() {
-        pdf_release_obj((*encoding).tounicode);
-        (*encoding).tounicode = ptr::null_mut()
+    if !encoding.tounicode.is_null() {
+        pdf_release_obj(encoding.tounicode);
+        encoding.tounicode = ptr::null_mut()
     };
 }
-unsafe fn pdf_clean_encoding_struct(encoding: *mut pdf_encoding) {
-    assert!(!encoding.is_null());
-    if !(*encoding).resource.is_null() {
+unsafe fn pdf_clean_encoding_struct(encoding: &mut pdf_encoding) {
+    if !encoding.resource.is_null() {
         panic!("Object not flushed.");
     }
-    pdf_release_obj((*encoding).tounicode);
+    pdf_release_obj(encoding.tounicode);
     for code in 0..256 {
-        (*encoding).glyphs[code as usize] = String::new();
+        encoding.glyphs[code as usize] = String::new();
     }
 }
 unsafe fn is_similar_charset(enc_vec: &[String], enc_vec2: &[&str]) -> bool {
@@ -429,7 +172,7 @@ unsafe fn is_similar_charset(enc_vec: &[String], enc_vec2: &[&str]) -> bool {
  */
 unsafe fn make_encoding_differences(
     enc_vec: &mut [String; 256],
-    baseenc: Option<&mut [String; 256]>,
+    baseenc: Option<&[String; 256]>,
     is_used: &mut [i8],
 ) -> Option<Vec<*mut pdf_obj>> {
     let mut count: i32 = 0i32;
@@ -446,8 +189,8 @@ unsafe fn make_encoding_differences(
         if is_used[code] == 0 || enc_vec[code].is_empty() {
             skipping = true
         } else if baseenc.is_none()
-            || baseenc.as_ref().unwrap()[code].is_empty()
-            || baseenc.as_ref().unwrap()[code] != enc_vec[code]
+            || baseenc.unwrap()[code].is_empty()
+            || baseenc.unwrap()[code] != enc_vec[code]
         {
             /*
              * Difference found.
@@ -591,19 +334,19 @@ unsafe fn pdf_encoding_new_encoding(
     enc_cache.push(Box::new(pdf_init_encoding_struct()));
     let mut encoding = &mut *enc_cache[enc_id];
 
-    (*encoding).ident = ident.to_owned();
-    (*encoding).enc_name = enc_name.to_owned();
+    encoding.ident = ident.to_owned();
+    encoding.enc_name = enc_name.to_owned();
 
-    (*encoding).flags = flags;
+    encoding.flags = flags;
     for code in 0..256 {
         if !encoding_vec[code].is_empty() && encoding_vec[code] != ".notdef" {
-            (*encoding).glyphs[code] = encoding_vec[code].to_string();
+            encoding.glyphs[code] = encoding_vec[code].to_string();
         }
     }
 
     if baseenc_name.is_none()
         && flags & 1i32 << 0i32 == 0
-        && is_similar_charset(&(*encoding).glyphs[..], &WinAnsiEncoding[..]) as i32 != 0
+        && is_similar_charset(&encoding.glyphs[..], &WinAnsiEncoding[..]) as i32 != 0
     {
         /* Dvipdfmx default setting. */
         baseenc_name = Some("WinAnsiEncoding")
@@ -614,14 +357,13 @@ unsafe fn pdf_encoding_new_encoding(
         if baseenc_id < 0i32 || pdf_encoding_is_predefined(baseenc_id) == 0 {
             panic!(
                 "Illegal base encoding {} for encoding {}\n",
-                baseenc_name,
-                (*encoding).enc_name
+                baseenc_name, encoding.enc_name
             );
         }
-        (*encoding).baseenc = &mut *enc_cache[baseenc_id as usize] as *mut pdf_encoding
+        encoding.baseenc = &mut *enc_cache[baseenc_id as usize] as *mut pdf_encoding
     }
     if flags & 1i32 << 0i32 != 0 {
-        (*encoding).resource = pdf_name::new((*encoding).enc_name.as_bytes()).into_obj()
+        encoding.resource = pdf_name::new(encoding.enc_name.as_bytes()).into_obj()
     }
     enc_id as i32
 }
@@ -644,7 +386,7 @@ pub(crate) unsafe fn pdf_encoding_complete() {
             let with_base = !(encoding.flags & FLAG_USED_BY_TYPE3 != 0) || pdf_get_version() >= 4;
             assert!(encoding.resource.is_null());
             encoding.resource = create_encoding_resource(
-                &mut **encoding as *mut _,
+                encoding.as_mut(),
                 if with_base {
                     encoding.baseenc
                 } else {
@@ -665,8 +407,8 @@ pub(crate) unsafe fn pdf_encoding_complete() {
 
 pub(crate) unsafe fn pdf_close_encodings() {
     for encoding in &mut enc_cache {
-        pdf_flush_encoding(&mut **encoding);
-        pdf_clean_encoding_struct(&mut **encoding);
+        pdf_flush_encoding(encoding.as_mut());
+        pdf_clean_encoding_struct(encoding.as_mut());
     }
     enc_cache.clear();
 }
@@ -790,8 +532,8 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
                     wbuf[0] = (code & 0xff) as u8;
                     let mut p = wbuf.as_mut_ptr().offset(1);
                     let endptr = wbuf.as_mut_ptr().offset(1024);
-                    let cenc = CString::new(enc_vec[code as usize].as_bytes()).unwrap();
-                    let len = agl_sput_UTF16BE(cenc.as_ptr(), &mut p, endptr, &mut fail_count);
+                    let len =
+                        agl_sput_UTF16BE(&enc_vec[code as usize], &mut p, endptr, &mut fail_count);
                     if len >= 1i32 && fail_count == 0 {
                         CMap_add_bfchar(
                             &mut cmap,

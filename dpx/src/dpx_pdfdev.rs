@@ -934,7 +934,7 @@ unsafe fn handle_multibyte_string(
             &mut outbytesleft,
         );
         if inbytesleft != 0 {
-            warn!("CMap conversion failed. ({} bytes remains)", inbytesleft,);
+            warn!("CMap conversion failed. ({} bytes remains)", inbytesleft);
             return -1i32;
         }
         length = (4096 as size_t).wrapping_sub(outbytesleft);
@@ -1457,7 +1457,7 @@ pub(crate) unsafe fn pdf_dev_set_rule(
          *  "Details of Graphics State Parameters", p. 185.
          */
         if height < dev_unit.min_bp_val {
-            warn!("Too thin line: height={} ({} bp)", height, width_in_bp,);
+            warn!("Too thin line: height={} ({} bp)", height, width_in_bp);
             warn!("Please consider using \"-d\" option.");
         }
         dev_sprint_line(
@@ -1470,7 +1470,7 @@ pub(crate) unsafe fn pdf_dev_set_rule(
         );
     } else {
         if width < dev_unit.min_bp_val {
-            warn!("Too thin line: width={} ({} bp)", width, width_in_bp,);
+            warn!("Too thin line: width={} ({} bp)", width, width_in_bp);
             warn!("Please consider using \"-d\" option.");
         }
         dev_sprint_line(

@@ -175,7 +175,7 @@ unsafe fn write_map(
                     }
                 }
                 2 => {
-                    panic!("{}: Unexpected error...", "CMap",);
+                    panic!("{}: Unexpected error...", "CMap");
                 }
                 8 => {}
                 _ => {
@@ -190,7 +190,7 @@ unsafe fn write_map(
         /* Flush if necessary */
         if count >= 100 || wbuf.len() >= lim {
             if count > 100 {
-                panic!("Unexpected error....: {}", count,);
+                panic!("Unexpected error....: {}", count);
             }
             stream.add_str(&format!("{} beginbfchar\n", count));
             stream.add_slice(wbuf.as_slice());
@@ -352,7 +352,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
         if count > 0 {
             /* Flush */
             if count > 100 {
-                panic!("Unexpected error....: {}", count,);
+                panic!("Unexpected error....: {}", count);
             }
             stream.add_str(&format!("{} beginbfchar\n", count));
             stream.add_slice(wbuf.as_slice());

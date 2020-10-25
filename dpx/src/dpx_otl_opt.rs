@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::bridge::DisplayExt;
@@ -180,7 +180,7 @@ unsafe fn parse_expr(pp: *mut *const i8, endptr: *const i8) -> *mut bt_node {
                         } else if **pp as i32 == '_' as i32 {
                             (*curr).data[i as usize] = ' ' as i32 as i8
                         } else {
-                            warn!("Invalid char in tag: {}\n", char::from(**pp as u8),);
+                            warn!("Invalid char in tag: {}\n", char::from(**pp as u8));
                             bt_release_tree(root);
                             return ptr::null_mut();
                         }

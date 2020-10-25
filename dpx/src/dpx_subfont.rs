@@ -37,8 +37,6 @@ use super::dpx_mfileio::tt_mfgets;
 use bridge::{DroppableInputHandleWrapper as InFile, TTInputFormat};
 use libc::{strchr, strlen, strtol};
 
-pub(crate) type __ssize_t = i64;
-
 /* Don't forget fontmap reading now requires information
  * from SFD files. You must initialize at least sfd_file_
  * cache before starting loading of fontmaps.
@@ -264,7 +262,7 @@ unsafe fn scan_sfd_file<R: Read + Seek>(sfd: &mut sfd_file_, handle: &mut R) -> 
         let slice = std::slice::from_raw_parts(q as *const u8, n as usize);
         let id = String::from_utf8_lossy(slice).to_string();
         if verbose > 3i32 {
-            info!("subfont>>   id=\"{}\" at line=\"{}\"\n", id, lpos,);
+            info!("subfont>>   id=\"{}\" at line=\"{}\"\n", id, lpos);
         }
         sfd.sub_id.push(id);
     }
@@ -300,7 +298,7 @@ unsafe fn find_sfd_file(sfd_name: &str) -> i32 {
                 id = sfd_files.len() as i32;
                 sfd_files.push(sfd);
             } else {
-                warn!("Error occured while reading SFD file \"{}\"", sfd_name,);
+                warn!("Error occured while reading SFD file \"{}\"", sfd_name);
                 id = -1i32
             }
         } else {

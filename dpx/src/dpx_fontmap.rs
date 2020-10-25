@@ -465,7 +465,7 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                     let comma = match q.find(',') {
                         Some(idx) => idx,
                         None => {
-                            warn!("Invalid value for option \'m\': {}", q,);
+                            warn!("Invalid value for option \'m\': {}", q);
                             return -1i32;
                         }
                     };
@@ -519,7 +519,7 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                 }
             }
             _ => {
-                warn!("Unrecognized font map option: \'{}\'", char::from(mopt),);
+                warn!("Unrecognized font map option: \'{}\'", char::from(mopt));
                 return -1i32;
             }
         }

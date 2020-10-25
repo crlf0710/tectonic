@@ -32,15 +32,11 @@ use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_cff::{
-    cff_add_string_str, cff_charsets_lookup, cff_charsets_lookup_inverse, cff_encoding_lookup,
-    cff_get_index_header, cff_get_name, cff_get_sid_str, cff_get_string_string, cff_index_size,
-    cff_new_index, cff_open, cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header,
+    cff_add_string, cff_charsets_lookup, cff_charsets_lookup_inverse, cff_encoding_lookup,
+    cff_get_index_header, cff_get_name, cff_get_sid, cff_get_string, cff_index_size, cff_new_index,
+    cff_open, cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header,
     cff_read_charsets, cff_read_encoding, cff_read_private, cff_read_subrs, cff_release_charsets,
     cff_release_encoding, cff_release_index, cff_set_name, cff_update_string, CffIndex, Pack,
-};
-use super::dpx_cff_dict::{
-    cff_dict_add, cff_dict_get, cff_dict_known, cff_dict_pack, cff_dict_remove, cff_dict_set,
-    cff_dict_update,
 };
 use super::dpx_cs_type2::cs_copy_charstring;
 use super::dpx_dpxfile::dpx_open_opentype_file;
@@ -199,13 +195,8 @@ unsafe fn add_SimpleMetrics(
      * to the default scaling of 1000:1, not relative to the scaling
      * given by the font matrix.
      */
-    let scaling = if cff_dict_known(cffont.topdict, b"FontMatrix\x00" as *const u8 as *const i8) {
-        1000i32 as f64
-            * cff_dict_get(
-                cffont.topdict,
-                b"FontMatrix\x00" as *const u8 as *const i8,
-                0i32,
-            )
+    let scaling = if (*cffont.topdict).contains_key("FontMatrix") {
+        1000i32 as f64 * (*cffont.topdict).get("FontMatrix", 0)
     } else {
         1.
     };
@@ -339,7 +330,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         for code in 0..256 {
             if *usedchars.offset(code as isize) != 0 {
                 let gid = cff_encoding_lookup(&cffont, code as u8);
-                enc_vec.push(cff_get_string_string(
+                enc_vec.push(cff_get_string(
                     &cffont,
                     cff_charsets_lookup_inverse(&cffont, gid),
                 ));
@@ -384,11 +375,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /*
      * Charastrings.
      */
-    let offset = cff_dict_get(
-        cffont.topdict,
-        b"CharStrings\x00" as *const u8 as *const i8,
-        0i32,
-    ) as u64;
+    let offset = (*cffont.topdict).get("CharStrings", 0) as u64;
     cffont
         .handle
         .as_ref()
@@ -419,17 +406,9 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /*
      * Information from OpenType table is rough estimate. Replace with accurate value.
      */
-    if !(*cffont.private.offset(0)).is_null()
-        && cff_dict_known(
-            *cffont.private.offset(0),
-            b"StdVW\x00" as *const u8 as *const i8,
-        )
+    if !(*cffont.private.offset(0)).is_null() && (**cffont.private.offset(0)).contains_key("StdVW")
     {
-        let stemv = cff_dict_get(
-            *cffont.private.offset(0),
-            b"StdVW\x00" as *const u8 as *const i8,
-            0i32,
-        );
+        let stemv = (**cffont.private.offset(0)).get("StdVW", 0);
         let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
         descriptor.set("StemV", stemv);
     }
@@ -437,28 +416,16 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
      * Widths
      */
     let default_width = if !(*cffont.private.offset(0)).is_null()
-        && cff_dict_known(
-            *cffont.private.offset(0),
-            b"defaultWidthX\x00" as *const u8 as *const i8,
-        ) {
-        cff_dict_get(
-            *cffont.private.offset(0),
-            b"defaultWidthX\x00" as *const u8 as *const i8,
-            0i32,
-        )
+        && (**cffont.private.offset(0)).contains_key("defaultWidthX")
+    {
+        (**cffont.private.offset(0)).get("defaultWidthX", 0)
     } else {
         0.
     };
     let nominal_width = if !(*cffont.private.offset(0)).is_null()
-        && cff_dict_known(
-            *cffont.private.offset(0),
-            b"nominalWidthX\x00" as *const u8 as *const i8,
-        ) {
-        cff_dict_get(
-            *cffont.private.offset(0),
-            b"nominalWidthX\x00" as *const u8 as *const i8,
-            0i32,
-        )
+        && (**cffont.private.offset(0)).contains_key("nominalWidthX")
+    {
+        (**cffont.private.offset(0)).get("nominalWidthX", 0)
     } else {
         0.
     };
@@ -511,11 +478,11 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
              *  It should be cff_string_get_sid(string, ...).
              *  cff_add_string(cff, ...) -> cff_string_add(string, ...).
              */
-            let sid_orig = cff_get_sid_str(&cffont, &enc_slice[code as usize]) as s_SID;
+            let sid_orig = cff_get_sid(&cffont, &enc_slice[code as usize]) as s_SID;
             let sid = (if (sid_orig as i32) < 391 {
                 sid_orig as i32
             } else {
-                cff_add_string_str(&mut cffont, &enc_slice[code as usize], 0i32) as i32
+                cff_add_string(&mut cffont, &enc_slice[code as usize], 0i32) as i32
             }) as s_SID;
             /*
              * We use "unique = 0" because duplicate strings are impossible
@@ -684,9 +651,9 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
      * FIXME:
      *  Update String INDEX to delete unused strings.
      */
-    cff_dict_update(cffont.topdict, &mut cffont);
+    (*cffont.topdict).update(&mut cffont);
     if !(*cffont.private.offset(0)).is_null() {
-        cff_dict_update(*cffont.private.offset(0), &mut cffont);
+        (**cffont.private.offset(0)).update(&mut cffont);
     }
     cff_update_string(&mut cffont);
     /*
@@ -696,26 +663,19 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
      */
     let mut topdict = CffIndex::new(1);
 
-    cff_dict_remove(cffont.topdict, b"UniqueID\x00" as *const u8 as *const i8);
-    cff_dict_remove(cffont.topdict, b"XUID\x00" as *const u8 as *const i8);
+    (*cffont.topdict).remove("UniqueID");
+    (*cffont.topdict).remove("XUID");
     /*
      * Force existence of Encoding.
      */
-    if !cff_dict_known(cffont.topdict, b"Encoding\x00" as *const u8 as *const i8) {
-        cff_dict_add(
-            cffont.topdict,
-            b"Encoding\x00" as *const u8 as *const i8,
-            1i32,
-        ); /* no Subrs */
+    if !(*cffont.topdict).contains_key("Encoding") {
+        (*cffont.topdict).add("Encoding", 1); /* no Subrs */
     }
-    topdict.offset[1] = (cff_dict_pack(cffont.topdict, &mut work_buffer[..]) + 1) as l_offset;
+    topdict.offset[1] = ((*cffont.topdict).pack(&mut work_buffer[..]) + 1) as l_offset;
     let mut private_size = 0;
     if !(*cffont.private.offset(0)).is_null() {
-        cff_dict_remove(
-            *cffont.private.offset(0),
-            b"Subrs\x00" as *const u8 as *const i8,
-        );
-        private_size = cff_dict_pack(*cffont.private.offset(0), &mut work_buffer[..])
+        (**cffont.private.offset(0)).remove("Subrs");
+        private_size = (**cffont.private.offset(0)).pack(&mut work_buffer[..])
     }
     /*
      * Estimate total size of fontfile.
@@ -753,56 +713,29 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /* Global Subrs */
     offset += cff_pack_index(cffont.gsubr, &mut stream_data[offset..]);
     /* Encoding */
-    cff_dict_set(
-        cffont.topdict,
-        b"Encoding\x00" as *const u8 as *const i8,
-        0i32,
-        offset as f64,
-    );
+    (*cffont.topdict).set("Encoding", 0i32, offset as f64);
     offset += cff_pack_encoding(&cffont, &mut stream_data[offset..]);
     /* charset */
-    cff_dict_set(
-        cffont.topdict,
-        b"charset\x00" as *const u8 as *const i8,
-        0i32,
-        offset as f64,
-    );
+    (*cffont.topdict).set("charset", 0i32, offset as f64);
     offset += cff_pack_charsets(&cffont, &mut stream_data[offset..]);
     /* CharStrings */
-    cff_dict_set(
-        cffont.topdict,
-        b"CharStrings\x00" as *const u8 as *const i8,
-        0i32,
-        offset as f64,
-    );
+    (*cffont.topdict).set("CharStrings", 0i32, offset as f64);
     offset += cff_pack_index(
         charstrings,
         &mut stream_data[offset..offset + charstring_len as usize],
     );
     cff_release_index(charstrings);
     /* Private */
-    cff_dict_set(
-        cffont.topdict,
-        b"Private\x00" as *const u8 as *const i8,
-        1i32,
-        offset as f64,
-    );
+    (*cffont.topdict).set("Private", 1i32, offset as f64);
     if !(*cffont.private.offset(0)).is_null() && private_size > 0 {
-        private_size = cff_dict_pack(
-            *cffont.private.offset(0),
-            &mut stream_data[offset..offset + private_size],
-        )
+        private_size =
+            (**cffont.private.offset(0)).pack(&mut stream_data[offset..offset + private_size])
     }
-    cff_dict_set(
-        cffont.topdict,
-        b"Private\x00" as *const u8 as *const i8,
-        0i32,
-        private_size as f64,
-    );
+    (*cffont.topdict).set("Private", 0i32, private_size as f64);
     offset += private_size as usize;
     /* Finally Top DICT */
     topdict.data = vec![0; (topdict.offset[topdict.count as usize]) as usize - 1];
-    cff_dict_pack(cffont.topdict, &mut topdict.data[..]);
+    (*cffont.topdict).pack(&mut topdict.data[..]);
     let len = topdict.size();
     topdict.pack(&mut stream_data[topdict_offset..topdict_offset + len]);
 

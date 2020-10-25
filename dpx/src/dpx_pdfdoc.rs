@@ -382,10 +382,10 @@ unsafe fn doc_resize_page_entries(mut p: *mut pdf_doc, size: u32) {
 }
 unsafe fn doc_get_page_entry(p: *mut pdf_doc, page_no: u32) -> *mut pdf_page {
     if page_no as u64 > 65535 {
-        panic!("Page number {} too large!", page_no,);
+        panic!("Page number {} too large!", page_no);
     } else {
         if page_no == 0_u32 {
-            panic!("Invalid Page number {}.", page_no,);
+            panic!("Invalid Page number {}.", page_no);
         }
     }
     if page_no > (*p).pages.max_entries {
@@ -475,9 +475,9 @@ unsafe fn pdf_doc_close_docinfo(mut p: *mut pdf_doc) {
     for key in KEYS.iter() {
         if let Some(value) = (*docinfo).as_dict().get(*key) {
             if !(*value).is_string() {
-                warn!("\"{}\" in DocInfo dictionary not string type.", key,);
+                warn!("\"{}\" in DocInfo dictionary not string type.", key);
                 pdf_remove_dict(&mut *docinfo, key);
-                warn!("\"{}\" removed from DocInfo.", key,);
+                warn!("\"{}\" removed from DocInfo.", key);
             } else if (*value).as_string().len() == 0 {
                 /* The hyperref package often uses emtpy strings. */
                 pdf_remove_dict(&mut *docinfo, key);
@@ -1804,9 +1804,9 @@ unsafe fn pdf_doc_init_articles(mut p: *mut pdf_doc) {
     (*p).articles.entries = ptr::null_mut();
 }
 
-pub(crate) unsafe fn pdf_doc_begin_article(article_id: *const i8, article_info: *mut pdf_obj) {
+pub(crate) unsafe fn pdf_doc_begin_article(article_id: &str, article_info: *mut pdf_obj) {
     let mut p: *mut pdf_doc = &mut pdoc;
-    if article_id.is_null() || strlen(article_id) == 0 {
+    if article_id.is_empty() {
         panic!("Article thread without internal identifier.");
     }
     if (*p).articles.num_entries >= (*p).articles.max_entries {
@@ -1822,9 +1822,10 @@ pub(crate) unsafe fn pdf_doc_begin_article(article_id: *const i8, article_info: 
         .entries
         .offset((*p).articles.num_entries as isize) as *mut pdf_article;
     (*article).id =
-        new((strlen(article_id).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
+        new((article_id.len().wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
             as *mut i8;
-    strcpy((*article).id, article_id);
+    let article_id = CString::new(article_id.as_bytes()).unwrap();
+    strcpy((*article).id, article_id.as_ptr());
     (*article).info = article_info;
     (*article).num_beads = 0_u32;
     (*article).max_beads = 0_u32;
@@ -1842,19 +1843,16 @@ unsafe fn find_bead(article: *mut pdf_article, bead_id: &[u8]) -> *mut pdf_bead 
     bead
 }
 
-pub(crate) unsafe fn pdf_doc_add_bead(
-    article_id: *const i8,
-    bead_id: &[u8],
-    page_no: i32,
-    rect: &Rect,
-) {
+pub(crate) unsafe fn pdf_doc_add_bead(article_id: &str, bead_id: &[u8], page_no: i32, rect: &Rect) {
     let p: *mut pdf_doc = &mut pdoc;
-    if article_id.is_null() {
+    if article_id.is_empty() {
         panic!("No article identifier specified.");
     }
     let mut article = ptr::null_mut();
     for i in 0..(*p).articles.num_entries {
-        if streq_ptr((*(*p).articles.entries.offset(i as isize)).id, article_id) {
+        if CStr::from_ptr((*(*p).articles.entries.offset(i as isize)).id).to_bytes()
+            == article_id.as_bytes()
+        {
             article = &mut *(*p).articles.entries.offset(i as isize) as *mut pdf_article;
             break;
         }

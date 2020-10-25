@@ -41,7 +41,6 @@ use crate::bridge::size_t;
 use crate::mfree;
 use crate::warn;
 
-use super::dpx_cff_dict::{cff_dict_get, cff_dict_known};
 use super::dpx_dpxfile::{
     dpx_open_dfont_file, dpx_open_opentype_file, dpx_open_truetype_file, dpx_open_type1_file,
 };
@@ -122,8 +121,7 @@ pub(crate) struct font_def {
     pub(crate) slant: i32,
     pub(crate) embolden: i32,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct loaded_font {
     pub(crate) type_0: i32,
     pub(crate) font_id: i32,
@@ -132,7 +130,7 @@ pub(crate) struct loaded_font {
     pub(crate) size: spt_t,
     pub(crate) source: i32,
     pub(crate) rgba_color: u32,
-    pub(crate) hvmt: *mut tt_longMetrics,
+    pub(crate) hvmt: Vec<tt_longMetrics>,
     pub(crate) ascent: i32,
     pub(crate) descent: i32,
     pub(crate) unitsPerEm: u32,
@@ -170,15 +168,10 @@ pub(crate) struct dvi_lr {
 
 use super::dpx_t1_char::t1_ginfo;
 
-/* 16.16-bit signed fixed-point number */
-pub(crate) type FWord = i16;
 /* Acoid conflict with CHAR ... from <winnt.h>.  */
 /* Data Types as described in Apple's TTRefMan */
 pub(crate) type Fixed = u32;
 
-pub(crate) type uFWord = u16;
-
-use super::dpx_tt_table::tt_vhea_table;
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
@@ -428,7 +421,7 @@ unsafe fn get_page_info(post_location: i32) {
         panic!("Page count is 0!");
     }
     if verbose > 2i32 {
-        info!("Page count:\t {:4}\n", num_pages,);
+        info!("Page count:\t {:4}\n", num_pages);
     }
     page_loc = new((num_pages as u64).wrapping_mul(::std::mem::size_of::<u32>() as u64) as u32)
         as *mut u32;
@@ -601,7 +594,7 @@ unsafe fn get_dvi_fonts(post_location: i32) {
                 read_native_font_record(i32::get(handle) as u32);
             }
             _ => {
-                info!("Unexpected op code: {:3}\n", code,);
+                info!("Unexpected op code: {:3}\n", code);
                 panic!(invalid_signature);
             }
         }
@@ -772,7 +765,7 @@ pub(crate) unsafe fn dvi_locate_font(tfm_name: &str, ptsize: spt_t) -> u32 {
         type_0: 0,
         font_id: 0,
         rgba_color: 0,
-        hvmt: ptr::null_mut(),
+        hvmt: Vec::new(),
         ascent: 0,
         descent: 0,
         unitsPerEm: 0,
@@ -931,7 +924,7 @@ unsafe fn dvi_locate_native_font(
     let mut is_dfont: i32 = 0i32;
     let mut is_type1: i32 = 0i32;
     if verbose != 0 {
-        info!("<{}@{:.2}pt", filename, ptsize as f64 * dvi2pts,);
+        info!("<{}@{:.2}pt", filename, ptsize as f64 * dvi2pts);
     }
     let mut handle = dpx_open_dfont_file(filename);
     if handle.is_some() {
@@ -977,7 +970,7 @@ unsafe fn dvi_locate_native_font(
 
         // zero-initialize other fields
         rgba_color: 0,
-        hvmt: ptr::null_mut(),
+        hvmt: Vec::new(),
         ascent: 0,
         descent: 0,
         unitsPerEm: 0,
@@ -998,17 +991,9 @@ unsafe fn dvi_locate_native_font(
          */
         warn!("skipping PFB sanity check -- needs Tectonic I/O update");
         let cffont = t1_load_font(&mut enc_vec[..], 0, handle);
-        if cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) {
-            font.ascent = cff_dict_get(
-                cffont.topdict,
-                b"FontBBox\x00" as *const u8 as *const i8,
-                3i32,
-            ) as i32;
-            font.descent = cff_dict_get(
-                cffont.topdict,
-                b"FontBBox\x00" as *const u8 as *const i8,
-                1i32,
-            ) as i32
+        if (*cffont.topdict).contains_key("FontBBox") {
+            font.ascent = (*cffont.topdict).get("FontBBox", 3) as i32;
+            font.descent = (*cffont.topdict).get("FontBBox", 1) as i32
         } else {
             font.ascent = 690i32;
             font.descent = -190i32
@@ -1031,32 +1016,28 @@ unsafe fn dvi_locate_native_font(
         let head = tt_read_head_table(&mut sfont);
         let maxp = tt_read_maxp_table(&mut sfont);
         let hhea = tt_read_hhea_table(&mut sfont);
-        font.ascent = (*hhea).ascent as i32;
-        font.descent = (*hhea).descent as i32;
-        font.unitsPerEm = (*head).unitsPerEm as u32;
-        font.numGlyphs = (*maxp).numGlyphs as u32;
+        font.ascent = hhea.ascent as i32;
+        font.descent = hhea.descent as i32;
+        font.unitsPerEm = head.unitsPerEm as u32;
+        font.numGlyphs = maxp.numGlyphs as u32;
         if layout_dir == 1i32 && sfnt_find_table_pos(&sfont, b"vmtx") > 0_u32 {
-            let vhea: *mut tt_vhea_table = tt_read_vhea_table(&mut sfont);
+            let vhea = tt_read_vhea_table(&mut sfont);
             sfnt_locate_table(&mut sfont, b"vmtx");
             font.hvmt = tt_read_longMetrics(
                 &mut &*sfont.handle,
-                (*maxp).numGlyphs,
-                (*vhea).numOfLongVerMetrics,
-                (*vhea).numOfExSideBearings,
+                maxp.numGlyphs,
+                vhea.numOfLongVerMetrics,
+                vhea.numOfExSideBearings,
             );
-            free(vhea as *mut libc::c_void);
         } else {
             sfnt_locate_table(&mut sfont, sfnt_table_info::HMTX);
             font.hvmt = tt_read_longMetrics(
                 &mut &*sfont.handle,
-                (*maxp).numGlyphs,
-                (*hhea).numOfLongHorMetrics,
-                (*hhea).numOfExSideBearings,
+                maxp.numGlyphs,
+                hhea.numOfLongHorMetrics,
+                hhea.numOfExSideBearings,
             )
         }
-        free(hhea as *mut libc::c_void);
-        free(maxp as *mut libc::c_void);
-        free(head as *mut libc::c_void);
     }
     font.layout_dir = layout_dir;
     font.extend = (*mrec).opt.extend as f32;
@@ -1658,7 +1639,7 @@ unsafe fn do_glyphs(do_actual_text: i32) {
                 ascent = gm.bbox.ury;
                 descent = gm.bbox.lly
             } else {
-                advance = (*(*font).hvmt.offset(glyph_id as isize)).advance as u32
+                advance = (*font).hvmt[glyph_id as usize].advance as u32
             }
             glyph_width =
                 ((*font).size as f64 * advance as f64 / (*font).unitsPerEm as f64) as spt_t;
@@ -1959,7 +1940,7 @@ pub(crate) unsafe fn dvi_close() {
     num_pages = 0_u32;
 
     for font in &mut loaded_fonts {
-        font.hvmt = mfree(font.hvmt as *mut libc::c_void) as _;
+        font.hvmt = Vec::new();
         if !(font.cffont.is_null()) {
             let _ = Box::from_raw(font.cffont);
         }
@@ -2241,7 +2222,8 @@ unsafe fn scan_special(
                             if let Some(obj) = buf.parse_pdf_string() {
                                 let bytes = (*obj).as_string().to_bytes();
                                 if !bytes.is_empty() {
-                                    strncpy(owner_pw, CString::new(bytes).unwrap().as_ptr(), 127);
+                                    let cstr = CString::new(bytes).unwrap();
+                                    strncpy(owner_pw, cstr.as_ptr(), 127);
                                 }
                                 pdf_release_obj(obj);
                             } else {
@@ -2252,7 +2234,8 @@ unsafe fn scan_special(
                             if let Some(obj) = buf.parse_pdf_string() {
                                 let bytes = (*obj).as_string().to_bytes();
                                 if !bytes.is_empty() {
-                                    strncpy(user_pw, CString::new(bytes).unwrap().as_ptr(), 127);
+                                    let cstr = CString::new(bytes).unwrap();
+                                    strncpy(user_pw, cstr.as_ptr(), 127);
                                 }
                                 pdf_release_obj(obj);
                             } else {

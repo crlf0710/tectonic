@@ -36,7 +36,6 @@ use crate::bridge::{ttstub_input_get_size, DroppableInputHandleWrapper as InFile
 use std::io::{Read, Seek, SeekFrom};
 
 pub(crate) type __off_t = i64;
-pub(crate) type __ssize_t = i64;
 pub(crate) type off_t = __off_t;
 
 use crate::bridge::TTInputFormat;
@@ -141,7 +140,7 @@ pub(crate) struct char_map {
  * as directory separators. */
 static mut verbose: i32 = 0;
 
-unsafe fn lookup_char(map: &char_map, charcode: i32) -> i32 {
+fn lookup_char(map: &char_map, charcode: i32) -> i32 {
     if charcode >= map.coverage.first_char
         && charcode <= map.coverage.first_char + map.coverage.num_chars
     {
@@ -150,7 +149,7 @@ unsafe fn lookup_char(map: &char_map, charcode: i32) -> i32 {
         return -1i32;
     };
 }
-unsafe fn lookup_range(map: &range_map, charcode: i32) -> i32 {
+fn lookup_range(map: &range_map, charcode: i32) -> i32 {
     let mut idx = map.coverages.len() as i32 - 1;
     while idx >= 0 && charcode >= map.coverages[idx as usize].first_char {
         if charcode
@@ -172,14 +171,14 @@ pub(crate) unsafe fn tfm_reset_global_state() {
 pub(crate) unsafe fn tfm_set_verbose(level: i32) {
     verbose = level;
 }
-unsafe fn fread_fwords<R: Read>(words: &mut [fixword], handle: &mut R) -> i32 {
+fn fread_fwords<R: Read>(words: &mut [fixword], handle: &mut R) -> i32 {
     let len = words.len();
     for w in words {
         *w = i32::get(handle);
     }
     (len * 4) as i32
 }
-unsafe fn fread_uquads<R: Read>(quads: &mut [u32], handle: &mut R) -> i32 {
+fn fread_uquads<R: Read>(quads: &mut [u32], handle: &mut R) -> i32 {
     let len = quads.len();
     for w in quads {
         *w = u32::get(handle);
@@ -189,7 +188,7 @@ unsafe fn fread_uquads<R: Read>(quads: &mut [u32], handle: &mut R) -> i32 {
 /*
  * TFM and JFM
  */
-unsafe fn tfm_check_size(tfm: &tfm_font, tfm_file_size: off_t) {
+fn tfm_check_size(tfm: &tfm_font, tfm_file_size: off_t) {
     let mut expected_size = 6_u32;
     /* Removed the warning message caused by EC TFM metric files.
      *
@@ -229,7 +228,7 @@ unsafe fn tfm_check_size(tfm: &tfm_font, tfm_file_size: off_t) {
         }
     };
 }
-unsafe fn tfm_get_sizes<R: Read>(tfm_handle: &mut R, tfm_file_size: off_t, tfm: &mut tfm_font) {
+fn tfm_get_sizes<R: Read>(tfm_handle: &mut R, tfm_file_size: off_t, tfm: &mut tfm_font) {
     tfm.wlenfile = u16::get(tfm_handle) as u32;
     tfm.wlenheader = u16::get(tfm_handle) as u32;
     tfm.bc = u16::get(tfm_handle) as u32;
@@ -247,7 +246,7 @@ unsafe fn tfm_get_sizes<R: Read>(tfm_handle: &mut R, tfm_file_size: off_t, tfm: 
     tfm.nfonparm = u16::get(tfm_handle) as u32;
     tfm_check_size(tfm, tfm_file_size);
 }
-unsafe fn tfm_unpack_arrays(fm: &mut font_metric, tfm: &tfm_font) {
+fn tfm_unpack_arrays(fm: &mut font_metric, tfm: &tfm_font) {
     fm.widths = vec![0; 256];
     fm.heights = vec![0; 256];
     fm.depths = vec![0; 256];
@@ -261,7 +260,7 @@ unsafe fn tfm_unpack_arrays(fm: &mut font_metric, tfm: &tfm_font) {
         fm.depths[i as usize] = tfm.depth[depth_index as usize];
     }
 }
-unsafe fn tfm_unpack_header(fm: &mut font_metric, tfm: &tfm_font) {
+fn tfm_unpack_header(fm: &mut font_metric, tfm: &tfm_font) {
     if tfm.wlenheader < 12 {
         fm.codingscheme = Vec::new();
     } else {
@@ -278,7 +277,7 @@ unsafe fn tfm_unpack_header(fm: &mut font_metric, tfm: &tfm_font) {
     }
     fm.designsize = i32::from_be_byte_slice(&tfm.header[4..8]);
 }
-unsafe fn ofm_check_size_one(tfm: &tfm_font, ofm_file_size: off_t) {
+fn ofm_check_size_one(tfm: &tfm_font, ofm_file_size: off_t) {
     let mut ofm_size = 14_u32;
     ofm_size += (2 * (tfm.ec - tfm.bc + 1)) as u32;
     ofm_size += tfm.wlenheader as u32;
@@ -294,11 +293,7 @@ unsafe fn ofm_check_size_one(tfm: &tfm_font, ofm_file_size: off_t) {
         panic!("OFM file problem.  Table sizes don\'t agree.");
     };
 }
-unsafe fn ofm_get_sizes<R: Read + Seek>(
-    ofm_handle: &mut R,
-    ofm_file_size: off_t,
-    tfm: &mut tfm_font,
-) {
+fn ofm_get_sizes<R: Read + Seek>(ofm_handle: &mut R, ofm_file_size: off_t, tfm: &mut tfm_font) {
     tfm.level = i32::get(ofm_handle);
     tfm.wlenfile = get_positive_quad(ofm_handle, "OFM", "wlenfile");
     tfm.wlenheader = get_positive_quad(ofm_handle, "OFM", "wlenheader");
@@ -332,7 +327,7 @@ unsafe fn ofm_get_sizes<R: Read + Seek>(
         panic!("can\'t handle OFM files with level > 1");
     };
 }
-unsafe fn ofm_do_char_info_zero<R: Read>(ofm_handle: &mut R, tfm: &mut tfm_font) {
+fn ofm_do_char_info_zero<R: Read>(ofm_handle: &mut R, tfm: &mut tfm_font) {
     let num_chars = (tfm.ec - tfm.bc + 1) as usize;
     if num_chars != 0 {
         tfm.width_index = vec![0; num_chars];
@@ -347,7 +342,7 @@ unsafe fn ofm_do_char_info_zero<R: Read>(ofm_handle: &mut R, tfm: &mut tfm_font)
         }
     };
 }
-unsafe fn ofm_do_char_info_one<R: Read>(ofm_handle: &mut R, tfm: &mut tfm_font) {
+fn ofm_do_char_info_one<R: Read>(ofm_handle: &mut R, tfm: &mut tfm_font) {
     let num_char_infos = tfm
         .ncw
         .wrapping_div((3_u32).wrapping_add(tfm.npc.wrapping_div(2_u32)));
@@ -388,7 +383,7 @@ unsafe fn ofm_do_char_info_one<R: Read>(ofm_handle: &mut R, tfm: &mut tfm_font) 
         }
     };
 }
-unsafe fn ofm_unpack_arrays(fm: &mut font_metric, tfm: &tfm_font, num_chars: u32) {
+fn ofm_unpack_arrays(fm: &mut font_metric, tfm: &tfm_font, num_chars: u32) {
     fm.widths = vec![0; (tfm.bc + num_chars) as usize];
     fm.heights = vec![0; (tfm.bc + num_chars) as usize];
     fm.depths = vec![0; (tfm.bc + num_chars) as usize];
@@ -398,7 +393,7 @@ unsafe fn ofm_unpack_arrays(fm: &mut font_metric, tfm: &tfm_font, num_chars: u32
         fm.depths[tfm.bc as usize + i] = tfm.depth[tfm.depth_index[i] as usize];
     }
 }
-unsafe fn read_ofm<R: Read + Seek>(ofm_handle: &mut R, ofm_file_size: off_t) -> font_metric {
+fn read_ofm<R: Read + Seek>(ofm_handle: &mut R, ofm_file_size: off_t) -> font_metric {
     let mut tfm: tfm_font = tfm_font::default();
     ofm_get_sizes(ofm_handle, ofm_file_size, &mut tfm);
     if tfm.level < 0 || tfm.level > 1 {
@@ -435,7 +430,7 @@ unsafe fn read_ofm<R: Read + Seek>(ofm_handle: &mut R, ofm_file_size: off_t) -> 
     fm.source = 2;
     fm
 }
-unsafe fn read_tfm<R: Read>(tfm_handle: &mut R, tfm_file_size: off_t) -> font_metric {
+fn read_tfm<R: Read>(tfm_handle: &mut R, tfm_file_size: off_t) -> font_metric {
     let mut tfm: tfm_font = tfm_font::default();
     tfm_get_sizes(tfm_handle, tfm_file_size, &mut tfm);
 

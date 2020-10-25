@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use super::dpx_mem::new;
@@ -490,7 +490,7 @@ unsafe fn do_operator1(mut cd: *mut t1_chardesc, data: *mut *mut u8) {
         }
         _ => {
             /* no-op ? */
-            warn!("Unknown charstring operator: 0x{:02x}", op as i32,);
+            warn!("Unknown charstring operator: 0x{:02x}", op as i32);
             status = -1i32
         }
     };
@@ -875,7 +875,7 @@ unsafe fn do_operator2(mut cd: *mut t1_chardesc, data: *mut *mut u8, endptr: *mu
         }
         _ => {
             /* no-op ? */
-            warn!("Unknown charstring operator: 0x0c{:02x}", op as i32,);
+            warn!("Unknown charstring operator: 0x0c{:02x}", op as i32);
             status = -1;
         }
     };
@@ -1546,7 +1546,7 @@ pub(crate) unsafe fn t1char_get_metrics(
     cs_stack_top = 0i32;
     t1char_build_charpath(cd, &mut src, src.offset(srclen as isize), subrs);
     if cs_stack_top != 0i32 || ps_stack_top != 0i32 {
-        warn!("Stack not empty. ({}, {})", cs_stack_top, ps_stack_top,);
+        warn!("Stack not empty. ({}, {})", cs_stack_top, ps_stack_top);
     }
     do_postproc(cd);
     if !ginfo.is_null() {
@@ -1859,7 +1859,7 @@ pub(crate) unsafe fn t1char_convert_charstring(
     cs_stack_top = 0i32;
     t1char_build_charpath(cd, &mut src, src.offset(srclen as isize), subrs);
     if cs_stack_top != 0i32 || ps_stack_top != 0i32 {
-        warn!("Stack not empty. ({}, {})", cs_stack_top, ps_stack_top,);
+        warn!("Stack not empty. ({}, {})", cs_stack_top, ps_stack_top);
     }
     do_postproc(cd);
     cd.stems[..cd.num_stems as usize].sort_unstable_by(stem_compare);

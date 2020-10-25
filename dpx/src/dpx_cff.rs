@@ -30,7 +30,7 @@ use crate::streq_ptr;
 use crate::warn;
 use std::rc::Rc;
 
-use super::dpx_cff_dict::{cff_dict_get, cff_dict_known, cff_dict_unpack, cff_release_dict};
+use super::dpx_cff_dict::{cff_dict_unpack, cff_release_dict};
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::GetFromFile;
 use libc::{free, memcmp, memcpy, memmove, memset, strlen};
@@ -179,11 +179,10 @@ pub(crate) struct cff_header {
     /* Absolute offset (0) size             */
 }
 /* Dictionary */
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct cff_dict_entry {
     pub(crate) id: i32,
-    pub(crate) key: *const i8,
+    pub(crate) key: &'static str,
     pub(crate) count: i32,
     pub(crate) values: *mut f64,
     /* values                                  */
@@ -301,398 +300,398 @@ pub(crate) struct cff_font {
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-static mut cff_stdstr: [&[u8]; 391] = [
-    b".notdef\x00",
-    b"space\x00",
-    b"exclam\x00",
-    b"quotedbl\x00",
-    b"numbersign\x00",
-    b"dollar\x00",
-    b"percent\x00",
-    b"ampersand\x00",
-    b"quoteright\x00",
-    b"parenleft\x00",
-    b"parenright\x00",
-    b"asterisk\x00",
-    b"plus\x00",
-    b"comma\x00",
-    b"hyphen\x00",
-    b"period\x00",
-    b"slash\x00",
-    b"zero\x00",
-    b"one\x00",
-    b"two\x00",
-    b"three\x00",
-    b"four\x00",
-    b"five\x00",
-    b"six\x00",
-    b"seven\x00",
-    b"eight\x00",
-    b"nine\x00",
-    b"colon\x00",
-    b"semicolon\x00",
-    b"less\x00",
-    b"equal\x00",
-    b"greater\x00",
-    b"question\x00",
-    b"at\x00",
-    b"A\x00",
-    b"B\x00",
-    b"C\x00",
-    b"D\x00",
-    b"E\x00",
-    b"F\x00",
-    b"G\x00",
-    b"H\x00",
-    b"I\x00",
-    b"J\x00",
-    b"K\x00",
-    b"L\x00",
-    b"M\x00",
-    b"N\x00",
-    b"O\x00",
-    b"P\x00",
-    b"Q\x00",
-    b"R\x00",
-    b"S\x00",
-    b"T\x00",
-    b"U\x00",
-    b"V\x00",
-    b"W\x00",
-    b"X\x00",
-    b"Y\x00",
-    b"Z\x00",
-    b"bracketleft\x00",
-    b"backslash\x00",
-    b"bracketright\x00",
-    b"asciicircum\x00",
-    b"underscore\x00",
-    b"quoteleft\x00",
-    b"a\x00",
-    b"b\x00",
-    b"c\x00",
-    b"d\x00",
-    b"e\x00",
-    b"f\x00",
-    b"g\x00",
-    b"h\x00",
-    b"i\x00",
-    b"j\x00",
-    b"k\x00",
-    b"l\x00",
-    b"m\x00",
-    b"n\x00",
-    b"o\x00",
-    b"p\x00",
-    b"q\x00",
-    b"r\x00",
-    b"s\x00",
-    b"t\x00",
-    b"u\x00",
-    b"v\x00",
-    b"w\x00",
-    b"x\x00",
-    b"y\x00",
-    b"z\x00",
-    b"braceleft\x00",
-    b"bar\x00",
-    b"braceright\x00",
-    b"asciitilde\x00",
-    b"exclamdown\x00",
-    b"cent\x00",
-    b"sterling\x00",
-    b"fraction\x00",
-    b"yen\x00",
-    b"florin\x00",
-    b"section\x00",
-    b"currency\x00",
-    b"quotesingle\x00",
-    b"quotedblleft\x00",
-    b"guillemotleft\x00",
-    b"guilsinglleft\x00",
-    b"guilsinglright\x00",
-    b"fi\x00",
-    b"fl\x00",
-    b"endash\x00",
-    b"dagger\x00",
-    b"daggerdbl\x00",
-    b"periodcentered\x00",
-    b"paragraph\x00",
-    b"bullet\x00",
-    b"quotesinglbase\x00",
-    b"quotedblbase\x00",
-    b"quotedblright\x00",
-    b"guillemotright\x00",
-    b"ellipsis\x00",
-    b"perthousand\x00",
-    b"questiondown\x00",
-    b"grave\x00",
-    b"acute\x00",
-    b"circumflex\x00",
-    b"tilde\x00",
-    b"macron\x00",
-    b"breve\x00",
-    b"dotaccent\x00",
-    b"dieresis\x00",
-    b"ring\x00",
-    b"cedilla\x00",
-    b"hungarumlaut\x00",
-    b"ogonek\x00",
-    b"caron\x00",
-    b"emdash\x00",
-    b"AE\x00",
-    b"ordfeminine\x00",
-    b"Lslash\x00",
-    b"Oslash\x00",
-    b"OE\x00",
-    b"ordmasculine\x00",
-    b"ae\x00",
-    b"dotlessi\x00",
-    b"lslash\x00",
-    b"oslash\x00",
-    b"oe\x00",
-    b"germandbls\x00",
-    b"onesuperior\x00",
-    b"logicalnot\x00",
-    b"mu\x00",
-    b"trademark\x00",
-    b"Eth\x00",
-    b"onehalf\x00",
-    b"plusminus\x00",
-    b"Thorn\x00",
-    b"onequarter\x00",
-    b"divide\x00",
-    b"brokenbar\x00",
-    b"degree\x00",
-    b"thorn\x00",
-    b"threequarters\x00",
-    b"twosuperior\x00",
-    b"registered\x00",
-    b"minus\x00",
-    b"eth\x00",
-    b"multiply\x00",
-    b"threesuperior\x00",
-    b"copyright\x00",
-    b"Aacute\x00",
-    b"Acircumflex\x00",
-    b"Adieresis\x00",
-    b"Agrave\x00",
-    b"Aring\x00",
-    b"Atilde\x00",
-    b"Ccedilla\x00",
-    b"Eacute\x00",
-    b"Ecircumflex\x00",
-    b"Edieresis\x00",
-    b"Egrave\x00",
-    b"Iacute\x00",
-    b"Icircumflex\x00",
-    b"Idieresis\x00",
-    b"Igrave\x00",
-    b"Ntilde\x00",
-    b"Oacute\x00",
-    b"Ocircumflex\x00",
-    b"Odieresis\x00",
-    b"Ograve\x00",
-    b"Otilde\x00",
-    b"Scaron\x00",
-    b"Uacute\x00",
-    b"Ucircumflex\x00",
-    b"Udieresis\x00",
-    b"Ugrave\x00",
-    b"Yacute\x00",
-    b"Ydieresis\x00",
-    b"Zcaron\x00",
-    b"aacute\x00",
-    b"acircumflex\x00",
-    b"adieresis\x00",
-    b"agrave\x00",
-    b"aring\x00",
-    b"atilde\x00",
-    b"ccedilla\x00",
-    b"eacute\x00",
-    b"ecircumflex\x00",
-    b"edieresis\x00",
-    b"egrave\x00",
-    b"iacute\x00",
-    b"icircumflex\x00",
-    b"idieresis\x00",
-    b"igrave\x00",
-    b"ntilde\x00",
-    b"oacute\x00",
-    b"ocircumflex\x00",
-    b"odieresis\x00",
-    b"ograve\x00",
-    b"otilde\x00",
-    b"scaron\x00",
-    b"uacute\x00",
-    b"ucircumflex\x00",
-    b"udieresis\x00",
-    b"ugrave\x00",
-    b"yacute\x00",
-    b"ydieresis\x00",
-    b"zcaron\x00",
-    b"exclamsmall\x00",
-    b"Hungarumlautsmall\x00",
-    b"dollaroldstyle\x00",
-    b"dollarsuperior\x00",
-    b"ampersandsmall\x00",
-    b"Acutesmall\x00",
-    b"parenleftsuperior\x00",
-    b"parenrightsuperior\x00",
-    b"twodotenleader\x00",
-    b"onedotenleader\x00",
-    b"zerooldstyle\x00",
-    b"oneoldstyle\x00",
-    b"twooldstyle\x00",
-    b"threeoldstyle\x00",
-    b"fouroldstyle\x00",
-    b"fiveoldstyle\x00",
-    b"sixoldstyle\x00",
-    b"sevenoldstyle\x00",
-    b"eightoldstyle\x00",
-    b"nineoldstyle\x00",
-    b"commasuperior\x00",
-    b"threequartersemdash\x00",
-    b"periodsuperior\x00",
-    b"questionsmall\x00",
-    b"asuperior\x00",
-    b"bsuperior\x00",
-    b"centsuperior\x00",
-    b"dsuperior\x00",
-    b"esuperior\x00",
-    b"isuperior\x00",
-    b"lsuperior\x00",
-    b"msuperior\x00",
-    b"nsuperior\x00",
-    b"osuperior\x00",
-    b"rsuperior\x00",
-    b"ssuperior\x00",
-    b"tsuperior\x00",
-    b"ff\x00",
-    b"ffi\x00",
-    b"ffl\x00",
-    b"parenleftinferior\x00",
-    b"parenrightinferior\x00",
-    b"Circumflexsmall\x00",
-    b"hyphensuperior\x00",
-    b"Gravesmall\x00",
-    b"Asmall\x00",
-    b"Bsmall\x00",
-    b"Csmall\x00",
-    b"Dsmall\x00",
-    b"Esmall\x00",
-    b"Fsmall\x00",
-    b"Gsmall\x00",
-    b"Hsmall\x00",
-    b"Ismall\x00",
-    b"Jsmall\x00",
-    b"Ksmall\x00",
-    b"Lsmall\x00",
-    b"Msmall\x00",
-    b"Nsmall\x00",
-    b"Osmall\x00",
-    b"Psmall\x00",
-    b"Qsmall\x00",
-    b"Rsmall\x00",
-    b"Ssmall\x00",
-    b"Tsmall\x00",
-    b"Usmall\x00",
-    b"Vsmall\x00",
-    b"Wsmall\x00",
-    b"Xsmall\x00",
-    b"Ysmall\x00",
-    b"Zsmall\x00",
-    b"colonmonetary\x00",
-    b"onefitted\x00",
-    b"rupiah\x00",
-    b"Tildesmall\x00",
-    b"exclamdownsmall\x00",
-    b"centoldstyle\x00",
-    b"Lslashsmall\x00",
-    b"Scaronsmall\x00",
-    b"Zcaronsmall\x00",
-    b"Dieresissmall\x00",
-    b"Brevesmall\x00",
-    b"Caronsmall\x00",
-    b"Dotaccentsmall\x00",
-    b"Macronsmall\x00",
-    b"figuredash\x00",
-    b"hypheninferior\x00",
-    b"Ogoneksmall\x00",
-    b"Ringsmall\x00",
-    b"Cedillasmall\x00",
-    b"questiondownsmall\x00",
-    b"oneeighth\x00",
-    b"threeeighths\x00",
-    b"fiveeighths\x00",
-    b"seveneighths\x00",
-    b"onethird\x00",
-    b"twothirds\x00",
-    b"zerosuperior\x00",
-    b"foursuperior\x00",
-    b"fivesuperior\x00",
-    b"sixsuperior\x00",
-    b"sevensuperior\x00",
-    b"eightsuperior\x00",
-    b"ninesuperior\x00",
-    b"zeroinferior\x00",
-    b"oneinferior\x00",
-    b"twoinferior\x00",
-    b"threeinferior\x00",
-    b"fourinferior\x00",
-    b"fiveinferior\x00",
-    b"sixinferior\x00",
-    b"seveninferior\x00",
-    b"eightinferior\x00",
-    b"nineinferior\x00",
-    b"centinferior\x00",
-    b"dollarinferior\x00",
-    b"periodinferior\x00",
-    b"commainferior\x00",
-    b"Agravesmall\x00",
-    b"Aacutesmall\x00",
-    b"Acircumflexsmall\x00",
-    b"Atildesmall\x00",
-    b"Adieresissmall\x00",
-    b"Aringsmall\x00",
-    b"AEsmall\x00",
-    b"Ccedillasmall\x00",
-    b"Egravesmall\x00",
-    b"Eacutesmall\x00",
-    b"Ecircumflexsmall\x00",
-    b"Edieresissmall\x00",
-    b"Igravesmall\x00",
-    b"Iacutesmall\x00",
-    b"Icircumflexsmall\x00",
-    b"Idieresissmall\x00",
-    b"Ethsmall\x00",
-    b"Ntildesmall\x00",
-    b"Ogravesmall\x00",
-    b"Oacutesmall\x00",
-    b"Ocircumflexsmall\x00",
-    b"Otildesmall\x00",
-    b"Odieresissmall\x00",
-    b"OEsmall\x00",
-    b"Oslashsmall\x00",
-    b"Ugravesmall\x00",
-    b"Uacutesmall\x00",
-    b"Ucircumflexsmall\x00",
-    b"Udieresissmall\x00",
-    b"Yacutesmall\x00",
-    b"Thornsmall\x00",
-    b"Ydieresissmall\x00",
-    b"001.000\x00",
-    b"001.001\x00",
-    b"001.002\x00",
-    b"001.003\x00",
-    b"Black\x00",
-    b"Bold\x00",
-    b"Book\x00",
-    b"Light\x00",
-    b"Medium\x00",
-    b"Regular\x00",
-    b"Roman\x00",
-    b"Semibold\x00",
+static mut cff_stdstr: [&str; 391] = [
+    ".notdef",
+    "space",
+    "exclam",
+    "quotedbl",
+    "numbersign",
+    "dollar",
+    "percent",
+    "ampersand",
+    "quoteright",
+    "parenleft",
+    "parenright",
+    "asterisk",
+    "plus",
+    "comma",
+    "hyphen",
+    "period",
+    "slash",
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "colon",
+    "semicolon",
+    "less",
+    "equal",
+    "greater",
+    "question",
+    "at",
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z",
+    "bracketleft",
+    "backslash",
+    "bracketright",
+    "asciicircum",
+    "underscore",
+    "quoteleft",
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "o",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "u",
+    "v",
+    "w",
+    "x",
+    "y",
+    "z",
+    "braceleft",
+    "bar",
+    "braceright",
+    "asciitilde",
+    "exclamdown",
+    "cent",
+    "sterling",
+    "fraction",
+    "yen",
+    "florin",
+    "section",
+    "currency",
+    "quotesingle",
+    "quotedblleft",
+    "guillemotleft",
+    "guilsinglleft",
+    "guilsinglright",
+    "fi",
+    "fl",
+    "endash",
+    "dagger",
+    "daggerdbl",
+    "periodcentered",
+    "paragraph",
+    "bullet",
+    "quotesinglbase",
+    "quotedblbase",
+    "quotedblright",
+    "guillemotright",
+    "ellipsis",
+    "perthousand",
+    "questiondown",
+    "grave",
+    "acute",
+    "circumflex",
+    "tilde",
+    "macron",
+    "breve",
+    "dotaccent",
+    "dieresis",
+    "ring",
+    "cedilla",
+    "hungarumlaut",
+    "ogonek",
+    "caron",
+    "emdash",
+    "AE",
+    "ordfeminine",
+    "Lslash",
+    "Oslash",
+    "OE",
+    "ordmasculine",
+    "ae",
+    "dotlessi",
+    "lslash",
+    "oslash",
+    "oe",
+    "germandbls",
+    "onesuperior",
+    "logicalnot",
+    "mu",
+    "trademark",
+    "Eth",
+    "onehalf",
+    "plusminus",
+    "Thorn",
+    "onequarter",
+    "divide",
+    "brokenbar",
+    "degree",
+    "thorn",
+    "threequarters",
+    "twosuperior",
+    "registered",
+    "minus",
+    "eth",
+    "multiply",
+    "threesuperior",
+    "copyright",
+    "Aacute",
+    "Acircumflex",
+    "Adieresis",
+    "Agrave",
+    "Aring",
+    "Atilde",
+    "Ccedilla",
+    "Eacute",
+    "Ecircumflex",
+    "Edieresis",
+    "Egrave",
+    "Iacute",
+    "Icircumflex",
+    "Idieresis",
+    "Igrave",
+    "Ntilde",
+    "Oacute",
+    "Ocircumflex",
+    "Odieresis",
+    "Ograve",
+    "Otilde",
+    "Scaron",
+    "Uacute",
+    "Ucircumflex",
+    "Udieresis",
+    "Ugrave",
+    "Yacute",
+    "Ydieresis",
+    "Zcaron",
+    "aacute",
+    "acircumflex",
+    "adieresis",
+    "agrave",
+    "aring",
+    "atilde",
+    "ccedilla",
+    "eacute",
+    "ecircumflex",
+    "edieresis",
+    "egrave",
+    "iacute",
+    "icircumflex",
+    "idieresis",
+    "igrave",
+    "ntilde",
+    "oacute",
+    "ocircumflex",
+    "odieresis",
+    "ograve",
+    "otilde",
+    "scaron",
+    "uacute",
+    "ucircumflex",
+    "udieresis",
+    "ugrave",
+    "yacute",
+    "ydieresis",
+    "zcaron",
+    "exclamsmall",
+    "Hungarumlautsmall",
+    "dollaroldstyle",
+    "dollarsuperior",
+    "ampersandsmall",
+    "Acutesmall",
+    "parenleftsuperior",
+    "parenrightsuperior",
+    "twodotenleader",
+    "onedotenleader",
+    "zerooldstyle",
+    "oneoldstyle",
+    "twooldstyle",
+    "threeoldstyle",
+    "fouroldstyle",
+    "fiveoldstyle",
+    "sixoldstyle",
+    "sevenoldstyle",
+    "eightoldstyle",
+    "nineoldstyle",
+    "commasuperior",
+    "threequartersemdash",
+    "periodsuperior",
+    "questionsmall",
+    "asuperior",
+    "bsuperior",
+    "centsuperior",
+    "dsuperior",
+    "esuperior",
+    "isuperior",
+    "lsuperior",
+    "msuperior",
+    "nsuperior",
+    "osuperior",
+    "rsuperior",
+    "ssuperior",
+    "tsuperior",
+    "ff",
+    "ffi",
+    "ffl",
+    "parenleftinferior",
+    "parenrightinferior",
+    "Circumflexsmall",
+    "hyphensuperior",
+    "Gravesmall",
+    "Asmall",
+    "Bsmall",
+    "Csmall",
+    "Dsmall",
+    "Esmall",
+    "Fsmall",
+    "Gsmall",
+    "Hsmall",
+    "Ismall",
+    "Jsmall",
+    "Ksmall",
+    "Lsmall",
+    "Msmall",
+    "Nsmall",
+    "Osmall",
+    "Psmall",
+    "Qsmall",
+    "Rsmall",
+    "Ssmall",
+    "Tsmall",
+    "Usmall",
+    "Vsmall",
+    "Wsmall",
+    "Xsmall",
+    "Ysmall",
+    "Zsmall",
+    "colonmonetary",
+    "onefitted",
+    "rupiah",
+    "Tildesmall",
+    "exclamdownsmall",
+    "centoldstyle",
+    "Lslashsmall",
+    "Scaronsmall",
+    "Zcaronsmall",
+    "Dieresissmall",
+    "Brevesmall",
+    "Caronsmall",
+    "Dotaccentsmall",
+    "Macronsmall",
+    "figuredash",
+    "hypheninferior",
+    "Ogoneksmall",
+    "Ringsmall",
+    "Cedillasmall",
+    "questiondownsmall",
+    "oneeighth",
+    "threeeighths",
+    "fiveeighths",
+    "seveneighths",
+    "onethird",
+    "twothirds",
+    "zerosuperior",
+    "foursuperior",
+    "fivesuperior",
+    "sixsuperior",
+    "sevensuperior",
+    "eightsuperior",
+    "ninesuperior",
+    "zeroinferior",
+    "oneinferior",
+    "twoinferior",
+    "threeinferior",
+    "fourinferior",
+    "fiveinferior",
+    "sixinferior",
+    "seveninferior",
+    "eightinferior",
+    "nineinferior",
+    "centinferior",
+    "dollarinferior",
+    "periodinferior",
+    "commainferior",
+    "Agravesmall",
+    "Aacutesmall",
+    "Acircumflexsmall",
+    "Atildesmall",
+    "Adieresissmall",
+    "Aringsmall",
+    "AEsmall",
+    "Ccedillasmall",
+    "Egravesmall",
+    "Eacutesmall",
+    "Ecircumflexsmall",
+    "Edieresissmall",
+    "Igravesmall",
+    "Iacutesmall",
+    "Icircumflexsmall",
+    "Idieresissmall",
+    "Ethsmall",
+    "Ntildesmall",
+    "Ogravesmall",
+    "Oacutesmall",
+    "Ocircumflexsmall",
+    "Otildesmall",
+    "Odieresissmall",
+    "OEsmall",
+    "Oslashsmall",
+    "Ugravesmall",
+    "Uacutesmall",
+    "Ucircumflexsmall",
+    "Udieresissmall",
+    "Yacutesmall",
+    "Thornsmall",
+    "Ydieresissmall",
+    "001.000",
+    "001.001",
+    "001.002",
+    "001.003",
+    "Black",
+    "Bold",
+    "Book",
+    "Light",
+    "Medium",
+    "Regular",
+    "Roman",
+    "Semibold",
 ];
 unsafe fn get_unsigned<R: Read>(handle: &mut R, n: i32) -> u32 {
     let mut v: u32 = 0_u32;
@@ -788,17 +787,13 @@ pub(crate) unsafe fn cff_open(
         panic!("Parsing CFF Top DICT data failed...");
     }
     cff_release_index(idx);
-    if cff_dict_known(cff.topdict, b"CharstringType\x00" as *const u8 as *const i8)
-        && cff_dict_get(
-            cff.topdict,
-            b"CharstringType\x00" as *const u8 as *const i8,
-            0i32,
-        ) != 2i32 as f64
+    if (*cff.topdict).contains_key("CharstringType")
+        && (*cff.topdict).get("CharstringType", 0) != 2.
     {
         warn!("Only Type 2 Charstrings supported...");
         return None;
     }
-    if cff_dict_known(cff.topdict, b"SyntheticBase\x00" as *const u8 as *const i8) {
+    if (*cff.topdict).contains_key("SyntheticBase") {
         warn!("CFF Synthetic font not supported.");
         return None;
     }
@@ -808,24 +803,20 @@ pub(crate) unsafe fn cff_open(
     let handle = &mut cff.handle.as_ref().unwrap().as_ref();
     cff.gsubr_offset = (handle.seek(SeekFrom::Current(0)).unwrap() - offset as u64) as l_offset;
     /* Number of glyphs */
-    offset = cff_dict_get(
-        cff.topdict,
-        b"CharStrings\x00" as *const u8 as *const i8,
-        0i32,
-    ) as i32;
+    offset = (*cff.topdict).get("CharStrings", 0) as i32;
     handle
         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
         .unwrap();
     cff.num_glyphs = u16::get(handle);
     /* Check for font type */
-    if cff_dict_known(cff.topdict, b"ROS\x00" as *const u8 as *const i8) {
+    if (*cff.topdict).contains_key("ROS") {
         cff.flag |= 1i32 << 0i32
     } else {
         cff.flag |= 1i32 << 1i32
     }
     /* Check for encoding */
-    if cff_dict_known(cff.topdict, b"Encoding\x00" as *const u8 as *const i8) {
-        offset = cff_dict_get(cff.topdict, b"Encoding\x00" as *const u8 as *const i8, 0i32) as i32;
+    if (*cff.topdict).contains_key("Encoding") {
+        offset = (*cff.topdict).get("Encoding", 0) as i32;
         if offset == 0i32 {
             /* predefined */
             cff.flag |= 1i32 << 3i32
@@ -836,8 +827,8 @@ pub(crate) unsafe fn cff_open(
         cff.flag |= 1i32 << 3i32
     }
     /* Check for charset */
-    if cff_dict_known(cff.topdict, b"charset\x00" as *const u8 as *const i8) {
-        offset = cff_dict_get(cff.topdict, b"charset\x00" as *const u8 as *const i8, 0i32) as i32;
+    if (*cff.topdict).contains_key("charset") {
+        offset = (*cff.topdict).get("charset", 0) as i32;
         if offset == 0i32 {
             /* predefined */
             cff.flag |= 1i32 << 5i32
@@ -865,7 +856,7 @@ impl Drop for cff_font {
                 cff_release_index(self.name);
             }
             if !self.topdict.is_null() {
-                cff_release_dict(self.topdict);
+                cff_release_dict(&mut *self.topdict);
             }
             if !self.string.is_null() {
                 cff_release_index(self.string);
@@ -888,7 +879,7 @@ impl Drop for cff_font {
             if !self.fdarray.is_null() {
                 for i in 0..self.num_fds {
                     if !(*self.fdarray.offset(i as isize)).is_null() {
-                        cff_release_dict(*self.fdarray.offset(i as isize));
+                        cff_release_dict(&mut **self.fdarray.offset(i as isize));
                     }
                 }
                 free(self.fdarray as *mut libc::c_void);
@@ -896,7 +887,7 @@ impl Drop for cff_font {
             if !self.private.is_null() {
                 for i in 0..self.num_fds {
                     if !(*self.private.offset(i as isize)).is_null() {
-                        cff_release_dict(*self.private.offset(i as isize));
+                        cff_release_dict(&mut **self.private.offset(i as isize));
                     }
                 }
                 free(self.private as *mut libc::c_void);
@@ -1172,14 +1163,10 @@ pub(crate) unsafe fn cff_release_index(idx: *mut cff_index) {
 }
 /* Strings */
 
-pub(crate) unsafe fn cff_get_string_string(cff: &cff_font, mut id: s_SID) -> String {
+pub(crate) unsafe fn cff_get_string(cff: &cff_font, mut id: s_SID) -> String {
     let mut result = String::new();
     if (id as i32) < 391 {
-        let slice = std::slice::from_raw_parts(
-            cff_stdstr[id as usize].as_ptr(),
-            strlen(cff_stdstr[id as usize].as_ptr() as *const i8) as usize,
-        );
-        result = String::from_utf8_lossy(slice).to_string();
+        result = cff_stdstr[id as usize].to_string();
     } else if !cff.string.is_null() {
         let strings: *mut cff_index = cff.string;
         id = (id as i32 - 391) as s_SID;
@@ -1199,48 +1186,12 @@ pub(crate) unsafe fn cff_get_string_string(cff: &cff_font, mut id: s_SID) -> Str
     }
     result
 }
-
-pub(crate) unsafe fn cff_get_string(cff: &cff_font, mut id: s_SID) -> *mut i8 {
-    let mut result: *mut i8 = ptr::null_mut();
-    if (id as i32) < 391 {
-        let len = strlen(cff_stdstr[id as usize].as_ptr() as *const i8) as i32;
-        result = new(
-            ((len + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
-        ) as *mut i8;
-        memcpy(
-            result as *mut libc::c_void,
-            cff_stdstr[id as usize].as_ptr() as *const libc::c_void,
-            len as _,
-        );
-        *result.offset(len as isize) = '\u{0}' as i32 as i8
-    } else if !cff.string.is_null() {
-        let strings: *mut cff_index = cff.string;
-        id = (id as i32 - 391) as s_SID;
-        if (id as i32) < (*strings).count as i32 {
-            let len = (*(*strings).offset.offset((id as i32 + 1i32) as isize))
-                .wrapping_sub(*(*strings).offset.offset(id as isize)) as i32;
-            result = new(((len + 1i32) as u32 as u64)
-                .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-                as *mut i8;
-            memmove(
-                result as *mut libc::c_void,
-                (*strings)
-                    .data
-                    .offset(*(*strings).offset.offset(id as isize) as isize)
-                    .offset(-1) as *const libc::c_void,
-                len as _,
-            );
-            *result.offset(len as isize) = '\u{0}' as i32 as i8
-        }
-    }
-    result
-}
-pub(crate) unsafe fn cff_get_sid_str(cff: &cff_font, s: &str) -> i32 {
+pub(crate) unsafe fn cff_get_sid(cff: &cff_font, s: &str) -> i32 {
     let s = CString::new(s.as_bytes()).unwrap();
-    cff_get_sid(cff, s.as_ptr())
+    cff_get_sid_c(cff, s.as_ptr())
 }
 
-pub(crate) unsafe fn cff_get_sid(cff: &cff_font, str: *const i8) -> i32 {
+unsafe fn cff_get_sid_c(cff: &cff_font, str: *const i8) -> i32 {
     if str.is_null() {
         return -1i32;
     }
@@ -1265,7 +1216,7 @@ pub(crate) unsafe fn cff_get_sid(cff: &cff_font, str: *const i8) -> i32 {
         }
     }
     for i in 0..391 {
-        if streq_ptr(str, cff_stdstr[i].as_ptr() as *const i8) {
+        if CStr::from_ptr(str).to_bytes() == cff_stdstr[i].as_bytes() {
             return i as i32;
         }
     }
@@ -1277,7 +1228,7 @@ pub(crate) unsafe fn cff_get_seac_sid(_cff: &cff_font, s: &str) -> i32 {
         return -1i32;
     }
     for i in 0..391 {
-        if s.as_bytes() == CStr::from_ptr(cff_stdstr[i].as_ptr() as *const i8).to_bytes() {
+        if s == cff_stdstr[i] {
             return i as i32;
         }
     }
@@ -1285,7 +1236,7 @@ pub(crate) unsafe fn cff_get_seac_sid(_cff: &cff_font, s: &str) -> i32 {
 }
 unsafe fn cff_match_string(cff: &cff_font, str: *const i8, sid: s_SID) -> i32 {
     if (sid as i32) < 391i32 {
-        return if streq_ptr(str, cff_stdstr[sid as usize].as_ptr() as *const i8) as i32 != 0 {
+        return if CStr::from_ptr(str).to_bytes() == cff_stdstr[sid as usize].as_bytes() {
             1i32
         } else {
             0i32
@@ -1329,12 +1280,12 @@ pub(crate) unsafe fn cff_update_string(cff: &mut cff_font) {
 }
 /* String */
 
-pub(crate) unsafe fn cff_add_string_str(cff: &mut cff_font, s: &str, unique: i32) -> s_SID {
+pub(crate) unsafe fn cff_add_string(cff: &mut cff_font, s: &str, unique: i32) -> s_SID {
     let s = CString::new(s.as_bytes()).unwrap();
-    cff_add_string(cff, s.as_ptr(), unique)
+    cff_add_string_c(cff, s.as_ptr(), unique)
 }
 
-pub(crate) unsafe fn cff_add_string(cff: &mut cff_font, str: *const i8, unique: i32) -> s_SID
+unsafe fn cff_add_string_c(cff: &mut cff_font, str: *const i8, unique: i32) -> s_SID
 /* Setting unique == 1 eliminates redundant or predefined strings. */ {
     let len: size_t = strlen(str) as _;
     if cff._string.is_null() {
@@ -1344,7 +1295,7 @@ pub(crate) unsafe fn cff_add_string(cff: &mut cff_font, str: *const i8, unique: 
     if unique != 0 {
         /* TODO: do binary search to speed things up */
         for idx in 0..391 {
-            if streq_ptr(cff_stdstr[idx].as_ptr() as *const i8, str) {
+            if cff_stdstr[idx].as_bytes() == CStr::from_ptr(str).to_bytes() {
                 return idx as s_SID;
             }
         }
@@ -1404,12 +1355,12 @@ pub(crate) unsafe fn cff_read_encoding(cff: &mut cff_font) -> i32 {
     if cff.topdict.is_null() {
         panic!("Top DICT data not found");
     }
-    if !cff_dict_known(cff.topdict, b"Encoding\x00" as *const u8 as *const i8) {
+    if !(*cff.topdict).contains_key("Encoding") {
         cff.flag |= 1i32 << 3i32;
         cff.encoding = ptr::null_mut();
         return 0i32;
     }
-    let offset = cff_dict_get(cff.topdict, b"Encoding\x00" as *const u8 as *const i8, 0i32) as i32;
+    let offset = (*cff.topdict).get("Encoding", 0) as i32;
     if offset == 0i32 {
         /* predefined */
         cff.flag |= 1i32 << 3i32;
@@ -1609,12 +1560,12 @@ pub(crate) unsafe fn cff_read_charsets(cff: &mut cff_font) -> i32 {
     if cff.topdict.is_null() {
         panic!("Top DICT not available");
     }
-    if !cff_dict_known(cff.topdict, b"charset\x00" as *const u8 as *const i8) {
+    if !(*cff.topdict).contains_key("charset") {
         cff.flag |= 1i32 << 5i32;
         cff.charsets = ptr::null_mut();
         return 0i32;
     }
-    let offset = cff_dict_get(cff.topdict, b"charset\x00" as *const u8 as *const i8, 0i32) as i32;
+    let offset = (*cff.topdict).get("charset", 0) as i32;
     if offset == 0i32 {
         /* predefined */
         cff.flag |= 1i32 << 5i32;
@@ -1760,7 +1711,7 @@ pub(crate) unsafe fn cff_pack_charsets(cff: &cff_font, dest: &mut [u8]) -> usize
     len
 }
 
-pub(crate) unsafe fn cff_get_glyphname(cff: &cff_font, gid: u16) -> *mut i8 {
+pub(crate) unsafe fn cff_get_glyphname(cff: &cff_font, gid: u16) -> String {
     let sid = cff_charsets_lookup_inverse(cff, gid);
     cff_get_string(cff, sid)
 }
@@ -2000,7 +1951,7 @@ pub(crate) unsafe fn cff_read_fdselect(cff: &mut cff_font) -> i32 {
     if cff.flag & 1i32 << 0i32 == 0 {
         return 0i32;
     }
-    let offset = cff_dict_get(cff.topdict, b"FDSelect\x00" as *const u8 as *const i8, 0i32) as i32;
+    let offset = (*cff.topdict).get("FDSelect", 0) as i32;
     let handle = &mut cff.handle.as_ref().unwrap().as_ref();
     handle
         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
@@ -2154,24 +2105,13 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
     if cff.flag & 1i32 << 0i32 != 0 {
         for i in 0..cff.num_fds as i32 {
             if (*cff.private.offset(i as isize)).is_null()
-                || !cff_dict_known(
-                    *cff.private.offset(i as isize),
-                    b"Subrs\x00" as *const u8 as *const i8,
-                )
+                || !(**cff.private.offset(i as isize)).contains_key("Subrs")
             {
                 *cff.subrs.offset(i as isize) = ptr::null_mut();
             } else {
-                let offset = cff_dict_get(
-                    *cff.fdarray.offset(i as isize),
-                    b"Private\x00" as *const u8 as *const i8,
-                    1i32,
-                ) as i32;
-                let offset = (offset as f64
-                    + cff_dict_get(
-                        *cff.private.offset(i as isize),
-                        b"Subrs\x00" as *const u8 as *const i8,
-                        0i32,
-                    )) as i32;
+                let offset = (**cff.fdarray.offset(i as isize)).get("Private", 1) as i32;
+                let offset =
+                    (offset as f64 + (**cff.private.offset(i as isize)).get("Subrs", 0)) as i32;
                 cff.handle
                     .as_ref()
                     .unwrap()
@@ -2182,22 +2122,12 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
                 len += cff_index_size(*cff.subrs.offset(i as isize)) as i32
             }
         }
-    } else if (*cff.private.offset(0)).is_null()
-        || !cff_dict_known(
-            *cff.private.offset(0),
-            b"Subrs\x00" as *const u8 as *const i8,
-        )
+    } else if (*cff.private.offset(0)).is_null() || !(**cff.private.offset(0)).contains_key("Subrs")
     {
         *cff.subrs.offset(0) = ptr::null_mut();
     } else {
-        let offset =
-            cff_dict_get(cff.topdict, b"Private\x00" as *const u8 as *const i8, 1i32) as i32;
-        let offset = (offset as f64
-            + cff_dict_get(
-                *cff.private.offset(0),
-                b"Subrs\x00" as *const u8 as *const i8,
-                0i32,
-            )) as i32;
+        let offset = (*cff.topdict).get("Private", 1) as i32;
+        let offset = (offset as f64 + (**cff.private.offset(0)).get("Subrs", 0)) as i32;
         cff.handle
             .as_ref()
             .unwrap()
@@ -2218,7 +2148,7 @@ pub(crate) unsafe fn cff_read_fdarray(cff: &mut cff_font) -> i32 {
         return 0i32;
     }
     /* must exist */
-    let offset = cff_dict_get(cff.topdict, b"FDArray\x00" as *const u8 as *const i8, 0i32) as i32;
+    let offset = (*cff.topdict).get("FDArray", 0) as i32;
     cff.handle
         .as_ref()
         .unwrap()
@@ -2299,24 +2229,13 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
             as u32) as *mut *mut cff_dict;
         for i in 0..cff.num_fds as i32 {
             if !(*cff.fdarray.offset(i as isize)).is_null()
-                && cff_dict_known(
-                    *cff.fdarray.offset(i as isize),
-                    b"Private\x00" as *const u8 as *const i8,
-                )
+                && (**cff.fdarray.offset(i as isize)).contains_key("Private")
                 && {
-                    size = cff_dict_get(
-                        *cff.fdarray.offset(i as isize),
-                        b"Private\x00" as *const u8 as *const i8,
-                        0i32,
-                    ) as i32;
-                    size > 0i32
+                    size = (**cff.fdarray.offset(i as isize)).get("Private", 0) as i32;
+                    size > 0
                 }
             {
-                let offset = cff_dict_get(
-                    *cff.fdarray.offset(i as isize),
-                    b"Private\x00" as *const u8 as *const i8,
-                    1i32,
-                ) as i32;
+                let offset = (**cff.fdarray.offset(i as isize)).get("Private", 1) as i32;
                 let handle = &mut cff.handle.as_ref().unwrap().as_ref();
                 handle
                     .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
@@ -2338,13 +2257,12 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
         cff.private =
             new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
                 as *mut *mut cff_dict;
-        if cff_dict_known(cff.topdict, b"Private\x00" as *const u8 as *const i8) && {
-            size = cff_dict_get(cff.topdict, b"Private\x00" as *const u8 as *const i8, 0i32) as i32;
-            size > 0i32
+        if (*cff.topdict).contains_key("Private") && {
+            size = (*cff.topdict).get("Private", 0) as i32;
+            size > 0
         } {
             let handle = &mut cff.handle.as_ref().unwrap().as_ref();
-            let offset =
-                cff_dict_get(cff.topdict, b"Private\x00" as *const u8 as *const i8, 1i32) as i32;
+            let offset = (*cff.topdict).get("Private", 1) as i32;
             handle
                 .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
                 .unwrap();

@@ -584,7 +584,7 @@ unsafe fn spc_parse_kvpairs(ap: &mut SpcArg) -> Option<pdf_dict> {
                 } else {
                     if let Some(vp) = ap.cur.parse_c_string() {
                         dict.set(
-                            kp.to_bytes(),
+                            kp.as_bytes(),
                             pdf_string::new_from_ptr(
                                 vp.as_ptr() as *const libc::c_void,
                                 (vp.to_bytes().len() + 1) as _,
@@ -596,7 +596,7 @@ unsafe fn spc_parse_kvpairs(ap: &mut SpcArg) -> Option<pdf_dict> {
                 }
             } else {
                 /* Treated as 'flag' */
-                dict.set(kp.to_bytes(), true);
+                dict.set(kp.as_bytes(), true);
             }
             if error == 0 {
                 ap.cur.skip_blank();
@@ -624,7 +624,7 @@ unsafe fn tpic_filter_getopts(kp: &pdf_name, vp: &mut pdf_obj, tp: &mut spc_tpic
                 b"opacity" => tp.mode.fill = 1,
                 b"solid" => tp.mode.fill = 0,
                 _ => {
-                    warn!("Invalid value for TPIC option fill-mode: {}", v.display(),);
+                    warn!("Invalid value for TPIC option fill-mode: {}", v.display());
                     error = -1;
                 }
             }

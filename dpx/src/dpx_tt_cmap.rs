@@ -31,16 +31,13 @@ use std::io::Read;
 use super::dpx_sfnt::{
     dfont_open, sfnt_find_table_pos, sfnt_locate_table, sfnt_open, sfnt_read_table_directory,
 };
-use crate::bridge::DisplayExt;
 use crate::{info, warn};
-use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_agl::agl_get_unicodes;
 use super::dpx_cff::{
     cff_charsets_lookup_inverse, cff_get_glyphname, cff_get_string, cff_open, cff_read_charsets,
 };
-use super::dpx_cff_dict::{cff_dict_get, cff_dict_known};
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{
     CMap_add_bfchar, CMap_add_cidchar, CMap_add_codespacerange, CMap_cache_add, CMap_cache_find,
@@ -68,7 +65,6 @@ use libc::{free, memset};
 use std::ffi::CString;
 use std::io::{Seek, SeekFrom};
 
-pub(crate) type __ssize_t = i64;
 use super::dpx_sfnt::sfnt;
 use crate::bridge::size_t;
 
@@ -595,7 +591,7 @@ unsafe fn load_cmap4(
                         | *GIDToCIDMap.offset((2i32 * gid as i32 + 1i32) as isize) as i32)
                         as u16;
                     if cid as i32 == 0i32 {
-                        warn!("GID {} does not have corresponding CID {}.", gid, cid,);
+                        warn!("GID {} does not have corresponding CID {}.", gid, cid);
                     }
                 } else {
                     cid = gid
@@ -655,7 +651,7 @@ unsafe fn load_cmap12(
                     | *GIDToCIDMap.offset((2i32 * gid as i32 + 1i32) as isize) as i32)
                     as u16;
                 if cid as i32 == 0i32 {
-                    warn!("GID {} does not have corresponding CID {}.", gid, cid,);
+                    warn!("GID {} does not have corresponding CID {}.", gid, cid);
                 }
             } else {
                 cid = gid
@@ -700,8 +696,7 @@ unsafe fn handle_CIDFont(
         return 0i32;
     }
     let maxp = tt_read_maxp_table(sfont);
-    let num_glyphs = (*maxp).numGlyphs;
-    free(maxp as *mut libc::c_void);
+    let num_glyphs = maxp.numGlyphs;
     if (num_glyphs as i32) < 1i32 {
         panic!("No glyph contained in this font...");
     }
@@ -713,23 +708,14 @@ unsafe fn handle_CIDFont(
         *GIDToCIDMap = ptr::null_mut();
         return 0;
     }
-    if !cff_dict_known(cffont.topdict, b"ROS\x00" as *const u8 as *const i8) {
+    if !(*cffont.topdict).contains_key("ROS") {
         panic!("No CIDSystemInfo???");
     } else {
-        let reg = cff_dict_get(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 0i32) as u16;
-        let ord = cff_dict_get(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 1i32) as u16;
-        (*csi).registry = CStr::from_ptr(cff_get_string(&cffont, reg))
-            .to_str()
-            .unwrap()
-            .to_owned()
-            .into();
-        (*csi).ordering = CStr::from_ptr(cff_get_string(&cffont, ord))
-            .to_str()
-            .unwrap()
-            .to_owned()
-            .into();
-        (*csi).supplement =
-            cff_dict_get(cffont.topdict, b"ROS\x00" as *const u8 as *const i8, 2i32) as i32
+        let reg = (*cffont.topdict).get("ROS", 0) as u16;
+        let ord = (*cffont.topdict).get("ROS", 1) as u16;
+        (*csi).registry = cff_get_string(&cffont, reg).into();
+        (*csi).ordering = cff_get_string(&cffont, ord).into();
+        (*csi).supplement = (*cffont.topdict).get("ROS", 2) as i32
     }
     cff_read_charsets(&mut cffont);
     let charset = cffont.charsets;
@@ -815,12 +801,12 @@ unsafe fn sfnt_get_glyphname(
     post: *mut tt_post_table,
     cffont: Option<&cff_font>,
     gid: u16,
-) -> *mut i8 {
-    let mut name: *mut i8 = ptr::null_mut();
+) -> String {
+    let mut name = String::new();
     if !post.is_null() {
         name = tt_get_glyphname(post, gid)
     }
-    if name.is_null() {
+    if name.is_empty() {
         if let Some(cffont) = cffont {
             name = cff_get_glyphname(cffont, gid)
         }
@@ -857,16 +843,12 @@ unsafe fn handle_subst_glyphs(
                         let mut unicodes: [i32; 16] = [0; 16];
                         let mut unicode_count: i32 = -1i32;
                         let name = sfnt_get_glyphname(post, cffont, gid);
-                        if !name.is_null() {
-                            unicode_count = agl_get_unicodes(name, unicodes.as_mut_ptr(), 16i32)
+                        if !name.is_empty() {
+                            unicode_count = agl_get_unicodes(&name, unicodes.as_mut_ptr(), 16i32)
                         }
                         if unicode_count == -1i32 {
-                            if !name.is_null() {
-                                info!(
-                                    "No Unicode mapping available: GID={}, name={}\n",
-                                    gid,
-                                    CStr::from_ptr(name).display(),
-                                );
+                            if !name.is_empty() {
+                                info!("No Unicode mapping available: GID={}, name={}\n", gid, name,);
                             } else {
                                 info!("No Unicode mapping available: GID={}\n", gid);
                             }
@@ -892,7 +874,6 @@ unsafe fn handle_subst_glyphs(
                                 len,
                             );
                         }
-                        free(name as *mut libc::c_void);
                     } else {
                         wbuf[0] = (gid as i32 >> 8i32 & 0xffi32) as u8;
                         wbuf[1] = (gid as i32 & 0xffi32) as u8;
@@ -1418,7 +1399,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         1 | 4 => offset = 0_u32,
         256 => offset = sfont.offset,
         _ => {
-            panic!("Not a OpenType/TrueType/TTC font?: {}", map_name,);
+            panic!("Not a OpenType/TrueType/TTC font?: {}", map_name);
         }
     }
     if sfnt_read_table_directory(&mut sfont, offset) < 0i32 {
@@ -1525,7 +1506,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         let otl_tags_ = CString::new(otl_tags).unwrap();
         gsub_list = otl_gsub_new();
         if otl_gsub_add_feat_list(gsub_list, otl_tags_.as_ptr(), &sfont) < 0 {
-            warn!("Reading GSUB feature table(s) failed for \"{}\"", otl_tags,);
+            warn!("Reading GSUB feature table(s) failed for \"{}\"", otl_tags);
         } else {
             otl_gsub_set_chain(gsub_list, otl_tags_.as_ptr());
         }

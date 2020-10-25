@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::bridge::DisplayExt;
@@ -166,6 +166,13 @@ fn parsed_string_slice(buf: &[u8]) -> Option<CString> {
         None
     }
 }
+fn parsed_string_slice_string(buf: &[u8]) -> Option<String> {
+    if !buf.is_empty() {
+        Some(std::str::from_utf8(buf).unwrap().to_string())
+    } else {
+        None
+    }
+}
 
 pub(crate) unsafe fn parse_number(start: *mut *const i8, end: *const i8) -> *mut i8 {
     skip_white(start, end);
@@ -255,7 +262,7 @@ unsafe fn parse_gen_ident(start: *mut *const i8, end: *const i8, valid_chars: &[
     *start = p;
     ident
 }
-fn parse_gen_ident_slice(buf: &mut &[u8], valid_chars: &[u8]) -> Option<CString> {
+fn parse_gen_ident_slice(buf: &mut &[u8], valid_chars: &[u8]) -> Option<String> {
     /* No skip_white(start, end)? */
     let mut i = 0;
     for p in *buf {
@@ -264,7 +271,7 @@ fn parse_gen_ident_slice(buf: &mut &[u8], valid_chars: &[u8]) -> Option<CString>
         }
         i += 1;
     }
-    let ident = parsed_string_slice(&buf[..i]);
+    let ident = parsed_string_slice_string(&buf[..i]);
     *buf = &buf[i..];
     ident
 }
@@ -276,23 +283,23 @@ pub(crate) unsafe fn parse_ident(start: *mut *const i8, end: *const i8) -> *mut 
 }
 
 pub(crate) trait ParseIdent {
-    fn parse_ident(&mut self) -> Option<CString>;
-    fn parse_val_ident(&mut self) -> Option<CString>;
-    fn parse_opt_ident(&mut self) -> Option<CString>;
+    fn parse_ident(&mut self) -> Option<String>;
+    fn parse_val_ident(&mut self) -> Option<String>;
+    fn parse_opt_ident(&mut self) -> Option<String>;
 }
 
 impl ParseIdent for &[u8] {
-    fn parse_ident(&mut self) -> Option<CString> {
+    fn parse_ident(&mut self) -> Option<String> {
         const VALID_CHARS: &[u8] =
             b"!\"#$&\'*+,-.0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\\^_`abcdefghijklmnopqrstuvwxyz|~";
         parse_gen_ident_slice(self, VALID_CHARS)
     }
-    fn parse_val_ident(&mut self) -> Option<CString> {
+    fn parse_val_ident(&mut self) -> Option<String> {
         const VALID_CHARS: &[u8] =
             b"!\"#$&\'*+,-./0123456789:;?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\\^_`abcdefghijklmnopqrstuvwxyz|~";
         parse_gen_ident_slice(self, VALID_CHARS)
     }
-    fn parse_opt_ident(&mut self) -> Option<CString> {
+    fn parse_opt_ident(&mut self) -> Option<String> {
         if !self.is_empty() && self[0] == b'@' {
             *self = &self[1..];
             self.parse_ident()
@@ -445,7 +452,7 @@ impl ParsePdfObj for &[u8] {
             result = unsafe { spc_lookup_reference(&name) };
             if result.is_none() {
                 // DEAD code
-                warn!("Could not find the named reference (@{}).", name.display(),);
+                warn!("Could not find the named reference (@{}).", name);
                 dump(save2);
                 *self = save2
             }

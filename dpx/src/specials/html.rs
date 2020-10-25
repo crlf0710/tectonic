@@ -19,10 +19,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
-#![allow(
-non_camel_case_types,
-non_snake_case,
-)]
+#![allow(non_camel_case_types, non_snake_case)]
 
 use crate::bridge::DisplayExt;
 use std::ffi::{CStr, CString};
@@ -333,7 +330,7 @@ unsafe fn html_open_dest(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) 
         array.into_obj(),
     );
     if error != 0 {
-        spc_warn!(spe, "Failed to add named destination: {}", name.display(),);
+        spc_warn!(spe, "Failed to add named destination: {}", name.display());
     }
     (*sd).pending_type = 1i32;
     error
@@ -408,7 +405,8 @@ unsafe fn spc_html__base_empty(spe: &mut SpcEnv, attr: &pdf_obj, mut sd: *mut sp
     }
     (*sd).baseurl =
         new((vp.len().wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    strcpy((*sd).baseurl, CString::new(vp).unwrap().as_ptr());
+    let cstr = CString::new(vp).unwrap();
+    strcpy((*sd).baseurl, cstr.as_ptr());
     0i32
 }
 /* This isn't completed.
@@ -503,7 +501,8 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {
         ti.flags |= 1 << 2;
     }
     if let Some(obj) = attr.as_dict().get("svg:opacity") {
-        alpha = atof(CString::new(obj.as_string().to_bytes()).unwrap().as_ptr());
+        let cstr = CString::new(obj.as_string().to_bytes()).unwrap();
+        alpha = atof(cstr.as_ptr());
         if alpha < 0. || alpha > 1. {
             spc_warn!(
                 spe,

@@ -230,7 +230,7 @@ pub(crate) unsafe fn CMap_get_profile(cmap: *mut CMap, type_0: i32) -> i32 {
         2 => (*cmap).profile.maxBytesOut as i32,
         3 => (*cmap).profile.maxBytesOut as i32,
         _ => {
-            panic!("{}: Unrecognized profile type {}.", "CMap", type_0,);
+            panic!("{}: Unrecognized profile type {}.", "CMap", type_0);
         }
     }
 }
@@ -245,7 +245,7 @@ unsafe fn handle_undefined(
     outbytesleft: *mut size_t,
 ) {
     if *outbytesleft < 2 {
-        panic!("{}: Buffer overflow.", "CMap",);
+        panic!("{}: Buffer overflow.", "CMap");
     }
     match (*cmap).type_0 {
         1 => {
@@ -294,10 +294,10 @@ pub(crate) unsafe fn CMap_decode_char(
      */
     if (*cmap).type_0 == 0i32 {
         if (*inbytesleft).wrapping_rem(2) != 0 {
-            panic!("{}: Invalid/truncated input string.", "CMap",);
+            panic!("{}: Invalid/truncated input string.", "CMap");
         }
         if *outbytesleft < 2 {
-            panic!("{}: Buffer overflow.", "CMap",);
+            panic!("{}: Buffer overflow.", "CMap");
         }
         memcpy(
             *outbuf as *mut libc::c_void,
@@ -335,7 +335,7 @@ pub(crate) unsafe fn CMap_decode_char(
     }
     if (*t.offset(c as isize)).flag & 1i32 << 4i32 != 0 {
         /* need more bytes */
-        panic!("{}: Premature end of input string.", "CMap",);
+        panic!("{}: Premature end of input string.", "CMap");
     } else {
         if if (*t.offset(c as isize)).flag & 0xfi32 != 0i32 {
             1i32
@@ -371,10 +371,10 @@ pub(crate) unsafe fn CMap_decode_char(
                 }
                 1 | 4 => {}
                 2 => {
-                    panic!("{}: CharName mapping not supported.", "CMap",);
+                    panic!("{}: CharName mapping not supported.", "CMap");
                 }
                 _ => {
-                    panic!("{}: Unknown mapping type.", "CMap",);
+                    panic!("{}: Unknown mapping type.", "CMap");
                 }
             }
             /* continue */
@@ -385,7 +385,7 @@ pub(crate) unsafe fn CMap_decode_char(
                     (*t.offset(c as isize)).len as _,
                 );
             } else {
-                panic!("{}: Buffer overflow.", "CMap",);
+                panic!("{}: Buffer overflow.", "CMap");
             }
             *outbuf = (*outbuf).offset((*t.offset(c as isize)).len as isize);
             *outbytesleft = (*outbytesleft as u64).wrapping_sub((*t.offset(c as isize)).len as _)
@@ -489,7 +489,7 @@ pub(crate) unsafe fn CMap_set_usecmap(mut cmap: *mut CMap, ucmap: *mut CMap) {
     }
     /* Check if ucmap have neccesary information. */
     if !CMap_is_valid(ucmap) {
-        panic!("{}: Invalid CMap.", "CMap",);
+        panic!("{}: Invalid CMap.", "CMap");
     }
     /*
      *  CMapName of cmap can be undefined when usecmap is executed in CMap parsing.
@@ -1019,7 +1019,7 @@ pub(crate) unsafe fn CMap_cache_find(cmap_name: &str) -> i32 {
 
         __cache.push(Box::new(CMap_new()));
         if CMap_parse(&mut *__cache[id], handle).is_err() {
-            panic!("{}: Parsing CMap file failed.", "CMap",);
+            panic!("{}: Parsing CMap file failed.", "CMap");
         }
         if __verbose != 0 {
             info!(")");
@@ -1032,7 +1032,7 @@ pub(crate) unsafe fn CMap_cache_find(cmap_name: &str) -> i32 {
 
 pub(crate) unsafe fn CMap_cache_add(mut cmap: Box<CMap>) -> i32 {
     if !CMap_is_valid(&mut *cmap) {
-        panic!("{}: Invalid CMap.", "CMap",);
+        panic!("{}: Invalid CMap.", "CMap");
     }
     for other in &mut __cache {
         let cmap_name0 = CMap_get_name(&*cmap);

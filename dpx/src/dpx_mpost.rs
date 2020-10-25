@@ -1319,7 +1319,7 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
             }
         } else {
             if let Some(token) = start.parse_ident() {
-                error = do_operator(token.to_bytes(), x_user, y_user);
+                error = do_operator(token.as_bytes(), x_user, y_user);
             } else {
                 error = 1i32
             }

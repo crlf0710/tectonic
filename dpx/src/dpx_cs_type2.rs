@@ -23,7 +23,7 @@
     mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
+    non_upper_case_globals
 )]
 
 use crate::warn;
@@ -173,7 +173,7 @@ unsafe fn clear_stack(dest: *mut *mut u8, limit: *mut u8) {
                 **dest = (ivalue & 0xff) as u8;
                 *dest = (*dest).offset(1);
             } else {
-                panic!("{}: Unexpected error.", "Type2 Charstring Parser",);
+                panic!("{}: Unexpected error.", "Type2 Charstring Parser");
             }
         }
     }
@@ -764,7 +764,7 @@ unsafe fn do_charstring(
                     arg_stack[stack_top as usize] as i32,
                 );
                 if (*dest).offset(len as isize) > limit {
-                    panic!("{}: Possible buffer overflow.", "Type2 Charstring Parser",);
+                    panic!("{}: Possible buffer overflow.", "Type2 Charstring Parser");
                 }
                 do_charstring(
                     dest,
@@ -788,7 +788,7 @@ unsafe fn do_charstring(
                     arg_stack[stack_top as usize] as i32,
                 );
                 if limit < (*dest).offset(len as isize) {
-                    panic!("{}: Possible buffer overflow.", "Type2 Charstring Parser",);
+                    panic!("{}: Possible buffer overflow.", "Type2 Charstring Parser");
                 }
                 do_charstring(
                     dest,

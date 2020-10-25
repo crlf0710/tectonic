@@ -47,8 +47,6 @@ use libc::{free, strcpy, strlen};
 
 use std::io::{Read, Seek, SeekFrom};
 
-pub(crate) type __ssize_t = i64;
-
 use crate::bridge::TTInputFormat;
 
 use bridge::DroppableInputHandleWrapper as InFile;
@@ -396,7 +394,7 @@ pub(crate) unsafe fn pdf_ximage_findresource(ident: &str, options: load_options)
      */
     let handle = InFile::open(ident, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
-        warn!("Error locating image file \"{}\"", ident,);
+        warn!("Error locating image file \"{}\"", ident);
         return -1i32;
     }
     let mut handle = handle.unwrap();
@@ -409,7 +407,7 @@ pub(crate) unsafe fn pdf_ximage_findresource(ident: &str, options: load_options)
         info!(")");
     }
     if id < 0 {
-        warn!("pdf: image inclusion failed for \"{}\".", ident,);
+        warn!("pdf: image inclusion failed for \"{}\".", ident);
     }
     id
 }

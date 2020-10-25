@@ -33,12 +33,9 @@ use std::ffi::CString;
 use std::ptr;
 
 use super::dpx_cff::{
-    cff_add_string_str, cff_get_seac_sid, cff_glyph_lookup, cff_glyph_lookup_str, cff_index_size,
+    cff_add_string, cff_get_seac_sid, cff_glyph_lookup, cff_glyph_lookup_str, cff_index_size,
     cff_new_index, cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header,
     cff_release_charsets, cff_release_index, cff_set_name, cff_update_string, CffIndex, Pack,
-};
-use super::dpx_cff_dict::{
-    cff_dict_add, cff_dict_get, cff_dict_known, cff_dict_pack, cff_dict_set, cff_dict_update,
 };
 use super::dpx_mem::{new, renew};
 use super::dpx_pdfencoding::{pdf_create_ToUnicode_CMap, pdf_encoding_get_encoding};
@@ -179,33 +176,18 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
     let mut capheight;
     let mut ascent;
     let mut descent;
-    if cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) {
+    if (*cffont.topdict).contains_key("FontBBox") {
         /* Default values */
-        ascent = cff_dict_get(
-            cffont.topdict,
-            b"FontBBox\x00" as *const u8 as *const i8,
-            3i32,
-        );
+        ascent = (*cffont.topdict).get("FontBBox", 3);
         capheight = ascent;
-        descent = cff_dict_get(
-            cffont.topdict,
-            b"FontBBox\x00" as *const u8 as *const i8,
-            1i32,
-        )
+        descent = (*cffont.topdict).get("FontBBox", 1)
     } else {
         capheight = 680.0f64;
         ascent = 690.0f64;
         descent = -190.0f64
     }
-    let stemv = if cff_dict_known(
-        *cffont.private.offset(0),
-        b"StdVW\x00" as *const u8 as *const i8,
-    ) {
-        cff_dict_get(
-            *cffont.private.offset(0),
-            b"StdVW\x00" as *const u8 as *const i8,
-            0i32,
-        )
+    let stemv = if (**cffont.private.offset(0)).contains_key("StdVW") {
+        (**cffont.private.offset(0)).get("StdVW", 0)
     } else {
         /*
          * We may use the following values for StemV:
@@ -218,17 +200,13 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
          */
         88.
     };
-    if cff_dict_known(cffont.topdict, b"ItalicAngle\x00" as *const u8 as *const i8) {
-        italicangle = cff_dict_get(
-            cffont.topdict,
-            b"ItalicAngle\x00" as *const u8 as *const i8,
-            0i32,
-        );
-        if italicangle != 0.0f64 {
+    if (*cffont.topdict).contains_key("ItalicAngle") {
+        italicangle = (*cffont.topdict).get("ItalicAngle", 0);
+        if italicangle != 0. {
             flags |= 1i32 << 6i32
         }
     } else {
-        italicangle = 0.0f64
+        italicangle = 0.;
     }
     /*
      * Use "space", "H", "p", and "b" for various values.
@@ -312,50 +290,20 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
         }
     }
     if defaultwidth != 0.0f64 {
-        cff_dict_add(
-            *cffont.private.offset(0),
-            b"defaultWidthX\x00" as *const u8 as *const i8,
-            1i32,
-        );
-        cff_dict_set(
-            *cffont.private.offset(0),
-            b"defaultWidthX\x00" as *const u8 as *const i8,
-            0i32,
-            defaultwidth,
-        );
+        (**cffont.private.offset(0)).add("defaultWidthX", 1);
+        (**cffont.private.offset(0)).set("defaultWidthX", 0, defaultwidth);
     }
     if nominalwidth != 0.0f64 {
-        cff_dict_add(
-            *cffont.private.offset(0),
-            b"nominalWidthX\x00" as *const u8 as *const i8,
-            1i32,
-        );
-        cff_dict_set(
-            *cffont.private.offset(0),
-            b"nominalWidthX\x00" as *const u8 as *const i8,
-            0i32,
-            nominalwidth,
-        );
+        (**cffont.private.offset(0)).add("nominalWidthX", 1);
+        (**cffont.private.offset(0)).set("nominalWidthX", 0, nominalwidth);
     }
-    if cff_dict_known(
-        *cffont.private.offset(0),
-        b"ForceBold\x00" as *const u8 as *const i8,
-    ) && cff_dict_get(
-        *cffont.private.offset(0),
-        b"ForceBold\x00" as *const u8 as *const i8,
-        0i32,
-    ) != 0.
+    if (**cffont.private.offset(0)).contains_key("ForceBold")
+        && (**cffont.private.offset(0)).get("ForceBold", 0) != 0.
     {
         flags |= 1i32 << 18i32
     }
-    if cff_dict_known(
-        *cffont.private.offset(0),
-        b"IsFixedPitch\x00" as *const u8 as *const i8,
-    ) && cff_dict_get(
-        *cffont.private.offset(0),
-        b"IsFixedPitch\x00" as *const u8 as *const i8,
-        0i32,
-    ) != 0.
+    if (**cffont.private.offset(0)).contains_key("IsFixedPitch")
+        && (**cffont.private.offset(0)).get("IsFixedPitch", 0) != 0.
     {
         flags |= 1i32 << 0i32
     }
@@ -392,26 +340,21 @@ unsafe fn add_metrics(
      * charstrings, to prevent Acrobat 4 from greeking text as
      * much as possible.
      */
-    if !cff_dict_known(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8) {
+    if !(*cffont.topdict).contains_key("FontBBox") {
         panic!("No FontBBox?");
     }
     /* The widhts array in the font dictionary must be given relative
      * to the default scaling of 1000:1, not relative to the scaling
      * given by the font matrix.
      */
-    let scaling = if cff_dict_known(cffont.topdict, b"FontMatrix\x00" as *const u8 as *const i8) {
-        1000.
-            * cff_dict_get(
-                cffont.topdict,
-                b"FontMatrix\x00" as *const u8 as *const i8,
-                0i32,
-            )
+    let scaling = if (*cffont.topdict).contains_key("FontMatrix") {
+        1000. * (*cffont.topdict).get("FontMatrix", 0)
     } else {
         1.
     };
     let mut tmp_array = vec![];
     for i in 0..4 {
-        let val = cff_dict_get(cffont.topdict, b"FontBBox\x00" as *const u8 as *const i8, i);
+        let val = (*cffont.topdict).get("FontBBox", i);
         tmp_array.push_obj((val / 1. + 0.5).floor() * 1.);
     }
     (*descriptor).as_dict_mut().set("FontBBox", tmp_array);
@@ -496,37 +439,21 @@ unsafe fn write_fontfile(font: &mut pdf_font, cffont: &cff_font, pdfcharset: &pd
     /*
      * Force existence of Encoding.
      */
-    if !cff_dict_known(cffont.topdict, b"CharStrings\x00" as *const u8 as *const i8) {
-        cff_dict_add(
-            cffont.topdict,
-            b"CharStrings\x00" as *const u8 as *const i8,
-            1i32,
-        );
+    if !(*cffont.topdict).contains_key("CharStrings") {
+        (*cffont.topdict).add("CharStrings", 1);
     }
-    if !cff_dict_known(cffont.topdict, b"charset\x00" as *const u8 as *const i8) {
-        cff_dict_add(
-            cffont.topdict,
-            b"charset\x00" as *const u8 as *const i8,
-            1i32,
-        );
+    if !(*cffont.topdict).contains_key("charset") {
+        (*cffont.topdict).add("charset", 1);
     }
-    if !cff_dict_known(cffont.topdict, b"Encoding\x00" as *const u8 as *const i8) {
-        cff_dict_add(
-            cffont.topdict,
-            b"Encoding\x00" as *const u8 as *const i8,
-            1i32,
-        );
+    if !(*cffont.topdict).contains_key("Encoding") {
+        (*cffont.topdict).add("Encoding", 1);
     }
-    let mut private_size = cff_dict_pack(*cffont.private.offset(0), &mut wbuf[..]);
+    let mut private_size = (**cffont.private.offset(0)).pack(&mut wbuf[..]);
     /* Private dict is required (but may have size 0) */
-    if !cff_dict_known(cffont.topdict, b"Private\x00" as *const u8 as *const i8) {
-        cff_dict_add(
-            cffont.topdict,
-            b"Private\x00" as *const u8 as *const i8,
-            2i32,
-        );
+    if !(*cffont.topdict).contains_key("Private") {
+        (*cffont.topdict).add("Private", 2);
     }
-    topdict.offset[1] = (cff_dict_pack(cffont.topdict, &mut wbuf[..]) + 1) as l_offset;
+    topdict.offset[1] = ((*cffont.topdict).pack(&mut wbuf[..]) + 1) as l_offset;
     /*
      * Estimate total size of fontfile.
      */
@@ -569,55 +496,28 @@ unsafe fn write_fontfile(font: &mut pdf_font, cffont: &cff_font, pdfcharset: &pd
     /* TODO: don't write Encoding entry if the font is always used
      * with PDF Encoding information. Applies to type1c.c as well.
      */
-    cff_dict_set(
-        cffont.topdict,
-        b"Encoding\x00" as *const u8 as *const i8,
-        0i32,
-        offset as f64,
-    );
+    (*cffont.topdict).set("Encoding", 0i32, offset as f64);
     offset += cff_pack_encoding(cffont, &mut stream_data[offset..]);
     /* charset */
-    cff_dict_set(
-        cffont.topdict,
-        b"charset\x00" as *const u8 as *const i8,
-        0i32,
-        offset as f64,
-    );
+    (*cffont.topdict).set("charset", 0i32, offset as f64);
     offset += cff_pack_charsets(cffont, &mut stream_data[offset..]);
     /* CharStrings */
-    cff_dict_set(
-        cffont.topdict,
-        b"CharStrings\x00" as *const u8 as *const i8,
-        0i32,
-        offset as f64,
-    );
+    (*cffont.topdict).set("CharStrings", 0i32, offset as f64);
     offset += cff_pack_index(
         cffont.cstrings,
         &mut stream_data[offset..offset + charstring_len],
     );
     /* Private */
     if !(*cffont.private.offset(0)).is_null() && private_size > 0 {
-        private_size = cff_dict_pack(
-            *cffont.private.offset(0),
-            &mut stream_data[offset..offset + private_size],
-        );
-        cff_dict_set(
-            cffont.topdict,
-            b"Private\x00" as *const u8 as *const i8,
-            1i32,
-            offset as f64,
-        );
-        cff_dict_set(
-            cffont.topdict,
-            b"Private\x00" as *const u8 as *const i8,
-            0i32,
-            private_size as f64,
-        );
+        private_size =
+            (**cffont.private.offset(0)).pack(&mut stream_data[offset..offset + private_size]);
+        (*cffont.topdict).set("Private", 1i32, offset as f64);
+        (*cffont.topdict).set("Private", 0i32, private_size as f64);
     }
     offset += private_size;
     /* Finally Top DICT */
     topdict.data = vec![0; (topdict.offset[topdict.count as usize]) as usize - 1];
-    cff_dict_pack(cffont.topdict, &mut topdict.data[..]);
+    (*cffont.topdict).pack(&mut topdict.data[..]);
     let len = topdict.size();
     topdict.pack(&mut stream_data[topdict_offset..topdict_offset + len]);
     /* Copyright and Trademark Notice ommited. */
@@ -680,27 +580,13 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     cff_set_name(&mut cffont, &fullname);
     /* defaultWidthX, CapHeight, etc. */
     get_font_attr(font, &cffont);
-    let defaultwidth = if cff_dict_known(
-        *cffont.private.offset(0),
-        b"defaultWidthX\x00" as *const u8 as *const i8,
-    ) {
-        cff_dict_get(
-            *cffont.private.offset(0),
-            b"defaultWidthX\x00" as *const u8 as *const i8,
-            0i32,
-        )
+    let defaultwidth = if (**cffont.private.offset(0)).contains_key("defaultWidthX") {
+        (**cffont.private.offset(0)).get("defaultWidthX", 0)
     } else {
         0.
     };
-    let nominalwidth = if cff_dict_known(
-        *cffont.private.offset(0),
-        b"nominalWidthX\x00" as *const u8 as *const i8,
-    ) {
-        cff_dict_get(
-            *cffont.private.offset(0),
-            b"nominalWidthX\x00" as *const u8 as *const i8,
-            0i32,
-        )
+    let nominalwidth = if (**cffont.private.offset(0)).contains_key("nominalWidthX") {
+        (**cffont.private.offset(0)).get("nominalWidthX", 0)
     } else {
         0.
     };
@@ -759,7 +645,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                         }
                         duplicate += 1
                     }
-                    let sid = cff_add_string_str(&mut cffont, glyph, 1i32);
+                    let sid = cff_add_string(&mut cffont, glyph, 1i32);
                     if duplicate < code {
                         /* found duplicates */
                         (*(*cffont.encoding)
@@ -949,8 +835,8 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
         info!("]");
     }
     /* Now we can update the String Index */
-    cff_dict_update(cffont.topdict, &mut cffont);
-    cff_dict_update(*cffont.private.offset(0), &mut cffont);
+    (*cffont.topdict).update(&mut cffont);
+    (**cffont.private.offset(0)).update(&mut cffont);
     cff_update_string(&mut cffont);
     add_metrics(font, &cffont, enc_slice, widths, num_glyphs as i32);
     offset = write_fontfile(font, &cffont, &pdfcharset);
