@@ -66,7 +66,7 @@ use crate::xetex_ini::{
     SOURCE_FILENAME_STACK, STACK_SIZE,
 };
 use crate::xetex_ini::{b16x4, b32x2, memory_word, prefixed_command};
-use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding, u_close};
+use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding};
 use crate::xetex_layout_interface::*;
 use crate::xetex_linebreak::line_break;
 use crate::xetex_math::{
@@ -3805,7 +3805,7 @@ pub(crate) unsafe fn end_file_reading() {
     if cur_input.name == 18 || cur_input.name == 19 {
         pseudo_close();
     } else if cur_input.name > 17 {
-        u_close(INPUT_FILE[cur_input.index as usize]);
+        let _ = INPUT_FILE[cur_input.index as usize].take();
     }
     INPUT_PTR -= 1;
     cur_input = INPUT_STACK[INPUT_PTR]; // pop
@@ -4140,7 +4140,9 @@ pub(crate) unsafe fn get_next() {
                                 } else {
                                     force_eof = true
                                 }
-                            } else if input_line(INPUT_FILE[cur_input.index as usize]) {
+                            } else if input_line(
+                                INPUT_FILE[cur_input.index as usize].as_mut().unwrap(),
+                            ) {
                                 cur_input.limit = last
                             } else if let Some(l) = LOCAL(Local::every_eof)
                                 .opt()
@@ -8873,14 +8875,14 @@ pub(crate) unsafe fn read_toks(mut n: i32, mut r: i32, mut j: i32) {
         /*505:*/
         if read_open[m as usize] == OpenMode::JustOpen {
             /*504:*/
-            if input_line(read_file[m as usize]) {
+            if input_line(read_file[m as usize].as_mut().unwrap()) {
                 read_open[m as usize] = OpenMode::Normal;
             } else {
-                u_close(read_file[m as usize]);
+                let _ = read_file[m as usize].take();
                 read_open[m as usize] = OpenMode::Closed;
             }
-        } else if !input_line(read_file[m as usize]) {
-            u_close(read_file[m as usize]);
+        } else if !input_line(read_file[m as usize].as_mut().unwrap()) {
+            let _ = read_file[m as usize].take();
             read_open[m as usize] = OpenMode::Closed;
             if align_state as i64 != 1000000 {
                 runaway();
@@ -9718,16 +9720,16 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     /* Open up the new file to be read. The name of the file to be read comes
      * from `name_of_file`. */
     begin_file_reading();
-    if u_open_in(
-        &mut INPUT_FILE[cur_input.index as usize],
+    let ufile = u_open_in(
         format,
         b"rb",
         UnicodeMode::from(*INTPAR(IntPar::xetex_default_input_mode)),
         *INTPAR(IntPar::xetex_default_input_encoding),
-    ) == 0
-    {
+    );
+    if ufile.is_none() {
         abort!("failed to open input file \"{}\"", name_of_file);
     }
+    INPUT_FILE[cur_input.index as usize] = ufile;
     /* Now re-encode `name_of_file` into the UTF-16 variable `name_of_file16`,
      * and use that to recompute `cur_{name,area,ext}`. */
     name_in_progress = true;
@@ -9773,7 +9775,7 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     cur_input.state = InputState::NewLine;
     synctex_start_input();
     line = 1;
-    input_line(INPUT_FILE[cur_input.index as usize]);
+    input_line(INPUT_FILE[cur_input.index as usize].as_mut().unwrap());
     cur_input.limit = last;
     if *INTPAR(IntPar::end_line_char) < 0 || *INTPAR(IntPar::end_line_char) > 255 {
         cur_input.limit -= 1
@@ -14480,7 +14482,7 @@ pub(crate) unsafe fn do_extension() {
                 );
                 error();
             } else {
-                set_input_file_encoding(INPUT_FILE[IN_OPEN], i, j);
+                set_input_file_encoding(INPUT_FILE[IN_OPEN].as_mut().unwrap(), i, j);
             }
         }
         XETEX_DEFAULT_ENCODING_EXTENSION_CODE => {

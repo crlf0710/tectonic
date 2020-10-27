@@ -49,16 +49,12 @@ mod core_memory {
 }
 
 use bridge::{
-    ttstub_input_close, ttstub_input_getc, ttstub_input_open, ttstub_output_close,
-    ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc,
+    ttstub_input_getc, ttstub_output_close, ttstub_output_open, ttstub_output_open_stdout,
+    ttstub_output_putc, InFile, OutputHandleWrapper, TTHistory, TTInputFormat,
 };
 use libc::{free, strcpy, strlen};
 use std::panic;
 use std::ptr;
-
-use bridge::{TTHistory, TTInputFormat};
-
-use bridge::{InputHandleWrapper, OutputHandleWrapper};
 
 pub(crate) type str_number = i32;
 /*22: */
@@ -67,7 +63,7 @@ pub(crate) type bib_number = usize;
 
 #[repr(C)]
 pub(crate) struct peekable_input_t {
-    pub(crate) handle: InputHandleWrapper,
+    pub(crate) handle: InFile,
     pub(crate) peek_char: i32,
     pub(crate) saw_eof: bool,
 }
@@ -115,16 +111,16 @@ unsafe fn peekable_open(
     mut path: *const i8,
     mut format: TTInputFormat,
 ) -> Option<peekable_input_t> {
-    ttstub_input_open(path, format, 0i32).map(|handle| peekable_input_t {
+    InFile::open(
+        std::ffi::CStr::from_ptr(path).to_str().unwrap(),
+        format,
+        0i32,
+    )
+    .map(|handle| peekable_input_t {
         handle,
         peek_char: -1,
         saw_eof: false,
     })
-}
-unsafe fn peekable_close(peekable: Option<peekable_input_t>) {
-    if let Some(peekable_input_t { handle, .. }) = peekable {
-        ttstub_input_close(handle)
-    }
 }
 unsafe fn peekable_getc(peekable: &mut peekable_input_t) -> i32 {
     let mut rv: i32 = 0;
@@ -5440,7 +5436,7 @@ unsafe fn aux_input_command() {
     aux_ln_stack[aux_ptr as usize] = 0i32;
 }
 unsafe fn pop_the_aux_stack() -> i32 {
-    peekable_close(aux_file[aux_ptr as usize].take());
+    let _ = aux_file[aux_ptr as usize].take();
     if aux_ptr == 0i32 {
         return 1i32;
     }
@@ -6533,7 +6529,7 @@ unsafe fn bst_read_command() {
         while !tectonic_eof(bib_file[bib_ptr].as_mut()) {
             get_bib_command_or_entry_and_process();
         }
-        peekable_close(bib_file[bib_ptr].take());
+        let _ = bib_file[bib_ptr].take();
         bib_ptr += 1;
     }
     reading_completed = true;
@@ -7340,7 +7336,7 @@ pub unsafe fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
                 }
             });
             panic::set_hook(prev_hook);
-            peekable_close(bst_file.take());
+            let _ = bst_file.take();
         }
         ttstub_output_close(bbl_file.take().unwrap());
     });

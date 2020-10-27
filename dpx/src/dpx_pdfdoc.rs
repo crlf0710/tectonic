@@ -64,7 +64,7 @@ use super::dpx_pdfximage::{
     pdf_ximage_get_reference, pdf_ximage_init_form_info, pdf_ximage_set_verbose, XInfo,
 };
 use super::dpx_pngimage::check_for_png;
-use crate::bridge::DroppableInputHandleWrapper as InFile;
+use crate::bridge::{size_t, InFile, TTInputFormat};
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_obj, pdf_out_flush,
     pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
@@ -72,10 +72,6 @@ use crate::dpx_pdfobj::{
     STREAM_COMPRESS,
 };
 use libc::{free, strcmp, strcpy, strlen, strncmp, strncpy};
-
-use crate::bridge::size_t;
-
-use crate::bridge::TTInputFormat;
 
 pub(crate) use super::dpx_pdfcolor::PdfColor;
 

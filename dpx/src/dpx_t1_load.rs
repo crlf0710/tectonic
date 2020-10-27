@@ -35,12 +35,10 @@ use super::dpx_cff::{cff_new_index, cff_set_name};
 use super::dpx_cff_dict::cff_new_dict;
 use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstObj};
-use crate::bridge::ttstub_input_getc;
+use crate::bridge::{ttstub_input_getc, InFile};
 use libc::{free, memcpy, memmove, memset};
 
 use std::io::{Read, Seek, SeekFrom};
-
-use bridge::DroppableInputHandleWrapper as InFile;
 
 /* CFF Data Types */
 /* SID SID number */

@@ -39,11 +39,9 @@ use super::dpx_dvi::{
 use super::dpx_dvicodes::*;
 use super::dpx_numbers::{skip_bytes, sqxfw};
 use super::dpx_tfm::tfm_open;
-use crate::bridge::DroppableInputHandleWrapper as InFile;
+use bridge::{InFile, TTInputFormat};
 
 const VF_ID: u8 = 202;
-
-use crate::bridge::TTInputFormat;
 
 pub(crate) type fixword = i32;
 pub(crate) type spt_t = i32;

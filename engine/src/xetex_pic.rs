@@ -25,8 +25,7 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{LLIST_link, TeXInt};
 
-use bridge::DroppableInputHandleWrapper as InFile;
-use bridge::TTInputFormat;
+use bridge::{InFile, TTInputFormat};
 use dpx::pdf_dev_transform;
 use dpx::Corner;
 use dpx::{bmp_get_bbox, check_for_bmp};

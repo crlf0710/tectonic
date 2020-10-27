@@ -80,9 +80,8 @@ use crate::specials::{
 
 use libc::{atof, free, strncpy, strtol};
 
-use crate::bridge::TTInputFormat;
+use bridge::{InFile, TTInputFormat};
 
-use bridge::DroppableInputHandleWrapper as InFile;
 pub(crate) type fixword = i32;
 /* quasi-hack to get the primary input */
 

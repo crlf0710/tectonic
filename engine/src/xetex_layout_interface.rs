@@ -642,7 +642,7 @@ unsafe extern "C" fn getLargerScriptListTable(
     mut font: XeTeXFont,
     mut scriptList: *mut *mut hb_tag_t,
 ) -> libc::c_uint {
-    use crate::bridge::size_t;
+    use bridge::size_t;
     let mut rval: libc::c_uint = 0i32 as libc::c_uint;
     let mut face: *mut hb_face_t =
         hb_font_get_face(XeTeXFontInst_getHbFont(font as *mut XeTeXFontInst));
@@ -750,7 +750,7 @@ pub(crate) unsafe fn getIndLanguage(
     mut script: hb_tag_t,
     mut index: libc::c_uint,
 ) -> hb_tag_t {
-    use crate::bridge::size_t;
+    use bridge::size_t;
     let mut rval: hb_tag_t = 0i32 as hb_tag_t;
     let mut face: *mut hb_face_t =
         hb_font_get_face(XeTeXFontInst_getHbFont(font as *mut XeTeXFontInst));
@@ -868,7 +868,7 @@ pub(crate) unsafe fn getIndFeature(
     mut language: hb_tag_t,
     mut index: libc::c_uint,
 ) -> hb_tag_t {
-    use crate::bridge::size_t;
+    use bridge::size_t;
     let mut rval: hb_tag_t = 0i32 as hb_tag_t;
     let mut face: *mut hb_face_t =
         hb_font_get_face(XeTeXFontInst_getHbFont(font as *mut XeTeXFontInst));
@@ -1067,7 +1067,7 @@ pub(crate) unsafe fn findGraphiteFeatureNamed(
     mut engine: XeTeXLayoutEngine,
     name: &[u8],
 ) -> libc::c_long {
-    use crate::bridge::size_t;
+    use bridge::size_t;
     let mut rval: libc::c_long = -1i32 as libc::c_long;
     let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
@@ -1098,7 +1098,7 @@ pub(crate) unsafe fn findGraphiteFeatureSettingNamed(
     mut id: uint32_t,
     name: &[u8],
 ) -> libc::c_long {
-    use crate::bridge::size_t;
+    use bridge::size_t;
     let mut rval: libc::c_long = -1i32 as libc::c_long;
     let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
@@ -1226,7 +1226,7 @@ pub(crate) unsafe fn layoutChars(
     mut max: int32_t,
     mut rightToLeft: bool,
 ) -> libc::c_int {
-    use crate::bridge::size_t;
+    use bridge::size_t;
     let mut res: bool = false;
     let mut script: hb_script_t = HB_SCRIPT_INVALID;
     let mut direction: hb_direction_t = HB_DIRECTION_LTR;

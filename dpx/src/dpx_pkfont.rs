@@ -50,8 +50,7 @@ use crate::dpx_numbers::{
     get_positive_quad, get_unsigned_num, get_unsigned_triple, skip_bytes, GetFromFile,
 };
 
-use crate::bridge::DroppableInputHandleWrapper as InFile;
-use crate::bridge::TTInputFormat;
+use bridge::{InFile, TTInputFormat};
 use std::io::Read;
 
 #[derive(Copy, Clone)]

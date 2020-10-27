@@ -20,14 +20,13 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
 
-use crate::bridge::DroppableInputHandleWrapper as InFile;
-use crate::bridge::TTInputFormat;
 use crate::dpx_mfileio::tt_mfgets;
 use crate::dpx_mpost::mps_scan_bbox;
 use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear};
 use crate::dpx_pdfparse::SkipWhite;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 use crate::spc_warn;
+use bridge::{InFile, TTInputFormat};
 use libc::strlen;
 use std::ptr;
 

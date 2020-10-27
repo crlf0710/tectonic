@@ -4,11 +4,8 @@ use crate::xetex_consts::IntPar;
 use crate::xetex_ini::{
     b16x4, b32x2, memory_word, name_of_file, EqtbWord, Selector, UTF16_code, FONT_PTR,
 };
-use bridge::{ttstub_input_close, ttstub_input_open, ttstub_output_close, ttstub_output_open};
-use bridge::{TTHistory, TTInputFormat};
+use bridge::{ttstub_output_close, ttstub_output_open, InFile, TTHistory, TTInputFormat};
 use std::ffi::CString;
-
-use bridge::{InputHandleWrapper, OutputHandleWrapper};
 
 use std::io::{Read, Write};
 
@@ -533,16 +530,8 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     pack_buffered_name((TEX_format_default.as_bytes().len() - 4) as i16, 1, 0);
 
-    let fmt_in_owner = ttstub_input_open(
-        CString::new(name_of_file.as_str()).unwrap().as_ptr(),
-        TTInputFormat::FORMAT,
-        0,
-    );
-    if fmt_in_owner.is_none() {
-        abort!("cannot open the format file \"{}\"", name_of_file);
-    }
-    let mut fmt_in_owner = fmt_in_owner.unwrap();
-    let fmt_in = &mut fmt_in_owner;
+    let mut fmt_in = InFile::open(&name_of_file, TTInputFormat::FORMAT, 0)
+        .unwrap_or_else(|| abort!("cannot open the format file \"{}\"", name_of_file));
 
     cur_input.loc = j;
 
@@ -1182,8 +1171,6 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     if x != FORMAT_FOOTER_MAGIC {
         bad_fmt();
     }
-
-    ttstub_input_close(fmt_in_owner);
     return true;
 }
 
@@ -1252,7 +1239,10 @@ trait Dump {
     }
 }
 
-impl Dump for OutputHandleWrapper {
+impl<W> Dump for W
+where
+    Self: Write,
+{
     fn dump<T>(&mut self, p: &[T])
     where
         [T]: ToU8Slice,
@@ -1287,7 +1277,10 @@ trait UnDump {
     }
 }
 
-impl UnDump for InputHandleWrapper {
+impl<R> UnDump for R
+where
+    Self: Read,
+{
     fn undump<T>(&mut self, p: &mut [T])
     where
         [T]: ToU8Slice,

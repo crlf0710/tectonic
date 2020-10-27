@@ -43,8 +43,7 @@ use libc::free;
 
 use std::io::{Seek, SeekFrom};
 
-use crate::bridge::size_t;
-use bridge::{DroppableInputHandleWrapper as InFile, InputHandleWrapper};
+use bridge::{size_t, InFile};
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 
@@ -78,12 +77,12 @@ unsafe extern "C" fn _png_warning_callback(
 unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: usize) {
     let outbytes = std::slice::from_raw_parts_mut(outbytes, n);
     let png = png_ptr.as_ref().unwrap();
-    let handle =
-        InputHandleWrapper::new(png_get_io_ptr(png) as tectonic_bridge::rust_input_handle_t)
-            .unwrap();
+    // TODO: fix this
+    let handle = InFile::from_raw(png_get_io_ptr(png) as bridge::rust_input_handle_t).unwrap();
     if (&handle).read_exact(outbytes).is_err() {
         panic!("error reading PNG");
     };
+    std::mem::forget(handle);
 }
 
 pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InFile) -> i32 {
@@ -1070,7 +1069,7 @@ unsafe fn read_image_data(
     free(rows_p as *mut libc::c_void);
 }
 
-pub unsafe fn png_get_bbox(handle: &InputHandleWrapper) -> Result<(u32, u32, f64, f64), ()> {
+pub unsafe fn png_get_bbox(handle: &InFile) -> Result<(u32, u32, f64, f64), ()> {
     (&*handle).seek(SeekFrom::Start(0)).unwrap();
     let png = png_create_read_struct(
         b"1.6.37\x00" as *const u8 as *const i8,

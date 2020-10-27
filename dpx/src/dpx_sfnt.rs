@@ -55,7 +55,7 @@ impl PutBE<i16> for Vec<u8> {
     }
 }
 
-use bridge::DroppableInputHandleWrapper as InFile;
+use bridge::InFile;
 #[derive(Clone)]
 pub(crate) struct sfnt_table {
     pub(crate) tag: [u8; 4],

@@ -7,12 +7,11 @@
     non_upper_case_globals,
     unused_assignments,
     unused_mut,
-    unused_unsafe
+    unused_unsafe,
+    unused_attributes
 )]
 #[macro_use]
-extern crate tectonic_bridge as bridge;
-extern crate tectonic_bibtex as bibtex;
-extern crate tectonic_dvipdfmx as dpx;
+extern crate bridge;
 
 use std::ptr;
 

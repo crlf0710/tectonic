@@ -31,11 +31,9 @@ use std::ptr;
 use super::dpx_cid::CSI_IDENTITY;
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_mem::{new, renew};
-use crate::bridge::DroppableInputHandleWrapper as InFile;
 use libc::{free, memcmp, memcpy, memset};
 
-use crate::bridge::size_t;
-use crate::bridge::TTInputFormat;
+use bridge::{size_t, InFile, TTInputFormat};
 
 use super::dpx_cid::CIDSysInfo;
 

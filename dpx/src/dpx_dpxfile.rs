@@ -30,9 +30,7 @@ use std::io::{Read, Seek, SeekFrom};
 
 use super::dpx_numbers::GetFromFile;
 
-use crate::bridge::TTInputFormat;
-
-use bridge::DroppableInputHandleWrapper as InFile;
+use bridge::{InFile, TTInputFormat};
 /* quasi-hack to get the primary input */
 
 pub(crate) static mut keep_cache: i32 = 0i32;

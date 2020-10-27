@@ -32,7 +32,7 @@ use freetype::freetype_sys::{
     FT_Parameter, FT_Pointer, FT_Sfnt_Tag, FT_String, FT_UInt, FT_ULong, FT_Vector,
 };
 
-use bridge::{ttstub_input_get_size, ttstub_input_read, DroppableInputHandleWrapper as InFile};
+use bridge::{ttstub_input_get_size, ttstub_input_read, InFile};
 
 use std::ptr;
 
