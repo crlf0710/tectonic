@@ -290,10 +290,10 @@ unsafe fn getGlyphBBoxFromCTFont(mut font: CTFontRef, mut gid: UInt16, mut bbox:
             height: 0.,
         },
     };
-    (*bbox).xMin = 65536.0f64 as libc::c_float;
-    (*bbox).yMin = 65536.0f64 as libc::c_float;
-    (*bbox).xMax = -65536.0f64 as libc::c_float;
-    (*bbox).yMax = -65536.0f64 as libc::c_float;
+    (*bbox).xMin = 65536.;
+    (*bbox).yMin = 65536.;
+    (*bbox).xMax = -65536.;
+    (*bbox).yMax = -65536.;
     rect = CTFontGetBoundingRectsForGlyphs(
         font,
         kCTFontOrientationDefault,
@@ -302,7 +302,7 @@ unsafe fn getGlyphBBoxFromCTFont(mut font: CTFontRef, mut gid: UInt16, mut bbox:
         1i32 as CFIndex,
     );
     if CGRectIsNull(rect) {
-        (*bbox).yMax = 0i32 as libc::c_float;
+        (*bbox).yMax = 0.;
         (*bbox).xMax = (*bbox).yMax;
         (*bbox).yMin = (*bbox).xMax;
         (*bbox).xMin = (*bbox).yMin
@@ -537,9 +537,9 @@ thread_local!(static FREETYPE_LIBRARY: RefCell<FreeTypeLibrary> = RefCell::new(F
 pub(crate) unsafe fn getFileNameFromCTFont(
     mut ctFontRef: CTFontRef,
     mut index: *mut u32,
-) -> *mut i8 {
+) -> String {
     let mut ix: i32 = -1;
-    let mut ret: *mut libc::c_char = ptr::null_mut();
+    let mut ret = String::new();
     let urlRef = CTFontCopyAttribute(ctFontRef, kCTFontURLAttribute) as CFURLRef;
     if !urlRef.is_null() {
         let url = CFURL::wrap_under_create_rule(urlRef);
@@ -559,7 +559,7 @@ pub(crate) unsafe fn getFileNameFromCTFont(
             }
             if ix > -1 {
                 *index = ix as u32;
-                let osstr = pathbuf.as_os_str();
+                /*let osstr = pathbuf.as_os_str();
                 #[cfg(unix)]
                 {
                     use std::os::unix::ffi::OsStrExt;
@@ -577,7 +577,8 @@ pub(crate) unsafe fn getFileNameFromCTFont(
                     let cstring = CString::from(osstr.to_string_lossy());
                     let bytes = cstring.as_bytes();
                     ret = strdup(bytes.as_ptr());
-                }
+                }*/
+                ret = pathbuf.as_os_str().to_string_lossy().into();
             }
         }
     }
@@ -628,8 +629,7 @@ unsafe fn CFRangeMake(mut loc: CFIndex, mut len: CFIndex) -> CFRange {
 pub(crate) unsafe fn findDictionaryInArray(
     mut array: CFArrayRef,
     mut nameKey: *const libc::c_void,
-    mut name: *const libc::c_char,
-    mut nameLength: libc::c_int,
+    name: &[u8],
 ) -> CFDictionaryRef {
     let mut dict: CFDictionaryRef = 0 as CFDictionaryRef;
     if !array.is_null() {
@@ -637,8 +637,8 @@ pub(crate) unsafe fn findDictionaryInArray(
         let mut i: CFIndex = 0;
         itemName = CFStringCreateWithBytes(
             0 as CFAllocatorRef,
-            name as *mut u8,
-            nameLength as CFIndex,
+            name.as_ptr(),
+            name.len() as CFIndex,
             kCFStringEncodingUTF8 as libc::c_int as CFStringEncoding,
             0i32 as Boolean,
         );
@@ -663,11 +663,7 @@ pub(crate) unsafe fn findDictionaryInArray(
     return dict;
 }
 
-pub(crate) unsafe fn findSelectorByName(
-    mut feature: CFDictionaryRef,
-    mut name: *const libc::c_char,
-    mut nameLength: libc::c_int,
-) -> CFNumberRef {
+pub(crate) unsafe fn findSelectorByName(mut feature: CFDictionaryRef, name: &[u8]) -> CFNumberRef {
     let mut selector: CFNumberRef = 0 as CFNumberRef;
     let mut selectors: CFArrayRef = CFDictionaryGetValue(
         feature,
@@ -678,7 +674,6 @@ pub(crate) unsafe fn findSelectorByName(
             selectors,
             kCTFontFeatureSelectorNameKey as *const libc::c_void,
             name,
-            nameLength,
         );
         if !s.is_null() {
             selector = CFDictionaryGetValue(
@@ -740,7 +735,7 @@ unsafe fn getLastResort() -> CFStringRef {
 pub(crate) unsafe fn loadAATfont(
     mut descriptor: CTFontDescriptorRef,
     mut scaled_size: int32_t,
-    mut cp1: *const libc::c_char,
+    mut cp1: &[u8],
 ) -> *mut libc::c_void {
     let mut current_block: u64;
     let mut font: CTFontRef = 0 as CTFontRef;
@@ -758,11 +753,11 @@ pub(crate) unsafe fn loadAATfont(
     };
     let mut cascadeList: CFMutableArrayRef = 0 as CFMutableArrayRef;
     let mut lastResort: CTFontDescriptorRef = 0 as CTFontDescriptorRef;
-    let mut tracking: f64 = 0.0f64;
-    let mut extend: libc::c_float = 1.0f64 as libc::c_float;
-    let mut slant: libc::c_float = 0.0f64 as libc::c_float;
-    let mut embolden: libc::c_float = 0.0f64 as libc::c_float;
-    let mut letterspace: libc::c_float = 0.0f64 as libc::c_float;
+    let mut tracking = 0_f64;
+    let mut extend = 1_f32;
+    let mut slant = 0_f32;
+    let mut embolden = 0_f32;
+    let mut letterspace = 0_f32;
     let mut rgbValue: u32 = 0;
     // create a base font instance for applying further attributes
     ctSize = TeXtoPSPoints(Fix2D(scaled_size));
@@ -782,42 +777,37 @@ pub(crate) unsafe fn loadAATfont(
         &kCFTypeDictionaryKeyCallBacks,
         &kCFTypeDictionaryValueCallBacks,
     );
-    if !cp1.is_null() {
+    if !cp1.is_empty() {
         let mut features: CFArrayRef = CTFontCopyFeatures(font);
         let mut featureSettings: CFMutableArrayRef =
             CFArrayCreateMutable(0 as CFAllocatorRef, 0i32 as CFIndex, &kCFTypeArrayCallBacks);
         // interpret features following ":"
-        while *cp1 != 0 {
+        while !cp1.is_empty() {
             let mut feature: CFDictionaryRef = 0 as CFDictionaryRef;
             let mut ret: libc::c_int = 0;
-            let mut cp2: *const libc::c_char = ptr::null();
-            let mut cp3: *const libc::c_char = ptr::null();
             // locate beginning of name=value pair
-            if *cp1 as libc::c_int == ':' as i32 || *cp1 as libc::c_int == ';' as i32 {
+            if !cp1.is_empty() && b":;".contains(&cp1[0]) {
                 // skip over separator
-                cp1 = cp1.offset(1)
+                cp1 = &cp1[1..];
             }
-            while *cp1 as libc::c_int == ' ' as i32 || *cp1 as libc::c_int == '\t' as i32 {
+            while !cp1.is_empty() && b" \t".contains(&cp1[0]) {
                 // skip leading whitespace
-                cp1 = cp1.offset(1)
+                cp1 = &cp1[1..];
             }
-            if *cp1 as libc::c_int == 0i32 {
+            if cp1.is_empty() {
                 break;
             }
             // scan to end of pair
-            cp2 = cp1;
-            while *cp2 as libc::c_int != 0
-                && *cp2 as libc::c_int != ';' as i32
-                && *cp2 as libc::c_int != ':' as i32
-            {
-                cp2 = cp2.offset(1)
+            let mut cp2 = cp1;
+            while !cp2.is_empty() && !b";:".contains(&cp2[0]) {
+                cp2 = &cp2[1..];
             }
             // look for the '=' separator
-            cp3 = cp1;
-            while cp3 < cp2 && *cp3 as libc::c_int != '=' as i32 {
-                cp3 = cp3.offset(1)
+            let mut cp3 = cp1;
+            while cp3.len() > cp2.len() && cp3[0] != b'=' {
+                cp3 = &cp3[1..];
             }
-            if cp3 == cp2 {
+            if cp3.len() == cp2.len() {
                 current_block = 4154772336439402900;
             } else {
                 // now cp1 points to option name, cp3 to '=', cp2 to ';' or null
@@ -825,47 +815,38 @@ pub(crate) unsafe fn loadAATfont(
                 feature = findDictionaryInArray(
                     features,
                     kCTFontFeatureTypeNameKey as *const libc::c_void,
-                    cp1,
-                    cp3.offset_from(cp1) as libc::c_long as libc::c_int,
+                    &cp1[..cp1.len() - cp3.len()],
                 );
                 if !feature.is_null() {
                     // look past the '=' separator for setting names
-                    let mut featLen: libc::c_int =
-                        cp3.offset_from(cp1) as libc::c_long as libc::c_int;
+                    let featLen = cp1.len() - cp3.len();
                     let mut zeroInteger: libc::c_int = 0i32;
                     let mut zero: CFNumberRef = CFNumberCreate(
                         0 as CFAllocatorRef,
                         kCFNumberIntType as libc::c_int as CFNumberType,
                         &mut zeroInteger as *mut libc::c_int as *const libc::c_void,
                     );
-                    cp3 = cp3.offset(1);
+                    cp3 = &cp3[1..];
                     while cp3 < cp2 {
                         let mut selector: CFNumberRef = 0 as CFNumberRef;
                         let mut disable: libc::c_int = 0i32;
-                        let mut cp4: *const libc::c_char = ptr::null();
                         // skip leading whitespace
-                        while *cp3 as libc::c_int == ' ' as i32
-                            || *cp3 as libc::c_int == '\t' as i32
-                        {
-                            cp3 = cp3.offset(1)
+                        while b" \t".contains(&cp3[0]) {
+                            cp3 = &cp3[1..];
                         }
                         // possibly multiple settings...
-                        if *cp3 as libc::c_int == '!' as i32 {
+                        if !cp3.is_empty() && cp3[0] == b'!' {
                             // check for negation
                             disable = 1i32;
-                            cp3 = cp3.offset(1)
+                            cp3 = &cp3[1..];
                         }
                         // scan for end of setting name
-                        cp4 = cp3;
-                        while cp4 < cp2 && *cp4 as libc::c_int != ',' as i32 {
-                            cp4 = cp4.offset(1)
+                        let mut cp4 = cp3;
+                        while cp4.len() > cp2.len() && cp4[0] != b',' {
+                            cp4 = &cp4[1..];
                         }
                         // now cp3 points to name, cp4 to ',' or ';' or null
-                        selector = findSelectorByName(
-                            feature,
-                            cp3,
-                            cp4.offset_from(cp3) as libc::c_long as libc::c_int,
-                        );
+                        selector = findSelectorByName(feature, &cp3[..cp3.len() - cp4.len()]);
                         if !selector.is_null()
                             && comparison_was(
                                 CFNumberCompare(selector, zero, ptr::null_mut()),
@@ -885,16 +866,10 @@ pub(crate) unsafe fn loadAATfont(
                             );
                             CFRelease(featureSetting as CFTypeRef);
                         } else {
-                            font_feature_warning(
-                                std::slice::from_raw_parts(cp1 as *const u8, featLen as usize),
-                                std::slice::from_raw_parts(
-                                    cp3 as *const u8,
-                                    cp4.offset_from(cp3) as usize,
-                                ),
-                            );
+                            font_feature_warning(&cp1[..featLen], &cp3[..cp3.len() - cp4.len()]);
                         }
                         // point beyond setting name terminator
-                        cp3 = cp4.offset(1)
+                        cp3 = &cp4[1..];
                     }
                     CFRelease(zero as CFTypeRef);
                     current_block = 15938117740974259152;
@@ -902,7 +877,7 @@ pub(crate) unsafe fn loadAATfont(
                     // didn't find feature, try other options...
                     ret = readCommonFeatures(
                         cp1,
-                        cp2,
+                        cp1.len() - cp2.len(),
                         &mut extend,
                         &mut slant,
                         &mut embolden,
@@ -914,14 +889,12 @@ pub(crate) unsafe fn loadAATfont(
                     } else if ret == -1i32 {
                         current_block = 4154772336439402900;
                     } else {
-                        cp3 =
-                            strstartswith(cp1, b"tracking\x00" as *const u8 as *const libc::c_char);
-                        if !cp3.is_null() {
+                        if let Some(mut cp3) = strstartswith(cp1, b"tracking") {
                             let mut trackingNumber: CFNumberRef = 0 as CFNumberRef;
-                            if *cp3 as libc::c_int != '=' as i32 {
+                            if cp3[0] != b'=' {
                                 current_block = 4154772336439402900;
                             } else {
-                                cp3 = cp3.offset(1);
+                                cp3 = &cp3[1..];
                                 tracking = read_double(&mut cp3);
                                 trackingNumber = CFNumberCreate(
                                     0 as CFAllocatorRef,
@@ -947,23 +920,19 @@ pub(crate) unsafe fn loadAATfont(
                 // not a name=value pair, or not recognized....
                 // check for plain "vertical" before complaining
                 {
-                    if !strstartswith(cp1, b"vertical\x00" as *const u8 as *const libc::c_char)
-                        .is_null()
-                    {
-                        cp3 = cp2;
-                        if *cp3 as libc::c_int == ';' as i32 || *cp3 as libc::c_int == ':' as i32 {
-                            cp3 = cp3.offset(-1)
+                    if cp1.starts_with(b"vertical") {
+                        let mut n = cp1.len() - cp2.len();
+                        if b";:".contains(&cp1[n]) {
+                            n -= 1;
                         }
-                        while *cp3 as libc::c_int == '\u{0}' as i32
-                            || *cp3 as libc::c_int == ' ' as i32
-                            || *cp3 as libc::c_int == '\t' as i32
-                        {
-                            cp3 = cp3.offset(-1)
+                        while n != 0 || b" \t".contains(&cp1[n]) {
+                            n -= 1;
                         }
-                        if *cp3 != 0 {
-                            cp3 = cp3.offset(1)
+                        if n != 0 {
+                            // TODO: check
+                            n += 1;
                         }
-                        if cp3 == cp1.offset(8) {
+                        if n == 8 {
                             let mut orientation: libc::c_int =
                                 kCTFontOrientationVertical as libc::c_int;
                             let mut orientationNumber: CFNumberRef = CFNumberCreate(
@@ -992,20 +961,14 @@ pub(crate) unsafe fn loadAATfont(
                     match current_block {
                         15938117740974259152 => {}
                         _ => {
-                            font_feature_warning(
-                                std::slice::from_raw_parts(
-                                    cp1 as *const u8,
-                                    cp2.offset_from(cp1) as usize,
-                                ),
-                                &[],
-                            );
+                            font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
                         }
                     }
                 }
                 _ => {}
             }
             // go to next name=value pair
-            cp1 = cp2
+            cp1 = cp2;
         }
         // break if end of string
         if !features.is_null() {
@@ -1273,12 +1236,10 @@ pub(crate) unsafe fn aat_font_get_named(what: ExtCmd, attributes: CFDictionaryRe
         let mut font: CTFontRef = font_from_attributes(attributes);
         let mut features: CFArrayRef = CTFontCopyFeatures(font);
         if !features.is_null() {
-            let name = CString::new(name_of_file.as_str()).unwrap();
             let mut feature: CFDictionaryRef = findDictionaryInArray(
                 features,
                 kCTFontFeatureTypeNameKey as *const libc::c_void,
-                name.as_ptr(),
-                name.as_bytes().len() as i32,
+                name_of_file.as_bytes(),
             );
             if !feature.is_null() {
                 let mut identifier: CFNumberRef = CFDictionaryGetValue(
@@ -1312,10 +1273,9 @@ pub(crate) unsafe fn aat_font_get_named_1(
                 kCTFontFeatureTypeIdentifierKey as *const libc::c_void,
                 param,
             );
-            let name = CString::new(name_of_file.as_str()).unwrap();
             if !feature.is_null() {
                 let mut selector: CFNumberRef =
-                    findSelectorByName(feature, name.as_ptr(), name.as_bytes().len() as i32);
+                    findSelectorByName(feature, name_of_file.as_bytes());
                 if !selector.is_null() {
                     CFNumberGetValue(
                         selector,

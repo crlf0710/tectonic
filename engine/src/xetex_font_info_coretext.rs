@@ -25,7 +25,7 @@ use crate::cf_prelude::*;
 
 use crate::xetex_font_info::XeTeXFontInst;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontInst_Mac {
     pub(crate) super_: XeTeXFontInst,
@@ -82,12 +82,11 @@ pub(crate) unsafe fn XeTeXFontInst_Mac_initialize(
         ptr::null(),
     );
     if !(*self_0).m_fontRef.is_null() {
-        let mut pathname: *mut libc::c_char = ptr::null_mut();
         let mut index: uint32_t = 0;
-        pathname = getFileNameFromCTFont((*self_0).m_fontRef, &mut index);
+        let mut pathname = getFileNameFromCTFont((*self_0).m_fontRef, &mut index);
         XeTeXFontInst_initialize(
             &mut (*self_0).super_,
-            pathname,
+            &pathname,
             index as libc::c_int,
             status,
         );
@@ -103,7 +102,7 @@ pub(crate) unsafe fn XeTeXFontInst_Mac_ctor(
     mut pointSize: f32,
     mut status: *mut libc::c_int,
 ) {
-    XeTeXFontInst_base_ctor(&mut (*self_0).super_, ptr::null(), 0i32, pointSize, status);
+    XeTeXFontInst_base_ctor(&mut (*self_0).super_, "", 0i32, pointSize, status);
     (*self_0).super_.m_subdtor =
         Some(XeTeXFontInst_Mac_dtor as unsafe extern "C" fn(_: *mut XeTeXFontInst) -> ());
     (*self_0).m_descriptor = descriptor;

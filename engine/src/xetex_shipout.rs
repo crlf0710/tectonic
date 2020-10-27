@@ -39,7 +39,7 @@ use crate::xetex_xetex0::{
     str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, llist_link, print_c_string, set_NODE_type, text_NODE_type, LLIST_link, NODE_type,
+    is_char_node, llist_link, print_c_str, set_NODE_type, text_NODE_type, LLIST_link, NODE_type,
     SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
@@ -2328,7 +2328,11 @@ pub(crate) unsafe fn finalize_dvi_file() {
         print_nl_cstr("Error ");
         print_int(k as i32);
         print_cstr(" (");
-        print_c_string(strerror(k as i32));
+        print_c_str(
+            std::ffi::CStr::from_ptr(strerror(k as i32))
+                .to_str()
+                .unwrap(),
+        );
         print_cstr(") generating output;");
         print_nl_cstr("file ");
         print(output_file_name);

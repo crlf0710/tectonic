@@ -139,10 +139,10 @@ mod core_memory {
         }
         new_mem
     }
-    #[no_mangle]
-    pub(crate) unsafe fn xstrdup(mut s: *const i8) -> *mut i8 {
-        let mut new_string: *mut i8 = xmalloc(libc::strlen(s).wrapping_add(1) as size_t) as *mut i8;
-        libc::strcpy(new_string, s)
+    pub(crate) unsafe fn strdup(mut s: &str) -> *mut i8 {
+        let mut new_string: *mut i8 = xmalloc((s.len() + 1) as size_t) as *mut i8;
+        let s = std::ffi::CString::new(s).unwrap();
+        libc::strcpy(new_string, s.as_ptr())
     }
 
     #[inline]
@@ -192,12 +192,11 @@ mod tfm;
 mod trie;
 
 #[inline]
-pub(crate) unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
-    let length = libc::strlen(prefix);
-    if libc::strncmp(s, prefix, length) == 0i32 {
-        return s.offset(length as isize);
+pub(crate) fn strstartswith<'a>(s: &'a [u8], prefix: &[u8]) -> Option<&'a [u8]> {
+    if s.starts_with(prefix) {
+        return Some(&s[prefix.len()..]);
     }
-    ptr::null()
+    None
 }
 
 #[inline]
@@ -704,3 +703,11 @@ macro_rules! help(
         crate::xetex_ini::help_line[0] = $s0;
     };
 );
+
+pub(crate) fn c_pointer_to_str<'a>(p: *const i8) -> &'a str {
+    if p.is_null() {
+        ""
+    } else {
+        unsafe { std::ffi::CStr::from_ptr(p).to_str().unwrap() }
+    }
+}

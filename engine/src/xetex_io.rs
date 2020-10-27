@@ -25,7 +25,7 @@ use crate::xetex_xetex0::{
     bad_utf8_warning, begin_name, diagnostic, end_name, get_input_normalization_state, more_name,
     pack_file_name, scan_file_name, scan_four_bit_int, scan_optional_equals,
 };
-use crate::xetex_xetexd::{print_c_str, print_c_string};
+use crate::xetex_xetexd::print_c_str;
 use bridge::stub_errno as errno;
 use libc::free;
 use std::ffi::CString;
@@ -289,13 +289,11 @@ pub(crate) unsafe fn set_input_file_encoding(
             if cnv.is_null() {
                 diagnostic(true, || {
                     print_nl('E' as i32);
-                    print_c_string(b"rror \x00" as *const u8 as *const i8);
+                    print_c_str("rror ");
                     print_int(err as i32);
-                    print_c_string(
-                        b" creating Unicode converter for `\x00" as *const u8 as *const i8,
-                    );
+                    print_c_str(" creating Unicode converter for `");
                     print_c_str(&name);
-                    print_c_string(b"\'; reading as raw bytes\x00" as *const u8 as *const i8);
+                    print_c_str("\'; reading as raw bytes");
                 });
                 (*f).encodingMode = UnicodeMode::Raw;
             } else {

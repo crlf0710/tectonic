@@ -1429,15 +1429,9 @@ unsafe fn spc_handler_pdfm_mapline(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
             }
         }
         _ => {
-            BUFFER.copy_from_slice(ap.cur);
-            BUFFER[ap.cur.len()] = 0;
+            let buffer = Vec::from(ap.cur);
             let mut mrec = pdf_init_fontmap_record();
-            error = pdf_read_fontmap_line(
-                &mut mrec,
-                BUFFER.as_mut_ptr() as *mut i8,
-                ap.cur.len() as i32,
-                is_pdfm_mapline(BUFFER.as_mut_ptr() as *mut i8),
-            );
+            error = pdf_read_fontmap_line(&mut mrec, &buffer, is_pdfm_mapline(&buffer));
             if error != 0 {
                 spc_warn!(spe, "Invalid fontmap line.");
             } else if opchr == b'+' {

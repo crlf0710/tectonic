@@ -1,7 +1,6 @@
 use bridge::{ttstub_input_getc, DroppableInputHandleWrapper, TTInputFormat};
 
 use crate::help;
-use std::ffi::CString;
 
 use crate::xetex_ini::b16x4;
 use crate::xetex_ini::nine_bits;
@@ -640,8 +639,7 @@ pub(crate) fn good_tfm(ok: (bool, usize)) -> usize {
 }
 
 pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontError> {
-    let mut font_engine =
-        find_native_font(CString::new(name_of_file.as_str()).unwrap().as_ptr(), s);
+    let mut font_engine = find_native_font(&name_of_file, s);
     if font_engine.is_null() {
         return Err(NativeFontError::NotFound);
     }
