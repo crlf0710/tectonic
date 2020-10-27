@@ -7,7 +7,8 @@
     non_upper_case_globals,
     unused_assignments,
     unused_mut,
-    unused_unsafe
+    unused_unsafe,
+    unused_attributes
 )]
 #[macro_use]
 extern crate bridge;

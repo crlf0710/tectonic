@@ -9720,16 +9720,16 @@ pub(crate) unsafe fn start_input(mut primary_input_name: *const i8) {
     /* Open up the new file to be read. The name of the file to be read comes
      * from `name_of_file`. */
     begin_file_reading();
-    if u_open_in(
-        &mut INPUT_FILE[cur_input.index as usize],
+    let ufile = u_open_in(
         format,
         b"rb",
         UnicodeMode::from(*INTPAR(IntPar::xetex_default_input_mode)),
         *INTPAR(IntPar::xetex_default_input_encoding),
-    ) == 0
-    {
+    );
+    if ufile.is_none() {
         abort!("failed to open input file \"{}\"", name_of_file);
     }
+    INPUT_FILE[cur_input.index as usize] = ufile;
     /* Now re-encode `name_of_file` into the UTF-16 variable `name_of_file16`,
      * and use that to recompute `cur_{name,area,ext}`. */
     name_in_progress = true;

@@ -659,7 +659,7 @@ pub(crate) static mut IN_OPEN: usize = 0;
 #[no_mangle]
 pub(crate) static mut open_parens: i32 = 0;
 #[no_mangle]
-pub(crate) static mut INPUT_FILE: Vec<Option<UFILE>> = Vec::new();
+pub(crate) static mut INPUT_FILE: Vec<Option<Box<UFILE>>> = Vec::new();
 #[no_mangle]
 pub(crate) static mut line: i32 = 0;
 #[no_mangle]
@@ -709,10 +709,10 @@ pub(crate) static mut radix: i16 = 0;
 #[no_mangle]
 pub(crate) static mut cur_order: GlueOrder = GlueOrder::Normal;
 
-const NONE_UFILE: Option<UFILE> = None;
-pub(crate) static mut read_file: [Option<UFILE>; 16] = [NONE_UFILE; 16];
+const NONE_UFILE: Option<Box<UFILE>> = None;
+pub(crate) static mut read_file: [Option<Box<UFILE>>; 17] = [NONE_UFILE; 17];
 #[no_mangle]
-pub(crate) static mut read_open: [OpenMode; 17] = [OpenMode::Normal; 17];
+pub(crate) static mut read_open: [OpenMode; 17] = [OpenMode::Closed; 17];
 #[no_mangle]
 pub(crate) static mut cond_ptr: Option<usize> = None;
 #[no_mangle]
@@ -2315,13 +2315,13 @@ unsafe fn final_cleanup() {
 /* Engine initialization */
 unsafe fn init_io() {
     /* This is largely vestigial at this point */
-    INPUT_FILE[0] = Some(UFILE {
+    INPUT_FILE[0] = Some(Box::new(UFILE {
         handle: None,
         savedChar: -1,
         skipNextLF: 0,
         encodingMode: UnicodeMode::Utf8,
         conversionData: 0 as *mut libc::c_void,
-    });
+    }));
 
     BUFFER[first as usize] = 0;
     last = first;
@@ -2398,9 +2398,8 @@ unsafe fn initialize_more_variables() {
     radix = 0;
     cur_order = GlueOrder::Normal;
 
-    for k in 0..=16 {
-        read_open[k] = OpenMode::Closed;
-    }
+    read_file = [NONE_UFILE; 17];
+    read_open = [OpenMode::Closed; 17];
 
     cond_ptr = None;
     if_limit = FiOrElseCode::Normal;
@@ -4432,5 +4431,8 @@ pub(crate) unsafe fn tt_run_engine(
     trie_trl = Vec::new();
     trie_tro = Vec::new();
     trie_trc = Vec::new();
+
+    read_file = [NONE_UFILE; 17];
+    read_open = [OpenMode::Closed; 17];
     history
 }

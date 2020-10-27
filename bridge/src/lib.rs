@@ -91,7 +91,7 @@ impl Drop for InFile {
 }
 
 impl InFile {
-    pub fn new(ptr: rust_input_handle_t) -> Option<Self> {
+    pub unsafe fn from_raw(ptr: rust_input_handle_t) -> Option<Self> {
         NonNull::new(ptr).map(|nnp| Self(nnp))
     }
 
@@ -102,7 +102,7 @@ impl InFile {
     pub fn open(path: &str, format: TTInputFormat, is_gz: i32) -> Option<Self> {
         let path = CString::new(path).unwrap();
         unsafe {
-            Self::new((*tectonic_global_bridge)
+            Self::from_raw((*tectonic_global_bridge)
                 .input_open
                 .expect("non-null function pointer")(
                 (*tectonic_global_bridge).context,
@@ -115,10 +115,10 @@ impl InFile {
 
     pub fn open_primary() -> Option<Self> {
         unsafe {
-            Self::new((*tectonic_global_bridge)
+            Self::from_raw((*tectonic_global_bridge)
                 .input_open_primary
                 .expect("non-null function pointer")(
-                (*tectonic_global_bridge).context,
+                (*tectonic_global_bridge).context
             ))
         }
     }

@@ -293,25 +293,24 @@ pub(crate) unsafe fn set_input_file_encoding(
     };
 }
 pub(crate) unsafe fn u_open_in(
-    f: &mut Option<UFILE>,
     mut filefmt: TTInputFormat,
     mut _fopen_mode: &[u8],
     mut mode: UnicodeMode,
     mut encodingData: i32,
-) -> i32 {
+) -> Option<Box<UFILE>> {
     let mut B1: i32 = 0;
     let mut B2: i32 = 0;
     let handle = tt_xetex_open_input(filefmt);
     if handle.is_none() {
-        return 0i32;
+        return None;
     }
-    let mut ufile = UFILE {
+    let mut ufile = Box::new(UFILE {
         encodingMode: UnicodeMode::Auto,
         conversionData: 0 as *mut libc::c_void,
         savedChar: -1,
         skipNextLF: 0,
         handle,
-    };
+    });
     if mode == UnicodeMode::Auto {
         /* sniff encoding form */
         let handle = ufile.handle.as_mut().unwrap();
@@ -339,8 +338,7 @@ pub(crate) unsafe fn u_open_in(
         }
     }
     set_input_file_encoding(&mut ufile, mode, encodingData);
-    *f = Some(ufile);
-    1i32
+    Some(ufile)
 }
 unsafe extern "C" fn buffer_overflow() {
     panic!("unable to read an entire line (buf_size={})", BUF_SIZE,);
@@ -706,14 +704,14 @@ pub(crate) unsafe fn open_or_close_in() {
         scan_optional_equals();
         scan_file_name();
         pack_file_name(cur_name, cur_area, cur_ext);
-        if u_open_in(
-            &mut read_file[n as usize],
+        let ufile = u_open_in(
             TTInputFormat::TEX,
             b"rb",
             UnicodeMode::from(*INTPAR(IntPar::xetex_default_input_mode)),
             *INTPAR(IntPar::xetex_default_input_encoding),
-        ) != 0
-        {
+        );
+        if ufile.is_some() {
+            read_file[n as usize] = ufile;
             name_in_progress = true;
             begin_name();
             for k in name_of_file.encode_utf16() {

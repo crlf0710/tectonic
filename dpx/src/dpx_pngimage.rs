@@ -77,10 +77,12 @@ unsafe extern "C" fn _png_warning_callback(
 unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: usize) {
     let outbytes = std::slice::from_raw_parts_mut(outbytes, n);
     let png = png_ptr.as_ref().unwrap();
-    let mut handle = &*(&png_get_io_ptr(png) as *const _ as *const InFile); // TODO: fix this
-    (&mut handle)
-        .read_exact(outbytes)
-        .expect("error reading PNG");
+    // TODO: fix this
+    let handle = InFile::from_raw(png_get_io_ptr(png) as bridge::rust_input_handle_t).unwrap();
+    if (&handle).read_exact(outbytes).is_err() {
+        panic!("error reading PNG");
+    };
+    std::mem::forget(handle);
 }
 
 pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InFile) -> i32 {
