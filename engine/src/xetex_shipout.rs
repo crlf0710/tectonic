@@ -40,8 +40,8 @@ use crate::xetex_xetex0::{
     str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, llist_link, print_c_str, set_NODE_type, text_NODE_type, LLIST_link, NODE_type,
-    SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    is_char_node, llist_link, print_c_str, set_NODE_type, LLIST_link, NODE_type, SYNCTEX_tag,
+    TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -273,7 +273,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         /* Done with the synthesized special. The meat: emit this page box. */
 
         cur_v = p.height() + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
-        if NODE_type(p.ptr()) == TextNode::VList.into() {
+        if p.is_vertical() {
             vlist_out(&p);
         } else {
             hlist_out(&mut p);
@@ -362,13 +362,13 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     break;
                                 }
                             }
-                            if let Some(q) = qopt.filter(|&q| !is_char_node(Some(q))) {
-                                if NODE_type(q) == TextNode::Glue.into() && Glue(q).param() == 0 {
-                                    if Glue(q).glue_ptr() == FONT_GLUE[r_nw.font() as usize] {
+                            match qopt.map(|q| CharOrText::from(q)) {
+                                Some(CharOrText::Text(TxtNode::Glue(g))) if g.param() == 0 => {
+                                    if g.glue_ptr() == FONT_GLUE[r_nw.font() as usize] {
                                         /* "Found a normal space; if the next node is
                                          * another word in the same font, we'll
                                          * merge." */
-                                        qopt = llist_link(q);
+                                        qopt = llist_link(g.ptr());
                                         while let Some(q) = qopt {
                                             if match CharOrText::from(p) {
                                                 CharOrText::Text(n) => match n {
@@ -406,7 +406,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                             _ => {}
                                         }
                                     } else {
-                                        qopt = llist_link(q);
+                                        qopt = llist_link(g.ptr());
                                     }
                                     if let Some(q) = qopt.filter(|&q| {
                                         !is_char_node(Some(q))
@@ -451,19 +451,14 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     } else {
                                         break;
                                     }
-                                } else {
-                                    match qopt.map(CharOrText::from) {
-                                        Some(CharOrText::Text(TxtNode::WhatsIt(
-                                            WhatsIt::NativeWord(q),
-                                        ))) if q.font() == r_nw.font() => {
-                                            p = q.ptr();
-                                            qopt = llist_link(q.ptr());
-                                        }
-                                        _ => break,
-                                    }
                                 }
-                            } else {
-                                break;
+                                Some(CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(
+                                    q,
+                                )))) if q.font() == r_nw.font() => {
+                                    p = q.ptr();
+                                    qopt = llist_link(q.ptr());
+                                }
+                                _ => break,
                             }
                         }
                         /* "Now r points to the first native_word_node of the run,
@@ -475,8 +470,8 @@ unsafe fn hlist_out(this_box: &mut List) {
                             k = 0;
                             let mut q = r_nw.ptr();
                             loop {
-                                if NODE_type(q) == TextNode::WhatsIt.into() {
-                                    match WhatsIt::from(q) {
+                                match Node::from(q) {
+                                    Node::Text(TxtNode::WhatsIt(q)) => match q {
                                         WhatsIt::NativeWord(q) => {
                                             for j in q.text() {
                                                 str_pool[pool_ptr as usize] = *j;
@@ -485,27 +480,31 @@ unsafe fn hlist_out(this_box: &mut List) {
                                             k += q.width();
                                         }
                                         _ => {}
-                                    }
-                                } else if NODE_type(q) == TextNode::Glue.into() {
-                                    let q = Glue(q);
-                                    str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
-                                    pool_ptr += 1;
-                                    let mut g = GlueSpec(q.glue_ptr() as usize);
-                                    k += g.size();
-                                    if g_sign != GlueSign::Normal {
-                                        if g_sign == GlueSign::Stretching {
-                                            if g.stretch_order() == g_order {
-                                                k += tex_round(
-                                                    this_box.glue_set() * g.stretch() as f64,
+                                    },
+                                    Node::Text(TxtNode::Glue(q)) => {
+                                        str_pool[pool_ptr as usize] =
+                                            ' ' as i32 as packed_UTF16_code;
+                                        pool_ptr += 1;
+                                        let mut g = GlueSpec(q.glue_ptr() as usize);
+                                        k += g.size();
+                                        if g_sign != GlueSign::Normal {
+                                            if g_sign == GlueSign::Stretching {
+                                                if g.stretch_order() == g_order {
+                                                    k += tex_round(
+                                                        this_box.glue_set() * g.stretch() as f64,
+                                                    )
+                                                }
+                                            } else if g.shrink_order() == g_order {
+                                                k -= tex_round(
+                                                    this_box.glue_set() * g.shrink() as f64,
                                                 )
                                             }
-                                        } else if g.shrink_order() == g_order {
-                                            k -= tex_round(this_box.glue_set() * g.shrink() as f64)
                                         }
                                     }
-                                } else if NODE_type(q) == TextNode::Kern.into() {
-                                    let q = Kern(q);
-                                    k += q.width();
+                                    Node::Text(TxtNode::Kern(q)) => {
+                                        k += q.width();
+                                    }
+                                    _ => {}
                                 }
                                 if q == p {
                                     break;
@@ -701,12 +700,10 @@ unsafe fn hlist_out(this_box: &mut List) {
             dvi_h = cur_h;
         } else {
             /*644: "Output the non-char_node `p` and move to the next node" */
-            let n = text_NODE_type(p).unwrap();
-            match n {
-                TextNode::HList | TextNode::VList => {
-                    let mut p = List::from(p);
+            match TxtNode::from(p) {
+                TxtNode::List(mut p) => {
                     if p.list_ptr().opt().is_none() {
-                        if n == TextNode::VList {
+                        if p.is_vertical() {
                             synctex_void_vlist(&p, this_box);
                         } else { synctex_void_hlist(&p, this_box); }
                         cur_h += p.width();
@@ -722,7 +719,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         if cur_dir == LR::RightToLeft {
                             cur_h = edge;
                         }
-                        if n == TextNode::VList {
+                        if p.is_vertical() {
                             vlist_out(&p);
                         } else { hlist_out(&mut p); }
                         dvi_h = save_h;
@@ -731,8 +728,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         cur_v = base_line
                     }
                 }
-                TextNode::Rule => {
-                    let mut p = Rule::from(p);
+                TxtNode::Rule(p) => {
                     rule_ht =
                         p.height();
                     rule_dp =
@@ -769,7 +765,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         synctex_horizontal_rule_or_glue(p.ptr(), this_box.ptr());
                     }
                 }
-                TextNode::WhatsIt => {
+                TxtNode::WhatsIt(p) => {
                     /*1407: "Output the whatsit node p in an hlist" */
                     unsafe fn out_font(f: usize) {
                         if cur_h != dvi_h {
@@ -804,7 +800,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                             dvi_f = f
                         }
                     }
-                    match WhatsIt::from(p) {
+                    match p {
                         WhatsIt::Glyph(g) => {
                             out_font(g.font() as usize);
                             dvi_out(SET_GLYPHS);
@@ -862,11 +858,10 @@ unsafe fn hlist_out(this_box: &mut List) {
                             pdf_last_y_pos =
                                 cur_page_height - cur_v - cur_v_offset
                         }
-                        _ => { out_what(p); }
+                        _ => { out_what(&p); }
                     }
                 }
-                TextNode::Glue => {
-                    let mut p = Glue(p);
+                TxtNode::Glue(mut p) => {
                     /*647: "Move right or output leaders" */
                     let mut g = GlueSpec(p.glue_ptr() as usize);
                     rule_wd =
@@ -925,104 +920,106 @@ unsafe fn hlist_out(this_box: &mut List) {
                         /*648: "Output leaders into an hlist, goto fin_rule if a
                          * rule or next_p if done." */
                         let leader_box = p.leader_ptr(); /* "compensate for floating-point rounding" ?? */
-                        if NODE_type(leader_box as usize) == TextNode::Rule.into() {
-                            let lb = Rule::from(leader_box as usize);
-                            rule_ht = lb.height();
-                            rule_dp = lb.depth();
-                            /*646: "Output a rule in an hlist" */
-                            if rule_ht == NULL_FLAG {
-                                rule_ht = this_box.height();
-                            }
-                            if rule_dp == NULL_FLAG {
-                                rule_dp = this_box.depth();
-                            }
-                            rule_ht += rule_dp;
-                            if rule_ht > 0 && rule_wd > 0 {
-                                if cur_h != dvi_h {
-                                    movement(cur_h - dvi_h, RIGHT1);
-                                    dvi_h = cur_h
+                        match &mut Node::from(leader_box as usize) {
+                            Node::Text(TxtNode::Rule(lb)) => {
+                                rule_ht = lb.height();
+                                rule_dp = lb.depth();
+                                /*646: "Output a rule in an hlist" */
+                                if rule_ht == NULL_FLAG {
+                                    rule_ht = this_box.height();
                                 }
-                                cur_v = base_line + rule_dp;
-                                if cur_v != dvi_v {
-                                    movement(cur_v - dvi_v, DOWN1);
-                                    dvi_v = cur_v
+                                if rule_dp == NULL_FLAG {
+                                    rule_dp = this_box.depth();
                                 }
-                                dvi_out(SET_RULE);
-                                dvi_four(rule_ht);
-                                dvi_four(rule_wd);
-                                cur_v = base_line;
-                                dvi_h += rule_wd;
-                            }
-                        } else {
-                            let mut lb = List::from(leader_box as usize);
-                            let leader_wd = lb.width();
-                            if leader_wd > 0 && rule_wd > 0 {
-                                rule_wd += 10;
-                                if cur_dir == LR::RightToLeft {
-                                    cur_h -= 10;
-                                }
-                                let edge = cur_h + rule_wd;
-                                let mut lx = 0;
-                                /*649: "Let cur_h be the position of the first pox,
-                                 * and set leader_wd + lx to the spacing between
-                                 * corresponding parts of boxes". Additional
-                                 * explanator comments in XTTP. */
-                                if p.param() == A_LEADERS {
-                                    let save_h = cur_h;
-                                    cur_h = left_edge + leader_wd * ((cur_h - left_edge) / leader_wd);
-                                    if cur_h < save_h {
-                                        cur_h = cur_h + leader_wd
-                                    }
-                                } else {
-                                    let lq = rule_wd / leader_wd;
-                                    let lr = rule_wd % leader_wd;
-                                    if p.param() == C_LEADERS {
-                                        cur_h = cur_h + lr / 2;
-                                    } else {
-                                        lx = lr / (lq + 1);
-                                        cur_h = cur_h + (lr - (lq - 1) * lx) / 2;
-                                    }
-                                }
-
-                                while cur_h + leader_wd <= edge {
-                                    /*650: "Output a leader box at cur_h, then advance cur_h by leader_wd + lx" */
-                                    cur_v = base_line + lb.shift_amount();
-                                    if cur_v != dvi_v {
-                                        movement(cur_v - dvi_v, DOWN1);
-                                        dvi_v = cur_v
-                                    }
-                                    let save_v = dvi_v;
+                                rule_ht += rule_dp;
+                                if rule_ht > 0 && rule_wd > 0 {
                                     if cur_h != dvi_h {
                                         movement(cur_h - dvi_h, RIGHT1);
                                         dvi_h = cur_h
                                     }
-                                    let save_h = dvi_h;
-                                    if cur_dir == LR::RightToLeft {
-                                        cur_h += leader_wd;
+                                    cur_v = base_line + rule_dp;
+                                    if cur_v != dvi_v {
+                                        movement(cur_v - dvi_v, DOWN1);
+                                        dvi_v = cur_v
                                     }
-                                    let outer_doing_leaders = doing_leaders;
-                                    doing_leaders = true;
-                                    if NODE_type(leader_box as usize) == TextNode::VList.into() {
-                                        vlist_out(&lb);
-                                    } else {
-                                        hlist_out(&mut lb);
-                                    }
-                                    doing_leaders = outer_doing_leaders;
-                                    dvi_v = save_v;
-                                    dvi_h = save_h;
+                                    dvi_out(SET_RULE);
+                                    dvi_four(rule_ht);
+                                    dvi_four(rule_wd);
                                     cur_v = base_line;
-                                    cur_h = save_h + leader_wd + lx
+                                    dvi_h += rule_wd;
                                 }
-
-                                if cur_dir == LR::RightToLeft {
-                                    cur_h = edge;
-                                } else {
-                                    cur_h = edge - 10;
-                                }
-                                prev_p = p.ptr();
-                                popt = llist_link(p.ptr());
-                                continue;
                             }
+                            Node::Text(TxtNode::List(lb)) => {
+                                let leader_wd = lb.width();
+                                if leader_wd > 0 && rule_wd > 0 {
+                                    rule_wd += 10;
+                                    if cur_dir == LR::RightToLeft {
+                                        cur_h -= 10;
+                                    }
+                                    let edge = cur_h + rule_wd;
+                                    let mut lx = 0;
+                                    /*649: "Let cur_h be the position of the first pox,
+                                     * and set leader_wd + lx to the spacing between
+                                     * corresponding parts of boxes". Additional
+                                     * explanator comments in XTTP. */
+                                    if p.param() == A_LEADERS {
+                                        let save_h = cur_h;
+                                        cur_h = left_edge + leader_wd * ((cur_h - left_edge) / leader_wd);
+                                        if cur_h < save_h {
+                                            cur_h = cur_h + leader_wd
+                                        }
+                                    } else {
+                                        let lq = rule_wd / leader_wd;
+                                        let lr = rule_wd % leader_wd;
+                                        if p.param() == C_LEADERS {
+                                            cur_h = cur_h + lr / 2;
+                                        } else {
+                                            lx = lr / (lq + 1);
+                                            cur_h = cur_h + (lr - (lq - 1) * lx) / 2;
+                                        }
+                                    }
+
+                                    while cur_h + leader_wd <= edge {
+                                        /*650: "Output a leader box at cur_h, then advance cur_h by leader_wd + lx" */
+                                        cur_v = base_line + lb.shift_amount();
+                                        if cur_v != dvi_v {
+                                            movement(cur_v - dvi_v, DOWN1);
+                                            dvi_v = cur_v
+                                        }
+                                        let save_v = dvi_v;
+                                        if cur_h != dvi_h {
+                                            movement(cur_h - dvi_h, RIGHT1);
+                                            dvi_h = cur_h
+                                        }
+                                        let save_h = dvi_h;
+                                        if cur_dir == LR::RightToLeft {
+                                            cur_h += leader_wd;
+                                        }
+                                        let outer_doing_leaders = doing_leaders;
+                                        doing_leaders = true;
+                                        if lb.is_vertical() {
+                                            vlist_out(lb);
+                                        } else {
+                                            hlist_out(lb);
+                                        }
+                                        doing_leaders = outer_doing_leaders;
+                                        dvi_v = save_v;
+                                        dvi_h = save_h;
+                                        cur_v = base_line;
+                                        cur_h = save_h + leader_wd + lx
+                                    }
+
+                                    if cur_dir == LR::RightToLeft {
+                                        cur_h = edge;
+                                    } else {
+                                        cur_h = edge - 10;
+                                    }
+                                    prev_p = p.ptr();
+                                    popt = llist_link(p.ptr());
+                                    continue;
+                                }
+                            }
+                            _ => {}
                         }
                     }
 
@@ -1030,19 +1027,16 @@ unsafe fn hlist_out(this_box: &mut List) {
                     cur_h += rule_wd; /* end GLUE_NODE case */
                     synctex_horizontal_rule_or_glue(p.ptr(), this_box.ptr());
                 }
-                TextNode::MarginKern => {
-                    let p = MarginKern(p);
+                TxtNode::MarginKern(p) => {
                     cur_h +=
                         p.width();
                 }
-                TextNode::Kern => {
-                    let p = Kern(p);
+                TxtNode::Kern(p) => {
                     synctex_kern(p.ptr(), this_box.ptr());
                     cur_h +=
                         p.width();
                 }
-                TextNode::Math => {
-                    let p = Math(p);
+                TxtNode::Math(p) => {
                     synctex_math(p.ptr(), this_box.ptr());
                     /* 1504: "Adjust the LR stack...; if necessary reverse and
                      * hlist segment and goto reswitch." "Breaking a paragraph
@@ -1097,8 +1091,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                     let p = Kern(p.ptr());
                     cur_h += p.width();
                 }
-                TextNode::Ligature => {
-                    let l = Ligature(p);
+                TxtNode::Ligature(l) => {
                     /* 675: "Make node p look like a char_node and goto reswitch" */
                     let mut c = Char(LIG_TRICK);
                     c.set_character(l.char());
@@ -1108,8 +1101,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                     xtx_ligature_present = true;
                     continue;
                 }
-                EDGE_NODE => {
-                    let p = Edge(p);
+                TxtNode::Style(p) => {
                     /*1507: "Cases of hlist_out that arise in mixed direction text only" */
                     cur_h +=
                         p.width();
@@ -1202,10 +1194,8 @@ unsafe fn vlist_out(this_box: &List) {
             confusion("vlistout");
         }
         /*653: "Output the non-char_node p" */
-        let n = text_NODE_type(p).unwrap();
-        match n {
-            TextNode::HList | TextNode::VList => {
-                let mut p = List::from(p);
+        match &mut TxtNode::from(p) {
+            TxtNode::List(mut p) => {
                 /*654: "Output a box in a vlist" */
                 if p.list_ptr().opt().is_none() {
                     if upwards {
@@ -1213,7 +1203,7 @@ unsafe fn vlist_out(this_box: &List) {
                     } else {
                         cur_v += p.height();
                     }
-                    if n == TextNode::VList {
+                    if p.is_vertical() {
                         synctex_void_vlist(&p, this_box);
                     } else {
                         synctex_void_hlist(&p, this_box);
@@ -1240,7 +1230,7 @@ unsafe fn vlist_out(this_box: &List) {
                     } else {
                         cur_h = left_edge + p.shift_amount();
                     }
-                    if n == TextNode::VList {
+                    if p.is_vertical() {
                         vlist_out(&p);
                     } else {
                         hlist_out(&mut p);
@@ -1255,8 +1245,7 @@ unsafe fn vlist_out(this_box: &List) {
                     cur_h = left_edge
                 }
             }
-            TextNode::Rule => {
-                let r = Rule::from(p);
+            TxtNode::Rule(r) => {
                 rule_ht = r.height();
                 rule_dp = r.depth();
                 rule_wd = r.width();
@@ -1292,68 +1281,65 @@ unsafe fn vlist_out(this_box: &List) {
                     cur_h = left_edge
                 }
             }
-            TextNode::WhatsIt => {
+            TxtNode::WhatsIt(p) => match p {
                 /*1403: "Output the whatsit node p in a vlist" */
-                match WhatsIt::from(p) {
-                    WhatsIt::Glyph(g) => {
-                        cur_v = cur_v + g.height();
-                        cur_h = left_edge;
-                        if cur_h != dvi_h {
-                            movement(cur_h - dvi_h, RIGHT1);
-                            dvi_h = cur_h
+                WhatsIt::Glyph(g) => {
+                    cur_v = cur_v + g.height();
+                    cur_h = left_edge;
+                    if cur_h != dvi_h {
+                        movement(cur_h - dvi_h, RIGHT1);
+                        dvi_h = cur_h
+                    }
+                    if cur_v != dvi_v {
+                        movement(cur_v - dvi_v, DOWN1);
+                        dvi_v = cur_v
+                    }
+                    let f = g.font() as usize;
+                    if f != dvi_f {
+                        /*643:*/
+                        if !font_used[f] {
+                            dvi_font_def(f); /* width */
+                            font_used[f] = true
+                        } /* glyph count */
+                        if f <= 64 {
+                            dvi_out((f + 170) as u8); /* x offset as fixed-point */
+                        } else if f <= 256 {
+                            dvi_out(FNT1); /* y offset as fixed-point */
+                            dvi_out((f - 1) as u8);
+                        } else {
+                            dvi_out(FNT1 + 1);
+                            dvi_out(((f - 1) / 256) as u8);
+                            dvi_out(((f - 1) % 256) as u8);
                         }
-                        if cur_v != dvi_v {
-                            movement(cur_v - dvi_v, DOWN1);
-                            dvi_v = cur_v
-                        }
-                        let f = g.font() as usize;
-                        if f != dvi_f {
-                            /*643:*/
-                            if !font_used[f] {
-                                dvi_font_def(f); /* width */
-                                font_used[f] = true
-                            } /* glyph count */
-                            if f <= 64 {
-                                dvi_out((f + 170) as u8); /* x offset as fixed-point */
-                            } else if f <= 256 {
-                                dvi_out(FNT1); /* y offset as fixed-point */
-                                dvi_out((f - 1) as u8);
-                            } else {
-                                dvi_out(FNT1 + 1);
-                                dvi_out(((f - 1) / 256) as u8);
-                                dvi_out(((f - 1) % 256) as u8);
-                            }
-                            dvi_f = f
-                        }
-                        dvi_out(SET_GLYPHS);
-                        dvi_four(0); /* width */
-                        dvi_two(1 as UTF16_code); /* glyph count */
-                        dvi_four(0); /* x offset as fixed-point */
-                        dvi_four(0); /* y offset as fixed-point */
-                        dvi_two(g.glyph());
+                        dvi_f = f
+                    }
+                    dvi_out(SET_GLYPHS);
+                    dvi_four(0); /* width */
+                    dvi_two(1 as UTF16_code); /* glyph count */
+                    dvi_four(0); /* x offset as fixed-point */
+                    dvi_four(0); /* y offset as fixed-point */
+                    dvi_two(g.glyph());
 
-                        cur_v += g.depth();
-                        cur_h = left_edge;
-                    }
-                    WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
-                        let save_h = dvi_h;
-                        let save_v = dvi_v;
-                        cur_v = cur_v + p.height();
-                        pic_out(&p);
-                        dvi_h = save_h;
-                        dvi_v = save_v;
-                        cur_v = save_v + p.depth();
-                        cur_h = left_edge;
-                    }
-                    WhatsIt::PdfSavePos(_) => {
-                        pdf_last_x_pos = cur_h + cur_h_offset;
-                        pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
-                    }
-                    _ => out_what(p),
+                    cur_v += g.depth();
+                    cur_h = left_edge;
                 }
-            }
-            TextNode::Glue => {
-                let p = Glue(p);
+                WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
+                    let save_h = dvi_h;
+                    let save_v = dvi_v;
+                    cur_v = cur_v + p.height();
+                    pic_out(&p);
+                    dvi_h = save_h;
+                    dvi_v = save_v;
+                    cur_v = save_v + p.depth();
+                    cur_h = left_edge;
+                }
+                WhatsIt::PdfSavePos(_) => {
+                    pdf_last_x_pos = cur_h + cur_h_offset;
+                    pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
+                }
+                _ => out_what(p),
+            },
+            TxtNode::Glue(p) => {
                 /*656: "Move down or output leaders" */
                 let g = GlueSpec(p.glue_ptr() as usize);
                 rule_ht = g.size() - cur_g;
@@ -1385,112 +1371,115 @@ unsafe fn vlist_out(this_box: &List) {
                      * or next_p if done" */
                     let leader_box = p.leader_ptr() as usize; /* "compensate for floating-point rounding" */
 
-                    if NODE_type(leader_box) == TextNode::Rule.into() {
-                        rule_wd = Rule::from(leader_box).width();
-                        rule_dp = 0;
-                        // 655: "Output a rule in a vlist, goto next_p
+                    match &mut TxtNode::from(leader_box) {
+                        TxtNode::Rule(r) => {
+                            rule_wd = r.width();
+                            rule_dp = 0;
+                            // 655: "Output a rule in a vlist, goto next_p
 
-                        if rule_wd == NULL_FLAG {
-                            rule_wd = this_box.width();
-                        }
-
-                        rule_ht += rule_dp;
-
-                        if upwards {
-                            cur_v -= rule_ht
-                        } else {
-                            cur_v += rule_ht
-                        }
-
-                        if rule_ht > 0 && rule_wd > 0 {
-                            if cur_dir == LR::RightToLeft {
-                                cur_h -= rule_wd
+                            if rule_wd == NULL_FLAG {
+                                rule_wd = this_box.width();
                             }
-                            if cur_h != dvi_h {
-                                movement(cur_h - dvi_h, RIGHT1);
-                                dvi_h = cur_h
-                            }
-                            if cur_v != dvi_v {
-                                movement(cur_v - dvi_v, DOWN1);
-                                dvi_v = cur_v
-                            }
-                            dvi_out(PUT_RULE);
-                            dvi_four(rule_ht);
-                            dvi_four(rule_wd);
-                            cur_h = left_edge;
-                        }
-                        popt = llist_link(p.ptr());
-                        continue;
-                    } else {
-                        let mut lb = List::from(leader_box);
-                        let leader_ht = lb.height() + lb.depth();
-                        if leader_ht > 0i32 && rule_ht > 0i32 {
-                            rule_ht += 10i32;
-                            let edge = cur_v + rule_ht;
-                            let mut lx = 0;
-                            /*658: "Let cur_v be the position of the first box,
-                             * and set leader_ht + lx to the spacing between
-                             * corresponding parts of boxes" */
-                            if p.param() == A_LEADERS {
-                                let save_v = cur_v;
-                                cur_v = top_edge + leader_ht * ((cur_v - top_edge) / leader_ht);
-                                if cur_v < save_v {
-                                    cur_v = cur_v + leader_ht
-                                }
+
+                            rule_ht += rule_dp;
+
+                            if upwards {
+                                cur_v -= rule_ht
                             } else {
-                                let lq = rule_ht / leader_ht;
-                                let lr = rule_ht % leader_ht;
-                                if p.param() == C_LEADERS {
-                                    cur_v = cur_v + lr / 2;
-                                } else {
-                                    lx = lr / (lq + 1);
-                                    cur_v = cur_v + (lr - (lq - 1) * lx) / 2;
-                                }
+                                cur_v += rule_ht
                             }
 
-                            while cur_v + leader_ht <= edge {
-                                /*659: "Output a leader box at cur_v, then advance
-                                 * cur_v by leader_ht + lx". "When we reach this
-                                 * part of the program, cur_v indicates the top of
-                                 * a leader box, not its baseline." */
+                            if rule_ht > 0 && rule_wd > 0 {
                                 if cur_dir == LR::RightToLeft {
-                                    cur_h = left_edge - lb.shift_amount();
-                                } else {
-                                    cur_h = left_edge + lb.shift_amount();
+                                    cur_h -= rule_wd
                                 }
                                 if cur_h != dvi_h {
                                     movement(cur_h - dvi_h, RIGHT1);
                                     dvi_h = cur_h
                                 }
-
-                                let save_h = dvi_h;
-                                cur_v += lb.height();
-
                                 if cur_v != dvi_v {
                                     movement(cur_v - dvi_v, DOWN1);
                                     dvi_v = cur_v
                                 }
-
-                                let save_v = dvi_v;
-                                let outer_doing_leaders = doing_leaders;
-                                doing_leaders = true;
-
-                                if NODE_type(leader_box) == TextNode::VList.into() {
-                                    vlist_out(&lb);
-                                } else {
-                                    hlist_out(&mut lb);
-                                }
-
-                                doing_leaders = outer_doing_leaders;
-                                dvi_v = save_v;
-                                dvi_h = save_h;
+                                dvi_out(PUT_RULE);
+                                dvi_four(rule_ht);
+                                dvi_four(rule_wd);
                                 cur_h = left_edge;
-                                cur_v = save_v - lb.height() + leader_ht + lx
                             }
-                            cur_v = edge - 10;
                             popt = llist_link(p.ptr());
                             continue;
                         }
+                        TxtNode::List(lb) => {
+                            let leader_ht = lb.height() + lb.depth();
+                            if leader_ht > 0i32 && rule_ht > 0i32 {
+                                rule_ht += 10i32;
+                                let edge = cur_v + rule_ht;
+                                let mut lx = 0;
+                                /*658: "Let cur_v be the position of the first box,
+                                 * and set leader_ht + lx to the spacing between
+                                 * corresponding parts of boxes" */
+                                if p.param() == A_LEADERS {
+                                    let save_v = cur_v;
+                                    cur_v = top_edge + leader_ht * ((cur_v - top_edge) / leader_ht);
+                                    if cur_v < save_v {
+                                        cur_v = cur_v + leader_ht
+                                    }
+                                } else {
+                                    let lq = rule_ht / leader_ht;
+                                    let lr = rule_ht % leader_ht;
+                                    if p.param() == C_LEADERS {
+                                        cur_v = cur_v + lr / 2;
+                                    } else {
+                                        lx = lr / (lq + 1);
+                                        cur_v = cur_v + (lr - (lq - 1) * lx) / 2;
+                                    }
+                                }
+
+                                while cur_v + leader_ht <= edge {
+                                    /*659: "Output a leader box at cur_v, then advance
+                                     * cur_v by leader_ht + lx". "When we reach this
+                                     * part of the program, cur_v indicates the top of
+                                     * a leader box, not its baseline." */
+                                    if cur_dir == LR::RightToLeft {
+                                        cur_h = left_edge - lb.shift_amount();
+                                    } else {
+                                        cur_h = left_edge + lb.shift_amount();
+                                    }
+                                    if cur_h != dvi_h {
+                                        movement(cur_h - dvi_h, RIGHT1);
+                                        dvi_h = cur_h
+                                    }
+
+                                    let save_h = dvi_h;
+                                    cur_v += lb.height();
+
+                                    if cur_v != dvi_v {
+                                        movement(cur_v - dvi_v, DOWN1);
+                                        dvi_v = cur_v
+                                    }
+
+                                    let save_v = dvi_v;
+                                    let outer_doing_leaders = doing_leaders;
+                                    doing_leaders = true;
+
+                                    if lb.is_vertical() {
+                                        vlist_out(lb);
+                                    } else {
+                                        hlist_out(lb);
+                                    }
+
+                                    doing_leaders = outer_doing_leaders;
+                                    dvi_v = save_v;
+                                    dvi_h = save_h;
+                                    cur_h = left_edge;
+                                    cur_v = save_v - lb.height() + leader_ht + lx
+                                }
+                                cur_v = edge - 10;
+                                popt = llist_link(p.ptr());
+                                continue;
+                            }
+                        }
+                        _ => unreachable!(),
                     }
                 }
                 if upwards {
@@ -1499,8 +1488,7 @@ unsafe fn vlist_out(this_box: &List) {
                     cur_v += rule_ht
                 }
             }
-            TextNode::Kern => {
-                let k = Kern(p);
+            TxtNode::Kern(k) => {
                 if upwards {
                     cur_v -= k.width();
                 } else {
@@ -1568,20 +1556,17 @@ unsafe fn reverse(
             } else {
                 let mut add_rule = true;
                 let q = *LLIST_link(p);
-                match text_NODE_type(p).unwrap() {
-                    TextNode::HList | TextNode::VList => {
-                        let p = List::from(p);
+                match TxtNode::from(p) {
+                    TxtNode::List(p) => {
                         rule_wd = p.width();
                     }
-                    TextNode::Rule => {
-                        let p = Rule::from(p);
+                    TxtNode::Rule(p) => {
                         rule_wd = p.width();
                     }
-                    TextNode::Kern => {
-                        let p = Kern(p);
+                    TxtNode::Kern(p) => {
                         rule_wd = p.width();
                     }
-                    TextNode::WhatsIt => match WhatsIt::from(p) {
+                    TxtNode::WhatsIt(p) => match p {
                         WhatsIt::NativeWord(p) => {
                             rule_wd = p.width();
                         }
@@ -1593,8 +1578,7 @@ unsafe fn reverse(
                         }
                         _ => add_rule = false,
                     },
-                    TextNode::Glue => {
-                        let mut p = Glue(p);
+                    TxtNode::Glue(mut p) => {
                         /*1486: "Handle a glue node for mixed direction typesetting" */
                         let mut g = GlueSpec(p.glue_ptr() as usize); /* "will never match" */
                         rule_wd = g.size() - *cur_g; /* = mem[char(tmp_ptr)] */
@@ -1648,8 +1632,7 @@ unsafe fn reverse(
                             }
                         }
                     }
-                    TextNode::Ligature => {
-                        let tmp_ptr = Ligature(p);
+                    TxtNode::Ligature(tmp_ptr) => {
                         flush_node_list(tmp_ptr.lig_ptr().opt());
                         let mut p = Ligature(get_avail());
                         p.set_char(tmp_ptr.char())
@@ -1660,8 +1643,7 @@ unsafe fn reverse(
                         tmp_ptr.free();
                         continue;
                     }
-                    TextNode::Math => {
-                        let mut p = Math(p);
+                    TxtNode::Math(mut p) => {
                         /*1516: "Math nodes in an inner reflected segment are
                          * modified, those at the outer level are changed into
                          * kern nodes." */
@@ -1719,7 +1701,7 @@ unsafe fn reverse(
                             }
                         }
                     }
-                    EDGE_NODE => confusion("LR2"),
+                    TxtNode::Style(_) => confusion("LR2"),
                     _ => add_rule = false,
                 }
 
@@ -1730,9 +1712,9 @@ unsafe fn reverse(
                 // next_p
                 *LLIST_link(p) = l.tex_int();
                 let mut pp = Some(p);
-                if text_NODE_type(p) == TextNode::Kern.into() {
+                if let TxtNode::Kern(k) = TxtNode::from(p) {
                     if rule_wd == 0 || l.is_none() {
-                        free_node(p, MEDIUM_NODE_SIZE);
+                        k.free();
                         pp = l
                     }
                 }
@@ -1758,9 +1740,9 @@ pub(crate) unsafe fn new_edge(s: LR, w: scaled_t) -> usize {
     p.ptr()
 }
 
-pub(crate) unsafe fn out_what(p: usize) {
+pub(crate) unsafe fn out_what(p: &WhatsIt) {
     let mut j: i16;
-    match WhatsIt::from(p) {
+    match p {
         WhatsIt::Open(p) => {
             if doing_leaders {
                 return;

@@ -112,8 +112,7 @@ pub(crate) const EDGE_NODE: TextNode = TextNode::Style;
 
 #[derive(Clone, Debug)]
 pub(crate) enum TxtNode {
-    HList(List),
-    VList(List),
+    List(List),
     Rule(Rule),
     Ins(Insertion),
     Mark(Mark),
@@ -132,11 +131,10 @@ pub(crate) enum TxtNode {
 }
 
 impl TxtNode {
-    pub(crate) unsafe fn from(p: usize) -> Self {
-        let n = MEM[p].b16.s1;
+    pub(crate) fn from(p: usize) -> Self {
+        let n = unsafe { MEM[p].b16.s1 };
         match n {
-            0 => Self::HList(List::from(p)),
-            1 => Self::VList(List::from(p)),
+            0 | 1 => Self::List(List::from(p)),
             2 => Self::Rule(Rule::from(p)),
             3 => Self::Ins(Insertion(p)),
             4 => Self::Mark(Mark(p)),
@@ -153,6 +151,32 @@ impl TxtNode {
             15 => Self::Choice(Choice(p)),
             40 => Self::MarginKern(MarginKern(p)),
             _ => panic!(format!("Incorrect Text mode Node Type = {}", n)),
+        }
+    }
+    pub(crate) unsafe fn get_type_num(&self) -> u16 {
+        match self {
+            Self::List(b) => {
+                if b.is_horizontal() {
+                    0
+                } else {
+                    1
+                }
+            }
+            Self::Rule(_) => 2,
+            Self::Ins(_) => 3,
+            Self::Mark(_) => 4,
+            Self::Adjust(_) => 5,
+            Self::Ligature(_) => 6,
+            Self::Disc(_) => 7,
+            Self::WhatsIt(_) => 8,
+            Self::Math(_) => 9,
+            Self::Glue(_) => 10,
+            Self::Kern(_) => 11,
+            Self::Penalty(_) => 12,
+            Self::Unset(_) => 13,
+            Self::Style(_) => 14,
+            Self::Choice(_) => 15,
+            Self::MarginKern(_) => 40,
         }
     }
 }
@@ -183,8 +207,8 @@ pub(crate) mod whatsit {
     }
 
     impl WhatsIt {
-        pub(crate) unsafe fn from(p: usize) -> Self {
-            let n = MEM[p].b16.s0;
+        pub(crate) fn from(p: usize) -> Self {
+            let n = unsafe { MEM[p].b16.s0 };
             match n {
                 0 => Self::Open(OpenFile(p)),
                 1 => Self::Write(WriteFile(p)),
@@ -985,7 +1009,7 @@ impl List {
         Self(BaseBox(p))
     }
     pub(crate) unsafe fn is_empty(&self) -> bool {
-        self.list_dir() == ListDir::Horizontal
+        self.is_horizontal()
             && self.width() == 0
             && self.height() == 0
             && self.depth() == 0
@@ -1002,8 +1026,22 @@ impl List {
     pub(crate) unsafe fn list_dir(&self) -> ListDir {
         ListDir::from(MEM[self.ptr()].b16.s1)
     }
+    pub(crate) unsafe fn is_horizontal(&self) -> bool {
+        self.list_dir() == ListDir::Horizontal
+    }
+    pub(crate) unsafe fn is_vertical(&self) -> bool {
+        self.list_dir() == ListDir::Vertical
+    }
     pub(crate) unsafe fn set_list_dir(&mut self, dir: ListDir) -> &mut Self {
         MEM[self.ptr()].b16.s1 = dir as u16;
+        self
+    }
+    pub(crate) unsafe fn set_horizontal(&mut self) -> &mut Self {
+        self.set_list_dir(ListDir::Horizontal);
+        self
+    }
+    pub(crate) unsafe fn set_vertical(&mut self) -> &mut Self {
+        self.set_list_dir(ListDir::Vertical);
         self
     }
     pub(crate) unsafe fn shift_amount(&self) -> i32 {

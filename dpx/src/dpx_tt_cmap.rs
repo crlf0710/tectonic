@@ -581,7 +581,7 @@ unsafe fn load_cmap4(
             }; /* LONG ? */
             if gid as i32 != 0i32 && gid as i32 != 0xffffi32 {
                 if !gsub_list.is_null() {
-                    otl_gsub_apply_chain(gsub_list, &mut gid);
+                    otl_gsub_apply_chain(&*gsub_list, &mut gid);
                 }
                 if !gsub_vert.is_null() {
                     otl_gsub_apply(gsub_vert, &mut gid);
@@ -641,7 +641,7 @@ unsafe fn load_cmap12(
                 .wrapping_add(d as u32)
                 & 0xffff_u32) as u16;
             if !gsub_list.is_null() {
-                otl_gsub_apply_chain(gsub_list, &mut gid);
+                otl_gsub_apply_chain(&*gsub_list, &mut gid);
             }
             if !gsub_vert.is_null() {
                 otl_gsub_apply(gsub_vert, &mut gid);

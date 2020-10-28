@@ -199,7 +199,7 @@ pub(crate) unsafe fn init_math() {
                         found = true;
                     }
                     CharOrText::Text(n) => match n {
-                        TxtNode::HList(b) | TxtNode::VList(b) => {
+                        TxtNode::List(b) => {
                             d = b.width();
                             found = true;
                         }
@@ -1523,25 +1523,24 @@ unsafe fn clean_box(p: &MCell, s: (MathStyle, u8)) -> List {
     cur_mu = x_over_n(math_quad(cur_size), 18);
 
     unsafe fn found(q: i32) -> List {
-        let x = if is_char_node(q.opt()) || q.opt().is_none() {
-            hpack(q.opt(), 0, PackMode::Additional)
-        } else if LLIST_link(q as usize).opt().is_none()
-            && [TextNode::HList.into(), TextNode::VList.into()].contains(&NODE_type(q as usize))
-            && List::from(q as usize).shift_amount() == 0
-        {
-            List::from(q as usize)
-        } else {
-            hpack(q.opt(), 0, PackMode::Additional)
+        let x = match q.opt() {
+            None => hpack(None, 0, PackMode::Additional),
+            Some(q) => match Node::from(q) {
+                Node::Text(TxtNode::List(b))
+                    if b.shift_amount() == 0 && LLIST_link(q as usize).opt().is_none() =>
+                {
+                    b
+                }
+                _ => hpack(Some(q), 0, PackMode::Additional),
+            },
         };
         let q = x.list_ptr();
         if is_char_node(q.opt()) {
             if let Some(r) = LLIST_link(q as usize).opt() {
                 if llist_link(r).is_none() {
-                    if !is_char_node(Some(r)) {
-                        if NODE_type(r) == TextNode::Kern.into() {
-                            free_node(r, MEDIUM_NODE_SIZE);
-                            *LLIST_link(q as usize) = None.tex_int()
-                        }
+                    if let CharOrText::Text(TxtNode::Kern(k)) = CharOrText::from(r) {
+                        k.free();
+                        *LLIST_link(q as usize) = None.tex_int();
                     }
                 }
             }
@@ -1612,13 +1611,14 @@ unsafe fn make_under(q: &mut Under) {
     q.first_mut().set_subbox(y);
 }
 unsafe fn make_vcenter(q: usize) {
-    if let Node::Text(TxtNode::VList(v)) = &mut Node::from(MEM[q + 1].b32.s0 as usize) {
-        let delta = v.height() + v.depth();
-        v.set_height(axis_height(cur_size) + half(delta));
-        let d = v.height();
-        v.set_depth(delta - d);
-    } else {
-        confusion("vcenter");
+    match &mut Node::from(MEM[q + 1].b32.s0 as usize) {
+        Node::Text(TxtNode::List(v)) if v.is_vertical() => {
+            let delta = v.height() + v.depth();
+            v.set_height(axis_height(cur_size) + half(delta));
+            let d = v.height();
+            v.set_depth(delta - d);
+        }
+        _ => confusion("vcenter"),
     }
 }
 unsafe fn make_radical(q: &mut Radical) {
@@ -1824,7 +1824,8 @@ unsafe fn make_math_accent(q: &mut Accent) {
                         ot_assembly_ptr = get_ot_assembly_ptr(f, c, 1);
                         if !ot_assembly_ptr.is_null() {
                             free_node(p.ptr(), GLYPH_NODE_SIZE);
-                            let b = build_opentype_assembly(f, ot_assembly_ptr, w, true);
+                            let b =
+                                build_opentype_assembly(f, ot_assembly_ptr, w, ListDir::Horizontal);
                             y.set_list_ptr(Some(b.ptr()).tex_int());
                             (b.ptr(), (b.width(), b.height(), b.depth()))
                         } else {
@@ -1995,7 +1996,7 @@ unsafe fn make_fraction(q: &mut Fraction) {
         }
     }
     let mut v = List::from(new_null_box());
-    v.set_list_dir(ListDir::Vertical);
+    v.set_vertical();
     v.set_height(shift_up + x.height())
         .set_depth(z.depth() + shift_down)
         .set_width(x.width());
@@ -2087,8 +2088,12 @@ unsafe fn make_op(q: &mut Operator) -> scaled_t {
                                 ot_assembly_ptr = get_ot_assembly_ptr(cur_f, c as i32, 0);
                                 if !ot_assembly_ptr.is_null() {
                                     free_node(p.ptr(), GLYPH_NODE_SIZE);
-                                    let b =
-                                        build_opentype_assembly(cur_f, ot_assembly_ptr, h1, false);
+                                    let b = build_opentype_assembly(
+                                        cur_f,
+                                        ot_assembly_ptr,
+                                        h1,
+                                        ListDir::Vertical,
+                                    );
                                     x.set_list_ptr(Some(b.ptr()).tex_int());
                                     delta = 0;
                                     width = b.width();
@@ -2144,7 +2149,7 @@ unsafe fn make_op(q: &mut Operator) -> scaled_t {
             ),
         );
         let mut v = List::from(new_null_box());
-        v.set_list_dir(ListDir::Vertical);
+        v.set_vertical();
         v.set_width((y.width()).max(x.width()).max(z.width()));
         let mut x = rebox(x, v.width());
         let y = rebox(y, v.width());
@@ -2204,8 +2209,8 @@ unsafe fn make_ord(q: &mut Ord) {
             break;
         }
         let mut p = p.unwrap();
-        match NODE_type(p) {
-            ND::Math(m) => match m {
+        match Node::from(p) {
+            Node::Math(m) => match m {
                 MathNode::Ord
                 | MathNode::Op
                 | MathNode::Bin
@@ -3142,10 +3147,10 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
         match &FONT_LAYOUT_ENGINE[f] {
             Font::Native(Otgr(e)) if e.using_open_type() => {
                 if !ot_assembly_ptr.is_null() {
-                    build_opentype_assembly(f, ot_assembly_ptr, v, false)
+                    build_opentype_assembly(f, ot_assembly_ptr, v, ListDir::Vertical)
                 } else {
                     let mut b = List::from(new_null_box());
-                    b.set_list_dir(ListDir::Vertical);
+                    b.set_vertical();
                     let mut g = Glyph::new_node();
                     b.set_list_ptr(g.ptr() as i32);
                     g.set_font(f as u16).set_glyph(c);
@@ -3161,7 +3166,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: scaled_t) -> usize {
                 if q.s1 as i32 % 4 == EXT_TAG {
                     /*739: */
                     let mut b = List::from(new_null_box());
-                    b.set_list_dir(ListDir::Vertical);
+                    b.set_vertical();
                     let r = FONT_INFO[(EXTEN_BASE[f] + q.s0 as i32) as usize].b16;
                     c = r.s0;
                     u = height_plus_depth(f, c);
@@ -3289,7 +3294,7 @@ unsafe fn stack_glyph_into_box(b: &mut List, mut f: internal_font_number, mut g:
     let mut p = Glyph::new_node();
     p.set_font(f as u16).set_glyph(g as u16);
     p.set_metrics(true);
-    if b.list_dir() == ListDir::Horizontal {
+    if b.is_horizontal() {
         if let Some(mut q) = b.list_ptr().opt() {
             while let Some(next) = llist_link(q) {
                 q = next;
@@ -3314,7 +3319,7 @@ unsafe fn stack_glue_into_box(b: &mut List, mut min: scaled_t, mut max: scaled_t
     let q = new_spec(0);
     GlueSpec(q).set_size(min).set_stretch(max - min);
     let p = new_glue(q);
-    if b.list_dir() == ListDir::Horizontal {
+    if b.is_horizontal() {
         if let Some(mut q) = b.list_ptr().opt() {
             while let Some(next) = llist_link(q) {
                 q = next;
@@ -3334,14 +3339,10 @@ unsafe fn build_opentype_assembly(
     mut f: internal_font_number,
     mut a: *mut libc::c_void,
     mut s: scaled_t,
-    mut horiz: bool,
+    dir: ListDir,
 ) -> List {
     let mut b = List::from(new_null_box());
-    b.set_list_dir(if horiz {
-        ListDir::Horizontal
-    } else {
-        ListDir::Vertical
-    });
+    b.set_list_dir(dir);
     let mut n = -1;
     let mut no_extenders = true;
     let mut min_o = ot_min_connector_overlap(f);
@@ -3411,7 +3412,7 @@ unsafe fn build_opentype_assembly(
     while let Some(p) = popt {
         if NODE_type(p) == TextNode::WhatsIt.into() {
             let p = BaseBox(p); // TODO: check
-            nat += if horiz {
+            nat += if dir == ListDir::Horizontal {
                 p.width()
             } else {
                 p.height() + p.depth()
@@ -3432,12 +3433,12 @@ unsafe fn build_opentype_assembly(
             .set_glue_sign(GlueSign::Stretching)
             .set_glue_set(o as f64 / str as f64);
         let glue = b.glue_set();
-        if horiz {
+        if dir == ListDir::Horizontal {
             b.set_width(nat + tex_round(str as f64 * glue));
         } else {
             b.set_height(nat + tex_round(str as f64 * glue));
         }
-    } else if horiz {
+    } else if dir == ListDir::Horizontal {
         b.set_width(nat);
     } else {
         b.set_height(nat);
@@ -3446,7 +3447,7 @@ unsafe fn build_opentype_assembly(
 }
 unsafe fn rebox(mut b: List, mut w: scaled_t) -> List {
     if b.width() != w && b.list_ptr().opt().is_some() {
-        if b.list_dir() == ListDir::Vertical {
+        if b.is_vertical() {
             b = hpack(Some(b.ptr()), 0, PackMode::Additional);
         }
         let mut p = b.list_ptr() as usize;

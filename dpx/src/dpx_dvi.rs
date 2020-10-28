@@ -433,8 +433,7 @@ unsafe fn get_page_info(post_location: i32) {
     {
         panic!(invalid_signature);
     }
-    let mut i = num_pages.wrapping_sub(2_u32) as i32;
-    while i >= 0i32 {
+    for i in (0..num_pages - 1).rev() {
         handle
             .seek(SeekFrom::Start(
                 *page_loc.offset((i + 1) as isize) as u64 + 41,
@@ -446,7 +445,6 @@ unsafe fn get_page_info(post_location: i32) {
         {
             panic!(invalid_signature);
         }
-        i -= 1
     }
 }
 /* Following are computed "constants" used for unit conversion */
