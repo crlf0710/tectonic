@@ -138,7 +138,7 @@ impl std::hash::Hasher for HTHasher {
                 .wrapping_add(self.0)
                 .wrapping_add(*byte as i8 as u32);
         }
-        self.0.wrapping_rem(503_u32);
+        self.0 = self.0.wrapping_rem(503_u32);
     }
 }
 
