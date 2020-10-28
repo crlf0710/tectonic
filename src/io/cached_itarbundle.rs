@@ -205,12 +205,12 @@ fn get_file(
     Ok(buf)
 }
 
-fn parse_index_line(line: &str) -> Result<Option<(String, FileInfo)>> {
+fn parse_index_line(line: &str) -> Result<Option<(&str, FileInfo)>> {
     let mut bits = line.split_whitespace();
 
     if let (Some(name), Some(offset), Some(length)) = (bits.next(), bits.next(), bits.next()) {
         Ok(Some((
-            name.to_owned(),
+            name,
             FileInfo {
                 offset: offset.parse::<u64>()?,
                 length: length.parse::<u64>()?,
@@ -303,12 +303,18 @@ fn load_cache_inner(
 
     let index_path = make_txt_path(index_base, &digest_text);
 
+
+    // Let's try to approximate the line count to be able to pre-allocate the hashmap:
+    // SourceCodePro-BlackIt.otf 122048 5b5a08844e41c1e639599a32460cc05e74a19829cd38c17ec12ff1cdf072c8ec
+    let index_file_size = fs::metadata(&index_path)?.len();
+    let index_capacity_guess = (index_file_size / 100) as usize;
+
     let index = {
         let f = File::open(index_path)?;
-        let mut index = HashMap::new();
+        let mut index = HashMap::with_capacity(index_capacity_guess);
         for line in BufReader::new(f).lines() {
             if let Some((name, info)) = parse_index_line(&line?)? {
-                index.insert(name, info);
+                index.insert(name.to_owned(), info);
             }
         }
         index
