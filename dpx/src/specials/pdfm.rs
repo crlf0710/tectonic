@@ -529,7 +529,7 @@ unsafe fn spc_handler_pdfm_annot(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     }
     /* Add this reference. */
     pdf_doc_add_annot(
-        pdf_doc_current_page_number() as u32,
+        pdf_doc_current_page_number() as usize,
         &mut rect,
         annot_dict,
         1i32,
@@ -791,7 +791,7 @@ unsafe fn spc_handler_pdfm_bead(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         spc_push_object(&article_name, article_info);
     }
     let page_no = pdf_doc_current_page_number();
-    pdf_doc_add_bead(&article_name, &[], page_no, &mut rect);
+    pdf_doc_add_bead(&article_name, "", page_no, &mut rect);
     0i32
 }
 unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {

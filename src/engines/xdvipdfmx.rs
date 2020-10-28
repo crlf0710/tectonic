@@ -2,8 +2,6 @@
 // Copyright 2017 the Tectonic Project
 // Licensed under the MIT License.
 
-use std::ffi::{CStr, CString};
-
 use super::{ExecutionState, IoEventBackend, TectonicBridgeApi};
 use crate::errors::{ErrorKind, Result};
 use crate::io::IoStack;
@@ -42,8 +40,6 @@ impl XdvipdfmxEngine {
     ) -> Result<i32> {
         let _guard = super::ENGINE_LOCK.lock().unwrap(); // until we're thread-safe ...
 
-        let cpdf = CString::new(pdf)?;
-
         let /*mut*/ state = ExecutionState::new(io, events, status);
         let bridge = TectonicBridgeApi::new(&state);
 
@@ -51,13 +47,12 @@ impl XdvipdfmxEngine {
             match super::dvipdfmx_simple_main(
                 &*bridge,
                 dvi,
-                cpdf.as_ptr(),
+                pdf,
                 self.enable_compression,
                 self.deterministic_tags,
             ) {
                 99 => {
-                    let ptr = super::tt_get_error_message();
-                    let msg = CStr::from_ptr(ptr).to_string_lossy().into_owned();
+                    let msg = super::tt_get_error_message().to_string();
                     Err(ErrorKind::Msg(msg).into())
                 }
                 x => Ok(x as i32),

@@ -37,7 +37,6 @@ use super::dpx_cff::cff_charsets_lookup_cid;
 use super::dpx_cmap::{CMap_cache_get, CMap_decode};
 use super::dpx_dvi::dvi_is_tracking_boxes;
 use super::dpx_fontmap::fontmap;
-use super::dpx_mem::{new, renew};
 use super::dpx_pdfcolor::{pdf_color_clear_stack, pdf_color_get_current};
 use super::dpx_pdfdoc::pdf_doc_expand_box;
 use super::dpx_pdfdoc::{pdf_doc_add_page_content, pdf_doc_add_page_resource};
@@ -54,8 +53,6 @@ use super::dpx_pdfximage::{
     pdf_ximage_get_reference, pdf_ximage_get_resname, pdf_ximage_scale_image,
 };
 use crate::dpx_pdfobj::{pdf_link_obj, pdf_obj, pdf_release_obj, pdfobj_escape_str};
-use crate::streq_ptr;
-use libc::{free, strcpy};
 
 use crate::bridge::size_t;
 
@@ -173,7 +170,7 @@ impl transform_info {
 pub(crate) struct dev_font {
     pub(crate) short_name: Vec<u8>,
     pub(crate) used_on_this_page: i32,
-    pub(crate) tex_name: *mut i8,
+    pub(crate) tex_name: String,
     pub(crate) sptsize: spt_t,
     pub(crate) font_id: i32,
     pub(crate) enc_id: i32,
@@ -191,6 +188,18 @@ pub(crate) struct dev_font {
     pub(crate) is_unicode: i32,
     pub(crate) cff_charsets: *mut cff_charsets,
 }
+
+impl Drop for dev_font {
+    fn drop(&mut self) {
+        unsafe {
+            self.tex_name = String::new();
+            pdf_release_obj(self.resource);
+            self.resource = ptr::null_mut();
+            self.cff_charsets = ptr::null_mut();
+        }
+    }
+}
+
 use super::dpx_cff::cff_charsets;
 /*
  * Unit conversion, formatting and others.
@@ -741,45 +750,46 @@ unsafe fn string_mode(xpos: spt_t, ypos: spt_t, slant: f64, extend: f64, rotate:
 unsafe fn dev_set_font(font_id: i32) -> i32 {
     /* text_mode() must come before text_state.is_mb is changed. */
     text_mode(); /* Caller should check font_id. */
-    let font = &mut dev_fonts[font_id as usize] as *mut dev_font; /* space not necessary. */
-    assert!(!font.is_null());
-    let real_font = if (*font).real_font_index >= 0 {
-        &mut dev_fonts[(*font).real_font_index as usize] as *mut dev_font
-    } else {
-        font
-    };
-    text_state.is_mb = if (*font).format == 3i32 { 1i32 } else { 0i32 };
-    let vert_font = if (*font).wmode != 0 { 1 } else { 0 };
+    let font = &mut dev_fonts[font_id as usize]; /* space not necessary. */
+    text_state.is_mb = if font.format == 3i32 { 1i32 } else { 0i32 };
+    let vert_font = if font.wmode != 0 { 1 } else { 0 };
     let vert_dir = if dev_param.autorotate != 0 {
         text_state.dir_mode
     } else {
         vert_font
     };
     let text_rotate = TextWMode::from(vert_font << 2 | vert_dir);
-    if (*font).slant != text_state.matrix.slant
-        || (*font).extend != text_state.matrix.extend
+    if font.slant != text_state.matrix.slant
+        || font.extend != text_state.matrix.extend
         || ANGLE_CHANGES(text_rotate, text_state.matrix.rotate)
     {
         text_state.force_reset = 1i32
     }
-    text_state.matrix.slant = (*font).slant;
-    text_state.matrix.extend = (*font).extend;
+    text_state.matrix.slant = font.slant;
+    text_state.matrix.extend = font.extend;
     text_state.matrix.rotate = text_rotate;
-    if (*real_font).resource.is_null() {
-        (*real_font).resource = pdf_get_font_reference((*real_font).font_id);
-        (*real_font).used_chars = pdf_get_font_usedchars((*real_font).font_id)
+    let bold = font.bold;
+    let sptsize = font.sptsize;
+    let real_font = if font.real_font_index >= 0 {
+        &mut dev_fonts[font.real_font_index as usize]
+    } else {
+        font
+    };
+    if real_font.resource.is_null() {
+        real_font.resource = pdf_get_font_reference(real_font.font_id);
+        real_font.used_chars = pdf_get_font_usedchars(real_font.font_id)
     }
-    if (*real_font).used_on_this_page == 0 {
+    if real_font.used_on_this_page == 0 {
         pdf_doc_add_page_resource(
             "Font",
-            &(*real_font).short_name,
-            pdf_link_obj((*real_font).resource),
+            &real_font.short_name,
+            pdf_link_obj(real_font.resource),
         );
-        (*real_font).used_on_this_page = 1i32
+        real_font.used_on_this_page = 1i32
     }
-    let font_scale = (*font).sptsize as f64 * dev_unit.dvi2pts;
+    let font_scale = sptsize as f64 * dev_unit.dvi2pts;
     let mut buf = vec![b' ', b'/'];
-    buf.extend_from_slice((*real_font).short_name.as_slice());
+    buf.extend_from_slice(real_font.short_name.as_slice());
     buf.push(b' ');
     p_dtoa(
         font_scale,
@@ -794,16 +804,16 @@ unsafe fn dev_set_font(font_id: i32) -> i32 {
     buf.push(b'T');
     buf.push(b'f');
     pdf_doc_add_page_content(buf.as_slice());
-    if (*font).bold > 0. || (*font).bold != text_state.bold_param {
-        let content = if (*font).bold <= 0. {
+    if bold > 0. || bold != text_state.bold_param {
+        let content = if bold <= 0. {
             " 0 Tr".to_string()
         } else {
-            format!(" 2 Tr {:.6} w", (*font).bold)
+            format!(" 2 Tr {:.6} w", bold)
         };
         pdf_doc_add_page_content(content.as_bytes());
         /* op: Tr w */
     }
-    text_state.bold_param = (*font).bold;
+    text_state.bold_param = bold;
     text_state.font_id = font_id;
     0i32
 }
@@ -820,14 +830,14 @@ pub(crate) unsafe fn pdf_dev_get_font_wmode(font_id: i32) -> i32 {
 static mut sbuf0: [u8; 4096] = [0; 4096];
 static mut sbuf1: [u8; 4096] = [0; 4096];
 unsafe fn handle_multibyte_string(
-    font: *mut dev_font,
+    font: &dev_font,
     str_ptr: *mut *const u8,
     str_len: *mut size_t,
     ctype: i32,
 ) -> i32 {
     let mut p = *str_ptr;
     let mut length = *str_len;
-    if ctype == -1i32 && !(*font).cff_charsets.is_null() {
+    if ctype == -1i32 && !font.cff_charsets.is_null() {
         /* freetype glyph indexes */
         /* Convert freetype glyph indexes to CID. */
         let mut inbuf: *const u8 = p;
@@ -837,7 +847,7 @@ unsafe fn handle_multibyte_string(
             inbuf = inbuf.offset(1);
             gid = gid.wrapping_add(*inbuf as u32);
             inbuf = inbuf.offset(1);
-            gid = cff_charsets_lookup_cid((*font).cff_charsets, gid as u16) as u32;
+            gid = cff_charsets_lookup_cid(&*font.cff_charsets, gid as u16) as u32;
             *outbuf = (gid >> 8) as u8;
             outbuf = outbuf.offset(1);
             *outbuf = (gid & 0xff) as u8;
@@ -845,7 +855,7 @@ unsafe fn handle_multibyte_string(
         }
         p = sbuf0.as_mut_ptr();
         length = outbuf.offset_from(sbuf0.as_mut_ptr()) as i64 as size_t
-    } else if (*font).is_unicode != 0 {
+    } else if font.is_unicode != 0 {
         /* _FIXME_ */
         /* UCS-4 */
         if ctype == 1i32 {
@@ -854,8 +864,8 @@ unsafe fn handle_multibyte_string(
                 return -1i32;
             }
             for i in 0..length {
-                sbuf1[i.wrapping_mul(4) as usize] = (*font).ucs_group as u8;
-                sbuf1[i.wrapping_mul(4).wrapping_add(1) as usize] = (*font).ucs_plane as u8;
+                sbuf1[i.wrapping_mul(4) as usize] = font.ucs_group as u8;
+                sbuf1[i.wrapping_mul(4).wrapping_add(1) as usize] = font.ucs_plane as u8;
                 sbuf1[i.wrapping_mul(4).wrapping_add(2) as usize] = '\u{0}' as i32 as u8;
                 sbuf1[i.wrapping_mul(4).wrapping_add(3) as usize] = *p.offset(i as isize);
             }
@@ -868,7 +878,7 @@ unsafe fn handle_multibyte_string(
             }
             let mut i = 0i32 as size_t;
             while i < length {
-                sbuf1[len as usize] = (*font).ucs_group as u8;
+                sbuf1[len as usize] = font.ucs_group as u8;
                 if *p.offset(i as isize) as i32 & 0xf8 == 0xd8 {
                     /* Check for valid surrogate pair.  */
                     if *p.offset(i as isize) as i32 & 0xfc != 0xd8
@@ -890,7 +900,7 @@ unsafe fn handle_multibyte_string(
                     sbuf1[len.wrapping_add(2) as usize] = (c & 0xff) as u8;
                     i = (i as u64).wrapping_add(2) as size_t as size_t
                 } else {
-                    sbuf1[len.wrapping_add(1) as usize] = (*font).ucs_plane as u8;
+                    sbuf1[len.wrapping_add(1) as usize] = font.ucs_plane as u8;
                     sbuf1[len.wrapping_add(2) as usize] = *p.offset(i as isize)
                 }
                 sbuf1[len.wrapping_add(3) as usize] = *p.offset(i.wrapping_add(1) as isize);
@@ -900,7 +910,7 @@ unsafe fn handle_multibyte_string(
             length = len
         }
         p = sbuf1.as_mut_ptr()
-    } else if ctype == 1 && (*font).mapc >= 0 {
+    } else if ctype == 1 && font.mapc >= 0 {
         /* Omega workaround...
          * Translate single-byte chars to double byte code space.
          */
@@ -909,7 +919,7 @@ unsafe fn handle_multibyte_string(
             return -1;
         }
         for i in 0..length {
-            sbuf1[i.wrapping_mul(2) as usize] = ((*font).mapc & 0xff) as u8;
+            sbuf1[i.wrapping_mul(2) as usize] = (font.mapc & 0xff) as u8;
             sbuf1[i.wrapping_mul(2).wrapping_add(1) as usize] = *p.offset(i as isize);
         }
         length = (length as u64).wrapping_mul(2) as size_t as size_t;
@@ -920,8 +930,8 @@ unsafe fn handle_multibyte_string(
      * encoding.
      * TODO: A character decomposed to multiple characters.
      */
-    if ctype != -1i32 && (*font).enc_id >= 0 {
-        let cmap = CMap_cache_get((*font).enc_id);
+    if ctype != -1i32 && font.enc_id >= 0 {
+        let cmap = CMap_cache_get(font.enc_id);
         let mut inbuf_0 = p;
         let mut outbuf_0 = sbuf0.as_mut_ptr();
         let mut inbytesleft = length;
@@ -944,36 +954,18 @@ unsafe fn handle_multibyte_string(
     *str_len = length;
     0i32
 }
-static mut dev_coords: *mut Point = std::ptr::null_mut();
-static mut num_dev_coords: i32 = 0i32;
-static mut max_dev_coords: i32 = 0i32;
+static mut dev_coords: Vec<Point> = Vec::new();
 
 pub(crate) unsafe fn pdf_dev_get_coord() -> Point {
-    if num_dev_coords > 0i32 {
-        *dev_coords.offset((num_dev_coords - 1i32) as isize)
-    } else {
-        Point::zero()
-    }
+    dev_coords.last().copied().unwrap_or(Point::zero())
 }
 
 pub(crate) unsafe fn pdf_dev_push_coord(xpos: f64, ypos: f64) {
-    if num_dev_coords >= max_dev_coords {
-        max_dev_coords += 4i32;
-        dev_coords = renew(
-            dev_coords as *mut libc::c_void,
-            (max_dev_coords as u32 as u64).wrapping_mul(::std::mem::size_of::<Point>() as u64)
-                as u32,
-        ) as *mut Point
-    }
-    (*dev_coords.offset(num_dev_coords as isize)).x = xpos;
-    (*dev_coords.offset(num_dev_coords as isize)).y = ypos;
-    num_dev_coords += 1;
+    dev_coords.push(Point::new(xpos, ypos));
 }
 
 pub(crate) unsafe fn pdf_dev_pop_coord() {
-    if num_dev_coords > 0i32 {
-        num_dev_coords -= 1
-    };
+    let _ = dev_coords.pop();
 }
 /*
  * ctype:
@@ -1004,7 +996,7 @@ pub(crate) unsafe fn pdf_dev_set_string(
     if font_id != text_state.font_id {
         dev_set_font(font_id);
     }
-    let font = if text_state.font_id < 0i32 {
+    let font = if text_state.font_id < 0 {
         ptr::null_mut()
     } else {
         &mut dev_fonts[text_state.font_id as usize] as *mut dev_font
@@ -1012,7 +1004,7 @@ pub(crate) unsafe fn pdf_dev_set_string(
     if font.is_null() {
         panic!("Currentfont not set.");
     }
-    let real_font = if (*font).real_font_index >= 0i32 {
+    let real_font = if (*font).real_font_index >= 0 {
         &mut dev_fonts[(*font).real_font_index as usize] as *mut dev_font
     } else {
         font
@@ -1022,7 +1014,7 @@ pub(crate) unsafe fn pdf_dev_set_string(
     let mut str_ptr = instr_ptr as *const u8;
     let mut length = instr_len;
     if (*font).format == 3i32 {
-        if handle_multibyte_string(font, &mut str_ptr, &mut length, ctype) < 0 {
+        if handle_multibyte_string(&*font, &mut str_ptr, &mut length, ctype) < 0 {
             panic!("Error in converting input string...");
         }
         if !(*real_font).used_chars.is_null() {
@@ -1034,18 +1026,18 @@ pub(crate) unsafe fn pdf_dev_set_string(
                     (1i32 << 7 - cid as i32 % 8) as i8;
             }
         }
-    } else if !(*real_font).used_chars.is_null() {
-        for i in 0..length {
-            *(*real_font)
-                .used_chars
-                .offset(*str_ptr.offset(i as isize) as isize) = 1_i8;
+    } else {
+        if !(*real_font).used_chars.is_null() {
+            for i in 0..length {
+                *(*real_font)
+                    .used_chars
+                    .offset(*str_ptr.offset(i as isize) as isize) = 1_i8;
+            }
         }
     }
-    if num_dev_coords > 0i32 {
-        xpos -= ((*dev_coords.offset((num_dev_coords - 1i32) as isize)).x / dev_unit.dvi2pts)
-            .round() as spt_t;
-        ypos -= ((*dev_coords.offset((num_dev_coords - 1i32) as isize)).y / dev_unit.dvi2pts)
-            .round() as spt_t
+    if let Some(last) = dev_coords.last() {
+        xpos -= (last.x / dev_unit.dvi2pts).round() as spt_t;
+        ypos -= (last.y / dev_unit.dvi2pts).round() as spt_t
     }
     /*
      * Kern is in units of character units, i.e., 1000 = 1 em.
@@ -1165,19 +1157,12 @@ pub(crate) unsafe fn pdf_init_device(dvi2pts: f64, precision: i32, black_and_whi
     pdf_color_clear_stack();
     pdf_dev_init_gstates();
     dev_fonts = Vec::new();
-    dev_coords = ptr::null_mut();
+    dev_coords = Vec::new();
 }
 
 pub(crate) unsafe fn pdf_close_device() {
-    for i in 0..dev_fonts.len() {
-        free(dev_fonts[i].tex_name as *mut libc::c_void);
-        pdf_release_obj(dev_fonts[i].resource);
-        dev_fonts[i].tex_name = ptr::null_mut();
-        dev_fonts[i].resource = ptr::null_mut();
-        dev_fonts[i].cff_charsets = ptr::null_mut();
-    }
     dev_fonts = Vec::new();
-    free(dev_coords as *mut libc::c_void);
+    dev_coords = Vec::new();
     pdf_dev_clear_gstates();
 }
 /*
@@ -1225,13 +1210,9 @@ pub(crate) unsafe fn pdf_dev_eop() {
         pdf_dev_grestore();
     };
 }
-unsafe fn print_fontmap(font_name: *const i8, mrec: &fontmap_rec) {
+unsafe fn print_fontmap(font_name: &str, mrec: &fontmap_rec) {
     info!("\n");
-    info!(
-        "fontmap: {} -> {}",
-        CStr::from_ptr(font_name).display(),
-        mrec.font_name,
-    );
+    info!("fontmap: {} -> {}", font_name, mrec.font_name,);
     if !mrec.enc_name.is_empty() {
         info!("({})", mrec.enc_name);
     }
@@ -1277,14 +1258,14 @@ unsafe fn print_fontmap(font_name: *const i8, mrec: &fontmap_rec) {
  * of the same font at different sizes.
  */
 
-pub(crate) unsafe fn pdf_dev_locate_font(font_name: &CStr, ptsize: spt_t) -> i32 {
+pub(crate) unsafe fn pdf_dev_locate_font(font_name: &str, ptsize: spt_t) -> i32 {
     /* found a dev_font that matches the request */
     if ptsize == 0i32 {
         panic!("pdf_dev_locate_font() called with the zero ptsize.");
     }
     let mut i = 0;
     while i < dev_fonts.len() {
-        if streq_ptr(font_name.as_ptr(), dev_fonts[i].tex_name) {
+        if font_name == dev_fonts[i].tex_name {
             if ptsize == dev_fonts[i].sptsize {
                 return i as i32;
             }
@@ -1297,18 +1278,14 @@ pub(crate) unsafe fn pdf_dev_locate_font(font_name: &CStr, ptsize: spt_t) -> i32
     }
 
     /* New font */
-    let mrec = fontmap.get_mut(font_name.to_str().unwrap());
+    let mrec = fontmap.get_mut(font_name);
     if verbose > 1i32 {
         if let Some(ref mrec) = mrec {
-            print_fontmap(font_name.as_ptr(), mrec);
+            print_fontmap(font_name, mrec);
         }
     }
-    let font_id = pdf_font_findresource(
-        font_name.to_str().unwrap(),
-        ptsize as f64 * dev_unit.dvi2pts,
-        mrec,
-    );
-    let mrec = fontmap.get(font_name.to_str().unwrap());
+    let font_id = pdf_font_findresource(font_name, ptsize as f64 * dev_unit.dvi2pts, mrec);
+    let mrec = fontmap.get(font_name);
     if font_id < 0 {
         return -1;
     }
@@ -1316,7 +1293,7 @@ pub(crate) unsafe fn pdf_dev_locate_font(font_name: &CStr, ptsize: spt_t) -> i32
     let mut font = dev_font {
         short_name: Vec::new(),
         used_on_this_page: 0,
-        tex_name: new(font_name.to_bytes().len() as u32 + 1) as *mut i8,
+        tex_name: font_name.to_string(),
         sptsize: ptsize,
         font_id,
         enc_id: pdf_get_font_encoding(font_id),
@@ -1379,7 +1356,6 @@ pub(crate) unsafe fn pdf_dev_locate_font(font_name: &CStr, ptsize: spt_t) -> i32
         itoa::write(&mut font.short_name, num_phys_fonts + 1).unwrap();
         num_phys_fonts += 1;
     }
-    strcpy(font.tex_name, font_name.as_ptr());
 
     dev_fonts.push(font);
 
@@ -1428,11 +1404,9 @@ pub(crate) unsafe fn pdf_dev_set_rule(
     width: spt_t,
     height: spt_t,
 ) {
-    if num_dev_coords > 0i32 {
-        xpos -= ((*dev_coords.offset((num_dev_coords - 1i32) as isize)).x / dev_unit.dvi2pts)
-            .round() as spt_t;
-        ypos -= ((*dev_coords.offset((num_dev_coords - 1i32) as isize)).y / dev_unit.dvi2pts)
-            .round() as spt_t
+    if let Some(last) = dev_coords.last() {
+        xpos -= (last.x / dev_unit.dvi2pts).round() as spt_t;
+        ypos -= (last.y / dev_unit.dvi2pts).round() as spt_t
     }
     graphics_mode();
     let mut buf = vec![b' ', b'q', b' '];
@@ -1539,14 +1513,13 @@ pub(crate) unsafe fn pdf_dev_get_dirmode() -> i32 {
 
 pub(crate) unsafe fn pdf_dev_set_dirmode(text_dir: i32) {
     let font = if text_state.font_id < 0i32 {
-        ptr::null_mut()
+        None
     } else {
-        &mut dev_fonts[text_state.font_id as usize] as *mut dev_font
+        Some(&dev_fonts[text_state.font_id as usize])
     };
-    let vert_font = if !font.is_null() && (*font).wmode != 0 {
-        1
-    } else {
-        0
+    let vert_font = match &font {
+        Some(f) if f.wmode != 0 => 1,
+        _ => 0,
     };
     let vert_dir = if dev_param.autorotate != 0 {
         text_dir
@@ -1554,7 +1527,7 @@ pub(crate) unsafe fn pdf_dev_set_dirmode(text_dir: i32) {
         vert_font
     };
     let text_rotate = TextWMode::from(vert_font << 2 | vert_dir);
-    if !font.is_null() && ANGLE_CHANGES(text_rotate, text_state.matrix.rotate) {
+    if font.is_some() && ANGLE_CHANGES(text_rotate, text_state.matrix.rotate) {
         text_state.force_reset = 1i32
     }
     text_state.matrix.rotate = text_rotate;
@@ -1562,14 +1535,13 @@ pub(crate) unsafe fn pdf_dev_set_dirmode(text_dir: i32) {
 }
 unsafe fn dev_set_param_autorotate(auto_rotate: i32) {
     let font = if text_state.font_id < 0i32 {
-        ptr::null_mut()
+        None
     } else {
-        &mut dev_fonts[text_state.font_id as usize] as *mut dev_font
+        Some(&dev_fonts[text_state.font_id as usize])
     };
-    let vert_font = if !font.is_null() && (*font).wmode != 0 {
-        1
-    } else {
-        0
+    let vert_font = match &font {
+        Some(f) if f.wmode != 0 => 1,
+        _ => 0,
     };
     let vert_dir = if auto_rotate != 0 {
         text_state.dir_mode
@@ -1613,9 +1585,9 @@ pub(crate) unsafe fn pdf_dev_put_image(
     mut ref_y: f64,
 ) -> i32 {
     let mut r = Rect::zero();
-    if num_dev_coords > 0i32 {
-        ref_x -= (*dev_coords.offset((num_dev_coords - 1i32) as isize)).x;
-        ref_y -= (*dev_coords.offset((num_dev_coords - 1i32) as isize)).y
+    if let Some(last) = dev_coords.last() {
+        ref_x -= last.x;
+        ref_y -= last.y;
     }
     let mut M = p.matrix;
     M.m31 += ref_x;

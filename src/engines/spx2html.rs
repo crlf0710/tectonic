@@ -38,8 +38,7 @@ impl Spx2HtmlEngine {
             let mut s = spx.to_owned();
 
             if spx.ends_with(".spx") {
-                let l = s.len();
-                s.split_off(l - 4);
+                s.truncate(s.len() - 4);
             }
 
             s.push_str(".html");

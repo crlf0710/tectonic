@@ -81,7 +81,6 @@ pub struct InputHandle {
     origin: InputOrigin,
     ever_read: bool,
     did_unhandled_seek: bool,
-    ungetc_char: Option<u8>,
 }
 
 impl InputHandle {
@@ -98,7 +97,6 @@ impl InputHandle {
             origin,
             ever_read: false,
             did_unhandled_seek: false,
-            ungetc_char: None,
         }
     }
 
@@ -115,7 +113,6 @@ impl InputHandle {
             origin,
             ever_read: false,
             did_unhandled_seek: false,
-            ungetc_char: None,
         }
     }
 
@@ -147,16 +144,7 @@ impl InputHandle {
         }
     }
 
-    /// Various piece of TeX want to use the libc `ungetc()` function a lot.
-    /// It's kind of gross, but happens often enough that we provide special
-    /// support for it. Here's `getc()` emulation that can return a previously
-    /// `ungetc()`-ed character.
     pub fn getc(&mut self) -> Result<u8> {
-        if let Some(c) = self.ungetc_char {
-            self.ungetc_char = None;
-            return Ok(c);
-        }
-
         let mut byte = [0u8; 1];
 
         if self.read(&mut byte[..1])? == 0 {
@@ -166,32 +154,10 @@ impl InputHandle {
 
         Ok(byte[0])
     }
-
-    /// Here's the `ungetc()` emulation.
-    pub fn ungetc(&mut self, byte: u8) -> Result<()> {
-        if self.ungetc_char.is_some() {
-            return Err(ErrorKind::Msg(
-                "internal problem: cannot ungetc() more than once in a row".into(),
-            )
-            .into());
-        }
-
-        self.ungetc_char = Some(byte);
-        Ok(())
-    }
 }
 
 impl Read for InputHandle {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if !buf.is_empty() {
-            if let Some(c) = self.ungetc_char {
-                // This does sometimes happen, so we need to deal with it. It's not that bad really.
-                buf[0] = c;
-                self.ungetc_char = None;
-                return Ok(self.read(&mut buf[1..])? + 1);
-            }
-        }
-
         self.ever_read = true;
         let n = self.inner.read(buf)?;
         if !self.read_only {
@@ -215,7 +181,6 @@ impl InputFeatures for InputHandle {
                 // of seeking, but in the meantime, we can handle this.
                 self.digest = Default::default();
                 self.ever_read = false;
-                self.ungetc_char = None;
             }
             SeekFrom::Current(0) => {
                 // Noop. This must *not* clear the ungetc buffer for our
@@ -223,22 +188,10 @@ impl InputFeatures for InputHandle {
             }
             _ => {
                 self.did_unhandled_seek = true;
-                self.ungetc_char = None;
             }
         }
 
-        let mut offset = self.inner.try_seek(pos)?;
-
-        // If there was an ungetc, the effective position in the stream is one
-        // byte before that of the underlying handle. Some of the code does
-        // noop seeks to get the current offset for various file parsing
-        // needs, so it's important that we return the right value. It should
-        // never happen that the underlying stream thinks that the offset is
-        // zero after we've ungetc'ed -- famous last words?
-
-        if self.ungetc_char.is_some() {
-            offset -= 1;
-        }
+        let offset = self.inner.try_seek(pos)?;
 
         Ok(offset)
     }

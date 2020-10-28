@@ -67,7 +67,6 @@ use crate::specials::{
     spc_exec_at_begin_document, spc_exec_at_end_document, tpic::tpic_set_fill_mode,
 };
 use libc::{atoi, free, strlen};
-use std::slice::from_raw_parts;
 
 pub(crate) type PageRange = page_range;
 #[derive(Copy, Clone)]
@@ -211,7 +210,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
     let init_paper_height = page_height;
     let mut page_count = 0;
     let mut mediabox = Rect::new(Point::zero(), point2(paper_width, paper_height));
-    pdf_doc_set_mediabox(0_u32, &mediabox);
+    pdf_doc_set_mediabox(0, &mediabox);
     let mut i = 0;
     while i < page_ranges.len() && dvi_npages() != 0 {
         if page_ranges[i].last < 0i32 {
@@ -281,14 +280,14 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
         }
         i = i.wrapping_add(1)
     }
-    if page_count < 1_u32 {
+    if page_count < 1 {
         panic!("No pages fall in range!");
     }
     spc_exec_at_end_document();
 }
 
 pub unsafe fn dvipdfmx_main(
-    pdf_filename: *const i8,
+    pdf_filename: &str,
     dvi_filename: &str,
     pagespec: *const i8,
     opt_flags: i32,
@@ -300,7 +299,7 @@ pub unsafe fn dvipdfmx_main(
 ) -> i32 {
     let mut enable_object_stream: bool = true; /* This must come before parsing options... */
     let mut page_ranges = Vec::new();
-    assert!(!pdf_filename.is_null());
+    assert!(!pdf_filename.is_empty());
     assert!(!dvi_filename.is_empty());
     translate_origin = translate as i32;
     dvi_reset_global_state();
@@ -359,13 +358,10 @@ pub unsafe fn dvipdfmx_main(
         } else {
             Some(dvi_filename.as_bytes())
         },
-        if pdf_filename.is_null() {
+        if pdf_filename.is_empty() {
             None
         } else {
-            Some(from_raw_parts(
-                pdf_filename as *const u8,
-                strlen(pdf_filename),
-            ))
+            Some(pdf_filename.as_bytes())
         },
     );
     let mut ver_major: i32 = 0i32;

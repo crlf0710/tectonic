@@ -15,13 +15,13 @@ use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_consts::UnicodeMode;
 use crate::xetex_ini::{
-    cur_area, cur_chr, cur_ext, cur_name, cur_val, first, last, max_buf_stack, name_in_progress,
+    cur_area, cur_ext, cur_name, first, input_state_t, last, max_buf_stack, name_in_progress,
     name_of_file, read_file, read_open, stop_at_space, BUFFER, BUF_SIZE,
 };
 use crate::xetex_output::{print_int, print_nl};
 use crate::xetex_texmfmp::gettexstring;
 use crate::xetex_xetex0::{
-    bad_utf8_warning, begin_name, diagnostic, end_name, get_input_normalization_state, more_name,
+    bad_utf8_warning, diagnostic, get_input_normalization_state, make_name, more_name,
     pack_file_name, scan_file_name, scan_four_bit_int, scan_optional_equals,
 };
 use crate::xetex_xetexd::print_c_str;
@@ -316,19 +316,19 @@ pub(crate) unsafe fn u_open_in(
         let handle = ufile.handle.as_mut().unwrap();
         B1 = ttstub_input_getc(handle);
         B2 = ttstub_input_getc(handle);
-        if B1 == 0xfei32 && B2 == 0xffi32 {
+        if B1 == 0xfe && B2 == 0xff {
             mode = UnicodeMode::Utf16be;
-        } else if B2 == 0xfei32 && B1 == 0xffi32 {
+        } else if B2 == 0xfe && B1 == 0xff {
             mode = UnicodeMode::Utf16le;
-        } else if B1 == 0i32 && B2 != 0i32 {
+        } else if B1 == 0 && B2 != 0 {
             mode = UnicodeMode::Utf16be;
             handle.seek(SeekFrom::Start(0)).unwrap();
-        } else if B2 == 0i32 && B1 != 0i32 {
+        } else if B2 == 0 && B1 != 0 {
             mode = UnicodeMode::Utf16le;
             handle.seek(SeekFrom::Start(0)).unwrap();
-        } else if B1 == 0xefi32 && B2 == 0xbbi32 {
+        } else if B1 == 0xef && B2 == 0xbb {
             let mut B3: i32 = ttstub_input_getc(handle);
-            if B3 == 0xbfi32 {
+            if B3 == 0xbf {
                 mode = UnicodeMode::Utf8;
             }
         }
@@ -646,39 +646,39 @@ pub(crate) unsafe fn get_uni_c(f: &mut UFILE) -> i32 {
         }
         UnicodeMode::Utf16be => {
             rval = ttstub_input_getc(handle);
-            if rval != -1i32 {
-                rval <<= 8i32;
+            if rval != -1 {
+                rval <<= 8;
                 rval += ttstub_input_getc(handle);
-                if rval >= 0xd800i32 && rval <= 0xdbffi32 {
+                if rval >= 0xd800 && rval <= 0xdbff {
                     let mut lo: i32 = ttstub_input_getc(handle);
-                    lo <<= 8i32;
+                    lo <<= 8;
                     lo += ttstub_input_getc(handle);
-                    if lo >= 0xdc00i32 && lo <= 0xdfffi32 {
-                        rval = 0x10000i32 + (rval - 0xd800i32) * 0x400i32 + (lo - 0xdc00i32)
+                    if lo >= 0xdc00 && lo <= 0xdfff {
+                        rval = 0x10000 + (rval - 0xd800) * 0x400 + (lo - 0xdc00)
                     } else {
-                        rval = 0xfffdi32;
+                        rval = 0xfffd;
                         f.savedChar = lo as i64
                     }
-                } else if rval >= 0xdc00i32 && rval <= 0xdfffi32 {
-                    rval = 0xfffdi32
+                } else if rval >= 0xdc00 && rval <= 0xdfff {
+                    rval = 0xfffd
                 }
             }
         }
         UnicodeMode::Utf16le => {
             rval = ttstub_input_getc(handle);
-            if rval != -1i32 {
-                rval += ttstub_input_getc(handle) << 8i32;
-                if rval >= 0xd800i32 && rval <= 0xdbffi32 {
+            if rval != -1 {
+                rval += ttstub_input_getc(handle) << 8;
+                if rval >= 0xd800 && rval <= 0xdbff {
                     let mut lo_0: i32 = ttstub_input_getc(handle);
-                    lo_0 += ttstub_input_getc(handle) << 8i32;
-                    if lo_0 >= 0xdc00i32 && lo_0 <= 0xdfffi32 {
-                        rval = 0x10000i32 + (rval - 0xd800i32) * 0x400i32 + (lo_0 - 0xdc00i32)
+                    lo_0 += ttstub_input_getc(handle) << 8;
+                    if lo_0 >= 0xdc00 && lo_0 <= 0xdfff {
+                        rval = 0x10000 + (rval - 0xd800) * 0x400 + (lo_0 - 0xdc00)
                     } else {
-                        rval = 0xfffdi32;
+                        rval = 0xfffd;
                         f.savedChar = lo_0 as i64
                     }
-                } else if rval >= 0xdc00i32 && rval <= 0xdfffi32 {
-                    rval = 0xfffdi32
+                } else if rval >= 0xdc00 && rval <= 0xdfff {
+                    rval = 0xfffd
                 }
             }
         }
@@ -689,20 +689,17 @@ pub(crate) unsafe fn get_uni_c(f: &mut UFILE) -> i32 {
     }
     rval
 }
-pub(crate) unsafe fn open_or_close_in() {
+pub(crate) unsafe fn open_or_close_in(input: &mut input_state_t, chr: i32) {
     use xetex_consts::*;
-    let mut c: u8 = 0;
-    let mut n: u8 = 0;
-    c = cur_chr as u8;
-    scan_four_bit_int();
-    n = cur_val as u8;
+    let c = chr as u8;
+    let n = scan_four_bit_int(input) as u8;
     if read_open[n as usize] != OpenMode::Closed {
         let _ = read_file[n as usize].take();
         read_open[n as usize] = OpenMode::Closed;
     }
     if c != 0 {
-        scan_optional_equals();
-        scan_file_name();
+        scan_optional_equals(input);
+        scan_file_name(input);
         pack_file_name(cur_name, cur_area, cur_ext);
         let ufile = u_open_in(
             TTInputFormat::TEX,
@@ -713,14 +710,14 @@ pub(crate) unsafe fn open_or_close_in() {
         if ufile.is_some() {
             read_file[n as usize] = ufile;
             name_in_progress = true;
-            begin_name();
-            for k in name_of_file.encode_utf16() {
-                if !more_name(k, false) {
-                    break;
+            make_name(|a, e, q, qc| {
+                for k in name_of_file.encode_utf16() {
+                    if !more_name(k, false, a, e, q, qc) {
+                        break;
+                    }
                 }
-            }
-            stop_at_space = true;
-            end_name();
+                stop_at_space = true;
+            });
             name_in_progress = false;
             read_open[n as usize] = OpenMode::JustOpen;
         }

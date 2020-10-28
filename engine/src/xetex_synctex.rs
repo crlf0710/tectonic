@@ -14,14 +14,13 @@ use std::io::Write;
 use crate::node::{Kern, List, TxtNode, BOX_NODE_SIZE, MEDIUM_NODE_SIZE, RULE_NODE_SIZE};
 use crate::xetex_consts::{IntPar, INTPAR};
 use crate::xetex_ini::{
-    cur_h, cur_input, cur_v, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, MEM, TOTAL_PAGES,
+    cur_h, cur_v, input_state_t, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, MEM,
+    TOTAL_PAGES,
 };
 use crate::xetex_io::name_of_input_file;
 use crate::xetex_texmfmp::gettexstring;
 use crate::xetex_xetexd::{SYNCTEX_line, SYNCTEX_tag};
-use bridge::{
-    ttstub_issue_error, ttstub_issue_warning_slice, ttstub_output_close, ttstub_output_open,
-};
+use bridge::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
 
 use bridge::OutputHandleWrapper;
 pub(crate) type scaled_t = i32;
@@ -248,7 +247,7 @@ unsafe fn synctex_prepare_content() -> bool {
  *  treats the same way .tex, .aux, .sty ... files, even if many of them do not
  *  contain any material meant to be typeset.
  */
-pub(crate) unsafe fn synctex_start_input() {
+pub(crate) unsafe fn synctex_start_input(input: &mut input_state_t) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
         return;
     }
@@ -264,10 +263,10 @@ pub(crate) unsafe fn synctex_start_input() {
          *  use the 16 other bits to store the column number */
         synctex_ctxt.synctex_tag_counter = 0_u32;
         /* was this, but this looks like a bug */
-        /* cur_input.synctex_tag = 0; */
+        /* input.synctex_tag = 0; */
         return;
     } /*  -> *TeX.web  */
-    cur_input.synctex_tag = synctex_ctxt.synctex_tag_counter as i32;
+    input.synctex_tag = synctex_ctxt.synctex_tag_counter as i32;
     if synctex_ctxt.synctex_tag_counter == 1_u32 {
         /*  this is the first file TeX ever opens, in general \jobname.tex we
          *  do not know yet if synchronization will ever be enabled so we have
@@ -282,7 +281,7 @@ pub(crate) unsafe fn synctex_start_input() {
     if synctex_ctxt.file.is_some() || synctex_dot_open() {
         let tmp = get_current_name();
         /* Always record the input, even if INTPAR(synctex) is 0 */
-        synctex_record_input(cur_input.synctex_tag, &tmp);
+        synctex_record_input(input.synctex_tag, &tmp);
     };
 }
 /*  Send this message to clean memory, and close the file.  */
@@ -316,8 +315,8 @@ pub(crate) unsafe fn synctex_sheet(mut mag: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
         if *INTPAR(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
             synctex_ctxt.flags.insert(Flags::WARN);
-            ttstub_issue_warning_slice(
-                b"SyncTeX was disabled -- changing the value of \\synctex has no effect",
+            ttstub_issue_warning(
+                "SyncTeX was disabled -- changing the value of \\synctex has no effect",
             );
         }
         return;
@@ -560,10 +559,10 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(p: usize, mut _this_box: us
             }
         }
         _ => {
-            ttstub_issue_error(
-                b"unknown node type %d in SyncTeX\x00" as *const u8 as *const i8,
-                MEM[p].b16.s1 as i32,
-            ); /*  always record synchronously: maybe some text is outside the box  */
+            ttstub_issue_error(&format!(
+                "unknown node type {} in SyncTeX",
+                MEM[p].b16.s1 as i32
+            )); /*  always record synchronously: maybe some text is outside the box  */
         }
     } /*  always record synchronously: maybe some text is outside the box  */
     synctex_ctxt.node = p; /*  always record synchronously: maybe some text is outside the box  */
@@ -587,10 +586,10 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(p: usize, mut _this_box: us
             synctex_record_node_kern(k.ptr());
         }
         _ => {
-            ttstub_issue_error(
-                b"unknown node type %d in SyncTeX\x00" as *const u8 as *const i8,
-                MEM[p].b16.s1 as i32,
-            );
+            ttstub_issue_error(&format!(
+                "unknown node type {} in SyncTeX",
+                MEM[p].b16.s1 as i32
+            ));
         }
     };
 }
@@ -752,8 +751,8 @@ pub(crate) unsafe fn synctex_pdfxform(mut p: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
         if *INTPAR(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
             synctex_ctxt.flags.insert(Flags::WARN);
-            ttstub_issue_warning_slice(
-                b"SyncTeX was disabled - changing the value of \\synctex has no effect",
+            ttstub_issue_warning(
+                "SyncTeX was disabled - changing the value of \\synctex has no effect",
             );
         }
         return;

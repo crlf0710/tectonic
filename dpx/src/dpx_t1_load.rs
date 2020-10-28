@@ -153,16 +153,18 @@ unsafe fn parse_nvalue(
         PstObj::Mark => {
             /* It does not distinguish '[' and '{'... */
             let mut tok = None;
-            while *start < end && argn < max as usize {
+            while *start < end {
                 if let Some(tok1) = pst_get_token(start, end) {
                     match tok1 {
-                        PstObj::Integer(data) => {
+                        PstObj::Integer(data) if argn < max as usize => {
                             *value.offset(argn as isize) = data as f64;
                             argn += 1;
+                            tok = None;
                         }
-                        PstObj::Real(data) => {
+                        PstObj::Real(data) if argn < max as usize => {
                             *value.offset(argn as isize) = data;
                             argn += 1;
+                            tok = None;
                         }
                         _ => {
                             tok = Some(tok1);
@@ -170,15 +172,16 @@ unsafe fn parse_nvalue(
                         }
                     }
                 } else {
+                    tok = None;
                     break;
                 }
             }
 
-            tok.filter(|tok| {
-                matches!(tok, PstObj::Unknown(data) if data.starts_with(b"]")
+            if !matches!(tok, Some(PstObj::Unknown(data)) if data.starts_with(b"]")
                     || data.starts_with(b"}"))
-            })
-            .ok_or(()); // TODO: check
+            {
+                return Err(());
+            }
         }
         _ => {}
     }

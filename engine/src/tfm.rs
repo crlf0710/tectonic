@@ -15,7 +15,6 @@ use crate::xetex_xetexd::TeXInt;
 
 use crate::xetex_ini::cur_ext;
 use crate::xetex_ini::file_line_error_style_p;
-use crate::xetex_ini::file_name_quote_char;
 use crate::xetex_ini::fmem_ptr;
 use crate::xetex_ini::font_used;
 use crate::xetex_ini::loaded_font_design_size;
@@ -23,7 +22,6 @@ use crate::xetex_ini::loaded_font_flags;
 use crate::xetex_ini::loaded_font_letter_space;
 use crate::xetex_ini::loaded_font_mapping;
 use crate::xetex_ini::pool_ptr;
-use crate::xetex_ini::quoted_filename;
 use crate::xetex_ini::str_ptr;
 use crate::xetex_ini::BCHAR_LABEL;
 use crate::xetex_ini::DEPTH_BASE;
@@ -80,7 +78,7 @@ use crate::xetex_output::{
 };
 use crate::xetex_stringpool::length;
 use crate::xetex_stringpool::make_string;
-use crate::xetex_stringpool::str_eq_str;
+use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::EMPTY_STRING;
 use crate::xetex_xetex0::diagnostic;
 use crate::xetex_xetex0::new_native_character;
@@ -107,6 +105,8 @@ pub(crate) unsafe fn read_font_info(
     nom: str_number,
     aire: str_number,
     s: i32,
+    quoted_filename: bool,
+    file_name_quote_char: Option<u16>,
 ) -> Result<(bool, usize), TfmError> {
     pack_file_name(nom, aire, cur_ext);
 
@@ -127,7 +127,9 @@ pub(crate) unsafe fn read_font_info(
     }
 
     if quoted_filename {
-        if let Ok(g) = load_native_font(s).map_err(|e| nf_error(e, u, nom, aire, s)) {
+        if let Ok(g) =
+            load_native_font(s).map_err(|e| nf_error(e, u, nom, aire, s, file_name_quote_char))
+        {
             return Ok((false, g));
         }
     }
@@ -142,7 +144,9 @@ pub(crate) unsafe fn read_font_info(
     let mut tfm_file_owner = tt_xetex_open_input(TTInputFormat::TFM);
     if tfm_file_owner.is_none() {
         if !quoted_filename {
-            if let Ok(g) = load_native_font(s).map_err(|e| nf_error(e, u, nom, aire, s)) {
+            if let Ok(g) =
+                load_native_font(s).map_err(|e| nf_error(e, u, nom, aire, s, file_name_quote_char))
+            {
                 return Ok((false, g));
             }
         }
@@ -547,7 +551,14 @@ pub(crate) unsafe fn read_font_info(
 }
 
 /// Called on error
-pub(crate) unsafe fn bad_tfm(err: TfmError, u: i32, nom: i32, aire: i32, s: i32) {
+pub(crate) unsafe fn bad_tfm(
+    err: TfmError,
+    u: i32,
+    nom: i32,
+    aire: i32,
+    s: i32,
+    file_name_quote_char: Option<u16>,
+) {
     if *INTPAR(IntPar::suppress_fontnotfound_error) == 0 {
         /* NOTE: must preserve this path to keep passing the TRIP tests */
         if file_line_error_style_p != 0 {
@@ -635,7 +646,7 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
 
     for f in 1..FONT_PTR + 1 {
         if FONT_AREA[f] == font_engine.flag() as i32
-            && str_eq_str(FONT_NAME[f], full_name)
+            && PoolString::from(FONT_NAME[f]) == PoolString::from(full_name)
             && FONT_SIZE[f] == actual_size
         {
             str_ptr -= 1;
@@ -718,7 +729,14 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
     Ok(FONT_PTR)
 }
 
-unsafe fn nf_error(e: NativeFontError, u: i32, nom: str_number, aire: str_number, s: i32) {
+unsafe fn nf_error(
+    e: NativeFontError,
+    u: i32,
+    nom: str_number,
+    aire: str_number,
+    s: i32,
+    file_name_quote_char: Option<u16>,
+) {
     match e {
         NativeFontError::NotFound => {}
         NativeFontError::NotEnoughMemory => {

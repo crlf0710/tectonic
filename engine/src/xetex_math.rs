@@ -17,12 +17,12 @@ use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ext::{Font, NativeFont::*};
 use crate::xetex_ini::{
-    adjust_tail, avail, cur_c, cur_chr, cur_cmd, cur_dir, cur_f, cur_group, cur_i, cur_lang,
-    cur_list, cur_val, cur_val1, file_line_error_style_p, insert_src_special_every_math, just_box,
-    memory_word, pre_adjust_tail, tex_remainder, total_shrink, xtx_ligature_present, LR_problems,
-    LR_ptr, CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO,
-    FONT_LAYOUT_ENGINE, FONT_PARAMS, HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM,
-    NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
+    adjust_tail, avail, cur_c, cur_dir, cur_f, cur_group, cur_i, cur_lang, cur_list,
+    file_line_error_style_p, input_state_t, insert_src_special_every_math, just_box, memory_word,
+    pre_adjust_tail, tex_remainder, total_shrink, xtx_ligature_present, LR_problems, LR_ptr,
+    CHAR_BASE, DEPTH_BASE, EQTB, EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO, FONT_LAYOUT_ENGINE,
+    FONT_PARAMS, HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, NEST_PTR, NULL_CHARACTER,
+    PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t};
 use crate::xetex_layout_interface::*;
@@ -96,13 +96,13 @@ static mut cur_size: usize = 0;
 static mut cur_mu: scaled_t = 0;
 static mut mlist_penalties: bool = false;
 
-pub(crate) unsafe fn init_math() {
+pub(crate) unsafe fn init_math(input: &mut input_state_t) {
     let mut x: i32 = 0;
     let mut v: scaled_t = 0;
 
-    get_token();
+    let (tok, cmd, ..) = get_token(input);
 
-    if cur_cmd == Cmd::MathShift && cur_list.mode.0 == false {
+    if cmd == Cmd::MathShift && cur_list.mode.0 == false {
         // 1180:
         let mut j = None;
         let mut w = -MAX_HALFWORD;
@@ -389,25 +389,25 @@ pub(crate) unsafe fn init_math() {
         eq_word_define(DIMEN_BASE as usize + DimenPar::display_width as usize, l);
         eq_word_define(DIMEN_BASE as usize + DimenPar::display_indent as usize, s);
         if let Some(ed) = LOCAL(Local::every_display).opt() {
-            begin_token_list(ed, Btl::EveryDisplayText);
+            begin_token_list(input, ed, Btl::EveryDisplayText);
         }
         if NEST_PTR == 1 {
-            build_page();
+            build_page(input);
         }
     } else {
-        back_input();
+        back_input(input, tok);
         push_math(GroupCode::MathShift);
         eq_word_define(INT_BASE as usize + IntPar::cur_fam as usize, -1);
         if insert_src_special_every_math {
             insert_src_special();
         }
         if let Some(em) = LOCAL(Local::every_math).opt() {
-            begin_token_list(em, Btl::EveryMathText);
+            begin_token_list(input, em, Btl::EveryMathText);
         }
     };
 }
-pub(crate) unsafe fn start_eq_no() {
-    SAVE_STACK[SAVE_PTR].val = cur_chr; // push
+pub(crate) unsafe fn start_eq_no(input: &mut input_state_t, chr: i32) {
+    SAVE_STACK[SAVE_PTR].val = chr; // push
     SAVE_PTR += 1;
     push_math(GroupCode::MathShift);
     eq_word_define(INT_BASE as usize + (IntPar::cur_fam as usize), -1);
@@ -415,13 +415,13 @@ pub(crate) unsafe fn start_eq_no() {
         insert_src_special();
     }
     if let Some(em) = LOCAL(Local::every_math).opt() {
-        begin_token_list(em, Btl::EveryMathText);
+        begin_token_list(input, em, Btl::EveryMathText);
     };
 }
-pub(crate) unsafe fn math_limit_switch() {
+pub(crate) unsafe fn math_limit_switch(chr: i32) {
     if cur_list.head != cur_list.tail {
         if MEM[cur_list.tail].b16.s1 == MathNode::Op as u16 {
-            MEM[cur_list.tail].b16.s0 = cur_chr as u16;
+            MEM[cur_list.tail].b16.s0 = chr as u16;
             return;
         }
     }
@@ -434,44 +434,53 @@ pub(crate) unsafe fn math_limit_switch() {
     help!("I\'m ignoring this misplaced \\limits or \\nolimits command.");
     error();
 }
-unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
-    if r {
-        if cur_chr == 1 {
-            cur_val1 = 0x40000000;
-            scan_math_fam_int();
-            cur_val1 += cur_val * 0x200000;
-            scan_usv_num();
-            cur_val += cur_val1
+unsafe fn scan_delimiter(
+    input: &mut input_state_t,
+    mut tok: i32,
+    chr: i32,
+    d: &mut Delimeter,
+    r: bool,
+) {
+    let mut val = if r {
+        if chr == 1 {
+            let mut val1 = 0x40000000;
+            let val = scan_math_fam_int(input);
+            val1 += val * 0x200000;
+            let val = scan_usv_num(input);
+            val + val1
         } else {
-            scan_delimiter_int();
+            scan_delimiter_int(input)
         }
     } else {
+        let mut cmd;
+        let mut chr;
         loop {
-            get_x_token();
-            if !(cur_cmd == Cmd::Spacer || cur_cmd == Cmd::Relax) {
+            let next = get_x_token(input);
+            tok = next.0;
+            cmd = next.1;
+            chr = next.2;
+            if !(cmd == Cmd::Spacer || cmd == Cmd::Relax) {
                 break;
             }
         }
-        match cur_cmd {
-            Cmd::Letter | Cmd::OtherChar => {
-                cur_val = EQTB[(DEL_CODE_BASE as i32 + cur_chr) as usize].val
-            }
+        match cmd {
+            Cmd::Letter | Cmd::OtherChar => EQTB[(DEL_CODE_BASE as i32 + chr) as usize].val,
             Cmd::DelimNum => {
-                if cur_chr == 1 {
-                    cur_val1 = 0x40000000;
-                    scan_math_class_int();
-                    scan_math_fam_int();
-                    cur_val1 += cur_val * 0x20000;
-                    scan_usv_num();
-                    cur_val += cur_val1
+                if chr == 1 {
+                    let mut val1 = 0x40000000;
+                    scan_math_class_int(input);
+                    let val = scan_math_fam_int(input);
+                    val1 += val * 0x20000;
+                    let val = scan_usv_num(input);
+                    val + val1
                 } else {
-                    scan_delimiter_int();
+                    scan_delimiter_int(input)
                 }
             }
-            _ => cur_val = -1,
+            _ => -1,
         }
-    }
-    if cur_val < 0 {
+    };
+    if val < 0 {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -486,22 +495,22 @@ unsafe fn scan_delimiter(d: &mut Delimeter, r: bool) {
             "Acceptable delimiters are characters whose \\delcode is",
             "nonnegative, or you can use `\\delimiter <delimiter code>\'."
         );
-        back_error();
-        cur_val = 0i32
+        back_error(input, tok);
+        val = 0;
     }
-    if cur_val >= 0x40000000i32 {
-        d.s3 = (cur_val % 0x200000 / 0x10000 * 0x100 + cur_val / 0x200000i32 % 0x100i32) as u16;
-        d.s2 = (cur_val % 0x10000) as u16;
+    if val >= 0x40000000i32 {
+        d.s3 = (val % 0x200000 / 0x10000 * 0x100 + val / 0x200000i32 % 0x100i32) as u16;
+        d.s2 = (val % 0x10000) as u16;
         d.s1 = 0_u16;
         d.s0 = 0_u16
     } else {
-        d.s3 = (cur_val / 0x100000 % 16) as u16;
-        d.s2 = (cur_val / 0x1000 % 0x100) as u16;
-        d.s1 = (cur_val / 0x100 % 16) as u16;
-        d.s0 = (cur_val % 0x100) as u16
+        d.s3 = (val / 0x100000 % 16) as u16;
+        d.s2 = (val / 0x1000 % 0x100) as u16;
+        d.s1 = (val / 0x100 % 16) as u16;
+        d.s0 = (val % 0x100) as u16
     };
 }
-pub(crate) unsafe fn math_radical() {
+pub(crate) unsafe fn math_radical(input: &mut input_state_t, tok: i32, chr: i32) {
     let rn = Radical::from(get_node(RADICAL_NOAD_SIZE));
     *LLIST_link(cur_list.tail) = Some(rn.ptr()).tex_int();
     cur_list.tail = rn.ptr();
@@ -510,11 +519,11 @@ pub(crate) unsafe fn math_radical() {
     rn.first_mut().empty();
     rn.third_mut().empty();
     rn.second_mut().empty();
-    scan_delimiter(rn.delimeter_mut(), true);
-    scan_math(rn.first_mut(), rn.ptr() + 1);
+    scan_delimiter(input, tok, chr, rn.delimeter_mut(), true);
+    scan_math(input, rn.first_mut(), rn.ptr() + 1);
 }
-pub(crate) unsafe fn math_ac() {
-    if cur_cmd == Cmd::Accent {
+pub(crate) unsafe fn math_ac(input: &mut input_state_t, cmd: Cmd, chr: i32) {
+    if cmd == Cmd::Accent {
         /*1201: */
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -539,11 +548,11 @@ pub(crate) unsafe fn math_ac() {
     acc.third_mut().empty();
     acc.second_mut().empty();
     acc.fourth_mut().typ = MathCell::MathChar as _;
-    if cur_chr == 1 {
-        acc.set_accent_type(if scan_keyword(b"fixed") {
+    let val = if chr == 1 {
+        acc.set_accent_type(if scan_keyword(input, b"fixed") {
             AccentType::Fixed
-        } else if scan_keyword(b"bottom") {
-            if scan_keyword(b"fixed") {
+        } else if scan_keyword(input, b"bottom") {
+            if scan_keyword(input, b"fixed") {
                 AccentType::BottomFixed
             } else {
                 AccentType::Bottom
@@ -551,35 +560,35 @@ pub(crate) unsafe fn math_ac() {
         } else {
             AccentType::Normal
         });
-        scan_math_class_int();
-        let mut c = set_class(cur_val);
-        scan_math_fam_int();
-        c += set_family(cur_val);
-        scan_usv_num();
-        cur_val = cur_val + c
+        let val = scan_math_class_int(input);
+        let mut c = set_class(val);
+        let val = scan_math_fam_int(input);
+        c += set_family(val);
+        let val = scan_usv_num(input);
+        val + c
     } else {
-        scan_fifteen_bit_int();
-        cur_val = set_class(cur_val / 4096) + set_family(cur_val % 4096 / 256) + (cur_val % 256);
-    }
-    acc.fourth_mut().val.chr.character = (cur_val as i64 % 65536) as u16;
-    let font = if math_class(cur_val) == 7
+        let val = scan_fifteen_bit_int(input);
+        set_class(val / 4096) + set_family(val % 4096 / 256) + (val % 256)
+    };
+    acc.fourth_mut().val.chr.character = (val as i64 % 65536) as u16;
+    let font = if math_class(val) == 7
         && (*INTPAR(IntPar::cur_fam) >= 0 && *INTPAR(IntPar::cur_fam) < NUMBER_MATH_FAMILIES as i32)
     {
         *INTPAR(IntPar::cur_fam) as u16
     } else {
-        math_fam(cur_val) as u16
+        math_fam(val) as u16
     };
-    acc.fourth_mut().val.chr.font = (font as i64 + math_char(cur_val) as i64 / 65536 * 256) as u16;
-    scan_math(acc.first_mut(), acc.ptr() + 1);
+    acc.fourth_mut().val.chr.font = (font as i64 + math_char(val) as i64 / 65536 * 256) as u16;
+    scan_math(input, acc.first_mut(), acc.ptr() + 1);
 }
-pub(crate) unsafe fn append_choices() {
+pub(crate) unsafe fn append_choices(input: &mut input_state_t) {
     let c = new_choice();
     *LLIST_link(cur_list.tail) = Some(c).tex_int();
     cur_list.tail = c;
     SAVE_STACK[SAVE_PTR].val = 0; // push
     SAVE_PTR += 1;
     push_math(GroupCode::MathChoice);
-    scan_left_brace();
+    scan_left_brace(input);
 }
 pub(crate) unsafe fn fin_mlist(p: Option<usize>) -> i32 {
     let q = if let Some(a) = cur_list.aux.b32.s1.opt() {
@@ -608,8 +617,8 @@ pub(crate) unsafe fn fin_mlist(p: Option<usize>) -> i32 {
     pop_nest();
     q
 }
-pub(crate) unsafe fn build_choices() {
-    unsave();
+pub(crate) unsafe fn build_choices(input: &mut input_state_t) {
+    unsave(input);
     let mut p = fin_mlist(None).opt();
     let mut tail_choice = Choice(cur_list.tail);
     match MathStyle::n(SAVE_STACK[SAVE_PTR - 1].val as i16).unwrap() {
@@ -624,12 +633,12 @@ pub(crate) unsafe fn build_choices() {
     }
     SAVE_STACK[SAVE_PTR - 1].val += 1;
     push_math(GroupCode::MathChoice);
-    scan_left_brace();
+    scan_left_brace(input);
 }
-pub(crate) unsafe fn sub_sup() {
+pub(crate) unsafe fn sub_sup(input: &mut input_state_t, cmd: Cmd) {
     let mut t = MathCell::Empty;
     let mut p = None;
-    let cell = match cur_cmd {
+    let cell = match cmd {
         Cmd::SupMark => 2,
         Cmd::SubMark => 3,
         _ => unreachable!(),
@@ -654,7 +663,7 @@ pub(crate) unsafe fn sub_sup() {
             *LLIST_link(cur_list.tail) = new_noad() as i32;
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
             if t != MathCell::Empty {
-                if cur_cmd == Cmd::SupMark {
+                if cmd == Cmd::SupMark {
                     if file_line_error_style_p != 0 {
                         print_file_line();
                     } else {
@@ -679,28 +688,34 @@ pub(crate) unsafe fn sub_sup() {
     let p = p + cell;
     let m = BaseMath(cur_list.tail);
     if cell == 2 {
-        scan_math(m.second_mut(), p);
+        scan_math(input, m.second_mut(), p);
     } else {
-        scan_math(m.third_mut(), p);
+        scan_math(input, m.third_mut(), p);
     }
 }
-pub(crate) unsafe fn math_fraction() {
+pub(crate) unsafe fn math_fraction(input: &mut input_state_t, tok: i32, chr: i32) {
     let mut c: i16 = 0;
-    c = cur_chr as i16;
+    c = chr as i16;
     if cur_list.aux.b32.s1.opt().is_some() {
         /*1218:*/
         if c as i32 >= DELIMITED_CODE {
             scan_delimiter(
+                input,
+                tok,
+                chr,
                 &mut *(&mut MEM[GARBAGE] as *mut memory_word as *mut Delimeter),
                 false,
             );
             scan_delimiter(
+                input,
+                tok,
+                chr,
                 &mut *(&mut MEM[GARBAGE] as *mut memory_word as *mut Delimeter),
                 false,
             );
         }
         if c as i32 % DELIMITED_CODE == ABOVE_CODE {
-            scan_dimen(false, false, false);
+            let _ = scan_dimen(input, false, false, None);
         }
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -726,13 +741,13 @@ pub(crate) unsafe fn math_fraction() {
         MEM[cur_list.head].b32.s1 = None.tex_int();
         cur_list.tail = cur_list.head;
         if c as i32 >= DELIMITED_CODE {
-            scan_delimiter(a.left_delimeter_mut(), false);
-            scan_delimiter(a.right_delimeter_mut(), false);
+            scan_delimiter(input, tok, chr, a.left_delimeter_mut(), false);
+            scan_delimiter(input, tok, chr, a.right_delimeter_mut(), false);
         }
         match c as i32 % DELIMITED_CODE {
             ABOVE_CODE => {
-                scan_dimen(false, false, false);
-                a.set_thickness(cur_val);
+                let val = scan_dimen(input, false, false, None);
+                a.set_thickness(val);
             }
             OVER_CODE => {
                 a.set_thickness(DEFAULT_CODE);
@@ -744,13 +759,22 @@ pub(crate) unsafe fn math_fraction() {
         }
     };
 }
-pub(crate) unsafe fn math_left_right() {
+pub(crate) unsafe fn math_left_right(
+    input: &mut input_state_t,
+    group: GroupCode,
+    tok: i32,
+    cmd: Cmd,
+    chr: i32,
+) {
     let mut q: i32 = 0;
-    let mut t = cur_chr as i16;
-    if t != MathNode::Left as i16 && cur_group != GroupCode::MathLeft {
+    let mut t = chr as i16;
+    if t != MathNode::Left as i16 && group != GroupCode::MathLeft {
         /*1227: */
-        if cur_group == GroupCode::MathShift {
+        if group == GroupCode::MathShift {
             scan_delimiter(
+                input,
+                tok,
+                chr,
                 &mut *(&mut MEM[GARBAGE] as *mut memory_word as *mut Delimeter),
                 false,
             ); /*:1530 */
@@ -769,12 +793,12 @@ pub(crate) unsafe fn math_left_right() {
             }
             error();
         } else {
-            off_save();
+            off_save(input, group, tok, cmd, chr);
         }
     } else {
         let p = new_noad() as usize;
         MEM[p].b16.s1 = t as u16;
-        scan_delimiter(LeftRight(p).delimeter_mut(), false);
+        scan_delimiter(input, tok, chr, LeftRight(p).delimeter_mut(), false);
         if t == 1 {
             MEM[p].b16.s1 = MathNode::Right as u16;
             MEM[p].b16.s0 = 1;
@@ -783,7 +807,7 @@ pub(crate) unsafe fn math_left_right() {
             q = p as i32;
         } else {
             q = fin_mlist(Some(p));
-            unsave();
+            unsave(input);
         }
         if t != MathNode::Right as i16 {
             push_math(GroupCode::MathLeft);
@@ -916,7 +940,7 @@ unsafe fn app_display(j: Option<usize>, mut b: List, mut d: scaled_t) {
     }
     append_to_vlist(b);
 }
-pub(crate) unsafe fn after_math() {
+pub(crate) unsafe fn after_math(input: &mut input_state_t) {
     let mut l: bool = false;
     let mut danger: bool = false;
     let mut p: i32 = 0;
@@ -982,8 +1006,8 @@ pub(crate) unsafe fn after_math() {
     l = false;
     p = fin_mlist(None);
     let a = if cur_list.mode == (!m.0, m.1) {
-        get_x_token();
-        if cur_cmd != Cmd::MathShift {
+        let (tok, cmd, ..) = get_x_token(input);
+        if cmd != Cmd::MathShift {
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
@@ -995,7 +1019,7 @@ pub(crate) unsafe fn after_math() {
                 "The `$\' that I just saw supposedly matches a previous `$$\'.",
                 "So I shall assume that you typed `$$\' both times."
             );
-            back_error();
+            back_error(input, tok);
         }
         cur_mlist = p;
         cur_style = (MathStyle::Text, 0);
@@ -1003,7 +1027,7 @@ pub(crate) unsafe fn after_math() {
         mlist_to_hlist();
         let mut a = hpack(llist_link(TEMP_HEAD), 0, PackMode::Additional);
         a.set_lr_mode(LRMode::DList);
-        unsave();
+        unsave(input);
         SAVE_PTR -= 1;
         if SAVE_STACK[SAVE_PTR].val == 1 {
             l = true
@@ -1080,12 +1104,12 @@ pub(crate) unsafe fn after_math() {
             new_math(*DIMENPAR(DimenPar::math_surround), MathType::After) as i32;
         cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         cur_list.aux.b32.s0 = 1000;
-        unsave();
+        unsave(input);
     } else {
         if a.is_none() {
             // 1232:
-            get_x_token();
-            if cur_cmd != Cmd::MathShift {
+            let (tok, cmd, ..) = get_x_token(input);
+            if cmd != Cmd::MathShift {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -1097,7 +1121,7 @@ pub(crate) unsafe fn after_math() {
                     "The `$\' that I just saw supposedly matches a previous `$$\'.",
                     "So I shall assume that you typed `$$\' both times."
                 );
-                back_error();
+                back_error(input, tok);
             }
         }
         cur_mlist = p;
@@ -1216,14 +1240,14 @@ pub(crate) unsafe fn after_math() {
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         }
         flush_node_list(j);
-        resume_after_display();
+        resume_after_display(input);
     };
 }
-pub(crate) unsafe fn resume_after_display() {
+pub(crate) unsafe fn resume_after_display(input: &mut input_state_t) {
     if cur_group != GroupCode::MathShift {
         confusion("display");
     }
-    unsave();
+    unsave(input);
     cur_list.prev_graf = cur_list.prev_graf + 3;
     push_nest();
     cur_list.mode = (false, ListMode::HMode);
@@ -1240,12 +1264,12 @@ pub(crate) unsafe fn resume_after_display() {
         + norm_min(*INTPAR(IntPar::right_hyphen_min)) as i32) as i64
         * 65536
         + cur_lang as i64) as i32;
-    get_x_token();
-    if cur_cmd != Cmd::Spacer {
-        back_input();
+    let (tok, cmd, ..) = get_x_token(input);
+    if cmd != Cmd::Spacer {
+        back_input(input, tok);
     }
     if NEST_PTR == 1 {
-        build_page();
+        build_page(input);
     };
 }
 /* Copyright 2016-2018 The Tectonic Project

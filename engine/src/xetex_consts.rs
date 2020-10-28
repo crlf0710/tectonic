@@ -831,9 +831,6 @@ pub(crate) const GLOBAL_BOX_FLAG: placeholdertype = 0x40008000;
 pub(crate) const SHIP_OUT_FLAG: placeholdertype = 0x40010000;
 pub(crate) const LEADER_FLAG: placeholdertype = 0x40010001;
 
-pub(crate) const LP_CODE_BASE: placeholdertype = 2;
-pub(crate) const RP_CODE_BASE: placeholdertype = 3;
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Side {
     Left = 0,

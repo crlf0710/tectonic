@@ -874,7 +874,7 @@ pub(crate) unsafe fn pdf_load_fontmap_file(filename: &str, mode: i32) -> i32 {
                 "Found a mismatched fontmap line {} from {}.",
                 lpos, filename,
             );
-            warn!("-- Ignore the current input buffer: {}", p.display(),);
+            warn!("-- Ignore the current input buffer: {}", p.display());
         } else {
             format += m;
             let mut mrec = pdf_init_fontmap_record();
@@ -885,11 +885,11 @@ pub(crate) unsafe fn pdf_load_fontmap_file(filename: &str, mode: i32) -> i32 {
                     "Invalid map record in fontmap line {} from {}.",
                     lpos, filename,
                 );
-                warn!("-- Ignore the current input buffer: {}", p.display(),);
+                warn!("-- Ignore the current input buffer: {}", p.display());
             } else {
                 match mode {
                     0 => {
-                        pdf_insert_fontmap_record(&mrec.map_name, &mrec);
+                        pdf_insert_fontmap_record(&mrec.map_name, &mrec).ok();
                     }
                     43 => {
                         pdf_append_fontmap_record(&mrec.map_name, &mrec);

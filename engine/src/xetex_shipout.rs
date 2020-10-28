@@ -9,9 +9,9 @@ use crate::xetex_errors::{confusion, error, fatal_error, overflow};
 use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, Font};
 use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
-    avail, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
-    cur_page_height, cur_page_width, cur_tok, cur_v, cur_v_offset, dead_cycles, def_ref,
-    doing_leaders, doing_special, file_line_error_style_p, file_offset, font_used, init_pool_ptr,
+    avail, cur_area, cur_dir, cur_ext, cur_h, cur_h_offset, cur_input, cur_list, cur_name,
+    cur_page_height, cur_page_width, cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders,
+    doing_special, file_line_error_style_p, file_offset, font_used, init_pool_ptr, input_state_t,
     job_name, last_bop, log_opened, max_h, max_print_line, max_push, max_v, name_of_file,
     output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht,
     rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr, str_start,
@@ -25,7 +25,7 @@ use crate::xetex_output::{
     print_nl_cstr, print_raw_char, print_scaled,
 };
 use crate::xetex_scaledmath::tex_round;
-use crate::xetex_stringpool::length;
+use crate::xetex_stringpool::{length, PoolString};
 use crate::xetex_synctex::{
     synctex_current, synctex_hlist, synctex_horizontal_rule_or_glue, synctex_kern, synctex_math,
     synctex_sheet, synctex_teehs, synctex_tsilh, synctex_tsilv, synctex_vlist, synctex_void_hlist,
@@ -857,7 +857,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                             pdf_last_y_pos =
                                 cur_page_height - cur_v - cur_v_offset
                         }
-                        _ => { out_what(&p); }
+                        _ => { out_what(&mut cur_input, &p); }
                     }
                 }
                 TxtNode::Glue(mut p) => {
@@ -1336,7 +1336,7 @@ unsafe fn vlist_out(this_box: &List) {
                     pdf_last_x_pos = cur_h + cur_h_offset;
                     pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
                 }
-                _ => out_what(p),
+                _ => out_what(&mut cur_input, p),
             },
             TxtNode::Glue(p) => {
                 /*656: "Move down or output leaders" */
@@ -1739,7 +1739,7 @@ pub(crate) unsafe fn new_edge(s: LR, w: scaled_t) -> usize {
     p.ptr()
 }
 
-pub(crate) unsafe fn out_what(p: &WhatsIt) {
+pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
     let mut j: i16;
     match p {
         WhatsIt::Open(p) => {
@@ -1795,7 +1795,7 @@ pub(crate) unsafe fn out_what(p: &WhatsIt) {
             if doing_leaders {
                 return;
             }
-            write_out(&p);
+            write_out(input, &p);
             return;
         }
         WhatsIt::Close(p) => {
@@ -1844,28 +1844,17 @@ unsafe fn dvi_font_def(f: internal_font_number) {
         dvi_four(FONT_SIZE[f]);
         dvi_four(FONT_DSIZE[f]);
         dvi_out(length(FONT_AREA[f]) as u8);
-        let mut l = 0;
-        let mut k = str_start[(FONT_NAME[f] as i64 - 65536) as usize];
-
-        while l == 0 && k < str_start[((FONT_NAME[f] + 1) as i64 - 65536) as usize] {
-            if str_pool[k as usize] as i32 == ':' as i32 {
-                l = k - str_start[(FONT_NAME[f] as i64 - 65536) as usize]
-            }
-            k += 1;
-        }
-        if l == 0i32 {
-            l = length(FONT_NAME[f])
-        }
+        let l = PoolString::from(FONT_NAME[f])
+            .as_slice()
+            .iter()
+            .position(|&x| x == ':' as u16)
+            .unwrap_or_else(|| length(FONT_NAME[f]) as usize);
         dvi_out(l as u8);
-        for k in str_start[(FONT_AREA[f] as i64 - 65536) as usize]
-            ..str_start[((FONT_AREA[f] + 1) as i64 - 65536) as usize]
-        {
-            dvi_out(str_pool[k as usize] as u8);
+        for k in PoolString::from(FONT_AREA[f]).as_slice() {
+            dvi_out(*k as u8);
         }
-        for k in str_start[(FONT_NAME[f] as i64 - 65536) as usize]
-            ..(str_start[(FONT_NAME[f] as i64 - 65536) as usize] + l)
-        {
-            dvi_out(str_pool[k as usize] as u8);
+        for k in PoolString::from(FONT_NAME[f]).as_slice() {
+            dvi_out(*k as u8);
         }
     };
 }
@@ -2070,25 +2059,24 @@ unsafe fn special_out(p: &Special) {
     doing_special = false;
 }
 
-unsafe fn write_out(p: &WriteFile) {
+unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
     let q = get_avail();
     MEM[q].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
     let mut r = get_avail();
     *LLIST_link(q) = Some(r).tex_int();
     MEM[r].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
-    begin_token_list(q, Btl::Inserted);
-    begin_token_list(p.tokens() as usize, Btl::WriteText);
+    begin_token_list(input, q, Btl::Inserted);
+    begin_token_list(input, p.tokens() as usize, Btl::WriteText);
     let q = get_avail();
     MEM[q].b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
-    begin_token_list(q, Btl::Inserted);
+    begin_token_list(input, q, Btl::Inserted);
 
     let old_mode = cur_list.mode;
     cur_list.mode = (false, ListMode::NoMode);
-    cur_cs = write_loc;
-    let _q = scan_toks(false, true);
-    get_token();
+    let _q = scan_toks(input, write_loc, false, true);
+    let tok = get_token(input).0;
 
-    if cur_tok != CS_TOKEN_FLAG + END_WRITE as i32 {
+    if tok != CS_TOKEN_FLAG + END_WRITE as i32 {
         /*1412:*/
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -2103,15 +2091,15 @@ unsafe fn write_out(p: &WriteFile) {
         error();
 
         loop {
-            get_token();
-            if !(cur_tok != CS_TOKEN_FLAG + END_WRITE as i32) {
+            let tok = get_token(input).0;
+            if tok == CS_TOKEN_FLAG + END_WRITE as i32 {
                 break;
             }
         }
     }
 
     cur_list.mode = old_mode;
-    end_token_list();
+    end_token_list(input);
     let old_setting = selector;
     let j = p.id() as i16;
 
