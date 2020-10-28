@@ -6746,7 +6746,9 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                 cur_val = 0;
                 let mut tx = cur_list.tail;
                 match Node::from(tx) {
-                    Node::Text(TxtNode::Math(m)) if m.subtype() == MathType::Eq(BE::End, MathMode::Middle) => {
+                    Node::Text(TxtNode::Math(m))
+                        if m.subtype() == MathType::Eq(BE::End, MathMode::Middle) =>
+                    {
                         r = cur_list.head as i32;
                         let mut q;
                         loop {
@@ -12722,7 +12724,9 @@ pub(crate) unsafe fn delete_last() {
     } else {
         let mut tx = cur_list.tail;
         match Node::from(tx) {
-            Node::Text(TxtNode::Math(m)) if m.subtype() == MathType::Eq(BE::End, MathMode::Middle) => {
+            Node::Text(TxtNode::Math(m))
+                if m.subtype() == MathType::Eq(BE::End, MathMode::Middle) =>
+            {
                 let mut r = cur_list.head as i32;
                 let mut q;
                 loop {

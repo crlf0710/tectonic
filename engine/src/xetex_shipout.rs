@@ -40,8 +40,8 @@ use crate::xetex_xetex0::{
     str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, llist_link, print_c_str, set_NODE_type, LLIST_link, NODE_type,
-    SYNCTEX_tag, TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    is_char_node, llist_link, print_c_str, set_NODE_type, LLIST_link, NODE_type, SYNCTEX_tag,
+    TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -452,7 +452,9 @@ unsafe fn hlist_out(this_box: &mut List) {
                                         break;
                                     }
                                 }
-                                Some(CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(q)))) if q.font() == r_nw.font() => {
+                                Some(CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(
+                                    q,
+                                )))) if q.font() == r_nw.font() => {
                                     p = q.ptr();
                                     qopt = llist_link(q.ptr());
                                 }
