@@ -1,6 +1,8 @@
-use bridge::{ttstub_input_getc, TTInputFormat};
+use bridge::TTInputFormat;
 
 use crate::help;
+
+use std::io::Read;
 
 use crate::xetex_ini::b16x4;
 use crate::xetex_ini::nine_bits;
@@ -20,7 +22,6 @@ use crate::xetex_ini::loaded_font_design_size;
 use crate::xetex_ini::loaded_font_flags;
 use crate::xetex_ini::loaded_font_letter_space;
 use crate::xetex_ini::loaded_font_mapping;
-use crate::xetex_ini::native_font_type_flag;
 use crate::xetex_ini::pool_ptr;
 use crate::xetex_ini::quoted_filename;
 use crate::xetex_ini::str_ptr;
@@ -58,11 +59,9 @@ use crate::xetex_ini::pool_size;
 use crate::xetex_ini::str_pool;
 use crate::xetex_ini::str_start;
 
-use crate::xetex_ext::find_native_font;
 use crate::xetex_ext::ot_get_font_metrics;
-use crate::xetex_ext::release_font_engine;
 use crate::xetex_ext::{check_for_tfm_font_mapping, load_tfm_font_mapping};
-use crate::xetex_ext::{AAT_FONT_FLAG, OTGR_FONT_FLAG};
+use crate::xetex_ext::{find_native_font, NativeFont::*};
 
 use super::xetex_io::tt_xetex_open_input;
 use crate::xetex_consts::IntPar;
@@ -88,8 +87,6 @@ use crate::xetex_xetex0::new_native_character;
 use crate::xetex_xetex0::pack_file_name;
 
 use crate::xetex_layout_interface::get_ot_math_constant;
-use crate::xetex_layout_interface::isOpenTypeMathFont;
-use crate::xetex_layout_interface::XeTeXLayoutEngine;
 use crate::xetex_scaledmath::xn_over_d;
 
 #[derive(Clone, Copy, Debug)]
@@ -158,15 +155,18 @@ pub(crate) unsafe fn read_font_info(
      * conveniently implement feof() in the Rust layer, and it only ever is
      * used in this one place. */
 
+    let mut buf16 = [0_u8; 2];
+
     macro_rules! READFIFTEEN (
         ($x:expr) => {
-            $x = ttstub_input_getc(tfm_file);
-            if $x > 127 || $x == libc::EOF {
-                return Err(TfmError::BadMetric);
-            }
-            $x *= 256;
-            $x += ttstub_input_getc(tfm_file);
-
+            tfm_file.read_exact(&mut buf16[..]).map_err(|_| TfmError::BadMetric)?;
+            $x = {
+                let b16 = i16::from_be_bytes(buf16);
+                if b16 < 0 {
+                    return Err(TfmError::BadMetric);
+                }
+                b16 as i32
+            };
         };
     );
 
@@ -232,33 +232,27 @@ pub(crate) unsafe fn read_font_info(
     if lh < 2 {
         return Err(TfmError::BadMetric);
     }
-    let a = ttstub_input_getc(tfm_file);
-    let b = ttstub_input_getc(tfm_file);
-    let c = ttstub_input_getc(tfm_file);
-    let d = ttstub_input_getc(tfm_file);
-    let qw = b16x4 {
+    let mut buf = [0_u8; 4];
+    tfm_file
+        .read_exact(&mut buf[..])
+        .map_err(|_| TfmError::BadMetric)?;
+    let [a, b, c, d] = buf;
+    FONT_CHECK[f as usize] = b16x4 {
         s0: d as u16,
         s1: c as u16,
         s2: b as u16,
         s3: a as u16,
     };
-    if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-        return Err(TfmError::BadMetric);
-    }
-    FONT_CHECK[f as usize] = qw;
 
-    let mut z;
-    READFIFTEEN!(z);
-    z = z * 256 + ttstub_input_getc(tfm_file);
-    z = z * 16 + ttstub_input_getc(tfm_file) / 16;
+    tfm_file
+        .read_exact(&mut buf[..])
+        .map_err(|_| TfmError::BadMetric)?;
+    let mut z = i32::from_be_bytes(buf) >> 4;
     if z < 65536 {
         return Err(TfmError::BadMetric);
     }
     while lh > 2 {
-        ttstub_input_getc(tfm_file);
-        ttstub_input_getc(tfm_file);
-        ttstub_input_getc(tfm_file);
-        ttstub_input_getc(tfm_file);
+        tfm_file.read_exact(&mut buf[..]).ok();
         lh -= 1
     }
     FONT_DSIZE[f] = z;
@@ -271,21 +265,21 @@ pub(crate) unsafe fn read_font_info(
     }
     FONT_SIZE[f] = z;
 
-    for k in fmem_ptr..=(WIDTH_BASE[f] - 1) {
-        let a = ttstub_input_getc(tfm_file);
-        let b = ttstub_input_getc(tfm_file);
-        let c = ttstub_input_getc(tfm_file);
-        let mut d = ttstub_input_getc(tfm_file);
-        let qw = b16x4 {
+    for k in fmem_ptr..WIDTH_BASE[f] {
+        tfm_file
+            .read_exact(&mut buf[..])
+            .map_err(|_| TfmError::BadMetric)?;
+        let [a, b, c, d] = buf;
+        FONT_INFO[k as usize].b16 = b16x4 {
             s0: d as u16,
             s1: c as u16,
             s2: b as u16,
             s3: a as u16,
         };
-        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return Err(TfmError::BadMetric);
-        }
-        FONT_INFO[k as usize].b16 = qw;
+        let a = a as i32;
+        let b = b as i32;
+        let c = c as i32;
+        let mut d = d as i32;
 
         if a >= nw || b / 16 >= nh || b % 16 >= nd || c / 4 >= ni {
             return Err(TfmError::BadMetric);
@@ -327,20 +321,17 @@ pub(crate) unsafe fn read_font_info(
     let mut alpha = 16;
     while z >= 0x800000 {
         z = z / 2;
-        alpha = alpha + alpha
+        alpha *= 2;
     }
     let beta = (256 / alpha) as u8;
-    alpha = alpha * z;
+    alpha *= z;
 
-    for k in WIDTH_BASE[f]..=LIG_KERN_BASE[f] - 1 {
-        let a = ttstub_input_getc(tfm_file);
-        let b = ttstub_input_getc(tfm_file);
-        let c = ttstub_input_getc(tfm_file);
-        let d = ttstub_input_getc(tfm_file);
-        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return Err(TfmError::BadMetric);
-        }
-        let sw = ((d * z / 256 + c * z) / 256 + b * z) / beta as i32;
+    for k in WIDTH_BASE[f]..LIG_KERN_BASE[f] {
+        tfm_file
+            .read_exact(&mut buf[..])
+            .map_err(|_| TfmError::BadMetric)?;
+        let [a, b, c, d] = buf;
+        let sw = (((d as i32) * z / 256 + (c as i32) * z) / 256 + (b as i32) * z) / beta as i32;
 
         if a == 0 {
             FONT_INFO[k as usize].b32.s1 = sw
@@ -371,20 +362,20 @@ pub(crate) unsafe fn read_font_info(
         let mut c = 0;
         let mut d = 0;
         for k in LIG_KERN_BASE[f]..KERN_BASE[f] + 256 * 128 {
-            a = ttstub_input_getc(tfm_file);
-            let b = ttstub_input_getc(tfm_file);
-            c = ttstub_input_getc(tfm_file);
-            d = ttstub_input_getc(tfm_file);
-            let qw = b16x4 {
-                s0: d as u16,
-                s1: c as u16,
+            tfm_file
+                .read_exact(&mut buf[..])
+                .map_err(|_| TfmError::BadMetric)?;
+            let [a_, b, c_, d_] = buf;
+            FONT_INFO[k as usize].b16 = b16x4 {
+                s0: d_ as u16,
+                s1: c_ as u16,
                 s2: b as u16,
-                s3: a as u16,
+                s3: a_ as u16,
             };
-            if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-                return Err(TfmError::BadMetric);
-            }
-            FONT_INFO[k as usize].b16 = qw;
+            a = a_ as i32;
+            let b = b as i32;
+            c = c_ as i32;
+            d = d_ as i32;
 
             if a > 128 {
                 if 256 * c + d >= nl {
@@ -399,8 +390,7 @@ pub(crate) unsafe fn read_font_info(
                         return Err(TfmError::BadMetric);
                     }
 
-                    let qw = FONT_INFO[(CHAR_BASE[f] + b) as usize].b16;
-                    if !(qw.s3 > 0) {
+                    if FONT_INFO[(CHAR_BASE[f] + b) as usize].b16.s3 == 0 {
                         return Err(TfmError::BadMetric);
                     }
                 }
@@ -409,8 +399,7 @@ pub(crate) unsafe fn read_font_info(
                     if d < bc || d > ec {
                         return Err(TfmError::BadMetric);
                     }
-                    let qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
-                    if !(qw.s3 > 0) {
+                    if FONT_INFO[(CHAR_BASE[f] + d) as usize].b16.s3 == 0 {
                         return Err(TfmError::BadMetric);
                     }
                 } else if 256 * (c - 128) + d >= nk {
@@ -427,14 +416,12 @@ pub(crate) unsafe fn read_font_info(
     }
 
     for k in KERN_BASE[f] + 256 * 128..EXTEN_BASE[f] {
-        let a = ttstub_input_getc(tfm_file);
-        let b = ttstub_input_getc(tfm_file);
-        let c = ttstub_input_getc(tfm_file);
-        let d = ttstub_input_getc(tfm_file);
-        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return Err(TfmError::BadMetric);
-        }
-        let sw = ((d * z / 256 + c * z) / 256 + b * z) / beta as i32;
+        tfm_file
+            .read_exact(&mut buf[..])
+            .map_err(|_| TfmError::BadMetric)?;
+        let [a, b, c, d] = buf;
+
+        let sw = (((d as i32) * z / 256 + (c as i32) * z) / 256 + (b as i32) * z) / beta as i32;
         if a == 0 {
             FONT_INFO[k as usize].b32.s1 = sw
         } else if a == 255 {
@@ -445,27 +432,26 @@ pub(crate) unsafe fn read_font_info(
     }
 
     for k in EXTEN_BASE[f]..PARAM_BASE[f] {
-        let a = ttstub_input_getc(tfm_file);
-        let b = ttstub_input_getc(tfm_file);
-        let c = ttstub_input_getc(tfm_file);
-        let d = ttstub_input_getc(tfm_file);
-        let qw = b16x4 {
+        tfm_file
+            .read_exact(&mut buf[..])
+            .map_err(|_| TfmError::BadMetric)?;
+        let [a, b, c, d] = buf;
+        FONT_INFO[k as usize].b16 = b16x4 {
             s0: d as u16,
             s1: c as u16,
             s2: b as u16,
             s3: a as u16,
         };
-        if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-            return Err(TfmError::BadMetric);
-        }
-        FONT_INFO[k as usize].b16 = qw;
+        let a = a as i32;
+        let b = b as i32;
+        let c = c as i32;
+        let d = d as i32;
 
         if a != 0 {
             if a < bc || a > ec {
                 return Err(TfmError::BadMetric);
             }
-            let qw = FONT_INFO[(CHAR_BASE[f] + a) as usize].b16;
-            if !(qw.s3 as i32 > 0i32) {
+            if FONT_INFO[(CHAR_BASE[f] + a) as usize].b16.s3 == 0 {
                 return Err(TfmError::BadMetric);
             }
         }
@@ -474,8 +460,7 @@ pub(crate) unsafe fn read_font_info(
             if b < bc || b > ec {
                 return Err(TfmError::BadMetric);
             }
-            let qw = FONT_INFO[(CHAR_BASE[f] + b) as usize].b16;
-            if !(qw.s3 > 0) {
+            if FONT_INFO[(CHAR_BASE[f] + b) as usize].b16.s3 == 0 {
                 return Err(TfmError::BadMetric);
             }
         }
@@ -484,8 +469,7 @@ pub(crate) unsafe fn read_font_info(
             if c < bc || c > ec {
                 return Err(TfmError::BadMetric);
             }
-            let qw = FONT_INFO[(CHAR_BASE[f] + c) as usize].b16;
-            if !(qw.s3 > 0) {
+            if FONT_INFO[(CHAR_BASE[f] + c) as usize].b16.s3 == 0 {
                 return Err(TfmError::BadMetric);
             }
         }
@@ -493,34 +477,24 @@ pub(crate) unsafe fn read_font_info(
         if d < bc || d > ec {
             return Err(TfmError::BadMetric);
         }
-        let qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
-        if !(qw.s3 > 0) {
+        if FONT_INFO[(CHAR_BASE[f] + d) as usize].b16.s3 == 0 {
             return Err(TfmError::BadMetric);
         }
     }
 
     for k in 1..=np {
         if k == 1 {
-            let mut sw = ttstub_input_getc(tfm_file);
-            if sw == libc::EOF {
-                return Err(TfmError::BadMetric);
-            }
-            if sw > 127 {
-                sw = sw - 256
-            }
-
-            sw = sw * 256 + ttstub_input_getc(tfm_file);
-            sw = sw * 256 + ttstub_input_getc(tfm_file);
-            FONT_INFO[PARAM_BASE[f] as usize].b32.s1 = sw * 16 + ttstub_input_getc(tfm_file) / 16
+            tfm_file
+                .read_exact(&mut buf[..])
+                .map_err(|_| TfmError::BadMetric)?;
+            FONT_INFO[PARAM_BASE[f] as usize].b32.s1 = i32::from_be_bytes(buf) >> 4;
         } else {
-            let a = ttstub_input_getc(tfm_file);
-            let b = ttstub_input_getc(tfm_file);
-            let c = ttstub_input_getc(tfm_file);
-            let d = ttstub_input_getc(tfm_file);
-            if a == libc::EOF || b == libc::EOF || c == libc::EOF || d == libc::EOF {
-                return Err(TfmError::BadMetric);
-            }
-            let sw = ((d * z / 256 + c * z) / 256 + b * z) / beta as i32;
+            tfm_file
+                .read_exact(&mut buf[..])
+                .map_err(|_| TfmError::BadMetric)?;
+            let [a, b, c, d] = buf;
+
+            let sw = (((d as i32) * z / 256 + (c as i32) * z) / 256 + (b as i32) * z) / beta as i32;
             if a == 0 {
                 FONT_INFO[(PARAM_BASE[f] + k - 1) as usize].b32.s1 = sw
             } else if a == 255 {
@@ -553,8 +527,7 @@ pub(crate) unsafe fn read_font_info(
 
     if bchar_0 as i32 <= ec {
         if bchar_0 as i32 >= bc {
-            let qw = FONT_INFO[(CHAR_BASE[f] + bchar_0 as i32) as usize].b16;
-            if qw.s3 as i32 > 0 {
+            if FONT_INFO[(CHAR_BASE[f] + bchar_0 as i32) as usize].b16.s3 > 0 {
                 FONT_FALSE_BCHAR[f] = TOO_BIG_CHAR;
             }
         }
@@ -638,10 +611,11 @@ pub(crate) fn good_tfm(ok: (bool, usize)) -> usize {
 }
 
 pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontError> {
-    let mut font_engine = find_native_font(&name_of_file, s);
-    if font_engine.is_null() {
+    let font_engine = find_native_font(&name_of_file, s);
+    if font_engine.is_none() {
         return Err(NativeFontError::NotFound);
     }
+    let font_engine = font_engine.unwrap();
     let actual_size = if s >= 0 {
         s
     } else if s != -1000 {
@@ -660,29 +634,26 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
     let full_name = make_string();
 
     for f in 1..FONT_PTR + 1 {
-        if FONT_AREA[f] == native_font_type_flag
+        if FONT_AREA[f] == font_engine.flag() as i32
             && str_eq_str(FONT_NAME[f], full_name)
             && FONT_SIZE[f] == actual_size
         {
-            release_font_engine(font_engine, native_font_type_flag);
             str_ptr -= 1;
             pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
             return Ok(f);
         }
     }
 
-    let num_font_dimens = if native_font_type_flag as u32 == OTGR_FONT_FLAG
-        && isOpenTypeMathFont(font_engine as XeTeXLayoutEngine)
-    {
-        65 // = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55)
-    } else {
-        8
+    let num_font_dimens = match &font_engine {
+        Otgr(e) if e.is_open_type_math_font() => 65,
+        // = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55)
+        _ => 8,
     };
     if FONT_PTR == FONT_MAX || fmem_ptr + num_font_dimens > FONT_MEM_SIZE as i32 {
         return Err(NativeFontError::NotEnoughMemory);
     }
     FONT_PTR += 1;
-    FONT_AREA[FONT_PTR] = native_font_type_flag;
+    FONT_AREA[FONT_PTR] = font_engine.flag() as i32;
     FONT_NAME[FONT_PTR] = full_name;
     FONT_CHECK[FONT_PTR] = b16x4 {
         s3: 0,
@@ -694,12 +665,10 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
     FONT_DSIZE[FONT_PTR] = loaded_font_design_size;
     FONT_SIZE[FONT_PTR] = actual_size;
 
-    let (ascent, descent, x_ht, cap_ht, font_slant) = match native_font_type_flag as u32 {
+    let (ascent, descent, x_ht, cap_ht, font_slant) = match &font_engine {
         #[cfg(target_os = "macos")]
-        AAT_FONT_FLAG => crate::xetex_aatfont::aat_get_font_metrics(font_engine as _),
-        #[cfg(not(target_os = "macos"))]
-        AAT_FONT_FLAG => unreachable!(),
-        _ => ot_get_font_metrics(font_engine),
+        Aat(fe) => crate::xetex_aatfont::aat_get_font_metrics(*fe),
+        Otgr(fe) => ot_get_font_metrics(fe),
     };
     HEIGHT_BASE[FONT_PTR] = ascent;
     DEPTH_BASE[FONT_PTR] = -descent;
@@ -710,7 +679,7 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
     HYPHEN_CHAR[FONT_PTR] = *INTPAR(IntPar::default_hyphen_char);
     SKEW_CHAR[FONT_PTR] = *INTPAR(IntPar::default_skew_char);
     PARAM_BASE[FONT_PTR] = fmem_ptr - 1;
-    FONT_LAYOUT_ENGINE[FONT_PTR] = font_engine;
+    FONT_LAYOUT_ENGINE[FONT_PTR] = crate::xetex_ext::Font::Native(font_engine);
     FONT_MAPPING[FONT_PTR] = 0 as *mut libc::c_void;
     FONT_LETTER_SPACE[FONT_PTR] = loaded_font_letter_space;
     /* "measure the width of the space character and set up font parameters" */

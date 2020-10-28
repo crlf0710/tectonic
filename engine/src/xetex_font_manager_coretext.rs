@@ -372,28 +372,12 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_getPlatformFontDesc(
 }
 pub(crate) unsafe fn XeTeXFontMgr_Mac_ctor(mut self_0: *mut XeTeXFontMgr_Mac) {
     XeTeXFontMgr_base_ctor(&mut (*self_0).super_);
-    (*self_0).super_.m_memfnInitialize =
-        Some(XeTeXFontMgr_Mac_initialize as unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ());
-    (*self_0).super_.m_memfnTerminate =
-        Some(XeTeXFontMgr_Mac_terminate as unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ());
-    (*self_0).super_.m_memfnGetPlatformFontDesc = Some(
-        XeTeXFontMgr_Mac_getPlatformFontDesc
-            as unsafe extern "C" fn(
-                _: *const XeTeXFontMgr,
-                _: PlatformFontRef,
-            ) -> *mut libc::c_char,
-    );
-    (*self_0).super_.m_memfnSearchForHostPlatformFonts = Some(
-        XeTeXFontMgr_Mac_searchForHostPlatformFonts
-            as unsafe extern "C" fn(_: *mut XeTeXFontMgr, _: *const libc::c_char) -> (),
-    );
-    (*self_0).super_.m_memfnReadNames = Some(
-        XeTeXFontMgr_Mac_readNames
-            as unsafe extern "C" fn(
-                _: *mut XeTeXFontMgr,
-                _: CTFontDescriptorRef,
-            ) -> *mut XeTeXFontMgrNameCollection,
-    );
+    (*self_0).super_.m_memfnInitialize = Some(XeTeXFontMgr_Mac_initialize);
+    (*self_0).super_.m_memfnTerminate = Some(XeTeXFontMgr_Mac_terminate);
+    (*self_0).super_.m_memfnGetPlatformFontDesc = Some(XeTeXFontMgr_Mac_getPlatformFontDesc);
+    (*self_0).super_.m_memfnSearchForHostPlatformFonts =
+        Some(XeTeXFontMgr_Mac_searchForHostPlatformFonts);
+    (*self_0).super_.m_memfnReadNames = Some(XeTeXFontMgr_Mac_readNames);
 }
 pub(crate) unsafe fn XeTeXFontMgr_Mac_create() -> *mut XeTeXFontMgr_Mac {
     let mut self_0: *mut XeTeXFontMgr_Mac =

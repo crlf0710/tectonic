@@ -19,8 +19,6 @@ use crate::node::*;
 use crate::trie::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, overflow};
-use crate::xetex_ext::release_font_engine;
-use crate::xetex_ext::{AAT_FONT_FLAG, OTGR_FONT_FLAG};
 use crate::xetex_layout_interface::{destroy_font_manager, set_cp_code};
 use crate::xetex_output::{
     print, print_chr, print_cstr, print_esc_cstr, print_file_line, print_int, print_nl,
@@ -783,8 +781,10 @@ pub(crate) static mut BCHAR_LABEL: Vec<font_index> = Vec::new();
 pub(crate) static mut FONT_BCHAR: Vec<nine_bits> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_FALSE_BCHAR: Vec<nine_bits> = Vec::new();
-#[no_mangle]
-pub(crate) static mut FONT_LAYOUT_ENGINE: Vec<*mut libc::c_void> = Vec::new();
+
+use crate::xetex_ext::Font;
+
+pub(crate) static mut FONT_LAYOUT_ENGINE: Vec<Font> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_MAPPING: Vec<*mut libc::c_void> = Vec::new();
 #[no_mangle]
@@ -1037,8 +1037,6 @@ pub(crate) static mut disc_ptr: [i32; 4] = [0; 4];
 pub(crate) static mut edit_name_start: pool_pointer = 0;
 #[no_mangle]
 pub(crate) static mut stop_at_space: bool = false;
-#[no_mangle]
-pub(crate) static mut native_font_type_flag: i32 = 0;
 #[no_mangle]
 pub(crate) static mut xtx_ligature_present: bool = false;
 #[no_mangle]
@@ -2205,11 +2203,8 @@ pub(crate) unsafe fn prefixed_command() {
                     HYPHEN_CHAR[f] = cur_val
                 } else { SKEW_CHAR[f] = cur_val }
             } else {
-                if FONT_AREA[f] as u32 == AAT_FONT_FLAG
-                       ||
-                       FONT_AREA[f] as u32 ==
-                           OTGR_FONT_FLAG {
-                    scan_glyph_number(f);
+                if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
+                    scan_glyph_number(nf);
                 } else { scan_char_num(); }
                 let p = cur_val;
                 scan_optional_equals();
@@ -4285,7 +4280,10 @@ pub(crate) unsafe fn tt_run_engine(
         trie_r[0] = 0;
         hyph_start = 0;
         FONT_MAPPING = vec![0 as *mut libc::c_void; FONT_MAX + 1];
-        FONT_LAYOUT_ENGINE = vec![0 as *mut libc::c_void; FONT_MAX + 1];
+        FONT_LAYOUT_ENGINE.clear();
+        for _ in 0..FONT_MAX + 1 {
+            FONT_LAYOUT_ENGINE.push(Font::None);
+        }
         FONT_FLAGS = vec![0; FONT_MAX + 1];
         FONT_LETTER_SPACE = vec![0; FONT_MAX + 1];
         FONT_CHECK = vec![b16x4_le_t::default(); FONT_MAX + 1];
@@ -4366,12 +4364,8 @@ pub(crate) unsafe fn tt_run_engine(
 
     destroy_font_manager();
 
-    for font_k in 0..FONT_MAX {
-        if !(FONT_LAYOUT_ENGINE[font_k]).is_null() {
-            release_font_engine(FONT_LAYOUT_ENGINE[font_k], FONT_AREA[font_k]);
-            FONT_LAYOUT_ENGINE[font_k] = 0 as *mut libc::c_void
-        }
-    }
+    FONT_LAYOUT_ENGINE = Vec::new();
+
     // Free the big allocated arrays
     BUFFER = Vec::new();
     NEST = Vec::new();

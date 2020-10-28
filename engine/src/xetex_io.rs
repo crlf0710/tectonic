@@ -397,7 +397,7 @@ unsafe extern "C" fn apply_normalization(mut buf: *mut u32, mut len: i32, mut no
 pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
     static mut byteBuffer: *mut i8 = ptr::null_mut();
     static mut utf32Buf: *mut u32 = ptr::null_mut();
-    let mut i: i32 = 0;
+    let mut i;
     let mut tmpLen: i32 = 0;
     let mut norm: i32 = get_input_normalization_state();
     if f.handle.is_none() {
@@ -558,7 +558,7 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
                         && i != '\r' as i32
                     {
                         BUFFER[last as usize] = i;
-                        last = last + 1;
+                        last += 1;
                     }
                 }
                 if i == -1i32 && errno::errno() != errno::EINTR && last == first {

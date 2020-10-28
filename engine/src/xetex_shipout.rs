@@ -6,7 +6,7 @@ use crate::help;
 use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow};
-use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, AAT_FONT_FLAG, OTGR_FONT_FLAG};
+use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, Font};
 use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
     avail, cur_area, cur_cs, cur_dir, cur_ext, cur_h, cur_h_offset, cur_list, cur_name,
@@ -17,7 +17,8 @@ use crate::xetex_ini::{
     rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr, str_start,
     term_offset, write_file, write_loc, write_open, xtx_ligature_present, LR_problems, LR_ptr,
     CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
-    FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
+    FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM,
+    TOTAL_PAGES, WIDTH_BASE,
 };
 use crate::xetex_output::{
     print, print_chr, print_cstr, print_file_line, print_file_name, print_int, print_ln,
@@ -1844,7 +1845,7 @@ unsafe fn dvi_native_font_def(f: internal_font_number) {
 }
 
 unsafe fn dvi_font_def(f: internal_font_number) {
-    if FONT_AREA[f] as u32 == AAT_FONT_FLAG || FONT_AREA[f] as u32 == OTGR_FONT_FLAG {
+    if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
         dvi_native_font_def(f);
     } else {
         if f <= 256 {

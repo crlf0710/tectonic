@@ -35,7 +35,7 @@ use super::dpx_cff::{cff_new_index, cff_set_name};
 use super::dpx_cff_dict::cff_new_dict;
 use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstObj};
-use crate::bridge::{ttstub_input_getc, InFile};
+use crate::bridge::InFile;
 use libc::{free, memcpy, memmove, memset};
 
 use std::io::{Read, Seek, SeekFrom};
@@ -1442,28 +1442,21 @@ unsafe fn parse_part1(
 pub(crate) unsafe fn is_pfb<R: Read + Seek>(handle: &mut R) -> bool {
     let mut sig: [u8; 14] = [0; 14];
     handle.seek(SeekFrom::Start(0)).unwrap();
-    let mut ch = ttstub_input_getc(handle);
-    if ch != 128i32
-        || {
-            ch = ttstub_input_getc(handle);
-            ch < 0i32
-        }
-        || ch > 3i32
-    {
+    handle.read_exact(&mut sig[..1]).ok();
+    if sig[0] != 128 {
         return false;
     }
-    for _ in 0..4 {
-        let ch = ttstub_input_getc(handle);
-        if ch < 0i32 {
-            return false;
-        }
+    match handle.read_exact(&mut sig[..1]) {
+        Err(_) => return false,
+        Ok(()) if sig[0] > 3 => return false,
+        _ => {}
     }
-    for i in 0..14 {
-        let ch = ttstub_input_getc(handle);
-        if ch < 0i32 {
-            return false;
-        }
-        sig[i] = ch as u8;
+    if handle.read_exact(&mut sig[..4]).is_err() {
+        // skip bytes
+        return false;
+    }
+    if handle.read_exact(&mut sig[..]).is_err() {
+        return false;
     }
     if &sig[..] == b"%!PS-AdobeFont" || &sig[..11] == b"%!FontType1" {
         return true;
@@ -1475,67 +1468,42 @@ pub(crate) unsafe fn is_pfb<R: Read + Seek>(handle: &mut R) -> bool {
     warn!("Not a PFB font file?");
     false
 }
-unsafe fn get_pfb_segment<R: Read + Seek>(
-    handle: &mut R,
-    expected_type: i32,
-    length: *mut i32,
-) -> *mut u8 {
-    let mut buffer: *mut u8 = ptr::null_mut();
-    let mut bytesread: i32 = 0i32;
+unsafe fn get_pfb_segment<R: Read + Seek>(handle: &mut R, expected_type: i32) -> Option<Vec<u8>> {
+    let mut buffer = Vec::<u8>::new();
+    let mut bytesread = 0;
+    let mut buf = [0_u8; 4];
     loop {
-        let ch = ttstub_input_getc(handle);
-        if ch < 0i32 {
+        if handle.read_exact(&mut buf[..1]).is_err() {
             break;
         }
-        if ch != 128i32 {
+        if buf[0] != 128 {
             panic!("Not a pfb file?");
         }
-        let ch = ttstub_input_getc(handle);
-        if ch < 0i32 || ch != expected_type {
+        let res = handle.read_exact(&mut buf[..1]);
+        if res.is_err() || buf[0] as i32 != expected_type {
             handle.seek(SeekFrom::Current(-2)).unwrap();
             break;
         } else {
-            let mut slen = 0;
-            for i in 0..4 {
-                let ch = ttstub_input_getc(handle);
-                if ch < 0i32 {
-                    free(buffer as *mut libc::c_void);
-                    return ptr::null_mut();
-                }
-                slen += ch << 8i32 * i;
+            if handle.read_exact(&mut buf[..]).is_err() {
+                return None;
             }
-            buffer = renew(
-                buffer as *mut libc::c_void,
-                ((bytesread + slen) as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                    as u32,
-            ) as *mut u8;
-            while slen > 0i32 {
-                let slice = std::slice::from_raw_parts_mut(
-                    buffer.offset(bytesread as isize),
-                    slen as usize,
-                );
-                if let Ok(rlen) = handle.read(slice) {
-                    slen -= rlen as i32;
-                    bytesread += rlen as i32;
+            let mut slen = u32::from_le_bytes(buf) as usize;
+            buffer.resize(bytesread + slen, 0);
+            while slen > 0 {
+                if let Ok(rlen) = handle.read(&mut buffer[bytesread..bytesread + slen]) {
+                    slen -= rlen as usize;
+                    bytesread += rlen as usize;
                 } else {
-                    free(buffer as *mut libc::c_void);
-                    return ptr::null_mut();
+                    return None;
                 }
             }
         }
     }
-    if bytesread == 0i32 {
+    if bytesread == 0 {
         panic!("PFB segment length zero?");
     }
-    buffer = renew(
-        buffer as *mut libc::c_void,
-        ((bytesread + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
-    ) as *mut u8;
-    *buffer.offset(bytesread as isize) = 0_u8;
-    if !length.is_null() {
-        *length = bytesread
-    }
-    buffer
+    buffer.push(0);
+    Some(buffer)
 }
 
 pub(crate) unsafe fn t1_get_standard_glyph(code: i32) -> &'static str {
@@ -1546,17 +1514,14 @@ pub(crate) unsafe fn t1_get_standard_glyph(code: i32) -> &'static str {
 }
 
 pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: &mut String) -> i32 {
-    let mut length: i32 = 0;
     let mut fn_found: i32 = 0i32;
     handle.seek(SeekFrom::Start(0)).unwrap();
-    let buffer = get_pfb_segment(handle, 1i32, &mut length);
-    if buffer.is_null() || length == 0i32 {
-        panic!("Reading PFB (ASCII part) file failed.");
-    }
-    let mut start = buffer as *const u8;
-    let end = buffer.offset(length as isize) as *const u8;
+    let buffer = get_pfb_segment(handle, 1)
+        .filter(|v| v.len() > 0)
+        .expect("Reading PFB (ASCII part) file failed.");
+    let mut start = buffer.as_ptr();
+    let end = buffer.as_ptr().offset(buffer.len() as isize - 1);
     if seek_operator(&mut start, end, b"begin") < 0i32 {
-        free(buffer as *mut libc::c_void);
         return -1i32;
     }
     while fn_found == 0 && start < end {
@@ -1578,7 +1543,6 @@ pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: &
             },
         }
     }
-    free(buffer as *mut libc::c_void);
     0i32
 }
 
@@ -1627,37 +1591,34 @@ pub(crate) unsafe fn t1_load_font(
     mode: i32,
     mut handle: InFile,
 ) -> Box<cff_font> {
-    let mut length: i32 = 0;
     handle.seek(SeekFrom::Start(0)).unwrap();
     /* ASCII section */
-    let buffer = get_pfb_segment(&mut handle, 1i32, &mut length);
-    if buffer.is_null() || length == 0i32 {
-        panic!("Reading PFB (ASCII part) file failed.");
-    }
+    let buffer = get_pfb_segment(&mut handle, 1)
+        .filter(|v| v.len() - 1 > 0)
+        .expect("Reading PFB (ASCII part) file failed.");
     let mut cff = Box::new(cff_font::new());
-    let mut start = buffer as *const u8;
-    let end = buffer.offset(length as isize) as *const u8;
+    let mut start = buffer.as_ptr();
+    let end = buffer.as_ptr().offset(buffer.len() as isize - 1);
     if parse_part1(&mut cff, enc_vec, &mut start, end).is_err() {
-        free(buffer as *mut libc::c_void);
         panic!("Reading PFB (ASCII part) file failed.");
     }
-    free(buffer as *mut libc::c_void);
     /* Binary section */
-    let buffer = get_pfb_segment(&mut handle, 2i32, &mut length);
-    if buffer.is_null() || length == 0 {
-        free(buffer as *mut libc::c_void);
-        panic!("Reading PFB (BINARY part) file failed.");
-    } else {
-        t1_decrypt(55665_u16, buffer, buffer, 0i32, length);
-    }
-    let mut start = buffer.offset(4) as *const u8;
-    let end = buffer.offset(length as isize) as *const u8;
+    let mut buffer = get_pfb_segment(&mut handle, 2)
+        .filter(|v| v.len() - 1 > 0)
+        .expect("Reading PFB (BINARY part) file failed.");
+    t1_decrypt(
+        55665_u16,
+        buffer.as_mut_ptr(),
+        buffer.as_ptr(),
+        0i32,
+        (buffer.len() - 1) as _,
+    );
+    let mut start = buffer[4..].as_ptr();
+    let end = buffer.as_ptr().offset(buffer.len() as isize - 1);
     if parse_part2(&mut cff, &mut start, end, mode).is_err() {
-        free(buffer as *mut libc::c_void);
         panic!("Reading PFB (BINARY part) file failed.");
     }
     /* Remaining section ignored. */
-    free(buffer as *mut libc::c_void);
     cff_update_string(&mut cff);
     cff
 }
