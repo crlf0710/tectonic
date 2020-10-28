@@ -30,7 +30,7 @@ use std::ptr;
 use std::slice::from_raw_parts;
 
 use super::dpx_dpxcrypt::ARC4_CONTEXT;
-use super::dpx_dpxcrypt::{AES_cbc_encrypt_tectonic, AES_ecb_encrypt, ARC4_set_key, ARC4};
+use super::dpx_dpxcrypt::{ARC4_set_key, ARC4};
 use super::dpx_mem::new;
 use super::dpx_pdfdoc::pdf_doc_get_dictionary;
 use super::dpx_pdffont::get_unique_time_if_given;
@@ -318,6 +318,44 @@ unsafe fn compute_user_password(p: &mut pdf_sec, uplain: *const i8) {
         32,
     );
 }
+pub(crate) unsafe fn AES_cbc_encrypt_tectonic(
+    key: *const u8,
+    key_len: size_t,
+    iv: *const u8,
+    padding: i32,
+    plain: *const u8,
+    plain_len: size_t,
+    cipher: &mut *mut u8,
+    cipher_len: *mut size_t,
+) {
+    panic!();
+    let key = std::slice::from_raw_parts(key, key_len as usize);
+    let iv = std::slice::from_raw_parts(iv, key_len as usize);
+    let plain = std::slice::from_raw_parts(plain, plain_len as usize);
+
+    use block_modes::{BlockMode, Cbc};
+    use block_padding::NoPadding as Padding; // TODO: check
+    let ciphertext = match key_len {
+        128 => {
+            let ciph = Cbc::<aes::Aes128, Padding>::new_var(key, iv).unwrap();
+            ciph.encrypt_vec(plain)
+        },
+        192 => {
+            let ciph = Cbc::<aes::Aes192, Padding>::new_var(key, iv).unwrap();
+            ciph.encrypt_vec(plain)
+        },
+        256 => {
+            let ciph = Cbc::<aes::Aes256, Padding>::new_var(key, iv).unwrap();
+            ciph.encrypt_vec(plain)
+        }
+        _ => panic!("Incorrect AES key len"),
+    };
+    *cipher_len = ciphertext.len() as _;
+    for i in 0..ciphertext.len() {
+        *cipher.offset(i as isize) = ciphertext[i];
+    }
+}
+
 /* Algorithm 2.B from ISO 32000-1 chapter 7 */
 unsafe fn compute_hash_V5(
     passwd: *const i8,
@@ -788,10 +826,7 @@ pub(crate) unsafe fn pdf_encrypt_obj() -> pdf_dict {
         let mut cipher_len: size_t = 0i32 as size_t;
         doc_encrypt.set("OE", pdf_string::new(p.OE.as_ref()));
         doc_encrypt.set("UE", pdf_string::new(p.UE.as_ref()));
-        perms[0] = (p.P & 0xffi32) as u8;
-        perms[1] = (p.P >> 8i32 & 0xffi32) as u8;
-        perms[2] = (p.P >> 16i32 & 0xffi32) as u8;
-        perms[3] = (p.P >> 24i32 & 0xffi32) as u8;
+        perms[0..4].copy_from_slice(&p.P.to_le_bytes()[..]);
         perms[4] = 0xff_u8;
         perms[5] = 0xff_u8;
         perms[6] = 0xff_u8;
@@ -808,6 +843,40 @@ pub(crate) unsafe fn pdf_encrypt_obj() -> pdf_dict {
         perms[13] = 0_u8;
         perms[14] = 0_u8;
         perms[15] = 0_u8;
+        pub(crate) unsafe fn AES_ecb_encrypt(
+            key: *const u8,
+            key_len: size_t,
+            plain: *const u8,
+            plain_len: size_t,
+            cipher: &mut *mut u8,
+            cipher_len: *mut size_t,
+        ) {
+            let key = std::slice::from_raw_parts(key, key_len as usize);
+            let plain = std::slice::from_raw_parts(plain, plain_len as usize);
+
+            use block_modes::{BlockMode, Ecb};
+            use block_padding::NoPadding as Padding; // TODO: check
+            let ciphertext = match key_len {
+                128 => {
+                    let ciph = Ecb::<aes::Aes128, Padding>::new_var(key, Default::default()).unwrap();
+                    ciph.encrypt_vec(plain)
+                },
+                192 => {
+                    let ciph = Ecb::<aes::Aes192, Padding>::new_var(key, Default::default()).unwrap();
+                    ciph.encrypt_vec(plain)
+                },
+                256 => {
+                    let ciph = Ecb::<aes::Aes256, Padding>::new_var(key, Default::default()).unwrap();
+                    ciph.encrypt_vec(plain)
+                }
+                _ => panic!("Incorrect AES key len"),
+            };
+            *cipher_len = ciphertext.len() as _;
+            for i in 0..ciphertext.len() {
+                *cipher.offset(i as isize) = ciphertext[i];
+            }
+        }
+        
         AES_ecb_encrypt(
             p.key.as_mut_ptr(),
             p.key_size as size_t,
