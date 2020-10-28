@@ -390,7 +390,7 @@ pub(crate) unsafe fn free_node(p: usize, mut s: i32) {
 }
 pub(crate) unsafe fn new_null_box() -> usize {
     let mut p = List::from(get_node(BOX_NODE_SIZE));
-    set_NODE_type(p.ptr(), TextNode::HList);
+    p.set_horizontal();
     p.set_lr_mode(LRMode::Normal)
         .set_width(0)
         .set_depth(0)
@@ -1592,10 +1592,13 @@ pub(crate) unsafe fn show_activities() {
                                 t = 0;
                                 loop {
                                     q = *LLIST_link(q as usize) as usize;
-                                    if NODE_type(q) == TextNode::Ins.into()
-                                        && Insertion(q).box_reg() == r.box_reg()
-                                    {
-                                        t += 1
+                                    match Node::from(q as usize) {
+                                        Node::Text(TxtNode::Ins(ins))
+                                            if ins.box_reg() == r.box_reg() =>
+                                        {
+                                            t += 1;
+                                        }
+                                        _ => {}
                                     }
                                     if q == r.broken_ins() as usize {
                                         break;
@@ -2338,9 +2341,9 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr("indent");
             }
         }
-        Cmd::RemoveItem => match ND::from(chr_code as u16) {
-            ND::Text(TextNode::Glue) => print_esc_cstr("unskip"),
-            ND::Text(TextNode::Kern) => print_esc_cstr("unkern"),
+        Cmd::RemoveItem => match chr_code {
+            10 => print_esc_cstr("unskip"), // Node::Glue
+            11 => print_esc_cstr("unkern"), // Node::Kern
             _ => print_esc_cstr("unpenalty"),
         },
         Cmd::UnHBox => match BoxCode::n(chr_code as u8).unwrap() {
@@ -3975,7 +3978,7 @@ pub(crate) unsafe fn get_next() {
                                     current_block = 8567661057257693057;
                                     break 'c_63807;
                                 } else {
-                                    cur_input.loc = cur_input.loc + 2i32 * sup_count as i32 - 1i32
+                                    cur_input.loc += 2 * sup_count as i32 - 1;
                                 }
                             }
                             (InputState::MidLine, INVALID_CHAR)
@@ -6754,7 +6757,7 @@ pub(crate) unsafe fn scan_something_internal(level: ValLevel, mut negative: bool
                         loop {
                             q = r as usize;
                             r = *LLIST_link(q);
-                            if !(r != tx as i32) {
+                            if r == tx as i32 {
                                 break;
                             }
                         }
@@ -9939,7 +9942,7 @@ pub(crate) unsafe fn new_margin_kern(w: scaled_t, _p: i32, side: Side) -> usize 
 pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode) -> List {
     last_badness = 0;
     let mut r = List::from(get_node(BOX_NODE_SIZE));
-    set_NODE_type(r.ptr(), TextNode::HList);
+    r.set_horizontal();
     r.set_lr_mode(LRMode::Normal);
     r.set_shift_amount(0);
     let mut q = r.ptr() + 5;
@@ -10028,11 +10031,9 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 TxtNode::WhatsIt(w) => match w {
                     WhatsIt::NativeWord(mut p_nw) => {
                         let mut k = if q != r.ptr() + 5 {
-                            if NODE_type(q) == TextNode::Disc.into() {
-                                let q = Discretionary(q);
-                                q.replace_count() as i32
-                            } else {
-                                0
+                            match Node::from(q) {
+                                Node::Text(TxtNode::Disc(d)) => d.replace_count() as i32,
+                                _ => 0,
                             }
                         } else {
                             0
@@ -10040,9 +10041,9 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                         while llist_link(q) != Some(p) {
                             k -= 1;
                             q = *LLIST_link(q) as usize;
-                            if NODE_type(q) == TextNode::Disc.into() {
-                                let q = Discretionary(q);
-                                k = q.replace_count() as i32
+                            match Node::from(q) {
+                                Node::Text(TxtNode::Disc(d)) => k = d.replace_count() as i32,
+                                _ => {}
                             }
                         }
                         let mut pp_opt = llist_link(p);
@@ -10363,7 +10364,7 @@ pub(crate) unsafe fn vpackage(
 ) -> List {
     last_badness = 0;
     let mut r = List::from(get_node(BOX_NODE_SIZE) as usize);
-    set_NODE_type(r.ptr(), TextNode::VList);
+    r.set_vertical();
     r.set_lr_mode(if *INTPAR(IntPar::xetex_upwards) > 0 {
         LRMode::Reversed
     } else {
@@ -11155,13 +11156,13 @@ pub(crate) unsafe fn fin_align() {
                 /*836: */
                 let mut q = List::from(q);
                 if cur_list.mode == (true, ListMode::VMode) {
-                    set_NODE_type(q.ptr(), TextNode::HList);
+                    q.set_horizontal();
                     q.set_width(p.width());
                     if NEST[NEST_PTR - 1].mode == (false, ListMode::MMode) {
                         q.set_lr_mode(LRMode::DList);
                     }
                 } else {
-                    set_NODE_type(q.ptr(), TextNode::VList);
+                    q.set_vertical();
                     q.set_height(p.height());
                 }
                 q.set_glue_order(p.glue_order())
@@ -11203,7 +11204,7 @@ pub(crate) unsafe fn fin_align() {
                         if cur_list.mode == (true, ListMode::VMode) {
                             nb.set_width(BaseBox(s).width());
                         } else {
-                            set_NODE_type(nb.ptr(), TextNode::VList);
+                            nb.set_vertical();
                             nb.set_height(BaseBox(s).width());
                         }
                     }
@@ -11241,7 +11242,7 @@ pub(crate) unsafe fn fin_align() {
                             });
                         }
                         r_box.set_width(w);
-                        set_NODE_type(r, TextNode::HList);
+                        r_box.set_horizontal();
                     } else {
                         r_box.set_width(q.width());
                         if t == r_unset.height() {
@@ -11272,7 +11273,7 @@ pub(crate) unsafe fn fin_align() {
                             });
                         }
                         r_box.set_height(w);
-                        set_NODE_type(r, TextNode::VList);
+                        r_box.set_vertical();
                     }
                     r_box.set_shift_amount(0);
                     if u != HOLD_HEAD {
@@ -11280,8 +11281,8 @@ pub(crate) unsafe fn fin_align() {
                         *LLIST_link(r) = *LLIST_link(HOLD_HEAD);
                         r = u;
                     }
-                    let ropt = MEM[*LLIST_link(r) as usize].b32.s1.opt();
-                    s = MEM[*LLIST_link(s) as usize].b32.s1 as usize;
+                    let ropt = LLIST_link(*LLIST_link(r) as usize).opt();
+                    s = *LLIST_link(*LLIST_link(s) as usize) as usize;
                     if let Some(r_) = ropt {
                         r = r_;
                     } else {
@@ -11708,15 +11709,14 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                     prev_dp = 0;
                 }
                 TxtNode::Kern(k) => {
-                    let t = if let Some(next) = llist_link(p) {
-                        NODE_type(next)
-                    } else {
-                        TextNode::Penalty.into()
-                    };
-                    if t == TextNode::Glue.into() {
-                        if with_penalty(p, 0, h, &mut prev_dp, &mut best_place, &mut least_cost) {
-                            return best_place.tex_int();
+                    match llist_link(p).map(|next| Node::from(next)) {
+                        Some(Node::Text(TxtNode::Glue(_))) => {
+                            if with_penalty(p, 0, h, &mut prev_dp, &mut best_place, &mut least_cost)
+                            {
+                                return best_place.tex_int();
+                            }
                         }
+                        _ => {}
                     }
                     active_width.width += prev_dp + k.width();
                     prev_dp = 0;
@@ -11861,8 +11861,7 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
         v.set_list_ptr(None.tex_int());
     } else {
         loop {
-            if NODE_type(p as usize) == TextNode::Mark.into() {
-                let p = Mark(p as usize);
+            if let Node::Text(TxtNode::Mark(p)) = Node::from(p as usize) {
                 if p.class() != 0 {
                     /*1615: */
                     find_sa_element(ValLevel::Mark, p.class(), true);

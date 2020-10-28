@@ -40,8 +40,8 @@ use crate::xetex_xetex0::{
     str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, llist_link, print_c_str, set_NODE_type, LLIST_link, NODE_type, SYNCTEX_tag,
-    TeXInt, TeXOpt, FONT_CHARACTER_WIDTH,
+    is_char_node, llist_link, print_c_str, set_NODE_type, LLIST_link, SYNCTEX_tag, TeXInt, TeXOpt,
+    FONT_CHARACTER_WIDTH,
 };
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
@@ -408,48 +408,47 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     } else {
                                         qopt = llist_link(g.ptr());
                                     }
-                                    if let Some(q) = qopt.filter(|&q| {
-                                        !is_char_node(Some(q))
-                                            && NODE_type(q) == TextNode::Kern.into()
-                                            && Kern(q).subtype() == KernType::SpaceAdjustment
-                                    }) {
-                                        qopt = llist_link(q);
-                                        while let Some(q) = qopt {
-                                            if match CharOrText::from(p) {
-                                                CharOrText::Text(n) => match n {
-                                                    TxtNode::Penalty(_)
-                                                    | TxtNode::Ins(_)
-                                                    | TxtNode::Mark(_)
-                                                    | TxtNode::Adjust(_) => true,
-                                                    TxtNode::WhatsIt(n) => match n {
-                                                        WhatsIt::Open(_)
-                                                        | WhatsIt::Write(_)
-                                                        | WhatsIt::Close(_)
-                                                        | WhatsIt::Special(_)
-                                                        | WhatsIt::Language(_) => true,
+                                    match qopt.map(|q| Node::from(q)) {
+                                        Some(Node::Text(TxtNode::Kern(kq)))
+                                            if kq.subtype() == KernType::SpaceAdjustment =>
+                                        {
+                                            qopt = llist_link(kq.ptr());
+                                            while let Some(q) = qopt {
+                                                if match CharOrText::from(p) {
+                                                    CharOrText::Text(n) => match n {
+                                                        TxtNode::Penalty(_)
+                                                        | TxtNode::Ins(_)
+                                                        | TxtNode::Mark(_)
+                                                        | TxtNode::Adjust(_) => true,
+                                                        TxtNode::WhatsIt(n) => match n {
+                                                            WhatsIt::Open(_)
+                                                            | WhatsIt::Write(_)
+                                                            | WhatsIt::Close(_)
+                                                            | WhatsIt::Special(_)
+                                                            | WhatsIt::Language(_) => true,
+                                                            _ => false,
+                                                        },
                                                         _ => false,
                                                     },
                                                     _ => false,
-                                                },
-                                                _ => false,
-                                            } {
-                                                qopt = llist_link(q);
-                                            } else {
-                                                break;
+                                                } {
+                                                    qopt = llist_link(q);
+                                                } else {
+                                                    break;
+                                                }
+                                            }
+                                            match qopt.map(CharOrText::from) {
+                                                Some(CharOrText::Text(TxtNode::WhatsIt(
+                                                    WhatsIt::NativeWord(q),
+                                                ))) if q.font() == r_nw.font() => {
+                                                    p = q.ptr();
+                                                    k += (1 + q.text().len()) as i32;
+                                                    qopt = llist_link(q.ptr());
+                                                }
+                                                _ => break,
                                             }
                                         }
-                                        match qopt.map(CharOrText::from) {
-                                            Some(CharOrText::Text(TxtNode::WhatsIt(
-                                                WhatsIt::NativeWord(q),
-                                            ))) if q.font() == r_nw.font() => {
-                                                p = q.ptr();
-                                                k += (1 + q.text().len()) as i32;
-                                                qopt = llist_link(q.ptr());
-                                            }
-                                            _ => break,
-                                        }
-                                    } else {
-                                        break;
+                                        _ => break,
                                     }
                                 }
                                 Some(CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(

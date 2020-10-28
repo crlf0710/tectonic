@@ -1,4 +1,4 @@
-use crate::node::{MathNode, TextNode, ND, SYNCTEX_FIELD_SIZE};
+use crate::node::{MathNode, TextNode, SYNCTEX_FIELD_SIZE};
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
 
@@ -44,9 +44,6 @@ pub(crate) unsafe fn LLIST_info<'a>(p: usize) -> &'a mut i32 {
 }
 
 /// half of LLIST_info(p)
-pub(crate) unsafe fn NODE_type(p: usize) -> ND {
-    ND::from(MEM[p].b16.s1)
-}
 pub(crate) unsafe fn set_NODE_type(p: usize, n: TextNode) {
     MEM[p].b16.s1 = n as u16;
 }

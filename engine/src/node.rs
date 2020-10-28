@@ -5,43 +5,6 @@ use crate::xetex_consts::{BreakType, GlueOrder, GlueSign};
 use crate::xetex_ini::MEM;
 use crate::xetex_xetexd::{TeXInt, TeXOpt};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ND {
-    Text(TextNode),
-    Math(MathNode),
-    Unknown(u16),
-}
-
-impl From<u16> for ND {
-    fn from(n: u16) -> Self {
-        match n {
-            0..=15 | 40 => Self::Text(TextNode::from(n)),
-            16..=31 => Self::Math(MathNode::from(n)),
-            _ => Self::Unknown(n),
-        }
-    }
-}
-impl From<TextNode> for ND {
-    fn from(n: TextNode) -> Self {
-        Self::Text(n)
-    }
-}
-impl From<MathNode> for ND {
-    fn from(n: MathNode) -> Self {
-        Self::Math(n)
-    }
-}
-
-impl ND {
-    pub fn u16(self) -> u16 {
-        match self {
-            Self::Text(n) => n as u16,
-            Self::Math(n) => n as u16,
-            Self::Unknown(n) => n,
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub(crate) enum Node {
     Char(Char),
@@ -130,6 +93,28 @@ pub(crate) enum TxtNode {
     MarginKern(MarginKern),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Char(pub usize);
+impl Char {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn font(&self) -> u16 {
+        MEM[self.ptr()].b16.s1
+    }
+    pub(crate) unsafe fn set_font(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr()].b16.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn character(&self) -> u16 {
+        MEM[self.ptr()].b16.s0
+    }
+    pub(crate) unsafe fn set_character(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v;
+        self
+    }
+}
+
 impl TxtNode {
     pub(crate) fn from(p: usize) -> Self {
         let n = unsafe { MEM[p].b16.s1 };
@@ -184,6 +169,413 @@ impl TxtNode {
 impl From<u16> for TextNode {
     fn from(n: u16) -> Self {
         Self::n(n).unwrap_or_else(|| panic!("Incorrect TextNode = {}", n))
+    }
+}
+
+#[derive(Clone, Copy, Debug)] // TODO: remove this
+pub(crate) struct BaseBox(pub usize);
+impl BaseBox {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    /// a scaled; 1 <=> WEB const `width_offset`
+    pub(crate) unsafe fn width(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    /// a scaled; 2 <=> WEB const `depth_offset`
+    pub(crate) unsafe fn depth(&self) -> i32 {
+        MEM[self.ptr() + 2].b32.s1
+    }
+    pub(crate) unsafe fn set_depth(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v;
+        self
+    }
+    /// a scaled; 3 <=> WEB const `height_offset`
+    pub(crate) unsafe fn height(&self) -> i32 {
+        MEM[self.ptr() + 3].b32.s1
+    }
+    pub(crate) unsafe fn set_height(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 3].b32.s1 = v;
+        self
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deref, DerefMut)] // TODO: remove this
+pub(crate) struct List(BaseBox);
+impl NodeSize for List {
+    const SIZE: i32 = BOX_NODE_SIZE;
+}
+impl List {
+    pub(crate) const fn from(p: usize) -> Self {
+        Self(BaseBox(p))
+    }
+    pub(crate) unsafe fn is_empty(&self) -> bool {
+        self.is_horizontal()
+            && self.width() == 0
+            && self.height() == 0
+            && self.depth() == 0
+            && self.list_ptr().opt().is_none()
+    }
+    /// subtype; records L/R direction mode
+    pub(crate) unsafe fn lr_mode(&self) -> LRMode {
+        LRMode::from(MEM[self.ptr()].b16.s0)
+    }
+    pub(crate) unsafe fn set_lr_mode(&mut self, mode: LRMode) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = mode as u16;
+        self
+    }
+    pub(crate) unsafe fn list_dir(&self) -> ListDir {
+        ListDir::from(MEM[self.ptr()].b16.s1)
+    }
+    pub(crate) unsafe fn is_horizontal(&self) -> bool {
+        self.list_dir() == ListDir::Horizontal
+    }
+    pub(crate) unsafe fn is_vertical(&self) -> bool {
+        self.list_dir() == ListDir::Vertical
+    }
+    pub(crate) unsafe fn set_list_dir(&mut self, dir: ListDir) -> &mut Self {
+        MEM[self.ptr()].b16.s1 = dir as u16;
+        self
+    }
+    pub(crate) unsafe fn set_horizontal(&mut self) -> &mut Self {
+        self.set_list_dir(ListDir::Horizontal);
+        self
+    }
+    pub(crate) unsafe fn set_vertical(&mut self) -> &mut Self {
+        self.set_list_dir(ListDir::Vertical);
+        self
+    }
+    pub(crate) unsafe fn shift_amount(&self) -> i32 {
+        MEM[self.ptr() + 4].b32.s1
+    }
+    pub(crate) unsafe fn set_shift_amount(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 4].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn list_ptr(&self) -> i32 {
+        MEM[self.ptr() + 5].b32.s1
+    }
+    pub(crate) unsafe fn set_list_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 5].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn glue_sign(&self) -> GlueSign {
+        GlueSign::from(MEM[self.ptr() + 5].b16.s1)
+    }
+    pub(crate) unsafe fn set_glue_sign(&mut self, v: GlueSign) -> &mut Self {
+        MEM[self.ptr() + 5].b16.s1 = v as _;
+        self
+    }
+    pub(crate) unsafe fn glue_order(&self) -> GlueOrder {
+        GlueOrder::from(MEM[self.ptr() + 5].b16.s0)
+    }
+    pub(crate) unsafe fn set_glue_order(&mut self, v: GlueOrder) -> &mut Self {
+        MEM[self.ptr() + 5].b16.s0 = v as _;
+        self
+    }
+    /// the glue ratio
+    pub(crate) unsafe fn glue_set(&self) -> f64 {
+        MEM[self.ptr() + 6].gr
+    }
+    pub(crate) unsafe fn set_glue_set(&mut self, v: f64) -> &mut Self {
+        MEM[self.ptr() + 6].gr = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
+pub(crate) enum ListDir {
+    Horizontal = 0,
+    Vertical = 1,
+}
+impl From<u16> for ListDir {
+    fn from(n: u16) -> Self {
+        Self::n(n).unwrap_or_else(|| panic!("Incorrect List box type = {}", n))
+    }
+}
+
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
+pub(crate) enum LRMode {
+    Normal = 0, // TODO: check name
+    Reversed = 1,
+    DList = 2,
+}
+
+impl From<u16> for LRMode {
+    fn from(n: u16) -> Self {
+        Self::n(n).unwrap_or_else(|| panic!("Incorrect LRMode = {}", n))
+    }
+}
+
+#[derive(Clone, Debug, Deref, DerefMut)]
+pub(crate) struct Rule(BaseBox);
+impl NodeSize for Rule {
+    const SIZE: i32 = RULE_NODE_SIZE;
+}
+impl Rule {
+    pub(crate) const fn from(p: usize) -> Self {
+        Self(BaseBox(p))
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Insertion(pub usize);
+impl NodeSize for Insertion {
+    const SIZE: i32 = INS_NODE_SIZE;
+}
+impl Insertion {
+    pub(crate) const NODE: u16 = 3;
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn new_node() -> Self {
+        let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+        MEM[p].b16.s1 = Self::NODE;
+        Self(p)
+    }
+    pub(crate) unsafe fn box_reg(&self) -> u16 {
+        MEM[self.ptr()].b16.s0
+    }
+    pub(crate) unsafe fn set_box_reg(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v;
+        self
+    }
+    /// "the floating_penalty to be used"
+    pub(crate) unsafe fn float_cost(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_float_cost(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn depth(&self) -> i32 {
+        MEM[self.ptr() + 2].b32.s1
+    }
+    pub(crate) unsafe fn set_depth(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn height(&self) -> i32 {
+        MEM[self.ptr() + 3].b32.s1
+    }
+    pub(crate) unsafe fn set_height(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 3].b32.s1 = v;
+        self
+    }
+    /// a pointer to a vlist
+    pub(crate) unsafe fn ins_ptr(&self) -> i32 {
+        MEM[self.ptr() + 4].b32.s0
+    }
+    pub(crate) unsafe fn set_ins_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 4].b32.s0 = v;
+        self
+    }
+    /// a glue pointer
+    pub(crate) unsafe fn split_top_ptr(&self) -> i32 {
+        MEM[self.ptr() + 4].b32.s1
+    }
+    pub(crate) unsafe fn set_split_top_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 4].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Mark(pub usize);
+impl Mark {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    /// "head of the token list for the mark"
+    pub(crate) unsafe fn mark_ptr(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_mark_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    /// /// "the mark class"
+    pub(crate) unsafe fn class(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s0
+    }
+    pub(crate) unsafe fn set_class(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s0 = v;
+        self
+    }
+}
+
+pub(crate) struct MarkClass(pub usize);
+impl MarkClass {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn rc(&self) -> i32 {
+        MEM[self.ptr()].b32.s0
+    }
+    pub(crate) unsafe fn rc_inc(&mut self) {
+        MEM[self.ptr()].b32.s0 += 1;
+    }
+    pub(crate) unsafe fn rc_dec(&mut self) {
+        MEM[self.ptr()].b32.s0 -= 1;
+    }
+    pub(crate) unsafe fn indexes(&self) -> &[i32] {
+        let pp = &MEM[self.ptr() + 1].b32.s0;
+        std::slice::from_raw_parts(pp, 5)
+    }
+    pub(crate) unsafe fn indexes_mut(&mut self) -> &mut [i32] {
+        let pp = &mut MEM[self.ptr() + 1].b32.s0;
+        std::slice::from_raw_parts_mut(pp, 5)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Adjust(pub usize);
+impl NodeSize for Adjust {
+    const SIZE: i32 = SMALL_NODE_SIZE;
+}
+
+impl Adjust {
+    pub(crate) const NODE: u16 = 5;
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn new_node() -> Self {
+        let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+        MEM[p].b16.s1 = Self::NODE;
+        Self(p)
+    }
+    pub(crate) unsafe fn subtype(&self) -> AdjustType {
+        let n = MEM[self.ptr()].b16.s0;
+        AdjustType::n(n).unwrap_or_else(|| panic!("Incorrect Adjust type {}", n))
+    }
+    pub(crate) unsafe fn set_subtype(&mut self, v: AdjustType) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v as u16;
+        self
+    }
+    pub(crate) unsafe fn adj_ptr(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_adj_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Ligature(pub usize);
+impl NodeSize for Ligature {
+    const SIZE: i32 = SMALL_NODE_SIZE;
+}
+impl Ligature {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) const fn as_char(&self) -> Char {
+        Char(self.0 + 1)
+    }
+    pub(crate) unsafe fn left_hit(&self) -> bool {
+        MEM[self.ptr()].b16.s0 > 1
+    }
+    pub(crate) unsafe fn right_hit(&self) -> bool {
+        MEM[self.ptr()].b16.s0 & 1 != 0
+    }
+    pub(crate) unsafe fn set_hits(&mut self, left: bool, right: bool) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = (left as u16) * 2 + (right as u16);
+        self
+    }
+    /// WEB: font(char(p))
+    pub(crate) unsafe fn font(&self) -> u16 {
+        MEM[self.ptr() + 1].b16.s1
+    }
+    pub(crate) unsafe fn set_font(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr() + 1].b16.s1 = v;
+        self
+    }
+    ///  WEB: character(char(p))
+    pub(crate) unsafe fn char(&self) -> u16 {
+        MEM[self.ptr() + 1].b16.s0
+    }
+    pub(crate) unsafe fn set_char(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr() + 1].b16.s0 = v;
+        self
+    }
+    /// WEB: link(char(p))
+    pub(crate) unsafe fn lig_ptr(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_lig_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Discretionary(pub usize);
+impl NodeSize for Discretionary {
+    const SIZE: i32 = SMALL_NODE_SIZE;
+}
+impl Discretionary {
+    pub(crate) const NODE: u16 = 7;
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn new_node() -> Self {
+        let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+        MEM[p].b16.s1 = Self::NODE;
+        Self(p)
+    }
+    pub(crate) unsafe fn is_empty(&self) -> bool {
+        self.pre_break().opt().is_none()
+            && self.post_break().opt().is_none()
+            && self.replace_count() == 0
+    }
+    pub(crate) unsafe fn replace_count(&self) -> u16 {
+        MEM[self.ptr()].b16.s0
+    }
+    pub(crate) unsafe fn set_replace_count(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v;
+        self
+    }
+    /// aka "llink" in doubly-linked list
+    pub(crate) unsafe fn pre_break(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s0
+    }
+    pub(crate) unsafe fn set_pre_break(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s0 = v;
+        self
+    }
+    /// aka "rlink" in double-linked list
+    pub(crate) unsafe fn post_break(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_post_break(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
     }
 }
 
@@ -678,24 +1070,33 @@ pub(crate) mod whatsit {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct Kern(pub usize);
-impl NodeSize for Kern {
+pub(crate) struct Math(pub usize);
+impl NodeSize for Math {
     const SIZE: i32 = MEDIUM_NODE_SIZE;
 }
-impl Kern {
+impl Math {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
     }
     pub(crate) unsafe fn is_empty(&self) -> bool {
-        self.width() == 0 || self.subtype() == KernType::Normal
+        self.width() == 0
     }
-    pub(crate) unsafe fn subtype(&self) -> KernType {
-        let n = MEM[self.ptr()].b16.s0;
-        KernType::n(n).unwrap_or_else(|| panic!("Incorrect Kern type {}", n))
+    pub(crate) unsafe fn subtype(&self) -> MathType {
+        MathType::from(MEM[self.ptr()].b16.s0)
     }
-    pub(crate) unsafe fn set_subtype(&mut self, v: KernType) -> &mut Self {
-        MEM[self.ptr()].b16.s0 = v as u16;
+    pub(crate) unsafe fn subtype_i32(&self) -> MathType {
+        MathType::from(MEM[self.ptr()].b32.s0 as u16)
+    }
+    pub(crate) unsafe fn set_subtype(&mut self, v: MathType) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = u16::from(v);
         self
+    }
+    pub(crate) unsafe fn set_subtype_i32(&mut self, v: MathType) -> &mut Self {
+        MEM[self.ptr()].b32.s0 = u16::from(v) as i32;
+        self
+    }
+    pub(crate) unsafe fn dir(&self) -> LR {
+        self.subtype().dir()
     }
     pub(crate) unsafe fn width(&self) -> i32 {
         MEM[self.ptr() + 1].b32.s1
@@ -709,89 +1110,58 @@ impl Kern {
     }
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct MarginKern(pub usize);
-impl NodeSize for MarginKern {
-    const SIZE: i32 = MARGIN_KERN_NODE_SIZE;
-}
-impl MarginKern {
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
-    }
-    pub(crate) unsafe fn width(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
-    }
-    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn free(self) {
-        free_node(self.ptr(), Self::SIZE);
-    }
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum BE {
+    Begin = 2,
+    End = 3,
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct Insertion(pub usize);
-impl NodeSize for Insertion {
-    const SIZE: i32 = INS_NODE_SIZE;
+#[repr(u16)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum MathMode {
+    Middle = 0,
+    Left = 4,
+    Right = 8,
 }
-impl Insertion {
-    pub(crate) const NODE: u16 = 3;
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MathType {
+    Before,
+    After,
+    Eq(BE, MathMode),
+}
+
+impl MathType {
+    pub(crate) fn dir(self) -> LR {
+        /*if let Self::Eq(_, mode) = self {
+            match mode {
+                MathMode::Right => LR::RightToLeft,
+                _ => LR::LeftToRight,
+            }
+        } else {
+            panic!("No MathType direction");
+        }*/
+        match self {
+            Self::Eq(_, mode) => match mode {
+                MathMode::Right => LR::RightToLeft,
+                _ => LR::LeftToRight,
+            },
+            Self::Before => LR::LeftToRight,
+            Self::After => LR::LeftToRight,
+        }
     }
-    pub(crate) unsafe fn new_node() -> Self {
-        let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
-        MEM[p].b16.s1 = Self::NODE;
-        Self(p)
-    }
-    pub(crate) unsafe fn box_reg(&self) -> u16 {
-        MEM[self.ptr()].b16.s0
-    }
-    pub(crate) unsafe fn set_box_reg(&mut self, v: u16) -> &mut Self {
-        MEM[self.ptr()].b16.s0 = v;
-        self
-    }
-    /// "the floating_penalty to be used"
-    pub(crate) unsafe fn float_cost(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
-    }
-    pub(crate) unsafe fn set_float_cost(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn depth(&self) -> i32 {
-        MEM[self.ptr() + 2].b32.s1
-    }
-    pub(crate) unsafe fn set_depth(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 2].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn height(&self) -> i32 {
-        MEM[self.ptr() + 3].b32.s1
-    }
-    pub(crate) unsafe fn set_height(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 3].b32.s1 = v;
-        self
-    }
-    /// a pointer to a vlist
-    pub(crate) unsafe fn ins_ptr(&self) -> i32 {
-        MEM[self.ptr() + 4].b32.s0
-    }
-    pub(crate) unsafe fn set_ins_ptr(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 4].b32.s0 = v;
-        self
-    }
-    /// a glue pointer
-    pub(crate) unsafe fn split_top_ptr(&self) -> i32 {
-        MEM[self.ptr() + 4].b32.s1
-    }
-    pub(crate) unsafe fn set_split_top_ptr(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 4].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn free(self) {
-        free_node(self.ptr(), Self::SIZE);
+    pub(crate) fn equ(self) -> (BE, MathMode) {
+        /*if let Self::Eq(be, mode) = self {
+            (be, mode)
+        } else {
+            panic!("Not inner MathNode data {:?}", self);
+        }*/
+        match self {
+            Self::Eq(be, mode) => (be, mode),
+            Self::Before => (BE::Begin, MathMode::Middle),
+            Self::After => (BE::End, MathMode::Middle),
+        }
     }
 }
 
@@ -825,6 +1195,270 @@ impl Glue {
         MEM[self.ptr() + 1].b32.s1
     }
     pub(crate) unsafe fn set_leader_ptr(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+pub(crate) struct GlueSpec(pub usize);
+impl NodeSize for GlueSpec {
+    const SIZE: i32 = GLUE_SPEC_SIZE;
+}
+impl GlueSpec {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn shrink_order(&self) -> GlueOrder {
+        GlueOrder::from(MEM[self.ptr()].b16.s0)
+    }
+    pub(crate) unsafe fn set_shrink_order(&mut self, v: GlueOrder) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v as _;
+        self
+    }
+    pub(crate) unsafe fn stretch_order(&self) -> GlueOrder {
+        GlueOrder::from(MEM[self.ptr()].b16.s1)
+    }
+    pub(crate) unsafe fn set_stretch_order(&mut self, v: GlueOrder) -> &mut Self {
+        MEM[self.ptr()].b16.s1 = v as _;
+        self
+    }
+    pub(crate) unsafe fn rc(&self) -> i32 {
+        MEM[self.ptr()].b32.s1
+    }
+    pub(crate) unsafe fn rc_none(&mut self) {
+        MEM[self.ptr()].b32.s1 = None.tex_int();
+    }
+    pub(crate) unsafe fn rc_inc(&mut self) {
+        MEM[self.ptr()].b32.s1 += 1;
+    }
+    pub(crate) unsafe fn rc_dec(&mut self) {
+        MEM[self.ptr()].b32.s1 -= 1;
+    }
+    pub(crate) unsafe fn size(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_size(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn stretch(&self) -> i32 {
+        MEM[self.ptr() + 2].b32.s1
+    }
+    pub(crate) unsafe fn set_stretch(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn shrink(&self) -> i32 {
+        MEM[self.ptr() + 3].b32.s1
+    }
+    pub(crate) unsafe fn set_shrink(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 3].b32.s1 = v;
+        self
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Kern(pub usize);
+impl NodeSize for Kern {
+    const SIZE: i32 = MEDIUM_NODE_SIZE;
+}
+impl Kern {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn is_empty(&self) -> bool {
+        self.width() == 0 || self.subtype() == KernType::Normal
+    }
+    pub(crate) unsafe fn subtype(&self) -> KernType {
+        let n = MEM[self.ptr()].b16.s0;
+        KernType::n(n).unwrap_or_else(|| panic!("Incorrect Kern type {}", n))
+    }
+    pub(crate) unsafe fn set_subtype(&mut self, v: KernType) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v as u16;
+        self
+    }
+    pub(crate) unsafe fn width(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Penalty(pub usize);
+impl NodeSize for Penalty {
+    const SIZE: i32 = MEDIUM_NODE_SIZE;
+}
+impl Penalty {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn penalty(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_penalty(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[derive(Clone, Debug, Deref, DerefMut)]
+pub(crate) struct Unset(BaseBox);
+impl NodeSize for Unset {
+    const SIZE: i32 = BOX_NODE_SIZE;
+}
+impl Unset {
+    pub(crate) const fn from(p: usize) -> Self {
+        Self(BaseBox(p))
+    }
+    pub(crate) unsafe fn columns(&self) -> u16 {
+        MEM[self.ptr()].b16.s0
+    }
+    pub(crate) unsafe fn set_columns(&mut self, v: u16) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v;
+        self
+    }
+    pub(crate) unsafe fn shrink(&self) -> i32 {
+        MEM[self.ptr() + 4].b32.s1
+    }
+    pub(crate) unsafe fn set_shrink(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 4].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn stretch(&self) -> i32 {
+        MEM[self.ptr() + 6].b32.s1
+    }
+    pub(crate) unsafe fn set_stretch(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 6].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn stretch_order(&self) -> GlueOrder {
+        GlueOrder::from(MEM[self.ptr() + 5].b16.s0)
+    }
+    pub(crate) unsafe fn set_stretch_order(&mut self, v: GlueOrder) -> &mut Self {
+        MEM[self.ptr() + 5].b16.s0 = v as _;
+        self
+    }
+    pub(crate) unsafe fn shrink_order(&self) -> GlueOrder {
+        GlueOrder::from(MEM[self.ptr() + 5].b16.s1)
+    }
+    pub(crate) unsafe fn set_shrink_order(&mut self, v: GlueOrder) -> &mut Self {
+        MEM[self.ptr() + 5].b16.s1 = v as _;
+        self
+    }
+    pub(crate) unsafe fn list_ptr(&self) -> i32 {
+        // TODO: check
+        MEM[self.ptr() + 5].b32.s1
+    }
+    pub(crate) unsafe fn set_list_ptr(&mut self, v: i32) -> &mut Self {
+        // TODO: check
+        MEM[self.ptr() + 5].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Edge(pub usize);
+impl NodeSize for Edge {
+    const SIZE: i32 = EDGE_NODE_SIZE;
+}
+impl Edge {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn lr(&self) -> LR {
+        let n = unsafe { MEM[self.ptr()].b16.s0 };
+        LR::n(n).unwrap_or_else(|| panic!("Incorrect LR = {}", n))
+    }
+    pub(crate) unsafe fn set_lr(&mut self, v: LR) -> &mut Self {
+        MEM[self.ptr()].b16.s0 = v as _;
+        self
+    }
+    pub(crate) unsafe fn width(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    /// "new left_edge position relative to cur_h"
+    pub(crate) unsafe fn edge_dist(&self) -> i32 {
+        MEM[self.ptr() + 2].b32.s1
+    }
+    pub(crate) unsafe fn set_edge_dist(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Choice(pub usize);
+impl NodeSize for Choice {
+    const SIZE: i32 = STYLE_NODE_SIZE;
+}
+impl Choice {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn display(&self) -> Option<usize> {
+        MEM[self.ptr() + 1].b32.s0.opt()
+    }
+    pub(crate) unsafe fn set_display(&mut self, v: Option<usize>) {
+        MEM[self.ptr() + 1].b32.s0 = v.tex_int();
+    }
+    pub(crate) unsafe fn text(&self) -> Option<usize> {
+        MEM[self.ptr() + 1].b32.s1.opt()
+    }
+    pub(crate) unsafe fn set_text(&mut self, v: Option<usize>) {
+        MEM[self.ptr() + 1].b32.s1 = v.tex_int();
+    }
+    pub(crate) unsafe fn script(&self) -> Option<usize> {
+        MEM[self.ptr() + 2].b32.s0.opt()
+    }
+    pub(crate) unsafe fn set_script(&mut self, v: Option<usize>) {
+        MEM[self.ptr() + 2].b32.s0 = v.tex_int();
+    }
+    pub(crate) unsafe fn scriptscript(&self) -> Option<usize> {
+        MEM[self.ptr() + 2].b32.s1.opt()
+    }
+    pub(crate) unsafe fn set_scriptscript(&mut self, v: Option<usize>) {
+        MEM[self.ptr() + 2].b32.s1 = v.tex_int();
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct MarginKern(pub usize);
+impl NodeSize for MarginKern {
+    const SIZE: i32 = MARGIN_KERN_NODE_SIZE;
+}
+impl MarginKern {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn width(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 1].b32.s1 = v;
         self
     }
@@ -901,286 +1535,11 @@ impl PageInsertion {
     }
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct Penalty(pub usize);
-impl NodeSize for Penalty {
-    const SIZE: i32 = MEDIUM_NODE_SIZE;
-}
-impl Penalty {
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
-    }
-    pub(crate) unsafe fn penalty(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
-    }
-    pub(crate) unsafe fn set_penalty(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn free(self) {
-        free_node(self.ptr(), Self::SIZE);
-    }
-}
-
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
 pub(crate) enum PageInsType {
     Inserting = 0,
     SplitUp = 1,
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct Choice(pub usize);
-impl NodeSize for Choice {
-    const SIZE: i32 = STYLE_NODE_SIZE;
-}
-impl Choice {
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
-    }
-    pub(crate) unsafe fn display(&self) -> Option<usize> {
-        MEM[self.ptr() + 1].b32.s0.opt()
-    }
-    pub(crate) unsafe fn set_display(&mut self, v: Option<usize>) {
-        MEM[self.ptr() + 1].b32.s0 = v.tex_int();
-    }
-    pub(crate) unsafe fn text(&self) -> Option<usize> {
-        MEM[self.ptr() + 1].b32.s1.opt()
-    }
-    pub(crate) unsafe fn set_text(&mut self, v: Option<usize>) {
-        MEM[self.ptr() + 1].b32.s1 = v.tex_int();
-    }
-    pub(crate) unsafe fn script(&self) -> Option<usize> {
-        MEM[self.ptr() + 2].b32.s0.opt()
-    }
-    pub(crate) unsafe fn set_script(&mut self, v: Option<usize>) {
-        MEM[self.ptr() + 2].b32.s0 = v.tex_int();
-    }
-    pub(crate) unsafe fn scriptscript(&self) -> Option<usize> {
-        MEM[self.ptr() + 2].b32.s1.opt()
-    }
-    pub(crate) unsafe fn set_scriptscript(&mut self, v: Option<usize>) {
-        MEM[self.ptr() + 2].b32.s1 = v.tex_int();
-    }
-    pub(crate) unsafe fn free(self) {
-        free_node(self.ptr(), Self::SIZE);
-    }
-}
-
-#[derive(Clone, Copy, Debug)] // TODO: remove this
-pub(crate) struct BaseBox(pub usize);
-impl BaseBox {
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
-    }
-    /// a scaled; 1 <=> WEB const `width_offset`
-    pub(crate) unsafe fn width(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
-    }
-    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
-        self
-    }
-    /// a scaled; 2 <=> WEB const `depth_offset`
-    pub(crate) unsafe fn depth(&self) -> i32 {
-        MEM[self.ptr() + 2].b32.s1
-    }
-    pub(crate) unsafe fn set_depth(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 2].b32.s1 = v;
-        self
-    }
-    /// a scaled; 3 <=> WEB const `height_offset`
-    pub(crate) unsafe fn height(&self) -> i32 {
-        MEM[self.ptr() + 3].b32.s1
-    }
-    pub(crate) unsafe fn set_height(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 3].b32.s1 = v;
-        self
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deref, DerefMut)] // TODO: remove this
-pub(crate) struct List(BaseBox);
-impl NodeSize for List {
-    const SIZE: i32 = BOX_NODE_SIZE;
-}
-impl List {
-    pub(crate) const fn from(p: usize) -> Self {
-        Self(BaseBox(p))
-    }
-    pub(crate) unsafe fn is_empty(&self) -> bool {
-        self.is_horizontal()
-            && self.width() == 0
-            && self.height() == 0
-            && self.depth() == 0
-            && self.list_ptr().opt().is_none()
-    }
-    /// subtype; records L/R direction mode
-    pub(crate) unsafe fn lr_mode(&self) -> LRMode {
-        LRMode::from(MEM[self.ptr()].b16.s0)
-    }
-    pub(crate) unsafe fn set_lr_mode(&mut self, mode: LRMode) -> &mut Self {
-        MEM[self.ptr()].b16.s0 = mode as u16;
-        self
-    }
-    pub(crate) unsafe fn list_dir(&self) -> ListDir {
-        ListDir::from(MEM[self.ptr()].b16.s1)
-    }
-    pub(crate) unsafe fn is_horizontal(&self) -> bool {
-        self.list_dir() == ListDir::Horizontal
-    }
-    pub(crate) unsafe fn is_vertical(&self) -> bool {
-        self.list_dir() == ListDir::Vertical
-    }
-    pub(crate) unsafe fn set_list_dir(&mut self, dir: ListDir) -> &mut Self {
-        MEM[self.ptr()].b16.s1 = dir as u16;
-        self
-    }
-    pub(crate) unsafe fn set_horizontal(&mut self) -> &mut Self {
-        self.set_list_dir(ListDir::Horizontal);
-        self
-    }
-    pub(crate) unsafe fn set_vertical(&mut self) -> &mut Self {
-        self.set_list_dir(ListDir::Vertical);
-        self
-    }
-    pub(crate) unsafe fn shift_amount(&self) -> i32 {
-        MEM[self.ptr() + 4].b32.s1
-    }
-    pub(crate) unsafe fn set_shift_amount(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 4].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn list_ptr(&self) -> i32 {
-        MEM[self.ptr() + 5].b32.s1
-    }
-    pub(crate) unsafe fn set_list_ptr(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 5].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn glue_sign(&self) -> GlueSign {
-        GlueSign::from(MEM[self.ptr() + 5].b16.s1)
-    }
-    pub(crate) unsafe fn set_glue_sign(&mut self, v: GlueSign) -> &mut Self {
-        MEM[self.ptr() + 5].b16.s1 = v as _;
-        self
-    }
-    pub(crate) unsafe fn glue_order(&self) -> GlueOrder {
-        GlueOrder::from(MEM[self.ptr() + 5].b16.s0)
-    }
-    pub(crate) unsafe fn set_glue_order(&mut self, v: GlueOrder) -> &mut Self {
-        MEM[self.ptr() + 5].b16.s0 = v as _;
-        self
-    }
-    /// the glue ratio
-    pub(crate) unsafe fn glue_set(&self) -> f64 {
-        MEM[self.ptr() + 6].gr
-    }
-    pub(crate) unsafe fn set_glue_set(&mut self, v: f64) -> &mut Self {
-        MEM[self.ptr() + 6].gr = v;
-        self
-    }
-    pub(crate) unsafe fn free(self) {
-        free_node(self.ptr(), Self::SIZE);
-    }
-}
-
-#[repr(u16)]
-#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
-pub(crate) enum ListDir {
-    Horizontal = 0,
-    Vertical = 1,
-}
-impl From<u16> for ListDir {
-    fn from(n: u16) -> Self {
-        Self::n(n).unwrap_or_else(|| panic!("Incorrect List box type = {}", n))
-    }
-}
-
-#[repr(u16)]
-#[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
-pub(crate) enum LRMode {
-    Normal = 0, // TODO: check name
-    Reversed = 1,
-    DList = 2,
-}
-
-impl From<u16> for LRMode {
-    fn from(n: u16) -> Self {
-        Self::n(n).unwrap_or_else(|| panic!("Incorrect LRMode = {}", n))
-    }
-}
-
-#[derive(Clone, Debug, Deref, DerefMut)]
-pub(crate) struct Unset(BaseBox);
-impl NodeSize for Unset {
-    const SIZE: i32 = BOX_NODE_SIZE;
-}
-impl Unset {
-    pub(crate) const fn from(p: usize) -> Self {
-        Self(BaseBox(p))
-    }
-    pub(crate) unsafe fn columns(&self) -> u16 {
-        MEM[self.ptr()].b16.s0
-    }
-    pub(crate) unsafe fn set_columns(&mut self, v: u16) -> &mut Self {
-        MEM[self.ptr()].b16.s0 = v;
-        self
-    }
-    pub(crate) unsafe fn shrink(&self) -> i32 {
-        MEM[self.ptr() + 4].b32.s1
-    }
-    pub(crate) unsafe fn set_shrink(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 4].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn stretch(&self) -> i32 {
-        MEM[self.ptr() + 6].b32.s1
-    }
-    pub(crate) unsafe fn set_stretch(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 6].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn stretch_order(&self) -> GlueOrder {
-        GlueOrder::from(MEM[self.ptr() + 5].b16.s0)
-    }
-    pub(crate) unsafe fn set_stretch_order(&mut self, v: GlueOrder) -> &mut Self {
-        MEM[self.ptr() + 5].b16.s0 = v as _;
-        self
-    }
-    pub(crate) unsafe fn shrink_order(&self) -> GlueOrder {
-        GlueOrder::from(MEM[self.ptr() + 5].b16.s1)
-    }
-    pub(crate) unsafe fn set_shrink_order(&mut self, v: GlueOrder) -> &mut Self {
-        MEM[self.ptr() + 5].b16.s1 = v as _;
-        self
-    }
-    pub(crate) unsafe fn list_ptr(&self) -> i32 {
-        // TODO: check
-        MEM[self.ptr() + 5].b32.s1
-    }
-    pub(crate) unsafe fn set_list_ptr(&mut self, v: i32) -> &mut Self {
-        // TODO: check
-        MEM[self.ptr() + 5].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn free(self) {
-        free_node(self.ptr(), Self::SIZE);
-    }
-}
-
-#[derive(Clone, Debug, Deref, DerefMut)]
-pub(crate) struct Rule(BaseBox);
-impl NodeSize for Rule {
-    const SIZE: i32 = RULE_NODE_SIZE;
-}
-impl Rule {
-    pub(crate) const fn from(p: usize) -> Self {
-        Self(BaseBox(p))
-    }
-    pub(crate) unsafe fn free(self) {
-        free_node(self.ptr(), Self::SIZE);
-    }
 }
 
 pub(crate) enum ActiveNode {
@@ -1411,136 +1770,6 @@ impl Passive {
     }
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct Adjust(pub usize);
-impl NodeSize for Adjust {
-    const SIZE: i32 = SMALL_NODE_SIZE;
-}
-impl Adjust {
-    pub(crate) const NODE: u16 = 5;
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
-    }
-    pub(crate) unsafe fn new_node() -> Self {
-        let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
-        MEM[p].b16.s1 = Self::NODE;
-        Self(p)
-    }
-    pub(crate) unsafe fn subtype(&self) -> AdjustType {
-        let n = MEM[self.ptr()].b16.s0;
-        AdjustType::n(n).unwrap_or_else(|| panic!("Incorrect Adjust type {}", n))
-    }
-    pub(crate) unsafe fn set_subtype(&mut self, v: AdjustType) -> &mut Self {
-        MEM[self.ptr()].b16.s0 = v as u16;
-        self
-    }
-    pub(crate) unsafe fn adj_ptr(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
-    }
-    pub(crate) unsafe fn set_adj_ptr(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn free(self) {
-        free_node(self.ptr(), Self::SIZE);
-    }
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct Discretionary(pub usize);
-impl NodeSize for Discretionary {
-    const SIZE: i32 = SMALL_NODE_SIZE;
-}
-impl Discretionary {
-    pub(crate) const NODE: u16 = 7;
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
-    }
-    pub(crate) unsafe fn new_node() -> Self {
-        let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
-        MEM[p].b16.s1 = Self::NODE;
-        Self(p)
-    }
-    pub(crate) unsafe fn is_empty(&self) -> bool {
-        self.pre_break().opt().is_none()
-            && self.post_break().opt().is_none()
-            && self.replace_count() == 0
-    }
-    pub(crate) unsafe fn replace_count(&self) -> u16 {
-        MEM[self.ptr()].b16.s0
-    }
-    pub(crate) unsafe fn set_replace_count(&mut self, v: u16) -> &mut Self {
-        MEM[self.ptr()].b16.s0 = v;
-        self
-    }
-    /// aka "llink" in doubly-linked list
-    pub(crate) unsafe fn pre_break(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s0
-    }
-    pub(crate) unsafe fn set_pre_break(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s0 = v;
-        self
-    }
-    /// aka "rlink" in double-linked list
-    pub(crate) unsafe fn post_break(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
-    }
-    pub(crate) unsafe fn set_post_break(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
-        self
-    }
-
-    pub(crate) unsafe fn free(self) {
-        free_node(self.ptr(), Self::SIZE);
-    }
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct Mark(pub usize);
-impl Mark {
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
-    }
-    /// "head of the token list for the mark"
-    pub(crate) unsafe fn mark_ptr(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
-    }
-    pub(crate) unsafe fn set_mark_ptr(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
-        self
-    }
-    /// /// "the mark class"
-    pub(crate) unsafe fn class(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s0
-    }
-    pub(crate) unsafe fn set_class(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s0 = v;
-        self
-    }
-}
-pub(crate) struct MarkClass(pub usize);
-impl MarkClass {
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
-    }
-    pub(crate) unsafe fn rc(&self) -> i32 {
-        MEM[self.ptr()].b32.s0
-    }
-    pub(crate) unsafe fn rc_inc(&mut self) {
-        MEM[self.ptr()].b32.s0 += 1;
-    }
-    pub(crate) unsafe fn rc_dec(&mut self) {
-        MEM[self.ptr()].b32.s0 -= 1;
-    }
-    pub(crate) unsafe fn indexes(&self) -> &[i32] {
-        let pp = &MEM[self.ptr() + 1].b32.s0;
-        std::slice::from_raw_parts(pp, 5)
-    }
-    pub(crate) unsafe fn indexes_mut(&mut self) -> &mut [i32] {
-        let pp = &mut MEM[self.ptr() + 1].b32.s0;
-        std::slice::from_raw_parts_mut(pp, 5)
-    }
-}
 pub(crate) struct Index(pub usize);
 impl NodeSize for Index {
     const SIZE: i32 = INDEX_NODE_SIZE;
@@ -1569,114 +1798,6 @@ impl Index {
     }
     pub(crate) unsafe fn free(self) {
         free_node(self.ptr(), Self::SIZE);
-    }
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct Ligature(pub usize);
-impl NodeSize for Ligature {
-    const SIZE: i32 = SMALL_NODE_SIZE;
-}
-impl Ligature {
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
-    }
-    pub(crate) const fn as_char(&self) -> Char {
-        Char(self.0 + 1)
-    }
-    pub(crate) unsafe fn left_hit(&self) -> bool {
-        MEM[self.ptr()].b16.s0 > 1
-    }
-    pub(crate) unsafe fn right_hit(&self) -> bool {
-        MEM[self.ptr()].b16.s0 & 1 != 0
-    }
-    pub(crate) unsafe fn set_hits(&mut self, left: bool, right: bool) -> &mut Self {
-        MEM[self.ptr()].b16.s0 = (left as u16) * 2 + (right as u16);
-        self
-    }
-    /// WEB: font(char(p))
-    pub(crate) unsafe fn font(&self) -> u16 {
-        MEM[self.ptr() + 1].b16.s1
-    }
-    pub(crate) unsafe fn set_font(&mut self, v: u16) -> &mut Self {
-        MEM[self.ptr() + 1].b16.s1 = v;
-        self
-    }
-    ///  WEB: character(char(p))
-    pub(crate) unsafe fn char(&self) -> u16 {
-        MEM[self.ptr() + 1].b16.s0
-    }
-    pub(crate) unsafe fn set_char(&mut self, v: u16) -> &mut Self {
-        MEM[self.ptr() + 1].b16.s0 = v;
-        self
-    }
-    /// WEB: link(char(p))
-    pub(crate) unsafe fn lig_ptr(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
-    }
-    pub(crate) unsafe fn set_lig_ptr(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn free(self) {
-        free_node(self.ptr(), Self::SIZE);
-    }
-}
-
-pub(crate) struct GlueSpec(pub usize);
-impl NodeSize for GlueSpec {
-    const SIZE: i32 = GLUE_SPEC_SIZE;
-}
-impl GlueSpec {
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
-    }
-    pub(crate) unsafe fn shrink_order(&self) -> GlueOrder {
-        GlueOrder::from(MEM[self.ptr()].b16.s0)
-    }
-    pub(crate) unsafe fn set_shrink_order(&mut self, v: GlueOrder) -> &mut Self {
-        MEM[self.ptr()].b16.s0 = v as _;
-        self
-    }
-    pub(crate) unsafe fn stretch_order(&self) -> GlueOrder {
-        GlueOrder::from(MEM[self.ptr()].b16.s1)
-    }
-    pub(crate) unsafe fn set_stretch_order(&mut self, v: GlueOrder) -> &mut Self {
-        MEM[self.ptr()].b16.s1 = v as _;
-        self
-    }
-    pub(crate) unsafe fn rc(&self) -> i32 {
-        MEM[self.ptr()].b32.s1
-    }
-    pub(crate) unsafe fn rc_none(&mut self) {
-        MEM[self.ptr()].b32.s1 = None.tex_int();
-    }
-    pub(crate) unsafe fn rc_inc(&mut self) {
-        MEM[self.ptr()].b32.s1 += 1;
-    }
-    pub(crate) unsafe fn rc_dec(&mut self) {
-        MEM[self.ptr()].b32.s1 -= 1;
-    }
-    pub(crate) unsafe fn size(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
-    }
-    pub(crate) unsafe fn set_size(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn stretch(&self) -> i32 {
-        MEM[self.ptr() + 2].b32.s1
-    }
-    pub(crate) unsafe fn set_stretch(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 2].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn shrink(&self) -> i32 {
-        MEM[self.ptr() + 3].b32.s1
-    }
-    pub(crate) unsafe fn set_shrink(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 3].b32.s1 = v;
-        self
     }
 }
 
@@ -1728,65 +1849,6 @@ impl EtexMark {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Char(pub usize);
-impl Char {
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
-    }
-    pub(crate) unsafe fn font(&self) -> u16 {
-        MEM[self.ptr()].b16.s1
-    }
-    pub(crate) unsafe fn set_font(&mut self, v: u16) -> &mut Self {
-        MEM[self.ptr()].b16.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn character(&self) -> u16 {
-        MEM[self.ptr()].b16.s0
-    }
-    pub(crate) unsafe fn set_character(&mut self, v: u16) -> &mut Self {
-        MEM[self.ptr()].b16.s0 = v;
-        self
-    }
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct Edge(pub usize);
-impl NodeSize for Edge {
-    const SIZE: i32 = EDGE_NODE_SIZE;
-}
-impl Edge {
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
-    }
-    pub(crate) unsafe fn lr(&self) -> LR {
-        let n = unsafe { MEM[self.ptr()].b16.s0 };
-        LR::n(n).unwrap_or_else(|| panic!("Incorrect LR = {}", n))
-    }
-    pub(crate) unsafe fn set_lr(&mut self, v: LR) -> &mut Self {
-        MEM[self.ptr()].b16.s0 = v as _;
-        self
-    }
-    pub(crate) unsafe fn width(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
-    }
-    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
-        self
-    }
-    /// "new left_edge position relative to cur_h"
-    pub(crate) unsafe fn edge_dist(&self) -> i32 {
-        MEM[self.ptr() + 2].b32.s1
-    }
-    pub(crate) unsafe fn set_edge_dist(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 2].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn free(self) {
-        free_node(self.ptr(), Self::SIZE);
-    }
-}
-
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
 pub(crate) enum LR {
@@ -1833,102 +1895,6 @@ pub(crate) enum KernType {
     AccKern = 2,
     SpaceAdjustment = 3,
     Math = 99,
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct Math(pub usize);
-impl NodeSize for Math {
-    const SIZE: i32 = MEDIUM_NODE_SIZE;
-}
-impl Math {
-    pub(crate) const fn ptr(&self) -> usize {
-        self.0
-    }
-    pub(crate) unsafe fn is_empty(&self) -> bool {
-        self.width() == 0
-    }
-    pub(crate) unsafe fn subtype(&self) -> MathType {
-        MathType::from(MEM[self.ptr()].b16.s0)
-    }
-    pub(crate) unsafe fn subtype_i32(&self) -> MathType {
-        MathType::from(MEM[self.ptr()].b32.s0 as u16)
-    }
-    pub(crate) unsafe fn set_subtype(&mut self, v: MathType) -> &mut Self {
-        MEM[self.ptr()].b16.s0 = u16::from(v);
-        self
-    }
-    pub(crate) unsafe fn set_subtype_i32(&mut self, v: MathType) -> &mut Self {
-        MEM[self.ptr()].b32.s0 = u16::from(v) as i32;
-        self
-    }
-    pub(crate) unsafe fn dir(&self) -> LR {
-        self.subtype().dir()
-    }
-    pub(crate) unsafe fn width(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
-    }
-    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
-        self
-    }
-    pub(crate) unsafe fn free(self) {
-        free_node(self.ptr(), Self::SIZE);
-    }
-}
-
-#[repr(u16)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
-pub(crate) enum BE {
-    Begin = 2,
-    End = 3,
-}
-
-#[repr(u16)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
-pub(crate) enum MathMode {
-    Middle = 0,
-    Left = 4,
-    Right = 8,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum MathType {
-    Before,
-    After,
-    Eq(BE, MathMode),
-}
-
-impl MathType {
-    pub(crate) fn dir(self) -> LR {
-        /*if let Self::Eq(_, mode) = self {
-            match mode {
-                MathMode::Right => LR::RightToLeft,
-                _ => LR::LeftToRight,
-            }
-        } else {
-            panic!("No MathType direction");
-        }*/
-        match self {
-            Self::Eq(_, mode) => match mode {
-                MathMode::Right => LR::RightToLeft,
-                _ => LR::LeftToRight,
-            },
-            Self::Before => LR::LeftToRight,
-            Self::After => LR::LeftToRight,
-        }
-    }
-    pub(crate) fn equ(self) -> (BE, MathMode) {
-        /*if let Self::Eq(be, mode) = self {
-            (be, mode)
-        } else {
-            panic!("Not inner MathNode data {:?}", self);
-        }*/
-        match self {
-            Self::Eq(be, mode) => (be, mode),
-            Self::Before => (BE::Begin, MathMode::Middle),
-            Self::After => (BE::End, MathMode::Middle),
-        }
-    }
 }
 
 impl From<MathType> for u16 {
