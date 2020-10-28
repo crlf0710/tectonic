@@ -336,7 +336,7 @@ unsafe fn reencodestring(cmap: *mut CMap, instring: *mut pdf_string) -> i32 {
     let mut obufcur = wbuf.as_mut_ptr().offset(2);
     let mut obufleft = (4096i32 - 2i32) as size_t;
     CMap_decode(
-        cmap,
+        &*cmap,
         &mut inbufcur,
         &mut inbufleft,
         &mut obufcur,
@@ -1407,7 +1407,6 @@ unsafe fn spc_handler_pdfm_bgcolor(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
 }
 unsafe fn spc_handler_pdfm_mapline(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     let mut error: i32 = 0i32;
-    static mut BUFFER: [u8; 1024] = [0; 1024];
     ap.cur.skip_white();
     if ap.cur.is_empty() {
         spc_warn!(spe, "Empty mapline special?");

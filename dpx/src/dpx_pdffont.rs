@@ -513,7 +513,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                     if cmap_id >= 0i32 {
                         let cmap = CMap_cache_get(cmap_id);
                         let cmap_type = CMap_get_type(&*cmap);
-                        let minbytes = CMap_get_profile(cmap, 0i32);
+                        let minbytes = CMap_get_profile(&*cmap, 0i32);
                         /*
                          * Check for output encoding.
                          */

@@ -447,7 +447,6 @@ static mut pdf_output_handle: Option<OutputHandleWrapper> = None;
 static mut pdf_output_file_position: usize = 0;
 static mut pdf_output_line_position: usize = 0;
 static mut compression_saved: i32 = 0i32;
-static mut format_buffer: [u8; 4096] = [0; 4096];
 static mut output_xref: Vec<xref_entry> = Vec::new();
 static mut pdf_max_ind_objects: usize = 0;
 static mut next_label: usize = 0;
@@ -3913,6 +3912,7 @@ mod png_crate_filter {
         }
     }
 
+    #[allow(unused)]
     pub fn filter(method: FilterType, bpp: usize, previous: &[u8], current: &mut [u8]) {
         use self::FilterType::*;
         assert!(bpp > 0);

@@ -420,18 +420,6 @@ unsafe fn pst_string_parse_hex(inbuf: &mut *const u8, inbufend: *const u8) -> Op
     *inbuf = cur;
     Some(String::from_utf8(wbuf).unwrap())
 }
-unsafe fn pst_string_RV(obj: &String) -> f64 {
-    let mut p = obj.as_ptr() as *const u8;
-    let end = p.offset(obj.len() as isize);
-    match pst_parse_number(&mut p, end) {
-        Some(nobj) if p == end => match nobj {
-            PstObj::Integer(data) => data as f64,
-            PstObj::Real(data) => data,
-            _ => unreachable!(),
-        },
-        _ => panic!("Cound not convert string to real value."),
-    }
-}
 
 pub(crate) fn pst_token_end(s: u8) -> bool {
     is_delim(&s) || is_space(&s)

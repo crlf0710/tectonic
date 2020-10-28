@@ -177,24 +177,6 @@ impl pdf_ximage {
         }
     }
 }
-unsafe fn pdf_init_ximage_struct(I: &mut pdf_ximage) {
-    I.ident = String::new();
-    I.filename = String::new();
-    I.subtype = PdfXObjectType::None;
-    I.res_name = [0; 16];
-    I.reference = ptr::null_mut();
-    I.resource = ptr::null_mut();
-    I.attr.height = 0;
-    I.attr.width = 0;
-    I.attr.ydensity = 1.;
-    I.attr.xdensity = 1.;
-    I.attr.bbox = Rect::zero();
-    I.attr.page_no = 1;
-    I.attr.page_count = 1;
-    I.attr.bbox_type = 0;
-    I.attr.dict = ptr::null_mut();
-    I.attr.tempfile = 0;
-}
 impl Drop for pdf_ximage {
     fn drop(&mut self) {
         unsafe {

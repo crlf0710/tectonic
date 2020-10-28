@@ -225,10 +225,10 @@ pub(crate) unsafe fn dpx_delete_temp_file(tmp: &str, force: i32) {
  * This should be system dependent. (MiKTeX may want something different)
  * Please modify as appropriate (see also pdfximage.c and dvipdfmx.c).
  */
-
+#[allow(unused)]
 pub(crate) unsafe fn dpx_file_apply_filter(
     mut _cmdtmpl: *const i8,
-    mut _input: *const i8,
+    mut _input: &str,
     mut _output: *const i8,
     mut _version: u8,
 ) -> i32 {

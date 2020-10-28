@@ -30,7 +30,6 @@ use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_mem::new;
-use crate::mfree;
 use libc::{free, memcmp, memcpy};
 
 #[derive(Copy, Clone)]
@@ -153,87 +152,6 @@ pub(crate) unsafe fn ht_lookup_table(
         hent = (*hent).next
     }
     ptr::null_mut()
-}
-
-pub(crate) unsafe fn ht_remove_table(
-    mut ht: *mut ht_table,
-    key: *const libc::c_void,
-    keylen: i32,
-) -> i32
-/* returns 1 if the element was found and removed and 0 otherwise */ {
-    assert!(!ht.is_null() && !key.is_null());
-    let hkey = get_hash(key, keylen) as usize;
-    let mut hent = (*ht).table[hkey];
-    let mut prev = ptr::null_mut();
-    while !hent.is_null() {
-        if (*hent).keylen == keylen
-            && memcmp((*hent).key as *const libc::c_void, key, keylen as _) == 0
-        {
-            break;
-        }
-        prev = hent;
-        hent = (*hent).next
-    }
-    if !hent.is_null() {
-        (*hent).key = mfree((*hent).key as *mut libc::c_void) as *mut i8;
-        (*hent).keylen = 0i32;
-        if !(*hent).value.is_null() && (*ht).hval_free_fn.is_some() {
-            (*ht).hval_free_fn.expect("non-null function pointer")((*hent).value);
-        }
-        (*hent).value = ptr::null_mut();
-        if !prev.is_null() {
-            (*prev).next = (*hent).next
-        } else {
-            (*ht).table[hkey] = (*hent).next
-        }
-        free(hent as *mut libc::c_void);
-        (*ht).count -= 1;
-        return 1i32;
-    } else {
-        return 0i32;
-    };
-}
-/* replace... */
-
-pub(crate) unsafe fn ht_insert_table(
-    mut ht: *mut ht_table,
-    key: *const libc::c_void,
-    keylen: i32,
-    value: *mut libc::c_void,
-) {
-    assert!(!ht.is_null() && !key.is_null());
-    let hkey = get_hash(key, keylen) as usize;
-    let mut hent = (*ht).table[hkey];
-    let mut prev = ptr::null_mut();
-    while !hent.is_null() {
-        if (*hent).keylen == keylen
-            && memcmp((*hent).key as *const libc::c_void, key, keylen as _) == 0
-        {
-            break;
-        }
-        prev = hent;
-        hent = (*hent).next
-    }
-    if !hent.is_null() {
-        if !(*hent).value.is_null() && (*ht).hval_free_fn.is_some() {
-            (*ht).hval_free_fn.expect("non-null function pointer")((*hent).value);
-        }
-        (*hent).value = value
-    } else {
-        hent = new((1_u64).wrapping_mul(::std::mem::size_of::<ht_entry>() as u64) as u32)
-            as *mut ht_entry;
-        (*hent).key = new((keylen).wrapping_mul(::std::mem::size_of::<i8>() as _) as _) as *mut i8;
-        memcpy((*hent).key as *mut libc::c_void, key, keylen as _);
-        (*hent).keylen = keylen;
-        (*hent).value = value;
-        (*hent).next = ptr::null_mut();
-        if !prev.is_null() {
-            (*prev).next = hent
-        } else {
-            (*ht).table[hkey] = hent
-        }
-        (*ht).count += 1
-    };
 }
 
 pub(crate) unsafe fn ht_append_table(
