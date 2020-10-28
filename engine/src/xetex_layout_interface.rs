@@ -13,7 +13,7 @@ use crate::xetex_consts::Side;
 use harfbuzz_sys::{hb_feature_t, hb_ot_math_glyph_part_t, hb_tag_t};
 
 #[cfg(target_os = "macos")]
-use crate::cf_prelude::{CTFontDescriptorRef, CTFontRef};
+use crate::cf_prelude::CTFontDescriptorRef;
 
 #[cfg(not(target_os = "macos"))]
 pub(crate) type PlatformFontRef = *mut FcPattern;
@@ -55,7 +55,7 @@ mod opentype_math;
 pub(crate) use opentype_math::*;
 
 use crate::xetex_ext::{D2Fix, Fix2D};
-use libc::{free, malloc, strcmp, strdup, strlen};
+use libc::{free, malloc, strdup, strlen};
 
 extern "C" {
     pub(crate) type gr_face;
@@ -79,7 +79,7 @@ extern "C" {
         p: *const FcPattern,
         object: *const libc::c_char,
         n: libc::c_int,
-        s: *mut *mut FcChar8,
+        s: *mut *mut u8,
     ) -> FcResult;
     #[no_mangle]
     fn hb_unicode_funcs_set_decompose_compatibility_func(
@@ -302,16 +302,8 @@ pub(crate) mod collection_types {
 use self::collection_types::*;
 
 pub(crate) type size_t = usize;
-pub(crate) type int8_t = i8;
-pub(crate) type int16_t = i16;
-pub(crate) type int32_t = i32;
-pub(crate) type uint8_t = u8;
-pub(crate) type uint16_t = u16;
-pub(crate) type uint32_t = u32;
 
-pub(crate) type UChar32 = int32_t;
-#[cfg(not(target_os = "macos"))]
-pub(crate) type FcChar8 = libc::c_uchar;
+pub(crate) type UChar32 = i32;
 #[cfg(not(target_os = "macos"))]
 use crate::xetex_font_manager::imp::{FcPattern, FcResult};
 
@@ -324,8 +316,8 @@ pub(crate) type hb_unicode_decompose_compatibility_func_t = Option<
     ) -> libc::c_uint,
 >;
 
-pub(crate) type OTTag = uint32_t;
-pub(crate) type GlyphID = uint16_t;
+pub(crate) type OTTag = u32;
+pub(crate) type GlyphID = u16;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXLayoutEngine_rec {
@@ -337,7 +329,7 @@ pub(crate) struct XeTeXLayoutEngine_rec {
     pub(crate) ShaperList: *mut *mut libc::c_char,
     pub(crate) shaper: *mut libc::c_char,
     pub(crate) nFeatures: libc::c_int,
-    pub(crate) rgbValue: uint32_t,
+    pub(crate) rgbValue: u32,
     pub(crate) extend: f32,
     pub(crate) slant: f32,
     pub(crate) embolden: f32,
@@ -439,10 +431,7 @@ unsafe extern "C" fn XeTeXFontInst_getItalicAngle(mut self_0: *const XeTeXFontIn
     return (*self_0).m_italicAngle;
 }
 #[inline]
-unsafe fn XeTeXFontInst_getFilename<'a>(
-    self_0: &'a XeTeXFontInst,
-    mut index: *mut uint32_t,
-) -> &'a str {
+unsafe fn XeTeXFontInst_getFilename<'a>(self_0: &'a XeTeXFontInst, mut index: *mut u32) -> &'a str {
     *index = self_0.m_index;
     c_pointer_to_str(self_0.m_filename)
 }
@@ -454,12 +443,12 @@ pub(crate) unsafe fn getGlyphBBoxCache() -> *mut CppStdMap<u32, GlyphBBox> {
     return cache;
 }
 pub(crate) unsafe fn getCachedGlyphBBox(
-    mut fontID: uint16_t,
-    mut glyphID: uint16_t,
+    mut fontID: u16,
+    mut glyphID: u16,
     mut bbox: *mut GlyphBBox,
 ) -> libc::c_int {
     let mut sGlyphBoxes: *mut CppStdMap<u32, GlyphBBox> = getGlyphBBoxCache();
-    let mut key: uint32_t = ((fontID as uint32_t) << 16i32).wrapping_add(glyphID as libc::c_uint);
+    let mut key: u32 = ((fontID as u32) << 16i32).wrapping_add(glyphID as libc::c_uint);
     if let Some(v) = (*sGlyphBoxes).get(&key) {
         *bbox = v.clone();
         1
@@ -467,13 +456,9 @@ pub(crate) unsafe fn getCachedGlyphBBox(
         0
     }
 }
-pub(crate) unsafe fn cacheGlyphBBox(
-    mut fontID: uint16_t,
-    mut glyphID: uint16_t,
-    mut bbox: *const GlyphBBox,
-) {
+pub(crate) unsafe fn cacheGlyphBBox(mut fontID: u16, mut glyphID: u16, mut bbox: *const GlyphBBox) {
     let mut sGlyphBoxes: *mut CppStdMap<u32, GlyphBBox> = getGlyphBBoxCache();
-    let mut key: uint32_t = ((fontID as uint32_t) << 16i32).wrapping_add(glyphID as libc::c_uint);
+    let mut key: u32 = ((fontID as u32) << 16i32).wrapping_add(glyphID as libc::c_uint);
     CppStdMap_put(sGlyphBoxes, key, *bbox);
 }
 #[inline]
@@ -532,12 +517,12 @@ pub(crate) unsafe fn destroy_font_manager() {
     XeTeXFontMgr_Destroy();
 }
 pub(crate) unsafe fn createFont(mut fontRef: PlatformFontRef, mut pointSize: Fixed) -> XeTeXFont {
-    use crate::xetex_font_info::{XeTeXFontInst_create, XeTeXFontInst_delete};
+    use crate::xetex_font_info::XeTeXFontInst_delete;
     let mut status: libc::c_int = 0i32;
     let mut font: *mut XeTeXFontInst;
     #[cfg(not(target_os = "macos"))]
     {
-        let mut pathname: *mut FcChar8 = 0 as *mut FcChar8;
+        let mut pathname: *mut u8 = 0 as *mut u8;
         FcPatternGetString(
             fontRef as *const FcPattern,
             b"file\x00" as *const u8 as *const libc::c_char,
@@ -551,7 +536,7 @@ pub(crate) unsafe fn createFont(mut fontRef: PlatformFontRef, mut pointSize: Fix
             0i32,
             &mut index,
         );
-        font = XeTeXFontInst_create(
+        font = crate::xetex_font_info::XeTeXFontInst_create(
             c_pointer_to_str(pathname as *const i8),
             index,
             Fix2D(pointSize) as f32,
@@ -562,15 +547,8 @@ pub(crate) unsafe fn createFont(mut fontRef: PlatformFontRef, mut pointSize: Fix
     {
         use crate::xetex_font_info::imp::XeTeXFontInst_Mac;
         use crate::xetex_font_info::imp::XeTeXFontInst_Mac_create;
-        font = &mut (*(XeTeXFontInst_Mac_create
-            as unsafe extern "C" fn(
-                _: CTFontDescriptorRef,
-                _: f32,
-                _: *mut libc::c_int,
-            ) -> *mut XeTeXFontInst_Mac)(
-            fontRef, Fix2D(pointSize) as f32, &mut status
-        ))
-        .super_;
+        font =
+            &mut (*XeTeXFontInst_Mac_create(fontRef, Fix2D(pointSize) as f32, &mut status)).super_;
     }
     if status != 0i32 {
         XeTeXFontInst_delete(font);
@@ -612,13 +590,10 @@ pub(crate) unsafe fn setReqEngine(mut reqEngine: libc::c_char) {
 pub(crate) unsafe fn getFullName(mut fontRef: PlatformFontRef) -> *const libc::c_char {
     return XeTeXFontMgr_getFullName(XeTeXFontMgr_GetFontManager(), fontRef);
 }
-pub(crate) unsafe fn getDesignSize(mut font: XeTeXFont) -> f64 {
+pub(crate) unsafe fn getDesignSize(mut font: &XeTeXFontInst) -> f64 {
     return XeTeXFontMgr_getDesignSize(XeTeXFontMgr_GetFontManager(), font);
 }
-pub(crate) unsafe fn getFontFilename(
-    mut engine: XeTeXLayoutEngine,
-    mut index: *mut uint32_t,
-) -> String {
+pub(crate) unsafe fn getFontFilename(mut engine: XeTeXLayoutEngine, mut index: *mut u32) -> String {
     XeTeXFontInst_getFilename(&*(*engine).font, index).to_string()
 }
 pub(crate) unsafe fn getFontRef(mut engine: XeTeXLayoutEngine) -> PlatformFontRef {
@@ -628,10 +603,7 @@ pub(crate) unsafe fn deleteFont(mut font: XeTeXFont) {
     use crate::xetex_font_info::XeTeXFontInst_delete;
     XeTeXFontInst_delete(font as *mut XeTeXFontInst);
 }
-pub(crate) unsafe fn getFontTablePtr(
-    mut font: XeTeXFont,
-    mut tableTag: uint32_t,
-) -> *mut libc::c_void {
+pub(crate) unsafe fn getFontTablePtr(mut font: XeTeXFont, mut tableTag: u32) -> *mut libc::c_void {
     return XeTeXFontInst_getFontTable(font as *mut XeTeXFontInst, tableTag);
 }
 pub(crate) unsafe fn getSlant(mut font: XeTeXFont) -> Fixed {
@@ -925,20 +897,17 @@ pub(crate) unsafe fn getIndFeature(
     }
     return rval;
 }
-pub(crate) unsafe fn countGraphiteFeatures(mut engine: XeTeXLayoutEngine) -> uint32_t {
-    let mut rval: uint32_t = 0i32 as uint32_t;
+pub(crate) unsafe fn countGraphiteFeatures(mut engine: XeTeXLayoutEngine) -> u32 {
+    let mut rval: u32 = 0i32 as u32;
     let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
-        rval = gr_face_n_fref(grFace) as uint32_t
+        rval = gr_face_n_fref(grFace) as u32
     }
     return rval;
 }
-pub(crate) unsafe fn getGraphiteFeatureCode(
-    mut engine: XeTeXLayoutEngine,
-    mut index: uint32_t,
-) -> uint32_t {
-    let mut rval: uint32_t = 0i32 as uint32_t;
+pub(crate) unsafe fn getGraphiteFeatureCode(mut engine: XeTeXLayoutEngine, mut index: u32) -> u32 {
+    let mut rval: u32 = 0i32 as u32;
     let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
@@ -949,36 +918,36 @@ pub(crate) unsafe fn getGraphiteFeatureCode(
 }
 pub(crate) unsafe fn countGraphiteFeatureSettings(
     mut engine: XeTeXLayoutEngine,
-    mut featureID: uint32_t,
-) -> uint32_t {
-    let mut rval: uint32_t = 0i32 as uint32_t;
+    mut featureID: u32,
+) -> u32 {
+    let mut rval: u32 = 0i32 as u32;
     let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
         let mut feature: *const gr_feature_ref = gr_face_find_fref(grFace, featureID);
-        rval = gr_fref_n_values(feature) as uint32_t
+        rval = gr_fref_n_values(feature) as u32
     }
     return rval;
 }
 pub(crate) unsafe fn getGraphiteFeatureSettingCode(
     mut engine: XeTeXLayoutEngine,
-    mut featureID: uint32_t,
-    mut index: uint32_t,
-) -> uint32_t {
-    let mut rval: uint32_t = 0i32 as uint32_t;
+    mut featureID: u32,
+    mut index: u32,
+) -> u32 {
+    let mut rval: u32 = 0i32 as u32;
     let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
         let mut feature: *const gr_feature_ref = gr_face_find_fref(grFace, featureID);
-        rval = gr_fref_value(feature, index as gr_uint16) as uint32_t
+        rval = gr_fref_value(feature, index as gr_uint16) as u32
     }
     return rval;
 }
 pub(crate) unsafe fn getGraphiteFeatureDefaultSetting(
     mut engine: XeTeXLayoutEngine,
-    mut featureID: uint32_t,
-) -> uint32_t {
-    let mut rval: uint32_t = 0i32 as uint32_t;
+    mut featureID: u32,
+) -> u32 {
+    let mut rval: u32 = 0i32 as u32;
     let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
@@ -990,28 +959,28 @@ pub(crate) unsafe fn getGraphiteFeatureDefaultSetting(
                 strlen(hb_language_to_string((*engine).language)) as libc::c_int,
             ),
         );
-        rval = gr_fref_feature_value(feature, featureValues) as uint32_t
+        rval = gr_fref_feature_value(feature, featureValues) as u32
     }
     return rval;
 }
 pub(crate) unsafe fn getGraphiteFeatureLabel(
     mut engine: XeTeXLayoutEngine,
-    mut featureID: uint32_t,
+    mut featureID: u32,
 ) -> *mut libc::c_char {
     let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
         let mut feature: *const gr_feature_ref = gr_face_find_fref(grFace, featureID);
-        let mut len: uint32_t = 0i32 as uint32_t;
-        let mut langID: uint16_t = 0x409i32 as uint16_t;
+        let mut len: u32 = 0i32 as u32;
+        let mut langID: u16 = 0x409i32 as u16;
         return gr_fref_label(feature, &mut langID, gr_utf8, &mut len) as *mut libc::c_char;
     }
     return 0 as *mut libc::c_char;
 }
 pub(crate) unsafe fn getGraphiteFeatureSettingLabel(
     mut engine: XeTeXLayoutEngine,
-    mut featureID: uint32_t,
-    mut settingID: uint32_t,
+    mut featureID: u32,
+    mut settingID: u32,
 ) -> *mut libc::c_char {
     let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
@@ -1020,8 +989,8 @@ pub(crate) unsafe fn getGraphiteFeatureSettingLabel(
         let mut i: libc::c_int = 0i32;
         while i < gr_fref_n_values(feature) as libc::c_int {
             if settingID as libc::c_int == gr_fref_value(feature, i as gr_uint16) as libc::c_int {
-                let mut len: uint32_t = 0i32 as uint32_t;
-                let mut langID: uint16_t = 0x409i32 as uint16_t;
+                let mut len: u32 = 0i32 as u32;
+                let mut langID: u16 = 0x409i32 as u16;
                 return gr_fref_value_label(feature, i as gr_uint16, &mut langID, gr_utf8, &mut len)
                     as *mut libc::c_char;
             }
@@ -1075,8 +1044,8 @@ pub(crate) unsafe fn findGraphiteFeatureNamed(
         let mut i: libc::c_int = 0i32;
         while i < gr_face_n_fref(grFace) as libc::c_int {
             let mut feature: *const gr_feature_ref = gr_face_fref(grFace, i as gr_uint16);
-            let mut len: uint32_t = 0i32 as uint32_t;
-            let mut langID: uint16_t = 0x409i32 as uint16_t;
+            let mut len: u32 = 0i32 as u32;
+            let mut langID: u16 = 0x409i32 as u16;
             // the first call is to get the length of the string
             gr_fref_label(feature, &mut langID, gr_utf8, &mut len);
             let mut label: *mut libc::c_char = xmalloc(len as size_t) as *mut libc::c_char;
@@ -1095,7 +1064,7 @@ pub(crate) unsafe fn findGraphiteFeatureNamed(
 }
 pub(crate) unsafe fn findGraphiteFeatureSettingNamed(
     mut engine: XeTeXLayoutEngine,
-    mut id: uint32_t,
+    mut id: u32,
     name: &[u8],
 ) -> libc::c_long {
     use bridge::size_t;
@@ -1106,8 +1075,8 @@ pub(crate) unsafe fn findGraphiteFeatureSettingNamed(
         let mut feature: *const gr_feature_ref = gr_face_find_fref(grFace, id);
         let mut i: libc::c_int = 0i32;
         while i < gr_fref_n_values(feature) as libc::c_int {
-            let mut len: uint32_t = 0i32 as uint32_t;
-            let mut langID: uint16_t = 0x409i32 as uint16_t;
+            let mut len: u32 = 0i32 as u32;
+            let mut langID: u16 = 0x409i32 as u16;
             // the first call is to get the length of the string
             gr_fref_value_label(feature, i as gr_uint16, &mut langID, gr_utf8, &mut len);
             let mut label: *mut libc::c_char = xmalloc(len as size_t) as *mut libc::c_char;
@@ -1125,7 +1094,7 @@ pub(crate) unsafe fn findGraphiteFeatureSettingNamed(
     }
     return rval;
 }
-pub(crate) unsafe fn getGlyphWidth(mut font: XeTeXFont, mut gid: uint32_t) -> f32 {
+pub(crate) unsafe fn getGlyphWidth(mut font: XeTeXFont, mut gid: u32) -> f32 {
     return XeTeXFontInst_getGlyphWidth(font as *mut XeTeXFontInst, gid as GlyphID);
 }
 pub(crate) unsafe fn countGlyphs(mut font: XeTeXFont) -> libc::c_uint {
@@ -1157,7 +1126,7 @@ pub(crate) unsafe fn createLayoutEngine(
     mut features: *mut hb_feature_t,
     mut nFeatures: libc::c_int,
     mut shapers: *mut *mut libc::c_char,
-    mut rgbValue: uint32_t,
+    mut rgbValue: u32,
     mut extend: f32,
     mut slant: f32,
     mut embolden: f32,
@@ -1220,10 +1189,10 @@ unsafe extern "C" fn _get_unicode_funcs() -> *mut hb_unicode_funcs_t {
 static mut hbUnicodeFuncs: *mut hb_unicode_funcs_t = ptr::null_mut();
 pub(crate) unsafe fn layoutChars(
     mut engine: XeTeXLayoutEngine,
-    mut chars: *const uint16_t,
-    mut offset: int32_t,
-    mut count: int32_t,
-    mut max: int32_t,
+    mut chars: *const u16,
+    mut offset: i32,
+    mut count: i32,
+    mut max: i32,
     mut rightToLeft: bool,
 ) -> libc::c_int {
     use bridge::size_t;
@@ -1328,7 +1297,7 @@ pub(crate) unsafe fn layoutChars(
     let mut glyphCount: libc::c_int = hb_buffer_get_length((*engine).hbBuffer) as libc::c_int;
     return glyphCount;
 }
-pub(crate) unsafe fn getGlyphs(mut engine: XeTeXLayoutEngine, mut glyphs: *mut uint32_t) {
+pub(crate) unsafe fn getGlyphs(mut engine: XeTeXLayoutEngine, mut glyphs: *mut u32) {
     let mut glyphCount: libc::c_int = hb_buffer_get_length((*engine).hbBuffer) as libc::c_int;
     let mut hbGlyphs: *mut hb_glyph_info_t =
         hb_buffer_get_glyph_infos((*engine).hbBuffer, 0 as *mut libc::c_uint);
@@ -1442,12 +1411,12 @@ pub(crate) unsafe fn getDefaultDirection(mut engine: XeTeXLayoutEngine) -> libc:
         return 0xfei32;
     };
 }
-pub(crate) unsafe fn getRgbValue(mut engine: XeTeXLayoutEngine) -> uint32_t {
+pub(crate) unsafe fn getRgbValue(mut engine: XeTeXLayoutEngine) -> u32 {
     return (*engine).rgbValue;
 }
 pub(crate) unsafe fn getGlyphBounds(
     mut engine: XeTeXLayoutEngine,
-    mut glyphID: uint32_t,
+    mut glyphID: u32,
     mut bbox: *mut GlyphBBox,
 ) {
     XeTeXFontInst_getGlyphBounds((*engine).font, glyphID as GlyphID, bbox);
@@ -1458,13 +1427,13 @@ pub(crate) unsafe fn getGlyphBounds(
 }
 pub(crate) unsafe fn getGlyphWidthFromEngine(
     mut engine: XeTeXLayoutEngine,
-    mut glyphID: uint32_t,
+    mut glyphID: u32,
 ) -> f32 {
     return (*engine).extend * XeTeXFontInst_getGlyphWidth((*engine).font, glyphID as GlyphID);
 }
 pub(crate) unsafe fn getGlyphHeightDepth(
     mut engine: XeTeXLayoutEngine,
-    mut glyphID: uint32_t,
+    mut glyphID: u32,
     mut height: *mut f32,
     mut depth: *mut f32,
 ) {
@@ -1472,7 +1441,7 @@ pub(crate) unsafe fn getGlyphHeightDepth(
 }
 pub(crate) unsafe fn getGlyphSidebearings(
     mut engine: XeTeXLayoutEngine,
-    mut glyphID: uint32_t,
+    mut glyphID: u32,
     mut lsb: *mut f32,
     mut rsb: *mut f32,
 ) {
@@ -1482,14 +1451,11 @@ pub(crate) unsafe fn getGlyphSidebearings(
         *rsb *= (*engine).extend
     };
 }
-pub(crate) unsafe fn getGlyphItalCorr(mut engine: XeTeXLayoutEngine, mut glyphID: uint32_t) -> f32 {
+pub(crate) unsafe fn getGlyphItalCorr(mut engine: XeTeXLayoutEngine, mut glyphID: u32) -> f32 {
     return (*engine).extend * XeTeXFontInst_getGlyphItalCorr((*engine).font, glyphID as GlyphID);
 }
-pub(crate) unsafe fn mapCharToGlyph(
-    mut engine: XeTeXLayoutEngine,
-    mut charCode: uint32_t,
-) -> uint32_t {
-    return XeTeXFontInst_mapCharToGlyph((*engine).font, charCode as UChar32) as uint32_t;
+pub(crate) unsafe fn mapCharToGlyph(mut engine: XeTeXLayoutEngine, mut charCode: u32) -> u32 {
+    return XeTeXFontInst_mapCharToGlyph((*engine).font, charCode as UChar32) as u32;
 }
 pub(crate) unsafe fn getFontCharRange(
     mut engine: XeTeXLayoutEngine,
@@ -1503,7 +1469,7 @@ pub(crate) unsafe fn getFontCharRange(
 }
 pub(crate) unsafe fn getGlyphName(
     mut font: XeTeXFont,
-    mut gid: uint16_t,
+    mut gid: u16,
     mut len: *mut libc::c_int,
 ) -> *const libc::c_char {
     return XeTeXFontInst_getGlyphName(font as *mut XeTeXFontInst, gid, len);
@@ -1519,7 +1485,7 @@ static mut grPrevSlot: *const gr_slot = 0 as *const gr_slot;
 static mut grTextLen: libc::c_int = 0;
 pub(crate) unsafe fn initGraphiteBreaking(
     mut engine: XeTeXLayoutEngine,
-    mut txtPtr: *const uint16_t,
+    mut txtPtr: *const u16,
     mut txtLen: libc::c_int,
 ) -> bool {
     let mut hbFace: *mut hb_face_t = hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font));
@@ -1634,17 +1600,10 @@ authorization from the copyright holders.
 /* graphite interface functions... */
 pub(crate) unsafe fn usingGraphite(mut engine: XeTeXLayoutEngine) -> bool {
     !(*engine).shaper.is_null()
-        && strcmp(
-            b"graphite2\x00" as *const u8 as *const libc::c_char,
-            (*engine).shaper,
-        ) == 0
+        && std::ffi::CStr::from_ptr((*engine).shaper).to_bytes() == b"graphite2"
 }
 pub(crate) unsafe fn usingOpenType(mut engine: XeTeXLayoutEngine) -> bool {
-    (*engine).shaper.is_null()
-        || strcmp(
-            b"ot\x00" as *const u8 as *const libc::c_char,
-            (*engine).shaper,
-        ) == 0
+    (*engine).shaper.is_null() || std::ffi::CStr::from_ptr((*engine).shaper).to_bytes() == b"ot"
 }
 pub(crate) unsafe fn isOpenTypeMathFont(mut engine: XeTeXLayoutEngine) -> bool {
     return hb_ot_math_has_data(hb_font_get_face(XeTeXFontInst_getHbFont((*engine).font))) != 0;

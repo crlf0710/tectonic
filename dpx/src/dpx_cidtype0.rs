@@ -73,8 +73,8 @@ use super::dpx_tt_table::{
 };
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj,
-    PushObj, STREAM_COMPRESS,
+    pdf_dict, pdf_name, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj,
+    STREAM_COMPRESS,
 };
 use crate::dpx_truetype::sfnt_table_info;
 use libc::{free, memset};
@@ -147,7 +147,7 @@ pub(crate) unsafe fn CIDFont_type0_set_flags(flags: i32) {
  * PDF Reference 3rd. ed., p.340, "Glyph Metrics in CID Fonts".
  */
 unsafe fn add_CIDHMetrics(
-    fontdict: *mut pdf_obj,
+    fontdict: &mut pdf_dict,
     CIDToGIDMap: *mut u8,
     last_cid: u16,
     maxp: &tt_maxp_table,
@@ -213,16 +213,16 @@ unsafe fn add_CIDHMetrics(
      * PDF Reference 2nd. ed, wrongly described default value of DW as 0, and
      * MacOS X's (up to 10.2.8) preview app. implements this wrong description.
      */
-    (*fontdict).as_dict_mut().set("DW", defaultAdvanceWidth);
+    fontdict.set("DW", defaultAdvanceWidth);
     let w_array = w_array.into_obj();
     if empty == 0 {
-        (*fontdict).as_dict_mut().set("W", pdf_ref_obj(w_array));
+        fontdict.set("W", pdf_ref_obj(w_array));
     }
     pdf_release_obj(w_array);
 }
 unsafe fn add_CIDVMetrics(
     sfont: &sfnt,
-    fontdict: *mut pdf_obj,
+    fontdict: &mut pdf_dict,
     CIDToGIDMap: *mut u8,
     last_cid: u16,
     maxp: &tt_maxp_table,
@@ -342,17 +342,17 @@ unsafe fn add_CIDVMetrics(
         let mut an_array = vec![];
         an_array.push_obj(defaultVertOriginY);
         an_array.push_obj(-defaultAdvanceHeight);
-        (*fontdict).as_dict_mut().set("DW2", an_array);
+        fontdict.set("DW2", an_array);
     }
     let w2_array = w2_array.into_obj();
     if empty == 0 {
-        (*fontdict).as_dict_mut().set("W2", pdf_ref_obj(w2_array));
+        fontdict.set("W2", pdf_ref_obj(w2_array));
     }
     pdf_release_obj(w2_array);
 }
 unsafe fn add_CIDMetrics(
     sfont: &sfnt,
-    fontdict: *mut pdf_obj,
+    fontdict: &mut pdf_dict,
     CIDToGIDMap: *mut u8,
     last_cid: u16,
     need_vmetrics: i32,
@@ -665,7 +665,7 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: *mut CIDFont) {
         }
         add_CIDMetrics(
             &sfont,
-            (*font).fontdict,
+            (*(*font).fontdict).as_dict_mut(),
             CIDToGIDMap,
             last_cid,
             if CIDFont_get_parent_id(font, 1i32) < 0i32 {
@@ -1229,7 +1229,7 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: *mut CIDFont) {
     }
     add_CIDMetrics(
         &sfont,
-        (*font).fontdict,
+        (*(*font).fontdict).as_dict_mut(),
         CIDToGIDMap,
         last_cid,
         if CIDFont_get_parent_id(font, 1) < 0 {

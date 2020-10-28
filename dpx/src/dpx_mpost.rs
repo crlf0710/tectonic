@@ -147,7 +147,7 @@ pub(crate) enum Opcode {
 #[derive(Clone)]
 #[repr(C)]
 pub(crate) struct mp_font {
-    pub(crate) font_name: CString,
+    pub(crate) font_name: String,
     pub(crate) font_id: i32,
     pub(crate) tfm_id: i32,
     pub(crate) subfont_id: i32,
@@ -181,14 +181,14 @@ static mut font_stack: Vec<mp_font> = Vec::new();
 
 static mut currentfont: i32 = -1i32;
 static mut mp_cmode: i32 = 0i32;
-unsafe fn mp_setfont(font_name: &CStr, pt_size: f64) -> i32 {
+unsafe fn mp_setfont(font_name: &str, pt_size: f64) -> i32 {
     let mut subfont_id: i32 = -1i32;
     if let Some(font) = font_stack.last() {
-        if (font.font_name.as_c_str() == font_name) && (font.pt_size == pt_size) {
+        if font.font_name == font_name && (font.pt_size == pt_size) {
             return 0;
         }
     }
-    let mrec = fontmap.get(font_name.to_str().unwrap());
+    let mrec = fontmap.get(font_name);
     if let Some(mrec) = mrec {
         if !mrec.charmap.sfd_name.is_empty() && !mrec.charmap.subfont_id.is_empty() {
             subfont_id = sfd_load_record(&mrec.charmap.sfd_name, &mrec.charmap.subfont_id)
@@ -197,14 +197,14 @@ unsafe fn mp_setfont(font_name: &CStr, pt_size: f64) -> i32 {
     /* See comments in dvi_locate_font() in dvi.c. */
     let name = match mrec {
         Some(mrec) if !mrec.map_name.is_empty() => &mrec.map_name,
-        _ => font_name.to_str().unwrap(),
+        _ => font_name,
     };
     let name_ = CString::new(name).unwrap();
     let font_id = pdf_dev_locate_font(&name_, (pt_size * dev_unit_dviunit()) as spt_t);
     let new_font = mp_font {
-        font_name: font_name.to_owned(),
+        font_name: font_name.to_string(),
         font_id,
-        tfm_id: tfm_open(font_name.to_str().unwrap(), 0),
+        tfm_id: tfm_open(font_name, 0),
         subfont_id,
         pt_size,
     };
@@ -215,10 +215,7 @@ unsafe fn mp_setfont(font_name: &CStr, pt_size: f64) -> i32 {
         font_stack.push(new_font);
     }
     if font_id < 0 {
-        panic!(
-            "MPOST: No physical font assigned for \"{}\".",
-            font_name.display()
-        );
+        panic!("MPOST: No physical font assigned for \"{}\".", font_name);
     }
     0
 }
@@ -226,7 +223,7 @@ unsafe fn save_font() {
     match font_stack.last() {
         Some(current) => font_stack.push(current.clone()),
         None => font_stack.push(mp_font {
-            font_name: CString::new("Courier").unwrap(),
+            font_name: "Courier".to_string(),
             font_id: -1,
             tfm_id: 0,
             subfont_id: 0,
@@ -576,7 +573,7 @@ unsafe fn do_setfont() -> i32 {
              */
             let font_name = ((*font_dict).as_dict().get("FontName").unwrap()).as_name();
             let font_scale = (*font_dict).as_dict().get("FontScale").unwrap().as_f64();
-            mp_setfont(font_name, font_scale)
+            mp_setfont(font_name.to_str().unwrap(), font_scale)
         };
         pdf_release_obj(font_dict);
         error
@@ -599,7 +596,7 @@ unsafe fn do_currentfont() -> i32 {
     } else {
         let mut font_dict = pdf_dict::new();
         font_dict.set("Type", "Font");
-        font_dict.set("FontName", pdf_name::new((*font).font_name.to_bytes()));
+        font_dict.set("FontName", pdf_name::new((*font).font_name.as_bytes()));
         font_dict.set("FontScale", (*font).pt_size);
         if STACK.len() < 1024 {
             STACK.push_obj(font_dict)
@@ -638,10 +635,7 @@ unsafe fn do_show() -> i32 {
     }
     let text = (*text_str).as_string().to_bytes();
     if (*font).tfm_id < 0i32 {
-        warn!(
-            "mpost: TFM not found for \"{}\".",
-            (*font).font_name.display()
-        );
+        warn!("mpost: TFM not found for \"{}\".", (*font).font_name);
         warn!("mpost: Text width not calculated...");
     }
     let mut text_width = 0_f64;

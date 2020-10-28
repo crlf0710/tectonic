@@ -198,14 +198,6 @@ pub(crate) fn strstartswith<'a>(s: &'a [u8], prefix: &[u8]) -> Option<&'a [u8]> 
     None
 }
 
-#[inline]
-pub(crate) unsafe fn streq_ptr(s1: *const i8, s2: *const i8) -> bool {
-    if !s1.is_null() && !s2.is_null() {
-        return libc::strcmp(s1, s2) == 0i32;
-    }
-    false
-}
-
 mod xetex_font_info;
 mod xetex_font_manager;
 mod xetex_layout_interface;
@@ -304,19 +296,16 @@ pub(crate) mod cf_prelude {
             kCFTypeArrayCallBacks, CFArrayCallBacks, CFArrayCreate, CFArrayGetCount, CFArrayRef,
             __CFArray,
         },
-        attributed_string::{CFAttributedString, CFAttributedStringCreate, CFAttributedStringRef},
+        attributed_string::{CFAttributedStringCreate, CFAttributedStringRef},
         base::{
             kCFAllocatorDefault, kCFAllocatorNull, CFAllocatorRef, CFComparisonResult, CFEqual,
-            CFHashCode, CFIndex, CFOptionFlags, CFRange, CFRelease, CFRetain, CFTypeRef, ToVoid,
+            CFIndex, CFRange, CFRelease, CFRetain, CFTypeRef, ToVoid,
         },
         boolean::{kCFBooleanTrue, CFBooleanRef},
         dictionary::{
-            kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks, CFDictionary,
-            CFDictionaryAddValue, CFDictionaryCopyDescriptionCallBack, CFDictionaryCreate,
-            CFDictionaryCreateMutable, CFDictionaryEqualCallBack, CFDictionaryGetValueIfPresent,
-            CFDictionaryHashCallBack, CFDictionaryKeyCallBacks, CFDictionaryRef,
-            CFDictionaryReleaseCallBack, CFDictionaryRetainCallBack, CFDictionaryValueCallBacks,
-            CFMutableDictionaryRef,
+            kCFTypeDictionaryKeyCallBacks, kCFTypeDictionaryValueCallBacks, CFDictionaryAddValue,
+            CFDictionaryCreate, CFDictionaryCreateMutable, CFDictionaryGetValueIfPresent,
+            CFDictionaryRef, CFMutableDictionaryRef,
         },
         number::{CFNumberCompare, CFNumberCreate, CFNumberGetValue, CFNumberRef, CFNumberType},
         set::{kCFTypeSetCallBacks, CFSetCreate, CFSetRef},
@@ -458,7 +447,7 @@ pub(crate) mod cf_prelude {
         font_descriptor::{
             kCTFontCascadeListAttribute, kCTFontDisplayNameAttribute, kCTFontFamilyNameAttribute,
             kCTFontFeatureSettingsAttribute, kCTFontNameAttribute, kCTFontOrientationAttribute,
-            kCTFontURLAttribute, CTFontDescriptor, CTFontDescriptorCopyAttribute,
+            kCTFontURLAttribute, CTFontDescriptorCopyAttribute,
             CTFontDescriptorCreateCopyWithAttributes,
             CTFontDescriptorCreateMatchingFontDescriptors, CTFontDescriptorCreateWithAttributes,
             CTFontDescriptorCreateWithNameAndSize, CTFontDescriptorRef, CTFontOrientation,
@@ -630,8 +619,7 @@ pub(crate) mod cf_prelude {
         pub(crate) fn CFBooleanGetValue(boolean: CFBooleanRef) -> libc::c_uchar;
     }
 
-    pub(crate) type UniChar = UInt16;
-    pub(crate) type UInt16 = libc::c_ushort;
+    pub(crate) type UniChar = u16;
 
     #[inline(always)]
     pub(crate) fn CFRangeMake(mut loc: CFIndex, mut len: CFIndex) -> CFRange {

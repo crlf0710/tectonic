@@ -10,7 +10,6 @@
 )]
 
 use super::xetex_layout_interface::GlyphBBox;
-use std::ffi::CString;
 
 use crate::cf_prelude::*;
 
@@ -26,22 +25,16 @@ use crate::cmd::ExtCmd;
 use crate::core_memory::{xcalloc, xmalloc};
 use crate::node::NativeWord;
 use crate::xetex_ext::{print_chars, readCommonFeatures, read_double, D2Fix, Fix2D};
-use crate::xetex_ini::memory_word;
 use crate::xetex_ini::{
     loaded_font_flags, loaded_font_letter_space, name_of_file, native_font_type_flag, FONT_AREA,
     FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
 };
 use crate::xetex_xetex0::font_feature_warning;
 use libc::{free, strlen};
-type int32_t = libc::c_int;
-type uint16_t = libc::c_ushort;
 pub(crate) type Boolean = libc::c_uchar;
-type scaled_t = int32_t;
-type UInt32 = libc::c_uint;
-type SInt32 = libc::c_int;
 
-type Fixed = SInt32;
-type Fract = SInt32;
+type Fixed = i32;
+type Fract = i32;
 #[derive(Copy, Clone)]
 #[repr(C, packed(2))]
 struct FixedPoint {
@@ -49,7 +42,7 @@ struct FixedPoint {
     y: Fixed,
 }
 
-pub(crate) type str_number = int32_t;
+pub(crate) type str_number = i32;
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
@@ -123,7 +116,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     let mut j: CFIndex = 0;
     let mut runCount: CFIndex = 0;
     let mut totalGlyphCount: CFIndex = 0;
-    let mut glyphIDs: *mut UInt16 = ptr::null_mut();
+    let mut glyphIDs: *mut u16 = ptr::null_mut();
     let mut glyphAdvances: *mut Fixed = ptr::null_mut();
     let mut glyph_info: *mut libc::c_void = ptr::null_mut();
     let mut locations: *mut FixedPoint = ptr::null_mut();
@@ -169,7 +162,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     if totalGlyphCount > 0 {
         glyph_info = xmalloc((totalGlyphCount * 10) as _);
         locations = glyph_info as *mut FixedPoint;
-        glyphIDs = locations.offset(totalGlyphCount as isize) as *mut UInt16;
+        glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
         glyphAdvances =
             xmalloc((totalGlyphCount as usize).wrapping_mul(::std::mem::size_of::<Fixed>()) as _)
                 as *mut Fixed;
@@ -221,7 +214,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
                     font_from_attributes(runAttributes) as CFTypeRef,
                 ) == 0
                 {
-                    *glyphIDs.offset(totalGlyphCount as isize) = 0i32 as UInt16
+                    *glyphIDs.offset(totalGlyphCount as isize) = 0i32 as u16
                 } else {
                     *glyphIDs.offset(totalGlyphCount as isize) = *glyphs.offset(j as isize)
                 }
@@ -249,10 +242,10 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
             i += 1
         }
     }
-    node.set_glyph_count(totalGlyphCount as uint16_t);
+    node.set_glyph_count(totalGlyphCount as u16);
     node.set_glyph_info_ptr(glyph_info);
     if !justify {
-        node.set_width(width as int32_t);
+        node.set_width(width as i32);
         if totalGlyphCount > 0 {
             /* this is essentially a copy from similar code in XeTeX_ext.c, easier
              * to be done here */
@@ -282,7 +275,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     CFRelease(typesetter as CFTypeRef);
 }
 
-unsafe fn getGlyphBBoxFromCTFont(mut font: CTFontRef, mut gid: UInt16, mut bbox: *mut GlyphBBox) {
+unsafe fn getGlyphBBoxFromCTFont(mut font: CTFontRef, mut gid: u16, mut bbox: *mut GlyphBBox) {
     let mut rect: CGRect = CGRect {
         origin: CGPoint { x: 0., y: 0. },
         size: CGSize {
@@ -297,7 +290,7 @@ unsafe fn getGlyphBBoxFromCTFont(mut font: CTFontRef, mut gid: UInt16, mut bbox:
     rect = CTFontGetBoundingRectsForGlyphs(
         font,
         kCTFontOrientationDefault,
-        &mut gid as *mut UInt16 as *const CGGlyph,
+        &mut gid as *mut u16 as *const CGGlyph,
         ptr::null_mut(),
         1i32 as CFIndex,
     );
@@ -317,25 +310,25 @@ unsafe fn getGlyphBBoxFromCTFont(mut font: CTFontRef, mut gid: UInt16, mut bbox:
 /// returns glyph bounding box in TeX points
 pub(crate) unsafe fn GetGlyphBBox_AAT(
     mut attributes: CFDictionaryRef,
-    mut gid: UInt16,
+    mut gid: u16,
     mut bbox: *mut GlyphBBox,
 ) {
     let mut font: CTFontRef = font_from_attributes(attributes);
     return getGlyphBBoxFromCTFont(font, gid, bbox);
 }
 
-unsafe fn getGlyphWidthFromCTFont(mut font: CTFontRef, mut gid: UInt16) -> f64 {
+unsafe fn getGlyphWidthFromCTFont(mut font: CTFontRef, mut gid: u16) -> f64 {
     return PStoTeXPoints(CTFontGetAdvancesForGlyphs(
         font,
         kCTFontOrientationHorizontal,
-        &mut gid as *mut UInt16 as *const CGGlyph,
+        &mut gid as *mut u16 as *const CGGlyph,
         ptr::null_mut(),
         1i32 as CFIndex,
     ));
 }
 
 /// returns TeX points
-pub(crate) unsafe fn GetGlyphWidth_AAT(mut attributes: CFDictionaryRef, mut gid: UInt16) -> f64 {
+pub(crate) unsafe fn GetGlyphWidth_AAT(mut attributes: CFDictionaryRef, mut gid: u16) -> f64 {
     let mut font: CTFontRef = font_from_attributes(attributes);
     return getGlyphWidthFromCTFont(font, gid);
 }
@@ -343,7 +336,7 @@ pub(crate) unsafe fn GetGlyphWidth_AAT(mut attributes: CFDictionaryRef, mut gid:
 // returns TeX points
 pub(crate) unsafe fn GetGlyphHeightDepth_AAT(
     mut attributes: CFDictionaryRef,
-    mut gid: UInt16,
+    mut gid: u16,
     mut ht: *mut libc::c_float,
     mut dp: *mut libc::c_float,
 ) {
@@ -361,7 +354,7 @@ pub(crate) unsafe fn GetGlyphHeightDepth_AAT(
 /// returns TeX points
 pub(crate) unsafe fn GetGlyphSidebearings_AAT(
     mut attributes: CFDictionaryRef,
-    mut gid: UInt16,
+    mut gid: u16,
     mut lsb: *mut libc::c_float,
     mut rsb: *mut libc::c_float,
 ) {
@@ -370,7 +363,7 @@ pub(crate) unsafe fn GetGlyphSidebearings_AAT(
     let mut advance: f64 = CTFontGetAdvancesForGlyphs(
         font,
         kCTFontOrientationDefault,
-        &mut gid as *mut UInt16 as *const CGGlyph,
+        &mut gid as *mut u16 as *const CGGlyph,
         advances.as_mut_ptr(),
         1i32 as CFIndex,
     );
@@ -395,13 +388,13 @@ unsafe fn CGSizeMake(mut width: CGFloat, mut height: CGFloat) -> CGSize {
     return size;
 }
 
-pub(crate) unsafe fn GetGlyphItalCorr_AAT(mut attributes: CFDictionaryRef, mut gid: UInt16) -> f64 {
+pub(crate) unsafe fn GetGlyphItalCorr_AAT(mut attributes: CFDictionaryRef, mut gid: u16) -> f64 {
     let mut font: CTFontRef = font_from_attributes(attributes);
     let mut advances: [CGSize; 1] = [CGSizeMake(0i32 as CGFloat, 0i32 as CGFloat)];
     let mut advance: f64 = CTFontGetAdvancesForGlyphs(
         font,
         kCTFontOrientationDefault,
-        &mut gid as *mut UInt16 as *const CGGlyph,
+        &mut gid as *mut u16 as *const CGGlyph,
         advances.as_mut_ptr(),
         1i32 as CFIndex,
     );
@@ -417,12 +410,12 @@ pub(crate) unsafe fn GetGlyphItalCorr_AAT(mut attributes: CFDictionaryRef, mut g
     }
     return 0i32 as f64;
 }
-unsafe fn mapCharToGlyphFromCTFont(mut font: CTFontRef, mut ch: UInt32) -> libc::c_int {
+unsafe fn mapCharToGlyphFromCTFont(mut font: CTFontRef, mut ch: u32) -> libc::c_int {
     let mut glyphs: [CGGlyph; 2] = [0i32 as CGGlyph, 0];
     let mut txt: [UniChar; 2] = [0; 2];
     let mut len: libc::c_int = 1i32;
     if ch > 0xffffi32 as libc::c_uint {
-        ch = (ch as libc::c_uint).wrapping_sub(0x10000i32 as libc::c_uint) as UInt32 as UInt32;
+        ch = (ch as libc::c_uint).wrapping_sub(0x10000i32 as libc::c_uint) as u32;
         txt[0] = (0xd800i32 as libc::c_uint).wrapping_add(ch.wrapping_div(1024i32 as libc::c_uint))
             as UniChar;
         txt[1] = (0xdc00i32 as libc::c_uint).wrapping_add(ch.wrapping_rem(1024i32 as libc::c_uint))
@@ -444,7 +437,7 @@ unsafe fn mapCharToGlyphFromCTFont(mut font: CTFontRef, mut ch: UInt32) -> libc:
 
 pub(crate) unsafe fn MapCharToGlyph_AAT(
     mut attributes: CFDictionaryRef,
-    mut ch: UInt32,
+    mut ch: u32,
 ) -> libc::c_int {
     let mut font: CTFontRef = font_from_attributes(attributes);
     return mapCharToGlyphFromCTFont(font, ch);
@@ -478,7 +471,7 @@ pub(crate) unsafe fn MapGlyphToIndex_AAT(
 
 pub(crate) unsafe fn GetGlyphNameFromCTFont(
     mut ctFontRef: CTFontRef,
-    mut gid: UInt16,
+    mut gid: u16,
     mut len: *mut libc::c_int,
 ) -> *mut libc::c_char {
     let mut cgfont: CGFontRef = 0 as CGFontRef;
@@ -511,13 +504,13 @@ pub(crate) unsafe fn GetFontCharRange_AAT(
 ) -> libc::c_int {
     if reqFirst != 0 {
         let mut ch: libc::c_int = 0i32;
-        while MapCharToGlyph_AAT(attributes, ch as UInt32) == 0i32 && ch < 0x10ffffi32 {
+        while MapCharToGlyph_AAT(attributes, ch as u32) == 0i32 && ch < 0x10ffffi32 {
             ch += 1
         }
         return ch;
     } else {
         let mut ch_0: libc::c_int = 0x10ffffi32;
-        while MapCharToGlyph_AAT(attributes, ch_0 as UInt32) == 0i32 && ch_0 > 0i32 {
+        while MapCharToGlyph_AAT(attributes, ch_0 as u32) == 0i32 && ch_0 > 0i32 {
             ch_0 -= 1
         }
         return ch_0;
@@ -734,7 +727,7 @@ unsafe fn getLastResort() -> CFStringRef {
 
 pub(crate) unsafe fn loadAATfont(
     mut descriptor: CTFontDescriptorRef,
-    mut scaled_size: int32_t,
+    mut scaled_size: i32,
     mut cp1: &[u8],
 ) -> *mut libc::c_void {
     let mut current_block: u64;
@@ -1024,7 +1017,7 @@ pub(crate) unsafe fn loadAATfont(
         CFRelease(emboldenNumber as CFTypeRef);
     }
     if letterspace as f64 != 0.0f64 {
-        loaded_font_letter_space = (letterspace as f64 / 100.0f64 * scaled_size as f64) as scaled_t
+        loaded_font_letter_space = (letterspace as f64 / 100.0f64 * scaled_size as f64) as i32
     }
     // Disable Core Text font fallback (cascading) with only the last resort font
     // in the cascade list.
@@ -1054,7 +1047,7 @@ pub(crate) unsafe fn loadAATfont(
         actualFont as *const libc::c_void,
     );
     CFRelease(actualFont as CFTypeRef);
-    native_font_type_flag = 0xffffu32 as int32_t;
+    native_font_type_flag = 0xffffu32 as i32;
     return stringAttributes as *mut libc::c_void;
 }
 

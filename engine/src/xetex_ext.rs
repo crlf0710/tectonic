@@ -43,6 +43,7 @@ use crate::xetex_xetex0::{
     diagnostic, font_feature_warning, font_mapping_warning, get_tracing_fonts_state,
 };
 
+use crate::xetex_font_info::XeTeXFontInst;
 use crate::xetex_layout_interface::*;
 use harfbuzz_sys::{hb_feature_t, hb_tag_from_string, hb_tag_t};
 use libc::strdup;
@@ -920,7 +921,7 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: i32) -> *mut
         if scaled_size < 0 {
             font = createFontFromFile(&nameString[1..], index, 655360i64 as Fixed);
             if !font.is_null() {
-                let mut dsize: Fixed = D2Fix(getDesignSize(font));
+                let mut dsize: Fixed = D2Fix(getDesignSize(&*(font as *mut XeTeXFontInst)));
                 if scaled_size == -1000i32 {
                     scaled_size = dsize
                 } else {
@@ -931,7 +932,7 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: i32) -> *mut
         }
         font = createFontFromFile(&nameString[1..], index, scaled_size);
         if !font.is_null() {
-            loaded_font_design_size = D2Fix(getDesignSize(font));
+            loaded_font_design_size = D2Fix(getDesignSize(&*(font as *mut XeTeXFontInst)));
             /* This is duplicated in XeTeXFontMgr::findFont! */
             setReqEngine(0_i8);
             if !varString.is_empty() {
@@ -969,7 +970,7 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: i32) -> *mut
             if scaled_size < 0i32 {
                 font = createFont(fontRef, scaled_size);
                 if !font.is_null() {
-                    let mut dsize_0: Fixed = D2Fix(getDesignSize(font));
+                    let mut dsize_0: Fixed = D2Fix(getDesignSize(&*(font as *mut XeTeXFontInst)));
                     if scaled_size == -1000i32 {
                         scaled_size = dsize_0
                     } else {
@@ -1279,7 +1280,7 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
             attributes = FONT_LAYOUT_ENGINE[f] as CFDictionaryRef;
             font = CFDictionaryGetValue(attributes, kCTFontAttributeName as *const libc::c_void)
                 as CTFontRef;
-            filename = aat::getFileNameFromCTFont(font, &mut index);
+            filename = crate::xetex_aatfont::getFileNameFromCTFont(font, &mut index);
             assert!(!filename.is_empty());
             if !CFDictionaryGetValue(
                 attributes,

@@ -11,14 +11,10 @@
 
 use crate::xetex_aatfont::getFileNameFromCTFont;
 use crate::xetex_font_info::{XeTeXFontInst_base_ctor, XeTeXFontInst_initialize};
-use freetype::freetype_sys;
-use harfbuzz_sys::hb_font_t;
 use libc::malloc;
 use std::ptr;
 
 pub(crate) type uint32_t = libc::c_uint;
-pub(crate) type UniChar = UInt16;
-pub(crate) type UInt16 = libc::c_ushort;
 pub(crate) type Boolean = libc::c_uchar;
 
 use crate::cf_prelude::*;
