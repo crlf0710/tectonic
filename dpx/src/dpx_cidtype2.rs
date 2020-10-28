@@ -49,8 +49,8 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj,
-    PushObj, STREAM_COMPRESS,
+    pdf_dict, pdf_name, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj,
+    STREAM_COMPRESS,
 };
 use libc::free;
 
@@ -257,7 +257,7 @@ unsafe fn find_tocode_cmap(reg: &str, ord: &str, select: i32) -> *mut CMap {
  * Mostly same as add_CID[HV]Metrics in cidtype0.c.
  */
 unsafe fn add_TTCIDHMetrics(
-    fontdict: *mut pdf_obj,
+    fontdict: &mut pdf_dict,
     g: &tt_glyphs,
     used_chars: *mut i8,
     cidtogidmap: *mut u8,
@@ -321,15 +321,15 @@ unsafe fn add_TTCIDHMetrics(
         w_array.push_obj(an_array.take().unwrap());
         empty = 0i32
     }
-    (*fontdict).as_dict_mut().set("DW", dw);
+    fontdict.set("DW", dw);
     let w_array = w_array.into_obj();
     if empty == 0 {
-        (*fontdict).as_dict_mut().set("W", pdf_ref_obj(w_array));
+        fontdict.set("W", pdf_ref_obj(w_array));
     }
     pdf_release_obj(w_array);
 }
 unsafe fn add_TTCIDVMetrics(
-    fontdict: *mut pdf_obj,
+    fontdict: &mut pdf_dict,
     g: &tt_glyphs,
     used_chars: *mut i8,
     last_cid: u16,
@@ -390,11 +390,11 @@ unsafe fn add_TTCIDVMetrics(
         let mut an_array = vec![];
         an_array.push_obj(defaultVertOriginY);
         an_array.push_obj(-defaultAdvanceHeight);
-        (*fontdict).as_dict_mut().set("DW2", an_array);
+        fontdict.set("DW2", an_array);
     }
     let w2_array = w2_array.into_obj();
     if empty == 0 {
-        (*fontdict).as_dict_mut().set("W2", pdf_ref_obj(w2_array));
+        fontdict.set("W2", pdf_ref_obj(w2_array));
     }
     pdf_release_obj(w2_array);
 }
@@ -828,9 +828,20 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     if opt_flags & 1i32 << 1i32 != 0 {
         (*font.fontdict).as_dict_mut().set("DW", 1000_f64);
     } else {
-        add_TTCIDHMetrics(font.fontdict, &glyphs, used_chars, cidtogidmap, last_cid);
+        add_TTCIDHMetrics(
+            (*font.fontdict).as_dict_mut(),
+            &glyphs,
+            used_chars,
+            cidtogidmap,
+            last_cid,
+        );
         if !v_used_chars.is_null() {
-            add_TTCIDVMetrics(font.fontdict, &glyphs, used_chars, last_cid);
+            add_TTCIDVMetrics(
+                (*font.fontdict).as_dict_mut(),
+                &glyphs,
+                used_chars,
+                last_cid,
+            );
         }
     }
     /* Finish here if not embedded. */

@@ -368,7 +368,7 @@ pub(crate) unsafe fn CIDFont_get_parent_id(font: *mut CIDFont, wmode: i32) -> i3
     (*font).parent[wmode as usize]
 }
 
-pub(crate) unsafe fn CIDFont_get_resource(mut font: *mut CIDFont) -> *mut pdf_obj {
+pub(crate) unsafe fn CIDFont_get_resource(font: *mut CIDFont) -> *mut pdf_obj {
     assert!(!font.is_null());
     if (*font).indirect.is_null() {
         (*font).indirect = pdf_ref_obj((*font).fontdict)
@@ -379,7 +379,7 @@ pub(crate) unsafe fn CIDFont_get_resource(mut font: *mut CIDFont) -> *mut pdf_ob
  * Set parent Type0 font.
  */
 
-pub(crate) unsafe fn CIDFont_attach_parent(mut font: *mut CIDFont, parent_id: i32, wmode: i32) {
+pub(crate) unsafe fn CIDFont_attach_parent(font: *mut CIDFont, parent_id: i32, wmode: i32) {
     assert!(!font.is_null());
     if wmode < 0i32 || wmode > 1i32 {
         panic!("{}: Invalid wmode value.", "CIDFont");
