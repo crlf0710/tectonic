@@ -41,8 +41,8 @@ jobs:
         with:
           command: check
 
-  linux:
-    name: Linux Test
+  check_nightly:
+    name: Check Nightly
     runs-on: ubuntu-latest
 
     steps:
@@ -53,6 +53,25 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
+          override: true
+
+      - name: Run cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+
+  linux:
+    name: Linux Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
           override: true
 
       - name: Run tests
@@ -86,9 +105,9 @@ jobs:
 
 #      - name: Set Env
 #        run: |
-#           echo "::set-env name=FC_CACHEDIR::${{ env.VCPKG_ROOT }}\installed\${{ env.VCPKG_DEFAULT_TRIPLET }}\tools\fontconfig\fonts\cache"
-#           echo "::set-env name=FONTCONFIG_FILE::${{ env.VCPKG_ROOT }}\installed\${{ env.VCPKG_DEFAULT_TRIPLET }}\tools\fontconfig\fonts\fonts.conf"
-#           echo "::set-env name=FONTCONFIG_PATH::${{ env.VCPKG_ROOT }}\installed\${{ env.VCPKG_DEFAULT_TRIPLET }}\tools\fontconfig\fonts\conf.d"
+#           echo 'FC_CACHEDIR=${{ env.VCPKG_ROOT }}\installed\${{ env.VCPKG_DEFAULT_TRIPLET }}\tools\fontconfig\fonts\cache' >> $GITHUB_ENV
+#           echo 'FONTCONFIG_FILE=${{ env.VCPKG_ROOT }}\installed\${{ env.VCPKG_DEFAULT_TRIPLET }}\tools\fontconfig\fonts\fonts.conf' >> $GITHUB_ENV
+#           echo 'FONTCONFIG_PATH=${{ env.VCPKG_ROOT }}\installed\${{ env.VCPKG_DEFAULT_TRIPLET }}\tools\fontconfig\fonts\conf.d >> $GITHUB_ENV
 
 #      - name: Cache Dependencies
 #        uses: actions/cache@v2
@@ -114,10 +133,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Install nightly toolchain
+      - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: stable
           override: true
 
       - name: Install Dependencies
@@ -125,11 +144,10 @@ jobs:
 
       - name: Set Env
         run: |
-           echo "::set-env name=OPENSSL_INCLUDE_DIR::$(brew --prefix openssl)/include"
-           echo "::set-env name=OPENSSL_LIB_DIR::$(brew --prefix openssl)/lib"
-           echo "::set-env name=DEP_OPENSSL_INCLUDE::$(brew --prefix openssl)/include"
-           echo "::set-env name=PKG_CONFIG_PATH::/usr/local/opt/icu4c/lib/pkgconfig:$(brew --prefix harfbuzz)/lib/pkgconfig"
-           echo "$PKG_CONFIG_PATH"
+          echo 'OPENSSL_INCLUDE_DIR=$(brew --prefix openssl)/include' >> $GITHUB_ENV
+          echo 'OPENSSL_LIB_DIR=$(brew --prefix openssl)/lib' >> $GITHUB_ENV
+          echo 'DEP_OPENSSL_INCLUDE=$(brew --prefix openssl)/include' >> $GITHUB_ENV
+          echo 'PKG_CONFIG_PATH=/usr/local/opt/icu4c/lib/pkgconfig:$(brew --prefix harfbuzz)/lib/pkgconfig' >> $GITHUB_ENV
 
       - name: Run tests
         uses: actions-rs/cargo@v1
