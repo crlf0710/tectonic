@@ -272,8 +272,8 @@ pub(crate) unsafe fn set_input_file_encoding(
         UnicodeMode::ICUMapping => {
             let mut name = gettexstring(encodingData);
             let mut err: UErrorCode = U_ZERO_ERROR;
-            let mut cnv: *mut icu::UConverter =
-                icu::ucnv_open(CString::new(name.as_str()).unwrap().as_ptr(), &mut err);
+            let cname = CString::new(name.as_str()).unwrap();
+            let mut cnv = icu::ucnv_open(cname.as_ptr(), &mut err);
             if cnv.is_null() {
                 diagnostic(true, || {
                     print_nl('E' as i32);

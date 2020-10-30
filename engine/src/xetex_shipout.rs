@@ -198,7 +198,8 @@ pub(crate) unsafe fn ship_out(mut p: List) {
                 open_log_file();
             }
             pack_job_name(&output_file_extension);
-            dvi_file = ttstub_output_open(CString::new(name_of_file.as_str()).unwrap().as_ptr(), 0);
+            let name = CString::new(name_of_file.as_str()).unwrap();
+            dvi_file = ttstub_output_open(name.as_ptr(), 0);
             if dvi_file.is_none() {
                 abort!("cannot open output file \"{}\"", name_of_file);
             }
@@ -1766,8 +1767,8 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
 
             pack_file_name(cur_name, cur_area, cur_ext);
 
-            write_file[j as usize] =
-                ttstub_output_open(CString::new(name_of_file.as_str()).unwrap().as_ptr(), 0);
+            let name = CString::new(name_of_file.as_str()).unwrap();
+            write_file[j as usize] = ttstub_output_open(name.as_ptr(), 0);
             if write_file[j as usize].is_none() {
                 abort!("cannot open output file \"{}\"", name_of_file);
             }

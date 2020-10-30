@@ -166,7 +166,8 @@ pub(crate) unsafe fn store_fmt_file() {
     format_ident = make_string();
     pack_job_name(".fmt");
 
-    let fmt_out = ttstub_output_open(CString::new(name_of_file.as_str()).unwrap().as_ptr(), 0);
+    let out_name = CString::new(name_of_file.as_str()).unwrap();
+    let fmt_out = ttstub_output_open(out_name.as_ptr(), 0);
     if fmt_out.is_none() {
         abort!("cannot open format output file \"{}\"", name_of_file);
     }

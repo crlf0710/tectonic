@@ -212,9 +212,10 @@ pub(crate) unsafe fn linebreak_start(
         brkIter = 0 as *mut icu::UBreakIterator
     }
     if brkIter.is_null() {
+        let name = CString::new(locale.as_str()).unwrap();
         brkIter = icu::ubrk_open(
             icu::UBRK_LINE,
-            CString::new(locale.as_str()).unwrap().as_ptr(),
+            name.as_ptr(),
             ptr::null(),
             0i32,
             &mut status,
@@ -280,10 +281,8 @@ pub(crate) unsafe fn get_encoding_mode_and_info(mut info: *mut i32) -> UnicodeMo
         _ => {}
     }
     /* try for an ICU converter */
-    cnv = icu::ucnv_open(
-        CString::new(name_of_file.as_str()).unwrap().as_ptr(),
-        &mut err,
-    ); /* ensure message starts on a new line */
+    let name = CString::new(name_of_file.as_str()).unwrap();
+    cnv = icu::ucnv_open(name.as_ptr(), &mut err); /* ensure message starts on a new line */
     let result = if cnv.is_null() {
         diagnostic(true, || {
             print_nl('U' as i32);
@@ -1878,18 +1877,13 @@ pub(crate) unsafe fn map_char_to_glyph(font: &NativeFont, ch: i32) -> i32 {
         Otgr(engine) => engine.map_char_to_glyph(ch as u32) as i32,
     }
 }
-pub(crate) unsafe fn map_glyph_to_index(font: &NativeFont) -> i32
-/* glyph name is at name_of_file */ {
+pub(crate) unsafe fn map_glyph_to_index(font: &NativeFont) -> i32 {
+    /* glyph name is at name_of_file */
+    let name = CString::new(name_of_file.as_str()).unwrap();
     match font {
         #[cfg(target_os = "macos")]
-        Aat(engine) => aat::MapGlyphToIndex_AAT(
-            *engine,
-            CString::new(name_of_file.as_str()).unwrap().as_ptr(),
-        ),
-        Otgr(engine) => mapGlyphToIndex(
-            engine,
-            CString::new(name_of_file.as_str()).unwrap().as_ptr(),
-        ),
+        Aat(engine) => aat::MapGlyphToIndex_AAT(*engine, name.as_ptr()),
+        Otgr(engine) => mapGlyphToIndex(engine, name.as_ptr()),
     }
 }
 pub(crate) unsafe fn get_font_char_range(mut font: usize, mut first: i32) -> i32 {
