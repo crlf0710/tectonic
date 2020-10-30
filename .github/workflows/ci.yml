@@ -1,0 +1,139 @@
+name: Rust Build
+
+on:
+  push:
+    branches: [ oxidize ]
+  pull_request:
+    branches: [ oxidize ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rustfmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
+      - name: Run cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+
+  linux:
+    name: Linux Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+        env:
+          RUST_BACKTRACE: 1
+
+#  windows:
+#    name: Windows Test
+#    runs-on: windows-latest
+#    env:
+#      cache-name: cache-vcpkg-modules
+#      VS15: true
+#      VCPKGRS_DYNAMIC: 1
+#      VCPKG_DEFAULT_TRIPLET: x64-windows
+#      TECTONIC_DEP_BACKEND: vcpkg
+#      RUST_TEST_THREADS: 1
+#      VCPKG_ROOT: ${{ github.workspace }}\vcpkg
+#
+#    steps:
+#      - name: Checkout sources
+#        uses: actions/checkout@v2
+
+#      - name: Install nightly toolchain
+#        uses: actions-rs/toolchain@v1
+#        with:
+#          toolchain: nightly
+#          override: true
+
+#      - name: Set Env
+#        run: |
+#           echo "::set-env name=FC_CACHEDIR::${{ env.VCPKG_ROOT }}\installed\${{ env.VCPKG_DEFAULT_TRIPLET }}\tools\fontconfig\fonts\cache"
+#           echo "::set-env name=FONTCONFIG_FILE::${{ env.VCPKG_ROOT }}\installed\${{ env.VCPKG_DEFAULT_TRIPLET }}\tools\fontconfig\fonts\fonts.conf"
+#           echo "::set-env name=FONTCONFIG_PATH::${{ env.VCPKG_ROOT }}\installed\${{ env.VCPKG_DEFAULT_TRIPLET }}\tools\fontconfig\fonts\conf.d"
+
+#      - name: Cache Dependencies
+#        uses: actions/cache@v2
+#        with:
+#          path: ${{ env.VCPKG_ROOT }}\installed
+#          key: ${{ runner.os }}-build-${{ env.cache-name }}-0ab1bd128e0366fdac31b632888c9e945ee3335a
+
+#      - name: Install Dependencies
+#        run: dist\prepare-win-ci-deps.bat
+
+#      - name: Run tests
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: test
+#        env:
+#          RUST_BACKTRACE: 1
+
+  macos:
+    name: MacOS Test
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
+      - name: Install Dependencies
+        run: brew install harfbuzz openssl
+
+      - name: Set Env
+        run: |
+           echo "::set-env name=OPENSSL_INCLUDE_DIR::$(brew --prefix openssl)/include"
+           echo "::set-env name=OPENSSL_LIB_DIR::$(brew --prefix openssl)/lib"
+           echo "::set-env name=DEP_OPENSSL_INCLUDE::$(brew --prefix openssl)/include"
+           echo "::set-env name=PKG_CONFIG_PATH::/usr/local/opt/icu4c/lib/pkgconfig:$(brew --prefix harfbuzz)/lib/pkgconfig"
+           echo "$PKG_CONFIG_PATH"
+
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+        env:
+          RUST_BACKTRACE: 1
