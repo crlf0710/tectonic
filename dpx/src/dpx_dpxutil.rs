@@ -122,26 +122,6 @@ pub(crate) unsafe fn ht_clear_table(mut ht: *mut ht_table) {
     (*ht).hval_free_fn = None;
 }
 
-#[derive(Default)]
-pub(crate) struct HTHasher(u32);
-
-impl std::hash::Hasher for HTHasher {
-    #[inline]
-    fn finish(&self) -> u64 {
-        self.0 as u64
-    }
-
-    #[inline]
-    fn write(&mut self, bytes: &[u8]) {
-        for byte in bytes.iter() {
-            self.0 = (self.0 << 5)
-                .wrapping_add(self.0)
-                .wrapping_add(*byte as i8 as u32);
-        }
-        self.0.wrapping_rem(503_u32);
-    }
-}
-
 pub(crate) unsafe fn ht_table_size(ht: *mut ht_table) -> i32 {
     assert!(!ht.is_null());
     (*ht).count
