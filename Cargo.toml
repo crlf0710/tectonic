@@ -1,5 +1,5 @@
 # Cargo.toml -- Cargo definition file for Tectonic.
-# Copyright 2016-2019 the Tectonic Project
+# Copyright 2016-2020 the Tectonic Project
 # Licensed under the MIT License.
 
 [package]
@@ -34,6 +34,7 @@ crate-type = ["rlib"]
 
 [dependencies]
 app_dirs2 = "^2"
+byte-unit = "^3.0"
 cfg-if = "0.1"
 structopt = "0.3"
 error-chain = "^0.12"
@@ -43,7 +44,7 @@ headers = "^0.2"
 lazy_static = "^1.4"
 libc = "^0.2"
 tempfile = "^3.1"
-md-5 = "^0.8"
+md-5 = "^0.9"
 reqwest = "^0.9"
 sha2 = "^0.8"
 serde = { version = "^1.0", features = ["derive"], optional = true }

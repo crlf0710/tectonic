@@ -376,13 +376,28 @@ pub(crate) struct XeTeXLayoutEngine {
     pub(crate) script: hb_tag_t,
     pub(crate) language: hb_language_t,
     pub(crate) features: Vec<hb_feature_t>,
-    pub(crate) ShaperList: *mut *mut libc::c_char,
+    pub(crate) shaper_list: ShaperList,
     pub(crate) shaper: String,
     pub(crate) rgbValue: u32,
     pub(crate) extend: f32,
     pub(crate) slant: f32,
     pub(crate) embolden: f32,
     pub(crate) hbBuffer: hb::HbBuffer,
+}
+
+pub(crate) struct ShaperList {
+    pub(crate) list: *mut *mut libc::c_char,
+    pub(crate) to_free: bool,
+}
+
+impl Drop for ShaperList {
+    fn drop(&mut self) {
+        if self.to_free {
+            unsafe {
+                free(self.list as *mut libc::c_void);
+            }
+        }
+    }
 }
 
 pub(crate) type gr_uint16 = libc::c_ushort;
@@ -1156,7 +1171,10 @@ impl XeTeXLayoutEngine {
             font,
             script: script,
             features: features,
-            ShaperList: shapers,
+            shaper_list: ShaperList {
+                list: shapers,
+                to_free: false,
+            },
             shaper: String::new(),
             rgbValue: rgbValue,
             extend: extend,
@@ -1237,27 +1255,27 @@ impl XeTeXLayoutEngine {
         hb_buffer_set_language(self.hbBuffer.0, self.language);
         self.hbBuffer.guess_segment_properties();
         hb_buffer_get_segment_properties(self.hbBuffer.0, &mut segment_props);
-        if self.ShaperList.is_null() {
+        if self.shaper_list.list.is_null() {
             // HarfBuzz gives graphite2 shaper a priority, so that for hybrid
             // Graphite/OpenType fonts, Graphite will be used. However, pre-0.9999
             // XeTeX preferred OpenType over Graphite, so we are doing the same
             // here for sake of backward compatibility. Since "ot" shaper never
             // fails, we set the shaper list to just include it.
-            self.ShaperList = xcalloc(
+            self.shaper_list.list = xcalloc(
                 2i32 as size_t,
                 ::std::mem::size_of::<*mut libc::c_char>() as _,
             ) as *mut *mut libc::c_char;
-            let ref mut fresh0 = *self.ShaperList.offset(0);
-            *fresh0 = b"ot\x00" as *const u8 as *const libc::c_char as *mut libc::c_char;
-            let ref mut fresh1 = *self.ShaperList.offset(1);
-            *fresh1 = 0 as *mut libc::c_char
+            *self.shaper_list.list.offset(0) =
+                b"ot\x00" as *const u8 as *const libc::c_char as *mut libc::c_char;
+            *self.shaper_list.list.offset(1) = 0 as *mut libc::c_char;
+            self.shaper_list.to_free = true;
         }
         shape_plan = hb_shape_plan_create_cached(
             hbFace,
             &mut segment_props,
             self.features.as_ptr(),
             self.features.len() as u32,
-            self.ShaperList as *const *const libc::c_char,
+            self.shaper_list.list as *const *const libc::c_char,
         );
         res = hb_shape_plan_execute(
             shape_plan,

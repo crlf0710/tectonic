@@ -3600,6 +3600,86 @@ unsafe fn get_strings_started() {
 /*41: The length of the current string in the pool */
 /* Tectonic related functions */
 /*:1001*/
+pub(crate) unsafe fn tt_cleanup() {
+    /*
+        Cleanup of all intermediate buffers.
+        Conceptually, final_cleanup() and close_files_and_terminate() also
+        belong here, but that requires a more thorough refactor as presently
+        it would result in a segfault.
+    */
+    pdf_files_close();
+    TEX_format_default = String::new();
+    font_used = Vec::new();
+    deinitialize_shipout_variables();
+
+    destroy_font_manager();
+
+    FONT_LAYOUT_ENGINE = Vec::new();
+
+    // Free the big allocated arrays
+    BUFFER = Vec::new();
+    NEST = Vec::new();
+    SAVE_STACK = Vec::new();
+    INPUT_STACK = Vec::new();
+    INPUT_FILE = Vec::new();
+    LINE_STACK = Vec::new();
+    EOF_SEEN = Vec::new();
+    GRP_STACK = Vec::new();
+    IF_STACK = Vec::new();
+    SOURCE_FILENAME_STACK = Vec::new();
+    FULL_SOURCE_FILENAME_STACK = Vec::new();
+    PARAM_STACK = Vec::new();
+    HYPH_WORD = Vec::new();
+    HYPH_LIST = Vec::new();
+    HYPH_LINK = Vec::new();
+
+    // initialize_more_variables @ 3277
+    free(native_text as *mut libc::c_void);
+
+    // Free arrays allocated in load_fmt_file
+    free(yhash as *mut libc::c_void);
+    EQTB = Vec::new();
+    MEM = Vec::new();
+    str_start = Vec::new();
+    str_pool = Vec::new();
+    FONT_INFO = Vec::new();
+
+    FONT_MAPPING = Vec::new();
+    FONT_LAYOUT_ENGINE = Vec::new();
+    FONT_FLAGS = Vec::new();
+    FONT_LETTER_SPACE = Vec::new();
+    FONT_CHECK = Vec::new();
+    FONT_SIZE = Vec::new();
+    FONT_DSIZE = Vec::new();
+    FONT_PARAMS = Vec::new();
+    FONT_NAME = Vec::new();
+    FONT_AREA = Vec::new();
+    FONT_BC = Vec::new();
+    FONT_EC = Vec::new();
+    FONT_GLUE = Vec::new();
+    HYPHEN_CHAR = Vec::new();
+    SKEW_CHAR = Vec::new();
+    BCHAR_LABEL = Vec::new();
+    FONT_BCHAR = Vec::new();
+    FONT_FALSE_BCHAR = Vec::new();
+    CHAR_BASE = Vec::new();
+    WIDTH_BASE = Vec::new();
+    HEIGHT_BASE = Vec::new();
+    DEPTH_BASE = Vec::new();
+    ITALIC_BASE = Vec::new();
+    LIG_KERN_BASE = Vec::new();
+    KERN_BASE = Vec::new();
+    EXTEN_BASE = Vec::new();
+    PARAM_BASE = Vec::new();
+
+    trie_trl = Vec::new();
+    trie_tro = Vec::new();
+    trie_trc = Vec::new();
+
+    read_file = [NONE_UFILE; 17];
+    read_open = [OpenMode::Closed; 17];
+}
+
 pub(crate) unsafe fn tt_run_engine(
     mut dump_name: *const i8,
     mut input_file_name: *const i8,
@@ -4355,76 +4435,7 @@ pub(crate) unsafe fn tt_run_engine(
     main_control(&mut cur_input);
     final_cleanup(&mut cur_input);
     close_files_and_terminate();
-    pdf_files_close();
-    TEX_format_default = String::new();
-    font_used = Vec::new();
-    deinitialize_shipout_variables();
+    tt_cleanup();
 
-    destroy_font_manager();
-
-    FONT_LAYOUT_ENGINE = Vec::new();
-
-    // Free the big allocated arrays
-    BUFFER = Vec::new();
-    NEST = Vec::new();
-    SAVE_STACK = Vec::new();
-    INPUT_STACK = Vec::new();
-    INPUT_FILE = Vec::new();
-    LINE_STACK = Vec::new();
-    EOF_SEEN = Vec::new();
-    GRP_STACK = Vec::new();
-    IF_STACK = Vec::new();
-    SOURCE_FILENAME_STACK = Vec::new();
-    FULL_SOURCE_FILENAME_STACK = Vec::new();
-    PARAM_STACK = Vec::new();
-    HYPH_WORD = Vec::new();
-    HYPH_LIST = Vec::new();
-    HYPH_LINK = Vec::new();
-
-    // initialize_more_variables @ 3277
-    free(native_text as *mut libc::c_void);
-
-    // Free arrays allocated in load_fmt_file
-    free(yhash as *mut libc::c_void);
-    EQTB = Vec::new();
-    MEM = Vec::new();
-    str_start = Vec::new();
-    str_pool = Vec::new();
-    FONT_INFO = Vec::new();
-
-    FONT_MAPPING = Vec::new();
-    FONT_LAYOUT_ENGINE = Vec::new();
-    FONT_FLAGS = Vec::new();
-    FONT_LETTER_SPACE = Vec::new();
-    FONT_CHECK = Vec::new();
-    FONT_SIZE = Vec::new();
-    FONT_DSIZE = Vec::new();
-    FONT_PARAMS = Vec::new();
-    FONT_NAME = Vec::new();
-    FONT_AREA = Vec::new();
-    FONT_BC = Vec::new();
-    FONT_EC = Vec::new();
-    FONT_GLUE = Vec::new();
-    HYPHEN_CHAR = Vec::new();
-    SKEW_CHAR = Vec::new();
-    BCHAR_LABEL = Vec::new();
-    FONT_BCHAR = Vec::new();
-    FONT_FALSE_BCHAR = Vec::new();
-    CHAR_BASE = Vec::new();
-    WIDTH_BASE = Vec::new();
-    HEIGHT_BASE = Vec::new();
-    DEPTH_BASE = Vec::new();
-    ITALIC_BASE = Vec::new();
-    LIG_KERN_BASE = Vec::new();
-    KERN_BASE = Vec::new();
-    EXTEN_BASE = Vec::new();
-    PARAM_BASE = Vec::new();
-
-    trie_trl = Vec::new();
-    trie_tro = Vec::new();
-    trie_trc = Vec::new();
-
-    read_file = [NONE_UFILE; 17];
-    read_open = [OpenMode::Closed; 17];
     history
 }

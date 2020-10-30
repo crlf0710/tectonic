@@ -97,6 +97,7 @@ const max_print_line: i32 = 79;
 const aux_stack_size: i32 = 20;
 const MAX_BIBFILES: usize = 20;
 const POOL_SIZE: i32 = 65000;
+const MIN_CROSSREFS: i32 = 2;
 const MAX_STRINGS: i32 = 35307;
 const MAX_CITES: i32 = 750;
 const WIZ_FN_SPACE: i32 = 3000;
@@ -7191,6 +7192,7 @@ pub unsafe fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
     max_glob_strs = MAX_GLOB_STRS;
     max_fields = MAX_FIELDS;
     max_cites = MAX_CITES;
+    min_crossrefs = MIN_CROSSREFS;
     wiz_fn_space = WIZ_FN_SPACE;
     lit_stk_size = LIT_STK_SIZE;
     standard_output = ttstub_output_open_stdout();

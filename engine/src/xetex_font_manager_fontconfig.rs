@@ -577,8 +577,10 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTe
 #[no_mangle]
 pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeXFontMgr) {
     let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
-    FcFontSetDestroy((*real_self).allFonts);
-    (*real_self).allFonts = 0 as *mut FcFontSet;
+    if !(*real_self).allFonts.is_null() {
+        FcFontSetDestroy((*real_self).allFonts);
+        (*real_self).allFonts = 0 as *mut FcFontSet;
+    }
     if !macRomanConv.is_null() {
         icu::ucnv_close(macRomanConv);
         macRomanConv = 0 as *mut icu::UConverter
