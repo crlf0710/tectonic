@@ -1,4 +1,3 @@
-#![feature(extern_types)]
 #![allow(
     dead_code,
     mutable_transmutes,

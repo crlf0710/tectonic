@@ -1,5 +1,3 @@
-#![feature(c_variadic)]
-#![feature(seek_convenience)]
 #![allow(
     dead_code,
     mutable_transmutes,
@@ -14,11 +12,6 @@ use std::ffi::CString;
 use std::io::SeekFrom;
 use std::io::{prelude::*, Result};
 use std::ptr::NonNull;
-
-extern "C" {
-    #[no_mangle]
-    pub(crate) fn vsnprintf(_: *mut i8, _: u64, _: *const i8, _: ::std::ffi::VaList) -> i32;
-}
 
 pub type size_t = usize;
 pub type ssize_t = isize;
@@ -370,7 +363,23 @@ pub unsafe fn ttstub_output_close(mut handle: OutputHandleWrapper) -> i32 {
 }
 
 pub fn ttstub_input_get_size<R: Seek>(handle: &mut R) -> size_t {
-    handle.stream_len().unwrap() as usize
+    fn stream_len<R: Seek>(handle: &mut R) -> Result<u64> {
+        let old_pos = stream_position(handle)?;
+        let len = handle.seek(SeekFrom::End(0))?;
+
+        // Avoid seeking a third time when we were already at the end of the
+        // stream. The branch is usually way cheaper than a seek operation.
+        if old_pos != len {
+            handle.seek(SeekFrom::Start(old_pos))?;
+        }
+
+        Ok(len)
+    }
+    fn stream_position<R: Seek>(handle: &mut R) -> Result<u64> {
+        handle.seek(SeekFrom::Current(0))
+    }
+
+    stream_len(handle).unwrap() as usize
 }
 
 pub(crate) unsafe fn ttstub_input_seek(
