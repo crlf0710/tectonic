@@ -41,18 +41,6 @@ use libc::{free, malloc, strchr, strlen};
 #[cfg(not(target_os = "macos"))]
 use imp::FcPattern;
 
-#[cfg(not(target_os = "macos"))]
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct _FcFontSet {
-    pub(crate) nfont: libc::c_int,
-    pub(crate) sfont: libc::c_int,
-    pub(crate) fonts: *mut *mut FcPattern,
-}
-
-#[cfg(not(target_os = "macos"))]
-pub(crate) type FcFontSet = _FcFontSet;
-
 pub(crate) type Fixed = i32;
 #[cfg(not(target_os = "macos"))]
 pub(crate) type PlatformFontRef = *mut FcPattern;

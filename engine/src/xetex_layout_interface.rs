@@ -90,14 +90,43 @@ pub(crate) use opentype_math::*;
 use crate::xetex_ext::{D2Fix, Fix2D};
 use libc::{free, strlen};
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct gr_face {
+    _unused: [u8; 0],
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct gr_font {
+    _unused: [u8; 0],
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct gr_feature_ref {
+    _unused: [u8; 0],
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct gr_feature_val {
+    _unused: [u8; 0],
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct gr_char_info {
+    _unused: [u8; 0],
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct gr_segment {
+    _unused: [u8; 0],
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct gr_slot {
+    _unused: [u8; 0],
+}
+
 extern "C" {
-    pub(crate) type gr_face;
-    pub(crate) type gr_font;
-    pub(crate) type gr_feature_ref;
-    pub(crate) type gr_feature_val;
-    pub(crate) type gr_char_info;
-    pub(crate) type gr_segment;
-    pub(crate) type gr_slot;
     #[no_mangle]
     #[cfg(not(target_os = "macos"))]
     fn FcPatternGetInteger(
@@ -899,7 +928,7 @@ pub(crate) unsafe fn getGraphiteFeatureCode(engine: &XeTeXLayoutEngine, mut inde
     let mut hbFace: *mut hb_face_t = hb_font_get_face(engine.font.get_hb_font());
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
-        let mut feature: *const gr_feature_ref = gr_face_fref(grFace, index as gr_uint16);
+        let mut feature = gr_face_fref(grFace, index as gr_uint16);
         rval = gr_fref_id(feature)
     }
     rval
@@ -912,7 +941,7 @@ pub(crate) unsafe fn countGraphiteFeatureSettings(
     let mut hbFace: *mut hb_face_t = hb_font_get_face(engine.font.get_hb_font());
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
-        let mut feature: *const gr_feature_ref = gr_face_find_fref(grFace, featureID);
+        let mut feature = gr_face_find_fref(grFace, featureID);
         rval = gr_fref_n_values(feature) as u32
     }
     rval
@@ -926,7 +955,7 @@ pub(crate) unsafe fn getGraphiteFeatureSettingCode(
     let mut hbFace: *mut hb_face_t = hb_font_get_face(engine.font.get_hb_font());
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
-        let mut feature: *const gr_feature_ref = gr_face_find_fref(grFace, featureID);
+        let mut feature = gr_face_find_fref(grFace, featureID);
         rval = gr_fref_value(feature, index as gr_uint16) as u32
     }
     rval
@@ -939,8 +968,8 @@ pub(crate) unsafe fn getGraphiteFeatureDefaultSetting(
     let mut hbFace: *mut hb_face_t = hb_font_get_face(engine.font.get_hb_font());
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
-        let mut feature: *const gr_feature_ref = gr_face_find_fref(grFace, featureID);
-        let mut featureValues: *mut gr_feature_val = gr_face_featureval_for_lang(
+        let mut feature = gr_face_find_fref(grFace, featureID);
+        let mut featureValues = gr_face_featureval_for_lang(
             grFace,
             hb_tag_from_string(
                 hb_language_to_string(engine.language),
@@ -958,7 +987,7 @@ pub(crate) unsafe fn getGraphiteFeatureLabel(
     let mut hbFace: *mut hb_face_t = hb_font_get_face(engine.font.get_hb_font());
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
-        let mut feature: *const gr_feature_ref = gr_face_find_fref(grFace, featureID);
+        let mut feature = gr_face_find_fref(grFace, featureID);
         let mut len: u32 = 0i32 as u32;
         let mut langID: u16 = 0x409i32 as u16;
         return gr_fref_label(feature, &mut langID, gr_utf8, &mut len) as *mut libc::c_char;
@@ -973,7 +1002,7 @@ pub(crate) unsafe fn getGraphiteFeatureSettingLabel(
     let mut hbFace: *mut hb_face_t = hb_font_get_face(engine.font.get_hb_font());
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
-        let mut feature: *const gr_feature_ref = gr_face_find_fref(grFace, featureID);
+        let mut feature = gr_face_find_fref(grFace, featureID);
         let mut i: i32 = 0i32;
         while i < gr_fref_n_values(feature) as i32 {
             if settingID as i32 == gr_fref_value(feature, i as gr_uint16) as i32 {
@@ -1031,7 +1060,7 @@ pub(crate) unsafe fn findGraphiteFeatureNamed(
     if !grFace.is_null() {
         let mut i: i32 = 0i32;
         while i < gr_face_n_fref(grFace) as i32 {
-            let mut feature: *const gr_feature_ref = gr_face_fref(grFace, i as gr_uint16);
+            let mut feature = gr_face_fref(grFace, i as gr_uint16);
             let mut len: u32 = 0i32 as u32;
             let mut langID: u16 = 0x409i32 as u16;
             // the first call is to get the length of the string
@@ -1060,7 +1089,7 @@ pub(crate) unsafe fn findGraphiteFeatureSettingNamed(
     let mut hbFace: *mut hb_face_t = hb_font_get_face(engine.font.get_hb_font());
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     if !grFace.is_null() {
-        let mut feature: *const gr_feature_ref = gr_face_find_fref(grFace, id);
+        let mut feature = gr_face_find_fref(grFace, id);
         let mut i: i32 = 0i32;
         while i < gr_fref_n_values(feature) as i32 {
             let mut len: u32 = 0i32 as u32;
@@ -1429,7 +1458,7 @@ pub(crate) unsafe fn initGraphiteBreaking(
             grSegment = 0 as *mut gr_segment;
             grPrevSlot = 0 as *const gr_slot;
         }
-        let mut grFeatureValues: *mut gr_feature_val = gr_face_featureval_for_lang(
+        let mut grFeatureValues = gr_face_featureval_for_lang(
             grFace,
             hb_tag_from_string(
                 hb_language_to_string(engine.language),
@@ -1437,7 +1466,7 @@ pub(crate) unsafe fn initGraphiteBreaking(
             ),
         );
         for f in &engine.features {
-            let mut fref: *const gr_feature_ref = gr_face_find_fref(grFace, f.tag);
+            let mut fref = gr_face_find_fref(grFace, f.tag);
             if !fref.is_null() {
                 gr_fref_set_feature_value(fref, f.value as gr_uint16, grFeatureValues);
             }

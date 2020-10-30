@@ -1,90 +1,3 @@
-#![cfg(not(target_os = "macos"))]
-#![allow(
-    dead_code,
-    mutable_transmutes,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-    unused_assignments,
-    unused_mut
-)]
-
-use super::{
-    XeTeXFontMgr_addToMaps, XeTeXFontMgr_appendToList, XeTeXFontMgr_base_ctor,
-    XeTeXFontMgr_base_getOpSizeRecAndStyleFlags, XeTeXFontMgr_prependToList,
-};
-use crate::stub_icu as icu;
-use crate::xetex_font_info::gFreeTypeLibrary;
-use crate::xetex_layout_interface::collection_types::*;
-
-use crate::freetype_sys_patch::{FT_Get_Sfnt_Name, FT_Get_Sfnt_Name_Count};
-use freetype::freetype_sys::{FT_Byte, FT_Face, FT_Long};
-use freetype::freetype_sys::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
-
-use libc::{free, malloc, strchr, strdup};
-
-extern "C" {
-    pub(crate) type _FcPattern;
-    pub(crate) type _FcConfig;
-    #[no_mangle]
-    fn FcConfigGetCurrent() -> *mut FcConfig;
-    #[no_mangle]
-    fn FcFontSetDestroy(s: *mut FcFontSet);
-    #[no_mangle]
-    fn FcInit() -> FcBool;
-    #[no_mangle]
-    fn FcObjectSetDestroy(os: *mut FcObjectSet);
-    #[no_mangle]
-    fn FcObjectSetBuild(first: *const libc::c_char, _: ...) -> *mut FcObjectSet;
-    #[no_mangle]
-    fn FcFontList(config: *mut FcConfig, p: *mut FcPattern, os: *mut FcObjectSet)
-        -> *mut FcFontSet;
-    #[no_mangle]
-    fn FcNameParse(name: *const u8) -> *mut FcPattern;
-    #[no_mangle]
-    fn FcPatternDestroy(p: *mut FcPattern);
-    #[no_mangle]
-    fn FcPatternGetInteger(
-        p: *const FcPattern,
-        object: *const libc::c_char,
-        n: libc::c_int,
-        i: *mut libc::c_int,
-    ) -> FcResult;
-    #[no_mangle]
-    fn FcPatternGetString(
-        p: *const FcPattern,
-        object: *const libc::c_char,
-        n: libc::c_int,
-        s: *mut *mut u8,
-    ) -> FcResult;
-}
-pub(crate) type FcBool = libc::c_int;
-pub(crate) type _FcResult = libc::c_uint;
-pub(crate) const FcResultOutOfMemory: _FcResult = 4;
-pub(crate) const FcResultNoId: _FcResult = 3;
-pub(crate) const FcResultTypeMismatch: _FcResult = 2;
-pub(crate) const FcResultNoMatch: _FcResult = 1;
-pub(crate) const FcResultMatch: _FcResult = 0;
-pub(crate) type FcResult = _FcResult;
-pub(crate) type FcPattern = _FcPattern;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct _FcFontSet {
-    pub(crate) nfont: libc::c_int,
-    pub(crate) sfont: libc::c_int,
-    pub(crate) fonts: *mut *mut FcPattern,
-}
-pub(crate) type FcFontSet = _FcFontSet;
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct _FcObjectSet {
-    pub(crate) nobject: libc::c_int,
-    pub(crate) sobject: libc::c_int,
-    pub(crate) objects: *mut *const libc::c_char,
-}
-pub(crate) type FcObjectSet = _FcObjectSet;
-pub(crate) type FcConfig = _FcConfig;
-pub(crate) type PlatformFontRef = *mut FcPattern;
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International
@@ -117,38 +30,44 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
+
+#![cfg(not(target_os = "macos"))]
+#![allow(
+    dead_code,
+    mutable_transmutes,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_assignments,
+    unused_mut
+)]
+
+use super::{
+    XeTeXFontMgr_addToMaps, XeTeXFontMgr_appendToList, XeTeXFontMgr_base_ctor,
+    XeTeXFontMgr_base_getOpSizeRecAndStyleFlags, XeTeXFontMgr_prependToList,
+};
+use crate::stub_icu as icu;
+use crate::xetex_font_info::gFreeTypeLibrary;
+use crate::xetex_layout_interface::collection_types::*;
+
+use crate::freetype_sys_patch::{FT_Get_Sfnt_Name, FT_Get_Sfnt_Name_Count};
+use freetype::freetype_sys::{FT_Byte, FT_Face, FT_Long};
+use freetype::freetype_sys::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
+
+use libc::{free, malloc, strchr, strdup};
+
+pub(crate) use fontconfig_sys::fontconfig::{
+    enum__FcResult as FcResult, struct__FcPattern as FcPattern,
+};
+use fontconfig_sys::fontconfig::{
+    struct__FcFontSet as FcFontSet, FcConfigGetCurrent, FcFontList, FcFontSetDestroy, FcInit,
+    FcNameParse, FcObjectSetBuild, FcObjectSetDestroy, FcPatternDestroy, FcPatternGetInteger,
+    FcPatternGetString, FcResultMatch,
+};
+pub(crate) type PlatformFontRef = *mut FcPattern;
+
 use super::{XeTeXFontMgr, XeTeXFontMgrFont, XeTeXFontMgrNameCollection};
-/* ***************************************************************************\
- Part of the XeTeX typesetting system
- Copyright (c) 1994-2008 by SIL International
- Copyright (c) 2009 by Jonathan Kew
 
- SIL Author(s): Jonathan Kew
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE
-FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Except as contained in this notice, the name of the copyright holders
-shall not be used in advertising or otherwise to promote the sale,
-use or other dealings in this Software without prior written
-authorization from the copyright holders.
-\****************************************************************************/
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontMgr_FC {
@@ -638,16 +557,16 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTe
     }
     let mut pat: *mut FcPattern =
         FcNameParse(b":outline=true\x00" as *const u8 as *const libc::c_char as *const u8);
-    let mut os: *mut FcObjectSet = FcObjectSetBuild(
-        b"family\x00" as *const u8 as *const libc::c_char,
-        b"style\x00" as *const u8 as *const libc::c_char,
-        b"file\x00" as *const u8 as *const libc::c_char,
-        b"index\x00" as *const u8 as *const libc::c_char,
-        b"fullname\x00" as *const u8 as *const libc::c_char,
-        b"weight\x00" as *const u8 as *const libc::c_char,
-        b"width\x00" as *const u8 as *const libc::c_char,
-        b"slant\x00" as *const u8 as *const libc::c_char,
-        b"fontformat\x00" as *const u8 as *const libc::c_char,
+    let mut os = FcObjectSetBuild(
+        b"family\x00" as *const u8 as *mut u8 as *mut i8,
+        b"style\x00" as *const u8 as *mut u8 as *mut i8,
+        b"file\x00" as *const u8 as *mut u8 as *mut i8,
+        b"index\x00" as *const u8 as *mut u8 as *mut i8,
+        b"fullname\x00" as *const u8 as *mut u8 as *mut i8,
+        b"weight\x00" as *const u8 as *mut u8 as *mut i8,
+        b"width\x00" as *const u8 as *mut u8 as *mut i8,
+        b"slant\x00" as *const u8 as *mut u8 as *mut i8,
+        b"fontformat\x00" as *const u8 as *mut u8 as *mut i8,
         0 as *mut libc::c_void,
     );
     (*real_self).allFonts = FcFontList(FcConfigGetCurrent(), pat, os);
@@ -681,7 +600,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
     let mut s: *mut u8 = 0 as *mut u8;
     let mut path: *mut libc::c_char = 0 as *mut libc::c_char;
     if FcPatternGetString(
-        font as *const FcPattern,
+        font,
         b"file\x00" as *const u8 as *const libc::c_char,
         0i32,
         &mut s as *mut *mut u8,

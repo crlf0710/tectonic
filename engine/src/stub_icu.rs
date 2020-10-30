@@ -1,10 +1,20 @@
 pub(crate) type UChar = u16;
 pub(crate) type UErrorCode = i32;
 
-extern "C" {
-    pub(crate) type UBreakIterator;
-    pub(crate) type UConverter;
-    pub(crate) type UBiDi;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct UBreakIterator {
+    _unused: [u8; 0],
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct UConverter {
+    _unused: [u8; 0],
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct UBiDi {
+    _unused: [u8; 0],
 }
 
 pub(crate) type UConverterType = i32;

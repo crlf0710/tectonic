@@ -11,10 +11,13 @@ Last reviewed: Not yet.
 Description:
     Public API to the TECkit conversion engine.
 -------------------------------------------------------------------------*/
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct Opaque_TECkit_Converter {
+    _unused: [u8; 0],
+}
 
 extern "C" {
-    pub(crate) type Opaque_TECkit_Converter;
-
     #[no_mangle]
     pub(crate) fn TECkit_CreateConverter(
         mapping: *mut u8,
