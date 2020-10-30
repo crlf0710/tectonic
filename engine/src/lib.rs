@@ -1,4 +1,3 @@
-#![feature(extern_types)]
 #![allow(
     dead_code,
     mutable_transmutes,
@@ -409,6 +408,7 @@ pub(crate) mod cf_prelude {
         color::{CGColor, SysCGColorRef as CGColorRef},
         font::CGGlyph,
         geometry::{CGAffineTransform, CGPoint, CGRect, CGSize},
+        sys::CGFont,
     };
     extern "C" {
         #[no_mangle]
@@ -467,9 +467,8 @@ pub(crate) mod cf_prelude {
     pub(crate) const kCTFontOrientationDefault: CTFontOrientation = 0;
 
     // The CGFont wrapper is not feature complete.
-    pub(crate) type CGFontRef = *const __CGFont;
+    pub(crate) type CGFontRef = *const CGFont;
     extern "C" {
-        pub(crate) type __CGFont;
         #[no_mangle]
         pub(crate) fn CGFontGetNumberOfGlyphs(font: CGFontRef) -> usize;
         #[no_mangle]
@@ -485,9 +484,13 @@ pub(crate) mod cf_prelude {
         pub(crate) static kCTFontPostScriptNameKey: CFStringRef;
     }
     // Typesetters
-    pub(crate) type CTTypesetterRef = *const __CTTypesetter;
+    #[repr(C)]
+    #[derive(Debug, Copy, Clone)]
+    pub struct CTTypesetter {
+        _unused: [u8; 0],
+    }
+    pub(crate) type CTTypesetterRef = *const CTTypesetter;
     extern "C" {
-        pub(crate) type __CTTypesetter;
         #[no_mangle]
         pub(crate) fn CTTypesetterCreateWithAttributedString(
             string: CFAttributedStringRef,
