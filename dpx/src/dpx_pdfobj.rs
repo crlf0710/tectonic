@@ -3481,12 +3481,66 @@ unsafe fn read_xref(pf: &mut pdf_file) -> *mut pdf_obj {
         }
     }
 }
-use crate::dpx_dpxutil::HTHasher;
-use once_cell::sync::Lazy;
-use std::hash::BuildHasherDefault;
+// HtTable implements defers to a normal std::collections::HashMap
+// but tracks the iteration order of dvipdfmx's ht_table for backwards compat
+struct HtTable<T> {
+    backing: HashMap<Vec<u8>, Box<T>>,
+    compat_iteration_order: HashMap<u32, Vec<Vec<u8>>>,
+}
 
-static mut pdf_files: Lazy<HashMap<Vec<u8>, Box<pdf_file>, BuildHasherDefault<HTHasher>>> =
-    Lazy::new(|| HashMap::default());
+impl<T> HtTable<T> {
+    fn new() -> Self {
+        unsafe {
+            let backing = HashMap::new();
+            let compat_iteration_order = HashMap::new();
+
+            HtTable {
+                backing,
+                compat_iteration_order,
+            }
+        }
+    }
+
+    fn hash_key(key: &[u8]) -> u32 {
+        key.iter()
+            .fold(0u32, |a, &b| {
+                (a << 5).wrapping_add(a).wrapping_add(b as u32)
+            })
+            .wrapping_rem(503)
+    }
+
+    fn insert(&mut self, key: Vec<u8>, mut val: Box<T>) {
+        self.compat_iteration_order
+            .entry(Self::hash_key(&key))
+            .or_default()
+            .push(key.clone());
+        self.backing.insert(key, val);
+    }
+
+    fn get_mut(&mut self, key: &[u8]) -> Option<&mut Box<T>> {
+        self.backing.get_mut(key)
+    }
+
+    fn clear(&mut self) {
+        *self = Self::new();
+    }
+}
+
+impl<T> Drop for HtTable<T> {
+    fn drop(&mut self) {
+        // drop entries in iteration order
+        for i in 0u32..503 {
+            if let Some(keys) = self.compat_iteration_order.get(&i) {
+                for key in keys {
+                    self.backing.remove(key);
+                }
+            }
+        }
+    }
+}
+
+use once_cell::sync::Lazy;
+static mut pdf_files: Lazy<HtTable<pdf_file>> = Lazy::new(|| HtTable::new());
 
 impl pdf_file {
     fn new(mut handle: InFile) -> Box<Self> {
