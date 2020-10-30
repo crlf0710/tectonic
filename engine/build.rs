@@ -9,6 +9,7 @@
 /// TODO: this surely needs to become much smarter and more flexible.
 use cc;
 use pkg_config;
+use tectonic_cfg_support::*;
 use vcpkg;
 
 use std::env;
@@ -61,8 +62,15 @@ enum DepState {
 impl DepState {
     /// Probe for our dependent libraries using pkg-config.
     fn new_pkg_config() -> Self {
+        let statik = if let Ok(_) = env::var("TECTONIC_PKGCONFIG_FORCE_SEMI_STATIC") {
+            true
+        } else {
+            false
+        };
+
         let libs = pkg_config::Config::new()
             .cargo_metadata(false)
+            .statik(statik)
             .probe(PKGCONFIG_LIBS)
             .unwrap();
         DepState::PkgConfig(PkgConfigState { libs })
@@ -108,11 +116,56 @@ impl DepState {
     /// backend or the target.
     fn emit_late_extras(&self, target: &str) {
         match self {
-            &DepState::PkgConfig(_) => {
-                pkg_config::Config::new()
-                    .cargo_metadata(true)
-                    .probe(PKGCONFIG_LIBS)
-                    .unwrap();
+            &DepState::PkgConfig(ref state) => {
+                if let Ok(_) = env::var("TECTONIC_PKGCONFIG_FORCE_SEMI_STATIC") {
+                    // pkg-config will prevent "system libraries" from being
+                    // linked statically even when PKG_CONFIG_ALL_STATIC=1,
+                    // but its definition of a system library isn't always
+                    // perfect. For Debian cross builds, we'd like to make
+                    // binaries that are dynamically linked with things like
+                    // libc and libm but not libharfbuzz, etc. In this mode we
+                    // override pkg-config's logic by emitting the metadata
+                    // ourselves.
+                    for link_path in &state.libs.link_paths {
+                        println!("cargo:rustc-link-search=native={}", link_path.display());
+                    }
+
+                    for fw_path in &state.libs.framework_paths {
+                        println!("cargo:rustc-link-search=framework={}", fw_path.display());
+                    }
+
+                    for libbase in &state.libs.libs {
+                        let do_static = match libbase.as_ref() {
+                            "c" | "m" | "dl" | "pthread" => false,
+                            _ => {
+                                // Frustratingly, graphite2 seems to have
+                                // issues with static builds; e.g. static
+                                // graphite2 is not available on Debian. So
+                                // let's jump through the hoops of testing
+                                // whether the static archive seems findable.
+                                let libname = format!("lib{}.a", libbase);
+                                state
+                                    .libs
+                                    .link_paths
+                                    .iter()
+                                    .any(|d| d.join(&libname).exists())
+                            }
+                        };
+
+                        let mode = if do_static { "static=" } else { "" };
+                        println!("cargo:rustc-link-lib={}{}", mode, libbase);
+                    }
+
+                    for fw in &state.libs.frameworks {
+                        println!("cargo:rustc-link-lib=framework={}", fw);
+                    }
+                } else {
+                    // Just let pkg-config do its thing.
+                    pkg_config::Config::new()
+                        .cargo_metadata(true)
+                        .probe(PKGCONFIG_LIBS)
+                        .unwrap();
+                }
             }
 
             &DepState::VcPkg(_) => {
@@ -141,6 +194,7 @@ fn main() {
     // OK, how are we finding our dependencies?
 
     println!("cargo:rerun-if-env-changed=TECTONIC_DEP_BACKEND");
+    println!("cargo:rerun-if-env-changed=TECTONIC_PKGCONFIG_FORCE_SEMI_STATIC");
 
     let dep_state = if let Ok(dep_backend_str) = env::var("TECTONIC_DEP_BACKEND") {
         match dep_backend_str.as_ref() {
@@ -201,6 +255,24 @@ fn main() {
         ccfg.flag_if_supported(flag);
     }
 
+    // If we want to profile, the default assumption is that we must force the
+    // compiler to include frame pointers. We whitelist platforms that are
+    // known to be able to profile *without* frame pointers: currently, only
+    // Linux/x86_64.
+    let profile_target_requires_frame_pointer: bool =
+        target_cfg!(not(all(target_os = "linux", target_arch = "x86_64")));
+
+    const PROFILE_BUILD_ENABLED: bool = cfg!(feature = "profile");
+
+    let profile_config = |cfg: &mut cc::Build| {
+        if PROFILE_BUILD_ENABLED {
+            cfg.debug(true)
+                .force_frame_pointer(profile_target_requires_frame_pointer);
+        }
+    };
+
+    profile_config(&mut ccfg);
+
     ccfg.define("HAVE_ZLIB", "1")
         .define("HAVE_ZLIB_COMPRESS2", "1")
         .define("ZLIB_CONST", "1")
@@ -246,6 +318,8 @@ fn main() {
         .file("tectonic/stub_stdio.c")
         .include(".");
 
+    profile_config(&mut cppcfg);
+
     cppcfg
         .cpp(true)
         .flag("-Wall")
@@ -259,7 +333,9 @@ fn main() {
 
     // Platform-specific adjustments:
 
-    if cfg!(target_os = "macos") {
+    let is_mac_os = target_cfg!(target_os = "macos");
+
+    if is_mac_os {
         ccfg.define("XETEX_MAC", Some("1"));
         cppcfg.define("XETEX_MAC", Some("1"));
 
@@ -270,7 +346,8 @@ fn main() {
         println!("cargo:rustc-link-lib=framework=AppKit");
     }
 
-    if cfg!(target_endian = "big") {
+    let is_big_endian = target_cfg!(target_endian = "big");
+    if is_big_endian {
         ccfg.define("WORDS_BIGENDIAN", "1");
         cppcfg.define("WORDS_BIGENDIAN", "1");
     }

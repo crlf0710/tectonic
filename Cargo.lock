@@ -1755,9 +1755,10 @@ dependencies = [
 
 [[package]]
 name = "tectonic"
-version = "0.1.12-dev"
+version = "0.1.13-dev"
 dependencies = [
  "app_dirs2",
+ "cfg-if",
  "error-chain",
  "flate2",
  "fs2",
@@ -1795,6 +1796,13 @@ version = "0.0.1-dev"
 dependencies = [
  "cc",
  "libc",
+]
+
+[[package]]
+name = "tectonic_cfg_support"
+version = "0.0.2-dev"
+dependencies = [
+ "lazy_static",
 ]
 
 [[package]]
@@ -1842,6 +1850,7 @@ dependencies = [
  "sha2",
  "tectonic_bibtex",
  "tectonic_bridge",
+ "tectonic_cfg_support",
  "tectonic_dvipdfmx",
  "vcpkg",
  "yeslogic-fontconfig-sys",

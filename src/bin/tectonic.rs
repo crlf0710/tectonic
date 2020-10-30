@@ -6,7 +6,6 @@ use tectonic;
 
 use structopt::StructOpt;
 
-use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process;
 use std::str::FromStr;
@@ -14,31 +13,24 @@ use std::str::FromStr;
 use tectonic::config::PersistentConfig;
 use tectonic::driver::{OutputFormat, PassSetting, ProcessingSessionBuilder};
 use tectonic::errors::{ErrorKind, Result};
-use tectonic::io::zipbundle::ZipBundle;
 use tectonic::status::termcolor::TermcolorStatusBackend;
 use tectonic::status::{ChatterLevel, StatusBackend};
 
-use tectonic::{ctry, errmsg, tt_error, tt_error_styled, tt_note};
+use tectonic::{errmsg, tt_error, tt_error_styled, tt_note};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "Tectonic", about = "Process a (La)TeX document")]
 struct CliOptions {
-    /// The file to process, or "-" to process the standard input stream"
+    /// The file to process, or "-" to process the standard input stream
     #[structopt(name = "input")]
     input: String,
     /// The name of the "format" file used to initialize the TeX engine
     #[structopt(long, short, name = "path", default_value = "latex")]
     format: String,
-    /// Use this Zip-format bundle file to find resource files instead of the default
-    #[structopt(
-        takes_value(true),
-        parse(from_os_str),
-        long,
-        short,
-        name = "zip_file_path"
-    )]
+    /// Use this directory or Zip-format bundle file to find resource files instead of the default
+    #[structopt(takes_value(true), parse(from_os_str), long, short, name = "file_path")]
     bundle: Option<PathBuf>,
-    /// Use this URL find resource files instead of the default
+    /// Use this URL to find resource files instead of the default
     #[structopt(takes_value(true), long, short, name = "url")]
     // TODO add URL validation
     web_bundle: Option<String>,
@@ -46,7 +38,7 @@ struct CliOptions {
     #[structopt(long = "chatter", short, name = "level", default_value = "default", possible_values(&["default", "minimal"]))]
     chatter_level: String,
     /// Use only resource files cached locally
-    #[structopt(short = "C")]
+    #[structopt(short = "C", long)]
     only_cached: bool,
     /// The kind of output to generate
     #[structopt(long, name = "format", default_value = "pdf", possible_values(&["pdf", "html", "xdv", "aux", "format"]))]
@@ -164,16 +156,10 @@ fn inner(
     if only_cached {
         tt_note!(status, "using only cached resource files");
     }
-    if let Some(p) = args.bundle {
-        let zb = ctry!(ZipBundle::<File>::open(&p); "error opening bundle");
-        sess_builder.bundle(Box::new(zb));
+    if let Some(path) = args.bundle {
+        sess_builder.bundle(config.make_local_file_provider(path, status)?);
     } else if let Some(u) = args.web_bundle {
-        sess_builder.bundle(Box::new(config.make_cached_url_provider(
-            &u,
-            only_cached,
-            None,
-            status,
-        )?));
+        sess_builder.bundle(config.make_cached_url_provider(&u, only_cached, None, status)?);
     } else {
         sess_builder.bundle(config.default_bundle(only_cached, status)?);
     }
