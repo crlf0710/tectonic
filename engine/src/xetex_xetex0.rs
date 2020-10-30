@@ -9325,7 +9325,8 @@ pub(crate) unsafe fn open_log_file() {
         job_name = maketexstring("texput")
     }
     pack_job_name(".log");
-    log_file = ttstub_output_open(CString::new(name_of_file.as_str()).unwrap().as_ptr(), 0);
+    let log_name = CString::new(name_of_file.as_str()).unwrap();
+    log_file = ttstub_output_open(log_name.as_ptr(), 0);
     if log_file.is_none() {
         abort!("cannot open log file output \"{}\"", name_of_file);
     }

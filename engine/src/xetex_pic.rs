@@ -152,13 +152,8 @@ unsafe fn find_pic_file(mut pdfBoxType: i32, mut page: i32) -> Result<(Rect, Str
     let mut handle = handle.unwrap();
     let bounds = if pdfBoxType != 0i32 {
         /* if cmd was \XeTeXpdffile, use xpdflib to read it */
-        pdf_get_rect(
-            CString::new(name_of_file.as_str()).unwrap().as_ptr(),
-            handle,
-            page,
-            pdfBoxType,
-        )
-        .map_err(|_| -1)?
+        let name = CString::new(name_of_file.as_str()).unwrap();
+        pdf_get_rect(name.as_ptr(), handle, page, pdfBoxType).map_err(|_| -1)?
     } else {
         match get_image_size_in_inches(&mut handle) {
             Ok((wd, ht)) => Rect::from_size(size2(
