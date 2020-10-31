@@ -8,11 +8,6 @@ use crate::io::IoStack;
 use crate::status::StatusBackend;
 use crate::unstable_opts::UnstableOptions;
 
-#[no_mangle]
-extern "C" {
-    static mut paperspec: *const libc::c_char;
-}
-
 pub struct XdvipdfmxEngine {
     enable_compression: bool,
     deterministic_tags: bool,
@@ -47,15 +42,12 @@ impl XdvipdfmxEngine {
     ) -> Result<i32> {
         let _guard = super::ENGINE_LOCK.lock().unwrap(); // until we're thread-safe ...
 
-        let paperspec_str = unstables
-            .paper_size
-            .as_ref()
-            .and_then(|s| CString::new(s.clone()).ok());
-        if let Some(cstr) = paperspec_str.as_ref() {
-            unsafe {
-                paperspec = cstr.as_ptr();
-            }
-        }
+        let paperspec_str = unstables.paper_size.clone();
+
+        // We default to "letter" paper size by default
+        let config = super::XdvipdfmxConfig {
+            paperspec: paperspec_str.map_or("letter".into(), |s| s.into()),
+        };
 
         let /*mut*/ state = ExecutionState::new(io, events, status);
         let bridge = TectonicBridgeApi::new(&state);
@@ -63,6 +55,7 @@ impl XdvipdfmxEngine {
         unsafe {
             match super::dvipdfmx_simple_main(
                 &*bridge,
+                &config,
                 dvi,
                 pdf,
                 self.enable_compression,

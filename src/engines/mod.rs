@@ -494,7 +494,7 @@ impl std::ops::Deref for TectonicBridgeApi {
 
 use tectonic_engine::{
     bibtex_simple_main, dvipdfmx_simple_main, tex_simple_main, tt_get_error_message,
-    tt_xetex_set_int_variable,
+    tt_xetex_set_int_variable, BibtexConfig, XdvipdfmxConfig,
 };
 
 // Entry points for the C/C++ API functions.

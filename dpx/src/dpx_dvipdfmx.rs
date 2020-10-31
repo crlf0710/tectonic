@@ -68,6 +68,12 @@ use crate::specials::{
 };
 use libc::{atoi, free, strlen};
 
+use std::borrow::Cow;
+
+pub struct XdvipdfmxConfig {
+    pub paperspec: Cow<'static, str>,
+}
+
 pub(crate) type PageRange = page_range;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -75,8 +81,6 @@ pub(crate) struct page_range {
     pub(crate) first: i32,
     pub(crate) last: i32,
 }
-
-pub(crate) static mut PAPERSPEC: &[u8] = b"letter";
 
 pub(crate) static mut is_xdv: i32 = 0i32;
 
@@ -111,7 +115,8 @@ static mut y_offset: f64 = 72.0f64;
 pub(crate) static mut landscape_mode: i32 = 0i32;
 
 pub(crate) static mut always_embed: i32 = 0i32;
-unsafe fn select_paper(paperspec: &[u8]) {
+unsafe fn select_paper(paperspec_str: &str) {
+    let paperspec = paperspec_str.as_bytes();
     let mut error: i32 = 0i32;
     paper_width = 0.;
     paper_height = 0.;
@@ -119,10 +124,10 @@ unsafe fn select_paper(paperspec: &[u8]) {
         paper_width = (*pi).pswidth;
         paper_height = (*pi).psheight;
     } else {
-        let comma = paperspec.iter().position(|&x| x == b',').expect(&format!(
-            "Unrecognized paper format: {}",
-            paperspec.display()
-        ));
+        let comma = paperspec
+            .iter()
+            .position(|&x| x == b',')
+            .expect(&format!("Unrecognized paper format: {}", paperspec_str,));
         if let (Ok(width), Ok(height)) = (
             (&paperspec[..comma]).read_length_no_mag(),
             (&paperspec[comma + 1..]).read_length_no_mag(),
@@ -136,9 +141,7 @@ unsafe fn select_paper(paperspec: &[u8]) {
     if error != 0 || paper_width <= 0. || paper_height <= 0. {
         panic!(
             "Invalid paper size: {} ({:.2}x{:.2}",
-            paperspec.display(),
-            paper_width,
-            paper_height,
+            paperspec_str, paper_width, paper_height,
         );
     };
 }
@@ -281,6 +284,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
 }
 
 pub unsafe fn dvipdfmx_main(
+    dpx_config: &XdvipdfmxConfig,
     pdf_filename: &str,
     dvi_filename: &str,
     pagespec: *const i8,
@@ -324,7 +328,7 @@ pub unsafe fn dvipdfmx_main(
      * arguments, so we emulate the default TeXLive config file by copying those
      * code bits. */
     pdf_set_version(5_u32); /* last page */
-    select_paper(PAPERSPEC);
+    select_paper(&dpx_config.paperspec);
     annot_grow = 0i32 as f64;
     bookmark_open = 0i32;
     key_bits = 40i32;

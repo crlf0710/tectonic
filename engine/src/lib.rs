@@ -28,8 +28,10 @@ pub(crate) type off_t = __off_t;
 pub(crate) type ssize_t = isize;
 
 use bibtex::bibtex_main;
+pub use bibtex::BibtexConfig;
 use bridge::TTHistory;
 use dpx::dvipdfmx_main;
+pub use dpx::XdvipdfmxConfig;
 use xetex_ini::tt_run_engine;
 
 pub use bridge::tt_bridge_api_t;
@@ -47,6 +49,7 @@ pub unsafe fn tex_simple_main(
 
 pub unsafe fn dvipdfmx_simple_main(
     mut api: *const tt_bridge_api_t,
+    dpx_config: &XdvipdfmxConfig,
     dviname: &str,
     pdfname: &str,
     mut compress: bool,
@@ -54,6 +57,7 @@ pub unsafe fn dvipdfmx_simple_main(
 ) -> i32 {
     bridge::tt_with_bridge(api, || {
         dvipdfmx_main(
+            dpx_config,
             pdfname,
             dviname,
             ptr::null(),
@@ -70,9 +74,10 @@ pub unsafe fn dvipdfmx_simple_main(
 
 pub unsafe fn bibtex_simple_main(
     mut api: *const tt_bridge_api_t,
+    bibtex_config: &BibtexConfig,
     mut aux_file_name: *const i8,
 ) -> i32 {
-    bridge::tt_with_bridge(api, || bibtex_main(aux_file_name) as i32).unwrap_or(99)
+    bridge::tt_with_bridge(api, || bibtex_main(bibtex_config, aux_file_name) as i32).unwrap_or(99)
 }
 
 mod core_memory {

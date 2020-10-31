@@ -97,7 +97,6 @@ const max_print_line: i32 = 79;
 const aux_stack_size: i32 = 20;
 const MAX_BIBFILES: usize = 20;
 const POOL_SIZE: i32 = 65000;
-const MIN_CROSSREFS: i32 = 2;
 const MAX_STRINGS: i32 = 35307;
 const MAX_CITES: i32 = 750;
 const WIZ_FN_SPACE: i32 = 3000;
@@ -421,7 +420,10 @@ static mut num_text_chars: buf_pointer = 0;
 static mut conversion_type: u8 = 0;
 static mut prev_colon: bool = false;
 static mut verbose: i32 = 0;
-static mut min_crossrefs: i32 = MIN_CROSSREFS;
+
+pub struct BibtexConfig {
+    pub min_crossrefs: i32,
+}
 /*:473*/
 /*12: *//*3: */
 
@@ -6465,7 +6467,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
     }
     buf_ptr2 = buf_ptr2 + 1i32;
 }
-unsafe fn bst_read_command() {
+unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
     if read_seen {
         log!("Illegal, another read command");
         bst_err_print_and_look_for_blank_line();
@@ -6606,7 +6608,7 @@ unsafe fn bst_read_command() {
                     }
                     if !all_entries
                         && cite_parent_ptr >= old_num_cites
-                        && *cite_info.offset(cite_parent_ptr as isize) < min_crossrefs
+                        && *cite_info.offset(cite_parent_ptr as isize) < bibtex_config.min_crossrefs
                     {
                         *field_info.offset(field_ptr as isize) = 0i32
                     }
@@ -6622,7 +6624,7 @@ unsafe fn bst_read_command() {
             print_missing_entry(*cite_list.offset(cite_ptr as isize));
         } else if all_entries as i32 != 0
             || cite_ptr < old_num_cites
-            || *cite_info.offset(cite_ptr as isize) >= min_crossrefs
+            || *cite_info.offset(cite_ptr as isize) >= bibtex_config.min_crossrefs
         {
             if cite_ptr > cite_xptr {
                 /*286: */
@@ -6851,7 +6853,7 @@ unsafe fn bst_strings_command() {
     }
     buf_ptr2 += 1;
 }
-unsafe fn get_bst_command_and_process() {
+unsafe fn get_bst_command_and_process(bibtex_config: &BibtexConfig) {
     if !scan_alpha() {
         log!(
             "\"{}\" can't start a style-file command",
@@ -6881,7 +6883,7 @@ unsafe fn get_bst_command_and_process() {
         3 => bst_integers_command(),
         4 => bst_iterate_command(),
         5 => bst_macro_command(),
-        6 => bst_read_command(),
+        6 => bst_read_command(bibtex_config),
         7 => bst_reverse_command(),
         8 => bst_sort_command(),
         9 => bst_strings_command(),
@@ -7185,7 +7187,7 @@ unsafe fn initialize(mut aux_file_name: *const i8) -> i32 {
    Copyright 2017 the Tectonic Project
    Licensed under the MIT License.
 */
-pub unsafe fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
+pub unsafe fn bibtex_main(bibtex_config: &BibtexConfig, mut aux_file_name: *const i8) -> TTHistory {
     pool_size = POOL_SIZE;
     buf_size = BUF_SIZE;
     MAX_BIB_FILES = MAX_BIBFILES;
@@ -7333,7 +7335,7 @@ pub unsafe fn bibtex_main(mut aux_file_name: *const i8) -> TTHistory {
             panic::set_hook(Box::new(|_| {}));
             let _ = panic::catch_unwind(|| {
                 while eat_bst_white_space() {
-                    get_bst_command_and_process();
+                    get_bst_command_and_process(bibtex_config);
                 }
             });
             panic::set_hook(prev_hook);
