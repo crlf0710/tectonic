@@ -33,8 +33,9 @@ name = "tectonic"
 crate-type = ["rlib"]
 
 [dependencies]
-app_dirs2 = "^2"
-byte-unit = "^3.0"
+app_dirs2 = "2"
+atty = "0.2"
+byte-unit = "^4.0"
 cfg-if = "0.1"
 structopt = "0.3"
 error-chain = "^0.12"
@@ -53,7 +54,6 @@ tectonic_xdv = { path = "xdv", version = "0.1.9-dev" }
 termcolor = "^1.0"
 toml = { version = "^0.5", optional = true }
 zip = { version = "^0.5", default-features = false, features = ["deflate"] }
-#env_logger = "0.6.2"
 
 [features]
 default = ["serialization"]

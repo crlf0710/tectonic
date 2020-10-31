@@ -6,6 +6,7 @@ use super::{ExecutionState, IoEventBackend, TectonicBridgeApi};
 use crate::errors::{ErrorKind, Result};
 use crate::io::IoStack;
 use crate::status::StatusBackend;
+use crate::unstable_opts::UnstableOptions;
 
 pub struct XdvipdfmxEngine {
     enable_compression: bool,
@@ -37,8 +38,16 @@ impl XdvipdfmxEngine {
         status: &mut dyn StatusBackend,
         dvi: &str,
         pdf: &str,
+        unstables: &UnstableOptions,
     ) -> Result<i32> {
         let _guard = super::ENGINE_LOCK.lock().unwrap(); // until we're thread-safe ...
+
+        let paperspec_str = unstables.paper_size.clone();
+
+        // We default to "letter" paper size by default
+        let config = super::XdvipdfmxConfig {
+            paperspec: paperspec_str.map_or("letter".into(), |s| s.into()),
+        };
 
         let /*mut*/ state = ExecutionState::new(io, events, status);
         let bridge = TectonicBridgeApi::new(&state);
@@ -46,6 +55,7 @@ impl XdvipdfmxEngine {
         unsafe {
             match super::dvipdfmx_simple_main(
                 &*bridge,
+                &config,
                 dvi,
                 pdf,
                 self.enable_compression,

@@ -50,7 +50,7 @@ use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_cid::CIDFont_set_flags;
-use super::dpx_dpxconf::{defaultpapername, paperinfo, systempapername};
+use super::dpx_dpxconf::paperinfo;
 use super::dpx_dpxfile::dpx_delete_old_cache;
 use super::dpx_error::shut_up;
 use super::dpx_fontmap::{
@@ -67,6 +67,12 @@ use crate::specials::{
     spc_exec_at_begin_document, spc_exec_at_end_document, tpic::tpic_set_fill_mode,
 };
 use libc::{atoi, free, strlen};
+
+use std::borrow::Cow;
+
+pub struct XdvipdfmxConfig {
+    pub paperspec: Cow<'static, str>,
+}
 
 pub(crate) type PageRange = page_range;
 #[derive(Copy, Clone)]
@@ -109,7 +115,8 @@ static mut y_offset: f64 = 72.0f64;
 pub(crate) static mut landscape_mode: i32 = 0i32;
 
 pub(crate) static mut always_embed: i32 = 0i32;
-unsafe fn select_paper(paperspec: &[u8]) {
+unsafe fn select_paper(paperspec_str: &str) {
+    let paperspec = paperspec_str.as_bytes();
     let mut error: i32 = 0i32;
     paper_width = 0.;
     paper_height = 0.;
@@ -117,10 +124,10 @@ unsafe fn select_paper(paperspec: &[u8]) {
         paper_width = (*pi).pswidth;
         paper_height = (*pi).psheight;
     } else {
-        let comma = paperspec.iter().position(|&x| x == b',').expect(&format!(
-            "Unrecognized paper format: {}",
-            paperspec.display()
-        ));
+        let comma = paperspec
+            .iter()
+            .position(|&x| x == b',')
+            .expect(&format!("Unrecognized paper format: {}", paperspec_str,));
         if let (Ok(width), Ok(height)) = (
             (&paperspec[..comma]).read_length_no_mag(),
             (&paperspec[comma + 1..]).read_length_no_mag(),
@@ -134,9 +141,7 @@ unsafe fn select_paper(paperspec: &[u8]) {
     if error != 0 || paper_width <= 0. || paper_height <= 0. {
         panic!(
             "Invalid paper size: {} ({:.2}x{:.2}",
-            paperspec.display(),
-            paper_width,
-            paper_height,
+            paperspec_str, paper_width, paper_height,
         );
     };
 }
@@ -192,14 +197,6 @@ unsafe fn select_pages(pagespec: *const i8, page_ranges: &mut Vec<PageRange>) {
             }
         }
     }
-}
-
-unsafe fn system_default() {
-    if !systempapername().is_empty() {
-        select_paper(systempapername());
-    } else if !defaultpapername().is_empty() {
-        select_paper(defaultpapername());
-    };
 }
 
 unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
@@ -287,6 +284,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
 }
 
 pub unsafe fn dvipdfmx_main(
+    dpx_config: &XdvipdfmxConfig,
     pdf_filename: &str,
     dvi_filename: &str,
     pagespec: *const i8,
@@ -325,13 +323,12 @@ pub unsafe fn dvipdfmx_main(
     } else {
         0i32
     });
-    system_default();
     pdf_init_fontmaps();
     /* We used to read the config file here. It synthesized command-line
      * arguments, so we emulate the default TeXLive config file by copying those
      * code bits. */
     pdf_set_version(5_u32); /* last page */
-    select_paper(b"letter");
+    select_paper(&dpx_config.paperspec);
     annot_grow = 0i32 as f64;
     bookmark_open = 0i32;
     key_bits = 40i32;

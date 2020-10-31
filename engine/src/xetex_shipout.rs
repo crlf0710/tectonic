@@ -7,6 +7,7 @@ use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow};
 use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, Font};
+use crate::xetex_ini::shell_escape_enabled;
 use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
     avail, cur_area, cur_dir, cur_ext, cur_h, cur_h_offset, cur_input, cur_list, cur_name,
@@ -2136,8 +2137,17 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
             d += 1
         }
         print_cstr(")...");
-        print_cstr("disabled");
-        print_chr('.');
+        if !shell_escape_enabled {
+            print_cstr("disabled");
+            print_chr('.');
+        } else {
+            // Currently, -Z shell-escape is implemented but hidden (see
+            // src/unstable_opts.rs). When this gets actually implemented,
+            // uncomment the relevant parts in that file.
+
+            print_cstr("enabled but not implemented yet!");
+        }
+
         print_nl_cstr("");
         print_ln();
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
