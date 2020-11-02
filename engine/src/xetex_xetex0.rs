@@ -3773,16 +3773,6 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                 if input.loc <= input.limit {
                     let mut chr = BUFFER[input.loc as usize];
                     input.loc += 1;
-                    if chr >= 0xd800
-                        && chr < 0xdc00
-                        && input.loc <= input.limit
-                        && BUFFER[input.loc as usize] >= 0xdc00
-                        && BUFFER[input.loc as usize] < 0xe000
-                    {
-                        let lower = (BUFFER[input.loc as usize] - 0xdc00) as UTF16_code;
-                        input.loc += 1;
-                        chr = (0x1_0000 + ((chr - 0xd800) * 1024) as i64 + lower as i64) as i32
-                    }
                     'c_65186: loop {
                         ochr = Some(chr);
                         let cmd = Cmd::from(*CAT_CODE(chr as usize) as u16);
