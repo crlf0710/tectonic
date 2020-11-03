@@ -420,9 +420,9 @@ impl<'a, I: 'a + IoProvider> ExecutionState<'a, I> {
         rhandle.try_seek(pos)
     }
 
-    fn input_read(&mut self, handle: *mut InputHandle, buf: &mut [u8]) -> Result<()> {
+    fn input_read(&mut self, handle: *mut InputHandle, buf: &mut [u8]) -> Result<usize> {
         let rhandle: &mut InputHandle = unsafe { &mut *handle };
-        rhandle.read_exact(buf).map_err(Error::from)
+        rhandle.read(buf).map_err(Error::from)
     }
     /*
         fn input_getc(&mut self, handle: *mut InputHandle) -> Result<u8> {
@@ -739,7 +739,7 @@ extern "C" fn input_read<'a, I: 'a + IoProvider>(
         }
     } else {*/
     match es.input_read(rhandle, rdata) {
-        Ok(_) => len as isize,
+        Ok(l) => l as isize,
         Err(e) => {
             if len != 1 {
                 tt_warning!(es.status, "{}-byte read failed", len; e);
