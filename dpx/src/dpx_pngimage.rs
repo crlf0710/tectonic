@@ -1069,59 +1069,41 @@ unsafe fn read_image_data(
     free(rows_p as *mut libc::c_void);
 }
 
-pub unsafe fn png_get_bbox(handle: &InFile) -> Result<(u32, u32, f64, f64), ()> {
-    (&*handle).seek(SeekFrom::Start(0)).unwrap();
-    let png = png_create_read_struct(
-        b"1.6.37\x00" as *const u8 as *const i8,
-        ptr::null_mut(),
-        None,
-        Some(_png_warning_callback),
-    )
-    .as_mut();
-    let mut png_info = None;
-    if png.is_none() || {
-        png_info = png_create_info_struct(png.as_ref().unwrap()).as_mut();
-        png_info.is_none()
-    } {
+pub unsafe fn png_get_bbox<R: Read + Seek>(handle: &mut R)  -> Result<(u32, u32, f64, f64), ()> {
+    handle.seek(SeekFrom::Start(0)).unwrap();
+    let mut decoder = png::Decoder::new(handle);
+    if let Ok((_, reader)) = decoder.read_info() {
+        let png_info = reader.info();
+        let width = png_info.width;
+        let height = png_info.height;
+        let xppm = get_x_pixels_per_meter(&png_info);
+        let yppm = get_y_pixels_per_meter(&png_info);
+        let xdensity = if xppm != 0 {
+            72. / 0.0254 / xppm as f64
+        } else {
+            1.
+        };
+        let ydensity = if yppm != 0 {
+            72. / 0.0254 / yppm as f64
+        } else {
+            1.
+        };
+        Ok((width, height, xdensity, ydensity))
+    } else {
         warn!("{}: Creating Libpng read/info struct failed.", "PNG");
-        if let Some(png) = png {
-            png_destroy_read_struct(
-                &mut (png as *mut _) as *mut *mut _,
-                0 as png_infopp,
-                0 as png_infopp,
-            );
-        }
         return Err(());
     }
+}
 
-    let png = png.unwrap();
-    let png_info = png_info.unwrap();
-
-    /* Rust-backed IO */
-    png_set_read_fn(png, handle.as_ptr(), Some(_png_read));
-    /* NOTE: could use png_set_sig_bytes() to tell libpng if we started at non-zero file offset */
-    /* Read PNG info-header and get some info. */
-    png_read_info(png, png_info);
-    let width = png_get_image_width(png, png_info);
-    let height = png_get_image_height(png, png_info);
-    let xppm: png_uint_32 = png_get_x_pixels_per_meter(png, png_info);
-    let yppm: png_uint_32 = png_get_y_pixels_per_meter(png, png_info);
-    let xdensity = if xppm != 0 {
-        72. / 0.0254 / xppm as f64
-    } else {
-        1.
-    };
-    let ydensity = if yppm != 0 {
-        72. / 0.0254 / yppm as f64
-    } else {
-        1.
-    };
-    /* Cleanup */
-    png_destroy_info_struct(png, &mut (png_info as *mut png_info) as png_infopp);
-    png_destroy_read_struct(
-        &mut (png as *mut png_struct) as _,
-        0 as png_infopp,
-        0 as png_infopp,
-    );
-    Ok((width, height, xdensity, ydensity))
+fn get_x_pixels_per_meter(png_info: &png::Info) -> u32 {
+    match &png_info.pixel_dims {
+        Some(dims) if dims.unit == png::Unit::Meter => dims.xppu,
+        _ => 0,
+    }
+}
+fn get_y_pixels_per_meter(png_info: &png::Info) -> u32 {
+    match &png_info.pixel_dims {
+        Some(dims) if dims.unit == png::Unit::Meter => dims.yppu,
+        _ => 0,
+    }
 }
